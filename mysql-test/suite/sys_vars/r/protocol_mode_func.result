@@ -1,0 +1,94 @@
+#
+# Functional testing of the protocol_mode variable.
+#
+
+# Save default value.
+
+SET @session_protocol_mode_value = @@SESSION.protocol_mode;
+
+# Setup.
+
+CREATE TABLE t1 (c1 CHAR(1), c2 FIXED(1));
+CREATE VIEW v1 AS SELECT c1 FROM t1;
+INSERT INTO t1 VALUES (1,1);
+
+# Display the effect of MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+# to the result set metadata. Database, table and column names are
+# empty.
+
+SELECT * FROM t1;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def	test	t1	t1	c1	c1	254	4	1	Y	0	0	255
+def	test	t1	t1	c2	c2	246	2	1	Y	32768	0	63
+c1	c2
+1	1
+SELECT c1, c2 AS column_alias FROM t1 AS table_alias;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def	test	t1	table_alias	c1	c1	254	4	1	Y	0	0	255
+def	test	t1	table_alias	c2	column_alias	246	2	1	Y	32768	0	63
+c1	column_alias
+1	1
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+SELECT * FROM t1;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def					c1	254	4	1	Y	0	0	255
+def					c2	246	2	1	Y	32768	0	63
+c1	c2
+1	1
+SELECT c1, c2 AS column_alias FROM t1 AS table_alias;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def					c1	254	4	1	Y	0	0	255
+def					column_alias	246	2	1	Y	32768	0	63
+c1	column_alias
+1	1
+SET SESSION protocol_mode = '';
+
+# Name values are empty regardless of table aliases or views.
+
+SELECT c1 FROM v1 va;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def	test	v1	va	c1	c1	254	4	1	Y	0	0	255
+c1
+1
+SELECT c1 AS c1_alias FROM t1 t1_alias;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def	test	t1	t1_alias	c1	c1_alias	254	4	1	Y	0	0	255
+c1_alias
+1
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+SELECT c1 FROM v1 va;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def					c1	254	4	1	Y	0	0	255
+c1
+1
+SELECT c1 AS c1_alias FROM t1 t1_alias;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def					c1_alias	254	4	1	Y	0	0	255
+c1_alias
+1
+SET SESSION protocol_mode = '';
+
+# Database, table and original table name values are empty for
+# UNION statements whether minimal result set metadata is set
+# or not.
+
+SELECT a1.c1 FROM t1 a1 UNION SELECT a2.c1 FROM t1 a2;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def				c1	c1	254	4	1	Y	0	0	255
+c1
+1
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+SELECT a1.c1 FROM t1 a1 UNION SELECT a2.c1 FROM t1 a2;
+Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr
+def					c1	254	4	1	Y	0	0	255
+c1
+1
+
+# Cleanup.
+
+DROP VIEW v1;
+DROP TABLE t1;
+
+# Restore default value.
+
+SET SESSION protocol_mode = @session_protocol_mode_value;

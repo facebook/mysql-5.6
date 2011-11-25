@@ -136,6 +136,7 @@ class Protocol_classic : public Protocol {
   bool end_result_metadata() override;
   bool send_field_metadata(Send_field *field,
                            const CHARSET_INFO *item_charset) override;
+  virtual bool store_result_set_metadata_object_names(Send_field *field);
   void abort_row() override {}
 
   /**
