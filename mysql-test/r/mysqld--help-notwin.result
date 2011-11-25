@@ -833,6 +833,9 @@ The following options may be given as the first argument:
  --process-can-disable-bin-log 
  Allow PROCESS to disable bin log, not just SUPER
  (Defaults to on; use --skip-process-can-disable-bin-log to disable.)
+ --protocol-mode=name 
+ Syntax: protocol-mode=mode. See the manual for the
+ complete list of valid protocol modes
  --query-alloc-block-size=# 
  Allocation block size for query parsing and execution
  --query-cache-limit=# 
@@ -1764,6 +1767,7 @@ port ####
 port-open-timeout 0
 preload-buffer-size 32768
 process-can-disable-bin-log TRUE
+protocol-mode 
 query-alloc-block-size 8192
 query-cache-limit 1048576
 query-cache-min-res-unit 4096

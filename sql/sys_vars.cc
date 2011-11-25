@@ -3415,6 +3415,25 @@ static bool check_ssl(sys_var *self, THD *thd, set_var * var)
 }
 #endif
 
+#ifndef EMBEDDED_LIBRARY
+
+static const char *protocol_mode_names[] =
+{
+  "",
+  "MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA",
+  NULL
+};
+
+static Sys_var_enum Sys_protocol_mode(
+      "protocol_mode",
+      "Syntax: protocol-mode=mode. See the manual for the "
+      "complete list of valid protocol modes",
+      SESSION_VAR(protocol_mode), CMD_LINE(REQUIRED_ARG),
+      protocol_mode_names, DEFAULT(PROTO_MODE_OFF), NO_MUTEX_GUARD,
+      NOT_IN_BINLOG);
+
+#endif
+
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 #define SSL_VAR_TYPE(X) GLOBAL_VAR(X)
 #define SSL_OPT(X) CMD_LINE(REQUIRED_ARG,X)

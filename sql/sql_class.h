@@ -190,6 +190,14 @@ enum enum_admission_control_filter {
 #define MODE_NO_ENGINE_SUBSTITUTION     (MODE_HIGH_NOT_PRECEDENCE*2)
 #define MODE_PAD_CHAR_TO_FULL_LENGTH    (ULL(1) << 31)
 
+enum enum_protocol_mode
+{
+  /* Default. */
+  PROTO_MODE_OFF= 0,
+  /* Minimal object names in the result set metadata. */
+  PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD= 1,
+};
+
 extern char internal_table_name[2];
 extern char empty_c_string[1];
 extern LEX_STRING EMPTY_STR;
@@ -734,6 +742,7 @@ typedef struct system_variables
   my_bool gap_lock_raise_error;
   my_bool gap_lock_write_log;
 
+  ulong protocol_mode;
 } SV;
 
 

@@ -711,6 +711,63 @@ bool Protocol::flush()
 #ifndef EMBEDDED_LIBRARY
 
 /**
+  Store schema object names (database, table, and column names)
+  in the result set metadata.
+
+  @param thd    Current thread context.
+  @param prot   MySQL protocol buffer.
+  @param field  Field to be sent.
+
+  @return FALSE on success.
+*/
+static bool
+store_result_set_metadata_object_names(THD *thd,
+                                       Protocol_text *prot,
+                                       Send_field *field)
+{
+  bool res= FALSE;
+  const char **metadata;
+  CHARSET_INFO *src_cs= system_charset_info;
+  const CHARSET_INFO *dest_cs= thd->variables.character_set_results;
+
+  /* Database, table, and column names are included by default. */
+  const char *standard_metadata[]= {
+    field->db_name,
+    field->table_name,
+    field->org_table_name,
+    field->col_name,
+    field->org_col_name
+  };
+
+  /* Minimal metadata includes only the column name. */
+  const char *minimal_metadata[]= {
+    empty_c_string,
+    empty_c_string,
+    empty_c_string,
+    field->col_name,
+    empty_c_string
+  };
+
+  /*
+    Use a minimal set of object (database, table, and column) names
+    in the result set metadata if the appropriate protocol mode is
+    set. Otherwise, use standard metadata.
+  */
+  if (thd->variables.protocol_mode == PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD)
+    metadata= minimal_metadata;
+  else
+    metadata= standard_metadata;
+
+  res|= prot->store(STRING_WITH_LEN("def"), src_cs, dest_cs);
+
+  for (uint i= 0; i < array_elements(standard_metadata); i++)
+    res|= prot->store(metadata[i], strlen(metadata[i]), src_cs, dest_cs);
+
+  return res;
+}
+
+
+/**
   Send name and type of result to client.
 
   Sum fields has table name empty and field_name.
@@ -767,17 +824,7 @@ bool Protocol::send_result_set_metadata(List<Item> *list, uint flags)
 
     if (thd->client_capabilities & CLIENT_PROTOCOL_41)
     {
-      if (prot.store(STRING_WITH_LEN("def"), cs, thd_charset) ||
-	  prot.store(field.db_name, (uint) strlen(field.db_name),
-		     cs, thd_charset) ||
-	  prot.store(field.table_name, (uint) strlen(field.table_name),
-		     cs, thd_charset) ||
-	  prot.store(field.org_table_name, (uint) strlen(field.org_table_name),
-		     cs, thd_charset) ||
-	  prot.store(field.col_name, (uint) strlen(field.col_name),
-		     cs, thd_charset) ||
-	  prot.store(field.org_col_name, (uint) strlen(field.org_col_name),
-		     cs, thd_charset) ||
+      if (store_result_set_metadata_object_names(thd, &prot, &field) ||
 	  local_packet->realloc(local_packet->length()+12))
 	goto err;
       /* Store fixed length fields */
