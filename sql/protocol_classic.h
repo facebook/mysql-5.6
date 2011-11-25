@@ -137,6 +137,7 @@ class Protocol_classic : public Protocol {
   virtual bool end_result_metadata();
   virtual bool send_field_metadata(Send_field *field,
                                    const CHARSET_INFO *item_charset);
+  virtual bool store_result_set_metadata_object_names(Send_field *field);
   virtual void abort_row() {}
   virtual enum enum_protocol_type type() const = 0;
   virtual void gen_conn_timeout_err(char *msg_buf);

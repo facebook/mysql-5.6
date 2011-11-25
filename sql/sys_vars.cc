@@ -3413,6 +3413,16 @@ static Sys_var_ulong Sys_preload_buff_size(
     SESSION_VAR(preload_buff_size), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1024, 1024 * 1024 * 1024), DEFAULT(32768), BLOCK_SIZE(1));
 
+static const char *protocol_mode_names[] = {
+    "", "MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA", NULL};
+
+static Sys_var_enum Sys_protocol_mode(
+    "protocol_mode",
+    "Syntax: protocol-mode=mode. See the manual for the "
+    "complete list of valid protocol modes",
+    SESSION_VAR(protocol_mode), CMD_LINE(REQUIRED_ARG), protocol_mode_names,
+    DEFAULT(PROTO_MODE_OFF), NO_MUTEX_GUARD, NOT_IN_BINLOG);
+
 static Sys_var_uint Sys_protocol_version(
     "protocol_version",
     "The version of the client/server protocol used by the MySQL server",
