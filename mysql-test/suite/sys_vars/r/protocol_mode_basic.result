@@ -1,0 +1,92 @@
+#
+# Basic testing of the protocol_mode variable.
+#
+
+# Save default value.
+
+SET @global_protocol_mode_value = @@GLOBAL.protocol_mode;
+SET @session_protocol_mode_value = @@SESSION.protocol_mode;
+
+# Default values.
+
+SELECT @global_protocol_mode_value, @session_protocol_mode_value;
+@global_protocol_mode_value	@session_protocol_mode_value
+	
+
+# Invalid values.
+
+SET GLOBAL protocol_mode = NULL;
+ERROR 42000: Variable 'protocol_mode' can't be set to the value of 'NULL'
+SET GLOBAL protocol_mode = -1;
+ERROR 42000: Variable 'protocol_mode' can't be set to the value of '-1'
+SET GLOBAL protocol_mode = 1000;
+ERROR 42000: Variable 'protocol_mode' can't be set to the value of '1000'
+SET GLOBAL protocol_mode = 'INVALID';
+ERROR 42000: Variable 'protocol_mode' can't be set to the value of 'INVALID'
+SET GLOBAL protocol_mode = 'MINIMAL';
+ERROR 42000: Variable 'protocol_mode' can't be set to the value of 'MINIMAL'
+
+# Valid values.
+
+SET GLOBAL protocol_mode = 1;
+SELECT @@GLOBAL.protocol_mode;
+@@GLOBAL.protocol_mode
+MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+SET GLOBAL protocol_mode = 0;
+SELECT @@GLOBAL.protocol_mode;
+@@GLOBAL.protocol_mode
+
+SET GLOBAL protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+SELECT @@GLOBAL.protocol_mode;
+@@GLOBAL.protocol_mode
+MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+SET SESSION protocol_mode = 1;
+SELECT @@SESSION.protocol_mode;
+@@SESSION.protocol_mode
+MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+SET SESSION protocol_mode = 0;
+SELECT @@SESSION.protocol_mode;
+@@SESSION.protocol_mode
+
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+SELECT @@SESSION.protocol_mode;
+@@SESSION.protocol_mode
+MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+
+# Information schema global/session variables tables.
+
+SET GLOBAL protocol_mode = 0;
+SET SESSION protocol_mode = 0;
+SELECT @@GLOBAL.protocol_mode = VARIABLE_VALUE
+FROM performance_schema.global_variables WHERE VARIABLE_NAME='protocol_mode';
+@@GLOBAL.protocol_mode = VARIABLE_VALUE
+1
+SELECT @@SESSION.protocol_mode = VARIABLE_VALUE
+FROM performance_schema.session_variables WHERE VARIABLE_NAME='protocol_mode';
+@@SESSION.protocol_mode = VARIABLE_VALUE
+1
+SET GLOBAL protocol_mode = 1;
+SET SESSION protocol_mode = 0;
+SELECT VARIABLE_VALUE
+FROM performance_schema.global_variables WHERE VARIABLE_NAME='protocol_mode';
+VARIABLE_VALUE
+MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables WHERE VARIABLE_NAME='protocol_mode';
+VARIABLE_VALUE
+
+SET GLOBAL protocol_mode = 0;
+SET SESSION protocol_mode = 1;
+SELECT VARIABLE_VALUE
+FROM performance_schema.global_variables WHERE VARIABLE_NAME='protocol_mode';
+VARIABLE_VALUE
+
+SELECT VARIABLE_VALUE
+FROM performance_schema.session_variables WHERE VARIABLE_NAME='protocol_mode';
+VARIABLE_VALUE
+MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+
+# Restore default value.
+
+SET GLOBAL protocol_mode = @global_protocol_mode_value;
+SET SESSION protocol_mode = @session_protocol_mode_value;

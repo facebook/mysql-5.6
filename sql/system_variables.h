@@ -216,6 +216,14 @@ enum enum_enable_jemalloc {
   in scripts/mysql_system_tables.sql and scripts/mysql_system_tables_fix.sql
 */
 
+/* Minimal object names in the result set metadata. */
+enum enum_protocol_mode {
+  /* Default. */
+  PROTO_MODE_OFF = 0,
+  /* Minimal object names in the result set metadata. */
+  PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD = 1,
+};
+
 struct System_variables {
   /*
     How dynamically allocated system variables are handled:
@@ -480,6 +488,8 @@ struct System_variables {
   bool require_row_format;
 
   bool sql_log_bin_triggers;
+
+  ulong protocol_mode;
 
   bool gap_lock_raise_error;
   bool gap_lock_write_log;

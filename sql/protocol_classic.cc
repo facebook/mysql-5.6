@@ -3296,6 +3296,48 @@ bool Protocol_classic::end_result_metadata() {
 /* clang-format on */
 
 /**
+  Store schema object names (database, table, and column names)
+  in the result set metadata.
+
+  @param field  Field to be sent.
+  @retval false success
+  @retval true  error
+*/
+bool Protocol_classic::store_result_set_metadata_object_names(
+    Send_field *field) {
+  bool res = false;
+  const char **metadata;
+  const CHARSET_INFO *cs = system_charset_info;
+
+  /* Database, table, and column names are included by default. */
+  const char *standard_metadata[] = {field->db_name, field->table_name,
+                                     field->org_table_name, field->col_name,
+                                     field->org_col_name};
+
+  /* Minimal metadata includes only the column name. */
+  const char *minimal_metadata[] = {empty_c_string, empty_c_string,
+                                    empty_c_string, field->col_name,
+                                    empty_c_string};
+
+  /*
+    Use a minimal set of object (database, table, and column) names
+    in the result set metadata if the appropriate protocol mode is
+    set. Otherwise, use standard metadata.
+  */
+  if (m_thd->variables.protocol_mode == PROTO_MODE_MINIMAL_OBJECT_NAMES_IN_RSMD)
+    metadata = minimal_metadata;
+  else
+    metadata = standard_metadata;
+
+  res |= store_string(STRING_WITH_LEN("def"), cs);
+
+  for (uint i = 0; i < array_elements(standard_metadata); i++)
+    res |= store_string(metadata[i], strlen(metadata[i]), cs);
+
+  return res;
+}
+
+/**
   Sends a single column metadata
 
   @param field Field description
@@ -3321,13 +3363,7 @@ bool Protocol_classic::send_field_metadata(Send_field *field,
 
   send_metadata = true;
   if (has_client_capability(CLIENT_PROTOCOL_41)) {
-    if (store_string(STRING_WITH_LEN("def"), cs) ||
-        store_string(field->db_name, strlen(field->db_name), cs) ||
-        store_string(field->table_name, strlen(field->table_name), cs) ||
-        store_string(field->org_table_name, strlen(field->org_table_name),
-                     cs) ||
-        store_string(field->col_name, strlen(field->col_name), cs) ||
-        store_string(field->org_col_name, strlen(field->org_col_name), cs) ||
+    if (store_result_set_metadata_object_names(field) ||
         packet->mem_realloc(packet->length() + 12)) {
       send_metadata = false;
       return true;
