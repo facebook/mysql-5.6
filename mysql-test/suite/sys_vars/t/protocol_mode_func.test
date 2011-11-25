@@ -1,0 +1,88 @@
+--echo #
+--echo # Functional testing of the protocol_mode variable.
+--echo #
+
+--echo
+--echo # Save default value.
+--echo
+
+SET @session_protocol_mode_value = @@SESSION.protocol_mode;
+
+--echo
+--echo # Setup.
+--echo
+
+CREATE TABLE t1 (c1 CHAR(1), c2 FIXED(1));
+CREATE VIEW v1 AS SELECT c1 FROM t1;
+INSERT INTO t1 VALUES (1,1);
+
+--echo
+--echo # Display the effect of MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA
+--echo # to the result set metadata. Database, table and column names are
+--echo # empty.
+--echo
+
+--enable_metadata
+SELECT * FROM t1;
+SELECT c1, c2 AS column_alias FROM t1 AS table_alias;
+--disable_metadata
+
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+
+--enable_metadata
+SELECT * FROM t1;
+SELECT c1, c2 AS column_alias FROM t1 AS table_alias;
+--disable_metadata
+
+SET SESSION protocol_mode = '';
+
+--echo
+--echo # Name values are empty regardless of table aliases or views.
+--echo
+
+--enable_metadata
+SELECT c1 FROM v1 va;
+SELECT c1 AS c1_alias FROM t1 t1_alias;
+--disable_metadata
+
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+
+--enable_metadata
+SELECT c1 FROM v1 va;
+SELECT c1 AS c1_alias FROM t1 t1_alias;
+--disable_metadata
+
+SET SESSION protocol_mode = '';
+
+--echo
+--echo # Database, table and original table name values are empty for
+--echo # UNION statements whether minimal result set metadata is set
+--echo # or not.
+--echo
+
+--disable_ps_protocol
+--enable_metadata
+SELECT a1.c1 FROM t1 a1 UNION SELECT a2.c1 FROM t1 a2;
+--disable_metadata
+--enable_ps_protocol
+
+SET SESSION protocol_mode = 'MINIMAL_OBJECT_NAMES_IN_RESULT_SET_METADATA';
+
+--disable_ps_protocol
+--enable_metadata
+SELECT a1.c1 FROM t1 a1 UNION SELECT a2.c1 FROM t1 a2;
+--disable_metadata
+--enable_ps_protocol
+
+--echo
+--echo # Cleanup.
+--echo
+
+DROP VIEW v1;
+DROP TABLE t1;
+
+--echo
+--echo # Restore default value.
+--echo
+
+SET SESSION protocol_mode = @session_protocol_mode_value;
