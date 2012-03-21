@@ -292,7 +292,8 @@ int main(int argc, char **argv)
   ulint ct;                      /* current page number (0 based) */
   time_t now;                    /* current time */
   time_t lastt;                  /* last time */
-  ulint oldcsum, oldcsumfield, csum, csumfield, crc32, logseq, logseqfield;
+  ulint oldcsum, oldcsumfield, csum, csumfield, logseq, logseqfield;
+  dual_crc crc32s;               /* struct for the two forms of crc32c */
 
                                  /* ulints for checksum storage */
   /* stat, to get file size. */
@@ -434,12 +435,12 @@ int main(int argc, char **argv)
 
     /* now check the new method */
     csum= buf_calc_page_new_checksum(buf);
-    crc32= buf_calc_page_crc32(buf);
+    crc32s= buf_calc_page_crc32fb(buf);
     csumfield= mach_read_from_4(buf + FIL_PAGE_SPACE_OR_CHKSUM);
     if (debug)
-      printf("page %lu: new style: calculated = %lu; crc32 = %lu; recorded = %lu\n",
-          ct, csum, crc32, csumfield);
-    if (csumfield != 0 && crc32 != csumfield && csum != csumfield)
+      printf("page %lu: new style: calculated = %lu; crc32c = %u; crc32cfb = %u; recorded = %lu\n",
+          ct, csum, crc32s.crc32c, crc32s.crc32cfb, csumfield);
+    if (csumfield != 0 && crc32s.crc32c != csumfield && crc32s.crc32cfb != csumfield && csum != csumfield)
     {
       fprintf(stderr, "Fail; page %lu invalid (fails innodb and crc32 checksum)\n", ct);
       return 1;
