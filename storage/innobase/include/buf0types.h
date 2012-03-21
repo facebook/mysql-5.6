@@ -92,8 +92,11 @@ enum srv_checksum_algorithm_t {
 						innodb when reading */
 	SRV_CHECKSUM_ALGORITHM_NONE,		/*!< Write none, allow crc32,
 						innodb or none when reading */
-	SRV_CHECKSUM_ALGORITHM_STRICT_NONE	/*!< Write none, allow none
+	SRV_CHECKSUM_ALGORITHM_STRICT_NONE,	/*!< Write none, allow none
 						when reading */
+	SRV_CHECKSUM_ALGORITHM_FACEBOOK		/*!< Write strict crc32c, allow
+						innodb or crc32c/crc32fb when
+						reading */
 };
 
 /** Parameters of binary buddy system for compressed pages (buf0buddy.h) */
