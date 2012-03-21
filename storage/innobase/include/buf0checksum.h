@@ -45,6 +45,19 @@ buf_calc_page_crc32(
 /*================*/
 	const byte*	page);	/*!< in: buffer page */
 
+struct dual_crc { ib_uint32_t crc32c, crc32cfb; };
+UNIV_INTERN
+dual_crc
+buf_calc_page_crc32fb(
+/*================*/
+	const byte*	page);	/*!< in: buffer page */
+
+UNIV_INLINE
+ibool
+fb_crc32_match(const dual_crc pair, ib_uint32_t checksum) {
+	return(pair.crc32c == checksum || pair.crc32cfb == checksum);
+}
+
 /********************************************************************//**
 Calculates a page checksum which is stored to the page when it is written
 to a file. Note that we must be careful to calculate the same value on

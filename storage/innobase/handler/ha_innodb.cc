@@ -214,6 +214,7 @@ static const char* innodb_checksum_algorithm_names[] = {
 	"strict_innodb",
 	"none",
 	"strict_none",
+	"facebook",
 	NullS
 };
 
