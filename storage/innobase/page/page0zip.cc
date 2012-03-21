@@ -4902,6 +4902,7 @@ page_zip_calc_checksum(
 	switch (algo) {
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
 
 		ut_ad(size > FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 
@@ -4996,6 +4997,9 @@ page_zip_verify_checksum(
 	switch (curr_algo) {
 	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
+		/* Facebook and crc32 can also accept an innodb-style
+		 * checksum (aka adler32) */
 
 		if (stored == BUF_NO_CHECKSUM_MAGIC) {
 			if (curr_algo

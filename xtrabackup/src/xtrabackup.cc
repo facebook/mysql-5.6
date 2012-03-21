@@ -1188,6 +1188,7 @@ static const char* innodb_checksum_algorithm_names[] = {
 	"strict_innodb",
 	"none",
 	"strict_none",
+	"facebook",
 	NullS
 };
 
@@ -1495,9 +1496,10 @@ Disable with --skip-innodb-doublewrite.", (G_PTR*) &innobase_use_doublewrite,
 #if MYSQL_VERSION_ID >= 50600
   {"checksum-algorithm", OPT_INNODB_CHECKSUM_ALGORITHM,
   "The algorithm InnoDB uses for page checksumming. [CRC32, STRICT_CRC32, "
-   "INNODB, STRICT_INNODB, NONE, STRICT_NONE]", &srv_checksum_algorithm,
-   &srv_checksum_algorithm, &innodb_checksum_algorithm_typelib, GET_ENUM,
-   REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+   "INNODB, STRICT_INNODB, NONE, STRICT_NONE, FACEBOOK]",
+   &srv_checksum_algorithm, &srv_checksum_algorithm,
+   &innodb_checksum_algorithm_typelib, GET_ENUM,
+   REQUIRED_ARG, 0, 0, 6, 0, 1, 0},
   {"undo-tablespaces", OPT_UNDO_TABLESPACES,
    "Number of undo tablespaces to use. NON-ZERO VALUES ARE NOT "
    "CURRENTLY SUPPORTED",

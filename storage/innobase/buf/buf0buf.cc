@@ -682,6 +682,21 @@ FIL_PAGE_END_LSN_OLD_CHKSUM == 0 */
 		static_cast<srv_checksum_algorithm_t>(srv_checksum_algorithm);
 
 	switch (curr_algo) {
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
+		{
+			dual_crc both_crcs = buf_calc_page_crc32fb(read_buf);
+			// If checksum_field1 doesn't match one of our computed
+			// checksums, corrupt!  If checksum_field2 doesn't match
+			// *and* we don't match against the old-style checksum,
+			// corrupt!  Otherwise, non-corrupt.
+			if (!fb_crc32_match(both_crcs, checksum_field1))
+				return (TRUE);
+			if (!fb_crc32_match(both_crcs, checksum_field2)
+			    && checksum_field2 != buf_calc_page_old_checksum(read_buf))
+				return (TRUE);
+			return (FALSE);
+		}
+
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
 
