@@ -618,6 +618,21 @@ FIL_PAGE_END_LSN_OLD_CHKSUM == 0 */
 		return(checksum_field1 != BUF_NO_CHECKSUM_MAGIC
 		       || checksum_field2 != BUF_NO_CHECKSUM_MAGIC);
 
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
+		{
+			dual_crc both_crcs = buf_calc_page_crc32fb(read_buf);
+			// If checksum_field1 doesn't match one of our computed
+			// checksums, corrupt!  If checksum_field2 doesn't match
+			// *and* we don't match against the old-style checksum,
+			// corrupt!  Otherwise, non-corrupt.
+			if (!fb_crc32_match(both_crcs, checksum_field1))
+				return TRUE;
+			if (!fb_crc32_match(both_crcs, checksum_field2)
+			    && checksum_field2 != buf_calc_page_old_checksum(read_buf))
+				return TRUE;
+			break;
+		}
+
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_INNODB:
 		/* There are 3 valid formulas for
