@@ -1553,6 +1553,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SQL_CACHE_SYM
 %token  SQL_CALC_FOUND_ROWS
 %token  SQL_NO_CACHE_SYM
+%token  SQL_NO_FCACHE_SYM
 %token  SQL_SMALL_RESULT
 %token  SQL_SYM                       /* SQL-2003-R */
 %token  SQL_THREAD
@@ -8723,6 +8724,10 @@ select_option:
               Lex->select_lex.options&= ~OPTION_TO_QUERY_CACHE;
               Lex->select_lex.sql_cache= SELECT_LEX::SQL_NO_CACHE;
             }
+          }
+        | SQL_NO_FCACHE_SYM
+          {
+            Lex->disable_flashcache= TRUE;
           }
         | SQL_CACHE_SYM
           {
