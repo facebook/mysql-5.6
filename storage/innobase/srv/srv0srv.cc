@@ -1453,6 +1453,9 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_available_undo_logs = srv_available_undo_logs;
 
+	export_vars.innodb_buf_dblwr_page_no =
+		buf_dblwr ? buf_dblwr->block1 : 0;
+
 #ifdef UNIV_DEBUG
 	if (purge_sys->done.trx_no == 0
 	    || trx_sys->rw_max_trx_id < purge_sys->done.trx_no - 1) {
