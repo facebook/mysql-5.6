@@ -45,6 +45,12 @@
 #include "sql_optimizer.h"       // JOIN
 #include "sql_tmp_table.h"       // tmp tables
 
+#ifdef TARGET_OS_LINUX
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include "flashcache_ioctl.h"
+#endif /* TARGET_OS_LINUX */
+
 #include <algorithm>
 using std::max;
 using std::min;
@@ -75,6 +81,7 @@ bool handle_select(THD *thd, select_result *result,
                    ulong setup_tables_done_option)
 {
   bool res;
+  pid_t pid;
   LEX *lex= thd->lex;
   register SELECT_LEX *select_lex = &lex->select_lex;
   DBUG_ENTER("handle_select");
@@ -85,6 +92,14 @@ bool handle_select(THD *thd, select_result *result,
     my_error(ER_WRONG_USAGE, MYF(0), "PROCEDURE", "non-SELECT");
     DBUG_RETURN(true);
   }
+
+#ifdef TARGET_OS_LINUX
+  if (lex->disable_flashcache && cachedev_fd > 0)
+  {
+    pid = syscall(SYS_gettid);
+    ioctl(cachedev_fd, FLASHCACHEADDNCPID, &pid);
+  }
+#endif /* TARGET_OS_LINUX */
 
   if (select_lex->master_unit()->is_union() || 
       select_lex->master_unit()->fake_select_lex)
@@ -116,6 +131,12 @@ bool handle_select(THD *thd, select_result *result,
     result->abort_result_set();
 
   MYSQL_SELECT_DONE((int) res, (ulong) thd->limit_found_rows);
+#ifdef TARGET_OS_LINUX
+  if (lex->disable_flashcache && cachedev_fd > 0)
+  {
+    ioctl(cachedev_fd, FLASHCACHEDELNCPID, &pid);
+  }
+#endif /* TARGET_OS_LINUX */
   DBUG_RETURN(res);
 }
 
