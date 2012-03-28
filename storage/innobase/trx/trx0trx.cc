@@ -49,6 +49,8 @@ Created 3/26/1996 Heikki Tuuri
 #include "ut0vec.h"
 #include "btr0pcur.h"
 
+#include "mysqld.h"
+
 #include<set>
 
 /** Set of table_id */
@@ -132,6 +134,14 @@ trx_lra_free(
 		hash_table_free(lra->lra_ht2);
 		btr_pcur_close(lra->lra_cur);
 		ut_free(lra->lra_sort_arr);
+#ifdef TARGET_OS_LINUX
+		if (cachedev_enabled) {
+			pid_t pid = syscall(SYS_gettid);
+			ioctl(cachedev_fd,
+			      FLASHCACHEDELBLACKLIST,
+			      &pid);
+		}
+#endif /* TARGET_OS_LINUX */
 	} else {
 		ut_a(!lra->lra_ht1);
 		ut_a(!lra->lra_ht2);
@@ -239,6 +249,14 @@ trx_lra_reset(
 		alloc +=  sizeof(page_no_holder_t) * n_pages_max;
 		lra->lra_cur = (btr_pcur_t*) alloc;
 		btr_pcur_init(lra->lra_cur);
+#ifdef TARGET_OS_LINUX
+		if (cachedev_enabled) {
+			pid_t pid = syscall(SYS_gettid);
+			ioctl(cachedev_fd,
+			      FLASHCACHEADDBLACKLIST,
+			      &pid);
+		}
+#endif /* TARGET_OS_LINUX */
 	}
 }
 
