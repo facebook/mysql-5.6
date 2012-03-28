@@ -607,6 +607,8 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_data_writes,		  SHOW_LONG},
   {"data_written",
   (char*) &export_vars.innodb_data_written,		  SHOW_LONG},
+  {"dblwr_page_number",
+  (char*) &export_vars.innodb_buf_dblwr_page_no,	  SHOW_LONG},
   {"dblwr_pages_written",
   (char*) &export_vars.innodb_dblwr_pages_written,	  SHOW_LONG},
   {"dblwr_writes",
