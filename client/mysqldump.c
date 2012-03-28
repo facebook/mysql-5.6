@@ -162,6 +162,8 @@ static char *shared_memory_base_name=0;
 static uint opt_protocol= 0;
 static char *opt_plugin_dir= 0, *opt_default_auth= 0;
 
+static my_bool server_supports_sql_no_fcache= FALSE;
+
 /*
 Dynamic_string wrapper functions. In this file use these
 wrappers, they will terminate the process if there is
@@ -1571,6 +1573,18 @@ static int connect_to_db(char *host, char *user,char *passwd)
     /* Don't switch charsets for 4.1 and earlier.  (bug#34192). */
     server_supports_switching_charsets= FALSE;
   } 
+
+  /* Check to see if we support SQL_NO_FCACHE on this server. */
+  if (mysql_query(mysql, "SELECT SQL_NO_FCACHE NOW()") == 0)
+  {
+    MYSQL_RES *res = mysql_store_result(mysql);
+    if (res)
+    {
+      mysql_free_result(res);
+    }
+    server_supports_sql_no_fcache= TRUE;
+  }
+
   /*
     As we're going to set SQL_MODE, it would be lost on reconnect, so we
     cannot reconnect.
@@ -3512,7 +3526,12 @@ static void dump_table(char *table, char *db)
 
     /* now build the query string */
 
-    dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * INTO OUTFILE '");
+    dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ ");
+    if (server_supports_sql_no_fcache)
+    {
+      dynstr_append_checked(&query_string, "/*!50084 SQL_NO_FCACHE */ ");
+    }
+    dynstr_append_checked(&query_string, "* INTO OUTFILE '");
     dynstr_append_checked(&query_string, filename);
     dynstr_append_checked(&query_string, "'");
 
@@ -3559,7 +3578,12 @@ static void dump_table(char *table, char *db)
                   "\n--\n-- Dumping data for table %s\n--\n",
                   result_table);
     
-    dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ * FROM ");
+    dynstr_append_checked(&query_string, "SELECT /*!40001 SQL_NO_CACHE */ ");
+    if (server_supports_sql_no_fcache)
+    {
+      dynstr_append_checked(&query_string, "/*!50084 SQL_NO_FCACHE */ ");
+    }
+    dynstr_append_checked(&query_string, "* FROM ");
     dynstr_append_checked(&query_string, result_table);
 
     if (where)

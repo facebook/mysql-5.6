@@ -100,6 +100,13 @@ enum_tx_isolation thd_get_trx_isolation(const THD* thd);
 #include "ha_innodb.h"
 #include "i_s.h"
 
+#ifdef TARGET_OS_LINUX
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include "flashcache_ioctl.h"
+extern my_bool cachedev_enabled;
+#endif /* TARGET_OS_LINUX */
+
 # ifndef MYSQL_PLUGIN_IMPORT
 #  define MYSQL_PLUGIN_IMPORT /* nothing */
 # endif /* MYSQL_PLUGIN_IMPORT */
@@ -636,6 +643,8 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_data_writes,		  SHOW_LONG},
   {"data_written",
   (char*) &export_vars.innodb_data_written,		  SHOW_LONG},
+  {"dblwr_page_number",
+  (char*) &export_vars.innodb_buf_dblwr_page_no,	  SHOW_LONG},
   {"dblwr_pages_written",
   (char*) &export_vars.innodb_dblwr_pages_written,	  SHOW_LONG},
   {"dblwr_writes",

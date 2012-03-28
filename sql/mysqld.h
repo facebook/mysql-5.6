@@ -457,6 +457,9 @@ extern my_atomic_rwlock_t write_query_running_lock;
 extern uint host_cache_size;
 void init_sql_statement_names();
 
+/* flashcache */
+extern int cachedev_fd;
+
 /*
   THR_MALLOC is a key which will be used to set/get MEM_ROOT** for a thread,
   using my_pthread_setspecific_ptr()/my_thread_getspecific_ptr().
