@@ -648,6 +648,8 @@ time_t server_start_time, flush_status_time;
 
 char server_uuid[UUID_LENGTH+1];
 const char *server_uuid_ptr;
+char binlog_file_basedir[FN_REFLEN];
+char binlog_index_basedir[FN_REFLEN];
 char mysql_home[FN_REFLEN], pidfile_name[FN_REFLEN], system_time_zone[30];
 char default_logfile_name[FN_REFLEN];
 char *default_tz_name;
@@ -798,6 +800,8 @@ static ulong opt_specialflag;
 static char *opt_update_logname;
 char *opt_binlog_index_name;
 char *mysql_home_ptr, *pidfile_name_ptr;
+char *binlog_file_basedir_ptr;
+char *binlog_index_basedir_ptr;
 /** Initial command line arguments (count), after load_defaults().*/
 static int defaults_argc;
 /**
@@ -5142,6 +5146,32 @@ a file name for --log-bin-index option", opt_binlog_index_name);
       unireg_abort(1);
   }
 
+  if (opt_bin_log)
+  {
+    size_t ilen, llen;
+    const char* log_name = mysql_bin_log.get_log_fname();
+    const char* index_name = mysql_bin_log.get_index_fname();
+
+    if (!log_name || !dirname_part(binlog_file_basedir, log_name, &llen))
+    {
+      sql_print_error("Cannot get basedir for binlogs from (%s)\n",
+                      log_name ? log_name : "NULL");
+      unireg_abort(1);
+    }
+    if (!index_name || !dirname_part(binlog_index_basedir, index_name, &ilen))
+    {
+      sql_print_error("Cannot get basedir for binlog-index from (%s)\n",
+                      index_name ? index_name : "NULL");
+      unireg_abort(1);
+    }
+  }
+  else
+  {
+    binlog_file_basedir[0] = '\0';
+    binlog_index_basedir[0] = '\0';
+  }
+
+
 #ifdef HAVE_REPLICATION
   if (opt_bin_log && expire_logs_days)
   {
@@ -8396,6 +8426,7 @@ static int mysql_init_variables(void)
   /* Things reset to zero */
   opt_skip_slave_start= opt_reckless_slave = 0;
   mysql_home[0]= pidfile_name[0]= log_error_file[0]= 0;
+  binlog_file_basedir[0]= binlog_index_basedir[0]= 0;
   myisam_test_invalid_symlink= test_if_data_home_dir;
   opt_log= opt_slow_log= 0;
   opt_bin_log= 0;
@@ -8453,6 +8484,8 @@ static int mysql_init_variables(void)
   opt_specialflag= SPECIAL_ENGLISH;
   unix_sock= MYSQL_INVALID_SOCKET;
   ip_sock= MYSQL_INVALID_SOCKET;
+  binlog_file_basedir_ptr= binlog_file_basedir;
+  binlog_index_basedir_ptr= binlog_index_basedir;
   mysql_home_ptr= mysql_home;
   pidfile_name_ptr= pidfile_name;
   log_error_file_ptr= log_error_file;
