@@ -1,0 +1,4 @@
+show global variables like "binlog%basedir";
+Variable_name	Value
+binlog_file_basedir	
+binlog_index_basedir	

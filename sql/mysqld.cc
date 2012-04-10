@@ -1445,6 +1445,8 @@ time_t server_start_time, flush_status_time;
 
 char server_uuid[UUID_LENGTH + 1];
 const char *server_uuid_ptr;
+char binlog_file_basedir[FN_REFLEN];
+char binlog_index_basedir[FN_REFLEN];
 char mysql_home[FN_REFLEN], pidfile_name[FN_REFLEN];
 char system_time_zone_dst_on[30], system_time_zone_dst_off[30];
 char default_logfile_name[FN_REFLEN];
@@ -1658,6 +1660,8 @@ static ulong opt_specialflag;
 char *opt_binlog_index_name;
 char *mysql_home_ptr, *pidfile_name_ptr;
 char *default_auth_plugin;
+char *binlog_file_basedir_ptr;
+char *binlog_index_basedir_ptr;
 /**
   Memory for allocating command line arguments, after load_defaults().
 */
@@ -6710,6 +6714,28 @@ static int init_server_components() {
     mysql_mutex_unlock(log_lock);
   }
 
+  if (opt_bin_log) {
+    size_t ilen, llen;
+    const char *log_name = mysql_bin_log.get_log_fname();
+    const char *index_name = mysql_bin_log.get_index_fname();
+
+    if (!log_name || !dirname_part(binlog_file_basedir, log_name, &llen)) {
+      // NO_LINT_DEBUG
+      sql_print_error("Cannot get basedir for binlogs from (%s)\n",
+                      log_name ? log_name : "NULL");
+      unireg_abort(1);
+    }
+    if (!index_name || !dirname_part(binlog_index_basedir, index_name, &ilen)) {
+      // NO_LINT_DEBUG
+      sql_print_error("Cannot get basedir for binlog-index from (%s)\n",
+                      index_name ? index_name : "NULL");
+      unireg_abort(1);
+    }
+  } else {
+    binlog_file_basedir[0] = '\0';
+    binlog_index_basedir[0] = '\0';
+  }
+
   /*
     When we pass non-zero values for both expire_logs_days and
     binlog_expire_logs_seconds at the server start-up, the value of
@@ -9717,6 +9743,7 @@ static int mysql_init_variables() {
   /* Things reset to zero */
   opt_skip_replica_start = false;
   pidfile_name[0] = 0;
+  binlog_file_basedir[0] = binlog_index_basedir[0] = 0;
   myisam_test_invalid_symlink = test_if_data_home_dir;
   opt_general_log = opt_slow_log = false;
   opt_disable_networking = opt_skip_show_db = false;
@@ -9761,6 +9788,8 @@ static int mysql_init_variables() {
   character_set_filesystem = &my_charset_bin;
 
   opt_specialflag = 0;
+  binlog_file_basedir_ptr = binlog_file_basedir;
+  binlog_index_basedir_ptr = binlog_index_basedir;
   pidfile_name_ptr = pidfile_name;
   lc_messages_dir_ptr = lc_messages_dir;
   protocol_version = PROTOCOL_VERSION;
