@@ -1010,6 +1010,16 @@ static Sys_var_bool Sys_partial_revokes(
     ON_CHECK(check_partial_revokes), ON_UPDATE(partial_revokes_update), nullptr,
     sys_var::PARSE_EARLY);
 
+static Sys_var_charptr Sys_binlog_file_basedir(
+    "binlog_file_basedir", "Path to binlog file base directory.",
+    READ_ONLY GLOBAL_VAR(binlog_file_basedir_ptr), NO_CMD_LINE, IN_FS_CHARSET,
+    DEFAULT(0));
+
+static Sys_var_charptr Sys_binlog_index_basedir(
+    "binlog_index_basedir", "Path to binlog index base directory.",
+    READ_ONLY GLOBAL_VAR(binlog_index_basedir_ptr), NO_CMD_LINE, IN_FS_CHARSET,
+    DEFAULT(0));
+
 static bool fix_binlog_cache_size(sys_var *, THD *thd, enum_var_type) {
   check_binlog_cache_size(thd);
   return false;
