@@ -763,6 +763,16 @@ static Sys_var_bool Sys_password_require_current(
     "Current password is needed to be specified in order to change it",
     GLOBAL_VAR(password_require_current), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_charptr Sys_binlog_file_basedir(
+    "binlog_file_basedir", "Path to binlog file base directory.",
+    READ_ONLY GLOBAL_VAR(binlog_file_basedir_ptr), NO_CMD_LINE, IN_FS_CHARSET,
+    DEFAULT(0));
+
+static Sys_var_charptr Sys_binlog_index_basedir(
+    "binlog_index_basedir", "Path to binlog index base directory.",
+    READ_ONLY GLOBAL_VAR(binlog_index_basedir_ptr), NO_CMD_LINE, IN_FS_CHARSET,
+    DEFAULT(0));
+
 static bool fix_binlog_cache_size(sys_var *, THD *thd, enum_var_type) {
   check_binlog_cache_size(thd);
   return false;
