@@ -297,6 +297,7 @@ extern char *my_bind_addr_str;
 extern char *my_admin_bind_addr_str;
 extern uint mysqld_admin_port;
 extern bool listen_admin_interface_in_separate_thread;
+extern char *binlog_file_basedir_ptr, *binlog_index_basedir_ptr;
 extern char glob_hostname[HOSTNAME_LENGTH + 1];
 extern char system_time_zone_dst_on[30], system_time_zone_dst_off[30];
 extern char *opt_init_file;

@@ -45,6 +45,8 @@ let $total_persistent_vars= `SELECT $total_global_vars - 212`;
 
 # Add variable names that need to be excluded here
 let $total_excluded_vars=`SELECT COUNT(*) FROM performance_schema.global_variables WHERE variable_name in (
+'binlog_file_basedir',
+'binlog_index_basedir',
 'innodb_log_flush_events',
 'innodb_log_recent_closed_size',
 'innodb_log_recent_written_size',
