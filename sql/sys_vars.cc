@@ -582,6 +582,17 @@ static Sys_var_charptr Sys_my_bind_addr(
        READ_ONLY GLOBAL_VAR(my_bind_addr_str), CMD_LINE(REQUIRED_ARG),
        IN_FS_CHARSET, DEFAULT(MY_BIND_ALL_ADDRESSES));
 
+static Sys_var_charptr Sys_binlog_file_basedir(
+       "binlog_file_basedir", "Path to binlog file base directory.",
+       READ_ONLY GLOBAL_VAR(binlog_file_basedir_ptr), NO_CMD_LINE,
+       IN_FS_CHARSET, DEFAULT(0));
+
+static Sys_var_charptr Sys_binlog_index_basedir(
+       "binlog_index_basedir", "Path to binlog index base directory.",
+       READ_ONLY GLOBAL_VAR(binlog_index_basedir_ptr), NO_CMD_LINE,
+       IN_FS_CHARSET, DEFAULT(0));
+
+
 static bool fix_binlog_cache_size(sys_var *self, THD *thd, enum_var_type type)
 {
   check_binlog_cache_size(thd);
