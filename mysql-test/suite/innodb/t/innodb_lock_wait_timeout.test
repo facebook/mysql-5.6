@@ -1,0 +1,65 @@
+--source include/have_innodb.inc
+
+#
+# Test innodb_lock_wait_timeout
+#
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connect (con1, localhost, root,,);
+--echo Should be default
+show global variables like "innodb_lock_wait_timeout";
+
+set session innodb_lock_wait_timeout=1;
+--echo Should be default
+show global variables like "innodb_lock_wait_timeout";
+--echo Should be 1
+show session variables like "innodb_lock_wait_timeout";
+
+set session innodb_lock_wait_timeout=0;
+--echo Should be 0
+show session variables like "innodb_lock_wait_timeout";
+
+set session innodb_lock_wait_timeout=default;
+--echo Should be default
+show session variables like "innodb_lock_wait_timeout";
+
+connect (con2, localhost, root,,);
+--echo Should be default
+show session variables like "innodb_lock_wait_timeout";
+
+connection default;
+disconnect con2;
+disconnect con1;
+
+set global innodb_lock_wait_timeout=1;
+
+connect (con2, localhost, root,,);
+--echo Should be 1
+show global variables like "innodb_lock_wait_timeout";
+--echo Should be 1
+show session variables like "innodb_lock_wait_timeout";
+
+CREATE TABLE t1 (a int PRIMARY KEY) ENGINE=InnoDB;
+INSERT INTO t1 values (0);
+
+connection default;
+begin;
+SELECT * FROM t1 WHERE a=0 FOR UPDATE;
+
+connection con2;
+--error ER_LOCK_WAIT_TIMEOUT
+SELECT * FROM t1 WHERE a=0 FOR UPDATE;
+
+set session innodb_lock_wait_timeout=0;
+--error ER_LOCK_WAIT_TIMEOUT
+SELECT * FROM t1 WHERE a=0 FOR UPDATE;
+
+connection default;
+rollback;
+disconnect con2;
+set global innodb_lock_wait_timeout=default;
+
+drop table t1;

@@ -1,0 +1,51 @@
+drop table if exists t1;
+Should be default
+show global variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	50
+set session innodb_lock_wait_timeout=1;
+Should be default
+show global variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	50
+Should be 1
+show session variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	1
+set session innodb_lock_wait_timeout=0;
+Should be 0
+show session variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	0
+set session innodb_lock_wait_timeout=default;
+Should be default
+show session variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	50
+Should be default
+show session variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	50
+set global innodb_lock_wait_timeout=1;
+Should be 1
+show global variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	1
+Should be 1
+show session variables like "innodb_lock_wait_timeout";
+Variable_name	Value
+innodb_lock_wait_timeout	1
+CREATE TABLE t1 (a int PRIMARY KEY) ENGINE=InnoDB;
+INSERT INTO t1 values (0);
+begin;
+SELECT * FROM t1 WHERE a=0 FOR UPDATE;
+a
+0
+SELECT * FROM t1 WHERE a=0 FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session innodb_lock_wait_timeout=0;
+SELECT * FROM t1 WHERE a=0 FOR UPDATE;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+rollback;
+set global innodb_lock_wait_timeout=default;
+drop table t1;
