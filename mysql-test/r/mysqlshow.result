@@ -124,7 +124,7 @@ Database: information_schema
 | INNODB_BUFFER_PAGE_LRU                |
 | INNODB_FT_INSERTED                    |
 | INNODB_CMPMEM                         |
-| INNODB_SYS_INDEXES                    |
+| INNODB_FILE_STATUS                    |
 | INNODB_SYS_TABLES                     |
 | INNODB_SYS_FIELDS                     |
 | INNODB_CMP_PER_INDEX_RESET            |
@@ -139,6 +139,7 @@ Database: information_schema
 | INNODB_BUFFER_POOL_STATS              |
 | INNODB_SYS_COLUMNS                    |
 | INNODB_SYS_FOREIGN                    |
+| INNODB_SYS_INDEXES                    |
 +---------------------------------------+
 Database: INFORMATION_SCHEMA
 +---------------------------------------+
@@ -189,7 +190,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_BUFFER_PAGE_LRU                |
 | INNODB_FT_INSERTED                    |
 | INNODB_CMPMEM                         |
-| INNODB_SYS_INDEXES                    |
+| INNODB_FILE_STATUS                    |
 | INNODB_SYS_TABLES                     |
 | INNODB_SYS_FIELDS                     |
 | INNODB_CMP_PER_INDEX_RESET            |
@@ -204,6 +205,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_BUFFER_POOL_STATS              |
 | INNODB_SYS_COLUMNS                    |
 | INNODB_SYS_FOREIGN                    |
+| INNODB_SYS_INDEXES                    |
 +---------------------------------------+
 Wildcard: inf_rmation_schema
 +--------------------+
