@@ -24,6 +24,7 @@
 #include "mysql/psi/mysql_file.h"          /* MYSQL_FILE */
 #include "sql_list.h"                      /* I_List */
 #include "sql_cmd.h"                       /* SQLCOM_END */
+#include "my_rdtsc.h"                      /* my_timer* */
 #include <set>
 
 class THD;
@@ -321,6 +322,58 @@ extern char glob_hostname[FN_REFLEN], mysql_home[FN_REFLEN];
 extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char default_logfile_name[FN_REFLEN];
 extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
+
+/* SHOW STATS var: Name of current timer */
+extern const char *timer_in_use;
+/* Current timer stats */
+extern struct my_timer_unit_info my_timer;
+/* Get current time */
+extern ulonglong (*my_timer_now)(void);
+/* Get time passed since "then" */
+inline ulonglong my_timer_since(ulonglong then)
+{
+  return (my_timer_now() - then) - my_timer.overhead;
+}
+/* Get time passed since "then", and update then to now */
+inline ulonglong my_timer_since_and_update(ulonglong *then)
+{
+  ulonglong now = my_timer_now();
+  ulonglong ret = (now - (*then)) - my_timer.overhead;
+  *then = now;
+  return ret;
+}
+/* Convert native timer units in a ulonglong into seconds in a double */
+inline double my_timer_to_seconds(ulonglong when)
+{
+  double ret = (double)(when);
+  ret /= (double)(my_timer.frequency);
+  return ret;
+}
+/* Convert native timer units in a ulonglong into milliseconds in a double */
+inline double my_timer_to_milliseconds(ulonglong when)
+{
+  double ret = (double)(when);
+  ret *= 1000.0;
+  ret /= (double)(my_timer.frequency);
+  return ret;
+}
+/* Convert native timer units in a ulonglong into microseconds in a double */
+inline double my_timer_to_microseconds(ulonglong when)
+{
+  double ret = (double)(when);
+  ret *= 1000000.0;
+  ret /= (double)(my_timer.frequency);
+  return ret;
+}
+/* Convert microseconds in a double to native timer units in a ulonglong */
+inline ulonglong microseconds_to_my_timer(double when)
+{
+  double ret = when;
+  ret *= (double)(my_timer.frequency);
+  ret /= 1000000.0;
+  return (ulonglong)ret;
+}
+
 /*Move UUID_LENGTH from item_strfunc.h*/
 #define UUID_LENGTH (8+1+4+1+4+1+4+1+12)
 extern char server_uuid[UUID_LENGTH+1];
