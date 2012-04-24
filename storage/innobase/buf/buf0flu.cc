@@ -985,6 +985,7 @@ buf_flush_page(
 	}
 
 	buf_pool->n_flush[flush_type]++;
+	buf_pool->n_flushed[flush_type]++;
 
 	is_uncompressed = (buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 	ut_ad(is_uncompressed == (block_mutex != &buf_pool->zip_mutex));
