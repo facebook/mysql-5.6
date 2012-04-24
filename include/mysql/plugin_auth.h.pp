@@ -117,6 +117,7 @@ enum enum_mysql_show_type
   SHOW_LONGLONG,
   SHOW_CHAR, SHOW_CHAR_PTR,
   SHOW_ARRAY, SHOW_FUNC, SHOW_DOUBLE,
+  SHOW_TIMER,
   SHOW_always_last
 };
 struct st_mysql_show_var {
