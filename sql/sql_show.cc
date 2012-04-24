@@ -2393,6 +2393,8 @@ void reset_status_vars()
     /* Note that SHOW_LONG_NOFLUSH variables are not reset */
     if (ptr->type == SHOW_LONG || ptr->type == SHOW_SIGNED_LONG)
       *(ulong*) ptr->value= 0;
+    else if (ptr->type == SHOW_TIMER)
+      *(ulonglong*) ptr->value= 0;
   }  
 }
 
@@ -2614,6 +2616,12 @@ static bool show_status_array(THD *thd, const char *wild,
         case SHOW_DOUBLE:
           /* 6 is the default precision for '%f' in sprintf() */
           end= buff + my_fcvt(*(double *) value, 6, buff, NULL);
+          break;
+        case SHOW_TIMER:
+          { /* 6 is the default precision for '%f' in sprintf() */
+            double tmp_val = my_timer_to_seconds(*(longlong*) value);
+            end= buff + my_fcvt(tmp_val, 6, buff, NULL);
+          }
           break;
         case SHOW_LONG_STATUS:
           value= ((char *) status_var + (ulong) value);
