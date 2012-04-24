@@ -1,0 +1,4 @@
+flush status;
+show status like 'Timer_in_use';
+Variable_name	Value
+Timer_in_use	GOOD_TIMER
