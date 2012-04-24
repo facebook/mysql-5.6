@@ -1,0 +1,4 @@
+flush status;
+
+--replace_result Cycle GOOD_TIMER Nanosecond GOOD_TIMER Microsecond GOOD_TIMER
+show status like 'Timer_in_use';
