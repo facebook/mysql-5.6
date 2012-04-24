@@ -650,6 +650,24 @@ static SHOW_VAR innodb_status_variables[]= {
   {"purge_view_trx_id_age",
   (char*) &export_vars.innodb_purge_view_trx_id_age,      SHOW_LONG},
 #endif /* UNIV_DEBUG */
+  {"mutex_os_waits",
+  (char*) &export_vars.innodb_mutex_os_waits,		  SHOW_LONG},
+  {"mutex_spin_rounds",
+  (char*) &export_vars.innodb_mutex_spin_rounds,	  SHOW_LONG},
+  {"mutex_spin_waits",
+  (char*) &export_vars.innodb_mutex_spin_waits,		  SHOW_LONG},
+  {"rwlock_s_os_waits",
+  (char*) &export_vars.innodb_rwlock_s_os_waits,	  SHOW_LONG},
+  {"rwlock_s_spin_rounds",
+  (char*) &export_vars.innodb_rwlock_s_spin_rounds,	  SHOW_LONG},
+  {"rwlock_s_spin_waits",
+  (char*) &export_vars.innodb_rwlock_s_spin_waits,	  SHOW_LONG},
+  {"rwlock_x_os_waits",
+  (char*) &export_vars.innodb_rwlock_x_os_waits,	  SHOW_LONG},
+  {"rwlock_x_spin_rounds",
+  (char*) &export_vars.innodb_rwlock_x_spin_rounds,	  SHOW_LONG},
+  {"rwlock_x_spin_waits",
+  (char*) &export_vars.innodb_rwlock_x_spin_waits,	  SHOW_LONG},
   {NullS, NullS, SHOW_LONG}
 };
 

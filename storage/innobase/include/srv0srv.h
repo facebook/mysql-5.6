@@ -855,6 +855,16 @@ struct export_var_t{
 	ulint innodb_purge_view_trx_id_age;	/*!< rw_max_trx_id
 						- purged view's min trx_id */
 #endif /* UNIV_DEBUG */
+
+	ulint innodb_mutex_os_waits;		/*!< mutex_os_wait_count */
+	ulint innodb_mutex_spin_rounds;		/*!< mutex_spin_round_count */
+	ulint innodb_mutex_spin_waits;		/*!< mutex_spin_wait_count */
+	ulint innodb_rwlock_s_os_waits;		/*!< rw_s_os_wait_count */
+	ulint innodb_rwlock_s_spin_rounds;	/*!< rw_s_spin_round_count */
+	ulint innodb_rwlock_s_spin_waits;	/*!< rw_s_spin_wait_count */
+	ulint innodb_rwlock_x_os_waits;		/*!< rw_x_os_wait_count */
+	ulint innodb_rwlock_x_spin_rounds;	/*!< rw_x_spin_round_count */
+	ulint innodb_rwlock_x_spin_waits;	/*!< rw_x_spin_wait_count */
 };
 
 /** Thread slot in the thread table.  */
