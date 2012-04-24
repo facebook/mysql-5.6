@@ -3039,6 +3039,71 @@ extern "C" char *my_demangle(const char *mangled_name, int *status)
 }
 #endif
 
+const char *timer_in_use = "None";
+
+ulonglong my_timer_none(void)
+{
+  return 0;
+}
+ulonglong (*my_timer_now)(void) = &my_timer_none;
+
+struct my_timer_unit_info my_timer;
+
+/* Sets up the data required for use of my_timer_* functions.
+-Selects the best timer by high frequency, and tight resolution.
+-Points my_timer_now() to the selected timer function.
+-Initializes my_timer struct to contain the info for selected timer.
+-Sets Timer_in_use SHOW STATUS var to the name of the timer.
+*/
+void init_my_timer(void)
+{
+  MY_TIMER_INFO all_timer_info;
+  my_timer_init(&all_timer_info);
+
+  if (all_timer_info.cycles.frequency > 1000000 &&
+	all_timer_info.cycles.resolution == 1)
+  {
+    my_timer = all_timer_info.cycles;
+    my_timer_now = &my_timer_cycles;
+    timer_in_use = "Cycle";
+  }
+  else if (all_timer_info.nanoseconds.frequency > 1000000 &&
+	all_timer_info.nanoseconds.resolution == 1)
+  {
+    my_timer = all_timer_info.nanoseconds;
+    my_timer_now = &my_timer_nanoseconds;
+    timer_in_use = "Nanosecond";
+  }
+  else if (all_timer_info.microseconds.frequency >= 1000000 &&
+	all_timer_info.microseconds.resolution == 1)
+  {
+    my_timer = all_timer_info.microseconds;
+    my_timer_now = &my_timer_microseconds;
+    timer_in_use = "Microsecond";
+  }
+  else if (all_timer_info.milliseconds.frequency >= 1000 &&
+	all_timer_info.milliseconds.resolution == 1)
+  {
+    my_timer = all_timer_info.milliseconds;
+    my_timer_now = &my_timer_milliseconds;
+    timer_in_use = "Millisecond";
+  }
+  else if (all_timer_info.ticks.frequency >= 1000 &&
+	all_timer_info.ticks.resolution == 1)	/* Will probably be false */
+  {
+    my_timer = all_timer_info.ticks;
+    my_timer_now = &my_timer_ticks;
+    timer_in_use = "Tick";
+  }
+  else
+  {
+    /* None are acceptable, so leave it as "None", and fill in struct */
+    my_timer.frequency = 1;	/* Avoid div-by-zero */
+    my_timer.overhead = 0;	/* Since it doesn't do anything */
+    my_timer.resolution = 10;	/* Another sign it's bad */
+    my_timer.routine = 0;	/* None */
+  }
+}
 
 #if !defined(__WIN__)
 #ifndef SA_RESETHAND
@@ -5359,6 +5424,9 @@ int mysqld_main(int argc, char **argv)
   defaults_argv= argv;
   remaining_argc= argc;
   remaining_argv= argv;
+
+  /* Must be initialized early */
+  init_my_timer();
 
   /* Must be initialized early for comparison of options name */
   system_charset_info= &my_charset_utf8_general_ci;
@@ -8180,6 +8248,7 @@ SHOW_VAR status_vars[]= {
   {"Threads_connected",        (char*) &connection_count,       SHOW_INT},
   {"Threads_created",        (char*) &thread_created,   SHOW_LONG_NOFLUSH},
   {"Threads_running",          (char*) &num_thread_running,     SHOW_INT},
+  {"Timer_in_use",             (char*) &timer_in_use,           SHOW_CHAR_PTR},
   {"Total_queries_rejected",   (char*) &total_query_rejected,   SHOW_LONG},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},
 #ifdef ENABLED_PROFILING
