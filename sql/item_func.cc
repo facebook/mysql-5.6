@@ -5780,6 +5780,7 @@ void Item_func_get_system_var::fix_length_and_dec()
       fix_char_length(1);
       decimals=0;
       break;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       unsigned_flag= FALSE;
       decimals= 6;
@@ -5815,6 +5816,7 @@ enum Item_result Item_func_get_system_var::result_type() const
     case SHOW_CHAR_PTR: 
     case SHOW_LEX_STRING:
       return STRING_RESULT;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       return REAL_RESULT;
     default:
@@ -5835,6 +5837,7 @@ enum_field_types Item_func_get_system_var::field_type() const
     case SHOW_SIGNED_LONG:
     case SHOW_LONGLONG:
     case SHOW_HA_ROWS:
+    case SHOW_TIMER:
       return MYSQL_TYPE_LONGLONG;
     case SHOW_CHAR: 
     case SHOW_CHAR_PTR: 
@@ -5909,6 +5912,7 @@ longlong Item_func_get_system_var::val_int()
     case SHOW_HA_ROWS:  get_sys_var_safe (ha_rows);
     case SHOW_BOOL:     get_sys_var_safe (bool);
     case SHOW_MY_BOOL:  get_sys_var_safe (my_bool);
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       {
         double dval= val_real();
@@ -6015,6 +6019,7 @@ String* Item_func_get_system_var::val_str(String* str)
     case SHOW_MY_BOOL:
       str->set (val_int(), collation.collation);
       break;
+    case SHOW_TIMER:
     case SHOW_DOUBLE:
       str->set_real (val_real(), decimals, collation.collation);
       break;
@@ -6067,6 +6072,12 @@ double Item_func_get_system_var::val_real()
 
   switch (var->show_type())
   {
+    case SHOW_TIMER:
+      cached_dval= my_timer_to_seconds((ulonglong)(val_int()));
+      cache_present|= GET_SYS_VAR_CACHE_DOUBLE;
+      used_query_id= thd->query_id;
+      cached_null_value= null_value;
+      return cached_dval;
     case SHOW_DOUBLE:
       mysql_mutex_lock(&LOCK_global_system_variables);
       cached_dval= *(double*) var->value_ptr(thd, var_type, &component);
