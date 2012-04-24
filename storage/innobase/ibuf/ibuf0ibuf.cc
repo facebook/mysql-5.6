@@ -4422,7 +4422,8 @@ ibuf_delete_rec(
 		btr_cur_set_deleted_flag_for_ibuf(
 			btr_pcur_get_rec(pcur), NULL, TRUE, mtr);
 		ibuf_mtr_commit(mtr);
-		log_write_up_to(IB_ULONGLONG_MAX, LOG_WAIT_ALL_GROUPS, TRUE);
+		log_write_up_to(IB_ULONGLONG_MAX, LOG_WAIT_ALL_GROUPS, TRUE,
+				LOG_WRITE_FROM_DIRTY_BUFFER);
 		DBUG_SUICIDE();
 	}
 #endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
