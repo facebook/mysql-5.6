@@ -3168,7 +3168,7 @@ Execute_sql_statement::execute_server_code(THD *thd)
     a hash of that hash.
   */
   rewrite_query_if_needed(thd);
-  error= mysql_execute_command(thd) ;
+  error= mysql_execute_command(thd, NULL);
   thd->m_statement_psi= parent_locker;
 
   /* report error issued during command execution */
@@ -4012,7 +4012,7 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
       */
       rewrite_query_if_needed(thd);
 
-      error= mysql_execute_command(thd);
+      error= mysql_execute_command(thd, NULL);
       thd->m_statement_psi= parent_locker;
       MYSQL_QUERY_EXEC_DONE(error);
     }
