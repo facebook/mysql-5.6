@@ -3095,7 +3095,7 @@ Execute_sql_statement::execute_server_code(THD *thd)
 
   parent_locker= thd->m_statement_psi;
   thd->m_statement_psi= NULL;
-  error= mysql_execute_command(thd) ;
+  error= mysql_execute_command(thd, NULL);
   thd->m_statement_psi= parent_locker;
 
   /* report error issued during command execution */
@@ -3894,7 +3894,7 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
                              1);
       parent_locker= thd->m_statement_psi;
       thd->m_statement_psi= NULL;
-      error= mysql_execute_command(thd);
+      error= mysql_execute_command(thd, NULL);
       thd->m_statement_psi= parent_locker;
       MYSQL_QUERY_EXEC_DONE(error);
     }
