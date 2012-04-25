@@ -114,6 +114,9 @@ template bool valid_buffer_range<unsigned int>(unsigned int,
                                                const char*,
                                                unsigned int);
 
+/* Time executing SQL for replication */
+ulonglong command_slave_seconds = 0;
+
 /* 
    replication event checksum is introduced in the following "checksum-home" version.
    The checksum-aware servers extract FD's version to decide whether the FD event
@@ -4802,9 +4805,14 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         THD_STAGE_INFO(thd, stage_init);
         MYSQL_SET_STATEMENT_TEXT(thd->m_statement_psi, thd->query(), thd->query_length());
 
-        mysql_parse(thd, thd->query(), thd->query_length(), &parser_state);
+        ulonglong init_timer, last_timer;
+        init_timer = my_timer_now();
+        last_timer = init_timer;
+        mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
+		&last_timer);
         /* Finalize server status flags after executing a statement. */
         thd->update_server_status();
+        command_slave_seconds += my_timer_since(init_timer);
         log_slow_statement(thd);
       }
 
