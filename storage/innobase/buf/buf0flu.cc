@@ -978,7 +978,7 @@ buf_flush_write_block_low(
 	are working on. */
 	if (sync) {
 		ut_ad(flush_type == BUF_FLUSH_SINGLE_PAGE);
-		fil_flush(buf_page_get_space(bpage));
+		fil_flush(buf_page_get_space(bpage), FLUSH_FROM_OTHER);
 		buf_page_io_complete(bpage);
 	}
 
