@@ -118,6 +118,7 @@ static ulong commit_threads = 0;
 static mysql_cond_t commit_cond;
 static mysql_mutex_t commit_cond_m;
 static bool innodb_inited = 0;
+ulonglong innodb_records_in_range_time = 0;
 
 #define INSIDE_HA_INNOBASE_CC
 
@@ -673,6 +674,8 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_pages_read,		  SHOW_LONG},
   {"pages_written",
   (char*) &export_vars.innodb_pages_written,		  SHOW_LONG},
+  {"records_in_range_seconds",
+  (char*) &innodb_records_in_range_time,                  SHOW_TIMER},
   {"row_lock_current_waits",
   (char*) &export_vars.innodb_row_lock_current_waits,	  SHOW_LONG},
   {"row_lock_time",
@@ -10595,8 +10598,11 @@ ha_innobase::records_in_range(
 	ulint		mode1;
 	ulint		mode2;
 	mem_heap_t*	heap;
+	ulonglong	start_time;
 
 	DBUG_ENTER("records_in_range");
+
+	start_time = my_timer_now();
 
 	ut_a(prebuilt->trx == thd_to_trx(ha_thd()));
 
@@ -10698,6 +10704,8 @@ func_exit:
 	if (n_rows == 0) {
 		n_rows = 1;
 	}
+
+	innodb_records_in_range_time += my_timer_since(start_time);
 
 	DBUG_RETURN((ha_rows) n_rows);
 }
