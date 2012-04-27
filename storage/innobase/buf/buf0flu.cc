@@ -844,7 +844,7 @@ buf_flush_sync_datafiles(void)
 	os_aio_wait_until_no_pending_writes();
 
 	/* Now we flush the data to disk (for example, with fsync) */
-	fil_flush_file_spaces(FIL_TABLESPACE);
+	fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_DIRTY_BUFFER);
 
 	return;
 }
