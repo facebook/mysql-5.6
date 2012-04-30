@@ -213,6 +213,10 @@ extern ulint	os_n_file_reads;
 extern ulint	os_n_file_writes;
 extern ulint	os_n_fsyncs;
 
+/** Seconds waiting for file flushes to finish */
+extern ulonglong	os_file_flush_time;
+
+
 #ifdef UNIV_PFS_IO
 /* Keys to register InnoDB I/O with performance schema */
 extern mysql_pfs_key_t	innodb_file_data_key;
@@ -442,6 +446,18 @@ struct os_io_perf2_struct {
 	os_io_perf_t	write;
 };
 typedef struct os_io_perf2_struct os_io_perf2_t;
+
+/** Performance statistics for async reads */
+extern os_io_perf_t	os_async_read_perf;
+
+/** Performance statistics for async writes */
+extern os_io_perf_t	os_async_write_perf;
+
+/** Performance statistics for sync reads */
+extern os_io_perf_t	os_sync_read_perf;
+
+/** Performance statistics for sync writes */
+extern os_io_perf_t	os_sync_write_perf;
 
 /***************************************************************************
 Initialize an os_io_perf_t struct. */
