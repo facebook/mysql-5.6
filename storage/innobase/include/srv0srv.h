@@ -840,10 +840,23 @@ struct export_var_t{
 	ulint innodb_data_pending_writes;	/*!< Pending writes */
 	ulint innodb_data_pending_fsyncs;	/*!< Pending fsyncs */
 	ulint innodb_data_fsyncs;		/*!< Number of fsyncs so far */
+	ulonglong innodb_data_fsync_time;	/*!< Time performing fsync */
 	ulint innodb_data_read;			/*!< Data bytes read */
 	ulint innodb_data_writes;		/*!< I/O write requests */
 	ulint innodb_data_written;		/*!< Data bytes written */
 	ulint innodb_data_reads;		/*!< I/O read requests */
+	ulint innodb_data_async_read_bytes;	/*!< #bytes for async reads */
+	ulint innodb_data_async_read_requests;	/*!< #requests for async reads */
+	ulonglong innodb_data_async_read_svc_time;/*!< service time for async reads */
+	ulint innodb_data_sync_read_bytes;	/*!< #bytes for sync reads */
+	ulint innodb_data_sync_read_requests;	/*!< #requests for sync reads */
+	ulonglong innodb_data_sync_read_svc_time;/*!< service time for sync reads */
+	ulint innodb_data_async_write_bytes;	/*!< #bytes for async writes */
+	ulint innodb_data_async_write_requests;	/*!< #requests for async writes */
+	ulonglong innodb_data_async_write_svc_time;/*!< service time for async writes */
+	ulint innodb_data_sync_write_bytes;	/*!< #bytes for sync writes */
+	ulint innodb_data_sync_write_requests;	/*!< #requests for sync writes */
+	ulonglong innodb_data_sync_write_svc_time;/*!< service time for sync writes */
 	char  innodb_buffer_pool_dump_status[512];/*!< Buf pool dump status */
 	char  innodb_buffer_pool_load_status[512];/*!< Buf pool load status */
 	ulint innodb_buffer_pool_flushed_lru;	/*!< #pages flushed from LRU */
