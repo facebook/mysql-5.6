@@ -1,0 +1,16 @@
+-- source include/have_innodb.inc
+
+#
+# Nothing is checked here but this test should be run with --valgrind
+#
+let $r1 = query_get_value(SHOW STATUS, Value, 1);
+let $r2 = query_get_value(SHOW ENGINE INNODB MUTEX, Status, 1);
+#let $r3 = query_get_value(SHOW GLOBAL MUTEX STATUS, Sleeps, 1);
+let $r4 = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+let $r5 = query_get_value(SHOW ENGINE INNODB TRANSACTION STATUS, Status, 1);
+#let $r6 = query_get_value(SHOW INNODB FILE STATUS, Requests, 1);
+
+#
+# Must produce output
+#
+--echo Done
