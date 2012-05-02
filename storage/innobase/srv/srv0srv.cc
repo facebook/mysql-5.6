@@ -1266,13 +1266,10 @@ static void srv_refresh_innodb_monitor_stats(void) {
  @return false if not all information printed
  due to failure to obtain necessary mutex */
 ibool srv_printf_innodb_monitor(
-    FILE *file,           /*!< in: output stream */
-    ibool nowait,         /*!< in: whether to wait for the
-                          lock_sys_t:: mutex */
-    ulint *trx_start_pos, /*!< out: file position of the start of
-                          the list of active transactions */
-    ulint *trx_end)       /*!< out: file position of the end of
-                          the list of active transactions */
+    FILE *file,         /*!< in: output stream */
+    ibool nowait,       /*!< in: whether to wait for the
+                        lock_sys_t:: mutex */
+    ibool include_trxs) /*!< in: include per-transaction output */
 {
   ulint n_reserved;
   ibool ret;
@@ -1337,30 +1334,14 @@ ibool srv_printf_innodb_monitor(
   function acquires the lock mutex on success. */
   ret = lock_print_info_summary(file, nowait);
 
-  if (ret) {
-    if (trx_start_pos) {
-      long t = ftell(file);
-      if (t < 0) {
-        *trx_start_pos = ULINT_UNDEFINED;
-      } else {
-        *trx_start_pos = (ulint)t;
-      }
-    }
-
+  if (include_trxs && ret) {
     /* NOTE: If we get here then we have the lock mutex. This
     function will release the lock mutex that we acquired when
     we called the lock_print_info_summary() function earlier. */
 
     lock_print_info_all_transactions(file);
-
-    if (trx_end) {
-      long t = ftell(file);
-      if (t < 0) {
-        *trx_end = ULINT_UNDEFINED;
-      } else {
-        *trx_end = (ulint)t;
-      }
-    }
+  } else if (ret) {
+    lock_mutex_exit();
   }
 
   fputs(
@@ -1751,7 +1732,7 @@ loop:
       }
 
       if (!srv_printf_innodb_monitor(stderr, MUTEX_NOWAIT(mutex_skipped),
-                                     nullptr, nullptr)) {
+                                     TRUE)) {
         mutex_skipped++;
       } else {
         /* Reset the counter */
@@ -1768,8 +1749,7 @@ loop:
       mutex_enter(&srv_monitor_file_mutex);
       rewind(srv_monitor_file);
       if (!srv_printf_innodb_monitor(srv_monitor_file,
-                                     MUTEX_NOWAIT(mutex_skipped), nullptr,
-                                     nullptr)) {
+                                     MUTEX_NOWAIT(mutex_skipped), TRUE)) {
         mutex_skipped++;
       } else {
         mutex_skipped = 0;

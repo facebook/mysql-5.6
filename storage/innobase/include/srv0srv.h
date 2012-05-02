@@ -959,13 +959,10 @@ void srv_wake_master_thread(void);
  @return false if not all information printed
  due to failure to obtain necessary mutex */
 ibool srv_printf_innodb_monitor(
-    FILE *file,       /*!< in: output stream */
-    ibool nowait,     /*!< in: whether to wait for the
-                      lock_sys_t::mutex */
-    ulint *trx_start, /*!< out: file position of the start of
-                      the list of active transactions */
-    ulint *trx_end);  /*!< out: file position of the end of
-                      the list of active transactions */
+    FILE *file,          /*!< in: output stream */
+    ibool nowait,        /*!< in: whether to wait for the
+                         lock_sys_t::mutex */
+    ibool include_trxs); /*!< in: include per-transaction output */
 
 /** Function to pass InnoDB status variables to MySQL */
 void srv_export_innodb_status(void);
