@@ -1922,7 +1922,7 @@ lock_rec_enqueue_waiting(
 
 	trx_mutex_enter(trx);
 
-	if (victim_trx_id != 0) {
+	if (srv_deadlock_detect && victim_trx_id != 0) {
 
 		ut_ad(victim_trx_id == trx->id);
 

@@ -67,6 +67,9 @@ we could get a deadlock. Value of 0 will disable the concurrency check. */
 
 UNIV_INTERN ulong	srv_thread_concurrency	= 0;
 
+/* When != 0, detect deadlocks for row-lock waits */
+UNIV_INTERN my_bool	srv_deadlock_detect = 1;
+
 #ifndef HAVE_ATOMIC_BUILTINS
 
 /** This mutex protects srv_conc data structures */
