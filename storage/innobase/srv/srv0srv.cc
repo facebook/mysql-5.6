@@ -1318,26 +1318,22 @@ static void srv_refresh_innodb_monitor_stats(void) {
 Prints info summary and info about all transactions to the file, recording the
 position where the part about transactions starts.
 @param[in]    file            output stream
-@param[out]   trx_start_pos   file position of the start of the list of active
-                              transactions
 */
-static void srv_printf_locks_and_transactions(FILE *file,
-                                              ulint *trx_start_pos) {
+static void srv_printf_locks_and_transactions(FILE *file, ibool include_trxs) {
   ut_ad(locksys::owns_exclusive_global_latch());
   lock_print_info_summary(file);
-  if (trx_start_pos) {
-    long t = ftell(file);
-    if (t < 0) {
-      *trx_start_pos = ULINT_UNDEFINED;
-    } else {
-      *trx_start_pos = (ulint)t;
-    }
-  }
-  lock_print_info_all_transactions(file);
+  if (include_trxs) lock_print_info_all_transactions(file);
 }
 
-bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
-                               ulint *trx_end) {
+/** Outputs to a file the output of the InnoDB Monitor.
+ @return false if not all information printed
+ due to failure to obtain necessary mutex */
+ibool srv_printf_innodb_monitor(
+    FILE *file,         /*!< in: output stream */
+    ibool nowait,       /*!< in: whether to wait for the
+                        lock_sys_t:: mutex */
+    ibool include_trxs) /*!< in: include per-transaction output */
+{
   ulint n_reserved;
   ibool ret;
 
@@ -1402,27 +1398,14 @@ bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
   if (nowait) {
     locksys::Global_exclusive_try_latch guard{UT_LOCATION_HERE};
     if (guard.owns_lock()) {
-      srv_printf_locks_and_transactions(file, trx_start_pos);
+      srv_printf_locks_and_transactions(file, include_trxs);
     } else {
       fputs("FAIL TO OBTAIN LOCK MUTEX, SKIP LOCK INFO PRINTING\n", file);
       ret = false;
     }
   } else {
     locksys::Global_exclusive_latch_guard guard{UT_LOCATION_HERE};
-    srv_printf_locks_and_transactions(file, trx_start_pos);
-  }
-
-  if (ret) {
-    ut_ad(lock_validate());
-
-    if (trx_end) {
-      long t = ftell(file);
-      if (t < 0) {
-        *trx_end = ULINT_UNDEFINED;
-      } else {
-        *trx_end = (ulint)t;
-      }
-    }
+    srv_printf_locks_and_transactions(file, include_trxs);
   }
 
   fputs(
@@ -1815,7 +1798,7 @@ loop:
       }
 
       if (!srv_printf_innodb_monitor(stderr, MUTEX_NOWAIT(mutex_skipped),
-                                     nullptr, nullptr)) {
+                                     TRUE)) {
         mutex_skipped++;
       } else {
         /* Reset the counter */
@@ -1832,8 +1815,7 @@ loop:
       mutex_enter(&srv_monitor_file_mutex);
       rewind(srv_monitor_file);
       if (!srv_printf_innodb_monitor(srv_monitor_file,
-                                     MUTEX_NOWAIT(mutex_skipped), nullptr,
-                                     nullptr)) {
+                                     MUTEX_NOWAIT(mutex_skipped), TRUE)) {
         mutex_skipped++;
       } else {
         mutex_skipped = 0;
