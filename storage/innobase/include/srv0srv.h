@@ -724,10 +724,7 @@ srv_printf_innodb_monitor(
 	FILE*	file,		/*!< in: output stream */
 	ibool	nowait,		/*!< in: whether to wait for the
 				lock_sys_t::mutex */
-	ulint*	trx_start,	/*!< out: file position of the start of
-				the list of active transactions */
-	ulint*	trx_end);	/*!< out: file position of the end of
-				the list of active transactions */
+	ibool   include_trxs);	/*!< in: include per-transaction output */
 
 /******************************************************************//**
 Function to pass InnoDB status variables to MySQL */
