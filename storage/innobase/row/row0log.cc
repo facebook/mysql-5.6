@@ -937,7 +937,7 @@ copy_col:
 				len = btr_copy_externally_stored_field_prefix(
 					blob_field, field_len,
 					dict_table_zip_size(index->table),
-					field, len);
+					field, len, NULL);
 				if (len == max_len + 1) {
 					log->error = DB_TOO_BIG_INDEX_COL;
 					tuple = NULL;
@@ -1128,7 +1128,7 @@ row_log_table_apply_convert_mrec(
 			data = btr_rec_copy_externally_stored_field(
 				mrec, offsets,
 				dict_table_zip_size(index->table),
-				i, &len, heap);
+				i, &len, heap, NULL);
 			ut_a(data);
 		} else {
 			data = rec_get_nth_field(mrec, offsets, i, &len);

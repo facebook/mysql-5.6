@@ -1292,7 +1292,7 @@ row_ins_foreign_check_on_constraint(
 
 	row_mysql_freeze_data_dictionary(thr_get_trx(thr));
 
-	mtr_start(mtr);
+	mtr_start_trx(mtr, trx);
 
 	/* Restore pcur position */
 
@@ -1320,7 +1320,7 @@ nonstandard_exit_func:
 	btr_pcur_store_position(pcur, mtr);
 
 	mtr_commit(mtr);
-	mtr_start(mtr);
+	mtr_start_trx(mtr, trx);
 
 	btr_pcur_restore_position(BTR_SEARCH_LEAF, pcur, mtr);
 
@@ -1528,7 +1528,7 @@ run_again:
 		}
 	}
 
-	mtr_start(&mtr);
+	mtr_start_trx(&mtr, trx);
 
 	/* Store old value on n_fields_cmp */
 
@@ -2301,7 +2301,7 @@ row_ins_clust_index_entry_low(
 	      || n_uniq == dict_index_get_n_unique(index));
 	ut_ad(!n_uniq || n_uniq == dict_index_get_n_unique(index));
 
-	mtr_start(&mtr);
+	mtr_start_trx(&mtr, thr_get_trx(thr));
 
 	if (mode == BTR_MODIFY_LEAF && dict_index_is_online_ddl(index)) {
 		mode = BTR_MODIFY_LEAF | BTR_ALREADY_S_LATCHED;
@@ -2616,7 +2616,7 @@ row_ins_sec_index_entry_low(
 	the function will return in both low_match and up_match of the
 	cursor sensible values */
 
-	if (!thr_get_trx(thr)->check_unique_secondary) {
+	if (!(thr_get_trx(thr)->check_unique_secondary)) {
 		search_mode |= BTR_IGNORE_SEC_UNIQUE;
 	}
 
@@ -2754,6 +2754,10 @@ row_ins_sec_index_entry_low(
 	}
 
 func_exit:
+	if (err == DB_SUCCESS && (index->type & DICT_CLUSTERED) == 0) {
+		thr_get_trx(thr)->table_io_perf.index_inserts++;
+	}
+
 	mtr_commit(&mtr);
 	return(err);
 }

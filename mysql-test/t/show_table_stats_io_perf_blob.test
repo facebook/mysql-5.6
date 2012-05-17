@@ -1,0 +1,33 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+let $MYSQLD_DATADIR= `SELECT @@datadir`;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+--let $innodb_page_size = `SELECT @@innodb_page_size`
+
+CREATE TABLE t1 (a int not null primary key, b blob) engine=innodb;
+
+--replace_result $innodb_page_size PAGE_SIZE
+eval insert into t1 values (1, repeat("test", $innodb_page_size / 4));
+
+# Can't Clear innodb page cache, so restart mysqld to generate reads
+--source include/restart_mysqld.inc
+
+select count(*) from t1;
+
+--disable_result_log
+select * from t1 where a=1;
+--enable_result_log
+
+--replace_result $innodb_page_size PAGE_SIZE
+eval select 'should be 3,3,0,1,1,0',
+IO_READ_BYTES DIV $innodb_page_size, IO_READ_REQUESTS, IO_READ_OLD_IOS,
+IO_READ_BYTES_BLOB DIV $innodb_page_size, IO_READ_REQUESTS_BLOB,
+IO_READ_OLD_IOS_BLOB
+from information_schema.table_statistics where table_name like 't1%';
+
+drop table t1;

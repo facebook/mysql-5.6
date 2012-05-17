@@ -1988,7 +1988,10 @@ buf_block_try_discard_uncompressed(
 	bpage = buf_page_hash_get(buf_pool, space, offset);
 
 	if (bpage) {
-		buf_LRU_free_block(bpage, FALSE);
+		ibool	removed;
+		buf_LRU_free_block(bpage, FALSE, &removed);
+		if (removed)
+			fil_change_lru_count(bpage->space, -1);
 	}
 
 	buf_pool_mutex_exit(buf_pool);
@@ -2035,7 +2038,7 @@ lookup:
 		/* Page not in buf_pool: needs to be read from file */
 
 		ut_ad(!hash_lock);
-		buf_read_page(space, zip_size, offset);
+		buf_read_page(space, zip_size, offset, NULL);
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 		ut_a(++buf_dbg_counter % 37 || buf_validate());
@@ -2560,9 +2563,9 @@ loop:
 			return(NULL);
 		}
 
-		if (buf_read_page(space, zip_size, offset)) {
+		if (buf_read_page(space, zip_size, offset, mtr->trx)) {
 			buf_read_ahead_random(space, zip_size, offset,
-					      ibuf_inside(mtr));
+					      ibuf_inside(mtr), mtr->trx);
 
 			retries = 0;
 		} else if (retries < BUF_PAGE_READ_MAX_RETRIES) {
@@ -2798,6 +2801,8 @@ wait_until_unfixed:
 
 	if ((mode == BUF_GET_IF_IN_POOL || mode == BUF_GET_IF_IN_POOL_OR_WATCH)
 	    && (ibuf_debug || buf_debug_execute_is_force_flush())) {
+		ibool	removed;
+
 		/* Try to evict the block from the buffer pool, to use the
 		insert buffer (change buffer) as much as possible. */
 
@@ -2817,7 +2822,7 @@ wait_until_unfixed:
 		relocated or enter or exit the buf_pool while we
 		are holding the buf_pool->mutex. */
 
-		if (buf_LRU_free_block(&block->page, TRUE)) {
+		if (buf_LRU_free_block(&block->page, TRUE, &removed)) {
 			buf_pool_mutex_exit(buf_pool);
 			rw_lock_x_lock(hash_lock);
 
@@ -2935,7 +2940,7 @@ wait_until_unfixed:
 		read-ahead */
 
 		buf_read_ahead_linear(space, zip_size, offset,
-				      ibuf_inside(mtr));
+				      ibuf_inside(mtr), mtr->trx);
 	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
@@ -3053,7 +3058,7 @@ buf_page_optimistic_get(
 		buf_read_ahead_linear(buf_block_get_space(block),
 				      buf_block_get_zip_size(block),
 				      buf_block_get_page_no(block),
-				      ibuf_inside(mtr));
+				      ibuf_inside(mtr), mtr->trx);
 	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
@@ -3402,6 +3407,7 @@ buf_page_init_for_read(
 	ulint		fold;
 	ibool		lru	= FALSE;
 	void*		data;
+	ibool		added_to_lru = FALSE;
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 
 	ut_ad(buf_pool);
@@ -3477,6 +3483,7 @@ err_exit:
 
 		/* The block must be put to the LRU list, to the old blocks */
 		buf_LRU_add_block(bpage, TRUE/* to old blocks */);
+		added_to_lru = TRUE;
 
 		/* We set a pass-type x-lock on the frame because then
 		the same thread which called for the read operation
@@ -3594,6 +3601,8 @@ err_exit:
 		/* The block must be put to the LRU list, to the old blocks.
 		The zip_size is already set into the page zip */
 		buf_LRU_add_block(bpage, TRUE/* to old blocks */);
+		added_to_lru = TRUE;
+
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 		buf_LRU_insert_zip_clean(bpage);
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
@@ -3618,6 +3627,8 @@ func_exit:
 	ut_ad(!rw_lock_own(hash_lock, RW_LOCK_SHARED));
 #endif /* UNIV_SYNC_DEBUG */
 
+	if (added_to_lru)
+		fil_change_lru_count(space, 1);
 	ut_ad(!bpage || buf_page_in_file(bpage));
 	return(bpage);
 }
@@ -3771,6 +3782,9 @@ buf_page_create(
 	ut_a(ibuf_count_get(buf_block_get_space(block),
 			    buf_block_get_page_no(block)) == 0);
 #endif
+
+	fil_change_lru_count(space, 1);
+
 	return(block);
 }
 

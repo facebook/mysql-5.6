@@ -113,15 +113,19 @@ const char *ha_blackhole::index_type(uint key_number)
 int ha_blackhole::write_row(uchar * buf)
 {
   DBUG_ENTER("ha_blackhole::write_row");
-  DBUG_RETURN(table->next_number_field ? update_auto_increment() : 0);
+  int r= table->next_number_field ? update_auto_increment() : 0;
+  stats.rows_inserted += (r == 0);
+  DBUG_RETURN(r);
 }
 
 int ha_blackhole::update_row(const uchar *old_data, uchar *new_data)
 {
   DBUG_ENTER("ha_blackhole::update_row");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query() == NULL)
+  if (is_slave_applier(thd) && thd->query() == NULL) {
+    stats.rows_updated++;
     DBUG_RETURN(0);
+  }
   DBUG_RETURN(HA_ERR_WRONG_COMMAND);
 }
 
@@ -129,8 +133,10 @@ int ha_blackhole::delete_row(const uchar *buf)
 {
   DBUG_ENTER("ha_blackhole::delete_row");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query() == NULL)
+  if (is_slave_applier(thd) && thd->query() == NULL) {
+    stats.rows_deleted++;
     DBUG_RETURN(0);
+  }
   DBUG_RETURN(HA_ERR_WRONG_COMMAND);
 }
 

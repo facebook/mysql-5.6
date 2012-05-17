@@ -1,0 +1,16 @@
+drop table if exists renamed;
+create table renamed (id int, c char(200)) engine=innodb;
+insert into renamed values (0, 'Tim'), (1, 'Monty'), (2, 'David'), (3, 'Erik'), (4, 'Sasha'), (5, 'Jeremy'), (6, 'Matt');
+select table_schema, table_name, rows_inserted, queries_used from information_schema.table_statistics where table_name='renamed';
+table_schema	table_name	rows_inserted	queries_used
+test	renamed	7	1
+select table_schema, table_name, rows_inserted, queries_used from information_schema.table_statistics where table_name like '#sql%';
+table_schema	table_name	rows_inserted	queries_used
+Confirm that temp tablespace name is not reported after full-table rebuild
+alter table renamed add constraint pkey primary key (id);
+select table_schema, table_name, rows_inserted, queries_used from information_schema.table_statistics where table_name='renamed';
+table_schema	table_name	rows_inserted	queries_used
+test	renamed	7	1
+select table_schema, table_name, rows_inserted, queries_used from information_schema.table_statistics where table_name like '#sql%';
+table_schema	table_name	rows_inserted	queries_used
+drop table renamed;

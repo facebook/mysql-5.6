@@ -1,0 +1,80 @@
+--source include/have_innodb.inc
+--source include/have_innodb_16k.inc
+
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+--enable_warnings
+
+create table t1 (i int primary key) engine=innodb;
+
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+
+insert into t1 values (1);
+
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+
+select * from t1 order by i;
+
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+
+drop table t1;
+
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+
+create table t2 (i int primary key auto_increment) engine=innodb;
+insert into t2 values (1);
+
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+insert into t2 select NULL from t2;
+
+create table t3 key_block_size=8 engine=innodb as select * from t2;
+
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t2';
+
+delete from t2 limit 2000;
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t2';
+
+alter table t2 engine=innodb;
+select count(*) from t2;
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t2';
+
+truncate table t2;
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t2';
+
+--echo Test a compressed table
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t3';
+
+delete from t3 limit 2000;
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t3';
+
+truncate table t3;
+select innodb_buffer_pool_pages from information_schema.table_statistics
+where table_schema='test' and table_name='t3';
+
+drop table t2;
+drop table t3;

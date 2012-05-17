@@ -3511,7 +3511,8 @@ btr_estimate_n_rows_in_range(
 	const dtuple_t*	tuple1,	/*!< in: range start, may also be empty tuple */
 	ulint		mode1,	/*!< in: search mode for range start */
 	const dtuple_t*	tuple2,	/*!< in: range end, may also be empty tuple */
-	ulint		mode2)	/*!< in: search mode for range end */
+	ulint		mode2,	/*!< in: search mode for range end */
+	trx_t*		trx)	/*!< in: trx */
 {
 	btr_path_t	path1[BTR_PATH_ARRAY_N_SLOTS];
 	btr_path_t	path2[BTR_PATH_ARRAY_N_SLOTS];
@@ -3529,7 +3530,7 @@ btr_estimate_n_rows_in_range(
 
 	table_n_rows = dict_table_get_n_rows(index->table);
 
-	mtr_start(&mtr);
+	mtr_start_trx(&mtr, trx);
 
 	cursor.path_arr = path1;
 
@@ -3547,7 +3548,7 @@ btr_estimate_n_rows_in_range(
 
 	mtr_commit(&mtr);
 
-	mtr_start(&mtr);
+	mtr_start_trx(&mtr, trx);
 
 	cursor.path_arr = path2;
 
@@ -4235,6 +4236,7 @@ btr_blob_free(
 	buf_pool_t*	buf_pool = buf_pool_from_block(block);
 	ulint		space	= buf_block_get_space(block);
 	ulint		page_no	= buf_block_get_page_no(block);
+	ibool		removed = FALSE;
 
 	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
 
@@ -4250,16 +4252,19 @@ btr_blob_free(
 	    && buf_block_get_space(block) == space
 	    && buf_block_get_page_no(block) == page_no) {
 
-		if (!buf_LRU_free_block(&block->page, all)
+		if (!buf_LRU_free_block(&block->page, all, &removed)
 		    && all && block->page.zip.data) {
 			/* Attempt to deallocate the uncompressed page
 			if the whole block cannot be deallocted. */
 
-			buf_LRU_free_block(&block->page, FALSE);
+			buf_LRU_free_block(&block->page, FALSE, &removed);
 		}
 	}
 
 	buf_pool_mutex_exit(buf_pool);
+
+	if (removed)
+		fil_change_lru_count(space, -1);
 }
 
 /*******************************************************************//**
@@ -5092,7 +5097,8 @@ btr_copy_blob_prefix(
 	ulint		len,	/*!< in: length of buf, in bytes */
 	ulint		space_id,/*!< in: space id of the BLOB pages */
 	ulint		page_no,/*!< in: page number of the first BLOB page */
-	ulint		offset)	/*!< in: offset on the first BLOB page */
+	ulint		offset,	/*!< in: offset on the first BLOB page */
+	trx_t*		trx)	/*!< in: transaction handle */
 {
 	ulint	copied_len	= 0;
 
@@ -5104,7 +5110,7 @@ btr_copy_blob_prefix(
 		ulint		part_len;
 		ulint		copy_len;
 
-		mtr_start(&mtr);
+		mtr_start_trx(&mtr, trx);
 
 		block = buf_page_get(space_id, 0, page_no, RW_S_LATCH, &mtr);
 		buf_block_dbg_add_level(block, SYNC_EXTERN_STORAGE);
@@ -5311,7 +5317,8 @@ btr_copy_externally_stored_field_prefix_low(
 				zero for uncompressed BLOBs */
 	ulint		space_id,/*!< in: space id of the first BLOB page */
 	ulint		page_no,/*!< in: page number of the first BLOB page */
-	ulint		offset)	/*!< in: offset on the first BLOB page */
+	ulint		offset,	/*!< in: offset on the first BLOB page */
+	trx_t*		trx)	/*!< in: transaction handle */
 {
 	if (UNIV_UNLIKELY(len == 0)) {
 		return(0);
@@ -5322,7 +5329,7 @@ btr_copy_externally_stored_field_prefix_low(
 					     space_id, page_no, offset));
 	} else {
 		return(btr_copy_blob_prefix(buf, len, space_id,
-					    page_no, offset));
+					    page_no, offset, trx));
 	}
 }
 
@@ -5343,7 +5350,8 @@ btr_copy_externally_stored_field_prefix(
 				field containing also the reference to
 				the external part; must be protected by
 				a lock or a page latch */
-	ulint		local_len)/*!< in: length of data, in bytes */
+	ulint		local_len,/*!< in: length of data, in bytes */
+	trx_t*		trx)	/*!< in: transaction handle */
 {
 	ulint	space_id;
 	ulint	page_no;
@@ -5382,7 +5390,7 @@ btr_copy_externally_stored_field_prefix(
 							     len - local_len,
 							     zip_size,
 							     space_id, page_no,
-							     offset));
+							     offset, trx));
 }
 
 /*******************************************************************//**
@@ -5401,7 +5409,8 @@ btr_copy_externally_stored_field(
 	ulint		zip_size,/*!< in: nonzero=compressed BLOB page size,
 				zero for uncompressed BLOBs */
 	ulint		local_len,/*!< in: length of data */
-	mem_heap_t*	heap)	/*!< in: mem heap */
+	mem_heap_t*	heap,	/*!< in: mem heap */
+	trx_t*		trx)	/*!< in: transaction handle */
 {
 	ulint	space_id;
 	ulint	page_no;
@@ -5432,7 +5441,8 @@ btr_copy_externally_stored_field(
 							      extern_len,
 							      zip_size,
 							      space_id,
-							      page_no, offset);
+							      page_no, offset,
+							      trx);
 
 	return(buf);
 }
@@ -5451,7 +5461,8 @@ btr_rec_copy_externally_stored_field(
 				zero for uncompressed BLOBs */
 	ulint		no,	/*!< in: field number */
 	ulint*		len,	/*!< out: length of the field */
-	mem_heap_t*	heap)	/*!< in: mem heap */
+	mem_heap_t*	heap,	/*!< in: mem heap */
+	trx_t*		trx)	/*!< in: transaction handle */
 {
 	ulint		local_len;
 	const byte*	data;
@@ -5482,6 +5493,7 @@ btr_rec_copy_externally_stored_field(
 	}
 
 	return(btr_copy_externally_stored_field(len, data,
-						zip_size, local_len, heap));
+						zip_size, local_len, heap,
+						trx));
 }
 #endif /* !UNIV_HOTBACKUP */
