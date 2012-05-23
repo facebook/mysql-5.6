@@ -1652,7 +1652,7 @@ dict_create_add_foreigns_to_dictionary(
 
 	trx->op_info = "committing foreign key definitions";
 
-	trx_commit(trx);
+	trx_commit(trx, TRUE);
 
 	trx->op_info = "";
 
@@ -1828,7 +1828,7 @@ dict_create_add_tablespace_to_dictionary(
 
 	if (commit) {
 		trx->op_info = "committing tablespace and datafile definition";
-		trx_commit(trx);
+		trx_commit(trx, TRUE);
 	}
 
 	trx->op_info = "";

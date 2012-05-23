@@ -481,6 +481,18 @@ extern my_bool srv_print_all_deadlocks;
 
 extern my_bool	srv_cmp_per_index_enabled;
 
+/** Number of commits */
+extern ulint srv_n_commit_all;
+
+/** Number of commits for which undo was generated */
+extern ulint srv_n_commit_with_undo;
+
+/** Number of full rollbacks */
+extern ulint srv_n_rollback_total;
+
+/** Number of partial rollbacks */
+extern ulint srv_n_rollback_partial;
+
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 
@@ -968,6 +980,11 @@ struct export_var_t{
 	ulint innodb_log_sync_commit_sync;
 	ulint innodb_log_sync_flush_dirty;
 	ulint innodb_log_sync_other;
+
+	ulint innodb_trx_n_commit_all;		/*!< srv_n_commit_with_undo */
+	ulint innodb_trx_n_commit_with_undo;	/*!< srv_n_commit_with_undo */
+	ulint innodb_trx_n_rollback_partial;	/*!< srv_n_rollback_partial */
+	ulint innodb_trx_n_rollback_total;	/*!< srv_n_rollback_total */
 };
 
 /** Thread slot in the thread table.  */
