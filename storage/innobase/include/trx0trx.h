@@ -190,7 +190,8 @@ UNIV_INTERN
 void
 trx_commit(
 /*=======*/
-	trx_t*	trx);	/*!< in: transaction */
+	trx_t*	trx,		/*!< in: transaction */
+	ibool	for_commit);	/*!< in: for rollback when FALSE */
 /****************************************************************//**
 Cleans up a transaction at database startup. The cleanup is needed if
 the transaction already got to the middle of a commit when the database

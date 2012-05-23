@@ -656,7 +656,7 @@ ib_trx_commit(
 		return(err);
 	}
 
-	trx_commit(trx);
+	trx_commit(trx, TRUE);
 
 	err = ib_trx_release(ib_trx);
 	ut_a(err == DB_SUCCESS);

@@ -1,0 +1,102 @@
+#
+# Test Innodb deadlock and rollback counters
+#
+
+-- source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connect (a,localhost,root,,);
+connection default;
+
+create table t1(i int primary key) engine=innodb;
+insert into t1 values (1);
+
+#
+#
+#
+echo "Confirm Innodb_transaction_rollback_{partial,total} are incremented";
+
+begin;
+select * from t1 for update;
+
+connection a;
+
+begin;
+
+let $commit_all1 = query_get_value(show global status like "Innodb_transaction_commit_all", Value, 1);
+let $commit_undo1 = query_get_value(show global status like "Innodb_transaction_commit_with_undo", Value, 1);
+let $rollback_partial1 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
+let $rollback_total1 = query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
+
+--error ER_LOCK_WAIT_TIMEOUT
+update t1 set i=2 where i=1;
+rollback;
+
+let $commit_all2 = query_get_value(show global status like "Innodb_transaction_commit_all", Value, 1);
+let $commit_undo2 = query_get_value(show global status like "Innodb_transaction_commit_with_undo", Value, 1);
+let $rollback_partial2 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
+let $rollback_total2= query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
+
+--disable_query_log
+eval select $commit_all2 - $commit_all1 as "commit_all_diff";
+eval select $commit_undo2 - $commit_undo1 as "commit_undo_diff";
+eval select $rollback_total2 - $rollback_total1 as "rollback_total_diff";
+eval select $rollback_partial2 - $rollback_partial1 as "rollback_partial_diff";
+--enable_query_log
+
+#
+#
+#
+echo "Confirm Innodb_transaction_commit_{all,with_undo} are incremented";
+
+connection default;
+rollback;
+disconnect a;
+
+let $commit_all1 = query_get_value(show global status like "Innodb_transaction_commit_all", Value, 1);
+let $commit_undo1 = query_get_value(show global status like "Innodb_transaction_commit_with_undo", Value, 1);
+let $rollback_partial1 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
+let $rollback_total1 = query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
+
+update t1 set i=2 where i=1;
+
+let $commit_all2 = query_get_value(show global status like "Innodb_transaction_commit_all", Value, 1);
+let $commit_undo2 = query_get_value(show global status like "Innodb_transaction_commit_with_undo", Value, 1);
+let $rollback_partial2 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
+let $rollback_total2= query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
+
+--disable_query_log
+eval select $commit_all2 - $commit_all1 as "commit_all_diff";
+eval select $commit_undo2 - $commit_undo1 as "commit_undo_diff";
+eval select $rollback_total2 - $rollback_total1 as "rollback_total_diff";
+eval select $rollback_partial2 - $rollback_partial1 as "rollback_partial_diff";
+--enable_query_log
+
+#
+#
+#
+echo "Confirm readonly transactions increment Innodb_transaction_commit_all";
+
+let $commit_all1 = query_get_value(show global status like "Innodb_transaction_commit_all", Value, 1);
+let $commit_undo1 = query_get_value(show global status like "Innodb_transaction_commit_with_undo", Value, 1);
+let $rollback_partial1 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
+let $rollback_total1 = query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
+
+select * from t1;
+
+let $commit_all2 = query_get_value(show global status like "Innodb_transaction_commit_all", Value, 1);
+let $commit_undo2 = query_get_value(show global status like "Innodb_transaction_commit_with_undo", Value, 1);
+let $rollback_partial2 = query_get_value(show global status like "Innodb_transaction_rollback_partial", Value, 1);
+let $rollback_total2= query_get_value(show global status like "Innodb_transaction_rollback_total", Value, 1);
+
+--disable_query_log
+eval select $commit_all2 - $commit_all1 as "commit_all_diff";
+eval select $commit_undo2 - $commit_undo1 as "commit_undo_diff";
+eval select $rollback_total2 - $rollback_total1 as "rollback_total_diff";
+eval select $rollback_partial2 - $rollback_partial1 as "rollback_partial_diff";
+--enable_query_log
+
+drop table t1;

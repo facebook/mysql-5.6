@@ -880,6 +880,7 @@ trx_write_serialisation_history(
 	mutex_exit(&rseg->mutex);
 
 	MONITOR_INC(MONITOR_TRX_COMMIT_UNDO);
+	srv_n_commit_with_undo++;
 
 	/* Update the latest MySQL binlog name and offset info
 	in trx sys header if MySQL binlogging is on or the database
@@ -1049,7 +1050,8 @@ UNIV_INTERN
 void
 trx_commit(
 /*=======*/
-	trx_t*	trx)	/*!< in: transaction */
+	trx_t*	trx,		/*!< in: transaction */
+	ibool	for_commit)	/*!< in: for rollback when FALSE */
 {
 	trx_named_savept_t*	savep;
 	ib_uint64_t		lsn = 0;
@@ -1118,6 +1120,9 @@ trx_commit(
 		read_view_remove(trx->global_read_view, false);
 
 		MONITOR_INC(MONITOR_TRX_NL_RO_COMMIT);
+		if(for_commit) {
+			srv_n_commit_all++;
+		}
 	} else {
 		lock_trx_release_locks(trx);
 
@@ -1134,10 +1139,16 @@ trx_commit(
 			UT_LIST_REMOVE(trx_list, trx_sys->ro_trx_list, trx);
 			ut_d(trx->in_ro_trx_list = FALSE);
 			MONITOR_INC(MONITOR_TRX_RO_COMMIT);
+			if(for_commit) {
+				srv_n_commit_all++;
+			}
 		} else {
 			UT_LIST_REMOVE(trx_list, trx_sys->rw_trx_list, trx);
 			ut_d(trx->in_rw_trx_list = FALSE);
 			MONITOR_INC(MONITOR_TRX_RW_COMMIT);
+			if(for_commit) {
+				srv_n_commit_all++;
+			}
 		}
 
 		/* If this transaction came from trx_allocate_for_mysql(),
@@ -1413,7 +1424,7 @@ trx_commit_step(
 
 		trx->lock.que_state = TRX_QUE_COMMITTING;
 
-		trx_commit(trx);
+		trx_commit(trx, TRUE);
 
 		ut_ad(trx->lock.wait_thr == NULL);
 
@@ -1467,7 +1478,7 @@ trx_commit_for_mysql(
 	case TRX_STATE_ACTIVE:
 	case TRX_STATE_PREPARED:
 		trx->op_info = "committing";
-		trx_commit(trx);
+		trx_commit(trx, TRUE);
 		MONITOR_DEC(MONITOR_TRX_ACTIVE);
 		trx->op_info = "";
 		return(DB_SUCCESS);
