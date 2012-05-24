@@ -360,6 +360,7 @@ The following options may be given as the first argument:
  --log-slow-admin-statements 
  Log slow OPTIMIZE, ANALYZE, ALTER and other
  administrative statements to the slow log if it is open.
+ --log-slow-extra    Print more attributes to the slow query log
  --log-slow-slave-statements 
  Log slow statements executed by slave thread to the slow
  log if it is open.
@@ -1142,6 +1143,7 @@ log-raw FALSE
 log-short-format FALSE
 log-slave-updates FALSE
 log-slow-admin-statements FALSE
+log-slow-extra FALSE
 log-slow-slave-statements FALSE
 log-tc tc.log
 log-tc-size 24576
