@@ -572,6 +572,8 @@ Error_log_throttle err_log_throttle(Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
                                     " thread to handle new connection'"
                                     " error(s) suppressed");
 
+my_bool opt_log_slow_extra= FALSE;
+
 /**
   Limit of the total number of prepared statements in the server.
   Is necessary to protect the server against out-of-memory attacks.
@@ -7606,6 +7608,10 @@ struct my_option my_long_options[]=
    "Defines what password- and authentication algorithm to use per default",
    0, 0, 0,
    GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"log_slow_extra", OPT_LOG_SLOW_EXTRA,
+   "Print more attributes to the slow query log",
+   (uchar**) &opt_log_slow_extra, (uchar**) &opt_log_slow_extra,
+   0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -8479,6 +8485,8 @@ static int mysql_init_variables(void)
 #endif /* defined(ENABLED_DEBUG_SYNC) */
   key_map_full.set_all();
   server_uuid[0]= 0;
+
+  opt_log_slow_extra= FALSE;
 
   /* Character sets */
   system_charset_info= &my_charset_utf8_general_ci;
