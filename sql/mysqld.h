@@ -324,6 +324,8 @@ extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char default_logfile_name[FN_REFLEN];
 extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
 
+extern my_bool opt_log_slow_extra;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */
@@ -896,7 +898,8 @@ enum options_mysqld
   OPT_HOST_CACHE_SIZE,
   OPT_TABLE_DEFINITION_CACHE,
   OPT_AVOID_TEMPORAL_UPGRADE,
-  OPT_SHOW_OLD_TEMPORALS
+  OPT_SHOW_OLD_TEMPORALS,
+  OPT_LOG_SLOW_EXTRA,
 };
 
 
