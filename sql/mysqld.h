@@ -305,6 +305,8 @@ enum enum_binlog_error_action {
 };
 extern const char *binlog_error_action_list[];
 
+extern bool opt_log_slow_extra;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */

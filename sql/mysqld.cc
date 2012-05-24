@@ -1089,6 +1089,7 @@ bool thread_cache_size_specified = false;
 bool host_cache_size_specified = false;
 bool table_definition_cache_specified = false;
 ulong locked_account_connection_count = 0;
+bool opt_log_slow_extra = false;
 
 /**
   Limit of the total number of prepared statements in the server.
@@ -7563,6 +7564,9 @@ struct my_option my_long_options[] = {
      "specified by --plugin-load in an incremental way. "
      "Multiple --plugin-load-add are supported.",
      0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"log_slow_extra", OPT_LOG_SLOW_EXTRA,
+     "Print more attributes to the slow query log", &opt_log_slow_extra,
+     &opt_log_slow_extra, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 
     {"innodb", OPT_SKIP_INNODB,
      "Deprecated option. Provided for backward compatibility only. "
@@ -8702,6 +8706,8 @@ static int mysql_init_variables() {
   opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */
   server_uuid[0] = 0;
+
+  opt_log_slow_extra = FALSE;
 
   /* Character sets */
   system_charset_info = &my_charset_utf8_general_ci;
