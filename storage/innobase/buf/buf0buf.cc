@@ -5095,6 +5095,7 @@ buf_print_io_instance(
 		"Old database pages %lu\n"
 		"Modified db pages  %lu\n"
 		"Read ahead: %lu\n"
+		"Evicted after read ahead without access: %lu\n"
 		"Percent pages dirty: %.2f\n"
 		"Pending reads %lu\n"
 		"Pending writes: LRU %lu, flush list %lu single page %lu\n"
@@ -5106,6 +5107,7 @@ buf_print_io_instance(
 		pool_info->old_lru_len,
 		pool_info->flush_list_len,
 		pool_info->n_ra_pages_read,
+		pool_info->n_ra_pages_evicted,
 		(((double) pool_info->flush_list_len) /
 			(pool_info->lru_len + 1.0)) * 100.0,
 		pool_info->n_pend_reads,
