@@ -44,8 +44,13 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 
 #include "univ.i"                /*  include all of this */
 
+#define FLST_NODE_SIZE (2 * FIL_ADDR_SIZE)
+#define FSEG_PAGE_DATA FIL_PAGE_DATA
+
 #include "buf0checksum.h"        /* buf_calc_page_*() */
 #include "fil0fil.h"             /* FIL_* */
+#include "page0page.h"           /* PAGE_* */
+#include "trx0undo.h"            /* TRX_* */
 #include "fsp0fsp.h"             /* fsp_flags_get_page_size() &
                                     fsp_flags_get_zip_size() */
 #include "mach0data.h"           /* mach_read_from_4() */
@@ -60,6 +65,7 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 /* Global variables */
 static my_bool verbose;
 static my_bool debug;
+static my_bool skip_corrupt;
 static my_bool just_count;
 static ullint start_page;
 static ullint end_page;
@@ -69,6 +75,34 @@ static my_bool do_one_page;
 ulong srv_page_size;              /* replaces declaration in srv0srv.c */
 static ulong physical_page_size;  /* Page size in bytes on disk. */
 static ulong logical_page_size;   /* Page size when uncompressed. */
+
+int n_undo_state_active;
+int n_undo_state_cached;
+int n_undo_state_to_free;
+int n_undo_state_to_purge;
+int n_undo_state_prepared;
+int n_undo_state_other;
+int n_undo_insert, n_undo_update, n_undo_other;
+int n_bad_checksum;
+int n_fil_page_index;
+int n_fil_page_undo_log;
+int n_fil_page_inode;
+int n_fil_page_ibuf_free_list;
+int n_fil_page_allocated;
+int n_fil_page_ibuf_bitmap;
+int n_fil_page_type_sys;
+int n_fil_page_type_trx_sys;
+int n_fil_page_type_fsp_hdr;
+int n_fil_page_type_allocated;
+int n_fil_page_type_xdes;
+int n_fil_page_type_blob;
+int n_fil_page_type_zblob;
+int n_fil_page_type_other;
+
+int n_fil_page_max_index_id;
+
+#define MAX_INDEX_ID 10000000
+unsigned long long index_ids[MAX_INDEX_ID];
 
 /* Get the page size of the filespace from the filespace header. */
 static
@@ -199,6 +233,8 @@ static struct my_option innochecksum_options[] =
     &verbose, &verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"debug", 'd', "Debug mode (prints checksums for each page, implies verbose).",
     &debug, &debug, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"debug", 'u', "Skip corrupt pages.",
+    &skip_corrupt, &skip_corrupt, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"count", 'c', "Print the count of pages in the file.",
     &just_count, &just_count, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"start_page", 's', "Start on this page number (0 based).",
@@ -282,6 +318,136 @@ static int get_options(
   return 0;
 } /* get_options */
 
+/*********************************************************************//**
+Gets the file page type.
+@return type; NOTE that if the type has not been written to page, the
+return value not defined */
+ulint
+fil_page_get_type(
+/*==============*/
+       uchar*  page)   /*!< in: file page */
+{
+       return(mach_read_from_2(page + FIL_PAGE_TYPE));
+}
+
+/**************************************************************//**
+Gets the index id field of a page.
+@return        index id */
+ib_uint64_t
+btr_page_get_index_id(
+/*==================*/
+       uchar*  page)   /*!< in: index page */
+{
+       return(mach_read_from_8(page + PAGE_HEADER + PAGE_INDEX_ID));
+}
+
+void
+parse_page(
+/*=======*/
+       uchar* page) /* in: buffer page */
+{
+       ib_uint64_t id;
+       ulint x;
+
+       switch (fil_page_get_type(page)) {
+       case FIL_PAGE_INDEX:
+               n_fil_page_index++;
+               id = btr_page_get_index_id(page);
+               if (id < MAX_INDEX_ID)
+                       index_ids[id]++;
+               else
+                       n_fil_page_max_index_id++;
+               break;
+       case FIL_PAGE_UNDO_LOG:
+               n_fil_page_undo_log++;
+               x = mach_read_from_2(page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_TYPE);
+               if (x == TRX_UNDO_INSERT)
+                       n_undo_insert++;
+               else if (x == TRX_UNDO_UPDATE)
+                       n_undo_update++;
+               else
+                       n_undo_other++;
+
+               x = mach_read_from_2(page + TRX_UNDO_SEG_HDR + TRX_UNDO_STATE);
+               switch (x) {
+                       case TRX_UNDO_ACTIVE: n_undo_state_active++; break;
+                       case TRX_UNDO_CACHED: n_undo_state_cached++; break;
+                       case TRX_UNDO_TO_FREE: n_undo_state_to_free++; break;
+                       case TRX_UNDO_TO_PURGE: n_undo_state_to_purge++; break;
+                       case TRX_UNDO_PREPARED: n_undo_state_prepared++; break;
+                       default: n_undo_state_other++; break;
+               }
+               break;
+       case FIL_PAGE_INODE:
+               n_fil_page_inode++;
+               break;
+       case FIL_PAGE_IBUF_FREE_LIST:
+               n_fil_page_ibuf_free_list++;
+               break;
+       case FIL_PAGE_TYPE_ALLOCATED:
+               n_fil_page_type_allocated++;
+               break;
+       case FIL_PAGE_IBUF_BITMAP:
+               n_fil_page_ibuf_bitmap++;
+               break;
+       case FIL_PAGE_TYPE_SYS:
+               n_fil_page_type_sys++;
+               break;
+       case FIL_PAGE_TYPE_TRX_SYS:
+               n_fil_page_type_trx_sys++;
+               break;
+       case FIL_PAGE_TYPE_FSP_HDR:
+               n_fil_page_type_fsp_hdr++;
+               break;
+       case FIL_PAGE_TYPE_XDES:
+               n_fil_page_type_xdes++;
+               break;
+       case FIL_PAGE_TYPE_BLOB:
+               n_fil_page_type_blob++;
+               break;
+       case FIL_PAGE_TYPE_ZBLOB:
+       case FIL_PAGE_TYPE_ZBLOB2:
+               n_fil_page_type_zblob++;
+               break;
+       default:
+               n_fil_page_type_other++;
+       }
+}
+
+void
+print_stats()
+/*========*/
+{
+       unsigned long long i;
+
+       printf("%d\tbad checksum\n", n_bad_checksum);
+       printf("%d\tFIL_PAGE_INDEX\n", n_fil_page_index);
+       printf("%d\tFIL_PAGE_UNDO_LOG\n", n_fil_page_undo_log);
+       printf("%d\tFIL_PAGE_INODE\n", n_fil_page_inode);
+       printf("%d\tFIL_PAGE_IBUF_FREE_LIST\n", n_fil_page_ibuf_free_list);
+       printf("%d\tFIL_PAGE_TYPE_ALLOCATED\n", n_fil_page_type_allocated);
+       printf("%d\tFIL_PAGE_IBUF_BITMAP\n", n_fil_page_ibuf_bitmap);
+       printf("%d\tFIL_PAGE_TYPE_SYS\n", n_fil_page_type_sys);
+       printf("%d\tFIL_PAGE_TYPE_TRX_SYS\n", n_fil_page_type_trx_sys);
+       printf("%d\tFIL_PAGE_TYPE_FSP_HDR\n", n_fil_page_type_fsp_hdr);
+       printf("%d\tFIL_PAGE_TYPE_XDES\n", n_fil_page_type_xdes);
+       printf("%d\tFIL_PAGE_TYPE_BLOB\n", n_fil_page_type_blob);
+       printf("%d\tFIL_PAGE_TYPE_ZBLOB\n", n_fil_page_type_zblob);
+       printf("%d\tother\n", n_fil_page_type_other);
+       printf("%d\tmax index_id\n", n_fil_page_max_index_id);
+       printf("undo type: %d insert, %d update, %d other\n",
+               n_undo_insert, n_undo_update, n_undo_other);
+       printf("undo state: %d active, %d cached, %d to_free, %d to_purge,"
+               " %d prepared, %d other\n", n_undo_state_active,
+               n_undo_state_cached, n_undo_state_to_free,
+               n_undo_state_to_purge, n_undo_state_prepared, n_undo_state_other);
+
+       printf("#pages\tindex_id\n");
+       for (i=0; i < MAX_INDEX_ID; i++) {
+               if (index_ids[i])
+                       printf("%lld\t%lld\n", index_ids[i], i);
+       }
+}
 
 int main(int argc, char **argv)
 {
@@ -374,6 +540,14 @@ int main(int argc, char **argv)
       printf("InnoChecksum; checking pages in range %llu to %llu\n", start_page, use_end_page ? end_page : (pages - 1));
   }
 
+#ifdef UNIV_LINUX
+  if (posix_fadvise(fileno(f), 0, 0, POSIX_FADV_SEQUENTIAL) ||
+      posix_fadvise(fileno(f), 0, 0, POSIX_FADV_NOREUSE))
+  {
+    perror("posix_fadvise failed");
+  }
+#endif
+
   /* seek to the necessary position */
   if (start_page)
   {
@@ -395,9 +569,14 @@ int main(int argc, char **argv)
   lastt= 0;
   while (!feof(f))
   {
+    int page_ok = 1;
+
     bytes= ulong(fread(buf, 1, physical_page_size, f));
     if (!bytes && feof(f))
+    {
+      print_stats();
       return 0;
+    }
 
     if (ferror(f))
     {
@@ -408,6 +587,7 @@ int main(int argc, char **argv)
     if (bytes != physical_page_size)
     {
       fprintf(stderr, "Error; bytes read (%lu) doesn't match page size (%lu)\n", bytes, physical_page_size);
+      print_stats();
       return 1;
     }
 
@@ -419,7 +599,8 @@ int main(int argc, char **argv)
     if (logseq != logseqfield)
     {
       fprintf(stderr, "Fail; page %lu invalid (fails log sequence number check)\n", ct);
-      return 1;
+      if (!skip_corrupt) return 1;
+      page_ok = 0;
     }
 
     /* check old method of checksumming */
@@ -430,7 +611,8 @@ int main(int argc, char **argv)
     if (oldcsumfield != mach_read_from_4(buf + FIL_PAGE_LSN) && oldcsumfield != oldcsum)
     {
       fprintf(stderr, "Fail;  page %lu invalid (fails old style checksum)\n", ct);
-      return 1;
+      if (!skip_corrupt) return 1;
+      page_ok = 0;
     }
 
     /* now check the new method */
@@ -443,29 +625,44 @@ int main(int argc, char **argv)
     if (csumfield != 0 && crc32s.crc32c != csumfield && crc32s.crc32cfb != csumfield && csum != csumfield)
     {
       fprintf(stderr, "Fail; page %lu invalid (fails innodb and crc32 checksum)\n", ct);
-      return 1;
+      if (!skip_corrupt) return 1;
+      page_ok = 0;
     }
 
     /* end if this was the last page we were supposed to check */
     if (use_end_page && (ct >= end_page))
+    {
+      print_stats();
       return 0;
+    }
 
-    /* do counter increase and progress printing */
     ct++;
+
+    if (!page_ok)
+    {
+      n_bad_checksum++;
+      continue;
+    }
+
+    parse_page(buf);
+
+    /* progress printing */
     if (verbose)
     {
-      if (ct % 64 == 0)
+      if (ct % 10000 == 0)
       {
         now= time(0);
         if (!lastt) lastt= now;
         if (now - lastt >= 1)
         {
-          printf("page %lu okay: %.3f%% done\n", (ct - 1), (float) ct / pages * 100);
+          fprintf(stderr, "page %lu okay: %.3f%% done\n", (ct - 1), (float) ct / pages * 100);
           lastt= now;
         }
       }
     }
   }
+  print_stats();
+
   return 0;
 }
 
