@@ -66,10 +66,15 @@ of the address is FIL_NULL, the address is considered undefined. */
 
 typedef	byte	fil_faddr_t;	/*!< 'type' definition in C: an address
 				stored in a file page is a string of bytes */
+
+#endif /* !UNIV_INNOCHECKSUM */
+
 #define FIL_ADDR_PAGE	0	/* first in address is the page offset */
 #define	FIL_ADDR_BYTE	4	/* then comes 2-byte byte offset within page*/
 
 #define	FIL_ADDR_SIZE	6	/* address size is 6 bytes */
+
+#ifndef UNIV_INNOCHECKSUM
 
 /** File space address */
 struct fil_addr_t{
@@ -141,8 +146,6 @@ extern fil_addr_t	fil_addr_null;
 #define FIL_PAGE_DATA_END	8	/*!< size of the page trailer */
 /* @} */
 
-#ifndef UNIV_INNOCHECKSUM
-
 /** File page types (values of FIL_PAGE_TYPE) @{ */
 #define FIL_PAGE_INDEX		17855	/*!< B-tree node */
 #define FIL_PAGE_UNDO_LOG	2	/*!< Undo log page */
@@ -169,6 +172,8 @@ flushed pages. */
 #define FIL_TABLESPACE		501	/*!< tablespace */
 #define FIL_LOG			502	/*!< redo log */
 /* @} */
+
+#ifndef UNIV_INNOCHECKSUM
 
 /** The number of fsyncs done to the log */
 extern ulint	fil_n_log_flushes;
