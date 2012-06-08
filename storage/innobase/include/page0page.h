@@ -26,6 +26,7 @@ Created 2/2/1994 Heikki Tuuri
 #ifndef page0page_h
 #define page0page_h
 
+#ifndef UNIV_INNOCHECKSUM
 #include "univ.i"
 
 #include "page0types.h"
@@ -41,6 +42,8 @@ Created 2/2/1994 Heikki Tuuri
 #undef UNIV_INLINE
 #define UNIV_INLINE
 #endif
+
+#endif /* !UNIV_INNOCHECKSUM */
 
 /*			PAGE HEADER
 			===========
@@ -116,6 +119,8 @@ typedef	byte		page_header_t;
 				/* offset of the page supremum record end on
 				a new-style compact page */
 /*-----------------------------*/
+
+#ifndef UNIV_INNOCHECKSUM
 
 /* Heap numbers */
 #define PAGE_HEAP_NO_INFIMUM	0	/* page infimum */
@@ -1118,5 +1123,7 @@ page_find_rec_max_not_deleted(
 #ifndef UNIV_NONINL
 #include "page0page.ic"
 #endif
+
+#endif /* !UNIV_INNOCHECKSUM */
 
 #endif
