@@ -38,6 +38,8 @@
 #include "opt_trace.h"
 #include "sql_optimizer.h"              // JOIN
 
+#include "blind_fwrite.h"
+
 #include <algorithm>
 #include <utility>
 using std::max;
@@ -601,16 +603,15 @@ static void dbug_print_record(TABLE *table, bool print_rowid)
     Field *field=  *pfield;
 
     if (field->is_null())
-      fwrite("NULL", sizeof(char), 4, DBUG_FILE);
-   
+      blind_fwrite("NULL", sizeof(char), 4, DBUG_FILE);
     if (field->type() == MYSQL_TYPE_BIT)
       (void) field->val_int_as_str(&tmp, 1);
     else
       field->val_str(&tmp);
 
-    fwrite(tmp.ptr(),sizeof(char),tmp.length(),DBUG_FILE);
+    blind_fwrite(tmp.ptr(),sizeof(char),tmp.length(),DBUG_FILE);
     if (pfield[1])
-      fwrite(", ", sizeof(char), 2, DBUG_FILE);
+      blind_fwrite(", ", sizeof(char), 2, DBUG_FILE);
   }
   fprintf(DBUG_FILE, ")");
   if (print_rowid)
@@ -1029,7 +1030,7 @@ void make_sortkey(Sort_param *param, uchar *to, uchar *ref_pos)
         if (sort_field->need_strxnfrm)
         {
           char *from=(char*) res->ptr();
-          uint tmp_length;
+          uint DBUG_ONLY tmp_length;
           if ((uchar*) from == to)
           {
             set_if_smaller(length,sort_field->length);

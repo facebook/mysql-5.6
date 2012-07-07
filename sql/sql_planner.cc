@@ -324,6 +324,7 @@ public:
     }
   }
 
+#pragma GCC diagnostic ignored "-Wuninitialized"
   void save_to_position(JOIN_TAB *tab, POSITION *pos)
   {
     pos->read_time=       best_loose_scan_cost;
@@ -342,6 +343,7 @@ public:
                                                      "(range/index access)"));
     }
   }
+#pragma GCC diagnostic warning "-Wuninitialized"
 };
 
 
