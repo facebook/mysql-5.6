@@ -16547,7 +16547,10 @@ ib_senderrf(
 	str[size - 1] = 0x0;
 	vsnprintf(str, size, format, args);
 #elif HAVE_VASPRINTF
-	(void) vasprintf(&str, format, args);
+	if (vasprintf(&str, format, args))
+	{
+		/* Return value is ignored */
+	}
 #else
 	/* Use a fixed length string. */
 	str = static_cast<char*>(malloc(BUFSIZ));
@@ -16623,7 +16626,10 @@ ib_errf(
 	str[size - 1] = 0x0;
 	vsnprintf(str, size, format, args);
 #elif HAVE_VASPRINTF
-	(void) vasprintf(&str, format, args);
+	if (vasprintf(&str, format, args))
+	{
+		/* Return value is ignored */
+	}
 #else
 	/* Use a fixed length string. */
 	str = static_cast<char*>(malloc(BUFSIZ));
@@ -16657,7 +16663,10 @@ ib_logf(
 	str[size - 1] = 0x0;
 	vsnprintf(str, size, format, args);
 #elif HAVE_VASPRINTF
-	(void) vasprintf(&str, format, args);
+	if (vasprintf(&str, format, args))
+	{
+		/* Return value is ignored */
+	}
 #else
 	/* Use a fixed length string. */
 	str = static_cast<char*>(malloc(BUFSIZ));
