@@ -54,7 +54,6 @@
 #include "sql_servers.h"  // servers_free, servers_init
 #include "init.h"         // unireg_init
 #include "derror.h"       // init_errmessage
-#include "derror.h"       // init_errmessage
 #include "des_key_file.h" // load_des_key_file
 #include "sql_manager.h"  // stop_handle_manager, start_handle_manager
 #include <m_ctype.h>
@@ -2297,7 +2296,7 @@ void clean_up(bool print_message)
   MYSQL_CALLBACK(thread_scheduler, end, ());
   mysql_client_plugin_deinit();
   finish_client_errs();
-  (void) my_error_unregister(ER_ERROR_FIRST, ER_ERROR_LAST); // finish server errs
+  deinit_errmessage(); // finish server errs
   DBUG_PRINT("quit", ("Error messages freed"));
   /* Tell main we are ready */
   logger.cleanup_end();
@@ -5902,8 +5901,11 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     unireg_abort(0);
 
   /* if the errmsg.sys is not loaded, terminate to maintain behaviour */
-  if (!DEFAULT_ERRMSGS[0][0])
+  if (!my_default_lc_messages->errmsgs->is_loaded())
+  {
+    sql_print_error("Unable to read errmsg.sys file");
     unireg_abort(1);
+  }
 
   /* We have to initialize the storage engines before CSV logging */
   if (ha_init())
@@ -10572,7 +10574,7 @@ static int mysql_init_variables(void)
   table_alias_charset= &my_charset_bin;
   character_set_filesystem= &my_charset_bin;
 
-  opt_specialflag= SPECIAL_ENGLISH;
+  opt_specialflag= 0;
   unix_sock= MYSQL_INVALID_SOCKET;
   ip_sock= MYSQL_INVALID_SOCKET;
   admin_ip_sock = MYSQL_INVALID_SOCKET;
