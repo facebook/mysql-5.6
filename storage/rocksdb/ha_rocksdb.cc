@@ -174,7 +174,7 @@ static Rdb_background_thread rdb_bg_thread;
 // collation check requirement.
 Regex_list_handler *rdb_collation_exceptions;
 
-static const char **rdb_get_error_messages();
+static const char *rdb_get_error_message(int nr);
 
 static void rocksdb_flush_all_memtables() {
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
@@ -3983,7 +3983,7 @@ static int rocksdb_init_func(void *const p) {
   }
 #endif
 
-  err = my_error_register(rdb_get_error_messages, HA_ERR_ROCKSDB_FIRST,
+  err = my_error_register(rdb_get_error_message, HA_ERR_ROCKSDB_FIRST,
                           HA_ERR_ROCKSDB_LAST);
   if (err != 0) {
     // NO_LINT_DEBUG
@@ -5467,7 +5467,9 @@ static_assert((sizeof(rdb_error_messages) / sizeof(rdb_error_messages[0])) ==
                   ((HA_ERR_ROCKSDB_LAST - HA_ERR_ROCKSDB_FIRST) + 1),
               "Number of error messages doesn't match number of error codes");
 
-static const char **rdb_get_error_messages() { return rdb_error_messages; }
+static const char *rdb_get_error_message(int nr) {
+  return rdb_error_messages[nr - HA_ERR_ROCKSDB_FIRST];
+}
 
 bool ha_rocksdb::get_error_message(const int error, String *const buf) {
   DBUG_ENTER_FUNC();
