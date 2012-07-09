@@ -1,16 +1,16 @@
 #include "sql_base.h"
 #include "sql_show.h"
 #include "my_atomic.h"
+#include "my_stacktrace.h"
 #include "mysqld.h"
 #include "errmsg.h"
 #include <mysqld_error.h> // error names
 #include <utility>
 
-// The max value of a system/user error is CR_MAX_ERROR
-const uint array_size = CR_MAX_ERROR+1;
+static const uint num_sections = array_elements(errmsg_section_size);
 
 typedef std::pair<ulonglong, atomic_stat<ulonglong>> time_counter_pair;
-time_counter_pair global_error_stats[array_size];
+time_counter_pair global_error_stats[errmsg_total_count+1];
 
 /* List of error names and error codes */
 typedef struct
@@ -20,45 +20,55 @@ typedef struct
   const char *text;
 } st_error;
 
-static st_error error_names[] =
+static const st_error error_names[] =
 {
   { "ER_CUSTOM", 0, "" }, //use 0 slot since system errors should be > 0
 #include <mysqld_ername.h>
-  { 0, 0, 0 }
 };
 
-const char* global_error_names[array_size];
+static_assert(array_elements(error_names) == errmsg_total_count + 1,
+              "error_names and errmsg_total_count out of sync");
 
 void init_global_error_stats(void)
 {
-  memset(global_error_names, 0, sizeof(const char*)*array_size);
-  st_error *pst = error_names;
-  while (pst->name) {
-    DBUG_ASSERT(pst->code < array_size);
-
-    if (pst->code < array_size) {
-      global_error_names[pst->code] = pst->name;
+  // Checks that error_names array is well-formed.
+  uint k = 1;
+  for (uint i = 0; i < num_sections; i++) {
+    for (uint j = 0; j < (uint)errmsg_section_size[i]; j++) {
+      if (k >= array_elements(error_names) ||
+          error_names[k].code != errmsg_section_start[i] + j) {
+        abort_with_stack_traces();
+      }
+      k++;
     }
-
-    ++pst;
   }
 }
 
 void reset_global_error_stats(void)
 {
-  memset(global_error_stats, 0, sizeof(time_counter_pair)*array_size);
+  memset(global_error_stats, 0, sizeof(global_error_stats));
 }
 
 void update_error_stats(uint error)
 {
-  // If an error is larger than system max error,
-  // or we don't have an error symbol (system errors are not all contiguous),
-  // it is a custom error. We put it in the 0th slot.
-  if (error >= array_size || !global_error_names[error]) {
-    error = 0; // custom error all goes to the first slot
+  uint offset = 1;
+  for (uint i = 0; i < num_sections; i++) {
+    if (error >= (uint)errmsg_section_start[i] &&
+        error < (uint)errmsg_section_start[i] + errmsg_section_size[i]) {
+      offset += (error - errmsg_section_start[i]);
+      break;
+    } else {
+      offset += errmsg_section_size[i];
+    }
   }
 
-  time_counter_pair &tc = global_error_stats[error];
+  // If error is not known, then it is a custom error. Put it in the 0th slot.
+  DBUG_ASSERT(offset <= array_elements(error_names));
+  if (offset >= array_elements(error_names)) {
+    offset = 0;
+  }
+
+  time_counter_pair &tc = global_error_stats[offset];
   tc.first = my_getsystime();
   tc.second.inc();
 }
@@ -70,7 +80,7 @@ int fill_error_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   unsigned f;
   const char *err_name = NULL;
 
-  for (uint error = 0; error < array_size; ++error) {
+  for (uint error = 0; error < array_elements(global_error_stats); ++error) {
     time_counter_pair &stat = global_error_stats[error];
     if (!stat.first) {
       continue;
@@ -79,9 +89,9 @@ int fill_error_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     restore_record(table, s->default_values);
     f = 0;
 
-    table->field[f++]->store(error);
+    table->field[f++]->store(error_names[error].code);
 
-    err_name = global_error_names[error];
+    err_name = error_names[error].name;
     if (!err_name) {
       DBUG_RETURN(-1);
     }

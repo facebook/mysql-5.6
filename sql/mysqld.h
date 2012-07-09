@@ -1587,5 +1587,6 @@ extern const char *MY_BIND_ALL_ADDRESSES;
 */
 uint32 my_sbox_hash(const uchar* data, ulong length);
 
+#define ER(X)         ER_THD(current_thd,X)
 
 #endif /* MYSQLD_INCLUDED */

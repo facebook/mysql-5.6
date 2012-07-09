@@ -31,7 +31,6 @@ typedef struct st_ha_create_information HA_CREATE_INFO;
 /* These paths are converted to other systems (WIN95) before use */
 
 #define LANGUAGE	"english/"
-#define ERRMSG_FILE	"errmsg.sys"
 #define TEMP_PREFIX	"MY"
 #define LOG_PREFIX	"ML"
 #define PROGDIR		"bin/"
@@ -52,11 +51,6 @@ typedef struct st_ha_create_information HA_CREATE_INFO;
 #define CURRENT_THD_ERRMSGS DEFAULT_ERRMSGS
 #endif
 
-#define ER(X)         CURRENT_THD_ERRMSGS[(X) - ER_ERROR_FIRST]
-#define ER_DEFAULT(X) DEFAULT_ERRMSGS[(X) - ER_ERROR_FIRST]
-#define ER_SAFE(X) (((X) >= ER_ERROR_FIRST && (X) <= ER_ERROR_LAST) ? ER(X) : "Invalid error code")
-#define ER_THD(thd,X) ((thd)->variables.lc_messages->errmsgs->errmsgs[(X) - \
-                       ER_ERROR_FIRST])
 #define ER_THD_OR_DEFAULT(thd,X) ((thd) ? ER_THD(thd, X) : ER_DEFAULT(X))
 
 

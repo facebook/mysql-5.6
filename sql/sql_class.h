@@ -40,6 +40,7 @@
 #include "violite.h"              /* vio_is_connected */
 #include "thr_lock.h"             /* thr_lock_type, THR_LOCK_DATA,
                                      THR_LOCK_INFO */
+#include "derror.h"                       // ER_THD
 #include "opt_trace_context.h"    /* Opt_trace_context */
 #include "rpl_gtid.h"
 #include "session_tracker.h"              // Session_tracker
