@@ -1,0 +1,35 @@
+drop table if exists userstats;
+create table userstats (i int primary key, j int) engine=innodb;
+flush statistics;
+
+At start
+
+select transactions_commit, transactions_rollback from information_schema.user_statistics where user_name = 'root';;
+transactions_commit	0
+transactions_rollback	0
+insert into userstats values (1,1);
+
+1 autocommit
+
+select transactions_commit, transactions_rollback from information_schema.user_statistics where user_name = 'root';;
+transactions_commit	1
+transactions_rollback	0
+begin;
+insert into userstats values (2,2);
+commit;
+
+1 commit
+
+select transactions_commit, transactions_rollback from information_schema.user_statistics where user_name = 'root';;
+transactions_commit	2
+transactions_rollback	0
+begin;
+insert into userstats values (3,3);
+rollback;
+
+1 rollback
+
+select transactions_commit, transactions_rollback from information_schema.user_statistics where user_name = 'root';;
+transactions_commit	2
+transactions_rollback	1
+drop table userstats;

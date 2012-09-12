@@ -1,0 +1,162 @@
+drop table if exists userstats;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	0
+create table userstats (i int, j int, key ix(i)) engine=innodb;
+insert into userstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+
+At start
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	0
+select * from userstats where i=0;
+i	j
+select * from userstats where i=1;
+i	j
+1	1
+select * from userstats where i=2;
+i	j
+2	2
+select * from userstats where i=7;
+i	j
+
+After 2 good and 2 failed equality search: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	2
+select * from userstats where i < 0;
+i	j
+select * from userstats where i < 1;
+i	j
+
+After 2 failed less than search: rows_read doesn't change cause only the index is scaned
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	2
+select * from userstats where i < 2;
+i	j
+1	1
+
+After search that gets 1 row: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	3
+select * from userstats where i < 3;
+i	j
+1	1
+2	2
+
+After search that gets 2 rows: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	5
+select * from userstats where i <= 0;
+i	j
+
+After 1 failed less than or equal search: rows_read doesn't change cause only the index is scaned
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	5
+select * from userstats where i <= 1;
+i	j
+1	1
+
+After less than or equal search that gets 1 row: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	6
+select * from userstats where i <= 2;
+i	j
+1	1
+2	2
+
+After less than or equal search that gets 2 rows: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	8
+select * from userstats where i > 5;
+i	j
+
+After 1 failed greater than search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	8
+select * from userstats where i > 6;
+i	j
+
+After 1 failed greater than search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	8
+select * from userstats where i > 3;
+i	j
+4	4
+5	5
+
+After greater than search that gets 2 rows: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	10
+select * from userstats where i >= 6;
+i	j
+
+After 1 failed greater than or equal search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	10
+select * from userstats where i >= 5;
+i	j
+5	5
+
+After greater than or equal search: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	11
+drop table userstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;

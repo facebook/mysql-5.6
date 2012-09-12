@@ -210,6 +210,84 @@ typedef struct user_resources {
   uint specified_limits;
 } USER_RESOURCES;
 
+#define USER_STATS_MAGIC 0x17171717
+
+/** Counts resources consumed per-user.
+    Data is exported via IS.user_statistics.
+*/
+typedef struct st_user_stats {
+  my_io_perf_t     io_perf_read;
+  my_io_perf_t     io_perf_read_blob;
+  ulonglong bytes_received;
+  ulonglong bytes_sent;
+  ulonglong binlog_bytes_written;
+  ulonglong commands_ddl;
+  ulonglong commands_delete;
+  ulonglong commands_handler;
+  ulonglong commands_insert;
+  ulonglong commands_other;
+  ulonglong commands_select;
+  ulonglong commands_transaction;
+  ulonglong commands_update;
+  ulonglong connections_denied_max_global; // global limit exceeded
+  ulonglong connections_denied_max_user;   // per user limit exceeded
+  ulonglong connections_lost;              // closed on error
+  ulonglong connections_total;             // total conns created
+  ulonglong errors_access_denied;          // denied access to table or db
+  ulonglong errors_total;
+  ulonglong microseconds_cpu;
+  ulonglong microseconds_records_in_range;
+  ulonglong microseconds_wall;
+  ulonglong microseconds_ddl;
+  ulonglong microseconds_delete;
+  ulonglong microseconds_handler;
+  ulonglong microseconds_insert;
+  ulonglong microseconds_other;
+  ulonglong microseconds_select;
+  ulonglong microseconds_transaction;
+  ulonglong microseconds_update;
+  ulonglong queries_empty;
+  ulonglong records_in_range_calls;
+  ulonglong rows_deleted;
+  ulonglong rows_fetched;
+  ulonglong rows_inserted;
+  ulonglong rows_read;
+  ulonglong rows_updated;
+
+  /* see variables of same name in ha_statistics */
+  ulonglong volatile rows_index_first;
+  ulonglong volatile rows_index_next;
+
+  ulonglong transactions_commit;
+  ulonglong transactions_rollback;
+
+  uint magic;
+
+  /* TODO(mcallaghan) -- failed_queries, disk IO, parse and records_in_range
+     seconds, slow queries. I also want to count connections that fail
+     authentication but the hash_user_connections key is (user,host) and when
+     auth fails you know which user/host the login provided but you don't know
+     which pair it wanted to use. Read the docs for how auth uses mysql.user
+     table for more details. When auth failure occurs mysqld doesn't have
+     a referenced to a USER_STATS entry. This probably requires another hash
+     table keyed only by the login name.
+     Others:
+       errors_lock_wait_timeout, errors_deadlock
+       queries_slow
+  */
+} USER_STATS;
+
+/*
+   Hack to provide stats for SQL replication slave as THD::user_connect is
+   not set for it. See get_user_stats.
+*/
+extern USER_STATS slave_user_stats;
+
+/*
+   Hack to provide stats for anything that doesn't have THD::user_connect except
+   the SQL slave.  See get_user_stats.
+*/
+extern USER_STATS other_user_stats;
 
 /*
   This structure is used for counting resources consumed and for checking
@@ -239,8 +317,21 @@ typedef struct  user_conn {
      per hour and total number of statements per hour for this account.
   */
   uint conn_per_hour, updates, questions;
+
+  /* Tracking variables for admission control.  Tracks the number of
+   * running and waiting queries.  */
+  volatile int32    queries_running; /* changed by atomic inc */
+  volatile int32    queries_waiting; /* protected by query_mutex */
+
+  volatile int32    tx_slots_inuse; /* changed by atomic inc */
+
   /* Maximum amount of resources which account is allowed to consume. */
   USER_RESOURCES user_resources;
+  /*
+    Counts resources consumed for this user.
+    Use thd_get_user_stats(THD*) rather than USER_CONN::user_stats directly
+  */
+  USER_STATS user_stats;
 } USER_CONN;
 
 typedef struct st_table_stats {

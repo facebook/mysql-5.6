@@ -1,0 +1,32 @@
+drop table if exists userstats;
+create table userstats (i int primary key, j int) engine=innodb;
+flush statistics;
+
+At start
+
+select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
+binlog_bytes_written	79
+insert into userstats values (1,1);
+
+after insert
+
+select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
+binlog_bytes_written	285
+begin;
+insert into userstats values (2,2);
+commit;
+
+after begin, insert, commit
+
+select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
+binlog_bytes_written	491
+select * from userstats;
+i	j
+1	1
+2	2
+
+after select
+
+select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
+binlog_bytes_written	491
+drop table userstats;
