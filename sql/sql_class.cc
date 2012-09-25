@@ -3856,7 +3856,8 @@ void Log_throttle::new_window(ulonglong now)
 
 Log_throttle::Log_throttle(ulong *threshold, mysql_mutex_t *lock,
                            ulong window_usecs,
-                           bool (*logger)(THD *, const char *, uint),
+                           bool (*logger)(THD *, const char *, uint,
+                                          struct system_status_var *),
                            const char *msg)
   :total_exec_time(0), total_lock_time(0), window_end(0),
    rate(threshold),
@@ -3907,7 +3908,7 @@ void Log_throttle::print_summary(THD *thd, ulong suppressed,
   thd->security_ctx=               (Security_context *) &aggregate_sctx;
   mysql_mutex_unlock(&thd->LOCK_thd_data);
 
-  (*log_summary)(thd, buf, strlen(buf));
+  (*log_summary)(thd, buf, strlen(buf), NULL);
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
   thd->security_ctx    = save_sctx;
