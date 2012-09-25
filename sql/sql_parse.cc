@@ -1275,9 +1275,17 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   my_io_perf_t start_perf_read, start_perf_read_blob;
   my_io_perf_t start_perf_read_primary, start_perf_read_secondary;
   my_bool async_commit = FALSE;
+  /* For per-query performance counters with log_slow_statement */
+  struct system_status_var query_start_status;
+  struct system_status_var *query_start_status_ptr= NULL;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
+  if (opt_log_slow_extra)
+  {
+    query_start_status_ptr= &query_start_status;
+    query_start_status= thd->status_var;
+  }
   init_timer = my_timer_now();
   last_timer = init_timer;
 
@@ -1510,7 +1518,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
       ulong length= (ulong)(packet_end - beginning_of_next_stmt);
 
-      log_slow_statement(thd);
+      log_slow_statement(thd, query_start_status_ptr);
+      if (query_start_status_ptr)
+      {
+        /* Reset for values at start of next statement */
+        query_start_status= thd->status_var;
+      }
 
       /* Remove garbage at start of query */
       while (length > 0 && my_isspace(thd->charset(), *beginning_of_next_stmt))
@@ -1693,6 +1706,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   }
 #endif
   case COM_QUIT:
+    /* Reset examined row count so this command will not be logged accidentally
+       if slow_log_if_rows_examined_exceed is set.*/
+    thd->set_examined_row_count(0);
+    thd->set_sent_row_count(0);
     /* We don't calculate statistics for this command */
     general_log_print(thd, command, NullS);
     net->error=0;				// Don't give 'abort' message
@@ -1930,7 +1947,7 @@ done:
                       thd->get_stmt_da()->sql_errno() : 0,
                       command_name[command].str);
 
-  log_slow_statement(thd);
+  log_slow_statement(thd, query_start_status_ptr);
 
   THD_STAGE_INFO(thd, stage_cleaning_up);
 
@@ -2053,7 +2070,7 @@ bool log_slow_applicable(THD *thd)
   @param thd              thread handle
 */
 
-void log_slow_do(THD *thd)
+void log_slow_do(THD *thd, struct system_status_var* query_start_status)
 {
   DBUG_ENTER("log_slow_do");
 
@@ -2063,9 +2080,11 @@ void log_slow_do(THD *thd)
   if (thd->rewritten_query.length())
     slow_log_print(thd,
                    thd->rewritten_query.c_ptr_safe(),
-                   thd->rewritten_query.length());
+                   thd->rewritten_query.length(),
+                   query_start_status);
   else
-    slow_log_print(thd, thd->query(), thd->query_length());
+    slow_log_print(thd, thd->query(), thd->query_length(),
+                   query_start_status);
 
   DBUG_VOID_RETURN;
 }
@@ -2084,12 +2103,12 @@ void log_slow_do(THD *thd)
   @param thd              thread handle
 */
 
-void log_slow_statement(THD *thd)
+void log_slow_statement(THD *thd, struct system_status_var* query_start_status)
 {
   DBUG_ENTER("log_slow_statement");
 
   if (log_slow_applicable(thd))
-    log_slow_do(thd);
+    log_slow_do(thd, query_start_status);
 
   DBUG_VOID_RETURN;
 }
@@ -2835,7 +2854,7 @@ mysql_execute_command(THD *thd,
       memcpy(cross_db_query_log, crosss_db_log_prefix, prefix_len);
       memcpy(cross_db_query_log + prefix_len, thd->query(), thd->query_length());
       cross_db_query_log[log_len] = 0;
-      slow_log_print(thd, cross_db_query_log, log_len);
+      slow_log_print(thd, cross_db_query_log, log_len, &(thd->status_var));
       my_free(cross_db_query_log);
     }
     if (ret == 2) /* For LOG_WARN */
