@@ -4811,6 +4811,13 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         THD_STAGE_INFO(thd, stage_init);
         MYSQL_SET_STATEMENT_TEXT(thd->m_statement_psi, thd->query(), thd->query_length());
 
+        struct system_status_var query_start_status;
+        struct system_status_var *query_start_status_ptr= NULL;
+        if (opt_log_slow_extra)
+        {
+          query_start_status_ptr= &query_start_status;
+          query_start_status= thd->status_var;
+        }
         ulonglong init_timer, last_timer;
         init_timer = my_timer_now();
         last_timer = init_timer;
@@ -4819,7 +4826,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         /* Finalize server status flags after executing a statement. */
         thd->update_server_status();
         command_slave_seconds += my_timer_since(init_timer);
-        log_slow_statement(thd);
+        log_slow_statement(thd, query_start_status_ptr);
       }
 
       thd->variables.option_bits&= ~OPTION_MASTER_SQL_ERROR;
