@@ -1140,9 +1140,17 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   bool error= 0;
   ulonglong init_timer, last_timer;
   my_io_perf_t start_perf_read, start_perf_read_blob; /* for USER_STATISTICS */
+  /* For per-query performance counters with log_slow_statement */
+  struct system_status_var query_start_status;
+  struct system_status_var *query_start_status_ptr= NULL;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
+  if (opt_log_slow_extra)
+  {
+    query_start_status_ptr= &query_start_status;
+    query_start_status= thd->status_var;
+  }
   init_timer = my_timer_now();
   last_timer = init_timer;
 
@@ -1363,7 +1371,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       query_cache_end_of_result(thd);
       ulong length= (ulong)(packet_end - beginning_of_next_stmt);
 
-      log_slow_statement(thd);
+      log_slow_statement(thd, query_start_status_ptr);
+      if (query_start_status_ptr)
+      {
+        /* Reset for values at start of next statement */
+        query_start_status= thd->status_var;
+      }
 
       /* Remove garbage at start of query */
       while (length > 0 && my_isspace(thd->charset(), *beginning_of_next_stmt))
@@ -1749,7 +1762,7 @@ done:
                       thd->get_stmt_da()->sql_errno() : 0,
                       command_name[command].str);
 
-  log_slow_statement(thd);
+  log_slow_statement(thd, query_start_status_ptr);
 
   THD_STAGE_INFO(thd, stage_cleaning_up);
 
@@ -1865,7 +1878,7 @@ bool log_slow_applicable(THD *thd)
   @param thd              thread handle
 */
 
-void log_slow_do(THD *thd)
+void log_slow_do(THD *thd, struct system_status_var* query_start_status)
 {
   DBUG_ENTER("log_slow_do");
 
@@ -1875,9 +1888,11 @@ void log_slow_do(THD *thd)
   if (thd->rewritten_query.length())
     slow_log_print(thd,
                    thd->rewritten_query.c_ptr_safe(),
-                   thd->rewritten_query.length());
+                   thd->rewritten_query.length(),
+                   query_start_status);
   else
-    slow_log_print(thd, thd->query(), thd->query_length());
+    slow_log_print(thd, thd->query(), thd->query_length(),
+                   query_start_status);
 
   DBUG_VOID_RETURN;
 }
@@ -1896,12 +1911,12 @@ void log_slow_do(THD *thd)
   @param thd              thread handle
 */
 
-void log_slow_statement(THD *thd)
+void log_slow_statement(THD *thd, struct system_status_var* query_start_status)
 {
   DBUG_ENTER("log_slow_statement");
 
   if (log_slow_applicable(thd))
-    log_slow_do(thd);
+    log_slow_do(thd, query_start_status);
 
   DBUG_VOID_RETURN;
 }

@@ -104,9 +104,9 @@ bool do_command(THD *thd);
 void do_handle_bootstrap(THD *thd);
 bool dispatch_command(enum enum_server_command command, THD *thd,
 		      char* packet, uint packet_length);
-void log_slow_statement(THD *thd);
+void log_slow_statement(THD *thd, struct system_status_var* query_start_status);
 bool log_slow_applicable(THD *thd);
-void log_slow_do(THD *thd);
+void log_slow_do(THD *thd, struct system_status_var* query_start_status);
 bool append_file_to_dir(THD *thd, const char **filename_ptr,
                         const char *table_name);
 bool append_file_to_dir(THD *thd, const char **filename_ptr,
