@@ -1435,7 +1435,7 @@ private:
     The routine we call to actually log a line (i.e. our summary).
     The signature miraculously coincides with slow_log_print().
   */
-  bool (*log_summary)(THD *, const char *, uint);
+  bool (*log_summary)(THD *, const char *, uint, struct system_status_var *);
 
   /**
     Slow_log_throttle is shared between THDs.
@@ -1463,7 +1463,8 @@ public:
     @param msg           use this template containing %lu as only non-literal
   */
   Slow_log_throttle(ulong *threshold, mysql_mutex_t *lock, ulong window_usecs,
-                    bool (*logger)(THD *, const char *, uint),
+                    bool (*logger)(THD *, const char *, uint,
+                                   struct system_status_var *),
                     const char *msg);
 
   /**

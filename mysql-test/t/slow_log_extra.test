@@ -1,7 +1,59 @@
+#
+# Test --log-slow-extra
+#
+
+--source include/have_innodb.inc
+
 set timestamp=10;
 select unix_timestamp(), sleep(2);
 
 let $MYSQLD_DATADIR= `select @@datadir`;
 --exec [ "1" -eq `grep "SET timestamp=10;" $MYSQLD_DATADIR/../mysqld-slow.log | wc -l` ]
+
+#
+# Confirm that per-query stats work.
+#
+
+set global long_query_time=0;
+connect (con,localhost,root,,);
+
+--disable_warnings
+drop table if exists islow;
+drop table if exists mslow;
+--enable_warnings
+
+create table islow(i int) engine=innodb;
+insert into islow values (1), (2), (3), (4), (5), (6), (7), (8);
+
+create table mslow(i int) engine=myisam;
+insert into mslow values (1), (2), (3), (4), (5), (6), (7), (8);
+
+select * from islow;
+select * from islow;
+
+select * from mslow;
+select * from mslow;
+
+connection default;
+set global long_query_time=1;
+disconnect con;
+drop table islow;
+drop table mslow;
+
+--echo #
+--echo # This is a hack to check the log result.
+--echo # We strip off time related fields (non-deterministic) ana verify the rest are correct.
+--echo #
+
+--perl
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/mysqld-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ m/^# Query_time/) {
+    $line =~ m/(Rows_sent.*) Start.*/;
+    print "$1\n";
+  }
+}
+EOF
 
 --exit
