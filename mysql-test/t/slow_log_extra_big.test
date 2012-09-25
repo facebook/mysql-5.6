@@ -1,0 +1,75 @@
+#
+# Test --log-slow-extra
+#
+
+-- source include/have_innodb.inc
+
+--let $file_format_save = `SELECT @@innodb_file_format`
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra_big-slow.log";
+
+#
+# Confirm that per-query stats work.
+#
+set session long_query_time = 20;
+--disable_warnings
+--disable_query_log
+drop table if exists big_table_slow;
+create table big_table_slow (id int primary key auto_increment, v varchar(200), t text) engine=innodb key_block_size=8;
+
+let $x = 20000;
+while ($x)
+{
+eval insert into big_table_slow values(2 * $x, lpad("v", $x, "b"), lpad("a", ($x * 100) mod 9000, "b"));
+dec $x;
+}
+
+--enable_query_log
+--enable_warnings
+
+set global long_query_time = 0;
+
+connect (con,localhost,root,,);
+select count(*) from big_table_slow;
+
+connect (con1,localhost,root,,);
+select count(*) from big_table_slow;
+
+select count(*) from big_table_slow where id>1000 and id<2000;
+
+select * from big_table_slow where id=2;
+
+select count(*) from big_table_slow where id >10000;
+
+select count(*) from big_table_slow where id < 100000;
+
+--echo # Cleanup
+
+connection default;
+set global long_query_time=1;
+disconnect con1;
+disconnect con;
+let $count_sessions= 1;
+--source include/wait_until_count_sessions.inc
+drop table big_table_slow;
+
+eval SET GLOBAL innodb_file_format = \"$file_format_save\";
+set global slow_query_log_file = @my_slow_logname;
+
+--echo #
+--echo # This is a hack to check the log result.
+--echo # We strip off time related fields (non-deterministic) and verify the rest are correct.
+--echo #
+
+--perl
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra_big-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ m/^# Query_time/) {
+    $line =~ m/(Rows_sent.*) Thread_id.* (Errno.*) Start.*/;
+    print "$1 $2\n";
+  }
+}
+EOF
+
+--exit
