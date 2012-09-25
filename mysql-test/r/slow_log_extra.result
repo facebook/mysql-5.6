@@ -2,3 +2,69 @@ set timestamp=10;
 select unix_timestamp(), sleep(2);
 unix_timestamp()	sleep(2)
 10	0
+set global long_query_time=0;
+drop table if exists islow;
+drop table if exists mslow;
+create table islow(i int) engine=innodb;
+insert into islow values (1), (2), (3), (4), (5), (6), (7), (8);
+create table mslow(i int) engine=myisam;
+insert into mslow values (1), (2), (3), (4), (5), (6), (7), (8);
+select * from islow;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+select * from islow;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+select * from mslow;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+select * from mslow;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+set global long_query_time=1;
+drop table islow;
+drop table mslow;
+#
+# This is a hack to check the log result.
+# We strip off time related fields (non-deterministic) ana verify the rest are correct.
+#
+Rows_sent: 1  Rows_examined: 0 Thread_id: 2 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 108 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 50 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 50 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Thread_id: 3 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 0 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0

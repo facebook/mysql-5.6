@@ -348,7 +348,8 @@ public:
   bool write(THD *thd, time_t current_time, time_t query_start_arg,
              const char *user_host, uint user_host_len,
              ulonglong query_utime, ulonglong lock_utime, bool is_command,
-             const char *sql_text, uint sql_text_len);
+             const char *sql_text, uint sql_text_len,
+             struct system_status_var *query_start_status);
   bool open_slow_log(const char *log_name)
   {
     char buf[FN_REFLEN];
@@ -385,7 +386,8 @@ public:
                         time_t query_start_arg, const char *user_host,
                         uint user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
-                        const char *sql_text, uint sql_text_len)= 0;
+                        const char *sql_text, uint sql_text_len,
+                        struct system_status_var *query_start_status)= 0;
   virtual bool log_error(enum loglevel level, const char *format,
                          va_list args)= 0;
   virtual bool log_general(THD *thd, time_t event_time, const char *user_host,
@@ -412,7 +414,8 @@ public:
                         time_t query_start_arg, const char *user_host,
                         uint user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
-                        const char *sql_text, uint sql_text_len);
+                        const char *sql_text, uint sql_text_len,
+                        struct system_status_var *query_start_status);
   virtual bool log_error(enum loglevel level, const char *format,
                          va_list args);
   virtual bool log_general(THD *thd, time_t event_time, const char *user_host,
@@ -444,7 +447,8 @@ public:
                         time_t query_start_arg, const char *user_host,
                         uint user_host_len, ulonglong query_utime,
                         ulonglong lock_utime, bool is_command,
-                        const char *sql_text, uint sql_text_len);
+                        const char *sql_text, uint sql_text_len,
+                        struct system_status_var *query_start_status);
   virtual bool log_error(enum loglevel level, const char *format,
                          va_list args);
   virtual bool log_general(THD *thd, time_t event_time, const char *user_host,
@@ -506,7 +510,8 @@ public:
   void cleanup_end();
   bool error_log_print(enum loglevel level, const char *format,
                       va_list args);
-  bool slow_log_print(THD *thd, const char *query, uint query_length);
+  bool slow_log_print(THD *thd, const char *query, uint query_length,
+                      struct system_status_var *query_start_status);
   bool general_log_print(THD *thd,enum enum_server_command command,
                          const char *format, va_list args);
   bool general_log_write(THD *thd, enum enum_server_command command,
@@ -566,7 +571,8 @@ extern sql_print_message_func sql_print_message_handlers[];
 int error_log_print(enum loglevel level, const char *format,
                     va_list args);
 
-bool slow_log_print(THD *thd, const char *query, uint query_length);
+bool slow_log_print(THD *thd, const char *query, uint query_length,
+                    struct system_status_var *query_start_status);
 
 bool general_log_print(THD *thd, enum enum_server_command command,
                        const char *format,...);
