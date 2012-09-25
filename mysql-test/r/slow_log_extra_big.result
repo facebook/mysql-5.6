@@ -1,0 +1,39 @@
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra_big-slow.log";
+set session long_query_time = 20;
+set global long_query_time = 0;
+select count(*) from big_table_slow;
+count(*)
+20000
+select count(*) from big_table_slow;
+count(*)
+20000
+select count(*) from big_table_slow where id>1000 and id<2000;
+count(*)
+499
+select * from big_table_slow where id=2;
+id	v	t
+2	v	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba
+select count(*) from big_table_slow where id >10000;
+count(*)
+15000
+select count(*) from big_table_slow where id < 100000;
+count(*)
+20000
+# Cleanup
+set global long_query_time=1;
+drop table big_table_slow;
+SET GLOBAL innodb_file_format = "Barracuda";
+set global slow_query_log_file = @my_slow_logname;
+#
+# This is a hack to check the log result.
+# We strip off time related fields (non-deterministic) and verify the rest are correct.
+#
+Rows_sent: 1  Rows_examined: 20000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 20000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 20000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 20000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 499 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 65 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 499 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 1 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 314 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 15000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 0 Read_last: 0 Read_key: 1 Read_next: 15000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 20000 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 20000 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 0 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 0 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
