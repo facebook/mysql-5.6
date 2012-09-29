@@ -58,7 +58,7 @@ my $testsuitedir=$v.$d;
 $opt_duration=600;
 
 # Special handling for the InnoDB plugin
-$plugin_params="\"--plugin-load=innodb=ha_innodb_plugin.so;innodb_trx=ha_innodb_plugin.so;innodb_locks=ha_innodb_plugin.so;innodb_cmp=ha_innodb_plugin.so;innodb_cmp_reset=ha_innodb_plugin.so;innodb_cmpmem=ha_innodb_plugin.so;innodb_cmpmem_reset=ha_innodb_plugin.so\"";
+$plugin_params="\"--plugin-load=innodb=ha_innodb_stress.so;innodb_trx=ha_innodb_plugin.so;innodb_locks=ha_innodb_plugin.so;innodb_cmp=ha_innodb_plugin.so;innodb_cmp_reset=ha_innodb_plugin.so;innodb_cmpmem=ha_innodb_plugin.so;innodb_cmpmem_reset=ha_innodb_plugin.so\"";
 $plugin_params=~s/so/dll/g if (windows());
 
 $opt_help="";
@@ -93,7 +93,7 @@ $engine_options="";
            "--mysqld=--innodb " .
            "--mysqld=--ignore-builtin-innodb " . 
            #"--mysqld=--plugin_dir=".$installdir."/lib " .
-           "--mysqld=--plugin_dir=".$installdir."/storage/innodb_plugin/.libs " .
+           "--mysqld=--plugin_dir=".$installdir."/storage/innodb_stress/.libs " .
            "--mysqld=--innodb-lock-wait-timeout=2 " .
            "--mysqld=".$plugin_params." " .
            " ";

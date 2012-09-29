@@ -57,7 +57,7 @@ Known Issues
    will return a 'Warning 1264 - Out of range value...' warning if run in a 32-bit environment.
    Add the '--force' option to prevent the test run from aborting.
 
-2) The following tests in the 'funcs' suite will fail when run against the innodb_plugin:
+2) The following tests in the 'funcs' suite will fail when run against the innodb_stress:
    - crash_manycolumns_string (bug 50495) 
    - ix_unique_lob (bug 52056, masked by an 'Out of memory error' on some 32-bit platforms)
    - ix_unique_string_length (bug 52056, masked by an 'Out of memory error' on some 32-bit platforms)
