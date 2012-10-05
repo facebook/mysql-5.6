@@ -953,6 +953,7 @@ innobase_update_table_stats(
 	/* per-table stats callback */
 	void (*cb)(const char* db, const char* tbl,
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
+		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   int n_lru, const char* engine));
 
 /*******************************************************************//**
@@ -1284,6 +1285,8 @@ ha_innobase::init_trx_table_stats(
 {
 	my_io_perf_init(&trx->table_io_perf.read);
 	my_io_perf_init(&trx->table_io_perf.read_blob);
+	my_io_perf_init(&trx->table_io_perf.read_primary);
+	my_io_perf_init(&trx->table_io_perf.read_secondary);
 
 	if (write) {
 		my_io_perf_init(&trx->table_io_perf.write);
@@ -1305,12 +1308,20 @@ ha_innobase::update_stats_from_trx(
 {
 	my_io_perf_sum(&stats.table_io_perf_read, &trx->table_io_perf.read);
 	my_io_perf_sum(&stats.table_io_perf_read_blob, &trx->table_io_perf.read_blob);
+	my_io_perf_sum(&stats.table_io_perf_read_primary,
+		       &trx->table_io_perf.read_primary);
+	my_io_perf_sum(&stats.table_io_perf_read_secondary,
+		       &trx->table_io_perf.read_secondary);
 	if (ha_partition_stats != NULL)
 	{
 		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read),
 		               &trx->table_io_perf.read);
 		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_blob),
 		               &trx->table_io_perf.read_blob);
+		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_primary),
+		               &trx->table_io_perf.read_primary);
+		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_secondary),
+		               &trx->table_io_perf.read_secondary);
 	}
 
 	if (write) {
@@ -3521,6 +3532,7 @@ innobase_update_table_stats(
 	/* per-table stats callback */
 	void (*cb)(const char* db, const char* tbl,
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
+		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   int n_lru, const char* engine))
 {
 	fil_update_table_stats(cb);

@@ -25,10 +25,6 @@ insert into p1 values (1,1), (2,2);
 # Confirm that command output is sane with and without wildcard matches
 
 --replace_result $se ENGINE
-eval select TABLE_SCHEMA,TABLE_NAME,TABLE_ENGINE,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,ROWS_READ,ROWS_REQUESTED,ROWS_INDEX_FIRST,ROWS_INDEX_NEXT,IO_INDEX_INSERTS
-from information_schema.table_statistics where table_engine = '$se' AND table_schema != 'mysql' order by table_schema, table_name;
-
---replace_result $se ENGINE
 select TABLE_SCHEMA,TABLE_NAME,TABLE_ENGINE,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,ROWS_READ,ROWS_REQUESTED,ROWS_INDEX_FIRST,ROWS_INDEX_NEXT,IO_INDEX_INSERTS
 from information_schema.table_statistics where table_name = 'p1';
 
