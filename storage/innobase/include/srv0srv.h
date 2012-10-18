@@ -493,6 +493,11 @@ extern ulint srv_n_rollback_total;
 /** Number of partial rollbacks */
 extern ulint srv_n_rollback_partial;
 
+/** Number of times secondary index block visibility check returned TRUE */
+extern ulint srv_sec_rec_read_sees;
+/** Number of times secondary index block visibility check was done */
+extern ulint srv_sec_rec_read_check;
+
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
 
@@ -1007,6 +1012,9 @@ struct export_var_t{
 	ulint innodb_trx_n_commit_with_undo;	/*!< srv_n_commit_with_undo */
 	ulint innodb_trx_n_rollback_partial;	/*!< srv_n_rollback_partial */
 	ulint innodb_trx_n_rollback_total;	/*!< srv_n_rollback_total */
+
+	ulint innodb_sec_rec_read_sees;		/*!< srv_sec_rec_read_sees */
+	ulint innodb_sec_rec_read_check;	/*!< srv_sec_rec_read_check */
 };
 
 /** Thread slot in the thread table.  */
