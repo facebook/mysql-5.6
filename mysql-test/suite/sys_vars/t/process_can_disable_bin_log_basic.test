@@ -1,0 +1,87 @@
+# confirm that sql_log_bin can be set with the PROCESS priv when
+# process_can_disable_bin_log is enabled.
+
+# Can't test with embedded server
+-- source include/not_embedded.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+show global variables like "process_can_disable_bin_log";
+show global variables like "log_bin";
+set global process_can_disable_bin_log=0;
+
+#
+# When process_can_disable_bin_log=OFF then user must have SUPER
+#
+--echo confirm sql_log_bin cannot be set
+
+grant all on *.* to candisable@localhost;
+show grants for candisable@localhost;
+
+revoke super on *.* from candisable@localhost;
+show grants for candisable@localhost;
+
+connect (candisable1,localhost,candisable,,test);
+show grants;
+
+# It would be really bad if SUPER were not required to change this
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+set global process_can_disable_bin_log=1;
+
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+set session sql_log_bin=0;
+
+#
+# When process_can_disable_bin_log=ON then PROCESS is sufficient
+#
+--echo confirm sql_log_bin can be set
+
+connection default;
+disconnect candisable1;
+set global process_can_disable_bin_log=1;
+
+connect (candisable2,localhost,candisable,,test);
+show global variables like "sql_log_bin";
+show session variables like "sql_log_bin";
+
+set session sql_log_bin=0;
+show global variables like "sql_log_bin";
+show session variables like "sql_log_bin";
+
+connection default;
+show global variables like "sql_log_bin";
+show session variables like "sql_log_bin";
+
+connection candisable2;
+set session sql_log_bin=1;
+show global variables like "sql_log_bin";
+show session variables like "sql_log_bin";
+
+#
+# When process_can_disable_bin_log=OFF then either SUPER or PROCESS are required
+#
+--echo confirm sql_log_bin cannot be set without SUPER or PROCESS
+
+connection default;
+disconnect candisable2;
+set global process_can_disable_bin_log=0;
+revoke process on *.* from candisable@localhost;
+show grants for candisable@localhost;
+
+connect (candisable3,localhost,candisable,,test);
+
+--error ER_SPECIFIC_ACCESS_DENIED_ERROR
+set session sql_log_bin=0;
+
+#
+# cleanup
+#
+
+connection default;
+disconnect candisable3;
+set global process_can_disable_bin_log=1;
+show global variables like "sql_log_bin";
+show session variables like "sql_log_bin";
+
+drop user candisable@localhost;
