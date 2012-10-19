@@ -1,0 +1,30 @@
+# Confirm that SHOW MASTER LOGS does not require SUPER
+
+source include/master-slave.inc;
+
+DELETE FROM mysql.user WHERE User LIKE 'smlsuper%';
+DELETE FROM mysql.db WHERE User LIKE 'smlsuper%';
+DELETE FROM mysql.tables_priv WHERE User LIKE 'smlsuper%';
+DELETE FROM mysql.columns_priv WHERE User LIKE 'smlsuper%';
+FLUSH PRIVILEGES;
+
+CREATE USER smlsuper@localhost;
+
+--disable_result_log
+show master logs;
+--enable_result_log
+
+--connect (sml_conn,localhost,smlsuper,,test)
+
+show grants;
+--disable_result_log
+show master logs;
+--enable_result_log
+
+# Cleanup
+
+--connection default
+--disconnect sml_conn
+DROP USER smlsuper@localhost;
+
+--source include/rpl_end.inc
