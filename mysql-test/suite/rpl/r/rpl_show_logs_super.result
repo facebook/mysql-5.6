@@ -1,0 +1,18 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+DELETE FROM mysql.user WHERE User LIKE 'smlsuper%';
+DELETE FROM mysql.db WHERE User LIKE 'smlsuper%';
+DELETE FROM mysql.tables_priv WHERE User LIKE 'smlsuper%';
+DELETE FROM mysql.columns_priv WHERE User LIKE 'smlsuper%';
+FLUSH PRIVILEGES;
+CREATE USER smlsuper@localhost;
+show master logs;
+show grants;
+Grants for smlsuper@localhost
+GRANT USAGE ON *.* TO 'smlsuper'@'localhost'
+show master logs;
+DROP USER smlsuper@localhost;
+include/rpl_end.inc
