@@ -13431,6 +13431,7 @@ ha_innobase::store_lock(
 
 		if (sql_command == SQLCOM_CHECKSUM
 		    || ((srv_locks_unsafe_for_binlog
+			|| !(thd_test_options(thd, OPTION_BIN_LOG))
 			|| trx->isolation_level <= TRX_ISO_READ_COMMITTED)
 			&& trx->isolation_level != TRX_ISO_SERIALIZABLE
 			&& (lock_type == TL_READ
@@ -13438,17 +13439,23 @@ ha_innobase::store_lock(
 			&& (sql_command == SQLCOM_INSERT_SELECT
 			    || sql_command == SQLCOM_REPLACE_SELECT
 			    || sql_command == SQLCOM_UPDATE
+			    || sql_command == SQLCOM_DELETE
 			    || sql_command == SQLCOM_CREATE_TABLE))) {
 
 			/* If we either have innobase_locks_unsafe_for_binlog
-			option set or this session is using READ COMMITTED
+			option set or if bin log is switched off or
+			this session is using READ COMMITTED
 			isolation level and isolation level of the transaction
 			is not set to serializable and MySQL is doing
 			INSERT INTO...SELECT or REPLACE INTO...SELECT
-			or UPDATE ... = (SELECT ...) or CREATE  ...
+			or UPDATE ... = (SELECT ...)
+			or DELETE ... WHERE (SELECT ...) or CREATE  ...
 			SELECT... without FOR UPDATE or IN SHARE
 			MODE in select, then we use consistent read
-			for select. */
+			for select.
+			Note that deletes and updates that use multi-table
+			syntax are SQLCOM_UPDATE_MULTI and SQLCOM_DELETE_MULTI
+			rather than SQLCOM_UPDATE and SQLCOM_DELETE. */
 
 			prebuilt->select_lock_type = LOCK_NONE;
 			prebuilt->stored_select_lock_type = LOCK_NONE;
