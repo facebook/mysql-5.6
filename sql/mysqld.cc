@@ -494,6 +494,7 @@ my_bool opt_old_style_user_limits= 0, trust_function_creators= 0;
 volatile bool mqh_used = 0;
 my_bool opt_noacl= 0;
 my_bool sp_automatic_privileges= 1;
+my_bool opt_process_can_disable_bin_log = TRUE;
 
 ulong opt_binlog_rows_event_max_size;
 const char *binlog_checksum_default= "NONE";

@@ -1374,6 +1374,12 @@ static Sys_var_mybool Sys_ignore_builtin_innodb(
        READ_ONLY GLOBAL_VAR(opt_ignore_builtin_innodb),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_process_can_disable_bin_log(
+       "process_can_disable_bin_log",
+       "Allow PROCESS to disable bin log, not just SUPER",
+       GLOBAL_VAR(opt_process_can_disable_bin_log),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static bool check_init_string(sys_var *self, THD *thd, set_var *var)
 {
   if (var->save_result.string_value.str == 0)
@@ -3413,6 +3419,7 @@ static bool fix_sql_log_bin_after_update(sys_var *self, THD *thd,
   This function checks if the sql_log_bin can be changed,
   what is possible if:
     - the user is a super user;
+     - ...or a process user when process_can_disable_bin_log is true;
     - the set is not called from within a function/trigger;
     - there is no on-going transaction.
 
@@ -3423,8 +3430,17 @@ static bool fix_sql_log_bin_after_update(sys_var *self, THD *thd,
 */
 static bool check_sql_log_bin(sys_var *self, THD *thd, set_var *var)
 {
-  if (check_has_super(self, thd, var))
-    return TRUE;
+  /* Check if PROCESS is good enough, and if so, check if user has PROCESS */
+  if (!opt_process_can_disable_bin_log ||
+       (!(thd->security_ctx->master_access & PROCESS_ACL)))
+    {
+      /* If not, check if user has SUPER, and throw error if not */
+      if (check_has_super(self, thd, var))
+      {
+        /* If not, permission denied */
+        return TRUE;
+      }
+    }
 
   if (var->type == OPT_GLOBAL)
     return TRUE;
