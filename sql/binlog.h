@@ -691,6 +691,8 @@ typedef struct st_load_file_info
   bool wrote_create_file, log_delayed;
 } LOAD_FILE_INFO;
 
+extern my_bool opt_process_can_disable_bin_log;
+
 extern MYSQL_PLUGIN_IMPORT MYSQL_BIN_LOG mysql_bin_log;
 
 bool trans_has_updated_trans_table(const THD* thd);

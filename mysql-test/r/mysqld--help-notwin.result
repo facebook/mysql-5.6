@@ -709,6 +709,9 @@ The following options may be given as the first argument:
  --preload-buffer-size=# 
  The size of the buffer that is allocated when preloading
  indexes
+ --process-can-disable-bin-log 
+ Allow PROCESS to disable bin log, not just SUPER
+ (Defaults to on; use --skip-process-can-disable-bin-log to disable.)
  --query-alloc-block-size=# 
  Allocation block size for query parsing and execution
  --query-cache-limit=# 
@@ -1254,6 +1257,7 @@ performance-schema-users-size -1
 port ####
 port-open-timeout 0
 preload-buffer-size 32768
+process-can-disable-bin-log TRUE
 query-alloc-block-size 8192
 query-cache-limit 1048576
 query-cache-min-res-unit 4096

@@ -1,0 +1,67 @@
+show global variables like "process_can_disable_bin_log";
+Variable_name	Value
+process_can_disable_bin_log	ON
+show global variables like "log_bin";
+Variable_name	Value
+log_bin	OFF
+set global process_can_disable_bin_log=0;
+confirm sql_log_bin cannot be set
+grant all on *.* to candisable@localhost;
+show grants for candisable@localhost;
+Grants for candisable@localhost
+GRANT ALL PRIVILEGES ON *.* TO 'candisable'@'localhost'
+revoke super on *.* from candisable@localhost;
+show grants for candisable@localhost;
+Grants for candisable@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE ON *.* TO 'candisable'@'localhost'
+show grants;
+Grants for candisable@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE ON *.* TO 'candisable'@'localhost'
+set global process_can_disable_bin_log=1;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+set session sql_log_bin=0;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+confirm sql_log_bin can be set
+set global process_can_disable_bin_log=1;
+show global variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+show session variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+set session sql_log_bin=0;
+show global variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+show session variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	OFF
+show global variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+show session variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+set session sql_log_bin=1;
+show global variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+show session variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+confirm sql_log_bin cannot be set without SUPER or PROCESS
+set global process_can_disable_bin_log=0;
+revoke process on *.* from candisable@localhost;
+show grants for candisable@localhost;
+Grants for candisable@localhost
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE ON *.* TO 'candisable'@'localhost'
+set session sql_log_bin=0;
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+set global process_can_disable_bin_log=1;
+show global variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+show session variables like "sql_log_bin";
+Variable_name	Value
+sql_log_bin	ON
+drop user candisable@localhost;
