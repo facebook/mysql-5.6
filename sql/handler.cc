@@ -1405,12 +1405,22 @@ int ha_commit_trans(THD *thd, bool all)
       DEBUG_SYNC(thd, "ha_commit_trans_after_acquire_commit_lock");
     }
 
+    bool enforce_ro = true;
+    if (!opt_super_readonly)
+      enforce_ro = !(thd->security_ctx->master_access & SUPER_ACL);
     if (rw_trans &&
         opt_readonly &&
-        !(thd->security_ctx->master_access & SUPER_ACL) &&
+        enforce_ro &&
         !thd->slave_thread)
     {
-      my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only");
+      if (opt_super_readonly)
+      {
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only (super)");
+      }
+      else
+      {
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only");
+      }
       ha_rollback_trans(thd, all);
       error= 1;
       goto end;
