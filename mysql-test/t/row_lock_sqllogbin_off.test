@@ -1,0 +1,103 @@
+################################################################################
+################################################################################
+
+# requirements
+--source include/have_debug_sync.inc
+--source include/have_innodb.inc
+--source include/have_log_bin.inc
+
+# setup
+connect(c1,127.0.0.1,root,,test,$MASTER_MYPORT,);
+connect(c2,127.0.0.1,root,,test,$MASTER_MYPORT,);
+
+--connection c1
+--echo connection c1
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+
+--enable_warnings
+
+CREATE TABLE t1 (k INT NOT NULL, a INT NOT NULL, b INT NOT NULL, c INT NOT NULL,
+  PRIMARY KEY(k)) ENGINE=InnoDB;
+INSERT INTO t1 (k, a, b, c) VALUES (1, 0, 0, 0);
+INSERT INTO t1 (k, a, b, c) VALUES (2, 0, 0, 0);
+
+CREATE TABLE t2 LIKE t1;
+
+################################################################################
+#Keep an active update from connection c1 and check that statements from c2
+#retrieve old values of the rows.
+################################################################################
+# nuke binlogs and sync points
+RESET MASTER;
+SET DEBUG_SYNC= 'RESET';
+
+--connection c1
+--echo connection c1
+BEGIN;
+UPDATE t1 SET a=10 where k = 1;
+
+  --connection c2
+  --echo connection c2
+  SET sql_log_bin=0;
+# check that this insert is retriving old values ie a=0
+  INSERT INTO t2 SELECT * FROM t1 where k = 1;
+  SELECT * from t2 where k = 1;
+
+# check that this replace puts values a=0,b=10
+  REPLACE INTO t2(k,a,b,c) SELECT k,a,10,c FROM t1 where k = 1;
+  SELECT * from t2 where k = 1;
+
+# check that this updates 1 row implying select on t1 fetched old value of a
+  UPDATE t2 set c = 10 WHERE k=1 and 0 = (SELECT t1.a from t1 WHERE t1.k=1);
+  SELECT * from t2 where k = 1;
+
+# check that this deletes 1 row implying select on t1 fetched old value of a
+  DELETE FROM t2 WHERE k=1 and 0 = (SELECT t1.a from t1 WHERE t1.k=1);
+  SELECT * from t2 where k = 1;
+
+--connection c1
+--echo connection c1
+COMMIT;
+SELECT * FROM t1 where k = 1;
+
+
+################################################################################
+# repeat but this time switch roles of connection 1 and 2.
+# use the row with k = 2 now.
+################################################################################
+--connection c1
+--echo connection c1
+SET sql_log_bin=0;
+BEGIN;
+INSERT INTO t2 SELECT * FROM t1 where k = 2;
+SELECT * FROM t2 where k = 2;
+REPLACE INTO t2(k,a,b,c) SELECT k,a,10,c FROM t1 where k = 2;
+SELECT * FROM t2 where k = 2;
+UPDATE t2 set c = 10 WHERE k=2 and 0 = (SELECT t1.a from t1 WHERE t1.k=2);
+SELECT * FROM t2 where k = 2;
+DELETE FROM t2 WHERE k=2 and 0 = (SELECT t1.a from t1 WHERE t1.k=2);
+SELECT * FROM t2 where k = 2;
+
+# if any of the insert/replace/update/delete above gets S row lock on
+# row in t1 with k=2, the following update would fail due to time out on lock.
+  --connection c2
+  --echo connection c2
+  UPDATE t1 SET a=10 where k = 2;
+
+--connection c1
+--echo connection c1
+COMMIT;
+SELECT * from t1 where k = 2;
+
+
+# final cleanup
+DROP TABLE t1;
+DROP TABLE t2;
+SET DEBUG_SYNC= 'RESET';
+SET sql_log_bin=1;
+
+# clean exit
+--exit
