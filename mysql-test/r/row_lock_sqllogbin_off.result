@@ -1,0 +1,64 @@
+connection c1
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+CREATE TABLE t1 (k INT NOT NULL, a INT NOT NULL, b INT NOT NULL, c INT NOT NULL,
+PRIMARY KEY(k)) ENGINE=InnoDB;
+INSERT INTO t1 (k, a, b, c) VALUES (1, 0, 0, 0);
+INSERT INTO t1 (k, a, b, c) VALUES (2, 0, 0, 0);
+CREATE TABLE t2 LIKE t1;
+RESET MASTER;
+SET DEBUG_SYNC= 'RESET';
+connection c1
+BEGIN;
+UPDATE t1 SET a=10 where k = 1;
+connection c2
+SET sql_log_bin=0;
+INSERT INTO t2 SELECT * FROM t1 where k = 1;
+SELECT * from t2 where k = 1;
+k	a	b	c
+1	0	0	0
+REPLACE INTO t2(k,a,b,c) SELECT k,a,10,c FROM t1 where k = 1;
+SELECT * from t2 where k = 1;
+k	a	b	c
+1	0	10	0
+UPDATE t2 set c = 10 WHERE k=1 and 0 = (SELECT t1.a from t1 WHERE t1.k=1);
+SELECT * from t2 where k = 1;
+k	a	b	c
+1	0	10	10
+DELETE FROM t2 WHERE k=1 and 0 = (SELECT t1.a from t1 WHERE t1.k=1);
+SELECT * from t2 where k = 1;
+k	a	b	c
+connection c1
+COMMIT;
+SELECT * FROM t1 where k = 1;
+k	a	b	c
+1	10	0	0
+connection c1
+SET sql_log_bin=0;
+BEGIN;
+INSERT INTO t2 SELECT * FROM t1 where k = 2;
+SELECT * FROM t2 where k = 2;
+k	a	b	c
+2	0	0	0
+REPLACE INTO t2(k,a,b,c) SELECT k,a,10,c FROM t1 where k = 2;
+SELECT * FROM t2 where k = 2;
+k	a	b	c
+2	0	10	0
+UPDATE t2 set c = 10 WHERE k=2 and 0 = (SELECT t1.a from t1 WHERE t1.k=2);
+SELECT * FROM t2 where k = 2;
+k	a	b	c
+2	0	10	10
+DELETE FROM t2 WHERE k=2 and 0 = (SELECT t1.a from t1 WHERE t1.k=2);
+SELECT * FROM t2 where k = 2;
+k	a	b	c
+connection c2
+UPDATE t1 SET a=10 where k = 2;
+connection c1
+COMMIT;
+SELECT * from t1 where k = 2;
+k	a	b	c
+2	10	0	0
+DROP TABLE t1;
+DROP TABLE t2;
+SET DEBUG_SYNC= 'RESET';
+SET sql_log_bin=1;
