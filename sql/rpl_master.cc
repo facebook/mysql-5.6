@@ -839,6 +839,51 @@ error_malformed_packet:
   DBUG_RETURN(true);
 }
 
+/* Show processlist command dump the binlog state.
+
+  Input:
+   output_info   -  (OUT) the output proc_info
+   output_len    -  (IN)  output proc_info's length
+   thd           -  (IN)  the thread
+   input_msg     -  (IN)  the input proc_info
+   log_file_name -  (IN)  binlog file name
+   log_pos       -  (IN)  binlog position
+   skip_slave_update - (IN/OUT) determines whether update is skipped
+ */
+static void processlist_slave_offset(char *output_info,
+                                     int   output_len,
+                                     THD  *thd,
+                                     const char *log_file_name,
+                                     my_off_t log_pos,
+                                     int  *skip_state_update)
+{
+  int len;
+
+  DBUG_ENTER("processlist_show_binlog_state");
+  DBUG_ASSERT(*skip_state_update >= 0);
+
+  if (skip_state_update)
+  {
+    if (*skip_state_update)
+    {
+      --(*skip_state_update);
+      DBUG_VOID_RETURN;
+    }
+    else
+    {
+      *skip_state_update= 10;
+    }
+  }
+
+  len= snprintf(output_info, output_len, "slave offset: %s %lld",
+                log_file_name + dirname_length(log_file_name),
+                (long long int)log_pos);
+
+  if (len > 0)
+    thd->set_query(output_info, len);
+
+  DBUG_VOID_RETURN;
+}
 
 void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                        const Gtid_set* slave_gtid_executed, int flags)
@@ -884,6 +929,19 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   int left_events = max_binlog_dump_events;
 #endif
   int old_max_allowed_packet= thd->variables.max_allowed_packet;
+
+  /* This buffer should be enough for "slave offset: file_name file_pos".
+     set_query(state_msg, ...) might be called so set_query("", 0) must be
+     called at function end to avoid bogus memory references.
+  */
+  char state_msg[FN_REFLEN + 100];
+  int  state_msg_len = FN_REFLEN + 100;
+  char* orig_query= thd->query();
+  uint32 orig_query_length= thd->query_length();
+
+  /* The number of times to skip calls to processlist_slave_offset */
+  int skip_state_update;
+
   /*
     Dump thread sends ER_MASTER_FATAL_ERROR_READING_BINLOG instead of the real
     errors happend on master to slave when erorr is encountered.
@@ -1233,6 +1291,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   /* seek to the requested position, to start the requested dump */
   my_b_seek(&log, pos);			// Seek will done on next read
 
+  skip_state_update= 0;
   while (!net->error && net->vio != 0 && !thd->killed)
   {
     Log_event_type event_type= UNKNOWN_EVENT;
@@ -1295,6 +1354,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                                              STRING_WITH_LEN(act)));
                         }
                       });
+
+      processlist_slave_offset(state_msg, state_msg_len, thd,
+                               log_file_name, my_b_tell(&log),
+                               &skip_state_update);
 
       switch (event_type)
       {
@@ -1766,6 +1829,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
         if (read_packet)
         {
+          processlist_slave_offset(state_msg, state_msg_len, thd,
+                                   log_file_name, my_b_tell(&log),
+                                   &skip_state_update);
+
           switch (event_type)
           {
           case ANONYMOUS_GTID_LOG_EVENT:
@@ -1903,6 +1970,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
     if (goto_next_binlog)
     {
+      skip_state_update = 0;
+
       // clear flag because we open a new binlog
       binlog_has_previous_gtids_log_event= false;
 
@@ -1965,6 +2034,8 @@ end:
   thd->current_linfo = 0;
   mysql_mutex_unlock(&LOCK_thread_count);
   thd->variables.max_allowed_packet= old_max_allowed_packet;
+  /* Undo any calls done by processlist_slave_offset */
+  thd->set_query(orig_query, orig_query_length);
   DBUG_VOID_RETURN;
 
 err:
@@ -2008,6 +2079,8 @@ err:
 
   thd->set_stmt_da(saved_da);
   my_message(my_errno, error_text, MYF(0));
+  /* Undo any calls done by processlist_slave_offset */
+  thd->set_query(orig_query, orig_query_length);
   DBUG_VOID_RETURN;
 }
 
