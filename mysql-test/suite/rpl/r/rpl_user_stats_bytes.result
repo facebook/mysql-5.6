@@ -6,12 +6,16 @@ At start
 
 select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
 binlog_bytes_written	79
+bytes_written	should be 0
+0	should be 0
 insert into userstats values (1,1);
 
 after insert
 
 select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
 binlog_bytes_written	285
+bytes_written	should be 206
+206	should be 206
 begin;
 insert into userstats values (2,2);
 commit;
@@ -20,6 +24,8 @@ after begin, insert, commit
 
 select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
 binlog_bytes_written	491
+bytes_written	should be 412
+412	should be 412
 select * from userstats;
 i	j
 1	1
@@ -29,4 +35,6 @@ after select
 
 select binlog_bytes_written from information_schema.user_statistics where user_name = 'root';
 binlog_bytes_written	491
+bytes_written	should be 412
+412	should be 412
 drop table userstats;
