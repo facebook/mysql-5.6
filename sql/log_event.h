@@ -721,6 +721,14 @@ enum Log_event_type
   ENUM_END_EVENT /* end marker */
 };
 
+/* Count binlog events by type processed by the SQL slave */
+extern ulonglong repl_event_counts[ENUM_END_EVENT];
+extern ulonglong repl_event_count_other;
+
+/* Time binlog events by type processed by the SQL slave */
+extern ulonglong repl_event_times[ENUM_END_EVENT];
+extern ulonglong repl_event_time_other;
+
 /*
    The number of types we handle in Format_description_log_event (UNKNOWN_EVENT
    is not to be handled, it does not exist in binlogs, it does not have a
