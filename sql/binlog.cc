@@ -5076,6 +5076,7 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
   if (ev->write(&log_file) == 0)
   {
     bytes_written+= ev->data_written;
+    binlog_bytes_written += ev->data_written;
     if (us)
     {
       us->binlog_bytes_written.inc(ev->data_written);
@@ -5105,6 +5106,7 @@ bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
   if (my_b_append(&log_file,(uchar*) buf,len) == 0)
   {
     bytes_written += len;
+    binlog_bytes_written += len;
     if (us)
     {
       us->binlog_bytes_written.inc(len);
@@ -5827,6 +5829,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, bool need_lock_log,
   {
     us->binlog_bytes_written.inc(ev->data_written);
   }
+  binlog_bytes_written += ev->data_written;
 
   if (do_flush_and_sync)
   {
@@ -5935,6 +5938,7 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data)
       {
         us->binlog_bytes_written.inc(my_b_tell(cache));
       }
+      binlog_bytes_written += my_b_tell(cache);
 
       if (incident && write_incident(thd, false/*need_lock_log=false*/,
                                      false/*do_flush_and_sync==false*/))
