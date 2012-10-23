@@ -20,16 +20,25 @@ drop table if exists userstats;
 create table userstats (i int primary key, j int) engine=innodb;
 
 flush statistics;
+let $bytes_base = query_get_value(show global status like "Binlog_bytes_written", Value, 1);
 --echo
 --echo At start
 --echo
 --query_vertical select binlog_bytes_written from information_schema.user_statistics where user_name = 'root'
+let $bytes = query_get_value(show global status like "Binlog_bytes_written", Value, 1);
+--disable_query_log
+--eval select $bytes - $bytes_base as bytes_written, 'should be 0';
+--enable_query_log
 
 insert into userstats values (1,1);
 --echo
 --echo after insert
 --echo
 --query_vertical select binlog_bytes_written from information_schema.user_statistics where user_name = 'root'
+let $bytes = query_get_value(show global status like "Binlog_bytes_written", Value, 1);
+--disable_query_log
+--eval select $bytes - $bytes_base as bytes_written, 'should be 206';
+--enable_query_log
 
 begin;
 insert into userstats values (2,2);
@@ -38,12 +47,20 @@ commit;
 --echo after begin, insert, commit
 --echo
 --query_vertical select binlog_bytes_written from information_schema.user_statistics where user_name = 'root'
+let $bytes = query_get_value(show global status like "Binlog_bytes_written", Value, 1);
+--disable_query_log
+--eval select $bytes - $bytes_base as bytes_written, 'should be 412';
+--enable_query_log
 
 select * from userstats;
 --echo
 --echo after select
 --echo
 --query_vertical select binlog_bytes_written from information_schema.user_statistics where user_name = 'root'
+let $bytes = query_get_value(show global status like "Binlog_bytes_written", Value, 1);
+--disable_query_log
+--eval select $bytes - $bytes_base as bytes_written, 'should be 412';
+--enable_query_log
 
 # Cleanup
 drop table userstats;
