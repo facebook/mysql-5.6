@@ -1,0 +1,21 @@
+# confirms that the slave offset is displayed in SHOW PROCESSLIST
+
+source include/master-slave.inc;
+source include/have_binlog_format_statement.inc;
+
+connection master;
+CREATE TABLE t1 (data LONGBLOB) ENGINE=MYISAM;
+
+INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
+INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
+sync_slave_with_master;
+
+connection master;
+SELECT info FROM information_schema.processlist where Command like 'Binlog%';
+
+drop table t1;
+sync_slave_with_master;
+stop slave;
+
+connection master;
+
