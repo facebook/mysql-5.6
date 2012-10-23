@@ -134,7 +134,9 @@ Binlog_sender::Binlog_sender(THD *thd, const char *start_file,
       m_new_shrink_size(PACKET_MIN_SIZE),
       m_flag(flag),
       m_observe_transmission(false),
-      m_transmit_started(false) {}
+      m_transmit_started(false),
+      m_orig_query(NULL_CSTR),
+      m_skip_state_update(0) {}
 
 void Binlog_sender::init() {
   DBUG_TRACE;
@@ -153,6 +155,9 @@ void Binlog_sender::init() {
   m_new_shrink_size = PACKET_MIN_SIZE;
   DBUG_PRINT("info", ("Initial packet->alloced_length: %zu",
                       m_packet.alloced_length()));
+
+  /* Save original query. Will be unset in cleanup */
+  m_orig_query = thd->query();
 
   if (!mysql_bin_log.is_open()) {
     set_fatal_error("Binary log is not open");
@@ -244,6 +249,9 @@ void Binlog_sender::cleanup() {
 
   THD *thd = m_thd;
 
+  /* Undo any calls done by processlist_slave_offset */
+  thd->set_query(m_orig_query);
+
   if (m_transmit_started)
     (void)RUN_HOOK(binlog_transmit, transmit_stop, (thd, m_flag));
 
@@ -297,6 +305,8 @@ void Binlog_sender::run() {
 
     /* Will go to next file, need to copy log file name */
     set_last_file(log_file);
+
+    m_skip_state_update = 0;  // reset counter on the next binlog file
 
     THD_STAGE_INFO(m_thd,
                    stage_finished_reading_one_binlog_switching_to_next_binlog);
@@ -489,6 +499,8 @@ int Binlog_sender::send_events(File_reader *reader, my_off_t end_pos) {
     });
 
     log_pos = reader->position();
+
+    processlist_slave_offset(log_file, log_pos);
 
     if (before_send_hook(log_file, log_pos)) return 1;
     /*
@@ -1327,4 +1339,25 @@ void Binlog_sender::calc_shrink_buffer_size(size_t current_size) {
                static_cast<double>(current_size * PACKET_SHRINK_FACTOR)));
 
   m_new_shrink_size = ALIGN_SIZE(new_size);
+}
+
+void Binlog_sender::processlist_slave_offset(const char *log_file_name,
+                                             my_off_t log_pos) {
+  DBUG_ENTER("processlist_show_binlog_state");
+  DBUG_ASSERT(m_skip_state_update >= 0);
+
+  if (m_skip_state_update > 0) {
+    --m_skip_state_update;
+    DBUG_VOID_RETURN;
+  } else {
+    m_skip_state_update = 10;
+  }
+
+  int len = snprintf(m_state_msg, m_state_msg_len, "slave offset: %s %lld",
+                     log_file_name + dirname_length(log_file_name),
+                     (long long int)log_pos);
+
+  if (len > 0) m_thd->set_query(m_state_msg, len);
+
+  DBUG_VOID_RETURN;
 }
