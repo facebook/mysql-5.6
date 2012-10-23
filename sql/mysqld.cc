@@ -541,6 +541,7 @@ ulonglong slave_rows_search_algorithms_options;
 #ifndef DBUG_OFF
 uint slave_rows_last_search_algorithm_used;
 #endif
+ulonglong binlog_bytes_written = 0;
 ulong binlog_cache_size=0;
 ulonglong  max_binlog_cache_size=0;
 ulong slave_max_allowed_packet= 0;
@@ -8246,6 +8247,7 @@ show_ssl_get_server_not_after(THD *thd, SHOW_VAR *var, char *buff)
 SHOW_VAR status_vars[]= {
   {"Aborted_clients",          (char*) &aborted_threads,        SHOW_LONG},
   {"Aborted_connects",         (char*) &aborted_connects,       SHOW_LONG},
+  {"Binlog_bytes_written",     (char*) &binlog_bytes_written,   SHOW_LONGLONG},
   {"Binlog_cache_disk_use",    (char*) &binlog_cache_disk_use,  SHOW_LONG},
   {"Binlog_cache_use",         (char*) &binlog_cache_use,       SHOW_LONG},
   {"Binlog_stmt_cache_disk_use",(char*) &binlog_stmt_cache_disk_use,  SHOW_LONG},
@@ -8584,6 +8586,7 @@ static int mysql_init_variables(void)
   delayed_insert_threads= delayed_insert_writes= delayed_rows_in_use= 0;
   delayed_insert_errors= thread_created= 0;
   specialflag= 0;
+  binlog_bytes_written= 0;
   binlog_cache_use=  binlog_cache_disk_use= 0;
   max_used_connections= slow_launch_threads = 0;
   mysqld_user= mysqld_chroot= opt_init_file= opt_bin_logname = 0;
