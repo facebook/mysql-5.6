@@ -187,6 +187,18 @@ class Binlog_sender {
     Type of the previously processed event.
   */
   binary_log::Log_event_type m_prev_event_type;
+
+  /*
+    This buffer should be enough for "slave offset: file_name file_pos".
+    set_query(state_msg, ...) might be called so set_query("", 0) must be
+    called at function end to avoid bogus memory references.
+  */
+  char m_state_msg[FN_REFLEN + 100];
+  int m_state_msg_len = FN_REFLEN + 100;
+  LEX_CSTRING m_orig_query;
+  /* The number of times to skip calls to processlist_slave_offset */
+  int m_skip_state_update = 0;
+
   /*
     It initializes the context, checks if the dump request is valid and
     if binlog status is correct.
@@ -486,6 +498,14 @@ class Binlog_sender {
    @param current_size The baseline (for instance, the current buffer size).
   */
   void calc_shrink_buffer_size(size_t current_size);
+
+  /**
+   Show processlist command dump the binlog state.
+
+   @param log_file_name -  (IN)  binlog file name
+   @param log_pos       -  (IN)  binlog position
+  */
+  void processlist_slave_offset(const char *log_file_name, my_off_t log_pos);
 };
 
 #endif  // DEFINED_RPL_BINLOG_SENDER
