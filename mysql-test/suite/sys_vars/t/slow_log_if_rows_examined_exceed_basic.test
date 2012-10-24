@@ -1,0 +1,8 @@
+#
+# Basic test for slow_log_if_rows_examined_exceed
+#
+
+-- source include/have_innodb.inc
+
+SET @orig = @@global.slow_log_if_rows_examined_exceed;
+SELECT @orig;

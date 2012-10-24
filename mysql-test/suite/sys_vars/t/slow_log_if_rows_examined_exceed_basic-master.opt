@@ -1,0 +1,1 @@
+--slow_log_if_rows_examined_exceed=10
