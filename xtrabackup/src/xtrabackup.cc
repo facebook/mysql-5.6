@@ -1499,7 +1499,7 @@ Disable with --skip-innodb-doublewrite.", (G_PTR*) &innobase_use_doublewrite,
    "INNODB, STRICT_INNODB, NONE, STRICT_NONE, FACEBOOK]",
    &srv_checksum_algorithm, &srv_checksum_algorithm,
    &innodb_checksum_algorithm_typelib, GET_ENUM,
-   REQUIRED_ARG, 0, 0, 6, 0, 1, 0},
+   REQUIRED_ARG, 6, 0, 6, 0, 1, 0},
   {"undo-tablespaces", OPT_UNDO_TABLESPACES,
    "Number of undo tablespaces to use. NON-ZERO VALUES ARE NOT "
    "CURRENTLY SUPPORTED",
