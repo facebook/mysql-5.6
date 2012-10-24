@@ -15871,6 +15871,8 @@ static MYSQL_SYSVAR_ENUM(checksum_algorithm, srv_checksum_algorithm,
     "write crc32, allow any of the other checksums to match when reading; "
   "STRICT_CRC32 "
     "write crc32, do not allow other algorithms to match when reading; "
+  "FACEBOOK "
+    "write crc32c, allow crc32c or crc32cfb when reading; "
   "INNODB "
     "write a software calculated checksum, allow any other checksums "
     "to match when reading; "
@@ -15885,7 +15887,7 @@ static MYSQL_SYSVAR_ENUM(checksum_algorithm, srv_checksum_algorithm,
     "magic number when reading; "
   "Files updated when this option is set to crc32 or strict_crc32 will "
   "not be readable by MySQL versions older than 5.6.3",
-  NULL, NULL, SRV_CHECKSUM_ALGORITHM_INNODB,
+  NULL, NULL, SRV_CHECKSUM_ALGORITHM_FACEBOOK,
   &innodb_checksum_algorithm_typelib);
 
 static MYSQL_SYSVAR_BOOL(checksums, innobase_use_checksums,
