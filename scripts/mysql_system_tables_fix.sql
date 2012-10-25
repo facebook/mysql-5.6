@@ -32,6 +32,8 @@ ALTER TABLE user add File_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL;
 SET @hadGrantPriv:=0;
 SELECT @hadGrantPriv:=1 FROM user WHERE Grant_priv LIKE '%';
 
+ALTER TABLE user DROP max_concurrent_transactions;
+ALTER TABLE user DROP max_concurrent_queries;
 ALTER TABLE user add Grant_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL,add References_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL,add Index_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL,add Alter_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL;
 ALTER TABLE db add Grant_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL,add References_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL,add Index_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL,add Alter_priv enum('N','Y') COLLATE utf8_general_ci NOT NULL;
 
