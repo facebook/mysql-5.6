@@ -783,6 +783,7 @@ static const char *expected_errors[]=
   "ERROR 1060", /* Duplicate column name */
   "ERROR 1061", /* Duplicate key name */
   "ERROR 1054", /* Unknown column */
+  "ERROR 1091", /* Can't DROP 'column' */
   0
 };
 
