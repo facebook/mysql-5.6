@@ -963,7 +963,7 @@ static my_bool acl_load(THD *thd, TABLE_LIST *tables)
           user.user_resource.user_conn= ptr ? atoi(ptr) : 0;
         }
 
-        if (table->s->fields >= 41)
+        if (table->s->fields >= 43) // Not 41, For Facebook Admission Control
         {
           /* We may have plugin & auth_String fields */
           char *tmpstr= get_field(&global_acl_memory,
@@ -3221,7 +3221,7 @@ static int replace_user_table(THD *thd, TABLE *table, LEX_USER *combo,
     next_field+= 4;
     if (combo->plugin.length > 0 && !old_row_exists)
     {
-      if (table->s->fields >= 41)
+      if (table->s->fields >= 43) // Not 41, For Facebook Admission Control
       {
         table->field[MYSQL_USER_FIELD_PLUGIN]->
           store(combo->plugin.str, combo->plugin.length, system_charset_info);
