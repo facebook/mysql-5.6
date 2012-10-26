@@ -401,7 +401,8 @@ buf_dblwr_reset(
 	}
 
 	page = page_align((byte*)page_unaligned + UNIV_PAGE_SIZE);
-	fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0, buf_dblwr->block1, 0,
+	fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE, 0,
+	       buf_dblwr->block1, 0,
 	       TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * UNIV_PAGE_SIZE,
 	       (void*) page, NULL);
 
@@ -414,7 +415,8 @@ buf_dblwr_reset(
 	}
 
 	page = page_align((byte*)page_unaligned + UNIV_PAGE_SIZE);
-	fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0, buf_dblwr->block2, 0,
+	fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE, 0,
+	       buf_dblwr->block2, 0,
 	       TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * UNIV_PAGE_SIZE,
 	       (void*) page, NULL);
 
@@ -1085,7 +1087,8 @@ try_again:
 		mach_write_to_4(buf_dblwr->header + FIL_PAGE_SPACE_OR_CHKSUM,
 				checksum);
 
-		fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0,
+		fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true,
+		       TRX_SYS_SPACE, 0,
 		       buf_dblwr->block1, 0, BUF_DBLWR_HEADER_SIZE,
 		       (void*) buf_dblwr->header, NULL);
 		goto flush;
@@ -1095,7 +1098,7 @@ try_again:
 	len = ut_min(TRX_SYS_DOUBLEWRITE_BLOCK_SIZE,
 		     buf_dblwr->first_free) * UNIV_PAGE_SIZE;
 
-	fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0,
+	fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE, 0,
 	       buf_dblwr->block1, 0, len,
 	       (void*) write_buf, NULL);
 
@@ -1111,7 +1114,7 @@ try_again:
 	write_buf = buf_dblwr->write_buf
 		    + TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * UNIV_PAGE_SIZE;
 
-	fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0,
+	fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE, 0,
 	       buf_dblwr->block2, 0, len,
 	       (void*) write_buf, NULL);
 
@@ -1343,15 +1346,15 @@ retry:
 		memset(buf_dblwr->write_buf + UNIV_PAGE_SIZE * i
 		       + zip_size, 0, UNIV_PAGE_SIZE - zip_size);
 
-		fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0,
-		       offset, 0, UNIV_PAGE_SIZE,
+		fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE,
+		       0, offset, 0, UNIV_PAGE_SIZE,
 		       (void*) (buf_dblwr->write_buf
 				+ UNIV_PAGE_SIZE * i), NULL);
 	} else {
 		/* It is a regular page. Write it directly to the
 		doublewrite buffer */
-		fil_io(OS_FILE_WRITE, true, TRX_SYS_SPACE, 0,
-		       offset, 0, UNIV_PAGE_SIZE,
+		fil_io(OS_FILE_WRITE | OS_AIO_DOUBLE_WRITE, true, TRX_SYS_SPACE,
+		       0, offset, 0, UNIV_PAGE_SIZE,
 		       (void*) ((buf_block_t*) bpage)->frame,
 		       NULL);
 	}
