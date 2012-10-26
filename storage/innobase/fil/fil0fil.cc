@@ -5388,7 +5388,10 @@ _fil_io(
 				may introduce hidden chances of deadlocks,
 				because i/os are not actually handled until
 				all have been posted: use with great
-				caution! */
+				caution! When ORed to OS_AIO_DOUBLE_WRITE,
+				OS_FILE_LOG or OS_AIO_SIMULATED_WAKE_LATER is
+				used to indicate how perf counters are to
+				be updated for sync writes. */
 	ibool	sync,		/*!< in: TRUE if synchronous aio is desired */
 	ulint	space_id,	/*!< in: space id */
 	ulint	zip_size,	/*!< in: compressed page size in bytes;
@@ -5414,15 +5417,19 @@ _fil_io(
 	fil_node_t*	node;
 	ibool		ret;
 	ulint		is_log;
-	ulint		wake_later;
+	ulint		io_flags;
 	os_offset_t	offset;
 	ibool		ignore_nonexistent_pages;
 
+	io_flags = type & OS_AIO_SIMULATED_WAKE_LATER;
+	type = type & ~OS_AIO_SIMULATED_WAKE_LATER;
+
 	is_log = type & OS_FILE_LOG;
+	io_flags |= is_log;
 	type = type & ~OS_FILE_LOG;
 
-	wake_later = type & OS_AIO_SIMULATED_WAKE_LATER;
-	type = type & ~OS_AIO_SIMULATED_WAKE_LATER;
+	io_flags |= (type & OS_AIO_DOUBLE_WRITE);
+	type = type & ~OS_AIO_DOUBLE_WRITE;
 
 	ignore_nonexistent_pages = type & BUF_READ_IGNORE_NONEXISTENT_PAGES;
 	type &= ~BUF_READ_IGNORE_NONEXISTENT_PAGES;
@@ -5497,7 +5504,6 @@ _fil_io(
 	ut_ad(mode != OS_AIO_IBUF || space->purpose == FIL_TABLESPACE);
 
 	node = UT_LIST_GET_FIRST(space->chain);
-
 	for (;;) {
 		if (node == NULL) {
 			if (ignore_nonexistent_pages) {
@@ -5587,7 +5593,7 @@ _fil_io(
 	}
 #else
 	/* Queue the aio request */
-	ret = os_aio(type, mode | wake_later, node->name, node->handle, buf,
+	ret = os_aio(type, mode | io_flags, node->name, node->handle, buf,
 		     offset, len, node, message,
 		     /* We do not collect primary and secondary index
 			IO stats for system table space */
