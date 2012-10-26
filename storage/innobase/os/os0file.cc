@@ -304,6 +304,9 @@ my_io_perf_t os_async_write_perf;
 my_io_perf_t os_sync_read_perf;
 my_io_perf_t os_sync_write_perf;
 
+my_io_perf_t os_log_write_perf;
+my_io_perf_t os_double_write_perf;
+
 /* Timer units waiting for fsync or fdatasync to finish */
 ulonglong os_file_flush_time = 0;
 
@@ -3988,6 +3991,9 @@ os_aio_init(
 
 		os_aio_ibuf_array = os_aio_array_create(n_per_seg, 1);
 
+		my_io_perf_init(&os_log_write_perf);
+		my_io_perf_init(&os_double_write_perf);
+
 		if (os_aio_ibuf_array == NULL) {
 			return(FALSE);
 		}
@@ -4638,6 +4644,8 @@ os_aio_func(
 	ulint		dummy_type;
 #endif /* WIN_ASYNC_IO */
 	ulint		wake_later;
+	ulint		is_log_write;
+	ulint		is_double_write;
 	ib_uint64_t	index_id;
 
 	ut_ad(file);
@@ -4650,8 +4658,12 @@ os_aio_func(
 	ut_ad((n & 0xFFFFFFFFUL) == n);
 #endif
 
+	is_log_write = mode & OS_FILE_LOG;
+	is_double_write = mode & OS_AIO_DOUBLE_WRITE;
 	wake_later = mode & OS_AIO_SIMULATED_WAKE_LATER;
-	mode = mode & (~OS_AIO_SIMULATED_WAKE_LATER);
+	mode = mode & ~(OS_AIO_SIMULATED_WAKE_LATER |
+			OS_FILE_LOG |
+			OS_AIO_DOUBLE_WRITE);
 
 	if (mode == OS_AIO_SYNC
 #ifdef WIN_ASYNC_IO
@@ -4734,7 +4746,16 @@ os_aio_func(
 			}
 
 		} else {
-			os_io_perf_update_all(&os_sync_write_perf, n,
+			my_io_perf_t *perf;
+
+			if (is_log_write)
+				perf = &os_log_write_perf;
+			else if (is_double_write)
+				perf = &os_double_write_perf;
+			else
+				perf = &os_sync_write_perf;
+
+			os_io_perf_update_all(perf, n,
 				elapsed_time, end_time, start_time);
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->write), n,
@@ -5949,6 +5970,12 @@ os_aio_print(
 
 	fprintf(file, "Sync writes: ");
 	os_io_perf_print(file, &os_sync_write_perf, TRUE);
+
+	fprintf(file, "Log writes: ");
+	os_io_perf_print(file, &os_log_write_perf, TRUE);
+
+	fprintf(file, "Doublewrite buffer writes: ");
+	os_io_perf_print(file, &os_double_write_perf, TRUE);
 
 	double os_file_flush_sec = my_timer_to_seconds(os_file_flush_time);
 	fprintf(file,
