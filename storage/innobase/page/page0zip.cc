@@ -6238,7 +6238,6 @@ page_zip_calc_checksum(
 	switch (algo) {
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
-	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
 
 		ut_ad(size > FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 
@@ -6251,6 +6250,7 @@ page_zip_calc_checksum(
 		return((ulint) crc32);
 	case SRV_CHECKSUM_ALGORITHM_INNODB:
 	case SRV_CHECKSUM_ALGORITHM_STRICT_INNODB:
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
 		ut_ad(size > FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
 
 		adler = adler32(0L, s + FIL_PAGE_OFFSET,
@@ -6324,7 +6324,6 @@ page_zip_verify_checksum(
 	case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
 		return(stored == calc);
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
-	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
 		/* Facebook and crc32 can also accept an innodb-style
 		 * checksum (aka adler32) */
 		if (stored == BUF_NO_CHECKSUM_MAGIC) {
@@ -6335,6 +6334,7 @@ page_zip_verify_checksum(
 			data, size, SRV_CHECKSUM_ALGORITHM_INNODB));
 		break;
 	case SRV_CHECKSUM_ALGORITHM_INNODB:
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
 		if (stored == BUF_NO_CHECKSUM_MAGIC) {
 			return(TRUE);
 		}
