@@ -1,0 +1,15 @@
+drop table if exists t1;
+create table t1 (i int, primary key (i)) engine = InnoDB;
+log_write_requests_not_zero
+1
+log_write_bytes_not_zero
+1
+double_write_requests_not_zero
+1
+double_write_bytes_not_zero
+1
+sync_write_requests_not_zero
+1
+sync_write_bytes_not_zero
+1
+drop table t1;
