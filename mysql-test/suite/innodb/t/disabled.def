@@ -9,3 +9,4 @@
 #  Do not use any TAB characters for whitespace.
 #
 ##############################################################################
+innodb-wl5980-linux : Tests that we can load obsolete-format Windows files.
