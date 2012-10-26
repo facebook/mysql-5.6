@@ -920,6 +920,12 @@ struct export_var_t{
 	ulint innodb_data_sync_write_bytes;	/*!< #bytes for sync writes */
 	ulint innodb_data_sync_write_requests;	/*!< #requests for sync writes */
 	ulonglong innodb_data_sync_write_svc_time;/*!< service time for sync writes */
+	ulint innodb_data_log_write_bytes;	/*!< #bytes for log writes */
+	ulint innodb_data_log_write_requests;	/*!< #requests for log writes */
+	ulonglong innodb_data_log_write_svc_time;/*!< service time for log writes */
+	ulint innodb_data_double_write_bytes;	/*!< #bytes for double writes */
+	ulint innodb_data_double_write_requests;/*!< #requests for double writes */
+	ulonglong innodb_data_double_write_svc_time;/*!< service time for double writes */
 	char  innodb_buffer_pool_dump_status[512];/*!< Buf pool dump status */
 	char  innodb_buffer_pool_load_status[512];/*!< Buf pool load status */
 	ulint innodb_buffer_pool_flushed_lru;	/*!< #pages flushed from LRU */
