@@ -1,0 +1,30 @@
+--source include/not_embedded.inc
+--source include/have_innodb.inc
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (i int, primary key (i)) engine = InnoDB;
+
+--disable_query_log
+let $x = 40000;
+while ($x) {
+    eval insert into t1 values ($x);
+    dec $x;
+}
+
+let $log_write_requests = query_get_value(SHOW GLOBAL STATUS like 'Innodb_data_log_write_requests', Value, 1);
+let $log_write_bytes = query_get_value(SHOW GLOBAL STATUS like 'Innodb_data_log_write_bytes', Value, 1);
+let $double_write_requests = query_get_value(SHOW GLOBAL STATUS like 'Innodb_data_double_write_requests', Value, 1);
+let $double_write_bytes = query_get_value(SHOW GLOBAL STATUS like 'Innodb_data_double_write_bytes', Value, 1);
+let $sync_write_requests = query_get_value(SHOW GLOBAL STATUS like 'Innodb_data_sync_write_requests', Value, 1);
+let $sync_write_bytes = query_get_value(SHOW GLOBAL STATUS like 'Innodb_data_sync_write_bytes', Value, 1);
+--eval select $log_write_requests > 0 as log_write_requests_not_zero;
+--eval select $log_write_bytes > 0 as log_write_bytes_not_zero;
+--eval select $double_write_requests > 0 as double_write_requests_not_zero;
+--eval select $double_write_bytes > 0 as double_write_bytes_not_zero;
+--eval select $sync_write_requests > 0 as sync_write_requests_not_zero;
+--eval select $sync_write_bytes > 0 as sync_write_bytes_not_zero;
+--enable_query_log
+
+drop table t1;
