@@ -1236,7 +1236,7 @@ int ha_prepare(THD *thd)
       status_var_increment(thd->status_var.ha_prepare_count);
       if (ht->prepare)
       {
-        if ((err= ht->prepare(ht, thd, all)))
+        if ((err= ht->prepare(ht, thd, all, FALSE)))
         {
           my_error(ER_ERROR_DURING_COMMIT, MYF(0), err);
           ha_rollback_trans(thd, all);
@@ -1331,7 +1331,7 @@ ha_check_and_coalesce_trx_read_only(THD *thd, Ha_trx_info *ha_list,
     stored functions or triggers. So we simply do nothing now.
     TODO: This should be fixed in later ( >= 5.1) releases.
 */
-int ha_commit_trans(THD *thd, bool all)
+int ha_commit_trans(THD *thd, bool all, bool async)
 {
   int error= 0;
   /*
@@ -1449,7 +1449,7 @@ int ha_commit_trans(THD *thd, bool all)
     }
 
     if (!trans->no_2pc && (rw_ha_count > 1))
-      error= tc_log->prepare(thd, all);
+      error= tc_log->prepare(thd, all, async);
     else if (is_real_trans && !trans->no_2pc && (rw_ha_count == 1))
     {
       /* When innodb_fake_changes is enabled for a transaction and that
@@ -1473,7 +1473,7 @@ int ha_commit_trans(THD *thd, bool all)
       }
     }
   }
-  if (error || (error= tc_log->commit(thd, all)))
+  if (error || (error= tc_log->commit(thd, all, async)))
   {
     ha_rollback_trans(thd, all);
     error= 1;
@@ -1517,7 +1517,7 @@ end:
                    the after_commit hook in the function.
 */
 
-int ha_commit_low(THD *thd, bool all, bool run_after_commit)
+int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit)
 {
   int error=0;
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
@@ -1531,7 +1531,7 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit)
     {
       int err;
       handlerton *ht= ha_info->ht();
-      if ((err= ht->commit(ht, thd, all)))
+      if ((err= ht->commit(ht, thd, all, async)))
       {
         my_error(ER_ERROR_DURING_COMMIT, MYF(0), err);
         error=1;
@@ -2085,7 +2085,7 @@ int ha_rollback_to_savepoint(THD *thd, SAVEPOINT *sv)
   DBUG_RETURN(error);
 }
 
-int ha_prepare_low(THD *thd, bool all)
+int ha_prepare_low(THD *thd, bool all, bool async)
 {
   int error= 0;
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
@@ -2105,7 +2105,7 @@ int ha_prepare_low(THD *thd, bool all)
       */
       if (!ha_info->is_trx_read_write())
         continue;
-      if ((err= ht->prepare(ht, thd, all)))
+      if ((err= ht->prepare(ht, thd, all, async)))
       {
         my_error(ER_ERROR_DURING_COMMIT, MYF(0), err);
         error= 1;
@@ -4652,7 +4652,7 @@ int ha_enable_transaction(THD *thd, bool on)
       is an optimization hint that storage engine is free to ignore.
       So, let's commit an open transaction (if any) now.
     */
-    if (!(error= ha_commit_trans(thd, 0)))
+    if (!(error= ha_commit_trans(thd, 0, FALSE)))
       error= trans_commit_implicit(thd);
   }
   DBUG_RETURN(error);

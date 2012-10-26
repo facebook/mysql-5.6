@@ -1538,7 +1538,7 @@ void THD::cleanup(void)
     actions.
    */
   if (tc_log)
-    tc_log->commit(this, true);
+    tc_log->commit(this, true, false);
 
   cleanup_done=1;
   DBUG_VOID_RETURN;

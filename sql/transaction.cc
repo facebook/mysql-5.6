@@ -143,7 +143,7 @@ bool trans_begin(THD *thd, uint flags)
     thd->server_status&=
       ~(SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY);
     DBUG_PRINT("info", ("clearing SERVER_STATUS_IN_TRANS"));
-    res= test(ha_commit_trans(thd, TRUE));
+    res= test(ha_commit_trans(thd, TRUE, FALSE));
   }
 
   thd->variables.option_bits&= ~OPTION_BEGIN;
@@ -205,7 +205,7 @@ bool trans_begin(THD *thd, uint flags)
   @retval TRUE   Failure
 */
 
-bool trans_commit(THD *thd)
+bool trans_commit(THD *thd, bool async)
 {
   int res;
   DBUG_ENTER("trans_commit");
@@ -226,7 +226,7 @@ bool trans_commit(THD *thd)
   thd->server_status&=
     ~(SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY);
   DBUG_PRINT("info", ("clearing SERVER_STATUS_IN_TRANS"));
-  res= ha_commit_trans(thd, TRUE);
+  res= ha_commit_trans(thd, TRUE, async);
   thd->variables.option_bits&= ~OPTION_BEGIN;
   thd->transaction.all.reset_unsafe_rollback_flags();
   thd->lex->start_transaction_opt= 0;
@@ -246,7 +246,7 @@ bool trans_commit(THD *thd)
   @retval TRUE   Failure
 */
 
-bool trans_commit_implicit(THD *thd)
+bool trans_commit_implicit(THD *thd, bool async)
 {
   bool res= FALSE;
   DBUG_ENTER("trans_commit_implicit");
@@ -279,10 +279,10 @@ bool trans_commit_implicit(THD *thd)
     thd->server_status&=
       ~(SERVER_STATUS_IN_TRANS | SERVER_STATUS_IN_TRANS_READONLY);
     DBUG_PRINT("info", ("clearing SERVER_STATUS_IN_TRANS"));
-    res= test(ha_commit_trans(thd, TRUE));
+    res= test(ha_commit_trans(thd, TRUE, async));
   }
   else if (tc_log)
-    tc_log->commit(thd, true);
+    tc_log->commit(thd, true, async);
 
   thd->variables.option_bits&= ~OPTION_BEGIN;
   thd->transaction.all.reset_unsafe_rollback_flags();
@@ -354,7 +354,7 @@ bool trans_rollback(THD *thd)
   @retval TRUE   Failure
 */
 
-bool trans_commit_stmt(THD *thd)
+bool trans_commit_stmt(THD *thd, bool async)
 {
   DBUG_ENTER("trans_commit_stmt");
 #ifndef DBUG_OFF
@@ -386,7 +386,7 @@ bool trans_commit_stmt(THD *thd)
 
   if (thd->transaction.stmt.ha_list)
   {
-    res= ha_commit_trans(thd, FALSE);
+    res= ha_commit_trans(thd, FALSE, async);
     if (! thd->in_active_multi_stmt_transaction())
     {
       thd->tx_isolation= (enum_tx_isolation) thd->variables.tx_isolation;
@@ -394,7 +394,7 @@ bool trans_commit_stmt(THD *thd)
     }
   }
   else if (tc_log)
-    tc_log->commit(thd, false);
+    tc_log->commit(thd, false, async);
 
   thd->transaction.stmt.reset();
 
@@ -809,7 +809,7 @@ bool trans_xa_commit(THD *thd)
   }
   else if (xa_state == XA_IDLE && thd->lex->xa_opt == XA_ONE_PHASE)
   {
-    int r= ha_commit_trans(thd, TRUE);
+    int r= ha_commit_trans(thd, TRUE, FALSE);
     if ((res= test(r)))
       my_error(r == 1 ? ER_XA_RBROLLBACK : ER_XAER_RMERR, MYF(0));
   }
@@ -838,9 +838,9 @@ bool trans_xa_commit(THD *thd)
       DEBUG_SYNC(thd, "trans_xa_commit_after_acquire_commit_lock");
 
       if (tc_log)
-        res= test(tc_log->commit(thd, /* all */ true));
+        res= test(tc_log->commit(thd, /* all */ true, FALSE));
       else
-        res= test(ha_commit_low(thd, /* all */ true));
+        res= test(ha_commit_low(thd, /* all */ true, FALSE));
 
       if (res)
         my_error(ER_XAER_RMERR, MYF(0));
