@@ -975,10 +975,16 @@ static
 void
 trx_flush_log_if_needed_low(
 /*========================*/
-	lsn_t	lsn)	/*!< in: lsn up to which logs are to be
+	lsn_t	lsn,	/*!< in: lsn up to which logs are to be
 			flushed. */
+	ibool async) 	/*!< in: TRUE - don't sync log */
 {
-	switch (srv_flush_log_at_trx_commit) {
+	int flush_log_value = srv_flush_log_at_trx_commit;
+	if (async) {
+		flush_log_value = 2;
+	}
+
+	switch (flush_log_value) {
 	case 0:
 		/* Do nothing */
 		break;
@@ -1014,10 +1020,11 @@ trx_flush_log_if_needed(
 /*====================*/
 	lsn_t	lsn,	/*!< in: lsn up to which logs are to be
 			flushed. */
-	trx_t*	trx)	/*!< in/out: transaction */
+	trx_t*	trx,	/*!< in/out: transaction */
+	ibool async)    /*!< in: TRUE - don't sync log */
 {
 	trx->op_info = "flushing log";
-	trx_flush_log_if_needed_low(lsn);
+	trx_flush_log_if_needed_low(lsn, async);
 	trx->op_info = "";
 }
 
@@ -1162,7 +1169,7 @@ trx_commit_in_memory(
 			   == HA_IGNORE_DURABILITY) {
 			/* Do nothing */
 		} else {
-			trx_flush_log_if_needed(lsn, trx);
+			trx_flush_log_if_needed(lsn, trx, false);
 		}
 
 		trx->commit_lsn = lsn;
@@ -1532,7 +1539,8 @@ UNIV_INTERN
 void
 trx_commit_complete_for_mysql(
 /*==========================*/
-	trx_t*	trx)	/*!< in/out: transaction */
+	trx_t*	trx,	/*!< in/out: transaction */
+	ibool async)    /*!< in: TRUE - don't sync log */
 {
 	ut_a(trx);
 
@@ -1542,7 +1550,7 @@ trx_commit_complete_for_mysql(
 		return;
 	}
 
-	trx_flush_log_if_needed(trx->commit_lsn, trx);
+	trx_flush_log_if_needed(trx->commit_lsn, trx, async);
 
 	trx->must_flush_log_later = FALSE;
 }
@@ -1840,7 +1848,8 @@ static
 void
 trx_prepare(
 /*========*/
-	trx_t*	trx)	/*!< in/out: transaction */
+	trx_t*	trx,	/*!< in/out: transaction */
+	ibool async)    /*!< in: TRUE - don't sync log */
 {
 	trx_rseg_t*	rseg;
 	lsn_t		lsn;
@@ -1916,7 +1925,7 @@ trx_prepare(
 		TODO: find out if MySQL holds some mutex when calling this.
 		That would spoil our group prepare algorithm. */
 
-		trx_flush_log_if_needed(lsn, trx);
+		trx_flush_log_if_needed(lsn, trx, async);
 	}
 }
 
@@ -1926,13 +1935,14 @@ UNIV_INTERN
 void
 trx_prepare_for_mysql(
 /*==================*/
-	trx_t*	trx)	/*!< in/out: trx handle */
+	trx_t*	trx,	/*!< in/out: trx handle */
+	ibool async)    /*!< in: TRUE - don't sync log */
 {
 	trx_start_if_not_started_xa(trx);
 
 	trx->op_info = "preparing";
 
-	trx_prepare(trx);
+	trx_prepare(trx, async);
 
 	trx->op_info = "";
 }
