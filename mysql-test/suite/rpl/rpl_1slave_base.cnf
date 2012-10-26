@@ -18,6 +18,7 @@ loose-innodb
 # Append <testname>-slave.opt file to the list of argument used when
 # starting the mysqld
 #!use-slave-opt
+innodb_use_native_aio = 0
 
 log-bin=                    slave-bin
 relay-log=                  slave-relay-bin
