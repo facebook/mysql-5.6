@@ -38,6 +38,7 @@
 #include <my_getopt.h>
 #include <m_string.h>
 #include <welcome_copyright_notice.h> /* ORACLE_WELCOME_COPYRIGHT_NOTICE */
+#include <string.h>
 
 /* Only parts of these files are included from the InnoDB codebase.
 The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
@@ -47,6 +48,11 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 #define FLST_NODE_SIZE (2 * FIL_ADDR_SIZE)
 #define FSEG_PAGE_DATA FIL_PAGE_DATA
 
+#include "ut0ut.h"
+#include "ut0byte.h"
+#include "mach0data.h"
+#include "fsp0types.h"
+#include "rem0rec.h"
 #include "buf0checksum.h"        /* buf_calc_page_*() */
 #include "fil0fil.h"             /* FIL_* */
 #include "page0page.h"           /* PAGE_* */
@@ -62,6 +68,11 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 # include "ut0rnd.ic"
 #endif
 
+#undef max
+#undef min
+
+#include <unordered_map>
+
 /* Global variables */
 static my_bool verbose;
 static my_bool debug;
@@ -72,6 +83,7 @@ static ullint end_page;
 static ullint do_page;
 static my_bool use_end_page;
 static my_bool do_one_page;
+static my_bool per_page_details;
 ulong srv_page_size;              /* replaces declaration in srv0srv.c */
 static ulong physical_page_size;  /* Page size in bytes on disk. */
 static ulong logical_page_size;   /* Page size when uncompressed. */
@@ -101,8 +113,28 @@ int n_fil_page_type_other;
 
 int n_fil_page_max_index_id;
 
-#define MAX_INDEX_ID 10000000
-unsigned long long index_ids[MAX_INDEX_ID];
+#define SIZE_RANGES_FOR_PAGE 10
+#define NUM_RETRIES 3
+#define DEFAULT_RETRY_DELAY 1000000
+
+struct per_index_stats {
+  unsigned long long pages;
+  unsigned long long leaf_pages;
+  unsigned long long total_n_recs;
+  unsigned long long total_data_bytes;
+
+  /*!< first element for empty pages,
+  last element for pages with more than logical_page_size */
+  unsigned long long pages_in_size_range[SIZE_RANGES_FOR_PAGE+2];
+
+  per_index_stats():pages(0), leaf_pages(0), total_n_recs(0),
+                   total_data_bytes(0)
+  {
+    memset(pages_in_size_range, 0, sizeof(pages_in_size_range));
+  }
+};
+
+std::unordered_map<unsigned long long, per_index_stats> index_ids;
 
 /* Get the page size of the filespace from the filespace header. */
 static
@@ -246,7 +278,9 @@ static struct my_option innochecksum_options[] =
   {"page", 'p', "Check only this page (0 based).",
     &do_page, &do_page, 0, GET_ULL, REQUIRED_ARG,
     0, 0, ULONGLONG_MAX, 0, 1, 0},
-
+  {"per_page_details", 'i', "Print out per-page detail information.",
+    &per_page_details, &per_page_details, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0}
+    ,
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -348,19 +382,52 @@ parse_page(
 {
        ib_uint64_t id;
        ulint x;
+       ulint n_recs;
+       ulint page_no;
+       ulint data_bytes;
+       int is_leaf;
+       int size_range_id;
 
        switch (fil_page_get_type(page)) {
        case FIL_PAGE_INDEX:
                n_fil_page_index++;
                id = btr_page_get_index_id(page);
-               if (id < MAX_INDEX_ID)
-                       index_ids[id]++;
-               else
-                       n_fil_page_max_index_id++;
+               n_recs = page_get_n_recs(page);
+               page_no = page_get_page_no(page);
+               data_bytes = page_get_data_size(page);
+               is_leaf = page_is_leaf(page);
+               size_range_id = (data_bytes * SIZE_RANGES_FOR_PAGE
+                                + logical_page_size - 1) /
+                                logical_page_size;
+               if (size_range_id > SIZE_RANGES_FOR_PAGE + 1) {
+                 /* data_bytes is bigger than logical_page_size */
+                 size_range_id = SIZE_RANGES_FOR_PAGE + 1;
+               }
+               if (per_page_details) {
+                 printf("index %lu page %lu leaf %u n_recs %lu data_bytes %lu"
+                         "\n", id, page_no, is_leaf, n_recs, data_bytes);
+               }
+               /* update per-index statistics */
+               {
+                 if (index_ids.count(id) == 0) {
+                   index_ids.insert(std::make_pair(id, per_index_stats()));
+                 }
+                 per_index_stats &index = index_ids.find(id)->second;
+                 index.pages++;
+                 if (is_leaf) index.leaf_pages++;
+                 index.total_n_recs += n_recs;
+                 index.total_data_bytes += data_bytes;
+                 index.pages_in_size_range[size_range_id] ++;
+               }
+
                break;
        case FIL_PAGE_UNDO_LOG:
+               if (per_page_details) {
+                       printf("FIL_PAGE_UNDO_LOG\n");
+               }
                n_fil_page_undo_log++;
-               x = mach_read_from_2(page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_TYPE);
+               x = mach_read_from_2(page + TRX_UNDO_PAGE_HDR +
+                                    TRX_UNDO_PAGE_TYPE);
                if (x == TRX_UNDO_INSERT)
                        n_undo_insert++;
                else if (x == TRX_UNDO_UPDATE)
@@ -379,37 +446,70 @@ parse_page(
                }
                break;
        case FIL_PAGE_INODE:
+               if (per_page_details) {
+                       printf("FIL_PAGE_INODE\n");
+               }
                n_fil_page_inode++;
                break;
        case FIL_PAGE_IBUF_FREE_LIST:
+               if (per_page_details) {
+                       printf("FIL_PAGE_IBUF_FREE_LIST\n");
+               }
                n_fil_page_ibuf_free_list++;
                break;
        case FIL_PAGE_TYPE_ALLOCATED:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_ALLOCATED\n");
+               }
                n_fil_page_type_allocated++;
                break;
        case FIL_PAGE_IBUF_BITMAP:
+               if (per_page_details) {
+                       printf("FIL_PAGE_IBUF_BITMAP\n");
+               }
                n_fil_page_ibuf_bitmap++;
                break;
        case FIL_PAGE_TYPE_SYS:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_SYS\n");
+               }
                n_fil_page_type_sys++;
                break;
        case FIL_PAGE_TYPE_TRX_SYS:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_TRX_SYS\n");
+               }
                n_fil_page_type_trx_sys++;
                break;
        case FIL_PAGE_TYPE_FSP_HDR:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_FSP_HDR\n");
+               }
                n_fil_page_type_fsp_hdr++;
                break;
        case FIL_PAGE_TYPE_XDES:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_XDES\n");
+               }
                n_fil_page_type_xdes++;
                break;
        case FIL_PAGE_TYPE_BLOB:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_BLOB\n");
+               }
                n_fil_page_type_blob++;
                break;
        case FIL_PAGE_TYPE_ZBLOB:
        case FIL_PAGE_TYPE_ZBLOB2:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_ZBLOB/2\n");
+               }
                n_fil_page_type_zblob++;
                break;
        default:
+               if (per_page_details) {
+                       printf("FIL_PAGE_TYPE_OTHER\n");
+               }
                n_fil_page_type_other++;
        }
 }
@@ -440,12 +540,27 @@ print_stats()
        printf("undo state: %d active, %d cached, %d to_free, %d to_purge,"
                " %d prepared, %d other\n", n_undo_state_active,
                n_undo_state_cached, n_undo_state_to_free,
-               n_undo_state_to_purge, n_undo_state_prepared, n_undo_state_other);
+               n_undo_state_to_purge, n_undo_state_prepared,
+               n_undo_state_other);
 
-       printf("#pages\tindex_id\n");
-       for (i=0; i < MAX_INDEX_ID; i++) {
-               if (index_ids[i])
-                       printf("%lld\t%lld\n", index_ids[i], i);
+       printf("index_id\t#pages\t\t#leaf_pages\t#recs_per_page"
+               "\t#bytes_per_page\n");
+       for (auto it = index_ids.begin(); it != index_ids.end(); it++) {
+         const per_index_stats& index = it->second;
+         printf("%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\n",
+                it->first, index.pages, index.leaf_pages,
+                index.total_n_recs / index.pages,
+                index.total_data_bytes / index.pages);
+       }
+       printf("\n");
+       printf("index_id\tpage_data_bytes_histgram(empty,...,oversized)\n");
+       for (auto it = index_ids.begin(); it != index_ids.end(); it++) {
+         printf("%lld\t", it->first);
+         const per_index_stats& index = it->second;
+         for (i = 0; i < SIZE_RANGES_FOR_PAGE+2; i++) {
+           printf("\t%lld", index.pages_in_size_range[i]);
+         }
+         printf("\n");
        }
 }
 
@@ -453,7 +568,10 @@ int main(int argc, char **argv)
 {
   FILE* f;                       /* our input file */
   char* filename;                /* our input filename. */
-  unsigned char buf[UNIV_PAGE_SIZE_MAX]; /* Buffer to store pages read */
+  unsigned char big_buf[UNIV_PAGE_SIZE_MAX*2]; /* Buffer to store pages read */
+  unsigned char *buf = (unsigned char*)ut_align_down(big_buf
+                       + UNIV_PAGE_SIZE_MAX, UNIV_PAGE_SIZE_MAX);
+                                 /* Make sure the page is aligned */
   ulong bytes;                   /* bytes read count */
   ulint ct;                      /* current page number (0 based) */
   time_t now;                    /* current time */
@@ -636,10 +754,19 @@ int main(int argc, char **argv)
       return 0;
     }
 
+    if (per_page_details)
+    {
+      printf("page %ld ", ct);
+    }
+
     ct++;
 
     if (!page_ok)
     {
+      if (per_page_details)
+      {
+        printf("BAD_CHECKSUM\n");
+      }
       n_bad_checksum++;
       continue;
     }
