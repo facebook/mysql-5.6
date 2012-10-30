@@ -2942,6 +2942,53 @@ zlib_done:
 }
 
 /**********************************************************************//**
+This function determines the sign for window_bits and reads the zlib header
+from the decompress stream. The data may have been compressed with a negative
+(no adler32 headers) or a positive (with adler32 headers) window_bits.
+Regardless of the current value of page_zip_zlib_wrap, we always
+first try the positive window_bits then negative window_bits, because the
+surest way to determine if the stream has adler32 headers is to see if the
+stream begins with the zlib header together with the adler32 value of it.
+This adds a tiny bit of overhead for the pages that were compressed without
+adler32s.
+@return TRUE if stream is initialized and zlib header was read, FALSE
+if data can be decompressed with neither window_bits nor -window_bits */
+UNIV_INTERN
+ibool
+page_zip_init_d_stream(
+	z_stream* strm,
+	ulint window_bits,
+	ibool read_zlib_header)
+{
+	Bytef* next_in = strm->next_in;
+	Bytef* next_out = strm->next_out;
+	ulint avail_in = strm->avail_in;
+	ulint avail_out = strm->avail_out;
+
+	if (UNIV_UNLIKELY(inflateInit2(strm, window_bits) != Z_OK)) {
+		/* initialization must always succeed regardless of window_bits */
+		ut_error;
+	}
+	/* Try decoding zlib header assuming adler32. */
+	if (inflate(strm, Z_BLOCK) == Z_OK)
+		return TRUE;
+	/* reset the stream */
+	strm->next_in = next_in;
+	strm->next_out = next_out;
+	strm->avail_in = avail_in;
+	strm->avail_out = avail_out;
+	if (UNIV_UNLIKELY(inflateReset2(strm, -window_bits) != Z_OK)) {
+		ut_error;
+	}
+
+	if (read_zlib_header) {
+		/* Decode again the zlib header. */
+		return (inflate(strm, Z_BLOCK) == Z_OK);
+	}
+	return TRUE;
+}
+
+/**********************************************************************//**
 Decompress a page.  This function should tolerate errors on the compressed
 page.  Instead of letting assertions fail, it will return FALSE if an
 inconsistency is detected.
@@ -3052,13 +3099,7 @@ zlib_error:
 	d_stream.next_out = page + PAGE_ZIP_START;
 	d_stream.avail_out = UNIV_PAGE_SIZE - PAGE_ZIP_START;
 
-	if (UNIV_UNLIKELY(inflateInit2(&d_stream, UNIV_PAGE_SIZE_SHIFT)
-			  != Z_OK)) {
-		ut_error;
-	}
-
-	/* Decode the zlib header and the index information. */
-	if (UNIV_UNLIKELY(inflate(&d_stream, Z_BLOCK) != Z_OK)) {
+	if (!page_zip_init_d_stream(&d_stream, UNIV_PAGE_SIZE_SHIFT, TRUE)) {
 
 		page_zip_fail(("page_zip_decompress:"
 			       " 1 inflate(Z_BLOCK)=%s\n", d_stream.msg));
