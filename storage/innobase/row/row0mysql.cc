@@ -62,6 +62,7 @@ Created 9/17/2000 Heikki Tuuri
 #include "row0import.h"
 #include "m_string.h"
 #include "my_sys.h"
+#include "ha_prototypes.h"
 
 /** Provide optional 4.x backwards compatibility for 5.0 and above */
 UNIV_INTERN ibool	row_rollback_on_timeout	= FALSE;
@@ -1022,7 +1023,8 @@ UNIV_INLINE
 void
 row_update_statistics_if_needed(
 /*============================*/
-	dict_table_t*	table)	/*!< in: table */
+	dict_table_t*	table,	/*!< in: table */
+	trx_t*		trx)
 {
 	ib_uint64_t	counter;
 	ib_uint64_t	n_rows;
@@ -1037,6 +1039,11 @@ row_update_statistics_if_needed(
 	}
 
 	counter = table->stat_modified_counter++;
+	if (thd_is_replication_slave_thread(trx->mysql_thd) &&
+	    !srv_enable_slave_update_table_stats) {
+		return;
+	}
+
 	n_rows = dict_table_get_n_rows(table);
 
 	if (dict_stats_is_persistent_enabled(table)) {
@@ -1398,7 +1405,7 @@ error_exit:
 	with a latch. */
 	dict_table_n_rows_inc(table);
 
-	row_update_statistics_if_needed(table);
+	row_update_statistics_if_needed(table, trx);
 	trx->op_info = "";
 
 	return(err);
@@ -1781,7 +1788,7 @@ run_again:
 	that changes indexed columns, UPDATEs that change only non-indexed
 	columns would not affect statistics. */
 	if (node->is_delete || !(node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
-		row_update_statistics_if_needed(prebuilt->table);
+		row_update_statistics_if_needed(prebuilt->table, trx);
 	}
 
 	trx->op_info = "";
@@ -2003,7 +2010,7 @@ run_again:
 		srv_stats.n_rows_updated.add((size_t)trx->id, 1);
 	}
 
-	row_update_statistics_if_needed(table);
+	row_update_statistics_if_needed(table, trx);
 
 	return(err);
 }
