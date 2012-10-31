@@ -1923,7 +1923,8 @@ innobase_start_or_create_for_mysql(void)
 
 	ut_a(srv_n_file_io_threads <= SRV_MAX_N_IO_THREADS);
 
-	io_limit = 8 * SRV_N_PENDING_IOS_PER_THREAD;
+	io_limit = max((ulong)(8 * SRV_N_PENDING_IOS_PER_THREAD),
+			srv_io_capacity);
 
 	/* On Windows when using native aio the number of aio requests
 	that a thread can handle at a given time is limited to 32

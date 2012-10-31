@@ -267,6 +267,13 @@ struct os_aio_array_t{
 /** Array of events used in simulated aio */
 static os_event_t*	os_aio_segment_wait_events = NULL;
 
+/** Per thread buffer used for merged IO requests. Used by
+os_aio_simulated_handle so that a buffer doesn't have to be allocated
+for each request. @{ */
+static byte* os_aio_thread_buffer[SRV_MAX_N_IO_THREADS];
+static ulint os_aio_thread_buffer_size[SRV_MAX_N_IO_THREADS];
+/* @} */
+
 /* Performance counters indexed by global segment number */
 static my_io_perf_t os_aio_perf[SRV_MAX_N_IO_THREADS];
 
@@ -3913,11 +3920,8 @@ os_aio_array_create(
 
 skip_native_aio:
 #endif /* LINUX_NATIVE_AIO */
-	for (ulint i = 0; i < n; i++) {
-		os_aio_slot_t*	slot;
-
-		slot = os_aio_array_get_nth_slot(array, i);
-
+	os_aio_slot_t* slot = os_aio_array_get_nth_slot(array, 0);
+	for (uint i = 0; i < n; i++, slot++) {
 		slot->pos = i;
 		slot->reserved = FALSE;
 #ifdef WIN_ASYNC_IO
@@ -4011,6 +4015,8 @@ os_aio_init(
 	srv_reset_io_thread_op_info();
 	for (ulint i = 0; i < (2 + n_read_segs + n_write_segs); i++) {
 		my_io_perf_init(&os_aio_perf[i]);
+		os_aio_thread_buffer[i] = 0;
+		os_aio_thread_buffer_size[i] = 0;
 	}
 
 	my_io_perf_init(&os_async_read_perf);
@@ -4133,6 +4139,10 @@ os_aio_free(void)
 
 	for (ulint i = 0; i < os_aio_n_segments; i++) {
 		os_event_free(os_aio_segment_wait_events[i]);
+#ifdef UNIV_DEBUG_VALGRIND
+		if (os_aio_thread_buffer[i])
+			ut_free(os_aio_thread_buffer[i]);
+#endif
 	}
 
 	ut_free(os_aio_segment_wait_events);
@@ -4375,14 +4385,14 @@ loop:
 	/* We start our search for an available slot from our preferred
 	local segment and do a full scan of the array. We are
 	guaranteed to find a slot in full scan. */
-	for (i = local_seg * slots_per_seg, counter = 0;
-	     counter < array->n_slots;
-	     i++, counter++) {
-
-		i %= array->n_slots;
-
-		slot = os_aio_array_get_nth_slot(array, i);
-
+        i = (local_seg * slots_per_seg) % array->n_slots;
+	slot = os_aio_array_get_nth_slot(array, i);
+	for (counter = 0;
+	     counter < array->n_slots; i++, counter++, slot++) {
+		if (i == array->n_slots) {
+			i = 0;
+			slot = os_aio_array_get_nth_slot(array, 0);
+		}
 		if (slot->reserved == FALSE) {
 			goto found;
 		}
@@ -4527,10 +4537,9 @@ os_aio_simulated_wake_handler_thread(
 
 	os_mutex_enter(array->mutex);
 
-	for (ulint i = 0; i < n; ++i) {
-		const os_aio_slot_t*	slot;
 
-		slot = os_aio_array_get_nth_slot(array, segment + i);
+	os_aio_slot_t* slot = os_aio_array_get_nth_slot(array, segment);
+	for (uint i = 0; i < n; i++, slot++) {
 
 		if (slot->reserved) {
 
@@ -5537,18 +5546,23 @@ os_aio_simulated_handle(
 	os_aio_array_t*	array;
 	ulint		segment;
 	os_aio_slot_t*	consecutive_ios[OS_AIO_MERGE_N_CONSECUTIVE];
+	os_aio_slot_t*	lowest_request;
+	os_aio_slot_t*	oldest_request;
 	ulint		n_consecutive;
 	ulint		total_len;
 	ulint		offs;
 	os_offset_t	lowest_offset;
 	ulonglong	biggest_age;
 	ulonglong	age;
+	ulint		oldest_offset;
 	byte*		combined_buf;
 	byte*		combined_buf2;
 	ibool		ret;
 	ibool		any_reserved;
 	ulint		n;
 	os_aio_slot_t*	aio_slot = NULL;
+	os_aio_slot_t*	slot;
+	os_aio_slot_t* slot_start = NULL;
 
 	ulonglong	start_time, stop_time, elapsed_time;
 	ulonglong	now;
@@ -5590,11 +5604,9 @@ restart:
 	os_mutex_enter(array->mutex);
 
 	now = my_timer_now();
-	for (ulint i = 0; i < n; i++) {
-		os_aio_slot_t*	slot;
 
-		slot = os_aio_array_get_nth_slot(array, i + segment * n);
-
+	slot = os_aio_array_get_nth_slot(array, segment * n);
+	for (uint i = 0; i < n; i++, slot++) {
 		if (!slot->reserved) {
 			continue;
 		} else if (slot->io_already_done) {
@@ -5642,69 +5654,54 @@ restart:
 	then pick the one at the lowest offset. */
 
 	biggest_age = 0;
-	lowest_offset = IB_UINT64_MAX;
+	oldest_request = lowest_request = NULL;
+	oldest_offset = lowest_offset = IB_UINT64_MAX;
 
-	for (ulint i = 0; i < n; i++) {
-		os_aio_slot_t*	slot;
-
-		slot = os_aio_array_get_nth_slot(array, i + segment * n);
-
+	slot = os_aio_array_get_nth_slot(array, segment * n);
+	for (uint i = 0; i < n; i++, slot++) {
 		if (slot->reserved) {
 			age = now - slot->reservation_time;
 
 			if ((age >= SRV_IO_OLD_TIME && age > biggest_age)
 			    || (age >= SRV_IO_OLD_TIME && age == biggest_age
-				&& slot->offset < lowest_offset)) {
+				&& slot->offset < oldest_offset)) {
 
 				/* Found an i/o request */
-				consecutive_ios[0] = slot;
-
-				n_consecutive = 1;
-
 				biggest_age = age;
+				oldest_request = slot;
+				oldest_offset = slot->offset;
+			}
+
+			/* Look for an i/o request at the lowest offset in the array
+			 * (we ignore the high 32 bits of the offset) */
+			if (slot->offset < lowest_offset) {
+			        /* Found an i/o request */
+				lowest_request = slot;
 				lowest_offset = slot->offset;
 			}
 		}
 	}
 
-	if (n_consecutive == 0) {
-		/* There were no old requests. Look for an i/o request at the
-		lowest offset in the array (we ignore the high 32 bits of the
-		offset in these heuristics) */
-
-		lowest_offset = IB_UINT64_MAX;
-
-		for (ulint i = 0; i < n; i++) {
-			os_aio_slot_t*	slot;
-
-			slot = os_aio_array_get_nth_slot(
-				array, i + segment * n);
-
-			if (slot->reserved && slot->offset < lowest_offset) {
-
-				/* Found an i/o request */
-				consecutive_ios[0] = slot;
-
-				n_consecutive = 1;
-
-				lowest_offset = slot->offset;
-			}
-		}
-	}
-
-	if (n_consecutive == 0) {
+	if (!lowest_request && !oldest_request) {
 
 		/* No i/o requested at the moment */
 
 		goto wait_for_io;
 	}
 
-	if (biggest_age >= SRV_IO_OLD_TIME) {
-		if (aio_slot && aio_slot->type == OS_FILE_WRITE)
-			os_async_write_old_ios += 1;
-		else
-			os_async_read_old_ios += 1;
+	if (oldest_request) {
+		slot = oldest_request;
+		if (biggest_age >= SRV_IO_OLD_TIME) {
+			if (slot && slot->type == OS_FILE_WRITE)
+				os_async_write_old_ios += 1;
+			else
+				os_async_read_old_ios += 1;
+		}
+	} else {
+		slot = lowest_request;
 	}
+	consecutive_ios[0] = slot;
+	n_consecutive = 1;
 
 	/* if n_consecutive != 0, then we have assigned
 	something valid to consecutive_ios[0] */
@@ -5714,13 +5711,10 @@ restart:
 	aio_slot = consecutive_ios[0];
 
 	/* Check if there are several consecutive blocks to read or write */
-
+	slot_start = os_aio_array_get_nth_slot(array, segment * n);
 consecutive_loop:
-	for (ulint i = 0; i < n; i++) {
-		os_aio_slot_t*	slot;
-
-		slot = os_aio_array_get_nth_slot(array, i + segment * n);
-
+	slot = slot_start;
+	for (uint i = 0; i < n; i++, slot++) {
 		if (slot->reserved
 		    && slot != aio_slot
 		    && slot->offset == aio_slot->offset + aio_slot->len
@@ -5761,8 +5755,19 @@ consecutive_loop:
 		combined_buf = aio_slot->buf;
 		combined_buf2 = NULL;
 	} else {
-		combined_buf2 = static_cast<byte*>(
-			ut_malloc(total_len + UNIV_PAGE_SIZE));
+		if ((total_len + UNIV_PAGE_SIZE) >
+			os_aio_thread_buffer_size[global_segment]) {
+
+			if (os_aio_thread_buffer[global_segment])
+				ut_free(os_aio_thread_buffer[global_segment]);
+
+			os_aio_thread_buffer[global_segment] =
+				static_cast<byte*>(
+					ut_malloc(total_len + UNIV_PAGE_SIZE));
+			os_aio_thread_buffer_size[global_segment] =
+				total_len + UNIV_PAGE_SIZE;
+		}
+		combined_buf2 = os_aio_thread_buffer[global_segment];
 
 		ut_a(combined_buf2);
 
@@ -5819,10 +5824,6 @@ consecutive_loop:
 				  consecutive_ios[i]->len);
 			offs += consecutive_ios[i]->len;
 		}
-	}
-
-	if (combined_buf2) {
-		ut_free(combined_buf2);
 	}
 
 	/* Update statistics. The mutex is not locked and the race is OK. */
@@ -5910,11 +5911,8 @@ os_aio_array_validate(
 	ut_a(array->n_slots > 0);
 	ut_a(array->n_segments > 0);
 
-	for (i = 0; i < array->n_slots; i++) {
-		os_aio_slot_t*	slot;
-
-		slot = os_aio_array_get_nth_slot(array, i);
-
+	os_aio_slot_t* slot = os_aio_array_get_nth_slot(array, 0);
+	for (i = 0; i < array->n_slots; i++, slot++) {
 		if (slot->reserved) {
 			n_reserved++;
 			ut_a(slot->len > 0);
@@ -6052,11 +6050,9 @@ os_aio_print_array(
 
 	memset(n_res_seg, 0x0, sizeof(n_res_seg));
 
-	for (ulint i = 0; i < array->n_slots; ++i) {
-		os_aio_slot_t*	slot;
-		ulint		seg_no;
-
-		slot = os_aio_array_get_nth_slot(array, i);
+	os_aio_slot_t* slot = os_aio_array_get_nth_slot(array, 0);
+	for (uint i = 0; i < array->n_slots; i++, slot++) {
+		ulint	seg_no;
 
 		seg_no = (i * array->n_segments) / array->n_slots;
 
