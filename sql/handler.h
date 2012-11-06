@@ -960,6 +960,7 @@ struct handlerton
 					my_io_perf_t *r_blob,
                                         my_io_perf_t *r_primary,
                                         my_io_perf_t *r_secondary,
+                                        comp_stat_t* comp_stat,
 					int n_lru,
 					const char *engine));
 
@@ -3404,6 +3405,7 @@ void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
 				   my_io_perf_t* r_blob,
                                    my_io_perf_t* r_primary,
                                    my_io_perf_t* r_secondary,
+                                   comp_stat_t* comp_stat,
 				   int n_lru,
 				   const char* engine));
 

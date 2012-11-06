@@ -162,7 +162,7 @@ fil_system_t*	fil_system	= NULL;
 /** Count usage of the doublewrite buffer separate from other activity to
 the system tablespace. */
 os_io_perf2_t	io_perf_doublewrite;
-//comp_stat_t	comp_stat_doublewrite;
+comp_stat_t	comp_stat_doublewrite;
 
 #ifdef UNIV_DEBUG
 /** Try fil_validate() every this many times */
@@ -330,7 +330,7 @@ fil_update_table_stats_one_cell(
                                               primary index */
 	my_io_perf_t*	read_arr_secondary, /*!< in: buffer for read stats for
                                               secondary index */
-	//comp_stat_t*	comp_stat_arr, /*!< in: buffer for compression stats */
+	comp_stat_t*	comp_stat_arr, /*!< in: buffer for compression stats */
 	int*		n_lru_arr,	/*!< in: buffer for n_lru stats */
 	ulint		max_per_cell,	/*!< in: size of buffers */
 	void		(*cb)(const char* db,
@@ -340,7 +340,7 @@ fil_update_table_stats_one_cell(
 				my_io_perf_t *r_blob,
 				my_io_perf_t *r_primary,
 				my_io_perf_t *r_secondary,
-				//comp_stat_t* comp_stat,
+				comp_stat_t* comp_stat,
 				int n_lru,
 				const char* engine),
 	char*		db_name_buf,	/*!< in: buffer for db names */
@@ -375,7 +375,7 @@ fil_update_table_stats_one_cell(
 			read_arr_blob[found] = space->io_perf2.read_blob;
 			read_arr_primary[found] = space->io_perf2.read_primary;
 			read_arr_secondary[found] = space->io_perf2.read_secondary;
-			//comp_stat_arr[found] = space->comp_stat;
+			comp_stat_arr[found] = space->comp_stat;
 			n_lru_arr[found] = space->stats.n_lru;
 
 			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
@@ -401,7 +401,7 @@ fil_update_table_stats_one_cell(
 			 &(read_arr_blob[report]),
 			 &(read_arr_primary[report]),
 			 &(read_arr_secondary[report]),
-			 //&(comp_stat_arr[report]),
+			 &(comp_stat_arr[report]),
 			 n_lru_arr[report],
 			 "InnoDB");
 	}
@@ -421,7 +421,7 @@ fil_update_table_stats(
 			my_io_perf_t *r_blob,
 			my_io_perf_t *r_primary,
 			my_io_perf_t *r_secondary,
-			//comp_stat_t* comp_stat,
+			comp_stat_t* comp_stat,
 			int n_lru,
 			const char* engine))
 {
@@ -433,7 +433,7 @@ fil_update_table_stats(
 	my_io_perf_t*	read_arr_blob;
 	my_io_perf_t*	read_arr_primary;
 	my_io_perf_t*	read_arr_secondary;
-	//comp_stat_t*	comp_stat_arr;
+	comp_stat_t*	comp_stat_arr;
 	int*		n_lru_arr;
 	char*		db_name_buf;
 	char*		table_name_buf;
@@ -505,13 +505,13 @@ fil_update_table_stats(
 				sizeof(my_io_perf_t) * max_per_cell);
 	read_arr_secondary = (my_io_perf_t*) ut_malloc(
 				sizeof(my_io_perf_t) * max_per_cell);
-	//comp_stat_arr = (comp_stat_t*) ut_malloc(
-	//			sizeof(comp_stat_t) * max_per_cell);
+	comp_stat_arr = (comp_stat_t*) ut_malloc(
+				sizeof(comp_stat_t) * max_per_cell);
 	db_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
 	table_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
 	n_lru_arr = (int*) ut_malloc(sizeof(int) * max_per_cell);
 
-	if (!read_arr || !write_arr || !read_arr_blob || //!comp_stat_arr ||
+	if (!read_arr || !write_arr || !read_arr_blob || !comp_stat_arr ||
 			!table_name_buf || !db_name_buf || !n_lru_arr) {
 
 		mutex_enter(&fil_system->mutex);
@@ -528,8 +528,8 @@ fil_update_table_stats(
 			ut_free(read_arr_primary);
 		if (read_arr_secondary)
 			ut_free(read_arr_secondary);
-		//if (comp_stat_arr)
-		//	ut_free(comp_stat_arr);
+		if (comp_stat_arr)
+			ut_free(comp_stat_arr);
 		if (db_name_buf)
 			ut_free(db_name_buf);
 		if (table_name_buf)
@@ -546,7 +546,7 @@ fil_update_table_stats(
 	for (n = 0; n < n_cells; ++n) {
 		fil_update_table_stats_one_cell(
 			n, read_arr, write_arr, read_arr_blob,
-			read_arr_primary, read_arr_secondary, //comp_stat_arr,
+			read_arr_primary, read_arr_secondary, comp_stat_arr,
 			n_lru_arr, max_per_cell, cb, db_name_buf,
 			table_name_buf);
 	}
@@ -556,7 +556,7 @@ fil_update_table_stats(
 	ut_free(read_arr_blob);
 	ut_free(read_arr_primary);
 	ut_free(read_arr_secondary);
-	//ut_free(comp_stat_arr);
+	ut_free(comp_stat_arr);
 	ut_free(table_name_buf);
 	ut_free(db_name_buf);
 	ut_free(n_lru_arr);
@@ -569,7 +569,7 @@ fil_update_table_stats(
 		 &io_perf_doublewrite.read_blob,
 		 &io_perf_doublewrite.read_primary,
 		 &io_perf_doublewrite.read_secondary,
-		 //&comp_stat_doublewrite,
+		 &comp_stat_doublewrite,
 		 0 /* n_lru */,
 		 "InnoDB");
 
@@ -1467,7 +1467,7 @@ fil_space_create(
 	my_io_perf_init(&(space->io_perf2.read_blob));
 	my_io_perf_init(&(space->io_perf2.read_primary));
 	my_io_perf_init(&(space->io_perf2.read_secondary));
-	//memset(&(space->comp_stat), 0, sizeof space->comp_stat);
+	memset(&(space->comp_stat), 0, sizeof space->comp_stat);
   space->stats.n_lru = 0;
   space->stats.id = id;
   space->stats.magic_n = FIL_STATS_MAGIC_N;
@@ -1883,7 +1883,7 @@ fil_init(
 	my_io_perf_init(&io_perf_doublewrite.read_blob);
 	my_io_perf_init(&io_perf_doublewrite.read_primary);
 	my_io_perf_init(&io_perf_doublewrite.read_secondary);
-	//memset(&comp_stat_doublewrite, 0, sizeof(comp_stat_doublewrite));
+	memset(&comp_stat_doublewrite, 0, sizeof(comp_stat_doublewrite));
 
 	for (int x = 0; x < FLUSH_FROM_NUMBER; ++x)
 	{

@@ -221,6 +221,35 @@ inline double my_timer_to_microseconds(ulonglong when)
   return ret;
 }
 
+/** Compression statistics for a fil_space */
+struct comp_stat_struct {
+  /** Size of the compressed data on the page */
+  int page_size;
+  /** Number of page compressions */
+  ulonglong compressed;
+  /** Number of successful page compressions */
+  ulonglong compressed_ok;
+  /** Number of compressions in primary index */
+  ulonglong compressed_primary;
+  /** Number of successful compressions in primary index */
+  ulonglong compressed_primary_ok;
+  /** Number of page decompressions */
+  ulonglong decompressed;
+  /** Duration of page compressions */
+  ulonglong compressed_time;
+  /** Duration of succesful page compressions */
+  ulonglong compressed_ok_time;
+  /** Duration of page decompressions */
+  ulonglong decompressed_time;
+  /** Duration of primary index page compressions */
+  ulonglong compressed_primary_time;
+  /** Duration of successful primary index page compressions */
+  ulonglong compressed_primary_ok_time;
+};
+
+/** Compression statistics */
+typedef struct comp_stat_struct comp_stat_t;
+
 /* Struct used for IO performance counters */
 struct my_io_perf_struct {
   volatile ulonglong bytes;

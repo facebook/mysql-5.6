@@ -61,7 +61,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   my_io_perf_init(&table_stats->io_perf_read_secondary);
   table_stats->index_inserts = 0;
   table_stats->queries_empty = 0;
-  //memset(&table_stats->comp_stat, 0, sizeof(table_stats->comp_stat));
+  memset(&table_stats->comp_stat, 0, sizeof(table_stats->comp_stat));
 }
 
 /*
@@ -295,19 +295,19 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
-//  {"COMPRESSED_PAGE_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESSED_PAGE_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 //  {"COMPRESS_PADDING", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 //  {"PADDING_SAVINGS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_PRIMARY_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_PRIMARY_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_OK_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_PRIMARY_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"COMPRESS_PRIMARY_OK_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"UNCOMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-//  {"UNCOMPRESS_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_OK_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_OK_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"UNCOMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"UNCOMPRESS_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"ROWS_INDEX_FIRST", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROWS_INDEX_NEXT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -368,7 +368,7 @@ void fill_table_stats_cb(const char *db,
                          my_io_perf_t *r_blob,
                          my_io_perf_t *r_primary,
                          my_io_perf_t *r_secondary,
-                         //comp_stat_t *comp_stat,
+                         comp_stat_t *comp_stat,
                          int n_lru,
                          const char *engine)
 {
@@ -384,7 +384,7 @@ void fill_table_stats_cb(const char *db,
   stats->io_perf_read_blob = *r_blob;
   stats->io_perf_read_primary = *r_primary;
   stats->io_perf_read_secondary = *r_secondary;
-  //stats->comp_stat = *comp_stat;
+  stats->comp_stat = *comp_stat;
   stats->n_lru = n_lru;
 }
 
@@ -410,12 +410,12 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
         table_stats->rows_deleted == 0 &&
         table_stats->rows_read == 0 &&
         table_stats->rows_requested == 0 &&
-        //table_stats->comp_stat.compressed == 0 &&
-        //table_stats->comp_stat.compressed_ok == 0 &&
-        //table_stats->comp_stat.compressed_usec == 0 &&
-        //table_stats->comp_stat.compressed_ok_usec == 0 &&
-        //table_stats->comp_stat.decompressed == 0 &&
-        //table_stats->comp_stat.decompressed_usec == 0 &&
+        table_stats->comp_stat.compressed == 0 &&
+        table_stats->comp_stat.compressed_ok == 0 &&
+        table_stats->comp_stat.compressed_time == 0 &&
+        table_stats->comp_stat.compressed_ok_time == 0 &&
+        table_stats->comp_stat.decompressed == 0 &&
+        table_stats->comp_stat.decompressed_time == 0 &&
         table_stats->io_perf_read.requests == 0 &&
         table_stats->io_perf_write.requests == 0 &&
         table_stats->io_perf_read_blob.requests == 0 &&
@@ -443,19 +443,19 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->rows_read, TRUE);
     table->field[f++]->store(table_stats->rows_requested, TRUE);
 
-    //table->field[f++]->store(table_stats->comp_stat.page_size, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.page_size, TRUE);
     //table->field[f++]->store(table_stats->comp_stat.padding, TRUE);
     //table->field[f++]->store(table_stats->comp_stat.padding_savings, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_ok, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_primary, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_primary_ok, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_usec, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_ok_usec, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_primary_usec, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.compressed_primary_ok_usec, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.decompressed, TRUE);
-    //table->field[f++]->store(table_stats->comp_stat.decompressed_usec, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_ok, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_primary, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_primary_ok, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_time, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_ok_time, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_primary_time, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.compressed_primary_ok_time, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.decompressed, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.decompressed_time, TRUE);
 
     table->field[f++]->store(table_stats->rows_index_first, TRUE);
     table->field[f++]->store(table_stats->rows_index_next, TRUE);
