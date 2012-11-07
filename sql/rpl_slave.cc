@@ -1740,7 +1740,8 @@ bool is_network_error(uint errorno)
       errorno == CR_SERVER_GONE_ERROR ||
       errorno == CR_SERVER_LOST ||
       errorno == ER_CON_COUNT_ERROR ||
-      errorno == ER_SERVER_SHUTDOWN)
+      errorno == ER_SERVER_SHUTDOWN ||
+      errorno == ER_NET_READ_INTERRUPTED)
     return TRUE;
 
   return FALSE;   
