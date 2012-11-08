@@ -1204,20 +1204,35 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->connections_total, TRUE);
   table->field[f++]->store(us->io_perf_read.bytes, TRUE);
   table->field[f++]->store(us->io_perf_read.requests, TRUE);
-  table->field[f++]->store(us->io_perf_read.svc_time, TRUE);
-  table->field[f++]->store(us->io_perf_read.wait_time, TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read.svc_time),
+                           TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read.wait_time),
+                           TRUE);
   table->field[f++]->store(us->io_perf_read_blob.bytes, TRUE);
   table->field[f++]->store(us->io_perf_read_blob.requests, TRUE);
-  table->field[f++]->store(us->io_perf_read_blob.svc_time, TRUE);
-  table->field[f++]->store(us->io_perf_read_blob.wait_time, TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_blob.svc_time),
+                           TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_blob.wait_time),
+                           TRUE);
   table->field[f++]->store(us->io_perf_read_primary.bytes, TRUE);
   table->field[f++]->store(us->io_perf_read_primary.requests, TRUE);
-  table->field[f++]->store(us->io_perf_read_primary.svc_time, TRUE);
-  table->field[f++]->store(us->io_perf_read_primary.wait_time, TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_primary.svc_time), TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_primary.wait_time),
+                           TRUE);
   table->field[f++]->store(us->io_perf_read_secondary.bytes, TRUE);
   table->field[f++]->store(us->io_perf_read_secondary.requests, TRUE);
-  table->field[f++]->store(us->io_perf_read_secondary.svc_time, TRUE);
-  table->field[f++]->store(us->io_perf_read_secondary.wait_time, TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_secondary.svc_time),
+                           TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_secondary.wait_time),
+                           TRUE);
   table->field[f++]->store(us->errors_access_denied, TRUE);
   table->field[f++]->store(us->errors_total, TRUE);
   table->field[f++]->store(us->microseconds_cpu, TRUE);

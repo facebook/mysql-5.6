@@ -462,49 +462,82 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
     table->field[f++]->store(table_stats->io_perf_read.bytes, TRUE);
     table->field[f++]->store(table_stats->io_perf_read.requests, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read.svc_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read.svc_time_max, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read.wait_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read.wait_time_max, TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read.svc_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read.svc_time_max),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read.wait_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read.wait_time_max),
+                             TRUE);
     table->field[f++]->store(table_stats->io_perf_read.slow_ios, TRUE);
 
     table->field[f++]->store(table_stats->io_perf_write.bytes, TRUE);
     table->field[f++]->store(table_stats->io_perf_write.requests, TRUE);
-    table->field[f++]->store(table_stats->io_perf_write.svc_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_write.svc_time_max, TRUE);
-    table->field[f++]->store(table_stats->io_perf_write.wait_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_write.wait_time_max, TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_write.svc_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_write.svc_time_max),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_write.wait_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_write.wait_time_max),
+                             TRUE);
     table->field[f++]->store(table_stats->io_perf_write.slow_ios, TRUE);
 
     table->field[f++]->store(table_stats->io_perf_read_blob.bytes, TRUE);
     table->field[f++]->store(table_stats->io_perf_read_blob.requests, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_blob.svc_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_blob.svc_time_max, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_blob.wait_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_blob.wait_time_max,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_blob.svc_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_blob.svc_time_max),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_blob.wait_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_blob.wait_time_max),
                              TRUE);
     table->field[f++]->store(table_stats->io_perf_read_blob.slow_ios, TRUE);
 
     table->field[f++]->store(table_stats->io_perf_read_primary.bytes, TRUE);
     table->field[f++]->store(table_stats->io_perf_read_primary.requests, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_primary.svc_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_primary.svc_time_max,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_primary.svc_time),
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_primary.wait_time, TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_primary.wait_time_max,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_primary.svc_time_max),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_primary.wait_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_primary.wait_time_max),
                              TRUE);
     table->field[f++]->store(table_stats->io_perf_read_primary.slow_ios, TRUE);
 
     table->field[f++]->store(table_stats->io_perf_read_secondary.bytes, TRUE);
     table->field[f++]->store(table_stats->io_perf_read_secondary.requests,
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_secondary.svc_time,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_secondary.svc_time),
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_secondary.svc_time_max,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_secondary.svc_time_max),
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_secondary.wait_time,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_secondary.wait_time),
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_secondary.wait_time_max,
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->io_perf_read_secondary.wait_time_max),
                              TRUE);
     table->field[f++]->store(table_stats->io_perf_read_secondary.slow_ios, TRUE);
 
