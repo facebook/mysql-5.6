@@ -348,6 +348,12 @@ UNIV_INTERN ulint	srv_lock_deadlocks	= 0;
 /** Number of row lock wait timeouts */
 UNIV_INTERN ulint	srv_lock_wait_timeouts	= 0;
 
+/** Number of extra writes done in buf_flush_try_neighbors from LRU list */
+UNIV_INTERN ulint	srv_neighbors_flushed_lru	= 0;
+
+/** Number of extra writes done in buf_flush_try_neighbors from flush list */
+UNIV_INTERN ulint	srv_neighbors_flushed_list	= 0;
+
 /** Print all user-level transactions deadlocks to mysqld stderr */
 
 UNIV_INTERN my_bool	srv_print_all_deadlocks = FALSE;
@@ -1513,6 +1519,11 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_buffer_pool_pages_misc =
 		buf_pool_get_n_pages() - LRU_len - free_len;
+
+	export_vars.innodb_buffer_pool_neighbors_flushed_list=
+		srv_neighbors_flushed_list;
+	export_vars.innodb_buffer_pool_neighbors_flushed_lru=
+		srv_neighbors_flushed_lru;
 
 	export_vars.innodb_hash_searches = btr_cur_n_sea;
 	export_vars.innodb_hash_nonsearches = btr_cur_n_non_sea;
