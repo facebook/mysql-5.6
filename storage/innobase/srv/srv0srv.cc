@@ -342,6 +342,12 @@ This is for testing and debugging only. */
 UNIV_INTERN ulong	srv_force_recovery_crash;
 #endif /* !DBUG_OFF */
 
+/** Number of deadlocks */
+UNIV_INTERN ulint	srv_lock_deadlocks	= 0;
+
+/** Number of row lock wait timeouts */
+UNIV_INTERN ulint	srv_lock_wait_timeouts	= 0;
+
 /** Print all user-level transactions deadlocks to mysqld stderr */
 
 UNIV_INTERN my_bool	srv_print_all_deadlocks = FALSE;
@@ -1520,6 +1526,10 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_page_size = UNIV_PAGE_SIZE;
 
+	export_vars.innodb_lock_deadlocks = srv_lock_deadlocks;
+
+	export_vars.innodb_lock_wait_timeouts = srv_lock_wait_timeouts;
+
 	export_vars.innodb_log_waits = srv_stats.log_waits;
 
 	export_vars.innodb_log_checkpoints= log_sys->n_checkpoints;
@@ -1587,6 +1597,8 @@ srv_export_innodb_status(void)
 	export_vars.innodb_pages_read = stat.n_pages_read;
 
 	export_vars.innodb_pages_written = stat.n_pages_written;
+
+	export_vars.innodb_purge_pending = trx_sys->rseg_history_len;
 
 	export_vars.innodb_row_lock_waits = srv_stats.n_lock_wait_count;
 
