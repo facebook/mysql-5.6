@@ -7,6 +7,11 @@
 # create the directory for temporary log files.
 --exec mkdir -p $MYSQL_TMP_DIR/load_generator
 
+if ($fake_changes)
+{
+  --exec mkdir -p $MYSQL_TMP_DIR/load_generator_slave
+}
+
 --connection master
 
 # since this test generates lot of errors in log, suppress checking errors
@@ -35,14 +40,14 @@ while ($num_crashes)
     let $exec =
 python suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records  $num_workers $num_transactions $user $master_host $MASTER_MYPORT
-$table 1 $max_rows $MYSQL_TMP_DIR/load_generator;
+$table 1 $max_rows $MYSQL_TMP_DIR/load_generator 0;
   }
   if (!$use_blob)
   {
     let $exec =
 python suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records  $num_workers $num_transactions $user $master_host $MASTER_MYPORT
-$table 0 $max_rows $MYSQL_TMP_DIR/load_generator;
+$table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0;
   }
 
   exec $exec;
@@ -66,6 +71,16 @@ $table 0 $max_rows $MYSQL_TMP_DIR/load_generator;
   --source include/wait_for_slave_to_sync_with_master.inc
 
   connection slave;
+  if ($fake_changes)
+  {
+    --echo applying fake updates to the slave
+    let $slave_pid_file = `SELECT @@pid_file`;
+    let $slave_exec = 
+python suite/innodb_stress/t/load_generator.py $slave_pid_file $kill_db_after
+0  $num_workers $num_transactions $user $master_host $SLAVE_MYPORT
+$table 0 $max_rows $MYSQL_TMP_DIR/load_generator_slave 1;
+    exec $slave_exec;
+  }
   --echo Checksum slave
   let $slave_checksum=query_get_value(CHECKSUM TABLE t1, Checksum, 1);
   let $not_same = `SELECT $master_checksum-$slave_checksum`;

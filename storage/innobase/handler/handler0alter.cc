@@ -2548,6 +2548,9 @@ prepare_inplace_alter_table_dict(
 	/* Create a background transaction for the operations on
 	the data dictionary tables. */
 	trx = innobase_trx_allocate(user_thd);
+	/* No need to check trx->fake_changes, it is already
+	checked within prepare_inplace_alter_table*/
+	DBUG_ASSERT(!trx->fake_changes);
 
 	trx_start_for_ddl(trx, TRX_DICT_OP_INDEX);
 
@@ -3244,6 +3247,10 @@ ha_innobase::prepare_inplace_alter_table(
 		DBUG_RETURN(false);
 	}
 
+	if (prebuilt->trx->fake_changes) {
+		DBUG_RETURN(true);
+	}
+
 	MONITOR_ATOMIC_INC(MONITOR_PENDING_ALTER_TABLE);
 
 #ifdef UNIV_DEBUG
@@ -3814,7 +3821,7 @@ ok_exit:
 
 	DBUG_ASSERT(ctx);
 	DBUG_ASSERT(ctx->trx);
-
+	DBUG_ASSERT(!ctx->trx->fake_changes);
 	if (prebuilt->table->ibd_file_missing
 	    || dict_table_is_discarded(prebuilt->table)) {
 		goto all_done;

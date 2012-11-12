@@ -3484,6 +3484,7 @@ ibuf_insert_low(
 	ut_ad(ut_is_2pow(zip_size));
 	ut_ad(!no_counter || op == IBUF_OP_INSERT);
 	ut_a(op < IBUF_OP_COUNT);
+	ut_ad(!(thr_get_trx(thr)->fake_changes));
 
 	do_merge = FALSE;
 
@@ -4106,7 +4107,7 @@ dump:
 							    update)
 		    && (!page_zip || btr_cur_update_alloc_zip(
 				page_zip, block, index,
-				rec_offs_size(offsets), FALSE, mtr))) {
+				rec_offs_size(offsets), FALSE, mtr, mtr->trx))) {
 			/* This is the easy case. Do something similar
 			to btr_cur_update_in_place(). */
 			row_upd_rec_in_place(rec, index, offsets,

@@ -1,0 +1,125 @@
+#
+# confirm that with innodb_fake_changes transactions are not written to the binlog
+#
+
+--source include/master-slave.inc
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
+--echo # Explicit COMMIT should fail when innodb_fake_changes is enabled
+--echo # DML should be fine
+CREATE TABLE t1 (a INT primary key, b int) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1,1);
+
+CREATE TABLE t2 (a INT primary key, b int) ENGINE=InnoDB;
+CREATE INDEX bx ON t2(b);
+INSERT INTO t2 VALUES (1,1);
+
+CREATE TABLE t3 (a INT primary key, b text) ENGINE=InnoDB;
+INSERT INTO t3 VALUES (1,'');
+sync_slave_with_master;
+connection master;
+
+let $pos1= query_get_value("SHOW MASTER STATUS", Position, 1);
+SET autocommit=1;
+
+SELECT * FROM t1;
+SELECT * FROM t2;
+SELECT a FROM t3;
+SET innodb_fake_changes=1;
+
+--error ER_ERROR_DURING_COMMIT
+SELECT * FROM t1;
+--error ER_ERROR_DURING_COMMIT
+SELECT * FROM t2;
+--error ER_ERROR_DURING_COMMIT
+SELECT * FROM t3;
+
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (2,2);
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t2 VALUES (2,2);
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t3 VALUES (2,lpad('a',10000, 'b'));
+
+--error ER_ERROR_DURING_COMMIT
+UPDATE t1 SET a=0 where b=1;
+--error ER_ERROR_DURING_COMMIT
+UPDATE t2 SET a=0 where b=1;
+--error ER_ERROR_DURING_COMMIT
+UPDATE t3 SET a=0 where a=1;
+
+--error ER_ERROR_DURING_COMMIT
+UPDATE t1 SET b=0 where a=1;
+--error ER_ERROR_DURING_COMMIT
+UPDATE t2 SET b=0 where a=1;
+--error ER_ERROR_DURING_COMMIT
+UPDATE t2 SET b=lpad('a',10000, 'z') where a=1;
+
+--error ER_ERROR_DURING_COMMIT
+UPDATE t1 SET b=0 where a=2;
+--error ER_ERROR_DURING_COMMIT
+UPDATE t2 SET b=0 where a=2;
+--error ER_ERROR_DURING_COMMIT
+UPDATE t2 SET b=lpad('a',10000, 'z') where a=2;
+
+--error ER_ERROR_DURING_COMMIT
+DELETE FROM t1 where b=2;
+--error ER_ERROR_DURING_COMMIT
+DELETE FROM t2 where b=2;
+
+--error ER_ERROR_DURING_COMMIT
+DELETE FROM t1 where a=2;
+--error ER_ERROR_DURING_COMMIT
+DELETE FROM t2 where a=2;
+--error ER_ERROR_DURING_COMMIT
+DELETE FROM t3 where a=2;
+
+--error ER_ERROR_DURING_COMMIT
+REPLACE INTO t1 values (2,3);
+--error ER_ERROR_DURING_COMMIT
+REPLACE INTO t2 values (2,3);
+--error ER_ERROR_DURING_COMMIT
+REPLACE INTO t3 values (2,lpad('a',9000,'q'));
+
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (1,1) ON DUPLICATE KEY UPDATE b=2;
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t2 VALUES (1,1) ON DUPLICATE KEY UPDATE b=2;
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t3 VALUES (1,1) ON DUPLICATE KEY UPDATE b=lpad('b',11000,'c');
+
+--error ER_ERROR_DURING_COMMIT
+SELECT * FROM t1;
+--error ER_ERROR_DURING_COMMIT
+SELECT * FROM t2;
+--error ER_ERROR_DURING_COMMIT
+SELECT * FROM t3;
+
+let $pos2= query_get_value("SHOW MASTER STATUS", Position, 1);
+--disable_query_log
+eval select $pos2 = $pos1 as "pos_must_match";
+--enable_query_log
+
+--error ER_ERROR_DURING_COMMIT
+create index bx on t1(b);
+
+let $pos2= query_get_value("SHOW MASTER STATUS", Position, 1);
+--disable_query_log
+eval select $pos2 = $pos1 as "pos_must_match";
+--enable_query_log
+
+SET innodb_fake_changes=default;
+SELECT * from t1;
+SELECT * FROM t2;
+SELECT a, length(b) FROM t3;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+sync_slave_with_master;
+--source include/rpl_end.inc

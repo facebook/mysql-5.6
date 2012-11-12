@@ -1,0 +1,114 @@
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo # Verifying that X_LOCK not acquired
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1);
+
+CREATE TABLE t2 (a INT PRIMARY KEY, b int) ENGINE=InnoDB;
+INSERT INTO t2 VALUES (1,1);
+
+--connect (conn2,localhost,root,,)
+SET innodb_fake_changes=1;
+
+--connect (conn1,localhost,root,,)
+--connection conn1
+SET autocommit=0;
+SET innodb_fake_changes=1;
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+
+--connection default
+SET innodb_lock_wait_timeout=3;
+--error 1205
+UPDATE t1 SET a=2;
+SELECT * FROM t1 LOCK IN SHARE MODE;
+
+--connection conn1
+ROLLBACK;
+
+--echo # Confirm no lock wait timeouts
+SET global innodb_fake_changes_locks=0;
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+
+--connection conn2
+SET innodb_lock_wait_timeout=300;
+BEGIN;
+UPDATE t1 SET a=2;
+SELECT * FROM t1 LOCK IN SHARE MODE;
+ROLLBACK;
+
+--connection conn1
+ROLLBACK;
+
+--echo # Confirm that fake UPDATE doesn't hold a lock
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+
+--connection conn2
+set innodb_fake_changes=0;
+BEGIN;
+UPDATE t1 SET a=3 WHERE a=1;
+ROLLBACK;
+
+--connection conn1
+ROLLBACK;
+BEGIN;
+UPDATE t1 SET a=3 WHERE a=1;
+
+--connection conn2
+BEGIN;
+UPDATE t1 SET a=3 WHERE a=1;
+ROLLBACK;
+
+--echo # Confirm that fake INSERT doesn't hold a lock
+--connection conn1
+ROLLBACK;
+BEGIN;
+INSERT INTO t1 values (4);
+
+--connection conn2
+BEGIN;
+INSERT INTO t1 values (4);
+ROLLBACK;
+
+--echo # Confirm that fake DELETE doesn't hold a lock
+--connection conn1
+ROLLBACK;
+BEGIN;
+DELETE FROM t1 WHERE a=1;
+
+--connection conn2
+BEGIN;
+DELETE FROM t1 WHERE a=1;
+ROLLBACK;
+
+--echo # Confirm that fake REPLACE doesn't hold a lock
+--connection conn1
+ROLLBACK;
+BEGIN;
+REPLACE INTO t2 values (1,2);
+
+--connection conn2
+BEGIN;
+REPLACE INTO t2 values (1,2);
+ROLLBACK;
+
+--connection conn1
+ROLLBACK;
+
+--connection default
+--disconnect conn1
+--disconnect conn2
+
+SELECT * FROM t1;
+SELECT * FROM t2;
+
+SET global innodb_fake_changes_locks=default;
+SET innodb_fake_changes=default;
+DROP TABLE t1;
+DROP TABLE t2;

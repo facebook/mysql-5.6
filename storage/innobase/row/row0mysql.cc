@@ -1397,15 +1397,16 @@ error_exit:
 
 	que_thr_stop_for_mysql_no_error(thr, trx);
 
-	srv_stats.n_rows_inserted.add((size_t)trx->id, 1);
-
 	/* Not protected by dict_table_stats_lock() for performance
 	reasons, we would rather get garbage in stat_n_rows (which is
 	just an estimate anyway) than protecting the following code
 	with a latch. */
-	dict_table_n_rows_inc(table);
 
-	row_update_statistics_if_needed(table, trx);
+	if (!(trx->fake_changes)) {
+		dict_table_n_rows_inc(table);
+		row_update_statistics_if_needed(table, trx);
+		srv_stats.n_rows_inserted.add((size_t)trx->id, 1);
+	}
 	trx->op_info = "";
 
 	return(err);
@@ -1777,18 +1778,23 @@ run_again:
 		reasons, we would rather get garbage in stat_n_rows (which is
 		just an estimate anyway) than protecting the following code
 		with a latch. */
-		dict_table_n_rows_dec(prebuilt->table);
 
-		srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
+		if (!trx->fake_changes) {
+			dict_table_n_rows_dec(prebuilt->table);
+			srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
+		}
 	} else {
-		srv_stats.n_rows_updated.add((size_t)trx->id, 1);
+		if (!trx->fake_changes) {
+			srv_stats.n_rows_updated.add((size_t)trx->id, 1);
+		}
 	}
 
 	/* We update table statistics only if it is a DELETE or UPDATE
 	that changes indexed columns, UPDATEs that change only non-indexed
 	columns would not affect statistics. */
 	if (node->is_delete || !(node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
-		row_update_statistics_if_needed(prebuilt->table, trx);
+		if (!(trx->fake_changes))
+			row_update_statistics_if_needed(prebuilt->table,trx);
 	}
 
 	trx->op_info = "";
@@ -2003,14 +2009,19 @@ run_again:
 		reasons, we would rather get garbage in stat_n_rows (which is
 		just an estimate anyway) than protecting the following code
 		with a latch. */
-		dict_table_n_rows_dec(table);
 
-		srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
+		if (!trx->fake_changes) {
+			dict_table_n_rows_dec(table);
+			srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
+		}
 	} else {
-		srv_stats.n_rows_updated.add((size_t)trx->id, 1);
+		if (!trx->fake_changes) {
+			srv_stats.n_rows_updated.add((size_t)trx->id, 1);
+		}
 	}
 
-	row_update_statistics_if_needed(table, trx);
+	if (!(trx->fake_changes))
+		row_update_statistics_if_needed(table, trx);
 
 	return(err);
 }
