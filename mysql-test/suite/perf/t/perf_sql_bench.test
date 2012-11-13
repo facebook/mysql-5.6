@@ -1,0 +1,29 @@
+--source include/not_valgrind.inc
+--source include/have_innodb.inc
+--source include/big_test.inc
+--disable_warnings
+DROP TABLE IF EXISTS bench;
+--enable_warnings
+
+call mtr.add_suppression('InnoDB: Resizing redo log');
+call mtr.add_suppression('InnoDB: Starting to delete and rewrite log files');
+call mtr.add_suppression('InnoDB: New log files created');
+
+let $server = mysql;
+let $user = root;
+let $host = 127.0.0.1;
+
+set @thread_sleep_delay = @@global.innodb_thread_sleep_delay;
+set @thread_concurrency = @@global.innodb_thread_concurrency;
+SET GLOBAL innodb_thread_concurrency = 128;
+
+--disable_result_log
+--exec cp -R $MYSQL_TEST_DIR/../sql-bench/Data $MYSQL_BINDIR/sql-bench/
+--exec rm -rf /tmp/dbeng; mkdir /tmp/dbeng
+--exec cd $MYSQL_BINDIR/sql-bench; perl ./run-all-tests --server=mysql --user=root --host=$host:$MASTER_MYPORT --log --dir=/tmp/dbeng/sql-bench --create-options="engine=innodb" --skip-test="wisconsin"
+# Test wisconsin with loop-count = 1000. test-wisconsin does not take a configurable output directory so we run it through run-all-tests
+--exec cd $MYSQL_BINDIR/sql-bench; perl ./run-all-tests --server=mysql --user=root --host=$host:$MASTER_MYPORT --log --dir=/tmp/dbeng/sql-bench --create-options="engine=innodb" --skip-test="alter-table, ATIS, big-tables, connect, create, insert, select, transactions" --loop-count=1000
+--enable_result_log
+
+SET GLOBAL innodb_thread_concurrency = @thread_concurrency;
+SET GLOBAL innodb_thread_sleep_delay = @thread_sleep_delay;
