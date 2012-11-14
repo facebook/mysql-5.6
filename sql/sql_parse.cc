@@ -1579,6 +1579,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   }
 #endif
   case COM_QUIT:
+    /* Reset examined row count so this command will not be logged accidentally
+       if slow_log_if_rows_examined_exceed is set.*/
+    thd->set_examined_row_count(0);
+    thd->set_sent_row_count(0);
     /* We don't calculate statistics for this command */
     general_log_print(thd, command, NullS);
     net->error=0;				// Don't give 'abort' message
