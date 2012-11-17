@@ -1,0 +1,35 @@
+#
+# This test verifies that load data infile fails when
+# binlog cache exceeds max_binlog_cache_size
+#
+
+# Need some binlog format so that binlog cache is open
+# and events are written into the binlog cache. Without
+# this the test fails (load data infile succeds)
+-- source include/have_binlog_format_statement.inc
+
+let $old_max_binlog_cache_size= `SELECT @@max_binlog_cache_size`;
+let $old_binlog_cache_size= `SELECT @@binlog_cache_size`;
+
+# Set binlog_cache_size <= max_binlog_cache_size to avoid a warning.
+SET GLOBAL binlog_cache_size = 4096;
+SET GLOBAL max_binlog_cache_size = 4096;
+USE test;
+
+CREATE TABLE T1 (word varchar(20)) ENGINE=Innodb;
+--disable_query_log
+let $i = 20000;
+while ($i)
+{
+  --exec echo "testing" >> $MYSQLTEST_VARDIR/std_data/load_data_infile.dat
+  dec $i;
+}
+--error ER_TRANS_CACHE_FULL, ER_ERROR_ON_WRITE
+LOAD DATA INFILE '../../std_data/load_data_infile.dat' INTO TABLE T1;
+--exec rm $MYSQLTEST_VARDIR/std_data/load_data_infile.dat
+--enable_query_log
+DROP TABLE T1;
+
+--eval SET GLOBAL max_binlog_cache_size= $old_max_binlog_cache_size
+--eval SET GLOBAL binlog_cache_size= $old_binlog_cache_size
+
