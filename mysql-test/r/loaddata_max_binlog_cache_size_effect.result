@@ -1,0 +1,8 @@
+SET GLOBAL binlog_cache_size = 4096;
+SET GLOBAL max_binlog_cache_size = 4096;
+USE test;
+CREATE TABLE T1 (word varchar(20)) ENGINE=Innodb;
+Got one of the listed errors
+DROP TABLE T1;
+SET GLOBAL max_binlog_cache_size= 18446744073709547520;
+SET GLOBAL binlog_cache_size= 32768;
