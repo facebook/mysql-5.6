@@ -175,6 +175,7 @@ SHOW WARNINGS;
 SELECT * FROM t1;
 --echo # No changes.
 COMMIT;
+SET AUTOCOMMIT = 1;
 DROP TABLE t1;
 
 
@@ -334,6 +335,7 @@ SHOW ENGINE InnoDB TRANSACTION STATUS;
 
 SET @@session.tx_isolation = @old_tx_isolation;
 
+SET autocommit = 1;
 DROP TABLE t1;
 
 #
