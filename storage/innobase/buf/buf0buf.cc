@@ -2510,7 +2510,6 @@ buf_page_get_gen(
 	ibool		must_read;
 	rw_lock_t*	hash_lock;
 	ib_mutex_t*	block_mutex;
-	buf_page_t*	hash_bpage;
 	ulint		retries = 0;
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 
@@ -2705,6 +2704,11 @@ wait_until_unfixed:
 			goto loop;
 		}
 
+    /* Buffer-fix the block so that it cannot be evicted
+    or relocated while we are attempting to allocate an uncompressed
+    page. */
+    bpage->buf_fix_count++;
+
 		/* Allocate an uncompressed page. */
 		mutex_exit(block_mutex);
 		block = buf_LRU_get_free_block(buf_pool);
@@ -2719,33 +2723,24 @@ wait_until_unfixed:
 		to verify that bpage is indeed still a part of
 		page_hash. */
 		rw_lock_x_lock(hash_lock);
-		hash_bpage = buf_page_hash_get_low(buf_pool, space,
-						   offset, fold);
 
 		mutex_enter(&block->mutex);
-		if (UNIV_UNLIKELY(bpage != hash_bpage)) {
-			/* The buf_pool->page_hash was modified
-			while buf_pool->mutex was released.
-			Free the block that was allocated. */
-
-			buf_LRU_block_free_non_file_page(block);
-			buf_pool_mutex_exit(buf_pool);
-			mutex_exit(&block->mutex);
-			rw_lock_x_unlock(hash_lock);
-
-			block = NULL;
-			goto loop;
-		}
-
+    mutex_enter(&buf_pool->zip_mutex);
+    bpage->buf_fix_count--;
+    /* Buffer-fixing prevents the page_hash from changing. */
+    ut_ad(bpage == buf_page_hash_get_low(buf_pool, space, offset, fold));
 		if (UNIV_UNLIKELY
 		    (bpage->buf_fix_count
 		     || buf_page_get_io_fix(bpage) != BUF_IO_NONE)) {
+
+      mutex_exit(&buf_pool->zip_mutex);
 
 			rw_lock_x_unlock(hash_lock);
 			/* The block was buffer-fixed or I/O-fixed
 			while buf_pool->mutex was not held by this thread.
 			Free the block that was allocated and try again.
-			This should be extremely unlikely. */
+			This should be extremely unlikely, for example,
+      if buf_page_get_zip() was invoked. */
 
 			buf_LRU_block_free_non_file_page(block);
 			buf_pool_mutex_exit(buf_pool);
@@ -2756,8 +2751,6 @@ wait_until_unfixed:
 
 		/* Move the compressed page from bpage to block,
 		and uncompress it. */
-
-		mutex_enter(&buf_pool->zip_mutex);
 
 		buf_relocate(bpage, &block->page);
 		buf_block_init_low(block);
