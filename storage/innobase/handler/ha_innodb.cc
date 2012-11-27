@@ -1136,6 +1136,10 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.zip16384_decompressed_secondary,   SHOW_LONG},
   {"zip_16384_decompressed_secondary_seconds",
   (char*) &export_vars.zip16384_decompressed_secondary_time, SHOW_TIMER},
+#ifdef UNIV_DEBUG
+  {"num_optimistic_insert_calls_in_pessimistic_descent",
+  (char*) &export_vars.num_optimistic_insert_calls_in_pessimistic_descent, SHOW_LONGLONG},
+#endif
   {NullS, NullS, SHOW_LONG}
 };
 

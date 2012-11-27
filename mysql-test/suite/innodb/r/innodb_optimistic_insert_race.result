@@ -1,0 +1,29 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+# Binary must be compiled with debug for this test
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY,
+msg VARCHAR(255),
+msg_length int,
+msg_checksum varchar(128),
+KEY msg_i(msg))
+ENGINE=INNODB
+ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=1;
+Inserter OK.
+Inserter thread quitting.
+Deleter OK.
+Deleter thread quitting.
+Checksum master
+stop slave;
+start slave;
+Checksum slave
+Checksums match
+SELECT variable_value > 0, variable_value < 300 FROM information_schema.global_status WHERE variable_name = 'innodb_num_optimistic_insert_calls_in_pessimistic_descent';
+variable_value > 0	variable_value < 300
+1	1
+DROP TABLE t1;
+include/rpl_end.inc

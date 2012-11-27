@@ -1477,6 +1477,10 @@ export_zip(
 	*decompressed_secondary_time = zip_stat->decompressed_secondary_time;
 }
 
+#ifdef UNIV_DEBUG
+extern ullint row_ins_optimistic_insert_calls_in_pessimistic_descent;
+#endif /* UNIV_DEBUG */
+
 /******************************************************************//**
 Function to pass InnoDB status variables to MySQL */
 UNIV_INTERN
@@ -2036,6 +2040,12 @@ srv_export_innodb_status(void)
 			break;
 		}
 	}
+
+#ifdef UNIV_DEBUG
+	export_vars.num_optimistic_insert_calls_in_pessimistic_descent =
+		row_ins_optimistic_insert_calls_in_pessimistic_descent;
+#endif /* UNIV_DEBUG */
+
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
 
