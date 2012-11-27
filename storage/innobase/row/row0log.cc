@@ -1485,6 +1485,8 @@ row_log_table_apply_insert_low(
 	const row_log_t*log	= dup->index->online_log;
 	dict_index_t*	index	= dict_table_get_first_index(log->table);
 	ulint		n_index = 0;
+	ulint	page_no = ULINT_UNDEFINED;
+	ullint	modify_clock = ULLINT_UNDEFINED;
 
 	ut_ad(dtuple_validate(row));
 	ut_ad(trx_id);
@@ -1507,7 +1509,8 @@ row_log_table_apply_insert_low(
 	entry = row_build_index_entry(row, NULL, index, heap);
 
 	error = row_ins_clust_index_entry_low(
-		flags, BTR_MODIFY_TREE, index, index->n_uniq, entry, 0, thr);
+		flags, BTR_MODIFY_TREE, index, index->n_uniq, entry, 0, thr,
+		&page_no, &modify_clock);
 
 	switch (error) {
 	case DB_SUCCESS:
@@ -1533,7 +1536,8 @@ row_log_table_apply_insert_low(
 		entry = row_build_index_entry(row, NULL, index, heap);
 		error = row_ins_sec_index_entry_low(
 			flags, BTR_MODIFY_TREE,
-			index, offsets_heap, heap, entry, trx_id, thr);
+			index, offsets_heap, heap, entry, trx_id, thr,
+      &page_no, &modify_clock);
 
 		/* Report correct index name for duplicate key error. */
 		if (error == DB_DUPLICATE_KEY) {
@@ -2161,12 +2165,17 @@ func_exit_committed:
 
 		mtr_commit(&mtr);
 
+		ulint	page_no = ULINT_UNDEFINED;
+		ullint	modify_clock = ULLINT_UNDEFINED;
+
 		entry = row_build_index_entry(row, NULL, index, heap);
 		error = row_ins_sec_index_entry_low(
 			BTR_CREATE_FLAG | BTR_NO_LOCKING_FLAG
 			| BTR_NO_UNDO_LOG_FLAG | BTR_KEEP_SYS_FLAG,
 			BTR_MODIFY_TREE, index, offsets_heap, heap,
-			entry, trx_id, thr);
+			entry, trx_id, thr,
+			&page_no, &modify_clock);
+
 
 		/* Report correct index name for duplicate key error. */
 		if (error == DB_DUPLICATE_KEY) {
