@@ -97,7 +97,23 @@ row_ins_clust_index_entry_low(
 	ulint		n_uniq,	/*!< in: 0 or index->n_uniq */
 	dtuple_t*	entry,	/*!< in/out: index entry to insert */
 	ulint		n_ext,	/*!< in: number of externally stored columns */
-	que_thr_t*	thr)	/*!< in: query thread or NULL */
+	que_thr_t*	thr,	/*!< in: query thread or NULL */
+	ulint*	page_no,	/*!< *page_no and *modify_clock are used to decide
+	                    whether to call btr_cur_optimistic_insert() during
+	                    pessimistic descent down the index tree.
+	                    in: If this is optimistic descent, then *page_no
+	                    must be ULINT_UNDEFINED. If it is pessimistic
+	                    descent, *page_no must be the page_no to which an
+	                    optimistic insert was attempted last time
+	                    row_ins_index_entry_low() was called.
+	                    out: If this is the optimistic descent, *page_no is set
+	                    to the page_no to which an optimistic insert was
+	                    attempted. If it is pessimistic descent, this value is
+	                    not changed. */
+	ullint*	modify_clock) /*!< in/out: *modify_clock == ULLINT_UNDEFINED
+	                             during optimistic descent, and the modify_clock
+	                             value for the page that was used for optimistic
+	                             insert during pessimistic descent */
 	__attribute__((nonnull, warn_unused_result));
 /***************************************************************//**
 Tries to insert an entry into a secondary index. If a record with exactly the
@@ -122,7 +138,23 @@ row_ins_sec_index_entry_low(
 	dtuple_t*	entry,	/*!< in/out: index entry to insert */
 	trx_id_t	trx_id,	/*!< in: PAGE_MAX_TRX_ID during
 				row_log_table_apply(), or 0 */
-	que_thr_t*	thr)	/*!< in: query thread */
+	que_thr_t*	thr,	/*!< in: query thread */
+	ulint*	page_no,	/*!< *page_no and *modify_clock are used to decide
+	                    whether to call btr_cur_optimistic_insert() during
+	                    pessimistic descent down the index tree.
+	                    in: If this is optimistic descent, then *page_no
+	                    must be ULINT_UNDEFINED. If it is pessimistic
+	                    descent, *page_no must be the page_no to which an
+	                    optimistic insert was attempted last time
+	                    row_ins_index_entry_low() was called.
+	                    out: If this is the optimistic descent, *page_no is set
+	                    to the page_no to which an optimistic insert was
+	                    attempted. If it is pessimistic descent, this value is
+	                    not changed. */
+	ullint*	modify_clock) /*!< in/out: *modify_clock == ULLINT_UNDEFINED
+	                             during optimistic descent, and the modify_clock
+	                             value for the page that was used for optimistic
+	                             insert during pessimistic descent */
 	__attribute__((nonnull, warn_unused_result));
 /***************************************************************//**
 Tries to insert the externally stored fields (off-page columns)

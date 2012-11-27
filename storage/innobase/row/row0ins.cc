@@ -63,6 +63,12 @@ check.
 If you make a change in this module make sure that no codepath is
 introduced where a call to log_free_check() is bypassed. */
 
+#ifdef UNIV_DEBUG
+/** Number of optimistic and pessimistic inserts performed on the
+b-tree of the indexes */
+ullint	row_ins_optimistic_insert_calls_in_pessimistic_descent = 0;
+#endif /* UNIV_DEBUG */
+
 /*********************************************************************//**
 Creates an insert node struct.
 @return	own: insert node struct */
@@ -2307,7 +2313,23 @@ row_ins_clust_index_entry_low(
 	ulint		n_uniq,	/*!< in: 0 or index->n_uniq */
 	dtuple_t*	entry,	/*!< in/out: index entry to insert */
 	ulint		n_ext,	/*!< in: number of externally stored columns */
-	que_thr_t*	thr)	/*!< in: query thread */
+	que_thr_t*	thr,	/*!< in: query thread */
+	ulint*	page_no,	/*!< *page_no and *modify_clock are used to decide
+	                    whether to call btr_cur_optimistic_insert() during
+	                    pessimistic descent down the index tree.
+	                    in: If this is optimistic descent, then *page_no
+	                    must be ULINT_UNDEFINED. If it is pessimistic
+	                    descent, *page_no must be the page_no to which an
+	                    optimistic insert was attempted last time
+	                    row_ins_index_entry_low() was called.
+	                    out: If this is the optimistic descent, *page_no is set
+	                    to the page_no to which an optimistic insert was
+	                    attempted. If it is pessimistic descent, this value is
+	                    not changed. */
+	ullint*	modify_clock) /*!< in/out: *modify_clock == ULLINT_UNDEFINED
+	                             during optimistic descent, and the modify_clock
+	                             value for the page that was used for optimistic
+	                             insert during pessimistic descent */
 {
 	btr_cur_t	cursor;
 	ulint*		offsets		= NULL;
@@ -2467,10 +2489,17 @@ err_exit:
 		if (mode != BTR_MODIFY_TREE) {
 			ut_ad((mode & ~BTR_ALREADY_S_LATCHED)
 			      == BTR_MODIFY_LEAF);
+			ut_a(*page_no == ULINT_UNDEFINED);
+			ut_a(*modify_clock == ULLINT_UNDEFINED);
 			err = btr_cur_optimistic_insert(
 				flags, &cursor, &offsets, &offsets_heap,
 				entry, &insert_rec, &big_rec,
 				n_ext, thr, &mtr);
+			if (err != DB_SUCCESS) {
+				*page_no = buf_block_get_page_no(btr_cur_get_block(&cursor));
+				*modify_clock = buf_block_get_modify_clock(
+						btr_cur_get_block(&cursor));
+			}
 		} else {
 			if (buf_LRU_buf_pool_running_out()) {
 
@@ -2478,11 +2507,19 @@ err_exit:
 				goto err_exit;
 			}
 
-			err = btr_cur_optimistic_insert(
-				flags, &cursor,
-				&offsets, &offsets_heap,
-				entry, &insert_rec, &big_rec,
-				n_ext, thr, &mtr);
+			if ((*page_no == ULINT_UNDEFINED && *modify_clock == ULLINT_UNDEFINED)
+				|| (*page_no != buf_block_get_page_no(btr_cur_get_block(&cursor)))
+				|| (*modify_clock != buf_block_get_modify_clock(
+						btr_cur_get_block(&cursor)))) {
+				ut_d(++row_ins_optimistic_insert_calls_in_pessimistic_descent);
+				err = btr_cur_optimistic_insert(
+					flags, &cursor,
+					&offsets, &offsets_heap,
+					entry, &insert_rec, &big_rec,
+					n_ext, thr, &mtr);
+			} else {
+				err = DB_FAIL;
+			}
 
 			if (err == DB_FAIL) {
 				err = btr_cur_pessimistic_insert(
@@ -2595,7 +2632,23 @@ row_ins_sec_index_entry_low(
 	dtuple_t*	entry,	/*!< in/out: index entry to insert */
 	trx_id_t	trx_id,	/*!< in: PAGE_MAX_TRX_ID during
 				row_log_table_apply(), or 0 */
-	que_thr_t*	thr)	/*!< in: query thread */
+	que_thr_t*	thr,	/*!< in: query thread */
+	ulint*	page_no,	/*!< *page_no and *modify_clock are used to decide
+	                    whether to call btr_cur_optimistic_insert() during
+	                    pessimistic descent down the index tree.
+	                    in: If this is optimistic descent, then *page_no
+	                    must be ULINT_UNDEFINED. If it is pessimistic
+	                    descent, *page_no must be the page_no to which an
+	                    optimistic insert was attempted last time
+	                    row_ins_index_entry_low() was called.
+	                    out: If this is the optimistic descent, *page_no is set
+	                    to the page_no to which an optimistic insert was
+	                    attempted. If it is pessimistic descent, this value is
+	                    not changed. */
+	ullint*	modify_clock) /*!< in/out: *modify_clock == ULLINT_UNDEFINED
+	                             during optimistic descent, and the modify_clock
+	                             value for the page that was used for optimistic
+	                             insert during pessimistic descent */
 {
 	btr_cur_t	cursor;
 	ulint		search_mode	= mode | BTR_INSERT;
@@ -2739,10 +2792,17 @@ row_ins_sec_index_entry_low(
 		big_rec_t*	big_rec;
 
 		if (mode == BTR_MODIFY_LEAF) {
+			ut_a(*page_no == ULINT_UNDEFINED);
+			ut_a(*modify_clock == ULLINT_UNDEFINED);
 			err = btr_cur_optimistic_insert(
 				flags, &cursor, &offsets, &offsets_heap,
 				entry, &insert_rec,
 				&big_rec, 0, thr, &mtr);
+			if (err != DB_SUCCESS) {
+				*page_no = buf_block_get_page_no(btr_cur_get_block(&cursor));
+				*modify_clock = buf_block_get_modify_clock(
+						btr_cur_get_block(&cursor));
+			}
 		} else {
 			ut_ad(mode == BTR_MODIFY_TREE);
 			if (buf_LRU_buf_pool_running_out()) {
@@ -2751,11 +2811,19 @@ row_ins_sec_index_entry_low(
 				goto func_exit;
 			}
 
-			err = btr_cur_optimistic_insert(
-				flags, &cursor,
-				&offsets, &offsets_heap,
-				entry, &insert_rec,
-				&big_rec, 0, thr, &mtr);
+			if ((*page_no == ULINT_UNDEFINED && *modify_clock == ULLINT_UNDEFINED)
+				|| (*page_no != buf_block_get_page_no(btr_cur_get_block(&cursor)))
+				|| (*modify_clock != buf_block_get_modify_clock(
+						btr_cur_get_block(&cursor)))) {
+				ut_d(++row_ins_optimistic_insert_calls_in_pessimistic_descent);
+				err = btr_cur_optimistic_insert(
+					flags, &cursor,
+					&offsets, &offsets_heap,
+					entry, &insert_rec,
+					&big_rec, 0, thr, &mtr);
+			} else {
+				err = DB_FAIL;
+			}
 			if (err == DB_FAIL) {
 				err = btr_cur_pessimistic_insert(
 					flags, &cursor,
@@ -2853,6 +2921,8 @@ row_ins_clust_index_entry(
 {
 	dberr_t	err;
 	ulint	n_uniq;
+	ulint	page_no = ULINT_UNDEFINED;
+	ullint	modify_clock = ULLINT_UNDEFINED;
 
 	if (!index->table->foreign_set.empty()) {
 		err = row_ins_check_foreign_constraints(
@@ -2870,7 +2940,8 @@ row_ins_clust_index_entry(
 	log_free_check();
 
 	err = row_ins_clust_index_entry_low(
-		0, BTR_MODIFY_LEAF, index, n_uniq, entry, n_ext, thr);
+		0, BTR_MODIFY_LEAF, index, n_uniq, entry, n_ext, thr,
+		&page_no, &modify_clock);
 
 #ifdef UNIV_DEBUG
 	/* Work around Bug#14626800 ASSERTION FAILURE IN DEBUG_SYNC().
@@ -2891,7 +2962,8 @@ row_ins_clust_index_entry(
 	log_free_check();
 
 	return(row_ins_clust_index_entry_low(
-		       0, BTR_MODIFY_TREE, index, n_uniq, entry, n_ext, thr));
+		0, BTR_MODIFY_TREE, index, n_uniq, entry, n_ext, thr,
+		&page_no, &modify_clock));
 }
 
 /***************************************************************//**
@@ -2911,6 +2983,8 @@ row_ins_sec_index_entry(
 	dberr_t		err;
 	mem_heap_t*	offsets_heap;
 	mem_heap_t*	heap;
+	ulint	page_no = ULINT_UNDEFINED;
+	ullint	modify_clock = ULLINT_UNDEFINED;
 
 	if (!index->table->foreign_set.empty()) {
 		err = row_ins_check_foreign_constraints(index->table, index,
@@ -2931,7 +3005,8 @@ row_ins_sec_index_entry(
 	log_free_check();
 
 	err = row_ins_sec_index_entry_low(
-		0, BTR_MODIFY_LEAF, index, offsets_heap, heap, entry, 0, thr);
+		0, BTR_MODIFY_LEAF, index, offsets_heap, heap,
+		entry, 0, thr, &page_no, &modify_clock);
 	if (err == DB_FAIL) {
 		mem_heap_empty(heap);
 
@@ -2941,7 +3016,8 @@ row_ins_sec_index_entry(
 
 		err = row_ins_sec_index_entry_low(
 			0, BTR_MODIFY_TREE, index,
-			offsets_heap, heap, entry, 0, thr);
+			offsets_heap, heap, entry, 0, thr,
+			&page_no, &modify_clock);
 	}
 
 	mem_heap_free(heap);

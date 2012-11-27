@@ -3461,7 +3461,23 @@ ibuf_insert_low(
 	ulint		space,	/*!< in: space id where to insert */
 	ulint		zip_size,/*!< in: compressed page size in bytes, or 0 */
 	ulint		page_no,/*!< in: page number where to insert */
-	que_thr_t*	thr)	/*!< in: query thread */
+	que_thr_t*	thr,	/*!< in: query thread */
+	ulint*	ibuf_page_no,	/*!< *page_no and *modify_clock are used to decide
+	                    whether to call btr_cur_optimistic_insert() during
+	                    pessimistic descent down the index tree.
+	                    in: If this is optimistic descent, then *page_no
+	                    must be ULINT_UNDEFINED. If it is pessimistic
+	                    descent, *page_no must be the page_no to which an
+	                    optimistic insert was attempted last time
+	                    ibuf_insert_low() was called.
+	                    out: If this is the optimistic descent, *page_no is set
+	                    to the page_no to which an optimistic insert was
+	                    attempted. If it is pessimistic descent, this value is
+	                    not changed. */
+	ullint*	modify_clock) /*!< in/out: *modify_clock == ULLINT_UNDEFINED
+	                             during optimistic descent, and the modify_clock
+	                             value for the page that was used for optimistic
+	                             insert during pessimistic descent */
 {
 	big_rec_t*	dummy_big_rec;
 	btr_pcur_t	pcur;
@@ -3687,11 +3703,18 @@ fail_exit:
 	cursor = btr_pcur_get_btr_cur(&pcur);
 
 	if (mode == BTR_MODIFY_PREV) {
+		ut_a(*ibuf_page_no == ULINT_UNDEFINED);
+		ut_a(*modify_clock == ULLINT_UNDEFINED);
 		err = btr_cur_optimistic_insert(
 			BTR_NO_LOCKING_FLAG,
 			cursor, &offsets, &offsets_heap,
 			ibuf_entry, &ins_rec,
 			&dummy_big_rec, 0, thr, &mtr);
+		if (err != DB_SUCCESS) {
+			*ibuf_page_no = buf_block_get_page_no(btr_cur_get_block(cursor));
+			*modify_clock = buf_block_get_modify_clock(
+					btr_cur_get_block(cursor));
+		}
 		block = btr_cur_get_block(cursor);
 		ut_ad(buf_block_get_space(block) == IBUF_SPACE_ID);
 
@@ -3716,11 +3739,17 @@ fail_exit:
 
 		root = ibuf_tree_root_get(&mtr);
 
-		err = btr_cur_optimistic_insert(
-			BTR_NO_LOCKING_FLAG | BTR_NO_UNDO_LOG_FLAG,
-			cursor, &offsets, &offsets_heap,
-			ibuf_entry, &ins_rec,
-			&dummy_big_rec, 0, thr, &mtr);
+		if ((*ibuf_page_no != buf_block_get_page_no(btr_cur_get_block(cursor)))
+			|| (*modify_clock != buf_block_get_modify_clock(
+					btr_cur_get_block(cursor)))) {
+			err = btr_cur_optimistic_insert(
+				BTR_NO_LOCKING_FLAG | BTR_NO_UNDO_LOG_FLAG,
+				cursor, &offsets, &offsets_heap,
+				ibuf_entry, &ins_rec,
+				&dummy_big_rec, 0, thr, &mtr);
+		} else {
+			err = DB_FAIL;
+		}
 
 		if (err == DB_FAIL) {
 			err = btr_cur_pessimistic_insert(
@@ -3805,6 +3834,8 @@ ibuf_insert(
 	/* Read the settable global variable ibuf_use only once in
 	this function, so that we will have a consistent view of it. */
 	ibuf_use_t	use		= ibuf_use;
+	ulint	ibuf_page_no = ULINT_UNDEFINED;
+	ullint	modify_clock = ULLINT_UNDEFINED;
 	DBUG_ENTER("ibuf_insert");
 
 	DBUG_PRINT("ibuf", ("op: %d, space: %ld, page_no: %ld",
@@ -3910,11 +3941,13 @@ skip_watch:
 
 	err = ibuf_insert_low(BTR_MODIFY_PREV, op, no_counter,
 			      entry, entry_size,
-			      index, space, zip_size, page_no, thr);
+			      index, space, zip_size, page_no, thr,
+			      &ibuf_page_no, &modify_clock);
 	if (err == DB_FAIL) {
 		err = ibuf_insert_low(BTR_MODIFY_TREE, op, no_counter,
 				      entry, entry_size,
-				      index, space, zip_size, page_no, thr);
+				      index, space, zip_size, page_no, thr,
+				      &ibuf_page_no, &modify_clock);
 	}
 
 	if (err == DB_SUCCESS) {
