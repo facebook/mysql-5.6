@@ -1222,6 +1222,9 @@ struct export_var_t{
 	ulonglong	zip16384_decompressed_primary_time;
 	ulint		zip16384_decompressed_secondary;
 	ulonglong	zip16384_decompressed_secondary_time;
+#ifdef UNIV_DEBUG
+	ullint	num_optimistic_insert_calls_in_pessimistic_descent;
+#endif /* UNIV_DEBUG */
 };
 
 /** Thread slot in the thread table.  */
