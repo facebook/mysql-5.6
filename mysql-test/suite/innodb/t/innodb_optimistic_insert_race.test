@@ -1,0 +1,66 @@
+--source include/not_valgrind.inc
+--source include/have_innodb.inc
+--source include/master-slave.inc
+--echo # Binary must be compiled with debug for this test
+--source include/have_debug.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# create the actual table
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY,
+                msg VARCHAR(255),
+                msg_length int,
+                msg_checksum varchar(128),
+                KEY msg_i(msg))
+ENGINE=INNODB
+ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=1;
+
+let $exec = python suite/innodb/t/innodb_optimistic_insert_race.py root 127.0.0.1 $MASTER_MYPORT;
+
+exec $exec;
+
+--echo Checksum master
+let $master_checksum = query_get_value(CHECKSUM TABLE t1, Checksum, 1);
+
+# if sync_slave_with_master had a configurable timeout this would not be needed
+let $slave_sync_timeout = 7200;
+--source include/wait_for_slave_to_sync_with_master.inc
+
+connection slave;
+--echo Checksum slave
+let $slave_checksum=query_get_value(CHECKSUM TABLE t1, Checksum, 1);
+let $not_same = `SELECT $master_checksum-$slave_checksum`;
+
+if (!$not_same)
+{
+  echo Checksums match;
+}
+
+if ($not_same)
+{
+  echo The checksums of table t1 for master and slave do not match.;
+
+  connection master;
+  eval select * into outfile '$MYSQLTEST_VARDIR/tmp/master_all' from t1 order by id;
+  eval select id into outfile '$MYSQLTEST_VARDIR/tmp/master_id' from t1 order by id;
+  show master status;
+
+  connection slave;
+  eval select * into outfile '$MYSQLTEST_VARDIR/tmp/slave_all' from t1 order by id;
+  eval select id into outfile '$MYSQLTEST_VARDIR/tmp/slave_id' from t1 order by id;
+  show slave status;
+
+  die;
+}
+
+connection master;
+SELECT variable_value > 0, variable_value < 300 FROM information_schema.global_status WHERE variable_name = 'innodb_num_optimistic_insert_calls_in_pessimistic_descent';
+
+DROP TABLE t1;
+
+sync_slave_with_master;
+
+--source include/rpl_end.inc
