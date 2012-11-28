@@ -753,6 +753,8 @@ char *thd_security_context(THD *thd, char *buffer, unsigned int length,
   Security_context *sctx= &thd->main_security_ctx;
   char header[256];
   int len;
+  int err;
+
   /*
     The pointers thd->query and thd->proc_info might change since they are
     being modified concurrently. This is acceptable for proc_info since its
@@ -794,19 +796,39 @@ char *thd_security_context(THD *thd, char *buffer, unsigned int length,
     str.append(proc_info);
   }
 
-  mysql_mutex_lock(&thd->LOCK_thd_data);
 
-  if (thd->query())
+  /*
+    InnoDB might be holding a big kernel lock like kernel_mutex. Don't
+    block here to avoid deadlock -- http://bugs.mysql.com/60682
+  */
+
+  err= mysql_mutex_trylock(&thd->LOCK_thd_data);
+  DBUG_EXECUTE_IF("pretend_thd_security_context_busy",
+                  { if (!err) {
+                      mysql_mutex_unlock(&thd->LOCK_thd_data);
+                      err= EBUSY;
+                    } });
+  if (!err)
   {
-    if (max_query_len < 1)
-      len= thd->query_length();
-    else
-      len= min(thd->query_length(), max_query_len);
-    str.append('\n');
-    str.append(thd->query(), len);
-  }
+    if (thd->query())
+    {
+      if (max_query_len < 1)
+        len= thd->query_length();
+      else
+        len= min(thd->query_length(), max_query_len);
+      str.append('\n');
+      str.append(thd->query(), len);
+    }
 
-  mysql_mutex_unlock(&thd->LOCK_thd_data);
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+  }
+  else
+  {
+    const char* busy_msg= "::BUSY::";
+    DBUG_ASSERT(err == EBUSY);
+    str.append('\n');
+    str.append(busy_msg, strlen(busy_msg));
+  }
 
   if (str.c_ptr_safe() == buffer)
     return buffer;
