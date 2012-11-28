@@ -1,0 +1,13 @@
+drop table if exists t1;
+create table t1(i int) engine=innodb;
+insert into t1 values (1);
+begin;
+select * from t1;
+i
+1
+select sleep(2);
+set session debug="+d,pretend_thd_security_context_busy";
+SHOW ENGINE INNODB STATUS;
+sleep(2)
+0
+drop table t1;
