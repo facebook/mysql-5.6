@@ -1,0 +1,32 @@
+# Save the initial number of concurrent sessions.
+--source include/count_sessions.inc
+--source include/have_debug.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1(i int) engine=innodb;
+insert into t1 values (1);
+
+connect (con1, localhost, root,,);
+begin;
+select * from t1;
+--send select sleep(2)
+
+connection default;
+set session debug="+d,pretend_thd_security_context_busy";
+--disable_result_log
+SHOW ENGINE INNODB STATUS;
+--enable_result_log
+
+connection con1;
+reap;
+
+connection default;
+disconnect con1;
+drop table t1;
+
+# Check that all connections opened by test cases in this file are really
+# gone so execution of other tests won't be affected by their presence.
+--source include/wait_until_count_sessions.inc
