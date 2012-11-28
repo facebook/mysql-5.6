@@ -1203,7 +1203,7 @@ void
 srv_printf_innodb_transaction(
 /*======================*/
 	FILE*	file)		/* in: output stream */
-{
+{ 
 	mutex_enter(&srv_innodb_monitor_mutex);
 
 	fputs("\n=================================================\n", file);
