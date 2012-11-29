@@ -98,9 +98,12 @@ uchar* dboptions_get_key(my_dbopt_t *opt, size_t *length,
 */
 
 static inline int write_to_binlog(THD *thd, char *query, uint q_len,
-                                  char *db, uint db_len)
+                                  char *db, uint db_len,
+                                  bool set_no_foreign_key_check)
 {
   Query_log_event qinfo(thd, query, q_len, FALSE, TRUE, FALSE, 0);
+  if (set_no_foreign_key_check)
+    qinfo.set_bit_flags2(OPTION_NO_FOREIGN_KEY_CHECKS);
   qinfo.db= db;
   qinfo.db_len= db_len;
   return mysql_bin_log.write_event(&qinfo);
@@ -974,7 +977,7 @@ update_binlog:
           These DDL methods and logging are protected with the exclusive
           metadata lock on the schema.
         */
-        if (write_to_binlog(thd, query, query_pos -1 - query, db, db_len))
+        if (write_to_binlog(thd, query, query_pos -1 - query, db, db_len, true))
         {
           error= true;
           goto exit;
@@ -995,7 +998,7 @@ update_binlog:
         These DDL methods and logging are protected with the exclusive
         metadata lock on the schema.
       */
-      if (write_to_binlog(thd, query, query_pos -1 - query, db, db_len))
+      if (write_to_binlog(thd, query, query_pos -1 - query, db, db_len, true))
       {
         error= true;
         goto exit;
