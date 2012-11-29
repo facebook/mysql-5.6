@@ -1,0 +1,55 @@
+# This test verifies that replciation don't break in slave after
+# dropping a database with foreign key constraits between tables
+--source include/have_innodb.inc
+--source include/master-slave.inc
+
+connection master;
+
+--disable_warnings
+drop database if exists mysqltest1;
+--enable_warnings
+
+# Create a database with foreign key constraints between tables.
+create database mysqltest1;
+use mysqltest1;
+CREATE TABLE t1 (id1 INT NOT NULL, id2 INT, PRIMARY KEY (id1)) ENGINE=INNODB;
+# Make sure the drop table query length is greater than MAX_DROP_TABLE_Q_LEN
+# such that drop database is executed in multiple drop table statements.
+--disable_query_log
+let $i= 50;
+while($i)
+{
+  eval CREATE TABLE mysqltest_long_table_name$i (id1 INT NOT NULL, id2 INT, PRIMARY KEY (id1)) ENGINE=INNODB;
+  dec $i;
+}
+--enable_query_log
+CREATE TABLE t3 (a INT NOT NULL, b INT, PRIMARY KEY (a),
+                 FOREIGN KEY (b) REFERENCES t1(id1)) ENGINE=INNODB;
+
+insert into mysqltest1.t1 values (1, 100);
+insert into mysqltest1.t1 values (2, 200);
+# Force mysql to log multiple drop table statements in binlog instead
+# of drop database statement (see BUG#4680).
+select * from mysqltest1.t1 into outfile 'mysqltest1/f1.txt';
+sync_slave_with_master;
+
+# Drop the database in master
+connection master;
+--replace_result \\ /
+--error 1010
+drop database mysqltest1;
+
+sync_slave_with_master;
+
+# Cleanup
+connection master;
+
+# Remove the "extra" file created above
+let $MYSQLD_DATADIR= `select @@datadir`;
+remove_file $MYSQLD_DATADIR/mysqltest1/f1.txt;
+
+drop database mysqltest1;
+
+sync_slave_with_master;
+
+--source include/rpl_end.inc
