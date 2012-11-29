@@ -1,0 +1,18 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop database if exists mysqltest1;
+create database mysqltest1;
+use mysqltest1;
+CREATE TABLE t1 (id1 INT NOT NULL, id2 INT, PRIMARY KEY (id1)) ENGINE=INNODB;
+CREATE TABLE t3 (a INT NOT NULL, b INT, PRIMARY KEY (a),
+FOREIGN KEY (b) REFERENCES t1(id1)) ENGINE=INNODB;
+insert into mysqltest1.t1 values (1, 100);
+insert into mysqltest1.t1 values (2, 200);
+select * from mysqltest1.t1 into outfile 'mysqltest1/f1.txt';
+drop database mysqltest1;
+ERROR HY000: Error dropping database (can't rmdir './mysqltest1/', errno: 17)
+drop database mysqltest1;
+include/rpl_end.inc
