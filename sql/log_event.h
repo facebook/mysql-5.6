@@ -2144,6 +2144,8 @@ public:
   */
   uchar mts_accessed_dbs;
   char mts_accessed_db_names[MAX_DBS_IN_EVENT_MTS][NAME_LEN];
+  void set_bit_flags2(uint32 flag_set) { flags2 |= flag_set; }
+  void clear_bit_flags2(uint32 flag_set) { flags2 &= ~flag_set; }
 
 #ifdef MYSQL_SERVER
 
