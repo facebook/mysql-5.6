@@ -90,6 +90,7 @@ typedef struct st_db_worker_hash_entry db_worker_hash_entry;
 #define LOG_READ_TRUNC  -6
 #define LOG_READ_TOO_LARGE -7
 #define LOG_READ_CHECKSUM_FAILURE -8
+#define LOG_READ_BINLOG_LAST_VALID_POS -9
 
 #define LOG_EVENT_OFFSET 4
 
@@ -1179,7 +1180,7 @@ public:
                                    my_bool crc_check,
                                    int *read_length);
   static int read_log_event(IO_CACHE* file, String* packet,
-                            mysql_mutex_t* log_lock, uint8 checksum_alg_arg);
+                            uint8 checksum_alg_arg, const char *log_file_name);
   /*
     init_show_field_list() prepares the column names and types for the
     output of SHOW BINLOG EVENTS; it is used only by SHOW BINLOG
