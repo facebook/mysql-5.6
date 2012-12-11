@@ -4697,7 +4697,18 @@ os_aio_func(
 					elapsed_time, end_time, start_time);
 			}
 			/* Handle type spacific page IO stats */
+			io_perf2->page_stats.n_pages_read++;
 			ulint page_type= fil_page_get_type((const unsigned char *)buf);
+			switch (page_type) {
+				case FIL_PAGE_INDEX:
+					io_perf2->page_stats.n_pages_read_index++;
+					break;
+				case FIL_PAGE_TYPE_BLOB:
+				case FIL_PAGE_TYPE_ZBLOB:
+				case FIL_PAGE_TYPE_ZBLOB2:
+					io_perf2->page_stats.n_pages_read_blob++;
+					break;
+			}
 			my_io_perf_t* space_index_io_perf= NULL;
 			my_io_perf_t* table_index_io_perf= NULL;
 			if (primary_index_id && FIL_PAGE_INDEX == page_type)
@@ -5655,6 +5666,32 @@ slot_io_done:
 	*message2 = aio_slot->message2;
 
 	*type = aio_slot->type;
+	if(slot->type == OS_FILE_READ) {
+		slot->io_perf2->page_stats.n_pages_read++;
+		switch (fil_page_get_type(slot->buf)) {
+			case FIL_PAGE_INDEX:
+				slot->io_perf2->page_stats.n_pages_read_index++;
+				break;
+			case FIL_PAGE_TYPE_BLOB:
+			case FIL_PAGE_TYPE_ZBLOB:
+			case FIL_PAGE_TYPE_ZBLOB2:
+        slot->io_perf2->page_stats.n_pages_read_blob++;
+				break;
+		}
+	}
+	else if(slot->type == OS_FILE_WRITE) {
+		slot->io_perf2->page_stats.n_pages_written++;
+		switch (fil_page_get_type(slot->buf)) {
+			case FIL_PAGE_INDEX:
+				slot->io_perf2->page_stats.n_pages_written_index++;
+				break;
+			case FIL_PAGE_TYPE_BLOB:
+			case FIL_PAGE_TYPE_ZBLOB:
+			case FIL_PAGE_TYPE_ZBLOB2:
+				slot->io_perf2->page_stats.n_pages_written_blob++;
+				break;
+		}
+	}
 
 	os_mutex_exit(array->mutex);
 

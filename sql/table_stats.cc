@@ -61,6 +61,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   my_io_perf_init(&table_stats->io_perf_read_secondary);
   table_stats->index_inserts = 0;
   table_stats->queries_empty = 0;
+  memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
   memset(&table_stats->comp_stat, 0, sizeof(table_stats->comp_stat));
 }
 
@@ -358,6 +359,13 @@ ST_FIELD_INFO table_stats_fields_info[]=
 
   {"INNODB_BUFFER_POOL_PAGES", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
+  {"INNODB_PAGES_READ", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INNODB_PAGES_READ_INDEX", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INNODB_PAGES_READ_BLOB", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INNODB_PAGES_WRITTEN", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INNODB_PAGES_WRITTEN_INDEX", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INNODB_PAGES_WRITTEN_BLOB", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
@@ -368,6 +376,7 @@ void fill_table_stats_cb(const char *db,
                          my_io_perf_t *r_blob,
                          my_io_perf_t *r_primary,
                          my_io_perf_t *r_secondary,
+                         page_stats_t *page_stats,
                          comp_stat_t *comp_stat,
                          int n_lru,
                          const char *engine)
@@ -384,6 +393,7 @@ void fill_table_stats_cb(const char *db,
   stats->io_perf_read_blob = *r_blob;
   stats->io_perf_read_primary = *r_primary;
   stats->io_perf_read_secondary = *r_secondary;
+  stats->page_stats = *page_stats;
   stats->comp_stat = *comp_stat;
   stats->n_lru = n_lru;
 }
@@ -422,7 +432,13 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
         table_stats->io_perf_read_primary.requests == 0 &&
         table_stats->io_perf_read_secondary.requests == 0 &&
         table_stats->queries_empty == 0 &&
-        table_stats->n_lru == 0)
+        table_stats->n_lru == 0 &&
+        table_stats->page_stats.n_pages_read == 0 &&
+        table_stats->page_stats.n_pages_read_index == 0 &&
+        table_stats->page_stats.n_pages_read_blob == 0 &&
+        table_stats->page_stats.n_pages_written == 0 &&
+        table_stats->page_stats.n_pages_written_index == 0 &&
+        table_stats->page_stats.n_pages_written_blob == 0)
     {
       continue;
     }
@@ -546,6 +562,14 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->queries_empty, TRUE);
 
     table->field[f++]->store(table_stats->n_lru, TRUE);
+
+    table->field[f++]->store(table_stats->page_stats.n_pages_read, TRUE);
+    table->field[f++]->store(table_stats->page_stats.n_pages_read_index, TRUE);
+    table->field[f++]->store(table_stats->page_stats.n_pages_read_blob, TRUE);
+    table->field[f++]->store(table_stats->page_stats.n_pages_written, TRUE);
+    table->field[f++]->store(table_stats->page_stats.n_pages_written_index, TRUE);
+    table->field[f++]->store(table_stats->page_stats.n_pages_written_blob, TRUE);
+
 
     if (schema_table_store_record(thd, table))
     {

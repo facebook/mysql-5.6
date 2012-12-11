@@ -354,7 +354,7 @@ typedef struct st_table_stats {
                                          that do not return a row. */
 
   comp_stat_t comp_stat;       /* Compression statistics */
-
+  page_stats_t page_stats;    /* per page type statistics */
   /* See variables of same name in ha_statistics */
   ulonglong rows_index_first;
   ulonglong rows_index_next;
