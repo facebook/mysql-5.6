@@ -233,3 +233,25 @@ drop user test@localhost;
 # Restore original value
 set global read_only= @start_read_only;
 set global super_read_only= @start_super_read_only;
+
+--echo #
+--echo # Verify loging the changes to global variable read_only, super_read_only
+--echo #
+
+--perl
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/log/mysqld.1.err" or die;
+my @lines = <FILE>;
+my $check = 0;
+foreach $line (@lines) {
+  if ($line =~ m/CURRENT\_TEST.*/) {
+    if ($line =~ m/.*sys_vars\.super\_read\_only_basic/) {
+      $check = 1;
+    } else {
+      $check = 0;
+    }
+  }
+  if ($check && $line =~ m/\[Note\] (Setting global variable.*)/) {
+    print "$1\n";
+  }
+}
+EOF
