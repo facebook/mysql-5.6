@@ -2266,6 +2266,29 @@ static bool check_read_only(sys_var *self, THD *thd, set_var *var)
   }
   return false;
 }
+static void log_read_only_change(THD *thd)
+{
+  const char *user = "unknown";
+  const char *host = "unknown";
+
+  if (thd)
+  {
+    if (thd->get_user_connect())
+    {
+      user = (const_cast<USER_CONN*>(thd->get_user_connect()))->user;
+      host = (const_cast<USER_CONN*>(thd->get_user_connect()))->host;
+    }
+  }
+
+  sql_print_information(
+    "Setting global variable: "
+    "read_only = %d , super_read_only = %d (user '%s' from '%s')",
+    opt_readonly,
+    opt_super_readonly,
+    user,
+    host
+    );
+}
 static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
 {
   bool result= true;
@@ -2286,6 +2309,7 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
   {
     opt_super_readonly= super_read_only;
     opt_readonly= read_only;
+    log_read_only_change(thd);
     DBUG_RETURN(false);
   }
 
@@ -2302,6 +2326,7 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
     */
     opt_super_readonly= super_read_only;
     opt_readonly= read_only;
+    log_read_only_change(thd);
     DBUG_RETURN(false);
   }
 
@@ -2340,6 +2365,7 @@ static bool fix_read_only(sys_var *self, THD *thd, enum_var_type type)
  end:
   super_read_only= opt_super_readonly;
   read_only= opt_readonly;
+  log_read_only_change(thd);
   DBUG_RETURN(result);
 }
 
