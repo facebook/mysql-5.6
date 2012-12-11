@@ -1377,10 +1377,12 @@ fil_space_create(
   ib_mutex_t*      stats_mutex;
 	char		db_name[FN_LEN + 1];
 	char		table_name[FN_LEN + 1];
+	unsigned char db_stats_index;
 
 	DBUG_EXECUTE_IF("fil_space_create_failure", return(false););
 
 	parse_db_and_table(name, db_name, table_name, purpose, id);
+	db_stats_index = get_db_stats_index(db_name);
 
 	ut_a(fil_system);
 	ut_a(fsp_flags_is_valid(flags));
@@ -1488,6 +1490,7 @@ fil_space_create(
   space->stats.stats_next = NULL;
 
 	UT_LIST_ADD_LAST(space_list, fil_system->space_list, space);
+	space->stats.db_stats_index = db_stats_index;
 
 	mutex_exit(&fil_system->mutex);
   stats_mutex = hash_get_mutex(fil_system->stats_hash, id);
@@ -6480,6 +6483,30 @@ fil_print(
 		fil_system->flush_types[FLUSH_FROM_DOUBLEWRITE]);
 }
 
+void
+fil_change_lru_count_low(
+/*=================*/
+	ulint	id, /* in: tablespace id for which count changes */
+	fil_stats_t* stats,
+	int	amount)	/* in: amount by which the count changes */
+{
+	if (stats) {
+		stats->used = TRUE;
+
+		if (amount > 0) {
+			stats->n_lru += amount;
+		} else if ((stats->n_lru + amount) >= 0) {
+			stats->n_lru += amount;
+		} else {
+			fprintf(stderr, "n_lru count for space %lu is %d and "
+				"cannot be decremented by %d\n",
+				id, stats->n_lru, amount);
+			ut_ad(0);
+		}
+	}
+}
+
+
 /*************************************************************************
 Changes count of pages on the LRU for this space. Will lock/unlock
 fil_system->mutex */
@@ -6490,23 +6517,10 @@ fil_change_lru_count(
 	ulint	id,	/* in: tablespace id for which count changes */
 	int	amount)	/* in: amount by which the count changes */
 {
-	fil_stats_t*	  stats;
-  ib_mutex_t*        stats_mutex;
+	fil_stats_t*	stats;
+	ib_mutex_t*	stats_mutex;
 
-  stats = fil_get_stats_lock_mutex_by_id(id, &stats_mutex);
-
-	if (stats) {
-		stats->used = TRUE;
-
-		stats->n_lru += amount;
-		if (stats->n_lru < 0) {
-			stats->n_lru -= amount;
-			fprintf(stderr, "n_lru count for stats %lu is %d and "
-				"cannot be decremented by %d\n",
-				id, stats->n_lru, amount);
-			ut_ad(0);
-		}
-	}
-
+	stats = fil_get_stats_lock_mutex_by_id(id, &stats_mutex);
+	fil_change_lru_count_low(id, stats, amount);
 	mutex_exit(stats_mutex);
 }

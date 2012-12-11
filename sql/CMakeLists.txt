@@ -40,6 +40,7 @@ SET(SQL_SHARED_SOURCES
   abstract_query_plan.cc
   datadict.cc
   debug_sync.cc
+  db_stats.cc
   derror.cc
   des_key_file.cc
   discover.cc
@@ -52,6 +53,7 @@ SET(SQL_SHARED_SOURCES
   gstream.cc
   handler.cc
   hostname.cc
+  hyperloglog.cc
   init.cc
   item.cc
   item_buff.cc

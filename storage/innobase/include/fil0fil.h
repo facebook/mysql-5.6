@@ -235,6 +235,7 @@ typedef struct fil_stats_struct {
 	ibool		used;		/*!< cleared by fil_update_table_stats
 					and set by fil_io */
 	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
+	unsigned char db_stats_index;
 } fil_stats_t;
 
 /** Value of fil_stats_struct::magic_n */
@@ -1296,6 +1297,17 @@ void
 fil_change_lru_count(
 /*=================*/
 	ulint	space,		/* in: tablespace id for which count changes */
+	int	amount);	/* in: amount by which the count changes */
+
+/*************************************************************************
+Changes count of pages on the LRU for this space. Will not lock/unlock
+fil_system->mutex */
+
+void
+fil_change_lru_count_low(
+/*=================*/
+	ulint	space,		/* in: tablespace id for which count changes */
+	fil_stats_t* stats,
 	int	amount);	/* in: amount by which the count changes */
 
 #endif /* !UNIV_INNOCHECKSUM */
