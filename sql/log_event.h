@@ -1176,7 +1176,8 @@ public:
                                    mysql_mutex_t* log_lock,
                                    const Format_description_log_event
                                    *description_event,
-                                   my_bool crc_check);
+                                   my_bool crc_check,
+                                   int *read_length);
   static int read_log_event(IO_CACHE* file, String* packet,
                             mysql_mutex_t* log_lock, uint8 checksum_alg_arg);
   /*
