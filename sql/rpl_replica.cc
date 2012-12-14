@@ -5399,6 +5399,9 @@ extern "C" void *handle_slave_io(void *arg) {
           goto connected;
         }  // if (event_len == packet_error)
 
+        relay_io_events++;
+        relay_io_bytes += event_len;
+
         retry_count = 0;  // ok event, reset retry counter
         THD_STAGE_INFO(thd, stage_queueing_source_event_to_the_relay_log);
         event_buf = (const char *)mysql->net.read_pos + 1;

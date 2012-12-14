@@ -1258,6 +1258,21 @@ mysql_mutex_t LOCK_tls_ctx_options;
 mysql_mutex_t LOCK_admin_tls_ctx_options;
 mysql_mutex_t LOCK_partial_revokes;
 
+/* Number of events written to the relay log by the IO thread */
+ulong relay_io_events = 0;
+
+/* Number of events executed from the relay log by the SQL thread */
+ulong relay_sql_events = 0;
+
+/* Number of bytes written to the relay log by the IO thread */
+ulonglong relay_io_bytes = 0;
+
+/* Number of events executed from the relay log by the SQL thread */
+ulonglong relay_sql_bytes = 0;
+
+/* Time the SQL thread waits for events from the IO thread */
+ulonglong relay_sql_wait_time = 0;
+
 #if defined(ENABLED_DEBUG_SYNC)
 MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */
@@ -9539,6 +9554,16 @@ SHOW_VAR status_vars[] = {
     {"Queries", (char *)&show_queries, SHOW_FUNC, SHOW_SCOPE_ALL},
     {"Questions", (char *)offsetof(System_status_var, questions),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Relay_log_io_events", (char *)&relay_io_events, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Relay_log_io_bytes", (char *)&relay_io_bytes, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Relay_log_sql_events", (char *)&relay_sql_events, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Relay_log_sql_bytes", (char *)&relay_sql_bytes, SHOW_LONGLONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Relay_log_sql_wait_seconds", (char *)&relay_sql_wait_time, SHOW_TIMER,
+     SHOW_SCOPE_GLOBAL},
     {"Secondary_engine_execution_count",
      (char *)offsetof(System_status_var, secondary_engine_execution_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
