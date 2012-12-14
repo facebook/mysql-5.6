@@ -513,7 +513,8 @@ int Relay_log_info::init_relay_log_pos(const char* log,
       */
       if (!(ev= Log_event::read_log_event(cur_log, 0,
                                           rli_description_event,
-                                          opt_slave_sql_verify_checksum)))
+                                          opt_slave_sql_verify_checksum,
+                                          NULL)))
       {
         DBUG_PRINT("info",("could not read event, cur_log->error=%d",
                            cur_log->error));

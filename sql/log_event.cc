@@ -1324,7 +1324,8 @@ Log_event* Log_event::read_log_event(IO_CACHE* file,
                                      mysql_mutex_t* log_lock,
                                      const Format_description_log_event
                                      *description_event,
-                                     my_bool crc_check)
+                                     my_bool crc_check,
+                                     int *read_length)
 #else
 Log_event* Log_event::read_log_event(IO_CACHE* file,
                                      const Format_description_log_event
@@ -1367,6 +1368,11 @@ Log_event* Log_event::read_log_event(IO_CACHE* file,
 #ifndef max_allowed_packet
   THD *thd=current_thd;
   uint max_allowed_packet= thd ? slave_max_allowed_packet : ~0U;
+#endif
+
+#ifndef MYSQL_CLIENT
+  if (read_length)
+    *read_length = data_len;
 #endif
 
   ulong const max_size=
@@ -8880,7 +8886,8 @@ int Execute_load_log_event::do_apply_event(Relay_log_info const *rli)
         Log_event::read_log_event(&file,
                                   (mysql_mutex_t*) 0,
                                   rli->get_rli_description_event(),
-                                  opt_slave_sql_verify_checksum)) ||
+                                  opt_slave_sql_verify_checksum,
+                                  NULL)) ||
       lev->get_type_code() != NEW_LOAD_EVENT)
   {
     rli->report(ERROR_LEVEL, 0, "Error in Exec_load event: "
