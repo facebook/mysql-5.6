@@ -330,6 +330,8 @@ extern int32 thread_binlog_client;
 extern my_bool opt_log_slow_extra;
 extern ulonglong binlog_fsync_count;
 
+extern uint net_compression_level;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */
