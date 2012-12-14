@@ -494,6 +494,11 @@ The following options may be given as the first argument:
  --myisam-use-mmap   Use memory mapping for reading and writing MyISAM tables
  --net-buffer-length=# 
  Buffer length for TCP/IP and socket communication
+ --net-compression-level=# 
+ Compression level for compressed master/slave protocol
+ (when enabled) and client connections (when requested). 0
+ is no compression (for testing), 1 is fastest, 9 is
+ slowest, 6 is default.
  --net-read-timeout=# 
  Number of seconds to wait for more data from a connection
  before aborting the read
@@ -1195,6 +1200,7 @@ myisam-sort-buffer-size 8388608
 myisam-stats-method nulls_unequal
 myisam-use-mmap FALSE
 net-buffer-length 16384
+net-compression-level 6
 net-read-timeout 30
 net-retry-count 10
 net-write-timeout 60
