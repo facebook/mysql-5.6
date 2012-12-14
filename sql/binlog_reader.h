@@ -196,7 +196,8 @@ class Binlog_event_object_istream {
   */
   template <class ALLOCATOR>
   Log_event *read_event_object(const Format_description_event &fde,
-                               bool verify_checksum, ALLOCATOR *allocator) {
+                               bool verify_checksum, ALLOCATOR *allocator,
+                               unsigned int *read_length = nullptr) {
     DBUG_TRACE;
     unsigned char *data = nullptr;
     unsigned int length = 0;
@@ -214,6 +215,8 @@ class Binlog_event_object_istream {
 
     event->register_temp_buf(reinterpret_cast<char *>(data),
                              ALLOCATOR::DELEGATE_MEMORY_TO_EVENT_OBJECT);
+    if (read_length) *read_length = length;
+
     return event;
   }
 
@@ -315,10 +318,10 @@ class Basic_binlog_file_reader {
   /**
      wrapper of EVENT_OBJECT_ISTREAM::read_event_object.
   */
-  Log_event *read_event_object() {
+  Log_event *read_event_object(unsigned int *read_length = nullptr) {
     m_event_start_pos = position();
-    Log_event *ev = m_object_istream.read_event_object(m_fde, m_verify_checksum,
-                                                       &m_allocator);
+    Log_event *ev = m_object_istream.read_event_object(
+        m_fde, m_verify_checksum, &m_allocator, read_length);
     if (ev && ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT)
       m_fde = dynamic_cast<Format_description_event &>(*ev);
     return ev;

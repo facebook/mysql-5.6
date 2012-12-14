@@ -1,0 +1,40 @@
+--source include/master-slave.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+
+sync_slave_with_master;
+--let $io_events_start= query_get_value(SHOW STATUS LIKE 'Relay_log_io_events', Value, 1)
+--let $sql_events_start= query_get_value(SHOW STATUS LIKE 'Relay_log_sql_events', Value, 1)
+
+--let $io_bytes_start= query_get_value(SHOW STATUS LIKE 'Relay_log_io_bytes', Value, 1)
+--let $sql_bytes_start= query_get_value(SHOW STATUS LIKE 'Relay_log_io_bytes', Value, 1)
+
+--echo [on master]
+connection master;
+CREATE TABLE t1 (n INT);
+INSERT INTO t1 VALUES (1), (2);
+
+--echo [on slave]
+sync_slave_with_master;
+SELECT * FROM t1;
+--let $io_events_end= query_get_value(SHOW STATUS LIKE 'Relay_log_io_events', Value, 1)
+--let $sql_events_end= query_get_value(SHOW STATUS LIKE 'Relay_log_sql_events', Value, 1)
+
+--let $io_bytes_end= query_get_value(SHOW STATUS LIKE 'Relay_log_io_bytes', Value, 1)
+--let $sql_bytes_end= query_get_value(SHOW STATUS LIKE 'Relay_log_io_bytes', Value, 1)
+
+--replace_result $io_events_start IO_EVENTS_START $io_events_end IO_EVENTS_END
+eval SELECT $io_events_end - $io_events_start AS 'io_events';
+
+--replace_result $sql_events_start SQL_EVENTS_START $SQL_events_end SQL_EVENTS_END
+eval SELECT $sql_events_end - $sql_events_start AS 'sql_events';
+
+--replace_result $io_bytes_start IO_BYTES_START $io_bytes_end IO_BYTES_END
+eval SELECT $io_bytes_end - $io_bytes_start AS 'io_bytes';
+
+--replace_result $sql_bytes_start SQL_BYTES_START $SQL_bytes_end SQL_BYTES_END
+eval SELECT $sql_bytes_end - $sql_bytes_start AS 'sql_bytes';
+
+--echo [on master]
+connection master;
+DROP TABLE t1;
+--source include/rpl_end.inc
