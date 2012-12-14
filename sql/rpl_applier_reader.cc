@@ -152,6 +152,8 @@ Log_event *Rpl_applier_reader::read_next_event() {
   DBUG_TRACE;
   Log_event *ev = nullptr;
 
+  unsigned int read_length;
+
   /*
     data_lock is needed when accessing members of Relay_log_info, and this
     function temporarily releases it while waiting.
@@ -227,10 +229,12 @@ Log_event *Rpl_applier_reader::read_next_event() {
   }
 
   m_rli->set_event_start_pos(m_relaylog_file_reader.position());
-  ev = m_relaylog_file_reader.read_event_object();
+  ev = m_relaylog_file_reader.read_event_object(&read_length);
   if (ev != nullptr) {
     m_rli->set_future_event_relay_log_pos(m_relaylog_file_reader.position());
     ev->future_event_relay_log_pos = m_rli->get_future_event_relay_log_pos();
+    relay_sql_events++;
+    relay_sql_bytes += read_length;
     return ev;
   }
 
@@ -276,6 +280,8 @@ Rotate_log_event *Rpl_applier_reader::generate_rotate_event() {
 bool Rpl_applier_reader::wait_for_new_event() {
   mysql_mutex_assert_owner(m_rli->relay_log.get_binlog_end_pos_lock());
   mysql_mutex_assert_owner(&m_rli->data_lock);
+  ulonglong wait_timer = my_timer_now(); /* time wait for more data in binlog */
+
   /*
     We can, and should release data_lock while we are waiting for
     update. If we do not, show slave status will block
@@ -298,6 +304,7 @@ bool Rpl_applier_reader::wait_for_new_event() {
 
   // re-acquire data lock since we released it earlier
   mysql_mutex_lock(&m_rli->data_lock);
+  relay_sql_wait_time += my_timer_since_and_update(&wait_timer);
   DBUG_ASSERT(ret == 0 || is_timeout(ret));
   return ret != 0 && !is_timeout(ret);
 }
