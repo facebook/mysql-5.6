@@ -248,24 +248,28 @@ set global net_buffer_length=1024, net_write_timeout=200, net_read_timeout=300;
 show global variables like 'net_%';
 Variable_name	Value
 net_buffer_length	1024
+net_compression_level	6
 net_read_timeout	300
 net_retry_count	10
 net_write_timeout	200
 select * from information_schema.global_variables where variable_name like 'net_%' order by 1;
 VARIABLE_NAME	VARIABLE_VALUE
 NET_BUFFER_LENGTH	1024
+NET_COMPRESSION_LEVEL	6
 NET_READ_TIMEOUT	300
 NET_RETRY_COUNT	10
 NET_WRITE_TIMEOUT	200
 show session variables like 'net_%';
 Variable_name	Value
 net_buffer_length	16384
+net_compression_level	6
 net_read_timeout	30
 net_retry_count	10
 net_write_timeout	60
 select * from information_schema.session_variables where variable_name like 'net_%' order by 1;
 VARIABLE_NAME	VARIABLE_VALUE
 NET_BUFFER_LENGTH	16384
+NET_COMPRESSION_LEVEL	6
 NET_READ_TIMEOUT	30
 NET_RETRY_COUNT	10
 NET_WRITE_TIMEOUT	60
@@ -275,12 +279,14 @@ Warning	1292	Truncated incorrect net_buffer_length value: '8000'
 show global variables like 'net_%';
 Variable_name	Value
 net_buffer_length	7168
+net_compression_level	6
 net_read_timeout	900
 net_retry_count	10
 net_write_timeout	1000
 select * from information_schema.global_variables where variable_name like 'net_%' order by 1;
 VARIABLE_NAME	VARIABLE_VALUE
 NET_BUFFER_LENGTH	7168
+NET_COMPRESSION_LEVEL	6
 NET_READ_TIMEOUT	900
 NET_RETRY_COUNT	10
 NET_WRITE_TIMEOUT	1000
