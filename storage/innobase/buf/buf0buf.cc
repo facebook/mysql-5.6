@@ -635,7 +635,7 @@ buf_page_is_corrupted(
 			if (!fb_crc32_match(both_crcs, checksum_field2)
 			    && checksum_field2 != buf_calc_page_old_checksum(read_buf))
 				return TRUE;
-			return FALSE;
+			break;
 		}
 
 	case SRV_CHECKSUM_ALGORITHM_CRC32:
