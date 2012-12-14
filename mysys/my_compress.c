@@ -37,7 +37,7 @@
      0   ok.  In this case 'len' contains the size of the compressed packet
 */
 
-my_bool my_compress(uchar *packet, size_t *len, size_t *complen)
+my_bool my_compress(uchar *packet, size_t *len, size_t *complen, uint level)
 {
   DBUG_ENTER("my_compress");
   if (*len < MIN_COMPRESS_LENGTH)
@@ -47,7 +47,7 @@ my_bool my_compress(uchar *packet, size_t *len, size_t *complen)
   }
   else
   {
-    uchar *compbuf=my_compress_alloc(packet,len,complen);
+    uchar *compbuf=my_compress_alloc(packet,len,complen, level);
     if (!compbuf)
       DBUG_RETURN(*complen ? 0 : 1);
     memcpy(packet,compbuf,*len);
@@ -57,7 +57,8 @@ my_bool my_compress(uchar *packet, size_t *len, size_t *complen)
 }
 
 
-uchar *my_compress_alloc(const uchar *packet, size_t *len, size_t *complen)
+uchar *my_compress_alloc(const uchar *packet, size_t *len,
+                         size_t *complen, uint level)
 {
   uchar *compbuf;
   uLongf tmp_complen;
@@ -68,7 +69,8 @@ uchar *my_compress_alloc(const uchar *packet, size_t *len, size_t *complen)
     return 0;					/* Not enough memory */
 
   tmp_complen= (uint) *complen;
-  res= compress((Bytef*) compbuf, &tmp_complen, (Bytef*) packet, (uLong) *len);
+  res= compress2((Bytef*) compbuf, &tmp_complen, (Bytef*) packet, (uLong) *len,
+                 level);
   *complen=    tmp_complen;
 
   if (res != Z_OK)
@@ -178,7 +180,7 @@ int packfrm(uchar *data, size_t len,
 
   error= 1;
   org_len= len;
-  if (my_compress((uchar*)data, &org_len, &comp_len))
+  if (my_compress((uchar*)data, &org_len, &comp_len, Z_DEFAULT_COMPRESSION))
     goto err;
 
   DBUG_PRINT("info", ("org_len: %lu  comp_len: %lu", (ulong) org_len,
