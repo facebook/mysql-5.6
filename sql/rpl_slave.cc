@@ -4544,6 +4544,9 @@ Stopping slave I/O thread due to out-of-memory error from master");
         goto connected;
       } // if (event_len == packet_error)
 
+      relay_io_events++;
+      relay_io_bytes += event_len;
+
       retry_count=0;                    // ok event, reset retry counter
       THD_STAGE_INFO(thd, stage_queueing_master_event_to_the_relay_log);
       event_buf= (const char*)mysql->net.read_pos + 1;
@@ -5066,7 +5069,8 @@ int mts_recovery_groups(Relay_log_info *rli)
       {
         int i= 0;
         while (i < 4 && (ev= Log_event::read_log_event(&log,
-               (mysql_mutex_t*) 0, p_fdle, 0)))
+                                                       (mysql_mutex_t*) 0,
+                                                       p_fdle, 0, NULL)))
         {
           if (ev->get_type_code() == FORMAT_DESCRIPTION_EVENT)
           {
@@ -5089,7 +5093,8 @@ int mts_recovery_groups(Relay_log_info *rli)
 
       while (not_reached_commit &&
              (ev= Log_event::read_log_event(&log, 0, p_fdle,
-                                            opt_slave_sql_verify_checksum)))
+                                            opt_slave_sql_verify_checksum,
+                                            NULL)))
       {
         DBUG_ASSERT(ev->is_valid());
 
@@ -7173,6 +7178,8 @@ static Log_event* next_event(Relay_log_info* rli)
   mysql_mutex_t *log_lock = rli->relay_log.get_log_lock();
   const char* errmsg=0;
   THD* thd = rli->info_thd;
+  int read_length; /* length of event read from relay log */
+
   DBUG_ENTER("next_event");
 
   DBUG_ASSERT(thd != 0);
@@ -7270,7 +7277,8 @@ static Log_event* next_event(Relay_log_info* rli)
     */
     if ((ev= Log_event::read_log_event(cur_log, 0,
                                        rli->get_rli_description_event(),
-                                       opt_slave_sql_verify_checksum)))
+                                       opt_slave_sql_verify_checksum,
+                                       &read_length)))
     {
       DBUG_ASSERT(thd==rli->info_thd);
       /*
@@ -7282,7 +7290,8 @@ static Log_event* next_event(Relay_log_info* rli)
 
       if (hot_log)
         mysql_mutex_unlock(log_lock);
-
+      relay_sql_events++;
+      relay_sql_bytes += read_length;
       /* 
          MTS checkpoint in the successful read branch 
       */
@@ -7321,6 +7330,8 @@ static Log_event* next_event(Relay_log_info* rli)
     }
     if (!cur_log->error) /* EOF */
     {
+      ulonglong wait_timer;  /* time wait for more data in binlog */
+
       /*
         On a hot log, EOF means that there are no more updates to
         process and we must block until I/O thread adds some and
@@ -7387,7 +7398,7 @@ static Log_event* next_event(Relay_log_info* rli)
           ev->server_id= 0; // don't be ignored by slave SQL thread
           DBUG_RETURN(ev);
         }
-
+        wait_timer = my_timer_now();
         /*
           We can, and should release data_lock while we are waiting for
           update. If we do not, show slave status will block
@@ -7498,9 +7509,10 @@ static Log_event* next_event(Relay_log_info* rli)
         {
           rli->relay_log.wait_for_update_relay_log(thd, NULL);
         }
-        
+
         // re-acquire data lock since we released it earlier
         mysql_mutex_lock(&rli->data_lock);
+        relay_sql_wait_time += my_timer_since_and_update(&wait_timer);
         continue;
       }
       /*
