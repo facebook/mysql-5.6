@@ -2854,6 +2854,14 @@ static Sys_var_ulong Sys_slow_launch_time(
        GLOBAL_VAR(slow_launch_time), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(2), BLOCK_SIZE(1));
 
+static Sys_var_uint Sys_net_compression_level(
+       "net_compression_level",
+       "Compression level for compressed master/slave protocol (when enabled)"
+       " and client connections (when requested). 0 is no compression"
+       " (for testing), 1 is fastest, 9 is slowest, 6 is default.",
+       GLOBAL_VAR(net_compression_level), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, 9), DEFAULT(6), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_sort_buffer(
        "sort_buffer_size",
        "Each thread that needs to do a sort allocates a buffer of this size",
