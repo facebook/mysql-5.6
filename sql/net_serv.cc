@@ -73,6 +73,7 @@ using std::max;
   extern, but as it's hard to include sql_priv.h here, we have to
   live with this for a while.
 */
+extern uint net_compression_level;
 #ifdef HAVE_QUERY_CACHE
 #define USE_QUERY_CACHE
 extern void query_cache_insert(const char *packet, ulong length,
@@ -80,6 +81,7 @@ extern void query_cache_insert(const char *packet, ulong length,
 #endif /* HAVE_QUERY_CACHE */
 #define update_statistics(A) A
 #else /* MYSQL_SERVER */
+#define net_compression_level 6
 #define update_statistics(A)
 #define thd_increment_bytes_sent(N)
 #endif
@@ -828,7 +830,8 @@ compress_packet(NET *net, const uchar *packet, size_t *length)
   memcpy(compr_packet + header_length, packet, *length);
 
   /* Compress the encapsulated packet. */
-  if (my_compress(compr_packet + header_length, length, &compr_length))
+  if (my_compress(compr_packet + header_length, length, &compr_length,
+                  net_compression_level))
   {
     /*
       If the length of the compressed packet is larger than the
