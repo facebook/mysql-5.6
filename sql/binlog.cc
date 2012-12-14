@@ -2294,7 +2294,7 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log)
       Rotate then Format_desc).
     */
     ev= Log_event::read_log_event(&log, (mysql_mutex_t*)0, description_event,
-                                   opt_master_verify_checksum);
+                                  opt_master_verify_checksum, NULL);
     if (ev)
     {
       if (ev->get_type_code() == FORMAT_DESCRIPTION_EVENT)
@@ -2317,7 +2317,8 @@ bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log)
     for (event_count = 0;
          (ev = Log_event::read_log_event(&log, (mysql_mutex_t*) 0,
                                          description_event,
-                                         opt_master_verify_checksum)); )
+                                         opt_master_verify_checksum,
+                                         NULL)); )
     {
       if (ev->get_type_code() == FORMAT_DESCRIPTION_EVENT)
         description_event->checksum_alg= ev->checksum_alg;
@@ -2649,7 +2650,8 @@ read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
   bool done= false;
   bool seen_first_gtid= false;
   while (!done &&
-         (ev= Log_event::read_log_event(&log, 0, fd_ev_p, verify_checksum)) !=
+         (ev= Log_event::read_log_event(&log, 0, fd_ev_p,
+                                        verify_checksum, NULL)) !=
          NULL)
   {
     DBUG_PRINT("info", ("Read event of type %s", ev->get_type_str()));
@@ -6247,7 +6249,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
     binlog_size= s.st_size;
 
     if ((ev= Log_event::read_log_event(&log, 0, &fdle,
-                                       opt_master_verify_checksum)) &&
+                                       opt_master_verify_checksum, NULL)) &&
         ev->get_type_code() == FORMAT_DESCRIPTION_EVENT &&
         ev->flags & LOG_EVENT_BINLOG_IN_USE_F)
     {
@@ -7188,7 +7190,7 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
 
   init_alloc_root(&mem_root, TC_LOG_PAGE_SIZE, TC_LOG_PAGE_SIZE);
 
-  while ((ev= Log_event::read_log_event(log, 0, fdle, TRUE))
+  while ((ev= Log_event::read_log_event(log, 0, fdle, TRUE, NULL))
          && ev->is_valid())
   {
     if (ev->get_type_code() == QUERY_EVENT &&
