@@ -1,0 +1,10 @@
+SET @orig = @@global.net_compression_level;
+SELECT @orig;
+@orig
+6
+SET @@global.net_compression_level = 2;
+SET @new = @@global.net_compression_level;
+SELECT @new;
+@new
+2
+SET @@global.net_compression_level = @orig;
