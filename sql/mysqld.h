@@ -307,6 +307,10 @@ extern const char *binlog_error_action_list[];
 
 extern bool opt_log_slow_extra;
 
+extern ulong relay_io_events, relay_sql_events;
+extern ulonglong relay_io_bytes, relay_sql_bytes;
+extern ulonglong relay_sql_wait_time;
+
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;
 /* Current timer stats */
