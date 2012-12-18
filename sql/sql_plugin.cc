@@ -2122,6 +2122,7 @@ typedef DECLARE_MYSQL_SYSVAR_SIMPLE(sysvar_longlong_t, longlong);
 typedef DECLARE_MYSQL_SYSVAR_SIMPLE(sysvar_uint_t, uint);
 typedef DECLARE_MYSQL_SYSVAR_SIMPLE(sysvar_ulong_t, ulong);
 typedef DECLARE_MYSQL_SYSVAR_SIMPLE(sysvar_ulonglong_t, ulonglong);
+typedef DECLARE_MYSQL_SYSVAR_SIMPLE(sysvar_double_t, double);
 
 typedef DECLARE_MYSQL_THDVAR_SIMPLE(thdvar_int_t, int);
 typedef DECLARE_MYSQL_THDVAR_SIMPLE(thdvar_long_t, long);
@@ -2251,6 +2252,29 @@ static int check_func_longlong(THD *thd, struct st_mysql_sys_var *var,
                               value->is_unsigned(value), (longlong) orig);
 }
 
+static int check_func_double(THD *thd, struct st_mysql_sys_var *var,
+                             void *save, st_mysql_value *value) {
+	my_bool fixed;
+	double tmp;
+	sysvar_double_t* dvar = (sysvar_double_t*) var;
+	struct my_option options;
+
+  plugin_opt_set_limits(&options, var);
+	value->val_real(value, &tmp);
+	DBUG_ASSERT((dvar->flags &
+	            (PLUGIN_VAR_TYPEMASK |
+							 PLUGIN_VAR_UNSIGNED |
+							 PLUGIN_VAR_THDLOCAL)) == PLUGIN_VAR_DOUBLE);
+
+	options.def_value = dvar->def_val;
+	options.min_value = dvar->min_val;
+	options.max_value = dvar->max_val;
+
+	*(double *)save = getopt_double_limit_value(tmp, &options, &fixed);
+
+	return throw_bounds_warning(thd, var->name, fixed, tmp);
+}
+
 static int check_func_str(THD *thd, struct st_mysql_sys_var *var,
                           void *save, st_mysql_value *value)
 {
@@ -2372,6 +2396,11 @@ static void update_func_longlong(THD *thd, struct st_mysql_sys_var *var,
   *(longlong *)tgt= *(ulonglong *) save;
 }
 
+static void update_func_double(THD *thd, struct st_mysql_sys_var *var,
+                               void *tgt, const void *save)
+{
+	*(double *)tgt = *(double *) save;
+}
 
 static void update_func_str(THD *thd, struct st_mysql_sys_var *var,
                              void *tgt, const void *save)
@@ -2489,6 +2518,9 @@ static st_bookmark *register_var(const char *plugin, const char *name,
   case PLUGIN_VAR_LONGLONG:
   case PLUGIN_VAR_SET:
     size= sizeof(ulonglong);
+    break;
+  case PLUGIN_VAR_DOUBLE:
+    size= sizeof(double);
     break;
   case PLUGIN_VAR_STR:
     size= sizeof(char*);
@@ -2843,6 +2875,8 @@ static SHOW_TYPE pluginvar_show_type(st_mysql_sys_var *plugin_var)
     return SHOW_LONG;
   case PLUGIN_VAR_LONGLONG:
     return SHOW_LONGLONG;
+  case PLUGIN_VAR_DOUBLE:
+    return SHOW_DOUBLE;
   case PLUGIN_VAR_STR:
     return SHOW_CHAR_PTR;
   case PLUGIN_VAR_ENUM:
@@ -2992,6 +3026,8 @@ bool sys_var_pluginvar::check_update_type(Item_result type)
   case PLUGIN_VAR_LONG:
   case PLUGIN_VAR_LONGLONG:
     return type != INT_RESULT;
+  case PLUGIN_VAR_DOUBLE:
+    return type != REAL_RESULT && type != DECIMAL_RESULT && type != INT_RESULT;
   case PLUGIN_VAR_STR:
     return type != STRING_RESULT;
   case PLUGIN_VAR_ENUM:
@@ -3162,11 +3198,16 @@ bool sys_var_pluginvar::global_update(THD *thd, set_var *var)
 
 #define OPTION_SET_LIMITS(type, options, opt) \
   options->var_type= type; \
-  options->def_value= (opt)->def_val; \
-  options->min_value= (opt)->min_val; \
-  options->max_value= (opt)->max_val; \
-  options->block_size= (long) (opt)->blk_sz
-
+  if (type == GET_DOUBLE) { \
+    options->def_value = multiplication_factor * (opt)->def_val; \
+    options->min_value = multiplication_factor * (opt)->min_val; \
+    options->max_value = multiplication_factor * (opt)->max_val; \
+  } else { \
+    options->def_value = (opt)->def_val; \
+    options->min_value = (opt)->min_val; \
+    options->max_value = (opt)->max_val; \
+  } \
+  options->block_size = (long) (opt)->blk_sz
 
 static void plugin_opt_set_limits(struct my_option *options,
                                   const struct st_mysql_sys_var *opt)
@@ -3235,6 +3276,9 @@ static void plugin_opt_set_limits(struct my_option *options,
     break;
   case PLUGIN_VAR_LONGLONG | PLUGIN_VAR_UNSIGNED | PLUGIN_VAR_THDLOCAL:
     OPTION_SET_LIMITS(GET_ULL, options, (thdvar_ulonglong_t*) opt);
+    break;
+  case PLUGIN_VAR_DOUBLE:
+    OPTION_SET_LIMITS(GET_DOUBLE, options, (sysvar_double_t*) opt);
     break;
   case PLUGIN_VAR_ENUM | PLUGIN_VAR_THDLOCAL:
     options->var_type= GET_ENUM;
@@ -3433,6 +3477,12 @@ static int construct_options(MEM_ROOT *mem_root, struct st_plugin_int *tmp,
         opt->check= check_func_longlong;
       if (!opt->update)
         opt->update= update_func_longlong;
+      break;
+    case PLUGIN_VAR_DOUBLE:
+      if (!opt->check)
+        opt->check = check_func_double;
+      if (!opt->update)
+        opt->update = update_func_double;
       break;
     case PLUGIN_VAR_STR:
       if (!opt->check)
@@ -3668,7 +3718,8 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
         tmp->load_option != PLUGIN_FORCE_PLUS_PERMANENT)
       opts[0].def_value= opts[1].def_value= plugin_load_option;
 
-    error= handle_options(argc, &argv, opts, check_if_option_is_deprecated);
+    error= my_handle_options_low(argc, &argv, opts,
+             check_if_option_is_deprecated, NULL, false);
     (*argc)++; /* add back one for the program name */
 
     if (error)

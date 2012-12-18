@@ -1,0 +1,4 @@
+SET @start_value = @@innodb_test_bug64666;
+SELECT @start_value;
+@start_value
+2.123

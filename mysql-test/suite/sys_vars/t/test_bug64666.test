@@ -1,0 +1,15 @@
+--source include/load_sysvars.inc
+--source include/have_debug.inc
+
+SET @start_value = @@innodb_test_bug64666;
+SELECT @start_value;
+
+SET GLOBAL innodb_test_bug64666 = 0.0;
+SELECT @@innodb_test_bug64666;
+SET GLOBAL innodb_test_bug64666 = 1.0;
+SELECT @@innodb_test_bug64666;
+SET GLOBAL innodb_test_bug64666 = 2.0;
+SELECT @@innodb_test_bug64666;
+
+SET GLOBAL innodb_test_bug64666 = @start_value;
+SELECT @@innodb_test_bug64666;

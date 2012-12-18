@@ -50,6 +50,9 @@ C_MODE_START
 */
 enum get_opt_arg_type { NO_ARG, OPT_ARG, REQUIRED_ARG };
 
+/* Multiplication factor to support MYSQL_SYSVAR_DOUBLE */
+extern const double multiplication_factor;
+
 struct st_typelib;
 
 struct my_option
@@ -107,12 +110,17 @@ extern my_bool my_getopt_print_errors;
 extern my_bool my_getopt_skip_unknown;
 extern my_error_reporter my_getopt_error_reporter;
 
-extern int handle_options (int *argc, char ***argv, 
+extern int handle_options(int *argc, char ***argv, 
 			   const struct my_option *longopts, my_get_one_option);
-extern int my_handle_options (int *argc, char ***argv,
+extern int my_handle_options(int *argc, char ***argv,
                               const struct my_option *longopts,
                               my_get_one_option,
                               const char **command_list);
+extern int my_handle_options_low(int *argc, char ***argv,
+                              const struct my_option *longopts,
+                              my_get_one_option,
+                              const char **command_list,
+                              my_bool fix_doubles);
 extern void my_cleanup_options(const struct my_option *options);
 extern void my_cleanup_options(const struct my_option *options);
 extern void my_print_help(const struct my_option *options);
