@@ -1,0 +1,6 @@
+--source include/load_sysvars.inc
+--source include/have_debug.inc
+
+SET @start_value = @@innodb_test_bug64666;
+SELECT @start_value;
+

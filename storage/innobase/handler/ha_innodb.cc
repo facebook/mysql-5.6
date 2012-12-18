@@ -16142,6 +16142,13 @@ static MYSQL_SYSVAR_STR(data_home_dir, innobase_data_home_dir,
   "The common part for InnoDB table spaces.",
   NULL, NULL, NULL);
 
+#ifdef UNIV_DEBUG
+double test_bug64666 = 2.123;
+
+static MYSQL_SYSVAR_DOUBLE(test_bug64666, test_bug64666, PLUGIN_VAR_OPCMDARG,
+  "Test purpose", NULL, NULL, 2.123, 0.0, 100.0, 0);
+#endif // UNIV_DEBUG
+
 static MYSQL_SYSVAR_BOOL(doublewrite, innobase_use_doublewrite,
   PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
   "Enable InnoDB doublewrite buffer (enabled by default). "
@@ -17080,6 +17087,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(compression_failure_threshold_pct),
   MYSQL_SYSVAR(compression_pad_pct_max),
 #ifdef UNIV_DEBUG
+  MYSQL_SYSVAR(test_bug64666),
   MYSQL_SYSVAR(trx_rseg_n_slots_debug),
   MYSQL_SYSVAR(limit_optimistic_insert_debug),
   MYSQL_SYSVAR(trx_purge_view_update_only_debug),
