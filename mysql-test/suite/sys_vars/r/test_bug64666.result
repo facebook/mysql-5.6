@@ -1,0 +1,20 @@
+SET @start_value = @@innodb_test_bug64666;
+SELECT @start_value;
+@start_value
+2.123
+SET GLOBAL innodb_test_bug64666 = 0.0;
+SELECT @@innodb_test_bug64666;
+@@innodb_test_bug64666
+0.000000
+SET GLOBAL innodb_test_bug64666 = 1.0;
+SELECT @@innodb_test_bug64666;
+@@innodb_test_bug64666
+1.000000
+SET GLOBAL innodb_test_bug64666 = 2.0;
+SELECT @@innodb_test_bug64666;
+@@innodb_test_bug64666
+2.000000
+SET GLOBAL innodb_test_bug64666 = @start_value;
+SELECT @@innodb_test_bug64666;
+@@innodb_test_bug64666
+2.123000
