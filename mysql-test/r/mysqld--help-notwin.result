@@ -1131,6 +1131,13 @@ The following options may be given as the first argument:
  When this option is enabled, connections attempted using
  insecure transport will be rejected.  Secure transports
  are SSL/TLS, Unix socket or Shared Memory (on Windows).
+ --reset-seconds-behind-master 
+ When TRUE reset Seconds_Behind_Master to 0 when SQL
+ thread catches up to the IO thread. This is the original
+ behavior but also causes reported lag to flip-flop
+ between 0 and the real lag when the IO thread is the
+ bottleneck.
+ (Defaults to on; use --skip-reset-seconds-behind-master to disable.)
  --rpl-read-size=#   The size for reads done from the binlog and relay log. It
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
@@ -1710,6 +1717,7 @@ report-password (No default value)
 report-port 0
 report-user (No default value)
 require-secure-transport FALSE
+reset-seconds-behind-master TRUE
 rpl-read-size 8192
 rpl-send-buffer-size 2097152
 rpl-stop-slave-timeout 31536000
