@@ -947,6 +947,17 @@ static Sys_var_mybool Sys_binlog_order_commits(
        GLOBAL_VAR(opt_binlog_order_commits),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+#ifdef HAVE_REPLICATION
+static Sys_var_mybool Sys_reset_seconds_behind_master(
+       "reset_seconds_behind_master",
+       "When TRUE reset Seconds_Behind_Master to 0 when SQL thread catches up "
+       "to the IO thread. This is the original behavior but also causes "
+       "reported lag to flip-flop between 0 and the real lag when the IO "
+       "thread is the bottleneck.",
+       GLOBAL_VAR(reset_seconds_behind_master),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+#endif
+
 static Sys_var_ulong Sys_bulk_insert_buff_size(
        "bulk_insert_buffer_size", "Size of tree cache used in bulk "
        "insert optimisation. Note that this is a limit per thread!",
