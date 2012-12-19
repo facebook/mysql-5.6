@@ -1,0 +1,155 @@
+############### mysql-test\t\reset_seconds_behind_master_basic.test ###########
+#                                                                              #
+# Variable Name: reset_seconds_behind_master                                   #
+# Scope: GLOBAL                                                                #
+# Access Type: Dynamic                                                         #
+# Data Type: BOOLEAN                                                           #
+# Default Value: FALSE                                                         #
+# Valid Values: TRUE, FALSE                                                    #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2012-05-10                                                    #
+# Author:  Nuno Carvalho                                                       #
+#                                                                              #
+# Description: Test Cases of Dynamic System Variable                           #
+#              "reset_seconds_behind_master" that checks behavior of this      #
+#              variable in the following ways                                  #
+#              * Default Value                                                 #
+#              * Valid & Invalid values                                        #
+#              * Scope & Access method                                         #
+#              * Data Integrity                                                #
+#                                                                              #
+# Reference: http://dev.mysql.com/doc/refman/5.1/en/                           #
+#              server-options.html#option_mysqld_event-scheduler               #
+#                                                                              #
+################################################################################
+
+--source include/have_innodb.inc
+--source include/load_sysvars.inc
+
+##################################################################
+#           START OF reset_seconds_behind_master TESTS           #
+##################################################################
+
+################################################################################
+# Saving initial value of reset_seconds_behind_master in a temporary variable  #
+################################################################################
+
+SET @start_value = @@global.reset_seconds_behind_master;
+SELECT @start_value;
+
+###############################################
+#     Verify default value of variable        #
+###############################################
+
+SET @@global.reset_seconds_behind_master = DEFAULT;
+SELECT @@global.reset_seconds_behind_master = FALSE;
+
+##########################################################################
+#     Change the value of reset_seconds_behind_master to a valid value   #
+##########################################################################
+
+SET @@global.reset_seconds_behind_master = ON;
+SELECT @@global.reset_seconds_behind_master;
+SET @@global.reset_seconds_behind_master = OFF;
+SELECT @@global.reset_seconds_behind_master;
+
+#########################################################################
+#    Change the value of reset_seconds_behind_master to invalid value   #
+#########################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.reset_seconds_behind_master = '';
+
+#########################################################################
+#   Test if accessing session reset_seconds_behind_master gives error   #
+#########################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.reset_seconds_behind_master = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.reset_seconds_behind_master;
+
+##############################################################################
+# Check if the value in GLOBAL Tables matches values in variable             #
+##############################################################################
+
+SELECT IF(@@global.reset_seconds_behind_master, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='reset_seconds_behind_master';
+
+################################################################
+#        Check if 0 and 1 values can be used on variable       #
+################################################################
+
+SET @@global.reset_seconds_behind_master = 0;
+SELECT @@global.reset_seconds_behind_master;
+SET @@global.reset_seconds_behind_master = 1;
+SELECT @@global.reset_seconds_behind_master;
+
+###################################################################
+#      Check if TRUE and FALSE values can be used on variable     #
+###################################################################
+
+SET @@global.reset_seconds_behind_master = TRUE;
+SELECT @@global.reset_seconds_behind_master;
+SET @@global.reset_seconds_behind_master = FALSE;
+SELECT @@global.reset_seconds_behind_master;
+
+##############################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points #
+#    to same session variable                                                #
+##############################################################################
+
+SET @@global.reset_seconds_behind_master = ON;
+SELECT @@reset_seconds_behind_master = @@global.reset_seconds_behind_master;
+
+###############################################################################
+#   Check if reset_seconds_behind_master can be accessed with and without     #
+#   @@ sign                                                                   #
+###############################################################################
+--Error ER_GLOBAL_VARIABLE
+SET reset_seconds_behind_master = ON;
+--Error ER_PARSE_ERROR
+SET local.reset_seconds_behind_master = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.reset_seconds_behind_master;
+--Error ER_PARSE_ERROR
+SET global.reset_seconds_behind_master = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.reset_seconds_behind_master;
+--Error ER_BAD_FIELD_ERROR
+SELECT reset_seconds_behind_master = @@session.reset_seconds_behind_master;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.reset_seconds_behind_master = @start_value;
+SELECT @@global.reset_seconds_behind_master;
+
+#########################################################
+#     END OF reset_seconds_behind_master TESTS          #
+#########################################################

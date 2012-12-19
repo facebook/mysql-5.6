@@ -1,0 +1,83 @@
+--echo #
+--echo # Check reset_seconds_behind_master, Relay_log_io_connected
+--echo #
+
+--source include/master-slave.inc
+--source include/not_embedded.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connection slave;
+--echo Should be ON
+show global variables like "reset_seconds_behind_master";
+
+set global reset_seconds_behind_master=0;
+--echo Should be OFF
+show global variables like "reset_seconds_behind_master";
+
+set global reset_seconds_behind_master=1;
+--echo Should be ON
+show global variables like "reset_seconds_behind_master";
+
+connection master;
+CREATE TABLE t1 (id INT, v int);
+sync_slave_with_master;
+
+--disable_result_log
+--let $rlic_old = `show global status like 'Relay_log_io_connected';`
+--enable_result_log
+
+let $sbm = query_get_value(SHOW SLAVE STATUS, Seconds_Behind_Master, 1);
+--echo seconds_behind_master with reset should be 0 and is $sbm
+
+set global reset_seconds_behind_master=0;
+--echo Should be OFF
+show global variables like "reset_seconds_behind_master";
+
+connection master;
+insert into t1 values (1,0), (2,0);
+--sleep 2
+sync_slave_with_master;
+
+let $sbm = query_get_value(SHOW SLAVE STATUS, Seconds_Behind_Master, 1);
+--echo seconds_behind_master without reset should be >0
+--disable_query_log
+--eval select $sbm > 0 as result
+--enable_query_log
+
+set global reset_seconds_behind_master=1;
+--echo Should be ON
+show global variables like "reset_seconds_behind_master";
+
+connection master;
+insert into t1 values (3,0);
+--sleep 1
+sync_slave_with_master;
+
+let $sbm = query_get_value(SHOW SLAVE STATUS, Seconds_Behind_Master, 1);
+--echo seconds_behind_master with reset should be 0 and is $sbm
+
+stop slave;
+start slave;
+--source include/wait_for_slave_io_to_start.inc
+
+--disable_result_log
+--let $rlic_new = `show global status like 'Relay_log_io_connected';`
+--enable_result_log
+--let diff = `SELECT ((substring('$rlic_new', 23)+0) - (substring('$rlic_old', 23)+0));`
+--echo Should be 1
+--echo $diff
+
+connection master;
+
+--echo #
+--echo # Cleanup
+--echo #
+
+connection master;
+DROP TABLE t1;
+sync_slave_with_master;
+stop slave;
+set global reset_seconds_behind_master=1;

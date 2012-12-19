@@ -79,6 +79,7 @@ char* slave_load_tmpdir = 0;
 Master_info *active_mi= 0;
 my_bool replicate_same_server_id;
 ulonglong relay_log_space_limit = 0;
+my_bool reset_seconds_behind_master = TRUE;
 
 const char *relay_log_index= 0;
 const char *relay_log_basename= 0;
@@ -3062,7 +3063,8 @@ bool show_slave_status(THD* thd, Master_info* mi)
            condition1: compare the log positions and
            condition2: compare the file names (to handle rotation case)
       */
-      if ((mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
+      if (reset_seconds_behind_master &&
+          (mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
            (!strcmp(mi->get_master_log_name(), mi->rli->get_group_master_log_name())))
       {
         if (mi->slave_running == MYSQL_SLAVE_RUN_CONNECT)
@@ -4667,6 +4669,7 @@ pthread_handler_t handle_slave_io(void *arg)
 
 connected:
 
+  ++relay_io_connected;
     DBUG_EXECUTE_IF("dbug.before_get_running_status_yes",
                     {
                       const char act[]=
@@ -7699,7 +7702,7 @@ static Log_event* next_event(Relay_log_info* rli)
            SBM when notices no more groups left neither to read from
            Relay-log nor to process by Workers.
         */
-        if (!rli->is_parallel_exec())
+        if (!rli->is_parallel_exec() && reset_seconds_behind_master)
           rli->last_master_timestamp= 0;
 
         DBUG_ASSERT(rli->relay_log.get_open_count() ==
@@ -7819,7 +7822,7 @@ static Log_event* next_event(Relay_log_info* rli)
             (void) mts_checkpoint_routine(rli, period, false, true/*need_data_lock=true*/); // TODO: ALFRANIO ERROR
             mysql_mutex_lock(log_lock);
             // More to the empty relay-log all assigned events done so reset it.
-            if (rli->gaq->empty())
+            if (rli->gaq->empty() && reset_seconds_behind_master)
               rli->last_master_timestamp= 0;
 
             if (DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0))
