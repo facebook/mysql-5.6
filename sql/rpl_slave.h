@@ -244,6 +244,7 @@ extern my_bool opt_skip_slave_start, opt_reckless_slave;
 extern my_bool opt_log_slave_updates;
 extern char *opt_slave_skip_errors;
 extern ulonglong relay_log_space_limit;
+extern my_bool reset_seconds_behind_master;
 
 extern const char *relay_log_index;
 extern const char *relay_log_basename;

@@ -1,0 +1,52 @@
+#
+# Check reset_seconds_behind_master, Relay_log_io_connected
+#
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop table if exists t1;
+Should be ON
+show global variables like "reset_seconds_behind_master";
+Variable_name	Value
+reset_seconds_behind_master	ON
+set global reset_seconds_behind_master=0;
+Should be OFF
+show global variables like "reset_seconds_behind_master";
+Variable_name	Value
+reset_seconds_behind_master	OFF
+set global reset_seconds_behind_master=1;
+Should be ON
+show global variables like "reset_seconds_behind_master";
+Variable_name	Value
+reset_seconds_behind_master	ON
+CREATE TABLE t1 (id INT, v int);
+seconds_behind_master with reset should be 0 and is 0
+set global reset_seconds_behind_master=0;
+Should be OFF
+show global variables like "reset_seconds_behind_master";
+Variable_name	Value
+reset_seconds_behind_master	OFF
+insert into t1 values (1,0), (2,0);
+seconds_behind_master without reset should be >0
+result
+1
+set global reset_seconds_behind_master=1;
+Should be ON
+show global variables like "reset_seconds_behind_master";
+Variable_name	Value
+reset_seconds_behind_master	ON
+insert into t1 values (3,0);
+seconds_behind_master with reset should be 0 and is 0
+stop slave;
+start slave;
+include/wait_for_slave_io_to_start.inc
+Should be 1
+1
+#
+# Cleanup
+#
+DROP TABLE t1;
+stop slave;
+set global reset_seconds_behind_master=1;
