@@ -572,6 +572,7 @@ void Rpl_applier_reader::reset_seconds_behind_master() {
     of a group.  Coordinator resets SBM when notices no more groups left neither
     to read from Relay-log nor to process by Workers.
   */
-  if (!m_rli->is_parallel_exec() || m_rli->gaq->empty())
+  if ((!m_rli->is_parallel_exec() || m_rli->gaq->empty()) &&
+      ::reset_seconds_behind_master)
     m_rli->last_master_timestamp = 0;
 }
