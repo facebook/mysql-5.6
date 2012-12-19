@@ -483,6 +483,9 @@ my_bool opt_super_large_pages= 0;
 my_bool opt_myisam_use_mmap= 0;
 uint   opt_large_page_size= 0;
 
+/* Number of times the IO thread connected to the master */
+ulong relay_io_connected= 0;
+
 /* Number of events written to the relay log by the IO thread */
 ulong relay_io_events= 0;
 
@@ -8317,6 +8320,7 @@ SHOW_VAR status_vars[]= {
   {"Questions",                (char*) offsetof(STATUS_VAR, questions), SHOW_LONGLONG_STATUS},
   {"Read_requests",            (char*) offsetof(STATUS_VAR, read_requests), SHOW_LONG_STATUS},
   {"Read_seconds",             (char*) offsetof(STATUS_VAR, read_time), SHOW_TIMER_STATUS},
+  {"Relay_log_io_connected",   (char*) &relay_io_connected, SHOW_LONG},
   {"Relay_log_io_events",      (char*) &relay_io_events, SHOW_LONG},
   {"Relay_log_io_bytes",       (char*) &relay_io_bytes, SHOW_LONGLONG},
   {"Relay_log_sql_events",     (char*) &relay_sql_events, SHOW_LONG},
