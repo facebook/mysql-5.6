@@ -184,6 +184,7 @@ char slave_skip_error_names[SHOW_VAR_FUNC_BUFF_SIZE];
 char *replica_load_tmpdir = nullptr;
 bool replicate_same_server_id;
 ulonglong relay_log_space_limit = 0;
+bool reset_seconds_behind_master = true;
 
 const char *relay_log_index = nullptr;
 const char *relay_log_basename = nullptr;
@@ -3421,7 +3422,8 @@ static bool show_slave_status_send_data(THD *thd, Master_info *mi,
        condition1: compare the log positions and
        condition2: compare the file names (to handle rotation case)
     */
-    if ((mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
+    if (reset_seconds_behind_master &&
+        (mi->get_master_log_pos() == mi->rli->get_group_master_log_pos()) &&
         (!strcmp(mi->get_master_log_name(),
                  mi->rli->get_group_master_log_name()))) {
       if (mi->slave_running == MYSQL_SLAVE_RUN_CONNECT)
@@ -5272,6 +5274,7 @@ extern "C" void *handle_slave_io(void *arg) {
 
     mi->reset_network_error();
 
+    ++relay_io_connected;
     DBUG_EXECUTE_IF("dbug.before_get_running_status_yes", {
       rpl_replica_debug_point(DBUG_RPL_S_BEFORE_RUNNING_STATUS, thd);
     };);

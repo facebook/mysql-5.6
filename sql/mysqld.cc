@@ -1258,6 +1258,9 @@ mysql_mutex_t LOCK_tls_ctx_options;
 mysql_mutex_t LOCK_admin_tls_ctx_options;
 mysql_mutex_t LOCK_partial_revokes;
 
+/* Number of times the IO thread connected to the master */
+ulong relay_io_connected = 0;
+
 /* Number of events written to the relay log by the IO thread */
 ulong relay_io_events = 0;
 
@@ -9554,6 +9557,8 @@ SHOW_VAR status_vars[] = {
     {"Queries", (char *)&show_queries, SHOW_FUNC, SHOW_SCOPE_ALL},
     {"Questions", (char *)offsetof(System_status_var, questions),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+    {"Relay_log_io_connected", (char *)&relay_io_connected, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
     {"Relay_log_io_events", (char *)&relay_io_events, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {"Relay_log_io_bytes", (char *)&relay_io_bytes, SHOW_LONGLONG,
