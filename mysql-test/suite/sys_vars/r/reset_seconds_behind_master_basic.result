@@ -1,0 +1,85 @@
+SET @start_value = @@global.reset_seconds_behind_master;
+SELECT @start_value;
+@start_value
+1
+SET @@global.reset_seconds_behind_master = DEFAULT;
+SELECT @@global.reset_seconds_behind_master = FALSE;
+@@global.reset_seconds_behind_master = FALSE
+0
+SET @@global.reset_seconds_behind_master = ON;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+1
+SET @@global.reset_seconds_behind_master = OFF;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+0
+SET @@global.reset_seconds_behind_master = 2;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of '2'
+SET @@global.reset_seconds_behind_master = -1;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of '-1'
+SET @@global.reset_seconds_behind_master = TRUEF;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of 'TRUEF'
+SET @@global.reset_seconds_behind_master = TRUE_F;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of 'TRUE_F'
+SET @@global.reset_seconds_behind_master = FALSE0;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of 'FALSE0'
+SET @@global.reset_seconds_behind_master = OON;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of 'OON'
+SET @@global.reset_seconds_behind_master = ONN;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of 'ONN'
+SET @@global.reset_seconds_behind_master = OOFF;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of 'OOFF'
+SET @@global.reset_seconds_behind_master = 0FF;
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of '0FF'
+SET @@global.reset_seconds_behind_master = ' ';
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of ' '
+SET @@global.reset_seconds_behind_master = " ";
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of ' '
+SET @@global.reset_seconds_behind_master = '';
+ERROR 42000: Variable 'reset_seconds_behind_master' can't be set to the value of ''
+SET @@session.reset_seconds_behind_master = OFF;
+ERROR HY000: Variable 'reset_seconds_behind_master' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.reset_seconds_behind_master;
+ERROR HY000: Variable 'reset_seconds_behind_master' is a GLOBAL variable
+SELECT IF(@@global.reset_seconds_behind_master, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='reset_seconds_behind_master';
+IF(@@global.reset_seconds_behind_master, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.reset_seconds_behind_master = 0;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+0
+SET @@global.reset_seconds_behind_master = 1;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+1
+SET @@global.reset_seconds_behind_master = TRUE;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+1
+SET @@global.reset_seconds_behind_master = FALSE;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+0
+SET @@global.reset_seconds_behind_master = ON;
+SELECT @@reset_seconds_behind_master = @@global.reset_seconds_behind_master;
+@@reset_seconds_behind_master = @@global.reset_seconds_behind_master
+1
+SET reset_seconds_behind_master = ON;
+ERROR HY000: Variable 'reset_seconds_behind_master' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.reset_seconds_behind_master = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'reset_seconds_behind_master = OFF' at line 1
+SELECT local.reset_seconds_behind_master;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.reset_seconds_behind_master = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'reset_seconds_behind_master = ON' at line 1
+SELECT global.reset_seconds_behind_master;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT reset_seconds_behind_master = @@session.reset_seconds_behind_master;
+ERROR 42S22: Unknown column 'reset_seconds_behind_master' in 'field list'
+SET @@global.reset_seconds_behind_master = @start_value;
+SELECT @@global.reset_seconds_behind_master;
+@@global.reset_seconds_behind_master
+1
