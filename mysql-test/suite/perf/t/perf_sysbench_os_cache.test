@@ -1,0 +1,18 @@
+--source include/not_valgrind.inc
+--source include/have_innodb.inc
+--source include/big_test.inc
+--exec source suite/perf/include/prepare_testdir.inc sysbench os-cache-read-only
+
+--disable_warnings
+ DROP TABLE IF EXISTS sbtest1;
+--enable_warnings
+
+call mtr.add_suppression('InnoDB: Resizing redo log');
+call mtr.add_suppression('InnoDB: Starting to delete and rewrite log files');
+call mtr.add_suppression('InnoDB: New log files created');
+
+--source include/restart_mysqld.inc
+--echo With 8 thread, read-only, most data not in innodb buffer cache
+--exec cd $MYSQL_BINDIR/../tools/sysbench; ./sysbench --max-requests=0 --max-time=600 --init-rng=on --test=oltp.lua --oltp-table-size=2000000 --db-driver=mysql --mysql-db=test --mysql-socket=$MYSQL_TMP_DIR/mysqld.1.sock --mysql-user=root --mysql-table-engine=innodb --mysql-engine-trx=yes prepare
+--exec cd $MYSQL_BINDIR/../tools/sysbench; ./sysbench --num-threads=8 --max-requests=0 --max-time=600 --init-rng=on --test=oltp.lua --oltp-table-size=2000000 --oltp-read-only=on --db-driver=mysql --mysql-db=test --mysql-socket=$MYSQL_TMP_DIR/mysqld.1.sock --mysql-user=root --mysql-table-engine=innodb --mysql-engine-trx=yes run >/tmp/dbeng/sysbench/os-cache-read-only
+drop table sbtest1;
