@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS sbtest1;
+call mtr.add_suppression('InnoDB: Resizing redo log');
+call mtr.add_suppression('InnoDB: Starting to delete and rewrite log files');
+call mtr.add_suppression('InnoDB: New log files created');
+With 8 thread, read-write, all data in innodb buffer cache
+sysbench 0.5:  multi-threaded system evaluation benchmark
+
+Creating table 'sbtest1'...
+Inserting 100000 records into 'sbtest1'
+drop table sbtest1;

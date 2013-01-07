@@ -1,0 +1,14 @@
+--log-bin=/binlogs/mysql-bin
+--innodb_log_group_home_dir=/txlogs
+--innodb_doublewrite=1
+--innodb_thread_concurrency=0
+--innodb_max_dirty_pages_pct=80
+--innodb_file_format=barracuda
+--innodb_file_per_table=1
+--max_connections=2000
+--table_open_cache=2000
+--key_buffer_size=200M
+--innodb_io_capacity=1000
+--innodb_log_file_size=100M
+--innodb_buffer_pool_size=1G
+--slow-query-log=1 --long-query-time=1
