@@ -175,17 +175,19 @@ inline enum_return_check do_check_repository_file(const char *fname)
 enum_return_check Rpl_info_file::do_check_info(uint instance)
 {
   uint i;
-  enum_return_check last_check= REPOSITORY_EXISTS;
+  enum_return_check last_check= REPOSITORY_DOES_NOT_EXIST;
   char fname_local[FN_REFLEN];
   char *pos= NULL;
 
-  for (i= 1; i <= instance && last_check == REPOSITORY_EXISTS; i++)
+  for (i= 1; i <= instance; i++)
   {
     pos= strmov(fname_local, pattern_fname);
     if (name_indexed)
       sprintf(pos, "%u", i);
     fn_format(fname_local, fname_local, mysql_data_home, "", 4 + 32);
     last_check= do_check_repository_file(fname_local);
+    if (last_check != REPOSITORY_EXISTS)
+      break;
   }
   return last_check;
 }
