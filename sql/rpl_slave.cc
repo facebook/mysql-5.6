@@ -1990,6 +1990,7 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   int version_number=0;
   version_number= atoi(mysql->server_version);
 
+  mi->ignore_checksum_alg = false;
   MYSQL_RES *master_res= 0;
   MYSQL_ROW master_row;
   DBUG_ENTER("get_master_version_and_clock");
@@ -2441,6 +2442,7 @@ when it try to get the value of TIME_ZONE global variable from master.";
       if (mysql_errno(mysql) == ER_UNKNOWN_SYSTEM_VARIABLE)
       {
         // this is tolerable as OM -> NS is supported
+        mi->ignore_checksum_alg = true;
         mi->report(WARNING_LEVEL, mysql_errno(mysql),
                    "Notifying master by %s failed with "
                    "error: %s", query, mysql_error(mysql));
@@ -6761,6 +6763,8 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
 
   char *save_buf= NULL; // needed for checksumming the fake Rotate event
   char rot_buf[LOG_EVENT_HEADER_LEN + ROTATE_HEADER_LEN + FN_REFLEN];
+  char fde_buf[LOG_EVENT_MINIMAL_HEADER_LEN + FORMAT_DESCRIPTION_HEADER_LEN +
+               BINLOG_CHECKSUM_ALG_DESC_LEN + BINLOG_CHECKSUM_LEN];
   Gtid gtid= { 0, 0 };
   Log_event_type event_type= (Log_event_type)buf[EVENT_TYPE_OFFSET];
 
@@ -6807,8 +6811,10 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       DBUG_SET("");
     }
   );
-                                              
-  if (event_checksum_test((uchar *) buf, event_len, checksum_alg))
+
+  if (!(mi->ignore_checksum_alg && (event_type == FORMAT_DESCRIPTION_EVENT ||
+      event_type == ROTATE_EVENT)) &&
+      event_checksum_test((uchar *) buf, event_len, checksum_alg))
   {
     error= ER_NETWORK_READ_EVENT_CHECKSUM_FAILURE;
     unlock_data_lock= FALSE;
@@ -6924,6 +6930,21 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     const char* errmsg;
     // mark it as undefined that is irrelevant anymore
     mi->checksum_alg_before_fd= BINLOG_CHECKSUM_ALG_UNDEF;
+    /*
+      Turn off checksum in FDE here, since the event was modified by 5.1 master
+      before sending to the slave. Otherwise, event_checksum_test fails causing
+      slave I/O and SQL threads to stop.
+    */
+    if (mi->ignore_checksum_alg && checksum_alg != BINLOG_CHECKSUM_ALG_OFF &&
+        checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF)
+    {
+      DBUG_ASSERT(event_len == sizeof(fde_buf));
+      memcpy(fde_buf, buf, event_len);
+      fde_buf[event_len - BINLOG_CHECKSUM_LEN - BINLOG_CHECKSUM_ALG_DESC_LEN] =
+        BINLOG_CHECKSUM_ALG_OFF;
+      save_buf= (char *)buf;
+      buf= fde_buf;
+    }
     Format_description_log_event *new_fdle=
       (Format_description_log_event*)
       Log_event::read_log_event(buf, event_len, &errmsg,
