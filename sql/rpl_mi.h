@@ -276,6 +276,15 @@ public:
     @@global.binlog_checksum and deactivated once FD has been received.
   */
   uint8 checksum_alg_before_fd;
+  /*
+    Used to skip event_checksum_test for 5.6 FDE and RE sent by 5.1 master.
+    This make sure slave I/O and slave sql threads don't fail due to checksum errors
+    when the master is downgraded to 5.1.
+
+    Note: No locking is required to access this variable since this is only used
+    by slave I/O thread.
+  */
+  bool ignore_checksum_alg;
   ulong retry_count;
   char master_uuid[UUID_LENGTH+1];
   char bind_addr[HOSTNAME_LENGTH+1];
