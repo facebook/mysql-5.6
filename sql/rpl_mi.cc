@@ -118,6 +118,7 @@ Master_info::Master_info(
    clock_diff_with_master(0), heartbeat_period(0),
    received_heartbeats(0), last_heartbeat(0), master_id(0),
    checksum_alg_before_fd(BINLOG_CHECKSUM_ALG_UNDEF),
+   ignore_checksum_alg(false),
    retry_count(master_retry_count), master_gtid_mode(0),
    mi_description_event(NULL),
    auto_position(false)
