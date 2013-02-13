@@ -1,0 +1,36 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Statement is unsafe because it invokes a trigger");
+SET sql_log_bin=0;
+CREATE TABLE t1(id int auto_increment primary key);
+SET sql_log_bin=1;
+CREATE TABLE t2(id int);
+CREATE TABLE t1(id int);
+CREATE TABLE t3(id int auto_increment primary key);
+CREATE TRIGGER t2_update after UPDATE on t2 for each row INSERT INTO t3 VALUES(NULL);
+INSERT INTO t3 values(NULL);
+INSERT INTO t2 values(1);
+INSERT INTO t1 values(NULL);
+UPDATE t2 set id=2;
+SELECT * FROM t1;
+id
+1
+SELECT * FROM t2;
+id
+2
+SELECT * from t1;
+id
+NULL
+SELECT * from t2;
+id
+2
+SELECT * from t3;
+id
+1
+2
+DROP TABLE t3;
+DROP TABLE t1, t2;
+include/rpl_end.inc
