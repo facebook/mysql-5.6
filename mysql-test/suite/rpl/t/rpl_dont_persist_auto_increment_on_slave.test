@@ -1,0 +1,46 @@
+# Test case to verify AUTO_INCREMENT values are not persisted across events,
+# while slave thread reads events from the relay-log in SBR.
+# The sequence of steps causing statement based replication to break are
+# 1) Insert into table t3 created only in slave with auto-inc column.
+# 2) Insert into table t1 with auto-inc column in master but not in slave.
+# 3) Insert or update into table t2 with no auto-inc column and has a trigger
+#    only in slave but not in master. The trigger inserts a row into table t3.
+# 4) The insert into table t3 gets INSERT_ID from table t1 causing duplicate
+#    key errors.
+
+-- source include/have_binlog_format_statement.inc
+-- source include/master-slave.inc
+# 5.6.10 slaves gives a warning for statements invoking a trigger. Suppress
+# the warning for the sake of test case.
+call mtr.add_suppression("Statement is unsafe because it invokes a trigger");
+SET sql_log_bin=0;
+CREATE TABLE t1(id int auto_increment primary key);
+SET sql_log_bin=1;
+CREATE TABLE t2(id int);
+
+sync_slave_with_master;
+CREATE TABLE t1(id int);
+# Table created only in slave.
+CREATE TABLE t3(id int auto_increment primary key);
+# Trigger created only in slave.
+CREATE TRIGGER t2_update after UPDATE on t2 for each row INSERT INTO t3 VALUES(NULL);
+# Without this insert the test doesn't cause any duplicate key errors.
+INSERT INTO t3 values(NULL);
+
+connection master;
+INSERT INTO t2 values(1);
+INSERT INTO t1 values(NULL);
+UPDATE t2 set id=2;
+sync_slave_with_master;
+
+connection master;
+SELECT * FROM t1;
+SELECT * FROM t2;
+connection slave;
+SELECT * from t1;
+SELECT * from t2;
+SELECT * from t3;
+DROP TABLE t3;
+connection master;
+DROP TABLE t1, t2;
+-- source include/rpl_end.inc
