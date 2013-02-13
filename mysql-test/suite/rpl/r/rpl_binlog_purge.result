@@ -1,0 +1,28 @@
+SET @old_debug=@@global.debug;
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master.info repository is not secure and is therefore not recommended. Please see the MySQL Manual for more about this issue and possible alternatives.
+[connection master]
+include/stop_slave.inc
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (id INT AUTO_INCREMENT,
+PRIMARY KEY (id));
+INSERT INTO t1(id) VALUES(NULL);
+SET GLOBAL debug='+d,simulate_master_lagging_sending_binlog';
+INSERT INTO t1(id) VALUES(NULL);
+INSERT INTO t1(id) VALUES(NULL);
+PURGE BINARY LOGS BEFORE NOW();
+INSERT INTO t1(id) VALUES(NULL);
+INSERT INTO t1(id) VALUES(NULL);
+INSERT INTO t1(id) VALUES(NULL);
+flush logs;
+INSERT INTO t1(id) VALUES(NULL);
+include/start_slave_io.inc
+include/wait_for_slave_io_to_start.inc
+PURGE BINARY LOGS BEFORE NOW();
+Warnings:
+Note	1864	Binary logs starting from './master-bin.000001' were not purged because connection with id 1 was still using it
+SET GLOBAL debug=@old_debug;
+DROP TABLE t1;
+include/rpl_end.inc

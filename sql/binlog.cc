@@ -1721,10 +1721,10 @@ static void adjust_linfo_offsets(my_off_t purge_offset)
 }
 
 
-static bool log_in_use(const char* log_name)
+my_thread_id log_in_use(const char* log_name)
 {
   size_t log_name_len = strlen(log_name) + 1;
-  bool result = 0;
+  my_thread_id result = 0;
 
   mysql_mutex_lock(&LOCK_thread_count);
 
@@ -1736,7 +1736,8 @@ static bool log_in_use(const char* log_name)
     if ((linfo = (*it)->current_linfo))
     {
       mysql_mutex_lock(&linfo->lock);
-      result = !memcmp(log_name, linfo->log_file_name, log_name_len);
+      if (!memcmp(log_name, linfo->log_file_name, log_name_len))
+        result = (*it)->thread_id;
       mysql_mutex_unlock(&linfo->lock);
       if (result)
 	break;
@@ -3954,7 +3955,7 @@ int MYSQL_BIN_LOG::purge_logs(const char *to_log,
     goto err;
   while ((strcmp(to_log,log_info.log_file_name) || (exit_loop=included)) &&
          !is_active(log_info.log_file_name) &&
-         !log_in_use(log_info.log_file_name))
+         !check_log_in_use(log_info.log_file_name))
   {
     if ((error= register_purge_index_entry(log_info.log_file_name)))
     {
@@ -4323,7 +4324,7 @@ int MYSQL_BIN_LOG::purge_logs_before_date(time_t purge_time)
 
   while (strcmp(log_file_name, log_info.log_file_name) &&
 	 !is_active(log_info.log_file_name) &&
-         !log_in_use(log_info.log_file_name))
+         !check_log_in_use(log_info.log_file_name))
   {
     if (!mysql_file_stat(m_key_file_log,
                          log_info.log_file_name, &stat_area, MYF(0)))
@@ -4381,6 +4382,34 @@ err:
   mysql_mutex_unlock(&LOCK_index);
   DBUG_RETURN(error);
 }
+
+/**
+  Check to see if the log file is in use. If it is, push a warning.
+
+  @param log_file_name name of the log file to check
+
+  @retval
+    false - log was not in use
+    true - log was in use
+*/
+bool MYSQL_BIN_LOG::check_log_in_use(const char* log_file_name_arg)
+{
+  THD *thd = current_thd;
+  bool in_use=false;
+  my_thread_id conn_tid = log_in_use(log_file_name_arg);
+  if (conn_tid)
+  {
+      push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
+                          ER_BINLOG_IN_USE,
+                          ER(ER_BINLOG_IN_USE),
+                          log_file_name_arg,
+                          conn_tid);
+
+      in_use=true;
+  }
+  return in_use;
+}
+
 #endif /* HAVE_REPLICATION */
 
 

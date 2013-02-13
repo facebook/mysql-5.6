@@ -621,6 +621,7 @@ public:
      @retval other Failure
   */
   bool flush_and_sync(bool async, const bool force);
+  bool check_log_in_use(const char* log_name);
   int purge_logs(const char *to_log, bool included,
                  bool need_lock_index, bool need_update_threads,
                  ulonglong *decrease_log_space);

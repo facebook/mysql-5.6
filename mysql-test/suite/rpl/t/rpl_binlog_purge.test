@@ -1,0 +1,64 @@
+######################################################################
+# When PURGE BINARY LOGS is called while a slave IO thread is still
+# running, there should be a warning thrown. This test verifies that
+#
+# 1. If there are not slaves connected to the master during purge binary logs,
+#    there will not be a warning regarding the slave being connected
+# 2. If there is a slave connected to the master during purge binary logs and is
+#    currently reading from one of the binary logs, then there will be a warning
+#
+# This test only deals with the situation where a slave is currently
+# connected. If a slave is disconnected but has not been caught up to
+# date, then no warning will be thrown.
+######################################################################
+source include/have_debug.inc;
+
+SET @old_debug=@@global.debug;
+--source include/master-slave.inc
+
+# stop slave before we start
+connection slave;
+--source include/stop_slave.inc
+
+# set up database table
+connection master;
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+CREATE TABLE t1 (id INT AUTO_INCREMENT,
+                 PRIMARY KEY (id));
+INSERT INTO t1(id) VALUES(NULL);
+
+# populate some data into master table
+SET GLOBAL debug='+d,simulate_master_lagging_sending_binlog';
+INSERT INTO t1(id) VALUES(NULL);
+INSERT INTO t1(id) VALUES(NULL);
+
+# ensure no warnings if no slave is connected
+PURGE BINARY LOGS BEFORE NOW();
+
+# populate database table with some data
+INSERT INTO t1(id) VALUES(NULL);
+INSERT INTO t1(id) VALUES(NULL);
+INSERT INTO t1(id) VALUES(NULL);
+
+# flush logs to force new log
+flush logs;
+INSERT INTO t1(id) VALUES(NULL);
+
+# start slave
+connection slave;
+--source include/start_slave_io.inc
+--source include/wait_for_slave_io_to_start.inc
+
+# purge binary master
+connection master;
+--replace_regex /(id )[0-9]*/\11/
+PURGE BINARY LOGS BEFORE NOW();
+
+#cleanup
+SET GLOBAL debug=@old_debug;
+DROP TABLE t1;
+
+--let $rpl_only_running_threads= 1
+--source include/rpl_end.inc

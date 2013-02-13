@@ -1226,6 +1226,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         GOTO_ERR;
       }
 #endif
+      DBUG_EXECUTE_IF("simulate_master_lagging_sending_binlog",
+                      {
+                        static int counter = 0;
+                        counter++;
+                        if (counter ==4 || counter == 6)
+                        {
+                          my_sleep(1000*1000);
+                        }
+                      });
       /*
         log's filename does not change while it's active
       */

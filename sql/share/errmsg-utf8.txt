@@ -7042,6 +7042,8 @@ ER_ROW_IN_WRONG_PARTITION
   eng "Found a row in wrong partition %s"
   swe "Hittade en rad i fel partition %s"
 
+ER_BINLOG_IN_USE
+  eng "Binary logs starting from '%s' were not purged because connection with id %u was still using it"
 #
 #  End of 5.6 error messages.
 #
