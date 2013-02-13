@@ -1737,7 +1737,7 @@ btr_page_reorganize_low(
 				there cannot exist locks on the
 				page, and a hash index should not be
 				dropped: it cannot exist */
-	ulint		compression_level,/*!< in: compression level to be used
+	uchar		compression_flags,/*!< in: compression options to be used
 				if dealing with compressed page */
 	buf_block_t*	block,	/*!< in: page to be reorganized */
 	dict_index_t*	index,	/*!< in: record descriptor */
@@ -1782,7 +1782,7 @@ btr_page_reorganize_low(
 
 	/* For compressed pages write the compression level. */
 	if (log_ptr && page_zip) {
-		mach_write_to_1(log_ptr, compression_level);
+		mach_write_to_1(log_ptr, compression_flags);
 		mlog_close(mtr, log_ptr + 1);
 	}
 
@@ -1835,7 +1835,7 @@ btr_page_reorganize_low(
 
 	if (page_zip
 	    && !page_zip_compress(page_zip, page, index,
-				  compression_level, NULL)) {
+				  compression_flags, NULL)) {
 
 		/* Restore the old page and exit. */
 		btr_blob_dbg_restore(page, temp_page, index,
@@ -1923,7 +1923,7 @@ btr_page_reorganize(
 	dict_index_t*	index,	/*!< in: record descriptor */
 	mtr_t*		mtr)	/*!< in: mtr */
 {
-	return(btr_page_reorganize_low(FALSE, page_compression_level,
+	return(btr_page_reorganize_low(FALSE, page_zip_compression_flags,
 				       block, index, mtr));
 }
 #endif /* !UNIV_HOTBACKUP */
@@ -1942,7 +1942,7 @@ btr_parse_page_reorganize(
 	buf_block_t*	block,	/*!< in: page to be reorganized, or NULL */
 	mtr_t*		mtr)	/*!< in: mtr or NULL */
 {
-	ulint	level = page_compression_level;
+	ulint	compression_flags = (uchar) ~0;
 
 	ut_ad(ptr && end_ptr);
 
@@ -1954,14 +1954,14 @@ btr_parse_page_reorganize(
 			return(NULL);
 		}
 
-		level = (ulint)mach_read_from_1(ptr);
+		compression_flags = (uchar) mach_read_from_1(ptr);
 
-		ut_a(level <= 9);
+		ut_a((((int) compression_flags) & (0xF)) <= 9);
 		++ptr;
 	}
 
 	if (block != NULL) {
-		btr_page_reorganize_low(TRUE, level, block, index, mtr);
+		btr_page_reorganize_low(TRUE, compression_flags, block, index, mtr);
 	}
 
 	return(ptr);

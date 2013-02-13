@@ -108,6 +108,25 @@ UNIV_INTERN uint	btr_cur_limit_optimistic_insert_debug = 0;
 can be released by page reorganize, then it is reorganized */
 #define BTR_CUR_PAGE_REORGANIZE_LIMIT	(UNIV_PAGE_SIZE / 32)
 
+/** Window bits and memory level parameters are used for zlib functions
+deflate() and inflate(). Changing window bits to a smaller size will make
+decompression not work on the existing data (i.e. tables need be dumped
+and re-compressed after this change). Increasing windowBits should be OK
+in terms of backwards-data-compatibility. Changing memLevel will only affect
+future compressions, but not decompression. Decompression is independent
+of memLevel. Therefore changing memLevel is backwards-data-compatible 
+both ways. Higher memLevel or higher windowBits mean better compression
+and more memory usage. These values must be so that the compressing (or
+decompressing) a blob should not require more memory than compressing (or
+decompressing) a database page. This is because we use the same malloc_cache
+for compressing (or decompressing) pages and blobs. See the calls to
+mem_heap_create() in page_zip_compress(), page_zip_decompress(),
+btr_store_big_rec_extern_fields(), and
+btr_copy_externally_stored_field_prefix_low(). */
+#define BTR_CUR_BLOB_WBITS 15
+#define BTR_CUR_BLOB_MEM_LEVEL 7
+
+
 /** The structure of a BLOB part header */
 /* @{ */
 /*--------------------------------------*/
@@ -1881,7 +1900,7 @@ btr_cur_update_alloc_zip(
 	/* Have a local copy of the variables as these can change
 	dynamically. */
 	bool	log_compressed = page_log_compressed_pages;
-	ulint	compression_level = page_compression_level;
+	uchar	compression_flags = page_zip_compression_flags;
 	page_t*	page = buf_block_get_frame(block);
 
 	ut_a(page_zip == buf_block_get_page_zip(block));
@@ -1915,7 +1934,7 @@ btr_cur_update_alloc_zip(
 	}
 
 	if (!page_zip_compress(
-		page_zip, page, index, compression_level,
+		page_zip, page, index, compression_flags,
 		log_compressed ? mtr : NULL)) {
 		/* Unable to compress the page */
 		return(FALSE);
@@ -1923,7 +1942,7 @@ btr_cur_update_alloc_zip(
 
 	if (mtr && !log_compressed) {
 		page_zip_compress_write_log_no_data(
-			compression_level, page, index, mtr);
+			compression_flags, page, index, mtr);
 	}
 
 	/* After recompressing a page, we must make sure that the free
@@ -4397,6 +4416,8 @@ btr_store_big_rec_extern_fields(
 	mem_heap_t*	heap = NULL;
 	page_zip_des_t*	page_zip;
 	z_stream	c_stream;
+	int window_bits = page_zip_zlib_wrap ? BTR_CUR_BLOB_WBITS
+	                                     : -(int) BTR_CUR_BLOB_WBITS;
 	buf_block_t**	freed_pages	= NULL;
 	ulint		n_freed_pages	= 0;
 	dberr_t		error		= DB_SUCCESS;
@@ -4431,7 +4452,7 @@ btr_store_big_rec_extern_fields(
 		page_zip_set_alloc(&c_stream, heap);
 
 		err = deflateInit2(&c_stream, page_compression_level,
-				   Z_DEFLATED, 15, 7, Z_DEFAULT_STRATEGY);
+				   Z_DEFLATED, window_bits, BTR_CUR_BLOB_MEM_LEVEL, page_zip_zlib_strategy);
 		ut_a(err == Z_OK);
 	}
 
@@ -5321,7 +5342,7 @@ btr_copy_zblob_prefix(
 
 		if (!inflate_inited) {
 			inflate_inited = page_zip_init_d_stream(&d_stream,
-				15, FALSE);
+				BTR_CUR_BLOB_WBITS, FALSE);
 			ut_a(inflate_inited);
 		}
 
@@ -5333,10 +5354,22 @@ btr_copy_zblob_prefix(
 			}
 			break;
 		case Z_STREAM_END:
-			if (next_page_no == FIL_NULL) {
-				goto end_of_blob;
+#ifdef UNIV_DEBUG
+			if (next_page_no != FIL_NULL) {
+				ut_print_timestamp(stderr);
+				fprintf(stderr, "  InnoDB: Decompression stream ended before going "
+					"through all of the external pages allocated for this "
+					"blob. This is likely because of a zlib bug that "
+					"requires more space than necessary during compression."
+					" As a result, the next blob page must be empty except "
+					"for the header. space id = %lu, page no = "
+					"%lu, next page no = %lu.\n",
+					(ulong) space_id, (ulong) page_no,
+					(ulong) next_page_no);
 			}
-			/* fall through */
+#endif
+			goto end_of_blob;
+			break;
 		default:
 inflate_error:
 			ut_print_timestamp(stderr);
@@ -5345,7 +5378,7 @@ inflate_error:
 				" compressed BLOB"
 				" page %lu space %lu returned %d (%s)\n",
 				(ulong) page_no, (ulong) space_id,
-				err, d_stream.msg);
+				err, d_stream.msg ? d_stream.msg : "");
 		case Z_BUF_ERROR:
 			goto end_of_blob;
 		}

@@ -1,0 +1,12 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@innodb_zlib_strategy;
+SELECT @start_value;
+
+SET GLOBAL innodb_zlib_strategy = 0;
+SELECT @@innodb_zlib_strategy;
+SET GLOBAL innodb_zlib_strategy = 1;
+SELECT @@innodb_zlib_strategy;
+
+SET GLOBAL innodb_zlib_strategy = @start_value;
+SELECT @@innodb_zlib_strategy;

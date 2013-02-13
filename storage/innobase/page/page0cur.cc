@@ -1180,16 +1180,16 @@ page_cur_insert_rec_zip_reorg(
 
 	/* Make a local copy as the values can change dynamically. */
 	bool		log_compressed = page_log_compressed_pages;
-	ulint		level = page_compression_level;
+	uchar		compression_flags = page_zip_compression_flags;
 
 	/* Recompress or reorganize and recompress the page. */
-	if (page_zip_compress(page_zip, page, index, level,
+	if (page_zip_compress(page_zip, page, index, compression_flags,
 			      log_compressed ? mtr : NULL)) {
-		if (!log_compressed) {
+		if (mtr && !log_compressed) {
 			page_cur_insert_rec_write_log(
 				rec, rec_size, *current_rec, index, mtr);
 			page_zip_compress_write_log_no_data(
-				level, page, index, mtr);
+				compression_flags, page, index, mtr);
 		}
 
 		return(rec);
