@@ -7034,6 +7034,8 @@ ER_IDENT_CAUSES_TOO_LONG_PATH
 ER_ALTER_OPERATION_NOT_SUPPORTED_REASON_NOT_NULL
   eng "cannot silently convert NULL values, as required in this SQL_MODE"
 
+ER_BINLOG_IN_USE
+  eng "Binary logs starting from '%s' were not purged because connection with id %u was still using it"
 #
 #  End of 5.6 error messages.
 #
