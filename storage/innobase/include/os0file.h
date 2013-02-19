@@ -343,9 +343,9 @@ to original un-instrumented file I/O APIs */
 # define os_file_close(file)	os_file_close_func(file)
 
 # define os_aio(type, mode, name, file, buf, offset, n, \
-		message1, message2, io_perf2, tab) \
+		message1, message2, primary_index_id, io_perf2, tab) \
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2, io_perf2, tab)
+		    message1, message2, primary_index_id, io_perf2, tab)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
