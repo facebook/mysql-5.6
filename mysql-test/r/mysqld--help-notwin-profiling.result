@@ -1214,7 +1214,7 @@ max-user-connections 0
 max-write-lock-count 18446744073709551615
 memlock FALSE
 metadata-locks-cache-size 1024
-metadata-locks-hash-instances 8
+metadata-locks-hash-instances 256
 min-examined-row-limit 0
 multi-range-count 256
 myisam-block-size 1024
