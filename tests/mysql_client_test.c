@@ -19040,8 +19040,6 @@ static void test_wl5924()
 {
   int rc;
   MYSQL *l_mysql;
-  MYSQL_RES *res;
-  MYSQL_ROW row;
 
   myheader("test_wl5924");
   l_mysql= mysql_client_init(NULL);
@@ -19110,33 +19108,6 @@ static void test_wl5924()
                          opt_password, current_db, opt_port,
                          opt_unix_socket, 0);
   DIE_UNLESS(l_mysql != 0);
-
-  rc= mysql_query(l_mysql,
-                  "SELECT ATTR_NAME, ATTR_VALUE "
-                  " FROM performance_schema.session_account_connect_attrs"
-                  " WHERE ATTR_NAME IN ('key1','key2','key3','key4',"
-                  "  '\xc3\xe5\xee\xf0\xe3\xe8') AND"
-                  "  PROCESSLIST_ID = CONNECTION_ID() ORDER BY ATTR_NAME");
-  myquery2(l_mysql,rc);
-  res= mysql_use_result(l_mysql);
-  DIE_UNLESS(res);
-
-  row= mysql_fetch_row(res);
-  DIE_UNLESS(row);
-  DIE_UNLESS(0 == strcmp(row[0], "key3"));
-  DIE_UNLESS(0 == strcmp(row[1], "value3"));
-
-  row= mysql_fetch_row(res);
-  DIE_UNLESS(row);
-  DIE_UNLESS(0 == strcmp(row[0], "key4"));
-  DIE_UNLESS(0 == strcmp(row[1], "value4"));
-
-  row= mysql_fetch_row(res);
-  DIE_UNLESS(row);
-  DIE_UNLESS(0 == strcmp(row[0], "\xc3\xe5\xee\xf0\xe3\xe8"));
-  DIE_UNLESS(0 == strcmp(row[1], "\xca\xee\xe4\xe8\xed\xee\xe2"));
-
-  mysql_free_result(res);
 
   l_mysql->reconnect= 1;
   rc= mysql_reconnect(l_mysql);

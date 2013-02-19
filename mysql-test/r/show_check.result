@@ -1537,12 +1537,12 @@ SELECT GET_LOCK('t',1000) AS 'óóóó';;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
 ###	root	###	test	Query	###	###	SELECT GET_LOCK('t',1000) AS 'óóóó'	0	0
-###	root	###	test	Query	###	###	SHOW PROCESSLIST	67	68
+###	root	###	test	Query	###	###	SHOW PROCESSLIST	65	66
 SET NAMES utf8;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
 ###	root	###	test	Query	###	###	SELECT GET_LOCK('t',1000) AS 'Ã³Ã³Ã³Ã³'	0	0
-###	root	###	test	Query	###	###	SHOW PROCESSLIST	67	68
+###	root	###	test	Query	###	###	SHOW PROCESSLIST	65	66
 SELECT RELEASE_LOCK('t');
 RELEASE_LOCK('t')
 1

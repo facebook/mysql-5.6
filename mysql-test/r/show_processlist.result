@@ -4,6 +4,6 @@ insert into t1 values
 select *, sleep(2) from t1 where id > 6 AND id < 8943;
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-#	root	localhost	test	Query	#	init	show processlist	0	0
+#	root	localhost	test	Query	#	cleaning up	show processlist	0	0
 #	root	localhost	test	Sleep	#		NULL	8	8
 drop table t1;

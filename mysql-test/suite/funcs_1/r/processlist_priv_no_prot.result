@@ -34,7 +34,7 @@ PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0
-ID	root	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	3	5
+ID	root	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	3	5
 SELECT * FROM processlist  ORDER BY id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	root	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM processlist  ORDER BY id
@@ -104,7 +104,7 @@ PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 SELECT * FROM processlist  ORDER BY id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM processlist  ORDER BY id
@@ -169,7 +169,7 @@ Grants for ddicttestuser1@localhost
 GRANT PROCESS ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	5	2
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	5	2
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	executing	SELECT * FROM information_schema.processlist
@@ -182,7 +182,7 @@ Grants for ddicttestuser1@localhost
 GRANT PROCESS ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3
 ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	13	9
 SELECT * FROM information_schema.processlist;
@@ -205,7 +205,7 @@ Grants for @localhost
 GRANT PROCESS ON *.* TO ''@'localhost'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID		HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID		HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3
 ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	13	9
@@ -230,7 +230,7 @@ Grants for ddicttestuser1@localhost
 GRANT USAGE ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3
 SELECT * FROM information_schema.processlist;
@@ -269,7 +269,7 @@ Grants for ddicttestuser1@localhost
 GRANT SUPER ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3
@@ -294,7 +294,7 @@ Grants for ddicttestuser1@localhost
 GRANT USAGE ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	4	4
@@ -351,7 +351,7 @@ ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	4	4
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	5	5
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3
-ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	13	9
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
@@ -380,7 +380,7 @@ Grants for ddicttestuser2@localhost
 GRANT USAGE ON *.* TO 'ddicttestuser2'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser2	HOST_NAME	information_schema	Sleep	TIME		NULL	11	11
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
@@ -403,7 +403,7 @@ GRANT PROCESS ON *.* TO 'ddicttestuser2'@'localhost';
 ERROR 28000: Access denied for user 'ddicttestuser1'@'localhost' (using password: YES)
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
@@ -438,7 +438,7 @@ Grants for ddicttestuser1@localhost
 GRANT USAGE ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA61451703738F203CDB9DB041ACBA1F4760B1'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	init	SHOW processlist	0	0
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	cleaning up	SHOW processlist	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3
