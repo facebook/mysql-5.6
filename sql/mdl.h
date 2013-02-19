@@ -963,7 +963,7 @@ static const ulong MDL_LOCKS_CACHE_SIZE_DEFAULT = 1024;
   its default value.
 */
 extern ulong mdl_locks_hash_partitions;
-static const ulong MDL_LOCKS_HASH_PARTITIONS_DEFAULT = 8;
+static const ulong MDL_LOCKS_HASH_PARTITIONS_DEFAULT = 256;
 
 /*
   Metadata locking subsystem tries not to grant more than
