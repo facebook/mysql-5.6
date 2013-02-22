@@ -466,12 +466,22 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->comp_stat.compressed_ok, TRUE);
     table->field[f++]->store(table_stats->comp_stat.compressed_primary, TRUE);
     table->field[f++]->store(table_stats->comp_stat.compressed_primary_ok, TRUE);
-    table->field[f++]->store(table_stats->comp_stat.compressed_time, TRUE);
-    table->field[f++]->store(table_stats->comp_stat.compressed_ok_time, TRUE);
-    table->field[f++]->store(table_stats->comp_stat.compressed_primary_time, TRUE);
-    table->field[f++]->store(table_stats->comp_stat.compressed_primary_ok_time, TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->comp_stat.compressed_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->comp_stat.compressed_ok_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->comp_stat.compressed_primary_time),
+                             TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->comp_stat.compressed_primary_ok_time),
+                             TRUE);
     table->field[f++]->store(table_stats->comp_stat.decompressed, TRUE);
-    table->field[f++]->store(table_stats->comp_stat.decompressed_time, TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               table_stats->comp_stat.decompressed_time),
+                             TRUE);
 
     table->field[f++]->store(table_stats->rows_index_first, TRUE);
     table->field[f++]->store(table_stats->rows_index_next, TRUE);
