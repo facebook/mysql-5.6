@@ -8716,9 +8716,17 @@ bool change_master(THD* thd, Master_info* mi)
   if (lex_mi->log_file_name != NULL || lex_mi->pos != 0 || 
       lex_mi->relay_log_name != NULL || lex_mi->relay_log_pos != 0)
   {
-    if (lex_mi->auto_position == LEX_MASTER_INFO::LEX_MI_ENABLE ||
-        (lex_mi->auto_position != LEX_MASTER_INFO::LEX_MI_DISABLE &&
-         mi->is_auto_position()))
+    /*
+      Disable auto-position when master_auto_position is not specified
+      in CHANGE MASTER TO command but coordinates are specified.
+    */
+    if (lex_mi->auto_position == LEX_MASTER_INFO::LEX_MI_UNCHANGED)
+    {
+      mi->set_auto_position(false);
+    }
+    else if (lex_mi->auto_position == LEX_MASTER_INFO::LEX_MI_ENABLE ||
+             (lex_mi->auto_position != LEX_MASTER_INFO::LEX_MI_DISABLE &&
+              mi->is_auto_position()))
     {
       my_message(ER_BAD_SLAVE_AUTO_POSITION,
                  ER(ER_BAD_SLAVE_AUTO_POSITION), MYF(0));
