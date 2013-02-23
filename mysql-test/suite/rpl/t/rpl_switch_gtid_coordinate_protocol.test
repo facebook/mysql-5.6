@@ -1,0 +1,62 @@
+# This test verify that a slave can be switched back and forth between gtid
+# based and coordinates based replication protocol.
+
+-- source include/master-slave.inc
+-- disable_warnings
+drop table if exists t1;
+-- enable_warnings
+create table t1 (id int);
+insert into t1 values(1);
+insert into t1 values(2);
+
+sync_slave_with_master;
+-- echo Master_Auto_Position
+-- let $master_auto_position = query_get_value("SHOW SLAVE STATUS", Auto_Position, 1)
+-- echo $master_auto_position
+select * from t1;
+
+# Stop slave and switch to gtid based replication protocol.
+-- source include/rpl_stop_slaves.inc
+change master to master_auto_position=1;
+-- source include/rpl_start_slaves.inc
+-- echo Master_Auto_Position
+-- let $master_auto_position = query_get_value("SHOW SLAVE STATUS", Auto_Position, 1)
+-- echo $master_auto_position
+
+-- connection master
+insert into t1 values(3);
+insert into t1 values(4);
+
+# Verify replication is working after switching to gtid based
+# replication protocol.
+sync_slave_with_master;
+select * from t1;
+-- source include/rpl_stop_slaves.inc
+
+-- connection master
+insert into t1 values(5);
+insert into t1 values(6);
+
+-- connection slave
+# Switch to coordinate based replication protocol by using the coordinates in
+# show slave status.
+-- let $master_binlog_file = query_get_value("SHOW SLAVE STATUS", Master_Log_File, 1)
+-- let $master_binlog_pos = query_get_value("SHOW SLAVE STATUS", Read_Master_Log_Pos, 1)
+# master_log_pos can be different for row based and statement based
+# replication, so replace result for $master_binlog_pos.
+-- replace_result $master_binlog_pos LOG_POS
+-- eval change master to master_log_file='$master_binlog_file', master_log_pos=$master_binlog_pos
+-- source include/rpl_start_slaves.inc
+-- echo Master_Auto_Position
+-- let $master_auto_position = query_get_value("SHOW SLAVE STATUS", Auto_Position, 1)
+-- echo $master_auto_position
+
+-- connection master
+# Verify replication is working after switching to coordinate
+# based replication protocol.
+sync_slave_with_master;
+select * from t1;
+
+-- connection master
+drop table t1;
+-- source include/rpl_end.inc
