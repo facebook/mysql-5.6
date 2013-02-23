@@ -1,0 +1,45 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop table if exists t1;
+create table t1 (id int);
+insert into t1 values(1);
+insert into t1 values(2);
+Master_Auto_Position
+1
+select * from t1;
+id
+1
+2
+include/rpl_stop_slaves.inc
+change master to master_auto_position=1;
+include/rpl_start_slaves.inc
+Master_Auto_Position
+1
+insert into t1 values(3);
+insert into t1 values(4);
+select * from t1;
+id
+1
+2
+3
+4
+include/rpl_stop_slaves.inc
+insert into t1 values(5);
+insert into t1 values(6);
+change master to master_log_file='master-bin.000001', master_log_pos=LOG_POS;
+include/rpl_start_slaves.inc
+Master_Auto_Position
+0
+select * from t1;
+id
+1
+2
+3
+4
+5
+6
+drop table t1;
+include/rpl_end.inc
