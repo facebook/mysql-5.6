@@ -640,6 +640,7 @@ enum enum_gtid_mode
   GTID_MODE_ON= 3
 };
 extern ulong gtid_mode;
+extern bool enable_gtid_mode_on_new_slave_with_old_master;
 extern const char *gtid_mode_names[];
 extern TYPELIB gtid_mode_typelib;
 
