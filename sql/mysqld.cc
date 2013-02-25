@@ -527,6 +527,7 @@ my_bool enforce_gtid_consistency;
 ulong binlogging_impossible_mode;
 const char *binlogging_impossible_err[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
 ulong gtid_mode;
+bool enable_gtid_mode_on_new_slave_with_old_master;
 const char *gtid_mode_names[]=
 {"OFF", "UPGRADE_STEP_1", "UPGRADE_STEP_2", "ON", NullS};
 TYPELIB gtid_mode_typelib=
