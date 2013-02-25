@@ -2764,8 +2764,9 @@ when it try to get the value of TIME_ZONE global variable from master.";
       mysql_free_result(master_res);
       break;
     }
-    if (mi->master_gtid_mode > gtid_mode + 1 ||
-        gtid_mode > mi->master_gtid_mode + 1)
+    if ((mi->master_gtid_mode > gtid_mode + 1 ||
+        gtid_mode > mi->master_gtid_mode + 1) &&
+        !enable_gtid_mode_on_new_slave_with_old_master)
     {
       mi->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
                  "The slave IO thread stops because the master has "

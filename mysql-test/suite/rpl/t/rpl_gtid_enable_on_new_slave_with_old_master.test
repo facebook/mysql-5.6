@@ -1,0 +1,16 @@
+# This test verifies the config option
+# enable_gtid_mode_on_new_slave_with_old_master. This option should be used
+# for testing gtid feauture on 5.6 slaves replicating from a old 5.1 master.
+# Without this option gtid_mode on the new slave cannot be enabled.
+-- source include/master-slave.inc
+-- connection master
+select @@global.gtid_mode;
+create table t1(id1 int, id2 int);
+insert into t1 values(1,100);
+insert into t1 values(2, 200);
+sync_slave_with_master;
+select @@global.gtid_mode;
+select * from t1;
+-- connection master
+drop table t1;
+-- source include/rpl_end.inc
