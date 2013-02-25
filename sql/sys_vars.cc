@@ -4849,6 +4849,14 @@ static bool check_gtid_mode(sys_var *self, THD *thd, set_var *var)
 }
 #endif
 
+static Sys_var_mybool Sys_enable_gtid_mode_on_new_slave_with_old_master(
+       "enable_gtid_mode_on_new_slave_with_old_master",
+       "This should be used only for testing purposes. This option allows "
+       "enabling gtid_mode on new slave replicating from a old master which "
+       "is not gtid compatible",
+       READ_ONLY GLOBAL_VAR(enable_gtid_mode_on_new_slave_with_old_master),
+       CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_enum Sys_gtid_mode(
        "gtid_mode",
        /*

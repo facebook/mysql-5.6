@@ -210,6 +210,10 @@ The following options may be given as the first argument:
  --div-precision-increment=# 
  Precision of the result of '/' operator will be increased
  on that value
+ --enable-gtid-mode-on-new-slave-with-old-master 
+ This should be used only for testing purposes. This
+ option allows enabling gtid_mode on new slave replicating
+ from a old master which is not gtid compatible
  --end-markers-in-json 
  In JSON output ("EXPLAIN FORMAT=JSON" and optimizer
  trace), if variable is set to 1, repeats the structure's
@@ -1122,6 +1126,7 @@ disable-working-set-size FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
+enable-gtid-mode-on-new-slave-with-old-master FALSE
 end-markers-in-json FALSE
 enforce-gtid-consistency FALSE
 eq-range-index-dive-limit 10
