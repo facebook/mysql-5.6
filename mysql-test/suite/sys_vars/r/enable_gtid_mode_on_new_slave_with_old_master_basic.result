@@ -1,0 +1,22 @@
+SET @start_global_value = @@global.enable_gtid_mode_on_new_slave_with_old_master;
+SELECT @start_global_value;
+@start_global_value
+0
+select @@global.enable_gtid_mode_on_new_slave_with_old_master;
+@@global.enable_gtid_mode_on_new_slave_with_old_master
+0
+select @@session.enable_gtid_mode_on_new_slave_with_old_master;
+ERROR HY000: Variable 'enable_gtid_mode_on_new_slave_with_old_master' is a GLOBAL variable
+show global variables like 'enable_gtid_mode_on_new_slave_with_old_master';
+Variable_name	Value
+enable_gtid_mode_on_new_slave_with_old_master	OFF
+show session variables like 'enable_gtid_mode_on_new_slave_with_old_master';
+Variable_name	Value
+enable_gtid_mode_on_new_slave_with_old_master	OFF
+set global enable_gtid_mode_on_new_slave_with_old_master = "ON";
+ERROR HY000: Variable 'enable_gtid_mode_on_new_slave_with_old_master' is a read only variable
+select @@global.enable_gtid_mode_on_new_slave_with_old_master;
+@@global.enable_gtid_mode_on_new_slave_with_old_master
+0
+set session enable_gtid_mode_on_new_slave_with_old_master = 1;
+ERROR HY000: Variable 'enable_gtid_mode_on_new_slave_with_old_master' is a read only variable
