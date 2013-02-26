@@ -370,9 +370,6 @@ typedef struct st_table_stats {
   ulonglong index_inserts;            /* Number of secondary index inserts. */
   ulonglong queries_empty;  /* Number of empty queries, exclude joins */
 
-  /* LOCK_global_table_stats is locked when this is updated */
-  int n_lru;                          /* #pages in InnoDB LRU */
-
   const char* engine_name;
 } TABLE_STATS;
 

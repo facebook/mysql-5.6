@@ -4372,9 +4372,6 @@ btr_blob_free(
 	}
 
 	buf_pool_mutex_exit(buf_pool);
-
-	if (removed)
-		fil_change_lru_count(space, -1);
 }
 
 /*******************************************************************//**

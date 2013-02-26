@@ -1260,7 +1260,7 @@ innobase_update_table_stats(
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   page_stats_t* page_stats, comp_stat_t* comp_stat,
-		   int n_lru, const char* engine));
+		   const char* engine));
 
 /*******************************************************************//**
 This function is used to prepare an X/Open XA distributed transaction.
@@ -3863,7 +3863,7 @@ innobase_update_table_stats(
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   page_stats_t *page_stats, comp_stat_t *comp_stat,
-		   int n_lru, const char* engine))
+		   const char* engine))
 {
 	fil_update_table_stats(cb);
 }

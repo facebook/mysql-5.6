@@ -2034,8 +2034,6 @@ buf_block_try_discard_uncompressed(
 	if (bpage) {
 		ibool	removed;
 		buf_LRU_free_block(bpage, FALSE, &removed);
-		if (removed)
-			fil_change_lru_count(bpage->space, -1);
 	}
 
 	buf_pool_mutex_exit(buf_pool);
@@ -3675,7 +3673,6 @@ func_exit:
 		fil_stats_t* stats;
 		ib_mutex_t* stats_mutex;
 		stats = fil_get_stats_lock_mutex_by_id(space, &stats_mutex);
-		fil_change_lru_count_low(space, stats, 1);
 		if(block) {
 			block->db_stats_index = stats->db_stats_index;
 		}
@@ -3839,7 +3836,6 @@ buf_page_create(
 #endif
 
 	stats = fil_get_stats_lock_mutex_by_id(space, &stats_mutex);
-	fil_change_lru_count_low(space, stats, 1);
 	block->db_stats_index = stats->db_stats_index;
 	mutex_exit(stats_mutex);
 

@@ -1071,9 +1071,6 @@ buf_LRU_scan_and_free_block(
 	         || buf_LRU_free_from_common_LRU_list(buf_pool, scan_all,
 						      &space_id));
 
-	if (space_id != ULINT_UNDEFINED)
-		fil_change_lru_count(space_id, -1);
-
 	return(freed);
 }
 

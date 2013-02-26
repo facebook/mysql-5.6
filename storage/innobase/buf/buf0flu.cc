@@ -1415,10 +1415,6 @@ buf_free_from_unzip_LRU_list_batch(
 		++scanned;
 		freed = buf_LRU_free_block(&block->page, FALSE, &removed);
 
-		if (removed) {
-			fil_change_lru_count(block->page.space, -1);
-		}
-
 		if (freed) {
 			/* Block was freed. buf_pool->mutex potentially
 			released and reacquired */
@@ -1500,10 +1496,6 @@ buf_flush_LRU_list_batch(
 			ibool	removed;
 
 			freed = buf_LRU_free_block(bpage, TRUE, &removed);
-
-			if (removed) {
-				fil_change_lru_count(bpage->space, -1);
-			}
 
 			if (freed) {
 				/* buf_pool->mutex was potentially
@@ -2073,9 +2065,6 @@ buf_flush_single_page_from_LRU(
 
 	freed = buf_LRU_free_block(bpage, evict_zip, &removed);
 	buf_pool_mutex_exit(buf_pool);
-
-	if (removed)
-		fil_change_lru_count(bpage->space, -1);
 
 	return(freed);
 }

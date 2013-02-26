@@ -231,7 +231,6 @@ typedef struct fil_stats_struct {
 	hash_node_t	stats_next;	/*!< hash chain node */
 	// comp_stat_t	comp_stat;	/*!< compression counters */
 	ulint		id;		/*!< space id */
-	int		n_lru;		/*!< number of pages in LRU */
 	ibool		used;		/*!< cleared by fil_update_table_stats
 					and set by fil_io */
 	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
@@ -1006,7 +1005,7 @@ fil_update_table_stats(
 		   my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
 		   my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
 		   page_stats_t *page_stats, comp_stat_t *comp_stat,
-		   int n_lru, const char* engine));
+		   const char* engine));
 
 /********************************************************************//**
 Reads or writes data. This operation is asynchronous (aio).
@@ -1288,27 +1287,6 @@ void
 fil_print(
 /*=======*/
 	FILE* file);	/* in: print results to this */
-
-/*************************************************************************
-Changes count of pages on the LRU for this space. Will lock/unlock
-fil_system->mutex */
-
-void
-fil_change_lru_count(
-/*=================*/
-	ulint	space,		/* in: tablespace id for which count changes */
-	int	amount);	/* in: amount by which the count changes */
-
-/*************************************************************************
-Changes count of pages on the LRU for this space. Will not lock/unlock
-fil_system->mutex */
-
-void
-fil_change_lru_count_low(
-/*=================*/
-	ulint	space,		/* in: tablespace id for which count changes */
-	fil_stats_t* stats,
-	int	amount);	/* in: amount by which the count changes */
 
 #endif /* !UNIV_INNOCHECKSUM */
 #endif /* fil0fil_h */
