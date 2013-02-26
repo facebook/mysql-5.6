@@ -277,6 +277,14 @@ row_ins_sec_index_entry_by_modify(
 		returns. After that point, the TEMP_INDEX_PREFIX
 		would be dropped from the index name in
 		commit_inplace_alter_table(). */
+    /* Another exception here is when sql thread updates the delete
+    marked node and unmarks it before the faker thread got here.
+    This can happen with multi threaded slave and when faker thread
+    tries to update the same secondary index node as that of sql slave
+    worker. */
+    trx_t* trx=thr_get_trx(thr);
+    if (trx->fake_changes)
+      return(DB_SUCCESS);
 		ut_a(update->n_fields == 0);
 		ut_a(*cursor->index->name == TEMP_INDEX_PREFIX);
 		ut_ad(!dict_index_is_online_ddl(cursor->index));
