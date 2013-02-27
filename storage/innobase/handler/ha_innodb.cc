@@ -144,7 +144,7 @@ of the buffer pool. */
 static uint innobase_change_buffer_max_size = CHANGE_BUFFER_DEFAULT_SIZE;
 
 static ulong innobase_compression_level = DEFAULT_COMPRESSION_LEVEL;
-static my_bool innobase_log_compressed_pages = TRUE;
+static my_bool innobase_log_compressed_pages = FALSE;
 
 /* The default values for the following char* start-up parameters
 are determined in innobase_init below: */
@@ -16290,7 +16290,7 @@ static MYSQL_SYSVAR_BOOL(log_compressed_pages, innobase_log_compressed_pages,
   " in the zlib compression algorithm to compress the pages."
   " When turned OFF, this variable makes InnoDB assume that the zlib"
   " compression algorithm doesn't change.",
-  NULL, innodb_log_compressed_pages_update, TRUE);
+  NULL, innodb_log_compressed_pages_update, FALSE);
 
 static MYSQL_SYSVAR_LONG(additional_mem_pool_size, innobase_additional_mem_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
