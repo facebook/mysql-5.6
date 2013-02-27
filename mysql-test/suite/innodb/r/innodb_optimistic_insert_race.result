@@ -22,8 +22,8 @@ stop slave;
 start slave;
 Checksum slave
 Checksums match
-SELECT variable_value > 0, variable_value < 120 FROM information_schema.global_status WHERE variable_name = 'innodb_num_optimistic_insert_calls_in_pessimistic_descent';
-variable_value > 0	variable_value < 120
+SELECT variable_value > 0, variable_value < 300 FROM information_schema.global_status WHERE variable_name = 'innodb_num_optimistic_insert_calls_in_pessimistic_descent';
+variable_value > 0	variable_value < 300
 1	1
 DROP TABLE t1;
 include/rpl_end.inc

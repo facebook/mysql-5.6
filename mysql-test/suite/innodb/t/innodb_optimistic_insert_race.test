@@ -57,7 +57,7 @@ if ($not_same)
 }
 
 connection master;
-SELECT variable_value > 0, variable_value < 120 FROM information_schema.global_status WHERE variable_name = 'innodb_num_optimistic_insert_calls_in_pessimistic_descent';
+SELECT variable_value > 0, variable_value < 300 FROM information_schema.global_status WHERE variable_name = 'innodb_num_optimistic_insert_calls_in_pessimistic_descent';
 
 DROP TABLE t1;
 
