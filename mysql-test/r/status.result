@@ -303,7 +303,7 @@ Table_open_cache_misses	6
 Table_open_cache_overflows	0
 # Reduce size of table cache to check that status
 # variable tracking cache overflows works.
-set @@global.table_open_cache= 4;
+set @@global.table_open_cache= 4 * @@table_open_cache_instances;
 # The below statement should result in table cache hit, but
 # as a side effect it should result in trimming of table
 # cache by 2 TABLE instances, meaning that overflow counter
