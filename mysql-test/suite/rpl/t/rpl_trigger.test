@@ -346,6 +346,13 @@ SELECT MASTER_POS_WAIT('master-bin.000001', 513) >= 0;
 
 SHOW TABLES LIKE 't_';
 SHOW TRIGGERS;
+
+# The SELECTs below may issue a warning if the table is not found in the
+# open table cache. Whether the table is found is affected by the value of
+# --table-open-cache-instances with which the server is running. Make the
+# test deterministic regardless of that setting.
+flush tables;
+
 SELECT * FROM t1;
 SELECT * FROM t2;
 
