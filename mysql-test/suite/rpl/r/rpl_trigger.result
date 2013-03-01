@@ -909,9 +909,12 @@ t2
 SHOW TRIGGERS;
 Trigger	Event	Table	Statement	Timing	Created	sql_mode	Definer	character_set_client	collation_connection	Database Collation
 trg1	INSERT	t1	INSERT INTO t2 VALUES(CURRENT_USER())	AFTER	NULL			latin1	latin1_swedish_ci	latin1_swedish_ci
+flush tables;
 SELECT * FROM t1;
 c
 1
+Warnings:
+Warning	1454	No definer attribute for trigger 'test'.'trg1'. The trigger will be activated under the authorization of the invoker, which may have insufficient privileges. Please recreate the trigger.
 SELECT * FROM t2;
 s
 @
