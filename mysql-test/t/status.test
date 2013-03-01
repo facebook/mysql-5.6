@@ -398,7 +398,7 @@ show status like 'table_open_cache_%';
 
 --echo # Reduce size of table cache to check that status
 --echo # variable tracking cache overflows works.
-set @@global.table_open_cache= 4;
+set @@global.table_open_cache= 4 * @@table_open_cache_instances;
 
 --echo # The below statement should result in table cache hit, but
 --echo # as a side effect it should result in trimming of table
