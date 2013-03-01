@@ -163,7 +163,7 @@ let $table = tab3;
 --source include/Load_data.inc
 flush tables;
 flush status;
-set @@GLOBAL.table_open_cache=2;
+set @@GLOBAL.table_open_cache=2 * @@global.table_open_cache_instances;
 --echo # open two tables
 
 select 1 from tab1;
@@ -216,6 +216,15 @@ set @global_open_cache_overflow = (select variable_value from information_schema
 
 
 --echo # opening table 2 from another client session
+# For the test to operate correctly, both default and con1 need to hit the
+# same open table cache instance.
+--let $instances= `SELECT @@global.table_open_cache_instances`
+while ($instances > 1)
+{
+  connect (con1,localhost,root,,);
+  disconnect con1;
+  --dec $instances
+}
 connect (con1,localhost,root,,);
 
 set @opened_tables = (select variable_value from information_schema.session_status where variable_name ='Opened_tables');
