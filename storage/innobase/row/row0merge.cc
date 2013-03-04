@@ -3227,9 +3227,11 @@ row_merge_rename_tables(
 		goto err_exit;
 	}
 
+#ifndef XTRABACKUP
 	/* Generate the redo logs for file operations */
 	fil_mtr_rename_log(old_table->space, old_name,
 			   new_table->space, new_table->name, tmp_name);
+#endif /* !XTRABACKUP */
 
 	/* What if the redo logs are flushed to disk here?  This is
 	tested with following crash point */
