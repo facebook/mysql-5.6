@@ -1,0 +1,31 @@
+============================
+|Percona| |XtraBackup| 2.0.5
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 2.0.5 on January 18th, 2013. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-2.0.5/>`_ and :doc:`Percona Software Repositories </installation>`.
+
+This release is the current GA (Generally Available) stable release in the 2.0 series. 
+
+New Features
+=============
+
+ New option :option:`--defaults-extra-file` has been introduced. This option specifies from what extra file to read the default |MySQL| options before the standard ``defaults-file``. It can be used to load the user/password combination for the dedicated backup user from a separate configuration file, to avoid storing it in the crontab or a script somewhere in the system.
+
+Bugs Fixed
+==========
+
+  In case of streaming backups, |innobackupex| would resume the |XtraBackup| process and then wait for it to finish before running ``UNLOCK TABLES``. This caused database to be unnecessarily locked with ``FLUSH TABLES WITH READ LOCK``. Innobackupex now waits only till log copying is finished to unlock the databases. Bug fixed :bug:`1055989` (*Alexey Kopytov*).
+
+  |innobackupex| error messages referencing the data directory have been extended to show the path of the data directory mentioned in the error message. Bug fixed :bug:`1089375` (*Hartmut Holzgraefe*).
+
+  Partitioned tables were not correctly handled by the :option:`--databases`, :option:`--include`, :option:`--tables-file` options of |innobackupex|, and by the :option:`--tables` and :option:`--tables-file` options of |XtraBackup|. Fixed by removing the partition suffix (#P#...) before doing filtering. Bug fixed :bug:`711166` (*Sergei Glushchenko*).
+
+  When built-in compression was used, |XtraBackup| was doing unbuffered writes to the destination file or stream in very small chunks which in return caused inefficient I/O. Fixed by using a 1M buffer for output similar to the uncompressed backups. Bug fixed :bug:`1095249` (*Alexey Kopytov*).
+
+  Unnecessary long sleep() in |innobackupex| lead to ``FLUSH TABLES WITH READ LOCK`` taking too long. Fixed by replacing 2 seconds sleep interval with 100 milliseconds one. Bug fixed :bug:`1095551` (*Sergei Glushchenko*).
+
+  If |innobackupex| would crash it would leave the ``xtrabackup_suspended`` file on the filesystem. This could then cause |innobackupex| to think |XtraBackup| has suspended itself the moment it started, and then when xtrabackup actually does suspend itself innobackupex would wait for it to end and wouldn't re-remove the suspend_file, leading to a wait deadlock. Fixed by removing the stale ``xtrabackup_suspended`` file when |innobackupex| is started. Bug fixed :bug:`1007446` (*George Ormond Lorch III*).
+
+  |innobackupex| would fail to recognize MariaDB 5.2 and MariaDB 5.3. Fixed by augmenting version checks in |innobackupex|. Bug fixed :bug:`733665` (*Daniël van Eeden*, *Alexey Kopytov*).
+
+Other bug fixes: bug fixed :bug:`924492` (*Alexey Kopytov*), bug fixed :bug:`1097158` (*Alexey Kopytov*), bug fixed :bug:`1081882` (*Alexey Kopytov*), bug fixed :bug:`1096584` (*Alexey Kopytov*),

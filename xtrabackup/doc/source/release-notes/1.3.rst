@@ -1,0 +1,17 @@
+========================
+Version 1.3 (unreleased)
+========================
+
+Major changes:
+--------------
+
+* Port to |Percona Server| 5.1.47-11
+
+* Separate into two binaries - xtrabackup for |Percona Server| and xtrabackup_50 for |MySQL| 5.x.
+
+Fixed Bugs:
+-----------
+
+* Fixed `Bug #561106 <https://bugs.launchpad.net/percona-xtrabackup/+bug/561106>`_: incremental crash
+
+* Fixed duplicate ``close()`` problem at ``xtrabackup_copy_datafile()``.

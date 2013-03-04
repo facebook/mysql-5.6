@@ -1,0 +1,24 @@
+=======================================
+|Percona| |XtraBackup| 1.9.2 (2.0 BETA)
+=======================================
+
+Percona is glad to announce the release of Percona XtraBackup 1.9.2 on 28th March 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/BETA/1.9.2/>`_. For this BETA release, we will not be making APT and YUM repositories available, just base deb and RPM packages.
+
+This is a *BETA* quality release and is not inteded for production. If you want a high quality, Generally Available release, you should use the current Stable version - currently 1.6.5 in the 1.6 series at the time of writing.
+
+The 1.9.x version numbers will be used to distinguish between pre-release versions of |Percona| |XtraBackup| 2.0 and the Generally Available final release.
+
+Package name has been changed from xtrabackup to full product name, **percona-xtrabackup**.
+
+Option --remote-host for |innobackupex| has been deprecated in favour of the --stream option and it will be removed in future versions. 
+
+This release contains all of the features and bug fixes in :doc:`Percona XtraBackup 1.9.1 </release-notes/2.0/1.9.1>`, plus the following:
+
+Bugs Fixed
+----------
+
+  * In MySQL 5.1.57 a new assertion was added as a part of the fix for `bug #59641 <http://bugs.mysql.com/bug.php?id=59641>`_. That assertion wasn't applicable when doing recovery with --apply-log-only option, and it was failing after successfully applying the log. Fix was implemented by bypassing that code. Fixed bug :bug:`938594` (*Alexey Kopytov*).
+
+  * In some cases if XtraBackup had discovered corruption it wouldn't say which file it is. Now it mentions the file name along with the error. Bug fixed :bug:`766033` (*Sergei Glushchenko*).
+ 
+  * Fixed *posix_fadvise* bug :bug:`925441` (*Alexey Kopytov*).

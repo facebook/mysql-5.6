@@ -1,0 +1,1486 @@
+.TH "XtraBackup" 1 "January 2011" "" "Percona Ireland Ltd"
+.SH "NAME"
+Percona XtraBackup
+.SH "DESCRIPTION"
+.P
+Percona XtraBackup is an open-source hot backup utility for MySQL that doesn't lock your database during the backup. It can back up data from InnoDB, XtraDB, and MyISAM tables on MySQL 5.0 and 5.1 servers, and it has many advanced features. Commercial support is available(http://www.percona.com/support/mysql-support-maintenance/).
+.P
+Percona XtraBackup is a combination of the xtrabackup C program, and the innobackupex Perl script. The xtrabackup program copies and manipulates InnoDB and XtraDB data files, and the Perl script enables enhanced functionality, such as interacting with a running MySQL server and backing up MyISAM tables. XtraBackup works with unmodified MySQL servers, as well as Percona Server with XtraDB. It runs on Linux, Windows, and FreeBSD. 
+.P
+Summary of features:
+
+.P
+.B
+Hot backups.
+Backups are online, and queries and transactions continue to run without interruption.
+.P
+.B
+Backs up MyISAM.
+MyISAM tables are read-only while they are being backed up.
+.P
+.B
+Partial backups.
+You can select which tables and databases to back up.
+.P
+.B
+High performance.
+XtraBackup is fast and low-impact. It takes special care not to disrupt your database server. It can copy files in parallel (in multiple threads) for even higher performance.
+.P
+.B
+Remote backups.
+You can make local backups, you can stream the backups to other programs, or you can securely copy your backups to a remote host after completion.
+.P
+.B
+Compressed backups.
+You can stream a backup into a compressed format. There is a companion program tar4ibd that understands how to work with InnoDB's data format.
+.P
+.B
+Incremental (delta) backups.
+You can back up only the data pages that have changed since the last backup.
+.P
+.B
+Point-in-time recovery.
+You can recover a backup, and then use binary logs to roll forward to a point in time.
+
+.SH " Percona XtraBackup User Manual "
+
+
+This page explains how to use Percona XtraBackup.  XtraBackup is really a set of three tools:
+
+.HP
+* 
+.B "xtrabackup"
+- a compiled C binary, which copies only InnoDB and XtraDB data
+.HP
+* 
+.B "innobackupex"
+- a wrapper script that provides functionality to backup a whole MySQL database instance with MyISAM, InnoDB, and XtraDB tables.
+.HP
+* 
+.B "tar4ibd"
+- tars InnoDB data safely.
+
+It is possible to use the 
+.B "xtrabackup"
+binary alone, or to use only the 
+.B "innobackupex"
+wrapper script and let it execute 
+.B "xtrabackup"
+for you.  It might be helpful to first learn how to use 
+.B "xtrabackup"
+, and then learn how to use 
+.B "innobackupex"
+for convenience and added functionality.
+
+.SS " How XtraBackup Works "
+
+
+XtraBackup is based on InnoDB's crash-recovery functionality.  It copies your InnoDB data files, which results in data that is internally inconsistent; but then it performs crash recovery on the files to make them a consistent, usable database again.
+
+This works because InnoDB maintains a 
+.I "redo log"
+, also called the transaction log.  This contains a record of every change to InnoDB's data.  When InnoDB starts, it inspects the data files and the transaction log, and performs two steps.  It applies committed transaction log entries to the data files, and it performs an undo operation on any transactions that modified data but did not commit.
+
+XtraBackup works by remembering the 
+.I "log sequence number"
+(LSN) when it starts, and then copying away the data files.  It takes some time to do this, so if the files are changing, then they reflect the state of the database at different points in time.  At the same time, XtraBackup runs a background process that watches the transaction log files, and copies changes from it.  XtraBackup needs to do this continually because the transaction logs are written in a round-robin fashion, and can be reused after a while.  XtraBackup needs the transaction log records for every change to the data files since it began execution.
+
+The above is the 
+.I "backup"
+process.  Next is the 
+.I "prepare"
+process.  During this step, XtraBackup performs crash recovery against the copied data files, using the copied transaction log file.  After this is done, the database is ready to restore and use.
+
+The above process is implemented in the 
+.B "xtrabackup"
+compiled binary program.  The 
+.B "innobackupex"
+program adds more convenience and functionality by also permitting you to back up MyISAM tables and .frm files.  It starts 
+.B "xtrabackup"
+, waits until it finishes copying files, and then issues 
+.B "FLUSH TABLES WITH READ LOCK"
+to prevent further changes to MySQL's data and flush all MyISAM tables to disk.  It holds this lock, copies the MyISAM files, and then releases the lock.
+
+The backed-up MyISAM and InnoDB tables will eventually be consistent with each other, because after the prepare (recovery) process, InnoDB's data is rolled forward to the point at which the backup completed, not rolled back to the point at which it started.  This point in time matches where the 
+.B "FLUSH TABLES WITH READ LOCK"
+was taken, so the MyISAM data and the prepared InnoDB data are in sync.
+
+The 
+.B "xtrabackup"
+and 
+.B "innobackupex"
+tools both offer many features not mentioned in the preceding explanation.  Each tool's functionality is explained in more detail on its manual page.  In brief, though, the tools permit you to do operations such as streaming and incremental backups with various combinations of copying the data files, copying the log files, and applying the logs to the data.
+
+.SH " The xtrabackup Binary "
+
+
+The 
+.B "xtrabackup"
+binary is a compiled C program that is linked with the InnoDB libraries and the standard MySQL client libraries.  The InnoDB libraries provide functionality necessary to apply a log to data files, and the MySQL client libraries provide command-line option parsing, configuration file parsing, and so on to give the binary a familiar look and feel.
+
+The next step is to 
+.B "--prepare"
+your backup so it is ready to restore.
+The 
+.B "xtrabackup"
+tool runs in either 
+.B "--backup"
+or 
+.B "--prepare"
+mode, corresponding to the two main functions it performs.  There are several variations on these functions to accomplish different tasks, and there are two less commonly used modes, 
+.B "--stats"
+and 
+.B "--print-param"
+.  There is no need to use any wrapper script with 
+.B "xtrabackup"
+if you don't want to.  It is quite easy to use by itself for most purposes.
+
+This manual section explains how to use xtrabackup in detail.
+.SH " Creating a Backup "
+
+
+To create a backup, run 
+.B "xtrabackup"
+with the 
+.B "--backup"
+option.  You also need to specify a 
+.B "--target_dir"
+option, which is where the backup will be stored, and a 
+.B "--datadir"
+option, which is where the MySQL data is stored.  If the InnoDB data or log files aren't stored in the same directory, you might need to specify the location of those, too.  If the target directory does not exist, 
+.B "xtrabackup"
+creates it.  If the directory does exist and is empty, 
+.B "xtrabackup"
+will succeed.  
+.B "xtrabackup"
+will not overwrite existing files, however; it will fail with operating system error 17, 'file exists.'
+
+The tool changes its working directory to the data directory and performs two primary tasks to complete the backup:
+
+  - It starts a log-copying thread in the background.  This thread watches the InnoDB log files, and when they change, it copies the changed blocks to a file called 
+.B "xtrabackup_logfile"
+in the backup target directory.  This is necessary because the backup might take a long time, and the recovery process needs all of the log file entries from the beginning to the end of the backup.
+  - It copies the InnoDB data files to the target directory.  This is not a simple file copy; it opens and reads the files similarly to the way InnoDB does, by reading the data dictionary and copying them a page at a time.
+
+When the data files are finished copying, xtrabackup stops the log-copying thread, and creates a files in the target directory called 
+.B "xtrabackup_checkpoints"
+, which contains the type of backup performed, the log sequence number at the beginning, and the log sequence number at the end.
+
+An example command to perform a backup follows:
+
+
+.nf
+
+xtrabackup --backup --datadir=/var/lib/mysql/ --target-dir=/data/backups/mysql/
+
+.fi
+
+This takes a backup of 
+.B "/var/lib/mysql"
+and stores it at 
+.B "/data/backups/mysql/"
+.  The 
+.B "--target-dir"
+option deserves special explanation.  Because the backup is performed from the data directory itself, 
+.B "the target directory is relative to the data directory"
+unless you specify an absolute path.  If you specify a relative path such as 
+.B "--target-dir=backups"
+, for example, don't look for the backup in the directory from which you executed xtrabackup -- it will be a subdirectory of the 
+.B "--datadir"
+directory instead!
+
+During the backup process, you should see a lot of output showing the data files being copied, as well as the log file thread repeatedly scanning the log files and copying from it.  The last thing you should see is something like the following, where the value of the <LSN> will be a number that depends on your system:
+
+
+.nf
+
+xtrabackup: Transaction log of lsn (<SLN>) to (<LSN>) was copied.
+
+.fi
+
+After the backup is finished, the target directory will contain files such as the following, assuming you have a single InnoDB table 
+.B "test.tbl1"
+and you are using 
+.B "innodb_file_per_table"
+:
+
+
+.nf
+
+/data/backups/mysql/ibdata1
+/data/backups/mysql/test
+/data/backups/mysql/test/tbl1.ibd
+/data/backups/mysql/xtrabackup_checkpoints
+/data/backups/mysql/xtrabackup_logfile
+
+.fi
+
+The backup can take a long time, depending on how large the database is.  It is safe to cancel at any time, because it does not modify the database.
+
+.SH " Preparing the Backup "
+
+
+After you make a backup with 
+.B "--backup"
+, the next step is to 
+.I "prepare"
+it. The data files are not point-in-time consistent until they've been prepared, because they were copied at different times as the program ran, and they might have been changed while this was happening.  If you try to start InnoDB with these data files, it will detect corruption and crash itself to prevent you from running on damaged data.  The prepare step makes the files perfectly consistent at a single instant in time, so you can run InnoDB on them.
+
+During the prepare operation, xtrabackup boots up a kind of modified InnoDB that's embedded inside it (the libraries it was linked against).  The modifications are necessary to disable InnoDB's standard safety checks, such as complaining that the log file isn't the right size, which aren't appropriate for working with backups.  These modifications are only for the xtrabackup binary; you don't need a modified InnoDB to use xtrabackup for your backups.
+
+The prepare step uses this "embedded InnoDB" to perform crash recovery on the copied datafiles, using the copied log file.  The prepare step is very simple to use: you simply run xtrabackup with the 
+.B "--prepare"
+option and tell it which directory to prepare, for example, to prepare the backup previously taken,
+
+
+.nf
+
+xtrabackup --prepare --target-dir=/data/backups/mysql/
+
+.fi
+
+When this finishes, you should see an "InnoDB shutdown" with a message such as the following, where again the value of <LSN> will depend on your system:
+
+
+.nf
+
+101107 16:40:15  InnoDB: Shutdown completed; log sequence number <LSN>
+
+.fi
+
+Your backup is now clean and consistent, and ready to 
+.B "restore"
+.  However, you might want to take an extra step to make restores as quick as possible.  This is to prepare the backup a second time.  The first time makes the data files perfectly self-consistent, but it doesn't create fresh InnoDB log files.  If you restore the backup at this point and start MySQL, it will have to create new log files, which could take a little while, and you might not want to wait for that.  If you run 
+.B "--prepare"
+a second time, xtrabackup will create the log files for you, and output status text such as the following, which is abbreviated for clarity.  The value of <SIZE> will depend on your MySQL configuration.
+
+
+.nf
+
+$ xtrabackup --prepare --target-dir=/data/backups/mysql/
+xtrabackup: This target seems to be already prepared.
+xtrabackup: notice: xtrabackup_logfile was already used to '--prepare'.
+101107 16:54:10  InnoDB: Log file ./ib_logfile0 did not exist: new to be created
+InnoDB: Setting log file ./ib_logfile0 size to <SIZE> MB
+InnoDB: Database physically writes the file full: wait...
+101107 16:54:10  InnoDB: Log file ./ib_logfile1 did not exist: new to be created
+InnoDB: Setting log file ./ib_logfile1 size to <SIZE> MB
+InnoDB: Database physically writes the file full: wait...
+101107 16:54:15  InnoDB: Shutdown completed; log sequence number 1284108
+
+.fi
+.SH " Restoring a Backup "
+
+
+The xtrabackup binary does not have any functionality for restoring a backup.  That is up to the user to do.  You might use 
+.B "rsync"
+or 
+.B "cp"
+to restore the files.  You should check that the restored files have the correct ownership and permissions.
+
+Note that xtrabackup backs up only the InnoDB data.  You must separately restore the MySQL system database, MyISAM data, table definition files (.frm files), and everything else necessary to make your database functional.
+
+.SH " How-To and Recipes "
+
+
+This page is a quick-reference list of recipes for the 
+.B "xtrabackup"
+tool.  It doesn't mention the 
+.B "innobackupex"
+tool; that is documented separately.
+
+In all of the below examples, we assume the following:
+
+.HP
+* You are backing up a server whose data is stored in 
+.B "/var/lib/mysql/"
+, which is the standard location for most distributions
+.HP
+* You are storing the backups in 
+.B "/data/backups/mysql"
+
+.HP
+* You have a 
+.B "my.cnf"
+file in a standard location, such as 
+.B "/etc/my.cnf"
+, with at least the following contents:
+.nf
+[mysqld]
+datadir=/var/lib/mysql/
+[xtrabackup]
+target_dir=/data/backups/mysql/
+
+.fi
+
+.SS " Making a Backup "
+
+
+Making the backup copies the InnoDB data and log files to the destination.  Preparing the backup makes the data files consistent and ready to use.
+
+.HP
+* Make a backup: 
+.nf
+xtrabackup --backup
+.fi
+.HP
+* Prepare the backup: 
+.nf
+xtrabackup --prepare
+.fi
+.HP
+* Prepare again, to create fresh InnoDB log files: 
+.nf
+xtrabackup --prepare
+.fi
+
+
+.B "Success Criterion"
+
+
+.HP
+* The exit status of 
+.B "xtrabackup"
+is 0.
+.HP
+* In the second 
+.B "--prepare"
+step, you should see InnoDB print messages similar to "Log file ./ib_logfile0 did not exist: new to be created", followed by a line indicating the log file was created.
+
+
+.B "Relevant Configuration"
+
+
+.HP
+* You might want to set the 
+.B "--use-memory"
+option to something similar to the size of your buffer pool, if you are on a dedicated server that has enough free memory.
+
+.SS " Making an Incremental Backup "
+
+
+Making an incremental backup requires a full backup as a base.
+
+.HP
+* Create a full backup as above, but do not run the 
+.B "--prepare"
+command yet
+.HP
+* Suppose the full backup is on Monday
+.HP
+* Create an incremental backup on Tuesday:
+.nf
+
+  xtrabackup --backup --target-dir=/data/backups/inc/tue/ \
+    --incremental-basedir=/data/backups/mysql/
+.fi
+.HP
+* Create an incremental backup on Wednesday:
+.nf
+
+  xtrabackup --backup --target-dir=/data/backups/inc/wed/ \
+    --incremental-basedir=/data/backups/inc/tue/
+.fi
+.HP
+* Prepare the base backup from Monday:
+.nf
+
+  xtrabackup --prepare --apply-log-only --target-dir=/data/backups/mysql/
+.fi
+.HP
+* Roll Monday's data forward to the state on Tuesday:
+.nf
+
+  xtrabackup --prepare --apply-log-only --target-dir=/data/backups/mysql/ \
+    --incremental-dir=/data/backups/inc/tue/
+.fi
+.HP
+* Roll forward again to the state on Wednesday:
+.nf
+
+  xtrabackup --prepare --apply-log-only --target-dir=/data/backups/mysql/ \
+    --incremental-dir=/data/backups/inc/wed/
+.fi
+.HP
+* Follow the steps for a normal backup to complete the preparation stage so the backup is ready to restore
+
+.SS " Restoring the Backup "
+
+
+Because 
+.B "xtrabackup"
+doesn't copy MyISAM files, .frm files, and the rest of the database, you might need to back those up separately.  To restore the InnoDB data, simply do something like the following after preparing:
+
+
+.nf
+
+cd /data/backups/mysql/
+rsync -rvt --exclude 'xtrabackup_checkpoints' --exclude 'xtrabackup_logfile' \
+  ./ /var/lib/mysql
+chown -R mysql:mysql /var/lib/mysql/
+
+.fi
+.SH " Limitations of xtrabackup "
+
+
+The xtrabackup binary has some limitations you should be aware of to ensure that your backups go smoothly and are recoverable.
+
+.HP
+* If the xtrabackup_logfile is larger than 4GB, the 
+.B "--prepare"
+step will fail on 32-bit versions of xtrabackup.  This limitation also applied to some older 64-bit versions of xtrabackup (
+.B FIXME
+what versions?).
+.HP
+* xtrabackup does not currently create new InnoDB log files (ib_logfile0, etc) during the initial 
+.B "--prepare"
+step.  You must prepare the backup a second time to do this, if you wish.
+.HP
+* xtrabackup copies only the InnoDB data and logs.  It does not copy table definition files (.frm files), MyISAM data, users, privileges, or any other portions of the overall database that lie outside of the InnoDB data.  To back up this data, you need a wrapper script such as 
+.B "innobackupex"
+.
+.HP
+* 
+.B "xtrabackup"
+doesn't understand the very old 
+.B "--set-variable"
+
+.B "my.cnf"
+syntax that MySQL uses.  See 
+.B "configuration"
+.
+.SH " Configuring xtrabackup "
+
+
+This page explains how to configure 
+.B "xtrabackup"
+and how to configure your system to support 
+.B "xtrabackup"
+correctly.
+
+.SS " Configuring xtrabackup "
+
+
+All of the 
+.B "xtrabackup"
+configuration is through options, which behave exactly like standard MySQL program options: they can be specified either at the command-line, or through a file such as /etc/my.cnf.
+
+The xtrabackup binary reads the [myslqd] and [xtrabackup] sections from any configuration files, in order.  That is so that it can read its options from your existing MySQL installation, such as the 
+.B "datadir"
+or some of the InnoDB options.  If you want to override these, just specify them in the [xtrabackup] section, and because it is read later, it will take precedence.
+
+You don't need to put any configuration in your my.cnf if you don't want to.  You can simply specify the options on the command-line.  Normally, the only thing you might find convenient to place in the [xtrabackup] section of your my.cnf file is the 
+.B "target_dir"
+option, for example,
+
+
+.nf
+
+[xtrabackup]
+target_dir = /data/backups/mysql/
+
+.fi
+
+This manual will assume that you 
+.B "do not"
+have any file-based configuration for 
+.B "xtrabackup"
+, so it will always show command-line options being used explicitly.  Please see the 
+.B "option and variable reference"
+for details on all of the configuration options.
+
+The 
+.B "xtrabackup"
+binary does not accept exactly the same syntax in the 
+.B "my.cnf"
+file as the 
+.B "mysqld"
+server binary does.  For historical reasons, the 
+.B "mysqld"
+server binary accepts parameters with a 
+.B "--set-variable=<variable>=<value>"
+syntax, which 
+.B "xtrabackup"
+does not understand.  If your 
+.B "my.cnf"
+file has such configuration directives, you should rewrite them in the 
+.B "--variable=value"
+syntax.
+
+.SS " System Configuration and NFS Volumes "
+
+
+The 
+.B "xtrabackup"
+tool requires no special configuration on most systems.  However, the storage where the 
+.B "--target-dir"
+is located must behave properly when 
+.B "fsync()"
+is called.  In particular, we have noticed that NFS volumes not mounted with the 
+.B "sync"
+option might not really sync the data.  As a result, if you back up to an NFS volume mounted with the 
+.B "async"
+option, and then try to prepare the backup from a different server that also mounts that volume, the data might appear to be corrupt.  You can use the 
+.B "noasync"
+mount option to avoid this problem.
+.SH " The xtrabackup Option Reference "
+
+
+This page documents all of the command-line options for the 
+.B "xtrabackup"
+binary.
+
+.SS " --print-defaults "
+
+
+Print the program argument list and exit.  Must be given as the first option on the command-line.
+
+.SS " --no-defaults "
+
+
+Don't read default options from any option file.  Must be given as the first option on the command-line.
+
+.SS " --defaults-file "
+
+
+Only read default options from the given file.  Must be given as the first option on the command-line.  Must be a real file; cannot be a symbolic link.
+
+.SS " --defaults-extra-file "
+
+
+Read this file after the global files are read.  Must be given as the first option on the command-line.
+
+.SS " --apply-log-only "
+
+
+This option causes only the redo stage to be performed when 
+.B "incremental backups"
+.
+
+.SS " --backup "
+
+
+Make a backup and place it in 
+.B "--target-dir"
+.  See 
+.B "creating a backup"
+.
+
+.SS " --create-ib-logfile "
+
+
+This option is not currently implemented.  To create the InnoDB log files, you must 
+.B "prepare the backup"
+twice at present.
+
+.SS " --datadir "
+
+
+The source directory for the backup.  This should be the same as the datadir for your MySQL server, so it should be read from 
+.B "my.cnf"
+if that exists; otherwise you must specify it on the command line.
+
+.SS " --export "
+
+
+Create files necessary for exporting tables.  See [[export and import]].
+
+.SS " --incremental-basedir "
+
+
+When creating an 
+.B "incremental backup"
+, this is the directory containing the full backup that is the base dataset for the incremental backups.
+
+.SS " --incremental-dir "
+
+
+When preparing an 
+.B "incremental backup"
+, this is the directory where the incremental backup is combined with the full backup to make a new full backup.
+
+.SS " --incremental-lsn "
+
+
+When creating an 
+.B "incremental backup"
+, you can specify the log sequence number (LSN) in high:low format as two 32-bit integers instead of specifying 
+.B "--incremental-basedir"
+.
+
+.SS " --innodb-miscellaneous "
+
+
+There is a large group of InnoDB options that are normally read from the 
+.B "my.cnf"
+configuration file, so that 
+.B "xtrabackup"
+boots up its embedded InnoDB in the same configuration as your current server.  You normally do not need to specify these explicitly.  These options have the same behavior that they have in InnoDB or XtraDB.  They are as follows:
+
+.HP
+* 
+.B "--innodb-adaptive-hash-index"
+
+.HP
+* 
+.B "--innodb-additional-mem-pool-size"
+
+.HP
+* 
+.B "--innodb-autoextend-increment"
+
+.HP
+* 
+.B "--innodb-buffer-pool-size"
+
+.HP
+* 
+.B "--innodb-checksums"
+
+.HP
+* 
+.B "--innodb-data-file-path"
+
+.HP
+* 
+.B "--innodb-data-home-dir"
+
+.HP
+* 
+.B "--innodb-doublewrite-file"
+
+.HP
+* 
+.B "--innodb-doublewrite"
+
+.HP
+* 
+.B "--innodb-extra-undoslots"
+
+.HP
+* 
+.B "--innodb-fast-checksum"
+
+.HP
+* 
+.B "--innodb-file-io-threads"
+
+.HP
+* 
+.B "--innodb-file-per-table"
+
+.HP
+* 
+.B "--innodb-flush-log-at-trx-commit"
+
+.HP
+* 
+.B "--innodb-flush-method"
+
+.HP
+* 
+.B "--innodb-force-recovery"
+
+.HP
+* 
+.B "--innodb-io-capacity"
+
+.HP
+* 
+.B "--innodb-lock-wait-timeout"
+
+.HP
+* 
+.B "--innodb-log-buffer-size"
+
+.HP
+* 
+.B "--innodb-log-files-in-group"
+
+.HP
+* 
+.B "--innodb-log-file-size"
+
+.HP
+* 
+.B "--innodb-log-group-home-dir"
+
+.HP
+* 
+.B "--innodb-max-dirty-pages-pct"
+
+.HP
+* 
+.B "--innodb-open-files"
+
+.HP
+* 
+.B "--innodb-page-size"
+
+.HP
+* 
+.B "--innodb-read-io-threads"
+
+.HP
+* 
+.B "--innodb-write-io-threads"
+
+
+.SS " --log-stream "
+
+
+Makes 
+.B "xtrabackup"
+not copy data files, and output the contents of the InnoDB log files to STDOUT until the 
+.B "--suspend-at-end"
+automatically.
+
+.SS " --prepare "
+
+
+Makes 
+.B "xtrabackup"
+perform recovery on a backup created with 
+.B "--backup"
+, so that it is ready to use.  See 
+.B "preparing a backup"
+.
+
+.SS " --print-param "
+
+
+Makes 
+.B "xtrabackup"
+print out parameters that can be used for copying the data files back to their original locations to restore them.  See 
+.B "scripting with xtrabackup"
+.
+
+.SS " --stats "
+
+
+Causes 
+.B "xtrabackup"
+to scan the specified data files and print out 
+.B "index statistics"
+.
+
+.SS " --suspend-at-end "
+
+
+Causes 
+.B "xtrabackup"
+to create a file called 
+.B "xtrabackup_suspended"
+in the 
+.B "scripting with xtrabackup"
+.
+
+.SS " --tables-file "
+
+
+A file containing one table name per line, in 
+.B "databasename.tablename"
+format.  The backup will be limited to the specified tables.  See 
+.B "partial backups"
+.
+
+.SS " --tables "
+
+
+A regular expression against which the full tablename, in 
+.B "databasename.tablename"
+format, is matched.  If the name matches, the table is backed up.  See 
+.B "partial backups"
+.
+
+.SS " --target-dir "
+
+
+This option specifies the destination directory for the backup.  If the directory does not exist, 
+.B "xtrabackup"
+creates it.  If the directory does exist and is empty, 
+.B "xtrabackup"
+will succeed.  
+.B "xtrabackup"
+will not overwrite existing files, however; it will fail with operating system error 17, 'file exists.'
+
+Note that for 
+.B "--prepare"
+, relative paths are interpreted as being relative to the current working directory.
+
+.SS " --throttle "
+
+
+This option limits 
+.B "throttling a backup"
+.
+
+.SS " --tmpdir "
+
+
+This option is currently not used for anything except printing out the correct 
+.B "tmpdir"
+parameter when 
+.B "--print-param"
+is used.
+
+.SS " --use-memory "
+
+
+This option affects how much memory is allocated for 
+.B "--stats"
+.  Its purpose is similar to 
+.B "innodb_buffer_pool_size"
+.  It does not do the same thing as the similarly named option in Oracle's InnoDB Hot Backup tool.  The default value is 100MB, and if you have enough available memory, 1GB to 2GB is a good recommended value.
+
+.SS " --parallel "
+
+
+This option specifies the number of threads to use to copy multiple data files concurrently when creating a backup. The default value is 1 (i.e., no concurrent transfer).
+
+Currently, the option only works for local backups.
+
+.SH " Exporting and Importing Tables "
+
+
+In standard InnoDB, it is not normally possible to copy tables between servers by copying the files, even with 
+.B "innodb_file_per_table"
+.  However, with the xtrabackup binary, you can export individual tables from any InnoDB database, and import them into Percona Server with XtraDB.  (The source doesn't have to be XtraDB, but the destination does.)  This functionality requires 
+.B "innodb_file_per_table"
+to be used on both servers, and requires 
+.B "innodb_expand_import"
+to be enabled on the destination server.  It only works on individual 
+.B ".ibd"
+files, and cannot export a table that is not contained in its own 
+.B ".ibd"
+file.
+
+Let's see how to export and import the following table:
+
+
+.nf
+
+CREATE TABLE export_test (
+  a int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+.fi
+
+.SS " Exporting the Table "
+
+
+This table should have been created in innodb_file_per_table mode, so after taking a backup as usual with 
+.B "--backup"
+, the 
+.B ".ibd"
+file should exist in the target directory:
+
+
+.nf
+
+$ find /data/backups/mysql/ -name export_test.*
+/data/backups/mysql/test/export_test.ibd
+
+.fi
+
+when you prepare the backup, add the extra parameter 
+.B "--export"
+to the command.  If you do not have 
+.B "innodb_file_per_table"
+in your my.cnf, you must add that to the command-line options.  Here is an example:
+
+
+.nf
+
+xtrabackup --prepare --export --innodb-file-per-table --target-dir=/data/backups/mysql/
+
+.fi
+
+Now you should see a 
+.B ".exp"
+file in the target directory:
+
+
+.nf
+
+$ find /data/backups/mysql/ -name export_test.*
+/data/backups/mysql/test/export_test.exp
+/data/backups/mysql/test/export_test.ibd
+
+.fi
+
+These two files are all you need to import the table into a server running Percona Server with XtraDB.
+
+.SS " Importing the Table "
+
+
+On the destination server running Percona Server with XtraDB, with 
+.B "innodb_expand_import"
+enabled, create a table with the same structure, and then perform the following steps:
+
+  - Execute 
+.B "ALTER TABLE test.export_test DISCARD TABLESPACE;"
+
+    - If you see the following message, then you must enable innodb_file_per_table and create the table again: "ERROR 1030 (HY000): Got error -1 from storage engine"
+  - Copy the exported files to the 
+.B "test/"
+subdirectory of the destination server's data directory
+  - Execute 
+.B "ALTER TABLE test.export_test IMPORT TABLESPACE;"
+
+
+The table should now be imported, and you should be able to SELECT from it and see the imported data.
+
+.SH " Incremental Backups "
+
+
+The 
+.B "xtrabackup"
+tool supports incremental backups, which means that it can copy only the data that has changed since the last full backup.  You can perform many incremental backups between each full backup, so you can set up a backup process such as a full backup once a week and an incremental backup every day, or full backups every day and incremental backups every hour.
+
+Incremental backups work because each InnoDB page (usually 16kb in size) contains a 
+.I "log sequence number"
+, or LSN.  The LSN is the system version number for the entire database.  Each page's LSN shows how recently it was changed.  An incremental backup copies each page whose LSN is newer than the previous incremental or full backup's LSN.
+
+Incremental backups do not actually compare the data files to the previous backup's data files.  In fact, you can use 
+.B "--incremental-lsn"
+to perform an incremental backup without even having the previous backup, if you know its LSN.  Incremental backups simply read the pages and compare their LSN to the last backup's LSN.  You still need a full backup to recover the incremental changes, however; without a full backup to act as a base, the incremental backups are useless.
+
+.SS " Creating an Incremental Backup "
+
+
+To make an incremental backup, begin with a full backup as usual.  The xtrabackup binary writes a file called xtrabackup_checkpoints into the backup's target directory.  This file contains a line showing the 
+.B "to_lsn"
+, which is the database's LSN at the end of the backup.  Create the full backup with a command such as the following:
+
+
+.nf
+
+xtrabackup --backup --target-dir=/data/backups/base --datadir=/var/lib/mysql/
+
+.fi
+
+
+.B "TIP:"
+If you want a 
+.B "usable"
+full backup, use innobackupex since xtrabackup itself won't copy table definitions, triggers, or anything else that's not .ibd.
+
+
+If you look at the xtrabackup_checkpoints file, you should see some contents similar to the following:
+
+
+.nf
+
+backup_type = full-backuped
+from_lsn = 0
+to_lsn = 1291135
+
+.fi
+
+Now that you have a full backup, you can make an incremental backup based on it.  Use a command such as the following:
+
+
+.nf
+
+xtrabackup --backup --target-dir=/data/backups/inc1 \
+  --incremental-basedir=/data/backups/base --datadir=/var/lib/mysql/
+
+.fi
+
+The 
+.B "/data/backups/inc1/"
+directory should now contain delta files, such as 
+.B "ibdata1.delta"
+and 
+.B "test/table1.ibd.delta"
+.  These represent the changes since the LSN 1291135.  If you examine the 
+.B "xtrabackup_checkpoints"
+file in this directory, you should see something similar to the following:
+
+
+.nf
+
+backup_type = incremental
+from_lsn = 1291135
+to_lsn = 1291340
+
+.fi
+
+The meaning should be self-evident.  It's now possible to use this directory as the base for yet another incremental backup:
+
+
+.nf
+
+xtrabackup --backup --target-dir=/data/backups/inc2 \
+  --incremental-basedir=/data/backups/inc1 --datadir=/var/lib/mysql/
+
+.fi
+
+.SS " Preparing the Backups "
+
+
+The 
+.B "--prepare"
+step for incremental backups is not the same as for normal backups.  In normal backups, two types of operations are performed to make the database consistent: committed transactions are replayed from the log file against the data files, and uncommitted transactions are rolled back.  For technical reasons, you must skip the rollback of uncommitted transactions when preparing a backup that will be used as the base for an incremental backup.  You should use the 
+.B "--apply-log-only"
+option to prevent the rollback phase.
+
+
+.B "WARNING:"
+If you do not use the 
+.B "--apply-log-only"
+option to prevent the rollback phase, then your incremental backups will be useless.  After transactions have been rolled back, further incremental backups cannot be applied.
+
+
+Beginning with the full backup you created, you can prepare it, and then apply the incremental differences to it.  Recall that you have the following backups:
+
+
+.nf
+
+/data/backups/base
+/data/backups/inc1
+/data/backups/inc2
+
+.fi
+
+To prepare the base backup, you need to run 
+.B "--prepare"
+as usual, but prevent the rollback phase:
+
+
+.nf
+
+xtrabackup --prepare --apply-log-only --target-dir=/data/backups/base
+
+.fi
+
+The output should end with some text such as the following:
+
+  101107 20:49:43  InnoDB: Shutdown completed; log sequence number 1291135
+
+The log sequence number should match the to_lsn of the base backup, which you saw previously.
+
+This backup is actually safe to restore as-is now, even though the rollback phase has been skipped.  If you restore it and start MySQL, InnoDB will detect that the rollback phase was not performed, and it will do that in the background, as it usually does for a crash recovery upon start.  It will notify you that the database was not shut down normally, but the recovery phase should be nearly instantaneous, because the redo log has already been applied to the data files.
+
+To apply the first incremental backup to the full backup, you should use the following command:
+
+
+.nf
+
+xtrabackup --prepare --apply-log-only --target-dir=/data/backups/base \
+  --incremental-dir=/data/backups/inc1
+
+.fi
+
+This applies the delta files to the files in /data/backups/base, which rolls them forward in time to the time of the incremental backup.  It then applies the redo log as usual to the result.  The final data is in /data/backups/base, 
+.B "not"
+in the incremental directory.  You should see some output such as the following:
+
+
+.nf
+
+incremental backup from 1291135 is enabled.
+xtrabackup: cd to /data/backups/base/
+xtrabackup: This target seems to be already prepared.
+xtrabackup: xtrabackup_logfile detected: size=2097152, start_lsn=(1291340)
+Applying /data/backups/inc1/ibdata1.delta ...
+Applying /data/backups/inc1/test/table1.ibd.delta ...
+.... snip
+101107 20:56:30  InnoDB: Shutdown completed; log sequence number 1291340
+
+.fi
+
+Again, the LSN should match what you saw from your earlier inspection of the first incremental backup.  If you restore the files from /data/backups/base, you should see the state of the database as of the first incremental backup.
+
+Preparing the second incremental backup is a similar process: apply the deltas to the (modified) base backup, and you will roll its data forward in time to the point of the second incremental backup:
+
+
+.nf
+
+xtrabackup --prepare --apply-log-only --target-dir=/data/backups/base \
+  --incremental-dir=/data/backups/inc2
+
+.fi
+
+If you wish to avoid the notice that InnoDB was not shut down normally, when you have applied the desired deltas to the base backup, you can run 
+.B "--prepare"
+again without disabling the rollback phase.
+.SH " Partial Backups "
+
+
+xtrabackup supports taking partial backups when 
+.B "innodb_file_per_table"
+is enabled.  There are two ways to create partial backups.
+
+For the purposes of this manual page, we will assume that there is a database named 'test' which contains tables named 't1' and 't2'.
+
+.SS " Using the --tables Option "
+
+
+The first method is with the 
+.B "--tables"
+option.  The option's value is a regular expression that is matched against the fully qualified tablename, including the database name, in the form 
+.B "databasename.tablename"
+.
+
+To back up only tables in the 'test' database, you can use the following command:
+
+  xtrabackup --backup --datadir=/var/lib/mysql --target-dir=/data/backups/ \
+    --tables="^test[.].*"
+
+To back up only the table 'test.t1', you can use the following command:
+
+  xtrabackup --backup --datadir=/var/lib/mysql --target-dir=/data/backups/ \
+    --tables="^test[.]t1"
+
+.SS " Using the --tables-file Option "
+
+
+The 
+.B "--tables-file"
+option specifies a file that can contain multiple table names, one table name per line in the file.  Only the tables named in the file will be backed up.  Names are matched exactly, case-sensitive, with no pattern or regular expression matching.  The table names must be fully qualified, in 
+.B "databasename.tablename"
+format.
+
+.SS " Preparing the Backup "
+
+
+When you use the 
+.B "--prepare"
+option on a partial backup, you will see warnings about tables that don't exist.  That is because these tables exist in the data dictionary inside InnoDB, but the corresponding 
+.B ".ibd"
+files don't exist.  They were not copied into the backup directory.  These tables will be removed from the data dictionary, and when you restore the backup and start InnoDB, they will no longer exist and will not cause any errors or warnings to be printed to the log file.
+
+An example of the error message you will see during the prepare phase follows.
+
+
+.nf
+
+InnoDB: Reading tablespace information from the .ibd files...
+101107 22:31:30  InnoDB: Error: table 'test1/t'
+InnoDB: in InnoDB data dictionary has tablespace id 6,
+InnoDB: but tablespace with that id or name does not exist. It will be removed from data dictionary.
+
+.fi
+
+.SH " Analyzing Table Statistics "
+
+
+The 
+.B "xtrabackup"
+binary can analyze InnoDB data files in read-only mode to give statistics about them.  To do this, you should use the 
+.B "--stats"
+option.  You can combine this with the 
+.B "--tables"
+option to limit the files to examine.  It also uses the 
+.B "--use-memory="
+option.
+
+You can perform the analysis on a running server, with some chance of errors due to the data being changed during analysis.  Or, you can analyze a backup copy of the database.  Either way, to use the statistics feature, you need a clean copy of the database including correctly sized log files, so you need to execute with 
+.B "--prepare"
+twice to use this functionality on a backup.
+
+The result of running on a backup might look like the following:
+
+
+.nf
+
+<INDEX STATISTICS>
+  table: test/table1, index: PRIMARY, space id: 12, root page 3
+  estimated statistics in dictionary:
+    key vals: 25265338, leaf pages 497839, size pages 498304
+  real statistics:
+     level 2 pages: pages=1, data=5395 bytes, data/pages=32%
+     level 1 pages: pages=415, data=6471907 bytes, data/pages=95%
+        leaf pages: recs=25958413, pages=497839, data=7492026403 bytes, data/pages=91%
+
+.fi
+
+This can be interpreted as follows:
+
+.HP
+* The first line simply shows the table and index name and its internal identifiers.  If you see an index named 
+.B "GEN_CLUST_INDEX"
+, that is the table's clustered index, automatically created because you did not explicitly create a PRIMARY KEY.
+.HP
+* The 
+.I "estimated statistics in dictionary"
+information is similar to the data that's gathered through 
+.B "ANALYZE TABLE"
+inside of InnoDB to be stored as estimated cardinality statistics and passed to the query optimizer
+.HP
+* The 
+.I "real statistics"
+information is the result of scanning the data pages and computing exact information about the index.
+.HP
+* The 
+.B "level <X> pages:"
+output means that the line shows information about pages at that level in the index tree.  The larger <X> is, the farther it is from the leaf pages, which are level 0.  The first line is the root page.
+.HP
+* The 
+.B "leaf pages"
+output shows the leaf pages, of course.  This is where the table's data is stored.
+.HP
+* The 
+.B "external pages:"
+output (not shown) shows large external pages that hold values too long to fit in the row itself, such as long BLOB and TEXT values.
+.HP
+* The 
+.I "recs"
+is the real number of records (rows) in leaf pages.
+.HP
+* The 
+.I "pages"
+is the page count.
+.HP
+* The 
+.I "data"
+is the total size of the data in the pages, in bytes.
+.HP
+* The 
+.I "data/pages"
+is calculated as (data / (pages * PAGE_SIZE)) * 100%.  It will never reach 100% because of space reserved for page headers and footers.
+
+
+.SH " Throttling Backups "
+
+
+Although 
+.B "xtrabackup"
+does not block your database's operation, any backup can add load to the system being backed up.  On systems that do not have much spare I/O capacity, it might be helpful to throttle the rate at which 
+.B "xtrabackup"
+reads and writes data.  You can do this with the 
+.B "--throttle"
+option.
+
+In 
+.B "--backup"
+mode, this option limits the number of pairs of read-and-write operations per second that 
+.B "xtrabackup"
+will perform.  If you are creating an 
+.B "incremental backup"
+, then the limit is the number of read IO operations per second.
+
+By default, there is no throttling, and 
+.B "xtrabackup"
+reads and writes data as quickly as it can.  If you set too strict of a limit on the I/O operations, the backup might be so slow that it will never catch up with the transaction logs that InnoDB is writing, so the backup might never complete.
+
+.SH " Working with Binary Logs "
+
+
+The 
+.B "xtrabackup"
+binary integrates with information that InnoDB stores in its transaction log about the corresponding binary log position for committed transactions.  This enables it to print out the binary log position to which a backup corresponds, so you can use it to set up new replication slaves or perform point-in-time recovery.
+
+.SS " Finding the Binary Log Position "
+
+
+You can find the binary log position corresponding to a backup performing the 
+.B "--prepare"
+process.  If your backup is from a server with binary logging enabled, 
+.B "xtrabackup"
+will create a file named 
+.B "xtrabackup_binlog_pos_innodb"
+in the target directory.  This file contains the binary log file name and position of the exact point in the binary log to which the prepared backup corresponds.
+
+You will also see output similar to the following during the prepare stage:
+
+
+.nf
+
+InnoDB: Last MySQL binlog file position 0 3252710, file name ./mysql-bin.000001
+... snip ...
+[notice (again)]
+  If you use binary log and don't use any hack of group commit,
+  the binary log position seems to be:
+InnoDB: Last MySQL binlog file position 0 3252710, file name ./mysql-bin.000001
+
+.fi
+
+The output should contain the same file name and position as the 
+.B "xtrabackup_binlog_pos_innodb"
+file.  The message about hacking group commit refers to an early implementation of emulated group commit in Percona Server.  
+.B FIXME
+is this still uncertain, or do we know that it works correctly now?
+
+.SS " Point-In-Time Recovery "
+
+
+To perform a point-in-time recovery from an 
+.B "xtrabackup"
+backup, you should prepare and restore the backup, and then replay binary logs from the point shown in the 
+.B "xtrabackup_binlog_pos_innodb"
+file.
+
+.SS " Setting Up a New Replication Slave "
+
+
+To set up a new replica, you should prepare the backup, and restore it to the data directory of your new replication slave.  Then in your 
+.B "CHANGE MASTER TO"
+command, use the binary log filename and position shown in the 
+.B "xtrabackup_binlog_pos_innodb"
+file to start replication.
+
+.SH " Scripting Backups With xtrabackup "
+
+
+The 
+.B "xtrabackup"
+tool has several features to enable scripts to control it while they perform related tasks.  The 
+.B "innobackupex"
+script is one example, but xtrabackup is easy to control with your own command-line scripts too.
+
+.SS " Suspending After Copying "
+
+
+In 
+.B "backup"
+mode, xtrabackup normally copies the log files in a background thread, copies the data files in a foreground thread, and then stops the log copying thread and finishes.  If you use the 
+.B "--suspend-at-end"
+option, instead of stopping the log thread and finishing, xtrabackup continues to copy the log files, and creates a file in the target directory called 
+.B "xtrabackup_suspended"
+.  As long as that file exists, 
+.B "xtrabackup"
+will continue to watch the log files and copy them into the 
+.B "xtrabackup_logfile"
+in the target directory.  When the file is removed, 
+.B "xtrabackup"
+will finish copying the log file and exit.
+
+This functionality is useful for coordinating the InnoDB data backups with other actions.  Perhaps the most obvious is copying the table definitions (the .frm files) so that the backup can be restored.  You can start 
+.B "xtrabackup"
+in the background, wait for the 
+.B "xtrabackup_suspended"
+file to be created, and then copy any other files you need to complete the backup.  This is exactly what the 
+.B "innobackupex"
+tool does (it also copies MyISAM data and other files).
+
+.SS " Generating Meta-Data "
+
+
+It is a good idea for the backup to include all the information you need to restore the backup.  The 
+.B "xtrabackup"
+tool can print out the contents of a 
+.B "my.cnf"
+file that are needed to restore the data and log files.  If you add the 
+.B "--print-param"
+option, it will print out something like the following:
+
+
+.nf
+
+# This MySQL options file was generated by XtraBackup.
+[mysqld]
+datadir = /data/mysql/
+innodb_data_home_dir = /data/innodb/
+innodb_data_file_path = ibdata1:10M:autoextend
+innodb_log_group_home_dir = /data/innodb-logs/
+
+.fi
+
+You can redirect this output into a file in the target directory of the backup.
+
+.SS " Agreeing on the Source Directory "
+
+
+It's possible that the presence of a defaults file or other factors could cause 
+.B "xtrabackup"
+to back up data from a different location than you expected.  To prevent this, you can use 
+.B "--print-param"
+to ask it where it will be copying data from.  You can use the output to ensure that 
+.B "xtrabackup"
+and your script are working on the same dataset.
+
+.SS " Log Streaming "
+
+
+You can instruct 
+.B "xtrabackup"
+to omit copying data files, and simply stream the log file to its standard output instead with 
+.B "--log-stream"
+.  This automatically adds the 
+.B "--suspend-at-end"
+option.  Your script can then perform tasks such as streaming remote backups by piping the log files into an SSH connection and copying the data files to another server with a tool such as 
+.B "rsync"
+or 
+.B "tar4ibd"
+.
+
+.SH " XtraBackup Exit Codes "
+
+
+The 
+.B "xtrabackup"
+binary exits with the traditional success value of 0 after a backup when no error occurs.  If an error occurs during the backup, the exit value is 1.
+
+In certain cases, the exit value can be something other than 0 or 1, due to the command-line option code included from the MySQL libraries.  An unknown command-line option, for example, will cause an exit code of 255.
+
+When an error happens in the 
+.B "main()"
+function of 
+.B "xtrabackup.c"
+, when 
+.B "xtrabackup"
+is preparing to perform the backup, the exit code is -1.  This is usually because of a missing or wrong command-line option, failure to open a file or directory that the user specified as a command-line option, or similar.  This behavior is changed in xtrabackup 1.4 and later, so it always returns 0 or 1.  (However, the MySQL libraries might still exit with a code of 255.)
+
+.SH " Implementation Details "
+
+
+This page contains notes on various internal aspects of the 
+.B "xtrabackup"
+tool's operation.
+
+.SS " File Permissions "
+
+
+
+.B "xtrabackup"
+opens the source data files in read-write mode, although it does not modify the files.  This means that you must run 
+.B "xtrabackup"
+as a user who has permission to write the data files.  The reason for opening the files in read-write mode is that 
+.B "xtrabackup"
+uses the embedded InnoDB libraries to open and read the files, and InnoDB opens them in read-write mode because it normally assumes it is going to write to them.
+
+.SS " Tuning the OS Buffers "
+
+
+Because 
+.B "xtrabackup"
+reads large amounts of data from the filesystem, it uses 
+.B "posix_fadvise()"
+where possible, to instruct the operating system not to try to cache the blocks it reads from disk.  Without this hint, the operating system would prefer to cache the blocks, assuming that 
+.B "xtrabackup"
+is likely to need them again, which is not the case.  Caching such large files can place pressure on the operating system's virtual memory and cause other processes, such as the database server, to be swapped out.  The 
+.B "xtrabackup"
+tool avoids this with the following hint on both the source and destination files:
+
+  posix_fadvise(file, 0, 0, POSIX_FADV_DONTNEED)
+
+In addition, 
+.B "xtrabackup"
+asks the operating system to perform more aggressive read-ahead optimizations on the source files:
+
+  posix_fadvise(file, 0, 0, POSIX_FADV_SEQUENTIAL)
+
+.SS " Copying Data Files "
+
+
+When copying the data files to the target directory, 
+.B "xtrabackup"
+reads and writes 1MB of data at a time.  This is not configurable.  When copying the log file, 
+.B "xtrabackup"
+reads and writes 512 bytes at a time.  This is also not possible to configure, and matches InnoDB's behavior.
+
+After reading from the files, 
+.B "xtrabackup"
+iterates over the 1MB buffer a page at a time, and checks for page corruption on each page with InnoDB's 
+.B "buf_page_is_corrupted()"
+function.  If the page is corrupt, it re-reads and retries up to 10 times for each page.  It skips this check on the doublewrite buffer.
+.SH "AUTHOR"
+Percona Ireland Ltd. http://www.percona.com/
+.SH "REPORTING BUGS"
+Report bugs to https://bugs.launchpad.net/percona-xtrabackup/+filebug
+.SH "LICENCE"
+GPL version 2
+

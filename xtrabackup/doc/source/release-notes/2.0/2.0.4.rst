@@ -1,0 +1,32 @@
+============================
+|Percona| |XtraBackup| 2.0.4
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 2.0.4 on December 3rd, 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-2.0.4/>`_ and :doc:`Percona Software Repositories </installation>`.
+
+This release is the current GA (Generally Available) stable release in the 2.0 series. 
+
+Bugs Fixed
+==========
+
+  * Bug fix for :bug:`932623` introduced the regression in |XtraBackup| 2.0.2 which caused incremental backups to fail because the init parameter values were not normalized to the values used inside |InnoDB|. Bug fixed :bug:`1062684` (*Sergei Glushchenko*).
+
+  * Bug fix for :bug:`932623` introduced the regression in |XtraBackup| 2.0.2 because it didn't take the separate doublewrite tablespace into an account. Bug fixed :bug:`1066843` (*Sergei Glushchenko*).
+
+  * |XtraBackup| was handling the separate doublewrite buffer file incorrectly. File path of the doublewrite buffer wasn't added to the :file:`backup-my.cnf` and after the restore old doublewrite buffer file was used instead of one made during the prepare stage.  Bug fixed :bug:`1068470` (*Sergei Glushchenko*).
+
+  * |XtraBackup| now accepts the :option:`--innodb=force` option, previously it would throw an error if the option was set. Bug fixed :bug:`528752` (*Laurynas Biveinis*).
+
+  * Option :option:`safe-slave-backup` wasn't working correctly. Bug fixed :bug:`887803` (*Alexey Kopytov*).
+
+  * In case ``safe-slave-backup-timeout`` was reached when using the :option:`safe-slave-backup` option, ``SQL_THREAD`` was left in stopped state causing the slave thread to lag behind. This was fixed by checking the initial ``SQL_THREAD`` state and starting it before terminating with a timeout error and starting the ``SQL_THREAD`` only if it was running initially. Bug fixed :bug:`1037379` (*Alexey Kopytov*).
+  
+  * |Xtrabackup| would fail on ``--apply-log`` when filesystem didn't support Linux AIO. Bug fixed :bug:`1065561` (*Alexey Kopytov*).
+
+  * |Xtrabackup| binary would ignore :option:`innodb_use_native_aio` when it's specified either in :file:`my.cnf` or as a command line option. Bug fixed :bug:`1068459` (*Alexey Kopytov*).
+
+  * |Xtrabackup| would print a warning message during the prepare stage about :option:`innodb_file_io_threads` being deprecated, even if the variable wasn't set. Bug fixed :bug:`1068485` (*Alexey Kopytov*).
+
+  * |Xtrabackup| Galera tests can now be run concurrently. Bug fixed :bug:`1077800` (*Stewart Smith*).
+
+
