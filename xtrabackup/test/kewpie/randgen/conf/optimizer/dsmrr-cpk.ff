@@ -1,0 +1,8 @@
+#
+# SergeyP: "Execution passes through the new code if the EXPLAIN has tables that have type=[eq_]ref, Extra has 'Using join buffer'"
+#
+
+$rules = {
+	'type'	=> sub { $_ !~ m{ref}so },
+	'extra'	=> sub { $_ !~ m{Using join buffer}so },
+};
