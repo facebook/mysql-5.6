@@ -1,0 +1,8 @@
+thread5:
+	sleep | flush ;
+
+sleep:
+	SLEEP( _digit * _digit );
+
+flush:
+	FLUSH LOGS ;

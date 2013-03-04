@@ -1,0 +1,16 @@
+Unit tests for RQG.
+
+Required perl modules: Test::Unit
+
+Following environment variables are used:
+RQG_MYSQL_BASE: Points to the MySQL basedir
+TEST_PORTBASE: Set to a portnumber if you don't want the default ports
+RQG_OTHER_GRAMMAR_DIR: Points to grammar directories outside RQG tree
+
+Run like this:
+
+unit/unit.pl unit/<testcase>.pm
+
+or, to run all tests:
+
+unit/unit.pl unit/Suite.pm
