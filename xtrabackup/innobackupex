@@ -1,0 +1,3075 @@
+#!/usr/bin/env perl
+#
+# A script for making backups of InnoDB and MyISAM tables, indexes and .frm
+# files.
+#
+# Copyright 2003, 2009 Innobase Oy and Percona Ireland Ltd 2009-2012.
+# All Rights Reserved.
+#
+
+use strict;
+use Getopt::Long;
+use File::Spec;
+use Pod::Usage qw(pod2usage);
+use POSIX "strftime";
+use POSIX ":sys_wait_h";
+use FileHandle;
+use File::Basename;
+use File::Temp;
+use File::Find;
+use File::Copy;
+use English qw(-no_match_vars);
+use Time::HiRes qw(usleep);
+
+# version of this script
+my $innobackup_version = '1.5.1-xtrabackup';
+my $innobackup_script = basename($0);
+
+# copyright notice
+my $copyright_notice =
+"InnoDB Backup Utility v${innobackup_version}; Copyright 2003, 2009 Innobase Oy
+and Percona Ireland Ltd 2009-2012.  All Rights Reserved.
+
+This software is published under
+the GNU GENERAL PUBLIC LICENSE Version 2, June 1991.
+
+";
+
+# required Perl version (5.005)
+my @required_perl_version = (5, 0, 5);
+my $required_perl_version_old_style = 5.005;
+
+# force flush after every write and print
+$| = 1;
+
+# disable nlink count optimization, see File::Find documentation for details
+$File::Find::dont_use_nlink=1;
+
+######################################################################
+# modifiable parameters
+######################################################################
+
+# maximum number of files in a database directory which are
+# separately printed when a backup is made
+my $backup_file_print_limit = 9;
+
+# timeout in seconds for a reply from mysql
+my $mysql_response_timeout = 900;
+
+# default compression level (this is an argument to ibbackup)
+my $default_compression_level = 1;
+
+# time in seconds after which a dummy query is sent to mysql server
+# in order to keep the database connection alive
+my $mysql_keep_alive = 5;
+
+######################################################################
+# end of modifiable parameters
+######################################################################
+
+
+# command line options
+my $option_help = '';
+my $option_version = '';
+my $option_apply_log = '';
+my $option_redo_only = '';
+my $option_copy_back = '';
+my $option_move_back = '';
+my $option_include = '';
+my $option_databases = '';
+my $option_tables_file = '';
+my $option_throttle = '';
+my $option_sleep = '';
+my $option_compress = 999;
+my $option_compress_threads = 1;
+my $option_uncompress = '';
+my $option_export = '';
+my $option_use_memory = '';
+my $option_mysql_password = '';
+my $option_mysql_user = '';
+my $option_mysql_port = '';
+my $option_mysql_socket = '';
+my $option_mysql_host = '';
+my $option_defaults_group = 'mysqld';
+my $option_no_timestamp = '';
+my $option_slave_info = '';
+my $option_galera_info = '';
+my $option_no_lock = '';
+my $option_ibbackup_binary = 'autodetect';
+
+my $option_defaults_file = '';
+my $option_defaults_extra_file = '';
+my $option_incremental = '';
+my $option_incremental_basedir = '';
+my $option_incremental_dir = '';
+my $option_incremental_lsn = '';
+my $option_extra_lsndir = '';
+my $option_remote_host = '';
+my $option_rsync = '';
+my $option_stream = '';
+my $stream_cmd = '';
+my $option_tmpdir = '';
+
+my $option_tar4ibd = '';
+my $option_scp_opt = '-Cp -c arcfour';
+my $option_ssh_opt = '';
+
+my $option_parallel = '';
+
+my $option_safe_slave_backup = '';
+my $option_safe_slave_backup_timeout = 300;
+
+# name of the my.cnf configuration file
+#my $config_file = '';
+
+# root of the backup directory
+my $backup_root = '';
+
+# backup directory pathname
+my $backup_dir = '';
+
+# name of the ibbackup suspend-at-end file
+my $suspend_file = '';
+
+# name of the temporary transaction log file during the backup
+my $tmp_logfile = '';
+
+# home directory of innoDB log files
+my $innodb_log_group_home_dir = '';
+
+# backup my.cnf file
+my $backup_config_file = '';
+
+# whether slave SQL thread is running when wait_for_safe_slave() is called
+my $sql_thread_started = 0;
+
+# options from the options file
+my %config;
+
+# options from the backup options file
+#my %backup_config;
+
+# list of databases to be included in a backup
+my %databases_list;
+
+# list of tables to be included in a backup
+my %table_list;
+
+# prefix for output lines
+my $prefix = "$innobackup_script:";
+
+# process id of mysql client program (runs as a child process of this script)
+my $mysql_pid = '';
+
+# mysql server version string
+my $mysql_server_version = '';
+
+# name of the file where stderr of mysql process is directed
+my $mysql_stderr_fh = File::Temp->new();
+my $mysql_stderr = $mysql_stderr_fh->filename;
+
+# name of the file where stdout of mysql process is directed
+my $mysql_stdout_fh = File::Temp->new();
+my $mysql_stdout = $mysql_stdout_fh->filename;
+
+# name of the file where binlog position info is written
+my $binlog_info;
+
+# name of the file where galera position info is written
+my $galera_info;
+
+# name of the file where slave info is written
+my $slave_info;
+
+# mysql binlog position as given by "SHOW MASTER STATUS" command
+my $mysql_binlog_position = '';
+
+# mysql master's binlog position as given by "SHOW SLAVE STATUS" command
+# run on a slave server
+my $mysql_slave_position = '';
+
+# process id of ibbackup program (runs as a child process of this script)
+my $ibbackup_pid = '';
+
+# a counter for numbering mysql connection checks
+my $hello_id = 0;
+
+# the request which has been sent to mysqld, but to which
+# mysqld has not yet replied. Empty string denotes that no
+# request has been sent to mysqld or that mysqld has replied
+# to all requests.
+my $current_mysql_request = '';
+
+# escape sequences for options files
+my %option_value_escapes = ('b' => "\b",
+                            't' => "\t",
+                            'n' => "\n",
+                            'r' => "\r",
+                            "\\" => "\\",
+                            's' => ' ');
+
+# signal that is sent to child processes when they are killed
+my $kill_signal = 15;
+
+# current local time
+my $now;
+
+# incremental backup base directory
+my $incremental_basedir = '';
+
+my $src_name;
+my $dst_name;
+my $win = ($^O eq 'MSWin32' ? 1 : 0);
+my $CP_CMD = ($win eq 1 ? "copy /Y" : "cp -p");
+my $xtrabackup_binary_file = 'xtrabackup_binary';
+my $xtrabackup_pid_file = 'xtrabackup_pid';
+my %rsync_files_hash;
+
+my $copy_dir_src;
+my $copy_dir_dst;
+my $copy_dir_exclude_regexp;
+my $copy_dir_overwrite;
+
+######################################################################
+# program execution begins here
+######################################################################
+
+# check command-line args
+check_args();
+
+# print program version and copyright
+print_version();
+
+# initialize global variables and perform some checks
+if ($option_copy_back || $option_move_back) {
+    $option_ibbackup_binary = 'xtrabackup' if ($option_ibbackup_binary eq 'autodetect');
+} elsif ($option_apply_log) {
+	# Read XtraBackup version from backup dir
+	if (-e "$backup_dir/$xtrabackup_binary_file") {
+		# Read XtraBackup version from file
+		open XTRABACKUP_BINARY, "$backup_dir/$xtrabackup_binary_file"
+			or die "Cannot open file $backup_dir/$xtrabackup_binary_file: $!\n";
+		$option_ibbackup_binary = <XTRABACKUP_BINARY>;
+		close XTRABACKUP_BINARY;
+		}
+
+	else {
+		if( $option_ibbackup_binary eq "autodetect" ){
+			# Try to connect MySQL and get the version
+			print STDERR "option_ibbackup_binary is autodetect, trying to connect to MySQL\n";
+			my $options = get_mysql_options();
+			$mysql_pid = open(*MYSQL_WRITER, "| mysql $options >$mysql_stdout 2>$mysql_stderr ");
+			print STDERR "Connected to MySQL with pid $mysql_pid\n";
+			sleep 1;
+			if ($mysql_pid && $mysql_pid == waitpid($mysql_pid, &WNOHANG)) {
+				my $reason = `cat $mysql_stderr`;
+				$mysql_pid = '';
+				# Failed to connect to MySQL
+				die "Failed to connect to MySQL server to detect version.\nYou must set xtrabackup version to use with --ibbackup option.\nPossible values are xtrabackup_51 (for MySQL 5.0 and 5.1), xtrabackup_55 (for MySQL 5.5) or xtrabackup (for MySQL 5.1 with InnoDB plugin or Percona Server)\n";
+				}
+			else{
+				mysql_close();
+				print STDERR "Connected successfully\n";
+				$option_ibbackup_binary = set_xtrabackup_version();
+				}
+			}
+		}
+} elsif ($option_ibbackup_binary eq 'autodetect') {
+    $option_ibbackup_binary = set_xtrabackup_version();
+}
+init();
+
+my $ibbackup_exit_code = 0;
+
+if ($option_copy_back) {
+    # copy files from backup directory back to their original locations
+    copy_back(0);
+} elsif ($option_move_back) {
+    # move files from backup directory back to their original locations
+    copy_back(1);
+} elsif ($option_apply_log) {
+    # expand data files in backup directory by applying log files to them
+    apply_log();
+} else {
+    # make a backup of InnoDB and MyISAM tables, indexes and .frm files.
+    $ibbackup_exit_code = backup();
+    if ($option_remote_host) {
+      open(XTRABACKUP_BINARY,
+	   "| ssh $option_ssh_opt $option_remote_host 'cat > $backup_dir/$xtrabackup_binary_file'")
+	|| die "Failed to open file '$option_remote_host:$backup_dir/$xtrabackup_binary_file': $!";
+    } elsif ($option_stream) {
+      open XTRABACKUP_BINARY, "> $option_tmpdir/$xtrabackup_binary_file"
+    	|| die "Cannot open file $option_tmpdir/$xtrabackup_binary_file: $!\n";
+    } else {
+      open XTRABACKUP_BINARY, "> $backup_dir/$xtrabackup_binary_file"
+    	|| die "Cannot open file $backup_dir/$xtrabackup_binary_file: $!\n";
+    }
+    print XTRABACKUP_BINARY $option_ibbackup_binary;
+    close XTRABACKUP_BINARY;
+
+    if ($option_stream) {
+      system("cd $option_tmpdir; $stream_cmd $xtrabackup_binary_file")
+	&& die "Failed to stream $xtrabackup_binary_file: $!";
+      unlink "$option_tmpdir/$xtrabackup_binary_file";
+    }
+}
+
+$now = current_time();
+
+if ($option_stream eq 'tar') {
+   print STDERR "$prefix You must use -i (--ignore-zeros) option for extraction of the tar stream.\n";
+}
+
+if ( $ibbackup_exit_code == 0 ) {
+   # program has completed successfully
+   print STDERR "$now  $prefix completed OK!\n";
+}
+else {
+   print STDERR "$now  $prefix $option_ibbackup_binary failed! (exit code $ibbackup_exit_code)  The backup may not be complete.\n";
+}
+
+exit $ibbackup_exit_code;
+
+######################################################################
+# end of program execution
+######################################################################
+
+
+#
+# print_version subroutine prints program version and copyright.
+#
+sub print_version {
+    printf(STDERR $copyright_notice);
+}
+
+
+#
+# usage subroutine prints instructions of how to use this program to stdout.
+#
+sub usage {
+   my $msg = shift || '';
+   pod2usage({ -msg => $msg, -verbose => 1});
+   return 0;
+}
+
+
+#
+# return current local time as string in form "070816 12:23:15"
+#
+sub current_time {
+    return strftime("%y%m%d %H:%M:%S", localtime());
+}
+
+
+#
+# Die subroutine kills all child processes and exits this process.
+# This subroutine takes the same argument as the built-in die function.
+#    Parameters:
+#       message   string which is printed to stdout
+#
+sub Die {
+    my $message = shift;
+    my $extra_info = '';
+
+    # kill all child processes of this process
+    kill_child_processes();
+
+    if ($current_mysql_request) {
+        $extra_info = " while waiting for reply to MySQL request:" .
+            " '$current_mysql_request'";
+    }
+    die "$prefix Error: $message$extra_info";
+}
+    
+
+#
+# backup subroutine makes a backup of InnoDB and MyISAM tables, indexes and 
+# .frm files. It connects to the database server and runs ibbackup as a child
+# process.
+#
+sub backup {
+    my $orig_datadir = get_option(\%config, $option_defaults_group, 'datadir');
+
+    # check that we can connect to the database. This done by
+    # connecting, issuing a query, and closing the connection.
+    mysql_open();
+    mysql_close();
+
+    # start ibbackup as a child process
+    start_ibbackup();
+
+    # wait for ibbackup to suspend itself
+    if (!$option_remote_host) {
+        wait_for_ibbackup_suspend();
+    }
+
+    # connect to database
+    mysql_open();
+
+    if ($option_safe_slave_backup) {
+      wait_for_safe_slave();
+    }
+
+    # flush tables with read lock
+    if (!$option_no_lock) {
+        # make a prep copy before locking tables, if using rsync
+        backup_files(1);
+
+        # flush tables with read lock
+        mysql_lockall();
+    }
+
+    if ($option_slave_info) {
+        write_slave_info();
+    }
+
+
+    # backup non-InnoDB files and tables
+    # (or finalize the backup by syncing changes if using rsync)
+    backup_files(0);
+
+    # resume ibbackup and wait till log copying is finished
+    resume_ibbackup();
+
+    # release read locks on all tables
+    mysql_unlockall() if !$option_no_lock;
+
+    my $ibbackup_exit_code = wait_for_ibbackup_finish();
+
+    if ( $option_safe_slave_backup && $sql_thread_started) {
+      print STDERR "$prefix: Starting slave SQL thread\n";
+      mysql_send('START SLAVE SQL_THREAD;');
+    }
+
+    # Close the DB connection
+    mysql_close();
+
+    # copy ib_lru_dump
+    if (-e "$orig_datadir/ib_lru_dump") {
+        if ($option_remote_host) {
+            print STDERR "$prefix Backing up file 'ib_lru_dump'\n";
+            system("scp $option_scp_opt '$orig_datadir/ib_lru_dump' '$option_remote_host:$backup_dir/ib_lru_dump'")
+                and Die "Failed to scp file 'ib_lru_dump': $!";
+        } elsif ($option_stream) {
+            print STDERR "$prefix Backing up as tar stream 'ib_lru_dump'\n";
+            system("cd $orig_datadir; $stream_cmd ib_lru_dump")
+                and Die "Failed to stream 'ib_lru_dump': $!";
+        } elsif (!$option_rsync) {
+            my $src_name = escape_path("$orig_datadir/ib_lru_dump");
+            my $dst_name = escape_path("$backup_dir/ib_lru_dump");
+            system("$CP_CMD \"$src_name\" \"$dst_name\"")
+                and Die "Failed to copy file 'ib_lru_dump': $!";
+        }
+    }
+
+    if ($option_remote_host) {
+        system("scp $option_scp_opt '$tmp_logfile' '$option_remote_host:$backup_dir/xtrabackup_logfile'")
+            and Die "Failed to scp file '$option_remote_host:$backup_dir/xtrabackup_logfile': $!";
+        unlink $tmp_logfile || Die "Failed to delete '$tmp_logfile': $!";
+
+        system("scp $option_scp_opt '$option_tmpdir/xtrabackup_checkpoints' '$option_remote_host:$backup_dir/xtrabackup_checkpoints'")
+            and Die "Failed to scp file '$option_remote_host:$backup_dir/xtrabackup_checkpoints': $!";
+        unlink "$option_tmpdir/xtrabackup_checkpoints" || Die "Failed to delete '$option_tmpdir/xtrabackup_checkpoints': $!";
+    }
+
+    print STDERR "\n$prefix Backup created in directory '$backup_dir'\n";
+    if ($mysql_binlog_position) {
+        print STDERR "$prefix MySQL binlog position: $mysql_binlog_position\n";
+    }
+    if ($mysql_slave_position && $option_slave_info) {
+        print STDERR "$prefix MySQL slave binlog position: $mysql_slave_position\n";
+    }
+
+    return $ibbackup_exit_code;
+}
+
+
+#
+# are_equal_innodb_data_file_paths subroutine checks if the given
+# InnoDB data file option values are equal.
+#   Parameters:
+#     str1    InnoDB data file path option value
+#     str2    InnoDB data file path option value
+#   Return value:
+#     1  if values are equal
+#     0  otherwise
+#
+sub are_equal_innodb_data_file_paths {
+    my $str1 = shift;
+    my $str2 = shift;
+    my @array1 = split(/;/, $str1);
+    my @array2 = split(/;/, $str2);
+    
+    if ($#array1 != $#array2) { return 0; }
+
+    for (my $i = 0; $i <= $#array1; $i++) {
+        my @def1 = split(/:/, $array1[$i]);
+        my @def2 = split(/:/, $array2[$i]);
+        
+        if ($#def1 != $#def2) { return 0; }
+
+        for (my $j = 0; $j <= $#def1; $j++) {
+            if ($def1[$j] ne $def2[$j]) { return 0; }
+        }
+    }
+    return 1;
+}        
+
+
+#
+# copy_if_exists subroutin attempt to copy a file from $src to $dst
+# If the copy fails due to the file not existing, the error is ignored
+#  Parameters:
+#    $src    The source file to copy
+#    $dst    The destination to copy to
+#  Return value:
+#    1  if copy was successful, or unsuccessful but the source file didn't exist
+#    0  otherwise
+#
+sub copy_if_exists {
+    my $src = shift;
+    my $dst = shift;
+
+    # Copy the file
+    if( system("$CP_CMD \"$src\" \"$dst\"") != 0 ) {
+        # if the copy failed, check if the file exists
+        if( -e "$src" ) {
+            # if the file exists, we had a real error
+            return 0;
+        }
+    }
+    # Success otherwise
+    return 1;
+}
+
+
+#
+# is_in_array subroutine checks if the given string is in the array.
+#   Parameters:
+#     str       a string
+#     array_ref a reference to an array of strings
+#   Return value:
+#     1  if string is in the array
+#     0  otherwise
+# 
+sub is_in_array {
+    my $str = shift;
+    my $array_ref = shift;
+
+    if (grep { $str eq $_ } @{$array_ref}) {
+        return 1;
+    }
+    return 0;
+}
+
+#
+# if_directory_exists_and_empty accepts two arguments:
+# variable with directory name and comment.
+# Sub checks that directory exists and is empty
+# usage: is_directory_exists_and_empty($directory,"Comment");
+#
+
+sub if_directory_exists_and_empty {
+    my $empty_dir = shift;
+    my $is_directory_empty_comment = shift;
+    if (! -d $empty_dir) {
+        die "$is_directory_empty_comment directory '$empty_dir' does not exist!";
+    }
+    opendir (my $dh, $empty_dir) or die "$is_directory_empty_comment directory '$empty_dir': Not a directory";
+    if ( ! scalar( grep { $_ ne "." && $_ ne ".." && $_ ne "my.cnf" && $_ ne "master.info"} readdir($dh)) == 0) {
+        die "$is_directory_empty_comment directory '$empty_dir' is not empty!";
+    }
+    closedir($dh);
+}
+
+#
+# copy() wrapper with error handling
+#
+sub copy_file {
+    my $src_path = shift;
+    my $dst_path = shift;
+
+    print STDERR "$prefix Copying '$src_path' to '$dst_path'\n";
+    copy($src_path, $dst_path) or Die "copy failed: $!";
+}
+
+#
+# move() wrapper with error handling
+#
+sub move_file {
+    my $src_path = shift;
+    my $dst_path = shift;
+
+    print STDERR "$prefix Moving '$src_path' to '$dst_path'\n";
+    move($src_path, $dst_path) or Die "move failed: $!";
+}
+
+
+#
+# Auxiliary function called from find() callbacks to copy or move files and create directories
+# when necessary.
+#
+# SYNOPSIS
+#
+#     process_file(\&process_func);
+#
+#       &process_func is a code reference that does the actual file operation
+#
+sub process_file {
+    my $process_func = shift;
+
+    if (/$copy_dir_exclude_regexp/) {
+	return;
+    }
+    (my $dst_path = $File::Find::name) =~ s/^$copy_dir_src/$copy_dir_dst/;
+    if (-d "$File::Find::name") {
+	# Create the directory in the destination if necessary
+	if (! -e "$dst_path") {
+	    print STDERR "$prefix Creating directory '$dst_path'\n";
+	    mkdir "$dst_path" or Die "mkdir failed: $!";
+	} elsif (! -d "$dst_path") {
+	    Die "$dst_path exists, but is not a directory";
+	}
+    } else {
+	# Don't overwrite files unless $copy_dir_overwrite is 1
+	if (!$copy_dir_overwrite && -e "$copy_dir_dst/$_") {
+	    Die "Failed to process file $File::Find::name: " .
+		"not overwriting file $copy_dir_dst/$_";
+	}
+
+	&$process_func($File::Find::name, $dst_path);
+    }
+}
+
+#
+# find() callback to copy files
+#
+sub copy_file_callback {
+    process_file(\&copy_file);
+}
+
+#
+# find() callback to move files
+#
+sub move_file_callback {
+    process_file(\&move_file);
+}
+
+#
+# copy_dir_recursively subroutine does a recursive copy of a specified
+# directory excluding files matching a specifies regexp. If $overwrite
+# is 1, it overwrites the existing files.
+#
+# SYNOPSIS 
+#
+#     copy_dir_recursively($src_dir, $dst_dir, $exclude_regexp,
+#                          $overwrite);
+#
+# TODO
+#
+#     use rsync when --rsync is specified
+#
+sub copy_dir_recursively {
+    # Clean paths and remove trailing slashes if any
+    $copy_dir_src = File::Spec->canonpath(shift);
+    $copy_dir_dst = File::Spec->canonpath(shift);
+    $copy_dir_exclude_regexp = shift;
+    $copy_dir_overwrite = shift;
+
+    find(\&copy_file_callback, $copy_dir_src);
+}
+
+#
+# Similar to copy_dir_recursively, but moves files instead.
+#
+# SYNOPSIS
+#
+#     move_dir_recursively($src_dir, $dst_dir, $exclude_regexp,
+#                          $overwrite);
+#
+# TODO
+#
+#     use rsync when --rsync is specified
+#
+sub move_dir_recursively {
+    # Clean paths and remove trailing slashes if any
+    $copy_dir_src = File::Spec->canonpath(shift);
+    $copy_dir_dst = File::Spec->canonpath(shift);
+    $copy_dir_exclude_regexp = shift;
+    $copy_dir_overwrite = shift;
+
+    find(\&move_file_callback, $copy_dir_src);
+}
+
+#
+# copy_back subroutine copies data and index files from backup directory 
+# back to their original locations.
+#
+sub copy_back {
+    my $move_flag = shift;
+    my $orig_datadir = get_option(\%config, $option_defaults_group, 'datadir');
+    my $orig_ibdata_dir = 
+        get_option(\%config, $option_defaults_group, 'innodb_data_home_dir');
+    my $orig_innodb_data_file_path = 
+        get_option(\%config, $option_defaults_group, 'innodb_data_file_path');
+    my $orig_iblog_dir =
+        get_option(\%config, $option_defaults_group, 'innodb_log_group_home_dir');
+    my $iblog_files = 'ib_logfile.*';
+    my $excluded_files = 
+        '\.\.?|backup-my\.cnf|xtrabackup_logfile|' .
+	'xtrabackup_binary|xtrabackup_binlog_info|xtrabackup_checkpoints|' .
+        '.*\.qp|' .
+	$iblog_files;
+    my $compressed_data_file = '.*\.ibz$';
+    my $file;
+    my $backup_innodb_data_file_path;
+
+    if (has_option(\%config, $option_defaults_group, 'innodb_doublewrite_file')) {
+        my $doublewrite_file =
+                get_option(\%config, $option_defaults_group,
+                            'innodb_doublewrite_file');
+        $excluded_files = $excluded_files . '|' . $doublewrite_file;
+    }
+
+    # check whether files should be copied or moved to dest directory
+    my $move_or_copy_file = $move_flag ? \&move_file : \&copy_file;
+    my $move_or_copy_dir = $move_flag ?
+        \&move_dir_recursively : \&copy_dir_recursively;
+    my $operation = $move_flag ? "move" : "copy";
+
+
+    # check that original data directories exist and they are empty
+    if_directory_exists_and_empty($orig_datadir, "Original data");
+    if_directory_exists_and_empty($orig_ibdata_dir, "Original InnoDB data");
+    if_directory_exists_and_empty($orig_iblog_dir, "Original InnoDB log");
+
+    # check that the original options file and the backup options file have
+    # the same value for "innodb_data_file_path" option
+    #$backup_innodb_data_file_path = 
+    #    get_option(\%backup_config, 'mysqld', 'innodb_data_file_path');
+    #if (!are_equal_innodb_data_file_paths($orig_innodb_data_file_path, 
+    #                                      $backup_innodb_data_file_path)
+    #) {
+    #    Die "The value of 'innodb_data_file_path' option in the original "
+    #      . "my.cnf file '$config_file' is different from the value "
+    #      . "in the backup my.cnf file '$backup_config_file'.\n(original: "
+    #      . "'$orig_innodb_data_file_path')\n"
+    #      . "(backup:   '$backup_innodb_data_file_path')";
+    #}
+
+    # make a list of all ibdata files in the backup directory and all
+    # directories in the backup directory under which there are ibdata files
+    foreach my $a (split(/;/, $orig_innodb_data_file_path)) {
+        my $path = (split(/:/,$a))[0];
+        my $filename = (split(/\/+/, $path))[-1];
+
+        # check that the backup data file exists
+        if (! -e "$backup_dir/$filename") {
+            if (-e "$backup_dir/${filename}.ibz") {
+                Die "Backup data file '$backup_dir/$filename' does not exist, but "
+                  . "its compressed copy '${path}.ibz' exists. Check "
+                  . "that you have run '$innobackup_script --apply-log --uncompress "
+                  . "...' before attempting '$innobackup_script --copy-back ...'  "
+                  . "or '$innobackup_script --move-back ...' !";
+            } else {
+                Die "Backup data file '$backup_dir/$filename' does not exist.";
+            }
+        }
+	
+        $excluded_files .= "|\Q$filename\E";
+    }
+
+    # copy files from backup dir to their original locations
+
+    # copy files to original data directory
+    my $excluded_regexp = '^(' . $excluded_files . ')$';
+    print STDERR "$prefix Starting to $operation files in '$backup_dir'\n"; 
+    print STDERR "$prefix back to original data directory '$orig_datadir'\n";
+    &$move_or_copy_dir($backup_dir, $orig_datadir, $excluded_regexp, 0);
+
+    # copy InnoDB data files to original InnoDB data directory
+    print STDERR "\n$prefix Starting to $operation InnoDB system tablespace\n";
+    print STDERR "$prefix in '$backup_dir'\n";
+    print STDERR "$prefix back to original InnoDB data directory '$orig_ibdata_dir'\n";
+    foreach my $a (split(/;/, $orig_innodb_data_file_path)) {
+        # get the relative pathname of a data file
+        my $path = (split(/:/,$a))[0];
+        my $filename = (split(/\/+/, $path))[-1];
+        $src_name = escape_path("$backup_dir/$filename");
+        $dst_name = escape_path("$orig_ibdata_dir/$path");
+        &$move_or_copy_file($src_name, $dst_name);
+    }
+
+    # copy InnoDB log files to original InnoDB log directory
+    opendir(DIR, $backup_dir) 
+        || Die "Can't open directory '$backup_dir': $!\n";
+    print STDERR "\n$prefix Starting to $operation InnoDB log files\n";
+    print STDERR "$prefix in '$backup_dir'\n";
+    print STDERR "$prefix back to original InnoDB log directory '$orig_iblog_dir'\n";
+    while (defined($file = readdir(DIR))) {
+        if ($file =~ /'^' . $iblog_files . '$'/ && -f "$backup_dir/$file") {
+            $src_name = escape_path("$backup_dir/$file");
+            $dst_name = escape_path("$orig_iblog_dir");
+            &$move_or_copy_file($src_name, $dst_name);
+        }
+    }
+    closedir(DIR);
+
+    print STDERR "$prefix Finished copying back files.\n\n";
+}
+
+
+#
+# apply_log subroutine prepares a backup for starting database server
+# on the backup. It applies InnoDB log files to the InnoDB data files.
+#
+sub apply_log {
+    my $rcode;
+    my $cmdline = '';
+    my $options = '';
+
+    if ($option_defaults_file) {
+        $options = $options . " --defaults-file=\"$option_defaults_file\" ";
+    } else {
+        $options = $options . " --defaults-file=\"${backup_dir}/backup-my.cnf\" ";
+    }
+
+    if ($option_defaults_extra_file) {
+        $options = $options . " --defaults-extra-file=\"$option_defaults_extra_file\" ";
+    }
+
+    if ($option_defaults_group) {
+        $options = $options . " --defaults-group=\"$option_defaults_group\" ";
+    }
+
+    $options = $options . "--prepare --target-dir=$backup_dir";
+
+    if ($option_uncompress) {
+        $options = $options . ' --uncompress';
+    }
+    if ($option_export) {
+        $options = $options . ' --export';
+    }
+    if ($option_redo_only) {
+        $options = $options . ' --apply-log-only';
+    }
+    if ($option_use_memory) {
+        $options = $options . " --use-memory=$option_use_memory";
+    }
+
+    if ($option_incremental_dir) {
+        $options = $options . " --incremental-dir=$option_incremental_dir";
+    }
+
+    # run ibbackup as a child process
+    $cmdline = "$option_ibbackup_binary $options";
+    $now = current_time();
+    print STDERR "\n$now  $prefix Starting ibbackup with command: $cmdline\n\n";
+    $rcode = system("$cmdline");
+    if ($rcode) {
+        # failure
+        Die "\n$prefix ibbackup failed";
+    }
+
+    # We should not create ib_logfile files if we prepare for following incremental applies
+    # Also we do not prepare ib_logfile if we applied incremental changes
+    if (!( ($option_redo_only) or ($option_incremental_dir))) { 
+        $now = current_time();
+        print STDERR "\n$now  $prefix Restarting xtrabackup with command: $cmdline\nfor creating ib_logfile*\n\n";
+        $rcode = system("$cmdline");
+        if ($rcode) {
+            # failure
+            Die "\n$prefix xtrabackup (2nd execution) failed";
+        }
+    }
+
+    # If we were applying an incremental change set, we need to make
+    # sure non-InnoDB files and xtrabackup_* metainfo files are copied
+    # to the full backup directory.
+    if ( $option_incremental_dir ) {
+	print STDERR "$prefix Starting to copy non-InnoDB files in '$option_incremental_dir'\n"; 
+	print STDERR "$prefix to the full backup directory '$backup_dir'\n";
+	copy_dir_recursively($option_incremental_dir, $backup_dir,
+			     '^(\.\.?|backup-my\.cnf|xtrabackup_logfile|' .
+			     'xtrabackup_binary|xtrabackup_checkpoints|' .
+			     '.*\.delta|.*\.meta|ib_logfile.*)$', 1);
+        # If the latest backup has no file, we need to remove the old
+        # xtrabackup_slave_info file, because it is out of date
+        # TODO: this will not be needed when bug #856400 is fixed.
+        if ( -e "$backup_dir/xtrabackup_slave_info" ) {
+            print STDERR "\n$now  $prefix No updated xtrabackup_slave_info found in incremental dir, removing stale xtrabackup_slave_info file from target dir.";
+            $cmdline = "rm $backup_dir/xtrabackup_slave_info";
+            $rcode = system("$cmdline");
+            if ($rcode) {
+                # failure
+                Die "\n$prefix Failed to remove stale xtrabackup_slave_info in $backup_dir";
+            }
+
+        }
+    }
+
+}
+
+
+#
+# wait_for_ibbackup_suspend subroutine waits until ibbackup has suspended 
+# itself.
+#
+sub wait_for_ibbackup_suspend {
+    print STDERR "$prefix Waiting for ibbackup (pid=$ibbackup_pid) to suspend\n";
+    print STDERR "$prefix Suspend file '$suspend_file'\n\n";
+    for (;;) {
+        usleep(100000);
+        last if -e $suspend_file;
+
+        # check that ibbackup child process is still alive
+        if ($ibbackup_pid == waitpid($ibbackup_pid, &WNOHANG)) {
+            $ibbackup_pid = '';
+            Die "ibbackup child process has died";
+        }
+    }
+    $now = current_time();
+    open XTRABACKUP_PID, "> $option_tmpdir/$xtrabackup_pid_file";
+    print XTRABACKUP_PID $ibbackup_pid;
+    close XTRABACKUP_PID;
+    print STDERR "\n$now  $prefix Continuing after ibbackup has suspended\n";
+}
+
+
+#
+# resume_ibbackup subroutine signals ibbackup to finish log copying by deleting
+# the 'xtrabackup_suspended' file and waits until log copying is stopped,
+# i.e. until 'xtrabackup_suspended' is created again.
+#
+# If this functions detects that the xtrabackup process has terminated, it also
+# sets ibbackup_exit_code and resets ibbackup_pid to avoid trying to reap a
+# non-existing process later
+#
+sub resume_ibbackup {
+    my $pid = -1;
+
+    $now = current_time();
+    print STDERR "$now  $prefix Waiting for log copying to finish\n\n";
+    unlink $suspend_file || Die "Failed to delete '$suspend_file': $!";
+
+    for (;;) {
+        # check if the xtrabackup process is still alive _before_ checking if
+        # the file exists to avoid a race condition when the file is created and
+        # the process terminates right after we do the file check
+        $pid = waitpid($ibbackup_pid, &WNOHANG);
+
+        last if -e $suspend_file;
+
+        if ($ibbackup_pid == $pid) {
+            # The file doesn't exist, but the process has terminated
+            Die "ibbackup child process has died";
+        }
+
+        sleep 1;
+    }
+
+    if ($pid == $ibbackup_pid) {
+        $ibbackup_exit_code = $CHILD_ERROR >> 8;
+        $ibbackup_pid = '';
+    }
+
+    unlink $suspend_file || Die "Failed to delete '$suspend_file': $!";
+}
+
+#
+# wait for ibbackup to finish and return its exit code
+#
+sub wait_for_ibbackup_finish {
+    if (!$ibbackup_pid) {
+        # The process has already been reaped.
+        return $ibbackup_exit_code;
+    }
+
+    $now = current_time();
+    print STDERR "$now  $prefix Waiting for ibbackup (pid=$ibbackup_pid) to finish\n";
+
+    # wait for ibbackup to finish
+    waitpid($ibbackup_pid, 0);
+    unlink "$option_tmpdir/$xtrabackup_pid_file";
+    $ibbackup_pid = '';
+    return $CHILD_ERROR >> 8;
+}
+    
+
+#
+# start_ibbackup subroutine spawns a child process running ibbackup
+# program for backing up InnoDB tables and indexes.
+#
+sub start_ibbackup {
+    my $options = '';
+    my $cmdline = '';
+    my $pid = undef;
+
+    if ($option_defaults_file) {
+        $options = $options . " --defaults-file=\"$option_defaults_file\" ";
+    }
+
+    if ($option_defaults_extra_file) {
+        $options = $options . " --defaults-extra-file=\"$option_defaults_extra_file\" ";
+    }
+
+    if ($option_defaults_group) {
+        $options = $options . " --defaults-group=\"$option_defaults_group\" ";
+    }
+
+    $options = $options . "--backup --suspend-at-end";
+
+    if (!$option_remote_host && !$option_stream) {
+        $options = $options . " --target-dir=$backup_dir";
+    } else {
+        #(datadir) for 'xtrabackup_suspended' and 'xtrabackup_checkpoints'
+        $options = $options . " --target-dir=" . $option_tmpdir;
+	if ($option_remote_host) {
+	  $options = $options . " --log-stream";
+	}
+    }
+
+    # prepare command line for running ibbackup
+    if ($option_throttle) {
+        $options = $options . " --throttle=$option_throttle";
+    }
+    if ($option_sleep) {
+        $options = $options . " --sleep=$option_sleep";
+    }
+    if ($option_compress) {
+        $options = $options . " --compress";
+        $options = $options . " --compress-threads=$option_compress_threads";
+    }
+    if ($option_use_memory) {
+        $options = $options . " --use-memory=$option_use_memory";
+    }
+    if ($option_include) {
+        $options = $options . " --tables='$option_include'";
+    }
+    if ($option_extra_lsndir) {
+        $options = $options . " --extra-lsndir='$option_extra_lsndir'";
+    }
+
+    if ($option_incremental) {
+        if($option_incremental_lsn) {
+          $options = $options . " --incremental-lsn='$option_incremental_lsn'";
+	    } else {
+          $options = $options . " --incremental-basedir='$incremental_basedir'";
+	    }
+    }
+
+    if ($option_tables_file) {
+        $options = $options . " --tables_file='$option_tables_file'";
+    }
+    if ($option_parallel) {
+        $options = $options . " --parallel=$option_parallel";
+    }
+    if ($option_stream) {
+	$options = $options . " --stream=$option_stream";
+    }
+    $cmdline = "$option_ibbackup_binary $options";
+
+    # run ibbackup as a child process
+    $now = current_time();
+    print STDERR "\n$now  $prefix Starting ibbackup with command: $cmdline\n";
+    if (defined($pid = fork)) {
+        if ($pid) {
+            # parent process
+            $ibbackup_pid = $pid;
+
+            if($option_remote_host) {
+                #direct copy to remote
+                my $orig_datadir = get_option(\%config, $option_defaults_group, 'datadir');
+                my $orig_ibdata_dir =
+                    get_option(\%config, $option_defaults_group, 'innodb_data_home_dir');
+                my $orig_innodb_data_file_path =
+                    get_option(\%config, $option_defaults_group, 'innodb_data_file_path');
+                my $innodb_flush_method = 
+                    get_option(\%config, $option_defaults_group, 'innodb_flush_method');
+                my $innodb_use_odirect;
+                $innodb_use_odirect = 1 if $innodb_flush_method =~ m/^(ALL_)?O_DIRECT$/i;
+
+                my $subdir;
+                my @list;
+
+                if (system("ssh $option_ssh_opt $option_remote_host test -e $backup_dir/ib_logfile0")
+                    == 0) {
+                    print STDERR "$prefix Remove $option_remote_host:$backup_dir/ib_logfile*\n";
+                    system("ssh $option_ssh_opt $option_remote_host rm $backup_dir/ib_logfile\*")
+                        and Die "Failed to rm file '$backup_dir/ib_logfile*': $!";
+                }
+
+                wait_for_ibbackup_suspend();
+
+                #InnoDB data files from original InnoDB data directory
+                print STDERR "\n$prefix Starting to backup InnoDB tables and indexes\n";
+                print STDERR "$prefix to '$backup_dir'\n";
+                print STDERR "$prefix from original InnoDB data directory '$orig_ibdata_dir'\n";
+                foreach my $a (split(/;/, $orig_innodb_data_file_path)) {
+                    my $path = (split(/:/,$a))[0];
+                    $path=~s/([\$\\\" ])/\\$1/g;
+                    print STDERR "$prefix Backing up file '$orig_ibdata_dir/$path'\n";
+                    system("scp $option_scp_opt '$orig_ibdata_dir/$path' '$option_remote_host:$backup_dir/$path'")
+                      and Die "Failed to scp file '$path': $!";
+                }
+
+                #copy *.ibd files
+                opendir(DIR, $orig_datadir)
+                    || Die "Can't open directory '$orig_datadir': $!\n";
+                while (defined($subdir = readdir(DIR))) {
+                    my $print_each_file = 0;
+                    my $file_c;
+                    my $file;
+                    if ($subdir eq '.' || $subdir eq '..') { next; }
+                    next unless -d "$orig_datadir/$subdir";
+                    next unless check_if_required($subdir);
+
+                    @list = glob("$orig_datadir/$subdir/" . '*.ibd');
+
+                    $file_c = @list;
+                    if ($file_c <= $backup_file_print_limit) {
+                        $print_each_file = 1;
+                    } else {
+                        print STDERR "$prefix Backing up files " .
+                            "'$orig_datadir/$subdir/*.ibd' ($file_c files)\n";
+                    }
+                    foreach $file (@list) {
+			next unless check_if_required($subdir, $file);
+                        if($option_include) {
+                            my $table_name;
+
+                            $table_name = get_table_name($file);
+
+                            if (!("$subdir.$table_name" =~ /$option_include/)) {
+                                print STDERR "'$file' is skipped.\n";
+                                next;
+                            }
+                        }
+
+                        if ($print_each_file) {
+                            print STDERR "$prefix Backing up file '$file'\n";
+                        }
+                        if (system("ssh $option_ssh_opt $option_remote_host test -e $backup_dir/$subdir")
+                            != 0) {
+                          system("ssh $option_ssh_opt $option_remote_host mkdir $backup_dir/$subdir");
+                        }
+                        system("scp $option_scp_opt '$file' '$option_remote_host:$backup_dir/$subdir/'")
+                          and Die "Failed to scp file '$file': $!";
+		      }
+                }
+                closedir(DIR);
+            }
+        } else {
+            if($option_remote_host) {
+                open(STDOUT, "> $tmp_logfile")
+                || Die "Failed to open file '$tmp_logfile': $!"
+            }
+
+            # child process
+            exec($cmdline) || Die "Failed to exec ibbackup: $!";
+        }
+    } else {
+        Die "failed to fork ibbackup child process: $!";
+    }
+}
+                  
+
+#
+# get_mysql_options subroutine returns the options to mysql client program
+# as a string. The options are determined from the options given by the
+# user to innobackup.
+#
+sub get_mysql_options {
+    my $options = '';
+
+    # this option has to be first
+    if ($option_defaults_file) {
+        $options = "$options --defaults-file='$option_defaults_file'";
+    }
+
+    if ($option_defaults_extra_file) {
+        $options = $options . " --defaults-extra-file=\"$option_defaults_extra_file\" ";
+    }
+
+    if ($option_mysql_password) {
+        $options = "$options --password='$option_mysql_password'";
+    }
+    if ($option_mysql_user) {
+        $options = "$options --user='$option_mysql_user'";
+    }
+    if ($option_mysql_host) {
+        $options = "$options --host='$option_mysql_host'";
+    }
+    if ($option_mysql_port) {
+        $options = "$options --port='$option_mysql_port'";
+    }
+    if ($option_mysql_socket) {
+        $options = "$options --socket='$option_mysql_socket'";
+    }
+    $options = "$options --unbuffered --";
+    return $options;
+}
+
+
+#
+# Check that the server is responding to queries
+#
+sub mysql_ping {
+    my $alarm_handler = shift;
+    my $mysql_pid_copy = $mysql_pid;
+
+    # send a dummy query to mysql child process
+    $hello_id++;
+
+    my $hello_message = "xtrabackup ping $hello_id";
+    print MYSQL_WRITER "select '$hello_message';\n" 
+        or Die "Connection to mysql child process failed: $!";
+
+    # Don't check server's response if running in a signal handler
+    # because that breaks system() calls
+    if ($alarm_handler)
+    {
+	return 0;
+    }
+    # wait for reply
+    eval {
+        local $SIG{ALRM} = sub { die "alarm clock restart" };
+        my $stdout = '';
+        my $stderr = '';
+        alarm $mysql_response_timeout;
+        while (index($stdout, $hello_message) < 0) {
+            sleep 2;
+            if ($mysql_pid && $mysql_pid == waitpid($mysql_pid, &WNOHANG)) {
+                my $reason = `cat $mysql_stderr`;
+                $mysql_pid = '';
+                die "mysql child process has died: $reason";
+            }
+            $stdout = `cat $mysql_stdout`;
+            $stderr = `cat $mysql_stderr | grep -v ^Warning`;
+            if ($stderr) {
+                # mysql has reported an error, do exit
+                die "mysql error: $stderr";
+            }
+        }
+        alarm 0;
+    };
+    if ($@ =~ /alarm clock restart/) {
+        Die "Connection to mysql child process (pid=$mysql_pid_copy) timedout."
+            . " (Time limit of $mysql_response_timeout seconds exceeded."
+            . " You may adjust time limit by editing the value of parameter"
+            . " \"\$mysql_response_timeout\" in this script.)";
+    } elsif ($@) { Die $@; }
+}
+
+
+#
+# SIGALRM handler which sends a keepalive query to the server
+#
+sub catch_sigalrm {
+  mysql_ping(1);
+  # Reschedule SIGALRM
+  alarm $mysql_keep_alive;
+}
+
+
+#
+# Schedule periodic server pings
+#
+sub start_keepalives {
+  $SIG{ALRM} = \&catch_sigalrm;
+  alarm $mysql_keep_alive;
+}
+
+#
+# Cancel periodic server pings
+#
+sub stop_keepalives {
+  alarm 0;
+  $SIG{ALRM} = "DEFAULT";
+}
+
+#
+# mysql_open subroutine starts mysql as a child process with
+# a pipe connection.
+#
+sub mysql_open {
+    my $options = get_mysql_options();
+    # run mysql as a child process with a pipe connection
+    $now = current_time();
+    (my $prt_options = $options) =~ s/--password=[^ ]+ /--password=xxxxxxxx /g;
+    print STDERR "$now  $prefix Starting mysql with options: $prt_options\n";
+    $mysql_pid = open(*MYSQL_WRITER, "| mysql $options >$mysql_stdout 2>$mysql_stderr ") or Die "Failed to spawn mysql child process: $!";
+    MYSQL_WRITER->autoflush(1);
+    $now = current_time();
+    print STDERR "$now  $prefix Connected to database with mysql child process (pid=$mysql_pid)\n";
+    print MYSQL_WRITER "SET SESSION wait_timeout = 2147000;\n" or die "Connection to mysql child process failed: $!";
+
+    mysql_ping(0);
+
+    start_keepalives();
+}
+
+
+#
+# mysql_send subroutine send a request string to mysql child process.
+# This subroutine appends a newline character to the request and checks 
+# that mysqld receives the query.
+# Parameters:
+#    request  request string
+#
+sub mysql_send {
+    my $request = shift;
+
+    stop_keepalives();
+
+    $current_mysql_request = $request;
+    print MYSQL_WRITER "$request\n";
+    mysql_ping(0);
+    $current_mysql_request = '';
+
+    start_keepalives();
+}
+    
+
+#
+# mysql_close subroutine terminates mysql child process gracefully.
+# 
+sub mysql_close {
+    stop_keepalives();
+
+    print MYSQL_WRITER "quit\n";
+    $now = current_time();
+    print STDERR "$now  $prefix Connection to database server closed\n";
+    $mysql_pid = '';
+}
+
+
+#
+# write_binlog_info subroutine retrieves MySQL binlog position and
+# saves it in a file. It also prints it to stdout.
+#
+sub write_binlog_info {
+    my @lines;
+    my $position = '';
+    my $filename = '';
+
+    # get binlog position
+    mysql_send 'SHOW MASTER STATUS\G';
+
+    # get the name of the last binlog file and position in it
+    # from the SHOW MASTER STATUS output
+    file_to_array($mysql_stdout, \@lines);
+    foreach (@lines) {
+        $filename = $1 if /^\s+File:\s(\S+)\s*$/;
+        $position = $1 if /^\s+Position:\s(\d+)\s*$/;
+    }
+
+    # write binlog info file
+    if (!$option_remote_host) {
+        open(FILE, ">$binlog_info") || 
+            Die "Failed to open file '$binlog_info': $!";
+    } else {
+        open(FILE, "| ssh $option_ssh_opt $option_remote_host 'cat > $binlog_info'") ||
+            Die "Failed to open file '$option_remote_host:$binlog_info': $!";
+    }
+    print FILE  "$filename\t$position\t\t\n";
+    close(FILE);
+
+    if ($option_stream) {
+        system("cd $option_tmpdir; $stream_cmd xtrabackup_binlog_info")
+            and Die "Failed to stream 'xtrabackup_binlog_info': $!";
+        unlink $binlog_info || Die "Failed to delete '$binlog_info': $!";
+    }
+
+    $mysql_binlog_position = "filename '$filename', position $position";
+}
+
+#
+# write_galera_info subroutine retrieves MySQL Galera and
+# saves it in a file. It also prints it to stdout.
+#
+sub write_galera_info {
+    my @lines;
+    my @info_lines = ();
+    my $position = '';
+    my $filename = '';
+
+    # get binlog position
+    mysql_send "SHOW STATUS LIKE 'wsrep_local_state_uuid';";
+    mysql_send "SHOW STATUS LIKE 'wsrep_last_committed';";
+
+    # get "show master status" output lines (2) from mysql output
+    file_to_array($mysql_stdout, \@lines);
+
+    open(FILE, ">$galera_info") || 
+         Die "Failed to open file '$galera_info': $!";
+
+    foreach my $line (@lines) {
+        if ($line =~ m/wsrep_local_state_uuid/) {
+	    $line =~ s/wsrep_local_state_uuid\s*//g;
+            print FILE  "$line:";
+        }
+    }
+
+    foreach my $line (@lines) {
+        if ($line =~ m/wsrep_last_committed/) {
+	    $line =~ s/wsrep_last_committed\s*//g;
+            print FILE  "$line\n";
+        }
+    }
+
+    close(FILE);
+
+    if ($option_stream) {
+        system("cd $option_tmpdir; $stream_cmd xtrabackup_galera_info")
+            and Die "Failed to stream 'xtrabackup_galera_info': $!";
+        unlink $galera_info || Die "Failed to delete '$galera_info': $!";
+    }
+
+}
+
+
+# 
+# write_slave_info subroutine retrieves MySQL binlog position of the
+# master server in a replication setup and saves it in a file. It
+# also saves it in $msql_slave_position variable.
+#
+sub write_slave_info {
+    my @lines;
+    my @info_lines;
+    my $position = '';
+    my $filename = '';
+    my $master= '';
+	
+    # get slave status. Use single quotes here, otherwise
+    # \G is evaluated as a control character.
+    mysql_send 'SHOW SLAVE STATUS\G';
+
+    # get output of the "show slave status" command from mysql output
+    # and extract binlog position of the master server
+    file_to_array($mysql_stdout, \@lines);
+    for (@lines) {
+        $master = $1 if /Master_Host:\s*(\S*)\s*$/;
+        $filename = $1 if /Master_Log_File:\s*(\S*)\s*$/;
+        $position = $1 if /Master_Log_Pos:\s*(\S*)\s*$/;
+    }
+
+    # print slave status to a file
+    if (!$option_remote_host) {
+        open(FILE, ">$slave_info") || 
+            Die "Failed to open file '$slave_info': $!";
+    } else {
+        open(FILE, "| ssh $option_ssh_opt $option_remote_host 'cat > $slave_info'") ||
+            Die "Failed to open file '$option_remote_host:$slave_info': $!";
+    }
+    print FILE  "CHANGE MASTER TO MASTER_LOG_FILE='$filename', MASTER_LOG_POS=$position\n";
+    close(FILE);
+
+    if ($option_stream) {
+        system("cd $option_tmpdir; $stream_cmd xtrabackup_slave_info")
+            and Die "Failed to stream 'xtrabackup_slave_info': $!";
+        unlink $slave_info || Die "Failed to delete '$slave_info': $!";
+    }
+
+    $mysql_slave_position = "master host '$master', filename '$filename', position $position";
+}
+
+
+#
+# mysql_lockall subroutine puts a read lock on all tables in all databases.
+# 
+sub mysql_lockall {
+    $now = current_time();
+    print STDERR "$now  $prefix Starting to lock all tables...\n";
+
+    mysql_send "USE mysql;";
+#    mysql_send "DROP TABLE IF EXISTS ibbackup_binlog_marker;";
+#    if (compare_versions($mysql_server_version, '4.1.0') == -1) {
+#        # MySQL server version is 4.0 or older, ENGINE keyword not supported
+#        mysql_send "CREATE TABLE ibbackup_binlog_marker(a INT) TYPE=INNODB;";
+#    } else {
+#        # MySQL server version is 4.1 or newer, use ENGINE keyword
+#        mysql_send "CREATE TABLE ibbackup_binlog_marker(a INT) ENGINE=INNODB;";
+#    }
+    mysql_send "SET AUTOCOMMIT=0;";
+#    mysql_send "INSERT INTO ibbackup_binlog_marker VALUES (1);";
+    if (compare_versions($mysql_server_version, '4.0.22') == 0
+        || compare_versions($mysql_server_version, '4.1.7') == 0) {
+        # MySQL server version is 4.0.22 or 4.1.7
+        mysql_send "COMMIT;";
+        mysql_send "FLUSH TABLES WITH READ LOCK;";
+    } else {
+        # MySQL server version is other than 4.0.22 or 4.1.7
+        mysql_send "FLUSH TABLES WITH READ LOCK;";
+        mysql_send "COMMIT;";
+    }
+    write_binlog_info;
+    write_galera_info if $option_galera_info;
+	
+    $now = current_time();
+    print STDERR "$now  $prefix All tables locked and flushed to disk\n";
+}
+
+
+#
+# mysql_unlockall subroutine releases read locks on all tables in all 
+# databases.
+# 
+sub mysql_unlockall {
+    mysql_send "UNLOCK TABLES;";
+#    mysql_send "DROP TABLE IF EXISTS ibbackup_binlog_marker;";
+
+    $now = current_time();
+    print STDERR "$now  $prefix All tables unlocked\n";
+}
+
+
+#
+# catch_sigpipe subroutine is a signal handler for SIGPIPE.
+#
+sub catch_sigpipe {
+    my $rcode;
+
+    if ($mysql_pid && (-1 == ($rcode = waitpid($mysql_pid, &WNOHANG))
+                       || $rcode == $mysql_pid)) {
+        my $reason = `cat $mysql_stderr`;
+        print STDERR "Pipe to mysql child process broken: $reason at";
+        system("date +'%H:%M:%S'");
+        exit(1);
+    } else {
+        Die "Broken pipe";
+    }
+}
+
+
+#
+# kill_child_processes subroutine kills all child processes of this process.
+#
+sub kill_child_processes {
+    if ($ibbackup_pid) {
+        kill($kill_signal, $ibbackup_pid);
+        $ibbackup_pid = '';
+    }
+    
+    if ($mysql_pid) {
+        kill($kill_signal, $mysql_pid);
+        $mysql_pid = '';
+    }
+}
+
+
+#
+# require_external subroutine checks that an external program is runnable
+# via the shell. This is tested by calling the program with the
+# given arguments. It is checked that the program returns 0 and does 
+# not print anything to stderr. If this check fails, this subroutine exits.
+#    Parameters:
+#       program      pathname of the program file
+#       args         arguments to the program
+#       pattern      a string containing a regular expression for finding 
+#                    the program version.
+#                    this pattern should contain a subpattern enclosed
+#                    in parentheses which is matched with the version.
+#       version_ref  a reference to a variable where the program version
+#                    string is returned. Example "2.0-beta2".
+#
+sub require_external {
+    my $program = shift;
+    my $args = shift;
+    my $pattern = shift;
+    my $version_ref = shift;
+    my @lines;
+    my $tmp_stdout = tmpnam();
+    my $tmp_stderr = tmpnam();
+    my $rcode;
+    my $error;
+
+    $rcode = system("$program $args >$tmp_stdout 2>$tmp_stderr");
+    if ($rcode) {
+        $error = $!;
+    }
+    my $stderr = `cat $tmp_stderr | grep -v ^Warning`;
+    unlink $tmp_stderr;
+    if ($stderr ne '') {
+        # failure
+        unlink $tmp_stdout;
+        Die "Couldn't run $program: $stderr";
+    } elsif ($rcode) {
+        # failure
+        unlink $tmp_stdout;
+        Die "Couldn't run $program: $error";
+    }
+
+    # success
+    my $stdout = `cat $tmp_stdout`;
+    unlink $tmp_stdout;
+    @lines = split(/\n|;/,$stdout);
+    print STDERR "$prefix Using $lines[0]\n";
+
+    # get version string from the first output line of the program
+    ${$version_ref} = '';
+    if ($lines[0] =~ /$pattern/) {
+        ${$version_ref} = $1;
+    }
+}
+
+
+# compare_versions subroutine compares two GNU-style version strings.
+# A GNU-style version string consists of three decimal numbers delimitted 
+# by dots, and optionally followed by extra attributes.
+# Examples: "4.0.1", "4.1.1-alpha-debug". 
+#    Parameters:
+#       str1   a GNU-style version string
+#       str2   a GNU-style version string
+#    Return value:
+#       -1   if str1 < str2
+#        0   if str1 == str2
+#        1   is str1 > str2
+sub compare_versions {
+    my $str1 = shift;
+    my $str2 = shift;
+    my $extra1 = '';
+    my $extra2 = '';
+    my @array1 = ();
+    my @array2 = ();
+    my $i;
+
+    # remove possible extra attributes
+    ($str1, $extra1) = $str1 =~ /^([0-9.]*)(.*)/;
+    ($str2, $extra2) = $str2 =~ /^([0-9.]*)(.*)/;
+
+    # split "dotted" decimal number string into an array
+    @array1 = split('\.', $str1);
+    @array2 = split('\.', $str2);
+
+    # compare in lexicographic order
+    for ($i = 0; $i <= $#array1 && $i <= $#array2; $i++) {
+        if ($array1[$i] < $array2[$i]) {
+            return -1;
+        } elsif ($array1[$i] > $array2[$i]) {
+            return 1;
+        }
+    }
+    if ($#array1 < $#array2) {
+        return -1;
+    } elsif ($#array1 > $#array2) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
+#
+# init subroutine initializes global variables and performs some checks on the
+# system we are running on.
+#
+sub init {
+    my $mysql_version = '';
+    my $ibbackup_version = '';
+    my $run = '';
+
+    # print some instructions to the user
+    if (!$option_apply_log && !$option_copy_back && !$option_move_back) {
+        $run = 'backup';
+    } elsif ($option_copy_back) {
+        $run = 'copy-back';
+    } elsif ($option_move_back) {
+        $run = 'move-back';
+    } else {
+        $run = 'apply-log';
+    }
+    print STDERR "IMPORTANT: Please check that the $run run completes successfully.\n";
+    print STDERR "           At the end of a successful $run run $innobackup_script\n";
+    print STDERR "           prints \"completed OK!\".\n\n";
+
+    # check that MySQL client program and InnoDB Hot Backup program
+    # are runnable via shell
+    if (!$option_copy_back && !$option_move_back) {
+        # we are making a backup or applying log to backup
+        if (!$option_apply_log) {
+            # we are making a backup, we need mysql server
+            my $output = '';
+            my @lines = ();
+
+            # check that we have mysql client program
+            require_external('mysql', '--version', 'Ver ([^,]+)', 
+                             \$mysql_version);
+            
+            # get mysql server version
+            my $options = get_mysql_options();
+            @lines = split('\n', 
+                           `mysql $options -e "select \@\@version"`);
+            $mysql_server_version = $lines[1];
+            print STDERR "$prefix Using mysql server version $mysql_server_version\n";
+        }
+        #require_external($option_ibbackup_binary, '--license', 
+        #                 'version (\S+)', \$ibbackup_version);
+        print STDERR "\n";
+        
+        if ($option_include 
+            && $ibbackup_version 
+            && $ibbackup_version le "2.0") {
+            # --include option was given, but ibbackup is too
+            # old to support it
+            Die "--include option was given, but ibbackup is too old"
+                . " to support it. You must upgrade to InnoDB Hot Backup"
+                . " v2.0 in order to use --include option.\n";
+        }
+    }
+    
+    # set signal handlers
+    $SIG{PIPE} = \&catch_sigpipe;
+
+    # read MySQL options file
+    #read_config_file($config_file, \%config);
+    read_config_file(\%config);
+
+    if(!$option_tmpdir) {
+        $option_tmpdir = get_option(\%config, $option_defaults_group, 'tmpdir');
+    }
+
+    # get innodb log home directory from options file
+    #$innodb_log_group_home_dir = 
+    #    get_option(\%config, 'mysqld', 'innodb_log_group_home_dir');
+
+    if (!$option_apply_log && !$option_copy_back && !$option_move_back) {
+        # we are making a backup, create a new backup directory
+        if (!$option_remote_host) {
+            $backup_dir = File::Spec->rel2abs(make_backup_dir());
+        } else {
+            $backup_dir = make_backup_dir();
+        }
+        print STDERR "$prefix Created backup directory $backup_dir\n";
+        if (!$option_remote_host && !$option_stream) {
+        $backup_config_file = $backup_dir . '/backup-my.cnf';
+        $suspend_file = $backup_dir . '/xtrabackup_suspended';
+        $binlog_info = $backup_dir . '/xtrabackup_binlog_info';
+        $galera_info = $backup_dir . '/xtrabackup_galera_info';
+        $slave_info = $backup_dir . '/xtrabackup_slave_info';
+        } else {
+        $suspend_file = $option_tmpdir . '/xtrabackup_suspended';
+        $tmp_logfile = $option_tmpdir . '/xtrabackup_logfile';
+        if ($option_stream) {
+            $backup_config_file = $option_tmpdir . '/backup-my.cnf';
+            $binlog_info = $option_tmpdir . '/xtrabackup_binlog_info';
+            $galera_info = $option_tmpdir . '/xtrabackup_galera_info';
+            $slave_info = $option_tmpdir . '/xtrabackup_slave_info';
+        } else {
+            $backup_config_file = $backup_dir . '/backup-my.cnf';
+            $binlog_info = $backup_dir . '/xtrabackup_binlog_info';
+            $galera_info = $backup_dir . '/xtrabackup_galera_info';
+            $slave_info = $backup_dir . '/xtrabackup_slave_info';
+        }
+        }
+        write_backup_config_file($backup_config_file);
+    } elsif ($option_copy_back || $option_move_back) {
+        #$backup_config_file = $backup_dir . '/backup-my.cnf';
+        #read_config_file($backup_config_file, \%backup_config);
+    }
+
+    if ( -e "$suspend_file" ) {
+        print STDERR "WARNING : A left over instance of suspend file '$suspend_file' was found.\n";
+        unlink $suspend_file || Die "Failed to delete '$suspend_file': $!";
+    }
+}
+
+
+#
+# write_backup_config_file subroutine creates a backup options file for
+# ibbackup program. It writes to the file only those options that
+# are required by ibbackup.
+#    Parameters:
+#       filename  name for the created options file
+#
+sub write_backup_config_file {
+    my $filename = shift;
+
+    if (!$option_remote_host) {
+        open(FILE, "> $filename") || Die "Failed to open file '$filename': $!";
+    } else {
+        open(FILE, "| ssh $option_ssh_opt $option_remote_host 'cat > $filename'")
+            || Die "Failed to open file '$option_remote_host:$filename': $!";
+    }
+
+    my @option_names = (
+        "innodb_data_file_path",
+        "innodb_log_files_in_group",
+        "innodb_log_file_size",
+        "innodb_fast_checksum",
+        "innodb_page_size",
+        "innodb_log_block_size"
+        );
+
+    my $options_dump = "# This MySQL options file was generated by $innobackup_script.\n\n" .
+          "# The MySQL server\n" .
+          "[mysqld]\n";
+
+    my $option_name;
+    foreach $option_name (@option_names) {
+        if (has_option(\%config, $option_defaults_group, $option_name)) {
+            my $option_value = get_option(\%config, $option_defaults_group, $option_name);
+            $options_dump .= "$option_name=$option_value\n";
+        }
+    }
+    if (has_option(\%config,
+        $option_defaults_group, "innodb_doublewrite_file")) {
+        $options_dump .= "innodb_doublewrite_file=" . (split(/\/+/,
+                get_option(\%config, $option_defaults_group,
+                            'innodb_doublewrite_file')))[-1] . "\n";
+    }
+
+    print FILE $options_dump;
+    close(FILE);
+
+    if ($option_stream) {
+        my $filename_dir = dirname($filename);
+        my $filename_name = basename($filename);
+	system("cd $filename_dir; $stream_cmd $filename_name")
+	  and Die "Failed to stream '$filename_name': $!";
+
+        unlink $filename || Die "Failed to delete '$filename': $!";
+    }
+}
+
+
+#
+# check_args subroutine checks command line arguments. If there is a problem,
+# this subroutine prints error message and exits.
+#
+sub check_args {
+    my $i;
+    my $rcode;
+    my $buf;
+    my $perl_version;
+
+    # check the version of the perl we are running
+    if (!defined $^V) {
+        # this perl is prior to 5.6.0 and uses old style version string
+        my $required_version = $required_perl_version_old_style;
+        if ($] lt $required_version) {
+            print STDERR "$prefix Warning: " . 
+                "Your perl is too old! Innobackup requires\n";
+            print STDERR "$prefix Warning: perl $required_version or newer!\n";
+        }
+    }
+
+    if (@ARGV == 0) {
+        # no command line arguments
+        print STDERR "$prefix You must specify the backup directory.\n";
+        exit(1);
+    }
+
+    # read command line options
+    $rcode = GetOptions('compress' => \$option_compress,
+	    		'compress-threads=i' => \$option_compress_threads,
+                        'help' => \$option_help,
+                        'version' => \$option_version,
+                        'throttle=i' => \$option_throttle,
+                        'sleep=i' => \$option_sleep,
+                        'apply-log' => \$option_apply_log,
+                        'redo-only' => \$option_redo_only,
+                        'copy-back' => \$option_copy_back,
+                        'move-back' => \$option_move_back,
+                        'include=s' => \$option_include,
+                        'databases=s' => \$option_databases,
+                        'tables-file=s', => \$option_tables_file,
+                        'use-memory=s' => \$option_use_memory,
+                        'uncompress' => \$option_uncompress,
+                        'export' => \$option_export,
+                        'password=s' => \$option_mysql_password,
+                        'user=s' => \$option_mysql_user,
+                        'host=s' => \$option_mysql_host,
+                        'port=s' => \$option_mysql_port,
+                        'defaults-group=s' => \$option_defaults_group,
+                        'slave-info' => \$option_slave_info,
+                        'galera-info' => \$option_galera_info,
+                        'socket=s' => \$option_mysql_socket,
+                        'no-timestamp' => \$option_no_timestamp,
+                        'defaults-file=s' => \$option_defaults_file,
+                        'defaults-extra-file=s' => \$option_defaults_extra_file,
+                        'incremental' => \$option_incremental,
+                        'incremental-basedir=s' => \$option_incremental_basedir,
+                        'incremental-lsn=s' => \$option_incremental_lsn,
+                        'incremental-dir=s' => \$option_incremental_dir,
+                        'extra-lsndir=s' => \$option_extra_lsndir,
+                        'remote-host=s' => \$option_remote_host,
+                        'stream=s' => \$option_stream,
+			'rsync' => \$option_rsync,
+                        'tmpdir=s' => \$option_tmpdir,
+                        'no-lock' => \$option_no_lock,
+                        'ibbackup=s' => \$option_ibbackup_binary,
+                        'scpopt=s' => \$option_scp_opt,
+                        'sshopt=s' => \$option_ssh_opt,
+                        'parallel=i' => \$option_parallel,
+                        'safe-slave-backup' => \$option_safe_slave_backup,
+                        'safe-slave-backup-timeout=i' => \$option_safe_slave_backup_timeout,
+    );
+                        
+    if (!$rcode) {
+        # failed to read options
+        print STDERR "$prefix Bad command line arguments\n";
+        exit(1);
+    }
+    if ($option_help) {
+        # print help text and exit
+        usage();
+        exit(0);
+    }
+    if ($option_version) {
+        # print program version and copyright
+        print_version();
+        exit(0);
+    }
+
+    if ($option_defaults_file && $option_defaults_extra_file) {
+        print STDERR "$prefix --defaults-file and --defaults-extra-file " .
+            "options are mutually exclusive";
+        exit(1);
+    }
+
+    if ($option_copy_back && $option_move_back) {
+        print STDERR "$prefix --copy-back and --move-back options are " .
+            "mutually exclusive";
+    }
+
+    if ($option_compress == 0) {
+        # compression level no specified, use default level
+        $option_compress = $default_compression_level;
+    } 
+
+    if ($option_compress == 999) {
+        # compress option not given in the command line
+	$option_compress = 0;
+    }
+
+    if ($option_stream eq 'tar') {
+      $stream_cmd = 'tar chf -';
+    } elsif ($option_stream eq 'xbstream') {
+      $stream_cmd = 'xbstream -c'
+    }
+
+    if (@ARGV < 1) {
+        print STDERR "$prefix Missing command line argument\n";
+        exit(1);
+    } elsif (@ARGV > 1) {
+        print STDERR "$prefix Too many command line arguments\n";
+        exit(1);
+    }
+
+    # get options file name
+    #$config_file = $ARGV[0];
+
+    if (!$option_apply_log && !$option_copy_back && !$option_move_back) {
+        # we are making a backup, get backup root directory
+        $backup_root = $ARGV[0];
+        if ($option_incremental && !$option_incremental_lsn) {
+            my @dirs = `ls -1 -t $backup_root`;
+            my $inc_dir = $dirs[0];
+            chomp($inc_dir);
+            if ($option_incremental_basedir) {
+                $incremental_basedir = $option_incremental_basedir;
+            } else {
+                $incremental_basedir = File::Spec->catfile($backup_root, $inc_dir);
+            }
+        }
+    } else {
+        # get backup directory
+        $backup_dir = File::Spec->rel2abs($ARGV[0]);
+    }        
+
+    if ($option_slave_info) {
+        if ($option_no_lock and !$option_safe_slave_backup) {
+	  print STDERR "--slave-info is used with --no-lock but without --safe-slave-backup. The binlog position cannot be consistent with the backup data.\n";
+	    exit(1);
+	}
+    }
+
+    if ($option_rsync && ($option_remote_host || $option_stream)) {
+        print STDERR "--rsync doesn't work with --remote-host or --stream\n";
+	exit(1);
+    }
+
+    if ($option_remote_host) {
+	print STDERR "\nWARNING: --remote-host is DEPRECATED and will be ",
+	"removed in Percona XtraBackup 2.1 in favor of streaming backups.\n";
+    }
+
+    print STDERR "\n";
+
+    parse_databases_option_value();
+    parse_tables_file_option_value($option_tables_file);
+}
+
+
+#
+# make_backup_dir subroutine creates a new backup directory and returns
+# its name.
+#
+sub make_backup_dir {
+    my $dir;
+    my $innodb_data_file_path = 
+        get_option(\%config, $option_defaults_group, 'innodb_data_file_path');
+
+    # create backup directory
+    $dir = $backup_root;
+    if ($option_stream) {
+        return $dir;
+    }
+
+    $dir .= '/' . strftime("%Y-%m-%d_%H-%M-%S", localtime())
+       unless $option_no_timestamp;
+    if (!$option_remote_host) {
+        mkdir($dir, 0777) || Die "Failed to create backup directory $dir: $!";
+    } else {
+        system("ssh $option_ssh_opt $option_remote_host mkdir $dir");
+    }
+
+    # create subdirectories for ibdata files if needed
+#    foreach my $a (split(/;/, $innodb_data_file_path)) {
+#        my $path = (split(/:/,$a))[0];
+#        my @relative_path = split(/\/+/, $path);
+#        pop @relative_path;
+#        if (@relative_path) {
+#            # there is a non-trivial path from the backup directory
+#            # to the directory of this backup ibdata file, check
+#            # that all the directories in the path exist.
+#            create_path_if_needed($dir, \@relative_path);
+#        }
+#    }
+
+    return $dir;
+}
+
+
+#
+# create_path_if_needed subroutine checks that all components
+# in the given relative path are directories. If the
+# directories do not exist, they are created.
+#    Parameters:
+#       root           a path to the root directory of the relative pathname
+#       relative_path  a relative pathname (a reference to an array of 
+#                      pathname components) 
+#
+sub create_path_if_needed {
+    my $root = shift;
+    my $relative_path = shift;
+    my $path;
+
+    $path = $root;
+    foreach $a (@{$relative_path}) {
+        $path = $path . "/" . $a;
+        if (!$option_remote_host) {
+            if (! -d $path) {
+                # this directory does not exist, create it !
+                mkdir($path, 0777) || Die "Failed to create backup directory: $!";
+            }
+        } else {
+            if (system("ssh $option_ssh_opt $option_remote_host test -d $path") != 0) {
+                system("ssh $option_ssh_opt $option_remote_host mkdir $path");
+            }
+        }
+    }
+}
+
+
+#
+# remove_from_array subroutine removes excluded element from the array.
+#    Parameters:
+#       array_ref   a reference to an array of strings
+#       excluded   a string to be excluded from the copy
+#  
+sub remove_from_array {
+    my $array_ref = shift;
+    my $excluded = shift;
+    my @copy = ();
+    my $size = 0;
+
+    foreach my $str (@{$array_ref}) {
+        if ($str ne $excluded) {
+            $copy[$size] = $str;
+            $size = $size + 1;
+        }
+    }
+    @{$array_ref} = @copy;
+}
+
+
+#
+# backup_files subroutine copies .frm, .MRG, .MYD and .MYI files to 
+# backup directory.
+#
+sub backup_files {
+    my $prep_mode = shift;
+    my $source_dir = get_option(\%config, $option_defaults_group, 'datadir');
+    my @list;
+    my $file;
+    my $database;
+    my $wildcard = '*.{frm,MYD,MYI,MAD,MAI,MRG,TRG,TRN,ARM,ARZ,CSM,CSV,opt,par}';
+    my $rsync_file_list;
+    my $operation;
+    my $rsync_tmpfile_pass1 = "$option_tmpdir/xtrabackup_rsyncfiles_pass1";
+    my $rsync_tmpfile_pass2 = "$option_tmpdir/xtrabackup_rsyncfiles_pass2";
+
+    # prep_mode will pre-copy the data, so that rsync is faster the 2nd time
+    # saving time while all tables are locked.
+    # currently only rsync mode is supported for prep.
+    if ($prep_mode and !$option_rsync) {
+        return;
+    }
+
+    if ($option_rsync) {
+	if ($prep_mode) {
+	    $rsync_file_list = $rsync_tmpfile_pass1;
+	} else {
+	    $rsync_file_list = $rsync_tmpfile_pass2;
+	}
+	open(RSYNC, ">$rsync_file_list")
+	    || Die "Can't open $rsync_file_list for writing: $!\n";
+    }
+
+    opendir(DIR, $source_dir) 
+        || Die "Can't open directory '$source_dir': $!\n";
+    $now = current_time();
+    if ($prep_mode) {
+	$operation = "a prep copy of";
+    } else {
+	$operation = "to backup";
+    }
+    print STDERR "\n$now  $prefix Starting $operation non-InnoDB tables and files\n";
+    print STDERR "$prefix in subdirectories of '$source_dir'\n";
+    # loop through all database directories
+    while (defined($database = readdir(DIR))) {
+        my $print_each_file = 0;
+        my $file_c;
+        my @scp_files;
+        # skip files that are not database directories
+        if ($database eq '.' || $database eq '..') { next; }
+        next unless -d "$source_dir/$database";
+	     next unless check_if_required($database);
+        
+        if (!$option_remote_host && !$option_stream) {
+            if (! -e "$backup_dir/$database") {
+                # create database directory for the backup
+                mkdir("$backup_dir/$database", 0777)
+                    || Die "Couldn't create directory '$backup_dir/$database': $!";
+            }
+        } elsif ($option_remote_host) {
+            if (system("ssh $option_ssh_opt $option_remote_host test -e $backup_dir/$database")
+                    != 0) {
+                system("ssh $option_ssh_opt $option_remote_host mkdir $backup_dir/$database");
+            }
+        }
+
+        # copy files of this database
+	opendir(DBDIR, "$source_dir/$database");
+	@list = grep(/\.(frm|MYD|MYI|MAD|MAI|MRG|TRG|TRN|ARM|ARZ|CSM|CSV|opt|par)$/, readdir(DBDIR));
+	closedir DBDIR;
+        $file_c = @list;
+        if ($file_c <= $backup_file_print_limit) {
+            $print_each_file = 1;
+        } else {
+            print STDERR "$prefix Backing up files " . 
+                "'$source_dir/$database/$wildcard' ($file_c files)\n";
+        }
+        foreach $file (@list) {
+            next unless check_if_required($database, $file);
+
+	    if($option_include) {
+	      my $table_name = get_table_name($file);
+	      if (!("$database.$table_name" =~ /$option_include/)) {
+	        print STDERR "$database.$file is skipped because it does not match $option_include.\n";
+	        next;
+	      }
+	    }
+
+               
+            if ($print_each_file) {
+                print STDERR "$prefix Backing up file '$source_dir/$database/$file'\n";
+            }
+
+	    if ($option_rsync) {
+		print RSYNC "$database/$file\n";
+		if (!$prep_mode) {
+		    $rsync_files_hash{"$database/$file"} = 1;
+		}
+            } elsif (!$option_remote_host && !$option_stream) {
+                $src_name = escape_path("$source_dir/$database/$file");
+                $dst_name = escape_path("$backup_dir/$database");
+                # Copy the file - If we get an error and the file actually exists, die with error msg
+                copy_if_exists("$src_name", "$dst_name")
+                  or Die "Failed to copy file '$file': $!";
+            } elsif ($option_remote_host) {
+                # Queue up files for one single scp per database.
+                push(@scp_files, "'$file'");
+            } elsif($option_stream) {
+                my $ret = 0;
+                my $file_name = substr($file, rindex($file, '/') + 1);
+                $file_name=~s/([\$\\\" ])/\\$1/g;
+                $ret = system("cd $source_dir; $stream_cmd $database/$file_name") >> 8;
+                if ($ret == 1 && $option_stream eq 'tar') {
+                    print STDERR "$prefix If you use GNU tar, this warning can be ignored.\n";
+                # Check for non-zero exit code
+                } elsif ($ret != 0) {
+                    print STDERR "$prefix $stream_cmd returned with exit code $ret.\n";
+                    # Only treat as fatal cases where the file exists
+                    if ( -e "$database/$file_name" ) {
+                        Die "Failed to stream '$database/$file_name': $!";
+                    } else {
+                        print STDERR "$prefix Ignoring nonexistent file '$database/$file_name'.\n";
+                    }
+
+                }
+            }
+        }
+        if ($option_remote_host and @scp_files) {
+          my $scp_file_list = join(" ", map { "$source_dir/$database/$_" } @scp_files);
+          system("scp $option_scp_opt $scp_file_list '$option_remote_host:$backup_dir/$database/'")
+              and Die "Failed to execute \"scp $option_scp_opt $scp_file_list '$option_remote_host:$backup_dir/$database/'\": $!";
+        }
+    }
+    closedir(DIR);
+
+    if ($option_rsync) {
+        if (-e "$source_dir/ib_lru_dump") {
+            print RSYNC "ib_lru_dump\n";
+            if (!$prep_mode) {
+                $rsync_files_hash{"ib_lru_dump"} = 1;
+            }
+        }
+	close(RSYNC);
+
+	# do the actual rsync now
+	$now = current_time();
+	my $rsync_cmd = "rsync -t \"$source_dir\" --files-from=\"$rsync_file_list\" \"$backup_dir\"";
+	print STDERR "$now Starting rsync as: $rsync_cmd\n";
+
+	# ignore errors in the prep mode, since we are running without lock,
+	# so some files may have disappeared.
+	if (system("$rsync_cmd") && !$prep_mode) {
+	    Die "rsync failed: $!\n";
+	}
+
+	$now = current_time();
+	print STDERR "$now rsync finished successfully.\n";
+
+	# Remove from $backup_dir files that have been removed between first and
+	# second passes. Cannot use "rsync --delete" because it does not work
+	# with --files-from.
+	if (!$prep_mode) {
+	    open(RSYNC, "<$rsync_tmpfile_pass1")
+		|| Die "Can't open $rsync_tmpfile_pass1 for reading: $!\n";
+
+	    while (<RSYNC>) {
+		chomp;
+		if (!exists $rsync_files_hash{$_}) {
+		    print STDERR "Removing '$backup_dir/$_'\n";
+		    unlink "$backup_dir/$_";
+		}
+	    }
+
+	    close(RSYNC);
+	    unlink "$rsync_tmpfile_pass1" || \
+		Die "Failed to delete $rsync_tmpfile_pass1: $!";
+	    unlink "$rsync_tmpfile_pass2" || \
+		Die "Failed to delete $rsync_tmpfile_pass2: $!";
+	}
+    }
+
+    if ($prep_mode) {
+	$operation = "a prep copy of";
+    } else {
+	$operation = "backing up";
+    }
+    $now = current_time();
+    print STDERR "$now  $prefix Finished $operation non-InnoDB tables and files\n\n";
+ }
+
+
+#
+# file_to_array subroutine reads the given text file into an array and
+# stores each line as an element of the array. The end-of-line
+# character(s) are removed from the lines stored in the array.
+#    Parameters:
+#       filename   name of a text file
+#       lines_ref  a reference to an array
+#
+sub file_to_array {
+    my $filename = shift;
+    my $lines_ref = shift;
+    
+    open(FILE, $filename) || Die "can't open file '$filename': $!";
+    @{$lines_ref} = <FILE>;
+    close(FILE) || Die "can't close file '$filename': $!";
+
+    foreach my $a (@{$lines_ref}) {
+        chomp($a);
+    }
+}
+
+
+#
+# unescape_string subroutine expands escape sequences found in the string and
+# returns the expanded string. It also removes possible single or double quotes
+# around the value.
+#    Parameters:
+#       value   a string
+#    Return value:
+#       a string with expanded escape sequences
+# 
+sub unescape_string {
+    my $value = shift;
+    my $result = '';
+    my $offset = 0;
+
+    # remove quotes around the value if they exist
+    if (length($value) >= 2) {
+        if ((substr($value, 0, 1) eq "'" && substr($value, -1, 1) eq "'")
+            || (substr($value, 0, 1) eq '"' && substr($value, -1, 1) eq '"')) {
+            $value = substr($value, 1, -1);
+        }
+    }
+    
+    # expand escape sequences
+    while ($offset < length($value)) {
+        my $pos = index($value, "\\", $offset);
+        if ($pos < 0) {
+            $pos = length($value);
+            $result = $result . substr($value, $offset, $pos - $offset);
+            $offset = $pos;
+        } else {
+            my $replacement = substr($value, $pos, 2);
+            my $escape_code = substr($value, $pos + 1, 1);
+            if (exists $option_value_escapes{$escape_code}) {
+                $replacement = $option_value_escapes{$escape_code};
+            }
+            $result = $result 
+                . substr($value, $offset, $pos - $offset)
+                . $replacement;
+            $offset = $pos + 2;
+        }
+    }
+
+    return $result;
+}
+
+
+#
+# read_config_file subroutine reads MySQL options file and
+# returns the options in a hash containing one hash per group.
+#    Parameters:
+#       filename    name of a MySQL options file
+#       groups_ref  a reference to hash variable where the read
+#                   options are returned
+#
+sub read_config_file {
+    #my $filename = shift;
+    my $groups_ref = shift;
+    my @lines ;
+    my $i;
+    my $group;
+    my $group_hash_ref;
+
+    my $cmdline = '';
+    my $options = '';
+
+
+    if ($option_defaults_file) {
+        $options = $options . " --defaults-file=\"$option_defaults_file\" ";
+    } elsif ($option_apply_log) {
+        $options = $options . " --defaults-file=\"${backup_dir}/backup-my.cnf\" ";
+    }
+
+    if ($option_defaults_extra_file) {
+        $options = $options . " --defaults-extra-file=\"$option_defaults_extra_file\" ";
+    }
+
+    if ($option_defaults_group) {
+        $options = $options . " --defaults-group=\"$option_defaults_group\" ";
+    }
+
+    $options = $options . "--print-param";
+
+
+    # read file to an array, one line per element
+    #file_to_array($filename, \@lines);
+    $cmdline = "$option_ibbackup_binary $options";
+    @lines = `$cmdline`;
+
+    # classify lines and save option values
+    $group = 'default';
+    $group_hash_ref = {}; 
+    ${$groups_ref}{$group} = $group_hash_ref;
+    # this pattern described an option value which may be
+    # quoted with single or double quotes. This pattern
+    # does not work by its own. It assumes that the first
+    # opening parenthesis in this string is the second opening
+    # parenthesis in the full pattern. 
+    my $value_pattern = q/((["'])([^\\\4]|(\\[^\4]))*\4)|([^\s]+)/;
+    for ($i = 0; $i < @lines; $i++) {
+      SWITCH: for ($lines[$i]) {
+          # comment
+          /^\s*(#|;)/
+             && do { last; };
+
+          # group      
+          /^\s*\[(.*)\]/ 
+                && do { 
+                    $group = $1; 
+                    if (!exists ${$groups_ref}{$group}) {
+                        $group_hash_ref = {}; 
+                        ${$groups_ref}{$group} = $group_hash_ref;
+                    } else {
+                        $group_hash_ref = ${$groups_ref}{$group};
+                    }
+                    last; 
+                };
+
+          # option
+          /^\s*([^\s=]+)\s*(#.*)?$/
+              && do { 
+                  ${$group_hash_ref}{$1} = '';
+                  last; 
+              };
+
+          # set-variable = option = value
+          /^\s*set-variable\s*=\s*([^\s=]+)\s*=\s*($value_pattern)\s*(#.*)?$/
+              && do { ${$group_hash_ref}{$1} = unescape_string($2); last; };
+
+          # option = value
+          /^\s*([^\s=]+)\s*=\s*($value_pattern)\s*(#.*)?$/
+              && do { ${$group_hash_ref}{$1} = unescape_string($2); last; };
+
+          # empty line
+          /^\s*$/
+              && do { last; };
+
+          # unknown
+          print("$prefix: Warning: Ignored unrecognized line ",
+                $i + 1,
+                " in options : '${lines[$i]}'\n"
+                );
+      }
+   }
+}
+    
+
+# has_option return whether the config has an option with the given name
+#    Parameters:
+#       config_ref   a reference to a config data
+#       group        option group name
+#       option_name  name of the option
+#    Return value:
+#       true if option exists, otherwise false
+#
+sub has_option {
+    my $config_ref = shift;
+    my $group = shift;
+    my $option_name = shift;
+    my $group_hash_ref;
+
+    if (!exists ${$config_ref}{$group}) {
+        # no group
+        print STDERR "$prefix fatal error: no '$group' group in MySQL options\n";
+        exit(1);
+    }
+
+    $group_hash_ref = ${$config_ref}{$group};
+    
+    return exists ${$group_hash_ref}{$option_name};
+}
+    
+
+# get_option subroutine returns the value of given option in the config
+# structure. If option is missing, this subroutine calls exit.
+#    Parameters:
+#       config_ref   a reference to a config data
+#       group        option group name
+#       option_name  name of the option
+#    Return value:
+#       option value as a string
+#
+sub get_option {
+    my $config_ref = shift;
+    my $group = shift;
+    my $option_name = shift;
+    my $group_hash_ref;
+
+    if (!exists $config{$group}) {
+        # no group
+        print STDERR "$prefix fatal error: no '$group' group in MySQL options\n";
+        exit(1);
+    }
+    
+    $group_hash_ref = ${$config_ref}{$group};
+    if (!exists ${$group_hash_ref}{$option_name}) {
+        # no option
+        print STDERR "$prefix fatal error: no '$option_name' option in group '$group' in MySQL options\n";
+        exit(1);
+    }
+
+    return ${$group_hash_ref}{$option_name};
+}
+
+# get_table_name subroutine returns table name of specified file.
+#    Parameters:
+#       $_[0]        table path
+#    Return value:
+#       1 table name
+#
+sub get_table_name {
+   my $table_path = shift;
+   my $filename;
+   my $table;
+
+   # get the last component in the table pathname 
+   $filename = (reverse(split(/\//, $table_path)))[0];
+   # get name of the table by removing file suffix
+   $table = (split(/\./, $filename))[0];
+   # and partition suffix
+   $table = (split('#P#', $table))[0];
+
+   return $table;
+}
+
+# check_if_required subroutine returns 1 if the specified database and
+# table needs to be backed up.
+#    Parameters:
+#       $_[0]        name of database to be checked 
+#       $_[1]        full path of table file (This argument is optional)
+#    Return value:
+#       1 if backup should be done and 0 if not
+#
+sub check_if_required {
+   my ( $db, $table_path ) = @_;
+   my $db_count  = scalar keys %databases_list;
+   my $tbl_count = scalar keys %table_list;
+   my $table;
+
+   if ( $db_count == 0 && $tbl_count == 0 ) {
+      # No databases defined with --databases option, include all databases,
+      # and no tables defined with --tables-file option, include all tables.
+      return 1;
+   }
+   else {
+      if ( $table_path ) {
+         $table = get_table_name($table_path);
+      }
+   }
+
+   # Filter for --databases.
+   if ( $db_count ) {
+      if (defined $databases_list{$db}) {
+         if (defined $table_path) {
+            my $db_hash = $databases_list{$db};
+            $db_count = keys %$db_hash;
+            if ($db_count > 0 && ! defined $databases_list{$db}->{$table}) {
+               # --databases option specified, but table is not included
+               return 0;
+            }
+         }
+         # include this database and table
+         return 1;
+      }
+      else {
+         # --databases option given, but database is not included
+         return 0;
+      }
+   }
+
+   # Filter for --tables-file.
+   if ( $tbl_count ) {
+      return 0 unless exists $table_list{$db};
+      return 0 if $table && !$table_list{$db}->{$table};
+   }
+
+   return 1;  # backup the table
+}
+
+
+# parse_databases_option_value subroutine parses the value of 
+# --databases option. If the option value begins with a slash
+# it is considered a pathname and the option value is read
+# from the file.
+# 
+# This subroutine sets the global "databases_list" variable.
+#
+sub parse_databases_option_value {
+    my $item;
+
+    if ($option_databases =~ /^\//) {
+        # the value of the --databases option begins with a slash,
+        # the option value is pathname of the file containing
+        # list of databases
+        if (! -f $option_databases) {
+            Die "can't find file '$option_databases'";
+        }
+
+        # read from file the value of --databases option
+        my @lines;
+    	file_to_array($option_databases, \@lines);
+	$option_databases = join(" ", @lines);
+    }
+
+    # mark each database or database.table definition in the
+    # global databases_list.
+    foreach $item (split(/\s/, $option_databases)) {
+        my $db = "";
+        my $table = "";
+        my %hash;
+
+        if ($item eq "") {
+            # ignore empty strings
+            next;
+        }
+
+        # get database and table names
+        if ($item =~ /(\S*)\.(\S*)/) {
+            # item is of the form DATABASE.TABLE
+            $db = $1;
+            $table = $2;
+        } else {
+            # item is database name, table is undefined
+            $db = $item;
+        }
+
+        if (! defined $databases_list{$db}) {
+            # create empty hash for the database
+            $databases_list{$db} = \%hash;
+        }
+        if ($table ne "") {
+            # add mapping table --> 1 to the database hash
+            my $h = $databases_list{$db};
+            $h->{$table} = 1;
+        }
+    }
+}
+
+# Parse the --tables-file file to determine which InnoDB tables
+# are backedup up.  Only backedup tables have their .frm, etc.
+# files copied.
+sub parse_tables_file_option_value {
+   my ( $filename ) = @_;
+
+   return unless $filename;
+
+   open my $fh, '<', $filename;
+   if ( $fh ) {
+      while ( my $line = <$fh> ) {
+         chomp $line;
+         my ( $db, $tbl ) = $line =~ m/\s*([^\.]+)\.([^\.]+)\s*/;
+         if ( $db && $tbl ) {
+            $table_list{$db}->{$tbl} = 1;
+            print STDERR "$prefix $db.$tbl will be registerd to the list\n";
+         }
+         else {
+            warn "$prefix Invalid line in $filename: $line";
+         }
+      }
+   }
+   else {
+      warn "$prefix Cannot read --tables-file $filename: $OS_ERROR";
+   }
+
+   return;
+}
+
+sub escape_path {
+  my $str = shift;
+  if ($win eq 1) {
+    $str =~ s/\//\\/g;
+    $str =~ s/\\\\/\\/g;
+    }
+  else{
+    $str =~ s/\/\//\//g;
+    }
+  return $str;
+
+}
+
+sub set_xtrabackup_version {
+# Based on MySQL version choose correct binary
+#  MySQL 5.0.* - xtrabackup_51
+#  MySQL 5.1.* - xtrabackup_51
+#  MySQL 5.1.* with InnoDB plugin - xtrabackup
+#  MariaDB 5.1.* - xtrabackup
+#  MariaDB 5.2.* - xtrabackup
+#  MariaDB 5.3.* - xtrabackup
+#  Percona Server 5.0 - xtrabackup_51
+#  Percona Server 5.1 - xtrabackup
+#  Percona Server 5.5 - xtrabackup_55
+#  MySQL 5.5.* - xtrabackup_55
+#  MariaDB 5.5.* - xtrabackup_55
+
+my @lines;
+my $var_version = '';
+my $var_innodb_version = '';
+my $ibbackup_binary;
+mysql_open();
+mysql_send "SHOW VARIABLES LIKE 'version'\\G";
+file_to_array($mysql_stdout, \@lines);
+for (@lines) {
+	$var_version = $1 if /Value:\s+(\S+)/;
+	}
+mysql_send "SHOW VARIABLES LIKE 'innodb_version'\\G";
+file_to_array($mysql_stdout, \@lines);
+for (@lines) {
+	$var_innodb_version = $1 if /Value:\s+(\S+)/;
+	}
+if($var_version =~ m/5\.0\.\d/){
+	$ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup_51');
+}
+if($var_version =~ m/5\.1\.\d/ and $var_innodb_version =~ m/.*/){
+	$ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup_51');
+}
+if($var_version =~ m/5\.1\.\d/ and $var_innodb_version =~ m/1\.0\.\d+$/){
+	$ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup');
+}
+if($var_version =~ m/5\.1\.\d/ and $var_innodb_version =~ m/1\.0\.\d+-(rel)?\d/){
+	$ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup');
+}
+if($var_version =~ m/5\.2\.\d/){
+    $ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup');
+}
+if($var_version =~ m/5\.3\.\d/){
+    $ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup');
+}
+if($var_version =~ m/5\.5\.\d/){
+	$ibbackup_binary = ($win eq 1 ? 'xtrabackup.exe' : 'xtrabackup_55');
+}
+mysql_close();
+return $ibbackup_binary;
+}
+
+# Wait until it's safe to backup a slave.  Returns immediately if
+# the host isn't a slave.  Currently there's only one check:
+# Slave_open_temp_tables has to be zero.  Dies on timeout.
+sub wait_for_safe_slave {
+   my @lines;
+   # whether host is detected as slave in safe slave backup mode
+   my $host_is_slave = 0;
+
+   $sql_thread_started = 0;
+
+   mysql_send 'SHOW SLAVE STATUS\G;';
+   file_to_array($mysql_stdout, \@lines);
+   foreach my $line ( @lines ) {
+      if ( $line =~ m/Read_Master_Log_Pos/ ) {
+         $host_is_slave = 1;
+     } elsif ( $line =~ m/Slave_SQL_Running:.*Yes/ ) {
+         $sql_thread_started = 1;
+     }
+   }
+   if ( !$host_is_slave ) {
+      print STDERR "$prefix: Not checking slave open temp tables for --safe-slave-backup because host is not a slave\n";
+      return;
+   }
+
+   if ($sql_thread_started) {
+       mysql_send 'STOP SLAVE SQL_THREAD;';
+   }
+
+   my $open_temp_tables = get_slave_open_temp_tables();
+   print STDERR "$prefix: Slave open temp tables: $open_temp_tables\n";
+
+   return if $open_temp_tables == 0;
+
+   my $sleep_time = 3;
+   my $n_attempts = int($option_safe_slave_backup_timeout / $sleep_time) || 1;
+   while ( $n_attempts-- ) {
+      print STDERR "$prefix: Starting slave SQL thread, waiting $sleep_time seconds, then checking Slave_open_temp_tables again ($n_attempts attempts remaining)...\n";
+      
+      mysql_send 'START SLAVE SQL_THREAD;';
+      sleep $sleep_time;
+      mysql_send 'STOP SLAVE SQL_THREAD;';
+
+      $open_temp_tables = get_slave_open_temp_tables();
+      print STDERR "$prefix: Slave open temp tables: $open_temp_tables\n";
+      if ( !$open_temp_tables ) {
+         print STDERR "$prefix: Slave is safe to backup\n";
+         return;
+      }
+   } 
+
+   # Restart the slave if it was running at start
+   if ($sql_thread_started) {
+       print STDERR "Restarting slave SQL thread.\n";
+       mysql_send 'START SLAVE SQL_THREAD;';
+   }
+
+   Die "Slave_open_temp_tables did not become zero after waiting $option_safe_slave_backup_timeout seconds";
+}
+
+sub get_slave_open_temp_tables {
+   my @lines;
+   mysql_send 'SHOW STATUS LIKE "slave_open_temp_tables"\G;';
+   file_to_array($mysql_stdout, \@lines);
+   my $last_value;
+   for my $i ( 0..$#lines ) {
+      $last_value = $i + 1
+         if $lines[$i] =~ m/Variable_name: Slave_open_temp_tables/i;
+   }
+   Die "SHOW STATUS LIKE 'slave_open_temp_tables' did not return anything"
+      unless $last_value;
+
+   Die "Failed to get Slave_open_temp_tables from SHOW STATUS"
+      unless defined $lines[$last_value];
+
+   my ($n) = $lines[$last_value] =~ m/(\d+)/;
+   return $n;
+}
+
+=pod
+
+=head1 NAME
+
+innobackupex - Non-blocking backup tool for InnoDB, XtraDB and HailDB databases
+
+=head1 SYNOPOSIS
+
+innobackupex [--compress] [--compress-threads=NUMBER-OF-THREADS]
+             [--include=REGEXP] [--user=NAME]
+             [--password=WORD] [--port=PORT] [--socket=SOCKET]
+             [--no-timestamp] [--ibbackup=IBBACKUP-BINARY]
+             [--slave-info] [--galera-info] [--stream=tar|xbstream]
+             [--scpopt=OPTIONS-FOR-SCP]  [--sshopt=OPTIONS-FOR-SSH]
+             [--defaults-file=MY.CNF] [--defaults-group=GROUP-NAME]
+             [--databases=LIST] [--remote-host=HOSTNAME] [--no-lock] 
+             [--tmpdir=DIRECTORY] [--tables-file=FILE]
+             [--incremental] [--incremental-basedir]
+             [--incremental-dir] [--incremental-lsn]
+             BACKUP-ROOT-DIR
+
+innobackupex --apply-log [--use-memory=B] [--uncompress]
+             [--defaults-file=MY.CNF]
+             [--export] [--redo-only] [--ibbackup=IBBACKUP-BINARY]
+             BACKUP-DIR
+
+innobackupex --copy-back [--defaults-file=MY.CNF] [--defaults-group=GROUP-NAME] BACKUP-DIR
+
+innobackupex --move-back [--defaults-file=MY.CNF] [--defaults-group=GROUP-NAME] BACKUP-DIR
+
+=head1 DESCRIPTION
+
+The first command line above makes a hot backup of a MySQL database.
+By default it creates a backup directory (named by the current date
+and time) in the given backup root directory.  With the --no-timestamp
+option it does not create a time-stamped backup directory, but it puts
+the backup in the given directory (which must not exist).  This
+command makes a complete backup of all MyISAM and InnoDB tables and
+indexes in all databases or in all of the databases specified with the
+--databases option.  The created backup contains .frm, .MRG, .MYD,
+.MYI, .MAD, .MAI, .TRG, .TRN, .ARM, .ARZ, .CSM, CSV, .opt, .par, and
+InnoDB data and log files.  The MY.CNF options file defines the
+location of the database.  This command connects to the MySQL server
+using the mysql client program, and runs xtrabackup as a child
+process.
+
+The --apply-log command prepares a backup for starting a MySQL
+server on the backup. This command recovers InnoDB data files as specified
+in BACKUP-DIR/backup-my.cnf using BACKUP-DIR/xtrabackup_logfile,
+and creates new InnoDB log files as specified in BACKUP-DIR/backup-my.cnf.
+The BACKUP-DIR should be the path to a backup directory created by
+xtrabackup. This command runs xtrabackup as a child process, but it does not 
+connect to the database server.
+
+The --copy-back command copies data, index, and log files
+from the backup directory back to their original locations.
+The MY.CNF options file defines the original location of the database.
+The BACKUP-DIR is the path to a backup directory created by xtrabackup.
+
+The --move-back command is similar to --copy-back with the only difference that
+it moves files to their original locations rather than copies them. As this
+option removes backup files, it must be used with caution. It may be useful in
+cases when there is not enough free disk space to copy files.
+
+On success the exit code innobackupex is 0. A non-zero exit code 
+indicates an error.
+
+
+=head1 OPTIONS
+
+=over
+
+=item --apply-log
+
+Prepare a backup in BACKUP-DIR by applying the transaction log file named "xtrabackup_logfile" located in the same directory. Also, create new transaction logs. The InnoDB configuration is read from the file "backup-my.cnf".
+
+=item --compress
+
+This option instructs xtrabackup to compress backup copies of InnoDB
+data files. It is passed directly to the xtrabackup child process. Try
+'xtrabackup --help' for more details.
+
+=item --compress-threads
+
+This option specifies the number of worker threads that will be used
+for parallel compression. It is passed directly to the xtrabackup
+child process. Try 'xtrabackup --help' for more details.
+
+=item --copy-back
+
+Copy all the files in a previously made backup from the backup directory to their original locations.
+
+=item --databases=LIST
+
+This option specifies the list of databases that innobackupex should back up. The option accepts a string argument or path to file that contains the list of databases to back up. The list is of the form "databasename1[.table_name1] databasename2[.table_name2] . . .". If this option is not specified, all databases containing MyISAM and InnoDB tables will be backed up.  Please make sure that --databases contains all of the InnoDB databases and tables, so that all of the innodb.frm files are also backed up. In case the list is very long, this can be specified in a file, and the full path of the file can be specified instead of the list. (See option --tables-file.)
+
+=item --defaults-file=[MY.CNF]
+
+This option specifies what file to read the default MySQL options from.  The option accepts a string argument. It is also passed directly to xtrabackup's --defaults-file option. See the xtrabackup documentation for details.
+
+=item --defaults-extra-file=[MY.CNF]
+
+This option specifies what extra file to read the default MySQL options from before the standard defaults-file.  The option accepts a string argument. It is also passed directly to xtrabackup's --defaults-extra-file option. See the xtrabackup documentation for details.
+
+=item --export
+
+This option is passed directly to xtrabackup's --export option. It enables exporting individual tables for import into another server. See the xtrabackup documentation for details.
+
+=item --extra-lsndir=DIRECTORY
+
+This option specifies the directory in which to save an extra copy of the "xtrabackup_checkpoints" file.  The option accepts a string argument. It is passed directly to xtrabackup's --extra-lsndir option. See the xtrabackup documentation for details.
+
+=item --galera-info
+
+This options creates the xtrabackup_galera_info file which contians the local node state at the time of the backup. Option should be used when performing the backup of Percona-XtraDB-Cluster.
+
+=item --help
+
+This option displays a help screen and exits.
+
+=item --host=HOST
+
+This option specifies the host to use when connecting to the database server with TCP/IP.  The option accepts a string argument. It is passed to the mysql child process without alteration. See mysql --help for details.
+
+=item --ibbackup=IBBACKUP-BINARY
+
+This option specifies which xtrabackup binary should be used.  The option accepts a string argument. IBBACKUP-BINARY should be the command used to run XtraBackup. The option can be useful if the xtrabackup binary is not in your search path or working directory. If this option is not specified, innobackupex attempts to determine the binary to use automatically. By default, "xtrabackup" is the command used. However, when option --copy-back is specified, "xtrabackup_51" is the command used. And when option --apply-log is specified, the binary is used whose name is in the file "xtrabackup_binary" in the backup directory, if that file exists.
+
+=item --include=REGEXP
+
+This option is a regular expression to be matched against table names in databasename.tablename format. It is passed directly to xtrabackup's --tables option. See the xtrabackup documentation for details.
+
+=item --incremental
+
+This option tells xtrabackup to create an incremental backup, rather than a full one. It is passed to the xtrabackup child process. When this option is specified, either --incremental-lsn or --incremental-basedir can also be given. If neither option is given, option --incremental-basedir is passed to xtrabackup by default, set to the first timestamped backup directory in the backup base directory.
+
+=item --incremental-basedir=DIRECTORY
+
+This option specifies the directory containing the full backup that is the base dataset for the incremental backup.  The option accepts a string argument. It is used with the --incremental option.
+
+=item --incremental-dir=DIRECTORY
+
+This option specifies the directory where the incremental backup will be combined with the full backup to make a new full backup.  The option accepts a string argument. It is used with the --incremental option.
+
+=item --incremental-lsn
+
+This option specifies the log sequence number (LSN) to use for the incremental backup.  The option accepts a string argument. It is used with the --incremental option. It is used instead of specifying --incremental-basedir. For databases created by MySQL and Percona Server 5.0-series versions, specify the LSN as two 32-bit integers in high:low format. For databases created in 5.1 and later, specify the LSN as a single 64-bit integer.
+
+=item --move-back
+
+Move all the files in a previously made backup from the backup directory to the actual datadir location. Use with caution, as it removes backup files.
+
+=item --no-lock
+
+Use this option to disable table lock with "FLUSH TABLES WITH READ LOCK". Use it only if ALL your tables are InnoDB and you DO NOT CARE about the binary log position of the backup. This option shouldn't be used if there are any DDL statements being executed or if any updates are happening on non-InnoDB tables (this includes the system MyISAM tables in the mysql database), otherwise it could lead to an inconsistent backup. If you are considering to use --no-lock because your backups are failing to acquire the lock, this could be because of incoming replication events preventing the lock from succeeding. Please try using --safe-slave-backup to momentarily stop the replication slave thread, this may help the backup to succeed and you then don't need to resort to using this option.
+
+=item --no-timestamp
+
+This option prevents creation of a time-stamped subdirectory of the BACKUP-ROOT-DIR given on the command line. When it is specified, the backup is done in BACKUP-ROOT-DIR instead.
+
+=item --parallel=NUMBER-OF-THREADS
+
+This option specifies the number of threads the xtrabackup child process should use to back up files concurrently.  The option accepts an integer argument. It is passed directly to xtrabackup's --parallel option. See the xtrabackup documentation for details.
+
+
+=item --password=WORD
+
+This option specifies the password to use when connecting to the database. It accepts a string argument.  It is passed to the mysql child process without alteration. See mysql --help for details.
+
+=item --port=PORT
+
+This option specifies the port to use when connecting to the database server with TCP/IP.  The option accepts a string argument. It is passed to the mysql child process. It is passed to the mysql child process without alteration. See mysql --help for details.
+
+=item --redo-only
+
+This option should be used when preparing the base full backup and when merging all incrementals except the last one. This option is passed directly to xtrabackup's --apply-log-only option. This forces xtrabackup to skip the "rollback" phase and do a "redo" only. This is necessary if the backup will have incremental changes applied to it later. See the xtrabackup documentation for details. 
+
+=item --remote-host=HOSTNAME 
+
+This option is DEPRECATED and will be removed in Percona XtraBackup 2.1. In Percona XtraBackup 2.0 and later, you should use streaming backups instead. This option specifies the remote host on which the backup files will be created, by using an ssh connection.  The option accepts a string argument.
+
+=item --rsync
+
+Uses the rsync utility to optimize local file transfers. When this option is specified, innobackupex uses rsync to copy all non-InnoDB files instead of spawning a separate cp for each file, which can be much faster for servers with a large number of databases or tables.  This option cannot be used together with --remote-host or --stream.
+
+=item --safe-slave-backup
+
+Stop slave SQL thread and wait to start backup until Slave_open_temp_tables in "SHOW STATUS" is zero. If there are no open temporary tables, the backup will take place, otherwise the SQL thread will be started and stopped until there are no open temporary tables. The backup will fail if Slave_open_temp_tables does not become zero after --safe-slave-backup-timeout seconds. The slave SQL thread will be restarted when the backup finishes.
+
+=item --safe-slave-backup-timeout
+
+How many seconds --safe-slave-backup should wait for Slave_open_temp_tables to become zero. (default 300)
+
+=item --scpopt=SCP-OPTIONS
+
+This option specifies the command line options to pass to scp when the option --remost-host is specified.  The option accepts a string argument. If the option is not specified, the default options are "-Cp -c arcfour".
+
+=item --sshopt=SSH-OPTIONS
+
+This option specifies the command line options to pass to ssh when the option --remost-host is specified.  The option accepts a string argument.
+
+=item --slave-info
+
+This option is useful when backing up a replication slave server. It prints the binary log position and name of the master server. It also writes this information to the "xtrabackup_slave_info" file as a "CHANGE MASTER" command. A new slave for this master can be set up by starting a slave server on this backup and issuing a "CHANGE MASTER" command with the binary log position saved in the "xtrabackup_slave_info" file.
+
+=item --socket=SOCKET
+
+This option specifies the socket to use when connecting to the local database server with a UNIX domain socket.  The option accepts a string argument. It is passed to the mysql child process without alteration. See mysql --help for details.
+
+=item --stream=STREAMNAME
+
+This option specifies the format in which to do the streamed backup.  The option accepts a string argument. The backup will be done to STDOUT in the specified format. Currently, the only supported formats are tar and xbstream. This option is passed directly to xtrabackup's --stream option.
+
+=item --tables-file=FILE
+
+This option specifies the file in which there are a list of names of the form database.  The option accepts a string argument.table, one per line. The option is passed directly to xtrabackup's --tables-file option.
+
+=item --throttle=IOS
+
+This option specifies a number of I/O operations (pairs of read+write) per second.  It accepts an integer argument.  It is passed directly to xtrabackup's --throttle option.
+
+=item --tmpdir=DIRECTORY
+
+This option specifies the location where a temporary file will be stored.  The option accepts a string argument. It should be used when --remote-host or --stream is specified. For these options, the transaction log will first be stored to a temporary file, before streaming or copying to a remote host. This option specifies the location where that temporary file will be stored. If the option is not specifed, the default is to use the value of tmpdir read from the server configuration.
+
+=item --use-memory=B
+
+This option accepts a string argument that specifies the amount of memory in bytes for xtrabackup to use for crash recovery while preparing a backup. Multiples are supported providing the unit (e.g. 1MB, 1GB). It is used only with the option --apply-log. It is passed directly to xtrabackup's --use-memory option. See the xtrabackup documentation for details.
+
+=item --user=NAME
+
+This option specifies the MySQL username used when connecting to the server, if that's not the current user. The option accepts a string argument.  It is passed to the mysql child process without alteration. See mysql --help for details.
+
+=item --defaults-group=GROUP-NAME
+
+This option specifies the group name in my.cnf which should be used. This is needed for mysqld_multi deployments.
+
+=item --version
+
+This option displays the xtrabackup version and copyright notice and then exits.
+
+=back
+
+=head1 BUGS
+
+Bugs can be reported on Launchpad: https://bugs.launchpad.net/percona-xtrabackup/+filebug
+
+=head1 COPYRIGHT
+
+InnoDB Backup Utility Copyright 2003, 2009 Innobase Oy and Percona, Inc 2009-2012. All Rights Reserved.
+
+This software is published under the GNU GENERAL PUBLIC LICENSE Version 2, June 1991.
+
+=cut

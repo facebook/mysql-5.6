@@ -1,0 +1,3 @@
+$rules = {
+	'rule1'	=> sub { $_ !~ m{range|index_merge|intersect|union}so },
+};
