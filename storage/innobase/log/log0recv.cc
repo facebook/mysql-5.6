@@ -43,20 +43,19 @@ Created 9/20/1997 Heikki Tuuri
 #include "trx0undo.h"
 #include "trx0rec.h"
 #include "fil0fil.h"
-#ifndef UNIV_HOTBACKUP
 # include "buf0rea.h"
 # include "srv0srv.h"
 # include "srv0start.h"
 # include "trx0roll.h"
 # include "row0merge.h"
 # include "sync0sync.h"
-#else /* !UNIV_HOTBACKUP */
 
+#ifdef XTRABACKUP
 /** This is set to FALSE if the backup was originally taken with the
 ibbackup --include regexp option: then we do not want to create tables in
 directories which were not included */
 UNIV_INTERN ibool	recv_replay_file_ops	= TRUE;
-#endif /* !UNIV_HOTBACKUP */
+#endif /* XTRABACKUP */
 
 /** Log records are stored in the hash table in chunks at most of this size;
 this must be less than UNIV_PAGE_SIZE as it is stored in the buffer pool */
@@ -399,7 +398,11 @@ recv_sys_init(
 	/* Set appropriate value of recv_n_pool_free_frames. */
 	if (buf_pool_get_curr_size() >= (10 * 1024 * 1024)) {
 		/* Buffer pool of size greater than 10 MB. */
+#ifdef XTRABACKUP
+		recv_n_pool_free_frames = 1024;
+#else /* XTRABACKUP */
 		recv_n_pool_free_frames = 512;
+#endif /* XTRABACKUP */
 	}
 
 	recv_sys->buf = static_cast<byte*>(ut_malloc(RECV_PARSING_BUF_SIZE));
@@ -703,7 +706,7 @@ recv_synchronize_groups(
 /***********************************************************************//**
 Checks the consistency of the checkpoint info
 @return	TRUE if ok */
-static
+UNIV_INTERN
 ibool
 recv_check_cp_is_consistent(
 /*========================*/
@@ -733,7 +736,7 @@ recv_check_cp_is_consistent(
 /********************************************************//**
 Looks for the maximum consistent checkpoint from the log groups.
 @return	error code or DB_SUCCESS */
-static __attribute__((nonnull, warn_unused_result))
+UNIV_INTERN __attribute__((nonnull, warn_unused_result))
 dberr_t
 recv_find_max_checkpoint(
 /*=====================*/
@@ -893,7 +896,7 @@ block.  We also accept a log block in the old format before
 InnoDB-3.23.52 where the checksum field contains the log block number.
 @return TRUE if ok, or if the log block may be in the format of InnoDB
 version predating 3.23.52 */
-static
+UNIV_INTERN
 ibool
 log_block_checksum_is_ok_or_old_format(
 /*===================================*/
@@ -1588,6 +1591,10 @@ recv_recover_page_func(
 					     buf_block_get_page_no(block));
 
 	if ((recv_addr == NULL)
+#ifdef XTRABACKUP
+	    /* Fix for http://bugs.mysql.com/bug.php?id=44140 */
+	    || (recv_addr->state == RECV_BEING_READ && !just_read_in)
+#endif /* XTRABACKUP */
 	    || (recv_addr->state == RECV_BEING_PROCESSED)
 	    || (recv_addr->state == RECV_PROCESSED)) {
 
@@ -2406,7 +2413,7 @@ loop:
 			   || type == MLOG_FILE_RENAME
 			   || type == MLOG_FILE_DELETE) {
 			ut_a(space);
-#ifdef UNIV_HOTBACKUP
+#ifdef XTRABACKUP
 			if (recv_replay_file_ops) {
 
 				/* In ibbackup --apply-log, replay an .ibd file
@@ -2429,7 +2436,7 @@ loop:
 					ut_error;
 				}
 			}
-#endif
+#endif /* XTRABACKUP */
 			/* In normal mysqld crash recovery we do not try to
 			replay file operations */
 #ifdef UNIV_LOG_LSN_DEBUG
@@ -2852,8 +2859,19 @@ recv_scan_log_recs(
 
 			fprintf(stderr,
 				"InnoDB: Doing recovery: scanned up to"
+#ifdef XTRABACKUP
+				" log sequence number " LSN_PF " (%lu%%)\n",
+				*group_scanned_lsn,
+				(ulong) ((*group_scanned_lsn
+					  - recv_sys->parse_start_lsn)
+					 / (8 * log_group_get_capacity(
+						UT_LIST_GET_FIRST(
+						    log_sys->log_groups))
+					    / 900)));
+#else /* XTRABACKUP */
 				" log sequence number " LSN_PF "\n",
 				*group_scanned_lsn);
+#endif /* XTRABACKUP */
 		}
 	}
 
@@ -3435,7 +3453,12 @@ recv_recovery_from_checkpoint_finish(void)
 	that the data dictionary tables will be free of any locks.
 	The data dictionary latch should guarantee that there is at
 	most one data dictionary transaction active at a time. */
+#ifdef XTRABACKUP
+	if (srv_force_recovery < SRV_FORCE_NO_TRX_UNDO
+	    && !srv_apply_log_only) {
+#else /* XTRABACKUP */
 	if (srv_force_recovery < SRV_FORCE_NO_TRX_UNDO) {
+#endif /* XTRABACKUP */
 		trx_rollback_or_clean_recovered(FALSE);
 	}
 }
