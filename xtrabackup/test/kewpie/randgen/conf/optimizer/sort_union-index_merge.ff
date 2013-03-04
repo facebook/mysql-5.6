@@ -1,0 +1,7 @@
+#
+# This filter file leaves only queries that use either sort_union or index_merge optimization.
+# Such queries are of interest for testing Maria WL#24
+#
+$rules = {
+	'filter1'	=> sub { $_ !~ m{sort_union|index_merge}so },
+};

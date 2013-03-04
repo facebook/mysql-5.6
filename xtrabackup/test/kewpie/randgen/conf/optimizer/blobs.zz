@@ -1,0 +1,36 @@
+# Copyright (c) 2008, 2011, Oracle and/or its affiliates. All rights 
+# reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+$tables = {
+	names => ['A','B','C','D', 'AA', 'BB', 'CC', 'DD' ],
+        rows => [ 0, 0, 0, 1, 1, 1, 1, 10, 10, 10, 100 ],
+	engines => [ 'MyISAM', 'InnoDB' ]
+};
+
+$fields = {
+        types => [ 'tinyblob', 'tinytext', 'blob', 'text' ],
+        indexes => [undef, 'key' ],
+        null => [undef, 'null', 'not null'],
+        default => [undef, 'default null'],
+        charsets => ['utf8', 'latin1']
+};
+
+$data = {
+	blobs => [ 'data', 'varchar(1024)', 'varchar(1024)', 'char(1024)', 'char(1024)' ],
+	texts => [ 'data', 'varchar(1024)', 'varchar(1024)', 'char(1024)', 'char(1024)' ],
+        strings => [ 'varchar(1024)', 'varchar(1024)', 'varchar(1024)' , 'english' , 'letter' ]
+};

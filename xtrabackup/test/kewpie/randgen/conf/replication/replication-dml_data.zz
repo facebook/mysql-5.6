@@ -1,0 +1,75 @@
+# Copyright (C) 2009 Sun Microsystems, Inc. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# Attention: If you modify something under $tables than the amount and the names of
+#            the tables will change and this requires adjustments in
+#            conf/replication/replication-dml_sql.yy   *_table
+#
+$schemas = [ 'test' , 'test1' ];
+
+$tables = {
+        # Example: table<rows>
+        rows => [ 0 , 1 , 10] ,
+        # partitions => [ undef , 'KEY (pk) PARTITIONS 2' ] ,
+        # Example: table<rows> , table<rows>_<engine>
+        # engines => [ undef , 'MyISAM' , 'InnoDB' ] ,
+        engines => [ undef , 'MyISAM' ] ,
+        # Example: table<rows>_<engine>_<pk> like table0_myisam_int_autoinc
+        # Enable the next line when the RPL team says it is time to do this.
+        #    pk => [ 'int auto_increment' , 'int' , undef ]
+        pk   => [ 'int auto_increment' , 'int' ]
+};
+
+$fields = {
+        types => [
+        # Numeric
+           'bit' , 'bit(4)' , 'bit(64)' ,
+           'tinyint' , 'smallint' , 'mediumint' , 'int' ,
+           'bigint' ,
+           'float' , 'double' ,
+           # decimal(M,N) is not supported by RQG. I would have taken decimal(65,30),decimal(10,0).
+           # decimal had to be disabled because of
+           # Bug#49533: Overflow in DECIMAL, SBR out of sync
+           # 'decimal' , 'decimal(35)' ,
+        # String
+        # Manual: Specifying the CHARACTER SET binary attribute for a character data type causes
+        #         the column to be created as the corresponding binary data type:
+        #         CHAR becomes BINARY, VARCHAR becomes VARBINARY, and TEXT becomes BLOB.
+        # We do not mention *BINARY and BLOB here + but have 'binary' between the charsets.
+           'enum' , 'set' ,
+           # Variable length
+           'varchar' , 'varchar(10)' , 'varchar(257)' ,
+           # Not all storage engines support text
+           'tinytext' , 'text' , 'mediumtext' , 'longtext' ,
+           # Fixed length
+           'char' , 'char(10)' ,
+        # Date/time
+           'datetime' , 'date' , 'timestamp' , 'time' ,'year' 
+                   ] ,
+        indexes  => [ undef ] ,
+        # null => [ undef , 'not null' ] ,
+        # default => [ undef , 'default null' ] ,
+        sign     => [ undef , 'unsigned' ] ,
+        charsets => [ 'utf8' , 'latin1' , 'binary' ]
+};
+
+$data = {
+        numbers   => [ 'digit' , 'null' , undef ],
+        strings   => [ 'letter' , 'english' , 'null' ],
+        blobs     => [ 'english', 'english', 'english', 'english', 'english', 'english', 'english', 'english', 'english', 'data' ],
+        temporals => [ undef , 'null' , 'time' , 'date' , 'datetime' , 'year(2)' , 'year(4)' , 'timestamp' ]
+}
