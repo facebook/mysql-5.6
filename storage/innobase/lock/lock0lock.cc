@@ -5157,6 +5157,10 @@ lock_print_info_summary(
 	} else if (lock_mutex_enter_nowait()) {
 		fputs("FAIL TO OBTAIN LOCK MUTEX, "
 		      "SKIP LOCK INFO PRINTING\n", file);
+#ifdef UNIV_SYNC_DEBUG
+		fprintf(file, "mutex is locked at %s:%lu\n",
+			lock_sys->mutex.file_name, lock_sys->mutex.line);
+#endif
 		return(FALSE);
 	}
 
