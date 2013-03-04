@@ -518,11 +518,11 @@ static size_t qlz_compress_core(const unsigned char *source, unsigned char *dest
 		if (src <= last_byte - 3)
 		{
 #if QLZ_COMPRESSION_LEVEL == 1
-			ui32 hash, fetch;
-			fetch = fast_read(src, 3);
-			hash = hash_func(fetch);
+			ui32 hash, fetch_data;
+			fetch_data = fast_read(src, 3);
+			hash = hash_func(fetch_data);
 			state->hash[hash].offset = CAST(src - OFFSET_BASE);
-			state->hash[hash].cache = fetch;
+			state->hash[hash].cache = fetch_data;
 #elif QLZ_COMPRESSION_LEVEL == 2
 			ui32 hash;
 			unsigned char c;
