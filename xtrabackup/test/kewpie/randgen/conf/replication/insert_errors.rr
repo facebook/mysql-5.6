@@ -1,0 +1,19 @@
+thread1:
+	io_error | io_error | io_error | io_error | io_error | io_error | io_error | crash ;
+
+io_error:
+	SELECT SLEEP( _digit ) ; SET debug='+d,fail_binlog_write_1' ; SELECT SLEEP ( _digit ) ; SET debug='';
+
+crash:
+	SELECT SLEEP( _digit ) ; crash_types ; FLUSH LOGS ; PURGE BINARY LOGS TO 'master-bin.000001' ;
+
+crash_types:
+	SET debug='+d,crash_create_non_critical_before_update_index' |
+	SET debug='+d,crash_create_critical_before_update_index' |
+	SET debug='+d,crash_create_after_update_index' |
+	SET debug='+d,crash_before_purge_logs' |
+	SET debug='+d,crash_purge_before_update_index' |
+	SET debug='+d,crash_purge_critical_after_update_index' |
+	SET debug='+d,crash_purge_non_critical_after_update_index' |
+	SET debug='+d,crash_before_writing_xid'
+;

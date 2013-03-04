@@ -1,0 +1,3 @@
+$rules = {
+	'extra'	=> sub { $_ !~ m{join buffer|MRR|BKA}sio }
+};
