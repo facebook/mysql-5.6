@@ -1,0 +1,50 @@
+============================
+|Percona| |XtraBackup| 2.0.1
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 2.0.1 on June 25th, 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-2.0.1/>`_ and :doc:`Percona Software Repositories </installation>`.
+
+This release is the current GA (Generally Available) stable release in the 2.0 series. 
+
+Bugs Fixed
+==========
+
+  * After creating a full compressed backup, performing a compressed/uncompressed incremental backup would fail because ``xtrabackup_checkpoints`` was compressed. This has been fixed by omitting xtrabackup_checkpoints from compression, so that a full backup could be used for incremental backups without decompression. Bug fixed :bug:`977652` (*Alexey Kopytov*).
+ 
+  * :option:`--copy-back` was copying compressed *.qp files as well. This has been fixed by skipping the compressed files while copying the data back. Bug fixed :bug:`983695` (*Alexey Kopytov*).
+
+  * Streaming backups with :option:`--stream=tar` would fail if the file size was bigger than 8GB. Fixed by changing the libarchive format from ``USTAR`` to ``restricted PAX`` which supports bigger file sizes. Bug fixed :bug:`977998` (*Alexey Kopytov*).
+
+  * |innobackupex| was  calling the tar utility unconditionally when streaming **ib_lru_dump** and **xtrabackup_galera_info**. Which led to a broken stream when the xbstream format was used. Bug fixed :bug:`983720` (*Sergei Glushchenko*).
+
+  * when :option:`--compress` was used together with :option:`--stream=tar`, xtrabackup was silently creating a broken backup. Now it fails with an error instead, suggesting to either use xbstream, or don't use compression at all. Bug fixed :bug:`972169` (*Alexey Kopytov*).
+
+  * :option:`--safe-slave-backup` was resulting in incorrect binlog info, because in some cases innobackupex confused the response from SHOW SLAVE STATUS with the one from SHOW MASTER STATUS. Bug fixed :bug:`977101` (*Alexey Kopytov*).
+
+  * |xbstream| would  sometimes fail while extracting the backup. Bug fixed :bug:`977995` (*Alexey Kopytov*).
+
+  * `innodb_data_file_path` was not written to backup-my.cnf, this was a regression introduced in previous version. Bug fixed :bug:`983685` (*Sergei Glushchenko*). 
+ 
+  * |XtraBackup| would fail to find the `datadir` when using :option:`mysqld_multi`. This was fixed by adding new option :option:`--defaults-group`, to both innobackupex and xtrabackup, now it can be specified which section of my.cnf to handle. Bug fixed :bug:`483827` (*Sergei Glushchenko* and *Daniël van Eeden*).
+
+  * InnoDB tables with names containing: *opt*, *par*, *CSV*, *MYD* were backed up twice. These tables were backed up by xtrabackup binary and by innobackupex script. Regular expression for filtering database directory contents was fixed. Bug fixed :bug:`989397` (*Sergei Glushchenko*).
+
+  * When run innobackupex with :option:`--apply-log`, it was reading configuration from the server configuration file instead of backup-my.cnf in backup directory. Bug fixed :bug:`996493` (*Sergei Glushchenko*).
+
+  * |innobackupex| could copy files to a wrong directory when merging an incremental backup to a full one. Bug fixed :bug:`1002688` (*Alexey Kopytov*).
+
+  * Incremental backups were not working correctly with :option:`--stream=tar`. This was fixed by making :option:`--incremental-lsn` incompatible with :option:`--stream=tar`. |XtraBackup| will fail with an error message suggesting to use :option:`--stream=xbstream`. Bug fixed :bug:`999750` (*Alexey Kopytov*).
+
+  * |innobackupex| failed to copy-back backup if destination dir wasn't empty. Exceptions were added for `my.cnf` and `master.info` as |XtraBackup| doesn't backup those files, so it won't overwrite anything. Bug fixed :bug:`935847` (*Igor Tverdovskiy*). 
+
+  * |innobackupex| :option:`--copy-back` could skip some files when copying from a Windows filesystem mounted over NFS. Bug fixed :bug:`1003518` (*Alexey Kopytov*).
+
+  * |XtraBackup| binary was leaking file descriptors on :option:`--backup`. This was fixed by reusing the existing file descriptor so no leak occurs. Bug fixed :bug:`713267` (*Alexey Kopytov*).
+
+  * There were no source files in tar.gz archive for Percona XtraBackup 2.0.0. Bug fixed :bug:`1002841` (*Ignacio Nin*).
+
+  * |XtraBackup| binary could fail with the "log block checksum
+     mismatch" error when reading an partially written log block.  Bug
+     fixed :bug:`1015416` (*Alexey Kopytov*).
+
+Other bugfixes: bug :bug:`970941` (*Stewart Smith*), bug :bug:`999273` (*Alexey Kopytov*) and bug :bug:`989488` (*Hrvoje Matijakovic*).

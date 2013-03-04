@@ -1,0 +1,35 @@
+=============================
+Percona |XtraBackup| 1.5-Beta
+=============================
+
+Released December 13, 2010 (`downloads <http://www.percona.com/downloads/XtraBackup/XtraBackup-1.5/>`_)
+
+This release adds additional functionality to Percona |XtraBackup| 1.4, the current general availability version of |XtraBackup|. This is a beta release.
+
+Functionality Added or Changes
+------------------------------
+
+* Support for |MySQL| 5.5 databases has been implemented. (Yasufumi Kinoshita)
+
+* |XtraBackup| can now be built from the |MySQL| 5.1.52, |MySQL| 5.5.7, or |Percona Server| 5.1.53-12 code bases (fixes bug `#683507 <https://bugs.launchpad.net/bugs/683507>`_). (Alexey Kopytov)
+
+* The program is now distributed as three separate binaries:
+
+  * |xtrabackup| - for use with |Percona Server| with the built-in |InnoDB| plugin
+
+  * :command:`xtrabackup_51` - for use with MySQL 5.0 & 5.1 with built-in |InnoDB|
+
+  * :command:`xtrabackup_55` - for use with |MySQL| 5.5 (this binary is not provided for the FreeBSD platform)
+
+* Backing up only specific tables can now be done by specifying them in a file, using the :option:`--tables-file`. (Yasufumi Kinoshita & Daniel Nichter)
+
+* Additional checks were added to monitor the rate the log file is being overwritten, to determine if |XtraBackup| is keeping up. If the log file is being overwritten faster than |XtraBackup| can keep up, a warning is given that the backup may be inconsistent. (Yasufumi Kinoyasu) 
+
+* The |XtraBackup| binaries are now compiled with the ``-O3`` :command:`gcc` option, which may improve backup speed in stream mode in some cases.
+
+* It is now possible to copy multiple data files concurrently in parallel threads when creating a backup, using the :option:`--parallel` option. See `The xtrabackup Option Reference <http://www.percona.com/docs/wiki/percona-xtrabackup:xtrabackup:option-and-variable-reference>`_ and `Parallel Backups <http://www.percona.com/docs/wiki/percona-xtrabackup:innobackupex:how_to_recipes#Parallel_Backups>`_. (Alexey Kopytov)
+
+Bugs Fixed
+----------
+
+* `Bug #683507 <https://bugs.launchpad.net/bugs/683507>`_ - |xtrabackup| has been updated to build from the |MySQL| 5.1.52, |MySQL| 5.5.7, or |Percona Server| 5.1.53-12 code bases. (Alexey Kopytov)

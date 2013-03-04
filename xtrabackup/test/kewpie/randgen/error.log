@@ -1,0 +1,24 @@
+InnoDB: The InnoDB memory heap is disabled
+InnoDB: Mutexes use GCC atomic builtins, rw_locks do not
+InnoDB: The first specified data file ../ibdata1 did not exist:
+InnoDB: a new database to be created!
+101111 15:39:31  InnoDB: Setting file ../ibdata1 size to 10 MB
+InnoDB: Database physically writes the file full: wait...
+101111 15:39:31  InnoDB: Log file ../ib_logfile0 did not exist: new to be created
+InnoDB: Setting log file ../ib_logfile0 size to 20 MB
+InnoDB: Database physically writes the file full: wait...
+101111 15:39:31  InnoDB: Log file ../ib_logfile1 did not exist: new to be created
+InnoDB: Setting log file ../ib_logfile1 size to 20 MB
+InnoDB: Database physically writes the file full: wait...
+InnoDB: Doublewrite buffer not found: creating new
+InnoDB: Doublewrite buffer created
+InnoDB: Creating foreign key constraint system tables
+InnoDB: Foreign key constraint system tables created
+101111 15:39:32 InnoDB Plugin 1.0.6 started; log sequence number 0
+Listening on 0.0.0.0:9316
+Listening on :::9316
+Listening on 0.0.0.0:9306
+Listening on :::9306
+Listening on /tmp/mysql.socket
+/home/pcrews/bzr/work/autowork/drizzle/drizzled/.libs/lt-drizzled: ready for connections.
+Version: '2010.11.1921' Source distribution (drizzle)
