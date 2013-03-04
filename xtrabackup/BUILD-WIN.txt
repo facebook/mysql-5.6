@@ -1,0 +1,83 @@
+How to build XtraBackup on Windows
+==================================
+
+Prerequisites:
+--------------
+
+To build XtraBackup on Windows you need the following:
+
+- a Windows installation. These instructions have been tested on 
+  Windows XP.
+
+- CMake, an open source build system available from
+  http://www.cmake.org/
+
+- Visual Studio. Both commercial and Express editions should work. These
+  instructions have been tested on Visual Studio 2005 Express.
+
+- the patch utility. The Windows version can be downloaded from
+  http://gnuwin32.sourceforge.net/packages/patch.htm
+
+*** Important note for Windows Vista and Windows 7 users ***
+
+These Windows versions demand running any executable with the word
+'patch' in the name only with administrative privileges. So if want to
+use the patch utility under an unprivileged user account, you should
+rename "patch.exe" to something else, e.g. "patsh.exe".
+
+Building instructions:
+----------------------
+
+1. Download the source code for the appropriate version of the
+server. You can check the currently supported version by looking up the
+value of the MYSQL_55_VERSION variable in utils/build.sh.
+
+The currently supported version is usually older than the latest
+released one. Older versions are available from
+http://downloads.mysql.com/archives.php
+
+2. Unpack and patch the server source.
+
+- unpack the server source archive downloaded at step 1.
+
+- start Visual Studio Command Prompt and run the following commands:
+
+cd "folder with the server source tree"
+patch --binary -p1 -i "path to the xtrabackup source tree"\patches\innodb55.patch
+
+Make sure the patch utility is in the PATH environment variable or
+specify the full path to it. Replace "patch" with the new name if you
+had to rename it on Vista/7 (see the notes above ). 
+
+The --binary switch is required to make patch work with the Unix
+end-of-line format.
+
+3. Build the patched server source:
+
+Run the following commands from the server source folder:
+
+cmake . -G "Visual Studio 8 2005" -DENABLED_LOCAL_INFILE=ON -DWITH_INNOBASE_STORAGE_ENGINE=ON -DWITH_PARTITION_STORAGE_ENGINE=ON -DWITH_ZLIB=bundled -DWITH_EXTRA_CHARSETS=all
+
+devenv mysql.sln /build relwithdebinfo
+
+The -G argument should be the Visual Studio version that will be used to
+build. The complete list of available generators can be found in the
+CMake documentation. Make sure to add the "Win64" suffix when creating
+an x64 build.
+
+You may also need to replace "devenv" with "vcexpress" for Express editions
+of Visual Studio.
+
+4. Build XtraBackup:
+
+From the XtraBackup source folder:
+
+cmake . -G "Visual Studio 8 2005" 
+        -DMYSQL_ROOT_DIR="path to the server source folder built at step #3"
+
+devenv xtrabackup.sln /build relwithdebinfo
+
+The same comments about the -G argument and devenv from #3 apply here as well.
+
+Once the build completes xtrabackup.exe can be found in the
+relwithdebinfo subfolder of the XtraBackup source folder.

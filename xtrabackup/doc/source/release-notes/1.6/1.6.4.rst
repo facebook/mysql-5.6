@@ -1,0 +1,39 @@
+============================
+|Percona| |XtraBackup| 1.6.4
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 1.6.4 on 19 December, 2011 (Downloads are available `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-1.6.4/>`_ and from the :doc:`Percona Software Repositories </installation>`).
+
+This release is purely composed of bug fixes and is the current stable release of |Percona| |Xtrabackup|.
+
+In this release we now compile the |xtrabackup| binary against more recent MySQL and Percona Server versions. We now build against: MySQL 5.1.59, MySQL 5.5.17, Percona Server 5.1.59-13.0 and Percona Server 5.5.16-22.0 and get all the InnoDB bug fixes each of these releases contain. Using `xtrabackup` to back up older MySQL or Percona Server releases is still supported.
+
+This release introduces the `--rsync` option to |innobackupex|. This option is designed as an option for people experiencing problems related to |innobackupex| holding a write lock for a long time with the normal method of copying the FRM files and non-InnoDB tables. By doing a two-phase pass over the MySQL datadir with rsync (first without a write lock and then with the write lock), we dramatically reduce the amount of time that a write lock is held. See the `rsync for non-innodb files blueprint <https://blueprints.launchpad.net/percona-xtrabackup/+spec/rsync-for-non-innodb-files>`_ for technical implementation details.
+
+Bugs Fixed
+----------
+
+  * |innobackupex| assumed that `/usr/bin/perl` was where the Perl binary was located. With this bug fix, it instead uses `/usr/bin/env perl` which fixes running of |innobackupex| on systems where Perl is not `/usr/bin/perl`. Bug Fixed: :bug:`892393` (*Stewart Smith*)
+
+  * |innobackupex| reaches the server wait_timeout. This bug meant that for backups that would take a long time, |innobackupex| would hit the server wait_timeout and be disconnected, leading to a failed backup. With this bug fixed, instead of setting a large wait_timeout for the MySQL connection, |innobackupex| will regularly poll the server, keeping the connection alive while the backup is taking place. This is an important fix for backups that take a long time. Bug Fixed: :bug:`408803` (*Alexey Kopytov*)
+
+  * |innobackupex| and |xtrabackup| did not use STDOUT and STDERR conventionally. Sometimes errors would go to STDOUT and sometimes normal operating messages would go to STDERR. With this bug fixed, we have gone through both programs and ensured that only error messages go to STDERR. Bug Fixed: :bug:`514068` (*Daniel Nichter* and *Alexey Kopytov*)
+
+  * |innobackupex| would write to files named `stdout` and `stderr` to the current working directory and leave them behind. With this bug fixed, |innobackupex| will use temporary files instead of files in the current working directory. Bug Fixed: :bug:`687544` (*Valentine Gostev*)
+
+  * When a password for the MySQL connection was given to |innobackupex| with the `--password` option, |innobackupex| would log that password in plain text in the log. With this bug fixed, |innobackupex| will now just log `--password=xxxxxxxx` instead of the real password. Bug fixed :bug:`729843` (*Alexey Kopytov* and *Valentine Gostev*)
+
+  * |innobackupex| did not check that MySQL datadir was empty before `--copy-back` was run. With this bug fix, |innobackupex| will now error out of the `--copy-back` operation if the destination is not empty, avoiding potential data loss or a strang combination of a restored backup and previous data. Bug Fixed: :bug:`737569` (*Valentine Gostev*)
+
+  * |xtrabackup| would crash if the `--parallel` option was specified with a value of -1. Bug Fixed :bug:`884737` (*Alexey Kopytov*)
+
+  * The documentation for |innobackupex| (including `--help`) erroneously mentioned an `--ibbackup-binary` command line option when the option was really named `--ibbackup`. This bug fix updates the `--help` documentation for |innobackupex| to be correct. Bug Fixed: :bug:`809073` (*Alexey Kopytov*)
+
+  * There were certain situations where |innobackupex| would try to send commands to MySQL on a connection that was already closed. The primary example was when running |innobackupex| with `--incremental` and `--slave-save-info`. This bug fix simplifies the connection code so that such problems are harder to create in the future along with fixing this bug. Bug Fixed: :bug:`857788` (*Lachlan Mulcahy*)
+
+  * When copying files in stream mode, |innobackupex| does a special check that a file exists when |tar4ibd| has failed. If the file doesn't exist, it means the table was dropped while |innobackupex| was copying other files, so the error is ignored. There is a similar check when non-InnoDB files are being copied and if a table was dropped during this phase, |innobackupex| would erroneously fail with an error rather than safely ignoring the dropped table. With this bug fix, |innobackupex| now safely ignores file not found errors for non-InnoDB tables. Bug Fixed: :bug:`859546` (*Lachlan Mulcahy*)
+
+  * When the `--incremental` and `--incremental-lsn` options were specified together, |innobackupex| would give an erroneous error message when it tried to look at the contents of a directory it was yet to create. With this bug fixed, |innobackupex| will now not give that error. Bug fixed: :bug:`860133` (*Lachlan Mulcahy*)
+
+  * With the `--safe-slave-backup` option, |innobackupex| always correctly detected whether or not the host was a slave when initially deciding if it should STOP/START slave to perform a safe backup. However, in a later part of the backup, it would erroneously try to restart the slave if the host was not a slave, causing |innobackupex| to exit with a non-zero exit code even though the issue was benign. With this bug fixed, |innobackupex| will not attempt to restart the slave if the host is not a slave. Bug fixed: :bug:`860879` (*Lachlan Mulcahy*).
+

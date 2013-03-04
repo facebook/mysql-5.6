@@ -1,0 +1,29 @@
+How to obtain data sets for GIS testing
+=======================================
+
+The datasets from the OpenStreetMap project can be converted into
+LINESTRINGs compatible with MySQL and PostGIS as follows:
+
+1. Use the software at
+
+http://www.tm.kit.edu/~mayer/osm2wkt/
+
+to convert an OpenStreetMap XML to WKT, or use one of the existing WKT
+files on that site.
+
+2. Pipe the WKT file through the conf/gis/wkt2sql.pl script to obtain SQL:
+
+perl conf/gis/wkt2sql.pl [MySQL|PostGIS] < venice.wkt > venice.sql
+
+
+Copyright notices on the map data
+=================================
+
+Due to licensing incompatibility, map data is not part of the RQG source
+tree. It can be downloaded from
+
+http://www.tm.kit.edu/~mayer/osm2wkt/
+
+The map data is (c) OpenStreetMap contributors and has a CC-BY-SA license. See
+
+http://wiki.openstreetmap.org/wiki/OpenStreetMap_License
