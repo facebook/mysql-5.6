@@ -1,0 +1,43 @@
+# Copyright (C) 2009 Sun Microsystems, Inc. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# NOTE:  Need to add blob / temporal types to fields.types
+# When we do this, it might not be bad to add 
+# temporal types back into the grammars that use this
+# file for gendata
+
+$tables = {
+        names => ['A','B','C','D', 'AA', 'BB', 'CC', 'DD' ],
+        rows => [0, 0, 1, 1, 10, 10, 100, 100  ],
+        partitions => [ undef ]
+};
+
+
+
+$fields = {
+        types => [ 'bigint' , 'int', 'char(10)', 'char(255)', 'enum' ],
+        indexes => [undef, 'key' ],
+        null => [undef, 'not null' ],
+        default => [undef, 'default null' ]
+};
+
+$data = {
+        numbers => [ 'digit', 'null', undef ],
+        strings => [ 'letter', 'english', 'quid' ],
+        enum => [ 'letter' ],
+	temporals => ['date', 'year', 'null', undef ]
+}

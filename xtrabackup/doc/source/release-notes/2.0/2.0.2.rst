@@ -1,0 +1,23 @@
+============================
+|Percona| |XtraBackup| 2.0.2
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 2.0.2 on August 13th, 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-2.0.2/>`_ and :doc:`Percona Software Repositories </installation>`.
+
+This release is the current GA (Generally Available) stable release in the 2.0 series. 
+
+Bugs Fixed
+==========
+
+  * Fixed false positive test suite failures with grep 2.10. Bug fixed :bug:`996483` (*Alexey Kopytov*).
+
+  * Incremental backup would fail if a tablespace was created between full and incremental backups. Bug fixed :bug:`1022562` (*Laurynas Biveinis*).
+
+  * Assertion error in creating a compressed tablespace at delta apply time has been fixed. Bug fixed :bug:`1028949` (*Laurynas Biveinis*).
+
+  * If the table was renamed after the full backup, but before the incremental backup has been taken, incremental backups would fail when being prepared. Bug fixed :bug:`932623` (*Sergei Glushchenko*).
+
+  * When the variable `innodb_log_block_size` was set to 4096, backups would fail in the prepare stage. Bug fixed :bug:`976945` (*Sergei Glushchenko*).
+
+  * Additional incremental backup tests have been added for the incremental backup data page copy. Bug fixed :bug:`1021249` (*Laurynas Biveinis*).
+

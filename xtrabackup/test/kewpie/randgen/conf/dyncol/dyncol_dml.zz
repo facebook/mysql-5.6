@@ -1,0 +1,16 @@
+$tables = {
+        rows => [10],
+        partitions => [ undef , 'KEY (pk) PARTITIONS 2' ],
+	engines => [ 'Aria', 'MyISAM', 'InnoDB' ]
+};
+
+$fields = {
+	pk => [ 'integer auto_increment not null' ],
+        types => [ 'tinyblob', 'blob', 'mediumblob', 'longblob' ],
+ 	indexes => [ 'key' , undef ],
+ 	null => [undef, 'not null']
+};
+
+$data = {
+        blobs => [ 'null', '', 'letter']
+}

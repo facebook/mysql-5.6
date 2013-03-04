@@ -1,0 +1,40 @@
+============================
+|Percona| |XtraBackup| 1.6.3
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 1.6.3 on 22 September, 2011 (Downloads are available `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-1.6.3/>`_ and from the :doc:`Percona Software Repositories </installation>`).
+
+This release is purely composed of bug fixes and is the current stable release of |Percona| |Xtrabackup|.
+
+If the :term:`innodb_file_per_table` server option is been used and ``DDL`` operations, ``TRUNCATE TABLE``, ``DROP/CREATE the_same_table`` or ``ALTER`` statements on |InnoDB| tables are executed while taking a backup, an upgrade to |XtraBackup| 1.6.3 is **strongly recommended**. Under this scenario, if the server version is prior to 5.5.11 in 5.5 series or prior to 5.1.49 in 5.1 series, a server upgrade is also recommended.
+
+All of |Percona| 's software is open-source and free, all the details of the release and its development process can be found in the `1.6.3 milestone at Launchpad <https://launchpad.net/percona-xtrabackup/+milestone/1.6.3>`_.
+
+
+Bugs Fixed
+----------
+
+  * Streaming backups did not work for compressed |InnoDB| tables due to missing support for compressed pages in |tar4ibd|. Bug Fixed: :bug:`665210` (*Alexey Kopytov*).
+
+  * |XtraBackup| failed when ``innodb_flush_method`` in the server configuration file was set to ``ALL_O_DIRECT``. Bug Fixed: :bug:`759225` (*Alexey Kopytov*).
+
+  * Due to a regression introduced in |XtraBackup| 1.6.2, :command:`innobackupex --copy-back` did not work if the :command:`xtrabackup` binary was not specified explicitly with the :option:`--ibbackup` option. Bug Fixed: :bug:`817132` (*Alexey Kopytov*).
+
+  * The :option:`--slave-info` option now works correctly with :option:`--safe-slave-backup` when either :option:`--no-lock` or :option:`--incremental` is also specified. Bug Fixed: :bug:`834657` (*Alexey Kopytov*).
+
+  * :program:`tar4ibd` could fail with an error when processing doublewrite pages. Bug Fixed: :bug:`810269` (*Alexey Kopytov*).
+
+  * Unsupported command line options could cause a :program:`tar4ibd` crash. Such options have been removed. Bug Fixed: :bug:`677279` (*Alexey Kopytov*).
+
+  * Executing ``DDL`` operations, ``TRUNCATE TABLE``, ``DROP/CREATE the_same_table`` or ``ALTER`` statements on |InnoDB| tables while taking a backup could lead to a |xtrabackup| failure due to a tablespace ``ID`` mismatch when using per-table tablespaces. Note that this fix may not work correctly with |MySQL| 5.5 or |Percona Server| 5.5 prior to version 5.5.11. 5.1 releases from 5.1.49 or higher have been confirmed not to be affected. 
+    If the :term:`innodb_file_per_table` option is been used, an upgrade to |XtraBackup| 1.6.3 is **strongly recommended**. Under this scenario, if the server version is prior to 5.5.11 in 5.5 series or prior to 5.1.49 in 5.1 series, a server upgrade is also recommended. Bug Fixed: :bug:`722638` (*Alexey Kopytov*).
+
+
+Other Changes
+-------------
+
+  * Improvements and fixes on the |XtraBackup| Test Suite: :bug:`855035`, :bug:`787966` (*Alexey Kopytov*)
+
+  * Improvements and fixes on distribution: :bug:`775463`, :bug:`745168`, :bug:`849872`, :bug:`785556` (*Ignacio Nin*)
+
+  * Improvements and fixes on the |XtraBackup| Documentation: :bug:`837754`, :bug:`745185`, :bug:`836907` (*Rodrigo Gadea*)
