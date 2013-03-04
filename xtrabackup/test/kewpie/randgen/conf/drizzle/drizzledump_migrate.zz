@@ -1,0 +1,51 @@
+# Copyright (C) 2010 Patrick Crews. All rights reserved.
+# Use is subject to license terms.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
+# USA
+
+# gendata file for testing MySQL->Drizzldump migration
+# intended for use against a MySQL server 
+# (either already running or via the randgen runall.pl script
+# A running Drizzle server is required for validation
+# At this point in time, the port / information for the Drizzle server must be 
+# hard-coded in randgen/lib/GenTest/Validator/DrizzledumpMigrate.pm
+# $drizzle_port is the variable
+# Also, the Validator relies on the Drizzle server being configured with
+# the --prefix flag to correctly get the basedir, client tools, etc correct
+# grammar file = drizzledump_migrate.yy
+# intended for single-threaded scenarios
+
+$tables = {
+        names => ['A','B','C','D', 'AA', 'BB', 'CC', 'DD' ],
+        rows => [1, 1, 1, 1, 1, 1, 1, 1  ],
+        partitions => [ undef ]
+};
+
+
+
+$fields = {
+        types => [ 'varbinary(5)','binary(5)', 'time', 'year', 'datetime','timestamp', 'date',  'bigint' , 'tinyint', 'smallint', 'mediumint', 'int', 'char(10)', 'char(128)', 'enum', 'text' ],
+        indexes => [undef, 'key' ],
+        null => [undef, 'not null' ],
+        default => [undef ]
+};
+
+$data = {
+        numbers => [ 'digit', 'null', undef ],
+        strings => [ 'letter', 'english', 'quid' ],
+        enum => [ 'letter' ],
+        blobs => [ 'data' ],
+	temporals => ['date', 'year', 'null', undef ]
+}

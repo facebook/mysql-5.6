@@ -1,0 +1,39 @@
+========================
+Percona |XtraBackup| 1.4
+========================
+
+Released on November 22, 2010
+
+Percona |XtraBackup| version 1.4 fixes problems related to incremental backups. If you do incremental backups, it's strongly recommended that you upgrade to this release.
+
+Functionality Added or Changed
+------------------------------
+
+* `Incremental backups <http://www.percona.com/docs/wiki/percona-xtrabackup:xtrabackup:incremental>`_ have changed and now allow the restoration of full backups containing certain rollback transactions that previously caused problems. Please see `Preparing the Backups <http://www.percona.com/docs/wiki/percona-xtrabackup:xtrabackup:incremental#Preparing_the_Backups>`_  and the :option:`--apply-log-only`. (From |innobackupex|, the :option:`--redo-only` option should be used.) (Yasufumi Kinoshita)
+
+  * The |XtraBackup| Test Suite was implemented and is now a standard part of each distribution. (Aleksandr Kuzminsky)
+
+* Other New Features
+
+  * The :option:`--prepare` now reports ``xtrabackup_binlog_pos_innodb`` if the information exists. (Yasufumi Kinoshita)
+
+  * When :option:`--prepare` is used to restore a partial backup, the data dictionary is now cleaned and contains only tables that exist in the backup. (Yasufumi Kinoshita)
+
+  * The :option:`--table` was extended to accept several regular expression arguments, separated by commas. (Yasufumi Kinoshita)
+
+* Other Changes
+
+  * Ported to the |Percona Server| 5.1.47 code base. (Yasufumi Kinoshita)
+
+  * |XtraBackup| now uses the memory allocators of the host operating system, rather than the built-in |InnoDB| allocators (see `Using Operating System Memory Allocators <http://dev.mysql.com/doc/innodb-plugin/1.1/en/innodb-performance-use_sys_malloc.html>`_). (Yasufumi Kinoshita)
+
+Bugs Fixed
+----------
+
+* `Bug #595770 <https://bugs.launchpad.net/bugs/595770>`_ - XtraBack binaries are now shipped containing debug symbols by default. (Aleksandr Kuzminsky)
+
+* `Bug #589639 <https://bugs.launchpad.net/bugs/589639>`_ - Fixed a problem of hanging when tablespaces were deleted during the recovery process. (Yasufumi Kinoshita)
+
+* `Bug #611960 <https://bugs.launchpad.net/bugs/611960>`_ - Fixed a segmentation fault in |xtrabackup|. (Yasufumi Kinoshita)
+
+* Miscellaneous important fixes related to incremental backups. 
