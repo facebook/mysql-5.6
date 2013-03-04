@@ -549,9 +549,16 @@ buf_page_is_corrupted(
 	if (checksum_field1 == 0 && checksum_field2 == 0
 	    && mach_read_from_4(read_buf + FIL_PAGE_LSN) == 0) {
 		/* make sure that the page is really empty */
+
+/* Do not make sure that the page is really empty as this check is
+incompatible with 1st newly-created tablespace pages, which have
+FIL_PAGE_FIL_FLUSH_LSN != 0, FIL_PAGE_OR_CHKSUM == 0,
+FIL_PAGE_END_LSN_OLD_CHKSUM == 0 */
+#ifndef XTRABACKUP
 		ut_d(for (ulint i = 0; i < UNIV_PAGE_SIZE; i++) {
 		     ut_a(read_buf[i] == 0); });
 
+#endif /* !XTRABACKUP */
 		return(FALSE);
 	}
 
