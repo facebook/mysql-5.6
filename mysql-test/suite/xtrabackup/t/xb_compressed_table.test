@@ -1,0 +1,60 @@
+# Run xtrabackup while the source database is being modified
+
+source suite/xtrabackup/include/xb_setup.inc;
+
+connection server_1;
+create database db1;
+
+create table db1.t1 (
+  `id` int(10) not null auto_increment,
+  `k` int(10),
+  `data` varchar(255),
+  primary key (`id`),
+  key (`k`)
+) key_block_size=8 engine=innodb;
+
+--let $rpl_server_number= 2
+--source include/rpl_stop_server.inc
+
+let $socket = `select @@socket`;
+--exec suite/xtrabackup/include/xb_load_data_and_run.sh $socket 2>&1
+
+--let $rpl_server_number= 2
+--source include/rpl_start_server.inc
+
+connection server_2;
+let $num_rows = `select count(*) from db1.t1`;
+let $max_id = `select id from db1.t1 order by id desc limit 1`;
+
+if($num_rows != $max_id) {
+  echo Number of rows($num_rows) and last_id($max_id) does not match;
+}
+if($num_rows < 10000) {
+  echo Number of rows($num_rows) is less than 10000;
+}
+if($num_rows > 20000) {
+  echo Number of rows($num_rows) is more than 20000;
+}
+
+--source suite/xtrabackup/include/xb_setup_replication_and_sync.inc
+
+connection server_2;
+select count(*) from db1.t1;
+
+connection server_1;
+let $checksum1 = `checksum tables db1.t1`;
+connection server_2;
+let $checksum2 = `checksum tables db1.t1`;
+
+if($checksum1 != $checksum2) {
+  echo Checksums ($checksum1 and $checksum2) do not match;
+}
+
+connection server_1;
+drop database db1;
+sync_slave_with_master;
+connection server_2;
+stop slave;
+reset slave;
+
+source suite/xtrabackup/include/xb_cleanup.inc;
