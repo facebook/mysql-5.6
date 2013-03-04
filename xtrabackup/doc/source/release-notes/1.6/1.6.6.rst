@@ -1,0 +1,18 @@
+============================
+|Percona| |XtraBackup| 1.6.6
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 1.6.6 on April 4th, 2012 (Downloads are available `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-1.6.6/>`_ and from the :doc:`Percona Software Repositories </installation>`).
+
+Option --remote-host for |innobackupex| has been deprecated in favor of the --stream option and it will be removed in future versions.
+
+This release is purely composed of bug fixes and is the current stable release of |Percona| |Xtrabackup|.
+
+Bugs Fixed
+----------
+
+  * |innobackupex| now includes fast-checksums into generated my.cnf. Bug fixed :bug:`733651` (*Sergei Glushchenko*).
+
+  *  In MySQL 5.1.57 a new assertion was added as a part of the fix for `bug #59641 <http://bugs.mysql.com/bug.php?id=59641>`_. That assertion wasn't applicable when doing recovery with --apply-log-only option, and it was failing after successfully applying the log. Fix was implemented by bypassing that code. Fixed bug :bug:`938594` (*Alexey Kopytov*).
+
+  * When using parallel backup option in |xtrabackup|, backups could fail with "Operating system error number 17". Bug fixed: :bug:`900175` (*Alexey Kopytov*).

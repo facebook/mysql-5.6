@@ -1,0 +1,20 @@
+$tables = {
+        rows => [1000],
+        engines => ['MyISAM', 'Maria', 'InnoDB' ],
+        pk => [
+		'datetime', 'timestamp', 'time',
+		'datetime(3)', 'timestamp(3)', 'time(3)',
+		'datetime(6)', 'timestamp(6)', 'time(6)'
+        ]
+
+};
+
+$fields = {
+        types => [ 'datetime(3)', 'timestamp(3)', 'time(3)' ],
+        indexes => [ undef, 'key' ],
+        null => [ undef ]
+};
+
+$data = {
+	temporals => [ 'timestamp', 'datetime', '0000-00-00 00:00:00' ]
+}

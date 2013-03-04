@@ -1,0 +1,11 @@
+# We want to include COPYING in the binary distributions
+extra-license-file
+
+# We haven't got manpages for some binaries yet
+binary-without-manpage
+
+# The parts we use from mysql embed their own zlib
+embedded-library usr/bin/xtrabackup: zlib
+embedded-library usr/bin/xtrabackup_55: zlib
+# Older versions of lintian
+embedded-zlib

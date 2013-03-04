@@ -1,0 +1,33 @@
+percona-xtrabackup (2.0.0) lucid; urgency=low
+
+  * General polishing of debian/ directory
+  * Add correct copyright info
+  * Move rules for installing files (binaries and test) from rules to
+    .install and .links files
+  * Create per-package .dirs and .docs files
+  * Add a lintian-overrides files
+
+ -- Ignacio Nin <ignacio.nin@percona.com>  Wed, 18 Apr 2012 02:34:40 +0000
+
+percona-xtrabackup (1.9.1) unstable; urgency=low
+
+  * Change package name to percona-xtrabackup
+
+ -- Ignacio Nin <ignacio.nin@percona.com>  Wed, 14 Mar 2012 16:52:34 -0300
+
+xtrabackup (1.2) unstable; urgency=low
+
+  * XtraBackup is based on XtraDB 10
+
+ -- Aleksandr Kuzminsky <aleksandr.kuzminsky@percona.com>  Wed, 07 Mar 2010 23:45:00 +0200
+xtrabackup (1.1) unstable; urgency=low
+
+  * XtraBackup is ported to InnoDB plugin
+
+ -- Aleksandr Kuzminsky <aleksandr.kuzminsky@percona.com>  Mon, 15 Mar 2010 07:00:00 +0200
+xtrabackup (1.0) unstable; urgency=low
+
+  * Initial release
+
+ -- Alex <aleksandr.kuzminsky@percona.com>  Sun, 28 Jun 2009 14:20:17 -0700
+

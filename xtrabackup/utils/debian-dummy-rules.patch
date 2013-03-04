@@ -1,0 +1,26 @@
+=== modified file 'utils/debian/rules'
+--- utils/debian/rules  2012-04-18 03:26:07 +0000
++++ utils/debian/rules  2012-04-18 16:15:15 +0000
+@@ -40,15 +40,11 @@
+ build-stamp:  config.status 
+ 	dh_testdir
+ 
+-	# Add here commands to compile the package.
+-	AUTO_DOWNLOAD=yes ./utils/build.sh 5.1
+-	cp src/xtrabackup_51 src/xbstream .
+-
+-	AUTO_DOWNLOAD=yes ./utils/build.sh xtradb
+-	cp src/xtrabackup .
+-
+-	AUTO_DOWNLOAD=yes ./utils/build.sh xtradb55
+-	cp src/xtrabackup_55 .
++	# Dummy binaries that avoid compilation
++	echo 'main() { return 300; }' | gcc -x c - -o xtrabackup
++	echo 'main() { return 300; }' | gcc -x c - -o xtrabackup_51
++	echo 'main() { return 300; }' | gcc -x c - -o xtrabackup_55
++	echo 'main() { return 300; }' | gcc -x c - -o xbstream
+ 
+ 	#docbook-to-man debian/xtrabackup.sgml > xtrabackup.1
+ 
+
+

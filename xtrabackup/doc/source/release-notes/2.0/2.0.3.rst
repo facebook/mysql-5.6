@@ -1,0 +1,24 @@
+============================
+|Percona| |XtraBackup| 2.0.3
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 2.0.3 on October 1st, 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-2.0.3/>`_ and :doc:`Percona Software Repositories </installation>`.
+
+This release is the current GA (Generally Available) stable release in the 2.0 series. 
+
+New Features
+=============
+  
+  * |innobackupex| now supports new :option:`--move-back` option that can be used instead of :option:`--copy-back` in case there isn't enough free disk space on the server to copy files. As this option removes backup files, it must be used with caution.
+ 
+Bugs Fixed
+==========
+
+  * Symlink for ``innobackupex-1.5.1`` binary has been broken in the previous version of |XtraBackup|. Bug fixed :bug:`1038198` (*Ignacio Nin*).
+
+  * |XtraBackup| 2.0.2 was not backwards compatible which caused incremental backups created with previous versions to fail on prepare. Bug fixed :bug:`1038127` (*Sergei Glushchenko*).
+
+  * Fix for bug :bug:`1022562` introduced a regression that may potentially lead to a 5x increase in disk space occupied by incremental backups. Bug fixed :bug:`1043762` (*Laurynas Biveinis*).
+
+  * A regression was introduced in fix for bug :bug:`932623` which caused incorrect handling of compressed tablespaces with the page size of 16K, that were created between the last full or incremental and the next incremental backup. Bugs fixed :bug:`1049174` and :bug:`1044398` (*Laurynas Biveinis*).
+

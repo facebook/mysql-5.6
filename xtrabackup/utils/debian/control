@@ -1,0 +1,47 @@
+Source: percona-xtrabackup
+Section: misc
+Priority: extra
+Maintainer: Percona Development <mysql-dev@percona.com>
+Build-Depends: debhelper (>= 7.3), autotools-dev, libaio-dev, wget, automake,
+ libtool, bison, libncurses-dev, libz-dev, cmake, bzr
+Standards-Version: 3.8.4
+Homepage: https://launchpad.net/percona-xtrabackup
+Vcs-Browser: http://bazaar.launchpad.net/~percona-dev/percona-xtrabackup/release-1.4/files
+Vcs-Bzr: bzr+ssh://bazaar.launchpad.net/~percona-dev/percona-xtrabackup/release-1.4/
+
+Package: percona-xtrabackup
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, mysql-client
+Provides: xtrabackup
+Breaks: xtrabackup (<< 2.0.0~)
+Replaces: xtrabackup (<< 2.0.0~)
+Description: Open source backup tool for InnoDB and XtraDB
+ Percona XtraBackup is an open-source hot backup utility for MySQL that
+ doesn't lock your database during the backup. It can back up data from
+ InnoDB, XtraDB and MyISAM tables on MySQL/Percona Server 5.0, 5.1 and
+ 5.5 servers, and has many advanced features.
+
+Package: percona-xtrabackup-dbg
+Section: debug
+Architecture: any
+Depends: percona-xtrabackup (= ${binary:Version}), ${misc:Depends}
+Description: Debug symbols for Percona XtraBackup
+ Debug symbols for the binaries in percona-xtrabackup. Install this
+ package if you need to run any of those with gdb.
+
+Package: percona-xtrabackup-test
+Architecture: any
+Depends: percona-xtrabackup, python, ${misc:Depends}
+Description: Test suite for Percona XtraBackup
+ Test suite for Percona XtraBackup. Install this package if you intend
+ to run XtraBackup's test suite.
+
+Package: xtrabackup
+Architecture: all
+Section: oldlibs
+Depends: percona-xtrabackup, ${misc:Depends}
+Description: Transitional package for percona-xtrabackup
+ In 2.0.0, the XtraBackup package name was rebranded to
+ percona-xtrabackup. This package is an empty dummy package
+ that depends on percona-xtrabackup, and replaces older versions of
+ xtrabackup (2.0.0). It is not intended to be installed manually.
