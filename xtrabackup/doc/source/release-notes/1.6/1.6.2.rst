@@ -1,0 +1,40 @@
+============================
+|Percona| |XtraBackup| 1.6.2
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 1.6.2 on 25 July, 2011 (Downloads are available `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-1.6.2/>`_ and from the `Percona Software Repositories <http://www.percona.com/docs/wiki/repositories:start>`_).
+
+This release is purely composed of bug fixes and is the current stable release of |Percona| |Xtrabackup|.
+
+All of |Percona|'s software is open-source and free, all the details of the release and its development process can be found in the `1.6.2 milestone at Launchpad <https://launchpad.net/percona-xtrabackup/+milestone/1.6.2>`_.
+
+New Options
+-----------
+
+:option:`--version`
+~~~~~~~~~~~~~~~~~~~
+
+   The :option:`--version` option has been added to the |xtrabackup| binary for printing its version. Previously, the version was displayed only while executing the binary without arguments or performing a backup. Bug Fixed: `#610614 <https://bugs.launchpad.net/bugs/610614>`_ (Alexey Kopytov).
+
+Changes
+-------
+
+  * As exporting tables should only be used with :term:`innodb_file_per_table` set in the server, the variable is checked by |xtrabackup| when using the :option:`--export <innobackupex --export>` option. It will fail before applying the archived log without producing a potentially unusable backup. Bug Fixed: `#758888 <https://bugs.launchpad.net/bugs/758888>`_ (Alexey Kopytov).
+
+Bugs Fixed
+----------
+
+  * When creating an :term:`InnoDB` with its own tablespace after taking a full backup, if the log files have been flushed, taking an incremental backup based on that full one would not contain the added table. This has been corrected by explicitly creating the tablespace before applying the delta files in such cases. Bug Fixed: `#766607 <https://bugs.launchpad.net/bugs/766607>`_ (Alexey Kopytov).
+
+  * In some cases, |innobackupex| ignored the specified |xtrabackup| binary with the :option:`--ibbackup` option. Bug Fixed: `#729497 <https://bugs.launchpad.net/bugs/729497>`_ (Stewart Smith).
+
+  * Minor file descriptors leaks in error cases were fixed. Bug Fixed: `#803718 <https://bugs.launchpad.net/bugs/803718>`_ (Stewart Smith).
+
+Other Changes
+-------------
+
+   * Improvements and fixes on the XtraBackup Test Suite: `#744303 <https://bugs.launchpad.net/bugs/744303>`_, `#787966 < <https://bugs.launchpad.net/bugs/787966>`_ (Alexey Kopytov)
+
+   * Improvements and fixes on platform-specific distribution: `#785556 <https://bugs.launchpad.net/bugs/785556>`_ (Ignacio Nin)
+
+   * Improvements and fixes on the XtraBackup Documentation: `#745185 <https://bugs.launchpad.net/bugs/745185>`_, `#721339 <https://bugs.launchpad.net/bugs/721339>`_ (Rodrigo Gadea)

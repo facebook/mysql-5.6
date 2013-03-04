@@ -1,0 +1,375 @@
+{#
+    basic/layout.html
+    ~~~~~~~~~~~~~~~~~
+
+    Master layout template for Sphinx themes.
+
+    :copyright: Copyright 2007-2011 by the Sphinx team, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+#}
+{%- block doctype -%}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+{%- endblock %}
+{%- set reldelim1 = reldelim1 is not defined and ' &raquo;' or reldelim1 %}
+{%- set reldelim2 = reldelim2 is not defined and ' |' or reldelim2 %}
+{%- set render_sidebar = (not embedded) and (not theme_nosidebar|tobool) and
+                         (sidebars != []) %}
+{%- set url_root = pathto('', 1) %}
+{# XXX necessary? #}
+{%- if url_root == '#' %}{% set url_root = '' %}{% endif %}
+{%- if not embedded and docstitle %}
+  {%- set titlesuffix = " &mdash; "|safe + docstitle|e %}
+{%- else %}
+  {%- set titlesuffix = "" %}
+{%- endif %}
+
+{%- macro relbar() %}
+    <div class="related">
+      <h3>{{ _('Navigation') }}</h3>
+      <ul>
+        {%- for rellink in rellinks %}
+        <li class="right" {% if loop.first %}style="margin-right: 10px"{% endif %}>
+          <a href="{{ pathto(rellink[0]) }}" title="{{ rellink[1]|striptags|e }}"
+             {{ accesskey(rellink[2]) }}>{{ rellink[3] }}</a>
+          {%- if not loop.first %}{{ reldelim2 }}{% endif %}</li>
+        {%- endfor %}
+        {%- block rootrellink %}
+        <li><a href="{{ pathto(master_doc) }}">{{ shorttitle|e }}</a>{{ reldelim1 }}</li>
+        {%- endblock %}
+        {%- for parent in parents %}
+          <li><a href="{{ parent.link|e }}" {% if loop.last %}{{ accesskey("U") }}{% endif %}>{{ parent.title }}</a>{{ reldelim1 }}</li>
+        {%- endfor %}
+        {%- block relbaritems %} {% endblock %}
+      </ul>
+    </div>
+{%- endmacro %}
+
+{%- macro sidebar() %}
+      {%- if render_sidebar %}
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+				<div class="side-column-block"><a href="http://www.percona.com/software/percona-xtrabackup/"><img alt="Percona XtraBackup" src="http://s2.percona.com/logo_percona_xtrabackup_new.png" /></a></div>
+
+			<div class="side-column-block">
+				<div class="header">Call Us</div>
+					<div class="content">
+						<div class="numbers">
+						          <div style="padding-bottom: 4px">
+						            +1-888-316-9775 (USA - Sales)<br>
+						            +1-208-473-2904 (USA - Sales)
+						          </div>
+						          <div style="padding-bottom: 4px;">
+						            +44-208-133-0309 (UK - Sales)<br />
+                        0-800-051-8984 (UK - Sales)<br />
+                        0-800-181-0665 (GER - Sales)<br />
+						          </div>
+									<div style="padding-bottom: 4px;">
+										+1-877-862-4316 (Emergency)
+									</div>
+									<div>
+						          	+1-855-55TRAIN (Training)<br>
+									+1-925-271-5054 (Training)
+						          </div>
+						</div>					
+					</div>
+				</div>
+
+			<div class="side-column-block">
+				<div class="a-btn-container">
+					<a title="Download PDF Manual for Percona XtraBackup 2.0" href="http://form.percona.com/Percona_XtraBackup_2_0_Operations_Manual.html" class="a-btn-new">
+						<span class="a-btn-text">Download Manual</span>
+						<span class="a-btn-fixed-slide-text">PDF for version 2.0</span>
+						<span class="a-btn-icon-right"><span></span></span>
+					</a>
+				</div></div>
+			
+			<div class="percona_com_ad" style="width:220px;"><script type="text/javascript" src="http://www.percona.com/ads.php?size=220x120"></script></div>
+							
+          {%- if sidebars != None %}
+            {#- new style sidebar: explicitly include/exclude templates #}
+            {%- for sidebartemplate in sidebars %}
+            {%- include sidebartemplate %}
+            {%- endfor %}
+          {%- else %}
+            {#- old style sidebars: using blocks -- should be deprecated #}
+			            {%- block serverseries %}
+		<div class="side-column-block">
+			<h3>Percona XtraBackup Series</h3>
+			     <ul><li><a href="http://www.percona.com/doc/percona-xtrabackup/1.6/">Percona XtraBackup 1.6</a></li><li><a href="http://www.percona.com/doc/percona-xtrabackup/2.0/">Percona XtraBackup 2.0</a></li></ul>
+			</div>
+			            {%- endblock %}
+            {%- block sidebartoc %}
+            {%- include "localtoc.html" %}
+            {%- endblock %}
+            {%- block sidebarrel %}
+            {%- include "relations.html" %}
+            {%- endblock %}
+            {%- block sidebarsourcelink %}
+            {%- include "sourcelink.html" %}
+            {%- endblock %}
+            {%- if customsidebar %}
+            {%- include customsidebar %}
+            {%- endif %}
+            {%- block sidebarsearch %}
+            {%- include "searchbox.html" %}
+            {%- endblock %}
+          {%- endif %}
+<br /><br />
+			<div class="side-column-block">
+			  	<ul class="side-contact-buttons">
+					<li><a href="http://form.percona.com/ContactMe.html" title="Contact Me" class="contact-me"><span>Contact Me</span></a></li>
+					<li><a href="http://www.percona.com/webinars/" title="Attend a Webinar" class="webinar"><span>Attend a Webinar</span></a></li>
+					<li><a href="http://www.percona.com/downloads/" title="Download Software" class="download-software"><span>Download Software</span></a></li>
+					<li><a href="http://www.percona.com/subscribe/" title="Register For Newsletters" class="newsletters"><span>Register For Newsletters</span></a></li>
+				</ul>
+			</div>
+
+        </div>
+      </div>
+      {%- endif %}
+{%- endmacro %}
+
+{%- macro script() %}
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '{{ url_root }}',
+        VERSION:     '{{ release|e }}',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '{{ '' if no_search_suffix else file_suffix }}',
+        HAS_SOURCE:  {{ has_source|lower }}
+      };
+    </script>
+    {%- for scriptfile in script_files %}
+    <script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
+    {%- endfor %}
+{%- endmacro %}
+
+{%- macro css() %}
+    <link rel="stylesheet" href="{{ pathto('_static/percona.com.css', 1) }}" type="text/css" />
+    <link rel="stylesheet" href="{{ pathto('_static/' + style, 1) }}" type="text/css" />
+    <link rel="stylesheet" href="{{ pathto('_static/pygments.css', 1) }}" type="text/css" />
+    {%- for cssfile in css_files %}
+    <link rel="stylesheet" href="{{ pathto(cssfile, 1) }}" type="text/css" />
+    {%- endfor %}
+{%- endmacro %}
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset={{ encoding }}" />
+    {{ metatags }}
+    {%- block htmltitle %}
+    <title>{{ title|striptags|e }}{{ titlesuffix }}</title>
+    {%- endblock %}
+
+    {{ css() }}
+    {%- if not embedded %}
+    {{ script() }}
+    {%- if use_opensearch %}
+    <link rel="search" type="application/opensearchdescription+xml"
+          title="{% trans docstitle=docstitle|e %}Search within {{ docstitle }}{% endtrans %}"
+          href="{{ pathto('_static/opensearch.xml', 1) }}"/>
+    {%- endif %}
+
+<script src="{{ pathto('_static/percona.com.js', 1)}}" type="text/javascript"></script> 
+
+    {%- if favicon %}
+    <link rel="shortcut icon" href="{{ pathto('_static/' + favicon, 1) }}"/>
+    {%- endif %}
+    {%- endif %}
+{%- block linktags %}
+    {%- if hasdoc('about') %}
+    <link rel="author" title="{{ _('About these documents') }}" href="{{ pathto('about') }}" />
+    {%- endif %}
+    {%- if hasdoc('genindex') %}
+    <link rel="index" title="{{ _('Index') }}" href="{{ pathto('genindex') }}" />
+    {%- endif %}
+    {%- if hasdoc('search') %}
+    <link rel="search" title="{{ _('Search') }}" href="{{ pathto('search') }}" />
+    {%- endif %}
+    {%- if hasdoc('copyright') %}
+    <link rel="copyright" title="{{ _('Copyright') }}" href="{{ pathto('copyright') }}" />
+    {%- endif %}
+    <link rel="top" title="{{ docstitle|e }}" href="{{ pathto('index') }}" />
+    {%- if parents %}
+    <link rel="up" title="{{ parents[-1].title|striptags|e }}" href="{{ parents[-1].link|e }}" />
+    {%- endif %}
+    {%- if next %}
+    <link rel="next" title="{{ next.title|striptags|e }}" href="{{ next.link|e }}" />
+    {%- endif %}
+    {%- if prev %}
+    <link rel="prev" title="{{ prev.title|striptags|e }}" href="{{ prev.link|e }}" />
+    {%- endif %}
+{%- endblock %}
+{%- block extrahead %} {% endblock %}
+  </head>
+  <body>
+
+{%- block header %}
+  
+ <!-- <div id="stickywrapper"> -->
+ <!--    <div id="stickycontent"> -->
+  <div id="header"><div class="header">
+    <div class="logo"><a href="http://www.percona.com/" onfocus="this.blur()"><img src="http://s3.percona.com/ui-logo.png" alt="Percona Performance Consulting Experts" width="220" height="55" /></a></div>
+    <div class="right">
+      <div class="searchlink"><a onmouseover="SEARCH.Open()"><img id="searchlink-anchor" src="http://s2.percona.com/ui-search.png" alt="" /></a></div>
+      <span class="inv"><![CDATA[<noindex>]]></span>
+     	<div class="navicontainer"><div class="navi">
+      <span id="navilink-span-menu-914"><a id="navilink-a-menu-914" href="/about-percona">About</a></span><span id="navilink-span-menu-915"><a id="navilink-a-menu-915" href="/products">Products</a></span><span id="navilink-span-menu-1125"><a id="navilink-a-menu-1125" title="" href="/software">Software</a></span><span id="navilink-span-menu-918"><a id="navilink-a-menu-918" href="/resources">Resources</a></span><span id="navilink-span-menu-919"><a id="navilink-a-menu-919" title="" href="/news-and-events">News/Events</a></span><span id="navilink-span-menu-1129"><a id="navilink-a-menu-1129" href="/percona-community">Community</a></span><span id="navilink-span-menu-920"><a id="navilink-a-menu-920" title="" href="/contact">Contact</a></span><span id="navilink-span-menu-1060"><a id="navilink-a-menu-1060" title="" href="/live">Percona Live</a></span>        </div></div>
+	      <span class="inv"><![CDATA[</noindex>]]></span>
+	    </div>
+  	</div></div><!-- /.header /#header -->
+
+	<div id="stripe"></div>
+
+{% endblock %}
+
+      <!-- <div id="stripe"></div> -->
+
+{%- block content %}
+
+
+
+  {%- block sidebar1 %} {# possible location for sidebar #} {% endblock %}
+
+    <div class="document">
+      
+
+
+  {%- block document %}
+      <div class="documentwrapper">
+      {%- if render_sidebar %}
+        <div class="bodywrapper">
+      {%- endif %}
+
+        {%- block relbar1 %}{{ relbar() }}{% endblock %}
+
+          <div class="body">
+            {% block body %} {% endblock %}
+          </div>
+
+          {%- block relbar2 %}{{ relbar() }}
+
+      {%- if render_sidebar %}
+      <div class="percona_com_ad" style="margin:auto;width:630px;"><script type="text/javascript" src="http://www.percona.com/ads.php?size=630x80"></script></div>
+        </div>
+      {%- endif %}
+
+
+
+      </div>
+
+  {%- endblock %}
+
+  {%- block sidebar2 %}{{ sidebar() }}{% endblock %}
+
+      <div class="clearer"></div>
+
+      {%- if last_updated %}
+      {% trans last_updated=last_updated|e %}Last updated on {{ last_updated }}.{% endtrans %}
+      {%- endif %}
+     
+     
+    
+    
+    <div class="license">
+
+      {%- if show_copyright %}
+      {%- if hasdoc('copyright') %}
+      {% trans path=pathto('copyright'), copyright=copyright|e %}&copy; <a href="{{ path }}">Copyright</a> {{ copyright }}.{% endtrans %}
+      {%- else %}
+      {% trans copyright=copyright|e %}&copy; Copyright {{ copyright }}.{% endtrans %}
+      {%- endif %}
+      {%- endif %}
+
+      <br />
+        Except where otherwise noted, this documentation is licensed under the following license:
+      <br />
+      <a class="urlextern" rel="license" href="http://creativecommons.org/licenses/by-sa/2.0/">
+        CC Attribution-ShareAlike 2.0 Generic</a><br />
+
+ {%- if show_sphinx %}
+      {% trans sphinx_version=sphinx_version|e %}Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> {{ sphinx_version }}.{% endtrans %}
+    {%- endif %}    
+
+     </div>
+
+    </div>
+    {%- endblock %}
+
+    {% endblock %}
+
+{%- block footer %}
+
+    <div class="file-bugs">
+      	This documentation is developed in Launchpad as part of the <a href="https://code.launchpad.net/percona-xtrabackup">Percona XtraBackup source code</a>.<br/>
+		If you spotted innacuracies, errors, don't understood it or you think something is missing or should be improved, please <a href="https://bugs.launchpad.net/percona-xtrabackup/+filebug?field.tags=doc&amp;field.comment=[In:Percona XtraBackup Documentation]&amp;?field.tags=doc&amp;field.title=[DOC] ">file a bug</a>.
+	
+    </div>
+
+   <div id="footer">
+
+    <div class="footer">
+      <div class="logo"><img width="110" height="25" alt="" src="{{ pathto('_static/ui-footer-logo.png', 1) }}">          
+       </div>
+
+       <div class="text">
+          <span class="inv"><!--[CDATA[<noindex-->]]&gt;</span>
+          Call us: 1-888-316-9775 • <a href="/contact">Contact Us</a><br>
+          MySQL and InnoDB are trademarks of Oracle Corp.<br>
+          Proudly running <a href="/software/percona-server/">Percona Server<span id="recentServerVersion"></span></a><br>
+          Copyright &copy; 2006-2011 Percona Inc.<br>
+          <a href="/about-us/policies/">Copyright, Trademark, and Privacy Policy</a> • <a href="/sitemap/">Sitemap</a>
+          <span class="inv"><!--[CDATA[</noindex-->]]&gt;</span>
+       </div>
+   </div>
+
+   </div>
+{%- endblock %}
+<span class="inv"><!--[CDATA[<noindex-->]]&gt;</span>
+<div id="submenus"> 
+<div id="navi-dropdown-menu-914" class="navi-dropdown" style="position: absolute; left: 401.133px; top: 96px; display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="/about-us/our-mission">Mission</a></div><div class="item"><a href="/about-us/our-team">Team</a></div><div class="item"><a href="/about-us/customers">Customers</a></div><div class="item"><a href="/about-us/careers">Careers</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-915" class="navi-dropdown" style="display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="/mysql-support">MySQL Support</a></div><div class="item"><a href="/mysql-consulting">MySQL Consulting</a></div><div class="item"><a href="/training">MySQL Training</a></div><div class="item"><a href="/development">MySQL Server Development</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-1125" class="navi-dropdown" style="position: absolute; left: 532.933px; top: 96px; display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="/software">Percona Software for MySQL</a></div><div class="item"><a href="/software/percona-server">Percona Server with XtraDB</a></div><div class="item"><a href="/software/percona-xtradb-cluster">Percona XtraDB Cluster</a></div><div class="item"><a href="/software/percona-toolkit">Percona Toolkit</a></div><div class="item"><a href="/software/percona-monitoring-plugins">Percona Monitoring Plugins</a></div><div class="item"><a href="/software/mysql-innodb-data-recovery-tools">Data Recovery Toolkit</a></div><div class="item"><a href="/software/percona-xtrabackup">Percona XtraBackup</a></div><div class="item"><a href="/software/percona-xtradb">Percona XtraDB</a></div><div class="item"><a href="/downloads">Downloads</a></div><div class="item"><a href="/software/repositories">Repositories</a></div><div class="item"><a href="/software/documentation">Documentation</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-918" class="navi-dropdown" style="display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="/webinars">Webinars</a></div><div class="item"><a href="https://tools.percona.com/wizard">MySQL Configuration Wizard</a></div><div class="item"><a href="https://tools.percona.com/query-advisor">MySQL Query Advisor</a></div><div class="item"><a href="/about-us/blogs">Blogs</a></div><div class="item"><a href="/about-us/presentations">Technical Presentations</a></div><div class="item"><a href="/about-us/books">Books by Percona Authors</a></div><div class="item"><a href="/about-us/mysql-white-papers">White Papers</a></div><div class="item"><a href="/about-us/mysql-case-studies">Case Studies</a></div><div class="item"><a href="http://percona.tv/">Videos</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-919" class="navi-dropdown" style="display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="/percona-news">In The News</a></div><div class="item"><a href="/about-us/pressreleases">Press Releases</a></div><div class="item"><a href="/live-2">Percona Live Conferences</a></div><div class="item"><a href="/mysql-events">MySQL Events</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-1129" class="navi-dropdown" style="display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="http://forum.percona.com/">Forums</a></div><div class="item"><a href="http://groups.google.com/group/percona-discussion">Google Discussion Group</a></div><div class="item"><a href="https://launchpad.net/percona-server">Launchpad</a></div><div class="item"><a href="http://www.mysqlperformanceblog.com/">MySQL Performance Blog</a></div><div class="item"><a href="http://twitter.com/percona">Twitter</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-920" class="navi-dropdown" style="display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="/contact/24x7-emergency">24x7 Emergency</a></div><div class="item"><a href="/contact/sales">Sales &amp; General Inquiries</a></div><div class="item"><a href="/contact/billing">Billing Inquiries</a></div><div class="item"><a href="https://customers.percona.com/">Customer Portal Login</a></div><div class="item"><a href="/contact/phone-directory">Phone Directory</a></div><div class="item"><a href="/subscribe">Subscribe to Newsletter</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div><div id="navi-dropdown-menu-1060" class="navi-dropdown" style="display: none;"><div class="navi-dropdown-header-l"><!-- //--></div><div class="navi-dropdown-content"><div class="item"><a href="http://www.percona.com/live/mysql-conference-2013/">MySQL Conference &amp; Expo 2013</a></div><div class="item"><a href="http://www.percona.com/live/london-2012/">London 2012</a></div><div class="item"><a href="http://www.percona.com/live/nyc-2012/">New York 2012</a></div><div class="item"><a href="http://www.percona.com/live/mysql-conference-2012/">MySQL Conference &amp; Expo 2012</a></div><div class="item"><a href="/live">Previous Percona Live Events</a></div></div><div class="navi-dropdown-footer"><!-- //--></div></div>  <div class="search-dropdown" id="search-dropdown" style="display: none;">
+    <div class="search-dropdown-header"><!-- //--></div>
+    <div class="search-dropdown-content">
+      <div class="search-info">Search Percona.com:</div>
+      <form id="search-form" action="http://search.percona.com/search/" method="get">
+        <div class="form"><input type="text" maxlength="100" name="q" id="search-input"></div>
+      </form>
+    </div>
+    <div class="search-dropdown-footer"><!-- //--></div>
+  </div>
+</div>
+<div id="stats">
+<!-- GA //-->
+  <script src="http://www.percona.com/static/js/urchin.js" type="text/javascript"></script>
+  <script type="text/javascript">
+  _uacct = "UA-343802-3";
+  urchinTracker();
+  </script>
+<!-- /GA //-->
+<!-- NAVI //-->
+<script type="text/javascript">//<![CDATA[
+var navi = [{id:"menu-914", direction: "l"},{id:"menu-915", direction: "l"},{id:"menu-1125", direction: "l"},{id:"menu-918", direction: "l"},{id:"menu-919", direction: "l"},{id:"menu-1129", direction: "l"},{id:"menu-920", direction: "l"},{id:"menu-1060", direction: "l"}];
+for(var i = 0, c = navi.length; i < c; i++) {
+  window.jQuery('#navilink-a-' + navi[i].id).bind('mouseover',{id: navi[i].id, direction:navi[i].direction}, function(e) { NAVI.Open(e.data.id, e.data.direction); } );
+}
+window.jQuery('#search-form').bind('submit', function() { window.location.href = jQuery('#search-form').attr('action') + jQuery('#search-input').val(); return false; });
+
+//]]></script>
+<!-- /NAVI //-->
+<script type="text/javascript">
+//<![CDATA[
+Percona.host = 'www.percona.com';
+Percona.getRecentServerVersion('#recentServerVersion');
+//]]>
+</script>
+</div>
+  </body>
+</html>
+
+
+
+{% if theme_collapsiblesidebar|tobool %}
+{% set script_files = script_files + ['_static/sidebar.js'] %}
+{% endif %}

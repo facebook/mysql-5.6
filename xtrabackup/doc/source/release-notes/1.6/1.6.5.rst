@@ -1,0 +1,30 @@
+============================
+|Percona| |XtraBackup| 1.6.5
+============================
+
+Percona is glad to announce the release of Percona XtraBackup 1.6.5 on 10 February, 2012 (Downloads are available `here <http://www.percona.com/downloads/XtraBackup/XtraBackup-1.6.5/>`_ and from the :doc:`Percona Software Repositories </installation>`).
+
+This release is purely composed of bug fixes and is the current stable release of |Percona| |Xtrabackup|.
+
+Bugs Fixed
+----------
+
+  * While running an incremental backup through innobackupex, you could get an error when the script was attempting to copy all the MYI/MYD/...etc files if a table was removed during the process of copying each file. A helper subroutine - copy_if_exists has been added and it is used instead. Bug fixed: :bug:`924026` (*Lachlan Mulcahy*).
+
+  * |tar4ibd| may crash on data files in a multi-file system tablespace configuration. Problem was that tar4ibd expected to read page size from the FSP header of each data file, which, in case of a multi-file system tablespace, is only available in the first file, but not in subsequent ones. That resulted in tar4ibd using a bogus page size, hence the crash. Fixed by enforcing UNIV_PAGE_SIZE as the page size for system tablespace files. Bug fixed: :bug:`891496` (*Alexey Kopytov*).
+
+  * Fix a crash when using parallel and incremental options together. |xtrabackup| function used a global buffer to store incremental page deltas. That didn't work with parallel backups. Fixed by allocating a local buffer in functions that use it. Bug fixed: :bug:`826632` (*Alexey Kopytov*).
+
+  * When preparing an incremental backups, |innobackupex| should copy all non-InnoDB files (including .frm files and non-InnoDB tables) to the full backup directory. Otherwise, any changes to .frm and/or non-InnoDB tables made between full and incremental backups lead to unusable backups. Bug fixed: :bug:`759701` (*Alexey Kopytov*).
+
+  * When using --remote-host to a non-standard SSH port, the |xtrabackup| wasn't passing the correct port to both ssh and scp, which use different options for port number (-p vs -P). Bug fixed: :bug:`733658`  (*Sergei Glushchenko*).
+
+  * Unintentional change of innodb_version format in Percona Server 5.1.60. caused fatal error in |xtrabackup|. Regexps used to detect innodb_version were updated. Bug fixed: :bug:`910206` (*Alexey Kopytov*).
+ 
+  * When using |innobackupex| with --stream option it could place the output file in folder where non-root user does not have write access to. Bug fixed: :bug:`691090` (*Sergei Glushchenko*).
+
+  * |tar4ibd| wasn't using O_DIRECT for per-table ``*.ibd`` when it should. Fixed |innobackupex| to use the same tar4ibd arguments for ibdata* and ``*.ibd``. Bug fixed: :bug:`925354` (*Alexey Kopytov*).
+
+  * Linux binary tarball now includes COPYING. Bug fixed: :bug:`914622` (*Ignacio Nin*).
+
+  * Fixed bug bug:`711207` |xtrabackup|: Error: write to stdout. (*Sergei Glushchenko*).

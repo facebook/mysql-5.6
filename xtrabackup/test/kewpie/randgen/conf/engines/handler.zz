@@ -1,0 +1,15 @@
+$tables = {
+        rows => [1000],
+	engines => [ 'Aria', 'MyISAM', 'InnoDB', 'Memory' ]
+};
+
+$fields = {
+        types => [ 'int', 'char(32)' ],
+        indexes => [ 'key', 'unique' ],
+        null => [undef, 'not null'],
+};
+
+$data = {
+        numbers => [ 'digit', 'null', undef , 'tinyint_unsigned' ],
+        strings => [ 'letter', 'english', 'varchar(3)' ]
+}
