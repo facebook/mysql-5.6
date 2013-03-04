@@ -1,0 +1,45 @@
+=======================================
+|Percona| |XtraBackup| 1.9.0 (2.0 BETA)
+=======================================
+
+Percona is glad to announce the release of Percona XtraBackup 1.9.0 on 9th February 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/BETA/1.9.0/>`_. For this BETA release, we will not be making APT and YUM repositories available, just base deb and RPM packages.
+
+This is a *BETA* quality release and is not inteded for production. If you want a high quality, Generally Available release, you should use the current Stable version - currently 1.6.4 in the 1.6 series at the time of writing.
+
+The 1.9.x version numbers will be used to distinguish between pre-release versions of |Percona| |XtraBackup| 2.0 and the Generally Available final release.
+
+This release contains all of the features and bug fixes in :doc:`Percona XtraBackup 1.6.4 </release-notes/1.6/1.6.4>`, plus the following:
+
+New features
+------------
+
+  * |Percona| |XtraBackup| can now save Galera replication information while performing a backup when given the ``--galera-info`` option to innobackupex.
+
+  * The documentation is now bundled with |Percona| |XtraBackup|. It may not be included in binary packages for this beta release.
+
+  * Support for compiling and running |Percona| |XtraBackup| against debug versions of InnoDB. This is only for *very* advanced users.
+
+Bugs Fixed
+----------
+
+  * ``xtrabackup`` will now raise an error if the transaction log wraps around before all log records are read. Previously it would print a warning and not error out, even though it would have generated an invalid backup. With this bug fix, if the log files wrap around before ``xtrabackup`` has read all the log records, ``xtrabackup`` will error out. Bug fixed: :bug:`805593` (*Alexey Kopytov*)
+
+  * MyISAM tables were backed up but not locked up during an incremental backup. Bug fixed: :bug:`771981` (*Valentine Gostev*)
+
+  * ``tar4ibd`` (used for streaming backups) could fail silently on backups larger than 4GB on 32bit systems. Bug fixed: :bug:`690822` (*Stewart Smith* and *Lee F*)
+
+  * ``xtrabackup`` ignored the ``--defaults-file`` option. ``xtrabackup`` will now fail if ``--defaults-file`` is not the first option on the command line. Bug fixed: :bug:`798488` (*Alexey Kopytov*)
+
+  * ``xtrabackup_binary`` was not included in tar archive when streaming, instead it was written to the current directory. This could cause backups with ``--remote-host`` to fail. Bugs Fixed: :bug:`723318` (*Alexey Kopytov*) and :bug:`787988` (*Alexey Kopytov*)
+
+  * Compiling |Percona| |XtraBackup| with GCC 4.6 produced compiler warnings. Bug fixed: :bug:`748064` (*Stewart Smith*)
+
+  * Improvements to incremental backups when using streaming, the addition of the ``--extra-lsndir`` option. Bug fixed: :bug:`680936` (*Vadim Tkachenko*)
+
+  * ``innobackupex`` was hardcoded to use ``xtrabackup_51`` for ``--copy-back``. This could affect users who built from source. Bug fixed: :bug:`737462` (*Valentine Gostev*)
+
+  * If ``--stats`` is run without the log files properly initialised, ``xtrabackup`` will now print a warning instead of crashing. Bug fixed: :bug:`672384` (*Alexey Kopytov* and *Vadim Tkachenko*)
+
+  * Applying an incremental backup on a backup prepared with ``--apply-log`` and ``--redo-only`` failed to update the log files. Bug fixed: :bug:`717300` (*Valentine Gostev*, *Alexey Kopytov* and *Vadim Tkachenko*)
+
+  * Misc fixes to tests and build system: :bug:`749420`, :bug:`762207`, :bug:`733811`, :bug:`811065`
