@@ -102,6 +102,8 @@ extern "C" {
 #include <fcntl.h>
 #include <buf0flu.h>
 #include <buf0lru.h>
+#include <sql_locale.h>
+#include <derror.h>
 
 #ifdef INNODB_VERSION_SHORT
 #include <ibuf0ibuf.h>
@@ -1963,7 +1965,7 @@ static
 File
 xtrabackup_create_tmpfile(char *path, const char *prefix)
 {
-	File	fd = create_temp_file(path, my_tmpdir(&mysql_tmpdir_list),
+	File	fd = create_temp_file(path, xtrabackup_target_dir,
 				      prefix,
 #ifdef __WIN__
 				O_BINARY | O_TRUNC | O_SEQUENTIAL |
@@ -2456,6 +2458,9 @@ innodb_init_param(void)
 
 	/* dummy for initialize all_charsets[] */
 	get_charset_name(0);
+
+	my_default_lc_messages = my_locale_by_name("en_US");
+	init_errmessage();
 
 #ifdef XTRADB_BASED
 	srv_page_size = 0;
@@ -3361,7 +3366,8 @@ xb_file_set_nocache(
 					"create" */
 {
 #ifndef __WIN__
-	if (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT) {
+	if (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT ||
+		srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC) {
 		os_file_set_nocache(fd, file_name, operation_name);
 	}
 #endif
@@ -3417,7 +3423,7 @@ xtrabackup_copy_datafile(fil_node_t* node, uint thread_n, ds_ctxt_t *ds_ctxt)
 	IB_UINT64	offset;
 	ulint		page_in_buffer;
 	ulint		incremental_buffers = 0;
-	byte*		incremental_buffer;
+	byte*		incremental_buffer = NULL;
 	byte*		incremental_buffer_base = NULL;
 	ulint		page_size;
 	ulint		page_size_shift;
@@ -4619,6 +4625,9 @@ xtrabackup_backup_func(void)
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DIRECT")) {
 	  	srv_unix_file_flush_method = SRV_UNIX_O_DIRECT;
 		msg("xtrabackup: using O_DIRECT\n");
+	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DIRECT_NO_FSYNC")) {
+		srv_unix_file_flush_method = SRV_UNIX_O_DIRECT_NO_FSYNC;
+		msg("xtrabackup: using O_DIRECT_NO_FSYNC\n");
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "littlesync")) {
 	  	srv_unix_file_flush_method = SRV_UNIX_LITTLESYNC;
 
@@ -4802,12 +4811,13 @@ xtrabackup_backup_func(void)
 	mutex_exit(&log_sys->mutex);
 
 reread_log_header:
-	fil_io(OS_FILE_READ | OS_FILE_LOG, TRUE, max_cp_group->space_id,
 #ifdef INNODB_VERSION_SHORT
-				0,
+	fil_io(OS_FILE_READ | OS_FILE_LOG, TRUE, max_cp_group->space_id,
+			0, 0, 0, LOG_FILE_HDR_SIZE, log_hdr_buf, max_cp_group);
+#else
+	fil_io(OS_FILE_READ | OS_FILE_LOG, TRUE, max_cp_group->space_id,
+			0, 0, LOG_FILE_HDR_SIZE, log_hdr_buf, max_cp_group);
 #endif
-				0, 0, LOG_FILE_HDR_SIZE,
-				log_hdr_buf, max_cp_group);
 
 	/* check consistency of log file header to copy */
 	mutex_enter(&log_sys->mutex);
@@ -6052,7 +6062,7 @@ xb_delta_create_space_file(
 	if (!ret) {
 		msg("xtrabackup: cannot set size for file %s\n", path);
 		os_file_close(*file);
-		os_file_delete(path);
+		os_file_delete(innodb_file_data_key, path);
 		return ret;
 	}
 
@@ -6105,7 +6115,7 @@ xb_delta_create_space_file(
 		msg("xtrabackup: could not write the first page to %s\n",
 		    path);
 		os_file_close(*file);
-		os_file_delete(path);
+		os_file_delete(innodb_file_data_key, path);
 		return ret;
 	}
 
@@ -6663,8 +6673,6 @@ xtrabackup_close_temp_log(my_bool clear_flag)
 #ifdef USE_POSIX_FADVISE
 	posix_fadvise(src_file, 0, 0, POSIX_FADV_DONTNEED);
 #endif
-
-	xb_file_set_nocache(src_file, src_path, "OPEN");
 
 	log_buf_ = static_cast<byte *>(ut_malloc(LOG_FILE_HDR_SIZE * 2));
 	log_buf = static_cast<byte *>(ut_align(log_buf_, LOG_FILE_HDR_SIZE));
