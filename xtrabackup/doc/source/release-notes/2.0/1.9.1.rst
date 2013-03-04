@@ -1,0 +1,49 @@
+=======================================
+|Percona| |XtraBackup| 1.9.1 (2.0 BETA)
+=======================================
+
+Percona is glad to announce the release of Percona XtraBackup 1.9.1 on 24th February 2012. Downloads are available from our download site `here <http://www.percona.com/downloads/XtraBackup/BETA/1.9.1/>`_. For this BETA release, we will not be making APT and YUM repositories available, just base deb and RPM packages.
+
+This is a *BETA* quality release and is not inteded for production. If you want a high quality, Generally Available release, you should use the current Stable version - currently 1.6.5 in the 1.6 series at the time of writing.
+
+The 1.9.x version numbers will be used to distinguish between pre-release versions of |Percona| |XtraBackup| 2.0 and the Generally Available final release.
+
+This release contains all of the features and bug fixes in :doc:`Percona XtraBackup 1.9.0 </release-notes/2.0/1.9.0>`, plus the following:
+
+New features
+------------
+
+  * |Xtrabackup| now supports compressed backups. These backups can be done in a parallel way, thus utilizing multiple CPU cores if needed. In previous versions, compression was only possible with streaming backups + external (usually single-threaded) compression utilities, which also had a number of other limitations (e.g. could not be used with parallel file copying, it was required to uncompress the entire backup to restore a single table)  (*Alexey Kopytov*).
+
+  * |Percona| |XtraBackup| now supports streaming incremental backups. In previous versions streaming backups were performed by the innobackupex script but incremental backups were done by the xtrabackup binary which calculated deltas by scanning data files. Which meant those two feature were mutually exclusive, i.e. one couldn't do streaming incremental backups (*Alexey Kopytov*).
+
+  * As part of the backup, the LRU dump is now included as well (*Sergei Glushchenko*).
+
+Bugs Fixed
+----------
+
+  * |tar4ibd| may crash on data files in a multi-file system tablespace configuration. Problem was that tar4ibd expected to read page size from the FSP header of each data file, which, in case of a multi-file system tablespace, is only available in the first file, but not in subsequent ones. That resulted in tar4ibd using a bogus page size, hence the crash. Bug fixed: :bug:`891496` (*Alexey Kopytov*).
+
+  * When preparing an incremental backups, |innobackupex| should copy all non-InnoDB files (including .frm files and non-InnoDB tables) to the full backup directory. Otherwise, any changes to .frm and/or non-InnoDB tables made between full and incremental backups lead to unusable backups. Bug fixed: :bug:`759701` (*Alexey Kopytov*).
+
+  * |xtrabackup| was using MySQL's datadir as it's target-dir. Target directory now defaults to the current directory, rather than MySQL's datadir. Bug fixed :bug:`489290` (*Sergei Glushchenko*).
+
+  * When using parallel backup option in |xtrabackup|, backups could fail with "Operating system error number 17". Bug fixed: :bug:`900175` (*Alexey Kopytov*).
+
+  * Regression in 2.0 branch caused "error: log block numbers mismatch". Bug fixed: :bug:`917823` (*Alexey Kopytov*).
+
+  * |xtrabackup| incremental backups didn't work with --parallel backups option. Bug fixed: :bug:`826632` (*Alexey Kopytov*).
+
+  * |innobackupex| when used for streaming backups, stored some of the files in the server's datadir, thus requiring write access to it. The fix is that it now uses tmpdir instead for streaming backups. For local ones, the backup target directory is used as before. Bug fixed: :bug:`691090` (*Sergei Glushchenko*).
+
+  * Unintentional change of innodb_version format in 5.1.60. caused fatal error in |xtrabackup|. Regexps used to detect innodb_version were updated. Bug fixed: :bug:`910206` (*Alexey Kopytov*).
+
+  * When using --remote-host to a non-standard SSH port, the |xtrabackup| wasn't passing the correct port to both ssh and scp, which use different options for port number (-p vs -P). It's now possible to pass custom SSH options to innobackupex, such as a non-standard port, with the --sshopt option. Bug fixed: :bug:`733658`  (*Sergei Glushchenko*).
+
+  * While running an incremental backup through innobackupex, you could get an error when the script was attempting to copy all the MYI/MYD/...etc files if a table was removed during the process of copying each file. Bug fixed: :bug:`924026` (*Lachlan Mulcahy*).
+
+  * Fixed bug :bug:`711207` |xtrabackup|: "Error: write to stdout" (*Sergei Glushchenko*).
+
+  * Streaming incremental backups are now supported. Bug fixed: :bug:`929885` (*Alexey Kopytov*)
+
+  * A backup will now include the LRU dump for fast server startup after restore. Bug fixed: :bug:`543134` (*Sergei Glushchenko*)
