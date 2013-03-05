@@ -1877,7 +1877,7 @@ func_exit:
 		return(FALSE);
 
 	} else if (buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE) {
-		b = buf_page_alloc_descriptor();
+		b = buf_page_alloc_descriptor(buf_pool, TRUE);
 		ut_a(b);
 		memcpy(b, bpage, sizeof *b);
 	}
@@ -2342,8 +2342,8 @@ buf_LRU_block_remove_hashed_page(
 			buf_pool, bpage->zip.data,
 			page_zip_get_size(&bpage->zip));
 
+		buf_page_free_descriptor(bpage, buf_pool, TRUE);
 		buf_pool_mutex_exit_allow(buf_pool);
-		buf_page_free_descriptor(bpage);
 		return(BUF_BLOCK_ZIP_FREE);
 
 	case BUF_BLOCK_FILE_PAGE:

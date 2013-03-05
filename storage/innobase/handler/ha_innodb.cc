@@ -16503,6 +16503,12 @@ static MYSQL_SYSVAR_UINT(old_blocks_time, buf_LRU_old_threshold_ms,
   " The timeout is disabled if 0.",
   NULL, NULL, 1000, 0, UINT_MAX32, 0);
 
+static MYSQL_SYSVAR_ULONG(malloc_cache_len, buf_malloc_cache_len,
+  PLUGIN_VAR_OPCMDARG,
+  "Length of the non-blocking queue that's used to cache memory allocations for"
+  " buffer pool page descriptors. 0 length means no caching.",
+  NULL, NULL, 1000L, 0L, 1000000L, 0);
+
 static MYSQL_SYSVAR_LONG(open_files, innobase_open_files,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "How many files at the maximum InnoDB keeps open at the same time.",
@@ -16967,6 +16973,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
 #endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(fake_changes),
   MYSQL_SYSVAR(fake_changes_locks),
+  MYSQL_SYSVAR(malloc_cache_len),
   MYSQL_SYSVAR(zlib_wrap),
   MYSQL_SYSVAR(zlib_strategy),
   NULL
