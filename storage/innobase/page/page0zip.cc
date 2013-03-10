@@ -1347,6 +1347,11 @@ page_zip_compress(
 	/* Compress the data payload. */
 	page_zip_set_alloc(&c_stream, heap);
 
+	err = deflateInit2(&c_stream, level,
+	      Z_DEFLATED, window_bits,
+	      MAX_MEM_LEVEL, strategy);
+	ut_a(err == Z_OK);
+
 	c_stream.next_out = buf;
 	/* Subtract the space reserved for uncompressed data. */
 	/* Page header and the end marker of the modification log */
@@ -1383,12 +1388,6 @@ page_zip_compress(
 	c_stream.avail_in = page_zip_fields_encode(n_fields, index,
 						   trx_id_col, fields);
 	c_stream.next_in = fields;
-
-	err = deflateInit2(&c_stream, level,
-	       Z_DEFLATED, window_bits,
-	       MAX_MEM_LEVEL, strategy);
-	ut_a(err == Z_OK);
-
 	if (UNIV_LIKELY(!trx_id_col)) {
 		trx_id_col = ULINT_UNDEFINED;
 	}
