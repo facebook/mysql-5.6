@@ -2,6 +2,8 @@
 
 set -e
 
+CMAKE=/mnt/gvfs/third-party/1b76b1fdef117650883ae1568fcf2777ad9a00c1/centos5.2-native/cmake/cmake-2.8.4/da39a3e/bin/cmake
+
 MYSQL_51_VERSION=5.1.59
 MYSQL_55_VERSION=5.5.17
 MYSQL_56_VERSION=5.6.10
@@ -30,6 +32,9 @@ else
     extra_config_51=
     extra_config_55plus=
 fi
+
+export CFLAGS="$CFLAGS -DXTRABACKUP"
+export CXXFLAGS="$CXXFLAGS -DXTRABACKUP"
 
 if [ "$1" = "innodb51_builtin" -o "$1" = "innodb50" ]
 then
@@ -90,10 +95,14 @@ AUTO_DOWNLOAD to \"yes\""
 ################################################################################
 function unpack_and_patch()
 {
-    tar xzf $top_dir/$1
-    cd `basename "$1" ".tar.gz"`
-    patch -p1 < $top_dir/patches/$2
-    cd ..
+    rm -fr mysql-5.6.10 mysql-5.6
+    dir=$(mktemp -d)
+    cp -r ../* $dir
+    cp -r $dir mysql-5.6.10
+    rm -fr $dir
+#    cd `basename "$1" ".tar.gz"`
+#    patch -p1 < $top_dir/patches/$2
+#    cd ..
 }
 
 ################################################################################
@@ -131,7 +140,7 @@ function build_libarchive()
 	echo "Building libarchive"
 	cd $top_dir/src/libarchive
 	
-	cmake  . \
+	${CMAKE}  . \
 	    -DENABLE_CPIO=OFF \
 	    -DENABLE_OPENSSL=OFF \
 	    -DENABLE_TAR=OFF \
@@ -178,7 +187,7 @@ function build_all()
     innodb_dir=$server_dir/storage/$innodb_name
 
     echo "Downloading sources"
-    auto_download $server_tarball
+#    auto_download $server_tarball
 
     test -d $server_dir && rm -r $server_dir
 
@@ -237,7 +246,7 @@ case "$type" in
 	innodb_name=innobase
 	xtrabackup_target=5.5
 	# We need to build with partitioning due to MySQL bug #58632
-	configure_cmd="cmake . \
+	configure_cmd="${CMAKE} . \
 		-DENABLED_LOCAL_INFILE=ON \
 		-DWITH_INNOBASE_STORAGE_ENGINE=ON \
 		-DWITH_PARTITION_STORAGE_ENGINE=ON \
@@ -253,7 +262,7 @@ case "$type" in
         server_patch=innodb56.patch
         innodb_name=innobase
         xtrabackup_target=5.6
-        configure_cmd="cmake . \
+        configure_cmd="${CMAKE} . \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_ZLIB=bundled \
                 -DWITH_EXTRA_CHARSETS=all \
@@ -318,7 +327,7 @@ case "$type" in
 	innodb_dir=$server_dir/storage/innobase
 	xtrabackup_target=xtradb55
 	# We need to build with partitioning due to MySQL bug #58632
-	configure_cmd="cmake . \
+	configure_cmd="${CMAKE} . \
 		-DENABLED_LOCAL_INFILE=ON \
 		-DWITH_INNOBASE_STORAGE_ENGINE=ON \
 		-DWITH_PARTITION_STORAGE_ENGINE=ON \
