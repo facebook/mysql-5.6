@@ -146,6 +146,31 @@ SELECT @@global.innodb_flush_log_at_trx_commit;
 SET @@global.innodb_flush_log_at_trx_commit = @global_start_value;
 SELECT @@global.innodb_flush_log_at_trx_commit;
 
+###############################################################################
+# Verify loging the changes to global variable innodb_flush_log_at_trx_commit #
+###############################################################################
+--echo #
+--echo # Verify logging the changes to global variable
+--echo # innodb_flush_log_at_trx_commit
+--echo #
+--perl
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/log/mysqld.1.err" or die;
+my @lines = <FILE>;
+my $check = 0;
+foreach $line (@lines) {
+  if ($line =~ m/CURRENT\_TEST.*/) {
+    if ($line =~ m/.*sys_vars\.innodb\_flush\_log\_at\_trx\_commit/) {
+      $check = 1;
+    } else {
+      $check = 0;
+    }
+  }
+  if ($check && $line =~ m/\[Note\] (InnoDB: Setting global variable.*)/) {
+    print "$1\n";
+  }
+}
+EOF
+
 ###############################################################
 #       END OF innodb_flush_log_at_trx_commit TESTS           #
 ############################################################### 

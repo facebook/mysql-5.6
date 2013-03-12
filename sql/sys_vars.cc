@@ -4234,12 +4234,36 @@ static Sys_var_uint Sys_checkpoint_mts_group(
 #endif /* DBUG_OFF */
 #endif /* HAVE_REPLICATION */
 
+static bool log_sync_binlog_change(sys_var *self, THD *thd, enum_var_type type)
+{
+  const char *user = "unknown";  const char *host = "unknown";
+
+  if (thd)
+  {
+    if (thd->get_user_connect())
+    {
+      user = (const_cast<USER_CONN*>(thd->get_user_connect()))->user;
+      host = (const_cast<USER_CONN*>(thd->get_user_connect()))->host;
+    }
+  }
+
+  sql_print_information(
+    "Setting global variable: "
+    "sync_binlog = %d (user '%s' from '%s')",
+    sync_binlog_period,
+    user,
+    host
+    );
+  return false;
+}
 static Sys_var_uint Sys_sync_binlog_period(
        "sync_binlog", "Synchronously flush binary log to disk after"
        " every #th write to the file. Use 0 (default) to disable synchronous"
        " flushing",
        GLOBAL_VAR(sync_binlog_period), CMD_LINE(REQUIRED_ARG),
-       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL),
+       ON_UPDATE(log_sync_binlog_change));
 
 static Sys_var_uint Sys_sync_masterinfo_period(
        "sync_master_info", "Synchronously flush master info to disk "
