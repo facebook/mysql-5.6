@@ -43,9 +43,26 @@ a
 1
 COMMIT;
 UNLOCK TABLES;
+DELETE from t1;
+FLUSH STATUS;
+connection con1;
+INSERT INTO t1 (a) select sleep(3) ;
+connection default;
+SELECT sleep(1);
+sleep(1)
+0
+set global read_only=1;
+connection con1
+# Check if the query is done. Expected a=0
+SELECT * FROM t1;
+a
+0
+connection default;
+SET GLOBAL read_only=0;
+UNLOCK TABLES;
 DROP TABLE t1;
 DROP USER test@localhost;
-echo End of 5.1 tests 
+echo End of 5.1 tests
 #
 # Bug#33669: Transactional temporary tables do not work under --read-only
 #
