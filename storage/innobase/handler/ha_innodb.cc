@@ -2042,6 +2042,30 @@ innobase_get_charset(
 }
 
 /**********************************************************************//**
+Determines the mysql user.
+@return connection character set */
+UNIV_INTERN
+const char*
+innobase_get_user(
+/*=================*/
+	THD*	mysql_thd)	/*!< in: MySQL thread handle */
+{
+	return(thd_user(mysql_thd));
+}
+
+/**********************************************************************//**
+Determines the source host of thd.
+@return connection character set */
+UNIV_INTERN
+const char*
+innobase_get_host(
+/*=================*/
+	THD*	mysql_thd)	/*!< in: MySQL thread handle */
+{
+	return(thd_host(mysql_thd));
+}
+
+/**********************************************************************//**
 Determines the current SQL statement.
 @return	SQL statement string */
 UNIV_INTERN
@@ -14335,6 +14359,30 @@ innodb_max_dirty_pages_pct_update(
 }
 
 /****************************************************************//**
+Log updates to the system variable innodb_flush_log_at_trx_commit */
+static
+void
+innodb_flush_log_at_trx_commit_update(
+/*==================================*/
+	THD*				thd,	/*!< in: thread handle */
+	struct st_mysql_sys_var*	var,	/*!< in: pointer to
+						system variable */
+	void*				var_ptr,/*!< out: where the
+					formal string goes */
+	const void*			save)	/*!< in: immediate result
+					from check function */
+{
+	ulong   in_val = *static_cast<const ulong*>(save);
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Setting global variable: innodb_flush_log_at_trx_commit = %lu "
+		"(user '%s'@'%s' )",
+		in_val,
+		innobase_get_user(thd),
+		innobase_get_host(thd));
+	srv_flush_log_at_trx_commit = in_val;
+}
+
+/****************************************************************//**
 Update the system variable innodb_max_dirty_pages_pct_lwm using the
 "saved" value. This function is registered as a callback with MySQL. */
 static
@@ -16272,7 +16320,7 @@ static MYSQL_SYSVAR_ULONG(flush_log_at_trx_commit, srv_flush_log_at_trx_commit,
   "Set to 0 (write and flush once per second),"
   " 1 (write and flush at each commit)"
   " or 2 (write at commit, flush once per second).",
-  NULL, NULL, 1, 0, 2, 0);
+  NULL, innodb_flush_log_at_trx_commit_update, 1, 0, 2, 0);
 
 static MYSQL_SYSVAR_STR(flush_method, innobase_file_flush_method,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
