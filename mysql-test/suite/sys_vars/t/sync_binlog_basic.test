@@ -150,6 +150,26 @@ SELECT sync_binlog = @@session.sync_binlog;
 SET @@global.sync_binlog = @start_value;
 SELECT @@global.sync_binlog;
 
+--echo #
+--echo # Verify logging the changes to global variable sync_binlog
+--echo #
+--perl
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/log/mysqld.1.err" or die;
+my @lines = <FILE>;
+my $check = 0;
+foreach $line (@lines) {
+  if ($line =~ m/CURRENT\_TEST.*/) {
+    if ($line =~ m/.*sys_vars\.sync\_binlog/) {
+      $check = 1;
+    } else {
+      $check = 0;
+    }
+  }
+  if ($check && $line =~ m/\[Note\] (Setting global variable.*)/) {
+    print "$1\n";
+  }
+}
+EOF
 
 ######################################################################## 
 #              END OF sync_binlog TESTS                           #
