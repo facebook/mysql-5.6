@@ -382,6 +382,20 @@ extern "C" {
 struct charset_info_st *thd_charset(MYSQL_THD thd);
 
 /**
+  Get the users source host
+  @param thd  user thread
+  @return source host
+*/
+const char* thd_user(MYSQL_THD thd);
+
+/**
+  Get the users MySQL username
+  @param thd  user thread
+  @return MySQL username
+*/
+const char* thd_host(MYSQL_THD thd);
+
+/**
   Check if a user thread is a replication slave thread
   @param thd  user thread
   @retval 0 the user thread is not a replication slave thread
