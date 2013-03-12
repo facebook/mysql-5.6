@@ -112,3 +112,20 @@ SET @@global.sync_binlog = @start_value;
 SELECT @@global.sync_binlog;
 @@global.sync_binlog
 0
+#
+# Verify logging the changes to global variable sync_binlog
+#
+Setting global variable: sync_binlog = 99 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 0 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 0 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 0 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 1 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = -1 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = -2 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 65536 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 0 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = -1 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = -1 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 0 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = -1 (user 'root' from 'localhost')
+Setting global variable: sync_binlog = 0 (user 'root' from 'localhost')
