@@ -4241,6 +4241,42 @@ extern "C" const struct charset_info_st *thd_charset(MYSQL_THD thd)
 }
 
 /**
+  Return the MySQL username of a user thread
+  @param thd user thread
+  @return MySQL username
+*/
+extern "C" const char *thd_user(MYSQL_THD thd)
+{
+  const char *user = "unknown";
+  if (thd)
+  {
+    if (thd->get_user_connect())
+    {
+      user = (const_cast<USER_CONN*>(thd->get_user_connect()))->user;
+    }
+  }
+  return(user);
+}
+
+/**
+  Return the source host of a user thread
+  @param thd user thread
+  @return MySQL host
+*/
+extern "C" const char *thd_host(MYSQL_THD thd)
+{
+  const char *host = "unknown";
+  if (thd)
+  {
+    if (thd->get_user_connect())
+    {
+      host = (const_cast<USER_CONN*>(thd->get_user_connect()))->host;
+    }
+  }
+  return(host);
+}
+
+/**
   OBSOLETE : there's no way to ensure the string is null terminated.
   Use thd_query_string instead()
 */
