@@ -282,6 +282,22 @@ innobase_get_charset(
 /*=================*/
 	THD*	thd);	/*!< in: MySQL thread handle */
 /**********************************************************************//**
+Determines the mysql user of the connection.
+@return connection mysql user */
+UNIV_INTERN
+const char*
+innobase_get_user(
+/*=================*/
+        THD*    thd);   /*!< in: MySQL thread handle */
+/**********************************************************************//**
+Determines the source host of the connection.
+@return connection source host */
+UNIV_INTERN
+const char*
+innobase_get_host(
+/*=================*/
+        THD*    thd);   /*!< in: MySQL thread handle */
+/**********************************************************************//**
 Determines the current SQL statement.
 @return	SQL statement string */
 UNIV_INTERN
