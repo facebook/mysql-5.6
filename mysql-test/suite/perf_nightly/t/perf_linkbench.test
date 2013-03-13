@@ -1,0 +1,60 @@
+--source include/not_valgrind.inc
+--source include/have_innodb.inc
+--source include/big_test.inc
+--exec source suite/perf/include/prepare_testdir.inc linkbench linkbench.log
+
+--disable_warnings
+DROP TABLE IF EXISTS linkdb;
+--enable_warnings
+
+call mtr.add_suppression('InnoDB: Resizing redo log');
+call mtr.add_suppression('InnoDB: Starting to delete and rewrite log files');
+call mtr.add_suppression('InnoDB: New log files created');
+
+CREATE TABLE `linktable` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(3) NOT NULL DEFAULT '0',
+  `data` varchar(255) NOT NULL DEFAULT '',
+  `time` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `version` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id1`,`id2`,`link_type`),
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`version`,`data`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 PARTITION BY key(id1) PARTITIONS 16;
+
+CREATE TABLE `counttable` (
+  `id` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `count` int(10) unsigned NOT NULL DEFAULT '0',
+  `time` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `version` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`,`link_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+CREATE TABLE `nodetable` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `type` int(10) unsigned NOT NULL,
+  `version` bigint(20) unsigned NOT NULL,
+  `time` int(10) unsigned NOT NULL,
+  `data` mediumtext NOT NULL,
+  PRIMARY KEY(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+ALTER TABLE linktable DROP KEY `id1_type`;
+SET GLOBAL innodb_flush_log_at_trx_commit = 2;
+SET GLOBAL sync_binlog = 0;
+
+--exec cd $MYSQL_BINDIR/../tools/linkbench/config; sed -i -r 's/port = [0-9]+/port = $MASTER_MYPORT/g' MyConfig.properties
+--exec cd $MYSQL_BINDIR/../tools/linkbench; ./bin/linkbench -c config/MyConfig.properties -l -L /tmp/dbeng/linkbench/linkbench.log
+
+SET GLOBAL innodb_flush_log_at_trx_commit = 1;
+SET GLOBAL sync_binlog = 1;
+ALTER TABLE linktable ADD KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`version`,`data`);
+
+--exec cd $MYSQL_BINDIR/../tools/linkbench; ./bin/linkbench -c config/MyConfig.properties -r -L /tmp/dbeng/linkbench/linkbench.log
+
+SET GLOBAL sync_binlog = 0;
+DROP TABLE nodetable;
+DROP TABLE counttable;
+DROP TABLE linktable;
