@@ -614,6 +614,7 @@ enum {
 				the reason for which is that some FS
 				do not flush meta-data when
 				unbuffered IO happens */
+	SRV_UNIX_ALL_O_DIRECT,	/*!< O_DIRECT for data and log files */
 	SRV_UNIX_O_DIRECT_NO_FSYNC
 				/*!< do not use fsync() when using
 				direct IO i.e.: it can be set to avoid
