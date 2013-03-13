@@ -1596,7 +1596,7 @@ os_file_create_simple_no_error_handling_func(
 /****************************************************************//**
 Tries to disable OS caching on an opened file descriptor. */
 UNIV_INTERN
-void
+int
 os_file_set_nocache(
 /*================*/
 	int		fd		/*!< in: file descriptor to alter */
@@ -1617,6 +1617,7 @@ os_file_set_nocache(
 			"Failed to set DIRECTIO_ON on file %s: %s: %s, "
 			"continuing anyway.",
 			file_name, operation_name, strerror(errno_save));
+		return -1;
 	}
 #elif defined(O_DIRECT)
 	if (fcntl(fd, F_SETFL, O_DIRECT) == -1) {
@@ -1647,8 +1648,10 @@ short_warning:
 				"continuing anyway.",
 				file_name, operation_name, strerror(errno_save));
 		}
+		return -1;
 	}
 #endif /* defined(UNIV_SOLARIS) && defined(DIRECTIO_ON) */
+	return 0;
 }
 
 /****************************************************************//**
@@ -1910,11 +1913,22 @@ os_file_create_func(
 
 	if (!srv_read_only_mode
 	    && *success
-	    && type != OS_LOG_FILE
-	    && (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT
-		|| srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC)) {
+	    && ((type != OS_LOG_FILE
+		 && (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT
+		     || srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC))
+		|| srv_unix_file_flush_method == SRV_UNIX_ALL_O_DIRECT)) {
 
-		os_file_set_nocache(file, name, mode_str);
+		if (os_file_set_nocache(file, name, mode_str)) {
+			/* In the FB patch we changed InnoDB to not fsync after
+			O_DIRECT writes unless file was extended. That is correct
+			on Linux but maybe not on other platforms. If we can't
+			set O_DIRECT then we would have to fsync writes, but
+			code to do that is gone, so we crash here. */	
+
+			fprintf(stderr, "InnoDB: unable to enable O_DIRECT "
+				"for data files\n");
+			ut_a(0);
+		}
 	}
 
 #ifdef USE_FILE_LOCK
