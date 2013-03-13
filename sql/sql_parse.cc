@@ -3355,6 +3355,8 @@ end_with_restore_list:
     goto error;
   }
   {
+    DBUG_EXECUTE_IF("simulate_stop_slave_deadlock",
+                    DEBUG_SYNC(thd, "stop_slave_thread"););
     mysql_mutex_lock(&LOCK_active_mi);
     if (active_mi != NULL)
       res= stop_slave(thd, active_mi, 1 /* net report*/);

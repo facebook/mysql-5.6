@@ -1,0 +1,46 @@
+#
+# This test verfifies that stop slave deadlock caused by SHOW STATUS thread,
+# STOP SLAVE thread and SLAVE SQL thread can be avoided by acquiring
+# LOCK_active_mi mutex before LOCK_status mutex.
+#
+-- source include/master-slave.inc
+-- source include/have_debug.inc
+
+# Slave connection which sends SHOW STATUS command to mysqld.
+connect (show_status,localhost,root,,test,$SLAVE_MYPORT,$SLAVE_MYSOCK);
+-- connection master
+create table t1(a int);
+sync_slave_with_master;
+-- source include/stop_slave.inc
+--connection master
+insert into t1 values(10);
+
+-- connection slave
+-- source include/start_slave.inc
+
+SET @old_debug = @@GLOBAL.debug;
+
+SET GLOBAL debug = "+d,simulate_stop_slave_deadlock";
+
+connection show_status;
+# Note that DEBUG_SYNC is specific to only one thread and so this condition
+# need to be specified in show_status connection.
+SET DEBUG_SYNC = "show_status_thread SIGNAL lock_status_acquired";
+send SHOW STATUS;
+
+connection slave;
+SET DEBUG_SYNC = "stop_slave_thread WAIT_FOR lock_status_acquired";
+STOP SLAVE;
+
+connection show_status;
+--disable_result_log
+reap;
+--enable_result_log
+SET DEBUG_SYNC = RESET;
+
+connection slave;
+-- source include/start_slave.inc
+SET GLOBAL debug= @old_debug;
+-- connection master
+drop table t1;
+-- source include/rpl_end.inc

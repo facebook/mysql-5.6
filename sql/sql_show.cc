@@ -6506,7 +6506,18 @@ int fill_status(THD *thd, TABLE_LIST *tables, Item *cond)
     tmp1= &thd->status_var;
   }
 
+  /*
+    Acquiring LOCK_active_mi mutex before LOCK_status mutex avoids possible
+    deadlock scenario in which stop slave thread waits on slave sql thread for
+    run_lock mutex, slave sql thread waits on show status thread for LOCK_status
+    mutex which in turn waits on stop slave thread for LOCK_active_mi mutex.
+    Note that LOCK_active_mi is necessary in show functions like
+    show_heartbeat_period().
+  */
+  mysql_mutex_lock(&LOCK_active_mi);
   mysql_mutex_lock(&LOCK_status);
+  DBUG_EXECUTE_IF("simulate_stop_slave_deadlock",
+                  DEBUG_SYNC(thd, "show_status_thread"); sleep(2););
   if (option_type == OPT_GLOBAL)
     calc_sum_of_all_status(&tmp);
   res= show_status_array(thd, wild,
@@ -6514,6 +6525,7 @@ int fill_status(THD *thd, TABLE_LIST *tables, Item *cond)
                          option_type, tmp1, "", tables->table,
                          upper_case_names, cond);
   mysql_mutex_unlock(&LOCK_status);
+  mysql_mutex_unlock(&LOCK_active_mi);
   DBUG_RETURN(res);
 }
 

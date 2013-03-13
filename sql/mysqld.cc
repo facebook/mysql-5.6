@@ -7561,12 +7561,10 @@ static int show_flushstatustime(THD *thd, SHOW_VAR *var, char *buff)
 static int show_slave_running(THD *thd, SHOW_VAR *var, char *buff)
 {
   var->type= SHOW_MY_BOOL;
-  mysql_mutex_lock(&LOCK_active_mi);
   var->value= buff;
   *((my_bool *)buff)= (my_bool) (active_mi &&
                                  active_mi->slave_running == MYSQL_SLAVE_RUN_CONNECT &&
                                  active_mi->rli->slave_running);
-  mysql_mutex_unlock(&LOCK_active_mi);
   return 0;
 }
 
@@ -7576,7 +7574,6 @@ static int show_slave_retried_trans(THD *thd, SHOW_VAR *var, char *buff)
     TODO: with multimaster, have one such counter per line in
     SHOW SLAVE STATUS, and have the sum over all lines here.
   */
-  mysql_mutex_lock(&LOCK_active_mi);
   if (active_mi)
   {
     var->type= SHOW_LONG;
@@ -7587,13 +7584,11 @@ static int show_slave_retried_trans(THD *thd, SHOW_VAR *var, char *buff)
   }
   else
     var->type= SHOW_UNDEF;
-  mysql_mutex_unlock(&LOCK_active_mi);
   return 0;
 }
 
 static int show_slave_received_heartbeats(THD *thd, SHOW_VAR *var, char *buff)
 {
-  mysql_mutex_lock(&LOCK_active_mi);
   if (active_mi)
   {
     var->type= SHOW_LONGLONG;
@@ -7604,14 +7599,12 @@ static int show_slave_received_heartbeats(THD *thd, SHOW_VAR *var, char *buff)
   }
   else
     var->type= SHOW_UNDEF;
-  mysql_mutex_unlock(&LOCK_active_mi);
   return 0;
 }
 
 static int show_slave_last_heartbeat(THD *thd, SHOW_VAR *var, char *buff)
 {
   MYSQL_TIME received_heartbeat_time;
-  mysql_mutex_lock(&LOCK_active_mi);
   if (active_mi)
   {
     var->type= SHOW_CHAR;
@@ -7627,13 +7620,11 @@ static int show_slave_last_heartbeat(THD *thd, SHOW_VAR *var, char *buff)
   }
   else
     var->type= SHOW_UNDEF;
-  mysql_mutex_unlock(&LOCK_active_mi);
   return 0;
 }
 
 static int show_heartbeat_period(THD *thd, SHOW_VAR *var, char *buff)
 {
-  mysql_mutex_lock(&LOCK_active_mi);
   if (active_mi)
   {
     var->type= SHOW_CHAR;
@@ -7642,7 +7633,6 @@ static int show_heartbeat_period(THD *thd, SHOW_VAR *var, char *buff)
   }
   else
     var->type= SHOW_UNDEF;
-  mysql_mutex_unlock(&LOCK_active_mi);
   return 0;
 }
 

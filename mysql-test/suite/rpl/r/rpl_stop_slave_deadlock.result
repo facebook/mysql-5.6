@@ -1,0 +1,20 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master.info repository is not secure and is therefore not recommended. Please see the MySQL Manual for more about this issue and possible alternatives.
+[connection master]
+create table t1(a int);
+include/stop_slave.inc
+insert into t1 values(10);
+include/start_slave.inc
+SET @old_debug = @@GLOBAL.debug;
+SET GLOBAL debug = "+d,simulate_stop_slave_deadlock";
+SET DEBUG_SYNC = "show_status_thread SIGNAL lock_status_acquired";
+SHOW STATUS;
+SET DEBUG_SYNC = "stop_slave_thread WAIT_FOR lock_status_acquired";
+STOP SLAVE;
+SET DEBUG_SYNC = RESET;
+include/start_slave.inc
+SET GLOBAL debug= @old_debug;
+drop table t1;
+include/rpl_end.inc
