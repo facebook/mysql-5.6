@@ -414,10 +414,10 @@ mode_extract(int argc __attribute__((unused)),
 			continue;
 		}
 
-		if (entry->offset != chunk.offset) {
+		if ((my_off_t)(entry->offset) != chunk.offset) {
 			msg("%s: out-of-order chunk: real offset = 0x%llx, "
 			    "expected offset = 0x%llx\n", my_progname,
-			    chunk.offset, entry->offset);
+			    chunk.offset, (my_off_t)(entry->offset));
 			goto err;
 		}
 
