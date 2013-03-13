@@ -1,0 +1,21 @@
+# tests innodb_flush_method=ALL_O_DIRECT
+
+-- source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+show global variables like "innodb_flush_method";
+
+#
+# Small basic test with ignore
+#
+
+create table t1 (id int primary key, c char(200)) engine=innodb;
+
+insert into t1 values (0, 'Tim'), (1, 'Monty'), (2, 'David'), (3, 'Erik'), (4, 'Sasha'), (5, 'Jeremy'), (6, 'Matt');
+select * from t1 order by id;
+delete from t1;
+drop table t1;
+

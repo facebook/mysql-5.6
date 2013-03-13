@@ -1,0 +1,17 @@
+drop table if exists t1;
+show global variables like "innodb_flush_method";
+Variable_name	Value
+innodb_flush_method	ALL_O_DIRECT
+create table t1 (id int primary key, c char(200)) engine=innodb;
+insert into t1 values (0, 'Tim'), (1, 'Monty'), (2, 'David'), (3, 'Erik'), (4, 'Sasha'), (5, 'Jeremy'), (6, 'Matt');
+select * from t1 order by id;
+id	c
+0	Tim
+1	Monty
+2	David
+3	Erik
+4	Sasha
+5	Jeremy
+6	Matt
+delete from t1;
+drop table t1;
