@@ -610,7 +610,7 @@ open_or_create_data_files(
 extern "C" {
 #endif
 
-void
+int
 os_file_set_nocache(
 /*================*/
 	int		fd,		/* in: file descriptor to alter */
