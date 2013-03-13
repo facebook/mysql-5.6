@@ -1419,7 +1419,11 @@ fil_space_create(
 	DBUG_EXECUTE_IF("fil_space_create_failure", return(false););
 
 	parse_db_and_table(name, db_name, table_name, purpose, id);
+#ifdef XTRABACKUP
+	db_stats_index = 0;
+#else /* XTRABACKUP */
 	db_stats_index = get_db_stats_index(db_name);
+#endif /* XTRABACKUP */
 
 	ut_a(fil_system);
 	ut_a(fsp_flags_is_valid(flags));
