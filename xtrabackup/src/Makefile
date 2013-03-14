@@ -13,8 +13,8 @@
 LIBS += -lpthread
 DEFS = -DUNIV_LINUX -DMYSQL_SERVER
 
-COMMON_FLAGS = -DXTRABACKUP_VERSION=\"$(XTRABACKUP_VERSION)\" -pedantic -Wall -Wundef -Wshadow  -fdiagnostics-show-option  -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Wformat -Wno-format-nonliteral -Wno-format-security -Wno-long-long  -Wmissing-declarations  -Wno-redundant-decls
-CFLAGS += $(COMMON_FLAGS) --std=gnu99
+COMMON_FLAGS = -DXTRABACKUP_VERSION=\"$(XTRABACKUP_VERSION)\" -DXTRABACKUP -pedantic -Wall -Wundef -Wshadow  -fdiagnostics-show-option  -fno-strict-aliasing -Wno-strict-aliasing -Wextra -Wformat -Wno-format-nonliteral -Wno-format-security -Wno-long-long  -Wno-redundant-decls
+CFLAGS += $(COMMON_FLAGS) --std=gnu99 -Wmissing-declarations
 CXXFLAGS += $(COMMON_FLAGS)
 
 ifneq ($(DEBUG),)
