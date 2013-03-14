@@ -32,13 +32,15 @@ Created June 2005 by Marko Makela
 # define UNIV_INLINE
 #endif
 
-#include "mtr0types.h"
 #include "page0types.h"
 #include "buf0types.h"
+#ifndef UNIV_INNOCHECKSUM
+#include "mtr0types.h"
 #include "dict0types.h"
 #include "srv0srv.h"
 #include "trx0types.h"
 #include "mem0mem.h"
+#endif /* !UNIV_INNOCHECKSUM */
 #include "zlib.h"
 
 /* Compression level to be used by zlib. Settable by user. */
@@ -53,6 +55,7 @@ extern bool	page_log_compressed_pages;
 extern my_bool page_zip_zlib_wrap;
 extern uint page_zip_zlib_strategy;
 
+#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Determine the size of a compressed page in bytes.
 @return	size in bytes */
@@ -115,6 +118,7 @@ page_zip_set_alloc(
 /*===============*/
 	void*		stream,		/*!< in/out: zlib stream */
 	mem_heap_t*	heap);		/*!< in: memory heap to use */
+#endif /* !UNIV_INNOCHECKSUM */
 
 /**********************************************************************//**
 Compress a page.
@@ -190,6 +194,7 @@ page_zip_validate(
 	__attribute__((nonnull(1,2)));
 #endif /* UNIV_ZIP_DEBUG */
 
+#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Determine how big record can be inserted without recompressing the page.
 @return a positive number indicating the maximum size of a record
@@ -423,6 +428,8 @@ page_zip_reorganize(
 	dict_index_t*	index,	/*!< in: index of the B-tree node */
 	mtr_t*		mtr)	/*!< in: mini-transaction */
 	__attribute__((nonnull));
+#endif /* !UNIV_INNOCHECKSUM */
+
 #ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
 Copy the records of a page byte for byte.  Do not copy the page header
@@ -479,6 +486,8 @@ page_zip_verify_checksum(
 /*=====================*/
 	const void*	data,	/*!< in: compressed page */
 	ulint		size);	/*!< in: size of compressed page */
+
+#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Write a log record of compressing an index page without the data on the page. */
 UNIV_INLINE
@@ -512,6 +521,7 @@ page_zip_encode_compression_flags(
   uint  level,
   uint  no_wrap,
   uint  strategy);
+#endif /* !UNIV_INNOCHECKSUM */
 
 #define page_zip_compression_flags \
     page_zip_encode_compression_flags( \
@@ -519,6 +529,7 @@ page_zip_encode_compression_flags(
     page_zip_zlib_wrap, \
     page_zip_zlib_strategy)
 
+#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Parses a log record of compressing an index page without the data.
 @return	end of log record or NULL */
@@ -559,7 +570,7 @@ page_zip_init_d_stream(
 	z_stream* strm,
 	ulint window_bits,
 	ibool read_zlib_header);
-
+#endif /* !UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
 /** Check if a pointer to an uncompressed page matches a compressed page.
@@ -586,8 +597,10 @@ from outside the buffer pool.
 # define UNIV_INLINE	UNIV_INLINE_ORIGINAL
 #endif
 
+#ifndef UNIV_INNOCHECKSUM
 #ifndef UNIV_NONINL
 # include "page0zip.ic"
 #endif
+#endif /* !UNIV_INNOCHECKSUM */
 
 #endif /* page0zip_h */

@@ -98,9 +98,6 @@ extern buf_block_t*	back_block2;	/*!< second block, for page reorganize */
 
 extern ulint buf_malloc_cache_len;
 
-/** Magic value to use instead of checksums when they are disabled */
-#define BUF_NO_CHECKSUM_MAGIC 0xDEADBEEFUL
-
 /** @brief States of a control block
 @see buf_page_t
 
