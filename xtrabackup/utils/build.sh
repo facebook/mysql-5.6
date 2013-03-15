@@ -33,8 +33,13 @@ CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/zlib/zlib-1.2.5/4bc2c16/include"
 CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/bzip2/bzip2-1.0.6/4bc2c16/include"
 CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/xz/xz-5.0.0/4bc2c16/include"
 
+LDFLAGS="-L$TOOLCHAIN_LIB_BASE/ncurses/ncurses-5.8/4bc2c16/lib"
+LDFLAGS+=" -L$TOOLCHAIN_LIB_BASE/libaio/libaio-0.3.109/4bc2c16/lib"
+LDFLAGS+=" -L$TOOLCHAIN_LIB_BASE/jemalloc/jemalloc-2.2.5/96de4f9/lib"
+
 export CFLAGS="$CFLAGS -DXTRABACKUP"
 export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions -std=c++0x"
+export LDFLAGS="$LDFLAGS"
 
 MAKE_CMD=make
 if gmake --version > /dev/null 2>&1
