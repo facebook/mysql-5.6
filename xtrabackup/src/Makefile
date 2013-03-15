@@ -111,8 +111,11 @@ endif
 5.5: $(TARGET) xbstream
 
 # XtraBackup for MySQL 5.6
-5.6: INC = $(COMMON_INC) $(addprefix -isystem$(MYSQL_ROOT_DIR)/, \
-	include sql storage/innobase/include sql)
+5.6: INC = $(COMMON_INC) \
+	$(addprefix -isystem$(MYSQL_ROOT_DIR)/, \
+	include sql storage/innobase/include) \
+	$(addprefix -isystem$(MYSQL_ROOT_DIR)/../../, \
+	include sql storage/innobase/include)
 5.6: INNODBOBJS =
 
 ifeq "$(wildcard $(MYSQL_ROOT_DIR)/zlib/.libs/libzlt.a)" ""

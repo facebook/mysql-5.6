@@ -85,7 +85,6 @@ function build_server()
     local $type=$1
     echo "Configuring the server"
     cd $server_dir
-    BUILD/autorun.sh
     eval $configure_cmd
 
     echo "Building the server"
@@ -152,10 +151,7 @@ function build_all()
 
     test -d $server_dir && rm -r $server_dir
 
-    echo "Preparing sources"
-    unpack_and_patch $server_tarball $server_patch
-    mv $top_dir/mysql-$mysql_version $server_dir
-
+    mkdir $server_dir
     build_server $type
 
     build_xtrabackup
@@ -181,7 +177,8 @@ case "$type" in
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_ZLIB=bundled \
                 -DWITH_EXTRA_CHARSETS=all \
-                -DWITH_EMBEDDED_SERVER=1 $extra_config_55plus"
+                -DWITH_EMBEDDED_SERVER=1 $extra_config_55plus \
+                ../.."
         build_all $type
         ;;
 
