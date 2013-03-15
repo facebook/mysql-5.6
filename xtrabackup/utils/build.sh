@@ -2,6 +2,8 @@
 
 set -e
 
+SRC_DIR="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2 -d=)"
+
 TOOLCHAIN_REV=1b76b1fdef117650883ae1568fcf2777ad9a00c1
 TOOLCHAIN_EXECUTABLES="/mnt/gvfs/third-party/$TOOLCHAIN_REV/centos5.2-native"
 TOOLCHAIN_LIB_BASE="/mnt/gvfs/third-party/$TOOLCHAIN_REV/gcc-4.6.2-glibc-2.13"
@@ -40,6 +42,7 @@ LDFLAGS+=" -L$TOOLCHAIN_LIB_BASE/jemalloc/jemalloc-2.2.5/96de4f9/lib"
 export CFLAGS="$CFLAGS -DXTRABACKUP"
 export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions -std=c++0x"
 export LDFLAGS="$LDFLAGS"
+export SRC_DIR="$SRC_DIR"
 
 MAKE_CMD=make
 if gmake --version > /dev/null 2>&1
@@ -183,7 +186,7 @@ case "$type" in
                 -DWITH_ZLIB=bundled \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 $extra_config_55plus \
-                ../.."
+                $SRC_DIR"
         build_all $type
         ;;
 

@@ -112,9 +112,8 @@ endif
 
 # XtraBackup for MySQL 5.6
 5.6: INC = $(COMMON_INC) \
-	$(addprefix -isystem$(MYSQL_ROOT_DIR)/, \
-	include sql storage/innobase/include) \
-	$(addprefix -isystem$(MYSQL_ROOT_DIR)/../../, \
+	$(addprefix -isystem$(MYSQL_ROOT_DIR)/, include sql) \
+	$(addprefix -isystem$(SRC_DIR)/, \
 	include sql storage/innobase/include)
 5.6: INNODBOBJS =
 
