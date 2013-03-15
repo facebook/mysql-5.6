@@ -5406,8 +5406,15 @@ static my_bool process_set_gtid_purged(MYSQL* mysql_con)
 
 
   /* check if gtid_mode is ON or OFF */
-  if (mysql_query_with_error_report(mysql_con, &gtid_mode_res,
-                                    "SELECT @@GTID_MODE"))
+  if (mysql_query(mysql_con, "SELECT @@GTID_MODE"))
+  {
+    /* Check if error code is 1193 - Unknown system variable */
+    /* In that case, return success */
+    if(mysql_errno(mysql_con) == 1193)
+      return FALSE;
+    return TRUE;
+  }
+  if (!(gtid_mode_res = mysql_store_result(mysql_con)))
     return TRUE;
 
   gtid_mode_row = mysql_fetch_row(gtid_mode_res);
