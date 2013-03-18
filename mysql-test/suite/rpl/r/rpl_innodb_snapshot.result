@@ -1,0 +1,121 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+DROP TABLE IF EXISTS t1;
+# Establish connection con1 (user=root)
+# Establish connection con2 (user=root)
+# Establish connection con3 (user=root)
+# Establish connection con4 (user=root)
+# reset replication to guarantee that master-bin.000001 is used
+STOP SLAVE;
+RESET SLAVE;
+RESET MASTER;
+CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root";
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE;
+# Switch to connection con1
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=innodb;
+INSERT INTO t1 VALUES(1);
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+File	Position
+master-bin.000001	451
+# Switch to connection con2
+INSERT INTO t1 VALUES(2);
+INSERT INTO t1 VALUES(3);
+# Switch to connection con1
+SELECT * FROM t1;
+a
+1
+COMMIT;
+SELECT * FROM t1;
+a
+1
+2
+3
+DROP TABLE t1;
+# Switch to connection con1
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=innodb;
+INSERT INTO t1 VALUES(1);
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+File	Position
+master-bin.000001	1313
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+File	Position
+master-bin.000001	1313
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+File	Position
+master-bin.000001	1313
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+File	Position
+master-bin.000001	1313
+# Switch to connection con2
+INSERT INTO t1 VALUES(2);
+INSERT INTO t1 VALUES(3);
+# Switch to connection con1
+SELECT * FROM t1;
+a
+1
+SELECT * INTO OUTFILE '<MYSQLTEST_VARDIR>/tmp/rpl_innodb_snapshot.out.file' FROM t1;
+COMMIT;
+# Switch to slave
+CREATE TABLE t1_backup AS SELECT * FROM t1;
+STOP SLAVE;
+RESET SLAVE;
+DELETE FROM t1;
+LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_innodb_snapshot.out.file' INTO TABLE t1;
+SELECT * FROM t1;
+a
+1
+CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=binlog_pos;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE;
+SELECT * FROM t1;
+a
+1
+2
+3
+SELECT * FROM t1_backup;
+a
+1
+2
+3
+DROP TABLE t1_backup;
+DROP TABLE t1;
+# Switch to connection con1
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=innodb;
+INSERT INTO t1 VALUES(1);
+# async queries from con2
+INSERT INTO t1 VALUES(2);
+# async queries from con3
+INSERT INTO t1 VALUES(21);
+# Switch to connection con1
+# Switch to connection con4
+INSERT INTO t1 VALUES(9);
+# Switch to connection con1
+SELECT * INTO OUTFILE '<MYSQLTEST_VARDIR>/tmp/rpl_innodb_snapshot.out.file' FROM t1;
+COMMIT;
+# reap async statements
+# Switch to slave
+CREATE TABLE t1_backup AS SELECT * FROM t1;
+STOP SLAVE;
+RESET SLAVE;
+DELETE FROM t1;
+LOAD DATA INFILE '<MYSQLTEST_VARDIR>/tmp/rpl_innodb_snapshot.out.file' INTO TABLE t1;
+CHANGE MASTER TO master_host="127.0.0.1",master_port=MASTER_PORT,master_user="root",master_log_file="master-bin.000001",master_log_pos=binlog_pos;
+Warnings:
+Note	1759	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	1760	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+START SLAVE;
+# sync and then query slave
+ShouldBeZero
+0
+DROP TABLE t1_backup;
+DROP TABLE t1;
+# Switch to connection default + close connections con1 and con2
+include/rpl_end.inc
