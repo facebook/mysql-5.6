@@ -8203,6 +8203,10 @@ start_transaction_option:
           {
             $$= MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT;
           }
+        | WITH CONSISTENT_SYM known_storage_engines SNAPSHOT_SYM
+          {
+             $$= MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT;
+          }
         | READ_SYM ONLY_SYM
           {
             $$= MYSQL_START_TRANS_OPT_READ_ONLY;

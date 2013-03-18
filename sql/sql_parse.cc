@@ -4652,10 +4652,14 @@ end_with_restore_list:
   }
 #endif
   case SQLCOM_BEGIN:
-    if (trans_begin(thd, lex->start_transaction_opt))
+  {
+    bool need_ok = true;
+    if (trans_begin(thd, lex->start_transaction_opt, &need_ok))
       goto error;
-    my_ok(thd);
+    if (need_ok)
+      my_ok(thd);
     break;
+  }
   case SQLCOM_COMMIT:
   {
     DBUG_ASSERT(thd->lock == NULL ||

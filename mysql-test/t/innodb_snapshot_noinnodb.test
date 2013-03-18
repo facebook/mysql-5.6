@@ -1,0 +1,10 @@
+# Test runs with InnoDB disabled but the slave state tables may exist.
+call mtr.add_suppression("Info table is not ready to be used.");
+
+START TRANSACTION;
+
+-- error ER_UNKNOWN_ERROR
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+-- error ER_UNKNOWN_STORAGE_ENGINE
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
