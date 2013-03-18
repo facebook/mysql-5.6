@@ -2248,34 +2248,55 @@ int ha_release_savepoint(THD *thd, SAVEPOINT *sv)
 }
 
 
+struct snapshot_handlerton_st
+{
+  bool error;
+  char *binlog_file;
+  ulonglong* binlog_pos;
+};
+
 static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
                                    void *arg)
 {
+  snapshot_handlerton_st* info = (snapshot_handlerton_st*)(arg);
+
   handlerton *hton= plugin_data(plugin, handlerton *);
   if (hton->state == SHOW_OPTION_YES &&
       hton->start_consistent_snapshot)
   {
-    hton->start_consistent_snapshot(hton, thd);
-    *((bool *)arg)= false;
+    info->error = false;
+
+    if (hton->start_consistent_snapshot(hton, thd, info->binlog_file,
+                                        info->binlog_pos)) {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Cannot start InnoDB transaction or binlog disabled",
+                      MYF(0));
+      return TRUE;
+    }
   }
   return FALSE;
 }
 
-int ha_start_consistent_snapshot(THD *thd)
+int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
+                                 ulonglong* binlog_pos)
 {
-  bool warn= true;
+  snapshot_handlerton_st info;
+  info.binlog_file = binlog_file;
+  info.binlog_pos = binlog_pos;
+  info.error = true;
 
-  plugin_foreach(thd, snapshot_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, &warn);
+  if (plugin_foreach(thd, snapshot_handlerton,
+                     MYSQL_STORAGE_ENGINE_PLUGIN, &info)) {
+    return TRUE;
+  }
 
   /*
     Same idea as when one wants to CREATE TABLE in one engine which does not
     exist:
   */
-  if (warn)
-    push_warning(thd, Sql_condition::WARN_LEVEL_WARN, ER_UNKNOWN_ERROR,
-                 "This MySQL server does not support any "
-                 "consistent-read capable storage engine");
-  return 0;
+  if (info.error)
+    my_printf_error(ER_UNKNOWN_ERROR, "InnoDB disabled", MYF(0));
+  return info.error;
 }
 
 
