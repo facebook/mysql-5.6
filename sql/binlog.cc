@@ -5123,6 +5123,40 @@ uint MYSQL_BIN_LOG::next_file_id()
   return res;
 }
 
+extern "C"
+my_bool mysql_bin_log_is_open(void)
+{
+  return mysql_bin_log.is_open();
+}
+
+extern "C"
+void mysql_bin_log_lock_commits(void)
+{
+  mysql_bin_log.lock_commits();
+}
+
+extern "C"
+void mysql_bin_log_unlock_commits(char* binlog_file,
+                                  unsigned long long* binlog_pos)
+{
+  mysql_bin_log.unlock_commits(binlog_file, binlog_pos);
+}
+
+void MYSQL_BIN_LOG::lock_commits(void)
+{
+  mysql_mutex_lock(&LOCK_log);
+  mysql_mutex_lock(&LOCK_sync);
+  mysql_mutex_lock(&LOCK_commit);
+}
+
+void MYSQL_BIN_LOG::unlock_commits(char* binlog_file, ulonglong* binlog_pos)
+{
+  strmake(binlog_file, log_file_name, FN_REFLEN);
+  *binlog_pos = my_b_tell(&log_file);
+  mysql_mutex_unlock(&LOCK_commit);
+  mysql_mutex_unlock(&LOCK_sync);
+  mysql_mutex_unlock(&LOCK_log);
+}
 
 /**
   Calculate checksum of possibly a part of an event containing at least
