@@ -17,6 +17,7 @@
 #include "sql_priv.h"
 #include "transaction.h"
 #include "rpl_handler.h"
+#include "rpl_master.h"
 #include "debug_sync.h"         // DEBUG_SYNC
 #include "sql_acl.h"            // SUPER_ACL
 
@@ -124,7 +125,7 @@ static bool xa_trans_force_rollback(THD *thd)
   @retval TRUE   Failure
 */
 
-bool trans_begin(THD *thd, uint flags)
+bool trans_begin(THD *thd, uint flags, bool* need_ok)
 {
   int res= FALSE;
   DBUG_ENTER("trans_begin");
@@ -191,7 +192,19 @@ bool trans_begin(THD *thd, uint flags)
 
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT)
-    res= ha_start_consistent_snapshot(thd);
+    res= ha_start_consistent_snapshot(thd, NULL, NULL);
+#ifdef HAVE_REPLICATION
+  else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT)
+  {
+    char binlog_file[FN_REFLEN];
+    ulonglong binlog_pos;
+
+    DBUG_ASSERT(need_ok != NULL);
+
+    res= (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos) ||
+          show_master_offset(thd, binlog_file, binlog_pos, need_ok));
+  }
+#endif
 
   DBUG_RETURN(MY_TEST(res));
 }
