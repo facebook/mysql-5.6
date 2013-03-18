@@ -360,11 +360,13 @@ enum enum_alter_inplace_result {
 */
 
 // WITH CONSISTENT SNAPSHOT option
-static const uint MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT = 1;
+static const uint MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT        = 1;
 // READ ONLY option
-static const uint MYSQL_START_TRANS_OPT_READ_ONLY          = 2;
+static const uint MYSQL_START_TRANS_OPT_READ_ONLY                 = 2;
 // READ WRITE option
-static const uint MYSQL_START_TRANS_OPT_READ_WRITE         = 4;
+static const uint MYSQL_START_TRANS_OPT_READ_WRITE                = 4;
+// WITH CONSISTENT INNODB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT = 8;
 
 /* Flags for method is_fatal_error */
 #define HA_CHECK_DUP_KEY 1
@@ -883,7 +885,9 @@ struct handlerton
    handler *(*create)(handlerton *hton, TABLE_SHARE *table, MEM_ROOT *mem_root);
    void (*drop_database)(handlerton *hton, char* path);
    int (*panic)(handlerton *hton, enum ha_panic_function flag);
-   int (*start_consistent_snapshot)(handlerton *hton, THD *thd);
+   int (*start_consistent_snapshot)(handlerton *hton, THD *thd,
+                                    char *binlog_file,
+                                    ulonglong* binlog_pos);
    bool (*flush_logs)(handlerton *hton, unsigned long long target_lsn);
    bool (*show_status)(handlerton *hton, THD *thd, stat_print_fn *print, enum ha_stat_type stat);
    uint (*partition_flags)();
@@ -3486,7 +3490,8 @@ int ha_change_key_cache(KEY_CACHE *old_key_cache, KEY_CACHE *new_key_cache);
 int ha_release_temporary_latches(THD *thd);
 
 /* transactions: interface to handlerton functions */
-int ha_start_consistent_snapshot(THD *thd);
+int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
+                                 ulonglong* binlog_pos);
 int ha_commit_or_rollback_by_xid(THD *thd, XID *xid, bool commit);
 int ha_commit_trans(THD *thd, bool all, bool async,
                     bool ignore_global_read_lock= false);

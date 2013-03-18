@@ -173,14 +173,17 @@ public:
 
     @param stage Stage identifier for the queue to append to.
     @param first Queue to append.
-    @param stage_mutex
+    @param leave_mutex
                  Pointer to the currently held stage mutex, or NULL if
                  we're not in a stage.
+    @param enter_mutex
+                 Pointer to the mutex for the stage being entered.
 
     @retval true  Thread is stage leader.
     @retval false Thread was not stage leader and processing has been done.
    */
-  bool enroll_for(StageID stage, THD *first, mysql_mutex_t *stage_mutex);
+  bool enroll_for(StageID stage, THD *first, mysql_mutex_t *leave_mutex,
+                  mysql_mutex_t *enter_mutex);
 
 #ifndef DBUG_OFF
   /**
@@ -673,6 +676,8 @@ public:
   int get_current_log(LOG_INFO* linfo);
   int raw_get_current_log(LOG_INFO* linfo);
   uint next_file_id();
+  void lock_commits(void);
+  void unlock_commits(char* binlog_file, ulonglong* binlog_pos);
   inline char* get_index_fname() { return index_file_name;}
   inline char* get_log_fname() { return log_file_name; }
   inline char* get_name() { return name; }
