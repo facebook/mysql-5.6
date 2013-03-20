@@ -2,47 +2,22 @@
 
 set -e
 
-SRC_DIR="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2 -d=)"
-
-TOOLCHAIN_REV=1b76b1fdef117650883ae1568fcf2777ad9a00c1
-TOOLCHAIN_EXECUTABLES="/mnt/gvfs/third-party/$TOOLCHAIN_REV/centos5.2-native"
-TOOLCHAIN_LIB_BASE="/mnt/gvfs/third-party/$TOOLCHAIN_REV/gcc-4.6.2-glibc-2.13"
-export CC="$TOOLCHAIN_EXECUTABLES/gcc/gcc-4.6.2-glibc-2.13/bin/gcc"
-export CXX="$TOOLCHAIN_EXECUTABLES/gcc/gcc-4.6.2-glibc-2.13/bin/g++"
-CMAKE="$TOOLCHAIN_EXECUTABLES/cmake/cmake-2.8.4/da39a3e/bin/cmake"
-
 MYSQL_51_VERSION=5.1.59
 MYSQL_55_VERSION=5.5.17
 MYSQL_56_VERSION=5.6.10
 PS_51_VERSION=5.1.59-13.0
 PS_55_VERSION=5.5.16-22.0
 
-MASTER_SITE="http://s3.amazonaws.com/percona.com/downloads/community"
+SRC_DIR="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2 -d=)"
+BUILD_TYPE="$(grep CMAKE_BUILD_TYPE:STRING= ../CMakeCache.txt | cut -f2 -d=)"
 
-optflags="-O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic"
-
-CFLAGS=
-CXXFLAGS=
-
-CFLAGS="$optflags -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
-CFLAGS+=" -DNO_ALARM -DSIGNAL_WITH_VIO_CLOSE"
-CFLAGS+=" -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer -momit-leaf-frame-pointer"
-CFLAGS+=" -fPIC $GOLD_FLAG"
-CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/ncurses/ncurses-5.8/4bc2c16/include"
-CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/libaio/libaio-0.3.109/4bc2c16/include"
-CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/jemalloc/jemalloc-2.2.5/96de4f9/include -DHAVE_JEMALLOC"
-CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/zlib/zlib-1.2.5/4bc2c16/include"
-CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/bzip2/bzip2-1.0.6/4bc2c16/include"
-CFLAGS+=" -I $TOOLCHAIN_LIB_BASE/xz/xz-5.0.0/4bc2c16/include"
-
-LDFLAGS="-L$TOOLCHAIN_LIB_BASE/ncurses/ncurses-5.8/4bc2c16/lib"
-LDFLAGS+=" -L$TOOLCHAIN_LIB_BASE/libaio/libaio-0.3.109/4bc2c16/lib"
-LDFLAGS+=" -L$TOOLCHAIN_LIB_BASE/jemalloc/jemalloc-2.2.5/96de4f9/lib"
-
+export CC="$CC"
+export CXX="$CXX"
 export CFLAGS="$CFLAGS -DXTRABACKUP"
 export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions -std=c++0x"
 export LDFLAGS="$LDFLAGS"
 export SRC_DIR="$SRC_DIR"
+export BUILD_TYPE="$BUILD_TYPE"
 
 MAKE_CMD=make
 if gmake --version > /dev/null 2>&1
@@ -59,22 +34,6 @@ function usage()
     echo "where CODEBASE can be one of the following values or aliases:"
     echo "  innodb56         | 5.6                   build against InnoDB in MySQL 5.6"
     exit -1
-}
-
-################################################################################
-# Unpack the tarball specified as the first argument and apply the patch
-# specified as the second argument to the resulting directory.
-################################################################################
-function unpack_and_patch()
-{
-    rm -fr mysql-5.6.10 mysql-5.6
-    dir=$(mktemp -d)
-    cp -r ../* $dir
-    cp -r $dir mysql-5.6.10
-    rm -fr $dir
-#    cd `basename "$1" ".tar.gz"`
-#    patch -p1 < $top_dir/patches/$2
-#    cd ..
 }
 
 ################################################################################
@@ -110,7 +69,7 @@ function build_libarchive()
 {
 	echo "Building libarchive"
 	cd $top_dir/src/libarchive
-	
+
 	${CMAKE}  . \
 	    -DENABLE_CPIO=OFF \
 	    -DENABLE_OPENSSL=OFF \
@@ -181,12 +140,12 @@ case "$type" in
         server_patch=innodb56.patch
         innodb_name=innobase
         xtrabackup_target=5.6
-        configure_cmd="${CMAKE} . \
+        configure_cmd="${CMAKE} $SRC_DIR \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_ZLIB=bundled \
                 -DWITH_EXTRA_CHARSETS=all \
-                -DWITH_EMBEDDED_SERVER=1 $extra_config_55plus \
-                $SRC_DIR"
+                -DWITH_EMBEDDED_SERVER=1 \
+                -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
         build_all $type
         ;;
 
