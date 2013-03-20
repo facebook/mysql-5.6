@@ -908,6 +908,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   bool searching_first_gtid= using_gtid_protocol;
   bool skip_group= false;
   bool binlog_has_previous_gtids_log_event= false;
+  bool gtid_event_logged = false;
   Sid_map *sid_map= slave_gtid_executed ? slave_gtid_executed->get_sid_map() : NULL;
 
   IO_CACHE log;
@@ -1374,6 +1375,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                               "searching gtid(%d).",
                               gtid_ev.get_sidno(sid_map), gtid_ev.get_gno(),
                               skip_group, searching_first_gtid));
+          gtid_event_logged = true;
         }
         break;
 
@@ -1407,6 +1409,20 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           */
           goto_next_binlog= true;
 
+        if (!gtid_event_logged && using_gtid_protocol)
+        {
+          /*
+             Skip groups in the binlogs which don't have any gtid event
+             logged before them. When gtid_deployment_step is ON, the server
+             doesn't generate GTID and so no gtid_event is logged before binlog
+             events. But when gtid_deployment_step is OFF, the server starts
+             writing gtid_events in the middle of active binlog. When slave
+             connects with gtid_protocol, master needs to skip binlog events
+             which don't have corresponding gtid_event.
+          */
+          skip_group = true;
+          gtid_event_logged = false;
+        }
         break;
       }
 
@@ -1750,6 +1766,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                                   "skip group(%d) searching gtid(%d).",
                                   gtid_ev.get_sidno(sid_map), gtid_ev.get_gno(),
                                   skip_group, searching_first_gtid));
+              gtid_event_logged = true;
             }
             break;
 
@@ -1781,6 +1798,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                 and jump to the next one.
               */
               goto_next_binlog= true;
+            if (!gtid_event_logged && using_gtid_protocol)
+            {
+              /*
+                 Skip groups in the binlogs which don't have any gtid event
+                 logged before them.
+              */
+              skip_group = true;
+              gtid_event_logged = false;
+            }
 
             break;
           }

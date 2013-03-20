@@ -818,11 +818,41 @@ static int binlog_close_connection(handlerton *hton, THD *thd)
   DBUG_RETURN(0);
 }
 
+static bool should_write_gtids(THD *thd) {
+  /*
+    Return false in the situation where slave sql_thread is
+    trying to generate gtid's for binlog events received from master. This
+    condition is not valid when enable_gtid_mode_on_new_slave_with_old_master
+    is true where the variable is used only for testing purposes with 5.1 master
+    and 5.6 slave with gtids turned on.
+
+    Note that the check thd->variables.gtid_next.type == AUTOMATIC_GROUP
+    is used to ensure that a new gtid is generated for the transaction group,
+    instead of using SESSION.gtid_next value.
+  */
+  if (thd->rli_slave &&
+      thd->variables.gtid_next.type == AUTOMATIC_GROUP &&
+      !enable_gtid_mode_on_new_slave_with_old_master)
+    return false;
+  /*
+    Return true (allow gtids to be generated) in the scenario where
+    gtid_deployment_step is false (Normal run after deployment procedure
+    is done).
+
+    Return true in the scenario where slave sql_thread uses gtid received from
+    master. This is necessary in the situation where deployment is done on
+    master, but slave still in deployment mode (gtid_deployment_step is true).
+  */
+  return (!gtid_deployment_step || (thd->rli_slave &&
+          thd->variables.gtid_next.type != AUTOMATIC_GROUP));
+
+}
+
 int binlog_cache_data::write_event(THD *thd, Log_event *ev)
 {
   DBUG_ENTER("binlog_cache_data::write_event");
 
-  if (gtid_mode > 0)
+  if (gtid_mode > 0 && should_write_gtids(thd))
   {
     Group_cache::enum_add_group_status status= 
       group_cache.add_logged_group(thd, get_byte_position());
@@ -954,8 +984,10 @@ gtid_before_write_cache(THD* thd, binlog_cache_data* cache_data)
 
   DBUG_ASSERT(thd->variables.gtid_next.type != UNDEFINED_GROUP);
 
-  if (gtid_mode == 0)
+  if (gtid_mode == 0 || !should_write_gtids(thd))
+  {
     DBUG_RETURN(0);
+  }
 
   Group_cache* group_cache= &cache_data->group_cache;
 
