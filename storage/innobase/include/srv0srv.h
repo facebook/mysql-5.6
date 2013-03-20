@@ -298,6 +298,9 @@ extern ulong	srv_read_ahead_threshold;
 extern ulint	srv_n_read_io_threads;
 extern ulint	srv_n_write_io_threads;
 
+/*!< page_cleaner_thread should run once per this many milliseconds */
+extern ulint	srv_page_cleaner_interval_millis;
+
 /* Number of IO operations per second the server can do */
 extern ulong    srv_io_capacity;
 
