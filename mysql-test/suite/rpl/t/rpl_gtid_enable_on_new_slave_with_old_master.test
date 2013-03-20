@@ -11,6 +11,8 @@ insert into t1 values(2, 200);
 sync_slave_with_master;
 select @@global.gtid_mode;
 select * from t1;
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed;
 -- connection master
 drop table t1;
 -- source include/rpl_end.inc
