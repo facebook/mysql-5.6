@@ -1,0 +1,24 @@
+
+show global variables like "innodb_page_cleaner_interval_millis";
+
+set global innodb_page_cleaner_interval_millis = 90;
+show global variables like "innodb_page_cleaner_interval_millis";
+
+set global innodb_page_cleaner_interval_millis = 1001;
+show global variables like "innodb_page_cleaner_interval_millis";
+
+set global innodb_page_cleaner_interval_millis = -1;
+show global variables like "innodb_page_cleaner_interval_millis";
+
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_page_cleaner_interval_millis = "foobar";
+show global variables like "innodb_page_cleaner_interval_millis";
+
+set global innodb_page_cleaner_interval_millis = 1000;
+show global variables like "innodb_page_cleaner_interval_millis";
+
+set global innodb_page_cleaner_interval_millis = 100;
+show global variables like "innodb_page_cleaner_interval_millis";
+
+set global innodb_page_cleaner_interval_millis = default;
+show global variables like "innodb_page_cleaner_interval_millis";
