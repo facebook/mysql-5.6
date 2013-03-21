@@ -1511,9 +1511,12 @@ end:
                    issued by DDL. Is not set when called
                    at the end of statement, even if
                    autocommit=1.
+  @param[in]  run_after_commit
+                   True by default, otherwise, does not execute
+                   the after_commit hook in the function.
 */
 
-int ha_commit_low(THD *thd, bool all, bool async)
+int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit)
 {
   int error=0;
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
@@ -1557,7 +1560,7 @@ int ha_commit_low(THD *thd, bool all, bool async)
     thd->transaction.cleanup();
 
   /* If commit succeeded, we call the after_commit hook */
-  if (!error)
+  if (run_after_commit && !error)
     (void) RUN_HOOK(transaction, after_commit, (thd, all));
 
   /*

@@ -251,6 +251,8 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   PSI_mutex_key m_key_LOCK_commit;
   /** The instrumentation key to use for @ LOCK_sync. */
   PSI_mutex_key m_key_LOCK_sync;
+  /** The instrumentation key to use for @ LOCK_xids. */
+  PSI_mutex_key m_key_LOCK_xids;
   /** The instrumentation key to use for @ update_cond. */
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
@@ -264,6 +266,7 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   mysql_mutex_t LOCK_index;
   mysql_mutex_t LOCK_commit;
   mysql_mutex_t LOCK_sync;
+  mysql_mutex_t LOCK_xids;
   mysql_cond_t update_cond;
   ulonglong bytes_written;
   IO_CACHE index_file;
@@ -306,23 +309,18 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   uint *sync_period_ptr;
   uint sync_counter;
 
-  my_atomic_rwlock_t m_prep_xids_lock;
   mysql_cond_t m_prep_xids_cond;
-  volatile int32 m_prep_xids;
+  int32 m_prep_xids;
 
   /**
     Increment the prepared XID counter.
    */
   void inc_prep_xids() {
     DBUG_ENTER("MYSQL_BIN_LOG::inc_prep_xids");
-    my_atomic_rwlock_wrlock(&m_prep_xids_lock);
-#ifndef DBUG_OFF
-    int result= my_atomic_add32(&m_prep_xids, 1);
-#else
-    (void) my_atomic_add32(&m_prep_xids, 1);
-#endif
-    DBUG_PRINT("debug", ("m_prep_xids: %d", result + 1));
-    my_atomic_rwlock_wrunlock(&m_prep_xids_lock);
+    mysql_mutex_lock(&LOCK_xids);
+    m_prep_xids++;
+    DBUG_PRINT("debug", ("m_prep_xids: %d", m_prep_xids));
+    mysql_mutex_unlock(&LOCK_xids);
     DBUG_VOID_RETURN;
   }
 
@@ -333,21 +331,13 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
    */
   void dec_prep_xids() {
     DBUG_ENTER("MYSQL_BIN_LOG::dec_prep_xids");
-    my_atomic_rwlock_wrlock(&m_prep_xids_lock);
-    int32 result= my_atomic_add32(&m_prep_xids, -1);
-    DBUG_PRINT("debug", ("m_prep_xids: %d", result - 1));
-    my_atomic_rwlock_wrunlock(&m_prep_xids_lock);
-    /* If the old value was 1, it is zero now. */
-    if (result == 1)
+    mysql_mutex_lock(&LOCK_xids);
+    m_prep_xids--;
+    DBUG_PRINT("debug", ("m_prep_xids: %d", m_prep_xids));
+    mysql_mutex_unlock(&LOCK_xids);
+    if (m_prep_xids == 0)
       mysql_cond_signal(&m_prep_xids_cond);
     DBUG_VOID_RETURN;
-  }
-
-  int32 get_prep_xids() {
-    my_atomic_rwlock_rdlock(&m_prep_xids_lock);
-    int32 result= my_atomic_load32(&m_prep_xids);
-    my_atomic_rwlock_rdunlock(&m_prep_xids_lock);
-    return result;
   }
 
   inline uint get_sync_period()
@@ -427,6 +417,7 @@ public:
                     PSI_mutex_key key_LOCK_log,
                     PSI_mutex_key key_LOCK_sync,
                     PSI_mutex_key key_LOCK_sync_queue,
+                    PSI_mutex_key key_LOCK_xids,
                     PSI_cond_key key_COND_done,
                     PSI_cond_key key_update_cond,
                     PSI_cond_key key_prep_xids_cond,
@@ -444,6 +435,7 @@ public:
     m_key_LOCK_log= key_LOCK_log;
     m_key_LOCK_commit= key_LOCK_commit;
     m_key_LOCK_sync= key_LOCK_sync;
+    m_key_LOCK_xids= key_LOCK_xids;
     m_key_update_cond= key_update_cond;
     m_key_prep_xids_cond= key_prep_xids_cond;
     m_key_file_log= key_file_log;

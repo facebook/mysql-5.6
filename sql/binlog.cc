@@ -2317,8 +2317,8 @@ void MYSQL_BIN_LOG::cleanup()
     mysql_mutex_destroy(&LOCK_index);
     mysql_mutex_destroy(&LOCK_commit);
     mysql_mutex_destroy(&LOCK_sync);
+    mysql_mutex_destroy(&LOCK_xids);
     mysql_cond_destroy(&update_cond);
-    my_atomic_rwlock_destroy(&m_prep_xids_lock);
     mysql_cond_destroy(&m_prep_xids_cond);
   }
   DBUG_VOID_RETURN;
@@ -2331,8 +2331,8 @@ void MYSQL_BIN_LOG::init_pthread_objects()
   mysql_mutex_init(m_key_LOCK_index, &LOCK_index, MY_MUTEX_INIT_SLOW);
   mysql_mutex_init(m_key_LOCK_commit, &LOCK_commit, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_sync, &LOCK_sync, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond, 0);
-  my_atomic_rwlock_init(&m_prep_xids_lock);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond, NULL);
   stage_manager.init(
 #ifdef HAVE_PSI_INTERFACE
@@ -4382,25 +4382,26 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
-  mysql_mutex_lock(&LOCK_commit);
+  DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
+                  DEBUG_SYNC(current_thd, "before_rotate_binlog"););
+  mysql_mutex_lock(&LOCK_xids);
   /*
     We need to ensure that the number of prepared XIDs are 0.
 
     If m_prep_xids is not zero:
-    - We release the LOCK_commit lock to allow sessions to commit,
-      hence decrease m_prep_xids
+    - We wait for storage engine commit, hence decrease m_prep_xids
     - We keep the LOCK_log to block new transactions from being
       written to the binary log.
    */
-  while (get_prep_xids() > 0)
-    mysql_cond_wait(&m_prep_xids_cond, &LOCK_commit);
-  mysql_mutex_lock(&LOCK_index);
+  while (m_prep_xids > 0)
+    mysql_cond_wait(&m_prep_xids_cond, &LOCK_xids);
+  mysql_mutex_unlock(&LOCK_xids);
 
+  mysql_mutex_lock(&LOCK_index);
   if ((error= ha_flush_logs(0)))
     goto end;
 
   mysql_mutex_assert_owner(&LOCK_log);
-  mysql_mutex_assert_owner(&LOCK_commit);
   mysql_mutex_assert_owner(&LOCK_index);
 
   /* Reuse old name if not binlog and not update log */
@@ -4523,7 +4524,6 @@ end:
   }
 
   mysql_mutex_unlock(&LOCK_index);
-  mysql_mutex_unlock(&LOCK_commit);
   if (need_lock_log)
     mysql_mutex_unlock(&LOCK_log);
 
@@ -6156,8 +6156,8 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first,
       {
         /* head is parked to have exited append() */
         DBUG_ASSERT(head->transaction.flags.ready_preempt);
-
-        if (int error= ha_commit_low(head, all, async))
+        /* storage engine commit */
+        if (int error= ha_commit_low(head, all, false, async))
           head->commit_error= error;
         else if (head->transaction.flags.xid_written)
           dec_prep_xids();
@@ -6166,6 +6166,28 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first,
                            head->commit_error,
                            YESNO(head->transaction.flags.pending)));
     }
+    /* Decrement the prepared XID counter after storage engine commit */
+    if (head->transaction.flags.xid_written)
+    {
+      dec_prep_xids();
+      head->transaction.flags.xid_written= false;
+    }
+  }
+
+  /*
+    If commit succeeded, let the leader call the after_commit hook.
+
+    When semi-sync is enabled, we just write one ACK into binlog file
+    in flush phase for the entire queue of transactions. And the ACK
+    position is hold by the leader thread. So it is better to just let
+    the leader wait for the response of the ACK from slave. That is OK
+    when semi-sync is disabled as we do not wait anything in the case.
+  */
+  thd->commit_error= excursion.attach_to(thd);
+  if (thd->commit_error == 0)
+  {
+    bool all= thd->transaction.flags.real_commit;
+    (void) RUN_HOOK(transaction, after_commit, (thd, all));
   }
 }
 
@@ -6295,12 +6317,21 @@ MYSQL_BIN_LOG::sync_binlog_file(bool force, bool async)
 int
 MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
 {
-  if (thd->commit_error == 0 && thd->transaction.flags.commit_low)
+  if (thd->transaction.flags.commit_low)
   {
     const bool all= thd->transaction.flags.real_commit;
-    thd->commit_error= ha_commit_low(thd, all, async);
+    /* storage engine commit */
+    if (thd->commit_error == 0)
+      thd->commit_error= ha_commit_low(thd, all, false);
+    /* Decrement the prepared XID counter after storage engine commit */
     if (thd->transaction.flags.xid_written)
+    {
       dec_prep_xids();
+      thd->transaction.flags.xid_written= false;
+    }
+    /* If commit succeeded, we call the after_commit hook */
+    if (thd->commit_error == 0)
+      (void) RUN_HOOK(transaction, after_commit, (thd, all));
   }
 
   thd->variables.gtid_next.set_undefined();
@@ -6376,6 +6407,8 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   int flush_error= 0;
   my_off_t total_bytes= 0;
   bool do_rotate= false;
+  char local_trans_log_file[FN_REFLEN + 1];
+  bool restore_log_file= false;
 
   /*
     These values are used while flushing a transaction, so clear
@@ -6456,6 +6489,14 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
 
     signal_update();
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
+    /*
+      Copy current log file name into the local variable and let
+      m_trans_log_file point to it. In case, rotation will change
+      the globle log file name during commit transaction(s).
+    */
+    strcpy(local_trans_log_file, file_name_ptr);
+    thd->set_trans_pos(local_trans_log_file, flush_end_pos);
+    restore_log_file= true;
   }
 
   /*
@@ -6493,6 +6534,8 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
       DBUG_RETURN(finish_commit(thd, async));
     }
     THD *commit_queue= stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);
+    DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
+                    DEBUG_SYNC(thd, "before_process_commit_stage_queue"););
     process_commit_stage_queue(thd, commit_queue, flush_error, async);
     mysql_mutex_unlock(&LOCK_commit);
     final_queue= commit_queue;
@@ -6509,6 +6552,11 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     thd->commit_error, which is returned below.
   */
   (void) finish_commit(thd, async);
+  /*
+    Restore m_trans_log_file after transaction(s) are committed
+  */
+  if (restore_log_file)
+    thd->set_trans_pos(log_file_name, flush_end_pos);
 
   /*
     If we need to rotate, we do it now.
