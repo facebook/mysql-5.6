@@ -116,9 +116,7 @@ function build_all()
     server_tarball=mysql-$mysql_version.tar.gz
     innodb_dir=$server_dir/storage/$innodb_name
 
-    test -d $server_dir && rm -r $server_dir
-
-    mkdir $server_dir
+    mkdir -p $server_dir
     build_server $type
 
     build_xtrabackup
