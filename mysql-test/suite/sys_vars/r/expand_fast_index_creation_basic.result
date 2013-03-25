@@ -1,0 +1,6 @@
+SELECT @@global.expand_fast_index_creation;
+@@global.expand_fast_index_creation
+0
+SELECT @@local.expand_fast_index_creation;
+@@local.expand_fast_index_creation
+0
