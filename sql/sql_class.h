@@ -557,6 +557,8 @@ typedef struct system_variables
   Gtid_set_or_null gtid_next_list;
 
   ulong allow_noncurrent_db_rw;
+
+  my_bool expand_fast_index_creation;
 } SV;
 
 
