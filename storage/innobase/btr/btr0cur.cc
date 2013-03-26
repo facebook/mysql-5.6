@@ -4438,7 +4438,7 @@ btr_store_big_rec_extern_fields(
 	ut_a(fil_page_get_type(page_align(rec)) == FIL_PAGE_INDEX);
 
 	if (page_zip) {
-		int  err = Z_OK;
+		int	err = Z_OK;
 
 		/* Zlib deflate needs 128 kilobytes for the default
 		window size, plus 512 << memLevel, plus a few
@@ -4449,7 +4449,7 @@ btr_store_big_rec_extern_fields(
 		page_zip_set_alloc(&c_stream, heap);
 
 		err = deflateInit2(&c_stream, page_compression_level,
-		      Z_DEFLATED, window_bits, BTR_CUR_BLOB_MEM_LEVEL, page_zip_zlib_strategy);
+				   Z_DEFLATED, window_bits, BTR_CUR_BLOB_MEM_LEVEL, page_zip_zlib_strategy);
 		ut_a(err == Z_OK);
 	}
 
@@ -4530,7 +4530,7 @@ btr_store_big_rec_extern_fields(
 		prev_page_no = FIL_NULL;
 
 		if (page_zip) {
-			int  err = deflateReset(&c_stream);
+			int	err = deflateReset(&c_stream);
 			ut_a(err == Z_OK);
 
 			c_stream.next_in = (Bytef*)

@@ -1359,8 +1359,8 @@ page_zip_compress(
 	page_zip_set_alloc(&c_stream, heap);
 
 	err = deflateInit2(&c_stream, level,
-	      Z_DEFLATED, window_bits,
-	      MAX_MEM_LEVEL, strategy);
+			   Z_DEFLATED, window_bits,
+			   MAX_MEM_LEVEL, strategy);
 	ut_a(err == Z_OK);
 
 	c_stream.next_out = buf;
