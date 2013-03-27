@@ -6195,7 +6195,7 @@ void THD::reset_for_next_command()
 
   thd->m_trans_end_pos= 0;
   thd->m_trans_log_file= NULL;
-  thd->commit_error= 0;
+  thd->commit_error= THD::CE_NONE;
   thd->durability_property= HA_REGULAR_DURABILITY;
   thd->set_trans_pos(NULL, 0);
 

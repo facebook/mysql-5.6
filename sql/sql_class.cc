@@ -999,7 +999,7 @@ THD::THD(bool enable_plugins)
   mysys_var=0;
   binlog_evt_union.do_union= FALSE;
   enable_slow_log= 0;
-  commit_error= 0;
+  commit_error= CE_NONE;
   durability_property= HA_REGULAR_DURABILITY;
 #ifndef DBUG_OFF
   dbug_sentry=THD_SENTRY_MAGIC;
@@ -1996,6 +1996,8 @@ void THD::cleanup_after_query()
     auto_inc_intervals_in_cur_stmt_for_binlog.empty();
     rand_used= 0;
     binlog_accessed_db_names= NULL;
+    m_trans_log_file= NULL;
+    m_trans_end_pos= 0;
 #ifndef EMBEDDED_LIBRARY
     /*
       Clean possible unused INSERT_ID events by current statement.

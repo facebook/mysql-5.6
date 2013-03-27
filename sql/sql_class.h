@@ -2387,15 +2387,21 @@ public:
     /*
       (Mostly) binlog-specific fields use while flushing the caches
       and committing transactions.
+      We don't use bitfield any more in the struct. Modification will
+      be lost when concurrently updating multiple bit fields. It will
+      cause a race condition in a multi-threaded application. And we
+      already caught a race condition case between xid_written and
+      ready_preempt in MYSQL_BIN_LOG::ordered_commit.
     */
     struct {
-      bool enabled:1;                   // see ha_enable_transaction()
-      bool pending:1;                   // Is the transaction commit pending?
-      bool xid_written:1;               // The session wrote an XID
-      bool real_commit:1;               // Is this a "real" commit?
-      bool commit_low:1;                // see MYSQL_BIN_LOG::ordered_commit
+      bool enabled;                   // see ha_enable_transaction()
+      bool pending;                   // Is the transaction commit pending?
+      bool xid_written;               // The session wrote an XID
+      bool real_commit;               // Is this a "real" commit?
+      bool commit_low;                // see MYSQL_BIN_LOG::ordered_commit
+      bool run_hooks;                 // Call the after_commit hook
 #ifndef DBUG_OFF
-      bool ready_preempt:1;             // internal in MYSQL_BIN_LOG::ordered_commit
+      bool ready_preempt;             // internal in MYSQL_BIN_LOG::ordered_commit
 #endif
     } flags;
 
@@ -2836,7 +2842,11 @@ public:
     {
       DBUG_PRINT("enter", ("file: %s, pos: %llu", file, pos));
       // Only the file name should be used, not the full path
-      m_trans_log_file= file + dirname_length(file);
+      MEM_ROOT *log_file_mem_root= &main_mem_root;
+      if (!m_trans_log_file)
+        m_trans_log_file= new (log_file_mem_root) char[FN_REFLEN + 1];
+      m_trans_log_file= strdup_root(log_file_mem_root,
+                                    file + dirname_length(file));
     }
     else
       m_trans_log_file= NULL;
@@ -2865,7 +2875,13 @@ public:
   /*
     Error code from committing or rolling back the transaction.
   */
-  int commit_error;
+  enum Commit_error
+  {
+    CE_NONE= 0,
+    CE_FLUSH_ERROR,
+    CE_COMMIT_ERROR,
+    CE_ERROR_COUNT
+  } commit_error;
 
   /*
     Define durability properties that engines may check to
