@@ -245,7 +245,7 @@ if ($option_copy_back || $option_move_back) {
     $option_ibbackup_binary = 'xtrabackup' if ($option_ibbackup_binary eq 'autodetect');
 } elsif ($option_apply_log) {
 	# Read XtraBackup version from backup dir
-	if (-e "$backup_dir/$xtrabackup_binary_file") {
+	if ($option_ibbackup_binary eq 'autodetect' and -e "$backup_dir/$xtrabackup_binary_file") {
 		# Read XtraBackup version from file
 		open XTRABACKUP_BINARY, "$backup_dir/$xtrabackup_binary_file"
 			or die "Cannot open file $backup_dir/$xtrabackup_binary_file: $!\n";
