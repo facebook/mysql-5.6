@@ -943,9 +943,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   NET* net = &thd->net;
   if (rpl_send_buffer_size &&
       (setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_SNDBUF,
-                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1 ||
+                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
+#ifdef UNIV_LINUX
+       ||
        setsockopt(net->vio->mysql_socket.fd, IPPROTO_TCP, TCP_WINDOW_CLAMP,
-                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1))
+                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
+#endif
+      ))
     sql_print_warning("Failed to set SO_SNDBUF with (error: %s).",
                       strerror(errno));
 
