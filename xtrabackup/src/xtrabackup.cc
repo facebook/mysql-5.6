@@ -3417,7 +3417,7 @@ xtrabackup_copy_datafile(fil_node_t* node, uint thread_n, ds_ctxt_t *ds_ctxt)
 	IB_UINT64	offset;
 	ulint		page_in_buffer;
 	ulint		incremental_buffers = 0;
-	byte*		incremental_buffer;
+	byte*		incremental_buffer = NULL;
 	byte*		incremental_buffer_base = NULL;
 	ulint		page_size;
 	ulint		page_size_shift;
@@ -4802,12 +4802,13 @@ xtrabackup_backup_func(void)
 	mutex_exit(&log_sys->mutex);
 
 reread_log_header:
-	fil_io(OS_FILE_READ | OS_FILE_LOG, TRUE, max_cp_group->space_id,
 #ifdef INNODB_VERSION_SHORT
-				0,
+	fil_io(OS_FILE_READ | OS_FILE_LOG, TRUE, max_cp_group->space_id,
+			0, 0, 0, LOG_FILE_HDR_SIZE, log_hdr_buf, max_cp_group);
+#else
+	fil_io(OS_FILE_READ | OS_FILE_LOG, TRUE, max_cp_group->space_id,
+			0, 0, LOG_FILE_HDR_SIZE, log_hdr_buf, max_cp_group);
 #endif
-				0, 0, LOG_FILE_HDR_SIZE,
-				log_hdr_buf, max_cp_group);
 
 	/* check consistency of log file header to copy */
 	mutex_enter(&log_sys->mutex);
@@ -6052,7 +6053,7 @@ xb_delta_create_space_file(
 	if (!ret) {
 		msg("xtrabackup: cannot set size for file %s\n", path);
 		os_file_close(*file);
-		os_file_delete(path);
+		os_file_delete(innodb_file_data_key, path);
 		return ret;
 	}
 
@@ -6105,7 +6106,7 @@ xb_delta_create_space_file(
 		msg("xtrabackup: could not write the first page to %s\n",
 		    path);
 		os_file_close(*file);
-		os_file_delete(path);
+		os_file_delete(innodb_file_data_key, path);
 		return ret;
 	}
 
