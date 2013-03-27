@@ -587,11 +587,13 @@ int main(int argc, char **argv)
       printf("InnoChecksum; checking pages in range %lu to %lu\n", start_page, use_end_page ? end_page : (pages - 1));
   }
 
+#ifdef UNIV_LINUX
   if (posix_fadvise(fileno(f), 0, 0, POSIX_FADV_SEQUENTIAL) ||
       posix_fadvise(fileno(f), 0, 0, POSIX_FADV_NOREUSE))
   {
     perror("posix_fadvise failed");
   }
+#endif
 
   /* seek to the necessary position */
   if (start_page)
