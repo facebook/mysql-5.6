@@ -178,6 +178,7 @@ enum os_file_create_t {
 				i/o is not as good, because it must serialize
 				the file seek and read or write, causing a
 				bottleneck for parallelism. */
+#define OS_AIO_SUBMIT	25	/*!< submit buffered aio requests */
 
 #define OS_AIO_SIMULATED_WAKE_LATER	512 /*!< This can be ORed to mode
 				in the call of os_aio(...),
@@ -304,10 +305,11 @@ The wrapper functions have the prefix of "innodb_". */
 	pfs_os_file_close_func(file, __FILE__, __LINE__)
 
 # define os_aio(type, mode, name, file, buf, offset,			\
-		n, message1, message2, primary_index_id, io_perf2, tab) \
+		n, message1, message2, primary_index_id, io_perf2, tab,	\
+		should_submit) \
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
 		n, message1, message2, __FILE__, __LINE__, 		\
-		primary_index_id, io_perf2, tab)
+		primary_index_id, io_perf2, tab, should_submit)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -343,9 +345,11 @@ to original un-instrumented file I/O APIs */
 # define os_file_close(file)	os_file_close_func(file)
 
 # define os_aio(type, mode, name, file, buf, offset, n,			\
-		message1, message2, primary_index_id, io_perf2, tab)	\
+		message1, message2, primary_index_id, io_perf2, tab,	\
+		should_submit)						\
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2, primary_index_id, io_perf2, tab)
+		    message1, message2, primary_index_id, io_perf2, tab,\
+		    should_submit)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -794,10 +798,14 @@ pfs_os_aio_func(
 	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 					counters */
-	os_io_table_perf_t* table_io_perf);
+	os_io_table_perf_t* table_io_perf,
 				/*!< in/out: table IO stats counted for
 				IS.user_statistics only for sync read
 				and writes */
+	ibool		should_submit);
+				/*!< in: whether to buffer an aio request
+				or submit all buffered requests. Only used
+				by aio read ahead*/
 /*******************************************************************//**
 NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1131,10 +1139,14 @@ os_aio_func(
 	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 				counters */
-	os_io_table_perf_t* table_io_perf);
+	os_io_table_perf_t* table_io_perf,
 				/*!< in/out: table IO stats counted for
 				IS.user_statistics only for sync read
 				and writes */
+	ibool	should_submit);
+				/*!< in: whether to buffer an aio request
+				or submit all buffered requests. Only used
+				by aio read ahead*/
 /************************************************************************//**
 Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */

@@ -240,6 +240,16 @@ struct os_aio_array_t{
 				There is one such event for each
 				possible pending IO. The size of the
 				array is equal to n_slots. */
+	struct iocb**		pending;
+				/* Array to buffer the not-submitted aio
+				requests. The array length is n_slots.
+				It is divided into n_segments segments.
+				pending requests on each segment are buffered
+				separately.*/
+	ulint*			count;
+				/* Array of length n_segments. Each element
+				counts the number of not-submitted aio request
+				on that segment.*/
 #endif /* LINUX_NATIV_AIO */
 };
 
@@ -3856,6 +3866,13 @@ os_aio_array_create(
 	memset(io_event, 0x0, sizeof(*io_event) * n);
 	array->aio_events = io_event;
 
+	array->pending = static_cast<struct iocb**>(
+		ut_malloc(n * sizeof(struct iocb*)));
+	memset(array->pending, 0x0, sizeof(struct iocb*) * n);
+	array->count = static_cast<ulint*>(
+		ut_malloc(n_segments * sizeof(ulint)));
+	memset(array->count, 0x0, sizeof(ulint) * n_segments);
+
 skip_native_aio:
 #endif /* LINUX_NATIVE_AIO */
 	os_aio_slot_t* slot = os_aio_array_get_nth_slot(array, 0);
@@ -3909,6 +3926,8 @@ os_aio_array_free(
 	if (srv_use_native_aio) {
 		ut_free(array->aio_events);
 		ut_free(array->aio_ctx);
+		ut_free(array->pending);
+		ut_free(array->count);
 	}
 #endif /* LINUX_NATIVE_AIO */
 
@@ -4552,26 +4571,73 @@ ibool
 os_aio_linux_dispatch(
 /*==================*/
 	os_aio_array_t*	array,	/*!< in: io request array. */
-	os_aio_slot_t*	slot)	/*!< in: an already reserved slot. */
+	os_aio_slot_t*	slot,	/*!< in: an already reserved slot. */
+	ibool		should_buffer,	/*!< in: should buffer the request
+					rather than submit. */
+	ibool		should_submit)	/*!< in: should submit the request.*/
 {
 	int		ret;
-	ulint		io_ctx_index;
+	ulint		io_ctx_index = 0;
 	struct iocb*	iocb;
+	ulint		total_count = 0;
+	ulint		total_submitted = 0;
 
-	ut_ad(slot != NULL);
-	ut_ad(array);
-
-	ut_a(slot->reserved);
+	ut_ad(slot != NULL || (should_buffer == TRUE && should_submit == TRUE));
+	ut_ad(array != NULL
+	      || (should_buffer == TRUE && should_submit == TRUE));
+	ut_a(!slot || slot->reserved);
 
 	/* Find out what we are going to work with.
 	The iocb struct is directly in the slot.
 	The io_context is one per segment. */
 
-	iocb = &slot->control;
-	io_ctx_index = (slot->pos * array->n_segments) / array->n_slots;
-
-	ret = io_submit(array->aio_ctx[io_ctx_index], 1, &iocb);
-
+	/*array and slot might be empty if this is just a submit request call.*/
+	if (slot) {
+		ut_ad(array);
+		iocb = &slot->control;
+		io_ctx_index = (slot->pos * array->n_segments) / array->n_slots;
+		if (should_buffer) {
+			os_mutex_enter(array->mutex);
+			ulint n = io_ctx_index * array->n_slots
+				  / array->n_segments
+				  + array->count[io_ctx_index];
+			array->pending[n] = iocb;
+			array->count[io_ctx_index] ++;
+			if (!should_submit) {
+				os_mutex_exit(array->mutex);
+				return(TRUE);
+			}
+			os_mutex_exit(array->mutex);
+		}
+	}
+	if (should_submit && should_buffer) {
+		/* Submit all the buffered requests. */
+		if (!array) {
+			array = os_aio_read_array;
+		}
+		os_mutex_enter(array->mutex);
+		for (ulint i = 0; i < array->n_segments; i++) {
+			ulint count = array->count[i];
+			if (count > 0) {
+				total_count += count;
+				ulint iocb_index = i * array->n_slots
+						   / array->n_segments;
+				ret = io_submit(array->aio_ctx[i], count,
+						&(array->pending[iocb_index]));
+				total_submitted += ret;
+			}
+		}
+		memset(array->pending, 0x0,
+		       sizeof(struct iocb*) * array->n_slots);
+		memset(array->count, 0x0, sizeof(ulint) * array->n_segments);
+		os_mutex_exit(array->mutex);
+	} else {
+		/* Submit the given request. */
+		ut_ad(slot);
+		total_count = 1;
+		total_submitted = io_submit(array->aio_ctx[io_ctx_index],
+					    1, &iocb);
+	}
 #if defined(UNIV_AIO_DEBUG)
 	fprintf(stderr,
 		"io_submit[%c] ret[%d]: slot[%p] ctx[%p] seg[%lu]\n",
@@ -4581,8 +4647,8 @@ os_aio_linux_dispatch(
 
 	/* io_submit returns number of successfully
 	queued requests or -errno. */
-	if (UNIV_UNLIKELY(ret != 1)) {
-		errno = -ret;
+	if (UNIV_UNLIKELY(total_count != total_submitted)) {
+		errno = -total_submitted;
 		return(FALSE);
 	}
 
@@ -4630,9 +4696,10 @@ os_aio_func(
 				OS_AIO_SYNC */
 	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t perf counters */
-	os_io_table_perf_t* table_io_perf)/*!< in/out: counts table IO stats
+	os_io_table_perf_t* table_io_perf,/*!< in/out: counts table IO stats
 				for IS.user_statistics only for sync
 				reads and writes */
+	ibool	should_submit)
 {
 	os_aio_array_t*	array;
 	os_aio_slot_t*	slot;
@@ -4648,6 +4715,15 @@ os_aio_func(
 	ulint		is_log_write;
 	ulint		is_double_write;
 	ib_uint64_t	index_id;
+
+#ifdef LINUX_NATIVE_AIO
+	if (mode == OS_AIO_SUBMIT) {
+		if (srv_use_native_aio) {
+			os_aio_linux_dispatch(NULL, NULL, TRUE, TRUE);
+		}
+		return (TRUE);
+	}
+#endif
 
 	ut_ad(file);
 	ut_ad(buf);
@@ -4834,7 +4910,8 @@ try_again:
 				       &(slot->control));
 
 #elif defined(LINUX_NATIVE_AIO)
-			if (!os_aio_linux_dispatch(array, slot)) {
+			if (!os_aio_linux_dispatch(array, slot,
+						   TRUE, should_submit)) {
 				goto err_exit;
 			}
 #endif /* WIN_ASYNC_IO */
@@ -4854,7 +4931,7 @@ try_again:
 					&(slot->control));
 
 #elif defined(LINUX_NATIVE_AIO)
-			if (!os_aio_linux_dispatch(array, slot)) {
+			if (!os_aio_linux_dispatch(array, slot, FALSE, TRUE)) {
 				goto err_exit;
 			}
 #endif /* WIN_ASYNC_IO */
