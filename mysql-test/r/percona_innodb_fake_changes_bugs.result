@@ -1,0 +1,40 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a INT primary key, b int, unique key (b)) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1,1);
+SET autocommit=1;
+SET innodb_fake_changes=1;
+# Confirm that duplicate key errors on REPLACE works
+REPLACE INTO t1 VALUES (1,1);
+ERROR HY000: Got error 131 during COMMIT
+REPLACE INTO t1 VALUES (1,2);
+ERROR HY000: Got error 131 during COMMIT
+# Confirm that duplicate key errors are OK
+BEGIN;
+REPLACE INTO t1 VALUES (1,2);
+SELECT * from t1;
+a	b
+1	1
+REPLACE INTO t1 VALUES (1,1);
+SELECT * from t1;
+a	b
+1	1
+ROLLBACK;
+BEGIN;
+REPLACE INTO t1 VALUES (2,1);
+ERROR 23000: Duplicate entry '1' for key 'b'
+INSERT INTO t1 VALUES (1,1);
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+INSERT INTO t1 VALUES (1,2);
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+INSERT INTO t1 VALUES (2,1);
+ERROR 23000: Duplicate entry '1' for key 'b'
+ROLLBACK;
+INSERT INTO t1 VALUES (1,1) ON DUPLICATE KEY UPDATE b=b+10;
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t1 VALUES (1,2) ON DUPLICATE KEY UPDATE b=b+10;
+ERROR HY000: Got error 131 during COMMIT
+SET innodb_fake_changes=0;
+SELECT * from t1;
+a	b
+1	1
+DROP TABLE t1;

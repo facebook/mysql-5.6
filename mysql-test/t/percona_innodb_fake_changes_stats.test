@@ -1,0 +1,93 @@
+#
+#
+#
+
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1);
+--connect (conn1,localhost,root,,)
+
+--echo # SELECT FOR UPDATE gets S not X with fake changes
+--connection conn1
+SET autocommit=0;
+SET innodb_fake_changes=1;
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+--connection default
+SET innodb_lock_wait_timeout=3;
+
+--send UPDATE t1 SET a=2
+--connection conn1
+#wait for counters to update
+sleep 1;
+SELECT lock_mode, lock_type, lock_table, lock_index FROM information_schema.innodb_locks;
+
+--connection default
+--error ER_LOCK_WAIT_TIMEOUT
+--reap
+ROLLBACK;
+
+--connection conn1
+ROLLBACK;
+
+SET global innodb_fake_changes_locks=0;
+#wait for counters to update
+sleep 5;
+--echo # Confirm SHOW STATUS counters are not updated during fake updates
+
+SELECT VARIABLE_VALUE INTO @c1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_buffer_pool_pages_dirty';
+SELECT VARIABLE_VALUE INTO @w1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_buffer_pool_write_requests';
+SELECT VARIABLE_VALUE INTO @i1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
+SELECT VARIABLE_VALUE INTO @d1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
+SELECT VARIABLE_VALUE INTO @u1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
+
+BEGIN;
+INSERT INTO t1 VALUES (2);
+SELECT * FROM t1;
+DELETE FROM t1;
+SELECT * FROM t1;
+UPDATE t1 set a = 3;
+SELECT * FROM t1;
+ROLLBACK;
+
+SELECT VARIABLE_VALUE INTO @c2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_buffer_pool_pages_dirty';
+SELECT VARIABLE_VALUE INTO @w2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_buffer_pool_write_requests';
+SELECT VARIABLE_VALUE INTO @i2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
+SELECT VARIABLE_VALUE INTO @d2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
+SELECT VARIABLE_VALUE INTO @u2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
+--disable_query_log
+SELECT @ti2 - @ti1 as idiff, @tu2 - @tu1 as udiff, @td2 - @td1 as ddiff;
+SELECT @ui2 - @ui1 as idiff, @uu2 - @uu1 as udiff, @ud2 - @ud1 as ddiff;
+SELECT @i2 - @i1 as diff;
+SELECT @d2 - @d1 as diff;
+SELECT @u2 - @u1 as diff;
+SELECT @c2 - @c1 as diff;
+SELECT @w2 - @w1 as diff;
+--enable_query_log
+
+--connection default
+--disconnect conn1
+SET innodb_fake_changes=default;
+SET global innodb_fake_changes_locks=default;
+DROP TABLE t1;
+
+--echo # Confirm that SHOW INDEX stats are not updated during fake updates
+
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT) engine = InnoDB;
+INSERT INTO t1 VALUES (1,2);
+SHOW INDEX FROM t1;
+SET innodb_fake_changes = 1;
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (3,9);
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (3,9);
+SET innodb_fake_changes = 0;
+INSERT INTO t1 VALUES (5,9);
+SHOW INDEX FROM t1;
+SET innodb_fake_changes = 0;
+DROP TABLE t1;

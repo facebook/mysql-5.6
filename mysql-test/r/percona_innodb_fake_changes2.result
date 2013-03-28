@@ -1,0 +1,112 @@
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+# Explicit COMMIT should fail when innodb_fake_changes is enabled
+# DML should be fine
+CREATE TABLE t1 (a INT primary key, b int) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1,1);
+CREATE TABLE t2 (a INT primary key, b int) ENGINE=InnoDB;
+CREATE INDEX bx ON t2(b);
+INSERT INTO t2 VALUES (1,1);
+CREATE TABLE t3 (a INT primary key, b text) ENGINE=InnoDB;
+INSERT INTO t3 VALUES (1,'');
+SET autocommit=1;
+SELECT * FROM t1;
+a	b
+1	1
+SELECT * FROM t2;
+a	b
+1	1
+SELECT a FROM t3;
+a
+1
+SET innodb_fake_changes=1;
+SELECT * FROM t1;
+ERROR HY000: Got error 131 during COMMIT
+SELECT * FROM t2;
+ERROR HY000: Got error 131 during COMMIT
+SELECT * FROM t3;
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t1 VALUES (2,2);
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t2 VALUES (2,2);
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t3 VALUES (2,lpad('a',10000, 'b'));
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t1 SET a=0 where b=1;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t2 SET a=0 where b=1;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t3 SET a=0 where a=1;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t1 SET b=0 where a=1;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t2 SET b=0 where a=1;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t2 SET b=lpad('a',10000, 'z') where a=1;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t1 SET b=0 where a=2;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t2 SET b=0 where a=2;
+ERROR HY000: Got error 131 during COMMIT
+UPDATE t2 SET b=lpad('a',10000, 'z') where a=2;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t1 where b=2;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t2 where b=2;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t1 where b=1;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t2 where b=1;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t1 where a=2;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t2 where a=2;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t3 where a=2;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t1 where a=1;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t2 where a=1;
+ERROR HY000: Got error 131 during COMMIT
+DELETE FROM t3 where a=1;
+ERROR HY000: Got error 131 during COMMIT
+REPLACE INTO t1 values (2,3);
+ERROR HY000: Got error 131 during COMMIT
+REPLACE INTO t2 values (2,3);
+ERROR HY000: Got error 131 during COMMIT
+REPLACE INTO t3 values (2,lpad('a',9000,'q'));
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t1 VALUES (1,1) ON DUPLICATE KEY UPDATE b=2;
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t2 VALUES (1,1) ON DUPLICATE KEY UPDATE b=2;
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t3 VALUES (1,1) ON DUPLICATE KEY UPDATE b=lpad('b',11000,'c');
+ERROR HY000: Got error 131 during COMMIT
+SELECT * FROM t1;
+ERROR HY000: Got error 131 during COMMIT
+SELECT * FROM t2;
+ERROR HY000: Got error 131 during COMMIT
+SELECT * FROM t3;
+ERROR HY000: Got error 131 during COMMIT
+create index bx on t1(b);
+ERROR HY000: Got error 131 during COMMIT
+SET innodb_fake_changes=default;
+INSERT INTO t1 VALUES (3,3);
+INSERT INTO t2 VALUES (3,3);
+INSERT INTO t3 VALUES (3,lpad('r',12000, 't'));
+SELECT * FROM t1;
+a	b
+1	1
+3	3
+SELECT * FROM t2;
+a	b
+1	1
+3	3
+SELECT a, length(b) FROM t3;
+a	length(b)
+1	0
+3	12000
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
