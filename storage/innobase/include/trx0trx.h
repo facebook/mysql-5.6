@@ -927,6 +927,9 @@ struct trx_t{
 					to reduce contention on the search
 					latch */
 	trx_dict_op_t	dict_operation;	/**< @see enum trx_dict_op */
+	ulint		always_enter_innodb;/*!< thread always enters innodb
+					without considering ticket limit;
+					only used for replication sql thread.*/
 
 	/* Fields protected by the srv_conc_mutex. */
 	ulint		declared_to_be_inside_innodb;
