@@ -302,6 +302,8 @@ trx_create(void)
 
 	trx->search_latch_timeout = BTR_SEA_TIMEOUT;
 
+	trx->always_enter_innodb = FALSE;
+
 	trx->global_read_view_heap = mem_heap_create(256);
 
 	trx->xid.formatID = -1;
