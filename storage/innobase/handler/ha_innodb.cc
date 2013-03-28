@@ -17258,6 +17258,13 @@ static MYSQL_SYSVAR_ULONG(sync_checkpoint_limit, srv_sync_checkpoint_limit,
   "making it larger. ",
   NULL, NULL, 0, 0, 97, 0);
 
+static MYSQL_SYSVAR_BOOL(enable_slave_update_table_stats,
+  srv_enable_slave_update_table_stats,
+  PLUGIN_VAR_NOCMDARG,
+  "If false, the replication slave thread will not do table stats updates. "
+  "By default it is set to false",
+  NULL, NULL, FALSE);
+
 static MYSQL_SYSVAR_STR(monitor_enable, innobase_enable_monitor_counter,
   PLUGIN_VAR_RQCMDARG,
   "Turn on a monitor counter",
@@ -17517,6 +17524,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(read_ahead_threshold),
   MYSQL_SYSVAR(read_only),
   MYSQL_SYSVAR(sync_checkpoint_limit),
+  MYSQL_SYSVAR(enable_slave_update_table_stats),
   MYSQL_SYSVAR(io_capacity),
   MYSQL_SYSVAR(io_capacity_max),
   MYSQL_SYSVAR(idle_flush_pct),
