@@ -46,6 +46,10 @@ Created 2/6/1997 Heikki Tuuri
 #include "read0read.h"
 #include "lock0lock.h"
 
+#ifdef UNIV_DEBUG
+uint		row_build_prev_version_sleep = 0;
+#endif
+
 /*****************************************************************//**
 Finds out if an active transaction has inserted or modified a secondary
 index record.
@@ -543,12 +547,30 @@ row_vers_build_for_consistent_read(
 
 	version = rec;
 
+#ifdef UNIV_DEBUG
+	if (row_build_prev_version_sleep) {
+		os_thread_sleep(row_build_prev_version_sleep * 1000);
+	}
+#endif
+
 	for (;;) {
 		mem_heap_t*	heap2	= heap;
 		trx_undo_rec_t* undo_rec;
 		roll_ptr_t	roll_ptr;
 		undo_no_t	undo_no;
 		heap = mem_heap_create(1024);
+
+		if (UNIV_UNLIKELY(trx_is_interrupted(mtr->trx))) {
+#ifdef UNIV_DEBUG
+			fprintf(stderr, "InnoDB: Detected killed connection "
+				"in row_vers_build_for_consistent_read.\n");
+#endif
+			if (heap2) {
+				mem_heap_free(heap2);
+			}
+			err = DB_INTERRUPTED;
+			break;
+		}
 
 		/* If we have high-granularity consistent read view and
 		creating transaction of the view is the same as trx_id in
