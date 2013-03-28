@@ -16183,6 +16183,12 @@ static MYSQL_SYSVAR_ULONG(
   1000000, 0);			/* Maximum value */
 #endif /* HAVE_ATOMIC_BUILTINS */
 
+static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
+  PLUGIN_VAR_OPCMDARG,
+  "Detect deadlocks when locks are acquired. Without this the row lock wait"
+  " timeout resolves deadlock.",
+  NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_ULONG(thread_sleep_delay, srv_thread_sleep_delay,
   PLUGIN_VAR_RQCMDARG,
   "Time of innodb thread sleeping before joining InnoDB queue (usec). "
@@ -16558,6 +16564,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(limit_optimistic_insert_debug),
   MYSQL_SYSVAR(trx_purge_view_update_only_debug),
 #endif /* UNIV_DEBUG */
+  MYSQL_SYSVAR(deadlock_detect),
   MYSQL_SYSVAR(fake_changes),
   MYSQL_SYSVAR(fake_changes_locks),
   NULL
