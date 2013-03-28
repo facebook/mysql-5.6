@@ -16580,6 +16580,12 @@ static MYSQL_SYSVAR_BOOL(trx_purge_view_update_only_debug,
   NULL, NULL, FALSE);
 #endif /* UNIV_DEBUG */
 
+static MYSQL_SYSVAR_ULONG(aio_old_usecs, os_aio_old_usecs,
+  PLUGIN_VAR_RQCMDARG,
+  "AIO requests are scheduled in file offset order until they are at least"
+  " this old and then they are scheduled oldest first.",
+  NULL, NULL, 2000000, 0, 10000000, 0);
+
 static MYSQL_SYSVAR_BOOL(fake_changes_locks, srv_fake_changes_locks,
   PLUGIN_VAR_NOCMDARG,
   "If enabled transactions will get S locks rather than X locks "
@@ -16737,6 +16743,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(trx_purge_view_update_only_debug),
 #endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(deadlock_detect),
+  MYSQL_SYSVAR(aio_old_usecs),
   MYSQL_SYSVAR(fake_changes),
   MYSQL_SYSVAR(fake_changes_locks),
   NULL
