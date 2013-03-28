@@ -1,0 +1,21 @@
+call mtr.add_suppression(".ERROR. Got error -1 when reading table '\./test/t1'");
+set global innodb_build_prev_version_sleep = 5000;
+create table t1 (
+a int primary key auto_increment,
+b int, c int) engine=innodb;
+create table t2 (kill_id int);
+start transaction with consistent snapshot;
+insert into t2 values (connection_id());
+start transaction with consistent snapshot;
+select * from t1 where a = 250;
+select ((@id := kill_id) - kill_id) from t2;
+((@id := kill_id) - kill_id)
+0
+kill @id;
+ERROR HY000: Lost connection to MySQL server during query
+set global innodb_build_prev_version_sleep = 0;
+select * from t1 where a = 250;
+a	b	c
+250	1604473604	2141737740
+drop table t1;
+drop table t2;
