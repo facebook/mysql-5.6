@@ -2449,6 +2449,9 @@ innobase_trx_init(
 	trx->check_unique_secondary = !thd_test_options(
 		thd, OPTION_RELAXED_UNIQUE_CHECKS);
 
+	/* The replication thread ignores innodb_thread_concurrency. */
+	if (thd_is_replication_slave_thread(thd))
+		trx->always_enter_innodb = TRUE;
 	trx_lra_reset(trx,
 		      THDVAR(thd, lra_size),
 		      THDVAR(thd, lra_pages_before_sleep),
