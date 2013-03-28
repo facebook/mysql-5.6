@@ -16887,11 +16887,11 @@ static MYSQL_SYSVAR_UINT(build_prev_version_sleep,
 #endif /* UNIV_DEBUG */
 
 static MYSQL_SYSVAR_BOOL(fake_changes_locks, srv_fake_changes_locks,
-      PLUGIN_VAR_NOCMDARG,
-      "If enabled transactions will get S locks rather than X locks "
-      "on rows. If disabled rows will not be locked and this might prevent "
-      "some lock wait timeouts.",
-      NULL, NULL, TRUE);
+  PLUGIN_VAR_NOCMDARG,
+  "If enabled transactions will get S locks rather than X locks "
+  "on rows. If disabled rows will not be locked and this might prevent "
+  "some lock wait timeouts.",
+  NULL, NULL, TRUE);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
