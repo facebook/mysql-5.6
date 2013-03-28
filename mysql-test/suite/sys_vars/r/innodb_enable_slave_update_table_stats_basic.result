@@ -1,0 +1,10 @@
+SET @orig = @@global.innodb_enable_slave_update_table_stats;
+SELECT @orig;
+@orig
+0
+SET @@global.innodb_enable_slave_update_table_stats = true;
+SET @new = @@global.innodb_enable_slave_update_table_stats;
+SELECT @new;
+@new
+1
+SET @@global.innodb_enable_slave_update_table_stats = @orig;
