@@ -100,7 +100,6 @@ in buf_pool, or if the page is in the doublewrite buffer blocks in
 which case it is never read into the pool, or if the tablespace does
 not exist or is being dropped
 @return 1 if read request is issued. 0 if it is not */
-static
 ulint
 buf_read_page_low(
 /*==============*/
@@ -120,7 +119,7 @@ buf_read_page_low(
 			use to stop dangling page reads from a tablespace
 			which we have DISCARDed + IMPORTed back */
 	ulint	offset,	/*!< in: page number */
-	trx_t*	trx,
+	trx_t*	trx,	/*!< in: transaction object */
 	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
@@ -584,6 +583,12 @@ buf_read_ahead_linear(
 
 	if (UNIV_UNLIKELY(srv_startup_is_before_trx_rollback_phase)) {
 		/* No read-ahead to avoid thread deadlocks */
+		return(0);
+	}
+
+	/* linear read ahead is disabled if user requested logical read ahead.
+	*/
+	if (trx && trx->lra_size) {
 		return(0);
 	}
 
