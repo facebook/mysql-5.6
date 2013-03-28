@@ -5720,13 +5720,12 @@ _fil_io(
 	ut_ad(mode != OS_AIO_IBUF || space->purpose == FIL_TABLESPACE);
 
 #ifdef XTRABACKUP
-	if (space->size <= block_offset) {
+	if (space->size > 0 && space->size <= block_offset) {
 		ulint	actual_size;
 
 		mutex_exit(&fil_system->mutex);
 		fil_extend_space_to_desired_size(&actual_size, space->id,
-						 ((block_offset + 1) / 64 + 1)
-						 * 64);
+						 block_offset + 1);
 		mutex_enter(&fil_system->mutex);
 		/* should retry? but it may safe for xtrabackup for now. */
 	}
