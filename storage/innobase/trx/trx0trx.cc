@@ -47,6 +47,7 @@ Created 3/26/1996 Heikki Tuuri
 #include "ha_prototypes.h"
 #include "srv0mon.h"
 #include "ut0vec.h"
+#include "btr0pcur.h"
 
 #include<set>
 
@@ -199,6 +200,139 @@ void trx_deallocate(trx_t* t) {
 	mutex_exit(&trx_sys->trx_memory_mutex);
 }
 
+/*************************************************************//**
+Creates or frees data structures related to logical-read-ahead.
+based on the value of lra_size. */
+UNIV_INTERN
+void
+trx_lra_reset(
+	trx_t* trx, /*!< in: transaction */
+	ulint lra_size, /*!< in: lra_size in MB.
+				       If 0, the fields that are releated
+				       to logical-read-ahead will be free'd
+				       if they were initialized. */
+	ulint lra_n_node_recs_before_sleep,
+					/*!< in: lra_n_node_recs_before_sleep
+					is the number of node pointer records
+					traversed while holding the index lock
+					before releasing the index lock and
+					sleeping for a short period of time so
+					that the other threads get a chance to
+					x-latch the index lock. */
+	ulint lra_sleep)		/* lra_sleep is the sleep time in
+					milliseconds. */
+{
+#ifndef TARGET_OS_LINUX
+	if (lra_size) {
+		ib_logf(IB_LOG_LEVEL_WARN,
+			"Logical read ahead is supported only on linux.");
+		lra_size = 0;
+	}
+#else /* TARGET_OS_LINUX */
+	if (!srv_use_native_aio && lra_size) {
+		ib_logf(IB_LOG_LEVEL_WARN,
+			"In order to use logical read ahead please enable "
+			"native aio by setting innodb_use_native_aio=1 in "
+			"my.cnf and restarting the server.");
+		lra_size = 0;
+	}
+#endif /* TARGET_OS_LINUX */
+	trx->lra_size = lra_size;
+	trx->lra_space_id = 0;
+	trx->lra_n_pages = 0;
+	trx->lra_n_pages_since = 0;
+	trx->lra_page_no = 0;
+	trx->lra_n_node_recs_before_sleep = lra_n_node_recs_before_sleep;
+	trx->lra_sleep = lra_sleep;
+	trx->lra_tree_height = 0;
+	if (lra_size) {
+		ulint n_pages_max =
+			(lra_size << 20L) / UNIV_ZIP_SIZE_MIN;
+		ulint mem = n_pages_max * (2 * sizeof(ulint)
+			                   + 2 * sizeof(page_no_holder_t))
+			    + sizeof(btr_pcur_t);
+		if (trx->lra_ht) {
+			ut_a(trx->lra_ht1);
+			ut_a(trx->lra_ht2);
+			ut_a(trx->lra_sort_arr);
+			ut_a(trx->lra_cur);
+			hash_table_clear(trx->lra_ht1);
+			hash_table_clear(trx->lra_ht2);
+			btr_pcur_reset(trx->lra_cur);
+			trx->lra_ht = trx->lra_ht1;
+#ifdef UNIV_DEBUG
+			/* following resets lra_sort_arr,
+			 * lra_arr1, lra_arr2, and lra_cursor.
+			 */
+			memset(trx->lra_sort_arr, 0, mem);
+#endif
+			btr_pcur_init(trx->lra_cur);
+		} else {
+			byte* alloc;
+			ut_a(!trx->lra_ht1);
+			ut_a(!trx->lra_ht2);
+			ut_a(!trx->lra_sort_arr);
+			ut_a(!trx->lra_cur);
+			trx->lra_ht1 = hash_create(16384);
+			trx->lra_ht2 = hash_create(16384);
+			trx->lra_ht = trx->lra_ht1;
+			alloc = (byte*)ut_malloc(mem);
+#ifdef UNIV_DEBUG
+			memset(alloc, 0, mem);
+#endif
+			trx->lra_sort_arr = (ulint*)alloc;
+			alloc += 2 * sizeof(ulint) * n_pages_max;
+			trx->lra_arr1 = (page_no_holder_t*) alloc;
+			alloc +=  sizeof(page_no_holder_t) * n_pages_max;
+			trx->lra_arr2 = (page_no_holder_t*) alloc;
+			alloc +=  sizeof(page_no_holder_t) * n_pages_max;
+			trx->lra_cur = (btr_pcur_t*) alloc;
+			btr_pcur_init(trx->lra_cur);
+#ifdef TARGET_OS_LINUX
+			if (cachedev_enabled) {
+				pid_t pid = syscall(SYS_gettid);
+				ioctl(cachedev_fd,
+				      FLASHCACHEADDBLACKLIST,
+				      &pid);
+			}
+#endif /* TARGET_OS_LINUX */
+
+		}
+	} else {
+		if (trx->lra_ht) {
+			ut_a(trx->lra_ht1);
+			ut_a(trx->lra_ht2);
+			ut_a(trx->lra_sort_arr);
+			hash_table_free(trx->lra_ht1);
+			hash_table_free(trx->lra_ht2);
+			btr_pcur_close(trx->lra_cur);
+			ut_free(trx->lra_sort_arr);
+			trx->lra_sort_arr = NULL;
+			trx->lra_ht = NULL;
+			trx->lra_ht1 = NULL;
+			trx->lra_ht2 = NULL;
+			trx->lra_arr1 = NULL;
+			trx->lra_arr2 = NULL;
+			trx->lra_cur = NULL;
+#ifdef TARGET_OS_LINUX
+			if (cachedev_enabled) {
+				pid_t pid = syscall(SYS_gettid);
+				ioctl(cachedev_fd,
+				      FLASHCACHEDELBLACKLIST,
+				      &pid);
+			}
+#endif /* TARGET_OS_LINUX */
+		} else {
+			ut_a(!trx->lra_ht1);
+			ut_a(!trx->lra_ht2);
+			ut_a(!trx->lra_sort_arr);
+			ut_a(!trx->lra_cur);
+			ut_a(!trx->lra_arr1);
+			ut_a(!trx->lra_arr2);
+		}
+	}
+}
+
 /****************************************************************//**
 Creates and initializes a transaction object. It must be explicitly
 started with trx_start_if_not_started() before using it. The default
@@ -273,6 +407,12 @@ trx_create(void)
 
 	trx->lock.table_locks = ib_vector_create(
 		heap_alloc, sizeof(void**), 32);
+
+	trx->lra_ht = NULL;
+	trx->lra_cur = NULL;
+	trx->lra_ht1 = NULL;
+	trx->lra_ht2 = NULL;
+	trx_lra_reset(trx, 0, 0, 0);
 
 	return(trx);
 }
@@ -363,6 +503,7 @@ trx_free(
 	}
 
 	mutex_free(&trx->mutex);
+	trx_lra_reset(trx, 0, 0, 0);
 
 	trx_deallocate(trx);
 }

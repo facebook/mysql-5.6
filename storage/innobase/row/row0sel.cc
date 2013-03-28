@@ -59,6 +59,8 @@ Created 12/19/1997 Heikki Tuuri
 #include "ha_prototypes.h"
 #include "m_string.h" /* for my_sys.h */
 #include "my_sys.h" /* DEBUG_SYNC_C */
+#include "ut0sort.h"
+#include <algorithm>
 
 #include "my_compare.h" /* enum icp_result */
 
@@ -3634,6 +3636,323 @@ row_search_idx_cond_check(
 	return(result);
 }
 
+/**********************************************************************//**
+Determines the page numbers for the next batch of pages that will be
+prefetched for logical read ahead and stores them in the hash_table and
+page_no_array. Does not issue read requests. */
+static
+void
+row_read_ahead_logical_low(
+	hash_table_t*	hash_table, /* in/out: This hash table is emptied and
+	then filled with the next batch of page numbers that should be
+	prefetched. */
+	ulint* n_prefetched_ptr, /* in/out: the number that's pointed by this
+	pointer is incremented by the number of pages that are added to the
+	hash_table */
+	ulint* page_no_array, /* out: the page numbers that will be prefetched
+	are stored in this array */
+	dict_index_t* index, /* in: index object for the table */
+	mtr_t* mtr, /* in: mini transaction object used for acquiring and
+	releasing the necessary locks */
+	ulint* offsets, /* in/out: temporary storage for offsets */
+	mem_heap_t* heap) /* in: temporary memory heap */
+{
+	page_no_holder_t* page_no_holder;
+	page_no_holder_t* lra_arr;
+	ulint page_no;
+	ulint n_prefetched = 0;
+	rec_t* rec;
+	trx_t* trx = mtr->trx;
+	/* empty the hash table because we don't want it to grow to hold
+	 * all leaf page numbers of the table. The concern is not memory, but
+	 * the lookup time.
+	 */
+	hash_table_clear(hash_table);
+	if (hash_table == trx->lra_ht1) {
+		lra_arr = trx->lra_arr1;
+	} else {
+		lra_arr = trx->lra_arr2;
+	}
+	while (!btr_pcur_is_after_last_in_tree(trx->lra_cur, mtr)
+	       && n_prefetched < trx->lra_n_pages) {
+		if (UNIV_UNLIKELY(trx_is_interrupted(trx))) {
+			return;
+		}
+		rec = btr_pcur_get_rec(trx->lra_cur);
+		if (page_rec_is_supremum(rec) || page_rec_is_infimum(rec)) {
+			btr_pcur_move_to_next(trx->lra_cur, mtr);
+			continue;
+		}
+		offsets = rec_get_offsets(rec, index, offsets,
+					  ULINT_UNDEFINED, &heap);
+		page_no = btr_node_ptr_get_child_page_no(rec, offsets);
+		page_no_holder = &lra_arr[n_prefetched];
+		page_no_holder->page_no = page_no;
+		page_no_holder->hash = NULL;
+		HASH_INSERT(page_no_holder_t, hash, hash_table,
+			    page_no, page_no_holder);
+		btr_pcur_move_to_next(trx->lra_cur, mtr);
+		page_no_array[n_prefetched] = page_no;
+		++n_prefetched;
+		if (trx->lra_n_node_recs_before_sleep
+		    && trx->lra_sleep
+		    &&
+		    ((n_prefetched % trx->lra_n_node_recs_before_sleep) == 0))
+		{
+			btr_pcur_store_position(trx->lra_cur, mtr);
+			mtr_commit(mtr);
+			os_thread_sleep(trx->lra_sleep * 1000);
+			mtr_start_trx(mtr, trx);
+			btr_pcur_restore_position_func(
+					BTR_SEARCH_LEAF, trx->lra_cur, 1,
+					__FILE__, __LINE__, mtr);
+		}
+	}
+	*n_prefetched_ptr += n_prefetched;
+}
+
+/*********************************************************************//**
+Returns TRUE if the page specified by page_no was prefetched.
+@return: TRUE if the page was prefetched before. */
+UNIV_INLINE
+ibool
+row_lra_is_prefetched(
+	const trx_t* trx, /* in: trx->lra_ht1 and trx->lra_ht2 are
+	probed to see if page page_no was prefetched */
+	ulint page_no) /* in: page no for the page that is being
+	checked */
+{
+	page_no_holder_t* page_no_holder = NULL;
+	hash_table_t*	other_table;
+	HASH_SEARCH(hash, trx->lra_ht, page_no, page_no_holder_t*,
+		    page_no_holder, ut_a(1),
+		    page_no_holder->page_no == page_no);
+	if (page_no_holder) {
+		return TRUE;
+	}
+	other_table = trx->lra_ht == trx->lra_ht1 ? trx->lra_ht2
+						  : trx->lra_ht1;
+	HASH_SEARCH(hash, other_table, page_no, page_no_holder_t*,
+		    page_no_holder, ut_a(1),
+		    page_no_holder->page_no == page_no);
+	if (page_no_holder) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+#ifdef UNIV_DEBUG
+my_bool row_lra_test = FALSE;
+#endif
+
+/*********************************************************************//**
+This function submits io requests for pages that are logical successors to
+the page that is pointed by pcur. It is meant to be called during sequential
+scan to prefetch pages and speed-up the scan. The number of pages that are
+prefetched is determined by the session variable innodb_logical_readahead_size
+divided by the block size of the table. It is ok to call this function
+successively even if pcur did not move to the next page because this function
+keeps track of the page numbers it prefetched and won't duplicate io requests.
+This function may temporarily release the block latches held by pcur and
+re-acquire them.
+@return: TRUE if the function released the block latch and re-acquired it and
+now the cursor pcur points to a new record that must be processed by the
+caller. */
+static
+ibool
+row_read_ahead_logical(
+	btr_pcur_t* pcur, /* in/out: Cursor from which the current page number
+	is obtained. Cursor's position may change and this is indicated in the
+	return value. */
+	dict_index_t* index, /* in: index object for the table */
+	mtr_t* mtr, /* in: mini-transaction. May be committed and restarted */
+	ulint* offsets, /* in: temporary storage for offsets */
+	mem_heap_t** heap_ptr) /* in/out: If *heap_ptr is not NULL then this
+	heap is used for memory allocations, otherwise a new heap is created and
+	stored in *heap_ptr. The caller is responsible for freeing the heap */
+{
+	buf_block_t* block = btr_cur_get_block(&pcur->btr_cur);
+	ibool same_user_rec;
+	mem_heap_t* heap;
+	ib_int64_t tablespace_version;
+	ulint page_no = buf_block_get_page_no(block);
+	ulint space = buf_block_get_space(block);
+	ulint zip_size = buf_block_get_zip_size(block);
+	rec_t* rec;
+	dtuple_t* tuple;
+	dberr_t err;
+	ulint num_prefetched = 0;
+	ulint num_read_requests = 0;
+	ulint i;
+	trx_t* trx = mtr->trx;
+	ulint root_page_no;
+	buf_block_t* root_block;
+
+	if (!trx->lra_size) {
+		return FALSE;
+	}
+	if (trx->lra_space_id == space && trx->lra_tree_height <= 1) {
+		return FALSE;
+	}
+	if (trx->lra_space_id == space && trx->lra_page_no == page_no) {
+		/* the cursor is on the same page as the last time this
+		 * function was called.
+		 */
+		return FALSE;
+	}
+
+	/* Set the last page number to page_no only if we are scanning the
+	 * same table.
+	 */
+	if (trx->lra_space_id == space) {
+		trx->lra_page_no = page_no;
+	}
+
+	/* In order not to prefetch extraneously, we do not issue prefetches
+	until the scan processes lra_n_pages pages. This may cause misses if
+	there are too many splits/merges going on but in such a case it
+	would be hard to guess which pages to prefetch anyway
+	because it is equivalent to guessing which pages would split
+	(or merge). */
+	if (trx->lra_space_id == space
+	    && ++trx->lra_n_pages_since <= trx->lra_n_pages) {
+		if (!row_lra_is_prefetched(trx, page_no)) {
+			srv_stats.n_logical_read_ahead_misses.add(1);
+		}
+		return FALSE;
+	}
+	rec = page_rec_get_next(page_get_infimum_rec(
+				buf_block_get_frame(block)));
+	if (!rec || page_rec_is_supremum(rec)) {
+		/* Do not start prefetching because we can not get the
+		parent page of an empty page */
+		trx->lra_page_no = 0;
+		return FALSE;
+	}
+	tablespace_version = fil_space_get_version(space);
+
+	if (!*heap_ptr) {
+		*heap_ptr = mem_heap_create(100);
+	}
+	heap = *heap_ptr;
+	tuple = dict_index_build_node_ptr(index, rec, 0, heap, 1);
+	trx->lra_n_pages_since = 0;
+
+	btr_pcur_store_position(pcur, mtr);
+	mtr_commit(mtr);
+#ifdef UNIV_DEBUG
+	if (row_lra_test && trx->lra_space_id == space) {
+		row_lra_test = FALSE;
+		os_thread_sleep(1000000);
+	}
+#endif
+	mtr_start_trx(mtr, trx);
+
+	if (UNIV_LIKELY(trx->lra_space_id == space)) {
+#ifdef UNIV_DEBUG
+		memset(trx->lra_sort_arr, 0,
+		       2 * trx->lra_n_pages * sizeof(ulint));
+#endif
+		btr_pcur_restore_position_func(
+			BTR_SEARCH_LEAF, trx->lra_cur, 1,
+			__FILE__, __LINE__, mtr);
+		row_read_ahead_logical_low(
+			trx->lra_ht, &num_prefetched,
+			trx->lra_sort_arr, index, mtr,
+			offsets, heap);
+		if (trx->lra_ht == trx->lra_ht1) {
+			trx->lra_ht = trx->lra_ht2;
+		} else {
+			trx->lra_ht = trx->lra_ht1;
+		}
+	} else {
+		/* The transaction started to scan a new table, set
+		 * the values for lra_space_id and lra_n_pages based on the
+		 * new table
+		 */
+		trx_lra_reset(trx,
+			      trx->lra_size,
+			      trx->lra_n_node_recs_before_sleep,
+			      trx->lra_sleep);
+		trx->lra_space_id = space;
+		trx->lra_n_pages = (trx->lra_size << 20L)
+				   / (zip_size ? zip_size : UNIV_PAGE_SIZE);
+		trx->lra_page_no = page_no;
+		mtr_s_lock(dict_index_get_lock(index), mtr);
+		/* Get root page to get the B-tree depth */
+		root_page_no = dict_index_get_page(index);
+		root_block = buf_page_get_gen(space, zip_size, root_page_no,
+				              RW_NO_LATCH, NULL, BUF_GET,
+					      __FILE__, __LINE__, mtr);
+		trx->lra_tree_height = btr_page_get_level(
+					buf_block_get_frame(root_block),
+					mtr) + 1;
+		if (trx->lra_tree_height > 1) {
+#ifdef UNIV_DEBUG
+			memset(trx->lra_sort_arr, 0,
+			       2 * trx->lra_n_pages * sizeof(ulint));
+#endif
+			mtr_commit(mtr);
+			mtr_start_trx(mtr, trx);
+			btr_pcur_open_low(index, 1, tuple, PAGE_CUR_LE,
+					  BTR_SEARCH_LEAF, trx->lra_cur,
+					  __FILE__, __LINE__, mtr);
+			row_read_ahead_logical_low(
+				trx->lra_ht1, &num_prefetched,
+				trx->lra_sort_arr, index, mtr,
+				offsets, heap);
+			row_read_ahead_logical_low(
+				trx->lra_ht2, &num_prefetched,
+				&trx->lra_sort_arr[num_prefetched], index, mtr,
+				offsets, heap);
+		}
+		trx->lra_ht = trx->lra_ht1;
+	}
+	if (trx->lra_tree_height > 1)
+		btr_pcur_store_position(trx->lra_cur, mtr);
+	mtr_commit(mtr);
+	if (num_prefetched) {
+		/* We sort the page numbers before issuing read requests for two
+		 * reasons:
+		 * 1- The block layer in linux kernel currently sorts the read
+		 * requests and merges them but there is a possibility that
+		 * this algorithm does not detect the sequential read and
+		 * coalesce the iops.
+		 * 2- Even if the block layer algorithm is perfect, the
+		 * asynchrounous read array size may be small in which case we
+		 * the read requests will have a lower chance of being
+		 * coalesced by the block layer.
+		 *
+		 * Sorting is cheap in comparison to the iops that are about to
+		 * be done so we always sort.
+		 */
+		std::sort(trx->lra_sort_arr, trx->lra_sort_arr + num_prefetched);
+		/* TODO(nizamordulu): Here we call buf_read_page_low() which
+		 * acquires the related buffer pool shard lock and checks if the
+		 * page is in that shard for each page. This could be made more
+		 * efficient if we checked for all pages at once or batched the
+		 * check for multiple pages after acquiring the related latch.
+		 */
+		for (i = 0; i < num_prefetched; ++i) {
+			num_read_requests += buf_read_page_low(
+				&err, FALSE,
+				BUF_READ_ANY_PAGE | OS_AIO_SIMULATED_WAKE_LATER,
+				space, zip_size, FALSE, tablespace_version,
+				trx->lra_sort_arr[i], trx, TRUE);
+		}
+#ifdef LINUX_NATIVE_AIO
+		os_aio_linux_dispatch_read_array_submit();
+#endif
+		srv_stats.n_logical_read_ahead_prefetched.add(
+							num_read_requests);
+		srv_stats.n_logical_read_ahead_in_buf_pool.add(
+					num_prefetched - num_read_requests);
+	}
+	mtr_start_trx(mtr, trx);
+	return sel_restore_position_for_mysql(&same_user_rec, BTR_SEARCH_LEAF,
+					      pcur, TRUE, mtr);
+}
+
 /********************************************************************//**
 Searches for rows in the database. This is used in the interface to
 MySQL. This function opens a cursor, and also implements fetch next
@@ -5078,6 +5397,11 @@ next_rec:
 	}
 
 	if (moves_up) {
+		if (trx
+		    && row_read_ahead_logical(
+				pcur, index, &mtr, offsets, &heap)) {
+			goto rec_loop;
+		}
 		if (UNIV_UNLIKELY(!btr_pcur_move_to_next(pcur, &mtr))) {
 not_moved:
 			btr_pcur_store_position(pcur, &mtr);

@@ -1903,6 +1903,12 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_buffered_aio_submitted =
 		srv_stats.n_aio_submitted;
+	export_vars.innodb_logical_read_ahead_misses =
+		srv_stats.n_logical_read_ahead_misses;
+	export_vars.innodb_logical_read_ahead_prefetched =
+		srv_stats.n_logical_read_ahead_prefetched;
+	export_vars.innodb_logical_read_ahead_in_buf_pool =
+		srv_stats.n_logical_read_ahead_in_buf_pool;
 
 	for (i = 0; i < PAGE_ZIP_SSIZE_MAX - 1; i++) {
 		page_zip_stat_t*        zip_stat = &page_zip_stat[i];

@@ -100,6 +100,13 @@ enum_tx_isolation thd_get_trx_isolation(const THD* thd);
 #include "ha_innodb.h"
 #include "i_s.h"
 
+#ifdef TARGET_OS_LINUX
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include "flashcache_ioctl.h"
+extern my_bool cachedev_enabled;
+#endif /* TARGET_OS_LINUX */
+
 # ifndef MYSQL_PLUGIN_IMPORT
 #  define MYSQL_PLUGIN_IMPORT /* nothing */
 # endif /* MYSQL_PLUGIN_IMPORT */
@@ -546,6 +553,30 @@ static MYSQL_THDVAR_BOOL(fake_changes, PLUGIN_VAR_OPCMDARG,
   "is affected.",
   NULL, NULL, FALSE);
 
+static MYSQL_THDVAR_ULONG(lra_size, PLUGIN_VAR_OPCMDARG,
+  "The size (in MBs) of the total size of the pages that innodb will prefetch "
+  "while scanning a table during this session. This is meant to be used only "
+  "for table scans. The upper limit of this variable is 16384 which "
+  "corresponds to prefetching 16GB of data. When set to max, this algorithm "
+  "may use 100M memory.", NULL, NULL, 0, 0, 16384, 0);
+
+static MYSQL_THDVAR_ULONG(lra_n_node_recs_before_sleep, PLUGIN_VAR_OPCMDARG,
+  "innodb_lra_n_node_recs_before_sleep is the number of node pointer records "
+  "traversed while holding the index lock before releasing the index lock "
+  "and sleeping for a short period of time so that the other threads get a "
+  "chance to x-latch the index lock. innodb_lra_sleep is the sleep time in "
+  "milliseconds.",
+  NULL, NULL, 1024, 128, ULINT_MAX, 0);
+
+static MYSQL_THDVAR_ULONG(lra_sleep, PLUGIN_VAR_OPCMDARG,
+  "innodb_lra_n_node_recs_before_sleep is the number of node pointer records "
+  "traversed while holding the index lock before releasing the index lock "
+  "and sleeping for a short period of time so that the other threads get a "
+  "chance to x-latch the index lock. innodb_lra_sleep is the sleep time in "
+  "milliseconds.",
+  NULL, NULL, 50, 0, 1000, 0);
+
+
 static MYSQL_THDVAR_STR(ft_user_stopword_table,
   PLUGIN_VAR_OPCMDARG|PLUGIN_VAR_MEMALLOC,
   "User supplied stopword table name, effective in the session level.",
@@ -916,6 +947,12 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_trx_n_rollback_total,	  SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
+  {"logical_read_ahead_misses",
+   (char*) &export_vars.innodb_logical_read_ahead_misses, SHOW_LONG},
+  {"logical_read_ahead_prefetched",
+   (char*) &export_vars.innodb_logical_read_ahead_prefetched, SHOW_LONG},
+  {"logical_read_ahead_in_buf_pool",
+   (char*) &export_vars.innodb_logical_read_ahead_in_buf_pool, SHOW_LONG},
   {"zip_1024_compressed",
   (char*) &export_vars.zip1024_compressed,                SHOW_LONG},
   {"zip_1024_compressed_ok",
@@ -2610,6 +2647,10 @@ innobase_trx_init(
 	if (thd_is_replication_slave_thread(thd))
 		trx->always_enter_innodb = TRUE;
 	trx->fake_changes = THDVAR(thd, fake_changes);
+	trx_lra_reset(trx,
+		      THDVAR(thd, lra_size),
+		      THDVAR(thd, lra_n_node_recs_before_sleep),
+		      THDVAR(thd, lra_sleep));
 
 	DBUG_VOID_RETURN;
 }
@@ -2632,6 +2673,10 @@ innobase_trx_allocate(
 	trx = trx_allocate_for_mysql();
 
 	trx->mysql_thd = thd;
+	trx_lra_reset(trx,
+		      THDVAR(thd, lra_size),
+		      THDVAR(thd, lra_n_node_recs_before_sleep),
+		      THDVAR(thd, lra_sleep));
 
 	innobase_trx_init(thd, trx);
 
@@ -3983,6 +4028,7 @@ innobase_commit_low(
 /*================*/
 	trx_t*	trx)	/*!< in: transaction handle */
 {
+	trx_lra_reset(trx, 0, 0, 0);
 	if (trx_is_started(trx)) {
 
 		trx_commit_for_mysql(trx);
@@ -17277,6 +17323,15 @@ static MYSQL_SYSVAR_ULONG(saved_page_number_debug,
   srv_saved_page_number_debug, PLUGIN_VAR_OPCMDARG,
   "An InnoDB page number.",
   NULL, innodb_save_page_no, 0, 0, UINT_MAX32, 0);
+
+extern my_bool row_lra_test;
+
+static MYSQL_SYSVAR_BOOL(lra_test, row_lra_test,
+  PLUGIN_VAR_NOCMDARG,
+  "When set to true, the purge thread stops until the logical read ahead "
+  "sets this variable to TRUE. Used for testing edge cases regarding the "
+  "purge thread and logical read ahead.",
+  NULL, NULL, FALSE);
 #endif /* UNIV_DEBUG */
 
 static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
@@ -17474,6 +17529,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(trx_purge_view_update_only_debug),
   MYSQL_SYSVAR(fil_make_page_dirty_debug),
   MYSQL_SYSVAR(saved_page_number_debug),
+  MYSQL_SYSVAR(lra_test),
 #endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(aio_slow_usecs),
   MYSQL_SYSVAR(aio_old_usecs),
@@ -17482,6 +17538,9 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
 #endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(fake_changes),
   MYSQL_SYSVAR(fake_changes_locks),
+  MYSQL_SYSVAR(lra_size),
+  MYSQL_SYSVAR(lra_n_node_recs_before_sleep),
+  MYSQL_SYSVAR(lra_sleep),
   MYSQL_SYSVAR(segment_reserve_factor),
   MYSQL_SYSVAR(zlib_wrap),
   MYSQL_SYSVAR(zlib_strategy),
