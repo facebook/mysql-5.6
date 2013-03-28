@@ -504,6 +504,11 @@ UNIV_INTERN ulint	srv_main_thread_id		= 0;
 
 /** See the sync_checkpoint_limit user variable declaration in ha_innodb.cc */
 UNIV_INTERN ulint	srv_sync_checkpoint_limit	= 0;
+
+/** If false, there will be no table stats update from the replication
+slave thread. */
+UNIV_INTERN my_bool	srv_enable_slave_update_table_stats = FALSE;
+
 /** Number of pages processed by trx_purge */
 UNIV_INTERN ulint	srv_purged_pages	= 0;
 

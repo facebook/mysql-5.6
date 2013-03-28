@@ -587,6 +587,8 @@ do {								\
 /** See the sync_checkpoint_limit user variable declaration in ha_innodb.cc */
 extern ulong srv_sync_checkpoint_limit;
 
+extern my_bool srv_enable_slave_update_table_stats;
+
 /** Number of pages processed by trx_purge */
 extern ulint srv_purged_pages;
 
