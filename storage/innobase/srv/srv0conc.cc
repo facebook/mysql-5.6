@@ -173,7 +173,9 @@ srv_enter_innodb_with_tickets(
 					to enter InnoDB */
 {
 	trx->declared_to_be_inside_innodb = TRUE;
-	trx->n_tickets_to_enter_innodb = srv_n_free_tickets_to_enter;
+	trx->n_tickets_to_enter_innodb = trx->always_enter_innodb
+		? (srv_n_free_tickets_to_enter * 1000)
+		: srv_n_free_tickets_to_enter;
 }
 
 /*********************************************************************//**
@@ -203,8 +205,13 @@ srv_conc_enter_innodb_with_atomics(
 	for (;;) {
 		ulint	sleep_in_us;
 
-		if (srv_conc.n_active < (lint) srv_thread_concurrency) {
+		if (srv_conc.n_active < (lint) srv_thread_concurrency ||
+		    trx->always_enter_innodb) {
 			ulint	n_active;
+
+			/* always_enter_innodb is TRUE for the
+			replication SQL threads so it is not delayed
+			by innodb_thread_concurrency. */
 
 			/* Check if there are any free tickets. */
 			n_active = os_atomic_increment_lint(
@@ -374,11 +381,17 @@ retry:
 
 	ut_ad(srv_conc.n_active >= 0);
 
-	if (srv_conc.n_active < (lint) srv_thread_concurrency) {
+	if (srv_conc.n_active < (lint) srv_thread_concurrency ||
+	    trx->always_enter_innodb) {
+
+		/* always_enter_innodb is TRUE for the replication SQL thread
+		so it is not delayed by innodb_thread_concurrency. */
 
 		srv_conc.n_active++;
 		trx->declared_to_be_inside_innodb = TRUE;
-		trx->n_tickets_to_enter_innodb = srv_n_free_tickets_to_enter;
+		trx->n_tickets_to_enter_innodb = trx->always_enter_innodb
+			? (srv_n_free_tickets_to_enter * 1000)
+			: srv_n_free_tickets_to_enter;
 
 		os_fast_mutex_unlock(&srv_conc_mutex);
 
