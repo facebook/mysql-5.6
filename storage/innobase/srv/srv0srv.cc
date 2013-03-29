@@ -499,6 +499,9 @@ UNIV_INTERN ib_mutex_t	srv_misc_tmpfile_mutex;
 /** Temporary file for miscellanous diagnostic output */
 UNIV_INTERN FILE*	srv_misc_tmpfile;
 
+/* Simulate compression failures. */
+UNIV_INTERN uint srv_simulate_comp_failures = 0;
+
 UNIV_INTERN ulint	srv_main_thread_process_no	= 0;
 UNIV_INTERN ulint	srv_main_thread_id		= 0;
 
