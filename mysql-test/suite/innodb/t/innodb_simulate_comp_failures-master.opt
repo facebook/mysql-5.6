@@ -1,0 +1,2 @@
+--innodb-file-per-table
+--innodb_compression_failure_threshold_pct=0
