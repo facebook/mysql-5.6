@@ -5565,6 +5565,19 @@ btr_copy_externally_stored_field(
 							      page_no, offset,
 							      trx);
 
+	if (*len != local_len + extern_len) {
+		ut_print_timestamp(stderr);
+		fprintf(stderr,
+			"  InnoDB: Possible blob truncation. Expected length"
+			" of the blob is %lu but read %lu bytes."
+			" space id = %lu, page no = %lu.\n",
+			local_len + extern_len,
+			*len,
+			space_id,
+			page_no);
+		ut_ad(0);
+	}
+
 	return(buf);
 }
 
