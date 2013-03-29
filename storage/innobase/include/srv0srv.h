@@ -193,6 +193,9 @@ extern ib_mutex_t	srv_misc_tmpfile_mutex;
 /* Temporary file for miscellanous diagnostic output */
 extern FILE*	srv_misc_tmpfile;
 
+/* Simulate compression failures. */
+extern uint srv_simulate_comp_failures;
+
 /* Server parameters which are read from the initfile */
 
 extern char*	srv_data_home;
