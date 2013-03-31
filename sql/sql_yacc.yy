@@ -1100,7 +1100,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  ASC                           /* SQL-2003-N */
 %token  ASCII_SYM                     /* MYSQL-FUNC */
 %token  ASENSITIVE_SYM                /* FUTURE-USE */
-%token  ASYNC_COMMIT_SYM		
+%token  ASYNC_COMMIT_SYM
 %token  AT_SYM                        /* SQL-2003-R */
 %token  AUTOEXTEND_SIZE_SYM
 %token  AUTO_INC
@@ -1764,7 +1764,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %type <num> start_transaction_option
 
 %type <m_yes_no_unk>
-        opt_chain opt_release 
+        opt_chain opt_release
         opt_async_commit
 
 %type <m_fk_option>
@@ -12335,13 +12335,13 @@ opt_wild:
         | '.' '*' {}
         ;
 
-opt_change_options:	
-          /* empty */ {}	
-        | opt_change_option opt_change_options {}	
-        ;	
-   	
-opt_change_option:	
-          ASYNC_COMMIT_SYM  { Lex->async_commit= 1; }	
+opt_change_options:
+          /* empty */ {}
+        | opt_change_option opt_change_options {}
+        ;
+
+opt_change_option:
+          ASYNC_COMMIT_SYM  { Lex->async_commit= 1; }
         ;
 
 opt_delete_options:

@@ -10646,12 +10646,14 @@ innobase_drop_database(
 	innobase_casedn_str(namebuf);
 #endif
 	trx = innobase_trx_allocate(thd);
+
 	if (trx->fake_changes) {
 		my_free(namebuf);
 		innobase_commit_low(trx);
 		trx_free_for_mysql(trx);
 		return; /* ignore */
 	}
+
 	/* Either the transaction is already flagged as a locking transaction
 	or it hasn't been started yet. */
 
@@ -14016,7 +14018,6 @@ innobase_xa_prepare(
 					false - the current SQL statement
 					ended */
 	bool		async)		/*!< in: TRUE - don't sync log */
-				
 {
 	int		error = 0;
 	trx_t*		trx = check_trx_exists(thd);
@@ -14062,6 +14063,7 @@ innobase_xa_prepare(
 		}
 
 		trx_prepare_for_mysql(trx, async);
+
 		error = 0;
 	} else {
 		/* We just mark the SQL statement ended and do not do a

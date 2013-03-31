@@ -2548,7 +2548,7 @@ mysql_execute_command(THD *thd,
 
   /* Apply Session level ASYNC COMMIT */
   lex->async_commit = lex->async_commit ||
-                      (thd->variables.option_bits & OPTION_ASYNC_COMMIT); 
+                      (thd->variables.option_bits & OPTION_ASYNC_COMMIT);
 #ifdef HAVE_REPLICATION
   if (unlikely(thd->slave_thread))
   {
@@ -6477,7 +6477,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
     {
       if (async_commit)
         *async_commit = lex->async_commit;
-      
+
       thd->m_statement_psi= MYSQL_REFINE_STATEMENT(thd->m_statement_psi,
                                                    sql_statement_info[thd->lex->sql_command].m_key);
 

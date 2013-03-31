@@ -3449,7 +3449,7 @@ static Sys_var_bit Sys_unique_checks(
 
 static Sys_var_bit Sys_async_commit(
        "sql_async_commit", "sql_async_commit",
-       SESSION_VAR(option_bits), NO_CMD_LINE, 
+       SESSION_VAR(option_bits), NO_CMD_LINE,
        OPTION_ASYNC_COMMIT, DEFAULT(FALSE));
 
 #ifdef ENABLED_PROFILING

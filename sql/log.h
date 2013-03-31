@@ -165,7 +165,7 @@ class TC_LOG_MMAP: public TC_LOG
   void close();
   enum_result commit(THD *thd, bool all, bool async);
   int rollback(THD *thd, bool all)      { return ha_rollback_low(thd, all); }
-  int prepare(THD *thd, bool all, bool async) { 
+  int prepare(THD *thd, bool all, bool async) {
     return ha_prepare_low(thd, all, async);
   }
   int recover();
