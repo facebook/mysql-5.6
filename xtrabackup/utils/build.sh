@@ -8,13 +8,28 @@ MYSQL_56_VERSION=5.6.10
 PS_51_VERSION=5.1.59-13.0
 PS_55_VERSION=5.5.16-22.0
 
-SRC_DIR="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2 -d=)"
-BUILD_TYPE="$(grep CMAKE_BUILD_TYPE:STRING= ../CMakeCache.txt | cut -f2 -d=)"
+if [ -r ../CMakeCache.txt ]; then
+  echo BUILD_TYPE= ${BUILD_TYPE:="$(grep CMAKE_BUILD_TYPE:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo SRC_DIR= ${SRC_DIR:="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo CMAKE= ${CMAKE:="$(grep CMAKE_COMMAND:INTERNAL= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo CXX= ${CXX:="$(grep CMAKE_CXX_COMPILER:FILEPATH= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_CXX_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo CC= ${CC:="$(grep CMAKE_C_COMPILER:FILEPATH= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo CXXFLAGS= ${CXXFLAGS:="$(grep CMAKE_CXX_FLAGS:STRING= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo CFLAGS= ${CFLAGS:="$(grep CMAKE_C_FLAGS:STRING= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
+else
+  echo BUILD_TYPE= ${BUILD_TYPE:=Release}
+  echo SRC_DIR= ${SRC_DIR:=$(readlink -f ..)}
+  echo CMAKE= ${CMAKE:=cmake}
+  echo CXX= ${CXX:=g++}
+  echo CC= ${CC:=gcc}
+  echo CXXFLAGS= ${CXXFLAGS:-}
+  echo CFLAGS= ${CFLAGS:-}
+fi
 
 export CC="$CC"
 export CXX="$CXX"
 export CFLAGS="$CFLAGS -DXTRABACKUP"
-export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions -std=c++0x"
+export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions"
 export LDFLAGS="$LDFLAGS"
 export SRC_DIR="$SRC_DIR"
 export BUILD_TYPE="$BUILD_TYPE"
@@ -52,16 +67,11 @@ function build_server()
     local $type=$1
     echo "Configuring the server"
     cd $server_dir
+    echo eval $configure_cmd
     eval $configure_cmd
 
     echo "Building the server"
-    if [ "$type" = "innodb56" ]
-    then
-        make_dirs libmysqld
-    else
-        make_dirs include zlib strings mysys dbug extra
-        make_dirs $innodb_dir
-    fi
+    make_dirs libmysqld
     cd $top_dir
 }
 
@@ -111,10 +121,6 @@ function build_xtrabackup()
 function build_all()
 {
     local type=$1
-    local mysql_version_short=${mysql_version:0:3}
-    server_dir=$top_dir/mysql-$mysql_version_short
-    server_tarball=mysql-$mysql_version.tar.gz
-    innodb_dir=$server_dir/storage/$innodb_name
 
     mkdir -p $server_dir
     build_server $type
@@ -138,11 +144,14 @@ case "$type" in
         server_patch=innodb56.patch
         innodb_name=innobase
         xtrabackup_target=5.6
+        mysql_version_short=${mysql_version:0:3}
+        server_dir=$top_dir/mysql-$mysql_version_short
         configure_cmd="${CMAKE} $SRC_DIR \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_ZLIB=bundled \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
+                -DMYSQL_ROOT_DIR=$server_dir \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
         build_all $type
         ;;
