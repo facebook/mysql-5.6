@@ -121,10 +121,11 @@ buf_read_page_low(
 			which we have DISCARDed + IMPORTed back */
 	ulint	offset,	/*!< in: page number */
 	trx_t*	trx,
-	ibool	should_submit)	/*!< in: whether to buffer an aio request
-				or submit all buffered requests. Only used
-				by aio read ahead*/
-
+	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you are read to commit all your requests.*/
 {
 	buf_page_t*	bpage;
 	ulint		wake_later;
@@ -189,7 +190,7 @@ buf_read_page_low(
 			      sync, space, zip_size, offset, 0, zip_size,
 			      bpage->zip.data, bpage,
 			      trx ? &trx->table_io_perf : NULL,
-			      should_submit);
+			      should_buffer);
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 
@@ -198,7 +199,7 @@ buf_read_page_low(
 			      sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
 			      ((buf_block_t*) bpage)->frame, bpage,
 			      trx ? &trx->table_io_perf : NULL,
-			      should_submit);
+			      should_buffer);
 	}
 	thd_wait_end(NULL);
 
@@ -350,7 +351,7 @@ read_ahead:
 				&err, FALSE,
 				ibuf_mode | OS_AIO_SIMULATED_WAKE_LATER,
 				space, zip_size, FALSE,
-				tablespace_version, i, trx, TRUE);
+				tablespace_version, i, trx, FALSE);
 			if (err == DB_TABLESPACE_DELETED) {
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
@@ -414,7 +415,7 @@ buf_read_page(
 
 	count = buf_read_page_low(&err, TRUE, BUF_READ_ANY_PAGE, space,
 				  zip_size, FALSE,
-				  tablespace_version, offset, trx, TRUE);
+				  tablespace_version, offset, trx, FALSE);
 	srv_stats.buf_pool_reads.add(count);
 	if (err == DB_TABLESPACE_DELETED) {
 		ut_print_timestamp(stderr);
@@ -462,7 +463,7 @@ buf_read_page_async(
 				  | OS_AIO_SIMULATED_WAKE_LATER
 				  | BUF_READ_IGNORE_NONEXISTENT_PAGES,
 				  space, zip_size, FALSE,
-				  tablespace_version, offset, NULL, TRUE);
+				  tablespace_version, offset, NULL, FALSE);
 	srv_stats.buf_pool_reads.add(count);
 
 	/* We do not increment number of I/O operations used for LRU policy
@@ -722,7 +723,7 @@ buf_read_ahead_linear(
 				&err, FALSE,
 				ibuf_mode,
 				space, zip_size, FALSE, tablespace_version, i,
-				trx, FALSE);
+				trx, TRUE);
 			if (err == DB_TABLESPACE_DELETED) {
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
@@ -736,10 +737,8 @@ buf_read_ahead_linear(
 		}
 	}
 #if defined(LINUX_NATIVE_AIO)
-	/* Tell aio to submit all buffered requests.
-	This will be removed by Nizam later. */
-	os_aio(OS_FILE_READ, OS_AIO_SUBMIT, NULL, 0,
-	       NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, TRUE);
+	/* Tell aio to submit all buffered requests. */
+	ut_a(os_aio_linux_dispatch_read_array_submit());
 #endif
 
 	/* In simulated aio we wake the aio handler threads only after
@@ -818,7 +817,7 @@ buf_read_ibuf_merge_pages(
 		buf_read_page_low(&err, sync && (i + 1 == n_stored),
 				  BUF_READ_ANY_PAGE, space_ids[i],
 				  zip_size, TRUE, space_versions[i],
-				  page_nos[i], NULL, TRUE);
+				  page_nos[i], NULL, FALSE);
 
 		if (UNIV_UNLIKELY(err == DB_TABLESPACE_DELETED)) {
 tablespace_deleted:
@@ -913,13 +912,13 @@ buf_read_recv_pages(
 		if ((i + 1 == n_stored) && sync) {
 			buf_read_page_low(&err, TRUE, BUF_READ_ANY_PAGE, space,
 					  zip_size, TRUE, tablespace_version,
-					  page_nos[i], NULL, TRUE);
+					  page_nos[i], NULL, FALSE);
 		} else {
 			buf_read_page_low(&err, FALSE, BUF_READ_ANY_PAGE
 					  | OS_AIO_SIMULATED_WAKE_LATER,
 					  space, zip_size, TRUE,
 					  tablespace_version, page_nos[i],
-					  NULL, TRUE);
+					  NULL, FALSE);
 		}
 	}
 

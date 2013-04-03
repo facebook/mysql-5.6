@@ -178,7 +178,6 @@ enum os_file_create_t {
 				i/o is not as good, because it must serialize
 				the file seek and read or write, causing a
 				bottleneck for parallelism. */
-#define OS_AIO_SUBMIT	25	/*!< submit buffered aio requests */
 
 #define OS_AIO_SIMULATED_WAKE_LATER	512 /*!< This can be ORed to mode
 				in the call of os_aio(...),
@@ -306,10 +305,10 @@ The wrapper functions have the prefix of "innodb_". */
 
 # define os_aio(type, mode, name, file, buf, offset,			\
 		n, message1, message2, primary_index_id, io_perf2, tab,	\
-		should_submit) \
+		should_buffer) \
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
 		n, message1, message2, __FILE__, __LINE__, 		\
-		primary_index_id, io_perf2, tab, should_submit)
+		primary_index_id, io_perf2, tab, should_buffer)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -346,10 +345,10 @@ to original un-instrumented file I/O APIs */
 
 # define os_aio(type, mode, name, file, buf, offset, n,			\
 		message1, message2, primary_index_id, io_perf2, tab,	\
-		should_submit)						\
+		should_buffer)						\
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
 		    message1, message2, primary_index_id, io_perf2, tab,\
-		    should_submit)
+		    should_buffer)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -802,10 +801,12 @@ pfs_os_aio_func(
 				/*!< in/out: table IO stats counted for
 				IS.user_statistics only for sync read
 				and writes */
-	ibool		should_submit);
-				/*!< in: whether to buffer an aio request
-				or submit all buffered requests. Only used
-				by aio read ahead*/
+	ibool		should_buffer);
+				/*!< in: Whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you are read to commit all your requests.*/
 /*******************************************************************//**
 NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1143,10 +1144,11 @@ os_aio_func(
 				/*!< in/out: table IO stats counted for
 				IS.user_statistics only for sync read
 				and writes */
-	ibool	should_submit);
-				/*!< in: whether to buffer an aio request
-				or submit all buffered requests. Only used
-				by aio read ahead*/
+	ibool	should_buffer);	/*!< in: Whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you are read to commit all your requests.*/
 /************************************************************************//**
 Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */
@@ -1310,6 +1312,12 @@ os_aio_linux_handle(
 				parameters are valid and can be used to
 				restart the operation. */
 	ulint*	type);		/*!< out: OS_FILE_WRITE or ..._READ */
+/*******************************************************************//**
+Submit buffered AIO requests on the given segment to the kernel.
+@return	TRUE on success. */
+UNIV_INTERN
+ibool
+os_aio_linux_dispatch_read_array_submit();
 #endif /* LINUX_NATIVE_AIO */
 
 #ifndef UNIV_NONINL

@@ -5627,9 +5627,11 @@ _fil_io(
 	os_io_table_perf_t* table_io_perf,/* in/out: tracks table IO stats
 				to be counted in IS.user_statistics only
 				for sync reads and writes */
-	ibool	should_submit)	/*!< in: whether to buffer an aio request
-				or submit all buffered requests. Only used
-				by aio read ahead*/
+	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you are read to commit all your requests.*/
 {
 	ulint		mode;
 	fil_space_t*	space;
@@ -5840,7 +5842,7 @@ _fil_io(
 			? NULL : &space->primary_index_id,
 		     /*(io_flags & OS_AIO_DOUBLE_WRITE)
 			? &io_perf_doublewrite : */&space->io_perf2,
-		     table_io_perf, should_submit);
+		     table_io_perf, should_buffer);
 #endif /* UNIV_HOTBACKUP */
 	ut_a(ret);
 

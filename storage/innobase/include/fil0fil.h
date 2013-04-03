@@ -1043,10 +1043,8 @@ _fil_io(
 	os_io_table_perf_t* table_io_perf, /*!< in/out: tracks table IO stats
 				to be used in IS.user_statistics only for
 				sync reads and writes */
-	ibool	should_submit)	/*!< in: whether to buffer an aio request
-				or submit all buffered requests. Only used
-				by aio read ahead*/
-
+	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
+				Only used by aio read ahead*/
 	__attribute__((nonnull(8)));
 /**********************************************************************//**
 Waits for an aio operation to complete. This function is used to write the
