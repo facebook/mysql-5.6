@@ -183,7 +183,7 @@ page has been allocated in the buffer pool.  The control blocks for
 uncompressed pages are accessible via buf_block_t objects that are
 reachable via buf_pool->chunks[].
 
-The tree of free memory blocks (buf_pool->zip_free[]) are used by
+The chains of free memory blocks (buf_pool->zip_free[]) are used by
 the buddy allocator (buf0buddy.cc) to keep track of currently unused
 memory blocks of size sizeof(buf_page_t)..UNIV_PAGE_SIZE / 2.  These
 blocks are inside the UNIV_PAGE_SIZE-sized memory blocks of type
@@ -1328,8 +1328,7 @@ buf_pool_init_instance(
 		UT_LIST_INIT(buf_pool->free);
 		UT_LIST_INIT(buf_pool->buf_malloc_cache);
 
-		if (!buf_chunk_init(buf_pool, chunk, buf_pool_size) ||
-		    !buf_buddy_init(buf_pool)) {
+		if (!buf_chunk_init(buf_pool, chunk, buf_pool_size)) {
 			mem_free(chunk);
 			mem_free(buf_pool);
 
@@ -1414,8 +1413,6 @@ buf_pool_free_instance(
 	buf_chunk_t*	chunk;
 	buf_chunk_t*	chunks;
 	buf_page_t*	bpage;
-
-	buf_buddy_shutdown(buf_pool);
 
 	bpage = UT_LIST_GET_LAST(buf_pool->LRU);
 	while (bpage != NULL) {

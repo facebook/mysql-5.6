@@ -2503,7 +2503,7 @@ i_s_cmpmem_fill_low(
 			table->field[1]->store(i);
 			table->field[2]->store(buddy_stat->used);
 			table->field[3]->store(UNIV_LIKELY(x < BUF_BUDDY_SIZES)
-				? rbt_size(buf_pool->zip_free[x])
+				? UT_LIST_GET_LEN(buf_pool->zip_free[x])
 				: 0);
 			table->field[4]->store(
 				(longlong) buddy_stat->relocated, true);
