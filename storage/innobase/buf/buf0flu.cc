@@ -535,9 +535,9 @@ buf_flush_remove(
 	buf_flush_list_mutex_enter(buf_pool);
 
 	switch (buf_page_get_state(bpage)) {
+	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE:
 		/* Clean compressed pages should not be on the flush list */
-	case BUF_BLOCK_ZIP_FREE:
 	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
@@ -907,7 +907,7 @@ buf_flush_write_block_low(
 			LOG_WRITE_FROM_DIRTY_BUFFER);
 #endif
 	switch (buf_page_get_state(bpage)) {
-	case BUF_BLOCK_ZIP_FREE:
+	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE: /* The page should be dirty. */
 	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:

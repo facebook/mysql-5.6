@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 1995, 2012, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 1995, 2013, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -103,9 +103,7 @@ extern ulint buf_malloc_cache_len;
 
 The enumeration values must be 0..7. */
 enum buf_page_state {
-	BUF_BLOCK_ZIP_FREE = 0,		/*!< contains a free
-					compressed page */
-	BUF_BLOCK_POOL_WATCH = 0,	/*!< a sentinel for the buffer pool
+	BUF_BLOCK_POOL_WATCH,		/*!< a sentinel for the buffer pool
 					watch, element of buf_pool->watch[] */
 	BUF_BLOCK_ZIP_PAGE,		/*!< contains a clean
 					compressed page */
@@ -1508,7 +1506,6 @@ struct buf_page_t{
 					- BUF_BLOCK_FILE_PAGE:	flush_list
 					- BUF_BLOCK_ZIP_DIRTY:	flush_list
 					- BUF_BLOCK_ZIP_PAGE:	zip_clean
-					- BUF_BLOCK_ZIP_FREE:	zip_free[]
 
 					If bpage is part of flush_list
 					then the node pointers are
@@ -1753,6 +1750,26 @@ Compute the hash fold value for blocks in buf_pool->zip_hash. */
 #define BUF_POOL_ZIP_FOLD(b) BUF_POOL_ZIP_FOLD_PTR((b)->frame)
 #define BUF_POOL_ZIP_FOLD_BPAGE(b) BUF_POOL_ZIP_FOLD((buf_block_t*) (b))
 /* @} */
+
+/** Struct that is embedded in the free zip blocks */
+struct buf_buddy_free_t {
+	union {
+		ulint	size;	/*!< size of the block */
+		byte	bytes[FIL_PAGE_DATA];
+				/*!< stamp[FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID]
+				== BUF_BUDDY_FREE_STAMP denotes a free
+				block. If the space_id field of buddy
+				block != BUF_BUDDY_FREE_STAMP, the block
+				is not in any zip_free list. If the
+				space_id is BUF_BUDDY_FREE_STAMP then
+				stamp[0] will contain the
+				buddy block size. */
+	} stamp;
+
+	buf_page_t	bpage;	/*!< Embedded bpage descriptor */
+	UT_LIST_NODE_T(buf_buddy_free_t) list;
+				/*!< Node of zip_free list */
+};
 
 /** @brief The buffer pool statistics structure. */
 struct buf_pool_stat_t{
@@ -2012,7 +2029,7 @@ struct buf_pool_t{
 	UT_LIST_BASE_NODE_T(buf_page_t)	zip_clean;
 					/*!< unmodified compressed pages */
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
-	UT_LIST_BASE_NODE_T(buf_page_t) zip_free[BUF_BUDDY_SIZES_MAX];
+	UT_LIST_BASE_NODE_T(buf_buddy_free_t) zip_free[BUF_BUDDY_SIZES_MAX];
 					/*!< buddy free lists */
 
 	buf_page_t*			watch;
