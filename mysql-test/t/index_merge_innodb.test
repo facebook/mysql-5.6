@@ -1,3 +1,4 @@
+--source include/have_debug.inc
 # Skiping this test from Valgrind execution as per Bug-14627884
 --source include/not_valgrind.inc
 # Adding big test option for this test.
