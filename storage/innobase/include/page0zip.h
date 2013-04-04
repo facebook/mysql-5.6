@@ -47,6 +47,27 @@ Created June 2005 by Marko Makela
 /* Compression level to be used by zlib. Settable by user. */
 extern uint	page_zip_level;
 
+#ifndef UNIV_INNOCHECKSUM
+extern ulint	malloc_cache_compress_len;
+extern ulint	malloc_cache_decompress_len;
+extern mem_block_cache_t*	malloc_cache_compress;
+extern mem_block_cache_t*	malloc_cache_decompress;
+#endif /* !UNIV_INNOCHECKSUM */
+
+
+/* Calculates block size as an upper bound required for memory, used for
+page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
+which initializes the mem_block_cache with it */
+UNIV_INTERN
+void
+page_zip_init(void);
+
+/* Frees the malloc_cache_compress, and malloc_cache_decompress
+mem_blocks, and all the cached mem_blocks in the queue. */
+UNIV_INTERN
+void
+page_zip_close();
+
 /* Default compression level. */
 #define DEFAULT_COMPRESSION_LEVEL	6
 

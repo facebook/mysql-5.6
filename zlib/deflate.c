@@ -60,6 +60,8 @@ const char deflate_copyright[] =
   copyright string in the executable of your product.
  */
 
+uLong deflate_state_size = sizeof(struct internal_state);
+
 /* ===========================================================================
  *  Function prototypes.
  */

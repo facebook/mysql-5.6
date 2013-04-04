@@ -495,5 +495,3 @@ TRUNCATE TABLE t1;
 DROP TABLE t1;
 DROP PROCEDURE setcrash;
 SET SESSION DEBUG= 'RESET';
-SET GLOBAL innodb_file_format = "Antelope";
-SET GLOBAL innodb_log_compressed_pages = 0;
