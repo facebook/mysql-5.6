@@ -102,6 +102,17 @@ typedef struct z_stream_s {
 
 typedef z_stream FAR *z_streamp;
 
+/* This is the size of the struct used by deflate_state.
+This is used when we need to allocate memory for deflate() */
+extern uLong deflate_state_size;
+extern uLong inflate_state_size;
+
+#define DEFLATE_MEMORY_BOUND(windowBits, memLevel) \
+    (4L << (windowBits)) + (512L << (memLevel)) + deflate_state_size
+
+#define INFLATE_MEMORY_BOUND(windowBits) \
+    (1L << (windowBits)) + inflate_state_size
+
 /*
      gzip header information passed to and from zlib routines.  See RFC 1952
   for more details on the meanings of these fields.
