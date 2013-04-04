@@ -91,6 +91,8 @@
 #  endif
 #endif
 
+uLong inflate_state_size = sizeof(struct inflate_state);
+
 /* function prototypes */
 local void fixedtables OF((struct inflate_state FAR *state));
 local int updatewindow OF((z_streamp strm, unsigned out));

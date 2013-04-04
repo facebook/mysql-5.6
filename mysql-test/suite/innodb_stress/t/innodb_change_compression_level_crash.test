@@ -9,10 +9,12 @@
 --source include/have_debug.inc
 --source include/have_innodb.inc
 
+--disable_query_log
 # record the file format in order to restore in the end.
 --let $file_format_save = `SELECT @@innodb_file_format`
 --let $log_compressed_pages_save = `SELECT @@innodb_log_compressed_pages`
 --let $innodb_compression_level_save = `SELECT @@innodb_compression_level`
+--enable_query_log
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -94,10 +96,12 @@ DROP TABLE t1;
 DROP PROCEDURE setcrash;
 SET SESSION DEBUG= 'RESET';
 
+--disable_query_log
 # restore innodb_file_format and innodb_file_format_check
 eval SET GLOBAL innodb_file_format = \"$file_format_save\";
 eval SET GLOBAL innodb_log_compressed_pages = $log_compressed_pages_save;
 eval SET GLOBAL innodb_compression_level = $innodb_compression_level_save;
+--enable_query_log
 
 # clean exit
 --exit
