@@ -2,7 +2,6 @@
 # Run explain_non_select.inc on MyISAM without any of the socalled 6.0 features.
 #
 
---source include/have_debug.inc
 --source include/not_embedded.inc
 
 --disable_query_log

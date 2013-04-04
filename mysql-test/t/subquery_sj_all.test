@@ -2,8 +2,6 @@
 # Run subquery_sj.inc with all of the so-called 6.0 features.
 #
 
---source include/have_debug.inc
-
 --source include/have_semijoin.inc
 --source include/have_materialization.inc
 --source include/have_firstmatch.inc
