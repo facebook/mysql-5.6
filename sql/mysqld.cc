@@ -5391,13 +5391,7 @@ static void init_cachedev(void)
   cachedev_fd = -1;
   cachedev_enabled= FALSE;
 
-  if (!mysql_data_home)
-  {
-    error_message= "mysql_data_home not set";
-    goto epilogue;
-  }
-
-  if (stat(mysql_data_home, &st_data_home_dir) < 0)
+  if (stat(mysql_real_data_home, &st_data_home_dir) < 0)
   {
     error_message= "statfs failed";
     goto epilogue;
