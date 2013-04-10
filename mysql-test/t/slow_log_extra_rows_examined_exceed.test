@@ -1,0 +1,54 @@
+#
+# Test --log-slow-extra
+#
+
+--source include/have_innodb.inc
+
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra_rows_examined_exceed-slow.log";
+
+connection default;
+
+drop table if exists rows_examined_exceed;
+--enable_warnings
+
+create table rows_examined_exceed(i int) engine=innodb;
+insert into rows_examined_exceed values (1), (2), (3), (4), (5), (6), (7), (8);
+
+--echo Disable slow_log_if_rows_examined_exceed
+set global slow_log_if_rows_examined_exceed=0;
+
+connect (con,localhost,root,,);
+--echo Nothing should be logged for this
+select * from rows_examined_exceed;
+
+connection default;
+set global slow_log_if_rows_examined_exceed=5;
+
+connect (con1,localhost,root,,);
+--echo One line should be logged
+select * from rows_examined_exceed limit 8;
+--echo Nothing should be logged
+select * from rows_examined_exceed limit 4;
+
+connection default;
+set global slow_log_if_rows_examined_exceed=0;
+disconnect con;
+disconnect con1;
+drop table rows_examined_exceed;
+set global slow_query_log_file = @my_slow_logname;
+let $count_sessions = 1;
+--source include/wait_until_count_sessions.inc
+
+--perl
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra_rows_examined_exceed-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ m/^# Query_time/) {
+    $line =~ m/(Rows_sent.*) Thread_id.* (Errno.*) Start.*/;
+    print "$1 $2\n";
+  }
+}
+EOF
+
+--exit
