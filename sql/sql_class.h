@@ -483,6 +483,7 @@ typedef struct system_variables
   ulong profiling_history_size;
   ulong read_buff_size;
   ulong read_rnd_buff_size;
+  ulong slow_log_if_rows_examined_exceed;
   ulong div_precincrement;
   ulong sortbuff_size;
   ulong max_sp_recursion_depth;
