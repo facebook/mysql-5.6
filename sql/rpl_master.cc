@@ -1540,7 +1540,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     */
     if (test_for_non_eof_log_read_errors(error, &errmsg))
       GOTO_ERR;
- 
+
     /*
       When read_log_event in the above loop returns LOG_READ_BINLOG_LAST_
       VALID_POS instead of normal EOF, we cannot open next binlog file which
@@ -1607,11 +1607,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           event_type= (Log_event_type)((*packet)[LOG_EVENT_OFFSET+ev_offset]);
           DBUG_ASSERT(event_type != FORMAT_DESCRIPTION_EVENT);
 	  break;
- 
+
   case LOG_READ_EOF:
     goto_next_binlog = true;
     break;
-  
+
   case LOG_READ_BINLOG_LAST_VALID_POS:
         {
           /*
@@ -1620,7 +1620,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             we get a signal from other threads that binlog is updated.
           */
           mysql_mutex_lock(log_lock);
-          
+
           /*
             We might have got stale value from is_active in read_log_event.
             Make sure the current binlog file is active. This is an edge case
@@ -1629,7 +1629,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             signal_update if the binlog is not active. Instead break and read
             again which causes us to eventually read all events and open
             the next binlog file.
-          */ 
+          */
           if (!mysql_bin_log.is_active(log_file_name))
           {
             mysql_mutex_unlock(log_lock);
@@ -1637,9 +1637,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           }
           /*
             This is also to avoid an edge case where before acquiring
-            log_lock here binlog_last_valid_pos may be updated in first step of 
+            log_lock here binlog_last_valid_pos may be updated in first step of
             ordered_commit() which causes us to miss binlog update. Then we
-            must wait until next signal_update() which is not necessary if 
+            must wait until next signal_update() which is not necessary if
             we check that there is a scope for next read.
           */
           if (my_b_tell(&log) < get_binlog_last_valid_pos())
@@ -1647,13 +1647,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             mysql_mutex_unlock(log_lock);
             break;
           }
-          
+
           if (thd->server_id==0) // for mysqlbinlog (mysqlbinlog.server_id==0)
           {
             mysql_mutex_unlock(log_lock);
             goto end;
           }
- 
+
           int ret;
           ulong signal_cnt;
           DBUG_PRINT("wait",("waiting for data in binary log"));

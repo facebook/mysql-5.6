@@ -2918,7 +2918,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   if (flush_io_cache(&log_file) ||
       mysql_file_sync(log_file.file, MYF(MY_WME)))
     goto err;
-  /* 
+  /*
     We shouldn't set binlog_last_valid_pos for relay log which results in
     invalid value in the global variable binlog_last_valid_pos
   */

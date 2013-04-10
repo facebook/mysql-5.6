@@ -1198,7 +1198,7 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
     this may or may not give LOG_READ_BINLOG_LAST_VALID_POS depending on
     second condition. If it doesn't give LOG_READ_BINLOG_LAST_VALID_POS,
     it's fine because we should anyway need to read.
-  
+
     If it gives LOG_READ_BINLOG_LAST_VALID_POS, there is is_active check
     after acquiring lock_log in mysql_binlog_send before going to wait for
     binlog update. Acquiring log_lock each time we read an event increases
@@ -1207,7 +1207,7 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
 
     get_binlog_last_valid_pos() == my_b_tell(file) ensures that we don't read
     past the last valid position in binlog.
-  */ 
+  */
   if (mysql_bin_log.is_active(log_file_name) &&
       get_binlog_last_valid_pos() == my_b_tell(file))
   {
