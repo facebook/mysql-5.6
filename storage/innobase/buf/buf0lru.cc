@@ -946,6 +946,7 @@ buf_LRU_free_from_unzip_LRU_list(
 	buf_block_t*	block;
 	ibool 		freed;
 	ulint		scanned;
+	ibool		removed;
 
 	ut_ad(buf_pool_mutex_own(buf_pool));
 
@@ -966,7 +967,11 @@ buf_LRU_free_from_unzip_LRU_list(
 		ut_ad(block->in_unzip_LRU_list);
 		ut_ad(block->page.in_LRU_list);
 
-		freed = buf_LRU_free_page(&block->page, false);
+		freed = buf_LRU_free_page(&block->page, false, &removed);
+
+		/* With zip=FALSE in call to buf_LRU_free_block the compressed
+		page must remain on the LRU */
+		ut_ad(!removed);
 
 		block = prev_block;
 	}
@@ -987,14 +992,17 @@ ibool
 buf_LRU_free_from_common_LRU_list(
 /*==============================*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
-	ibool		scan_all)	/*!< in: scan whole LRU list
+	ibool		scan_all,	/*!< in: scan whole LRU list
 					if TRUE, otherwise scan only
 					srv_LRU_scan_depth / 2 blocks. */
+	ulint*		space_id)	/*!<: out: space_id for freed page */
 {
 	buf_page_t*	bpage;
 	ibool		freed;
 	ulint		scanned;
+	ibool		removed;
 
+	*space_id = ULINT_UNDEFINED;
 	ut_ad(buf_pool_mutex_own(buf_pool));
 
 	for (bpage = UT_LIST_GET_LAST(buf_pool->LRU),
@@ -1011,7 +1019,12 @@ buf_LRU_free_from_common_LRU_list(
 		ut_ad(bpage->in_LRU_list);
 
 		accessed = buf_page_is_accessed(bpage);
-		freed = buf_LRU_free_page(bpage, true);
+
+		*space_id = bpage->space;
+
+		freed = buf_LRU_free_page(bpage, true, &removed);
+		if (!removed)
+			*space_id = ULINT_UNDEFINED;
 		if (freed && !accessed) {
 			/* Keep track of pages that are evicted without
 			ever being accessed. This gives us a measure of
@@ -1043,11 +1056,16 @@ buf_LRU_scan_and_free_block(
 					if TRUE, otherwise scan only
 					'old' blocks. */
 {
+	ibool	freed = FALSE;
+	ulint	space_id = ULINT_UNDEFINED;
+
 	ut_ad(buf_pool_mutex_own(buf_pool));
 
-	return(buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_all)
-	       || buf_LRU_free_from_common_LRU_list(
-			buf_pool, scan_all));
+	freed = (buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_all)
+	         || buf_LRU_free_from_common_LRU_list(buf_pool, scan_all,
+						      &space_id));
+
+	return(freed);
 }
 
 /******************************************************************//**
@@ -1794,8 +1812,9 @@ bool
 buf_LRU_free_page(
 /*===============*/
 	buf_page_t*	bpage,	/*!< in: block to be freed */
-	bool		zip)	/*!< in: true if should remove also the
+	bool		zip,	/*!< in: true if should remove also the
 				compressed page of an uncompressed page */
+	ibool*		removed)/*!< out: return TRUE if removed from LRU */
 {
 	buf_page_t*	b = NULL;
 	buf_pool_t*	buf_pool = buf_pool_from_bpage(bpage);
@@ -1818,6 +1837,8 @@ buf_LRU_free_page(
 	bytes. */
 	UNIV_MEM_ASSERT_RW(bpage, sizeof *bpage);
 #endif
+
+	*removed = FALSE;
 
 	if (!buf_page_can_relocate(bpage)) {
 
@@ -1878,6 +1899,8 @@ func_exit:
 #endif /* UNIV_SYNC_DEBUG */
 	ut_ad(buf_page_can_relocate(bpage));
 
+	*removed = TRUE;
+
 	if (!buf_LRU_block_remove_hashed(bpage, zip)) {
 		return(true);
 	}
@@ -1931,6 +1954,8 @@ func_exit:
 
 		HASH_INSERT(buf_page_t, hash,
 			    buf_pool->page_hash, fold, b);
+
+		*removed = FALSE;
 
 		/* Insert b where bpage was in the LRU list. */
 		if (UNIV_LIKELY(prev_b != NULL)) {

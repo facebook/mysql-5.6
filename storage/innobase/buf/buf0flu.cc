@@ -1407,9 +1407,13 @@ buf_free_from_unzip_LRU_list_batch(
 	while (block != NULL && count < max
 	       && free_len < srv_LRU_scan_depth
 	       && lru_len > UT_LIST_GET_LEN(buf_pool->LRU) / 10) {
+		ibool	freed;
+		ibool	removed;
 
 		++scanned;
-		if (buf_LRU_free_page(&block->page, false)) {
+		freed = buf_LRU_free_page(&block->page, false, &removed);
+
+		if (freed) {
 			/* Block was freed. buf_pool->mutex potentially
 			released and reacquired */
 			++count;
@@ -1486,7 +1490,12 @@ buf_flush_LRU_list_batch(
 		of the flushed pages then the scan becomes
 		O(n*n). */
 		if (evict) {
-			if (buf_LRU_free_page(bpage, true)) {
+			ibool	freed;
+			ibool	removed;
+
+			freed = buf_LRU_free_page(bpage, true, &removed);
+
+			if (freed) {
 				/* buf_pool->mutex was potentially
 				released and reacquired. */
 				bpage = UT_LIST_GET_LAST(buf_pool->LRU);
@@ -2050,7 +2059,9 @@ buf_flush_single_page_from_LRU(
 
 	evict_zip = !buf_LRU_evict_from_unzip_LRU(buf_pool);;
 
-	freed = buf_LRU_free_page(bpage, evict_zip);
+	ibool removed;
+
+	freed = buf_LRU_free_page(bpage, evict_zip, &removed);
 	buf_pool_mutex_exit(buf_pool);
 
 	return(freed);
