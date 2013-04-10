@@ -5,6 +5,8 @@
 -- source include/have_innodb.inc
 
 --let $file_format_save = `SELECT @@innodb_file_format`
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra_big-slow.log";
 
 #
 # Confirm that per-query stats work.
@@ -52,6 +54,7 @@ let $count_sessions= 1;
 drop table big_table_slow;
 
 eval SET GLOBAL innodb_file_format = \"$file_format_save\";
+set global slow_query_log_file = @my_slow_logname;
 
 --echo #
 --echo # This is a hack to check the log result.
@@ -59,12 +62,12 @@ eval SET GLOBAL innodb_file_format = \"$file_format_save\";
 --echo #
 
 --perl
-open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/mysqld-slow.log" or die;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra_big-slow.log" or die;
 my @lines = <FILE>;
 foreach $line (@lines) {
   if ($line =~ m/^# Query_time/) {
-    $line =~ m/(Rows_sent.*) Start.*/;
-    print "$1\n";
+    $line =~ m/(Rows_sent.*) Thread_id.* (Errno.*) Start.*/;
+    print "$1 $2\n";
   }
 }
 EOF
