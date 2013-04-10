@@ -4,11 +4,21 @@
 
 --source include/have_innodb.inc
 
+# Just in case slow_log_extra-slow.log already exists, delete it first.
+--perl
+if (-e "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log") {
+   unlink("$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log");
+}
+EOF
+
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra-slow.log";
+
 set timestamp=10;
 select unix_timestamp(), sleep(2);
 
 let $MYSQLD_DATADIR= `select @@datadir`;
---exec [ "1" -eq `grep "SET timestamp=10;" $MYSQLD_DATADIR/../mysqld-slow.log | wc -l` ]
+--exec [ "1" -eq `grep "SET timestamp=10;" $MYSQLD_DATADIR/slow_log_extra-slow.log | wc -l` ]
 
 #
 # Confirm that per-query stats work.
@@ -35,6 +45,7 @@ select * from mslow;
 select * from mslow;
 
 connection default;
+set global slow_query_log_file = @my_slow_logname;
 set global long_query_time=1;
 disconnect con;
 drop table islow;
@@ -46,12 +57,12 @@ drop table mslow;
 --echo #
 
 --perl
-open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/mysqld-slow.log" or die;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log" or die;
 my @lines = <FILE>;
 foreach $line (@lines) {
   if ($line =~ m/^# Query_time/) {
-    $line =~ m/(Rows_sent.*) Start.*/;
-    print "$1\n";
+    $line =~ m/(Rows_sent.*) Thread_id.* (Errno.*) Start.*/;
+    print "$1 $2\n";
   }
 }
 EOF
