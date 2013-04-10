@@ -1,0 +1,4 @@
+SET @orig = @@global.slow_log_if_rows_examined_exceed;
+SELECT @orig;
+@orig
+10

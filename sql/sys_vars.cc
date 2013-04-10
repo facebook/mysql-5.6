@@ -2087,6 +2087,13 @@ static Sys_var_ulong Sys_min_examined_row_limit(
        SESSION_VAR(min_examined_row_limit), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_slow_log_if_rows_examined_exceed(
+       "slow_log_if_rows_examined_exceed",
+       "Log queries that examine more than slow_log_if_rows_examined_exceed "
+       "rows to file.",
+       SESSION_VAR(slow_log_if_rows_examined_exceed), CMD_LINE(OPT_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
+
 #ifdef _WIN32
 static Sys_var_mybool Sys_named_pipe(
        "named_pipe", "Enable the named pipe (NT)",
