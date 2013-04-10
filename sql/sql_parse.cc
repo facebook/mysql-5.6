@@ -2065,10 +2065,13 @@ bool log_slow_applicable(THD *thd)
                          opt_log_queries_not_using_indexes &&
                          !(sql_command_flags[thd->lex->sql_command] &
                            CF_STATUS_COMMAND));
-    bool log_this_query=  ((thd->server_status & SERVER_QUERY_WAS_SLOW) ||
-                           warn_no_index) &&
-                          (thd->get_examined_row_count() >=
-                           thd->variables.min_examined_row_limit);
+    bool log_this_query=  (((thd->server_status & SERVER_QUERY_WAS_SLOW) ||
+                            warn_no_index) &&
+                           (thd->get_examined_row_count() >=
+                            thd->variables.min_examined_row_limit)) ||
+      (thd->variables.slow_log_if_rows_examined_exceed > 0 &&
+       thd->get_examined_row_count() >
+       thd->variables.slow_log_if_rows_examined_exceed);
     bool suppress_logging= log_throttle_qni.log(thd, warn_no_index);
 
     if (!suppress_logging && log_this_query)

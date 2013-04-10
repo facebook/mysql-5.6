@@ -1,0 +1,43 @@
+set @my_slow_logname = @@global.slow_query_log_file;
+set global slow_query_log_file = "slow_log_extra_rows_examined_exceed-slow.log";
+drop table if exists rows_examined_exceed;
+Warnings:
+Note	1051	Unknown table 'test.rows_examined_exceed'
+create table rows_examined_exceed(i int) engine=innodb;
+insert into rows_examined_exceed values (1), (2), (3), (4), (5), (6), (7), (8);
+Disable slow_log_if_rows_examined_exceed
+set global slow_log_if_rows_examined_exceed=0;
+Nothing should be logged for this
+select * from rows_examined_exceed;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+set global slow_log_if_rows_examined_exceed=5;
+One line should be logged
+select * from rows_examined_exceed limit 8;
+i
+1
+2
+3
+4
+5
+6
+7
+8
+Nothing should be logged
+select * from rows_examined_exceed limit 4;
+i
+1
+2
+3
+4
+set global slow_log_if_rows_examined_exceed=0;
+drop table rows_examined_exceed;
+set global slow_query_log_file = @my_slow_logname;
+Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 143 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 8 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
