@@ -1,0 +1,64 @@
+#
+# Test IS.user_statistics for rows_* counters during primary key scans
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists fb;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+create table fb(i int, j int, k int) engine=innodb;
+insert into fb values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+create index x1 on fb(j,k);
+create index x2 on fb(k,j);
+
+select records_in_range_calls from information_schema.user_statistics where user_name = 'mysqltest_1';
+
+--echo This should make 2 calls to records_in_range
+select count(*) from fb where j=1 and k=1;
+select records_in_range_calls from information_schema.user_statistics where user_name = 'mysqltest_1';
+
+--echo This should make 1 call to records_in_range
+select count(*) from fb FORCE INDEX (x1) where j=1 and k=1;
+select records_in_range_calls from information_schema.user_statistics where user_name = 'mysqltest_1';
+
+# Cleanup
+drop table fb;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+

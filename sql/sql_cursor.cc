@@ -105,7 +105,9 @@ bool mysql_open_cursor(THD *thd, select_result *result,
   save_result= lex->result;
 
   lex->result= result_materialize;
-
+  ulonglong start_time, last_time;
+  start_time = my_timer_now();
+  last_time = start_time;
   MYSQL_QUERY_EXEC_START(thd->query(),
                          thd->thread_id,
                          (char *) (thd->db ? thd->db : ""),
@@ -114,7 +116,7 @@ bool mysql_open_cursor(THD *thd, select_result *result,
                          2);
   parent_locker= thd->m_statement_psi;
   thd->m_statement_psi= NULL;
-  bool rc= mysql_execute_command(thd, NULL);
+  bool rc= mysql_execute_command(thd, &start_time, &last_time);
   thd->m_statement_psi= parent_locker;
   MYSQL_QUERY_EXEC_DONE(rc);
 

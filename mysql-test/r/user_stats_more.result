@@ -1,0 +1,30 @@
+drop table if exists userstats;
+create table userstats (i int primary key, j int) engine=innodb;
+insert into userstats values (1,1);
+insert into userstats values (2,2);
+insert into userstats values (3,3);
+flush statistics;
+
+At start
+
+select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';;
+records_in_range_calls	0
+queries_empty	0
+select * from userstats where i < 2;
+i	j
+1	1
+
+should be records_in_range_calls=1 and empty_queries=0
+
+select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';;
+records_in_range_calls	1
+queries_empty	0
+select * from userstats where i < 1;
+i	j
+
+should be records_in_range_calls=2 and empty_queries=1
+
+select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';;
+records_in_range_calls	2
+queries_empty	1
+drop table userstats;
