@@ -194,6 +194,7 @@ JOIN::exec()
   error= do_select(this);
   /* Accumulate the counts from all join iterations of all join parts. */
   thd->inc_examined_row_count(examined_rows);
+  thd->status_var.rows_examined+= examined_rows;
   DBUG_PRINT("counts", ("thd->examined_row_count: %lu",
                         (ulong) thd->get_examined_row_count()));
 
