@@ -242,6 +242,8 @@ inline double my_timer_to_microseconds(ulonglong when)
 struct comp_stat_struct {
   /** Size of the compressed data on the page */
   int page_size;
+  /** Current padding for compression */
+  int padding;
   /** Number of page compressions */
   ulonglong compressed;
   /** Number of successful page compressions */
