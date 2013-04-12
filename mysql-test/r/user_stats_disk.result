@@ -1,0 +1,52 @@
+drop table if exists userstats;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table userstats (i int, j char(150)) engine=innodb;
+insert into userstats values (1,1), (2,2), (3,3), (4,4);
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+insert into userstats select * from userstats;
+select disk_read_requests into @drr1 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select disk_read_bytes into @drb1 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select disk_read_svc_usecs into @drs1 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select disk_read_wait_usecs into @drw1 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select count(*) from userstats;
+count(*)
+262144
+select disk_read_requests into @drr2 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select disk_read_bytes into @drb2 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select disk_read_svc_usecs into @drs2 from information_schema.user_statistics where user_name = 'mysqltest_1';
+select disk_read_wait_usecs into @drw2 from information_schema.user_statistics where user_name = 'mysqltest_1';
+
+Confirm that all disk read counters increased
+
+select @drr2 - @drr1 > 0;
+@drr2 - @drr1 > 0
+1
+select @drb2 - @drb1 > 0;
+@drb2 - @drb1 > 0
+1
+select @drs2 - @drs1 > 0;
+@drs2 - @drs1 > 0
+1
+select @drw2 - @drw1 > 0;
+@drw2 - @drw1 > 0
+1
+drop table userstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;

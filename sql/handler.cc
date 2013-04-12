@@ -1522,6 +1522,7 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit)
   int error=0;
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
   Ha_trx_info *ha_info= trans->ha_list, *ha_info_next;
+  bool is_real_trans= all || thd->transaction.all.ha_list == 0;
   DBUG_ENTER("ha_commit_low");
 
   if (ha_info)
@@ -1536,6 +1537,11 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit)
         error=1;
       }
       status_var_increment(thd->status_var.ha_commit_count);
+      if (is_real_trans)
+      {
+        USER_STATS *us= thd_get_user_stats(thd);
+        my_atomic_add64((longlong*)&(us->transactions_commit), 1);
+      }
       ha_info_next= ha_info->next();
       ha_info->reset(); /* keep it conveniently zero-filled */
     }
@@ -1592,6 +1598,8 @@ int ha_rollback_low(THD *thd, bool all)
         error= 1;
       }
       status_var_increment(thd->status_var.ha_rollback_count);
+      USER_STATS *us= thd_get_user_stats(thd);
+      my_atomic_add64((longlong*)&(us->transactions_rollback), 1);
       ha_info_next= ha_info->next();
       ha_info->reset(); /* keep it conveniently zero-filled */
     }
@@ -2068,6 +2076,8 @@ int ha_rollback_to_savepoint(THD *thd, SAVEPOINT *sv)
       error=1;
     }
     status_var_increment(thd->status_var.ha_rollback_count);
+    USER_STATS *us= thd_get_user_stats(thd);
+    my_atomic_add64((longlong*)&(us->transactions_rollback), 1);
     ha_info_next= ha_info->next();
     ha_info->reset(); /* keep it conveniently zero-filled */
   }
@@ -5676,14 +5686,28 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       rows= table->key_info[keyno].rec_per_key[keyparts_used-1];
     else
     {
+      ulonglong range_timer;
       DBUG_EXECUTE_IF("crash_records_in_range", DBUG_SUICIDE(););
       DBUG_ASSERT(min_endp || max_endp);
+      range_timer = my_timer_now();
       if (HA_POS_ERROR == (rows= this->records_in_range(keyno, min_endp, 
                                                         max_endp)))
       {
         /* Can't scan one range => can't do MRR scan at all */
         total_rows= HA_POS_ERROR;
         break;
+      }
+      else
+      {
+        if (thd)
+        {
+          USER_STATS *us= thd_get_user_stats(thd);
+          ulonglong range_microsecs =
+            (ulonglong) my_timer_to_microseconds(my_timer_since(range_timer));
+          my_atomic_add64((longlong*)&(us->microseconds_records_in_range),
+                               range_microsecs);
+          my_atomic_add64((longlong*)&(us->records_in_range_calls), 1);
+        }
       }
     }
     total_rows += rows;
@@ -6963,6 +6987,13 @@ void handler::update_global_table_stats(THD *thd)
     my_io_perf_sum(&thd->io_perf_read, &stats.table_io_perf_read);
     my_io_perf_sum(&thd->io_perf_write, &stats.table_io_perf_write);
     my_io_perf_sum(&thd->io_perf_read_blob, &stats.table_io_perf_read_blob);
+
+    thd->rows_deleted += stats.rows_deleted;
+    thd->rows_updated += stats.rows_updated;
+    thd->rows_inserted += stats.rows_inserted;
+    thd->rows_read += stats.rows_read;
+    thd->rows_index_first += stats.rows_index_first;
+    thd->rows_index_next += stats.rows_index_next;
   }
 
   stats.reset_table_stats();

@@ -1,0 +1,29 @@
+drop table if exists fb;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table fb(i int, j int, k int) engine=innodb;
+insert into fb values (1,1,1), (2,2,2), (3,3,3), (4,4,4);
+create index x1 on fb(j,k);
+create index x2 on fb(k,j);
+select records_in_range_calls from information_schema.user_statistics where user_name = 'mysqltest_1';
+records_in_range_calls
+0
+This should make 2 calls to records_in_range
+select count(*) from fb where j=1 and k=1;
+count(*)
+1
+select records_in_range_calls from information_schema.user_statistics where user_name = 'mysqltest_1';
+records_in_range_calls
+2
+This should make 1 call to records_in_range
+select count(*) from fb FORCE INDEX (x1) where j=1 and k=1;
+count(*)
+1
+select records_in_range_calls from information_schema.user_statistics where user_name = 'mysqltest_1';
+records_in_range_calls
+3
+drop table fb;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
