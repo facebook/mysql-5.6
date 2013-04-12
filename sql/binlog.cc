@@ -4785,6 +4785,7 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
 bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::append");
+  USER_STATS *us= current_thd ? thd_get_user_stats(current_thd) : NULL;
 
   // check preconditions
   DBUG_ASSERT(log_file.type == SEQ_READ_APPEND);
@@ -4798,6 +4799,10 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
   if (ev->write(&log_file) == 0)
   {
     bytes_written+= ev->data_written;
+    if (us)
+    {
+      us->binlog_bytes_written += ev->data_written;
+    }
     error= after_append_to_relay_log(mi);
   }
   else
@@ -4811,6 +4816,7 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
 bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::append_buffer");
+  USER_STATS *us= current_thd ? thd_get_user_stats(current_thd) : NULL;
 
   // check preconditions
   DBUG_ASSERT(log_file.type == SEQ_READ_APPEND);
@@ -4822,6 +4828,10 @@ bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
   if (my_b_append(&log_file,(uchar*) buf,len) == 0)
   {
     bytes_written += len;
+    if (us)
+    {
+      us->binlog_bytes_written += len;
+    }
     error= after_append_to_relay_log(mi);
   }
   else
@@ -5504,6 +5514,8 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, bool need_lock_log,
                                    bool do_flush_and_sync)
 {
   uint error= 0;
+  THD *thd = ev->thd;
+  USER_STATS *us= thd ? thd_get_user_stats(thd) : NULL;
   DBUG_ENTER("MYSQL_BIN_LOG::write_incident");
 
   if (!is_open())
@@ -5517,6 +5529,10 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, bool need_lock_log,
   // @todo make this work with the group log. /sven
 
   error= ev->write(&log_file);
+  if (us)
+  {
+    us->binlog_bytes_written += ev->data_written;
+  }
 
   if (do_flush_and_sync)
   {
@@ -5585,6 +5601,7 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::write_cache(THD *, binlog_cache_data *, bool)");
 
+  USER_STATS *us= thd ? thd_get_user_stats(thd) : NULL;
   IO_CACHE *cache= &cache_data->cache_log;
   bool incident= cache_data->has_incident();
 
@@ -5620,6 +5637,10 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data)
 
       if ((write_error= do_write_cache(cache)))
         goto err;
+      if (us)
+      {
+        us->binlog_bytes_written += my_b_tell(cache);
+      }
 
       if (incident && write_incident(thd, false/*need_lock_log=false*/,
                                      false/*do_flush_and_sync==false*/))

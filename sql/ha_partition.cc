@@ -7360,6 +7360,7 @@ ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
 {
   ha_rows min_rows_to_check, rows, estimated_rows=0, checked_rows= 0;
   uint partition_index= 0, part_id;
+  THD* thd= current_thd;
   DBUG_ENTER("ha_partition::records_in_range");
 
   min_rows_to_check= min_rows_for_estimate();
@@ -7368,6 +7369,11 @@ ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
          != NO_CURRENT_PART_ID)
   {
     rows= m_file[part_id]->records_in_range(inx, min_key, max_key);
+    if (thd)
+    {
+      USER_STATS *us= thd_get_user_stats(thd);
+      my_atomic_add64((longlong*)&(us->records_in_range_calls), 1);
+    }
       
     DBUG_PRINT("info", ("part %u match %lu rows of %lu", part_id, (ulong) rows,
                         (ulong) m_file[part_id]->stats.records));

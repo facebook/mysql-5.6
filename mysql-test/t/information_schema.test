@@ -1838,6 +1838,17 @@ select TABLE_NAME,COLUMN_NAME,DATA_TYPE,DATETIME_PRECISION from information_sche
 drop database mysqltest;
 use test;
 
+#
+# basic tests for table_statistics
+#
+describe information_schema.table_statistics;
+select * from information_schema.table_statistics where TABLE_NAME = "does not exist";
+
+#
+# basic tests for user_statistics
+#
+describe information_schema.user_statistics;
+select * from information_schema.user_statistics where USER_NAME = "does not exist";
 
 --echo #
 --echo # End of 5.5 tests

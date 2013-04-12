@@ -3092,10 +3092,12 @@ Execute_sql_statement::execute_server_code(THD *thd)
     goto end;
 
   thd->lex->set_trg_event_type_for_tables();
-
+  ulonglong start_time, last_time;
+  start_time = my_timer_now();
+  last_time = start_time;
   parent_locker= thd->m_statement_psi;
   thd->m_statement_psi= NULL;
-  error= mysql_execute_command(thd, NULL);
+  error= mysql_execute_command(thd, &start_time, &last_time);
   thd->m_statement_psi= parent_locker;
 
   /* report error issued during command execution */
@@ -3886,6 +3888,9 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
                                           thd->query_length()) <= 0)
     {
       PSI_statement_locker *parent_locker;
+      ulonglong start_time, last_time;
+      start_time = my_timer_now();
+      last_time = start_time;
       MYSQL_QUERY_EXEC_START(thd->query(),
                              thd->thread_id,
                              (char *) (thd->db ? thd->db : ""),
@@ -3894,7 +3899,7 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
                              1);
       parent_locker= thd->m_statement_psi;
       thd->m_statement_psi= NULL;
-      error= mysql_execute_command(thd, NULL);
+      error= mysql_execute_command(thd, &start_time, &last_time);
       thd->m_statement_psi= parent_locker;
       MYSQL_QUERY_EXEC_DONE(error);
     }
