@@ -209,6 +209,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"COMPRESSED_PAGE_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PADDING", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_PRIMARY_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -365,6 +366,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->rows_requested, TRUE);
 
     table->field[f++]->store(table_stats->comp_stat.page_size, TRUE);
+    table->field[f++]->store(table_stats->comp_stat.padding, TRUE);
     table->field[f++]->store(table_stats->comp_stat.compressed, TRUE);
     table->field[f++]->store(table_stats->comp_stat.compressed_ok, TRUE);
     table->field[f++]->store(table_stats->comp_stat.compressed_primary, TRUE);
