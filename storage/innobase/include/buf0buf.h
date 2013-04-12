@@ -1674,6 +1674,15 @@ struct buf_block_t{
 					indexed in the hash index */
 	/* @} */
 
+	/** @name Working set size fields */
+	/* @{ */
+	unsigned char db_stats_index;
+					/*!< Index of the database to which this block belongs.
+					The index is obtained from the hashtable dbname_hash
+					in the buffer pool, and is used to obtain the relevant
+					hyperloglog structure to update */
+	/* @} */
+
 	/** @name Hash search fields
 	These 5 fields may only be modified when we have
 	an x-latch on btr_search_latch AND
