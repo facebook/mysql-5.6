@@ -122,18 +122,6 @@ using std::min;
    (LP)->sql_command == SQLCOM_DROP_FUNCTION ? \
    "FUNCTION" : "PROCEDURE")
 
-/* Time handling client commands */
-ulonglong command_seconds = 0;
-
-/* Time parsing client commands */
-ulonglong parse_seconds = 0;
-
-/* Time doing work post-parse but before execution */
-ulonglong pre_exec_seconds = 0;
-
-/* Time executing client commands */
-ulonglong exec_seconds = 0;
-
 static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
 	ulonglong *last_timer);
 static bool check_show_access(THD *thd, TABLE_LIST *table);
@@ -1865,7 +1853,7 @@ done:
   if (command != COM_BINLOG_DUMP)
   {
     ulonglong wall_time = my_timer_since(init_timer);
-    command_seconds += wall_time;
+    thd->status_var.command_time += wall_time;
 #ifndef EMBEDDED_LIBRARY
     if (thd)
     {
@@ -5188,7 +5176,7 @@ finish:
   }
 
   if (post_parse && lex->sql_command != SQLCOM_SELECT)
-    exec_seconds += my_timer_since_and_update(post_parse);
+    thd->status_var.exec_time += my_timer_since_and_update(post_parse);
 
   DBUG_ASSERT(!thd->in_active_multi_stmt_transaction() ||
                thd->in_multi_stmt_transaction_mode());
@@ -5283,7 +5271,7 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
   res = open_normal_and_derived_tables(thd, all_tables, 0);
 
   if (last_timer)
-    pre_exec_seconds += my_timer_since_and_update(last_timer);
+    thd->status_var.pre_exec_time += my_timer_since_and_update(last_timer);
 
   if(!res)
   {
@@ -5319,7 +5307,7 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
     }
   }
   if (last_timer)
-    exec_seconds += my_timer_since_and_update(last_timer);
+    thd->status_var.exec_time += my_timer_since_and_update(last_timer);
   DEBUG_SYNC(thd, "after_table_open");
   return res;
 }
@@ -6412,7 +6400,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
       }
     }
     if (last_timer)
-      parse_seconds += my_timer_since_and_update(last_timer);
+      thd->status_var.parse_time += my_timer_since_and_update(last_timer);
 
     if (!err)
     {
