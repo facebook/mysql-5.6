@@ -328,7 +328,7 @@ hash_create(
 }
 
 /*************************************************************//**
-Frees a hash table. */
+Frees a hash table. See hash_free_mutexes_func. */
 UNIV_INTERN
 void
 hash_table_free(
@@ -337,6 +337,15 @@ hash_table_free(
 {
 	ut_ad(table);
 	ut_ad(table->magic_n == HASH_TABLE_MAGIC_N);
+
+#ifndef UNIV_HOTBACKUP
+	if (table->n_sync_obj) {
+		mem_free(table->sync_obj.mutexes);
+		table->sync_obj.mutexes = NULL;
+		table->n_sync_obj = 0;
+	}
+	ut_a(table->sync_obj.mutexes == NULL);
+#endif /* !UNIV_HOTBACKUP */
 
 	ut_free(table->array);
 	mem_free(table);
@@ -399,5 +408,27 @@ hash_create_sync_obj_func(
 	}
 
 	table->n_sync_obj = n_sync_obj;
+}
+/*************************************************************//**
+Calls mutex_free for mutexes created by hash_create_mutexes_func.
+No need to call this when the caller runs after sync_close. */
+UNIV_INTERN
+void
+hash_free_mutexes_func(
+/*=====================*/
+	hash_table_t*	table)	/*!< in: hash table */
+{
+	ut_ad(table->magic_n == HASH_TABLE_MAGIC_N);
+
+	if (table->n_sync_obj) {
+		ulint i;
+		for (i = 0; 0 && i < table->n_sync_obj; i++) {
+			mutex_free(table->sync_obj.mutexes + i);
+		}
+		mem_free(table->sync_obj.mutexes);
+		table->sync_obj.mutexes = NULL;
+		table->n_sync_obj = 0;
+	}
+	ut_a(table->sync_obj.mutexes == NULL);
 }
 #endif /* !UNIV_HOTBACKUP */
