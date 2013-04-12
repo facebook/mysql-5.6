@@ -293,6 +293,17 @@ void fill_table_stats_cb(const char *db, const char *table,
 			 my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
 			 const char *engine);
 
+/* For information_schema.db_statistics */
+void update_global_db_stats_access(unsigned char db_stats_index,
+                                   uint64 space,
+                                   uint64 offset);
+void init_global_db_stats(void);
+void free_global_db_stats(void);
+void reset_global_db_stats(void);
+extern ST_FIELD_INFO db_stats_fields_info[];
+int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+
+
 /* For information_schema.user_statistics */
 extern ST_FIELD_INFO user_stats_fields_info[];
 void init_user_stats(USER_STATS *user_stats);
