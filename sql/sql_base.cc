@@ -2681,6 +2681,7 @@ bool open_table(THD *thd, TABLE_LIST *table_list, Open_table_context *ot_ctx)
   int error;
   TABLE_SHARE *share;
   my_hash_value_type hash_value;
+  ulonglong timer = my_timer_now();
 
   DBUG_ENTER("open_table");
 
@@ -3205,6 +3206,7 @@ share_found:
     }
     tc->unlock();
   }
+  thd->status_var.open_table_time += my_timer_since(timer);
   thd->status_var.table_open_cache_misses++;
 
 table_found:
