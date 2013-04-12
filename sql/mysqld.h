@@ -229,7 +229,7 @@ struct my_io_perf_struct {
   volatile ulonglong svc_time_max;
   volatile ulonglong wait_time; /*!< total time in the request array */
   volatile ulonglong wait_time_max;
-  volatile ulonglong old_ios; /*!< requests that take too long */
+  volatile ulonglong slow_ios; /*!< requests that take too long */
 };
 typedef struct my_io_perf_struct my_io_perf_t;
 
@@ -254,7 +254,7 @@ void my_io_perf_sum_atomic(
   ulonglong requests,
   ulonglong svc_time,
   ulonglong wait_time,
-  ulonglong old_ios);
+  ulonglong slow_ios);
 
 /* Accumulates io perf values using atomic operations */
 static inline void my_io_perf_sum_atomic_helper(
@@ -267,7 +267,7 @@ static inline void my_io_perf_sum_atomic_helper(
     perf->requests,
     perf->svc_time,
     perf->wait_time,
-    perf->old_ios);
+    perf->slow_ios);
 }
 
 /* Fetches table stats for a given table */

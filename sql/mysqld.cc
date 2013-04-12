@@ -3051,10 +3051,10 @@ void my_io_perf_diff(my_io_perf_t* diff,
   else
     diff->wait_time = 0;
 
-  if (a->old_ios > b->old_ios)
-    diff->old_ios = a->old_ios - b->old_ios;
+  if (a->slow_ios > b->slow_ios)
+    diff->slow_ios = a->slow_ios - b->slow_ios;
   else
-    diff->old_ios = 0;
+    diff->slow_ios = 0;
 
   diff->svc_time_max = max(a->svc_time_max, b->svc_time_max);
   diff->wait_time_max = max(a->wait_time_max, b->wait_time_max);
@@ -3070,7 +3070,7 @@ void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf)
   sum->svc_time_max = max(sum->svc_time_max, perf->svc_time_max);
   sum->wait_time += perf->wait_time;
   sum->wait_time_max = max(sum->wait_time_max, perf->wait_time_max);
-  sum->old_ios += perf->old_ios;
+  sum->slow_ios += perf->slow_ios;
 }
 
 /**********************************************************************
@@ -3081,7 +3081,7 @@ void my_io_perf_sum_atomic(
     ulonglong requests,
     ulonglong svc_time,
     ulonglong wait_time,
-    ulonglong old_ios)
+    ulonglong slow_ios)
 {
   my_atomic_add64((volatile longlong *)&sum->bytes, bytes);
   my_atomic_add64((volatile longlong *)&sum->requests, requests);
@@ -3105,7 +3105,7 @@ void my_io_perf_sum_atomic(
     my_atomic_cas64((longlong *)&sum->wait_time_max,
                     (longlong *)&old_wait_time_max, wait_time);
 
-  my_atomic_add64((volatile longlong *)&sum->old_ios, old_ios);
+  my_atomic_add64((volatile longlong *)&sum->slow_ios, slow_ios);
 }
 
 #if !defined(__WIN__)
