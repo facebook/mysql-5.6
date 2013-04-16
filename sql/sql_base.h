@@ -284,9 +284,12 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 typedef void (*table_stats_cb)(const char *db, const char *table,
 			       my_io_perf_t* r, my_io_perf_t* w,
 			       my_io_perf_t *r_blob,
+			       my_io_perf_t *r_primary,
+			       my_io_perf_t *r_secondary,
 			       const char *engine);
 void fill_table_stats_cb(const char *db, const char *table,
 			 my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+			 my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
 			 const char *engine);
 
 /* For information_schema.user_statistics */
@@ -301,7 +304,9 @@ update_user_stats_after_statement(USER_STATS *us,
                                   bool is_other_command,
                                   bool is_xid_event,
                                   my_io_perf_t *start_perf_read,
-                                  my_io_perf_t *start_perf_read_blob);
+                                  my_io_perf_t *start_perf_read_blob,
+                                  my_io_perf_t *start_perf_read_primary,
+                                  my_io_perf_t *start_perf_read_secondary);
 
 
 /* Functions to work with system tables. */
