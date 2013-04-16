@@ -20,7 +20,7 @@ insert into x select null,'foobar' from x;
 analyze table x;
 select count(*) from x;
 select i, max(j) from x group by i order by i;
-select * from information_schema.table_statistics where table_schema = 'test';
+--query_vertical select * from information_schema.table_statistics where table_schema = 'test';
 
 #
 # Confirm that temporary tables are not listed in SHOW TABLE_STATISTICS
@@ -33,7 +33,7 @@ create temporary table tt as select * from x;
 select count(*) from mt;
 select count(*) from tt;
 
-select * from information_schema.table_statistics where table_name != 'x';
+--query_vertical select * from information_schema.table_statistics where table_name != 'x'
 
 #
 # confirm that multiple statements are handled
@@ -51,7 +51,7 @@ update x set j='bar2' where i=2;
 delete from x where i=1;
 delete from x where i=2;
 
-select * from information_schema.table_statistics where table_name = 'x';
+--query_vertical select * from information_schema.table_statistics where table_name = 'x'
 
 #
 # cleanup
