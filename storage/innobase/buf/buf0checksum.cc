@@ -34,13 +34,13 @@ Created Aug 11, 2011 Vasil Dimov
 #include "srv0srv.h" /* SRV_CHECKSUM_* */
 #include "buf0types.h"
 
+#endif /* !UNIV_INNOCHECKSUM */
+
 /** the macro MYSQL_SYSVAR_ENUM() requires "long unsigned int" and if we
 use srv_checksum_algorithm_t here then we get a compiler error:
 ha_innodb.cc:12251: error: cannot convert 'srv_checksum_algorithm_t*' to
   'long unsigned int*' in initialization */
 UNIV_INTERN ulong	srv_checksum_algorithm = SRV_CHECKSUM_ALGORITHM_FACEBOOK;
-
-#endif /* !UNIV_INNOCHECKSUM */
 
 /********************************************************************//**
 Calculates a page CRC32 which is stored to the page when it is written
