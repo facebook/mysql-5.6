@@ -307,6 +307,7 @@ struct fil_space_t {
 	UT_LIST_NODE_T(fil_space_t) space_list;
 				/*!< list of all spaces */
 	os_io_perf2_t	io_perf2;/*!< per tablespace IO perf counters */
+	comp_stat_t     comp_stat; /*!< per tablespace compression counters */
 	fil_stats_t	stats;	/*!< per tablespace stats used in stats_hash */
 	/* If NAME_LEN were visible to InnoDB source, it would be used,
 	instead of FN_LEN+1. */
@@ -997,7 +998,7 @@ fil_update_table_stats(
 	void (*cb)(const char* db, const char* tbl,
 		   my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
 		   my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
-		   page_stats_t *page_stats,
+		   page_stats_t *page_stats, comp_stat_t *comp_stat,
 		   const char* engine));
 
 /********************************************************************//**
