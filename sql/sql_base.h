@@ -1,4 +1,3 @@
-
 /* Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
@@ -286,6 +285,7 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       my_io_perf_t *r_blob,
 			       my_io_perf_t *r_primary,
 			       my_io_perf_t *r_secondary,
+			       page_stats_t* page_stats,
 			       const char *engine);
 void fill_table_stats_cb(const char *db, const char *table,
 			 my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,

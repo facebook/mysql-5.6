@@ -337,6 +337,7 @@ fil_update_table_stats_one_cell(
                                               primary index */
 	my_io_perf_t*	read_arr_secondary, /*!< in: buffer for read stats for
                                               secondary index */
+	page_stats_t* page_stats_arr, /*< in: buffer for 'per page type' stats */
 	ulint		max_per_cell,	/*!< in: size of buffers */
 	void		(*cb)(const char* db,
 				const char* tbl,
@@ -345,6 +346,7 @@ fil_update_table_stats_one_cell(
 				my_io_perf_t *r_blob,
 				my_io_perf_t *r_primary,
 				my_io_perf_t *r_secondary,
+				page_stats_t* page_stats,
 				const char* engine),
 	char*		db_name_buf,	/*!< in: buffer for db names */
 	char*		table_name_buf)	/*!< in: buffer for table names */
@@ -378,6 +380,7 @@ fil_update_table_stats_one_cell(
 			read_arr_blob[found] = space->io_perf2.read_blob;
 			read_arr_primary[found] = space->io_perf2.read_primary;
 			read_arr_secondary[found] = space->io_perf2.read_secondary;
+			page_stats_arr[found] = space->io_perf2.page_stats;
 
 			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
 				space->db_name);
@@ -402,6 +405,7 @@ fil_update_table_stats_one_cell(
 			 &(read_arr_blob[report]),
 			 &(read_arr_primary[report]),
 			 &(read_arr_secondary[report]),
+			 &(page_stats_arr[report]),
 			 "InnoDB");
 	}
 }
@@ -420,6 +424,7 @@ fil_update_table_stats(
 			my_io_perf_t *r_blob,
 			my_io_perf_t *r_primary,
 			my_io_perf_t *r_secondary,
+			page_stats_t *page_stats,
 			const char* engine))
 {
 	ulint		n_cells;
@@ -430,6 +435,7 @@ fil_update_table_stats(
 	my_io_perf_t*	read_arr_blob;
 	my_io_perf_t*	read_arr_primary;
 	my_io_perf_t*	read_arr_secondary;
+	page_stats_t*	page_stats_arr;
 	char*		db_name_buf;
 	char*		table_name_buf;
 	static ibool	in_progress = FALSE;
@@ -500,6 +506,8 @@ fil_update_table_stats(
 				sizeof(my_io_perf_t) * max_per_cell);
 	read_arr_secondary = (my_io_perf_t*) ut_malloc(
 				sizeof(my_io_perf_t) * max_per_cell);
+	page_stats_arr = (page_stats_t*) ut_malloc(
+				sizeof(page_stats_t) * max_per_cell);
 	db_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
 	table_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
 
@@ -520,6 +528,8 @@ fil_update_table_stats(
 			ut_free(read_arr_primary);
 		if (read_arr_secondary)
 			ut_free(read_arr_secondary);
+		if (page_stats_arr)
+			ut_free(page_stats_arr);
 		if (db_name_buf)
 			ut_free(db_name_buf);
 		if (table_name_buf)
@@ -534,7 +544,7 @@ fil_update_table_stats(
 	for (n = 0; n < n_cells; ++n) {
 		fil_update_table_stats_one_cell(
 			n, read_arr, write_arr, read_arr_blob,
-			read_arr_primary, read_arr_secondary,
+			read_arr_primary, read_arr_secondary, page_stats_arr,
 			max_per_cell, cb, db_name_buf,
 			table_name_buf);
 	}
@@ -544,6 +554,7 @@ fil_update_table_stats(
 	ut_free(read_arr_blob);
 	ut_free(read_arr_primary);
 	ut_free(read_arr_secondary);
+	ut_free(page_stats_arr);
 	ut_free(table_name_buf);
 	ut_free(db_name_buf);
 
@@ -555,6 +566,7 @@ fil_update_table_stats(
 		 &io_perf_doublewrite.read_blob,
 		 &io_perf_doublewrite.read_primary,
 		 &io_perf_doublewrite.read_secondary,
+		 &io_perf_doublewrite.page_stats,
 		 "InnoDB");
 
 	mutex_enter(&fil_system->mutex);
@@ -1491,6 +1503,7 @@ fil_space_create(
 	my_io_perf_init(&(space->io_perf2.read_blob));
 	my_io_perf_init(&(space->io_perf2.read_primary));
 	my_io_perf_init(&(space->io_perf2.read_secondary));
+	memset(&(space->io_perf2.page_stats), 0, sizeof space->io_perf2.page_stats);
 	space->stats.id = id;
 	space->stats.magic_n = FIL_STATS_MAGIC_N;
 	space->stats.used = TRUE;
@@ -1927,6 +1940,8 @@ fil_init(
 	my_io_perf_init(&io_perf_doublewrite.read_blob);
 	my_io_perf_init(&io_perf_doublewrite.read_primary);
 	my_io_perf_init(&io_perf_doublewrite.read_secondary);
+	memset(&io_perf_doublewrite.page_stats, 0,
+		sizeof(io_perf_doublewrite.page_stats));
 
 	for (int x = 0; x < FLUSH_FROM_NUMBER; ++x)
 	{

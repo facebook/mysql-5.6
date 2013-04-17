@@ -353,6 +353,7 @@ typedef struct st_table_stats {
                                          this table.  This counts requests
                                          that do not return a row. */
 
+  page_stats_t page_stats;    /* per page type statistics */
   /* See variables of same name in ha_statistics */
   ulonglong rows_index_first;
   ulonglong rows_index_next;

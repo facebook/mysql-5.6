@@ -1069,6 +1069,7 @@ innobase_update_table_stats(
 	void (*cb)(const char* db, const char* tbl,
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
+		   page_stats_t* page_stats,
 		   const char* engine));
 
 /*******************************************************************//**
@@ -3751,6 +3752,7 @@ innobase_update_table_stats(
 	void (*cb)(const char* db, const char* tbl,
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
+		   page_stats_t *page_stats,
 		   const char* engine))
 {
 	fil_update_table_stats(cb);
