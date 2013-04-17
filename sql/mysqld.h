@@ -233,6 +233,16 @@ struct my_io_perf_struct {
 };
 typedef struct my_io_perf_struct my_io_perf_t;
 
+/* struct used in per page type stats in IS.table_stats */
+struct page_stats_struct {
+  ulong n_pages_read; /*!< number read operations of all pages at given space*/
+  ulong n_pages_read_index; /*!< number read operations of FIL_PAGE_INDEX pages at given space*/
+  ulong n_pages_read_blob; /*!< number read operations FIL_PAGE_TYPE_BLOB and FIL_PAGE_TYPE_ZBLOB and FIL_PAGE_TYPE_ZBLOB2 pages at given space*/
+  ulong n_pages_written;/*!< number write operations of all pages at given space*/
+  ulong n_pages_written_index;/*!< number write operations of FIL_PAGE_INDEX pages at given space*/
+  ulong n_pages_written_blob; /*!< number write operations FIL_PAGE_TYPE_BLOB and FIL_PAGE_TYPE_ZBLOB and FIL_PAGE_TYPE_ZBLOB2 pages at given space*/
+};
+typedef struct page_stats_struct page_stats_t;
 /* Per-table operation and IO statistics */
 
 /***************************************************************************

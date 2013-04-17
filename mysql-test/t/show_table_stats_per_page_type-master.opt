@@ -1,0 +1,1 @@
+--default-storage-engine=innodb --innodb-file-per-table --innodb_file_format=Barracuda --innodb_use_native_aio=0
