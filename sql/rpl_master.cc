@@ -541,7 +541,7 @@ static int send_file(THD *thd)
 
 int test_for_non_eof_log_read_errors(int error, const char **errmsg)
 {
-  if (error == LOG_READ_EOF)
+  if (error == LOG_READ_EOF || error == LOG_READ_BINLOG_LAST_VALID_POS)
     return 0;
   my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
   switch (error) {
@@ -1353,7 +1353,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
        Try to find a Format_description_log_event at the beginning of
        the binlog
      */
-    if (!(error = Log_event::read_log_event(&log, packet, log_lock, 0)))
+    if (!(error = Log_event::read_log_event(&log, packet, 0,
+                                            log_file_name)))
     { 
       DBUG_PRINT("info", ("read_log_event returned 0 on line %d", __LINE__));
       /*
@@ -1451,7 +1452,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       GOTO_ERR;
     bool is_active_binlog= false;
     while (!thd->killed &&
-           !(error= Log_event::read_log_event(&log, packet, log_lock,
+           !(error= Log_event::read_log_event(&log, packet,
                                               current_checksum_alg,
                                               log_file_name,
                                               &is_active_binlog)))
@@ -1787,7 +1788,14 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     if (!is_active_binlog)
       goto_next_binlog= true;
 
-    if (!goto_next_binlog)
+    /*
+      When read_log_event in the above loop returns LOG_READ_BINLOG_LAST_
+      VALID_POS instead of normal EOF, we cannot open next binlog file which
+      may result in skipping of the events in current file. Instead check for
+      error value and try to read an event inside this if statement.
+      LOG_READ_EOF confirms that we reached the end of current file.
+    */
+    if (error != LOG_READ_EOF && !goto_next_binlog)
     {
       /*
         Block until there is more data in the log
@@ -1836,25 +1844,59 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           has not been updated since last read.
 	*/
 
-        mysql_mutex_lock(log_lock);
-        switch (error= Log_event::read_log_event(&log, packet, (mysql_mutex_t*) 0,
-                                                 current_checksum_alg)) {
+        switch (error= Log_event::read_log_event(&log, packet,
+                                                 current_checksum_alg,
+                                                 log_file_name)) {
 	case 0:
           DBUG_PRINT("info", ("read_log_event returned 0 on line %d",
                               __LINE__));
 	  /* we read successfully, so we'll need to send it to the slave */
-          mysql_mutex_unlock(log_lock);
 	  read_packet = 1;
           p_coord->pos= uint4korr(packet->ptr() + ev_offset + LOG_POS_OFFSET);
           event_type= (Log_event_type)((*packet)[LOG_EVENT_OFFSET+ev_offset]);
           DBUG_ASSERT(event_type != FORMAT_DESCRIPTION_EVENT);
 	  break;
 
-	case LOG_READ_EOF:
+  case LOG_READ_EOF:
+    goto_next_binlog = true;
+    break;
+
+  case LOG_READ_BINLOG_LAST_VALID_POS:
         {
-          int ret;
-          ulong signal_cnt;
-	  DBUG_PRINT("wait",("waiting for data in binary log"));
+          /*
+            Take log_lock to ensure that we read everything in binlog file.
+            If there is nothing left to read in binlog file, wait until
+            we get a signal from other threads that binlog is updated.
+          */
+          mysql_mutex_lock(log_lock);
+
+          /*
+            We might have got stale value from is_active in read_log_event.
+            Make sure the current binlog file is active. This is an edge case
+            where is_active in read_log_event is true and sends LOG_READ_
+            BINLOG_LAST_VALID_POS. It is not necessary to wait for
+            signal_update if the binlog is not active. Instead break and read
+            again which causes us to eventually read all events and open
+            the next binlog file.
+          */
+          if (!mysql_bin_log.is_active(log_file_name))
+          {
+            mysql_mutex_unlock(log_lock);
+            break;
+          }
+          /*
+            This is also to avoid an edge case where before acquiring
+            log_lock here binlog_last_valid_pos may be updated in first step of
+            ordered_commit() which causes us to miss binlog update. Then we
+            must wait until next signal_update() which is not necessary if
+            we check that there is a scope for next read.
+          */
+          if (my_b_tell(&log) < get_binlog_last_valid_pos())
+          {
+            mysql_mutex_unlock(log_lock);
+            break;
+          }
+
           /*
             There are two ways to tell the server to not block:
 
@@ -1894,6 +1936,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             mysql_mutex_unlock(log_lock);
 	    goto end;
 	  }
+
+          int ret;
+          ulong signal_cnt;
+          DBUG_PRINT("wait",("waiting for data in binary log"));
 
 #ifndef DBUG_OFF
           ulong hb_info_counter= 0;
@@ -1980,7 +2026,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         break;
             
         default:
-          mysql_mutex_unlock(log_lock);
           test_for_non_eof_log_read_errors(error, &errmsg);
           GOTO_ERR;
         }
