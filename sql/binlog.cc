@@ -3021,6 +3021,14 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   if (flush_io_cache(&log_file) ||
       mysql_file_sync(log_file.file, MYF(MY_WME)))
     goto err;
+  /*
+    We shouldn't set binlog_last_valid_pos for relay log which results in
+    invalid value in the global variable binlog_last_valid_pos
+  */
+  if (!is_relay_log)
+  {
+     set_binlog_last_valid_pos(my_b_tell(&log_file));
+  }
   
   if (write_file_name_to_index_file)
   {
@@ -6513,6 +6521,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   if (flush_error == 0 && total_bytes > 0)
     flush_error= flush_cache_to_file(&flush_end_pos);
 
+  set_binlog_last_valid_pos(my_b_tell(&log_file));
   /*
     If the flush finished successfully, we can call the after_flush
     hook. Being invoked here, we have the guarantee that the hook is
