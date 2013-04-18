@@ -309,6 +309,7 @@ extern char *default_storage_engine;
 extern char *default_tmp_storage_engine;
 extern bool opt_endinfo, using_udf_functions;
 extern my_bool locked_in_memory;
+extern int64 binlog_last_valid_pos;
 extern bool opt_using_transactions;
 extern ulong max_long_data_size;
 extern ulong current_pid;
@@ -1174,6 +1175,16 @@ extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
             *opt_ssl_key, *opt_ssl_crl, *opt_ssl_crlpath;
 
 extern MYSQL_PLUGIN_IMPORT pthread_key(THD*, THR_THD);
+
+inline void set_binlog_last_valid_pos(my_off_t pos)
+{
+  my_atomic_store64(&binlog_last_valid_pos, pos);
+}
+
+inline my_off_t get_binlog_last_valid_pos()
+{
+  return my_atomic_load64(&binlog_last_valid_pos);
+}
 
 /**
   only options that need special treatment in get_one_option() deserve

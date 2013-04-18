@@ -415,6 +415,7 @@ ulong opt_log_throttle_queries_not_using_indexes= 0;
 bool opt_error_log= IF_WIN(1,0);
 bool opt_disable_networking=0, opt_skip_show_db=0;
 bool opt_skip_name_resolve=0;
+int64 binlog_last_valid_pos=0;
 my_bool opt_character_set_client_handshake= 1;
 bool server_id_supplied = 0;
 bool opt_endinfo, using_udf_functions;
@@ -9345,6 +9346,7 @@ static int mysql_init_variables(void)
   opt_relay_logname= opt_relaylog_index_name= 0;
   log_bin_basename= NULL;
   log_bin_index= NULL;
+  my_atomic_store64(&binlog_last_valid_pos, 0);
 
   /* Handler variables */
   total_ha= 0;
