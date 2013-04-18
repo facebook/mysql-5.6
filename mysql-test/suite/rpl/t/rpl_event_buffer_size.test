@@ -1,0 +1,48 @@
+# ==== Purpose ====
+#
+# Check rpl_event_buffer_size
+#
+
+disable_warnings;
+source include/master-slave.inc;
+
+drop table if exists t1;
+enable_warnings;
+
+connection master;
+
+let $old_rpl_event_buffer_size= `SELECT @@global.rpl_event_buffer_size`;
+SET @@global.rpl_event_buffer_size=16384;
+SELECT @@global.rpl_event_buffer_size;
+
+# Restart slave for setting to take effect
+connection slave;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+
+create table `t1` (`f1` LONGTEXT) ENGINE=MyISAM;
+
+INSERT INTO t1(f1) VALUES(REPEAT('a', 10000));
+INSERT INTO t1(f1) VALUES(REPEAT('b', 20000));
+INSERT INTO t1(f1) VALUES(REPEAT('b', 100000));
+
+let $x=`select lpad("foo", 70000, "bar")`;
+
+--disable_query_log
+eval insert into t1 values ("$x");
+--enable_query_log
+
+select length(f1), md5(f1) from t1 order by length(f1);
+
+sync_slave_with_master;
+select length(f1), md5(f1) from t1 order by length(f1);
+
+--echo ==== clean up ====
+connection master;
+DROP TABLE t1;
+eval SET @@global.rpl_event_buffer_size= $old_rpl_event_buffer_size;
+
+sync_slave_with_master;
+--source include/rpl_end.inc
