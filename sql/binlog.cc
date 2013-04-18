@@ -3376,6 +3376,14 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   if (flush_io_cache(&log_file) ||
       mysql_file_sync(log_file.file, MYF(MY_WME)))
     goto err;
+  /*
+    We shouldn't set binlog_last_valid_pos for relay log which results in
+    invalid value in the global variable binlog_last_valid_pos
+  */
+  if (!is_relay_log)
+  {
+     set_binlog_last_valid_pos(my_b_tell(&log_file));
+  }
   
   if (write_file_name_to_index_file)
   {
@@ -7386,6 +7394,14 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     */
     handle_binlog_flush_or_sync_error(thd, false /* need_lock_log */);
   }
+
+  /*
+    Update the last valid position after the after_flush hook has
+    executed. Doing so guarantees that the hook is executed before
+    the before/after_send_hooks on the dump thread, preventing race
+    conditions between the group_commit here and the dump threads.
+  */
+  set_binlog_last_valid_pos(my_b_tell(&log_file));
 
   /*
     Stage #2: Syncing binary log file to disk

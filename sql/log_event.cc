@@ -1230,7 +1230,6 @@ bool Log_event::write_header(IO_CACHE* file, ulong event_data_length)
 */
 
 int Log_event::read_log_event(IO_CACHE* file, String* packet,
-                              mysql_mutex_t* log_lock,
                               uint8 checksum_alg_arg,
                               const char *log_file_name_arg,
                               bool* is_binlog_active)
@@ -1241,11 +1240,35 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
   uchar ev_offset= packet->length();
   DBUG_ENTER("Log_event::read_log_event(IO_CACHE *, String *, mysql_mutex_t, uint8)");
 
-  if (log_lock)
-    mysql_mutex_lock(log_lock);
-
-  if (log_file_name_arg)
+  if (log_file_name_arg && is_binlog_active)
     *is_binlog_active= mysql_bin_log.is_active(log_file_name_arg);
+  /*
+    If the log_file_name_arg is active and we have read up to
+    binlog_last_valid_pos, return LOG_READ_BINLOG_LAST_VALID_POS so that IO
+    thread will wait until binlog is updated
+  */
+  /*
+    Note that even though is_active can give stale value, it doesn't cause
+    problems. Let's say is_active is true although it's actually false
+    this may or may not give LOG_READ_BINLOG_LAST_VALID_POS depending on
+    second condition. If it doesn't give LOG_READ_BINLOG_LAST_VALID_POS,
+    it's fine because we should anyway need to read.
+
+    If it gives LOG_READ_BINLOG_LAST_VALID_POS, there is is_active check
+    after acquiring lock_log in mysql_binlog_send before going to wait for
+    binlog update. Acquiring log_lock each time we read an event increases
+    mutex contention. This corner case occurs rarely only during binlog is
+    rotated.
+
+    get_binlog_last_valid_pos() == my_b_tell(file) ensures that we don't read
+    past the last valid position in binlog.
+  */
+  if (mysql_bin_log.is_active(log_file_name_arg) &&
+      get_binlog_last_valid_pos() == my_b_tell(file))
+  {
+    result= LOG_READ_BINLOG_LAST_VALID_POS;
+    goto end;
+  }
 
   if (my_b_read(file, (uchar*) buf, sizeof(buf)))
   {
@@ -1339,8 +1362,6 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
   }
 
 end:
-  if (log_lock)
-    mysql_mutex_unlock(log_lock);
   DBUG_PRINT("info", ("read_log_event returns %d", result));
   DBUG_RETURN(result);
 }
