@@ -4,6 +4,13 @@
 # Check the table against the replica.
 # Reinvoke the threads.
 
+
+--connection master
+--let $innodb_zlib_wrap_save_master = `SELECT @@innodb_zlib_wrap`
+
+--connection slave
+--let $innodb_zlib_wrap_save_slave = `SELECT @@innodb_zlib_wrap`
+
 # create the directory for temporary log files.
 --exec mkdir -p $MYSQL_TMP_DIR/load_generator
 
@@ -143,6 +150,16 @@ let $slave_sync_timeout = 7200;
 --source include/start_slave.inc
 --source include/stop_slave.inc
 
+# Restore the value of zlib_wrap on slave
+--disable_query_log
+eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_slave;
+--enable_query_log
+
 connection master;
 
 # --exec rm -rf $MYSQL_TMP_DIR/load_generator
+
+# Restore the value of zlib_wrap on master
+--disable_query_log
+eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_master;
+--enable_query_log
