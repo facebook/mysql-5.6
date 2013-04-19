@@ -7,9 +7,11 @@
 
 --connection master
 --let $innodb_index_cluster_optimization_save_master = `SELECT @@innodb_prefix_index_cluster_optimization`
+--let $innodb_zlib_wrap_save_master = `SELECT @@innodb_zlib_wrap`
 
 --connection slave
 --let $innodb_index_cluster_optimization_save_slave = `SELECT @@innodb_prefix_index_cluster_optimization`
+--let $innodb_zlib_wrap_save_slave = `SELECT @@innodb_zlib_wrap`
 
 # create the directory for temporary log files.
 --exec mkdir -p $MYSQL_TMP_DIR/load_generator
@@ -153,13 +155,15 @@ let $slave_sync_timeout = 7200;
 # Restore the value of variable(s) on slave
 --disable_query_log
 eval SET GLOBAL innodb_prefix_index_cluster_optimization = $innodb_index_cluster_optimization_save_slave;
+eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_slave;
 --enable_query_log
 
 connection master;
 
 # --exec rm -rf $MYSQL_TMP_DIR/load_generator
 
-# Restore the value of variable(s) on slave
+# Restore the value of variable(s) on master
 --disable_query_log
 eval SET GLOBAL innodb_prefix_index_cluster_optimization = $innodb_index_cluster_optimization_save_master;
+eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_master;
 --enable_query_log
