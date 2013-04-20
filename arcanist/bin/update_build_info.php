@@ -30,6 +30,8 @@
 
 require_once '/home/engshare/devtools/arcanist/scripts/__init_script__.php';
 
+const JENKINS_PROPERTY = 'facebook:jenkins_build_log';
+
 /**
  * Configure the conduit call to phabricator
  * The 'svcscm' user is the user that runs the Jenkins builds as well
@@ -84,45 +86,99 @@ function get_diffid() {
 // BUILD_TYPE, TEST_SET and PAGE_SIZE are set by the Jenkins environment
 // only for individual builds, otherwise the label is "mysql_build".
 function get_build_label() {
-  return (getenv('BUILD_TYPE') ?: 'mysql')
-          . '_' . (getenv('TEST_SET') ?: 'build')
-          . '_' . (getenv('PAGE_SIZE') ?: '16');
+  $label = (getenv('BUILD_TYPE') ?: 'mysql')
+            . '_' . (getenv('TEST_SET') ?: 'build');
+  if((getenv('PAGE_SIZE') ?: '16') != '16') {
+    $label .= ('_' . getenv('PAGE_SIZE'));
+  }
+  return $label;
+}
+
+function update_buildstate(&$conduit, $diff_id, $buildstate) {
+  $job_name = get_build_label();
+  $build_url = getenv('BUILD_URL');
+  if (!$job_name || !$build_url) {
+    exit(0);
+  }
+  if (!is_numeric($diff_id)) { // Skip for 'arc unit'
+    return;
+  }
+
+  $tries = 360;
+  $retry = TRUE;
+  while($retry) {
+    $retry = FALSE;
+    try {
+      $result = $conduit->callMethodSynchronous('differential.getdiff',
+                                                array('diff_id' => $diff_id));
+      $links = idx($result['properties'], JENKINS_PROPERTY, array());
+      $new_link = array('label' => $job_name,
+                        'url'   => $build_url,
+                        'state' => $buildstate);
+      $found = false;
+      foreach ($links as &$link) {
+        if (idx($link, 'label', '') == $job_name) {
+          $found = true;
+          $link = $new_link;
+          break;
+        }
+      }
+      if (!$found) {
+        $links[] = $new_link;
+      }
+      $conduit->callMethodSynchronous('differential.setdiffproperty',
+                                      array('diff_id' => $diff_id,
+                                            'name'    => JENKINS_PROPERTY,
+                                            'data'    => json_encode($links)));
+    } catch(Exception $e) {
+      echo "Caught (in conduit): " . $e->getMessage() . "\n";
+      echo "Retrying in 10 seconds.\n";
+      sleep(10);
+      $tries--;
+      if($tries <= 0) {
+        echo "Error: Retries exhausted.\n";
+        exit(1);
+      }
+      $conduit = get_conduit();
+      $retry = TRUE;
+    }
+  }
 }
 
 // When the build fails to compile, just send a 'build failed' message
 function update_buildstatus(&$conduit, $diff_id, $status, $message) {
   $build_set = get_build_label();
 
-  if (is_numeric($diff_id)) { // Update diff page ('arc diff')
-    $tries = 360;
-    $retry = TRUE;
-    while($retry) {
-      $retry = FALSE;
-      try {
-        $conduit->callMethodSynchronous(
-          'differential.updateunitresults',
-          array(
-            'diff_id' => $diff_id,
-            'file'    => 'mysql_build',
-            'name'    => "{$build_set}",
-            'result'  => $status,
-            'message' => $message,
-          ));
-      } catch(Exception $e) {
-        echo "Caught " . $e->getMessage() . " in conduit.\n";
-        echo "Retrying in 10 seconds.\n";
-        sleep(10);
-        $tries--;
-        if($tries <= 0) {
-          echo "Error: Retries exhausted.\n";
-          exit(1);
-        }
-        $conduit = get_conduit();
-        $retry = TRUE;
+  if (!is_numeric($diff_id)) { // Skip for 'arc unit'
+    return;
+  }
+
+  $tries = 360;
+  $retry = TRUE;
+  while($retry) {
+    $retry = FALSE;
+    try {
+      $conduit->callMethodSynchronous(
+        'differential.updateunitresults',
+        array(
+          'diff_id' => $diff_id,
+          'file'    => 'mysql_build',
+          'name'    => "{$build_set}",
+          'result'  => $status,
+          'message' => $message,
+        ));
+    } catch(Exception $e) {
+      echo "Caught (in conduit): " . $e->getMessage() . "\n";
+      echo "Retrying in 10 seconds.\n";
+      sleep(10);
+      $tries--;
+      if($tries <= 0) {
+        echo "Error: Retries exhausted.\n";
+        exit(1);
       }
+      $conduit = get_conduit();
+      $retry = TRUE;
     }
-  } else { // Parse output for console ('arc unit')
-    echo "JENKINS|" . $status . "|" . $build_set . "\n";
   }
 }
 
@@ -132,40 +188,38 @@ function update_buildstatus(&$conduit, $diff_id, $status, $message) {
 function update_unitresults(&$conduit, $diff_id, $results) {
   // possible results: 'pass', 'fail', 'skip', 'broken', 'skip', 'unsound'
 
-  if (is_numeric($diff_id)) { // Update diff page ('arc diff')
-    $tries = 360;
-    $retry = TRUE;
-    while($retry) {
-      $retry = FALSE;
-      try {
-        foreach ($results as $result) {
-          $conduit->callMethodSynchronous(
-            'differential.updateunitresults',
-            array(
-              'diff_id' => $diff_id,
-              'file'    => $result['file'],
-              'name'    => $result['name'],
-              'result'  => $result['status'],
-              'message' => $result['msg'],
-            ));
-          echo "Sent: " . $result['name'] . "\n";
-        }
-      } catch(Exception $e) {
-        echo "Caught " . $e->getMessage() . " in conduit.\n";
-        echo "Retrying in 10 seconds.\n";
-        sleep(10);
-        $tries--;
-        if($tries <= 0) {
-          echo "Error: Retries exhausted.\n";
-          exit(1);
-        }
-        $conduit = get_conduit();
-        $retry = TRUE;
+  if (!is_numeric($diff_id)) { // Skip for 'arc unit'
+    return;
+  }
+
+  $tries = 360;
+  $retry = TRUE;
+  while($retry) {
+    $retry = FALSE;
+    try {
+      foreach ($results as $result) {
+        $conduit->callMethodSynchronous(
+          'differential.updateunitresults',
+          array(
+            'diff_id' => $diff_id,
+            'file'    => $result['file'],
+            'name'    => $result['name'],
+            'result'  => $result['status'],
+            'message' => $result['msg'],
+          ));
+        echo "Sent: " . $result['name'] . "\n";
       }
-    }
-  } else { // Parse output for console ('arc unit')
-    foreach ($results as $result) {
-      echo "JENKINS|" . $result['status'] . "|" . $result['name'] . "\n";
+    } catch(Exception $e) {
+      echo "Caught (in conduit): " . $e->getMessage() . "\n";
+      echo "Retrying in 10 seconds.\n";
+      sleep(10);
+      $tries--;
+      if($tries <= 0) {
+        echo "Error: Retries exhausted.\n";
+        exit(1);
+      }
+      $conduit = get_conduit();
+      $retry = TRUE;
     }
   }
 }
@@ -175,31 +229,50 @@ function read_piped_log($conduit, $diff_id, $all) {
   // The output we are looking for looks like the following:
   //   perfschema.hostcache_ipv6_addrinfo_bad_allow w11 [ fail ]
 
+  $completed = 0;
   $failure_count =  0;
   $build_set = get_build_label();
 
-  // If "--all" is used, get both fails and passes, otherwise just fails
-  $res = $all ? 'fail|pass' : 'fail';
-
-  $test_reg = "/^([\S]+(\s\'[\S]+\')?)\s+(w[0-9]+\s)?+\[\s({$res})\s\].*/";
+  $pass_reg = "/^([\S]+(\s\'[\S]+\')?)\s+(w[0-9]+\s)?+\[\spass\s\].*/";
+  $fail_reg = "/^([\S]+(\s\'[\S]+\')?)\s+(w[0-9]+\s)?+\[\sfail\s\].*/";
 
   $fp = fopen("php://stdin","r");
   while($line = fgets($fp)) {
-    // This program is just a filter so keep sending output to stdout
-    if (preg_match($test_reg, $line, $matches)) {
+    if (preg_match($fail_reg, $line, $matches)) {
       $failure_count++;
       $result = array(
                        'file'   => "{$matches[1]}",
                        'name'   => "{$build_set}: {$matches[1]}",
-                       'status' => "{$matches[4]}",
+                       'status' => 'fail',
                        'msg'    => '', // What should we capture here?
                      );
       update_unitresults($conduit, $diff_id, array($result));
     }
-    $line = preg_replace("/\AFinished:/", "SubFinished:", $line);
+
+    // If "--all" is used, get both fails and passes, otherwise just fails
+    elseif ($all && preg_match($pass_reg, $line, $matches)) {
+      $result = array(
+                       'file'   => "{$matches[1]}",
+                       'name'   => "{$build_set}: {$matches[1]}",
+                       'status' => 'pass',
+                       'msg'    => '', // What should we capture here?
+                     );
+      update_unitresults($conduit, $diff_id, array($result));
+    }
+
+    // Check for the tag at end of test output, to confirm completion.
+    elseif (preg_match('/^Completed All Requested MySQL Testing/', $line)) {
+      $completed = 1;
+    }
+
+    // This program is just a filter so keep sending output to stdout
     echo "$line";
   }
   fclose($fp);
+
+  // Alert if test system didn't fully complete test run.
+  if ($completed == 0) { return -1; }
+
   return $failure_count;
 }
 
@@ -224,12 +297,33 @@ $args->parseFull($specs);
 $diff_id = get_diffid();
 $conduit = get_conduit();
 
+if (!$diff_id || !$conduit) {
+  exit(0);
+}
+
 // If we were given a status and message, update the diff and exit
 if ($status = $args->getArg('status')) {
+  update_buildstate($conduit, $diff_id, $status);
   $message = $args->getArg('message') ?: "";
   update_buildstatus($conduit, $diff_id, $status, $message);
   exit(0);
 }
 
 // Otherwise, assume we are filtering the output and updating the diff.
-read_piped_log($conduit, $diff_id, $args->getArg('all'));
+update_buildstate($conduit, $diff_id, '...');
+update_buildstatus($conduit, $diff_id, 'postponed', 'Running Tests');
+
+$test_failures = read_piped_log($conduit, $diff_id, $args->getArg('all'));
+
+if ($test_failures < 0) { // Test system itself failed
+  update_buildstatus($conduit, $diff_id, 'fail', 'Test System Failure');
+  update_buildstate($conduit, $diff_id, 'fail');
+  exit(1); // And fail the Jenkins job too.
+} elseif ($test_failures > 0) { // At least one test failed
+  update_buildstatus($conduit, $diff_id, 'fail', 'Test Failures');
+  update_buildstate($conduit, $diff_id, 'fail');
+  exit(1); // And fail the Jenkins job too.
+} else { // All is well
+  update_buildstatus($conduit, $diff_id, 'pass', 'No Test Failures');
+  update_buildstate($conduit, $diff_id, 'pass');
+}
