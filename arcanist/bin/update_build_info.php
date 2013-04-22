@@ -94,7 +94,59 @@ function get_build_label() {
   return $label;
 }
 
-function update_buildstate(&$conduit, $diff_id, $buildstate) {
+function lock_diff($diff_id) {
+  $tries = 60;
+  $retry = TRUE;
+  while($retry) {
+    $retry = FALSE;
+    $lock_cmd = "/usr/facebook/scripts/db/db_lock.php" .
+      " --action=lock".
+      " --lock_name=test_results ".
+      " --host=phabricator_diff" .
+      " --lock_type=exclusive" .
+      " --duration=60" .
+      " --port=".$diff_id;
+    $lock_exec = exec($lock_cmd, $lock_out, $lock_ret);
+    if ($lock_ret != 0 ){
+      echo "Retrying lock....\n";
+      sleep(1);
+      $tries--;
+      if($tries <= 0) {
+        echo "Error: lock retries exhausted.\n";
+        exit(1);
+      }
+      $retry = TRUE;
+    }
+  }
+}
+
+function unlock_diff($diff_id) {
+  $tries = 60;
+  $retry = TRUE;
+  while($retry) {
+    $retry = FALSE;
+    $lock_cmd = "/usr/facebook/scripts/db/db_lock.php" .
+      " --action=unlock".
+      " --lock_name=test_results ".
+      " --host=phabricator_diff" .
+      " --lock_type=exclusive" .
+      " --duration=60" .
+      " --port=".$diff_id;
+    $lock_exec = exec($lock_cmd, $lock_out, $lock_ret);
+    if ($lock_ret != 0 ){
+      echo "Retrying unlock....\n";
+      sleep(1);
+      $tries--;
+      if($tries <= 0) {
+        echo "Error: unlock retries exhausted.\n";
+        exit(1);
+      }
+      $retry = TRUE;
+    }
+  }
+}
+
+function update_buildstate($diff_id, $buildstate) {
   $job_name = get_build_label();
   $build_url = getenv('BUILD_URL');
   if (!$job_name || !$build_url) {
@@ -108,7 +160,9 @@ function update_buildstate(&$conduit, $diff_id, $buildstate) {
   $retry = TRUE;
   while($retry) {
     $retry = FALSE;
+    lock_diff($diff_id);
     try {
+      $conduit = get_conduit();
       $result = $conduit->callMethodSynchronous('differential.getdiff',
                                                 array('diff_id' => $diff_id));
       $links = idx($result['properties'], JENKINS_PROPERTY, array());
@@ -131,22 +185,23 @@ function update_buildstate(&$conduit, $diff_id, $buildstate) {
                                             'name'    => JENKINS_PROPERTY,
                                             'data'    => json_encode($links)));
     } catch(Exception $e) {
+      unlock_diff($diff_id);
       echo "Caught (in conduit): " . $e->getMessage() . "\n";
       echo "Retrying in 10 seconds.\n";
       sleep(10);
       $tries--;
       if($tries <= 0) {
-        echo "Error: Retries exhausted.\n";
+        echo "Error: conduit retries exhausted.\n";
         exit(1);
       }
-      $conduit = get_conduit();
       $retry = TRUE;
     }
   }
+  unlock_diff($diff_id);
 }
 
 // When the build fails to compile, just send a 'build failed' message
-function update_buildstatus(&$conduit, $diff_id, $status, $message) {
+function update_buildstatus($diff_id, $status, $message) {
   $build_set = get_build_label();
 
   if (!is_numeric($diff_id)) { // Skip for 'arc unit'
@@ -157,7 +212,9 @@ function update_buildstatus(&$conduit, $diff_id, $status, $message) {
   $retry = TRUE;
   while($retry) {
     $retry = FALSE;
+    lock_diff($diff_id);
     try {
+      $conduit = get_conduit();
       $conduit->callMethodSynchronous(
         'differential.updateunitresults',
         array(
@@ -168,24 +225,25 @@ function update_buildstatus(&$conduit, $diff_id, $status, $message) {
           'message' => $message,
         ));
     } catch(Exception $e) {
+      unlock_diff($diff_id);
       echo "Caught (in conduit): " . $e->getMessage() . "\n";
       echo "Retrying in 10 seconds.\n";
       sleep(10);
       $tries--;
       if($tries <= 0) {
-        echo "Error: Retries exhausted.\n";
+        echo "Error: conduit retries exhausted.\n";
         exit(1);
       }
-      $conduit = get_conduit();
       $retry = TRUE;
     }
   }
+  unlock_diff($diff_id);
 }
 
 /**
  * Send results to phabricator.
  */
-function update_unitresults(&$conduit, $diff_id, $results) {
+function update_unitresults($diff_id, $results) {
   // possible results: 'pass', 'fail', 'skip', 'broken', 'skip', 'unsound'
 
   if (!is_numeric($diff_id)) { // Skip for 'arc unit'
@@ -196,7 +254,9 @@ function update_unitresults(&$conduit, $diff_id, $results) {
   $retry = TRUE;
   while($retry) {
     $retry = FALSE;
+    lock_diff($diff_id);
     try {
+      $conduit = get_conduit();
       foreach ($results as $result) {
         $conduit->callMethodSynchronous(
           'differential.updateunitresults',
@@ -210,21 +270,22 @@ function update_unitresults(&$conduit, $diff_id, $results) {
         echo "Sent: " . $result['name'] . "\n";
       }
     } catch(Exception $e) {
+      unlock_diff($diff_id);
       echo "Caught (in conduit): " . $e->getMessage() . "\n";
       echo "Retrying in 10 seconds.\n";
       sleep(10);
       $tries--;
       if($tries <= 0) {
-        echo "Error: Retries exhausted.\n";
+        echo "Error: conduit retries exhausted.\n";
         exit(1);
       }
-      $conduit = get_conduit();
       $retry = TRUE;
     }
   }
+  unlock_diff($diff_id);
 }
 
-function read_piped_log($conduit, $diff_id, $all) {
+function read_piped_log($diff_id, $all) {
 
   // The output we are looking for looks like the following:
   //   perfschema.hostcache_ipv6_addrinfo_bad_allow w11 [ fail ]
@@ -246,7 +307,7 @@ function read_piped_log($conduit, $diff_id, $all) {
                        'status' => 'fail',
                        'msg'    => '', // What should we capture here?
                      );
-      update_unitresults($conduit, $diff_id, array($result));
+      update_unitresults($diff_id, array($result));
     }
 
     // If "--all" is used, get both fails and passes, otherwise just fails
@@ -257,7 +318,7 @@ function read_piped_log($conduit, $diff_id, $all) {
                        'status' => 'pass',
                        'msg'    => '', // What should we capture here?
                      );
-      update_unitresults($conduit, $diff_id, array($result));
+      update_unitresults($diff_id, array($result));
     }
 
     // Check for the tag at end of test output, to confirm completion.
@@ -295,35 +356,30 @@ $args = new PhutilArgumentParser($argv);
 $args->parseFull($specs);
 
 $diff_id = get_diffid();
-$conduit = get_conduit();
 
-if (!$diff_id || !$conduit) {
+if (!$diff_id) {
   exit(0);
 }
 
 // If we were given a status and message, update the diff and exit
 if ($status = $args->getArg('status')) {
-  update_buildstate($conduit, $diff_id, $status);
+  update_buildstate($diff_id, $status);
   $message = $args->getArg('message') ?: "";
-  update_buildstatus($conduit, $diff_id, $status, $message);
+  update_buildstatus($diff_id, $status, $message);
   exit(0);
 }
 
 // Otherwise, assume we are filtering the output and updating the diff.
-update_buildstate($conduit, $diff_id, '...');
-update_buildstatus($conduit, $diff_id, 'postponed', 'Running Tests');
+update_buildstate($diff_id, '...');
+update_buildstatus($diff_id, 'postponed', 'Running Tests');
 
-$test_failures = read_piped_log($conduit, $diff_id, $args->getArg('all'));
+$test_failures = read_piped_log($diff_id, $args->getArg('all'));
 
-if ($test_failures < 0) { // Test system itself failed
-  update_buildstatus($conduit, $diff_id, 'fail', 'Test System Failure');
-  update_buildstate($conduit, $diff_id, 'fail');
-  exit(1); // And fail the Jenkins job too.
-} elseif ($test_failures > 0) { // At least one test failed
-  update_buildstatus($conduit, $diff_id, 'fail', 'Test Failures');
-  update_buildstate($conduit, $diff_id, 'fail');
+if ($test_failures != 0) { // Tests failed or test system itself failed
+  update_buildstatus($diff_id, 'fail', 'Test or Test System Failure(s)');
+  update_buildstate($diff_id, 'fail');
   exit(1); // And fail the Jenkins job too.
 } else { // All is well
-  update_buildstatus($conduit, $diff_id, 'pass', 'No Test Failures');
-  update_buildstate($conduit, $diff_id, 'pass');
+  update_buildstatus($diff_id, 'pass', 'No Test Failures');
+  update_buildstate($diff_id, 'pass');
 }
