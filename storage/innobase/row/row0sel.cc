@@ -3749,6 +3749,9 @@ row_read_ahead_logical(
 	ulint num_read_requests = 0;
 	ulint i;
 	trx_t* trx = mtr->trx;
+	ulint root_page_no;
+	buf_block_t* root_block;
+
 	if (!trx->lra_size) {
 		return FALSE;
 	}
@@ -3812,7 +3815,7 @@ row_read_ahead_logical(
 	if (UNIV_LIKELY(trx->lra_space_id == space)) {
 #ifdef UNIV_DEBUG
 		memset(trx->lra_sort_arr, 0,
-		       4 * trx->lra_n_pages * sizeof(ulint));
+		       2 * trx->lra_n_pages * sizeof(ulint));
 #endif
 		btr_pcur_restore_position_func(
 			BTR_SEARCH_LEAF, trx->lra_cur, 1,
@@ -3827,7 +3830,6 @@ row_read_ahead_logical(
 			trx->lra_ht = trx->lra_ht1;
 		}
 	} else {
-		btr_pcur_t tmp_cur;
 		/* The transaction started to scan a new table, set
 		 * the values for lra_space_id and lra_n_pages based on the
 		 * new table
@@ -3840,15 +3842,20 @@ row_read_ahead_logical(
 		trx->lra_n_pages = (trx->lra_size << 20L)
 				   / (zip_size ? zip_size : UNIV_PAGE_SIZE);
 		trx->lra_page_no = page_no;
-		btr_pcur_open_low(index, 0, tuple, PAGE_CUR_LE,
-				  BTR_SEARCH_LEAF, &tmp_cur,
-				  __FILE__, __LINE__, mtr);
-		trx->lra_tree_height = tmp_cur.btr_cur.tree_height;
-#ifdef UNIV_DEBUG
-		memset(trx->lra_sort_arr, 0,
-		       4 * trx->lra_n_pages * sizeof(ulint));
-#endif
+		mtr_s_lock(dict_index_get_lock(index), mtr);
+		/* Get root page to get the B-tree depth */
+		root_page_no = dict_index_get_page(index);
+		root_block = buf_page_get_gen(space, zip_size, root_page_no,
+				              RW_NO_LATCH, NULL, BUF_GET,
+					      __FILE__, __LINE__, mtr);
+		trx->lra_tree_height = btr_page_get_level(
+					buf_block_get_frame(root_block),
+					mtr) + 1;
 		if (trx->lra_tree_height > 1) {
+#ifdef UNIV_DEBUG
+			memset(trx->lra_sort_arr, 0,
+			       2 * trx->lra_n_pages * sizeof(ulint));
+#endif
 			mtr_commit(mtr);
 			mtr_start_trx(mtr, trx);
 			btr_pcur_open_low(index, 1, tuple, PAGE_CUR_LE,
