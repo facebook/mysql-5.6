@@ -35,11 +35,11 @@
 
 size_t my_read(File Filedes, uchar *Buffer, size_t Count, myf MyFlags)
 {
-  size_t readbytes, save_count;
+  size_t readbytes, savedbytes;
   DBUG_ENTER("my_read");
   DBUG_PRINT("my",("fd: %d  Buffer: %p  Count: %lu  MyFlags: %d",
                    Filedes, Buffer, (ulong) Count, MyFlags));
-  save_count= Count;
+  savedbytes= 0;
 
   for (;;)
   {
@@ -87,10 +87,12 @@ size_t my_read(File Filedes, uchar *Buffer, size_t Count, myf MyFlags)
       if (readbytes == (size_t) -1 ||
           ((MyFlags & (MY_FNABP | MY_NABP)) && !(MyFlags & MY_FULL_IO)))
         DBUG_RETURN(MY_FILE_ERROR);	/* Return with error */
-      if (readbytes != (size_t) -1 && (MyFlags & MY_FULL_IO))
+      /* readbytes == 0 when EOF. No need to continue in case of EOF */
+      if (readbytes != 0 && (MyFlags & MY_FULL_IO))
       {
         Buffer+= readbytes;
         Count-= readbytes;
+        savedbytes+= readbytes;
         continue;
       }
     }
@@ -98,7 +100,7 @@ size_t my_read(File Filedes, uchar *Buffer, size_t Count, myf MyFlags)
     if (MyFlags & (MY_NABP | MY_FNABP))
       readbytes= 0;			/* Ok on read */
     else if (MyFlags & MY_FULL_IO)
-      readbytes= save_count;
+      readbytes+= savedbytes;
     break;
   }
   DBUG_RETURN(readbytes);
