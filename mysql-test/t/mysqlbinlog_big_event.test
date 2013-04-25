@@ -1,0 +1,39 @@
+# ==== Purpose ====
+# Test mysqlbinlog with a binlog event larger than 128kb.
+# using have_binlog_format_statement to create a statement
+# based binlog event greater than 128kb. The idea is to insert
+# a big string in a table having a BLOB column.
+#
+# === Implementaion ===
+
+-- source include/have_binlog_format_statement.inc
+
+# Reset master to cleanup binlog
+reset master;
+
+# we need this for getting fixed timestamps inside of this test
+set timestamp=1000000000;
+
+--disable_warnings
+drop table if exists t2;
+--enable_warnings
+
+let $MYSQLD_DATADIR=`select @@datadir`;
+create table t2 (word LONGBLOB);
+let $i = 33000;
+--disable_query_log
+set @string = 'testing ';
+while($i > 0)
+{
+  set @string = concat(@string, 'testing ');
+  dec $i;
+}
+
+insert into t2 values(@string);
+--enable_query_log
+let $binlog_file= query_get_value(SHOW MASTER STATUS, File, 1);
+flush logs;
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+--replace_regex /SQL_LOAD_MB-[0-9]-[0-9]/SQL_LOAD_MB-#-#/
+--exec cat $MYSQLD_DATADIR/$binlog_file | $MYSQL_BINLOG --short-form --local-load=$MYSQLTEST_VARDIR/tmp/ -
+drop table t2;
