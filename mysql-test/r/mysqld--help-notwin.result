@@ -53,7 +53,7 @@ The following options may be given as the first argument:
  --binlog-checksum=name 
  Type of BINLOG_CHECKSUM_ALG. Include checksum for log
  events in the binary log. Possible values are NONE and
- CRC32; default is CRC32.
+ CRC32; default is NONE.
  --binlog-direct-non-transactional-updates 
  Causes updates to non-transactional engines using
  statement format to be written directly to binary log.
@@ -1091,7 +1091,7 @@ back-log 80
 big-tables FALSE
 bind-address *
 binlog-cache-size 32768
-binlog-checksum CRC32
+binlog-checksum NONE
 binlog-direct-non-transactional-updates FALSE
 binlog-error-action IGNORE_ERROR
 binlog-format STATEMENT
