@@ -19,10 +19,10 @@ sql_events
 4
 SELECT IO_BYTES_END - IO_BYTES_START AS 'io_bytes';
 io_bytes
-360
+344
 SELECT SQL_BYTES_END - SQL_BYTES_START AS 'sql_bytes';
 sql_bytes
-360
+344
 [on master]
 DROP TABLE t1;
 include/rpl_end.inc
