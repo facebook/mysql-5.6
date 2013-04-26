@@ -1,0 +1,18 @@
+--source include/master-slave.inc
+--source include/have_innodb.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+
+--connection master
+create table t1(a int);
+
+FLUSH LOGS;
+
+insert into t1 values(1);
+insert into t1 values(2);
+
+FLUSH LOGS;
+
+START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
+
+drop table t1;
+-- source include/rpl_end.inc
