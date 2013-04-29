@@ -1,0 +1,12 @@
+{
+  "project_id" : "mysql",
+  "conduit_uri" : "https://phabricator.fb.com/api/",
+  "phutil_libraries" : {
+    "fbcode-arcanist" : "arcanist/"
+   },
+  "unit_engine" : "FacebookFbcodeUnitTestEngine",
+  "events.listeners" : [
+    "FacebookDiffCreatedListener"
+  ],
+  "git.default-relative-commit" : "HEAD^"
+}
