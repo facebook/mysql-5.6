@@ -307,7 +307,7 @@ SHOW ENGINE InnoDB TRANSACTION STATUS;
 Type	Name	Status
 InnoDB		6 lock struct(s) 2 row lock(s)
 SET @@session.tx_isolation = @old_tx_isolation;
-SET autocommit = 1;
+SET AUTOCOMMIT = 1;
 DROP TABLE t1;
 # Bug#37721, test of ORDER BY on PK and WHERE on INDEX
 CREATE TABLE t1 (

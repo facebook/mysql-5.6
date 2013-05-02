@@ -1,1 +1,1 @@
---skip-innodb-stats-persistent --force-restart
+--skip-innodb-stats-persistent
