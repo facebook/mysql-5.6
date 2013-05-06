@@ -37,9 +37,9 @@ using namespace std;
 #endif
 #undef THIS_MODULE
 #include "fil0fil.h"
-#include "fsp0fsp.h"
 #include "buf0checksum.h"
 #ifndef UNIV_INNOCHECKSUM
+#include "fsp0fsp.h"
 #include "page0page.h"
 #include "mtr0log.h"
 #include "dict0dict.h"
