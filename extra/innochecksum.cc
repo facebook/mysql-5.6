@@ -45,8 +45,10 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 
 #include "univ.i"                /*  include all of this */
 
+#define FLST_BASE_NODE_SIZE (4 + 2 * FIL_ADDR_SIZE)
 #define FLST_NODE_SIZE (2 * FIL_ADDR_SIZE)
 #define FSEG_PAGE_DATA FIL_PAGE_DATA
+#define MLOG_1BYTE (1)
 
 #include "ut0ut.h"
 #include "ut0byte.h"
@@ -60,7 +62,6 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 #include "trx0undo.h"            /* TRX_* */
 #include "fsp0fsp.h"             /* fsp_flags_get_page_size() &
                                     fsp_flags_get_zip_size() */
-#include "mach0data.h"           /* mach_read_from_4() */
 #include "ut0crc32.h"            /* ut_crc32_init() */
 
 #ifdef UNIV_NONINL
@@ -85,6 +86,8 @@ static ullint do_page;
 static my_bool use_end_page;
 static my_bool do_one_page;
 static my_bool per_page_details;
+static my_bool do_leaf;
+static ulong n_merge;
 ulong srv_page_size;              /* replaces declaration in srv0srv.c */
 static ulong physical_page_size;  /* Page size in bytes on disk. */
 static ulong logical_page_size;   /* Page size when uncompressed. */
@@ -118,9 +121,22 @@ int n_fil_page_max_index_id;
 #define NUM_RETRIES 3
 #define DEFAULT_RETRY_DELAY 1000000
 
+struct per_page_stats {
+  ulint n_recs;
+  ulint data_size;
+  ulint left_page_no;
+  ulint right_page_no;
+  per_page_stats(ulint n, ulint data, ulint left, ulint right) :
+      n_recs(n), data_size(data), left_page_no(left), right_page_no(right) {}
+};
+
 struct per_index_stats {
   unsigned long long pages;
   unsigned long long leaf_pages;
+  ulint first_leaf_page;
+  ulint count;
+  ulint free_pages;
+  ulint max_data_size;
   unsigned long long total_n_recs;
   unsigned long long total_data_bytes;
 
@@ -128,8 +144,11 @@ struct per_index_stats {
   last element for pages with more than logical_page_size */
   unsigned long long pages_in_size_range[SIZE_RANGES_FOR_PAGE+2];
 
-  per_index_stats():pages(0), leaf_pages(0), total_n_recs(0),
-                   total_data_bytes(0)
+  std::unordered_map<ulint, per_page_stats> leaves;
+
+  per_index_stats():pages(0), leaf_pages(0), first_leaf_page(0),
+                    count(0), free_pages(0), max_data_size(0), total_n_recs(0),
+                    total_data_bytes(0)
   {
     memset(pages_in_size_range, 0, sizeof(pages_in_size_range));
   }
@@ -285,6 +304,11 @@ static struct my_option innochecksum_options[] =
   {"per_page_details", 'i', "Print out per-page detail information.",
     &per_page_details, &per_page_details, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0}
     ,
+  {"leaf", 'l', "Examine leaf index pages",
+    &do_leaf, &do_leaf, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"merge", 'm', "leaf page count if merge given number of consecutive pages",
+   &n_merge, &n_merge, 0, GET_ULONG, REQUIRED_ARG,
+   0, 0, (longlong)10L, 0, 1, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -379,15 +403,40 @@ btr_page_get_index_id(
        return(mach_read_from_8(page + PAGE_HEADER + PAGE_INDEX_ID));
 }
 
+/********************************************************//**
+Gets the next index page number.
+@return	next page number */
+ulint
+btr_page_get_next(
+/*==============*/
+  const page_t* page) /*!< in: index page */
+{
+  return(mach_read_from_4(page + FIL_PAGE_NEXT));
+}
+
+/********************************************************//**
+Gets the previous index page number.
+@return	prev page number */
+ulint
+btr_page_get_prev(
+/*==============*/
+  const page_t* page) /*!< in: index page */
+{
+  return(mach_read_from_4(page + FIL_PAGE_PREV));
+}
+
 void
 parse_page(
 /*=======*/
-       uchar* page) /* in: buffer page */
+  uchar* page, /* in: buffer page */
+  uchar* xdes) /* in: extend descriptor page */
 {
        ib_uint64_t id;
        ulint x;
        ulint n_recs;
        ulint page_no;
+       ulint left_page_no;
+       ulint right_page_no;
        ulint data_bytes;
        int is_leaf;
        int size_range_id;
@@ -398,6 +447,8 @@ parse_page(
                id = btr_page_get_index_id(page);
                n_recs = page_get_n_recs(page);
                page_no = page_get_page_no(page);
+               left_page_no = btr_page_get_prev(page);
+               right_page_no = btr_page_get_next(page);
                data_bytes = page_get_data_size(page);
                is_leaf = page_is_leaf(page);
                size_range_id = (data_bytes * SIZE_RANGES_FOR_PAGE
@@ -417,8 +468,30 @@ parse_page(
                    index_ids.insert(std::make_pair(id, per_index_stats()));
                  }
                  per_index_stats &index = index_ids.find(id)->second;
+                 uchar* des = xdes + XDES_ARR_OFFSET
+                   + XDES_SIZE * ((page_no & (physical_page_size - 1))
+                                  / FSP_EXTENT_SIZE);
+                 if (xdes_get_bit(des, XDES_FREE_BIT,
+                                  page_no % FSP_EXTENT_SIZE)) {
+                   index.free_pages++;
+                   return;
+                 }
                  index.pages++;
-                 if (is_leaf) index.leaf_pages++;
+                 if (is_leaf) {
+                   index.leaf_pages++;
+                   if (data_bytes > index.max_data_size) {
+                     index.max_data_size = data_bytes;
+                   }
+                   index.leaves.insert(
+                     std::make_pair(page_no,
+                                    per_page_stats(n_recs, data_bytes,
+                                                   left_page_no,
+                                                   right_page_no)));
+                   if (left_page_no == ULINT32_UNDEFINED) {
+                     index.first_leaf_page = page_no;
+                     index.count++;
+                   }
+                 }
                  index.total_n_recs += n_recs;
                  index.total_data_bytes += data_bytes;
                  index.pages_in_size_range[size_range_id] ++;
@@ -489,12 +562,14 @@ parse_page(
                if (per_page_details) {
                        printf("FIL_PAGE_TYPE_FSP_HDR\n");
                }
+               memcpy(xdes, page, physical_page_size);
                n_fil_page_type_fsp_hdr++;
                break;
        case FIL_PAGE_TYPE_XDES:
                if (per_page_details) {
                        printf("FIL_PAGE_TYPE_XDES\n");
                }
+               memcpy(xdes, page, physical_page_size);
                n_fil_page_type_xdes++;
                break;
        case FIL_PAGE_TYPE_BLOB:
@@ -516,6 +591,68 @@ parse_page(
                }
                n_fil_page_type_other++;
        }
+}
+
+void print_index_leaf_stats(unsigned long long id, const per_index_stats& index)
+{
+  ulint page_no = index.first_leaf_page;
+  auto it_page = index.leaves.find(page_no);
+  printf("\nindex: %llu leaf page stats: n_pages = %llu\n",
+         id, index.leaf_pages);
+  printf("page_no\tdata_size\tn_recs\n");
+  while (it_page != index.leaves.end()) {
+    const per_page_stats& stat = it_page->second;
+    printf("%lu\t%lu\t%lu\n", it_page->first, stat.data_size, stat.n_recs);
+    page_no = stat.right_page_no;
+    it_page = index.leaves.find(page_no);
+  }
+}
+
+void defrag_analysis(unsigned long long id, const per_index_stats& index)
+{
+  // TODO: make it work for compressed pages too
+  auto it = index.leaves.find(index.first_leaf_page);
+  ulint n_pages = 0;
+  ulint n_leaf_pages = 0;
+  while (it != index.leaves.end()) {
+    ulint data_size_total = 0;
+    for (ulong i = 0; i < n_merge; i++) {
+      const per_page_stats& stat = it->second;
+      n_leaf_pages ++;
+      data_size_total += stat.data_size;
+      it = index.leaves.find(stat.right_page_no);
+      if (it == index.leaves.end()) {
+        break;
+      }
+    }
+    if (index.max_data_size) {
+      n_pages += data_size_total / index.max_data_size;
+      if (data_size_total % index.max_data_size != 0) {
+        n_pages += 1;
+      }
+    }
+  }
+  if (index.leaf_pages)
+    printf("count = %lu free = %lu\n", index.count, index.free_pages);
+    printf("%llu\t\t%llu\t\t%lu\t\t%lu\t\t%lu\t\t%.2f\t%lu\n",
+           id, index.leaf_pages, n_leaf_pages, n_merge, n_pages,
+           1.0 - (double)n_pages / (double)n_leaf_pages, index.max_data_size);
+}
+
+void print_leaf_stats()
+{
+  printf("\n**************************************************\n");
+  printf("index_id\t#leaf_pages\t#actual_leaf_pages\tn_merge\t"
+         "#leaf_after_merge\tdefrag\n");
+  for (auto it = index_ids.begin(); it != index_ids.end(); it++) {
+    const per_index_stats& index = it->second;
+    if (verbose) {
+      print_index_leaf_stats(it->first, index);
+    }
+    if (n_merge) {
+      defrag_analysis(it->first, index);
+    }
+  }
 }
 
 void
@@ -566,6 +703,9 @@ print_stats()
          }
          printf("\n");
        }
+       if (do_leaf) {
+         print_leaf_stats();
+       }
 }
 
 int main(int argc, char **argv)
@@ -574,6 +714,9 @@ int main(int argc, char **argv)
   char* filename;                /* our input filename. */
   unsigned char big_buf[UNIV_PAGE_SIZE_MAX*2]; /* Buffer to store pages read */
   unsigned char *buf = (unsigned char*)ut_align_down(big_buf
+                       + UNIV_PAGE_SIZE_MAX, UNIV_PAGE_SIZE_MAX);
+  unsigned char big_xdes[UNIV_PAGE_SIZE_MAX*2];
+  unsigned char *xdes = (unsigned char*)ut_align_down(big_xdes
                        + UNIV_PAGE_SIZE_MAX, UNIV_PAGE_SIZE_MAX);
                                  /* Make sure the page is aligned */
   ulong bytes;                   /* bytes read count */
@@ -791,7 +934,7 @@ int main(int argc, char **argv)
       continue;
     }
 
-    parse_page(buf);
+    parse_page(buf, xdes);
 
     /* progress printing */
     if (verbose)
