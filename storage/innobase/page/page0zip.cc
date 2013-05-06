@@ -39,6 +39,7 @@ using namespace std;
 #include "fil0fil.h"
 #include "buf0checksum.h"
 #ifndef UNIV_INNOCHECKSUM
+#include "fsp0fsp.h"
 #include "page0page.h"
 #include "mtr0log.h"
 #include "dict0dict.h"
