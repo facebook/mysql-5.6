@@ -16,6 +16,8 @@ start-page                        0
 end-page                          0
 page                              0
 per-page-details                  FALSE
+leaf                              FALSE
+merge                             0
 Table is uncompressed
 Page size is 16384
 file tab1.ibd = 114688 bytes (7 pages)...
