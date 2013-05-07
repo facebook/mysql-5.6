@@ -74,7 +74,22 @@ select VARIABLE_VALUE into @ulen from information_schema.global_status
 where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_UNZIP_LRU';
 
 --disable_query_log
-select (@ulen / @dlen) >= 0.05 as large_enough, (@ulen / @dlen) <= 0.30 as small_enough;
+let $within_bounds = `select ((@ulen / @dlen) >= 0.05) AND ((@ulen / @dlen) <= 0.30)`;
+if ($within_bounds) {
+	--echo #
+	--echo # The unzip_LRU to LRU ratio is within bounds
+	--echo # for innodb_unzip_lru_pct = 10
+	--echo #
+}
+if (!$within_bounds) {
+	--echo #
+	--echo # Error: The unzip_LRU to LRU ratio is not within bounds
+	--echo # for innodb_unzip_lru_pct = 10
+	let $ulen_val = `select @ulen`;
+	let $dlen_val = `select @dlen`;
+	--echo # unzip_LRU = $ulen_val, LRU = $dlen_val
+	--echo #
+}
 --enable_query_log
 
 --echo # Confirm that the unzip_LRU to LRU ratio is about 20%
@@ -90,7 +105,22 @@ select VARIABLE_VALUE into @ulen from information_schema.global_status
 where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_UNZIP_LRU';
 
 --disable_query_log
-select (@ulen / @dlen) >= 0.15 as large_enough, (@ulen / @dlen) <= 0.40 as small_enough;
+let $within_bounds = `select ((@ulen / @dlen) >= 0.15) AND ((@ulen / @dlen) <= 0.40)`;
+if ($within_bounds) {
+	--echo #
+	--echo # The unzip_LRU to LRU ratio is within bounds
+	--echo # for innodb_unzip_lru_pct = 20
+	--echo #
+}
+if (!$within_bounds) {
+  --echo #
+  --echo # Error: The unzip_LRU to LRU ratio is not within bounds
+  --echo # for innodb_unzip_lru_pct = 20
+  let $ulen_val = `select @ulen`;
+  let $dlen_val = `select @dlen`;
+  --echo # unzip_LRU = $ulen_val, LRU = $dlen_val
+  --echo #
+}
 --enable_query_log
 
 --echo # Cleanup
