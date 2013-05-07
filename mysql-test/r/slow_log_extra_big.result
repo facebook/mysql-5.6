@@ -27,8 +27,10 @@ select VARIABLE_VALUE into @dlen from information_schema.global_status
 where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_DATA';
 select VARIABLE_VALUE into @ulen from information_schema.global_status
 where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_UNZIP_LRU';
-large_enough	small_enough
-1	1
+#
+# The unzip_LRU to LRU ratio is within bounds
+# for innodb_unzip_lru_pct = 10
+#
 # Confirm that the unzip_LRU to LRU ratio is about 20%
 set global innodb_unzip_lru_pct = 20;
 select count(*) from big_table_slow;
@@ -38,8 +40,10 @@ select VARIABLE_VALUE into @dlen from information_schema.global_status
 where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_DATA';
 select VARIABLE_VALUE into @ulen from information_schema.global_status
 where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_UNZIP_LRU';
-large_enough	small_enough
-1	1
+#
+# The unzip_LRU to LRU ratio is within bounds
+# for innodb_unzip_lru_pct = 20
+#
 # Cleanup
 set global long_query_time=1;
 drop table big_table_slow;
@@ -59,11 +63,11 @@ Rows_sent: 1  Rows_examined: 10467 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_se
 Rows_sent: 1  Rows_examined: 16384 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 16384 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 0  Rows_examined: 1 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 2 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 1
 Rows_sent: 0  Rows_examined: 1 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 2 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 1
-Rows_sent: 1  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 107 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 110 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 1  Rows_examined: 16384 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 67 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 16384 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 0  Rows_examined: 1 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 2 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 1
 Rows_sent: 0  Rows_examined: 1 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 2 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 1
-Rows_sent: 1  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 107 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 1  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 110 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 0 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 0 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
