@@ -269,6 +269,10 @@ extern ulong	srv_auto_extend_increment;
 
 extern ibool	srv_created_new_raw;
 
+/* Optimize prefix index queries to skip cluster index lookup when possible */
+/* Enables or disables this prefix optimization.  Disabled by default. */
+extern my_bool	srv_prefix_index_cluster_optimization;
+
 /* Detect deadlocks on lock wait */
 extern my_bool	srv_deadlock_detect;
 
@@ -529,6 +533,11 @@ extern ulint srv_n_rollback_partial;
 extern ulint srv_sec_rec_read_sees;
 /** Number of times secondary index block visibility check was done */
 extern ulint srv_sec_rec_read_check;
+
+/** Number of times secondary index lookup triggered cluster lookup */
+extern ulint srv_sec_rec_cluster_reads;
+/** Number of times prefix optimization avoided triggering cluster lookup */
+extern ulint srv_sec_rec_cluster_reads_avoided;
 
 /** Status variables to be passed to MySQL */
 extern struct export_var_t export_vars;
@@ -1084,6 +1093,9 @@ struct export_var_t{
 
 	ulint innodb_sec_rec_read_sees;		/*!< srv_sec_rec_read_sees */
 	ulint innodb_sec_rec_read_check;	/*!< srv_sec_rec_read_check */
+
+	ulint innodb_sec_rec_cluster_reads;	/*!< srv_sec_rec_cluster_reads */
+	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
 
 	ulint innodb_buffered_aio_submitted;
 	ulint innodb_logical_read_ahead_misses; /*!< total number of pages that

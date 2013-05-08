@@ -865,6 +865,10 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_sec_rec_read_check,	  SHOW_LONG},
   {"secondary_index_record_read_sees",
   (char*) &export_vars.innodb_sec_rec_read_sees,	  SHOW_LONG},
+  {"secondary_index_triggered_cluster_reads",
+  (char*) &export_vars.innodb_sec_rec_cluster_reads,	  SHOW_LONG},
+  {"secondary_index_triggered_cluster_reads_avoided",
+  (char*) &export_vars.innodb_sec_rec_cluster_reads_avoided, SHOW_LONG},
   {"log_checkpoints",
   (char*) &export_vars.innodb_log_checkpoints,		  SHOW_LONG},
   {"log_syncs",
@@ -6704,11 +6708,21 @@ build_template_field(
 	templ->col_no = i;
 	templ->clust_rec_field_no = dict_col_get_clust_pos(col, clust_index);
 	ut_a(templ->clust_rec_field_no != ULINT_UNDEFINED);
+	templ->rec_field_is_prefix = FALSE;
 
 	if (dict_index_is_clust(index)) {
 		templ->rec_field_no = templ->clust_rec_field_no;
+		templ->rec_field_is_prefix = FALSE;
+		templ->rec_prefix_field_no = ULINT_UNDEFINED;
 	} else {
-		templ->rec_field_no = dict_index_get_nth_col_pos(index, i);
+		/* If we're in a secondary index, keep track
+		* of the original index position even if this
+		* is just a prefix index; we will use this
+		* later to avoid a cluster index lookup in
+		* some cases.*/
+
+		templ->rec_field_no = dict_index_get_nth_col_pos(index, i,
+						&templ->rec_prefix_field_no);
 	}
 
 	if (field->real_maybe_null()) {
@@ -6739,6 +6753,13 @@ build_template_field(
 	if (!dict_index_is_clust(index)
 	    && templ->rec_field_no == ULINT_UNDEFINED) {
 		prebuilt->need_to_access_clustered = TRUE;
+
+		if (templ->rec_prefix_field_no != ULINT_UNDEFINED) {
+			dict_field_t* field = dict_index_get_nth_field(
+						index,
+						templ->rec_prefix_field_no);
+			templ->rec_field_is_prefix = (field->prefix_len != 0);
+		}
 	}
 
 	if (prebuilt->mysql_prefix_len < templ->mysql_col_offset
@@ -6895,7 +6916,8 @@ ha_innobase::build_template(
 				} else {
 					templ->icp_rec_field_no
 						= dict_index_get_nth_col_pos(
-							prebuilt->index, i);
+							prebuilt->index, i,
+							NULL);
 				}
 
 				if (dict_index_is_clust(prebuilt->index)) {
@@ -6925,7 +6947,7 @@ ha_innobase::build_template(
 
 				templ->icp_rec_field_no
 					= dict_index_get_nth_col_or_prefix_pos(
-						prebuilt->index, i, TRUE);
+						prebuilt->index, i, TRUE, NULL);
 				ut_ad(templ->icp_rec_field_no
 				      != ULINT_UNDEFINED);
 
@@ -16848,6 +16870,12 @@ static MYSQL_SYSVAR_ULONG(
   1000000, 0);			/* Maximum value */
 #endif /* HAVE_ATOMIC_BUILTINS */
 
+static MYSQL_SYSVAR_BOOL(prefix_index_cluster_optimization,
+  srv_prefix_index_cluster_optimization,
+  PLUGIN_VAR_OPCMDARG,
+  "Enable prefix optimization to sometimes avoid cluster index lookups.",
+  NULL, NULL, FALSE);
+
 static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
   PLUGIN_VAR_OPCMDARG,
   "Detect deadlocks when locks are acquired. Without this the row lock wait"
@@ -17309,6 +17337,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(trx_purge_view_update_only_debug),
   MYSQL_SYSVAR(lra_test),
 #endif /* UNIV_DEBUG */
+  MYSQL_SYSVAR(prefix_index_cluster_optimization),
   MYSQL_SYSVAR(deadlock_detect),
   MYSQL_SYSVAR(aio_slow_usecs),
   MYSQL_SYSVAR(aio_old_usecs),
