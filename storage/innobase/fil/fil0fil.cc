@@ -749,6 +749,7 @@ fil_node_create(
 
 	node->sync_event = os_event_create();
 	node->is_raw_disk = is_raw;
+	node->flush_size = size;
 	node->size = size;
 	node->magic_n = FIL_NODE_MAGIC_N;
 
@@ -959,6 +960,7 @@ fil_node_open_file(
 #ifdef UNIV_HOTBACKUP
 add_size:
 #endif /* UNIV_HOTBACKUP */
+		node->flush_size = node->size;
 		space->size += node->size;
 	}
 
@@ -6295,6 +6297,14 @@ fil_flush(
 			goto skip_flush;
 		}
 #endif /* __WIN__ */
+#ifdef UNIV_LINUX
+		if (space->purpose == FIL_TABLESPACE
+		    && srv_unix_file_flush_method == SRV_UNIX_O_DIRECT
+		    && node->flush_size == node->size) {
+			goto skip_flush;
+		}
+#endif
+
 retry:
 		if (node->n_pending_flushes > 0) {
 			/* We want to avoid calling os_file_flush() on
@@ -6332,6 +6342,7 @@ retry:
 		os_event_set(node->sync_event);
 
 		node->n_pending_flushes--;
+		node->flush_size = node->size;
 skip_flush:
 		if (node->flush_counter < old_mod_counter) {
 			node->flush_counter = old_mod_counter;
