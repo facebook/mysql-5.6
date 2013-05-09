@@ -94,7 +94,7 @@ my $option_defaults_group = 'mysqld';
 my $option_no_timestamp = '';
 my $option_slave_info = '';
 my $option_galera_info = '';
-my $option_no_lock = '';
+my $option_no_lock = 1;
 my $option_ibbackup_binary = 'autodetect';
 
 my $option_defaults_file = '';
@@ -411,7 +411,7 @@ sub backup {
     }
 
     # flush tables with read lock
-    if (!$option_no_lock) {
+    if (!$option_no_lock || $option_slave_info) {
         # make a prep copy before locking tables, if using rsync
         backup_files(1);
 
@@ -432,7 +432,7 @@ sub backup {
     resume_ibbackup();
 
     # release read locks on all tables
-    mysql_unlockall() if !$option_no_lock;
+    mysql_unlockall() if !$option_no_lock || $option_slave_info;
 
     my $ibbackup_exit_code = wait_for_ibbackup_finish();
 
@@ -1977,13 +1977,6 @@ sub check_args {
         # get backup directory
         $backup_dir = File::Spec->rel2abs($ARGV[0]);
     }        
-
-    if ($option_slave_info) {
-        if ($option_no_lock and !$option_safe_slave_backup) {
-	  print STDERR "--slave-info is used with --no-lock but without --safe-slave-backup. The binlog position cannot be consistent with the backup data.\n";
-	    exit(1);
-	}
-    }
 
     if ($option_rsync && ($option_remote_host || $option_stream)) {
         print STDERR "--rsync doesn't work with --remote-host or --stream\n";
