@@ -232,6 +232,10 @@ struct fil_node_t {
 	ib_int64_t	flush_counter;/*!< up to what
 				modification_counter value we have
 				flushed the modifications to disk */
+	ulint		flush_size;/*!< size of file when last flushed,
+				used to force flush when file grows
+				to keep filesystem metadata synced when
+				using O_DIRECT */
 	UT_LIST_NODE_T(fil_node_t) chain;
 				/*!< link field for the file chain */
 	UT_LIST_NODE_T(fil_node_t) LRU;
