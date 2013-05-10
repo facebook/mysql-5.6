@@ -102,6 +102,8 @@ extern "C" {
 #include <fcntl.h>
 #include <buf0flu.h>
 #include <buf0lru.h>
+#include <sql_locale.h>
+#include <derror.h>
 
 #ifdef INNODB_VERSION_SHORT
 #include <ibuf0ibuf.h>
@@ -2456,6 +2458,9 @@ innodb_init_param(void)
 
 	/* dummy for initialize all_charsets[] */
 	get_charset_name(0);
+
+	my_default_lc_messages = my_locale_by_name("en_US");
+	init_errmessage();
 
 #ifdef XTRADB_BASED
 	srv_page_size = 0;
