@@ -2485,6 +2485,15 @@ sub environment_setup {
   $ENV{'MYSQL_MY_PRINT_DEFAULTS'}= native_path($exe_my_print_defaults);
 
   # ----------------------------------------------------
+  # innochecksum
+  # ----------------------------------------------------
+  my $exe_innochecksum=
+    mtr_exe_exists(vs_config_dirs('extra', 'innochecksum'),
+		   "$path_client_bindir/innochecksum",
+		   "$basedir/extra/innochecksum");
+  $ENV{'MYSQL_INNOCHECKSUM'}= native_path($exe_innochecksum);
+
+  # ----------------------------------------------------
   # Setup env so childs can execute myisampack and myisamchk
   # ----------------------------------------------------
   $ENV{'MYISAMCHK'}= native_path(mtr_exe_exists(
