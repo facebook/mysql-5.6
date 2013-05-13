@@ -3956,7 +3956,6 @@ Open_table_context::Open_table_context(THD *thd, uint flags)
    m_has_protection_against_grl(FALSE)
 {}
 
-
 /**
   Check if we can back-off and set back off action if we can.
   Otherwise report and return error.
@@ -4005,6 +4004,14 @@ request_backoff_action(enum_open_table_action action_arg,
       Action type name is OT_REOPEN_TABLES. Re-trying
       while holding some locks may lead to a livelock,
       and thus we don't do it.
+      A deadlock error can also occur when the MDL lock "S"
+      acquired on table being created is getting upgraded
+      to "X" and some other session is waiting on locks
+      acquired in CREATE and has lock on table
+      being created. The way to recover from this error
+      is to release all locks and close all tables
+      opened in CREATE, and re-try to open the tables and
+      acquire locks again.
     * Finally, this session has open TABLEs from different
       "generations" of the table cache. This can happen, e.g.,
       when, after this session has successfully opened one
@@ -4020,7 +4027,8 @@ request_backoff_action(enum_open_table_action action_arg,
       keep tables open between statements and a livelock
       is not possible.
   */
-  if (action_arg != OT_REOPEN_TABLES && m_has_locks)
+  if (action_arg != OT_REOPEN_TABLES &&
+      m_flags != MYSQL_OPEN_TABLE_FOR_CREATE && m_has_locks)
   {
     my_error(ER_LOCK_DEADLOCK, MYF(0));
     return TRUE;
@@ -4706,7 +4714,9 @@ lock_table_names(THD *thd,
   for (table= tables_start; table && table != tables_end;
        table= table->next_global)
   {
-    if (table->mdl_request.type < MDL_SHARED_UPGRADABLE ||
+    if ((table->mdl_request.type < MDL_SHARED_UPGRADABLE &&
+         !(table->mdl_request.type == MDL_SHARED &&
+           flags == MYSQL_OPEN_TABLE_FOR_CREATE)) ||
         table->open_type == OT_TEMPORARY_ONLY ||
         (table->open_type == OT_TEMPORARY_OR_BASE && is_temporary_table(table)))
     {
@@ -4943,7 +4953,8 @@ restart:
       for (table= *start; table && table != thd->lex->first_not_own_table();
            table= table->next_global)
       {
-        if (table->mdl_request.type >= MDL_SHARED_UPGRADABLE)
+        if (table->mdl_request.type >= MDL_SHARED_UPGRADABLE ||
+            flags == MYSQL_OPEN_TABLE_FOR_CREATE)
           table->mdl_request.ticket= NULL;
       }
     }
@@ -5569,6 +5580,57 @@ end:
     close_thread_tables(thd);
   }
   DBUG_RETURN(table);
+}
+
+
+/**
+  Upgrade "S" lock acquired on table being created to "X" lock.
+
+  @param[in]  thd                  Thread context.
+  @param[out] close_thread_tables  If failed to upgrade table because of
+                                   deadlock situation then set this to
+                                   "true" to inform caller backoff and
+                                   retry to open tables, acquire and
+                                   upgrade locks.
+  @note This function is used by only create table functions.
+        While creating table, "S" lock is acquired on table being
+        created to check its existence. If table does not exist
+        then this function is called to upgrade lock to "X". 
+*/
+bool upgrade_lock_from_S_to_X_for_create(THD *thd,
+                                         bool &close_and_reopen_tables)
+{
+  bool result= false;
+  Open_table_context ot_ctx(thd, MYSQL_OPEN_TABLE_FOR_CREATE);
+  MDL_deadlock_handler mdl_deadlock_handler(&ot_ctx);
+  TABLE_LIST *tables= thd->lex->query_tables;
+  DBUG_ENTER("upgrade_lock_from_S_to_X_for_create");
+
+  DBUG_ASSERT(!tables->table && !tables->view && thd);
+
+  /* If MDL lock "S" is acquired then upgrade lock to "X" */
+  if (tables->mdl_request.ticket)
+  {
+    DEBUG_SYNC(thd, "before_upgrading_lock_from_S_to_X_for_create");
+    thd->push_internal_handler(&mdl_deadlock_handler);
+    result=
+      thd->mdl_context.upgrade_shared_lock(tables->mdl_request.ticket,
+                                           MDL_EXCLUSIVE,
+                                           thd->variables.lock_wait_timeout);
+    thd->pop_internal_handler();
+
+    /* Deadlock occurred while upgrading the lock */
+    if (result && ot_ctx.get_action() ==
+        Open_table_context::OT_BACKOFF_AND_RETRY)
+      close_and_reopen_tables= true;
+  }
+  else
+  {
+    /* Shared lock was not acquired on the table */
+    thd->lex->query_tables->mdl_request.set_type(MDL_EXCLUSIVE);
+  }
+
+  DBUG_RETURN(result);
 }
 
 

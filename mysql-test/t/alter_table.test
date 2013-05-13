@@ -1615,6 +1615,18 @@ ALTER TABLE time_zone ENGINE=merge;
 --error ER_UNSUPPORTED_ENGINE
 ALTER TABLE help_topic ENGINE=innodb;
 
+RENAME TABLE db TO db_11815557;
+RENAME TABLE user TO user_11815557;
+RENAME TABLE proc TO proc_11815557;
+RENAME TABLE func TO func_11815557;
+RENAME TABLE event TO event_11815557;
+RENAME TABLE servers TO servers_11815557;
+RENAME TABLE procs_priv TO procs_priv_11815557;
+RENAME TABLE tables_priv TO tables_priv_11815557;
+RENAME TABLE columns_priv TO columns_priv_11815557;
+RENAME TABLE time_zone TO time_zone_11815557;
+RENAME TABLE help_topic TO help_topic_11815557;
+
 --error ER_UNSUPPORTED_ENGINE
 CREATE TABLE db (dummy int) ENGINE=innodb;
 --error ER_UNSUPPORTED_ENGINE
@@ -1637,5 +1649,18 @@ CREATE TABLE columns_priv (dummy int) ENGINE=csv;
 CREATE TABLE time_zone (dummy int) ENGINE=merge;
 --error ER_UNSUPPORTED_ENGINE
 CREATE TABLE help_topic (dummy int) ENGINE=innodb;
+
+RENAME TABLE db_11815557 TO db;
+RENAME TABLE user_11815557 TO user;
+RENAME TABLE proc_11815557 TO proc;
+RENAME TABLE func_11815557 TO func;
+RENAME TABLE event_11815557 TO event;
+RENAME TABLE servers_11815557 TO servers;
+RENAME TABLE procs_priv_11815557 TO procs_priv;
+RENAME TABLE tables_priv_11815557 TO tables_priv;
+RENAME TABLE columns_priv_11815557 TO columns_priv;
+RENAME TABLE time_zone_11815557 TO time_zone;
+RENAME TABLE help_topic_11815557 TO help_topic;
+
 use test;
 --echo # End of Bug#11815557
