@@ -1965,7 +1965,7 @@ static
 File
 xtrabackup_create_tmpfile(char *path, const char *prefix)
 {
-	File	fd = create_temp_file(path, my_tmpdir(&mysql_tmpdir_list),
+	File	fd = create_temp_file(path, xtrabackup_target_dir,
 				      prefix,
 #ifdef __WIN__
 				O_BINARY | O_TRUNC | O_SEQUENTIAL |
