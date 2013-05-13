@@ -2427,7 +2427,7 @@ create:
             lex->sql_command= SQLCOM_CREATE_TABLE;
             if (!lex->select_lex.add_table_to_list(thd, $5, NULL,
                                                    TL_OPTION_UPDATING,
-                                                   TL_WRITE, MDL_EXCLUSIVE))
+                                                   TL_WRITE, MDL_SHARED))
               MYSQL_YYABORT;
             /*
               For CREATE TABLE, an non-existing table is not an error.

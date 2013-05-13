@@ -135,6 +135,12 @@ TABLE *open_ltable(THD *thd, TABLE_LIST *table_list, thr_lock_type update,
   table flush, wait on thr_lock.c locks) while opening and locking table.
 */
 #define MYSQL_OPEN_IGNORE_KILLED                0x4000
+/**
+  When opening/locking table, acquire global and schema-scope IX locks
+  when acquiring S on table being created. After checking for the existence
+  of table S lock acquired on table being created will be upgraded to "X".
+*/
+#define MYSQL_OPEN_TABLE_FOR_CREATE             0x8000
 
 /** Please refer to the internals manual. */
 #define MYSQL_OPEN_REOPEN  (MYSQL_OPEN_IGNORE_FLUSH |\
@@ -253,6 +259,8 @@ TABLE *open_n_lock_single_table(THD *thd, TABLE_LIST *table_l,
                                 thr_lock_type lock_type, uint flags,
                                 Prelocking_strategy *prelocking_strategy);
 bool open_normal_and_derived_tables(THD *thd, TABLE_LIST *tables, uint flags);
+bool upgrade_lock_from_S_to_X_for_create(THD *thd,
+                                         bool &close_and_reopen_tables);
 bool lock_tables(THD *thd, TABLE_LIST *tables, uint counter, uint flags);
 void free_io_cache(TABLE *entry);
 void intern_close_table(TABLE *entry);
@@ -564,6 +572,9 @@ public:
   {
     return m_timeout;
   }
+
+  enum_open_table_action get_action() const
+  { return m_action; }
 
   uint get_flags() const { return m_flags; }
 

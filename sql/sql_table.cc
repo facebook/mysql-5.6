@@ -4953,17 +4953,46 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
   /*
     Open or obtain an exclusive metadata lock on table being created.
   */
-  if (open_and_lock_tables(thd, thd->lex->query_tables, FALSE, 0))
+  if (open_and_lock_tables(thd, thd->lex->query_tables, FALSE,
+                           MYSQL_OPEN_TABLE_FOR_CREATE))
   {
     result= TRUE;
     goto end;
   }
 
-  /* Got lock. */
-  DEBUG_SYNC(thd, "locked_table_name");
-
   /* We can abort create table for any table type */
   thd->abort_on_warning= thd->is_strict_mode();
+
+  if (thd->lex->query_tables->table || thd->lex->query_tables->view)
+  {
+    if (create_info->options & HA_LEX_CREATE_IF_NOT_EXISTS)
+    {
+      push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
+                          ER_TABLE_EXISTS_ERROR, ER(ER_TABLE_EXISTS_ERROR),
+                          create_table->table_name);
+
+      thd->abort_on_warning= false;
+      result= FALSE;
+      goto binlog_and_end;
+    }
+    my_error(ER_TABLE_EXISTS_ERROR, MYF(0), create_table->table_name);
+    result= TRUE;
+    goto end;
+  }
+
+  {
+    bool close_and_reopen_tables= false;
+    /*
+     * Lock upgrade may fail here because of not getting lock but not because of
+     * deadlock here.
+    */
+    result= upgrade_lock_from_S_to_X_for_create(thd, close_and_reopen_tables);
+    if (result)
+      goto end;
+  }
+
+  /* Got lock. */
+  DEBUG_SYNC(thd, "locked_table_name");
 
   /*
     Promote first timestamp column, when explicit_defaults_for_timestamp
@@ -4975,6 +5004,7 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
   result= mysql_create_table_no_lock(thd, create_table->db,
                                      create_table->table_name, create_info,
                                      alter_info, 0, &is_trans);
+binlog_and_end:
   /*
     Don't write statement if:
     - Table creation has failed
@@ -5190,9 +5220,11 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
   bool res= TRUE;
   bool is_trans= FALSE;
   uint not_used;
+  MDL_savepoint mdl_savepoint= thd->mdl_context.mdl_savepoint();
+  bool close_and_reopen_tables= false;
   DBUG_ENTER("mysql_create_like_table");
 
-
+reopen_tables:
   /*
     We the open source table to get its description in HA_CREATE_INFO
     and Alter_info objects. This also acquires a shared metadata lock
@@ -5204,9 +5236,43 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
     Thus by holding both these locks we ensure that our statement is
     properly isolated from all concurrent operations which matter.
   */
-  if (open_tables(thd, &thd->lex->query_tables, &not_used, 0))
+  if (open_tables(thd, &thd->lex->query_tables, &not_used,
+                  MYSQL_OPEN_TABLE_FOR_CREATE))
     goto err;
   src_table->table->use_all_columns();
+
+  if (thd->lex->query_tables->table || thd->lex->query_tables->view)
+  {
+    if (create_info->options & HA_LEX_CREATE_IF_NOT_EXISTS)
+    {
+      const bool saved_abort_on_warning= thd->abort_on_warning;
+
+      thd->abort_on_warning= thd->is_strict_mode();
+      push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
+                          ER_TABLE_EXISTS_ERROR, ER(ER_TABLE_EXISTS_ERROR),
+                          table->table_name);
+      thd->abort_on_warning= saved_abort_on_warning;
+
+      res= FALSE;
+      goto binlog_and_end;
+    }
+    my_error(ER_TABLE_EXISTS_ERROR, MYF(0), table->table_name);
+    res= TRUE;
+    goto err;
+  }
+
+  res= upgrade_lock_from_S_to_X_for_create(thd, close_and_reopen_tables);
+  if (res)
+  {
+    if (close_and_reopen_tables)
+    {
+      thd->clear_error();
+      close_tables_for_reopen(thd, &thd->lex->query_tables, mdl_savepoint);
+      close_and_reopen_tables= false;
+      goto reopen_tables;
+    }
+    goto err;
+  }
 
   DEBUG_SYNC(thd, "create_table_like_after_open");
 
@@ -5270,6 +5336,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
 
   DEBUG_SYNC(thd, "create_table_like_before_binlog");
 
+binlog_and_end:
   /*
     CREATE TEMPORARY TABLE doesn't terminate a transaction. Calling
     stmt.mark_created_temp_table() guarantees the transaction can be binlogged

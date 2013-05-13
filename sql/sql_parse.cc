@@ -3213,8 +3213,13 @@ case SQLCOM_PREPARE:
         goto end_with_restore_list;
       }
 
-      if (!(res= open_normal_and_derived_tables(thd, all_tables, 0)))
+reopen_tables:
+      if (!(res= open_normal_and_derived_tables(thd, all_tables,
+                                                MYSQL_OPEN_TABLE_FOR_CREATE)))
       {
+        bool close_and_reopen_tables= false;
+        MDL_savepoint mdl_savepoint= thd->mdl_context.mdl_savepoint();
+
         /* The table already exists */
         if (create_table->table || create_table->view)
         {
@@ -3230,6 +3235,19 @@ case SQLCOM_PREPARE:
           {
             my_error(ER_TABLE_EXISTS_ERROR, MYF(0), create_info.alias);
             res= 1;
+          }
+          goto end_with_restore_list;
+        }
+
+        res= upgrade_lock_from_S_to_X_for_create(thd, close_and_reopen_tables);
+        if (res)
+        {
+          if (close_and_reopen_tables)
+          {
+            thd->clear_error();
+            close_tables_for_reopen(thd, &thd->lex->query_tables,
+                                    mdl_savepoint);
+            goto reopen_tables;
           }
           goto end_with_restore_list;
         }

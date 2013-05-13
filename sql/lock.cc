@@ -183,10 +183,10 @@ lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
     */
     DBUG_ASSERT(t->s->tmp_table ||
                 thd->mdl_context.is_lock_owner(MDL_key::TABLE,
-                                 t->s->db.str, t->s->table_name.str,
-                                 t->reginfo.lock_type >= TL_WRITE_ALLOW_WRITE ?
+                                 t->s->db.str, t->s->table_name.str,                                                   t->reginfo.lock_type >= TL_WRITE_ALLOW_WRITE ?
                                  MDL_SHARED_WRITE : MDL_SHARED_READ) ||
-                (t->open_by_handler &&
+                ((t->open_by_handler ||
+                  flags == MYSQL_OPEN_TABLE_FOR_CREATE) &&
                  thd->mdl_context.is_lock_owner(MDL_key::TABLE,
                                   t->s->db.str, t->s->table_name.str,
                                   MDL_SHARED)));
