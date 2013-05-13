@@ -1,0 +1,9 @@
+-- source include/master-slave.inc
+-- connection master
+create table t1(a int);
+insert into t1 values(1);
+sync_slave_with_master;
+-- connection master
+flush tables;
+drop table t1;
+-- source include/rpl_end.inc
