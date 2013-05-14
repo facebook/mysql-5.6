@@ -1236,6 +1236,11 @@ page_zip_init(void)
 	  + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT,
 	                                          MAX_MEM_LEVEL));
 
+#ifdef UNIV_DEBUG
+	block_size += 2 * UNIV_PAGE_SIZE; /* memory needed for the temporary page
+	which is used for cleaning the garbage parts of the uncompressed page. */
+#endif
+
 	mem_block_cache_init(malloc_cache_compress, block_size,
 	                     &malloc_cache_compress_len);
 
@@ -1257,6 +1262,29 @@ page_zip_close(void)
 	mem_block_cache_free(malloc_cache_decompress);
 }
 
+UNIV_INTERN
+void
+page_zip_clean_garbage(
+	const dict_index_t* index,
+	page_t* page,
+	const rec_t** recs,
+	ulint n_dense,
+	mem_heap_t* heap)
+{
+	const rec_t* rec;
+	ulint* offsets = NULL;
+	byte* rec_end = page + PAGE_ZIP_START;
+	while (n_dense) {
+		--n_dense;
+		rec = *recs++;
+		offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, &heap);
+		memset(rec_end, 0, rec - rec_offs_extra_size(offsets) - rec_end);
+		rec_end = (byte*) rec + rec_offs_data_size(offsets);
+	}
+	memset(rec_end,
+	       0,
+				 page + page_header_get_field(page, PAGE_HEAP_TOP) - rec_end);
+}
 
 my_bool page_zip_zlib_wrap = FALSE;
 uint page_zip_zlib_strategy = Z_DEFAULT_STRATEGY;
@@ -1299,6 +1327,11 @@ page_zip_compress(
 	uint wrap;
 	uint strategy;
 	int window_bits;
+
+#ifdef UNIV_DEBUG
+	page_t* temp_page;
+#endif
+
 	page_zip_decode_compression_flags(compression_flags, &level,
 	                                  &wrap, &strategy);
 	window_bits = wrap ? UNIV_PAGE_SIZE_SHIFT
@@ -1420,8 +1453,15 @@ page_zip_compress(
 			                            + REC_OFFS_HEADER_SIZE
 			                            + n_dense * (sizeof *recs)
 			                            + DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT,
-			                                                   MAX_MEM_LEVEL),
-			                          malloc_cache_compress);
+			                                                   MAX_MEM_LEVEL)
+#ifdef UNIV_DEBUG
+	                                + 2 * UNIV_PAGE_SIZE /* memory needed for
+                                      the temporary page which is used to
+                                      clean garbage parts of the
+                                      uncompressed page. */
+#endif
+	                                + 0,
+                                malloc_cache_compress);
 
 	recs = static_cast<const rec_t**>(
 		mem_heap_zalloc(heap, n_dense * sizeof *recs));
@@ -1490,9 +1530,17 @@ page_zip_compress(
 
 	ut_ad(!c_stream.avail_in);
 
+#ifdef UNIV_DEBUG
+	temp_page = static_cast <ib_page_t*> (mem_heap_zalloc(heap, 2 * UNIV_PAGE_SIZE));
+	temp_page = page_align(temp_page + UNIV_PAGE_SIZE);
+	memcpy(temp_page, page, UNIV_PAGE_SIZE);
+	page_zip_dir_encode(temp_page, buf_end, recs);
+	page_zip_clean_garbage(index, temp_page, recs, n_dense, heap);
+	c_stream.next_in = (byte*) temp_page + PAGE_ZIP_START;
+#else
 	page_zip_dir_encode(page, buf_end, recs);
-
 	c_stream.next_in = (byte*) page + PAGE_ZIP_START;
+#endif
 
 	storage = buf_end - n_dense * PAGE_ZIP_DIR_SLOT_SIZE;
 
@@ -1533,7 +1581,12 @@ page_zip_compress(
 	or the data of the last record from page_zip_compress_sec(). */
 	c_stream.avail_in = static_cast<uInt>(
 		page_header_get_field(page, PAGE_HEAP_TOP)
+#ifdef UNIV_DEBUG
+		- (c_stream.next_in - temp_page));
+#else
 		- (c_stream.next_in - page));
+#endif
+
 	ut_a(c_stream.avail_in <= UNIV_PAGE_SIZE - PAGE_ZIP_START - PAGE_DIR);
 
 	UNIV_MEM_ASSERT_RW(c_stream.next_in, c_stream.avail_in);
@@ -3166,7 +3219,7 @@ inconsistency is detected.
 @return	TRUE on success, FALSE on failure */
 UNIV_INTERN
 ibool
-page_zip_decompress(
+page_zip_decompress_low(
 /*================*/
 	page_zip_des_t*	page_zip,/*!< in: data, ssize;
 				out: m_start, m_end, m_nonempty, n_blobs */
@@ -3175,7 +3228,13 @@ page_zip_decompress(
 				FALSE=verify but do not copy some
 				page header fields that should not change
 				after page creation */
-	ulint space_id)
+	ulint space_id,
+	mem_heap_t** heap_ptr, /*!< out: if heap_ptr is not NULL, then *heap_ptr
+	is set to the heap that's allocated by this function. The caller
+	is responsible for freeing the heap. */
+	dict_index_t** index_ptr) /*!< out: if index_ptr is not NULL, then
+	*index_ptr is set to the index object that's created by this function.
+	The caller is responsible for calling dict_index_mem_free(). */
 {
 	z_stream	d_stream;
 	dict_index_t*	index	= NULL;
@@ -3400,8 +3459,17 @@ err_exit:
 	}
 #endif /* !UNIV_HOTBACKUP */
 
-	page_zip_fields_free(index);
-	mem_heap_free(heap);
+	if (heap_ptr) {
+		if (index_ptr) {
+			*index_ptr = index;
+		}
+		*heap_ptr = heap;
+	} else {
+		ut_ad(!index_ptr);
+		page_zip_fields_free(index);
+		mem_heap_free(heap);
+	}
+
 	/* Update the stat counter for LRU policy. */
 	buf_LRU_stat_inc_unzip();
 
@@ -3467,6 +3535,13 @@ page_zip_validate_low(
 	byte*		temp_page_buf;
 	page_t*		temp_page;
 	ibool		valid;
+	mem_heap_t* heap = NULL;
+	dict_index_t**	index_ptr;
+	if (index) {
+		index_ptr = NULL;
+	} else {
+		index_ptr = (dict_index_t**)(&index);
+	}
 
 	if (memcmp(page_zip->data + FIL_PAGE_PREV, page + FIL_PAGE_PREV,
 		   FIL_PAGE_LSN - FIL_PAGE_PREV)
@@ -3495,7 +3570,8 @@ page_zip_validate_low(
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
 	temp_page_zip = *page_zip;
-	valid = page_zip_decompress(&temp_page_zip, temp_page, TRUE, 0);
+	valid = page_zip_decompress_low(&temp_page_zip, temp_page, TRUE, 0,
+	                                &heap, index_ptr);
 	if (!valid) {
 		fputs("page_zip_validate(): failed to decompress\n", stderr);
 		goto func_exit;
@@ -3532,7 +3608,6 @@ page_zip_validate_low(
 		are performing a sloppy validation. */
 
 		ulint*		offsets;
-		mem_heap_t*	heap;
 		const rec_t*	rec;
 		const rec_t*	trec;
 		byte		info_bits_diff;
@@ -3585,7 +3660,6 @@ page_zip_validate_low(
 		}
 
 		/* Compare the records. */
-		heap = NULL;
 		offsets = NULL;
 		rec = page_rec_get_next_low(
 			page + PAGE_NEW_INFIMUM, TRUE);
@@ -3602,31 +3676,29 @@ page_zip_validate_low(
 				break;
 			}
 
-			if (index) {
-				/* Compare the data. */
-				offsets = rec_get_offsets(
-					rec, index, offsets,
-					ULINT_UNDEFINED, &heap);
+			/* Compare the data. */
+			offsets = rec_get_offsets(
+				rec, index, offsets,
+				ULINT_UNDEFINED, &heap);
 
-				if (memcmp(rec - rec_offs_extra_size(offsets),
-					   trec - rec_offs_extra_size(offsets),
-					   rec_offs_size(offsets))) {
-					page_zip_fail(
-						("page_zip_validate: "
-						 "record content: 0x%02x",
-						 (unsigned) page_offset(rec)));
-					valid = FALSE;
-					break;
-				}
+			if (memcmp(rec - rec_offs_extra_size(offsets),
+				   trec - rec_offs_extra_size(offsets),
+				   rec_offs_size(offsets))) {
+				page_zip_fail(
+					("page_zip_validate: "
+					 "record content: 0x%02x",
+					 (unsigned) page_offset(rec)));
+				valid = FALSE;
+				break;
 			}
 
 			rec = page_rec_get_next_low(rec, TRUE);
 			trec = page_rec_get_next_low(trec, TRUE);
 		} while (rec || trec);
+	}
 
-		if (heap) {
-			mem_heap_free(heap);
-		}
+	if (heap) {
+		mem_heap_free(heap);
 	}
 
 func_exit:
