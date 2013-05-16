@@ -7069,6 +7069,12 @@ ER_SLAVE_MI_INIT_REPOSITORY
 ER_SLAVE_RLI_INIT_REPOSITORY
   eng "Slave failed to initialize relay log info structure from the repository"
 
+ER_REQUESTED_PURGED_GTID
+  eng "The requested GTID is purged and so cannot be found in binary logs."
+
+ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
+  eng "The requested GTID is not yet executed and so cannot be found in binary logs."
+
 #
 #  End of 5.6 error messages.
 #
