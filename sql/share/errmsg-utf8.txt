@@ -7101,6 +7101,12 @@ ER_AES_INVALID_IV
   eng "The initialization vector supplied to %s is too short. Must be at least %d bytes long"
   bg "Инициализационния вектор подаден на %s е прекалено къс. Трябва да е поне %d байта"
 
+ER_REQUESTED_PURGED_GTID
+  eng "The requested GTID is purged and so cannot be found in binary logs."
+
+ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
+  eng "The requested GTID is not yet executed and so cannot be found in binary logs."
+
 ER_BLOCK_MYISAM_TABLES
   eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
 
