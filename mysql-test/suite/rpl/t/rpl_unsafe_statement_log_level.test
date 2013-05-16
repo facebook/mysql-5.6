@@ -1,0 +1,19 @@
+-- source include/master-slave.inc
+-- source include/have_binlog_format_statement.inc
+
+-- connection master
+create table t1(a int, b int);
+insert into t1 values(1, 10);
+insert into t1 values(1, 100);
+insert into t1 values(1, 1000);
+
+sync_slave_with_master;
+
+-- connection master
+update t1 set b=50 where a=1 LIMIT 2;
+
+sync_slave_with_master;
+
+-- connection master
+drop table t1;
+--source include/rpl_end.inc
