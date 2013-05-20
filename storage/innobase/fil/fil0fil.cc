@@ -5502,7 +5502,7 @@ retry:
 				    index IO stats for system table space */
 				 (TRX_SYS_SPACE == space->id)
 					? NULL : &space->primary_index_id,
-				 &space->io_perf2, NULL);
+				 &space->io_perf2, NULL, TRUE);
 #endif /* UNIV_HOTBACKUP */
 		if (success) {
 			os_has_said_disk_full = FALSE;
@@ -5878,9 +5878,14 @@ _fil_io(
 				appropriately aligned */
 	void*	message,	/*!< in: message for aio handler if non-sync
 				aio used, else ignored */
-	os_io_table_perf_t* table_io_perf)/* in/out: tracks table IO stats
+	os_io_table_perf_t* table_io_perf,/* in/out: tracks table IO stats
 				to be counted in IS.user_statistics only
 				for sync reads and writes */
+	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you're ready to commit all your requests.*/
 {
 	ulint		mode;
 	fil_space_t*	space;
@@ -6104,7 +6109,7 @@ _fil_io(
 			? NULL : &space->primary_index_id,
 		     /*(io_flags & OS_AIO_DOUBLE_WRITE)
 			? &io_perf_doublewrite : */&space->io_perf2,
-		     table_io_perf);
+		     table_io_perf, should_buffer);
 #endif /* UNIV_HOTBACKUP */
 	ut_a(ret);
 
