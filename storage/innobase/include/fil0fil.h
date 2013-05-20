@@ -1011,7 +1011,7 @@ fil_space_get_n_reserved_extents(
 #define fil_io(type, sync, space_id, zip_size, block_offset, \
 		byte_offset, len, buf, message) \
 	_fil_io(type, sync, space_id, zip_size, block_offset, \
-		byte_offset, len, buf, message, NULL)
+		byte_offset, len, buf, message, NULL, TRUE)
 
 /****************************************************************//**
 Update stats with per-table data from InnoDB tables. */
@@ -1059,9 +1059,11 @@ _fil_io(
 				appropriately aligned */
 	void*	message,	/*!< in: message for aio handler if non-sync
 				aio used, else ignored */
-	os_io_table_perf_t* table_io_perf) /*!< in/out: tracks table IO stats
+	os_io_table_perf_t* table_io_perf, /*!< in/out: tracks table IO stats
 				to be used in IS.user_statistics only for
 				sync reads and writes */
+	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
+				Only used by aio read ahead*/
 	__attribute__((nonnull(8)));
 /**********************************************************************//**
 Waits for an aio operation to complete. This function is used to write the

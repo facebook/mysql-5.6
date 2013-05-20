@@ -329,10 +329,11 @@ The wrapper functions have the prefix of "innodb_". */
 	pfs_os_file_close_func(file, __FILE__, __LINE__)
 
 # define os_aio(type, mode, name, file, buf, offset,			\
-		n, message1, message2, primary_index_id, io_perf2, tab) \
+		n, message1, message2, primary_index_id, io_perf2, tab,	\
+		should_buffer) \
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
 		n, message1, message2, __FILE__, __LINE__, 		\
-		primary_index_id, io_perf2, tab)
+		primary_index_id, io_perf2, tab, should_buffer)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -374,9 +375,11 @@ to original un-instrumented file I/O APIs */
 # define os_file_close(file)	os_file_close_func(file)
 
 # define os_aio(type, mode, name, file, buf, offset, n,			\
-		message1, message2, primary_index_id, io_perf2, tab)	\
+		message1, message2, primary_index_id, io_perf2, tab,	\
+		should_buffer)						\
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2, primary_index_id, io_perf2, tab)
+		    message1, message2, primary_index_id, io_perf2, tab,\
+		    should_buffer)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -831,10 +834,16 @@ pfs_os_aio_func(
 	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 					counters */
-	os_io_table_perf_t* table_io_perf);
+	os_io_table_perf_t* table_io_perf,
 				/*!< in/out: table IO stats counted for
 				IS.user_statistics only for sync read
 				and writes */
+	ibool		should_buffer);
+				/*!< in: Whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you're ready to commit all your requests.*/
 /*******************************************************************//**
 NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1200,10 +1209,15 @@ os_aio_func(
 	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 				counters */
-	os_io_table_perf_t* table_io_perf);
+	os_io_table_perf_t* table_io_perf,
 				/*!< in/out: table IO stats counted for
 				IS.user_statistics only for sync read
 				and writes */
+	ibool	should_buffer);	/*!< in: Whether to buffer an aio request.
+				AIO read ahead uses this. If you plan to
+				use this parameter, make sure you remember
+				to call os_aio_linux_dispatch_read_array_submit
+				when you're ready to commit all your requests.*/
 /************************************************************************//**
 Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */
@@ -1367,6 +1381,12 @@ os_aio_linux_handle(
 				parameters are valid and can be used to
 				restart the operation. */
 	ulint*	type);		/*!< out: OS_FILE_WRITE or ..._READ */
+/*******************************************************************//**
+Submit buffered AIO requests on the given segment to the kernel.
+@return	TRUE on success. */
+UNIV_INTERN
+ibool
+os_aio_linux_dispatch_read_array_submit();
 #endif /* LINUX_NATIVE_AIO */
 
 #ifndef UNIV_NONINL

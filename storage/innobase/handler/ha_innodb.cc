@@ -914,6 +914,8 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_trx_n_rollback_partial,	  SHOW_LONG},
   {"transaction_rollback_total",
   (char*) &export_vars.innodb_trx_n_rollback_total,	  SHOW_LONG},
+  {"buffered_aio_submitted",
+   (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
   {"zip_1024_compressed",
   (char*) &export_vars.zip1024_compressed,                SHOW_LONG},
   {"zip_1024_compressed_ok",
