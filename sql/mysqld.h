@@ -218,6 +218,57 @@ inline double my_timer_to_microseconds(ulonglong when)
   return ret;
 }
 
+/* Struct used for IO performance counters */
+struct my_io_perf_struct {
+  volatile ulonglong bytes;
+  volatile ulonglong requests;
+  volatile ulonglong svc_time; /*!< time to do read or write operation */
+  volatile ulonglong svc_time_max;
+  volatile ulonglong wait_time; /*!< total time in the request array */
+  volatile ulonglong wait_time_max;
+  volatile ulonglong old_ios; /*!< requests that take too long */
+};
+typedef struct my_io_perf_struct my_io_perf_t;
+
+/* Per-table operation and IO statistics */
+
+/***************************************************************************
+Initialize an my_io_perf_t struct. */
+static inline void my_io_perf_init(my_io_perf_t* perf) {
+  memset(perf, 0, sizeof(*perf));
+}
+
+/* Accumulates io perf values */
+void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf);
+
+/* Accumulates io perf values using atomic operations */
+void my_io_perf_sum_atomic(
+  my_io_perf_t* sum,
+  ulonglong bytes,
+  ulonglong requests,
+  ulonglong svc_time,
+  ulonglong wait_time,
+  ulonglong old_ios);
+
+/* Accumulates io perf values using atomic operations */
+static inline void my_io_perf_sum_atomic_helper(
+  my_io_perf_t* sum,
+  const my_io_perf_t* perf)
+{
+  my_io_perf_sum_atomic(
+    sum,
+    perf->bytes,
+    perf->requests,
+    perf->svc_time,
+    perf->wait_time,
+    perf->old_ios);
+}
+
+/* Fetches table stats for a given table */
+struct TABLE;
+struct st_table_stats* get_table_stats(TABLE *table,
+                                       struct handlerton *engine_type);
+
 /*Move UUID_LENGTH from item_strfunc.h*/
 #define UUID_LENGTH (8+1+4+1+4+1+4+1+12)
 extern char server_uuid[UUID_LENGTH+1];
@@ -381,6 +432,7 @@ extern PSI_mutex_key
   key_mutex_slave_parallel_worker,
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOCK_thread_count,
+  key_LOCK_global_table_stats,
   key_LOCK_log_throttle_qni;
 extern PSI_mutex_key key_RELAYLOG_LOCK_commit;
 extern PSI_mutex_key key_RELAYLOG_LOCK_commit_queue;

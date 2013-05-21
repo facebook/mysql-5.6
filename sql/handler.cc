@@ -49,6 +49,10 @@ using std::min;
 using std::max;
 using std::list;
 
+// Called to keep table stats in sync with table cache after rename/delete.
+void table_stats_delete(const char *old_name);
+void table_stats_rename(const char *old_name, const char *new_name);
+
 // This is a temporary backporting fix.
 #ifndef HAVE_LOG2
 /*
@@ -824,6 +828,24 @@ static my_bool dropdb_handlerton(THD *unused1, plugin_ref plugin,
 void ha_drop_database(char* path)
 {
   plugin_foreach(NULL, dropdb_handlerton, MYSQL_STORAGE_ENGINE_PLUGIN, path);
+}
+
+
+static my_bool get_table_stats_handlerton(THD *unused, plugin_ref plugin,
+                                          void *cb)
+{
+  handlerton *hton= plugin_data(plugin, handlerton *);
+
+  if (hton->state == SHOW_OPTION_YES && hton->update_table_stats)
+    hton->update_table_stats((table_stats_cb) cb);
+
+  return FALSE;
+}
+
+void ha_get_table_stats(table_stats_cb cb)
+{
+  plugin_foreach(NULL, get_table_stats_handlerton,
+                 MYSQL_STORAGE_ENGINE_PLUGIN, (void*) cb);
 }
 
 
@@ -2520,9 +2542,30 @@ int handler::ha_open(TABLE *table_arg, const char *name, int mode,
       dup_ref=ref+ALIGN_SIZE(ref_length);
     cached_table_flags= table_flags();
   }
+  stats.reset_table_stats();
+  table_stats = NULL;
   DBUG_RETURN(error);
 }
 
+void ha_statistics::reset_table_stats()
+{
+  rows_inserted = rows_updated = rows_deleted = 0;
+  rows_read = rows_requested = index_inserts = 0;
+  rows_index_first = rows_index_next = 0;
+  my_io_perf_init(&table_io_perf_read);
+  my_io_perf_init(&table_io_perf_write);
+  my_io_perf_init(&table_io_perf_read_blob);
+}
+
+
+bool ha_statistics::has_table_stats()
+{
+  return (rows_read || rows_requested || index_inserts ||
+          rows_inserted || rows_updated || rows_deleted ||
+          table_io_perf_read.requests ||
+          table_io_perf_write.requests ||
+          table_io_perf_read_blob.requests);
+}
 
 /**
   Close handler.
@@ -4166,13 +4209,13 @@ handler::ha_bulk_update_row(const uchar *old_data, uchar *new_data,
 */
 
 int
-handler::ha_delete_all_rows()
+handler::ha_delete_all_rows(ha_rows* nrows)
 {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type == F_WRLCK);
   mark_trx_read_write();
 
-  return delete_all_rows();
+  return delete_all_rows(nrows);
 }
 
 
@@ -4429,7 +4472,12 @@ handler::ha_rename_table(const char *from, const char *to)
   DBUG_ASSERT(m_lock_type == F_UNLCK);
   mark_trx_read_write();
 
-  return rename_table(from, to);
+  int error = rename_table(from, to);
+  if (!error)
+  {
+    table_stats_rename(from, to);
+  }
+  return error;
 }
 
 
@@ -4445,7 +4493,11 @@ handler::ha_delete_table(const char *name)
   DBUG_ASSERT(m_lock_type == F_UNLCK);
   mark_trx_read_write();
 
-  return delete_table(name);
+  int error = delete_table(name);
+  if (!error) {
+    table_stats_delete(name);
+    }
+  return error;
 }
 
 
@@ -6874,6 +6926,47 @@ TYPELIB* ha_known_exts()
   return known_extensions;
 }
 
+/*
+  Updates global per-table counters with work done by this instance
+
+  SYNOPSIS
+    update_global_table_stats
+
+  NOTES
+    Should be called at the end of a statement.
+    TODO(mcallaghan): support more concurrency on update, shard the hash table
+*/
+void handler::update_global_table_stats(THD *thd)
+{
+  if (!stats.has_table_stats())
+    return;
+
+  if (!table_stats)
+    table_stats = get_table_stats(table, ht);
+
+  if (table_stats)
+  {
+    my_atomic_add64((longlong*)&table_stats->queries_used, 1);
+
+    my_atomic_add64((longlong*)&table_stats->rows_inserted, stats.rows_inserted);
+    my_atomic_add64((longlong*)&table_stats->rows_updated, stats.rows_updated);
+    my_atomic_add64((longlong*)&table_stats->rows_deleted, stats.rows_deleted);
+    my_atomic_add64((longlong*)&table_stats->rows_read, stats.rows_read);
+    my_atomic_add64((longlong*)&table_stats->rows_requested, stats.rows_requested);
+    my_atomic_add64((longlong*)&table_stats->index_inserts, stats.index_inserts);
+    my_atomic_add64((longlong*)&table_stats->rows_index_first, stats.rows_index_first);
+    my_atomic_add64((longlong*)&table_stats->rows_index_next, stats.rows_index_next);
+  }
+
+  if (thd)
+  {
+    my_io_perf_sum(&thd->io_perf_read, &stats.table_io_perf_read);
+    my_io_perf_sum(&thd->io_perf_write, &stats.table_io_perf_write);
+    my_io_perf_sum(&thd->io_perf_read_blob, &stats.table_io_perf_read_blob);
+  }
+
+  stats.reset_table_stats();
+}
 
 static bool stat_print(THD *thd, const char *type, uint type_len,
                        const char *file, uint file_len,

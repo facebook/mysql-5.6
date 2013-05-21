@@ -1,0 +1,42 @@
+# test queries_used column in IS.table_statistics
+
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+--enable_warnings
+
+flush statistics;
+create table t1 (i int primary key, j int);
+create table t2 (i int primary key, j int);
+grant all on *.* to 'countuse'@'%';
+connect (c1, localhost, countuse,,);
+
+select * from t1;
+select * from t2;
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+
+insert into t1 values (0,0) on duplicate key update j=j+1 MEMCACHE_DIRTY 'a';
+insert into t1 values (2,0) on duplicate key update j=j+1 MEMCACHE_DIRTY 'a', 'b';
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+
+replace into t1 values (0,3) MEMCACHE_DIRTY 'a';
+replace into t1 values (3,3) MEMCACHE_DIRTY 'a', 'b';
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+
+delete from t1 where i=0 MEMCACHE_DIRTY 'a';
+delete from t1 where i=1 MEMCACHE_DIRTY 'b', 'c';
+delete from t1 where i=7 MEMCACHE_DIRTY 'b', 'c';
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+
+--echo t1 isn't marked as used because t2 is empty
+select count(*) from t1, t2 where t1.i = t2.i;
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+
+insert into t2 values (0,0);
+select count(*) from t1, t2 where t1.i = t2.i;
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+
+connection default;
+drop table t1;
+drop table t2;
+drop user 'countuse'@'%';

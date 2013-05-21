@@ -25,6 +25,8 @@
 #include "my_time.h"                   /* enum_mysql_timestamp_type */
 #include "thr_lock.h"                  /* thr_lock_type */
 #include "my_base.h"                   /* ha_rows, ha_key_alg */
+#include "mysql_com.h"                 /* NAME_LEN */
+#include "mysqld.h"                    /* my_io_perf */
 
 struct TABLE;
 class Field;
@@ -240,6 +242,35 @@ typedef struct  user_conn {
   /* Maximum amount of resources which account is allowed to consume. */
   USER_RESOURCES user_resources;
 } USER_CONN;
+
+typedef struct st_table_stats {
+  char db[NAME_LEN + 1];     /* [db] + '\0' */
+  char table[NAME_LEN + 1];  /* [table] + '\0' */
+  /* Hash table key, table->s->table_cache_key for the table */
+  char hash_key[NAME_LEN * 2 + 2];
+  int hash_key_len;          /* table->s->key_length for the table */
+
+  ulonglong queries_used;    /* number of times used by a query */
+
+  ulonglong rows_inserted;   /* Number of rows inserted */
+  ulonglong rows_updated;    /* Number of rows updated */
+  ulonglong rows_deleted;    /* Number of rows deleted */
+  ulonglong rows_read;       /* Number of rows read for this table */
+  ulonglong rows_requested;  /* Number of row read attempts for
+                                         this table.  This counts requests
+                                         that do not return a row. */
+
+  /* See variables of same name in ha_statistics */
+  ulonglong rows_index_first;
+  ulonglong rows_index_next;
+
+  my_io_perf_t io_perf_read;          /* Read IO performance counters */
+  my_io_perf_t io_perf_write;         /* Write IO performance counters */
+  my_io_perf_t io_perf_read_blob;     /* Blob read IO performance counters */
+  ulonglong index_inserts;            /* Number of secondary index inserts. */
+
+  const char* engine_name;
+} TABLE_STATS;
 
 	/* Bits in form->update */
 #define REG_MAKE_DUPP		1	/* Make a copy of record when read */
