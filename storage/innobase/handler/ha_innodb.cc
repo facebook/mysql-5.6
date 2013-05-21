@@ -765,6 +765,20 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_log_sync_flush_dirty,	  SHOW_LONG},
   {"log_sync_other",
   (char*) &export_vars.innodb_log_sync_other,		  SHOW_LONG},
+  {"srv_checkpoint_seconds",
+  (char*) &export_vars.innodb_srv_checkpoint_time,	  SHOW_TIMER},
+  {"srv_ibuf_contract_seconds",
+  (char*) &export_vars.innodb_srv_ibuf_contract_time,	  SHOW_TIMER},
+  {"srv_log_flush_seconds",
+  (char*) &export_vars.innodb_srv_log_flush_time,	  SHOW_TIMER},
+  {"srv_cache_limit_seconds",
+  (char*) &export_vars.innodb_srv_cache_limit_time,	  SHOW_TIMER},
+  {"srv_free_log_seconds",
+  (char*) &export_vars.innodb_srv_free_log_time,	  SHOW_TIMER},
+  {"srv_drop_table_seconds",
+  (char*) &export_vars.innodb_srv_drop_table_time,	  SHOW_TIMER},
+  {"srv_purge_seconds",
+  (char*) &export_vars.innodb_srv_purge_time,		  SHOW_TIMER},
   {NullS, NullS, SHOW_LONG}
 };
 
@@ -16229,6 +16243,12 @@ static MYSQL_SYSVAR_BOOL(prefix_index_cluster_optimization,
   "Enable prefix optimization to sometimes avoid cluster index lookups.",
   NULL, NULL, FALSE);
 
+static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
+  PLUGIN_VAR_OPCMDARG,
+  "Detect deadlocks when locks are acquired. Without this the row lock wait"
+  " timeout resolves deadlock.",
+  NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_ULONG(thread_sleep_delay, srv_thread_sleep_delay,
   PLUGIN_VAR_RQCMDARG,
   "Time of innodb thread sleeping before joining InnoDB queue (usec). "
@@ -16606,6 +16626,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(limit_optimistic_insert_debug),
   MYSQL_SYSVAR(trx_purge_view_update_only_debug),
 #endif /* UNIV_DEBUG */
+  MYSQL_SYSVAR(deadlock_detect),
   MYSQL_SYSVAR(fake_changes),
   MYSQL_SYSVAR(fake_changes_locks),
   NULL
