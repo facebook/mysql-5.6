@@ -1,0 +1,1 @@
+--innodb_sync_checkpoint_limit=95
