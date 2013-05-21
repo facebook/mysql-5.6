@@ -1,0 +1,34 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+--disable_warnings
+drop table if exists p1,p2,s1,src;
+--enable_warnings
+
+create table p1 (a int not null primary key, b int not null) engine=innodb
+  partition by range(a) (
+    partition part0 values less than (10),
+    partition part1 values less than (20),
+    partition part2 values less than (30),
+    partition part3 values less than (100)
+  );
+
+create table p2 (a int not null primary key, b int not null) engine=innodb
+  partition by range(a) (
+    partition part0 values less than (10),
+    partition part1 values less than (20),
+    partition part2 values less than (30),
+    partition part3 values less than (100)
+  );
+
+create table s1 (a int not null primary key, b int not null, index bx(b)) engine=innodb
+  partition by range(a) (
+    partition part0 values less than (10),
+    partition part1 values less than (20),
+    partition part2 values less than (30),
+    partition part3 values less than (100)
+  );
+
+create table src(a int, b int);
+
+source include/show_table_stats.test;
