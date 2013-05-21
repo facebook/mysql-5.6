@@ -286,6 +286,7 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       my_io_perf_t *r_primary,
 			       my_io_perf_t *r_secondary,
 			       page_stats_t* page_stats,
+			       comp_stat_t* comp_stat,
 			       const char *engine);
 void fill_table_stats_cb(const char *db, const char *table,
 			 my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
