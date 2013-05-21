@@ -1,0 +1,4 @@
+SET @orig = @@global.innodb_sync_checkpoint_limit;
+SELECT @orig;
+@orig
+95
