@@ -2239,60 +2239,6 @@ fil_write_flushed_lsn_to_data_files(
 }
 
 /*******************************************************************//**
-Checks the consistency of the first data page of a data file
-at database startup.
-@retval NULL on success, or if innodb_force_recovery is set
-@return pointer to an error message string */
-static __attribute__((warn_unused_result))
-const char*
-fil_check_first_page(
-/*=================*/
-	const page_t*	page,		/*!< in: data page */
-	ibool		first_page)	/*!< in: TRUE if this is the
-					first page of the tablespace */
-{
-	ulint	space_id;
-	ulint	flags;
-
-	if (srv_force_recovery >= SRV_FORCE_IGNORE_CORRUPT) {
-		return(NULL);
-	}
-
-	space_id = mach_read_from_4(FSP_HEADER_OFFSET + FSP_SPACE_ID + page);
-	flags = mach_read_from_4(FSP_HEADER_OFFSET + FSP_SPACE_FLAGS + page);
-
-	if (first_page && UNIV_PAGE_SIZE != fsp_flags_get_page_size(flags)) {
-		return("innodb-page-size mismatch");
-	}
-
-	if (first_page && !space_id && !flags) {
-		ulint		nonzero_bytes	= UNIV_PAGE_SIZE;
-		const byte*	b		= page;
-
-		while (!*b && --nonzero_bytes) {
-			b++;
-		}
-
-		if (!nonzero_bytes) {
-			return("space header page consists of zero bytes");
-		}
-	}
-
-	if (buf_page_is_corrupted(
-		    false, page, fsp_flags_get_zip_size(flags))) {
-		return("checksum mismatch");
-	}
-
-	if (!first_page
-	    || (page_get_space_id(page) == space_id
-		&& page_get_page_no(page) == 0)) {
-		return(NULL);
-	}
-
-	return("inconsistent data in space header");
-}
-
-/*******************************************************************//**
 Reads the flushed lsn, arch no, and tablespace flag fields from a data
 file at database startup.
 @retval NULL on success, or if innodb_force_recovery is set
@@ -2337,7 +2283,7 @@ fil_read_first_page(
 
 	flushed_lsn = mach_read_from_8(page + FIL_PAGE_FILE_FLUSH_LSN);
 
-	check_msg = fil_check_first_page(page, !one_read_already);
+	check_msg = NULL;
 
 	ut_free(buf);
 
