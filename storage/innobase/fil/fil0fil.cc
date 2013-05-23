@@ -3279,13 +3279,14 @@ fil_rename_tablespace(
 	char*		old_name;
 	char*		old_path;
 	const char*	not_given	= "(name not specified)";
+	const int WARN_INTERVAL = 1000;
 
 	ut_a(id != 0);
 
 retry:
 	count++;
 
-	if (!(count % 1000)) {
+	if (!(count % WARN_INTERVAL)) {
 		ut_print_timestamp(stderr);
 		fputs("  InnoDB: Warning: problems renaming ", stderr);
 		ut_print_filename(stderr,
@@ -3336,19 +3337,40 @@ retry:
 		/* There are pending i/o's or flushes or the file is
 		currently being extended, sleep for a while and
 		retry */
+		ulint sleep_usecs = 20000;
+
+		/* Avoid deadly embrace. When stop_ios=TRUE then other threads
+		can get stuck in fil_mutex_enter_and_prepare_for_io and won't
+		decrement counters (n_pending, n_pending_flushes, flush_counter,
+		modification_counter) for which this thread is blocked. The
+		sleep time is increased to be much larger than the 20000 usecs
+		that threads sleep in fil_mutex_enter_and_prepare_for_io. This
+		is only done some of the time to preserve existing behavior. */
+
+		if (!(count % WARN_INTERVAL)) {
+			space->stop_ios = FALSE;
+			sleep_usecs = 200000;
+		}
 
 		mutex_exit(&fil_system->mutex);
 
-		os_thread_sleep(20000);
+		os_thread_sleep(sleep_usecs);
 
 		goto retry;
 
 	} else if (node->modification_counter > node->flush_counter) {
 		/* Flush the space */
+		ulint sleep_usecs = 20000;
+
+		/* See comment above on deadly embrace */
+		if (!(count % WARN_INTERVAL)) {
+			space->stop_ios = FALSE;
+			sleep_usecs = 200000;
+		}
 
 		mutex_exit(&fil_system->mutex);
 
-		os_thread_sleep(20000);
+		os_thread_sleep(sleep_usecs);
 
 		fil_flush(id, FLUSH_FROM_OTHER);
 
