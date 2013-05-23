@@ -5189,6 +5189,16 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     "data directory and creates system tables.");
     gtid_mode= 0;
   }
+  if (gtid_mode >= 1 && rpl_filter->is_on())
+  {
+    sql_print_error("--gtid_mode=ON requires turning off all replication rules on tables");
+    unireg_abort(1);
+  }
+  if (gtid_mode >=1 && rpl_filter->is_db_filter_on())
+  {
+    sql_print_error("--gtid_mode=ON requires turning off all replication rules on databases");
+    unireg_abort(1);
+  }
   if (gtid_mode >= 1 && !(opt_bin_log && opt_log_slave_updates))
   {
     sql_print_error("--gtid-mode=ON or UPGRADE_STEP_1 or UPGRADE_STEP_2 requires --log-bin and --log-slave-updates");

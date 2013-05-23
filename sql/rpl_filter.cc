@@ -273,6 +273,11 @@ Rpl_filter::is_on()
   return table_rules_on;
 }
 
+bool
+Rpl_filter::is_db_filter_on()
+{
+  return (!do_db.is_empty() || !ignore_db.is_empty() || !rewrite_db.is_empty());
+}
 
 bool
 Rpl_filter::is_rewrite_empty()

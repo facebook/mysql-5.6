@@ -54,6 +54,8 @@ public:
 
   bool is_on();
 
+  bool is_db_filter_on();
+
   bool is_rewrite_empty();
 
   /* Setters - add filtering rules */
