@@ -1099,3 +1099,19 @@
    fun:mi_arena.*
    fun:malloc_info
 }
+
+{
+   Known issue: https://bugzilla.redhat.com/show_bug.cgi?id=798968
+   Memcheck:Cond
+   fun:index
+   fun:expand_dynamic_string_token
+   fun:_dl_map_object
+   fun:map_doit
+   fun:_dl_catch_error
+   fun:do_preload
+   fun:dl_main
+   fun:_dl_sysdep_start
+   fun:_dl_start
+   obj:/usr/local/fbcode/gcc-4.7.1-glibc-2.14.1/lib/ld-2.14.1.so
+   obj:*
+}
