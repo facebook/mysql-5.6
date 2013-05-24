@@ -16,5 +16,9 @@ insert into db1.t1 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
 connection server_2;
 select count(*) from db1.t1;
 
---source include/rpl_end.inc
---source include/force_restart.inc
+connection server_1;
+drop database db1;
+connection server_2;
+drop database db1;
+
+source suite/xtrabackup/include/xb_cleanup.inc;
