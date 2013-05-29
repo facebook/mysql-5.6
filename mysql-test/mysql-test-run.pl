@@ -2494,6 +2494,15 @@ sub environment_setup {
   $ENV{'MYSQL_XTRABACKUP'}= native_path($exe_xtrabackup);
 
   # ----------------------------------------------------
+  # xbstream
+  # ----------------------------------------------------
+  my $exe_xbstream=
+    mtr_exe_maybe_exists(vs_config_dirs('xtrabackup/src', 'xbstream'),
+           "$path_client_bindir/xbstream",
+           "$basedir/xtrabackup/src/xbstream");
+  $ENV{'MYSQL_XBSTREAM'}= native_path($exe_xbstream);
+
+  # ----------------------------------------------------
   # innobackupex
   # ----------------------------------------------------
   my $exe_innobackupex=
