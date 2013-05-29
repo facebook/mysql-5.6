@@ -1947,6 +1947,9 @@ sub check_args {
       $stream_cmd = 'tar chf -';
     } elsif ($option_stream eq 'xbstream') {
       $stream_cmd = 'xbstream -c'
+    } elsif ($option_stream ne '') {
+      $stream_cmd = "$option_stream -c";
+      $option_stream = 'xbstream';
     }
 
     if (@ARGV < 1) {
