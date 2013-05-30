@@ -1,0 +1,23 @@
+call mtr.add_suppression("InnoDB: Error: trying to do.*");
+drop table if exists t1;
+create table t1(i int primary key auto_increment, c char(128)) engine=innodb;
+insert into t1 values (null, 'foobar');
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+insert into t1 select null, 'foobar' from t1;
+Start a transaction that blocks purge
+begin;
+select count(*) from t1;
+count(*)
+256
+delete from t1;
+rollback;
+show global status like "Innodb_drop_table_purge_skipped_row";
+Variable_name	Value
+Innodb_drop_table_purge_skipped_row	0
+drop table t1;

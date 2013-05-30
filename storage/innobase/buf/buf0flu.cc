@@ -1209,6 +1209,7 @@ buf_flush_try_neighbors(
 	ulint		low;
 	ulint		high;
 	ulint		count = 0;
+	ulint		space_size = 0;
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 
 	ut_ad(flush_type == BUF_FLUSH_LRU || flush_type == BUF_FLUSH_LIST);
@@ -1260,8 +1261,14 @@ buf_flush_try_neighbors(
 
 	/* fprintf(stderr, "Flush area: low %lu high %lu\n", low, high); */
 
-	if (high > fil_space_get_size(space)) {
-		high = fil_space_get_size(space);
+	space_size = fil_space_get_size(space);
+
+	/* This returns 0 when the tablespace is not found. That should not happen
+	because dirty pages are removed from the flush list on DROP TABLE */
+	ut_a(space_size);
+
+	if (high > space_size) {
+		high = space_size;
 	}
 
 	for (i = low; i < high; i++) {

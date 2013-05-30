@@ -485,6 +485,13 @@ extern ulint	srv_lock_deadlocks;
 /** Number of lock wait timeouts */
 extern ulint	srv_lock_wait_timeouts;
 
+/** Number times purge skipped a row because the table had been dropped */
+extern ulint	srv_drop_purge_skip_row;
+
+/** Number times ibuf merges skipped a row because the table had been dropped 
+*/
+extern ulint	srv_drop_ibuf_skip_row;
+
 #ifndef HAVE_ATOMIC_BUILTINS
 /** Mutex protecting some server global variables. */
 extern ib_mutex_t	server_mutex;
@@ -503,6 +510,14 @@ extern ulint	srv_io_slow_usecs;
 /** Count as "old" file read and write requests that wait this long in bg arrays
 before getting scheduled */
 extern ulint	srv_io_old_usecs;
+
+#ifdef UNIV_DEBUG
+/** Support disabling insert buffer merges during testing */
+extern my_bool srv_allow_ibuf_merges;
+#define SRV_ALLOW_IBUF_MERGES srv_allow_ibuf_merges
+#else
+#define SRV_ALLOW_IBUF_MERGES TRUE
+#endif
 
 /* the number of purge threads to use from the worker pool (currently 0 or 1) */
 extern ulong srv_n_purge_threads;
@@ -1224,6 +1239,8 @@ struct export_var_t{
 	ulint  	innodb_malloc_cache_misses_decompress;
 	ulint  	innodb_malloc_cache_block_size_compress;
 	ulint  	innodb_malloc_cache_block_size_decompress;
+	ulint		innodb_drop_purge_skip_row;
+	ulint		innodb_drop_ibuf_skip_row;
 };
 
 /** Thread slot in the thread table.  */
