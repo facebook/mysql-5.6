@@ -1,0 +1,173 @@
+drop table if exists indexstats;
+desc information_schema.index_statistics;
+Field	Type	Null	Key	Default	Extra
+TABLE_SCHEMA	varchar(192)	NO			
+TABLE_NAME	varchar(192)	NO			
+INDEX_NAME	varchar(192)	NO			
+TABLE_ENGINE	varchar(192)	NO			
+ROWS_INSERTED	bigint(21)	NO		0	
+ROWS_UPDATED	bigint(21)	NO		0	
+ROWS_DELETED	bigint(21)	NO		0	
+ROWS_READ	bigint(21)	NO		0	
+ROWS_REQUESTED	bigint(21)	NO		0	
+ROWS_INDEX_FIRST	bigint(21)	NO		0	
+ROWS_INDEX_NEXT	bigint(21)	NO		0	
+IO_READ_BYTES	bigint(21)	NO		0	
+IO_READ_REQUESTS	bigint(21)	NO		0	
+IO_READ_SVC_USECS	bigint(21)	NO		0	
+IO_READ_SVC_USECS_MAX	bigint(21)	NO		0	
+IO_READ_WAIT_USECS	bigint(21)	NO		0	
+IO_READ_WAIT_USECS_MAX	bigint(21)	NO		0	
+IO_READ_SLOW_IOS	bigint(21)	NO		0	
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table indexstats (i int primary key, j int) engine=innodb;
+insert into indexstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+
+At start
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+select * from indexstats where i=0;
+i	j
+select * from indexstats where i=1;
+i	j
+1	1
+select * from indexstats where i=2;
+i	j
+2	2
+select * from indexstats where i=7;
+i	j
+
+After 2 good and 2 failed equality search: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	2
+select * from indexstats where i < 0;
+i	j
+select * from indexstats where i < 1;
+i	j
+
+After 2 failed less than search: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	4
+select * from indexstats where i < 2;
+i	j
+1	1
+
+After search that gets 1 row: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	6
+select * from indexstats where i < 3;
+i	j
+1	1
+2	2
+
+After search that gets 2 rows: Increment rows_read by 3
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	9
+select * from indexstats where i <= 0;
+i	j
+
+After 1 failed less than or equal search: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+select * from indexstats where i <= 1;
+i	j
+1	1
+
+After less than or equal search that gets 1 row: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	12
+select * from indexstats where i <= 2;
+i	j
+1	1
+2	2
+
+After less than or equal search that gets 2 rows: Increment rows_read by 3
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	15
+select * from indexstats where i > 5;
+i	j
+
+After 1 failed greater than search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	15
+select * from indexstats where i > 6;
+i	j
+
+After 1 failed greater than search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	15
+select * from indexstats where i > 3;
+i	j
+4	4
+5	5
+
+After greater than search that gets 2 rows: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	17
+select * from indexstats where i >= 6;
+i	j
+
+After 1 failed greater than or equal search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	17
+select * from indexstats where i >= 5;
+i	j
+5	5
+
+After greater than or equal search: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	18
+drop table indexstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
