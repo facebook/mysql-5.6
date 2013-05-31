@@ -29,18 +29,32 @@ let $max_id = `select id from db1.t1 order by id desc limit 1`;
 if($num_rows != $max_id) {
   echo Number of rows($num_rows) and last_id($max_id) does not match;
 }
-
 if($num_rows < 10000) {
   echo Number of rows($num_rows) is less than 10000;
 }
-
 if($num_rows > 20000) {
   echo Number of rows($num_rows) is more than 20000;
 }
 
+--source suite/xtrabackup/include/xb_setup_replication_and_sync.inc
+
+connection server_2;
+select count(*) from db1.t1;
+
+connection server_1;
+let $checksum1 = `checksum tables db1.t1`;
+connection server_2;
+let $checksum2 = `checksum tables db1.t1`;
+
+if($checksum1 != $checksum2) {
+  echo Checksums ($checksum1 and $checksum2) do not match;
+}
+
 connection server_1;
 drop database db1;
+sync_slave_with_master;
 connection server_2;
-drop database db1;
+stop slave;
+reset slave;
 
 source suite/xtrabackup/include/xb_cleanup.inc;
