@@ -1,5 +1,6 @@
 -- source include/have_gtid.inc
 -- source include/master-slave.inc
+-- source include/big_test.inc
 
 -- connection master
 -- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
@@ -14,6 +15,7 @@
 -- let $last_gitd_transaction_id = `SELECT SUBSTRING_INDEX('$gtid_executed', '-', -1);`
 
 -- connection slave
+-- let $MYSQLD_DATADIR= `SELECT @@datadir`
 -- let $i = 1
 -- disable_query_log
 while ($i <= $last_gitd_transaction_id)
@@ -25,8 +27,25 @@ while ($i <= $last_gitd_transaction_id)
   -- let assert_text = Gtid used in FIND BINLOG GITD and returned by SHOW BINLOG EVENTS should be same
   -- let assert_cond = `SELECT "$gtid" = "SET @@SESSION.GTID_NEXT= '$MASTER_UUID:$i'"`
   -- source include/assert.inc
+
+  -- exec $MYSQL_BINLOG --index_file=$MYSQLD_DATADIR/slave-bin.index --find-gtid-position=$MASTER_UUID:$i > $MYSQLD_DATADIR/tmp.result
+
+  -- let $result= `SELECT LOAD_FILE('$MYSQLD_DATADIR/tmp.result')`
+  -- let $log_name = `SELECT SUBSTRING_INDEX('$result', '\n', 1)`
+  -- let $log_pos = `SELECT SUBSTRING_INDEX('$result', '\n', -1)`
+
+  -- let $log_name = `SELECT SUBSTRING_INDEX('$log_name', ' ', -1)`
+  -- let $log_pos = `SELECT SUBSTRING_INDEX('$log_pos', ' ', -1)`
+  -- let $gtid = query_get_value("SHOW BINLOG EVENTS IN '$log_name' FROM $log_pos LIMIT 1", Info, 1)
+
+  -- let assert_text = Gtid used in MYSQLBINLOG and returned by SHOW BINLOG EVENTS should be same
+  -- let assert_cond = `SELECT "$gtid" = "SET @@SESSION.GTID_NEXT= '$MASTER_UUID:$i'"`
+  -- source include/assert.inc
+
   -- inc $i
 }
+
+-- remove_file $MYSQLD_DATADIR/tmp.result
 -- enable_query_log
 -- let $include_silent =
 

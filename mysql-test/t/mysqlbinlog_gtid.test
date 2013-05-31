@@ -1,0 +1,45 @@
+-- source include/have_gtid.inc
+
+set timestamp=1000000000;
+
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+FLUSH LOGS;
+insert into t1 values(3);
+insert into t1 values(4);
+FLUSH LOGS;
+
+-- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
+-- let $MYSQLD_DATADIR = `select @@datadir;`
+
+-- echo ** Reading from local binlog **
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_BINLOG --force-if-open --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:3
+
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_BINLOG --force-if-open --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:4
+
+-- echo ** Reading from remote master with GTIDS on **
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:3 --to-last-log
+
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:4 --to-last-log
+
+# Malformed Gtid
+-- error 1
+-- exec $MYSQL_BINLOG --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=malformed_gtid
+-- error 1
+-- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=malformed_gtid --to-last-log
+
+PURGE BINARY LOGS TO 'master-bin.000002';
+
+# Purged Gtid
+-- replace_result $MASTER_UUID uuid
+-- error 1
+-- exec $MYSQL_BINLOG --short_form --index-file=$MYSQLD_DATADIR/master-bin.index --start-gtid=$MASTER_UUID:1
+-- error 1
+-- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:1 --to-last-log
+
+drop table t1;
