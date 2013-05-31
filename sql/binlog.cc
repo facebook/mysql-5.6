@@ -6950,11 +6950,18 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     mysql_mutex_lock(&LOCK_log);
     int error= rotate(false, &check_purge);
     mysql_mutex_unlock(&LOCK_log);
-
-    if (!error && check_purge)
+    /*
+      When a merge conflict happens here because of an upstream fix,
+      please take the upstream fix, but the test case rpl.rpl_gtid_mts.test
+      should be ported forward.
+    */
+    if (error)
+    {
+      sql_print_error("Failure during 'rotate' in ordered_commit");
+      DBUG_RETURN(error);
+    }
+    if (check_purge)
       purge();
-    else
-      thd->commit_error= THD::CE_COMMIT_ERROR;
   }
   DBUG_RETURN(thd->commit_error);
 }
