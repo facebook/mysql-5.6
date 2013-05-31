@@ -1,0 +1,7 @@
+-- source include/have_gtid.inc
+-- source include/master-slave.inc
+
+-- connection master
+-- source extra/rpl_tests/rpl_parallel_load.test
+
+-- source include/rpl_end.inc
