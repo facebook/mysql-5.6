@@ -2485,6 +2485,24 @@ sub environment_setup {
   $ENV{'MYSQL_MY_PRINT_DEFAULTS'}= native_path($exe_my_print_defaults);
 
   # ----------------------------------------------------
+  # xtrabackup
+  # ----------------------------------------------------
+  my $exe_xtrabackup=
+    mtr_exe_maybe_exists(vs_config_dirs('xtrabackup/src', 'xtrabackup_innodb56'),
+           "$path_client_bindir/xtrabackup_innodb56",
+           "$basedir/xtrabackup/src/xtrabackup_innodb56");
+  $ENV{'MYSQL_XTRABACKUP'}= native_path($exe_xtrabackup);
+
+  # ----------------------------------------------------
+  # innobackupex
+  # ----------------------------------------------------
+  my $exe_innobackupex=
+    mtr_exe_maybe_exists(vs_config_dirs('xtrabackup', 'innobackupex'),
+           "$path_client_bindir/innobackupex",
+           "$basedir/xtrabackup/innobackupex");
+  $ENV{'MYSQL_INNOBACKUPEX'}= native_path($exe_innobackupex);
+
+  # ----------------------------------------------------
   # Setup env so childs can execute myisampack and myisamchk
   # ----------------------------------------------------
   $ENV{'MYISAMCHK'}= native_path(mtr_exe_exists(
