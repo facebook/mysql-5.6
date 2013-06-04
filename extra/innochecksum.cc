@@ -638,12 +638,12 @@ int main(int argc, char **argv)
   if (logical_page_size != physical_page_size)
   {
     printf("Table is compressed\n");
-    printf("Key block size is %luK\n", physical_page_size);
+    printf("Key block size is %lu\n", physical_page_size);
   }
   else
   {
     printf("Table is uncompressed\n");
-    printf("Page size is %luK\n", physical_page_size);
+    printf("Page size is %lu\n", physical_page_size);
   }
 
   pages= (ulint) (size / physical_page_size);
