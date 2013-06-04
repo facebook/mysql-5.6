@@ -5,6 +5,7 @@ Note	####	Storing MySQL user name or password information in the master.info rep
 Warnings:
 Note	1753	slave_transaction_retries is not supported in multi-threaded slave mode. In the event of a transient failure, the slave will not retry the transaction and will stop.
 [connection master]
+call mtr.add_suppression("Recovery from master pos");
 call mtr.add_suppression('Slave: Error dropping database');
 include/stop_slave.inc
 start slave;
@@ -84,4 +85,34 @@ include/diff_tables.inc [master:test0.tm_nk, slave:test0.tm_nk]
 include/diff_tables.inc [master:test0.ti_nk, slave:test0.ti_nk]
 include/diff_tables.inc [master:test0.tm_wk, slave:test0.tm_wk]
 include/diff_tables.inc [master:test0.ti_wk, slave:test0.ti_wk]
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	mtr	master_uuid:1
+2	test15	master_uuid:2370
+3	test14	master_uuid:2371
+4	test13	master_uuid:2372
+5	test12	master_uuid:2373
+6	test11	master_uuid:2374
+7	test10	master_uuid:2375
+8	test9	master_uuid:2376
+9	test8	master_uuid:2377
+10	test7	master_uuid:2378
+11	test6	master_uuid:2379
+12	test5	master_uuid:2380
+13	test4	master_uuid:2381
+14	test3	master_uuid:2382
+15	test2	master_uuid:2383
+16	test1	master_uuid:2384
+17	test0	master_uuid:2385
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+change master to master_auto_position=1;
+include/start_slave.inc
+Warnings:
+Note	1753	slave_transaction_retries is not supported in multi-threaded slave mode. In the event of a transient failure, the slave will not retry the transaction and will stop.
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-2385
+include/sync_slave_sql_with_master.inc
+master_uuid:1-2385
 include/rpl_end.inc

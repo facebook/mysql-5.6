@@ -1,7 +1,43 @@
 -- source include/have_gtid.inc
 -- source include/master-slave.inc
+-- source include/have_binlog_format_mixed.inc
+
+call mtr.add_suppression("Recovery from master pos");
 
 -- connection master
+-- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
 -- source extra/rpl_tests/rpl_parallel_load.test
+
+-- let $SLAVE_UUID = `SELECT @@SERVER_UUID;`
+
+use mysql;
+-- replace_result $MASTER_UUID master_uuid
+select * from slave_gtid_info;
+
+-- let $MYSQLD_DATADIR = `select @@datadir`
+-- remove_file $MYSQLD_DATADIR/slave-bin.000014
+
+-- let $sed = /slave-bin.000014/,\$d
+
+-- exec sed -i '$sed' $MYSQLD_DATADIR/slave-bin.index
+
+-- let $rpl_server_number = 2
+-- let $rpl_start_with_gtids = 1
+-- source include/rpl_restart_server.inc
+
+change master to master_auto_position=1;
+-- source include/start_slave.inc
+
+connection master;
+-- replace_result $MASTER_UUID master_uuid
+select @@global.gtid_executed;
+
+-- let $use_gtids=1
+-- source include/sync_slave_sql_with_master.inc
+-- let $slave_gtid_executed=`select @@global.gtid_executed`
+# Strip off GTID's executed on slave and replace $MASTER_UUID in global gtid_executed string.
+-- let $regex=s/$MASTER_UUID/master_uuid/g;s/, //g;s/$SLAVE_UUID:[0-9]*-[0-9]*//g
+-- exec echo "$slave_gtid_executed" | sed '$regex'
+connection master;
 
 -- source include/rpl_end.inc

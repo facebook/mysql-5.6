@@ -46,6 +46,7 @@
 #include "sql_class.h"                          /* THD */
 #include "rpl_utility.h"                        /* Hash_slave_rows */
 #include "rpl_filter.h"
+#include "rpl_gtid_info.h"
 #endif
 
 /* Forward declarations */
@@ -1654,6 +1655,10 @@ protected:
      non-zero. The caller shall decrease the counter by one.
    */
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
+
+public:
+  void apply_query_event(char *query, uint32 query_length_arg);
+  bool is_row_log_event();
 #endif
 };
 
@@ -4918,6 +4923,7 @@ public:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   int do_apply_event(Relay_log_info const *rli);
   int do_update_pos(Relay_log_info *rli);
+  void set_last_gtid(char *last_gtid);
 #endif
 
   /**
