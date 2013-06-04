@@ -7020,6 +7020,13 @@ void handler::update_global_table_stats(THD *thd)
         thd->get_sent_row_count() == 0) {
       my_atomic_add64((longlong*)&table_stats->queries_empty, 1);
     }
+    if (thd && thd->open_tables)
+    {
+      my_atomic_add64((longlong*)&table_stats->comment_bytes, 
+                                  table->count_comment_bytes);
+      table->count_comment_bytes = 0;
+    }
+
 
   }
 

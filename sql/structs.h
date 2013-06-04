@@ -372,6 +372,7 @@ typedef struct st_table_stats {
                                            secondary index */
   ulonglong index_inserts;            /* Number of secondary index inserts. */
   ulonglong queries_empty;  /* Number of empty queries, exclude joins */
+  ulonglong comment_bytes;  /* Number of bytes of comments */
 
   const char* engine_name;
 } TABLE_STATS;
