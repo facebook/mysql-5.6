@@ -1842,6 +1842,10 @@ recv_apply_hashed_log_recs(
 	ulint	i;
 	ibool	has_printed	= FALSE;
 	mtr_t	mtr;
+#ifdef XTRABACKUP
+	ulint	last_n_addrs = ULINT_MAX;
+	ulint	loops_since_change = 0;
+#endif /* XTRABACKUP */
 loop:
 	mutex_enter(&(recv_sys->mutex));
 
@@ -1924,6 +1928,24 @@ loop:
 	/* Wait until all the pages have been processed */
 
 	while (recv_sys->n_addrs != 0) {
+#ifdef XTRABACKUP
+		if (recv_sys->n_addrs == last_n_addrs) {
+			loops_since_change++;
+			if (loops_since_change > 1000) {
+				fprintf(stderr, "\n"
+						"InnoDB: Error: %lu pages with log records are left\n"
+						"InnoDB: unprocessed, but no new log records have\n"
+						"InnoDB: been processed in the last 500 seconds.\n"
+						"InnoDB: This may happen if tables were dropped or\n"
+						"InnoDB: .ibd files were deleted before recovery\n",
+						(ulong) recv_sys->n_addrs);
+				ut_error;
+			}
+		} else {
+			last_n_addrs = recv_sys->n_addrs;
+			loops_since_change = 0;
+		}
+#endif /* XTRABACKUP */
 
 		mutex_exit(&(recv_sys->mutex));
 
