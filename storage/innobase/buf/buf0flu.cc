@@ -1621,7 +1621,7 @@ buf_do_flush_list_batch(
 	     && bpage->oldest_modification < lsn_limit;
 	     ++scanned) {
 
-		bool		flushed;
+		bool DBUG_ONLY	flushed;
 		buf_page_t*	prev;
 
 		ut_a(bpage->oldest_modification > 0);

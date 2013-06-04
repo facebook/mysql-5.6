@@ -50,6 +50,8 @@
 
 #include <algorithm>
 
+#include "blind_fwrite.h"
+
 using std::min;
 using std::max;
 
@@ -764,7 +766,7 @@ public:
     }
 
     while ((bytes= fread(buf, 1, sizeof(buf), m_file)) > 0)
-      fwrite(buf, 1, bytes, stderr);
+      blind_fwrite(buf, 1, bytes, stderr);
 
     if (!lines)
     {
@@ -8232,8 +8234,9 @@ void run_explain(struct st_connection *cn, struct st_command *command,
 char *re_eprint(int err)
 {
   static char epbuf[100];
-  size_t len= my_regerror(MY_REG_ITOA | err, NULL, epbuf, sizeof(epbuf));
-  assert(len <= sizeof(epbuf));
+  size_t DBUG_ONLY len=
+    my_regerror(MY_REG_ITOA | err, NULL, epbuf, sizeof(epbuf));
+  DBUG_ASSERT(len <= sizeof(epbuf));
   return(epbuf);
 }
 
