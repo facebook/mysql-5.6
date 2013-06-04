@@ -50,6 +50,7 @@ WHERE space > 0;
 name	n_cols	file_format	row_format
 mysql/innodb_index_stats	11	Antelope	Compact
 mysql/innodb_table_stats	9	Antelope	Compact
+mysql/slave_gtid_info	6	Antelope	Compact
 mysql/slave_master_info	26	Antelope	Compact
 mysql/slave_relay_log_info	11	Antelope	Compact
 mysql/slave_worker_info	15	Antelope	Compact
@@ -75,7 +76,7 @@ MYSQLD_DATADIR/test/t_redundant.ibd
 DROP TABLE t_redundant, t_compact, t_compressed, t_dynamic;
 SELECT count(*) FROM INFORMATION_SCHEMA.INNODB_SYS_TABLESTATS;
 count(*)
-9
+10
 CREATE TABLE parent (id INT NOT NULL,
 PRIMARY KEY (id)) ENGINE=INNODB;
 CREATE TABLE child (id INT, parent_id INT,
@@ -103,6 +104,7 @@ SYS_FOREIGN_COLS	0	7
 SYS_TABLESPACES	0	6
 mysql/innodb_index_stats	1	11
 mysql/innodb_table_stats	1	9
+mysql/slave_gtid_info	1	6
 mysql/slave_master_info	1	26
 mysql/slave_relay_log_info	1	11
 mysql/slave_worker_info	1	15
