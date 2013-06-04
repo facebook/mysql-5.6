@@ -363,6 +363,7 @@ typedef struct st_net {
     to maintain the server internal instrumentation for the connection.
   */
   void *extension;
+  unsigned int receive_buffer_size;
 } NET;
 
 

@@ -40,6 +40,7 @@ typedef struct st_net {
   char last_error[512];
   char sqlstate[5 +1];
   void *extension;
+  unsigned int receive_buffer_size;
 } NET;
 enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
    MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG,
@@ -272,7 +273,8 @@ enum mysql_option
   MYSQL_OPT_CONNECT_ATTR_DELETE,
   MYSQL_SERVER_PUBLIC_KEY,
   MYSQL_ENABLE_CLEARTEXT_PLUGIN,
-  MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS
+  MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {

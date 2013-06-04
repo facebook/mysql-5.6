@@ -575,5 +575,10 @@ eval SET GLOBAL SERVER_ID = $old_server_id;
 
 --exec $MYSQL_BINLOG -uroot --password="" std_data/master-bin.000001 2>&1
 
+--echo #
+--echo # Check option --receive-buffer-size
+--echo #
+--exec $MYSQL_BINLOG --hexdump --receive-buffer-size=10485760 --read-from-remote-server --user=root --host=127.0.0.1 --port=$MASTER_MYPORT  master-bin.000001 >/dev/null
+
 --echo
 --echo End of tests

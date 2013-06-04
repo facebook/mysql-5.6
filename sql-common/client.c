@@ -58,6 +58,8 @@ my_bool	net_flush(NET *net);
 #endif /*EMBEDDED_LIBRARY*/
 
 #include <my_sys.h>
+#include <errno.h>
+#include <sys/socket.h>
 #include "my_default.h"
 #include <mysys_err.h>
 #include <m_string.h>
@@ -1689,6 +1691,7 @@ mysql_init(MYSQL *mysql)
  
   mysql->options.secure_auth= TRUE;
 
+  mysql->net.receive_buffer_size = 0;
   return mysql;
 }
 
@@ -3495,6 +3498,12 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
         closesocket(sock);
         goto error;
       }
+      if (net->receive_buffer_size &&
+          setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_RCVBUF,
+                     &net->receive_buffer_size,
+                     sizeof(net->receive_buffer_size)) == -1)
+        DBUG_PRINT("error", ("Failed to set SO_RCVBUF with (error: %s).",
+                   strerror(errno)));
 
       DBUG_PRINT("info", ("Connect socket"));
       status= vio_socket_connect(net->vio, t_res->ai_addr, t_res->ai_addrlen,
@@ -4459,6 +4468,8 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
     else
       mysql->options.client_flag&= ~CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS;
     break;
+  case MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE:
+    mysql->net.receive_buffer_size = *(uint*) arg;
 
   default:
     DBUG_RETURN(1);
