@@ -1,0 +1,26 @@
+--source include/have_innodb.inc
+--disable_query_log
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+--enable_warnings
+--enable_query_log
+
+# Create a compressed table with non-default key_block_size.
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255))
+ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+
+# Create a second table like the first.
+CREATE TABLE t2 like t1;
+
+# They both report a key block size of 4 here.
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+
+# Verify that innochecksum also sees block size of 4.
+let $MYSQLD_DATADIR= `select @@datadir`;
+--exec $INNOCHECKSUM $MYSQLD_DATADIR/test/t1.ibd | grep 'Key block size is'
+--exec $INNOCHECKSUM $MYSQLD_DATADIR/test/t2.ibd | grep 'Key block size is'
+
+--disable_query_log
+DROP TABLE t1, t2;
+--enable_query_log
