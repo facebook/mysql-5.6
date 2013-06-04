@@ -1447,6 +1447,7 @@ void THD::init_for_queries(Relay_log_info *rli)
                       variables.trans_prealloc_size);
   transaction.xid_state.xid.null();
   transaction.xid_state.in_thd=1;
+  count_comment_bytes = 0;
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   if (rli)
   {

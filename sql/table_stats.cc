@@ -60,6 +60,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   my_io_perf_init(&table_stats->io_perf_read_secondary);
   table_stats->index_inserts = 0;
   table_stats->queries_empty = 0;
+  table_stats->comment_bytes = 0;
   memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
   memset(&table_stats->comp_stat, 0, sizeof(table_stats->comp_stat));
 }
@@ -348,6 +349,8 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_INDEX_INSERTS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"QUERIES_USED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"QUERIES_EMPTY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMMENT_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+
 
   {"INNODB_PAGES_READ", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"INNODB_PAGES_READ_INDEX", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -439,6 +442,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
         table_stats->io_perf_read_primary.requests == 0 &&
         table_stats->io_perf_read_secondary.requests == 0 &&
         table_stats->queries_empty == 0 &&
+        table_stats->comment_bytes == 0 &&
         table_stats->page_stats.n_pages_read == 0 &&
         table_stats->page_stats.n_pages_read_index == 0 &&
         table_stats->page_stats.n_pages_read_blob == 0 &&
@@ -575,6 +579,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->index_inserts, TRUE);
     table->field[f++]->store(table_stats->queries_used, TRUE);
     table->field[f++]->store(table_stats->queries_empty, TRUE);
+    table->field[f++]->store(table_stats->comment_bytes, TRUE);
 
     table->field[f++]->store(table_stats->page_stats.n_pages_read, TRUE);
     table->field[f++]->store(table_stats->page_stats.n_pages_read_index, TRUE);
