@@ -2307,7 +2307,10 @@ corruption:
 		if (index->online_log->head.blocks) {
 #ifdef HAVE_FTRUNCATE
 			/* Truncate the file in order to save space. */
-			ftruncate(index->online_log->fd, 0);
+			if (ftruncate(index->online_log->fd, 0))
+			{
+				/* Return value is ignored */
+			}
 #endif /* HAVE_FTRUNCATE */
 			index->online_log->head.blocks
 				= index->online_log->tail.blocks = 0;
@@ -3099,7 +3102,10 @@ corruption:
 		if (index->online_log->head.blocks) {
 #ifdef HAVE_FTRUNCATE
 			/* Truncate the file in order to save space. */
-			ftruncate(index->online_log->fd, 0);
+			if (ftruncate(index->online_log->fd, 0))
+			{
+				/* Return value is ignored */
+			}
 #endif /* HAVE_FTRUNCATE */
 			index->online_log->head.blocks
 				= index->online_log->tail.blocks = 0;

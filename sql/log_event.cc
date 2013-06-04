@@ -2684,13 +2684,14 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
   {
     if (!rli->curr_group_seen_gtid && !rli->curr_group_seen_begin)
     {
-      ulong gaq_idx;
+      ulong DBUG_ONLY gaq_idx;
       rli->mts_groups_assigned++;
 
       rli->curr_group_isolated= FALSE;
       group.reset(log_pos, rli->mts_groups_assigned);
       // the last occupied GAQ's array index
-      gaq_idx= gaq->assigned_group_index= gaq->en_queue((void *) &group);
+      gaq_idx=
+        gaq->assigned_group_index= gaq->en_queue((void *) &group);
     
       DBUG_ASSERT(gaq_idx != MTS_WORKER_UNDEF && gaq_idx < gaq->size);
       DBUG_ASSERT(gaq->get_job_group(rli->gaq->assigned_group_index)->
