@@ -183,6 +183,7 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_worker_info (
   Relay_log_pos BIGINT UNSIGNED NOT NULL, 
   Master_log_name TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, 
   Master_log_pos BIGINT UNSIGNED NOT NULL, 
+  Last_gtid_executed CHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
   Checkpoint_relay_log_name TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, 
   Checkpoint_relay_log_pos BIGINT UNSIGNED NOT NULL, 
   Checkpoint_master_log_name TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, 
@@ -191,6 +192,17 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_worker_info (
   Checkpoint_group_size INTEGER UNSIGNED NOT NULL, 
   Checkpoint_group_bitmap BLOB NOT NULL, 
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Worker Information'";
+
+SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
+SET @cmd= "CREATE TABLE IF NOT EXISTS slave_gtid_info (
+  Id INTEGER UNSIGNED NOT NULL,
+  Database_name CHAR(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  Last_gtid CHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
+  PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Gtid Information'";
 
 SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
 PREPARE stmt FROM @str;

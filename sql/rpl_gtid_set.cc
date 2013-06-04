@@ -860,9 +860,12 @@ static int get_string_length(rpl_gno gno)
   cmp2= cmp * 100LL;
   if (gno >= cmp2)
     len += 2, cmp = cmp2;
-  cmp2= cmp * 10LL;
-  if (gno >= cmp2)
-    len++;
+  if (cmp < 1000000000000000000LL)
+  {
+    cmp2= cmp * 10LL;
+    if (gno >= cmp2)
+      len++;
+  }
 #ifndef DBUG_OFF
   char buf[22];
   DBUG_ASSERT(snprintf(buf, 22, "%lld", gno) == len);

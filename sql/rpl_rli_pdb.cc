@@ -35,6 +35,8 @@ const char *info_slave_worker_fields []=
   "group_master_log_name",
   "group_master_log_pos",
 
+  // last gtid executed by this worker thread.
+  "last_gtid_executed",
   /*
     These positions identify what a worker knew about the coordinator at
     the time a job was assigned. Notice that they are redudant and are
@@ -96,10 +98,12 @@ Slave_worker::Slave_worker(Relay_log_info *rli
     So when factoring out this code, please, consider this.
   */
   DBUG_ASSERT(internal_id == id + 1);
+  worker_last_gtid[0] = 0;
   checkpoint_relay_log_name[0]= 0;
   checkpoint_master_log_name[0]= 0;
   my_init_dynamic_array(&curr_group_exec_parts, sizeof(db_worker_hash_entry*),
                         SLAVE_INIT_DBS_IN_GROUP, 1);
+  my_init_dynamic_array(&worker_gtid_infos, sizeof(Gtid_info *), 1, 1);
   mysql_mutex_init(key_mutex_slave_parallel_worker, &jobs_lock,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_cond_slave_parallel_worker, &jobs_cond, NULL);
@@ -114,6 +118,7 @@ Slave_worker::~Slave_worker()
     delete_dynamic(&jobs.Q);
   }
   delete_dynamic(&curr_group_exec_parts);
+  delete_dynamic(&worker_gtid_infos);
   mysql_mutex_destroy(&jobs_lock);
   mysql_cond_destroy(&jobs_cond);
   info_thd= NULL;
@@ -322,6 +327,9 @@ bool Slave_worker::read_info(Rpl_info_handler *from)
                      (char *) "") ||
       from->get_info((ulong *) &temp_group_master_log_pos,
                      (ulong) 0) ||
+      from->get_info(worker_last_gtid,
+                     (size_t) sizeof(worker_last_gtid),
+                     (char *) "") ||
       from->get_info(checkpoint_relay_log_name,
                      (size_t) sizeof(checkpoint_relay_log_name),
                      (char *) "") ||
@@ -365,6 +373,7 @@ bool Slave_worker::write_info(Rpl_info_handler *to)
       to->set_info((ulong) group_relay_log_pos) ||
       to->set_info(group_master_log_name) ||
       to->set_info((ulong) group_master_log_pos) ||
+      to->set_info(worker_last_gtid) ||
       to->set_info(checkpoint_relay_log_name) ||
       to->set_info((ulong) checkpoint_relay_log_pos) ||
       to->set_info(checkpoint_master_log_name) ||
@@ -402,6 +411,7 @@ size_t Slave_worker::get_number_worker_fields()
 
 bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool force)
 {
+  int error = 0;
   DBUG_ENTER("Slave_worker::checkpoint_positions");
 
   if (ptr_g->checkpoint_log_name != NULL)
@@ -461,6 +471,26 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
       mts_debug_concurrent_access++;
     };
   );
+
+  if (gtid_mode > 0 && worker_last_gtid[0] != 0)
+  {
+    for (uint i = 0; i < worker_gtid_infos.elements; i++)
+    {
+      Gtid_info *gtid_info =
+        *dynamic_element(&worker_gtid_infos, i, Gtid_info**);
+      DBUG_ASSERT(gtid_info);
+#ifndef DBUG_OFF
+      DBUG_ASSERT(!gtid_info->skip_event(worker_last_gtid));
+#endif
+      gtid_info->set_last_gtid(worker_last_gtid);
+      if ((error = gtid_info->flush_info(force)))
+      {
+        reset_dynamic(&worker_gtid_infos);
+        DBUG_RETURN(error);
+      }
+    }
+    reset_dynamic(&worker_gtid_infos);
+  }
 
   DBUG_RETURN(flush_info(force));
 }
@@ -730,7 +760,7 @@ Slave_worker *map_db_to_worker(const char *dbname, Relay_log_info *rli,
   DYNAMIC_ARRAY hash_element;
   THD *thd= rli->info_thd;
 
-  DBUG_ENTER("get_slave_worker");
+  DBUG_ENTER("map_db_to_worker");
 
   DBUG_ASSERT(!rli->last_assigned_worker ||
               rli->last_assigned_worker == last_worker);
@@ -1824,6 +1854,7 @@ struct slave_job_item* pop_jobs_item(Slave_worker *worker, Slave_job_item *job_i
 int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
 {
   int error= 0;
+  bool skip_event = false;
   struct slave_job_item item= {NULL}, *job_item= &item;
   THD *thd= worker->info_thd;
   Log_event *ev= NULL;
@@ -1902,7 +1933,65 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   start_perf_read_secondary = thd->io_perf_read_secondary;
   init_timer = my_timer_now();
   worker->set_future_event_relay_log_pos(ev->future_event_relay_log_pos);
-  error= ev->do_apply_event_worker(worker);
+
+  if (gtid_mode > 0 && ev->contains_partition_info(false))
+  {
+    for (uint i = 0; i < worker->curr_group_exec_parts.elements; i++)
+    {
+      Gtid_info *gtid_info = NULL;
+      db_worker_hash_entry *assigned_partition = NULL;
+      get_dynamic(&worker->curr_group_exec_parts,
+                  (uchar *) &assigned_partition, i);
+      DBUG_ASSERT(assigned_partition);
+      const char *db_name = assigned_partition->db;
+      worker->c_rli->gtid_info_hash_rdlock();
+      gtid_info = (Gtid_info *)my_hash_search(&rli->map_db_to_gtid_info,
+                                              (uchar*) db_name,
+                                              strlen(db_name));
+      worker->c_rli->gtid_info_hash_unlock();
+      DBUG_ASSERT(gtid_info);
+      if ((skip_event = gtid_info->skip_event(worker->worker_last_gtid)))
+      {
+        // data_written is modified when the event is written to binlog.
+        // This is a work around to avoid assertions due to modified
+        // data_written value.
+        ulong old_data_written = ev->data_written;
+        ev->reset_log_pos();
+        if (!worker->curr_group_seen_begin)
+        {
+          ev->apply_query_event((char *)"BEGIN", 5);
+          mysql_bin_log.write_event(ev, Log_event::EVENT_STMT_CACHE);
+          ev->apply_query_event((char *)"COMMIT", 6);
+        }
+        else if (ev->get_type_code() != TABLE_MAP_EVENT)
+        {
+          mysql_bin_log.write_event(ev, Log_event::EVENT_TRANSACTIONAL_CACHE);
+          thd->transaction.all.ha_list = NULL;
+          thd->transaction.stmt.ha_list = NULL;
+        }
+        ev->data_written = old_data_written;
+        reset_dynamic(&worker->worker_gtid_infos);
+        break;
+      }
+      // Memotize the gtid_info repository which should be flushed in
+      // commit_positions.
+      insert_dynamic_set(&worker->worker_gtid_infos, (uchar *) &gtid_info);
+    }
+  }
+
+  if (!worker->worker_gtid_infos.elements && gtid_mode > 0
+      && ev->is_row_log_event())
+    skip_event = true;
+
+  if (!skip_event)
+    error= ev->do_apply_event_worker(worker);
+
+  if (is_gtid_event(ev))
+  {
+    reset_dynamic(&worker->worker_gtid_infos);
+    Gtid_log_event *gtid_ev = (Gtid_log_event *) ev;
+    gtid_ev->set_last_gtid(worker->worker_last_gtid);
+  }
   if (ev->ends_group() || (!worker->curr_group_seen_begin &&
                            /*
                               p-events of B/T-less {p,g} group (see

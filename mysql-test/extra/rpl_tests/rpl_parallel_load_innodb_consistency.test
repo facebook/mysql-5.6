@@ -1,0 +1,21 @@
+#
+# Consistency verification after rpl_parallel_load_innodb.test
+#
+
+if ($databases == '')
+{
+  let $databases=16;
+}
+
+let $i = $databases;
+while($i)
+{
+  dec $i;
+
+  let $diff_tables=master:test$i.ti_nk, slave:test$i.ti_nk;
+  source include/diff_tables.inc;
+
+  let $diff_tables=master:test$i.ti_wk, slave:test$i.ti_wk;
+  source include/diff_tables.inc;
+
+}
