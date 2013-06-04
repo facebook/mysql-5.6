@@ -17,7 +17,7 @@ end-page                          0
 page                              0
 per-page-details                  FALSE
 Table is uncompressed
-Page size is 16384K
+Page size is 16384
 file tab1.ibd = 114688 bytes (7 pages)...
 InnoChecksum; checking pages in range 0 to 6
 0	bad checksum
