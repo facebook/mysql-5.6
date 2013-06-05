@@ -1,0 +1,61 @@
+
+#
+# 2013-04-19 - Added
+#
+
+--source include/have_innodb.inc
+--source include/load_sysvars.inc
+
+--disable_warnings
+SET @start_global_value = @@global.innodb_zip_debug;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--echo Valid values are 0, 1, ON, and OFF
+SELECT @@global.innodb_zip_debug between 0 and 1;
+SELECT @@global.innodb_zip_debug;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.innodb_zip_debug;
+SET global innodb_zip_debug = 'ON';
+SELECT @@global.innodb_zip_debug;
+SET global innodb_zip_debug = 'OFF';
+SELECT @@global.innodb_zip_debug;
+SHOW global variables like 'innodb_zip_debug';
+SHOW session variables like 'innodb_zip_debug';
+SELECT * from information_schema.global_variables where variable_name='innodb_zip_debug';
+SELECT * from information_schema.session_variables where variable_name='innodb_zip_debug';
+
+#
+# SHOW that it's writable
+#
+SET GLOBAL innodb_zip_debug = 0;
+SELECT @@global.innodb_zip_debug;
+SELECT * from information_schema.global_variables where variable_name='innodb_zip_debug';
+SELECT * from information_schema.session_variables where variable_name='innodb_zip_debug';
+--error ER_GLOBAL_VARIABLE
+SET session innodb_zip_debug = 1;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+SET global innodb_zip_debug = 1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+SET global innodb_zip_debug = 1e1;
+
+#
+# min/max/DEFAULT values
+#
+SET global innodb_zip_debug = 0;
+SELECT @@global.innodb_zip_debug;
+SET global innodb_zip_debug = 1;
+SELECT @@global.innodb_zip_debug;
+SET global innodb_zip_debug = DEFAULT;
+SELECT @@global.innodb_zip_debug;
+
+
+SET @@global.innodb_zip_debug = @start_global_value;
+SELECT @@global.innodb_zip_debug;
+--enable_warnings
