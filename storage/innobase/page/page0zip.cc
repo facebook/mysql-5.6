@@ -90,6 +90,8 @@ UNIV_INTERN uint	page_zip_level = DEFAULT_COMPRESSION_LEVEL;
 compression algorithm changes in zlib. */
 UNIV_INTERN my_bool	page_zip_log_pages = false;
 
+UNIV_INTERN my_bool page_zip_debug = FALSE;
+
 /* Please refer to ../include/page0zip.ic for a description of the
 compressed page format. */
 
@@ -127,10 +129,9 @@ Compare at most sizeof(field_ref_zero) bytes.
 #define ASSERT_ZERO_BLOB(b) \
 	ut_ad(!memcmp(b, field_ref_zero, sizeof field_ref_zero))
 
-/* Enable some extra debugging output.  This code can be enabled
-independently of any UNIV_ debugging conditions. */
-#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
-# include <stdarg.h>
+/* Enable some extra debugging output. */
+#if defined UNIV_DEBUG
+#include <stdarg.h>
 __attribute__((format (printf, 1, 2)))
 /**********************************************************************//**
 Report a failure to decompress or compress.
@@ -155,12 +156,13 @@ page_zip_fail_func(
 }
 /** Wrapper for page_zip_fail_func()
 @param fmt_args	in: printf(3) format string and arguments */
-# define page_zip_fail(fmt_args) page_zip_fail_func fmt_args
-#else /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
+#define page_zip_fail(fmt_args) page_zip_fail_func fmt_args
+#else /* UNIV_DEBUG */
 /** Dummy wrapper for page_zip_fail_func()
-@param fmt_args	ignored: printf(3) format string and arguments */
+@param fmt_args  ignored: printf(3) format string and arguments */
 # define page_zip_fail(fmt_args) /* empty */
-#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
+#endif /* UNIV_DEBUG */
+
 
 #ifndef UNIV_INNOCHECKSUM
 #ifndef UNIV_HOTBACKUP
@@ -775,12 +777,7 @@ page_zip_set_alloc(
 	strm->opaque = heap;
 }
 
-#if 0 || defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
-/** Symbol for enabling compression and decompression diagnostics */
-# define PAGE_ZIP_COMPRESS_DBG
-#endif
-
-#ifdef PAGE_ZIP_COMPRESS_DBG
+#ifdef UNIV_DEBUG
 /** Set this variable in a debugger to enable
 excessive logging in page_zip_compress(). */
 UNIV_INTERN ibool	page_zip_compress_dbg;
@@ -827,12 +824,12 @@ Log the operation if page_zip_compress_dbg is set.
 # define FILE_LOGFILE FILE* logfile,
 /** The logfile parameter */
 # define LOGFILE logfile,
-#else /* PAGE_ZIP_COMPRESS_DBG */
+#else /* UNIV_DEBUG */
 /** Empty declaration of the logfile parameter */
 # define FILE_LOGFILE
 /** Missing logfile parameter */
 # define LOGFILE
-#endif /* PAGE_ZIP_COMPRESS_DBG */
+#endif /* UNIV_DEBUG */
 
 /* Following are the different modes of operation for
 page_zip_store_uncompressed_fields(). The mode parameter currently only
@@ -2148,7 +2145,7 @@ page_zip_compress(
 	                   : - ((int) UNIV_PAGE_SIZE_SHIFT);
 	ulint space_id = page_get_space_id(page);
 #endif /* !UNIV_HOTBACKUP */
-#ifdef PAGE_ZIP_COMPRESS_DBG
+#ifdef UNIV_DEBUG
 	FILE*		logfile = NULL;
 #endif
 	/* A local copy of srv_cmp_per_index_enabled to avoid reading that
@@ -2189,7 +2186,7 @@ page_zip_compress(
 
 	/* The dense directory excludes the infimum and supremum records. */
 	n_dense = page_dir_get_n_heap(page) - PAGE_HEAP_NO_USER_LOW;
-#ifdef PAGE_ZIP_COMPRESS_DBG
+#ifdef UNIV_DEBUG
 	if (UNIV_UNLIKELY(page_zip_compress_dbg)) {
 		fprintf(stderr, "compress %p %p %lu %lu %lu\n",
 			(void*) page_zip, (void*) page,
@@ -2214,7 +2211,7 @@ page_zip_compress(
 			putc(0, logfile);
 		}
 	}
-#endif /* PAGE_ZIP_COMPRESS_DBG */
+#endif /* UNIV_DEBUG */
 #ifndef UNIV_HOTBACKUP
 	zip_stat->compressed++;
 	if (cmp_per_index_enabled) {
@@ -2402,11 +2399,11 @@ zlib_error:
 		deflateEnd(&c_stream);
 		mem_heap_free(heap);
 err_exit:
-#ifdef PAGE_ZIP_COMPRESS_DBG
+#ifdef UNIV_DEBUG
 		if (logfile) {
 			fclose(logfile);
 		}
-#endif /* PAGE_ZIP_COMPRESS_DBG */
+#endif /* UNIV_DEBUG */
 #ifndef UNIV_HOTBACKUP
 		if (page_is_leaf(page)) {
 			dict_index_zip_failure(index);
@@ -2481,9 +2478,10 @@ err_exit:
 	memcpy(page_zip->data + PAGE_DATA, new_page_zip.data + PAGE_DATA,
 	       page_zip_get_size(page_zip) - PAGE_DATA);
 	mem_heap_free(heap);
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(page_zip_validate(page_zip, page, index));
+	}
 
 	if (mtr) {
 #ifndef UNIV_HOTBACKUP
@@ -2493,7 +2491,7 @@ err_exit:
 
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
-#ifdef PAGE_ZIP_COMPRESS_DBG
+#ifdef UNIV_DEBUG
 	if (logfile) {
 		/* Record the compressed size of the block. */
 		byte sz[4];
@@ -2502,7 +2500,7 @@ err_exit:
 		blind_fwrite(sz, 1, sizeof sz, logfile);
 		fclose(logfile);
 	}
-#endif /* PAGE_ZIP_COMPRESS_DBG */
+#endif /* UNIV_DEBUG */
 #ifndef UNIV_HOTBACKUP
 	ulonglong time_diff = my_timer_since(start);
 	zip_stat->compressed_ok++;
@@ -3729,30 +3727,39 @@ page_zip_decompress_low(
 		memcpy(page, page_zip->data, PAGE_DATA);
 	} else {
 		/* Check that the bytes that we skip are identical. */
-#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
+		if (0
+#ifdef UNIV_DEBUG
+				|| 1
+#endif
+				|| UNIV_UNLIKELY(page_zip_debug)) {
 		ut_a(!memcmp(FIL_PAGE_TYPE + page,
 			     FIL_PAGE_TYPE + page_zip->data,
 			     PAGE_HEADER - FIL_PAGE_TYPE));
 		ut_a(!memcmp(PAGE_HEADER + PAGE_LEVEL + page,
 			     PAGE_HEADER + PAGE_LEVEL + page_zip->data,
 			     PAGE_DATA - (PAGE_HEADER + PAGE_LEVEL)));
-#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
+		}
 
 		/* Copy the mutable parts of the page header. */
 		memcpy(page, page_zip->data, FIL_PAGE_TYPE);
 		memcpy(PAGE_HEADER + page, PAGE_HEADER + page_zip->data,
 		       PAGE_LEVEL - PAGE_N_DIR_SLOTS);
 
-#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
-		/* Check that the page headers match after copying. */
-		ut_a(!memcmp(page, page_zip->data, PAGE_DATA));
-#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
+		if (0
+#ifdef UNIV_DEBUG
+				|| 1
+#endif
+				|| UNIV_UNLIKELY(page_zip_debug)) {
+			/* Check that the page headers match after copying. */
+			ut_a(!memcmp(page, page_zip->data, PAGE_DATA));
+		}
 	}
 
-#ifdef UNIV_ZIP_DEBUG
-	/* Clear the uncompressed page, except the header. */
-	memset(PAGE_DATA + page, 0x55, UNIV_PAGE_SIZE - PAGE_DATA);
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		/* Clear the uncompressed page, except the header. */
+		memset(PAGE_DATA + page, 0x55, UNIV_PAGE_SIZE - PAGE_DATA);
+	}
+
 	UNIV_MEM_INVALID(PAGE_DATA + page, UNIV_PAGE_SIZE - PAGE_DATA);
 
 	/* Copy the page directory. */
@@ -3956,7 +3963,6 @@ err_exit:
 	return(TRUE);
 }
 
-#ifdef UNIV_ZIP_DEBUG
 /**********************************************************************//**
 Dump a block of memory on the standard error stream. */
 static
@@ -4020,6 +4026,8 @@ page_zip_validate_low(
 	} else {
 		index_ptr = (dict_index_t**)(&index);
 	}
+
+	ut_a(page_zip_debug);
 
 	if (memcmp(page_zip->data + FIL_PAGE_PREV, page + FIL_PAGE_PREV,
 		   FIL_PAGE_LSN - FIL_PAGE_PREV)
@@ -4204,7 +4212,6 @@ page_zip_validate(
 	return(page_zip_validate_low(page_zip, page, index,
 				     recv_recovery_is_on()));
 }
-#endif /* UNIV_ZIP_DEBUG */
 
 #ifdef UNIV_DEBUG
 /**********************************************************************//**
@@ -4322,9 +4329,9 @@ page_zip_write_rec(
 	page_zip->m_end = data - page_zip->data;
 	page_zip->m_nonempty = TRUE;
 
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(page_zip_validate(page_zip, page_align(rec), index));
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(page_zip_validate(page_zip, page_align(rec), index));
+	}
 }
 
 /***********************************************************//**
@@ -4369,18 +4376,18 @@ corrupt:
 			goto corrupt;
 		}
 
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(page_zip_validate(page_zip, page, NULL));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(page_zip_validate(page_zip, page, NULL));
+		}
 
 		memcpy(page + offset,
 		       ptr + 4, BTR_EXTERN_FIELD_REF_SIZE);
 		memcpy(page_zip->data + z_offset,
 		       ptr + 4, BTR_EXTERN_FIELD_REF_SIZE);
 
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(page_zip_validate(page_zip, page, NULL));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(page_zip_validate(page_zip, page, NULL));
+		}
 	}
 
 	return(ptr + (2 + 2 + BTR_EXTERN_FIELD_REF_SIZE));
@@ -4445,9 +4452,9 @@ page_zip_write_blob_ptr(
 
 	memcpy(externs, field, BTR_EXTERN_FIELD_REF_SIZE);
 
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(page_zip_validate(page_zip, page, index));
+	}
 
 	if (mtr) {
 #ifndef UNIV_HOTBACKUP
@@ -4516,9 +4523,9 @@ corrupt:
 			goto corrupt;
 		}
 
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(page_zip_validate(page_zip, page, NULL));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(page_zip_validate(page_zip, page, NULL));
+		}
 
 		field = page + offset;
 		storage = page_zip->data + z_offset;
@@ -4537,9 +4544,9 @@ corrupt:
 		memcpy(field, ptr + 4, REC_NODE_PTR_SIZE);
 		memcpy(storage, ptr + 4, REC_NODE_PTR_SIZE);
 
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(page_zip_validate(page_zip, page, NULL));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(page_zip_validate(page_zip, page, NULL));
+		}
 	}
 
 	return(ptr + (2 + 2 + REC_NODE_PTR_SIZE));
@@ -4582,9 +4589,14 @@ page_zip_write_node_ptr(
 		- (rec_get_heap_no_new(rec) - 1) * REC_NODE_PTR_SIZE;
 	field = rec + size - REC_NODE_PTR_SIZE;
 
-#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
+	if (0
+#ifdef UNIV_DEBUG
+			|| 1
+#endif
+			|| UNIV_UNLIKELY(page_zip_debug)) {
 	ut_a(!memcmp(storage, field, REC_NODE_PTR_SIZE));
-#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
+	}
+
 #if REC_NODE_PTR_SIZE != 4
 # error "REC_NODE_PTR_SIZE != 4"
 #endif
@@ -4660,9 +4672,15 @@ page_zip_write_trx_id_and_roll_ptr(
 	ut_ad(field + DATA_TRX_ID_LEN
 	      == rec_get_nth_field(rec, offsets, trx_id_col + 1, &len));
 	ut_ad(len == DATA_ROLL_PTR_LEN);
-#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
+
+	if (0
+#ifdef UNIV_DEBUG
+			|| 1
+#endif
+			|| UNIV_UNLIKELY(page_zip_debug)) {
 	ut_a(!memcmp(storage, field, DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN));
-#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
+}
+
 #if DATA_TRX_ID_LEN != 6
 # error "DATA_TRX_ID_LEN != 6"
 #endif
@@ -4765,9 +4783,9 @@ page_zip_clear_rec(
 		ut_ad(!rec_offs_any_extern(offsets));
 	}
 
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(page_zip_validate(page_zip, page, index));
+	}
 }
 
 /**********************************************************************//**
@@ -4789,9 +4807,9 @@ page_zip_rec_set_deleted(
 	} else {
 		*slot &= ~(PAGE_ZIP_DIR_SLOT_DEL >> 8);
 	}
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(page_zip_validate(page_zip, page_align(rec), NULL));
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(page_zip_validate(page_zip, page_align(rec), NULL));
+	}
 }
 
 /**********************************************************************//**
@@ -5091,16 +5109,16 @@ corrupt:
 
 			goto corrupt;
 		}
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(page_zip_validate(page_zip, page, NULL));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(page_zip_validate(page_zip, page, NULL));
+		}
 
 		memcpy(page + offset, ptr, len);
 		memcpy(page_zip->data + offset, ptr, len);
 
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(page_zip_validate(page_zip, page, NULL));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(page_zip_validate(page_zip, page, NULL));
+		}
 	}
 
 	return(ptr + len);
@@ -5260,13 +5278,15 @@ page_zip_copy_recs(
 	ut_ad(mtr_memo_contains_page(mtr, page, MTR_MEMO_PAGE_X_FIX));
 	ut_ad(mtr_memo_contains_page(mtr, src, MTR_MEMO_PAGE_X_FIX));
 	ut_ad(!dict_index_is_ibuf(index));
-#ifdef UNIV_ZIP_DEBUG
-	/* The B-tree operations that call this function may set
-	FIL_PAGE_PREV or PAGE_LEVEL, causing a temporary min_rec_flag
-	mismatch.  A strict page_zip_validate() will be executed later
-	during the B-tree operations. */
-	ut_a(page_zip_validate_low(src_zip, src, index, TRUE));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		/* The B-tree operations that call this function may set
+		FIL_PAGE_PREV or PAGE_LEVEL, causing a temporary min_rec_flag
+		mismatch.  A strict page_zip_validate() will be executed later
+		during the B-tree operations. */
+		ut_a(page_zip_validate_low(src_zip, src, index, TRUE));
+	}
+
 	ut_a(page_zip_get_size(page_zip) == page_zip_get_size(src_zip));
 	if (UNIV_UNLIKELY(src_zip->n_blobs)) {
 		ut_a(page_is_leaf(src));
@@ -5324,9 +5344,10 @@ page_zip_copy_recs(
 		}
 	}
 
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(page_zip_validate(page_zip, page, index));
+	}
+
 	btr_blob_dbg_add(page, index, "page_zip_copy_recs");
 
 	page_zip_compress_write_log(page_zip, page, index, mtr);
