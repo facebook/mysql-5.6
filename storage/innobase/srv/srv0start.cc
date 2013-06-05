@@ -1666,14 +1666,21 @@ innobase_start_or_create_for_mysql(void)
 
 	ib_logf(IB_LOG_LEVEL_INFO,
 		"Compressed tables use zlib " ZLIB_VERSION
-#ifdef UNIV_ZIP_DEBUG
-	      " with validation"
-#endif /* UNIV_ZIP_DEBUG */
 	      );
+
 #ifdef UNIV_ZIP_COPY
-	ib_logf(IB_LOG_LEVEL_INFO, "and extra copying");
+	ib_logf(IB_LOG_LEVEL_INFO, "with extra copying");
 #endif /* UNIV_ZIP_COPY */
 
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+#ifdef UNIV_DEBUG
+		fputs("InnoDB: Page compressions are validated.\n", stderr);
+#else
+		fputs("InnoDB: Warning: innodb_zip_debug is enabled and this "
+		      "is a non-debug mysqld. Please disable it immediately if"
+		      " the machine is serving production traffic.\n", stderr);
+#endif
+	}
 
 	/* Since InnoDB does not currently clean up all its internal data
 	structures in MySQL Embedded Server Library server_end(), we
