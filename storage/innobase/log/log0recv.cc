@@ -1749,14 +1749,16 @@ recv_recover_page_func(
 		recv = UT_LIST_GET_NEXT(rec_list, recv);
 	}
 
-#ifdef UNIV_ZIP_DEBUG
-	if (fil_page_get_type(page) == FIL_PAGE_INDEX) {
-		page_zip_des_t*	page_zip = buf_block_get_page_zip(block);
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		if (fil_page_get_type(page) == FIL_PAGE_INDEX) {
+			page_zip_des_t*	page_zip
+				= buf_block_get_page_zip(block);
 
-		ut_a(!page_zip
-		     || page_zip_validate_low(page_zip, page, NULL, FALSE));
+			ut_a(!page_zip
+			     || page_zip_validate_low(page_zip, page, NULL,
+			     			      FALSE));
+		}
 	}
-#endif /* UNIV_ZIP_DEBUG */
 
 #ifndef UNIV_HOTBACKUP
 	if (modification_to_page) {
