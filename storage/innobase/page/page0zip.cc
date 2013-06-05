@@ -3493,7 +3493,7 @@ page_zip_validate_low(
 	page_t*		temp_page;
 	ibool		valid;
 	mem_heap_t* heap = NULL;
-	dict_index_t* index = NULL;
+	dict_index_t* temp_index = NULL;
 	const rec_t* rec1;
 	const rec_t* rec2;
 	ulint offs1;
@@ -3549,7 +3549,7 @@ page_zip_validate_low(
 
 	temp_page_zip = *page_zip;
 	valid = page_zip_decompress_low(&temp_page_zip, temp_page, TRUE, 0,
-	                                &heap, &index);
+	                                &heap, &temp_index);
 	if (!valid) {
 		fputs("page_zip_validate(): failed to decompress\n", stderr);
 		goto func_exit;
