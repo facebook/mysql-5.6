@@ -3060,6 +3060,34 @@ void init_my_timer(void)
 }
 
 /**********************************************************************
+Accumulate per-table page stats helper function */
+void my_page_stats_sum(page_stats_t* sum, page_stats_t* page_stats)
+{
+  sum->n_pages_read += page_stats->n_pages_read;
+  sum->n_pages_read_index += page_stats->n_pages_read_index;
+  sum->n_pages_read_blob += page_stats->n_pages_read_blob;
+  sum->n_pages_written += page_stats->n_pages_written;
+  sum->n_pages_written_index += page_stats->n_pages_written_index;
+  sum->n_pages_written_blob += page_stats->n_pages_written_blob;
+}
+
+/**********************************************************************
+Accumulate per-table compression stats helper function */
+void my_comp_stat_sum(comp_stat_t* sum, comp_stat_t* comp_stat)
+{
+  sum->compressed += comp_stat->compressed;
+  sum->compressed_ok += comp_stat->compressed_ok;
+  sum->compressed_primary += comp_stat->compressed_primary;
+  sum->compressed_primary_ok += comp_stat->compressed_primary_ok;
+  sum->decompressed += comp_stat->decompressed;
+  sum->compressed_time += comp_stat->compressed_time;
+  sum->compressed_ok_time += comp_stat->compressed_ok_time;
+  sum->decompressed_time += comp_stat->decompressed_time;
+  sum->compressed_primary_time += comp_stat->compressed_primary_time;
+  sum->compressed_primary_ok_time += comp_stat->compressed_primary_ok_time;
+}
+
+/**********************************************************************
 Return a - b in diff */
 void my_io_perf_diff(my_io_perf_t* diff,
                     const my_io_perf_t* a, const my_io_perf_t* b)

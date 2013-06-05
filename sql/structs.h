@@ -360,6 +360,9 @@ typedef struct st_table_stats {
   ulonglong rows_index_first;
   ulonglong rows_index_next;
 
+  bool should_update; /* Set for partitioned tables so later partitions will
+                         increment the perf stats. Clear after collecting
+                         table stats. */
   my_io_perf_t io_perf_read;          /* Read IO performance counters */
   my_io_perf_t io_perf_write;         /* Write IO performance counters */
   my_io_perf_t io_perf_read_blob;     /* Blob read IO performance counters */

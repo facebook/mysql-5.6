@@ -299,6 +299,12 @@ static inline void my_io_perf_init(my_io_perf_t* perf) {
   memset(perf, 0, sizeof(*perf));
 }
 
+/* Accumulate per-table compression stats helper function */
+void my_comp_stat_sum(comp_stat_t* sum, comp_stat_t* comp_stat);
+
+/* Accumulate per-table page stats helper function */
+void my_page_stats_sum(page_stats_t* sum, page_stats_t* page_stats);
+
 /* Returns a - b in diff */
 void my_io_perf_diff(my_io_perf_t* diff,
                      const my_io_perf_t* a, const my_io_perf_t* b);
