@@ -706,11 +706,12 @@ retry_page_get:
 	page = buf_block_get_frame(block);
 
 	if (rw_latch != RW_NO_LATCH) {
-#ifdef UNIV_ZIP_DEBUG
-		const page_zip_des_t*	page_zip
-			= buf_block_get_page_zip(block);
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			const page_zip_des_t*	page_zip
+				= buf_block_get_page_zip(block);
+			ut_a(!page_zip
+			     || page_zip_validate(page_zip, page, index));
+		}
 
 		buf_block_dbg_add_level(
 			block, dict_index_is_ibuf(index)
@@ -2222,9 +2223,10 @@ any_extern:
 	new_rec_size = rec_get_converted_size(index, new_entry, 0);
 
 	page_zip = buf_block_get_page_zip(block);
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+	}
 
 	if (page_zip) {
 		if (page_zip_rec_needs_ext(new_rec_size, page_is_comp(page),
@@ -2470,6 +2472,7 @@ btr_cur_pessimistic_update(
 	ibool		was_first;
 	ulint		n_reserved	= 0;
 	ulint		n_ext;
+	my_bool	zip_debug = page_zip_debug;
 
 	*offsets = NULL;
 	*big_rec = NULL;
@@ -2482,9 +2485,11 @@ btr_cur_pessimistic_update(
 	ut_ad(mtr_memo_contains(mtr, dict_index_get_lock(index),
 				MTR_MEMO_X_LOCK));
 	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(zip_debug)) {
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+	}
+
 	/* The insert buffer tree should never be updated in place. */
 	ut_ad(!dict_index_is_ibuf(index));
 	ut_ad(dict_index_is_online_ddl(index) == !!(flags & BTR_CREATE_FLAG)
@@ -2617,10 +2622,13 @@ make_external:
 			because we may need to update the
 			IBUF_BITMAP_FREE bits, which was suppressed by
 			BTR_KEEP_IBUF_BITMAP. */
-#ifdef UNIV_ZIP_DEBUG
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+			if (UNIV_UNLIKELY(zip_debug)) {
+				ut_a(!page_zip
+				     || page_zip_validate(page_zip, page,
+				     			  index));
+			}
+
 			if (n_reserved > 0) {
 				fil_space_release_free_extents(
 					index->space, n_reserved);
@@ -2661,9 +2669,10 @@ make_external:
 
 	btr_search_update_hash_on_delete(cursor);
 
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+	if (UNIV_UNLIKELY(zip_debug)) {
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+	}
+
 	page_cursor = btr_cur_get_page_cur(cursor);
 
 	page_cur_delete_rec(page_cursor, index, *offsets, mtr);
@@ -2774,10 +2783,12 @@ make_external:
 		stored fields */
 		buf_block_t*	rec_block = btr_cur_get_block(cursor);
 
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-		page = buf_block_get_frame(rec_block);
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(zip_debug)) {
+			ut_a(!page_zip
+			     || page_zip_validate(page_zip, page, index));
+			page = buf_block_get_frame(rec_block);
+		}
+
 		page_zip = buf_block_get_page_zip(rec_block);
 
 		btr_cur_unmark_extern_fields(page_zip,
@@ -2798,9 +2809,10 @@ make_external:
 	}
 
 return_after_reservations:
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(zip_debug)) {
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+	}
 
 	if (n_reserved > 0) {
 		fil_space_release_free_extents(index->space, n_reserved);
@@ -3256,14 +3268,19 @@ btr_cur_optimistic_delete_func(
 		btr_search_update_hash_on_delete(cursor);
 
 		if (page_zip) {
-#ifdef UNIV_ZIP_DEBUG
-			ut_a(page_zip_validate(page_zip, page, cursor->index));
-#endif /* UNIV_ZIP_DEBUG */
+
+			if (UNIV_UNLIKELY(page_zip_debug)) {
+				ut_a(page_zip_validate(page_zip, page,
+						       cursor->index));
+			}
+
 			page_cur_delete_rec(btr_cur_get_page_cur(cursor),
 					    cursor->index, offsets, mtr);
-#ifdef UNIV_ZIP_DEBUG
-			ut_a(page_zip_validate(page_zip, page, cursor->index));
-#endif /* UNIV_ZIP_DEBUG */
+
+			if (UNIV_UNLIKELY(page_zip_debug)) {
+				ut_a(page_zip_validate(page_zip, page,
+						       cursor->index));
+			}
 
 			/* On compressed pages, the IBUF_BITMAP_FREE
 			space is not affected by deleting (purging)
@@ -3369,9 +3386,10 @@ btr_cur_pessimistic_delete(
 	heap = mem_heap_create(1024);
 	rec = btr_cur_get_rec(cursor);
 	page_zip = buf_block_get_page_zip(block);
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+	}
 
 	offsets = rec_get_offsets(rec, index, NULL, ULINT_UNDEFINED, &heap);
 
@@ -3379,9 +3397,10 @@ btr_cur_pessimistic_delete(
 		btr_rec_free_externally_stored_fields(index,
 						      rec, offsets, page_zip,
 						      rb_ctx, mtr);
-#ifdef UNIV_ZIP_DEBUG
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+		if (UNIV_UNLIKELY(page_zip_debug)) {
+			ut_a(!page_zip
+			     || page_zip_validate(page_zip, page, index));
+		}
 	}
 
 	if (UNIV_UNLIKELY(page_get_n_recs(page) < 2)
@@ -3442,9 +3461,10 @@ btr_cur_pessimistic_delete(
 	btr_search_update_hash_on_delete(cursor);
 
 	page_cur_delete_rec(btr_cur_get_page_cur(cursor), index, offsets, mtr);
-#ifdef UNIV_ZIP_DEBUG
-	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-#endif /* UNIV_ZIP_DEBUG */
+
+	if (UNIV_UNLIKELY(page_zip_debug)) {
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+	}
 
 	ut_ad(btr_check_node_ptr(index, block, mtr));
 

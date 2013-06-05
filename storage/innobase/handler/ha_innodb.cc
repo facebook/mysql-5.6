@@ -16878,6 +16878,36 @@ static MYSQL_SYSVAR_UINT(zlib_strategy, page_zip_zlib_strategy,
   "break xtrabackup and crash recovery.",
   NULL, NULL, 0, 0, 4, 0);
 
+#ifdef UNIV_DEBUG
+#define innodb_zip_debug_validate NULL
+#else
+extern int check_func_bool(THD *thd, struct st_mysql_sys_var *var,
+	                         void *save, st_mysql_value *value);
+int innodb_zip_debug_validate(MYSQL_THD thd, struct st_mysql_sys_var *var,
+	                            void *save, struct st_mysql_value *value) {
+	int ret = check_func_bool(thd, var, save, value);
+	if (ret)
+		return ret;
+	if (*(my_bool*) save) {
+		push_warning_printf(thd,
+			Sql_condition::WARN_LEVEL_WARN,
+			ER_WRONG_ARGUMENTS,
+			"InnoDB: You are enabling innodb_zip_debug on a "
+			"non-debug mysqld. Please disable it immediately "
+			"if the machine is serving production traffic.");
+	}
+	return 0;
+}
+#endif
+
+static MYSQL_SYSVAR_BOOL(zip_debug, page_zip_debug, PLUGIN_VAR_OPCMDARG,
+  "Enables/disables the validation of compressed pages upon page modification"
+	" and compression. When this variable is enabled, uncompressed page is"
+	" compared against the decompressed version of the compressed page on "
+	"every update to the page, and on every re-compression. This variable "
+	"should not be enabled on a machine that serves production traffic.",
+	innodb_zip_debug_validate, NULL, FALSE);
+
 static MYSQL_SYSVAR_BOOL(log_compressed_pages, page_zip_log_pages,
        PLUGIN_VAR_OPCMDARG,
   "Enables/disables the logging of entire compressed page images."
@@ -17618,6 +17648,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(log_file_size),
   MYSQL_SYSVAR(log_files_in_group),
   MYSQL_SYSVAR(log_group_home_dir),
+	MYSQL_SYSVAR(zip_debug),
   MYSQL_SYSVAR(log_compressed_pages),
   MYSQL_SYSVAR(max_dirty_pages_pct),
   MYSQL_SYSVAR(max_dirty_pages_pct_lwm),

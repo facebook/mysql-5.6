@@ -223,8 +223,6 @@ operations (very slow); also UNIV_DEBUG must be defined */
 						in sync0sync.cc */
 #define UNIV_BTR_PRINT				/* enable functions for
 						printing B-trees */
-#define UNIV_ZIP_DEBUG				/* extensive consistency checks
-						for compressed pages */
 #define UNIV_ZIP_COPY				/* call page_zip_copy_recs()
 						more often */
 #define UNIV_AIO_DEBUG				/* prints info about

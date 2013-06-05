@@ -84,6 +84,7 @@ compression algorithm changes in zlib. */
 extern my_bool	page_zip_log_pages;
 extern my_bool page_zip_zlib_wrap;
 extern uint page_zip_zlib_strategy;
+extern my_bool page_zip_debug;
 
 #ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
@@ -211,7 +212,6 @@ page_zip_simple_validate(
 						descriptor */
 #endif /* UNIV_DEBUG */
 
-#ifdef UNIV_ZIP_DEBUG
 /**********************************************************************//**
 Check that the compressed and decompressed pages match.
 @return	TRUE if valid, FALSE if not */
@@ -235,7 +235,6 @@ page_zip_validate(
 	const page_t*		page,	/*!< in: uncompressed page */
 	const dict_index_t*	index)	/*!< in: index of the page, if known */
 	__attribute__((nonnull(1,2)));
-#endif /* UNIV_ZIP_DEBUG */
 
 #ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**

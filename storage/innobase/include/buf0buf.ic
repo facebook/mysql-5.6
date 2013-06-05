@@ -792,7 +792,6 @@ buf_block_get_zip_size(
 }
 
 #ifndef UNIV_HOTBACKUP
-#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
 /*********************************************************************//**
 Gets the compressed page descriptor corresponding to an uncompressed page
 if applicable.
@@ -805,7 +804,6 @@ buf_frame_get_page_zip(
 {
 	return(buf_block_get_page_zip(buf_block_align(ptr)));
 }
-#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
 #endif /* !UNIV_HOTBACKUP */
 
 /**********************************************************************//**
