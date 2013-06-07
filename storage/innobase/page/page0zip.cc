@@ -910,14 +910,18 @@ page_zip_compress_sec(
 	z_stream*	c_stream,	/*!< in/out: compressed page stream */
 	const rec_t**	recs,		/*!< in: dense page directory
 					sorted by address */
-	ulint		n_dense)	/*!< in: size of recs[] */
+	ulint		n_dense,	/*!< in: size of recs[] */
+	const dict_index_t* index, /*!< the index of the page */
+	mem_heap_t* heap) /*!< temporary memory heap */
 {
 	int		err	= Z_OK;
+	const rec_t* rec = NULL;
+	ulint *offsets = NULL;
 
 	ut_ad(n_dense > 0);
 
 	do {
-		const rec_t*	rec = *recs++;
+		rec = *recs++;
 
 		/* Compress everything up to this record. */
 		c_stream->avail_in = static_cast<uInt>(
@@ -929,7 +933,7 @@ page_zip_compress_sec(
 					   c_stream->avail_in);
 			err = deflate(c_stream, Z_NO_FLUSH);
 			if (UNIV_UNLIKELY(err != Z_OK)) {
-				break;
+				goto func_exit;
 			}
 		}
 
@@ -941,6 +945,14 @@ page_zip_compress_sec(
 		c_stream->next_in = (byte*) rec;
 	} while (--n_dense);
 
+	/* Compress until the end of the last record */
+	ut_ad(rec);
+	offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, &heap);
+	c_stream->avail_in = rec_get_end((rec_t*) rec, offsets)
+	                     - c_stream->next_in;
+	err = deflate(c_stream, Z_NO_FLUSH);
+
+func_exit:
 	return(err);
 }
 
@@ -1557,7 +1569,7 @@ page_zip_compress(
 	} else if (UNIV_LIKELY(trx_id_col == ULINT_UNDEFINED)) {
 		/* This is a leaf page in a secondary index. */
 		err = page_zip_compress_sec(LOGFILE
-					    &c_stream, recs, n_dense);
+					    &c_stream, recs, n_dense, index, heap);
 		if (UNIV_UNLIKELY(err != Z_OK)) {
 			goto zlib_error;
 		}
