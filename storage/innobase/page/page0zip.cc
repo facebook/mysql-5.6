@@ -835,6 +835,60 @@ Log the operation if page_zip_compress_dbg is set.
 #endif /* PAGE_ZIP_COMPRESS_DBG */
 
 /**********************************************************************//**
+Store uncompressed fields of a record (trx id, rollback ptr, blobs) in the
+trailer of the compressed page. */
+static
+void
+page_zip_store_uncompressed_fields(
+	page_zip_des_t* page_zip,	/*!< in: page_zip->data headers used to
+					determine the storage for uncompressed
+					storage and external pointers. out:
+					uncompressed fields are written to the
+					trailer of page_zip->data. */
+	const rec_t* rec,		/*!< in: The record for which
+					uncompressed fields must be written */
+	const ulint* offsets,		/*!< in: offsets for the record
+					obtained from rec_get_offsets */
+	ulint trx_id_col)		/*!< in: column number for the
+					transaction id */
+{
+	ulint	len;
+	byte*	storage = page_zip_dir_start(page_zip);
+	byte*	externs = storage
+			  - page_zip_dir_elems(page_zip)
+			    * (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+
+	/* Copy trx id and rollback ptr */
+	const byte*	src = rec_get_nth_field(rec, offsets,
+						trx_id_col, &len);
+	ut_ad(src + DATA_TRX_ID_LEN
+	      == rec_get_nth_field(rec, offsets,
+				   trx_id_col + 1, &len));
+	ut_ad(len == DATA_ROLL_PTR_LEN);
+	memcpy(storage
+	       - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+		 * (rec_get_heap_no_new(rec) - 1),
+	       src,
+	       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
+
+	/* Copy blob pointers of the record only if the record is not purged */
+	if (rec_offs_any_extern(offsets)
+	    && !page_zip_dir_find_free(page_zip, page_offset(rec))) {
+		for (uint i = 0; i < rec_offs_n_fields(offsets); ++i) {
+			if (rec_offs_nth_extern(offsets, i)) {
+				src = rec_get_nth_field(rec, offsets, i, &len);
+				ut_ad(len >= BTR_EXTERN_FIELD_REF_SIZE);
+				src += len - BTR_EXTERN_FIELD_REF_SIZE;
+				++page_zip->n_blobs;
+				externs -= BTR_EXTERN_FIELD_REF_SIZE;
+				memcpy(externs, src, BTR_EXTERN_FIELD_REF_SIZE);
+			}
+		}
+	}
+}
+
+/**********************************************************************//**
 Compress the records of a node pointer page.
 @return	Z_OK, or a zlib error code */
 static
@@ -962,12 +1016,93 @@ func_exit:
 }
 
 /**********************************************************************//**
+Add one record with no blob pointers to the compression stream of a
+clustered page. */
+static
+int
+page_zip_compress_clust_rec(
+/*========================*/
+	FILE_LOGFILE
+	z_stream*	c_stream,	/*!< in/out: compressed page stream */
+	const rec_t*	rec,		/*!< in: record */
+	const ulint*	offsets,	/*!< in: rec_get_offsets(rec) */
+	ulint	trx_id_col)		/*!< in: the column number for the
+					transaction id */
+{
+	int	err;
+	ulint	len;
+	const byte*	src;
+
+	/* Compress the extra bytes. */
+	c_stream->avail_in = static_cast<uInt>(
+		rec - REC_N_NEW_EXTRA_BYTES
+		- c_stream->next_in);
+
+	if (c_stream->avail_in) {
+		err = deflate(c_stream, Z_NO_FLUSH);
+		if (UNIV_UNLIKELY(err != Z_OK)) {
+			return err;
+		}
+	}
+
+	ut_ad(!c_stream->avail_in);
+	ut_ad(c_stream->next_in == rec - REC_N_NEW_EXTRA_BYTES);
+
+	/* Compress the data bytes. */
+	c_stream->next_in = (byte*) rec;
+
+	/* Compress the part of the record up to trx_id. */
+	src = rec_get_nth_field(rec, offsets,
+				trx_id_col, &len);
+	ut_ad(src + DATA_TRX_ID_LEN
+	      == rec_get_nth_field(rec, offsets,
+				   trx_id_col + 1, &len));
+	ut_ad(len == DATA_ROLL_PTR_LEN);
+	UNIV_MEM_ASSERT_RW(rec, rec_offs_data_size(offsets));
+	UNIV_MEM_ASSERT_RW(rec - rec_offs_extra_size(offsets),
+			   rec_offs_extra_size(offsets));
+
+	/* Compress any preceding bytes */
+	c_stream->avail_in = static_cast<uInt>(src - c_stream->next_in);
+
+	if (c_stream->avail_in) {
+		err = deflate(c_stream, Z_NO_FLUSH);
+		if (UNIV_UNLIKELY(err != Z_OK)) {
+			return (err);
+		}
+	}
+
+	ut_ad(!c_stream->avail_in);
+	ut_ad(c_stream->next_in == src);
+
+	c_stream->next_in
+	    += DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
+
+	/* Skip also roll_ptr */
+	ut_ad(trx_id_col + 1 < rec_offs_n_fields(offsets));
+
+	/* Compress the last bytes of the record. */
+	c_stream->avail_in = static_cast<uInt>(
+		rec + rec_offs_data_size(offsets) - c_stream->next_in);
+
+	if (c_stream->avail_in) {
+		err = deflate(c_stream, Z_NO_FLUSH);
+		if (UNIV_UNLIKELY(err != Z_OK)) {
+			return err;
+		}
+	}
+
+	ut_ad(!c_stream->avail_in);
+	return Z_OK;
+}
+
+/**********************************************************************//**
 Compress a record of a leaf node of a clustered index that contains
 externally stored columns.
 @return	Z_OK, or a zlib error code */
 static
 int
-page_zip_compress_clust_ext(
+page_zip_compress_clust_ext_rec(
 /*========================*/
 	FILE_LOGFILE
 	page_zip_des_t*	page_zip,	/*!< in: used for reading headers in
@@ -981,15 +1116,28 @@ page_zip_compress_clust_ext(
 {
 	int	err;
 	ulint	i;
-	byte* storage = page_zip_dir_start(page_zip);
-	byte* externs = storage
-			- page_zip_dir_elems(page_zip)
-			  * (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
-			- page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+	ibool	purged = !!page_zip_dir_find_free(page_zip, page_offset(rec));
 
 	UNIV_MEM_ASSERT_RW(rec, rec_offs_data_size(offsets));
 	UNIV_MEM_ASSERT_RW(rec - rec_offs_extra_size(offsets),
 			   rec_offs_extra_size(offsets));
+
+	/* Compress the extra bytes */
+	c_stream->avail_in = static_cast<uInt>(
+		rec - REC_N_NEW_EXTRA_BYTES
+		- c_stream->next_in);
+
+	if (c_stream->avail_in) {
+		err = deflate(c_stream, Z_NO_FLUSH);
+		if (UNIV_UNLIKELY(err != Z_OK)) {
+			return err;
+		}
+	}
+	ut_ad(!c_stream->avail_in);
+	ut_ad(c_stream->next_in == rec - REC_N_NEW_EXTRA_BYTES);
+
+	/* Compress the data bytes. */
+	c_stream->next_in = (byte*) rec;
 
 	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
 		ulint		len;
@@ -1020,12 +1168,6 @@ page_zip_compress_clust_ext(
 			ut_ad(!c_stream->avail_in);
 			ut_ad(c_stream->next_in == src);
 
-			memcpy(storage
-			       - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
-			       * (rec_get_heap_no_new(rec) - 1),
-			       c_stream->next_in,
-			       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
-
 			c_stream->next_in
 				+= DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
 
@@ -1046,8 +1188,8 @@ page_zip_compress_clust_ext(
 				}
 			}
 
-			ut_ad(!c_stream->avail_in);
-			ut_ad(c_stream->next_in == src);
+			ut_a(!c_stream->avail_in);
+			ut_a(c_stream->next_in == src);
 
 			/* Reserve space for the data at
 			the end of the space reserved for
@@ -1061,29 +1203,16 @@ page_zip_compress_clust_ext(
 				return(Z_BUF_ERROR);
 			}
 
-			ut_ad(externs == c_stream->next_out
-			      + c_stream->avail_out
-			      + 1/* end of modif. log */);
-
 			c_stream->next_in
 				+= BTR_EXTERN_FIELD_REF_SIZE;
 
-			/* Skip deleted records. */
-			if (UNIV_LIKELY_NULL
-			    (page_zip_dir_find_free(page_zip,
-						    page_offset(rec)))) {
-				continue;
+			/* If the record is not purged, the available output
+			size for compression stream should be reduced by the
+			pointer size. */
+			if (!purged) {
+				c_stream->avail_out -=
+					BTR_EXTERN_FIELD_REF_SIZE;
 			}
-
-			++page_zip->n_blobs;
-			c_stream->avail_out
-				-= BTR_EXTERN_FIELD_REF_SIZE;
-			externs -= BTR_EXTERN_FIELD_REF_SIZE;
-
-			/* Copy the BLOB pointer */
-			memcpy(externs, c_stream->next_in
-			       - BTR_EXTERN_FIELD_REF_SIZE,
-			       BTR_EXTERN_FIELD_REF_SIZE);
 		}
 	}
 
@@ -1111,7 +1240,6 @@ page_zip_compress_clust(
 	int	err	= Z_OK;
 	ulint*	offsets	= NULL;
 	ulint	n_dense = page_zip_dir_elems(page_zip);
-	byte*	storage = page_zip_dir_start_low(page_zip, n_dense);
 	ulint	trx_id_col = dict_index_get_sys_col_pos(
 			     index, DATA_TRX_ID);
 
@@ -1128,94 +1256,31 @@ page_zip_compress_clust(
 		UNIV_MEM_ASSERT_RW(rec - rec_offs_extra_size(offsets),
 				   rec_offs_extra_size(offsets));
 
-		/* Compress the extra bytes. */
-		c_stream->avail_in = static_cast<uInt>(
-			rec - REC_N_NEW_EXTRA_BYTES
-			- c_stream->next_in);
-
-		if (c_stream->avail_in) {
-			err = deflate(c_stream, Z_NO_FLUSH);
-			if (UNIV_UNLIKELY(err != Z_OK)) {
-
-				goto func_exit;
-			}
-		}
-		ut_ad(!c_stream->avail_in);
-		ut_ad(c_stream->next_in == rec - REC_N_NEW_EXTRA_BYTES);
-
-		/* Compress the data bytes. */
-
-		c_stream->next_in = (byte*) rec;
-
-		/* Check if there are any externally stored columns.
-		For each externally stored column, store the
-		BTR_EXTERN_FIELD_REF separately. */
 		if (rec_offs_any_extern(offsets)) {
 			ut_ad(dict_index_is_clust(index));
 
-			err = page_zip_compress_clust_ext(
+			err = page_zip_compress_clust_ext_rec(
 				LOGFILE
 				page_zip, c_stream, rec, offsets, trx_id_col);
 
 			if (UNIV_UNLIKELY(err != Z_OK)) {
-
 				goto func_exit;
 			}
 		} else {
-			ulint		len;
-			const byte*	src;
+			err = page_zip_compress_clust_rec(
+							  LOGFILE
+							  c_stream, rec,
+							  offsets,
+							  trx_id_col);
 
-			/* Store trx_id and roll_ptr in uncompressed form. */
-			src = rec_get_nth_field(rec, offsets,
-						trx_id_col, &len);
-			ut_ad(src + DATA_TRX_ID_LEN
-			      == rec_get_nth_field(rec, offsets,
-						   trx_id_col + 1, &len));
-			ut_ad(len == DATA_ROLL_PTR_LEN);
-			UNIV_MEM_ASSERT_RW(rec, rec_offs_data_size(offsets));
-			UNIV_MEM_ASSERT_RW(rec - rec_offs_extra_size(offsets),
-					   rec_offs_extra_size(offsets));
-
-			/* Compress any preceding bytes. */
-			c_stream->avail_in = static_cast<uInt>(
-				src - c_stream->next_in);
-
-			if (c_stream->avail_in) {
-				err = deflate(c_stream, Z_NO_FLUSH);
-				if (UNIV_UNLIKELY(err != Z_OK)) {
-
-					return(err);
-				}
-			}
-
-			ut_ad(!c_stream->avail_in);
-			ut_ad(c_stream->next_in == src);
-
-			memcpy(storage
-			       - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
-			       * (rec_get_heap_no_new(rec) - 1),
-			       c_stream->next_in,
-			       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
-
-			c_stream->next_in
-				+= DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
-
-			/* Skip also roll_ptr */
-			ut_ad(trx_id_col + 1 < rec_offs_n_fields(offsets));
-		}
-
-		/* Compress the last bytes of the record. */
-		c_stream->avail_in = static_cast<uInt>(
-			rec + rec_offs_data_size(offsets) - c_stream->next_in);
-
-		if (c_stream->avail_in) {
-			err = deflate(c_stream, Z_NO_FLUSH);
 			if (UNIV_UNLIKELY(err != Z_OK)) {
-
 				goto func_exit;
 			}
 		}
-		ut_ad(!c_stream->avail_in);
+
+		page_zip_store_uncompressed_fields(page_zip, rec,
+						   offsets, trx_id_col);
+
 	} while (--n_dense);
 
 func_exit:
