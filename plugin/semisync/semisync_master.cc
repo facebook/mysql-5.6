@@ -616,6 +616,7 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
     struct timespec abstime;
     int wait_result;
     PSI_stage_info old_stage;
+    bool first_loop= true;
 
     set_timespec(start_ts, 0);
 
@@ -656,52 +657,55 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
         }
       }
 
-      /* Let us update the info about the minimum binlog position of waiting
-       * threads.
-       */
-      if (wait_file_name_inited_)
+      if (first_loop)
       {
-        int cmp = ActiveTranx::compare(trx_wait_binlog_name, trx_wait_binlog_pos,
-                                       wait_file_name_, wait_file_pos_);
-        if (cmp <= 0)
-	{
-          /* This thd has a lower position, let's update the minimum info. */
+        first_loop= false;
+        /* Let us update the info about the minimum binlog position of waiting
+         * threads.
+         */
+        if (wait_file_name_inited_)
+        {
+          int cmp = ActiveTranx::compare(trx_wait_binlog_name, trx_wait_binlog_pos,
+                                         wait_file_name_, wait_file_pos_);
+          if (cmp <= 0)
+          {
+            /* This thd has a lower position, let's update the minimum info. */
+            strcpy(wait_file_name_, trx_wait_binlog_name);
+            wait_file_pos_ = trx_wait_binlog_pos;
+
+            rpl_semi_sync_master_wait_pos_backtraverse++;
+            if (trace_level_ & kTraceDetail)
+              sql_print_information("%s: move back wait position (%s, %lu),",
+                                    kWho, wait_file_name_, (unsigned long)wait_file_pos_);
+          }
+        }
+        else
+        {
           strcpy(wait_file_name_, trx_wait_binlog_name);
           wait_file_pos_ = trx_wait_binlog_pos;
+          wait_file_name_inited_ = true;
 
-          rpl_semi_sync_master_wait_pos_backtraverse++;
           if (trace_level_ & kTraceDetail)
-            sql_print_information("%s: move back wait position (%s, %lu),",
+            sql_print_information("%s: init wait position (%s, %lu),",
                                   kWho, wait_file_name_, (unsigned long)wait_file_pos_);
         }
-      }
-      else
-      {
-        strcpy(wait_file_name_, trx_wait_binlog_name);
-        wait_file_pos_ = trx_wait_binlog_pos;
-        wait_file_name_inited_ = true;
 
-        if (trace_level_ & kTraceDetail)
-          sql_print_information("%s: init wait position (%s, %lu),",
-                                kWho, wait_file_name_, (unsigned long)wait_file_pos_);
-      }
-
-      /* Calcuate the waiting period. */
+        /* Calcuate the waiting period. */
 #ifdef __WIN__
-      abstime.tv.i64 = start_ts.tv.i64 + (__int64)wait_timeout_ * TIME_THOUSAND * 10;
-      abstime.max_timeout_msec= (long)wait_timeout_;
+        abstime.tv.i64 = start_ts.tv.i64 + (__int64)wait_timeout_ * TIME_THOUSAND * 10;
+        abstime.max_timeout_msec= (long)wait_timeout_;
 #else
-      unsigned long long diff_nsecs =
-        start_ts.tv_nsec + (unsigned long long)wait_timeout_ * TIME_MILLION;
-      abstime.tv_sec = start_ts.tv_sec;
-      while (diff_nsecs >= TIME_BILLION)
-      {
-        abstime.tv_sec++;
-        diff_nsecs -= TIME_BILLION;
-      }
-      abstime.tv_nsec = diff_nsecs;
+        abstime.tv_sec = start_ts.tv_sec + wait_timeout_ / TIME_THOUSAND;
+        abstime.tv_nsec = start_ts.tv_nsec +
+          (wait_timeout_ % TIME_THOUSAND) * TIME_MILLION;
+
+        if (abstime.tv_nsec >= TIME_BILLION)
+        {
+          abstime.tv_sec++;
+          abstime.tv_nsec -= TIME_BILLION;
+        }
 #endif /* __WIN__ */
-      
+      }
       /* In semi-synchronous replication, we wait until the binlog-dump
        * thread has received the reply on the relevant binlog segment from the
        * replication slave.
