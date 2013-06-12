@@ -3368,7 +3368,8 @@ xb_file_set_nocache(
 					"create" */
 {
 #ifndef __WIN__
-	if (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT) {
+	if (srv_unix_file_flush_method == SRV_UNIX_O_DIRECT ||
+		srv_unix_file_flush_method == SRV_UNIX_O_DIRECT_NO_FSYNC) {
 		os_file_set_nocache(fd, file_name, operation_name);
 	}
 #endif
@@ -4626,6 +4627,9 @@ xtrabackup_backup_func(void)
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DIRECT")) {
 	  	srv_unix_file_flush_method = SRV_UNIX_O_DIRECT;
 		msg("xtrabackup: using O_DIRECT\n");
+	} else if (0 == ut_strcmp(srv_file_flush_method_str, "O_DIRECT_NO_FSYNC")) {
+		srv_unix_file_flush_method = SRV_UNIX_O_DIRECT_NO_FSYNC;
+		msg("xtrabackup: using O_DIRECT_NO_FSYNC\n");
 	} else if (0 == ut_strcmp(srv_file_flush_method_str, "littlesync")) {
 	  	srv_unix_file_flush_method = SRV_UNIX_LITTLESYNC;
 
