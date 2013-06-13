@@ -29,12 +29,12 @@ call mtr.add_suppression("Slave I/O thread .* register on master");
 let $debug_saved= `select @@global.debug`;
 
 # set up two parameters to pass into extra/rpl_tests/rpl_get_master_version_and_clock
-let $dbug_sync_point= 'debug_lock.before_get_UNIX_TIMESTAMP';
-let $debug_sync_action= 'now SIGNAL signal.get_unix_timestamp';
-source extra/rpl_tests/rpl_get_master_version_and_clock.test; 
+#let $dbug_sync_point= 'debug_lock.before_get_UNIX_TIMESTAMP';
+#let $debug_sync_action= 'now SIGNAL signal.get_unix_timestamp';
+#source extra/rpl_tests/rpl_get_master_version_and_clock.test;
 
 #Test case 2: Try to get the value of the SERVER_ID from master under network disconnection
-connection slave;
+#connection slave;
 
 let $dbug_sync_point= 'debug_lock.before_get_SERVER_ID';
 let $debug_sync_action= 'now SIGNAL signal.get_server_id';
