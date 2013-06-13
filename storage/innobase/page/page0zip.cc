@@ -853,38 +853,50 @@ page_zip_store_uncompressed_fields(
 					transaction id */
 {
 	ulint	len;
-	byte*	storage = page_zip_dir_start(page_zip);
-	byte*	externs = storage
-			  - page_zip_dir_elems(page_zip)
-			    * (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+	ulint	n_dense = page_zip_dir_elems(page_zip);
+	byte*	storage = page_zip_dir_start_low(page_zip, n_dense);
+	ulint	heap_no = rec_get_heap_no_new(rec) - 1;
+	byte*	externs;
+	ibool	purged;
+	const byte*	src;
+	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
+		/* leaf page on a clustered index */
+		externs = storage
+			  - n_dense * (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
 			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+		purged = !!page_zip_dir_find_free(page_zip, page_offset(rec));
+		/* Copy trx id and rollback ptr */
+		src = rec_get_nth_field(rec, offsets, trx_id_col, &len);
+		ut_ad(src + DATA_TRX_ID_LEN
+		      == rec_get_nth_field(rec, offsets,
+					   trx_id_col + 1, &len));
+		ut_ad(len == DATA_ROLL_PTR_LEN);
+		memcpy(storage - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+				 * heap_no,
+		       src, DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
 
-	ibool	purged = !!page_zip_dir_find_free(page_zip, page_offset(rec));
-	/* Copy trx id and rollback ptr */
-	const byte*	src = rec_get_nth_field(rec, offsets,
-						trx_id_col, &len);
-	ut_ad(src + DATA_TRX_ID_LEN
-	      == rec_get_nth_field(rec, offsets,
-				   trx_id_col + 1, &len));
-	ut_ad(len == DATA_ROLL_PTR_LEN);
-	memcpy(storage
-	       - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
-		 * (rec_get_heap_no_new(rec) - 1),
-	       src,
-	       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
-
-	/* Copy blob pointers of the record only if the record is not purged */
-	if (rec_offs_any_extern(offsets) && !purged) {
-		for (uint i = 0; i < rec_offs_n_fields(offsets); ++i) {
-			if (rec_offs_nth_extern(offsets, i)) {
-				src = rec_get_nth_field(rec, offsets, i, &len);
-				ut_ad(len >= BTR_EXTERN_FIELD_REF_SIZE);
-				src += len - BTR_EXTERN_FIELD_REF_SIZE;
-				++page_zip->n_blobs;
-				externs -= BTR_EXTERN_FIELD_REF_SIZE;
-				memcpy(externs, src, BTR_EXTERN_FIELD_REF_SIZE);
+		/* Copy blob pointers of the record only if the record is
+		not purged */
+		if (rec_offs_any_extern(offsets) && !purged) {
+			for (uint i = 0; i < rec_offs_n_fields(offsets); ++i) {
+				if (rec_offs_nth_extern(offsets, i)) {
+					src = rec_get_nth_field(rec,
+								offsets,
+								i, &len);
+					ut_ad(len >= BTR_EXTERN_FIELD_REF_SIZE);
+					src += len - BTR_EXTERN_FIELD_REF_SIZE;
+					++page_zip->n_blobs;
+					externs -= BTR_EXTERN_FIELD_REF_SIZE;
+					memcpy(externs, src,
+					       BTR_EXTERN_FIELD_REF_SIZE);
+				}
 			}
 		}
+	} else {
+		/* node pointer page */
+		memcpy(storage - REC_NODE_PTR_SIZE * heap_no,
+		       rec_get_end((rec_t*) rec, offsets)
+		       - REC_NODE_PTR_SIZE, REC_NODE_PTR_SIZE);
 	}
 }
 
@@ -908,45 +920,67 @@ page_zip_restore_uncompressed_fields(
 	ulint	i;
 	ulint	len;
 	byte*	dst;
-	byte*	storage = page_zip_dir_start(page_zip);
-	byte*	externs = storage
-			  - page_zip_dir_elems(page_zip)
-			    * (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+	ulint	n_dense = page_zip_dir_elems(page_zip);
+	byte*	storage = page_zip_dir_start_low(page_zip, n_dense);
+	ulint	heap_no = rec_get_heap_no_new(rec) - 1;
+	byte*	externs;
+	ibool	purged;
+	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
+		/* clustered leaf page */
+		externs = storage
+			  - n_dense * (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
 			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
-	ibool	purged = !!page_zip_dir_find_free(page_zip, page_offset(rec));
+		purged = !!page_zip_dir_find_free(page_zip, page_offset(rec));
 
-	dst = rec_get_nth_field(rec, offsets, trx_id_col, &len);
-	ut_ad(len >= DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
+		dst = rec_get_nth_field(rec, offsets, trx_id_col, &len);
+		ut_ad(len >= DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
 
-	memcpy(dst,
-	       storage
-	       - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
-		 * (rec_get_heap_no_new(rec) - 1),
-	       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
+		memcpy(dst,
+		       storage - (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+				 * heap_no,
+		       DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
 
-	/* Restore blob pointers of the record */
-	if (rec_offs_any_extern(offsets)) {
-		for (i = 0; i < rec_offs_n_fields(offsets); ++i) {
-			if (rec_offs_nth_extern(offsets, i)) {
-				dst = rec_get_nth_field(rec, offsets, i, &len);
-				if (UNIV_UNLIKELY(len < BTR_EXTERN_FIELD_REF_SIZE)) {
-					page_zip_fail(("length of a field with an "
-							"external pointer can not be less than %d",
-							BTR_EXTERN_FIELD_REF_SIZE));
-					ut_error;
-				}
-				dst += len - BTR_EXTERN_FIELD_REF_SIZE;
-				if (!purged) {
-					/* Existing record: restore the BLOB pointer */
-					externs -= BTR_EXTERN_FIELD_REF_SIZE;
-					++page_zip->n_blobs;
-					memcpy(dst, externs, BTR_EXTERN_FIELD_REF_SIZE);
-				} else {
-					/* Purged record: clear the BLOB pointer */
-					memset(dst, 0, BTR_EXTERN_FIELD_REF_SIZE);
+		/* Restore blob pointers of the record */
+		if (rec_offs_any_extern(offsets)) {
+			for (i = 0; i < rec_offs_n_fields(offsets); ++i) {
+				if (rec_offs_nth_extern(offsets, i)) {
+					dst = rec_get_nth_field(rec, offsets,
+							        i, &len);
+					if (UNIV_UNLIKELY(len <
+						BTR_EXTERN_FIELD_REF_SIZE)) {
+						page_zip_fail(
+						    ("length of a field with an"
+						    " external pointer can not"
+						    " be less than %d",
+						    BTR_EXTERN_FIELD_REF_SIZE));
+						ut_error;
+					}
+					dst += len - BTR_EXTERN_FIELD_REF_SIZE;
+					if (!purged) {
+						/* Existing record: restore
+						the BLOB pointer */
+						externs -=
+						    BTR_EXTERN_FIELD_REF_SIZE;
+						++page_zip->n_blobs;
+						memcpy(
+						    dst, externs,
+						    BTR_EXTERN_FIELD_REF_SIZE);
+					} else {
+						/* Purged record: clear the
+						BLOB pointer */
+						memset(
+						    dst, 0,
+						    BTR_EXTERN_FIELD_REF_SIZE);
+					}
 				}
 			}
 		}
+	} else {
+		/* node pointer page. */
+		ut_ad(!rec_offs_any_extern(offsets));
+		memcpy(rec_get_end(rec, offsets) - REC_NODE_PTR_SIZE,
+		       storage - REC_NODE_PTR_SIZE * heap_no,
+		       REC_NODE_PTR_SIZE);
 	}
 }
 
@@ -971,7 +1005,7 @@ page_zip_restore_uncompressed_fields_all(
 	uint	slot;
 	ulint	n_dense = page_zip_dir_elems(page_zip);
 	ulint*	offsets = NULL;
-	ut_a(!page_zip->n_blobs);
+	ut_ad(!page_zip->n_blobs);
 
 	/* Restore the uncompressed columns in heap_no order. */
 	for (slot = 0; slot < n_dense; ++slot) {
@@ -1002,7 +1036,6 @@ page_zip_compress_node_ptrs(
 	int	err	= Z_OK;
 	ulint*	offsets = NULL;
 	ulint	n_dense = page_zip_dir_elems(page_zip);
-	byte*	storage = page_zip_dir_start_low(page_zip, n_dense);
 
 	do {
 		const rec_t*	rec = *recs++;
@@ -1042,10 +1075,9 @@ page_zip_compress_node_ptrs(
 
 		ut_ad(!c_stream->avail_in);
 
-		memcpy(storage - REC_NODE_PTR_SIZE
-		       * (rec_get_heap_no_new(rec) - 1),
-		       c_stream->next_in, REC_NODE_PTR_SIZE);
 		c_stream->next_in += REC_NODE_PTR_SIZE;
+		page_zip_store_uncompressed_fields(page_zip, rec, offsets,
+						   ULINT_UNDEFINED);
 	} while (--n_dense);
 
 	return(err);
@@ -2607,7 +2639,6 @@ page_zip_decompress_node_ptrs(
 	ulint		heap_status = REC_STATUS_NODE_PTR
 		| PAGE_HEAP_NO_USER_LOW << REC_HEAP_NO_SHIFT;
 	ulint		slot;
-	const byte*	storage;
 
 	/* Subtract the space reserved for uncompressed data. */
 	d_stream->avail_in -= static_cast<uInt>(
@@ -2757,22 +2788,8 @@ zlib_done:
 		return(FALSE);
 	}
 
-	/* Restore the uncompressed columns in heap_no order. */
-	storage = page_zip_dir_start_low(page_zip, n_dense);
-
-	for (slot = 0; slot < n_dense; slot++) {
-		rec_t*		rec	= recs[slot];
-
-		offsets = rec_get_offsets(rec, index, offsets,
-					  ULINT_UNDEFINED, &heap);
-		/* Non-leaf nodes should not have any externally
-		stored columns. */
-		ut_ad(!rec_offs_any_extern(offsets));
-		storage -= REC_NODE_PTR_SIZE;
-
-		memcpy(rec_get_end(rec, offsets) - REC_NODE_PTR_SIZE,
-		       storage, REC_NODE_PTR_SIZE);
-	}
+	page_zip_restore_uncompressed_fields_all(page_zip, recs, index,
+					         ULINT_UNDEFINED, heap);
 
 	return(TRUE);
 }
