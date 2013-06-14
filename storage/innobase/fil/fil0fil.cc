@@ -1384,7 +1384,7 @@ parse_db_and_table(
 	const char*	name,		/*!< in: name to parse */
 	char*		db_name,	/*!< out: return db name */
 	char*		table_name,	/*!< out: return table name */
-	bool*		is_partition,	/*!< out: table is a partition */
+	bool*		is_partition,	/*!< out: true if table is partition */
 	ulint		purpose,	/*!< in: type of tablespace */
 	ulint		id)		/*!< in: tablespace id */
 {
@@ -1408,8 +1408,6 @@ parse_db_and_table(
 			if (part) {
 				*part = '\0';
 				*is_partition = true;
-			} else {
-				*is_partition = false;
 			}
 		}
 	}
@@ -1432,7 +1430,7 @@ fil_space_create(
 	ib_mutex_t*	stats_mutex;
 	char		db_name[FN_LEN + 1];
 	char		table_name[FN_LEN + 1];
-	bool		is_partition;
+	bool		is_partition = false;
 	unsigned char db_stats_index;
 
 	DBUG_EXECUTE_IF("fil_space_create_failure", return(false););
