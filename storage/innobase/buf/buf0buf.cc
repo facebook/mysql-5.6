@@ -665,10 +665,12 @@ FIL_PAGE_END_LSN_OLD_CHKSUM == 0 */
 		{
 			dual_crc both_crcs = buf_calc_page_crc32fb(read_buf);
 			// If checksum_field1 doesn't match one of our computed
-			// checksums, corrupt!  If checksum_field2 doesn't match
-			// *and* we don't match against the old-style checksum,
-			// corrupt!  Otherwise, non-corrupt.
-			if (!fb_crc32_match(both_crcs, checksum_field1))
+			// checksums, *and* doesn't match against new_checksum,
+			// corrupt! If checksum_field2 doesn't match one of our
+			// computed checksums, *and* doesn't match against
+			// old_checksum, corrupt!  Otherwise, non-corrupt.
+			if (!fb_crc32_match(both_crcs, checksum_field1)
+			    && checksum_field1 != buf_calc_page_new_checksum(read_buf))
 				return TRUE;
 			if (!fb_crc32_match(both_crcs, checksum_field2)
 			    && checksum_field2 != buf_calc_page_old_checksum(read_buf))
