@@ -320,6 +320,8 @@ extern ulong	srv_trx_log_write_block_size;
 extern ulint	srv_n_read_io_threads;
 extern ulint	srv_n_write_io_threads;
 
+extern uint	srv_defragment_n_pages;
+
 /*!< page_cleaner_thread should run once per this many milliseconds */
 extern ulint	srv_page_cleaner_interval_millis;
 
