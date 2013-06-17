@@ -1418,6 +1418,7 @@ void THD::init(void)
   my_io_perf_init(&io_perf_read_blob);
   my_io_perf_init(&io_perf_read_primary);
   my_io_perf_init(&io_perf_read_secondary);
+  count_comment_bytes= 0;
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
