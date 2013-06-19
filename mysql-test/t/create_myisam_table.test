@@ -1,0 +1,16 @@
+create temporary table temp_table (a int) ENGINE=MyIsam;
+use mysql;
+create table mysql_table (a int) ENGINE=MyIsam;
+-- error ER_BLOCK_MYISAM_TABLES
+create table test.myisam_table (a int) ENGINE=MyIsam;
+use test;
+-- error ER_BLOCK_MYISAM_TABLES
+create table myisam_table (a int) ENGINE=MyIsam;
+create table mysql.myisam_table (a int) ENGINE=MyIsam;
+create table innodb_table (a int) ENGINE=INNODB;
+
+drop table temp_table;
+drop table innodb_table;
+use mysql;
+drop table mysql_table;
+drop table myisam_table;

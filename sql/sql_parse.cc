@@ -8057,6 +8057,22 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
   bool error= TRUE;                                 // Error message is given
   DBUG_ENTER("create_table_precheck");
 
+  /**
+     Block non temporary myisam table creation outside of mysql
+     and mtr schemas. This is controlled by the cnf option
+     block_create_myisam which by default is false.
+  */
+  if (block_create_myisam &&
+      strcmp(create_table->db, "mysql") &&
+      strcmp(create_table->db, "mtr") &&
+      (lex->create_info.db_type) &&
+      lex->create_info.db_type->db_type == DB_TYPE_MYISAM &&
+      !(lex->create_info.options & HA_LEX_CREATE_TMP_TABLE))
+  {
+    my_error(ER_BLOCK_MYISAM_TABLES, MYF(0), NULL);
+    goto err;
+  }
+
   /*
     Require CREATE [TEMPORARY] privilege on new table; for
     CREATE TABLE ... SELECT, also require INSERT.
