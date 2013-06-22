@@ -2,10 +2,10 @@ create temporary table temp_table (a int) ENGINE=MyIsam;
 use mysql;
 create table mysql_table (a int) ENGINE=MyIsam;
 create table test.myisam_table (a int) ENGINE=MyIsam;
-ERROR HY000: Non-Temporary MyISAM tables cannot be created outside mysql schema.
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
 use test;
 create table myisam_table (a int) ENGINE=MyIsam;
-ERROR HY000: Non-Temporary MyISAM tables cannot be created outside mysql schema.
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
 create table mysql.myisam_table (a int) ENGINE=MyIsam;
 create table innodb_table (a int) ENGINE=INNODB;
 drop table temp_table;
