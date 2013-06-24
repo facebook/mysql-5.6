@@ -35,9 +35,9 @@ SELECT COUNT(@@GLOBAL.ssl_capath);
 #   Check if Value can set                                         #
 ####################################################################
 
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
+--error ER_WRONG_TYPE_FOR_VAR
 SET @@GLOBAL.ssl_capath=1;
---echo Expected error 'Read only variable'
+--echo Expected error 'Incorrect type'
 
 SELECT COUNT(@@GLOBAL.ssl_capath);
 --echo 0 Expected

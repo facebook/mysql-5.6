@@ -1,0 +1,78 @@
+-- source include/have_openssl.inc
+-- source include/master-slave.inc
+
+connection master;
+disable_warnings;
+drop table if exists t1;
+enable_warnings;
+create table t1 (a int);
+sync_slave_with_master;
+
+connection master;
+
+--echo  ** Test the default value of --ssl **
+select @@global.ssl;
+
+--echo ** Change the ssl configuration **
+-- replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+eval set @@global.ssl_ca='$MYSQL_TEST_DIR/std_data/cacert.pem';
+-- replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+eval set @@global.ssl_cert='$MYSQL_TEST_DIR/std_data/server-cert.pem';
+-- replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+eval set @@global.ssl_key='$MYSQL_TEST_DIR/std_data/server-key.pem';
+
+-- echo ** Turn on ssl **
+set @@global.ssl=1;
+
+-- echo ** Verify ssl configuration cannot be changed while --ssl=1 **
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_ca='ca';
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_capath='capath';
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_cert='cert';
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_key='key';
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_cipher='cipher';
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_crl='crl';
+-- error ER_CANNOT_CHANGE_SSL_VAR
+set @@global.ssl_crlpath='crlpath';
+
+insert into t1 values(1);
+insert into t1 values(2);
+
+sync_slave_with_master;
+select * from t1;
+-- source include/stop_slave.inc
+-- echo ** Change the slave io_thread's ssl configuration **
+-- replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+eval change master to
+  master_ssl=1,
+  master_ssl_ca ='$MYSQL_TEST_DIR/std_data/cacert.pem',
+  master_ssl_cert='$MYSQL_TEST_DIR/std_data/client-cert.pem',
+  master_ssl_key='$MYSQL_TEST_DIR/std_data/client-key.pem';
+-- source include/start_slave.inc
+
+connection master;
+delete from t1;
+insert into t1 values(3);
+insert into t1 values(4);
+
+sync_slave_with_master;
+-- echo ** Verify replication is progressing **
+select * from t1 order by a;
+-- source include/stop_slave.inc
+change master to
+  master_ssl = 0,
+  master_ssl_ca = '',
+  master_ssl_cert = '',
+  master_ssl_key = '';
+-- source include/start_slave.inc
+
+connection master;
+drop table t1;
+set @@global.ssl=0;
+
+-- source include/rpl_end.inc
