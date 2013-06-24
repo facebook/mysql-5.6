@@ -10215,6 +10215,7 @@ skip_to_ssl:
   {
     unsigned long errptr;
 
+    mysql_rwlock_rdlock(&LOCK_use_ssl);
     /* Do the SSL layering. */
     if (!ssl_acceptor_fd)
       return packet_error;
@@ -10225,6 +10226,7 @@ skip_to_ssl:
       DBUG_PRINT("error", ("Failed to accept new SSL connection"));
       return packet_error;
     }
+    mysql_rwlock_unlock(&LOCK_use_ssl);
 
     DBUG_PRINT("info", ("Reading user information over SSL layer"));
     if ((pkt_len= my_net_read(net)) == packet_error)
