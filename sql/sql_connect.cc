@@ -1111,6 +1111,7 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->microseconds_transaction= 0;
   user_stats->microseconds_update= 0;
   user_stats->queries_empty= 0;
+  user_stats->query_comment_bytes= 0;
   user_stats->records_in_range_calls= 0;
   user_stats->rows_deleted= 0;
   user_stats->rows_fetched= 0;
@@ -1151,6 +1152,7 @@ update_user_stats_after_statement(USER_STATS *us,
 
   if (!is_xid_event)
   {
+    my_atomic_add64((longlong*)&(us->query_comment_bytes), thd->count_comment_bytes);
     my_atomic_add64((longlong*)&(us->rows_updated), thd->rows_updated);
     my_atomic_add64((longlong*)&(us->rows_deleted), thd->rows_deleted);
     my_atomic_add64((longlong*)&(us->rows_inserted), thd->rows_inserted);
@@ -1255,6 +1257,7 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->microseconds_transaction, TRUE);
   table->field[f++]->store(us->microseconds_update, TRUE);
   table->field[f++]->store(us->queries_empty, TRUE);
+  table->field[f++]->store(us->query_comment_bytes, TRUE);
   table->field[f++]->store(us->records_in_range_calls, TRUE);
   table->field[f++]->store(us->rows_deleted, TRUE);
   table->field[f++]->store(us->rows_fetched, TRUE);

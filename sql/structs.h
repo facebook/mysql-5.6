@@ -256,6 +256,7 @@ typedef struct st_user_stats {
   ulonglong rows_inserted;
   ulonglong rows_read;
   ulonglong rows_updated;
+  ulonglong query_comment_bytes;
 
   /* see variables of same name in ha_statistics */
   ulonglong volatile rows_index_first;
