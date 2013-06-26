@@ -85,6 +85,8 @@ UNIV_INTERN ulint	os_innodb_umask = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
 UNIV_INTERN ulint	os_innodb_umask	= 0;
 #endif /* __WIN__ */
 
+UNIV_INTERN ullint os_fsync_freq = 1ULL << 27;
+
 #ifndef UNIV_HOTBACKUP
 /* We use these mutexes to protect lseek + file i/o operation, if the
 OS does not provide an atomic pread or pwrite, or similar */
@@ -2316,6 +2318,18 @@ os_file_set_size(
 			fprintf(stderr, " %lu00",
 				(ulong) ((current_size + n_bytes)
 					 / (100 << 20)));
+		}
+
+		/* Flush after each os_fsync_freq bytes */
+		if (os_fsync_freq) {
+			if ((ib_int64_t)(current_size + n_bytes) / os_fsync_freq
+			    != current_size / os_fsync_freq) {
+				ret = os_file_flush(file);
+				if (!ret) {
+					ut_free(buf2);
+					goto error_handling;
+				}
+			}
 		}
 
 		current_size += n_bytes;
