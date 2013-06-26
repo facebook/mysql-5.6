@@ -3475,7 +3475,7 @@ int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
                                  char **gtid_executed,
                                  int* gtid_executed_length);
 int ha_commit_or_rollback_by_xid(THD *thd, XID *xid, bool commit);
-int ha_commit_trans(THD *thd, bool all, bool async);
+int ha_commit_trans(THD *thd, bool all, bool async, bool ignore_global_read_lock= false);
 int ha_rollback_trans(THD *thd, bool all);
 int ha_prepare(THD *thd);
 int ha_recover(HASH *commit_list);
