@@ -1,0 +1,20 @@
+-- source include/master-slave.inc
+
+connection master;
+create table t1 (a int);
+sync_slave_with_master;
+flush tables with read lock;
+
+connection master;
+insert into t1 values(1);
+
+connection slave;
+# show slave status hangs if the updates to slave_master_info
+# tables are blocked by FTWRL.
+let $status= query_get_value("show slave status", Slave_IO_Running, 1);
+unlock tables;
+
+connection master;
+drop table t1;
+
+-- source include/rpl_end.inc
