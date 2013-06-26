@@ -335,6 +335,59 @@ static inline void my_io_perf_sum_atomic_helper(
     perf->slow_ios);
 }
 
+/* Histogram class to track various latencies */
+class histogram {
+  size_t num_bins;
+  ulonglong step_size;
+  ulonglong *count_per_bin;
+
+  /**
+    Search a value in the histogram bins.
+
+    @param value  Value to be searched.
+
+    @return       Returns the bin that contains this value.
+  */
+  int search(const ulonglong value);
+
+public:
+  /**
+    Create a new Histogram.
+
+    @param num_bins_arg   Number of bins.
+    @param step_size_arg  Size of each bucket of the Histogram.
+
+  */
+  histogram(size_t num_bins_arg, ulonglong step_size_arg);
+
+  /**
+    Destructor for Histogram class.
+
+    @note
+    This frees the memory used up by member variable count_per_bin.
+  */
+  ~histogram();
+
+  /**
+    Increment the count of a bin in Histogram.
+
+    @param value  Value of which corresponding bin has to be found.
+    @param count  Amount by which the count of a bin has to be increased.
+
+  */
+  void histogram_increment(ulonglong value, ulonglong count);
+
+  /**
+    Get the count corresponding to a bin of the Histogram.
+
+    @param bin_num  The bin whose count has to be returned.
+
+    @return         Returns the count of that bin.
+  */
+  ulonglong histogram_get_count(size_t bin_num);
+
+};
+
 /* Fetches table stats for a given table */
 struct TABLE;
 struct st_table_stats* get_table_stats(TABLE *table,

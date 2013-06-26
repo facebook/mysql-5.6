@@ -3170,6 +3170,76 @@ void my_io_perf_sum_atomic(
   my_atomic_add64((volatile longlong *)&sum->slow_ios, slow_ios);
 }
 
+/**
+  Create a new Histogram.
+
+  @param num_bins_arg   Number of bins.
+  @param step_size_arg  Size of each bucket of the Histogram.
+
+*/
+histogram::histogram(size_t num_bins_arg, ulonglong step_size_arg)
+{
+  size_t i;
+  if (!(count_per_bin = (ulonglong *) my_malloc (num_bins_arg*sizeof(ulonglong), MYF(MY_WME))))
+  {
+    sql_print_error("Cannot allocate memmory to Histogram bucket counts.");
+    exit(1);
+  }
+  num_bins = num_bins_arg;
+  step_size = step_size_arg;
+  for (i = 0; i < num_bins; ++i)
+    count_per_bin[i] = 0;
+
+}
+
+/**
+  Destructor for Histogram class.
+
+  @note
+    This frees the memory used up by member variable count_per_bin.
+*/
+histogram::~histogram()
+{
+  my_free(count_per_bin);
+}
+
+/**
+  Increment the count of a bin in Histogram.
+
+  @param value  Value of which corresponding bin has to be found.
+  @param count  Amount by which the count of a bin has to be increased.
+
+*/
+void histogram::histogram_increment(ulonglong value, ulonglong count)
+{
+  size_t index = search(value);
+  count_per_bin[index] += count;
+}
+
+/**
+  Search a value in the histogram bins.
+
+  @param value  Value to be searched.
+
+  @return       Returns the bin that contains this value.
+*/
+int histogram::search(const ulonglong value)
+{
+  return min((int)(value/step_size), (int)num_bins);
+}
+
+/**
+  Get the count corresponding to a bin of the Histogram.
+
+  @param bin_num  The bin whose count has to be returned.
+
+  @return         Returns the count of that bin.
+*/
+ulonglong histogram::histogram_get_count(size_t bin_num)
+{
+  return count_per_bin[bin_num];
+}
+
 #if !defined(__WIN__)
 #ifndef SA_RESETHAND
 #define SA_RESETHAND 0
