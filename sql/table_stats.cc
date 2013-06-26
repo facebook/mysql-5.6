@@ -106,6 +106,7 @@ get_table_stats_by_name(const char *db_name,
 
     clear_table_stats_counters(table_stats);
     table_stats->engine_name= engine_name;
+    table_stats->should_update = false;
 
     if (my_hash_insert(&global_table_stats, (uchar*)table_stats))
     {
