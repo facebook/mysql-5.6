@@ -1318,6 +1318,10 @@ ha_check_and_coalesce_trx_read_only(THD *thd, Ha_trx_info *ha_list,
 
 
 /**
+  @param[in] ignore_global_read_lock   Allow commit to complete even if a
+                                       global read lock is active. This can be
+                                       used to allow changes to internal tables
+                                       (e.g. slave status tables).
   @retval
     0   ok
   @retval
@@ -1331,7 +1335,7 @@ ha_check_and_coalesce_trx_read_only(THD *thd, Ha_trx_info *ha_list,
     stored functions or triggers. So we simply do nothing now.
     TODO: This should be fixed in later ( >= 5.1) releases.
 */
-int ha_commit_trans(THD *thd, bool all, bool async)
+int ha_commit_trans(THD *thd, bool all, bool async, bool ignore_global_read_lock)
 {
   int error= 0;
   /*
@@ -1402,7 +1406,7 @@ int ha_commit_trans(THD *thd, bool all, bool async)
     /* rw_trans is TRUE when we in a transaction changing data */
     rw_trans= is_real_trans && (rw_ha_count > 0);
 
-    if (rw_trans)
+    if (rw_trans && !ignore_global_read_lock)
     {
       /*
         Acquire a metadata lock which will ensure that COMMIT is blocked
