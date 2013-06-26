@@ -1,0 +1,25 @@
+SET @orig_fsync_freq = @@global.innodb_fsync_freq;
+SELECT @orig_fsync_freq;
+@orig_fsync_freq
+134217728
+SET GLOBAL innodb_fsync_freq = 1024*1024*1024;
+SELECT @@global.innodb_fsync_freq;
+@@global.innodb_fsync_freq
+1073741824
+SET GLOBAL innodb_fsync_freq = 0;
+SELECT @@global.innodb_fsync_freq;
+@@global.innodb_fsync_freq
+0
+SET GLOBAL innodb_fsync_freq = -1;
+Warnings:
+Warning	1292	Truncated incorrect innodb_fsync_freq value: '-1'
+SELECT @@global.innodb_fsync_freq;
+@@global.innodb_fsync_freq
+0
+SET GLOBAL innodb_fsync_freq = 12345;
+Warnings:
+Warning	1292	Truncated incorrect innodb_fsync_freq value: '12345'
+SELECT @@global.innodb_fsync_freq;
+@@global.innodb_fsync_freq
+0
+SET GLOBAL innodb_fsync_freq = @orig_fsync_freq;

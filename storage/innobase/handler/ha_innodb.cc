@@ -17155,6 +17155,13 @@ static MYSQL_SYSVAR_ULONG(spin_wait_delay, srv_spin_wait_delay,
   "Maximum delay between polling for a spin lock (6 by default)",
   NULL, NULL, 6L, 0L, ~0UL, 0);
 
+static MYSQL_SYSVAR_ULONGLONG(fsync_freq, os_fsync_freq,
+  PLUGIN_VAR_RQCMDARG,
+  "The value of this variable determines how often InnoDB calls fsync when "
+  "creating a new file. Default is to call fsync after every 128M written. "
+  "Setting this value to zero would make InnoDB flush the file before closing "
+  "it.", NULL, NULL, 1ULL << 27, 0, ULONG_MAX, UNIV_PAGE_SIZE);
+
 static MYSQL_SYSVAR_ULONG(thread_concurrency, srv_thread_concurrency,
   PLUGIN_VAR_RQCMDARG,
   "Helps in performance tuning in heavily concurrent environments. Sets the maximum number of threads allowed inside InnoDB. Value 0 will disable the thread throttling.",
@@ -17627,6 +17634,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(online_alter_log_max_size),
   MYSQL_SYSVAR(sync_spin_loops),
   MYSQL_SYSVAR(spin_wait_delay),
+  MYSQL_SYSVAR(fsync_freq),
   MYSQL_SYSVAR(table_locks),
   MYSQL_SYSVAR(thread_concurrency),
 #ifdef HAVE_ATOMIC_BUILTINS
