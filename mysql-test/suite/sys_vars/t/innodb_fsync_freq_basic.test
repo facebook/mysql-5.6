@@ -1,0 +1,25 @@
+--source include/have_innodb.inc
+
+
+SET @orig_fsync_freq = @@global.innodb_fsync_freq;
+
+SELECT @orig_fsync_freq;
+
+SET GLOBAL innodb_fsync_freq = 1024*1024*1024;
+SELECT @@global.innodb_fsync_freq;
+
+# min value
+SET GLOBAL innodb_fsync_freq = 0;
+SELECT @@global.innodb_fsync_freq;
+
+# invalid value
+# too small
+SET GLOBAL innodb_fsync_freq = -1;
+SELECT @@global.innodb_fsync_freq;
+
+# not bound to page size
+SET GLOBAL innodb_fsync_freq = 12345;
+SELECT @@global.innodb_fsync_freq;
+
+SET GLOBAL innodb_fsync_freq = @orig_fsync_freq;
+
