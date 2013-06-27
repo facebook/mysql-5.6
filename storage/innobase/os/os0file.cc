@@ -5866,10 +5866,10 @@ slot_io_done:
 	*message2 = aio_slot->message2;
 
 	*type = aio_slot->type;
-	if(slot->type == OS_FILE_READ || slot->type == OS_FILE_WRITE) {
-		os_io_perf_update_page_stats(slot->type,
-					     fil_page_get_type(slot->buf),
-					     slot->io_perf2);
+	if(aio_slot->type == OS_FILE_READ || aio_slot->type == OS_FILE_WRITE) {
+		os_io_perf_update_page_stats(aio_slot->type,
+					     fil_page_get_type(aio_slot->buf),
+					     aio_slot->io_perf2);
 	}
 
 	os_mutex_exit(array->mutex);
