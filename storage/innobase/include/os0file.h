@@ -61,6 +61,14 @@ extern ulint	os_n_pending_reads;
 /** Number of pending write operations */
 extern ulint	os_n_pending_writes;
 
+/* Configurable variables for Histogram step sizes and units */
+extern char* innobase_histogram_step_size_async_read;
+extern char* innobase_histogram_step_size_async_write;
+extern char* innobase_histogram_step_size_sync_read;
+extern char* innobase_histogram_step_size_sync_write;
+extern char* innobase_histogram_step_size_log_write; 
+extern char* innobase_histogram_step_size_double_write;
+
 #ifdef __WIN__
 
 /** We define always WIN_ASYNC_IO, and check at run-time whether
