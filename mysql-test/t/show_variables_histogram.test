@@ -1,0 +1,33 @@
+-- source include/have_innodb.inc
+#
+# This is to show the configurable histogram_step_size variables 
+#
+
+SET @start_global_value1 = @@GLOBAL.innodb_histogram_step_size_async_read;
+SET @start_global_value2 = @@GLOBAL.innodb_histogram_step_size_async_write;
+SET @start_global_value3 = @@GLOBAL.innodb_histogram_step_size_sync_read;
+SET @start_global_value4 = @@GLOBAL.innodb_histogram_step_size_sync_write;
+SET @start_global_value5 = @@GLOBAL.innodb_histogram_step_size_log_write;
+SET @start_global_value6 = @@GLOBAL.innodb_histogram_step_size_double_write;
+
+SHOW VARIABLES LIKE "%histogram%" ;
+
+SET @@GLOBAL.innodb_histogram_step_size_async_read='16ms';
+SET @@GLOBAL.innodb_histogram_step_size_async_write='16us';
+SET @@GLOBAL.innodb_histogram_step_size_sync_read='32ms';
+SET @@GLOBAL.innodb_histogram_step_size_sync_write='32us';
+SET @@GLOBAL.innodb_histogram_step_size_log_write='64ms';
+SET @@GLOBAL.innodb_histogram_step_size_double_write='16s';
+
+SHOW VARIABLES LIKE "%histogram%" ;
+
+SET @@GLOBAL.innodb_histogram_step_size_async_read = @start_global_value1;
+SET @@GLOBAL.innodb_histogram_step_size_async_write = @start_global_value2;
+SET @@GLOBAL.innodb_histogram_step_size_sync_read = @start_global_value3;
+SET @@GLOBAL.innodb_histogram_step_size_sync_write = @start_global_value4;
+SET @@GLOBAL.innodb_histogram_step_size_log_write = @start_global_value5;
+SET @@GLOBAL.innodb_histogram_step_size_double_write = @start_global_value6;
+
+SHOW VARIABLES LIKE "%histogram%" ;
+
+--echo Done

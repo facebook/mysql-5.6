@@ -67,6 +67,14 @@ Created 10/21/1995 Heikki Tuuri
 
 #define max(a,b) ((a)>(b)?(a):(b))
 
+/* Configurable Histogram step sizes */
+char* innobase_histogram_step_size_async_read 		= NULL;
+char* innobase_histogram_step_size_async_write 		= NULL;
+char* innobase_histogram_step_size_sync_read  		= NULL;
+char* innobase_histogram_step_size_sync_write  		= NULL;
+char* innobase_histogram_step_size_log_write  		= NULL;
+char* innobase_histogram_step_size_double_write 	= NULL;
+
 /** Insert buffer segment id */
 static const ulint IO_IBUF_SEGMENT = 0;
 

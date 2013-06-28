@@ -34,13 +34,11 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <sql_table.h>	// explain_filename, nz2, EXPLAIN_PARTITIONS_AS_COMMENT,
 			// EXPLAIN_FILENAME_MAX_EXTRA_LENGTH
-
 #include <sql_acl.h>	// PROCESS_ACL
 #include <debug_sync.h> // DEBUG_SYNC
 #include <my_base.h>	// HA_OPTION_*
 #include <mysys_err.h>
 #include <mysql/innodb_priv.h>
-
 /** @file ha_innodb.cc */
 
 /* Include necessary InnoDB headers */
@@ -3634,7 +3632,7 @@ mem_free_and_error:
 		fts_server_stopword_table =
 			my_strdup(innobase_server_stopword_table,  MYF(0));
 	}
-
+	
 	if (innobase_change_buffering) {
 		ulint	use;
 
@@ -15056,6 +15054,101 @@ innodb_adaptive_hash_index_update(
 	}
 }
 
+/*************************************************************//**
+Check whether valid argument given to "innodb_histogram_step_size_xxx_xxx"
+This function is registered as a callback with MySQL.
+@return 0 for valid step size */
+static
+int
+innodb_histogram_step_size_validate(
+/*===========================*/
+	THD*				thd,	/*!< in: thread handle */
+	struct st_mysql_sys_var*	var,	/*!< in: pointer to system
+						variable */
+	void*				save,	/*!< out: immediate result
+						for update function */
+	struct st_mysql_value*		value)	/*!< in: incoming string */
+{
+	const char*	step_size_local;
+	const char*	step_size;
+	char		buff[STRING_BUFFER_USUAL_SIZE];
+	int		len = sizeof(buff);
+	int		ret = 0;
+	int		i;
+	size_t		length = 0;
+	ut_a(save != NULL);
+	ut_a(value != NULL);
+
+	step_size_local = value->val_str(value, buff, &len);
+	
+	if (step_size_local)
+		length = strlen(step_size_local);
+
+	/* If step_size_local is an empty string or NULL,
+	 * it should be accepted and 0 returned */
+	if (length == 0) {
+		*static_cast<const char**>(save) = NULL;
+		return(0);
+	}
+
+	/* Validating if the string (non empty)ends with ms/us/s and the
+	 * rest of the characters are digits */
+	if (length < 2)
+		ret = 1;
+	else if (step_size_local[length-1] != 's')
+		ret = 1;
+	else if (isalpha(step_size_local[length-2])
+				&& step_size_local[length-2] != 'm'
+				&& step_size_local[length-2] != 'u')
+		ret = 1;
+	else if (!isalpha(step_size_local[length-2])
+				&& !isdigit(step_size_local[length-2]))
+		ret = 1;
+	else {
+		for (i = length-3; i >= 0; i--) {
+			if (!isdigit(step_size_local[i])) {
+				ret = 1;
+				break;
+			}
+		}
+	}
+		
+	if (!ret) {
+		step_size = my_strdup(step_size_local, MYF(0));
+		*static_cast<const char**>(save) = step_size;
+	}
+	
+	return(ret);
+}
+
+/****************************************************************//**
+Update the system variable innodb_histogram_step_size_xxx_xxx using the "saved"
+value. This function is called from the registered callback functions of MySQL */
+static
+void
+innodb_histogram_step_size_update(
+/*==============================*/
+	THD*				thd,	/*!< in: thread handle */
+	struct st_mysql_sys_var*	var,    /*< in: pointer to
+						system variable */
+	void*				var_ptr,/*!< out: where the
+						formal string goes */
+	const void*			save)	/*!< in: immediate result
+						from check function */
+{
+	const char*	step_size;
+
+	ut_a(save != NULL);
+	ut_a(var_ptr != NULL);
+
+	step_size = *static_cast<const char*const*>(save);
+	if (step_size) {
+		*static_cast<const char**>(var_ptr) = step_size;
+	} else {
+		*static_cast<const char**>(var_ptr) = NULL;
+	}
+}
+
 /****************************************************************//**
 Update the system variable innodb_cmp_per_index using the "saved"
 value. This function is registered as a callback with MySQL. */
@@ -16653,6 +16746,48 @@ static MYSQL_SYSVAR_LONGLONG(buffer_pool_size, innobase_buffer_pool_size,
   "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
   NULL, NULL, 128*1024*1024L, 5*1024*1024L, LONGLONG_MAX, 1024*1024L);
 
+static MYSQL_SYSVAR_STR(histogram_step_size_async_read,
+  innobase_histogram_step_size_async_read,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking async read latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_async_write,
+  innobase_histogram_step_size_async_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking async write latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_sync_read,
+  innobase_histogram_step_size_sync_read,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking sync read latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_sync_write,
+  innobase_histogram_step_size_sync_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking sync write latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_log_write,
+  innobase_histogram_step_size_log_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking log write latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_double_write,
+  innobase_histogram_step_size_double_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking double latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16us");
+
 static MYSQL_SYSVAR_ULONG(sync_pool_size, innobase_sync_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "The size of the shared sync pool buffer InnoDB uses to store system lock"
@@ -17255,6 +17390,12 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_filename),
   MYSQL_SYSVAR(buffer_pool_dump_now),
   MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
+  MYSQL_SYSVAR(histogram_step_size_async_read),
+  MYSQL_SYSVAR(histogram_step_size_async_write),
+  MYSQL_SYSVAR(histogram_step_size_sync_read),
+  MYSQL_SYSVAR(histogram_step_size_sync_write),
+  MYSQL_SYSVAR(histogram_step_size_log_write),
+  MYSQL_SYSVAR(histogram_step_size_double_write),
 #ifdef UNIV_DEBUG
   MYSQL_SYSVAR(buffer_pool_evict),
 #endif /* UNIV_DEBUG */
