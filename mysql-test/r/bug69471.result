@@ -1,0 +1,20 @@
+CREATE TABLE table1 (a INT, b INT);
+CREATE TABLE table2 (a INT, b INT);
+INSERT INTO table1 VALUES (1, 4);
+INSERT INTO table1 VALUES (2, 4);
+INSERT INTO table2 VALUES (1, 5);
+INSERT INTO table2 VALUES (2, 5);
+SELECT *
+FROM(
+(SELECT *
+FROM table1
+WHERE 1=0)
+UNION
+(SELECT *
+FROM (SELECT * from table2) t2
+WHERE t2.b = 5)
+) a3 ORDER BY 1;
+a	b
+1	5
+2	5
+DROP TABLE table1, table2;
