@@ -73,8 +73,16 @@ SET @@GLOBAL.innodb_histogram_step_size_sync_write='32@s';
 --echo Expected error 'Variable cannot be set to this value';
 
 --Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_sync_write='32s.';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.innodb_histogram_step_size_sync_write='s';
 --echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.innodb_histogram_step_size_sync_write='16.5us';
+select @@GLOBAL.innodb_histogram_step_size_sync_write;
+--echo 16.5us Expected
 
 SET @@GLOBAL.innodb_histogram_step_size_sync_write = @start_global_value;
 SELECT @@GLOBAL.innodb_histogram_step_size_sync_write;

@@ -52,9 +52,17 @@ Expected error 'Variable cannot be set to this value';
 SET @@GLOBAL.innodb_histogram_step_size_sync_read='32@s';
 ERROR 42000: Variable 'innodb_histogram_step_size_sync_read' can't be set to the value of '32@s'
 Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_sync_read='32s.';
+ERROR 42000: Variable 'innodb_histogram_step_size_sync_read' can't be set to the value of '32s.'
+Expected error 'Variable cannot be set to this value';
 SET @@GLOBAL.innodb_histogram_step_size_sync_read='s';
 ERROR 42000: Variable 'innodb_histogram_step_size_sync_read' can't be set to the value of 's'
 Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_sync_read='16.5us';
+select @@GLOBAL.innodb_histogram_step_size_sync_read;
+@@GLOBAL.innodb_histogram_step_size_sync_read
+16.5us
+16.5us Expected
 SET @@GLOBAL.innodb_histogram_step_size_sync_read = @start_global_value;
 SELECT @@GLOBAL.innodb_histogram_step_size_sync_read;
 @@GLOBAL.innodb_histogram_step_size_sync_read

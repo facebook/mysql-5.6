@@ -51,6 +51,7 @@ SELECT COUNT(@@local.innodb_histogram_step_size_double_write);
 --Error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SELECT COUNT(@@SESSION.innodb_histogram_step_size_double_write);
 --echo Expected error 'Variable is a GLOBAL variable'
+
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.innodb_histogram_step_size_double_write='32';
 --echo Expected error 'Variable cannot be set to this value';
@@ -72,8 +73,16 @@ SET @@GLOBAL.innodb_histogram_step_size_double_write='32@s';
 --echo Expected error 'Variable cannot be set to this value';
 
 --Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_double_write='32s.';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.innodb_histogram_step_size_double_write='s';
 --echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.innodb_histogram_step_size_double_write='16.5us';
+select @@GLOBAL.innodb_histogram_step_size_double_write;
+--echo 16.5us Expected
 
 SET @@GLOBAL.innodb_histogram_step_size_double_write = @start_global_value;
 SELECT @@GLOBAL.innodb_histogram_step_size_double_write;
