@@ -1115,21 +1115,3 @@
    obj:/usr/local/fbcode/gcc-4.7.1-glibc-2.14.1/lib/ld-2.14.1.so
    obj:*
 }
-
-{
-   Temporary suppression; issue tracked in task #2583590
-   Memcheck:Addr8
-   fun:jemalloc_arena_salloc_demote
-   fun:free
-   fun:__libc_freeres
-   fun:_vgnU_freeres
-   fun:arena_purge
-   fun:arena_dalloc_bin_run
-   fun:jemalloc_arena_dalloc_bin
-   fun:jemalloc_tcache_bin_flush_small
-   fun:jemalloc_tcache_destroy
-   fun:tcache_thread_cleanup
-   fun:__nptl_deallocate_tsd
-   fun:start_thread
-   fun:clone
-}
