@@ -3175,20 +3175,41 @@ void my_io_perf_sum_atomic(
 /**
   Create a new Histogram.
 
-  @param num_bins_arg   Number of bins.
-  @param step_size_arg  Size of each bucket of the Histogram.
-
+  @param num_bins_arg         Number of bins.
+  @param step_size_with_unit  Configurable system variable containing
+                              step size and unit of the Histogram.
 */
-histogram::histogram(size_t num_bins_arg, ulonglong step_size_arg)
+histogram::histogram(size_t num_bins_arg, char *step_size_with_unit)
 {
   size_t i;
-  if (!(count_per_bin = (ulonglong *) my_malloc (num_bins_arg*sizeof(ulonglong), MYF(MY_WME))))
+  double step_size_base_time = 0.0;;
+  char *histogram_unit = NULL;
+  if (!(count_per_bin = (ulonglong *) my_malloc (num_bins_arg*sizeof(ulonglong),
+                                                 MYF(MY_WME))))
   {
-    sql_print_error("Cannot allocate memmory to Histogram bucket counts.");
+    sql_print_error("Cannot allocate memory to Histogram bucket counts.");
     exit(1);
   }
   num_bins = num_bins_arg;
-  step_size = step_size_arg;
+  if (step_size_with_unit)
+    step_size_base_time = strtod(step_size_with_unit, &histogram_unit);
+  else
+    step_size = 0;
+  if (histogram_unit)  {
+    if (!strcmp(histogram_unit, "s"))  {
+      step_size = microseconds_to_my_timer(step_size_base_time * 1000000.0);
+    }
+    else if (!strcmp(histogram_unit, "ms"))  {
+      step_size = microseconds_to_my_timer(step_size_base_time * 1000.0);
+    }
+    else if (!strcmp(histogram_unit, "us"))  {
+      step_size = microseconds_to_my_timer(step_size_base_time);
+    }
+    else  {
+      sql_print_error("Invalid units given to histogram step size.");
+      return;
+    }
+  }
   for (i = 0; i < num_bins; ++i)
     count_per_bin[i] = 0;
 

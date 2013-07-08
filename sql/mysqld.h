@@ -344,6 +344,7 @@ static inline void my_io_perf_sum_atomic_helper(
 }
 
 /* Histogram class to track various latencies */
+#define NUMBER_OF_HISTOGRAM_BINS 15
 class histogram {
   size_t num_bins;
   ulonglong step_size;
@@ -362,11 +363,11 @@ public:
   /**
     Create a new Histogram.
 
-    @param num_bins_arg   Number of bins.
-    @param step_size_arg  Size of each bucket of the Histogram.
-
+    @param num_bins_arg         Number of bins.
+    @param step_size_with_unit  Configurable system variable containing
+                                step size and unit of the Histogram.
   */
-  histogram(size_t num_bins_arg, ulonglong step_size_arg);
+  histogram(size_t num_bins_arg, char *step_size_with_unit);
 
   /**
     Destructor for Histogram class.

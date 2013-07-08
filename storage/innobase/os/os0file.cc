@@ -67,13 +67,13 @@ Created 10/21/1995 Heikki Tuuri
 
 #define max(a,b) ((a)>(b)?(a):(b))
 
-/* Configurable Histogram step sizes */
-char* innobase_histogram_step_size_async_read 		= NULL;
-char* innobase_histogram_step_size_async_write 		= NULL;
-char* innobase_histogram_step_size_sync_read  		= NULL;
-char* innobase_histogram_step_size_sync_write  		= NULL;
-char* innobase_histogram_step_size_log_write  		= NULL;
-char* innobase_histogram_step_size_double_write 	= NULL;
+/* Configurable histogram step sizes */
+char* innobase_histogram_step_size_async_read 	= NULL;
+char* innobase_histogram_step_size_async_write 	= NULL;
+char* innobase_histogram_step_size_sync_read  	= NULL;
+char* innobase_histogram_step_size_sync_write  	= NULL;
+char* innobase_histogram_step_size_log_write  	= NULL;
+char* innobase_histogram_step_size_double_write = NULL;
 
 /** Insert buffer segment id */
 static const ulint IO_IBUF_SEGMENT = 0;
@@ -335,7 +335,7 @@ ulint		os_async_read_old_ios	= 0;
 /** Number of async writes that waited longer than srv_io_old_usecs */
 ulint		os_async_write_old_ios	= 0;
 
-/* Global counters for sync and async IO */
+/* Global counters for sync and async IO along with histograms to track them */
 my_io_perf_t os_async_read_perf;
 my_io_perf_t os_async_write_perf;
 
@@ -344,6 +344,15 @@ my_io_perf_t os_sync_write_perf;
 
 my_io_perf_t os_log_write_perf;
 my_io_perf_t os_double_write_perf;
+
+histogram *histogram_async_read = NULL;
+histogram *histogram_async_write = NULL;
+
+histogram *histogram_sync_read = NULL;
+histogram *histogram_sync_write = NULL;
+
+histogram *histogram_log_write = NULL;
+histogram *histogram_double_write = NULL;
 
 /* Timer units waiting for fsync or fdatasync to finish */
 ulonglong os_file_flush_time = 0;
@@ -4059,6 +4068,19 @@ os_aio_init(
 		os_aio_thread_buffer_size[i] = 0;
 	}
 
+	histogram_async_read = new histogram (NUMBER_OF_HISTOGRAM_BINS,
+				innobase_histogram_step_size_async_read);
+	histogram_async_write = new histogram (NUMBER_OF_HISTOGRAM_BINS,
+				innobase_histogram_step_size_async_write);
+	histogram_sync_read = new histogram (NUMBER_OF_HISTOGRAM_BINS,
+				innobase_histogram_step_size_sync_read);
+	histogram_sync_write = new histogram (NUMBER_OF_HISTOGRAM_BINS,
+				innobase_histogram_step_size_sync_write);
+	histogram_log_write = new histogram (NUMBER_OF_HISTOGRAM_BINS,
+				innobase_histogram_step_size_log_write);
+	histogram_double_write = new histogram (NUMBER_OF_HISTOGRAM_BINS,
+				innobase_histogram_step_size_double_write);
+
 	my_io_perf_init(&os_async_read_perf);
 	my_io_perf_init(&os_async_write_perf);
 
@@ -4179,6 +4201,12 @@ os_aio_free(void)
 		os_event_free(os_aio_segment_wait_events[i]);
 	}
 
+	delete histogram_async_read;
+	delete histogram_async_write;
+	delete histogram_sync_read;
+	delete histogram_sync_write;
+	delete histogram_log_write;
+	delete histogram_double_write;
 	ut_free(os_aio_segment_wait_events);
 	os_aio_segment_wait_events = 0;
 	os_aio_n_segments = 0;
@@ -4880,6 +4908,12 @@ os_aio_func(
 		if (type == OS_FILE_READ) {
 			os_io_perf_update_all(&os_sync_read_perf, n,
 				elapsed_time, end_time, start_time);
+		
+			if (histogram_sync_read &&
+					innobase_histogram_step_size_sync_read)
+				histogram_sync_read->histogram_increment
+						(elapsed_time, 1);
+		
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->read), n,
 				elapsed_time, end_time, start_time);
@@ -4927,16 +4961,34 @@ os_aio_func(
 
 		} else {
 			my_io_perf_t *perf;
-
-			if (is_log_write)
+			histogram *current_histogram;
+			char *histogram_step_size;
+			if (is_log_write) {
 				perf = &os_log_write_perf;
-			else if (is_double_write)
+				current_histogram = histogram_log_write;
+				histogram_step_size =
+					innobase_histogram_step_size_log_write;
+			}
+			else if (is_double_write) {
 				perf = &os_double_write_perf;
-			else
+				current_histogram = histogram_double_write;
+				histogram_step_size =
+				innobase_histogram_step_size_double_write;
+			}
+			else {
 				perf = &os_sync_write_perf;
+				current_histogram = histogram_sync_write;
+				histogram_step_size =
+					innobase_histogram_step_size_sync_write;
+			}
 
 			os_io_perf_update_all(perf, n,
 				elapsed_time, end_time, start_time);
+			
+			if (current_histogram && histogram_step_size)
+				current_histogram->histogram_increment(
+					elapsed_time, 1);
+		
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->write), n,
 				elapsed_time, end_time, start_time);
@@ -5509,6 +5561,19 @@ found:
 			      slot->n_bytes,
 			      0, /*native aio svc_time not known*/
 			      now, slot->reservation_time);
+	/* This histogram for async reads|writes in case of
+	 * native aio tracks the time starting from when a slot
+	 * is reserved in the array till the time the helper
+	 * thread picks it up (post completion). */
+	if (slot->type == OS_FILE_WRITE && histogram_async_write
+	    && innobase_histogram_step_size_async_write)
+		histogram_async_write->histogram_increment(
+			now-slot->reservation_time, 1);
+	else if (histogram_async_read &&
+				innobase_histogram_step_size_async_read)
+		histogram_async_read->histogram_increment(
+			now-slot->reservation_time, 1);
+
 	/* Per fil_space_t counters */
 	os_io_perf_update_all(slot->type == OS_FILE_WRITE
 			      ? &(slot->io_perf2->write)
@@ -5830,13 +5895,23 @@ consecutive_loop:
 			offs += consecutive_ios[i]->len;
 		}
 	}
+	
+	/* The histogram for tracking latencies of async reads|writes
+	 * for the case of simulated aio, tracks the time starting from
+	 * when the slot is requested in the array till the time the
+	 * sync io ends */
 
 	/* Update statistics. The mutex is not locked and the race is OK. */
 	if (aio_slot->type == OS_FILE_WRITE) {
 		os_io_perf_update_all(&os_async_write_perf,
 			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
 			aio_slot->reservation_time);
-		/* Per fil_space_t counters */
+		if (histogram_async_write &&
+				innobase_histogram_step_size_async_write)
+			histogram_async_write->histogram_increment(
+			stop_time-aio_slot->reservation_time, 1);
+		
+	/* Per fil_space_t counters */
 		os_io_perf_update_all(&(aio_slot->io_perf2->write),
 			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
 			aio_slot->reservation_time);
@@ -5844,6 +5919,11 @@ consecutive_loop:
 		os_io_perf_update_all(&os_async_read_perf,
 			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
 			aio_slot->reservation_time);
+		if (histogram_async_read &&
+				innobase_histogram_step_size_async_read)
+			histogram_async_read->histogram_increment(
+			stop_time-aio_slot->reservation_time, 1);
+		
 		/* Per fil_space_t counters */
 		os_io_perf_update_all(&(aio_slot->io_perf2->read),
 			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
