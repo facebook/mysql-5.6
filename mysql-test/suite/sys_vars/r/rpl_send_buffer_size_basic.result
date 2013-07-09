@@ -1,0 +1,108 @@
+SET @start_rpl_send_buffer_size = @@global.rpl_send_buffer_size;
+SELECT @start_rpl_send_buffer_size;
+@start_rpl_send_buffer_size
+2097152
+'#--------------------TEST_01------------------------#'
+SET @@global.rpl_send_buffer_size = 20 * 1024;
+SET @@global.rpl_send_buffer_size = DEFAULT;
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+2097152
+'#---------------------TEST_02-------------------------#'
+SET @@global.rpl_send_buffer_size = @start_rpl_send_buffer_size;
+SELECT @@global.rpl_send_buffer_size = 2 * 1024 * 1024;
+@@global.rpl_send_buffer_size = 2 * 1024 * 1024
+1
+'#--------------------TEST_03------------------------#'
+SET @@global.rpl_send_buffer_size = 16 * 1024;
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+16384
+SET @@global.rpl_send_buffer_size = 128 * 1024 * 1024;
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+134217728
+SET @@global.rpl_send_buffer_size = 300 * 1024;
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+307200
+SET @@global.rpl_send_buffer_size = 100 * 1024 * 1024;
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+104857600
+'#--------------------TEST_04-------------------------#'
+SET @@global.rpl_send_buffer_size = -1;
+Warnings:
+Warning	1292	Truncated incorrect rpl_send_buffer_size value: '-1'
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+1024
+SET @@global.rpl_send_buffer_size = 100;
+Warnings:
+Warning	1292	Truncated incorrect rpl_send_buffer_size value: '100'
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+1024
+SET @@global.rpl_send_buffer_size = 18446744073709551616;
+ERROR 42000: Incorrect argument type to variable 'rpl_send_buffer_size'
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+1024
+SET @@global.rpl_send_buffer_size = 10000.01;
+ERROR 42000: Incorrect argument type to variable 'rpl_send_buffer_size'
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+1024
+SET @@global.rpl_send_buffer_size = ON;
+ERROR 42000: Incorrect argument type to variable 'rpl_send_buffer_size'
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+1024
+SET @@global.rpl_send_buffer_size = 'test';
+ERROR 42000: Incorrect argument type to variable 'rpl_send_buffer_size'
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+1024
+'#-------------------TEST_05----------------------------#'
+SET @@session.rpl_send_buffer_size = 20 * 1024;
+ERROR HY000: Variable 'rpl_send_buffer_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.rpl_send_buffer_size;
+ERROR HY000: Variable 'rpl_send_buffer_size' is a GLOBAL variable
+'#----------------------TEST_06------------------------#'
+SELECT @@global.rpl_send_buffer_size = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='rpl_send_buffer_size';
+@@global.rpl_send_buffer_size = VARIABLE_VALUE
+1
+SELECT @@rpl_send_buffer_size = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='rpl_send_buffer_size';
+@@rpl_send_buffer_size = VARIABLE_VALUE
+1
+'#---------------------TEST_08----------------------#'
+SET @@global.rpl_send_buffer_size = 30 * 1024;
+SELECT @@rpl_send_buffer_size = @@global.rpl_send_buffer_size;
+@@rpl_send_buffer_size = @@global.rpl_send_buffer_size
+1
+'#---------------------TEST_09----------------------#'
+SET rpl_send_buffer_size = 20 * 1024;
+ERROR HY000: Variable 'rpl_send_buffer_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@rpl_send_buffer_size;
+@@rpl_send_buffer_size
+30720
+SET local.rpl_send_buffer_size = 20 * 1024
+--Error ER_UNKNOWN_TABLE
+SELECT local.rpl_send_buffer_size;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'rpl_send_buffer_size = 20 * 1024
+--Error ER_UNKNOWN_TABLE
+SELECT local.rpl_send_' at line 1
+SET global.rpl_send_buffer_size = 30 * 1024;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'rpl_send_buffer_size = 30 * 1024' at line 1
+SELECT global.rpl_send_buffer_size;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT rpl_send_buffer_size = @@session.rpl_send_buffer_size;
+ERROR 42S22: Unknown column 'rpl_send_buffer_size' in 'field list'
+SET @@global.rpl_send_buffer_size = @start_rpl_send_buffer_size;
+SELECT @@global.rpl_send_buffer_size;
+@@global.rpl_send_buffer_size
+2097152
