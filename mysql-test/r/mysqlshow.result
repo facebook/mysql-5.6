@@ -89,7 +89,6 @@ Database: information_schema
 | FILES                                 |
 | GLOBAL_STATUS                         |
 | GLOBAL_VARIABLES                      |
-| INDEX_STATISTICS                      |
 | KEY_COLUMN_USAGE                      |
 | OPTIMIZER_TRACE                       |
 | PARAMETERS                            |
@@ -158,7 +157,6 @@ Database: INFORMATION_SCHEMA
 | FILES                                 |
 | GLOBAL_STATUS                         |
 | GLOBAL_VARIABLES                      |
-| INDEX_STATISTICS                      |
 | KEY_COLUMN_USAGE                      |
 | OPTIMIZER_TRACE                       |
 | PARAMETERS                            |
