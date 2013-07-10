@@ -1,17 +1,17 @@
 SET @start_rpl_receive_buffer_size = @@global.rpl_receive_buffer_size;
 SELECT @start_rpl_receive_buffer_size;
 @start_rpl_receive_buffer_size
-1048576
+2097152
 '#--------------------TEST_01------------------------#'
 SET @@global.rpl_receive_buffer_size = 20 * 1024;
 SET @@global.rpl_receive_buffer_size = DEFAULT;
 SELECT @@global.rpl_receive_buffer_size;
 @@global.rpl_receive_buffer_size
-1048576
+2097152
 '#---------------------TEST_02-------------------------#'
 SET @@global.rpl_receive_buffer_size = @start_rpl_receive_buffer_size;
-SELECT @@global.rpl_receive_buffer_size = 1024 * 1024;
-@@global.rpl_receive_buffer_size = 1024 * 1024
+SELECT @@global.rpl_receive_buffer_size = 2 * 1024 * 1024;
+@@global.rpl_receive_buffer_size = 2 * 1024 * 1024
 1
 '#--------------------TEST_03------------------------#'
 SET @@global.rpl_receive_buffer_size = 16 * 1024;
@@ -105,8 +105,4 @@ ERROR 42S22: Unknown column 'rpl_receive_buffer_size' in 'field list'
 SET @@global.rpl_receive_buffer_size = @start_rpl_receive_buffer_size;
 SELECT @@global.rpl_receive_buffer_size;
 @@global.rpl_receive_buffer_size
-1048576
-SET @@global.rpl_receive_buffer_size= @start_rpl_receive_buffer_size;
-SELECT @@global.rpl_receive_buffer_size;
-@@global.rpl_receive_buffer_size
-1048576
+2097152
