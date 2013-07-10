@@ -4140,7 +4140,7 @@ static Sys_var_uint Sys_rpl_receive_buffer_size(
        "The size of input buffer for the socket used during receving "
        "events from a master.",
        GLOBAL_VAR(rpl_receive_buffer_size), CMD_LINE(REQUIRED_ARG),
-       VALID_RANGE(1024, UINT_MAX), DEFAULT(1024 * 1024),
+       VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024),
        BLOCK_SIZE(1024));
 
 static Sys_var_mybool Sys_slave_allow_batching(

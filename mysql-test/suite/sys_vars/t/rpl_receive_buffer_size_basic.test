@@ -24,7 +24,7 @@ SELECT @@global.rpl_receive_buffer_size;
 ###############################################
 
 SET @@global.rpl_receive_buffer_size = @start_rpl_receive_buffer_size;
-SELECT @@global.rpl_receive_buffer_size = 1024 * 1024;
+SELECT @@global.rpl_receive_buffer_size = 2 * 1024 * 1024;
 
 --echo '#--------------------TEST_03------------------------#'
 ########################################################################
@@ -125,9 +125,6 @@ SELECT rpl_receive_buffer_size = @@session.rpl_receive_buffer_size;
 
 SET @@global.rpl_receive_buffer_size = @start_rpl_receive_buffer_size;
 SELECT @@global.rpl_receive_buffer_size;
-SET @@global.rpl_receive_buffer_size= @start_rpl_receive_buffer_size;
-SELECT @@global.rpl_receive_buffer_size;
-
 
 ######################################################################
 #              END OF rpl_receive_buffer_size TESTS                  #
