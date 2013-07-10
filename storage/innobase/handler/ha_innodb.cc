@@ -15069,19 +15069,24 @@ innodb_histogram_step_size_validate(
 						for update function */
 	struct st_mysql_value*		value)	/*!< in: incoming string */
 {
+	const char*	step_size_local;
 	const char*	step_size;
 	char		buff[STRING_BUFFER_USUAL_SIZE];
 	int		len = sizeof(buff);
 	int		ret = 0;
 	int		i;
-	size_t		length;
+	size_t		length = 0;
 	ut_a(save != NULL);
 	ut_a(value != NULL);
 
-	step_size = value->val_str(value, buff, &len);
-	length = strlen(step_size);
+	step_size_local = value->val_str(value, buff, &len);
+	
+	if (step_size_local)
+		length = strlen(step_size_local);
 
-	if (!step_size || length == 0) {
+	/* If step_size_local is an empty string or NULL,
+	 * it should be accepted and 0 returned */
+	if (length == 0) {
 		*static_cast<const char**>(save) = NULL;
 		return(0);
 	}
@@ -15090,24 +15095,28 @@ innodb_histogram_step_size_validate(
 	 * rest of the characters are digits */
 	if (length < 2)
 		ret = 1;
-	else if (step_size[length-1] != 's')
+	else if (step_size_local[length-1] != 's')
 		ret = 1;
-	else if (isalpha(step_size[length-2]) && step_size[length-2] != 'm' 
-						&& step_size[length-2] != 'u')
+	else if (isalpha(step_size_local[length-2])
+				&& step_size_local[length-2] != 'm'
+				&& step_size_local[length-2] != 'u')
 		ret = 1;
-	else if (!isalpha(step_size[length-2]) && !isdigit(step_size[length-2]))
+	else if (!isalpha(step_size_local[length-2])
+				&& !isdigit(step_size_local[length-2]))
 		ret = 1;
 	else {
 		for (i = length-3; i >= 0; i--) {
-			if (!isdigit(step_size[i])) {
+			if (!isdigit(step_size_local[i])) {
 				ret = 1;
 				break;
 			}
 		}
 	}
 		
-	if (!ret)
+	if (!ret) {
+		step_size = my_strdup(step_size_local, MYF(0));
 		*static_cast<const char**>(save) = step_size;
+	}
 	
 	return(ret);
 }
@@ -15134,7 +15143,7 @@ innodb_histogram_step_size_update(
 
 	step_size = *static_cast<const char*const*>(save);
 	if (step_size) {
-		*static_cast<const char**>(var_ptr) = my_strdup(step_size, MYF(0));
+		*static_cast<const char**>(var_ptr) = step_size;
 	} else {
 		*static_cast<const char**>(var_ptr) = NULL;
 	}
@@ -16737,46 +16746,46 @@ static MYSQL_SYSVAR_LONGLONG(buffer_pool_size, innobase_buffer_pool_size,
   "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
   NULL, NULL, 128*1024*1024L, 5*1024*1024L, LONGLONG_MAX, 1024*1024L);
 
-static MYSQL_SYSVAR_STR(histogram_step_size_async_read, 
+static MYSQL_SYSVAR_STR(histogram_step_size_async_read,
   innobase_histogram_step_size_async_read,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
   "Size of the histogram bins required for tracking async read latencies",
-  innodb_histogram_step_size_validate, 
+  innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
-static MYSQL_SYSVAR_STR(histogram_step_size_async_write, 
+static MYSQL_SYSVAR_STR(histogram_step_size_async_write,
   innobase_histogram_step_size_async_write,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
   "Size of the histogram bins required for tracking async write latencies",
-  innodb_histogram_step_size_validate, 
+  innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
-static MYSQL_SYSVAR_STR(histogram_step_size_sync_read, 
+static MYSQL_SYSVAR_STR(histogram_step_size_sync_read,
   innobase_histogram_step_size_sync_read,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
   "Size of the histogram bins required for tracking sync read latencies",
-  innodb_histogram_step_size_validate, 
+  innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
-static MYSQL_SYSVAR_STR(histogram_step_size_sync_write, 
+static MYSQL_SYSVAR_STR(histogram_step_size_sync_write,
   innobase_histogram_step_size_sync_write,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
   "Size of the histogram bins required for tracking sync write latencies",
-  innodb_histogram_step_size_validate, 
+  innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
-static MYSQL_SYSVAR_STR(histogram_step_size_log_write, 
+static MYSQL_SYSVAR_STR(histogram_step_size_log_write,
   innobase_histogram_step_size_log_write,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
   "Size of the histogram bins required for tracking log write latencies",
-  innodb_histogram_step_size_validate, 
+  innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
-static MYSQL_SYSVAR_STR(histogram_step_size_double_write, 
+static MYSQL_SYSVAR_STR(histogram_step_size_double_write,
   innobase_histogram_step_size_double_write,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
   "Size of the histogram bins required for tracking double latencies",
-  innodb_histogram_step_size_validate, 
+  innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
 static MYSQL_SYSVAR_ULONG(sync_pool_size, innobase_sync_pool_size,
