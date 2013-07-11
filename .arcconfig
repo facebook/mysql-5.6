@@ -4,6 +4,7 @@
   "phutil_libraries" : {
     "fbcode-arcanist" : "arcanist/"
    },
+  "lint_engine" : "FacebookMysqlLintEngine",
   "unit_engine" : "FacebookFbcodeUnitTestEngine",
   "events.listeners" : [
     "FacebookDiffCreatedListener"
