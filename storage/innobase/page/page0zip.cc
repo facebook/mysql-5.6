@@ -352,12 +352,14 @@ page_zip_restore_blobs(
 	}
 }
 
+/////////////////////////////////////////////////////////////////////////////////
+
 /**********************************************************************//**
 Restore uncompressed fields (trx id, rollback ptr, blobs) of all of the
 records on a page from the trailer of the compressed page */
 static
 void
-page_zip_restore_uncompressed_fields_all(
+page_zip_restore_uncompressed_fields_all(  
 	page_zip_des_t*	page_zip,	/*!< in: page_zip->data trailer and
 					page header. out: page_zip->n_blobs; */
 	rec_t**	recs,			/*!< in: the records on the page
