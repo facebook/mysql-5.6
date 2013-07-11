@@ -13,7 +13,9 @@ phutil_register_library_map(array(
     'FacebookArcanistConfiguration' => 'arcanist/FacebookArcanistConfiguration.php',
     'FacebookBuildServer' => 'unit/FacebookBuildServer.php',
     'FacebookDiffCreatedListener' => 'unit/FacebookDiffCreatedListener.php',
+    'FacebookMysqlLintEngine' => 'unit/FacebookMysqlLintEngine.php',
     'FacebookFbcodeUnitTestEngine' => 'unit/FacebookMysqlUnitTestEngine.php',
+    'FacebookMysqlLinter' => 'unit/MysqlLinters/FacebookMysqlLinter.php',
   ),
   'function' =>
   array(
@@ -22,6 +24,8 @@ phutil_register_library_map(array(
   array(
     'FacebookArcanistConfiguration' => 'ArcanistConfiguration',
     'FacebookDiffCreatedListener' => 'PhutilEventListener',
+    'FacebookMysqlLintEngine' => 'ArcanistLintEngine',
     'FacebookFbcodeUnitTestEngine' => 'ArcanistBaseUnitTestEngine',
+    'FacebookMysqlLinter' => 'ArcanistLinter',
   ),
 ));
