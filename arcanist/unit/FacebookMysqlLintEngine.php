@@ -17,16 +17,36 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
         }
     }
 
+    // ArcanistGeneratedLinter stops other linters from
+    // running on generated code.
     $generated_linter = new ArcanistGeneratedLinter();
     $linters[] = $generated_linter;
 
+    // ArcanistNoLintLinter stops other linters from
+    // running on code marked with a nolint annotation.
     $nolint_linter = new ArcanistNoLintLinter();
     $linters[] = $nolint_linter;
 
+    // FacebookMySqlLinter enforces the following lint
+    // checks: max line length is 80 characters, use Unix
+    // newlines instead of DOS newlines, Files should end
+    // in a new line, and, lines containing trailing whitespace.
     $mysql_linter = new FacebookMysqlLinter();
     $linters[] = $mysql_linter;
 
+    // Enforces basic spelling. A blacklisted set of words that
+    // are commonly spelled incorrectly are used.
     $spelling_linter = new ArcanistSpellingLinter();
+
+    $spelling_linter->setCustomSeverityMap(
+        array(
+	    ArcanistSpellingLinter::LINT_SPELLING_PICKY
+	        => ArcanistLintSeverity::SEVERITY_WARNING,
+	    ArcanistSpellingLinter::LINT_SPELLING_IMPORTANT
+	        => ArcanistLintSeverity::SEVERITY_WARNING,
+	)
+    );
+
     $linters[] = $spelling_linter;
 
     foreach ($paths as $path) {
@@ -48,6 +68,8 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
           'json'.
           'java'.
           'html'.
+          'ic'.
+          'yy'.
           ')$/'
         );
 
@@ -68,6 +90,8 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
         }
     }
 
+    // ArcanistFilenameLinter stifles creativity in choosing
+    // imaginative file names.
     $name_linter = new ArcanistFilenameLinter();
     $linters[] = $name_linter;
 
