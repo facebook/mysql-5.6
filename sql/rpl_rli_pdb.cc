@@ -2132,11 +2132,24 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
       DBUG_ASSERT(gtid_info);
       if ((skip_event = gtid_info->skip_event(worker->worker_last_gtid)))
       {
+        // data_written is modified when the event is written to binlog.
+        // This is a work around to avoid assertions due to modified
+        // data_written value.
+        ulong old_data_written = ev->data_written;
+        ev->reset_log_pos();
         if (!worker->curr_group_seen_begin)
         {
           ev->apply_query_event((char *)"BEGIN", 5);
+          mysql_bin_log.write_event(ev, Log_event::EVENT_STMT_CACHE);
           ev->apply_query_event((char *)"COMMIT", 6);
         }
+        else if (ev->get_type_code() != TABLE_MAP_EVENT)
+        {
+          mysql_bin_log.write_event(ev, Log_event::EVENT_TRANSACTIONAL_CACHE);
+          thd->transaction.all.ha_list = NULL;
+          thd->transaction.stmt.ha_list = NULL;
+        }
+        ev->data_written = old_data_written;
         reset_dynamic(&worker->worker_gtid_infos);
         break;
       }

@@ -1008,7 +1008,6 @@ public:
     EVENT_SKIP_COUNT
   };
 
-protected:
   enum enum_event_cache_type 
   {
     EVENT_INVALID_CACHE= 0,
@@ -1324,9 +1323,21 @@ public:
   {
     return(event_cache_type == EVENT_STMT_CACHE);
   }
+  inline void set_using_trans_cache()
+  {
+    event_cache_type = EVENT_TRANSACTIONAL_CACHE;
+  }
+  inline void set_using_stmt_cache()
+  {
+    event_cache_type = EVENT_STMT_CACHE;
+  }
   inline bool is_using_immediate_logging() const
   {
     return(event_logging_type == EVENT_IMMEDIATE_LOGGING);
+  }
+  inline void set_immediate_logging()
+  {
+    event_logging_type = EVENT_IMMEDIATE_LOGGING;
   }
   Log_event(const char* buf, const Format_description_log_event
             *description_event);
@@ -1659,6 +1670,12 @@ protected:
 public:
   void apply_query_event(char *query, uint32 query_length_arg);
   bool is_row_log_event();
+  inline void reset_log_pos()
+  {
+    // Reset log_pos while writing a relay log event to the binlog.
+    // This ensures log_pos is calculated relative to slave's binlog.
+    log_pos = 0;
+  }
 #endif
 };
 

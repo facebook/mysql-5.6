@@ -3113,6 +3113,7 @@ int Log_event::apply_event(Relay_log_info *rli)
         */
         if (seq_execution && gtid_info->skip_event(rli->last_gtid))
         {
+          reset_log_pos();
           if (!rli->curr_group_seen_begin)
           {
             /**
@@ -3120,9 +3121,16 @@ int Log_event::apply_event(Relay_log_info *rli)
                which require a commit for skipped gtid to be written into the
                binlog.
             */
-            // TODO: Binlog comment
             apply_query_event((char *)"BEGIN", 5);
+            mysql_bin_log.write_event(this, Log_event::EVENT_STMT_CACHE);
             apply_query_event((char *)"COMMIT", 6);
+          }
+          else if (get_type_code() != TABLE_MAP_EVENT)
+          {
+            mysql_bin_log.write_event(this,
+                                      Log_event::EVENT_TRANSACTIONAL_CACHE);
+            thd->transaction.all.ha_list = NULL;
+            thd->transaction.stmt.ha_list = NULL;
           }
           reset_dynamic(&rli->gtid_infos);
           DBUG_RETURN(0);
@@ -3236,6 +3244,10 @@ int Log_event::apply_event(Relay_log_info *rli)
       Gtid_log_event *gtid_ev = (Gtid_log_event *) this;
       gtid_ev->set_last_gtid(rli->last_gtid);
     }
+    else if (starts_group())
+      rli->curr_group_seen_begin = true;
+    else if (rli->ends_group)
+      rli->curr_group_seen_begin = false;
     DBUG_RETURN(error);
   }
 

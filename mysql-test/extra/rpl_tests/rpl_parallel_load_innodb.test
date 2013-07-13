@@ -14,6 +14,10 @@ if ($databases == '')
 {
   let $databases=16;
 }
+if ($skip_cleanup == '')
+{
+  let $skip_cleanup=0;
+}
 let $init_rows= 50;
 
 #
@@ -341,24 +345,11 @@ while($i)
 --enable_result_log
 --enable_query_log
 
-
-connection master;
-
---disable_query_log
---disable_result_log
-
-let $i = $databases + 1;
-while($i)
+if ($skip_cleanup != 1)
 {
-  let $i1 = $i;
-  dec $i1;
-
-  eval drop database test$i1;
-  dec $i;
+  --source extra/rpl_tests/rpl_parallel_load_innodb_cleanup.test
 }
 
---enable_result_log
---enable_query_log
-
+connection master;
 sync_slave_with_master;
 
