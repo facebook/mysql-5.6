@@ -74,6 +74,8 @@ char* innobase_histogram_step_size_sync_read  	= NULL;
 char* innobase_histogram_step_size_sync_write  	= NULL;
 char* innobase_histogram_step_size_log_write  	= NULL;
 char* innobase_histogram_step_size_double_write = NULL;
+char* innobase_histogram_step_size_file_flush_time = NULL;
+char* innobase_histogram_step_size_fsync        = NULL;
 
 /** Insert buffer segment id */
 static const ulint IO_IBUF_SEGMENT = 0;
@@ -353,6 +355,9 @@ latency_histogram histogram_sync_write;
 
 latency_histogram histogram_log_write;
 latency_histogram histogram_double_write;
+
+latency_histogram histogram_file_flush_time;
+latency_histogram histogram_fsync;
 
 /* Timer units waiting for fsync or fdatasync to finish */
 ulonglong os_file_flush_time = 0;
@@ -2384,11 +2389,16 @@ os_file_fsync(
 	int	ret;
 	int	failures;
 	ibool	retry;
-
+	ulonglong start_time, fsync_time;
 	failures = 0;
 
 	do {
+		start_time = my_timer_now();
 		ret = fsync(file);
+		fsync_time = my_timer_since(start_time);
+		if (innobase_histogram_step_size_fsync)
+			latency_histogram_increment(&histogram_fsync,
+						    fsync_time, 1);
 
 		os_n_fsyncs++;
 
@@ -2498,7 +2508,9 @@ os_file_flush_func(
 		os_fsync_max_time = flush_time;
 
 	os_file_flush_time += flush_time;
-
+	if (innobase_histogram_step_size_file_flush_time)
+		latency_histogram_increment(&histogram_file_flush_time,
+					    flush_time, 1);
 	if (ret == 0) {
 		return(TRUE);
 	}
@@ -4082,6 +4094,11 @@ os_aio_init(
 		       innobase_histogram_step_size_log_write);
 	latency_histogram_init(&histogram_double_write,
 		       innobase_histogram_step_size_double_write);
+
+	latency_histogram_init(&histogram_file_flush_time,
+		       innobase_histogram_step_size_file_flush_time);
+	latency_histogram_init(&histogram_fsync,
+		       innobase_histogram_step_size_fsync);
 
 	my_io_perf_init(&os_async_read_perf);
 	my_io_perf_init(&os_async_write_perf);
