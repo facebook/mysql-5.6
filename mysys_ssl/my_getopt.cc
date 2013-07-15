@@ -39,7 +39,6 @@ static void init_one_value(const struct my_option *, void *, longlong);
 static void fini_one_value(const struct my_option *, void *, longlong);
 static int setval(const struct my_option *, void *, char *, my_bool);
 static char *check_struct_option(char *cur_arg, char *key_name);
-static void print_cmdline_password_warning();
 static my_bool get_bool_argument(const struct my_option *opts,
                                  const char *argument,
                                  bool *error);
@@ -487,8 +486,6 @@ int my_handle_options_low(int *argc, char ***argv,
 	else
 	  argument= optend;
 
-        if (optp->var_type == GET_PASSWORD && is_cmdline_arg && argument)
-          print_cmdline_password_warning();
       }
       else  /* must be short option */
       {
@@ -526,8 +523,6 @@ int my_handle_options_low(int *argc, char ***argv,
 		  argument= optend + 1;
 		  /* This is in effect a jump out of the outer loop */
 		  optend= (char*) " ";
-                  if (optp->var_type == GET_PASSWORD && is_cmdline_arg)
-                    print_cmdline_password_warning();
 		}
 		else
 		{
@@ -648,25 +643,6 @@ int my_handle_options(int *argc, char ***argv,
   return my_handle_options_low(argc, argv, longopts, get_one_option,
            command_list, TRUE);
 }
-
-/**
- * This function should be called to print a warning message
- * if password string is specified on the command line.
- */
-
-static void print_cmdline_password_warning()
-{
-  static my_bool password_warning_announced= FALSE;
-
-  if (!password_warning_announced)
-  {
-    fprintf(stderr, "Warning: Using a password on the command line "
-            "interface can be insecure.\n");
-    (void) fflush(stderr);
-    password_warning_announced= TRUE;
-  }
-}
-
 
 /*
   function: check_struct_option
