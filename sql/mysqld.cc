@@ -3173,92 +3173,90 @@ void my_io_perf_sum_atomic(
 /**
   Create a new Histogram.
 
-  @param num_bins_arg         Number of bins.
+  @param current_histogram    The histogram being initialized.
   @param step_size_with_unit  Configurable system variable containing
                               step size and unit of the Histogram.
 */
-histogram::histogram(size_t num_bins_arg, char *step_size_with_unit)
+void latency_histogram_init(latency_histogram* current_histogram,
+                    const char *step_size_with_unit)
 {
   size_t i;
   double step_size_base_time = 0.0;;
+  current_histogram->num_bins = NUMBER_OF_HISTOGRAM_BINS;
   char *histogram_unit = NULL;
-  if (!(count_per_bin = (ulonglong *) my_malloc (num_bins_arg*sizeof(ulonglong),
-                                                 MYF(MY_WME))))
-  {
-    sql_print_error("Cannot allocate memory to Histogram bucket counts.");
-    exit(1);
-  }
-  num_bins = num_bins_arg;
+
   if (step_size_with_unit)
     step_size_base_time = strtod(step_size_with_unit, &histogram_unit);
   else
-    step_size = 0;
+    current_histogram->step_size = 0;
+
   if (histogram_unit)  {
     if (!strcmp(histogram_unit, "s"))  {
-      step_size = microseconds_to_my_timer(step_size_base_time * 1000000.0);
+      current_histogram->step_size = microseconds_to_my_timer(
+                                              step_size_base_time * 1000000.0);
     }
     else if (!strcmp(histogram_unit, "ms"))  {
-      step_size = microseconds_to_my_timer(step_size_base_time * 1000.0);
+      current_histogram->step_size = microseconds_to_my_timer(
+                                              step_size_base_time * 1000.0);
     }
     else if (!strcmp(histogram_unit, "us"))  {
-      step_size = microseconds_to_my_timer(step_size_base_time);
+      current_histogram->step_size = microseconds_to_my_timer(
+                                              step_size_base_time);
     }
     else  {
       sql_print_error("Invalid units given to histogram step size.");
       return;
     }
   }
-  for (i = 0; i < num_bins; ++i)
-    count_per_bin[i] = 0;
 
-}
+  for (i = 0; i < current_histogram->num_bins; ++i)
+    (current_histogram->count_per_bin)[i] = 0;
 
-/**
-  Destructor for Histogram class.
-
-  @note
-    This frees the memory used up by member variable count_per_bin.
-*/
-histogram::~histogram()
-{
-  my_free(count_per_bin);
-}
-
-/**
-  Increment the count of a bin in Histogram.
-
-  @param value  Value of which corresponding bin has to be found.
-  @param count  Amount by which the count of a bin has to be increased.
-
-*/
-void histogram::histogram_increment(ulonglong value, ulonglong count)
-{
-  size_t index = search(value);
-  count_per_bin[index] += count;
 }
 
 /**
   Search a value in the histogram bins.
 
-  @param value  Value to be searched.
+  @param current_histogram  The current histogram.
+  @param value              Value to be searched.
 
-  @return       Returns the bin that contains this value.
+  @return                   Returns the bin that contains this value.
 */
-int histogram::search(const ulonglong value)
+static int latency_histogram_bin_search(latency_histogram* current_histogram,
+                         const ulonglong value)
 {
-  return min((int)(value/step_size), (int)num_bins);
+  return min((int)(value/current_histogram->step_size),
+                   (int)current_histogram->num_bins);
+}
+
+/**
+  Increment the count of a bin in Histogram.
+
+  @param current_histogram  The current histogram.
+  @param value              Value of which corresponding bin has to be found.
+  @param count              Amount by which the count of a bin has to be
+                            increased.
+
+*/
+void latency_histogram_increment(latency_histogram* current_histogram,
+                                   ulonglong value, ulonglong count)
+{
+  size_t index = latency_histogram_bin_search(current_histogram, value);
+  (current_histogram->count_per_bin)[index] += count;
 }
 
 /**
   Get the count corresponding to a bin of the Histogram.
 
-  @param bin_num  The bin whose count has to be returned.
+  @param current_histogram  The current histogram.
+  @param bin_num            The bin whose count has to be returned.
 
-  @return         Returns the count of that bin.
+  @return                   Returns the count of that bin.
 */
-ulonglong histogram::histogram_get_count(size_t bin_num)
+ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
+                                     size_t bin_num)
 {
-  return count_per_bin[bin_num];
+  return (current_histogram->count_per_bin)[bin_num];
 }
 
 #if !defined(__WIN__)

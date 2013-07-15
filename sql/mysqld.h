@@ -343,59 +343,45 @@ static inline void my_io_perf_sum_atomic_helper(
     perf->slow_ios);
 }
 
-/* Histogram class to track various latencies */
+/* Histogram struct to track various latencies */
 #define NUMBER_OF_HISTOGRAM_BINS 15
-class histogram {
+struct latency_histogram {
   size_t num_bins;
   ulonglong step_size;
-  ulonglong *count_per_bin;
-
-  /**
-    Search a value in the histogram bins.
-
-    @param value  Value to be searched.
-
-    @return       Returns the bin that contains this value.
-  */
-  int search(const ulonglong value);
-
-public:
-  /**
-    Create a new Histogram.
-
-    @param num_bins_arg         Number of bins.
-    @param step_size_with_unit  Configurable system variable containing
-                                step size and unit of the Histogram.
-  */
-  histogram(size_t num_bins_arg, char *step_size_with_unit);
-
-  /**
-    Destructor for Histogram class.
-
-    @note
-    This frees the memory used up by member variable count_per_bin.
-  */
-  ~histogram();
-
-  /**
-    Increment the count of a bin in Histogram.
-
-    @param value  Value of which corresponding bin has to be found.
-    @param count  Amount by which the count of a bin has to be increased.
-
-  */
-  void histogram_increment(ulonglong value, ulonglong count);
-
-  /**
-    Get the count corresponding to a bin of the Histogram.
-
-    @param bin_num  The bin whose count has to be returned.
-
-    @return         Returns the count of that bin.
-  */
-  ulonglong histogram_get_count(size_t bin_num);
-
+  ulonglong count_per_bin[NUMBER_OF_HISTOGRAM_BINS];
 };
+
+/**
+  Create a new Histogram.
+
+  @param current_histogram    The histogram being initialized.
+  @param step_size_with_unit  Configurable system variable containing
+                              step size and unit of the Histogram.
+*/
+void latency_histogram_init(latency_histogram* current_histogram,
+                    const char* step_size_with_unit);
+
+/**
+  Increment the count of a bin in Histogram.
+
+  @param current_histogram  The current histogram.
+  @param value              Value of which corresponding bin has to be found.
+  @param count              Amount by which the count of a bin has to be
+                            increased.
+
+*/
+void latency_histogram_increment(latency_histogram* current_histogram,
+                                   ulonglong value, ulonglong count);
+/**
+  Get the count corresponding to a bin of the Histogram.
+
+  @param current_histogram  The current histogram.
+  @param bin_num            The bin whose count has to be returned.
+
+  @return                   Returns the count of that bin.
+*/
+ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
+                                     size_t bin_num);
 
 /* Fetches table stats for a given table */
 struct TABLE;
