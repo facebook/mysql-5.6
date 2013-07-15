@@ -16777,6 +16777,20 @@ static MYSQL_SYSVAR_STR(histogram_step_size_double_write,
   innodb_histogram_step_size_validate,
   innodb_histogram_step_size_update, "16us");
 
+static MYSQL_SYSVAR_STR(histogram_step_size_file_flush_time,
+  innobase_histogram_step_size_file_flush_time,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking flush times",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16ms");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_fsync,
+  innobase_histogram_step_size_fsync,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+  "Size of the histogram bins required for tracking fsync latencies",
+  innodb_histogram_step_size_validate,
+  innodb_histogram_step_size_update, "16ms");
+
 static MYSQL_SYSVAR_ULONG(sync_pool_size, innobase_sync_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "The size of the shared sync pool buffer InnoDB uses to store system lock"
@@ -17385,6 +17399,8 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(histogram_step_size_sync_write),
   MYSQL_SYSVAR(histogram_step_size_log_write),
   MYSQL_SYSVAR(histogram_step_size_double_write),
+  MYSQL_SYSVAR(histogram_step_size_file_flush_time),
+  MYSQL_SYSVAR(histogram_step_size_fsync),
 #ifdef UNIV_DEBUG
   MYSQL_SYSVAR(buffer_pool_evict),
 #endif /* UNIV_DEBUG */
