@@ -118,7 +118,7 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 
 		$matches = null;
 		$preg = preg_match_all(
-			'/ +$/m',
+			'/[ \t]+$/m',
 			$data,
 			$matches,
 			PREG_OFFSET_CAPTURE);
