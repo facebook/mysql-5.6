@@ -368,3 +368,69 @@ bool Sql_cmd_discard_import_tablespace::execute(THD *thd)
     mysql_discard_or_import_tablespace(thd, table_list,
                                        m_tablespace_op == DISCARD_TABLESPACE);
 }
+
+bool Sql_cmd_defragment_table::execute(THD *thd)
+{
+  /* first SELECT_LEX (have special meaning for many of non-SELECTcommands) */
+  SELECT_LEX *select_lex= &thd->lex->select_lex;
+  /* first table of first SELECT_LEX */
+  TABLE_LIST *first_table= (TABLE_LIST*) select_lex->table_list.first;
+
+  if (check_access(thd, ALTER_ACL, first_table->db,
+                   &first_table->grant.privilege,
+                   &first_table->grant.m_internal,
+                   0, 0))
+    return true;
+
+  if (check_grant(thd, ALTER_ACL, first_table, FALSE, UINT_MAX, FALSE))
+    return true;
+
+  if (check_table_access(thd, SELECT_ACL | UPDATE_ACL | DELETE_ACL,
+                         first_table, FALSE, UINT_MAX, FALSE))
+    return true;
+
+  thd->enable_slow_log= opt_log_slow_admin_statements;
+
+
+  /*
+    Check if we attempt to alter mysql.slow_log or
+    mysql.general_log table and return an error if
+    it is the case.
+    TODO: this design is obsolete and will be removed.
+  */
+  int table_kind= check_if_log_table(first_table->db_length, first_table->db,
+                                     first_table->table_name_length,
+                                     first_table->table_name, false);
+
+  if (table_kind)
+  {
+    /* Disable alter of enabled log tables */
+    if (logger.is_log_table_enabled(table_kind))
+    {
+      my_error(ER_BAD_LOG_STATEMENT, MYF(0), "ALTER");
+      return true;
+    }
+  }
+
+  Alter_table_prelocking_strategy alter_prelocking_strategy;
+  uint tables_opened;
+  MDL_savepoint mdl_savepoint = thd->mdl_context.mdl_savepoint();
+  bool error = open_tables(thd, &first_table, &tables_opened, 0,
+                           &alter_prelocking_strategy);
+  if (error) {
+    thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
+    return true;
+  }
+
+  handler *handler = first_table->table->file;
+  char path[FN_REFLEN + 1];
+  build_table_filename(path, sizeof(path) - 1, first_table->db,
+                                     first_table->alias, "", 0);
+  int ret = handler->ha_defragment_table(path);
+  close_thread_tables(thd);
+  if (ret == 0)
+    my_ok(thd);
+  else if (ret == HA_ADMIN_NOT_IMPLEMENTED)
+    my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
+  return (ret < 0);
+}
