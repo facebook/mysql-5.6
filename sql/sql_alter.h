@@ -433,4 +433,19 @@ private:
   const enum_tablespace_op_type m_tablespace_op;
 };
 
+/**
+  Sql_cmd_defragment_table represents ALTER TABLE DEFRAGMENT statements.
+*/
+class Sql_cmd_defragment_table : public Sql_cmd_common_alter_table
+{
+public:
+  Sql_cmd_defragment_table()
+  {}
+
+  ~Sql_cmd_defragment_table()
+  {}
+
+  bool execute(THD *thd);
+};
+
 #endif
