@@ -68,6 +68,14 @@ typedef Bitmap<((MAX_INDEXES+7)/8*8)> key_map; /* Used for finding keys */
 #define TEST_SIGINT		1024	/**< Allow sigint on threads */
 #define TEST_SYNCHRONIZATION    2048    /**< get server to do sleep in
                                            some places */
+#define HISTOGRAM_BUCKET_NAME_MAX_SIZE 16	/**< This is the maximum size
+						   of the string:
+						   "LowerBucketValue-"
+						   "UpperBucketValue<units>"
+						   where bucket is the latency
+						   histogram bucket and units
+						   can be us,ms or s */
+
 /* Function prototypes */
 void kill_mysql(void);
 void close_connection(THD *thd, uint sql_errno= 0);
@@ -238,6 +246,16 @@ inline double my_timer_to_microseconds(ulonglong when)
   ret /= (double)(my_timer.frequency);
   return ret;
 }
+
+/* Convert native timer units in a ulonglong into microseconds in a ulonglong */
+inline ulonglong my_timer_to_microseconds_ulonglong(ulonglong when)
+{
+  ulonglong ret = (ulonglong)(when);
+  ret *= 1000000;
+  ret = (ulonglong)((ret + my_timer.frequency -1) / my_timer.frequency);
+  return ret;
+}
+
 /* Convert microseconds in a double to native timer units in a ulonglong */
 inline ulonglong microseconds_to_my_timer(double when)
 {

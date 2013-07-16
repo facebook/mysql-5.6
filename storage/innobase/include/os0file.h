@@ -486,6 +486,18 @@ extern my_io_perf_t	os_log_write_perf;
 /** Performance statistics for doublewrite writes */
 extern my_io_perf_t	os_double_write_perf;
 
+extern latency_histogram histogram_async_read;
+extern latency_histogram histogram_async_write;
+
+extern latency_histogram histogram_sync_read;
+extern latency_histogram histogram_sync_write;
+
+extern latency_histogram histogram_log_write;
+extern latency_histogram histogram_double_write;
+
+extern latency_histogram histogram_file_flush_time;
+extern latency_histogram histogram_fsync;
+
 /**************************************************************************
 Prints IO statistics. */
 

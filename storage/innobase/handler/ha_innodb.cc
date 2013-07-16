@@ -566,6 +566,18 @@ static MYSQL_THDVAR_STR(ft_user_stopword_table,
   "User supplied stopword table name, effective in the session level.",
   innodb_stopword_table_validate, NULL, NULL);
 
+static SHOW_VAR latency_histogram_async_read[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_async_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+
+static SHOW_VAR latency_histogram_sync_read[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_sync_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+
+static SHOW_VAR latency_histogram_log_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_double_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+
+static SHOW_VAR latency_histogram_file_flush_time[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
+
 static SHOW_VAR innodb_status_variables[]= {
   {"adaptive_hash_hits",
   (char*) &export_vars.innodb_hash_searches,		  SHOW_LONG},
@@ -1141,6 +1153,21 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_malloc_cache_block_size_compress, SHOW_LONG},
   {"malloc_cache_block_size_decompress",
   (char*) &export_vars.innodb_malloc_cache_block_size_decompress, SHOW_LONG},
+  {"latency_histogram_async_read", (char*) &latency_histogram_async_read,
+   SHOW_ARRAY},
+  {"latency_histogram_async_write", (char*) &latency_histogram_async_write,
+   SHOW_ARRAY},
+  {"latency_histogram_sync_read", (char*) &latency_histogram_sync_read,
+   SHOW_ARRAY},
+  {"latency_histogram_sync_write", (char*) &latency_histogram_sync_write,
+   SHOW_ARRAY},
+  {"latency_histogram_log_write", (char*) &latency_histogram_log_write,
+   SHOW_ARRAY},
+  {"latency_histogram_double_write", (char*) &latency_histogram_double_write,
+   SHOW_ARRAY},
+  {"latency_histogram_file_flush_time",
+   (char*) &latency_histogram_file_flush_time, SHOW_ARRAY},
+  {"latency_histogram_fsync", (char*) &latency_histogram_fsync, SHOW_ARRAY},
   {NullS, NullS, SHOW_LONG}
 };
 
@@ -3938,6 +3965,22 @@ error:
 	DBUG_RETURN(TRUE);
 }
 
+/*****************************************************************//**
+Frees old histogram bucket display strings before assigning new ones. */
+static
+void
+free_latency_histogram_sysvars(
+/*============================*/
+	SHOW_VAR*	latency_histogram_data)
+{
+	size_t i;
+	for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+	{
+		if (latency_histogram_data[i].name)
+			my_free((void*)latency_histogram_data[i].name);
+	}
+}
+
 /*******************************************************************//**
 Closes an InnoDB database.
 @return	TRUE if error */
@@ -3966,6 +4009,20 @@ innobase_end(
 		}
 		srv_free_paths_and_sizes();
 		my_free(internal_innobase_data_file_path);
+
+		free_latency_histogram_sysvars(latency_histogram_async_read);
+		free_latency_histogram_sysvars(latency_histogram_async_write);
+
+		free_latency_histogram_sysvars(latency_histogram_sync_read);
+		free_latency_histogram_sysvars(latency_histogram_sync_write);
+
+		free_latency_histogram_sysvars(latency_histogram_log_write);
+		free_latency_histogram_sysvars(latency_histogram_double_write);
+
+		free_latency_histogram_sysvars(
+					latency_histogram_file_flush_time);
+		free_latency_histogram_sysvars(latency_histogram_fsync);
+
 		mysql_mutex_destroy(&innobase_share_mutex);
 		mysql_mutex_destroy(&commit_threads_m);
 		mysql_mutex_destroy(&commit_cond_m);
@@ -15994,6 +16051,90 @@ innodb_enable_monitor_at_startup(
 	}
 }
 
+/******************************************************//**
+This function is called by prepare_latency_histogram_vars()
+to convert the histogram bucket ranges in system time units
+to a string and calculates units on the fly, which can be
+displayed in the output of SHOW GLOBAL STATUS.
+The string has the following form:
+
+<HistogramName>_<BucketLowerValue>-<BucketUpperValue><Unit>
+
+*/
+histogram_display_string
+histogram_bucket_to_display_string(
+/*===============================*/
+	uint	bucket_lower_display, /*!< in: Lower Range value of
+	                                   Histogram Bucket */
+	uint	bucket_upper_display) /*!< in: Upper Range value of
+	                                   Histogram Bucker */
+{
+	struct histogram_display_string histogram_bucket_name;
+
+	if (bucket_upper_display < 1000)  {
+		my_snprintf(histogram_bucket_name.name,
+			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%lluus",
+			    bucket_lower_display,
+			    bucket_upper_display);
+	}
+	else if (bucket_upper_display < 1000000)  {
+		my_snprintf(histogram_bucket_name.name,
+			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llums",
+			    bucket_lower_display/1000,
+			    bucket_upper_display/1000);
+	}
+	else  {
+		my_snprintf(histogram_bucket_name.name,
+			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llus",
+			    bucket_lower_display/1000000,
+			    bucket_upper_display/1000000);
+	}
+	return histogram_bucket_name;
+}
+
+/****************************************************************//**
+This function is called by the Callback function show_innodb_vars()
+to add entries into the latency_histogram_xxxx array, by forming
+the appropriate display string and fetching the histogram bin
+counts. */
+static
+void
+prepare_latency_histogram_vars(
+/*===========================*/
+	latency_histogram* current_histogram,           /*!< in: Histogram
+			whose values are currently added in SHOW_VAR array */
+	SHOW_VAR*          latency_histogram_data,      /*!< in/out: SHOW_VAR
+			array for the corresponding histogram */
+	ulonglong*         histogram_values)            /*!< in: Values to be
+			exported to Innodb status. This array contains
+			the bin counts of the respective Histograms */
+{
+	size_t i;
+	ulonglong bucket_lower_display, bucket_upper_display;
+	const SHOW_VAR temp_last = {NullS, NullS, SHOW_LONG};
+
+	for (i = 0, bucket_lower_display = 0; i < NUMBER_OF_HISTOGRAM_BINS;
+	                                                                 ++i) {
+		bucket_upper_display = my_timer_to_microseconds_ulonglong(
+					      current_histogram->step_size) +
+					      bucket_lower_display;
+
+		struct histogram_display_string histogram_bucket_name =
+		       histogram_bucket_to_display_string(bucket_lower_display,
+							  bucket_upper_display);
+
+		const SHOW_VAR temp = {
+			my_strdup(histogram_bucket_name.name, MYF(0)),
+				  (char*) &(histogram_values[i]),
+				  SHOW_LONGLONG};
+		latency_histogram_data[i] = temp;
+
+		bucket_lower_display = bucket_upper_display;
+	}
+		latency_histogram_data[NUMBER_OF_HISTOGRAM_BINS] =
+		temp_last;
+}
+
 /****************************************************************//**
 Callback function for accessing the InnoDB variables from MySQL:
 SHOW VARIABLES. */
@@ -16005,6 +16146,45 @@ show_innodb_vars(
 	SHOW_VAR*	var,
 	char*		buff)
 {
+	free_latency_histogram_sysvars(latency_histogram_async_read);
+	prepare_latency_histogram_vars(&histogram_async_read,
+				      latency_histogram_async_read,
+				      export_vars.histogram_async_read_values);
+	free_latency_histogram_sysvars(latency_histogram_async_write);
+	prepare_latency_histogram_vars(&histogram_async_write,
+				      latency_histogram_async_write,
+				      export_vars.histogram_async_write_values);
+
+	free_latency_histogram_sysvars(latency_histogram_sync_read);
+	prepare_latency_histogram_vars(&histogram_sync_read,
+				      latency_histogram_sync_read,
+				      export_vars.histogram_sync_read_values);
+	free_latency_histogram_sysvars(latency_histogram_sync_write);
+	prepare_latency_histogram_vars(&histogram_sync_write,
+				      latency_histogram_sync_write,
+				      export_vars.histogram_sync_write_values);
+
+	free_latency_histogram_sysvars(latency_histogram_log_write);
+	prepare_latency_histogram_vars(&histogram_log_write,
+				      latency_histogram_log_write,
+				      export_vars.histogram_log_write_values);
+	free_latency_histogram_sysvars(latency_histogram_double_write);
+	prepare_latency_histogram_vars(&histogram_double_write,
+				      latency_histogram_double_write,
+				      export_vars.histogram_double_write_values
+				      );
+
+	free_latency_histogram_sysvars(latency_histogram_file_flush_time);
+	prepare_latency_histogram_vars(&histogram_file_flush_time,
+				      latency_histogram_file_flush_time,
+				      export_vars.
+				      histogram_file_flush_time_values);
+	free_latency_histogram_sysvars(latency_histogram_fsync);
+	prepare_latency_histogram_vars(&histogram_fsync,
+				      latency_histogram_fsync,
+				      export_vars.histogram_fsync_values);
+
+
 	innodb_export_status();
 	var->type = SHOW_ARRAY;
 	var->value = (char*) &innodb_status_variables;

@@ -3181,7 +3181,7 @@ void latency_histogram_init(latency_histogram* current_histogram,
                     const char *step_size_with_unit)
 {
   size_t i;
-  double step_size_base_time = 0.0;;
+  double step_size_base_time = 0.0;
   current_histogram->num_bins = NUMBER_OF_HISTOGRAM_BINS;
   char *histogram_unit = NULL;
 
