@@ -188,6 +188,7 @@ class ha_innobase: public handler
 	int truncate();
 	int delete_table(const char *name);
 	int rename_table(const char* from, const char* to);
+	int defragment_table(const char* name);
 	int check(THD* thd, HA_CHECK_OPT* check_opt);
 	char* update_table_comment(const char* comment);
 	char* get_foreign_key_create_info();

@@ -4660,6 +4660,21 @@ handler::ha_drop_table(const char *name)
   return drop_table(name);
 }
 
+/**
+  Defragment table in the engine: public interface.
+
+  @sa handler::defragment_table()
+*/
+
+int
+handler::ha_defragment_table(const char *name)
+{
+  DBUG_ASSERT(m_lock_type == F_UNLCK);
+  mark_trx_read_write();
+
+  return defragment_table(name);
+}
+
 
 /**
   Create a table in the engine: public interface.
