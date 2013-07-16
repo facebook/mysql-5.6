@@ -3259,6 +3259,30 @@ ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
   return (current_histogram->count_per_bin)[bin_num];
 }
 
+/**
+  Validate if the string passed to the configurable histogram step size
+  conforms to proper syntax.
+
+  @param step_size_with_unit  The configurable step size string to be checked.
+
+  @return                     1 if invalid, 0 if valid.
+*/
+int histogram_validate_step_size_string(const char* step_size_with_unit)
+{
+  int ret = 0;
+  char *histogram_unit = NULL;
+  double histogram_step_size = strtod(step_size_with_unit, &histogram_unit);
+  if (histogram_step_size && histogram_unit)  {
+    if (strcmp(histogram_unit, "ms")
+        && strcmp(histogram_unit, "us")
+        && strcmp(histogram_unit, "s"))
+      ret = 1;
+  }
+  else
+    ret = 1;
+  return ret;
+}
+
 #if !defined(__WIN__)
 #ifndef SA_RESETHAND
 #define SA_RESETHAND 0

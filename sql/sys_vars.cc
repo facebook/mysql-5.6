@@ -979,6 +979,19 @@ static Sys_var_charptr Sys_character_sets_dir(
        READ_ONLY GLOBAL_VAR(charsets_dir), CMD_LINE(REQUIRED_ARG),
        IN_FS_CHARSET, DEFAULT(0));
 
+static bool check_histogram_step_size_syntax(sys_var *self, THD *thd,
+                                             set_var *var)
+{
+  return histogram_validate_step_size_string(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
+       "histogram_step_size_binlog_fsync", "Step size of the Histogram which "
+       "is used to track binlog fsync latencies.",
+       GLOBAL_VAR(histogram_step_size_binlog_fsync), CMD_LINE(REQUIRED_ARG),
+       IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
 static bool check_not_null(sys_var *self, THD *thd, set_var *var)
 {
   return var->value && var->value->is_null();

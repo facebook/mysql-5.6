@@ -401,6 +401,16 @@ void latency_histogram_increment(latency_histogram* current_histogram,
 ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
                                      size_t bin_num);
 
+/**
+  Validate if the string passed to the configurable histogram step size
+  conforms to proper syntax.
+
+  @param step_size_with_unit  The configurable step size string to be checked.
+
+  @return                     1 if invalid, 0 if valid.
+*/
+int histogram_validate_step_size_string(const char* step_size_with_unit);
+
 /* Fetches table stats for a given table */
 struct TABLE;
 struct st_table_stats* get_table_stats(TABLE *table,

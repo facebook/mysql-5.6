@@ -15149,16 +15149,7 @@ innodb_histogram_step_size_validate(
 
 	/* Validating if the string (non empty)ends with ms/us/s and the
 	 * rest of it is a valid floating point number */
-	char *histogram_unit = NULL;
-	double histogram_step_size = strtod(step_size_local, &histogram_unit);
-	if (histogram_step_size && histogram_unit)  {
-		if (strcmp(histogram_unit, "ms")
-		    && strcmp(histogram_unit, "us")
-		    && strcmp(histogram_unit, "s"))
-			ret = 1;
-	}
-	else
-		ret = 1;
+	ret = histogram_validate_step_size_string(step_size_local);
 	if (!ret) {
 		step_size = my_strdup(step_size_local, MYF(0));
 		*static_cast<const char**>(save) = step_size;
