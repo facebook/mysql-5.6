@@ -56,6 +56,12 @@ typedef struct st_innobase_share {
 /** Prebuilt structures in an InnoDB table handle used within MySQL */
 struct row_prebuilt_t;
 
+/** To return the displayable histogram name from
+  my_timer_to_display_string() */
+struct histogram_display_string {
+	char name[HISTOGRAM_BUCKET_NAME_MAX_SIZE];
+};
+
 /** The class defining a handle to an Innodb table */
 class ha_innobase: public handler
 {
