@@ -10873,6 +10873,25 @@ ha_innobase::delete_table(
 	DBUG_RETURN(convert_error_code_to_mysql(err, 0, NULL));
 }
 
+UNIV_INTERN
+int
+ha_innobase::defragment_table(
+/*======================*/
+	const char*	name)	/*!< in: table name */
+{
+	char		norm_name[FN_REFLEN];
+	dict_table_t*	table;
+	dict_index_t*	index;
+	normalize_table_name(norm_name, name);
+	table = dict_table_open_on_name(norm_name, FALSE,
+					FALSE, DICT_ERR_IGNORE_NONE);
+	for (index = dict_table_get_first_index(table); index;
+	     index = dict_table_get_next_index(index)) {
+	}
+	dict_table_close(table, FALSE, FALSE);
+	return 0;
+}
+
 /*****************************************************************//**
 Removes all tables in the named database inside InnoDB. */
 static
