@@ -1,4 +1,4 @@
-SHOW GLOBAL STATUS LIKE "%histogram%";
+SHOW GLOBAL STATUS LIKE "Innodb%histogram%";
 Variable_name	Value
 Innodb_latency_histogram_async_read_0-16us	COUNT
 Innodb_latency_histogram_async_read_16-32us	COUNT
@@ -120,7 +120,7 @@ Innodb_latency_histogram_fsync_176-192ms	COUNT
 Innodb_latency_histogram_fsync_192-208ms	COUNT
 Innodb_latency_histogram_fsync_208-224ms	COUNT
 Innodb_latency_histogram_fsync_224-240ms	COUNT
-SHOW VARIABLES LIKE "%histogram%";
+SHOW VARIABLES LIKE "innodb%histogram%";
 Variable_name	Value
 innodb_histogram_step_size_async_read	16us
 innodb_histogram_step_size_async_write	16us
