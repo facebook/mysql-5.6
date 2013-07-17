@@ -1,0 +1,18 @@
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+drop database if exists db1;
+--enable_warnings
+
+CREATE DATABASE db1;
+USE db1;
+CREATE TABLE t1(a INT);
+INSERT INTO t1 VALUES (1);
+INSERT INTO t1 VALUES (2);
+INSERT INTO t1 VALUES (3);
+
+--echo # Running 'replace_regex' on Server/mysqldump Versions
+--replace_regex /-- Server version.*-log/-- SERVER VERSION/ /-- MySQL dump.*[)]/-- MYSQLDUMP VERSION/
+--exec $MYSQL_DUMP --skip-dump-date db1 t1
+
+DROP TABLE t1;
+drop database db1;
