@@ -4810,6 +4810,11 @@ END
 	</table_data>
 <!-- 
 -
+- Rows found for t1: 3
+-
+ -->
+<!-- 
+-
 - Table structure for table `t2`
 -
 
@@ -4834,6 +4839,11 @@ END
 		<field name="c1">3</field>
 	</row>
 	</table_data>
+<!-- 
+-
+- Rows found for t2: 3
+-
+ -->
 	<triggers name="t2">
 		<trigger Trigger="trig1" sql_mode="" character_set_client="latin1" collation_connection="latin1_swedish_ci" Database_Collation="latin1_swedish_ci">
 <![CDATA[
@@ -5255,6 +5265,10 @@ INSERT INTO `t1` VALUES (1),(2),(3);
 UNLOCK TABLES;
 
 --
+-- Rows found for t1: 3
+--
+
+--
 -- Table structure for table `t2`
 --
 
@@ -5275,6 +5289,10 @@ LOCK TABLES `t2` WRITE;
 INSERT INTO `t2` VALUES (1),(2),(3);
 /*!40000 ALTER TABLE `t2` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Rows found for t2: 3
+--
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
