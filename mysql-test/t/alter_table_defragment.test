@@ -20,6 +20,7 @@ alter table t2 defragment;
 --error ER_NO_SUCH_TABLE
 alter table t3 defragment;
 
+--replace_regex /\/\*.*//
 show binlog events in 'master-bin.000001' from 120;
 
 drop table t1;
