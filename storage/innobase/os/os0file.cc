@@ -6184,6 +6184,50 @@ os_aio_print_array(
 }
 
 /**********************************************************************//**
+Prints the I/O Latency Histograms in the output of
+SHOW ENGINE INNODB STATUS */
+void
+os_aio_print_histogram(
+/*===================*/
+	FILE*			file,			/*!< in: file where
+							     to print */
+	latency_histogram*	current_histogram)	/*!< in: Histogram
+							     whose bin values
+							     are being printed
+							     currently */
+{
+	size_t i;
+	ulonglong bucket_lower_display, bucket_upper_display;
+	for(i = 0, bucket_lower_display = 0; i < NUMBER_OF_HISTOGRAM_BINS;
+									++i)  {
+	/* The following calculates the units on the fly
+	 * to be displayed in the output */
+		bucket_upper_display = my_timer_to_microseconds_ulonglong(
+				current_histogram->step_size) +
+				bucket_lower_display;
+		if (bucket_upper_display < 1000)  {
+			fprintf(file, "Bucket %llu to %llu us\t",
+			bucket_lower_display, bucket_upper_display);
+		}
+		else if (bucket_upper_display < 1000000)  {
+			fprintf(file, "Bucket %llu to %llu ms\t",
+			bucket_lower_display/1000, bucket_upper_display/1000);
+		}
+		else  {
+			fprintf(file, "Bucket %llu to %llu s\t",
+			bucket_lower_display/1000000,
+			bucket_upper_display/1000000);
+		}
+
+		fprintf(file, "%llu\n",
+			latency_histogram_get_count(current_histogram,
+			i));
+
+		bucket_lower_display = bucket_upper_display;
+	}
+}
+
+/**********************************************************************//**
 Prints info of the aio arrays. */
 UNIV_INTERN
 void
@@ -6311,6 +6355,28 @@ os_aio_print(
 	os_bytes_read_since_printout = 0;
 
 	os_last_printout = current_time;
+
+	fprintf(file, "\nHistograms:\n");
+
+	fprintf(file, "\nAsync Reads\n");
+	os_aio_print_histogram(file, &histogram_async_read);
+	fprintf(file, "\nAsync Writes\n");
+	os_aio_print_histogram(file, &histogram_async_write);
+
+	fprintf(file, "\nSync Reads\n");
+	os_aio_print_histogram(file, &histogram_sync_read);
+	fprintf(file, "\nSync Writes\n");
+	os_aio_print_histogram(file, &histogram_sync_write);
+
+	fprintf(file, "\nLog Writes\n");
+	os_aio_print_histogram(file, &histogram_log_write);
+	fprintf(file, "\nDouble Buffer Writes\n");
+	os_aio_print_histogram(file, &histogram_double_write);
+
+	fprintf(file, "\nFile Flush Time\n");
+	os_aio_print_histogram(file, &histogram_file_flush_time);
+	fprintf(file, "\nFsyncs\n");
+	os_aio_print_histogram(file, &histogram_fsync);
 }
 
 /**********************************************************************//**

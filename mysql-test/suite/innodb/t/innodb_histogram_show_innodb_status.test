@@ -1,0 +1,22 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+let OUTPUT = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+
+#This script extracts the section of output (of SHOW ENGINE INNODB STATUS) lying between the strings "Histograms" and "TABLESPACE".
+#After extracting this text. it further extracts the histogram bucket value and replaces it with a constant "COUNT"
+
+perl;
+foreach (@line = split(/\n/, $ENV{'OUTPUT'})) {
+  if (/Histograms/../TABLESPACE/) {
+    next if /TABLESPACE/;
+    ($bucket, $value) = split(/\t/, $_);
+    $value =~ s/$value/COUNT/g;
+    print $bucket."\t".$value;
+    print "\n";
+  }
+}
+
+EOF
+
+--echo Done
