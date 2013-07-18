@@ -2,19 +2,13 @@ include/master-slave.inc
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master.info repository is not secure and is therefore not recommended. Please see the MySQL Manual for more about this issue and possible alternatives.
-Warnings:
-Note	1753	slave_transaction_retries is not supported in multi-threaded slave mode. In the event of a transient failure, the slave will not retry the transaction and will stop.
 [connection master]
 call mtr.add_suppression(".*");
 include/stop_slave.inc
 change master to master_auto_position=1;
 include/start_slave.inc
-Warnings:
-Note	1753	slave_transaction_retries is not supported in multi-threaded slave mode. In the event of a transient failure, the slave will not retry the transaction and will stop.
 call mtr.add_suppression('Slave: Error dropping database');
 start slave;
-Warnings:
-Note	1753	slave_transaction_retries is not supported in multi-threaded slave mode. In the event of a transient failure, the slave will not retry the transaction and will stop.
 stop slave sql_thread;
 insert into test0.benchmark set state='slave is processing load';
 start slave sql_thread;
@@ -32,6 +26,4 @@ select time_to_sec(@m_1) - time_to_sec(@m_0) as 'delta.out';
 include/stop_slave.inc
 change master to master_auto_position=0;
 include/start_slave.inc
-Warnings:
-Note	1753	slave_transaction_retries is not supported in multi-threaded slave mode. In the event of a transient failure, the slave will not retry the transaction and will stop.
 include/rpl_end.inc
