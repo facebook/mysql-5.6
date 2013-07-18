@@ -7917,17 +7917,6 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
         }
 
         mysql_mutex_unlock(&mi->rli->data_lock);
-
-        /* MTS technical limitation no support of trans retry */
-        if (mi->rli->opt_slave_parallel_workers != 0 && slave_trans_retries != 0)
-        {
-          push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
-                              ER_MTS_FEATURE_IS_NOT_SUPPORTED,
-                              ER(ER_MTS_FEATURE_IS_NOT_SUPPORTED),
-                              "slave_transaction_retries",
-                              "In the event of a transient failure, the slave will "
-                              "not retry the transaction and will stop.");
-        }
       }
       else if (thd->lex->mi.pos || thd->lex->mi.relay_log_pos || thd->lex->mi.gtid)
         push_warning(thd, Sql_condition::WARN_LEVEL_NOTE, ER_UNTIL_COND_IGNORED,

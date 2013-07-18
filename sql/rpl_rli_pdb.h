@@ -300,6 +300,8 @@ public:
   virtual ~Slave_worker();
 
   Slave_jobs_queue jobs;   // assignment queue containing events to execute
+  ulong current_event_index; // index of the event in current group
+  ulong trans_retries;  // transaction retries count by this slave worker
   mysql_mutex_t jobs_lock; // mutex for the jobs queue
   mysql_cond_t  jobs_cond; // condition variable for the jobs queue
   Relay_log_info *c_rli;   // pointer to Coordinator's rli
@@ -372,7 +374,7 @@ public:
   int rli_init_info(bool);
   int flush_info(bool force= FALSE);
   static size_t get_number_worker_fields();
-  void slave_worker_ends_group(Log_event*, int);
+  void slave_worker_ends_group(Log_event*, int&, bool&);
   bool commit_positions(Log_event *evt, Slave_job_group *ptr_g, bool force);
   bool reset_recovery_info();
   /**
