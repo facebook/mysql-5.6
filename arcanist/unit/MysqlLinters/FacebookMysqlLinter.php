@@ -87,8 +87,17 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 		$width = $this->maxLineLength;
 		$tabLength = 8;
 		foreach ($lines as $line_idx => $line) {
-			$lineLength = strlen($line) + substr_count($line, "\t")
-						      * ($tabLength - 1);
+			$lineLength = 0;
+			$stringLength = strlen($line);
+			for ($i = 0; $i < $stringLength; $i++) {
+				$curr = $line[$i];
+				if ($curr === "\t") {
+					$lineLength += $tabLength;
+					$lineLength -= ($lineLength % $tabLength);
+				}
+				else
+					$lineLength++;
+			}
 			if ($lineLength > $width) {
 				$this->raiseLintAtLine(
 					$line_idx + 1,
