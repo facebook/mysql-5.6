@@ -3283,6 +3283,92 @@ int histogram_validate_step_size_string(const char* step_size_with_unit)
   return ret;
 }
 
+/**
+  This function is called by show_innodb_latency_histgoram()
+  to convert the histogram bucket ranges in system time units
+  to a string and calculates units on the fly, which can be
+  displayed in the output of SHOW GLOBAL STATUS.
+  The string has the following form:
+
+  <HistogramName>_<BucketLowerValue>-<BucketUpperValue><Unit>
+
+  @param bucket_lower_display  Lower Range value of the Histogram Bucket
+  @param bucket_upper_display  Upper Range value of the Histogram Bucket
+
+  @return                      The display string for the Histogram Bucket
+*/
+histogram_display_string
+histogram_bucket_to_display_string(uint bucket_lower_display,
+                                   uint bucket_upper_display)
+{
+  struct histogram_display_string histogram_bucket_name;
+
+  if (bucket_upper_display < 1000)
+  {
+    my_snprintf(histogram_bucket_name.name,
+                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%lluus",
+                bucket_lower_display,
+                bucket_upper_display);
+  }
+  else if (bucket_upper_display < 1000000)
+  {
+    my_snprintf(histogram_bucket_name.name,
+                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llums",
+                bucket_lower_display/1000,
+                bucket_upper_display/1000);
+  }
+  else
+  {
+    my_snprintf(histogram_bucket_name.name,
+                HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llus",
+                bucket_lower_display/1000000,
+                bucket_upper_display/1000000);
+  }
+  return histogram_bucket_name;
+}
+
+/**
+  This function is called by the Callback function show_innodb_vars()
+  to add entries into the latency_histogram_xxxx array, by forming
+  the appropriate display string and fetching the histogram bin
+  counts.
+
+  @param current_histogram       Histogram whose values are currently added
+                                 in the SHOW_VAR array
+  @param latency_histogram_data  SHOW_VAR array for the corresponding Histogram
+  @param histogram_values        Values to be exported to Innodb status.
+                                 This array contains the bin counts of the
+                                 respective Histograms.
+*/
+void prepare_latency_histogram_vars(latency_histogram* current_histogram,
+                                    SHOW_VAR* latency_histogram_data,
+                                    ulonglong* histogram_values)
+{
+  size_t i;
+  ulonglong bucket_lower_display, bucket_upper_display;
+  const SHOW_VAR temp_last = {NullS, NullS, SHOW_LONG};
+
+  for (i = 0, bucket_lower_display = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+  {
+    bucket_upper_display =
+      my_timer_to_microseconds_ulonglong(current_histogram->step_size)
+      + bucket_lower_display;
+
+    struct histogram_display_string histogram_bucket_name =
+      histogram_bucket_to_display_string(bucket_lower_display,
+                                         bucket_upper_display);
+
+    const SHOW_VAR temp = {my_strdup(histogram_bucket_name.name, MYF(0)),
+                           (char*) &(histogram_values[i]), SHOW_LONGLONG};
+    latency_histogram_data[i] = temp;
+
+    bucket_lower_display = bucket_upper_display;
+  }
+  latency_histogram_data[NUMBER_OF_HISTOGRAM_BINS] =
+  temp_last;
+}
+
+
 #if !defined(__WIN__)
 #ifndef SA_RESETHAND
 #define SA_RESETHAND 0
@@ -7899,6 +7985,25 @@ static int show_table_definitions(THD *thd, SHOW_VAR *var, char *buff)
   return 0;
 }
 
+SHOW_VAR latency_histogram_binlog_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_binlog_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
+
+static int show_latency_histogram_binlog_fsync(THD *thd, SHOW_VAR *var,
+                                               char *buff)
+{
+  size_t i;
+  for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+    histogram_binlog_fsync_values[i] =
+      latency_histogram_get_count(&histogram_binlog_fsync,i);
+
+  prepare_latency_histogram_vars(&histogram_binlog_fsync,
+                                 latency_histogram_binlog_fsync,
+                                 histogram_binlog_fsync_values);
+  var->type= SHOW_ARRAY;
+  var->value = (char*) &latency_histogram_binlog_fsync;
+  return 0;
+}
+
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 /* Functions relying on CTX */
 static int show_ssl_ctx_sess_accept(THD *thd, SHOW_VAR *var, char *buff)
@@ -8324,6 +8429,8 @@ SHOW_VAR status_vars[]= {
   {"Key_writes",               (char*) offsetof(KEY_CACHE, global_cache_write), SHOW_KEY_CACHE_LONGLONG},
   {"Last_query_cost",          (char*) offsetof(STATUS_VAR, last_query_cost), SHOW_DOUBLE_STATUS},
   {"Last_query_partial_plans", (char*) offsetof(STATUS_VAR, last_query_partial_plans), SHOW_LONGLONG_STATUS},
+  {"Latency_histogram_binlog_fsync",
+   (char*) &show_latency_histogram_binlog_fsync, SHOW_FUNC},
   {"Max_used_connections",     (char*) &max_used_connections,  SHOW_LONG},
   {"Not_flushed_delayed_rows", (char*) &delayed_rows_in_use,    SHOW_LONG_NOFLUSH},
   {"Open_files",               (char*) &my_file_opened,         SHOW_LONG_NOFLUSH},
