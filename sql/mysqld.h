@@ -411,6 +411,47 @@ ulonglong latency_histogram_get_count(latency_histogram* current_histogram,
 */
 int histogram_validate_step_size_string(const char* step_size_with_unit);
 
+/** To return the displayable histogram name from
+  my_timer_to_display_string() */
+struct histogram_display_string {
+  char name[HISTOGRAM_BUCKET_NAME_MAX_SIZE];
+};
+
+/**
+  This function is called by show_innodb_latency_histgoram()
+  to convert the histogram bucket ranges in system time units
+  to a string and calculates units on the fly, which can be
+  displayed in the output of SHOW GLOBAL STATUS.
+  The string has the following form:
+
+  <HistogramName>_<BucketLowerValue>-<BucketUpperValue><Unit>
+
+  @param bucket_lower_display  Lower Range value of the Histogram Bucket
+  @param bucket_upper_display  Upper Range value of the Histogram Bucket
+
+  @return                      The display string for the Histogram Bucket
+*/
+histogram_display_string histogram_bucket_to_display_string(
+                                                    uint bucket_lower_display,
+                                                    uint bucket_upper_display);
+
+/**
+  This function is called by the Callback function show_innodb_vars()
+  to add entries into the latency_histogram_xxxx array, by forming
+  the appropriate display string and fetching the histogram bin
+  counts.
+
+  @param current_histogram       Histogram whose values are currently added
+                                 in the SHOW_VAR array
+  @param latency_histogram_data  SHOW_VAR array for the corresponding Histogram
+  @param histogram_values        Values to be exported to Innodb status.
+                                 This array contains the bin counts of the
+                                 respective Histograms.
+*/
+void prepare_latency_histogram_vars(latency_histogram* current_histogram,
+                                    SHOW_VAR* latency_histogram_data,
+                                    ulonglong* histogram_values);
+
 /* Fetches table stats for a given table */
 struct TABLE;
 struct st_table_stats* get_table_stats(TABLE *table,
