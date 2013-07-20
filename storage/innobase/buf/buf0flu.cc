@@ -1263,6 +1263,32 @@ buf_flush_try_neighbors(
 
 	space_size = fil_space_get_size(space);
 
+#ifdef UNIV_DEBUG
+	if (!space_size) {
+		fil_space_t*	fil_space;
+		fil_space = fil_space_get_by_id(space);
+		if (fil_space != NULL) {
+			fprintf(stderr, "space->name = %s\n"
+					"space->id = %lu\n"
+					"space->stop_ios = %s\n"
+					"space->stop_new_ops = %s\n"
+					"space->size = %lu\n"
+					"space->n_pending_flushes = %lu\n"
+					"space->n_pending_ops = %lu\n",
+					fil_space->name, fil_space->id,
+					fil_space->stop_ios?
+						"true" : "false",
+					fil_space->stop_new_ops?
+						"true" : "false",
+					fil_space->size,
+					fil_space->n_pending_flushes,
+					fil_space->n_pending_ops);
+		}
+		else {
+			fprintf(stderr, "space = NULL\n");
+		}
+	}
+#endif
 	/* This returns 0 when the tablespace is not found. That should not happen
 	because dirty pages are removed from the flush list on DROP TABLE */
 	ut_a(space_size);
