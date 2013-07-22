@@ -12,6 +12,7 @@ SET @start_global_value_step_size_double_write = @@GLOBAL.innodb_histogram_step_
 SET @start_global_value_step_size_file_flush_time = @@GLOBAL.innodb_histogram_step_size_file_flush_time;
 SET @start_global_value_step_size_fsync = @@GLOBAL.innodb_histogram_step_size_fsync;
 SET @start_global_value_step_size_binlog_fsync = @@GLOBAL.histogram_step_size_binlog_fsync;
+SET @start_global_value_step_size_connection_create = @@GLOBAL.histogram_step_size_connection_create;
 
 SHOW VARIABLES LIKE "%histogram%" ;
 
@@ -24,6 +25,7 @@ SET @@GLOBAL.innodb_histogram_step_size_double_write='16s';
 SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='16s';
 SET @@GLOBAL.innodb_histogram_step_size_fsync='16s';
 SET @@GLOBAL.histogram_step_size_binlog_fsync='16s';
+SET @@GLOBAL.histogram_step_size_connection_create='16s';
 
 SHOW VARIABLES LIKE "%histogram%" ;
 
@@ -36,6 +38,7 @@ SET @@GLOBAL.innodb_histogram_step_size_double_write = @start_global_value_step_
 SET @@GLOBAL.innodb_histogram_step_size_file_flush_time = @start_global_value_step_size_file_flush_time;
 SET @@GLOBAL.innodb_histogram_step_size_fsync = @start_global_value_step_size_fsync;
 SET @@GLOBAL.histogram_step_size_binlog_fsync = @start_global_value_step_size_binlog_fsync;
+SET @@GLOBAL.histogram_step_size_connection_create = @start_global_value_step_size_connection_create;
 
 SHOW VARIABLES LIKE "%histogram%" ;
 
