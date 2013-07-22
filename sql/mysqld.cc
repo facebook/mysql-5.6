@@ -3482,9 +3482,7 @@ pthread_handler_t signal_hand(void *arg MY_ATTRIBUTE((unused)))
     case SIGTERM:
     case SIGQUIT:
     case SIGKILL:
-#ifdef EXTRA_DEBUG
       sql_print_information("Got signal %d to shutdown mysqld",sig);
-#endif
       /* switch to the old log message processing */
       logger.set_handlers(LOG_FILE, opt_slow_log ? LOG_FILE:LOG_NONE,
                           opt_log ? LOG_FILE:LOG_NONE);
