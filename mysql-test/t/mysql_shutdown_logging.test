@@ -1,0 +1,97 @@
+# This test is to check that the logging on shutdown properly
+# displays the host/user that is requesting the database shutdown
+# This test is incomplete as we are unable to issue a request
+# from a host whose ip doesn't have a corresponding host name.
+# (so all shutdown loggings will have only the hostname)
+
+# restart server with log file pointing to $error_log
+# $error_log will be deleted after each shutdown
+let $error_log=$MYSQLTEST_VARDIR/log/testlog.err;
+let SEARCH_FILE=$error_log;
+--disable_reconnect
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQLADMIN -S $MASTER_MYSOCK -P $MASTER_MYPORT -uroot shutdown
+--source include/wait_until_disconnected.inc
+--enable_reconnect
+--exec echo "restart:--log-error=$error_log" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+
+# send shutdown command to sql server from root and verify SHUTDOWN was
+# recieved from localhost/user
+--disable_reconnect
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQLADMIN -S $MASTER_MYSOCK -P $MASTER_MYPORT -uroot shutdown
+--source include/wait_until_disconnected.inc
+let SEARCH_PATTERN=Got signal 15 to shutdown mysqld;
+--source include/search_pattern_in_file.inc
+let SEARCH_PATTERN=COM_SHUTDOWN received from host/user = localhost/root;
+--source include/search_pattern_in_file.inc
+--exec rm $error_log
+
+# restart the sql server
+--enable_reconnect
+--exec echo "restart:--log-error=$error_log" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+
+# create user and attempt shutdown, expect failure
+CREATE USER wl6587@localhost IDENTIFIED BY 'wl6587';
+--error 1
+--exec $MYSQLADMIN -S $MASTER_MYSOCK -P $MASTER_MYPORT -uwl6587 --password=wl6587 shutdown
+
+# give user SHUTDOWN privileges and re-try shutdown, expect success
+GRANT ALL ON *.* TO wl6587@localhost;
+
+--disable_reconnect
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQLADMIN -S $MASTER_MYSOCK -P $MASTER_MYPORT -uwl6587 --password=wl6587 shutdown
+--source include/wait_until_disconnected.inc
+let SEARCH_PATTERN=Got signal 15 to shutdown mysqld;
+--source include/search_pattern_in_file.inc
+let SEARCH_PATTERN=COM_SHUTDOWN received from host/user = localhost/wl6587;
+--source include/search_pattern_in_file.inc
+--exec rm $error_log
+
+# restart server
+--enable_reconnect
+--exec echo "restart:--log-error=$error_log" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--source include/wait_until_connected_again.inc
+
+# verify hostname is logged properly (use actual hostname instead of localhost)
+--disable_reconnect
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--exec $MYSQLADMIN -h `hostname` -P $MASTER_MYPORT -uroot shutdown
+--source include/wait_until_disconnected.inc
+let SEARCH_PATTERN=Got signal 15 to shutdown mysqld;
+--source include/search_pattern_in_file.inc
+--exec grep -q "COM_SHUTDOWN received from host/user = `hostname`/root" $error_log
+
+--exec rm $error_log
+
+# THIS IS A BUG
+# WHEN --skip-name-resolve is set, the host variable of thd->security_ctx is
+# valid but "", so host_or_ip points to host ("") instead of valid ip
+# once fixed, can turn on this test
+# restart server mapping all hostname to their IP addresses only
+#--enable_reconnect
+#--exec echo "restart:--log-error=$error_log --skip-name-resolve --skip-grant-tables" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+#--exec echo "restart:--log-error=$error_log" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+#--source include/wait_until_connected_again.inc
+
+# verify hostname is logged properly (use actual hostname instead of localhost)
+#--disable_reconnect
+#--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+#--exec $MYSQLADMIN -h `hostname --ip-address` -P $MASTER_MYPORT -uroot shutdown
+#--source include/wait_until_disconnected.inc
+#let SEARCH_PATTERN=Got signal 15 to shutdown mysqld;
+#--source include/search_pattern_in_file.inc
+#let SEARCH_PATTERN=COM_SHUTDOWN received from host/user = `hostname --ip-address`/root;
+#--source include/search_pattern_in_file.inc
+#--exec rm $error_log
+
+# restart server in default manner after last test
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+
+# drop user to leave framework in clean state
+DROP USER wl6587@localhost;
