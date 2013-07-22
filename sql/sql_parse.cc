@@ -1811,6 +1811,10 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     DBUG_PRINT("quit",("Got shutdown command for level %u", level));
     general_log_print(thd, command, NullS);
     my_eof(thd);
+    sql_print_information(
+       "COM_SHUTDOWN received from host/user = %s/%s",
+       thd->security_ctx->host_or_ip,
+       thd->security_ctx->user);
     kill_mysql();
     error=TRUE;
     break;
