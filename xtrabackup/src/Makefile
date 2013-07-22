@@ -67,12 +67,12 @@ xbstream.o xbstream_read.o: %.o: %.c
 	$(CC) $(CFLAGS) $(INC) $(DEFS) -c $< -o $@
 
 xbstream: $(XBSTREAMOBJS) $(MYSQLOBJS) local.o
-	$(CXX) $(CXXFLAGS) $^ $(INC) $(MYSQLOBJS) $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) $^ $(INC) $(MYSQLOBJS) $(LIBS) $(LIBZ) -o $@
 
 xtrabackup.o: xtrabackup.cc xb_regex.h
 
 $(TARGET): $(XTRABACKUPCCOBJS) $(XTRABACKUPCOBJS) $(INNODBOBJS) $(MYSQLOBJS) $(LIBARCHIVE_A)
-	$(CXX) $(CFXXLAGS) $(XTRABACKUPCCOBJS) $(XTRABACKUPCOBJS) $(INNODBOBJS) $(MYSQLOBJS) $(LIBS) \
+	$(CXX) $(CFXXLAGS) $(XTRABACKUPCCOBJS) $(XTRABACKUPCOBJS) $(INNODBOBJS) $(MYSQLOBJS) $(LIBS) $(LIBZ) \
 	$(LIBARCHIVE_A) -o $(TARGET)
 
 clean:

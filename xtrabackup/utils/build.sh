@@ -148,7 +148,6 @@ case "$type" in
         server_dir=$top_dir/mysql-$mysql_version_short
         configure_cmd="${CMAKE} $SRC_DIR \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
-                -DWITH_ZLIB=bundled \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
@@ -158,6 +157,20 @@ case "$type" in
         fi
         if [ -n "$CURSES_INCLUDE_PATH" ]; then
                 configure_cmd+=" -DCURSES_INCLUDE_PATH=$CURSES_INCLUDE_PATH"
+        fi
+        if [ -n "$KRB_PATH" ]; then
+                configure_cmd+=" -DWITH_KRB=$KRB_PATH"
+        fi
+        if [ -n "$SSL_PATH" ]; then
+                configure_cmd+=" -DWITH_SSL=$SSL_PATH"
+        fi
+        if [ -n "$ZLIB_PATH" ]; then
+                configure_cmd+=" -DWITH_ZLIB=$ZLIB_PATH"
+        else
+                congigure_cmd+=" -DWITH_ZLIB=bundled"
+        fi
+        if [ -n "$GLIBC_PATH" ]; then
+                configure_cmd+=" -DWITH_GLIBC=$GLIBC_PATH"
         fi
         build_all $type
         ;;
