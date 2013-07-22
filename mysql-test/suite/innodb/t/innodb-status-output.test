@@ -71,7 +71,7 @@ COMMIT;
 --shutdown_server
 
 # We should not see any extra output.
-let SEARCH_PATTERN= ready for connections.*\nVersion:.*\n.*Normal shutdown;
+let SEARCH_PATTERN= ready for connections.*\nVersion:.*\n.*COM_SHUTDOWN received from host/user.*\n.*Got signal [0-9]+ to shutdown mysqld.*\n.*Normal shutdown;
 --source include/search_pattern_in_file.inc
 --remove_file $SEARCH_FILE
 
