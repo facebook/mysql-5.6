@@ -1,0 +1,3 @@
+CREATE USER wl6587@localhost IDENTIFIED BY 'wl6587';
+GRANT ALL ON *.* TO wl6587@localhost;
+DROP USER wl6587@localhost;
