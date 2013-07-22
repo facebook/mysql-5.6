@@ -950,6 +950,7 @@ void do_handle_one_connection(THD *thd_arg)
   ulonglong start_time, connection_create_time;
   ulong launch_time= 0;
   THD *thd= thd_arg;
+  USER_STATS *us= thd_get_user_stats(thd);
 
   thd->thr_create_utime= my_micro_time();
 
@@ -998,8 +999,7 @@ void do_handle_one_connection(THD *thd_arg)
     rc= thd_prepare_connection(thd);
     connection_create_time = my_timer_since(start_time) +
                              microseconds_to_my_timer(launch_time);
-    if (thd && histogram_step_size_connection_create)
-      latency_histogram_increment(&thd->histogram_connection_create,
+    latency_histogram_increment(&us->histogram_connection_create,
                                 connection_create_time, 1);
     if (rc)
       goto end_thread;
@@ -1118,6 +1118,24 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->microseconds_select= 0;
   user_stats->microseconds_transaction= 0;
   user_stats->microseconds_update= 0;
+  latency_histogram_init(&(user_stats->histogram_connection_create),
+                         histogram_step_size_connection_create);
+  latency_histogram_init(&(user_stats->histogram_update_command),
+                         histogram_step_size_update_command);
+  latency_histogram_init(&(user_stats->histogram_delete_command),
+                         histogram_step_size_delete_command);
+  latency_histogram_init(&(user_stats->histogram_insert_command),
+                         histogram_step_size_insert_command);
+  latency_histogram_init(&(user_stats->histogram_select_command),
+                         histogram_step_size_select_command);
+  latency_histogram_init(&(user_stats->histogram_ddl_command),
+                         histogram_step_size_ddl_command);
+  latency_histogram_init(&(user_stats->histogram_transaction_command),
+                         histogram_step_size_transaction_command);
+  latency_histogram_init(&(user_stats->histogram_handler_command),
+                         histogram_step_size_handler_command);
+  latency_histogram_init(&(user_stats->histogram_other_command),
+                         histogram_step_size_other_command);
   user_stats->queries_empty= 0;
   user_stats->query_comment_bytes= 0;
   user_stats->records_in_range_calls= 0;
