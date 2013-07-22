@@ -947,6 +947,8 @@ bool thd_is_connection_alive(THD *thd)
 
 void do_handle_one_connection(THD *thd_arg)
 {
+  ulonglong start_time, connection_create_time;
+  ulong launch_time= 0;
   THD *thd= thd_arg;
 
   thd->thr_create_utime= my_micro_time();
@@ -966,7 +968,7 @@ void do_handle_one_connection(THD *thd_arg)
   */
   if (thd->prior_thr_create_utime)
   {
-    ulong launch_time= (ulong) (thd->thr_create_utime -
+    launch_time= (ulong) (thd->thr_create_utime -
                                 thd->prior_thr_create_utime);
     if (launch_time >= slow_launch_time*1000000L)
       statistic_increment(slow_launch_threads, &LOCK_status);
@@ -992,7 +994,13 @@ void do_handle_one_connection(THD *thd_arg)
     NET *net= &thd->net;
     mysql_socket_set_thread_owner(net->vio->mysql_socket);
 
+    start_time = my_timer_now();
     rc= thd_prepare_connection(thd);
+    connection_create_time = my_timer_since(start_time) +
+                             microseconds_to_my_timer(launch_time);
+    if (thd && histogram_step_size_connection_create)
+      latency_histogram_increment(&thd->histogram_connection_create,
+                                connection_create_time, 1);
     if (rc)
       goto end_thread;
 

@@ -992,6 +992,15 @@ static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
        IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_histogram_step_size_syntax));
 
+static Sys_var_charptr Sys_histogram_step_size_connection_create(
+       "histogram_step_size_connection_create",
+       "Step size of the Histogram which "
+       "is used to track connection create latencies.",
+       GLOBAL_VAR(histogram_step_size_connection_create),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("16ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
 static bool check_not_null(sys_var *self, THD *thd, set_var *var)
 {
   return var->value && var->value->is_null();

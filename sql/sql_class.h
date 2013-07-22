@@ -144,6 +144,8 @@ extern bool volatile shutdown_in_progress;
 extern "C" LEX_STRING * thd_query_string (MYSQL_THD thd);
 extern "C" char **thd_query(MYSQL_THD thd);
 
+extern char *histogram_step_size_connection_create;
+
 /**
   @class CSET_STRING
   @brief Character set armed LEX_STRING
@@ -2141,6 +2143,8 @@ public:
   // track down slow pthread_create
   ulonglong  prior_thr_create_utime, thr_create_utime;
   ulonglong  start_utime, utime_after_lock;
+
+  latency_histogram histogram_connection_create;
 
   my_io_perf_t io_perf_read;	/* IO perf counters for slow query log */
   my_io_perf_t io_perf_write;	/* IO perf counters for slow query log */

@@ -78,6 +78,8 @@ LEX_STRING NULL_STR=  { NULL, 0 };
 
 const char * const THD::DEFAULT_WHERE= "field list";
 
+char * histogram_step_size_connection_create= NULL;
+
 /****************************************************************************
 ** User variables
 ****************************************************************************/
@@ -1419,6 +1421,8 @@ void THD::init(void)
   my_io_perf_init(&io_perf_read_primary);
   my_io_perf_init(&io_perf_read_secondary);
   count_comment_bytes= 0;
+  latency_histogram_init(&histogram_connection_create,
+                         histogram_step_size_connection_create);
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
