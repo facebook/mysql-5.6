@@ -3221,12 +3221,16 @@ void latency_histogram_init(latency_histogram* current_histogram,
   @param value              Value to be searched.
 
   @return                   Returns the bin that contains this value.
+                            -1 if Step Size is 0
 */
 static int latency_histogram_bin_search(latency_histogram* current_histogram,
                          const ulonglong value)
 {
+  if (current_histogram->step_size == 0)
+    return -1;
+
   return min((int)(value/current_histogram->step_size),
-                   (int)current_histogram->num_bins-1);
+             (int)current_histogram->num_bins-1);
 }
 
 /**
@@ -3241,8 +3245,11 @@ static int latency_histogram_bin_search(latency_histogram* current_histogram,
 void latency_histogram_increment(latency_histogram* current_histogram,
                                    ulonglong value, ulonglong count)
 {
-  size_t index = latency_histogram_bin_search(current_histogram, value);
-  (current_histogram->count_per_bin)[index] += count;
+  int index = latency_histogram_bin_search(current_histogram, value);
+  if (index < 0)
+    return;
+  my_atomic_add64((longlong*)&((current_histogram->count_per_bin)[index]),
+                  count);
 }
 
 /**
