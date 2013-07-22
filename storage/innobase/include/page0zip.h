@@ -44,6 +44,14 @@ Created June 2005 by Marko Makela
 #endif /* !UNIV_INNOCHECKSUM */
 #include "zlib.h"
 
+/* Below macros are used to calculate the memory requirement for zlib's
+compression/decompression streams */
+#define DEFLATE_MEMORY_BOUND(windowBits, memLevel) \
+    ((4L << (windowBits)) + (512L << (memLevel)) + (128UL << 10))
+
+#define INFLATE_MEMORY_BOUND(windowBits) \
+    ((1L << (windowBits)) + (128UL << 10))
+
 /* Compression level to be used by zlib. Settable by user. */
 extern uint	page_zip_level;
 
