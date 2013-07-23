@@ -1,0 +1,150 @@
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+#
+# Check histogram_ddl_command
+#
+
+--echo Before ddl
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+create table userstats2 (i int primary key, j int);
+create table userstats (i int primary key, j int);
+drop table userstats;
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+
+--echo After 5 ddl commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_insert_command
+#
+
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+replace into userstats values (1,1);
+
+--echo After 5 insert commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_delete_command
+#
+
+delete from userstats where i = 1;
+delete userstats, userstats2 from userstats inner join userstats2;
+truncate table userstats2;
+
+--echo After 2 delete and 1 ddl commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_handler_command
+#
+
+handler userstats open;
+handler userstats read first;
+handler userstats close;
+
+--echo After 3 handler commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_other_command
+#
+
+show tables;
+
+--echo After 1 other command
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_select_command
+#
+
+select 1;
+
+--echo After 2 select commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_update_command
+#
+
+update userstats set j=j+1 where i = 2;
+update userstats set j=j+1 where i in (select i from userstats2);
+
+--echo After 2 update commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# Check histogram_transaction_command
+#
+begin;
+rollback;
+begin;
+commit;
+
+--echo After 4 transaction commands
+--replace_column 4 COUNT 5 COUNT 6 COUNT 7 COUNT 8 COUNT 9 COUNT 10 COUNT 11 COUNT 12 COUNT 13 COUNT 14 COUNT 15 COUNT 16 COUNT 17 COUNT 18 COUNT
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+#
+# check table structure
+# 
+
+desc information_schema.user_latency_histograms;
+show create table information_schema.user_latency_histograms;
+
+# Cleanup
+drop table userstats;
+drop table userstats2;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
