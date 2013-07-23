@@ -1023,11 +1023,19 @@ page_zip_restore_uncompressed_fields(
 	ulint	i;
 	ulint	len;
 	byte*	dst;
-	ulint	n_dense = page_zip_dir_elems(page_zip);
-	byte*	storage = page_zip_dir_start_low(page_zip, n_dense);
-	ulint	heap_no = rec_get_heap_no_new(rec) - 1;
+	ulint	n_dense;
+	byte*	storage;
+	ulint	heap_no;
 	byte*	externs;
 	ibool	purged;
+
+	if (!trx_id_col) {
+		return; /* secondary index leaf page */
+	}
+	n_dense = page_zip_dir_elems(page_zip);
+	storage = page_zip_dir_start_low(page_zip, n_dense);
+	heap_no = rec_get_heap_no_new(rec) - 1;
+
 	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
 		/* clustered leaf page */
 		externs = storage
@@ -1323,6 +1331,291 @@ page_zip_serialize_rec(
 		return page_zip_serialize_node_ptrs_rec(data, rec, offsets);
 	}
 }
+
+/**********************************************************************//**
+Read the data portion of a clustered leaf record with external pointers from
+a data stream in forward direction.
+@return the pointer to the stream after the record is read. */
+static
+const byte*
+page_zip_deserialize_clust_ext_rec(
+	const byte*	data,		/*!< in: pointer to the data stream
+					where the record is to be read. */
+	rec_t*		rec,		/*!< out: the record that is read
+					from the data stream */
+	const ulint*	offsets,	/*!< in: offsets for the record as
+					obtained by rec_get_offsets() */
+	ulint		trx_id_col,	/*!< in: the column no. for the
+					transaction id column. */
+	const byte*	end)		/*!< in: the end of the deserialization
+					stream. Used only for validation. */
+{
+	ulint	i;
+	ulint	len;
+	byte*	next_out = rec;
+	byte*	dst;
+
+	/* Check if there are any externally stored columns.
+	For each externally stored column, skip the BTR_EXTERN_FIELD_REF
+	bytes used for blob pointers. */
+	for (i = 0; i < rec_offs_n_fields(offsets); ++i) {
+		if (UNIV_UNLIKELY(i == trx_id_col)) {
+			/* Skip trx_id and roll_ptr */
+			dst = rec_get_nth_field(rec, offsets, i, &len);
+			if (UNIV_UNLIKELY(dst - next_out >= end - data)) {
+				page_zip_fail((
+					"page_zip_deserialize_clust_ext_rec: "
+					"trx_id len %lu, %p - %p >= %p - %p\n",
+					(ulong) len,
+					(const void*) dst,
+					(const void*) next_out,
+					(const void*) end,
+					(const void*) data));
+				ut_error;
+			}
+			if (UNIV_UNLIKELY(len < (DATA_TRX_ID_LEN
+						 + DATA_ROLL_PTR_LEN))) {
+				page_zip_fail((
+					"page_zip_deserialize_clust_ext_rec: "
+					"trx_id len %lu < %d\n",
+					len,
+					DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN));
+				ut_error;
+			}
+			if (UNIV_UNLIKELY(rec_offs_nth_extern(offsets, i))) {
+				page_zip_fail((
+					"page_zip_serialize_clust_ext_rec: "
+					"column %lu must be trx id column but "
+					"it has blob pointers.\n", i));
+				ut_error;
+			}
+
+			memcpy(next_out, data, dst - next_out);
+			data += dst - next_out;
+			next_out = dst + (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
+		} else if (rec_offs_nth_extern(offsets, i)) {
+			dst = rec_get_nth_field(rec, offsets, i, &len);
+			ut_a(len >= BTR_EXTERN_FIELD_REF_SIZE);
+			len += dst - next_out - BTR_EXTERN_FIELD_REF_SIZE;
+
+			if (UNIV_UNLIKELY(data + len >= end)) {
+				page_zip_fail((
+					"page_zip_deserialize_clust_ext_rec: "
+					"ext %p + %lu >= %p\n",
+					(const void*) data,
+					(ulong) len,
+					(const void*) end));
+				ut_error;
+			}
+
+			memcpy(next_out, data, len);
+			data += len;
+			next_out += len + BTR_EXTERN_FIELD_REF_SIZE;
+		}
+	}
+
+	/* Copy the last bytes of the record */
+	len = rec_get_end(rec, offsets) - next_out;
+	if (UNIV_UNLIKELY(data + len >= end)) {
+		page_zip_fail(("page_zip_deserialize_clust_ext_rec: "
+			       "last %p + %lu >= %p\n",
+			       (const void*) data,
+			       (ulong) len,
+			       (const void*) end));
+		ut_error;
+	}
+	memcpy(next_out, data, len);
+	data += len;
+	return (data);
+}
+
+/**********************************************************************//**
+Read the data portion of a clustered leaf record with no external pointers
+from a data stream in forward direction. Uncompressed fields are not read.
+@return the pointer to the stream after the record is read. */
+static
+const byte*
+page_zip_deserialize_clust_rec(
+	const byte*	data,		/*!< in: pointer to the data stream
+					where the record is to be read */
+	rec_t*		rec,		/*!< out: the record that is read
+					from the data stream */
+	const ulint*	offsets,	/*!< in: offsets for the record as
+					obtained by rec_get_offsets() */
+	ulint		trx_id_col,	/*!< in: the column no for the
+					transaction id column */
+	const byte*	end)		/*!< in: the end of the deserialization
+					stream. Used only for validation. */
+{
+	ulint	len;
+	/* Skip DB_TRX_ID and DB_ROLL_PTR */
+	ulint	l = rec_get_nth_field_offs(offsets, trx_id_col, &len);
+	byte*	b;
+
+	if (UNIV_UNLIKELY(data + l >= end)) {
+		page_zip_fail(("page_zip_deserialize_clust_rec: "
+			       "%p + %lu >= %p\n",
+			       (const void*) data,
+			       (ulong) l,
+			       (const void*) end));
+		ut_error;
+	}
+
+	/* Copy any preceding data bytes */
+	memcpy(rec, data, l);
+	data += l;
+
+	/* Copy any bytes following DB_TRX_ID, DB_ROLL_PTR */
+	b = rec + l + (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
+	len = rec_get_end(rec, offsets) - b;
+	if (UNIV_UNLIKELY(data + len >= end)) {
+		page_zip_fail(("page_zip_deserialize_clust_rec: "
+			       "%p + %lu >= %p\n",
+			       (const void*) data,
+			       (ulong) len,
+			       (const void*) end));
+		ut_error;
+	}
+	memcpy(b, data, len);
+	data += len;
+	return (data);
+}
+
+/**********************************************************************//**
+Read the data portion of a record of a secondary index leaf page from a data
+stream in forward direction.
+@return the pointer to the stream after the record is read. */
+static
+const byte*
+page_zip_deserialize_sec_rec(
+	const byte*	data,		/*!< in: pointer to the data stream
+					where the record is to be read */
+	rec_t*		rec,		/*!< out: the record that is read
+					from the data stream */
+	const ulint*	offsets,	/*!< in: offsets for the record as
+					obtained by rec_get_offsets() */
+	const byte*	end)		/*!< in: the end of the deserialization
+					stream. Used only for validation. */
+{
+	ulint	len = rec_offs_data_size(offsets);
+
+	/* Copy all data bytes of a record in a secondary index */
+	if (UNIV_UNLIKELY(data + len >= end)) {
+		page_zip_fail(("page_zip_deserialize_sec_rec :"
+			       "sec %p + %lu >= %p\n",
+			       (const void*) data,
+			       (ulong) len,
+			       (const void*) end));
+		ut_error;
+	}
+	memcpy(rec, data, len);
+	data += len;
+	return (data);
+}
+
+/**********************************************************************//**
+Read the data portion of a record of a non-leaf page to a data stream in
+forward direction.
+@return the pointer to the stream after the record is read */
+static
+const byte*
+page_zip_deserialize_node_ptrs_rec(
+	const byte*	data,		/*!< in: pointer to the data stream
+					where the record is to be read */
+	rec_t*		rec,		/*!< out: the record that is read from
+					the data stream */
+	const ulint*	offsets,	/*!< in: offsets for the record as
+					obtained by rec_get_offsets() */
+	const byte*	end)		/*!< in: the end of the deserialization
+					stream. Used only for validation. */
+{
+	ulint	len = rec_offs_data_size(offsets) - REC_NODE_PTR_SIZE;
+	/* Copy the data bytes, except node_ptr */
+	if (UNIV_UNLIKELY(data + len >= end)) {
+		page_zip_fail(("page_zip_deserialize_sec_rec: "
+			       "node_ptr %p + %lu >= %p\n",
+			       (const void*) data,
+			       (ulong) len,
+			       (const void*) end));
+		ut_error;
+	}
+	memcpy(rec, data, len);
+	data += len;
+	return (data);
+}
+
+/**********************************************************************//**
+Read a record from a data stream in forward direction except for the
+uncompressed fields.
+@return the pointer to the stream after the record is read */
+static
+const byte*
+page_zip_deserialize_rec(
+	const byte*		data,		/*!< in: pointer to the data
+						stream where the record is to
+						be read */
+	rec_t*			rec,		/*!< out: the record that is
+						read from the data stream */
+	const dict_index_t*	index,		/*!< in: the index object for
+						the table */
+	ulint*			offsets,	/*!< in: offsets for the record
+						as obtained by
+						rec_get_offsets() */
+	ulint			trx_id_col,	/*!< in: the column no for
+						transaction id column */
+	ulint			heap_status,	/*!< in: heap_no and status bits
+						for the record */
+	const byte*		end)		/*!< in: the end of the
+						deserialization stream. Used
+						only for validation. */
+{
+	byte*	start;
+	byte*	b;
+	rec_get_offsets_reverse(data, index,
+				heap_status & REC_STATUS_NODE_PTR, offsets);
+	rec_offs_make_valid(rec, index, offsets);
+	start = rec_get_start(rec, offsets);
+	b = rec - REC_N_NEW_EXTRA_BYTES;
+
+	/* Copy the extra bytes (backwards) */
+	while (b != start) {
+		*--b = *data++;
+	}
+
+	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
+		if (trx_id_col) {
+			/* Clustered leaf page */
+			if (UNIV_UNLIKELY(rec_offs_any_extern(offsets))) {
+				return page_zip_deserialize_clust_ext_rec(
+						data,
+						rec,
+						offsets,
+						trx_id_col,
+						end);
+			} else {
+				return page_zip_deserialize_clust_rec(
+						data,
+						rec,
+						offsets,
+						trx_id_col,
+						end);
+			}
+		} else {
+			/* secondary leaf page */
+			return page_zip_deserialize_sec_rec(data,
+							    rec,
+							    offsets,
+							    end);
+		}
+	} else {
+		/* non-leaf page */
+		return page_zip_deserialize_node_ptrs_rec(data,
+							  rec,
+							  offsets,
+							  end);
+	}
+}
+
 /**********************************************************************//**
 Compress the records of a node pointer page.
 @return	Z_OK, or a zlib error code */
@@ -2618,95 +2911,6 @@ page_zip_set_extra_bytes(
 }
 
 /**********************************************************************//**
-Apply the modification log to a record containing externally stored
-columns.  Do not copy the fields that are stored separately.
-@return	pointer to modification log, or NULL on failure */
-static
-const byte*
-page_zip_apply_log_ext(
-/*===================*/
-	rec_t*		rec,		/*!< in/out: record */
-	const ulint*	offsets,	/*!< in: rec_get_offsets(rec) */
-	ulint		trx_id_col,	/*!< in: position of of DB_TRX_ID */
-	const byte*	data,		/*!< in: modification log */
-	const byte*	end)		/*!< in: end of modification log */
-{
-	ulint	i;
-	ulint	len;
-	byte*	next_out = rec;
-
-	/* Check if there are any externally stored columns.
-	For each externally stored column, skip the
-	BTR_EXTERN_FIELD_REF. */
-
-	for (i = 0; i < rec_offs_n_fields(offsets); i++) {
-		byte*	dst;
-
-		if (UNIV_UNLIKELY(i == trx_id_col)) {
-			/* Skip trx_id and roll_ptr */
-			dst = rec_get_nth_field(rec, offsets,
-						i, &len);
-			if (UNIV_UNLIKELY(dst - next_out >= end - data)
-			    || UNIV_UNLIKELY
-			    (len < (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN))
-			    || rec_offs_nth_extern(offsets, i)) {
-				page_zip_fail(("page_zip_apply_log_ext:"
-					       " trx_id len %lu,"
-					       " %p - %p >= %p - %p\n",
-					       (ulong) len,
-					       (const void*) dst,
-					       (const void*) next_out,
-					       (const void*) end,
-					       (const void*) data));
-				return(NULL);
-			}
-
-			memcpy(next_out, data, dst - next_out);
-			data += dst - next_out;
-			next_out = dst + (DATA_TRX_ID_LEN
-					  + DATA_ROLL_PTR_LEN);
-		} else if (rec_offs_nth_extern(offsets, i)) {
-			dst = rec_get_nth_field(rec, offsets,
-						i, &len);
-			ut_ad(len
-			      >= BTR_EXTERN_FIELD_REF_SIZE);
-
-			len += dst - next_out
-				- BTR_EXTERN_FIELD_REF_SIZE;
-
-			if (UNIV_UNLIKELY(data + len >= end)) {
-				page_zip_fail(("page_zip_apply_log_ext: "
-					       "ext %p+%lu >= %p\n",
-					       (const void*) data,
-					       (ulong) len,
-					       (const void*) end));
-				return(NULL);
-			}
-
-			memcpy(next_out, data, len);
-			data += len;
-			next_out += len
-				+ BTR_EXTERN_FIELD_REF_SIZE;
-		}
-	}
-
-	/* Copy the last bytes of the record. */
-	len = rec_get_end(rec, offsets) - next_out;
-	if (UNIV_UNLIKELY(data + len >= end)) {
-		page_zip_fail(("page_zip_apply_log_ext: "
-			       "last %p+%lu >= %p\n",
-			       (const void*) data,
-			       (ulong) len,
-			       (const void*) end));
-		return(NULL);
-	}
-	memcpy(next_out, data, len);
-	data += len;
-
-	return(data);
-}
-
-/**********************************************************************//**
 Apply the modification log to an uncompressed page.
 Do not copy the fields that are stored separately.
 @return	pointer to end of modification log, or NULL on failure */
@@ -2734,7 +2938,6 @@ page_zip_apply_log(
 	for (;;) {
 		ulint	val;
 		rec_t*	rec;
-		ulint	len;
 		ulint	hs;
 
 		val = *data++;
@@ -2808,102 +3011,13 @@ page_zip_apply_log(
 #if REC_STATUS_NODE_PTR != TRUE
 # error "REC_STATUS_NODE_PTR != TRUE"
 #endif
-		rec_get_offsets_reverse(data, index,
-					hs & REC_STATUS_NODE_PTR,
-					offsets);
-		rec_offs_make_valid(rec, index, offsets);
-
-		/* Copy the extra bytes (backwards). */
-		{
-			byte*	start	= rec_get_start(rec, offsets);
-			byte*	b	= rec - REC_N_NEW_EXTRA_BYTES;
-			while (b != start) {
-				*--b = *data++;
-			}
-		}
-
-		/* Copy the data bytes. */
-		if (UNIV_UNLIKELY(rec_offs_any_extern(offsets))) {
-			/* Non-leaf nodes should not contain any
-			externally stored columns. */
-			if (UNIV_UNLIKELY(hs & REC_STATUS_NODE_PTR)) {
-				page_zip_fail(("page_zip_apply_log: "
-					       "%lu&REC_STATUS_NODE_PTR\n",
-					       (ulong) hs));
-				return(NULL);
-			}
-
-			data = page_zip_apply_log_ext(
-				rec, offsets, trx_id_col, data, end);
-
-			if (UNIV_UNLIKELY(!data)) {
-				return(NULL);
-			}
-		} else if (UNIV_UNLIKELY(hs & REC_STATUS_NODE_PTR)) {
-			len = rec_offs_data_size(offsets)
-				- REC_NODE_PTR_SIZE;
-			/* Copy the data bytes, except node_ptr. */
-			if (UNIV_UNLIKELY(data + len >= end)) {
-				page_zip_fail(("page_zip_apply_log: "
-					       "node_ptr %p+%lu >= %p\n",
-					       (const void*) data,
-					       (ulong) len,
-					       (const void*) end));
-				return(NULL);
-			}
-			memcpy(rec, data, len);
-			data += len;
-		} else if (UNIV_LIKELY(trx_id_col == ULINT_UNDEFINED)) {
-			len = rec_offs_data_size(offsets);
-
-			/* Copy all data bytes of
-			a record in a secondary index. */
-			if (UNIV_UNLIKELY(data + len >= end)) {
-				page_zip_fail(("page_zip_apply_log: "
-					       "sec %p+%lu >= %p\n",
-					       (const void*) data,
-					       (ulong) len,
-					       (const void*) end));
-				return(NULL);
-			}
-
-			memcpy(rec, data, len);
-			data += len;
-		} else {
-			/* Skip DB_TRX_ID and DB_ROLL_PTR. */
-			ulint	l = rec_get_nth_field_offs(offsets,
-							   trx_id_col, &len);
-			byte*	b;
-
-			if (UNIV_UNLIKELY(data + l >= end)
-			    || UNIV_UNLIKELY(len < (DATA_TRX_ID_LEN
-						    + DATA_ROLL_PTR_LEN))) {
-				page_zip_fail(("page_zip_apply_log: "
-					       "trx_id %p+%lu >= %p\n",
-					       (const void*) data,
-					       (ulong) l,
-					       (const void*) end));
-				return(NULL);
-			}
-
-			/* Copy any preceding data bytes. */
-			memcpy(rec, data, l);
-			data += l;
-
-			/* Copy any bytes following DB_TRX_ID, DB_ROLL_PTR. */
-			b = rec + l + (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN);
-			len = rec_get_end(rec, offsets) - b;
-			if (UNIV_UNLIKELY(data + len >= end)) {
-				page_zip_fail(("page_zip_apply_log: "
-					       "clust %p+%lu >= %p\n",
-					       (const void*) data,
-					       (ulong) len,
-					       (const void*) end));
-				return(NULL);
-			}
-			memcpy(b, data, len);
-			data += len;
-		}
+		data = page_zip_deserialize_rec(data,
+						rec,
+						index,
+						offsets,
+						trx_id_col,
+						hs,
+						end);
 	}
 }
 
@@ -3713,7 +3827,7 @@ zlib_error:
 	}
 
 	/* Decompress the records in heap_no order. */
-	if (!page_is_leaf(page)) {
+	if (UNIV_UNLIKELY(!page_is_leaf(page))) {
 		/* This is a node pointer page. */
 		if (UNIV_UNLIKELY
 		    (!page_zip_decompress_node_ptrs(page_zip, &d_stream,
@@ -3725,8 +3839,9 @@ zlib_error:
 
 		info_bits = mach_read_from_4(page + FIL_PAGE_PREV) == FIL_NULL
 			? REC_INFO_MIN_REC_FLAG : 0;
-	} else if (UNIV_LIKELY(trx_id_col == ULINT_UNDEFINED)) {
+	} else if (trx_id_col == ULINT_UNDEFINED) {
 		/* This is a leaf page in a secondary index. */
+		trx_id_col = 0;
 		if (UNIV_UNLIKELY(!page_zip_decompress_sec(page_zip, &d_stream,
 							   recs, n_dense,
 							   index,
