@@ -324,6 +324,7 @@ extern char *histogram_step_size_ddl_command;
 extern char *histogram_step_size_transaction_command;
 extern char *histogram_step_size_handler_command;
 extern char *histogram_step_size_other_command;
+int fill_user_histograms(THD *thd, TABLE_LIST *tables, Item *cond);
 
 /* For information_schema.user_statistics */
 extern ST_FIELD_INFO user_stats_fields_info[];
