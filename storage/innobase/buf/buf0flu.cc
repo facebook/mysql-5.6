@@ -1266,7 +1266,9 @@ buf_flush_try_neighbors(
 #ifdef UNIV_DEBUG
 	if (!space_size) {
 		fil_space_t*	fil_space;
+		mutex_enter(&fil_system->mutex);
 		fil_space = fil_space_get_by_id(space);
+		mutex_exit(&fil_system->mutex);
 		if (fil_space != NULL) {
 			fprintf(stderr, "space->name = %s\n"
 					"space->id = %lu\n"
