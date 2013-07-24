@@ -1340,6 +1340,7 @@ sub write_binlog_info {
     my @lines;
     my $position = '';
     my $filename = '';
+    my $gtid = '';
 
     # get binlog position
     mysql_send 'SHOW MASTER STATUS\G';
@@ -1348,8 +1349,9 @@ sub write_binlog_info {
     # from the SHOW MASTER STATUS output
     file_to_array($mysql_stdout, \@lines);
     foreach (@lines) {
-        $filename = $1 if /^\s+File:\s(\S+)\s*$/;
-        $position = $1 if /^\s+Position:\s(\d+)\s*$/;
+        $filename = $1 if /^\s*File:\s(\S+)\s*$/;
+        $position = $1 if /^\s*Position:\s(\d+)\s*$/;
+        $gtid     = $1 if /^\s*Executed_Gtid_Set:\s(.*)\s*$/;
     }
 
     # write binlog info file
@@ -1360,7 +1362,7 @@ sub write_binlog_info {
         open(FILE, "| ssh $option_ssh_opt $option_remote_host 'cat > $binlog_info'") ||
             Die "Failed to open file '$option_remote_host:$binlog_info': $!";
     }
-    print FILE  "$filename\t$position\t\t\n";
+    print FILE  "$filename\t$position\t\t$gtid\n";
     close(FILE);
 
     if ($option_stream) {
@@ -1370,6 +1372,9 @@ sub write_binlog_info {
     }
 
     $mysql_binlog_position = "filename '$filename', position $position";
+    if ($gtid) {
+        $mysql_binlog_position .= ", gtid_executed $gtid";
+    }
 }
 
 #
