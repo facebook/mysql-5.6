@@ -16092,19 +16092,19 @@ histogram_bucket_to_display_string(
 
 	if (bucket_upper_display < 1000)  {
 		my_snprintf(histogram_bucket_name.name,
-			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%u-%uus",
+			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%lluus",
 			    bucket_lower_display,
 			    bucket_upper_display);
 	}
 	else if (bucket_upper_display < 1000000)  {
 		my_snprintf(histogram_bucket_name.name,
-			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%u-%ums",
+			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llums",
 			    bucket_lower_display/1000,
 			    bucket_upper_display/1000);
 	}
 	else  {
 		my_snprintf(histogram_bucket_name.name,
-			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%u-%us",
+			    HISTOGRAM_BUCKET_NAME_MAX_SIZE, "%llu-%llus",
 			    bucket_lower_display/1000000,
 			    bucket_upper_display/1000000);
 	}
@@ -16129,7 +16129,7 @@ prepare_latency_histogram_vars(
 			the bin counts of the respective Histograms */
 {
 	size_t i;
-	uint bucket_lower_display, bucket_upper_display;
+	ulonglong bucket_lower_display, bucket_upper_display;
 	const SHOW_VAR temp_last = {NullS, NullS, SHOW_LONG};
 
 	for (i = 0, bucket_lower_display = 0; i < NUMBER_OF_HISTOGRAM_BINS;
