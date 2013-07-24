@@ -6676,8 +6676,6 @@ xtrabackup_close_temp_log(my_bool clear_flag)
 	posix_fadvise(src_file, 0, 0, POSIX_FADV_DONTNEED);
 #endif
 
-	xb_file_set_nocache(src_file, src_path, "OPEN");
-
 	log_buf_ = static_cast<byte *>(ut_malloc(LOG_FILE_HDR_SIZE * 2));
 	log_buf = static_cast<byte *>(ut_align(log_buf_, LOG_FILE_HDR_SIZE));
 
