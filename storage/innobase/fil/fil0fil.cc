@@ -3060,6 +3060,28 @@ fil_delete_tablespace(
 		ut_a(node->n_pending == 0);
 	}
 
+#ifdef UNIV_DEBUG
+	fprintf(stderr, "Logging in fil0fil.cc:\n");
+	if (space != NULL) {
+		fprintf(stderr, "fil0fil.cc: space->name = %s\n"
+				"fil0fil.cc: space->id = %lu\n"
+				"fil0fil.cc: space->stop_ios = %s\n"
+				"fil0fil.cc: space->stop_new_ops = %s\n"
+				"fil0fil.cc: space->size = %lu\n"
+				"fil0fil.cc: space->n_pending_flushes = %lu\n"
+				"fil0fil.cc: space->n_pending_ops = %lu\n",
+				space->name, space->id,
+				space->stop_ios? "true" : "false",
+				space->stop_new_ops? "true" : "false",
+				space->size,
+				space->n_pending_flushes,
+				space->n_pending_ops);
+	}
+	else {
+		fprintf(stderr, "fil0fil.cc: space = NULL\n");
+	}
+#endif
+
 	if (!fil_space_free(id, TRUE)) {
 		err = DB_TABLESPACE_NOT_FOUND;
 	}
