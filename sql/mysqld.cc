@@ -9852,7 +9852,7 @@ static PSI_mutex_info all_server_mutexes[]=
 
 #ifdef HAVE_OPENSSL
   { &key_LOCK_des_key_file, "LOCK_des_key_file", PSI_FLAG_GLOBAL},
-  { &key_rwlock_LOCK_use_ssl, "LOCK_use_ssl", PSI_FLAG_GLOBAl},
+  { &key_rwlock_LOCK_use_ssl, "LOCK_use_ssl", PSI_FLAG_GLOBAL},
 #endif /* HAVE_OPENSSL */
 
   { &key_BINLOG_LOCK_commit, "MYSQL_BIN_LOG::LOCK_commit", 0 },
