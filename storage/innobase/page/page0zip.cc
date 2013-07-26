@@ -3499,8 +3499,9 @@ err_exit:
 #endif /* !UNIV_HOTBACKUP */
 
 	if (heap_ptr) {
-		ut_ad(index_ptr);
-		*index_ptr = index;
+		if (index_ptr) {
+			*index_ptr = index;
+		}
 		*heap_ptr = heap;
 	} else {
 		ut_ad(!index_ptr);
@@ -3574,17 +3575,12 @@ page_zip_validate_low(
 	page_t*		temp_page;
 	ibool		valid;
 	mem_heap_t* heap = NULL;
-	dict_index_t* temp_index = NULL;
-	const rec_t* rec1;
-	const rec_t* rec2;
-	ulint offs1;
-	ulint offs2;
-	ulint extra_size1;
-	ulint extra_size2;
-	ulint data_size1;
-	ulint data_size2;
-	ulint* offsets1 = NULL;
-	ulint* offsets2 = NULL;
+	dict_index_t**	index_ptr;
+	if (index) {
+		index_ptr = NULL;
+	} else {
+		index_ptr = (dict_index_t**)(&index);
+	}
 
 	if (memcmp(page_zip->data + FIL_PAGE_PREV, page + FIL_PAGE_PREV,
 		   FIL_PAGE_LSN - FIL_PAGE_PREV)
@@ -3630,7 +3626,7 @@ page_zip_validate_low(
 
 	temp_page_zip = *page_zip;
 	valid = page_zip_decompress_low(&temp_page_zip, temp_page, TRUE, 0,
-	                                &heap, &temp_index);
+	                                &heap, index_ptr);
 	if (!valid) {
 		fputs("page_zip_validate(): failed to decompress\n", stderr);
 		goto func_exit;
@@ -3667,7 +3663,6 @@ page_zip_validate_low(
 		are performing a sloppy validation. */
 
 		ulint*		offsets;
-		mem_heap_t*	heap;
 		const rec_t*	rec;
 		const rec_t*	trec;
 		byte		info_bits_diff;
@@ -3701,67 +3696,6 @@ page_zip_validate_low(
 			}
 		}
 
-		/* If the actual data doesn't match, go over the records one by one.
-		Traverse the list of sorted records in the collation order,
-		starting from the first user record. */
-		rec1 = page + PAGE_NEW_INFIMUM;
-		rec2 = temp_page + PAGE_NEW_INFIMUM;
-		while (true) {
-			offs1 = rec_get_next_offs(rec1, TRUE);
-			offs2 = rec_get_next_offs(rec2, TRUE);
-			if (UNIV_UNLIKELY(offs1 == PAGE_NEW_SUPREMUM)) {
-				ut_a(offs2 == PAGE_NEW_SUPREMUM);
-				goto func_exit;
-			}
-			ut_a(offs2 != PAGE_NEW_SUPREMUM);
-			rec1 = page + offs1;
-			rec2 = temp_page + offs2;
-			offsets1 = rec_get_offsets(rec1, index, offsets1,
-			                           ULINT_UNDEFINED, &heap);
-			offsets2 = rec_get_offsets(rec2, index, offsets2,
-			                           ULINT_UNDEFINED, &heap);
-			extra_size1 = rec_offs_extra_size(offsets1);
-			extra_size2 = rec_offs_extra_size(offsets2);
-			data_size1 = rec_offs_data_size(offsets1);
-			data_size2 = rec_offs_data_size(offsets2);
-			if (extra_size1 != extra_size2) {
-				fprintf(stderr,
-				        "page_zip_validate: offset sizes don't match "
-				        "offs1 = %lu, offs2 = %lu, "
-				        "extra_size1 = %lu, extra_size2 = %lu\n",
-				        offs1, offs2, extra_size1, extra_size2);
-				valid = FALSE;
-				goto func_exit;
-			}
-			if (memcmp(rec1 - extra_size1,
-			           rec2 - extra_size1,
-				         extra_size1)) {
-				fprintf(stderr,
-				        "page_zip_validate: data size for the records do not "
-				        "match offs1 = %lu, offs2 = %lu extra_size = %lu\n",
-				        offs1, offs2, extra_size1);
-				valid = FALSE;
-				goto func_exit;
-			}
-			if (data_size1 != data_size2) {
-				fprintf(stderr,
-				        "page_zip_validate: data size for the records do not "
-				        "match. offs1 = %lu, offs2 = %lu, "
-				        "data_size1 = %lu, data_size2 = %lu\n",
-				        offs1, offs2, data_size1, data_size2);
-				valid = FALSE;
-				goto func_exit;
-			}
-			if (memcmp(rec1, rec2, data_size1)) {
-				fprintf(stderr,
-				        "page_zip_validate: record data is not identical. "
-				        "offs1 = %lu, off2 = %lu, data_size = %lu\n",
-				        offs1, offs2, data_size1);
-				valid = FALSE;
-				goto func_exit;
-			}
-		}
-
 		/* Compare the pointers in the PAGE_FREE list. */
 		rec = page_header_get_ptr(page, PAGE_FREE);
 		trec = page_header_get_ptr(temp_page, PAGE_FREE);
@@ -3781,7 +3715,6 @@ page_zip_validate_low(
 		}
 
 		/* Compare the records. */
-		heap = NULL;
 		offsets = NULL;
 		rec = page_rec_get_next_low(
 			page + PAGE_NEW_INFIMUM, TRUE);
@@ -3798,31 +3731,29 @@ page_zip_validate_low(
 				break;
 			}
 
-			if (index) {
-				/* Compare the data. */
-				offsets = rec_get_offsets(
-					rec, index, offsets,
-					ULINT_UNDEFINED, &heap);
+			/* Compare the data. */
+			offsets = rec_get_offsets(
+				rec, index, offsets,
+				ULINT_UNDEFINED, &heap);
 
-				if (memcmp(rec - rec_offs_extra_size(offsets),
-					   trec - rec_offs_extra_size(offsets),
-					   rec_offs_size(offsets))) {
-					page_zip_fail(
-						("page_zip_validate: "
-						 "record content: 0x%02x",
-						 (unsigned) page_offset(rec)));
-					valid = FALSE;
-					break;
-				}
+			if (memcmp(rec - rec_offs_extra_size(offsets),
+				   trec - rec_offs_extra_size(offsets),
+				   rec_offs_size(offsets))) {
+				page_zip_fail(
+					("page_zip_validate: "
+					 "record content: 0x%02x",
+					 (unsigned) page_offset(rec)));
+				valid = FALSE;
+				break;
 			}
 
 			rec = page_rec_get_next_low(rec, TRUE);
 			trec = page_rec_get_next_low(trec, TRUE);
 		} while (rec || trec);
+	}
 
-		if (heap) {
-			mem_heap_free(heap);
-		}
+	if (heap) {
+		mem_heap_free(heap);
 	}
 
 func_exit:
