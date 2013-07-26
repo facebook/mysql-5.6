@@ -5562,7 +5562,7 @@ found:
 	 * thread picks it up (post completion). */
 	if (slot->type == OS_FILE_WRITE
 	    && innobase_histogram_step_size_async_write)
-		latency_histogram_increment(&histogram_async_read,
+		latency_histogram_increment(&histogram_async_write,
 			now-slot->reservation_time, 1);
 	else if (innobase_histogram_step_size_async_read)
 		latency_histogram_increment(&histogram_async_read,

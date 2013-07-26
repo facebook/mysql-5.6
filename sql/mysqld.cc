@@ -3226,7 +3226,7 @@ static int latency_histogram_bin_search(latency_histogram* current_histogram,
                          const ulonglong value)
 {
   return min((int)(value/current_histogram->step_size),
-                   (int)current_histogram->num_bins);
+                   (int)current_histogram->num_bins-1);
 }
 
 /**
