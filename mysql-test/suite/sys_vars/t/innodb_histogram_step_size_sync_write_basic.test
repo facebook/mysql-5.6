@@ -56,6 +56,10 @@ SELECT COUNT(@@SESSION.innodb_histogram_step_size_sync_write);
 SET @@GLOBAL.innodb_histogram_step_size_sync_write='32';
 --echo Expected error 'Variable cannot be set to this value';
 
+SET @@GLOBAL.innodb_histogram_step_size_sync_write='0';
+select @@GLOBAL.innodb_histogram_step_size_sync_write;
+--echo 0 Expected
+
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.innodb_histogram_step_size_sync_write='ms32';
 --echo Expected error 'Variable cannot be set to this value';

@@ -56,6 +56,10 @@ SELECT COUNT(@@SESSION.histogram_step_size_binlog_fsync);
 SET @@GLOBAL.histogram_step_size_binlog_fsync='32';
 --echo Expected error 'Variable cannot be set to this value';
 
+SET @@GLOBAL.histogram_step_size_binlog_fsync='0';
+select @@GLOBAL.histogram_step_size_binlog_fsync;
+--echo 0 Expected
+
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.histogram_step_size_binlog_fsync='ms32';
 --echo Expected error 'Variable cannot be set to this value';

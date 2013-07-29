@@ -136,4 +136,12 @@ Bucket 192 to 208 ms	COUNT
 Bucket 208 to 224 ms	COUNT
 Bucket 224 to 240 ms	COUNT
 --------------	
+Histogram for Async Reads validated
+Histogram for Async Writes validated
+Histogram for Sync Reads validated
+Histogram for Sync Writes validated
+Histogram for Log Writes validated
+Histogram for Doublebuffer Writes validated
+Histogram for Fsyncs validated
+
 Done

@@ -3203,7 +3203,11 @@ void latency_histogram_init(latency_histogram* current_histogram,
       current_histogram->step_size = microseconds_to_my_timer(
                                               step_size_base_time);
     }
+    /* Special case when step size is passed to be '0' */
+    else if (*histogram_unit == '\0' && step_size_base_time == 0.0)
+      current_histogram->step_size = 0;
     else  {
+      current_histogram->step_size = 0;
       sql_print_error("Invalid units given to histogram step size.");
       return;
     }
@@ -3285,6 +3289,9 @@ int histogram_validate_step_size_string(const char* step_size_with_unit)
         && strcmp(histogram_unit, "s"))
       ret = 1;
   }
+  /* Special case when step size is passed to be '0' */
+  else if (*histogram_unit == '\0' && histogram_step_size == 0.0)
+    return 0;
   else
     ret = 1;
   return ret;
