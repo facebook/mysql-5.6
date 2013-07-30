@@ -56,6 +56,10 @@ SELECT COUNT(@@SESSION.histogram_step_size_delete_command);
 SET @@GLOBAL.histogram_step_size_delete_command='32';
 --echo Expected error 'Variable cannot be set to this value';
 
+SET @@GLOBAL.histogram_step_size_delete_command='0';
+select @@GLOBAL.histogram_step_size_delete_command;
+--echo 0 Expected
+
 --Error ER_WRONG_VALUE_FOR_VAR
 SET @@GLOBAL.histogram_step_size_delete_command='ms32';
 --echo Expected error 'Variable cannot be set to this value';

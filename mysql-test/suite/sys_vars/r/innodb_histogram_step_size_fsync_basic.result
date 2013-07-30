@@ -40,6 +40,11 @@ Expected error 'Variable is a GLOBAL variable'
 SET @@GLOBAL.innodb_histogram_step_size_fsync='32';
 ERROR 42000: Variable 'innodb_histogram_step_size_fsync' can't be set to the value of '32'
 Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_fsync='0';
+select @@GLOBAL.innodb_histogram_step_size_fsync;
+@@GLOBAL.innodb_histogram_step_size_fsync
+0
+0 Expected
 SET @@GLOBAL.innodb_histogram_step_size_fsync='ms32';
 ERROR 42000: Variable 'innodb_histogram_step_size_fsync' can't be set to the value of 'ms32'
 Expected error 'Variable cannot be set to this value';
