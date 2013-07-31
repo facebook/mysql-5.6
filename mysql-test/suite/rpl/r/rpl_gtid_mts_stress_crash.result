@@ -26,5 +26,4 @@ select time_to_sec(@m_1) - time_to_sec(@m_0) as 'delta.out';
 include/stop_slave.inc
 change master to master_auto_position=0;
 include/start_slave.inc
-Warnings:
 include/rpl_end.inc
