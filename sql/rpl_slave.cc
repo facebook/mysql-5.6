@@ -3047,15 +3047,18 @@ static inline bool slave_sleep(THD *thd, time_t seconds,
 }
 
 static int request_dump(THD *thd, MYSQL* mysql, Master_info* mi,
-                        bool *suppress_warnings)
+                        bool *suppress_warnings, my_bool use_com_binlog_dump)
 {
   DBUG_ENTER("request_dump");
 
   const int BINLOG_NAME_INFO_SIZE= strlen(mi->get_master_log_name());
   int error= 1;
   size_t command_size= 0;
-  enum_server_command command= mi->is_auto_position() ?
-    COM_BINLOG_DUMP_GTID : COM_BINLOG_DUMP;
+  enum_server_command command;
+  if (mi->is_auto_position() && !use_com_binlog_dump)
+    command = COM_BINLOG_DUMP_GTID;
+  else
+    command = COM_BINLOG_DUMP;
   uchar* command_buffer= NULL;
   ushort binlog_flags= 0;
 
@@ -4139,6 +4142,7 @@ pthread_handler_t handle_slave_io(void *arg)
   Relay_log_info *rli= mi->rli;
   char llbuff[22];
   uint retry_count;
+  my_bool use_com_binlog_dump = 0;
   bool suppress_warnings;
   int ret;
   int binlog_version;
@@ -4304,7 +4308,8 @@ connected:
   while (!io_slave_killed(thd,mi))
   {
     THD_STAGE_INFO(thd, stage_requesting_binlog_dump);
-    if (request_dump(thd, mysql, mi, &suppress_warnings))
+    my_bool cur_conn_used_com_binlog_dump = use_com_binlog_dump;
+    if (request_dump(thd, mysql, mi, &suppress_warnings, use_com_binlog_dump))
     {
       sql_print_error("Failed on request_dump()");
       if (check_io_slave_killed(thd, mi, "Slave I/O thread killed while \
@@ -4410,6 +4415,12 @@ Stopping slave I/O thread due to out-of-memory error from master");
                    "could not queue event from master");
         goto err;
       }
+      // This should be set only after successfully receiving an event from
+      // master i.e; after queue_event(), otherwise slave io_thread may
+      // end up using stale master_log_name and master_log_pos when connecting
+      // with master using COM_BINLOG_DUMP. Note that master_log_name and
+      // master_log_pos are updated inside queue_event().
+      use_com_binlog_dump = 1;
 
       if (RUN_HOOK(binlog_relay_io, after_queue_event,
                    (thd, mi, event_buf, event_len, synced)))
