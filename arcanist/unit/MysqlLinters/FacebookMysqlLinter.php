@@ -10,6 +10,7 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 	const LINT_TRAILING_WHITESPACE	= 4;
 
 	private $maxLineLength = 80;
+	private $fileData;
 
 	public function setMaxLineLength($new_length) {
 		$this->maxLineLength = $new_length;
@@ -59,20 +60,22 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 			return;
 		}
 
-		if (!strlen($this->getData($path))) {
+		$this->fileData = $this->getData($path);
+
+		if (!strlen($this->fileData)) {
 			/* If the file is empty, then we don't require to
 			add a new line */
 			return;
 		}
 
-		$this->lintNewLines($path);
-		$this->lintLineLength($path);
-		$this->lintEOFNewline($path);
-		$this->lintTrailingWhitespace($path);
+		$this->lintNewLines();
+		$this->lintLineLength();
+		$this->lintEOFNewline();
+		$this->lintTrailingWhitespace();
 	}
 
-	protected function lintNewlines($path) {
-		$pos = strpos($this->getData($path), "\r");
+	protected function lintNewlines() {
+		$pos = strpos($this->fileData, "\r");
 		if ($pos !== false) {
 			$this->raiseLintAtOffset(
 				$pos,
@@ -82,8 +85,8 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 		}
 	}
 
-	protected function lintLineLength($path) {
-		$lines = explode("\n", $this->getData($path));
+	protected function lintLineLength() {
+		$lines = explode("\n", $this->fileData);
 		$width = $this->maxLineLength;
 		$tabLength = 8;
 		foreach ($lines as $line_idx => $line) {
@@ -110,11 +113,11 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 		}
 	}
 
-	protected function lintEOFNewline($path) {
-		$data = $this->getData($path);
-		if (!strlen($data) || $data[strlen($data) - 1] != "\n") {
+	protected function lintEOFNewline() {
+		$len = strlen($this->fileData);
+		if (!$len || $this->fileData[$len - 1] != "\n") {
 			$this->raiseLintAtOffset(
-				strlen($data),
+				$len,
 				self::LINT_EOF_NEWLINE,
 				"Files must end in a newline.",
 				'',
@@ -122,13 +125,11 @@ final class FacebookMysqlLinter extends ArcanistLinter {
 		}
 	}
 
-	protected function lintTrailingWhitespace($path) {
-		$data = $this->getData($path);
-
+	protected function lintTrailingWhitespace() {
 		$matches = null;
 		$preg = preg_match_all(
 			'/[ \t]+$/m',
-			$data,
+			$this->fileData,
 			$matches,
 			PREG_OFFSET_CAPTURE);
 
