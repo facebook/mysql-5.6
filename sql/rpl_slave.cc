@@ -3035,15 +3035,18 @@ static inline bool slave_sleep(THD *thd, time_t seconds,
 }
 
 static int request_dump(THD *thd, MYSQL* mysql, Master_info* mi,
-                        bool *suppress_warnings)
+                        bool *suppress_warnings, ulong request_dump_count)
 {
   DBUG_ENTER("request_dump");
 
   const int BINLOG_NAME_INFO_SIZE= strlen(mi->get_master_log_name());
   int error= 1;
   size_t command_size= 0;
-  enum_server_command command= mi->is_auto_position() ?
-    COM_BINLOG_DUMP_GTID : COM_BINLOG_DUMP;
+  enum_server_command command;
+  if (mi->is_auto_position() && request_dump_count == 0)
+    command = COM_BINLOG_DUMP_GTID;
+  else
+    command = COM_BINLOG_DUMP;
   uchar* command_buffer= NULL;
   ushort binlog_flags= 0;
 
@@ -4122,6 +4125,7 @@ pthread_handler_t handle_slave_io(void *arg)
   Relay_log_info *rli= mi->rli;
   char llbuff[22];
   uint retry_count;
+  ulong request_dump_count = 0;
   bool suppress_warnings;
   int ret;
   int binlog_version;
@@ -4287,7 +4291,7 @@ connected:
   while (!io_slave_killed(thd,mi))
   {
     THD_STAGE_INFO(thd, stage_requesting_binlog_dump);
-    if (request_dump(thd, mysql, mi, &suppress_warnings))
+    if (request_dump(thd, mysql, mi, &suppress_warnings, request_dump_count++))
     {
       sql_print_error("Failed on request_dump()");
       if (check_io_slave_killed(thd, mi, "Slave I/O thread killed while \
