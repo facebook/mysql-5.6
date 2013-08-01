@@ -1614,6 +1614,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       /* save this flag for next iteration */
       last_skip_group= skip_group;
 
+      DBUG_EXECUTE_IF("slave_missing_gtid",
+                      {
+                        if (event_type == QUERY_EVENT)
+                        {
+                          net_flush(net);
+                          DBUG_SUICIDE();
+                        }
+                      }
+                     );
       if (skip_group == false && my_net_write(net, (uchar*) packet->ptr(), packet->length()))
       {
         errmsg = "Failed on my_net_write()";

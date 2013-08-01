@@ -1,0 +1,49 @@
+-- source include/master-slave.inc
+-- source include/have_gtid.inc
+-- source include/have_debug.inc
+-- source include/not_valgrind.inc
+
+-- let $old_debug = `select @@global.debug;`
+connection master;
+create table t1(a int);
+sync_slave_with_master;
+-- source include/stop_slave.inc
+change master to master_auto_position=1;
+-- source include/start_slave.inc
+
+connection master;
+insert into t1 values(1);
+sync_slave_with_master;
+
+connection master;
+-- exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+set global debug='d,slave_missing_gtid';
+-- error 0,2013
+insert into t1 values (2);
+-- let $rpl_server_number = 1
+-- source include/rpl_reconnect.inc
+-- eval SET GLOBAL debug = `$old_debug`
+
+# Restart slave I/O thread which may be in the process of reconnecting to
+# master. sync_slave_with_master changes the default timeout value from 300
+# seconds to 1 second in some cases. If slave I/O thread is in the
+# process of reconnect which is exactly the scenario here, changing the timeout
+# to 1 second would increase the chances of hitting the timeout error.
+
+connection slave;
+disable_warnings;
+source include/stop_slave_io.inc;
+enable_warnings;
+source include/start_slave_io.inc;
+
+connection master;
+sync_slave_with_master;
+select * from t1;
+connection master;
+drop table t1;
+sync_slave_with_master;
+-- source include/stop_slave.inc
+change master to master_auto_position=0;
+-- source include/start_slave.inc
+connection master;
+-- source include/rpl_end.inc
