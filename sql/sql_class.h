@@ -2592,7 +2592,7 @@ public:
       bool xid_written;               // The session wrote an XID
       bool real_commit;               // Is this a "real" commit?
       bool commit_low;                // see MYSQL_BIN_LOG::ordered_commit
-      bool run_hooks;                 // Call the after_commit hook
+      bool run_hooks;                 // Call the before_commit hook
 #ifndef DBUG_OFF
       bool ready_preempt;             // internal in MYSQL_BIN_LOG::ordered_commit
 #endif
