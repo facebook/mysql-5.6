@@ -115,6 +115,7 @@ public:
   enum StageID {
     FLUSH_STAGE,
     SYNC_STAGE,
+    SEMISYNC_STAGE,
     COMMIT_STAGE,
     STAGE_COUNTER
   };
@@ -123,6 +124,7 @@ public:
 #ifdef HAVE_PSI_INTERFACE
             PSI_mutex_key key_LOCK_flush_queue,
             PSI_mutex_key key_LOCK_sync_queue,
+            PSI_mutex_key key_LOCK_semisync_queue,
             PSI_mutex_key key_LOCK_commit_queue,
             PSI_mutex_key key_LOCK_done,
             PSI_cond_key key_COND_done
@@ -143,6 +145,11 @@ public:
     m_queue[SYNC_STAGE].init(
 #ifdef HAVE_PSI_INTERFACE
                              key_LOCK_sync_queue
+#endif
+                             );
+    m_queue[SEMISYNC_STAGE].init(
+#ifdef HAVE_PSI_INTERFACE
+                             key_LOCK_semisync_queue
 #endif
                              );
     m_queue[COMMIT_STAGE].init(
@@ -252,11 +259,14 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   PSI_mutex_key m_key_COND_done;
 
   PSI_mutex_key m_key_LOCK_commit_queue;
+  PSI_mutex_key m_key_LOCK_semisync_queue;
   PSI_mutex_key m_key_LOCK_done;
   PSI_mutex_key m_key_LOCK_flush_queue;
   PSI_mutex_key m_key_LOCK_sync_queue;
   /** The instrumentation key to use for @ LOCK_commit. */
   PSI_mutex_key m_key_LOCK_commit;
+  /** The instrumentation key to use for @ LOCK_semisync. */
+  PSI_mutex_key m_key_LOCK_semisync;
   /** The instrumentation key to use for @ LOCK_sync. */
   PSI_mutex_key m_key_LOCK_sync;
   /** The instrumentation key to use for @ LOCK_xids. */
@@ -273,6 +283,7 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   /* POSIX thread objects are inited by init_pthread_objects() */
   mysql_mutex_t LOCK_index;
   mysql_mutex_t LOCK_commit;
+  mysql_mutex_t LOCK_semisync;
   mysql_mutex_t LOCK_sync;
   mysql_mutex_t LOCK_xids;
   mysql_cond_t update_cond;
@@ -439,6 +450,8 @@ public:
   void set_psi_keys(PSI_mutex_key key_LOCK_index,
                     PSI_mutex_key key_LOCK_commit,
                     PSI_mutex_key key_LOCK_commit_queue,
+                    PSI_mutex_key key_LOCK_semisync,
+                    PSI_mutex_key key_LOCK_semisync_queue,
                     PSI_mutex_key key_LOCK_done,
                     PSI_mutex_key key_LOCK_flush_queue,
                     PSI_mutex_key key_LOCK_log,
@@ -454,6 +467,7 @@ public:
     m_key_COND_done= key_COND_done;
 
     m_key_LOCK_commit_queue= key_LOCK_commit_queue;
+    m_key_LOCK_semisync_queue = key_LOCK_semisync_queue;
     m_key_LOCK_done= key_LOCK_done;
     m_key_LOCK_flush_queue= key_LOCK_flush_queue;
     m_key_LOCK_sync_queue= key_LOCK_sync_queue;
@@ -461,6 +475,7 @@ public:
     m_key_LOCK_index= key_LOCK_index;
     m_key_LOCK_log= key_LOCK_log;
     m_key_LOCK_commit= key_LOCK_commit;
+    m_key_LOCK_semisync = key_LOCK_semisync;
     m_key_LOCK_sync= key_LOCK_sync;
     m_key_LOCK_xids= key_LOCK_xids;
     m_key_update_cond= key_update_cond;
@@ -517,14 +532,13 @@ private:
 
   int open(const char *opt_name) { return open_binlog(opt_name); }
   bool change_stage(THD *thd, Stage_manager::StageID stage,
-                    THD* queue, mysql_mutex_t *leave,
-                    mysql_mutex_t *enter);
+                    THD* queue, mysql_mutex_t *leave, mysql_mutex_t *enter);
   std::pair<int,my_off_t> flush_thread_caches(THD *thd, bool async);
   int flush_cache_to_file(my_off_t *flush_end_pos);
   int finish_commit(THD *thd, bool async);
   std::pair<bool, bool> sync_binlog_file(bool force, bool async);
+  void process_semisync_stage_queue(THD *queue_head);
   void process_commit_stage_queue(THD *thd, THD *queue, bool async);
-  void process_after_commit_stage_queue(THD *thd, THD *first, bool async);
   int process_flush_stage_queue(my_off_t *total_bytes_var, bool *rotate_var,
                                 THD **out_queue_var, bool async);
   int ordered_commit(THD *thd, bool all, bool skip_commit = false,

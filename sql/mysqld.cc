@@ -4343,6 +4343,8 @@ int init_common_variables(my_bool logging)
   mysql_bin_log.set_psi_keys(key_BINLOG_LOCK_index,
                              key_BINLOG_LOCK_commit,
                              key_BINLOG_LOCK_commit_queue,
+                             key_BINLOG_LOCK_semisync,
+                             key_BINLOG_LOCK_semisync_queue,
                              key_BINLOG_LOCK_done,
                              key_BINLOG_LOCK_flush_queue,
                              key_BINLOG_LOCK_log,
@@ -10458,6 +10460,8 @@ PSI_rwlock_key key_rwlock_LOCK_use_ssl;
 
 PSI_mutex_key key_BINLOG_LOCK_commit;
 PSI_mutex_key key_BINLOG_LOCK_commit_queue;
+PSI_mutex_key key_BINLOG_LOCK_semisync;
+PSI_mutex_key key_BINLOG_LOCK_semisync_queue;
 PSI_mutex_key key_BINLOG_LOCK_done;
 PSI_mutex_key key_BINLOG_LOCK_flush_queue;
 PSI_mutex_key key_BINLOG_LOCK_index;
@@ -10494,6 +10498,8 @@ PSI_mutex_key
 PSI_mutex_key key_LOCK_thd_remove;
 PSI_mutex_key key_RELAYLOG_LOCK_commit;
 PSI_mutex_key key_RELAYLOG_LOCK_commit_queue;
+PSI_mutex_key key_RELAYLOG_LOCK_semisync;
+PSI_mutex_key key_RELAYLOG_LOCK_semisync_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_done;
 PSI_mutex_key key_RELAYLOG_LOCK_flush_queue;
 PSI_mutex_key key_RELAYLOG_LOCK_index;
@@ -10524,6 +10530,8 @@ static PSI_mutex_info all_server_mutexes[]=
 
   { &key_BINLOG_LOCK_commit, "MYSQL_BIN_LOG::LOCK_commit", 0 },
   { &key_BINLOG_LOCK_commit_queue, "MYSQL_BIN_LOG::LOCK_commit_queue", 0 },
+  { &key_BINLOG_LOCK_semisync, "MYSQL_BIN_LOG::LOCK_semisync", 0 },
+  { &key_BINLOG_LOCK_semisync_queue, "MYSQL_BIN_LOG::LOCK_semisync_queue", 0 },
   { &key_BINLOG_LOCK_done, "MYSQL_BIN_LOG::LOCK_done", 0 },
   { &key_BINLOG_LOCK_flush_queue, "MYSQL_BIN_LOG::LOCK_flush_queue", 0 },
   { &key_BINLOG_LOCK_index, "MYSQL_BIN_LOG::LOCK_index", 0},

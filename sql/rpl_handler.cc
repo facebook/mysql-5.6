@@ -216,6 +216,25 @@ void delegates_destroy()
   delete_dynamic(plugins)
 
 
+int Trans_delegate::before_commit(THD *thd, bool all)
+{
+  DBUG_ENTER("Trans_delegate::before_commit");
+  Trans_param param = { 0, 0, 0, 0 };
+  bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
+
+  if (is_real_trans)
+    param.flags = true;
+
+  thd->get_trans_fixed_pos(&param.log_file, &param.log_pos);
+
+  DBUG_PRINT("enter", ("log_file: %s, log_pos: %llu",
+                       param.log_file, param.log_pos));
+
+  int ret= 0;
+  FOREACH_OBSERVER(ret, before_commit, thd, (&param));
+  DBUG_RETURN(ret);
+}
+
 int Trans_delegate::after_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::after_commit");

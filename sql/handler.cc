@@ -425,7 +425,6 @@ handlerton *ha_checktype(THD *thd, enum legacy_db_type database_type,
     return NULL;
   }
 
-  (void) RUN_HOOK(transaction, after_rollback, (thd, FALSE));
 
   switch (database_type) {
   case DB_TYPE_MRG_ISAM:
@@ -1543,12 +1542,9 @@ end:
                    issued by DDL. Is not set when called
                    at the end of statement, even if
                    autocommit=1.
-  @param[in]  run_after_commit
-                   True by default, otherwise, does not execute
-                   the after_commit hook in the function.
 */
 
-int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit)
+int ha_commit_low(THD *thd, bool all, bool async)
 {
   int error=0;
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
@@ -1596,19 +1592,6 @@ int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit)
     was called.
   */
   thd->transaction.flags.commit_low= false;
-  if (run_after_commit && thd->transaction.flags.run_hooks)
-  {
-    /*
-       If commit succeeded, we call the after_commit hook.
-
-       TODO: Investigate if this can be refactored so that there is
-             only one invocation of this hook in the code (in
-             MYSQL_LOG_BIN::finish_commit).
-    */
-    if (!error)
-      (void) RUN_HOOK(transaction, after_commit, (thd, all));
-    thd->transaction.flags.run_hooks= false;
-  }
   DBUG_RETURN(error);
 }
 
@@ -1653,7 +1636,6 @@ int ha_rollback_low(THD *thd, bool all)
       thd->transaction.xid_state.xa_state != XA_NOTR)
     thd->transaction.xid_state.rm_error= thd->get_stmt_da()->sql_errno();
 
-  (void) RUN_HOOK(transaction, after_rollback, (thd, all));
   return error;
 }
 

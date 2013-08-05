@@ -132,6 +132,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   relay_log.set_psi_keys(key_RELAYLOG_LOCK_index,
                          key_RELAYLOG_LOCK_commit,
                          key_RELAYLOG_LOCK_commit_queue,
+                         key_RELAYLOG_LOCK_semisync,
+                         key_RELAYLOG_LOCK_semisync_queue,
                          key_RELAYLOG_LOCK_done,
                          key_RELAYLOG_LOCK_flush_queue,
                          key_RELAYLOG_LOCK_log,
