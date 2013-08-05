@@ -58,6 +58,19 @@ typedef struct Trans_observer {
   uint32 len;
 
   /**
+     This callback is called before transaction commit
+     and after binlog sync.
+
+     For both non-transactional tables and transactional
+     tables this is called after binlog sync.
+
+     @param param The parameter for transaction observers
+
+     @retval 0 Sucess
+     @retval 1 Failure
+  */
+  int (*before_commit)(Trans_param *param);
+  /**
      This callback is called after transaction commit
      
      This callback is called right after commit to storage engines for
