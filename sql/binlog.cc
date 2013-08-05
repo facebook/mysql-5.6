@@ -2488,6 +2488,7 @@ void MYSQL_BIN_LOG::cleanup()
     mysql_mutex_destroy(&LOCK_log);
     mysql_mutex_destroy(&LOCK_index);
     mysql_mutex_destroy(&LOCK_commit);
+    mysql_mutex_destroy(&LOCK_semisync);
     mysql_mutex_destroy(&LOCK_sync);
     mysql_mutex_destroy(&LOCK_xids);
     mysql_cond_destroy(&update_cond);
@@ -2504,6 +2505,7 @@ void MYSQL_BIN_LOG::init_pthread_objects()
   MYSQL_LOG::init_pthread_objects();
   mysql_mutex_init(m_key_LOCK_index, &LOCK_index, MY_MUTEX_INIT_SLOW);
   mysql_mutex_init(m_key_LOCK_commit, &LOCK_commit, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_semisync, &LOCK_semisync, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_sync, &LOCK_sync, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond, 0);
@@ -2513,6 +2515,7 @@ void MYSQL_BIN_LOG::init_pthread_objects()
 #ifdef HAVE_PSI_INTERFACE
                    m_key_LOCK_flush_queue,
                    m_key_LOCK_sync_queue,
+                   m_key_LOCK_semisync_queue,
                    m_key_LOCK_commit_queue,
                    m_key_LOCK_done, m_key_COND_done
 #endif
@@ -4894,8 +4897,6 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     mysql_mutex_lock(&LOCK_log);
   else
     mysql_mutex_assert_owner(&LOCK_log);
-  DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
-                  DEBUG_SYNC(current_thd, "before_rotate_binlog"););
   mysql_mutex_lock(&LOCK_xids);
   /*
     We need to ensure that the number of prepared XIDs are 0.
@@ -5599,6 +5600,7 @@ void MYSQL_BIN_LOG::lock_commits(void)
 {
   mysql_mutex_lock(&LOCK_log);
   mysql_mutex_lock(&LOCK_sync);
+  mysql_mutex_lock(&LOCK_semisync);
   mysql_mutex_lock(&LOCK_commit);
 }
 
@@ -5614,6 +5616,7 @@ void MYSQL_BIN_LOG::unlock_commits(char* binlog_file, ulonglong* binlog_pos,
   *gtid_executed_length = logged_gtids->get_string_length();
   global_sid_lock->unlock();
   mysql_mutex_unlock(&LOCK_commit);
+  mysql_mutex_unlock(&LOCK_semisync);
   mysql_mutex_unlock(&LOCK_sync);
   mysql_mutex_unlock(&LOCK_log);
 }
@@ -6806,7 +6809,7 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
         /*
           storage engine commit
         */
-        if (ha_commit_low(head, all, async, false))
+        if (ha_commit_low(head, all, async))
           head->commit_error= THD::CE_COMMIT_ERROR;
       }
       DBUG_PRINT("debug", ("commit_error: %d, flags.pending: %s",
@@ -6825,38 +6828,40 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
 }
 
 /**
-  Process after commit for a sequence of sessions.
+  Scans the semisync queue and calls before_commit hook
+  using the last thread in the queue.
 
-  @param thd The "master" thread
-  @param first First thread in the queue of threads to commit
- */
+  @param queue_head  Head of the semisync stage queue.
 
+  Note that this should be used only for semisync wait.
+*/
 void
-MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
-						bool async)
+MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
 {
-  Thread_excursion excursion(thd);
-  for (THD *head= first; head; head= head->next_to_commit)
-  {
-    if (head->transaction.flags.run_hooks &&
-        head->commit_error == THD::CE_NONE)
-    {
+   THD *last_thd = NULL;
+   for (THD *thd = queue_head; thd != NULL; thd = thd->next_to_commit)
+   {
+      // run_hooks is set to true in ordered_commit() if storage
+      // engine commit is required.
+      if (thd->transaction.flags.run_hooks &&
+          thd->commit_error == THD::CE_NONE)
+      {
+        last_thd = thd;
+        // setting run_hooks to false allows other parts of the system to
+        // check if before commit hook is called for this thread.
+        // Also this avoids assertion in finish_commit.
+        thd->transaction.flags.run_hooks = false;
+      }
+   }
 
-      /*
-        TODO: This hook here should probably move outside/below this
-              if and be the only after_commit invocation left in the
-              code.
-      */
-      excursion.try_to_attach_to(head);
-      bool all= head->transaction.flags.real_commit;
-      (void) RUN_HOOK(transaction, after_commit, (head, all));
-      /*
-        When after_commit finished for the transaction, clear the run_hooks flag.
-        This allow other parts of the system to check if after_commit was called.
-      */
-      head->transaction.flags.run_hooks= false;
-    }
-  }
+   if (last_thd)
+   {
+     // Since flush ordered is maintained even in the semisync stage
+     // calling hook for the last valid thd is sufficient since it
+     // will have the maximum binlog position.
+     (void) RUN_HOOK(transaction, before_commit,
+                     (last_thd, last_thd->transaction.flags.real_commit));
+   }
 }
 
 #ifndef DBUG_OFF
@@ -6864,6 +6869,7 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
 static const char* g_stage_name[] = {
   "FLUSH",
   "SYNC",
+  "SEMISYNC",
   "COMMIT",
 };
 #endif
@@ -6886,10 +6892,11 @@ static const char* g_stage_name[] = {
   The function will lock the stage mutex if it was designated the
   leader for the phase.
 
-  @param thd    Session structure
-  @param stage  The stage to enter
-  @param queue  Queue of threads to enqueue for the stage
-  @param stage_mutex Mutex for the stage
+  @param thd                Session structure
+  @param stage              The stage to enter
+  @param queue              Queue of threads to enqueue for the stage
+  @param leave_mutex        Mutex which will be released
+  @param enter_mutex        Mutex which will be acquired
 
   @retval true  The thread should "bail out" and go waiting for the
                 commit to finish
@@ -7000,25 +7007,13 @@ MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
       storage engine commit
     */
     if (thd->commit_error == THD::CE_NONE &&
-        ha_commit_low(thd, all, async, false))
+        ha_commit_low(thd, all, async))
       thd->commit_error= THD::CE_COMMIT_ERROR;
     /*
       Decrement the prepared XID counter after storage engine commit
     */
     if (thd->transaction.flags.xid_written)
       dec_prep_xids(thd);
-    /*
-      If commit succeeded, we call the after_commit hook
-
-      TODO: This hook here should probably move outside/below this
-            if and be the only after_commit invocation left in the
-            code.
-    */
-    if ((thd->commit_error == THD::CE_NONE) && thd->transaction.flags.run_hooks)
-    {
-      (void) RUN_HOOK(transaction, after_commit, (thd, all));
-      thd->transaction.flags.run_hooks= false;
-    }
   }
   else if (thd->transaction.flags.xid_written)
     dec_prep_xids(thd);
@@ -7218,6 +7213,17 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   if (need_LOCK_log)
     mysql_mutex_unlock(&LOCK_log);
 
+  if (change_stage(thd, Stage_manager::SEMISYNC_STAGE, final_queue,
+                   &LOCK_sync, &LOCK_semisync))
+  {
+    DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
+                          thd->thread_id, thd->commit_error));
+    DBUG_RETURN(finish_commit(thd, async));
+  }
+  THD *semisync_queue =
+    stage_manager.fetch_queue_for(Stage_manager::SEMISYNC_STAGE);
+  process_semisync_stage_queue(semisync_queue);
+
   /*
     Stage #3: Commit all transactions in order.
 
@@ -7230,26 +7236,19 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   if (opt_binlog_order_commits)
   {
     if (change_stage(thd, Stage_manager::COMMIT_STAGE,
-                     final_queue, &LOCK_sync, &LOCK_commit))
+                     semisync_queue, &LOCK_semisync, &LOCK_commit))
     {
       DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
                             thd->thread_id, thd->commit_error));
       DBUG_RETURN(finish_commit(thd, async));
     }
     THD *commit_queue= stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);
-    DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
-                    DEBUG_SYNC(thd, "before_process_commit_stage_queue"););
     process_commit_stage_queue(thd, commit_queue, async);
     mysql_mutex_unlock(&LOCK_commit);
-    /*
-      Process after_commit after LOCK_commit is released for avoiding
-      3-way deadlock among user thread, rotate thread and dump thread.
-    */
-    process_after_commit_stage_queue(thd, commit_queue, async);
     final_queue= commit_queue;
   }
   else
-    mysql_mutex_unlock(&LOCK_sync);
+    mysql_mutex_unlock(&LOCK_semisync);
 
   /* Commit done so signal all waiting threads */
   stage_manager.signal_done(final_queue);
