@@ -38,7 +38,7 @@ Variable_name	Value
 Rpl_semi_sync_master_no_tx	0
 show status like 'Rpl_semi_sync_master_yes_tx';
 Variable_name	Value
-Rpl_semi_sync_master_yes_tx	2
+Rpl_semi_sync_master_yes_tx	1
 [ insert records to table ]
 [ master status after inserts ]
 show status like 'Rpl_semi_sync_master_status';
@@ -49,7 +49,7 @@ Variable_name	Value
 Rpl_semi_sync_master_no_tx	0
 show status like 'Rpl_semi_sync_master_yes_tx';
 Variable_name	Value
-Rpl_semi_sync_master_yes_tx	12
+Rpl_semi_sync_master_yes_tx	11
 set global rpl_semi_sync_master_wait_no_slave = OFF;
 show variables like 'rpl_semi_sync_master_wait_no_slave';
 Variable_name	Value
