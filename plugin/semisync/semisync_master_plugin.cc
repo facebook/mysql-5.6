@@ -48,7 +48,7 @@ int repl_semi_request_commit(Trans_param *param)
   return 0;
 }
 
-int repl_semi_report_commit(Trans_param *param)
+int repl_semi_report_before_commit(Trans_param *param)
 {
 
   bool is_real_trans= param->flags & TRANS_IS_REAL_TRANS;
@@ -61,9 +61,14 @@ int repl_semi_report_commit(Trans_param *param)
   return 0;
 }
 
+int repl_semi_report_after_commit(Trans_param *param)
+{
+  return 0;
+}
+
 int repl_semi_report_rollback(Trans_param *param)
 {
-  return repl_semi_report_commit(param);
+  return 0;
 }
 
 int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
@@ -324,9 +329,9 @@ static void fix_rpl_semi_sync_master_enabled(MYSQL_THD thd,
 
 Trans_observer trans_observer = {
   sizeof(Trans_observer),		// len
-
-  repl_semi_report_commit,	// after_commit
-  repl_semi_report_rollback,	// after_rollback
+  repl_semi_report_before_commit,       // before_commit
+  repl_semi_report_after_commit,	// after_commit
+  repl_semi_report_rollback,	        // after_rollback
 };
 
 Binlog_storage_observer storage_observer = {
