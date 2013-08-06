@@ -4490,6 +4490,8 @@ pthread_handler_t handle_slave_worker(void *arg)
   Relay_log_info* rli= w->c_rli;
   ulong purge_cnt= 0;
   ulonglong purge_size= 0;
+  ulong current_event_index = 0;
+  ulong i = 0;
   struct slave_job_item _item, *job_item= &_item;
 
   my_thread_init();
@@ -4547,10 +4549,16 @@ pthread_handler_t handle_slave_worker(void *arg)
 
   mysql_mutex_lock(&w->jobs_lock);
 
+  current_event_index = max(w->last_current_event_index,
+                            w->current_event_index);
   while(de_queue(&w->jobs, job_item))
   {
-    purge_cnt++;
-    purge_size += ((Log_event*) (job_item->data))->data_written;
+    i++;
+    if (i > current_event_index)
+    {
+      purge_size += ((Log_event*) (job_item->data))->data_written;
+      purge_cnt++;
+    }
     DBUG_ASSERT(job_item->data);
     delete static_cast<Log_event*>(job_item->data);
   }

@@ -301,6 +301,10 @@ public:
 
   Slave_jobs_queue jobs;   // assignment queue containing events to execute
   ulong current_event_index; // index of the event in current group
+  // number of events executed in the current group before temporary error.
+  // last_current_event_index is the maximum of current_event_index over
+  // several runs of same transaction or group.
+  ulong last_current_event_index;
   ulong trans_retries;  // transaction retries count by this slave worker
   mysql_mutex_t jobs_lock; // mutex for the jobs queue
   mysql_cond_t  jobs_cond; // condition variable for the jobs queue

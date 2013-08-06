@@ -106,6 +106,7 @@ Slave_worker::Slave_worker(Relay_log_info *rli
                         SLAVE_INIT_DBS_IN_GROUP, 1);
   my_init_dynamic_array(&worker_gtid_infos, sizeof(Gtid_info *), 1, 1);
   current_event_index = 0;
+  last_current_event_index = 0;
   trans_retries = 0;
   mysql_mutex_init(key_mutex_slave_parallel_worker, &jobs_lock,
                    MY_MUTEX_INIT_FAST);
@@ -167,6 +168,11 @@ int Slave_worker::init_worker(Relay_log_info * rli, ulong i)
   jobs.overfill= FALSE;    //  todo: move into Slave_jobs_queue constructor
   jobs.waited_overfill= 0;
   jobs.entry= jobs.size= c_rli->mts_slave_worker_queue_len_max;
+  DBUG_EXECUTE_IF("slave_worker_queue_size",
+                  {
+                    jobs.entry = jobs.size = 5;
+                  }
+                 );
   jobs.inited_queue= true;
   curr_group_seen_begin= curr_group_seen_gtid= false;
 
@@ -1087,6 +1093,8 @@ void Slave_worker::slave_worker_ends_group(Log_event* ev, int &error,
     if (has_temporary_error(info_thd, 0, &silent) &&
         trans_retries < slave_trans_retries)
     {
+      if (last_current_event_index < current_event_index)
+        last_current_event_index = current_event_index;
       // Retry the transaction in case of a temporary error by
       // rewinding the current_event_index to the start of the group.
       current_event_index = 0;
@@ -1825,20 +1833,44 @@ bool append_item_to_jobs(slave_job_item *job_item,
 }
 
 /*
+   Updates pending_jobs size and signals the coordinator if it is waiting
+   for some memory release by workers.
+
+   @param rli     Relay log info of the coordinator thread
+   @param ev      Current executed event
+*/
+static void slave_worker_update_pending_events(Relay_log_info *rli,
+                                               Log_event *ev)
+{
+  DBUG_ASSERT(ev);
+  mysql_mutex_lock(&rli->pending_jobs_lock);
+  rli->pending_jobs--;
+  rli->mts_pending_jobs_size -= ev->data_written;
+  DBUG_ASSERT(rli->mts_pending_jobs_size < rli->mts_pending_jobs_size_max);
+
+  /* coordinator can be waiting */
+  if (rli->mts_pending_jobs_size < rli->mts_pending_jobs_size_max &&
+      rli->mts_wq_oversize)  // TODO: unit/general test wq_oversize
+  {
+    rli->mts_wq_oversize= FALSE;
+    mysql_cond_signal(&rli->pending_jobs_cond);
+  }
+  mysql_mutex_unlock(&rli->pending_jobs_lock);
+}
+
+/*
    Dequeues event from the slave worker queue. Handles edge cases where
    signal needs to be given for waiting coordinator thread.
 
-   @param worker                  Pointer to the worker thread
-   @param rli                     Relay log info of the coordinator thread
-                                  the caller.
+   @param worker Pointer to the worker thread
+   @param rli    Relay log info of the coordinator thread
 
-   jobs_lock and pending_jobs_lock should be acquired by the caller.
+   jobs_lock should be acquired by the caller.
 */
 static void slave_worker_update_statistics(Slave_worker *worker,
                                            Relay_log_info *rli)
 {
   mysql_mutex_assert_owner(&worker->jobs_lock);
-  mysql_mutex_assert_owner(&worker->c_rli->pending_jobs_lock);
 
   struct slave_job_item item= {NULL}, *job_item= &item;
   Log_event *ev= NULL;
@@ -1856,10 +1888,6 @@ static void slave_worker_update_statistics(Slave_worker *worker,
   }
 
   /* statistics */
-
-  rli->pending_jobs--;
-  rli->mts_pending_jobs_size -= ev->data_written;
-  DBUG_ASSERT(rli->mts_pending_jobs_size < rli->mts_pending_jobs_size_max);
 
   /*
     The positive branch is underrun: number of pending assignments
@@ -1914,14 +1942,6 @@ static void slave_worker_update_statistics(Slave_worker *worker,
 
   }
 
-  /* coordinator can be waiting */
-  if (rli->mts_pending_jobs_size < rli->mts_pending_jobs_size_max &&
-      rli->mts_wq_oversize)  // TODO: unit/general test wq_oversize
-  {
-    rli->mts_wq_oversize= FALSE;
-    mysql_cond_signal(&rli->pending_jobs_cond);
-  }
-
   if (ev && ev->worker && ev->get_type_code() != ROWS_QUERY_LOG_EVENT)
   {
     delete ev;
@@ -1944,11 +1964,11 @@ static void clear_current_group_events(Slave_worker *worker,
                                        bool overfill)
 {
   mysql_mutex_assert_owner(&worker->jobs_lock);
-  mysql_mutex_assert_owner(&worker->c_rli->pending_jobs_lock);
   for (ulong i = 0; i < worker->current_event_index; i++)
     slave_worker_update_statistics(worker, rli);
 
   worker->current_event_index = 0;
+  worker->last_current_event_index = 0;
   if (overfill)
     worker->trans_retries = ULONG_MAX;
   else
@@ -1985,14 +2005,12 @@ struct slave_job_item* pop_jobs_item(Slave_worker *worker,
     head_queue(&worker->jobs, job_item, worker->current_event_index);
     if (job_item->data == NULL)
     {
-      mysql_mutex_lock(&worker->c_rli->pending_jobs_lock);
       if ((worker->jobs.overfill && worker->current_event_index ==
-           worker->jobs.size) || worker->c_rli->mts_wq_oversize)
+           worker->jobs.size))
       {
         // Resets worker->current_event_index to 0.
         clear_current_group_events(worker, worker->c_rli, true);
       }
-      mysql_mutex_unlock(&worker->c_rli->pending_jobs_lock);
       worker->wq_empty_waits++;
       thd->ENTER_COND(&worker->jobs_cond, &worker->jobs_lock,
                                &stage_slave_waiting_event_from_coordinator,
@@ -2242,6 +2260,10 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
                                       &start_perf_read_secondary);
   }
 
+  // While retrying a transaction statistics related to pending events
+  // should not be updated.
+  if (worker->current_event_index > worker->last_current_event_index)
+    slave_worker_update_pending_events(rli, ev);
 err:
   if (error)
   {
@@ -2256,9 +2278,7 @@ err:
   if (end_event && !temporary_error)
   {
     mysql_mutex_lock(&worker->jobs_lock);
-    mysql_mutex_lock(&worker->c_rli->pending_jobs_lock);
     clear_current_group_events(worker, rli, false);
-    mysql_mutex_unlock(&worker->c_rli->pending_jobs_lock);
     mysql_mutex_unlock(&worker->jobs_lock);
   }
   DBUG_RETURN(error);
