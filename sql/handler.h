@@ -976,6 +976,7 @@ struct handlerton
                                         int n_lock_wait,
                                         int n_lock_wait_timeout,
 					const char *engine));
+  void (*update_index_stats)(TABLE_STATS* table_stats);
 
    uint32 license; /* Flag for Engine License */
    void *data; /* Location for engines to keep personal structures */
@@ -3461,6 +3462,8 @@ void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
                                    int n_lock_wait,
                                    int n_lock_wait_timeout,
 				   const char* engine));
+
+void ha_get_index_stats(void* table_stats);
 
 
 /* discovery */

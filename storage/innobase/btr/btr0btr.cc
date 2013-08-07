@@ -2938,6 +2938,7 @@ func_start:
 	new_page_zip = buf_block_get_page_zip(new_block);
 	btr_page_create(new_block, new_page_zip, cursor->index,
 			btr_page_get_level(page, mtr), mtr);
+	cursor->index->n_page_split ++;
 
 	/* 3. Calculate the first record on the upper half-page, and the
 	first record (move_limit) on original page which ends up on the
@@ -3591,6 +3592,8 @@ btr_compress(
 	space = dict_index_get_space(index);
 	zip_size = dict_table_zip_size(index->table);
 
+	index->n_btr_compress ++;
+
 	left_page_no = btr_page_get_prev(page, mtr);
 	right_page_no = btr_page_get_next(page, mtr);
 
@@ -3838,6 +3841,9 @@ err_exit:
 	}
 
 	mem_heap_free(heap);
+
+	index->n_btr_compress_failure ++;
+
 	DBUG_RETURN(FALSE);
 }
 
@@ -4133,6 +4139,8 @@ btr_defragment_n_pages(
 		return NULL;
 	}
 
+	index->n_pages += n_pages - 1;
+
 	/* 2. Calculate how many pages data can fit in. If not compressable,
 	return early. */
 	optimal_page_size = page_get_free_space_of_empty(
@@ -4168,6 +4176,7 @@ btr_defragment_n_pages(
 	}
 	mem_heap_free(heap);
 	n_defragmented ++;
+	index->n_pages_freed += (n_pages - n_defragmented);
 	if (end_of_index)
 		return NULL;
 	return current_block;

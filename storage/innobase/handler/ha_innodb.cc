@@ -1347,6 +1347,14 @@ innobase_update_table_stats(
 		   int n_lock_wait, int n_lock_wait_timeout,
 		   const char* engine));
 
+/****************************************************************//**
+Update stats with per-index data from InnoDB tables. */
+static
+void
+innobase_update_index_stats(
+/*===============*/
+	TABLE_STATS* table_stats);
+
 /*******************************************************************//**
 This function is used to prepare an X/Open XA distributed transaction.
 @return	0 or error number */
@@ -3460,6 +3468,7 @@ innobase_init(
 	innobase_hton->data = &innodb_api_cb;
 
 	innobase_hton->update_table_stats = innobase_update_table_stats;
+	innobase_hton->update_index_stats = innobase_update_index_stats;
 
 	ut_a(DATA_MYSQL_TRUE_VARCHAR == (ulint)MYSQL_TYPE_VARCHAR);
 
@@ -4067,6 +4076,39 @@ innobase_update_table_stats(
 		   const char* engine))
 {
 	fil_update_table_stats(cb);
+}
+
+/****************************************************************//**
+Update stats with per-index data from InnoDB tables. */
+static
+void
+innobase_update_index_stats(
+/*===============*/
+	TABLE_STATS* table_stats)
+{
+	dict_table_t*	table;
+	uint		i;
+	char		name[FN_REFLEN + 1];
+	char		norm_name[FN_REFLEN];
+	build_table_filename(name, sizeof(name) - 1, table_stats->db,
+			     table_stats->table, "", 0);
+	normalize_table_name(norm_name, name);
+	table = dict_table_open_on_name(norm_name, FALSE, FALSE,
+				DICT_ERR_IGNORE_NONE);
+	if (table == NULL)
+		return;
+	for (i = 0; i < table_stats->num_indexes; i++) {
+		dict_index_t*	index;
+		INDEX_STATS*	index_stats = &(table_stats->indexes[i]);
+		index = dict_table_get_index_on_name(table, index_stats->name);
+		index_stats->n_pages = index->n_pages;
+		index_stats->n_pages_freed = index->n_pages_freed;
+		index_stats->n_btr_compress = index->n_btr_compress;
+		index_stats->n_btr_compress_failure =
+			index->n_btr_compress_failure;
+		index_stats->n_page_split = index->n_page_split;
+	}
+	dict_table_close(table, FALSE, FALSE);
 }
 
 /*****************************************************************//**
@@ -10854,6 +10896,7 @@ ha_innobase::defragment_table(
 		btr_pcur_move_to_next(pcur, &mtr);
 		btr_pcur_store_position(pcur, &mtr);
 		mtr_commit(&mtr);
+		dict_mem_index_defrag_summary_clear(index);
 		if (!async)
 			event = os_event_create();
 		item = btr_defragment_create_item(pcur, event);
@@ -10863,6 +10906,7 @@ ha_innobase::defragment_table(
 			os_event_free(event);
 		}
 		btr_pcur_free_for_mysql(pcur);
+		dict_mem_index_defrag_stats_clear(index);
 		if (one_index) {
 			one_index = FALSE;
 			break;
