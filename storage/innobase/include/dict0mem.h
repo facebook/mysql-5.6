@@ -326,6 +326,20 @@ dict_mem_index_create(
 					DICT_CLUSTERED, ... ORed */
 	ulint		n_fields);	/*!< in: number of fields */
 /**********************************************************************//**
+Clear defragmentataion summary. */
+UNIV_INTERN
+void
+dict_mem_index_defrag_summary_clear(
+/*==================*/
+	dict_index_t* index);	/*!< in: index to clear defragmentation stats */
+/**********************************************************************//**
+Clear defragmentataion related index stats. */
+UNIV_INTERN
+void
+dict_mem_index_defrag_stats_clear(
+/*==================*/
+	dict_index_t* index);	/*!< in: index to clear defragmentation stats */
+/**********************************************************************//**
 Adds a field definition to an index. NOTE: does not take a copy
 of the column name if the field is a column. The memory occupied
 by the column name may be released only after publishing the index. */
@@ -620,6 +634,23 @@ struct dict_index_t{
 	ulint		stat_n_leaf_pages;
 				/*!< approximate number of leaf pages in the
 				index tree */
+	/* @} */
+	/** Statistics for defragmentation, these numbers are estimations and
+	could be very inaccurate at certain times, e.g. right after restart,
+	during defragmentation, etc. */
+	/* @{ */
+	ib_uint64_t	n_pages;/* number of pages */
+	ib_uint64_t	n_pages_freed;
+				/* number of pages freed by defragmentation. */
+	ib_uint64_t	n_btr_compress;
+				/* number of calls to btr_compress since last
+				full index defragmentation. */
+	ib_uint64_t	n_btr_compress_failure;
+				/* number of btr_compress failed since last
+				full index defragmentation. */
+	ib_uint64_t	n_page_split;
+				/* number of page splits since last full index
+				defragmentation. */
 	/* @} */
 	rw_lock_t	lock;	/*!< read-write lock protecting the
 				upper levels of the index tree */
