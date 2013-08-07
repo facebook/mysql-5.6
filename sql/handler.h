@@ -974,6 +974,7 @@ struct handlerton
                                         page_stats_t* page_stats,
                                         comp_stat_t* comp_stat,
 					const char *engine));
+  void (*update_index_stats)(TABLE_STATS* table_stats);
 
    uint32 license; /* Flag for Engine License */
    void *data; /* Location for engines to keep personal structures */
@@ -3457,6 +3458,8 @@ void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
                                    page_stats_t* page_stats,
                                    comp_stat_t* comp_stat,
 				   const char* engine));
+
+void ha_get_index_stats(void* table_stats);
 
 
 /* discovery */

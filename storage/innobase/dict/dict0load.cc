@@ -1744,6 +1744,9 @@ err_len:
 
 		dict_mem_fill_index_struct(*index, NULL, NULL, name_buf,
 					   space, type, n_fields);
+
+		dict_mem_index_defrag_stats_clear(*index);
+
 	}
 
 	(*index)->id = id;
