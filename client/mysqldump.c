@@ -1589,7 +1589,7 @@ static int connect_to_db(char *host, char *user,char *passwd)
                  "program_name", "mysqldump");
   if (!(mysql= mysql_real_connect(&mysql_connection,host,user,passwd,
                                   NULL,opt_mysql_port,opt_mysql_unix_port,
-                                  0)))
+                                  CLIENT_FB_CLI_TOOL)))
   {
     DB_error(&mysql_connection, "when trying to connect");
     DBUG_RETURN(1);

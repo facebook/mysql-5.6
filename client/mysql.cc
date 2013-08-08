@@ -2043,6 +2043,8 @@ static int get_options(int argc, char **argv)
   if (ignore_spaces)
     connect_flag|= CLIENT_IGNORE_SPACE;
 
+  connect_flag|= CLIENT_FB_CLI_TOOL;
+
   return(0);
 }
 
