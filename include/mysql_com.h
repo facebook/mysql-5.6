@@ -188,6 +188,9 @@ enum enum_server_command
 /* Don't close the connection for a connection with expired password. */
 #define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS (1UL << 22)
 
+#define CLIENT_FB_PROXIED       (1UL << 25) /* Client passes through a proxy */
+#define CLIENT_FB_CLI_TOOL      (1UL << 26) /* Standard MySQL CLI tool */
+#define CLIENT_FB_INTERNAL      (1UL << 27) /* Internal tool */
 #define CLIENT_SSL_VERIFY_SERVER_CERT (1UL << 30)
 #define CLIENT_REMEMBER_OPTIONS (1UL << 31)
 
