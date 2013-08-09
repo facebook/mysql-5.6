@@ -17,7 +17,7 @@ if [ -r ../CMakeCache.txt ]; then
   echo CXXFLAGS= ${CXXFLAGS:="$(grep CMAKE_CXX_FLAGS:STRING= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
   echo CFLAGS= ${CFLAGS:="$(grep CMAKE_C_FLAGS:STRING= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
 else
-  echo BUILD_TYPE= ${BUILD_TYPE:=Release}
+  echo BUILD_TYPE= ${BUILD_TYPE:=RelWithDebInfo}
   echo SRC_DIR= ${SRC_DIR:=$(readlink -f ..)}
   echo CMAKE= ${CMAKE:=cmake}
   echo CXX= ${CXX:=g++}
