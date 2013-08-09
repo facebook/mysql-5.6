@@ -18,13 +18,13 @@ Gtid_info::Gtid_info(uint param_id)
   database_name[0] = 0;
   last_gtid_string[0] = 0;
   sid_map = new Sid_map(NULL);
+  last_gtid.sidno = last_gtid.gno = 0;
 }
 
 Gtid_info::~Gtid_info()
 {
   end_info();
-  my_free(sid_map);
-  sid_map = NULL;
+  delete sid_map;
 }
 
 /**

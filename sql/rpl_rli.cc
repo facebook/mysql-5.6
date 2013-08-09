@@ -68,9 +68,7 @@ void free_gtid_info_entry(Gtid_info *entry)
 {
   if (entry)
   {
-    my_free(entry->sid_map);
-    my_free(entry);
-    entry = NULL;
+    delete entry;
   }
 }
 

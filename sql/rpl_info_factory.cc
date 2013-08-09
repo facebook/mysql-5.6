@@ -557,9 +557,7 @@ bool Rpl_info_factory::init_gtid_info_repository(Relay_log_info *rli)
       else if (*gtid_info->get_database_name() == 0)
       {
         gtid_info->end_info();
-        my_free(gtid_info->sid_map);
-        my_free(gtid_info);
-        gtid_info = NULL;
+        delete gtid_info;
         break;
       }
       else

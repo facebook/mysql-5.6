@@ -1,6 +1,7 @@
 -- source include/master-slave.inc
 -- source include/have_gtid.inc
 -- source include/have_debug.inc
+-- source include/not_valgrind.inc
 
 -- let $old_debug = `select @@global.debug;`
 connection master;
