@@ -83,7 +83,7 @@ select rows_fetched from information_schema.user_statistics where user_name = 'm
 rows_fetched	16
 show global variables like "innodb_doublewrite";
 Variable_name	Value
-innodb_doublewrite	ON
+innodb_doublewrite	1
 
 after show 1 row: increment by 1
 
