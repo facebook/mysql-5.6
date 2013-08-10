@@ -36,6 +36,9 @@ Created 2011/12/19 Inaam Rana
 extern buf_dblwr_t*	buf_dblwr;
 /** Set to TRUE when the doublewrite buffer is being created */
 extern ibool		buf_dblwr_being_created;
+/** The size of the doublewrite header page when the reduced-doublewrite mode
+is used. */
+#define BUF_DBLWR_HEADER_SIZE 4096
 
 /****************************************************************//**
 Creates the doublewrite buffer to a new InnoDB installation. The header of the
@@ -145,6 +148,7 @@ struct buf_dblwr_t{
 	buf_page_t**	buf_block_arr;/*!< array to store pointers to
 				the buffer blocks which have been
 				cached to write_buf */
+	byte		header[BUF_DBLWR_HEADER_SIZE];
 };
 
 
