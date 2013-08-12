@@ -478,10 +478,10 @@ buf_get_total_stat(
 		tot_stat->n_pages_not_made_young +=
 			buf_stat->n_pages_not_made_young;
 
-		tot_stat->n_flushed_lru += buf_stat->n_flushed_lru;
-		tot_stat->n_flushed_list += buf_stat->n_flushed_list;
+		tot_stat->n_flushed_lru += buf_pool->n_flushed[BUF_FLUSH_LRU];
+		tot_stat->n_flushed_list += buf_pool->n_flushed[BUF_FLUSH_LIST];
 		tot_stat->n_flushed_single_page +=
-			buf_stat->n_flushed_single_page;
+			buf_pool->n_flushed[BUF_FLUSH_SINGLE_PAGE];
 	}
 }
 
@@ -5251,11 +5251,6 @@ buf_stats_get_pool_info(
 	pool_info->unzip_sum = buf_LRU_stat_sum.unzip;
 
 	pool_info->unzip_cur = buf_LRU_stat_cur.unzip;
-
-	pool_info->n_flushed_lru = buf_pool->stat.n_flushed_lru;
-	pool_info->n_flushed_list = buf_pool->stat.n_flushed_list;
-	pool_info->n_flushed_single_page =
-		buf_pool->stat.n_flushed_single_page;
 
 	buf_refresh_io_stats(buf_pool);
 	buf_pool_mutex_exit(buf_pool);

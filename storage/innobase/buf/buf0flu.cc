@@ -1136,6 +1136,7 @@ buf_flush_page_try(
 	/* The following call will release the buffer pool and
 	block mutex. */
 	buf_flush_page(buf_pool, &block->page, BUF_FLUSH_SINGLE_PAGE, true);
+	srv_stats.buf_pool_flushed.add(1);
 	return(TRUE);
 }
 # endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
@@ -2046,6 +2047,8 @@ buf_flush_single_page_from_LRU(
 	/* The following call will release the buffer pool and
 	block mutex. */
 	buf_flush_page(buf_pool, bpage, BUF_FLUSH_SINGLE_PAGE, true);
+
+	srv_stats.buf_pool_flushed.add(1);
 
 	/* At this point the page has been written to the disk.
 	As we are not holding buffer pool or block mutex therefore
