@@ -1,0 +1,33 @@
+--source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (a int auto_increment, b int, c varchar(255), primary key(a), key (b, c))
+engine=innodb;
+
+--disable_query_log
+insert into t1 (b, c) values(1, repeat('a', 255));
+let $i = 15;
+while ($i)
+{
+    --eval insert into t1 (b, c) values ($i, repeat('a', 255));
+    insert into t1 (b, c) select b, c from t1;
+    dec $i;
+}
+--enable_query_log
+
+flush tables;
+
+let $n_flushed = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed", Value, 1);
+let $n_flushed_lru = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed_by_lru", Value, 1);
+let $n_flushed_list = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed_by_list", Value, 1);
+let $n_flushed_single_page = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed_by_single_page", Value, 1);
+
+--echo should be 1
+--disable_query_log
+eval select $n_flushed = $n_flushed_lru + $n_flushed_list + $n_flushed_single_page as result;
+--enable_query_log
+
+drop table t1;

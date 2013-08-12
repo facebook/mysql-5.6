@@ -1845,6 +1845,9 @@ struct buf_pool_stat_t{
 				buf_page_peek_if_too_old() */
 	ulint	LRU_bytes;	/*!< LRU size in bytes */
 	ulint	flush_list_bytes;/*!< flush_list size in bytes */
+	/* The following three variables are only used in the
+	total buf pool stats. For stats of individual buf pool, see
+	buf_pool->n_flushed[TYPE] instead. */
 	ulint	n_flushed_lru;		/*!< Pages total flushed in LRU */
 	ulint	n_flushed_single_page;	/*!< Total pages
 					flushed as part of single page
