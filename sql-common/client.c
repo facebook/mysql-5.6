@@ -577,6 +577,9 @@ err:
 }
 #endif
 
+/* Helper for cli_safe_read and cli_safe_read_nonblocking */
+ulong cli_safe_read_complete(MYSQL *mysql, ulong len);
+
 /**
   Read a packet from server. Give error message if socket was down
   or packet is an error message
@@ -595,6 +598,14 @@ cli_safe_read(MYSQL *mysql)
   if (net->vio != 0)
     len=my_net_read(net);
 
+  return cli_safe_read_complete(mysql, len);
+}
+
+/* TODO(chip): this is where cli_safe_read_nonblocking will go */
+
+ulong cli_safe_read_complete(MYSQL *mysql, ulong len)
+{
+  NET *net= &mysql->net;
   if (len == packet_error || len == 0)
   {
     int errcode = CR_SERVER_LOST;
@@ -2912,11 +2923,37 @@ set_connect_attributes(MYSQL *mysql, char *buff, size_t buf_len)
   return rc > 0 ? 1 : 0;
 }
 
-/* struct to track the state of a connection being established.  Once
- * the connection is established, the context should be discarded and
- * relevant values copied out of it. */
+/*
+  connecting is handled with a state machine.  Each state is
+  represented by a function pointer (csm_function) which returns
+  connect_function_status to indicate the state of the connection.
+  This state machine has boundaries around network IO to allow reuse
+  between blocking and non-blocking clients.
+*/
 
-struct st_connect_context {
+/* Return status from a connect function */
+enum csm_function_status_enum {
+  CON_ST_FAILED = 1700,
+  CON_ST_CONTINUE,
+  CON_ST_DONE
+};
+
+typedef enum csm_function_status_enum csm_function_status;
+
+struct st_csm_context;
+typedef struct st_csm_context csm_context;
+
+/* The state function type */
+typedef csm_function_status (*csm_function)(csm_context*);
+
+/*
+  struct to track the state of a connection being established.  Once
+  the connection is established, the context should be discarded and
+  relevant values copied out of it.
+*/
+
+struct st_csm_context {
+  /* state for the overall connection process */
   MYSQL *mysql;
   const char *host;
   const char *user;
@@ -2935,28 +2972,59 @@ struct st_connect_context {
   int pkt_scramble_len;
   char *scramble_data;
   const char *scramble_plugin;
+
+  /* state for running init_commands */
+  my_bool saved_reconnect;
+  char **current_init_command;
+  char **last_init_command;
+
+  /* state function that will be called next */
+  csm_function state_function;
 };
 
 /* The above context is used for several functions; each reads and
- * writes various portions of it. */
-int
-prepare_connect(struct st_connect_context* ctx);
+   writes various portions of it. The order of the functions are
+   listed in the order of the actual connection process.  */
+static csm_function_status csm_begin_connect(csm_context* ctx);
+static csm_function_status csm_complete_connect(csm_context *ctx);
+static csm_function_status csm_read_greeting(csm_context* ctx);
+static csm_function_status csm_parse_handshake(csm_context* ctx);
+static csm_function_status csm_authenticate(csm_context* ctx);
+static csm_function_status csm_prep_select_database(csm_context* ctx);
+static csm_function_status csm_send_select_database(csm_context* ctx);
+#ifndef MYSQL_SERVER
+static csm_function_status csm_prep_init_commands(csm_context* ctx);
+static csm_function_status csm_send_init_commands(csm_context* ctx);
+#endif
 
-int
-read_handshake(struct st_connect_context* ctx);
-
-int
-send_init_commands(struct st_connect_context* ctx);
+/*
+  Simple function to walk through the connection states for the
+  simpler blocking flow.  For non-blocking, we'd wait for the file
+  descriptor to be readable or writable between calls to the
+  state_function.
+*/
+static int
+pump_connect_state_machine(csm_context* ctx) {
+  while (1) {
+    csm_function_status status = ctx->state_function(ctx);
+    if (status == CON_ST_FAILED) {
+      return 1;
+    } else if (status == CON_ST_DONE) {
+      return 0;
+    }
+  }
+  return 1;
+}
 
 /* The connect function itself, now split to use contexts and the
- * above functions. */
+   above functions. */
 
 MYSQL * STDCALL 
 CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
 		       const char *passwd, const char *db,
 		       uint port, const char *unix_socket,ulong client_flag)
 {
-  struct st_connect_context ctx;
+  csm_context ctx;
   DBUG_ENTER("real_connect");
   memset(&ctx, '\0', sizeof(ctx));
 
@@ -2968,56 +3036,21 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
   ctx.passwd = passwd;
   ctx.unix_socket = unix_socket;
   ctx.client_flag = client_flag;
+  ctx.state_function = csm_begin_connect;
 
-  /*
-    Part 0: Grab a socket and connect it to the server
-  */
-  if (!prepare_connect(&ctx))
-  {
-    if (mysql->net.vio) {
-      vio_delete(mysql->net.vio);
-    }
-    mysql->net.vio = 0;
-    goto error;
-  }
-
-  /*
-    Part 1: Connection established, read and parse first packet
-  */
-  DBUG_PRINT("info", ("Read first packet."));
-
-  if ((ctx.pkt_length=cli_safe_read(mysql)) == packet_error)
-  {
-    if (mysql->net.last_errno == CR_SERVER_LOST)
-      set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
-                               ER(CR_SERVER_LOST_EXTENDED),
-                               "reading initial communication packet",
-                               socket_errno);
-    goto error;
-  }
-
-  if (!read_handshake(&ctx)) {
-    goto error;
-  }
-
-  /*
-    Part 2: invoke the plugin to send the authentication data to the server
-  */
-
-  if (run_plugin_auth(mysql,
-                      ctx.scramble_data,
-                      ctx.scramble_data_len,
-                      ctx.scramble_plugin,
-                      ctx.db))
-    goto error;
-
-  if (!send_init_commands(&ctx)) {
+  int pump_result = pump_connect_state_machine(&ctx);
+  if (pump_result) {
     goto error;
   }
 
   DBUG_RETURN(mysql);
 
 error:
+  if (mysql->net.vio) {
+    vio_delete(mysql->net.vio);
+  }
+  mysql->net.vio = 0;
+
   DBUG_PRINT("error",("message: %u/%s (%s)",
                       mysql->net.last_errno,
                       mysql->net.sqlstate,
@@ -3033,11 +3066,11 @@ error:
 }
 
 /*
-  Establish a connection to the server, including any DNS resolution
+  Begin the connection to the server, including any DNS resolution
   necessary, socket configuration, etc.
  */
-int
-prepare_connect(struct st_connect_context *ctx) {
+static csm_function_status
+csm_begin_connect(csm_context *ctx) {
   /* copy ctx variables for local use to keep future merges simpler */
   MYSQL *mysql = ctx->mysql;
   const char *host = ctx->host;
@@ -3055,7 +3088,7 @@ prepare_connect(struct st_connect_context *ctx) {
 #ifdef HAVE_SYS_UN_H
   struct	sockaddr_un UNIXaddr;
 #endif
-  DBUG_ENTER("prepare_connect");
+  DBUG_ENTER(__func__);
   DBUG_PRINT("enter",("host: %s  db: %s  user: %s (client)",
 		      host ? host : "(Null)",
 		      db ? db : "(Null)",
@@ -3065,11 +3098,11 @@ prepare_connect(struct st_connect_context *ctx) {
   if (net->vio)
   {
     set_mysql_error(mysql, CR_ALREADY_CONNECTED, unknown_sqlstate);
-    DBUG_RETURN(0);
+    DBUG_RETURN(CON_ST_FAILED);
   }
 
   if (set_connect_attributes(mysql, ctx->buff, sizeof(ctx->buff)))
-    DBUG_RETURN(0);
+    DBUG_RETURN(CON_ST_FAILED);
 
   mysql->methods= &client_methods;
   net->vio = 0;				/* If something goes wrong */
@@ -3136,7 +3169,7 @@ prepare_connect(struct st_connect_context *ctx) {
 		  (int) mysql->options.shared_memory_base_name,
 		  (int) have_tcpip));
       if (mysql->options.protocol == MYSQL_PROTOCOL_MEMORY)
-        DBUG_RETURN(0);
+        DBUG_RETURN(CON_ST_FAILED);
 
       /*
         Try also with PIPE or TCP/IP. Clear the error from
@@ -3170,7 +3203,7 @@ prepare_connect(struct st_connect_context *ctx) {
                                unknown_sqlstate,
                                ER(CR_SOCKET_CREATE_ERROR),
                                socket_errno);
-      DBUG_RETURN(0);
+      DBUG_RETURN(CON_ST_FAILED);
     }
 
     net->vio= vio_new(sock, VIO_TYPE_SOCKET,
@@ -3180,7 +3213,7 @@ prepare_connect(struct st_connect_context *ctx) {
       DBUG_PRINT("error",("Unknow protocol %d ", mysql->options.protocol));
       set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
       closesocket(sock);
-      DBUG_RETURN(0);
+      DBUG_RETURN(CON_ST_FAILED);
     }
 
     host= LOCAL_HOST;
@@ -3204,7 +3237,7 @@ prepare_connect(struct st_connect_context *ctx) {
                                unix_socket, socket_errno);
       vio_delete(net->vio);
       net->vio= 0;
-      DBUG_RETURN(0);
+      DBUG_RETURN(CON_ST_FAILED);
     }
     mysql->options.protocol=MYSQL_PROTOCOL_SOCKET;
   }
@@ -3227,7 +3260,7 @@ prepare_connect(struct st_connect_context *ctx) {
       if (mysql->options.protocol == MYSQL_PROTOCOL_PIPE ||
 	  (host && !strcmp(host,LOCAL_HOST_NAMEDPIPE)) ||
 	  (unix_socket && !strcmp(unix_socket,MYSQL_NAMEDPIPE)))
-	DBUG_RETURN(0);
+	DBUG_RETURN(CON_ST_FAILED);
       /* Try also with TCP/IP */
     }
     else
@@ -3281,7 +3314,7 @@ prepare_connect(struct st_connect_context *ctx) {
       set_mysql_extended_error(mysql, CR_UNKNOWN_HOST, unknown_sqlstate,
                                ER(CR_UNKNOWN_HOST), host, errno);
 
-      DBUG_RETURN(0);
+      DBUG_RETURN(CON_ST_FAILED);
     }
 
     /* Get address info for client bind name if it is provided */
@@ -3303,7 +3336,7 @@ prepare_connect(struct st_connect_context *ctx) {
                                  bind_gai_errno);
 
         freeaddrinfo(res_lst);
-        DBUG_RETURN(0);
+        DBUG_RETURN(CON_ST_FAILED);
       }
       DBUG_PRINT("info", ("  got address info for client bind name"));
     }
@@ -3378,7 +3411,7 @@ prepare_connect(struct st_connect_context *ctx) {
         {
           set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
           closesocket(sock);
-          DBUG_RETURN(0);
+          DBUG_RETURN(CON_ST_FAILED);
         }
       }
       /* Just reinitialize if one is already allocated. */
@@ -3386,7 +3419,7 @@ prepare_connect(struct st_connect_context *ctx) {
       {
         set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
         closesocket(sock);
-        DBUG_RETURN(0);
+        DBUG_RETURN(CON_ST_FAILED);
       }
       if (net->receive_buffer_size &&
           setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_RCVBUF,
@@ -3428,7 +3461,7 @@ prepare_connect(struct st_connect_context *ctx) {
     {
       set_mysql_extended_error(mysql, CR_IPSOCK_ERROR, unknown_sqlstate,
                                 ER(CR_IPSOCK_ERROR), saved_error);
-      DBUG_RETURN(0);
+      DBUG_RETURN(CON_ST_FAILED);
     }
 
     if (status)
@@ -3436,16 +3469,37 @@ prepare_connect(struct st_connect_context *ctx) {
       DBUG_PRINT("error",("Got error %d on connect to '%s'", saved_error, host));
       set_mysql_extended_error(mysql, CR_CONN_HOST_ERROR, unknown_sqlstate,
                                 ER(CR_CONN_HOST_ERROR), host, saved_error);
-      DBUG_RETURN(0);
+      DBUG_RETURN(CON_ST_FAILED);
     }
   }
+
+  ctx->state_function = csm_complete_connect;
+  ctx->host = host;
+  ctx->user = user;
+  ctx->passwd = passwd;
+  ctx->db = db;
+  ctx->port = port;
+  ctx->unix_socket = unix_socket;
+  ctx->client_flag = client_flag;
+  DBUG_RETURN(CON_ST_CONTINUE);
+}
+
+/* Complete the connection itself, setting options on the
+   now-connected socket. */
+static csm_function_status
+csm_complete_connect(csm_context *ctx)
+{
+  MYSQL *mysql = ctx->mysql;
+  NET *net= &mysql->net;
+
+  DBUG_ENTER(__func__);
 
   DBUG_PRINT("info", ("net->vio: %p", net->vio));
   if (!net->vio)
   {
     DBUG_PRINT("error",("Unknow protocol %d ",mysql->options.protocol));
     set_mysql_error(mysql, CR_CONN_UNKNOW_PROTOCOL, unknown_sqlstate);
-    DBUG_RETURN(0);
+    DBUG_RETURN(CON_ST_FAILED);
   }
 
   if (my_net_init(net, net->vio))
@@ -3453,7 +3507,7 @@ prepare_connect(struct st_connect_context *ctx) {
     vio_delete(net->vio);
     net->vio = 0;
     set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-    DBUG_RETURN(0);
+    DBUG_RETURN(CON_ST_FAILED);
   }
   vio_keepalive(net->vio,TRUE);
 
@@ -3478,30 +3532,45 @@ prepare_connect(struct st_connect_context *ctx) {
                              ER(CR_SERVER_LOST_EXTENDED),
                              "waiting for initial communication packet",
                              socket_errno);
-    DBUG_RETURN(0);
+    DBUG_RETURN(CON_ST_FAILED);
   }
 
-  ctx->host = host;
-  ctx->user = user;
-  ctx->passwd = passwd;
-  ctx->db = db;
-  ctx->port = port;
-  ctx->unix_socket = unix_socket;
-  ctx->client_flag = client_flag;
-
-  DBUG_RETURN(1);
+  ctx->state_function = csm_read_greeting;
+  DBUG_RETURN(CON_ST_CONTINUE);
 }
 
-/*
-  Read and parse the handshake from the server.
- */
-int
-read_handshake(struct st_connect_context* ctx)
+/* Read the greeting from the server */
+static csm_function_status
+csm_read_greeting(csm_context *ctx)
+{
+  MYSQL *mysql = ctx->mysql;
+
+  DBUG_ENTER(__func__);
+
+  if ((ctx->pkt_length=cli_safe_read(mysql)) == packet_error)
+  {
+    if (mysql->net.last_errno == CR_SERVER_LOST)
+      set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
+                               ER(CR_SERVER_LOST_EXTENDED),
+                               "reading initial communication packet",
+                               socket_errno);
+    DBUG_RETURN(CON_ST_FAILED);
+  }
+
+  ctx->state_function = csm_parse_handshake;
+  DBUG_RETURN(CON_ST_CONTINUE);
+}
+
+/* Parse the handshake from the server. */
+static csm_function_status
+csm_parse_handshake(csm_context* ctx)
 {
   MYSQL* mysql = ctx->mysql;
   int pkt_length = ctx->pkt_length;
   char *end,*server_version_end, *pkt_end;
   NET* net = &mysql->net;
+
+  DBUG_ENTER(__func__);
 
   pkt_end= (char*)net->read_pos + pkt_length;
   /* Check if version of protocol matches current one */
@@ -3514,7 +3583,7 @@ read_handshake(struct st_connect_context* ctx)
     set_mysql_extended_error(mysql, CR_VERSION_ERROR, unknown_sqlstate,
                              ER(CR_VERSION_ERROR), mysql->protocol_version,
                              PROTOCOL_VERSION);
-    return FALSE;
+    DBUG_RETURN(CON_ST_FAILED);
   }
   server_version_end= end= strend((char*) net->read_pos+1);
   mysql->thread_id=uint4korr(end+1);
@@ -3541,7 +3610,7 @@ read_handshake(struct st_connect_context* ctx)
     {
       set_mysql_error(mysql, CR_MALFORMED_PACKET,
                       unknown_sqlstate);        /* purecov: inspected */
-      return FALSE;
+      DBUG_RETURN(CON_ST_FAILED);
     }
   }
   end+= 18;
@@ -3550,11 +3619,11 @@ read_handshake(struct st_connect_context* ctx)
       !(mysql->server_capabilities & CLIENT_SECURE_CONNECTION))
   {
     set_mysql_error(mysql, CR_SECURE_AUTH, unknown_sqlstate);
-    return FALSE;
+    DBUG_RETURN(CON_ST_FAILED);
   }
 
   if (mysql_init_character_set(mysql))
-    return FALSE;
+    DBUG_RETURN(CON_ST_FAILED);
 
   /* Save connection information */
   if (!my_multi_malloc(MYF(0),
@@ -3569,7 +3638,7 @@ read_handshake(struct st_connect_context* ctx)
       !(mysql->passwd=my_strdup(ctx->passwd,MYF(0))))
   {
     set_mysql_error(mysql, CR_OUT_OF_MEMORY, unknown_sqlstate);
-    return FALSE;
+    DBUG_RETURN(CON_ST_FAILED);
   }
   strmov(mysql->host_info,ctx->host_info);
   strmov(mysql->host,ctx->host);
@@ -3608,82 +3677,154 @@ read_handshake(struct st_connect_context* ctx)
     mysql->server_capabilities&= ~CLIENT_SECURE_CONNECTION;
 
   mysql->client_flag= ctx->client_flag;
-  return TRUE;
+
+  ctx->state_function = csm_authenticate;
+  DBUG_RETURN(CON_ST_CONTINUE);
 }
 
-/*
-  Select the initial database and send initial commands for the
-  now-established connection.
- */
-int
-send_init_commands(struct st_connect_context* ctx)
+/* Run the auth plugin; this is a simple wrapper for now, but will
+ contain more state once the plugin authentication is broken into
+ state machines. */
+static csm_function_status
+csm_authenticate(csm_context* ctx)
+{
+  DBUG_ENTER(__func__);
+  if (run_plugin_auth(ctx->mysql,
+                      ctx->scramble_data,
+                      ctx->scramble_data_len,
+                      ctx->scramble_plugin,
+                      ctx->db))
+    DBUG_RETURN(CON_ST_FAILED);
+
+  ctx->state_function = csm_prep_select_database;
+  DBUG_RETURN(CON_ST_CONTINUE);
+}
+
+/* Begin the database selection flow. */
+static csm_function_status
+csm_prep_select_database(csm_context* ctx)
 {
   MYSQL* mysql = ctx->mysql;
   /*
     Part 3: authenticated, finish the initialization of the connection
   */
   NET* net= &mysql->net;
-  DBUG_ENTER("send_init_commands");
+  DBUG_ENTER(__func__);
 
   if (mysql->client_flag & CLIENT_COMPRESS)      /* We will use compression */
     net->compress=1;
 
 #ifdef CHECK_LICENSE 
   if (check_license(mysql))
-    DBUG_RETURN(FALSE);
+    DBUG_RETURN(CON_ST_FAILED));
 #endif
 
-  if (ctx->db && !mysql->db && mysql_select_db(mysql, ctx->db))
+  if (ctx->db && !mysql->db) {
+    ctx->state_function = csm_send_select_database;
+  } else {
+#ifdef MYSQL_SERVER
+    DBUG_RETURN(CON_ST_DONE);
+#else
+    ctx->state_function = csm_prep_init_commands;
+#endif
+  }
+
+  DBUG_RETURN(CON_ST_CONTINUE);
+}
+
+/* Actually send the select database command. */
+static csm_function_status
+csm_send_select_database(csm_context* ctx)
+{
+  MYSQL* mysql = ctx->mysql;
+  DBUG_ENTER(__func__);
+
+  if (mysql_select_db(mysql, ctx->db))
   {
     if (mysql->net.last_errno == CR_SERVER_LOST)
         set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
                                  ER(CR_SERVER_LOST_EXTENDED),
                                  "Setting intital database",
                                  errno);
-    DBUG_RETURN(FALSE);
+    DBUG_RETURN(CON_ST_FAILED);
   }
+#ifndef MYSQL_SERVER
+  ctx->state_function = csm_prep_init_commands;
+  DBUG_RETURN(CON_ST_CONTINUE);
+#else
+  DBUG_RETURN(CON_ST_DONE);
+#endif
+}
 
+#ifndef MYSQL_SERVER
+
+/* Prepare to send a sequence of init commands. */
+static csm_function_status
+csm_prep_init_commands(csm_context* ctx)
+{
+  DBUG_ENTER(__func__);
+  MYSQL* mysql = ctx->mysql;
+  /*
+    Part 3: authenticated, finish the initialization of the connection
+  */
   /*
      Using init_commands is not supported when connecting from within the
      server.
   */
-#ifndef MYSQL_SERVER
-  if (mysql->options.init_commands)
-  {
-    DYNAMIC_ARRAY *init_commands= mysql->options.init_commands;
-    char **ptr= (char**)init_commands->buffer;
-    char **end_command= ptr + init_commands->elements;
-
-    my_bool reconnect=mysql->reconnect;
-    mysql->reconnect=0;
-
-    for (; ptr < end_command; ptr++)
-    {
-      int status;
-
-      if (mysql_real_query(mysql,*ptr, (ulong) strlen(*ptr)))
-        DBUG_RETURN(FALSE);
-
-      do {
-        if (mysql->fields)
-        {
-          MYSQL_RES *res;
-          if (!(res= cli_use_result(mysql)))
-            DBUG_RETURN(FALSE);
-          mysql_free_result(res);
-        }
-        if ((status= mysql_next_result(mysql)) > 0)
-          DBUG_RETURN(FALSE);
-      } while (status == 0);
-    }
-    mysql->reconnect=reconnect;
+  if (!mysql->options.init_commands) {
+    DBUG_RETURN(CON_ST_DONE);
   }
-#endif
 
-  DBUG_PRINT("exit", ("Mysql handler: 0x%lx", (long) mysql));
-  DBUG_RETURN(TRUE);
+  ctx->saved_reconnect=mysql->reconnect;
+  mysql->reconnect=0;
+
+  DYNAMIC_ARRAY *init_commands= mysql->options.init_commands;
+  ctx->current_init_command = (char**)init_commands->buffer;
+  ctx->last_init_command = ctx->current_init_command + init_commands->elements;
+
+  ctx->state_function = csm_send_init_commands;
+  DBUG_RETURN(CON_ST_CONTINUE);
 }
 
+/*
+  Send our init commands.  This is called once per init command until
+  they've all been run (or a failure occurs).
+ */
+static csm_function_status
+csm_send_init_commands(csm_context* ctx)
+{
+  DBUG_ENTER(__func__);
+  MYSQL* mysql = ctx->mysql;
+
+  if (mysql_real_query(mysql,*ctx->current_init_command,
+                       (ulong) strlen(*ctx->current_init_command)))
+    DBUG_RETURN(CON_ST_FAILED);
+
+  int status;
+  do {
+    if (mysql->fields)
+    {
+      MYSQL_RES *res;
+      if (!(res= cli_use_result(mysql)))
+        DBUG_RETURN(CON_ST_FAILED);
+      mysql_free_result(res);
+    }
+    if ((status= mysql_next_result(mysql)) > 0)
+      DBUG_RETURN(CON_ST_FAILED);
+  } while (status == 0);
+
+  ++ctx->current_init_command;
+  if (ctx->current_init_command < ctx->last_init_command) {
+    DBUG_RETURN(CON_ST_CONTINUE);
+  } else {
+    mysql->reconnect=ctx->saved_reconnect;
+
+    DBUG_PRINT("exit", ("Mysql handler: 0x%lx", (long) mysql));
+    DBUG_RETURN(CON_ST_DONE);
+  }
+}
+
+#endif
 
 my_bool mysql_reconnect(MYSQL *mysql)
 {
