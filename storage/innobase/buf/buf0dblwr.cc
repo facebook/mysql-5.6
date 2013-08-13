@@ -705,10 +705,10 @@ buf_dblwr_init_or_restore_pages(
 		num_pages = mach_read_from_2(ptr);
 		ptr += 2;
 		for (i = 0; i < num_pages; ++i) {
-			space_id = mach_read_from_2(ptr);
-			ptr += 2;
-			page_no = mach_read_from_2(ptr);
-			ptr += 2;
+			space_id = mach_read_from_4(ptr);
+			ptr += 4;
+			page_no = mach_read_from_4(ptr);
+			ptr += 4;
 			buf_dblwr_validate_page(i, space_id,
 					        page_no, read_buf, NULL);
 
@@ -1078,10 +1078,10 @@ try_again:
 		const buf_block_t*	block;
 
 		block = (buf_block_t*) buf_dblwr->buf_block_arr[i];
-		mach_write_to_2(header_ptr, buf_page_get_space(&block->page));
-		header_ptr += 2;
-		mach_write_to_2(header_ptr, buf_page_get_page_no(&block->page));
-		header_ptr += 2;
+		mach_write_to_4(header_ptr, buf_page_get_space(&block->page));
+		header_ptr += 4;
+		mach_write_to_4(header_ptr, buf_page_get_page_no(&block->page));
+		header_ptr += 4;
 
 		if (buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE
 		    || block->page.zip.data) {
