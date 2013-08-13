@@ -41,10 +41,10 @@ def get_dblwr_page_nos(page, block1, block2):
     num_pages = mach_read_from_2(ptr)
     ptr = ptr[2:]
     for i in xrange(num_pages):
-        space_id = mach_read_from_2(ptr)
-        ptr = ptr[2:]
-        page_no = mach_read_from_2(ptr)
-        ptr = ptr[2:]
+        space_id = mach_read_from_4(ptr)
+        ptr = ptr[4:]
+        page_no = mach_read_from_4(ptr)
+        ptr = ptr[4:]
         if space_id:
           yield space_id, page_no
   else:
