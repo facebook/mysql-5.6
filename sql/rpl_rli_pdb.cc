@@ -2005,8 +2005,7 @@ struct slave_job_item* pop_jobs_item(Slave_worker *worker,
     head_queue(&worker->jobs, job_item, worker->current_event_index);
     if (job_item->data == NULL)
     {
-      if ((worker->jobs.overfill && worker->current_event_index ==
-           worker->jobs.size))
+      if ((worker->current_event_index == worker->jobs.size))
       {
         // Resets worker->current_event_index to 0.
         clear_current_group_events(worker, worker->c_rli, true);
