@@ -18,6 +18,7 @@ sync_slave_with_master;
 connection master;
 -- exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 set global debug='d,slave_missing_gtid';
+-- error 0,2013
 insert into t1 values (2);
 -- let $rpl_server_number = 1
 -- source include/rpl_reconnect.inc
