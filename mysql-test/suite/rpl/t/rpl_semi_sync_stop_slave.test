@@ -1,0 +1,85 @@
+source include/master-slave.inc;
+source include/have_semisync.inc;
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+source include/have_log_bin.inc;
+
+connection master;
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+
+set global rpl_semi_sync_master_timeout= 60000;
+
+echo [ enable semi-sync on master ];
+set global rpl_semi_sync_master_wait_no_slave = OFF;
+set global rpl_semi_sync_master_enabled = 1;
+
+connection slave;
+set @save_slave_enabled=@@global.rpl_semi_sync_slave_enabled;
+
+source include/stop_slave.inc;
+echo [ enable semi-sync on slave];
+set global rpl_semi_sync_slave_enabled = 1;
+source include/start_slave.inc;
+
+connection master;
+create table t1(a int);
+insert into t1 values(1);
+echo [master semi-sync status should be ON and number of clients should be 1];
+show status like 'Rpl_semi_sync_master_clients';
+show status like 'Rpl_semi_sync_master_status';
+sync_slave_with_master;
+
+echo [stop slave and check the semi-sync status on master];
+source include/stop_slave.inc;
+connection master;
+echo [master semi-sync status should be OFF and number of clients should be 0];
+show status like 'Rpl_semi_sync_master_clients';
+show status like 'Rpl_semi_sync_master_status';
+
+echo [stop slave when replication user dont have super priviliges];
+set sql_log_bin=0;
+grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
+flush privileges;
+set sql_log_bin=1;
+
+connection slave;
+grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
+flush privileges;
+disable_warnings;
+change master to master_user='rpl',master_password='rpl';
+enable_warnings;
+source include/start_slave.inc;
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+source include/stop_slave.inc;
+
+connection master;
+echo [master semi-sync status should be OFF and number of clients should be 0];
+show status like 'Rpl_semi_sync_master_clients';
+show status like 'Rpl_semi_sync_master_status';
+
+echo #;
+echo # cleanup;
+echo #;
+
+connection slave;
+disable_warnings;
+change master to master_user='root',master_password='';
+enable_warnings;
+source include/start_slave.inc;
+connection master;
+drop table t1;
+drop user rpl@127.0.0.1;
+flush privileges;
+source include/rpl_end.inc;
+
+connection slave;
+set @@global.rpl_semi_sync_slave_enabled=@save_slave_enabled;
+
+connection master;
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;

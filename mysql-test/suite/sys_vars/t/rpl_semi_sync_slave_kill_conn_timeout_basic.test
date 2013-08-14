@@ -1,0 +1,53 @@
+source include/not_embedded.inc;
+source include/have_semisync.inc;
+
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+SET @start_global_value = @@global.rpl_semi_sync_slave_kill_conn_timeout;
+
+select @@global.rpl_semi_sync_slave_kill_conn_timeout in (1,16,32,64);
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.rpl_semi_sync_slave_kill_conn_timeout;
+show global variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+show session variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+select * from information_schema.global_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+select * from information_schema.session_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+
+#
+# show that it's writable
+#
+set global rpl_semi_sync_slave_kill_conn_timeout=16;
+--error ER_GLOBAL_VARIABLE
+set session rpl_semi_sync_slave_kill_conn_timeout=99;
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.rpl_semi_sync_slave_kill_conn_timeout;
+show global variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+show session variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+select * from information_schema.global_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+select * from information_schema.session_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+
+--echo NOTE: Value can also be set to values that are combinations of values
+set global rpl_semi_sync_slave_kill_conn_timeout=42;
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.rpl_semi_sync_slave_kill_conn_timeout;
+show global variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+show session variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+select * from information_schema.global_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+select * from information_schema.session_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global rpl_semi_sync_slave_kill_conn_timeout=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global rpl_semi_sync_slave_kill_conn_timeout=1e1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global rpl_semi_sync_slave_kill_conn_timeout="some text";
+
+#
+# Cleanup
+#
+SET @@global.rpl_semi_sync_slave_kill_conn_timeout = @start_global_value;
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;

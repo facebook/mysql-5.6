@@ -1,0 +1,70 @@
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+@@global.rpl_semi_sync_slave_kill_conn_timeout
+5
+SET @start_global_value = @@global.rpl_semi_sync_slave_kill_conn_timeout;
+select @@global.rpl_semi_sync_slave_kill_conn_timeout in (1,16,32,64);
+@@global.rpl_semi_sync_slave_kill_conn_timeout in (1,16,32,64)
+0
+select @@session.rpl_semi_sync_slave_kill_conn_timeout;
+ERROR HY000: Variable 'rpl_semi_sync_slave_kill_conn_timeout' is a GLOBAL variable
+show global variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+Variable_name	Value
+rpl_semi_sync_slave_kill_conn_timeout	5
+show session variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+Variable_name	Value
+rpl_semi_sync_slave_kill_conn_timeout	5
+select * from information_schema.global_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_SLAVE_KILL_CONN_TIMEOUT	5
+select * from information_schema.session_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_SLAVE_KILL_CONN_TIMEOUT	5
+set global rpl_semi_sync_slave_kill_conn_timeout=16;
+set session rpl_semi_sync_slave_kill_conn_timeout=99;
+ERROR HY000: Variable 'rpl_semi_sync_slave_kill_conn_timeout' is a GLOBAL variable and should be set with SET GLOBAL
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+@@global.rpl_semi_sync_slave_kill_conn_timeout
+16
+select @@session.rpl_semi_sync_slave_kill_conn_timeout;
+ERROR HY000: Variable 'rpl_semi_sync_slave_kill_conn_timeout' is a GLOBAL variable
+show global variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+Variable_name	Value
+rpl_semi_sync_slave_kill_conn_timeout	16
+show session variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+Variable_name	Value
+rpl_semi_sync_slave_kill_conn_timeout	16
+select * from information_schema.global_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_SLAVE_KILL_CONN_TIMEOUT	16
+select * from information_schema.session_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_SLAVE_KILL_CONN_TIMEOUT	16
+NOTE: Value can also be set to values that are combinations of values
+set global rpl_semi_sync_slave_kill_conn_timeout=42;
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+@@global.rpl_semi_sync_slave_kill_conn_timeout
+42
+select @@session.rpl_semi_sync_slave_kill_conn_timeout;
+ERROR HY000: Variable 'rpl_semi_sync_slave_kill_conn_timeout' is a GLOBAL variable
+show global variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+Variable_name	Value
+rpl_semi_sync_slave_kill_conn_timeout	42
+show session variables like 'rpl_semi_sync_slave_kill_conn_timeout';
+Variable_name	Value
+rpl_semi_sync_slave_kill_conn_timeout	42
+select * from information_schema.global_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_SLAVE_KILL_CONN_TIMEOUT	42
+select * from information_schema.session_variables where variable_name='rpl_semi_sync_slave_kill_conn_timeout';
+VARIABLE_NAME	VARIABLE_VALUE
+RPL_SEMI_SYNC_SLAVE_KILL_CONN_TIMEOUT	42
+set global rpl_semi_sync_slave_kill_conn_timeout=1.1;
+ERROR 42000: Incorrect argument type to variable 'rpl_semi_sync_slave_kill_conn_timeout'
+set global rpl_semi_sync_slave_kill_conn_timeout=1e1;
+ERROR 42000: Incorrect argument type to variable 'rpl_semi_sync_slave_kill_conn_timeout'
+set global rpl_semi_sync_slave_kill_conn_timeout="some text";
+ERROR 42000: Incorrect argument type to variable 'rpl_semi_sync_slave_kill_conn_timeout'
+SET @@global.rpl_semi_sync_slave_kill_conn_timeout = @start_global_value;
+select @@global.rpl_semi_sync_slave_kill_conn_timeout;
+@@global.rpl_semi_sync_slave_kill_conn_timeout
+5

@@ -1,0 +1,66 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+set global rpl_semi_sync_master_timeout= 60000;
+[ enable semi-sync on master ]
+set global rpl_semi_sync_master_wait_no_slave = OFF;
+set global rpl_semi_sync_master_enabled = 1;
+set @save_slave_enabled=@@global.rpl_semi_sync_slave_enabled;
+include/stop_slave.inc
+[ enable semi-sync on slave]
+set global rpl_semi_sync_slave_enabled = 1;
+include/start_slave.inc
+create table t1(a int);
+insert into t1 values(1);
+[master semi-sync status should be ON and number of clients should be 1]
+show status like 'Rpl_semi_sync_master_clients';
+Variable_name	Value
+Rpl_semi_sync_master_clients	1
+show status like 'Rpl_semi_sync_master_status';
+Variable_name	Value
+Rpl_semi_sync_master_status	ON
+[stop slave and check the semi-sync status on master]
+include/stop_slave.inc
+[master semi-sync status should be OFF and number of clients should be 0]
+show status like 'Rpl_semi_sync_master_clients';
+Variable_name	Value
+Rpl_semi_sync_master_clients	0
+show status like 'Rpl_semi_sync_master_status';
+Variable_name	Value
+Rpl_semi_sync_master_status	OFF
+[stop slave when replication user dont have super priviliges]
+set sql_log_bin=0;
+grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
+flush privileges;
+set sql_log_bin=1;
+grant replication slave on *.* to rpl@127.0.0.1 identified by 'rpl';
+flush privileges;
+change master to master_user='rpl',master_password='rpl';
+include/start_slave.inc
+insert into t1 values(2);
+include/stop_slave.inc
+[master semi-sync status should be OFF and number of clients should be 0]
+show status like 'Rpl_semi_sync_master_clients';
+Variable_name	Value
+Rpl_semi_sync_master_clients	0
+show status like 'Rpl_semi_sync_master_status';
+Variable_name	Value
+Rpl_semi_sync_master_status	OFF
+#
+# cleanup
+#
+change master to master_user='root',master_password='';
+include/start_slave.inc
+drop table t1;
+drop user rpl@127.0.0.1;
+flush privileges;
+include/rpl_end.inc
+set @@global.rpl_semi_sync_slave_enabled=@save_slave_enabled;
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;
