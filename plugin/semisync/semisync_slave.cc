@@ -20,6 +20,7 @@
 char rpl_semi_sync_slave_enabled;
 char rpl_semi_sync_slave_status= 0;
 unsigned long rpl_semi_sync_slave_trace_level;
+unsigned int rpl_semi_sync_slave_kill_conn_timeout;
 
 int ReplSemiSyncSlave::initObject()
 {
@@ -92,7 +93,33 @@ int ReplSemiSyncSlave::slaveStop(Binlog_relay_IO_param *param)
   if (mysql_reply)
     mysql_close(mysql_reply);
   mysql_reply= 0;
+  killConnection(param->mysql);
   return 0;
+}
+
+void ReplSemiSyncSlave::killConnection(MYSQL *mysql)
+{
+  char kill_buffer[30];
+  MYSQL *kill_mysql = NULL;
+  kill_mysql = mysql_init(kill_mysql);
+  mysql_options(kill_mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
+  mysql_options4(kill_mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
+                 "program_name", "semisync_slave");
+  mysql_options(kill_mysql, MYSQL_OPT_CONNECT_TIMEOUT, &kill_conn_timeout_);
+  mysql_options(kill_mysql, MYSQL_OPT_READ_TIMEOUT, &kill_conn_timeout_);
+  mysql_options(kill_mysql, MYSQL_OPT_WRITE_TIMEOUT, &kill_conn_timeout_);
+
+  if (!mysql_real_connect(kill_mysql, mysql->host, mysql->user, mysql->passwd,
+                          0, mysql->port, mysql->unix_socket, 0))
+  {
+    sql_print_information("cannot connect to master to kill slave io_thread's "
+                           "connection");
+    return;
+  }
+  uint kill_buffer_length = my_snprintf(kill_buffer, 30, "KILL %lu",
+                                        mysql->thread_id);
+  mysql_real_query(kill_mysql, kill_buffer, kill_buffer_length);
+  mysql_close(kill_mysql);
 }
 
 int ReplSemiSyncSlave::slaveReply(MYSQL *mysql,
