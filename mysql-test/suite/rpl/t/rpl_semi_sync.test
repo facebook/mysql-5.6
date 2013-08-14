@@ -230,7 +230,7 @@ echo [ on master ];
 
 # The first semi-sync check should be on because after slave stop,
 # there are no transactions on the master.
-echo [ master status should be ON ];
+echo [ master status should be ON but number of clients should be 0];
 show status like 'Rpl_semi_sync_master_status';
 show status like 'Rpl_semi_sync_master_no_tx';
 show status like 'Rpl_semi_sync_master_yes_tx';

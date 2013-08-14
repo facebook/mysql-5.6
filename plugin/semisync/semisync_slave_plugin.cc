@@ -149,6 +149,16 @@ static void fix_rpl_semi_sync_trace_level(MYSQL_THD thd,
   return;
 }
 
+static void fix_rpl_semi_sync_slave_kill_conn_timeout(MYSQL_THD thd,
+                                                      SYS_VAR *var,
+                                                      void *ptr,
+                                                      const void *val)
+{
+  *(unsigned int*)ptr = *(unsigned int *)val;
+  repl_semisync.setKillConnTimeout(rpl_semi_sync_slave_kill_conn_timeout);
+  return;
+}
+
 /* plugin system variables */
 static MYSQL_SYSVAR_BOOL(enabled, rpl_semi_sync_slave_enabled,
   PLUGIN_VAR_OPCMDARG,
@@ -164,9 +174,20 @@ static MYSQL_SYSVAR_ULONG(trace_level, rpl_semi_sync_slave_trace_level,
   &fix_rpl_semi_sync_trace_level, // update
   32, 0, ~0UL, 1);
 
+static MYSQL_SYSVAR_UINT(
+  kill_conn_timeout, rpl_semi_sync_slave_kill_conn_timeout,
+  PLUGIN_VAR_OPCMDARG,
+  "Timeout for the mysql connection used to kill the slave io_thread's "
+  "connection on master. This timeout comes into play when stop slave "
+  "is executed.",
+  NULL,
+  &fix_rpl_semi_sync_slave_kill_conn_timeout,
+  5, 0, UINT_MAX, 1);
+
 static SYS_VAR* semi_sync_slave_system_vars[]= {
   MYSQL_SYSVAR(enabled),
   MYSQL_SYSVAR(trace_level),
+  MYSQL_SYSVAR(kill_conn_timeout),
   NULL,
 };
 

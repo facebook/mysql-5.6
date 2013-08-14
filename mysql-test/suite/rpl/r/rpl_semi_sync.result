@@ -144,7 +144,7 @@ include/sync_slave_sql_with_master.inc
 #
 include/stop_slave.inc
 [ on master ]
-[ master status should be ON ]
+[ master status should be ON but number of clients should be 0]
 show status like 'Rpl_semi_sync_master_status';
 Variable_name	Value
 Rpl_semi_sync_master_status	ON
@@ -156,7 +156,7 @@ Variable_name	Value
 Rpl_semi_sync_master_yes_tx	14
 show status like 'Rpl_semi_sync_master_clients';
 Variable_name	Value
-Rpl_semi_sync_master_clients	1
+Rpl_semi_sync_master_clients	0
 [ semi-sync replication of these transactions will fail ]
 insert into t1 values (500);
 [ master status should be OFF ]

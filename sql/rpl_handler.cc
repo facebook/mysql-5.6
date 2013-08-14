@@ -398,6 +398,8 @@ void Binlog_relay_IO_delegate::init_param(Binlog_relay_IO_param *param,
   param->user= const_cast<char *>(mi->get_user());
   param->host= mi->host;
   param->port= mi->port;
+  int password_size = sizeof(param->password);
+  mi->get_password(param->password, &password_size);
   param->master_log_name= const_cast<char *>(mi->get_master_log_name());
   param->master_log_pos= mi->get_master_log_pos();
 }
