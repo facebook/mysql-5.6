@@ -34,6 +34,10 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
     $mysql_linter = new FacebookMysqlLinter();
     $linters[] = $mysql_linter;
 
+    // Enforce basic indentation rules in CPP code
+    $cpp_linter = new FacebookMysqlCppLinter();
+    $linters[] = $cpp_linter;
+
     // Enforces basic spelling. A blacklisted set of words that
     // are commonly spelled incorrectly are used.
     $spelling_linter = new ArcanistSpellingLinter();
@@ -72,6 +76,17 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
           'yy'.
           ')$/'
         );
+
+        $cpp_extensions = (
+          '/\.('.
+          'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
+          ')$/'
+        );
+
+        if (preg_match($cpp_extensions, $path)) {
+            $cpp_linter->addPath($path);
+            $cpp_linter->addData($path, $this->loadData($path));
+        }
 
         if (preg_match($text_extensions, $path)) {
             $is_text = true;
