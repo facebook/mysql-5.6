@@ -289,7 +289,9 @@ page_cur_search_with_match(
 	ulint		dbg_matched_fields;
 	ulint		dbg_matched_bytes;
 #endif
+#ifdef UNIV_ZIP_DEBUG
 	const page_zip_des_t*	page_zip = buf_block_get_page_zip(block);
+#endif /* UNIV_ZIP_DEBUG */
 	mem_heap_t*	heap		= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets		= offsets_;
@@ -309,10 +311,9 @@ page_cur_search_with_match(
 			      || mode == PAGE_CUR_G || mode == PAGE_CUR_GE);
 #endif /* UNIV_DEBUG */
 	page = buf_block_get_frame(block);
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	page_check_dir(page);
 
@@ -1206,10 +1207,9 @@ page_cur_insert_rec_zip(
 	      == index->id || mtr->inside_ibuf || recv_recovery_is_on());
 
 	ut_ad(!page_cur_is_after_last(cursor));
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	/* 1. Get the size of the physical record in the page */
 	rec_size = rec_offs_size(offsets);
@@ -2107,9 +2107,9 @@ page_cur_delete_rec(
 		page_dir_balance_slot(page, page_zip, cur_slot_no);
 	}
 
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 }
 
 #ifdef UNIV_COMPILE_TEST_FUNCS

@@ -1201,7 +1201,6 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  DEFAULT                       /* SQL-2003-R */
 %token  DEFAULT_AUTH_SYM              /* INTERNAL */
 %token  DEFINER_SYM
-%token  DEFRAGMENT_SYM                /* MYSQL */
 %token  DELAYED_SYM
 %token  DELAY_KEY_WRITE_SYM
 %token  DELETE_SYM                    /* SQL-2003-R */
@@ -7601,13 +7600,6 @@ alter_commands:
             Lex->m_sql_cmd= new (YYTHD->mem_root)
               Sql_cmd_discard_import_tablespace(
                 Sql_cmd_discard_import_tablespace::IMPORT_TABLESPACE);
-            if (Lex->m_sql_cmd == NULL)
-              MYSQL_YYABORT;
-          }
-        | DEFRAGMENT_SYM
-          {
-            Lex->m_sql_cmd= new (YYTHD->mem_root)
-              Sql_cmd_defragment_table();
             if (Lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -14168,7 +14160,6 @@ keyword:
         | COMMIT_SYM            {}
         | CONTAINS_SYM          {}
         | DEALLOCATE_SYM        {}
-        | DEFRAGMENT_SYM        {}
         | DO_SYM                {}
         | END                   {}
         | EXECUTE_SYM           {}

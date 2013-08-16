@@ -1263,6 +1263,10 @@ buf_flush_try_neighbors(
 
 	space_size = fil_space_get_size(space);
 
+	/* This returns 0 when the tablespace is not found. That should not happen
+	because dirty pages are removed from the flush list on DROP TABLE */
+	ut_a(space_size);
+
 	if (high > space_size) {
 		high = space_size;
 	}

@@ -46,7 +46,7 @@ commands_update	0
 delete from userstats where i = 1;
 delete userstats, userstats2 from userstats inner join userstats2;
 truncate table userstats2;
-Increment commands_delete by 2 and commands_ddl by 1
+Increment commands_delete by 3
 select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
 commands_ddl	6
 commands_delete	2
@@ -172,7 +172,6 @@ MICROSECONDS_SELECT	bigint(21)	NO		0
 MICROSECONDS_TRANSACTION	bigint(21)	NO		0	
 MICROSECONDS_UPDATE	bigint(21)	NO		0	
 QUERIES_EMPTY	bigint(21)	NO		0	
-QUERY_COMMENT_BYTES	bigint(21)	NO		0	
 RECORDS_IN_RANGE_CALLS	bigint(21)	NO		0	
 ROWS_DELETED	bigint(21)	NO		0	
 ROWS_FETCHED	bigint(21)	NO		0	
@@ -235,7 +234,6 @@ USER_STATISTICS	CREATE TEMPORARY TABLE `USER_STATISTICS` (
   `MICROSECONDS_TRANSACTION` bigint(21) NOT NULL DEFAULT '0',
   `MICROSECONDS_UPDATE` bigint(21) NOT NULL DEFAULT '0',
   `QUERIES_EMPTY` bigint(21) NOT NULL DEFAULT '0',
-  `QUERY_COMMENT_BYTES` bigint(21) NOT NULL DEFAULT '0',
   `RECORDS_IN_RANGE_CALLS` bigint(21) NOT NULL DEFAULT '0',
   `ROWS_DELETED` bigint(21) NOT NULL DEFAULT '0',
   `ROWS_FETCHED` bigint(21) NOT NULL DEFAULT '0',
