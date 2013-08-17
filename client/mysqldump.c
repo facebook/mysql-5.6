@@ -1632,22 +1632,29 @@ static int connect_to_db(char *host, char *user,char *passwd)
   if (opt_lra_size)
   {
     my_snprintf(buff, sizeof(buff), "SET innodb_lra_size=%lu", opt_lra_size);
-    if (mysql_query_with_error_report(mysql, 0, buff))
-      DBUG_RETURN(1);
-    if (opt_lra_sleep)
+    if (mysql_query(mysql, buff))
     {
-      my_snprintf(buff, sizeof(buff), "SET innodb_lra_sleep=%lu",
-                  opt_lra_sleep);
-      if (mysql_query_with_error_report(mysql, 0, buff))
-        DBUG_RETURN(1);
+      fprintf(stderr,
+              "%s: Warning: Server does not support logical read ahead. "
+              "--lra* options will be ignored.\n", my_progname);
     }
-    if (opt_lra_n_node_recs_before_sleep)
+    else
     {
-      my_snprintf(buff, sizeof(buff),
-                  "SET innodb_lra_n_node_recs_before_sleep=%lu",
-                  opt_lra_n_node_recs_before_sleep);
-      if (mysql_query_with_error_report(mysql, 0, buff))
-        DBUG_RETURN(1);
+      if (opt_lra_sleep)
+      {
+        my_snprintf(buff, sizeof(buff), "SET innodb_lra_sleep=%lu",
+                    opt_lra_sleep);
+        if (mysql_query_with_error_report(mysql, 0, buff))
+          DBUG_RETURN(1);
+      }
+      if (opt_lra_n_node_recs_before_sleep)
+      {
+        my_snprintf(buff, sizeof(buff),
+                    "SET innodb_lra_n_node_recs_before_sleep=%lu",
+                    opt_lra_n_node_recs_before_sleep);
+        if (mysql_query_with_error_report(mysql, 0, buff))
+          DBUG_RETURN(1);
+      }
     }
   }
 
