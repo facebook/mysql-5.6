@@ -13594,17 +13594,17 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
     goto err;
   }
 #else  
- if ((file = my_open(log_name, O_RDONLY, MYF(MY_WME))) < 0)
- {
-   error("Error opening binlog file");
-   goto err;
- }
+  if ((file = my_open(log_name, O_RDONLY, MYF(MY_WME))) < 0)
+  {
+    error("Error opening binlog file");
+    goto err;
+  }
 
- if (init_io_cache(&log, file, IO_SIZE, READ_CACHE, 0, 0, MYF(MY_WME)))
- {
-   error("Error initializing binlog file cache");
-   goto err;
- }
+  if (init_io_cache(&log, file, IO_SIZE, READ_CACHE, 0, 0, MYF(MY_WME)))
+  {
+    error("Error initializing binlog file cache");
+    goto err;
+  }
 #endif
 
   my_b_seek(&log, BIN_LOG_HEADER_SIZE);
