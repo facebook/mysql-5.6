@@ -4921,11 +4921,11 @@ os_aio_func(
 		if (type == OS_FILE_READ) {
 			os_io_perf_update_all(&os_sync_read_perf, n,
 				elapsed_time, end_time, start_time);
-		
+
 			if (innobase_histogram_step_size_sync_read)
 				latency_histogram_increment(
 					&histogram_sync_read, elapsed_time, 1);
-		
+
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->read), n,
 				elapsed_time, end_time, start_time);
@@ -4996,11 +4996,11 @@ os_aio_func(
 
 			os_io_perf_update_all(perf, n,
 				elapsed_time, end_time, start_time);
-			
+
 			if (histogram_step_size)
 				latency_histogram_increment(current_histogram,
 					elapsed_time, 1);
-		
+
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->write), n,
 				elapsed_time, end_time, start_time);

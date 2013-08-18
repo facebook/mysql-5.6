@@ -13,7 +13,7 @@
 
 class Gtid_info : public Rpl_info
 {
-friend class Rpl_info_factory;
+  friend class Rpl_info_factory;
 
 private:
   uint id; // Internal id of the row in the slave_gitd_info table.
