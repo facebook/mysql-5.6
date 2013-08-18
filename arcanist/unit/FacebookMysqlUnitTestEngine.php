@@ -10,6 +10,12 @@
 // the test results, for 'arc diff'.
 
 final class FacebookFbcodeUnitTestEngine extends ArcanistBaseUnitTestEngine {
+  protected $big=false;
+
+  public function setRunAllTests() {
+    // When --everything is passed to 'arc unit', run the big tests.
+    $this->big = true;
+  }
 
   public function run() {
     // If we are running asynchronously, mark all tests as postponed
@@ -24,7 +30,7 @@ final class FacebookFbcodeUnitTestEngine extends ArcanistBaseUnitTestEngine {
       return $results;
     } else {
       $server = new FacebookBuildServer();
-      $server->startProjectBuilds(false);
+      $server->startProjectBuilds(false, $this->big);
       return array();
     }
   }
