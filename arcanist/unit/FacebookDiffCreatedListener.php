@@ -12,7 +12,7 @@ final class FacebookDiffCreatedListener extends PhutilEventListener {
       return;
     }
     $server = new FacebookBuildServer();
-    $server->startProjectBuilds(true, $event->getValue('diffID'));
+    $server->startProjectBuilds(true, false, $event->getValue('diffID'));
   }
 
 }
