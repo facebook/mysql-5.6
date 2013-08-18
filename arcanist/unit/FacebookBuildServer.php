@@ -54,9 +54,16 @@ final class FacebookBuildServer {
     return 0;
   }
 
-  public function startProjectBuilds($async, $diff_id=null) {
+  public function startProjectBuilds($async, $big=false, $diff_id=null) {
+    $console = PhutilConsole::getConsole();
+
     $server = "ci-builds.fb.com";
-    $project = "mysql-5.6-precommit";
+    $project = "mysql-precommit";
+    if ($big === true) {
+      $console->writeOut("Forcing build of the full 'big' test set.\n");
+      $project = "mysql-precommit-big";
+    }
+
     $branch = $diff_id ?: "unit-" . getenv('USER') . "-" . microtime(TRUE);
     $rev = exec('git log -1 --pretty=format:%H');
 
@@ -64,8 +71,6 @@ final class FacebookBuildServer {
     if ($async !== true) {
       $buildnum = $this->findJenkinsBuild($server, $project, $rev);
     }
-
-    $console = PhutilConsole::getConsole();
 
     if ($async === true || $buildnum === 0) {
       $console->writeOut(
