@@ -22,7 +22,7 @@ def get_doublewrite(f):
   page = f.read(UNIV_PAGE_SIZE)
   doublewrite = page[TRX_SYS_DOUBLEWRITE:]
   if mach_read_from_4(doublewrite[TRX_SYS_DOUBLEWRITE_MAGIC:]) != TRX_SYS_DOUBLEWRITE_MAGIC_N:
-    raise 'Doublewrite buffer is not created on the ibd file. Something is wrong.'
+    raise Exception('Doublewrite buffer is not created on the ibd file. Something is wrong.')
     exit(1)
   return doublewrite
 
@@ -41,12 +41,16 @@ def get_dblwr_page_nos(page, block1, block2):
     num_pages = mach_read_from_2(ptr)
     ptr = ptr[2:]
     for i in xrange(num_pages):
-        space_id = mach_read_from_4(ptr)
-        ptr = ptr[4:]
-        page_no = mach_read_from_4(ptr)
-        ptr = ptr[4:]
-        if space_id:
-          yield space_id, page_no
+      space_id = mach_read_from_4(ptr)
+      ptr = ptr[4:]
+      page_no = mach_read_from_4(ptr)
+      ptr = ptr[4:]
+      # We do not want to corrupt the first page of
+      # a table because innodb can not recover the first
+      # page even though its valid copy is in the
+      # doublewrite buffer. See bugs.mysql.com/70087.
+      if space_id and page_no:
+        yield space_id, page_no
   else:
     for i in xrange(TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * 2):
       page_no = mach_read_from_4(page[FIL_PAGE_OFFSET:])
@@ -66,7 +70,7 @@ def get_ibd_map(data_dir):
 
 def corrupt_random_page(pages_in_dblwr, ibd_map):
   space_id, page_no = random.choice([p for p in pages_in_dblwr])
-  #print "corrupting space_id=%d, page_no=%d" %(space_id, page_no)
+  #print "corrupting space_id=%d, page_no=%d" % (space_id, page_no)
   table_file = ibd_map[space_id]
   f = open(table_file, 'r+b')
   # seek to a random offset with in the page.
@@ -103,12 +107,12 @@ class Command(object):
 
 def main():
   if len(sys.argv) < 3:
-    raise 'You must specify the path for the data directory of the server and the doublewrite mode'
+    raise Exception('You must specify the path for the data directory of the server and the doublewrite mode')
     exit(1)
   data_dir = sys.argv[1]
   innodb_doublewrite = int(sys.argv[2])
   if innodb_doublewrite != 1 and innodb_doublewrite != 2:
-    raise "innodb_doublewrite must be 1 or 2 for this test."
+    raise Exception("innodb_doublewrite must be 1 or 2 for this test.")
     exit(1)
   log_file = '%s/innodb_corrupt_doublewrite-%d.log'  % (os.environ['MYSQL_TMP_DIR'], innodb_doublewrite)
   mysqld_cmd = os.environ['MYSQLD_CMD'].replace('--core-file', '')
@@ -131,23 +135,23 @@ def main():
   #print "cmd returned ", ret
   if innodb_doublewrite == 1:
     if ret is not None:
-      raise 'MySQL failed to recover in full doublewrite mode.'
+      raise Exception('MySQL failed to recover in full doublewrite mode.')
       exit(1)
     #Check here that the data page was indeed restored from the doublewrite buffer
     contents = open(log_file).read()
     ind = contents.find(DBLWR_SUCCESS_MESSAGE)
     if ind == -1:
-      raise 'Doublewrite buffer was not used even though the following page was corrupt space_id=%lu page_no=%lu (doublewrite=1)'  % (space_id, page_no)
+      raise Exception('Doublewrite buffer was not used even though the following page was corrupt space_id=%d page_no=%d (doublewrite=1)'  % (space_id, page_no))
       exit(1)
     print DBLWR_SUCCESS_MESSAGE
   if innodb_doublewrite == 2:
-    if ret != 1:
-      raise 'MySQL did not fail to recover even though reduced durability was used, return code=', ret
+    if ret is None:
+      raise Exception('MySQL did not fail to recover even though reduced durability was used')
       exit(1)
     contents = open(log_file).read()
     ind = contents.find(DBLWR_FAIL_MESSAGE)
     if ind == -1:
-      raise 'Doublewrite buffer was not used even though the following page was corrupt space_id=%lu page_no=%lu (doublewrite=1)'  % (space_id, page_no)
+      raise Exception('Doublewrite buffer was not used even though the following page was corrupt space_id=%d page_no=%d (doublewrite=1)'  % (space_id, page_no))
       exit(1)
     print DBLWR_FAIL_MESSAGE
     # undo the change to the page.
