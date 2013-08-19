@@ -18,8 +18,6 @@
 #ifndef SEMISYNC_H
 #define SEMISYNC_H
 
-#include "semisync_client_utility.h"
-
 #ifndef MYSQL_CLIENT
 #define MYSQL_SERVER
 #define HAVE_REPLICATION
@@ -29,6 +27,10 @@
 #include <mysql/plugin.h>
 #include <replication.h>
 #include "log.h"                                /* sql_print_information */
+#else
+void sql_print_information(const char *format, ...);
+void sql_print_warning(const char *format, ...);
+void sql_print_error(const char *format, ...);
 #endif /* MYSQL_CLIENT */
 #include <my_global.h>
 #include <mysql.h>

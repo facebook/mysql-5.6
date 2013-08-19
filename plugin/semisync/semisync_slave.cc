@@ -16,7 +16,6 @@
 
 
 #include "semisync_slave.h"
-#include "semisync_client_utility.h"
 
 char rpl_semi_sync_slave_enabled;
 char rpl_semi_sync_slave_status= 0;
