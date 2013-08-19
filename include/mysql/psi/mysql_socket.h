@@ -1073,7 +1073,11 @@ inline_mysql_socket_close
       (&state, mysql_socket.m_psi, PSI_SOCKET_CLOSE, (size_t)0, src_file, src_line);
 
     /* Instrumented code */
-    result= closesocket(mysql_socket.fd);
+    if (mysql_socket.fd == INVALID_SOCKET) {
+      result = 0;
+    } else {
+      result = closesocket(mysql_socket.fd);
+    }
 
     /* Instrumentation end */
     if (locker != NULL)
@@ -1087,7 +1091,11 @@ inline_mysql_socket_close
 #endif
 
   /* Non instrumented code */
-  result= closesocket(mysql_socket.fd);
+  if (mysql_socket.fd == INVALID_SOCKET) {
+    result = 0;
+  } else {
+    result = closesocket(mysql_socket.fd);
+  }
 
   return result;
 }
