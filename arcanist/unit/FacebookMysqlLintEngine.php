@@ -9,12 +9,12 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
     $paths = $this->getPaths();
 
     foreach ($paths as $key => $path) {
-        if (!Filesystem::pathExists($this->getFilePathOnDisk($path))) {
-	    unset($paths[$key]);
-	}
-        if (preg_match('@^external/@', $path)) {
-            unset($paths[$key]);
-        }
+      if (!Filesystem::pathExists($this->getFilePathOnDisk($path))) {
+        unset($paths[$key]);
+      }
+      if (preg_match('@^external/@', $path)) {
+        unset($paths[$key]);
+      }
     }
 
     // ArcanistGeneratedLinter stops other linters from
@@ -43,66 +43,66 @@ class FacebookMysqlLintEngine extends ArcanistLintEngine {
     $spelling_linter = new ArcanistSpellingLinter();
 
     $spelling_linter->setCustomSeverityMap(
-        array(
-	    ArcanistSpellingLinter::LINT_SPELLING_PICKY
-	        => ArcanistLintSeverity::SEVERITY_WARNING,
-	    ArcanistSpellingLinter::LINT_SPELLING_IMPORTANT
-	        => ArcanistLintSeverity::SEVERITY_WARNING,
-	)
+      array(
+        ArcanistSpellingLinter::LINT_SPELLING_PICKY
+          => ArcanistLintSeverity::SEVERITY_WARNING,
+        ArcanistSpellingLinter::LINT_SPELLING_IMPORTANT
+          => ArcanistLintSeverity::SEVERITY_WARNING,
+      )
     );
 
     $linters[] = $spelling_linter;
 
     foreach ($paths as $path) {
-        $is_text = false;
+      $is_text = false;
 
-        $text_extensions = (
-          '/\.('.
-          'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
-          'txt'.
-          'test'.
-          'py'.
-          'sh'.
-          'cmake'.
-          'css'.
-          'sql'.
-          'inc'.
-          'pl'.
-          'php'.
-          'json'.
-          'java'.
-          'html'.
-          'ic'.
-          'yy'.
-          ')$/'
-        );
+      $text_extensions = (
+        '/\.('.
+        'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
+        'txt'.
+        'test'.
+        'py'.
+        'sh'.
+        'cmake'.
+        'css'.
+        'sql'.
+        'inc'.
+        'pl'.
+        'php'.
+        'json'.
+        'java'.
+        'html'.
+        'ic'.
+        'yy'.
+        ')$/'
+      );
 
-        $cpp_extensions = (
-          '/\.('.
-          'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
-          ')$/'
-        );
+      $cpp_extensions = (
+        '/\.('.
+        'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
+        ')$/'
+      );
 
-        if (preg_match($cpp_extensions, $path)) {
-            $cpp_linter->addPath($path);
-            $cpp_linter->addData($path, $this->loadData($path));
-        }
+      if (preg_match($cpp_extensions, $path)) {
+        $cpp_linter->addPath($path);
+        $cpp_linter->addData($path, $this->loadData($path));
+      }
 
-        if (preg_match($text_extensions, $path)) {
-            $is_text = true;
-        } else if (preg_match('#/TARGETS$#', $path)) {
-            $is_text = true;
-        }
+      if (preg_match($text_extensions, $path)) {
+        $is_text = true;
+      } else if (preg_match('#/TARGETS$#', $path)) {
+        $is_text = true;
+      }
 
-	if ($is_text) {
-            $nolint_linter->addPath($path);
-            $generated_linter->addPath($path);
-            $generated_linter->addData($path, $this->loadData($path));
-            $mysql_linter->addPath($path);
-            $mysql_linter->addData($path, $this->loadData($path));
-            $spelling_linter->addPath($path);
-            $spelling_linter->addData($path, $this->loadData($path));
-        }
+      if ($is_text) {
+        $nolint_linter->addPath($path);
+        $generated_linter->addPath($path);
+        $generated_linter->addData($path, $this->loadData($path));
+        $mysql_linter->addPath($path);
+        $mysql_linter->addData($path, $this->loadData($path));
+        $spelling_linter->addPath($path);
+        $spelling_linter->addData($path, $this->loadData($path));
+      }
     }
 
     // ArcanistFilenameLinter stifles creativity in choosing
