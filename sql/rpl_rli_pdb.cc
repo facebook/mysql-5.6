@@ -2014,7 +2014,8 @@ static void slave_worker_update_statistics(Slave_worker *worker,
 
   }
 
-  if (ev && ev->worker && ev->get_type_code() != ROWS_QUERY_LOG_EVENT)
+  if (ev && ev->worker && ev->get_type_code() != ROWS_QUERY_LOG_EVENT
+      && ev != rli->rollback_ev)
   {
     delete ev;
   }
@@ -2273,6 +2274,11 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
                            */
                            part_event && !is_gtid_event(ev)))
   {
+    // rollback_ev is a special event appended to slave's worker queue
+    // to rollback partial transactions. worker_last_gtid should be
+    // reset in these cases.
+    if (ev == rli->rollback_ev)
+      worker->worker_last_gtid[0] = 0;
     DBUG_PRINT("slave_worker_exec_job:",
                (" commits GAQ index %lu, last committed  %lu",
                 ev->mts_group_idx, worker->last_group_done_index));

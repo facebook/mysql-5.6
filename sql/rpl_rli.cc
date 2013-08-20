@@ -124,7 +124,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    mts_group_status(MTS_NOT_IN_GROUP), reported_unsafe_warning(false),
    rli_description_event(NULL),
    sql_delay(0), sql_delay_end(0), m_flags(0), row_stmt_start_timestamp(0),
-   long_find_row_note_printed(false), error_on_rli_init_info(false)
+   long_find_row_note_printed(false), error_on_rli_init_info(false),
+   rollback_ev(NULL)
 {
   DBUG_ENTER("Relay_log_info::Relay_log_info");
 
@@ -163,6 +164,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
 
   relay_log.init_pthread_objects();
   do_server_version_split(::server_version, slave_version_split);
+  last_retrieved_gtid.clear();
   init_gtid_infos();
 
   DBUG_VOID_RETURN;
@@ -1893,8 +1895,17 @@ a file name for --relay-log-index option.", opt_relaylog_index_name);
     gtid_set.dbug_print("set of GTIDs in relay log before initialization");
     global_sid_lock->unlock();
 #endif
+    /*
+      Below init_gtid_sets() function will parse the available relay logs and
+      set I/O retrieved gtid event in gtid_state object. We dont need to find
+      last_retrieved_gtid_event if relay_log_recovery=1 (retrieved set will
+      be cleared off in that case).
+    */
+    Gtid *last_retrieved_gtid = is_relay_log_recovery ?
+                                NULL : get_last_retrieved_gtid();
     if (!current_thd &&
         relay_log.init_gtid_sets(&gtid_set, NULL,
+                                 last_retrieved_gtid,
                                  opt_slave_sql_verify_checksum,
                                  true/*true=need lock*/))
     {

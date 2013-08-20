@@ -123,8 +123,6 @@ const ulong mts_coordinator_basic_nap= 5;
 const ulong mts_worker_underrun_level= 10;
 
 Slave_job_item * de_queue(Slave_jobs_queue *jobs, Slave_job_item *ret);
-bool append_item_to_jobs(slave_job_item *job_item,
-                         Slave_worker *w, Relay_log_info *rli);
 
 /*
   When slave thread exits, we need to remember the temporary tables so we
@@ -3085,6 +3083,45 @@ static int request_dump(THD *thd, MYSQL* mysql, Master_info* mi,
     Gtid_set gtid_executed(&sid_map);
     global_sid_lock->wrlock();
     gtid_state->dbug_print();
+/*
+     We are unsure whether I/O thread retrieved the last gtid transaction
+     completely or not (before it is going down because of a crash/normal
+     shutdown/normal stop slave io_thread). It is possible that I/O thread
+     would have retrieved and written only partial transaction events. So We
+     request Master to send the last gtid event once again. We do this by
+     removing the last I/O thread retrieved gtid event from
+     "Retrieved_gtid_set".  Possible cases: 1) I/O thread would have
+     retrieved full transaction already in the first time itself and
+     SQL thread has not applied it yet while requesting dump but applied
+     it after I/O thread started receiving events from master. In this case
+     retrieving the same transaction again will not cause problem because GTID
+     number is same, Hence SQL thread will not commit it again. 2) I/O thread
+     would have retrieved full transaction already and SQL thread would have
+     already executed it. In that case, We are not going to remove last
+     retrieved gtid from "Retrieved_gtid_set" otherwise we will see gaps in
+     "Retrieved set". The same case is handled in the below code.
+     3) If there is a partial transaction, the whole transaction is retrieved
+     again into the next relay log which will be executed by SQL thread. Please
+     note there will be paritial transactions written in relay log but they
+     will not cause any problem incase of transactional tables.  But incase
+     of non-transaction tables, partial trx will create inconsistency
+     between master and slave.  In that case, users need to check manually.
+    */
+    Gtid_set * retrieved_set = const_cast<Gtid_set *>(mi->rli->get_gtid_set());
+    Gtid *last_retrieved_gtid = mi->rli->get_last_retrieved_gtid();
+    /*
+     Remove last_retrieved_gtid only if it is not part of
+     executed_gtid_set.
+    */
+    if (!last_retrieved_gtid->empty() &&
+        !gtid_state->get_logged_gtids()->contains_gtid(*last_retrieved_gtid))
+    {
+      if (retrieved_set->_remove_gtid(*last_retrieved_gtid) != RETURN_STATUS_OK)
+      {
+        global_sid_lock->unlock();
+        goto err;
+      }
+    }
     if (gtid_executed.add_gtid_set(mi->rli->get_gtid_set()) != RETURN_STATUS_OK ||
         gtid_executed.add_gtid_set(gtid_state->get_logged_gtids()) !=
         RETURN_STATUS_OK)
@@ -4452,6 +4489,36 @@ Stopping slave I/O thread due to out-of-memory error from master");
       }
       mysql_mutex_unlock(&mi->data_lock);
 
+      DBUG_EXECUTE_IF("partial_relay_log_transaction",
+                      {
+                        Log_event_type event_type =
+                          (Log_event_type)event_buf[EVENT_TYPE_OFFSET];
+                        if (event_type == QUERY_EVENT)
+                        {
+                          mysql_mutex_lock(&mi->data_lock);
+                          Query_log_event qe = Query_log_event(
+                            event_buf, event_len,
+                            mi->get_mi_description_event(),
+                            QUERY_EVENT);
+                          mysql_mutex_unlock(&mi->data_lock);
+                          if (!qe.starts_group() && !qe.ends_group())
+                          {
+                            flush_master_info(mi, true);
+                            goto err;
+                          }
+                        }
+                      });
+
+       DBUG_EXECUTE_IF("partial_relay_log_transaction_with_only_gtid",
+                       {
+                         if ((Log_event_type)event_buf[EVENT_TYPE_OFFSET] ==
+                             GTID_LOG_EVENT)
+                         {
+                           flush_master_info(mi, true);
+                           goto err;
+                         }
+                       });
+
       /*
         See if the relay logs take too much space.
         We don't lock mi->rli->log_space_lock here; this dirty read saves time
@@ -5535,6 +5602,16 @@ pthread_handler_t handle_slave_sql(void *arg)
   rli->reported_unsafe_warning= false;
 
   pthread_detach_this_thread();
+  // This event is appended to slave worker queue to rollback
+  // partial transactions in relay log.
+  Query_log_event r_ev(thd, STRING_WITH_LEN("ROLLBACK"), TRUE,
+                       FALSE, TRUE, 0, TRUE);
+  r_ev.data_written = 0;
+  r_ev.set_artificial_event();
+  // To make valgrind happy.
+  r_ev.future_event_relay_log_pos = BIN_LOG_HEADER_SIZE;
+  rli->rollback_ev = (Log_event *)&r_ev;
+
   if (init_slave_thread(thd, SLAVE_THD_SQL))
   {
     /*
@@ -6751,6 +6828,8 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       {
         global_sid_lock->rdlock();
         int ret= rli->add_logged_gtid(gtid.sidno, gtid.gno);
+        if (!ret)
+          rli->set_last_retrieved_gtid(gtid);
         global_sid_lock->unlock();
         if (ret != 0)
           goto err;
