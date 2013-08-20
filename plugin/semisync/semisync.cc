@@ -39,7 +39,7 @@ void sql_print_information(const char *format, ...)
   va_list args;
   va_start(args, format);
   fprintf(stderr, "Info: ");
-  fprintf(stderr, format, args);
+  vfprintf(stderr, format, args);
   fprintf(stderr, "\n");
   va_end(args);
 }
@@ -49,7 +49,7 @@ void sql_print_warning(const char *format, ...)
   va_list args;
   va_start(args, format);
   fprintf(stderr, "Warning: ");
-  fprintf(stderr, format, args);
+  vfprintf(stderr, format, args);
   fprintf(stderr, "\n");
   va_end(args);
 }
@@ -59,7 +59,7 @@ void sql_print_error(const char *format, ...)
   va_list args;
   va_start(args, format);
   fprintf(stderr, "Error: ");
-  fprintf(stderr, format, args);
+  vfprintf(stderr, format, args);
   fprintf(stderr, "\n");
   va_end(args);
 }

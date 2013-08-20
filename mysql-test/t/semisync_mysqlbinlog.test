@@ -29,7 +29,9 @@ show status like 'Rpl_semi_sync_master_yes_tx';
 
 --write_file $MYSQL_TMP_DIR/mbl.sh
 #!/bin/bash
-(`$MYSQL_BINLOG --raw --read-from-remote-server --stop-never --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --result-file=$MYSQL_TMP_DIR/ --use_semisync master-bin.000001 ; `) < /dev/null > /dev/null 2>$MYSQL_TMP_DIR/semisync.err &
+$MYSQL_BINLOG --raw --read-from-remote-server --stop-never --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --result-file=$MYSQL_TMP_DIR/ --use_semisync master-bin.000001 > /dev/null 2>$MYSQL_TMP_DIR/semisync.err &
+pid=$!
+echo $pid >> $MYSQL_TMP_DIR/mysqlbinlog.pid
 EOF
 --chmod 0755 $MYSQL_TMP_DIR/mbl.sh
 --exec $MYSQL_TMP_DIR/mbl.sh
@@ -92,7 +94,18 @@ set global rpl_semi_sync_master_wait_no_slave = OFF;
 show variables like 'rpl_semi_sync_master_wait_no_slave';
 
 echo [ safe kill mysqlbinlog and check master status ];
-exec pkill -SIGINT mysqlbinlog;
+--perl
+  my $fname = "$ENV{'MYSQL_TMP_DIR'}/mysqlbinlog.pid";
+  open(FILE, $fname);
+  kill 2, <FILE>;
+  close(FILE);
+EOF
+# Wait for Rpl_semi_sync_master_clients status variable to
+# avoid failure on slow platforms.
+--let $status_var = Rpl_semi_sync_master_clients
+--let $status_var_value = 0
+--source include/wait_for_status_var.inc
+
 show variables like 'rpl_semi_sync_master_enabled';
 show status like 'Rpl_semi_sync_master_clients';
 show status like 'Rpl_semi_sync_master_status';
@@ -105,4 +118,7 @@ disable_warnings;
 UNINSTALL PLUGIN rpl_semi_sync_master;
 enable_warnings;
 --remove_file $MYSQL_TMP_DIR/mbl.sh
+--remove_file $MYSQL_TMP_DIR/mysqlbinlog.pid
+--remove_file $MYSQL_TMP_DIR/semisync.err
+--remove_file $MYSQL_TMP_DIR/master-bin.000001
 drop table t1;
