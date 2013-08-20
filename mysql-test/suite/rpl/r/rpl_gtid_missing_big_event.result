@@ -1,0 +1,150 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table t1(a int) engine = innodb;
+include/stop_slave.inc
+change master to master_auto_position = 1;
+include/start_slave.inc
+== Testing scenario1 where a partial transaction is written in ==
+== relay log and a stop slave; start slave; are executed ==
+** Test scenario1 without MTS **
+insert into t1 values(1);
+set global debug = "d,partial_relay_log_transaction";
+insert into t1 values (2);
+include/wait_for_slave_io_to_stop.inc
+select * from t1;
+a
+1
+set global debug = ``;
+include/start_slave_io.inc
+select * from t1;
+a
+1
+2
+** Test scenario1 with MTS **
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 2;
+include/start_slave.inc
+delete from t1;
+insert into t1 values(1);
+set global debug = "d,partial_relay_log_transaction";
+insert into t1 values(2);
+include/wait_for_slave_io_to_stop.inc
+select * from t1;
+a
+1
+set global debug = ``;
+include/start_slave_io.inc
+select * from t1;
+a
+1
+2
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 0;
+include/start_slave.inc
+== Testing scenario2 where a complete transaction is ==
+== retrieved by i/o thread and sql thread executed it ==
+** Test scenario2 without MTS **
+delete from t1;
+insert into t1 values(1);
+include/stop_slave.inc
+include/start_slave.inc
+insert into t1 values(2);
+select * from t1;
+a
+1
+2
+** Test scenario2 with MTS **
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 2;
+include/start_slave.inc
+delete from t1;
+insert into t1 values(1);
+include/stop_slave.inc
+include/start_slave.inc
+insert into t1 values(2);
+select * from t1;
+a
+1
+2
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 0;
+include/start_slave.inc
+== Testing scenario3 where a complete transaction is ==
+== retrieved by i/o thread but sql thread didn't execute it ==
+== retrieving same transaction here is not a problem since ==
+== sql thread just skips if a GTID is already committed ==
+** Test scenario3 without MTS **
+delete from t1;
+include/stop_slave_sql.inc
+insert into t1 values(1);
+include/sync_slave_io_with_master.inc
+include/stop_slave_io.inc
+include/start_slave.inc
+insert into t1 values(2);
+select * from t1;
+a
+1
+2
+** Test scenario3 with MTS **
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 2;
+include/start_slave.inc
+delete from t1;
+include/stop_slave_sql.inc
+insert into t1 values(1);
+include/sync_slave_io_with_master.inc
+include/stop_slave_io.inc
+include/start_slave.inc
+insert into t1 values(2);
+select * from t1;
+a
+1
+2
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 0;
+include/start_slave.inc
+== Testing scenario4 where a gtid event is written in ==
+== relay log and a stop slave; start slave; are executed ==
+** Test scenario4 without MTS **
+delete from t1;
+insert into t1 values(1);
+set global debug = "d,partial_relay_log_transaction_with_only_gtid";
+insert into t1 values (2);
+include/wait_for_slave_io_to_stop.inc
+select * from t1;
+a
+1
+set global debug = ``;
+include/start_slave_io.inc
+select * from t1;
+a
+1
+2
+** Test scenario4 with MTS **
+include/stop_slave.inc
+set @@global.slave_parallel_workers=2;
+include/start_slave.inc
+delete from t1;
+insert into t1 values(1);
+set global debug = "d,partial_relay_log_transaction_with_only_gtid";
+insert into t1 values (2);
+include/wait_for_slave_io_to_stop.inc
+select * from t1;
+a
+1
+set global debug = ``;
+include/start_slave_io.inc
+select * from t1;
+a
+1
+2
+** Clean up **
+include/stop_slave.inc
+set @@global.slave_parallel_workers = 0;
+change master to master_auto_position=0;
+include/start_slave.inc
+drop table t1;
+include/rpl_end.inc

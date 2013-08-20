@@ -506,6 +506,8 @@ public:
     @param lost_groups Will be filled with all GTIDs in the
     Previous_gtids_log_event of the first binary log that has a
     Previous_gtids_log_event.
+    @param last_gtid Will be filled with the last available GTID information
+    in the binary/relay log files.
     @param verify_checksum If true, checksums will be checked.
     @param need_lock If true, LOCK_log, LOCK_index, and
     global_sid_lock->wrlock are acquired; otherwise they are asserted
@@ -513,10 +515,11 @@ public:
     @return false on success, true on error.
   */
   bool init_gtid_sets(Gtid_set *gtid_set, Gtid_set *lost_groups,
-                      bool verify_checksum, bool need_lock);
+                      Gtid *last_gtid, bool verify_checksum, bool need_lock);
   enum_read_gtids_from_binlog_status
   read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
-                         Gtid_set *prev_gtids, bool verify_checksum,
+                         Gtid_set *prev_gtids, Gtid *last_gtid,
+                         bool verify_checksum,
                          my_off_t max_pos = ULONGLONG_MAX,
                          Sid_map *local_sid_map = NULL);
 

@@ -1,0 +1,204 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/have_debug.inc;
+source include/have_innodb.inc;
+source include/have_binlog_format_statement.inc;
+
+let $old_debug = `select @@global.debug;`;
+connection master;
+create table t1(a int) engine = innodb;
+sync_slave_with_master;
+source include/stop_slave.inc;
+change master to master_auto_position = 1;
+source include/start_slave.inc;
+
+--echo == Testing scenario1 where a partial transaction is written in ==
+--echo == relay log and a stop slave; start slave; are executed ==
+--echo ** Test scenario1 without MTS **
+connection master;
+insert into t1 values(1);
+sync_slave_with_master;
+set global debug = "d,partial_relay_log_transaction";
+
+connection master;
+insert into t1 values (2);
+connection slave;
+
+source include/wait_for_slave_io_to_stop.inc;
+select * from t1;
+eval set global debug = `$old_debug`;
+source include/start_slave_io.inc;
+
+connection master;
+sync_slave_with_master;
+select * from t1;
+
+--echo ** Test scenario1 with MTS **
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 2;
+source include/start_slave.inc;
+
+connection master;
+delete from t1;
+insert into t1 values(1);
+sync_slave_with_master;
+set global debug = "d,partial_relay_log_transaction";
+
+connection master;
+insert into t1 values(2);
+connection slave;
+
+source include/wait_for_slave_io_to_stop.inc;
+select * from t1;
+eval set global debug = `$old_debug`;
+source include/start_slave_io.inc;
+
+let $count=2;
+let $table=t1;
+let $wait_timeout= 300;
+source include/wait_until_rows_count.inc;
+select * from t1;
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 0;
+source include/start_slave.inc;
+
+--echo == Testing scenario2 where a complete transaction is ==
+--echo == retrieved by i/o thread and sql thread executed it ==
+--echo ** Test scenario2 without MTS **
+connection master;
+delete from t1;
+insert into t1 values(1);
+sync_slave_with_master;
+
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+select * from t1;
+
+--echo ** Test scenario2 with MTS **
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 2;
+source include/start_slave.inc;
+connection master;
+delete from t1;
+insert into t1 values(1);
+sync_slave_with_master;
+
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+select * from t1;
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 0;
+source include/start_slave.inc;
+
+--echo == Testing scenario3 where a complete transaction is ==
+--echo == retrieved by i/o thread but sql thread didn't execute it ==
+--echo == retrieving same transaction here is not a problem since ==
+--echo == sql thread just skips if a GTID is already committed ==
+--echo ** Test scenario3 without MTS **
+connection master;
+delete from t1;
+sync_slave_with_master;
+source include/stop_slave_sql.inc;
+
+connection master;
+insert into t1 values(1);
+--let $use_gtids = 0
+source include/sync_slave_io_with_master.inc;
+source include/stop_slave_io.inc;
+source include/start_slave.inc;
+
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+select * from t1;
+
+--echo ** Test scenario3 with MTS **
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 2;
+source include/start_slave.inc;
+
+connection master;
+delete from t1;
+sync_slave_with_master;
+source include/stop_slave_sql.inc;
+
+connection master;
+insert into t1 values(1);
+--let $use_gtids = 0
+source include/sync_slave_io_with_master.inc;
+source include/stop_slave_io.inc;
+source include/start_slave.inc;
+
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+select * from t1;
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 0;
+source include/start_slave.inc;
+
+
+--echo == Testing scenario4 where a gtid event is written in ==
+--echo == relay log and a stop slave; start slave; are executed ==
+--echo ** Test scenario4 without MTS **
+connection master;
+delete from t1;
+insert into t1 values(1);
+sync_slave_with_master;
+set global debug = "d,partial_relay_log_transaction_with_only_gtid";
+
+connection master;
+insert into t1 values (2);
+connection slave;
+
+source include/wait_for_slave_io_to_stop.inc;
+select * from t1;
+eval set global debug = `$old_debug`;
+source include/start_slave_io.inc;
+
+connection master;
+sync_slave_with_master;
+select * from t1;
+
+--echo ** Test scenario4 with MTS **
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers=2;
+source include/start_slave.inc;
+
+connection master;
+delete from t1;
+insert into t1 values(1);
+sync_slave_with_master;
+set global debug = "d,partial_relay_log_transaction_with_only_gtid";
+
+connection master;
+insert into t1 values (2);
+connection slave;
+
+source include/wait_for_slave_io_to_stop.inc;
+select * from t1;
+eval set global debug = `$old_debug`;
+source include/start_slave_io.inc;
+
+let $count=2;
+let $table=t1;
+source include/wait_until_rows_count.inc;
+let $wait_timeout= 300;
+select * from t1;
+
+--echo ** Clean up **
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers = 0;
+change master to master_auto_position=0;
+source include/start_slave.inc;
+connection master;
+drop table t1;
+source include/rpl_end.inc;
