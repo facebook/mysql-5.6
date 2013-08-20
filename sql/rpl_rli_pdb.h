@@ -431,6 +431,9 @@ private:
   Slave_worker(const Slave_worker& info);
 };
 
+bool append_item_to_jobs(slave_job_item *job_item,
+                         Slave_worker *w, Relay_log_info *rli);
+
 TABLE* mts_move_temp_table_to_entry(TABLE*, THD*, db_worker_hash_entry*);
 TABLE* mts_move_temp_tables_to_thd(THD*, TABLE*);
 #endif // HAVE_REPLICATION
