@@ -255,8 +255,12 @@ protected:
 
 private:
   Gtid_set gtid_set;
+  /* Last gtid retrieved by IO thread */
+  Gtid last_retrieved_gtid;
 
 public:
+  Gtid *get_last_retrieved_gtid() { return &last_retrieved_gtid; }
+  void set_last_retrieved_gtid(Gtid gtid) { last_retrieved_gtid = gtid; }
   int add_logged_gtid(rpl_sidno sidno, rpl_gno gno)
   {
     int ret= 0;
@@ -989,6 +993,9 @@ private:
     SLAVE must be executed and the problem fixed manually.
    */
   bool error_on_rli_init_info;
+
+public:
+  Log_event *rollback_ev;
 };
 
 bool mysql_show_relaylog_events(THD* thd);

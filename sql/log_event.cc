@@ -3215,30 +3215,41 @@ int Log_event::apply_event(Relay_log_info *rli)
       */
 
       if (actual_exec_mode != EVENT_EXEC_ASYNC)
-      {     
-        /*
-          this  event does not split the current group but is indeed
-          a separator beetwen two master's binlog therefore requiring
-          Workers to sync.
-        */
-        if (rli->curr_group_da.elements > 0)
+      {
+        if (get_type_code() == FORMAT_DESCRIPTION_EVENT)
         {
-          char llbuff[22];
-          /* 
-             Possible reason is a old version binlog sequential event
-             wrappped with BEGIN/COMMIT or preceeded by User|Int|Random- var.
-             MTS has to stop to suggest restart in the permanent sequential mode.
-          */
-          llstr(rli->get_event_relay_log_pos(), llbuff);
-          my_error(ER_MTS_CANT_PARALLEL, MYF(0),
-                   get_type_str(), rli->get_event_relay_log_name(), llbuff,
-                   "possible malformed group of events from an old master");
-
-          /* Coordinator cant continue, it marks MTS group status accordingly */
-          rli->mts_group_status= Relay_log_info::MTS_KILLED_GROUP;
-
-          goto err;
+          if (rli->last_assigned_worker != NULL)
+          {
+            /*
+              Possbile reason is a partial transaction at the end of the relay
+              log due to a stop slave command or due to master failure.
+              The partial transaction should get rollbacked if MTS is on.
+              This is done by appending a rollback event to the slave worker
+              queue.
+            */
+            rli->report(INFORMATION_LEVEL, 0,
+                        "Rolling back unfinished transaction (no COMMIT "
+                        "or ROLLBACK in relay log). A probable cause is that "
+                        "the master died while sending a transaction to slave "
+                        "or a stop slave with GTIDs resulted in a partial "
+                        "transaction in the relay log.");
+            // To make valgrind happy by updating group assigned queue.
+            rli->rollback_ev->get_slave_worker(rli);
+            Slave_job_item item = {(void*)rli->rollback_ev}, *job_item= &item;
+            static_cast<Log_event*>(item.data)->mts_group_idx =
+              rli->gaq->assigned_group_index;
+            append_item_to_jobs(job_item, rli->last_assigned_worker, rli);
+          }
+          // Clean rli state to avoid assertions.
+          for (uint i= 0; i < rli->curr_group_da.elements; i++)
+            delete *(Log_event**) dynamic_array_ptr(&rli->curr_group_da, i);
+          delete_dynamic(&rli->curr_group_da);
+          delete_dynamic(&rli->curr_group_assigned_parts);
+          rli->curr_group_seen_gtid = rli->curr_group_seen_begin = false;
+          rli->last_gtid[0] = 0;
+          rli->last_assigned_worker = NULL;
         }
+
         /*
           Marking sure the event will be executed in sequential mode.
         */
@@ -3318,7 +3329,6 @@ int Log_event::apply_event(Relay_log_info *rli)
                rli->last_assigned_worker->id));
 #endif
 
-err:
   if (thd->is_error())
   {
     DBUG_ASSERT(!worker);
@@ -4785,11 +4795,15 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
   /*
     Setting the character set and collation of the current database thd->db.
    */
-  load_db_opt_by_name(thd, thd->db, &db_options);
-  if (db_options.default_table_charset)
-    thd->db_charset= db_options.default_table_charset;
-  thd->variables.auto_increment_increment= auto_increment_increment;
-  thd->variables.auto_increment_offset=    auto_increment_offset;
+  // Avoid seg faults by checking thd->db.
+  if (thd->db)
+  {
+    load_db_opt_by_name(thd, thd->db, &db_options);
+    if (db_options.default_table_charset)
+      thd->db_charset= db_options.default_table_charset;
+    thd->variables.auto_increment_increment= auto_increment_increment;
+    thd->variables.auto_increment_offset=    auto_increment_offset;
+  }
 
   /*
     InnoDB internally stores the master log position it has executed so far,
