@@ -200,6 +200,7 @@ static bool filter_based_on_gtids= false;
 static bool in_transaction= false;
 static bool seen_gtids= false;
 static bool opt_use_semisync = false;
+static uint opt_semisync_debug = 0;
 ReplSemiSyncSlave repl_semisync;
 
 static uint opt_receive_buffer_size = 0;
@@ -1625,6 +1626,12 @@ static struct my_option my_long_options[] =
    "for received events.",
    &opt_use_semisync, &opt_use_semisync, 0,
    GET_BOOL, OPT_ARG, 0, 0, 0, 0, 0, 0},
+  {"semisync-debug", OPT_SEMISYNC_DEBUG,
+   "A value of 2 prints debug information of semi-sync. "
+   "A value of 1 prints function traces of semi-sync. "
+   "A value of of 0 doesn't print any debug information.",
+   &opt_semisync_debug, &opt_semisync_debug, 0,
+   GET_UINT, REQUIRED_ARG, 0, 0, 2, 1, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
 };
 
@@ -1880,7 +1887,14 @@ static Exit_status safe_connect()
   {
     // set semi sync slave status to true
     rpl_semi_sync_slave_enabled = 1;
-    rpl_semi_sync_slave_trace_level = Trace::kTraceDetail;
+    // Note that kTraceDetail and kTraceFunction are the only trace
+    // levels used by semi-sync slave.
+    if (opt_semisync_debug == 2)
+      rpl_semi_sync_slave_trace_level = Trace::kTraceDetail;
+    else if (opt_semisync_debug == 1)
+      rpl_semi_sync_slave_trace_level = Trace::kTraceFunction;
+    else
+      rpl_semi_sync_slave_trace_level = 0;
     // Initialize semi sync slave functionality
     repl_semisync.initObject();
     // Check with master if it has semisync enabled and notify
