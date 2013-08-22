@@ -1,0 +1,37 @@
+#
+# Only global
+#
+
+select @@global.skip_flush_relay_worker_info;
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.skip_flush_relay_worker_info;
+
+show global variables like 'skip_flush_relay_worker_info';
+
+show session variables like 'skip_flush_relay_worker_info';
+
+--disable_warnings
+select * from performance_schema.global_variables
+  where variable_name='skip_flush_relay_worker_info';
+
+select * from performance_schema.session_variables
+  where variable_name='skip_flush_relay_worker_info';
+--enable_warnings
+
+#
+# Read-Write
+#
+
+set global skip_flush_relay_worker_info=TRUE;
+select @@global.skip_flush_relay_worker_info;
+
+set global skip_flush_relay_worker_info=0;
+select @@global.skip_flush_relay_worker_info;
+
+--error ER_GLOBAL_VARIABLE
+set session skip_flush_relay_worker_info=1;
+
+# Restore default
+set global skip_flush_relay_worker_info=DEFAULT;
+select @@global.skip_flush_relay_worker_info;

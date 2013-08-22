@@ -382,6 +382,20 @@ int Master_info::flush_info(bool force) {
   */
   if (inited) handler->set_sync_period(sync_masterinfo_period);
 
+  handler->inc_sync_counter();
+
+  bool do_flush = sync_masterinfo_period &&
+                  handler->get_sync_counter() >= sync_masterinfo_period;
+
+  /*
+    Check whether a write is actually necessary. If not checked,
+    write_info() causes unnecessary code path which copies (sprintf),
+    writes to file cache and flush_info() causes unnecessary flush of the
+    file cache which are anyway completely useless in recovery since
+    they are not transactional if we are using FILE based repository.
+  */
+  if (skip_flush_master_info && !(force || do_flush)) return 0;
+
   if (write_info(handler)) goto err;
 
   if (handler->flush_info(force)) goto err;
@@ -690,28 +704,53 @@ bool Master_info::write_info(Rpl_info_handler *to) {
      contents of file). But because of number of lines in the first line
      of file we don't care about this garbage.
   */
-  if (to->prepare_info_for_write() || to->set_info((int)LINES_IN_MASTER_INFO) ||
-      to->set_info(master_log_name) || to->set_info((ulong)master_log_pos) ||
-      to->set_info(host) || to->set_info(user) || to->set_info(password) ||
-      to->set_info((int)port) || to->set_info((int)connect_retry) ||
-      to->set_info((int)ssl) || to->set_info(ssl_ca) ||
-      to->set_info(ssl_capath) || to->set_info(ssl_cert) ||
-      to->set_info(ssl_cipher) || to->set_info(ssl_key) ||
-      to->set_info((int)ssl_verify_server_cert) ||
-      to->set_info(heartbeat_period) || to->set_info(bind_addr) ||
-      to->set_info(ignore_server_ids) || to->set_info(master_uuid) ||
-      to->set_info(retry_count) || to->set_info(ssl_crl) ||
-      to->set_info(ssl_crlpath) || to->set_info((int)auto_position) ||
-      to->set_info(channel) || to->set_info(tls_version) ||
-      to->set_info(public_key_path) || to->set_info(get_public_key) ||
-      to->set_info(network_namespace) || to->set_info(compression_algorithm) ||
-      to->set_info((int)zstd_compression_level) ||
-      to->set_info(tls_ciphersuites.first ? nullptr
-                                          : tls_ciphersuites.second.c_str()) ||
-      to->set_info((int)m_source_connection_auto_failover) ||
-      to->set_info((int)m_gtid_only_mode))
-    return true;
+  if (to->prepare_info_for_write()) return true;
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE) {
+    if (to->set_info((int)LINES_IN_MASTER_INFO) ||
+        to->set_info(master_log_name) || to->set_info((ulong)master_log_pos) ||
+        to->set_info(host) || to->set_info(user) || to->set_info(password) ||
+        to->set_info((int)port) || to->set_info((int)connect_retry) ||
+        to->set_info((int)ssl) || to->set_info(ssl_ca) ||
+        to->set_info(ssl_capath) || to->set_info(ssl_cert) ||
+        to->set_info(ssl_cipher) || to->set_info(ssl_key) ||
+        to->set_info((int)ssl_verify_server_cert) ||
+        to->set_info(heartbeat_period) || to->set_info(bind_addr) ||
+        to->set_info(ignore_server_ids) || to->set_info(master_uuid) ||
+        to->set_info(retry_count) || to->set_info(ssl_crl) ||
+        to->set_info(ssl_crlpath) || to->set_info((int)auto_position) ||
+        to->set_info(channel) || to->set_info(tls_version) ||
+        to->set_info(public_key_path) || to->set_info(get_public_key) ||
+        to->set_info(network_namespace) ||
+        to->set_info(compression_algorithm) ||
+        to->set_info((int)zstd_compression_level) ||
+        to->set_info(tls_ciphersuites.first
+                         ? nullptr
+                         : tls_ciphersuites.second.c_str()) ||
+        to->set_info((int)m_source_connection_auto_failover) ||
+        to->set_info((int)m_gtid_only_mode))
+      return true;
+  } else {
+    String buffer;
+    char hb_period[64];
+    sprintf(hb_period, "%.3f", heartbeat_period);
 
+    if (ignore_server_ids->pack_dynamic_ids(&buffer)) return true;
+    if (to->set_info(
+            LINES_IN_MASTER_INFO, /* 33 params after the format string */
+            "%d\n%s\n%lu\n%s\n%s\n%s\n%u\n%u\n"
+            "%d\n%s\n%s\n%s\n%s\n%s\n%d\n%s\n%s\n%s\n%s\n%lu\n%s\n"
+            "%s\n%d\n%s\n%s\n%s\n%d\n%s\n%s\n%d\n%s\n%d\n%d\n",
+            (int)LINES_IN_MASTER_INFO, master_log_name, (ulong)master_log_pos,
+            host, user, password, port, connect_retry, ssl, ssl_ca, ssl_capath,
+            ssl_cert, ssl_cipher, ssl_key, (int)ssl_verify_server_cert,
+            hb_period, bind_addr, buffer.c_ptr_safe(), master_uuid, retry_count,
+            ssl_crl, ssl_crlpath, (int)auto_position, channel, tls_version,
+            public_key_path, get_public_key, network_namespace,
+            compression_algorithm, (int)zstd_compression_level,
+            tls_ciphersuites.first ? "" : tls_ciphersuites.second.c_str(),
+            (int)m_source_connection_auto_failover, (int)m_gtid_only_mode))
+      return true;
+  }
   return false;
 }
 

@@ -1,0 +1,33 @@
+select @@global.skip_flush_master_info;
+@@global.skip_flush_master_info
+0
+select @@session.skip_flush_master_info;
+ERROR HY000: Variable 'skip_flush_master_info' is a GLOBAL variable
+show global variables like 'skip_flush_master_info';
+Variable_name	Value
+skip_flush_master_info	OFF
+show session variables like 'skip_flush_master_info';
+Variable_name	Value
+skip_flush_master_info	OFF
+select * from performance_schema.global_variables
+where variable_name='skip_flush_master_info';
+VARIABLE_NAME	VARIABLE_VALUE
+skip_flush_master_info	OFF
+select * from performance_schema.session_variables
+where variable_name='skip_flush_master_info';
+VARIABLE_NAME	VARIABLE_VALUE
+skip_flush_master_info	OFF
+set global skip_flush_master_info=TRUE;
+select @@global.skip_flush_master_info;
+@@global.skip_flush_master_info
+1
+set global skip_flush_master_info=0;
+select @@global.skip_flush_master_info;
+@@global.skip_flush_master_info
+0
+set session skip_flush_master_info=1;
+ERROR HY000: Variable 'skip_flush_master_info' is a GLOBAL variable and should be set with SET GLOBAL
+set global skip_flush_master_info=DEFAULT;
+select @@global.skip_flush_master_info;
+@@global.skip_flush_master_info
+0

@@ -161,6 +161,7 @@ class Rpl_info_table : public Rpl_info_handler {
   int do_prepare_info_for_read() override;
   int do_prepare_info_for_write() override;
 
+  bool do_set_info(const char *format, va_list args) override;
   bool do_set_info(const int pos, const char *value) override;
   bool do_set_info(const int pos, const uchar *value,
                    const size_t size) override;

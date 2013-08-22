@@ -78,6 +78,13 @@ int Rpl_info_dummy::do_clean_info() {
 
 uint Rpl_info_dummy::do_get_rpl_info_type() { return INFO_REPOSITORY_DUMMY; }
 
+bool Rpl_info_dummy::do_set_info(const char *format [[maybe_unused]],
+                                 va_list args [[maybe_unused]]) {
+  assert(!abort);
+
+  return false;
+}
+
 bool Rpl_info_dummy::do_set_info(const int pos [[maybe_unused]],
                                  const char *value [[maybe_unused]]) {
   assert(!abort);

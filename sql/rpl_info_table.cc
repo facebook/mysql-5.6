@@ -169,7 +169,7 @@ end:
   return error;
 }
 
-int Rpl_info_table::do_flush_info(const bool force) {
+int Rpl_info_table::do_flush_info(const bool force MY_ATTRIBUTE((unused))) {
   int error = 1;
   enum enum_return_id res = FOUND_ID;
   TABLE *table = nullptr;
@@ -647,6 +647,11 @@ int Rpl_info_table::do_prepare_info_for_write() {
 }
 
 uint Rpl_info_table::do_get_rpl_info_type() { return INFO_REPOSITORY_TABLE; }
+
+bool Rpl_info_table::do_set_info(const char *format MY_ATTRIBUTE((unused)),
+                                 va_list args MY_ATTRIBUTE((unused))) {
+  return false;
+}
 
 bool Rpl_info_table::do_set_info(const int pos, const char *value) {
   if (value == nullptr)
