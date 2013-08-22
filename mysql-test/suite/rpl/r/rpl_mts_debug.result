@@ -29,6 +29,7 @@ include/start_slave.inc
 call mtr.add_suppression('Error reading slave worker configuration');
 call mtr.add_suppression('Failed during slave workers initialization');
 call mtr.add_suppression('Failed during slave worker thread create');
+call mtr.add_suppression('Error writing slave worker configuration');
 include/stop_slave.inc
 set @save.slave_checkpoint_group= @@global.slave_checkpoint_group;
 set @save.slave_parallel_workers= @@global.slave_parallel_workers;

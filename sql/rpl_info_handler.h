@@ -202,6 +202,46 @@ public:
   }
 
   /**
+    Sets all the values in args in specified format.
+
+    @param n      number of args after format
+    @param format print format of args
+
+    @return FALSE No Error
+    @return TRUE  Failure
+
+    Note that this function should be only used with FILE repository.
+  */
+  bool set_info(int n, const char *format, ...)
+  {
+    DBUG_ASSERT(get_rpl_info_type() == INFO_REPOSITORY_FILE);
+    va_list args;
+    va_start(args, format);
+    if (cursor >= ninfo || prv_error)
+    {
+      va_end(args);
+      return TRUE;
+    }
+    if (!(prv_error = do_set_info(format, args)))
+      cursor += n;
+    va_end(args);
+    return (prv_error);
+  }
+
+  /*
+    Checks whether a write is actually necessary.
+
+    @param force true if write to repository is required.
+
+    @return false skip writing and flushing replication info.
+            true  continue writing and flushing replication info.
+  */
+  bool need_write(bool force)
+  {
+    return do_need_write(force);
+  }
+
+  /**
     Returns the value of a field.
     Any call must be done in the right order which
     is defined by the caller that wants to return
@@ -385,6 +425,7 @@ private:
   virtual bool do_set_info(const int pos, const int value)= 0;
   virtual bool do_set_info(const int pos, const float value)= 0;
   virtual bool do_set_info(const int pos, const Dynamic_ids *value)= 0;
+  virtual bool do_set_info(const char *format, va_list args) = 0;
   virtual bool do_get_info(const int pos, char *value,
                            const size_t size,
                            const char *default_value)= 0;
@@ -403,6 +444,7 @@ private:
   virtual bool do_is_transactional()= 0;
   virtual bool do_update_is_transactional()= 0;
   virtual uint do_get_rpl_info_type()= 0;
+  virtual bool do_need_write(bool force)=0;
 
   Rpl_info_handler(const Rpl_info_handler& handler);
 
