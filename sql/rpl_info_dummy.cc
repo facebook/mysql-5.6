@@ -80,6 +80,13 @@ int Rpl_info_dummy::do_clean_info() {
 
 uint Rpl_info_dummy::do_get_rpl_info_type() { return INFO_REPOSITORY_DUMMY; }
 
+bool Rpl_info_dummy::do_set_info(const char *format MY_ATTRIBUTE((unused)),
+                                 va_list args MY_ATTRIBUTE((unused))) {
+  DBUG_ASSERT(!abort);
+
+  return false;
+}
+
 bool Rpl_info_dummy::do_set_info(const int pos MY_ATTRIBUTE((unused)),
                                  const char *value MY_ATTRIBUTE((unused))) {
   DBUG_ASSERT(!abort);

@@ -1262,6 +1262,12 @@ The following options may be given as the first argument:
  --show-slave-auth-info 
  Show user and password in SHOW SLAVE HOSTS on this
  master.
+ --skip-flush-master-info 
+ Increase performance by not flushing the master info on
+ each replica event
+ --skip-flush-relay-worker-info 
+ Increase performance by not flushing the relay/worker
+ info on each replica transaction
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
@@ -1824,6 +1830,8 @@ sha256-password-proxy-users FALSE
 show-create-table-verbosity FALSE
 show-old-temporals FALSE
 show-slave-auth-info FALSE
+skip-flush-master-info FALSE
+skip-flush-relay-worker-info FALSE
 skip-grant-tables TRUE
 skip-name-resolve FALSE
 skip-networking FALSE
