@@ -79,6 +79,7 @@ uint mta_debug_concurrent_access = 0;
 #endif
 
 #define HASH_DYNAMIC_INIT 4
+static const int LINES_IN_WORKER_INFO = 12;
 
 using std::max;
 using std::min;
@@ -476,6 +477,19 @@ int Slave_worker::flush_info(const bool force) {
   */
   handler->set_sync_period(sync_relayloginfo_period);
 
+  handler->inc_sync_counter();
+
+  bool do_flush = sync_relayloginfo_period &&
+                  handler->get_sync_counter() >= sync_relayloginfo_period;
+  /*
+    Check whether a write is actually necessary. If not checked,
+    write_info() causes unnecessary code path which copies (sprintf),
+    writes to file cache and flush_info() causes unnecessary flush of the
+    file cache which are anyway completely useless in recovery since
+    they are not transactional if we are using FILE based repository.
+  */
+  if (skip_flush_relay_worker_info && !(force || do_flush)) return 0;
+
   /*
     This only fails on out-of-memory errors, which are reported (using
     the MY_WME flag to my_malloc).
@@ -573,18 +587,31 @@ bool Slave_worker::write_info(Rpl_info_handler *to) {
   uchar *buffer = (uchar *)group_executed.bitmap;
   assert(nbytes <= (c_rli->checkpoint_group + 7) / 8);
 
-  if (to->prepare_info_for_write() || to->set_info((int)internal_id) ||
-      to->set_info(group_relay_log_name) ||
-      to->set_info((ulong)group_relay_log_pos) ||
-      to->set_info(group_master_log_name) ||
-      to->set_info((ulong)group_master_log_pos) ||
-      to->set_info(checkpoint_relay_log_name) ||
-      to->set_info((ulong)checkpoint_relay_log_pos) ||
-      to->set_info(checkpoint_master_log_name) ||
-      to->set_info((ulong)checkpoint_master_log_pos) ||
-      to->set_info(worker_checkpoint_seqno) || to->set_info(nbytes) ||
-      to->set_info(buffer, (size_t)nbytes) || to->set_info(channel))
-    return true;
+  if (to->prepare_info_for_write()) return true;
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE) {
+    if (to->set_info((int)internal_id) || to->set_info(group_relay_log_name) ||
+        to->set_info((ulong)group_relay_log_pos) ||
+        to->set_info(group_master_log_name) ||
+        to->set_info((ulong)group_master_log_pos) ||
+        to->set_info(checkpoint_relay_log_name) ||
+        to->set_info((ulong)checkpoint_relay_log_pos) ||
+        to->set_info(checkpoint_master_log_name) ||
+        to->set_info((ulong)checkpoint_master_log_pos) ||
+        to->set_info(worker_checkpoint_seqno) || to->set_info(nbytes) ||
+        to->set_info(buffer, (size_t)nbytes) || to->set_info(channel))
+      return true;
+  } else {
+    if (to->set_info(
+            LINES_IN_WORKER_INFO - 1,
+            "%d\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%lu\n%lu\n",
+            (int)internal_id, group_relay_log_name, (ulong)group_relay_log_pos,
+            group_master_log_name, (ulong)group_master_log_pos,
+            checkpoint_relay_log_name, (ulong)checkpoint_relay_log_pos,
+            checkpoint_master_log_name, (ulong)checkpoint_master_log_pos,
+            worker_checkpoint_seqno, nbytes) ||
+        to->set_info(buffer, (size_t)nbytes) || to->set_info(channel))
+      return true;
+  }
 
   return false;
 }

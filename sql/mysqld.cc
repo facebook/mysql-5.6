@@ -1222,6 +1222,9 @@ bool opt_log_replica_updates = false;
 char *opt_replica_skip_errors;
 bool opt_replica_allow_batching = false;
 
+bool skip_flush_master_info = false;
+bool skip_flush_relay_worker_info = false;
+
 /**
   compatibility option:
     - index usage hints (USE INDEX without a FOR clause) behave as in 5.0

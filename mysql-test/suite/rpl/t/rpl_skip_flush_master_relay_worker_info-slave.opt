@@ -1,0 +1,6 @@
+--relay-log-info-repository=FILE
+--master-info-repository=FILE
+--gtid_mode=ON --enforce_gtid_consistency --log_bin
+--skip_flush_master_info=1
+--skip_flush_relay_worker_info=1
+

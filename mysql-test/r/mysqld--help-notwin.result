@@ -1405,6 +1405,12 @@ The following options may be given as the first argument:
  --show-slave-auth-info 
  This option is deprecated and will be removed in a future
  version. Use show-replica-auth-info instead.
+ --skip-flush-master-info 
+ Increase performance by not flushing the master info on
+ each replica event
+ --skip-flush-relay-worker-info 
+ Increase performance by not flushing the relay/worker
+ info on each replica transaction
  --skip-grant-tables Start without grant tables. This gives all users FULL
  ACCESS to all tables.
  --skip-host-cache   Don't cache host names.
@@ -2006,6 +2012,8 @@ show-create-table-verbosity FALSE
 show-old-temporals FALSE
 show-replica-auth-info FALSE
 show-slave-auth-info FALSE
+skip-flush-master-info FALSE
+skip-flush-relay-worker-info FALSE
 skip-grant-tables TRUE
 skip-name-resolve FALSE
 skip-networking FALSE
