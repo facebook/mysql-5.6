@@ -202,6 +202,33 @@ public:
   }
 
   /**
+    Sets all the values in args in specified format.
+
+    @param n      number of args after format
+    @param format print format of args
+
+    @return FALSE No Error
+    @return TRUE  Failure
+
+    Note that this function should be only used with FILE repository.
+  */
+  bool set_info(int n, const char *format, ...)
+  {
+    DBUG_ASSERT(!strcmp(get_rpl_info_type_str(), "FILE"));
+    va_list args;
+    va_start(args, format);
+    if (cursor >= ninfo || prv_error)
+    {
+      va_end(args);
+      return TRUE;
+    }
+    if (!(prv_error = do_set_info(format, args)))
+      cursor += n;
+    va_end(args);
+    return (prv_error);
+  }
+
+  /**
     Returns the value of a field.
     Any call must be done in the right order which
     is defined by the caller that wants to return
@@ -385,6 +412,7 @@ private:
   virtual bool do_set_info(const int pos, const int value)= 0;
   virtual bool do_set_info(const int pos, const float value)= 0;
   virtual bool do_set_info(const int pos, const Dynamic_ids *value)= 0;
+  virtual bool do_set_info(const char *format, va_list args) = 0;
   virtual bool do_get_info(const int pos, char *value,
                            const size_t size,
                            const char *default_value)= 0;
