@@ -23,10 +23,12 @@
 #ifndef RPL_INFO_HANDLER_H
 #define RPL_INFO_HANDLER_H
 
+#include <stdarg.h>
 #include <stddef.h>
 #include <sys/types.h>
 #include <type_traits>
 
+#include "my_dbug.h"
 #include "my_inttypes.h"
 
 class Rpl_info_values;
@@ -199,6 +201,30 @@ class Rpl_info_handler {
     if (pk_cursor >= ninfo) return true;
 
     return (do_set_info(pk_cursor, value));
+  }
+
+  /**
+    Sets all the values in args in specified format.
+
+    @param n      number of args after format
+    @param format print format of args
+
+    @return false No Error
+    @return true  Failure
+
+    Note that this function should be only used with FILE repository.
+  */
+  bool set_info(int n, const char *format, ...) {
+    DBUG_ASSERT(get_rpl_info_type() == INFO_REPOSITORY_FILE);
+    va_list args;
+    va_start(args, format);
+    if (cursor >= ninfo || prv_error) {
+      va_end(args);
+      return true;
+    }
+    if (!(prv_error = do_set_info(format, args))) cursor += n;
+    va_end(args);
+    return (prv_error);
   }
 
   /**
@@ -378,6 +404,7 @@ class Rpl_info_handler {
   virtual bool do_set_info(const int pos, const int value) = 0;
   virtual bool do_set_info(const int pos, const float value) = 0;
   virtual bool do_set_info(const int pos, const Server_ids *value) = 0;
+  virtual bool do_set_info(const char *format, va_list args) = 0;
   virtual bool do_get_info(const int pos, char *value, const size_t size,
                            const char *default_value) = 0;
   virtual bool do_get_info(const int pos, uchar *value, const size_t size,

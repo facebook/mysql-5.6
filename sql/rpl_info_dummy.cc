@@ -123,6 +123,13 @@ bool Rpl_info_dummy::do_set_info(const int pos MY_ATTRIBUTE((unused)),
   return false;
 }
 
+bool Rpl_info_dummy::do_set_info(const char *format MY_ATTRIBUTE((unused)),
+                                 va_list args MY_ATTRIBUTE((unused))) {
+  DBUG_ASSERT(!abort);
+
+  return false;
+}
+
 bool Rpl_info_dummy::do_get_info(
     const int pos MY_ATTRIBUTE((unused)), char *value MY_ATTRIBUTE((unused)),
     const size_t size MY_ATTRIBUTE((unused)),

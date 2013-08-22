@@ -33,6 +33,8 @@
 
 class Server_ids;
 
+extern bool skip_flush_master_info;
+
 /**
   Defines a file hander.
 */
@@ -117,6 +119,7 @@ class Rpl_info_file : public Rpl_info_handler {
   bool do_get_info(const int pos, float *value, const float default_value);
   bool do_get_info(const int pos, Server_ids *value,
                    const Server_ids *default_value);
+  bool do_set_info(const char *format, va_list args);
   char *do_get_description_info();
   uint do_get_rpl_info_type();
 
