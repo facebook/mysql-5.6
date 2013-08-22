@@ -2092,6 +2092,9 @@ int Relay_log_info::flush_info(const bool force)
   */
   handler->set_sync_period(sync_relayloginfo_period);
 
+  if (!handler->need_write(force))
+    DBUG_RETURN(0);
+
   if (write_info(handler))
     goto err;
 
@@ -2224,16 +2227,32 @@ bool Relay_log_info::write_info(Rpl_info_handler *to)
   */
   //DBUG_ASSERT(!belongs_to_client());
 
-  if (to->prepare_info_for_write() ||
-      to->set_info((int) LINES_IN_RELAY_LOG_INFO_WITH_ID) ||
-      to->set_info(group_relay_log_name) ||
-      to->set_info((ulong) group_relay_log_pos) ||
-      to->set_info(group_master_log_name) ||
-      to->set_info((ulong) group_master_log_pos) ||
-      to->set_info((int) sql_delay) ||
-      to->set_info(recovery_parallel_workers) ||
-      to->set_info((int) internal_id))
+  if (to->prepare_info_for_write())
     DBUG_RETURN(TRUE);
+
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE)
+  {
+    if (to->set_info((int) LINES_IN_RELAY_LOG_INFO_WITH_ID) ||
+        to->set_info(group_relay_log_name) ||
+        to->set_info((ulong) group_relay_log_pos) ||
+        to->set_info(group_master_log_name) ||
+        to->set_info((ulong) group_master_log_pos) ||
+        to->set_info((int) sql_delay) ||
+        to->set_info(recovery_parallel_workers) ||
+        to->set_info((int) internal_id))
+      DBUG_RETURN(TRUE);
+  }
+  else
+  {
+    if (to->set_info(LINES_IN_RELAY_LOG_INFO_WITH_ID,
+                     "%d\n%s\n%lu\n%s\n%lu\n%d\n%lu\n%d\n",
+                     (int) LINES_IN_RELAY_LOG_INFO_WITH_ID,
+                     group_relay_log_name, (ulong) group_relay_log_pos,
+                     group_master_log_name, (ulong) group_master_log_pos,
+                     (int) sql_delay, recovery_parallel_workers,
+                     (int) internal_id))
+      DBUG_RETURN(TRUE);
+  }
 
   DBUG_RETURN(FALSE);
 }
