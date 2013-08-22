@@ -2205,15 +2205,30 @@ bool Relay_log_info::write_info(Rpl_info_handler *to) {
   */
   // DBUG_ASSERT(!belongs_to_client());
 
-  if (to->prepare_info_for_write() ||
-      to->set_info((int)MAXIMUM_LINES_IN_RELAY_LOG_INFO_FILE) ||
-      to->set_info(group_relay_log_name) ||
-      to->set_info((ulong)group_relay_log_pos) ||
-      to->set_info(group_master_log_name) ||
-      to->set_info((ulong)group_master_log_pos) ||
-      to->set_info((int)sql_delay) || to->set_info(recovery_parallel_workers) ||
-      to->set_info((int)internal_id) || to->set_info(channel))
-    return true;
+  if (to->prepare_info_for_write()) return true;
+
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE) {
+    if (to->set_info((int)MAXIMUM_LINES_IN_RELAY_LOG_INFO_FILE) ||
+        to->set_info(group_relay_log_name) ||
+        to->set_info((ulong)group_relay_log_pos) ||
+        to->set_info(group_master_log_name) ||
+        to->set_info((ulong)group_master_log_pos) ||
+        to->set_info((int)sql_delay) ||
+        to->set_info(recovery_parallel_workers) ||
+        to->set_info((int)internal_id) || to->set_info(channel))
+      return true;
+  } else {
+    if (to->set_info(LINES_IN_RELAY_LOG_INFO_WITH_CHANNEL +
+                         1, /* 9 params after the format string */
+                     "%d\n%s\n%lu\n%s\n%lu\n%d\n%lu\n%d\n%s\n",
+                     (int)MAXIMUM_LINES_IN_RELAY_LOG_INFO_FILE,
+                     group_relay_log_name, (ulong)group_relay_log_pos,
+                     group_master_log_name, (ulong)group_master_log_pos,
+                     (int)sql_delay, recovery_parallel_workers,
+                     (int)internal_id, channel))
+      return true;
+  }
+
   if (m_privilege_checks_username.length()) {
     if (to->set_info(m_privilege_checks_username.c_str())) return true;
   } else {

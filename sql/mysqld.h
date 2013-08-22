@@ -719,6 +719,8 @@ extern MYSQL_PLUGIN_IMPORT char pidfile_name[];
 
 #define mysql_tmpdir (my_tmpdir(&mysql_tmpdir_list))
 
+extern bool skip_flush_master_info;
+
 /*
   Server mutex locks and condition variables.
  */

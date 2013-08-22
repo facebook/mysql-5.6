@@ -3529,6 +3529,12 @@ static Sys_var_bool Sys_skip_external_locking(
     READ_ONLY NON_PERSIST GLOBAL_VAR(my_disable_locking), NO_CMD_LINE,
     DEFAULT(true));
 
+static Sys_var_bool Sys_skip_flush_master_info(
+    "skip_flush_master_info",
+    "Increase performance by not flushing the master info on each "
+    "slave transaction",
+    GLOBAL_VAR(skip_flush_master_info), CMD_LINE(OPT_ARG), DEFAULT(false));
+
 static Sys_var_bool Sys_skip_networking(
     "skip_networking", "Don't allow connection with TCP/IP",
     READ_ONLY NON_PERSIST GLOBAL_VAR(opt_disable_networking), CMD_LINE(OPT_ARG),

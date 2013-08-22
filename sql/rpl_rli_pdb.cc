@@ -78,6 +78,7 @@ uint mts_debug_concurrent_access = 0;
 #endif
 
 #define HASH_DYNAMIC_INIT 4
+static const int LINES_IN_WORKER_INFO = 12;
 
 using std::max;
 using std::min;
@@ -566,18 +567,31 @@ bool Slave_worker::write_info(Rpl_info_handler *to) {
   uchar *buffer = (uchar *)group_executed.bitmap;
   DBUG_ASSERT(nbytes <= (c_rli->checkpoint_group + 7) / 8);
 
-  if (to->prepare_info_for_write() || to->set_info((int)internal_id) ||
-      to->set_info(group_relay_log_name) ||
-      to->set_info((ulong)group_relay_log_pos) ||
-      to->set_info(group_master_log_name) ||
-      to->set_info((ulong)group_master_log_pos) ||
-      to->set_info(checkpoint_relay_log_name) ||
-      to->set_info((ulong)checkpoint_relay_log_pos) ||
-      to->set_info(checkpoint_master_log_name) ||
-      to->set_info((ulong)checkpoint_master_log_pos) ||
-      to->set_info(worker_checkpoint_seqno) || to->set_info(nbytes) ||
-      to->set_info(buffer, (size_t)nbytes) || to->set_info(channel))
-    return true;
+  if (to->prepare_info_for_write()) return true;
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE) {
+    if (to->set_info((int)internal_id) || to->set_info(group_relay_log_name) ||
+        to->set_info((ulong)group_relay_log_pos) ||
+        to->set_info(group_master_log_name) ||
+        to->set_info((ulong)group_master_log_pos) ||
+        to->set_info(checkpoint_relay_log_name) ||
+        to->set_info((ulong)checkpoint_relay_log_pos) ||
+        to->set_info(checkpoint_master_log_name) ||
+        to->set_info((ulong)checkpoint_master_log_pos) ||
+        to->set_info(worker_checkpoint_seqno) || to->set_info(nbytes) ||
+        to->set_info(buffer, (size_t)nbytes) || to->set_info(channel))
+      return true;
+  } else {
+    if (to->set_info(
+            LINES_IN_WORKER_INFO - 1,
+            "%d\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%lu\n%lu\n",
+            (int)internal_id, group_relay_log_name, (ulong)group_relay_log_pos,
+            group_master_log_name, (ulong)group_master_log_pos,
+            checkpoint_relay_log_name, (ulong)checkpoint_relay_log_pos,
+            checkpoint_master_log_name, (ulong)checkpoint_master_log_pos,
+            worker_checkpoint_seqno, nbytes) ||
+        to->set_info(buffer, (size_t)nbytes) || to->set_info(channel))
+      return true;
+  }
 
   return false;
 }
