@@ -144,13 +144,17 @@ int Rpl_info_table::do_flush_info(const bool force)
 
   DBUG_ENTER("Rpl_info_table::do_flush_info");
 
+#if !defined(FLUSH_REP_INFO)
   if (!(force || (sync_period &&
       ++(sync_counter) >= sync_period)))
     DBUG_RETURN(0);
+#endif
 
   THD *thd= access->create_thd();
 
+#if !defined(FLUSH_REP_INFO)
   sync_counter= 0;
+#endif
   saved_mode= thd->variables.sql_mode;
   tmp_disable_binlog(thd);
 
@@ -585,6 +589,11 @@ bool Rpl_info_table::do_set_info(const int pos, const Dynamic_ids *value)
   return FALSE;
 }
 
+bool Rpl_info_table::do_set_info(const char *format, va_list args)
+{
+  return FALSE;
+}
+
 bool Rpl_info_table::do_get_info(const int pos, char *value, const size_t size,
                                  const char *default_value)
 {
@@ -710,3 +719,17 @@ end:
   access->drop_thd(thd);
   DBUG_RETURN(error);
 }
+
+#if defined(FLUSH_REP_INFO)
+bool Rpl_info_table::do_need_write(bool force)
+{
+  // Need to write when forced or when we reached sync_period.
+  if (force ||
+      (sync_period && ++(sync_counter) >= sync_period))
+  {
+    sync_counter = 0;
+    return true;
+  }
+  return false;
+}
+#endif

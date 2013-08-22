@@ -134,6 +134,13 @@ bool Rpl_info_dummy::do_set_info(const int pos MY_ATTRIBUTE((unused)),
   return FALSE;
 }
 
+bool Rpl_info_dummy::do_set_info(const char *format, va_list args)
+{
+  DBUG_ASSERT(!abort);
+
+  return FALSE;
+}
+
 bool Rpl_info_dummy::do_get_info(const int pos MY_ATTRIBUTE((unused)),
                                 char *value MY_ATTRIBUTE((unused)),
                                 const size_t size MY_ATTRIBUTE((unused)),
@@ -210,3 +217,12 @@ bool Rpl_info_dummy::do_update_is_transactional()
 
   return FALSE;
 }
+
+#if defined(FLUSH_REP_INFO)
+bool Rpl_info_dummy::do_need_write(bool force)
+{
+  DBUG_ASSERT(!abort);
+
+  return FALSE;
+}
+#endif

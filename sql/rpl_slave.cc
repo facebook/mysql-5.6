@@ -5324,6 +5324,11 @@ pthread_handler_t handle_slave_worker(void *arg)
       error= slave_worker_exec_job(w, rli);
   }
 
+#if defined(FLUSH_REP_INFO)
+  // force the flush to the worker info repository.
+  w->flush_info(true);
+#endif
+
   /* 
      Cleanup after an error requires clear_error() go first.
      Otherwise assert(!all) in binlog_rollback()
