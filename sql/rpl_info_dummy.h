@@ -53,6 +53,7 @@ private:
   bool do_set_info(const int pos, const ulong value);
   bool do_set_info(const int pos, const float value);
   bool do_set_info(const int pos, const Dynamic_ids *value);
+  bool do_set_info(const char *format, va_list args);
   bool do_get_info(const int pos, char *value, const size_t size,
                    const char *default_value);
   bool do_get_info(const int pos, uchar *value, const size_t size,
@@ -69,6 +70,7 @@ private:
   bool do_is_transactional();
   bool do_update_is_transactional();
   uint do_get_rpl_info_type();
+  bool do_need_write(bool force);
 
   static const bool abort= FALSE;
 
