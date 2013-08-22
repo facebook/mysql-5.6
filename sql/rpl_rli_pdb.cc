@@ -29,6 +29,7 @@
 
 #define HASH_DYNAMIC_INIT 4
 #define HASH_DYNAMIC_INCR 1
+static const int LINES_IN_WORKER_INFO = 12;
 
 using std::min;
 
@@ -298,6 +299,9 @@ int Slave_worker::flush_info(const bool force)
   */
   handler->set_sync_period(sync_relayloginfo_period);
 
+  if (!handler->need_write(force))
+    DBUG_RETURN(0);
+
   if (write_info(handler))
     goto err;
 
@@ -375,20 +379,39 @@ bool Slave_worker::write_info(Rpl_info_handler *to)
   uchar *buffer= (uchar*) group_executed.bitmap;
   DBUG_ASSERT(nbytes <= (c_rli->checkpoint_group + 7) / 8);
 
-  if (to->prepare_info_for_write() ||
-      to->set_info((int) internal_id) ||
-      to->set_info(group_relay_log_name) ||
-      to->set_info((ulong) group_relay_log_pos) ||
-      to->set_info(group_master_log_name) ||
-      to->set_info((ulong) group_master_log_pos) ||
-      to->set_info(checkpoint_relay_log_name) ||
-      to->set_info((ulong) checkpoint_relay_log_pos) ||
-      to->set_info(checkpoint_master_log_name) ||
-      to->set_info((ulong) checkpoint_master_log_pos) ||
-      to->set_info((ulong) checkpoint_seqno) ||
-      to->set_info(nbytes) ||
-      to->set_info(buffer, (size_t) nbytes))
+  if (to->prepare_info_for_write())
     DBUG_RETURN(TRUE);
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE)
+  {
+    if (to->set_info((int) internal_id) ||
+        to->set_info(group_relay_log_name) ||
+        to->set_info((ulong) group_relay_log_pos) ||
+        to->set_info(group_master_log_name) ||
+        to->set_info((ulong) group_master_log_pos) ||
+        to->set_info(checkpoint_relay_log_name) ||
+        to->set_info((ulong) checkpoint_relay_log_pos) ||
+        to->set_info(checkpoint_master_log_name) ||
+        to->set_info((ulong) checkpoint_master_log_pos) ||
+        to->set_info((ulong) checkpoint_seqno) ||
+        to->set_info(nbytes) ||
+        to->set_info(buffer, (size_t) nbytes))
+      DBUG_RETURN(TRUE);
+  }
+  else
+  {
+    if (to->set_info(LINES_IN_WORKER_INFO - 1,
+                     "%d\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%lu\n%lu\n",
+                     (int) internal_id, group_relay_log_name,
+                     (ulong) group_relay_log_pos, group_master_log_name,
+                     (ulong) group_master_log_pos,
+                     checkpoint_relay_log_name,
+                     (ulong) checkpoint_relay_log_pos,
+                     checkpoint_master_log_name,
+                     (ulong) checkpoint_master_log_pos,
+                     (ulong) checkpoint_seqno, nbytes) ||
+        to->set_info(buffer, (size_t) nbytes))
+      DBUG_RETURN(TRUE);
+  }
 
   DBUG_RETURN(FALSE);
 }
