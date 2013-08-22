@@ -243,8 +243,19 @@ int Rpl_info_file::do_flush_info(const bool force) {
 
   DBUG_ENTER("Rpl_info_file::do_flush_info");
 
+  bool sync = sync_period && ++(sync_counter) >= sync_period;
+
+  /*
+    Check whether a write is actually necessary. If not checked,
+    write_info() causes unnecessary code path which writes to
+    file cache and flush_info() causes unnecessary flush of the
+    file cache which are anyway completely useless in recovery since
+    they are not transactional if we are using FILE based repository.
+  */
+  if (skip_flush_master_info && !(force || sync)) DBUG_RETURN(error);
+
   if (flush_io_cache(&info_file)) error = 1;
-  if (!error && (force || (sync_period && ++(sync_counter) >= sync_period))) {
+  if (!error && (force || sync)) {
     if (my_sync(info_fd, MYF(MY_WME))) error = 1;
     sync_counter = 0;
   }
@@ -366,6 +377,10 @@ bool Rpl_info_file::do_set_info(const int, const Server_ids *value) {
                                                                         : true);
 err:
   return error;
+}
+
+bool Rpl_info_file::do_set_info(const char *format, va_list args) {
+  return (my_b_vprintf(&info_file, format, args) <= 0);
 }
 
 bool Rpl_info_file::do_get_info(const int, char *value, const size_t size,

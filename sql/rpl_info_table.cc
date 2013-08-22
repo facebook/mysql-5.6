@@ -167,7 +167,7 @@ end:
   DBUG_RETURN(error);
 }
 
-int Rpl_info_table::do_flush_info(const bool force) {
+int Rpl_info_table::do_flush_info(const bool force MY_ATTRIBUTE((unused))) {
   int error = 1;
   enum enum_return_id res = FOUND_ID;
   TABLE *table = NULL;
@@ -611,6 +611,11 @@ bool Rpl_info_table::do_set_info(const int pos, const Server_ids *value) {
           &field_values->value[pos]))
     return true;
 
+  return false;
+}
+
+bool Rpl_info_table::do_set_info(const char *format MY_ATTRIBUTE((unused)),
+                                 va_list args MY_ATTRIBUTE((unused))) {
   return false;
 }
 
