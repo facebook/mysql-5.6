@@ -112,6 +112,7 @@ private:
                    const float default_value);
   bool do_get_info(const int pos, Dynamic_ids *value,
                    const Dynamic_ids *default_value);
+  bool do_set_info(const char *format, va_list args);
   char* do_get_description_info();
   uint do_get_rpl_info_type();
 
