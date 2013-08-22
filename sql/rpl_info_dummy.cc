@@ -134,6 +134,11 @@ bool Rpl_info_dummy::do_set_info(const int pos __attribute__((unused)),
   return FALSE;
 }
 
+bool Rpl_info_dummy::do_set_info(const char *format, va_list args)
+{
+  return FALSE;
+}
+
 bool Rpl_info_dummy::do_get_info(const int pos __attribute__((unused)),
                                 char *value __attribute__((unused)),
                                 const size_t size __attribute__((unused)),
