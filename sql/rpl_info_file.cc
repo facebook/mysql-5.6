@@ -405,6 +405,11 @@ err:
   return error;
 }
 
+bool Rpl_info_file::do_set_info(const char *format, va_list args)
+{
+  return (my_b_vprintf(&info_file, format, args) <= 0);
+}
+
 bool Rpl_info_file::do_get_info(const int pos, char *value, const size_t size,
                                 const char *default_value)
 {

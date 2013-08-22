@@ -581,6 +581,11 @@ bool Rpl_info_table::do_set_info(const int pos, const Dynamic_ids *value)
   return FALSE;
 }
 
+bool Rpl_info_table::do_set_info(const char *format, va_list args)
+{
+  return FALSE;
+}
+
 bool Rpl_info_table::do_get_info(const int pos, char *value, const size_t size,
                                  const char *default_value)
 {
