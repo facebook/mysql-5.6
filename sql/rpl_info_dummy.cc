@@ -215,3 +215,10 @@ bool Rpl_info_dummy::do_update_is_transactional()
 
   return FALSE;
 }
+
+bool Rpl_info_dummy::do_need_write(bool force)
+{
+  DBUG_ASSERT(!abort);
+
+  return FALSE;
+}

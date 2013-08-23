@@ -2082,6 +2082,9 @@ int Relay_log_info::flush_info(const bool force)
   */
   handler->set_sync_period(sync_relayloginfo_period);
 
+  if (!handler->need_write(force))
+    DBUG_RETURN(0);
+
   if (write_info(handler))
     goto err;
 
