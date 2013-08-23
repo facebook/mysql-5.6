@@ -270,6 +270,20 @@ int Master_info::flush_info(bool force)
   */
   handler->set_sync_period(sync_masterinfo_period);
 
+  /*
+    Check whether a write is actually necessary. If not checked,
+    write_info() causes unnecessary code path which writes to
+    file cache and flush_info() causes unnecessary flush of the
+    file cache which are anyway completely useless in recovery since
+    they are not transactional if we are using FILE based repository.
+
+    If we are using TABLE repository, write_info() causes unnecessary
+    code path which sets fields value of the table which again is completely
+    unnecessary if we are not going to write in to the table.
+  */
+  if (!handler->need_write(force))
+    DBUG_RETURN(0);
+
   if (write_info(handler))
     goto err;
 
