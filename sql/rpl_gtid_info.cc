@@ -40,6 +40,9 @@ bool Gtid_info::flush_info(bool force)
   if (!inited)
     DBUG_RETURN(0);
 
+  if (!handler->need_write(force))
+    DBUG_RETURN(0);
+
   if (write_info(handler))
     goto err;
 

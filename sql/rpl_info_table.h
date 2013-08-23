@@ -120,6 +120,7 @@ private:
   bool do_is_transactional();
   bool do_update_is_transactional();
   uint do_get_rpl_info_type();
+  bool do_need_write(bool force);
 
   Rpl_info_table(uint nparam,
                  const char* param_schema,

@@ -228,6 +228,19 @@ public:
     return (prv_error);
   }
 
+  /*
+    Checks whether a write is actually necessary.
+
+    @param force true if write to repository is required.
+
+    @return false skip writing and flushing replication info.
+            true  continue writing and flushing replication info.
+  */
+  bool need_write(bool force)
+  {
+    return do_need_write(force);
+  }
+
   /**
     Returns the value of a field.
     Any call must be done in the right order which
@@ -431,6 +444,7 @@ private:
   virtual bool do_is_transactional()= 0;
   virtual bool do_update_is_transactional()= 0;
   virtual uint do_get_rpl_info_type()= 0;
+  virtual bool do_need_write(bool force)=0;
 
   Rpl_info_handler(const Rpl_info_handler& handler);
 
