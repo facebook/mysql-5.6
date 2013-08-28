@@ -148,6 +148,7 @@ case "$type" in
         server_dir=$top_dir/mysql-$mysql_version_short
         configure_cmd="${CMAKE} $SRC_DIR \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
+                -DWITH_PERFSCHEMA_STORAGE_ENGINE=ON \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
