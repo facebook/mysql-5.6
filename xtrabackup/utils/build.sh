@@ -153,6 +153,9 @@ case "$type" in
                 -DWITH_EMBEDDED_SERVER=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
+        if [ -n "$CMAKE_PREFIX_PATH" ]; then
+                configure_cmd+=" -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
+        fi
         if [ -n "$CURSES_LIBRARY" ]; then
                 configure_cmd+=" -DCURSES_LIBRARY=$CURSES_LIBRARY"
         fi
