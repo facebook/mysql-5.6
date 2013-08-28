@@ -150,8 +150,6 @@ case "$type" in
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
-                -DWITH_READLINE=OFF \
-                -DWITH_LIBEDIT=OFF \
                 -DMYSQL_ROOT_DIR=$server_dir \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
         if [ -n "$CMAKE_PREFIX_PATH" ]; then
