@@ -1185,8 +1185,7 @@ update_user_stats_after_statement(USER_STATS *us,
 
 static void
 fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
-                    const char* username, uint connections,
-                    int32 queries_running, int32 queries_waiting)
+                    const char* username, uint connections)
 {
   DBUG_ENTER("fill_one_user_stats");
   int f= 0; /* field offset */
@@ -1268,8 +1267,6 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->rows_index_next, TRUE);
   table->field[f++]->store(us->transactions_commit, TRUE);
   table->field[f++]->store(us->transactions_rollback, TRUE);
-  table->field[f++]->store(queries_running, TRUE);
-  table->field[f++]->store(queries_waiting, TRUE);
   DBUG_VOID_RETURN;
 }
 
@@ -1288,8 +1285,7 @@ int fill_user_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     USER_STATS *us = &(user_conn->user_stats);
 
     fill_one_user_stats(table, user_conn, us, user_conn->user,
-                        user_conn->connections, user_conn->queries_running,
-                        user_conn->queries_waiting);
+                        user_conn->connections);
 
     if (schema_table_store_record(thd, table))
     {
@@ -1298,14 +1294,14 @@ int fill_user_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     }
   }
 
-  fill_one_user_stats(table, NULL, &slave_user_stats, "sys:slave", 0, 0, 0);
+  fill_one_user_stats(table, NULL, &slave_user_stats, "sys:slave", 0);
   if (schema_table_store_record(thd, table))
   {
     mysql_mutex_unlock(&LOCK_user_conn);
     DBUG_RETURN(-1);
   }
 
-  fill_one_user_stats(table, NULL, &other_user_stats, "sys:other", 0, 0, 0);
+  fill_one_user_stats(table, NULL, &other_user_stats, "sys:other", 0);
   if (schema_table_store_record(thd, table))
   {
     mysql_mutex_unlock(&LOCK_user_conn);
