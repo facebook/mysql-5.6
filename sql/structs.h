@@ -332,13 +332,6 @@ typedef struct  user_conn {
   */
   uint conn_per_hour, updates, questions;
 
-  /* Tracking variables for admission control.  Tracks the number of
-   * running and waiting queries.  */
-  volatile int32    queries_running; /* changed by atomic inc */
-  volatile int32    queries_waiting; /* protected by query_mutex */
-
-  volatile int32    tx_slots_inuse; /* changed by atomic inc */
-
   /* Maximum amount of resources which account is allowed to consume. */
   USER_RESOURCES user_resources;
   /*
