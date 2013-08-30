@@ -2686,6 +2686,7 @@ private:
   /// List of all groups in this cache, of type Cached_group.
   DYNAMIC_ARRAY groups;
 
+public:
   /**
     Return a pointer to the last group, or NULL if this Group_cache is
     empty.
@@ -2696,6 +2697,7 @@ private:
     return n_groups == 0 ? NULL : get_unsafe_pointer(n_groups - 1);
   }
 
+private:
   /**
     Allocate space for one more group and return a pointer to it, or
     NULL on error.
