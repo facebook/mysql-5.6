@@ -293,7 +293,8 @@ trx_sys_update_mysql_binlog_offset(
 	ib_int64_t	offset,	/*!< in: position in that log file */
 	ulint		field,	/*!< in: offset of the MySQL log info field in
 				the trx sys header */
-	mtr_t*		mtr);	/*!< in: mtr */
+	mtr_t*		mtr,	/*!< in: mtr */
+	const char*	gtid);	/*!< in: Gtid of the transaction */
 /*****************************************************************//**
 Prints to stderr the MySQL binlog offset info in the trx system header if
 the magic number shows it valid. */
@@ -507,6 +508,8 @@ We must remember this limit in order to keep file compatibility. */
 @see trx_sys_mysql_master_log_name
 @see trx_sys_mysql_bin_log_name */
 #define TRX_SYS_MYSQL_LOG_NAME_LEN	512
+/** Maximum length of GTID string */
+#define TRX_SYS_MYSQL_GTID_LEN		57
 /** Contents of TRX_SYS_MYSQL_LOG_MAGIC_N_FLD */
 #define TRX_SYS_MYSQL_LOG_MAGIC_N	873422344
 
@@ -528,6 +531,8 @@ this contains the same fields as TRX_SYS_MYSQL_LOG_INFO below */
 #define TRX_SYS_MYSQL_LOG_OFFSET_LOW	8	/*!< low 4 bytes of the offset
 						within that file */
 #define TRX_SYS_MYSQL_LOG_NAME		12	/*!< MySQL log file name */
+
+#define TRX_SYS_MYSQL_GTID		(TRX_SYS_MYSQL_LOG_NAME + TRX_SYS_MYSQL_LOG_NAME_LEN)
 
 /** Doublewrite buffer */
 /* @{ */
