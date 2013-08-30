@@ -6849,7 +6849,6 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   if (flush_error == 0 && total_bytes > 0)
     flush_error= flush_cache_to_file(&flush_end_pos);
 
-  set_binlog_last_valid_pos(my_b_tell(&log_file));
   /*
     If the flush finished successfully, we can call the after_flush
     hook. Being invoked here, we have the guarantee that the hook is
@@ -6870,6 +6869,14 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     signal_update();
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
   }
+
+  /*
+    Update the last valid position after the after_flush hook has
+    executed. Doing so guarantees that the hook is executed before
+    the before/after_send_hooks on the dump thread, preventing race
+    conditions between the group_commit here and the dump threads.
+  */
+  set_binlog_last_valid_pos(my_b_tell(&log_file));
 
   /*
     Stage #2: Syncing binary log file to disk
