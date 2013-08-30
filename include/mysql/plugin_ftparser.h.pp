@@ -193,7 +193,8 @@ int mysql_tmpfile(const char *prefix);
 int thd_killed(const void* thd);
 void thd_binlog_pos(const void* thd,
                     const char **file_var,
-                    unsigned long long *pos_var);
+                    unsigned long long *pos_var,
+                    const char **gtid_var);
 unsigned long thd_get_thread_id(const void* thd);
 void thd_get_xid(const void* thd, MYSQL_XID *xid);
 void mysql_query_cache_invalidate4(void* thd,
