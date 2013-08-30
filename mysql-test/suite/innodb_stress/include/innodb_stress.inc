@@ -46,7 +46,15 @@ $num_records 0 0 $user $master_host $MASTER_MYPORT
 $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 0 0;
     exec $exec;
     let $checksum=query_get_value(CHECKSUM TABLE t1, Checksum, 1);
+    # Master needs to be restarted to start with an empty buffer pool so
+    # that logical read ahead gets used.
+    let rpl_server_number = 1;
     source include/rpl_restart_server.inc;
+    connection slave;
+    # Start slave to avoid I/O thread retry errors
+    disable_warnings;
+    source include/start_slave.inc;
+    enable_warnings;
     let $num_records = 0;
 }
 
