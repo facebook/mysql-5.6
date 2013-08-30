@@ -118,7 +118,6 @@ private:
 
   bool do_is_transactional();
   bool do_update_is_transactional();
-  bool do_need_write(bool force);
 
   Rpl_info_file(int const nparam, const char* param_pattern_fname,
                 const char* param_info_fname, bool name_indexed);

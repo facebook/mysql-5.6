@@ -252,15 +252,22 @@ bool Rpl_info_file::do_count_info(const int nparam,
 
 int Rpl_info_file::do_flush_info(const bool force)
 {
+  int error= 0;
+
   DBUG_ENTER("Rpl_info_file::do_flush_info");
 
   if (flush_io_cache(&info_file))
-    DBUG_RETURN(1);
+    error= 1;
+  if (!error && (force ||
+      (sync_period &&
+      ++(sync_counter) >= sync_period)))
+  {
+    if (my_sync(info_fd, MYF(MY_WME)))
+      error= 1;
+    sync_counter= 0;
+  }
 
-  if (my_sync(info_fd, MYF(MY_WME)))
-    DBUG_RETURN(1);
-
-  DBUG_RETURN(0);
+  DBUG_RETURN(error);
 }
 
 void Rpl_info_file::do_end_info()
@@ -484,18 +491,6 @@ bool Rpl_info_file::do_update_is_transactional()
 uint Rpl_info_file::do_get_rpl_info_type()
 {
   return INFO_REPOSITORY_FILE;
-}
-
-bool Rpl_info_file::do_need_write(bool force)
-{
-  // Need to write when forced or when we reached sync_period.
-  if (force ||
-      (sync_period && ++(sync_counter) >= sync_period))
-  {
-    sync_counter= 0;
-    return true;
-  }
-  return false;
 }
 
 int init_strvar_from_file(char *var, int max_size, IO_CACHE *f,

@@ -144,8 +144,13 @@ int Rpl_info_table::do_flush_info(const bool force)
 
   DBUG_ENTER("Rpl_info_table::do_flush_info");
 
+  if (!(force || (sync_period &&
+      ++(sync_counter) >= sync_period)))
+    DBUG_RETURN(0);
+
   THD *thd= access->create_thd();
 
+  sync_counter= 0;
   saved_mode= thd->variables.sql_mode;
   tmp_disable_binlog(thd);
 
@@ -705,16 +710,4 @@ end:
   thd->variables.sql_mode= saved_mode;
   access->drop_thd(thd);
   DBUG_RETURN(error);
-}
-
-bool Rpl_info_table::do_need_write(bool force)
-{
-  // Need to write when forced or when we reached sync_period.
-  if (force ||
-      (sync_period && ++(sync_counter) >= sync_period))
-  {
-    sync_counter = 0;
-    return true;
-  }
-  return false;
 }
