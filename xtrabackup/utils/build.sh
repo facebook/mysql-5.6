@@ -149,6 +149,11 @@ case "$type" in
         configure_cmd="${CMAKE} $SRC_DIR \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_PERFSCHEMA_STORAGE_ENGINE=ON \
+                -DMYSQL_DATADIR="/var/lib/mysql" \
+                -DMYSQL_UNIX_ADDR="/var/lib/mysql/mysql.sock" \
+                -DBUILD_CONFIG=mysql_release \
+                -DMYSQL_USER="mysql" \
+                -DWITH_FAST_MUTEXES=1 \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
