@@ -34,7 +34,7 @@ class PopulateWorker(threading.Thread):
   def __init__(self, con, start_id, end_id, i):
     threading.Thread.__init__(self)
     self.con = con
-    con.autocommit(True)
+    con.autocommit(False)
     self.log = open('/%s/populate-%d.log' % (LG_TMP_DIR, i), 'a')
     self.num = i
     self.start_id = start_id
@@ -61,6 +61,7 @@ class PopulateWorker(threading.Thread):
   def finish(self):
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
     self.log.close()
+    self.con.commit()
     self.con.close()
 
   def runme(self):
@@ -73,6 +74,8 @@ class PopulateWorker(threading.Thread):
 INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%d,'%s')
 """ % (i+1, msg[0:255], msg, len(msg), sha1(msg))
       cur.execute(stmt)
+      if i % 100 == 0:
+        self.con.commit()
 
 def populate_table(con, num_records_before, do_blob, log):
   con.autocommit(False)
