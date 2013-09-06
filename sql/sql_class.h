@@ -456,6 +456,7 @@ typedef struct system_variables
   ulong auto_increment_increment, auto_increment_offset;
   ulong bulk_insert_buff_size;
   uint  eq_range_index_dive_limit;
+  uint  part_scan_max;
   ulong join_buff_size;
   ulong lock_wait_timeout;
   ulong max_allowed_packet;
