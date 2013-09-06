@@ -2373,6 +2373,14 @@ static Sys_var_uint Sys_eq_range_index_dive_limit(
        SESSION_VAR(eq_range_index_dive_limit), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(0, UINT_MAX32), DEFAULT(10), BLOCK_SIZE(1));
 
+static Sys_var_uint Sys_part_scan_max(
+       "part_scan_max",
+       "The optimizer will scan up to this many partitions for data "
+       "to estimate rows before resorting to a rough approximation "
+       "based on the data gathered up to that point.",
+       SESSION_VAR(part_scan_max), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(1, UINT_MAX32), DEFAULT(10), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_range_alloc_block_size(
        "range_alloc_block_size",
        "Allocation block size for storing ranges during optimization",
