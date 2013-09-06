@@ -254,8 +254,6 @@ private:
   Partition_share *part_share;
   /** Temporary storage for new partitions Handler_shares during ALTER */
   List<Parts_share_refs> m_new_partitions_share_refs;
-  /** Sorted array of partition ids in descending order of number of rows. */
-  uint32 *m_part_ids_sorted_by_num_of_records;
   /* Compare function for my_qsort2, for reversed order. */
   static int compare_number_of_records(ha_partition *me,
                                        const uint32 *a,
@@ -691,7 +689,6 @@ public:
 private:
   /* Helper functions for optimizer hints. */
   ha_rows min_rows_for_estimate();
-  uint get_biggest_used_partition(uint *part_index);
 public:
 
   /*
