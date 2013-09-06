@@ -511,6 +511,7 @@ KILL CONNECTION_ID();
 
 --echo # Check reconnection.
 --enable_reconnect
+--source include/wait_until_connected_again.inc
 SELECT 1;
 --disable_reconnect
 
