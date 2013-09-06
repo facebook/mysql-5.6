@@ -396,7 +396,6 @@ void ha_partition::init_handler_variables()
   m_clone_mem_root= NULL;
   part_share= NULL;
   m_new_partitions_share_refs.empty();
-  m_part_ids_sorted_by_num_of_records= NULL;
   m_sec_sort_by_rowid= false;
 
 #ifdef DONT_HAVE_TO_BE_INITALIZED
@@ -435,7 +434,6 @@ ha_partition::~ha_partition()
       delete m_file[i];
   }
   destroy_record_priority_queue();
-  my_free(m_part_ids_sorted_by_num_of_records);
 
   clear_handler_file();
   DBUG_VOID_RETURN;
@@ -3285,16 +3283,6 @@ int ha_partition::open(const char *name, int mode, uint test_if_locked)
   m_start_key.length= 0;
   m_rec0= table->record[0];
   m_rec_length= table_share->reclength;
-  if (!m_part_ids_sorted_by_num_of_records)
-  {
-    if (!(m_part_ids_sorted_by_num_of_records=
-            (uint32*) my_malloc(m_tot_parts * sizeof(uint32), MYF(MY_WME))))
-      DBUG_RETURN(error);
-    uint32 i;
-    /* Initialize it with all partition ids. */
-    for (i= 0; i < m_tot_parts; i++)
-      m_part_ids_sorted_by_num_of_records[i]= i;
-  }
 
   if (init_partition_bitmaps())
     DBUG_RETURN(error);
@@ -6579,15 +6567,6 @@ int ha_partition::info(uint flag)
       }
       i++;
     } while (*(++file_array));
-    /*
-      Sort the array of part_ids by number of records in
-      in descending order.
-    */
-    my_qsort2((void*) m_part_ids_sorted_by_num_of_records,
-              m_tot_parts,
-              sizeof(uint32),
-              (qsort2_cmp) compare_number_of_records,
-              this);
 
     file= m_file[handler_instance];
     file->info(HA_STATUS_CONST | no_lock_flag);
@@ -7433,35 +7412,6 @@ ha_rows ha_partition::min_rows_for_estimate()
 }
 
 
-/**
-  Get the biggest used partition.
-
-  Starting at the N:th biggest partition and skips all non used
-  partitions, returning the biggest used partition found
-
-  @param[in,out] part_index  Skip the *part_index biggest partitions
-
-  @return The biggest used partition with index not lower than *part_index.
-    @retval NO_CURRENT_PART_ID     No more partition used.
-    @retval != NO_CURRENT_PART_ID  partition id of biggest used partition with
-                                   index >= *part_index supplied. Note that
-                                   *part_index will be updated to the next
-                                   partition index to use.
-*/
-
-uint ha_partition::get_biggest_used_partition(uint *part_index)
-{
-  uint part_id;
-  while ((*part_index) < m_tot_parts)
-  {
-    part_id= m_part_ids_sorted_by_num_of_records[(*part_index)++];
-    if (bitmap_is_set(&m_part_info->read_partitions, part_id))
-      return part_id;
-  }
-  return NO_CURRENT_PART_ID;
-}
-
-
 /*
   Return time for a scan of the table
 
@@ -7502,15 +7452,27 @@ double ha_partition::scan_time()
 ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
 				       key_range *max_key)
 {
-  ha_rows min_rows_to_check, rows, estimated_rows=0, checked_rows= 0;
-  uint partition_index= 0, part_id;
+  ha_rows rows, estimated_rows=0, examined_parts_rows=0, used_parts_rows=0;
+  uint part_id, examined_parts=0, used_parts=0;
+  THD* thd= current_thd;
   DBUG_ENTER("ha_partition::records_in_range");
 
-  min_rows_to_check= min_rows_for_estimate();
-
-  while ((part_id= get_biggest_used_partition(&partition_index))
-         != NO_CURRENT_PART_ID)
+  for (part_id = m_tot_parts - 1; part_id < m_tot_parts; --part_id)
   {
+    if (!bitmap_is_set(&m_part_info->read_partitions, part_id))
+      continue;
+
+    ++used_parts;
+    used_parts_rows += m_file[part_id]->stats.records;
+
+    if (estimated_rows && used_parts > thd->variables.part_scan_max)
+    {
+      continue;
+    }
+
+    ++examined_parts;
+    examined_parts_rows += m_file[part_id]->stats.records;
+
     rows= m_file[part_id]->records_in_range(inx, min_key, max_key);
       
     DBUG_PRINT("info", ("part %u match %lu rows of %lu", part_id, (ulong) rows,
@@ -7519,37 +7481,25 @@ ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
     if (rows == HA_POS_ERROR)
       DBUG_RETURN(HA_POS_ERROR);
     estimated_rows+= rows;
-    checked_rows+= m_file[part_id]->stats.records;
-    /*
-      Returning 0 means no rows can be found, so we must continue
-      this loop as long as we have estimated_rows == 0.
-      Also many engines return 1 to indicate that there may exist
-      a matching row, we do not normalize this by dividing by number of
-      used partitions, but leave it to be returned as a sum, which will
-      reflect that we will need to scan each partition's index.
-
-      Note that this statistics may not always be correct, so we must
-      continue even if the current partition has 0 rows, since we might have
-      deleted rows from the current partition, or inserted to the next
-      partition.
-    */
-    if (estimated_rows && checked_rows &&
-        checked_rows >= min_rows_to_check)
-    {
-      DBUG_PRINT("info",
-                 ("records_in_range(inx %u): %lu (%lu * %lu / %lu)",
-                  inx,
-                  (ulong) (estimated_rows * stats.records / checked_rows),
-                  (ulong) estimated_rows,
-                  (ulong) stats.records,
-                  (ulong) checked_rows));
-      DBUG_RETURN(estimated_rows * stats.records / checked_rows);
-    }
   }
-  DBUG_PRINT("info", ("records_in_range(inx %u): %lu",
-                      inx,
-                      (ulong) estimated_rows));
-  DBUG_RETURN(estimated_rows);
+  if (used_parts > examined_parts && examined_parts_rows > 0)
+  {
+    DBUG_PRINT("info", ("records_in_range(inx %u): %lu (%lu * %lu / %lu)",
+                        inx,
+                        (ulong) (estimated_rows * used_parts_rows
+                                 / examined_parts_rows),
+                        (ulong) estimated_rows,
+                        (ulong) used_parts_rows,
+                        (ulong) examined_parts_rows));
+    DBUG_RETURN(estimated_rows * used_parts_rows / examined_parts_rows);
+  }
+  else
+  {
+    DBUG_PRINT("info", ("records_in_range(inx %u): %lu",
+                        inx,
+                        (ulong) estimated_rows));
+    DBUG_RETURN(estimated_rows);
+  }
 }
 
 
