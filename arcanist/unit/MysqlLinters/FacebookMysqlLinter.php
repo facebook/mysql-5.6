@@ -56,7 +56,8 @@ final class FacebookMysqlLinter extends ArcanistLinter {
       return;
     }
 
-    if ($this->isBinaryFile($path)) {
+    if (!$this->shouldLintBinaryFiles() &&
+        $this->GetEngine()->isBinaryFile($path)) {
       return;
     }
 
