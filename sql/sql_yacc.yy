@@ -8799,10 +8799,6 @@ select_option:
               Lex->select_lex.sql_cache= SELECT_LEX::SQL_NO_CACHE;
             }
           }
-        | SQL_NO_FCACHE_SYM
-          {
-            Lex->disable_flashcache= TRUE;
-          }
         | SQL_CACHE_SYM
           {
             /* 
@@ -16003,6 +15999,7 @@ query_expression_option:
             Select->options|= SELECT_HIGH_PRIORITY;
           }
         | DISTINCT         { Select->options|= SELECT_DISTINCT; }
+        | SQL_NO_FCACHE_SYM { Lex->disable_flashcache= TRUE; }
         | SQL_SMALL_RESULT { Select->options|= SELECT_SMALL_RESULT; }
         | SQL_BIG_RESULT   { Select->options|= SELECT_BIG_RESULT; }
         | SQL_BUFFER_RESULT
