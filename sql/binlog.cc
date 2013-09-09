@@ -849,16 +849,11 @@ static bool should_write_gtids(THD *thd) {
     return false;
   /*
     Return true (allow gtids to be generated) in the scenario where
-    gtid_deployment_step is false (Normal run after deployment procedure
-    is done).
+    read_only is false (i.e; this is a master).
 
-    Return true in the scenario where slave sql_thread uses gtid received from
-    master. This is necessary in the situation where deployment is done on
-    master, but slave still in deployment mode (gtid_deployment_step is true).
+    Return true in the scenario where a GTID_GROUP is being used.
   */
-  return (!gtid_deployment_step || (thd->rli_slave &&
-          thd->variables.gtid_next.type != AUTOMATIC_GROUP));
-
+  return (!read_only || thd->variables.gtid_next.type == GTID_GROUP);
 }
 
 int binlog_cache_data::write_event(THD *thd, Log_event *ev)
