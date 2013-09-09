@@ -1438,9 +1438,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         {
           /*
              Skip groups in the binlogs which don't have any gtid event
-             logged before them. When gtid_deployment_step is ON, the server
+             logged before them. When read_only is ON, the server
              doesn't generate GTID and so no gtid_event is logged before binlog
-             events. But when gtid_deployment_step is OFF, the server starts
+             events. But when read_only is OFF, the server starts
              writing gtid_events in the middle of active binlog. When slave
              connects with gtid_protocol, master needs to skip binlog events
              which don't have corresponding gtid_event.

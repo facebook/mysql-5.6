@@ -522,7 +522,6 @@ enum enum_gtid_mode
 };
 extern ulong gtid_mode;
 extern bool enable_gtid_mode_on_new_slave_with_old_master;
-extern bool gtid_deployment_step;
 extern const char *gtid_mode_names[];
 extern TYPELIB gtid_mode_typelib;
 

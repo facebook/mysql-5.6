@@ -4876,16 +4876,6 @@ static Sys_var_mybool Sys_enable_gtid_mode_on_new_slave_with_old_master(
        READ_ONLY GLOBAL_VAR(enable_gtid_mode_on_new_slave_with_old_master),
        CMD_LINE(OPT_ARG), DEFAULT(false));
 
-static Sys_var_mybool Sys_gtid_deployment_step(
-       "gtid_deployment_step",
-       "Whether gtid_deployment_step is enabled: OFF or ON. ON means "
-       "GTIDs are supported by the server but no GTID is generated. If the "
-       "server is a slave and gtid_deployment_step is ON, the slave doesn't "
-       "generate any GTIDs but logs any GTID recevied from master. OFF means "
-       "the server supports GTID depending on the option gtid_mode.",
-       READ_ONLY GLOBAL_VAR(gtid_deployment_step),
-       CMD_LINE(OPT_ARG), DEFAULT(false));
-
 static Sys_var_enum Sys_gtid_mode(
        "gtid_mode",
        /*
