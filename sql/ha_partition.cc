@@ -7321,7 +7321,7 @@ ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
     ++used_parts;
     used_parts_rows += m_file[part_id]->stats.records;
 
-    if (estimated_rows && used_parts > thd->variables.partition_scan_max)
+    if (estimated_rows && used_parts > thd->variables.part_scan_max)
     {
       continue;
     }

@@ -1,4 +1,4 @@
-SET @start_session_value = @@session.partition_scan_max;
+SET @start_session_value = @@session.part_scan_max;
 
 create table tp (c1 int, c2 int, c3 int, c4 int, part_key int,
 primary key (c1, part_key), index(c2)
@@ -35,13 +35,13 @@ explain partitions select count(*) from tp where c2 < 300 and part_key > 100 and
 explain partitions select count(*) from tp where c2 < 700 and part_key > 100 and part_key < 1500;
 
 --echo Fully accurate stats.
-set session partition_scan_max=20;
+set session part_scan_max=20;
 explain partitions select count(*) from tp where c2 < 700 and part_key > 100 and part_key < 1500;
 
 --echo Bad estimate stats.
-set session partition_scan_max=5;
+set session part_scan_max=5;
 explain partitions select count(*) from tp where c2 < 700 and part_key > 100 and part_key < 200;
 
 drop table tp;
 
-SET @@session.partition_scan_max = @start_session_value;
+SET @@session.part_scan_max = @start_session_value;
