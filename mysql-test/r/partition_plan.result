@@ -1,4 +1,4 @@
-SET @start_session_value = @@session.partition_scan_max;
+SET @start_session_value = @@session.part_scan_max;
 create table tp (c1 int, c2 int, c3 int, c4 int, part_key int,
 primary key (c1, part_key), index(c2)
 ) engine=innodb
@@ -27,14 +27,14 @@ explain partitions select count(*) from tp where c2 < 700 and part_key > 100 and
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	tp	p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14	range	c2	c2	5	NULL	454	Using where; Using index
 Fully accurate stats.
-set session partition_scan_max=20;
+set session part_scan_max=20;
 explain partitions select count(*) from tp where c2 < 700 and part_key > 100 and part_key < 1500;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	tp	p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14	range	c2	c2	5	NULL	601	Using where; Using index
 Bad estimate stats.
-set session partition_scan_max=5;
+set session part_scan_max=5;
 explain partitions select count(*) from tp where c2 < 700 and part_key > 100 and part_key < 200;
 id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	tp	p2	range	c2	c2	5	NULL	99	Using where; Using index
 drop table tp;
-SET @@session.partition_scan_max = @start_session_value;
+SET @@session.part_scan_max = @start_session_value;
