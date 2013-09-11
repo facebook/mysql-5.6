@@ -1444,19 +1444,26 @@ sub write_slave_info {
     my @info_lines;
     my $position = '';
     my $filename = '';
-    my $master= '';
-	
+    my $repository = '';
+
     # get slave status. Use single quotes here, otherwise
     # \G is evaluated as a control character.
-    mysql_send 'SHOW SLAVE STATUS\G';
+    mysql_send 'SELECT @@global.relay_log_info_repository\G';
+    file_to_array($mysql_stdout, \@lines);
+    for (@lines) {
+        $repository = $1 if /relay_log_info_repository:\s*(\S*)\s*$/;
+    }
+    if ($repository ne 'TABLE') {
+        Die "relay_log_info_repository is not TABLE";
+    }
+    mysql_send 'SELECT * FROM mysql.slave_relay_log_info\G';
 
     # get output of the "show slave status" command from mysql output
     # and extract binlog position of the master server
     file_to_array($mysql_stdout, \@lines);
     for (@lines) {
-        $master = $1 if /Master_Host:\s*(\S*)\s*$/;
-        $filename = $1 if /Master_Log_File:\s*(\S*)\s*$/;
-        $position = $1 if /Master_Log_Pos:\s*(\S*)\s*$/;
+        $filename = $1 if /Master_log_name:\s*(\S*)\s*$/;
+        $position = $1 if /Master_log_pos:\s*(\S*)\s*$/;
     }
 
     # print slave status to a file
@@ -1476,7 +1483,7 @@ sub write_slave_info {
         unlink $slave_info || Die "Failed to delete '$slave_info': $!";
     }
 
-    $mysql_slave_position = "master host '$master', filename '$filename', position $position";
+    $mysql_slave_position = "filename '$filename', position $position";
 }
 
 
