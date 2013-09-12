@@ -410,15 +410,6 @@ sub backup {
       wait_for_safe_slave();
     }
 
-    # flush tables with read lock
-    if (!$option_no_lock || $option_slave_info) {
-        # make a prep copy before locking tables, if using rsync
-        backup_files(1);
-
-        # flush tables with read lock
-        mysql_lockall();
-    }
-
     if ($option_slave_info) {
         write_slave_info();
     }
@@ -430,9 +421,6 @@ sub backup {
 
     # resume ibbackup and wait till log copying is finished
     resume_ibbackup();
-
-    # release read locks on all tables
-    mysql_unlockall() if !$option_no_lock || $option_slave_info;
 
     my $ibbackup_exit_code = wait_for_ibbackup_finish();
 
