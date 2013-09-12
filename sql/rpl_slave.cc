@@ -4406,6 +4406,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
         else
         {
           thd->is_fatal_error= 1;
+          rli->set_fatal_error();
           rli->report(ERROR_LEVEL, thd->get_stmt_da()->sql_errno(),
                       "Slave SQL thread retried transaction %lu time(s) "
                       "in vain, giving up. Consider raising the value of "
