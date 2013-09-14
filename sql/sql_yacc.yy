@@ -1292,6 +1292,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  GET_SYM                       /* SQL-2003-R */
 %token  GLOBAL_SYM                    /* SQL-2003-R */
 %token  GTID_SYM
+%token  GTID_EXECUTED
 %token  GRANT                         /* SQL-2003-R */
 %token  GRANTS
 %token  GROUP_SYM                     /* SQL-2003-R */
@@ -12745,6 +12746,11 @@ show_param:
             LEX *lex= Lex;
             lex->sql_command= SQLCOM_SHOW_RELAYLOG_EVENTS;
           } opt_limit_clause_init
+        | GTID_EXECUTED binlog_in binlog_from
+          {
+            LEX *lex = Lex;
+            lex->sql_command = SQLCOM_GTID_EXECUTED;
+          }
         | keys_or_index from_or_in table_ident opt_db where_clause
           {
             LEX *lex= Lex;
