@@ -4735,6 +4735,9 @@ end_with_restore_list:
   case SQLCOM_FIND_GTID_POSITION:
    res = find_gtid_position(thd);
    break;
+  case SQLCOM_GTID_EXECUTED:
+    res = show_gtid_executed(thd);
+    break;
 #endif /* HAVE_REPLICATION */
   case SQLCOM_KILL:
   {
