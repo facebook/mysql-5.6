@@ -31,6 +31,9 @@ class Master_info;
 
 class Format_description_log_event;
 
+enum enum_read_gtids_from_binlog_status
+{ GOT_GTIDS, GOT_PREVIOUS_GTIDS, NO_GTIDS, ERROR, TRUNCATED };
+
 /**
   Class for maintaining the commit stages for binary log group commit.
  */
@@ -511,6 +514,11 @@ public:
   */
   bool init_gtid_sets(Gtid_set *gtid_set, Gtid_set *lost_groups,
                       bool verify_checksum, bool need_lock);
+  enum_read_gtids_from_binlog_status
+  read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
+                         Gtid_set *prev_gtids, bool verify_checksum,
+                         my_off_t max_pos = ULONGLONG_MAX,
+                         Sid_map *local_sid_map = NULL);
 
   void set_previous_gtid_set(Gtid_set *previous_gtid_set_param)
   {
@@ -732,6 +740,7 @@ bool purge_master_logs(THD* thd, const char* to_log);
 bool purge_master_logs_before_date(THD* thd, time_t purge_time);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD* thd);
+bool show_gtid_executed(THD *thd);
 void check_binlog_cache_size(THD *thd);
 void check_binlog_stmt_cache_size(THD *thd);
 bool binlog_enabled();
