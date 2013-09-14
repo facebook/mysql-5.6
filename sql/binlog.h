@@ -253,6 +253,10 @@ private:
 
 class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
 {
+public:
+  enum enum_read_gtids_from_binlog_status
+  { GOT_GTIDS, GOT_PREVIOUS_GTIDS, NO_GTIDS, ERROR, TRUNCATED };
+
  private:
 #ifdef HAVE_PSI_INTERFACE
   /** The instrumentation key to use for @ LOCK_index. */
@@ -550,7 +554,12 @@ public:
   bool init_gtid_sets(Gtid_set *gtid_set, Gtid_set *lost_groups,
                       Gtid *last_gtid, bool verify_checksum,
                       bool need_lock);
-
+  enum_read_gtids_from_binlog_status
+  read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
+                         Gtid_set *prev_gtids, Gtid *first_gtid,
+                         Gtid *last_gtid, Sid_map *sid_map,
+                         bool verify_checksum,
+                         my_off_t max_pos = ULONGLONG_MAX);
   void set_previous_gtid_set(Gtid_set *previous_gtid_set_param)
   {
     previous_gtid_set= previous_gtid_set_param;
@@ -803,6 +812,7 @@ bool purge_master_logs(THD* thd, const char* to_log);
 bool purge_master_logs_before_date(THD* thd, time_t purge_time);
 bool show_binlog_events(THD *thd, MYSQL_BIN_LOG *binary_log);
 bool mysql_show_binlog_events(THD* thd);
+bool show_gtid_executed(THD *thd);
 void check_binlog_cache_size(THD *thd);
 void check_binlog_stmt_cache_size(THD *thd);
 bool binlog_enabled();
