@@ -1,0 +1,20 @@
+source include/master-slave.inc;
+source include/have_innodb.inc;
+source include/have_gtid.inc;
+source include/have_binlog_format_statement.inc;
+
+connection master;
+let $master_uuid=`select @@server_uuid;`;
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+replace_result $master_uuid uuid;
+SHOW GTID_EXECUTED IN 'master-bin.000001' FROM 400;
+FLUSH LOGS;
+insert into t1 values(3);
+replace_result $master_uuid uuid;
+SHOW GTID_EXECUTED IN 'master-bin.000002' FROM 400;
+drop table t1;
+-- error ER_ERROR_WHEN_EXECUTING_COMMAND
+SHOW GTID_EXECUTED;
+source include/rpl_end.inc;
