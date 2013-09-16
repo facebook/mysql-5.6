@@ -55,7 +55,11 @@ def get_dblwr_page_nos(page, block1, block2):
     for i in xrange(TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * 2):
       page_no = mach_read_from_4(page[FIL_PAGE_OFFSET:])
       space_id = mach_read_from_4(page[FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID:])
-      if space_id:
+      # We do not want to corrupt the first page of
+      # a table because innodb can not recover the first
+      # page even though its valid copy is in the
+      # doublewrite buffer. See bugs.mysql.com/70087.
+      if space_id and page_no:
         yield space_id, page_no
       page = page[UNIV_PAGE_SIZE:]
 
