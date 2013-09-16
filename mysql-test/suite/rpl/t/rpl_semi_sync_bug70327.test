@@ -1,0 +1,73 @@
+--source include/have_innodb.inc
+--let $rpl_topology= 1->2, 1->3
+--source include/rpl_init.inc
+
+call mtr.add_suppression("Bad semi-sync reply received *");
+connection server_1;
+disable_query_log;
+eval INSTALL PLUGIN rpl_semi_sync_master SONAME '$SEMISYNC_MASTER_PLUGIN';
+set global rpl_semi_sync_master_timeout= 60000 /* 60s */;
+enable_query_log;
+
+connection server_2;
+disable_query_log;
+eval INSTALL PLUGIN rpl_semi_sync_slave SONAME '$SEMISYNC_SLAVE_PLUGIN';
+enable_query_log;
+
+connection server_3;
+disable_query_log;
+eval INSTALL PLUGIN rpl_semi_sync_slave SONAME '$SEMISYNC_SLAVE_PLUGIN';
+enable_query_log;
+
+connection server_1;
+set global rpl_semi_sync_master_wait_no_slave = OFF;
+set global rpl_semi_sync_master_enabled = ON;
+
+connection server_2;
+set global rpl_semi_sync_slave_enabled = ON;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection server_3;
+set global rpl_semi_sync_slave_enabled = ON;
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection server_1;
+create table if not exists t1 (a int) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+
+source include/rpl_sync.inc;
+
+connection server_3;
+source include/stop_slave.inc;
+change master to master_log_file='master-bin.000002', master_log_pos=120;
+start slave;
+let $slave_io_errno = 1236; # ER_MASTER_FATAL_ERROR_READING_BINLOG
+source include/wait_for_slave_io_error.inc;
+
+connection server_1;
+insert into t1 values(3);
+
+connection server_3;
+source include/stop_slave.inc;
+change master to master_log_file='master-bin.000001', master_log_pos=120;
+source include/start_slave.inc;
+
+connection server_1;
+drop table t1;
+disable_warnings;
+UNINSTALL PLUGIN rpl_semi_sync_master;
+enable_warnings;
+
+connection server_2;
+disable_warnings;
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+enable_warnings;
+
+connection server_3;
+disable_warnings;
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+enable_warnings;
+source include/rpl_end.inc;
