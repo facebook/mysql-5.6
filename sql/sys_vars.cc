@@ -548,6 +548,12 @@ static Sys_var_mybool Sys_block_ftwrl(
        GLOBAL_VAR(block_ftwrl),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_block_uninstall_semisync(
+       "block_uninstall_semisync",
+       "When set, blocks uninstalling semi-sync plugins. ",
+       GLOBAL_VAR(block_uninstall_semisync),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_ulong Sys_auto_increment_increment(
        "auto_increment_increment",
        "Auto-increment columns are incremented by this",

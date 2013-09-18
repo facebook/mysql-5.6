@@ -1,0 +1,24 @@
+let $old_value = `select @@global.block_uninstall_semisync;`;
+
+disable_query_log;
+eval INSTALL PLUGIN rpl_semi_sync_master SONAME '$SEMISYNC_MASTER_PLUGIN';
+eval INSTALL PLUGIN rpl_semi_sync_slave SONAME '$SEMISYNC_SLAVE_PLUGIN';
+enable_query_log;
+
+set @@global.block_uninstall_semisync = 1;
+
+error ER_BLOCK_UNINSTALL_SEMISYN;
+UNINSTALL PLUGIN rpl_semi_sync_master;
+error ER_BLOCK_UNINSTALL_SEMISYN;
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+
+set @@global.block_uninstall_semisync = 0;
+
+disable_warnings;
+UNINSTALL PLUGIN rpl_semi_sync_master;
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+enable_warnings;
+
+disable_query_log;
+eval set @@global.block_uninstall_semisync = $old_value;
+enable_query_log;
