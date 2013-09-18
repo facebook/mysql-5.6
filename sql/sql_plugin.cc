@@ -1927,6 +1927,13 @@ bool mysql_uninstall_plugin(THD *thd, const LEX_STRING *name)
   struct st_plugin_int *plugin;
   DBUG_ENTER("mysql_uninstall_plugin");
 
+  if (block_uninstall_semisync &&
+      !strncmp(name->str, STRING_WITH_LEN("rpl_semi_sync")))
+  {
+    my_error(ER_BLOCK_UNINSTALL_SEMISYN, MYF(0));
+    DBUG_RETURN(TRUE);
+  }
+
   if (opt_noacl)
   {
     my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--skip-grant-tables");
