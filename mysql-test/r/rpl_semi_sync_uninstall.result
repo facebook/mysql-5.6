@@ -1,0 +1,8 @@
+set @@global.block_uninstall_semisync = 1;
+UNINSTALL PLUGIN rpl_semi_sync_master;
+ERROR HY000: Uninstalling semi-sync plugins is disabled.
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+ERROR HY000: Uninstalling semi-sync plugins is disabled.
+set @@global.block_uninstall_semisync = 0;
+UNINSTALL PLUGIN rpl_semi_sync_master;
+UNINSTALL PLUGIN rpl_semi_sync_slave;
