@@ -12,7 +12,12 @@ const char *info_gtid_fields []=
 };
 
 Gtid_info::Gtid_info(uint param_id)
-  : Rpl_info("GTID", param_id + 1), id(param_id)
+  : Rpl_info("GTID",
+#ifdef HAVE_PSI_INTERFACE
+             NULL, NULL, NULL, NULL,
+             NULL, NULL, NULL,
+#endif
+             param_id + 1), id(param_id)
 {
   DBUG_ASSERT(internal_id == id + 1);
   database_name[0] = 0;
