@@ -202,6 +202,7 @@ INSERT INTO global_suppressions VALUES
     write()/read(). Bug #50414 */
  ("==[0-9]*== Warning: invalid file descriptor -1 in syscall write()"),
  ("==[0-9]*== Warning: invalid file descriptor -1 in syscall read()"),
+ ("==[0-9]*== Warning: invalid file descriptor -1 in syscall close()"),
 
  /*
    Transient network failures that cause warnings on reconnect.
