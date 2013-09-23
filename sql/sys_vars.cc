@@ -539,6 +539,13 @@ static Sys_var_mybool Sys_block_create_myisam(
        GLOBAL_VAR(block_create_myisam),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_block_ftwrl(
+       "block_ftwrl",
+       "When set, blocks usage of FLUSH TABLES WITH READ LOCK and also "
+       "FLUSH TABLES .. FOR EXPORT. ",
+       GLOBAL_VAR(block_ftwrl),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_ulong Sys_auto_increment_increment(
        "auto_increment_increment",
        "Auto-increment columns are incremented by this",

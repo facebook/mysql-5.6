@@ -443,6 +443,12 @@ bool flush_tables_with_read_lock(THD *thd, TABLE_LIST *all_tables)
   Lock_tables_prelocking_strategy lock_tables_prelocking_strategy;
   TABLE_LIST *table_list;
 
+  if (block_ftwrl)
+  {
+    my_error(ER_BLOCK_FTWRL, MYF(0));
+    goto error;
+  }
+
   /*
     This is called from SQLCOM_FLUSH, the transaction has
     been committed implicitly.
@@ -532,6 +538,11 @@ bool flush_tables_for_export(THD *thd, TABLE_LIST *all_tables)
 {
   Lock_tables_prelocking_strategy lock_tables_prelocking_strategy;
 
+  if (block_ftwrl)
+  {
+    my_error(ER_BLOCK_FTWRL, MYF(0));
+    return true;
+  }
   /*
     This is called from SQLCOM_FLUSH, the transaction has
     been committed implicitly.

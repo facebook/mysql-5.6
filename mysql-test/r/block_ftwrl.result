@@ -1,0 +1,22 @@
+create table t1 (a int);
+insert into t1 values(1);
+set @@global.block_ftwrl = OFF;
+select @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+*** Check FTWRL works fine when block_ftwrl is OFF **
+FLUSH TABLES WITH READ LOCK
+UNLOCK TABLES;
+** Check FTFE works fine when block_ftwrl is OFF **
+FLUSH TABLES t1 for EXPORT
+UNLOCK TABLES;
+SET @@global.block_ftwrl = ON;
+select @@global.block_ftwrl;
+@@global.block_ftwrl
+1
+*** Check FLUSH TABLES returns appropriate error when block_ftwrl is ON **
+-- error ER_BLOCK_FTWRL
+FLUSH TABLES WITH READ LOCK
+FLUSH TABLES t1 FOR EXPORT;
+ERROR HY000: Locking forms of FLUSH TABLES are blocked to avoid slave deadlocks.
+drop table t1;
