@@ -288,6 +288,7 @@ CHANGE MASTER TO MASTER_USER= 'plug_user_wp', MASTER_PASSWORD= 'proxy_user_wp';
 #
 
 --connection slave
+set @@global.ssl=1;
 CREATE USER 'ssl_user' IDENTIFIED BY '';
 GRANT ALL ON *.* TO ssl_user REQUIRE SSL;
 --source include/stop_slave.inc
@@ -384,6 +385,7 @@ DROP USER plug_user_p, plug_user_wp, regular_user_p, regular_user_wp, proxy_user
 SET SQL_LOG_BIN=1;
 
 --connection slave
+set @@global.ssl=0;
 DROP USER ssl_user;
 disconnect con_ssl;
 
