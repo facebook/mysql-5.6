@@ -7110,6 +7110,9 @@ ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
 ER_BLOCK_MYISAM_TABLES
   eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
 
+ER_BLOCK_FTWRL
+  eng "Locking forms of FLUSH TABLES are blocked to avoid slave deadlocks."
+
 #
 #  End of 5.6 error messages.
 #
