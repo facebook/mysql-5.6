@@ -1,0 +1,22 @@
+create table t1 (a int);
+insert into t1 values(1);
+--let $old_block_ftwrl = `select @@global.block_ftwrl;`
+set @@global.block_ftwrl = OFF;
+select @@global.block_ftwrl;
+echo *** Check FTWRL works fine when block_ftwrl is OFF **
+FLUSH TABLES WITH READ LOCK;
+UNLOCK TABLES;
+echo ** Check FTFE works fine when block_ftwrl is OFF **
+FLUSH TABLES t1 for EXPORT;
+UNLOCK TABLES;
+SET @@global.block_ftwrl = ON;
+select @@global.block_ftwrl;
+echo *** Check FLUSH TABLES returns appropriate error when block_ftwrl is ON **
+-- error ER_BLOCK_FTWRL
+FLUSH TABLES WITH READ LOCK;
+-- error ER_BLOCK_FTWRL
+FLUSH TABLES t1 FOR EXPORT;
+--disable_query_log
+--eval set @@global.block_ftwrl = $old_block_ftwrl
+--enable_query_log
+drop table t1;

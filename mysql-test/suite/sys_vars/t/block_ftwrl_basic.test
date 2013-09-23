@@ -1,0 +1,49 @@
+-- source include/load_sysvars.inc
+
+SET @start_block_ftwrl = @@global.block_ftwrl;
+SELECT @start_block_ftwrl;
+
+SET @@global.block_ftwrl = true;
+SET @@global.block_ftwrl = DEFAULT;
+SELECT @@global.block_ftwrl;
+
+SET @@global.block_ftwrl = @start_block_ftwrl;
+SELECT @@global.block_ftwrl = false;
+
+SET @@global.block_ftwrl = false;
+SELECT @@global.block_ftwrl;
+SET @@global.block_ftwrl = true;
+SELECT @@global.block_ftwrl;
+
+SET @@global.block_ftwrl = 1;
+SELECT @@global.block_ftwrl;
+SET @@global.block_ftwrl = 0;
+
+SELECT @@global.block_ftwrl;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.block_ftwrl = -1;
+SELECT @@global.block_ftwrl;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.block_ftwrl = 100;
+SELECT @@global.block_ftwrl;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.block_ftwrl = 1000.01;
+SELECT @@global.block_ftwrl;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.block_ftwrl = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.block_ftwrl;
+
+SELECT @@global.block_ftwrl = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='block_ftwrl';
+
+SELECT @@block_ftwrl = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='block_ftwrl';
+
+
+SET @@global.block_ftwrl = @start_block_ftwrl;
+SELECT @@global.block_ftwrl;
