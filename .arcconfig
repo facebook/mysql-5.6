@@ -1,5 +1,5 @@
 {
-  "project_id" : "webscalesql",
+  "project_id" : "mysql",
   "conduit_uri" : "https://reviews.facebook.net/api/",
   "phutil_libraries" : {
     "webscale-arcanist" : "arcanist/"
