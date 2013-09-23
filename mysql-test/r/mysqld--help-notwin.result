@@ -106,6 +106,8 @@ The following options may be given as the first argument:
  --block-create-myisam 
  Blocks creation of non-temporary MyISAM tables outside of
  mysql schema.
+ --block-ftwrl       When set, blocks usage of FLUSH TABLES WITH READ LOCK and
+ also FLUSH TABLES .. FOR EXPORT. 
  --bootstrap         Used by mysql installation scripts.
  --bulk-insert-buffer-size=# 
  Size of tree cache used in bulk insert optimisation. Note
@@ -1012,6 +1014,7 @@ binlog-row-image FULL
 binlog-rows-query-log-events FALSE
 binlog-stmt-cache-size 32768
 block-create-myisam FALSE
+block-ftwrl FALSE
 bulk-insert-buffer-size 8388608
 character-set-client-handshake TRUE
 character-set-filesystem binary

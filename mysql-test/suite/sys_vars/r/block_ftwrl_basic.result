@@ -1,0 +1,66 @@
+SET @start_block_ftwrl = @@global.block_ftwrl;
+SELECT @start_block_ftwrl;
+@start_block_ftwrl
+0
+SET @@global.block_ftwrl = true;
+SET @@global.block_ftwrl = DEFAULT;
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+SET @@global.block_ftwrl = @start_block_ftwrl;
+SELECT @@global.block_ftwrl = false;
+@@global.block_ftwrl = false
+1
+SET @@global.block_ftwrl = false;
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+SET @@global.block_ftwrl = true;
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+1
+SET @@global.block_ftwrl = 1;
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+1
+SET @@global.block_ftwrl = 0;
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+SET @@global.block_ftwrl = -1;
+ERROR 42000: Variable 'block_ftwrl' can't be set to the value of '-1'
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+SET @@global.block_ftwrl = 100;
+ERROR 42000: Variable 'block_ftwrl' can't be set to the value of '100'
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+SET @@global.block_ftwrl = 1000.01;
+ERROR 42000: Incorrect argument type to variable 'block_ftwrl'
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
+SET @@session.block_ftwrl = 10;
+ERROR HY000: Variable 'block_ftwrl' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.block_ftwrl;
+ERROR HY000: Variable 'block_ftwrl' is a GLOBAL variable
+SELECT @@global.block_ftwrl = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='block_ftwrl';
+@@global.block_ftwrl = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SELECT @@block_ftwrl = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='block_ftwrl';
+@@block_ftwrl = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SET @@global.block_ftwrl = @start_block_ftwrl;
+SELECT @@global.block_ftwrl;
+@@global.block_ftwrl
+0
