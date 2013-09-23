@@ -7116,6 +7116,9 @@ ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
 ER_BLOCK_MYISAM_TABLES
   eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
 
+ER_CANNOT_CHANGE_SSL_VAR
+  eng "Cannot change the dynamic variable %s while ssl is ON. First turn off ssl using SET @@global.ssl=0."
+
 ER_BLOCK_FTWRL
   eng "Locking forms of FLUSH TABLES are blocked to avoid slave deadlocks."
 
