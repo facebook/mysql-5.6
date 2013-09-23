@@ -10,13 +10,17 @@ phutil_register_library_map(array(
   '__library_version__' => 2,
   'class' =>
   array(
-    'WebScaleSQLUnitTestEngine' => 'unit/WebScaleSQLUnitTestEngine.php',
+    'FacebookMySQLArcanistConfiguration' => 'arcanist/FacebookMySQLArcanistConfiguration.php',
+    'FacebookMySQLDiffCreatedListener' => 'unit/FacebookMySQLDiffCreatedListener.php',
+    'FacebookMySQLUnitTestEngine' => 'unit/FacebookMySQLUnitTestEngine.php',
   ),
   'function' =>
   array(
   ),
   'xmap' =>
   array(
-    'WebScaleSQLUnitTestEngine' => 'ArcanistBaseUnitTestEngine',
+    'FacebookMySQLArcanistConfiguration' => 'ArcanistConfiguration',
+    'FacebookMySQLDiffCreatedListener' => 'PhutilEventListener',
+    'FacebookMySQLUnitTestEngine' => 'ArcanistBaseUnitTestEngine',
   ),
 ));
