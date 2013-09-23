@@ -1,0 +1,79 @@
+SET @start_value = @@global.ssl;
+SELECT @start_value;
+@start_value
+0
+SET @@global.ssl = TRUE;
+SET @@global.ssl = DEFAULT;
+SELECT @@global.ssl;
+@@global.ssl
+0
+SET @@global.ssl = DEFAULT;
+SELECT @@global.ssl = FALSE;
+@@global.ssl = FALSE
+1
+SET @@global.ssl = ON;
+SELECT @@global.ssl;
+@@global.ssl
+1
+SET @@global.ssl = OFF;
+SELECT @@global.ssl;
+@@global.ssl
+0
+SET @@global.ssl = 0;
+SELECT @@global.ssl;
+@@global.ssl
+0
+SET @@global.ssl = 1;
+SELECT @@global.ssl;
+@@global.ssl
+1
+SET @@global.ssl = TRUE;
+SELECT @@global.ssl;
+@@global.ssl
+1
+SET @@global.ssl = FALSE;
+SELECT @@global.ssl;
+@@global.ssl
+0
+SET @@global.ssl = 2;
+ERROR 42000: Variable 'ssl' can't be set to the value of '2'
+SET @@global.ssl = -1;
+ERROR 42000: Variable 'ssl' can't be set to the value of '-1'
+SET @@global.ssl = TRUEF;
+ERROR 42000: Variable 'ssl' can't be set to the value of 'TRUEF'
+SET @@global.ssl = TRUE_F;
+ERROR 42000: Variable 'ssl' can't be set to the value of 'TRUE_F'
+SET @@global.ssl = FALSE0;
+ERROR 42000: Variable 'ssl' can't be set to the value of 'FALSE0'
+SET @@global.ssl = OON;
+ERROR 42000: Variable 'ssl' can't be set to the value of 'OON'
+SET @@global.ssl = ONN;
+ERROR 42000: Variable 'ssl' can't be set to the value of 'ONN'
+SET @@global.ssl = OOFF;
+ERROR 42000: Variable 'ssl' can't be set to the value of 'OOFF'
+SET @@global.ssl = 0FF;
+ERROR 42000: Variable 'ssl' can't be set to the value of '0FF'
+SET @@global.ssl = ' ';
+ERROR 42000: Variable 'ssl' can't be set to the value of ' '
+SET @@global.ssl = " ";
+ERROR 42000: Variable 'ssl' can't be set to the value of ' '
+SET @@global.ssl = '';
+ERROR 42000: Variable 'ssl' can't be set to the value of ''
+SET @@session.ssl = 1;
+ERROR HY000: Variable 'ssl' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.ssl;
+ERROR HY000: Variable 'ssl' is a GLOBAL variable
+SELECT IF(@@global.ssl, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='ssl';
+IF(@@global.ssl, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.ssl = 1;
+SET global.ssl = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'ssl = 1' at line 1
+SELECT global.ssl;
+ERROR 42S02: Unknown table 'global' in field list
+SET @@global.ssl = @start_value;
+SELECT @@global.ssl;
+@@global.ssl
+0
