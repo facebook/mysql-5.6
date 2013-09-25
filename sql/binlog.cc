@@ -2458,6 +2458,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
   :bytes_written(0), file_id(1), open_count(1),
    sync_period_ptr(sync_period), sync_counter(0),
    m_prep_xids(0),
+   binlog_end_pos(0),
    is_relay_log(0), signal_cnt(0),
    checksum_alg_reset(BINLOG_CHECKSUM_ALG_UNDEF),
    relay_log_checksum_alg(BINLOG_CHECKSUM_ALG_UNDEF),
@@ -2491,6 +2492,7 @@ void MYSQL_BIN_LOG::cleanup()
     mysql_mutex_destroy(&LOCK_semisync);
     mysql_mutex_destroy(&LOCK_sync);
     mysql_mutex_destroy(&LOCK_xids);
+    mysql_mutex_destroy(&LOCK_binlog_end_pos);
     mysql_cond_destroy(&update_cond);
     my_atomic_rwlock_destroy(&m_prep_xids_lock);
     mysql_cond_destroy(&m_prep_xids_cond);
@@ -2508,6 +2510,8 @@ void MYSQL_BIN_LOG::init_pthread_objects()
   mysql_mutex_init(m_key_LOCK_semisync, &LOCK_semisync, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_sync, &LOCK_sync, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(m_key_LOCK_xids, &LOCK_xids, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(m_key_LOCK_binlog_end_pos, &LOCK_binlog_end_pos,
+                   MY_MUTEX_INIT_FAST);
   mysql_cond_init(m_key_update_cond, &update_cond, 0);
   my_atomic_rwlock_init(&m_prep_xids_lock);
   mysql_cond_init(m_key_prep_xids_cond, &m_prep_xids_cond, NULL);
@@ -3339,14 +3343,8 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
   if (flush_io_cache(&log_file) ||
       mysql_file_sync(log_file.file, MYF(MY_WME)))
     goto err;
-  /*
-    We shouldn't set binlog_last_valid_pos for relay log which results in
-    invalid value in the global variable binlog_last_valid_pos
-  */
-  if (!is_relay_log)
-  {
-     set_binlog_last_valid_pos(my_b_tell(&log_file));
-  }
+
+  update_binlog_end_pos();
   
   if (write_file_name_to_index_file)
   {
@@ -4969,12 +4967,22 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     }
     bytes_written += r.data_written;
   }
+
+  // Need flush before updating binlog_end_pos, otherwise dump thread
+  // may give errors.
+  if (flush_io_cache(&log_file))
+  {
+    error = 1;
+    close_on_error = TRUE;
+    goto end;
+  }
+
   /*
     Update needs to be signalled even if there is no rotate event
     log rotation should give the waiting thread a signal to
     discover EOF and move on to the next log.
   */
-  signal_update();
+  update_binlog_end_pos();
 
   old_name=name;
   name=0;				// Don't free name
@@ -5115,7 +5123,7 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
     }
   }
 
-  signal_update();
+  update_binlog_end_pos();
 
   DBUG_RETURN(error);
 }
@@ -5954,7 +5962,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, bool need_lock_log,
     if (!error && !(error= flush_and_sync(false, false)))
     {
       bool check_purge= false;
-      signal_update();
+      update_binlog_end_pos();
       error= rotate(true, &check_purge);
       if (!error && check_purge)
         purge();
@@ -6166,9 +6174,9 @@ int MYSQL_BIN_LOG::wait_for_update_relay_log(THD* thd, const struct timespec *ti
   @retval    0          if got signalled on update
   @retval    non-0      if wait timeout elapsed
   @note
-    LOCK_log must be taken before calling this function.
-    LOCK_log is being released while the thread is waiting.
-    LOCK_log is released by the caller.
+    LOCK_binlog_end_pos must be taken before calling this function.
+    LOCK_binlog_end_pos is being released while the thread is waiting.
+    LOCK_binlog_end_pos is released by the caller.
 */
 
 int MYSQL_BIN_LOG::wait_for_update_bin_log(THD* thd,
@@ -6178,9 +6186,9 @@ int MYSQL_BIN_LOG::wait_for_update_bin_log(THD* thd,
   DBUG_ENTER("wait_for_update_bin_log");
 
   if (!timeout)
-    mysql_cond_wait(&update_cond, &LOCK_log);
+    mysql_cond_wait(&update_cond, &LOCK_binlog_end_pos);
   else
-    ret= mysql_cond_timedwait(&update_cond, &LOCK_log,
+    ret= mysql_cond_timedwait(&update_cond, &LOCK_binlog_end_pos,
                               const_cast<struct timespec *>(timeout));
   DBUG_RETURN(ret);
 }
@@ -6217,7 +6225,7 @@ void MYSQL_BIN_LOG::close(uint exiting)
                   relay_log_checksum_alg != BINLOG_CHECKSUM_ALG_UNDEF);
       s.write(&log_file);
       bytes_written+= s.data_written;
-      signal_update();
+      update_binlog_end_pos();
     }
 #endif /* HAVE_REPLICATION */
 
@@ -6288,6 +6296,26 @@ void MYSQL_BIN_LOG::signal_update()
   signal_cnt++;
   mysql_cond_broadcast(&update_cond);
   DBUG_VOID_RETURN;
+}
+
+/*
+ * Caller must hold LOCK_log mutex when the file is in use.
+ */
+void MYSQL_BIN_LOG::update_binlog_end_pos()
+{
+  /*
+    binlog_end_pos is used only on master's binlog right now. It is possible
+    to use it on relay log.
+  */
+  if (is_relay_log)
+    signal_update();
+  else
+  {
+    lock_binlog_end_pos();
+    binlog_end_pos = my_b_tell(&log_file);
+    signal_update();
+    unlock_binlog_end_pos();
+  }
 }
 
 /****** transaction coordinator log for 2pc - binlog() based solution ******/
@@ -7195,17 +7223,16 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
       flush_error= ER_ERROR_ON_WRITE;
     }
 
-    signal_update();
+    /*
+      Update the last valid position after the after_flush hook has
+      executed. Doing so guarantees that the hook is executed before
+      the before/after_send_hooks on the dump thread, preventing race
+      conditions between the group_commit here and the dump threads.
+    */
+    update_binlog_end_pos();
+
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
   }
-
-  /*
-    Update the last valid position after the after_flush hook has
-    executed. Doing so guarantees that the hook is executed before
-    the before/after_send_hooks on the dump thread, preventing race
-    conditions between the group_commit here and the dump threads.
-  */
-  set_binlog_last_valid_pos(my_b_tell(&log_file));
 
   /*
     Stage #2: Syncing binary log file to disk
