@@ -1021,7 +1021,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     sql_print_warning("Failed to set SO_SNDBUF with (error: %s).",
                       strerror(errno));
 
-  mysql_mutex_t *log_lock;
   mysql_cond_t *log_cond;
   uint8 current_checksum_alg= BINLOG_CHECKSUM_ALG_UNDEF;
   Format_description_log_event fdle(BINLOG_VERSION), *p_fdle= &fdle;
@@ -1331,13 +1330,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   */
   thd->variables.max_allowed_packet= MAX_MAX_ALLOWED_PACKET;
 
-  /*
-    We can set log_lock now, it does not move (it's a member of
-    mysql_bin_log, and it's already inited, and it will be destroyed
-    only at shutdown).
-  */
   p_coord->pos= pos; // the first hb matches the slave's last seen value
-  log_lock= mysql_bin_log.get_log_lock();
   log_cond= mysql_bin_log.get_log_cond();
   if (pos > BIN_LOG_HEADER_SIZE)
   {
@@ -1864,36 +1857,27 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   case LOG_READ_BINLOG_LAST_VALID_POS:
         {
           /*
-            Take log_lock to ensure that we read everything in binlog file.
-            If there is nothing left to read in binlog file, wait until
-            we get a signal from other threads that binlog is updated.
+            Take lock_binlog_pos to ensure that we read everything in
+            binlog file. If there is nothing left to read in binlog file,
+            wait until we get a signal from other threads that binlog is
+            updated.
           */
-          mysql_mutex_lock(log_lock);
+          mysql_bin_log.lock_binlog_end_pos();
 
           /*
-            We might have got stale value from is_active in read_log_event.
-            Make sure the current binlog file is active. This is an edge case
-            where is_active in read_log_event is true and sends LOG_READ_
-            BINLOG_LAST_VALID_POS. It is not necessary to wait for
-            signal_update if the binlog is not active. Instead break and read
-            again which causes us to eventually read all events and open
-            the next binlog file.
+            No need to wait if the the current log is not active or
+            we haven't reached binlog_end_pos.
+
+            Note that is_active may be false positive, but binlog_end_pos
+            is valid here. If rotate thread is about to rotate the log,
+            we will get a singal_update() in open_binlog() which will eventually
+            unblock us and checking is_active() later in read_log_event() will
+            give the valid value.
           */
-          if (!mysql_bin_log.is_active(log_file_name))
+          if (!mysql_bin_log.is_active(log_file_name) ||
+              my_b_tell(&log) < mysql_bin_log.get_binlog_end_pos())
           {
-            mysql_mutex_unlock(log_lock);
-            break;
-          }
-          /*
-            This is also to avoid an edge case where before acquiring
-            log_lock here binlog_last_valid_pos may be updated in first step of
-            ordered_commit() which causes us to miss binlog update. Then we
-            must wait until next signal_update() which is not necessary if
-            we check that there is a scope for next read.
-          */
-          if (my_b_tell(&log) < get_binlog_last_valid_pos())
-          {
-            mysql_mutex_unlock(log_lock);
+            mysql_bin_log.unlock_binlog_end_pos();
             break;
           }
 
@@ -1933,7 +1917,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
           if (thd->server_id == 0 || ((flags & BINLOG_DUMP_NON_BLOCK) != 0))
 	  {
             DBUG_PRINT("info", ("stopping dump thread because server_id==0 or the BINLOG_DUMP_NON_BLOCK flag is set: server_id=%u flags=%d", thd->server_id, flags));
-            mysql_mutex_unlock(log_lock);
+            mysql_bin_log.unlock_binlog_end_pos();
 	    goto end;
 	  }
 
@@ -1954,7 +1938,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               DBUG_ASSERT(heartbeat_ts);
               set_timespec_nsec(*heartbeat_ts, heartbeat_period);
             }
-            thd->ENTER_COND(log_cond, log_lock,
+            thd->ENTER_COND(log_cond, mysql_bin_log.get_binlog_end_pos_lock(),
                             &stage_master_has_sent_all_binlog_to_slave,
                             &old_stage);
             /*
