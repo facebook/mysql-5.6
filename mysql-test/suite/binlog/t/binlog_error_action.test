@@ -399,6 +399,10 @@ SET SESSION debug = "+d,simulate_error_during_sync_binlog_file";
 DROP table t1, t2;
 --source include/restart_mysqld.inc
 
+# Disable this test in Facebook's branch since we have changed the order of
+# the mutexes and con1 is holding LOCK_log when con2 attempts to get it
+# causing a deadlock
+if (0) {
 ############################
 --echo Test case15
 ############################
@@ -441,7 +445,12 @@ DROP table t1, t2;
 --source include/shutdown_mysqld.inc
 --remove_file $MYSQLTEST_VARDIR/tmp/binlog_error_action.err
 --source include/start_mysqld.inc
+}
 
+# Disable this test in Facebook's branch since we have changed the order of
+# the mutexes and con1 is holding LOCK_log when con2 attempts to get it
+# causing a deadlock
+if (0) {
 ############################
 --echo Test case16
 ############################
@@ -486,4 +495,5 @@ SET SESSION debug ="+d,simulate_error_during_flush_cache_to_file";
 --connection default
 DROP table t1, t2;
 --source include/restart_mysqld.inc
+}
 

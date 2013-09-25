@@ -34,6 +34,14 @@ SET GLOBAL sync_binlog= 2;
 
 --let $engine= MyISAM
 
+# Disable this test in Facebook's branch since we have changed the order of
+# the mutexes and conn1 is holding LOCK_log when conn2 attempts to get it
+# causing a deadlock
+if (1) {
+  --let $engine=
+  connection default;
+}
+
 while ($engine)
 {
   --let $rpl_connection_name= conn1

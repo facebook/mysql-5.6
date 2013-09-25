@@ -1244,7 +1244,7 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
     *is_binlog_active= mysql_bin_log.is_active(log_file_name_arg);
   /*
     If the log_file_name_arg is active and we have read up to
-    binlog_last_valid_pos, return LOG_READ_BINLOG_LAST_VALID_POS so that IO
+    binlog_end_pos, return LOG_READ_BINLOG_LAST_VALID_POS so that IO
     thread will wait until binlog is updated
   */
   /*
@@ -1255,16 +1255,17 @@ int Log_event::read_log_event(IO_CACHE* file, String* packet,
     it's fine because we should anyway need to read.
 
     If it gives LOG_READ_BINLOG_LAST_VALID_POS, there is is_active check
-    after acquiring lock_log in mysql_binlog_send before going to wait for
-    binlog update. Acquiring log_lock each time we read an event increases
-    mutex contention. This corner case occurs rarely only during binlog is
-    rotated.
+    after acquiring lock_binlog_end_pos in mysql_binlog_send before going to
+    wait for binlog update. Acquiring lock_binlog_end_pos each time we
+    read an event increases mutex contention. This corner case occurs
+    rarely only during binlog is rotated.
 
-    get_binlog_last_valid_pos() == my_b_tell(file) ensures that we don't read
+    mysql_bin_log.binlog_end_pos() == my_b_tell(file) ensures that we don't read
     past the last valid position in binlog.
   */
   if (mysql_bin_log.is_active(log_file_name_arg) &&
-      get_binlog_last_valid_pos() == my_b_tell(file))
+      mysql_bin_log.get_binlog_end_pos_without_lock()
+        == my_b_tell(file))
   {
     result= LOG_READ_BINLOG_LAST_VALID_POS;
     goto end;
