@@ -271,6 +271,8 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   PSI_mutex_key m_key_LOCK_sync;
   /** The instrumentation key to use for @ LOCK_xids. */
   PSI_mutex_key m_key_LOCK_xids;
+  /** The instrumentation key to use for @ LOCK_binlog. */
+  PSI_mutex_key m_key_LOCK_binlog_end_pos;
   /** The instrumentation key to use for @ update_cond. */
   PSI_cond_key m_key_update_cond;
   /** The instrumentation key to use for @ prep_xids_cond. */
@@ -286,6 +288,7 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   mysql_mutex_t LOCK_semisync;
   mysql_mutex_t LOCK_sync;
   mysql_mutex_t LOCK_xids;
+  mysql_mutex_t LOCK_binlog_end_pos;
   mysql_cond_t update_cond;
   ulonglong bytes_written;
   IO_CACHE index_file;
@@ -331,6 +334,7 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   my_atomic_rwlock_t m_prep_xids_lock;
   mysql_cond_t m_prep_xids_cond;
   volatile int32 m_prep_xids;
+  volatile my_off_t binlog_end_pos;
 
   /**
     Increment the prepared XID counter.
@@ -458,6 +462,7 @@ public:
                     PSI_mutex_key key_LOCK_sync,
                     PSI_mutex_key key_LOCK_sync_queue,
                     PSI_mutex_key key_LOCK_xids,
+                    PSI_mutex_key key_LOCK_binlog_end_pos,
                     PSI_cond_key key_COND_done,
                     PSI_cond_key key_update_cond,
                     PSI_cond_key key_prep_xids_cond,
@@ -478,6 +483,7 @@ public:
     m_key_LOCK_semisync = key_LOCK_semisync;
     m_key_LOCK_sync= key_LOCK_sync;
     m_key_LOCK_xids= key_LOCK_xids;
+    m_key_LOCK_binlog_end_pos = key_LOCK_binlog_end_pos;
     m_key_update_cond= key_update_cond;
     m_key_prep_xids_cond= key_prep_xids_cond;
     m_key_file_log= key_file_log;
@@ -581,6 +587,7 @@ public:
   }
   void set_max_size(ulong max_size_arg);
   void signal_update();
+  void update_binlog_end_pos();
   int wait_for_update_relay_log(THD* thd, const struct timespec * timeout);
   int  wait_for_update_bin_log(THD* thd, const struct timespec * timeout);
 public:
@@ -707,6 +714,26 @@ public:
   inline void unlock_index() { mysql_mutex_unlock(&LOCK_index);}
   inline IO_CACHE *get_index_file() { return &index_file;}
   inline uint32 get_open_count() { return open_count; }
+  /*
+    It is called by the threads(e.g. dump thread) which want to read
+    hot log without LOCK_log protection.
+  */
+  my_off_t get_binlog_end_pos()
+  {
+    mysql_mutex_assert_not_owner(&LOCK_log);
+    mysql_mutex_assert_owner(&LOCK_binlog_end_pos);
+    return binlog_end_pos;
+  }
+
+  my_off_t get_binlog_end_pos_without_lock()
+  {
+    mysql_mutex_assert_not_owner(&LOCK_log);
+    mysql_mutex_assert_not_owner(&LOCK_binlog_end_pos);
+    return binlog_end_pos;
+  }
+  mysql_mutex_t* get_binlog_end_pos_lock() { return &LOCK_binlog_end_pos; }
+  void lock_binlog_end_pos() { mysql_mutex_lock(&LOCK_binlog_end_pos); }
+  void unlock_binlog_end_pos() { mysql_mutex_unlock(&LOCK_binlog_end_pos); }
 };
 
 typedef struct st_load_file_info
