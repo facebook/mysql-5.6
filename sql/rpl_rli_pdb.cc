@@ -15,7 +15,7 @@
 
 #define HASH_DYNAMIC_INIT 4
 #define HASH_DYNAMIC_INCR 1
-static const int LINES_IN_WORKER_INFO = 13;
+static const int LINES_IN_WORKER_INFO = 12;
 
 using std::min;
 
@@ -37,8 +37,6 @@ const char *info_slave_worker_fields []=
   "group_master_log_name",
   "group_master_log_pos",
 
-  // last gtid executed by this worker thread.
-  "last_gtid_executed",
   /*
     These positions identify what a worker knew about the coordinator at
     the time a job was assigned. Notice that they are redudant and are
@@ -340,9 +338,6 @@ bool Slave_worker::read_info(Rpl_info_handler *from)
                      (char *) "") ||
       from->get_info((ulong *) &temp_group_master_log_pos,
                      (ulong) 0) ||
-      from->get_info(worker_last_gtid,
-                     (size_t) sizeof(worker_last_gtid),
-                     (char *) "") ||
       from->get_info(checkpoint_relay_log_name,
                      (size_t) sizeof(checkpoint_relay_log_name),
                      (char *) "") ||
@@ -389,7 +384,6 @@ bool Slave_worker::write_info(Rpl_info_handler *to)
         to->set_info((ulong) group_relay_log_pos) ||
         to->set_info(group_master_log_name) ||
         to->set_info((ulong) group_master_log_pos) ||
-        to->set_info(worker_last_gtid) ||
         to->set_info(checkpoint_relay_log_name) ||
         to->set_info((ulong) checkpoint_relay_log_pos) ||
         to->set_info(checkpoint_master_log_name) ||
@@ -402,10 +396,10 @@ bool Slave_worker::write_info(Rpl_info_handler *to)
   else
   {
     if (to->set_info(LINES_IN_WORKER_INFO - 1,
-                     "%d\n%s\n%lu\n%s\n%lu\n%s\n%s\n%lu\n%s\n%lu\n%lu\n%lu\n",
+                     "%d\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%s\n%lu\n%lu\n%lu\n",
                      (int) internal_id, group_relay_log_name,
                      (ulong) group_relay_log_pos, group_master_log_name,
-                     (ulong) group_master_log_pos, worker_last_gtid,
+                     (ulong) group_master_log_pos,
                      checkpoint_relay_log_name,
                      (ulong) checkpoint_relay_log_pos,
                      checkpoint_master_log_name,
