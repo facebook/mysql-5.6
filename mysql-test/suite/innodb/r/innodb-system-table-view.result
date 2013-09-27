@@ -53,7 +53,7 @@ mysql/innodb_table_stats	9	Antelope	Compact
 mysql/slave_gtid_info	6	Antelope	Compact
 mysql/slave_master_info	26	Antelope	Compact
 mysql/slave_relay_log_info	11	Antelope	Compact
-mysql/slave_worker_info	16	Antelope	Compact
+mysql/slave_worker_info	15	Antelope	Compact
 test/t_compact	5	Antelope	Compact
 test/t_compressed	5	Barracuda	Compressed
 test/t_dynamic	5	Barracuda	Dynamic
@@ -107,7 +107,7 @@ mysql/innodb_table_stats	1	9
 mysql/slave_gtid_info	1	6
 mysql/slave_master_info	1	26
 mysql/slave_relay_log_info	1	11
-mysql/slave_worker_info	1	16
+mysql/slave_worker_info	1	15
 test/child	1	5
 test/parent	1	4
 SELECT name, n_fields
