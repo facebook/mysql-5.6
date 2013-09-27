@@ -183,7 +183,6 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_worker_info (
   Relay_log_pos BIGINT UNSIGNED NOT NULL, 
   Master_log_name TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, 
   Master_log_pos BIGINT UNSIGNED NOT NULL, 
-  Last_gtid_executed CHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
   Checkpoint_relay_log_name TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, 
   Checkpoint_relay_log_pos BIGINT UNSIGNED NOT NULL, 
   Checkpoint_master_log_name TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, 
