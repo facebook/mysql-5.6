@@ -53,7 +53,17 @@ public:
   void end_info();
   bool skip_event(const char *gtid);
 
-  Gtid_info(uint param_id);
+  Gtid_info(uint param_id
+#ifdef HAVE_PSI_INTERFACE
+            ,PSI_mutex_key *param_key_info_run_lock,
+            PSI_mutex_key *param_key_info_data_lock,
+            PSI_mutex_key *param_key_info_sleep_lock,
+            PSI_mutex_key *param_key_info_data_cond,
+            PSI_mutex_key *param_key_info_start_cond,
+            PSI_mutex_key *param_key_info_stop_cond,
+            PSI_mutex_key *param_key_info_sleep_cond
+#endif
+            );
   Gtid_info(const Gtid_info& info);
   Gtid_info& operator = (const Gtid_info& info);
   virtual ~Gtid_info();
