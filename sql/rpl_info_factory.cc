@@ -490,7 +490,17 @@ Gtid_info *Rpl_info_factory::create_gtid_info(uint id)
   DBUG_ASSERT(rli_option == INFO_REPOSITORY_TABLE);
   DBUG_ENTER("Rpl_info_factory::create_gtid_info");
 
-  if (!(gtid_info = new Gtid_info(id)))
+  if (!(gtid_info = new Gtid_info(id
+#ifdef HAVE_PSI_INTERFACE
+                                  ,&key_gtid_info_run_lock,
+                                  &key_gtid_info_data_lock,
+                                  &key_gtid_info_sleep_lock,
+                                  &key_gtid_info_data_cond,
+                                  &key_gtid_info_start_cond,
+                                  &key_gtid_info_stop_cond,
+                                  &key_gtid_info_sleep_cond
+#endif
+                                  )))
     goto err;
 
 
