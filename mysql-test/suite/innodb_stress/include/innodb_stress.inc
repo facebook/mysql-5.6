@@ -144,6 +144,14 @@ queries issued before the crash.;
 # final cleanup
 --connection master
 
+let $primary=`select count(*) from t1 use index (primary)`;
+let $secondary=`select count(*) from t1 use index (msg_i)`;
+if ($primary != $secondary)
+{
+  --echo Secondary index inconsistent!  $primary != $secondary
+  --die
+}
+
 DROP TABLE t1;
 
 # if sync_slave_with_master had a configurable timeout this would not be needed
