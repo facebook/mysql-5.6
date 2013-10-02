@@ -1148,6 +1148,9 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->rows_index_next= 0;
   user_stats->transactions_commit= 0;
   user_stats->transactions_rollback= 0;
+  user_stats->n_gtid_unsafe_create_select= 0;
+  user_stats->n_gtid_unsafe_create_drop_temporary_table_in_transaction= 0;
+  user_stats->n_gtid_unsafe_non_transactional_table= 0;
   user_stats->magic = USER_STATS_MAGIC;
   DBUG_VOID_RETURN;
 }
@@ -1416,6 +1419,9 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->rows_index_next, TRUE);
   table->field[f++]->store(us->transactions_commit, TRUE);
   table->field[f++]->store(us->transactions_rollback, TRUE);
+  table->field[f++]->store(us->n_gtid_unsafe_create_select, TRUE);
+  table->field[f++]->store(us->n_gtid_unsafe_create_drop_temporary_table_in_transaction, TRUE);
+  table->field[f++]->store(us->n_gtid_unsafe_non_transactional_table, TRUE);
   DBUG_VOID_RETURN;
 }
 
