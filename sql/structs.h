@@ -275,6 +275,11 @@ typedef struct st_user_stats {
   ulonglong transactions_commit;
   ulonglong transactions_rollback;
 
+  /* stats tracking for gtid_unsafe commands*/
+  uint n_gtid_unsafe_create_select;
+  uint n_gtid_unsafe_create_drop_temporary_table_in_transaction;
+  uint n_gtid_unsafe_non_transactional_table;
+
   uint magic;
 
   /* TODO(mcallaghan) -- failed_queries, disk IO, parse and records_in_range
