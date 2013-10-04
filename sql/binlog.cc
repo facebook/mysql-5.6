@@ -8098,7 +8098,7 @@ bool THD::is_ddl_gtid_compatible()
     if (us) {
       my_atomic_add32((int*)&us->n_gtid_unsafe_create_select, 1);
     }
-    if (enforce_gtid_consistency) {
+    if (enforce_gtid_consistency && should_write_gtids(this)) {
       my_error(ER_GTID_UNSAFE_CREATE_SELECT, MYF(0));
       DBUG_RETURN(false);
     }
@@ -8120,7 +8120,7 @@ bool THD::is_ddl_gtid_compatible()
           (int*)&us->n_gtid_unsafe_create_drop_temporary_table_in_transaction,
           1);
       }
-      if (enforce_gtid_consistency) {
+      if (enforce_gtid_consistency && should_write_gtids(this)) {
         my_error(ER_GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION,
                  MYF(0));
         DBUG_RETURN(false);
@@ -8169,7 +8169,7 @@ THD::is_dml_gtid_compatible(bool transactional_table,
     if (us) {
       my_atomic_add32((int*)&us->n_gtid_unsafe_non_transactional_table, 1);
     }
-    if (enforce_gtid_consistency) {
+    if (enforce_gtid_consistency && should_write_gtids(this)) {
       my_error(ER_GTID_UNSAFE_NON_TRANSACTIONAL_TABLE, MYF(0));
       DBUG_RETURN(false);
     }
