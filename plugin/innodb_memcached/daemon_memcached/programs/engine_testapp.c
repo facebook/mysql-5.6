@@ -757,7 +757,7 @@ int main(int argc, char **argv) {
           "E:" /* Engine to load */
           "e:" /* Engine options */
           "T:" /* Library with tests to load */
-          "t:" /* Timeout */
+          "t:" /* timeout_t */
           "q"  /* Be more quiet (only report failures) */
           "."  /* dot mode. */
           "n:"  /* test case to run */

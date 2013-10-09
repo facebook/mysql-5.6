@@ -77,8 +77,8 @@ typedef int my_socket;
 extern unsigned int mysql_port;
 extern char *mysql_unix_port;
 
-#define CLIENT_NET_READ_TIMEOUT		365*24*3600	/* Timeout on read */
-#define CLIENT_NET_WRITE_TIMEOUT	365*24*3600	/* Timeout on write */
+#define CLIENT_NET_READ_TIMEOUT		7*24*3600	/* Timeout on read */
+#define CLIENT_NET_WRITE_TIMEOUT	7*24*3600	/* Timeout on write */
 
 #define IS_PRI_KEY(n)	((n) & PRI_KEY_FLAG)
 #define IS_NOT_NULL(n)	((n) & NOT_NULL_FLAG)
@@ -176,7 +176,10 @@ enum mysql_option
   MYSQL_SERVER_PUBLIC_KEY,
   MYSQL_ENABLE_CLEARTEXT_PLUGIN,
   MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
-  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+  MYSQL_OPT_CONNECT_TIMEOUT_MS,  /* connection timeout in milli-second */
+  MYSQL_OPT_READ_TIMEOUT_MS,     /* query recv timeout in milli-second */
+  MYSQL_OPT_WRITE_TIMEOUT_MS     /* query send timeout in milli-second */
 };
 
 /**
@@ -186,7 +189,7 @@ enum mysql_option
 struct st_mysql_options_extention; 
 
 struct st_mysql_options {
-  unsigned int connect_timeout, read_timeout, write_timeout;
+  timeout_t connect_timeout, read_timeout, write_timeout;
   unsigned int port, protocol;
   unsigned long client_flag;
   char *host,*user,*password,*unix_socket,*db;
