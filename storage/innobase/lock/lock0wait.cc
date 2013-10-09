@@ -449,7 +449,7 @@ lock_wait_check_and_cancel(
 		&& (wait_time > (double) slot->wait_timeout
 		   || wait_time < 0))) {
 
-		/* Timeout exceeded or a wrap-around in system
+		/* timeout_t exceeded or a wrap-around in system
 		time counter: cancel the lock request queued
 		by the transaction and release possible
 		other transactions waiting behind; it is
