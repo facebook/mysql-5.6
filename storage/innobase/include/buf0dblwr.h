@@ -148,7 +148,8 @@ struct buf_dblwr_t{
 	buf_page_t**	buf_block_arr;/*!< array to store pointers to
 				the buffer blocks which have been
 				cached to write_buf */
-	byte		header[BUF_DBLWR_HEADER_SIZE];
+	byte*		header;
+	byte*		header_unaligned;
 };
 
 
