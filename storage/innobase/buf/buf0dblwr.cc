@@ -166,6 +166,13 @@ buf_dblwr_init(
 		ut_align(buf_dblwr->write_buf_unaligned,
 			 UNIV_PAGE_SIZE));
 
+	buf_dblwr->header_unaligned = static_cast<byte*>(
+		ut_malloc(2 * BUF_DBLWR_HEADER_SIZE));
+
+	buf_dblwr->header = static_cast<byte*>(
+		ut_align(buf_dblwr->header_unaligned,
+			 BUF_DBLWR_HEADER_SIZE));
+
 	buf_dblwr->buf_block_arr = static_cast<buf_page_t**>(
 		mem_zalloc(buf_size * sizeof(void*)));
 	/* Write the page number and the page type to the doublewrite
@@ -777,6 +784,9 @@ buf_dblwr_free(void)
 	os_event_free(buf_dblwr->s_event);
 	ut_free(buf_dblwr->write_buf_unaligned);
 	buf_dblwr->write_buf_unaligned = NULL;
+	ut_free(buf_dblwr->header_unaligned);
+	buf_dblwr->header_unaligned = NULL;
+	buf_dblwr->header = NULL;
 
 	mem_free(buf_dblwr->buf_block_arr);
 	buf_dblwr->buf_block_arr = NULL;
