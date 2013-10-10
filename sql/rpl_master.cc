@@ -420,6 +420,14 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
   DBUG_RETURN(0);
 }
 
+static bool is_semi_sync_slave()
+{
+  int null_value;
+  long long val= 0;
+  get_user_var_int("rpl_semi_sync_slave", &val, &null_value);
+  return val;
+}
+
 /*
   Reset a transmit packet buffer for event sending. This function
   uses a pre-allocated buffer for the transmit packet.
@@ -431,7 +439,7 @@ static int reset_transmit_packet(THD *thd, ushort flags,
                                  ulong *ev_offset, const char **errmsg,
                                  bool observe_transmission,
                                  String *packet, char *packet_buffer,
-                                 ulong packet_buffer_size)
+                                 ulong packet_buffer_size, bool semi_sync_slave)
 {
   int ret= 0;
 
@@ -445,7 +453,7 @@ static int reset_transmit_packet(THD *thd, ushort flags,
   packet->set(packet_buffer, (uint32) packet_buffer_size, &my_charset_bin);
   packet->length(0);
   packet->append("\0", 1);
-  if (observe_transmission &&
+  if (observe_transmission && semi_sync_slave &&
       RUN_HOOK(binlog_transmit, reserve_header, (thd, flags, packet)))
   {
     *errmsg= "Failed to run hook 'reserve_header'";
@@ -669,8 +677,10 @@ static int send_heartbeat_event(NET* net, String* packet,
 static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
                                           const struct event_coordinates *last_skip_coord,
                                           ulong *ev_offset,
-                                          uint8 checksum_alg_arg, const char **errmsg,
-                                          bool observe_transmission)
+                                          uint8 checksum_alg_arg,
+                                          const char **errmsg,
+                                          bool observe_transmission,
+                                          bool semi_sync_slave)
 {
   DBUG_ENTER("send_last_skip_group_heartbeat");
   String save_packet;
@@ -680,7 +690,7 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
   save_packet.swap(*packet);
 
   if (reset_transmit_packet(thd, 0, ev_offset, errmsg, observe_transmission,
-                            packet, NULL, 0))
+                            packet, NULL, 0, semi_sync_slave))
     DBUG_RETURN(-1);
 
   /* Send heart beat event to the slave to update slave  threads coordinates */
@@ -1050,7 +1060,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   if (log_warnings > 1)
     sql_print_information("Start binlog_dump to master_thread_id(%lu) slave_server(%u), pos(%s, %lu)",
                         thd->thread_id, thd->server_id, log_ident, (ulong)pos);
-  if (RUN_HOOK(binlog_transmit, transmit_start,
+  bool semi_sync_slave = is_semi_sync_slave();
+  if (semi_sync_slave &&
+      RUN_HOOK(binlog_transmit, transmit_start,
                (thd, NO_FLAG, log_ident, pos, &observe_transmission,
                 &mysql_bin_log)))
   {
@@ -1141,7 +1153,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   /* reset transmit packet for the fake rotate event below */
   if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                             observe_transmission,
-                            packet, packet_buffer, packet_buffer_size))
+                            packet, packet_buffer, packet_buffer_size,
+                            semi_sync_slave))
     GOTO_ERR;
 
   /*
@@ -1205,7 +1218,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
        file */
     if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                               observe_transmission,
-                              packet, packet_buffer, packet_buffer_size))
+                              packet, packet_buffer, packet_buffer_size,
+                              semi_sync_slave))
       GOTO_ERR;
 
      /*
@@ -1306,7 +1320,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
        file */
     if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                               observe_transmission,
-                              packet, packet_buffer, packet_buffer_size))
+                              packet, packet_buffer, packet_buffer_size,
+                              semi_sync_slave))
       GOTO_ERR;
     DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                     {
@@ -1482,7 +1497,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                  event_type, searching_first_gtid, skip_group, log_file_name,
                  my_b_tell(&log)));
       pos = my_b_tell(&log);
-      if (observe_transmission &&
+      if (observe_transmission && semi_sync_slave &&
           RUN_HOOK(binlog_transmit, before_send_event,
                    (thd, NO_FLAG, packet, log_file_name, pos)))
       {
@@ -1514,7 +1529,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
         if (send_last_skip_group_heartbeat(thd, net, packet, p_last_skip_coord,
                                            &ev_offset, current_checksum_alg,
-                                           &errmsg, observe_transmission))
+                                           &errmsg, observe_transmission,
+                                           semi_sync_slave))
         {
           GOTO_ERR;
         }
@@ -1550,7 +1566,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 	}
       }
 
-      if (observe_transmission &&
+      if (observe_transmission && semi_sync_slave &&
           RUN_HOOK(binlog_transmit, after_send_event,
                    (thd, NO_FLAG, packet, log_file_name, skip_group ? pos : 0)))
       {
@@ -1562,7 +1578,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       /* reset transmit packet for next loop */
       if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                                 observe_transmission,
-                                packet, packet_buffer, packet_buffer_size))
+                                packet, packet_buffer, packet_buffer_size,
+                                semi_sync_slave))
         GOTO_ERR;
     }
 
@@ -1628,7 +1645,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
            file */
         if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                                   observe_transmission,
-                                  packet, packet_buffer, packet_buffer_size))
+                                  packet, packet_buffer, packet_buffer_size,
+                                  semi_sync_slave))
           GOTO_ERR;
         
 	/*
@@ -1733,7 +1751,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               if (send_last_skip_group_heartbeat(thd, net, packet,
                                                  p_coord, &ev_offset,
                                                  current_checksum_alg, &errmsg,
-                                                 observe_transmission))
+                                                 observe_transmission,
+                                                 semi_sync_slave))
               {
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
@@ -1758,7 +1777,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                                         observe_transmission,
                                         packet, packet_buffer,
-                                        packet_buffer_size))
+                                        packet_buffer_size, semi_sync_slave))
               {
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
@@ -1879,14 +1898,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                 send_last_skip_group_heartbeat(thd, net, packet,
                                                p_last_skip_coord, &ev_offset,
                                                current_checksum_alg, &errmsg,
-                                               observe_transmission))
+                                               observe_transmission,
+                                               semi_sync_slave))
             {
               GOTO_ERR;
             }
 
             THD_STAGE_INFO(thd, stage_sending_binlog_event_to_slave);
             pos = my_b_tell(&log);
-            if (observe_transmission &&
+            if (observe_transmission && semi_sync_slave &&
                 RUN_HOOK(binlog_transmit, before_send_event,
                          (thd, NO_FLAG, packet, log_file_name, pos)))
             {
@@ -1915,7 +1935,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
           if(!goto_next_binlog)
           {
-            if (observe_transmission &&
+            if (observe_transmission && semi_sync_slave &&
                 RUN_HOOK(binlog_transmit, after_send_event,
                          (thd, NO_FLAG, packet, log_file_name,
                           skip_group ? pos : 0)))
@@ -1958,7 +1978,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       /* reset transmit packet for the possible fake rotate event */
       if (reset_transmit_packet(thd, NO_FLAG, &ev_offset, &errmsg,
                                 observe_transmission,
-                                packet, packet_buffer, packet_buffer_size))
+                                packet, packet_buffer, packet_buffer_size,
+                                semi_sync_slave))
         GOTO_ERR;
       
       /*
@@ -1994,7 +2015,8 @@ end:
   end_io_cache(&log);
   mysql_file_close(file, MYF(MY_WME));
 
-  (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, NO_FLAG));
+  if (semi_sync_slave)
+    (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, NO_FLAG));
   my_eof(thd);
   THD_STAGE_INFO(thd, stage_waiting_to_finalize_termination);
   mysql_mutex_lock(&LOCK_thread_count);
@@ -2029,7 +2051,8 @@ err:
     error_text[sizeof(error_text) - 1]= '\0';
   }
   end_io_cache(&log);
-  (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, NO_FLAG));
+  if (semi_sync_slave)
+    (void) RUN_HOOK(binlog_transmit, transmit_stop, (thd, NO_FLAG));
   /*
     Exclude  iteration through thread list
     this is needed for purge_logs() - it will iterate through
