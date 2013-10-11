@@ -4709,9 +4709,18 @@ os_aio_linux_dispatch_read_array_submit()
 		if (count > 0) {
 			ulint iocb_index = i * array->n_slots
 					   / array->n_segments;
+			ulint submitted;
 			total_count += count;
-			total_submitted += io_submit(array->aio_ctx[i], count,
-					       &(array->pending[iocb_index]));
+			submitted = io_submit(array->aio_ctx[i], count,
+					      &(array->pending[iocb_index]));
+			if (submitted > 0) {
+				total_submitted += submitted;
+			} else {
+				/* io_submit returns number of successfully
+				queued requests or -errno. */
+				errno = -submitted;
+				break;
+			}
 		}
 	}
 	/* Reset the aio request buffer. */
@@ -4722,10 +4731,7 @@ os_aio_linux_dispatch_read_array_submit()
 
 	srv_stats.n_aio_submitted.add(total_count);
 
-	/* io_submit returns number of successfully
-	queued requests or -errno. */
 	if (UNIV_UNLIKELY(total_count != total_submitted)) {
-		errno = -total_submitted;
 		return(FALSE);
 	}
 
