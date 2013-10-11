@@ -5788,7 +5788,7 @@ _fil_io(
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
 				to call os_aio_linux_dispatch_read_array_submit
-				when you are read to commit all your requests.*/
+				when you're ready to commit all your requests.*/
 {
 	ulint		mode;
 	fil_space_t*	space;

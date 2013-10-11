@@ -862,7 +862,7 @@ pfs_os_aio_func(
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
 				to call os_aio_linux_dispatch_read_array_submit
-				when you are read to commit all your requests.*/
+				when you're ready to commit all your requests.*/
 /*******************************************************************//**
 NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1237,7 +1237,7 @@ os_aio_func(
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
 				to call os_aio_linux_dispatch_read_array_submit
-				when you are read to commit all your requests.*/
+				when you're ready to commit all your requests.*/
 /************************************************************************//**
 Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */

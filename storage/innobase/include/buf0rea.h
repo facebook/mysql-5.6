@@ -66,7 +66,7 @@ buf_read_page_low(
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
 				to call os_aio_linux_dispatch_read_array_submit
-				when you are read to commit all your requests.*/
+				when you're ready to commit all your requests.*/
 /********************************************************************//**
 High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets
