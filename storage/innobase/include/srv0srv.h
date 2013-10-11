@@ -324,6 +324,7 @@ extern uint	srv_defragment_n_pages;
 
 /*!< page_cleaner_thread should run once per this many milliseconds */
 extern ulint	srv_page_cleaner_interval_millis;
+extern ulint	srv_idle_flush_pct;
 
 /* Number of IO operations per second the server can do */
 extern ulong    srv_io_capacity;
