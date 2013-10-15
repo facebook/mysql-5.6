@@ -211,6 +211,7 @@ const LEX_STRING command_name[]={
   { C_STRING_WITH_LEN("Fetch") },
   { C_STRING_WITH_LEN("Daemon") },
   { C_STRING_WITH_LEN("Binlog Dump GTID") },
+  { C_STRING_WITH_LEN("Reset Connection") },
   { C_STRING_WITH_LEN("Error") },  // Last command number
   { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
   { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
@@ -267,7 +268,7 @@ const LEX_STRING command_name[]={
   { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
   { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
   { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
-  { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 },
   { C_STRING_WITH_LEN("Error") },
   { C_STRING_WITH_LEN("Query attributes") },
 };
@@ -1745,13 +1746,20 @@ bool dispatch_command(enum enum_server_command command, THD *thd, char* packet,
     break;
   }
 #endif
+  case COM_RESET_CONNECTION:
+  {
+    thd->status_var.com_other++;
+    thd->cleanup_connection();
+    thd->reset_first_successful_insert_id();
+    my_ok(thd);
+    break;
+  }
   case COM_CHANGE_USER:
   {
     int auth_rc;
     status_var_increment(thd->status_var.com_other);
 
-    thd->change_user();
-    thd->clear_error();                         // if errors from rollback
+    thd->cleanup_connection();
 
     /* acl_authenticate() takes the data from net->read_pos */
     net->read_pos= (uchar*)packet;

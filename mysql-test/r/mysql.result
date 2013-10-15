@@ -512,5 +512,9 @@ Connected
 1
 1
 1
+ERROR 1243 (HY000) at line 15: Unknown prepared statement handler (x) given to EXECUTE
+a
+1
+2
 
 End of tests

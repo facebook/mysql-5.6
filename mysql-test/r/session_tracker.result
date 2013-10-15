@@ -284,7 +284,7 @@ SET @@session.session_track_state_change=NULL;
 ERROR 42000: Variable 'session_track_state_change' can't be set to the value of 'NULL'
 SET @@session.session_track_state_change='';
 ERROR 42000: Variable 'session_track_state_change' can't be set to the value of ''
-# Test if reset_connection sets the OFF the tracker
+# Test if resetconnection sets the OFF the tracker
 SET @@session.session_track_state_change=1;
 SELECT @@session.session_track_state_change;
 @@session.session_track_state_change
