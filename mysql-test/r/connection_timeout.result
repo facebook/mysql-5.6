@@ -1,8 +1,8 @@
 select "no timeout, should work";
 no timeout, should work
 no timeout, should work
-select "short timeout, should work", sleep(0.99);
-short timeout, should work	sleep(0.99)
+select "short timeout, should work", sleep(0.90);
+short timeout, should work	sleep(0.90)
 short timeout, should work	0
 select "long timeout, should fail 1s accuracty", sleep(1.01);
 ERROR HY000: Read timeout is reached

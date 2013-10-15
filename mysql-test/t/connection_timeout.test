@@ -3,7 +3,7 @@
 connect (con1,127.0.0.1,root,,,,,TIMEOUT_1S);
 connection con1;
 select "no timeout, should work";
-select "short timeout, should work", sleep(0.99);
+select "short timeout, should work", sleep(0.90);
 --error 2062  # CR_CR_NET_READ_INTERRUPTED
 select "long timeout, should fail 1s accuracty", sleep(1.01);
 
