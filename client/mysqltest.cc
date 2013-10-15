@@ -905,7 +905,7 @@ const char *command_names[]=
   "conn_attrs_delete",
   "conn_attrs_reset",
   "disable_deprecate_eof",
-  "reset_connection",
+  "resetconnection",
 
   0
 };
@@ -6882,7 +6882,7 @@ void do_reset_connection()
   MYSQL *mysql = &cur_con->mysql;
 
   DBUG_ENTER("do_reset_connection");
-  if (mysql_change_user(mysql, mysql->user, mysql->passwd, NULL))
+  if (mysql_reset_connection(mysql))
     die("reset connection failed: %s", mysql_error(mysql));
   if (cur_con->stmt)
   {

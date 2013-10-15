@@ -5659,3 +5659,21 @@ net_async_status STDCALL mysql_next_result_nonblocking(MYSQL *mysql, int* error)
   *error = -1;
   return NET_ASYNC_COMPLETE;
 }
+
+int STDCALL
+mysql_reset_connection(MYSQL *mysql)
+{
+  DBUG_ENTER("mysql_reset_connection");
+  if(simple_command(mysql,COM_RESET_CONNECTION,0,0,0))
+    DBUG_RETURN(1);
+  else
+  {
+    mysql_detach_stmt_list(&mysql->stmts, "mysql_reset_connection");
+    /* reset some of the members in mysql */
+    mysql->insert_id= 0;
+    mysql->affected_rows= ~(my_ulonglong) 0;
+    free_old_query(mysql);
+    mysql->status=MYSQL_STATUS_READY;
+    DBUG_RETURN(0);
+  }
+}

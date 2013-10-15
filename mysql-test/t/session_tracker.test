@@ -20,7 +20,7 @@
 --echo # will not send boolean tracker in the OK packet
 
 --echo # reset the session.
---reset_connection
+--resetconnection
 
 CREATE TABLE test.t(i INT);
 SET @@session.session_track_state_change=ON;
@@ -64,7 +64,7 @@ SET @@session.session_track_state_change=OFF;
 SET NAMES 'utf8';
 
 --echo # reset the session.
---reset_connection
+--resetconnection
 
 SET @@session.session_track_state_change=ON;
 --echo # Change system variable for next transaction only
@@ -72,7 +72,7 @@ SET @@session.session_track_state_change=ON;
 SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 --echo # reset the session.
---reset_connection
+--resetconnection
 
 SET @@session.session_track_state_change=ON;
 --echo # Change database
@@ -84,7 +84,7 @@ SET @@session.session_track_state_change=OFF;
 USE test;
 
 --echo # reset the session.
---reset_connection
+--resetconnection
 
 SET @@session.session_track_state_change=ON;
 --echo # Define a user defined variable
@@ -96,7 +96,7 @@ SET @@session.session_track_state_change=OFF;
 SET @var1=20;
 
 --echo # reset the session.
---reset_connection
+--resetconnection
 
 --echo
 --echo # Test with multiple session attributes
@@ -127,7 +127,7 @@ CREATE TEMPORARY TABLE test.t1(i INT);
 ALTER TABLE test.t1 ADD COLUMN (j INT);
 --echo expect 1
 DROP TEMPORARY TABLE test.t1;
---reset_connection
+--resetconnection
 
 --echo
 --echo # Test cases to check if tracker tracks only what is needed
@@ -187,7 +187,7 @@ PREPARE p1 FROM 'SELECT i FROM test.t';
 DEALLOCATE PREPARE p1;
 
 --echo # reset the session.
---reset_connection
+--resetconnection
 
 --echo
 --echo # Test for all valid values
@@ -221,21 +221,21 @@ SET @@session.session_track_state_change=NULL;
 --error ER_WRONG_VALUE_FOR_VAR
 SET @@session.session_track_state_change='';
 
---echo # Test if reset_connection sets the OFF the tracker
+--echo # Test if resetconnection sets the OFF the tracker
 
 SET @@session.session_track_state_change=1;
 SELECT @@session.session_track_state_change;
---reset_connection
+--resetconnection
 --echo # expect 0/FALSE
 SELECT @@session.session_track_state_change;
 
 --echo # Test show variables
 
---reset_connection
+--resetconnection
 SHOW VARIABLES like 'session_track_state_change';
 SET @@session.session_track_state_change=1;
 SHOW VARIABLES like 'session_track_state_change';
---reset_connection
+--resetconnection
 SHOW VARIABLES like 'session_track_state_change';
 
 connection default;

@@ -959,11 +959,6 @@ THD::THD(bool enable_plugins)
    m_trans_gtid(NULL),
    m_trans_max_gtid(NULL),
    table_map_for_update(0),
-   arg_of_last_insert_id_function(FALSE),
-   first_successful_insert_id_in_prev_stmt(0),
-   first_successful_insert_id_in_prev_stmt_for_binlog(0),
-   first_successful_insert_id_in_cur_stmt(0),
-   stmt_depends_on_first_successful_insert_id_in_prev_stmt(FALSE),
    m_examined_row_count(0),
    m_accessed_rows_and_keys(0),
    m_digest(NULL),
@@ -994,7 +989,7 @@ THD::THD(bool enable_plugins)
    db_stats(NULL)
 {
   ulong tmp;
-
+  reset_first_successful_insert_id();
   mdl_context.init(this);
   /*
     Pass nominal parameters to init_alloc_root only to ensure that
@@ -1451,7 +1446,7 @@ extern "C"   THD *_current_thd_noinline(void)
 }
 #endif
 /*
-  Init common variables that has to be reset on start and on change_user
+  Init common variables that has to be reset on start and on cleanup_connection
 */
 
 void THD::init(void)
@@ -1547,14 +1542,14 @@ void THD::init_for_queries(Relay_log_info *rli)
   Do what's needed when one invokes change user
 
   SYNOPSIS
-    change_user()
+    cleanup_connection()
 
   IMPLEMENTATION
     Reset all resources that are connection specific
 */
 
 
-void THD::change_user(void)
+void THD::cleanup_connection(void)
 {
   mysql_mutex_lock(&LOCK_status);
   add_to_status(&global_status_var, &status_var);
@@ -1574,6 +1569,31 @@ void THD::change_user(void)
 #if defined(HAVE_OPENSSL)
   reset_connection_certificate();
 #endif
+
+  clear_error();
+
+#ifndef DBUG_OFF
+    /* DEBUG code only (begin) */
+    bool check_cleanup= FALSE;
+    DBUG_EXECUTE_IF("debug_test_cleanup_connection", check_cleanup= TRUE;);
+    if(check_cleanup)
+    {
+      /* isolation level should be default */
+      DBUG_ASSERT(variables.tx_isolation == ISO_REPEATABLE_READ);
+      /* check autocommit is ON by default */
+      DBUG_ASSERT(server_status == SERVER_STATUS_AUTOCOMMIT);
+      /* check prepared stmts are cleaned up */
+      DBUG_ASSERT(prepared_stmt_count == 0);
+      /* check diagnostic area is cleaned up */
+      DBUG_ASSERT(get_stmt_da()->status() == Diagnostics_area::DA_EMPTY);
+      /* check if temp tables are deleted */
+      DBUG_ASSERT(temporary_tables == NULL);
+      /* check if tables are unlocked */
+      DBUG_ASSERT(locked_tables_list.locked_tables() == NULL);
+    }
+    /* DEBUG code only (end) */
+#endif
+
 }
 
 my_thread_id THD::set_new_thread_id()

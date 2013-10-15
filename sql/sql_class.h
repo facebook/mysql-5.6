@@ -3093,6 +3093,15 @@ public:
     }
     return first_successful_insert_id_in_prev_stmt;
   }
+  inline void reset_first_successful_insert_id()
+  {
+    arg_of_last_insert_id_function= FALSE;
+    first_successful_insert_id_in_prev_stmt= 0;
+    first_successful_insert_id_in_cur_stmt= 0;
+    first_successful_insert_id_in_prev_stmt_for_binlog= 0;
+    stmt_depends_on_first_successful_insert_id_in_prev_stmt= FALSE;
+  }
+
   /*
     Used by Intvar_log_event::do_apply_event() and by "SET INSERT_ID=#"
     (mysqlbinlog). We'll soon add a variant which can take many intervals in
@@ -3588,7 +3597,7 @@ public:
     alloc_root. 
   */
   void init_for_queries(Relay_log_info *rli= NULL);
-  void change_user(void);
+  void cleanup_connection(void);
   void cleanup_after_query();
   bool store_globals();
   bool restore_globals();
