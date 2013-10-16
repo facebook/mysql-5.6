@@ -407,11 +407,12 @@ recv_sys_init(
 	/* Set appropriate value of recv_n_pool_free_frames. */
 	if (buf_pool_get_curr_size() >= (10 * 1024 * 1024)) {
 		/* Buffer pool of size greater than 10 MB. */
-#ifdef XTRABACKUP
-		recv_n_pool_free_frames = 1024;
-#else /* XTRABACKUP */
-		recv_n_pool_free_frames = 512;
-#endif /* XTRABACKUP */
+
+		/* Total number of pending ios when using aio request buffering,
+		is 8 * OS_AIO_N_PENDING_IOS_PER_THREAD * srv_n_read_io_threads
+		Set number of free frames to be 4 times that. */
+		recv_n_pool_free_frames = 32 * OS_AIO_N_PENDING_IOS_PER_THREAD
+		                          * srv_n_read_io_threads;
 	}
 
 	recv_sys->buf = static_cast<byte*>(ut_malloc(RECV_PARSING_BUF_SIZE));
@@ -1392,14 +1393,25 @@ recv_parse_or_apply_log_rec_body(
 Calculates the fold value of a page file address: used in inserting or
 searching for a log record in the hash table.
 @return	folded value */
-UNIV_INLINE
+UNIV_INTERN
 ulint
 recv_fold(
 /*======*/
 	ulint	space,	/*!< in: space */
 	ulint	page_no)/*!< in: page number */
 {
-	return(ut_fold_ulint_pair(space, page_no));
+	/* We require a hash value of the pair (space, page_no) which has the
+	following properties:
+	(1) as few collisions as possible.
+	(2) the hash value order should match physical page order as closely as
+	possible. Pages will be read in later on in the hash value order, and
+	having this order match physical page order closely is a big win on disk
+	based machines.
+	The easiest way to achieve the above two properties is,
+	generate a random ulint from the space value (so that the results are
+	spaced out) and then add the page_no, so that pairs with the same space
+	and consecutive page_no have consecutive hash values.*/
+	return(ut_rnd_gen_next_ulint(space) + page_no);
 }
 
 /*********************************************************************//**
