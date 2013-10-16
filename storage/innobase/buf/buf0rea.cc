@@ -1020,9 +1020,15 @@ not_to_recover:
 					  | OS_AIO_SIMULATED_WAKE_LATER,
 					  space, zip_size, TRUE,
 					  tablespace_version, page_nos[i],
-					  NULL, FALSE);
+					  NULL, TRUE);
 		}
 	}
+
+#ifdef LINUX_NATIVE_AIO
+	if (!sync) {
+		ut_a(os_aio_linux_dispatch_read_array_submit());
+	}
+#endif
 
 	os_aio_simulated_wake_handler_threads();
 
