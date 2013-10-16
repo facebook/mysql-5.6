@@ -1378,7 +1378,18 @@ recv_fold(
 	ulint	space,	/*!< in: space */
 	ulint	page_no)/*!< in: page number */
 {
-	return(ut_fold_ulint_pair(space, page_no));
+	/* We require a hash value of the pair (space, page_no) which has the
+	following properties:
+	(1) as few collisions as possible.
+	(2) the hash value order should match physical page order as closely as
+	possible. Pages will be read in later on in the hash value order, and
+	having this order match physical page order closely is a big win on disk
+	based machines.
+	The easiest way to achieve the above two properties is,
+	generate a random ulint from the space value (so that the results are
+	spaced out) and then add the page_no, so that pairs with the same space
+	and consecutive page_no have consecutive hash values.*/
+	return(ut_rnd_gen_next_ulint(space) + page_no);
 }
 
 /*********************************************************************//**
