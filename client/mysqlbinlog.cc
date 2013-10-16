@@ -3179,6 +3179,7 @@ int main(int argc, char** argv)
 {
   signal(SIGINT, handle_kill_signal);
   signal(SIGHUP, handle_kill_signal);
+  signal(SIGTERM, handle_kill_signal);
   char **defaults_argv;
   Exit_status retval= OK_CONTINUE;
   ulonglong save_stop_position;
