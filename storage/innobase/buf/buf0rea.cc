@@ -182,7 +182,7 @@ buf_read_page_low(
 			/* recv_get_fil_addr_struct() */
 			recv_addr = static_cast<recv_addr_t*>
 					(HASH_GET_FIRST(recv_sys->addr_hash,
-					hash_calc_hash(ut_fold_ulint_pair(space, offset),
+					hash_calc_hash(recv_fold(space, offset),
 					recv_sys->addr_hash)));
 			while (recv_addr) {
 				if ((recv_addr->space == space)
@@ -939,7 +939,7 @@ buf_read_recv_pages(
 				/* recv_get_fil_addr_struct() */
 				recv_addr = static_cast<recv_addr_t*>
 						(HASH_GET_FIRST(recv_sys->addr_hash,
-						hash_calc_hash(ut_fold_ulint_pair(space, page_nos[i]),
+						hash_calc_hash(recv_fold(space, page_nos[i]),
 						recv_sys->addr_hash)));
 				while (recv_addr) {
 					if ((recv_addr->space == space)
@@ -1014,9 +1014,13 @@ not_to_recover:
 					  | OS_AIO_SIMULATED_WAKE_LATER,
 					  space, zip_size, TRUE,
 					  tablespace_version, page_nos[i],
-					  NULL, FALSE);
+					  NULL, TRUE);
 		}
 	}
+
+#ifdef LINUX_NATIVE_AIO
+	os_aio_linux_dispatch_read_array_submit();
+#endif
 
 	os_aio_simulated_wake_handler_threads();
 
