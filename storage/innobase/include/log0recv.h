@@ -318,6 +318,17 @@ recv_recovery_from_archive_finish(void);
 /*===================================*/
 #endif /* UNIV_LOG_ARCHIVE */
 
+/*********************************************************************//**
+Calculates the fold value of a page file address: used in inserting or
+searching for a log record in the hash table.
+@return folded value */
+UNIV_INTERN
+ulint
+recv_fold(
+/*======*/
+	ulint		space,		/*!< in: space */
+	ulint		page_no);	/*!< in: page number */
+
 /** Block of log record data */
 struct recv_data_t{
 	recv_data_t*	next;	/*!< pointer to the next block or NULL */
