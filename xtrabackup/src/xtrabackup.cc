@@ -6709,6 +6709,9 @@ static void
 xtrabackup_prepare_func(void)
 {
 	ulint	err;
+	ibool	is_prepared;
+
+	is_prepared = FALSE;
 
 	/* cd to target-dir */
 
@@ -6739,6 +6742,7 @@ xtrabackup_prepare_func(void)
 		} else if (!strcmp(metadata_type, "full-prepared")) {
 			msg("xtrabackup: This target seems to be already "
 			    "prepared.\n");
+			is_prepared = TRUE;
 			goto skip_check;
 		} else {
 			msg("xtrabackup: This target seems not to have correct "
@@ -6838,6 +6842,7 @@ skip_check:
 		goto error;
 
 	/* align space sizes along with fsp header */
+	if (!is_prepared)
 	{
 	fil_system_t*	f_system = fil_system;
 	fil_space_t*	space;
