@@ -1371,7 +1371,7 @@ recv_parse_or_apply_log_rec_body(
 Calculates the fold value of a page file address: used in inserting or
 searching for a log record in the hash table.
 @return	folded value */
-UNIV_INLINE
+UNIV_INTERN
 ulint
 recv_fold(
 /*======*/
