@@ -1,5 +1,5 @@
 DROP TABLE if exists t1;
-CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
 alter table t1 defragment;
 INSERT INTO t1 VALUES (100000, REPEAT('A', 256));
 INSERT INTO t1 VALUES (200000, REPEAT('A', 256));
@@ -20,7 +20,13 @@ alter table t1 defragment;
 select count(*) from t1;
 count(*)
 7904
-select count(*) < 145 from information_schema.innodb_buffer_page where table_name like '%t1%' order by page_number;
+select count(*) < 145 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+count(*) < 145
+1
+select count(*) from t1 force index (second);
+count(*)
+7904
+select count(*) < 145 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
 count(*) < 145
 1
 SET @@global.innodb_defragment_n_pages = 3;
@@ -28,15 +34,35 @@ alter table t1 defragment;
 select count(*) from t1;
 count(*)
 6904
-select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' order by page_number;
+select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+count(*) > 135
+1
+select count(*) from t1 force index (second);
+count(*)
+6904
+select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
 count(*) > 135
 1
 SET @@global.innodb_defragment_n_pages = 10;
-alter table t1 defragment;
+alter table t1 defragment index PRIMARY;
 select count(*) from t1;
 count(*)
 6904
-select count(*) < 130 from information_schema.innodb_buffer_page where table_name like '%t1%' order by page_number;
+select count(*) < 130 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+count(*) < 130
+1
+select count(*) from t1 force index (second);
+count(*)
+6904
+select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
+count(*) > 135
+1
+SET @@global.innodb_defragment_n_pages = 10;
+alter table t1 defragment index second;
+select count(*) from t1 force index (second);
+count(*)
+6904
+select count(*) < 130 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
 count(*) < 130
 1
 DROP PROCEDURE defragment;
