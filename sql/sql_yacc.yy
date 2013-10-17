@@ -7831,9 +7831,21 @@ alt_part_name_item:
 /*
   End of management of partition commands
 */
+index_defragmentation:
+          /* empty */ {}
+        | INDEX_SYM PRIMARY_SYM
+          {
+            LEX_STRING defrag_index = {C_STRING_WITH_LEN("PRIMARY")};
+            Lex->alter_info.defrag_index = defrag_index;
+          }
+        | INDEX_SYM ident
+          {
+            Lex->alter_info.defrag_index = $2;
+          }
+        ;
 
 defragment:
-          DEFRAGMENT_SYM opt_async_commit
+          DEFRAGMENT_SYM index_defragmentation opt_async_commit
           {
             THD *thd= YYTHD;
             Lex->m_sql_cmd= new (thd->mem_root)

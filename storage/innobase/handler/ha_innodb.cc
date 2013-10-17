@@ -10878,18 +10878,22 @@ UNIV_INTERN
 int
 ha_innobase::defragment_table(
 /*======================*/
-	const char*	name,	/*!< in: table name */
-	bool		async)	/*!< in: whether to wait until finish */
+	const char*	name,		/*!< in: table name */
+	const char*	index_name,	/*!< in: index name */
+	bool		async)		/*!< in: whether to wait until finish */
 {
 	char		norm_name[FN_REFLEN];
 	dict_table_t*	table;
 	dict_index_t*	index;
 	mtr_t		mtr;
+	ibool		one_index = (*index_name != 0);
 	normalize_table_name(norm_name, name);
 	table = dict_table_open_on_name(norm_name, FALSE,
 					FALSE, DICT_ERR_IGNORE_NONE);
 	for (index = dict_table_get_first_index(table); index;
 	     index = dict_table_get_next_index(index)) {
+		if (one_index && strcasecmp(index_name, index->name) != 0)
+			continue;
 		btr_defragment_item_t* item;
 		os_event_t event = NULL;
 		btr_pcur_t* pcur = btr_pcur_create_for_mysql();
@@ -10908,8 +10912,14 @@ ha_innobase::defragment_table(
 			os_event_free(event);
 		}
 		btr_pcur_free_for_mysql(pcur);
+		if (one_index) {
+			one_index = FALSE;
+			break;
+		}
 	}
 	dict_table_close(table, FALSE, FALSE);
+	if (one_index)
+		return ER_NO_SUCH_INDEX;
 	return 0;
 }
 

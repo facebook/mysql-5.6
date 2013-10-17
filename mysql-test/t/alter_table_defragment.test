@@ -5,12 +5,19 @@
 drop table if exists t1;
 --enable_warnings
 
-create table t1(a int not null primary key auto_increment, b varchar(256)) engine=innodb;
+create table t1(a int not null primary key auto_increment, b varchar(256), key second(b)) engine=innodb;
 create table t2(a int not null primary key auto_increment, b varchar(256)) engine=myisam;
 
 insert into t1 values (1, REPEAT("a", 256));
 insert into t1 values (2, REPEAT("a", 256));
 alter table t1 defragment;
+
+alter table t1 defragment index primary;
+
+alter table t1 defragment index second;
+
+--error ER_NO_SUCH_INDEX
+alter table t1 defragment index notexist;
 
 insert into t2 values (1, REPEAT("a", 256));
 insert into t2 values (2, REPEAT("a", 256));
