@@ -2515,6 +2515,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
    is_relay_log(0), signal_cnt(0),
    checksum_alg_reset(BINLOG_CHECKSUM_ALG_UNDEF),
    relay_log_checksum_alg(BINLOG_CHECKSUM_ALG_UNDEF),
+   innodb_binlog_pos(ULONGLONG_MAX),
    previous_gtid_set(0)
 {
   /*
@@ -2524,6 +2525,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
     before main().
   */
   index_file_name[0] = 0;
+  innodb_binlog_file[0] = 0;
   memset(&index_file, 0, sizeof(index_file));
   memset(&purge_index_file, 0, sizeof(purge_index_file));
   memset(&crash_safe_index_file, 0, sizeof(crash_safe_index_file));
@@ -7473,7 +7475,7 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
     delete ev;
   }
 
-  if (ha_recover(&xids))
+  if (ha_recover(&xids, innodb_binlog_file, &innodb_binlog_pos))
     goto err2;
 
   free_root(&mem_root, MYF(0));
