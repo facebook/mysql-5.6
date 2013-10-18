@@ -471,6 +471,8 @@ public:
     The reason is that we don't want it to be automatically called
     on exit() - but only during the correct shutdown process
   */
+  char innodb_binlog_file[FN_REFLEN + 1];
+  my_off_t innodb_binlog_pos;
 
 #ifdef HAVE_PSI_INTERFACE
   void set_psi_keys(PSI_mutex_key key_LOCK_index,

@@ -888,7 +888,8 @@ struct handlerton
    int  (*commit)(handlerton *hton, THD *thd, bool all, bool async);
    int  (*rollback)(handlerton *hton, THD *thd, bool all);
    int  (*prepare)(handlerton *hton, THD *thd, bool all, bool async);
-   int  (*recover)(handlerton *hton, XID *xid_list, uint len);
+   int  (*recover)(handlerton *hton, XID *xid_list, uint len,
+                   char *binlog_file, my_off_t *binlog_pos);
    int  (*commit_by_xid)(handlerton *hton, XID *xid);
    int  (*rollback_by_xid)(handlerton *hton, XID *xid);
    void *(*create_cursor_read_view)(handlerton *hton, THD *thd);
@@ -3545,7 +3546,8 @@ int ha_commit_trans(THD *thd, bool all, bool async,
                     bool ignore_global_read_lock= false);
 int ha_rollback_trans(THD *thd, bool all);
 int ha_prepare(THD *thd);
-int ha_recover(HASH *commit_list);
+int ha_recover(HASH *commit_list, char *binlog_file = NULL,
+               my_off_t *binlog_pos = NULL);
 
 /*
  transactions: interface to low-level handlerton functions. These are
