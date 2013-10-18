@@ -452,6 +452,72 @@ int init_slave()
     rli->get_event_relay_log_name(),
     (ulong) rli->get_event_relay_log_pos()));
 
+  if (active_mi->host[0] &&
+      mysql_bin_log.innodb_binlog_pos != ULONGLONG_MAX &&
+      mysql_bin_log.innodb_binlog_file[0] &&
+      gtid_mode > 0)
+  {
+    /*
+      With less durable settins (sync_binlog !=1 and
+      innodb_flush_log_at_trx_commit !=1), a slave with GTIDs/MTS
+      may be inconsistent due to the two possible scenarios below
+
+      1) slave's binary log is behind innodb transaction log.
+      2) slave's binlary log is ahead of innodb transaction log.
+
+      The slave_gtid_info transaction table consistently stores
+      gtid information and handles scenario 1. But in case
+      of scenario 2, even though the slave_gtid_info is consistent
+      with innodb, slave will skip executing some transactions if it's
+      GTID is logged in the binlog even though it is not commiited in
+      innodb.
+
+      Scenario 2 is handled by changing gtid_executed when a
+      slave is initialized based on the binlog file and binlog position
+      which are logged inside innodb trx log. When gtid_executed is set
+      to an old value which is consistent with innodb, slave doesn't
+      miss any transactions.
+    */
+    mysql_mutex_t *log_lock = mysql_bin_log.get_log_lock();
+    mysql_mutex_lock(log_lock);
+    global_sid_lock->wrlock();
+    char file_name[FN_REFLEN + 1];
+    mysql_bin_log.make_log_name(file_name,
+                                mysql_bin_log.innodb_binlog_file);
+
+    const_cast<Gtid_set *>(gtid_state->get_logged_gtids())->clear();
+    MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status ret =
+      mysql_bin_log.read_gtids_from_binlog(file_name,
+                                           const_cast<Gtid_set *>(
+                                             gtid_state->get_logged_gtids()),
+                                           NULL, NULL, NULL, global_sid_map,
+                                           opt_master_verify_checksum,
+                                           mysql_bin_log.innodb_binlog_pos);
+    global_sid_lock->unlock();
+    // rotate writes the consistent gtid_executed as previous_gtid_log_event
+    // in next binlog. This is done to avoid situations where there is a
+    // slave crash immediately after executing some relay log events.
+    // Those slave crashes are not safe if binlog is not rotated since the
+    // gtid_executed set after crash recovery will be inconsistent with InnoDB.
+    // A crash before this rotate is safe because of valid binlog file and
+    // position values inside innodb trx header which will not be updated
+    // until sql_thread is ready.
+    bool check_purge;
+    mysql_bin_log.rotate(true, &check_purge);
+    mysql_mutex_unlock(log_lock);
+    if (ret == MYSQL_BIN_LOG::ERROR || ret == MYSQL_BIN_LOG::TRUNCATED)
+    {
+      sql_print_error("Failed to read log %s up to pos %llu "
+                       "to find out crash safe gtid_executed "
+                       "Replication will not be setup due to "
+                       "possible data inconsistency with master. ",
+                       mysql_bin_log.innodb_binlog_file,
+                       mysql_bin_log.innodb_binlog_pos);
+      error = 1;
+      goto err;
+    }
+  }
+
   /* If server id is not set, start_slave_thread() will say it */
   if (active_mi->host[0] && !opt_skip_slave_start)
   {
