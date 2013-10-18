@@ -76,7 +76,7 @@ while($i)
 
   # this table is special - just for timing. It's more special on test0 db
   # where it contains master timing of the load as well.
-  create table benchmark (state text) engine=myisam; # timestamp keep on the slave side
+  create table benchmark (state text) engine=innodb; # timestamp keep on the slave side
 
   dec $i;
 }
@@ -258,6 +258,11 @@ connection slave;
 --disable_result_log
 
 insert into test0.benchmark set state='slave is processing load';
+disable_query_log;
+FLUSH LOGS;
+enable_query_log;
+let $wait_condition= SELECT count(*)+sleep(1) = 3 FROM test0.benchmark;
+source include/wait_condition.inc;
 
 # To force filling timestamp cols with the slave local clock values
 # to implement benchmarking.
