@@ -6,24 +6,26 @@ Note	####	Storing MySQL user name or password information in the master info rep
 call mtr.add_suppression("Recovery from master pos");
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
 1	mtr	uuid:1
-2	test	uuid:3
+2	test	uuid:4
 SET GLOBAL debug = '+d,crash_before_update_pos';
-insert into t1 values(2);
+insert into t1 values(3);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
 1	mtr	uuid:1
-2	test	uuid:3
+2	test	uuid:4
 use test;
 select * from t1;
 a
 1
+2
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
@@ -32,11 +34,13 @@ select * from test1;
 a
 1
 2
+3
 use test;
 select * from test1;
 a
 1
 2
+3
 drop table test1;
 include/stop_slave.inc
 change master to master_auto_position = 0;
@@ -45,26 +49,28 @@ use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
 1	mtr	uuid:1
-2	test	uuid:6
+2	test	uuid:7
 include/rpl_reset.inc
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 SET GLOBAL debug = '+d,crash_after_update_pos_before_apply';
-insert into t1 values(2);
+insert into t1 values(3);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 use test;
 select * from t1;
 a
 1
+2
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
@@ -73,11 +79,13 @@ select * from test1;
 a
 1
 2
+3
 use test;
 select * from test1;
 a
 1
 2
+3
 drop table test1;
 include/stop_slave.inc
 change master to master_auto_position = 0;
@@ -85,27 +93,29 @@ include/start_slave.inc
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:5
+1	test	uuid:6
 include/rpl_reset.inc
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 SET GLOBAL debug = '+d,crash_before_writing_xid';
-insert into t1 values(2);
+insert into t1 values(3);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:3
+1	test	uuid:4
 use test;
 select * from t1;
 a
 1
 2
+3
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
@@ -114,11 +124,13 @@ select * from test1;
 a
 1
 2
+3
 use test;
 select * from test1;
 a
 1
 2
+3
 drop table test1;
 include/stop_slave.inc
 change master to master_auto_position = 0;
@@ -126,96 +138,17 @@ include/start_slave.inc
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:5
+1	test	uuid:6
 include/rpl_reset.inc
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 SET GLOBAL debug = '+d,half_binlogged_transaction';
-insert into t1 values(2);
-include/rpl_reconnect.inc
-SET GLOBAL debug = ``;
-use mysql;
-select * from slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:2
-use test;
-select * from t1;
-a
-1
-change master to master_auto_position = 1;
-include/start_slave.inc
-rename table t1 to test1;
-use test;
-select * from test1;
-a
-1
-2
-use test;
-select * from test1;
-a
-1
-2
-drop table test1;
-include/stop_slave.inc
-change master to master_auto_position = 0;
-include/start_slave.inc
-use mysql;
-select * from slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:5
-include/rpl_reset.inc
-create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
-insert into t1 values(1);
-use mysql;
-select * from slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:2
-SET GLOBAL debug = '+d,crash_commit_before';
-insert into t1 values(2);
-include/rpl_reconnect.inc
-SET GLOBAL debug = ``;
-use mysql;
-select * from slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:2
-use test;
-select * from t1;
-a
-1
-change master to master_auto_position = 1;
-include/start_slave.inc
-rename table t1 to test1;
-use test;
-select * from test1;
-a
-1
-2
-use test;
-select * from test1;
-a
-1
-2
-drop table test1;
-include/stop_slave.inc
-change master to master_auto_position = 0;
-include/start_slave.inc
-use mysql;
-select * from slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:5
-include/rpl_reset.inc
-create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
-insert into t1 values(1);
-use mysql;
-select * from slave_gtid_info;
-Id	Database_name	Last_gtid
-1	test	uuid:2
-SET GLOBAL debug = '+d,crash_commit_after_log';
-insert into t1 values(2);
+insert into t1 values(3);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 use mysql;
@@ -235,11 +168,13 @@ select * from test1;
 a
 1
 2
+3
 use test;
 select * from test1;
 a
 1
 2
+3
 drop table test1;
 include/stop_slave.inc
 change master to master_auto_position = 0;
@@ -247,26 +182,117 @@ include/start_slave.inc
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:5
+1	test	uuid:6
 include/rpl_reset.inc
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
+SET GLOBAL debug = '+d,crash_commit_before';
+insert into t1 values(3);
+include/rpl_reconnect.inc
+SET GLOBAL debug = ``;
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:3
+use test;
+select * from t1;
+a
+1
+2
+change master to master_auto_position = 1;
+include/start_slave.inc
+rename table t1 to test1;
+use test;
+select * from test1;
+a
+1
+2
+3
+use test;
+select * from test1;
+a
+1
+2
+3
+drop table test1;
+include/stop_slave.inc
+change master to master_auto_position = 0;
+include/start_slave.inc
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:6
+include/rpl_reset.inc
+create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
+insert into t1 values(1);
+insert into t1 values(2);
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:3
+SET GLOBAL debug = '+d,crash_commit_after_log';
+insert into t1 values(3);
+include/rpl_reconnect.inc
+SET GLOBAL debug = ``;
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:4
+use test;
+select * from t1;
+a
+1
+2
+3
+change master to master_auto_position = 1;
+include/start_slave.inc
+rename table t1 to test1;
+use test;
+select * from test1;
+a
+1
+2
+3
+use test;
+select * from test1;
+a
+1
+2
+3
+drop table test1;
+include/stop_slave.inc
+change master to master_auto_position = 0;
+include/start_slave.inc
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:6
+include/rpl_reset.inc
+create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
+insert into t1 values(1);
+insert into t1 values(2);
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:3
 SET GLOBAL debug = '+d,crash_commit_after_prepare';
-insert into t1 values(2);
+insert into t1 values(3);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 use test;
 select * from t1;
 a
 1
+2
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
@@ -275,11 +301,13 @@ select * from test1;
 a
 1
 2
+3
 use test;
 select * from test1;
 a
 1
 2
+3
 drop table test1;
 include/stop_slave.inc
 change master to master_auto_position = 0;
@@ -287,26 +315,28 @@ include/start_slave.inc
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:5
+1	test	uuid:6
 include/rpl_reset.inc
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 SET GLOBAL debug = '+d,crash_commit_after';
-insert into t1 values(2);
+insert into t1 values(3);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:2
+1	test	uuid:3
 use test;
 select * from t1;
 a
 1
+2
 change master to master_auto_position = 1;
 include/start_slave.inc
 rename table t1 to test1;
@@ -315,11 +345,13 @@ select * from test1;
 a
 1
 2
+3
 use test;
 select * from test1;
 a
 1
 2
+3
 drop table test1;
 include/stop_slave.inc
 change master to master_auto_position = 0;
@@ -327,5 +359,5 @@ include/start_slave.inc
 use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:5
+1	test	uuid:6
 include/rpl_end.inc

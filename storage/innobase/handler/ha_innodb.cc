@@ -1435,7 +1435,9 @@ innobase_xa_recover(
 /*================*/
 	handlerton*	hton,		/*!< in: InnoDB handlerton */
 	XID*		xid_list,	/*!< in/out: prepared transactions */
-	uint		len);		/*!< in: number of slots in xid_list */
+	uint		len,		/*!< in: number of slots in xid_list */
+	char*		binlog_file,	/*!< in/out: Last valid binlog file */
+	my_off_t*	binlog_pos);	/*!< in/out: Last valid binlog pos */
 /*******************************************************************//**
 This function is used to commit one X/Open XA distributed transaction
 which is in the prepared state
@@ -14842,10 +14844,18 @@ innobase_xa_recover(
 /*================*/
 	handlerton*	hton,	/*!< in: InnoDB handlerton */
 	XID*		xid_list,/*!< in/out: prepared transactions */
-	uint		len)	/*!< in: number of slots in xid_list */
+	uint		len,	/*!< in: number of slots in xid_list */
+	char*		binlog_file,	/*!< in/out: Last valid binlog file */
+	my_off_t*	binlog_pos)	/*!< in/out: Last valid binlog pos */
 {
 	DBUG_ASSERT(hton == innodb_hton_ptr);
-
+	if (binlog_file) {
+		ut_memcpy(binlog_file, trx_sys_mysql_bin_log_name, FN_REFLEN);
+		binlog_file[FN_REFLEN] = 0;
+	}
+	if (binlog_pos && trx_sys_mysql_bin_log_pos > 0) {
+		*binlog_pos = trx_sys_mysql_bin_log_pos;
+	}
 	if (len == 0 || xid_list == NULL) {
 
 		return(0);

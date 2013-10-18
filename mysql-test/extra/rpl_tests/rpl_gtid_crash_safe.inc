@@ -4,6 +4,7 @@ connection master;
 -- let $uuid = `select @@server_uuid;`
 create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
 insert into t1 values(1);
+insert into t1 values(2);
 sync_slave_with_master;
 use mysql;
 -- replace_result $uuid uuid
@@ -14,7 +15,7 @@ connection slave;
 -- exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.2.expect
 
 connection master;
-insert into t1 values(2);
+insert into t1 values(3);
 
 connection slave;
 -- source include/wait_until_disconnected.inc
