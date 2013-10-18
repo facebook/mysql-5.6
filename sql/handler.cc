@@ -1836,6 +1836,8 @@ struct xarecover_st
   XID *list;
   HASH *commit_list;
   bool dry_run;
+  char *binlog_file;
+  my_off_t *binlog_pos;
 };
 
 static my_bool xarecover_handlerton(THD *unused, plugin_ref plugin,
@@ -1847,7 +1849,8 @@ static my_bool xarecover_handlerton(THD *unused, plugin_ref plugin,
 
   if (hton->state == SHOW_OPTION_YES && hton->recover)
   {
-    while ((got= hton->recover(hton, info->list, info->len)) > 0 )
+    while ((got= hton->recover(hton, info->list, info->len,
+                               info->binlog_file, info->binlog_pos)) > 0)
     {
       sql_print_information("Found %d prepared transaction(s) in %s",
                             got, ha_resolve_storage_engine_name(hton));
@@ -1891,7 +1894,7 @@ static my_bool xarecover_handlerton(THD *unused, plugin_ref plugin,
   return FALSE;
 }
 
-int ha_recover(HASH *commit_list)
+int ha_recover(HASH *commit_list, char *binlog_file, my_off_t *binlog_pos)
 {
   struct xarecover_st info;
   DBUG_ENTER("ha_recover");
@@ -1899,6 +1902,8 @@ int ha_recover(HASH *commit_list)
   info.commit_list= commit_list;
   info.dry_run= (info.commit_list==0 && tc_heuristic_recover==0);
   info.list= NULL;
+  info.binlog_file = binlog_file;
+  info.binlog_pos = binlog_pos;
 
   /* commit_list and tc_heuristic_recover cannot be set both */
   DBUG_ASSERT(info.commit_list==0 || tc_heuristic_recover==0);
