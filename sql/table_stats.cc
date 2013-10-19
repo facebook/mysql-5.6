@@ -61,6 +61,8 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   table_stats->index_inserts = 0;
   table_stats->queries_empty = 0;
   table_stats->comment_bytes = 0;
+  table_stats->n_lock_wait = 0;
+  table_stats->n_lock_wait_timeout = 0;
   memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
   memset(&table_stats->comp_stat, 0, sizeof(table_stats->comp_stat));
 }
@@ -352,6 +354,8 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"QUERIES_EMPTY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMMENT_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
+  {"INNODB_ROW_LOCK_WAITS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INNODB_ROW_LOCK_WAIT_TIMEOUTS", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"INNODB_PAGES_READ", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"INNODB_PAGES_READ_INDEX", MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -373,6 +377,8 @@ void fill_table_stats_cb(const char *db,
                          my_io_perf_t *r_secondary,
                          page_stats_t *page_stats,
                          comp_stat_t *comp_stat,
+                         int n_lock_wait,
+                         int n_lock_wait_timeout,
                          const char *engine)
 {
   TABLE_STATS *stats;
@@ -407,6 +413,8 @@ void fill_table_stats_cb(const char *db,
   stats->io_perf_read_secondary = *r_secondary;
   stats->page_stats = *page_stats;
   stats->comp_stat = *comp_stat;
+  stats->n_lock_wait = n_lock_wait;
+  stats->n_lock_wait_timeout = n_lock_wait_timeout;
 }
 
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
@@ -449,7 +457,9 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
         table_stats->page_stats.n_pages_read_blob == 0 &&
         table_stats->page_stats.n_pages_written == 0 &&
         table_stats->page_stats.n_pages_written_index == 0 &&
-        table_stats->page_stats.n_pages_written_blob == 0)
+        table_stats->page_stats.n_pages_written_blob == 0 &&
+        table_stats->n_lock_wait == 0 &&
+        table_stats->n_lock_wait_timeout == 0)
     {
       continue;
     }
@@ -581,6 +591,9 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->queries_used, TRUE);
     table->field[f++]->store(table_stats->queries_empty, TRUE);
     table->field[f++]->store(table_stats->comment_bytes, TRUE);
+
+    table->field[f++]->store(table_stats->n_lock_wait, TRUE);
+    table->field[f++]->store(table_stats->n_lock_wait_timeout, TRUE);
 
     table->field[f++]->store(table_stats->page_stats.n_pages_read, TRUE);
     table->field[f++]->store(table_stats->page_stats.n_pages_read_index, TRUE);
