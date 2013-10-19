@@ -415,6 +415,9 @@ typedef struct st_table_stats {
   ulonglong queries_empty;  /* Number of empty queries, exclude joins */
   ulonglong comment_bytes;  /* Number of bytes of comments */
 
+  int n_lock_wait; /* Number of lock waits */
+  int n_lock_wait_timeout; /* Number of lock wait timeouts */
+
   const char* engine_name;
 } TABLE_STATS;
 
