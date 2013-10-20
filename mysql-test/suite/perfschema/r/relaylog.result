@@ -70,8 +70,8 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync_queue	MANY
-wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
-wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	NONE
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	NONE
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_xids	NONE
 "Expect no slave relay log"
 select * from performance_schema.file_summary_by_instance
@@ -166,8 +166,8 @@ wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_index	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_log	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync	MANY
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_semisync_queue	MANY
-wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	MANY
-wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	MANY
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync	NONE
+wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_sync_queue	NONE
 wait/synch/mutex/sql/MYSQL_BIN_LOG::LOCK_xids	NONE
 "Expect a slave relay log"
 select

@@ -7197,9 +7197,9 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     DBUG_RETURN(finish_commit(thd, async));
   }
 
-  THD *wait_queue= NULL;
-  flush_error= process_flush_stage_queue(&total_bytes, &do_rotate, &wait_queue,
-                                         async);
+  THD *final_queue= NULL;
+  flush_error = process_flush_stage_queue(&total_bytes, &do_rotate,
+                                          &final_queue, async);
 
   my_off_t flush_end_pos= 0;
   if (flush_error == 0 && total_bytes > 0)
@@ -7224,45 +7224,34 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     }
 
     /*
+      Stage #2: Syncing binary log file to disk
+    */
+    if (total_bytes > 0)
+    {
+      DEBUG_SYNC(thd, "before_sync_binlog_file");
+      std::pair<bool, bool> result = sync_binlog_file(false, async);
+      flush_error = result.first;
+    }
+
+    /*
       Update the last valid position after the after_flush hook has
       executed. Doing so guarantees that the hook is executed before
       the before/after_send_hooks on the dump thread, preventing race
       conditions between the group_commit here and the dump threads.
+    */
+    /*
+      Update the binlog end position only after binlog fsync. Doing so
+      guarantees that slave's don't up with some transactions
+      that haven't made it to the disk on master because of a os
+      crash or power failure just before binlog fsync.
     */
     update_binlog_end_pos();
 
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
   }
 
-  /*
-    Stage #2: Syncing binary log file to disk
-  */
-  bool need_LOCK_log= (get_sync_period() == 1);
-
-  /*
-    LOCK_log is not released when sync_binlog is 1. It guarantees that the
-    events are not be replicated by dump threads before they are synced to disk.
-  */
-  if (change_stage(thd, Stage_manager::SYNC_STAGE, wait_queue,
-                   need_LOCK_log ? NULL : &LOCK_log, &LOCK_sync))
-  {
-    DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
-                          thd->thread_id, thd->commit_error));
-    DBUG_RETURN(finish_commit(thd, async));
-  }
-  THD *final_queue= stage_manager.fetch_queue_for(Stage_manager::SYNC_STAGE);
-  if (flush_error == 0 && total_bytes > 0)
-  {
-    DEBUG_SYNC(thd, "before_sync_binlog_file");
-    std::pair<bool, bool> result= sync_binlog_file(false, async);
-    flush_error= result.first;
-  }
-
-  if (need_LOCK_log)
-    mysql_mutex_unlock(&LOCK_log);
-
   if (change_stage(thd, Stage_manager::SEMISYNC_STAGE, final_queue,
-                   &LOCK_sync, &LOCK_semisync))
+                   &LOCK_log, &LOCK_semisync))
   {
     DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
                           thd->thread_id, thd->commit_error));
