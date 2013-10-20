@@ -603,6 +603,7 @@ public:
   void set_max_size(ulong max_size_arg);
   void signal_update();
   void update_binlog_end_pos();
+  void update_binlog_end_pos_without_lock_log(my_off_t pos);
   int wait_for_update_relay_log(THD* thd, const struct timespec * timeout);
   int  wait_for_update_bin_log(THD* thd, const struct timespec * timeout);
 public:
