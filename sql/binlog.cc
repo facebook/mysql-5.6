@@ -6101,6 +6101,16 @@ void MYSQL_BIN_LOG::update_binlog_end_pos()
   }
 }
 
+void MYSQL_BIN_LOG::update_binlog_end_pos_without_lock_log(my_off_t pos)
+{
+  mysql_mutex_assert_not_owner(&LOCK_log);
+  DBUG_ASSERT(!is_relay_log);
+  lock_binlog_end_pos();
+  binlog_end_pos = pos;
+  signal_update();
+  unlock_binlog_end_pos();
+}
+
 /****** transaction coordinator log for 2pc - binlog() based solution ******/
 
 /**
@@ -6919,6 +6929,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   int flush_error= 0;
   my_off_t total_bytes= 0;
   bool do_rotate= false;
+  my_off_t binlog_offset = 0;
 
   /*
     These values are used while flushing a transaction, so clear
@@ -6997,14 +7008,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
       flush_error= ER_ERROR_ON_WRITE;
     }
 
-    /*
-      Update the last valid position after the after_flush hook has
-      executed. Doing so guarantees that the hook is executed before
-      the before/after_send_hooks on the dump thread, preventing race
-      conditions between the group_commit here and the dump threads.
-    */
-    update_binlog_end_pos();
-
+    binlog_offset = my_b_tell(&log_file);
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
   }
 
@@ -7021,6 +7025,20 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   if (flush_error == 0 && total_bytes > 0)
   {
     std::pair<bool, bool> result= sync_binlog_file(false, async);
+    /*
+      Update the last valid position after the after_flush hook has
+      executed. Doing so guarantees that the hook is executed before
+      the before/after_send_hooks on the dump thread, preventing race
+      conditions between the group_commit here and the dump threads.
+    */
+    /*
+      Update the binlog end position only after binlog fsync. Doing so
+      guarantees that slave's don't up with some transactions
+      that haven't made it to the disk on master because of a os
+      crash or power failure just before binlog fsync.
+    */
+    if (binlog_offset != 0)
+      update_binlog_end_pos_without_lock_log(binlog_offset);
     flush_error= result.first;
   }
 
