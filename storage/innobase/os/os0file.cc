@@ -4729,7 +4729,7 @@ os_aio_linux_dispatch_read_array_submit()
 	memset(array->count, 0x0, sizeof(ulint) * array->n_segments);
 	os_mutex_exit(array->mutex);
 
-	srv_stats.n_aio_submitted.add(total_count);
+	srv_stats.n_aio_submitted.add(total_submitted);
 
 	if (UNIV_UNLIKELY(total_count != total_submitted)) {
 		return(FALSE);
@@ -4768,6 +4768,7 @@ os_aio_linux_dispatch(
 	io_ctx_index = slot->pos / slots_per_segment;
 	if (should_buffer && array == os_aio_read_array) {
 		ulint n;
+		ulint count;
 		os_mutex_enter(array->mutex);
 		/* There are array->n_slots elements in array->pending,
 		which is divided into array->n_segments area of equal size.
@@ -4779,8 +4780,9 @@ os_aio_linux_dispatch(
 			  + array->count[io_ctx_index];
 		array->pending[n] = iocb;
 		array->count[io_ctx_index] ++;
+		count = array->count[io_ctx_index];
 		os_mutex_exit(array->mutex);
-		if (array->count[io_ctx_index] == slots_per_segment) {
+		if (count == slots_per_segment) {
 			return os_aio_linux_dispatch_read_array_submit();
 		}
 		return(TRUE);
