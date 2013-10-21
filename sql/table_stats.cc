@@ -167,8 +167,6 @@ extern "C" void free_table_stats(TABLE_STATS* table_stats)
 
 void init_global_table_stats(void)
 {
-  mysql_mutex_init(key_LOCK_global_table_stats,
-                   &LOCK_global_table_stats, MY_MUTEX_INIT_FAST);
   if (my_hash_init(&global_table_stats, system_charset_info, max_connections,
                 0, 0, (my_hash_get_key)get_key_table_stats,
                 (my_hash_free_key)free_table_stats, 0)) {
@@ -180,7 +178,6 @@ void init_global_table_stats(void)
 void free_global_table_stats(void)
 {
   my_hash_free(&global_table_stats);
-  mysql_mutex_destroy(&LOCK_global_table_stats);
 }
 
 void reset_global_table_stats()
