@@ -4979,10 +4979,10 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
   if (ev->write(&log_file) == 0)
   {
     bytes_written+= ev->data_written;
-    binlog_bytes_written += ev->data_written;
+    relay_log_bytes_written += ev->data_written;
     if (us)
     {
-      us->binlog_bytes_written += ev->data_written;
+      us->relay_log_bytes_written += ev->data_written;
     }
     error= after_append_to_relay_log(mi);
   }
@@ -5009,10 +5009,10 @@ bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
   if (my_b_append(&log_file,(uchar*) buf,len) == 0)
   {
     bytes_written += len;
-    binlog_bytes_written += len;
+    relay_log_bytes_written += len;
     if (us)
     {
-      us->binlog_bytes_written += len;
+      us->relay_log_bytes_written += len;
     }
     error= after_append_to_relay_log(mi);
   }

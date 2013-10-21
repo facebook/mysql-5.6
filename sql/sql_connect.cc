@@ -1109,6 +1109,7 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->queries_empty= 0;
   user_stats->query_comment_bytes= 0;
   user_stats->records_in_range_calls= 0;
+  user_stats->relay_log_bytes_written= 0;
   user_stats->rows_deleted= 0;
   user_stats->rows_fetched= 0;
   user_stats->rows_inserted= 0;
@@ -1257,6 +1258,7 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->queries_empty, TRUE);
   table->field[f++]->store(us->query_comment_bytes, TRUE);
   table->field[f++]->store(us->records_in_range_calls, TRUE);
+  table->field[f++]->store(us->relay_log_bytes_written, TRUE);
   table->field[f++]->store(us->rows_deleted, TRUE);
   table->field[f++]->store(us->rows_fetched, TRUE);
   table->field[f++]->store(us->rows_inserted, TRUE);

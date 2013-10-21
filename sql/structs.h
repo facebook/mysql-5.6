@@ -251,6 +251,7 @@ typedef struct st_user_stats {
   ulonglong microseconds_update;
   ulonglong queries_empty;
   ulonglong records_in_range_calls;
+  ulonglong relay_log_bytes_written;
   ulonglong rows_deleted;
   ulonglong rows_fetched;
   ulonglong rows_inserted;
