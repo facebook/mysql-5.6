@@ -4766,7 +4766,7 @@ os_aio_linux_dispatch(
 	slots_per_segment = array->n_slots / array->n_segments;
 	iocb = &slot->control;
 	io_ctx_index = slot->pos / slots_per_segment;
-	if (should_buffer) {
+	if (should_buffer && array == os_aio_read_array) {
 		ulint n;
 		os_mutex_enter(array->mutex);
 		/* There are array->n_slots elements in array->pending,
