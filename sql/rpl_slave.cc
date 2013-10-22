@@ -4371,10 +4371,12 @@ Stopping slave I/O thread due to out-of-memory error from master");
                           (Log_event_type)event_buf[EVENT_TYPE_OFFSET];
                         if (event_type == QUERY_EVENT)
                         {
+                          mysql_mutex_lock(&mi->data_lock);
                           Query_log_event qe = Query_log_event(
                             event_buf, event_len,
                             mi->get_mi_description_event(),
                             QUERY_EVENT);
+                          mysql_mutex_unlock(&mi->data_lock);
                           if (!qe.starts_group() && !qe.ends_group())
                           {
                             flush_master_info(mi, true);
