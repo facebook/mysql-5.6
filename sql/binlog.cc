@@ -6081,11 +6081,10 @@ void MYSQL_BIN_LOG::signal_update()
 }
 
 /*
- * Caller must hold LOCK_log mutex.
+ * Caller must hold LOCK_log mutex when the file is in use.
  */
 void MYSQL_BIN_LOG::update_binlog_end_pos()
 {
-  mysql_mutex_assert_owner(&LOCK_log);
   /*
     binlog_end_pos is used only on master's binlog right now. It is possible
     to use it on relay log.
