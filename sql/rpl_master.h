@@ -51,6 +51,7 @@ bool show_master_offset(THD* thd, const char* file, ulonglong pos,
 bool show_master_status(THD* thd);
 bool show_binlogs(THD* thd);
 void kill_zombie_dump_threads(String *slave_uuid);
+void kill_all_dump_threads();
 uint find_gtid_position_helper(const char* gtid_string,
                                char *log_name, my_off_t &gtid_pos);
 bool find_gtid_position(THD *thd);
