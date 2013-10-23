@@ -398,11 +398,12 @@ recv_sys_init(
 	/* Set appropriate value of recv_n_pool_free_frames. */
 	if (buf_pool_get_curr_size() >= (10 * 1024 * 1024)) {
 		/* Buffer pool of size greater than 10 MB. */
-#ifdef XTRABACKUP
-		recv_n_pool_free_frames = 1024;
-#else /* XTRABACKUP */
-		recv_n_pool_free_frames = 512;
-#endif /* XTRABACKUP */
+
+		/* Total number of pending ios when using aio request buffering,
+		is 8 * OS_AIO_N_PENDING_IOS_PER_THREAD * srv_n_read_io_threads
+		Set number of free frames to be 4 times that. */
+		recv_n_pool_free_frames = 32 * OS_AIO_N_PENDING_IOS_PER_THREAD
+		                          * srv_n_read_io_threads;
 	}
 
 	recv_sys->buf = static_cast<byte*>(ut_malloc(RECV_PARSING_BUF_SIZE));
