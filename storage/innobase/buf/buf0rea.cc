@@ -1025,9 +1025,7 @@ not_to_recover:
 	}
 
 #ifdef LINUX_NATIVE_AIO
-	if (!sync) {
-		ut_a(os_aio_linux_dispatch_read_array_submit());
-	}
+	ut_a(os_aio_linux_dispatch_read_array_submit());
 #endif
 
 	os_aio_simulated_wake_handler_threads();
