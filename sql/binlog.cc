@@ -6102,16 +6102,6 @@ void MYSQL_BIN_LOG::update_binlog_end_pos()
   }
 }
 
-void MYSQL_BIN_LOG::update_binlog_end_pos_without_lock_log(my_off_t pos)
-{
-  mysql_mutex_assert_not_owner(&LOCK_log);
-  DBUG_ASSERT(!is_relay_log);
-  lock_binlog_end_pos();
-  binlog_end_pos = pos;
-  signal_update();
-  unlock_binlog_end_pos();
-}
-
 /****** transaction coordinator log for 2pc - binlog() based solution ******/
 
 /**
@@ -6930,7 +6920,6 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   int flush_error= 0;
   my_off_t total_bytes= 0;
   bool do_rotate= false;
-  my_off_t binlog_offset = 0;
 
   /*
     These values are used while flushing a transaction, so clear
@@ -6984,9 +6973,9 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     DBUG_RETURN(finish_commit(thd, async));
   }
 
-  THD *wait_queue= NULL;
-  flush_error= process_flush_stage_queue(&total_bytes, &do_rotate, &wait_queue,
-                                         async);
+  THD *final_queue= NULL;
+  flush_error = process_flush_stage_queue(&total_bytes, &do_rotate,
+                                          &final_queue, async);
 
   my_off_t flush_end_pos= 0;
   if (flush_error == 0 && total_bytes > 0)
@@ -7009,23 +6998,15 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
       flush_error= ER_ERROR_ON_WRITE;
     }
 
-    binlog_offset = my_b_tell(&log_file);
-    DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
-  }
+    /*
+      Stage #2: Syncing binary log file to disk
+    */
+    if (total_bytes > 0)
+    {
+      std::pair<bool, bool> result = sync_binlog_file(false, async);
+      flush_error = result.first;
+    }
 
-  /*
-    Stage #2: Syncing binary log file to disk
-  */
-  if (change_stage(thd, Stage_manager::SYNC_STAGE, wait_queue, &LOCK_log, &LOCK_sync))
-  {
-    DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
-                          thd->thread_id, thd->commit_error));
-    DBUG_RETURN(finish_commit(thd, async));
-  }
-  THD *final_queue= stage_manager.fetch_queue_for(Stage_manager::SYNC_STAGE);
-  if (flush_error == 0 && total_bytes > 0)
-  {
-    std::pair<bool, bool> result= sync_binlog_file(false, async);
     /*
       Update the last valid position after the after_flush hook has
       executed. Doing so guarantees that the hook is executed before
@@ -7038,13 +7019,13 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
       that haven't made it to the disk on master because of a os
       crash or power failure just before binlog fsync.
     */
-    if (binlog_offset != 0)
-      update_binlog_end_pos_without_lock_log(binlog_offset);
-    flush_error= result.first;
+    update_binlog_end_pos();
+
+    DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
   }
 
   if (change_stage(thd, Stage_manager::SEMISYNC_STAGE, final_queue,
-                   &LOCK_sync, &LOCK_semisync))
+                   &LOCK_log, &LOCK_semisync))
   {
     DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
                           thd->thread_id, thd->commit_error));
