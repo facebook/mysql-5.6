@@ -121,7 +121,8 @@ bool mysql_create_frm(THD *thd, const char *file_name,
   ulong key_buff_length;
   File file;
   ulong filepos, data_offset;
-  uchar fileinfo[64],forminfo[288],*keybuff, *forminfo_p= forminfo;
+  uchar fileinfo[FILE_INFO_LENGTH];
+  uchar forminfo[288],*keybuff, *forminfo_p= forminfo;
   uchar *screen_buff= NULL;
   char buff[128];
 #ifdef WITH_PARTITION_STORAGE_ENGINE
@@ -300,7 +301,7 @@ bool mysql_create_frm(THD *thd, const char *file_name,
 #endif
   int2store(fileinfo+59,db_file->extra_rec_buf_length());
 
-  if (mysql_file_pwrite(file, fileinfo, 64, 0L, MYF_RW) ||
+  if (mysql_file_pwrite(file, fileinfo, FILE_INFO_LENGTH, 0L, MYF_RW) ||
       mysql_file_pwrite(file, keybuff, key_info_length,
                         (ulong) uint2korr(fileinfo+6), MYF_RW))
     goto err;
