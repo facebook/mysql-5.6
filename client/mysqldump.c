@@ -5393,20 +5393,24 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
                                     "LEVEL REPEATABLE READ"))
     return 1;
 
-  MYSQL_RES *res = NULL;
+  {
+    MYSQL_RES *res = NULL;
 
-  if (mysql_query_with_error_report(
-      mysql_con, &res,
-      "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT") || !res)
-    return 1;
+    if (mysql_query_with_error_report(
+        mysql_con, &res,
+        "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT") || !res)
+      return 1;
 
-  MYSQL_ROW row = mysql_fetch_row(res);
-  if (!row || !row[0][0] || !row[1][0]) {
-    return 1;
+    {
+      MYSQL_ROW row = mysql_fetch_row(res);
+      if (!row || !row[0][0] || !row[1][0]) {
+        return 1;
+      }
+
+      strcpy(filename_out, row[0]);
+      strcpy(pos_out, row[1]);
+    }
   }
-
-  strcpy(filename_out, row[0]);
-  strcpy(pos_out, row[1]);
 
   return 0;
 }

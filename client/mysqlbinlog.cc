@@ -1608,7 +1608,7 @@ static struct my_option my_long_options[] =
    1024, // Minimum value,
    UINT_MAX, // Maximum value,
    1024, // Block size,
-   0},
+   0, 0},
   {"start-gtid", OPT_START_GTID,
    "Binlog dump from the given gtid. This requires index-file option.",
    &opt_start_gtid_str, &opt_start_gtid_str, 0,
@@ -1632,12 +1632,12 @@ static struct my_option my_long_options[] =
    "A value of 1 prints function traces of semi-sync. "
    "A value of of 0 doesn't print any debug information.",
    &opt_semisync_debug, &opt_semisync_debug, 0,
-   GET_UINT, REQUIRED_ARG, 0, 0, 2, 1, 0},
+   GET_UINT, REQUIRED_ARG, 0, 0, 2, 1, 0, 0},
   {"flush-result-file", OPT_FLUSH_RESULT_FILE,
    "The maximum number of events received by mysqlbinlog in raw_mode without "
    "flushing the result file. ",
    &opt_flush_result_file, &opt_flush_result_file, 0,
-   GET_UINT, REQUIRED_ARG, 1000, 1, UINT_MAX, 1, 0},
+   GET_UINT, REQUIRED_ARG, 1000, 1, UINT_MAX, 1, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
 };
 
