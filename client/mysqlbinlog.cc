@@ -1595,7 +1595,7 @@ static struct my_option my_long_options[] =
    1024, // Minimum value,
    UINT_MAX, // Maximum value,
    1024, // Block size,
-   0},
+   0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
