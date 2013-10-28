@@ -33,6 +33,8 @@ Created 6/2/1994 Heikki Tuuri
 #include "fsp0fsp.h"
 #include "page0page.h"
 #include "page0zip.h"
+#include "dict0stats.h"
+#include "dict0stats_bg.h"
 
 #ifndef UNIV_HOTBACKUP
 #include "btr0cur.h"
@@ -1198,6 +1200,32 @@ btr_get_size(
 	mtr_t*		mtr)	/*!< in/out: mini-transaction where index
 				is s-latched */
 {
+	ulint used;
+	if (flag == BTR_N_LEAF_PAGES) {
+		btr_get_size_and_reserved(index, flag, &used, mtr);
+		return used;
+	} else if (flag == BTR_TOTAL_SIZE) {
+		return btr_get_size_and_reserved(index, flag, &used, mtr);
+	} else {
+		ut_error;
+	}
+	return (ULINT_UNDEFINED);
+}
+
+/**************************************************************//**
+Gets the number of reserved and used pages in a B-tree.
+@return	number of pages reserved, or ULINT_UNDEFINED if the index
+is unavailable */
+UNIV_INTERN
+ulint
+btr_get_size_and_reserved(
+/*=========*/
+	dict_index_t*	index,	/*!< in: index */
+	ulint		flag,	/*!< in: BTR_N_LEAF_PAGES or BTR_TOTAL_SIZE */
+	ulint*		used,	/*!< out: number of pages used (<= reserved) */
+	mtr_t*		mtr)	/*!< in/out: mini-transaction where index
+				is s-latched */
+{
 	fseg_header_t*	seg_header;
 	page_t*		root;
 	ulint		n;
@@ -1206,6 +1234,8 @@ btr_get_size(
 	ut_ad(mtr_memo_contains(mtr, dict_index_get_lock(index),
 				MTR_MEMO_S_LOCK));
 
+	ut_a(flag == BTR_N_LEAF_PAGES || flag == BTR_TOTAL_SIZE);
+
 	if (index->page == FIL_NULL || dict_index_is_online_ddl(index)
 	    || *index->name == TEMP_INDEX_PREFIX) {
 		return(ULINT_UNDEFINED);
@@ -1213,21 +1243,16 @@ btr_get_size(
 
 	root = btr_root_get(index, mtr);
 
-	if (flag == BTR_N_LEAF_PAGES) {
-		seg_header = root + PAGE_HEADER + PAGE_BTR_SEG_LEAF;
+	seg_header = root + PAGE_HEADER + PAGE_BTR_SEG_LEAF;
 
-		fseg_n_reserved_pages(seg_header, &n, mtr);
+	n = fseg_n_reserved_pages(seg_header, used, mtr);
 
-	} else if (flag == BTR_TOTAL_SIZE) {
+	if (flag == BTR_TOTAL_SIZE) {
 		seg_header = root + PAGE_HEADER + PAGE_BTR_SEG_TOP;
 
-		n = fseg_n_reserved_pages(seg_header, &dummy, mtr);
-
-		seg_header = root + PAGE_HEADER + PAGE_BTR_SEG_LEAF;
-
 		n += fseg_n_reserved_pages(seg_header, &dummy, mtr);
-	} else {
-		ut_error;
+		*used += dummy;
+
 	}
 
 	return(n);
@@ -3068,6 +3093,12 @@ func_start:
 	new_page_zip = buf_block_get_page_zip(new_block);
 	btr_page_create(new_block, new_page_zip, cursor->index,
 			btr_page_get_level(page, mtr), mtr);
+	/* Only record the leaf level page splits. */
+	if (btr_page_get_level(page, mtr) == 0) {
+		cursor->index->stat_defrag_n_page_split ++;
+		cursor->index->stat_defrag_modified_counter ++;
+		btr_defragment_save_defrag_stats_if_needed(cursor->index);
+	}
 
 	/* 3. Calculate the first record on the upper half-page, and the
 	first record (move_limit) on original page which ends up on the
@@ -3972,6 +4003,7 @@ err_exit:
 	}
 
 	mem_heap_free(heap);
+
 	DBUG_RETURN(FALSE);
 }
 
@@ -4302,6 +4334,7 @@ btr_defragment_n_pages(
 	}
 	mem_heap_free(heap);
 	n_defragmented ++;
+	index->stat_defrag_n_pages_freed += (n_pages - n_defragmented);
 	if (end_of_index)
 		return NULL;
 	return current_block;
@@ -4342,7 +4375,7 @@ DECLARE_THREAD(btr_defragment_thread)(
 						    srv_defragment_n_pages,
 						    &mtr);
 		if (last_block) {
-			/* If this is a whole index defragmentation,
+			/* If we haven't reached the end of the index,
 			place the cursor on the last record of last page,
 			store the cursor position, and put back in queue. */
 			/* TODO: reuse item to avoid memory allocation. */
@@ -4355,10 +4388,14 @@ DECLARE_THREAD(btr_defragment_thread)(
 			btr_pcur_store_position(pcur, &mtr);
 			new_item = btr_defragment_create_item(pcur, event);
 			ib_wqueue_add(wq, new_item, new_item->heap);
-		}
-		mtr_commit(&mtr);
-		if (event) {
-			if (last_block == NULL) {
+			mtr_commit(&mtr);
+		} else {
+			mtr_commit(&mtr);
+			/* Reaching the end of the index. */
+			dict_stats_empty_defrag_stats(index);
+			dict_stats_save_defrag_stats(index);
+			dict_stats_save_defrag_summary(index);
+			if (event) {
 				os_event_set(event);
 			}
 		}
@@ -4400,6 +4437,23 @@ btr_defragment_create_item(
 	item->heap = heap;
 
 	return item;
+}
+
+/*********************************************************************//**
+Check whether we should save defragmentation statistics to persistent storage.
+Currently we save the stats to persistent storage every 100 updates. */
+UNIV_INTERN
+void
+btr_defragment_save_defrag_stats_if_needed(
+	dict_index_t*	index)	/*!< in: index */
+{
+	if (srv_defragment_stats_accuracy != 0 // stats tracking disabled
+	    && dict_index_get_space(index) != 0 // do not track system tables
+	    && index->stat_defrag_modified_counter
+	       >= srv_defragment_stats_accuracy) {
+		dict_stats_defrag_pool_add(index);
+		index->stat_defrag_modified_counter = 0;
+	}
 }
 
 /*************************************************************//**
