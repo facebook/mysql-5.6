@@ -64,7 +64,8 @@ bool instantiate_tmp_table(TABLE *table, KEY *keyinfo,
                            MI_COLUMNDEF *start_recinfo,
                            MI_COLUMNDEF **recinfo,
                            ulonglong options, my_bool big_tables,
-                           Opt_trace_context *trace);
+                           Opt_trace_context *trace,
+                           THD *thd);
 Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
                         Item ***copy_func, Field **from_field,
                         Field **default_field,
