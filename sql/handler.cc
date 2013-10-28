@@ -1303,6 +1303,18 @@ ha_check_and_coalesce_trx_read_only(THD *thd, Ha_trx_info *ha_list,
   {
     if (ha_info->is_trx_read_write())
       ++rw_ha_count;
+    else
+    {
+      /*
+        If we have any fake changes handlertons, they will not be marked as
+        read-write, potentially skipping 2PC and causing the fake transaction
+        to be binlogged.  Force using 2PC in this case by bumping rw_ha_count
+        for each fake changes handlerton.
+      */
+      handlerton *ht= ha_info->ht();
+      if (unlikely(ht->is_fake_change && ht->is_fake_change(ht, thd)))
+        ++rw_ha_count;
+    }
 
     if (! all)
     {
@@ -1408,7 +1420,6 @@ int ha_commit_trans(THD *thd, bool all, bool async, bool ignore_global_read_lock
   {
     uint rw_ha_count;
     bool rw_trans;
-    Ha_trx_info *ha_info_orig= ha_info;
 
     DBUG_EXECUTE_IF("crash_commit_before", DBUG_SUICIDE(););
 
@@ -1469,28 +1480,6 @@ int ha_commit_trans(THD *thd, bool all, bool async, bool ignore_global_read_lock
 
     if (!trans->no_2pc && (rw_ha_count > 1))
       error= tc_log->prepare(thd, all, async);
-    else if (is_real_trans && !trans->no_2pc && (rw_ha_count == 1))
-    {
-      /* When innodb_fake_changes is enabled for a transaction and that
-      transaction changes no InnoDB rows then the InnoDB handlerton is
-      marked as read-only and does not participate in 2 phase commit above.
-      So InnoDB won't be able to raise an error during commit and the
-      transaction would be written to the binlog. This code prevents that. */
-
-      Ha_trx_info *ha;
-      for (ha= ha_info_orig; ha; ha= ha->next())
-      {
-        handlerton *ht= ha->ht();
-        if (ht->is_fake_change && ht->is_fake_change(ht, thd))
-        {
-          thd_reset_diagnostics(thd); /* avoid debug assertion */
-          ha_rollback_trans(thd, all);
-          my_error(ER_ERROR_DURING_COMMIT, MYF(0), HA_ERR_WRONG_COMMAND);
-          error= 1;
-          goto end;
-        }
-      }
-    }
   }
   if (error || (error= tc_log->commit(thd, all, async)))
   {
@@ -2108,7 +2097,14 @@ int ha_prepare_low(THD *thd, bool all, bool async)
         transaction is read-only. This allows for simpler
         implementation in engines that are always read-only.
       */
-      if (!ha_info->is_trx_read_write())
+      /*
+        But do call two-phase commit if the handlerton has fake changes
+        enabled even if it's not marked as read-write.  This will ensure that
+        the fake changes handlerton prepare will fail, preventing binlogging
+        and committing the transaction in other engines.
+      */
+      if (!ha_info->is_trx_read_write()
+          && likely(!(ht->is_fake_change && ht->is_fake_change(ht, thd))))
         continue;
       if ((err= ht->prepare(ht, thd, all, async)))
       {
