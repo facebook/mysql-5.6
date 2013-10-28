@@ -330,6 +330,7 @@ extern ulint	srv_n_read_io_threads;
 extern ulint	srv_n_write_io_threads;
 
 extern uint	srv_defragment_n_pages;
+extern uint	srv_defragment_stats_accuracy;
 
 extern ulint	srv_idle_flush_pct;
 

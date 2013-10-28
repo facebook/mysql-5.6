@@ -132,6 +132,13 @@ btr_defragment_item_t*
 btr_defragment_create_item(
 	btr_pcur_t*	pcur,
 	os_event_t	event);
+/*********************************************************************//**
+Check whether we should save defragmentation statistics to persistent storage.
+Currently we save the stats to persistent storage every 100 updates. */
+UNIV_INTERN
+void
+btr_defragment_save_defrag_stats_if_needed(
+	dict_index_t*	index);	/*!< in: index */
 /******************************************************************//**
 Thread that merges consecutive b-tree pages into fewer pages to defragment
 the index. */
@@ -726,6 +733,20 @@ btr_get_size(
 	mtr_t*		mtr)	/*!< in/out: mini-transaction where index
 				is s-latched */
 	__attribute__((nonnull, warn_unused_result));
+/**************************************************************//**
+Gets the number of reserved and used pages in a B-tree.
+@return	number of pages reserved, or ULINT_UNDEFINED if the index
+is unavailable */
+UNIV_INTERN
+ulint
+btr_get_size_and_reserved(
+/*=========*/
+	dict_index_t*	index,	/*!< in: index */
+	ulint		flag,	/*!< in: BTR_N_LEAF_PAGES or BTR_TOTAL_SIZE */
+	ulint*		used,	/*!< out: number of pages used (<= reserved) */
+	mtr_t*		mtr)	/*!< in/out: mini-transaction where index
+				is s-latched */
+	__attribute__((nonnull));
 /**************************************************************//**
 Allocates a new file page to be used in an index tree. NOTE: we assume
 that the caller has made the reservation for free extents!

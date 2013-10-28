@@ -236,6 +236,7 @@ UNIV_INTERN ulint	srv_mem_pool_size	= ULINT_MAX;
 UNIV_INTERN ulint	srv_lock_table_size	= ULINT_MAX;
 
 UNIV_INTERN uint	srv_defragment_n_pages = 7;
+UNIV_INTERN uint	srv_defragment_stats_accuracy = 0;
 
 UNIV_INTERN ulint	srv_idle_flush_pct = 100;
 
