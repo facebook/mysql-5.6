@@ -689,6 +689,23 @@ struct dict_index_t{
 				/*!< approximate number of leaf pages in the
 				index tree */
 	/* @} */
+	/** Statistics for defragmentation, these numbers are estimations and
+	could be very inaccurate at certain times, e.g. right after restart,
+	during defragmentation, etc. */
+	/* @{ */
+	ulint		stat_defrag_modified_counter;
+	ulint		stat_defrag_n_pages_freed;
+				/* number of pages freed by defragmentation. */
+	ulint		stat_defrag_n_page_split;
+				/* number of page splits since last full index
+				defragmentation. */
+	ulint		stat_defrag_n_recs_per_page;
+				/* number of records per page on the latest
+				split page. */
+	ulint		stat_defrag_n_btr_compress_failure;
+				/* number of failed calls to btr_compress since
+				last full index defragmentation. */
+	/* @} */
 	rw_lock_t	lock;	/*!< read-write lock protecting the
 				upper levels of the index tree */
 	trx_id_t	trx_id; /*!< id of the transaction that created this

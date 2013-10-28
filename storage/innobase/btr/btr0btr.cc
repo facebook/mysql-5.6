@@ -33,6 +33,8 @@ Created 6/2/1994 Heikki Tuuri
 #include "fsp0fsp.h"
 #include "page0page.h"
 #include "page0zip.h"
+#include "dict0stats.h"
+#include "dict0stats_bg.h"
 
 #ifndef UNIV_HOTBACKUP
 #include "btr0cur.h"
@@ -2943,6 +2945,14 @@ func_start:
 	new_page_zip = buf_block_get_page_zip(new_block);
 	btr_page_create(new_block, new_page_zip, cursor->index,
 			btr_page_get_level(page, mtr), mtr);
+	/* Only record the leaf level page splits. */
+	if (btr_page_get_level(page, mtr) == 0) {
+		cursor->index->stat_defrag_n_page_split ++;
+		cursor->index->stat_defrag_n_recs_per_page =
+			page_get_n_recs(page);
+		cursor->index->stat_defrag_modified_counter ++;
+		btr_defragment_save_defrag_stats_if_needed(cursor->index);
+	}
 
 	/* 3. Calculate the first record on the upper half-page, and the
 	first record (move_limit) on original page which ends up on the
@@ -3848,6 +3858,14 @@ err_exit:
 	}
 
 	mem_heap_free(heap);
+
+	/* Only record leaf level btr_compress failures. */
+	if (btr_page_get_level(page, mtr) == 0) {
+		index->stat_defrag_n_btr_compress_failure ++;
+		index->stat_defrag_modified_counter++;
+		btr_defragment_save_defrag_stats_if_needed(index);
+	}
+
 	DBUG_RETURN(FALSE);
 }
 
@@ -4178,6 +4196,7 @@ btr_defragment_n_pages(
 	}
 	mem_heap_free(heap);
 	n_defragmented ++;
+	index->stat_defrag_n_pages_freed += (n_pages - n_defragmented);
 	if (end_of_index)
 		return NULL;
 	return current_block;
@@ -4218,7 +4237,7 @@ DECLARE_THREAD(btr_defragment_thread)(
 						    srv_defragment_n_pages,
 						    &mtr);
 		if (last_block) {
-			/* If this is a whole index defragmentation,
+			/* If we haven't reached the end of the index,
 			place the cursor on the last record of last page,
 			store the cursor position, and put back in queue. */
 			/* TODO: reuse item to avoid memory allocation. */
@@ -4231,10 +4250,14 @@ DECLARE_THREAD(btr_defragment_thread)(
 			btr_pcur_store_position(pcur, &mtr);
 			new_item = btr_defragment_create_item(pcur, event);
 			ib_wqueue_add(wq, new_item, new_item->heap);
-		}
-		mtr_commit(&mtr);
-		if (event) {
-			if (last_block == NULL) {
+			mtr_commit(&mtr);
+		} else {
+			mtr_commit(&mtr);
+			/* Reaching the end of the index. */
+			dict_stats_empty_defrag_stats(index);
+			dict_stats_save_defrag_stats(index);
+			dict_stats_save_defrag_summary(index);
+			if (event) {
 				os_event_set(event);
 			}
 		}
@@ -4276,6 +4299,23 @@ btr_defragment_create_item(
 	item->heap = heap;
 
 	return item;
+}
+
+/*********************************************************************//**
+Check whether we should save defragmentation statistics to persistent storage.
+Currently we save the stats to persistent storage every 100 updates. */
+UNIV_INTERN
+void
+btr_defragment_save_defrag_stats_if_needed(
+	dict_index_t*	index)	/*!< in: index */
+{
+	if (srv_defragment_stats_accuracy != 0 // stats tracking disabled
+	    && dict_index_get_space(index) != 0 // do not track system tables
+	    && index->stat_defrag_modified_counter
+	       >= srv_defragment_stats_accuracy) {
+		dict_stats_defrag_pool_add(index);
+		index->stat_defrag_modified_counter = 0;
+	}
 }
 
 /*************************************************************//**
