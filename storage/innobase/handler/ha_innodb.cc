@@ -14305,6 +14305,18 @@ innobase_xa_prepare(
 		return(0);
 	}
 
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+
+		if (prepare_trx
+		    || (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT
+					  | OPTION_BEGIN))) {
+
+			thd_reset_diagnostics(thd);
+			return(HA_ERR_WRONG_COMMAND);
+		}
+		return(0);
+	}
+
 	thd_get_xid(thd, (MYSQL_XID*) &trx->xid);
 
 	/* Release a possible FIFO ticket and search latch. Since we will
