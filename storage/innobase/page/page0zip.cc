@@ -1051,7 +1051,7 @@ page_zip_restore_uncompressed_fields(
 				if (rec_offs_nth_extern(offsets, i)) {
 					dst = rec_get_nth_field(rec, offsets,
 							        i, &len);
-					if (UNIV_UNLIKELY(len < 
+					if (UNIV_UNLIKELY(len <
 						BTR_EXTERN_FIELD_REF_SIZE)) {
 						page_zip_fail(
 						    ("length of a field with an"

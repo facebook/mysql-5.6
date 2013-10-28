@@ -150,7 +150,7 @@ SELECT @@global.innodb_flush_log_at_trx_commit;
 # Verify loging the changes to global variable innodb_flush_log_at_trx_commit #
 ###############################################################################
 --echo #
---echo # Verify logging the changes to global variable 
+--echo # Verify logging the changes to global variable
 --echo # innodb_flush_log_at_trx_commit
 --echo #
 --perl

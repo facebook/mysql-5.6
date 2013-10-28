@@ -23,7 +23,7 @@ SELECT * FROM/*hello*/ t1;
 --enable_result_log
 SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
 
---echo # After performing a query with comments in it , COMMENT_BYTES field for t2 should be 17 
+--echo # After performing a query with comments in it , COMMENT_BYTES field for t2 should be 17
 --disable_result_log
 /* Hello World */SELECT * FROM t2;
 --enable_result_log

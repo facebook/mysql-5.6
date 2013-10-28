@@ -110,7 +110,7 @@ extern my_bool my_getopt_print_errors;
 extern my_bool my_getopt_skip_unknown;
 extern my_error_reporter my_getopt_error_reporter;
 
-extern int handle_options(int *argc, char ***argv, 
+extern int handle_options(int *argc, char ***argv,
 			   const struct my_option *longopts, my_get_one_option);
 extern int my_handle_options(int *argc, char ***argv,
                               const struct my_option *longopts,

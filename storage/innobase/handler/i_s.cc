@@ -1059,7 +1059,9 @@ UNIV_INTERN struct st_mysql_plugin	i_s_innodb_file_status =
 	/* void* */
 	STRUCT_FLD(__reserved1, NULL),
 
-	0
+	/* Plugin flags */
+	/* unsigned long */
+	STRUCT_FLD(flags, 0UL),
 };
 
 /* Fields of the dynamic table INFORMATION_SCHEMA.innodb_locks */

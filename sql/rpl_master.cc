@@ -2408,7 +2408,7 @@ uint find_gtid_position_helper(const char* gtid_string,
 
   std::map<std::string, std::string>::reverse_iterator rit;
   std::map<std::string, std::string> *previous_gtid_set_map;
-  
+
   if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK)
   {
     goto err;
@@ -2498,7 +2498,7 @@ bool find_gtid_position(THD *thd)
 
   my_eof(thd);
   DBUG_RETURN(false);
-    
+
 err:
   DBUG_PRINT("info", ("error: %u", error));
   my_error(error, MYF(0),

@@ -11,8 +11,7 @@ innodb_flush_log_at_trx_commit	1
 show global variables like "sync_binlog";
 Variable_name	Value
 sync_binlog	1
-select variable_value into @bfc1 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc1 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 INSERT INTO t1 VALUES (1, 0);
 INSERT INTO t1 VALUES (2, 0);
 INSERT INTO t1 VALUES (3, 0);
@@ -20,8 +19,7 @@ INSERT INTO t1 VALUES (4, 0);
 INSERT INTO t2 VALUES (10, 0);
 INSERT INTO t2 VALUES (11, 0);
 INSERT INTO t3 SELECT * from t1;
-select variable_value into @bfc2 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 0';
 @bfc2 - @bfc1	binlog_fsync_count diff should be 0
 0	binlog_fsync_count diff should be 0
@@ -63,14 +61,12 @@ a	b
 10	0
 11	1
 12	0
-select variable_value into @bfc2 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 0';
 @bfc2 - @bfc1	binlog_fsync_count diff should be 0
 0	binlog_fsync_count diff should be 0
 set SQL_ASYNC_COMMIT=0;
-select variable_value into @bfc1 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc1 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 DELETE FROM t1 ASYNC_COMMIT;
 INSERT INTO t1 SELECT * from t3 ASYNC_COMMIT;
 INSERT INTO t1 VALUES (5, 0);
@@ -109,8 +105,7 @@ a	b
 10	0
 11	1
 12	0
-select variable_value into @bfc2 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 7';
 @bfc2 - @bfc1	binlog_fsync_count diff should be 7
 7	binlog_fsync_count diff should be 7

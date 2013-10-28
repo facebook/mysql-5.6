@@ -42,7 +42,7 @@ insert into t1 values (1,0), (2,0);
 sync_slave_with_master;
 
 let $sbm = query_get_value(SHOW SLAVE STATUS, Seconds_Behind_Master, 1);
---echo seconds_behind_master without reset should be >0 
+--echo seconds_behind_master without reset should be >0
 --disable_query_log
 --eval select $sbm > 0 as result
 --enable_query_log

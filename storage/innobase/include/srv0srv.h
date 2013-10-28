@@ -492,7 +492,7 @@ extern ulint	srv_lock_wait_timeouts;
 /** Number times purge skipped a row because the table had been dropped */
 extern ulint	srv_drop_purge_skip_row;
 
-/** Number times ibuf merges skipped a row because the table had been dropped 
+/** Number times ibuf merges skipped a row because the table had been dropped
 */
 extern ulint	srv_drop_ibuf_skip_row;
 

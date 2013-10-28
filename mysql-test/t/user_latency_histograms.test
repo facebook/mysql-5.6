@@ -142,7 +142,7 @@ $sum_ddl = 0;
 $sum_other = 0;
 
 #The following statements iterate over the columns of the row obtained above
-#and sums the values.The values are stored from column3 to column17 
+#and sums the values.  The values are stored from column3 to column17
 ($sum_select += $_) for @line_select[3..17];
 ($sum_update += $_) for @line_update[3..17];
 ($sum_insert += $_) for @line_insert[3..17];

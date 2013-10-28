@@ -252,8 +252,8 @@ buf_LRU_drop_page_hash_batch(
 When doing a DROP TABLE/DISCARD TABLESPACE we have to drop all page
 hash index entries belonging to that table. This function tries to
 do that in batch. Note that this is a 'best effort' attempt and does
-not guarantee that ALL hash entries will be removed. Returns the 
-number of pages that might have been hashed. */
+not guarantee that ALL hash entries will be removed.
+Returns the number of pages that might have been hashed. */
 static
 ulint
 buf_LRU_drop_page_hash_for_tablespace(

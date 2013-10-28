@@ -61,13 +61,13 @@ ERROR HY000: Variable 'rpl_read_size' is a GLOBAL variable and should be set wit
 SELECT @@session.rpl_read_size;
 ERROR HY000: Variable 'rpl_read_size' is a GLOBAL variable
 '#----------------------TEST_06------------------------#'
-SELECT @@global.rpl_read_size = VARIABLE_VALUE 
-FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+SELECT @@global.rpl_read_size = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
 WHERE VARIABLE_NAME='rpl_read_size';
 @@global.rpl_read_size = VARIABLE_VALUE
 1
-SELECT @@rpl_read_size = VARIABLE_VALUE 
-FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+SELECT @@rpl_read_size = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
 WHERE VARIABLE_NAME='rpl_read_size';
 @@rpl_read_size = VARIABLE_VALUE
 1

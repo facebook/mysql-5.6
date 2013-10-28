@@ -5914,7 +5914,7 @@ consecutive_loop:
 			offs += consecutive_ios[i]->len;
 		}
 	}
-	
+
 	/* The histogram for tracking latencies of async reads|writes
 	 * for the case of simulated aio, tracks the time starting from
 	 * when the slot is requested in the array till the time the
@@ -5928,7 +5928,7 @@ consecutive_loop:
 		if (innobase_histogram_step_size_async_write)
 			latency_histogram_increment(&histogram_async_write,
 			stop_time-aio_slot->reservation_time, 1);
-		
+
 	/* Per fil_space_t counters */
 		os_io_perf_update_all(&(aio_slot->io_perf2->write),
 			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
@@ -5940,7 +5940,7 @@ consecutive_loop:
 		if (innobase_histogram_step_size_async_read)
 			latency_histogram_increment(&histogram_async_read,
 			stop_time-aio_slot->reservation_time, 1);
-		
+
 		/* Per fil_space_t counters */
 		os_io_perf_update_all(&(aio_slot->io_perf2->read),
 			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,

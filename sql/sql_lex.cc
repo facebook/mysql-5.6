@@ -1547,7 +1547,7 @@ int lex_one_token(void *arg, void *yythd)
         lip->in_comment= PRESERVE_COMMENT;
         lip->yySkip();                  // Accept /
         lip->yySkip();                  // Accept *
-        thd->count_comment_bytes+= 2;   // Counting / and * 
+        thd->count_comment_bytes+= 2;   // Counting / and *
         comment_closed= ! consume_comment(lip, 0,&(thd->count_comment_bytes));
         /* regular comments can have zero comments inside. */
       }

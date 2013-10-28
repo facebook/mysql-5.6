@@ -40,7 +40,7 @@ SELECT COUNT(@@GLOBAL.histogram_step_size_connection_create);
 --echo 1 Expected
 
 SELECT COUNT(VARIABLE_VALUE)
-FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
 WHERE VARIABLE_NAME='histogram_step_size_connection_create';
 --echo 1 Expected
 

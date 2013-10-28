@@ -7042,7 +7042,7 @@ void handler::update_global_table_stats(THD *thd)
     }
     if (thd && thd->open_tables)
     {
-      my_atomic_add64((longlong*)&table_stats->comment_bytes, 
+      my_atomic_add64((longlong*)&table_stats->comment_bytes,
                                   table->count_comment_bytes);
       table->count_comment_bytes = 0;
     }
@@ -7058,27 +7058,27 @@ void handler::update_global_table_stats(THD *thd)
       if (ix >= table_stats->num_indexes)
         ix = table_stats->num_indexes - 1;
 
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_inserted), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_inserted),
                                                         stats.rows_inserted);
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_updated), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_updated),
                                                         stats.rows_updated);
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_deleted), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_deleted),
                                                         stats.rows_deleted);
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_read), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_read),
                                                         stats.rows_read);
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_requested), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_requested),
                                                         stats.rows_requested);
 
-      my_io_perf_sum_atomic_helper(&(table_stats->indexes[ix].io_perf_read), 
+      my_io_perf_sum_atomic_helper(&(table_stats->indexes[ix].io_perf_read),
                                                         &stats.table_io_perf_read);
 
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_index_first), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_index_first),
                                                         stats.rows_index_first);
-      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_index_next), 
+      my_atomic_add64((longlong*)&(table_stats->indexes[ix].rows_index_next),
                                                         stats.rows_index_next);
 
 
-       /*         last_active_index is only set by index_init. 
+       /*         last_active_index is only set by index_init.
        *          If this instance is used for a table scan next
        *          then this prevents that work from being counted for an index.
        */
