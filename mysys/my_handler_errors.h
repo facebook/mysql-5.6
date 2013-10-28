@@ -89,7 +89,8 @@ static const char *handler_error_messages[]=
   "Table is being used in foreign key check",
   "Tablespace already exists",
   "Too many columns",
-  "Row in wrong partition"
+  "Row in wrong partition",
+  "tmp_table_max_file_size exceeded"
 };
 
 extern void my_handler_error_register(void);
