@@ -67,13 +67,13 @@ ERROR HY000: Variable 'log_datagram_usecs' is a GLOBAL variable and should be se
 SELECT @@session.log_datagram_usecs;
 ERROR HY000: Variable 'log_datagram_usecs' is a GLOBAL variable
 '#----------------------FN_DYNVARS_072_06------------------------#'
-SELECT @@global.log_datagram_usecs = VARIABLE_VALUE 
-FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+SELECT @@global.log_datagram_usecs = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
 WHERE VARIABLE_NAME='log_datagram_usecs';
 @@global.log_datagram_usecs = VARIABLE_VALUE
 1
-SELECT @@log_datagram_usecs = VARIABLE_VALUE 
-FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+SELECT @@log_datagram_usecs = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
 WHERE VARIABLE_NAME='log_datagram_usecs';
 @@log_datagram_usecs = VARIABLE_VALUE
 1

@@ -66,7 +66,7 @@ extern char* innobase_histogram_step_size_async_read;
 extern char* innobase_histogram_step_size_async_write;
 extern char* innobase_histogram_step_size_sync_read;
 extern char* innobase_histogram_step_size_sync_write;
-extern char* innobase_histogram_step_size_log_write; 
+extern char* innobase_histogram_step_size_log_write;
 extern char* innobase_histogram_step_size_double_write;
 extern char* innobase_histogram_step_size_file_flush_time;
 extern char* innobase_histogram_step_size_fsync;

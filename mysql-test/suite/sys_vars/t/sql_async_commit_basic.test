@@ -20,8 +20,7 @@ CREATE TABLE t3 ( a int unsigned primary key, b int unsigned) ENGINE=InnoDB;
 show global variables like "innodb_flush_log_at_trx_commit";
 show global variables like "sync_binlog";
 
-select variable_value into @bfc1 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc1 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 
 INSERT INTO t1 VALUES (1, 0);
 INSERT INTO t1 VALUES (2, 0);
@@ -31,8 +30,7 @@ INSERT INTO t2 VALUES (10, 0);
 INSERT INTO t2 VALUES (11, 0);
 INSERT INTO t3 SELECT * from t1;
 
-select variable_value into @bfc2 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 0';
 
 # Confirm SQL_ASYNC_COMMIT stops fsync
@@ -64,16 +62,14 @@ COMMIT;
 
 SELECT * FROM t1 ORDER BY a;
 
-select variable_value into @bfc2 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 0';
 
 # Rerun with SQL_ASYNC_COMMIT=0
 
 set SQL_ASYNC_COMMIT=0;
 
-select variable_value into @bfc1 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc1 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 
 DELETE FROM t1 ASYNC_COMMIT;
 INSERT INTO t1 SELECT * from t3 ASYNC_COMMIT;
@@ -102,8 +98,7 @@ COMMIT;
 
 SELECT * FROM t1 ORDER BY a;
 
-select variable_value into @bfc2 from information_schema.global_status where variable_name = 
-'Binlog_fsync_count';
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
 select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 7';
 
 # Cleanup

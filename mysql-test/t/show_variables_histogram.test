@@ -1,6 +1,6 @@
 -- source include/have_innodb.inc
 #
-# This is to show the configurable histogram_step_size variables 
+# This is to show the configurable histogram_step_size variables
 #
 
 SET @start_global_value_step_size_async_read = @@GLOBAL.innodb_histogram_step_size_async_read;

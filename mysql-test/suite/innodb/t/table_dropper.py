@@ -64,7 +64,7 @@ def create_table(con, table_name, log):
   cur.execute(table_ddl[table_name])
   print >> log, "created %s" % table_name
   cur.close()
-  
+
 def create_tables(con, min_records, rng, log):
   for table_name in tables:
     create_table(con, table_name, log)
@@ -121,7 +121,7 @@ class Dropper(threading.Thread):
             cur.execute(stmt)
             cur.close()
             print >> self.log, "dropped %s" % table_name
- 
+
             done = False
             loop = 0
             stmt = "creating %s" % table_name

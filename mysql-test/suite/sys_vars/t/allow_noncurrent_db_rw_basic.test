@@ -21,9 +21,9 @@
 --source include/not_embedded.inc
 --source include/load_sysvars.inc
 
-######################################################################## 
-#                    START OF allow_noncurrent_db_rw TEST                     #
-######################################################################## 
+################################################################################
+#                    START OF allow_noncurrent_db_rw TEST                      #
+################################################################################
 
 set @start_allow_noncurrent_db_rw= @@global.allow_noncurrent_db_rw;
 
@@ -125,6 +125,6 @@ drop database mysqltest_db1;
 drop database mysqltest_db2;
 set global allow_noncurrent_db_rw= @start_allow_noncurrent_db_rw;
 
-######################################################################## 
-#                    END OF allow_noncurrent_db_rw  TEST                      #
-######################################################################## 
+################################################################################
+#                    END OF allow_noncurrent_db_rw  TEST                       #
+################################################################################

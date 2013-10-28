@@ -1,7 +1,7 @@
 # This test is to check that the logging on shutdown properly
 # displays the host/user that is requesting the database shutdown
 # This test is incomplete as we are unable to issue a request
-# from a host whose ip doesn't have a corresponding host name. 
+# from a host whose ip doesn't have a corresponding host name.
 # (so all shutdown loggings will have only the hostname)
 
 # restart server with log file pointing to $error_log
@@ -16,7 +16,7 @@ let SEARCH_FILE=$error_log;
 --exec echo "restart:--log-error=$error_log" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
 --source include/wait_until_connected_again.inc
 
-# send shutdown command to sql server from root and verify SHUTDOWN was 
+# send shutdown command to sql server from root and verify SHUTDOWN was
 # recieved from localhost/user
 --disable_reconnect
 --exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
@@ -68,7 +68,7 @@ let SEARCH_PATTERN=Got signal 15 to shutdown mysqld;
 --exec rm $error_log
 
 # THIS IS A BUG
-# WHEN --skip-name-resolve is set, the host variable of thd->security_ctx is 
+# WHEN --skip-name-resolve is set, the host variable of thd->security_ctx is
 # valid but "", so host_or_ip points to host ("") instead of valid ip
 # once fixed, can turn on this test
 # restart server mapping all hostname to their IP addresses only

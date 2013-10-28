@@ -820,7 +820,7 @@ char *thd_security_context(THD *thd, char *buffer, unsigned int length,
       str.append('\n');
       str.append(thd->query(), len);
     }
-    
+
     mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
   else

@@ -109,7 +109,7 @@ $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_ch
   {
     --echo applying fake updates to the slave
     let $slave_pid_file = `SELECT @@pid_file`;
-    let $slave_exec = 
+    let $slave_exec =
 python suite/innodb_stress/t/load_generator.py $slave_pid_file $kill_db_after
 0  $num_workers $num_transactions $user $master_host $SLAVE_MYPORT
 $table 0 $max_rows $MYSQL_TMP_DIR/load_generator_slave 1 $checksum $secondary_index_checks;

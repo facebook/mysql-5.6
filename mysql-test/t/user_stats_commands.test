@@ -124,7 +124,7 @@ commit;
 
 #
 # check table structure
-# 
+#
 
 desc information_schema.user_statistics;
 show create table information_schema.user_statistics;

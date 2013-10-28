@@ -95,7 +95,7 @@ SELECT @@global.innodb_flush_log_at_trx_commit;
 @@global.innodb_flush_log_at_trx_commit
 1
 #
-# Verify logging the changes to global variable 
+# Verify logging the changes to global variable
 # innodb_flush_log_at_trx_commit
 #
 InnoDB: Setting global variable: innodb_flush_log_at_trx_commit = 0 (user 'root'@'localhost' )

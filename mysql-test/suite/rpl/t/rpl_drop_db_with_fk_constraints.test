@@ -23,7 +23,7 @@ while($i)
   dec $i;
 }
 --enable_query_log
-CREATE TABLE t3 (a INT NOT NULL, b INT, PRIMARY KEY (a), 
+CREATE TABLE t3 (a INT NOT NULL, b INT, PRIMARY KEY (a),
                  FOREIGN KEY (b) REFERENCES t1(id1)) ENGINE=INNODB;
 
 insert into mysqltest1.t1 values (1, 100);

@@ -19,7 +19,7 @@ SELECT * FROM/*hello*/ t1;
 SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
 COMMENT_BYTES
 9
-# After performing a query with comments in it , COMMENT_BYTES field for t2 should be 17 
+# After performing a query with comments in it , COMMENT_BYTES field for t2 should be 17
 /* Hello World */SELECT * FROM t2;
 SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
 COMMENT_BYTES

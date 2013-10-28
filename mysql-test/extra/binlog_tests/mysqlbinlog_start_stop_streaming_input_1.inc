@@ -40,7 +40,7 @@
 --source extra/binlog_tests/mysqlbinlog_start_stop_streaming_input_2.inc
 
 --let $option= --stop-position=$stop_position
---let $error= 1 
+--let $error= 1
 --source extra/binlog_tests/mysqlbinlog_start_stop_streaming_input_2.inc
 
 --let $option= --start-position=$start_position --stop-position=$stop_position

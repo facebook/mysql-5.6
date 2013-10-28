@@ -366,7 +366,7 @@ UNIV_INTERN ulint srv_drop_ibuf_skip_row = 0;
 /** Count as "slow" file read, write and fsync requests that take this long */
 UNIV_INTERN ulint	srv_io_slow_usecs	= 0;
 
-/** Count as "old" file read and write requests that wait this long in bg arrays 
+/** Count as "old" file read and write requests that wait this long in bg arrays
 before getting scheduled */
 UNIV_INTERN ulint	srv_io_old_usecs	= 0;
 
@@ -1236,7 +1236,7 @@ void
 srv_printf_innodb_transaction(
 /*======================*/
 	FILE*	file)		/* in: output stream */
-{ 
+{
 	mutex_enter(&srv_innodb_monitor_mutex);
 
 	fputs("\n=================================================\n", file);

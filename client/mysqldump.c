@@ -5143,7 +5143,7 @@ static void write_master_status_to_output(const char* filename,
                                           const char* position) {
   const char *comment_prefix=
     (opt_master_data == MYSQL_OPT_MASTER_DATA_COMMENTED_SQL) ? "-- " : "";
- 
+
   print_comment(md_result_file, 0,
                 "\n--\n-- Position to start replication or point-in-time "
                 "recovery from\n--\n\n");

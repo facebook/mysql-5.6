@@ -581,8 +581,8 @@ extern ulong connection_errors_max_connection;
 extern ulong connection_errors_peer_addr;
 extern ulong log_warnings;
 /* Enable logging queries to a unix local datagram socket */
-extern my_bool log_datagram; 	
-extern ulong log_datagram_usecs; 	
+extern my_bool log_datagram;
+extern ulong log_datagram_usecs;
 extern int log_datagram_sock;
 
 /* flashcache */

@@ -13732,7 +13732,7 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
   File file = -1;
   Log_event *ev = NULL;
   my_off_t pos = BIN_LOG_HEADER_SIZE;
-  /*     
+  /*
     Create a Format_description_log_event that is used to read the
     first event of the log.
   */
@@ -13748,7 +13748,7 @@ my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
     sql_print_error("%s", errmsg);
     goto err;
   }
-#else  
+#else
   if ((file = my_open(log_name, O_RDONLY, MYF(MY_WME))) < 0)
   {
     error("Error opening binlog file");

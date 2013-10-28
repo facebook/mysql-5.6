@@ -12,7 +12,7 @@ perl;
 #Splits the output of the query on a newline and iterates over the separate lines
 foreach (@line = split(/\n/, $ENV{'OUTPUT'})) {
   #If the line falls within the substrings 'Histograms' and 'TABLESPACE'
-  #The syntax /A/../B/ is a pattern that matches any piece of text 
+  #The syntax /A/../B/ is a pattern that matches any piece of text
   #lying in between the strings A and B
   if (/Histograms/../TABLESPACE/) {
     next if /TABLESPACE/;

@@ -3102,7 +3102,7 @@ table_found:
 
   table->next= thd->open_tables;		/* Link into simple list */
   thd->set_open_tables(table);
-  table->count_comment_bytes= thd->count_comment_bytes;    /* Assigning the 
+  table->count_comment_bytes= thd->count_comment_bytes;    /* Assigning the
                                    comment bytes count to the relevant table */
 
   table->reginfo.lock_type=TL_READ;		/* Assume read */
@@ -5597,7 +5597,7 @@ end:
   @note This function is used by only create table functions.
         While creating table, "S" lock is acquired on table being
         created to check its existence. If table does not exist
-        then this function is called to upgrade lock to "X". 
+        then this function is called to upgrade lock to "X".
 */
 bool upgrade_lock_from_S_to_X_for_create(THD *thd,
                                          bool &close_and_reopen_tables)

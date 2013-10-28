@@ -1638,7 +1638,7 @@ static struct my_option my_long_options[] =
    "flushing the result file. ",
    &opt_flush_result_file, &opt_flush_result_file, 0,
    GET_UINT, REQUIRED_ARG, 1000, 1, UINT_MAX, 1, 0, 0},
-  {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
 

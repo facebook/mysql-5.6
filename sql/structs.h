@@ -369,7 +369,7 @@ typedef struct st_index_stats {
 } INDEX_STATS;
 
 /*
- * Maximum number of indexes for which stats are collected. 
+ * Maximum number of indexes for which stats are collected.
  * Tables that have more use st_table_stats::indexes[MAX_INDEX_STATS-1]
  * for the extra indexes.
  */

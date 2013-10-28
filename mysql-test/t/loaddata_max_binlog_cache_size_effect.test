@@ -22,7 +22,7 @@ let $i = 20000;
 while ($i)
 {
   --exec echo "testing" >> $MYSQLTEST_VARDIR/std_data/load_data_infile.dat
-  dec $i; 
+  dec $i;
 }
 --error ER_TRANS_CACHE_FULL, ER_ERROR_ON_WRITE
 LOAD DATA INFILE '../../std_data/load_data_infile.dat' INTO TABLE T1;

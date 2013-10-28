@@ -1137,7 +1137,7 @@ static my_bool deny_updates_if_read_only_option(THD *thd,
   "allow_noncurrent_db_rw". It will assume the command is
   a query. And check whether this query command invovles
   any table that is not in current datbase.
- 
+
   @returns
     0 Nothing to do.
     1 Log the query.
@@ -2038,9 +2038,9 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
   }
 
   double query_duration= (end_utime - thd->start_utime) / 1000000.0;
-  double lock_duration= (end_utime - thd->utime_after_lock) 
+  double lock_duration= (end_utime - thd->utime_after_lock)
                         / 1000000.0;
-  
+
   Security_context *sctx= thd->security_ctx;
   time_t end_time = thd->start_time.tv_sec + (time_t) query_duration;
   struct tm local;
@@ -2078,13 +2078,13 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
   if (thd->db && len < buf_sz)
     len += snprintf(buf + len, buf_sz - len, "use %s; ", thd->db);
 
-  if (thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt && 
+  if (thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt &&
       len < buf_sz)
     len += snprintf(buf + len, buf_sz - len,
-                    "SET last_insert_id=%lld; ", 
+                    "SET last_insert_id=%lld; ",
                     thd->first_successful_insert_id_in_prev_stmt_for_binlog);
 
-  if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() && 
+  if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() &&
       len < buf_sz)
     len += snprintf(buf + len, buf_sz - len,
                     "SET insert_id=%lld; ",
@@ -2111,7 +2111,7 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
     len += thd->query_length();
     len += snprintf(buf + len, buf_sz - len, ";\n");
   }
-  
+
   // fail if we can't send everything
   if (len > buf_sz)
   {
@@ -2820,7 +2820,7 @@ mysql_execute_command(THD *thd,
     {
       /* Error message to user */
       my_error(ER_OPTION_PREVENTS_STATEMENT,  MYF(0),
-    	  "--allow_noncurrent_db_rw=OFF");
+               "--allow_noncurrent_db_rw=OFF");
       DBUG_RETURN(-1);
     }
 #ifdef HAVE_REPLICATION

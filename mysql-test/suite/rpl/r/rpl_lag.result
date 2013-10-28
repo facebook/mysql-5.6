@@ -29,7 +29,7 @@ show global variables like "reset_seconds_behind_master";
 Variable_name	Value
 reset_seconds_behind_master	OFF
 insert into t1 values (1,0), (2,0);
-seconds_behind_master without reset should be >0 
+seconds_behind_master without reset should be >0
 result
 1
 set global reset_seconds_behind_master=1;
