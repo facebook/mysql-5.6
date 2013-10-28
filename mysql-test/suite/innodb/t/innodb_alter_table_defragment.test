@@ -132,7 +132,7 @@ select count(*) > 135 from information_schema.innodb_buffer_page where table_nam
 
 SET @@global.innodb_defragment_n_pages = 10;
 
-alter table t1 defragment index SECOND;
+alter table t1 defragment index second;
 --source include/restart_mysqld.inc
 select count(*) from t1 force index (second);
 
