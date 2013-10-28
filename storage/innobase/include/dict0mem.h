@@ -647,18 +647,18 @@ struct dict_index_t{
 	could be very inaccurate at certain times, e.g. right after restart,
 	during defragmentation, etc. */
 	/* @{ */
-	ib_uint64_t	n_pages;/* number of pages */
-	ib_uint64_t	n_pages_freed;
+	ulint		stat_defrag_modified_counter;
+	ulint		stat_defrag_n_pages_freed;
 				/* number of pages freed by defragmentation. */
-	ib_uint64_t	n_btr_compress;
-				/* number of calls to btr_compress since last
-				full index defragmentation. */
-	ib_uint64_t	n_btr_compress_failure;
-				/* number of btr_compress failed since last
-				full index defragmentation. */
-	ib_uint64_t	n_page_split;
+	ulint		stat_defrag_n_page_split;
 				/* number of page splits since last full index
 				defragmentation. */
+	ulint		stat_defrag_n_recs_per_page;
+				/* number of records per page on the latest
+				split page. */
+	ulint		stat_defrag_n_btr_compress_failure;
+				/* number of failed calls to btr_compress since
+				last full index defragmentation. */
 	/* @} */
 	rw_lock_t	lock;	/*!< read-write lock protecting the
 				upper levels of the index tree */

@@ -1,0 +1,178 @@
+DROP TABLE if exists t1;
+select @@global.innodb_stats_persistent;
+@@global.innodb_stats_persistent
+1
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
+INSERT INTO t1 VALUES(1, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+delete from t1 where a between 100 * 40 and 100 * 40 + 30;
+delete from t1 where a between 100 * 39 and 100 * 39 + 30;
+delete from t1 where a between 100 * 38 and 100 * 38 + 30;
+delete from t1 where a between 100 * 37 and 100 * 37 + 30;
+delete from t1 where a between 100 * 36 and 100 * 36 + 30;
+delete from t1 where a between 100 * 35 and 100 * 35 + 30;
+delete from t1 where a between 100 * 34 and 100 * 34 + 30;
+delete from t1 where a between 100 * 33 and 100 * 33 + 30;
+delete from t1 where a between 100 * 32 and 100 * 32 + 30;
+delete from t1 where a between 100 * 31 and 100 * 31 + 30;
+delete from t1 where a between 100 * 30 and 100 * 30 + 30;
+delete from t1 where a between 100 * 29 and 100 * 29 + 30;
+delete from t1 where a between 100 * 28 and 100 * 28 + 30;
+delete from t1 where a between 100 * 27 and 100 * 27 + 30;
+delete from t1 where a between 100 * 26 and 100 * 26 + 30;
+delete from t1 where a between 100 * 25 and 100 * 25 + 30;
+delete from t1 where a between 100 * 24 and 100 * 24 + 30;
+delete from t1 where a between 100 * 23 and 100 * 23 + 30;
+delete from t1 where a between 100 * 22 and 100 * 22 + 30;
+delete from t1 where a between 100 * 21 and 100 * 21 + 30;
+delete from t1 where a between 100 * 20 and 100 * 20 + 30;
+delete from t1 where a between 100 * 19 and 100 * 19 + 30;
+delete from t1 where a between 100 * 18 and 100 * 18 + 30;
+delete from t1 where a between 100 * 17 and 100 * 17 + 30;
+delete from t1 where a between 100 * 16 and 100 * 16 + 30;
+delete from t1 where a between 100 * 15 and 100 * 15 + 30;
+delete from t1 where a between 100 * 14 and 100 * 14 + 30;
+delete from t1 where a between 100 * 13 and 100 * 13 + 30;
+delete from t1 where a between 100 * 12 and 100 * 12 + 30;
+delete from t1 where a between 100 * 11 and 100 * 11 + 30;
+delete from t1 where a between 100 * 10 and 100 * 10 + 30;
+delete from t1 where a between 100 * 9 and 100 * 9 + 30;
+delete from t1 where a between 100 * 8 and 100 * 8 + 30;
+delete from t1 where a between 100 * 7 and 100 * 7 + 30;
+delete from t1 where a between 100 * 6 and 100 * 6 + 30;
+delete from t1 where a between 100 * 5 and 100 * 5 + 30;
+delete from t1 where a between 100 * 4 and 100 * 4 + 30;
+delete from t1 where a between 100 * 3 and 100 * 3 + 30;
+delete from t1 where a between 100 * 2 and 100 * 2 + 30;
+delete from t1 where a between 100 * 1 and 100 * 1 + 30;
+select stat_value from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name  = 'n_recs_per_page';
+stat_value
+54
+60
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+stat_value > 0
+1
+1
+1
+1
+select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and stat_name = 'n_btr_compress_failure';
+count(*)
+2
+Server Restarted
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+stat_value > 0
+1
+1
+1
+1
+select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and stat_name = 'n_btr_compress_failure';
+count(*)
+2
+alter table t1 defragment;
+select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_btr_compress_failure');
+stat_value = 0
+1
+1
+1
+1
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_pages_freed', 'n_leaf_pages_defrag');
+stat_value > 0
+1
+1
+1
+1
+set @@global.innodb_defragment_stats_accuracy = 1;
+delete from t1 where a between 100 * 40 + 30 and 100 * 40 + 60;
+delete from t1 where a between 100 * 39 + 30 and 100 * 39 + 60;
+delete from t1 where a between 100 * 38 + 30 and 100 * 38 + 60;
+delete from t1 where a between 100 * 37 + 30 and 100 * 37 + 60;
+delete from t1 where a between 100 * 36 + 30 and 100 * 36 + 60;
+delete from t1 where a between 100 * 35 + 30 and 100 * 35 + 60;
+delete from t1 where a between 100 * 34 + 30 and 100 * 34 + 60;
+delete from t1 where a between 100 * 33 + 30 and 100 * 33 + 60;
+delete from t1 where a between 100 * 32 + 30 and 100 * 32 + 60;
+delete from t1 where a between 100 * 31 + 30 and 100 * 31 + 60;
+delete from t1 where a between 100 * 30 + 30 and 100 * 30 + 60;
+delete from t1 where a between 100 * 29 + 30 and 100 * 29 + 60;
+delete from t1 where a between 100 * 28 + 30 and 100 * 28 + 60;
+delete from t1 where a between 100 * 27 + 30 and 100 * 27 + 60;
+delete from t1 where a between 100 * 26 + 30 and 100 * 26 + 60;
+delete from t1 where a between 100 * 25 + 30 and 100 * 25 + 60;
+delete from t1 where a between 100 * 24 + 30 and 100 * 24 + 60;
+delete from t1 where a between 100 * 23 + 30 and 100 * 23 + 60;
+delete from t1 where a between 100 * 22 + 30 and 100 * 22 + 60;
+delete from t1 where a between 100 * 21 + 30 and 100 * 21 + 60;
+delete from t1 where a between 100 * 20 + 30 and 100 * 20 + 60;
+delete from t1 where a between 100 * 19 + 30 and 100 * 19 + 60;
+delete from t1 where a between 100 * 18 + 30 and 100 * 18 + 60;
+delete from t1 where a between 100 * 17 + 30 and 100 * 17 + 60;
+delete from t1 where a between 100 * 16 + 30 and 100 * 16 + 60;
+delete from t1 where a between 100 * 15 + 30 and 100 * 15 + 60;
+delete from t1 where a between 100 * 14 + 30 and 100 * 14 + 60;
+delete from t1 where a between 100 * 13 + 30 and 100 * 13 + 60;
+delete from t1 where a between 100 * 12 + 30 and 100 * 12 + 60;
+delete from t1 where a between 100 * 11 + 30 and 100 * 11 + 60;
+delete from t1 where a between 100 * 10 + 30 and 100 * 10 + 60;
+delete from t1 where a between 100 * 9 + 30 and 100 * 9 + 60;
+delete from t1 where a between 100 * 8 + 30 and 100 * 8 + 60;
+delete from t1 where a between 100 * 7 + 30 and 100 * 7 + 60;
+delete from t1 where a between 100 * 6 + 30 and 100 * 6 + 60;
+delete from t1 where a between 100 * 5 + 30 and 100 * 5 + 60;
+delete from t1 where a between 100 * 4 + 30 and 100 * 4 + 60;
+delete from t1 where a between 100 * 3 + 30 and 100 * 3 + 60;
+delete from t1 where a between 100 * 2 + 30 and 100 * 2 + 60;
+delete from t1 where a between 100 * 1 + 30 and 100 * 1 + 60;
+make sure the stats thread will wake up and do the write even if there's a race condition between set and reset.
+select sleep(12);
+sleep(12)
+0
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_btr_compress_failure';
+stat_value > 0
+1
+1
+select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
+stat_value = 0
+1
+1
+select index_name, stat_value from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name  = 'n_recs_per_page';
+index_name	stat_value
+PRIMARY	54
+SECOND	60
+Server Restarted
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_btr_compress_failure';
+stat_value > 0
+1
+1
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and stat_name = 'n_pages_freed';
+stat_value > 0
+1
+1
+rename table t1 to t2;
+select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name = 'n_page_split';
+stat_value = 0
+1
+1
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and stat_name in ('n_pages_freed', 'n_btr_compress_failure', 'n_leaf_pages_defrag');
+stat_value > 0
+1
+1
+1
+1
+1
+1
+drop index SECOND on t2;
+select count(*) from mysql.innodb_index_stats where table_name like '%t2%' and index_name = 'SECOND';
+count(*)
+0
+DROP TABLE t2;

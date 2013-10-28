@@ -242,6 +242,7 @@ UNIV_INTERN ulint	srv_mem_pool_size	= ULINT_MAX;
 UNIV_INTERN ulint	srv_lock_table_size	= ULINT_MAX;
 
 UNIV_INTERN uint	srv_defragment_n_pages = 7;
+UNIV_INTERN uint	srv_defragment_stats_accuracy = 100;
 
 /* page_cleaner_thread should run once per this many milliseconds */
 UNIV_INTERN ulint	srv_page_cleaner_interval_millis = 1000;

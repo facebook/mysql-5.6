@@ -1,3 +1,4 @@
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 SET BINLOG_FORMAT=MIXED;
 RESET MASTER;
 CREATE TABLE t1 (a INT PRIMARY KEY, b INT) ENGINE=INNODB;

@@ -134,6 +134,13 @@ btr_defragment_item_t*
 btr_defragment_create_item(
 	btr_pcur_t*	pcur,
 	os_event_t	event);
+/*********************************************************************//**
+Check whether we should save defragmentation statistics to persistent storage.
+Currently we save the stats to persistent storage every 100 updates. */
+UNIV_INTERN
+void
+btr_defragment_save_defrag_stats_if_needed(
+	dict_index_t*	index);	/*!< in: index */
 /******************************************************************//**
 Thread that merges consecutive b-tree pages into fewer pages to defragment
 the index. */

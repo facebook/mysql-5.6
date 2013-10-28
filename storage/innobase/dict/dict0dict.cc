@@ -407,7 +407,7 @@ dict_table_try_drop_aborted(
 
 	if (table == NULL) {
 		table = dict_table_open_on_id_low(
-			table_id, DICT_ERR_IGNORE_NONE);
+			table_id, DICT_ERR_IGNORE_NONE, FALSE);
 	} else {
 		ut_ad(table->id == table_id);
 	}
@@ -802,7 +802,9 @@ dict_table_open_on_id(
 		table_id,
 		table_op == DICT_TABLE_OP_LOAD_TABLESPACE
 		? DICT_ERR_IGNORE_RECOVER_LOCK
-		: DICT_ERR_IGNORE_NONE);
+		: DICT_ERR_IGNORE_NONE,
+		table_op == DICT_TABLE_OP_OPEN_ONLY_IF_CACHED);
+
 
 	if (table != NULL) {
 
@@ -1320,7 +1322,7 @@ dict_table_move_from_non_lru_to_lru(
 /**********************************************************************//**
 Looks for an index with the given id given a table instance.
 @return	index or NULL */
-static
+UNIV_INTERN
 dict_index_t*
 dict_table_find_index_on_id(
 /*========================*/
@@ -2414,6 +2416,11 @@ undo_size_ok:
 
 	new_index->stat_index_size = 1;
 	new_index->stat_n_leaf_pages = 1;
+
+	new_index->stat_defrag_n_pages_freed = 0;
+	new_index->stat_defrag_n_page_split = 0;
+	new_index->stat_defrag_n_recs_per_page = 0;
+	new_index->stat_defrag_n_btr_compress_failure = 0;
 
 	/* Add the new index as the last index for the table */
 

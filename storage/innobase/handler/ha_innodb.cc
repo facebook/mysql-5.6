@@ -10874,7 +10874,7 @@ ha_innobase::defragment_table(
 		btr_pcur_move_to_next(pcur, &mtr);
 		btr_pcur_store_position(pcur, &mtr);
 		mtr_commit(&mtr);
-		dict_mem_index_defrag_summary_clear(index);
+		dict_stats_empty_defrag_summary(index);
 		if (!async)
 			event = os_event_create();
 		item = btr_defragment_create_item(pcur, event);
@@ -16934,6 +16934,13 @@ static MYSQL_SYSVAR_UINT(defragment_n_pages, srv_defragment_n_pages,
   "defragment",
   NULL, NULL, 7, 2, 32, 0);
 
+static MYSQL_SYSVAR_UINT(defragment_stats_accuracy,
+  srv_defragment_stats_accuracy,
+  PLUGIN_VAR_RQCMDARG,
+  "How many defragment stats changes there are before the stats "
+  "are written to persistent storage.",
+  NULL, NULL, 20, 1, ~0U, 0);
+
 static MYSQL_SYSVAR_ULONG(lru_scan_depth, srv_LRU_scan_depth,
   PLUGIN_VAR_RQCMDARG,
   "How deep to scan LRU to keep it clean",
@@ -17488,6 +17495,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_load_abort),
   MYSQL_SYSVAR(buffer_pool_load_at_startup),
   MYSQL_SYSVAR(defragment_n_pages),
+  MYSQL_SYSVAR(defragment_stats_accuracy),
   MYSQL_SYSVAR(lru_scan_depth),
   MYSQL_SYSVAR(flush_neighbors),
   MYSQL_SYSVAR(checksum_algorithm),
