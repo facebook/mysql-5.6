@@ -1181,7 +1181,7 @@ btr_cur_ins_lock_and_undo(
 	rec_t*		rec;
 	roll_ptr_t	roll_ptr;
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip LOCK, UNDO */
 		return(DB_SUCCESS);
 	}
@@ -1437,7 +1437,7 @@ fail_err:
 		goto fail_err;
 	}
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip CHANGE, LOG */
 		*big_rec = big_rec_vec;
 		return(err); /* == DB_SUCCESS */
@@ -1606,7 +1606,7 @@ btr_cur_pessimistic_insert(
 
 		n_extents = cursor->tree_height / 16 + 3;
 
-		if (cursor->tree_height == ULINT_UNDEFINED) {
+		if (UNIV_UNLIKELY(cursor->tree_height == ULINT_UNDEFINED)) {
 			ut_a(thr && thr_get_trx(thr)->fake_changes);
 			n_extents = 3;
 		}
@@ -1644,7 +1644,7 @@ btr_cur_pessimistic_insert(
 		}
 	}
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip CHANGE, LOG */
 		if (n_extents > 0) {
 			fil_space_release_free_extents(index->space,
@@ -1710,7 +1710,7 @@ btr_cur_upd_lock_and_undo(
 
 	ut_ad(thr || (flags & BTR_NO_LOCKING_FLAG));
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip LOCK, UNDO */
 		return(DB_SUCCESS);
 	}
@@ -1942,7 +1942,7 @@ btr_cur_update_alloc_zip_func(
 		return(false);
 	}
 
-	if (trx && trx->fake_changes) {
+	if (trx && UNIV_UNLIKELY(trx->fake_changes)) {
 		return(TRUE);
 	}
 
@@ -2063,7 +2063,7 @@ btr_cur_update_in_place(
 		goto func_exit;
 	}
 
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		/* skip CHANGE, LOG */
 		return(err); /* == DB_SUCCESS */
 	}
@@ -2333,7 +2333,7 @@ any_extern:
 		goto func_exit;
 	}
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip CHANGE, LOG */
 		return(DB_SUCCESS);
 	}
@@ -2541,7 +2541,7 @@ btr_cur_pessimistic_update(
 		goto err_exit;
 	}
 
-	if (cursor->tree_height == ULINT_UNDEFINED) {
+	if (UNIV_UNLIKELY(cursor->tree_height == ULINT_UNDEFINED)) {
 		ut_ad(thr && thr_get_trx(thr)->fake_changes);
 	}
 
@@ -2554,7 +2554,7 @@ btr_cur_pessimistic_update(
 
 		ulint	n_extents = cursor->tree_height / 16 + 3;
 
-		if (cursor->tree_height == ULINT_UNDEFINED) {
+		if (UNIV_UNLIKELY(cursor->tree_height == ULINT_UNDEFINED)) {
 			ut_a(thr && thr_get_trx(thr)->fake_changes);
 			n_extents = 3;
 		}
@@ -2588,7 +2588,8 @@ btr_cur_pessimistic_update(
 	itself.  Thus the following call is safe. */
 	row_upd_index_replace_new_col_vals_index_pos(new_entry, index, update,
 						     FALSE, entry_heap);
-	if (!(flags & BTR_KEEP_SYS_FLAG) && !(thr_get_trx(thr))->fake_changes) {
+	if (!(flags & BTR_KEEP_SYS_FLAG)
+	    && UNIV_LIKELY(!(thr_get_trx(thr))->fake_changes)) {
 		/* roll_ptr is not valid when trx->fake_changes is true per
 		btr_cur_upd_lock_and_undo */
 		row_upd_index_entry_sys_field(new_entry, index, DATA_ROLL_PTR,
@@ -2665,7 +2666,7 @@ make_external:
 		ut_ad(flags & BTR_KEEP_POS_FLAG);
 	}
 
-	if (thr_get_trx(thr)->fake_changes) {
+	if (UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip CHANGE, LOG */
 		err = DB_SUCCESS;
 		goto return_after_reservations;
@@ -3001,7 +3002,7 @@ btr_cur_del_mark_set_clust_rec(
 	ut_ad(dict_index_is_clust(index));
 	ut_ad(!rec_get_deleted_flag(rec, rec_offs_comp(offsets)));
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip LOCK, UNDO, CHANGE, LOG */
 		return(DB_SUCCESS);
 	}
@@ -3144,7 +3145,7 @@ btr_cur_del_mark_set_sec_rec(
 	rec_t*		rec;
 	dberr_t		err;
 
-	if (thr && thr_get_trx(thr)->fake_changes) {
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		/* skip LOCK, CHANGE, LOG */
 		return(DB_SUCCESS);
 	}

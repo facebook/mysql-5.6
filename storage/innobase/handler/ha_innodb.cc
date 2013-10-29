@@ -1896,7 +1896,7 @@ ha_innobase::is_fake_change_enabled(
 	THD*		thd)	/*!< in: MySQL thread */
 {
 	trx_t*	trx = thd_to_trx(thd);
-	return (trx && trx->fake_changes);
+	return (trx && UNIV_UNLIKELY(trx->fake_changes));
 }
 
 
@@ -4181,8 +4181,8 @@ innobase_commit(
 		trx_search_latch_release_if_reserved(trx);
 	}
 
-	if (trx->fake_changes && (commit_trx || (!thd_test_options(thd,
-						OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))) {
+	if (UNIV_UNLIKELY(trx->fake_changes && (commit_trx || (!thd_test_options(thd,
+						OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))))) {
 		innobase_rollback(hton, thd, commit_trx); /* rollback implicitly */
 		thd_reset_diagnostics(thd); /* because debug assertion code complains,
                                    if something left */
@@ -4299,7 +4299,7 @@ innobase_is_fake_change(
 				the transaction should be committed */
 {
 	trx_t*		trx = check_trx_exists(thd);
-	return trx->fake_changes;
+	return UNIV_UNLIKELY(trx->fake_changes);
 }
 
 /*****************************************************************//**
@@ -7358,7 +7358,7 @@ no_commit:
 	error = row_insert_for_mysql((byte*) record, prebuilt);
 	DEBUG_SYNC(user_thd, "ib_after_row_insert");
 
-	if (error == DB_SUCCESS && !trx->fake_changes)
+	if (error == DB_SUCCESS && UNIV_LIKELY(!trx->fake_changes))
 		stats.rows_inserted++;
 
 	/* Handle duplicate key errors */
@@ -7818,7 +7818,7 @@ ha_innobase::update_row(
 
 	error = row_update_for_mysql((byte*) old_row, prebuilt);
 
-	if (error == DB_SUCCESS && !trx->fake_changes)
+	if (error == DB_SUCCESS && UNIV_LIKELY(!trx->fake_changes))
 		stats.rows_updated++;
 
 	/* We need to do some special AUTOINC handling for the following case:
@@ -7923,7 +7923,7 @@ ha_innobase::delete_row(
 
 	error = row_update_for_mysql((byte*) record, prebuilt);
 
-	if (error == DB_SUCCESS && !trx->fake_changes)
+	if (error == DB_SUCCESS && UNIV_LIKELY(!trx->fake_changes))
 		stats.rows_deleted++;
 
 	innobase_srv_conc_exit_innodb(trx, true);
@@ -10289,7 +10289,7 @@ ha_innobase::create(
 
 	trx = innobase_trx_allocate(thd);
 
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		innobase_commit_low(trx);
 		trx_free_for_mysql(trx);
 		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
@@ -10656,7 +10656,7 @@ ha_innobase::truncate()
 
 	update_thd(ha_thd());
 
-	if (prebuilt->trx->fake_changes) {
+	if (UNIV_UNLIKELY(prebuilt->trx->fake_changes)) {
 		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
 	}
 
@@ -10740,7 +10740,7 @@ ha_innobase::delete_table(
 
 	trx = innobase_trx_allocate(thd);
 
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		innobase_commit_low(trx);
 		trx_free_for_mysql(trx);
 		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
@@ -10921,7 +10921,7 @@ innobase_drop_database(
 #endif
 	trx = innobase_trx_allocate(thd);
 
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		my_free(namebuf);
 		innobase_commit_low(trx);
 		trx_free_for_mysql(trx);
@@ -11101,7 +11101,7 @@ ha_innobase::rename_table(
 	trx_search_latch_release_if_reserved(parent_trx);
 
 	trx = innobase_trx_allocate(thd);
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		innobase_commit_low(trx);
 		trx_free_for_mysql(trx);
 		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
@@ -14345,7 +14345,7 @@ innobase_xa_prepare(
 
 		ut_ad(trx_is_registered_for_2pc(trx));
 
-		if (trx->fake_changes) {
+		if (UNIV_UNLIKELY(trx->fake_changes)) {
 			/* Caller does rollback on error */
 			thd_reset_diagnostics(thd); /* avoid debug assertion */
 			return HA_ERR_WRONG_COMMAND;

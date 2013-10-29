@@ -3285,7 +3285,7 @@ ha_innobase::prepare_inplace_alter_table(
 	DBUG_ASSERT(ha_alter_info->create_info);
 	DBUG_ASSERT(!srv_read_only_mode);
 
-	if (prebuilt->trx->fake_changes) {
+	if (UNIV_UNLIKELY(prebuilt->trx->fake_changes)) {
 		DBUG_RETURN(true);
 	}
 
