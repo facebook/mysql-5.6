@@ -1402,7 +1402,7 @@ error_exit:
 	just an estimate anyway) than protecting the following code
 	with a latch. */
 
-	if (!(trx->fake_changes)) {
+	if (UNIV_LIKELY(!trx->fake_changes)) {
 		dict_table_n_rows_inc(table);
 		row_update_statistics_if_needed(table, trx);
 		srv_stats.n_rows_inserted.add((size_t)trx->id, 1);
@@ -1779,12 +1779,12 @@ run_again:
 		just an estimate anyway) than protecting the following code
 		with a latch. */
 
-		if (!trx->fake_changes) {
+		if (UNIV_LIKELY(!trx->fake_changes)) {
 			dict_table_n_rows_dec(prebuilt->table);
 			srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
 		}
 	} else {
-		if (!trx->fake_changes) {
+		if (UNIV_LIKELY(!trx->fake_changes)) {
 			srv_stats.n_rows_updated.add((size_t)trx->id, 1);
 		}
 	}
@@ -1793,7 +1793,7 @@ run_again:
 	that changes indexed columns, UPDATEs that change only non-indexed
 	columns would not affect statistics. */
 	if (node->is_delete || !(node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
-		if (!(trx->fake_changes))
+		if (UNIV_LIKELY(!trx->fake_changes))
 			row_update_statistics_if_needed(prebuilt->table,trx);
 	}
 
@@ -2010,17 +2010,17 @@ run_again:
 		just an estimate anyway) than protecting the following code
 		with a latch. */
 
-		if (!trx->fake_changes) {
+		if (UNIV_LIKELY(!trx->fake_changes)) {
 			dict_table_n_rows_dec(table);
 			srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
 		}
 	} else {
-		if (!trx->fake_changes) {
+		if (UNIV_LIKELY(!trx->fake_changes)) {
 			srv_stats.n_rows_updated.add((size_t)trx->id, 1);
 		}
 	}
 
-	if (!(trx->fake_changes))
+	if (UNIV_LIKELY(!trx->fake_changes))
 		row_update_statistics_if_needed(table, trx);
 
 	return(err);

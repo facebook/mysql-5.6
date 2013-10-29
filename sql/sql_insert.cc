@@ -1854,7 +1854,7 @@ int write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)
             2) do nothing on fake delete
             3) goto #1
           */
-          if (table->file->is_fake_change_enabled(thd))
+          if (unlikely(table->file->is_fake_change_enabled(thd)))
             goto ok_or_after_trg_err;
 
           /* Let us attempt do write_row() once more */

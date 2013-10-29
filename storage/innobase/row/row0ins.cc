@@ -283,7 +283,7 @@ row_ins_sec_index_entry_by_modify(
     tries to update the same secondary index node as that of sql slave
     worker. */
     trx_t* trx=thr_get_trx(thr);
-    if (trx->fake_changes)
+    if (UNIV_UNLIKELY(trx->fake_changes))
       return(DB_SUCCESS);
 		ut_a(update->n_fields == 0);
 		ut_a(*cursor->index->name == TEMP_INDEX_PREFIX);
@@ -1750,7 +1750,7 @@ exit_func:
 	if (UNIV_LIKELY_NULL(heap)) {
 		mem_heap_free(heap);
 	}
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		err = DB_SUCCESS;
 	}
 	return(err);
@@ -2368,7 +2368,7 @@ row_ins_clust_index_entry_low(
 	/* Note: built-in online schema changes may not work when
 	fake_changes is TRUE. It should be tested what to do
 	(e.g. acquire lock or not) before using them together*/
-	if (thr_get_trx(thr)->fake_changes) {
+	if (UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		use_mode = (mode & BTR_MODIFY_TREE) ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
 	} else if (mode == BTR_MODIFY_LEAF && dict_index_is_online_ddl(index)) {
 		use_mode = mode = BTR_MODIFY_LEAF | BTR_ALREADY_S_LATCHED;
@@ -2447,7 +2447,7 @@ err_exit:
 
 		rec_t*		rec		= btr_cur_get_rec(&cursor);
 
-		if (big_rec && !thr_get_trx(thr)->fake_changes) {
+		if (big_rec && UNIV_LIKELY(!thr_get_trx(thr)->fake_changes)) {
 			/* skip store extern */
 			ut_a(err == DB_SUCCESS);
 			/* Write out the externally stored
@@ -2563,7 +2563,7 @@ err_exit:
 		if (UNIV_LIKELY_NULL(big_rec)) {
 			mtr_commit(&mtr);
 
-		if (thr_get_trx(thr)->fake_changes) {
+		if (UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 			/* skip store extern */
 			dtuple_convert_back_big_rec(index, entry, big_rec);
 			goto func_exit;
@@ -2729,7 +2729,7 @@ row_ins_sec_index_entry_low(
 	the function will return in both low_match and up_match of the
 	cursor sensible values */
 
-	if (trx->fake_changes){
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		search_mode |= (mode & BTR_MODIFY_TREE) ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
 	} else if (!(trx->check_unique_secondary)) {
 		search_mode |= mode | BTR_INSERT | BTR_IGNORE_SEC_UNIQUE;
@@ -2737,7 +2737,7 @@ row_ins_sec_index_entry_low(
 		search_mode |= mode | BTR_INSERT;
 	}
 
-	if (trx->fake_changes) {
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
 		use_mode = (mode & BTR_MODIFY_TREE) ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
 	} else {
 		use_mode = search_mode & ~(BTR_INSERT | BTR_IGNORE_SEC_UNIQUE);
