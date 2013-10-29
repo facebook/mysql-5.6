@@ -20,6 +20,7 @@
 source include/master-slave.inc;
 # There is no need to run this test case on all binlog format
 source include/have_binlog_format_row.inc;
+source include/have_debug.inc;
 
 # Since this test relies heavily on filesystem operations (like
 # moving files around, backslashes and so forth) we avoid messing
@@ -91,6 +92,7 @@ source include/write_var_to_file.inc;
 --source include/stop_slave.inc
 --connection master
 
+set global debug='+d,Check_dump_thread_is_alive';
 --echo # Shutdown master
 --let $rpl_server_number=1
 source include/rpl_stop_server.inc;
@@ -109,6 +111,7 @@ source include/rpl_stop_server.inc;
 source include/rpl_start_server.inc;
 --let $include_silent=0
 
+set global debug = default;
 --echo # Master has restarted successfully
 
 --connection slave

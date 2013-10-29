@@ -15,11 +15,13 @@ include/rpl_stop_server.inc [server_number=1]
 include/start_slave.inc
 # Create the master-bin.index file with the old format
 include/stop_slave.inc
+set global debug='+d,Check_dump_thread_is_alive';
 # Shutdown master
 include/rpl_stop_server.inc [server_number=1]
 # Move back the master binlog files
 # Remove the unneeded master-bin.index file
 # Restart master with log-bin option set to default
+set global debug = default;
 # Master has restarted successfully
 include/start_slave.inc
 include/rpl_stop_server.inc [server_number=2]
