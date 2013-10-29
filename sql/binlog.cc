@@ -5884,7 +5884,19 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data,
         goto err;
       }
 
-      thd->variables.gtid_next.set_undefined();
+      if (thd->rli_slave)
+      {
+        /*
+          Using gtid_next='AUTOMATIC' on a slave is not a concern because it
+          doesn't generate GTIDs because of read_only setting. Setting
+          gtid_next='automatic' after each events avoids hitting
+          ER_GTID_NEXT_TYPE_UNDEFINED_GROUP on sql_thread when slave receives a
+          transaction without GTID_NEXT set.
+        */
+        thd->variables.gtid_next.set_automatic();
+      }
+      else
+        thd->variables.gtid_next.set_undefined();
       global_sid_lock->rdlock();
       if (gtid_state->update_on_flush(thd) != RETURN_STATUS_OK)
       {
