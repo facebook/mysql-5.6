@@ -1999,7 +1999,7 @@ run_again:
 		goto run_again;
 	}
 
-	if (err != DB_SUCCESS) {
+	if (err != DB_SUCCESS || UNIV_UNLIKELY(trx->fake_changes)) {
 
 		return(err);
 	}
@@ -2009,19 +2009,14 @@ run_again:
 		reasons, we would rather get garbage in stat_n_rows (which is
 		just an estimate anyway) than protecting the following code
 		with a latch. */
+		dict_table_n_rows_dec(table);
 
-		if (UNIV_LIKELY(!trx->fake_changes)) {
-			dict_table_n_rows_dec(table);
-			srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
-		}
+		srv_stats.n_rows_deleted.add((size_t)trx->id, 1);
 	} else {
-		if (UNIV_LIKELY(!trx->fake_changes)) {
-			srv_stats.n_rows_updated.add((size_t)trx->id, 1);
-		}
+		srv_stats.n_rows_updated.add((size_t)trx->id, 1);
 	}
 
-	if (UNIV_LIKELY(!trx->fake_changes))
-		row_update_statistics_if_needed(table, trx);
+	row_update_statistics_if_needed(table, trx);
 
 	return(err);
 }
