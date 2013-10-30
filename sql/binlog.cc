@@ -6693,6 +6693,7 @@ MYSQL_BIN_LOG::process_semisync_stage_queue(THD *queue_head)
 static const char* g_stage_name[] = {
   "FLUSH",
   "SYNC",
+  "SEMISYNC",
   "COMMIT",
 };
 #endif
