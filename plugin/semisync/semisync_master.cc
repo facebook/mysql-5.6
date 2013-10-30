@@ -552,6 +552,14 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
     log_name = base_name(linfo.log_file_name);
     log_pos = linfo.pos;
     lock();
+    /*
+      Need to check semi-sync status again since LOCK_binlog is
+      released and acquired which could have changed the status.
+      If not checked, we may hit assert(active_tranxs_ != NULL);
+      assertion.
+    */
+    if (!getMasterEnabled())
+      goto l_end;
   }
 
   /*
@@ -813,8 +821,9 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
       At this point, the binlog file and position of this transaction
       must have been removed from ActiveTranx.
     */
-    assert(!active_tranxs_->is_tranx_end_pos(trx_wait_binlog_name,
-                                             trx_wait_binlog_pos));
+    if (active_tranxs_ != NULL)
+      assert(!active_tranxs_->is_tranx_end_pos(trx_wait_binlog_name,
+                                               trx_wait_binlog_pos));
     
     /* Update the status counter. */
     if (is_on())
