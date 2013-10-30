@@ -2541,10 +2541,6 @@ btr_cur_pessimistic_update(
 		goto err_exit;
 	}
 
-	if (UNIV_UNLIKELY(cursor->tree_height == ULINT_UNDEFINED)) {
-		ut_ad(thr && thr_get_trx(thr)->fake_changes);
-	}
-
 	if (optim_err == DB_OVERFLOW) {
 		ulint	reserve_flag;
 
