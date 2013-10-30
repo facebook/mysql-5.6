@@ -6568,6 +6568,7 @@ MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
 static const char* g_stage_name[] = {
   "FLUSH",
   "SYNC",
+  "SEMISYNC",
   "COMMIT",
 };
 #endif
