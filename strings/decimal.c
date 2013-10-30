@@ -1,3 +1,4 @@
+#pragma GCC diagnostic ignored "-Warray-bounds"
 /* Copyright (c) 2004, 2013, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
@@ -2520,3 +2521,4 @@ int decimal_mod(const decimal_t *from1, const decimal_t *from2, decimal_t *to)
   The main() program has been converted into a unit test.
  */
 #endif
+#pragma GCC diagnostic warning "-Warray-bounds"
