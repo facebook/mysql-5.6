@@ -856,8 +856,7 @@ void table_stats_rename(const char *old_name, const char *new_name)
   old_name = norm_table(old_name);
   new_name = norm_table(new_name);
 
-  TABLE_STATS* old_stats;
-  TABLE_STATS* new_stats;
+  TABLE_STATS* stats;
   char *old_key = my_strdup(old_name, MYF(MY_WME));
   int old_len = strlen(old_name)+1;
   char *old_table = old_key;
@@ -876,43 +875,21 @@ void table_stats_rename(const char *old_name, const char *new_name)
 
   mysql_mutex_lock(&LOCK_global_table_stats);
 
-  old_stats = (TABLE_STATS*)
+  stats = (TABLE_STATS*)
               my_hash_search(&global_table_stats, (uchar*)old_key, old_len);
-  if (old_stats)
+  if (stats)
   {
-    new_stats = (TABLE_STATS*)
-                my_hash_search(&global_table_stats, (uchar*)new_key, new_len);
-    if (new_stats)
+    memcpy(stats->hash_key, new_key, new_len);
+    stats->hash_key_len = new_len;
+
+    memcpy(stats->db, new_key, new_table - new_key);
+    memcpy(stats->table, new_table, new_len - (new_table - new_key));
+
+    if (my_hash_update(&global_table_stats, (uchar*)stats,
+                       (uchar*)old_key, old_len))
     {
-      // Now that all engines are handled, temporary tables will be included.
-      // These don't use consistent names, so, this is no longer an error.
-      // sql_print_error("Over-writing old stats with new hash entry.\n");
-
-      my_hash_delete(&global_table_stats, (uchar*)new_stats);
+      sql_print_error("Renaming table stats failed.");
     }
-
-    if (!(new_stats= ((TABLE_STATS*)my_malloc(sizeof(TABLE_STATS),
-                                              MYF(MY_WME)))))
-    {
-      sql_print_error("Cannot allocate memory for TABLE_STATS.");
-    }
-    else
-    {
-      (*new_stats) = (*old_stats);
-      memcpy(new_stats->hash_key, new_key, new_len);
-      new_stats->hash_key_len= new_len;
-
-      memcpy(new_stats->db, new_key, new_len);
-      memcpy(new_stats->table, new_table, old_len);
-
-      if (my_hash_insert(&global_table_stats, (uchar*)new_stats))
-      {
-        // Out of memory.
-        sql_print_error("Inserting table stats failed.");
-        my_free((char*)new_stats);
-      }
-    }
-    my_hash_delete(&global_table_stats, (uchar*)old_stats);
   }
 
   mysql_mutex_unlock(&LOCK_global_table_stats);
