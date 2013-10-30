@@ -370,16 +370,7 @@ C_MODE_END
 */
 #include <assert.h>
 
-/* an assert that works at compile-time. only for constant expression */
-#ifdef _some_old_compiler_that_does_not_understand_the_construct_below_
 #define compile_time_assert(X)  do { } while(0)
-#else
-#define compile_time_assert(X)                                  \
-  do                                                            \
-  {                                                             \
-    typedef char compile_time_assert[(X) ? 1 : -1];             \
-  } while(0)
-#endif
 
 /* Go around some bugs in different OS and compilers */
 #if defined (HPUX11) && defined(_LARGEFILE_SOURCE)
