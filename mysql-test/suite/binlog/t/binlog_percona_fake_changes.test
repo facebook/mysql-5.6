@@ -2,7 +2,7 @@
 # confirm that with innodb_fake_changes transactions are not written to the binlog
 #
 
---source include/master-slave.inc
+--source include/have_log_bin.inc
 --source include/have_innodb.inc
 
 --disable_warnings
@@ -22,8 +22,8 @@ INSERT INTO t2 VALUES (1,1);
 
 CREATE TABLE t3 (a INT primary key, b text) ENGINE=InnoDB;
 INSERT INTO t3 VALUES (1,'');
-sync_slave_with_master;
-connection master;
+
+RESET MASTER;
 
 let $pos1= query_get_value("SHOW MASTER STATUS", Position, 1);
 SET autocommit=1;
@@ -101,6 +101,8 @@ SELECT * FROM t2;
 --error ER_ERROR_DURING_COMMIT
 SELECT * FROM t3;
 
+--source include/show_binlog_events.inc
+
 let $pos2= query_get_value("SHOW MASTER STATUS", Position, 1);
 --disable_query_log
 eval select $pos2 = $pos1 as "pos_must_match";
@@ -121,5 +123,3 @@ SELECT a, length(b) FROM t3;
 DROP TABLE t1;
 DROP TABLE t2;
 DROP TABLE t3;
-sync_slave_with_master;
---source include/rpl_end.inc

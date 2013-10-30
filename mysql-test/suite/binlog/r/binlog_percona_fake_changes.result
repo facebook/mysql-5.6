@@ -1,8 +1,3 @@
-include/master-slave.inc
-Warnings:
-Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
-Note	####	Storing MySQL user name or password information in the master.info repository is not secure and is therefore not recommended. Please see the MySQL Manual for more about this issue and possible alternatives.
-[connection master]
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 DROP TABLE IF EXISTS t3;
@@ -15,6 +10,7 @@ CREATE INDEX bx ON t2(b);
 INSERT INTO t2 VALUES (1,1);
 CREATE TABLE t3 (a INT primary key, b text) ENGINE=InnoDB;
 INSERT INTO t3 VALUES (1,'');
+RESET MASTER;
 SET autocommit=1;
 SELECT * FROM t1;
 a	b
@@ -84,6 +80,7 @@ SELECT * FROM t2;
 ERROR HY000: Got error 131 during COMMIT
 SELECT * FROM t3;
 ERROR HY000: Got error 131 during COMMIT
+include/show_binlog_events.inc
 pos_must_match
 1
 create index bx on t1(b);
@@ -103,4 +100,3 @@ a	length(b)
 DROP TABLE t1;
 DROP TABLE t2;
 DROP TABLE t3;
-include/rpl_end.inc
