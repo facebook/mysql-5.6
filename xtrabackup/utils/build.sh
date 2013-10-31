@@ -156,6 +156,7 @@ case "$type" in
                 -DWITH_FAST_MUTEXES=1 \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
+                -DMYSQL_MAINTAINER_MODE=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
         if [ -n "$CMAKE_PREFIX_PATH" ]; then
