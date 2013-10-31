@@ -20924,7 +20924,6 @@ my_coll_rule_shift_length(MY_COLL_RULE *r)
   @return        1 if character was added, 0 if string was too long
 */
 
-#pragma GCC diagnostic ignored "-Warray-bounds"
 static int
 my_coll_rule_expand(my_wc_t *wc, size_t limit, my_wc_t code)
 {
@@ -20939,7 +20938,6 @@ my_coll_rule_expand(my_wc_t *wc, size_t limit, my_wc_t code)
   }
   return 0;
 }
-#pragma GCC diagnostic warning "-Warray-bounds"
 
 
 /**
