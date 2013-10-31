@@ -264,6 +264,9 @@ typedef struct fil_stats_struct {
 					and set by fil_io */
 	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
 	unsigned char db_stats_index;
+	/* flags of the table is copied to the stats variable for fast
+	access */
+	ulint table_flags;
 } fil_stats_t;
 
 /** Value of fil_stats_struct::magic_n */
