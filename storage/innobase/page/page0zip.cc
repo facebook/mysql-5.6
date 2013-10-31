@@ -2024,6 +2024,36 @@ mem_block_cache_t malloc_cache_decompress_obj;
 mem_block_cache_t* malloc_cache_compress;
 mem_block_cache_t* malloc_cache_decompress;
 
+/* Below are the amounts of memory used for different types of compression */
+#ifdef UNIV_DEBUG
+/* below, we compute an upperbound for the average amount of memory we need to
+allocate for page_zip_compress_zlib_stream() assuming that the average record
+size of a table is at least 16 and that there are at most 20 columns on a
+table. */
+#define COMPRESS_MEM_SIZE_ZLIB_STREAM (MEM_SPACE_NEEDED(UNIV_PAGE_SIZE) \
+	+ MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint))) \
+	+ MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)) \
+	+ MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
+						MAX_MEM_LEVEL)) \
+	+ 2 * UNIV_PAGE_SIZE) /* memory needed for the temporary page
+ which is used for cleaning the garbage parts of the uncompressed page */
+#else /* UNIV_DEBUG */
+#define COMPRESS_MEM_SIZE_ZLIB_STREAM (MEM_SPACE_NEEDED(UNIV_PAGE_SIZE) \
+	+ MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint))) \
+	+ MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)) \
+	+ MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
+						MAX_MEM_LEVEL)))
+#endif /* UNIV_DEBUG */
+/* an upperbound for the amount of memory needed for page_zip_decompress()
+See the comment to COMPRESS_MEM_SIZE_ZLIB_STREAM for why n_dense is taken to be
+UNIV_PAGE_SIZE / 16 */
+#define DECOMPRESS_MEM_SIZE_ZLIB_STREAM \
+	(MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * (3 * sizeof(rec_t*))) \
+	 + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT)))
+
+#define COMPRESS_MEM_SIZE_MAX COMPRESS_MEM_SIZE_ZLIB_STREAM
+#define DECOMPRESS_MEM_SIZE_MAX DECOMPRESS_MEM_SIZE_ZLIB_STREAM
+
 /* Calculates block size as an upper bound required for memory, used for
 page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
 which initializes the mem_block_cache with it */
@@ -2031,32 +2061,11 @@ UNIV_INTERN
 void
 page_zip_init(void)
 {
-	ulint block_size;
 	malloc_cache_compress = &malloc_cache_compress_obj;
 	malloc_cache_decompress = &malloc_cache_decompress_obj;
-
-	/* below, we compute an upperbound for the average amount of memory we need to
-	allocate for page_zip_compress() assuming that the average record size of a
-	table is at least 16 and that there are at most 20 columns on a table. */
-	block_size =  MEM_SPACE_NEEDED(UNIV_PAGE_SIZE)
-	  + MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint)))
-	  + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint))
-	  + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT,
-	                                          MAX_MEM_LEVEL));
-
-#ifdef UNIV_DEBUG
-	block_size += 2 * UNIV_PAGE_SIZE; /* memory needed for the temporary page
-	which is used for cleaning the garbage parts of the uncompressed page. */
-#endif
-
-	mem_block_cache_init(malloc_cache_compress, block_size,
+	mem_block_cache_init(malloc_cache_compress, COMPRESS_MEM_SIZE_MAX,
 	                     &malloc_cache_compress_len);
-
-	/* an upperbound for the amount of memory needed for page_zip_decompress() */
-	block_size = MEM_SPACE_NEEDED((UNIV_PAGE_SIZE/16) * (3 * sizeof(rec_t*)))
-	  + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT));
-
-	mem_block_cache_init(malloc_cache_decompress, block_size,
+	mem_block_cache_init(malloc_cache_decompress, DECOMPRESS_MEM_SIZE_MAX,
 	                     &malloc_cache_decompress_len);
 }
 
@@ -2103,7 +2112,7 @@ Compress a page.
 intact on failure. */
 UNIV_INTERN
 ibool
-page_zip_compress(
+page_zip_compress_zlib_stream(
 /*==============*/
 	page_zip_des_t*	page_zip,/*!< in: size; out: data, n_blobs,
 				m_start, m_end, m_nonempty */
@@ -2111,9 +2120,8 @@ page_zip_compress(
 	dict_index_t*	index,	/*!< in: index of the B-tree node */
 	uchar		compression_flags,	/*!< in: compression level
 						         and other options */
-	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
+	mem_heap_t*	heap)	/*< in/out: heap used for memory allocation */
 {
-	page_zip_des_t	new_page_zip;
 	z_stream	c_stream;
 	int		err;
 	ulint		n_fields;/* number of index fields needed */
@@ -2121,13 +2129,8 @@ page_zip_compress(
 	ulint		n_dense;
 	ulint		slot_size;/* amount of uncompressed bytes per record */
 	const rec_t**	recs;	/*!< dense page directory, sorted by address */
-	mem_heap_t*	heap;
 	ulint		trx_id_col;
 #ifndef UNIV_HOTBACKUP
-	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
-	int comp_stats_page_size = 0;
-	fil_stats_t* stats;
-	ib_mutex_t* stats_mutex;
 	uint level;
 	uint wrap;
 	uint strategy;
@@ -2136,47 +2139,14 @@ page_zip_compress(
 #ifdef UNIV_DEBUG
 	page_t* temp_page;
 #endif
-	ulonglong start = my_timer_now();
-	memset(&new_page_zip, 0, sizeof(new_page_zip));
-	new_page_zip.ssize = page_zip->ssize;
 	page_zip_decode_compression_flags(compression_flags, &level,
 	                                  &wrap, &strategy);
 	window_bits = wrap ? UNIV_PAGE_SIZE_SHIFT
 	                   : - ((int) UNIV_PAGE_SIZE_SHIFT);
-	ulint space_id = page_get_space_id(page);
 #endif /* !UNIV_HOTBACKUP */
 #ifdef UNIV_DEBUG
 	FILE*		logfile = NULL;
 #endif
-	/* A local copy of srv_cmp_per_index_enabled to avoid reading that
-	variable multiple times in this function since it can be changed at
-	anytime. */
-	my_bool		cmp_per_index_enabled = srv_cmp_per_index_enabled;
-
-	ut_a(page_is_comp(page));
-	ut_a(fil_page_get_type(page) == FIL_PAGE_INDEX);
-	ut_ad(page_simple_validate_new((page_t*) page));
-	ut_ad(page_zip_simple_validate(page_zip));
-	ut_ad(dict_table_is_comp(index->table));
-	ut_ad(!dict_index_is_ibuf(index));
-
-	UNIV_MEM_ASSERT_RW(page, UNIV_PAGE_SIZE);
-
-	/* Check the data that will be omitted. */
-	ut_a(!memcmp(page + (PAGE_NEW_INFIMUM - REC_N_NEW_EXTRA_BYTES),
-		     infimum_extra, sizeof infimum_extra));
-	ut_a(!memcmp(page + PAGE_NEW_INFIMUM,
-		     infimum_data, sizeof infimum_data));
-	ut_a(page[PAGE_NEW_SUPREMUM - REC_N_NEW_EXTRA_BYTES]
-	     /* info_bits == 0, n_owned <= max */
-	     <= PAGE_DIR_SLOT_MAX_N_OWNED);
-	ut_a(!memcmp(page + (PAGE_NEW_SUPREMUM - REC_N_NEW_EXTRA_BYTES + 1),
-		     supremum_extra_data, sizeof supremum_extra_data));
-
-	if (page_is_empty(page)) {
-		ut_a(rec_get_next_offs(page + PAGE_NEW_INFIMUM, TRUE)
-		     == PAGE_NEW_SUPREMUM);
-	}
 
 	if (page_is_leaf(page)) {
 		n_fields = dict_index_get_n_fields(index);
@@ -2212,71 +2182,15 @@ page_zip_compress(
 		}
 	}
 #endif /* UNIV_DEBUG */
-#ifndef UNIV_HOTBACKUP
-	zip_stat->compressed++;
-	if (cmp_per_index_enabled) {
-		mutex_enter(&page_zip_stat_per_index_mutex);
-		page_zip_stat_per_index[index->id].compressed++;
-		mutex_exit(&page_zip_stat_per_index_mutex);
-	}
-	if (dict_index_is_clust(index)) {
-		zip_stat->compressed_primary++;
-	} else {
-		zip_stat->compressed_secondary++;
-	}
-	comp_stats_page_size = UNIV_ZIP_SIZE_MIN << (page_zip->ssize - 1);
-#endif /* !UNIV_HOTBACKUP */
-
-	if (UNIV_UNLIKELY(n_dense * PAGE_ZIP_DIR_SLOT_SIZE
-			  >= page_zip_get_size(page_zip))) {
-
-		goto err_exit;
-	}
-
-	MONITOR_INC(MONITOR_PAGE_COMPRESS);
-
-	/* Simulate a compression failure with a probability determined by
-	innodb_simulate_comp_failures, only if the page has 2 or more
-	records. */
-	if (srv_simulate_comp_failures
-	    && zip_failure_threshold_pct == 0
-	    && page_get_n_recs(page) >= 2
-	    && ((ulint)(rand() % 100) < srv_simulate_comp_failures)) {
-#ifdef UNIV_DEBUG
-		fprintf(stderr,
-			"InnoDB: Simulating a compression failure"
-			" for table %s, index %s, page %lu (%s)\n",
-			index->table_name,
-			index->name,
-			page_get_page_no(page),
-			page_is_leaf(page) ? "leaf" : "non-leaf");
-#endif
-		goto err_exit;
-	}
-
-	heap = mem_heap_create_cached(page_zip_get_size(page_zip)
-			                            + n_fields * (2 + sizeof(ulint))
-			                            + REC_OFFS_HEADER_SIZE
-			                            + n_dense * (sizeof *recs)
-			                            + DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT,
-			                                                   MAX_MEM_LEVEL)
-#ifdef UNIV_DEBUG
-	                                + 2 * UNIV_PAGE_SIZE /* memory needed for
-                                      the temporary page which is used to
-                                      clean garbage parts of the
-                                      uncompressed page. */
-#endif
-	                                + 0,
-                                malloc_cache_compress);
 
 	recs = static_cast<const rec_t**>(
 		mem_heap_zalloc(heap, n_dense * sizeof *recs));
 
 	fields = static_cast<byte*>(mem_heap_alloc(heap, (n_fields + 1) * 2));
 
-	new_page_zip.data = static_cast<byte*>(
+	page_zip->data = static_cast<byte*>(
 		mem_heap_alloc(heap, page_zip_get_size(page_zip)));
-	memcpy(new_page_zip.data, page, PAGE_DATA);
+	memcpy(page_zip->data, page, PAGE_DATA);
 
 	/* Compress the data payload. */
 	page_zip_set_alloc(&c_stream, heap);
@@ -2286,13 +2200,10 @@ page_zip_compress(
 			   MAX_MEM_LEVEL, strategy);
 	ut_a(err == Z_OK);
 
-	c_stream.next_out = new_page_zip.data + PAGE_DATA;
+	c_stream.next_out = page_zip->data + PAGE_DATA;
 	/* Subtract the space reserved for uncompressed data. */
 	/* Page header and the end marker of the modification log */
-	c_stream.avail_out =
-		static_cast<uInt>(page_zip_get_size(&new_page_zip) -
-				  PAGE_DATA - 1);
-
+	c_stream.avail_out = page_zip_get_size(page_zip) - PAGE_DATA - 1;
 	/* Dense page directory and uncompressed columns, if any */
 	if (page_is_leaf(page)) {
 		if (dict_index_is_clust(index)) {
@@ -2341,11 +2252,11 @@ page_zip_compress(
 	temp_page = static_cast <ib_page_t*> (mem_heap_zalloc(heap, 2 * UNIV_PAGE_SIZE));
 	temp_page = page_align(temp_page + UNIV_PAGE_SIZE);
 	memcpy(temp_page, page, UNIV_PAGE_SIZE);
-	page_zip_dir_encode(&new_page_zip, temp_page, recs);
+	page_zip_dir_encode(page_zip, temp_page, recs);
 	page_zip_clean_garbage(index, temp_page, recs, n_dense, heap);
 	c_stream.next_in = (byte*) temp_page + PAGE_ZIP_START;
 #else
-	page_zip_dir_encode(&new_page_zip, page, recs);
+	page_zip_dir_encode(page_zip, page, recs);
 	c_stream.next_in = (byte*) page + PAGE_ZIP_START;
 #endif
 
@@ -2354,7 +2265,7 @@ page_zip_compress(
 	} else if (!page_is_leaf(page)) {
 		/* This is a node pointer page. */
 		err = page_zip_compress_node_ptrs(LOGFILE
-						  &new_page_zip, &c_stream,
+						  page_zip, &c_stream,
 						  recs, index, heap);
 		if (UNIV_UNLIKELY(err != Z_OK)) {
 			goto zlib_error;
@@ -2369,7 +2280,7 @@ page_zip_compress(
 	} else {
 		/* This is a leaf page in a clustered index. */
 		err = page_zip_compress_clust(LOGFILE
-					      &new_page_zip, &c_stream,
+					      page_zip, &c_stream,
 					      recs, index, heap);
 		if (UNIV_UNLIKELY(err != Z_OK)) {
 			goto zlib_error;
@@ -2381,12 +2292,12 @@ page_zip_compress(
 	/* Compress any trailing garbage, in case the last record was
 	allocated from an originally longer space on the free list,
 	or the data of the last record from page_zip_compress_sec(). */
-	c_stream.avail_in = static_cast<uInt>(
-		page_header_get_field(page, PAGE_HEAP_TOP)
 #ifdef UNIV_DEBUG
-		- (c_stream.next_in - temp_page));
+	c_stream.avail_in = page_header_get_field(page, PAGE_HEAP_TOP)
+			    - (c_stream.next_in - temp_page);
 #else
-		- (c_stream.next_in - page));
+	c_stream.avail_in = page_header_get_field(page, PAGE_HEAP_TOP)
+			    - (c_stream.next_in - page);
 #endif
 
 	ut_a(c_stream.avail_in <= UNIV_PAGE_SIZE - PAGE_ZIP_START - PAGE_DIR);
@@ -2397,19 +2308,320 @@ page_zip_compress(
 	if (UNIV_UNLIKELY(err != Z_STREAM_END)) {
 zlib_error:
 		deflateEnd(&c_stream);
-		mem_heap_free(heap);
-err_exit:
 #ifdef UNIV_DEBUG
 		if (logfile) {
 			fclose(logfile);
 		}
 #endif /* UNIV_DEBUG */
+		return FALSE;
+	}
+	err = deflateEnd(&c_stream);
+	ut_a(err == Z_OK);
+
+	ut_ad(page_zip->data + PAGE_DATA + c_stream.total_out
+	      == c_stream.next_out);
+	ut_ad((ulint) (page_zip_dir_start(page_zip)
+		       - c_stream.next_out) >= c_stream.avail_out);
+
+	/* Valgrind believes that zlib does not initialize some bits
+	in the last 7 or 8 bytes of the stream. Make Valgrind happy. */
+	UNIV_MEM_VALID(page_zip->data + PAGE_DATA, c_stream.total_out);
+
+#ifdef UNIV_DEBUG
+	page_zip->m_start =
+#endif /* UNIV_DEBUG */
+	page_zip->m_end = PAGE_DATA + c_stream.total_out;
+	page_zip->m_nonempty = FALSE;
+
+#ifdef UNIV_DEBUG
+	if (logfile) {
+		/* Record the compressed size of the block. */
+		byte sz[4];
+		mach_write_to_4(sz, c_stream.total_out);
+		fseek(logfile, UNIV_PAGE_SIZE, SEEK_SET);
+		blind_fwrite(sz, 1, sizeof sz, logfile);
+		fclose(logfile);
+	}
+#endif /* UNIV_DEBUG */
+
+	return(TRUE);
+}
+
+/**********************************************************************//**
+Compress a page using zlib.
+@return TRUE on success, FALSE on failure */
+UNIV_INTERN
+ibool
+page_zip_compress_zlib(
+	page_zip_des_t* page_zip,
+	const page_t* page,
+	dict_index_t* index,
+	uchar compression_flags,
+	mem_heap_t* heap)
+{
+	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+}
+
+/**********************************************************************//**
+Compress a page using bzip2.
+@return TRUE on success, FALSE on failure */
+UNIV_INTERN
+ibool
+page_zip_compress_bzip(
+	page_zip_des_t* page_zip,
+	const page_t* page,
+	dict_index_t* index,
+	uchar compression_flags,
+	mem_heap_t* heap)
+{
+	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+}
+
+/**********************************************************************//**
+Compress a page using lzma.
+@return TRUE on success, FALSE on failure */
+UNIV_INTERN
+ibool
+page_zip_compress_lzma(
+	page_zip_des_t* page_zip,
+	const page_t* page,
+	dict_index_t* index,
+	uchar compression_flags,
+	mem_heap_t* heap)
+{
+	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+}
+
+/**********************************************************************//**
+Compress a page using snappy.
+@return TRUE on success, FALSE on failure */
+UNIV_INTERN
+ibool
+page_zip_compress_snappy(
+	page_zip_des_t* page_zip,
+	const page_t* page,
+	dict_index_t* index,
+	uchar compression_flags,
+	mem_heap_t* heap)
+{
+	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+}
+
+/**********************************************************************//**
+Compress a page using quicklz.
+@return TRUE on success, FALSE on failure */
+UNIV_INTERN
+ibool
+page_zip_compress_quicklz(
+	page_zip_des_t* page_zip,
+	const page_t* page,
+	dict_index_t* index,
+	uchar compression_flags,
+	mem_heap_t* heap)
+{
+	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+}
+
+/**********************************************************************//**
+Compress a page using lz4.
+@return TRUE on success, FALSE on failure */
+UNIV_INTERN
+ibool
+page_zip_compress_lz4(
+	page_zip_des_t* page_zip,
+	const page_t* page,
+	dict_index_t* index,
+	uchar compression_flags,
+	mem_heap_t* heap)
+{
+	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+}
+
+/**********************************************************************//**
+Compress a page.
+@return TRUE on success, FALSE on failure; page_zip will be left
+intact on failure. */
+UNIV_INTERN
+ibool
+page_zip_compress(
+/*==============*/
+	page_zip_des_t* page_zip,/*!< in: size; out: data, n_blobs,
+	m_start, m_end, m_nonempty */
+	const page_t* page, /*!< in: uncompressed page */
+	dict_index_t* index, /*!< in: index of the B-tree node */
+	uchar global_compression_flags, /*!< in: zlib compression level and
+	other options */
+	mtr_t* mtr) /*!< in: mini-transaction, or NULL */
+{
+	page_zip_des_t new_page_zip;
+	ulint table_flags;
+	ibool ret;
+	mem_heap_t* heap = NULL;
+	uchar compression_flags;
+	ulint n_dense;
+#ifndef UNIV_HOTBACKUP
+	ulonglong time_diff;
+	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
+	fil_stats_t* stats;
+	ib_mutex_t* stats_mutex;
+	int comp_stats_page_size = 0;
+	ulonglong start = my_timer_now();
+	ulint trailer_len;
+	ulint space_id = page_get_space_id(page);
+#endif /* !UNIV_HOTBACKUP */
+
+	/* A local copy of srv_cmp_per_index_enabled to avoid reading that
+	variable multiple times in this function since it can be changed at
+	anytime. */
+	my_bool	cmp_per_index_enabled = srv_cmp_per_index_enabled;
+
+	/* We prefer getting the table_flags from table stats because its mutex
+	is partitioned, but if that is not possible we fall back to getting the
+	table flags from the space object which is protected by a global
+	mutex. */
+	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
+	if (UNIV_LIKELY(!!stats)) {
+		table_flags = stats->table_flags;
+		mutex_exit(stats_mutex);
+	} else {
+		mutex_exit(stats_mutex);
+		table_flags = fil_space_get_flags(space_id);
+	}
+
+	memset(&new_page_zip, 0, sizeof(new_page_zip));
+	new_page_zip.ssize = page_zip->ssize;
+
+	ut_a(page_is_comp(page));
+	ut_a(fil_page_get_type(page) == FIL_PAGE_INDEX);
+	ut_ad(page_simple_validate_new((page_t*) page));
+	ut_ad(page_zip_simple_validate(page_zip));
+	ut_ad(dict_table_is_comp(index->table));
+	ut_ad(!dict_index_is_ibuf(index));
+
+	UNIV_MEM_ASSERT_RW(page, UNIV_PAGE_SIZE);
+
+	/* Check the data that will be omitted. */
+	ut_a(!memcmp(page + (PAGE_NEW_INFIMUM - REC_N_NEW_EXTRA_BYTES),
+	             infimum_extra, sizeof infimum_extra));
+	ut_a(!memcmp(page + PAGE_NEW_INFIMUM,
+	             infimum_data, sizeof infimum_data));
+	ut_a(page[PAGE_NEW_SUPREMUM - REC_N_NEW_EXTRA_BYTES]
+	     /* info_bits == 0, n_owned <= max */
+	     <= PAGE_DIR_SLOT_MAX_N_OWNED);
+	ut_a(!memcmp(page + (PAGE_NEW_SUPREMUM - REC_N_NEW_EXTRA_BYTES + 1),
+	             supremum_extra_data, sizeof supremum_extra_data));
+
+	if (page_is_empty(page)) {
+		ut_a(rec_get_next_offs(page + PAGE_NEW_INFIMUM, TRUE)
+		     == PAGE_NEW_SUPREMUM);
+	}
+
+	/* The dense directory excludes the infimum and supremum records. */
+	n_dense = page_dir_get_n_heap(page) - PAGE_HEAP_NO_USER_LOW;
+
+#ifndef UNIV_HOTBACKUP
+	zip_stat->compressed++;
+	if (cmp_per_index_enabled) {
+		mutex_enter(&page_zip_stat_per_index_mutex);
+		page_zip_stat_per_index[index->id].compressed++;
+		mutex_exit(&page_zip_stat_per_index_mutex);
+	}
+	if (dict_index_is_clust(index)) {
+		zip_stat->compressed_primary++;
+	} else {
+		zip_stat->compressed_secondary++;
+	}
+	comp_stats_page_size = UNIV_ZIP_SIZE_MIN << (page_zip->ssize - 1);
+#endif
+
+
+	if (UNIV_UNLIKELY(n_dense * PAGE_ZIP_DIR_SLOT_SIZE
+			  >= page_zip_get_size(page_zip))) {
+
+		goto err_exit;
+	}
+
+	MONITOR_INC(MONITOR_PAGE_COMPRESS);
+
+	/* Simulate a compression failure with a probability determined by
+	innodb_simulate_comp_failures, only if the page has 2 or more
+	records. */
+	if (srv_simulate_comp_failures
+	    && zip_failure_threshold_pct == 0
+	    && page_get_n_recs(page) >= 2
+	    && ((ulint)(rand() % 100) < srv_simulate_comp_failures)) {
+#ifdef UNIV_DEBUG
+		fprintf(stderr,
+			"InnoDB: Simulating a compression failure"
+			" for table %s, index %s, page %lu (%s)\n",
+			index->table_name,
+			index->name,
+			page_get_page_no(page),
+			page_is_leaf(page) ? "leaf" : "non-leaf");
+#endif
+		goto err_exit;
+	}
+
+	heap = mem_heap_create_cached(COMPRESS_MEM_SIZE_MAX,
+				      malloc_cache_compress);
+	compression_flags = (table_flags & DICT_TF_MASK_COMP_FLAGS)
+			    >> DICT_TF_POS_COMP_FLAGS;
+	switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
+	case DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE:
+		/* compression that uses zlib's streaming interface */
+		ret = page_zip_compress_zlib_stream(&new_page_zip, page, index,
+						    global_compression_flags,
+						    heap);
+		break;
+	case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
+		/* new compression using zlib */
+		ret = page_zip_compress_zlib(&new_page_zip, page, index,
+					     compression_flags, heap);
+		break;
+	case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
+		/* new compression using bzip2 */
+		ret = page_zip_compress_bzip(&new_page_zip, page, index,
+					     compression_flags, heap);
+		break;
+	case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
+		/* new compression using lzma */
+		ret = page_zip_compress_lzma(&new_page_zip, page, index,
+					     compression_flags, heap);
+		break;
+	case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
+		/* new compression using snappy */
+		ret = page_zip_compress_snappy(&new_page_zip, page, index,
+					       compression_flags, heap);
+		break;
+	case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
+		/* new compression using quicklz */
+		ret = page_zip_compress_quicklz(&new_page_zip, page, index,
+						compression_flags, heap);
+		break;
+	case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
+		/* new compression using lz4 */
+		ret = page_zip_compress_lz4(&new_page_zip, page, index,
+					    compression_flags, heap);
+		break;
+	default:
+		fprintf(stderr,
+			"InnoDB: unknown compression type %lu\n",
+			(table_flags & DICT_TF_MASK_COMP_TYPE)
+			>> DICT_TF_POS_COMP_TYPE);
+		ut_error;
+		break;
+	}
+
+	if (UNIV_UNLIKELY(!ret)) {
+err_exit:
+		if (heap)
+			mem_heap_free(heap);
 #ifndef UNIV_HOTBACKUP
 		if (page_is_leaf(page)) {
 			dict_index_zip_failure(index);
 		}
 
-		ulonglong time_diff = my_timer_since(start);
+		time_diff = my_timer_since(start);
 		zip_stat->compressed_time += time_diff;
 		if (dict_index_is_clust(index)) {
 			zip_stat->compressed_primary_time += time_diff;
@@ -2417,8 +2629,8 @@ err_exit:
 			zip_stat->compressed_secondary_time += time_diff;
 		}
 
-		stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
 		if (stats) {
+			mutex_enter(stats_mutex);
 			stats->comp_stats.page_size = comp_stats_page_size;
 			++stats->comp_stats.compressed;
 			stats->comp_stats.compressed_time += time_diff;
@@ -2431,8 +2643,8 @@ err_exit:
 					- dict_index_zip_pad_optimal_page_size(
 						index);
 			}
+			mutex_exit(stats_mutex);
 		}
-		mutex_exit(stats_mutex);
 
 		if (cmp_per_index_enabled) {
 			mutex_enter(&page_zip_stat_per_index_mutex);
@@ -2444,27 +2656,11 @@ err_exit:
 		return(FALSE);
 	}
 
-	err = deflateEnd(&c_stream);
-	ut_a(err == Z_OK);
-
-	ut_ad(new_page_zip.data + PAGE_DATA + c_stream.total_out
-	      == c_stream.next_out);
-	ut_ad((ulint) (page_zip_dir_start(&new_page_zip)
-	      - c_stream.next_out) >= c_stream.avail_out);
-
-	/* Valgrind believes that zlib does not initialize some bits
-	in the last 7 or 8 bytes of the stream.  Make Valgrind happy. */
-	UNIV_MEM_VALID(new_page_zip.data + PAGE_DATA, c_stream.total_out);
-
-	/* Zero out the area reserved for the modification log.
-	Space for the end marker of the modification log is not
-	included in avail_out. */
-	memset(c_stream.next_out, 0, c_stream.avail_out + 1/* end marker */);
 
 #ifdef UNIV_DEBUG
 	page_zip->m_start =
 #endif /* UNIV_DEBUG */
-		page_zip->m_end = PAGE_DATA + c_stream.total_out;
+	page_zip->m_end = new_page_zip.m_end;
 	page_zip->m_nonempty = FALSE;
 	page_zip->n_blobs = new_page_zip.n_blobs;
 	/* Copy those header fields that will not be written
@@ -2477,7 +2673,23 @@ err_exit:
 	/* Copy the rest of the compressed page */
 	memcpy(page_zip->data + PAGE_DATA, new_page_zip.data + PAGE_DATA,
 	       page_zip_get_size(page_zip) - PAGE_DATA);
+	/* Done with new_page_zip->data, free the heap */
+	ut_ad(heap);
 	mem_heap_free(heap);
+
+	/* UNIV_MEM_VALID() is needed here because we need to compute the
+	trailer length here but page_zip_get_trailer_len() requires the
+	entirety of the compressed page be initialized even though it does
+	not use it. */
+	UNIV_MEM_VALID(page_zip->data, page_zip_get_size(page_zip));
+
+	trailer_len = page_zip_get_trailer_len(page_zip,
+					       dict_index_is_clust(index));
+
+	/* Zero out the area reserved for the modification log. */
+	memset(page_zip->data + page_zip->m_end,
+	       0,
+	       page_zip_get_size(page_zip) - page_zip->m_end - trailer_len);
 
 	if (UNIV_UNLIKELY(page_zip_debug)) {
 		ut_a(page_zip_validate(page_zip, page, index));
@@ -2491,18 +2703,8 @@ err_exit:
 
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
-#ifdef UNIV_DEBUG
-	if (logfile) {
-		/* Record the compressed size of the block. */
-		byte sz[4];
-		mach_write_to_4(sz, c_stream.total_out);
-		fseek(logfile, UNIV_PAGE_SIZE, SEEK_SET);
-		blind_fwrite(sz, 1, sizeof sz, logfile);
-		fclose(logfile);
-	}
-#endif /* UNIV_DEBUG */
 #ifndef UNIV_HOTBACKUP
-	ulonglong time_diff = my_timer_since(start);
+	time_diff = my_timer_since(start);
 	zip_stat->compressed_ok++;
 	zip_stat->compressed_time += time_diff;
 	zip_stat->compressed_ok_time += time_diff;
@@ -2516,8 +2718,8 @@ err_exit:
 		zip_stat->compressed_secondary_ok_time += time_diff;
 	}
 
-	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
 	if (stats) {
+		mutex_enter(stats_mutex);
 		++stats->comp_stats.compressed;
 		stats->comp_stats.page_size = comp_stats_page_size;
 		++stats->comp_stats.compressed_ok;
@@ -2535,8 +2737,8 @@ err_exit:
 				UNIV_PAGE_SIZE
 				- dict_index_zip_pad_optimal_page_size(index);
 		}
+		mutex_exit(stats_mutex);
 	}
-	mutex_exit(stats_mutex);
 
 	if (cmp_per_index_enabled) {
 		mutex_enter(&page_zip_stat_per_index_mutex);
