@@ -238,7 +238,7 @@ fil_system->stats_hash.
 */
 typedef struct fil_stats_struct {
 	hash_node_t	stats_next;	/*!< hash chain node */
-	// comp_stat_t	comp_stat;	/*!< compression counters */
+	comp_stat_t	comp_stat;	/*!< compression counters */
 	ulint		id;		/*!< space id */
 	int		n_lock_wait;	/*!< number of row lock wait */
 	int		n_lock_wait_timeout;	/*!< number of row lock
@@ -322,7 +322,6 @@ struct fil_space_t {
 	UT_LIST_NODE_T(fil_space_t) space_list;
 				/*!< list of all spaces */
 	os_io_perf2_t	io_perf2;/*!< per tablespace IO perf counters */
-	comp_stat_t     comp_stat; /*!< per tablespace compression counters */
 	fil_stats_t	stats;	/*!< per tablespace stats used in stats_hash */
 	/* If NAME_LEN were visible to InnoDB source, it would be used,
 	instead of FN_LEN+1. */
