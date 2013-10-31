@@ -2120,7 +2120,8 @@ page_zip_compress(
 #ifndef UNIV_HOTBACKUP
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
 	int comp_stat_page_size = 0;
-	fil_space_t* space;
+	fil_stats_t* stats;
+	ib_mutex_t* stats_mutex;
 	uint level;
 	uint wrap;
 	uint strategy;
@@ -2137,7 +2138,6 @@ page_zip_compress(
 	window_bits = wrap ? UNIV_PAGE_SIZE_SHIFT
 	                   : - ((int) UNIV_PAGE_SIZE_SHIFT);
 	ulint space_id = page_get_space_id(page);
-	ut_ad(fil_system);
 #endif /* !UNIV_HOTBACKUP */
 #ifdef UNIV_DEBUG
 	FILE*		logfile = NULL;
@@ -2407,23 +2407,23 @@ err_exit:
 		} else {
 			zip_stat->compressed_secondary_time += time_diff;
 		}
-		mutex_enter(&fil_system->mutex);
-		space = fil_space_get_by_id(space_id);
-		if (space) {
-			space->comp_stat.compressed++;
-			if (space_id)
-				space->comp_stat.page_size =
-					comp_stat_page_size;
-			space->comp_stat.compressed_time += time_diff;
+
+		stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
+		if (stats) {
+			stats->comp_stat.page_size = comp_stat_page_size;
+			++stats->comp_stat.compressed;
+			stats->comp_stat.compressed_time += time_diff;
 			if (dict_index_is_clust(index)) {
-				space->comp_stat.compressed_primary++;
-				space->comp_stat.compressed_primary_time +=
+				++stats->comp_stat.compressed_primary;
+				stats->comp_stat.compressed_primary_time +=
 					time_diff;
-				space->comp_stat.padding =
-				  UNIV_PAGE_SIZE - dict_index_zip_pad_optimal_page_size(index);
+				stats->comp_stat.padding =
+					UNIV_PAGE_SIZE
+					- dict_index_zip_pad_optimal_page_size(
+						index);
 			}
 		}
-		mutex_exit(&fil_system->mutex);
+		mutex_exit(stats_mutex);
 
 		if (cmp_per_index_enabled) {
 			mutex_enter(&page_zip_stat_per_index_mutex);
@@ -2507,26 +2507,27 @@ err_exit:
 		zip_stat->compressed_secondary_ok_time += time_diff;
 	}
 
-	mutex_enter(&fil_system->mutex);
-	space = fil_space_get_by_id(space_id);
-	if (space) {
-		space->comp_stat.compressed++;
-		if (space_id)
-			space->comp_stat.page_size = comp_stat_page_size;
-		space->comp_stat.compressed_ok++;
-		space->comp_stat.compressed_time += time_diff;
-		space->comp_stat.compressed_ok_time += time_diff;
+	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
+	if (stats) {
+		++stats->comp_stat.compressed;
+		stats->comp_stat.page_size = comp_stat_page_size;
+		++stats->comp_stat.compressed_ok;
+		stats->comp_stat.compressed_time += time_diff;
+		stats->comp_stat.compressed_ok_time += time_diff;
 		if (dict_index_is_clust(index)) {
-			space->comp_stat.compressed_primary++;
-			space->comp_stat.compressed_primary_ok++;
-			space->comp_stat.compressed_primary_time += time_diff;
-			space->comp_stat.compressed_primary_ok_time += time_diff;
-			/* only update the padding for table if this is the primary index */
-			space->comp_stat.padding =
-			  UNIV_PAGE_SIZE - dict_index_zip_pad_optimal_page_size(index);
+			++stats->comp_stat.compressed_primary;
+			++stats->comp_stat.compressed_primary_ok;
+			stats->comp_stat.compressed_primary_time += time_diff;
+			stats->comp_stat.compressed_primary_ok_time +=
+				time_diff;
+			/* only update the padding for table if this is the
+			primary index */
+			stats->comp_stat.padding =
+				UNIV_PAGE_SIZE
+				- dict_index_zip_pad_optimal_page_size(index);
 		}
 	}
-	mutex_exit(&fil_system->mutex);
+	mutex_exit(stats_mutex);
 
 	if (cmp_per_index_enabled) {
 		mutex_enter(&page_zip_stat_per_index_mutex);
@@ -3654,9 +3655,9 @@ page_zip_decompress_low(
 #ifndef UNIV_HOTBACKUP
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
 	ulonglong start = my_timer_now();
-	fil_space_t* space;
 	int comp_stat_page_size;
-	ut_ad(fil_system);
+	fil_stats_t* stats;
+	ib_mutex_t* stats_mutex;
 #endif /* !UNIV_HOTBACKUP */
 
 	ut_ad(page_zip_simple_validate(page_zip));
@@ -3881,15 +3882,16 @@ err_exit:
 		zip_stat->decompressed_secondary_time += time_diff;
 	}
 	comp_stat_page_size = UNIV_ZIP_SIZE_MIN << (page_zip->ssize - 1);
-	mutex_enter(&fil_system->mutex);
-	space = fil_space_get_by_id(space_id);
-	if (space) {
-		space->comp_stat.decompressed++;
-		space->comp_stat.decompressed_time += time_diff;
+
+	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
+	if (stats) {
+		++stats->comp_stat.decompressed;
+		stats->comp_stat.decompressed_time += time_diff;
 		if (space_id)
-			space->comp_stat.page_size = comp_stat_page_size;
+			stats->comp_stat.page_size = comp_stat_page_size;
 	}
-	mutex_exit(&fil_system->mutex);
+	mutex_exit(stats_mutex);
+
 	index_id_t	index_id = btr_page_get_index_id(page);
 
 	if (srv_cmp_per_index_enabled) {

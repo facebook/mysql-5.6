@@ -390,7 +390,7 @@ fil_update_table_stats_one_cell(
 			read_arr_primary[found] = space->io_perf2.read_primary;
 			read_arr_secondary[found] = space->io_perf2.read_secondary;
 			page_stats_arr[found] = space->io_perf2.page_stats;
-			comp_stat_arr[found] = space->comp_stat;
+			comp_stat_arr[found] = space->stats.comp_stat;
 			n_lock_wait_arr[found] = space->stats.n_lock_wait;
 			n_lock_wait_timeout_arr[found] =
 				space->stats.n_lock_wait_timeout;
@@ -1569,7 +1569,7 @@ fil_space_create(
 	my_io_perf_init(&(space->io_perf2.read_primary));
 	my_io_perf_init(&(space->io_perf2.read_secondary));
 	memset(&(space->io_perf2.page_stats), 0, sizeof space->io_perf2.page_stats);
-	memset(&(space->comp_stat), 0, sizeof space->comp_stat);
+	memset(&(space->stats.comp_stat), 0, sizeof space->stats.comp_stat);
 	space->stats.n_lock_wait = 0;
 	space->stats.n_lock_wait_timeout = 0;
 	space->stats.id = id;
