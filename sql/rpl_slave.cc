@@ -6845,11 +6845,6 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
 
   case PREVIOUS_GTIDS_LOG_EVENT:
   {
-    if (gtid_mode == 0)
-    {
-      error= ER_FOUND_GTID_EVENT_WHEN_GTID_MODE_IS_OFF;
-      goto err;
-    }
     /*
       This event does not have any meaning for the slave and
       was just sent to show the slave the master is making
