@@ -3882,6 +3882,7 @@ public:
     are owned by this thread.
   */
   Gtid_set owned_gtid_set;
+  my_bool should_write_gtid;
 
   void clear_owned_gtids()
   {
