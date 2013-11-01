@@ -150,6 +150,19 @@ change master to master_auto_position=1;
 -- connection master
 sync_slave_with_master;
 select * from t1;
+source include/stop_slave.inc;
+connection master;
+set @@global.read_only=1;
+insert into t1 values(900);
+insert into t1 values(1000);
+save_master_pos;
+connection slave;
+change master to master_auto_position=0;
+source include/start_slave.inc;
+
+sync_with_master;
+select count(*) from t1;
+
 -- replace_result $master_uuid master_uuid
 select @@global.gtid_executed;
 
