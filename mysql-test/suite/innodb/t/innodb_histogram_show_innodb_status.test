@@ -1,6 +1,32 @@
 source include/not_embedded.inc;
 source include/have_innodb.inc;
 
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1 (a int auto_increment primary key, b char(255)) engine=innodb;
+
+insert into t1 values (1, repeat('a', 255));
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+
+select count(*) from t1;
+
 let OUTPUT = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
 
 #This script extracts the section of output (of SHOW ENGINE INNODB STATUS) lying between the strings "Histograms" and "TABLESPACE".
@@ -104,29 +130,45 @@ foreach (@line = split(/\n/, $ENV{'OUTPUT'})) {
 }
 
 #Checking if the printed and calculated values of respective statistics match
+
 if ($total_async_reads == $sum_async_reads) {
   print "Histogram for Async Reads validated\n";
+} else {
+  print "total: $total_async_reads, sum: $sum_async_reads\n";
 }
-if  ($total_async_writes == $sum_async_writes) {
+if  ($total_async_writes + 1 >= $sum_async_writes) {
   print "Histogram for Async Writes validated\n";
+} else {
+  print "total: $total_async_writes, sum: $sum_async_writes\n";
 }
 if  ($total_sync_reads == $sum_sync_reads) {
   print "Histogram for Sync Reads validated\n";
+} else {
+  print "total: $total_sync_reads, sum: $sum_sync_reads\n";
 }
 if  ($total_sync_writes == $sum_sync_writes) {
   print "Histogram for Sync Writes validated\n";
+} else {
+  print "total: $total_sync_writes, sum: $sum_sync_writes\n";
 }
 if  ($total_log_writes == $sum_log_writes) {
   print "Histogram for Log Writes validated\n";
+} else {
+  print "total: $total_log_writes, sum: $sum_log_writes\n";
 }
 if  ($total_double_writes == $sum_double_writes) {
   print "Histogram for Doublebuffer Writes validated\n";
+} else {
+  print "total: $total_double_writes, sum: $sum_double_writes\n";
 }
 if  ($total_fsyncs == $sum_fsyncs) {
   print "Histogram for Fsyncs validated\n";
+} else {
+  print "total: $total_fsyncs, sum: $sum_fsyncs\n";
 }
 print "\n";
 
 EOF
 
+DROP TABLE t1;
 --echo Done
