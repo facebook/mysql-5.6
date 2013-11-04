@@ -1,3 +1,25 @@
+DROP TABLE IF EXISTS t1;
+create table t1 (a int auto_increment primary key, b char(255)) engine=innodb;
+insert into t1 values (1, repeat('a', 255));
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+select count(*) from t1;
+count(*)
+65536
 Histograms:	
 	
 Async Reads	
@@ -144,4 +166,5 @@ Histogram for Log Writes validated
 Histogram for Doublebuffer Writes validated
 Histogram for Fsyncs validated
 
+DROP TABLE t1;
 Done
