@@ -20,7 +20,8 @@ SELECT VARIABLE_VALUE FROM INFORMATION_SCHEMA.SESSION_VARIABLES WHERE VARIABLE_N
 CREATE TABLE t1 (a INT) ENGINE=InnoDB;
 INSERT INTO t1 VALUES (1);
 SET autocommit=0;
-SET innodb_fake_changes=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
 BEGIN;
 INSERT INTO t1 VALUES (2);
 UPDATE t1 SET a=0;
@@ -28,13 +29,13 @@ DELETE FROM t1 LIMIT 1;
 SELECT * FROM t1;
 --error 1180
 COMMIT;
-SET innodb_fake_changes=default;
+--source include/stop_fake_changes.inc
 DROP TABLE t1;
 
 --echo # DDL must result in error
 CREATE TABLE t1 (a INT) ENGINE=InnoDB;
 SET autocommit=0;
-SET innodb_fake_changes=1;
+--source include/start_fake_changes.inc
 BEGIN;
 --error 1031
 CREATE TABLE t2 (a INT) ENGINE=InnoDB;
@@ -45,5 +46,5 @@ TRUNCATE TABLE t1;
 --error 1180
 ALTER TABLE t1 ENGINE=MyISAM;
 ROLLBACK;
-SET innodb_fake_changes=default;
+--source include/stop_fake_changes.inc
 DROP TABLE t1;

@@ -23,7 +23,8 @@ SET autocommit=1;
 SELECT * FROM t1;
 SELECT * FROM t2;
 SELECT a FROM t3;
-SET innodb_fake_changes=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
 
 --error ER_ERROR_DURING_COMMIT
 SELECT * FROM t1;
@@ -108,7 +109,7 @@ SELECT * FROM t3;
 --error ER_ERROR_DURING_COMMIT
 create index bx on t1(b);
 
-SET innodb_fake_changes=default;
+--source include/stop_fake_changes.inc
 INSERT INTO t1 VALUES (3,3);
 INSERT INTO t2 VALUES (3,3);
 INSERT INTO t3 VALUES (3,lpad('r',12000, 't'));
