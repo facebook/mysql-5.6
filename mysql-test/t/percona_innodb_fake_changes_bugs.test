@@ -11,7 +11,8 @@ CREATE TABLE t1 (a INT primary key, b int, unique key (b)) ENGINE=InnoDB;
 INSERT INTO t1 VALUES (1,1);
 
 SET autocommit=1;
-SET innodb_fake_changes=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
 
 --echo # Confirm that duplicate key errors on REPLACE works
 
@@ -52,7 +53,7 @@ INSERT INTO t1 VALUES (1,1) ON DUPLICATE KEY UPDATE b=b+10;
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (1,2) ON DUPLICATE KEY UPDATE b=b+10;
 
-SET innodb_fake_changes=0;
+--source include/stop_fake_changes.inc
 SELECT * from t1;
 
 DROP TABLE t1;

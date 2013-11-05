@@ -15,7 +15,8 @@ INSERT INTO t1 VALUES (1);
 --echo # SELECT FOR UPDATE gets S not X with fake changes
 --connection conn1
 SET autocommit=0;
-SET innodb_fake_changes=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
 BEGIN;
 SELECT * FROM t1 FOR UPDATE;
 --connection default
@@ -35,54 +36,11 @@ ROLLBACK;
 --connection conn1
 ROLLBACK;
 
+--source include/stop_fake_changes.inc
 SET global innodb_fake_changes_locks=0;
-#wait for counters to update
-sleep 5;
---echo # Confirm table_stats, user_stats and SHOW STATUS counters are not updated during fake updates
-
-SELECT VARIABLE_VALUE INTO @i1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
-SELECT VARIABLE_VALUE INTO @d1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
-SELECT VARIABLE_VALUE INTO @u1 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
-
-SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED into @ti1, @tu1, @td1
-FROM INFORMATION_SCHEMA.TABLE_STATISTICS
-WHERE TABLE_NAME='t1' and TABLE_SCHEMA='test';
-
-SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED into @ui1, @uu1, @ud1
-FROM INFORMATION_SCHEMA.USER_STATISTICS
-WHERE USER_NAME='root';
-
-BEGIN;
-INSERT INTO t1 VALUES (2);
-SELECT * FROM t1;
-DELETE FROM t1;
-SELECT * FROM t1;
-UPDATE t1 set a = 3;
-SELECT * FROM t1;
-ROLLBACK;
-
-SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED into @ti2, @tu2, @td2
-FROM INFORMATION_SCHEMA.TABLE_STATISTICS
-WHERE TABLE_NAME='t1' and TABLE_SCHEMA='test';
-
-SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED into @ui2, @uu2, @ud2
-FROM INFORMATION_SCHEMA.USER_STATISTICS
-WHERE USER_NAME='root';
-
-SELECT VARIABLE_VALUE INTO @i2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
-SELECT VARIABLE_VALUE INTO @d2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
-SELECT VARIABLE_VALUE INTO @u2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
---disable_query_log
-SELECT @ti2 - @ti1 as idiff, @tu2 - @tu1 as udiff, @td2 - @td1 as ddiff;
-SELECT @ui2 - @ui1 as idiff, @uu2 - @uu1 as udiff, @ud2 - @ud1 as ddiff;
-SELECT @i2 - @i1 as diff;
-SELECT @d2 - @d1 as diff;
-SELECT @u2 - @u1 as diff;
---enable_query_log
 
 --connection default
 --disconnect conn1
-SET innodb_fake_changes=default;
 SET global innodb_fake_changes_locks=default;
 DROP TABLE t1;
 
@@ -91,13 +49,12 @@ DROP TABLE t1;
 CREATE TABLE t1 (a INT PRIMARY KEY, b INT) engine = InnoDB;
 INSERT INTO t1 VALUES (1,2);
 SHOW INDEX FROM t1;
-SET innodb_fake_changes = 1;
+--source include/start_fake_changes.inc
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);
-SET innodb_fake_changes = 0;
+--source include/stop_fake_changes.inc
 INSERT INTO t1 VALUES (5,9);
 SHOW INDEX FROM t1;
-SET innodb_fake_changes = 0;
 DROP TABLE t1;

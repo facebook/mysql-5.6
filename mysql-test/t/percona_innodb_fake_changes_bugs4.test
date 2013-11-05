@@ -8,10 +8,11 @@ INSERT INTO t1 VALUES(3, '');
 INSERT INTO t1 VALUES(4, '');
 
 DELETE FROM t1 WHERE id = 4;
-SET innodb_fake_changes=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (4, lpad('a',12000,'b'));
-SET innodb_fake_changes=0;
+--source include/stop_fake_changes.inc
 SELECT * FROM t1;
 DROP TABLE t1;
 
@@ -26,12 +27,12 @@ connection default;
 SET DEBUG_SYNC = 'now WAIT_FOR created';
 
 SHOW INDEX FROM t1;
-SET innodb_fake_changes = 1;
+--source include/start_fake_changes.inc
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);
-SET innodb_fake_changes = 0;
+--source include/stop_fake_changes.inc
 SET DEBUG_SYNC = 'now SIGNAL dml_done';
 connection con1;
 reap;

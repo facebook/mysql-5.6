@@ -26,7 +26,8 @@ dec $x;
 --enable_query_log
 select count(*) from t1;
 
-SET innodb_fake_changes=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
 
 --echo Test fake changes
 --disable_query_log
@@ -39,8 +40,7 @@ dec $x;
 }
 --enable_query_log
 
-SET innodb_fake_changes=0;
-select count(*) from t1;
+--source include/stop_fake_changes.inc
 DROP TABLE t1;
 
 --echo Test for uncompressed
@@ -59,7 +59,7 @@ dec $x;
 --enable_query_log
 select count(*) from t1;
 
-SET innodb_fake_changes=1;
+--source include/start_fake_changes.inc
 
 --echo Test fake changes
 --disable_query_log
@@ -72,11 +72,9 @@ dec $x;
 }
 --enable_query_log
 
-SET innodb_fake_changes=0;
-select count(*) from t1;
+--source include/stop_fake_changes.inc
 DROP TABLE t1;
 
 # restore innodb_file_format and innodb_file_format_check
 eval SET GLOBAL innodb_file_format = \"$file_format_save\";
 eval SET GLOBAL innodb_file_format_max = \"$file_format_max_save\";
-
