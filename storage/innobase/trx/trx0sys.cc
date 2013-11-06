@@ -311,7 +311,7 @@ trx_sys_print_mysql_binlog_offset(void)
 		trx_sys_mysql_bin_log_name);
 
 	fprintf(stderr,
-		"InnoDB: Last MySQL Gtid %s\n,",
+		"InnoDB: Last MySQL Gtid %s\n",
 		sys_header + TRX_SYS_MYSQL_LOG_INFO +
 		TRX_SYS_MYSQL_GTID);
 	mtr_commit(&mtr);
