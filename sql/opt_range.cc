@@ -5009,7 +5009,6 @@ static double ror_scan_selectivity(const ROR_INTERSECT_INFO *info,
                                     key_part[sel_arg->part].fieldnr-1));
     if (cur_covered != prev_covered)
     {
-      THD* thd = current_thd;
       /* create (part1val, ..., part{n-1}val) tuple. */
       bool is_null_range= false;
       ha_rows records;
@@ -5051,19 +5050,8 @@ static double ror_scan_selectivity(const ROR_INTERSECT_INFO *info,
       {
         DBUG_EXECUTE_IF("crash_records_in_range", DBUG_SUICIDE(););
         DBUG_ASSERT(min_range.length > 0);
-        ulonglong range_timer = my_timer_now();
         records= (table->file->
                   records_in_range(scan->keynr, &min_range, &max_range));
-        if (thd)
-        {
-          USER_STATS *us= thd_get_user_stats(thd);
-          ulonglong range_microsecs =
-            (ulonglong) my_timer_to_microseconds(my_timer_since(range_timer));
-          my_atomic_add64((longlong*)&(us->microseconds_records_in_range),
-                          range_microsecs);
-          my_atomic_add64((longlong*)&(us->records_in_range_calls), 1);
-        }
-
       }
       if (cur_covered)
       {

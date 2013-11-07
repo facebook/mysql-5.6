@@ -7330,11 +7330,6 @@ ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
     examined_parts_rows += m_file[part_id]->stats.records;
 
     rows= m_file[part_id]->records_in_range(inx, min_key, max_key);
-    if (thd)
-    {
-      USER_STATS *us= thd_get_user_stats(thd);
-      my_atomic_add64((longlong*)&(us->records_in_range_calls), 1);
-    }
 
     DBUG_PRINT("info", ("part %u match %lu rows of %lu", part_id, (ulong) rows,
                         (ulong) m_file[part_id]->stats.records));

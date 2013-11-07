@@ -238,8 +238,6 @@ typedef struct st_user_stats {
   ulonglong connections_total;             // total conns created
   ulonglong errors_access_denied;          // denied access to table or db
   ulonglong errors_total;
-  ulonglong microseconds_cpu;
-  ulonglong microseconds_records_in_range;
   ulonglong microseconds_wall;
   ulonglong microseconds_ddl;
   ulonglong microseconds_delete;
@@ -250,7 +248,6 @@ typedef struct st_user_stats {
   ulonglong microseconds_transaction;
   ulonglong microseconds_update;
   ulonglong queries_empty;
-  ulonglong records_in_range_calls;
   ulonglong relay_log_bytes_written;
   ulonglong rows_deleted;
   ulonglong rows_fetched;
