@@ -7,24 +7,21 @@ flush statistics;
 
 At start
 
-select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';;
-records_in_range_calls	0
+select queries_empty from information_schema.user_statistics where user_name = 'root';;
 queries_empty	0
 select * from userstats where i < 2;
 i	j
 1	1
 
-should be records_in_range_calls=1 and empty_queries=0
+should be empty_queries=0
 
-select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';;
-records_in_range_calls	1
+select queries_empty from information_schema.user_statistics where user_name = 'root';;
 queries_empty	0
 select * from userstats where i < 1;
 i	j
 
-should be records_in_range_calls=2 and empty_queries=1
+should be empty_queries=1
 
-select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';;
-records_in_range_calls	2
+select queries_empty from information_schema.user_statistics where user_name = 'root';;
 queries_empty	1
 drop table userstats;

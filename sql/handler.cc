@@ -5752,28 +5752,14 @@ handler::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
       rows= table->key_info[keyno].rec_per_key[keyparts_used-1];
     else
     {
-      ulonglong range_timer;
       DBUG_EXECUTE_IF("crash_records_in_range", DBUG_SUICIDE(););
       DBUG_ASSERT(min_endp || max_endp);
-      range_timer = my_timer_now();
       if (HA_POS_ERROR == (rows= this->records_in_range(keyno, min_endp, 
                                                         max_endp)))
       {
         /* Can't scan one range => can't do MRR scan at all */
         total_rows= HA_POS_ERROR;
         break;
-      }
-      else
-      {
-        if (thd)
-        {
-          USER_STATS *us= thd_get_user_stats(thd);
-          ulonglong range_microsecs =
-            (ulonglong) my_timer_to_microseconds(my_timer_since(range_timer));
-          my_atomic_add64((longlong*)&(us->microseconds_records_in_range),
-                               range_microsecs);
-          my_atomic_add64((longlong*)&(us->records_in_range_calls), 1);
-        }
       }
     }
     total_rows += rows;

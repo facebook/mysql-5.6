@@ -23,21 +23,21 @@ flush statistics;
 --echo
 --echo At start
 --echo
---query_vertical select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';
+--query_vertical select queries_empty from information_schema.user_statistics where user_name = 'root';
 
 select * from userstats where i < 2;
 
 --echo
---echo should be records_in_range_calls=1 and empty_queries=0
+--echo should be empty_queries=0
 --echo
---query_vertical select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';
+--query_vertical select queries_empty from information_schema.user_statistics where user_name = 'root';
 
 select * from userstats where i < 1;
 
 --echo
---echo should be records_in_range_calls=2 and empty_queries=1
+--echo should be empty_queries=1
 --echo
---query_vertical select records_in_range_calls, queries_empty from information_schema.user_statistics where user_name = 'root';
+--query_vertical select queries_empty from information_schema.user_statistics where user_name = 'root';
 
 # Cleanup
 drop table userstats;
