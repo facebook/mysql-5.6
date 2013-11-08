@@ -2670,6 +2670,13 @@ err_exit:
 	/* Done with new_page_zip->data, free the heap */
 	ut_ad(heap);
 	mem_heap_free(heap);
+
+	/* UNIV_MEM_VALID() is needed here because we need to compute the
+	trailer length here but page_zip_get_trailer_len() requires the
+	entirety of the compressed page be initialized even though it does
+	not use it. */
+	UNIV_MEM_VALID(page_zip->data, page_zip_get_size(page_zip));
+
 	trailer_len = page_zip_get_trailer_len(page_zip,
 					       dict_index_is_clust(index));
 
