@@ -84,6 +84,8 @@ def corrupt_random_page(pages_in_dblwr, ibd_map):
   new_page = page[:offset] + 'NIZAM' + page[offset + 5:]
   f.seek(UNIV_PAGE_SIZE * page_no)
   f.write(new_page)
+  f.flush()
+  os.fsync(f.fileno())
   f.close()
   return space_id, page_no, page
 
@@ -91,6 +93,8 @@ def uncorrupt_page(space_id, page_no, page, ibd_map):
     f = open(ibd_map[space_id], 'r+b')
     f.seek(UNIV_PAGE_SIZE * page_no)
     f.write(page)
+    f.flush()
+    os.fsync(f.fileno())
     f.close()
 
 class Command(object):
