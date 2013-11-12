@@ -10217,12 +10217,16 @@ skip_to_ssl:
 
     /* Do the SSL layering. */
     if (!ssl_acceptor_fd)
+    {
+      mysql_rwlock_unlock(&LOCK_use_ssl);
       return packet_error;
+    }
 
     DBUG_PRINT("info", ("IO layer change in progress..."));
     if (sslaccept(ssl_acceptor_fd, net->vio,
                   timeout_to_seconds(net->read_timeout), &errptr))
     {
+      mysql_rwlock_unlock(&LOCK_use_ssl);
       DBUG_PRINT("error", ("Failed to accept new SSL connection"));
       return packet_error;
     }
