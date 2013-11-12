@@ -256,11 +256,7 @@ void release_user_connection(THD *thd)
     mysql_mutex_lock(&LOCK_user_conn);
     DBUG_ASSERT(uc->connections > 0);
     thd->decrement_user_connections_counter();
-    if (!uc->connections && !mqh_used)
-    {
-      /* Last connection for user; Delete it */
-      (void) my_hash_delete(&hash_user_connections,(uchar*) uc);
-    }
+    /* To preserve data in uc->user_stats, delete is no longer done */
     mysql_mutex_unlock(&LOCK_user_conn);
     thd->set_user_connect(NULL);
   }
