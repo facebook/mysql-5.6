@@ -108,7 +108,6 @@ typedef struct internal_state {
 
     uInt  w_size;        /* LZ77 window size (32K by default) */
     uInt  w_bits;        /* log2(w_size)  (8..16) */
-    uInt  w_mask;        /* w_size - 1 */
 
     Bytef *window;
     /* Sliding window. Input bytes are read into the second half of the window,
