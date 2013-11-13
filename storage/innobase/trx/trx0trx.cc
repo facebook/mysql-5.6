@@ -112,6 +112,35 @@ static struct trx_block_struct* transaction_blocks = NULL;
 static trx_t *next_free_transaction = NULL;
 
 
+#ifdef UNIV_DEBUG_VALGRIND
+/********************************************************************//**
+Frees trx_t pool */
+UNIV_INTERN
+void
+trx_free_trx_pool()
+/*==============*/
+{
+	trx_t*  next;
+
+	/* Confirm that the list looks OK */
+	next = next_free_transaction;
+	while (next) {
+		ut_ad(next->magic_n == TRX_FREE_MAGIC_N);
+		next = next->next_free_trx;
+	}
+
+	next_free_transaction = NULL;
+
+	while (transaction_blocks) {
+		struct trx_block_struct *next_block =
+			transaction_blocks->next_block;
+		mem_free(transaction_blocks);
+		transaction_blocks = next_block;
+	}
+}
+#endif
+
+
 trx_t*
 trx_allocate()
 {

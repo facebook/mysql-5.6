@@ -1265,6 +1265,10 @@ trx_sys_close(void)
 
 	mem_free(trx_sys);
 
+#ifdef UNIV_DEBUG_VALGRIND
+	trx_free_trx_pool();
+#endif
+
 	trx_sys = NULL;
 }
 
