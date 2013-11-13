@@ -105,6 +105,14 @@ void
 trx_free_for_background(
 /*====================*/
 	trx_t*	trx);	/*!< in, own: trx object */
+#ifdef UNIV_DEBUG_VALGRIND
+/********************************************************************//**
+Frees trx_t pool */
+UNIV_INTERN
+void
+trx_free_trx_pool();
+/*==============*/
+#endif
 /********************************************************************//**
 At shutdown, frees a transaction object that is in the PREPARED state. */
 UNIV_INTERN
