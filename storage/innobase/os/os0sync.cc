@@ -395,6 +395,10 @@ os_sync_free(void)
 		os_mutex_exit(os_sync_mutex);
 	}
 
+#ifdef UNIV_DEBUG_VALGRIND
+	if (os_support != NULL)
+		ut_free(os_support);
+#endif
 }
 
 /*********************************************************//**
