@@ -447,7 +447,7 @@ async_mysql_real_connect_wrapper(MYSQL *mysql, const char *host,
   {
     t.check();
     int result = socket_event_listen(mysql->net.async_blocking_state,
-                                     mysql->net.fd);
+                                     mysql_get_file_descriptor(mysql));
     if (result == -1)
     {
       printf("real_connect(): Error in select. \n");
