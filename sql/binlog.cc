@@ -2613,9 +2613,14 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename,
   bool done= false;
   while (!done &&
          (ev= Log_event::read_log_event(&log, 0, fd_ev_p,
-                                        verify_checksum, NULL)) != NULL &&
-         ev->log_pos <= max_pos)
+                                        verify_checksum, NULL)) != NULL)
   {
+    if (ev->log_pos > max_pos)
+    {
+      if (ev != fd_ev_p)
+        delete ev;
+      break;
+    }
     DBUG_PRINT("info", ("Read event of type %s", ev->get_type_str()));
     switch (ev->get_type_code())
     {
