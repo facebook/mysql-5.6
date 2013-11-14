@@ -258,6 +258,7 @@ trx_lra_reset(
 			ut_a(trx->lra_cur);
 			hash_table_clear(trx->lra_ht1);
 			hash_table_clear(trx->lra_ht2);
+			btr_pcur_reset(trx->lra_cur);
 			trx->lra_ht = trx->lra_ht1;
 #ifdef UNIV_DEBUG
 			/* following resets lra_sort_arr,
@@ -271,6 +272,7 @@ trx_lra_reset(
 			ut_a(!trx->lra_ht1);
 			ut_a(!trx->lra_ht2);
 			ut_a(!trx->lra_sort_arr);
+			ut_a(!trx->lra_cur);
 			trx->lra_ht1 = hash_create(16384);
 			trx->lra_ht2 = hash_create(16384);
 			trx->lra_ht = trx->lra_ht1;
