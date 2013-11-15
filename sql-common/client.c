@@ -1382,7 +1382,7 @@ void mysql_read_default_options(struct st_mysql_options *options,
 	  if (opt_arg) {
 	    options->connect_timeout = timeout_from_seconds(atoi(opt_arg));
 	    fixup_zero_timeout(&options->connect_timeout);
-          }
+	  }
 	  break;
 	case OPT_user:
 	  if (opt_arg)
