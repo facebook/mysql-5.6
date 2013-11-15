@@ -1305,6 +1305,17 @@ static int add_init_command(struct st_mysql_options *options, const char *cmd)
     } while(0)
 #endif
 
+
+/* Hack to convert 0 timeouts to infinite timeouts; we need value_ms_
+ to always be accurate, so we convert any zero passed to us via
+ mysql_options into infinite timeouts.  Used here and in
+ mysql_options.*/
+static void fixup_zero_timeout(timeout_t *t) {
+  if (t->value_ms_ == 0) {
+    *t = timeout_infinite();
+  }
+}
+
 void mysql_read_default_options(struct st_mysql_options *options,
 				const char *filename,const char *group)
 {
@@ -1368,8 +1379,10 @@ void mysql_read_default_options(struct st_mysql_options *options,
           options->protocol = MYSQL_PROTOCOL_PIPE;
 	case OPT_connect_timeout:
 	case OPT_timeout:
-	  if (opt_arg)
+	  if (opt_arg) {
 	    options->connect_timeout = timeout_from_seconds(atoi(opt_arg));
+	    fixup_zero_timeout(&options->connect_timeout);
+          }
 	  break;
 	case OPT_user:
 	  if (opt_arg)
@@ -2026,6 +2039,10 @@ mysql_init(MYSQL *mysql)
 
   mysql->options.methods_to_use= MYSQL_OPT_GUESS_CONNECTION;
   mysql->options.report_data_truncation= TRUE;  /* default */
+
+  mysql->options.connect_timeout = timeout_infinite();
+  mysql->options.read_timeout = timeout_infinite();
+  mysql->options.write_timeout = timeout_infinite();
 
   /*
     By default we don't reconnect because it could silently corrupt data (after
@@ -5617,21 +5634,27 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
   switch (option) {
   case MYSQL_OPT_CONNECT_TIMEOUT:
     mysql->options.connect_timeout = timeout_from_seconds((*(uint*) arg));
+    fixup_zero_timeout(&mysql->options.connect_timeout);
     break;
   case MYSQL_OPT_CONNECT_TIMEOUT_MS:
     mysql->options.connect_timeout = timeout_from_millis((*(uint*) arg));
+    fixup_zero_timeout(&mysql->options.connect_timeout);
     break;
   case MYSQL_OPT_READ_TIMEOUT:
     mysql->options.read_timeout = timeout_from_seconds((*(uint*) arg));
+    fixup_zero_timeout(&mysql->options.read_timeout);
     break;
   case MYSQL_OPT_READ_TIMEOUT_MS:
     mysql->options.read_timeout = timeout_from_millis((*(uint*) arg));
+    fixup_zero_timeout(&mysql->options.read_timeout);
     break;
   case MYSQL_OPT_WRITE_TIMEOUT:
     mysql->options.write_timeout = timeout_from_seconds((*(uint*) arg));
+    fixup_zero_timeout(&mysql->options.write_timeout);
     break;
   case MYSQL_OPT_WRITE_TIMEOUT_MS:
     mysql->options.write_timeout = timeout_from_millis((*(uint*) arg));
+    fixup_zero_timeout(&mysql->options.write_timeout);
     break;
   case MYSQL_OPT_COMPRESS:
     mysql->options.compress= 1;			/* Remember for connect */
