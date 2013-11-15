@@ -160,14 +160,14 @@ buf_dblwr_init(
 		mem_zalloc(buf_size * sizeof(bool)));
 
 	buf_dblwr->write_buf_unaligned = static_cast<byte*>(
-		ut_malloc((1 + buf_size) * UNIV_PAGE_SIZE));
+		mem_zalloc((1 + buf_size) * UNIV_PAGE_SIZE));
 
 	buf_dblwr->write_buf = static_cast<byte*>(
 		ut_align(buf_dblwr->write_buf_unaligned,
 			 UNIV_PAGE_SIZE));
 
 	buf_dblwr->header_unaligned = static_cast<byte*>(
-		ut_malloc(2 * BUF_DBLWR_HEADER_SIZE));
+		mem_zalloc(2 * BUF_DBLWR_HEADER_SIZE));
 
 	buf_dblwr->header = static_cast<byte*>(
 		ut_align(buf_dblwr->header_unaligned,
@@ -782,9 +782,9 @@ buf_dblwr_free(void)
 
 	os_event_free(buf_dblwr->b_event);
 	os_event_free(buf_dblwr->s_event);
-	ut_free(buf_dblwr->write_buf_unaligned);
+	mem_free(buf_dblwr->write_buf_unaligned);
 	buf_dblwr->write_buf_unaligned = NULL;
-	ut_free(buf_dblwr->header_unaligned);
+	mem_free(buf_dblwr->header_unaligned);
 	buf_dblwr->header_unaligned = NULL;
 	buf_dblwr->header = NULL;
 
