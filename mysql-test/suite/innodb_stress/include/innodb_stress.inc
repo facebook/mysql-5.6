@@ -45,6 +45,7 @@ call mtr.add_suppression("InnoDB: The transaction log size is too large for inno
 --connection master
 --let $pid_file = `SELECT @@pid_file`
 --let $crash_num = 0
+--let $num_crashes_tmp = $num_crashes
 --let $master_host = 127.0.0.1
 --let $table = test
 --let $user = root
@@ -80,7 +81,7 @@ $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 0 0 $no_defrag $document_tabl
     let $num_records = 0;
 }
 
-while ($num_crashes)
+while ($num_crashes_tmp)
 {
   connection master;
   exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect;
@@ -159,7 +160,7 @@ queries issued before the crash.;
 
     die;
   }
-  dec $num_crashes;
+  dec $num_crashes_tmp;
   inc $crash_num;
 }
 

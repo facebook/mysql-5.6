@@ -1,0 +1,38 @@
+#ifndef bzip_prefix_h
+#define bzip_prefix_h
+#define BZ2_blockSort innobase_bz_BZ2_blockSort
+#define BZ2_bsInitWrite innobase_bz_BZ2_bsInitWrite
+#define BZ2_bzBuffToBuffCompress innobase_bz_BZ2_bzBuffToBuffCompress
+#define BZ2_bzBuffToBuffDecompress innobase_bz_BZ2_bzBuffToBuffDecompress
+#define BZ2_bzCompress innobase_bz_BZ2_bzCompress
+#define BZ2_bzCompressEnd innobase_bz_BZ2_bzCompressEnd
+#define BZ2_bzCompressInit innobase_bz_BZ2_bzCompressInit
+#define BZ2_bzDecompress innobase_bz_BZ2_bzDecompress
+#define BZ2_bzDecompressEnd innobase_bz_BZ2_bzDecompressEnd
+#define BZ2_bzDecompressInit innobase_bz_BZ2_bzDecompressInit
+#define BZ2_bzRead innobase_bz_BZ2_bzRead
+#define BZ2_bzReadClose innobase_bz_BZ2_bzReadClose
+#define BZ2_bzReadGetUnused innobase_bz_BZ2_bzReadGetUnused
+#define BZ2_bzReadOpen innobase_bz_BZ2_bzReadOpen
+#define BZ2_bzWrite innobase_bz_BZ2_bzWrite
+#define BZ2_bzWriteClose innobase_bz_BZ2_bzWriteClose
+#define BZ2_bzWriteClose64 innobase_bz_BZ2_bzWriteClose64
+#define BZ2_bzWriteOpen innobase_bz_BZ2_bzWriteOpen
+#define BZ2_bz__AssertH__fail innobase_bz_BZ2_bz__AssertH__fail
+#define BZ2_bzclose innobase_bz_BZ2_bzclose
+#define BZ2_bzdopen innobase_bz_BZ2_bzdopen
+#define BZ2_bzerror innobase_bz_BZ2_bzerror
+#define BZ2_bzflush innobase_bz_BZ2_bzflush
+#define BZ2_bzlibVersion innobase_bz_BZ2_bzlibVersion
+#define BZ2_bzopen innobase_bz_BZ2_bzopen
+#define BZ2_bzread innobase_bz_BZ2_bzread
+#define BZ2_bzwrite innobase_bz_BZ2_bzwrite
+#define BZ2_compressBlock innobase_bz_BZ2_compressBlock
+#define BZ2_crc32Table innobase_bz_BZ2_crc32Table
+#define BZ2_decompress innobase_bz_BZ2_decompress
+#define BZ2_hbAssignCodes innobase_bz_BZ2_hbAssignCodes
+#define BZ2_hbCreateDecodeTables innobase_bz_BZ2_hbCreateDecodeTables
+#define BZ2_hbMakeCodeLengths innobase_bz_BZ2_hbMakeCodeLengths
+#define BZ2_indexIntoF innobase_bz_BZ2_indexIntoF
+#define BZ2_rNums innobase_bz_BZ2_rNums
+#endif /* bzip_prefix_h */
