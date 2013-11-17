@@ -56,6 +56,7 @@ using namespace std;
 # include "srv0srv.h"
 # include "zlib_embedded/zlib.h"
 # include "comp0zlib.h"
+# include "comp0bzip.h"
 #endif /* !UNIV_INNOCHECKSUM */
 # include "buf0lru.h"
 # include "srv0mon.h"
@@ -762,6 +763,23 @@ page_zip_free(
 }
 
 } /* extern "C" */
+
+/**********************************************************************//**
+Allocate memory for bzip. The only difference from zlib is that the integer
+arguments are signed rather than unsigned. */
+static
+void*
+page_zip_alloc_bzip(
+/*============*/
+	void*   opaque, /*!< in/out: memory heap */
+	int     items,  /*!< in: number of items to allocate */
+	int     size)   /*!< in: size of an item in bytes */
+{
+	void* m = mem_heap_alloc(static_cast<mem_heap_t*>(opaque),
+				 items * size);
+	UNIV_MEM_VALID(m, items * size);
+	return(m);
+}
 
 /**********************************************************************//**
 Configure the zlib allocator to use the given memory heap. */
@@ -2154,9 +2172,18 @@ Total memory needed by zlib compression in new style */
 	 + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
 						 MAX_MEM_LEVEL)))
 /***************************************************************//**
+Total memory needed by bzip compression in new style. See
+http://www.bzip.org/1.0.3/bzip2-manual-1.0.3.html#memory-management */
+#define PZ_MEM_COMP_BZIP \
+	(PZ_MEM_COMP_BASE \
+	 + PZ_MEM_SERIALIZE \
+	 + (1200L << 10))
+#define PZ_MAX3(a,b,c) max(max(a,b), c)
+/***************************************************************//**
 Maximum total memory that may be used by page_zip_compress() regardless of
 the compression algorithm */
-#define PZ_MEM_COMP_MAX max(PZ_MEM_COMP_ZLIB_STREAM, PZ_MEM_COMP_ZLIB)
+#define PZ_MEM_COMP_MAX \
+	PZ_MAX3(PZ_MEM_COMP_ZLIB_STREAM, PZ_MEM_COMP_ZLIB, PZ_MEM_COMP_BZIP)
 /***************************************************************//**
 Memory needed by page_zip_decompress_low(). memory used by the called
 functions is not included. See the comment to PZ_MEM_COMP_ZLIB_STREAM for
@@ -2186,9 +2213,19 @@ Total memory needed by zlib decompression in new style */
 	 + PZ_MEM_DESERIALIZE \
 	 + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT)))
 /***************************************************************//**
+Total memory needed by bzip decompression in new style. See
+http://www.bzip.org/1.0.3/bzip2-manual-1.0.3.html#memory-management */
+#define PZ_MEM_DECOMP_BZIP \
+       (PZ_MEM_DECOMP_BASE \
+        + PZ_MEM_DESERIALIZE \
+        + (500L << 10))
+/***************************************************************//**
 Maximum total memory that may be used by page_zip_decompress() regardless
 of the compression algorithm used */
-#define PZ_MEM_DECOMP_MAX max(PZ_MEM_DECOMP_ZLIB_STREAM, PZ_MEM_DECOMP_ZLIB)
+#define PZ_MEM_DECOMP_MAX \
+	PZ_MAX3(PZ_MEM_DECOMP_ZLIB_STREAM, \
+		PZ_MEM_DECOMP_ZLIB, \
+		PZ_MEM_DECOMP_BZIP)
 
 /* Calculates block size as an upper bound required for memory, used for
 page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
@@ -2624,23 +2661,53 @@ page_zip_compress_zlib(
 }
 
 /**********************************************************************//**
-Compress a page using bzip2.
+Compress a page using bzip2. Compression parameters packed into one byte
+compression_flags in the following manner:
+bits 0-1: verbosity. 0 <= verbosity <= 3, 4 is allowed for bzip, but we don't
+use 4.
+bits 2-6: workFactor / 8. 0 <= workFactor <= 250. See
+http://www.bzip.org/1.0.3/bzip2-manual-1.0.3.html for details on this parameter
 @return TRUE on success, FALSE on failure */
 UNIV_INTERN
 ibool
 page_zip_compress_bzip(
-	uchar compression_flags __attribute__((unused)),
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_out,
-	mem_heap_t* heap)
+	uchar compression_flags, /*!< in: compression flags described above. */
+	const byte* in, /*!< in: input buffer with data to be compressed */
+	ulint avail_in, /*!< in: size of the input buffer */
+	byte* out, /*!< out: output buffer into which the contents of in are
+		     going to be compressed. */
+	ulint avail_out, /*!< in: available space in the output buffer */
+	ulint* total_out, /*!< out: the total space used from the output buffer
+			    is written into this parameter */
+	mem_heap_t* heap) /*!< in/out: temporary memory heap */
 {
-	return page_zip_compress_zlib(0x6,
-	                              in, avail_in,
-	                              out, avail_out,
-	                              total_out, heap);
+	int verbosity = compression_flags & 0x3;
+	int workFactor = 8 * ((compression_flags & 0x7c) >> 2);
+
+	if (!workFactor) {
+		/* When workFactor is 0 bzip2 uses a default value of 30 for
+		   this parameter. This is bad. From bzip2 manual:
+		   "Parameter workFactor controls how the compression phase
+		   behaves when presented with worst case, highly repetitive,
+		   input data. If compression runs into difficulties caused by
+		   repetitive data, the library switches from the standard
+		   sorting algorithm to a fallback algorithm. The fallback is
+		   slower than the standard algorithm by perhaps a factor of
+		   three, but always behaves reasonably, no matter how bad the
+		   input."
+		   (nizamordulu): I tried workFactor=30 and loading data was
+		   painfully slow. Because our data is highly repetitive, the
+		   worst case of the standard sorting algorithm is realized. We
+		   therefore use workFactor=1 as default. This may be 3x worse
+		   than the standard sorting algorithm on average, however, it
+		   guarantees that the worst case performance is still
+		   acceptable. */
+		workFactor = 1;
+	}
+	return comp_bzip_compress(in, avail_in, out, avail_out, total_out,
+				  page_zip_alloc_bzip, page_zip_free,
+				  static_cast<void*>(heap), verbosity,
+				  workFactor);
 }
 
 /**********************************************************************//**
@@ -4396,16 +4463,8 @@ UNIV_INTERN
 ibool
 page_zip_decompress_zlib(
 	uchar compression_flags, /*!< in: compression parameters packed into
-				   one byte in the following manner from LSB to
-				   MSB:
-				   bits 0-4: level + 1. (0 <= level <= 9,
-				   if this field is 0 level=6 is assumed.)
-				   bit 5: wrap. If set zlib will wrap
-				   compression blocks with its own checksums
-				   which will degrade performance.
-				   bits 6-8: strategy. strategy is a value
-				   between 0 and 4. See
-				   http://zlib.net/manual.html for details. */
+				   one byte. See page_zip_compress_zlib() for
+				   details. */
 	const byte* in, /*!< in: input buffer with compressed data */
 	ulint avail_in, /*!< in: the length of the input buffer */
 	byte* out, /*!< out: output buffer into which the contents of in are
@@ -4430,20 +4489,21 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_bzip(
-	uchar compression_flags __attribute__((unused)), /* !< in: compression
-							    options that get
-							    passed to the
-							    compression
-							    library */
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_in,
+	uchar comp_params, /*!< in: compression parameters packed into one
+			     byte. See page_zip_compress_bzip() for details. */
+	const byte* in, /*!< in: input buffer with compressed data */
+	ulint avail_in, /*!< in: the length of the input buffer */
+	byte* out, /*!< out: output buffer into which the contents of in are
+	decompressed. */
+	ulint avail_out, /*!< in: available space in the output buffer */
+	ulint* total_in, /*!< out: size of the input buffer that was used to
+			   read the compressed contents */
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib(
-		0x6, in, avail_in, out, avail_out, total_in, heap);
+	int verbosity = comp_params & (0x3);
+	return comp_bzip_decompress(in, avail_in, out, avail_out, total_in,
+				    page_zip_alloc_bzip, page_zip_free,
+				    static_cast<void*>(heap), verbosity);
 }
 /**********************************************************************//**
 Decompress a page using lzma.  This function should tolerate errors on the
