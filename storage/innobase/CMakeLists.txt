@@ -422,6 +422,7 @@ SET(INNOBASE_SOURCES
 	ut/ut0vec.cc
 	ut/ut0wqueue.cc
 	comp/comp0zlib.cc
+	comp/comp0bzip.cc
 	zlib_embedded/adler32.c
 	zlib_embedded/compress.c
 	zlib_embedded/crc32.c
@@ -432,6 +433,13 @@ SET(INNOBASE_SOURCES
 	zlib_embedded/inftrees.c
 	zlib_embedded/trees.c
 	zlib_embedded/zutil.c
+	bzip_embedded/blocksort.c
+	bzip_embedded/bzlib.c
+	bzip_embedded/compress.c
+	bzip_embedded/crctable.c
+	bzip_embedded/decompress.c
+	bzip_embedded/huffman.c
+	bzip_embedded/randtable.c
 )
 
 IF(WITH_INNODB)
