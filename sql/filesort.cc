@@ -442,7 +442,8 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
   if (error)
   {
     int kill_errno= thd->killed_errno();
-    DBUG_ASSERT(thd->is_error() || kill_errno);
+    DBUG_ASSERT(thd->is_error() || kill_errno ||
+                thd->killed == THD::ABORT_QUERY);
     my_printf_error(ER_FILSORT_ABORT,
                     "%s: %s",
                     MYF(ME_ERROR + ME_WAITTANG),
@@ -450,7 +451,8 @@ ha_rows filesort(THD *thd, TABLE *table, Filesort *filesort,
                     kill_errno ? ((kill_errno == THD::KILL_CONNECTION &&
                                  !shutdown_in_progress) ? ER(THD::KILL_QUERY) :
                                                           ER(kill_errno)) :
-                                 thd->get_stmt_da()->message());
+                                 thd->killed == THD::ABORT_QUERY ?
+                                 "" : thd->get_stmt_da()->message());
 
     if (log_warnings > 1)
     {
