@@ -1,0 +1,179 @@
+SET GLOBAL innodb_file_format='Barracuda';
+SET GLOBAL innodb_file_per_table=ON;
+CREATE TABLE t0(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT;
+SHOW CREATE TABLE t0;
+Table	Create Table
+t0	CREATE TABLE `t0` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t0';
+table_name	compression	compression_flags	key_block_size
+t0	NULL	0	0
+CREATE TABLE t1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t1';
+table_name	compression	compression_flags	key_block_size
+t1	ZLIB_STREAM	0	8
+CREATE TABLE t2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB KEY_BLOCK_SIZE=4;
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
+table_name	compression	compression_flags	key_block_size
+t2	ZLIB	0	4
+CREATE TABLE t3(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123;
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
+table_name	compression	compression_flags	key_block_size
+t3	LZMA	123	4
+CREATE TABLE t4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0 KEY_BLOCK_SIZE=8;
+SHOW CREATE TABLE t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t4';
+table_name	compression	compression_flags	key_block_size
+t4	ZLIB_STREAM	0	8
+CREATE TABLE t5(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=SNAPPY KEY_BLOCK_SIZE=4 COMPRESSION_FLAGS=255;
+SHOW CREATE TABLE t5;
+Table	Create Table
+t5	CREATE TABLE `t5` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=255
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t5';
+table_name	compression	compression_flags	key_block_size
+t5	SNAPPY	255	4
+CREATE TABLE t6(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=QUICKLZ KEY_BLOCK_SIZE=16;
+SHOW CREATE TABLE t6;
+Table	Create Table
+t6	CREATE TABLE `t6` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=16 COMPRESSION=QUICKLZ COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t6';
+table_name	compression	compression_flags	key_block_size
+t6	QUICKLZ	0	16
+CREATE TABLE t7(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=LZ4 KEY_BLOCK_SIZE=8 COMPRESSION_FLAGS=256;
+Warnings:
+Warning	1478	InnoDB: ignoring COMPRESSION_FLAGS=256 unless COMPRESSION_FLAGS is between 0 and 255.
+SHOW CREATE TABLE t7;
+Table	Create Table
+t7	CREATE TABLE `t7` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t7';
+table_name	compression	compression_flags	key_block_size
+t7	LZ4	0	8
+SET GLOBAL innodb_file_format='Barracuda';
+SET GLOBAL innodb_file_per_table=ON;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_FLAGS=0
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123
+SHOW CREATE TABLE t4;
+Table	Create Table
+t4	CREATE TABLE `t4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
+SHOW CREATE TABLE t5;
+Table	Create Table
+t5	CREATE TABLE `t5` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=255
+SHOW CREATE TABLE t6;
+Table	Create Table
+t6	CREATE TABLE `t6` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=16 COMPRESSION=QUICKLZ COMPRESSION_FLAGS=0
+SHOW CREATE TABLE t7;
+Table	Create Table
+t7	CREATE TABLE `t7` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test';
+table_name	compression	compression_flags	key_block_size
+t0	NULL	0	0
+t1	ZLIB_STREAM	0	8
+t2	ZLIB	0	4
+t3	LZMA	123	4
+t4	ZLIB_STREAM	0	8
+t5	SNAPPY	255	4
+t6	QUICKLZ	0	16
+t7	LZ4	0	8
+ALTER TABLE t1 ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t1';
+table_name	compression	compression_flags	key_block_size
+t1	ZLIB_STREAM	0	8
+ALTER TABLE t2 ADD COLUMN (b int);
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int(11) NOT NULL,
+  `b` int(11) DEFAULT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_FLAGS=0
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
+table_name	compression	compression_flags	key_block_size
+t2	ZLIB	0	4
+ALTER TABLE t3 COMPRESSION_FLAGS=16;
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=16
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
+table_name	compression	compression_flags	key_block_size
+t3	LZMA	16	4
+DROP TABLE t0;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+DROP TABLE t5;
+DROP TABLE t6;
+DROP TABLE t7;
+SET GLOBAL innodb_file_format=Antelope;
+SET GLOBAL innodb_file_per_table=1;
