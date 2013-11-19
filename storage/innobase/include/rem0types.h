@@ -67,8 +67,21 @@ enum rec_format_enum {
 	REC_FORMAT_REDUNDANT	= 0,	/*!< REDUNDANT row format */
 	REC_FORMAT_COMPACT	= 1,	/*!< COMPACT row format */
 	REC_FORMAT_COMPRESSED	= 2,	/*!< COMPRESSED row format */
-	REC_FORMAT_DYNAMIC	= 3	/*!< DYNAMIC row format */
+	REC_FORMAT_DYNAMIC	= 3,	/*!< DYNAMIC row format */
 };
 typedef enum rec_format_enum rec_format_t;
+
+enum rec_compression_type_enum {
+	REC_COMPRESSION_UNUSED = -1,
+	REC_COMPRESSION_ZLIB_STREAM = 0,
+	REC_COMPRESSION_ZLIB,
+	REC_COMPRESSION_BZIP,
+	REC_COMPRESSION_LZMA,
+	REC_COMPRESSION_SNAPPY,
+	REC_COMPRESSION_QUICKLZ,
+	REC_COMPRESSION_LZ4
+};
+
+typedef enum rec_compression_type_enum rec_compression_type_t;
 
 #endif
