@@ -124,11 +124,22 @@ bool handle_select(THD *thd, select_result *result,
                       setup_tables_done_option,
 		      result, unit, select_lex);
   }
+  if (thd->killed == THD::ABORT_QUERY)
+  {
+    /*
+      If LIMIT ROWS EXAMINED interrupted query execution, continue with normal
+      processing and produce an incomplete query result.
+      Currently, a warning is issued earlier, during query execution.
+    */
+    thd->killed= THD::NOT_KILLED;
+  }
   DBUG_PRINT("info",("res: %d  report_error: %d", res,
 		     thd->is_error()));
   res|= thd->is_error();
   if (unlikely(res))
     result->abort_result_set();
+  /* Disable LIMIT ROWS EXAMINED after query execution. */
+  thd->lex->limit_rows_examined_cnt= ULONGLONG_MAX;
 
   MYSQL_SELECT_DONE((int) res, (ulong) thd->limit_found_rows);
 #ifdef TARGET_OS_LINUX
