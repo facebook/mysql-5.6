@@ -161,7 +161,7 @@ DTRACE_INSTRUMENT(clientlib)
 ADD_DEPENDENCIES(clientlib GenError)
 
 # Don't merge zlib, ssl, etc when building static libraries.
-SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl)
+SET(STATIC_MERGE_LIBS clientlib dbug strings vio mysys mysys_ssl ${LIBDL})
 
 SET(LIBS ${STATIC_MERGE_LIBS} ${ZLIB_LIBRARY} ${SSL_LIBRARIES} ${LIBDL})
 
