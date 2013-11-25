@@ -2028,7 +2028,9 @@ PageConverter::update_page(
 		before we can do any thing with Btree pages. */
 
 		if (is_compressed_table()
-		    && !buf_zip_decompress(block, TRUE, m_cfg->m_flags)) {
+		    && !buf_zip_decompress(
+				block, TRUE,
+				dict_tf_to_fsp_flags_low(m_cfg->m_flags))) {
 			return(DB_CORRUPTION);
 		}
 
