@@ -166,9 +166,9 @@ page_zip_compress(
 	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
 	__attribute__((nonnull(1,2,3)));
 
-#define page_zip_decompress(page_zip, page, all, space_id, table_flags) \
+#define page_zip_decompress(page_zip, page, all, space_id, fsp_flags) \
 		page_zip_decompress_low((page_zip), (page), (all), \
-		                        (space_id), (table_flags), NULL, NULL)
+		                        (space_id), (fsp_flags), NULL, NULL)
 
 /**********************************************************************//**
 Decompress a page.  This function should tolerate errors on the compressed
@@ -188,8 +188,8 @@ page_zip_decompress_low(
 				after page creation */
 #ifndef UNIV_INNOCHECKSUM
 	ulint space_id,
-	ulint table_flags, /* used to compute compression type and flags.
-	If this is ULINT_UNDEFINED then table_flags is determined by other
+	ulint fsp_flags, /* used to compute compression type and flags.
+	If this is ULINT_UNDEFINED then fsp_flags is determined by other
 	means. */
 	mem_heap_t** heap_ptr, /*!< out: if index_ptr is not NULL then
 	*heap_ptr is set to the heap that is allocated by this function. The
