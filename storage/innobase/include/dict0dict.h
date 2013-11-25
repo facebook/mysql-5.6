@@ -925,6 +925,17 @@ dict_tf_set(
 	ulong		compression_flags)
 	__attribute__((nonnull));
 /********************************************************************//**
+The core functionality for dict_tf_to_fsp_flags(). See the documentation
+for that function for the explanation of how it works. The reason for
+having two functions is that we do not want any assertions or any calls to
+DBUG_EXECUTE_IF() in dict_tf_to_fsp_flags_low().
+@return	tablespace flags (fil_space_t::flags) */
+UNIV_INLINE
+ulint
+dict_tf_to_fsp_flags_low(
+/*=================*/
+	ulint	table_flags);	/*!< in: dict_table_t::flags */
+/********************************************************************//**
 Convert a 32 bit integer table flags to the 32 bit integer that is
 written into the tablespace header at the offset FSP_SPACE_FLAGS and is
 also stored in the fil_space_t::flags field.  The following chart shows
@@ -934,6 +945,8 @@ the translation of the low order bit.  Other bits are the same.
 dict_table_t::flags |     0     |    1    |     1      |    1
 fil_space_t::flags  |     0     |    0    |     1      |    1
 ==================================================================
+Other than the low order bit, the bits related to compression are
+in different places.
 @return	tablespace flags (fil_space_t::flags) */
 UNIV_INLINE
 ulint
