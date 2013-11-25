@@ -1558,7 +1558,7 @@ fil_space_create(
 	space->stats.magic_n = FIL_STATS_MAGIC_N;
 	space->stats.used = TRUE;
 	space->stats.stats_next = NULL;
-	space->stats.table_flags = space->flags;
+	space->stats.fsp_flags = space->flags;
 
 	UT_LIST_ADD_LAST(space_list, fil_system->space_list, space);
 	space->stats.db_stats_index = db_stats_index;
