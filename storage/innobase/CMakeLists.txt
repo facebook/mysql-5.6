@@ -423,6 +423,7 @@ SET(INNOBASE_SOURCES
 	ut/ut0wqueue.cc
 	comp/comp0zlib.cc
 	comp/comp0bzip.cc
+	comp/comp0comp.cc
 	zlib_embedded/adler32.c
 	zlib_embedded/compress.c
 	zlib_embedded/crc32.c
