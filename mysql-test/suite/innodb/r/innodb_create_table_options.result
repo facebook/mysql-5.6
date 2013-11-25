@@ -30,16 +30,16 @@ t2	CREATE TABLE `t2` (
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
 table_name	compression	compression_flags	key_block_size
 t2	ZLIB	0	4
-CREATE TABLE t3(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123;
+CREATE TABLE t3(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=5;
 SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=5
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
 table_name	compression	compression_flags	key_block_size
-t3	LZMA	123	4
+t3	LZMA	5	4
 CREATE TABLE t4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0 KEY_BLOCK_SIZE=8;
 SHOW CREATE TABLE t4;
 Table	Create Table
@@ -50,16 +50,16 @@ t4	CREATE TABLE `t4` (
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t4';
 table_name	compression	compression_flags	key_block_size
 t4	ZLIB_STREAM	0	8
-CREATE TABLE t5(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=SNAPPY KEY_BLOCK_SIZE=4 COMPRESSION_FLAGS=255;
+CREATE TABLE t5(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=SNAPPY KEY_BLOCK_SIZE=4 COMPRESSION_FLAGS=7;
 SHOW CREATE TABLE t5;
 Table	Create Table
 t5	CREATE TABLE `t5` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=255
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=7
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t5';
 table_name	compression	compression_flags	key_block_size
-t5	SNAPPY	255	4
+t5	SNAPPY	7	4
 CREATE TABLE t6(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=QUICKLZ KEY_BLOCK_SIZE=16;
 SHOW CREATE TABLE t6;
 Table	Create Table
@@ -70,18 +70,16 @@ t6	CREATE TABLE `t6` (
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t6';
 table_name	compression	compression_flags	key_block_size
 t6	QUICKLZ	0	16
-CREATE TABLE t7(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=LZ4 KEY_BLOCK_SIZE=8 COMPRESSION_FLAGS=256;
-Warnings:
-Warning	1478	InnoDB: ignoring COMPRESSION_FLAGS=256 unless COMPRESSION_FLAGS is between 0 and 255.
+CREATE TABLE t7(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=LZ4 KEY_BLOCK_SIZE=8 COMPRESSION_FLAGS=2;
 SHOW CREATE TABLE t7;
 Table	Create Table
 t7	CREATE TABLE `t7` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=0
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=2
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t7';
 table_name	compression	compression_flags	key_block_size
-t7	LZ4	0	8
+t7	LZ4	2	8
 SET GLOBAL innodb_file_format='Barracuda';
 SET GLOBAL innodb_file_per_table=ON;
 SHOW CREATE TABLE t1;
@@ -101,7 +99,7 @@ Table	Create Table
 t3	CREATE TABLE `t3` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=5
 SHOW CREATE TABLE t4;
 Table	Create Table
 t4	CREATE TABLE `t4` (
@@ -113,7 +111,7 @@ Table	Create Table
 t5	CREATE TABLE `t5` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=255
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=7
 SHOW CREATE TABLE t6;
 Table	Create Table
 t6	CREATE TABLE `t6` (
@@ -125,17 +123,17 @@ Table	Create Table
 t7	CREATE TABLE `t7` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=0
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=2
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test';
 table_name	compression	compression_flags	key_block_size
 t0	NULL	0	0
 t1	ZLIB_STREAM	0	8
 t2	ZLIB	0	4
-t3	LZMA	123	4
+t3	LZMA	5	4
 t4	ZLIB_STREAM	0	8
-t5	SNAPPY	255	4
+t5	SNAPPY	7	4
 t6	QUICKLZ	0	16
-t7	LZ4	0	8
+t7	LZ4	2	8
 ALTER TABLE t1 ENGINE=InnoDB;
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -157,16 +155,16 @@ t2	CREATE TABLE `t2` (
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
 table_name	compression	compression_flags	key_block_size
 t2	ZLIB	0	4
-ALTER TABLE t3 COMPRESSION_FLAGS=16;
+ALTER TABLE t3 COMPRESSION_FLAGS=1;
 SHOW CREATE TABLE t3;
 Table	Create Table
 t3	CREATE TABLE `t3` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=16
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=1
 SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
 table_name	compression	compression_flags	key_block_size
-t3	LZMA	16	4
+t3	LZMA	1	4
 DROP TABLE t0;
 DROP TABLE t1;
 DROP TABLE t2;

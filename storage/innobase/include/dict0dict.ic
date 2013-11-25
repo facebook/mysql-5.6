@@ -816,26 +816,18 @@ dict_tf_set(
 }
 
 /********************************************************************//**
-Convert a 32 bit integer table flags to the 32 bit integer that is
-written into the tablespace header at the offset FSP_SPACE_FLAGS and is
-also stored in the fil_space_t::flags field.  The following chart shows
-the translation of the low order bit.  Other bits are the same.
-========================= Low order bit ==========================
-                    | REDUNDANT | COMPACT | COMPRESSED | DYNAMIC
-dict_table_t::flags |     0     |    1    |     1      |    1
-fil_space_t::flags  |     0     |    0    |     1      |    1
-==================================================================
+The core functionality for dict_tf_to_fsp_flags(). See the documentation
+for that function for the explanation of how it works. The reason for
+having two functions is that we do not want any assertions or any calls to
+DBUG_EXECUTE_IF() in dict_tf_to_fsp_flags_low().
 @return	tablespace flags (fil_space_t::flags) */
 UNIV_INLINE
 ulint
-dict_tf_to_fsp_flags(
+dict_tf_to_fsp_flags_low(
 /*=================*/
 	ulint	table_flags)	/*!< in: dict_table_t::flags */
 {
 	ulint fsp_flags;
-
-	DBUG_EXECUTE_IF("dict_tf_to_fsp_flags_failure",
-			return(ULINT_UNDEFINED););
 
 	/* Adjust bit zero. */
 	fsp_flags = DICT_TF_HAS_ATOMIC_BLOBS(table_flags) ? 1 : 0;
@@ -856,6 +848,33 @@ dict_tf_to_fsp_flags(
 	/* COMPRESSION_FLAGS is in a different position in fsp_flag */
 	fsp_flags |= DICT_TF_GET_COMP_FLAGS(table_flags)
 			     << FSP_FLAGS_POS_COMP_FLAGS;
+
+	return(fsp_flags);
+}
+
+/********************************************************************//**
+Convert a 32 bit integer table flags to the 32 bit integer that is
+written into the tablespace header at the offset FSP_SPACE_FLAGS and is
+also stored in the fil_space_t::flags field.  The following chart shows
+the translation of the low order bit.  Other bits are the same.
+========================= Low order bit ==========================
+                    | REDUNDANT | COMPACT | COMPRESSED | DYNAMIC
+dict_table_t::flags |     0     |    1    |     1      |    1
+fil_space_t::flags  |     0     |    0    |     1      |    1
+==================================================================
+Other than the low order bit, the bits related to compression are
+in different places.
+@return	tablespace flags (fil_space_t::flags) */
+UNIV_INLINE
+ulint
+dict_tf_to_fsp_flags(
+/*=================*/
+	ulint	table_flags)	/*!< in: dict_table_t::flags */
+{
+	ulint fsp_flags;
+	DBUG_EXECUTE_IF("dict_tf_to_fsp_flags_failure",
+			return(ULINT_UNDEFINED););
+	fsp_flags = dict_tf_to_fsp_flags_low(table_flags);
 	ut_a(fsp_flags_is_valid(fsp_flags));
 
 	return(fsp_flags);

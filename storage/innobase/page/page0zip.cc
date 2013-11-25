@@ -37,6 +37,7 @@ using namespace std;
 #endif
 #undef THIS_MODULE
 #include "fil0fil.h"
+#include "fsp0fsp.h"
 #include "buf0checksum.h"
 #ifndef UNIV_INNOCHECKSUM
 #include "page0page.h"
@@ -55,8 +56,7 @@ using namespace std;
 # include "lock0lock.h"
 # include "srv0srv.h"
 # include "zlib_embedded/zlib.h"
-# include "comp0zlib.h"
-# include "comp0bzip.h"
+# include "comp0comp.h"
 #endif /* !UNIV_INNOCHECKSUM */
 # include "buf0lru.h"
 # include "srv0mon.h"
@@ -763,23 +763,6 @@ page_zip_free(
 }
 
 } /* extern "C" */
-
-/**********************************************************************//**
-Allocate memory for bzip. The only difference from zlib is that the integer
-arguments are signed rather than unsigned. */
-static
-void*
-page_zip_alloc_bzip(
-/*============*/
-	void*   opaque, /*!< in/out: memory heap */
-	int     items,  /*!< in: number of items to allocate */
-	int     size)   /*!< in: size of an item in bytes */
-{
-	void* m = mem_heap_alloc(static_cast<mem_heap_t*>(opaque),
-				 items * size);
-	UNIV_MEM_VALID(m, items * size);
-	return(m);
-}
 
 /**********************************************************************//**
 Configure the zlib allocator to use the given memory heap. */
@@ -2165,26 +2148,6 @@ record is at least 16 bytes. */
 	(MEM_SPACE_NEEDED(PZ_SERIALIZED_BUF_SIZE) \
 	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)))
 /***************************************************************//**
-Total memory needed by zlib compression in new style */
-#define PZ_MEM_COMP_ZLIB \
-	(PZ_MEM_COMP_BASE \
-	 + PZ_MEM_SERIALIZE \
-	 + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
-						 MAX_MEM_LEVEL)))
-/***************************************************************//**
-Total memory needed by bzip compression in new style. See
-http://www.bzip.org/1.0.3/bzip2-manual-1.0.3.html#memory-management */
-#define PZ_MEM_COMP_BZIP \
-	(PZ_MEM_COMP_BASE \
-	 + PZ_MEM_SERIALIZE \
-	 + (1200L << 10))
-#define PZ_MAX3(a,b,c) max(max(a,b), c)
-/***************************************************************//**
-Maximum total memory that may be used by page_zip_compress() regardless of
-the compression algorithm */
-#define PZ_MEM_COMP_MAX \
-	PZ_MAX3(PZ_MEM_COMP_ZLIB_STREAM, PZ_MEM_COMP_ZLIB, PZ_MEM_COMP_BZIP)
-/***************************************************************//**
 Memory needed by page_zip_decompress_low(). memory used by the called
 functions is not included. See the comment to PZ_MEM_COMP_ZLIB_STREAM for
 why we take n_dense to be UNIV_PAGE_SIZE / 16. */
@@ -2206,26 +2169,6 @@ deserialization */
 #define PZ_MEM_DESERIALIZE \
 	(PZ_SERIALIZED_LEN_MAX \
 	 + MEM_SPACE_NEEDED(50L * sizeof(ulint)))
-/***************************************************************//**
-Total memory needed by zlib decompression in new style */
-#define PZ_MEM_DECOMP_ZLIB \
-	(PZ_MEM_DECOMP_BASE \
-	 + PZ_MEM_DESERIALIZE \
-	 + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT)))
-/***************************************************************//**
-Total memory needed by bzip decompression in new style. See
-http://www.bzip.org/1.0.3/bzip2-manual-1.0.3.html#memory-management */
-#define PZ_MEM_DECOMP_BZIP \
-       (PZ_MEM_DECOMP_BASE \
-        + PZ_MEM_DESERIALIZE \
-        + (500L << 10))
-/***************************************************************//**
-Maximum total memory that may be used by page_zip_decompress() regardless
-of the compression algorithm used */
-#define PZ_MEM_DECOMP_MAX \
-	PZ_MAX3(PZ_MEM_DECOMP_ZLIB_STREAM, \
-		PZ_MEM_DECOMP_ZLIB, \
-		PZ_MEM_DECOMP_BZIP)
 
 /* Calculates block size as an upper bound required for memory, used for
 page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
@@ -2234,11 +2177,34 @@ UNIV_INTERN
 void
 page_zip_init(void)
 {
+	ulint mem_max_decompress;
+	ulint mem_max_compress =
+		max(max(max(comp_mem_compress(DICT_TF_COMP_ZLIB),
+			    comp_mem_compress(DICT_TF_COMP_BZIP)),
+			max(comp_mem_compress(DICT_TF_COMP_LZMA),
+			    comp_mem_compress(DICT_TF_COMP_SNAPPY))),
+		    max(comp_mem_compress(DICT_TF_COMP_QUICKLZ),
+			comp_mem_compress(DICT_TF_COMP_LZ4)));
+	mem_max_compress = max(PZ_MEM_COMP_BASE
+			       + PZ_MEM_SERIALIZE
+			       + mem_max_compress,
+			       PZ_MEM_COMP_ZLIB_STREAM);
 	malloc_cache_compress = &malloc_cache_compress_obj;
-	malloc_cache_decompress = &malloc_cache_decompress_obj;
-	mem_block_cache_init(malloc_cache_compress, PZ_MEM_COMP_MAX,
+	mem_block_cache_init(malloc_cache_compress, mem_max_compress,
 	                     &malloc_cache_compress_len);
-	mem_block_cache_init(malloc_cache_decompress, PZ_MEM_DECOMP_MAX,
+	mem_max_decompress =
+		max(max(max(comp_mem_decompress(DICT_TF_COMP_ZLIB),
+			    comp_mem_decompress(DICT_TF_COMP_BZIP)),
+			max(comp_mem_decompress(DICT_TF_COMP_LZMA),
+			    comp_mem_decompress(DICT_TF_COMP_SNAPPY))),
+		    max(comp_mem_decompress(DICT_TF_COMP_QUICKLZ),
+			comp_mem_decompress(DICT_TF_COMP_LZ4)));
+	mem_max_decompress = max(PZ_MEM_COMP_BASE
+				 + PZ_MEM_SERIALIZE
+				 + mem_max_decompress,
+				 PZ_MEM_DECOMP_ZLIB_STREAM);
+	malloc_cache_decompress = &malloc_cache_decompress_obj;
+	mem_block_cache_init(malloc_cache_decompress, mem_max_decompress,
 	                     &malloc_cache_decompress_len);
 }
 
@@ -2626,171 +2592,6 @@ zlib_error:
 }
 
 /**********************************************************************//**
-Compress a page using zlib. Compression parameters packed into one byte in the
-following manner from LSB to MSB:
-bits 0-4: level + 1. (0 <= level <= 9, if this field is 0 level=6 is assumed.)
-bit 5: wrap. If set zlib will wrap compression blocks with its own checksums
-which will degrade performance.
-bits 6-8: strategy. strategy is a value between 0 and 4. See
-http://zlib.net/manual.html for details.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_compress_zlib(
-	uchar compression_flags, /*!< in: compression flags described above. */
-	const byte* in, /*!< in: input buffer with data to be compressed */
-	ulint avail_in, /*!< in: size of the input buffer */
-	byte* out, /*!< out: output buffer into which the contents of in are
-		     going to be compressed. */
-	ulint avail_out, /*!< in: available space in the output buffer */
-	ulint* total_out, /*!< out: the total space used from the output buffer
-			    is written into this parameter */
-	mem_heap_t* heap) /*!< in/out: temporary memory heap */
-{
-	uint level = compression_flags & 0xf;
-	uint wrap = compression_flags & 0x10;
-	uint strategy = compression_flags >> 5;
-	int window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
-			       : -((int)UNIV_PAGE_SIZE_SHIFT);
-	ut_a(level <= 10);
-	ut_a(strategy <= 4);
-	level = level ? level - 1 : 6;
-	return comp_zlib_compress(in, avail_in, out, avail_out, total_out,
-				  page_zip_zalloc, page_zip_free, heap,
-				  level, window_bits, strategy);
-}
-
-/**********************************************************************//**
-Compress a page using bzip2. Compression parameters packed into one byte
-compression_flags in the following manner:
-bits 0-1: verbosity. 0 <= verbosity <= 3, 4 is allowed for bzip, but we don't
-use 4.
-bits 2-6: workFactor / 8. 0 <= workFactor <= 250. See
-http://www.bzip.org/1.0.3/bzip2-manual-1.0.3.html for details on this parameter
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_compress_bzip(
-	uchar compression_flags, /*!< in: compression flags described above. */
-	const byte* in, /*!< in: input buffer with data to be compressed */
-	ulint avail_in, /*!< in: size of the input buffer */
-	byte* out, /*!< out: output buffer into which the contents of in are
-		     going to be compressed. */
-	ulint avail_out, /*!< in: available space in the output buffer */
-	ulint* total_out, /*!< out: the total space used from the output buffer
-			    is written into this parameter */
-	mem_heap_t* heap) /*!< in/out: temporary memory heap */
-{
-	int verbosity = compression_flags & 0x3;
-	int workFactor = 8 * ((compression_flags & 0x7c) >> 2);
-
-	if (!workFactor) {
-		/* When workFactor is 0 bzip2 uses a default value of 30 for
-		   this parameter. This is bad. From bzip2 manual:
-		   "Parameter workFactor controls how the compression phase
-		   behaves when presented with worst case, highly repetitive,
-		   input data. If compression runs into difficulties caused by
-		   repetitive data, the library switches from the standard
-		   sorting algorithm to a fallback algorithm. The fallback is
-		   slower than the standard algorithm by perhaps a factor of
-		   three, but always behaves reasonably, no matter how bad the
-		   input."
-		   (nizamordulu): I tried workFactor=30 and loading data was
-		   painfully slow. Because our data is highly repetitive, the
-		   worst case of the standard sorting algorithm is realized. We
-		   therefore use workFactor=1 as default. This may be 3x worse
-		   than the standard sorting algorithm on average, however, it
-		   guarantees that the worst case performance is still
-		   acceptable. */
-		workFactor = 1;
-	}
-	return comp_bzip_compress(in, avail_in, out, avail_out, total_out,
-				  page_zip_alloc_bzip, page_zip_free,
-				  static_cast<void*>(heap), verbosity,
-				  workFactor);
-}
-
-/**********************************************************************//**
-Compress a page using lzma.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_compress_lzma(
-	uchar compression_flags __attribute__((unused)),
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_out,
-	mem_heap_t* heap)
-{
-	return page_zip_compress_zlib(0x6,
-	                              in, avail_in,
-	                              out, avail_out,
-	                              total_out, heap);
-}
-
-/**********************************************************************//**
-Compress a page using snappy.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_compress_snappy(
-	uchar compression_flags __attribute__((unused)),
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_out,
-	mem_heap_t* heap)
-{
-	return page_zip_compress_zlib(0x6,
-	                              in, avail_in,
-	                              out, avail_out,
-	                              total_out, heap);
-}
-
-/**********************************************************************//**
-Compress a page using quicklz.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_compress_quicklz(
-	uchar compression_flags __attribute__((unused)),
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_out,
-	mem_heap_t* heap)
-{
-	return page_zip_compress_zlib(0x6,
-	                              in, avail_in,
-	                              out, avail_out,
-	                              total_out, heap);
-}
-
-/**********************************************************************//**
-Compress a page using lz4.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_compress_lz4(
-	uchar compression_flags __attribute__((unused)),
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_out,
-	mem_heap_t* heap)
-{
-	return page_zip_compress_zlib(0x6,
-	                              in, avail_in,
-	                              out, avail_out,
-	                              total_out, heap);
-}
-
-/**********************************************************************//**
 Compress a page.
 @return TRUE on success, FALSE on failure; page_zip will be left
 intact on failure. */
@@ -2807,10 +2608,11 @@ page_zip_compress(
 	mtr_t* mtr) /*!< in: mini-transaction, or NULL */
 {
 	page_zip_des_t new_page_zip;
-	ulint table_flags;
+	ulint fsp_flags;
 	ibool ret;
 	mem_heap_t* heap = NULL;
-	uchar compression_flags;
+	uchar comp_flags;
+	uchar comp_type;
 	ulint n_dense;
 	uint serialized_len = 0;
 	ulint compressed_len = 0;
@@ -2831,17 +2633,17 @@ page_zip_compress(
 	anytime. */
 	my_bool	cmp_per_index_enabled = srv_cmp_per_index_enabled;
 
-	/* We prefer getting the table_flags from table stats because its mutex
+	/* We prefer getting the fsp_flags from table stats because its mutex
 	is partitioned, but if that is not possible we fall back to getting the
 	table flags from the space object which is protected by a global
 	mutex. */
 	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
 	if (UNIV_LIKELY(!!stats)) {
-		table_flags = stats->table_flags;
+		fsp_flags = stats->fsp_flags;
 		mutex_exit(stats_mutex);
 	} else {
 		mutex_exit(stats_mutex);
-		table_flags = fil_space_get_flags(space_id);
+		fsp_flags = fil_space_get_flags(space_id);
 	}
 
 	memset(&new_page_zip, 0, sizeof(new_page_zip));
@@ -2917,10 +2719,11 @@ page_zip_compress(
 		goto err_exit;
 	}
 
-	heap = mem_heap_create_cached(PZ_MEM_COMP_MAX, malloc_cache_compress);
-	compression_flags = static_cast<uchar> (
-				(table_flags & DICT_TF_MASK_COMP_FLAGS)
-				>> DICT_TF_POS_COMP_FLAGS);
+	/* asking a heap of size 0 will just give a memory block
+	   with the default block size which is OK */
+	heap = mem_heap_create_cached(0, malloc_cache_compress);
+	comp_flags = FSP_FLAGS_GET_COMP_FLAGS(fsp_flags);
+	comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
 	new_page_zip.data = static_cast<byte*> (
 				mem_heap_alloc(
 					heap, page_zip_get_size(page_zip)));
@@ -2933,14 +2736,14 @@ page_zip_compress(
 	ut_d(memset(new_page_zip.data, 0x85, page_zip_get_size(page_zip)));
 
 	memcpy(new_page_zip.data, page, PAGE_DATA);
-	if ((table_flags & DICT_TF_MASK_COMP_TYPE)
-	    == DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE) {
+	if (comp_type == DICT_TF_COMP_ZLIB_STREAM) {
 		ret = page_zip_compress_zlib_stream(
 			&new_page_zip, page, index,
 			global_compression_flags, heap);
 		trailer_len = page_zip_get_trailer_len(
 				&new_page_zip, dict_index_is_clust(index));
 	} else {
+		comp_state_t comp_state;
 		buf = page_zip_serialize(&new_page_zip, page, index,
 					 &serialized_len, heap);
 		if (!buf) {
@@ -2956,49 +2759,16 @@ page_zip_compress(
 			    - 1; /* end marker for the modification log */
 		if (avail_out <= 0)
 			goto err_exit;
+		comp_state.in = buf;
+		comp_state.out = new_page_zip.data + PAGE_DATA;
+		comp_state.avail_in = serialized_len;
+		comp_state.avail_out = avail_out;
+		comp_state.level = comp_flags;
+		comp_state.heap = heap;
+		ret = comp_compress(comp_type, &comp_state);
+		ut_a(avail_out > (lint)comp_state.avail_out);
+		compressed_len = avail_out - comp_state.avail_out;
 		new_page_zip.m_nonempty = FALSE;
-		#define PZ_COMPRESS(compress_func) \
-			compress_func(compression_flags, \
-				      buf, \
-				      serialized_len, \
-				      new_page_zip.data + PAGE_DATA, \
-				      (ulint)avail_out, \
-				      &compressed_len, \
-				      heap)
-
-		switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
-		case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
-			/* new compression using zlib */
-			ret = PZ_COMPRESS(page_zip_compress_zlib);
-			break;
-		case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
-			/* new compression using bzip2 */
-			ret = PZ_COMPRESS(page_zip_compress_bzip);
-			break;
-		case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
-			/* new compression using lzma */
-			ret = PZ_COMPRESS(page_zip_compress_lzma);
-			break;
-		case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
-			/* new compression using snappy */
-			ret = PZ_COMPRESS(page_zip_compress_snappy);
-			break;
-		case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
-			/* new compression using quicklz */
-			ret = PZ_COMPRESS(page_zip_compress_quicklz);
-			break;
-		case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
-			/* new compression using lz4 */
-			ret = PZ_COMPRESS(page_zip_compress_lz4);
-			break;
-		default:
-			fprintf(stderr,
-				"InnoDB: unknown compression type %lu\n",
-				(table_flags & DICT_TF_MASK_COMP_TYPE)
-				>> DICT_TF_POS_COMP_TYPE);
-			ut_error;
-			break;
-		}
 		new_page_zip.m_end = PAGE_DATA + compressed_len;
 	}
 
@@ -4455,152 +4225,6 @@ page_zip_decompress_zlib_stream(
 }
 
 /**********************************************************************//**
-Decompress a page using zlib.  This function should tolerate errors on the
-compressed page. Instead of letting assertions fail, it will return FALSE if an
-inconsistency is detected.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_decompress_zlib(
-	uchar compression_flags, /*!< in: compression parameters packed into
-				   one byte. See page_zip_compress_zlib() for
-				   details. */
-	const byte* in, /*!< in: input buffer with compressed data */
-	ulint avail_in, /*!< in: the length of the input buffer */
-	byte* out, /*!< out: output buffer into which the contents of in are
-		     decompressed. */
-	ulint avail_out, /*!< in: available space in the output buffer */
-	ulint* total_in, /*!< out: size of the input buffer that was used to
-			   read the compressed contents */
-	mem_heap_t* heap) /*!< in: temporary memory heap */
-{
-	uint wrap = compression_flags & 0x10;
-	int window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
-			       : -((int)UNIV_PAGE_SIZE_SHIFT);
-	return comp_zlib_decompress(in, avail_in, out, avail_out, total_in,
-				    page_zip_zalloc, page_zip_free, heap,
-				    window_bits);
-}
-/**********************************************************************//**
-Decompress a page using bzip2.  This function should tolerate errors on the
-compressed page. Instead of letting assertions fail, it will return FALSE if an
-inconsistency is detected.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_decompress_bzip(
-	uchar comp_params, /*!< in: compression parameters packed into one
-			     byte. See page_zip_compress_bzip() for details. */
-	const byte* in, /*!< in: input buffer with compressed data */
-	ulint avail_in, /*!< in: the length of the input buffer */
-	byte* out, /*!< out: output buffer into which the contents of in are
-	decompressed. */
-	ulint avail_out, /*!< in: available space in the output buffer */
-	ulint* total_in, /*!< out: size of the input buffer that was used to
-			   read the compressed contents */
-	mem_heap_t* heap) /*!< in: temporary memory heap */
-{
-	int verbosity = comp_params & (0x3);
-	return comp_bzip_decompress(in, avail_in, out, avail_out, total_in,
-				    page_zip_alloc_bzip, page_zip_free,
-				    static_cast<void*>(heap), verbosity);
-}
-/**********************************************************************//**
-Decompress a page using lzma.  This function should tolerate errors on the
-compressed page. Instead of letting assertions fail, it will return FALSE if an
-inconsistency is detected.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_decompress_lzma(
-	uchar compression_flags __attribute__((unused)), /* !< in: compression
-							    options that get
-							    passed to the
-							    compression
-							    library */
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_in,
-	mem_heap_t* heap) /*!< in: temporary memory heap */
-{
-	return page_zip_decompress_zlib(
-		0x6, in, avail_in, out, avail_out, total_in, heap);
-}
-
-/**********************************************************************//**
-Decompress a page using snappy.  This function should tolerate errors on the
-compressed page. Instead of letting assertions fail, it will return FALSE if an
-inconsistency is detected.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_decompress_snappy(
-	uchar compression_flags __attribute__((unused)), /* !< in: compression
-							    options that get
-							    passed to the
-							    compression
-							    library */
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_in,
-	mem_heap_t* heap) /*!< in: temporary memory heap */
-{
-	return page_zip_decompress_zlib(
-		0x6, in, avail_in, out, avail_out, total_in, heap);
-}
-/**********************************************************************//**
-Decompress a page using quicklz.  This function should tolerate errors on the
-compressed page. Instead of letting assertions fail, it will return FALSE if an
-inconsistency is detected.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_decompress_quicklz(
-	uchar compression_flags __attribute__((unused)), /* !< in: compression
-							    options that get
-							    passed to the
-							    compression
-							    library */
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_in,
-	mem_heap_t* heap) /*!< in: temporary memory heap */
-{
-	return page_zip_decompress_zlib(
-		0x6, in, avail_in, out, avail_out, total_in, heap);
-}
-
-/**********************************************************************//**
-Decompress a page using lz4.  This function should tolerate errors on the
-compressed page. Instead of letting assertions fail, it will return FALSE if an
-inconsistency is detected.
-@return TRUE on success, FALSE on failure */
-UNIV_INTERN
-ibool
-page_zip_decompress_lz4(
-	uchar compression_flags __attribute__((unused)), /* !< in: compression
-							    options that get
-							    passed to the
-							    compression
-							    library */
-	const byte* in,
-	ulint avail_in,
-	byte* out,
-	ulint avail_out,
-	ulint* total_in,
-	mem_heap_t* heap) /*!< in: temporary memory heap */
-{
-	return page_zip_decompress_zlib(
-		0x6, in, avail_in, out, avail_out, total_in, heap);
-}
-
-/**********************************************************************//**
 Decompress a page.  This function should tolerate errors on the compressed
 page.  Instead of letting assertions fail, it will return FALSE if an
 inconsistency is detected.
@@ -4616,8 +4240,8 @@ page_zip_decompress_low(
 		     not copy some page header fields that should not change
 		     after page creation */
 	ulint space_id, /*!< in: id of the space this page belongs */
-	ulint table_flags, /*!< in: used to compute compression type and flags.
-			     If this is ULINT_UNDEFINED then table_flags is
+	ulint fsp_flags, /*!< in: used to compute compression type and flags.
+			     If this is ULINT_UNDEFINED then fsp_flags is
 			     determined by other means. */
 	mem_heap_t** heap_ptr, /*!< out: if heap_ptr is not NULL, then
 				 *heap_ptr is set to the heap that's allocated
@@ -4645,7 +4269,8 @@ page_zip_decompress_low(
 	ulint trailer_len; /*!< length of the trailer after the compressed page
 			     image is decompressed */
 	ibool ret;
-	uchar compression_flags;
+	uchar comp_flags;
+	uchar comp_type;
 	byte* buf;
 #ifndef UNIV_HOTBACKUP
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
@@ -4659,20 +4284,20 @@ page_zip_decompress_low(
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
 	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
-	if (UNIV_LIKELY(table_flags == ULINT_UNDEFINED)) {
-		/* We prefer getting the table_flags from table stats because
+	if (UNIV_LIKELY(fsp_flags == ULINT_UNDEFINED)) {
+		/* We prefer getting the fsp_flags from table stats because
 		   its mutex is partitioned, but if that is not possible we
 		   fall back to getting the table flags from the space object
 		   which is protected by a global mutex. */
 		if (UNIV_LIKELY(!!stats)) {
-			table_flags = stats->table_flags;
+			fsp_flags = stats->fsp_flags;
 			mutex_exit(stats_mutex);
 		} else {
 			mutex_exit(stats_mutex);
-			table_flags = fil_space_get_flags(space_id);
+			fsp_flags = fil_space_get_flags(space_id);
 		}
 	} else {
-		ut_a(!stats || stats->table_flags == table_flags);
+		ut_a(!stats || stats->fsp_flags == fsp_flags);
 		mutex_exit(stats_mutex);
 	}
 
@@ -4686,8 +4311,9 @@ page_zip_decompress_low(
 		return(FALSE);
 	}
 
-	heap = mem_heap_create_cached(PZ_MEM_DECOMP_MAX,
-				      malloc_cache_decompress);
+	/* asking a heap of size 0 will just give a memory block
+	   with the default block size which is OK */
+	heap = mem_heap_create_cached(0, malloc_cache_decompress);
 
 	recs = static_cast<rec_t**>(
 		mem_heap_alloc(heap, n_dense * (2 * sizeof *recs)));
@@ -4763,11 +4389,10 @@ page_zip_decompress_low(
 	/* Set number of blobs to zero */
 	page_zip->n_blobs = 0;
 
-	compression_flags = (table_flags & DICT_TF_MASK_COMP_FLAGS)
-			    >> DICT_TF_POS_COMP_FLAGS;
+	comp_flags = FSP_FLAGS_GET_COMP_FLAGS(fsp_flags);
+	comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
 
-	if ((table_flags & DICT_TF_MASK_COMP_TYPE)
-	    == DICT_TF_COMP_ZLIB_STREAM) {
+	if (comp_type == DICT_TF_COMP_ZLIB_STREAM) {
 		/* compress using zlib's streaming interface */
 		ret = page_zip_decompress_zlib_stream(page_zip, page, recs,
 						      n_dense, &index,
@@ -4776,56 +4401,21 @@ page_zip_decompress_low(
 						      heap);
 	} else {
 		ulint compressed_len = 0;
+		comp_state_t comp_state;
+		ulint avail_in = page_zip_get_size(page_zip)
+				 - PAGE_DATA - 1;
 		/* buffer for storing the serialized page */
 		buf = static_cast<byte*>(
 				mem_heap_alloc(heap, 2 * UNIV_PAGE_SIZE));
-		#define PZ_DECOMPRESS(decompress_func) \
-			decompress_func( \
-				compression_flags, \
-				page_zip->data + PAGE_DATA, \
-				page_zip_get_size(page_zip) - PAGE_DATA - 1, \
-				buf, \
-				2 * UNIV_PAGE_SIZE, \
-				&compressed_len, \
-				heap)
-
-		switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
-		case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
-			/* new compression using zlib */
-			ret = PZ_DECOMPRESS(page_zip_decompress_zlib);
-			break;
-		case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
-			/* new compression using bzip2 */
-			ret = PZ_DECOMPRESS(page_zip_decompress_bzip);
-			break;
-		case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
-			/* new compression using lzma */
-			ret = PZ_DECOMPRESS(page_zip_decompress_lzma);
-			break;
-		case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
-			/* new compression using snappy */
-			ret = PZ_DECOMPRESS(page_zip_decompress_snappy);
-			break;
-		case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
-			/* new compression using quicklz */
-			ret = PZ_DECOMPRESS(page_zip_decompress_quicklz);
-			break;
-		case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
-			/* new compression using lz4 */
-			ret = PZ_DECOMPRESS(page_zip_decompress_lz4);
-			break;
-		default:
-			fprintf(stderr,
-				"InnoDB: unknown compression type %lu\n",
-				(table_flags & DICT_TF_MASK_COMP_TYPE)
-				>> DICT_TF_POS_COMP_TYPE);
-			ut_error;
-			break;
-		}
-
-		if (!ret)
-			goto err_exit;
-
+		comp_state.in = page_zip->data + PAGE_DATA;
+		comp_state.avail_in = avail_in;
+		comp_state.out = buf;
+		comp_state.avail_out = 2 * UNIV_PAGE_SIZE;
+		comp_state.level = comp_flags;
+		comp_state.heap = heap;
+		comp_decompress(comp_type, &comp_state);
+		ut_a(avail_in > comp_state.avail_in);
+		compressed_len = avail_in - comp_state.avail_in;
 		page_zip->m_end = compressed_len + PAGE_DATA;
 		ret = page_zip_deserialize(
 			page, buf, recs, n_dense, &index, &offsets,

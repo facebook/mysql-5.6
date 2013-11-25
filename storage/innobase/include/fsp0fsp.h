@@ -117,6 +117,14 @@ a compressed table. */
 #define FSP_FLAGS_MASK_DATA_DIR					\
 		((~(~0 << FSP_FLAGS_WIDTH_DATA_DIR))		\
 		<< FSP_FLAGS_POS_DATA_DIR)
+/** Bit mask of the COMP_TYPE field */
+#define FSP_FLAGS_MASK_COMP_TYPE	\
+		((~(~0 << FSP_FLAGS_WIDTH_COMP_TYPE))	\
+		 << FSP_FLAGS_POS_COMP_TYPE)
+/** Bit mask of the COMP_FLAGS field */
+#define FSP_FLAGS_MASK_COMP_FLAGS	\
+		((~(~0 << FSP_FLAGS_WIDTH_COMP_FLAGS))	\
+		 << FSP_FLAGS_POS_COMP_FLAGS)
 
 /** Return the value of the POST_ANTELOPE field */
 #define FSP_FLAGS_GET_POST_ANTELOPE(flags)			\
@@ -138,6 +146,15 @@ a compressed table. */
 #define FSP_FLAGS_HAS_DATA_DIR(flags)				\
 		((flags & FSP_FLAGS_MASK_DATA_DIR)		\
 		>> FSP_FLAGS_POS_DATA_DIR)
+/** Return the value of COMP_TYPE field */
+#define FSP_FLAGS_GET_COMP_TYPE(flags)	\
+		((flags & FSP_FLAGS_MASK_COMP_TYPE)	\
+		 >> FSP_FLAGS_POS_COMP_TYPE)
+/** Return the value of COMP_FLAGS field */
+#define FSP_FLAGS_GET_COMP_FLAGS(flags)	\
+		((flags & FSP_FLAGS_MASK_COMP_FLAGS)	\
+		 >> FSP_FLAGS_POS_COMP_FLAGS)
+
 /** Return the contents of the UNUSED bits */
 #define FSP_FLAGS_GET_UNUSED(flags)				\
 		(flags >> FSP_FLAGS_POS_UNUSED)

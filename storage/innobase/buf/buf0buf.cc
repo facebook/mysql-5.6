@@ -2376,7 +2376,7 @@ buf_zip_decompress(
 /*===============*/
 	buf_block_t*	block,	/*!< in/out: block */
 	ibool		check,	/*!< in: TRUE=verify the page checksum */
-	ulint		table_flags) /*!< in: table flags used for compression
+	ulint		fsp_flags) /*!< in: space flags used for compression
 				       configuration. not used if set to
 				       ULINT_UNDEFINED */
 {
@@ -2409,7 +2409,7 @@ buf_zip_decompress(
 		if (page_zip_decompress(&block->page.zip,
 					block->frame, TRUE,
 					block->page.space,
-					table_flags)) {
+					fsp_flags)) {
 			return(TRUE);
 		}
 
