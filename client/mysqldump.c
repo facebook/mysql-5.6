@@ -1667,6 +1667,12 @@ static int connect_to_db(char *host, char *user,char *passwd)
     if (mysql_query_with_error_report(mysql, 0, buff))
       DBUG_RETURN(1);
   }
+  if (opt_single_transaction)
+  {
+    my_snprintf(buff, sizeof(buff), "SET session sql_log_bin=0");
+    if (mysql_query_with_error_report(mysql, 0, buff))
+      DBUG_RETURN(1);
+  }
   DBUG_RETURN(0);
 } /* connect_to_db */
 
@@ -3779,6 +3785,10 @@ static void dump_table(char *table, char *db)
   MYSQL_ROW     row;
   DBUG_ENTER("dump_table");
 
+
+  if (opt_single_transaction) {
+    mysql_real_query(mysql, STRING_WITH_LEN("SAVEPOINT mysqldump"));
+  }
   /*
     Make sure you get the create table info before the following check for
     --no-data flag below. Otherwise, the create table info won't be printed.
@@ -4266,6 +4276,9 @@ static void dump_table(char *table, char *db)
     print_comment(md_result_file, 0,
                   "\n--\n-- Rows found for %s: %lu\n--\n",
                   table, rownr);
+  }
+  if (opt_single_transaction) {
+    mysql_real_query(mysql, STRING_WITH_LEN("ROLLBACK TO SAVEPOINT mysqldump"));
   }
   dynstr_free(&query_string);
   DBUG_VOID_RETURN;
