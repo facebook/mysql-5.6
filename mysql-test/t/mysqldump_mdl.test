@@ -1,0 +1,51 @@
+# Embedded server doesn't support external clients
+--source include/not_embedded.inc
+
+# Binlog is required
+--source include/have_log_bin.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+disable_query_log;
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
+call mtr.add_suppression("InnoDB: Error: Table .*innodb_(table|index)_stats.* not found");
+enable_query_log;
+
+--echo # Bug#37938 Test "mysqldump" lacks various insert statements
+--echo # Turn off concurrent inserts to avoid random errors
+--echo # NOTE:  We reset the variable back to saved value at the end of test
+SET @OLD_CONCURRENT_INSERT = @@GLOBAL.CONCURRENT_INSERT;
+SET @@GLOBAL.CONCURRENT_INSERT = 0;
+
+-- echo #
+-- echo # Bug #71017 : Ensure that the MDL isn't held after dumping table
+-- echo #
+CREATE DATABASE MDL_test;
+use MDL_test;
+CREATE TABLE t1 (id int) engine=innodb;
+CREATE TABLE t2 (id int) engine=innodb;
+connect (conn_1, localhost, root, , MDL_test, $MASTER_MYPORT, $MASTER_MYSOCK);
+connect (conn_2, localhost, root, , MDL_test, $MASTER_MYPORT, $MASTER_MYSOCK);
+connection conn_1;
+LOCK TABLE t2 write;
+--write_file $MYSQL_TMP_DIR/mysqldump_mdl.sh
+#!/bin/bash
+$MYSQL_DUMP --single-transaction MDL_test > /dev/null 2>&1 &
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mysqldump_mdl.sh
+--exec $MYSQL_TMP_DIR/mysqldump_mdl.sh
+let $wait_condition= SELECT id from information_schema.processlist where processlist.info like '%SQL_NO_CACHE%' and state like '%Waiting for table metadata lock%';
+--source include/wait_condition.inc
+connection conn_2;
+OPTIMIZE TABLE t1;
+connection conn_1;
+UNLOCK TABLES;
+connection default;
+DROP DATABASE MDL_test;
+--remove_file $MYSQL_TMP_DIR/mysqldump_mdl.sh
+disconnect conn_1;
+disconnect conn_2;
+# Wait till we reached the initial number of concurrent sessions
+--source include/wait_until_count_sessions.inc
+SET @@GLOBAL.CONCURRENT_INSERT = @OLD_CONCURRENT_INSERT;
