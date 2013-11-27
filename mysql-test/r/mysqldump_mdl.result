@@ -1,0 +1,20 @@
+# Bug#37938 Test "mysqldump" lacks various insert statements
+# Turn off concurrent inserts to avoid random errors
+# NOTE:  We reset the variable back to saved value at the end of test
+SET @OLD_CONCURRENT_INSERT = @@GLOBAL.CONCURRENT_INSERT;
+SET @@GLOBAL.CONCURRENT_INSERT = 0;
+#
+# Bug #71017 : Ensure that the MDL isn't held after dumping table
+#
+CREATE DATABASE MDL_test;
+use MDL_test;
+CREATE TABLE t1 (id int) engine=innodb;
+CREATE TABLE t2 (id int) engine=innodb;
+LOCK TABLE t2 write;
+OPTIMIZE TABLE t1;
+Table	Op	Msg_type	Msg_text
+MDL_test.t1	optimize	note	Table does not support optimize, doing recreate + analyze instead
+MDL_test.t1	optimize	status	OK
+UNLOCK TABLES;
+DROP DATABASE MDL_test;
+SET @@GLOBAL.CONCURRENT_INSERT = @OLD_CONCURRENT_INSERT;
