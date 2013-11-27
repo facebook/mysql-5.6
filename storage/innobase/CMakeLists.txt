@@ -426,6 +426,7 @@ SET(INNOBASE_SOURCES
 	comp/comp0bzip.cc
 	comp/comp0lzma.cc
 	comp/comp0snappy.cc
+	comp/comp0quicklz.cc
 	zlib_embedded/adler32.c
 	zlib_embedded/compress.c
 	zlib_embedded/crc32.c
@@ -449,6 +450,9 @@ SET(INNOBASE_SOURCES
 	lzma_embedded/LzmaLib.c
 	snappy_embedded/snappy.cc
 	snappy_embedded/snappy-sinksource.cc
+	quicklz_embedded/quicklz_level1.c
+	quicklz_embedded/quicklz_level2.c
+	quicklz_embedded/quicklz_level3.c
 )
 
 IF(WITH_INNODB)
