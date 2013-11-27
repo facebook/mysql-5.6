@@ -2766,10 +2766,12 @@ page_zip_compress(
 		comp_state.level = comp_level;
 		comp_state.heap = heap;
 		ret = comp_compress(comp_type, &comp_state);
-		ut_a(avail_out > (lint)comp_state.avail_out);
-		compressed_len = avail_out - comp_state.avail_out;
-		new_page_zip.m_nonempty = FALSE;
-		new_page_zip.m_end = PAGE_DATA + compressed_len;
+		if (ret) {
+			ut_a(avail_out > (lint)comp_state.avail_out);
+			compressed_len = avail_out - comp_state.avail_out;
+			new_page_zip.m_nonempty = FALSE;
+			new_page_zip.m_end = PAGE_DATA + compressed_len;
+		}
 	}
 
 	if (UNIV_UNLIKELY(!ret)) {
