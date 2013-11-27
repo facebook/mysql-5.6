@@ -4,6 +4,7 @@
 extern comp_interface_t* comp_zlib; /* compression interface for zlib */
 extern comp_interface_t* comp_bzip; /* compression interface for bzip */
 extern comp_interface_t* comp_lzma; /* compression interface for lzma */
+extern comp_interface_t* comp_snappy; /* compression interface for snappy */
 
 /* The index of each compression type below must correspond to its definition in
    dict0mem.h */
@@ -12,7 +13,7 @@ static comp_interface_t* comp_interfaces[] = {
 	comp_zlib, /* zlib */
 	comp_bzip, /* bzip */
 	comp_lzma, /* lzma */
-	comp_zlib, /* TODO: replace with comp_snappy once implemented */
+	comp_snappy, /* snappy */
 	comp_zlib, /* TODO: replace with comp_quicklz once implemented */
 	comp_zlib}; /* TODO: replace with comp_lz4 once implemented */
 /*****************************************************************************
