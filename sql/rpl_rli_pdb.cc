@@ -447,8 +447,9 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
   }
   if (ptr_g->checkpoint_log_name != NULL)
   {
-    strmake(checkpoint_relay_log_name, ptr_g->checkpoint_relay_log_name,
-            sizeof(checkpoint_relay_log_name) - 1);
+    if (ptr_g->checkpoint_relay_log_name != NULL)
+      strmake(checkpoint_relay_log_name, ptr_g->checkpoint_relay_log_name,
+              sizeof(checkpoint_relay_log_name) - 1);
     checkpoint_relay_log_pos= ptr_g->checkpoint_relay_log_pos;
     strmake(checkpoint_master_log_name, ptr_g->checkpoint_log_name,
             sizeof(checkpoint_master_log_name) - 1);
@@ -456,7 +457,8 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
 
     my_free(ptr_g->checkpoint_log_name);
     ptr_g->checkpoint_log_name= NULL;
-    my_free(ptr_g->checkpoint_relay_log_name);
+    if (ptr_g->checkpoint_relay_log_name != NULL)
+      my_free(ptr_g->checkpoint_relay_log_name);
     ptr_g->checkpoint_relay_log_name= NULL;
 
     bitmap_copy(&group_shifted, &group_executed);
