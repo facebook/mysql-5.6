@@ -26,8 +26,13 @@ insert into t1 values(3);
 include/stop_slave.inc
 change master to master_log_file='master-bin.000001', master_log_pos=120;
 include/start_slave.inc
+include/stop_slave.inc
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+include/start_slave.inc
+include/stop_slave.inc
+UNINSTALL PLUGIN rpl_semi_sync_slave;
+include/start_slave.inc
+set global rpl_semi_sync_master_enabled=OFF;
 drop table t1;
 UNINSTALL PLUGIN rpl_semi_sync_master;
-UNINSTALL PLUGIN rpl_semi_sync_slave;
-UNINSTALL PLUGIN rpl_semi_sync_slave;
 include/rpl_end.inc
