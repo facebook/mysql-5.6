@@ -6,6 +6,7 @@ extern comp_interface_t* comp_bzip; /* compression interface for bzip */
 extern comp_interface_t* comp_lzma; /* compression interface for lzma */
 extern comp_interface_t* comp_snappy; /* compression interface for snappy */
 extern comp_interface_t* comp_quicklz; /* compression interface for snappy */
+extern comp_interface_t* comp_lz4; /* compression interface for LZ4 */
 
 /* The index of each compression type below must correspond to its definition in
    dict0mem.h */
@@ -16,7 +17,7 @@ static comp_interface_t* comp_interfaces[] = {
 	comp_lzma, /* lzma */
 	comp_snappy, /* snappy */
 	comp_quicklz, /* quicklz */
-	comp_zlib}; /* TODO: replace with comp_lz4 once implemented */
+	comp_lz4}; /* LZ4 */
 /*****************************************************************************
 Compress the contents of the buffer comp_state->in into the output buffer
 comp_state->out using the compression comp_type which is one of
