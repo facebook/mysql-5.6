@@ -1,0 +1,10 @@
+#define QLZ_STREAMING_BUFFER 0
+#define QLZ_COMPRESSION_LEVEL 2
+#define qlz_size_decompressed innobase_qlz_size_decompressed2
+#define qlz_size_compressed innobase_qlz_size_compressed2
+#define qlz_compress innobase_qlz_compress2
+#define qlz_decompress innobase_qlz_decompress2
+#define qlz_get_setting innobase_qlz_get_setting2
+#define qlz_state_compress innobase_qlz_state_compress2
+#define qlz_state_decompress innobase_qlz_state_decompress2
+#include "quicklz_embedded/quicklz.c"
