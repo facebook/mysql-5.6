@@ -372,19 +372,9 @@ page_zip_compress_write_log(
 		return;
 	}
 
-	/* Read the number of user records. */
-	trailer_size = page_dir_get_n_heap(page_zip->data)
-		- PAGE_HEAP_NO_USER_LOW;
-	/* Multiply by uncompressed of size stored per record */
-	if (!page_is_leaf(page)) {
-		trailer_size *= PAGE_ZIP_DIR_SLOT_SIZE + REC_NODE_PTR_SIZE;
-	} else if (dict_index_is_clust(index)) {
-		trailer_size *= PAGE_ZIP_DIR_SLOT_SIZE + DATA_TRX_RBP_LEN;
-	} else {
-		trailer_size *= PAGE_ZIP_DIR_SLOT_SIZE;
-	}
-	/* Add the space occupied by BLOB pointers. */
-	trailer_size += page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+	/* Get the trailer size */
+	trailer_size = page_zip_get_trailer_len(page_zip,
+						dict_index_is_clust(index));
 	ut_a(page_zip->m_end > PAGE_DATA);
 #if FIL_PAGE_DATA > PAGE_DATA
 # error "FIL_PAGE_DATA > PAGE_DATA"
