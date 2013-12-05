@@ -1371,6 +1371,9 @@ int ha_commit_trans(THD *thd, bool all, bool async,
                     bool ignore_global_read_lock)
 {
   int error= 0;
+  PSI_stage_info old_stage;
+  thd->enter_stage(&stage_waiting_for_commit, &old_stage,
+                   __func__, __FILE__, __LINE__);
   /*
     'all' means that this is either an explicit commit issued by
     user, or an implicit commit issued by a DDL.
@@ -1407,6 +1410,7 @@ int ha_commit_trans(THD *thd, bool all, bool async,
       stored functions or triggers. So we simply do nothing now.
       TODO: This should be fixed in later ( >= 5.1) releases.
     */
+    thd->enter_stage(&old_stage, NULL, __func__, __FILE__, __LINE__);
     if (!all)
       DBUG_RETURN(0);
     /*
@@ -1462,6 +1466,7 @@ int ha_commit_trans(THD *thd, bool all, bool async,
                                         thd->variables.lock_wait_timeout))
       {
         ha_rollback_trans(thd, all);
+        thd->enter_stage(&old_stage, NULL, __func__, __FILE__, __LINE__);
         DBUG_RETURN(1);
       }
       release_mdl= true;
@@ -1506,6 +1511,7 @@ int ha_commit_trans(THD *thd, bool all, bool async,
   }
   DBUG_EXECUTE_IF("crash_commit_after", DBUG_SUICIDE(););
 end:
+  thd->enter_stage(&old_stage, NULL, __func__, __FILE__, __LINE__);
   if (release_mdl && mdl_request.ticket)
   {
     /*
