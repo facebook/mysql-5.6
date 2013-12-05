@@ -2247,7 +2247,7 @@ public:
   virtual void print_proc_info(const char *fmt, ...);
 
 private:
-  unsigned int m_current_stage_key;
+  unsigned int m_current_stage_key = 0;
 
 public:
   void enter_stage(const PSI_stage_info *stage,
