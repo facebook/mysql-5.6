@@ -13,6 +13,7 @@ KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 COMPRESSION=ZLIB
+COMPACT_METADATA=1
 KEY_BLOCK_SIZE=1;
 Wait for reconnect
 Checksum master
