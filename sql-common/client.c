@@ -4272,6 +4272,8 @@ csm_begin_connect(csm_context *ctx) {
       else if (vio_reset(net->vio, VIO_TYPE_TCPIP, sock, NULL, flags))
       {
         set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
+        /* Mark as inactive so vio_delete doesn't double-close this */
+        net->vio->inactive = TRUE;
         closesocket(sock);
         DBUG_RETURN(STATE_MACHINE_FAILED);
       }
@@ -4301,6 +4303,8 @@ csm_begin_connect(csm_context *ctx) {
       saved_error= socket_errno;
 
       DBUG_PRINT("info", ("No success, close socket, try next address."));
+      /* Mark as inactive so vio_delete doesn't double-close this */
+      net->vio->inactive = TRUE;
       closesocket(sock);
     }
     DBUG_PRINT("info",
@@ -4411,9 +4415,10 @@ csm_complete_connect(csm_context *ctx)
   if (mysql->options.max_allowed_packet)
     net->max_packet_size= mysql->options.max_allowed_packet;
 
-  /* Get version info */
+  /* Wait until socket is readable for (blocking mode only) */
   mysql->protocol_version= PROTOCOL_VERSION;	/* Assume this */
   if (timeout_is_nonzero(mysql->options.connect_timeout) &&
+      !ctx->non_blocking &&
       (vio_io_wait(net->vio, VIO_IO_EVENT_READ,
                    get_vio_connect_timeout(mysql)) < 1))
   {
