@@ -408,6 +408,8 @@ UNIV_INTERN ulint	srv_fast_shutdown	= 0;
 /* Generate a innodb_status.<pid> file */
 UNIV_INTERN ibool	srv_innodb_status	= FALSE;
 
+UNIV_INTERN my_bool srv_recv_ibuf_operations = FALSE;
+
 /* Optimize prefix index queries to skip cluster index lookup when possible */
 /* Enables or disables this prefix optimization.  Disabled by default. */
 UNIV_INTERN my_bool	srv_prefix_index_cluster_optimization = 0;
