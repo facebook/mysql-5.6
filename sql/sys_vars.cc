@@ -4997,3 +4997,8 @@ static Sys_var_mybool Sys_validate_user_plugins(
        NO_MUTEX_GUARD, NOT_IN_BINLOG);
 #endif
 
+static Sys_var_mybool Sys_recv_skip_ibuf_operations(
+       "recv_skip_ibuf_operations",
+       "Skips ibuf record merging during crash recovery",
+       GLOBAL_VAR(recv_skip_ibuf_operations), CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));
