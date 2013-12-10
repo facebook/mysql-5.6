@@ -5045,3 +5045,9 @@ static Sys_var_enum Sys_block_encryption_mode(
   "block_encryption_mode", "mode for AES_ENCRYPT/AES_DECRYPT",
   SESSION_VAR(my_aes_mode), CMD_LINE(REQUIRED_ARG),
   my_aes_opmode_names, DEFAULT(my_aes_128_ecb));
+
+static Sys_var_mybool Sys_recv_skip_ibuf_operations(
+       "recv_skip_ibuf_operations",
+       "Skips ibuf record merging during crash recovery",
+       GLOBAL_VAR(recv_skip_ibuf_operations), CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));
