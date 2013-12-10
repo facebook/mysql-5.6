@@ -5118,3 +5118,8 @@ static Sys_var_mybool Sys_show_old_temporals(
         ON_CHECK(0), ON_UPDATE(0),
         DEPRECATED(""));
 
+static Sys_var_mybool Sys_recv_skip_ibuf_operations(
+       "recv_skip_ibuf_operations",
+       "Skips ibuf record merging during crash recovery",
+       GLOBAL_VAR(recv_skip_ibuf_operations), CMD_LINE(OPT_ARG),
+       DEFAULT(TRUE));
