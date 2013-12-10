@@ -57,10 +57,17 @@ perl;
     use strict;
     my $search_file=           $ENV{'SEARCH_FILE'}           or die "SEARCH_FILE not set";
     my $search_pattern=        $ENV{'SEARCH_PATTERN'}        or die "SEARCH_PATTERN not set";
+    my $found;
     open(FILE, "$search_file") or die("Unable to open '$search_file': $!\n");
-    read(FILE, my $file_content, 50000, 0);
+    while (<FILE>) {
+      if (/$search_pattern/) {
+        #print;
+        $found = 1;
+        last;
+      }
+    }
     close(FILE);
-    if ( not $file_content =~ m{$search_pattern} ) {
-       die("# ERROR: The file '$search_file' does not contain the expected pattern  $search_pattern\n->$file_content<-\n");
+    if ( not $found ) {
+       die("# ERROR: The file '$search_file' does not contain the expected pattern  $search_pattern\n");
     }
 EOF
