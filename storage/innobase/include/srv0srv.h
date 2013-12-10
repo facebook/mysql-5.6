@@ -393,6 +393,7 @@ extern my_bool			srv_stats_persistent;
 extern unsigned long long	srv_stats_persistent_sample_pages;
 extern my_bool			srv_stats_auto_recalc;
 extern my_bool			srv_stats_include_delete_marked;
+extern my_bool srv_recv_ibuf_operations;
 
 extern ulong	srv_use_doublewrite_buf;
 extern my_bool	srv_doublewrite_reset;
