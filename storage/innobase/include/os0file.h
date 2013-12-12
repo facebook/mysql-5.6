@@ -61,6 +61,13 @@ extern ulint	os_n_pending_reads;
 /** Number of pending write operations */
 extern ulint	os_n_pending_writes;
 
+/** Number of outstanding aio requests */
+extern volatile ulint	os_aio_n_outstanding;
+#ifdef UNIV_DEBUG
+/** Maximum outstanding aio requests observed */
+extern ulint		os_aio_max_outstanding;
+#endif
+
 /* Configurable variables for Histogram step sizes and units */
 extern char* innobase_histogram_step_size_async_read;
 extern char* innobase_histogram_step_size_async_write;
