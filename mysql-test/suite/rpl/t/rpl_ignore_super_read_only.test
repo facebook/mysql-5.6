@@ -1,0 +1,24 @@
+source include/master-slave.inc;
+
+connection master;
+create table t1(a int);
+insert into t1 values(1);
+sync_slave_with_master;
+
+set @@global.super_read_only=1;
+source include/stop_slave.inc;
+change master to master_connect_retry=20;
+source include/start_slave.inc;
+
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+
+select * from t1;
+set @@global.super_read_only=0;
+set @@global.read_only=0;
+
+connection master;
+drop table t1;
+
+source include/rpl_end.inc;

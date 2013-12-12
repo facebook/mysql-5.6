@@ -1465,6 +1465,11 @@ int ha_commit_trans(THD *thd, bool all, bool async, bool ignore_global_read_lock
     bool enforce_ro = true;
     if (!opt_super_readonly)
       enforce_ro = !(thd->security_ctx->master_access & SUPER_ACL);
+    // Ignore super_read_only when ignore_global_read_lock is set.
+    // ignore_global_read_lock is set for transactions on replication
+    // repository tables.
+    if (ignore_global_read_lock)
+      enforce_ro = false;
     if (rw_trans &&
         opt_readonly &&
         enforce_ro &&
