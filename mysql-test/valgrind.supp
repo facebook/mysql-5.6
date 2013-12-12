@@ -1041,7 +1041,6 @@
    fun:malloc
    fun:CRYPTO_malloc
    ...
-   fun:load_builtin_compressions
    fun:SSL_COMP_get_compression_methods
    fun:SSL_library_init
 }
@@ -1101,17 +1100,17 @@
 }
 
 {
-   Known issue: https://bugzilla.redhat.com/show_bug.cgi?id=798968
-   Memcheck:Cond
-   fun:index
-   fun:expand_dynamic_string_token
-   fun:_dl_map_object
-   fun:map_doit
-   fun:_dl_catch_error
-   fun:do_preload
-   fun:dl_main
-   fun:_dl_sysdep_start
-   fun:_dl_start
-   obj:/usr/local/fbcode/gcc-4.7.1-glibc-2.14.1/lib/ld-2.14.1.so
-   obj:*
+   stupid sendmsg bug: http://sourceware.org/bugzilla/show_bug.cgi?id=14687
+   Memcheck:Param
+   sendmsg(mmsg[0].msg_hdr)
+   fun:sendmmsg
+   fun:__libc_res_nsend
+   fun:__libc_res_nquery
+   fun:__libc_res_nsearch
+   fun:_nss_dns_gethostbyname4_r
+   fun:gaih_inet
+   fun:getaddrinfo
+   fun:csm_begin_connect
+   fun:pump_connect_state_machine
+   fun:mysql_real_connect
 }
