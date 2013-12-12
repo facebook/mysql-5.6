@@ -74,6 +74,7 @@ typedef block_state (*compress_func) OF((deflate_state *s, int flush));
 /* Compression function. Returns the block state after the call. */
 
 local void fill_window    OF((deflate_state *s));
+local void init_window    OF((deflate_state *s));
 local block_state deflate_stored OF((deflate_state *s, int flush));
 local block_state deflate_fast   OF((deflate_state *s, int flush));
 #ifndef FASTEST
@@ -182,7 +183,7 @@ struct static_tree_desc_s {int dummy;}; /* for buggy compilers */
 #else
 #define INSERT_STRING(s, str, match_head) \
    (UPDATE_HASH(s, s->ins_h, s->window[(str) + (MIN_MATCH-1)]), \
-    match_head = s->prev[(str) & s->w_mask] = s->head[s->ins_h], \
+    match_head = s->prev[(str)] = s->head[s->ins_h], \
     s->head[s->ins_h] = (Pos)(str))
 #endif
 
@@ -271,7 +272,6 @@ int ZEXPORT deflateInit2_(strm, level, method, windowBits, memLevel, strategy,
     s->gzhead = Z_NULL;
     s->w_bits = windowBits;
     s->w_size = 1 << s->w_bits;
-    s->w_mask = s->w_size - 1;
 
     s->hash_bits = memLevel + 7;
     s->hash_size = 1 << s->hash_bits;
@@ -1076,7 +1076,6 @@ local uInt longest_match(s, cur_match)
      * we prevent matches with the string of window index 0.
      */
     Posf *prev = s->prev;
-    uInt wmask = s->w_mask;
 
 #ifdef UNALIGNED_OK
     /* Compare two bytes at a time. Note: this is not always beneficial.
@@ -1196,7 +1195,7 @@ local uInt longest_match(s, cur_match)
             scan_end   = scan[best_len];
 #endif
         }
-    } while ((cur_match = prev[cur_match & wmask]) > limit
+    } while ((cur_match = prev[cur_match]) > limit
              && --chain_length != 0);
 
     if ((uInt)best_len <= s->lookahead) return (uInt)best_len;
@@ -1305,128 +1304,46 @@ local void check_match(s, start, match, length)
 local void fill_window(s)
     deflate_state *s;
 {
-    register unsigned n, m;
-    register Posf *p;
-    unsigned more;    /* Amount of free space at the end of the window. */
-    uInt wsize = s->w_size;
+    register unsigned n;
 
-    do {
-        more = (unsigned)(s->window_size -(ulg)s->lookahead -(ulg)s->strstart);
+    /* We expect all of the input to fit into the window directly. */
+    Assert(s->strstart == 0, "No input should have been processed");
+    Assert(s->lookahead + s->strm->avail_in <= s->window_size,
+           "There should be enough space for the entire input");
 
-        /* Deal with !@#$% 64K limit: */
-        if (sizeof(int) <= 2) {
-            if (more == 0 && s->strstart == 0 && s->lookahead == 0) {
-                more = wsize;
+    if (s->strm->avail_in == 0) return;
+    n = read_buf(s->strm, s->window + s->lookahead,
+                 s->strm->avail_in);
+    Assert(n == s->strm->avail_in, "all input should be read");
+    s->lookahead += n;
+}
 
-            } else if (more == (unsigned)(-1)) {
-                /* Very unlikely, but possible on 16 bit machine if
-                 * strstart == 0 && lookahead == 1 (input done a byte at time)
-                 */
-                more--;
-            }
-        }
+local void init_window(s)
+    deflate_state *s;
+{
+    ulg init;
 
-        /* If the window is almost full and there is insufficient lookahead,
-         * move the upper half to the lower one to make room in the upper half.
-         */
-        if (s->strstart >= wsize+MAX_DIST(s)) {
+    Assert(s->strstart == 0, "process entire input at once");
 
-            zmemcpy(s->window, s->window+wsize, (unsigned)wsize);
-            s->match_start -= wsize;
-            s->strstart    -= wsize; /* we now have strstart >= MAX_DIST */
-            s->block_start -= (long) wsize;
-
-            /* Slide the hash table (could be avoided with 32 bit values
-               at the expense of memory usage). We slide even when level == 0
-               to keep the hash table consistent if we switch back to level > 0
-               later. (Using level 0 permanently is not an optimal usage of
-               zlib, so we don't care about this pathological case.)
-             */
-            n = s->hash_size;
-            p = &s->head[n];
-            do {
-                m = *--p;
-                *p = (Pos)(m >= wsize ? m-wsize : NIL);
-            } while (--n);
-
-            n = wsize;
-#ifndef FASTEST
-            p = &s->prev[n];
-            do {
-                m = *--p;
-                *p = (Pos)(m >= wsize ? m-wsize : NIL);
-                /* If n is not on any hash chain, prev[n] is garbage but
-                 * its value will never be used.
-                 */
-            } while (--n);
-#endif
-            more += wsize;
-        }
-        if (s->strm->avail_in == 0) return;
-
-        /* If there was no sliding:
-         *    strstart <= WSIZE+MAX_DIST-1 && lookahead <= MIN_LOOKAHEAD - 1 &&
-         *    more == window_size - lookahead - strstart
-         * => more >= window_size - (MIN_LOOKAHEAD-1 + WSIZE + MAX_DIST-1)
-         * => more >= window_size - 2*WSIZE + 2
-         * In the BIG_MEM or MMAP case (not yet supported),
-         *   window_size == input_size + MIN_LOOKAHEAD  &&
-         *   strstart + s->lookahead <= input_size => more >= MIN_LOOKAHEAD.
-         * Otherwise, window_size == 2*WSIZE so more >= 2.
-         * If there was sliding, more >= WSIZE. So in all cases, more >= 2.
-         */
-        Assert(more >= 2, "more < 2");
-
-        n = read_buf(s->strm, s->window + s->strstart + s->lookahead, more);
-        s->lookahead += n;
-
-        /* Initialize the hash value now that we have some input: */
-        if (s->lookahead >= MIN_MATCH) {
-            s->ins_h = s->window[s->strstart];
-            UPDATE_HASH(s, s->ins_h, s->window[s->strstart+1]);
-#if MIN_MATCH != 3
-            Call UPDATE_HASH() MIN_MATCH-3 more times
-#endif
-        }
-        /* If the whole input has less than MIN_MATCH bytes, ins_h is garbage,
-         * but this is not important since only literal bytes will be emitted.
-         */
-
-    } while (s->lookahead < MIN_LOOKAHEAD && s->strm->avail_in != 0);
+    /* Initialize the hash value now that we have some input: */
+    s->ins_h = s->window[0];
+    UPDATE_HASH(s, s->ins_h, s->window[1]);
+    /* If the whole input has less than MIN_MATCH bytes, ins_h is garbage,
+     * but this is not important since only literal bytes will be emitted.
+     */
 
     /* If the WIN_INIT bytes after the end of the current data have never been
      * written, then zero those bytes in order to avoid memory check reports of
      * the use of uninitialized (or uninitialised as Julian writes) bytes by
-     * the longest match routines.  Update the high water mark for the next
-     * time through here.  WIN_INIT is set to MAX_MATCH since the longest match
+     * the longest match routines. Update the high water mark for the next
+     * time through here. WIN_INIT is set to MAX_MATCH since the longest match
      * routines allow scanning to strstart + MAX_MATCH, ignoring lookahead.
      */
-    if (s->high_water < s->window_size) {
-        ulg curr = s->strstart + (ulg)(s->lookahead);
-        ulg init;
-
-        if (s->high_water < curr) {
-            /* Previous high water mark below current data -- zero WIN_INIT
-             * bytes or up to end of window, whichever is less.
-             */
-            init = s->window_size - curr;
-            if (init > WIN_INIT)
-                init = WIN_INIT;
-            zmemzero(s->window + curr, (unsigned)init);
-            s->high_water = curr + init;
-        }
-        else if (s->high_water < (ulg)curr + WIN_INIT) {
-            /* High water mark at or above current data, but below current data
-             * plus WIN_INIT -- zero out to current data plus WIN_INIT, or up
-             * to end of window, whichever is less.
-             */
-            init = (ulg)curr + WIN_INIT - s->high_water;
-            if (init > s->window_size - s->high_water)
-                init = s->window_size - s->high_water;
-            zmemzero(s->window + s->high_water, (unsigned)init);
-            s->high_water += init;
-        }
+    init = s->window_size - s->lookahead;
+    if (init > WIN_INIT) {
+        init = WIN_INIT;
     }
+    zmemzero(s->window + s->lookahead, (unsigned)init);
 }
 
 /* ===========================================================================
@@ -1473,19 +1390,19 @@ local block_state deflate_stored(s, flush)
         max_block_size = s->pending_buf_size - 5;
     }
 
+    /* We assume here that there is enough space for all of the input data to
+     * be put into the window. Also we do not do any actual computations until
+     * the input ends, and output needs to be flushed/
+     */
+    fill_window(s);
+    if (flush == Z_NO_FLUSH) {
+        return need_more;
+    }
+    init_window(s);
+
     /* Copy as much as possible from input to output: */
     for (;;) {
-        /* Fill the window as much as possible: */
-        if (s->lookahead <= 1) {
-
-            Assert(s->strstart < s->w_size+MAX_DIST(s) ||
-                   s->block_start >= (long)s->w_size, "slide too late");
-
-            fill_window(s);
-            if (s->lookahead == 0 && flush == Z_NO_FLUSH) return need_more;
-
-            if (s->lookahead == 0) break; /* flush the current block */
-        }
+        if (s->lookahead == 0) break; /* flush the current block */
         Assert(s->block_start >= 0L, "block gone");
 
         s->strstart += s->lookahead;
@@ -1524,19 +1441,18 @@ local block_state deflate_fast(s, flush)
     IPos hash_head;       /* head of the hash chain */
     int bflush;           /* set if current block must be flushed */
 
+    /* We assume here that there is enough space for all of the input data to
+     * be put into the window. Also we do not do any actual computations until
+     * the input ends, and output needs to be flushed/
+     */
+    fill_window(s);
+    if (flush == Z_NO_FLUSH) {
+        return need_more;
+    }
+    init_window(s);
+
     for (;;) {
-        /* Make sure that we always have enough lookahead, except
-         * at the end of the input file. We need MAX_MATCH bytes
-         * for the next match, plus MIN_MATCH bytes to insert the
-         * string following the next match.
-         */
-        if (s->lookahead < MIN_LOOKAHEAD) {
-            fill_window(s);
-            if (s->lookahead < MIN_LOOKAHEAD && flush == Z_NO_FLUSH) {
-                return need_more;
-            }
-            if (s->lookahead == 0) break; /* flush the current block */
-        }
+        if (s->lookahead == 0) break; /* flush the current block */
 
         /* Insert the string window[strstart .. strstart+2] in the
          * dictionary, and set hash_head to the head of the hash chain:
@@ -1620,20 +1536,19 @@ local block_state deflate_slow(s, flush)
     IPos hash_head;          /* head of hash chain */
     int bflush;              /* set if current block must be flushed */
 
+    /* We assume here that there is enough space for all of the input data to
+     * be put into the window. Also we do not do any actual computations until
+     * the input ends, and output needs to be flushed/
+     */
+    fill_window(s);
+    if (flush == Z_NO_FLUSH) {
+        return need_more;
+    }
+    init_window(s);
+
     /* Process the input block. */
     for (;;) {
-        /* Make sure that we always have enough lookahead, except
-         * at the end of the input file. We need MAX_MATCH bytes
-         * for the next match, plus MIN_MATCH bytes to insert the
-         * string following the next match.
-         */
-        if (s->lookahead < MIN_LOOKAHEAD) {
-            fill_window(s);
-            if (s->lookahead < MIN_LOOKAHEAD && flush == Z_NO_FLUSH) {
-                return need_more;
-            }
-            if (s->lookahead == 0) break; /* flush the current block */
-        }
+        if (s->lookahead == 0) break; /* flush the current block */
 
         /* Insert the string window[strstart .. strstart+2] in the
          * dictionary, and set hash_head to the head of the hash chain:
@@ -1674,25 +1589,19 @@ local block_state deflate_slow(s, flush)
          * match is not better, output the previous match:
          */
         if (s->prev_length >= MIN_MATCH && s->match_length <= s->prev_length) {
-            uInt max_insert = s->strstart + s->lookahead - MIN_MATCH;
-            /* Do not insert strings in hash table beyond this. */
-
             check_match(s, s->strstart-1, s->prev_match, s->prev_length);
 
             _tr_tally_dist(s, s->strstart -1 - s->prev_match,
                            s->prev_length - MIN_MATCH, bflush);
 
             /* Insert in hash table all strings up to the end of the match.
-             * strstart-1 and strstart are already inserted. If there is not
-             * enough lookahead, the last two strings are not inserted in
-             * the hash table.
+             * strstart-1 and strstart are already inserted.
              */
             s->lookahead -= s->prev_length-1;
             s->prev_length -= 2;
             do {
-                if (++s->strstart <= max_insert) {
-                    INSERT_STRING(s, s->strstart, hash_head);
-                }
+                ++s->strstart;
+                INSERT_STRING(s, s->strstart, hash_head);
             } while (--s->prev_length != 0);
             s->match_available = 0;
             s->match_length = MIN_MATCH-1;
@@ -1746,18 +1655,19 @@ local block_state deflate_rle(s, flush)
     uInt prev;              /* byte at distance one to match */
     Bytef *scan, *strend;   /* scan goes up to strend for length of run */
 
+    /* We assume here that there is enough space for all of the input data to
+     * be put into the window. Also we do not do any actual computations until
+     * the input ends, and output needs to be flushed/
+     */
+    fill_window(s);
+    if (flush == Z_NO_FLUSH) {
+        return need_more;
+    }
+    init_window(s);
+
+    /* Process the input block. */
     for (;;) {
-        /* Make sure that we always have enough lookahead, except
-         * at the end of the input file. We need MAX_MATCH bytes
-         * for the longest encodable run.
-         */
-        if (s->lookahead < MAX_MATCH) {
-            fill_window(s);
-            if (s->lookahead < MAX_MATCH && flush == Z_NO_FLUSH) {
-                return need_more;
-            }
-            if (s->lookahead == 0) break; /* flush the current block */
-        }
+        if (s->lookahead == 0) break; /* flush the current block */
 
         /* See how many times the previous byte repeats */
         s->match_length = 0;
@@ -1810,16 +1720,19 @@ local block_state deflate_huff(s, flush)
 {
     int bflush;             /* set if current block must be flushed */
 
+    /* We assume here that there is enough space for all of the input data to
+     * be put into the window. Also we do not do any actual computations until
+     * the input ends, and output needs to be flushed/
+     */
+    fill_window(s);
+    if (flush == Z_NO_FLUSH) {
+        return need_more;
+    }
+    init_window(s);
+
+    /* Process the input block. */
     for (;;) {
-        /* Make sure that we have a literal to write. */
-        if (s->lookahead == 0) {
-            fill_window(s);
-            if (s->lookahead == 0) {
-                if (flush == Z_NO_FLUSH)
-                    return need_more;
-                break;      /* flush the current block */
-            }
-        }
+        if (s->lookahead == 0) break; /* flush the current block */
 
         /* Output a literal byte */
         s->match_length = 0;
