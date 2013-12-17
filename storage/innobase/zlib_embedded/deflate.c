@@ -60,6 +60,10 @@ const char deflate_copyright[] =
   copyright string in the executable of your product.
  */
 
+/* Defining UNALIGNED_OK causes longest_match() to compare two bytes at a time
+ * instead of one. */
+#define UNALIGNED_OK
+
 /* ===========================================================================
  *  Function prototypes.
  */
@@ -157,35 +161,30 @@ struct static_tree_desc_s {int dummy;}; /* for buggy compilers */
 #endif
 
 /* ===========================================================================
- * Update a hash value with the given input byte
- * IN  assertion: all calls to to UPDATE_HASH are made with consecutive
- *    input characters, so that a running hash key can be computed from the
- *    previous key instead of complete recalculation each time.
- */
-#define UPDATE_HASH(s,h,c) (h = (((h)<<s->hash_shift) ^ (c)) & s->hash_mask)
-
-
-/* ===========================================================================
- * Insert string str in the dictionary and set match_head to the previous head
- * of the hash chain (the most recent string with same hash key). Return
- * the previous length of the hash chain.
- * If this file is compiled with -DFASTEST, the compression level is forced
- * to 1, and no hash chains are maintained.
- * IN  assertion: all calls to to INSERT_STRING are made with consecutive
- *    input characters and the first MIN_MATCH bytes of str are valid
+ * Insert string str in the dictionary and return the previous head of the
+ * hash chain (the most recent string with same hash key).
+ * IN  assertion: The first MIN_MATCH bytes of str are valid
  *    (except for the last MIN_MATCH-1 bytes of the input file).
  */
-#ifdef FASTEST
-#define INSERT_STRING(s, str, match_head) \
-   (UPDATE_HASH(s, s->ins_h, s->window[(str) + (MIN_MATCH-1)]), \
-    match_head = s->head[s->ins_h], \
-    s->head[s->ins_h] = (Pos)(str))
-#else
-#define INSERT_STRING(s, str, match_head) \
-   (UPDATE_HASH(s, s->ins_h, s->window[(str) + (MIN_MATCH-1)]), \
-    match_head = s->prev[(str)] = s->head[s->ins_h], \
-    s->head[s->ins_h] = (Pos)(str))
-#endif
+local inline Pos insert_string(deflate_state *s, Pos str)
+{
+    Pos ret;
+    unsigned *ip, val, h = 0;
+
+    ip = (unsigned *)&s->window[str];
+    val = (*ip) & 0xFFFFFF;
+
+    __asm__ __volatile__ (
+        "crc32 %1,%0\n\t"
+    : "+r" (h)
+    : "r" (val)
+    :
+    );
+
+    ret = s->prev[str] = s->head[h & s->hash_mask];
+    s->head[h & s->hash_mask] = str;
+    return ret;
+}
 
 /* ===========================================================================
  * Initialize the hash table (avoiding 64K overflow for 16 bit systems).
@@ -316,7 +315,6 @@ int ZEXPORT deflateSetDictionary (strm, dictionary, dictLength)
     deflate_state *s;
     uInt length = dictLength;
     uInt n;
-    IPos hash_head = 0;
 
     if (strm == Z_NULL || strm->state == Z_NULL || dictionary == Z_NULL ||
         strm->state->wrap == 2 ||
@@ -337,15 +335,10 @@ int ZEXPORT deflateSetDictionary (strm, dictionary, dictLength)
     s->block_start = (long)length;
 
     /* Insert all strings in the hash table (except for the last two bytes).
-     * s->lookahead stays null, so s->ins_h will be recomputed at the next
-     * call of fill_window.
      */
-    s->ins_h = s->window[0];
-    UPDATE_HASH(s, s->ins_h, s->window[1]);
     for (n = 0; n <= length - MIN_MATCH; n++) {
-        INSERT_STRING(s, n, hash_head);
+        insert_string(s, n);
     }
-    if (hash_head) hash_head = 0;  /* to make compiler happy */
     return Z_OK;
 }
 
@@ -1038,7 +1031,6 @@ local void lm_init (s)
     s->lookahead = 0;
     s->match_length = s->prev_length = MIN_MATCH-1;
     s->match_available = 0;
-    s->ins_h = 0;
 #ifndef FASTEST
 #ifdef ASMV
     match_init(); /* initialize the asm code */
@@ -1068,7 +1060,11 @@ local uInt longest_match(s, cur_match)
     register Bytef *scan = s->window + s->strstart; /* current string */
     register Bytef *match;                       /* matched string */
     register int len;                           /* length of current match */
+#ifdef UNALIGNED_OK
+    int best_len_minus_1 = s->prev_length - 1;  /* best match length - 1 */
+#else
     int best_len = s->prev_length;              /* best match length so far */
+#endif
     int nice_match = s->nice_match;             /* stop if match long enough */
     IPos limit = s->strstart > (IPos)MAX_DIST(s) ?
         s->strstart - (IPos)MAX_DIST(s) : NIL;
@@ -1083,7 +1079,7 @@ local uInt longest_match(s, cur_match)
      */
     register Bytef *strend = s->window + s->strstart + MAX_MATCH - 1;
     register ush scan_start = *(ushf*)scan;
-    register ush scan_end   = *(ushf*)(scan+best_len-1);
+    register ush scan_end   = *(ushf*)(scan+best_len_minus_1);
 #else
     register Bytef *strend = s->window + s->strstart + MAX_MATCH;
     register Byte scan_end1  = scan[best_len-1];
@@ -1122,7 +1118,7 @@ local uInt longest_match(s, cur_match)
         /* This code assumes sizeof(unsigned short) == 2. Do not use
          * UNALIGNED_OK if your compiler uses a different size.
          */
-        if (*(ushf*)(match+best_len-1) != scan_end ||
+        if (*(ushf*)(match+best_len_minus_1) != scan_end ||
             *(ushf*)match != scan_start) continue;
 
         /* It is not necessary to compare scan[2] and match[2] since they are
@@ -1150,6 +1146,13 @@ local uInt longest_match(s, cur_match)
 
         len = (MAX_MATCH - 1) - (int)(strend-scan);
         scan = strend - (MAX_MATCH-1);
+
+        if (len > best_len_minus_1 + 1) {
+            s->match_start = cur_match;
+            best_len_minus_1 = len - 1;
+            if (len >= nice_match) break;
+            scan_end = *(ushf*)(scan+best_len_minus_1);
+        }
 
 #else /* UNALIGNED_OK */
 
@@ -1182,23 +1185,24 @@ local uInt longest_match(s, cur_match)
         len = MAX_MATCH - (int)(strend - scan);
         scan = strend - MAX_MATCH;
 
-#endif /* UNALIGNED_OK */
 
         if (len > best_len) {
             s->match_start = cur_match;
             best_len = len;
             if (len >= nice_match) break;
-#ifdef UNALIGNED_OK
-            scan_end = *(ushf*)(scan+best_len-1);
-#else
             scan_end1  = scan[best_len-1];
             scan_end   = scan[best_len];
-#endif
         }
+#endif
     } while ((cur_match = prev[cur_match]) > limit
              && --chain_length != 0);
 
+#ifdef UNALIGNED_OK
+    if ((uInt)best_len_minus_1 + 1 <= s->lookahead)
+        return (uInt)best_len_minus_1 + 1;
+#else
     if ((uInt)best_len <= s->lookahead) return (uInt)best_len;
+#endif
     return s->lookahead;
 }
 #endif /* ASMV */
@@ -1324,13 +1328,6 @@ local void init_window(s)
     ulg init;
 
     Assert(s->strstart == 0, "process entire input at once");
-
-    /* Initialize the hash value now that we have some input: */
-    s->ins_h = s->window[0];
-    UPDATE_HASH(s, s->ins_h, s->window[1]);
-    /* If the whole input has less than MIN_MATCH bytes, ins_h is garbage,
-     * but this is not important since only literal bytes will be emitted.
-     */
 
     /* If the WIN_INIT bytes after the end of the current data have never been
      * written, then zero those bytes in order to avoid memory check reports of
@@ -1459,7 +1456,7 @@ local block_state deflate_fast(s, flush)
          */
         hash_head = NIL;
         if (s->lookahead >= MIN_MATCH) {
-            INSERT_STRING(s, s->strstart, hash_head);
+            hash_head = insert_string(s, s->strstart);
         }
 
         /* Find the longest match, discarding those <= prev_length.
@@ -1490,7 +1487,7 @@ local block_state deflate_fast(s, flush)
                 s->match_length--; /* string at strstart already in table */
                 do {
                     s->strstart++;
-                    INSERT_STRING(s, s->strstart, hash_head);
+                    insert_string(s, s->strstart);
                     /* strstart never exceeds WSIZE-MAX_MATCH, so there are
                      * always MIN_MATCH bytes ahead.
                      */
@@ -1501,14 +1498,6 @@ local block_state deflate_fast(s, flush)
             {
                 s->strstart += s->match_length;
                 s->match_length = 0;
-                s->ins_h = s->window[s->strstart];
-                UPDATE_HASH(s, s->ins_h, s->window[s->strstart+1]);
-#if MIN_MATCH != 3
-                Call UPDATE_HASH() MIN_MATCH-3 more times
-#endif
-                /* If lookahead < MIN_MATCH, ins_h is garbage, but it does not
-                 * matter since it will be recomputed at next deflate call.
-                 */
             }
         } else {
             /* No match, output a literal byte */
@@ -1548,15 +1537,12 @@ local block_state deflate_slow(s, flush)
 
     /* Process the input block. */
     for (;;) {
-        if (s->lookahead == 0) break; /* flush the current block */
+        if (s->lookahead < MIN_MATCH) break; /* flush the current block */
 
         /* Insert the string window[strstart .. strstart+2] in the
          * dictionary, and set hash_head to the head of the hash chain:
          */
-        hash_head = NIL;
-        if (s->lookahead >= MIN_MATCH) {
-            INSERT_STRING(s, s->strstart, hash_head);
-        }
+        hash_head = insert_string(s, s->strstart);
 
         /* Find the longest match, discarding those <= prev_length.
          */
@@ -1601,7 +1587,7 @@ local block_state deflate_slow(s, flush)
             s->prev_length -= 2;
             do {
                 ++s->strstart;
-                INSERT_STRING(s, s->strstart, hash_head);
+                insert_string(s, s->strstart);
             } while (--s->prev_length != 0);
             s->match_available = 0;
             s->match_length = MIN_MATCH-1;
@@ -1637,6 +1623,13 @@ local block_state deflate_slow(s, flush)
         _tr_tally_lit(s, s->window[s->strstart-1], bflush);
         s->match_available = 0;
     }
+    while (s->lookahead != 0) {
+        Tracevv((stderr,"%c", s->window[s->strstart]));
+        _tr_tally_lit(s, s->window[s->strstart], bflush);
+        s->strstart++;
+        s->lookahead--;
+    }
+
     FLUSH_BLOCK(s, flush == Z_FINISH);
     return flush == Z_FINISH ? finish_done : block_done;
 }
