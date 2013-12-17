@@ -3427,19 +3427,15 @@ recv_recovery_from_checkpoint_finish(void)
 
 	if (srv_force_recovery < SRV_FORCE_NO_LOG_REDO) {
 
-		/* In case of normal crash recovery, we prefer to maintain the
-		standard behavior of applying ibuf records in the last apply
-		batch. Only in case of xtrabackup, and if the global var
-		recv_skip_ibuf_operations is set, we disallow ibuf operations
-		during the apply log phase. */
-#ifdef XTRABACKUP
-		if (recv_skip_ibuf_operations) {
+		/* if the global var recv_skip_ibuf_operations is set, we
+		disallow ibuf operations during the apply log phase. */
+		if (recv_skip_ibuf_operations && !srv_read_only_mode) {
 			mutex_enter(&(log_sys->mutex));
 			recv_apply_hashed_log_recs(FALSE);
 			mutex_exit(&(log_sys->mutex));
-		} else
-#endif /* XTRABACKUP */
-		recv_apply_hashed_log_recs(TRUE);
+		} else {
+			recv_apply_hashed_log_recs(TRUE);
+		}
 	}
 
 	DBUG_PRINT("ib_log", ("apply completed"));
