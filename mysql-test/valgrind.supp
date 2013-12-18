@@ -1110,7 +1110,4 @@
    fun:_nss_dns_gethostbyname4_r
    fun:gaih_inet
    fun:getaddrinfo
-   fun:csm_begin_connect
-   fun:pump_connect_state_machine
-   fun:mysql_real_connect
 }
