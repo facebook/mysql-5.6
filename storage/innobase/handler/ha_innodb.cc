@@ -951,7 +951,7 @@ static SHOW_VAR innodb_status_variables[]= {
 #ifdef UNIV_DEBUG
   {"max_outstanding_aio_requests",
    (char*) &export_vars.innodb_max_outstanding_aio_requests, SHOW_LONG},
-#endif
+#endif /* UNIV_DEBUG */
   {"logical_read_ahead_misses",
    (char*) &export_vars.innodb_logical_read_ahead_misses, SHOW_LONG},
   {"logical_read_ahead_prefetched",

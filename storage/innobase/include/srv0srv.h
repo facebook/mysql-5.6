@@ -1144,7 +1144,7 @@ struct export_var_t{
 	ulint innodb_outstanding_aio_requests;
 #ifdef UNIV_DEBUG
 	ulint innodb_max_outstanding_aio_requests;
-#endif
+#endif /* UNIV_DEBUG */
 	ulint innodb_logical_read_ahead_misses; /*!< total number of pages that
 						logical-read-ahead missed
 						during a table scan.

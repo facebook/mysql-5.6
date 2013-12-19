@@ -1974,7 +1974,7 @@ srv_export_innodb_status(void)
 #ifdef UNIV_DEBUG
 	export_vars.innodb_max_outstanding_aio_requests =
 		os_aio_max_outstanding;
-#endif
+#endif /* UNIV_DEBUG */
 	export_vars.innodb_logical_read_ahead_misses =
 		srv_stats.n_logical_read_ahead_misses;
 	export_vars.innodb_logical_read_ahead_prefetched =

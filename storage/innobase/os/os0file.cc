@@ -362,7 +362,7 @@ UNIV_INTERN volatile ulint	os_aio_n_outstanding = 0;
 #ifdef UNIV_DEBUG
 /** Maximum outstanding aio requests observed */
 UNIV_INTERN ulint		os_aio_max_outstanding = 0;
-#endif
+#endif /* UNIV_DEBUG */
 UNIV_INTERN volatile ibool	os_aio_batch_submission_blocked = FALSE;
 static os_event_t		os_aio_outstanding_requests_wait_event = NULL;
 
@@ -4715,7 +4715,7 @@ os_aio_linux_dispatch_read_array_submit()
 #if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
 		(void) os_atomic_increment_ulint(
 			&os_aio_n_outstanding, submitted);
-#else
+#else /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
 		os_mutex_enter(os_file_count_mutex);
 		os_aio_n_outstanding += submitted;
 		os_mutex_exit(os_file_count_mutex);
@@ -4726,7 +4726,7 @@ os_aio_linux_dispatch_read_array_submit()
 		if (os_aio_n_outstanding > os_aio_max_outstanding) {
 			os_aio_max_outstanding = os_aio_n_outstanding;
 		}
-#endif
+#endif /* UNIV_DEBUG */
 		/* Update submitted aio requests statistics. */
 		srv_stats.n_aio_submitted.add(submitted);
 	}
@@ -4806,7 +4806,7 @@ os_aio_linux_dispatch(
 
 #if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
 	(void) os_atomic_increment_ulint(&os_aio_n_outstanding, 1);
-#else
+#else /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
 	os_mutex_enter(os_file_count_mutex);
 	os_aio_n_outstanding++;
 	os_mutex_exit(os_file_count_mutex);
@@ -5579,7 +5579,7 @@ found:
 	/* Update outstanding requets count */
 #if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
 	(void) os_atomic_decrement_ulint(&os_aio_n_outstanding, 1);
-#else
+#else /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
 	os_mutex_enter(os_file_count_mutex);
 	os_aio_n_outstanding--;
 	os_mutex_exit(os_file_count_mutex);

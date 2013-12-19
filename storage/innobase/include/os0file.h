@@ -66,7 +66,7 @@ extern volatile ulint	os_aio_n_outstanding;
 #ifdef UNIV_DEBUG
 /** Maximum outstanding aio requests observed */
 extern ulint		os_aio_max_outstanding;
-#endif
+#endif /* UNIV_DEBUG */
 
 /* Configurable variables for Histogram step sizes and units */
 extern char* innobase_histogram_step_size_async_read;
