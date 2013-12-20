@@ -1,0 +1,150 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1);
+# SELECT FOR UPDATE gets S not X with fake changes
+SET autocommit=0;
+COMMIT;
+SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_updated_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @table_stat_rows_inserted_1, @table_stat_rows_updated_1, @table_stat_rows_deleted_1
+FROM INFORMATION_SCHEMA.TABLE_STATISTICS
+WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @user_stat_rows_inserted_1, @user_stat_rows_updated_1, @user_stat_rows_deleted_1
+FROM INFORMATION_SCHEMA.USER_STATISTICS
+WHERE USER_NAME='root';
+SET innodb_fake_changes=1;
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+a
+1
+SET innodb_lock_wait_timeout=3;
+UPDATE t1 SET a=2;
+SELECT lock_mode, lock_type, lock_table, lock_index FROM information_schema.innodb_locks;
+lock_mode	lock_type	lock_table	lock_index
+X	RECORD	`test`.`t1`	GEN_CLUST_INDEX
+S	RECORD	`test`.`t1`	GEN_CLUST_INDEX
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+ROLLBACK;
+ROLLBACK;
+SET innodb_fake_changes=0;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_updated_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @table_stat_rows_inserted_2, @table_stat_rows_updated_2, @table_stat_rows_deleted_2
+FROM INFORMATION_SCHEMA.TABLE_STATISTICS
+WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @user_stat_rows_inserted_2, @user_stat_rows_updated_2, @user_stat_rows_deleted_2
+FROM INFORMATION_SCHEMA.USER_STATISTICS
+WHERE USER_NAME='root';
+should_be_1
+1
+SELECT @innodb_rows_inserted_2 - @innodb_rows_inserted_1 AS should_be_0;
+should_be_0
+0
+SELECT @innodb_rows_deleted_2 - @innodb_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+SELECT @innodb_rows_updated_2 - @innodb_rows_updated_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_rows_inserted_2 - @table_stat_rows_inserted_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_rows_updated_2 - @table_stat_rows_updated_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_rows_deleted_2 - @table_stat_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+SELECT @user_stat_rows_inserted_2 - @user_stat_rows_inserted_1 AS should_be_0;
+should_be_0
+0
+SELECT @user_stat_rows_updated_2 - @user_stat_rows_updated_1 AS should_be_0;
+should_be_0
+0
+SELECT @user_stat_rows_deleted_2 - @user_stat_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+SET global innodb_fake_changes_locks=0;
+SET global innodb_fake_changes_locks=default;
+DROP TABLE t1;
+# Confirm that SHOW INDEX stats are not updated during fake updates
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT) engine = InnoDB;
+INSERT INTO t1 VALUES (1,2);
+SHOW INDEX FROM t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	1	NULL	NULL		BTREE		
+COMMIT;
+SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_updated_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @table_stat_rows_inserted_1, @table_stat_rows_updated_1, @table_stat_rows_deleted_1
+FROM INFORMATION_SCHEMA.TABLE_STATISTICS
+WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @user_stat_rows_inserted_1, @user_stat_rows_updated_1, @user_stat_rows_deleted_1
+FROM INFORMATION_SCHEMA.USER_STATISTICS
+WHERE USER_NAME='root';
+SET innodb_fake_changes=1;
+INSERT INTO t1 VALUES (3,9);
+ERROR HY000: Got error 131 during COMMIT
+INSERT INTO t1 VALUES (3,9);
+ERROR HY000: Got error 131 during COMMIT
+SET innodb_fake_changes=0;
+CHECK TABLE t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
+SELECT VARIABLE_VALUE INTO @innodb_rows_updated_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @table_stat_rows_inserted_2, @table_stat_rows_updated_2, @table_stat_rows_deleted_2
+FROM INFORMATION_SCHEMA.TABLE_STATISTICS
+WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
+INTO @user_stat_rows_inserted_2, @user_stat_rows_updated_2, @user_stat_rows_deleted_2
+FROM INFORMATION_SCHEMA.USER_STATISTICS
+WHERE USER_NAME='root';
+should_be_1
+1
+SELECT @innodb_rows_inserted_2 - @innodb_rows_inserted_1 AS should_be_0;
+should_be_0
+0
+SELECT @innodb_rows_deleted_2 - @innodb_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+SELECT @innodb_rows_updated_2 - @innodb_rows_updated_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_rows_inserted_2 - @table_stat_rows_inserted_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_rows_updated_2 - @table_stat_rows_updated_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_rows_deleted_2 - @table_stat_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+SELECT @user_stat_rows_inserted_2 - @user_stat_rows_inserted_1 AS should_be_0;
+should_be_0
+0
+SELECT @user_stat_rows_updated_2 - @user_stat_rows_updated_1 AS should_be_0;
+should_be_0
+0
+SELECT @user_stat_rows_deleted_2 - @user_stat_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+INSERT INTO t1 VALUES (5,9);
+SHOW INDEX FROM t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	2	NULL	NULL		BTREE		
+DROP TABLE t1;

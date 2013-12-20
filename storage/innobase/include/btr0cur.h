@@ -292,14 +292,16 @@ btr_cur_update_alloc_zip_func(
 	ulint		length,	/*!< in: size needed */
 	bool		create,	/*!< in: true=delete-and-insert,
 				false=update-in-place */
-	mtr_t*		mtr)	/*!< in/out: mini-transaction */
-	__attribute__((nonnull, warn_unused_result));
+	mtr_t*		mtr,	/*!< in/out: mini-transaction */
+	trx_t*		trx)	/*!< in: NULL or transaction */
 #ifdef UNIV_DEBUG
-# define btr_cur_update_alloc_zip(page_zip,cursor,index,offsets,len,cr,mtr) \
-	btr_cur_update_alloc_zip_func(page_zip,cursor,index,offsets,len,cr,mtr)
+	__attribute__((nonnull(1,2,3,7), warn_unused_result));
+# define btr_cur_update_alloc_zip(page_zip,cursor,index,offsets,len,cr,mtr,trx) \
+	btr_cur_update_alloc_zip_func(page_zip,cursor,index,offsets,len,cr,mtr,trx)
 #else /* UNIV_DEBUG */
-# define btr_cur_update_alloc_zip(page_zip,cursor,index,offsets,len,cr,mtr) \
-	btr_cur_update_alloc_zip_func(page_zip,cursor,index,len,cr,mtr)
+	__attribute__((nonnull(1,2,3,6), warn_unused_result));
+# define btr_cur_update_alloc_zip(page_zip,cursor,index,offsets,len,cr,mtr,trx) \
+	btr_cur_update_alloc_zip_func(page_zip,cursor,index,len,cr,mtr,trx)
 #endif /* UNIV_DEBUG */
 /*************************************************************//**
 Updates a record when the update causes no size changes in its fields.

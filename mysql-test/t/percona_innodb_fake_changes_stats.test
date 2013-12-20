@@ -1,0 +1,60 @@
+#
+#
+#
+
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1);
+--connect (conn1,localhost,root,,)
+
+--echo # SELECT FOR UPDATE gets S not X with fake changes
+--connection conn1
+SET autocommit=0;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+--connection default
+SET innodb_lock_wait_timeout=3;
+
+--send UPDATE t1 SET a=2
+--connection conn1
+#wait for counters to update
+sleep 1;
+SELECT lock_mode, lock_type, lock_table, lock_index FROM information_schema.innodb_locks;
+
+--connection default
+--error ER_LOCK_WAIT_TIMEOUT
+--reap
+ROLLBACK;
+
+--connection conn1
+ROLLBACK;
+
+--source include/stop_fake_changes.inc
+SET global innodb_fake_changes_locks=0;
+
+--connection default
+--disconnect conn1
+SET global innodb_fake_changes_locks=default;
+DROP TABLE t1;
+
+--echo # Confirm that SHOW INDEX stats are not updated during fake updates
+
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT) engine = InnoDB;
+INSERT INTO t1 VALUES (1,2);
+SHOW INDEX FROM t1;
+--source include/start_fake_changes.inc
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (3,9);
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (3,9);
+--source include/stop_fake_changes.inc
+INSERT INTO t1 VALUES (5,9);
+SHOW INDEX FROM t1;
+DROP TABLE t1;

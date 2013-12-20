@@ -1894,6 +1894,15 @@ int write_record(THD *thd, TABLE *table, COPY_INFO *info, COPY_INFO *update)
             trg_error= 1;
             goto ok_or_after_trg_err;
           }
+
+          /* Avoid the infinite loop
+            1) get dup key on fake insert
+            2) do nothing on fake delete
+            3) goto #1
+          */
+          if (unlikely(table->file->is_fake_change_enabled(thd)))
+            goto ok_or_after_trg_err;
+
           /* Let us attempt do write_row() once more */
         }
       }

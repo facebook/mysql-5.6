@@ -869,6 +869,7 @@ struct handlerton
      and 'real commit' mean the same event.
    */
    int  (*commit)(handlerton *hton, THD *thd, bool all);
+   bool (*is_fake_change)(handlerton *hton, THD *thd);
    int  (*rollback)(handlerton *hton, THD *thd, bool all);
    int  (*prepare)(handlerton *hton, THD *thd, bool all);
    int  (*recover)(handlerton *hton, XID *xid_list, uint len);
@@ -3052,6 +3053,11 @@ public:
      called at the end of a statement.
   */
   void update_global_table_stats(THD *thd);
+
+  /* Return true when innodb_fake_changes was set for the current transaction
+     on this handler.
+  */
+  virtual my_bool is_fake_change_enabled(THD *thd) { return FALSE; }
 
   /**
     Called by owner ha_partition (if there's one) to assign stats object
