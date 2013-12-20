@@ -1140,9 +1140,16 @@ int Relay_log_info::inc_group_relay_log_pos(ulonglong log_pos,
         determined if the current group didn't see a BEGIN and the current
         event contains partition info meaning that it is a CREATE DATABASE or
         DROP DATABASE kind of event.
+
+     The flush if forced causes performance problems with large number
+     of blackhole inserts. It is just a design choice to force in case
+     of DDL statements. currently ddl are not transactional but if made
+     transactional, the flush to replication tables should be forced.
   */
-  if ((ends_group || (!curr_group_seen_begin && part_event))
-      && (error = flush_gtid_infos(false)))
+  if (ends_group && (error = flush_gtid_infos(false)))
+    goto err;
+  else if (!curr_group_seen_begin && part_event
+             && (error = flush_gtid_infos(true)))
     goto err;
 
 err:
@@ -2529,6 +2536,10 @@ int Relay_log_info::flush_gtid_infos(bool force)
 #ifndef DBUG_OFF
       DBUG_ASSERT(!gtid_info->skip_event(last_gtid));
 #endif
+      // Flush the gtid_info if this is the first time we
+      // are updating the row in the slave_gtid_info table.
+      if (strcmp(gtid_info->get_last_gtid_string(), "") == 0)
+        force = true;
       gtid_info->set_last_gtid(last_gtid);
       if ((error = gtid_info->flush_info(force)))
         break;
