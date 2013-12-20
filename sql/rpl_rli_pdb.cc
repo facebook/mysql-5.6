@@ -552,8 +552,16 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
 #ifndef DBUG_OFF
       DBUG_ASSERT(!gtid_info->skip_event(worker_last_gtid));
 #endif
+     // Need to force the gtid_info flush in the following cases
+     // 1. If this is XID_EVENT
+     // 2. If this is a DDL statement.
+     // 3. If this is the first time we are updating the row in the
+     //    slave_gtid_info table.
+      bool gtid_info_flush = (ev->get_type_code() == XID_EVENT)
+        || !ev->ends_group()
+        || (strcmp(gtid_info->get_last_gtid_string(), "") == 0);
       gtid_info->set_last_gtid(worker_last_gtid);
-      if ((error = gtid_info->flush_info(force)))
+      if ((error = gtid_info->flush_info(gtid_info_flush)))
       {
         reset_dynamic(&worker_gtid_infos);
         DBUG_RETURN(error);
