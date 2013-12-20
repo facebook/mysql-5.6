@@ -311,9 +311,9 @@ The wrapper functions have the prefix of "innodb_". */
 	pfs_os_file_close_func(file, __FILE__, __LINE__)
 
 # define os_aio(type, mode, name, file, buf, offset,			\
-		n, message1, message2)					\
+		n, message1, message2, io_perf2)			\
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
-			n, message1, message2, __FILE__, __LINE__)
+		n, message1, message2, __FILE__, __LINE__, io_perf2)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -354,9 +354,10 @@ to original un-instrumented file I/O APIs */
 
 # define os_file_close(file)	os_file_close_func(file)
 
-# define os_aio(type, mode, name, file, buf, offset, n, message1, message2) \
+# define os_aio(type, mode, name, file, buf, offset,			\
+		n, message1, message2, io_perf2) \
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2)
+		    message1, message2, io_perf2)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -413,6 +414,44 @@ typedef HANDLE	os_file_dir_t;	/*!< directory stream */
 #else
 typedef DIR*	os_file_dir_t;	/*!< directory stream */
 #endif
+
+/* Struct used for IO performance counters */
+struct os_io_perf_struct {
+	ulint	bytes;
+	ulint	requests;
+	ulonglong	svc_time;      /*!< time to do read or write operation */
+	ulonglong	svc_time_max;
+	ulonglong	wait_time;     /*!< total time in the request array */
+	ulonglong	wait_time_max;
+	uint	old_ios; /*!< requests that take too long */
+};
+typedef struct os_io_perf_struct os_io_perf_t;
+
+/* Added so os_aio() can be called with one pointer for read and write
+performance counters. */
+struct os_io_perf2_struct {
+	os_io_perf_t	read;
+	os_io_perf_t	write;
+};
+typedef struct os_io_perf2_struct os_io_perf2_t;
+
+/***************************************************************************
+Initialize an os_io_perf_t struct. */
+
+void
+os_io_perf_init(
+/*=============*/
+	os_io_perf_t*	perf);
+
+/**************************************************************************
+Prints IO statistics. */
+
+void
+os_io_perf_print(
+/*==============*/
+	FILE*		file,
+	os_io_perf_t*	perf,
+	ibool		newline);
 
 #ifdef __WIN__
 /***********************************************************************//**
@@ -754,7 +793,8 @@ pfs_os_aio_func(
 				aio operation); ignored if mode is
                                 OS_AIO_SYNC */
 	const char*	src_file,/*!< in: file name where func invoked */
-	ulint		src_line);/*!< in: line where the func invoked */
+	ulint		src_line,/*!< in: line where the func invoked */
+	os_io_perf2_t*	io_perf2);/*!< in: per fil_space_t performance counters */
 /*******************************************************************//**
 NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1113,10 +1153,11 @@ os_aio_func(
 				(can be used to identify a completed
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
-	void*		message2);/*!< in: message for the aio handler
+	void*		message2,/*!< in: message for the aio handler
 				(can be used to identify a completed
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
+	os_io_perf2_t*	io_perf2);/*!< in: per fil_space_t performance counters */
 /************************************************************************//**
 Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */
