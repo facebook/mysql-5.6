@@ -57,6 +57,13 @@ bool Gtid_info::flush_info(bool force)
   if (!inited)
     DBUG_RETURN(0);
 
+  handler->set_sync_period(sync_relayloginfo_period);
+
+#if defined(FLUSH_REP_INFO)
+  if (!handler->need_write(force))
+    DBUG_RETURN(0);
+#endif
+
   if (write_info(handler))
     goto err;
 
