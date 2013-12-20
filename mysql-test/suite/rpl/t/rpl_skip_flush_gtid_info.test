@@ -1,0 +1,58 @@
+source include/master-slave.inc;
+source include/have_blackhole.inc;
+source include/have_gtid.inc;
+
+connection master;
+let $uuid = `select @@server_uuid;`;
+use test;
+create table blackhole(a int) engine=blackhole;
+create table t1(a int) engine=innodb;
+sync_slave_with_master;
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+connection master;
+insert into blackhole values(1);
+sync_slave_with_master;
+# Should not change
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+# Test the table is updated when blackhole inserts are combined with
+# innodb transactions.
+connection master;
+begin;
+insert into t1 values(1);
+insert into blackhole values(1);
+commit;
+sync_slave_with_master;
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+# Test when MTS is turned ON.
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers=2;
+source include/start_slave.inc;
+
+connection master;
+insert into blackhole values(1);
+sync_slave_with_master;
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+connection master;
+begin;
+insert into t1 values(2);
+insert into blackhole values(1);
+commit;
+sync_slave_with_master;
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers=0;
+source include/start_slave.inc;
+
+connection master;
+drop table blackhole;
+drop table t1;
+source include/rpl_end.inc;
