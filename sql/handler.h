@@ -887,7 +887,9 @@ struct handlerton
    int (*panic)(handlerton *hton, enum ha_panic_function flag);
    int (*start_consistent_snapshot)(handlerton *hton, THD *thd,
                                     char *binlog_file,
-                                    ulonglong* binlog_pos);
+                                    ulonglong* binlog_pos,
+                                    char **gtid_executed,
+                                    int* gtid_executed_length);
    bool (*flush_logs)(handlerton *hton, unsigned long long target_lsn);
    bool (*show_status)(handlerton *hton, THD *thd, stat_print_fn *print, enum ha_stat_type stat);
    uint (*partition_flags)();
@@ -3491,7 +3493,9 @@ int ha_release_temporary_latches(THD *thd);
 
 /* transactions: interface to handlerton functions */
 int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
-                                 ulonglong* binlog_pos);
+                                 ulonglong* binlog_pos,
+                                 char **gtid_executed,
+                                 int* gtid_executed_length);
 int ha_commit_or_rollback_by_xid(THD *thd, XID *xid, bool commit);
 int ha_commit_trans(THD *thd, bool all, bool async,
                     bool ignore_global_read_lock= false);
