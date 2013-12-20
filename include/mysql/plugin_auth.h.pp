@@ -253,7 +253,9 @@ void thd_set_ha_data(void* thd, const struct handlerton *hton,
 char mysql_bin_log_is_open(void);
 void mysql_bin_log_lock_commits(void);
 void mysql_bin_log_unlock_commits(char* binlog_file,
-                                  unsigned long long* binlog_pos);
+                                  unsigned long long* binlog_pos,
+                                  char** gtid_executed,
+                                  int* gtid_executed_length);
 #include <mysql/plugin_auth_common.h>
 typedef struct st_plugin_vio_info
 {
