@@ -288,6 +288,7 @@ struct fil_space_t {
 				unflushed_spaces */
 	UT_LIST_NODE_T(fil_space_t) space_list;
 				/*!< list of all spaces */
+	os_io_perf2_t	io_perf2;/*!< per tablespace IO perf counters */
 	ulint		magic_n;/*!< FIL_SPACE_MAGIC_N */
 };
 
@@ -1164,6 +1165,13 @@ fil_mtr_rename_log(
 					swapping */
 	mtr_t*		mtr)		/*!< in/out: mini-transaction */
 	__attribute__((nonnull));
+
+/*************************************************************************
+Print tablespace data for SHOW INNODB STATUS. */
+void
+fil_print(
+/*=======*/
+	FILE* file);	/* in: print results to this */
 
 #endif /* !UNIV_INNOCHECKSUM */
 #endif /* fil0fil_h */
