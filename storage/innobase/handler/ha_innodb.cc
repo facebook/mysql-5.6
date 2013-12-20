@@ -1467,7 +1467,9 @@ innobase_start_trx_and_assign_read_view(
 					user for whom the transaction should
 					be committed */
 	char*		binlog_file,	/* out: binlog file for last commit */
-	ulonglong*	binlog_pos);	/* out: binlog pos for last commit */
+	ulonglong*	binlog_pos,	/* out: binlog pos for last commit */
+	char**	gtid_executed,	/* out: Gtids logged until last commit */
+	int* gtid_executed_length);	/* out: Length of gtid_executed string */
 /****************************************************************//**
 Flushes InnoDB logs to disk and makes a checkpoint. Really, a commit flushes
 the logs, and the name of this function should be innobase_checkpoint.
@@ -4093,7 +4095,9 @@ innobase_start_trx_and_assign_read_view(
 					user for whom the transaction should
 					be committed */
 	char*		binlog_file,	/* out: binlog file for last commit */
-	ulonglong*	binlog_pos)	/* out: binlog pos for last commit */
+	ulonglong*	binlog_pos,	/* out: binlog pos for last commit */
+	char**	gtid_executed,	/* out: Gtids logged until last commit */
+	int*	gtid_executed_length)	/*out: Length of gtid_executed string */
 {
 	trx_t*	trx;
 	int	error_result = 0;
@@ -4153,7 +4157,8 @@ innobase_start_trx_and_assign_read_view(
 	}
 
 	if (binlog_file) {
-		mysql_bin_log_unlock_commits(binlog_file, binlog_pos);
+		mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
+                                 gtid_executed_length);
 	}
 
 cleanup:

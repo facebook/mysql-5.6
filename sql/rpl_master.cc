@@ -2268,17 +2268,20 @@ int reset_master(THD* thd)
 /**
   Output of START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT statement.
 
-  @param thd      Pointer to THD object for the client thread executing the
-                  statement.
-  @param file     Name of the current bin log.
-  @param pos      Position int he current bin log.
-  @param need_ok  [out] Whether caller needs to call my_ok vs it having been
-                  done in this function via my_eof.
+  @param thd                  Pointer to THD object for the client thread executing
+                              the statement.
+  @param file                 Name of the current bin log.
+  @param pos                  Position int he current bin log.
+  @param gtid_executed        Logged gtids in binlogs.
+  @param gtid_executed_length Length of gtid_executed string.
+  @param need_ok              [out] Whether caller needs to call my_ok vs it
+                              having been done in this function via my_eof.
 
   @retval FALSE success
   @retval TRUE failure
 */
 bool show_master_offset(THD* thd, const char* file, ulonglong pos,
+                        const char* gtid_executed, int gtid_executed_length,
                         bool *need_ok)
 {
   Protocol *protocol= thd->protocol;
@@ -2287,6 +2290,8 @@ bool show_master_offset(THD* thd, const char* file, ulonglong pos,
   field_list.push_back(new Item_empty_string("File", FN_REFLEN));
   field_list.push_back(new Item_return_int("Position",20,
                                            MYSQL_TYPE_LONGLONG));
+  field_list.push_back(new Item_empty_string("Gtid_executed",
+                                             gtid_executed_length));
 
   if (protocol->send_result_set_metadata(&field_list,
                                          Protocol::SEND_NUM_ROWS |
@@ -2299,6 +2304,9 @@ bool show_master_offset(THD* thd, const char* file, ulonglong pos,
   protocol->store(file + dir_len, &my_charset_bin);
 
   protocol->store(pos);
+
+  protocol->store(gtid_executed, &my_charset_bin);
+
   if (protocol->write())
     DBUG_RETURN(TRUE);
 
