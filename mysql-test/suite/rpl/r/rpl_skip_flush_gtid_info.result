@@ -1,0 +1,42 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+use test;
+create table blackhole(a int) engine=blackhole;
+create table t1(a int) engine=innodb;
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:2
+insert into blackhole values(1);
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:2
+begin;
+insert into t1 values(1);
+insert into blackhole values(1);
+commit;
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:4
+include/stop_slave.inc
+set @@global.slave_parallel_workers=2;
+include/start_slave.inc
+insert into blackhole values(1);
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:4
+begin;
+insert into t1 values(2);
+insert into blackhole values(1);
+commit;
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:6
+include/stop_slave.inc
+set @@global.slave_parallel_workers=0;
+include/start_slave.inc
+drop table blackhole;
+drop table t1;
+include/rpl_end.inc
