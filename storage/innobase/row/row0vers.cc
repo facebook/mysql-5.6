@@ -540,6 +540,9 @@ row_vers_build_for_consistent_read(
 			fprintf(stderr, "InnoDB: Detected killed connection "
 				"in row_vers_build_for_consistent_read.\n");
 #endif
+			if (heap2) {
+				mem_heap_free(heap2);
+			}
 			err = DB_INTERRUPTED;
 			break;
 		}
@@ -573,6 +576,9 @@ row_vers_build_for_consistent_read(
 				*old_vers = rec_copy(buf, version, *offsets);
 				rec_offs_make_valid(*old_vers, index,
 						    *offsets);
+				if (heap2) {
+					mem_heap_free(heap2);
+				}
 				err = DB_SUCCESS;
 				break;
 			}
