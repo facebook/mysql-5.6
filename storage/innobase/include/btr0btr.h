@@ -66,7 +66,9 @@ enum btr_latch_mode {
 	/** Search the previous record. */
 	BTR_SEARCH_PREV = 35,
 	/** Modify the previous record. */
-	BTR_MODIFY_PREV = 36
+	BTR_MODIFY_PREV = 36,
+	/** For fake_changes downgrade BTR_MODIFY_TREE to this */
+	BTR_SEARCH_TREE = 37
 };
 
 /* BTR_INSERT, BTR_DELETE and BTR_DELETE_MARK are mutually exclusive. */

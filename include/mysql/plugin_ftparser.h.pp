@@ -175,6 +175,7 @@ struct st_mysql_value
   int (*val_int)(struct st_mysql_value *, long long *intbuf);
   int (*is_unsigned)(struct st_mysql_value *);
 };
+void thd_reset_diagnostics(void* thd);
 int thd_in_lock_tables(const void* thd);
 int thd_tablespace_op(const void* thd);
 long long thd_test_options(const void* thd, long long test_options);

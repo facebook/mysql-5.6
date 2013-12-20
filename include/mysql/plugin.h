@@ -550,6 +550,7 @@ struct st_mysql_value
 extern "C" {
 #endif
 
+void thd_reset_diagnostics(MYSQL_THD thd);
 int thd_in_lock_tables(const MYSQL_THD thd);
 int thd_tablespace_op(const MYSQL_THD thd);
 long long thd_test_options(const MYSQL_THD thd, long long test_options);
