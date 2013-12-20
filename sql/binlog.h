@@ -677,7 +677,8 @@ public:
   int raw_get_current_log(LOG_INFO* linfo);
   uint next_file_id();
   void lock_commits(void);
-  void unlock_commits(char* binlog_file, ulonglong* binlog_pos);
+  void unlock_commits(char* binlog_file, ulonglong* binlog_pos,
+                      char** gtid_executed, int* gtid_executed_length);
   inline char* get_index_fname() { return index_file_name;}
   inline char* get_log_fname() { return log_file_name; }
   inline char* get_name() { return name; }

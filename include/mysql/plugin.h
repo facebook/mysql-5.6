@@ -699,11 +699,15 @@ void mysql_bin_log_lock_commits(void);
   Releases the mysql_bin_log locks which blocked commits so that
   START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT can return the correct
   bin log filename and pos.
-  @param  binlog_file  the filename of the binlog
-  @param  binlog_pos   the pos in the binlog
+  @param  binlog_file         the filename of the binlog
+  @param  binlog_pos          the pos in the binlog
+  @param gtid_executed        logged gtids in the binlog
+  @param gtid_executed_length the length of gtid_executed string
 */
 void mysql_bin_log_unlock_commits(char* binlog_file,
-                                  unsigned long long* binlog_pos);
+                                  unsigned long long* binlog_pos,
+                                  char** gtid_executed,
+                                  int* gtid_executed_length);
 
 #ifdef __cplusplus
 }

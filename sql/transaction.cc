@@ -192,17 +192,21 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok)
 
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT)
-    res= ha_start_consistent_snapshot(thd, NULL, NULL);
+    res= ha_start_consistent_snapshot(thd, NULL, NULL, NULL, NULL);
 #ifdef HAVE_REPLICATION
   else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT)
   {
     char binlog_file[FN_REFLEN];
+    char *gtid_executed = NULL;
     ulonglong binlog_pos;
-
+    int gtid_executed_length;
     DBUG_ASSERT(need_ok != NULL);
 
-    res= (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos) ||
-          show_master_offset(thd, binlog_file, binlog_pos, need_ok));
+    res= (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos,
+                                       &gtid_executed, &gtid_executed_length) ||
+          show_master_offset(thd, binlog_file, binlog_pos, gtid_executed,
+                             gtid_executed_length, need_ok));
+    my_free(gtid_executed);
   }
 #endif
 
