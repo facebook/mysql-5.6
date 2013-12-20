@@ -2253,6 +2253,8 @@ struct snapshot_handlerton_st
   bool error;
   char *binlog_file;
   ulonglong* binlog_pos;
+  char **gtid_executed;
+  int *gtid_executed_length;
 };
 
 static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
@@ -2267,7 +2269,9 @@ static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
     info->error = false;
 
     if (hton->start_consistent_snapshot(hton, thd, info->binlog_file,
-                                        info->binlog_pos)) {
+                                        info->binlog_pos,
+                                        info->gtid_executed,
+                                        info->gtid_executed_length)) {
       my_printf_error(ER_UNKNOWN_ERROR,
                       "Cannot start InnoDB transaction or binlog disabled",
                       MYF(0));
@@ -2278,11 +2282,15 @@ static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
 }
 
 int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
-                                 ulonglong* binlog_pos)
+                                 ulonglong* binlog_pos,
+                                 char** gtid_executed,
+                                 int* gtid_executed_length)
 {
   snapshot_handlerton_st info;
   info.binlog_file = binlog_file;
   info.binlog_pos = binlog_pos;
+  info.gtid_executed = gtid_executed;
+  info.gtid_executed_length = gtid_executed_length;
   info.error = true;
 
   if (plugin_foreach(thd, snapshot_handlerton,
