@@ -8,6 +8,7 @@
 # B. @@global.slave_parallel_workers
 #
 
+--source include/have_debug.inc
 --source include/master-slave.inc
 # no support for Query-log-event in this test
 --source include/have_binlog_format_row.inc
@@ -109,7 +110,38 @@ source include/wait_until_rows_count.inc;
 # cleanup of the max size
 set @@global.slave_pending_jobs_size_max= @save_slave_pending_jobs_size_max;
 
+# Set slave worker queue size to a small value
+let $old_debug = `select @@global.debug`;
+set global debug = "d,slave_worker_queue_size";
+--source include/stop_slave.inc
+--source include/start_slave.inc
+connection master;
+begin;
+--disable_query_log
+let $i_loop= 10;
 
+while ($i_loop)
+{
+  eval insert into d0.t0 set b=  REPEAT('b', 1);
+  eval insert into d0.t0 set b=  REPEAT('b', 1);
+  eval insert into d0.t0 set b=  REPEAT('b', 1);
+  eval insert into d0.t0 set b=  REPEAT('b', 1);
+  eval insert into d0.t0 set b=  REPEAT('b', 1);
+  eval insert into d0.t0 set b=  REPEAT('b', 1);
+  eval insert into d0.t0 set b=  REPEAT('b', 2* $mts_max_q_size/3);
+  dec $i_loop;
+}
+--enable_query_log
+commit;
+
+let $d0_t0_count=`select count(*) from d0.t0`;
+
+connection slave;
+
+let $count= $d0_t0_count;
+let $table= d0.t0;
+source include/wait_until_rows_count.inc;
+eval set global debug = '$old_debug';
 #
 # cleanup
 #

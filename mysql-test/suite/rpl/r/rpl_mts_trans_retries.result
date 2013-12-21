@@ -1,0 +1,76 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+*** Prepare tables and data ***
+CREATE TABLE t1 (a INT NOT NULL, KEY(a)) ENGINE=INNODB;
+CREATE TABLE t2 (a INT) ENGINE=INNODB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  KEY `a` (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT @@GLOBAL.slave_transaction_retries;
+@@GLOBAL.slave_transaction_retries
+2
+SELECT @@GLOBAL.innodb_lock_wait_timeout;
+@@GLOBAL.innodb_lock_wait_timeout
+4
+include/stop_slave.inc
+BEGIN;
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2);
+COMMIT;
+
+*** Test slave_transaction_retries works with MTS ***
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+a
+include/start_slave.inc
+SELECT COUNT(*) FROM t2;
+COUNT(*)
+0
+COMMIT;
+include/check_slave_is_running.inc
+SELECT * FROM t1;
+a
+1
+SELECT COUNT(*) FROM t2;
+COUNT(*)
+10
+
+*** Test lock wait timeout ***
+include/stop_slave.inc
+DELETE FROM t2;
+BEGIN;
+INSERT INTO t1 VALUES (1);
+INSERT INTO t2 VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2);
+COMMIT;
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+a
+1
+include/start_slave.inc
+include/wait_for_slave_sql_error.inc [errno=1756]
+SELECT COUNT(*) FROM t2;
+COUNT(*)
+0
+COMMIT;
+include/start_slave.inc
+SELECT * FROM t1;
+a
+1
+1
+include/check_slave_is_running.inc
+
+*** Clean up ***
+DROP TABLE t1,t2;
+include/rpl_end.inc
