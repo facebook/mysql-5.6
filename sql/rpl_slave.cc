@@ -5043,6 +5043,8 @@ pthread_handler_t handle_slave_worker(void *arg)
   Relay_log_info* rli= w->c_rli;
   ulong purge_cnt= 0;
   ulonglong purge_size= 0;
+  ulong current_event_index = 0;
+  ulong i = 0;
   struct slave_job_item _item, *job_item= &_item;
   /* Buffer lifetime extends across the entire runtime of the THD handle. */
   static char proc_info_buf[256]= {0};
@@ -5105,10 +5107,16 @@ pthread_handler_t handle_slave_worker(void *arg)
 
   mysql_mutex_lock(&w->jobs_lock);
 
+  current_event_index = max(w->last_current_event_index,
+                            w->current_event_index);
   while(de_queue(&w->jobs, job_item))
   {
-    purge_cnt++;
-    purge_size += ((Log_event*) (job_item->data))->data_written;
+    i++;
+    if (i > current_event_index)
+    {
+      purge_size += ((Log_event*) (job_item->data))->data_written;
+      purge_cnt++;
+    }
     DBUG_ASSERT(job_item->data);
     delete static_cast<Log_event*>(job_item->data);
   }
@@ -8418,17 +8426,6 @@ int start_slave(THD* thd , Master_info* mi,  bool net_report)
         }
 
         mysql_mutex_unlock(&mi->rli->data_lock);
-
-        /* MTS technical limitation no support of trans retry */
-        if (mi->rli->opt_slave_parallel_workers != 0 && slave_trans_retries != 0)
-        {
-          push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
-                              ER_MTS_FEATURE_IS_NOT_SUPPORTED,
-                              ER(ER_MTS_FEATURE_IS_NOT_SUPPORTED),
-                              "slave_transaction_retries",
-                              "In the event of a transient failure, the slave will "
-                              "not retry the transaction and will stop.");
-        }
       }
       else if (thd->lex->mi.pos || thd->lex->mi.relay_log_pos || thd->lex->mi.gtid)
         push_warning(thd, Sql_condition::WARN_LEVEL_NOTE, ER_UNTIL_COND_IGNORED,
