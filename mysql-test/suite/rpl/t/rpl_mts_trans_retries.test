@@ -1,0 +1,99 @@
+--source include/have_gtid.inc
+--source include/have_debug_sync.inc
+--source include/master-slave.inc
+
+call mtr.add_suppression("The slave coordinator and worker threads are stopped");
+# Create a new connection to the slave
+--connect (slave2, 127.0.0.1, root, ,test, $SLAVE_MYPORT,)
+
+# 0) Prepare tables and data
+--echo *** Prepare tables and data ***
+
+connection master;
+CREATE TABLE t1 (a INT NOT NULL, KEY(a)) ENGINE=INNODB;
+CREATE TABLE t2 (a INT) ENGINE=INNODB;
+sync_slave_with_master;
+
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+SELECT @@GLOBAL.slave_transaction_retries;
+SELECT @@GLOBAL.innodb_lock_wait_timeout;
+--source include/stop_slave.inc
+
+connection master;
+# Save position of BEGIN
+let $master_pos_begin= query_get_value(SHOW MASTER STATUS, Position, 1);
+BEGIN;
+INSERT INTO t1 VALUES (1);
+# We make a long transaction here
+INSERT INTO t2 VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2);
+COMMIT;
+save_master_pos;
+--echo
+
+# 1) Test slave_transaction_retries works with MTS
+--echo *** Test slave_transaction_retries works with MTS ***
+
+connection slave;
+BEGIN;
+SELECT * FROM t1 FOR UPDATE;
+
+--connection slave2
+--source include/start_slave.inc
+--connection slave
+# Wait so that slave worker starts retrying the transaction
+--real_sleep 5
+
+SELECT COUNT(*) FROM t2;
+COMMIT;
+source include/check_slave_is_running.inc;
+sync_with_master;
+
+# Check the data
+SELECT * FROM t1;
+SELECT COUNT(*) FROM t2;
+--echo
+
+# 2) Test lock wait timeout
+# Block slave and wait lock timeout error
+--echo *** Test lock wait timeout ***
+
+connection slave;
+--source include/stop_slave.inc
+DELETE FROM t2;
+
+connection master;
+BEGIN;
+INSERT INTO t1 VALUES (1);
+# We make a long transaction here
+INSERT INTO t2 VALUES (2), (2), (2), (2), (2), (2), (2), (2), (2), (2);
+COMMIT;
+save_master_pos;
+
+connection slave;
+BEGIN;
+# Hold lock
+SELECT * FROM t1 FOR UPDATE;
+# Wait until slave stopped with error 'Lock wait timeout exceeded'
+--connection slave2
+--source include/start_slave.inc
+--connection slave
+let $slave_sql_errno=convert_error(ER_MTS_INCONSISTENT_DATA);
+--source include/wait_for_slave_sql_error.inc
+SELECT COUNT(*) FROM t2;
+COMMIT;
+--source include/start_slave.inc
+sync_with_master;
+# Check data from tables
+SELECT * FROM t1;
+# Check that no error is reported
+source include/check_slave_is_running.inc;
+--echo
+
+# Clean up
+--echo *** Clean up ***
+connection master;
+DROP TABLE t1,t2;
+sync_slave_with_master;
+
+--source include/rpl_end.inc
