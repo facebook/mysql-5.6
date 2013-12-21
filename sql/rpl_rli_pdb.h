@@ -302,6 +302,12 @@ public:
   virtual ~Slave_worker();
 
   Slave_jobs_queue jobs;   // assignment queue containing events to execute
+  ulong current_event_index; // index of the event in current group
+  // number of events executed in the current group before temporary error.
+  // last_current_event_index is the maximum of current_event_index over
+  // several runs of same transaction or group.
+  ulong last_current_event_index;
+  ulong trans_retries;  // transaction retries count by this slave worker
   mysql_mutex_t jobs_lock; // mutex for the jobs queue
   mysql_cond_t  jobs_cond; // condition variable for the jobs queue
   Relay_log_info *c_rli;   // pointer to Coordinator's rli
@@ -373,7 +379,7 @@ public:
   int rli_init_info(bool);
   int flush_info(bool force= FALSE);
   static size_t get_number_worker_fields();
-  void slave_worker_ends_group(Log_event*, int);
+  void slave_worker_ends_group(Log_event*, int&, bool&);
   const char *get_master_log_name();
   ulonglong get_master_log_pos() { return master_log_pos; };
   ulonglong set_master_log_pos(ulong val) { return master_log_pos= val; };
