@@ -13508,7 +13508,11 @@ int Rows_query_log_event::do_apply_event(Relay_log_info const *rli)
 
   DBUG_ASSERT(rli->rows_query_ev == NULL);
 
-  const_cast<Relay_log_info*>(rli)->rows_query_ev= this;
+  // slave worker threads will delete Rows_query_log_event after the
+  // end of the transaction. No need to store this event pointer
+  // in rows_query_ev and delete it after execution of row event.
+  if (!is_mts_worker(thd))
+    const_cast<Relay_log_info*>(rli)->rows_query_ev= this;
 
   DBUG_RETURN(0);
 }
