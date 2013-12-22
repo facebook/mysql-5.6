@@ -1312,7 +1312,7 @@ table-open-cache-instances 1
 tc-heuristic-recover COMMIT
 thread-cache-size 9
 thread-handling one-thread-per-connection
-thread-stack 262144
+thread-stack 327680
 time-format %H:%i:%s
 timed-mutexes FALSE
 tmp-table-size 16777216
