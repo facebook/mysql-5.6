@@ -825,8 +825,9 @@ static inline int pthread_attr_getguardsize(pthread_attr_t *attr,
 /*
   MySQL can survive with 32K, but some glibc libraries require > 128K stack
   To resolve hostnames. Also recursive stored procedures needs stack.
+  Due to changes in 5.6.14, 256K is now inadequate, so default is now 320K.
 */
-#define DEFAULT_THREAD_STACK	(256*1024L)
+#define DEFAULT_THREAD_STACK	(320*1024L)
 #else
 #define DEFAULT_THREAD_STACK	(192*1024)
 #endif
