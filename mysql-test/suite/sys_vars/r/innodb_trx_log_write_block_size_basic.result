@@ -1,0 +1,10 @@
+SET @orig_trx_log_write_block_size = @@global.innodb_trx_log_write_block_size;
+SELECT @orig_trx_log_write_block_size;
+@orig_trx_log_write_block_size
+4096
+SET GLOBAL innodb_trx_log_write_block_size = 0;
+SET @trx_log_write_block_size = @@global.innodb_trx_log_write_block_size;
+SELECT @trx_log_write_block_size;
+@trx_log_write_block_size
+0
+SET GLOBAL innodb_trx_log_write_block_size = @orig_trx_log_write_block_size;
