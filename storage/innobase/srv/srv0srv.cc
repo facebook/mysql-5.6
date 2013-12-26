@@ -361,6 +361,12 @@ UNIV_INTERN ulint	srv_io_slow_usecs	= 0;
 before getting scheduled */
 UNIV_INTERN ulint	srv_io_old_usecs	= 0;
 
+/** Maximum number of outstanding aio requests. We stop submitting batched
+aio read requests when the number of outstanding aio requests exceed this
+number. But the maximum is not strictly enforced. There could be a short period
+of time the number is exceeded. */
+UNIV_INTERN ulong	srv_io_outstanding_requests = 0;
+
 /** Number of extra writes done in buf_flush_try_neighbors from LRU list */
 UNIV_INTERN ulint	srv_neighbors_flushed_lru	= 0;
 
@@ -1903,6 +1909,12 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_buffered_aio_submitted =
 		srv_stats.n_aio_submitted;
+	export_vars.innodb_outstanding_aio_requests =
+		os_aio_n_outstanding;
+#ifdef UNIV_DEBUG
+	export_vars.innodb_max_outstanding_aio_requests =
+		os_aio_max_outstanding;
+#endif /* UNIV_DEBUG */
 	export_vars.innodb_logical_read_ahead_misses =
 		srv_stats.n_logical_read_ahead_misses;
 	export_vars.innodb_logical_read_ahead_prefetched =
