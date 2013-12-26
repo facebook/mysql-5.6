@@ -330,7 +330,7 @@ pfs_os_file_write_func(
 	register_pfs_file_io_begin(&state, locker, file, n, PSI_FILE_WRITE,
 				   src_file, src_line);
 
-	result = os_file_write_func(name, file, buf, offset, n);
+	result = os_file_write_func(name, file, buf, offset, n, 0);
 
 	register_pfs_file_io_end(locker, n);
 
