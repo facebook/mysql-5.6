@@ -252,6 +252,8 @@ in the buffer cache and accessed sequentially for InnoDB to trigger a
 readahead request. */
 UNIV_INTERN ulong	srv_read_ahead_threshold	= 56;
 
+UNIV_INTERN ulong	srv_trx_log_write_block_size	= 4096;
+
 #ifdef UNIV_LOG_ARCHIVE
 UNIV_INTERN ibool		srv_log_archive_on	= FALSE;
 UNIV_INTERN ibool		srv_archive_recovery	= 0;
@@ -1745,6 +1747,9 @@ srv_export_innodb_status(void)
 		log_sys->log_sync_syncers[LOG_WRITE_FROM_DIRTY_BUFFER];
 	export_vars.innodb_log_sync_other=
 		log_sys->log_sync_syncers[LOG_WRITE_FROM_INTERNAL];
+#ifdef UNIV_DEBUG
+	export_vars.innodb_log_write_padding = log_sys->log_write_padding;
+#endif /*UNIV_DEBUG*/
 
 	export_vars.innodb_os_log_written = srv_stats.os_log_written;
 
