@@ -168,6 +168,7 @@ enum os_file_create_t {
 #define OS_FILE_READ	10
 #define OS_FILE_WRITE	11
 
+#define OS_FILE_PAD	128
 #define OS_FILE_LOG	256	/* This can be ORed to type */
 /* @} */
 
@@ -395,7 +396,7 @@ to original un-instrumented file I/O APIs */
 	os_file_read_no_error_handling_func(file, buf, offset, n)
 
 # define os_file_write(name, file, buf, offset, n)			\
-	os_file_write_func(name, file, buf, offset, n)
+	os_file_write_func(name, file, buf, offset, n, 0)
 
 # define os_file_flush(file)	os_file_flush_func(file)
 
@@ -1046,7 +1047,8 @@ os_file_write_func(
 	os_file_t	file,	/*!< in: handle to a file */
 	const void*	buf,	/*!< in: buffer from which to write */
 	os_offset_t	offset,	/*!< in: file offset where to write */
-	ulint		n);	/*!< in: number of bytes to write */
+	ulint		n,	/*!< in: number of bytes to write */
+	ulint		file_pad);	/*!< in: none-zero if pad log write */
 /*******************************************************************//**
 Check the existence and type of the given file.
 @return	TRUE if call succeeded */
