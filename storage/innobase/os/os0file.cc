@@ -45,6 +45,9 @@ Created 10/21/1995 Heikki Tuuri
 #include "fil0fil.h"
 #include "buf0buf.h"
 #include "btr0btr.h"
+#ifdef UNIV_DEBUG
+#include "log0log.h"
+#endif /*UNIV_DEBUG*/
 #include "srv0mon.h"
 #ifndef UNIV_HOTBACKUP
 # include "os0sync.h"
@@ -360,6 +363,9 @@ UNIV_INTERN ulint		os_aio_max_outstanding = 0;
 #endif /* UNIV_DEBUG */
 UNIV_INTERN volatile ibool	os_aio_batch_submission_blocked = FALSE;
 static os_event_t		os_aio_outstanding_requests_wait_event = NULL;
+
+
+ulint os_file_trx_log_write_padding_end = 0;
 
 /**********************************************************************//**
 Update wait stats for my_io_perf_t for all blocks after the first block in
@@ -3016,7 +3022,8 @@ os_file_write_func(
 	os_file_t	file,	/*!< in: handle to a file */
 	const void*	buf,	/*!< in: buffer from which to write */
 	os_offset_t	offset,	/*!< in: file offset where to write */
-	ulint		n)	/*!< in: number of bytes to write */
+	ulint		n,	/*!< in: number of bytes to write */
+	ulint		file_pad)	/*!< in: none-zero if pad log write */
 {
 	ut_ad(!srv_read_only_mode);
 
@@ -3153,6 +3160,24 @@ retry:
 	return(FALSE);
 #else
 	ssize_t	ret;
+
+	if (srv_trx_log_write_block_size && file_pad) {
+		if (((offset + srv_trx_log_write_block_size - 1)
+		     / srv_trx_log_write_block_size)
+		    != ((offset + n + srv_trx_log_write_block_size - 1)
+		     / srv_trx_log_write_block_size)) {
+			// needs padding
+			ulint pad = ut_calc_align(offset + n,
+						  srv_trx_log_write_block_size);
+			if (pad != os_file_trx_log_write_padding_end) {
+				os_file_trx_log_write_padding_end = pad;
+#ifdef UNIV_DEBUG
+				log_update_padding(pad - offset - n);
+#endif /*UNIV_DEBUG*/
+				n = pad - offset;
+			}
+		}
+	}
 
 	ret = os_file_pwrite(file, buf, n, offset);
 
@@ -4883,6 +4908,7 @@ os_aio_func(
 	ulint		wake_later;
 	ulint		is_log_write;
 	ulint		is_double_write;
+	ulint		is_file_pad;
 	ib_uint64_t	index_id;
 
 	ut_ad(file);
@@ -4897,9 +4923,10 @@ os_aio_func(
 
 	is_log_write = mode & OS_FILE_LOG;
 	is_double_write = mode & OS_AIO_DOUBLE_WRITE;
+	is_file_pad = mode & OS_FILE_PAD;
 	wake_later = mode & OS_AIO_SIMULATED_WAKE_LATER;
 	mode = mode & ~(OS_AIO_SIMULATED_WAKE_LATER |
-			OS_FILE_LOG |
+			OS_FILE_LOG | OS_FILE_PAD |
 			OS_AIO_DOUBLE_WRITE);
 
 	if (mode == OS_AIO_SYNC
@@ -4929,7 +4956,8 @@ os_aio_func(
 		} else {
 			ut_ad(!srv_read_only_mode);
 			ut_a(type == OS_FILE_WRITE);
-			r = os_file_write_func(name, file, buf, offset, n);
+			r = os_file_write_func(name, file, buf, offset, n,
+					       is_file_pad);
 		}
 
 		ulonglong elapsed_time = my_timer_since(start_time);
