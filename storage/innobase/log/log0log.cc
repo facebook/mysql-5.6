@@ -892,7 +892,8 @@ log_init(void)
 	ut_a(LOG_BUFFER_SIZE >= 4 * UNIV_PAGE_SIZE);
 
 	log_sys->buf_ptr = static_cast<byte*>(
-		mem_zalloc(LOG_BUFFER_SIZE + OS_FILE_LOG_BLOCK_SIZE));
+		mem_zalloc(LOG_BUFFER_SIZE + OS_FILE_LOG_BLOCK_SIZE
+			   + srv_trx_log_write_block_size));
 
 	log_sys->buf = static_cast<byte*>(
 		ut_align(log_sys->buf_ptr, OS_FILE_LOG_BLOCK_SIZE));
@@ -921,6 +922,10 @@ log_init(void)
 	log_sys->written_to_all_lsn = log_sys->lsn;
 
 	log_sys->n_pending_writes = 0;
+
+#ifdef UNIV_DEBUG
+	log_sys->log_write_padding = 0;
+#endif /*UNIV_DEBUG*/
 
 	{
 		int x;
@@ -1444,7 +1449,8 @@ loop:
 
 		ut_a(next_offset / UNIV_PAGE_SIZE <= ULINT_MAX);
 
-		fil_io(OS_FILE_WRITE | OS_FILE_LOG, true, group->space_id, 0,
+		fil_io(OS_FILE_WRITE | OS_FILE_LOG | OS_FILE_PAD,
+		       true, group->space_id, 0,
 		       (ulint) (next_offset / UNIV_PAGE_SIZE),
 		       (ulint) (next_offset % UNIV_PAGE_SIZE), write_len, buf,
 		       group);
@@ -3698,6 +3704,12 @@ log_print(
 		((double)(log_sys->n_log_ios - log_sys->n_log_ios_old)
 		 / time_elapsed),
 		log_sys->n_syncs, log_sys->n_checkpoints);
+
+#ifdef UNIV_DEBUG
+	fprintf(file,
+		"%lu log write padding blocks\n",
+		log_sys->log_write_padding);
+#endif /* UNIV_DEBUG */
 
 	fprintf(file,
 		"log sync callers: %lu buffer pool, "

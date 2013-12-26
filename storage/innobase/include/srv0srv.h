@@ -313,6 +313,7 @@ extern ulint	srv_lock_table_size;
 extern ulint	srv_n_file_io_threads;
 extern my_bool	srv_random_read_ahead;
 extern ulong	srv_read_ahead_threshold;
+extern ulong	srv_trx_log_write_block_size;
 extern ulint	srv_n_read_io_threads;
 extern ulint	srv_n_write_io_threads;
 
@@ -1090,6 +1091,7 @@ struct export_var_t{
 	ulint innodb_log_sync_commit_sync;
 	ulint innodb_log_sync_flush_dirty;
 	ulint innodb_log_sync_other;
+	ulint innodb_log_write_padding;		/*!< padding in block size */
 
 	ib_int64_t innodb_lsn_current;		/*!< log_sys->lsn */
 	ib_int64_t innodb_lsn_diff;		/*!< lsn_current - lsn_oldest */

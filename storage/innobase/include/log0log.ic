@@ -460,3 +460,16 @@ log_free_check(void)
 	}
 }
 #endif /* !UNIV_HOTBACKUP */
+
+#ifdef UNIV_DEBUG
+/******************************************************//**
+Update log_write_padding. */
+UNIV_INLINE
+void
+log_update_padding(
+/*========================*/
+	ulint padding)	/*!< in: padding to be added to total. */
+{
+	my_atomic_add64((long long*)&log_sys->log_write_padding, padding);
+}
+#endif /*UNIV_DEBUG*/

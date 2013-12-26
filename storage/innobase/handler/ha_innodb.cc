@@ -920,6 +920,10 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_log_sync_flush_dirty,	  SHOW_LONG},
   {"log_sync_other",
   (char*) &export_vars.innodb_log_sync_other,		  SHOW_LONG},
+#ifdef UNIV_DEBUG
+  {"log_write_padding",
+   (char*) &export_vars.innodb_log_write_padding,	  SHOW_LONG},
+#endif /*UNIV_DEBUG*/
   {"srv_checkpoint_seconds",
   (char*) &export_vars.innodb_srv_checkpoint_time,	  SHOW_TIMER},
   {"srv_ibuf_contract_seconds",
@@ -17318,6 +17322,14 @@ static MYSQL_SYSVAR_ULONG(read_ahead_threshold, srv_read_ahead_threshold,
   "trigger a readahead.",
   NULL, NULL, 56, 0, 64, 0);
 
+static MYSQL_SYSVAR_ULONG(trx_log_write_block_size,
+  srv_trx_log_write_block_size,
+  PLUGIN_VAR_RQCMDARG,
+  "Transaction log write block size. Configure this to be the size of the OS "
+  "file system block size will reduce the extra read during log writes."
+  "Set to 0 to disable this feature.",
+  NULL, NULL, 4096, 0, 16384, 0);
+
 static MYSQL_SYSVAR_ULONG(sync_checkpoint_limit, srv_sync_checkpoint_limit,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "This is a percentage and is used to override the sync and async checkpoint "
@@ -17624,6 +17636,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(disable_background_merge),
 #endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
   MYSQL_SYSVAR(random_read_ahead),
+  MYSQL_SYSVAR(trx_log_write_block_size),
   MYSQL_SYSVAR(read_ahead_threshold),
   MYSQL_SYSVAR(read_only),
   MYSQL_SYSVAR(sync_checkpoint_limit),
