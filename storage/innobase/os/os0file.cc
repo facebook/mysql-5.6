@@ -352,6 +352,15 @@ UNIV_INTERN ulint	os_n_pending_writes = 0;
 /** Number of pending read operations */
 UNIV_INTERN ulint	os_n_pending_reads = 0;
 
+/** Number of outstanding aio requests */
+UNIV_INTERN volatile ulint	os_aio_n_outstanding = 0;
+#ifdef UNIV_DEBUG
+/** Maximum outstanding aio requests observed */
+UNIV_INTERN ulint		os_aio_max_outstanding = 0;
+#endif /* UNIV_DEBUG */
+UNIV_INTERN volatile ibool	os_aio_batch_submission_blocked = FALSE;
+static os_event_t		os_aio_outstanding_requests_wait_event = NULL;
+
 /**********************************************************************//**
 Update wait stats for my_io_perf_t for all blocks after the first block in
 a merged request. */
@@ -4117,6 +4126,8 @@ os_aio_init(
 		os_aio_segment_wait_events[i] = os_event_create();
 	}
 
+	os_aio_outstanding_requests_wait_event = os_event_create();
+
 	os_last_printout = ut_time();
 
 	return(TRUE);
@@ -4158,6 +4169,10 @@ os_aio_free(void)
 
 	ut_free(os_aio_segment_wait_events);
 	os_aio_segment_wait_events = 0;
+
+	os_event_free(os_aio_outstanding_requests_wait_event);
+	os_aio_outstanding_requests_wait_event = NULL;
+
 	os_aio_n_segments = 0;
 }
 
@@ -4638,34 +4653,65 @@ os_aio_linux_dispatch_read_array_submit()
 	if (!srv_use_native_aio) {
 		return TRUE;
 	}
-	os_mutex_enter(array->mutex);
-	/* Submit aio requests buffered on all segments. */
+	/* Go through each segment in the array to batch all requests in the
+	segment and submit together. */
 	for (ulint i = 0; i < array->n_segments; i++) {
-		ulint count = array->count[i];
-		if (count > 0) {
-			ulint iocb_index = i * array->n_slots
-					   / array->n_segments;
-			ulint submitted;
-			total_count += count;
-			submitted = io_submit(array->aio_ctx[i], count,
-					      &(array->pending[iocb_index]));
-			if (submitted > 0) {
-				total_submitted += submitted;
-			} else {
-				/* io_submit returns number of successfully
-				queued requests or -errno. */
-				errno = -submitted;
-				break;
-			}
+		ulint count;
+		ulint slots_per_segment;
+		ulint iocb_index;
+		ulint submitted;
+		/* Wait if we exceed outstanding aio request threshold. */
+		if (os_aio_n_outstanding >= srv_io_outstanding_requests) {
+			os_event_reset(os_aio_outstanding_requests_wait_event);
+			os_aio_batch_submission_blocked = TRUE;
+			os_event_wait(os_aio_outstanding_requests_wait_event);
 		}
-	}
-	/* Reset the aio request buffer. */
-	memset(array->pending, 0x0,
-	       sizeof(struct iocb*) * array->n_slots);
-	memset(array->count, 0x0, sizeof(ulint) * array->n_segments);
-	os_mutex_exit(array->mutex);
+		os_mutex_enter(array->mutex);
+		count = array->count[i];
+		/* If current segment is empty, continue. */
+		if (count == 0) {
+			os_mutex_exit(array->mutex);
+			continue;
+		}
+		/* Batch and submit all requests from the segment. */
+		slots_per_segment = array->n_slots / array->n_segments;
+		iocb_index = i * slots_per_segment;
+		total_count += count;
+		submitted = io_submit(array->aio_ctx[i], count,
+				      &(array->pending[iocb_index]));
+		if (submitted <= 0) {
+			/* io_submit returns number of successfully
+			queued requests or -errno. */
+			errno = -submitted;
+			break;
+		}
+		/* Reset the aio request buffer. */
+		memset(&array->pending[iocb_index], 0x0,
+		       sizeof(struct iocb*) * slots_per_segment);
+		array->count[i] = 0;
+		os_mutex_exit(array->mutex);
 
-	srv_stats.n_aio_submitted.add(total_submitted);
+		total_submitted += submitted;
+
+		/* Update oustanding requests statistics. */
+#if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
+		(void) os_atomic_increment_ulint(
+			&os_aio_n_outstanding, submitted);
+#else /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
+		os_mutex_enter(os_file_count_mutex);
+		os_aio_n_outstanding += submitted;
+		os_mutex_exit(os_file_count_mutex);
+#endif /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
+
+#ifdef UNIV_DEBUG
+		/* Update max oustanding requests statistics.*/
+		if (os_aio_n_outstanding > os_aio_max_outstanding) {
+			os_aio_max_outstanding = os_aio_n_outstanding;
+		}
+#endif /* UNIV_DEBUG */
+		/* Update submitted aio requests statistics. */
+		srv_stats.n_aio_submitted.add(submitted);
+	}
 
 	if (UNIV_UNLIKELY(total_count != total_submitted)) {
 		return(FALSE);
@@ -4739,6 +4785,14 @@ os_aio_linux_dispatch(
 		errno = -ret;
 		return(FALSE);
 	}
+
+#if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
+	(void) os_atomic_increment_ulint(&os_aio_n_outstanding, 1);
+#else /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
+	os_mutex_enter(os_file_count_mutex);
+	os_aio_n_outstanding++;
+	os_mutex_exit(os_file_count_mutex);
+#endif /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
 
 	return(TRUE);
 }
@@ -5502,6 +5556,21 @@ found:
 	os_io_perf_update_page_stats(slot->type, fil_page_get_type(slot->buf),
 				     slot->io_perf2);
 
+	/* Update outstanding requets count */
+#if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
+	(void) os_atomic_decrement_ulint(&os_aio_n_outstanding, 1);
+#else /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
+	os_mutex_enter(os_file_count_mutex);
+	os_aio_n_outstanding--;
+	os_mutex_exit(os_file_count_mutex);
+#endif /* !HAVE_ATOMIC_BUILTINS || UNIV_WORD == 8 */
+
+	/* Signal the batch aio request submission to resume. */
+	if (os_aio_batch_submission_blocked
+	    && os_aio_n_outstanding < srv_io_outstanding_requests) {
+		os_aio_batch_submission_blocked = FALSE;
+		os_event_set(os_aio_outstanding_requests_wait_event);
+	}
 
 	os_aio_array_free_slot(array, slot);
 
