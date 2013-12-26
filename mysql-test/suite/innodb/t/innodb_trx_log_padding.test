@@ -1,0 +1,51 @@
+--source include/have_innodb.inc
+--source include/have_debug.inc
+--source include/restart_mysqld.inc
+
+--disable_warnings
+DROP TABLE if exists t1;
+--enable_warnings
+
+# Create table.
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY, b VARCHAR(256)) ENGINE=INNODB;
+
+select @@global.innodb_trx_log_write_block_size;
+# Populate table.
+INSERT INTO t1 VALUES (0, REPEAT('a',256));
+INSERT INTO t1 VALUES (1, REPEAT('a',256));
+INSERT INTO t1 VALUES (2, REPEAT('a',256));
+INSERT INTO t1 VALUES (3, REPEAT('a',256));
+INSERT INTO t1 VALUES (4, REPEAT('a',256));
+INSERT INTO t1 VALUES (5, REPEAT('a',256));
+INSERT INTO t1 VALUES (6, REPEAT('a',256));
+INSERT INTO t1 VALUES (7, REPEAT('a',256));
+
+show global status like "innodb_log_write_padding";
+
+set @@global.innodb_trx_log_write_block_size = 4096;
+
+INSERT INTO t1 VALUES (8, REPEAT('a',256));
+INSERT INTO t1 VALUES (9, REPEAT('a',256));
+INSERT INTO t1 VALUES (10, REPEAT('a',256));
+INSERT INTO t1 VALUES (11, REPEAT('a',256));
+INSERT INTO t1 VALUES (12, REPEAT('a',256));
+INSERT INTO t1 VALUES (13, REPEAT('a',256));
+INSERT INTO t1 VALUES (14, REPEAT('a',256));
+INSERT INTO t1 VALUES (15, REPEAT('a',256));
+INSERT INTO t1 VALUES (16, REPEAT('a',256));
+INSERT INTO t1 VALUES (17, REPEAT('a',256));
+INSERT INTO t1 VALUES (18, REPEAT('a',256));
+INSERT INTO t1 VALUES (19, REPEAT('a',256));
+INSERT INTO t1 VALUES (20, REPEAT('a',256));
+INSERT INTO t1 VALUES (21, REPEAT('a',256));
+INSERT INTO t1 VALUES (22, REPEAT('a',256));
+INSERT INTO t1 VALUES (23, REPEAT('a',256));
+
+let $padding = query_get_value(show global status like "innodb_log_write_padding", Value, 1);
+--disable_query_log
+eval select $padding > 0 as "padding_no_zero";
+--enable_query_log
+
+set @@global.innodb_trx_log_write_block_size = 0;
+
+DROP TABLE t1;
