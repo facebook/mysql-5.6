@@ -2353,6 +2353,12 @@ static Sys_var_uint Sys_port(
        READ_ONLY GLOBAL_VAR(mysqld_port), CMD_LINE(REQUIRED_ARG, 'P'),
        VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1));
 
+static Sys_var_ulong Sys_admin_port(
+       "admin_port",
+       "Port number to use for connections from admin.",
+       READ_ONLY GLOBAL_VAR(mysqld_admin_port), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, UINT_MAX32), DEFAULT(0), BLOCK_SIZE(1));
+
 static Sys_var_ulong Sys_preload_buff_size(
        "preload_buffer_size",
        "The size of the buffer that is allocated when preloading indexes",
