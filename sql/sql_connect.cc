@@ -1031,6 +1031,29 @@ end_thread:
   }
 }
 
+void handle_connection_within_current_thread(THD *thd)
+{
+  thd->thread_stack= (char*) &thd;
+  if (setup_connection_thread_globals(thd))
+    return;
+
+  if (thd_prepare_connection(thd))
+    goto end_thread;
+
+  while (thd_is_connection_alive(thd))
+  {
+    mysql_audit_release(thd);
+    if (do_command(thd))
+      break;
+  }
+  end_connection(thd);
+
+end_thread:
+  close_connection(thd);
+  thd->release_resources();
+  delete thd;
+}
+
 /* This is a BSD license and covers the changes to the end of the file */
 /* Copyright (C) 2009 Google, Inc.
    Copyright (C) 2010 Facebook, Inc.
