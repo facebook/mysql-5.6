@@ -1,0 +1,15 @@
+# This test is to check various cases of connections
+# to the admin tcpip port of ipv4
+
+# This test makes no sense with the embedded server
+--source include/not_embedded.inc
+
+--echo ## ------------------------------------------------------------------
+--echo ## -- Test of IP= 127.0.0.1 (ipv4)
+--echo ## ------------------------------------------------------------------
+let $IP= 127.0.0.1;
+--source include/admin_connection.inc
+
+--echo ## ------------------------------------------------------------------
+--echo ## -- End of admin connection ipv4 tests
+--echo ## ------------------------------------------------------------------

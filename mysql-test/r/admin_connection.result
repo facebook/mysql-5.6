@@ -1,0 +1,185 @@
+## ------------------------------------------------------------------
+## -- Test of IP= 127.0.0.1 (ipv4)
+## ------------------------------------------------------------------
+flush privileges;
+## Create non-super user nosuper
+create user nosuper@localhost;
+## Create super user 'super1'
+grant all privileges on *.* to 'super1'@'localhost' identified by password '' with grant option;
+## Create super user 'super2'
+grant all privileges on *.* to 'super2'@'localhost' identified by password '' with grant option;
+flush user_resources;
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Start a connection fail_admin_con1 at 14000 with new user nosuper
+## This will fail since this user doesn't have SUPER ACL
+connect(127.0.0.1,nosuper,,mysql,14000,MASTER_SOCKET);
+ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) for this operation
+## Start connections admin_con_root1,2,3 at 14000
+## This will succeed since root has SUPER ACL
+## Switch to admin_con_root1
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root2
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root3
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Disconnect admin_con_root1,2,3
+## Switch to default connection
+## Wait for all the connections except the default one to be completedly disconnected
+## Switch to default connection
+## Show processlist: only the default connection will be listed
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
+-	root	localhost	test	-	-	-	-	-	-
+## Start connections non_admin_con_super1_1,2,3,4
+## Connections non_admin_con_super1_5 will fail due to too many connections for a user
+connect(127.0.0.1,super1,,mysql,MASTER_PORT,MASTER_SOCKET);
+ERROR 42000: User super1 already has more than 'max_user_connections' active connections
+## Start connections non_admin_con_super2_1,2,3,4
+## Switch to default connection
+## Show processlist: totally 9 connections will be listed: the 8 non-admin connections and the default one
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
+-	root	localhost	test	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+## Start a connection fail_non_admin_con9 at master port
+## This will fail due to the limit of the max number of connections
+connect(127.0.0.1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
+ERROR HY000: Too many connections
+## Start connections admin_con_root4,5,6,7,8 at 14000
+## This will succeed since admin port is handled separately
+## and it is not limited by either @@max-connections or @@max-user-connections
+## Switch to default connection
+## Show processlist: totally 14 connections will be listed: the 5 admin connections, the 8 non-admin connections, and the default one
+show processlist;
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
+-	root	localhost	mysql	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-
+## Switch to non_admin_con_super1_1
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root4
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root5
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root6
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root7
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root8
+select user from mysql.user order by 1 asc;
+user
+nosuper
+root
+root
+root
+root
+super1
+super2
+## Switch to admin_con_root4
+## Drop user nosuper, super1, and super2
+drop user nosuper@localhost;
+drop user super1@localhost;
+drop user super2@localhost;
+select user from mysql.user order by 1 asc;
+user
+root
+root
+root
+root
+## Disconnect admin_con_root4,5,6,7,8
+## Disconnect non_admin_con_super1_1,2,3,4
+## Disconnect non_admin_con_super2_1,2,3,4
+## Switch to default connection
+## ------------------------------------------------------------------
+## -- End of admin connection ipv4 tests
+## ------------------------------------------------------------------
