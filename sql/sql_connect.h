@@ -28,6 +28,7 @@ void free_max_user_conn(void);
 
 pthread_handler_t handle_one_connection(void *arg);
 void do_handle_one_connection(THD *thd_arg);
+void handle_connection_within_current_thread(THD *thd);
 bool init_new_connection_handler_thread();
 void reset_mqh(LEX_USER *lu, bool get_them);
 bool check_mqh(THD *thd, uint check_command);

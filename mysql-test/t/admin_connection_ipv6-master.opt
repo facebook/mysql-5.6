@@ -1,0 +1,2 @@
+--max-connections=8
+--admin-port=14000
