@@ -45,6 +45,7 @@ typedef Vio Vio;
 */
 class Channel_info {
   ulonglong prior_thr_create_utime;
+  bool m_admin;
 
  protected:
   /**
@@ -54,7 +55,7 @@ class Channel_info {
   */
   virtual Vio *create_and_init_vio() const = 0;
 
-  Channel_info() : prior_thr_create_utime(0) {}
+  Channel_info() : prior_thr_create_utime(0), m_admin(false) {}
 
  public:
   virtual ~Channel_info() {}
@@ -88,6 +89,10 @@ class Channel_info {
   void set_prior_thr_create_utime() {
     prior_thr_create_utime = my_micro_time();
   }
+
+  bool get_admin() const { return m_admin; }
+
+  void set_admin(bool admin = true) { m_admin = admin; }
 };
 
 #endif  // SQL_CHANNEL_INFO_INCLUDED.

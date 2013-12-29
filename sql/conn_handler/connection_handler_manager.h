@@ -163,11 +163,12 @@ class Connection_handler_manager {
   /**
     Increment connection count if max_connections is not exceeded.
 
+    @param admin  Admin port connections can bypass the max_connections limit
     @retval
       true   max_connections NOT exceeded
       false  max_connections reached
   */
-  bool check_and_incr_conn_count();
+  bool check_and_incr_conn_count(bool admin = false);
 
   /**
     Reset the max_used_connections counter to the number of current
