@@ -913,6 +913,7 @@ THD::THD(bool enable_plugins)
    :Statement(&main_lex, &main_mem_root, STMT_CONVENTIONAL_EXECUTION,
               /* statement id */ 0),
    rli_fake(0), rli_slave(NULL),
+   is_admin_conn(false),
    in_sub_stmt(0),
    fill_status_recursion_level(0),
    binlog_row_event_extra_data(NULL),
