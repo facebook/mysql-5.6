@@ -1,0 +1,21 @@
+select @@global.admin_port;
+@@global.admin_port
+0
+select @@session.admin_port;
+ERROR HY000: Variable 'admin_port' is a GLOBAL variable
+show global variables like 'admin_port';
+Variable_name	Value
+admin_port	0
+show session variables like 'admin_port';
+Variable_name	Value
+admin_port	0
+select * from information_schema.global_variables where variable_name='admin_port';
+VARIABLE_NAME	VARIABLE_VALUE
+ADMIN_PORT	0
+select * from information_schema.session_variables where variable_name='admin_port';
+VARIABLE_NAME	VARIABLE_VALUE
+ADMIN_PORT	0
+set global admin_port=1;
+ERROR HY000: Variable 'admin_port' is a read only variable
+set session admin_port=1;
+ERROR HY000: Variable 'admin_port' is a read only variable

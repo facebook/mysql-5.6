@@ -1,0 +1,30 @@
+# This test is to check various cases of connections
+# to the admin tcpip port of ipv6
+
+# Skip this test if ipv6 is not supported
+--source include/check_ipv6.inc
+
+# This test makes no sense with the embedded server
+--source include/not_embedded.inc
+
+--echo ## ------------------------------------------------------------------
+--echo ## -- Test of IP= ::1 (ipv6)
+--echo ## ------------------------------------------------------------------
+let $IP= ::1;
+--source include/admin_connection.inc
+
+--echo ## ------------------------------------------------------------------
+--echo ## -- Test of IP= 0:0:0:0:0:0:0:1 (ipv6)
+--echo ## ------------------------------------------------------------------
+let $IP= 0:0:0:0:0:0:0:1;
+--source include/admin_connection.inc
+
+--echo ## ------------------------------------------------------------------
+--echo ## -- Test of IP= 0000:0000:0000:0000:0000:0000:0000:0001 (ipv6)
+--echo ## ------------------------------------------------------------------
+let $IP= 0000:0000:0000:0000:0000:0000:0000:0001;
+--source include/admin_connection.inc
+
+--echo ## ------------------------------------------------------------------
+--echo ## -- End of admin connection ipv6 tests
+--echo ## ------------------------------------------------------------------
