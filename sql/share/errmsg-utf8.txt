@@ -7096,6 +7096,10 @@ ER_OLD_TEMPORALS_UPGRADED
 
 ER_INNODB_FORCED_RECOVERY
   eng "Operation not allowed when innodb_forced_recovery > 0."
+
+ER_BLOCK_MYISAM_TABLES
+  eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
+
 #
 #  End of 5.6 error messages.
 #
