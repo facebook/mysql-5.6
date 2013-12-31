@@ -723,6 +723,10 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_dblwr_writes,		  SHOW_LONG},
   {"have_atomic_builtins",
   (char*) &export_vars.innodb_have_atomic_builtins,	  SHOW_BOOL},
+  {"drop_table_purge_skipped_row",
+  (char*) &export_vars.innodb_drop_purge_skip_row,    SHOW_LONG},
+  {"drop_table_ibuf_skipped_row",
+  (char*) &export_vars.innodb_drop_ibuf_skip_row,    SHOW_LONG},
   {"ibuf_delete_marks",
   (char*) &export_vars.innodb_ibuf_delete_marks,	  SHOW_LONG},
   {"ibuf_deletes",
@@ -17460,6 +17464,12 @@ static MYSQL_SYSVAR_BOOL(lra_debug, row_lra_debug,
   "sets this variable to TRUE. Used for testing edge cases regarding the "
   "purge thread and logical read ahead.",
   NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_BOOL(allow_ibuf_merges, srv_allow_ibuf_merges,
+  PLUGIN_VAR_NOCMDARG,
+  "Allow insert buffer merges (for testing)",
+  NULL, NULL, TRUE);
+
 #endif /* UNIV_DEBUG */
 
 static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
@@ -17704,6 +17714,9 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(zlib_strategy),
   MYSQL_SYSVAR(lru_manager_max_sleep_time),
   MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
+#ifdef UNIV_DEBUG
+  MYSQL_SYSVAR(allow_ibuf_merges),
+#endif /* UNIV_DEBUG */
   NULL
 };
 

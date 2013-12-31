@@ -1,0 +1,41 @@
+#
+# Test fast DROP TABLE and InnoDB purge
+#
+
+--source include/have_innodb.inc
+
+call mtr.add_suppression("InnoDB: Error: trying to do.*");
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1(i int primary key auto_increment, c char(128)) engine=innodb;
+insert into t1 values (null, 'foobar');
+
+let $loops=8;
+while ($loops) {
+insert into t1 select null, 'foobar' from t1;
+dec $loops;
+}
+
+connect (con1, localhost, root,,);
+
+--echo Start a transaction that blocks purge
+begin;
+select count(*) from t1;
+
+connection default;
+delete from t1;
+
+connection con1;
+rollback;
+
+connection default;
+disconnect con1;
+
+show global status like "Innodb_drop_table_purge_skipped_row";
+drop table t1;
+
+let $wait_condition= select (VARIABLE_VALUE > 100) from information_schema.global_status where VARIABLE_NAME = 'Innodb_drop_table_purge_skipped_row';
+--source include/wait_condition.inc

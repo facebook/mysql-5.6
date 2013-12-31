@@ -1135,6 +1135,7 @@ buf_flush_try_neighbors(
 	ulint		i;
 	ulint		low;
 	ulint		high;
+	ulint		space_size = 0;
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 
 	ut_ad(flush_type == BUF_FLUSH_LRU || flush_type == BUF_FLUSH_LIST);
@@ -1186,8 +1187,10 @@ buf_flush_try_neighbors(
 
 	/* fprintf(stderr, "Flush area: low %lu high %lu\n", low, high); */
 
-	if (high > fil_space_get_size(space)) {
-		high = fil_space_get_size(space);
+	space_size = fil_space_get_size(space);
+
+	if (high > space_size) {
+		high = space_size;
 	}
 
 	ulint	count = 0;

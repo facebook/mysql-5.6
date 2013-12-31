@@ -2638,7 +2638,7 @@ fil_op_log_parse_or_replay(
 	case MLOG_FILE_DELETE:
 		if (fil_tablespace_exists_in_mem(space_id)) {
 			dberr_t	err = fil_delete_tablespace(
-				space_id, BUF_REMOVE_FLUSH_NO_WRITE);
+				space_id, BUF_REMOVE_ALL_NO_WRITE);
 			ut_a(err == DB_SUCCESS);
 		}
 

@@ -256,9 +256,10 @@ buf_LRU_drop_page_hash_batch(
 When doing a DROP TABLE/DISCARD TABLESPACE we have to drop all page
 hash index entries belonging to that table. This function tries to
 do that in batch. Note that this is a 'best effort' attempt and does
-not guarantee that ALL hash entries will be removed. */
+not guarantee that ALL hash entries will be removed.
+Returns the number of pages that might have been hashed. */
 static
-void
+ulint
 buf_LRU_drop_page_hash_for_tablespace(
 /*==================================*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
@@ -268,13 +269,14 @@ buf_LRU_drop_page_hash_for_tablespace(
 	ulint*		page_arr;
 	ulint		num_entries;
 	ulint		zip_size;
+	ulint		num_found = 0;
 
 	zip_size = fil_space_get_zip_size(id);
 
 	if (UNIV_UNLIKELY(zip_size == ULINT_UNDEFINED)) {
 		/* Somehow, the tablespace does not exist.  Nothing to drop. */
 		ut_ad(0);
-		return;
+		return 0;
 	}
 
 	page_arr = static_cast<ulint*>(ut_malloc(
@@ -319,6 +321,7 @@ next_page:
 		page_arr[num_entries] = bpage->offset;
 		ut_a(num_entries < BUF_LRU_DROP_SEARCH_SIZE);
 		++num_entries;
+		++num_found;
 
 		if (num_entries < BUF_LRU_DROP_SEARCH_SIZE) {
 			goto next_page;
@@ -362,6 +365,8 @@ next_page:
 	/* Drop any remaining batch of search hashed pages. */
 	buf_LRU_drop_page_hash_batch(id, zip_size, page_arr, num_entries);
 	ut_free(page_arr);
+
+	return num_found;
 }
 
 /******************************************************************//**
@@ -846,6 +851,9 @@ buf_LRU_remove_pages(
 
 	case BUF_REMOVE_FLUSH_NO_WRITE:
 		ut_a(trx == 0);
+		/* A DROP table case. AHI entries are already removed.
+		No need to evict all pages from LRU list. Just evict pages
+		from flush list without writing. */
 		buf_flush_dirty_pages(buf_pool, id, false, NULL);
 		break;
 
@@ -888,6 +896,17 @@ buf_LRU_flush_or_remove_pages(
 
 		switch (buf_remove) {
 		case BUF_REMOVE_ALL_NO_WRITE:
+			/* A DISCARD tablespace case. Remove AHI entries
+			and evict all pages from LRU. */
+
+			/* Before we attempt to drop pages hash entries
+			one by one we first attempt to drop page hash
+			index entries in batches to make it more
+			efficient. The batching attempt is a best effort
+			attempt and does not guarantee that all pages
+			hash entries will be dropped. We get rid of
+			remaining page hash entries one by one below. */
+
 			buf_LRU_drop_page_hash_for_tablespace(buf_pool, id);
 			break;
 
@@ -896,6 +915,12 @@ buf_LRU_flush_or_remove_pages(
 			tablespace. No AHI entries exist because
 			we already dealt with them when freeing up
 			extents. */
+
+			/* Be paranoid and confirm other code removed the AHI entries.
+			Doing this in non-debug builds would make DROP TABLE slow. */
+			ut_ad(buf_LRU_drop_page_hash_for_tablespace(buf_pool, id) == 0);
+			break;
+
 		case BUF_REMOVE_FLUSH_WRITE:
 			/* We allow read-only queries against the
 			table, there is no need to drop the AHI entries. */
