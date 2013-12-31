@@ -870,6 +870,7 @@ buf_read_ibuf_merge_pages(
 tablespace_deleted:
 			/* We have deleted or are deleting the single-table
 			tablespace: remove the entries for that page */
+			++srv_drop_ibuf_skip_row;
 
 			ibuf_merge_or_delete_for_page(NULL, space_ids[i],
 						      page_nos[i],

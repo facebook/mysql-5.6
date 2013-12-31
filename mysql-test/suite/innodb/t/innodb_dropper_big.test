@@ -1,0 +1,19 @@
+# drop table stress tests
+#
+--source include/have_innodb.inc
+--source include/big_test.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+DROP TABLE IF EXISTS t4;
+--enable_warnings
+
+--let $num_workers = 10
+--let $max_records = 5000
+--let $min_records = 4000
+--let $test_seconds = 600
+--let $use_blob = 1
+
+--source suite/innodb/include/innodb_dropper.inc
