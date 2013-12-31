@@ -1,0 +1,60 @@
+
+#
+# 2013-06-01 - Added
+#
+
+--source include/have_innodb.inc
+--source include/have_debug.inc
+--source include/load_sysvars.inc
+
+SET @start_global_value = @@global.innodb_allow_ibuf_merges;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--echo Valid values are 0, 1, ON, and OFF
+SELECT @@global.innodb_allow_ibuf_merges between 0 and 1;
+SELECT @@global.innodb_allow_ibuf_merges;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.innodb_allow_ibuf_merges;
+SET global innodb_allow_ibuf_merges = 'ON';
+SELECT @@global.innodb_allow_ibuf_merges;
+SET global innodb_allow_ibuf_merges = 'OFF';
+SELECT @@global.innodb_allow_ibuf_merges;
+SHOW global variables like 'innodb_allow_ibuf_merges';
+SHOW session variables like 'innodb_allow_ibuf_merges';
+SELECT * from information_schema.global_variables where variable_name='innodb_allow_ibuf_merges';
+SELECT * from information_schema.session_variables where variable_name='innodb_allow_ibuf_merges';
+
+#
+# SHOW that it's writable
+#
+SET GLOBAL innodb_allow_ibuf_merges = 0;
+SELECT @@global.innodb_allow_ibuf_merges;
+SELECT * from information_schema.global_variables where variable_name='innodb_allow_ibuf_merges';
+SELECT * from information_schema.session_variables where variable_name='innodb_allow_ibuf_merges';
+--error ER_GLOBAL_VARIABLE
+SET session innodb_allow_ibuf_merges = 1;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+SET global innodb_allow_ibuf_merges = 1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+SET global innodb_allow_ibuf_merges = 1e1;
+
+#
+# min/max/DEFAULT values
+#
+SET global innodb_allow_ibuf_merges = 0;
+SELECT @@global.innodb_allow_ibuf_merges;
+SET global innodb_allow_ibuf_merges = 1;
+SELECT @@global.innodb_allow_ibuf_merges;
+SET global innodb_allow_ibuf_merges = DEFAULT;
+SELECT @@global.innodb_allow_ibuf_merges;
+
+
+SET @@global.innodb_allow_ibuf_merges = @start_global_value;
+SELECT @@global.innodb_allow_ibuf_merges;
