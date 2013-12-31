@@ -2777,6 +2777,9 @@ ibuf_merge_in_background(
 	ulint	n_pag2;
 	ulint	n_pages;
 
+	if (!SRV_ALLOW_IBUF_MERGES)
+		return 0;
+
 #if defined UNIV_DEBUG || defined UNIV_IBUF_DEBUG
 	if (srv_ibuf_disable_background_merge) {
 		return(0);
