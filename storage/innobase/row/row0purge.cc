@@ -767,6 +767,7 @@ row_purge_parse_undo_rec(
 
 	if (node->table == NULL) {
 		/* The table has been dropped: no need to do purge */
+		++srv_drop_purge_skip_row;
 		goto err_exit;
 	}
 

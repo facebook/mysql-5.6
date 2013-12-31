@@ -357,6 +357,12 @@ UNIV_INTERN ulint	srv_lock_deadlocks	= 0;
 /** Number of row lock wait timeouts */
 UNIV_INTERN ulint	srv_lock_wait_timeouts	= 0;
 
+/** Number times purge skipped a row because the table had been dropped */
+UNIV_INTERN ulint srv_drop_purge_skip_row = 0;
+
+/** Number times ibuf merges skipped a row becaue the table had been dropped */
+UNIV_INTERN ulint srv_drop_ibuf_skip_row = 0;
+
 /** Count as "slow" file read, write and fsync requests that take this long */
 UNIV_INTERN ulint	srv_io_slow_usecs	= 0;
 
@@ -369,6 +375,11 @@ aio read requests when the number of outstanding aio requests exceed this
 number. But the maximum is not strictly enforced. There could be a short period
 of time the number is exceeded. */
 UNIV_INTERN ulong	srv_io_outstanding_requests = 0;
+
+#ifdef UNIV_DEBUG
+/** Support diabling insert buffer merges during testing */
+UNIV_INTERN my_bool srv_allow_ibuf_merges = TRUE;
+#endif
 
 /** Number of extra writes done in buf_flush_try_neighbors from LRU list */
 UNIV_INTERN ulint	srv_neighbors_flushed_lru	= 0;
@@ -2073,6 +2084,9 @@ srv_export_innodb_status(void)
 	  malloc_cache_compress->block_size;
 	export_vars.innodb_malloc_cache_block_size_decompress =
 	  malloc_cache_decompress->block_size;
+
+	export_vars.innodb_drop_purge_skip_row = srv_drop_purge_skip_row;
+	export_vars.innodb_drop_ibuf_skip_row = srv_drop_ibuf_skip_row;
 
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
