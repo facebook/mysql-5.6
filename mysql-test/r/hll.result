@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS t1;
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY,
+msg_prefix VARCHAR(255),
+msg VARCHAR(255),
+msg_length int,
+msg_checksum varchar(128),
+KEY msg_i(msg_prefix))
+ENGINE=INNODB;
+include/assert.inc [assert that hll_count on string differs by less than 5% from exact_count]
+include/assert.inc [assert that hll_count_id on number differs by less than 5% from exact_count_id]
+DROP TABLE t1;
