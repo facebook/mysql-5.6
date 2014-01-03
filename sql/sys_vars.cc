@@ -2574,6 +2574,16 @@ static Sys_var_ulong Sys_multi_range_count(
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0),
        DEPRECATED(""));
 
+static Sys_var_uint Sys_hll_data_size_log2(
+       "hll_data_size_log2",
+       "This argument is used to generate the hashtable. "
+       "Increasing the data_size will increase the accuracy "
+       "while consuming more memory. A value of k will imply "
+       "a standard error of roughly (104/sqrt(2^k)) percent, "
+       "and use O(2^k) memory.",
+       SESSION_VAR(hll_data_size_log2), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(1, 32), DEFAULT(14), BLOCK_SIZE(1));
+
 static bool fix_thd_mem_root(sys_var *self, THD *thd, enum_var_type type)
 {
   if (type != OPT_GLOBAL)

@@ -458,6 +458,7 @@ typedef struct system_variables
   ulong bulk_insert_buff_size;
   uint  eq_range_index_dive_limit;
   uint  part_scan_max;
+  uint  hll_data_size_log2;
   ulong join_buff_size;
   ulong lock_wait_timeout;
   ulong max_allowed_packet;
