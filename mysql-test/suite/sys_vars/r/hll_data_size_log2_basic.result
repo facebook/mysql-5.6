@@ -1,0 +1,100 @@
+SET @start_global_value = @@global.hll_data_size_log2;
+SELECT @start_global_value;
+@start_global_value
+14
+select @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+14
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+14
+show global variables like 'hll_data_size_log2';
+Variable_name	Value
+hll_data_size_log2	14
+show session variables like 'hll_data_size_log2';
+Variable_name	Value
+hll_data_size_log2	14
+select *
+from information_schema.global_variables
+where variable_name='hll_data_size_log2';
+VARIABLE_NAME	VARIABLE_VALUE
+HLL_DATA_SIZE_LOG2	14
+select *
+from information_schema.session_variables
+where variable_name='hll_data_size_log2';
+VARIABLE_NAME	VARIABLE_VALUE
+HLL_DATA_SIZE_LOG2	14
+set global hll_data_size_log2=10;
+select @@hll_data_size_log2;
+@@hll_data_size_log2
+14
+set session hll_data_size_log2=10;
+select @@hll_data_size_log2;
+@@hll_data_size_log2
+10
+set global hll_data_size_log2=0;
+Warnings:
+Warning	1292	Truncated incorrect hll_data_size_log2 value: '0'
+select @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+1
+set session hll_data_size_log2=0;
+Warnings:
+Warning	1292	Truncated incorrect hll_data_size_log2 value: '0'
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+1
+set global hll_data_size_log2=31;
+select @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+31
+set session hll_data_size_log2=31;
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+31
+set session hll_data_size_log2=default;
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+31
+set global hll_data_size_log2=default;
+select @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+14
+set session hll_data_size_log2=default;
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+14
+set global hll_data_size_log2=-1;
+Warnings:
+Warning	1292	Truncated incorrect hll_data_size_log2 value: '-1'
+select @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+1
+set session hll_data_size_log2=-1;
+Warnings:
+Warning	1292	Truncated incorrect hll_data_size_log2 value: '-1'
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+1
+set global hll_data_size_log2=33;
+Warnings:
+Warning	1292	Truncated incorrect hll_data_size_log2 value: '33'
+select @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+32
+set session hll_data_size_log2=33;
+Warnings:
+Warning	1292	Truncated incorrect hll_data_size_log2 value: '33'
+select @@session.hll_data_size_log2;
+@@session.hll_data_size_log2
+32
+set global hll_data_size_log2=1.1;
+ERROR 42000: Incorrect argument type to variable 'hll_data_size_log2'
+set global hll_data_size_log2=1e1;
+ERROR 42000: Incorrect argument type to variable 'hll_data_size_log2'
+set global hll_data_size_log2="foobar";
+ERROR 42000: Incorrect argument type to variable 'hll_data_size_log2'
+SET @@global.hll_data_size_log2 = @start_global_value;
+SELECT @@global.hll_data_size_log2;
+@@global.hll_data_size_log2
+14
