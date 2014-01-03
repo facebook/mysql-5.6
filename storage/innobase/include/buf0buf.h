@@ -1595,6 +1595,17 @@ struct buf_page_t{
 					or buf_block_t::mutex. */
 # endif /* UNIV_DEBUG_FILE_ACCESSES || UNIV_DEBUG */
 #endif /* !UNIV_HOTBACKUP */
+
+	/** @name Working set size fields */
+	/* @{ */
+	unsigned char db_stats_index;
+					/*!< Index of the database to which
+					this block belongs. The index is
+					obtained from the hashtable dbname_hash
+					in the buffer pool, and is used to
+					obtain the relevant hyperloglog
+					structure to update */
+	/* @} */
 };
 
 /** The buffer control block structure */
@@ -1677,15 +1688,6 @@ struct buf_block_t{
 					whether the leftmost record of several
 					records with the same prefix should be
 					indexed in the hash index */
-	/* @} */
-
-	/** @name Working set size fields */
-	/* @{ */
-	unsigned char db_stats_index;
-					/*!< Index of the database to which this block belongs.
-					The index is obtained from the hashtable dbname_hash
-					in the buffer pool, and is used to obtain the relevant
-					hyperloglog structure to update */
 	/* @} */
 
 	/** @name Hash search fields

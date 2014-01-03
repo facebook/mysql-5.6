@@ -2223,7 +2223,6 @@ buf_block_init_low(
 	block->n_fields		= 1;
 	block->n_bytes		= 0;
 	block->left_side	= TRUE;
-	block->db_stats_index = 0;
 }
 #endif /* !UNIV_HOTBACKUP */
 
@@ -3040,8 +3039,10 @@ wait_until_unfixed:
 	ut_ad(!rw_lock_own(hash_lock, RW_LOCK_SHARED));
 #endif /* UNIV_SYNC_DEBUG */
 	// Update working set size
-	if (mode != BUF_PEEK_IF_IN_POOL && space != 0 && block->db_stats_index != 0) {
-		update_global_db_stats_access(block->db_stats_index, space, offset);
+	if (mode != BUF_PEEK_IF_IN_POOL && space != 0 &&
+	    block->page.db_stats_index != 0) {
+		update_global_db_stats_access(block->page.db_stats_index,
+		                              space, offset);
 	}
 
 	return(block);
@@ -3376,6 +3377,7 @@ buf_page_init_low(
 	bpage->access_time = 0;
 	bpage->newest_modification = 0;
 	bpage->oldest_modification = 0;
+	bpage->db_stats_index = 0;
 	HASH_INVALIDATE(bpage, hash);
 #if defined UNIV_DEBUG_FILE_ACCESSES || defined UNIV_DEBUG
 	bpage->file_page_was_freed = FALSE;
@@ -3724,8 +3726,8 @@ func_exit:
 		fil_stats_t* stats;
 		ib_mutex_t* stats_mutex;
 		stats = fil_get_stats_lock_mutex_by_id(space, &stats_mutex);
-		if(block) {
-			block->db_stats_index = stats->db_stats_index;
+		if(bpage) {
+			bpage->db_stats_index = stats->db_stats_index;
 		}
 		mutex_exit(stats_mutex);
   }
@@ -3887,7 +3889,7 @@ buf_page_create(
 #endif
 
 	stats = fil_get_stats_lock_mutex_by_id(space, &stats_mutex);
-	block->db_stats_index = stats->db_stats_index;
+	block->page.db_stats_index = stats->db_stats_index;
 	mutex_exit(stats_mutex);
 
 	return(block);
