@@ -81,6 +81,7 @@ SET(SQL_SHARED_SOURCES
   item_strfunc.cc
   item_subselect.cc
   item_sum.cc
+  item_sum_hll.cc
   item_timefunc.cc 
   item_xmlfunc.cc 
   item_inetfunc.cc
