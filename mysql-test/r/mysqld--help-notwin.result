@@ -314,6 +314,12 @@ The following options may be given as the first argument:
  --histogram-step-size-update-command=name 
  Step size of the Histogram which is used to track update
  command latencies.
+ --hll-data-size-log2=# 
+ This argument is used to generate the hashtable.
+ Increasing the data_size will increase the accuracy while
+ consuming more memory. A value of k will imply a standard
+ error of roughly (104/sqrt(2^k)) percent, and use O(2^k)
+ memory.
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --ignore-builtin-innodb 
  IGNORED. This option will be removed in future releases.
@@ -1206,6 +1212,7 @@ histogram-step-size-other-command 16ms
 histogram-step-size-select-command 128us
 histogram-step-size-transaction-command 16ms
 histogram-step-size-update-command 16ms
+hll-data-size-log2 14
 host-cache-size 279
 ignore-builtin-innodb FALSE
 init-connect 
