@@ -1302,6 +1302,7 @@ class THD;
 %token  HAVING                        /* SQL-2003-R */
 %token  HELP_SYM
 %token  HEX_NUM
+%token  HLL_SYM
 %token  HIGH_PRIORITY
 %token  HOST_SYM
 %token  HOSTS_SYM
@@ -10366,6 +10367,16 @@ sum_expr:
           ')'
           {
             $$= new (thd->mem_root) Item_sum_count(* $5);
+            if ($$ == NULL)
+              MYSQL_YYABORT;
+          }
+         | HLL_SYM '('
+           { Select->in_sum_expr++; }
+            expr_list
+            { Select->in_sum_expr--; }
+          ')'
+          {
+            $$= new (thd->mem_root) Item_sum_count_hll(* $4);
             if ($$ == NULL)
               MYSQL_YYABORT;
           }
