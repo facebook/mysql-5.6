@@ -1,0 +1,71 @@
+SET @start_global_value = @@global.hll_data_size_log2;
+SELECT @start_global_value;
+
+#
+# exists as global and session
+#
+select @@global.hll_data_size_log2;
+select @@session.hll_data_size_log2;
+show global variables like 'hll_data_size_log2';
+show session variables like 'hll_data_size_log2';
+
+select *
+from information_schema.global_variables
+where variable_name='hll_data_size_log2';
+
+select *
+from information_schema.session_variables
+where variable_name='hll_data_size_log2';
+
+#
+# show that it's writable
+#
+set global hll_data_size_log2=10;
+select @@hll_data_size_log2;
+set session hll_data_size_log2=10;
+select @@hll_data_size_log2;
+
+set global hll_data_size_log2=0;
+select @@global.hll_data_size_log2;
+set session hll_data_size_log2=0;
+select @@session.hll_data_size_log2;
+
+set global hll_data_size_log2=31;
+select @@global.hll_data_size_log2;
+set session hll_data_size_log2=31;
+select @@session.hll_data_size_log2;
+
+set session hll_data_size_log2=default;
+select @@session.hll_data_size_log2;
+set global hll_data_size_log2=default;
+select @@global.hll_data_size_log2;
+set session hll_data_size_log2=default;
+select @@session.hll_data_size_log2;
+
+#
+# Incorrect assignments
+#
+
+# Allowed value range: (0, 32)
+# Value lower than allowed range
+set global hll_data_size_log2=-1;
+select @@global.hll_data_size_log2;
+set session hll_data_size_log2=-1;
+select @@session.hll_data_size_log2;
+
+# Value higher than allowed range
+set global hll_data_size_log2=33;
+select @@global.hll_data_size_log2;
+set session hll_data_size_log2=33;
+select @@session.hll_data_size_log2;
+
+# Incompatible value types
+--error ER_WRONG_TYPE_FOR_VAR
+set global hll_data_size_log2=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global hll_data_size_log2=1e1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global hll_data_size_log2="foobar";
+
+SET @@global.hll_data_size_log2 = @start_global_value;
+SELECT @@global.hll_data_size_log2;
