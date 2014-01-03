@@ -679,6 +679,7 @@ static SYMBOL sql_functions[] = {
   { "DATE_SUB",		SYM(DATE_SUB_INTERVAL)},
   { "EXTRACT",		SYM(EXTRACT_SYM)},
   { "GROUP_CONCAT",	SYM(GROUP_CONCAT_SYM)},
+  { "HYPERLOGLOG", SYM(HLL_SYM)},
   { "MAX",		SYM(MAX_SYM)},
   { "MID",		SYM(SUBSTRING)},	/* unireg function */
   { "MIN",		SYM(MIN_SYM)},
