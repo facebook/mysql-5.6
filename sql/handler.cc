@@ -3261,7 +3261,17 @@ int handler::update_auto_increment()
   ulonglong nr, nb_reserved_values;
   bool append= FALSE;
   THD *thd= table->in_use;
-  struct system_variables *variables= &thd->variables;
+  struct system_variables *variables;
+
+  if (!thd) {
+    /* For some reason table->in_use is no longer valid so we can't proceed.
+       The error returned here is not accurate but should be good enough to
+       locate the source. */
+    return HA_ERR_AUTOINC_READ_FAILED;
+  }
+
+  variables = &thd->variables;
+
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type != F_UNLCK);
   DBUG_ENTER("handler::update_auto_increment");
