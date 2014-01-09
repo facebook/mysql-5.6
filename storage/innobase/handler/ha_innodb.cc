@@ -577,6 +577,13 @@ static MYSQL_THDVAR_ULONG(lra_sleep, PLUGIN_VAR_OPCMDARG,
   "milliseconds.",
   NULL, NULL, 50, 0, 1000, 0);
 
+static MYSQL_THDVAR_ULONG(lra_n_spaces, PLUGIN_VAR_OPCMDARG,
+  "Number of spaces a transaction can access before turning off LRA. "
+  "Every time a transaction switch to a new space (or switching back "
+  "to a previously accessed one), LRA will start prefetching from beginning "
+  "of the index from scratch. Switching off LRA if too many spaces are "
+  "scanned to avoid a possible performance hit.", NULL, NULL, 3, 1, 16, 0);
+
 
 static MYSQL_THDVAR_STR(ft_user_stopword_table,
   PLUGIN_VAR_OPCMDARG|PLUGIN_VAR_MEMALLOC,
@@ -2717,7 +2724,9 @@ innobase_trx_init(
 	trx_lra_reset(trx,
 		      THDVAR(thd, lra_size),
 		      THDVAR(thd, lra_n_node_recs_before_sleep),
-		      THDVAR(thd, lra_sleep));
+		      THDVAR(thd, lra_sleep),
+		      THDVAR(thd, lra_n_spaces),
+		      true);
 
 	DBUG_VOID_RETURN;
 }
@@ -2743,7 +2752,9 @@ innobase_trx_allocate(
 	trx_lra_reset(trx,
 		      THDVAR(thd, lra_size),
 		      THDVAR(thd, lra_n_node_recs_before_sleep),
-		      THDVAR(thd, lra_sleep));
+		      THDVAR(thd, lra_sleep),
+		      THDVAR(thd, lra_n_spaces),
+		      true);
 
 	innobase_trx_init(thd, trx);
 
@@ -4111,7 +4122,7 @@ innobase_commit_low(
 /*================*/
 	trx_t*	trx)	/*!< in: transaction handle */
 {
-	trx_lra_reset(trx, 0, 0, 0);
+	trx_lra_reset(trx, 0, 0, 0, 0, true);
 	if (trx_is_started(trx)) {
 
 		trx_commit_for_mysql(trx);
@@ -18216,6 +18227,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(lra_size),
   MYSQL_SYSVAR(lra_n_node_recs_before_sleep),
   MYSQL_SYSVAR(lra_sleep),
+  MYSQL_SYSVAR(lra_n_spaces),
   MYSQL_SYSVAR(malloc_cache_len),
   MYSQL_SYSVAR(segment_reserve_factor),
   MYSQL_SYSVAR(unzip_lru_pct),
