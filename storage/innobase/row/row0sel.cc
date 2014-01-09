@@ -3800,6 +3800,17 @@ row_read_ahead_logical(
 		 */
 		return FALSE;
 	}
+	if (trx->lra_space_id == space) {
+		trx->lra_count_n_spaces = 0;
+	} else {
+		trx->lra_count_n_spaces ++;
+		if (trx->lra_count_n_spaces > trx->lra_n_spaces) {
+			/* lra doesn't work well when a transaction accesses
+			too many tables, disable it. */
+			trx_lra_reset(trx, 0, 0, 0, 0, true);
+			return FALSE;
+		}
+	}
 
 	/* Set the last page number to page_no only if we are scanning the
 	 * same table.
@@ -3873,7 +3884,9 @@ row_read_ahead_logical(
 		trx_lra_reset(trx,
 			      trx->lra_size,
 			      trx->lra_n_node_recs_before_sleep,
-			      trx->lra_sleep);
+			      trx->lra_sleep,
+			      trx->lra_n_spaces,
+			      false);
 		trx->lra_space_id = space;
 		trx->lra_n_pages = (trx->lra_size << 20L)
 				   / (zip_size ? zip_size : UNIV_PAGE_SIZE);
