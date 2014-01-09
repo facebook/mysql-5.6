@@ -4101,7 +4101,6 @@ btr_defragment_n_pages(
 		return NULL;
 	}
 	zip_size = dict_table_zip_size(index->table);
-	heap = mem_heap_create(256);
 	first_page = buf_block_get_frame(block);
 	level = btr_page_get_level(first_page, mtr);
 
@@ -4162,6 +4161,7 @@ btr_defragment_n_pages(
 	}
 
 	/* 3. Defragment pages. */
+	heap = mem_heap_create(256);
 	// First defragmented page will be the first page.
 	current_block = blocks[0];
 	// Start from the second page.
