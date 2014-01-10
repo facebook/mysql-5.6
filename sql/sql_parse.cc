@@ -1037,6 +1037,9 @@ bool do_command(THD *thd)
   /* Do not rely on my_net_read, extra safety against programming errors. */
   packet[packet_length]= '\0';                  /* safety */
 
+  /* Set raw query buffer */
+  thd->set_raw_query_buffer(packet, packet_length);
+
   command= (enum enum_server_command) (uchar) packet[0];
 
   if (command >= COM_END)
