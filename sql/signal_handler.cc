@@ -189,6 +189,8 @@ extern "C" sig_handler handle_fatal_signal(int sig)
       "Trying to get some variables.\n"
       "Some pointers may be invalid and cause the dump to abort.\n");
 
+    thd->raw_query_buffer[thd->RAW_QUERY_BUFFER_LENGTH] = '\0';
+    my_safe_printf_stderr("Last run query buffer: %s\n", thd->raw_query_buffer);
     my_safe_printf_stderr("Query (%p): ", thd->query());
     my_safe_print_str(thd->query(), MY_MIN(1024U, thd->query_length()));
     my_safe_printf_stderr("Connection ID (thread ID): %lu\n",

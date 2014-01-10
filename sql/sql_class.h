@@ -2133,6 +2133,28 @@ public:
   */
   static const char * const DEFAULT_WHERE;
 
+  /*
+     Raw query buffer for saving the raw query string (prefix).
+     This buffer is set right after the socket I/O and will be
+     used in fatal signal handler. This query string can be the
+     query of the current run or the last successful run.
+  */
+  static const ulong RAW_QUERY_BUFFER_LENGTH = 4095;
+
+  char raw_query_buffer[RAW_QUERY_BUFFER_LENGTH + 1];
+
+  void set_raw_query_buffer(char *packet, ulong packet_length)
+  {
+    if (packet && packet_length > 0)
+    {
+      ulong len = packet_length;
+      if (len > RAW_QUERY_BUFFER_LENGTH)
+        len = RAW_QUERY_BUFFER_LENGTH;
+      memcpy(raw_query_buffer, packet, len);
+      raw_query_buffer[len] = '\0';
+    }
+  }
+
 #ifdef EMBEDDED_LIBRARY
   struct st_mysql  *mysql;
   unsigned long	 client_stmt_id;
