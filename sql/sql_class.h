@@ -2011,7 +2011,9 @@ public:
   {
     if (packet && packet_length > 0)
     {
-      ulong len = std::min(packet_length, RAW_QUERY_BUFFER_LENGTH);
+      ulong len = packet_length;
+      if (len > RAW_QUERY_BUFFER_LENGTH)
+        len = RAW_QUERY_BUFFER_LENGTH;
       memcpy(raw_query_buffer, packet, len);
       raw_query_buffer[len] = '\0';
     }
