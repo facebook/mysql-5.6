@@ -526,6 +526,8 @@ my_bool opt_noacl= 0;
 my_bool sp_automatic_privileges= 1;
 my_bool opt_process_can_disable_bin_log = TRUE;
 
+static const ulong DEFAULT_SRV_FATAL_SEMAPHORE_TIMEOUT = 600; /* in seconds */
+ulong opt_srv_fatal_semaphore_timeout = DEFAULT_SRV_FATAL_SEMAPHORE_TIMEOUT;
 ulong opt_binlog_rows_event_max_size;
 const char *binlog_checksum_default= "NONE";
 ulong binlog_checksum_options;
@@ -8084,6 +8086,11 @@ struct my_option my_long_options[]=
   {"skip-stack-trace", OPT_SKIP_STACK_TRACE,
    "Don't print a stack trace on failure.", 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0,
    0, 0, 0, 0},
+  {"fatal-semaphore-timeout", OPT_SRV_FATAL_SEMAPHORE_TIMEOUT,
+   "Maximum number of seconds that semaphore times out in innodb.",
+   &opt_srv_fatal_semaphore_timeout, &opt_srv_fatal_semaphore_timeout,
+   0, GET_ULONG, REQUIRED_ARG,
+   DEFAULT_SRV_FATAL_SEMAPHORE_TIMEOUT, 1, ULONG_MAX, 0, 0, 0},
 #if defined(_WIN32) && !defined(EMBEDDED_LIBRARY)
   {"slow-start-timeout", 0,
    "Maximum number of milliseconds that the service control manager should wait "
@@ -9148,6 +9155,7 @@ static int mysql_init_variables(void)
   opt_log_slow_extra= FALSE;
   log_datagram_sock= -1;
   opt_peak_lag_sample_rate= 100;
+  opt_srv_fatal_semaphore_timeout = DEFAULT_SRV_FATAL_SEMAPHORE_TIMEOUT;
 
   /* Character sets */
   system_charset_info= &my_charset_utf8_general_ci;
