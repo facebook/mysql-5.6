@@ -251,6 +251,9 @@ The following options may be given as the first argument:
  With this option enabled you can run myisamchk to test
  (not repair) tables while the MySQL server is running.
  Disable with --skip-external-locking.
+ --fatal-semaphore-timeout=# 
+ Maximum number of seconds that semaphore times out in
+ innodb.
  --flush             Flush MyISAM tables to disk between SQL commands
  --flush-time=#      A dedicated thread is created to flush all tables at the
  given interval
@@ -1190,6 +1193,7 @@ expand-fast-index-creation FALSE
 expire-logs-days 0
 explicit-defaults-for-timestamp FALSE
 external-locking FALSE
+fatal-semaphore-timeout 600
 flush FALSE
 flush-time 0
 ft-boolean-syntax + -><()~*:""&|

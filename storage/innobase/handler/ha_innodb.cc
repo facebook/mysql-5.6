@@ -12332,7 +12332,7 @@ ha_innobase::check(
 			CHECK TABLE. */
 			os_increment_counter_by_amount(
 				server_mutex,
-				srv_fatal_semaphore_wait_threshold,
+                                opt_srv_fatal_semaphore_timeout,
 				SRV_SEMAPHORE_WAIT_EXTENSION);
 			bool valid = btr_validate_index(index, prebuilt->trx);
 
@@ -12340,7 +12340,7 @@ ha_innobase::check(
 			CHECK TABLE. */
 			os_decrement_counter_by_amount(
 				server_mutex,
-				srv_fatal_semaphore_wait_threshold,
+                                opt_srv_fatal_semaphore_timeout,
 				SRV_SEMAPHORE_WAIT_EXTENSION);
 
 			if (!valid) {

@@ -187,7 +187,7 @@ dict_print(void)
 
 	os_increment_counter_by_amount(
 		server_mutex,
-		srv_fatal_semaphore_wait_threshold,
+		opt_srv_fatal_semaphore_timeout,
 		SRV_SEMAPHORE_WAIT_EXTENSION);
 
 	heap = mem_heap_create(1000);
@@ -224,7 +224,7 @@ dict_print(void)
 	/* Restore the fatal semaphore wait timeout */
 	os_decrement_counter_by_amount(
 		server_mutex,
-		srv_fatal_semaphore_wait_threshold,
+		opt_srv_fatal_semaphore_timeout,
 		SRV_SEMAPHORE_WAIT_EXTENSION);
 }
 

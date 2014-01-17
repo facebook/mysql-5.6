@@ -5496,11 +5496,11 @@ xtrabackup_stats_func(void)
 
 #if MYSQL_VERSION_ID >= 50600
 	os_increment_counter_by_amount(server_mutex,
-				       srv_fatal_semaphore_wait_threshold,
+				       opt_srv_fatal_semaphore_timeout,
 				       72000);
 #else
 	mutex_enter(&kernel_mutex);
-	srv_fatal_semaphore_wait_threshold += 72000; /* 20 hours */
+	opt_srv_fatal_semaphore_timeout += 72000; /* 20 hours */
 	mutex_exit(&kernel_mutex);
 #endif
 
@@ -5534,11 +5534,11 @@ loop:
 		/* Restore the fatal semaphore wait timeout */
 #if MYSQL_VERSION_ID >= 50600
 		os_increment_counter_by_amount(server_mutex,
-					       srv_fatal_semaphore_wait_threshold,
+					       opt_srv_fatal_semaphore_timeout,
 					       -72000);
 #else
 		mutex_enter(&kernel_mutex);
-		srv_fatal_semaphore_wait_threshold -= 72000; /* 20 hours */
+		opt_srv_fatal_semaphore_timeout -= 72000; /* 20 hours */
 		mutex_exit(&kernel_mutex);
 #endif
 

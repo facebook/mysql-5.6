@@ -73,8 +73,6 @@ Created 10/8/1995 Heikki Tuuri
 #include "mysql/plugin.h"
 #include "mysql/service_thd_wait.h"
 
-/* The following is the maximum allowed duration of a lock wait. */
-UNIV_INTERN ulint	srv_fatal_semaphore_wait_threshold = 600;
 
 /* How much data manipulation language (DML) statements need to be delayed,
 in microseconds, in order to reduce the lagging of the purge thread. */
@@ -2427,7 +2425,7 @@ loop:
 				" > %lu seconds\n"
 				"InnoDB: We intentionally crash the server,"
 				" because it appears to be hung.\n",
-				(ulong) srv_fatal_semaphore_wait_threshold);
+				opt_srv_fatal_semaphore_timeout);
 
 			ut_error;
 		}
