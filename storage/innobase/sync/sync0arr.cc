@@ -899,7 +899,7 @@ sync_array_print_long_waits_low(
 	ibool*		noticed)/*!< out: TRUE if long wait noticed */
 {
 	ulint		i;
-	ulint		fatal_timeout = srv_fatal_semaphore_wait_threshold;
+	ulint		fatal_timeout = opt_srv_fatal_semaphore_timeout;
 	ibool		fatal = FALSE;
 	double		longest_diff = 0;
 
