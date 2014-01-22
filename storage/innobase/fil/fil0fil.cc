@@ -150,6 +150,9 @@ UNIV_INTERN mysql_pfs_key_t	fil_space_latch_key;
 initialized. */
 fil_system_t*	fil_system	= NULL;
 
+/** thread num of loading table files*/
+extern uint innobase_load_table_thread_num;
+
 /** Determine if (i) is a user tablespace id or not. */
 # define fil_is_user_tablespace_id(i) ((i) > srv_undo_tablespaces_open)
 
@@ -5051,6 +5054,50 @@ fil_file_readdir_next_file(
 	return(-1);
 }
 
+/********************************************************************
+ * below is the date struct and function to implement
+ * parallelize opening table files
+ ********************************************************************/
+
+UNIV_INTERN uint innobase_load_table_thread_num = 10;
+
+struct database_node_t {
+  char* db_name;
+  ulint database_id;
+  hash_node_t name_hash;
+};
+
+struct table_file_node_t {
+  char* db_name;
+  char* file_name;
+  ulint database_id;
+  UT_LIST_NODE_T(table_file_node_t) table_file;
+};
+
+struct thread_params {
+  ulint task_id;
+  os_event_t event;
+  UT_LIST_BASE_NODE_T(table_file_node_t) *task;
+};
+
+void* load_table_file(void* args) {
+  thread_params *params = static_cast<thread_params*>(args);
+  table_file_node_t *table_file_node = NULL;
+  for (table_file_node = UT_LIST_GET_FIRST(*params->task);
+       table_file_node != NULL;
+       table_file_node = UT_LIST_GET_NEXT(table_file, table_file_node)) {
+    // partition tasks
+    if ((table_file_node->database_id % innobase_load_table_thread_num)
+        == params->task_id) {
+      fil_load_single_table_tablespace(table_file_node->db_name,
+                                       table_file_node->file_name);
+    }
+  }
+  os_event_set(params->event);
+  os_thread_exit(NULL);
+  OS_THREAD_DUMMY_RETURN;
+}
+
 /********************************************************************//**
 At the server startup, if we need crash recovery, scans the database
 directories under the MySQL datadir, looking for .ibd files. Those files are
@@ -5072,7 +5119,10 @@ fil_load_single_table_tablespaces(void)
 	os_file_stat_t	dbinfo;
 	os_file_stat_t	fileinfo;
 	dberr_t		err		= DB_SUCCESS;
-
+  UT_LIST_BASE_NODE_T(table_file_node_t) table_file_list;
+  UT_LIST_INIT(table_file_list);
+  ulint database_num = 0;
+  hash_table_t *database_table = hash_create(50);
 	/* The datadir of MySQL is always the default directory of mysqld */
 
 	dir = os_file_opendir(fil_path_to_mysql_datadir, TRUE);
@@ -5143,8 +5193,29 @@ fil_load_single_table_tablespaces(void)
 						   ".isl"))) {
 					/* The name ends in .ibd or .isl;
 					try opening the file */
-					fil_load_single_table_tablespace(
-						dbinfo.name, fileinfo.name);
+
+          table_file_node_t* table_file_node =
+            static_cast<table_file_node_t*>(
+                mem_zalloc(sizeof(table_file_node_t))
+                );
+          table_file_node->db_name = mem_strdup(dbinfo.name);
+          table_file_node->file_name = mem_strdup(fileinfo.name);
+          database_node_t *database_node = NULL;
+          ulint fold = ut_fold_string(dbinfo.name);
+          HASH_SEARCH(name_hash, database_table, fold,
+              database_node_t*, database_node, ut_ad(database_node->db_name),
+              ut_strcmp(database_node->db_name, dbinfo.name) == 0);
+          if (database_node == NULL) {
+            database_node = static_cast<database_node_t*>(
+                mem_zalloc(sizeof(database_node_t)));
+            database_node->db_name = mem_strdup(dbinfo.name);
+            database_node->database_id = database_num;
+            database_num++;
+            HASH_INSERT(database_node_t, name_hash,
+                database_table, fold, database_node);
+          }
+          table_file_node->database_id = database_node->database_id;
+          UT_LIST_ADD_FIRST(table_file, table_file_list, table_file_node);
 				}
 next_file_item:
 				ret = fil_file_readdir_next_file(&err,
@@ -5168,8 +5239,52 @@ next_datadir_item:
 						 dir, &dbinfo);
 	}
 
-	mem_free(dbpath);
+  // parallelize read table file
+  thread_params *params = static_cast<thread_params*>(
+      mem_zalloc(innobase_load_table_thread_num * sizeof(thread_params)));
+  for (ulint i = 0;
+       i < innobase_load_table_thread_num && i < database_num;
+       ++i) {
+    params[i].task = &table_file_list;
+    params[i].task_id = i;
+    params[i].event = os_event_create();
+    os_thread_create(load_table_file, &params[i], NULL);
+  }
 
+  for (uint32 i = 0;
+       i < innobase_load_table_thread_num && i < database_num;
+       ++i) {
+    os_event_wait(params[i].event);
+    os_event_free(params[i].event);
+  }
+  mem_free(params);
+  // free space
+  ulint len = 0;
+  table_file_node_t *table_file_node = NULL;
+  for (len = UT_LIST_GET_LEN(table_file_list);
+       len > 0;
+       len = UT_LIST_GET_LEN(table_file_list)) {
+    table_file_node = UT_LIST_GET_FIRST(table_file_list);
+    mem_free(table_file_node->db_name);
+    mem_free(table_file_node->file_name);
+    UT_LIST_REMOVE(table_file, table_file_list, table_file_node);
+    mem_free(table_file_node);
+  }
+  ulint i;
+  for (i = 0; i < hash_get_n_cells(database_table); i++) {
+    database_node_t *database_node = NULL;
+    database_node = static_cast<database_node_t*>(
+        HASH_GET_FIRST(database_table, i));
+    while (database_node) {
+      database_node_t *prev_node = database_node;
+      database_node = static_cast<database_node_t*>(
+          HASH_GET_NEXT(name_hash, prev_node));
+      mem_free(prev_node->db_name);
+      mem_free(prev_node);
+    }
+  }
+  hash_table_free(database_table);
+	mem_free(dbpath);
 	if (0 != os_file_closedir(dir)) {
 		fprintf(stderr,
 			"InnoDB: Error: could not close MySQL datadir\n");
