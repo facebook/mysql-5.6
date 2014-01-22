@@ -1,0 +1,776 @@
+SET default_storage_engine=InnoDB;
+#
+# A series of tests to make sure databases/tables 
+# are loaded correctly after restart.
+#
+SELECT @@global.innodb_load_table_thread_num;
+@@global.innodb_load_table_thread_num
+10
+set global innodb_file_per_table=on;
+set global innodb_file_format='Barracuda';
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_1;
+USE testdb_1;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_1_1', 'InnoDB_TEST_1_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_1_2', 'InnoDB_TEST_1_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_2;
+USE testdb_2;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_2_1', 'InnoDB_TEST_2_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_2_2', 'InnoDB_TEST_2_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_3;
+USE testdb_3;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_3_1', 'InnoDB_TEST_3_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_3_2', 'InnoDB_TEST_3_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_4;
+USE testdb_4;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_4_1', 'InnoDB_TEST_4_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_4_2', 'InnoDB_TEST_4_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_5;
+USE testdb_5;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_5_1', 'InnoDB_TEST_5_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_5_2', 'InnoDB_TEST_5_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_6;
+USE testdb_6;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_6_1', 'InnoDB_TEST_6_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_6_2', 'InnoDB_TEST_6_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_7;
+USE testdb_7;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_7_1', 'InnoDB_TEST_7_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_7_2', 'InnoDB_TEST_7_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_8;
+USE testdb_8;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_8_1', 'InnoDB_TEST_8_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_8_2', 'InnoDB_TEST_8_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Restart the server
+#
+#
+# Check the data in database
+#
+SHOW DATABASES;
+Database
+information_schema
+mtr
+mysql
+performance_schema
+test
+testdb_1
+testdb_2
+testdb_3
+testdb_4
+testdb_5
+testdb_6
+testdb_7
+testdb_8
+USE testdb_1;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_1_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_1_2
+USE testdb_2;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_2_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_2_2
+USE testdb_3;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_3_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_3_2
+USE testdb_4;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_4_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_4_2
+USE testdb_5;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_5_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_5_2
+USE testdb_6;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_6_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_6_2
+USE testdb_7;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_7_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_7_2
+USE testdb_8;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_8_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_8_2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_9;
+USE testdb_9;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_9_1', 'InnoDB_TEST_9_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_9_2', 'InnoDB_TEST_9_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_10;
+USE testdb_10;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_10_1', 'InnoDB_TEST_10_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_10_2', 'InnoDB_TEST_10_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_11;
+USE testdb_11;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_11_1', 'InnoDB_TEST_11_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_11_2', 'InnoDB_TEST_11_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_12;
+USE testdb_12;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_12_1', 'InnoDB_TEST_12_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_12_2', 'InnoDB_TEST_12_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_13;
+USE testdb_13;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_13_1', 'InnoDB_TEST_13_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_13_2', 'InnoDB_TEST_13_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_14;
+USE testdb_14;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_14_1', 'InnoDB_TEST_14_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_14_2', 'InnoDB_TEST_14_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Create database, create table, insert data.
+#
+CREATE DATABASE testdb_15;
+USE testdb_15;
+CREATE TABLE t1 ( c1 int PRIMARY KEY , c2 VARCHAR(100), c3 VARCHAR(100)) ENGINE = InnoDB;
+INSERT INTO t1 VALUES (1, 'MySQL_TEST_15_1', 'InnoDB_TEST_15_1');
+INSERT INTO t1 VALUES (2, 'MySQL_TEST_15_2', 'InnoDB_TEST_15_2');
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+#
+# Restart the server
+#
+#
+# Check the data in database
+#
+SHOW DATABASES;
+Database
+information_schema
+mtr
+mysql
+performance_schema
+test
+testdb_1
+testdb_10
+testdb_11
+testdb_12
+testdb_13
+testdb_14
+testdb_15
+testdb_2
+testdb_3
+testdb_4
+testdb_5
+testdb_6
+testdb_7
+testdb_8
+testdb_9
+USE testdb_1;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_1_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_1_2
+USE testdb_2;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_2_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_2_2
+USE testdb_3;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_3_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_3_2
+USE testdb_4;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_4_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_4_2
+USE testdb_5;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_5_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_5_2
+USE testdb_6;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_6_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_6_2
+USE testdb_7;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_7_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_7_2
+USE testdb_8;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_8_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_8_2
+USE testdb_9;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_9_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_9_2
+USE testdb_10;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_10_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_10_2
+USE testdb_11;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_11_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_11_2
+USE testdb_12;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_12_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_12_2
+USE testdb_13;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_13_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_13_2
+USE testdb_14;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_14_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_14_2
+USE testdb_15;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `c1` int(11) NOT NULL,
+  `c2` varchar(100) DEFAULT NULL,
+  `c3` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`c1`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+SELECT count(*) FROM t1;
+count(*)
+2
+SELECT c2 FROM t1 WHERE c1 = 1;
+c2
+MySQL_TEST_15_1
+SELECT c3 FROM t1 WHERE c1 = 2;
+c3
+InnoDB_TEST_15_2
+#
+# Cleanup
+#
+DROP DATABASE testdb_1;
+DROP DATABASE testdb_2;
+DROP DATABASE testdb_3;
+DROP DATABASE testdb_4;
+DROP DATABASE testdb_5;
+DROP DATABASE testdb_6;
+DROP DATABASE testdb_7;
+DROP DATABASE testdb_8;
+DROP DATABASE testdb_9;
+DROP DATABASE testdb_10;
+DROP DATABASE testdb_11;
+DROP DATABASE testdb_12;
+DROP DATABASE testdb_13;
+DROP DATABASE testdb_14;
+DROP DATABASE testdb_15;
