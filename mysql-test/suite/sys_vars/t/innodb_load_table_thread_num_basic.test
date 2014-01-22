@@ -1,0 +1,30 @@
+--source include/have_innodb.inc
+
+
+SET @orig_load_table_thread_num = @@global.innodb_load_table_thread_num;
+
+SELECT @orig_load_table_thread_num;
+
+# max value
+SET GLOBAL innodb_load_table_thread_num = 256;
+SELECT @@global.innodb_load_table_thread_num;
+
+# min value
+SET GLOBAL innodb_load_table_thread_num = 1;
+SELECT @@global.innodb_load_table_thread_num;
+
+# normal value
+SET GLOBAL innodb_load_table_thread_num = 100;
+SELECT @@global.innodb_load_table_thread_num;
+
+# invalid value
+# too small
+SET GLOBAL innodb_load_table_thread_num = -1;
+SELECT @@global.innodb_load_table_thread_num;
+
+# too big
+SET GLOBAL innodb_load_table_thread_num = 1000;
+SELECT @@global.innodb_load_table_thread_num;
+
+SET GLOBAL innodb_load_table_thread_num = @orig_load_table_thread_num;
+

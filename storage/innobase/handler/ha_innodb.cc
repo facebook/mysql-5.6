@@ -3085,7 +3085,7 @@ innobase_query_caching_of_table_permitted(
 				store a result to the query cache or
 				retrieve it */
 	char*	full_name,	/*!< in: normalized path to the table */
-	uint	full_name_len,	/*!< in: length of the normalized path 
+	uint	full_name_len,	/*!< in: length of the normalized path
                                 to the table */
 	ulonglong *unused)	/*!< unused for this engine */
 {
@@ -14541,7 +14541,7 @@ my_bool
 ha_innobase::register_query_cache_table(
 /*====================================*/
 	THD*		thd,		/*!< in: user thread handle */
-	char*		table_key,	/*!< in: normalized path to the  
+	char*		table_key,	/*!< in: normalized path to the
 					table */
 	uint		key_length,	/*!< in: length of the normalized
 					path to the table */
@@ -17573,6 +17573,11 @@ static MYSQL_SYSVAR_ULONGLONG(fsync_freq, os_fsync_freq,
   "Setting this value to zero would make InnoDB flush the file before closing "
   "it.", NULL, NULL, 1ULL << 27, 0, ULONG_MAX, UNIV_PAGE_SIZE);
 
+static MYSQL_SYSVAR_UINT(load_table_thread_num, innobase_load_table_thread_num,
+  PLUGIN_VAR_RQCMDARG,
+  "thread num of loading table file during crash recovery.",
+  NULL, NULL, 10, 1, 256, 0);
+
 static MYSQL_SYSVAR_ULONG(thread_concurrency, srv_thread_concurrency,
   PLUGIN_VAR_RQCMDARG,
   "Helps in performance tuning in heavily concurrent environments. Sets the maximum number of threads allowed inside InnoDB. Value 0 will disable the thread throttling.",
@@ -18044,6 +18049,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(sync_spin_loops),
   MYSQL_SYSVAR(spin_wait_delay),
   MYSQL_SYSVAR(fsync_freq),
+  MYSQL_SYSVAR(load_table_thread_num),
   MYSQL_SYSVAR(table_locks),
   MYSQL_SYSVAR(thread_concurrency),
 #ifdef HAVE_ATOMIC_BUILTINS
