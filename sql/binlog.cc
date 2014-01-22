@@ -4943,6 +4943,14 @@ end:
                     "again: fix the cause, shutdown the MySQL "
                     "server and restart it.", 
                     new_name_ptr, errno);
+    if (DBUG_EVALUATE_IF("fault_injection_openning_index", 0, 1) &&
+        DBUG_EVALUATE_IF("fault_injection_registering_index", 0, 1) &&
+        DBUG_EVALUATE_IF("fault_injection_new_file_rotate_event", 0, 1) &&
+        DBUG_EVALUATE_IF("fault_injection_updating_index", 0, 1))
+    {
+      sql_print_error("Aborting mysql to avoid replication inconsistencies.");
+      abort();
+    }
   }
 
   mysql_mutex_unlock(&LOCK_index);
