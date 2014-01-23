@@ -621,7 +621,11 @@ typedef struct system_status_var
   ulonglong bytes_sent;
 
   /* Performance counters */
+  ulonglong command_time;       /* Time handling client commands */
   ulonglong parse_time;         /* Time parsing client commands */
+  ulonglong pre_exec_time;      /* Time doing work post-parse but before execution */
+  ulonglong exec_time;          /* Time executing client commands */
+  ulonglong open_table_time;    /* Time in open_table() when LOCK_open is locked */
   ulonglong read_time;          /* Time doing synchronous reads */
 
   /*
