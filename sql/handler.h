@@ -2116,6 +2116,9 @@ public:
     // TODO: Assert that stats have been saved.
     stats.reset_table_stats();
   }
+  virtual TABLE* get_table_ptr() {
+    return table;
+  }
   /* Estimates calculation */
   virtual double scan_time()
   { return ulonglong2double(stats.data_file_length) / IO_SIZE + 2; }

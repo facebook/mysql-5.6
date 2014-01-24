@@ -38,6 +38,7 @@
 #include "sql_tmp_table.h"
 #include "records.h"          // rr_sequential
 #include "opt_explain_format.h" // Explain_format_flags
+#include "my_stacktrace.h"
 
 #include <algorithm>
 using std::max;
@@ -3123,6 +3124,14 @@ end_unique_update(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
   if (copy_funcs(join_tab->tmp_table_param->items_to_copy, join->thd))
     DBUG_RETURN(NESTED_LOOP_ERROR);           /* purecov: inspected */
 
+  if (table->file->get_table_ptr() == NULL) {
+    table->file->change_table_ptr(table, table->s);
+    sql_print_error("join_tab->table->file->table is NULL");
+    my_pstack();
+    if (join->thd && join->thd->query()) {
+      sql_print_error("The query triggering this is: %s", join->thd->query());
+    }
+  }
   if (!(error=table->file->ha_write_row(table->record[0])))
     join_tab->send_records++;			// New group
   else
