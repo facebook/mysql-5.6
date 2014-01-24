@@ -1,0 +1,21 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/have_debug.inc;
+
+connection master;
+let $master_uuid= `select @@server_uuid`;
+create table t1 (a int) engine = innodb;
+
+SET @old_debug= @@session.debug;
+SET SESSION debug="+d,consecutive_gtid_events";
+insert into t1 values(2);
+SET SESSION debug= @old_debug;
+insert into t1 values(3);
+drop table t1;
+
+sync_slave_with_master;
+-- echo #Verify gtid_executed is not fragmented
+--replace_result $master_uuid uuid
+select @@global.gtid_executed;
+
+source include/rpl_end.inc;

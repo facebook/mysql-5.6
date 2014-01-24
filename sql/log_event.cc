@@ -3070,6 +3070,27 @@ int Log_event::apply_event(Relay_log_info *rli)
   bool seq_execution = (!parallel || actual_exec_mode != EVENT_EXEC_PARALLEL);
 
   rli->ends_group = ends_group();
+
+  // check and handle consecutive Gtid events in sql_thread
+  // by logging an empty transaction with the first Gtid.
+  // TODO: Remove this code once the root cause of consecutive
+  // Gtid events generated on master is found and fixed.
+  if (is_gtid_event(this) && rli->last_gtid[0])
+  {
+    char cur_gtid[Gtid::MAX_TEXT_LENGTH + 1];
+    Gtid_log_event *gtid_ev = (Gtid_log_event *) this;
+    gtid_ev->set_last_gtid(cur_gtid);
+    // Compare last gtid in the replication stream with the current gtid
+    // Apply the empty transaction only if both Gtids are different.
+    if (strcmp(rli->last_gtid, cur_gtid))
+    {
+      sql_print_information("Received consecutive Gtid events from master. "
+                            "Problematic Gtid is %s", rli->last_gtid);
+      apply_query_event((char *)"BEGIN", 5);
+      apply_query_event((char *)"COMMIT", 6);
+    }
+  }
+
   /**
      Check if the current event changes any databases. Last gtid executed per
      database are stored in slave_gtid_info table for crash safe slave.
