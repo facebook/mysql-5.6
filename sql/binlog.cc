@@ -1232,6 +1232,10 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
   int error= 0;
   if (flags.finalized)
   {
+    // Truncate the binlog cache after the Gtid event to simualte
+    // consecutive Gtid events in binlog. Note that the size of Gtid
+    // event is 44.
+    DBUG_EXECUTE_IF("consecutive_gtid_events", truncate(44););
     my_off_t bytes_in_cache= my_b_tell(&cache_log);
     DBUG_PRINT("debug", ("bytes_in_cache: %llu", bytes_in_cache));
     /*

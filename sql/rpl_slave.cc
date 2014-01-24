@@ -5498,6 +5498,10 @@ pthread_handler_t handle_slave_sql(void *arg)
   my_off_t saved_skip= 0;
 
   Relay_log_info* rli = ((Master_info*)arg)->rli;
+  // Reset rli->last_gtid while starting the sql_thread.
+  // This is necessary to avoid unwanted behavior with the value rli->last_gtid
+  // which may have a stale value even after executing a "stop slave".
+  rli->last_gtid[0] = 0;
   const char *errmsg;
   bool mts_inited= false;
 
