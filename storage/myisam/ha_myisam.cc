@@ -29,7 +29,6 @@
 #include "rt_index.h"
 #include "sql_table.h"                          // tablename_to_filename
 #include "sql_class.h"                          // THD
-#include "my_stacktrace.h"
 
 #include <algorithm>
 
@@ -812,10 +811,6 @@ int ha_myisam::close(void)
 
 int ha_myisam::write_row(uchar *buf)
 {
-  /* Tries to catch an invalid table pointer with more information.
-  */
-  assert_with_stack_traces(table);
-
   ha_statistic_increment(&SSV::ha_write_count);
 
   /*
