@@ -3125,12 +3125,13 @@ end_unique_update(JOIN *join, JOIN_TAB *join_tab, bool end_of_records)
     DBUG_RETURN(NESTED_LOOP_ERROR);           /* purecov: inspected */
 
   if (table->file->get_table_ptr() == NULL) {
-    table->file->change_table_ptr(table, table->s);
-    sql_print_error("join_tab->table->file->table is NULL");
-    my_pstack();
+    sql_print_error("join_tab->table->file->table is NULL, "
+                    "skip_create_table = %d.\n",
+                    join_tab->tmp_table_param->skip_create_table);
     if (join->thd && join->thd->query()) {
       sql_print_error("The query triggering this is: %s", join->thd->query());
     }
+    abort();
   }
   if (!(error=table->file->ha_write_row(table->record[0])))
     join_tab->send_records++;			// New group
