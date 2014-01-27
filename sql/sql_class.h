@@ -2003,7 +2003,7 @@ public:
      used in fatal signal handler. This query string can be the
      query of the current run or the last successful run.
   */
-  static const ulong RAW_QUERY_BUFFER_LENGTH = 1023;
+  static const ulong RAW_QUERY_BUFFER_LENGTH = 4095;
 
   char raw_query_buffer[RAW_QUERY_BUFFER_LENGTH + 1];
 
