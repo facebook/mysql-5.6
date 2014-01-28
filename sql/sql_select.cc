@@ -44,6 +44,7 @@
 #include "sql_join_buffer.h"     // JOIN_CACHE
 #include "sql_optimizer.h"       // JOIN
 #include "sql_tmp_table.h"       // tmp tables
+#include "my_stacktrace.h"       // abort_with_stack_traces
 
 #ifdef TARGET_OS_LINUX
 #include <sys/syscall.h>
@@ -2953,7 +2954,7 @@ make_join_readinfo(JOIN *join, ulonglong options, uint no_jbuf_after)
       DBUG_PRINT("error",("Table type %d found",tab->type)); /* purecov: deadcode */
       break;					/* purecov: deadcode */
     case JT_UNKNOWN:
-      abort();					/* purecov: deadcode */
+      abort_with_stack_traces();	        /* purecov: deadcode */
     }
     // Materialize derived tables prior to accessing them.
     if (tab->table->pos_in_table_list->uses_materialization())
