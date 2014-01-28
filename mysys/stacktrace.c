@@ -426,6 +426,64 @@ void my_write_core(int sig)
 #endif
 }
 
+
+/* print stack traces for all threads */
+void my_pstack()
+{
+#ifndef __WIN__
+  /* Print out the current stack trace */
+
+  static const int max_num_of_frames = 100;
+  void *stack_trace[max_num_of_frames];
+  int num_of_frames = backtrace(stack_trace, max_num_of_frames);
+  char **frames = backtrace_symbols(stack_trace, num_of_frames);
+  if (!frames)
+  {
+    my_safe_printf_stderr("backtrace_symbols didn't return valid data.");
+    return;
+  }
+
+  my_safe_printf_stderr("\nThe current stack traces:\n");
+  for (int i = 0; i < num_of_frames; ++i)
+  {
+    my_safe_printf_stderr("%s\n", frames[i]);
+  }
+  free(frames);
+
+  /* Print out all the stack traces */
+
+  char cmd[64];
+  pid_t pid = getpid();
+  sprintf(cmd, "pstack %d", pid);
+
+  my_safe_printf_stderr("\nAll stack traces from %s:\n", cmd);
+  FILE *fp = popen(cmd, "r");
+  if (!fp)
+  {
+    my_safe_printf_stderr("Couldn't run \"%s\" by popen.\n", cmd);
+    return;
+  }
+
+  static const size_t max_line_length = 4095;
+  char line_buf[max_line_length + 1];
+  uint output_lines = 0;
+  while (fgets(line_buf, max_line_length, fp))
+  {
+    my_write_stderr(line_buf, strlen(line_buf));
+    ++output_lines;
+  }
+  fclose(fp);
+  if (0 == output_lines)
+  {
+    my_safe_printf_stderr("No stack traces were printed out. "
+                          "This probably was because mysqld didn't have "
+                          "sufficient privileges, and/or some required system "
+                          "settings (suid_dumpable, ulimit, etc...) were not "
+                          "set correctly.\n");
+  }
+#endif  /* not __WIN__ */
+}
+
 #else /* __WIN__*/
 
 #include <dbghelp.h>
