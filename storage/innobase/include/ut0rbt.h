@@ -33,12 +33,13 @@ Created 2007-03-20 Sunny Bains
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "my_stacktrace.h" //assert_with_stack_traces,assert_0_with_stack_traces
 
 #define	ut_malloc	malloc
 #define	ut_free		free
 #define	ulint		unsigned long
-#define	ut_a(c)		assert(c)
-#define ut_error	assert(0)
+#define	ut_a(c)		assert_with_stack_traces(c)
+#define ut_error	assert_0_with_stack_traces()
 #define	ibool		unsigned int
 #define	TRUE		1
 #define	FALSE		0
