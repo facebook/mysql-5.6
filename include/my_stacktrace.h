@@ -60,6 +60,25 @@ void my_write_core(int sig);
 #endif
 
 
+/* print stack traces for all threads */
+void my_pstack();
+
+/* print stack traces for all threads before assert failures */
+#define assert_with_stack_traces(expr) \
+  do { if(!(expr)) { my_pstack(); assert(0); } } while(0)
+
+/* print stack traces for all threads before abort. Please note
+   that when using this with ; in the end, a null statement will
+   be generated in the end. It is fine as long as compilers don't
+   complain.
+ */
+
+#define abort_with_stack_traces() \
+  { my_pstack(); abort(); }
+
+#define assert_0_with_stack_traces() \
+  { my_pstack(); assert(0); }
+
 
 /**
   Async-signal-safe utility functions used by signal handler routines.
