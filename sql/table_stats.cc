@@ -1,6 +1,7 @@
 #include "sql_base.h"
 #include "sql_show.h"
 #include "my_atomic.h"
+#include "my_stacktrace.h" // abort_with_stack_traces
 
 HASH global_table_stats;
 
@@ -254,7 +255,7 @@ void init_global_table_stats(void)
                 0, 0, (my_hash_get_key)get_key_table_stats,
                 (my_hash_free_key)free_table_stats, 0)) {
     sql_print_error("Initializing global_table_stats failed.");
-    abort();
+    abort_with_stack_traces();
   }
 }
 
