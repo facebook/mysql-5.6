@@ -26,7 +26,7 @@ select @system_rows_deleted - @master_system_rows_deleted;
 select variable_value into @system_rows_inserted from information_schema.global_status where variable_name = 'innodb_system_rows_inserted';
 select @system_rows_inserted - @master_system_rows_inserted;
 
---sync_slave_with_master 
+--sync_slave_with_master
 --echo ==========SLAVE===========
 
 select variable_value into @rows_read from information_schema.global_status where variable_name = 'innodb_rows_read';

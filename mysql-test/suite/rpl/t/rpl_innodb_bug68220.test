@@ -10,7 +10,7 @@
 DROP TABLE IF EXISTS testdb.t1;
 DROP DATABASE IF EXISTS testdb;
 --enable_warnings
---sync_slave_with_master 
+--sync_slave_with_master
 
 # created all the base variables at the beginning at the test
 --connection master
@@ -42,7 +42,7 @@ CREATE TABLE testdb.t1 (i int NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 INSERT INTO testdb.t1 VALUES (1);
 --source suite/rpl/include/rpl_innodb_rows_counters.inc
 
-# update the row and show counters on master and slave 
+# update the row and show counters on master and slave
 UPDATE t1 SET i=2 WHERE i=1;
 --source suite/rpl/include/rpl_innodb_rows_counters.inc
 

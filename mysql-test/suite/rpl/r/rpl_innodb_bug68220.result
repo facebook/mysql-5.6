@@ -62,11 +62,11 @@ select @system_rows_inserted - @master_system_rows_inserted;
 select variable_value into @rows_read from information_schema.global_status where variable_name = 'innodb_rows_read';
 select @rows_read - @slave_rows_read;
 @rows_read - @slave_rows_read
-1
+0
 select variable_value into @rows_updated from information_schema.global_status where variable_name = 'innodb_rows_updated';
 select @rows_updated - @slave_rows_updated;
 @rows_updated - @slave_rows_updated
-1
+0
 select variable_value into @rows_deleted from information_schema.global_status where variable_name = 'innodb_rows_deleted';
 select @rows_deleted - @slave_rows_deleted;
 @rows_deleted - @slave_rows_deleted
@@ -129,11 +129,11 @@ select @system_rows_inserted - @master_system_rows_inserted;
 select variable_value into @rows_read from information_schema.global_status where variable_name = 'innodb_rows_read';
 select @rows_read - @slave_rows_read;
 @rows_read - @slave_rows_read
-3
+1
 select variable_value into @rows_updated from information_schema.global_status where variable_name = 'innodb_rows_updated';
 select @rows_updated - @slave_rows_updated;
 @rows_updated - @slave_rows_updated
-3
+1
 select variable_value into @rows_deleted from information_schema.global_status where variable_name = 'innodb_rows_deleted';
 select @rows_deleted - @slave_rows_deleted;
 @rows_deleted - @slave_rows_deleted
@@ -196,11 +196,11 @@ select @system_rows_inserted - @master_system_rows_inserted;
 select variable_value into @rows_read from information_schema.global_status where variable_name = 'innodb_rows_read';
 select @rows_read - @slave_rows_read;
 @rows_read - @slave_rows_read
-5
+2
 select variable_value into @rows_updated from information_schema.global_status where variable_name = 'innodb_rows_updated';
 select @rows_updated - @slave_rows_updated;
 @rows_updated - @slave_rows_updated
-4
+1
 select variable_value into @rows_deleted from information_schema.global_status where variable_name = 'innodb_rows_deleted';
 select @rows_deleted - @slave_rows_deleted;
 @rows_deleted - @slave_rows_deleted

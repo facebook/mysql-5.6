@@ -143,7 +143,7 @@ UNIV_INTERN
 bool
 dict_mem_table_is_system(
 /*================*/
-	char *name)		/*!< in: table name */
+	char	*name)		/*!< in: table name */
 {
 	ut_ad(name);
 
@@ -162,7 +162,7 @@ dict_mem_table_is_system(
 		}
 		return false;
 	} else {
-	 	return true;
+		return true;
 	}
 }
 

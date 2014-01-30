@@ -256,7 +256,7 @@ UNIV_INTERN
 bool
 dict_mem_table_is_system(
 /*==================*/
-	char *name);		/*!< in: table name */
+	char	*name);		/*!< in: table name */
 /****************************************************************//**
 Free a table memory object. */
 UNIV_INTERN
@@ -808,7 +808,7 @@ struct dict_table_t{
 				the string contains n_cols, it will be
 				allocated from a temporary heap.  The final
 				string will be allocated from table->heap. */
-	bool is_system_db;
+	bool		is_system_db;
 				/*!< True if the table belongs to a system
 				database (mysql, information_schema or
 				performance_schema) */

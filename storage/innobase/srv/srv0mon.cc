@@ -1145,25 +1145,25 @@ static monitor_info_t	innodb_counter_info[] =
 	 MONITOR_EXISTING | MONITOR_DEFAULT_ON),
 	 MONITOR_DEFAULT_START, MONITOR_OLVD_ROW_UPDTATED},
 
- {"dml_system_reads", "dml", "Number of system rows read",
-  static_cast<monitor_type_t>(
-  MONITOR_EXISTING | MONITOR_DEFAULT_ON),
-  MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_READ},
+	{"dml_system_reads", "dml", "Number of system rows read",
+	 static_cast<monitor_type_t>(
+	 MONITOR_EXISTING | MONITOR_DEFAULT_ON),
+	 MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_READ},
 
- {"dml_system_inserts", "dml", "Number of system rows inserted",
-  static_cast<monitor_type_t>(
-  MONITOR_EXISTING | MONITOR_DEFAULT_ON),
-  MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_INSERTED},
+	{"dml_system_inserts", "dml", "Number of system rows inserted",
+	 static_cast<monitor_type_t>(
+	 MONITOR_EXISTING | MONITOR_DEFAULT_ON),
+	 MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_INSERTED},
 
- {"dml_system_deletes", "dml", "Number of system rows deleted",
-  static_cast<monitor_type_t>(
-  MONITOR_EXISTING | MONITOR_DEFAULT_ON),
-  MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_DELETED},
+	{"dml_system_deletes", "dml", "Number of system rows deleted",
+	 static_cast<monitor_type_t>(
+	 MONITOR_EXISTING | MONITOR_DEFAULT_ON),
+	 MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_DELETED},
 
- {"dml_system_updates", "dml", "Number of system rows updated",
-  static_cast<monitor_type_t>(
-  MONITOR_EXISTING | MONITOR_DEFAULT_ON),
-  MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_UPDATED},
+	{"dml_system_updates", "dml", "Number of system rows updated",
+	 static_cast<monitor_type_t>(
+	 MONITOR_EXISTING | MONITOR_DEFAULT_ON),
+	 MONITOR_DEFAULT_START, MONITOR_OLVD_SYSTEM_ROW_UPDATED},
 
 	/* ========== Counters for DDL operations ========== */
 	{"module_ddl", "ddl", "Statistics for DDLs",

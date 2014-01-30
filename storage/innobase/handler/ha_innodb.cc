@@ -8280,9 +8280,11 @@ ha_innobase::index_read(
 	case DB_SUCCESS:
 		error = 0;
 		table->status = 0;
-		srv_stats.n_rows_read.add((size_t) prebuilt->trx->id, 1);
 		if (prebuilt->table->is_system_db)
 			srv_stats.n_system_rows_read.add(
+				(size_t) prebuilt->trx->id, 1);
+		else
+			srv_stats.n_rows_read.add(
 				(size_t) prebuilt->trx->id, 1);
 		stats.rows_read++;
 		stats.rows_index_first++;
@@ -8538,9 +8540,11 @@ ha_innobase::general_fetch(
 	case DB_SUCCESS:
 		error = 0;
 		table->status = 0;
-		srv_stats.n_rows_read.add((size_t) prebuilt->trx->id, 1);
 		if (prebuilt->table->is_system_db)
 			srv_stats.n_system_rows_read.add(
+				(size_t) prebuilt->trx->id, 1);
+		else
+			srv_stats.n_rows_read.add(
 				(size_t) prebuilt->trx->id, 1);
 		stats.rows_read++;
 		stats.rows_index_next++;
