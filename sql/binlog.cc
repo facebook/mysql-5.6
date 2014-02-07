@@ -2349,6 +2349,13 @@ bool show_gtid_executed(THD *thd)
 {
   DBUG_ENTER("get_gtid_executed");
   LEX *lex = thd->lex;
+  // Handle empty file name
+  if (!lex->mi.log_file_name)
+  {
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0),
+             "SHOW GTID_EXECUTED", "binlog file name is not specified");
+    DBUG_RETURN(TRUE);
+  }
   Protocol *protocol= thd->protocol;
   Sid_map sid_map(NULL);
   Gtid_set gtid_executed(&sid_map);

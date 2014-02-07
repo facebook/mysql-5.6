@@ -15,4 +15,6 @@ insert into t1 values(3);
 replace_result $master_uuid uuid;
 SHOW GTID_EXECUTED IN 'master-bin.000002' FROM 400;
 drop table t1;
+-- error ER_ERROR_WHEN_EXECUTING_COMMAND
+SHOW GTID_EXECUTED;
 source include/rpl_end.inc;

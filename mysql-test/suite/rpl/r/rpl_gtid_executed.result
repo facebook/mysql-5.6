@@ -15,4 +15,6 @@ SHOW GTID_EXECUTED IN 'master-bin.000002' FROM 400;
 Gtid_executed
 uuid:1-4
 drop table t1;
+SHOW GTID_EXECUTED;
+ERROR HY000: Error when executing command SHOW GTID_EXECUTED: binlog file name is not specified
 include/rpl_end.inc
