@@ -440,6 +440,7 @@ typedef struct system_variables
   
   ulonglong max_heap_table_size;
   ulonglong tmp_table_size;
+  ulonglong tmp_table_max_file_size;
   ulonglong long_query_time;
   my_bool end_markers_in_json;
   /* A bitmap for switching optimizations on/off */

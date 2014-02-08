@@ -7122,6 +7122,9 @@ ER_QUERY_THROTTLED 70101
 ER_BLOCK_MYISAM_TABLES
   eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
 
+ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
+  eng "Temporary table file is too big"
+
 #
 #  End of 5.6 error messages.
 #

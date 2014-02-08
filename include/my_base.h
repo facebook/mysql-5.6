@@ -486,7 +486,8 @@ is the global server default. */
 #define HA_ERR_TEMP_FILE_WRITE_FAILURE	189	/* Temporary file write failure */
 #define HA_ERR_INNODB_FORCED_RECOVERY 190	/* Innodb is in force recovery mode */
 #define HA_ERR_FTS_TOO_MANY_WORDS_IN_PHRASE	191 /* Too many words in a phrase */
-#define HA_ERR_LAST               191    /* Copy of last error nr */
+#define HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED 192 /* on-disk temp table too large */
+#define HA_ERR_LAST               192    /* Copy of last error nr */
 
 /* Number of different errors */
 #define HA_ERR_ERRORS            (HA_ERR_LAST - HA_ERR_FIRST + 1)
