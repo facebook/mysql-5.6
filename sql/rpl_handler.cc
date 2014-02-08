@@ -265,13 +265,15 @@ int Binlog_storage_delegate::after_flush(THD *thd,
 int Binlog_transmit_delegate::transmit_start(THD *thd, ushort flags,
                                              const char *log_file,
                                              my_off_t log_pos,
-                                             bool *observe_transmission)
+                                             bool *observe_transmission,
+                                             MYSQL_BIN_LOG *mysql_bin_log)
 {
   Binlog_transmit_param param;
   param.flags= flags;
 
   int ret= 0;
-  FOREACH_OBSERVER(ret, transmit_start, thd, (&param, log_file, log_pos));
+  FOREACH_OBSERVER(ret, transmit_start, thd,
+                   (&param, log_file, log_pos, mysql_bin_log));
   *observe_transmission= param.should_observe();
   return ret;
 }
