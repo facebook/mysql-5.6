@@ -1,0 +1,91 @@
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (i int, c char(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+
+set session tmp_table_size=100000;
+set session max_heap_table_size=100000;
+
+echo Query is OK when there is no limit;
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+explain select i, c, count(*) from t1 group by i, c having count(*) > 1;
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query fails with a limit after conversion to MyISAM;
+set session tmp_table_max_file_size=1000000;
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+--error ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query fails with a limit on conversion to MyISAM;
+set session tmp_table_max_file_size=50000;
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+--error ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query is OK when another session has a limit;
+connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+connection default;
+disconnect root;
+
+echo Query is OK when session limit is reset;
+set session tmp_table_max_file_size=0;
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query fails when global limit is set after conversion to MyISAM;
+set global tmp_table_max_file_size=1000000;
+connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+--error ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+echo Query fails when global limit is set on conversion to MyISAM;
+set global tmp_table_max_file_size=50000;
+connection default;
+disconnect root;
+connect (root,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
+show variables like "tmp_table_max_file_size";
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+--error ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+set global tmp_table_max_file_size=0;
+show session variables like "tmp_table_max_file_size";
+show global variables like "tmp_table_max_file_size";
+
+connection default;
+disconnect root;
+
+drop table t1;
+
