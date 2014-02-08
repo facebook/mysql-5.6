@@ -1961,6 +1961,14 @@ public:
   uint auto_inc_intervals_count;
 
   /**
+     Max on-disk size of the table. Set to 0 when unlimited. Otherwise,
+     this is enforced on insert and update for MyISAM temp tables.
+  */
+  ulonglong max_bytes;
+  void set_max_bytes(ulonglong v) { max_bytes= v; }
+  ulonglong get_max_bytes() { return max_bytes; }
+
+  /**
     Instrumented table associated with this handler.
     This member should be set to NULL when no instrumentation is in place,
     so that linking an instrumented/non instrumented server/plugin works.
@@ -2005,7 +2013,7 @@ public:
     implicit_emptied(0),
     pushed_cond(0), pushed_idx_cond(NULL), pushed_idx_cond_keyno(MAX_KEY),
     next_insert_id(0), insert_id_for_cur_row(0),
-    auto_inc_intervals_count(0),
+    auto_inc_intervals_count(0), max_bytes(0),
     m_psi(NULL), m_lock_type(F_UNLCK), ha_share(NULL)
     {
       DBUG_PRINT("info",
