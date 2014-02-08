@@ -93,7 +93,8 @@ static const char *handler_error_messages[]=
   "InnoDB is in read only mode",
   "FTS query exceeds result cache memory limit",
   "Temporary file write failure",
-  "Operation not allowed when innodb_forced_recovery > 0"
+  "Operation not allowed when innodb_forced_recovery > 0",
+  "tmp_table_max_file_size exceeded"
 };
 
 extern void my_handler_error_register(void);
