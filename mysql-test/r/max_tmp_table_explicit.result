@@ -1,0 +1,100 @@
+drop table if exists t1;
+create table t1 (i int, c char(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+set session tmp_table_size=100000;
+set session max_heap_table_size=100000;
+Warnings:
+Warning	1292	Truncated incorrect max_heap_table_size value: '100000'
+
+Query is OK when there is no limit
+
+show variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+show session variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+show global variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+create temporary table tm(i int, c char(255)) engine=myisam;
+insert into tm select * from t1;
+drop temporary table tm;
+
+Query fails when there is a limit
+
+set session tmp_table_max_file_size=1000000;
+show variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	1000000
+show session variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	1000000
+show global variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+create temporary table tm2(i int, c char(255)) engine=myisam;
+insert into tm2 select * from t1;
+ERROR HY000: Temporary table file is too big
+drop temporary table tm2;
+
+Query is OK when another session has a limit
+
+show variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+show session variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+show global variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+
+Query fails when there is a global limit
+echo 
+set global tmp_table_max_file_size=1000000;
+show variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	1000000
+show session variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	1000000
+show global variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	1000000
+create temporary table tm(i int, c char(255)) engine=myisam;
+insert into tm select * from t1;
+ERROR HY000: Temporary table file is too big
+drop temporary table tm;
+
+Query OK again after limits are reset
+
+set global tmp_table_max_file_size=0;
+set session tmp_table_max_file_size=0;
+show variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+show session variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+show global variables like "tmp_table_max_file_size";
+Variable_name	Value
+tmp_table_max_file_size	0
+create temporary table tm(i int, c char(255)) engine=myisam;
+insert into tm select * from t1;
+drop temporary table tm;
+drop table t1;
