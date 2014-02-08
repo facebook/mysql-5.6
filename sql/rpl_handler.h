@@ -215,7 +215,8 @@ public:
 
   typedef Binlog_transmit_observer Observer;
   int transmit_start(THD *thd, ushort flags,
-                     const char *log_file, my_off_t log_pos);
+                     const char *log_file, my_off_t log_pos,
+                     MYSQL_BIN_LOG *mysql_bin_log);
   int transmit_stop(THD *thd, ushort flags);
   int reserve_header(THD *thd, ushort flags, String *packet);
   int before_send_event(THD *thd, ushort flags,

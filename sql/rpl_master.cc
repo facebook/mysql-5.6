@@ -1044,7 +1044,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   if (log_warnings > 1)
     sql_print_information("Start binlog_dump to master_thread_id(%lu) slave_server(%u), pos(%s, %lu)",
                         thd->thread_id, thd->server_id, log_ident, (ulong)pos);
-  if (RUN_HOOK(binlog_transmit, transmit_start, (thd, 0/*flags*/, log_ident, pos)))
+  if (RUN_HOOK(binlog_transmit, transmit_start,
+               (thd, 0/*flags*/, log_ident, pos, &mysql_bin_log)))
   {
     errmsg= "Failed to run hook 'transmit_start'";
     my_errno= ER_UNKNOWN_ERROR;
