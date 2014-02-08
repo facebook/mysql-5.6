@@ -362,7 +362,8 @@ bool mysql_derived_create(THD *thd, LEX *lex, TABLE_LIST *derived)
                              thd->lex->select_lex.options |
                              thd->variables.option_bits |
                              TMP_TABLE_ALL_COLUMNS),
-                            thd->variables.big_tables, &thd->opt_trace))
+                            thd->variables.big_tables, &thd->opt_trace,
+                            thd))
     DBUG_RETURN(TRUE);
 
   table->file->extra(HA_EXTRA_WRITE_CACHE);

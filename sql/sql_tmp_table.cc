@@ -1143,7 +1143,8 @@ update_hidden:
   {
     if (instantiate_tmp_table(table, param->keyinfo, param->start_recinfo,
                               &param->recinfo, select_options,
-                              thd->variables.big_tables, &thd->opt_trace))
+                              thd->variables.big_tables, &thd->opt_trace,
+                              thd))
       goto err;
   }
 
@@ -1441,7 +1442,8 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   if (share->db_type() == myisam_hton)
     recinfo++;
   if (instantiate_tmp_table(table, keyinfo, start_recinfo, &recinfo, 
-                            0, 0, &thd->opt_trace))
+                            0, 0, &thd->opt_trace,
+                            thd))
     goto err;
 
   sjtbl->start_recinfo= start_recinfo;
@@ -1626,7 +1628,9 @@ bool open_tmp_table(TABLE *table)
       start_recinfo   MyISAM's column descriptions
       recinfo INOUT   End of MyISAM's column descriptions
       options         Option bits
-   
+      big_tables      Enable big tables
+      thd             Thread handler
+
   DESCRIPTION
     Create a MyISAM temporary table according to passed description. The is
     assumed to have one unique index or constraint.
@@ -1649,7 +1653,8 @@ bool open_tmp_table(TABLE *table)
 bool create_myisam_tmp_table(TABLE *table, KEY *keyinfo, 
                              MI_COLUMNDEF *start_recinfo,
                              MI_COLUMNDEF **recinfo, 
-                             ulonglong options, my_bool big_tables)
+                             ulonglong options, my_bool big_tables,
+                             THD *thd)
 {
   int error;
   MI_KEYDEF keydef;
@@ -1772,6 +1777,7 @@ bool create_myisam_tmp_table(TABLE *table, KEY *keyinfo,
   }
   table->in_use->inc_status_created_tmp_disk_tables();
   share->db_record_offset= 1;
+  table->file->set_max_bytes(thd->variables.tmp_table_max_file_size);
   DBUG_RETURN(0);
  err:
   DBUG_RETURN(1);
@@ -1818,6 +1824,7 @@ void trace_tmp_table(Opt_trace_context *trace, const TABLE *table)
   @param  recinfo INOUT   End of column descriptions
   @param  options         Option bits
   @param  trace           Optimizer trace to write info to
+  @param  thd             Thread handler
 
   @details
     Creates tmp table and opens it.
@@ -1831,12 +1838,14 @@ bool instantiate_tmp_table(TABLE *table, KEY *keyinfo,
                            MI_COLUMNDEF *start_recinfo,
                            MI_COLUMNDEF **recinfo, 
                            ulonglong options, my_bool big_tables,
-                           Opt_trace_context *trace)
+                           Opt_trace_context *trace,
+                           THD *thd)
 {
   if (table->s->db_type() == myisam_hton)
   {
     if (create_myisam_tmp_table(table, keyinfo, start_recinfo, recinfo,
-                                options, big_tables))
+                                options, big_tables,
+                                thd))
       return TRUE;
     // Make empty record so random data is not written to disk
     empty_record(table);
@@ -1978,7 +1987,8 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
                               start_recinfo, recinfo,
 			      (thd->lex->select_lex.options |
                                thd->variables.option_bits),
-                              thd->variables.big_tables))
+                              thd->variables.big_tables,
+                              thd))
     goto err2;
   if (open_tmp_table(&new_table))
     goto err1;
