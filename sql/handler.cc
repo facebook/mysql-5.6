@@ -562,6 +562,9 @@ int ha_init_errors(void)
   SETMSG(HA_ERR_TEMP_FILE_WRITE_FAILURE,	ER_DEFAULT(ER_TEMP_FILE_WRITE_FAILURE));
   SETMSG(HA_ERR_INNODB_FORCED_RECOVERY,	ER_DEFAULT(ER_INNODB_FORCED_RECOVERY));
   SETMSG(HA_ERR_FTS_TOO_MANY_WORDS_IN_PHRASE,  "Too many words in a FTS phrase or proximity search");
+  SETMSG(HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED,
+         ER_DEFAULT(ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED));
+
   /* Register the error messages for use with my_error(). */
   return my_error_register(get_handler_errmsgs, HA_ERR_FIRST, HA_ERR_LAST);
 }
@@ -3896,6 +3899,8 @@ void handler::print_error(int error, myf errflag)
     break;
   case HA_ERR_TEMP_FILE_WRITE_FAILURE:
     textno= ER_TEMP_FILE_WRITE_FAILURE;
+  case HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED:
+    textno= ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED;
     break;
   case HA_ERR_INNODB_FORCED_RECOVERY:
     textno= ER_INNODB_FORCED_RECOVERY;

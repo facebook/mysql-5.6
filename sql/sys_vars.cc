@@ -3239,6 +3239,14 @@ static Sys_var_ulonglong Sys_tmp_table_size(
        VALID_RANGE(1024, (ulonglong)~(intptr)0), DEFAULT(16*1024*1024),
        BLOCK_SIZE(1));
 
+static Sys_var_ulonglong Sys_tmp_table_max_file_size(
+       "tmp_table_max_file_size",
+       "The max size of a file to use for a temporary table. Raise an error "
+       "when this is exceeded. 0 means no limit.",
+       SESSION_VAR(tmp_table_max_file_size), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, ULONGLONG_MAX), DEFAULT(0),
+       BLOCK_SIZE(1));
+
 static Sys_var_mybool Sys_timed_mutexes(
        "timed_mutexes",
        "Specify whether to time mutexes. Deprecated, has no effect.",

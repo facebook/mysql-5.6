@@ -813,6 +813,13 @@ int ha_myisam::write_row(uchar *buf)
 {
   ha_statistic_increment(&SSV::ha_write_count);
 
+  if (get_max_bytes() &&
+      (file->state->data_file_length + file->state->key_file_length)
+      > get_max_bytes())
+  {
+    return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
+  }
+
   /*
     If we have an auto_increment column and we are writing a changed row
     or a new row, then update the auto_increment value in the record.
@@ -1593,6 +1600,14 @@ bool ha_myisam::is_crashed() const
 int ha_myisam::update_row(const uchar *old_data, uchar *new_data)
 {
   ha_statistic_increment(&SSV::ha_update_count);
+
+  if (get_max_bytes() &&
+      (file->state->data_file_length + file->state->key_file_length)
+      > get_max_bytes())
+  {
+    return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
+  }
+
   int error= mi_update(file,old_data,new_data);
   if (!error)
     stats.rows_updated++;

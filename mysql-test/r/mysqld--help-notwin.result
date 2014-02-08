@@ -1045,6 +1045,9 @@ The following options may be given as the first argument:
  --time-format=name  The TIME format (ignored)
  --timed-mutexes     Specify whether to time mutexes. Deprecated, has no
  effect.
+ --tmp-table-max-file-size=# 
+ The max size of a file to use for a temporary table.
+ Raise an error when this is exceeded. 0 means no limit.
  --tmp-table-size=#  If an internal in-memory temporary table exceeds this
  size, MySQL will automatically convert it to an on-disk
  MyISAM table
@@ -1385,6 +1388,7 @@ thread-handling one-thread-per-connection
 thread-stack 327680
 time-format %H:%i:%s
 timed-mutexes FALSE
+tmp-table-max-file-size 0
 tmp-table-size 16777216
 transaction-alloc-block-size 8192
 transaction-isolation REPEATABLE-READ

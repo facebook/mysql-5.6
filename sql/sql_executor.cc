@@ -4260,7 +4260,8 @@ QEP_tmp_table::prepare_tmp_table()
                               &join_tab->tmp_table_param->recinfo,
                               join->select_options,
                               join->thd->variables.big_tables,
-                              &join->thd->opt_trace))
+                              &join->thd->opt_trace,
+                              join->thd))
       return true;
     (void) table->file->extra(HA_EXTRA_WRITE_CACHE);
     empty_record(table);
