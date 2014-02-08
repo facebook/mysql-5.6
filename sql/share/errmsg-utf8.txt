@@ -7119,6 +7119,9 @@ ER_BLOCK_MYISAM_TABLES
 ER_BLOCK_FTWRL
   eng "Locking forms of FLUSH TABLES are blocked to avoid slave deadlocks."
 
+ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
+  eng "Temporary table file is too big"
+
 #
 #  End of 5.6 error messages.
 #
