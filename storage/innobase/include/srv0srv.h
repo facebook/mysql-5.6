@@ -252,6 +252,9 @@ extern ibool	srv_created_new_raw;
 /* Enables or disables this prefix optimization.  Disabled by default. */
 extern my_bool	srv_prefix_index_cluster_optimization;
 
+/* Detect deadlocks on lock wait */
+extern my_bool	srv_deadlock_detect;
+
 /** Maximum number of srv_n_log_files, or innodb_log_files_in_group */
 #define SRV_N_LOG_FILES_MAX 100
 extern ulong	srv_n_log_files;

@@ -1918,28 +1918,31 @@ lock_rec_enqueue_waiting(
 	its state can only be changed by this thread, which is
 	currently associated with the transaction. */
 
-	trx_mutex_exit(trx);
+	if (srv_deadlock_detect) {
 
-	victim_trx_id = lock_deadlock_check_and_resolve(lock, trx);
+		trx_mutex_exit(trx);
 
-	trx_mutex_enter(trx);
+		victim_trx_id = lock_deadlock_check_and_resolve(lock, trx);
 
-	if (victim_trx_id != 0) {
+		trx_mutex_enter(trx);
 
-		ut_ad(victim_trx_id == trx->id);
+		if (victim_trx_id != 0) {
 
-		lock_reset_lock_and_trx_wait(lock);
-		lock_rec_reset_nth_bit(lock, heap_no);
+			ut_ad(victim_trx_id == trx->id);
 
-		return(DB_DEADLOCK);
+			lock_reset_lock_and_trx_wait(lock);
+			lock_rec_reset_nth_bit(lock, heap_no);
 
-	} else if (trx->lock.wait_lock == NULL) {
+			return(DB_DEADLOCK);
 
-		/* If there was a deadlock but we chose another
-		transaction as a victim, it is possible that we
-		already have the lock now granted! */
+		} else if (trx->lock.wait_lock == NULL) {
 
-		return(DB_SUCCESS_LOCKED_REC);
+			/* If there was a deadlock but we chose another
+			transaction as a victim, it is possible that we
+			already have the lock now granted! */
+
+			return(DB_SUCCESS_LOCKED_REC);
+		}
 	}
 
 	trx->lock.que_state = TRX_QUE_LOCK_WAIT;
