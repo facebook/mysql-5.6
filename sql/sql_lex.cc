@@ -28,6 +28,7 @@
 #include <hash.h>
 #include "sp.h"
 #include "sp_head.h"
+#include "sql_class.h"
 #include "sql_table.h"                 // primary_key_name
 #include "sql_show.h"                  // append_identifier
 #include "sql_select.h"                // JOIN
