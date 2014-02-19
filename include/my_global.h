@@ -363,6 +363,19 @@ C_MODE_END
 #include <crypt.h>
 #endif
 
+/**
+   Cast a member of a structure to the structure that contains it.
+
+   @param  ptr     Pointer to the member.
+   @param  type    Type of the structure that contains the member.
+   @param  member  Name of the member within the structure.
+ */
+#define my_container_of(ptr, type, member)              \
+  ({                                                    \
+    const decltype(((type *)0)->member) *__mptr= (ptr); \
+    (type *)((char *)__mptr - offsetof(type, member));  \
+  })
+
 /*
   A lot of our programs uses asserts, so better to always include it
   This also fixes a problem when people uses DBUG_ASSERT without including
@@ -1115,9 +1128,7 @@ typedef char		my_bool; /* Small bool */
 #define WT_RWLOCKS_USE_MUTEXES 1
 #endif
 
-#if !defined(__cplusplus) && !defined(bool)
-#define bool In_C_you_should_use_my_bool_instead()
-#endif
+#include <stdbool.h>
 
 /* Provide __func__ macro definition for platforms that miss it. */
 #if __STDC_VERSION__ < 199901L

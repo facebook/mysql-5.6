@@ -1,0 +1,66 @@
+#
+# Test max statement time interruption precision.
+# Note that if SLEEP() is interrupted, it returns 1.
+#
+SET @@SESSION.max_statement_time = 100;
+SELECT SLEEP(1);
+SLEEP(1)
+1
+SET @@SESSION.max_statement_time = 250;
+SELECT SLEEP(1);
+SLEEP(1)
+1
+SET @@SESSION.max_statement_time = 500;
+SELECT SLEEP(1);
+SLEEP(1)
+1
+SET @@SESSION.max_statement_time = 750;
+SELECT SLEEP(1);
+SLEEP(1)
+1
+SET @@SESSION.max_statement_time = 1250;
+SELECT SLEEP(1);
+SLEEP(1)
+0
+SET @@SESSION.max_statement_time = 1500;
+SELECT SLEEP(1);
+SLEEP(1)
+0
+SET @@SESSION.max_statement_time = 0;
+#
+# Timeout only applies to the top-level statement.
+#
+CREATE PROCEDURE p1()
+BEGIN
+SELECT SLEEP(0.5); -- 0.5
+SELECT SLEEP(0.5); -- 1.0
+SELECT SLEEP(1.5); -- 1.5
+END|
+SET @@SESSION.max_statement_time = 750;
+CALL p1();
+SLEEP(0.5)
+0
+SLEEP(0.5)
+1
+SLEEP(1.5)
+0
+SET @@SESSION.max_statement_time = 0;
+DROP PROCEDURE p1;
+#
+# Interrupt a statement that changes data.
+#
+CREATE TABLE t1 (a INT);
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+WHILE true DO
+INSERT INTO t1 VALUES (1);
+END WHILE;
+RETURN 1;
+END|
+SET @@SESSION.max_statement_time = 500;
+SELECT f1();
+ERROR 70100: Query execution was interrupted, max_statement_time exceeded
+SET @@SESSION.max_statement_time = 0;
+DROP FUNCTION f1;
+DROP TABLE t1;
+SET @@SESSION.max_statement_time = default;
