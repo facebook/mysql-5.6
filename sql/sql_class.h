@@ -83,6 +83,8 @@ class Sroutine_hash_entry;
 class User_level_lock;
 class user_var_entry;
 
+struct st_thd_timer;
+
 enum enum_ha_read_modes { RFIRST, RNEXT, RPREV, RLAST, RKEY, RNEXT_SAME };
 
 enum enum_delay_key_write { DELAY_KEY_WRITE_NONE, DELAY_KEY_WRITE_ON,
@@ -562,6 +564,8 @@ typedef struct system_variables
   ulong allow_noncurrent_db_rw;
 
   my_bool expand_fast_index_creation;
+
+  ulong max_statement_time;
 } SV;
 
 
@@ -2439,6 +2443,9 @@ public:
     return m_binlog_filter_state;
   }
 
+  /** Timer object. */
+  struct st_thd_timer *timer, *timer_cache;
+
 private:
   /**
     Indicate if the current statement should be discarded
@@ -3121,6 +3128,7 @@ public:
     KILL_BAD_DATA=1,
     KILL_CONNECTION=ER_SERVER_SHUTDOWN,
     KILL_QUERY=ER_QUERY_INTERRUPTED,
+    KILL_TIMEOUT=ER_QUERY_TIMEOUT,
     /*
       ABORT_QUERY signals to the query processor to stop execution ASAP without
       issuing an error. Instead a warning is issued, and when possible a partial

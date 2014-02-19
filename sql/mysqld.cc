@@ -113,6 +113,7 @@
 #include "sp_rcontext.h"
 #include "sp_cache.h"
 #include "sql_reload.h"  // reload_acl_and_cache
+#include "my_timer.h" // my_timer_init_ext, my_timer_deinit
 
 #ifdef HAVE_POLL_H
 #include <poll.h>
@@ -782,6 +783,8 @@ SHOW_COMP_OPTION have_ssl, have_symlink, have_dlopen, have_query_cache;
 SHOW_COMP_OPTION have_geometry, have_rtree_keys;
 SHOW_COMP_OPTION have_crypt, have_compress;
 SHOW_COMP_OPTION have_profiling;
+
+SHOW_COMP_OPTION have_statement_timeout = SHOW_OPTION_DISABLED;
 
 /* Thread specific variables */
 
@@ -2055,6 +2058,12 @@ void clean_up(bool print_message)
   mysql_cond_broadcast(&COND_thread_count);
   mysql_mutex_unlock(&LOCK_thread_count);
   sys_var_end();
+
+#ifdef HAVE_MY_TIMER
+  if (have_statement_timeout == SHOW_OPTION_YES)
+    my_timer_deinit();
+#endif
+
   delete_global_thread_list();
 
   my_free(const_cast<char*>(log_bin_basename));
@@ -5178,6 +5187,14 @@ static int init_server_components()
   mdl_init();
   if (table_def_init() | hostname_cache_init(host_cache_size))
     unireg_abort(1);
+
+#ifdef HAVE_MY_TIMER
+  have_statement_timeout= my_timer_init_ext() ?
+                          SHOW_OPTION_DISABLED : SHOW_OPTION_YES;
+
+  if (have_statement_timeout == SHOW_OPTION_DISABLED)
+    sql_print_error("Failed to initialize timer component (errno %d).", errno);
+#endif
 
   query_cache_set_min_res_unit(query_cache_min_res_unit);
   query_cache_init();
