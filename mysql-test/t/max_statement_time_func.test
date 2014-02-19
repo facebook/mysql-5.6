@@ -1,0 +1,75 @@
+--source include/have_statement_timeout.inc
+
+--echo #
+--echo # Test max statement time interruption precision.
+--echo # Note that if SLEEP() is interrupted, it returns 1.
+--echo #
+
+SET @@SESSION.max_statement_time = 100;
+SELECT SLEEP(1);
+
+SET @@SESSION.max_statement_time = 250;
+SELECT SLEEP(1);
+
+SET @@SESSION.max_statement_time = 500;
+SELECT SLEEP(1);
+
+SET @@SESSION.max_statement_time = 750;
+SELECT SLEEP(1);
+
+SET @@SESSION.max_statement_time = 1250;
+SELECT SLEEP(1);
+
+SET @@SESSION.max_statement_time = 1500;
+SELECT SLEEP(1);
+
+SET @@SESSION.max_statement_time = 0;
+
+--echo #
+--echo # Timeout only applies to the top-level statement.
+--echo #
+
+DELIMITER |;
+
+CREATE PROCEDURE p1()
+BEGIN
+  SELECT SLEEP(0.5); -- 0.5
+  SELECT SLEEP(0.5); -- 1.0
+  SELECT SLEEP(1.5); -- 1.5
+END|
+
+DELIMITER ;|
+
+SET @@SESSION.max_statement_time = 750;
+CALL p1();
+SET @@SESSION.max_statement_time = 0;
+
+DROP PROCEDURE p1;
+
+--echo #
+--echo # Interrupt a statement that changes data.
+--echo #
+
+CREATE TABLE t1 (a INT);
+
+DELIMITER |;
+
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+  WHILE true DO
+    INSERT INTO t1 VALUES (1);
+  END WHILE;
+  RETURN 1;
+END|
+
+DELIMITER ;|
+
+SET @@SESSION.max_statement_time = 500;
+--error ER_QUERY_TIMEOUT
+SELECT f1();
+SET @@SESSION.max_statement_time = 0;
+
+DROP FUNCTION f1;
+DROP TABLE t1;
+
+SET @@SESSION.max_statement_time = default;
