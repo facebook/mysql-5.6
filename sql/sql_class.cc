@@ -57,6 +57,7 @@
 #include "debug_sync.h"
 #include "sql_parse.h"                          // is_update_query
 #include "sql_callback.h"
+#include "sql_timer.h"
 #include "lock.h"
 #include "global_threads.h"
 #include "mysqld.h"
@@ -1077,6 +1078,9 @@ THD::THD(bool enable_plugins)
   memset(&invoker_user, 0, sizeof(invoker_user));
   memset(&invoker_host, 0, sizeof(invoker_host));
 
+  timer= NULL;
+  timer_cache= NULL;
+
   binlog_next_event_pos.file_name= NULL;
   binlog_next_event_pos.pos= 0;
   trans_gtid[0] = 0;
@@ -1515,6 +1519,8 @@ void THD::cleanup(void)
   DBUG_ENTER("THD::cleanup");
   DBUG_ASSERT(cleanup_done == 0);
 
+  mysql_mutex_assert_not_owner(&LOCK_thd_data);
+
   killed= KILL_CONNECTION;
 #ifdef ENABLE_WHEN_BINLOG_WILL_BE_ABLE_TO_PREPARE
   if (transaction.xid_state.xa_state == XA_PREPARED)
@@ -1639,6 +1645,11 @@ THD::~THD()
   mysql_mutex_lock(&LOCK_thd_data);
   mysql_mutex_unlock(&LOCK_thd_data);
 
+  DBUG_ASSERT(timer == NULL);
+
+  if (timer_cache)
+    thd_timer_end(timer_cache);
+
   DBUG_PRINT("info", ("freeing security context"));
   main_security_ctx.destroy();
   my_free(db);
@@ -1762,7 +1773,8 @@ void THD::awake(THD::killed_state state_to_set)
   /* Set the 'killed' flag of 'this', which is the target THD object. */
   killed= state_to_set;
 
-  if (state_to_set != THD::KILL_QUERY)
+  if (state_to_set != THD::KILL_QUERY &&
+      state_to_set != THD::KILL_TIMEOUT)
   {
 #ifdef SIGNAL_WITH_VIO_SHUTDOWN
     if (this != current_thd)

@@ -2,7 +2,10 @@ languages czech=cze latin2, danish=dan latin1, dutch=nla latin1, english=eng lat
 
 default-language eng
 
-start-error-number 1000
+start-error-number 999
+
+ER_QUERY_TIMEOUT 70100
+        eng "Query execution was interrupted, max_statement_time exceeded"
 
 ER_HASHCHK  
         eng "hashchk"
