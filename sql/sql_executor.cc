@@ -4306,8 +4306,6 @@ QEP_tmp_table::put_record(bool end_of_records)
     if (prepare_tmp_table())
     {
       // Failed to prepare the tmp table.
-      join_tab->table->in_use->get_stmt_da()->set_error_status(
-        ER_FAILED_TO_PREPARE_TMP_TABLE);
       sql_print_error("Failed to prepare the tmp table.");
       return NESTED_LOOP_ERROR;
     }
