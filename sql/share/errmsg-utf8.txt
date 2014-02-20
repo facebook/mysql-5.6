@@ -7087,6 +7087,9 @@ ER_BLOCK_FTWRL
 ER_BLOCK_UNINSTALL_SEMISYN
   eng "Uninstalling semi-sync plugins is disabled."
 
+ER_FAILED_TO_PREPARE_TMP_TABLE
+  eng "Failed to prepare tmp table."
+
 #
 #  End of 5.6 error messages.
 #

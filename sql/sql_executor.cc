@@ -4302,7 +4302,16 @@ QEP_tmp_table::put_record(bool end_of_records)
 {
   // Lasy tmp table creation/initialization
   if (!join_tab->table->file->inited)
-    prepare_tmp_table();
+  {
+    if (prepare_tmp_table())
+    {
+      // Failed to prepare the tmp table.
+      join_tab->table->in_use->get_stmt_da()->set_error_status(
+        ER_FAILED_TO_PREPARE_TMP_TABLE);
+      sql_print_error("Failed to prepare the tmp table.");
+      return NESTED_LOOP_ERROR;
+    }
+  }
   enum_nested_loop_state rc= (*write_func)(join_tab->join, join_tab,
                                            end_of_records);
   return rc;
