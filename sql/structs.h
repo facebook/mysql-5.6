@@ -211,6 +211,83 @@ typedef struct user_resources {
   uint specified_limits;
 } USER_RESOURCES;
 
+#define USER_STATS_MAGIC 0x17171717
+
+/** Counts resources consumed per-user.
+    Data is exported via IS.user_statistics.
+*/
+typedef struct st_user_stats {
+  my_io_perf_atomic_t	io_perf_read;
+  my_io_perf_atomic_t	io_perf_read_blob;
+  atomic_stat<ulonglong> bytes_received;
+  atomic_stat<ulonglong> bytes_sent;
+  atomic_stat<ulonglong> binlog_bytes_written;
+  atomic_stat<ulonglong> commands_ddl;
+  atomic_stat<ulonglong> commands_delete;
+  atomic_stat<ulonglong> commands_handler;
+  atomic_stat<ulonglong> commands_insert;
+  atomic_stat<ulonglong> commands_other;
+  atomic_stat<ulonglong> commands_select;
+  atomic_stat<ulonglong> commands_transaction;
+  atomic_stat<ulonglong> commands_update;
+  atomic_stat<ulonglong> connections_denied_max_global; // over global limit
+  atomic_stat<ulonglong> connections_denied_max_user;   // over per user limit
+  atomic_stat<ulonglong> connections_lost;              // closed on error
+  atomic_stat<ulonglong> connections_total;             // total conns created
+  atomic_stat<ulonglong> errors_access_denied;          // ..to table or db
+  atomic_stat<ulonglong> errors_total;
+  atomic_stat<ulonglong> microseconds_wall;
+  atomic_stat<ulonglong> microseconds_ddl;
+  atomic_stat<ulonglong> microseconds_delete;
+  atomic_stat<ulonglong> microseconds_handler;
+  atomic_stat<ulonglong> microseconds_insert;
+  atomic_stat<ulonglong> microseconds_other;
+  atomic_stat<ulonglong> microseconds_select;
+  atomic_stat<ulonglong> microseconds_transaction;
+  atomic_stat<ulonglong> microseconds_update;
+  atomic_stat<ulonglong> queries_empty;
+  atomic_stat<ulonglong> rows_deleted;
+  atomic_stat<ulonglong> rows_fetched;
+  atomic_stat<ulonglong> rows_inserted;
+  atomic_stat<ulonglong> rows_read;
+  atomic_stat<ulonglong> rows_updated;
+
+  /* see variables of same name in ha_statistics */
+  atomic_stat<ulonglong> rows_index_first;
+  atomic_stat<ulonglong> rows_index_next;
+
+  atomic_stat<ulonglong> transactions_commit;
+  atomic_stat<ulonglong> transactions_rollback;
+
+#ifndef DBUG_OFF
+  uint magic;
+#endif // !DBUG_OFF
+
+  /* TODO(mcallaghan) -- failed_queries, disk IO, parse and records_in_range
+     seconds, slow queries. I also want to count connections that fail
+     authentication but the hash_user_connections key is (user,host) and when
+     auth fails you know which user/host the login provided but you don't know
+     which pair it wanted to use. Read the docs for how auth uses mysql.user
+     table for more details. When auth failure occurs mysqld doesn't have
+     a referenced to a USER_STATS entry. This probably requires another hash
+     table keyed only by the login name.
+     Others:
+       errors_lock_wait_timeout, errors_deadlock
+       queries_slow
+  */
+} USER_STATS;
+
+/*
+   Hack to provide stats for SQL replication slave as THD::user_connect is
+   not set for it. See get_user_stats.
+*/
+extern USER_STATS slave_user_stats;
+
+/*
+   Hack to provide stats for anything that doesn't have THD::user_connect except
+   the SQL slave.  See get_user_stats.
+*/
+extern USER_STATS other_user_stats;
 
 /*
   This structure is used for counting resources consumed and for checking
@@ -240,8 +317,14 @@ typedef struct  user_conn {
      per hour and total number of statements per hour for this account.
   */
   uint conn_per_hour, updates, questions;
+
   /* Maximum amount of resources which account is allowed to consume. */
   USER_RESOURCES user_resources;
+  /*
+    Counts resources consumed for this user.
+    Use thd_get_user_stats(THD*) rather than USER_CONN::user_stats directly
+  */
+  USER_STATS user_stats;
 } USER_CONN;
 
 typedef struct st_table_stats {

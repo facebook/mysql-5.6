@@ -1,0 +1,26 @@
+drop table if exists userstats;
+create table userstats (i int primary key, j int);
+flush statistics;
+
+At start
+
+select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';;
+bytes_sent	11
+bytes_received	104
+insert into userstats values (1,1);
+
+after insert
+
+select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';;
+bytes_sent	252
+bytes_received	247
+select * from userstats;
+i	j
+1	1
+
+after select
+
+select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';;
+bytes_sent	614
+bytes_received	379
+drop table userstats;
