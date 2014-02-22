@@ -1,0 +1,128 @@
+drop table if exists userstats;
+drop table if exists userstats2;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+create table userstats2 (i int primary key, j int) engine=innodb;
+create index us2x on userstats2(j);
+
+At start
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	0
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+
+After inserts: Increment rows_inserted by 5, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	1
+replace into userstats value (6,6);
+
+Replace does insert: Increment rows_inserted by 1, rows_deleted by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	0
+rows_deleted	0
+rows_read	1
+replace into userstats value (1,1);
+
+Replace 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	0
+rows_read	2
+delete from userstats where i = 1;
+
+Delete 1 row: Increment rows_deleted by 1, rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+delete from userstats where i = 0;
+
+Delete 0 rows: Increment nothing
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+select count(*) from userstats;
+count(*)
+4
+begin;
+delete from userstats;
+rollback;
+
+Delete 4 rows: Increment rows_deleted by 4, rows_read by 8
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	5
+rows_read	11
+delete userstats, userstats2 from userstats inner join userstats2 where userstats.i = userstats2.i;
+
+Multi-table delete of 2 rows: Increment rows_deleted by 2
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	7
+truncate table userstats2;
+
+Truncate: nothing changes
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	7
+rows_read	17
+update userstats set j=j+1 where i = 2;
+
+Update 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	2
+rows_deleted	7
+rows_read	18
+update userstats set j=j+1 where i = 7;
+
+Update 0 rows: Increment nothing
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	2
+rows_deleted	7
+rows_read	18
+insert into userstats set i=6, j=6 on duplicate key update j=j+1;
+
+Update 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	3
+rows_deleted	7
+rows_read	19
+drop table userstats;
+drop table userstats2;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
