@@ -1,0 +1,146 @@
+#
+# Test IS.user_statistics for connections_denied_max_{global,user}
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+#
+# Check count_ddl
+#
+
+--echo Before ddl
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+create table userstats2 (i int primary key, j int);
+create table userstats (i int primary key, j int);
+drop table userstats;
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+
+--echo Increment commands_ddl by 5
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+
+#
+# Check count_insert
+#
+
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+replace into userstats values (1,1);
+
+--echo Increment commands_insert by 5
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check count_delete
+#
+
+delete from userstats where i = 1;
+delete userstats, userstats2 from userstats inner join userstats2;
+truncate table userstats2;
+
+--echo Increment commands_delete by 3
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check count_handler
+#
+
+handler userstats open;
+handler userstats read first;
+handler userstats close;
+
+--echo Increment commands_handler by 3
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check count_other
+#
+
+show tables;
+
+--echo Increment commands_other by 1
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check count_select
+#
+
+select 1;
+
+--echo Increment commands_select by 2
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check count_update
+#
+
+update userstats set j=j+1 where i = 2;
+update userstats set j=j+1 where i in (select i from userstats2);
+
+--echo Increment commands_update by 2
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check count_transactions
+#
+begin;
+rollback;
+begin;
+commit;
+
+--echo Increment commands_transaction by 4
+--query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+
+#
+# check table structure
+#
+
+desc information_schema.user_statistics;
+show create table information_schema.user_statistics;
+
+# Cleanup
+drop table userstats;
+drop table userstats2;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
