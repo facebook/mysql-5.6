@@ -1,0 +1,228 @@
+drop table if exists userstats;
+drop table if exists userstats2;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+Before ddl
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	0
+commands_delete	0
+commands_handler	0
+commands_insert	0
+commands_other	0
+commands_select	0
+commands_transaction	0
+commands_update	0
+create table userstats2 (i int primary key, j int);
+create table userstats (i int primary key, j int);
+drop table userstats;
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+Increment commands_ddl by 5
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';;
+commands_ddl	5
+commands_delete	0
+commands_handler	0
+commands_insert	0
+commands_other	0
+commands_select	1
+commands_transaction	0
+commands_update	0
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+replace into userstats values (1,1);
+Increment commands_insert by 5
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	5
+commands_delete	0
+commands_handler	0
+commands_insert	5
+commands_other	0
+commands_select	2
+commands_transaction	0
+commands_update	0
+delete from userstats where i = 1;
+delete userstats, userstats2 from userstats inner join userstats2;
+truncate table userstats2;
+Increment commands_delete by 3
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	6
+commands_delete	2
+commands_handler	0
+commands_insert	5
+commands_other	0
+commands_select	3
+commands_transaction	0
+commands_update	0
+handler userstats open;
+handler userstats read first;
+i	j
+handler userstats close;
+Increment commands_handler by 3
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	6
+commands_delete	2
+commands_handler	3
+commands_insert	5
+commands_other	0
+commands_select	4
+commands_transaction	0
+commands_update	0
+show tables;
+Tables_in_test
+userstats
+userstats2
+Increment commands_other by 1
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	6
+commands_delete	2
+commands_handler	3
+commands_insert	5
+commands_other	1
+commands_select	5
+commands_transaction	0
+commands_update	0
+select 1;
+1
+1
+Increment commands_select by 2
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	6
+commands_delete	2
+commands_handler	3
+commands_insert	5
+commands_other	1
+commands_select	7
+commands_transaction	0
+commands_update	0
+update userstats set j=j+1 where i = 2;
+update userstats set j=j+1 where i in (select i from userstats2);
+Increment commands_update by 2
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_ddl	6
+commands_delete	2
+commands_handler	3
+commands_insert	5
+commands_other	1
+commands_select	8
+commands_transaction	0
+commands_update	2
+begin;
+rollback;
+begin;
+commit;
+Increment commands_transaction by 4
+select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1';;
+commands_ddl	6
+commands_delete	2
+commands_handler	3
+commands_insert	5
+commands_other	1
+commands_select	9
+commands_transaction	4
+commands_update	2
+desc information_schema.user_statistics;
+Field	Type	Null	Key	Default	Extra
+USER_NAME	varchar(192)	NO			
+BINLOG_BYTES_WRITTEN	bigint(21)	NO		0	
+BYTES_RECEIVED	bigint(21)	NO		0	
+BYTES_SENT	bigint(21)	NO		0	
+COMMANDS_DDL	bigint(21)	NO		0	
+COMMANDS_DELETE	bigint(21)	NO		0	
+COMMANDS_HANDLER	bigint(21)	NO		0	
+COMMANDS_INSERT	bigint(21)	NO		0	
+COMMANDS_OTHER	bigint(21)	NO		0	
+COMMANDS_SELECT	bigint(21)	NO		0	
+COMMANDS_TRANSACTION	bigint(21)	NO		0	
+COMMANDS_UPDATE	bigint(21)	NO		0	
+CONNECTIONS_CONCURRENT	int(11)	NO		0	
+CONNECTIONS_DENIED_MAX_GLOBAL	bigint(21)	NO		0	
+CONNECTIONS_DENIED_MAX_USER	bigint(21)	NO		0	
+CONNECTIONS_LOST	bigint(21)	NO		0	
+CONNECTIONS_TOTAL	bigint(21)	NO		0	
+DISK_READ_BYTES	bigint(21)	NO		0	
+DISK_READ_REQUESTS	bigint(21)	NO		0	
+DISK_READ_SVC_USECS	bigint(21)	NO		0	
+DISK_READ_WAIT_USECS	bigint(21)	NO		0	
+DISK_READ_BYTES_BLOB	bigint(21)	NO		0	
+DISK_READ_REQUESTS_BLOB	bigint(21)	NO		0	
+DISK_READ_SVC_USECS_BLOB	bigint(21)	NO		0	
+DISK_READ_WAIT_USECS_BLOB	bigint(21)	NO		0	
+ERRORS_ACCESS_DENIED	bigint(21)	NO		0	
+ERRORS_TOTAL	bigint(21)	NO		0	
+MICROSECONDS_WALL	bigint(21)	NO		0	
+MICROSECONDS_DDL	bigint(21)	NO		0	
+MICROSECONDS_DELETE	bigint(21)	NO		0	
+MICROSECONDS_HANDLER	bigint(21)	NO		0	
+MICROSECONDS_INSERT	bigint(21)	NO		0	
+MICROSECONDS_OTHER	bigint(21)	NO		0	
+MICROSECONDS_SELECT	bigint(21)	NO		0	
+MICROSECONDS_TRANSACTION	bigint(21)	NO		0	
+MICROSECONDS_UPDATE	bigint(21)	NO		0	
+QUERIES_EMPTY	bigint(21)	NO		0	
+ROWS_DELETED	bigint(21)	NO		0	
+ROWS_FETCHED	bigint(21)	NO		0	
+ROWS_INSERTED	bigint(21)	NO		0	
+ROWS_READ	bigint(21)	NO		0	
+ROWS_UPDATED	bigint(21)	NO		0	
+ROWS_INDEX_FIRST	bigint(21)	NO		0	
+ROWS_INDEX_NEXT	bigint(21)	NO		0	
+TRANSACTIONS_COMMIT	bigint(21)	NO		0	
+TRANSACTIONS_ROLLBACK	bigint(21)	NO		0	
+show create table information_schema.user_statistics;
+Table	Create Table
+USER_STATISTICS	CREATE TEMPORARY TABLE `USER_STATISTICS` (
+  `USER_NAME` varchar(192) NOT NULL DEFAULT '',
+  `BINLOG_BYTES_WRITTEN` bigint(21) NOT NULL DEFAULT '0',
+  `BYTES_RECEIVED` bigint(21) NOT NULL DEFAULT '0',
+  `BYTES_SENT` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_DDL` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_DELETE` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_HANDLER` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_INSERT` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_OTHER` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_SELECT` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_TRANSACTION` bigint(21) NOT NULL DEFAULT '0',
+  `COMMANDS_UPDATE` bigint(21) NOT NULL DEFAULT '0',
+  `CONNECTIONS_CONCURRENT` int(11) NOT NULL DEFAULT '0',
+  `CONNECTIONS_DENIED_MAX_GLOBAL` bigint(21) NOT NULL DEFAULT '0',
+  `CONNECTIONS_DENIED_MAX_USER` bigint(21) NOT NULL DEFAULT '0',
+  `CONNECTIONS_LOST` bigint(21) NOT NULL DEFAULT '0',
+  `CONNECTIONS_TOTAL` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_BYTES` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_REQUESTS` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_SVC_USECS` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_WAIT_USECS` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_BYTES_BLOB` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_REQUESTS_BLOB` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_SVC_USECS_BLOB` bigint(21) NOT NULL DEFAULT '0',
+  `DISK_READ_WAIT_USECS_BLOB` bigint(21) NOT NULL DEFAULT '0',
+  `ERRORS_ACCESS_DENIED` bigint(21) NOT NULL DEFAULT '0',
+  `ERRORS_TOTAL` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_WALL` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_DDL` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_DELETE` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_HANDLER` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_INSERT` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_OTHER` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_SELECT` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_TRANSACTION` bigint(21) NOT NULL DEFAULT '0',
+  `MICROSECONDS_UPDATE` bigint(21) NOT NULL DEFAULT '0',
+  `QUERIES_EMPTY` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_DELETED` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_FETCHED` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_INSERTED` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_READ` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_UPDATED` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_INDEX_FIRST` bigint(21) NOT NULL DEFAULT '0',
+  `ROWS_INDEX_NEXT` bigint(21) NOT NULL DEFAULT '0',
+  `TRANSACTIONS_COMMIT` bigint(21) NOT NULL DEFAULT '0',
+  `TRANSACTIONS_ROLLBACK` bigint(21) NOT NULL DEFAULT '0'
+) ENGINE=MEMORY DEFAULT CHARSET=utf8
+drop table userstats;
+drop table userstats2;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
