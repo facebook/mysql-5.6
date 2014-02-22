@@ -1,0 +1,47 @@
+#
+# Test IS.user_statistics for transactions_* counters
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+--disable_warnings
+drop table if exists userstats;
+--enable_warnings
+
+create table userstats (i int primary key, j int) engine=innodb;
+insert into userstats values (1,1);
+insert into userstats values (2,2);
+insert into userstats values (3,3);
+flush statistics;
+
+--echo
+--echo At start
+--echo
+--query_vertical select queries_empty from information_schema.user_statistics where user_name = 'root';
+
+select * from userstats where i < 2;
+
+--echo
+--echo should be empty_queries=0
+--echo
+--query_vertical select queries_empty from information_schema.user_statistics where user_name = 'root';
+
+select * from userstats where i < 1;
+
+--echo
+--echo should be empty_queries=1
+--echo
+--query_vertical select queries_empty from information_schema.user_statistics where user_name = 'root';
+
+# Cleanup
+drop table userstats;
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
