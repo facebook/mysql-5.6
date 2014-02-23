@@ -1,0 +1,103 @@
+SET @start_global_value = @@global.log_datagram;
+SELECT @start_global_value;
+@start_global_value
+0
+'#--------------------FN_DYNVARS_054_01-------------------------#'
+SET @@global.log_datagram = ON;
+SET @@global.log_datagram = DEFAULT;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+0
+'#--------------------FN_DYNVARS_054_02-------------------------#'
+SET @@global.log_datagram = DEFAULT;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+0
+'#--------------------FN_DYNVARS_054_03-------------------------#'
+SET @@global.log_datagram = ON;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+1
+SET @@global.log_datagram = OFF;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+0
+SET @@global.log_datagram = 0;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+0
+SET @@global.log_datagram = 1;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+1
+SET @@global.log_datagram = TRUE;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+1
+SET @@global.log_datagram = FALSE;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+0
+'#------------------FN_DYNVARS_054_04-----------------------#'
+SET @@global.log_datagram = 'ONN';
+ERROR 42000: Variable 'log_datagram' can't be set to the value of 'ONN'
+SET @@global.log_datagram = "OFFF";
+ERROR 42000: Variable 'log_datagram' can't be set to the value of 'OFFF'
+SET @@global.log_datagram = TTRUE;
+ERROR 42000: Variable 'log_datagram' can't be set to the value of 'TTRUE'
+SET @@global.log_datagram = FELSE;
+ERROR 42000: Variable 'log_datagram' can't be set to the value of 'FELSE'
+SET @@global.log_datagram = -1024;
+ERROR 42000: Variable 'log_datagram' can't be set to the value of '-1024'
+SET @@global.log_datagram = 65536;
+ERROR 42000: Variable 'log_datagram' can't be set to the value of '65536'
+SET @@global.log_datagram = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'log_datagram'
+SET @@global.log_datagram = test;
+ERROR 42000: Variable 'log_datagram' can't be set to the value of 'test'
+'#-------------------FN_DYNVARS_072_05----------------------------#'
+SET @@session.log_datagram = TRUE;
+ERROR HY000: Variable 'log_datagram' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.log_datagram;
+ERROR HY000: Variable 'log_datagram' is a GLOBAL variable
+'#----------------------FN_DYNVARS_072_06------------------------#'
+SELECT @@global.log_datagram = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='log_datagram';
+@@global.log_datagram = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SELECT @@log_datagram = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='log_datagram';
+@@log_datagram = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+'#------------------FN_DYNVARS_054_07-----------------------#'
+SELECT IF(@@global.log_datagram, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='log_datagram';
+IF(@@global.log_datagram, "ON", "OFF") = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_072_08----------------------#'
+SET log_datagram = ON;
+ERROR HY000: Variable 'log_datagram' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@log_datagram;
+@@log_datagram
+0
+SET local.log_datagram = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'log_datagram = OFF' at line 1
+SELECT local.log_datagram;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.log_datagram = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'log_datagram = ON' at line 1
+SELECT global.log_datagram;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT log_datagram = @@session.log_datagram;
+ERROR 42S22: Unknown column 'log_datagram' in 'field list'
+SET @@global.log_datagram = @start_global_value;
+SELECT @@global.log_datagram;
+@@global.log_datagram
+0
