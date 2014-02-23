@@ -254,6 +254,7 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> rows_inserted;
   atomic_stat<ulonglong> rows_read;
   atomic_stat<ulonglong> rows_updated;
+  atomic_stat<ulonglong> query_comment_bytes;
 
   /* see variables of same name in ha_statistics */
   atomic_stat<ulonglong> rows_index_first;
