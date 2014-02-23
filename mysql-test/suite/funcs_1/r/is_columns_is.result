@@ -116,6 +116,24 @@ def	information_schema	GLOBAL_STATUS	VARIABLE_NAME	1		NO	varchar	64	192	NULL	NUL
 def	information_schema	GLOBAL_STATUS	VARIABLE_VALUE	2	NULL	YES	varchar	1024	3072	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select	
 def	information_schema	GLOBAL_VARIABLES	VARIABLE_NAME	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	GLOBAL_VARIABLES	VARIABLE_VALUE	2	NULL	YES	varchar	1024	3072	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(1024)			select	
+def	information_schema	INDEX_STATISTICS	INDEX_NAME	3		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_BYTES	12	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_REQUESTS	13	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_SLOW_IOS	18	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_SVC_USECS	14	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_SVC_USECS_MAX	15	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_WAIT_USECS	16	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	IO_READ_WAIT_USECS_MAX	17	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_DELETED	7	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_INDEX_FIRST	10	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_INDEX_NEXT	11	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_INSERTED	5	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_READ	8	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_REQUESTED	9	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	ROWS_UPDATED	6	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	INDEX_STATISTICS	TABLE_ENGINE	4		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	INDEX_STATISTICS	TABLE_NAME	2		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	INDEX_STATISTICS	TABLE_SCHEMA	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	KEY_COLUMN_USAGE	COLUMN_NAME	7		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	KEY_COLUMN_USAGE	CONSTRAINT_CATALOG	1		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	KEY_COLUMN_USAGE	CONSTRAINT_NAME	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
@@ -636,6 +654,24 @@ NULL	information_schema	FILES	CHECKSUM	bigint	NULL	NULL	NULL	NULL	bigint(21) uns
 3.0000	information_schema	GLOBAL_STATUS	VARIABLE_VALUE	varchar	1024	3072	utf8	utf8_general_ci	varchar(1024)
 3.0000	information_schema	GLOBAL_VARIABLES	VARIABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	GLOBAL_VARIABLES	VARIABLE_VALUE	varchar	1024	3072	utf8	utf8_general_ci	varchar(1024)
+3.0000	information_schema	INDEX_STATISTICS	TABLE_SCHEMA	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	INDEX_STATISTICS	TABLE_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	INDEX_STATISTICS	INDEX_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	INDEX_STATISTICS	TABLE_ENGINE	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	INDEX_STATISTICS	ROWS_INSERTED	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	ROWS_UPDATED	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	ROWS_DELETED	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	ROWS_READ	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	ROWS_REQUESTED	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	ROWS_INDEX_FIRST	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	ROWS_INDEX_NEXT	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_BYTES	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_REQUESTS	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_SVC_USECS	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_SVC_USECS_MAX	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_WAIT_USECS	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_WAIT_USECS_MAX	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	INDEX_STATISTICS	IO_READ_SLOW_IOS	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	KEY_COLUMN_USAGE	CONSTRAINT_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	KEY_COLUMN_USAGE	CONSTRAINT_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	KEY_COLUMN_USAGE	CONSTRAINT_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
