@@ -687,6 +687,7 @@ enum enum_schema_tables
   SCH_FILES,
   SCH_GLOBAL_STATUS,
   SCH_GLOBAL_VARIABLES,
+  SCH_INDEX_STATISTICS,
   SCH_KEY_COLUMN_USAGE,
   SCH_OPEN_TABLES,
   SCH_OPTIMIZER_TRACE,
@@ -1915,6 +1916,8 @@ public:
   uint errkey;				/* Last dup key */
   uint key_used_on_scan;
   uint active_index;
+  /** Last value for active_index. Not set to MAX_KEY by index_end() */
+  uint last_active_index;
   /** Length of ref (1-8 or the clustered key length) */
   uint ref_length;
   FT_INFO *ft_handler;
@@ -1994,7 +1997,7 @@ public:
     estimation_rows_to_insert(0), ht(ht_arg),
     ref(0), range_scan_direction(RANGE_SCAN_ASC),
     in_range_check_pushed_down(false), end_range(NULL),
-    key_used_on_scan(MAX_KEY), active_index(MAX_KEY),
+    key_used_on_scan(MAX_KEY), active_index(MAX_KEY),last_active_index(MAX_KEY),
     ref_length(sizeof(my_off_t)),
     ft_handler(0), inited(NONE),
     implicit_emptied(0),
@@ -3115,7 +3118,11 @@ private:
 
   virtual int open(const char *name, int mode, uint test_if_locked)=0;
   virtual int close(void)=0;
-  virtual int index_init(uint idx, bool sorted) { active_index= idx; return 0; }
+  virtual int index_init(uint idx, bool sorted)
+  {
+    last_active_index= active_index= idx;
+    return 0;
+  }
   virtual int index_end() { active_index= MAX_KEY; return 0; }
   /**
     rnd_init() can be called two times without rnd_end() in between
