@@ -1117,6 +1117,7 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->microseconds_transaction.clear();
   user_stats->microseconds_update.clear();
   user_stats->queries_empty.clear();
+  user_stats->query_comment_bytes.clear();
   user_stats->rows_deleted.clear();
   user_stats->rows_fetched.clear();
   user_stats->rows_inserted.clear();
@@ -1160,6 +1161,8 @@ update_user_stats_after_statement(USER_STATS *us,
 
   if (!is_xid_event)
   {
+    us->query_comment_bytes.inc(thd->count_comment_bytes);
+
     us->rows_updated.inc(thd->rows_updated);
     us->rows_deleted.inc(thd->rows_deleted);
     us->rows_inserted.inc(thd->rows_inserted);
@@ -1261,6 +1264,7 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->microseconds_transaction.load(), TRUE);
   table->field[f++]->store(us->microseconds_update.load(), TRUE);
   table->field[f++]->store(us->queries_empty.load(), TRUE);
+  table->field[f++]->store(us->query_comment_bytes.load(), TRUE);
   table->field[f++]->store(us->rows_deleted.load(), TRUE);
   table->field[f++]->store(us->rows_fetched.load(), TRUE);
   table->field[f++]->store(us->rows_inserted.load(), TRUE);

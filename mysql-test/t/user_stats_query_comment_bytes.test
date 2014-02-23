@@ -1,0 +1,143 @@
+#
+# Test IS.user_statistics for query_comment_bytes counter
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+create table userstats (i int primary key, j int) engine=innodb;
+insert into userstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+
+create table userstats2 (i int primary key, j int) engine=innodb;
+insert into userstats2 values (6,7), (7,8), (8,9), (9,0);
+
+--echo
+--echo At start
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+select * from/*hello*/ userstats;
+--enable_result_log
+--echo
+--echo After performing a query with comments, Increment query_comment_bytes  by 9
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+/* Hello World */select * from userstats;
+--enable_result_log
+--echo
+--echo Increment query_comment_bytes by 17
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+/* Hello World */select * from userstats,userstats2;
+--enable_result_log
+--echo
+--echo After a join query, Increment query_comment_bytes by 17
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+/*World*/select * from/* This is a long comment */ userstats;
+--enable_result_log
+--echo
+--echo After a query with multiple comments in it, Increment query_comment_bytes by 37
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+select * from/*!60000 hello */ userstats;
+--enable_result_log
+--echo
+--echo After a query with /*! versioned comment in it(version less than current MySQL Version), Increment query_comment_bytes  by 17
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+select * from userstats/*!50000 where i = 1 */;
+--enable_result_log
+--echo
+--echo After a query with /*! versioned comment in it (version less than current MySQL Version), Increment query_comment_bytes  by 0
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+select * from userstats2 # This is a hash comment
+;
+--enable_result_log
+--echo
+--echo After a query with "#" comment in it, Increment query_comment_bytes  by 24
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+/*cstyle*/select * from userstats2 #hash
+;
+--enable_result_log
+--echo
+--echo After query with hybrid comments in it, Increment query_comment_ytes by 15
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+select * from userstats -- doubledash;
+--enable_result_log
+--echo
+--echo After query with "-- " comment in it, Increment query_comment_bytes by 13
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+--disable_result_log
+select * from /*cstyle*/userstats2 -- doubledash;
+--enable_result_log
+--echo
+--echo After query with hyrbid comments in it, Increment query_comment_bytes by 23
+--echo
+--query_vertical select query_comment_bytes from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+# Cleanup
+drop table userstats, userstats2;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
