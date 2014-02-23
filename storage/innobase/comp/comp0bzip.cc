@@ -52,6 +52,9 @@ comp_bzip_compress(
 {
 	bz_stream strm;
 	int err;
+	/* If level > 15 or level == 0 we default to level = 1 */
+	uchar level = comp_state->level;
+	level = ((level > 15) || (!level)) ? 1 : level;
 	strm.next_in = (char*)comp_state->in;
 	strm.avail_in = comp_state->avail_in;
 	strm.next_out = (char*)comp_state->out;
@@ -62,7 +65,7 @@ comp_bzip_compress(
 	strm.opaque = comp_state->heap;
 	/* Initialize bzip. We use a 100k block because our pages are always
 	   going to be smaller than 100k */
-	ut_a(BZ_OK == BZ2_bzCompressInit(&strm, 1, 0, comp_state->level));
+	ut_a(BZ_OK == BZ2_bzCompressInit(&strm, 1, 0, level));
 	/* compress the serialized buffer */
 	err = BZ2_bzCompress(&strm, BZ_FINISH);
 	ut_a(BZ_OK == BZ2_bzCompressEnd(&strm));

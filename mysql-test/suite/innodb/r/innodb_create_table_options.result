@@ -1,177 +1,754 @@
 SET GLOBAL innodb_file_format='Barracuda';
 SET GLOBAL innodb_file_per_table=ON;
-CREATE TABLE t0(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT;
-SHOW CREATE TABLE t0;
+CREATE TABLE t_compact(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT;
+SHOW CREATE TABLE t_compact;
 Table	Create Table
-t0	CREATE TABLE `t0` (
+t_compact	CREATE TABLE `t_compact` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t0';
-table_name	compression	compression_flags	key_block_size
-t0	NULL	0	0
-CREATE TABLE t1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
-SHOW CREATE TABLE t1;
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compact';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compact	0	NULL	0	0
+DROP TABLE t_compact;
+CREATE TABLE t_compact(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT COMPRESSION=ZLIB;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION, COMPRESSION_LEVEL, or COMPACT_METADATA can be set only when ROW_FORMAT=COMPRESSED.
+SHOW CREATE TABLE t_compact;
 Table	Create Table
-t1	CREATE TABLE `t1` (
+t_compact	CREATE TABLE `t_compact` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t1';
-table_name	compression	compression_flags	key_block_size
-t1	ZLIB_STREAM	0	8
-CREATE TABLE t2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB KEY_BLOCK_SIZE=4;
-SHOW CREATE TABLE t2;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compact';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compact	0	NULL	0	0
+DROP TABLE t_compact;
+CREATE TABLE t_compact(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT COMPACT_METADATA=1;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION, COMPRESSION_LEVEL, or COMPACT_METADATA can be set only when ROW_FORMAT=COMPRESSED.
+SHOW CREATE TABLE t_compact;
 Table	Create Table
-t2	CREATE TABLE `t2` (
+t_compact	CREATE TABLE `t_compact` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_FLAGS=0
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
-table_name	compression	compression_flags	key_block_size
-t2	ZLIB	0	4
-CREATE TABLE t3(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=5;
-SHOW CREATE TABLE t3;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compact';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compact	0	NULL	0	0
+DROP TABLE t_compact;
+CREATE TABLE t_compact(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT COMPRESSION_LEVEL=3;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION, COMPRESSION_LEVEL, or COMPACT_METADATA can be set only when ROW_FORMAT=COMPRESSED.
+SHOW CREATE TABLE t_compact;
 Table	Create Table
-t3	CREATE TABLE `t3` (
+t_compact	CREATE TABLE `t_compact` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=5
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
-table_name	compression	compression_flags	key_block_size
-t3	LZMA	5	4
-CREATE TABLE t4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0 KEY_BLOCK_SIZE=8;
-SHOW CREATE TABLE t4;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compact';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compact	0	NULL	0	0
+DROP TABLE t_compact;
+CREATE TABLE t_compact(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT COMPRESSION=BZIP COMPRESSION_LEVEL=10 COMPACT_METADATA=1;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION, COMPRESSION_LEVEL, or COMPACT_METADATA can be set only when ROW_FORMAT=COMPRESSED.
+SHOW CREATE TABLE t_compact;
 Table	Create Table
-t4	CREATE TABLE `t4` (
+t_compact	CREATE TABLE `t_compact` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t4';
-table_name	compression	compression_flags	key_block_size
-t4	ZLIB_STREAM	0	8
-CREATE TABLE t5(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=SNAPPY KEY_BLOCK_SIZE=4 COMPRESSION_FLAGS=7;
-SHOW CREATE TABLE t5;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compact';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compact	0	NULL	0	0
+DROP TABLE t_compact;
+CREATE TABLE t_compressed(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+SHOW CREATE TABLE t_compressed;
 Table	Create Table
-t5	CREATE TABLE `t5` (
+t_compressed	CREATE TABLE `t_compressed` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=7
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t5';
-table_name	compression	compression_flags	key_block_size
-t5	SNAPPY	7	4
-CREATE TABLE t6(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=QUICKLZ KEY_BLOCK_SIZE=16;
-SHOW CREATE TABLE t6;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compressed';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compressed	8	ZLIB_STREAM	0	0
+DROP TABLE t_compressed;
+CREATE TABLE t_compressed(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=6;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be non-zero for COMPRESSION=ZLIB_STREAM. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_compressed;
 Table	Create Table
-t6	CREATE TABLE `t6` (
+t_compressed	CREATE TABLE `t_compressed` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=16 COMPRESSION=QUICKLZ COMPRESSION_FLAGS=0
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t6';
-table_name	compression	compression_flags	key_block_size
-t6	QUICKLZ	0	16
-CREATE TABLE t7(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=LZ4 KEY_BLOCK_SIZE=8 COMPRESSION_FLAGS=2;
-SHOW CREATE TABLE t7;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB_STREAM
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compressed';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compressed	4	ZLIB_STREAM	6	0
+DROP TABLE t_compressed;
+CREATE TABLE t_compressed(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1;
+Warnings:
+Warning	1478	InnoDB: COMPACT_METADATA can not be 1 for COMPRESSION=ZLIB_STREAM. Assuming COMPACT_METADATA=0.
+SHOW CREATE TABLE t_compressed;
 Table	Create Table
-t7	CREATE TABLE `t7` (
+t_compressed	CREATE TABLE `t_compressed` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=2
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t7';
-table_name	compression	compression_flags	key_block_size
-t7	LZ4	2	8
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=ZLIB_STREAM
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compressed';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compressed	2	ZLIB_STREAM	0	1
+DROP TABLE t_compressed;
+CREATE TABLE t_compressed(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPACT_METADATA=1 COMPRESSION_LEVEL=3;
+Warnings:
+Warning	1478	InnoDB: COMPACT_METADATA can not be 1 for COMPRESSION=ZLIB_STREAM. Assuming COMPACT_METADATA=0.
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be non-zero for COMPRESSION=ZLIB_STREAM. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_compressed;
+Table	Create Table
+t_compressed	CREATE TABLE `t_compressed` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION=ZLIB_STREAM
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compressed';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compressed	1	ZLIB_STREAM	3	1
+DROP TABLE t_compressed;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB;
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	8	ZLIB	0	0
+DROP TABLE t_zlib;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=6 COMPRESSION=ZLIB;
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_LEVEL=6 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	4	ZLIB	6	0
+DROP TABLE t_zlib;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1 COMPRESSION=ZLIB;
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=ZLIB COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	2	ZLIB	0	1
+DROP TABLE t_zlib;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION_LEVEL=9 COMPACT_METADATA=1 COMPRESSION=ZLIB;
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION=ZLIB COMPRESSION_LEVEL=9 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	1	ZLIB	9	1
+DROP TABLE t_zlib;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION_LEVEL=0 COMPRESSION=ZLIB;
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	8	ZLIB	0	0
+DROP TABLE t_zlib;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=10 COMPACT_METADATA=1 COMPRESSION=ZLIB;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be greater than 9 for COMPRESSION=ZLIB. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_LEVEL=10 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	4	ZLIB	10	1
+DROP TABLE t_zlib;
+CREATE TABLE t_zlib(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION_LEVEL=16 COMPACT_METADATA=1 COMPRESSION=ZLIB;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL must be less than 16. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_zlib;
+Table	Create Table
+t_zlib	CREATE TABLE `t_zlib` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=ZLIB COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib	2	ZLIB	0	1
+DROP TABLE t_zlib;
+CREATE TABLE t_bzip(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=BZIP;
+SHOW CREATE TABLE t_bzip;
+Table	Create Table
+t_bzip	CREATE TABLE `t_bzip` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=BZIP COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip	8	BZIP	0	0
+DROP TABLE t_bzip;
+CREATE TABLE t_bzip(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=6 COMPRESSION=BZIP;
+SHOW CREATE TABLE t_bzip;
+Table	Create Table
+t_bzip	CREATE TABLE `t_bzip` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=BZIP COMPRESSION_LEVEL=6 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip	4	BZIP	6	0
+DROP TABLE t_bzip;
+CREATE TABLE t_bzip(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1 COMPRESSION=BZIP;
+SHOW CREATE TABLE t_bzip;
+Table	Create Table
+t_bzip	CREATE TABLE `t_bzip` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=BZIP COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip	2	BZIP	0	1
+DROP TABLE t_bzip;
+CREATE TABLE t_bzip(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION_LEVEL=15 COMPRESSION=BZIP;
+SHOW CREATE TABLE t_bzip;
+Table	Create Table
+t_bzip	CREATE TABLE `t_bzip` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION=BZIP COMPRESSION_LEVEL=15 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip	1	BZIP	15	0
+DROP TABLE t_bzip;
+CREATE TABLE t_bzip(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION_LEVEL=0 COMPACT_METADATA=1 COMPRESSION=BZIP;
+SHOW CREATE TABLE t_bzip;
+Table	Create Table
+t_bzip	CREATE TABLE `t_bzip` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=BZIP COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip	8	BZIP	0	1
+DROP TABLE t_bzip;
+CREATE TABLE t_bzip(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=16 COMPACT_METADATA=1 COMPRESSION=BZIP;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL must be less than 16. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_bzip;
+Table	Create Table
+t_bzip	CREATE TABLE `t_bzip` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=BZIP COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip	4	BZIP	0	1
+DROP TABLE t_bzip;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA;
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	8	LZMA	0	0
+DROP TABLE t_lzma;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=1 COMPRESSION=LZMA;
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_LEVEL=1 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	4	LZMA	1	0
+DROP TABLE t_lzma;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1 COMPRESSION=LZMA;
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=LZMA COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	2	LZMA	0	1
+DROP TABLE t_lzma;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION_LEVEL=2 COMPRESSION=LZMA;
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION=LZMA COMPRESSION_LEVEL=2 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	1	LZMA	2	0
+DROP TABLE t_lzma;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION_LEVEL=0 COMPACT_METADATA=1 COMPRESSION=LZMA;
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	8	LZMA	0	1
+DROP TABLE t_lzma;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=16 COMPACT_METADATA=1 COMPRESSION=LZMA;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL must be less than 16. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	4	LZMA	0	1
+DROP TABLE t_lzma;
+CREATE TABLE t_lzma(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION_LEVEL=3 COMPRESSION=LZMA;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be greater than 2 for COMPRESSION=LZMA. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_lzma;
+Table	Create Table
+t_lzma	CREATE TABLE `t_lzma` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=LZMA COMPRESSION_LEVEL=3 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma	2	LZMA	3	0
+DROP TABLE t_lzma;
+CREATE TABLE t_snappy(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=SNAPPY;
+SHOW CREATE TABLE t_snappy;
+Table	Create Table
+t_snappy	CREATE TABLE `t_snappy` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=SNAPPY COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_snappy';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_snappy	8	SNAPPY	0	0
+DROP TABLE t_snappy;
+CREATE TABLE t_snappy(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=0 COMPRESSION=SNAPPY;
+SHOW CREATE TABLE t_snappy;
+Table	Create Table
+t_snappy	CREATE TABLE `t_snappy` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_snappy';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_snappy	4	SNAPPY	0	0
+DROP TABLE t_snappy;
+CREATE TABLE t_snappy(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1 COMPRESSION=SNAPPY;
+SHOW CREATE TABLE t_snappy;
+Table	Create Table
+t_snappy	CREATE TABLE `t_snappy` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=SNAPPY COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_snappy';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_snappy	2	SNAPPY	0	1
+DROP TABLE t_snappy;
+CREATE TABLE t_snappy(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=16 COMPACT_METADATA=1 COMPRESSION=SNAPPY;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL must be less than 16. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_snappy;
+Table	Create Table
+t_snappy	CREATE TABLE `t_snappy` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_snappy';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_snappy	4	SNAPPY	0	1
+DROP TABLE t_snappy;
+CREATE TABLE t_snappy(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION_LEVEL=1 COMPRESSION=SNAPPY;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be greater than 0 for COMPRESSION=SNAPPY. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_snappy;
+Table	Create Table
+t_snappy	CREATE TABLE `t_snappy` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=SNAPPY COMPRESSION_LEVEL=1 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_snappy';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_snappy	2	SNAPPY	1	0
+DROP TABLE t_snappy;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=QUICKLZ;
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	8	QUICKLZ	0	0
+DROP TABLE t_quicklz;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=1 COMPRESSION=QUICKLZ;
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=1 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	4	QUICKLZ	1	0
+DROP TABLE t_quicklz;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1 COMPRESSION=QUICKLZ;
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	2	QUICKLZ	0	1
+DROP TABLE t_quicklz;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION_LEVEL=3 COMPRESSION=QUICKLZ;
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=3 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	1	QUICKLZ	3	0
+DROP TABLE t_quicklz;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION_LEVEL=0 COMPACT_METADATA=1 COMPRESSION=QUICKLZ;
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	8	QUICKLZ	0	1
+DROP TABLE t_quicklz;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=16 COMPACT_METADATA=1 COMPRESSION=QUICKLZ;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL must be less than 16. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	4	QUICKLZ	0	1
+DROP TABLE t_quicklz;
+CREATE TABLE t_quicklz(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION_LEVEL=4 COMPRESSION=QUICKLZ;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be greater than 3 for COMPRESSION=QUICKLZ. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_quicklz;
+Table	Create Table
+t_quicklz	CREATE TABLE `t_quicklz` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=4 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_quicklz';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_quicklz	2	QUICKLZ	4	0
+DROP TABLE t_quicklz;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4;
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	8	LZ4	0	0
+DROP TABLE t_lz4;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=1 COMPRESSION=LZ4;
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZ4 COMPRESSION_LEVEL=1 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	4	LZ4	1	0
+DROP TABLE t_lz4;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPACT_METADATA=1 COMPRESSION=LZ4;
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=LZ4 COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	2	LZ4	0	1
+DROP TABLE t_lz4;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION_LEVEL=2 COMPRESSION=LZ4;
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 COMPRESSION=LZ4 COMPRESSION_LEVEL=2 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	1	LZ4	2	0
+DROP TABLE t_lz4;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION_LEVEL=0 COMPACT_METADATA=1 COMPRESSION=LZ4;
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	8	LZ4	0	1
+DROP TABLE t_lz4;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION_LEVEL=16 COMPACT_METADATA=1 COMPRESSION=LZ4;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL must be less than 16. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZ4 COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	4	LZ4	0	1
+DROP TABLE t_lz4;
+CREATE TABLE t_lz4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION_LEVEL=3 COMPRESSION=LZ4;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be greater than 2 for COMPRESSION=LZ4. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_lz4;
+Table	Create Table
+t_lz4	CREATE TABLE `t_lz4` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2 COMPRESSION=LZ4 COMPRESSION_LEVEL=3 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lz4';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lz4	2	LZ4	3	0
+DROP TABLE t_lz4;
+CREATE TABLE t_compact(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT;
+CREATE TABLE t_compressed(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
+CREATE TABLE t_zlib1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB COMPRESSION_LEVEL=3;
+CREATE TABLE t_zlib2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_LEVEL=5 COMPACT_METADATA=1;
+CREATE TABLE t_bzip1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=BZIP COMPRESSION_LEVEL=15;
+CREATE TABLE t_bzip2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=BZIP COMPRESSION_LEVEL=0 COMPACT_METADATA=1;
+CREATE TABLE t_lzma1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA COMPRESSION_LEVEL=2;
+CREATE TABLE t_lzma2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_LEVEL=1 COMPACT_METADATA=1;
+CREATE TABLE t_snappy1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=SNAPPY;
+CREATE TABLE t_snappy2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPACT_METADATA=1;
+CREATE TABLE t_quicklz1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=2;
+CREATE TABLE t_quicklz2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=3 COMPACT_METADATA=1;
+CREATE TABLE t_lz41(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_LEVEL=2;
+CREATE TABLE t_lz42(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZ4 COMPRESSION_LEVEL=0 COMPACT_METADATA=1;
 SET GLOBAL innodb_file_format='Barracuda';
 SET GLOBAL innodb_file_per_table=ON;
-SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t_compact;
 Table	Create Table
-t1	CREATE TABLE `t1` (
+t_compact	CREATE TABLE `t_compact` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
-SHOW CREATE TABLE t2;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPACT
+SHOW CREATE TABLE t_compressed;
 Table	Create Table
-t2	CREATE TABLE `t2` (
+t_compressed	CREATE TABLE `t_compressed` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_FLAGS=0
-SHOW CREATE TABLE t3;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB_STREAM
+SHOW CREATE TABLE t_zlib1;
 Table	Create Table
-t3	CREATE TABLE `t3` (
+t_zlib1	CREATE TABLE `t_zlib1` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=5
-SHOW CREATE TABLE t4;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB COMPRESSION_LEVEL=3 COMPACT_METADATA=0
+SHOW CREATE TABLE t_zlib2;
 Table	Create Table
-t4	CREATE TABLE `t4` (
+t_zlib2	CREATE TABLE `t_zlib2` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
-SHOW CREATE TABLE t5;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_LEVEL=5 COMPACT_METADATA=1
+SHOW CREATE TABLE t_bzip1;
 Table	Create Table
-t5	CREATE TABLE `t5` (
+t_bzip1	CREATE TABLE `t_bzip1` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_FLAGS=7
-SHOW CREATE TABLE t6;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=BZIP COMPRESSION_LEVEL=15 COMPACT_METADATA=0
+SHOW CREATE TABLE t_bzip2;
 Table	Create Table
-t6	CREATE TABLE `t6` (
+t_bzip2	CREATE TABLE `t_bzip2` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=16 COMPRESSION=QUICKLZ COMPRESSION_FLAGS=0
-SHOW CREATE TABLE t7;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=BZIP COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SHOW CREATE TABLE t_lzma1;
 Table	Create Table
-t7	CREATE TABLE `t7` (
+t_lzma1	CREATE TABLE `t_lzma1` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_FLAGS=2
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test';
-table_name	compression	compression_flags	key_block_size
-t0	NULL	0	0
-t1	ZLIB_STREAM	0	8
-t2	ZLIB	0	4
-t3	LZMA	5	4
-t4	ZLIB_STREAM	0	8
-t5	SNAPPY	7	4
-t6	QUICKLZ	0	16
-t7	LZ4	2	8
-ALTER TABLE t1 ENGINE=InnoDB;
-SHOW CREATE TABLE t1;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA COMPRESSION_LEVEL=2 COMPACT_METADATA=0
+SHOW CREATE TABLE t_lzma2;
 Table	Create Table
-t1	CREATE TABLE `t1` (
+t_lzma2	CREATE TABLE `t_lzma2` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t1';
-table_name	compression	compression_flags	key_block_size
-t1	ZLIB_STREAM	0	8
-ALTER TABLE t2 ADD COLUMN (b int);
-SHOW CREATE TABLE t2;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_LEVEL=1 COMPACT_METADATA=1
+SHOW CREATE TABLE t_snappy1;
 Table	Create Table
-t2	CREATE TABLE `t2` (
+t_snappy1	CREATE TABLE `t_snappy1` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=SNAPPY COMPRESSION_LEVEL=0 COMPACT_METADATA=0
+SHOW CREATE TABLE t_snappy2;
+Table	Create Table
+t_snappy2	CREATE TABLE `t_snappy2` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=SNAPPY COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SHOW CREATE TABLE t_quicklz1;
+Table	Create Table
+t_quicklz1	CREATE TABLE `t_quicklz1` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=2 COMPACT_METADATA=0
+SHOW CREATE TABLE t_quicklz2;
+Table	Create Table
+t_quicklz2	CREATE TABLE `t_quicklz2` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=QUICKLZ COMPRESSION_LEVEL=3 COMPACT_METADATA=1
+SHOW CREATE TABLE t_lz41;
+Table	Create Table
+t_lz41	CREATE TABLE `t_lz41` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZ4 COMPRESSION_LEVEL=2 COMPACT_METADATA=0
+SHOW CREATE TABLE t_lz42;
+Table	Create Table
+t_lz42	CREATE TABLE `t_lz42` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZ4 COMPRESSION_LEVEL=0 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip1	8	BZIP	15	0
+t_bzip2	4	BZIP	0	1
+t_compact	0	NULL	0	0
+t_compressed	0	ZLIB_STREAM	0	0
+t_lz41	8	LZ4	2	0
+t_lz42	4	LZ4	0	1
+t_lzma1	8	LZMA	2	0
+t_lzma2	4	LZMA	1	1
+t_quicklz1	8	QUICKLZ	2	0
+t_quicklz2	4	QUICKLZ	3	1
+t_snappy1	8	SNAPPY	0	0
+t_snappy2	4	SNAPPY	0	1
+t_zlib1	8	ZLIB	3	0
+t_zlib2	4	ZLIB	5	1
+ALTER TABLE t_compact ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB COMPRESSION_LEVEL=4 COMPACT_METADATA=1;
+SHOW CREATE TABLE t_compact;
+Table	Create Table
+t_compact	CREATE TABLE `t_compact` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB COMPRESSION_LEVEL=4 COMPACT_METADATA=1
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_compact';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_compact	0	ZLIB	4	1
+ALTER TABLE t_zlib1 ADD COLUMN (b int);
+SHOW CREATE TABLE t_zlib1;
+Table	Create Table
+t_zlib1	CREATE TABLE `t_zlib1` (
   `a` int(11) NOT NULL,
   `b` int(11) DEFAULT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB COMPRESSION_FLAGS=0
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
-table_name	compression	compression_flags	key_block_size
-t2	ZLIB	0	4
-ALTER TABLE t3 COMPRESSION_FLAGS=1;
-SHOW CREATE TABLE t3;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=ZLIB COMPRESSION_LEVEL=3 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_zlib1';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_zlib1	8	ZLIB	3	0
+ALTER TABLE t_bzip1 COMPRESSION=lzma COMPRESSION_LEVEL=1;
+SHOW CREATE TABLE t_bzip1;
 Table	Create Table
-t3	CREATE TABLE `t3` (
+t_bzip1	CREATE TABLE `t_bzip1` (
   `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=1
-SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
-table_name	compression	compression_flags	key_block_size
-t3	LZMA	1	4
-DROP TABLE t0;
-DROP TABLE t1;
-DROP TABLE t2;
-DROP TABLE t3;
-DROP TABLE t4;
-DROP TABLE t5;
-DROP TABLE t6;
-DROP TABLE t7;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA COMPRESSION_LEVEL=1 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_bzip1';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_bzip1	8	LZMA	1	0
+ALTER TABLE t_lzma2 COMPRESSION=SNAPPY;
+Warnings:
+Warning	1478	InnoDB: COMPRESSION_LEVEL can not be greater than 0 for COMPRESSION=SNAPPY. Assuming COMPRESSION_LEVEL=0.
+SHOW CREATE TABLE t_bzip1;
+Table	Create Table
+t_bzip1	CREATE TABLE `t_bzip1` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMPRESSION=LZMA COMPRESSION_LEVEL=1 COMPACT_METADATA=0
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_lzma2';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_lzma2	4	SNAPPY	1	1
+ALTER TABLE t_snappy2 ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB_STREAM;
+Warnings:
+Warning	1478	InnoDB: COMPACT_METADATA can not be 1 for COMPRESSION=ZLIB_STREAM. Assuming COMPACT_METADATA=0.
+SHOW CREATE TABLE t_snappy2;
+Table	Create Table
+t_snappy2	CREATE TABLE `t_snappy2` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=ZLIB_STREAM
+SELECT `table_name`, `key_block_size`, `compression`, `compression_level`, `compact_metadata` FROM information_schema.tables WHERE table_schema='test' AND table_name='t_snappy2';
+table_name	key_block_size	compression	compression_level	compact_metadata
+t_snappy2	4	ZLIB_STREAM	0	1
+DROP TABLE t_compact;
+DROP TABLE t_compressed;
+DROP TABLE t_zlib1;
+DROP TABLE t_zlib2;
+DROP TABLE t_bzip1;
+DROP TABLE t_bzip2;
+DROP TABLE t_lzma1;
+DROP TABLE t_lzma2;
+DROP TABLE t_snappy1;
+DROP TABLE t_snappy2;
+DROP TABLE t_quicklz1;
+DROP TABLE t_quicklz2;
+DROP TABLE t_lz41;
+DROP TABLE t_lz42;
 SET GLOBAL innodb_file_format=Antelope;
 SET GLOBAL innodb_file_per_table=1;

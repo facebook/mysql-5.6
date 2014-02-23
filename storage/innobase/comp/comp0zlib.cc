@@ -46,6 +46,9 @@ comp_zlib_compress(
 {
 	int err;
 	z_stream c_stream;
+	uchar level = comp_state->level;
+	/* set level to 6 if level > 9 or level == 0 */
+	level = ((level > 9) || (!level)) ? 6 : level;
 	c_stream.next_in = comp_state->in;
 	c_stream.avail_in = comp_state->avail_in;
 	c_stream.next_out = comp_state->out;
@@ -53,7 +56,7 @@ comp_zlib_compress(
 	c_stream.zalloc = comp_zlib_alloc;
 	c_stream.zfree = comp_zlib_free;
 	c_stream.opaque = comp_state->heap;
-	err = deflateInit2(&c_stream, comp_state->level,
+	err = deflateInit2(&c_stream, level,
 			   Z_DEFLATED, -(int)UNIV_PAGE_SIZE_SHIFT,
 			   MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
 	ut_a(err == Z_OK);
