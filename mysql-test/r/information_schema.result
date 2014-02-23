@@ -63,6 +63,7 @@ EVENTS
 FILES
 GLOBAL_STATUS
 GLOBAL_VARIABLES
+INDEX_STATISTICS
 KEY_COLUMN_USAGE
 OPTIMIZER_TRACE
 PARAMETERS
@@ -884,6 +885,7 @@ TABLE_NAME	COLUMN_NAME	PRIVILEGES
 COLUMNS	TABLE_NAME	select
 COLUMN_PRIVILEGES	TABLE_NAME	select
 FILES	TABLE_NAME	select
+INDEX_STATISTICS	TABLE_NAME	select
 INNODB_BUFFER_PAGE	TABLE_NAME	select
 INNODB_BUFFER_PAGE_LRU	TABLE_NAME	select
 INNODB_CMP_PER_INDEX	table_name	select
@@ -905,7 +907,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	34
+information_schema	35
 mysql	25
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1356,6 +1358,7 @@ EVENTS	information_schema.EVENTS	1
 FILES	information_schema.FILES	1
 GLOBAL_STATUS	information_schema.GLOBAL_STATUS	1
 GLOBAL_VARIABLES	information_schema.GLOBAL_VARIABLES	1
+INDEX_STATISTICS	information_schema.INDEX_STATISTICS	1
 KEY_COLUMN_USAGE	information_schema.KEY_COLUMN_USAGE	1
 OPTIMIZER_TRACE	information_schema.OPTIMIZER_TRACE	1
 PARAMETERS	information_schema.PARAMETERS	1
