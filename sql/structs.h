@@ -331,12 +331,40 @@ typedef struct  user_conn {
   USER_STATS user_stats;
 } USER_CONN;
 
+typedef struct st_index_stats {
+  char name [NAME_LEN + 1];   /* [name] + '\0' */
+
+  atomic_stat<ulonglong> rows_inserted;   /* Number of rows inserted */
+  atomic_stat<ulonglong> rows_updated;    /* Number of rows updated */
+  atomic_stat<ulonglong> rows_deleted;    /* Number of rows deleted */
+  atomic_stat<ulonglong> rows_read;       /* Number of rows read for index
+                                             of this table */
+  atomic_stat<ulonglong> rows_requested;  /* Number of row read attempts for
+                                             an index of this table.
+                                             This counts requests that
+                                             do not return a row. */
+  atomic_stat<ulonglong> rows_index_first;
+  atomic_stat<ulonglong> rows_index_next;
+
+  my_io_perf_atomic_t io_perf_read;       /* Read IO performance counters */
+} INDEX_STATS;
+
+/*
+ * Maximum number of indexes for which stats are collected.
+ * Tables that have more use st_table_stats::indexes[MAX_INDEX_STATS-1]
+ * for the extra indexes.
+ */
+#define MAX_INDEX_STATS 10
+
 typedef struct st_table_stats {
   char db[NAME_LEN + 1];     /* [db] + '\0' */
   char table[NAME_LEN + 1];  /* [table] + '\0' */
   /* Hash table key, table->s->table_cache_key for the table */
   char hash_key[NAME_LEN * 2 + 2];
   int hash_key_len;          /* table->s->key_length for the table */
+
+  INDEX_STATS indexes[MAX_INDEX_STATS];
+  uint num_indexes;         /* min(#indexes on table , MAX_INDEX_STATS) */
 
   atomic_stat<ulonglong> queries_used;	/* number of times used by a query */
 
