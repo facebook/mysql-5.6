@@ -29,6 +29,20 @@ void update_table_stats(THD *thd, TABLE *tablep, bool follow_next)
 static void
 clear_table_stats_counters(TABLE_STATS* table_stats)
 {
+  int x;
+  for (x=0; x < MAX_INDEX_STATS; ++x)
+  {
+    table_stats->indexes[x].rows_inserted.clear();
+    table_stats->indexes[x].rows_updated.clear();
+    table_stats->indexes[x].rows_deleted.clear();
+    table_stats->indexes[x].rows_read.clear();
+    table_stats->indexes[x].rows_requested.clear();
+    table_stats->indexes[x].rows_index_first.clear();
+    table_stats->indexes[x].rows_index_next.clear();
+
+    my_io_perf_atomic_init(&(table_stats->indexes[x].io_perf_read));
+  }
+
   table_stats->queries_used.clear();
   table_stats->rows_inserted.clear();
   table_stats->rows_updated.clear();
@@ -49,6 +63,43 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
 
   memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
   memset(&table_stats->comp_stats, 0, sizeof(table_stats->comp_stats));
+}
+
+/*
+ *   Initialize the index names in table_stats->indexes
+ *
+ *     SYNOPSIS
+ *      set_index_stats_names
+ *      table_stats - object to initialize
+ *
+ *     RETURN VALUE
+ *      0 on success, !0 on failure
+ *
+ *    Stats are stored for at most MAX_INDEX_KEYS and when there are more than
+ *    (MAX_INDEX_KEYS-1) indexes then use the last entry for the extra indexes
+ *      which gets the name "STATS_OVERFLOW".
+ */
+static int
+set_index_stats_names(TABLE_STATS *table_stats, TABLE *table)
+{
+    uint x;
+
+    table_stats->num_indexes= std::min(table->s->keys,(uint)MAX_INDEX_STATS);
+
+    for (x=0; x < table_stats->num_indexes; ++x)
+    {
+      char const *index_name = table->s->key_info[x].name;
+
+      if (x == (MAX_INDEX_STATS - 1) && table->s->keys > MAX_INDEX_STATS)
+        index_name = "STATS_OVERFLOW";
+
+      if (snprintf(table_stats->indexes[x].name, NAME_LEN+1, "%s",index_name) < 0)
+      {
+          return -1;
+      }
+    }
+
+    return 0;
 }
 
 static TABLE_STATS*
@@ -106,8 +157,18 @@ get_table_stats_by_name(const char *db_name,
     memcpy(table_stats->db, db_name, db_name_len + 1);
     memcpy(table_stats->table, table_name, table_name_len + 1);
 
+    table_stats->num_indexes= 0;
+    if (tbl && set_index_stats_names(table_stats, tbl))
+    {
+      sql_print_error("Cannot generate name for index stats.");
+      my_free((char*)table_stats);
+      mysql_mutex_unlock(&LOCK_global_table_stats);
+      return NULL;
+    }
+
     clear_table_stats_counters(table_stats);
     table_stats->engine_name= engine_name;
+    table_stats->should_update = false;
 
     if (my_hash_insert(&global_table_stats, (uchar*)table_stats))
     {
@@ -118,6 +179,25 @@ get_table_stats_by_name(const char *db_name,
       return NULL;
     }
   }
+  else
+  {
+    /*
+     * Keep things in sync after create or drop index.
+     * This does not notice create
+     * followed by drop. "reset statistics" will fix that.
+     */
+    if (tbl && table_stats->num_indexes != std::min(tbl->s->keys,
+                                                    (uint)MAX_INDEX_STATS))
+    {
+      if (set_index_stats_names(table_stats, tbl))
+      {
+        sql_print_error("Cannot generate name for index stats.");
+        mysql_mutex_unlock(&LOCK_global_table_stats);
+        return NULL;
+      }
+    }
+  }
+
 
   mysql_mutex_unlock(&LOCK_global_table_stats);
 
@@ -190,6 +270,7 @@ void reset_global_table_stats()
       (TABLE_STATS*)my_hash_element(&global_table_stats, i);
 
     clear_table_stats_counters(table_stats);
+    table_stats->num_indexes= 0;
   }
 
   mysql_mutex_unlock(&LOCK_global_table_stats);
@@ -560,6 +641,126 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
   DBUG_RETURN(0);
 }
 
+ST_FIELD_INFO index_stats_fields_info[]=
+{
+  {"TABLE_SCHEMA", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"TABLE_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"INDEX_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+
+  {"TABLE_ENGINE", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROWS_INSERTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                         SKIP_OPEN_TABLE},
+  {"ROWS_UPDATED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                         SKIP_OPEN_TABLE},
+  {"ROWS_DELETED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                         SKIP_OPEN_TABLE},
+  {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                         SKIP_OPEN_TABLE},
+  {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0,
+                                                         SKIP_OPEN_TABLE},
+  {"ROWS_INDEX_FIRST", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"ROWS_INDEX_NEXT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+
+  {"IO_READ_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_REQUESTS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SVC_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SVC_USECS_MAX", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_WAIT_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_WAIT_USECS_MAX", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SLOW_IOS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
+                                                0, 0, 0, SKIP_OPEN_TABLE},
+
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
+
+
+int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_index_stats");
+  TABLE* table= tables->table;
+
+  mysql_mutex_lock(&LOCK_global_table_stats);
+
+  for (unsigned i = 0; i < global_table_stats.records; ++i) {
+    uint ix;
+
+    TABLE_STATS *table_stats =
+      (TABLE_STATS*)my_hash_element(&global_table_stats, i);
+
+    for (ix=0; ix < table_stats->num_indexes; ++ix)
+    {
+      INDEX_STATS *index_stats= &(table_stats->indexes[ix]);
+      int f= 0;
+
+      if (index_stats->rows_inserted.load() == 0 &&
+          index_stats->rows_updated.load() == 0 &&
+          index_stats->rows_deleted.load() == 0 &&
+          index_stats->rows_read.load() == 0 &&
+          index_stats->rows_requested.load() == 0)
+      {
+        continue;
+      }
+
+      restore_record(table, s->default_values);
+      table->field[f++]->store(table_stats->db, strlen(table_stats->db),
+                             system_charset_info);
+      table->field[f++]->store(table_stats->table, strlen(table_stats->table),
+                               system_charset_info);
+
+      table->field[f++]->store(index_stats->name, strlen(index_stats->name),
+                              system_charset_info);
+      table->field[f++]->store(table_stats->engine_name,
+                               strlen(table_stats->engine_name),
+                               system_charset_info);
+
+      table->field[f++]->store(index_stats->rows_inserted.load(), TRUE);
+      table->field[f++]->store(index_stats->rows_updated.load(), TRUE);
+      table->field[f++]->store(index_stats->rows_deleted.load(), TRUE);
+      table->field[f++]->store(index_stats->rows_read.load(), TRUE);
+      table->field[f++]->store(index_stats->rows_requested.load(), TRUE);
+
+      table->field[f++]->store(index_stats->rows_index_first.load(), TRUE);
+      table->field[f++]->store(index_stats->rows_index_next.load(), TRUE);
+
+      table->field[f++]->store(index_stats->io_perf_read.bytes.load(), TRUE);
+      table->field[f++]->store(index_stats->io_perf_read.requests.load(), TRUE);
+      table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               index_stats->io_perf_read.svc_time.load()),
+                               TRUE);
+      table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               index_stats->io_perf_read.svc_time_max.load()),
+                               TRUE);
+      table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               index_stats->io_perf_read.wait_time.load()),
+                               TRUE);
+      table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                               index_stats->io_perf_read.wait_time_max.load()),
+                               TRUE);
+      table->field[f++]->store(index_stats->io_perf_read.slow_ios.load(), TRUE);
+
+
+      if (schema_table_store_record(thd, table))
+      {
+        mysql_mutex_unlock(&LOCK_global_table_stats);
+        DBUG_RETURN(-1);
+      }
+    }
+  }
+
+
+
+  mysql_mutex_unlock(&LOCK_global_table_stats);
+
+  DBUG_RETURN(0);
+}
 ST_FIELD_INFO user_stats_fields_info[]=
 {
   {"USER_NAME", NAME_LEN, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE},

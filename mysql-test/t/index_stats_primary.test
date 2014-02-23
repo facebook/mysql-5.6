@@ -1,0 +1,162 @@
+# # Test IS.index_statistics for rows_* counters during primary key scans
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists indexstats;
+--enable_warnings
+
+desc information_schema.index_statistics;
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+create table indexstats (i int primary key, j int) engine=innodb;
+
+insert into indexstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+
+--echo
+--echo At start
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+#
+# Equality search
+#
+
+select * from indexstats where i=0;
+select * from indexstats where i=1;
+select * from indexstats where i=2;
+select * from indexstats where i=7;
+
+--echo
+--echo After 2 good and 2 failed equality search: Increment rows_read by 2
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+#
+# Less than
+#
+
+select * from indexstats where i < 0;
+select * from indexstats where i < 1;
+
+--echo
+--echo After 2 failed less than search: Increment rows_read by 2
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i < 2;
+
+--echo
+--echo After search that gets 1 row: Increment rows_read by 2
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i < 3;
+
+--echo
+--echo After search that gets 2 rows: Increment rows_read by 3
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+#
+# Less than or equal
+#
+
+select * from indexstats where i <= 0;
+
+--echo
+--echo After 1 failed less than or equal search: Increment rows_read by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i <= 1;
+
+--echo
+--echo After less than or equal search that gets 1 row: Increment rows_read by 2
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i <= 2;
+
+--echo
+--echo After less than or equal search that gets 2 rows: Increment rows_read by 3
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+#
+# Greater than
+#
+
+select * from indexstats where i > 5;
+--echo
+--echo After 1 failed greater than search: Increment rows_read by 0
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i > 6;
+--echo
+--echo After 1 failed greater than search: Increment rows_read by 0
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i > 3;
+--echo
+--echo After greater than search that gets 2 rows: Increment rows_read by 2
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+#
+# Greater than or equal
+#
+
+select * from indexstats where i >= 6;
+--echo
+--echo After 1 failed greater than or equal search: Increment rows_read by 0
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+select * from indexstats where i >= 5;
+--echo
+--echo After greater than or equal search: Increment rows_read by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'PRIMARY' and table_name = 'indexstats'
+
+# Cleanup
+drop table indexstats;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
