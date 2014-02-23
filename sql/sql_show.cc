@@ -8198,6 +8198,8 @@ ST_SCHEMA_TABLE schema_tables[]=
    fill_status, make_old_format, 0, 0, -1, 0, 0},
   {"GLOBAL_VARIABLES", variables_fields_info, create_schema_table,
    fill_variables, make_old_format, 0, 0, -1, 0, 0},
+  {"INDEX_STATISTICS", index_stats_fields_info, create_schema_table,
+    fill_index_stats, NULL, NULL, -1, -1, false, 0},
   {"KEY_COLUMN_USAGE", key_column_usage_fields_info, create_schema_table,
    get_all_tables, 0, get_schema_key_column_usage_record, 4, 5, 0,
    OPTIMIZE_I_S_TABLE|OPEN_TABLE_ONLY},
