@@ -3956,6 +3956,19 @@ static Sys_var_mybool Sys_slow_query_log(
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
        ON_UPDATE(fix_log_state));
 
+static Sys_var_mybool Sys_log_datagram(
+       "log_datagram",
+       "Enable logging queries to a unix local datagram socket",
+       GLOBAL_VAR(log_datagram), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+       ON_UPDATE(setup_datagram_socket));
+
+static Sys_var_ulong Sys_log_datagram_usecs(
+       "log_datagram_usecs",
+       "Log queries longer than log-datagram-usecs to a "
+       "unix local datagram socket",
+       GLOBAL_VAR(log_datagram_usecs), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
 static bool fix_log_state(sys_var *self, THD *thd, enum_var_type type)
 {
