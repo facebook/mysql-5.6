@@ -8415,7 +8415,7 @@ ha_innobase::change_active_index(
 	ut_ad(user_thd == ha_thd());
 	ut_a(prebuilt->trx == thd_to_trx(user_thd));
 
-	active_index = keynr;
+	last_active_index = active_index = keynr;
 
 	prebuilt->index = innobase_get_index(keynr);
 
@@ -11176,7 +11176,7 @@ ha_innobase::records_in_range(
 
 	trx_search_latch_release_if_reserved(prebuilt->trx);
 
-	active_index = keynr;
+	last_active_index = active_index = keynr;
 
 	key = table->key_info + active_index;
 

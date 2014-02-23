@@ -344,7 +344,7 @@ ha_partition::ha_partition(handlerton *hton, TABLE_SHARE *share,
 
 void ha_partition::init_handler_variables()
 {
-  active_index= MAX_KEY;
+  last_active_index= active_index= MAX_KEY;
   m_mode= 0;
   m_open_test_lock= 0;
   m_file_buffer= NULL;
@@ -5107,7 +5107,7 @@ int ha_partition::index_init(uint inx, bool sorted)
   DBUG_ENTER("ha_partition::index_init");
 
   DBUG_PRINT("info", ("inx %u sorted %u", inx, sorted));
-  active_index= inx;
+  last_active_index= active_index= inx;
   m_part_spec.start_part= NO_CURRENT_PART_ID;
   m_start_key.length= 0;
   m_ordered= sorted;
