@@ -1,0 +1,216 @@
+drop table if exists indexstats;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table indexstats (i int, j int) engine=innodb;
+create index SECONDARY on indexstats(i);
+create index JINDEX on indexstats(j);
+insert into indexstats values (1,1), (2,2), (3,3), (4,4), (5,5);
+
+At start
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+select * from indexstats where i=0;
+i	j
+select * from indexstats where i=1;
+i	j
+1	1
+select * from indexstats where i=2;
+i	j
+2	2
+select * from indexstats where i=7;
+i	j
+
+After 2 good and 2 failed equality search: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	2
+select * from indexstats where i < 0;
+i	j
+select * from indexstats where i < 1;
+i	j
+
+After 2 failed less than search: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	2
+select * from indexstats where i < 2;
+i	j
+1	1
+
+After search that gets 1 row: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	3
+select * from indexstats where i < 3;
+i	j
+1	1
+2	2
+
+After search that gets 2 rows: Increment rows_read by 3
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	5
+select * from indexstats where i <= 0;
+i	j
+
+After 1 failed less than or equal search: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	5
+select * from indexstats where i <= 1;
+i	j
+1	1
+
+After less than or equal search that gets 1 row: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	6
+select * from indexstats where i <= 2;
+i	j
+1	1
+2	2
+
+After less than or equal search that gets 2 rows: Increment rows_read by 3
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	8
+select * from indexstats where i > 5;
+i	j
+
+After 1 failed greater than search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	8
+select * from indexstats where i > 6;
+i	j
+
+After 1 failed greater than search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	8
+select * from indexstats where i > 3;
+i	j
+4	4
+5	5
+
+After greater than search that gets 2 rows: Increment rows_read by 2
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+select * from indexstats where i >= 6;
+i	j
+
+After 1 failed greater than or equal search: Increment rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	10
+select * from indexstats where i >= 5;
+i	j
+5	5
+
+After greater than or equal search: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	11
+select * from indexstats where j=1;
+i	j
+1	1
+
+After 1 good search: Increment rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	1
+
+Increment nothing for unused index
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	11
+insert into indexstats values (9,9);
+
+Increment nothing for unused indexes after insert
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	11
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	1
+update indexstats set j=10 where j=9;
+
+Increment nothing after update
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	11
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	1
+delete from indexstats where j=10;
+
+Increment rows_read and rows_deleted for JINDEX after delete
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'SECONDARY' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	11
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.index_statistics where index_name = 'JINDEX' and table_name = 'indexstats';
+rows_inserted	0
+rows_updated	0
+rows_deleted	1
+rows_read	2
+drop table indexstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
