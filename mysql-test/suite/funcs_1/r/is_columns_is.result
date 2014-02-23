@@ -286,8 +286,9 @@ def	information_schema	TABLES	AUTO_INCREMENT	14	NULL	YES	bigint	NULL	NULL	20	0	N
 def	information_schema	TABLES	AVG_ROW_LENGTH	9	NULL	YES	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	TABLES	CHECKSUM	19	NULL	YES	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
 def	information_schema	TABLES	CHECK_TIME	17	NULL	YES	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
+def	information_schema	TABLES	COMPACT_METADATA	25	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	TABLES	COMPRESSION	22	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	TABLES	COMPRESSION_FLAGS	23	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	TABLES	COMPRESSION_LEVEL	23	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	TABLES	CREATE_OPTIONS	20	NULL	YES	varchar	255	765	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(255)			select	
 def	information_schema	TABLES	CREATE_TIME	15	NULL	YES	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
 def	information_schema	TABLES	DATA_FREE	13	NULL	YES	bigint	NULL	NULL	20	0	NULL	NULL	NULL	bigint(21) unsigned			select	
@@ -851,8 +852,9 @@ NULL	information_schema	TABLES	CHECKSUM	bigint	NULL	NULL	NULL	NULL	bigint(21) un
 3.0000	information_schema	TABLES	CREATE_OPTIONS	varchar	255	765	utf8	utf8_general_ci	varchar(255)
 3.0000	information_schema	TABLES	TABLE_COMMENT	varchar	2048	6144	utf8	utf8_general_ci	varchar(2048)
 3.0000	information_schema	TABLES	COMPRESSION	varchar	64	192	utf8	utf8_general_ci	varchar(64)
-NULL	information_schema	TABLES	COMPRESSION_FLAGS	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	TABLES	COMPRESSION_LEVEL	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	TABLES	KEY_BLOCK_SIZE	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	TABLES	COMPACT_METADATA	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	TABLESPACES	TABLESPACE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	TABLESPACES	ENGINE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	TABLESPACES	TABLESPACE_TYPE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
