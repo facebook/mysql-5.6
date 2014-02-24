@@ -52,6 +52,7 @@ INCLUDE_DIRECTORIES(
   ${MYSQL_ROOT_DIR}/include
   ${MYSQL_ROOT_DIR}/regex
   ${MYSQL_ROOT_DIR}/storage/innobase/include
+  ${MYSQL_ROOT_DIR}/zlib
 )
 
 TARGET_LINK_LIBRARIES(xtrabackup mysys strings innobase zlib regex)
