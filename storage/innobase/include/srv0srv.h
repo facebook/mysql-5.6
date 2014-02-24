@@ -396,7 +396,8 @@ extern my_bool			srv_stats_persistent;
 extern unsigned long long	srv_stats_persistent_sample_pages;
 extern my_bool			srv_stats_auto_recalc;
 
-extern ibool	srv_use_doublewrite_buf;
+extern ulong	srv_use_doublewrite_buf;
+extern my_bool	srv_doublewrite_reset;
 extern ulong	srv_doublewrite_batch_size;
 
 extern double	srv_max_buf_pool_modified_pct;
