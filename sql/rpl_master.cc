@@ -878,7 +878,8 @@ static void processlist_slave_offset(char *output_info,
                                      THD  *thd,
                                      const char *log_file_name,
                                      my_off_t log_pos,
-                                     int  *skip_state_update)
+                                     int  *skip_state_update,
+                                     bool semi_sync_slave)
 {
   int len;
 
@@ -898,7 +899,8 @@ static void processlist_slave_offset(char *output_info,
     }
   }
 
-  len= snprintf(output_info, output_len, "slave offset: %s %lld",
+  len= snprintf(output_info, output_len, "%s slave offset: %s %lld",
+                semi_sync_slave ? "Semisync" : "Async",
                 log_file_name + dirname_length(log_file_name),
                 (long long int)log_pos);
 
@@ -1437,7 +1439,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
       processlist_slave_offset(state_msg, state_msg_len, thd,
                                log_file_name, my_b_tell(&log),
-                               &skip_state_update);
+                               &skip_state_update, semi_sync_slave);
 
       switch (event_type)
       {
@@ -1924,7 +1926,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         {
           processlist_slave_offset(state_msg, state_msg_len, thd,
                                    log_file_name, my_b_tell(&log),
-                                   &skip_state_update);
+                                   &skip_state_update, semi_sync_slave);
 
           switch (event_type)
           {
