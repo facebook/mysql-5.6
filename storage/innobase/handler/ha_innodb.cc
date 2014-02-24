@@ -1140,6 +1140,18 @@ static SHOW_VAR innodb_status_variables[]= {
   {"num_optimistic_insert_calls_in_pessimistic_descent",
   (char*) &export_vars.num_optimistic_insert_calls_in_pessimistic_descent, SHOW_LONGLONG},
 #endif
+  {"malloc_cache_hits_compress",
+  (char*) &export_vars.innodb_malloc_cache_hits_compress, SHOW_LONG},
+  {"malloc_cache_misses_compress",
+  (char*) &export_vars.innodb_malloc_cache_misses_compress, SHOW_LONG},
+  {"malloc_cache_hits_decompress",
+  (char*) &export_vars.innodb_malloc_cache_hits_decompress, SHOW_LONG},
+  {"malloc_cache_misses_decompress",
+  (char*) &export_vars.innodb_malloc_cache_misses_decompress, SHOW_LONG},
+  {"malloc_cache_block_size_compress",
+  (char*) &export_vars.innodb_malloc_cache_block_size_compress, SHOW_LONG},
+  {"malloc_cache_block_size_decompress",
+  (char*) &export_vars.innodb_malloc_cache_block_size_decompress, SHOW_LONG},
   {NullS, NullS, SHOW_LONG}
 };
 
@@ -17103,6 +17115,18 @@ static MYSQL_SYSVAR_ULONG(malloc_cache_len, buf_malloc_cache_len,
   " buffer pool page descriptors. 0 length means no caching.",
   NULL, NULL, 1000L, 0L, 1000000L, 0);
 
+static MYSQL_SYSVAR_ULONG(compress_malloc_cache_len,
+  malloc_cache_compress_len, PLUGIN_VAR_OPCMDARG,
+  "Length of the cache for the memory allocations used for "
+  "page_zip_compress(). 0 length means no caching.",
+  NULL, NULL, 1000L, 0L, 10000L, 0);
+
+static MYSQL_SYSVAR_ULONG(decompress_malloc_cache_len,
+  malloc_cache_decompress_len, PLUGIN_VAR_OPCMDARG,
+  "Length of the cache for the memory allocations used for "
+  "page_zip_decompress(). 0 length means no caching.",
+  NULL, NULL, 1000L, 0L, 10000L, 0);
+
 static MYSQL_SYSVAR_LONG(open_files, innobase_open_files,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "How many files at the maximum InnoDB keeps open at the same time.",
@@ -17656,6 +17680,8 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(zlib_strategy),
   MYSQL_SYSVAR(lru_manager_max_sleep_time),
   MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
+  MYSQL_SYSVAR(compress_malloc_cache_len),
+  MYSQL_SYSVAR(decompress_malloc_cache_len),
   NULL
 };
 

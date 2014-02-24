@@ -2057,6 +2057,18 @@ srv_export_innodb_status(void)
 		row_ins_optimistic_insert_calls_in_pessimistic_descent;
 #endif /* UNIV_DEBUG */
 
+	export_vars.innodb_malloc_cache_hits_compress = malloc_cache_compress->hits;
+	export_vars.innodb_malloc_cache_misses_compress =
+	  malloc_cache_compress->misses;
+	export_vars.innodb_malloc_cache_hits_decompress =
+	  malloc_cache_decompress->hits;
+	export_vars.innodb_malloc_cache_misses_decompress =
+	  malloc_cache_decompress->misses;
+	export_vars.innodb_malloc_cache_block_size_compress =
+	  malloc_cache_compress->block_size;
+	export_vars.innodb_malloc_cache_block_size_decompress =
+	  malloc_cache_decompress->block_size;
+
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
 

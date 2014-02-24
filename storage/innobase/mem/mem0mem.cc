@@ -390,6 +390,7 @@ mem_heap_create_block_func(
 	mem_block_set_type(block, type);
 	mem_block_set_free(block, MEM_BLOCK_HEADER_SIZE);
 	mem_block_set_start(block, MEM_BLOCK_HEADER_SIZE);
+	block->cache = NULL;
 
 	if (UNIV_UNLIKELY(heap == NULL)) {
 		/* This is the first block of the heap. The field
@@ -412,6 +413,9 @@ mem_heap_create_block_func(
 
 /***************************************************************//**
 Adds a new block to a memory heap.
+The block can be cached if the heap belongs to a cache (i.e. heap->cache
+is not NULL) and the requested size (n) is less than the cache block size.
+block->cache will be NULL for non-cached blocks.
 @return created block, NULL if did not succeed (only possible for
 MEM_HEAP_BTR_SEARCH type heaps) */
 UNIV_INTERN
@@ -424,6 +428,7 @@ mem_heap_add_block(
 	mem_block_t*	block;
 	mem_block_t*	new_block;
 	ulint		new_size;
+	mem_block_cache_t* cache = heap->cache;
 
 	ut_ad(mem_heap_check(heap));
 
@@ -451,8 +456,32 @@ mem_heap_add_block(
 		new_size = n;
 	}
 
-	new_block = mem_heap_create_block(heap, new_size, heap->type,
-					  heap->file_name, heap->line);
+	/* If the heap is cached and requested size (n) is less than the block
+	size for the cache, then we try to find a block from the cache.
+	Note that this changes the original behavior of doubling the block size
+	each time a block is full. We expect that the callers of
+	mem_heap_create_cached() will choose a good cache block size, so that any code
+	path that requires more memory than the cache block size will not exceed
+	the block size by too much. */
+	if (cache && n < cache->block_size) {
+		if ((new_block = mem_block_cache_find_block(cache, n))) {
+#ifdef UNIV_DEBUG
+			new_block->line = heap->line;
+			ut_strlcpy_rev(new_block->file_name,
+			               heap->file_name,
+			               sizeof(new_block->file_name));
+#endif /* UNIV_DEBUG */
+			ut_d(new_block->total_size = ULINT_UNDEFINED);
+		} else {
+			new_block = mem_heap_create_block(heap, cache->block_size,
+			                                  heap->type, heap->file_name,
+			                                  heap->line);
+			block->cache = cache;
+		}
+	} else {
+		new_block = mem_heap_create_block(heap, new_size, heap->type,
+		          heap->file_name, heap->line);
+	}
 	if (new_block == NULL) {
 
 		return(NULL);
@@ -482,11 +511,12 @@ mem_heap_block_free(
 	buf_block = static_cast<buf_block_t*>(block->buf_block);
 #endif /* !UNIV_HOTBACKUP */
 
-	if (block->magic_n != MEM_BLOCK_MAGIC_N) {
+	if (heap && block->magic_n != MEM_BLOCK_MAGIC_N) {
 		mem_analyze_corruption(block);
 	}
 
-	UT_LIST_REMOVE(list, heap->base, block);
+	if (heap)
+		UT_LIST_REMOVE(list, heap->base, block);
 
 #ifdef MEM_PERIODIC_CHECK
 	mutex_enter(&(mem_comm_pool->mutex));
@@ -496,10 +526,14 @@ mem_heap_block_free(
 	mutex_exit(&(mem_comm_pool->mutex));
 #endif
 
-	ut_ad(heap->total_size >= block->len);
-	heap->total_size -= block->len;
+	if (heap) {
+		ut_ad(heap->total_size >= block->len);
+		heap->total_size -= block->len;
 
-	type = heap->type;
+		type = heap->type;
+	} else {
+		type = block->type;
+	}
 	len = block->len;
 	block->magic_n = MEM_FREED_BLOCK_MAGIC_N;
 

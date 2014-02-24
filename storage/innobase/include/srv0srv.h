@@ -1230,6 +1230,12 @@ struct export_var_t{
 #ifdef UNIV_DEBUG
 	ullint	num_optimistic_insert_calls_in_pessimistic_descent;
 #endif /* UNIV_DEBUG */
+	ulint  	innodb_malloc_cache_hits_compress;
+	ulint	innodb_malloc_cache_misses_compress;
+	ulint  	innodb_malloc_cache_hits_decompress;
+	ulint  	innodb_malloc_cache_misses_decompress;
+	ulint  	innodb_malloc_cache_block_size_compress;
+	ulint  	innodb_malloc_cache_block_size_decompress;
 };
 
 /** Thread slot in the thread table.  */

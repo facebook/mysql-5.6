@@ -58,6 +58,7 @@ Created 2/16/1996 Heikki Tuuri
 #include "log0recv.h"
 #include "page0page.h"
 #include "page0cur.h"
+#include "page0zip.h"
 #include "trx0trx.h"
 #include "trx0sys.h"
 #include "btr0btr.h"
@@ -1995,6 +1996,7 @@ innobase_start_or_create_for_mysql(void)
 
 	fsp_init();
 	log_init();
+	page_zip_init();
 
 	lock_sys_create(srv_lock_table_size);
 
@@ -3101,6 +3103,7 @@ innobase_shutdown_for_mysql(void)
 	log_mem_free();
 	buf_pool_free(srv_buf_pool_instances);
 	mem_close();
+	page_zip_close();
 
 	/* ut_free_all_mem() frees all allocated memory not freed yet
 	in shutdown, and it will also free the ut_list_mutex, so it

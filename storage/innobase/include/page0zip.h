@@ -44,8 +44,37 @@ Created June 2005 by Marko Makela
 #endif /* !UNIV_INNOCHECKSUM */
 #include "zlib.h"
 
+/* Below macros are used to calculate the memory requirement for zlib's
+compression/decompression streams */
+#define DEFLATE_MEMORY_BOUND(windowBits, memLevel) \
+    ((4L << (windowBits)) + (512L << (memLevel)) + (128UL << 10))
+
+#define INFLATE_MEMORY_BOUND(windowBits) \
+    ((1L << (windowBits)) + (128UL << 10))
+
 /* Compression level to be used by zlib. Settable by user. */
 extern uint	page_zip_level;
+
+#ifndef UNIV_INNOCHECKSUM
+extern ulint	malloc_cache_compress_len;
+extern ulint	malloc_cache_decompress_len;
+extern mem_block_cache_t*	malloc_cache_compress;
+extern mem_block_cache_t*	malloc_cache_decompress;
+#endif /* !UNIV_INNOCHECKSUM */
+
+
+/* Calculates block size as an upper bound required for memory, used for
+page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
+which initializes the mem_block_cache with it */
+UNIV_INTERN
+void
+page_zip_init(void);
+
+/* Frees the malloc_cache_compress, and malloc_cache_decompress
+mem_blocks, and all the cached mem_blocks in the queue. */
+UNIV_INTERN
+void
+page_zip_close();
 
 /* Default compression level. */
 #define DEFAULT_COMPRESSION_LEVEL	6
