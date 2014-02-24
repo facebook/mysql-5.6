@@ -32,12 +32,12 @@ Created 6/8/1994 Heikki Tuuri
 # define mem_heap_create_block(heap, n, type, file_name, line)		\
 	mem_heap_create_block_func(heap, n, file_name, line, type)
 # define mem_heap_create_at(N, file_name, line)				\
-	mem_heap_create_func(N, file_name, line, MEM_HEAP_DYNAMIC)
+	mem_heap_create_func(N, file_name, line, MEM_HEAP_DYNAMIC, NULL)
 #else /* UNIV_DEBUG */
 # define mem_heap_create_block(heap, n, type, file_name, line)		\
 	mem_heap_create_block_func(heap, n, type)
 # define mem_heap_create_at(N, file_name, line)				\
-	mem_heap_create_func(N, MEM_HEAP_DYNAMIC)
+	mem_heap_create_func(N, MEM_HEAP_DYNAMIC, NULL)
 #endif /* UNIV_DEBUG */
 /***************************************************************//**
 Creates a memory heap block where data can be allocated.
@@ -75,6 +75,9 @@ mem_heap_free_block_free(
 #endif /* !UNIV_HOTBACKUP */
 /***************************************************************//**
 Adds a new block to a memory heap.
+The block can be cached if the heap belongs to a cache (i.e. heap->cache
+is not NULL) and the requested size (n) is less than the cache block size.
+block->cache will be NULL for non-cached blocks.
 @return created block, NULL if did not succeed (only possible for
 MEM_HEAP_BTR_SEARCH type heaps) */
 UNIV_INTERN
@@ -438,15 +441,35 @@ mem_heap_create_func(
 	const char*	file_name,	/*!< in: file name where created */
 	ulint		line,		/*!< in: line where created */
 #endif /* UNIV_DEBUG */
-	ulint		type)		/*!< in: heap type */
+	ulint		type,		/*!< in: heap type */
+	mem_block_cache_t* cache) /*!< in: if not NULL, the blocks of this heap will
+	        be cached instead of being free()'d when mem_heap_free() is called. */
 {
 	mem_block_t*   block;
 
+	ut_a(type == MEM_HEAP_DYNAMIC || !cache);
 	if (!n) {
 		n = MEM_BLOCK_START_SIZE;
 	}
 
-	block = mem_heap_create_block(NULL, n, type, file_name, line);
+	if (cache && n <= cache->block_size) {
+		if ((block = mem_block_cache_find_block(cache, n))) {
+#ifdef UNIV_DEBUG
+			ut_strlcpy_rev(block->file_name, file_name, sizeof(block->file_name));
+			block->line = line;
+#endif /* UNIV_DEBUG */
+			/* because this is the first block, we need to set the total_size.
+			Note that total_size will be slightly bigger than cache->block_size
+			because of the headers within block */
+			block->total_size = block->len;
+		} else {
+      block = mem_heap_create_block(NULL, cache->block_size,
+                                    type, file_name, line);
+      block->cache = cache;
+    }
+  } else {
+		block = mem_heap_create_block(NULL, n, type, file_name, line);
+	}
 
 	if (block == NULL) {
 
@@ -482,6 +505,8 @@ mem_heap_free_func(
 {
 	mem_block_t*	block;
 	mem_block_t*	prev_block;
+	mem_block_cache_t* cache = heap->cache;
+	ut_a(!cache || heap->type == MEM_HEAP_DYNAMIC);
 
 	ut_ad(mem_heap_check(heap));
 
@@ -507,7 +532,14 @@ mem_heap_free_func(
 
 		prev_block = UT_LIST_GET_PREV(list, block);
 
-		mem_heap_block_free(heap, block);
+		if (!block->cache) {
+			mem_heap_block_free(heap, block);
+		} else {
+			ut_a(block->cache == cache);
+			if (UNIV_UNLIKELY(!mem_block_cache_add_block(cache, heap, block))) {
+				mem_heap_block_free(heap, block);
+			}
+		}
 
 		block = prev_block;
 	}
@@ -646,4 +678,98 @@ mem_heap_strdupl(
 	char*	s = (char*) mem_heap_alloc(heap, len + 1);
 	s[len] = 0;
 	return((char*) memcpy(s, str, len));
+}
+
+/**********************************************************************//**
+Initializes the mem_block_cache. capacity is specified as a pointer so
+that it can point to an external integer that can be set outside. */
+UNIV_INLINE
+void
+mem_block_cache_init(
+	mem_block_cache_t* cache,
+	ulint block_size,
+	ulint* capacity)
+{
+	cache->block_size = block_size;
+	cache->capacity = capacity;
+	cache->hits = cache->misses = 0;
+	mutex_create(PFS_NOT_INSTRUMENTED, &cache->m, SYNC_NO_ORDER_CHECK);
+	UT_LIST_INIT(cache->base);
+}
+
+/**********************************************************************//**
+Frees the mem_block_cache and all of the cached mem_blocks in the queue.
+Should be called on shutdown. */
+UNIV_INLINE
+void
+mem_block_cache_free(mem_block_cache_t* cache)
+{
+	mem_block_t* block = UT_LIST_GET_FIRST(cache->base);
+	mem_block_t* tmp;
+	while (block) {
+		tmp = UT_LIST_GET_NEXT(cache_list, block);
+		mem_heap_block_free(NULL, block);
+		block = tmp;
+	}
+}
+
+/**********************************************************************//**
+Returns a mem_block whose size is specified by cache->block_size or NULL
+if the cache is empty.
+n is the requested memory size. The caller has to make sure that n
+is less than cache->block_size.
+@return a mem_block from cache or NULL if cache is empty. */
+UNIV_INLINE
+mem_block_t*
+mem_block_cache_find_block(
+	mem_block_cache_t* cache,
+	ulint n __attribute__((unused)))
+{
+	mem_block_t* block = NULL;
+	mutex_enter(&cache->m);
+	if (UT_LIST_GET_LEN(cache->base)) {
+		block = UT_LIST_GET_FIRST(cache->base);
+		UT_LIST_REMOVE(cache_list, cache->base, block);
+		ut_ad(block->len >= MEM_SPACE_NEEDED(n));
+		ut_ad(block->magic_n == MEM_FREED_BLOCK_MAGIC_N);
+		block->magic_n = MEM_BLOCK_MAGIC_N;
+		/* reset the available space on the block */
+		mem_block_set_free(block, MEM_BLOCK_HEADER_SIZE);
+		++cache->hits;
+	} else {
+		++cache->misses;
+	}
+	mutex_exit(&cache->m);
+	return block;
+}
+
+/**********************************************************************//**
+Adds a block to the cache. The caller must make sure that the block is cached
+by making sure that block->cache is not NULL before calling this function.
+@return TRUE if the block is added to the cache, FALSE if the cache was full. */
+UNIV_INLINE
+ibool
+mem_block_cache_add_block(
+	mem_block_cache_t* cache,
+	mem_heap_t* heap,
+	mem_block_t* block)
+{
+	ibool ret = FALSE;
+	ut_a(block->cache == heap->cache);
+	ut_a(block->len >= cache->block_size);
+	mutex_enter(&cache->m);
+	if (UT_LIST_GET_LEN(cache->base) < *(cache->capacity)) {
+		if (block->magic_n != MEM_BLOCK_MAGIC_N) {
+			mem_analyze_corruption(block);
+			ut_error;
+		}
+		/* remove the block from the heap */
+		UT_LIST_REMOVE(list, heap->base, block);
+		block->magic_n = MEM_FREED_BLOCK_MAGIC_N;
+		/* add the block to the front of the cache */
+		UT_LIST_ADD_FIRST(cache_list, cache->base, block);
+		ret = TRUE;
+	}
+	mutex_exit(&cache->m);
+	return ret;
 }
