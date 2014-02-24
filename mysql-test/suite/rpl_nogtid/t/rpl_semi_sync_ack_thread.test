@@ -21,6 +21,9 @@
 # "Semi-sync master failed on net_flush() before waiting for replica reply"
 CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
 
+# echo [ check SHOW PROCESSLIST shows the semisync info of dump threads ];
+SELECT info FROM information_schema.processlist where Command like 'Binlog%';
+
 --echo ####################################################################
 --echo # Test Case: semisync master can be enabled and disabled sucessfully
 --echo # without any live slave connection and also test ON, OFF can be set

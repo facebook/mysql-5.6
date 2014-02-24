@@ -10,6 +10,11 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection server_1]
 CALL mtr.add_suppression("Semi-sync master failed on net_flush().*");
+SELECT info FROM information_schema.processlist where Command like 'Binlog%';
+info
+Async slave offset: master-bin.000001 157
+Async slave offset: master-bin.000001 157
+Async slave offset: master-bin.000001 157
 ####################################################################
 # Test Case: semisync master can be enabled and disabled sucessfully
 # without any live slave connection and also test ON, OFF can be set
