@@ -1,0 +1,63 @@
+
+#
+# 2013-04-04 - Added
+#
+
+--source include/have_innodb.inc
+
+SET @start_global_value = @@global.innodb_decompress_malloc_cache_len;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+--echo Valid values are between 1 and 10000
+select @@global.innodb_decompress_malloc_cache_len between 1 and 10000;
+select @@global.innodb_decompress_malloc_cache_len;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_decompress_malloc_cache_len;
+show global variables like 'innodb_decompress_malloc_cache_len';
+show session variables like 'innodb_decompress_malloc_cache_len';
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+select * from information_schema.session_variables where variable_name='innodb_decompress_malloc_cache_len';
+
+#
+# show that it's writable
+#
+set global innodb_decompress_malloc_cache_len=10;
+select @@global.innodb_decompress_malloc_cache_len;
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+select * from information_schema.session_variables where variable_name='innodb_decompress_malloc_cache_len';
+--error ER_GLOBAL_VARIABLE
+set session innodb_decompress_malloc_cache_len=1;
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_decompress_malloc_cache_len=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_decompress_malloc_cache_len=1e1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_decompress_malloc_cache_len="bar";
+
+set global innodb_decompress_malloc_cache_len=-7;
+select @@global.innodb_decompress_malloc_cache_len;
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+set global innodb_decompress_malloc_cache_len=10007;
+select @@global.innodb_decompress_malloc_cache_len;
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+
+#
+# min/max/DEFAULT values
+#
+set global innodb_decompress_malloc_cache_len=0;
+select @@global.innodb_decompress_malloc_cache_len;
+set global innodb_decompress_malloc_cache_len=10000;
+select @@global.innodb_decompress_malloc_cache_len;
+set global innodb_decompress_malloc_cache_len=DEFAULT;
+select @@global.innodb_decompress_malloc_cache_len;
+
+
+SET @@global.innodb_decompress_malloc_cache_len = @start_global_value;
+SELECT @@global.innodb_decompress_malloc_cache_len;
