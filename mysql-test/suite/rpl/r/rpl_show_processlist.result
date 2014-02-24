@@ -8,6 +8,6 @@ INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
 INSERT INTO t1 (data) VALUES (repeat('a',1024*1024));
 SELECT info FROM information_schema.processlist where Command like 'Binlog%';
 info
-slave offset: master-bin.000001 120
+Async slave offset: master-bin.000001 120
 drop table t1;
 stop slave;
