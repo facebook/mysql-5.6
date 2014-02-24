@@ -54,6 +54,7 @@ using namespace std;
 # include "dict0boot.h"
 # include "lock0lock.h"
 # include "srv0srv.h"
+# include "zlib.h"
 #endif /* !UNIV_INNOCHECKSUM */
 # include "buf0lru.h"
 # include "srv0mon.h"
@@ -1206,6 +1207,57 @@ func_exit:
 	return(err);
 }
 
+/* Memory block caches used for caching the blocks used for
+page_zip_compress() and page_zip_decompress() */
+ulint malloc_cache_compress_len = 1000;
+ulint malloc_cache_decompress_len = 1000;
+mem_block_cache_t malloc_cache_compress_obj;
+mem_block_cache_t malloc_cache_decompress_obj;
+mem_block_cache_t* malloc_cache_compress;
+mem_block_cache_t* malloc_cache_decompress;
+
+/* Calculates block size as an upper bound required for memory, used for
+page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
+which initializes the mem_block_cache with it */
+UNIV_INTERN
+void
+page_zip_init(void)
+{
+	ulint block_size;
+	malloc_cache_compress = &malloc_cache_compress_obj;
+	malloc_cache_decompress = &malloc_cache_decompress_obj;
+
+	/* below, we compute an upperbound for the average amount of memory we need to
+	allocate for page_zip_compress() assuming that the average record size of a
+	table is at least 16 and that there are at most 20 columns on a table. */
+	block_size =  MEM_SPACE_NEEDED(UNIV_PAGE_SIZE)
+	  + MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint)))
+	  + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint))
+	  + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT,
+	                                          MAX_MEM_LEVEL));
+
+	mem_block_cache_init(malloc_cache_compress, block_size,
+	                     &malloc_cache_compress_len);
+
+	/* an upperbound for the amount of memory needed for page_zip_decompress() */
+	block_size = MEM_SPACE_NEEDED((UNIV_PAGE_SIZE/16) * (3 * sizeof(rec_t*)))
+	  + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT));
+
+	mem_block_cache_init(malloc_cache_decompress, block_size,
+	                     &malloc_cache_decompress_len);
+}
+
+/* Frees the malloc_cache_compress, and malloc_cache_decompress
+mem_blocks, and all the cached mem_blocks in the queue. */
+UNIV_INTERN
+void
+page_zip_close(void)
+{
+	mem_block_cache_free(malloc_cache_compress);
+	mem_block_cache_free(malloc_cache_decompress);
+}
+
+
 my_bool page_zip_zlib_wrap = FALSE;
 uint page_zip_zlib_strategy = Z_DEFAULT_STRATEGY;
 
@@ -1363,13 +1415,13 @@ page_zip_compress(
 		goto err_exit;
 	}
 
-	heap = mem_heap_create(page_zip_get_size(page_zip)
-			       + n_fields * (2 + sizeof(ulint))
-			       + REC_OFFS_HEADER_SIZE
-			       + n_dense * ((sizeof *recs)
-					    - PAGE_ZIP_DIR_SLOT_SIZE)
-			       + UNIV_PAGE_SIZE * 4
-			       + (512 << MAX_MEM_LEVEL));
+	heap = mem_heap_create_cached(page_zip_get_size(page_zip)
+			                            + n_fields * (2 + sizeof(ulint))
+			                            + REC_OFFS_HEADER_SIZE
+			                            + n_dense * (sizeof *recs)
+			                            + DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT,
+			                                                   MAX_MEM_LEVEL),
+			                          malloc_cache_compress);
 
 	recs = static_cast<const rec_t**>(
 		mem_heap_zalloc(heap, n_dense * sizeof *recs));
@@ -3154,7 +3206,9 @@ page_zip_decompress(
 		return(FALSE);
 	}
 
-	heap = mem_heap_create(n_dense * (3 * sizeof *recs) + UNIV_PAGE_SIZE);
+	heap = mem_heap_create_cached(n_dense * (3 * sizeof *recs)
+		                       + INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT),
+		                     malloc_cache_decompress);
 
 	recs = static_cast<rec_t**>(
 		mem_heap_alloc(heap, n_dense * (2 * sizeof *recs)));

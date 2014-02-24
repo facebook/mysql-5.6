@@ -68,6 +68,7 @@ Created 10/16/1994 Heikki Tuuri
 #include "srv0srv.h"
 #include "ibuf0ibuf.h"
 #include "lock0lock.h"
+#include "mem0mem.h"
 #include "zlib.h"
 
 /** Buffered B-tree operation types, introduced as part of delete buffering. */
@@ -4500,13 +4501,10 @@ btr_store_big_rec_extern_fields(
 
 	if (page_zip) {
 		int	err = Z_OK;
-
-		/* Zlib deflate needs 128 kilobytes for the default
-		window size, plus 512 << memLevel, plus a few
-		kilobytes for small objects.  We use reduced memLevel
-		to limit the memory consumption, and preallocate the
-		heap, hoping to avoid memory fragmentation. */
-		heap = mem_heap_create(250000);
+    /* Create a heap that's big enough for deflate(). */
+		heap = mem_heap_create_cached(DEFLATE_MEMORY_BOUND(BTR_CUR_BLOB_WBITS,
+		                                                   BTR_CUR_BLOB_MEM_LEVEL),
+		                              malloc_cache_compress);
 		page_zip_set_alloc(&c_stream, heap);
 
 		err = deflateInit2(&c_stream, page_zip_level,
@@ -5358,15 +5356,18 @@ btr_copy_zblob_prefix(
 	d_stream.next_in = Z_NULL;
 	d_stream.avail_in = 0;
 
-	/* Zlib inflate needs 32 kilobytes for the default
-	window size, plus a few kilobytes for small objects. */
-	heap = mem_heap_create(40000);
+  /* Create a heap that's big enough for inflate(). */
+	heap = mem_heap_create_cached(INFLATE_MEMORY_BOUND(BTR_CUR_BLOB_WBITS),
+	                              malloc_cache_decompress);
 	page_zip_set_alloc(&d_stream, heap);
 
 	ut_ad(ut_is_2pow(zip_size));
 	ut_ad(zip_size >= UNIV_ZIP_SIZE_MIN);
 	ut_ad(zip_size <= UNIV_ZIP_SIZE_MAX);
 	ut_ad(space_id);
+
+	err = inflateInit2(&d_stream, BTR_CUR_BLOB_WBITS);
+	ut_a(err == Z_OK);
 
 	for (;;) {
 		buf_page_t*	bpage;

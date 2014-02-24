@@ -45,6 +45,9 @@ typedef struct mem_block_info_t	mem_block_t;
 /* A memory heap is a nonempty linear list of memory blocks */
 typedef mem_block_t		mem_heap_t;
 
+/* A data structure used to cache memory blocks for reuse */
+typedef struct mem_block_cache_struct mem_block_cache_t;
+
 /* Types of allocation for memory heaps: DYNAMIC means allocation from the
 dynamic memory pool of the C compiler, BUFFER means allocation from the
 buffer pool; the latter method is used for very big heaps */
@@ -98,13 +101,24 @@ Use this macro instead of the corresponding function! Macro for memory
 heap creation. */
 
 # define mem_heap_create(N)	mem_heap_create_func(		\
-		(N), __FILE__, __LINE__, MEM_HEAP_DYNAMIC)
+		(N), __FILE__, __LINE__, MEM_HEAP_DYNAMIC, NULL)
+
+/**************************************************************//**
+This macro tries to return a mem_heap_t object whose mem_blocks are
+cached. If N <= cache->block_size, then subsequent blocks of this heap are also
+cached. If N > cache->block_size then none of the mem_blocks of this heap
+is cached. In that case this function would be equivalent to calling
+mem_heap_create(). */
+
+# define mem_heap_create_cached(N, cache) mem_heap_create_func(\
+		(N), __FILE__, __LINE__, MEM_HEAP_DYNAMIC, (cache))
+
 /**************************************************************//**
 Use this macro instead of the corresponding function! Macro for memory
 heap creation. */
 
 # define mem_heap_create_typed(N, T)	mem_heap_create_func(	\
-		(N), __FILE__, __LINE__, (T))
+		(N), __FILE__, __LINE__, (T), NULL)
 
 #else /* UNIV_DEBUG */
 /**************************************************************//**
@@ -112,13 +126,24 @@ Use this macro instead of the corresponding function! Macro for memory
 heap creation. */
 
 # define mem_heap_create(N)	mem_heap_create_func(		\
-		(N), MEM_HEAP_DYNAMIC)
+		(N), MEM_HEAP_DYNAMIC, NULL)
+
+/**************************************************************//**
+This macro tries to return a mem_heap_t object whose mem_blocks are
+cached. If N <= cache->block_size, then subsequent blocks of this heap are also
+cached. If N > cache->block_size then none of the mem_blocks of this heap
+is cached. In that case this function would be equivalent to calling
+mem_heap_create(). */
+
+# define mem_heap_create_cached(N, cache) mem_heap_create_func(\
+		(N), MEM_HEAP_DYNAMIC, (cache))
+
 /**************************************************************//**
 Use this macro instead of the corresponding function! Macro for memory
 heap creation. */
 
 # define mem_heap_create_typed(N, T)	mem_heap_create_func(	\
-		(N), (T))
+		(N), (T), NULL)
 
 #endif /* UNIV_DEBUG */
 /**************************************************************//**
@@ -145,7 +170,9 @@ mem_heap_create_func(
 	const char*	file_name,	/*!< in: file name where created */
 	ulint		line,		/*!< in: line where created */
 #endif /* UNIV_DEBUG */
-	ulint		type);		/*!< in: heap type */
+	ulint		type,		/*!< in: heap type */
+	mem_block_cache_t* cache); /*!< in: if not NULL, the blocks of this heap will
+	        be cached instead of being free()'d when mem_heap_free() is called.*/
 /*****************************************************************//**
 NOTE: Use the corresponding macro instead of this function. Frees the space
 occupied by a memory heap. In the debug version erases the heap memory
@@ -374,6 +401,8 @@ struct mem_block_info_t {
 	char	file_name[8];/* file name where the mem heap was created */
 	ulint	line;	/*!< line number where the mem heap was created */
 #endif /* UNIV_DEBUG */
+	mem_block_cache_t* cache; /* The cache to which this block belongs.
+	    This is NULL if the block is not cached */
 	UT_LIST_BASE_NODE_T(mem_block_t) base; /* In the first block in the
 			the list this is the base node of the list of blocks;
 			in subsequent blocks this is undefined */
@@ -381,6 +410,8 @@ struct mem_block_info_t {
 			and prev in the list. The first block allocated
 			to the heap is also the first block in this list,
 			though it also contains the base node of the list. */
+	UT_LIST_NODE_T(mem_block_t) cache_list; /* This contains pointers
+	    to next and prev blocks in the cache if this block is cached. */
 	ulint	len;	/*!< physical length of this block in bytes */
 	ulint	total_size; /*!< physical length in bytes of all blocks
 			in the heap. This is defined only in the base
@@ -409,6 +440,60 @@ struct mem_block_info_t {
 			by the mem_comm_pool mutex */
 #endif
 };
+
+/**********************************************************************//**
+Data structure for caching mem_blocks of fixed size. It contains a pointer to
+the list of all the cached blocks that were allocated before. It also contains
+fields to collect statistics for misses and hits. A hit means a call to
+malloc() was saved and a miss means the cache was empty so we needed to call
+malloc() */
+struct mem_block_cache_struct {
+	ib_mutex_t m;
+	    /* access to the members of mem_block_cache is protected by this mutex */
+	UT_LIST_BASE_NODE_T(mem_block_t) base;
+	    /* pointer to the LIFO queue of malloc()'ed blocks */
+	ulint *capacity, block_size, hits, misses;
+};
+
+/**********************************************************************//**
+Initializes the mem_block_cache. capacity is specified as a pointer so
+that it can point to an external integer that can be set outside. */
+UNIV_INLINE
+void
+mem_block_cache_init(
+	mem_block_cache_t* cache,
+	ulint block_size,
+	ulint* capacity);
+
+/**********************************************************************//**
+Frees the mem_block_cache and all of the cached mem_blocks in the queue.
+Should be called on shutdown. */
+UNIV_INLINE
+void
+mem_block_cache_free(mem_block_cache_t* cache);
+
+/**********************************************************************//**
+Returns a mem_block whose size is specified by cache->block_size or NULL
+if the cache is empty.
+n is the requested memory size. The caller has to make sure that n
+is less than cache->block_size.
+@return a mem_block from cache or NULL if cache is empty. */
+UNIV_INLINE
+mem_block_t*
+mem_block_cache_find_block(
+	mem_block_cache_t* cache,
+	ulint n);
+
+/**********************************************************************//**
+Adds a block to the cache. The caller must make sure that the block is cached
+by making sure that block->cache is not NULL before calling this function.
+@return TRUE if the block is added to the cache, FALSE if the cache was full. */
+UNIV_INLINE
+ibool
+mem_block_cache_add_block(
+	mem_block_cache_t* cache,
+	mem_heap_t* heap,
+	mem_block_t* block);
 
 #define MEM_BLOCK_MAGIC_N	764741555
 #define MEM_FREED_BLOCK_MAGIC_N	547711122
