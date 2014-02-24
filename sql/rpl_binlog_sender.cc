@@ -55,6 +55,7 @@
 #include "sql/mysqld.h"  // global_system_variables ...
 #include "sql/protocol.h"
 #include "sql/protocol_classic.h"
+#include "sql/replication.h"
 #include "sql/rpl_constants.h"  // BINLOG_DUMP_NON_BLOCK
 #include "sql/rpl_gtid.h"
 #include "sql/rpl_handler.h"    // RUN_HOOK
@@ -1357,6 +1358,12 @@ void Binlog_sender::calc_shrink_buffer_size(size_t current_size) {
   m_new_shrink_size = ALIGN_SIZE(new_size);
 }
 
+static bool is_semi_sync_slave() {
+  long long val = 0;
+  get_user_var_int("rpl_semi_sync_slave", &val, nullptr);
+  return val;
+}
+
 void Binlog_sender::processlist_slave_offset(const char *log_file_name,
                                              my_off_t log_pos) {
   DBUG_ENTER("processlist_show_binlog_state");
@@ -1369,7 +1376,8 @@ void Binlog_sender::processlist_slave_offset(const char *log_file_name,
     m_skip_state_update = 10;
   }
 
-  int len = snprintf(m_state_msg, m_state_msg_len, "slave offset: %s %lld",
+  int len = snprintf(m_state_msg, m_state_msg_len, "%s slave offset: %s %lld",
+                     is_semi_sync_slave() ? "Semisync" : "Async",
                      log_file_name + dirname_length(log_file_name),
                      (long long int)log_pos);
 
