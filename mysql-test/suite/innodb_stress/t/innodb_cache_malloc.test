@@ -1,0 +1,88 @@
+#
+# Test caching of the allocated memory chunks in page_zip_compress() and page_zip_decompress()
+#
+-- source include/have_innodb.inc
+
+--disable_query_log
+--let $file_format_save = `SELECT @@innodb_file_format`
+--let $innodb_unzip_lru_pct_save = `SELECT @@innodb_unzip_lru_pct`
+--let $innodb_compress_malloc_cache_len_save = `SELECT @@innodb_compress_malloc_cache_len`
+--let $innodb_decompress_malloc_cache_len_save = `SELECT @@innodb_decompress_malloc_cache_len`
+
+--disable_warnings
+drop table if exists big_table_malloc_cache;
+--enable_warnings
+
+set global innodb_unzip_lru_pct=1;
+
+delimiter //;
+create procedure populate_table()
+  begin
+    create table big_table_malloc_cache (id int primary key auto_increment, v varchar(200), t text) engine=innodb key_block_size=8;
+    insert into big_table_malloc_cache values (null, lpad("v", 190, "b"), lpad("a", 3000, "b"));
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    insert into big_table_malloc_cache select null, v, t from big_table_malloc_cache;
+    checksum table big_table_malloc_cache;
+end //
+delimiter ;//
+--enable_query_log
+
+# first we set the compress and decompress cache lengths to 1.
+# A length 1 cache is enough because all compressions are serialized.
+set global innodb_compress_malloc_cache_len = 1;
+# A length of 2 is enough for decompressions because at any point there are only two
+# threads doing decompressions: the user thread and the background stats thread.
+set global innodb_decompress_malloc_cache_len = 2;
+
+# following will cause many calls to page_zip_compress() and page_zip_decompress()
+# All but one mallocs will be served from cache.
+--disable_query_log
+call populate_table();
+
+select variable_value compress_misses from information_schema.global_status where variable_name = 'innodb_malloc_cache_misses_compress';
+
+select variable_value > 1000 as compress_hits_enough from information_schema.global_status where variable_name = 'innodb_malloc_cache_hits_compress';
+
+select variable_value <= 2 decompress_misses_acceptable from information_schema.global_status where variable_name = 'innodb_malloc_cache_misses_decompress';
+
+select variable_value > 1000 as decompress_hits_enough from information_schema.global_status where variable_name = 'innodb_malloc_cache_hits_decompress';
+
+drop table big_table_malloc_cache;
+
+select variable_value into @decompress_hits from information_schema.global_status where variable_name = 'innodb_malloc_cache_hits_decompress';
+select variable_value into @compress_hits from information_schema.global_status where variable_name = 'innodb_malloc_cache_hits_compress';
+
+--enable_query_log
+set global innodb_compress_malloc_cache_len = 0;
+set global innodb_decompress_malloc_cache_len = 0;
+--disable_query_log
+
+call populate_table();
+select variable_value - @compress_hits  as compress_hits_no_cache from information_schema.global_status where variable_name = 'innodb_malloc_cache_hits_compress';
+
+select variable_value > 1000 as compress_misses_enough_no_cache from information_schema.global_status where variable_name = 'innodb_malloc_cache_misses_compress';
+
+select variable_value - @decompress_hits <= 2 as decompress_hits_acceptable_no_cache from information_schema.global_status where variable_name = 'innodb_malloc_cache_hits_decompress';
+
+select  variable_value > 1000 as decompress_misses_enough_no_cache from information_schema.global_status where variable_name = 'innodb_malloc_cache_misses_decompress';
+
+drop procedure populate_table;
+drop table big_table_malloc_cache;
+eval SET GLOBAL innodb_file_format = \"$file_format_save\";
+eval SET GLOBAL innodb_unzip_lru_pct = $innodb_unzip_lru_pct_save;
+eval SET GLOBAL innodb_compress_malloc_cache_len = $innodb_compress_malloc_cache_len_save;
+eval SET GLOBAL innodb_decompress_malloc_cache_len = $innodb_compress_malloc_cache_len_save;
+--enable_query_log
+--exit

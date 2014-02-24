@@ -1,0 +1,24 @@
+set global innodb_compress_malloc_cache_len = 1;
+set global innodb_decompress_malloc_cache_len = 2;
+Table	Checksum
+test.big_table_malloc_cache	71643707
+compress_misses
+1
+compress_hits_enough
+1
+decompress_misses_acceptable
+1
+decompress_hits_enough
+1
+set global innodb_compress_malloc_cache_len = 0;
+set global innodb_decompress_malloc_cache_len = 0;
+Table	Checksum
+test.big_table_malloc_cache	71643707
+compress_hits_no_cache
+1
+compress_misses_enough_no_cache
+1
+decompress_hits_acceptable_no_cache
+1
+decompress_misses_enough_no_cache
+1
