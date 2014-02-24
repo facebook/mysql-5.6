@@ -77,6 +77,10 @@ Rpl_semi_sync_master_no_tx	0
 show status like 'Rpl_semi_sync_master_yes_tx';
 Variable_name	Value
 Rpl_semi_sync_master_yes_tx	0
+[ check SHOW PROCESSLIST shows the semisync info of dump threads ]
+SELECT info FROM information_schema.processlist where Command like 'Binlog%';
+info
+Semisync slave offset: master-bin.000001 120
 create table t1(a int) engine = ENGINE_TYPE;
 [ master state after CREATE TABLE statement ]
 show status like 'Rpl_semi_sync_master_status';
