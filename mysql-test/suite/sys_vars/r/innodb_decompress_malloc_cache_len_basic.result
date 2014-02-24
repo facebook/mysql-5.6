@@ -1,0 +1,77 @@
+SET @start_global_value = @@global.innodb_decompress_malloc_cache_len;
+SELECT @start_global_value;
+@start_global_value
+1000
+Valid values are between 1 and 10000
+select @@global.innodb_decompress_malloc_cache_len between 1 and 10000;
+@@global.innodb_decompress_malloc_cache_len between 1 and 10000
+1
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+1000
+select @@session.innodb_decompress_malloc_cache_len;
+ERROR HY000: Variable 'innodb_decompress_malloc_cache_len' is a GLOBAL variable
+show global variables like 'innodb_decompress_malloc_cache_len';
+Variable_name	Value
+innodb_decompress_malloc_cache_len	1000
+show session variables like 'innodb_decompress_malloc_cache_len';
+Variable_name	Value
+innodb_decompress_malloc_cache_len	1000
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DECOMPRESS_MALLOC_CACHE_LEN	1000
+select * from information_schema.session_variables where variable_name='innodb_decompress_malloc_cache_len';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DECOMPRESS_MALLOC_CACHE_LEN	1000
+set global innodb_decompress_malloc_cache_len=10;
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+10
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DECOMPRESS_MALLOC_CACHE_LEN	10
+select * from information_schema.session_variables where variable_name='innodb_decompress_malloc_cache_len';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DECOMPRESS_MALLOC_CACHE_LEN	10
+set session innodb_decompress_malloc_cache_len=1;
+ERROR HY000: Variable 'innodb_decompress_malloc_cache_len' is a GLOBAL variable and should be set with SET GLOBAL
+set global innodb_decompress_malloc_cache_len=1.1;
+ERROR 42000: Incorrect argument type to variable 'innodb_decompress_malloc_cache_len'
+set global innodb_decompress_malloc_cache_len=1e1;
+ERROR 42000: Incorrect argument type to variable 'innodb_decompress_malloc_cache_len'
+set global innodb_decompress_malloc_cache_len="bar";
+ERROR 42000: Incorrect argument type to variable 'innodb_decompress_malloc_cache_len'
+set global innodb_decompress_malloc_cache_len=-7;
+Warnings:
+Warning	1292	Truncated incorrect innodb_decompress_malloc_cache_l value: '-7'
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+0
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DECOMPRESS_MALLOC_CACHE_LEN	0
+set global innodb_decompress_malloc_cache_len=10007;
+Warnings:
+Warning	1292	Truncated incorrect innodb_decompress_malloc_cache_l value: '10007'
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+10000
+select * from information_schema.global_variables where variable_name='innodb_decompress_malloc_cache_len';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_DECOMPRESS_MALLOC_CACHE_LEN	10000
+set global innodb_decompress_malloc_cache_len=0;
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+0
+set global innodb_decompress_malloc_cache_len=10000;
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+10000
+set global innodb_decompress_malloc_cache_len=DEFAULT;
+select @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+1000
+SET @@global.innodb_decompress_malloc_cache_len = @start_global_value;
+SELECT @@global.innodb_decompress_malloc_cache_len;
+@@global.innodb_decompress_malloc_cache_len
+1000
