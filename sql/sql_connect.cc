@@ -1127,6 +1127,9 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->rows_index_next.clear();
   user_stats->transactions_commit.clear();
   user_stats->transactions_rollback.clear();
+  user_stats->n_gtid_unsafe_create_select.clear();
+  user_stats->n_gtid_unsafe_create_drop_temporary_table_in_transaction.clear();
+  user_stats->n_gtid_unsafe_non_transactional_table.clear();
 
 #ifndef DBUG_OFF
   user_stats->magic = USER_STATS_MAGIC;
@@ -1274,6 +1277,11 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->rows_index_next.load(), TRUE);
   table->field[f++]->store(us->transactions_commit.load(), TRUE);
   table->field[f++]->store(us->transactions_rollback.load(), TRUE);
+  table->field[f++]->store(us->n_gtid_unsafe_create_select.load(), TRUE);
+  table->field[f++]->store(
+    us->n_gtid_unsafe_create_drop_temporary_table_in_transaction.load(), TRUE);
+  table->field[f++]->store(us->n_gtid_unsafe_non_transactional_table.load(),
+                           TRUE);
   DBUG_VOID_RETURN;
 }
 
