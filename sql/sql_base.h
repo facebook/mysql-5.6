@@ -281,6 +281,7 @@ void reset_global_table_stats(void);
 extern ST_FIELD_INFO table_stats_fields_info[];
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 typedef void (*table_stats_cb)(const char *db, const char *table,
+			       bool is_partition,
 			       my_io_perf_t* r, my_io_perf_t* w,
 			       my_io_perf_t *r_blob,
 			       my_io_perf_t *r_primary,
