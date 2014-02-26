@@ -263,6 +263,11 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> transactions_commit;
   atomic_stat<ulonglong> transactions_rollback;
 
+  /* stats tracking for gtid_unsafe commands*/
+  atomic_stat<uint> n_gtid_unsafe_create_select;
+  atomic_stat<uint> n_gtid_unsafe_create_drop_temporary_table_in_transaction;
+  atomic_stat<uint> n_gtid_unsafe_non_transactional_table;
+
 #ifndef DBUG_OFF
   uint magic;
 #endif // !DBUG_OFF
