@@ -1118,6 +1118,7 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->microseconds_update.clear();
   user_stats->queries_empty.clear();
   user_stats->query_comment_bytes.clear();
+  user_stats->relay_log_bytes_written.clear();
   user_stats->rows_deleted.clear();
   user_stats->rows_fetched.clear();
   user_stats->rows_inserted.clear();
@@ -1268,6 +1269,7 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(us->microseconds_update.load(), TRUE);
   table->field[f++]->store(us->queries_empty.load(), TRUE);
   table->field[f++]->store(us->query_comment_bytes.load(), TRUE);
+  table->field[f++]->store(us->relay_log_bytes_written.load(), TRUE);
   table->field[f++]->store(us->rows_deleted.load(), TRUE);
   table->field[f++]->store(us->rows_fetched.load(), TRUE);
   table->field[f++]->store(us->rows_inserted.load(), TRUE);
