@@ -972,6 +972,7 @@ struct handlerton
                                     bool is_sql_layer_system_table);
 
   void (*update_table_stats)(void (*cb)(const char *db, const char *tbl,
+                                        bool is_partition,
                                         my_io_perf_t *r, my_io_perf_t *w,
                                         my_io_perf_t *r_blob,
                                         my_io_perf_t *r_primary,
@@ -3461,6 +3462,7 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat);
 
 /* Get updated table statistics from all engines */
 void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
+                                   bool is_partition,
                                    my_io_perf_t* r, my_io_perf_t* w,
                                    my_io_perf_t* r_blob,
                                    my_io_perf_t* r_primary,
