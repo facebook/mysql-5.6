@@ -2,8 +2,6 @@
 # index_merge tests for statements using intersect algorithm
 #
 
-call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
-
 --disable_warnings
 DROP TABLE IF EXISTS t1,t2;
 --enable_warnings

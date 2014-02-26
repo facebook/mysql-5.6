@@ -11,7 +11,7 @@ SELECT @@global.innodb_defragment_stats_accuracy;
 SET @@global.innodb_defragment_stats_accuracy = 1000;
 SELECT @@global.innodb_defragment_stats_accuracy;
 
-SET @@global.innodb_defragment_stats_accuracy = 0;
+SET @@global.innodb_defragment_stats_accuracy = -1;
 SELECT @@global.innodb_defragment_stats_accuracy;
 
 SET @@global.innodb_defragment_stats_accuracy = 1000000000000;

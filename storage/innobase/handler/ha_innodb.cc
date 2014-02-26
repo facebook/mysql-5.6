@@ -16938,8 +16938,9 @@ static MYSQL_SYSVAR_UINT(defragment_stats_accuracy,
   srv_defragment_stats_accuracy,
   PLUGIN_VAR_RQCMDARG,
   "How many defragment stats changes there are before the stats "
-  "are written to persistent storage.",
-  NULL, NULL, 20, 1, ~0U, 0);
+  "are written to persistent storage. Set to 0 meaning disable "
+  "defragment stats tracking.",
+  NULL, NULL, 0, 0, ~0U, 0);
 
 static MYSQL_SYSVAR_ULONG(lru_scan_depth, srv_LRU_scan_depth,
   PLUGIN_VAR_RQCMDARG,

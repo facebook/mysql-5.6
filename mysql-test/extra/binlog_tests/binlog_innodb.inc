@@ -1,4 +1,3 @@
-call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 
 SET BINLOG_FORMAT=MIXED;
 

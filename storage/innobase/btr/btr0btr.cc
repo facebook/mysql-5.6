@@ -4303,7 +4303,8 @@ void
 btr_defragment_save_defrag_stats_if_needed(
 	dict_index_t*	index)	/*!< in: index */
 {
-	if (dict_index_get_space(index) != 0
+	if (srv_defragment_stats_accuracy != 0 // stats tracking disabled
+	    && dict_index_get_space(index) != 0 // do not track system tables
 	    && index->stat_defrag_modified_counter
 	       >= srv_defragment_stats_accuracy) {
 		dict_stats_defrag_pool_add(index);
