@@ -1,0 +1,93 @@
+
+
+################## mysql-test\t\histogram_step_size_update_command_basic.test ###############
+#                                                                             #
+# Variable Name: histogram_step_size_update_command                        #
+# Scope: Global                                                               #
+#                                                                             #
+# Creation Date: 2013-07-22                                                   #
+# Author : Digvijay Singh                                                     #
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable histogram_step_size_update_command      #
+#             that checks the behavior of this variable in the following ways #
+#              * Value Check                                                  #
+#              * Scope Check                                                  #
+#                                                                             #
+###############################################################################
+
+--source include/have_innodb.inc
+
+SELECT COUNT(@@GLOBAL.histogram_step_size_update_command);
+--echo 1 Expected
+
+SET @start_global_value = @@GLOBAL.histogram_step_size_update_command;
+SELECT @start_global_value;
+--echo 16ms Expected
+
+SET @@GLOBAL.histogram_step_size_update_command='16us';
+select @@GLOBAL.histogram_step_size_update_command;
+--echo 16us Expected
+
+select * from information_schema.global_variables where variable_name='histogram_step_size_update_command';
+
+SELECT @@GLOBAL.histogram_step_size_update_command = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='histogram_step_size_update_command';
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.histogram_step_size_update_command);
+--echo 1 Expected
+
+SELECT COUNT(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='histogram_step_size_update_command';
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.histogram_step_size_update_command);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.histogram_step_size_update_command);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='32';
+--echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.histogram_step_size_update_command='0';
+select @@GLOBAL.histogram_step_size_update_command;
+--echo 0 Expected
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='ms32';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='32ps';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='3s2';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='32@s';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='32s.';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.histogram_step_size_update_command='s';
+--echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.histogram_step_size_update_command='16.5us';
+select @@GLOBAL.histogram_step_size_update_command;
+--echo 16.5us Expected
+
+SET @@GLOBAL.histogram_step_size_update_command = @start_global_value;
+SELECT @@GLOBAL.histogram_step_size_update_command;
+--echo 16ms Expected
