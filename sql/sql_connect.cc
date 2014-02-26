@@ -951,7 +951,10 @@ bool thd_is_connection_alive(THD *thd)
 
 void do_handle_one_connection(THD *thd_arg)
 {
+  ulonglong start_time, connection_create_time;
+  ulong launch_time= 0;
   THD *thd= thd_arg;
+  USER_STATS *us= thd_get_user_stats(thd);
 
   thd->thr_create_utime= my_micro_time();
 
@@ -970,7 +973,7 @@ void do_handle_one_connection(THD *thd_arg)
   */
   if (thd->prior_thr_create_utime)
   {
-    ulong launch_time= (ulong) (thd->thr_create_utime -
+    launch_time= (ulong) (thd->thr_create_utime -
                                 thd->prior_thr_create_utime);
     if (launch_time >= slow_launch_time*1000000L)
       statistic_increment(slow_launch_threads, &LOCK_status);
@@ -996,7 +999,12 @@ void do_handle_one_connection(THD *thd_arg)
     NET *net= &thd->net;
     mysql_socket_set_thread_owner(net->vio->mysql_socket);
 
+    start_time = my_timer_now();
     rc= thd_prepare_connection(thd);
+    connection_create_time = my_timer_since(start_time) +
+                             microseconds_to_my_timer(launch_time);
+    latency_histogram_increment(&us->histogram_connection_create,
+                                connection_create_time, 1);
     if (rc)
       goto end_thread;
 
@@ -1128,6 +1136,25 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->n_gtid_unsafe_create_drop_temporary_table_in_transaction.clear();
   user_stats->n_gtid_unsafe_non_transactional_table.clear();
 
+  latency_histogram_init(&(user_stats->histogram_connection_create),
+                         histogram_step_size_connection_create);
+  latency_histogram_init(&(user_stats->histogram_update_command),
+                         histogram_step_size_update_command);
+  latency_histogram_init(&(user_stats->histogram_delete_command),
+                         histogram_step_size_delete_command);
+  latency_histogram_init(&(user_stats->histogram_insert_command),
+                         histogram_step_size_insert_command);
+  latency_histogram_init(&(user_stats->histogram_select_command),
+                         histogram_step_size_select_command);
+  latency_histogram_init(&(user_stats->histogram_ddl_command),
+                         histogram_step_size_ddl_command);
+  latency_histogram_init(&(user_stats->histogram_transaction_command),
+                         histogram_step_size_transaction_command);
+  latency_histogram_init(&(user_stats->histogram_handler_command),
+                         histogram_step_size_handler_command);
+  latency_histogram_init(&(user_stats->histogram_other_command),
+                         histogram_step_size_other_command);
+
 #ifndef DBUG_OFF
   user_stats->magic = USER_STATS_MAGIC;
 #endif // !DBUG_OFF
@@ -1192,6 +1219,129 @@ update_user_stats_after_statement(USER_STATS *us,
     us->microseconds_transaction.inc(wall_microsecs);
   }
 }
+
+static void
+fill_user_latency_histograms(TABLE *table, const char* username,
+                             const char* statement_type,
+                             latency_histogram* histogram,
+                             const char* histogram_step_size)
+{
+  int i, f= 0;
+
+  table->field[f++]->store(username, strlen(username), system_charset_info);
+  table->field[f++]->store(statement_type, strlen(statement_type),
+                           system_charset_info);
+  table->field[f++]->store(histogram_step_size, strlen(histogram_step_size),
+                           system_charset_info);
+
+  for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i)
+  {
+    table->field[f++]->store(latency_histogram_get_count(histogram, i), TRUE);
+  }
+}
+
+int fill_user_histograms(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  DBUG_ENTER("fill_user_histograms");
+  TABLE* table= tables->table;
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  mysql_mutex_lock(&LOCK_user_conn);
+
+  for (uint idx=0;idx < hash_user_connections.records; idx++)
+  {
+    USER_CONN *user_conn= (struct user_conn *)
+      my_hash_element(&hash_user_connections, idx);
+    USER_STATS *us = &(user_conn->user_stats);
+
+    fill_user_latency_histograms(table, user_conn->user,"UPDATE",
+                                 &us->histogram_update_command,
+                                 histogram_step_size_update_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"DELETE",
+                                 &us->histogram_delete_command,
+                                 histogram_step_size_delete_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"INSERT",
+                                 &us->histogram_insert_command,
+                                 histogram_step_size_insert_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"SELECT",
+                                 &us->histogram_select_command,
+                                 histogram_step_size_select_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"DDL",
+                                 &us->histogram_ddl_command,
+                                 histogram_step_size_ddl_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"TRANSACTION",
+                                 &us->histogram_transaction_command,
+                                 histogram_step_size_transaction_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"HANDLER",
+                                 &us->histogram_handler_command,
+                                 histogram_step_size_handler_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"OTHER",
+                                 &us->histogram_other_command,
+                                 histogram_step_size_other_command);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+
+    fill_user_latency_histograms(table, user_conn->user,"CONNECTION_CREATE",
+                                 &us->histogram_connection_create,
+                                 histogram_step_size_connection_create);
+    if (schema_table_store_record(thd, table))
+    {
+      mysql_mutex_unlock(&LOCK_user_conn);
+      DBUG_RETURN(-1);
+    }
+  }
+
+  mysql_mutex_unlock(&LOCK_user_conn);
+#endif /* NO_EMBEDDED_ACCESS_CHECKS */
+
+  DBUG_RETURN(0);
+}
+
 
 static void
 fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,

@@ -3084,10 +3084,10 @@ static bool plugin_var_memalloc_global_update(THD *thd,
 {
   char *old_value= *dest;
   DBUG_ENTER("plugin_var_memalloc_global_update");
-
-  if (value && !(value= my_strdup(value, MYF(MY_WME))))
-    DBUG_RETURN(true);
-
+  if (!(var->flags & PLUGIN_VAR_ALLOCATED)) {
+    if (value && !(value= my_strdup(value, MYF(MY_WME))))
+      DBUG_RETURN(true);
+  }
   var->update(thd, var, (void **) dest, (const void *) &value);
 
   if (old_value)

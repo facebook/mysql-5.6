@@ -21,6 +21,8 @@
 #include "log.h"
 
 extern ulong rpl_read_size;
+extern char *histogram_step_size_binlog_fsync;
+extern latency_histogram histogram_binlog_fsync;
 
 class Relay_log_info;
 class Master_info;

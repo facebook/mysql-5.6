@@ -69,7 +69,7 @@ delete from userstats where i = 1;
 delete userstats, userstats2 from userstats inner join userstats2;
 truncate table userstats2;
 
---echo Increment commands_delete by 3
+--echo Increment commands_delete by 2 and commands_ddl by 1
 --query_vertical select commands_ddl, commands_delete, commands_handler, commands_insert, commands_other, commands_select, commands_transaction, commands_update from information_schema.user_statistics where user_name = 'mysqltest_1'
 
 #
