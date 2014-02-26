@@ -1,0 +1,11 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+--replace_column 2 COUNT
+SHOW GLOBAL STATUS LIKE "Innodb%histogram%";
+SHOW VARIABLES LIKE "innodb%histogram%";
+
+#
+# Must produce output
+#
+--echo Done
