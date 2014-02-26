@@ -8,10 +8,12 @@
 --connection master
 --let $innodb_index_cluster_optimization_save_master = `SELECT @@innodb_prefix_index_cluster_optimization`
 --let $innodb_zlib_wrap_save_master = `SELECT @@innodb_zlib_wrap`
+--let $histogram_step_size_binlog_fsync_save_master = `SELECT @@histogram_step_size_binlog_fsync`
 
 --connection slave
 --let $innodb_index_cluster_optimization_save_slave = `SELECT @@innodb_prefix_index_cluster_optimization`
 --let $innodb_zlib_wrap_save_slave = `SELECT @@innodb_zlib_wrap`
+--let $histogram_step_size_binlog_fsync_save_slave = `SELECT @@histogram_step_size_binlog_fsync`
 
 # create the directory for temporary log files.
 --exec mkdir -p $MYSQL_TMP_DIR/load_generator
@@ -193,6 +195,7 @@ connection master;
 --disable_query_log
 eval SET GLOBAL innodb_prefix_index_cluster_optimization = $innodb_index_cluster_optimization_save_slave;
 eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_slave;
+eval SET GLOBAL histogram_step_size_binlog_fsync = $histogram_step_size_binlog_fsync_save_slave;
 --enable_query_log
 
 --connection master
@@ -200,4 +203,5 @@ eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_slave;
 --disable_query_log
 eval SET GLOBAL innodb_prefix_index_cluster_optimization = $innodb_index_cluster_optimization_save_master;
 eval SET GLOBAL innodb_zlib_wrap = $innodb_zlib_wrap_save_master;
+eval SET GLOBAL histogram_step_size_binlog_fsync = $histogram_step_size_binlog_fsync_save_master;
 --enable_query_log
