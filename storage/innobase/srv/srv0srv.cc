@@ -511,6 +511,12 @@ ulint	srv_n_commit_with_undo	= 0;
 ulint	srv_n_rollback_total	= 0;
 ulint	srv_n_rollback_partial	= 0;
 
+/** Number of times secondary index block visibility check returned TRUE */
+ulint	srv_sec_rec_read_sees	= 0;
+
+/** Number of times secondary index block visibility check was done */
+ulint	srv_sec_rec_read_check	= 0;
+
 /** Number of times secondary index lookup triggered cluster lookup */
 atomic_stat<ulint>	srv_sec_rec_cluster_reads;
 
@@ -1757,6 +1763,9 @@ srv_export_innodb_status(void)
 	export_vars.innodb_trx_n_commit_with_undo= srv_n_commit_with_undo;
 	export_vars.innodb_trx_n_rollback_partial= srv_n_rollback_partial;
 	export_vars.innodb_trx_n_rollback_total= srv_n_rollback_total;
+
+	export_vars.innodb_sec_rec_read_sees = srv_sec_rec_read_sees;
+	export_vars.innodb_sec_rec_read_check = srv_sec_rec_read_check;
 
 	export_vars.innodb_sec_rec_cluster_reads =
 		srv_sec_rec_cluster_reads.load();
