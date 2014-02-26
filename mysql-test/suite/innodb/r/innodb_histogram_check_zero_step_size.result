@@ -1,0 +1,139 @@
+Histograms:	
+	
+Async Reads	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+Async Writes	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+Sync Reads	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+Sync Writes	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+Log Writes	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+Double Buffer Writes	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+File Flush Time	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+	
+Fsyncs	
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+Bucket 0 to 0 us	0
+--------------	
+Done

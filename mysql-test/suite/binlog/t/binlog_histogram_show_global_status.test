@@ -1,0 +1,10 @@
+-- source include/have_log_bin.inc
+
+--replace_column 2 COUNT
+SHOW GLOBAL STATUS LIKE "%histogram%binlog%";
+SHOW VARIABLES LIKE "%histogram%binlog%";
+
+#
+# Must produce output
+#
+--echo Done

@@ -579,6 +579,18 @@ static MYSQL_THDVAR_STR(ft_user_stopword_table,
   "User supplied stopword table name, effective in the session level.",
   innodb_stopword_table_validate, NULL, NULL);
 
+static SHOW_VAR latency_histogram_async_read[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_async_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+
+static SHOW_VAR latency_histogram_sync_read[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_sync_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+
+static SHOW_VAR latency_histogram_log_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_double_write[NUMBER_OF_HISTOGRAM_BINS + 1];
+
+static SHOW_VAR latency_histogram_file_flush_time[NUMBER_OF_HISTOGRAM_BINS + 1];
+static SHOW_VAR latency_histogram_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
+
 static SHOW_VAR innodb_status_variables[]= {
   {"adaptive_hash_hits",
   (char*) &export_vars.innodb_hash_searches,		  SHOW_LONG},
@@ -1168,6 +1180,21 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_malloc_cache_block_size_compress, SHOW_LONG},
   {"malloc_cache_block_size_decompress",
   (char*) &export_vars.innodb_malloc_cache_block_size_decompress, SHOW_LONG},
+  {"latency_histogram_async_read", (char*) &latency_histogram_async_read,
+   SHOW_ARRAY},
+  {"latency_histogram_async_write", (char*) &latency_histogram_async_write,
+   SHOW_ARRAY},
+  {"latency_histogram_sync_read", (char*) &latency_histogram_sync_read,
+   SHOW_ARRAY},
+  {"latency_histogram_sync_write", (char*) &latency_histogram_sync_write,
+   SHOW_ARRAY},
+  {"latency_histogram_log_write", (char*) &latency_histogram_log_write,
+   SHOW_ARRAY},
+  {"latency_histogram_double_write", (char*) &latency_histogram_double_write,
+   SHOW_ARRAY},
+  {"latency_histogram_file_flush_time",
+   (char*) &latency_histogram_file_flush_time, SHOW_ARRAY},
+  {"latency_histogram_fsync", (char*) &latency_histogram_fsync, SHOW_ARRAY},
   {NullS, NullS, SHOW_LONG}
 };
 
@@ -4025,6 +4052,20 @@ innobase_end(
 		}
 		srv_free_paths_and_sizes();
 		my_free(internal_innobase_data_file_path);
+
+		free_latency_histogram_sysvars(latency_histogram_async_read);
+		free_latency_histogram_sysvars(latency_histogram_async_write);
+
+		free_latency_histogram_sysvars(latency_histogram_sync_read);
+		free_latency_histogram_sysvars(latency_histogram_sync_write);
+
+		free_latency_histogram_sysvars(latency_histogram_log_write);
+		free_latency_histogram_sysvars(latency_histogram_double_write);
+
+		free_latency_histogram_sysvars(
+					latency_histogram_file_flush_time);
+		free_latency_histogram_sysvars(latency_histogram_fsync);
+
 		mysql_mutex_destroy(&innobase_share_mutex);
 		mysql_mutex_destroy(&commit_cond_m);
 		mysql_cond_destroy(&commit_cond);
@@ -15375,6 +15416,53 @@ innodb_adaptive_hash_index_update(
 	}
 }
 
+/*************************************************************//**
+Check whether valid argument given to "innodb_histogram_step_size_xxx_xxx"
+This function is registered as a callback with MySQL.
+@return 0 for valid step size */
+static
+int
+innodb_histogram_step_size_validate(
+/*===========================*/
+	THD*				thd,	/*!< in: thread handle */
+	struct st_mysql_sys_var*	var,	/*!< in: pointer to system
+						variable */
+	void*				save,	/*!< out: immediate result
+						for update function */
+	struct st_mysql_value*		value)	/*!< in: incoming string */
+{
+	const char*	step_size_local;
+	const char*	step_size;
+	char		buff[STRING_BUFFER_USUAL_SIZE];
+	int		len = sizeof(buff);
+	int		ret = 0;
+	size_t		length = 0;
+	ut_a(save != NULL);
+	ut_a(value != NULL);
+
+	step_size_local = value->val_str(value, buff, &len);
+
+	if (step_size_local)
+		length = strlen(step_size_local);
+
+	/* If step_size_local is an empty string or NULL,
+	 * it should be accepted and 0 returned */
+	if (length == 0) {
+		*static_cast<const char**>(save) = NULL;
+		return(0);
+	}
+
+	/* Validating if the string (non empty)ends with ms/us/s and the
+	 * rest of it is a valid floating point number */
+	ret = histogram_validate_step_size_string(step_size_local);
+	if (!ret) {
+		step_size = my_strdup(step_size_local, MYF(0));
+		*static_cast<const char**>(save) = step_size;
+	}
+
+	return(ret);
+}
+
 /****************************************************************//**
 Update the system variable innodb_cmp_per_index using the "saved"
 value. This function is registered as a callback with MySQL. */
@@ -16303,6 +16391,37 @@ show_innodb_vars(
 	SHOW_VAR*	var,
 	char*		buff)
 {
+	prepare_latency_histogram_vars(&histogram_async_read,
+				      latency_histogram_async_read,
+				      export_vars.histogram_async_read_values);
+	prepare_latency_histogram_vars(&histogram_async_write,
+				      latency_histogram_async_write,
+				      export_vars.histogram_async_write_values);
+
+	prepare_latency_histogram_vars(&histogram_sync_read,
+				      latency_histogram_sync_read,
+				      export_vars.histogram_sync_read_values);
+	prepare_latency_histogram_vars(&histogram_sync_write,
+				      latency_histogram_sync_write,
+				      export_vars.histogram_sync_write_values);
+
+	prepare_latency_histogram_vars(&histogram_log_write,
+				      latency_histogram_log_write,
+				      export_vars.histogram_log_write_values);
+	prepare_latency_histogram_vars(&histogram_double_write,
+				      latency_histogram_double_write,
+				      export_vars.histogram_double_write_values
+				      );
+
+	prepare_latency_histogram_vars(&histogram_file_flush_time,
+				      latency_histogram_file_flush_time,
+				      export_vars.
+				      histogram_file_flush_time_values);
+	prepare_latency_histogram_vars(&histogram_fsync,
+				      latency_histogram_fsync,
+				      export_vars.histogram_fsync_values);
+
+
 	innodb_export_status();
 	var->type = SHOW_ARRAY;
 	var->value = (char*) &innodb_status_variables;
@@ -17081,6 +17200,54 @@ static MYSQL_SYSVAR_LONGLONG(buffer_pool_size, innobase_buffer_pool_size,
   "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
   NULL, NULL, 128*1024*1024L, 5*1024*1024L, LONGLONG_MAX, 1024*1024L);
 
+static MYSQL_SYSVAR_STR(histogram_step_size_async_read,
+  innobase_histogram_step_size_async_read,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking async read latencies",
+  innodb_histogram_step_size_validate, NULL, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_async_write,
+  innobase_histogram_step_size_async_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking async write latencies",
+  innodb_histogram_step_size_validate, NULL, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_sync_read,
+  innobase_histogram_step_size_sync_read,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking sync read latencies",
+  innodb_histogram_step_size_validate, NULL, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_sync_write,
+  innobase_histogram_step_size_sync_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking sync write latencies",
+  innodb_histogram_step_size_validate, NULL, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_log_write,
+  innobase_histogram_step_size_log_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking log write latencies",
+  innodb_histogram_step_size_validate, NULL, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_double_write,
+  innobase_histogram_step_size_double_write,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking double latencies",
+  innodb_histogram_step_size_validate, NULL, "16us");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_file_flush_time,
+  innobase_histogram_step_size_file_flush_time,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking flush times",
+  innodb_histogram_step_size_validate, NULL, "16ms");
+
+static MYSQL_SYSVAR_STR(histogram_step_size_fsync,
+  innobase_histogram_step_size_fsync,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC | PLUGIN_VAR_ALLOCATED,
+  "Size of the histogram bins required for tracking fsync latencies",
+  innodb_histogram_step_size_validate, NULL, "16ms");
+
 static MYSQL_SYSVAR_ULONG(sync_pool_size, innobase_sync_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "The size of the shared sync pool buffer InnoDB uses to store system lock"
@@ -17732,6 +17899,14 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_filename),
   MYSQL_SYSVAR(buffer_pool_dump_now),
   MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
+  MYSQL_SYSVAR(histogram_step_size_async_read),
+  MYSQL_SYSVAR(histogram_step_size_async_write),
+  MYSQL_SYSVAR(histogram_step_size_sync_read),
+  MYSQL_SYSVAR(histogram_step_size_sync_write),
+  MYSQL_SYSVAR(histogram_step_size_log_write),
+  MYSQL_SYSVAR(histogram_step_size_double_write),
+  MYSQL_SYSVAR(histogram_step_size_file_flush_time),
+  MYSQL_SYSVAR(histogram_step_size_fsync),
 #ifdef UNIV_DEBUG
   MYSQL_SYSVAR(buffer_pool_evict),
 #endif /* UNIV_DEBUG */

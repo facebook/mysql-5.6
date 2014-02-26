@@ -1849,6 +1849,13 @@ describe information_schema.table_statistics;
 describe information_schema.user_statistics;
 --query_vertical select * from information_schema.user_statistics where USER_NAME = "does not exist"
 
+#
+# basic tests for user_latency_histograms
+#
+describe information_schema.user_latency_histograms;
+--query_vertical select * from information_schema.user_latency_histograms where USER_NAME = "does not exist"
+
+
 --echo #
 --echo # Test for bug #16869534 - "QUERYING SUBSET OF COLUMNS DOESN'T USE TABLE
 --echo #                           CACHE; OPENED_TABLES INCREASES"

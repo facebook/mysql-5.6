@@ -418,6 +418,24 @@ def	information_schema	TRIGGERS	SQL_MODE	18		NO	varchar	8192	24576	NULL	NULL	NUL
 def	information_schema	TRIGGERS	TRIGGER_CATALOG	1		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	TRIGGERS	TRIGGER_NAME	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	TRIGGERS	TRIGGER_SCHEMA	2		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	STEP_SIZE	3		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	TYPE	2		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	USER_NAME	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN1	4	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN10	13	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN11	14	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN12	15	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN13	16	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN14	17	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN15	18	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN2	5	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN3	6	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN4	7	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN5	8	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN6	9	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN7	10	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN8	11	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN9	12	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_PRIVILEGES	GRANTEE	1		NO	varchar	81	243	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(81)			select	
 def	information_schema	USER_PRIVILEGES	IS_GRANTABLE	4		NO	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select	
 def	information_schema	USER_PRIVILEGES	PRIVILEGE_TYPE	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
@@ -965,6 +983,24 @@ NULL	information_schema	TRIGGERS	CREATED	datetime	NULL	NULL	NULL	NULL	datetime
 3.0000	information_schema	TRIGGERS	CHARACTER_SET_CLIENT	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	TRIGGERS	COLLATION_CONNECTION	varchar	32	96	utf8	utf8_general_ci	varchar(32)
 3.0000	information_schema	TRIGGERS	DATABASE_COLLATION	varchar	32	96	utf8	utf8_general_ci	varchar(32)
+3.0000	information_schema	USER_LATENCY_HISTOGRAMS	USER_NAME	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	USER_LATENCY_HISTOGRAMS	TYPE	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+3.0000	information_schema	USER_LATENCY_HISTOGRAMS	STEP_SIZE	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN1	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN2	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN3	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN4	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN5	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN6	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN7	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN8	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN9	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN10	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN11	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN12	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN13	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN14	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_LATENCY_HISTOGRAMS	VALUE_BIN15	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	USER_PRIVILEGES	GRANTEE	varchar	81	243	utf8	utf8_general_ci	varchar(81)
 3.0000	information_schema	USER_PRIVILEGES	TABLE_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	USER_PRIVILEGES	PRIVILEGE_TYPE	varchar	64	192	utf8	utf8_general_ci	varchar(64)

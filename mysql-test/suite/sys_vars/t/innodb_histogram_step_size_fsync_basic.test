@@ -1,0 +1,91 @@
+################## mysql-test\t\innodb_histogram_step_size_fsync_basic.test ###############
+#                                                                             #
+# Variable Name: innodb_histogram_step_size_fsync                        #
+# Scope: Global                                                               #
+#                                                                             #
+# Creation Date: 2013-07-15                                                   #
+# Author : Digvijay Singh                                                     #
+#                                                                             #
+#                                                                             #
+# Description:Test Cases of Dynamic System Variable innodb_histogram_step_size_fsync      #
+#             that checks the behavior of this variable in the following ways #
+#              * Value Check                                                  #
+#              * Scope Check                                                  #
+#                                                                             #
+###############################################################################
+
+--source include/have_innodb.inc
+
+SELECT COUNT(@@GLOBAL.innodb_histogram_step_size_fsync);
+--echo 1 Expected
+
+SET @start_global_value = @@GLOBAL.innodb_histogram_step_size_fsync;
+SELECT @start_global_value;
+--echo 16ms Expected
+
+SET @@GLOBAL.innodb_histogram_step_size_fsync='16us';
+select @@GLOBAL.innodb_histogram_step_size_fsync;
+--echo 16us Expected
+
+select * from information_schema.global_variables where variable_name='innodb_histogram_step_size_fsync';
+
+SELECT @@GLOBAL.innodb_histogram_step_size_fsync = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='innodb_histogram_step_size_fsync';
+--echo 1 Expected
+
+SELECT COUNT(@@GLOBAL.innodb_histogram_step_size_fsync);
+--echo 1 Expected
+
+SELECT COUNT(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='innodb_histogram_step_size_fsync';
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.innodb_histogram_step_size_fsync);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.innodb_histogram_step_size_fsync);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='32';
+--echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.innodb_histogram_step_size_fsync='0';
+select @@GLOBAL.innodb_histogram_step_size_fsync;
+--echo 0 Expected
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='ms32';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='32ps';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='3s2';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='32@s';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='32s.';
+--echo Expected error 'Variable cannot be set to this value';
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_histogram_step_size_fsync='s';
+--echo Expected error 'Variable cannot be set to this value';
+
+SET @@GLOBAL.innodb_histogram_step_size_fsync='16.5us';
+select @@GLOBAL.innodb_histogram_step_size_fsync;
+--echo 16.5us Expected
+
+SET @@GLOBAL.innodb_histogram_step_size_fsync = @start_global_value;
+SELECT @@GLOBAL.innodb_histogram_step_size_fsync;
+--echo 16ms Expected

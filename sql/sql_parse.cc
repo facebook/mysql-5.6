@@ -135,6 +135,17 @@ static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
 
 const char *any_db="*any*";	// Special symbol for check_access
 
+char * histogram_step_size_connection_create= NULL;
+char * histogram_step_size_update_command= NULL;
+char * histogram_step_size_delete_command= NULL;
+char * histogram_step_size_insert_command= NULL;
+char * histogram_step_size_select_command= NULL;
+char * histogram_step_size_ddl_command= NULL;
+char * histogram_step_size_transaction_command= NULL;
+char * histogram_step_size_handler_command= NULL;
+char * histogram_step_size_other_command= NULL;
+
+
 const LEX_STRING command_name[]={
   { C_STRING_WITH_LEN("Sleep") },
   { C_STRING_WITH_LEN("Quit") },
@@ -5420,19 +5431,22 @@ finish:
   if (thd)
   {
     USER_STATS *us= thd_get_user_stats(thd);
+    ulonglong latency = my_timer_since(*statement_start_time);
     ulonglong microsecs= (ulonglong)
-      my_timer_to_microseconds(my_timer_since(*statement_start_time));
+      my_timer_to_microseconds(latency);
 
     switch (lex->sql_command) {
     case SQLCOM_UPDATE:
     case SQLCOM_UPDATE_MULTI:
       us->commands_update.inc();
       us->microseconds_update.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_update_command), latency, 1);
       break;
     case SQLCOM_DELETE:
     case SQLCOM_DELETE_MULTI:
       us->commands_delete.inc();
       us->microseconds_delete.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_delete_command), latency, 1);
       break;
     case SQLCOM_INSERT:
     case SQLCOM_INSERT_SELECT:
@@ -5441,10 +5455,12 @@ finish:
     case SQLCOM_LOAD:
       us->commands_insert.inc();
       us->microseconds_insert.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_insert_command), latency, 1);
       break;
     case SQLCOM_SELECT:
       us->commands_select.inc();
       us->microseconds_select.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_select_command), latency, 1);
       break;
     case SQLCOM_CREATE_TABLE:
     case SQLCOM_ALTER_TABLE:
@@ -5457,12 +5473,15 @@ finish:
     case SQLCOM_TRUNCATE:
       us->commands_ddl.inc();
       us->microseconds_other.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_ddl_command), latency, 1);
       break;
     case SQLCOM_BEGIN:
     case SQLCOM_COMMIT:
     case SQLCOM_ROLLBACK:
       us->commands_transaction.inc();
       us->microseconds_transaction.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_transaction_command),
+                                  latency, 1);
       break;
     case SQLCOM_HA_CLOSE:
     case SQLCOM_HA_OPEN:
@@ -5470,10 +5489,12 @@ finish:
 //    case SQLCOM_HA_OPEN_READ_CLOSE:
       us->commands_handler.inc();
       us->microseconds_handler.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_handler_command), latency, 1);
       break;
     default:
       us->commands_other.inc();
       us->microseconds_other.inc(microsecs);
+      latency_histogram_increment(&(us->histogram_other_command), latency, 1);
       break;
     }
   }

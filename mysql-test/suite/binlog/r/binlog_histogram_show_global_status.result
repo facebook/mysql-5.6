@@ -1,0 +1,21 @@
+SHOW GLOBAL STATUS LIKE "%histogram%binlog%";
+Variable_name	Value
+Latency_histogram_binlog_fsync_0-1200ms	COUNT
+Latency_histogram_binlog_fsync_1200-2400ms	COUNT
+Latency_histogram_binlog_fsync_2400-3600ms	COUNT
+Latency_histogram_binlog_fsync_3600-4800ms	COUNT
+Latency_histogram_binlog_fsync_4800-6000ms	COUNT
+Latency_histogram_binlog_fsync_6000-7200ms	COUNT
+Latency_histogram_binlog_fsync_7200-8400ms	COUNT
+Latency_histogram_binlog_fsync_8400-9600ms	COUNT
+Latency_histogram_binlog_fsync_9600-10800ms	COUNT
+Latency_histogram_binlog_fsync_10800-12000ms	COUNT
+Latency_histogram_binlog_fsync_12000-13200ms	COUNT
+Latency_histogram_binlog_fsync_13200-14400ms	COUNT
+Latency_histogram_binlog_fsync_14400-15600ms	COUNT
+Latency_histogram_binlog_fsync_15600-16800ms	COUNT
+Latency_histogram_binlog_fsync_16800-18000ms	COUNT
+SHOW VARIABLES LIKE "%histogram%binlog%";
+Variable_name	Value
+histogram_step_size_binlog_fsync	1200ms
+Done

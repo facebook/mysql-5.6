@@ -257,6 +257,16 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> rows_updated;
   atomic_stat<ulonglong> query_comment_bytes;
 
+  latency_histogram histogram_connection_create;
+  latency_histogram histogram_update_command;
+  latency_histogram histogram_delete_command;
+  latency_histogram histogram_insert_command;
+  latency_histogram histogram_select_command;
+  latency_histogram histogram_ddl_command;
+  latency_histogram histogram_transaction_command;
+  latency_histogram histogram_handler_command;
+  latency_histogram histogram_other_command;
+
   /* see variables of same name in ha_statistics */
   atomic_stat<ulonglong> rows_index_first;
   atomic_stat<ulonglong> rows_index_next;
