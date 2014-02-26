@@ -1,0 +1,98 @@
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+--enable_warnings
+
+flush statistics;
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+#
+# For histogram_ddl_command
+#
+
+--echo Before any statement
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+
+#
+# For histogram_insert_command
+#
+
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+replace into userstats values (1,1);
+
+#
+# For histogram_delete_command
+#
+
+delete from userstats where i = 1;
+
+#
+# For histogram_handler_command
+#
+
+handler userstats open;
+handler userstats read first;
+handler userstats close;
+
+#
+# For histogram_other_command
+#
+
+show tables;
+
+#
+# For histogram_select_command
+#
+
+select 1;
+
+#
+# For histogram_update_command
+#
+
+update userstats set j=j+1 where i = 2;
+
+#
+# For histogram_transaction_command
+#
+begin;
+rollback;
+begin;
+commit;
+
+--echo At the end, all values should be 0
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+# Cleanup
+drop table userstats;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc

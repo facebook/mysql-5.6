@@ -1,0 +1,214 @@
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+#
+# For histogram_ddl_command
+#
+
+--echo Before all commands
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+
+--echo 5 ddl commands:
+
+create table userstats2 (i int primary key, j int);
+create table userstats (i int primary key, j int);
+drop table userstats;
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+
+#
+# For histogram_insert_command
+#
+
+--echo 5 insert commands:
+
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+replace into userstats values (1,1);
+
+#
+# For histogram_delete_command
+#
+
+--echo 2 delete and 1 ddl commands:
+
+delete from userstats where i = 1;
+delete userstats, userstats2 from userstats inner join userstats2;
+truncate table userstats2;
+
+#
+# For histogram_handler_command
+#
+
+--echo 3 handler commands:
+
+handler userstats open;
+handler userstats read first;
+handler userstats close;
+
+#
+# For histogram_other_command
+#
+
+--echo 1 other command:
+
+show tables;
+
+#
+# For histogram_select_command
+#
+
+--echo Select commands:
+
+select 1;
+
+#
+# For histogram_update_command
+#
+
+--echo 2 update commands:
+
+update userstats set j=j+1 where i = 2;
+update userstats set j=j+1 where i in (select i from userstats2);
+
+#
+# For histogram_transaction_command
+#
+
+--echo 4 transaction commands;
+
+begin;
+rollback;
+begin;
+commit;
+
+#The following will test the actual values of histogram buckets which were previously replaced with a string constant.
+#This sums up the values of all buckets of a specific histogram and compares that to the actual number of commands of that type, using the commands_xxx fields of information_schema.user_statistics
+let OUTPUT_COMMANDS= `select commands_select, commands_update, commands_insert, commands_delete, commands_transaction, commands_handler, commands_ddl, commands_other from information_schema.user_statistics where user_name = 'mysqltest_1'`;
+
+let OUTPUT_SELECT= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'SELECT'`;
+let OUTPUT_UPDATE= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'UPDATE'`;
+let OUTPUT_INSERT= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'INSERT'`;
+let OUTPUT_DELETE= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'DELETE'`;
+let OUTPUT_TRANSACTION= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'TRANSACTION'`;
+let OUTPUT_HANDLER= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'HANDLER'`;
+let OUTPUT_DDL= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'DDL'`;
+let OUTPUT_OTHER= `select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1' and type = 'OTHER'`;
+
+perl;
+#Splitting the query output (which is a single row) on whitspace
+@line_update = split(' ',$ENV{'OUTPUT_UPDATE'});
+@line_insert = split(' ',$ENV{'OUTPUT_INSERT'});
+@line_select = split(' ',$ENV{'OUTPUT_SELECT'});
+@line_delete = split(' ',$ENV{'OUTPUT_DELETE'});
+@line_transaction = split(' ',$ENV{'OUTPUT_TRANSACTION'});
+@line_handler = split(' ',$ENV{'OUTPUT_HANDLER'});
+@line_ddl = split(' ',$ENV{'OUTPUT_DDL'});
+@line_other = split(' ',$ENV{'OUTPUT_OTHER'});
+
+$sum_update = 0;
+$sum_insert = 0;
+$sum_select = 0;
+$sum_delete = 0;
+$sum_transaction = 0;
+$sum_handler = 0;
+$sum_ddl = 0;
+$sum_other = 0;
+
+#The following statements iterate over the columns of the row obtained above
+#and sums the values.  The values are stored from column3 to column17
+($sum_select += $_) for @line_select[3..17];
+($sum_update += $_) for @line_update[3..17];
+($sum_insert += $_) for @line_insert[3..17];
+($sum_delete += $_) for @line_delete[3..17];
+($sum_transaction += $_) for @line_transaction[3..17];
+($sum_handler += $_) for @line_handler[3..17];
+($sum_ddl += $_) for @line_ddl[3..17];
+($sum_other += $_) for @line_other[3..17];
+
+#The following extracts the total number of commands of each type,
+#which are to be compared to the sums calculated above.
+@line_commands = split(' ',$ENV{'OUTPUT_COMMANDS'});
+$total_select = $line_commands[0];
+$total_update = $line_commands[1];
+$total_insert = $line_commands[2];
+$total_delete = $line_commands[3];
+$total_transaction = $line_commands[4];
+$total_handler = $line_commands[5];
+$total_ddl = $line_commands[6];
+$total_other = $line_commands[7];
+
+#1 is added to $total_select because the value of $sum_select also includes the 'SELECT' query
+#which retrieves commands_xxx columns from information_schema.user_statistics.
+if ($sum_select == ($total_select + 1)) {
+  print "Histogram values for Select statements validated\n";
+}
+if ($sum_update == $total_update) {
+  print "Histogram values for Update statements validated\n";
+}
+if ($sum_insert == $total_insert) {
+  print "Histogram values for Insert statements validated\n";
+}
+if ($sum_delete == $total_delete) {
+  print "Histogram values for Delete statements validated\n";
+}
+if ($sum_transaction == $total_transaction) {
+  print "Histogram values for Transaction statements validated\n";
+}
+if ($sum_handler == $total_handler) {
+  print "Histogram values for Handler statements validated\n";
+}
+if ($sum_ddl == $total_ddl) {
+  print "Histogram values for Ddl statements validated\n";
+}
+if ($sum_other == $total_other) {
+  print "Histogram values for Other statements validated\n";
+}
+
+EOF
+
+#
+# check table structure
+#
+
+desc information_schema.user_latency_histograms;
+show create table information_schema.user_latency_histograms;
+
+# Cleanup
+drop table userstats;
+drop table userstats2;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
