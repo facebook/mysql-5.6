@@ -304,6 +304,17 @@ void reset_global_db_stats(void);
 extern ST_FIELD_INFO db_stats_fields_info[];
 int fill_db_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 
+/* For information_schema.user_latency_histograms */
+extern char *histogram_step_size_connection_create;
+extern char *histogram_step_size_update_command;
+extern char *histogram_step_size_delete_command;
+extern char *histogram_step_size_insert_command;
+extern char *histogram_step_size_select_command;
+extern char *histogram_step_size_ddl_command;
+extern char *histogram_step_size_transaction_command;
+extern char *histogram_step_size_handler_command;
+extern char *histogram_step_size_other_command;
+int fill_user_histograms(THD *thd, TABLE_LIST *tables, Item *cond);
 
 /* For information_schema.user_statistics */
 extern ST_FIELD_INFO user_stats_fields_info[];

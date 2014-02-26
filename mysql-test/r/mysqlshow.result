@@ -111,6 +111,7 @@ Database: information_schema
 | TABLE_STATISTICS                      |
 | DB_STATISTICS                         |
 | TRIGGERS                              |
+| USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |
 | USER_STATISTICS                       |
 | VIEWS                                 |
@@ -180,6 +181,7 @@ Database: INFORMATION_SCHEMA
 | TABLE_STATISTICS                      |
 | DB_STATISTICS                         |
 | TRIGGERS                              |
+| USER_LATENCY_HISTOGRAMS               |
 | USER_PRIVILEGES                       |
 | USER_STATISTICS                       |
 | VIEWS                                 |

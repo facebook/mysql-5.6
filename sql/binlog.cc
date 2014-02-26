@@ -70,6 +70,9 @@ bool opt_gtid_precommit= false;
 const char *log_bin_index= 0;
 const char *log_bin_basename= 0;
 
+char *histogram_step_size_binlog_fsync = NULL;
+latency_histogram histogram_binlog_fsync;
+
 MYSQL_BIN_LOG mysql_bin_log(&sync_binlog_period);
 
 static int binlog_init(void *p);
@@ -911,6 +914,9 @@ static int binlog_init(void *p)
   binlog_hton->rollback= binlog_rollback;
   binlog_hton->prepare= binlog_prepare;
   binlog_hton->flags= HTON_NOT_USER_SELECTABLE | HTON_HIDDEN;
+
+  latency_histogram_init(&histogram_binlog_fsync,
+                         histogram_step_size_binlog_fsync);
   return 0;
 }
 
@@ -7000,6 +7006,7 @@ std::pair<bool, bool>
 MYSQL_BIN_LOG::sync_binlog_file(bool force, bool async)
 {
   bool synced= false;
+  ulonglong start_time, binlog_fsync_time;
   unsigned int sync_period= get_sync_period();
   if (force || (!async && (sync_period && ++sync_counter >= sync_period)))
   {
@@ -7020,9 +7027,15 @@ MYSQL_BIN_LOG::sync_binlog_file(bool force, bool async)
       TODO: fix this properly even for non-transactional storage
             engines.
      */
-    if (DBUG_EVALUATE_IF("simulate_error_during_sync_binlog_file", 1,
+    start_time = my_timer_now();
+    int ret = DBUG_EVALUATE_IF("simulate_error_during_sync_binlog_file", 1,
                          mysql_file_sync(log_file.file,
-                                         MYF(MY_WME | MY_IGNORE_BADFD))))
+                                         MYF(MY_WME | MY_IGNORE_BADFD)));
+    binlog_fsync_time = my_timer_since(start_time);
+    if (histogram_step_size_binlog_fsync)
+      latency_histogram_increment(&histogram_binlog_fsync,
+                                  binlog_fsync_time, 1);
+    if (ret)
     {
       THD *thd= current_thd;
       thd->commit_error= THD::CE_SYNC_ERROR;

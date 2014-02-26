@@ -1,0 +1,110 @@
+drop table if exists userstats;
+drop table if exists userstats2;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+Before all commands
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+USER_NAME	TYPE	STEP_SIZE	VALUE_BIN1	VALUE_BIN2	VALUE_BIN3	VALUE_BIN4	VALUE_BIN5	VALUE_BIN6	VALUE_BIN7	VALUE_BIN8	VALUE_BIN9	VALUE_BIN10	VALUE_BIN11	VALUE_BIN12	VALUE_BIN13	VALUE_BIN14	VALUE_BIN15
+mysqltest_1	UPDATE	16ms	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	DELETE	64us	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	INSERT	128us	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	SELECT	128us	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	DDL	64ms	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	TRANSACTION	16ms	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	HANDLER	16ms	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	OTHER	16ms	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	CONNECTION_CREATE	16ms	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+5 ddl commands:
+create table userstats2 (i int primary key, j int);
+create table userstats (i int primary key, j int);
+drop table userstats;
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+5 insert commands:
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+replace into userstats values (1,1);
+2 delete and 1 ddl commands:
+delete from userstats where i = 1;
+delete userstats, userstats2 from userstats inner join userstats2;
+truncate table userstats2;
+3 handler commands:
+handler userstats open;
+handler userstats read first;
+i	j
+handler userstats close;
+1 other command:
+show tables;
+Tables_in_test
+userstats
+userstats2
+Select commands:
+select 1;
+1
+1
+2 update commands:
+update userstats set j=j+1 where i = 2;
+update userstats set j=j+1 where i in (select i from userstats2);
+4 transaction commands;
+begin;
+rollback;
+begin;
+commit;
+Histogram values for Select statements validated
+Histogram values for Update statements validated
+Histogram values for Insert statements validated
+Histogram values for Delete statements validated
+Histogram values for Transaction statements validated
+Histogram values for Handler statements validated
+Histogram values for Ddl statements validated
+Histogram values for Other statements validated
+desc information_schema.user_latency_histograms;
+Field	Type	Null	Key	Default	Extra
+USER_NAME	varchar(192)	NO			
+TYPE	varchar(192)	NO			
+STEP_SIZE	varchar(192)	NO			
+VALUE_BIN1	bigint(21)	NO		0	
+VALUE_BIN2	bigint(21)	NO		0	
+VALUE_BIN3	bigint(21)	NO		0	
+VALUE_BIN4	bigint(21)	NO		0	
+VALUE_BIN5	bigint(21)	NO		0	
+VALUE_BIN6	bigint(21)	NO		0	
+VALUE_BIN7	bigint(21)	NO		0	
+VALUE_BIN8	bigint(21)	NO		0	
+VALUE_BIN9	bigint(21)	NO		0	
+VALUE_BIN10	bigint(21)	NO		0	
+VALUE_BIN11	bigint(21)	NO		0	
+VALUE_BIN12	bigint(21)	NO		0	
+VALUE_BIN13	bigint(21)	NO		0	
+VALUE_BIN14	bigint(21)	NO		0	
+VALUE_BIN15	bigint(21)	NO		0	
+show create table information_schema.user_latency_histograms;
+Table	Create Table
+USER_LATENCY_HISTOGRAMS	CREATE TEMPORARY TABLE `USER_LATENCY_HISTOGRAMS` (
+  `USER_NAME` varchar(192) NOT NULL DEFAULT '',
+  `TYPE` varchar(192) NOT NULL DEFAULT '',
+  `STEP_SIZE` varchar(192) NOT NULL DEFAULT '',
+  `VALUE_BIN1` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN2` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN3` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN4` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN5` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN6` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN7` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN8` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN9` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN10` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN11` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN12` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN13` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN14` bigint(21) NOT NULL DEFAULT '0',
+  `VALUE_BIN15` bigint(21) NOT NULL DEFAULT '0'
+) ENGINE=MEMORY DEFAULT CHARSET=utf8
+drop table userstats;
+drop table userstats2;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;

@@ -85,6 +85,7 @@ TABLE_PRIVILEGES
 TABLE_STATISTICS
 DB_STATISTICS
 TRIGGERS
+USER_LATENCY_HISTOGRAMS
 USER_PRIVILEGES
 USER_STATISTICS
 VIEWS
@@ -907,7 +908,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	35
+information_schema	36
 mysql	25
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1379,6 +1380,7 @@ TABLE_CONSTRAINTS	information_schema.TABLE_CONSTRAINTS	1
 TABLE_PRIVILEGES	information_schema.TABLE_PRIVILEGES	1
 TABLE_STATISTICS	information_schema.TABLE_STATISTICS	1
 TRIGGERS	information_schema.TRIGGERS	1
+USER_LATENCY_HISTOGRAMS	information_schema.USER_LATENCY_HISTOGRAMS	1
 USER_PRIVILEGES	information_schema.USER_PRIVILEGES	1
 USER_STATISTICS	information_schema.USER_STATISTICS	1
 VIEWS	information_schema.VIEWS	1
@@ -2229,6 +2231,27 @@ GTID_UNSAFE_CREATE_SELECT	bigint(11)	NO		0
 GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION	bigint(11)	NO		0	
 GTID_UNSAFE_NON_TRANSACTIONAL_TABLE	bigint(11)	NO		0	
 select * from information_schema.user_statistics where USER_NAME = "does not exist";
+describe information_schema.user_latency_histograms;
+Field	Type	Null	Key	Default	Extra
+USER_NAME	varchar(192)	NO			
+TYPE	varchar(192)	NO			
+STEP_SIZE	varchar(192)	NO			
+VALUE_BIN1	bigint(21)	NO		0	
+VALUE_BIN2	bigint(21)	NO		0	
+VALUE_BIN3	bigint(21)	NO		0	
+VALUE_BIN4	bigint(21)	NO		0	
+VALUE_BIN5	bigint(21)	NO		0	
+VALUE_BIN6	bigint(21)	NO		0	
+VALUE_BIN7	bigint(21)	NO		0	
+VALUE_BIN8	bigint(21)	NO		0	
+VALUE_BIN9	bigint(21)	NO		0	
+VALUE_BIN10	bigint(21)	NO		0	
+VALUE_BIN11	bigint(21)	NO		0	
+VALUE_BIN12	bigint(21)	NO		0	
+VALUE_BIN13	bigint(21)	NO		0	
+VALUE_BIN14	bigint(21)	NO		0	
+VALUE_BIN15	bigint(21)	NO		0	
+select * from information_schema.user_latency_histograms where USER_NAME = "does not exist";
 #
 # Test for bug #16869534 - "QUERYING SUBSET OF COLUMNS DOESN'T USE TABLE
 #                           CACHE; OPENED_TABLES INCREASES"
