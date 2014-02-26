@@ -66,6 +66,7 @@ echo [ status of semi-sync on master should be ON even without any semi-sync sla
 show status like 'Rpl_semi_sync_master_clients';
 show status like 'Rpl_semi_sync_master_status';
 show status like 'Rpl_semi_sync_master_yes_tx';
+show status like 'Rpl_semi_sync_master_trx_wait_histogram%';
 
 --echo #
 --echo # BUG#45672 Semisync repl: ActiveTranx:insert_tranx_node: transaction node allocation failed
