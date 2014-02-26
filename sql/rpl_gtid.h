@@ -2810,7 +2810,7 @@ gtid_before_statement(THD *thd, Group_cache *gsc, Group_cache *gtc);
 
   @param thd THD object for the session.
 */
-enum_gtid_statement_status gtid_pre_statement_checks(const THD *thd);
+enum_gtid_statement_status gtid_pre_statement_checks(THD *thd);
 
 /**
   Check if the current statement terminates a transaction, and if so
