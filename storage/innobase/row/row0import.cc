@@ -2027,7 +2027,8 @@ PageConverter::update_page(
 		/* We need to decompress the contents into block->frame
 		before we can do any thing with Btree pages. */
 
-		if (is_compressed_table() && !buf_zip_decompress(block, TRUE)) {
+		if (is_compressed_table()
+		    && !buf_zip_decompress(block, TRUE, m_cfg->m_flags)) {
 			return(DB_CORRUPTION);
 		}
 
