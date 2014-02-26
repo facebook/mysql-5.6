@@ -506,7 +506,9 @@ page_zip_parse_compress(
 	byte*		ptr,	/*!< in: buffer */
 	byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< out: uncompressed page */
-	page_zip_des_t*	page_zip)/*!< out: compressed page */
+	page_zip_des_t*	page_zip,/*!< out: compressed page */
+	ulint		space_id) /*!< in: used to obtain compression
+				  type and compression flags */
 	__attribute__((nonnull(1,2)));
 
 /**********************************************************************//**
