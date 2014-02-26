@@ -8204,7 +8204,7 @@ int THD::decide_logging_format(TABLE_LIST *tables)
       clear_binlog_local_stmt_filter();
     }
 
-    if (!error && enforce_gtid_consistency &&
+    if (!error &&
         !is_dml_gtid_compatible(write_to_some_transactional_table,
                                 write_to_some_non_transactional_table,
                                 write_all_non_transactional_are_tmp_tables))
@@ -8304,9 +8304,11 @@ int THD::decide_logging_format(TABLE_LIST *tables)
 }
 
 
-bool THD::is_ddl_gtid_compatible() const
+bool THD::is_ddl_gtid_compatible()
 {
   DBUG_ENTER("THD::is_ddl_gtid_compatible");
+
+  USER_STATS *us = thd_get_user_stats(this);
 
   // If @@session.sql_log_bin has been manually turned off (only
   // doable by SUPER), then no problem, we can execute any statement.
@@ -8324,8 +8326,13 @@ bool THD::is_ddl_gtid_compatible() const
       and then written to the slave's binary log as two separate
       transactions with the same GTID.
     */
-    my_error(ER_GTID_UNSAFE_CREATE_SELECT, MYF(0));
-    DBUG_RETURN(false);
+    if (us) {
+      my_atomic_add32((int*)&us->n_gtid_unsafe_create_select, 1);
+    }
+    if (enforce_gtid_consistency && should_write_gtids(this)) {
+      my_error(ER_GTID_UNSAFE_CREATE_SELECT, MYF(0));
+      DBUG_RETURN(false);
+    }
   }
   if ((lex->sql_command == SQLCOM_CREATE_TABLE &&
        (lex->create_info.options & HA_LEX_CREATE_TMP_TABLE) != 0) ||
@@ -8339,9 +8346,16 @@ bool THD::is_ddl_gtid_compatible() const
     */
     if (in_multi_stmt_transaction_mode())
     {
-      my_error(ER_GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION,
-               MYF(0));
-      DBUG_RETURN(false);
+      if (us) {
+        my_atomic_add32(
+          (int*)&us->n_gtid_unsafe_create_drop_temporary_table_in_transaction,
+          1);
+      }
+      if (enforce_gtid_consistency && should_write_gtids(this)) {
+        my_error(ER_GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION,
+                 MYF(0));
+        DBUG_RETURN(false);
+      }
     }
   }
   DBUG_RETURN(true);
@@ -8351,7 +8365,7 @@ bool THD::is_ddl_gtid_compatible() const
 bool
 THD::is_dml_gtid_compatible(bool transactional_table,
                             bool non_transactional_table,
-                            bool non_transactional_tmp_tables) const
+                            bool non_transactional_tmp_tables)
 {
   DBUG_ENTER("THD::is_dml_gtid_compatible(bool, bool, bool)");
 
@@ -8382,8 +8396,14 @@ THD::is_dml_gtid_compatible(bool transactional_table,
       !(non_transactional_tmp_tables && is_current_stmt_binlog_format_row()) &&
       !DBUG_EVALUATE_IF("allow_gtid_unsafe_non_transactional_updates", 1, 0))
   {
-    my_error(ER_GTID_UNSAFE_NON_TRANSACTIONAL_TABLE, MYF(0));
-    DBUG_RETURN(false);
+    USER_STATS *us = thd_get_user_stats(this);
+    if (us) {
+      my_atomic_add32((int*)&us->n_gtid_unsafe_non_transactional_table, 1);
+    }
+    if (enforce_gtid_consistency && should_write_gtids(this)) {
+      my_error(ER_GTID_UNSAFE_NON_TRANSACTIONAL_TABLE, MYF(0));
+      DBUG_RETURN(false);
+    }
   }
 
   DBUG_RETURN(true);
