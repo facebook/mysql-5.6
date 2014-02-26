@@ -567,6 +567,7 @@ lock_sec_rec_cons_read_sees(
 	const read_view_t*	view)	/*!< in: consistent read view */
 {
 	trx_id_t	max_trx_id;
+	bool		result;
 
 	ut_ad(page_rec_is_user_rec(rec));
 
@@ -581,7 +582,12 @@ lock_sec_rec_cons_read_sees(
 	max_trx_id = page_get_max_trx_id(page_align(rec));
 	ut_ad(max_trx_id);
 
-	return(max_trx_id < view->up_limit_id);
+	result = (max_trx_id < view->up_limit_id);
+
+	srv_sec_rec_read_check++;
+	srv_sec_rec_read_sees += result;
+
+	return result;
 }
 
 /*********************************************************************//**
