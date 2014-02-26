@@ -2126,7 +2126,9 @@ recv_apply_log_recs_for_backup(void)
 					       recv_addr->page_no, 0, zip_size,
 					       block->page.zip.data, NULL);
 				if (error == DB_SUCCESS
-				    && !buf_zip_decompress(block, TRUE)) {
+				    && !buf_zip_decompress(block,
+							   TRUE,
+							   ULINT_UNDEFINED)) {
 					exit(1);
 				}
 			} else {
