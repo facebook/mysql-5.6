@@ -1,0 +1,75 @@
+SELECT COUNT(@@GLOBAL.histogram_step_size_ddl_command);
+COUNT(@@GLOBAL.histogram_step_size_ddl_command)
+1
+1 Expected
+SET @start_global_value = @@GLOBAL.histogram_step_size_ddl_command;
+SELECT @start_global_value;
+@start_global_value
+64ms
+64ms Expected
+SET @@GLOBAL.histogram_step_size_ddl_command='16ms';
+select @@GLOBAL.histogram_step_size_ddl_command;
+@@GLOBAL.histogram_step_size_ddl_command
+16ms
+16ms Expected
+select * from information_schema.global_variables where variable_name='histogram_step_size_ddl_command';
+VARIABLE_NAME	VARIABLE_VALUE
+HISTOGRAM_STEP_SIZE_DDL_COMMAND	16ms
+SELECT @@GLOBAL.histogram_step_size_ddl_command = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='histogram_step_size_ddl_command';
+@@GLOBAL.histogram_step_size_ddl_command = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.histogram_step_size_ddl_command);
+COUNT(@@GLOBAL.histogram_step_size_ddl_command)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='histogram_step_size_ddl_command';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+SELECT COUNT(@@local.histogram_step_size_ddl_command);
+ERROR HY000: Variable 'histogram_step_size_ddl_command' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.histogram_step_size_ddl_command);
+ERROR HY000: Variable 'histogram_step_size_ddl_command' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@GLOBAL.histogram_step_size_ddl_command='32';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of '32'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='0';
+select @@GLOBAL.histogram_step_size_ddl_command;
+@@GLOBAL.histogram_step_size_ddl_command
+0
+0 Expected
+SET @@GLOBAL.histogram_step_size_ddl_command='ms32';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of 'ms32'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='32ps';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of '32ps'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='3s2';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of '3s2'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='32@s';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of '32@s'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='32s.';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of '32s.'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='s';
+ERROR 42000: Variable 'histogram_step_size_ddl_command' can't be set to the value of 's'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.histogram_step_size_ddl_command='16.5us';
+select @@GLOBAL.histogram_step_size_ddl_command;
+@@GLOBAL.histogram_step_size_ddl_command
+16.5us
+16.5us Expected
+SET @@GLOBAL.histogram_step_size_ddl_command = @start_global_value;
+SELECT @@GLOBAL.histogram_step_size_ddl_command;
+@@GLOBAL.histogram_step_size_ddl_command
+64ms
+64ms Expected
