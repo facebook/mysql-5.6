@@ -249,6 +249,7 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> microseconds_transaction;
   atomic_stat<ulonglong> microseconds_update;
   atomic_stat<ulonglong> queries_empty;
+  atomic_stat<ulonglong> relay_log_bytes_written;
   atomic_stat<ulonglong> rows_deleted;
   atomic_stat<ulonglong> rows_fetched;
   atomic_stat<ulonglong> rows_inserted;

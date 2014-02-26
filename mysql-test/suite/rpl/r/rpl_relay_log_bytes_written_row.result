@@ -1,0 +1,60 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table test_relay_log_bytes_written(first_column int);
+master_relay_log_bytes_written
+0
+master_binlog_slave_relaylog_diff
+0
+slave_relaylog_binlog_diff
+0
+master_slave_binlog_diff
+0
+insert into test_relay_log_bytes_written values(1);
+master_relay_log_bytes_written
+0
+master_binlog_slave_relaylog_diff
+0
+slave_relaylog_binlog_diff
+18
+master_slave_binlog_diff
+18
+insert into test_relay_log_bytes_written values(2);
+master_relay_log_bytes_written
+0
+master_binlog_slave_relaylog_diff
+0
+slave_relaylog_binlog_diff
+36
+master_slave_binlog_diff
+36
+delete from test_relay_log_bytes_written;
+master_relay_log_bytes_written
+0
+master_binlog_slave_relaylog_diff
+0
+slave_relaylog_binlog_diff
+54
+master_slave_binlog_diff
+54
+alter table test_relay_log_bytes_written add second_column int;
+master_relay_log_bytes_written
+0
+master_binlog_slave_relaylog_diff
+0
+slave_relaylog_binlog_diff
+54
+master_slave_binlog_diff
+54
+drop table test_relay_log_bytes_written;
+master_relay_log_bytes_written
+0
+master_binlog_slave_relaylog_diff
+0
+slave_relaylog_binlog_diff
+54
+master_slave_binlog_diff
+54
+include/rpl_end.inc
