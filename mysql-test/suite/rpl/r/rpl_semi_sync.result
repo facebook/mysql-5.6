@@ -37,6 +37,23 @@ Rpl_semi_sync_master_status	ON
 show status like 'Rpl_semi_sync_master_yes_tx';
 Variable_name	Value
 Rpl_semi_sync_master_yes_tx	0
+show status like 'Rpl_semi_sync_master_trx_wait_histogram%';
+Variable_name	Value
+Rpl_semi_sync_master_trx_wait_histogram_0-500us	0
+Rpl_semi_sync_master_trx_wait_histogram_500-1000us	0
+Rpl_semi_sync_master_trx_wait_histogram_1000-1500us	0
+Rpl_semi_sync_master_trx_wait_histogram_1500-2000us	0
+Rpl_semi_sync_master_trx_wait_histogram_2000-2500us	0
+Rpl_semi_sync_master_trx_wait_histogram_2500-3000us	0
+Rpl_semi_sync_master_trx_wait_histogram_3000-3500us	0
+Rpl_semi_sync_master_trx_wait_histogram_3500-4000us	0
+Rpl_semi_sync_master_trx_wait_histogram_4000-4500us	0
+Rpl_semi_sync_master_trx_wait_histogram_4500-5000us	0
+Rpl_semi_sync_master_trx_wait_histogram_5000-5500us	0
+Rpl_semi_sync_master_trx_wait_histogram_5500-6000us	0
+Rpl_semi_sync_master_trx_wait_histogram_6000-6500us	0
+Rpl_semi_sync_master_trx_wait_histogram_6500-7000us	0
+Rpl_semi_sync_master_trx_wait_histogram_7000-7500us	0
 #
 # BUG#45672 Semisync repl: ActiveTranx:insert_tranx_node: transaction node allocation failed
 # BUG#45673 Semisynch reports correct operation even if no slave is connected
