@@ -566,6 +566,7 @@ ulonglong slave_rows_search_algorithms_options;
 uint slave_rows_last_search_algorithm_used;
 #endif
 ulonglong binlog_bytes_written = 0;
+ulonglong relay_log_bytes_written = 0;
 ulong binlog_cache_size=0;
 ulonglong  max_binlog_cache_size=0;
 ulong slave_max_allowed_packet= 0;
@@ -8404,6 +8405,7 @@ SHOW_VAR status_vars[]= {
   {"Read_queries",             (char*) &read_queries,        SHOW_LONG},
   {"Read_requests",            (char*) offsetof(STATUS_VAR, read_requests), SHOW_LONG_STATUS},
   {"Read_seconds",             (char*) offsetof(STATUS_VAR, read_time), SHOW_TIMER_STATUS},
+  {"Relay_log_bytes_written",  (char*) &relay_log_bytes_written, SHOW_LONGLONG},
   {"Relay_log_io_connected",   (char*) &relay_io_connected, SHOW_LONG},
   {"Relay_log_io_events",      (char*) &relay_io_events, SHOW_LONG},
   {"Relay_log_io_bytes",       (char*) &relay_io_bytes, SHOW_LONGLONG},
@@ -8727,6 +8729,7 @@ static int mysql_init_variables(void)
   binlog_bytes_written= 0;
   binlog_cache_use=  binlog_cache_disk_use= 0;
   binlog_fsync_count= 0;
+  relay_log_bytes_written= 0;
   max_used_connections= slow_launch_threads = 0;
   mysqld_user= mysqld_chroot= opt_init_file= opt_bin_logname = 0;
   prepared_stmt_count= 0;
