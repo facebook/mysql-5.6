@@ -763,7 +763,10 @@ ibool
 buf_zip_decompress(
 /*===============*/
 	buf_block_t*	block,	/*!< in/out: block */
-	ibool		check);	/*!< in: TRUE=verify the page checksum */
+	ibool		check,	/*!< in: TRUE=verify the page checksum */
+	ulint		table_flags); /*!< in: table flags used for compression
+					configuration. not used if set to
+					ULINT_UNDEFINED */
 #ifndef UNIV_HOTBACKUP
 #ifdef UNIV_DEBUG
 /*********************************************************************//**
