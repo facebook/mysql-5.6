@@ -1273,6 +1273,18 @@ struct export_var_t{
 	ulint  	innodb_malloc_cache_block_size_decompress;
 	ulint	innodb_drop_purge_skip_row;
 	ulint	innodb_drop_ibuf_skip_row;
+
+	ulonglong histogram_async_read_values[NUMBER_OF_HISTOGRAM_BINS];
+	ulonglong histogram_async_write_values[NUMBER_OF_HISTOGRAM_BINS];
+
+	ulonglong histogram_sync_read_values[NUMBER_OF_HISTOGRAM_BINS];
+	ulonglong histogram_sync_write_values[NUMBER_OF_HISTOGRAM_BINS];
+
+	ulonglong histogram_log_write_values[NUMBER_OF_HISTOGRAM_BINS];
+	ulonglong histogram_double_write_values[NUMBER_OF_HISTOGRAM_BINS];
+
+	ulonglong histogram_file_flush_time_values[NUMBER_OF_HISTOGRAM_BINS];
+	ulonglong histogram_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
 };
 
 /** Thread slot in the thread table.  */

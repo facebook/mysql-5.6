@@ -1,0 +1,27 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+let OUTPUT = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+
+#This script extracts the section of output (of SHOW ENGINE INNODB STATUS) lying between the strings "Histograms" and "TABLESPACE".
+#After extracting this text. it further extracts the histogram bucket value and checks if all of them are 0, because when the step size of
+#a histogram is set to 0 (as in the -master.opt file), it no more tracks the statistic it was designed to track.
+
+perl;
+
+#Splits the output of the query on a newline and iterates over the separate lines
+foreach (@line = split(/\n/, $ENV{'OUTPUT'})) {
+  #If the line falls within the substrings 'Histograms' and 'TABLESPACE'
+  #The syntax /A/../B/ is a pattern that matches any piece of text
+  #lying in between the strings A and B
+  if (/Histograms/../TABLESPACE/) {
+    next if /TABLESPACE/;
+    ($bucket, $value) = split(/\t/, $_);
+    print $bucket."\t".$value;
+    print "\n";
+  }
+}
+
+EOF
+
+--echo Done
