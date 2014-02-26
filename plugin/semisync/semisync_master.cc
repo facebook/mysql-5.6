@@ -46,6 +46,10 @@ unsigned long rpl_semi_sync_master_clients          = 0;
 unsigned long long rpl_semi_sync_master_net_wait_time = 0;
 unsigned long long rpl_semi_sync_master_trx_wait_time = 0;
 char rpl_semi_sync_master_wait_no_slave = 1;
+char *histogram_trx_wait_step_size = 0;
+latency_histogram histogram_trx_wait;
+SHOW_VAR latency_histogram_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
+ulonglong histogram_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
 
 
 static int getWaitTime(const struct timespec& start_ts);
@@ -373,6 +377,7 @@ int ReplSemiSyncMaster::initObject()
   else
     result = disableMaster();
 
+  latency_histogram_init(&histogram_trx_wait, histogram_trx_wait_step_size);
   return result;
 }
 
@@ -439,6 +444,7 @@ int ReplSemiSyncMaster::disableMaster()
 
 void ReplSemiSyncMaster::cleanup()
 {
+  free_latency_histogram_sysvars(latency_histogram_trx_wait);
   if (init_done_)
   {
     mysql_mutex_destroy(&LOCK_binlog_);
@@ -843,6 +849,9 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
         {
           rpl_semi_sync_master_trx_wait_num++;
           rpl_semi_sync_master_trx_wait_time += wait_time;
+          if (histogram_trx_wait_step_size)
+            latency_histogram_increment(&histogram_trx_wait,
+              microseconds_to_my_timer((double)wait_time), 1);
         }
       }
     }
@@ -1308,6 +1317,11 @@ void ReplSemiSyncMaster::setExportStats()
      (unsigned long)((double)rpl_semi_sync_master_net_wait_time /
                      ((double)rpl_semi_sync_master_net_wait_num)) : 0);
 
+  for (size_t i_bins = 0; i_bins < NUMBER_OF_HISTOGRAM_BINS; ++i_bins) {
+    histogram_trx_wait_values[i_bins] =
+      latency_histogram_get_count(&histogram_trx_wait, i_bins);
+  }
+
   unlock();
 }
 
@@ -1335,4 +1349,12 @@ static int getWaitTime(const struct timespec& start_ts)
     return -1;
 
   return (int)(end_usecs - start_usecs);
+}
+
+void
+ReplSemiSyncMaster::update_histogram_trx_wait_step_size(const char *step_size)
+{
+  lock();
+  latency_histogram_init(&histogram_trx_wait, step_size);
+  unlock();
 }
