@@ -172,13 +172,13 @@ Q.E.D. */
 
 /** The number of iterations in the mutex_spin_wait() spin loop.
 Intended for performance monitoring. */
-static ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_spin_round_count;
+ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_spin_round_count;
 /** The number of mutex_spin_wait() calls.  Intended for
 performance monitoring. */
-static ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_spin_wait_count;
+ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_spin_wait_count;
 /** The number of OS waits in mutex_spin_wait().  Intended for
 performance monitoring. */
-static ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_os_wait_count;
+ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_os_wait_count;
 /** The number of mutex_exit() calls. Intended for performance
 monitoring. */
 UNIV_INTERN ib_int64_t			mutex_exit_count;
