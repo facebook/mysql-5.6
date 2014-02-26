@@ -4163,8 +4163,8 @@ public:
   bool
   is_dml_gtid_compatible(bool transactional_table,
                          bool non_transactional_table,
-                         bool non_transactional_tmp_tables) const;
-  bool is_ddl_gtid_compatible() const;
+                         bool non_transactional_tmp_tables);
+  bool is_ddl_gtid_compatible();
   void binlog_invoker() { m_binlog_invoker= TRUE; }
   bool need_binlog_invoker() { return m_binlog_invoker; }
   void get_definer(LEX_USER *definer);
