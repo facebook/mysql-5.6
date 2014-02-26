@@ -1,0 +1,185 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+create table t1 (a int auto_increment primary key, b char(255)) engine=innodb;
+
+insert into t1 values (1, repeat('a', 255));
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+
+select count(*) from t1;
+
+let OUTPUT = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+
+#This script extracts the section of output (of SHOW ENGINE INNODB STATUS) lying between the strings "Histograms" and "TABLESPACE".
+#After extracting this text. it further extracts the histogram bucket value and replaces it with a constant "COUNT"
+#Apart from doing this , it checks if the values of histogram buckets sum up to the total number of requests of that specific statistic.
+#For example: If the number of Async reads is X (which is extracted from the output of SHOW ENGINE INNODB STATUS), then the values of all
+#histogram_async_read buckets should sum up to X
+
+perl;
+$sum_async_reads = 0;
+$sum_async_writes = 0;
+$sum_sync_reads = 0;
+$sum_sync_writes = 0;
+$sum_log_writes = 0;
+$sum_double_writes = 0;
+$sum_file_flush = 0;
+$sum_fsyncs = 0;
+
+#Subroutine that performs text processing to extract the number of requests
+#of a specific statistic in the output of SHOW ENGINE INNODB STATUS.
+sub get_num_requests
+{
+  @temp1 = split(/:/, $_[0]);       #Splits the string on a ':'
+  @temp2 = split(/,/, $temp1[1]);   #Splits the string on a ','
+  @temp3 = split(' ', $temp2[0]);   #Splits the string on a ' '
+  return $temp3[0];
+}
+
+#Splits the output of the query on a newline and iterates over the separate lines
+foreach (@line = split(/\n/, $ENV{'OUTPUT'})) {
+  #If line starts with 'Async reads...'
+  if (/^Async reads/) {
+    $total_async_reads = get_num_requests($_);
+  }
+
+  #If line starts with 'Async writes...'
+  if (/^Async writes/) {
+    $total_async_writes = get_num_requests($_);
+  }
+
+  #If line starts with 'Sync reads...'
+  if (/^Sync reads/) {
+    $total_sync_reads = get_num_requests($_);
+  }
+
+  #If line starts with 'Sync writes...'
+  if (/^Sync writes/) {
+    $total_sync_writes = get_num_requests($_);
+  }
+
+  #If line starts with 'Log writes...'
+  if (/^Log writes/) {
+    $total_log_writes = get_num_requests($_);
+  }
+
+  #If line starts with 'Doublewrite buffer writes...'
+  if (/^Doublewrite buffer writes/) {
+    $total_double_writes = get_num_requests($_);
+  }
+
+  #If line starts with 'File flushes...'
+  if (/^File flushes/) {
+    $total_fsyncs = get_num_requests($_);
+  }
+
+  #If the line falls within the substrings 'Histograms' and 'TABLESPACE'
+  #The syntax /A/../B/ is a pattern that matches any piece of text
+  #lying in between the strings A and B
+  if (/Histograms/../TABLESPACE/) {
+    next if /TABLESPACE/;
+    ($bucket, $value) = split(/\t/, $_);
+    if (/Async Reads/../Async Writes/) {
+      $sum_async_reads += $value;
+    }
+    if (/Async Writes/../Sync Reads/) {
+      $sum_async_writes += $value;
+    }
+    if (/Sync Reads/../Sync Writes/) {
+      $sum_sync_reads += $value;
+    }
+    if (/Sync Writes/../Log Writes/) {
+      $sum_sync_writes += $value;
+    }
+    if (/Log Writes/../Double Buffer Writes/) {
+      $sum_log_writes += $value;
+    }
+    if (/Double Buffer Writes/../File Flush Time/) {
+      $sum_double_writes += $value;
+    }
+    if (/File Flush Time/../Fsyncs/) {
+      $sum_file_flush += $value;
+    }
+    if (/Fsyncs/../TABLESPACE/) {
+      $sum_fsyncs += $value;
+    }
+
+    $value =~ s/$value/COUNT/g;   #Replacing the numeric value with a string constant 'COUNT'
+    print $bucket."\t".$value;
+    print "\n";
+  }
+}
+
+#Checking if the printed and calculated values of respective statistics match
+
+#While running under load (in parallel), there can be a discrepency between the
+#reported total and the sum of the individual values.  Attempt to account for
+#that here.
+$max_discrepency = 7;
+$diff = abs($total_async_reads - $sum_async_reads);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Async Reads validated\n";
+} else {
+  print "total: $total_async_reads, sum: $sum_async_reads\n";
+}
+$diff = abs($total_async_writes - $sum_async_writes);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Async Writes validated\n";
+} else {
+  print "total: $total_async_writes, sum: $sum_async_writes\n";
+}
+$diff = abs($total_sync_reads - $sum_sync_reads);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Sync Reads validated\n";
+} else {
+  print "total: $total_sync_reads, sum: $sum_sync_reads\n";
+}
+$diff = abs($total_sync_writes - $sum_sync_writes);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Sync Writes validated\n";
+} else {
+  print "total: $total_sync_writes, sum: $sum_sync_writes\n";
+}
+$diff = abs($total_log_writes - $sum_log_writes);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Log Writes validated\n";
+} else {
+  print "total: $total_log_writes, sum: $sum_log_writes\n";
+}
+$diff = abs($total_double_writes - $sum_double_writes);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Doublebuffer Writes validated\n";
+} else {
+  print "total: $total_double_writes, sum: $sum_double_writes\n";
+}
+$diff = abs($total_fsyncs - $sum_fsyncs);
+if  ($diff <= $max_discrepency) {
+  print "Histogram for Fsyncs validated\n";
+} else {
+  print "total: $total_fsyncs, sum: $sum_fsyncs\n";
+}
+print "\n";
+
+EOF
+
+DROP TABLE t1;
+--echo Done

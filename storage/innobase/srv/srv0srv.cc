@@ -2132,6 +2132,37 @@ srv_export_innodb_status(void)
 	export_vars.innodb_drop_purge_skip_row = srv_drop_purge_skip_row;
 	export_vars.innodb_drop_ibuf_skip_row = srv_drop_ibuf_skip_row;
 
+	size_t i_bins;
+	for (i_bins = 0; i_bins < NUMBER_OF_HISTOGRAM_BINS; ++i_bins) {
+		export_vars.histogram_async_read_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_async_read, i_bins);
+		export_vars.histogram_async_write_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_async_write, i_bins);
+
+		export_vars.histogram_sync_read_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_sync_read, i_bins);
+		export_vars.histogram_sync_write_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_sync_write, i_bins);
+
+		export_vars.histogram_log_write_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_log_write, i_bins);
+		export_vars.histogram_double_write_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_double_write, i_bins);
+
+		export_vars.histogram_file_flush_time_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_file_flush_time, i_bins);
+		export_vars.histogram_fsync_values[i_bins] =
+				latency_histogram_get_count(
+					&histogram_fsync, i_bins);
+	}
+
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
 
