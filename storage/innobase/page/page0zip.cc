@@ -956,6 +956,7 @@ page_zip_store_uncompressed_fields(
 			page_zip->n_blobs += n_ext;
 			break;
 		case PAGE_ZIP_UNCOMP_INSERT:
+			ut_ad(index);
 			blob_no = page_zip_get_n_prev_extern(page_zip,
 							     rec, index);
 			ext_end = externs - page_zip->n_blobs
@@ -970,6 +971,7 @@ page_zip_store_uncompressed_fields(
 			page_zip->n_blobs += n_ext;
 			break;
 		case PAGE_ZIP_UNCOMP_UPDATE:
+			ut_ad(index);
 			blob_no = page_zip_get_n_prev_extern(page_zip,
 							     rec, index);
 			ut_ad(blob_no <= page_zip->n_blobs);
@@ -1135,6 +1137,10 @@ data stream in forward direction.
 static
 byte*
 page_zip_serialize_clust_ext_rec(
+#ifdef UNIV_DEBUG
+	ibool mlog, /*!< in: If TRUE this function is called to write the record
+		      to the modification log */
+#endif
 	byte*	data,	/*!< out: pointer to the data stream
 			where the record is written */
 	const rec_t*	rec,	/*!< in: the record that is written
@@ -1158,7 +1164,10 @@ page_zip_serialize_clust_ext_rec(
 			     == rec_get_nth_field(rec, offsets,
 			     			  i + 1, &len));
 			ut_a(len == DATA_ROLL_PTR_LEN);
-
+#ifdef UNIV_DEBUG
+			if (mlog)
+				ASSERT_ZERO(data, src - start);
+#endif
 			/* Write the preceding fields. */
 			memcpy(data, start, src - start);
 			data += src - start;
@@ -1179,6 +1188,10 @@ page_zip_serialize_clust_ext_rec(
 	/* Log the last bytes of the record. */
 	len = rec_offs_data_size(offsets) - (start - rec);
 
+#ifdef UNIV_DEBUG
+	if (mlog)
+		ASSERT_ZERO(data, len);
+#endif
 	memcpy(data, start, len);
 	data += len;
 	return (data);
@@ -1191,6 +1204,10 @@ to a data stream in forward direction. Uncompressed fields are omitted.
 static
 byte*
 page_zip_serialize_clust_rec(
+#ifdef UNIV_DEBUG
+	ibool mlog, /*!< in: If TRUE this function is called to write the record
+		      to the modification log */
+#endif
 	byte*	data,	/*!< out: pointer to the data stream
 			where the record is written. */
 	const rec_t*	rec,	/*!< in: the record that is written
@@ -1211,12 +1228,20 @@ page_zip_serialize_clust_rec(
 	ut_ad(len == DATA_ROLL_PTR_LEN);
 
 	/* Write the preceding fields. */
+#ifdef UNIV_DEBUG
+	if (mlog)
+		ASSERT_ZERO(data, src - rec);
+#endif
 	memcpy(data, rec, src - rec);
 	data += src - rec;
 	/* Advance the record pointer to skip trx_id and roll_ptr */
 	src += DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
 	/* Write the last bytes of the record */
 	len = rec_offs_data_size(offsets) - (src - rec);
+#ifdef UNIV_DEBUG
+	if (mlog)
+		ASSERT_ZERO(data, len);
+#endif
 	memcpy(data, src, len);
 	data += len;
 	return data;
@@ -1229,6 +1254,10 @@ stream in forward direction.
 static
 byte*
 page_zip_serialize_sec_rec(
+#ifdef UNIV_DEBUG
+	ibool mlog, /*!< in: If TRUE this function is called to write the record
+		      to the modification log. */
+#endif
 	byte*	data,	/*!< out: pointer to the data stream where the
 			record is written */
 	const rec_t*	rec,	/*!< in: the record that is written
@@ -1239,8 +1268,11 @@ page_zip_serialize_sec_rec(
 	ulint	len = rec_offs_data_size(offsets);
 	/* Leaf page of a secondary index: no externally stored columns */
 	ut_ad(!rec_offs_any_extern(offsets));
-	/* Write the entire record */
-	ASSERT_ZERO(data, len);
+#ifdef UNIV_DEBUG
+	if (mlog)
+		/* Write the entire record */
+		ASSERT_ZERO(data, len);
+#endif
 	memcpy(data, rec, len);
 	data += len;
 	return data;
@@ -1253,6 +1285,10 @@ forward direction.
 static
 byte*
 page_zip_serialize_node_ptrs_rec(
+#ifdef UNIV_DEBUG
+	ibool mlog, /*!< in: If TRUE this function is called to write the record
+		      to the modification log */
+#endif
 	byte*	data,	/*!< out: pointer to the data stream where
 			the record is written */
 	const rec_t*	rec,	/*!< in: the record that is written
@@ -1264,7 +1300,10 @@ page_zip_serialize_node_ptrs_rec(
 	/* Non-leaf nodes should not have any externally stored columns. */
 	ut_ad(!rec_offs_any_extern(offsets));
 	/* Copy the data bytes, except node_ptr. */
-	ASSERT_ZERO(data, len);
+#ifdef UNIV_DEBUG
+	if (mlog)
+		ASSERT_ZERO(data, len);
+#endif
 	memcpy(data, rec, len);
 	data += len;
 	return data;
@@ -1282,6 +1321,10 @@ they are normally stored in backwards direction.
 static
 byte*
 page_zip_serialize_rec(
+#ifdef UNIV_DEBUG
+	ibool mlog, /*!< in: If TRUE this function is called to write the record
+		      to modification log */
+#endif
 	byte*	data,	/*!< out: pointer to the data stream where
 			the record is written */
 	const rec_t*	rec,	/*!< in: the record that is written to
@@ -1301,31 +1344,52 @@ page_zip_serialize_rec(
  * 	easily computed by invoking rec_get_offsets_reverse(). */
 	while (b != start) {
 		*data++ = *--b;
-		ut_ad(!*data);
+		ut_ad(!mlog || !*data);
 	}
 
 	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
 		if (trx_id_col) {
 			/* leaf page in a clustered index */
 			if (UNIV_UNLIKELY(rec_offs_any_extern(offsets))) {
+#ifdef UNIV_DEBUG
 				return page_zip_serialize_clust_ext_rec(
-						data, rec, offsets,
-						trx_id_col);
+						mlog, data, rec,
+						offsets, trx_id_col);
+#else
+				return page_zip_serialize_clust_ext_rec(
+						data, rec, offsets, trx_id_col);
+#endif
 			} else {
+#ifdef UNIV_DEBUG
+				return page_zip_serialize_clust_rec(
+						mlog, data, rec, offsets,
+						trx_id_col);
+#else
 				return page_zip_serialize_clust_rec(
 						data, rec, offsets,
 						trx_id_col);
+#endif
 			}
 		} else {
+#ifdef UNIV_DEBUG
+			return page_zip_serialize_sec_rec(
+					mlog, data, rec, offsets);
+#else
 			/* leaf page in a secondary index */
 			return page_zip_serialize_sec_rec(
 					data, rec, offsets);
+#endif
 		}
 	}
 	else {
 		/* non-leaf page */
 		ut_ad(trx_id_col == ULINT_UNDEFINED);
+#ifdef UNIV_DEBUG
+		return page_zip_serialize_node_ptrs_rec(
+				mlog, data, rec, offsets);
+#else
 		return page_zip_serialize_node_ptrs_rec(data, rec, offsets);
+#endif
 	}
 }
 
@@ -1555,9 +1619,9 @@ page_zip_deserialize_rec(
 						read from the data stream */
 	const dict_index_t*	index,		/*!< in: the index object for
 						the table */
-	ulint*			offsets,	/*!< in: offsets for the record
-						as obtained by
-						rec_get_offsets() */
+	ulint*			offsets,	/*!< out: used for offsets for
+						the record as obtained by
+						rec_get_offsets_reverse() */
 	ulint			trx_id_col,	/*!< in: the column no for
 						transaction id column */
 	ulint			heap_status,	/*!< in: heap_no and status bits
@@ -2024,35 +2088,105 @@ mem_block_cache_t malloc_cache_decompress_obj;
 mem_block_cache_t* malloc_cache_compress;
 mem_block_cache_t* malloc_cache_decompress;
 
-/* Below are the amounts of memory used for different types of compression */
+/***************************************************************//**
+Below are the amounts of memory used for different phases during
+compression and decompression. */
+/***************************************************************//**
+Memory needed by page_zip_compress(). This doesn't include the memory used by
+the functions called by page_zip_compress(). */
+#define PZ_MEM_COMP_BASE MEM_SPACE_NEEDED(UNIV_PAGE_SIZE)
+/***************************************************************//**
+Memory needed for zlib stream compression. Below, we compute an
+upperbound for the average amount of memory we need to allocate for
+page_zip_compress_zlib_stream() assuming that the average record size of a
+table is at least 16 and that there are at most 50 columns on a table. */
 #ifdef UNIV_DEBUG
-/* below, we compute an upperbound for the average amount of memory we need to
-allocate for page_zip_compress_zlib_stream() assuming that the average record
-size of a table is at least 16 and that there are at most 20 columns on a
-table. */
-#define COMPRESS_MEM_SIZE_ZLIB_STREAM (MEM_SPACE_NEEDED(UNIV_PAGE_SIZE) \
-	+ MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint))) \
-	+ MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)) \
-	+ MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
-						MAX_MEM_LEVEL)) \
-	+ 2 * UNIV_PAGE_SIZE) /* memory needed for the temporary page
- which is used for cleaning the garbage parts of the uncompressed page */
+#define PZ_MEM_COMP_ZLIB_STREAM \
+	(PZ_MEM_COMP_BASE \
+	 + MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint))) \
+	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)) \
+	 + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
+						 MAX_MEM_LEVEL)) \
+	 + 2 * UNIV_PAGE_SIZE)
 #else /* UNIV_DEBUG */
-#define COMPRESS_MEM_SIZE_ZLIB_STREAM (MEM_SPACE_NEEDED(UNIV_PAGE_SIZE) \
-	+ MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint))) \
-	+ MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)) \
-	+ MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
-						MAX_MEM_LEVEL)))
+#define PZ_MEM_COMP_ZLIB_STREAM \
+	(PZ_MEM_COMP_BASE \
+	 + MEM_SPACE_NEEDED(50L * (2 + sizeof(ulint))) \
+	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)) \
+	 + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
+						 MAX_MEM_LEVEL)))
 #endif /* UNIV_DEBUG */
-/* an upperbound for the amount of memory needed for page_zip_decompress()
-See the comment to COMPRESS_MEM_SIZE_ZLIB_STREAM for why n_dense is taken to be
-UNIV_PAGE_SIZE / 16 */
-#define DECOMPRESS_MEM_SIZE_ZLIB_STREAM \
-	(MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * (3 * sizeof(rec_t*))) \
+/***************************************************************//**
+Macros to define the maximum length of a page after its records
+are serialized, and the size of the buffer that is used to store
+the serialized buffer. Even though the serialization of records
+should not require more than UNIV_PAGE_SIZE memory, we give more
+just in case the serialization needs some extra space for metadata.
+page_zip_serialize() will fail if the length of a page after its
+records are serialized is more than PZ_SERIALIZED_LEN_MAX. The
+buffer for serialization has to be a bit bigger than
+PZ_SERIALIZED_LEN_MAX because we detect whether we exceeded the
+length limit after serializing the record. */
+#define PZ_SERIALIZED_LEN_MAX (2 * UNIV_PAGE_SIZE)
+#define PZ_SERIALIZED_BUF_SIZE (5 * UNIV_PAGE_SIZE / 2)
+/***************************************************************//**
+The amount of space we would like to reserve on the compressed page
+for the compression output. If the trailer of a compressed page occupies
+too much space, it may make sense to split that page before even trying
+to serialize its records. This helps us abort the compression early
+in the process. */
+#define PZ_COMPRESSED_LEN_MIN 128
+/***************************************************************//**
+Memory needed by page_zip_serialize(): memory needed for the serialization
+buffer plus the memory needed for the record pointers (recs). We estimate
+the number of records to be at most UNIV_PAGE_SIZE / 16, assuming each
+record is at least 16 bytes. */
+#define PZ_MEM_SERIALIZE \
+	(MEM_SPACE_NEEDED(PZ_SERIALIZED_BUF_SIZE) \
+	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)))
+/***************************************************************//**
+Total memory needed by zlib compression in new style */
+#define PZ_MEM_COMP_ZLIB \
+	(PZ_MEM_COMP_BASE \
+	 + PZ_MEM_SERIALIZE \
+	 + MEM_SPACE_NEEDED(DEFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT, \
+						 MAX_MEM_LEVEL)))
+/***************************************************************//**
+Maximum total memory that may be used by page_zip_compress() regardless of
+the compression algorithm */
+#define PZ_MEM_COMP_MAX max(PZ_MEM_COMP_ZLIB_STREAM, PZ_MEM_COMP_ZLIB)
+/***************************************************************//**
+Memory needed by page_zip_decompress_low(). memory used by the called
+functions is not included. See the comment to PZ_MEM_COMP_ZLIB_STREAM for
+why we take n_dense to be UNIV_PAGE_SIZE / 16. */
+#define PZ_MEM_DECOMP_BASE \
+	MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * (3 * sizeof(rec_t*)))
+/***************************************************************//**
+Total memory needed by zlib stream decompression: memory needed to store
+the offsets parameter, the encoding of the index and the decompression
+operation. See page_zip_decompress_zlib_stream() for details. */
+#define PZ_MEM_DECOMP_ZLIB_STREAM \
+	(PZ_MEM_DECOMP_BASE \
+	 + MEM_SPACE_NEEDED(50L * sizeof(ulint)) \
 	 + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT)))
-
-#define COMPRESS_MEM_SIZE_MAX COMPRESS_MEM_SIZE_ZLIB_STREAM
-#define DECOMPRESS_MEM_SIZE_MAX DECOMPRESS_MEM_SIZE_ZLIB_STREAM
+/***************************************************************//**
+Memory needed by page_zip_deserialize. Note that PZ_SERIALIZED_LEN_MAX
+is for the buffer that will be used by page_zip_deserialize(). This
+buffer must be allocated by the caller but we count it towards
+deserialization */
+#define PZ_MEM_DESERIALIZE \
+	(PZ_SERIALIZED_LEN_MAX \
+	 + MEM_SPACE_NEEDED(50L * sizeof(ulint)))
+/***************************************************************//**
+Total memory needed by zlib decompression in new style */
+#define PZ_MEM_DECOMP_ZLIB \
+	(PZ_MEM_DECOMP_BASE \
+	 + PZ_MEM_DESERIALIZE \
+	 + MEM_SPACE_NEEDED(INFLATE_MEMORY_BOUND(UNIV_PAGE_SIZE_SHIFT)))
+/***************************************************************//**
+Maximum total memory that may be used by page_zip_decompress() regardless
+of the compression algorithm used */
+#define PZ_MEM_DECOMP_MAX max(PZ_MEM_DECOMP_ZLIB_STREAM, PZ_MEM_DECOMP_ZLIB)
 
 /* Calculates block size as an upper bound required for memory, used for
 page_zip_compress and page_zip_decompress, and calls mem_block_cache_init
@@ -2063,9 +2197,9 @@ page_zip_init(void)
 {
 	malloc_cache_compress = &malloc_cache_compress_obj;
 	malloc_cache_decompress = &malloc_cache_decompress_obj;
-	mem_block_cache_init(malloc_cache_compress, COMPRESS_MEM_SIZE_MAX,
+	mem_block_cache_init(malloc_cache_compress, PZ_MEM_COMP_MAX,
 	                     &malloc_cache_compress_len);
-	mem_block_cache_init(malloc_cache_decompress, DECOMPRESS_MEM_SIZE_MAX,
+	mem_block_cache_init(malloc_cache_decompress, PZ_MEM_DECOMP_MAX,
 	                     &malloc_cache_decompress_len);
 }
 
@@ -2105,6 +2239,115 @@ page_zip_clean_garbage(
 
 my_bool page_zip_zlib_wrap = FALSE;
 uint page_zip_zlib_strategy = Z_DEFAULT_STRATEGY;
+
+/***************************************************************//**
+Write the records on the page to the output buffer in a format in which
+they can be recovered one by one after decompression. The uncompressed
+fields of the record -if any- are stored in the compressed page trailer
+not in the output buffer.
+@return the buffer that has the serialization of records on the page
+except for the uncompressed fields of each record.
+*/
+UNIV_INTERN
+byte*
+page_zip_serialize(
+	page_zip_des_t* page_zip, /* out:the uncompressed fields are written
+	to the trailer that is the end of page_zip->data in addition to the
+	dense directory where the offsets of records are stored */
+	const page_t* page, /* in: records are read from the page */
+	dict_index_t* index, /* in: index information is used to extract records
+	from the page */
+	uint* serialized_len, /* out: the length of the output buffer */
+	mem_heap_t* heap) /* in/out: heap used for memory allocation */
+{
+	ulint		n_fields;/* number of index fields needed */
+	ulint		n_dense;
+	const rec_t**	recs;	/*!< dense page directory, sorted by address */
+	const rec_t* rec;
+	ulint* offsets = NULL;
+	ulint		trx_id_col;
+	byte* buf = static_cast<byte*>(
+			mem_heap_alloc(heap, PZ_SERIALIZED_BUF_SIZE));
+	byte* buf_ptr = buf;
+	byte* buf_end = buf + PZ_SERIALIZED_LEN_MAX;
+	ulint len;
+#ifdef UNIV_DEBUG
+	memset(buf, 0xDB, PZ_SERIALIZED_BUF_SIZE);
+#endif
+	if (page_is_leaf(page)) {
+		n_fields = dict_index_get_n_fields(index);
+	} else {
+		n_fields = dict_index_get_n_unique_in_tree(index);
+	}
+	/* Check if there is enough space on the compressed page for the
+	header, trailer and the compressed page image. */
+	if (PAGE_DATA /* page header */
+	    + PZ_COMPRESSED_LEN_MIN /* minimum reserved size for the compressed
+				       output */
+	    + 1 /* null byte for the end of the modification log */
+	    + page_zip_get_trailer_len(page_zip, dict_index_is_clust(index))
+	    /* trailer length */
+	    > page_zip_get_size(page_zip)) {
+		return NULL;
+	}
+	n_dense = page_zip_dir_elems(page_zip);
+	recs = static_cast<const rec_t**> (
+			mem_heap_zalloc(heap, n_dense * sizeof *recs));
+	if (page_is_leaf(page)) {
+		if (dict_index_is_clust(index)) {
+			trx_id_col = dict_index_get_sys_col_pos(
+				index, DATA_TRX_ID);
+			ut_ad(trx_id_col > 0);
+			ut_ad(trx_id_col != ULINT_UNDEFINED);
+		} else {
+			/* Signal the absence of trx_id
+			in page_zip_fields_encode() */
+			ut_ad(dict_index_get_sys_col_pos(index, DATA_TRX_ID)
+			      == ULINT_UNDEFINED);
+			trx_id_col = 0;
+		}
+	} else {
+		trx_id_col = ULINT_UNDEFINED;
+	}
+	/* Encode the index information in serialization stream */
+	/* page_zip_fields_encode() encodes the index to the buffer. During
+	   deserialization, we first want to know the length of the serialized
+	   buffer. Therefore the first 3 bytes are reserved for the length
+	   of the serialized buffer. We use three bytes to encode this length
+	   in case we use page sizes larger than 64K in the future */
+	len = page_zip_fields_encode(n_fields, index, trx_id_col, buf_ptr + 3);
+	mach_write_to_3(buf_ptr, len);
+	buf_ptr += len + 3;
+	/* Encode n_dense in serialization stream */
+	mach_write_to_2(buf_ptr, n_dense);
+	buf_ptr += 2;
+	ut_ad(buf_ptr < buf_end);
+	/* Serialize the records in heap_no order. */
+	page_zip_dir_encode(page_zip, page, recs);
+	while (n_dense) {
+		rec = *recs++;
+		offsets = rec_get_offsets(rec, index, offsets,
+					  ULINT_UNDEFINED, &heap);
+#ifdef UNIV_DEBUG
+		buf_ptr = page_zip_serialize_rec(FALSE, buf_ptr,
+		                                 rec, offsets, trx_id_col);
+#else
+		buf_ptr = page_zip_serialize_rec(buf_ptr, rec,
+						 offsets, trx_id_col);
+#endif
+		if (buf_ptr >= buf_end) {
+			*serialized_len = 0;
+			return NULL;
+		}
+		page_zip_store_uncompressed_fields(page_zip, rec,
+		                                   NULL, offsets,
+		                                   trx_id_col,
+		                                   PAGE_ZIP_UNCOMP_APPEND);
+		--n_dense;
+	}
+	*serialized_len = buf_ptr - buf;
+	return buf;
+}
 
 /**********************************************************************//**
 Compress a page.
@@ -2187,11 +2430,6 @@ page_zip_compress_zlib_stream(
 			mem_heap_zalloc(heap, n_dense * sizeof *recs));
 
 	fields = static_cast<byte*>(mem_heap_alloc(heap, (n_fields + 1) * 2));
-
-	page_zip->data = static_cast<byte*>(
-				mem_heap_alloc(
-					heap, page_zip_get_size(page_zip)));
-	memcpy(page_zip->data, page, PAGE_DATA);
 
 	/* Compress the data payload. */
 	page_zip_set_alloc(&c_stream, heap);
@@ -2349,18 +2587,60 @@ zlib_error:
 }
 
 /**********************************************************************//**
-Compress a page using zlib.
+Compress a page using zlib. Compression parameters packed into one byte in the
+following manner from LSB to MSB:
+bits 0-4: level + 1. (0 <= level <= 9, if this field is 0 level=6 is assumed.)
+bit 5: wrap. If set zlib will wrap compression blocks with its own checksums
+which will degrade performance.
+bits 6-8: strategy. strategy is a value between 0 and 4. See
+http://zlib.net/manual.html for details.
 @return TRUE on success, FALSE on failure */
 UNIV_INTERN
 ibool
 page_zip_compress_zlib(
-	page_zip_des_t* page_zip,
-	const page_t* page,
-	dict_index_t* index,
-	uchar compression_flags,
-	mem_heap_t* heap)
+	uchar compression_flags, /*!< in: compression flags described above. */
+	const byte* in, /*!< in: input buffer with data to be compressed */
+	ulint avail_in, /*!< in: size of the input buffer */
+	byte* out, /*!< out: output buffer into which the contents of in are
+		     going to be compressed. */
+	ulint avail_out, /*!< in: available space in the output buffer */
+	ulint* total_out, /*!< out: the total space used from the output buffer
+			    is written into this parameter */
+	mem_heap_t* heap) /*!< in/out: temporary memory heap */
 {
-	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+	z_stream c_stream;
+	int err;
+	uint level;
+	uint wrap;
+	uint strategy;
+	int window_bits;
+#ifdef UNIV_DEBUG
+	FILE*		logfile = NULL;
+#endif
+	level = compression_flags & 0xf;
+	wrap = compression_flags & 0x10;
+	strategy = compression_flags >> 5;
+	ut_a(level <= 10);
+	ut_a(strategy <= 4);
+	level = level ? level - 1 : 6;
+	window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
+	                   : -((int)UNIV_PAGE_SIZE_SHIFT);
+	c_stream.next_in = (byte*)in;
+	c_stream.avail_in = avail_in;
+	c_stream.next_out = out;
+	c_stream.avail_out = avail_out;
+	/* Tell zlib to allocate memory from heap */
+	page_zip_set_alloc(&c_stream, heap);
+	/* Initialize zlib */
+	err = deflateInit2(&c_stream, level,
+	                   Z_DEFLATED, window_bits,
+	                   MAX_MEM_LEVEL, strategy);
+	ut_a(err == Z_OK);
+	/* compress the serialized buffer */
+	err = deflate(&c_stream, Z_FINISH);
+	ut_a(Z_OK == deflateEnd(&c_stream));
+	*total_out = c_stream.total_out;
+	return (err == Z_STREAM_END);
 }
 
 /**********************************************************************//**
@@ -2369,13 +2649,18 @@ Compress a page using bzip2.
 UNIV_INTERN
 ibool
 page_zip_compress_bzip(
-	page_zip_des_t* page_zip,
-	const page_t* page,
-	dict_index_t* index,
-	uchar compression_flags,
+	uchar compression_flags __attribute__((unused)),
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_out,
 	mem_heap_t* heap)
 {
-	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+	return page_zip_compress_zlib(0x6,
+	                              in, avail_in,
+	                              out, avail_out,
+	                              total_out, heap);
 }
 
 /**********************************************************************//**
@@ -2384,13 +2669,18 @@ Compress a page using lzma.
 UNIV_INTERN
 ibool
 page_zip_compress_lzma(
-	page_zip_des_t* page_zip,
-	const page_t* page,
-	dict_index_t* index,
-	uchar compression_flags,
+	uchar compression_flags __attribute__((unused)),
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_out,
 	mem_heap_t* heap)
 {
-	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+	return page_zip_compress_zlib(0x6,
+	                              in, avail_in,
+	                              out, avail_out,
+	                              total_out, heap);
 }
 
 /**********************************************************************//**
@@ -2399,13 +2689,18 @@ Compress a page using snappy.
 UNIV_INTERN
 ibool
 page_zip_compress_snappy(
-	page_zip_des_t* page_zip,
-	const page_t* page,
-	dict_index_t* index,
-	uchar compression_flags,
+	uchar compression_flags __attribute__((unused)),
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_out,
 	mem_heap_t* heap)
 {
-	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+	return page_zip_compress_zlib(0x6,
+	                              in, avail_in,
+	                              out, avail_out,
+	                              total_out, heap);
 }
 
 /**********************************************************************//**
@@ -2414,13 +2709,18 @@ Compress a page using quicklz.
 UNIV_INTERN
 ibool
 page_zip_compress_quicklz(
-	page_zip_des_t* page_zip,
-	const page_t* page,
-	dict_index_t* index,
-	uchar compression_flags,
+	uchar compression_flags __attribute__((unused)),
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_out,
 	mem_heap_t* heap)
 {
-	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+	return page_zip_compress_zlib(0x6,
+	                              in, avail_in,
+	                              out, avail_out,
+	                              total_out, heap);
 }
 
 /**********************************************************************//**
@@ -2429,13 +2729,18 @@ Compress a page using lz4.
 UNIV_INTERN
 ibool
 page_zip_compress_lz4(
-	page_zip_des_t* page_zip,
-	const page_t* page,
-	dict_index_t* index,
-	uchar compression_flags,
+	uchar compression_flags __attribute__((unused)),
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_out,
 	mem_heap_t* heap)
 {
-	return page_zip_compress_zlib_stream(page_zip, page, index, 0x6, heap);
+	return page_zip_compress_zlib(0x6,
+	                              in, avail_in,
+	                              out, avail_out,
+	                              total_out, heap);
 }
 
 /**********************************************************************//**
@@ -2460,14 +2765,17 @@ page_zip_compress(
 	mem_heap_t* heap = NULL;
 	uchar compression_flags;
 	ulint n_dense;
+	uint serialized_len = 0;
+	ulint compressed_len = 0;
+	ulint trailer_len;
+	lint avail_out = 0;
+	byte* buf;
 #ifndef UNIV_HOTBACKUP
 	ulonglong time_diff;
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
 	fil_stats_t* stats;
 	ib_mutex_t* stats_mutex;
-	int comp_stats_page_size = 0;
 	ulonglong start = my_timer_now();
-	ulint trailer_len;
 	ulint space_id = page_get_space_id(page);
 #endif /* !UNIV_HOTBACKUP */
 
@@ -2532,7 +2840,6 @@ page_zip_compress(
 	} else {
 		zip_stat->compressed_secondary++;
 	}
-	comp_stats_page_size = UNIV_ZIP_SIZE_MIN << (page_zip->ssize - 1);
 #endif
 
 
@@ -2563,54 +2870,89 @@ page_zip_compress(
 		goto err_exit;
 	}
 
-	heap = mem_heap_create_cached(COMPRESS_MEM_SIZE_MAX,
-				      malloc_cache_compress);
-	compression_flags = (table_flags & DICT_TF_MASK_COMP_FLAGS)
-			    >> DICT_TF_POS_COMP_FLAGS;
-	switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
-	case DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE:
-		/* compression that uses zlib's streaming interface */
-		ret = page_zip_compress_zlib_stream(&new_page_zip, page, index,
-						    global_compression_flags,
-						    heap);
-		break;
-	case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
-		/* new compression using zlib */
-		ret = page_zip_compress_zlib(&new_page_zip, page, index,
-					     compression_flags, heap);
-		break;
-	case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
-		/* new compression using bzip2 */
-		ret = page_zip_compress_bzip(&new_page_zip, page, index,
-					     compression_flags, heap);
-		break;
-	case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
-		/* new compression using lzma */
-		ret = page_zip_compress_lzma(&new_page_zip, page, index,
-					     compression_flags, heap);
-		break;
-	case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
-		/* new compression using snappy */
-		ret = page_zip_compress_snappy(&new_page_zip, page, index,
-					       compression_flags, heap);
-		break;
-	case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
-		/* new compression using quicklz */
-		ret = page_zip_compress_quicklz(&new_page_zip, page, index,
-						compression_flags, heap);
-		break;
-	case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
-		/* new compression using lz4 */
-		ret = page_zip_compress_lz4(&new_page_zip, page, index,
-					    compression_flags, heap);
-		break;
-	default:
-		fprintf(stderr,
-			"InnoDB: unknown compression type %lu\n",
-			(table_flags & DICT_TF_MASK_COMP_TYPE)
-			>> DICT_TF_POS_COMP_TYPE);
-		ut_error;
-		break;
+	heap = mem_heap_create_cached(PZ_MEM_COMP_MAX, malloc_cache_compress);
+	compression_flags = static_cast<uchar> (
+				(table_flags & DICT_TF_MASK_COMP_FLAGS)
+				>> DICT_TF_POS_COMP_FLAGS);
+	new_page_zip.data = static_cast<byte*> (
+				mem_heap_alloc(
+					heap, page_zip_get_size(page_zip)));
+
+	/* UNIV_MEM_VALID() is needed here because we need to compute the
+	trailer length here but page_zip_get_trailer_len() requires the
+	entirety of the compressed page be initialized even though it does
+	not use it. */
+	UNIV_MEM_VALID(new_page_zip.data, page_zip_get_size(page_zip));
+	ut_d(memset(new_page_zip.data, 0x85, page_zip_get_size(page_zip)));
+
+	memcpy(new_page_zip.data, page, PAGE_DATA);
+	if ((table_flags & DICT_TF_MASK_COMP_TYPE)
+	    == DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE) {
+		ret = page_zip_compress_zlib_stream(
+			&new_page_zip, page, index,
+			global_compression_flags, heap);
+		trailer_len = page_zip_get_trailer_len(
+				&new_page_zip, dict_index_is_clust(index));
+	} else {
+		buf = page_zip_serialize(&new_page_zip, page, index,
+					 &serialized_len, heap);
+		if (!buf) {
+			ut_a(!serialized_len);
+			goto err_exit;
+		}
+
+		trailer_len = page_zip_get_trailer_len(
+				&new_page_zip, dict_index_is_clust(index));
+		avail_out = page_zip_get_size(&new_page_zip)
+			    - PAGE_DATA /* page header */
+			    - trailer_len /* compressed page trailer */
+			    - 1; /* end marker for the modification log */
+		if (avail_out <= 0)
+			goto err_exit;
+		new_page_zip.m_nonempty = FALSE;
+		#define PZ_COMPRESS(compress_func) \
+			compress_func(compression_flags, \
+				      buf, \
+				      serialized_len, \
+				      new_page_zip.data + PAGE_DATA, \
+				      (ulint)avail_out, \
+				      &compressed_len, \
+				      heap)
+
+		switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
+		case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
+			/* new compression using zlib */
+			ret = PZ_COMPRESS(page_zip_compress_zlib);
+			break;
+		case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
+			/* new compression using bzip2 */
+			ret = PZ_COMPRESS(page_zip_compress_bzip);
+			break;
+		case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
+			/* new compression using lzma */
+			ret = PZ_COMPRESS(page_zip_compress_lzma);
+			break;
+		case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
+			/* new compression using snappy */
+			ret = PZ_COMPRESS(page_zip_compress_snappy);
+			break;
+		case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
+			/* new compression using quicklz */
+			ret = PZ_COMPRESS(page_zip_compress_quicklz);
+			break;
+		case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
+			/* new compression using lz4 */
+			ret = PZ_COMPRESS(page_zip_compress_lz4);
+			break;
+		default:
+			fprintf(stderr,
+				"InnoDB: unknown compression type %lu\n",
+				(table_flags & DICT_TF_MASK_COMP_TYPE)
+				>> DICT_TF_POS_COMP_TYPE);
+			ut_error;
+			break;
+		}
+		new_page_zip.m_end = PAGE_DATA + compressed_len;
 	}
 
 	if (UNIV_UNLIKELY(!ret)) {
@@ -2632,7 +2974,8 @@ err_exit:
 
 		if (stats) {
 			mutex_enter(stats_mutex);
-			stats->comp_stats.page_size = comp_stats_page_size;
+			stats->comp_stats.page_size = page_zip_get_size(
+								page_zip);
 			++stats->comp_stats.compressed;
 			stats->comp_stats.compressed_time += time_diff;
 			if (dict_index_is_clust(index)) {
@@ -2674,18 +3017,9 @@ err_exit:
 	/* Copy the rest of the compressed page */
 	memcpy(page_zip->data + PAGE_DATA, new_page_zip.data + PAGE_DATA,
 	       page_zip_get_size(page_zip) - PAGE_DATA);
-	/* Done with new_page_zip->data, free the heap */
+	/* Done with new_page_zip.data, free the heap */
 	ut_ad(heap);
 	mem_heap_free(heap);
-
-	/* UNIV_MEM_VALID() is needed here because we need to compute the
-	trailer length here but page_zip_get_trailer_len() requires the
-	entirety of the compressed page be initialized even though it does
-	not use it. */
-	UNIV_MEM_VALID(page_zip->data, page_zip_get_size(page_zip));
-
-	trailer_len = page_zip_get_trailer_len(page_zip,
-					       dict_index_is_clust(index));
 
 	/* Zero out the area reserved for the modification log. */
 	memset(page_zip->data + page_zip->m_end,
@@ -2722,7 +3056,7 @@ err_exit:
 	if (stats) {
 		mutex_enter(stats_mutex);
 		++stats->comp_stats.compressed;
-		stats->comp_stats.page_size = comp_stats_page_size;
+		stats->comp_stats.page_size = page_zip_get_size(page_zip);
 		++stats->comp_stats.compressed_ok;
 		stats->comp_stats.compressed_time += time_diff;
 		stats->comp_stats.compressed_ok_time += time_diff;
@@ -3861,6 +4195,111 @@ page_zip_init_d_stream(
 	return(TRUE);
 }
 
+/***************************************************************//**
+Read the records from the serialized buffer into recs. The uncompressed
+fields of the records -if any- are not recovered by this function because
+the modification log is not applied yet.
+@return True if all the records were recovered from the serialized buffer
+successfully, False otherwise.
+*/
+UNIV_INTERN
+ibool
+page_zip_deserialize(
+	page_t* page, /* in: the header of the page is used. out: *data_end_ptr
+			 is set tot page + PAGE_ZIP_START if there were no
+			 records on the page when it was serialized. */
+	const byte* buf, /*in: buffer that has the serialization of records on
+			   the page. */
+	rec_t** recs, /* out: The array of records that are going to be
+			 recovered from buf */
+	ulint n_dense, /* in: The number of records in recs */
+	dict_index_t** index_ptr, /* out: *index_ptr will be set to the index
+				     object that is created by this function */
+	ulint** offsets_ptr, /* out: the offsets object allocated by this
+				function will be returned to the caller as
+				scratch memory for rec_get_offsets() */
+	ulint* trx_id_col_ptr, /* out: this will be set to the column number
+				  for transaction id */
+	ulint* heap_status_ptr, /* out: this will be set to the heap_status of
+				   the last record */
+	byte** data_end_ptr, /* out: end of data on the uncompressed page so
+				that the caller can zero out the unused parts
+				of the page. */
+	mem_heap_t* heap) /* in/out: temporary memory heap */
+{
+	dict_index_t*	index	= NULL;
+	ulint		trx_id_col = ULINT_UNDEFINED;
+	ulint*		offsets;
+	ulint	heap_status;
+	const byte* buf_ptr = buf;
+	const byte* buf_end = buf + PZ_SERIALIZED_LEN_MAX;
+	ulint n_dense_old;
+	rec_t* rec;
+	ulint len = mach_read_from_3(buf_ptr);
+	buf_ptr += 3;
+	index = page_zip_fields_decode(
+			buf_ptr,
+			buf_ptr + len,
+			page_is_leaf(page) ? &trx_id_col : NULL);
+
+	if (trx_id_col == ULINT_UNDEFINED && page_is_leaf(page)) {
+		trx_id_col = 0;
+	}
+
+	buf_ptr += len;
+	ut_a(buf_ptr < buf_end);
+	if (UNIV_UNLIKELY(!index)) {
+		return FALSE;
+	}
+
+	{
+		/* Pre-allocate the offsets for rec_get_offsets_reverse().
+		   See rec_get_offsets_func() for an explanation of how
+		   n is computed. */
+		ulint	n = 1 + 1/* node ptr */ + REC_OFFS_HEADER_SIZE
+			+ dict_index_get_n_fields(index);
+		offsets = static_cast<ulint*>(
+				mem_heap_alloc(heap, n * sizeof(ulint)));
+		*offsets = n;
+	}
+
+	/* Deserialize the records in heap_no order. */
+	n_dense_old = mach_read_from_2(buf_ptr);
+	buf_ptr += 2;
+	ut_a(buf_ptr < buf_end);
+	ut_a(n_dense_old <= n_dense);
+	if (UNIV_LIKELY(page_is_leaf(page))) {
+		heap_status = REC_STATUS_ORDINARY
+		              | (PAGE_HEAP_NO_USER_LOW << REC_HEAP_NO_SHIFT);
+	} else {
+		heap_status = REC_STATUS_NODE_PTR
+		              | (PAGE_HEAP_NO_USER_LOW << REC_HEAP_NO_SHIFT);
+	}
+	if (n_dense_old) {
+		while (n_dense_old) {
+			rec = *recs++;
+			mach_write_to_2(rec - REC_NEW_HEAP_NO, heap_status);
+			buf_ptr = page_zip_deserialize_rec(
+					buf_ptr, rec, index, offsets,
+					trx_id_col, heap_status, buf_end);
+			if (buf_ptr >= buf_end) {
+				page_zip_fields_free(index);
+				return FALSE;
+			}
+			heap_status += 1 << REC_HEAP_NO_SHIFT;
+			--n_dense_old;
+		}
+		*data_end_ptr = rec_get_end(rec, offsets);
+	} else {
+		*data_end_ptr = page + PAGE_ZIP_START;
+	}
+	*index_ptr = index;
+	*offsets_ptr = offsets;
+	*heap_status_ptr = heap_status;
+	*trx_id_col_ptr = trx_id_col;
+	return TRUE;
+}
+
 /**********************************************************************//**
 Decompress a page that was compressed using zlib's streaming interface.
 @return TRUE on success, FALSE on failure */
@@ -3953,6 +4392,7 @@ page_zip_decompress_zlib_stream(
 			page_zip_fail(("page_zip_decompress_zlib_stream:"
 				       " 3 page_zip_decompress_node_ptrs"
 				       " failed"));
+			page_zip_fields_free(index);
 			return FALSE;
 		}
 	} else if (trx_id_col == ULINT_UNDEFINED) {
@@ -3964,6 +4404,7 @@ page_zip_decompress_zlib_stream(
 							   &heap_status))) {
 			page_zip_fail(("page_zip_decompress_zlib_stream:"
 				       " 4 page_zip_decompress_sec failed"));
+			page_zip_fields_free(index);
 			return FALSE;
 		}
 	} else {
@@ -3977,6 +4418,7 @@ page_zip_decompress_zlib_stream(
 							     heap))) {
 			page_zip_fail(("page_zip_decompress_zlib_stream:"
 				       " 5 page_zip_decompress_clust failed"));
+			page_zip_fields_free(index);
 			return FALSE;
 		}
 	}
@@ -3998,35 +4440,50 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_zlib(
-	uchar compression_flags, /* !< in: compression options that get passed
-				    to the compression library */
-	page_zip_des_t* page_zip,/*!< in: data, ssize; out: m_start, m_end,
-				   m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	rec_t** recs, /*!< in: dense page directory sorted by address */
-	ulint n_dense, /*!< in: size of recs[] */
-	dict_index_t** index_ptr, /*!< out: *index_ptr is set to the index
-				    object that's created by this function. The
-				    caller is responsible for calling
-				    dict_index_mem_free() on *index_ptr. */
-	ulint** offsets_ptr, /*!< out: *offsets_ptr will point to an array of
-			       offsets that can be used by the caller */
-	ulint* trx_id_col_ptr, /*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column if
-				 this is a leaf primary key page. Otherwise it
-				 will be set to ULINT_UNDEFINED. */
-	ulint* heap_status_ptr, /*!< out: *heap_status_ptr will be set to the
-				  heap status (heap number and metadata) of the
-				  last record */
-	byte** data_end_ptr, /*!< out: *data_end_ptr will point to the end of
-			       the last record on the compressed page image. */
+	uchar compression_flags, /*!< in: compression parameters packed into
+				   one byte in the following manner from LSB to
+				   MSB:
+				   bits 0-4: level + 1. (0 <= level <= 9,
+				   if this field is 0 level=6 is assumed.)
+				   bit 5: wrap. If set zlib will wrap
+				   compression blocks with its own checksums
+				   which will degrade performance.
+				   bits 6-8: strategy. strategy is a value
+				   between 0 and 4. See
+				   http://zlib.net/manual.html for details. */
+	const byte* in, /*!< in: input buffer with compressed data */
+	ulint avail_in, /*!< in: the length of the input buffer */
+	byte* out, /*!< out: output buffer into which the contents of in are
+		     decompressed. */
+	ulint avail_out, /*!< in: available space in the output buffer */
+	ulint* total_in, /*!< out: size of the input buffer that was used to
+			   read the compressed contents */
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib_stream(page_zip, page, recs,
-					       n_dense, index_ptr,
-					       offsets_ptr, trx_id_col_ptr,
-					       heap_status_ptr, data_end_ptr,
-					       heap);
+	z_stream d_stream;
+	uint wrap;
+	int window_bits;
+	int err;
+	wrap = compression_flags & 0x10;
+	window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
+	                   : -((int)UNIV_PAGE_SIZE_SHIFT);
+	d_stream.next_in = (byte*)in;
+	d_stream.avail_in = avail_in;
+	d_stream.next_out = out;
+	d_stream.avail_out = avail_out;
+	page_zip_set_alloc(&d_stream, heap);
+	err = inflateInit2(&d_stream, window_bits);
+	ut_ad(err == Z_OK);
+	err = inflate(&d_stream, Z_FINISH);
+	if (err != Z_STREAM_END) {
+		err = inflateEnd(&d_stream);
+		ut_ad(err == Z_OK);
+		return FALSE;
+	}
+	err = inflateEnd(&d_stream);
+	ut_ad(err == Z_OK);
+	*total_in = d_stream.total_in;
+	return TRUE;
 }
 /**********************************************************************//**
 Decompress a page using bzip2.  This function should tolerate errors on the
@@ -4036,35 +4493,20 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_bzip(
-	uchar compression_flags, /* !< in: compression options that get passed
-				    to the compression library */
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	rec_t** recs, /*!< in: dense page directory sorted by address */
-	ulint n_dense, /*!< in: size of recs[] */
-	dict_index_t** index_ptr, /*!< out: *index_ptr is set to the index
-				    object that's created by this function. The
-				    caller is responsible for calling
-				    dict_index_mem_free() on *index_ptr. */
-	ulint** offsets_ptr, /*!< out: *offsets_ptr will point to an array of
-			       offsets that can be used by the caller */
-	ulint* trx_id_col_ptr, /*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column if
-				 this is a leaf primary key page. Otherwise it
-				 will be set to ULINT_UNDEFINED */
-	ulint* heap_status_ptr, /*!< out: *heap_status_ptr will be set to the
-				  heap status (heap number and metadata) of the
-				  last record */
-	byte** data_end_ptr, /*!< out: *data_end_ptr will point to the end of
-			       the last record on the compressed page image. */
+	uchar compression_flags __attribute__((unused)), /* !< in: compression
+							    options that get
+							    passed to the
+							    compression
+							    library */
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_in,
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib_stream(page_zip, page, recs,
-					       n_dense, index_ptr,
-					       offsets_ptr, trx_id_col_ptr,
-					       heap_status_ptr,
-					       data_end_ptr, heap);
+	return page_zip_decompress_zlib(
+		0x6, in, avail_in, out, avail_out, total_in, heap);
 }
 /**********************************************************************//**
 Decompress a page using lzma.  This function should tolerate errors on the
@@ -4074,36 +4516,22 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_lzma(
-	uchar compression_flags, /* !< in: compression options that get passed
-				    to the compression library */
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	rec_t** recs, /*!< in: dense page directory sorted by address */
-	ulint n_dense, /*!< in: size of recs[] */
-	dict_index_t** index_ptr, /*!< out: *index_ptr is set to the index
-				    object that's created by this function. The
-				    caller is responsible for calling
-				    dict_index_mem_free() on *index_ptr. */
-	ulint** offsets_ptr, /*!< out: *offsets_ptr will point to an array of
-			       offsets that can be used by the caller */
-	ulint* trx_id_col_ptr, /*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column if
-				 this is a leaf primary key page. Otherwise it
-				 will be set to ULINT_UNDEFINED */
-	ulint* heap_status_ptr, /*!< out: *heap_status_ptr will be set to the
-				  heap status (heap number and metadata) of the
-				  last record */
-	byte** data_end_ptr, /*!< out: *data_end_ptr will point to the end of
-			       the last record on the compressed page image. */
+	uchar compression_flags __attribute__((unused)), /* !< in: compression
+							    options that get
+							    passed to the
+							    compression
+							    library */
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_in,
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib_stream(page_zip, page, recs,
-					       n_dense, index_ptr,
-					       offsets_ptr, trx_id_col_ptr,
-					       heap_status_ptr,
-					       data_end_ptr, heap);
+	return page_zip_decompress_zlib(
+		0x6, in, avail_in, out, avail_out, total_in, heap);
 }
+
 /**********************************************************************//**
 Decompress a page using snappy.  This function should tolerate errors on the
 compressed page. Instead of letting assertions fail, it will return FALSE if an
@@ -4112,35 +4540,20 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_snappy(
-	uchar compression_flags, /* !< in: compression options that get passed
-				    to the compression library */
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	rec_t** recs, /*!< in: dense page directory sorted by address */
-	ulint n_dense, /*!< in: size of recs[] */
-	dict_index_t** index_ptr, /*!< out: *index_ptr is set to the index
-				    object that's created by this function. The
-				    caller is responsible for calling
-				    dict_index_mem_free() on *index_ptr. */
-	ulint** offsets_ptr, /*!< out: *offsets_ptr will point to an array of
-			       offsets that can be used by the caller */
-	ulint* trx_id_col_ptr, /*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column if
-				 this is a leaf primary key page. Otherwise it
-				 will be set to ULINT_UNDEFINED */
-	ulint* heap_status_ptr, /*!< out: *heap_status_ptr will be set to the
-				  heap status (heap number and metadata) of the
-				  last record */
-	byte** data_end_ptr, /*!< out: *data_end_ptr will point to the end of
-			       the last record on the compressed page image. */
+	uchar compression_flags __attribute__((unused)), /* !< in: compression
+							    options that get
+							    passed to the
+							    compression
+							    library */
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_in,
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib_stream(page_zip, page, recs,
-					       n_dense, index_ptr,
-					       offsets_ptr, trx_id_col_ptr,
-					       heap_status_ptr,
-					       data_end_ptr, heap);
+	return page_zip_decompress_zlib(
+		0x6, in, avail_in, out, avail_out, total_in, heap);
 }
 /**********************************************************************//**
 Decompress a page using quicklz.  This function should tolerate errors on the
@@ -4150,36 +4563,22 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_quicklz(
-	uchar compression_flags, /* !< in: compression options that get passed
-				    to the compression library */
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	rec_t** recs, /*!< in: dense page directory sorted by address */
-	ulint n_dense, /*!< in: size of recs[] */
-	dict_index_t** index_ptr, /*!< out: *index_ptr is set to the index
-				    object that's created by this function. The
-				    caller is responsible for calling
-				    dict_index_mem_free() on *index_ptr. */
-	ulint** offsets_ptr, /*!< out: *offsets_ptr will point to an array of
-			       offsets that can be used by the caller */
-	ulint* trx_id_col_ptr, /*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column if
-				 this is a leaf primary key page. Otherwise it
-				 will be set to ULINT_UNDEFINED */
-	ulint* heap_status_ptr, /*!< out: *heap_status_ptr will be set to the
-				  heap status (heap number and metadata) of the
-				  last record */
-	byte** data_end_ptr, /*!< out: *data_end_ptr will point to the end of
-			       the last record on the compressed page image. */
+	uchar compression_flags __attribute__((unused)), /* !< in: compression
+							    options that get
+							    passed to the
+							    compression
+							    library */
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_in,
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib_stream(page_zip, page, recs,
-					       n_dense, index_ptr,
-					       offsets_ptr, trx_id_col_ptr,
-					       heap_status_ptr,
-					       data_end_ptr, heap);
+	return page_zip_decompress_zlib(
+		0x6, in, avail_in, out, avail_out, total_in, heap);
 }
+
 /**********************************************************************//**
 Decompress a page using lz4.  This function should tolerate errors on the
 compressed page. Instead of letting assertions fail, it will return FALSE if an
@@ -4188,35 +4587,20 @@ inconsistency is detected.
 UNIV_INTERN
 ibool
 page_zip_decompress_lz4(
-	uchar compression_flags, /* !< in: compression options that get passed
-				    to the compression library */
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	rec_t** recs, /*!< in: dense page directory sorted by address */
-	ulint n_dense, /*!< in: size of recs[] */
-	dict_index_t** index_ptr, /*!< out: *index_ptr is set to the index
-				    object that's created by this function. The
-				    caller is responsible for calling
-				    dict_index_mem_free() on *index_ptr. */
-	ulint** offsets_ptr, /*!< out: *offsets_ptr will point to an array of
-			       offsets that can be used by the caller */
-	ulint* trx_id_col_ptr, /*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column if
-				 this is a leaf primary key page. Otherwise it
-				 will be set to ULINT_UNDEFINED */
-	ulint* heap_status_ptr, /*!< out: *heap_status_ptr will be set to the
-				  heap status (heap number and metadata) of the
-				  last record */
-	byte** data_end_ptr, /*!< out: *data_end_ptr will point to the end of
-			       the last record on the compressed page image. */
+	uchar compression_flags __attribute__((unused)), /* !< in: compression
+							    options that get
+							    passed to the
+							    compression
+							    library */
+	const byte* in,
+	ulint avail_in,
+	byte* out,
+	ulint avail_out,
+	ulint* total_in,
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	return page_zip_decompress_zlib_stream(page_zip, page, recs,
-					       n_dense, index_ptr,
-					       offsets_ptr, trx_id_col_ptr,
-					       heap_status_ptr,
-					       data_end_ptr, heap);
+	return page_zip_decompress_zlib(
+		0x6, in, avail_in, out, avail_out, total_in, heap);
 }
 
 /**********************************************************************//**
@@ -4264,12 +4648,13 @@ page_zip_decompress_low(
 	ulint trailer_len; /*!< length of the trailer after the compressed page
 			     image is decompressed */
 	ibool ret;
+	uchar compression_flags;
+	byte* buf;
 #ifndef UNIV_HOTBACKUP
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
 	ulonglong start = my_timer_now();
 	fil_stats_t* stats;
 	ib_mutex_t* stats_mutex;
-	uchar compression_flags;
 #endif /* !UNIV_HOTBACKUP */
 
 	ut_ad(page_zip_simple_validate(page_zip));
@@ -4304,7 +4689,7 @@ page_zip_decompress_low(
 		return(FALSE);
 	}
 
-	heap = mem_heap_create_cached(DECOMPRESS_MEM_SIZE_MAX,
+	heap = mem_heap_create_cached(PZ_MEM_DECOMP_MAX,
 				      malloc_cache_decompress);
 
 	recs = static_cast<rec_t**>(
@@ -4384,71 +4769,70 @@ page_zip_decompress_low(
 	compression_flags = (table_flags & DICT_TF_MASK_COMP_FLAGS)
 			    >> DICT_TF_POS_COMP_FLAGS;
 
-	switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
-	case DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE:
-		/* default compression format using zlib's streaming
-		   interface */
+	if ((table_flags & DICT_TF_MASK_COMP_TYPE)
+	    == DICT_TF_COMP_ZLIB_STREAM) {
+		/* compress using zlib's streaming interface */
 		ret = page_zip_decompress_zlib_stream(page_zip, page, recs,
 						      n_dense, &index,
 						      &offsets, &trx_id_col,
 						      &heap_status, &data_end,
 						      heap);
-		break;
-	case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
-		/* new compression using zlib */
-		ret = page_zip_decompress_zlib(compression_flags, page_zip,
-					       page, recs,
-					       n_dense, &index, &offsets,
-					       &trx_id_col, &heap_status,
-					       &data_end, heap);
-		break;
-	case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
-		/* new compression using bzip2 */
-		ret = page_zip_decompress_bzip(compression_flags, page_zip,
-					       page, recs,
-					       n_dense, &index, &offsets,
-					       &trx_id_col, &heap_status,
-					       &data_end, heap);
-		break;
-	case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
-		/* new compression using lzma */
-		ret = page_zip_decompress_lzma(compression_flags, page_zip,
-					       page, recs,
-					       n_dense, &index, &offsets,
-					       &trx_id_col, &heap_status,
-					       &data_end, heap);
-		break;
-	case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
-		/* new compression using snappy */
-		ret = page_zip_decompress_snappy(compression_flags, page_zip,
-						 page, recs,
-						 n_dense, &index, &offsets,
-						 &trx_id_col, &heap_status,
-						 &data_end, heap);
-		break;
-	case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
-		/* new compression using quicklz */
-		ret = page_zip_decompress_quicklz(compression_flags, page_zip,
-						  page, recs,
-						  n_dense, &index, &offsets,
-						  &trx_id_col, &heap_status,
-						  &data_end, heap);
-		break;
-	case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
-		/* new compression using lz4 */
-		ret = page_zip_decompress_lz4(compression_flags, page_zip,
-					      page, recs,
-					      n_dense, &index, &offsets,
-					      &trx_id_col, &heap_status,
-					      &data_end, heap);
-		break;
-	default:
-		fprintf(stderr,
-			"InnoDB: unknown compression type %lu\n",
-			(table_flags & DICT_TF_MASK_COMP_TYPE)
-			>> DICT_TF_POS_COMP_TYPE);
-		ut_error;
-		break;
+	} else {
+		ulint compressed_len = 0;
+		/* buffer for storing the serialized page */
+		buf = static_cast<byte*>(
+				mem_heap_alloc(heap, 2 * UNIV_PAGE_SIZE));
+		#define PZ_DECOMPRESS(decompress_func) \
+			decompress_func( \
+				compression_flags, \
+				page_zip->data + PAGE_DATA, \
+				page_zip_get_size(page_zip) - PAGE_DATA - 1, \
+				buf, \
+				2 * UNIV_PAGE_SIZE, \
+				&compressed_len, \
+				heap)
+
+		switch (table_flags & DICT_TF_MASK_COMP_TYPE) {
+		case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
+			/* new compression using zlib */
+			ret = PZ_DECOMPRESS(page_zip_decompress_zlib);
+			break;
+		case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
+			/* new compression using bzip2 */
+			ret = PZ_DECOMPRESS(page_zip_decompress_bzip);
+			break;
+		case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
+			/* new compression using lzma */
+			ret = PZ_DECOMPRESS(page_zip_decompress_lzma);
+			break;
+		case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
+			/* new compression using snappy */
+			ret = PZ_DECOMPRESS(page_zip_decompress_snappy);
+			break;
+		case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
+			/* new compression using quicklz */
+			ret = PZ_DECOMPRESS(page_zip_decompress_quicklz);
+			break;
+		case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
+			/* new compression using lz4 */
+			ret = PZ_DECOMPRESS(page_zip_decompress_lz4);
+			break;
+		default:
+			fprintf(stderr,
+				"InnoDB: unknown compression type %lu\n",
+				(table_flags & DICT_TF_MASK_COMP_TYPE)
+				>> DICT_TF_POS_COMP_TYPE);
+			ut_error;
+			break;
+		}
+
+		if (!ret)
+			goto err_exit;
+
+		page_zip->m_end = compressed_len + PAGE_DATA;
+		ret = page_zip_deserialize(
+			page, buf, recs, n_dense, &index, &offsets,
+			&trx_id_col, &heap_status, &data_end, heap);
 	}
 
 	if (!ret)
@@ -4461,9 +4845,8 @@ page_zip_decompress_low(
 
 	ut_d(page_zip->m_start = page_zip->m_end);
 
-	/* Apply the modification log. page_zip_compress_<compression_type>
-	functions should set page_zip->m_end to where the compressed page
-	image finished. */
+	/* Apply the modification log. At this point page_zip->m_end must have
+	been set to where the compression output ends. */
 	trailer_len = page_zip_get_trailer_len(page_zip,
 					       trx_id_col
 					       && (trx_id_col
@@ -4500,7 +4883,9 @@ page_zip_decompress_low(
 	if (UNIV_UNLIKELY(!page_zip_set_extra_bytes(page_zip, page,
 			  info_bits))) {
 err_exit:
-		page_zip_fields_free(index);
+		if (index) {
+			page_zip_fields_free(index);
+		}
 		mem_heap_free(heap);
 		return (FALSE);
 	}
@@ -4650,8 +5035,10 @@ page_zip_validate_low(
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
 	temp_page_zip = *page_zip;
-	valid = page_zip_decompress_low(&temp_page_zip, temp_page, TRUE, 0,
-					ULINT_UNDEFINED, &heap, index_ptr);
+	valid = page_zip_decompress_low(
+			&temp_page_zip, temp_page, TRUE,
+			page_get_space_id(page), ULINT_UNDEFINED,
+			&heap, index_ptr);
 	if (!valid) {
 		fputs("page_zip_validate(): failed to decompress\n", stderr);
 		goto func_exit;
@@ -4911,7 +5298,11 @@ page_zip_write_rec(
 	}
 
 	/* Serialize the record into modification log */
+#ifdef UNIV_DEBUG
+	data = page_zip_serialize_rec(TRUE, data, rec, offsets, trx_id_col);
+#else
 	data = page_zip_serialize_rec(data, rec, offsets, trx_id_col);
+#endif
 	/* Store uncompressed fields of the record in the trailer of
 	page_zip->data */
 	page_zip_store_uncompressed_fields(page_zip, rec, index, offsets,
@@ -5958,7 +6349,8 @@ page_zip_parse_compress(
 	byte*		ptr,	/*!< in: buffer */
 	byte*		end_ptr,/*!< in: buffer end */
 	page_t*		page,	/*!< out: uncompressed page */
-	page_zip_des_t*	page_zip)/*!< out: compressed page */
+	page_zip_des_t*	page_zip,/*!< out: compressed page */
+	ulint		space_id)/*!< in: id of the space the page belongs */
 {
 	ulint	size;
 	ulint	trailer_size;
@@ -6001,7 +6393,7 @@ corrupt:
 
 		if (UNIV_UNLIKELY(!page_zip_decompress(
 					page_zip, page, TRUE,
-					0, ULINT_UNDEFINED))) {
+					space_id, ULINT_UNDEFINED))) {
 
 			goto corrupt;
 		}
