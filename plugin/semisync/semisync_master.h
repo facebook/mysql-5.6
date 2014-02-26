@@ -617,6 +617,13 @@ class ReplSemiSyncMaster
     mysql_bin_log_ = mysql_bin_log;
   }
 
+  /* Reinitializes the latency histogram when trx_wait_step_size
+   * is updated.
+   *
+   * Input:
+   *   step_size - (IN)  updated step_size
+   */
+  void update_histogram_trx_wait_step_size(const char *step_size);
 };
 
 /* System and status variables for the master component */
@@ -639,6 +646,12 @@ extern unsigned long long rpl_semi_sync_master_net_wait_num;
 extern unsigned long long rpl_semi_sync_master_trx_wait_num;
 extern unsigned long long rpl_semi_sync_master_net_wait_time;
 extern unsigned long long rpl_semi_sync_master_trx_wait_time;
+
+extern char* histogram_trx_wait_step_size;
+extern latency_histogram histogram_trx_wait;
+/* status variables for trx_wait_time histogram */
+extern SHOW_VAR latency_histogram_trx_wait[NUMBER_OF_HISTOGRAM_BINS + 1];
+extern ulonglong histogram_trx_wait_values[NUMBER_OF_HISTOGRAM_BINS];
 
 /*
   This indicates whether we should keep waiting if no semi-sync slave
