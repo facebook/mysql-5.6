@@ -1,0 +1,115 @@
+SET @start_global_value_step_size_async_read = @@GLOBAL.innodb_histogram_step_size_async_read;
+SET @start_global_value_step_size_async_write = @@GLOBAL.innodb_histogram_step_size_async_write;
+SET @start_global_value_step_size_sync_read = @@GLOBAL.innodb_histogram_step_size_sync_read;
+SET @start_global_value_step_size_sync_write = @@GLOBAL.innodb_histogram_step_size_sync_write;
+SET @start_global_value_step_size_log_write = @@GLOBAL.innodb_histogram_step_size_log_write;
+SET @start_global_value_step_size_double_write = @@GLOBAL.innodb_histogram_step_size_double_write;
+SET @start_global_value_step_size_file_flush_time = @@GLOBAL.innodb_histogram_step_size_file_flush_time;
+SET @start_global_value_step_size_fsync = @@GLOBAL.innodb_histogram_step_size_fsync;
+SET @start_global_value_step_size_binlog_fsync = @@GLOBAL.histogram_step_size_binlog_fsync;
+SET @start_global_value_step_size_connection_create = @@GLOBAL.histogram_step_size_connection_create;
+SET @start_global_value_step_size_update_command = @@GLOBAL.histogram_step_size_update_command;
+SET @start_global_value_step_size_delete_command = @@GLOBAL.histogram_step_size_delete_command;
+SET @start_global_value_step_size_insert_command = @@GLOBAL.histogram_step_size_insert_command;
+SET @start_global_value_step_size_select_command = @@GLOBAL.histogram_step_size_select_command;
+SET @start_global_value_step_size_ddl_command = @@GLOBAL.histogram_step_size_ddl_command;
+SET @start_global_value_step_size_transaction_command = @@GLOBAL.histogram_step_size_transaction_command;
+SET @start_global_value_step_size_handler_command = @@GLOBAL.histogram_step_size_handler_command;
+SET @start_global_value_step_size_other_command = @@GLOBAL.histogram_step_size_other_command;
+SHOW VARIABLES LIKE "%histogram%" ;
+Variable_name	Value
+histogram_step_size_binlog_fsync	16ms
+histogram_step_size_connection_create	16ms
+histogram_step_size_ddl_command	64ms
+histogram_step_size_delete_command	64us
+histogram_step_size_handler_command	16ms
+histogram_step_size_insert_command	128us
+histogram_step_size_other_command	16ms
+histogram_step_size_select_command	128us
+histogram_step_size_transaction_command	16ms
+histogram_step_size_update_command	16ms
+innodb_histogram_step_size_async_read	16us
+innodb_histogram_step_size_async_write	16us
+innodb_histogram_step_size_double_write	16us
+innodb_histogram_step_size_file_flush_time	16ms
+innodb_histogram_step_size_fsync	16ms
+innodb_histogram_step_size_log_write	16us
+innodb_histogram_step_size_sync_read	16us
+innodb_histogram_step_size_sync_write	16us
+SET @@GLOBAL.innodb_histogram_step_size_async_read='16ms';
+SET @@GLOBAL.innodb_histogram_step_size_async_write='16us';
+SET @@GLOBAL.innodb_histogram_step_size_sync_read='32ms';
+SET @@GLOBAL.innodb_histogram_step_size_sync_write='32us';
+SET @@GLOBAL.innodb_histogram_step_size_log_write='64ms';
+SET @@GLOBAL.innodb_histogram_step_size_double_write='16s';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='16s';
+SET @@GLOBAL.innodb_histogram_step_size_fsync='16s';
+SET @@GLOBAL.histogram_step_size_binlog_fsync='16s';
+SET @@GLOBAL.histogram_step_size_connection_create='16s';
+SET @@GLOBAL.histogram_step_size_update_command='16s';
+SET @@GLOBAL.histogram_step_size_delete_command='16s';
+SET @@GLOBAL.histogram_step_size_insert_command='16s';
+SET @@GLOBAL.histogram_step_size_select_command='16s';
+SET @@GLOBAL.histogram_step_size_ddl_command='16s';
+SET @@GLOBAL.histogram_step_size_transaction_command='16s';
+SET @@GLOBAL.histogram_step_size_handler_command='16s';
+SET @@GLOBAL.histogram_step_size_other_command='16s';
+SHOW VARIABLES LIKE "%histogram%" ;
+Variable_name	Value
+histogram_step_size_binlog_fsync	16s
+histogram_step_size_connection_create	16s
+histogram_step_size_ddl_command	16s
+histogram_step_size_delete_command	16s
+histogram_step_size_handler_command	16s
+histogram_step_size_insert_command	16s
+histogram_step_size_other_command	16s
+histogram_step_size_select_command	16s
+histogram_step_size_transaction_command	16s
+histogram_step_size_update_command	16s
+innodb_histogram_step_size_async_read	16ms
+innodb_histogram_step_size_async_write	16us
+innodb_histogram_step_size_double_write	16s
+innodb_histogram_step_size_file_flush_time	16s
+innodb_histogram_step_size_fsync	16s
+innodb_histogram_step_size_log_write	64ms
+innodb_histogram_step_size_sync_read	32ms
+innodb_histogram_step_size_sync_write	32us
+SET @@GLOBAL.innodb_histogram_step_size_async_read = @start_global_value_step_size_async_read;
+SET @@GLOBAL.innodb_histogram_step_size_async_write = @start_global_value_step_size_async_write;
+SET @@GLOBAL.innodb_histogram_step_size_sync_read = @start_global_value_step_size_sync_read;
+SET @@GLOBAL.innodb_histogram_step_size_sync_write = @start_global_value_step_size_sync_write;
+SET @@GLOBAL.innodb_histogram_step_size_log_write = @start_global_value_step_size_log_write;
+SET @@GLOBAL.innodb_histogram_step_size_double_write = @start_global_value_step_size_double_write;
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time = @start_global_value_step_size_file_flush_time;
+SET @@GLOBAL.innodb_histogram_step_size_fsync = @start_global_value_step_size_fsync;
+SET @@GLOBAL.histogram_step_size_binlog_fsync = @start_global_value_step_size_binlog_fsync;
+SET @@GLOBAL.histogram_step_size_connection_create = @start_global_value_step_size_connection_create;
+SET @@GLOBAL.histogram_step_size_update_command = @start_global_value_step_size_update_command;
+SET @@GLOBAL.histogram_step_size_delete_command = @start_global_value_step_size_delete_command;
+SET @@GLOBAL.histogram_step_size_insert_command = @start_global_value_step_size_insert_command;
+SET @@GLOBAL.histogram_step_size_select_command = @start_global_value_step_size_select_command;
+SET @@GLOBAL.histogram_step_size_ddl_command = @start_global_value_step_size_ddl_command;
+SET @@GLOBAL.histogram_step_size_transaction_command = @start_global_value_step_size_transaction_command;
+SET @@GLOBAL.histogram_step_size_handler_command = @start_global_value_step_size_handler_command;
+SET @@GLOBAL.histogram_step_size_other_command = @start_global_value_step_size_other_command;
+SHOW VARIABLES LIKE "%histogram%" ;
+Variable_name	Value
+histogram_step_size_binlog_fsync	16ms
+histogram_step_size_connection_create	16ms
+histogram_step_size_ddl_command	64ms
+histogram_step_size_delete_command	64us
+histogram_step_size_handler_command	16ms
+histogram_step_size_insert_command	128us
+histogram_step_size_other_command	16ms
+histogram_step_size_select_command	128us
+histogram_step_size_transaction_command	16ms
+histogram_step_size_update_command	16ms
+innodb_histogram_step_size_async_read	16us
+innodb_histogram_step_size_async_write	16us
+innodb_histogram_step_size_double_write	16us
+innodb_histogram_step_size_file_flush_time	16ms
+innodb_histogram_step_size_fsync	16ms
+innodb_histogram_step_size_log_write	16us
+innodb_histogram_step_size_sync_read	16us
+innodb_histogram_step_size_sync_write	16us
+Done
