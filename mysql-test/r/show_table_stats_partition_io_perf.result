@@ -4,18 +4,44 @@ partition by range(a) (
 partition part0 values less than (10),
 partition part1 values less than (20),
 partition part2 values less than (30),
-partition part3 values less than (100)
+partition part3 values less than (110)
 );
 insert into p1 values
 (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),
 (10,10),(11,11),(12,12),(13,13),(14,14),(15,15),(16,16),(17,17),(18,18),(19,19),
 (20,20),(21,21),(22,12),(23,23),(24,24),(25,25),(26,26),(27,27),(28,28),(29,29);
-select count(*) from p1;
-count(*)
-29
 select * from p1 where a=3;
 a	b
 3	3
+should be 2 2 0
+select table_name, IO_READ_BYTES DIV PAGE_SIZE,
+IO_READ_REQUESTS, IO_READ_SLOW_IOS
+from information_schema.table_statistics where table_name like 'p1%';
+table_name	IO_READ_BYTES DIV PAGE_SIZE	IO_READ_REQUESTS	IO_READ_SLOW_IOS
+p1	2	2	0
+select * from p1 where a = 13;
+a	b
+13	13
+should be 4 4 0
+select table_name, IO_READ_BYTES DIV PAGE_SIZE,
+IO_READ_REQUESTS, IO_READ_SLOW_IOS
+from information_schema.table_statistics where table_name like 'p1%';
+table_name	IO_READ_BYTES DIV PAGE_SIZE	IO_READ_REQUESTS	IO_READ_SLOW_IOS
+p1	4	4	0
+select count(*) from p1;
+count(*)
+29
+should be 8 8 0
+select table_name, IO_READ_BYTES DIV PAGE_SIZE,
+IO_READ_REQUESTS, IO_READ_SLOW_IOS
+from information_schema.table_statistics where table_name like 'p1%';
+table_name	IO_READ_BYTES DIV PAGE_SIZE	IO_READ_REQUESTS	IO_READ_SLOW_IOS
+p1	8	8	0
+insert into p1 values
+(100,0),(101,1),(102,2),(103,3),(104,4),(105,5),(106,6),(107,7),(108,8),(109,9);
+select count(*) from p1 where a >= 100;
+count(*)
+10
 should be 2 2 0
 select table_name, IO_READ_BYTES DIV PAGE_SIZE,
 IO_READ_REQUESTS, IO_READ_SLOW_IOS
