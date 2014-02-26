@@ -2370,7 +2370,10 @@ ibool
 buf_zip_decompress(
 /*===============*/
 	buf_block_t*	block,	/*!< in/out: block */
-	ibool		check)	/*!< in: TRUE=verify the page checksum */
+	ibool		check,	/*!< in: TRUE=verify the page checksum */
+	ulint		table_flags) /*!< in: table flags used for compression
+				       configuration. not used if set to
+				       ULINT_UNDEFINED */
 {
 	const byte*	frame = block->page.zip.data;
 	ulint		size = page_zip_get_size(&block->page.zip);
@@ -2400,7 +2403,8 @@ buf_zip_decompress(
 	case FIL_PAGE_INDEX:
 		if (page_zip_decompress(&block->page.zip,
 					block->frame, TRUE,
-					block->page.space)) {
+					block->page.space,
+					table_flags)) {
 			return(TRUE);
 		}
 
@@ -3042,7 +3046,8 @@ got_block:
 		the page is read from disk. Hence page checksum
 		verification is not necessary when decompressing the page. */
 		{
-			bool	success = buf_zip_decompress(block, FALSE);
+			bool	success = buf_zip_decompress(block, FALSE,
+							     ULINT_UNDEFINED);
 			ut_a(success);
 		}
 
@@ -4323,7 +4328,8 @@ buf_page_io_complete(
 			buf_pool->n_pend_unzip++;
 			if (uncompressed
 			    && !buf_zip_decompress((buf_block_t*) bpage,
-						   FALSE)) {
+						   FALSE,
+						   ULINT_UNDEFINED)) {
 
 				buf_pool->n_pend_unzip--;
 				goto corrupt;
