@@ -68,6 +68,16 @@ extern volatile ulint	os_aio_n_outstanding;
 extern ulint		os_aio_max_outstanding;
 #endif /* UNIV_DEBUG */
 
+/* Configurable variables for Histogram step sizes and units */
+extern char* innobase_histogram_step_size_async_read;
+extern char* innobase_histogram_step_size_async_write;
+extern char* innobase_histogram_step_size_sync_read;
+extern char* innobase_histogram_step_size_sync_write;
+extern char* innobase_histogram_step_size_log_write;
+extern char* innobase_histogram_step_size_double_write;
+extern char* innobase_histogram_step_size_file_flush_time;
+extern char* innobase_histogram_step_size_fsync;
+
 #ifdef __WIN__
 
 /** We define always WIN_ASYNC_IO, and check at run-time whether
@@ -487,6 +497,18 @@ extern my_io_perf_t	os_log_write_perf;
 
 /** Performance statistics for doublewrite writes */
 extern my_io_perf_t	os_double_write_perf;
+
+extern latency_histogram histogram_async_read;
+extern latency_histogram histogram_async_write;
+
+extern latency_histogram histogram_sync_read;
+extern latency_histogram histogram_sync_write;
+
+extern latency_histogram histogram_log_write;
+extern latency_histogram histogram_double_write;
+
+extern latency_histogram histogram_file_flush_time;
+extern latency_histogram histogram_fsync;
 
 /**************************************************************************
 Prints IO statistics. */
