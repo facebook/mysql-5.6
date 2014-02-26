@@ -1391,8 +1391,9 @@ page_cur_insert_rec_zip(
 			/* Out of space: restore the page */
 			btr_blob_dbg_remove(page, index, "insert_zip_fail");
 			const buf_block_t *block = page_cur_get_block(cursor);
-			if (!page_zip_decompress(page_zip, page, FALSE,
-						 buf_block_get_space(block))) {
+			if (!page_zip_decompress(
+				page_zip, page, FALSE,
+				buf_block_get_space(block), ULINT_UNDEFINED)) {
 				ut_error; /* Memory corrupted? */
 			}
 			ut_ad(page_validate(page, index));
