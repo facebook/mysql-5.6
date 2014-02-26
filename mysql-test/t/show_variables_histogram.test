@@ -21,6 +21,7 @@ SET @start_global_value_step_size_ddl_command = @@GLOBAL.histogram_step_size_ddl
 SET @start_global_value_step_size_transaction_command = @@GLOBAL.histogram_step_size_transaction_command;
 SET @start_global_value_step_size_handler_command = @@GLOBAL.histogram_step_size_handler_command;
 SET @start_global_value_step_size_other_command = @@GLOBAL.histogram_step_size_other_command;
+SET @start_global_value_step_size_semisync_trx_wait = @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size;
 
 SHOW VARIABLES LIKE "%histogram%" ;
 
@@ -42,6 +43,7 @@ SET @@GLOBAL.histogram_step_size_ddl_command='16s';
 SET @@GLOBAL.histogram_step_size_transaction_command='16s';
 SET @@GLOBAL.histogram_step_size_handler_command='16s';
 SET @@GLOBAL.histogram_step_size_other_command='16s';
+SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size='128us';
 
 SHOW VARIABLES LIKE "%histogram%" ;
 
@@ -63,6 +65,7 @@ SET @@GLOBAL.histogram_step_size_ddl_command = @start_global_value_step_size_ddl
 SET @@GLOBAL.histogram_step_size_transaction_command = @start_global_value_step_size_transaction_command;
 SET @@GLOBAL.histogram_step_size_handler_command = @start_global_value_step_size_handler_command;
 SET @@GLOBAL.histogram_step_size_other_command = @start_global_value_step_size_other_command;
+SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size = @start_global_value_step_size_semisync_trx_wait;
 
 SHOW VARIABLES LIKE "%histogram%" ;
 
