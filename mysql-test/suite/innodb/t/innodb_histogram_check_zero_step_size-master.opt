@@ -1,0 +1,9 @@
+--innodb_histogram_step_size_async_read=0
+--innodb_histogram_step_size_async_write=0
+--innodb_histogram_step_size_sync_read=0
+--innodb_histogram_step_size_sync_write=0
+--innodb_histogram_step_size_log_write=0
+--innodb_histogram_step_size_double_write=0
+--innodb_histogram_step_size_fsync=0
+--innodb_histogram_step_size_file_flush_time=0
+

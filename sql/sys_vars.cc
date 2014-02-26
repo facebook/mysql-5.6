@@ -970,6 +970,100 @@ static Sys_var_charptr Sys_character_sets_dir(
        READ_ONLY GLOBAL_VAR(charsets_dir), CMD_LINE(REQUIRED_ARG),
        IN_FS_CHARSET, DEFAULT(0));
 
+static bool check_histogram_step_size_syntax(sys_var *self, THD *thd,
+                                             set_var *var)
+{
+  return histogram_validate_step_size_string(var->save_result.string_value.str);
+}
+
+static Sys_var_charptr Sys_histogram_step_size_binlog_fsync(
+       "histogram_step_size_binlog_fsync", "Step size of the Histogram which "
+       "is used to track binlog fsync latencies.",
+       GLOBAL_VAR(histogram_step_size_binlog_fsync), CMD_LINE(REQUIRED_ARG),
+       IN_FS_CHARSET, DEFAULT("16ms"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_connection_create(
+       "histogram_step_size_connection_create",
+       "Step size of the Histogram which "
+       "is used to track connection create latencies.",
+       GLOBAL_VAR(histogram_step_size_connection_create),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("16ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_update_command(
+       "histogram_step_size_update_command",
+       "Step size of the Histogram which "
+       "is used to track update command latencies.",
+       GLOBAL_VAR(histogram_step_size_update_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("16ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_delete_command(
+       "histogram_step_size_delete_command",
+       "Step size of the Histogram which "
+       "is used to track delete command latencies.",
+       GLOBAL_VAR(histogram_step_size_delete_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("64us"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_insert_command(
+       "histogram_step_size_insert_command",
+       "Step size of the Histogram which "
+       "is used to track insert command latencies.",
+       GLOBAL_VAR(histogram_step_size_insert_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("128us"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_select_command(
+       "histogram_step_size_select_command",
+       "Step size of the Histogram which "
+       "is used to track select command latencies.",
+       GLOBAL_VAR(histogram_step_size_select_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("128us"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_ddl_command(
+       "histogram_step_size_ddl_command",
+       "Step size of the Histogram which "
+       "is used to track DDL command latencies.",
+       GLOBAL_VAR(histogram_step_size_ddl_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("64ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_transaction_command(
+       "histogram_step_size_transaction_command",
+       "Step size of the Histogram which "
+       "is used to track transaction command latencies.",
+       GLOBAL_VAR(histogram_step_size_transaction_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("16ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_handler_command(
+       "histogram_step_size_handler_command",
+       "Step size of the Histogram which "
+       "is used to track handler command latencies.",
+       GLOBAL_VAR(histogram_step_size_handler_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("16ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
+static Sys_var_charptr Sys_histogram_step_size_other_command(
+       "histogram_step_size_other_command",
+       "Step size of the Histogram which "
+       "is used to track other command latencies.",
+       GLOBAL_VAR(histogram_step_size_other_command),
+       CMD_LINE(REQUIRED_ARG), IN_FS_CHARSET, DEFAULT("16ms"),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_histogram_step_size_syntax));
+
 static bool check_not_null(sys_var *self, THD *thd, set_var *var)
 {
   return var->value && var->value->is_null();

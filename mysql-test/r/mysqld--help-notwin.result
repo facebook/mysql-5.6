@@ -283,6 +283,36 @@ The following options may be given as the first argument:
  gtid_executed set before flushing binlog from cache to
  file.
  -?, --help          Display this help and exit.
+ --histogram-step-size-binlog-fsync=name 
+ Step size of the Histogram which is used to track binlog
+ fsync latencies.
+ --histogram-step-size-connection-create=name 
+ Step size of the Histogram which is used to track
+ connection create latencies.
+ --histogram-step-size-ddl-command=name 
+ Step size of the Histogram which is used to track DDL
+ command latencies.
+ --histogram-step-size-delete-command=name 
+ Step size of the Histogram which is used to track delete
+ command latencies.
+ --histogram-step-size-handler-command=name 
+ Step size of the Histogram which is used to track handler
+ command latencies.
+ --histogram-step-size-insert-command=name 
+ Step size of the Histogram which is used to track insert
+ command latencies.
+ --histogram-step-size-other-command=name 
+ Step size of the Histogram which is used to track other
+ command latencies.
+ --histogram-step-size-select-command=name 
+ Step size of the Histogram which is used to track select
+ command latencies.
+ --histogram-step-size-transaction-command=name 
+ Step size of the Histogram which is used to track
+ transaction command latencies.
+ --histogram-step-size-update-command=name 
+ Step size of the Histogram which is used to track update
+ command latencies.
  --host-cache-size=# How many host names should be cached to avoid resolving.
  --ignore-builtin-innodb 
  IGNORED. This option will be removed in future releases.
@@ -1161,6 +1191,16 @@ group-concat-max-len 1024
 gtid-mode OFF
 gtid-precommit FALSE
 help TRUE
+histogram-step-size-binlog-fsync 16ms
+histogram-step-size-connection-create 16ms
+histogram-step-size-ddl-command 64ms
+histogram-step-size-delete-command 64us
+histogram-step-size-handler-command 16ms
+histogram-step-size-insert-command 128us
+histogram-step-size-other-command 16ms
+histogram-step-size-select-command 128us
+histogram-step-size-transaction-command 16ms
+histogram-step-size-update-command 16ms
 host-cache-size 279
 ignore-builtin-innodb FALSE
 init-connect 
