@@ -933,4 +933,120 @@ bool update_named_pipe_full_access_group(const char *new_group_name);
 extern LEX_STRING opt_mandatory_roles;
 extern bool opt_mandatory_roles_cache;
 extern bool opt_always_activate_granted_roles;
+
+/* Histogram struct to track various latencies */
+#define NUMBER_OF_HISTOGRAM_BINS 10
+struct latency_histogram {
+  size_t num_bins;
+  ulonglong step_size;
+  double step_ratio;
+  std::atomic<ulonglong> count_per_bin[NUMBER_OF_HISTOGRAM_BINS];
+};
+
+/* Convert native timer units in a ulonglong into microseconds in a ulonglong */
+inline ulonglong my_timer_to_microseconds_ulonglong(ulonglong when) {
+  ulonglong ret = (ulonglong)(when);
+  ret *= 1000000;
+  ret = (ulonglong)((ret + my_timer.frequency - 1) / my_timer.frequency);
+  return ret;
+}
+
+/** Compression statistics for a fil_space */
+/**
+  Create a new Histogram.
+
+  @param current_histogram    The histogram being initialized.
+  @param step_size_with_unit  Configurable system variable containing
+                              step size and unit of the Histogram.
+*/
+void latency_histogram_init(latency_histogram *current_histogram,
+                            const char *step_size_with_unit);
+
+/**
+  Increment the count of a bin in Histogram.
+
+  @param current_histogram  The current histogram.
+  @param value              Value of which corresponding bin has to be found.
+  @param count              Amount by which the count of a bin has to be
+                            increased.
+
+*/
+void latency_histogram_increment(latency_histogram *current_histogram,
+                                 ulonglong value, ulonglong count);
+
+/**
+  Get the count corresponding to a bin of the Histogram.
+
+  @param current_histogram  The current histogram.
+  @param bin_num            The bin whose count has to be returned.
+
+  @return                   Returns the count of that bin.
+*/
+ulonglong latency_histogram_get_count(latency_histogram *current_histogram,
+                                      size_t bin_num);
+
+/**
+  Validate if the string passed to the configurable histogram step size
+  conforms to proper syntax.
+
+  @param step_size_with_unit  The configurable step size string to be checked.
+
+  @return                     1 if invalid, 0 if valid.
+*/
+int histogram_validate_step_size_string(const char *step_size_with_unit);
+
+#define HISTOGRAM_BUCKET_NAME_MAX_SIZE \
+  64 /**< This is the maximum size     \
+        of the string:                 \
+        "LowerBucketValue-"            \
+        "UpperBucketValue<units>"      \
+        where bucket is the latency    \
+        histogram bucket and units     \
+        can be us,ms or s */
+
+/** To return the displayable histogram name from
+  my_timer_to_display_string() */
+struct histogram_display_string {
+  char name[HISTOGRAM_BUCKET_NAME_MAX_SIZE];
+};
+
+/**
+  This function is called to convert the histogram bucket ranges in system time
+  units to a string and calculates units on the fly, which can be displayed in
+  the output of SHOW GLOBAL STATUS.
+  The string has the following form:
+
+  <HistogramName>_<BucketLowerValue>-<BucketUpperValue><Unit>
+
+  @param bucket_lower_display  Lower Range value of the Histogram Bucket
+  @param bucket_upper_display  Upper Range value of the Histogram Bucket
+  @param is_last_bucket        Flag to denote last bucket in the histogram
+
+  @return                      The display string for the Histogram Bucket
+*/
+histogram_display_string histogram_bucket_to_display_string(
+    ulonglong bucket_lower_display, ulonglong bucket_upper_display,
+    bool is_last_bucket = false);
+
+/**
+  This function is called by the plugin callback function
+  to add entries into the latency_histogram_xxxx array, by forming
+  the appropriate display string and fetching the histogram bin
+  counts.
+
+  @param current_histogram       Histogram whose values are currently added
+                                 in the SHOW_VAR array
+  @param latency_histogram_data  SHOW_VAR array for the corresponding Histogram
+  @param histogram_values        Values to be exported to Innodb status.
+                                 This array contains the bin counts of the
+                                 respective Histograms.
+*/
+void prepare_latency_histogram_vars(latency_histogram *current_histogram,
+                                    SHOW_VAR *latency_histogram_data,
+                                    ulonglong *histogram_values);
+
+/**
+   Frees old histogram bucket display strings before assigning new ones.
+*/
+void free_latency_histogram_sysvars(SHOW_VAR *latency_histogram_data);
 #endif /* MYSQLD_INCLUDED */

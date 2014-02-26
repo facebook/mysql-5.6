@@ -3758,6 +3758,244 @@ void init_my_timer(void) {
 }
 
 /**
+  Create a new Histogram.
+
+  @param current_histogram    The histogram being initialized.
+  @param step_size_with_unit  Configurable system variable containing
+                              step size and unit of the Histogram.
+*/
+void latency_histogram_init(latency_histogram *current_histogram,
+                            const char *step_size_with_unit) {
+  assert(current_histogram != 0);
+
+  double step_size_base_time = 0.0;
+  current_histogram->num_bins = NUMBER_OF_HISTOGRAM_BINS;
+
+  // this can potentially be made configurable later.
+  current_histogram->step_ratio = 2.0;
+  current_histogram->step_size = 0;
+  char *histogram_unit = NULL;
+
+  std::memset(current_histogram->count_per_bin, 0,
+              sizeof(ulonglong) * NUMBER_OF_HISTOGRAM_BINS);
+
+  if (!step_size_with_unit) return;
+
+  step_size_base_time = strtod(step_size_with_unit, &histogram_unit);
+  if (histogram_unit) {
+    if (!strcmp(histogram_unit, "s")) {
+      current_histogram->step_size =
+          microseconds_to_my_timer(step_size_base_time * 1000000.0);
+    } else if (!strcmp(histogram_unit, "ms")) {
+      current_histogram->step_size =
+          microseconds_to_my_timer(step_size_base_time * 1000.0);
+    } else if (!strcmp(histogram_unit, "us")) {
+      current_histogram->step_size =
+          microseconds_to_my_timer(step_size_base_time);
+    }
+    /* Special case when step size is passed to be '0' */
+    else if (*histogram_unit == '\0') {
+      if (step_size_base_time == 0.0) {
+        current_histogram->step_size = 0;
+      } else
+        current_histogram->step_size =
+            microseconds_to_my_timer(step_size_base_time);
+    } else {
+      sql_print_error("Invalid units given to histogram step size.");
+      return;
+    }
+  } else {
+    /* NO_LINT_DEBUG */
+    sql_print_error("Invalid histogram step size.");
+    return;
+  }
+}
+
+/**
+  Search a value in the histogram bins.
+
+  @param current_histogram  The current histogram.
+  @param value              Value to be searched.
+
+  @return                   Returns the bin that contains this value.
+                            -1 if Step Size is 0
+*/
+static int latency_histogram_bin_search(latency_histogram *current_histogram,
+                                        ulonglong value) {
+  if (current_histogram->step_size == 0 || value == 0 ||
+      current_histogram->step_ratio <= 0.0)
+    return -1;
+
+  double dbin_no = std::log2((double)value / current_histogram->step_size) /
+                   std::log2(current_histogram->step_ratio);
+
+  int ibin_no = (int)dbin_no;
+  if (ibin_no < 0) return 0;
+
+  return min(ibin_no, (int)current_histogram->num_bins - 1);
+}
+
+/**
+  Increment the count of a bin in Histogram.
+
+  @param current_histogram  The current histogram.
+  @param value              Value of which corresponding bin has to be found.
+  @param count              Amount by which the count of a bin has to be
+                            increased.
+
+*/
+void latency_histogram_increment(latency_histogram *current_histogram,
+                                 ulonglong value, ulonglong count) {
+  int index = latency_histogram_bin_search(current_histogram, value);
+  if (index < 0) return;
+  current_histogram->count_per_bin[index] += count;
+}
+
+/**
+  Get the count corresponding to a bin of the Histogram.
+
+  @param current_histogram  The current histogram.
+  @param bin_num            The bin whose count has to be returned.
+
+  @return                   Returns the count of that bin.
+*/
+ulonglong latency_histogram_get_count(latency_histogram *current_histogram,
+                                      size_t bin_num) {
+  return (current_histogram->count_per_bin)[bin_num];
+}
+
+/**
+  Validate if the string passed to the configurable histogram step size
+  conforms to proper syntax.
+
+  @param step_size_with_unit  The configurable step size string to be checked.
+
+  @return                     1 if invalid, 0 if valid.
+*/
+int histogram_validate_step_size_string(const char *step_size_with_unit) {
+  if (step_size_with_unit == nullptr) return 0;
+
+  int ret = 0;
+  char *histogram_unit = NULL;
+  double histogram_step_size = strtod(step_size_with_unit, &histogram_unit);
+  if (histogram_step_size && histogram_unit) {
+    if (strcmp(histogram_unit, "ms") && strcmp(histogram_unit, "us") &&
+        strcmp(histogram_unit, "s"))
+      ret = 1;
+  }
+  /* Special case when step size is passed to be '0' */
+  else if (*histogram_unit == '\0' && histogram_step_size == 0.0)
+    return 0;
+  else
+    ret = 1;
+  return ret;
+}
+
+/**
+  This function is called to convert the histogram bucket ranges in system time
+  units to a string and calculates units on the fly, which can be displayed in
+  the output of SHOW GLOBAL STATUS.
+  The string has the following form:
+
+  <HistogramName>_<BucketLowerValue>-<BucketUpperValue><Unit>
+
+  @param bucket_lower_display  Lower Range value of the Histogram Bucket
+  @param bucket_upper_display  Upper Range value of the Histogram Bucket
+  @param is_last_bucket        Flag to denote last bucket in the histogram
+
+  @return                      The display string for the Histogram Bucket
+*/
+histogram_display_string histogram_bucket_to_display_string(
+    ulonglong bucket_lower_display, ulonglong bucket_upper_display,
+    bool is_last_bucket) {
+  struct histogram_display_string histogram_bucket_name;
+
+  std::string time_unit_suffix;
+  ulonglong time_factor = 1;
+
+  if ((bucket_upper_display % 1000000) == 0 &&
+      (bucket_lower_display % 1000000) == 0) {
+    time_unit_suffix = "s";
+    time_factor = 1000000;
+  } else if ((bucket_upper_display % 1000) == 0 &&
+             (bucket_lower_display % 1000) == 0) {
+    time_unit_suffix = "ms";
+    time_factor = 1000;
+  } else {
+    time_unit_suffix = "us";
+  }
+
+  std::string bucket_display_format;
+  if (is_last_bucket) {
+    bucket_display_format = "%llu-MAX" + time_unit_suffix;
+    snprintf(histogram_bucket_name.name, HISTOGRAM_BUCKET_NAME_MAX_SIZE,
+             bucket_display_format.c_str(), bucket_lower_display / time_factor);
+  } else {
+    bucket_display_format = "%llu-%llu" + time_unit_suffix;
+    snprintf(histogram_bucket_name.name, HISTOGRAM_BUCKET_NAME_MAX_SIZE,
+             bucket_display_format.c_str(), bucket_lower_display / time_factor,
+             bucket_upper_display / time_factor);
+  }
+
+  return histogram_bucket_name;
+}
+
+/**
+   Frees old histogram bucket display strings before assigning new ones.
+*/
+void free_latency_histogram_sysvars(SHOW_VAR *latency_histogram_data) {
+  size_t i;
+  for (i = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i) {
+    if (latency_histogram_data[i].name)
+      my_free((void *)latency_histogram_data[i].name);
+  }
+}
+
+/**
+  This function is called by the plugin callback function
+  to add entries into the latency_histogram_xxxx array, by forming
+  the appropriate display string and fetching the histogram bin
+  counts.
+
+  @param current_histogram       Histogram whose values are currently added
+                                 in the SHOW_VAR array
+  @param latency_histogram_data  SHOW_VAR array for the corresponding Histogram
+  @param histogram_values        Values to be exported to Innodb status.
+                                 This array contains the bin counts of the
+                                 respective Histograms.
+*/
+void prepare_latency_histogram_vars(latency_histogram *current_histogram,
+                                    SHOW_VAR *latency_histogram_data,
+                                    ulonglong *histogram_values) {
+  size_t i;
+  ulonglong bucket_lower_display, bucket_upper_display;
+  const SHOW_VAR temp_last = {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL};
+
+  free_latency_histogram_sysvars(latency_histogram_data);
+
+  ulonglong itr_step_size = current_histogram->step_size;
+  for (i = 0, bucket_lower_display = 0; i < NUMBER_OF_HISTOGRAM_BINS; ++i) {
+    bucket_upper_display = my_timer_to_microseconds_ulonglong(itr_step_size) +
+                           bucket_lower_display;
+
+    struct histogram_display_string histogram_bucket_name =
+        histogram_bucket_to_display_string(bucket_lower_display,
+                                           bucket_upper_display,
+                                           i == NUMBER_OF_HISTOGRAM_BINS - 1);
+
+    const SHOW_VAR temp = {my_strdup(key_memory_global_system_variables,
+                                     histogram_bucket_name.name, MYF(0)),
+                           (char *)&(histogram_values[i]), SHOW_LONGLONG,
+                           SHOW_SCOPE_GLOBAL};
+    latency_histogram_data[i] = temp;
+
+    bucket_lower_display = bucket_upper_display;
+    itr_step_size *= current_histogram->step_ratio;
+  }
+  latency_histogram_data[NUMBER_OF_HISTOGRAM_BINS] = temp_last;
+}
+
+/**
   Initialize one of the global date/time format variables.
 
   @param format_type    What kind of format should be supported
