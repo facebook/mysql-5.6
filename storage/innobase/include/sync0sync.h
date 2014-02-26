@@ -40,7 +40,18 @@ Created 9/5/1995 Heikki Tuuri
 #include "ut0mem.h"
 #include "os0thread.h"
 #include "os0sync.h"
+#include "ut0counter.h"
 #include "sync0arr.h"
+
+/** The number of iterations in the mutex_spin_wait() spin loop.
+Intended for performance monitoring. */
+extern ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_spin_round_count;
+/** The number of mutex_spin_wait() calls.
+Intended for performance monitoring. */
+extern ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_spin_wait_count;
+/** The number of OS waits in mutex_spin_wait().
+Intended for performance monitoring. */
+extern ib_counter_t<ib_int64_t, IB_N_SLOTS>	mutex_os_wait_count;
 
 #if  defined(UNIV_DEBUG) && !defined(UNIV_HOTBACKUP)
 extern "C" my_bool	timed_mutexes;
