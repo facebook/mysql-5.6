@@ -315,6 +315,7 @@ void copy_comp_stats_with_races(comp_stats_atomic_t *out, comp_stats_t *in)
 
 void fill_table_stats_cb(const char *db,
                          const char *table,
+                         bool is_partition,
                          my_io_perf_t *r,
                          my_io_perf_t *w,
                          my_io_perf_t *r_blob,
@@ -330,6 +331,24 @@ void fill_table_stats_cb(const char *db,
   if (!stats)
     return;
 
+  if (is_partition) {
+    if (stats->should_update) {
+      my_io_perf_sum_atomic_helper(&stats->io_perf_read, r);
+      my_io_perf_sum_atomic_helper(&stats->io_perf_write, w);
+      my_io_perf_sum_atomic_helper(&stats->io_perf_read_blob, r_blob);
+      my_io_perf_sum_atomic_helper(&stats->io_perf_read_primary, r_primary);
+      my_io_perf_sum_atomic_helper(&stats->io_perf_read_secondary, r_secondary);
+      my_page_stats_sum_atomic(&stats->page_stats, page_stats);
+      // page_size would be the same for all partition
+      stats->comp_stats.page_size.set_maybe(comp_stats->page_size);
+      // padding might be different but we just use one partition to estimate
+      stats->comp_stats.padding.set_maybe(comp_stats->padding);
+      my_comp_stats_sum_atomic(&stats->comp_stats, comp_stats);
+      return;
+    } else {
+      stats->should_update = true;
+    }
+  }
   /* These assignments allow for races. That is OK. */
   copy_io_perf_with_races(&stats->io_perf_read, r);
   copy_io_perf_with_races(&stats->io_perf_write, w);
@@ -522,6 +541,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(
       table_stats->page_stats.n_pages_written_blob.load(), TRUE);
 
+    table_stats->should_update = false;
 
     if (schema_table_store_record(thd, table))
     {

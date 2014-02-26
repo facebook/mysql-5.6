@@ -340,6 +340,7 @@ fil_update_table_stats_one_cell(
 	ulint		max_per_cell,	/*!< in: size of buffers */
 	void		(*cb)(const char* db,
 				const char* tbl,
+				bool is_partition,
 				my_io_perf_t *r,
 				my_io_perf_t *w,
 				my_io_perf_t *r_blob,
@@ -349,7 +350,8 @@ fil_update_table_stats_one_cell(
 				comp_stats_t* comp_stats,
 				const char* engine),
 	char*		db_name_buf,	/*!< in: buffer for db names */
-	char*		table_name_buf)	/*!< in: buffer for table names */
+	char*		table_name_buf,	/*!< in: buffer for table names */
+	bool*		is_partition)	/*!< in: buffer for partition flag */
 {
 	ulint		n_cells;
 	hash_cell_t*	cell;
@@ -371,10 +373,9 @@ fil_update_table_stats_one_cell(
 	/* Copy out all entries for which stats must be reported */
 
 	while (space && found < max_per_cell) {
-
 		if (space->stats.used) {
-			space->stats.used = FALSE;
-
+			if (!space->is_partition)
+				space->stats.used = FALSE;
 			read_arr[found] = space->io_perf2.read;
 			write_arr[found] = space->io_perf2.write;
 			read_arr_blob[found] = space->io_perf2.read_blob;
@@ -387,7 +388,7 @@ fil_update_table_stats_one_cell(
 				space->db_name);
 			strcpy(&(table_name_buf[found * (FN_LEN+1)]),
 				space->table_name);
-
+			is_partition[found] = space->is_partition;
 			found++;
 		}
 
@@ -401,6 +402,7 @@ fil_update_table_stats_one_cell(
 	for (; report < found; ++report) {
 		cb(&(db_name_buf[report * (FN_LEN+1)]),
 			 &(table_name_buf[report * (FN_LEN+1)]),
+			 is_partition[report],
 			 &(read_arr[report]),
 			 &(write_arr[report]),
 			 &(read_arr_blob[report]),
@@ -421,6 +423,7 @@ fil_update_table_stats(
 	/* per-table stats callback */
 	void (*cb)(const char* db,
 			const char* tbl,
+			bool is_partition,
 			my_io_perf_t *r,
 			my_io_perf_t *w,
 			my_io_perf_t *r_blob,
@@ -442,6 +445,7 @@ fil_update_table_stats(
 	comp_stats_t*	comp_stats_arr;
 	char*		db_name_buf;
 	char*		table_name_buf;
+	bool*		is_partition;
 	static ibool	in_progress = FALSE;
 
 	/* This invokes the callback to report table stats for all
@@ -516,9 +520,10 @@ fil_update_table_stats(
 				sizeof(comp_stats_t) * max_per_cell);
 	db_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
 	table_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
+	is_partition = (bool*) ut_malloc(sizeof(bool) * max_per_cell);
 
 	if (!read_arr || !write_arr || !read_arr_blob || !comp_stats_arr ||
-			!table_name_buf || !db_name_buf) {
+			!table_name_buf || !db_name_buf || !is_partition) {
 
 		mutex_enter(&fil_system->mutex);
 		in_progress = FALSE;
@@ -542,6 +547,8 @@ fil_update_table_stats(
 			ut_free(db_name_buf);
 		if (table_name_buf)
 			ut_free(table_name_buf);
+		if (is_partition)
+			ut_free(is_partition);
 
 		sql_print_error("Memory allocation failure in table stats.");
 		return;
@@ -554,7 +561,7 @@ fil_update_table_stats(
 			n, read_arr, write_arr, read_arr_blob,
 			read_arr_primary, read_arr_secondary, page_stats_arr,
 			comp_stats_arr, max_per_cell, cb, db_name_buf,
-			table_name_buf);
+			table_name_buf, is_partition);
 	}
 
 	ut_free(read_arr);
@@ -566,10 +573,12 @@ fil_update_table_stats(
 	ut_free(comp_stats_arr);
 	ut_free(table_name_buf);
 	ut_free(db_name_buf);
+	ut_free(is_partition);
 
 	/* Invoke the callback for doublewrite buffer IO */
 	cb("sys:innodb" /* schema */,
 		 "doublewrite" /* table */,
+		 false,
 		 &io_perf_doublewrite.read,
 		 &io_perf_doublewrite.write,
 		 &io_perf_doublewrite.read_blob,
@@ -1354,6 +1363,7 @@ parse_db_and_table(
 	const char*	name,		/*!< in: name to parse */
 	char*		db_name,	/*!< out: return db name */
 	char*		table_name,	/*!< out: return table name */
+	bool*		is_partition,	/*!< out: true if table is partition */
 	ulint		purpose,	/*!< in: type of tablespace */
 	ulint		id)		/*!< in: tablespace id */
 {
@@ -1376,6 +1386,7 @@ parse_db_and_table(
 			char *part = strstr(table_name, "#P#");
 			if (part) {
 				*part = '\0';
+				*is_partition = true;
 			}
 		}
 	}
@@ -1398,11 +1409,13 @@ fil_space_create(
 	ib_mutex_t*	stats_mutex;
 	char		db_name[FN_LEN + 1];
 	char		table_name[FN_LEN + 1];
+	bool		is_partition = false;
 	unsigned char db_stats_index;
 
 	DBUG_EXECUTE_IF("fil_space_create_failure", return(false););
 
-	parse_db_and_table(name, db_name, table_name, purpose, id);
+	parse_db_and_table(name, db_name, table_name, &is_partition,
+			   purpose, id);
 #ifdef XTRABACKUP
 	db_stats_index = 0;
 #else /* XTRABACKUP */
@@ -1468,6 +1481,7 @@ fil_space_create(
 	space->id = id;
 	strcpy(space->db_name, db_name);
 	strcpy(space->table_name, table_name);
+	space->is_partition = is_partition;
 
 	fil_system->tablespace_version++;
 	space->tablespace_version = fil_system->tablespace_version;
@@ -3421,6 +3435,7 @@ skip_second_rename:
 			parse_db_and_table(new_name,
 					   space->db_name,
 					   space->table_name,
+					   &space->is_partition,
 					   FIL_TABLESPACE, id);
 		}
 	}
