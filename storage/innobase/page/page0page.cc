@@ -730,7 +730,8 @@ page_copy_rec_list_end(
 						    "copy_end_reorg_fail");
 				if (!page_zip_decompress(new_page_zip,
 					new_page, FALSE,
-					buf_block_get_space(new_block))) {
+					buf_block_get_space(new_block),
+					ULINT_UNDEFINED)) {
 					ut_error;
 				}
 				ut_ad(page_validate(new_page, index));
@@ -866,7 +867,8 @@ zip_reorganize:
 				if (UNIV_UNLIKELY
 				    (!page_zip_decompress(new_page_zip,
 					new_page, FALSE,
-					buf_block_get_space(new_block)))) {
+					buf_block_get_space(new_block),
+					ULINT_UNDEFINED))) {
 					ut_error;
 				}
 				ut_ad(page_validate(new_page, index));
