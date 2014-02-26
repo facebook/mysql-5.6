@@ -3157,6 +3157,36 @@ void init_my_timer(void)
 }
 
 /**********************************************************************
+Accumulate per-table page stats helper function */
+void my_page_stats_sum_atomic(page_stats_atomic_t* sum,
+                              page_stats_t* page_stats)
+{
+  sum->n_pages_read.inc(page_stats->n_pages_read);
+  sum->n_pages_read_index.inc(page_stats->n_pages_read_index);
+  sum->n_pages_read_blob.inc(page_stats->n_pages_read_blob);
+  sum->n_pages_written.inc(page_stats->n_pages_written);
+  sum->n_pages_written_index.inc(page_stats->n_pages_written_index);
+  sum->n_pages_written_blob.inc(page_stats->n_pages_written_blob);
+}
+
+/**********************************************************************
+Accumulate per-table compression stats helper function */
+void my_comp_stats_sum_atomic(comp_stats_atomic_t* sum,
+                              comp_stats_t* comp_stats)
+{
+  sum->compressed.inc(comp_stats->compressed);
+  sum->compressed_ok.inc(comp_stats->compressed_ok);
+  sum->compressed_primary.inc(comp_stats->compressed_primary);
+  sum->compressed_primary_ok.inc(comp_stats->compressed_primary_ok);
+  sum->decompressed.inc(comp_stats->decompressed);
+  sum->compressed_time.inc(comp_stats->compressed_time);
+  sum->compressed_ok_time.inc(comp_stats->compressed_ok_time);
+  sum->decompressed_time.inc(comp_stats->decompressed_time);
+  sum->compressed_primary_time.inc(comp_stats->compressed_primary_time);
+  sum->compressed_primary_ok_time.inc(comp_stats->compressed_primary_ok_time);
+}
+
+/**********************************************************************
 Return a - b in diff */
 void my_io_perf_diff(my_io_perf_t* diff,
                     const my_io_perf_t* a, const my_io_perf_t* b)

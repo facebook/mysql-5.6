@@ -1348,7 +1348,7 @@ void
 innobase_update_table_stats(
 /*===============*/
 	/* per-table stats callback */
-	void (*cb)(const char* db, const char* tbl,
+	void (*cb)(const char* db, const char* tbl, bool is_partition,
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   page_stats_t* page_stats, comp_stats_t* comp_stats,
@@ -4064,7 +4064,7 @@ void
 innobase_update_table_stats(
 /*===============*/
 	/* per-table stats callback */
-	void (*cb)(const char* db, const char* tbl,
+	void (*cb)(const char* db, const char* tbl, bool is_partition,
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   page_stats_t *page_stats, comp_stats_t *comp_stats,

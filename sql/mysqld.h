@@ -536,6 +536,14 @@ static inline void my_io_perf_atomic_init(my_io_perf_atomic_t* perf) {
   perf->slow_ios.clear();
 }
 
+/* Accumulate per-table compression stats helper function */
+void my_comp_stats_sum_atomic(comp_stats_atomic_t* sum,
+                              comp_stats_t* comp_stats);
+
+/* Accumulate per-table page stats helper function */
+void my_page_stats_sum_atomic(page_stats_atomic_t* sum,
+                              page_stats_t* page_stats);
+
 /* Returns a - b in diff */
 void my_io_perf_diff(my_io_perf_t* diff,
                      const my_io_perf_t* a, const my_io_perf_t* b);

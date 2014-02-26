@@ -343,6 +343,7 @@ struct fil_space_t {
 				/*!< name from first or only table */
 	char		table_name[FN_LEN + 1];
 				/*!< name from first or only table */
+	bool		is_partition; /*!< table is a partition */
 	ulint		magic_n;/*!< FIL_SPACE_MAGIC_N */
 	ib_uint64_t	primary_index_id;/*!< index_id of the primary index */
 };
@@ -1026,7 +1027,7 @@ void
 fil_update_table_stats(
 /*===================*/
 	/* per-table stats callback */
-	void (*cb)(const char* db, const char* tbl,
+	void (*cb)(const char* db, const char* tbl, bool is_partition,
 		   my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
 		   my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
 		   page_stats_t *page_stats, comp_stats_t *comp_stats,
