@@ -277,6 +277,63 @@ static void update_whitelist(THD *, SYS_VAR *, void *var_ptr,
   ack_receiver->unlock();
 }
 
+/*
+  Checks whether a valid argument is given to
+  rpl_semi_sync_master_trx_wait_step_size sys_var.
+
+  @return  0  valid step size
+          >0  invalid step size
+
+  @param  thd    thread handler
+  @param  var    pointer to the system variable
+  @return save   Output value is stored here. This is the immediate result
+                 for sys_var update function
+  @param  value  input value
+*/
+static int check_histogram_step_size(MYSQL_THD, SYS_VAR *, void *save,
+                                     struct st_mysql_value *value) {
+  int len = 0;
+  const char *step_size_local = value->val_str(value, nullptr, &len);
+
+  size_t length = 0;
+  if (step_size_local) length = strlen(step_size_local);
+
+  if (length == 0) {
+    *static_cast<const char **>(save) = nullptr;
+    return 0;
+  }
+
+  /*
+    Validating if the string (non empty) ends with ms/us/s and the
+    rest of it is a valid floating point number
+  */
+  int ret = histogram_validate_step_size_string(step_size_local);
+  if (!ret) *static_cast<const char **>(save) = step_size_local;
+
+  return ret;
+}
+
+/*
+  Reinitializes the latency histogram when the trx_wait_step_size is
+  updated.
+
+  @param thd       thread handler
+  @param var       pointer to system variable
+  @result var_ptr  output value of the system variable
+  @param save      input string value. This is the immediate result from
+                   sys_var check function.
+*/
+static void update_histogram_trx_wait_step_size(MYSQL_THD, SYS_VAR *,
+                                                void *var_ptr,
+                                                const void *save) {
+  const char *step_size_local = *static_cast<const char *const *>(save);
+
+  if (step_size_local)
+    repl_semisync->update_histogram_trx_wait_step_size(step_size_local);
+
+  *static_cast<const char **>(var_ptr) = step_size_local;
+}
+
 static MYSQL_SYSVAR_BOOL(
     enabled, rpl_semi_sync_source_enabled, PLUGIN_VAR_OPCMDARG,
     "Enable semi-synchronous replication source (disabled by default). ",
@@ -390,6 +447,13 @@ static MYSQL_SYSVAR_STR(
     "list will lead to discarding all ACKs.",
     nullptr, update_whitelist, "ANY");
 
+static MYSQL_SYSVAR_STR(histogram_trx_wait_step_size,
+                        histogram_trx_wait_step_size,
+                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_MEMALLOC,
+                        "Histogram step size for transaction wait time. ",
+                        check_histogram_step_size,
+                        update_histogram_trx_wait_step_size, "500us");
+
 static SYS_VAR *semi_sync_master_system_vars[] = {
     MYSQL_SYSVAR(enabled),
     MYSQL_SYSVAR(timeout),
@@ -399,6 +463,7 @@ static SYS_VAR *semi_sync_master_system_vars[] = {
     MYSQL_SYSVAR(wait_point),
     MYSQL_SYSVAR(WAIT_FOR_REPLICA_COUNT_NAME),
     MYSQL_SYSVAR(whitelist),
+    MYSQL_SYSVAR(histogram_trx_wait_step_size),
     nullptr,
 };
 static void fix_rpl_semi_sync_source_timeout(MYSQL_THD, SYS_VAR *, void *ptr,
@@ -506,6 +571,24 @@ DEF_SHOW_FUNC(net_wait_num, SHOW_LONGLONG)
 DEF_SHOW_FUNC(avg_net_wait_time, SHOW_LONG)
 DEF_SHOW_FUNC(avg_trx_wait_time, SHOW_LONG)
 
+static SHOW_VAR semisync_histogram_status_variables[] = {
+    {"Rpl_semi_sync_master_trx_wait_histogram",
+     (char *)&latency_histogram_trx_wait, SHOW_ARRAY, SHOW_SCOPE_GLOBAL},
+    {NULL, NULL, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
+
+static int rpl_semi_sync_master_trx_wait_histogram(MYSQL_THD, SHOW_VAR *var,
+                                                   char *) {
+  prepare_latency_histogram_vars(&histogram_trx_wait,
+                                 latency_histogram_trx_wait,
+                                 histogram_trx_wait_values);
+
+  repl_semisync->setExportStats();
+  var->type = SHOW_ARRAY;
+  var->value = (char *)&semisync_histogram_status_variables;
+  var->scope = SHOW_SCOPE_GLOBAL;
+  return 0;
+}
+
 /* plugin status variables */
 static SHOW_VAR semi_sync_master_status_vars[] = {
     {STATUS_VAR_PREFIX "status", (char *)&SHOW_FNAME(status), SHOW_FUNC,
@@ -538,6 +621,9 @@ static SHOW_VAR semi_sync_master_status_vars[] = {
      SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {STATUS_VAR_PREFIX "net_avg_wait_time",
      (char *)&SHOW_FNAME(avg_net_wait_time), SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Rpl_semi_sync_master_trx_wait_histogram",
+     (char *)&rpl_semi_sync_master_trx_wait_histogram, SHOW_FUNC,
+     SHOW_SCOPE_GLOBAL},
     {nullptr, nullptr, SHOW_LONG, SHOW_SCOPE_GLOBAL},
 };
 
