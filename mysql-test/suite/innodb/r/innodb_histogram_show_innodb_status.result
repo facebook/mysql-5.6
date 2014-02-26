@@ -1,0 +1,170 @@
+DROP TABLE IF EXISTS t1;
+create table t1 (a int auto_increment primary key, b char(255)) engine=innodb;
+insert into t1 values (1, repeat('a', 255));
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+insert into t1 (b) select b from t1;
+select count(*) from t1;
+count(*)
+65536
+Histograms:	
+	
+Async Reads	
+Bucket 0 to 16 us	COUNT
+Bucket 16 to 32 us	COUNT
+Bucket 32 to 48 us	COUNT
+Bucket 48 to 64 us	COUNT
+Bucket 64 to 80 us	COUNT
+Bucket 80 to 96 us	COUNT
+Bucket 96 to 112 us	COUNT
+Bucket 112 to 128 us	COUNT
+Bucket 128 to 144 us	COUNT
+Bucket 144 to 160 us	COUNT
+Bucket 160 to 176 us	COUNT
+Bucket 176 to 192 us	COUNT
+Bucket 192 to 208 us	COUNT
+Bucket 208 to 224 us	COUNT
+Bucket 224 to 240 us	COUNT
+	
+Async Writes	
+Bucket 0 to 16 us	COUNT
+Bucket 16 to 32 us	COUNT
+Bucket 32 to 48 us	COUNT
+Bucket 48 to 64 us	COUNT
+Bucket 64 to 80 us	COUNT
+Bucket 80 to 96 us	COUNT
+Bucket 96 to 112 us	COUNT
+Bucket 112 to 128 us	COUNT
+Bucket 128 to 144 us	COUNT
+Bucket 144 to 160 us	COUNT
+Bucket 160 to 176 us	COUNT
+Bucket 176 to 192 us	COUNT
+Bucket 192 to 208 us	COUNT
+Bucket 208 to 224 us	COUNT
+Bucket 224 to 240 us	COUNT
+	
+Sync Reads	
+Bucket 0 to 16 us	COUNT
+Bucket 16 to 32 us	COUNT
+Bucket 32 to 48 us	COUNT
+Bucket 48 to 64 us	COUNT
+Bucket 64 to 80 us	COUNT
+Bucket 80 to 96 us	COUNT
+Bucket 96 to 112 us	COUNT
+Bucket 112 to 128 us	COUNT
+Bucket 128 to 144 us	COUNT
+Bucket 144 to 160 us	COUNT
+Bucket 160 to 176 us	COUNT
+Bucket 176 to 192 us	COUNT
+Bucket 192 to 208 us	COUNT
+Bucket 208 to 224 us	COUNT
+Bucket 224 to 240 us	COUNT
+	
+Sync Writes	
+Bucket 0 to 16 us	COUNT
+Bucket 16 to 32 us	COUNT
+Bucket 32 to 48 us	COUNT
+Bucket 48 to 64 us	COUNT
+Bucket 64 to 80 us	COUNT
+Bucket 80 to 96 us	COUNT
+Bucket 96 to 112 us	COUNT
+Bucket 112 to 128 us	COUNT
+Bucket 128 to 144 us	COUNT
+Bucket 144 to 160 us	COUNT
+Bucket 160 to 176 us	COUNT
+Bucket 176 to 192 us	COUNT
+Bucket 192 to 208 us	COUNT
+Bucket 208 to 224 us	COUNT
+Bucket 224 to 240 us	COUNT
+	
+Log Writes	
+Bucket 0 to 16 us	COUNT
+Bucket 16 to 32 us	COUNT
+Bucket 32 to 48 us	COUNT
+Bucket 48 to 64 us	COUNT
+Bucket 64 to 80 us	COUNT
+Bucket 80 to 96 us	COUNT
+Bucket 96 to 112 us	COUNT
+Bucket 112 to 128 us	COUNT
+Bucket 128 to 144 us	COUNT
+Bucket 144 to 160 us	COUNT
+Bucket 160 to 176 us	COUNT
+Bucket 176 to 192 us	COUNT
+Bucket 192 to 208 us	COUNT
+Bucket 208 to 224 us	COUNT
+Bucket 224 to 240 us	COUNT
+	
+Double Buffer Writes	
+Bucket 0 to 16 us	COUNT
+Bucket 16 to 32 us	COUNT
+Bucket 32 to 48 us	COUNT
+Bucket 48 to 64 us	COUNT
+Bucket 64 to 80 us	COUNT
+Bucket 80 to 96 us	COUNT
+Bucket 96 to 112 us	COUNT
+Bucket 112 to 128 us	COUNT
+Bucket 128 to 144 us	COUNT
+Bucket 144 to 160 us	COUNT
+Bucket 160 to 176 us	COUNT
+Bucket 176 to 192 us	COUNT
+Bucket 192 to 208 us	COUNT
+Bucket 208 to 224 us	COUNT
+Bucket 224 to 240 us	COUNT
+	
+File Flush Time	
+Bucket 0 to 16 ms	COUNT
+Bucket 16 to 32 ms	COUNT
+Bucket 32 to 48 ms	COUNT
+Bucket 48 to 64 ms	COUNT
+Bucket 64 to 80 ms	COUNT
+Bucket 80 to 96 ms	COUNT
+Bucket 96 to 112 ms	COUNT
+Bucket 112 to 128 ms	COUNT
+Bucket 128 to 144 ms	COUNT
+Bucket 144 to 160 ms	COUNT
+Bucket 160 to 176 ms	COUNT
+Bucket 176 to 192 ms	COUNT
+Bucket 192 to 208 ms	COUNT
+Bucket 208 to 224 ms	COUNT
+Bucket 224 to 240 ms	COUNT
+	
+Fsyncs	
+Bucket 0 to 16 ms	COUNT
+Bucket 16 to 32 ms	COUNT
+Bucket 32 to 48 ms	COUNT
+Bucket 48 to 64 ms	COUNT
+Bucket 64 to 80 ms	COUNT
+Bucket 80 to 96 ms	COUNT
+Bucket 96 to 112 ms	COUNT
+Bucket 112 to 128 ms	COUNT
+Bucket 128 to 144 ms	COUNT
+Bucket 144 to 160 ms	COUNT
+Bucket 160 to 176 ms	COUNT
+Bucket 176 to 192 ms	COUNT
+Bucket 192 to 208 ms	COUNT
+Bucket 208 to 224 ms	COUNT
+Bucket 224 to 240 ms	COUNT
+--------------	
+Histogram for Async Reads validated
+Histogram for Async Writes validated
+Histogram for Sync Reads validated
+Histogram for Sync Writes validated
+Histogram for Log Writes validated
+Histogram for Doublebuffer Writes validated
+Histogram for Fsyncs validated
+
+DROP TABLE t1;
+Done
