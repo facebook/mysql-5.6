@@ -453,9 +453,9 @@ def	information_schema	USER_STATISTICS	DISK_READ_WAIT_USECS_PRIMARY	29	0	NO	bigi
 def	information_schema	USER_STATISTICS	DISK_READ_WAIT_USECS_SECONDARY	33	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	ERRORS_ACCESS_DENIED	34	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	ERRORS_TOTAL	35	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION	57	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
-def	information_schema	USER_STATISTICS	GTID_UNSAFE_CREATE_SELECT	56	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
-def	information_schema	USER_STATISTICS	GTID_UNSAFE_NON_TRANSACTIONAL_TABLE	58	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
+def	information_schema	USER_STATISTICS	GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION	58	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
+def	information_schema	USER_STATISTICS	GTID_UNSAFE_CREATE_SELECT	57	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
+def	information_schema	USER_STATISTICS	GTID_UNSAFE_NON_TRANSACTIONAL_TABLE	59	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(11)			select	
 def	information_schema	USER_STATISTICS	MICROSECONDS_DDL	37	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	MICROSECONDS_DELETE	38	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	MICROSECONDS_HANDLER	39	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
@@ -467,15 +467,16 @@ def	information_schema	USER_STATISTICS	MICROSECONDS_UPDATE	44	0	NO	bigint	NULL	N
 def	information_schema	USER_STATISTICS	MICROSECONDS_WALL	36	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	QUERIES_EMPTY	45	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	QUERY_COMMENT_BYTES	46	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_DELETED	47	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_FETCHED	48	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_INDEX_FIRST	52	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_INDEX_NEXT	53	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_INSERTED	49	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_READ	50	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	ROWS_UPDATED	51	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	TRANSACTIONS_COMMIT	54	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
-def	information_schema	USER_STATISTICS	TRANSACTIONS_ROLLBACK	55	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	RELAY_LOG_BYTES_WRITTEN	47	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_DELETED	48	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_FETCHED	49	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_INDEX_FIRST	53	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_INDEX_NEXT	54	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_INSERTED	50	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_READ	51	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	ROWS_UPDATED	52	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	TRANSACTIONS_COMMIT	55	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	TRANSACTIONS_ROLLBACK	56	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	USER_NAME	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
 def	information_schema	VIEWS	CHARACTER_SET_CLIENT	9		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	VIEWS	CHECK_OPTION	5		NO	varchar	8	24	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select	
@@ -1008,6 +1009,7 @@ NULL	information_schema	USER_STATISTICS	MICROSECONDS_TRANSACTION	bigint	NULL	NUL
 NULL	information_schema	USER_STATISTICS	MICROSECONDS_UPDATE	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	USER_STATISTICS	QUERIES_EMPTY	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	USER_STATISTICS	QUERY_COMMENT_BYTES	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	USER_STATISTICS	RELAY_LOG_BYTES_WRITTEN	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	USER_STATISTICS	ROWS_DELETED	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	USER_STATISTICS	ROWS_FETCHED	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	USER_STATISTICS	ROWS_INSERTED	bigint	NULL	NULL	NULL	NULL	bigint(21)
