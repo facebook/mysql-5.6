@@ -1,0 +1,9 @@
+--histogram_step_size_update_command=0
+--histogram_step_size_delete_command=0
+--histogram_step_size_insert_command=0
+--histogram_step_size_select_command=0
+--histogram_step_size_ddl_command=0
+--histogram_step_size_transaction_command=0
+--histogram_step_size_handler_command=0
+--histogram_step_size_other_command=0
+--histogram_step_size_connection_create=0

@@ -1,0 +1,75 @@
+SELECT COUNT(@@GLOBAL.innodb_histogram_step_size_file_flush_time);
+COUNT(@@GLOBAL.innodb_histogram_step_size_file_flush_time)
+1
+1 Expected
+SET @start_global_value = @@GLOBAL.innodb_histogram_step_size_file_flush_time;
+SELECT @start_global_value;
+@start_global_value
+16ms
+16ms Expected
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='16us';
+select @@GLOBAL.innodb_histogram_step_size_file_flush_time;
+@@GLOBAL.innodb_histogram_step_size_file_flush_time
+16us
+16us Expected
+select * from information_schema.global_variables where variable_name='innodb_histogram_step_size_file_flush_time';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_HISTOGRAM_STEP_SIZE_FILE_FLUSH_TIME	16us
+SELECT @@GLOBAL.innodb_histogram_step_size_file_flush_time = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='innodb_histogram_step_size_file_flush_time';
+@@GLOBAL.innodb_histogram_step_size_file_flush_time = VARIABLE_VALUE
+1
+1 Expected
+SELECT COUNT(@@GLOBAL.innodb_histogram_step_size_file_flush_time);
+COUNT(@@GLOBAL.innodb_histogram_step_size_file_flush_time)
+1
+1 Expected
+SELECT COUNT(VARIABLE_VALUE)
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='innodb_histogram_step_size_file_flush_time';
+COUNT(VARIABLE_VALUE)
+1
+1 Expected
+SELECT COUNT(@@local.innodb_histogram_step_size_file_flush_time);
+ERROR HY000: Variable 'innodb_histogram_step_size_file_flush_time' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.innodb_histogram_step_size_file_flush_time);
+ERROR HY000: Variable 'innodb_histogram_step_size_file_flush_time' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='32';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of '32'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='0';
+select @@GLOBAL.innodb_histogram_step_size_file_flush_time;
+@@GLOBAL.innodb_histogram_step_size_file_flush_time
+0
+0 Expected
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='ms32';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of 'ms32'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='32ps';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of '32ps'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='3s2';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of '3s2'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='32@s';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of '32@s'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='32s.';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of '32s.'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='s';
+ERROR 42000: Variable 'innodb_histogram_step_size_file_flush_time' can't be set to the value of 's'
+Expected error 'Variable cannot be set to this value';
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time='16.5us';
+select @@GLOBAL.innodb_histogram_step_size_file_flush_time;
+@@GLOBAL.innodb_histogram_step_size_file_flush_time
+16.5us
+16.5us Expected
+SET @@GLOBAL.innodb_histogram_step_size_file_flush_time = @start_global_value;
+SELECT @@GLOBAL.innodb_histogram_step_size_file_flush_time;
+@@GLOBAL.innodb_histogram_step_size_file_flush_time
+16ms
+16ms Expected
