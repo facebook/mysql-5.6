@@ -1,0 +1,54 @@
+drop table if exists userstats;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+Before any statement
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+USER_NAME	TYPE	STEP_SIZE	VALUE_BIN1	VALUE_BIN2	VALUE_BIN3	VALUE_BIN4	VALUE_BIN5	VALUE_BIN6	VALUE_BIN7	VALUE_BIN8	VALUE_BIN9	VALUE_BIN10	VALUE_BIN11	VALUE_BIN12	VALUE_BIN13	VALUE_BIN14	VALUE_BIN15
+mysqltest_1	UPDATE	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	DELETE	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	INSERT	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	SELECT	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	DDL	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	TRANSACTION	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	HANDLER	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	OTHER	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	CONNECTION_CREATE	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+create table userstats (i int primary key, j int);
+create index usx on userstats(j);
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+replace into userstats values (1,1);
+delete from userstats where i = 1;
+handler userstats open;
+handler userstats read first;
+i	j
+2	2
+handler userstats close;
+show tables;
+Tables_in_test
+userstats
+select 1;
+1
+1
+update userstats set j=j+1 where i = 2;
+begin;
+rollback;
+begin;
+commit;
+At the end, all values should be 0
+select * from information_schema.user_latency_histograms where user_name = 'mysqltest_1';
+USER_NAME	TYPE	STEP_SIZE	VALUE_BIN1	VALUE_BIN2	VALUE_BIN3	VALUE_BIN4	VALUE_BIN5	VALUE_BIN6	VALUE_BIN7	VALUE_BIN8	VALUE_BIN9	VALUE_BIN10	VALUE_BIN11	VALUE_BIN12	VALUE_BIN13	VALUE_BIN14	VALUE_BIN15
+mysqltest_1	UPDATE	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	DELETE	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	INSERT	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	SELECT	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	DDL	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	TRANSACTION	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	HANDLER	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	OTHER	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+mysqltest_1	CONNECTION_CREATE	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+drop table userstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
