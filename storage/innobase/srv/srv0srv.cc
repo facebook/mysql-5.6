@@ -1544,6 +1544,18 @@ srv_export_innodb_status(void)
 	}
 #endif /* UNIV_DEBUG */
 
+	export_vars.innodb_mutex_os_waits = mutex_os_wait_count;
+	export_vars.innodb_mutex_spin_rounds = mutex_spin_round_count;
+	export_vars.innodb_mutex_spin_waits = mutex_spin_wait_count;
+
+	export_vars.innodb_rwlock_s_os_waits = rw_lock_stats.rw_s_os_wait_count;
+	export_vars.innodb_rwlock_s_spin_rounds = rw_lock_stats.rw_s_spin_round_count;
+	export_vars.innodb_rwlock_s_spin_waits = rw_lock_stats.rw_s_spin_wait_count;
+
+	export_vars.innodb_rwlock_x_os_waits = rw_lock_stats.rw_x_os_wait_count;
+	export_vars.innodb_rwlock_x_spin_rounds = rw_lock_stats.rw_x_spin_round_count;
+	export_vars.innodb_rwlock_x_spin_waits = rw_lock_stats.rw_x_spin_wait_count;
+
 	export_vars.innodb_sec_rec_cluster_reads =
 		srv_sec_rec_cluster_reads.load();
 	export_vars.innodb_sec_rec_cluster_reads_avoided =
