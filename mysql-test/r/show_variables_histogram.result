@@ -16,6 +16,7 @@ SET @start_global_value_step_size_ddl_command = @@GLOBAL.histogram_step_size_ddl
 SET @start_global_value_step_size_transaction_command = @@GLOBAL.histogram_step_size_transaction_command;
 SET @start_global_value_step_size_handler_command = @@GLOBAL.histogram_step_size_handler_command;
 SET @start_global_value_step_size_other_command = @@GLOBAL.histogram_step_size_other_command;
+SET @start_global_value_step_size_semisync_trx_wait = @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size;
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_step_size_binlog_fsync	16ms
@@ -36,6 +37,7 @@ innodb_histogram_step_size_fsync	16ms
 innodb_histogram_step_size_log_write	16us
 innodb_histogram_step_size_sync_read	16us
 innodb_histogram_step_size_sync_write	16us
+rpl_semi_sync_master_histogram_trx_wait_step_size	500us
 SET @@GLOBAL.innodb_histogram_step_size_async_read='16ms';
 SET @@GLOBAL.innodb_histogram_step_size_async_write='16us';
 SET @@GLOBAL.innodb_histogram_step_size_sync_read='32ms';
@@ -54,6 +56,7 @@ SET @@GLOBAL.histogram_step_size_ddl_command='16s';
 SET @@GLOBAL.histogram_step_size_transaction_command='16s';
 SET @@GLOBAL.histogram_step_size_handler_command='16s';
 SET @@GLOBAL.histogram_step_size_other_command='16s';
+SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size='128us';
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_step_size_binlog_fsync	16s
@@ -74,6 +77,7 @@ innodb_histogram_step_size_fsync	16s
 innodb_histogram_step_size_log_write	64ms
 innodb_histogram_step_size_sync_read	32ms
 innodb_histogram_step_size_sync_write	32us
+rpl_semi_sync_master_histogram_trx_wait_step_size	128us
 SET @@GLOBAL.innodb_histogram_step_size_async_read = @start_global_value_step_size_async_read;
 SET @@GLOBAL.innodb_histogram_step_size_async_write = @start_global_value_step_size_async_write;
 SET @@GLOBAL.innodb_histogram_step_size_sync_read = @start_global_value_step_size_sync_read;
@@ -92,6 +96,7 @@ SET @@GLOBAL.histogram_step_size_ddl_command = @start_global_value_step_size_ddl
 SET @@GLOBAL.histogram_step_size_transaction_command = @start_global_value_step_size_transaction_command;
 SET @@GLOBAL.histogram_step_size_handler_command = @start_global_value_step_size_handler_command;
 SET @@GLOBAL.histogram_step_size_other_command = @start_global_value_step_size_other_command;
+SET @@GLOBAL.rpl_semi_sync_master_histogram_trx_wait_step_size = @start_global_value_step_size_semisync_trx_wait;
 SHOW VARIABLES LIKE "%histogram%" ;
 Variable_name	Value
 histogram_step_size_binlog_fsync	16ms
@@ -112,4 +117,5 @@ innodb_histogram_step_size_fsync	16ms
 innodb_histogram_step_size_log_write	16us
 innodb_histogram_step_size_sync_read	16us
 innodb_histogram_step_size_sync_write	16us
+rpl_semi_sync_master_histogram_trx_wait_step_size	500us
 Done
