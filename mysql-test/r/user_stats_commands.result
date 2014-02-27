@@ -127,6 +127,7 @@ desc information_schema.user_statistics;
 Field	Type	Null	Key	Default	Extra
 USER_NAME	varchar(192)	NO			
 BINLOG_BYTES_WRITTEN	bigint(21)	NO		0	
+BINLOG_DISK_READS	bigint(21)	NO		0	
 BYTES_RECEIVED	bigint(21)	NO		0	
 BYTES_SENT	bigint(21)	NO		0	
 COMMANDS_DDL	bigint(21)	NO		0	
@@ -189,6 +190,7 @@ Table	Create Table
 USER_STATISTICS	CREATE TEMPORARY TABLE `USER_STATISTICS` (
   `USER_NAME` varchar(192) NOT NULL DEFAULT '',
   `BINLOG_BYTES_WRITTEN` bigint(21) NOT NULL DEFAULT '0',
+  `BINLOG_DISK_READS` bigint(21) NOT NULL DEFAULT '0',
   `BYTES_RECEIVED` bigint(21) NOT NULL DEFAULT '0',
   `BYTES_SENT` bigint(21) NOT NULL DEFAULT '0',
   `COMMANDS_DDL` bigint(21) NOT NULL DEFAULT '0',

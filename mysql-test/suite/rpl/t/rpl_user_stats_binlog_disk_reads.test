@@ -1,0 +1,35 @@
+#
+# Test IS.user_statistics for binlog_disk_reads
+#
+
+# binlog_disk_reads counts how many time (*read_function) is called by
+# my_b_read() which is called by mysql_binlog_send(). It measures the
+# disk reads from binlog when master replicates data to slaves. The
+# number varies on different configurations. This test verifies that
+# binlog_disk_reads should be increasing by comparing 2 runs.
+
+--source include/master-slave.inc
+--source include/have_innodb.inc
+
+sync_slave_with_master;
+connection master;
+
+select binlog_disk_reads into @r1
+  from information_schema.user_statistics
+  where user_name = 'root';
+
+# do some bogus stuff which updates binlog
+create table test_binlog_disk_reads(x int);
+drop table test_binlog_disk_reads;
+
+sync_slave_with_master;
+connection master;
+
+select binlog_disk_reads into @r2
+  from information_schema.user_statistics
+  where user_name = 'root';
+
+select if(@r1 <= @r2, 'yes', 'no') as is_increasing;
+
+--source include/rpl_end.inc
+
