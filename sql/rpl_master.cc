@@ -922,6 +922,49 @@ static void repl_cleanup(String *packet, char *packet_buffer)
   }
 }
 
+
+/*
+  We need to count how many disk reads are performed by
+  mysql_binlog_send() and export it to user_stats.
+
+  When mysql_binlog_send() calls Log_event::read_log_event(),
+  and thus read_log_event() calls my_b_read() to read binlog file,
+  my_b_read() determines whether the data is ready in memory;
+  otherwise, it calls read_function in IO_CACHE to read data from
+  disk. We want to count how many times the read_function is called.
+  So we added counting_read_function() which increases the counter
+  and calls the original read_function and let my_b_read() call
+  counting_read_function instead. counting_read_function() expects an
+  IO_CACHE_EX instance as the input which has the original
+  read_function pointer and THD pointer for updating user_stats.
+*/
+
+static int counting_read_function(IO_CACHE *info, uchar *buffer, size_t count);
+
+struct IO_CACHE_EX : public IO_CACHE {
+  int (*original_read_function)(struct st_io_cache *,uchar *,size_t);
+  THD* thd;
+
+  void extend(THD *thd) {
+    this->thd = thd;
+    /*
+      Must check if extend() has been done. Otherwise we may go into
+      endless recursion!
+    */
+    if (this->read_function != counting_read_function) {
+      this->original_read_function = this->read_function;
+      this->read_function = counting_read_function;
+    }
+  }
+};
+
+static int counting_read_function(IO_CACHE *info, uchar *buffer, size_t count) {
+  IO_CACHE_EX *info_ex = static_cast<IO_CACHE_EX*>(info);
+  USER_STATS *us = thd_get_user_stats(info_ex->thd);
+  us->binlog_disk_reads.inc();
+  return info_ex->original_read_function(info, buffer, count);
+}
+
 void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                        const Gtid_set* slave_gtid_executed, int flags)
 {
@@ -948,7 +991,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   bool gtid_event_logged = false;
   Sid_map *sid_map= slave_gtid_executed ? slave_gtid_executed->get_sid_map() : NULL;
 
-  IO_CACHE log;
+  IO_CACHE_EX log;
   File file = -1;
   /*
     Use a local string here to avoid disturbing the
@@ -1185,6 +1228,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
     GOTO_ERR;
   }
+
+  /*
+    open_binlog_file() calls init_io_cache() to initialize the read_function
+    in IO_CACHE. We need to replace the read_function with our
+    counting_read_function() in order to count how many times the
+    read_function is called.
+  */
+  log.extend(thd);
+
   if (pos < BIN_LOG_HEADER_SIZE)
   {
     errmsg= "Client requested master to start replication from position < 4";
@@ -2127,6 +2179,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
         GOTO_ERR;
       }
+
+      /* hook read_function again, since we got a new bin file from
+         open_binlog_file above: */
+      log.extend(thd);
 
       p_coord->file_name= log_file_name; // reset to the next
     }

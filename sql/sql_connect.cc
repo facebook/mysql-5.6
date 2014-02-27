@@ -1096,6 +1096,7 @@ void init_user_stats(USER_STATS *user_stats)
   my_io_perf_atomic_init(&(user_stats->io_perf_read_secondary));
 
   user_stats->binlog_bytes_written.clear();
+  user_stats->binlog_disk_reads.clear();
   user_stats->bytes_received.clear();
   user_stats->bytes_sent.clear();
   user_stats->commands_ddl.clear();
@@ -1356,6 +1357,7 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
   table->field[f++]->store(username, strlen(username), system_charset_info);
 
   table->field[f++]->store(us->binlog_bytes_written.load(), TRUE);
+  table->field[f++]->store(us->binlog_disk_reads.load(), TRUE);
   table->field[f++]->store(us->bytes_received.load(), TRUE);
   table->field[f++]->store(us->bytes_sent.load(), TRUE);
   table->field[f++]->store(us->commands_ddl.load(), TRUE);
