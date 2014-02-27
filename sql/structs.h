@@ -225,6 +225,7 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> bytes_received;
   atomic_stat<ulonglong> bytes_sent;
   atomic_stat<ulonglong> binlog_bytes_written;
+  atomic_stat<ulonglong> binlog_disk_reads;
   atomic_stat<ulonglong> commands_ddl;
   atomic_stat<ulonglong> commands_delete;
   atomic_stat<ulonglong> commands_handler;
