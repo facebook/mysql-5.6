@@ -1419,6 +1419,7 @@ void THD::init(void)
   my_io_perf_init(&io_perf_read_blob);
   my_io_perf_init(&io_perf_read_primary);
   my_io_perf_init(&io_perf_read_secondary);
+  count_comment_bytes= 0;
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
@@ -1448,6 +1449,7 @@ void THD::init_for_queries(Relay_log_info *rli)
                       variables.trans_prealloc_size);
   transaction.xid_state.xid.null();
   transaction.xid_state.in_thd=1;
+  count_comment_bytes = 0;
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   if (rli)
   {
