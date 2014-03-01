@@ -39,37 +39,37 @@ root
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con1, non_admin_con2, ... non_admin_con7 at master port ##
 ## All these will succeed ##
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con8 at master port ##
 ## This will succeed ##
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port ##
 ## This will fail due to the limit of the max number of connections ##
 connect(::1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -134,37 +134,37 @@ root
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con1, non_admin_con2, ... non_admin_con7 at master port ##
 ## All these will succeed ##
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con8 at master port ##
 ## This will succeed ##
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port ##
 ## This will fail due to the limit of the max number of connections ##
 connect(0:0:0:0:0:0:0:1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -229,37 +229,37 @@ root
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con1, non_admin_con2, ... non_admin_con7 at master port ##
 ## All these will succeed ##
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con8 at master port ##
 ## This will succeed ##
 ## Switch to default connection
 ## Show processlist
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port ##
 ## This will fail due to the limit of the max number of connections ##
 connect(0000:0000:0000:0000:0000:0000:0000:0001,root,,mysql,MASTER_PORT,MASTER_SOCKET);
