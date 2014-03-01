@@ -364,6 +364,7 @@ typedef struct st_table_stats {
                                                 secondary index */
   atomic_stat<ulonglong> index_inserts;	/* Number of secondary index inserts. */
   atomic_stat<ulonglong> queries_empty;	/* Number of non-join empty queries */
+  atomic_stat<ulonglong> comment_bytes;	/* Number of non-join empty queries */
 
   bool should_update; /* Set for partitioned tables so later partitions will
                          increment the perf stats. Clear after collecting
