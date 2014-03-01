@@ -46,7 +46,8 @@ let $count_sessions= 1;
 --echo ## Switch to default connection
 connection default;
 --echo ## Show processlist
---replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 -
+--replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 -
+--replace_result init STATE "cleaning up" STATE
 --sorted_result
 show processlist;
 
@@ -63,7 +64,8 @@ connect (non_admin_con7,$IP,root,,mysql,);
 --echo ## Switch to default connection
 connection default;
 --echo ## Show processlist
---replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 -
+--replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 -
+--replace_result init STATE "cleaning up" STATE
 --sorted_result
 show processlist;
 
@@ -74,7 +76,8 @@ connect (non_admin_con8,$IP,root,,mysql,);
 --echo ## Switch to default connection
 connection default;
 --echo ## Show processlist
---replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 -
+--replace_column 1 - 3 localhost 5 - 6 - 7 - 8 - 9 - 10 - 11 -
+--replace_result init STATE "cleaning up" STATE
 --sorted_result
 show processlist;
 
