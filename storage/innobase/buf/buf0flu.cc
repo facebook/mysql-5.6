@@ -2471,6 +2471,8 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 					MONITOR_FLUSH_BACKGROUND_PAGES,
 					n_flushed);
 			}
+		} else {
+			n_flushed = 0;
 		}
 	}
 
