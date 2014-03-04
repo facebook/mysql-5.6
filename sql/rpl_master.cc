@@ -2538,7 +2538,9 @@ bool show_master_status(THD* thd)
   if (mysql_bin_log.is_open())
   {
     LOG_INFO li;
-    mysql_bin_log.get_current_log(&li);
+    mysql_mutex_lock(mysql_bin_log.get_binlog_end_pos_lock());
+    mysql_bin_log.get_current_log_without_lock_log(&li);
+    mysql_mutex_unlock(mysql_bin_log.get_binlog_end_pos_lock());
     int dir_len = dirname_length(li.log_file_name);
     protocol->store(li.log_file_name + dir_len, &my_charset_bin);
     protocol->store((ulonglong) li.pos);
@@ -2591,13 +2593,12 @@ bool show_binlogs(THD* thd)
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_RETURN(TRUE);
   
-  mysql_mutex_lock(mysql_bin_log.get_log_lock());
+  mysql_mutex_lock(mysql_bin_log.get_binlog_end_pos_lock());
   DEBUG_SYNC(thd, "show_binlogs_after_lock_log_before_lock_index");
+  mysql_bin_log.get_current_log_without_lock_log(&cur);
+  mysql_mutex_unlock(mysql_bin_log.get_binlog_end_pos_lock());
   mysql_bin_log.lock_index();
   index_file=mysql_bin_log.get_index_file();
-  
-  mysql_bin_log.raw_get_current_log(&cur); // dont take mutex
-  mysql_mutex_unlock(mysql_bin_log.get_log_lock()); // lockdep, OK
   
   cur_dir_len= dirname_length(cur.log_file_name);
 
