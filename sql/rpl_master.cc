@@ -678,7 +678,9 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
                                           ulong *ev_offset,
                                           uint8 checksum_alg_arg,
                                           const char **errmsg,
-                                          bool semi_sync_slave)
+                                          bool semi_sync_slave,
+                                          char *packet_buffer,
+                                          ulong packet_buffer_size)
 {
   DBUG_ENTER("send_last_skip_group_heartbeat");
   String save_packet;
@@ -687,7 +689,8 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
  /* Save the current read packet */ 
   save_packet.swap(*packet);
 
-  if (reset_transmit_packet(thd, 0, ev_offset, errmsg, packet, NULL, 0,
+  if (reset_transmit_packet(thd, 0, ev_offset, errmsg, packet,
+                            packet_buffer, packet_buffer_size,
                             semi_sync_slave))
     DBUG_RETURN(-1);
 
@@ -1051,6 +1054,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   */
   const ulong packet_buffer_size = rpl_event_buffer_size;
   char *packet_buffer = NULL;
+  const ulong heartbeat_packet_buffer_size = rpl_event_buffer_size;
+  char *heartbeat_packet_buffer = NULL;
 
   /*
     Dump thread sends ER_MASTER_FATAL_ERROR_READING_BINLOG instead of the real
@@ -1135,6 +1140,14 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   packet_buffer = (char*) my_malloc(packet_buffer_size, MYF(MY_WME));
   if (packet_buffer == NULL) {
     errmsg   = "Master failed pre-allocate event fixed buffer";
+    my_errno= ER_OUTOFMEMORY;
+    GOTO_ERR;
+  }
+
+  heartbeat_packet_buffer = (char*) my_malloc(heartbeat_packet_buffer_size,
+                                              MYF(MY_WME));
+  if (heartbeat_packet_buffer == NULL) {
+    errmsg   = "Master failed pre-allocate heartbeat event fixed buffer";
     my_errno= ER_OUTOFMEMORY;
     GOTO_ERR;
   }
@@ -1553,7 +1566,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
         if (send_last_skip_group_heartbeat(thd, net, packet, p_last_skip_coord,
                                            &ev_offset, current_checksum_alg,
-                                           &errmsg, semi_sync_slave))
+                                           &errmsg, semi_sync_slave,
+                                           heartbeat_packet_buffer,
+                                           heartbeat_packet_buffer_size))
         {
           GOTO_ERR;
         }
@@ -1772,7 +1787,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
               if (send_last_skip_group_heartbeat(thd, net, packet,
                                                  p_coord, &ev_offset,
                                                  current_checksum_alg, &errmsg,
-                                                 semi_sync_slave))
+                                                 semi_sync_slave,
+                                                 heartbeat_packet_buffer,
+                                                 heartbeat_packet_buffer_size))
               {
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
@@ -1906,9 +1923,11 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             /* If the last group was skipped, send a HB event */
             if (last_skip_group &&
                 send_last_skip_group_heartbeat(thd, net, packet,
-                                              p_last_skip_coord, &ev_offset,
-                                              current_checksum_alg, &errmsg,
-                                              semi_sync_slave))
+                                               p_last_skip_coord, &ev_offset,
+                                               current_checksum_alg, &errmsg,
+                                               semi_sync_slave,
+                                               heartbeat_packet_buffer,
+                                               heartbeat_packet_buffer_size))
             {
               GOTO_ERR;
             }
@@ -2037,6 +2056,8 @@ end:
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   /* Undo any calls done by processlist_slave_offset */
   thd->set_query(orig_query, orig_query_length);
+  if (heartbeat_packet_buffer != NULL)
+    my_free(heartbeat_packet_buffer);
   repl_cleanup(packet, packet_buffer);
   DBUG_VOID_RETURN;
 
@@ -2083,6 +2104,8 @@ err:
   my_message(my_errno, error_text, MYF(0));
   /* Undo any calls done by processlist_slave_offset */
   thd->set_query(orig_query, orig_query_length);
+  if (heartbeat_packet_buffer != NULL)
+    my_free(heartbeat_packet_buffer);
   repl_cleanup(packet, packet_buffer);
   DBUG_VOID_RETURN;
 }
