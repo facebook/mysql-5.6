@@ -50,9 +50,9 @@ SELECT VARIABLE_VALUE INTO @wx2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARI
 SELECT VARIABLE_VALUE INTO @wb2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_pages_written_blob';
 
 
-SELECT @w2 - @w1 as diff;
+SELECT @w2 - @w1 >= 5 as diff;
 SELECT @wind2 - @wind1 as diff;
-SELECT @wul2 - @wul1 as diff;
+SELECT @wul2 - @wul1 > 0 as diff;
 SELECT @wino2 - @wino1 as diff;
 SELECT @wifl2 - @wifl1 as diff;
 SELECT @walloc2 - @walloc1 as diff;

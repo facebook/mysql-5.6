@@ -20,7 +20,7 @@ eval insert into t1 values (5, repeat("test", $innodb_page_size / 4));
 flush tables t1;
 sleep 10;
 select
-INNODB_PAGES_WRITTEN, INNODB_PAGES_WRITTEN_INDEX, INNODB_PAGES_WRITTEN_BLOB
+INNODB_PAGES_WRITTEN >= 7, INNODB_PAGES_WRITTEN_INDEX >= 1, INNODB_PAGES_WRITTEN_BLOB >= 3
 from information_schema.table_statistics where table_name like 't1%';
 
 --source include/restart_mysqld.inc

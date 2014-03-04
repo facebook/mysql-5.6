@@ -16,7 +16,7 @@ insert into y select null, pad from y;
 insert into y select null, pad from y;
 insert into y select null, pad from y;
 
-select ROWS_INSERTED, IO_READ_REQUESTS, IO_WRITE_REQUESTS from information_schema.table_statistics where table_schema = 'x' and table_name = 'y';
+select ROWS_INSERTED, IO_READ_REQUESTS, IO_WRITE_REQUESTS > 0 from information_schema.table_statistics where table_schema = 'x' and table_name = 'y';
 
 drop table y;
 drop database x;

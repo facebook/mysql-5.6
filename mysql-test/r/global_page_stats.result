@@ -26,13 +26,13 @@ SELECT VARIABLE_VALUE INTO @wtsys2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE V
 SELECT VARIABLE_VALUE INTO @wfsp2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_pages_written_fsp_hdr';
 SELECT VARIABLE_VALUE INTO @wx2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_pages_written_xdes';
 SELECT VARIABLE_VALUE INTO @wb2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_pages_written_blob';
-SELECT @w2 - @w1 as diff;
+SELECT @w2 - @w1 >= 5 as diff;
 diff
-6
+1
 SELECT @wind2 - @wind1 as diff;
 diff
 1
-SELECT @wul2 - @wul1 as diff;
+SELECT @wul2 - @wul1 > 0 as diff;
 diff
 1
 SELECT @wino2 - @wino1 as diff;
