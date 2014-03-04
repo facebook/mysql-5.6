@@ -3589,6 +3589,14 @@ int MYSQL_BIN_LOG::get_current_log(LOG_INFO* linfo, bool need_lock_log/*true*/)
   return ret;
 }
 
+void MYSQL_BIN_LOG::get_current_log_without_lock_log(LOG_INFO* linfo)
+{
+  mysql_mutex_assert_owner(&LOCK_binlog_end_pos);
+  strmake(linfo->log_file_name, binlog_file_name,
+          sizeof(linfo->log_file_name)-1);
+  linfo->pos = binlog_end_pos;
+}
+
 int MYSQL_BIN_LOG::raw_get_current_log(LOG_INFO* linfo)
 {
   strmake(linfo->log_file_name, log_file_name, sizeof(linfo->log_file_name)-1);
@@ -6346,6 +6354,7 @@ void MYSQL_BIN_LOG::update_binlog_end_pos()
   else
   {
     lock_binlog_end_pos();
+    strmake(binlog_file_name, log_file_name, sizeof(binlog_file_name)-1);
     binlog_end_pos = my_b_tell(&log_file);
     signal_update();
     unlock_binlog_end_pos();
