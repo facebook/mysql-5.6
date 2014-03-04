@@ -5592,6 +5592,14 @@ int MYSQL_BIN_LOG::get_current_log(LOG_INFO *linfo,
   return ret;
 }
 
+void MYSQL_BIN_LOG::get_current_log_without_lock_log(LOG_INFO *linfo) {
+  mysql_mutex_assert_owner(&LOCK_binlog_end_pos);
+  strmake(linfo->log_file_name, binlog_file_name,
+          sizeof(linfo->log_file_name) - 1);
+  linfo->pos = atomic_binlog_end_pos.load(std::memory_order_relaxed);
+  linfo->encrypted_header_size = binlog_encrypted_header_size;
+}
+
 int MYSQL_BIN_LOG::raw_get_current_log(LOG_INFO *linfo) {
   strmake(linfo->log_file_name, log_file_name,
           sizeof(linfo->log_file_name) - 1);
@@ -9742,7 +9750,9 @@ void MYSQL_BIN_LOG::update_binlog_end_pos(bool need_lock) {
     lock_binlog_end_pos();
   else
     mysql_mutex_assert_owner(&LOCK_binlog_end_pos);
+  strmake(binlog_file_name, log_file_name, sizeof(binlog_file_name) - 1);
   atomic_binlog_end_pos = m_binlog_file->position();
+  binlog_encrypted_header_size = m_binlog_file->get_encrypted_header_size();
   signal_update();
   if (need_lock) unlock_binlog_end_pos();
 }

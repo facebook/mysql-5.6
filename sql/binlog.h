@@ -288,6 +288,18 @@ class MYSQL_BIN_LOG : public TC_LOG {
   mysql_cond_t update_cond;
 
   std::atomic<my_off_t> atomic_binlog_end_pos;
+
+  // binlog_file_name/binlog_encrypted_header_size are updated under
+  // LOCK_binlog_end_pos mutex to match the latest log_file_name contents. This
+  // variable is used in the execution of commands SHOW MASTER STATUS / SHOW
+  // BINARY LOGS to avoid taking LOCK_log mutex.
+  //
+  // binlog_file_name/binlog_encrypted_header_size are protected by
+  // LOCK_binlog_end_pos mutex where as log_file_name is protected by LOCK_log
+  // mutex.
+  char binlog_file_name[FN_REFLEN];
+  int binlog_encrypted_header_size;
+
   ulonglong bytes_written;
   IO_CACHE index_file;
   char index_file_name[FN_REFLEN];
@@ -967,6 +979,17 @@ class MYSQL_BIN_LOG : public TC_LOG {
   int find_next_log(LOG_INFO *linfo, bool need_lock_index);
   int find_next_relay_log(char log_name[FN_REFLEN + 1]);
   int get_current_log(LOG_INFO *linfo, bool need_lock_log = true);
+  /*
+    This is called to find out the most recent binlog file
+    coordinates without LOCK_log protection but with
+    LOCK_binlog_end_pos protection.
+
+    get_current_log() is called to find out the most
+    recent binlog file coordinates with LOCK_log protection.
+
+    raw_get_current_log() is a helper function to get_current_log().
+  */
+  void get_current_log_without_lock_log(LOG_INFO *linfo);
   int raw_get_current_log(LOG_INFO *linfo);
   uint next_file_id();
   /**
