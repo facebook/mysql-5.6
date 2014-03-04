@@ -335,6 +335,14 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   mysql_cond_t m_prep_xids_cond;
   volatile int32 m_prep_xids;
   volatile my_off_t binlog_end_pos;
+  // binlog_file_name is updated under LOCK_binlog_end_pos mutex
+  // to match the latest log_file_name contents. This variable is used
+  // in the execution of commands SHOW MASTER STATUS / SHOW BINARY LOGS
+  // to avoid taking LOCK_log mutex.
+  //
+  // binlog_file_name is protected by LOCK_binlog_end_pos mutex where as
+  // log_file_name is protected by LOCK_log mutex.
+  char binlog_file_name[FN_REFLEN];
 
   /**
     Increment the prepared XID counter.
@@ -698,6 +706,17 @@ public:
                    bool need_lock_index);
   int find_next_log(LOG_INFO* linfo, bool need_lock_index);
   int get_current_log(LOG_INFO* linfo);
+  /*
+    This is called to find out the most recent binlog file
+    coordinates without LOCK_log protection but with
+    LOCK_binlog_end_pos protection.
+
+    get_current_log() is called to find out the most
+    recent binlog file coordinates with LOCK_log protection.
+
+    raw_get_current_log() is a helper function to get_current_log().
+  */
+  void get_current_log_without_lock_log(LOG_INFO* linfo);
   int raw_get_current_log(LOG_INFO* linfo);
   uint next_file_id();
   void lock_commits(void);
