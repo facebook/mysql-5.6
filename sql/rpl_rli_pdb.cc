@@ -2017,6 +2017,16 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   is_other= FALSE;
   is_xid= FALSE;
   update_slave_stats= FALSE;
+  if (ev->get_type_code() < ENUM_END_EVENT)
+  {
+    repl_event_counts[ev->get_type_code()] += 1;
+    repl_event_times[ev->get_type_code()] += wall_time;
+  }
+  else
+  {
+    repl_event_count_other += 1;
+    repl_event_time_other += wall_time;
+  }
   /* TODO: handle WRITE_ROWS_EVENT, UPDATE_ROWS_EVENT, DELETE_ROWS_EVENT */
   switch (ev->get_type_code())
   {
@@ -2032,6 +2042,10 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   }
   if (update_slave_stats)
   {
+    if (error == 0)
+    {
+      rli->update_peak_lag(ev->when.tv_sec);
+    }
     USER_STATS *us= thd_get_user_stats(thd);
     update_user_stats_after_statement(us, thd, wall_time, is_other, is_xid,
                                       &start_perf_read, &start_perf_read_blob,

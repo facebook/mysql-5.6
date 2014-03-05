@@ -3824,6 +3824,19 @@ static Sys_var_charptr Sys_license(
        READ_ONLY GLOBAL_VAR(license), NO_CMD_LINE, IN_SYSTEM_CHARSET,
        DEFAULT(STRINGIFY_ARG(LICENSE)));
 
+static Sys_var_ulong Sys_peak_lag_time(
+       "peak_lag_time",
+       "The time frame peak lag is measured within, in seconds.",
+       GLOBAL_VAR(opt_peak_lag_time), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(1, ULONG_MAX), DEFAULT(60), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_peak_lag_sample_rate(
+       "peak_lag_sample_rate",
+       "The rate of sampling replayed events on slave to determine the peak "
+       "replication lag over some period.",
+       GLOBAL_VAR(opt_peak_lag_sample_rate), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(1, ULONG_MAX), DEFAULT(100),BLOCK_SIZE(1));
+
 static bool check_log_path(sys_var *self, THD *thd, set_var *var)
 {
   if (!var->value)

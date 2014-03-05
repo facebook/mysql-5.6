@@ -607,6 +607,8 @@ Error_log_throttle err_log_throttle(Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
 
 my_bool opt_log_slow_extra= FALSE;
 ulonglong binlog_fsync_count = 0;
+ulong opt_peak_lag_time;
+ulong opt_peak_lag_sample_rate;
 
 my_bool log_datagram= 0;
 ulong log_datagram_usecs= 0;
@@ -8703,6 +8705,7 @@ static int mysql_init_variables(void)
 
   opt_log_slow_extra= FALSE;
   log_datagram_sock= -1;
+  opt_peak_lag_sample_rate= 100;
 
   /* Character sets */
   system_charset_info= &my_charset_utf8_general_ci;

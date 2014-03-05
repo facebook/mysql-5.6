@@ -1,0 +1,4 @@
+SET @orig = @@global.peak_lag_time;
+SELECT @orig;
+@orig
+60

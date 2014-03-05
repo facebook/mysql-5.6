@@ -1,0 +1,61 @@
+#
+# Check peak_lag_*
+#
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop table if exists t1;
+Should be 100, 60
+show global variables like "peak_lag_%";
+Variable_name	Value
+peak_lag_sample_rate	100
+peak_lag_time	60
+set global peak_lag_time=2;
+set global peak_lag_sample_rate=1;
+Should be 1, 2
+show global variables like "peak_lag_%";
+Variable_name	Value
+peak_lag_sample_rate	1
+peak_lag_time	2
+#
+# Make sure it is initially zero
+#
+peak_lag should be zero, and is 0
+set global peak_lag_time=10;
+Should be 1, 10
+show global variables like "peak_lag_%";
+Variable_name	Value
+peak_lag_sample_rate	1
+peak_lag_time	10
+#
+# Make sure it tracks basic lag of more than 2 seconds
+#
+stop slave;
+CREATE TABLE t1 (id INT, v int);
+insert into t1 values (1,0);
+insert into t1 values (2,0);
+start slave;
+include/wait_for_slave_io_to_start.inc
+include/wait_for_slave_sql_to_start.inc
+big_enough	small_enough
+1	1
+set global peak_lag_time = 2;
+Should be 1, 2
+show global variables like "peak_lag_%";
+Variable_name	Value
+peak_lag_sample_rate	1
+peak_lag_time	2
+#
+# Make sure it goes away after the window is over
+#
+small_enough
+1
+#
+# Cleanup
+#
+DROP TABLE t1;
+set global peak_lag_time=60;
+set global peak_lag_sample_rate=100;
+include/rpl_end.inc
