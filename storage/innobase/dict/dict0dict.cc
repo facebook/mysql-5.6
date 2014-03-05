@@ -2419,8 +2419,6 @@ undo_size_ok:
 
 	new_index->stat_defrag_n_pages_freed = 0;
 	new_index->stat_defrag_n_page_split = 0;
-	new_index->stat_defrag_n_recs_per_page = 0;
-	new_index->stat_defrag_n_btr_compress_failure = 0;
 
 	/* Add the new index as the last index for the table */
 
