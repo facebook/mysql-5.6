@@ -1,0 +1,8 @@
+#
+# Basic test for peak_lag_time
+#
+
+-- source include/have_innodb.inc
+
+SET @orig = @@global.peak_lag_time;
+SELECT @orig;
