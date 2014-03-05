@@ -574,6 +574,10 @@ The following options may be given as the first argument:
  data to estimate rows before resorting to a rough
  approximation based on the data gathered up to that
  point.
+ --peak-lag-sample-rate=# 
+ The rate of sampling replayed events on slave to
+ determine the peak replication lag over some period.
+ --peak-lag-time=#   The time frame peak lag is measured within, in seconds.
  --performance-schema 
  Enable the performance schema.
  (Defaults to on; use --skip-performance-schema to disable.)
@@ -1235,6 +1239,8 @@ optimizer-trace-limit 1
 optimizer-trace-max-mem-size 16384
 optimizer-trace-offset -1
 part-scan-max 10
+peak-lag-sample-rate 100
+peak-lag-time 60
 performance-schema TRUE
 performance-schema-accounts-size -1
 performance-schema-consumer-events-stages-current FALSE

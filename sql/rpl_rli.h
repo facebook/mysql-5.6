@@ -281,6 +281,14 @@ public:
 
   time_t last_master_timestamp;
 
+#define PEAK_LAG_MAX_SECS 512
+  time_t peak_lag_last[PEAK_LAG_MAX_SECS];
+  ulong events_since_last_sample;
+
+  void update_peak_lag(time_t when_master);
+
+  time_t peak_lag(time_t now);
+
   void clear_until_condition();
 
   /**
