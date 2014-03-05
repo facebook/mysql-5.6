@@ -8,10 +8,10 @@ DROP TABLE if exists t1;
 select @@global.innodb_stats_persistent;
 set global innodb_defragment_stats_accuracy = 20;
 
-# Create table.
+--echo # Create table.
 CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
 
-# Populate data
+--echo # Populate data
 INSERT INTO t1 VALUES(1, REPEAT('A', 256));
 INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
@@ -23,65 +23,57 @@ INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
-INSERT INTO t1 (b) SELECT b from t1;
+
+--echo # Not enough page splits to trigger persistent stats write yet.
+select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+
 INSERT INTO t1 (b) SELECT b from t1;
 
-let $num_delete = 40;
+--echo # Persistent stats recorded.
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+
+--echo # Delete some rows.
+let $num_delete = 20;
 while ($num_delete)
 {
     let $j = 100 * $num_delete;
     eval delete from t1 where a between $j and $j + 30;
     dec $num_delete;
 }
-select stat_value from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name  = 'n_recs_per_page';
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
-select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and stat_name = 'n_btr_compress_failure';
 
 --source include/restart_mysqld.inc
---echo Server Restarted
+--echo # Server Restarted
 
+--echo # Confirm persistent stats still there after restart.
 select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
-select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and stat_name = 'n_btr_compress_failure';
 
 alter table t1 defragment;
-
-select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_btr_compress_failure');
-
+--echo # n_page_split should be 0 after defragmentation, n_pages_freed should be non-zero.
+select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
 select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_pages_freed', 'n_leaf_pages_defrag');
 
-set @@global.innodb_defragment_stats_accuracy = 1;
+set global innodb_defragment_stats_accuracy = 40;
 
-let $num_delete = 40;
-while ($num_delete)
-{
-    let $j = 100 * $num_delete;
-    eval delete from t1 where a between $j + 30 and $j + 60;
-    dec $num_delete;
-}
-
---echo make sure the stats thread will wake up and do the write even if there's a race condition between set and reset.
-select sleep(12);
-
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_btr_compress_failure';
-
+INSERT INTO t1 (b) SELECT b from t1;
+--echo # Not enough operation to trigger persistent stats write
 select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
-select index_name, stat_value from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name  = 'n_recs_per_page';
 
---source include/restart_mysqld.inc
---echo Server Restarted
+INSERT INTO t1 (b) SELECT b from t1;
+--echo # Persistent stats write triggered
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
 
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_btr_compress_failure';
-
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and stat_name = 'n_pages_freed';
-
+--echo # Table rename should cause stats rename.
 rename table t1 to t2;
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag');
 
-select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name = 'n_page_split';
-
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and stat_name in ('n_pages_freed', 'n_btr_compress_failure', 'n_leaf_pages_defrag');
-
+--echo # Drop index should cause stats drop.
 drop index SECOND on t2;
 select count(*) from mysql.innodb_index_stats where table_name like '%t2%' and index_name = 'SECOND';
 
-# Clean up
+--source include/restart_mysqld.inc
+--echo Server Restarted
+
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag');
+
+--echo # Clean up
 DROP TABLE t2;

@@ -2948,8 +2948,6 @@ func_start:
 	/* Only record the leaf level page splits. */
 	if (btr_page_get_level(page, mtr) == 0) {
 		cursor->index->stat_defrag_n_page_split ++;
-		cursor->index->stat_defrag_n_recs_per_page =
-			page_get_n_recs(page);
 		cursor->index->stat_defrag_modified_counter ++;
 		btr_defragment_save_defrag_stats_if_needed(cursor->index);
 	}
@@ -3858,13 +3856,6 @@ err_exit:
 	}
 
 	mem_heap_free(heap);
-
-	/* Only record leaf level btr_compress failures. */
-	if (btr_page_get_level(page, mtr) == 0) {
-		index->stat_defrag_n_btr_compress_failure ++;
-		index->stat_defrag_modified_counter++;
-		btr_defragment_save_defrag_stats_if_needed(index);
-	}
 
 	DBUG_RETURN(FALSE);
 }

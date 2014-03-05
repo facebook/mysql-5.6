@@ -465,8 +465,6 @@ dict_stats_table_clone_create(
 		ut_d(idx->magic_n = DICT_INDEX_MAGIC_N);
 
 		idx->stat_defrag_n_page_split = 0;
-		idx->stat_defrag_n_recs_per_page = 0;
-		idx->stat_defrag_n_btr_compress_failure = 0;
 		idx->stat_defrag_n_pages_freed = 0;
 	}
 
@@ -541,7 +539,6 @@ dict_stats_empty_defrag_stats(
 {
 	index->stat_defrag_modified_counter = 0;
 	index->stat_defrag_n_page_split = 0;
-	index->stat_defrag_n_btr_compress_failure = 0;
 }
 
 /*********************************************************************//**
@@ -751,10 +748,6 @@ dict_stats_copy(
 			src_idx->stat_defrag_n_pages_freed;
 		dst_idx->stat_defrag_n_page_split =
 			src_idx->stat_defrag_n_page_split;
-		dst_idx->stat_defrag_n_recs_per_page =
-			src_idx->stat_defrag_n_recs_per_page;
-		dst_idx->stat_defrag_n_btr_compress_failure =
-			src_idx->stat_defrag_n_btr_compress_failure;
 	}
 
 	dst->stat_initialized = TRUE;
@@ -781,7 +774,6 @@ dict_index_t::stat_n_leaf_pages
 dict_index_t::stat_defrag_modified_counter
 dict_index_t::stat_defrag_n_pages_freed
 dict_index_t::stat_defrag_n_page_split
-dict_index_t::stat_defrag_n_btr_compress_failure
 The returned object should be freed with dict_stats_snapshot_free()
 when no longer needed.
 @return incomplete table object */
@@ -2647,16 +2639,6 @@ dict_stats_fetch_index_stats_step(
 		      == 0) {
 		index->stat_defrag_n_pages_freed = (ulint) stat_value;
 		arg->stats_were_modified = true;
-	} else if (stat_name_len == 15 /*strlen("n_recs_per_page") */
-		   && strncasecmp("n_recs_per_page", stat_name, stat_name_len)
-		      == 0) {
-		index->stat_defrag_n_recs_per_page = (ulint) stat_value;
-		arg->stats_were_modified = true;
-	} else if (stat_name_len == 22 /* strlen("n_btr_compress_failure") */
-		   && strncasecmp("n_btr_compress_failure",
-				  stat_name, stat_name_len) == 0) {
-		index->stat_defrag_n_btr_compress_failure = (ulint) stat_value;
-		arg->stats_were_modified = true;
 	} else if (stat_name_len > PFX_LEN /* e.g. stat_name=="n_diff_pfx01" */
 		   && strncasecmp(PFX, stat_name, PFX_LEN) == 0) {
 
@@ -3745,25 +3727,6 @@ dict_stats_save_defrag_stats(
 					 NULL,
 					 "Number of new page splits on leaves"
 					 " since last defragmentation.");
-	if (ret != DB_SUCCESS) {
-		goto end;
-	}
-
-	ret = dict_stats_save_index_stat(index, now, "n_recs_per_page",
-					 index->stat_defrag_n_recs_per_page,
-					 NULL,
-					 "Number of records in the latest "
-					 "split page.");
-	if (ret != DB_SUCCESS) {
-		goto end;
-	}
-
-	ret = dict_stats_save_index_stat(
-		index, now, "n_btr_compress_failure",
-		index->stat_defrag_n_btr_compress_failure,
-		NULL,
-		"Number of new btr_compress failures on leaves"
-		" since last defragmentation.");
 	if (ret != DB_SUCCESS) {
 		goto end;
 	}
