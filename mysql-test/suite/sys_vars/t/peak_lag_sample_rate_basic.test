@@ -1,0 +1,8 @@
+#
+# Basic test for peak_lag_sample_rate
+#
+
+-- source include/have_innodb.inc
+
+SET @orig = @@global.peak_lag_sample_rate;
+SELECT @orig;
