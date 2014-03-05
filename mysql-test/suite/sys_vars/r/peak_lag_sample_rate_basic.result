@@ -1,0 +1,4 @@
+SET @orig = @@global.peak_lag_sample_rate;
+SELECT @orig;
+@orig
+100
