@@ -82,7 +82,9 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    gtid_set(global_sid_map, global_sid_lock),
    log_space_total(0), ignore_log_space_limit(0),
    sql_force_rotate_relay(false),
-   last_master_timestamp(0), slave_skip_counter(0),
+   last_master_timestamp(0),
+   events_since_last_sample(0),
+   slave_skip_counter(0),
    abort_pos_wait(0), until_condition(UNTIL_NONE),
    until_log_pos(0),
    until_sql_gtids(global_sid_map),
@@ -125,6 +127,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   set_timespec_nsec(last_clock, 0);
   memset(&cache_buf, 0, sizeof(cache_buf));
   cached_charset_invalidate();
+  memset(peak_lag_last, 0, sizeof(peak_lag_last));
 
   mysql_mutex_init(key_relay_log_info_log_space_lock,
                    &log_space_lock, MY_MUTEX_INIT_FAST);
@@ -371,6 +374,71 @@ void Relay_log_info::clear_until_condition()
   until_sql_gtids.clear();
   until_sql_gtids_first_event= true;
   DBUG_VOID_RETURN;
+}
+
+/**
+ Update the peak lag with the latest event.
+
+ It accepts one parameter, which is the time this event happened on master.
+ This function will only sample one event every 'peak_lag_sample_rate' events.
+
+ peak_lag_time is not actually used here.  This function always records
+ the most recent event time for each discrete lag value, in seconds.
+ peak_lag_time is only used when calculating the peak, on request.
+
+ This function uses the local timestamp to compute the interval between two
+ local replay events.
+
+ @when_master the time stamp when did this event happen on master
+ */
+void Relay_log_info::update_peak_lag(time_t when_master)
+{
+  DBUG_ENTER("update_peak_lag");
+  if (events_since_last_sample < opt_peak_lag_sample_rate)
+  {
+    ++events_since_last_sample;
+    DBUG_VOID_RETURN;
+  }
+  //sample this event
+  time_t when_slave = time(0);
+  if (((time_t) -1) == when_slave)
+    return; // time() error
+
+  time_t when_base = when_master + mi->clock_diff_with_master;
+  long lag = 0;
+  if (when_slave > when_base)
+  {
+    lag = long(when_slave) - long(when_base);
+    if (lag > PEAK_LAG_MAX_SECS)
+    {
+      lag = PEAK_LAG_MAX_SECS;
+    }
+
+    peak_lag_last[lag - 1] = when_slave;
+  }
+  events_since_last_sample = 0;
+  DBUG_VOID_RETURN;
+}
+
+/**
+ Return the peak lag over the last peak_lag_time seconds.
+
+ peak_lag_last stores the most recent time for each non-zero lag value.
+
+ @param now the current timestamp.
+ */
+time_t Relay_log_info::peak_lag(time_t now)
+{
+  long ret = 0;
+  time_t start = now - opt_peak_lag_time;
+  for (long cur = PEAK_LAG_MAX_SECS - 1; ret == 0 && cur >= 0; --cur)
+  {
+    if(peak_lag_last[cur] >= start)
+    {
+      ret = cur + 1;
+    }
+  }
+  return time_t(ret);
 }
 
 /**

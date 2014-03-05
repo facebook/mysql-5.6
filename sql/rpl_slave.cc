@@ -2895,6 +2895,8 @@ bool show_slave_status(THD* thd, Master_info* mi)
                                              sizeof(mi->ssl_key) : 0));
   field_list.push_back(new Item_return_int("Seconds_Behind_Master", 10,
                                            MYSQL_TYPE_LONGLONG));
+  field_list.push_back(new Item_return_int("Lag_Peak_Over_Last_Period", 10,
+                                           MYSQL_TYPE_LONGLONG));
   field_list.push_back(new Item_empty_string("Master_SSL_Verify_Server_Cert",
                                              3));
   field_list.push_back(new Item_return_int("Last_IO_Errno", 4, MYSQL_TYPE_LONG));
@@ -3058,6 +3060,7 @@ bool show_slave_status(THD* thd, Master_info* mi)
     */
     if (mi->rli->slave_running)
     {
+      time_t now = time(0);
       /* Check if SQL thread is at the end of relay log
            Checking should be done using two conditions
            condition1: compare the log positions and
@@ -3074,8 +3077,8 @@ bool show_slave_status(THD* thd, Master_info* mi)
       }
       else
       {
-        long time_diff= ((long)(time(0) - mi->rli->last_master_timestamp)
-                                - mi->clock_diff_with_master);
+        long time_diff= ((long)(now - mi->rli->last_master_timestamp)
+                         - mi->clock_diff_with_master);
       /*
         Apparently on some systems time_diff can be <0. Here are possible
         reasons related to MySQL:
@@ -3099,9 +3102,11 @@ bool show_slave_status(THD* thd, Master_info* mi)
         protocol->store((longlong)(mi->rli->last_master_timestamp ?
                                    max(0L, time_diff) : 0));
       }
+      protocol->store((longlong) (max(0L, mi->rli->peak_lag(now))));
     }
     else
     {
+      protocol->store_null();
       protocol->store_null();
     }
     protocol->store(mi->ssl_verify_server_cert? "Yes":"No", &my_charset_bin);
@@ -3938,6 +3943,10 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
 
       if (update_slave_stats)
       {
+        if (exec_res == 0)
+        {
+          rli->update_peak_lag(ev->when.tv_sec);
+        }
         USER_STATS *us= thd_get_user_stats(thd);
         update_user_stats_after_statement(us, thd, wall_time, is_other, is_xid,
                                           &start_perf_read,
