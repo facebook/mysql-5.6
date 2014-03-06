@@ -863,7 +863,7 @@ dict_stats_update_transient_for_index(
 		Initialize some bogus index cardinality
 		statistics, so that the data can be queried in
 		various means, also via secondary indexes. */
-		dict_stats_empty_index(index);
+		dict_stats_empty_index(index, false);
 	}
 }
 
