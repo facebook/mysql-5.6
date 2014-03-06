@@ -505,31 +505,6 @@ dict_mem_index_create(
 	return(index);
 }
 
-/**********************************************************************//**
-Clear defragmentataion summary. */
-UNIV_INTERN
-void
-dict_mem_index_defrag_summary_clear(
-/*==================*/
-	dict_index_t* index)	/*!< in: index to clear defragmentation stats */
-{
-	index->n_pages = 0;
-	index->n_pages_freed = 0;
-}
-
-/**********************************************************************//**
-Clear defragmentataion related index stats. */
-UNIV_INTERN
-void
-dict_mem_index_defrag_stats_clear(
-/*==================*/
-	dict_index_t* index)	/*!< in: index to clear defragmentation stats */
-{
-	index->n_btr_compress = 0;
-	index->n_btr_compress_failure = 0;
-	index->n_page_split = 0;
-}
-
 #ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
 Creates and initializes a foreign constraint memory object.

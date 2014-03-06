@@ -350,12 +350,6 @@ typedef struct st_index_stats {
   ulonglong rows_index_next;
 
   my_io_perf_t io_perf_read;          /* Read IO performance counters */
-
-  ulonglong n_pages;
-  ulonglong n_pages_freed;
-  ulonglong n_btr_compress;
-  ulonglong n_btr_compress_failure;
-  ulonglong n_page_split;
 } INDEX_STATS;
 
 /*

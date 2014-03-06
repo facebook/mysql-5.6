@@ -42,7 +42,6 @@ Created 1/8/1996 Heikki Tuuri
 #include "ut0byte.h"
 #include "trx0types.h"
 #include "row0types.h"
-#include "structs.h"
 
 #ifndef UNIV_HOTBACKUP
 # include "sync0sync.h"

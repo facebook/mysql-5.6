@@ -3599,8 +3599,6 @@ btr_compress(
 	space = dict_index_get_space(index);
 	zip_size = dict_table_zip_size(index->table);
 
-	index->n_btr_compress ++;
-
 	left_page_no = btr_page_get_prev(page, mtr);
 	right_page_no = btr_page_get_next(page, mtr);
 
@@ -4142,8 +4140,6 @@ btr_defragment_n_pages(
 		}
 		return NULL;
 	}
-
-	index->n_pages += n_pages - 1;
 
 	/* 2. Calculate how many pages data can fit in. If not compressable,
 	return early. */

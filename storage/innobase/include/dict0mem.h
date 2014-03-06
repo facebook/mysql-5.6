@@ -334,20 +334,6 @@ dict_mem_index_create(
 					DICT_CLUSTERED, ... ORed */
 	ulint		n_fields);	/*!< in: number of fields */
 /**********************************************************************//**
-Clear defragmentataion summary. */
-UNIV_INTERN
-void
-dict_mem_index_defrag_summary_clear(
-/*==================*/
-	dict_index_t* index);	/*!< in: index to clear defragmentation stats */
-/**********************************************************************//**
-Clear defragmentataion related index stats. */
-UNIV_INTERN
-void
-dict_mem_index_defrag_stats_clear(
-/*==================*/
-	dict_index_t* index);	/*!< in: index to clear defragmentation stats */
-/**********************************************************************//**
 Adds a field definition to an index. NOTE: does not take a copy
 of the column name if the field is a column. The memory occupied
 by the column name may be released only after publishing the index. */

@@ -847,22 +847,6 @@ void ha_get_table_stats(table_stats_cb cb)
                  MYSQL_STORAGE_ENGINE_PLUGIN, (void*) cb);
 }
 
-static my_bool get_index_stats_handlerton(THD* unused, plugin_ref plugin,
-                                          void* table_stats)
-{
-  handlerton *hton= plugin_data(plugin, handlerton *);
-
-  if (hton->state == SHOW_OPTION_YES && hton->update_index_stats)
-    hton->update_index_stats((TABLE_STATS*)table_stats);
-
-  return FALSE;
-}
-
-void ha_get_index_stats(void* table_stats)
-{
-  plugin_foreach(NULL, get_index_stats_handlerton,
-                 MYSQL_STORAGE_ENGINE_PLUGIN, table_stats);
-}
 
 static my_bool closecon_handlerton(THD *thd, plugin_ref plugin,
                                    void *unused)

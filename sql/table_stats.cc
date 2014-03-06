@@ -622,17 +622,6 @@ ST_FIELD_INFO index_stats_fields_info[]=
   {"ROWS_INDEX_NEXT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
                                                 0, 0, 0, SKIP_OPEN_TABLE},
 
-  {"NUM_PAGES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
-                                                0, 0, 0, SKIP_OPEN_TABLE},
-  {"NUM_PAGES_FREED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
-                                                0, 0, 0, SKIP_OPEN_TABLE},
-  {"NUM_BTR_COMPRESS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
-                                                0, 0, 0, SKIP_OPEN_TABLE},
-  {"NUM_BTR_COMPRESS_FAILURE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
-                                                0, 0, 0, SKIP_OPEN_TABLE},
-  {"NUM_PAGE_SPLIT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG,
-                                                0, 0, 0, SKIP_OPEN_TABLE},
-
   {"IO_READ_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
                                                 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_REQUESTS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 
@@ -665,9 +654,6 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     TABLE_STATS *table_stats =
       (TABLE_STATS*)my_hash_element(&global_table_stats, i);
 
-    if (table_stats->table) {
-      ha_get_index_stats(table_stats);
-    }
     for (ix=0; ix < table_stats->num_indexes; ++ix)
     {
       INDEX_STATS *index_stats= &(table_stats->indexes[ix]);
@@ -677,12 +663,7 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
           index_stats->rows_updated == 0 &&
           index_stats->rows_deleted == 0 &&
           index_stats->rows_read == 0 &&
-          index_stats->rows_requested == 0 &&
-          index_stats->n_pages == 0 &&
-          index_stats->n_pages_freed ==0 &&
-          index_stats->n_btr_compress == 0 &&
-          index_stats->n_btr_compress_failure == 0 &&
-          index_stats->n_page_split == 0)
+          index_stats->rows_requested == 0)
       {
         continue;
       }
@@ -707,12 +688,6 @@ int fill_index_stats(THD *thd, TABLE_LIST *tables, Item *cond)
 
       table->field[f++]->store(index_stats->rows_index_first, TRUE);
       table->field[f++]->store(index_stats->rows_index_next, TRUE);
-
-      table->field[f++]->store(index_stats->n_pages, TRUE);
-      table->field[f++]->store(index_stats->n_pages_freed, TRUE);
-      table->field[f++]->store(index_stats->n_btr_compress, TRUE);
-      table->field[f++]->store(index_stats->n_btr_compress_failure, TRUE);
-      table->field[f++]->store(index_stats->n_page_split, TRUE);
 
       table->field[f++]->store(index_stats->io_perf_read.bytes, TRUE);
       table->field[f++]->store(index_stats->io_perf_read.requests, TRUE);
