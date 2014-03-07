@@ -19374,6 +19374,13 @@ static MYSQL_SYSVAR_ULONG(io_capacity_max, srv_max_io_capacity,
                           SRV_MAX_IO_CAPACITY_DUMMY_DEFAULT, 100,
                           SRV_MAX_IO_CAPACITY_LIMIT, 0);
 
+static MYSQL_SYSVAR_ULONG(idle_flush_pct, srv_idle_flush_pct,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Up to what percentage of dirty pages should be "
+                          "flushed when innodb finds it has spare resources "
+                          "to do so.",
+                          NULL, NULL, 100, 0, 100, 0);
+
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_BOOL(background_drop_list_empty,
                          innodb_background_drop_list_empty, PLUGIN_VAR_OPCMDARG,
@@ -20572,6 +20579,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(read_ahead_threshold),
     MYSQL_SYSVAR(read_only),
 
+    MYSQL_SYSVAR(idle_flush_pct),
     MYSQL_SYSVAR(io_capacity),
     MYSQL_SYSVAR(io_capacity_max),
     MYSQL_SYSVAR(page_cleaners),
