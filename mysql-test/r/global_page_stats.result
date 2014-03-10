@@ -52,7 +52,7 @@ diff
 0
 SELECT @wtsys2 - @wtsys1 as diff;
 diff
-0
+1
 SELECT @wfsp2 - @wfsp1 as diff;
 diff
 1
