@@ -92,7 +92,8 @@ enum {
   OPT_CURSOR_PROTOCOL, OPT_VIEW_PROTOCOL, OPT_MAX_CONNECT_RETRIES,
   OPT_MAX_CONNECTIONS, OPT_MARK_PROGRESS, OPT_LOG_DIR,
   OPT_TAIL_LINES, OPT_RESULT_FORMAT_VERSION, OPT_TRACE_PROTOCOL,
-  OPT_EXPLAIN_PROTOCOL, OPT_JSON_EXPLAIN_PROTOCOL
+  OPT_EXPLAIN_PROTOCOL, OPT_JSON_EXPLAIN_PROTOCOL,
+  OPT_INCREASED_ERROR_LOGGING
 };
 
 static int record= 0, opt_sleep= -1;
@@ -133,6 +134,7 @@ static char line_buffer[MAX_DELIMITER_LENGTH], *line_buffer_pos= line_buffer;
 static const char *opt_server_public_key= 0;
 #endif
 static my_bool can_handle_expired_passwords= TRUE;
+static my_bool increased_error_logging= FALSE;
 
 /* Info on properties that can be set with --enable_X and --disable_X */
 
@@ -963,7 +965,10 @@ struct st_replace *glob_replace= 0;
 void replace_strings_append(struct st_replace *rep, DYNAMIC_STRING* ds,
 const char *from, int len);
 
-static void cleanup_and_exit(int exit_code) __attribute__((noreturn));
+static void cleanup_and_exit_func(int exit_code, const char *src_file,
+                                  uint src_line) __attribute__((noreturn));
+#define cleanup_and_exit(exit_code) \
+  cleanup_and_exit_func(exit_code, __FILE__, __LINE__)
 
 void die(const char *fmt, ...)
   ATTRIBUTE_FORMAT(printf, 1, 2) __attribute__((noreturn));
@@ -1796,10 +1801,25 @@ void free_used_memory()
 }
 
 
-static void cleanup_and_exit(int exit_code)
+static void cleanup_and_exit_func(int exit_code, const char *src_file,
+                                  uint src_line)
 {
   free_used_memory();
   my_end(my_end_arg);
+
+  if (increased_error_logging)
+  {
+    switch(exit_code)
+    {
+    case 0:
+    case 62:
+      break;
+    default:
+      fprintf(stderr, "cleanup_and_exit - exiting with %d from %s:%u\n",
+              exit_code, src_file, src_line);
+      break;
+    }
+  }
 
   if (!silent) {
     switch (exit_code) {
@@ -7158,6 +7178,10 @@ static struct my_option my_long_options[] =
   {"disallow-async-client", '*', "Don't use async client.",
    &disallow_async_client, &disallow_async_client, 0, GET_BOOL, NO_ARG, 0, 0, 0,
    0, 0, 0},
+  {"increased-error-logging", OPT_INCREASED_ERROR_LOGGING,
+   "Log when exiting with non-zero code.",
+   &increased_error_logging, &increased_error_logging,
+   0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   { 0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -7330,12 +7354,20 @@ get_one_option(int optid, const struct my_option *opt, char *argument)
 int parse_args(int argc, char **argv)
 {
   if (load_defaults("my",load_default_groups,&argc,&argv))
+  {
+    if (increased_error_logging)
+      fprintf(stderr, "load_defaults failed.\n");
     exit(1);
+  }
 
   default_argv= argv;
 
   if ((handle_options(&argc, &argv, my_long_options, get_one_option)))
+  {
+    if (increased_error_logging)
+      fprintf(stderr, "handle_options failed.\n");
     exit(1);
+  }
 
   if (argc > 1)
   {

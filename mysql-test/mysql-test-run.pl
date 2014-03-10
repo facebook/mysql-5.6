@@ -3944,6 +3944,7 @@ sub start_run_one ($$) {
 
   mtr_add_arg($args, "--silent");
   mtr_add_arg($args, "--test-file=%s", "include/$run.test");
+  mtr_add_arg($args, "--increased-error-logging");
 
   my $errfile= "$opt_vardir/tmp/$name.err";
   my $proc= My::SafeProcess->new
@@ -4239,6 +4240,7 @@ sub run_testcase ($) {
 
     if (start_servers($tinfo))
     {
+      $tinfo->{'comment'}.= "start_servers failed.\n";
       report_failure_and_restart($tinfo);
       return 1;
     }
@@ -4300,6 +4302,7 @@ sub run_testcase ($) {
 
   if ( $opt_check_testcases and check_testcase($tinfo, "before") ){
     # Failed to record state of server or server crashed
+    $tinfo->{'comment'}.= "check_testcase before failed.\n";
     report_failure_and_restart($tinfo);
 
     return 1;
@@ -4374,6 +4377,8 @@ sub run_testcase ($) {
 	# warnings, continue in $res == 1
 	$res= 1;
 	resfile_output($tinfo->{'warnings'}) if $opt_resfile;
+	$tinfo->{'comment'}.= "mysqltest returned 0, ".
+	  "but check_warnings failed.\n";
       }
 
       if ( $res == 0 )
@@ -4394,6 +4399,8 @@ sub run_testcase ($) {
 	  }
 	  else {
 	    # Test case check failed fatally, probably a server crashed
+	    $tinfo->{'comment'}.= "mysqltest returned 0, ".
+	      "but check_testcase returned $check_res.\n";
 	    report_failure_and_restart($tinfo);
 	    return 1;
 	  }
@@ -4439,6 +4446,7 @@ sub run_testcase ($) {
 	}
 
 	# Test case failure reported by mysqltest
+	$tinfo->{'comment'}.= "mysqltest returned 1.\n";
 	report_failure_and_restart($tinfo);
       }
       else
@@ -4705,6 +4713,7 @@ sub start_check_warnings ($$) {
   mtr_add_arg($args, "--defaults-file=%s", $path_config_file);
   mtr_add_arg($args, "--defaults-group-suffix=%s", $mysqld->after('mysqld'));
   mtr_add_arg($args, "--test-file=%s", "include/check-warnings.test");
+  mtr_add_arg($args, "--increased-error-logging");
 
   if ( $opt_embedded_server )
   {
@@ -5857,6 +5866,7 @@ sub start_check_testcase ($$$) {
   mtr_add_arg($args, "--test-file=%s", "include/check-testcase.test");
   mtr_add_arg($args, "--verbose");
   mtr_add_arg($args, "--logdir=%s/tmp", $opt_vardir);
+  mtr_add_arg($args, "--increased-error-logging");
 
   if ( $mode eq "before" )
   {
@@ -6009,6 +6019,7 @@ sub start_mysqltest ($) {
   # ----------------------------------------------------------------------
   # Add arguments that should not go into the MYSQL_TEST env var
   # ----------------------------------------------------------------------
+  mtr_add_arg($args, "--increased-error-logging");
   if ( $opt_valgrind_mysqltest )
   {
     # Prefix the Valgrind options to the argument list.
