@@ -649,9 +649,11 @@ page_zip_dir_encode(
 	page_zip_des_t*	page_zip,	/*!< dense directory is encoded in the
 					bottom of page_zip->data */
 	const page_t*	page,	/*!< in: compact page */
-	const rec_t**	recs)	/*!< in: pointer to an array of 0, or NULL;
+	const rec_t**	recs,	/*!< in: pointer to an array of 0, or NULL;
 				out: dense page directory sorted by ascending
 				address (and heap_no) */
+	ibool*		purged_array)	/* boolean array. purged_array[i] is
+					TRUE if recs[i] is purged. */
 {
 	const byte*	rec;
 	ulint		status;
@@ -748,6 +750,10 @@ page_zip_dir_encode(
 			ut_a(!recs[heap_no - PAGE_HEAP_NO_USER_LOW]);
 			/* exclude infimum and supremum */
 			recs[heap_no - PAGE_HEAP_NO_USER_LOW] = rec;
+			if (purged_array) {
+				purged_array[heap_no - PAGE_HEAP_NO_USER_LOW]
+					= TRUE;
+			}
 		}
 
 		offs = rec_get_next_offs(rec, TRUE);
@@ -968,11 +974,16 @@ page_zip_store_blobs_for_rec(
 				       used */
 {
 	ulint n_ext = rec_offs_n_extern(offsets);
-	/* TODO(nizamordulu): when we stop compressing garbage, we won't have to
-	   check whether the record was purged */
-	if (!n_ext || page_zip_dir_find_free(page_zip, page_offset(rec))) {
+	if (!n_ext) {
 		return;
 	}
+	/* TODO(rongrong): we don't have to check for purged records for
+	new compression, update this when comp_type is stored in page_zip. */
+	if (page_zip_dir_find_free(page_zip, page_offset(rec))) {
+		return;
+	}
+
+	ut_ad(!page_zip_dir_find_free(page_zip, page_offset(rec)));
 
 	if (page_zip->compact_metadata && !page_zip->n_blobs) {
 		/* This is the first time we hit a record that has some blob
@@ -1351,20 +1362,29 @@ page_zip_serialize_rec(
 				the data stream */
 	const ulint*	offsets,	/*!< in: offsets for the record as
 					obtained by rec_get_offsets() */
-	ulint	trx_id_col)	/*!< in: the column no. for the
+	ulint	trx_id_col,	/*!< in: the column no. for the
 				transaction id column. trx_id_col = 0
 				implies a secondary index leaf page, and
 				trx_id_col = ULINT_UNDEFINED implies a non-leaf
 				page. */
+	ibool	purged) /*!< in: TRUE if this record is purged. In this case the
+			record data is not stored. */
 {
 	const byte*	start = rec - rec_offs_extra_size(offsets);
 	const byte*	b = rec - REC_N_NEW_EXTRA_BYTES;
 
 	/* Write the extra bytes backwards, so rec_offs_extra_size() can be
- * 	easily computed by invoking rec_get_offsets_reverse(). */
+	easily computed by invoking rec_get_offsets_reverse(). */
 	while (b != start) {
 		*data++ = *--b;
 		ut_ad(!mlog || !*data);
+	}
+
+	/* if the record is purged, we just write the extra data and not the
+	actual data. The offsets are later used when allocating from the free
+	list. */
+	if (purged) {
+		return data;
 	}
 
 	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
@@ -1654,9 +1674,13 @@ page_zip_deserialize_rec(
 						transaction id column */
 	ulint			heap_status,	/*!< in: heap_no and status bits
 						for the record */
-	const byte*		end)		/*!< in: the end of the
+	const byte*		end,		/*!< in: the end of the
 						deserialization stream. Used
 						only for validation. */
+	ibool			purged)		/*!< in: true if we are
+						deserializing a purged record.
+						Only the offsets will be read
+						in this case. */
 {
 	byte*	start;
 	byte*	b;
@@ -1671,6 +1695,9 @@ page_zip_deserialize_rec(
 		*--b = *data++;
 	}
 
+	if (purged) {
+		return data;
+	}
 	if (UNIV_LIKELY(trx_id_col != ULINT_UNDEFINED)) {
 		if (trx_id_col) {
 			/* Clustered leaf page */
@@ -2179,10 +2206,12 @@ in the process. */
 Memory needed by page_zip_serialize(): memory needed for the serialization
 buffer plus the memory needed for the record pointers (recs). We estimate
 the number of records to be at most UNIV_PAGE_SIZE / 16, assuming each
-record is at least 16 bytes. */
+record is at least 16 bytes. We also take into account the boolean array
+purged[]. */
 #define PZ_MEM_SERIALIZE \
 	(MEM_SPACE_NEEDED(PZ_SERIALIZED_BUF_SIZE) \
-	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)))
+	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) \
+	* (sizeof(ibool) + sizeof(ulint))))
 /***************************************************************//**
 Memory needed by page_zip_decompress_low(). memory used by the called
 functions is not included. See the comment to PZ_MEM_COMP_ZLIB_STREAM for
@@ -2316,6 +2345,9 @@ page_zip_serialize(
 	byte* buf_ptr = buf;
 	byte* buf_end = buf + PZ_SERIALIZED_LEN_MAX;
 	ulint len;
+	ibool* purged_array;
+	ulint n_purged;
+
 #ifdef UNIV_DEBUG
 	memset(buf, 0xDB, PZ_SERIALIZED_BUF_SIZE);
 #endif
@@ -2372,6 +2404,8 @@ page_zip_serialize(
 
 	recs = static_cast<const rec_t**> (
 			mem_heap_zalloc(heap, n_dense * sizeof *recs));
+	purged_array = static_cast<ibool*> (
+			mem_heap_zalloc(heap, n_dense * sizeof(ibool)));
 
 	/* Encode the index information in serialization stream */
 	/* page_zip_fields_encode() encodes the index to the buffer. During
@@ -2387,19 +2421,51 @@ page_zip_serialize(
 	buf_ptr += 2;
 	ut_ad(buf_ptr < buf_end);
 	/* Serialize the records in heap_no order. */
-	page_zip_dir_encode(page_zip, page, recs);
+	page_zip_dir_encode(page_zip, page, recs, purged_array);
+	/* first write the number of purged records */
+	n_purged = n_dense - page_get_n_recs(page);
+	mach_write_to_2(buf_ptr, n_purged);
+	buf_ptr += 2;
+	/* then write the rec_no for each purged record */
+	for (rec_no = 0; n_purged && (rec_no < n_dense); ++rec_no) {
+		if (purged_array[rec_no]) {
+			--n_purged;
+			if (buf_ptr >= buf_end) {
+				*serialized_len = 0;
+				return NULL;
+			}
+			mach_write_to_2(buf_ptr, rec_no);
+			buf_ptr += 2;
+			rec = recs[rec_no];
+			offsets = rec_get_offsets(rec, index, offsets,
+						  ULINT_UNDEFINED, &heap);
+#ifdef UNIV_DEBUG
+			buf_ptr = page_zip_serialize_rec(
+					FALSE, buf_ptr, rec, offsets,
+					trx_id_col, TRUE);
+#else
+			buf_ptr = page_zip_serialize_rec(buf_ptr, rec, offsets,
+							 trx_id_col, TRUE);
+#endif
+		}
+	}
+
 	for (rec_no = 0; rec_no < n_dense; ++rec_no) {
 		rec = recs[rec_no];
 		ut_ad(rec_no + PAGE_HEAP_NO_USER_LOW
 		      == rec_get_heap_no_new(rec));
+		if (purged_array[rec_no]) {
+			continue;
+		}
 		offsets = rec_get_offsets(rec, index, offsets,
 					  ULINT_UNDEFINED, &heap);
 #ifdef UNIV_DEBUG
 		buf_ptr = page_zip_serialize_rec(FALSE, buf_ptr,
-		                                 rec, offsets, trx_id_col);
+		                                 rec, offsets,
+						 trx_id_col, FALSE);
 #else
 		buf_ptr = page_zip_serialize_rec(buf_ptr, rec,
-						 offsets, trx_id_col);
+						 offsets, trx_id_col, FALSE);
 #endif
 		if (buf_ptr >= buf_end) {
 			*serialized_len = 0;
@@ -2569,11 +2635,11 @@ page_zip_compress_zlib_stream(
 	temp_page = static_cast <ib_page_t*> (mem_heap_zalloc(heap, 2 * UNIV_PAGE_SIZE));
 	temp_page = page_align(temp_page + UNIV_PAGE_SIZE);
 	memcpy(temp_page, page, UNIV_PAGE_SIZE);
-	page_zip_dir_encode(page_zip, temp_page, recs);
+	page_zip_dir_encode(page_zip, temp_page, recs, NULL);
 	page_zip_clean_garbage(index, temp_page, recs, n_dense, heap);
 	c_stream.next_in = (byte*) temp_page + PAGE_ZIP_START;
 #else
-	page_zip_dir_encode(page_zip, page, recs);
+	page_zip_dir_encode(page_zip, page, recs, NULL);
 	c_stream.next_in = (byte*) page + PAGE_ZIP_START;
 #endif
 
@@ -3447,7 +3513,8 @@ page_zip_apply_log(
 						offsets,
 						trx_id_col,
 						hs,
-						end);
+						end,
+						FALSE);
 	}
 }
 
@@ -4105,12 +4172,16 @@ page_zip_deserialize(
 	dict_index_t*	index	= NULL;
 	ulint		trx_id_col = ULINT_UNDEFINED;
 	ulint*		offsets;
+	ulint	heap_status_flag;
 	ulint	heap_status;
 	const byte* buf_ptr = buf;
 	const byte* buf_end = buf + PZ_SERIALIZED_LEN_MAX;
 	ulint n_dense_old;
 	rec_t* rec;
 	ulint len = mach_read_from_3(buf_ptr);
+	ibool* purged_array;
+	ulint n_purged;
+	ulint rec_no;
 	buf_ptr += 3;
 	index = page_zip_fields_decode(
 			buf_ptr,
@@ -4144,33 +4215,69 @@ page_zip_deserialize(
 	ut_a(buf_ptr < buf_end);
 	ut_a(n_dense_old <= n_dense);
 	if (UNIV_LIKELY(page_is_leaf(page))) {
-		heap_status = REC_STATUS_ORDINARY
-		              | (PAGE_HEAP_NO_USER_LOW << REC_HEAP_NO_SHIFT);
+		heap_status_flag = REC_STATUS_ORDINARY;
 	} else {
-		heap_status = REC_STATUS_NODE_PTR
-		              | (PAGE_HEAP_NO_USER_LOW << REC_HEAP_NO_SHIFT);
+		heap_status_flag = REC_STATUS_NODE_PTR;
 	}
-	if (n_dense_old) {
-		while (n_dense_old) {
-			rec = *recs++;
-			mach_write_to_2(rec - REC_NEW_HEAP_NO, heap_status);
-			buf_ptr = page_zip_deserialize_rec(
-					buf_ptr, rec, index, offsets,
-					trx_id_col, heap_status, buf_end);
-			if (buf_ptr >= buf_end) {
-				page_zip_fields_free(index);
-				return FALSE;
-			}
-			heap_status += 1 << REC_HEAP_NO_SHIFT;
-			--n_dense_old;
+
+	/* re-create the purged array */
+	purged_array = static_cast<ibool*> (
+				mem_heap_zalloc(heap, n_dense * sizeof(ibool)));
+	n_purged = mach_read_from_2(buf_ptr);
+	buf_ptr += 2;
+	*data_end_ptr = page + PAGE_ZIP_START;
+	while (n_purged--) {
+		if (buf_ptr >= buf_end) {
+			page_zip_fields_free(index);
+			return FALSE;
 		}
-		*data_end_ptr = rec_get_end(rec, offsets);
-	} else {
-		*data_end_ptr = page + PAGE_ZIP_START;
+		rec_no = mach_read_from_2(buf_ptr);
+		rec = recs[rec_no];
+		purged_array[rec_no] = TRUE;
+		buf_ptr += 2;
+		heap_status = heap_status_flag
+				| ((rec_no + PAGE_HEAP_NO_USER_LOW)
+				   << REC_HEAP_NO_SHIFT);
+		mach_write_to_2(rec - REC_NEW_HEAP_NO, heap_status);
+		buf_ptr = page_zip_deserialize_rec(buf_ptr, rec,
+						   index, offsets,
+						   trx_id_col,
+						   heap_status,
+						   buf_end,
+						   TRUE);
+		if (rec_no == n_dense_old - 1) {
+			*data_end_ptr = rec_get_end(rec, offsets);
+		}
+	}
+
+	for (rec_no = 0; rec_no < n_dense_old; ++rec_no) {
+		if (purged_array[rec_no]) {
+			continue;
+		}
+		rec = recs[rec_no];
+		heap_status = heap_status_flag
+			      | ((rec_no + PAGE_HEAP_NO_USER_LOW)
+				 << REC_HEAP_NO_SHIFT);
+		mach_write_to_2(rec - REC_NEW_HEAP_NO, heap_status);
+		buf_ptr = page_zip_deserialize_rec(buf_ptr, rec,
+						   index, offsets,
+						   trx_id_col,
+						   heap_status,
+						   buf_end,
+						   FALSE);
+		if (buf_ptr >= buf_end) {
+			page_zip_fields_free(index);
+			return FALSE;
+		}
+		if (rec_no == n_dense_old - 1) {
+			*data_end_ptr = rec_get_end(rec, offsets);
+		}
 	}
 	*index_ptr = index;
 	*offsets_ptr = offsets;
-	*heap_status_ptr = heap_status;
+	*heap_status_ptr = heap_status_flag
+			   | ((n_dense_old + PAGE_HEAP_NO_USER_LOW)
+			      << REC_HEAP_NO_SHIFT);
 	*trx_id_col_ptr = trx_id_col;
 	return TRUE;
 }
@@ -5034,9 +5141,10 @@ page_zip_write_rec(
 
 	/* Serialize the record into modification log */
 #ifdef UNIV_DEBUG
-	data = page_zip_serialize_rec(TRUE, data, rec, offsets, trx_id_col);
+	data = page_zip_serialize_rec(TRUE, data, rec, offsets, trx_id_col,
+				      FALSE);
 #else
-	data = page_zip_serialize_rec(data, rec, offsets, trx_id_col);
+	data = page_zip_serialize_rec(data, rec, offsets, trx_id_col, FALSE);
 #endif
 	/* Store uncompressed fields of the record on the trailer of
 	page_zip->data */
