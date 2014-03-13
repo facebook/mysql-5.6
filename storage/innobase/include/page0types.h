@@ -67,9 +67,9 @@ ssize, which is the number of shifts from 512. */
 struct page_zip_des_t
 {
 	page_zip_t*	data;		/*!< compressed page data */
+	unsigned	m_start:16;	/*!< start offset of modification log */
 
 #ifdef UNIV_DEBUG
-	unsigned	m_start:16;	/*!< start offset of modification log */
 	bool		m_external;	/*!< Allocated externally, not from the
 					buffer pool */
 #endif /* UNIV_DEBUG */
@@ -87,6 +87,12 @@ struct page_zip_des_t
 					/*!< the metadata is stored in a compact
 					format if this field is set. It only
 					applies to PK leaf pages. */
+	unsigned	comp_type:4;
+					/*!< the type of compression used to
+					compress this page. See fsp0fsp.h. */
+	unsigned	comp_level:4;
+					/*!< the compression level to be passed
+					to the compression library. */
 };
 
 /** Compression statistics for a given page size */
