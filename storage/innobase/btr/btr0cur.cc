@@ -1910,6 +1910,12 @@ btr_cur_update_alloc_zip_func(
 		return(true);
 	}
 
+	if (page_zip_compress_mlog(page_zip, page, index, mtr)
+	    && page_zip_available(page_zip, dict_index_is_clust(index),
+				  length, create)) {
+		return(true);
+	}
+
 	if (!page_zip->m_nonempty && !page_has_garbage(page)) {
 		/* The page has been freshly compressed, so
 		reorganizing it will not help. */
