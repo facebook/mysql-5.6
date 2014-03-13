@@ -4238,7 +4238,9 @@ btr_defragment_n_pages(
 {
 	ulint		space;
 	ulint		zip_size;
-	buf_block_t*	blocks[BTR_DEFRAGMENT_MAX_N_PAGES];
+	/* We will need to load the n+1 block because if the last page is freed
+	and we need to modify the prev_page_no of that block. */
+	buf_block_t*	blocks[BTR_DEFRAGMENT_MAX_N_PAGES + 1];
 	page_t*		first_page;
 	buf_block_t*	current_block;
 	ulint		total_data_size = 0;
@@ -4260,6 +4262,11 @@ btr_defragment_n_pages(
 		/* Ignore space 0. */
 		return NULL;
 	}
+
+	if (n_pages > BTR_DEFRAGMENT_MAX_N_PAGES) {
+		n_pages = BTR_DEFRAGMENT_MAX_N_PAGES;
+	}
+
 	zip_size = dict_table_zip_size(index->table);
 	first_page = buf_block_get_frame(block);
 	level = btr_page_get_level(first_page, mtr);
@@ -4270,7 +4277,7 @@ btr_defragment_n_pages(
 
 	/* 1. Load the pages and calculate the total data size. */
 	blocks[0] = block;
-	for (uint i = 1; i < n_pages; i++) {
+	for (uint i = 1; i <= n_pages; i++) {
 		page_t* page = buf_block_get_frame(blocks[i-1]);
 		ulint page_no = btr_page_get_next(page, mtr);
 		total_data_size += page_get_data_size(page);
@@ -4282,8 +4289,6 @@ btr_defragment_n_pages(
 		blocks[i] = btr_block_get(space, zip_size, page_no,
 					  RW_X_LATCH, index, mtr);
 	}
-	total_data_size += page_get_data_size(
-		buf_block_get_frame(blocks[n_pages-1]));
 
 	if (n_pages == 1) {
 		if (btr_page_get_prev(first_page, mtr) == FIL_NULL) {
