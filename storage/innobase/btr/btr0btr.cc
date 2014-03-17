@@ -2919,7 +2919,7 @@ func_start:
 	page_zip = buf_block_get_page_zip(block);
 
 	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
-	ut_ad(!page_is_empty(page));
+	ut_a(!page_is_empty(page));
 
 	page_no = buf_block_get_page_no(block);
 
