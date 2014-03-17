@@ -147,6 +147,9 @@ be less than 256 */
 #define	DATA_ROLL_PTR	2	/* rollback data pointer: 7 bytes */
 #define DATA_ROLL_PTR_LEN 7
 
+/* total length for transaction id and rollback pointer */
+#define DATA_TRX_RBP_LEN (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+
 #define	DATA_N_SYS_COLS 3	/* number of system columns defined above */
 
 #define DATA_FTS_DOC_ID	3	/* Used as FTS DOC ID column */
