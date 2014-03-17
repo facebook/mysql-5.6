@@ -32,8 +32,10 @@ using namespace std;
 
 #define THIS_MODULE
 #include "page0zip.h"
+#include "pmh0pmh.h"
 #ifdef UNIV_NONINL
 # include "page0zip.ic"
+# include "pmh0pmh.ic"
 #endif
 #undef THIS_MODULE
 #include "fil0fil.h"
@@ -192,75 +194,19 @@ page_zip_empty_size(
 		uncompressed data needed for one record */
 		- (PAGE_DATA
 		   + PAGE_ZIP_DIR_SLOT_SIZE
-		   + DATA_TRX_RBP_LEN
+		   + (compact_metadata ? PMH_MIN_LEN + 2 /* mini hashmap
+							 and n_blobs */
+				       : DATA_TRX_RBP_LEN)
 		   + 1/* encoded heap_no==2 in page_zip_write_rec() */
 		   + 1/* end of modification log */
-		   + (compact_metadata ? 2 : 0) /* 2 bytes for n_blobs */
 		   - REC_N_NEW_EXTRA_BYTES/* omitted bytes */)
-		/* subtract the space for page_zip_fields_encode() */
+		/* subtract the space for page_zip_fields_encode()
+		   TODO(rongrong): This bound should change for new
+		   compression types. */
 		- compressBound(static_cast<uLong>(2 * (n_fields + 1)));
 	return(size > 0 ? (ulint) size : 0);
 }
 #endif /* !UNIV_HOTBACKUP */
-
-/*************************************************************//**
-Gets the number of elements in the dense page directory,
-including deleted records (the free list).
-@return	number of elements in the dense page directory */
-UNIV_INLINE
-ulint
-page_zip_dir_elems(
-/*===============*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	/* Exclude the page infimum and supremum from the record count. */
-	return(page_dir_get_n_heap(page_zip->data) - PAGE_HEAP_NO_USER_LOW);
-}
-
-/*************************************************************//**
-Gets the size of the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@return	length of dense page directory, in bytes */
-UNIV_INLINE
-ulint
-page_zip_dir_size(
-/*==============*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	return(PAGE_ZIP_DIR_SLOT_SIZE * page_zip_dir_elems(page_zip));
-}
-
-/*************************************************************//**
-Gets an offset to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@return	offset of the dense page directory */
-UNIV_INLINE
-ulint
-page_zip_dir_start_offs(
-/*====================*/
-	const page_zip_des_t*	page_zip,	/*!< in: compressed page */
-	ulint			n_dense)	/*!< in: directory size */
-{
-	ut_ad(n_dense * PAGE_ZIP_DIR_SLOT_SIZE < page_zip_get_size(page_zip));
-
-	return(page_zip_get_size(page_zip) - n_dense * PAGE_ZIP_DIR_SLOT_SIZE);
-}
-
-/*************************************************************//**
-Gets a pointer to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@param[in] page_zip	compressed page
-@param[in] n_dense	number of entries in the directory
-@return	pointer to the dense page directory */
-#define page_zip_dir_start_low(page_zip, n_dense)			\
-	((page_zip)->data + page_zip_dir_start_offs(page_zip, n_dense))
-/*************************************************************//**
-Gets a pointer to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@param[in] page_zip	compressed page
-@return	pointer to the dense page directory */
-#define page_zip_dir_start(page_zip)					\
-	page_zip_dir_start_low(page_zip, page_zip_dir_elems(page_zip))
 
 /*************************************************************//**
 Gets the size of the compressed page trailer (the dense page directory),
@@ -899,14 +845,16 @@ Store the transaction id and rollback pointer of a record on the trailer. */
 static
 void
 page_zip_store_trx_rbp(
-	byte* trx_rbp_storage, /* in: pointer to the storage where transaction
-				  ids and rollback pointers are stored */
-	const rec_t* rec,		/*!< in: The record for which
-					uncompressed fields must be written */
-	const ulint* offsets,		/*!< in: offsets for the record
-					obtained from rec_get_offsets */
-	ulint rec_no,		/* in: heap_no - PAGE_HEAP_NO_USER_LOW */
-	ulint trx_id_col)	/*!< in: column number for the transaction id */
+	byte* trx_rbp_storage,	/*!< in: pointer to the storage where
+				trx_ids and rollback pointers are stored */
+	const rec_t* rec,	/*!< in: The record for which
+				uncompressed fields must be written */
+	const ulint* offsets,	/*!< in: offsets for the record
+				obtained from rec_get_offsets */
+	ulint rec_no,		/*!< in: heap_no - PAGE_HEAP_NO_USER_LOW */
+	ulint trx_id_col,	/*!< in: column number for the transaction id */
+	ibool compact_metadata)	/*!< in: if TRUE, compact metadata format is
+				used */
 {
 	byte* src;
 	ulint len;
@@ -916,9 +864,13 @@ page_zip_store_trx_rbp(
 	ut_ad(src + DATA_TRX_ID_LEN
 	      == rec_get_nth_field(rec, offsets, trx_id_col + 1, &len));
 	ut_ad(len == DATA_ROLL_PTR_LEN);
-	memcpy(trx_rbp_storage - DATA_TRX_RBP_LEN * (rec_no + 1),
-	       src,
-	       DATA_TRX_RBP_LEN);
+	if (compact_metadata) {
+		pmh_put(trx_rbp_storage, rec_no, src);
+	} else {
+		memcpy(trx_rbp_storage - DATA_TRX_RBP_LEN * (rec_no + 1),
+		       src,
+		       DATA_TRX_RBP_LEN);
+	}
 }
 
 /**********************************************************************//**
@@ -967,16 +919,18 @@ the first blob pointer. */
 static
 void
 page_zip_store_blobs_for_rec(
-	page_zip_des_t* page_zip, /* compressed page and its metadata */
-	dict_index_t* index, /* index object for the page */
-	ulint rec_no, /* record number for the record whose blob pointers are
-			 to be stored in the blob storage. */
-	const rec_t* rec, /* pointer to the actual record */
-	const ulint* offsets, /* offsets of the record */
-	byte* blob_storage, /* pointer to the blob storage */
-	byte** trx_rbp_storage_ptr) /* double pointer to trx rbp storage. can be
-				       modified if compact metadata format is
-				       used */
+	page_zip_des_t*	page_zip,	/*!< in: compressed page */
+	dict_index_t*	index,		/*!< in: index object for the page */
+	ulint		rec_no,		/*!< in: record number for the record
+					whose blob pointers areto be stored in
+					the blob storage. */
+	const rec_t*	rec,		/*!< in: pointer to the actual record */
+	const ulint*	offsets,	/*!< in: offsets of the record */
+	byte*		externs,	/*!< in: pointer to the blob storage */
+	byte**		trx_rbp_storage_ptr)
+					/*!< in: double pointer to trx rbp
+					storage. Can be modified if compact
+					metadata format is used */
 {
 	ulint n_ext = rec_offs_n_extern(offsets);
 	if (!n_ext) {
@@ -1000,30 +954,30 @@ page_zip_store_blobs_for_rec(
 		   trx id and rbps for compact metadata format. */
 		ulint n_blobs = page_zip_get_n_blobs(page_zip, page_align(rec),
 						     index);
-		byte* trx_rbp_storage_end = (*trx_rbp_storage_ptr)
-					    - (rec_no * DATA_TRX_RBP_LEN);
+		ulint len = pmh_size(*trx_rbp_storage_ptr);
+		byte* trx_rbp_storage_end = (*trx_rbp_storage_ptr) - len;
 		/* move the storage for trx rbps */
 		memmove(trx_rbp_storage_end
 			- (n_blobs * BTR_EXTERN_FIELD_REF_SIZE),
 			trx_rbp_storage_end,
-			rec_no * DATA_TRX_RBP_LEN);
+			len);
 		*trx_rbp_storage_ptr -= n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
 		/* write the number of blobs to the beginning of blob storage */
-		mach_write_to_2(blob_storage, n_blobs);
+		mach_write_to_2(externs, n_blobs);
 		/* zerofill the storage for blob pointers */
-		memset(blob_storage - n_blobs * BTR_EXTERN_FIELD_REF_SIZE,
+		memset(externs - n_blobs * BTR_EXTERN_FIELD_REF_SIZE,
 		       0,
 		       n_blobs * BTR_EXTERN_FIELD_REF_SIZE);
 	}
 
-	page_zip_store_blobs(blob_storage, rec, offsets, page_zip->n_blobs);
+	page_zip_store_blobs(externs, rec, offsets, page_zip->n_blobs);
 	page_zip->n_blobs += n_ext;
 }
 
 /**********************************************************************//**
-* Restore trx id and rollback pointer of a record from the trailer of the
-* compressed page.
-*/
+Restore trx id and rollback pointer of a record from the trailer of the
+compressed page. This should be called only for pages with non-compact
+metadata format. */
 static
 void
 page_zip_restore_trx_rbp(
@@ -1090,7 +1044,7 @@ Restore uncompressed fields (trx id, rollback ptr, blobs) of all of the
 records on a page from the trailer of the compressed page */
 static
 void
-page_zip_restore_uncompressed_fields_all(
+page_zip_restore_trx_rbp_blobs(
 	page_zip_des_t*	page_zip,	/*!< in: page_zip->data trailer and
 					page header. out: page_zip->n_blobs; */
 	rec_t**	recs,			/*!< in: the records on the page
@@ -1107,10 +1061,13 @@ page_zip_restore_uncompressed_fields_all(
 	ulint n_dense = page_zip_dir_elems(page_zip);
 	ulint* offsets = NULL;
 	rec_t* rec;
+	byte* trx_rbp_storage;
+	byte* externs;
+	ulint n_blobs;
 
 	/* This must be a primary key leaf page or a node pointer page */
 	ut_ad(!page_is_leaf(page_zip->data)
-	      || (trx_id_col && trx_id_col < ULINT_UNDEFINED));
+	      || (trx_id_col && trx_id_col != ULINT_UNDEFINED));
 
 	if (UNIV_UNLIKELY(trx_id_col == ULINT_UNDEFINED)) {
 		/* node pointer page */
@@ -1127,46 +1084,58 @@ page_zip_restore_uncompressed_fields_all(
 			       - REC_NODE_PTR_SIZE * (rec_no + 1),
 			       REC_NODE_PTR_SIZE);
 		}
+		return;
+	}
+
+	/* primary key leaf page */
+	if (page_zip->compact_metadata) {
+		externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
+		n_blobs = mach_read_from_2(externs);
+		trx_rbp_storage = externs - n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+		/* restore the transaction id and rollback pointers */
+		pmh_restore_trx_rbp(trx_rbp_storage, recs, &offsets, index,
+				    trx_id_col, &heap);
 	} else {
-		/* primary key leaf page */
-		byte* trx_rbp_storage;
-		byte* externs;
-		ulint n_ext;
-		ulint n_blobs = ULINT_UNDEFINED;
-		/* page_zip->n_blobs must be zero before restoring uncompressed
-		   fields */
-		ut_ad(!page_zip->n_blobs);
-		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
-			n_blobs = mach_read_from_2(externs);
-			trx_rbp_storage = externs
-					  - n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+		trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
+		externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
+		if (n_dense) {
+			n_blobs = page_zip_get_n_blobs(
+					page_zip, page_align(recs[0]), index);
 		} else {
-			trx_rbp_storage = page_zip_dir_start_low(page_zip,
-								 n_dense);
-			externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
+			n_blobs = 0;
 		}
-		for (rec_no = 0; rec_no < n_dense; ++rec_no) {
-			rec = recs[rec_no];
-			ut_ad(rec_no + PAGE_HEAP_NO_USER_LOW
-			      == rec_get_heap_no_new(rec));
-			offsets = rec_get_offsets(rec, index, offsets,
-						  ULINT_UNDEFINED, &heap);
+	}
+
+	/* page_zip->n_blobs must be zero before restoring uncompressed
+	fields */
+	ut_a(!page_zip->n_blobs);
+	for (rec_no = 0; rec_no < n_dense; ++rec_no) {
+		ulint n_ext;
+		if (page_zip->compact_metadata
+		    && (page_zip->n_blobs >= n_blobs)) {
+			/* We already restored transaction id and rollback
+			pointers for compact metadata page, and now we know
+			we are done with blob pointers. */
+			break;
+		}
+		rec = recs[rec_no];
+		ut_ad(rec_no + PAGE_HEAP_NO_USER_LOW
+		      == rec_get_heap_no_new(rec));
+		offsets = rec_get_offsets(rec, index, offsets,
+					  ULINT_UNDEFINED, &heap);
+		if (!page_zip->compact_metadata) {
 			page_zip_restore_trx_rbp(trx_rbp_storage, rec, rec_no,
 						 offsets, trx_id_col);
-			n_ext = rec_offs_n_extern(offsets);
-			if (n_ext
-			    && !page_zip_dir_find_free(page_zip,
-						       page_offset(rec))) {
-				page_zip_restore_blobs(
-					externs, rec, offsets,
-					page_zip->n_blobs);
-				page_zip->n_blobs += n_ext;
-			}
 		}
-		ut_a(!page_zip->compact_metadata
-		     || n_blobs == page_zip->n_blobs);
+		n_ext = rec_offs_n_extern(offsets);
+		if (n_ext && !page_zip_dir_find_free(page_zip,
+						     page_offset(rec))) {
+			page_zip_restore_blobs(
+				externs, rec, offsets, page_zip->n_blobs);
+			page_zip->n_blobs += n_ext;
+		}
 	}
+	ut_a(n_blobs == page_zip->n_blobs);
 }
 
 /**********************************************************************//**
@@ -2101,14 +2070,10 @@ page_zip_compress_clust(
 
 	ut_ad(page_zip->n_blobs == 0);
 
-	if (page_zip->compact_metadata) {
-		externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
-		mach_write_to_2(externs, 0);
-		trx_rbp_storage = externs;
-	} else {
-		trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
-		externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
-	}
+	ut_a(!page_zip->compact_metadata);
+
+	trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
+	externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
 
 	for (rec_no = 0; rec_no < n_dense; ++rec_no) {
 		rec = recs[rec_no];
@@ -2147,7 +2112,7 @@ page_zip_compress_clust(
 					     rec, offsets, externs,
 					     &trx_rbp_storage);
 		page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets, rec_no,
-				       trx_id_col);
+				       trx_id_col, FALSE);
 	}
 func_exit:
 	return(err);
@@ -2379,6 +2344,7 @@ page_zip_serialize(
 					  - 2;
 				mach_write_to_2(externs, 0);
 				trx_rbp_storage = externs;
+				pmh_init(trx_rbp_storage);
 			} else {
 				trx_rbp_storage = page_zip_dir_start_low(
 							page_zip, n_dense);
@@ -2495,7 +2461,8 @@ page_zip_serialize(
 						     rec, offsets, externs,
 						     &trx_rbp_storage);
 			page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets,
-					       rec_no, trx_id_col);
+					       rec_no, trx_id_col,
+					       page_zip->compact_metadata);
 		}
 	}
 	*serialized_len = buf_ptr - buf;
@@ -4757,8 +4724,8 @@ page_zip_decompress_low(
 	/* restore uncompressed fields if the page is a node pointer page or a
 	   primary key leaf page */
 	if (trx_id_col) {
-		page_zip_restore_uncompressed_fields_all(page_zip, recs, index,
-							 trx_id_col, heap);
+		page_zip_restore_trx_rbp_blobs(page_zip, recs, index,
+					       trx_id_col, heap);
 	}
 
 	/* set the extra bytes */
@@ -5134,14 +5101,14 @@ page_zip_write_rec_blobs(
 	if (create && page_zip->compact_metadata) {
 		/* memmove the trx rbp storage to make room for the blob
 		   pointers */
-		byte* trx_rbp_storage_end =
+		byte* trx_rbp_storage =
 			externs
-			- (page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE)
-			- (n_dense * DATA_TRX_RBP_LEN);
-		memmove(trx_rbp_storage_end
+			- (page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE);
+		ulint len = pmh_size(trx_rbp_storage);
+		memmove(trx_rbp_storage - len
 			- n_ext * BTR_EXTERN_FIELD_REF_SIZE,
-			trx_rbp_storage_end,
-			n_dense * DATA_TRX_RBP_LEN);
+			trx_rbp_storage - len,
+			len);
 		/* store the number of blobs in the beginning of externs */
 		ut_ad(page_zip->n_blobs == mach_read_from_2(externs));
 		mach_write_to_2(externs, page_zip->n_blobs + n_ext);
@@ -5268,7 +5235,7 @@ page_zip_write_rec(
 				+ page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
 		}
 		page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets, rec_no,
-				       trx_id_col);
+				       trx_id_col, page_zip->compact_metadata);
 		page_zip_write_rec_blobs(page_zip, index, rec, offsets, create);
 	}
 	ut_a(!*data);
@@ -5617,8 +5584,7 @@ page_zip_write_trx_id_and_roll_ptr(
 
 	if (page_zip->compact_metadata) {
 		storage = page_zip_dir_start(page_zip)
-			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE - 2
-			  - (rec_get_heap_no_new(rec) - 1) * DATA_TRX_RBP_LEN;
+			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE - 2;
 	} else {
 		storage = page_zip_dir_start(page_zip)
 			  - (rec_get_heap_no_new(rec) - 1) * DATA_TRX_RBP_LEN;
@@ -5637,8 +5603,9 @@ page_zip_write_trx_id_and_roll_ptr(
 			|| 1
 #endif
 			|| UNIV_UNLIKELY(page_zip_debug)) {
-	ut_a(!memcmp(storage, field, DATA_TRX_RBP_LEN));
-}
+		ut_a(page_zip->compact_metadata
+		     || !memcmp(storage, field, DATA_TRX_RBP_LEN));
+	}
 
 #if DATA_TRX_ID_LEN != 6
 # error "DATA_TRX_ID_LEN != 6"
@@ -5648,7 +5615,14 @@ page_zip_write_trx_id_and_roll_ptr(
 # error "DATA_ROLL_PTR_LEN != 7"
 #endif
 	mach_write_to_7(field + DATA_TRX_ID_LEN, roll_ptr);
-	memcpy(storage, field, DATA_TRX_RBP_LEN);
+
+	if (page_zip->compact_metadata) {
+		pmh_put(storage,
+			rec_get_heap_no_new(rec) - PAGE_HEAP_NO_USER_LOW,
+			field);
+	} else {
+		memcpy(storage, field, DATA_TRX_RBP_LEN);
+	}
 
 	UNIV_MEM_ASSERT_RW(rec, rec_offs_data_size(offsets));
 	UNIV_MEM_ASSERT_RW(rec - rec_offs_extra_size(offsets),
@@ -5726,9 +5700,15 @@ page_zip_clear_rec(
 		ut_ad(len == DATA_TRX_ID_LEN);
 
 		memset(field, 0, DATA_TRX_RBP_LEN);
-		memset(trx_rbp_storage - (heap_no - 1) * DATA_TRX_RBP_LEN,
-		       0,
-		       DATA_TRX_RBP_LEN);
+		if (page_zip->compact_metadata) {
+			pmh_put(trx_rbp_storage,
+				heap_no - PAGE_HEAP_NO_USER_LOW, field);
+		} else {
+			memset(trx_rbp_storage
+			       - (heap_no - 1) * DATA_TRX_RBP_LEN,
+			       0,
+			       DATA_TRX_RBP_LEN);
+		}
 
 		if (rec_offs_any_extern(offsets)) {
 			ulint	i;
@@ -5980,12 +5960,12 @@ page_zip_dir_delete(
 		if (page_zip->compact_metadata) {
 			/* shift the trx rbp storage because blob storage got
 			   smaller */
-			trx_rbp_storage_end = trx_rbp_storage
-					      - n_dense * DATA_TRX_RBP_LEN;
+			ulint len = pmh_size(trx_rbp_storage);
+			trx_rbp_storage_end = trx_rbp_storage - len;
 			memmove(trx_rbp_storage_end
 				+ n_ext * BTR_EXTERN_FIELD_REF_SIZE,
 				trx_rbp_storage_end,
-				n_dense * DATA_TRX_RBP_LEN);
+				len);
 			/* zerofill the old unused tail of the
 			   trx_rbp_storage */
 			memset(trx_rbp_storage_end,
@@ -6036,10 +6016,11 @@ page_zip_dir_add_slot(
 		if (page_zip->compact_metadata) {
 			/* No need to memmove blob storage because it's before
 			   trx rbp storage */
-			stored = dir
-				 - 2
-				 - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE
-				 - n_dense * DATA_TRX_RBP_LEN;
+			byte* trx_rbp_storage =
+				dir
+				- 2
+				- page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+			stored = trx_rbp_storage - pmh_size(trx_rbp_storage);
 		} else {
 			/* Move the BLOB pointer array backwards to make space
 			   for the roll_ptr and trx_id columns and the dense
