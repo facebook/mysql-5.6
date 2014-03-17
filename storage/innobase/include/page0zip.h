@@ -625,7 +625,54 @@ void
 page_zip_reset_stat_per_index();
 /*===========================*/
 
+/*************************************************************//**
+Gets the number of elements in the dense page directory, including deleted
+records (the free list).
+@return number of elements in the dense page directory */
+UNIV_INLINE
+ulint
+page_zip_dir_elems(
+/*===============*/
+	const page_zip_des_t*	page_zip);	/*!< in: compressed page */
+
+/*************************************************************//**
+Gets the size of the compressed page trailer (the dense page directory),
+including deleted records (the free list).
+@return length of dense page directory, in bytes */
+UNIV_INLINE
+ulint
+page_zip_dir_size(
+/*==============*/
+	const page_zip_des_t*	page_zip);	/*!< in: compressed page */
+
+/*************************************************************//**
+Gets an offset to the compressed page trailer (the dense page directory),
+including deleted records (the free list).
+@return offset of the dense page directory */
+UNIV_INLINE
+ulint
+page_zip_dir_start_offs(
+/*====================*/
+	const page_zip_des_t*	page_zip,	/*!< in: compressed page */
+	ulint			n_dense);	/*!< in: directory size */
+
 #endif /* !UNIV_INNOCHECKSUM */
+
+/*************************************************************//**
+Gets a pointer to the compressed page trailer (the dense page directory),
+including deleted records (the free list).
+@param[in] page_zip compressed page
+@param[in] n_dense number of entries in the directory
+@return pointer to the dense page directory */
+#define page_zip_dir_start_low(page_zip, n_dense) \
+	((page_zip)->data + page_zip_dir_start_offs(page_zip, n_dense))
+/*************************************************************//**
+Gets a pointer to the compressed page trailer (the dense page directory),
+including deleted records (the free list).
+@param[in] page_zip compressed page
+@return pointer to the dense page directory */
+#define page_zip_dir_start(page_zip) \
+	page_zip_dir_start_low(page_zip, page_zip_dir_elems(page_zip))
 
 /*************************************************************//**
 Compress the modification log of a compressed page. There can be multiple

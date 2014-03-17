@@ -1,0 +1,391 @@
+#ifdef UNIV_MATERIALIZE
+# undef UNIV_INLINE
+# define UNIV_INLINE
+#endif
+
+#include "pmh0pmh.h"
+#include "mach0data.h"
+#include "ut0ut.h"
+#include "data0type.h"
+
+/***************************************************************************
+The hash table consists of one or more linked lists which are called buckets.
+The number of buckets is given by (1 << PMH_NUM_BUCKETS_SHIFT). Each linked list
+consists of cells and each cell identifies a mapping from a rec_no to the
+corresponding transaction id and rollback pointer.
+
+The part of the trailer of the compressed page that stores the hash table looks
+like this (from higher memory address to lower memory address because it's
+located at the end of the page and grows upwards):
+
+	nc | BH_0 | BH_1 .. | BH_(nb-1) | CELL_0 | CELL_1 | ... | CELL_(nc - 1)
+
+where
+
+	nc = total number of cells in the hash table.
+	BH_i = the header for the i th bucket contains 1 + the cell number of
+	       the first cell that belongs to the i th bucket. If this number is
+	       zero, that means there are no cells that belong to the i th
+	       bucket.
+	nb = total number of buckets in the hash table.
+	CELL_k = contains information to determine rec_no, trx id, rollback
+		 pointer of a record in addition to the index of the next cell
+		 that belongs to the same bucket.
+
+If rec_no % nb == i then rec_no is stored in the i th bucket. In the related
+cell we only store rec_no / nb since we already know rec_no % nb.
+The size of a record in primary key leaf page is at least 18. This is because
+DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN = 13 bytes are used for transaction id
+and rollback pointer, 5 bytes are used for storing rec_no, n_owned and info
+bits (see rem0rec.ic). This means that the heap number on a page can not exceed
+UNIV_PAGE_SIZE / 18. Assuming a 32K page size, rec_no <= 1820 therefore we
+need 11 bits to store rec_no. The number of cells is at most the number
+of records so we also use 11 bits to store cell numbers.
+
+* For nc, we use two bytes.
+* For each BH_i we use 11 bits and if the total size for BH_i s is not a whole
+number of bytes then we round up to the nearest integer. If BH_i is 0 then
+there are no cells in the i th bucket. The total length of BH section is
+UT_BITS_IN_BYTES(11 * nb).
+* Within each cell, we use 11 bits to store the next cell number, and 5 bits to
+store rec_no / nb (this works only if PMH_NUM_BUCKETS >= 64). We use a total
+of 13 bytes (= DATA_TRX_RBP_LEN) to store transaction id and rollback pointer.
+We therefore use 15 bytes for each cell:
+  key (rec_no/nb(5-bit)) | next_cell# (11-bit) | value (trx_id + rbp, 13-byte)
+The total size of the hash table is given by
+PMH_HEADER_LEN + UT_BITS_IN_BYTES(11 * nb) + 15 * nc */
+
+#if PMH_NUM_BUCKETS_SHIFT < 6
+#error "The number of buckets must be at least 64"
+#endif
+
+/************************************************************************
+Gets the bucket header of the bucket_no-th bucket. The header consists of the
+cell number of the first cell in this bucket and a bit that indicates whether
+this bucket is empty. If this bit is not set then the bucket is empty and
+ULINT_UNDEFINED is returned. Otherwise the cell number for the first cell
+is returned. This function should not be used by the clients.
+@return the cell number for the first cell in this bucket or ULINT_UNDEFINED */
+UNIV_INLINE
+ulint
+pmh_get_bucket_header(
+	const byte*	storage,	/*!< in: Pointer to the start of the
+					data for the hash table in a compressed
+					page's trailer. The data is stored
+					starting from higher memory addresses
+					going to lower memory addresses. */
+	ulint		bucket_no)	/*!< in: the bucket number.
+					bucket_no = rec_no % num_buckets */
+{
+#if PMH_NEXT_CELL_LEN > 11
+#error	"The number of bits needed to represent next cell offset must "
+	"be less than 12 because we use 12 bits for bucket headers and "
+	"1 bit is reserved to indicate the bucket is empty."
+#endif
+	ulint n;
+	/* We need to read 12 bits starting from 12 * bucket_no-th bit which is
+	   1.5 * bucket_no-th byte. */
+	storage -= PMH_HEADER_LEN + bucket_no + (bucket_no >> 1);
+	if (bucket_no & 1) {
+		n = *(storage - 1) & 0xf0;
+		n <<= 4;
+		n |= *(storage - 2);
+	} else {
+		n = *(storage - 1);
+		n <<= 4;
+		n |= *(storage - 2) & 0xf;
+	}
+	/* if the highest bit is not set then the bucket is empty */
+	return (n & (1UL << 11)) ? (n & ~(~0UL << 11)) : ULINT_UNDEFINED;
+}
+
+/*************************************************************************//**
+Set the bucket header for the bucket_no-th bucket. If cell_no is ULINT_UNDEFINED
+then the related bit in the bucket header is set to zero. Otherwise the is set
+to the number specified by the cell_no and the non-empty bit is set. This
+function should not be used by the clients. */
+UNIV_INLINE
+void
+pmh_set_bucket_header(
+	byte*	storage,	/*!< in: Pointer to the start of the data for
+				the hash table in a compressed page's trailer.
+				The data is stored starting from higher memory
+				addresses going to lower memory addresses. */
+	ulint	bucket_no,	/*!< in: the bucket number.
+				bucket_no = rec_no % num_buckets. */
+	ulint	cell_no)	/*!< in: the cell number to store in the bucket
+				header. */
+{
+	byte b;
+	storage -= PMH_HEADER_LEN + bucket_no + (bucket_no >> 1);
+	if (cell_no == ULINT_UNDEFINED) {
+		cell_no = 0;
+	} else {
+		ut_ad(!(cell_no & (~0 << 11)));
+		cell_no |= 1 << 11;
+	}
+	if (bucket_no & 1) {
+		b = *(storage - 1);
+		*(storage - 1) = ((cell_no & 0xf00UL) >> 4) | (b & 0xf);
+		*(storage - 2) = cell_no & 0xff;
+	} else {
+		*(storage - 1) = (cell_no & 0xff0UL) >> 4;
+		b = *(storage - 2);
+		*(storage - 2) = (b & 0xf0) | (cell_no & 0xf);
+	}
+}
+
+/*************************************************************************//**
+Initialize the hash table for transaction ids and rollback pointers. */
+UNIV_INLINE
+void
+pmh_init(
+	byte*	storage)	/*!< in: Pointer to the start of the data for
+				the hash table in a compressed page's trailer.
+				The data is stored starting from higher memory
+				addresses going to lower memory addresses. */
+{
+	/* set num_cells and bucket headers to zero */
+	memset(storage - PMH_BUCKET_HEADERS_LEN - PMH_HEADER_LEN,
+	       0,
+	       PMH_BUCKET_HEADERS_LEN + PMH_HEADER_LEN);
+}
+
+/*************************************************************************//**
+Return the current size in bytes of the hash table.
+@return the size of the hash table */
+UNIV_INLINE
+ulint
+pmh_size(
+	const byte*	storage)	/*!< in: Pointer to the start of the
+					data for the hash table in a compressed
+					page's trailer. The data is stored
+					starting from higher memory addresses
+					going to lower memory addresses. */
+{
+	return PMH_HEADER_LEN
+	       + PMH_BUCKET_HEADERS_LEN /* 11 bits for each bucket header */
+	       /* hash cells */
+	       + mach_read_from_2(storage - PMH_HEADER_LEN) * PMH_CELL_LEN;
+}
+
+/*************************************************************************//**
+Gets the key, value and the next cell number for the cell specified by *cell_no.
+This function should not be used by the clients. */
+UNIV_INLINE
+void
+pmh_get_cell(
+	const byte*	storage,/*!< in: Pointer to the start of the
+				data for the hash table in a compressed
+				page's trailer. The data is stored
+				starting from higher memory addresses
+				going to lower memory addresses. */
+	ulint*		cell_no,/* in/out: The cell number is read from
+				*cell_no and the next cell number is
+				written to *cell_no. */
+	ulint*		key,	/* the key number of the cell is stored here */
+	const byte**	value)	/* out: *value points to a buffer that has the
+				trx id and rbp for the related cell */
+{
+	ulint n;
+	const byte* cell;
+	cell = storage - PMH_HEADER_LEN - PMH_BUCKET_HEADERS_LEN
+	       - (*cell_no) * PMH_CELL_LEN;
+	n = mach_read_from_2(cell - 2);
+	*cell_no = n & PMH_NEXT_CELL_MASK;
+	if (!*cell_no) {
+		*cell_no = ULINT_UNDEFINED;
+	}
+	*key = n & PMH_KEY_MASK;
+	if (value)
+		*value = cell - PMH_CELL_LEN;
+}
+
+/*************************************************************************//**
+Sets the key, value and the next cell number for the cell specified by cell_no.
+This function should not be used by the clients. */
+UNIV_INLINE
+void
+pmh_set_cell(
+	byte*	storage,	/*!< in: Pointer to the start of the data for
+				the hash table in a compressed page's trailer.
+				The data is stored starting from higher memory
+				addresses going to lower memory addresses. */
+	ulint	cell_no,	/*!< in: the number of the cell which is used to
+				store the key, the next_cell_no and the value */
+	ulint	key,		/*!<in: the key that must be stored in the cell.
+				It's assumed that the value of the key is
+				already bit shifted to the left to make room for
+				the bits in next_cell_no */
+	ulint	next_cell_no,	/*!< The next cell number. The cells form a
+				singly linked list called bucket, and this
+				number defines the next cell in this bucket */
+	const byte*	value)	/* The bytes of the value are copied to the
+				bytes in the cell */
+{
+	byte* cell;
+	ut_ad(((~PMH_KEY_MASK) & key) == 0);
+	ut_ad(((~PMH_NEXT_CELL_MASK) & cell_no) == 0);
+	ut_ad(next_cell_no == ULINT_UNDEFINED
+	      || ((~PMH_NEXT_CELL_MASK) & next_cell_no) == 0);
+	if (next_cell_no == ULINT_UNDEFINED)
+		next_cell_no = 0;
+	cell = storage - PMH_HEADER_LEN - PMH_BUCKET_HEADERS_LEN
+	       - cell_no * PMH_CELL_LEN;
+	mach_write_to_2(cell - 2, key | next_cell_no);
+	if (value)
+		memcpy(cell - PMH_CELL_LEN, value, PMH_VALUE_LEN);
+}
+
+#ifdef UNIV_DEBUG
+/*************************************************************************//**
+Return a pointer to the trx id and rbp stored in the hash table for rec_no.
+@return a pointer to a buffer that has trx_id and rbp back to back or NULL */
+UNIV_INLINE
+const byte*
+pmh_get(
+	const byte*	storage,/*!< in: Pointer to the start of the
+				data for the hash table in a compressed
+				page's trailer. The data is stored
+				starting from higher memory addresses
+				going to lower memory addresses. */
+	ulint		rec_no)	/*!< in: rec_no for to search for.
+				rec_no = heap_no - PAGE_HEAP_NO_USER_LOW */
+{
+	ulint bucket_no;
+	ulint key;
+	ulint key_cur = ULINT_UNDEFINED;
+	ulint cell_next;
+	const byte* value = NULL;
+
+	if (mach_read_from_2(storage - PMH_HEADER_LEN) == 0) {
+		/* hashtable is empty */
+		return NULL;
+	}
+
+	bucket_no = rec_no & PMH_BUCKET_MASK;
+	key = (rec_no >> PMH_NUM_BUCKETS_SHIFT) << PMH_KEY_SHIFT;
+	cell_next = pmh_get_bucket_header(storage, bucket_no);
+
+	while (cell_next != ULINT_UNDEFINED && key_cur != key) {
+		pmh_get_cell(storage, &cell_next, &key_cur, &value);
+	}
+
+	if (key_cur == key) {
+		return value;
+	}
+
+	ut_ad(cell_next == ULINT_UNDEFINED);
+	return NULL;
+}
+#endif
+
+/*************************************************************************//**
+Store the key-value pair (rec_no, value) in the hash table. The bytes of the
+value is copied to the appropriate address inside storage. */
+UNIV_INLINE
+void
+pmh_put(
+	byte*	storage,	/*!< in: Pointer to the start of the data for
+				the hash table in a compressed page's trailer.
+				The data is stored starting from higher memory
+				addresses going to lower memory addresses. */
+	ulint	rec_no,		/*!< in: the rec_no for which the trx id and rbp
+				are stored.
+				rec_no = heap_no - PAGE_HEAP_NO_USER_LOW. */
+	const byte*	value)	/*!< in: value is the concatenation of trx id
+				and rbp */
+{
+	ulint cell_next;
+	ulint cell_cur = ULINT_UNDEFINED;
+	ulint key_cur = ULINT_UNDEFINED;
+	ulint bucket_no = rec_no & PMH_BUCKET_MASK;
+	ulint key = (rec_no >> PMH_NUM_BUCKETS_SHIFT) << PMH_KEY_SHIFT;
+	ulint num_cells = mach_read_from_2(storage - 2);
+	cell_next = pmh_get_bucket_header(storage, bucket_no);
+
+	while (cell_next != ULINT_UNDEFINED && key_cur != key) {
+		cell_cur = cell_next;
+		pmh_get_cell(storage, &cell_next, &key_cur, NULL);
+	}
+
+	if (UNIV_UNLIKELY(key_cur == key)) {
+		/* this is an update */
+		ut_ad(cell_cur != ULINT_UNDEFINED);
+		pmh_set_cell(storage, cell_cur, key, cell_next, value);
+	} else {
+		/* this is an insert */
+		ut_ad(cell_next == ULINT_UNDEFINED);
+		if (UNIV_UNLIKELY(key_cur == ULINT_UNDEFINED)) {
+			/* this bucket is empty. write num_cells to the bucket
+			   header */
+			ut_ad(cell_cur == ULINT_UNDEFINED);
+			pmh_set_bucket_header(storage, bucket_no, num_cells);
+			ut_ad(pmh_get_bucket_header(storage, bucket_no)
+			      == num_cells);
+		} else {
+			/* Bucket is non-empty. Update previous cell to point to
+			   this cell */
+			ut_ad(cell_cur != ULINT_UNDEFINED);
+			pmh_set_cell(storage, cell_cur, key_cur, num_cells,
+				     NULL);
+		}
+		pmh_set_cell(storage, num_cells, key, ULINT_UNDEFINED, value);
+		mach_write_to_2(storage - 2, num_cells + 1);
+	}
+	ut_ad(!memcmp(value, pmh_get(storage, rec_no), PMH_VALUE_LEN));
+}
+
+/***********************************************************************//**
+This function provides a way to iterate over the key-value pairs in the hash
+table and restore the transaction id and rollback pointers efficiently. The
+recs parameter must have the records ordered in heap_no order such that
+	recs[rec_no] == rec
+where rec's record number is rec_no. */
+UNIV_INLINE
+void
+pmh_restore_trx_rbp(
+	const byte*	storage,/*!< in: Pointer to the start of the
+				data for the hash table in a compressed
+				page's trailer. The data is stored
+				starting from higher memory addresses
+				going to lower memory addresses. */
+	rec_t**		recs,	/*!< in: records sorted by record number */
+	ulint**		offsets,/*!< out: pointer to memory allocated for record
+				offsets */
+	const dict_index_t*	index,	/*!< in: index needed to compute
+					offsets */
+	ulint		trx_id_col,	/*!< in: the column number for
+					transaction id */
+	mem_heap_t**	heap)	/*!< in: temporary memeory heap */
+{
+	const byte* value;
+	ulint rec_no;
+	ulint bucket_no;
+	ulint cell_next;
+	ulint num_cells = mach_read_from_2(storage - 2);
+	ulint len;
+	byte* field;
+	rec_t* rec;
+	if (!num_cells)
+		return;
+	for (bucket_no = 0; bucket_no < PMH_NUM_BUCKETS; ++bucket_no) {
+		cell_next = pmh_get_bucket_header(storage, bucket_no);
+		while (cell_next != ULINT_UNDEFINED) {
+			pmh_get_cell(storage, &cell_next, &rec_no, &value);
+			rec_no =  ((rec_no >> PMH_KEY_SHIFT)
+				   << PMH_NUM_BUCKETS_SHIFT) | bucket_no;
+			rec = recs[rec_no];
+			*offsets = rec_get_offsets(rec, index, *offsets,
+						   ULINT_UNDEFINED, heap);
+			field = rec_get_nth_field(rec, *offsets, trx_id_col,
+						  &len);
+			memcpy(field, value, DATA_TRX_RBP_LEN);
+		}
+	}
+}
+
+#ifdef UNIV_MATERIALIZE
+# undef UNIV_INLINE
+# define UNIV_INLINE	UNIV_INLINE_ORIGINAL
+#endif
