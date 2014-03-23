@@ -42,6 +42,8 @@ def	information_schema	COLUMN_PRIVILEGES	PRIVILEGE_TYPE	6		NO	varchar	64	192	NUL
 def	information_schema	COLUMN_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	COLUMN_PRIVILEGES	TABLE_NAME	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	COLUMN_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	DB_STATISTICS	DB	1		NO	varchar	192	576	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(192)			select	
+def	information_schema	DB_STATISTICS	WORKING_SET_SIZE	2	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	ENGINES	COMMENT	3		NO	varchar	80	240	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(80)			select	
 def	information_schema	ENGINES	ENGINE	1		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	ENGINES	SAVEPOINTS	6	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select	
@@ -557,6 +559,8 @@ NULL	information_schema	COLUMNS	DATETIME_PRECISION	bigint	NULL	NULL	NULL	NULL	bi
 3.0000	information_schema	COLUMN_PRIVILEGES	COLUMN_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	COLUMN_PRIVILEGES	PRIVILEGE_TYPE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	COLUMN_PRIVILEGES	IS_GRANTABLE	varchar	3	9	utf8	utf8_general_ci	varchar(3)
+3.0000	information_schema	DB_STATISTICS	DB	varchar	192	576	utf8	utf8_general_ci	varchar(192)
+NULL	information_schema	DB_STATISTICS	WORKING_SET_SIZE	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	ENGINES	ENGINE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	ENGINES	SUPPORT	varchar	8	24	utf8	utf8_general_ci	varchar(8)
 3.0000	information_schema	ENGINES	COMMENT	varchar	80	240	utf8	utf8_general_ci	varchar(80)
