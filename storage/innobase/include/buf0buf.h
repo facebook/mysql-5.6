@@ -147,6 +147,13 @@ struct buf_pool_info_t{
 					threads */
 	ulint	n_pending_flush_list;	/*!< Pages pending flush in FLUSH
 					LIST */
+	ulint	n_flushed_lru;		/*!< Pages total flushed in LRU */
+	ulint	n_flushed_single_page;	/*!< Total pages
+					flushed as part of single page
+					flushes issued by various user
+					threads */
+	ulint	n_flushed_list;		/*!< Total pages flushed in FLUSH
+					LIST */
 	ulint	n_pages_made_young;	/*!< number of pages made young */
 	ulint	n_pages_not_made_young;	/*!< number of pages not made young */
 	ulint	n_pages_read;		/*!< buf_pool->n_pages_read */
@@ -1401,6 +1408,7 @@ void
 buf_get_total_list_len(
 /*===================*/
 	ulint*		LRU_len,	/*!< out: length of all LRU lists */
+	ulint*		old_LRU_len,	/*!< out: length of all old LRU lists */
 	ulint*		free_len,	/*!< out: length of all free lists */
 	ulint*		flush_list_len);/*!< out: length of all flush lists */
 /********************************************************************//**
@@ -1937,6 +1945,16 @@ struct buf_pool_stat_t{
 				buf_page_peek_if_too_old() */
 	ulint	LRU_bytes;	/*!< LRU size in bytes */
 	ulint	flush_list_bytes;/*!< flush_list size in bytes */
+	/* The following three variables are only used in the
+	total buf pool stats. For stats of individual buf pool, see
+	buf_pool->n_flushed[TYPE] instead. */
+	ulint	n_flushed_lru;		/*!< Pages total flushed in LRU */
+	ulint	n_flushed_single_page;	/*!< Total pages
+					flushed as part of single page
+					flushes issued by various user
+					threads */
+	ulint	n_flushed_list;		/*!< Total pages flushed in FLUSH
+					LIST */
 };
 
 /** Statistics of buddy blocks of a given size. */
@@ -2034,6 +2052,9 @@ struct buf_pool_t{
 					given type is being initialized */
 	ulint		n_flush[BUF_FLUSH_N_TYPES];
 					/*!< this is the number of pending
+					writes in the given flush type */
+	ulint		n_flushed[BUF_FLUSH_N_TYPES];
+					/*!< this is the number of total
 					writes in the given flush type */
 	os_event_t	no_flush[BUF_FLUSH_N_TYPES];
 					/*!< this is in the set state

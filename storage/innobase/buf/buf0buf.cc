@@ -359,12 +359,14 @@ void
 buf_get_total_list_len(
 /*===================*/
 	ulint*		LRU_len,	/*!< out: length of all LRU lists */
+	ulint*		old_LRU_len,	/*!< out: length of all old LRU lists */
 	ulint*		free_len,	/*!< out: length of all free lists */
 	ulint*		flush_list_len)	/*!< out: length of all flush lists */
 {
 	ulint		i;
 
 	*LRU_len = 0;
+	*old_LRU_len = 0;
 	*free_len = 0;
 	*flush_list_len = 0;
 
@@ -374,6 +376,7 @@ buf_get_total_list_len(
 		buf_pool = buf_pool_from_array(i);
 
 		*LRU_len += UT_LIST_GET_LEN(buf_pool->LRU);
+		*old_LRU_len += buf_pool->LRU_old_len;
 		*free_len += UT_LIST_GET_LEN(buf_pool->free);
 		*flush_list_len += UT_LIST_GET_LEN(buf_pool->flush_list);
 	}
@@ -435,6 +438,11 @@ buf_get_total_stat(
 
 		tot_stat->n_pages_not_made_young +=
 			buf_stat->n_pages_not_made_young;
+
+		tot_stat->n_flushed_lru += buf_pool->n_flushed[BUF_FLUSH_LRU];
+		tot_stat->n_flushed_list += buf_pool->n_flushed[BUF_FLUSH_LIST];
+		tot_stat->n_flushed_single_page +=
+			buf_pool->n_flushed[BUF_FLUSH_SINGLE_PAGE];
 	}
 }
 
@@ -1323,6 +1331,7 @@ buf_pool_init_instance(
 
 	for (i = BUF_FLUSH_LRU; i < BUF_FLUSH_N_TYPES; i++) {
 		buf_pool->no_flush[i] = os_event_create();
+		buf_pool->n_flushed[i] = 0;
 	}
 
 	buf_pool->watch = (buf_page_t*) mem_zalloc(
@@ -5073,10 +5082,12 @@ buf_get_modified_ratio_pct(void)
 {
 	double		percentage = 0.0;
 	ulint		lru_len = 0;
+	ulint		old_lru_len = 0;
 	ulint		free_len = 0;
 	ulint		flush_list_len = 0;
 
-	buf_get_total_list_len(&lru_len, &free_len, &flush_list_len);
+	buf_get_total_list_len(
+		&lru_len, &old_lru_len, &free_len, &flush_list_len);
 
 	percentage = (100.0 * flush_list_len) / (1.0 + lru_len + free_len);
 
@@ -5140,6 +5151,11 @@ buf_stats_aggregate_pool_info(
 	total_info->io_cur += pool_info->io_cur;
 	total_info->unzip_sum += pool_info->unzip_sum;
 	total_info->unzip_cur += pool_info->unzip_cur;
+
+	total_info->n_flushed_lru += pool_info->n_flushed_lru;
+	total_info->n_flushed_list += pool_info->n_flushed_list;
+	total_info->n_flushed_single_page +=
+		pool_info->n_flushed_single_page;
 }
 /*******************************************************************//**
 Collect buffer pool stats information for a buffer pool. Also
@@ -5191,6 +5207,15 @@ buf_stats_get_pool_info(
 	pool_info->n_pending_flush_single_page =
 		 (buf_pool->n_flush[BUF_FLUSH_SINGLE_PAGE]
 		  + buf_pool->init_flush[BUF_FLUSH_SINGLE_PAGE]);
+
+	pool_info->n_flushed_lru =
+		 buf_pool->n_flushed[BUF_FLUSH_LRU];
+
+	pool_info->n_flushed_list =
+		 buf_pool->n_flushed[BUF_FLUSH_LIST];
+
+	pool_info->n_flushed_single_page =
+		 buf_pool->n_flushed[BUF_FLUSH_SINGLE_PAGE];
 
 	buf_flush_list_mutex_exit(buf_pool);
 
@@ -5297,8 +5322,12 @@ buf_print_io_instance(
 		"Modified db pages  %lu\n"
 		"Percent of dirty pages(LRU & free pages): %.3f\n"
 		"Max dirty pages percent: %.3f\n"
+		"Read ahead: %lu\n"
+		"Percent pages dirty: %.3f\n"
+		"Evicted after read ahead without access: %lu\n"
 		"Pending reads %lu\n"
-		"Pending writes: LRU %lu, flush list %lu, single page %lu\n",
+		"Pending writes: LRU %lu, flush list %lu, single page %lu\n"
+		"Total writes: %lu LRU, %lu flush list, %lu single page\n",
 		pool_info->pool_size,
 		pool_info->free_list_len,
 		pool_info->lru_len,
@@ -5307,10 +5336,17 @@ buf_print_io_instance(
 		(((double) pool_info->flush_list_len) /
 		  (pool_info->lru_len + pool_info->free_list_len + 1.0)) * 100.0,
 		srv_max_buf_pool_modified_pct,
+		pool_info->n_ra_pages_read,
+		(((double) pool_info->flush_list_len) /
+			(pool_info->lru_len + 1.0)) * 100.0,
+		pool_info->n_ra_pages_evicted,
 		pool_info->n_pend_reads,
 		pool_info->n_pending_flush_lru,
 		pool_info->n_pending_flush_list,
-		pool_info->n_pending_flush_single_page);
+		pool_info->n_pending_flush_single_page,
+		pool_info->n_flushed_lru,
+		pool_info->n_flushed_list,
+		pool_info->n_flushed_single_page);
 
 	fprintf(file,
 		"Pages made young %lu, not young %lu\n"
