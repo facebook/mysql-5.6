@@ -1,0 +1,211 @@
+############## mysql-test\t\working_duration_basic.test #######################
+#                                                                             #
+# Variable Name: working_duration                                             #
+# Scope: GLOBAL | SESSION                                                     #
+# Access Type: Dynamic                                                        #
+# Data Type: numeric                                                          #
+# Default Value:  3600                                                        #
+# Range:  0-1073741824                                                        #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2012-11-27                                                   #
+# Author:  Rudradev Basa                                                      #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable working_duration         #
+#              that checks the behavior of this variable in the following ways#
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+# Reference: http://dev.mysql.com/doc/refman/5.1/en/                          #
+#  server-system-variables.html                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+###############################################################
+#           START OF working_duration TESTS                   #
+###############################################################
+
+
+#############################################################
+#                 Save initial value                        #
+#############################################################
+
+SET @start_global_value = @@global.working_duration;
+SELECT @start_global_value;
+SET @start_session_value = @@session.working_duration;
+SELECT @start_session_value;
+
+
+--echo '#--------------------FN_DYNVARS_077_01-------------------------#'
+###############################################################
+#     Display the DEFAULT value of working_duration           #
+###############################################################
+
+SET @@global.working_duration = 360010;
+SET @@global.working_duration = DEFAULT;
+SELECT @@global.working_duration;
+
+SET @@session.working_duration = 360010;
+SET @@session.working_duration = DEFAULT;
+SELECT @@session.working_duration;
+
+
+--echo '#--------------------FN_DYNVARS_077_02-------------------------#'
+##################################################################
+#     Check the DEFAULT value of working_duration                #
+##################################################################
+
+SET @@global.working_duration = DEFAULT;
+SELECT @@global.working_duration = 3600;
+
+SET @@session.working_duration = DEFAULT;
+SELECT @@session.working_duration = 3600;
+
+
+--echo '#--------------------FN_DYNVARS_077_03-------------------------#'
+############################################################################
+# Change the value of working_duration to a valid value for GLOBAL Scope   #
+############################################################################
+
+SET @@global.working_duration = 0;
+SELECT @@global.working_duration;
+SET @@global.working_duration = 1;
+SELECT @@global.working_duration;
+SET @@global.working_duration = 65535;
+SELECT @@global.working_duration;
+SET @@global.working_duration = 1048576;
+SELECT @@global.working_duration;
+SET @@global.working_duration = 1073741824;
+SELECT @@global.working_duration;
+
+--echo '#--------------------FN_DYNVARS_077_04-------------------------#'
+#############################################################################
+# Change the value of working_duration to a valid value for SESSION Scope   #
+#############################################################################
+
+SET @@session.working_duration = 0;
+SELECT @@session.working_duration;
+SET @@session.working_duration = 1;
+SELECT @@session.working_duration;
+SET @@session.working_duration = 65535;
+SELECT @@session.working_duration;
+SET @@session.working_duration = 1048576;
+SELECT @@session.working_duration;
+SET @@session.working_duration = 1073741824;
+SELECT @@session.working_duration;
+
+--echo '#------------------FN_DYNVARS_077_05-----------------------#'
+##############################################################
+# Change the value of working_duration to an invalid value   #
+##############################################################
+
+SET @@global.working_duration = -1;
+SELECT @@global.working_duration;
+SET @@global.working_duration = -1024;
+SELECT @@global.working_duration;
+SET @@global.working_duration = 4294967296;
+SELECT @@global.working_duration;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.working_duration = 65530.34;
+SELECT @@global.working_duration;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.working_duration = test;
+SELECT @@global.working_duration;
+
+SET @@session.working_duration = -1;
+SELECT @@session.working_duration;
+SET @@session.working_duration = 4294967296;
+SELECT @@session.working_duration;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.working_duration = 65530.34;
+SET @@session.working_duration = 10737418241;
+SELECT @@session.working_duration;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.working_duration = test;
+SELECT @@session.working_duration;
+
+
+--echo '#------------------FN_DYNVARS_077_06-----------------------#'
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+
+SELECT @@global.working_duration = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='working_duration';
+
+--echo '#------------------FN_DYNVARS_077_07-----------------------#'
+####################################################################
+#  Check if the value in SESSION Table matches value in variable   #
+####################################################################
+
+SELECT @@session.working_duration = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='working_duration';
+
+
+--echo '#------------------FN_DYNVARS_077_08-----------------------#'
+####################################################################
+#     Check if TRUE and FALSE values can be used on variable       #
+####################################################################
+
+SET @@global.working_duration = TRUE;
+SELECT @@global.working_duration;
+SET @@global.working_duration = FALSE;
+SELECT @@global.working_duration;
+
+
+--echo '#---------------------FN_DYNVARS_077_09----------------------#'
+#################################################################################
+#  Check if accessing variable with and without GLOBAL point to same variable   #
+#################################################################################
+
+SET @@global.working_duration = 05;
+SELECT @@working_duration = @@global.working_duration;
+
+
+--echo '#---------------------FN_DYNVARS_077_10----------------------#'
+########################################################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points to same session variable  #
+########################################################################################################
+
+SET @@working_duration = 3600;
+SELECT @@working_duration = @@local.working_duration;
+SELECT @@local.working_duration = @@session.working_duration;
+
+
+--echo '#---------------------FN_DYNVARS_077_11----------------------#'
+#############################################################################
+#   Check if working_duration can be accessed with and without @@ sign      #
+#############################################################################
+
+SET working_duration = 33600;
+SELECT @@working_duration;
+--Error ER_UNKNOWN_TABLE
+SELECT local.working_duration;
+--Error ER_UNKNOWN_TABLE
+SELECT session.working_duration;
+--Error ER_BAD_FIELD_ERROR
+SELECT working_duration = @@session.working_duration;
+
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.working_duration = @start_global_value;
+SELECT @@global.working_duration;
+SET @@session.working_duration = @start_session_value;
+SELECT @@session.working_duration;
+
+
+#######################################################
+#                 END OF working_duration TESTS       #
+#######################################################
+
