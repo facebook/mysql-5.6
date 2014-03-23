@@ -116,7 +116,7 @@ buf_dblwr_sync_datafiles()
 	os_aio_wait_until_no_pending_writes();
 
 	/* Now we flush the data to disk (for example, with fsync) */
-	fil_flush_file_spaces(FIL_TABLESPACE);
+	fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_DOUBLEWRITE);
 }
 
 /****************************************************************//**
@@ -729,7 +729,8 @@ buf_dblwr_process()
 		}
 	}
 
-	fil_flush_file_spaces(FIL_TABLESPACE);
+	fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_DOUBLEWRITE);
+
 	ut_free(unaligned_read_buf);
 }
 
@@ -792,7 +793,8 @@ buf_dblwr_update(
 			mutex_exit(&buf_dblwr->mutex);
 			/* This will finish the batch. Sync data files
 			to the disk. */
-			fil_flush_file_spaces(FIL_TABLESPACE);
+			fil_flush_file_spaces(FIL_TABLESPACE,
+					      FLUSH_FROM_DOUBLEWRITE);
 			mutex_enter(&buf_dblwr->mutex);
 
 			/* We can now reuse the doublewrite memory buffer: */
@@ -1123,7 +1125,7 @@ flush:
 	srv_stats.dblwr_writes.inc();
 
 	/* Now flush the doublewrite buffer data to disk */
-	fil_flush(TRX_SYS_SPACE);
+	fil_flush(TRX_SYS_SPACE, FLUSH_FROM_DOUBLEWRITE);
 
 	/* We know that the writes have been flushed to disk now
 	and in recovery we will find them in the doublewrite buffer
@@ -1355,7 +1357,7 @@ retry:
 	}
 
 	/* Now flush the doublewrite buffer data to disk */
-	fil_flush(TRX_SYS_SPACE);
+	fil_flush(TRX_SYS_SPACE, FLUSH_FROM_DOUBLEWRITE);
 
 	/* We know that the write has been flushed to disk now
 	and during recovery we will find it in the doublewrite buffer
