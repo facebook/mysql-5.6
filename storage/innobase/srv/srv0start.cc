@@ -692,7 +692,7 @@ create_log_files_rename(
 {
 	/* If innodb_flush_method=O_DSYNC,
 	we need to explicitly flush the log buffers. */
-	fil_flush(SRV_LOG_SPACE_FIRST_ID);
+	fil_flush(SRV_LOG_SPACE_FIRST_ID, FLUSH_FROM_OTHER);
 	/* Close the log files, so that we can rename
 	the first one. */
 	fil_close_log_files(false);
@@ -2352,7 +2352,7 @@ files_checked:
 		/* Stamp the LSN to the data files. */
 		fil_write_flushed_lsn_to_data_files(max_flushed_lsn, 0);
 
-		fil_flush_file_spaces(FIL_TABLESPACE);
+		fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_OTHER);
 
 		create_log_files_rename(logfilename, dirnamelen,
 					max_flushed_lsn, logfile0);
@@ -2529,7 +2529,7 @@ files_checked:
 			log_buffer_flush_to_disk();
 			/* If innodb_flush_method=O_DSYNC,
 			we need to explicitly flush the log buffers. */
-			fil_flush(SRV_LOG_SPACE_FIRST_ID);
+			fil_flush(SRV_LOG_SPACE_FIRST_ID, FLUSH_FROM_OTHER);
 
 			ut_ad(max_flushed_lsn == log_get_lsn());
 
@@ -2545,7 +2545,7 @@ files_checked:
 			fil_write_flushed_lsn_to_data_files(
 				max_flushed_lsn, 0);
 
-			fil_flush_file_spaces(FIL_TABLESPACE);
+			fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_OTHER);
 
 			RECOVERY_CRASH(4);
 
