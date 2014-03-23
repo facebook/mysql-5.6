@@ -235,6 +235,9 @@ UNIV_INTERN ulint	srv_lock_table_size	= ULINT_MAX;
 
 UNIV_INTERN ulint	srv_idle_flush_pct = 100;
 
+/* page_cleaner_thread should run once per this many milliseconds */
+UNIV_INTERN ulint	srv_page_cleaner_interval_millis = 1000;
+
 /* This parameter is deprecated. Use srv_n_io_[read|write]_threads
 instead. */
 UNIV_INTERN ulint	srv_n_file_io_threads	= ULINT_MAX;
