@@ -1,0 +1,166 @@
+################# mysql-test\t\disable_working_set_size_basic.test #############
+#                                                                              #
+# Variable Name: disable_working_set_size                                      #
+# Scope: GLOBAL                                                                #
+# Access Type: Dynamic                                                         #
+# Data Type: BOOLEAN                                                           #
+# Default Value: OFF                                                           #
+# Valid Values: ON, OFF                                                        #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2012-11-27                                                    #
+# Author:  Rudradev Basak                                                      #
+#                                                                              #
+# Description: Test Cases of Dynamic System Variable "disable_working_set_size"#
+#              that checks behavior of this variable in the following ways     #
+#              * Default Value                                                 #
+#              * Valid & Invalid values                                        #
+#              * Scope & Access method                                         #
+#              * Data Integrity                                                #
+#                                                                              #
+################################################################################
+
+
+#################################################################
+#           START OF disable_working_set_size TESTS             #
+#################################################################
+
+
+###############################################################################
+#   Saving initial value of disable_working_set_size in a temporary variable  #
+###############################################################################
+
+SET @start_value = @@global.disable_working_set_size;
+SELECT @start_value;
+
+
+--echo '#---------------------FN_DYNVARS_004_01-------------------------#'
+###############################################
+#     Verify default value of variable        #
+###############################################
+
+SET @@global.disable_working_set_size = DEFAULT;
+SELECT @@global.disable_working_set_size = 0;
+
+
+--echo '#--------------------FN_DYNVARS_004_02------------------------#'
+#######################################################################
+#   Change the value of disable_working_set_size to a valid value     #
+#######################################################################
+
+SET @@global.disable_working_set_size = ON;
+SELECT @@global.disable_working_set_size;
+SET @@global.disable_working_set_size = OFF;
+SELECT @@global.disable_working_set_size;
+
+--echo '#--------------------FN_DYNVARS_004_03-------------------------#'
+#######################################################################
+#     Change the value of disable_working_set_size to invalid value   #
+#######################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.disable_working_set_size = '';
+
+
+--echo '#-------------------FN_DYNVARS_004_04----------------------------#'
+###################################################################
+#  Test if accessing session disable_working_set_size gives error #
+###################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.disable_working_set_size = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.disable_working_set_size;
+
+
+--echo '#----------------------FN_DYNVARS_004_05------------------------#'
+##############################################################################
+# Check if the value in GLOBAL Tables matches values in variable             #
+##############################################################################
+
+SELECT IF(@@global.disable_working_set_size, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='disable_working_set_size';
+
+
+--echo '#---------------------FN_DYNVARS_004_06----------------------#'
+###################################################################
+#          Check if 0 and 1 values can be used on variable        #
+###################################################################
+
+SET @@global.disable_working_set_size = 0;
+SELECT @@global.disable_working_set_size;
+SET @@global.disable_working_set_size = 1;
+SELECT @@global.disable_working_set_size;
+
+--echo '#---------------------FN_DYNVARS_004_07----------------------#'
+###################################################################
+#      Check if TRUE and FALSE values can be used on variable     #
+###################################################################
+
+SET @@global.disable_working_set_size = TRUE;
+SELECT @@global.disable_working_set_size;
+SET @@global.disable_working_set_size = FALSE;
+SELECT @@global.disable_working_set_size;
+
+--echo '#---------------------FN_DYNVARS_004_08----------------------#'
+##############################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points #
+#    to same session variable                                                #
+##############################################################################
+
+SET @@global.disable_working_set_size = ON;
+SELECT @@disable_working_set_size = @@global.disable_working_set_size;
+
+--echo '#---------------------FN_DYNVARS_004_09----------------------#'
+##############################################################################
+# Check if disable_working_set_size can be accessed with and without @@ sign #
+##############################################################################
+--Error ER_GLOBAL_VARIABLE
+SET disable_working_set_size = ON;
+--Error ER_PARSE_ERROR
+SET local.disable_working_set_size = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.disable_working_set_size;
+--Error ER_PARSE_ERROR
+SET global.disable_working_set_size = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.disable_working_set_size;
+--Error ER_BAD_FIELD_ERROR
+SELECT disable_working_set_size = @@session.disable_working_set_size;
+
+
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.disable_working_set_size = @start_value;
+SELECT @@global.disable_working_set_size;
+
+
+#####################################################
+#     END OF disable_working_set_size TESTS         #
+#####################################################
