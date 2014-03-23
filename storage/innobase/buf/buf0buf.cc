@@ -5340,6 +5340,13 @@ buf_stats_aggregate_pool_info(
 	total_info->old_lru_len += pool_info->old_lru_len;
 	total_info->free_list_len += pool_info->free_list_len;
 	total_info->flush_list_len += pool_info->flush_list_len;
+	if (pool_info->old_lru_retention > total_info->old_lru_retention) {
+		total_info->old_lru_retention = pool_info->old_lru_retention;
+	}
+	if (pool_info->young_lru_retention > total_info->young_lru_retention) {
+		total_info->young_lru_retention =
+			pool_info->young_lru_retention;
+	}
 	total_info->n_pend_unzip += pool_info->n_pend_unzip;
 	total_info->n_pend_reads += pool_info->n_pend_reads;
 	total_info->n_pending_flush_lru += pool_info->n_pending_flush_lru;
@@ -5393,9 +5400,13 @@ buf_stats_get_pool_info(
 	buf_pool_info_t*        pool_info;
 	time_t			current_time;
 	double			time_elapsed;
+	buf_page_t*		last_bpage;
+	buf_page_t*		last_young_bpage;
+	unsigned		current_time_ms;
 
 	/* Find appropriate pool_info to store stats for this buffer pool */
 	pool_info = &all_pool_info[pool_id];
+	current_time_ms = ut_time_ms();
 
 	buf_pool_mutex_enter(buf_pool);
 	buf_flush_list_mutex_enter(buf_pool);
@@ -5411,6 +5422,18 @@ buf_stats_get_pool_info(
 	pool_info->free_list_len = UT_LIST_GET_LEN(buf_pool->free);
 
 	pool_info->flush_list_len = UT_LIST_GET_LEN(buf_pool->flush_list);
+
+	last_bpage = UT_LIST_GET_LAST(buf_pool->LRU);
+	if (last_bpage) {
+		pool_info->old_lru_retention =
+			current_time_ms - last_bpage->access_time;
+	}
+
+	last_young_bpage = buf_pool->LRU_old;
+	if (last_young_bpage != NULL) {
+		pool_info->young_lru_retention =
+			current_time_ms - last_young_bpage->access_time;
+	}
 
 	pool_info->n_pend_unzip = UT_LIST_GET_LEN(buf_pool->unzip_LRU);
 
@@ -5540,6 +5563,8 @@ buf_print_io_instance(
 		"Database pages     %lu\n"
 		"Old database pages %lu\n"
 		"Modified db pages  %lu\n"
+		"Old lru retention (ms) %u\n"
+		"Young lru retention (ms) %u\n"
 		"Percent of dirty pages(LRU & free pages): %.3f\n"
 		"Max dirty pages percent: %.3f\n"
 		"Read ahead: %lu\n"
@@ -5554,6 +5579,8 @@ buf_print_io_instance(
 		pool_info->lru_len,
 		pool_info->old_lru_len,
 		pool_info->flush_list_len,
+		pool_info->old_lru_retention,
+		pool_info->young_lru_retention,
 		(((double) pool_info->flush_list_len) /
 		  (pool_info->lru_len + pool_info->free_list_len + 1.0)) * 100.0,
 		srv_max_buf_pool_modified_pct,
