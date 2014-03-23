@@ -1,0 +1,41 @@
+drop table if exists t1;
+SET @original_io_capacity = @@global.innodb_io_capacity;
+SELECT @original_io_capacity;
+@original_io_capacity
+200
+SET GLOBAL innodb_io_capacity = @@global.innodb_io_capacity_max;
+SELECT @@global.innodb_io_capacity;
+@@global.innodb_io_capacity
+2000
+SET @original_max_dirty_pages_pct = @@global.innodb_max_dirty_pages_pct;
+SELECT @original_max_dirty_pages_pct;
+@original_max_dirty_pages_pct
+75
+SET GLOBAL innodb_max_dirty_pages_pct = 1;
+SELECT @@global.innodb_max_dirty_pages_pct;
+@@global.innodb_max_dirty_pages_pct
+1.000000
+SET @original_idle_flush_pct = @@global.innodb_idle_flush_pct;
+SELECT @original_idle_flush_pct;
+@original_idle_flush_pct
+100
+SET GLOBAL innodb_idle_flush_pct = 100;
+SELECT @@global.innodb_idle_flush_pct;
+@@global.innodb_idle_flush_pct
+100
+create table t1 (a int auto_increment, b int, c varchar(255), primary key(a), key (b, c))
+engine=innodb;
+flush tables;
+SET GLOBAL innodb_io_capacity = @original_io_capacity;
+SELECT @@global.innodb_io_capacity;
+@@global.innodb_io_capacity
+200
+SET GLOBAL innodb_max_dirty_pages_pct = @original_max_dirty_pages_pct;
+SELECT @@global.innodb_max_dirty_pages_pct;
+@@global.innodb_max_dirty_pages_pct
+75.000000
+SET GLOBAL innodb_idle_flush_pct = @original_idle_flush_pct;
+SELECT @@global.innodb_idle_flush_pct;
+@@global.innodb_idle_flush_pct
+100
+drop table t1;
