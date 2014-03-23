@@ -718,7 +718,8 @@ typedef struct st_foreign_key_info FOREIGN_KEY_INFO;
 typedef bool (stat_print_fn)(THD *thd, const char *type, uint type_len,
                              const char *file, uint file_len,
                              const char *status, uint status_len);
-enum ha_stat_type { HA_ENGINE_STATUS, HA_ENGINE_LOGS, HA_ENGINE_MUTEX };
+enum ha_stat_type { HA_ENGINE_STATUS, HA_ENGINE_LOGS, HA_ENGINE_MUTEX,
+                    HA_ENGINE_TRX };
 extern st_plugin_int *hton2plugin[MAX_HA];
 
 /* Transaction log maintains type definitions */
