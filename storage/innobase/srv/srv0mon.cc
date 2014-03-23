@@ -1460,6 +1460,7 @@ srv_mon_process_existing_counter(
 	buf_pool_stat_t		stat;
 	buf_pools_list_size_t	buf_pools_list_size;
 	ulint			LRU_len;
+	ulint			old_LRU_len;
 	ulint			free_len;
 	ulint			flush_list_len;
 
@@ -1517,13 +1518,15 @@ srv_mon_process_existing_counter(
 
 	/* innodb_buffer_pool_pages_misc */
 	case MONITOR_OVLD_BUF_POOL_PAGE_MISC:
-		buf_get_total_list_len(&LRU_len, &free_len, &flush_list_len);
+		buf_get_total_list_len(
+			&LRU_len, &old_LRU_len, &free_len, &flush_list_len);
 		value = buf_pool_get_n_pages() - LRU_len - free_len;
 		break;
 
 	/* innodb_buffer_pool_pages_data */
 	case MONITOR_OVLD_BUF_POOL_PAGES_DATA:
-		buf_get_total_list_len(&LRU_len, &free_len, &flush_list_len);
+		buf_get_total_list_len(
+			&LRU_len, &old_LRU_len, &free_len, &flush_list_len);
 		value = LRU_len;
 		break;
 
@@ -1536,7 +1539,8 @@ srv_mon_process_existing_counter(
 
 	/* innodb_buffer_pool_pages_dirty */
 	case MONITOR_OVLD_BUF_POOL_PAGES_DIRTY:
-		buf_get_total_list_len(&LRU_len, &free_len, &flush_list_len);
+		buf_get_total_list_len(
+			&LRU_len, &old_LRU_len, &free_len, &flush_list_len);
 		value = flush_list_len;
 		break;
 
@@ -1548,7 +1552,8 @@ srv_mon_process_existing_counter(
 
 	/* innodb_buffer_pool_pages_free */
 	case MONITOR_OVLD_BUF_POOL_PAGES_FREE:
-		buf_get_total_list_len(&LRU_len, &free_len, &flush_list_len);
+		buf_get_total_list_len(
+			&LRU_len, &old_LRU_len, &free_len, &flush_list_len);
 		value = free_len;
 		break;
 

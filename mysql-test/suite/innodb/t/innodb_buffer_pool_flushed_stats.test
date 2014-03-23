@@ -1,0 +1,90 @@
+--source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+SET @original_io_capacity = @@global.innodb_io_capacity;
+SELECT @original_io_capacity;
+
+SET GLOBAL innodb_io_capacity = @@global.innodb_io_capacity_max;
+SELECT @@global.innodb_io_capacity;
+
+SET @original_max_dirty_pages_pct = @@global.innodb_max_dirty_pages_pct;
+SELECT @original_max_dirty_pages_pct;
+
+SET GLOBAL innodb_max_dirty_pages_pct = 1;
+SELECT @@global.innodb_max_dirty_pages_pct;
+
+SET @original_idle_flush_pct = @@global.innodb_idle_flush_pct;
+SELECT @original_idle_flush_pct;
+
+SET GLOBAL innodb_idle_flush_pct = 100;
+SELECT @@global.innodb_idle_flush_pct;
+
+create table t1 (a int auto_increment, b int, c varchar(255), primary key(a), key (b, c))
+engine=innodb;
+
+--disable_query_log
+insert into t1 (b, c) values(1, repeat('a', 255));
+let $i = 15;
+while ($i)
+{
+    --eval insert into t1 (b, c) values ($i, repeat('a', 255));
+    insert into t1 (b, c) select b, c from t1;
+    dec $i;
+}
+--enable_query_log
+
+flush tables;
+
+# Wait for the total number of dirty pages left in buffer pool is less than 50.
+# The above manipulations will generate about 3500 dirty pages if the page size
+# is 16KB (the number will be half if the page size is 32KB). Since this test
+# allow 5% error rate so maximum 50 dirty pages left in buffer pool will guarantee
+# that the error rate won't be more than 5%
+let $wait_condition =
+  SELECT (VARIABLE_VALUE < 50)
+  FROM information_schema.global_status
+  WHERE VARIABLE_NAME = 'innodb_buffer_pool_pages_dirty';
+--source include/wait_condition.inc
+
+
+let $n_flushed = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed", Value, 1);
+let $n_flushed_lru = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed_by_lru", Value, 1);
+let $n_flushed_list = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed_by_list", Value, 1);
+let $n_flushed_single_page = query_get_value (show global status like "Innodb_buffer_pool_pages_flushed_by_single_page", Value, 1);
+
+#
+# $n_flushed is a fuzzy counter with no thread protection, so not guaranteed
+# to be 100% accurate.
+#
+let $sum = `select $n_flushed_lru + $n_flushed_list + $n_flushed_single_page`;
+let $ratio = `select $n_flushed / $sum`;
+let $result = `select ($ratio >= 0.95) AND ($ratio <= 1.05)`;
+
+if (! $result)
+{
+    --echo n_flushed = $n_flushed
+    --echo n_flushed_lru = $n_flushed_lru
+    --echo n_flushed_list = $n_flushed_list
+    --echo n_flushed_single_page = $n_flushed_single_page
+
+    show global status like "Innodb_buffer_pool_pages_flushed";
+    show global status like "Innodb_buffer_pool_pages_flushed_by_lru";
+    show global status like "Innodb_buffer_pool_pages_flushed_by_list";
+    show global status like "Innodb_buffer_pool_pages_flushed_by_single_page";
+
+    die Sums of flush by types do not match flush total;
+}
+
+SET GLOBAL innodb_io_capacity = @original_io_capacity;
+SELECT @@global.innodb_io_capacity;
+
+SET GLOBAL innodb_max_dirty_pages_pct = @original_max_dirty_pages_pct;
+SELECT @@global.innodb_max_dirty_pages_pct;
+
+SET GLOBAL innodb_idle_flush_pct = @original_idle_flush_pct;
+SELECT @@global.innodb_idle_flush_pct;
+
+drop table t1;
