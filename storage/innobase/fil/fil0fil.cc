@@ -912,7 +912,7 @@ retry:
 
 		/* Flush tablespaces so that we can close modified
 		files in the LRU list */
-		fil_flush_file_spaces(FIL_TABLESPACE);
+		fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_OTHER);
 
 		os_thread_sleep(20000);
 
@@ -981,7 +981,7 @@ close_more:
 	/* Flush tablespaces so that we can close modified files in the LRU
 	list */
 
-	fil_flush_file_spaces(FIL_TABLESPACE);
+	fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_OTHER);
 
 	count++;
 
@@ -1550,6 +1550,11 @@ fil_init(
 	UT_LIST_INIT(fil_system->LRU);
 
 	fil_system->max_n_open = max_n_open;
+
+	for (int x = 0; x < FLUSH_FROM_NUMBER; ++x)
+	{
+		fil_system->flush_types[x] = 0;
+	}
 }
 
 /*******************************************************************//**
@@ -2948,7 +2953,7 @@ retry:
 
 		os_thread_sleep(20000);
 
-		fil_flush(id);
+		fil_flush(id, FLUSH_FROM_OTHER);
 
 		goto retry;
 
@@ -5163,7 +5168,7 @@ retry:
 	size_after_extend, *actual_size); */
 	mutex_exit(&fil_system->mutex);
 
-	fil_flush(space_id);
+	fil_flush(space_id, FLUSH_FROM_OTHER);
 
 	return(success);
 }
@@ -5800,8 +5805,9 @@ UNIV_INTERN
 void
 fil_flush(
 /*======*/
-	ulint	space_id)	/*!< in: file space id (this can be a group of
+	ulint	space_id,	/*!< in: file space id (this can be a group of
 				log files or a tablespace of the database) */
+	flush_from_t	from)	/*!< in: identifies the caller */
 {
 	fil_space_t*	space;
 	fil_node_t*	node;
@@ -5809,6 +5815,9 @@ fil_flush(
 
 
 	mutex_enter(&fil_system->mutex);
+
+	ut_a(from < FLUSH_FROM_NUMBER);
+	fil_system->flush_types[from]++;
 
 	space = fil_space_get_by_id(space_id);
 
@@ -5938,7 +5947,8 @@ UNIV_INTERN
 void
 fil_flush_file_spaces(
 /*==================*/
-	ulint	purpose)	/*!< in: FIL_TABLESPACE, FIL_LOG */
+	ulint		purpose,/*!< in: FIL_TABLESPACE, FIL_LOG */
+	flush_from_t	from)	/*!< in: identifies the caller */
 {
 	fil_space_t*	space;
 	ulint*		space_ids;
@@ -5979,7 +5989,7 @@ fil_flush_file_spaces(
 	a non-existing space id. */
 	for (i = 0; i < n_space_ids; i++) {
 
-		fil_flush(space_ids[i]);
+		fil_flush(space_ids[i], from);
 	}
 
 	mem_free(space_ids);
@@ -6554,5 +6564,14 @@ fil_print(
 /*=======*/
        FILE* file)     /* in: print results to this */
 {
-	/* left empty function body for future port of fsync caller stats */
+	fprintf(file,
+		"fsync callers: %lu buffer pool, %lu other, %lu checkpoint, "
+		"%lu log aio, %lu log sync, %lu archive, %lu doublwrite\n",
+		fil_system->flush_types[FLUSH_FROM_DIRTY_BUFFER],
+		fil_system->flush_types[FLUSH_FROM_OTHER],
+		fil_system->flush_types[FLUSH_FROM_CHECKPOINT],
+		fil_system->flush_types[FLUSH_FROM_LOG_IO_COMPLETE],
+		fil_system->flush_types[FLUSH_FROM_LOG_WRITE_UP_TO],
+		fil_system->flush_types[FLUSH_FROM_ARCHIVE],
+		fil_system->flush_types[FLUSH_FROM_DOUBLEWRITE]);
 }
