@@ -1275,7 +1275,8 @@ innodb_show_status(
 	handlerton*	hton,		/*!< in: the innodb handlerton */
 	THD*		thd,		/*!< in: the MySQL query thread of
 					the caller */
-	stat_print_fn*	stat_print);
+	stat_print_fn*	stat_print,
+	bool	transaction);	/*!< in: for SHOW INNODB TRANSACTION STATUS */
 /************************************************************************//**
 Return 0 on success and non-zero on failure. Note: the bool return type
 seems to be abused here, should be an int. */
@@ -12937,7 +12938,8 @@ innodb_show_status(
 /*===============*/
 	handlerton*	hton,	/*!< in: the innodb handlerton */
 	THD*		thd,	/*!< in: the MySQL query thread of the caller */
-	stat_print_fn*	stat_print)
+	stat_print_fn*	stat_print,
+	bool	transaction)	/*!< in: for SHOW INNODB TRANSACTION STATUS */
 {
 	trx_t*			trx;
 	bool			ret_val;
@@ -12967,7 +12969,11 @@ innodb_show_status(
 	mutex_enter(&srv_monitor_file_mutex);
 	rewind(srv_monitor_file);
 
-	srv_printf_innodb_monitor(srv_monitor_file, FALSE, FALSE);
+	if (transaction) {
+		srv_printf_innodb_transaction(srv_monitor_file);
+	} else {
+		srv_printf_innodb_monitor(srv_monitor_file, FALSE, FALSE);
+	}
 
 	os_file_set_eof(srv_monitor_file);
 
@@ -13175,11 +13181,14 @@ innobase_show_status(
 	switch (stat_type) {
 	case HA_ENGINE_STATUS:
 		/* Non-zero return value means there was an error. */
-		return(innodb_show_status(hton, thd, stat_print) != 0);
+		return(innodb_show_status(hton, thd, stat_print, false) != 0);
 
 	case HA_ENGINE_MUTEX:
 		/* Non-zero return value means there was an error. */
 		return(innodb_mutex_show_status(hton, thd, stat_print) != 0);
+
+	case HA_ENGINE_TRX:
+		return(innodb_show_status(hton, thd, stat_print, true) != 0);
 
 	case HA_ENGINE_LOGS:
 		/* Not handled */
