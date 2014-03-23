@@ -1,9 +1,12 @@
 {
   "project_id" : "mysql",
-  "conduit_uri" : "https://reviews.facebook.net/api/",
+  "conduit_uri" : "https://phabricator.fb.com/api/",
   "phutil_libraries" : {
-    "webscale-arcanist" : "arcanist/"
+    "fbcode-arcanist" : "arcanist/"
    },
-  "unit_engine" : "WebScaleSQLUnitTestEngine",
+  "unit_engine" : "FacebookFbcodeUnitTestEngine",
+  "events.listeners" : [
+    "FacebookDiffCreatedListener"
+  ],
   "git.default-relative-commit" : "HEAD^"
 }
