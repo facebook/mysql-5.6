@@ -12730,6 +12730,8 @@ show_engine_param:
           { Lex->sql_command= SQLCOM_SHOW_ENGINE_MUTEX; }
         | LOGS_SYM
           { Lex->sql_command= SQLCOM_SHOW_ENGINE_LOGS; }
+        | TRANSACTION_SYM STATUS_SYM
+          { Lex->sql_command= SQLCOM_SHOW_ENGINE_TRX; }
         ;
 
 master_or_binary:
