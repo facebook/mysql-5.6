@@ -135,6 +135,10 @@ struct buf_pool_info_t{
 	ulint	old_lru_len;		/*!< buf_pool->LRU_old_len */
 	ulint	free_list_len;		/*!< Length of buf_pool->free list */
 	ulint	flush_list_len;		/*!< Length of buf_pool->flush_list */
+	unsigned old_lru_retention;	/*!< Time elapsed from access to page
+					from lru tail */
+	unsigned young_lru_retention;	/*!< Time elapsed from access to last
+					page in young lru */
 	ulint	n_pend_unzip;		/*!< buf_pool->n_pend_unzip, pages
 					pending decompress */
 	ulint	n_pend_reads;		/*!< buf_pool->n_pend_reads, pages
