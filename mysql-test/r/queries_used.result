@@ -1,0 +1,52 @@
+drop table if exists t1;
+drop table if exists t2;
+flush statistics;
+create table t1 (i int primary key, j int);
+create table t2 (i int primary key, j int);
+grant all on *.* to 'countuse'@'%';
+select * from t1;
+i	j
+select * from t2;
+i	j
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+queries_used	table_name
+1	t1
+1	t2
+insert into t1 values (0,0) on duplicate key update j=j+1 MEMCACHE_DIRTY 'a';
+insert into t1 values (2,0) on duplicate key update j=j+1 MEMCACHE_DIRTY 'a', 'b';
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+queries_used	table_name
+3	t1
+1	t2
+replace into t1 values (0,3) MEMCACHE_DIRTY 'a';
+replace into t1 values (3,3) MEMCACHE_DIRTY 'a', 'b';
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+queries_used	table_name
+5	t1
+1	t2
+delete from t1 where i=0 MEMCACHE_DIRTY 'a';
+delete from t1 where i=1 MEMCACHE_DIRTY 'b', 'c';
+delete from t1 where i=7 MEMCACHE_DIRTY 'b', 'c';
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+queries_used	table_name
+8	t1
+1	t2
+t1 isn't marked as used because t2 is empty
+select count(*) from t1, t2 where t1.i = t2.i;
+count(*)
+0
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+queries_used	table_name
+8	t1
+2	t2
+insert into t2 values (0,0);
+select count(*) from t1, t2 where t1.i = t2.i;
+count(*)
+0
+select queries_used, table_name from information_schema.table_statistics where table_name in ('t1', 't2') order by table_name;
+queries_used	table_name
+9	t1
+4	t2
+drop table t1;
+drop table t2;
+drop user 'countuse'@'%';

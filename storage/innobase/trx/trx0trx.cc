@@ -145,6 +145,8 @@ trx_create(void)
 
 	trx->read_write = true;
 
+	memset(&trx->table_io_perf, 0, sizeof(trx->table_io_perf));
+
 	heap = mem_heap_create(sizeof(ib_vector_t) + sizeof(void*) * 8);
 	heap_alloc = ib_heap_allocator_create(heap);
 

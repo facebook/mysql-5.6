@@ -1569,6 +1569,7 @@ class THD;
 %token  STATS_AUTO_RECALC_SYM
 %token  STATS_PERSISTENT_SYM
 %token  STATS_SAMPLE_PAGES_SYM
+%token  STATISTICS_SYM
 %token  STATUS_SYM
 %token  STDDEV_SAMP_SYM               /* SQL-2003-N */
 %token  STD_SYM
@@ -12884,6 +12885,8 @@ flush_option:
           { Lex->type|= REFRESH_DES_KEY_FILE; }
         | RESOURCES
           { Lex->type|= REFRESH_USER_RESOURCES; }
+        | STATISTICS_SYM
+          { Lex->type|= REFRESH_STATISTICS; }
         ;
 
 opt_table_list:
@@ -14307,6 +14310,7 @@ keyword_sp:
         | STATS_AUTO_RECALC_SYM    {}
         | STATS_PERSISTENT_SYM     {}
         | STATS_SAMPLE_PAGES_SYM   {}
+        | STATISTICS_SYM           {}
         | STATUS_SYM               {}
         | STORAGE_SYM              {}
         | STRING_SYM               {}
