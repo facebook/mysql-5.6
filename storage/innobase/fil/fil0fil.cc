@@ -1396,10 +1396,16 @@ fil_space_create(
 	ib_mutex_t*	stats_mutex;
 	char		db_name[FN_LEN + 1];
 	char		table_name[FN_LEN + 1];
+	unsigned char db_stats_index;
 
 	DBUG_EXECUTE_IF("fil_space_create_failure", return(false););
 
 	parse_db_and_table(name, db_name, table_name, purpose, id);
+#ifdef XTRABACKUP
+	db_stats_index = 0;
+#else /* XTRABACKUP */
+	db_stats_index = get_db_stats_index(db_name);
+#endif /* XTRABACKUP */
 
 	ut_a(fil_system);
 	ut_a(fsp_flags_is_valid(flags));
@@ -1508,6 +1514,7 @@ fil_space_create(
 	space->stats.stats_next = NULL;
 
 	UT_LIST_ADD_LAST(space_list, fil_system->space_list, space);
+	space->stats.db_stats_index = db_stats_index;
 
 	mutex_exit(&fil_system->mutex);
 	stats_mutex = hash_get_mutex(fil_system->stats_hash, id);
