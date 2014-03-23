@@ -429,7 +429,45 @@ buf_get_total_stat(
 		buf_stat = &buf_pool->stat;
 		tot_stat->n_page_gets += buf_stat->n_page_gets;
 		tot_stat->n_pages_read += buf_stat->n_pages_read;
-		tot_stat->n_pages_written += buf_stat->n_pages_written;
+		tot_stat->n_pages_read_index += buf_stat->n_pages_read_index;
+		tot_stat->n_pages_read_undo_log += buf_stat->n_pages_read_undo_log;
+		tot_stat->n_pages_read_inode += buf_stat->n_pages_read_inode;
+		tot_stat->n_pages_read_ibuf_free_list +=
+			buf_stat->n_pages_read_ibuf_free_list;
+		tot_stat->n_pages_read_allocated +=
+			buf_stat->n_pages_read_allocated;
+		tot_stat->n_pages_read_ibuf_bitmap +=
+			buf_stat->n_pages_read_ibuf_bitmap;
+		tot_stat->n_pages_read_sys +=
+			buf_stat->n_pages_read_sys;
+		tot_stat->n_pages_read_trx_sys +=
+			buf_stat->n_pages_read_trx_sys;
+		tot_stat->n_pages_read_fsp_hdr +=
+			buf_stat->n_pages_read_fsp_hdr;
+		tot_stat->n_pages_read_xdes +=
+			buf_stat->n_pages_read_xdes;
+		tot_stat->n_pages_read_blob +=
+			buf_stat->n_pages_read_blob;
+		tot_stat->n_pages_written +=
+			buf_stat->n_pages_written;
+		tot_stat->n_pages_written_index +=
+			buf_stat->n_pages_written_index;
+		tot_stat->n_pages_written_undo_log +=
+			buf_stat->n_pages_written_undo_log;
+		tot_stat->n_pages_written_inode +=
+			buf_stat->n_pages_written_inode;
+		tot_stat->n_pages_written_ibuf_free_list +=
+			buf_stat->n_pages_written_ibuf_free_list;
+		tot_stat->n_pages_written_allocated +=
+			buf_stat->n_pages_written_allocated;
+		tot_stat->n_pages_written_ibuf_bitmap +=
+			buf_stat->n_pages_written_ibuf_bitmap;
+		tot_stat->n_pages_written_sys += buf_stat->n_pages_written_sys;
+		tot_stat->n_pages_written_trx_sys += buf_stat->n_pages_written_trx_sys;
+		tot_stat->n_pages_written_fsp_hdr += buf_stat->n_pages_written_fsp_hdr;
+		tot_stat->n_pages_written_xdes += buf_stat->n_pages_written_xdes;
+		tot_stat->n_pages_written_blob += buf_stat->n_pages_written_blob;
+
 		tot_stat->n_pages_created += buf_stat->n_pages_created;
 		tot_stat->n_ra_pages_read_rnd += buf_stat->n_ra_pages_read_rnd;
 		tot_stat->n_ra_pages_read += buf_stat->n_ra_pages_read;
@@ -4200,6 +4238,7 @@ buf_page_io_complete(
 	buf_pool_t*	buf_pool = buf_pool_from_bpage(bpage);
 	const ibool	uncompressed = (buf_page_get_state(bpage)
 					== BUF_BLOCK_FILE_PAGE);
+	byte*	frame = NULL;
 
 	ut_a(buf_page_in_file(bpage));
 
@@ -4215,7 +4254,6 @@ buf_page_io_complete(
 	if (io_type == BUF_IO_READ) {
 		ulint	read_page_no;
 		ulint	read_space_id;
-		byte*	frame;
 
 		if (buf_page_get_zip_size(bpage)) {
 			frame = bpage->zip.data;
@@ -4358,6 +4396,14 @@ corrupt:
 				TRUE);
 		}
 	}
+	else {
+		if (buf_page_get_zip_size(bpage)) {
+			frame = bpage->zip.data;
+		}
+		else {
+			frame = ((buf_block_t*) bpage)->frame;
+		}
+	}
 
 	buf_pool_mutex_enter(buf_pool);
 	mutex_enter(buf_page_get_mutex(bpage));
@@ -4388,6 +4434,43 @@ corrupt:
 		buf_pool->n_pend_reads--;
 		buf_pool->stat.n_pages_read++;
 
+		switch (fil_page_get_type(frame)) {
+			case FIL_PAGE_INDEX:
+				buf_pool->stat.n_pages_read_index++;
+				break;
+			case FIL_PAGE_UNDO_LOG:
+				buf_pool->stat.n_pages_read_undo_log++;
+				break;
+			case FIL_PAGE_INODE:
+				buf_pool->stat.n_pages_read_inode++;
+				break;
+			case FIL_PAGE_IBUF_FREE_LIST:
+				buf_pool->stat.n_pages_read_ibuf_free_list++;
+				break;
+			case FIL_PAGE_TYPE_ALLOCATED:
+				buf_pool->stat.n_pages_read_allocated++;
+				break;
+			case FIL_PAGE_IBUF_BITMAP:
+				buf_pool->stat.n_pages_read_ibuf_bitmap++;
+				break;
+			case FIL_PAGE_TYPE_SYS:
+				buf_pool->stat.n_pages_read_sys++;
+				break;
+			case FIL_PAGE_TYPE_TRX_SYS:
+				buf_pool->stat.n_pages_read_trx_sys++;
+				break;
+			case FIL_PAGE_TYPE_FSP_HDR:
+				buf_pool->stat.n_pages_read_fsp_hdr++;
+				break;
+			case FIL_PAGE_TYPE_XDES:
+				buf_pool->stat.n_pages_read_xdes++;
+				break;
+			case FIL_PAGE_TYPE_BLOB:
+			case FIL_PAGE_TYPE_ZBLOB:
+			case FIL_PAGE_TYPE_ZBLOB2:
+				buf_pool->stat.n_pages_read_blob++;
+				break;
+		}
 		if (uncompressed) {
 			rw_lock_x_unlock_gen(&((buf_block_t*) bpage)->lock,
 					     BUF_IO_READ);
@@ -4409,6 +4492,44 @@ corrupt:
 		}
 
 		buf_pool->stat.n_pages_written++;
+
+		switch (fil_page_get_type(frame)) {
+			case FIL_PAGE_INDEX:
+				buf_pool->stat.n_pages_written_index++;
+				break;
+			case FIL_PAGE_UNDO_LOG:
+				buf_pool->stat.n_pages_written_undo_log++;
+				break;
+			case FIL_PAGE_INODE:
+				buf_pool->stat.n_pages_written_inode++;
+				break;
+			case FIL_PAGE_IBUF_FREE_LIST:
+				buf_pool->stat.n_pages_written_ibuf_free_list++;
+				break;
+			case FIL_PAGE_TYPE_ALLOCATED:
+				buf_pool->stat.n_pages_written_allocated++;
+				break;
+			case FIL_PAGE_IBUF_BITMAP:
+				buf_pool->stat.n_pages_written_ibuf_bitmap++;
+				break;
+			case FIL_PAGE_TYPE_SYS:
+				buf_pool->stat.n_pages_written_sys++;
+				break;
+			case FIL_PAGE_TYPE_TRX_SYS:
+				buf_pool->stat.n_pages_written_trx_sys++;
+				break;
+			case FIL_PAGE_TYPE_FSP_HDR:
+				buf_pool->stat.n_pages_written_fsp_hdr++;
+				break;
+			case FIL_PAGE_TYPE_XDES:
+				buf_pool->stat.n_pages_written_xdes++;
+				break;
+			case FIL_PAGE_TYPE_BLOB:
+			case FIL_PAGE_TYPE_ZBLOB:
+			case FIL_PAGE_TYPE_ZBLOB2:
+				buf_pool->stat.n_pages_written_blob++;
+				break;
+		}
 
 		/* In case of flush batches i.e.: BUF_FLUSH_LIST and
 		BUF_FLUSH_LRU this function is always called from IO
