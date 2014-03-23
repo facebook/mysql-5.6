@@ -251,6 +251,7 @@ typedef struct fil_stats_struct {
 	ibool		used;		/*!< cleared by fil_update_table_stats
 					and set by fil_io */
 	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
+	unsigned char db_stats_index;
 } fil_stats_t;
 
 /** Value of fil_stats_struct::magic_n */
