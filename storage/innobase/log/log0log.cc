@@ -1192,7 +1192,7 @@ log_io_complete(
 		if (srv_unix_file_flush_method != SRV_UNIX_O_DSYNC
 		    && srv_unix_file_flush_method != SRV_UNIX_NOSYNC) {
 
-			fil_flush(group->space_id);
+			fil_flush(group->space_id, FLUSH_FROM_LOG_IO_COMPLETE);
 		}
 
 #ifdef UNIV_DEBUG
@@ -1214,7 +1214,7 @@ log_io_complete(
 	    && srv_unix_file_flush_method != SRV_UNIX_NOSYNC
 	    && srv_flush_log_at_trx_commit != 2) {
 
-		fil_flush(group->space_id);
+		fil_flush(group->space_id, FLUSH_FROM_LOG_IO_COMPLETE);
 	}
 
 	mutex_enter(&(log_sys->mutex));
@@ -1622,7 +1622,7 @@ loop:
 
 		group = UT_LIST_GET_FIRST(log_sys->log_groups);
 
-		fil_flush(group->space_id);
+		fil_flush(group->space_id, FLUSH_FROM_LOG_WRITE_UP_TO);
 		log_sys->flushed_to_disk_lsn = log_sys->write_lsn;
 		log_sys->n_syncs++;
 		log_sys->log_sync_syncers[caller]++;
@@ -2112,7 +2112,7 @@ log_checkpoint(
 	}
 
 	if (srv_unix_file_flush_method != SRV_UNIX_NOSYNC) {
-		fil_flush_file_spaces(FIL_TABLESPACE);
+		fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_CHECKPOINT);
 	}
 
 	mutex_enter(&(log_sys->mutex));
@@ -2748,7 +2748,7 @@ log_io_complete_archive(void)
 
 	mutex_exit(&(log_sys->mutex));
 
-	fil_flush(group->archive_space_id);
+	fil_flush(group->archive_space_id, FLUSH_FROM_ARCHIVE);
 
 	mutex_enter(&(log_sys->mutex));
 
@@ -3462,8 +3462,8 @@ loop:
 	}
 
 	if (!srv_read_only_mode) {
-		fil_flush_file_spaces(FIL_TABLESPACE);
-		fil_flush_file_spaces(FIL_LOG);
+		fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_OTHER);
+		fil_flush_file_spaces(FIL_LOG, FLUSH_FROM_OTHER);
 	}
 
 	/* The call fil_write_flushed_lsn_to_data_files() will pass the buffer
@@ -3505,7 +3505,7 @@ loop:
 	if (!srv_read_only_mode) {
 		fil_write_flushed_lsn_to_data_files(lsn, arch_log_no);
 
-		fil_flush_file_spaces(FIL_TABLESPACE);
+		fil_flush_file_spaces(FIL_TABLESPACE, FLUSH_FROM_OTHER);
 	}
 
 	fil_close_all_files();
