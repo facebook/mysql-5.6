@@ -1004,9 +1004,14 @@ buf_flush_page(
 		}
 
 		++buf_pool->n_flush[flush_type];
+		++buf_pool->n_flushed[flush_type];
 
 		mutex_exit(block_mutex);
 		buf_pool_mutex_exit(buf_pool);
+
+		/* update the counter of total number of flushed pages
+		after releasing the buffer pool mutex. */
+		srv_stats.buf_pool_flushed.add(1);
 
 		if (flush_type == BUF_FLUSH_LIST
 		    && is_uncompressed
@@ -1054,8 +1059,9 @@ buf_flush_page_try(
 
 	/* The following call will release the buffer pool and
 	block mutex. */
-	return(buf_flush_page(
-			buf_pool, &block->page, BUF_FLUSH_SINGLE_PAGE, true));
+	bool ret = buf_flush_page(
+			buf_pool, &block->page, BUF_FLUSH_SINGLE_PAGE, true);
+	return(ret);
 }
 # endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
 /***********************************************************//**
@@ -1661,8 +1667,6 @@ buf_flush_common(
 			(ulong) page_count);
 	}
 #endif /* UNIV_DEBUG */
-
-	srv_stats.buf_pool_flushed.add(page_count);
 }
 
 /******************************************************************//**

@@ -1349,11 +1349,13 @@ srv_export_innodb_status(void)
 	buf_pool_stat_t		stat;
 	buf_pools_list_size_t	buf_pools_list_size;
 	ulint			LRU_len;
+	ulint			old_LRU_len;
 	ulint			free_len;
 	ulint			flush_list_len;
 
 	buf_get_total_stat(&stat);
-	buf_get_total_list_len(&LRU_len, &free_len, &flush_list_len);
+	buf_get_total_list_len(
+		&LRU_len, &old_LRU_len, &free_len, &flush_list_len);
 	buf_get_total_list_size_in_bytes(&buf_pools_list_size);
 
 	mutex_enter(&srv_innodb_monitor_mutex);
@@ -1377,6 +1379,16 @@ srv_export_innodb_status(void)
 	export_vars.innodb_data_writes = os_n_file_writes;
 
 	export_vars.innodb_data_written = srv_stats.data_written;
+
+	export_vars.innodb_buffer_pool_flushed_lru = stat.n_flushed_lru;
+
+	export_vars.innodb_buffer_pool_flushed_list = stat.n_flushed_list;
+
+	export_vars.innodb_buffer_pool_flushed_page =
+		stat.n_flushed_single_page;
+
+	export_vars.innodb_buffer_pool_pct_dirty =
+		(((double) flush_list_len) / (LRU_len + 1.0)) * 100.0;
 
 	export_vars.innodb_buffer_pool_read_requests = stat.n_page_gets;
 
@@ -1418,6 +1430,8 @@ srv_export_innodb_status(void)
 		buf_get_latched_pages_number();
 #endif /* UNIV_DEBUG */
 	export_vars.innodb_buffer_pool_pages_total = buf_pool_get_n_pages();
+
+	export_vars.innodb_buffer_pool_pages_lru_old = old_LRU_len;
 
 	export_vars.innodb_buffer_pool_pages_misc =
 		buf_pool_get_n_pages() - LRU_len - free_len;
