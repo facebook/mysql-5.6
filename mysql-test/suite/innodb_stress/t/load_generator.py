@@ -304,8 +304,6 @@ class Worker(threading.Thread):
           cur.execute("SELECT id, msg_prefix FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
           res = cur.fetchall()
           self.num_secondary_only_select += 1
-          # have to continue to next iteration since we arn't fetching other data
-          continue
         if res:
           self.validate_msg(res[0], res[1], res[2], res[3], idx)
 
@@ -374,6 +372,50 @@ class Worker(threading.Thread):
     except Exception, e:
       print >> self.log, "commit error %s" % e
 
+
+class DefragmentWorker(threading.Thread):
+  global LG_TMP_DIR
+  def __init__(self, con):
+    threading.Thread.__init__(self)
+    self.num_defragment = 0
+    self.con = con
+    self.con.autocommit(True)
+    self.log = open('/%s/worker-defragment.log' % LG_TMP_DIR, 'a')
+    self.start_time = time.time()
+    self.daemon = True
+    self.start()
+
+  def run(self):
+    try:
+      self.runme()
+      print >> self.log, "ok"
+    except Exception, e:
+      try:
+        cursor = self.con.cursor()
+        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
+      except MySQLdb.Error, e2:
+        print >> self.log, "caught while inserting error (%s)" % e2
+
+      print >> self.log, "caught (%s)" % e
+    finally:
+      self.finish()
+
+  def finish(self):
+    print >> self.log, "defragment ran %d times" % self.num_defragment
+    print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
+    self.log.close()
+    self.con.close()
+
+  def runme(self):
+    print >> self.log, "defragmentation thread started"
+    cur = self.con.cursor()
+    while True:
+      print >> self.log, "defrag"
+      cur.execute("ALTER TABLE t1 DEFRAGMENT")
+      time.sleep(random.randint(0, 10))
+      self.num_defragment += 1
+
+
 if  __name__ == '__main__':
   global LG_TMP_DIR
 
@@ -422,6 +464,7 @@ if  __name__ == '__main__':
                     server_pid, do_blob, max_id, fake_changes, secondary_checks)
     workers.append(worker)
 
+  defrag_worker = DefragmentWorker(MySQLdb.connect(user=user, host=host, port=port, db=db))
   if kill_db_after:
     print >> log, "kill mysqld"
     time.sleep(kill_db_after)
