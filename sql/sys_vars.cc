@@ -3165,6 +3165,12 @@ static Sys_var_mybool Sys_timed_mutexes(
        "supported)",
        GLOBAL_VAR(timed_mutexes), CMD_LINE(OPT_ARG), DEFAULT(0));
 
+static Sys_var_mybool Sys_disable_working_set_size(
+       "disable_working_set_size",
+       "Do not maintain working set size if on",
+       GLOBAL_VAR(opt_disable_working_set_size), CMD_LINE(OPT_ARG),
+       DEFAULT(0));
+
 static char *server_version_ptr;
 static Sys_var_charptr Sys_version(
        "version", "Server version",
@@ -3196,6 +3202,12 @@ static Sys_var_ulong Sys_net_wait_timeout(
        SESSION_VAR(net_wait_timeout_seconds), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(1, IF_WIN(INT_MAX32/1000, LONG_TIMEOUT)),
        DEFAULT(NET_WAIT_TIMEOUT), BLOCK_SIZE(1));
+
+static Sys_var_ulong Sys_working_duration(
+       "working_duration",
+       "The period of time for which we want working set size statistics",
+       SESSION_VAR(working_duration), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, 1<<30), DEFAULT(3600), BLOCK_SIZE(1));
 
 static Sys_var_plugin Sys_default_storage_engine(
        "default_storage_engine", "The default storage engine for new tables",
