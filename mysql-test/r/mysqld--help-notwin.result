@@ -197,6 +197,8 @@ The following options may be given as the first argument:
  client that does INSERT DELAYED will wait until there is
  room in the queue again.This variable is deprecated along
  with INSERT DELAYED.
+ --disable-working-set-size 
+ Do not maintain working set size if on
  --disconnect-on-expired-password 
  Give clients that don't signal password expiration
  support execution time error(s) instead of connection
@@ -1048,6 +1050,9 @@ The following options may be given as the first argument:
  -V, --version       Output version information and exit.
  --wait-timeout=#    The number of seconds the server waits for activity on a
  connection before closing it
+ --working-duration=# 
+ The period of time for which we want working set size
+ statistics
  --write-query-throttling-limit[=#] 
  Start throttling writes if running mutation queries high.
 
@@ -1098,6 +1103,7 @@ delay-key-write ON
 delayed-insert-limit 100
 delayed-insert-timeout 300
 delayed-queue-size 1000
+disable-working-set-size FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
 div-precision-increment 4
@@ -1352,6 +1358,7 @@ updatable-views-with-limit YES
 validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
+working-duration 3600
 write-query-throttling-limit 0
 
 To see what values a running MySQL server is using, type

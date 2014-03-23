@@ -260,6 +260,7 @@ extern ulonglong log_output_options;
 extern ulong log_backup_output_options;
 extern my_bool opt_log_queries_not_using_indexes;
 extern ulong opt_log_throttle_queries_not_using_indexes;
+extern my_bool opt_disable_working_set_size;
 extern bool opt_disable_networking, opt_skip_show_db;
 extern bool opt_skip_name_resolve;
 extern bool opt_ignore_builtin_innodb;
@@ -555,6 +556,11 @@ static inline void my_io_perf_sum_atomic_helper(
 struct TABLE;
 struct st_table_stats* get_table_stats(TABLE *table,
                                        struct handlerton *engine_type);
+
+unsigned char get_db_stats_index(const char* db);
+void update_global_db_stats_access(unsigned char db_stats_index,
+                                   uint64 space,
+                                   uint64 offset);
 
 /*Move UUID_LENGTH from item_strfunc.h*/
 #define UUID_LENGTH (8+1+4+1+4+1+4+1+12)
@@ -1029,6 +1035,7 @@ enum options_mysqld
   OPT_CONSOLE,
   OPT_DEBUG_SYNC_TIMEOUT,
   OPT_DELAY_KEY_WRITE_ALL,
+  OPT_DISABLE_WORKING_SET_SIZE,
   OPT_ISAM_LOG,
   OPT_IGNORE_DB_DIRECTORY,
   OPT_KEY_BUFFER_SIZE,
@@ -1216,5 +1223,12 @@ inline THD *_current_thd(void)
 #define current_thd _current_thd()
 
 extern const char *MY_BIND_ALL_ADDRESSES;
+
+/*
+  Implementation of a Substitution Box (S-Box) hash using 256 values
+  Ideal for use in generating uniform hashes (CRC32 is very unsuitable
+  for use as a uniform hash)
+*/
+uint32 my_sbox_hash(const uchar* data, ulong length);
 
 #endif /* MYSQLD_INCLUDED */

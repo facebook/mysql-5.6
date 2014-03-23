@@ -1,0 +1,94 @@
+SET @start_value = @@global.disable_working_set_size;
+SELECT @start_value;
+@start_value
+0
+'#---------------------FN_DYNVARS_004_01-------------------------#'
+SET @@global.disable_working_set_size = DEFAULT;
+SELECT @@global.disable_working_set_size = 0;
+@@global.disable_working_set_size = 0
+1
+'#--------------------FN_DYNVARS_004_02------------------------#'
+SET @@global.disable_working_set_size = ON;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+1
+SET @@global.disable_working_set_size = OFF;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+0
+'#--------------------FN_DYNVARS_004_03-------------------------#'
+SET @@global.disable_working_set_size = 2;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of '2'
+SET @@global.disable_working_set_size = -1;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of '-1'
+SET @@global.disable_working_set_size = TRUEF;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of 'TRUEF'
+SET @@global.disable_working_set_size = TRUE_F;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of 'TRUE_F'
+SET @@global.disable_working_set_size = FALSE0;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of 'FALSE0'
+SET @@global.disable_working_set_size = OON;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of 'OON'
+SET @@global.disable_working_set_size = ONN;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of 'ONN'
+SET @@global.disable_working_set_size = OOFF;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of 'OOFF'
+SET @@global.disable_working_set_size = 0FF;
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of '0FF'
+SET @@global.disable_working_set_size = ' ';
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of ' '
+SET @@global.disable_working_set_size = " ";
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of ' '
+SET @@global.disable_working_set_size = '';
+ERROR 42000: Variable 'disable_working_set_size' can't be set to the value of ''
+'#-------------------FN_DYNVARS_004_04----------------------------#'
+SET @@session.disable_working_set_size = OFF;
+ERROR HY000: Variable 'disable_working_set_size' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.disable_working_set_size;
+ERROR HY000: Variable 'disable_working_set_size' is a GLOBAL variable
+'#----------------------FN_DYNVARS_004_05------------------------#'
+SELECT IF(@@global.disable_working_set_size, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='disable_working_set_size';
+IF(@@global.disable_working_set_size, "ON", "OFF") = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_004_06----------------------#'
+SET @@global.disable_working_set_size = 0;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+0
+SET @@global.disable_working_set_size = 1;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+1
+'#---------------------FN_DYNVARS_004_07----------------------#'
+SET @@global.disable_working_set_size = TRUE;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+1
+SET @@global.disable_working_set_size = FALSE;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+0
+'#---------------------FN_DYNVARS_004_08----------------------#'
+SET @@global.disable_working_set_size = ON;
+SELECT @@disable_working_set_size = @@global.disable_working_set_size;
+@@disable_working_set_size = @@global.disable_working_set_size
+1
+'#---------------------FN_DYNVARS_004_09----------------------#'
+SET disable_working_set_size = ON;
+ERROR HY000: Variable 'disable_working_set_size' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.disable_working_set_size = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'disable_working_set_size = OFF' at line 1
+SELECT local.disable_working_set_size;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.disable_working_set_size = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'disable_working_set_size = ON' at line 1
+SELECT global.disable_working_set_size;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT disable_working_set_size = @@session.disable_working_set_size;
+ERROR 42S22: Unknown column 'disable_working_set_size' in 'field list'
+SET @@global.disable_working_set_size = @start_value;
+SELECT @@global.disable_working_set_size;
+@@global.disable_working_set_size
+0
