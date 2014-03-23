@@ -7618,13 +7618,7 @@ alter_commands:
             if (Lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
-        | DEFRAGMENT_SYM
-          {
-            Lex->m_sql_cmd= new (YYTHD->mem_root)
-              Sql_cmd_defragment_table();
-            if (Lex->m_sql_cmd == NULL)
-              MYSQL_YYABORT;
-          }
+        | defragment
         | alter_list
           opt_partitioning
         | alter_list
@@ -7844,6 +7838,15 @@ alt_part_name_item:
 /*
   End of management of partition commands
 */
+
+defragment:
+          DEFRAGMENT_SYM opt_async_commit
+          {
+            Lex->m_sql_cmd= new (YYTHD->mem_root)
+              Sql_cmd_defragment_table();
+            if (Lex->m_sql_cmd == NULL)
+              MYSQL_YYABORT;
+          }
 
 alter_list:
           alter_list_item
