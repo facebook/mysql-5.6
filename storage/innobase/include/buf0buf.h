@@ -1927,7 +1927,54 @@ struct buf_pool_stat_t{
 				is NOT protected by the buffer
 				pool mutex */
 	ulint	n_pages_read;	/*!< number read operations */
+	ulint n_pages_read_index;/*!< number read operations
+				      of FIL_PAGE_INDEX pages*/
+	ulint n_pages_read_undo_log;/*!< number read operations
+					 FIL_PAGE_UNDO_LOG pages*/
+	ulint n_pages_read_inode;/*!< number read operations
+				      FIL_PAGE_INODE pages*/
+	ulint n_pages_read_ibuf_free_list;/*!< number read operations
+					       FIL_PAGE_IBUF_FREE_LIST pages*/
+	ulint n_pages_read_allocated;/*!< number read operations
+					  FIL_PAGE_TYPE_ALLOCATED pages*/
+	ulint n_pages_read_ibuf_bitmap;/*!< number read operations
+					    FIL_PAGE_IBUF_BITMAP pages*/
+	ulint n_pages_read_sys;/*!< number read operations
+				    FIL_PAGE_TYPE_SYS pages*/
+	ulint n_pages_read_trx_sys;/*!< number read operations
+					FIL_PAGE_TYPE_TRX_SYS pages*/
+	ulint n_pages_read_fsp_hdr;/*!< number read operations
+					FIL_PAGE_TYPE_FSP_HDR pages*/
+	ulint n_pages_read_xdes;/*!< number read operations
+				     FIL_PAGE_TYPE_XDES pages*/
+	ulint n_pages_read_blob;/*!< number read operations FIL_PAGE_TYPE_BLOB,
+				     FIL_PAGE_TYPE_ZBLOB and
+				     FIL_PAGE_TYPE_ZBLOB2 pages*/
 	ulint	n_pages_written;/*!< number write operations */
+	ulint n_pages_written_index;/*!< number write operations of
+					 FIL_PAGE_INDEX pages*/
+	ulint n_pages_written_undo_log;/*!< number write operations
+					    FIL_PAGE_UNDO_LOG pages*/
+	ulint n_pages_written_inode;/*!< number write operations
+					 FIL_PAGE_INODE pages*/
+	ulint n_pages_written_ibuf_free_list;/*!< number write operations
+						  FIL_PAGE_IBUF_FREE_LIST
+						  pages*/
+	ulint n_pages_written_allocated; /*!< number write operations
+					      FIL_PAGE_TYPE_ALLOCATED pages*/
+	ulint n_pages_written_ibuf_bitmap; /*!< number write operations
+						FIL_PAGE_IBUF_BITMAP pages*/
+	ulint n_pages_written_sys; /*!< number write operations
+					FIL_PAGE_TYPE_SYS pages*/
+	ulint n_pages_written_trx_sys; /*!< number write operations
+					    FIL_PAGE_TYPE_TRX_SYS pages*/
+	ulint n_pages_written_fsp_hdr; /*!< number write operations
+					    FIL_PAGE_TYPE_FSP_HDR pages*/
+	ulint n_pages_written_xdes; /*!< number write operations
+					 FIL_PAGE_TYPE_XDES pages*/
+	ulint n_pages_written_blob;/*!< number write operations
+					FIL_PAGE_TYPE_BLOB, FIL_PAGE_TYPE_ZBLOB
+					and FIL_PAGE_TYPE_ZBLOB2 pages*/
 	ulint	n_pages_created;/*!< number of pages created
 				in the pool with no read */
 	ulint	n_ra_pages_read_rnd;/*!< number of pages read in

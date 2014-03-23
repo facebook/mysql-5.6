@@ -1634,8 +1634,36 @@ srv_export_innodb_status(void)
 	export_vars.innodb_pages_created = stat.n_pages_created;
 
 	export_vars.innodb_pages_read = stat.n_pages_read;
+	export_vars.innodb_pages_read_index = stat.n_pages_read_index;
+	export_vars.innodb_pages_read_undo_log = stat.n_pages_read_undo_log;
+	export_vars.innodb_pages_read_inode = stat.n_pages_read_inode;
+	export_vars.innodb_pages_read_ibuf_free_list =
+		stat.n_pages_read_ibuf_free_list;
+	export_vars.innodb_pages_read_allocated = stat.n_pages_read_allocated;
+	export_vars.innodb_pages_read_ibuf_bitmap =
+		stat.n_pages_read_ibuf_bitmap;
+	export_vars.innodb_pages_read_sys = stat.n_pages_read_sys;
+	export_vars.innodb_pages_read_trx_sys = stat.n_pages_read_trx_sys;
+	export_vars.innodb_pages_read_fsp_hdr = stat.n_pages_read_fsp_hdr;
+	export_vars.innodb_pages_read_xdes = stat.n_pages_read_xdes;
+	export_vars.innodb_pages_read_blob = stat.n_pages_read_blob;
 
 	export_vars.innodb_pages_written = stat.n_pages_written;
+	export_vars.innodb_pages_written_index = stat.n_pages_written_index;
+	export_vars.innodb_pages_written_undo_log =
+		stat.n_pages_written_undo_log;
+	export_vars.innodb_pages_written_inode = stat.n_pages_written_inode;
+	export_vars.innodb_pages_written_ibuf_free_list =
+		stat.n_pages_written_ibuf_free_list;
+	export_vars.innodb_pages_written_allocated =
+		stat.n_pages_written_allocated;
+	export_vars.innodb_pages_written_ibuf_bitmap =
+		stat.n_pages_written_ibuf_bitmap;
+	export_vars.innodb_pages_written_sys = stat.n_pages_written_sys;
+	export_vars.innodb_pages_written_trx_sys = stat.n_pages_written_trx_sys;
+	export_vars.innodb_pages_written_fsp_hdr = stat.n_pages_written_fsp_hdr;
+	export_vars.innodb_pages_written_xdes = stat.n_pages_written_xdes;
+	export_vars.innodb_pages_written_blob = stat.n_pages_written_blob;
 
 	export_vars.innodb_purge_pending = trx_sys->rseg_history_len;
 

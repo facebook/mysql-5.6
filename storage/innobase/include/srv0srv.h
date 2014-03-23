@@ -958,7 +958,29 @@ struct export_var_t{
 	ulint innodb_page_size;			/*!< UNIV_PAGE_SIZE */
 	ulint innodb_pages_created;		/*!< buf_pool->stat.n_pages_created */
 	ulint innodb_pages_read;		/*!< buf_pool->stat.n_pages_read */
+	ulint innodb_pages_read_index;
+	ulint innodb_pages_read_undo_log;
+	ulint innodb_pages_read_inode;
+	ulint innodb_pages_read_ibuf_free_list;
+	ulint innodb_pages_read_allocated;
+	ulint innodb_pages_read_ibuf_bitmap;
+	ulint innodb_pages_read_sys;
+	ulint innodb_pages_read_trx_sys;
+	ulint innodb_pages_read_fsp_hdr;
+	ulint innodb_pages_read_xdes;
+	ulint innodb_pages_read_blob;
 	ulint innodb_pages_written;		/*!< buf_pool->stat.n_pages_written */
+	ulint innodb_pages_written_index;
+	ulint innodb_pages_written_undo_log;
+	ulint innodb_pages_written_inode;
+	ulint innodb_pages_written_ibuf_free_list;
+	ulint innodb_pages_written_allocated;
+	ulint innodb_pages_written_ibuf_bitmap;
+	ulint innodb_pages_written_sys;
+	ulint innodb_pages_written_trx_sys;
+	ulint innodb_pages_written_fsp_hdr;
+	ulint innodb_pages_written_xdes;
+	ulint innodb_pages_written_blob;
 	ulint innodb_purge_pending;		/*!< trx_sys->rseg_history_len */
 	ulint innodb_row_lock_waits;		/*!< srv_n_lock_wait_count */
 	ulint innodb_row_lock_current_waits;	/*!< srv_n_lock_wait_current_count */
