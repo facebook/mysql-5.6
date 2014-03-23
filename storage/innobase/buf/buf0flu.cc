@@ -2233,7 +2233,8 @@ page_cleaner_sleep_if_needed(
 		ut_min() to avoid long sleep in case of wrap around. */
 		ulint	sleep_us;
 
-		sleep_us = ut_min(1000000, (next_loop_time - cur_time) * 1000);
+		sleep_us = ut_min(srv_page_cleaner_interval_millis * 1000,
+				  (next_loop_time - cur_time) * 1000);
 
 		ib_int64_t	sig_count = os_event_reset(buf_flush_event);
 
@@ -2253,7 +2254,7 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 			/*!< in: a dummy parameter required by
 			os_thread_create */
 {
-	ulint	next_loop_time = ut_time_ms() + 1000;
+	ulint	next_loop_time = ut_time_ms() + srv_page_cleaner_interval_millis;
 	ulint	n_flushed = 0;
 	ulint	last_activity = srv_get_activity_count();
 
@@ -2274,7 +2275,7 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 
 		page_cleaner_sleep_if_needed(next_loop_time);
 
-		next_loop_time = ut_time_ms() + 1000;
+		next_loop_time = ut_time_ms() + srv_page_cleaner_interval_millis;
 
 		if (srv_check_activity(last_activity)) {
 			last_activity = srv_get_activity_count();
