@@ -1189,6 +1189,33 @@ srv_refresh_innodb_monitor_stats(void)
 }
 
 /******************************************************************//**
+Output for SHOW INNODB TRANSACTION STATUS */
+UNIV_INTERN
+void
+srv_printf_innodb_transaction(
+/*======================*/
+	FILE*	file)		/* in: output stream */
+{
+	mutex_enter(&srv_innodb_monitor_mutex);
+
+	fputs("\n=================================================\n", file);
+	ut_print_timestamp(file);
+	fprintf(file,
+		" INNODB TRANSACTION MONITOR OUTPUT\n"
+		"=================================================\n");
+
+	if (lock_print_info_summary(file, TRUE)) {
+		lock_print_info_all_transactions(file);
+	}
+
+	fputs("----------------------------------------\n"
+		"END OF INNODB TRANSACTION MONITOR OUTPUT\n"
+		"========================================\n", file);
+	mutex_exit(&srv_innodb_monitor_mutex);
+	fflush(file);
+}
+
+/******************************************************************//**
 Outputs to a file the output of the InnoDB Monitor.
 @return FALSE if not all information printed
 due to failure to obtain necessary mutex */
