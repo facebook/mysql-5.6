@@ -1,0 +1,98 @@
+#******************************************************************
+# Test buffer pool LRU retention shown by SHOW ENGINE INNODB STATUS
+# command
+# Test creates big table to flush the buffer pool and get values
+# other than 0 to young LRU retention
+# The retention of LRU is checked two times with one second time
+# gap. As DB doesn't perform anything in the gap, the retention
+# should increase by ~1000ms between checks. If the difference
+# between retentions is in range <1000; 1500> the test passes,
+# otherwise it fails.
+#******************************************************************
+-- disable_warnings
+DROP TABLE if exists t1;
+-- enable_warnings
+
+# Create table
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
+
+# Populate table 2^15 records needed to flush buffer
+INSERT INTO t1 VALUES (0, REPEAT('a', 256));
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+
+let OUTPUT1 = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+SELECT SLEEP(1);
+let OUTPUT2 = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+
+perl;
+$old_lru_retention1 = 0;
+$old_lru_retention2 = 0;
+$young_lru_retention1 = 0;
+$young_lru_retention2 = 0;
+#Subroutine that performs text processing to extract lru retention
+#of a lru retention statistic in the output of SHOW ENGINE INNODB STATUS.
+sub get_output_line_value
+{
+  @temp = split(' ', $_[0]); #Splits the string on a ' '
+  return $temp[-1];
+}
+
+foreach (@line = split(/\n/, $ENV{'OUTPUT1'})) {
+  #If line starts with 'Old lru retention...'
+  if (/^Old lru retention/) {
+    $old_lru_retention1 = get_output_line_value($_);
+  }
+
+  #If line starts with 'Young lru retention...'
+  if (/^Young lru retention/) {
+    $young_lru_retention1 = get_output_line_value($_);
+  }
+}
+
+foreach (@line = split(/\n/, $ENV{'OUTPUT2'})) {
+  #If line starts with 'Old lru retention...'
+  if (/^Old lru retention/) {
+    $old_lru_retention2 = get_output_line_value($_);
+  }
+
+  #If line starts with 'Young lru retention...'
+  if (/^Young lru retention/) {
+    $young_lru_retention2 = get_output_line_value($_);
+  }
+}
+
+$old_retention_difference = $old_lru_retention2 - $old_lru_retention1;
+if ($old_retention_difference >= 1000 && old_retention_difference <= 1500) {
+  print "Difference between old LRU retentions validated\n";
+} else {
+  print "Difference between old LRU retentions was invalid\n";
+}
+
+$young_retention_difference = $young_lru_retention2 - $young_lru_retention1;
+if ($young_retention_difference >= 1000 && young_retention_difference <= 1500) {
+  print "Difference between young LRU retentions validated\n";
+} else {
+  print "Difference between young LRU retentions was invalid\n";
+}
+
+EOF
+
+-- disable_warnings
+DROP TABLE if exists t1;
+-- enable_warnings
+
+--echo Done
