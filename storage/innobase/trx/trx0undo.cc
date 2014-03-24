@@ -1069,11 +1069,9 @@ Truncates an undo log from the end. This function is used during a rollback
 to free space from an undo log. */
 UNIV_INTERN
 void
-trx_undo_truncate_end_func(
+trx_undo_truncate_end(
 /*=======================*/
-#ifdef UNIV_DEBUG
-	const trx_t*	trx,	/*!< in: transaction whose undo log it is */
-#endif /* UNIV_DEBUG */
+	trx_t*		trx,	/*!< in: transaction whose undo log it is */
 	trx_undo_t*	undo,	/*!< in: undo log */
 	undo_no_t	limit)	/*!< in: all undo records with undo number
 				>= this value should be truncated */
@@ -1088,7 +1086,7 @@ trx_undo_truncate_end_func(
 	ut_ad(mutex_own(&(trx->rseg->mutex)));
 
 	for (;;) {
-		mtr_start(&mtr);
+		mtr_start_trx(&mtr, trx);
 
 		trunc_here = NULL;
 
@@ -1775,7 +1773,7 @@ trx_undo_assign_undo(
 
 	ut_ad(mutex_own(&(trx->undo_mutex)));
 
-	mtr_start(&mtr);
+	mtr_start_trx(&mtr, trx);
 
 	mutex_enter(&rseg->mutex);
 
