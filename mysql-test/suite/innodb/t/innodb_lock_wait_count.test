@@ -1,0 +1,50 @@
+# Test innodb_lock_wait and innodb_lock_wait_timeouts for per table status
+
+--source include/have_innodb.inc
+--source include/have_debug.inc
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+create table t1 (i int primary key) engine=innodb;
+insert into t1 values (1), (2);
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+#
+# lock wait timeout test
+#
+
+--echo
+--echo Test Lock Wait Timeout
+--echo
+
+connection con1;
+begin;
+select * from t1 where i=1 for update;
+
+connection con2;
+send select * from t1 where i=1 for update;
+
+connection con1;
+sleep 5;
+commit;
+
+connection con2;
+reap;
+
+select innodb_row_lock_waits, innodb_row_lock_wait_timeouts
+from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+
+#
+# cleanup
+#
+
+--echo
+--echo Cleanup
+--echo
+
+drop table t1;
