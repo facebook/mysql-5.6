@@ -400,6 +400,9 @@ typedef struct st_table_stats {
   atomic_stat<ulonglong> queries_empty;	/* Number of non-join empty queries */
   atomic_stat<ulonglong> comment_bytes;	/* Number of non-join empty queries */
 
+  atomic_stat<int> n_lock_wait;         /* Number of lock waits */
+  atomic_stat<int> n_lock_wait_timeout; /* Number of lock wait timeouts */
+
   bool should_update; /* Set for partitioned tables so later partitions will
                          increment the perf stats. Clear after collecting
                          table stats. */
