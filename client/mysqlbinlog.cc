@@ -194,6 +194,8 @@ static bool filter_based_on_gtids= false;
 static bool in_transaction= false;
 static bool seen_gtids= false;
 
+static uint opt_receive_buffer_size = 0;
+
 static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
                                           const char* logname);
 static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
@@ -1596,6 +1598,16 @@ static struct my_option my_long_options[] =
    "Identifiers were provided.",
    &opt_exclude_gtids_str, &opt_exclude_gtids_str, 0,
    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"receive-buffer-size", OPT_RECEIVE_BUFFER_SIZE,
+   "The size of input buffer for the socket used while "
+   "receving events from the server",
+   &opt_receive_buffer_size, &opt_receive_buffer_size, 0,
+   GET_UINT, REQUIRED_ARG,
+   1024 * 1024, // Default value
+   1024, // Minimum value,
+   UINT_MAX, // Maximum value,
+   1024, // Block size,
+   0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -1855,6 +1867,10 @@ static Exit_status safe_connect()
   mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
   mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
                  "program_name", "mysqlbinlog");
+
+  mysql_options(mysql, MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+                &opt_receive_buffer_size);
+
   if (!mysql_real_connect(mysql, host, user, pass, 0, port, sock, 0))
   {
     error("Failed on connect: %s", mysql_error(mysql));
