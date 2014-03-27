@@ -401,6 +401,8 @@ inline ulonglong microseconds_to_my_timer(double when)
 struct comp_stats_struct {
   /** Size of the compressed data on the page */
   int page_size;
+  /** Current padding for compression */
+  int padding;
   /** Number of page compressions */
   ulonglong compressed;
   /** Number of successful page compressions */
@@ -430,6 +432,8 @@ typedef struct comp_stats_struct comp_stats_t;
 struct comp_stats_atomic_struct {
   /** Size of the compressed data on the page */
   atomic_stat<int> page_size;
+  /** Current padding for compression */
+  atomic_stat<int> padding;
   /** Number of page compressions */
   atomic_stat<ulonglong> compressed;
   /** Number of successful page compressions */
