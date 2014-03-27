@@ -1508,6 +1508,10 @@ err_exit:
 				++stats->comp_stats.compressed_primary;
 				stats->comp_stats.compressed_primary_time +=
 					time_diff;
+				stats->comp_stats.padding =
+					UNIV_PAGE_SIZE
+					- dict_index_zip_pad_optimal_page_size(
+						index);
 			}
 		}
 		mutex_exit(stats_mutex);
@@ -1604,6 +1608,11 @@ err_exit:
 			stats->comp_stats.compressed_primary_time += time_diff;
 			stats->comp_stats.compressed_primary_ok_time +=
 				time_diff;
+			/* only update the padding for table if this is the
+			primary index */
+			stats->comp_stats.padding =
+				UNIV_PAGE_SIZE
+				- dict_index_zip_pad_optimal_page_size(index);
 		}
 	}
 	mutex_exit(stats_mutex);
