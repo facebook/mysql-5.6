@@ -207,6 +207,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"COMPRESSED_PAGE_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PADDING", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"COMPRESS_PRIMARY_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -299,6 +300,7 @@ void copy_page_stats_with_races(page_stats_atomic_t *out, page_stats_t *in)
 void copy_comp_stats_with_races(comp_stats_atomic_t *out, comp_stats_t *in)
 {
   out->page_size.set_maybe(in->page_size);
+  out->padding.set_maybe(in->padding);
   out->compressed.set_maybe(in->compressed);
   out->compressed_ok.set_maybe(in->compressed_ok);
   out->compressed_primary.set_maybe(in->compressed_primary);
@@ -399,6 +401,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->rows_requested.load(), TRUE);
 
     table->field[f++]->store(table_stats->comp_stats.page_size.load(), TRUE);
+    table->field[f++]->store(table_stats->comp_stats.padding.load(), TRUE);
     table->field[f++]->store(table_stats->comp_stats.compressed.load(), TRUE);
     table->field[f++]->store(
       table_stats->comp_stats.compressed_ok.load(), TRUE);
