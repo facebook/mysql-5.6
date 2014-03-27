@@ -166,7 +166,8 @@ row_mysql_handle_errors(
 				during the function entry */
 	trx_t*		trx,	/*!< in: transaction */
 	que_thr_t*	thr,	/*!< in: query thread, or NULL */
-	trx_savept_t*	savept)	/*!< in: savepoint, or NULL */
+	trx_savept_t*	savept,	/*!< in: savepoint, or NULL */
+	dict_table_t*	table)	/*!< in: table */
 	__attribute__((nonnull(1,2)));
 /********************************************************************//**
 Create a prebuilt struct for a MySQL table handle.
