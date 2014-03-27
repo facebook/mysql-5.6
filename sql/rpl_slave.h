@@ -248,6 +248,7 @@ extern my_bool reset_seconds_behind_master;
 
 extern const char *relay_log_index;
 extern const char *relay_log_basename;
+extern uint rpl_receive_buffer_size;
 
 /*
   3 possible values for Master_info::slave_running and
