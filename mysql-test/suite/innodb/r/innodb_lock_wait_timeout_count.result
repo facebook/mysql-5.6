@@ -1,0 +1,22 @@
+drop table if exists t1;
+create table t1 (i int primary key) engine=innodb;
+insert into t1 values (1), (2);
+
+Test Lock Wait Timeout
+
+begin;
+select * from t1 where i=1 for update;
+i
+1
+select * from t1 where i=1 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+rollback;
+select innodb_row_lock_waits, innodb_row_lock_wait_timeouts
+from information_schema.table_statistics
+where table_schema='test' and table_name='t1';
+innodb_row_lock_waits	innodb_row_lock_wait_timeouts
+1	1
+
+Cleanup
+
+drop table t1;

@@ -1,0 +1,3 @@
+--innodb_lock_wait_timeout=10
+--innodb_file_per_table
+--innodb_file_format=barracuda

@@ -5463,7 +5463,7 @@ lock_table_wait:
 
 	thr->lock_state = QUE_THR_LOCK_ROW;
 
-	if (row_mysql_handle_errors(&err, trx, thr, NULL)) {
+	if (row_mysql_handle_errors(&err, trx, thr, NULL, prebuilt->table)) {
 		/* It was a lock wait, and it ended */
 
 		thr->lock_state = QUE_THR_LOCK_NOLOCK;

@@ -257,6 +257,9 @@ typedef struct fil_stats_struct {
 	hash_node_t	stats_next;	/*!< hash chain node */
 	comp_stats_t	comp_stats;	/*!< compression counters */
 	ulint		id;		/*!< space id */
+	int		n_lock_wait;	/*!< number of row lock wait */
+	int		n_lock_wait_timeout;	/*!< number of row lock
+					wait timeout */
 	ibool		used;		/*!< cleared by fil_update_table_stats
 					and set by fil_io */
 	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
@@ -1031,6 +1034,7 @@ fil_update_table_stats(
 		   my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
 		   my_io_perf_t *r_primary, my_io_perf_t *r_secondary,
 		   page_stats_t *page_stats, comp_stats_t *comp_stats,
+		   int n_lock_wait, int n_lock_wait_timeout,
 		   const char* engine));
 
 /********************************************************************//**
@@ -1322,6 +1326,24 @@ fil_user_tablespace_restore_page(
 					file information */
 	ulint		page_no);	/* in: page_no to obtain from double
 					write buffer */
+
+/*************************************************************************
+Changes count of pages on the lock wait for this space. Will lock/unlock
+fil_system->mutex */
+void
+fil_change_lock_wait_count(
+/*=================*/
+	ulint	space,		/* in: tablespace id for which count changes */
+	int	amount);	/* in: amount by which the count changes */
+
+/*************************************************************************
+Changes count of pages on the lock wait timeout for this space. Will lock/unlock
+fil_system->mutex */
+void
+fil_change_lock_wait_timeout_count(
+/*=================*/
+	ulint	space,		/* in: tablespace id for which count changes */
+	int	amount);	/* in: amount by which the count changes */
 
 /*************************************************************************
 Print tablespace data for SHOW INNODB STATUS. */
