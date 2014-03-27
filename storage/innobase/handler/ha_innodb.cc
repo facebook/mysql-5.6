@@ -1448,6 +1448,7 @@ innobase_update_table_stats(
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   page_stats_t* page_stats, comp_stats_t* comp_stats,
+		   int n_lock_wait, int n_lock_wait_timeout,
 		   const char* engine));
 
 /*******************************************************************//**
@@ -4206,6 +4207,7 @@ innobase_update_table_stats(
 		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
 		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
 		   page_stats_t *page_stats, comp_stats_t *comp_stats,
+		   int n_lock_wait, int n_lock_wait_timeout,
 		   const char* engine))
 {
 	fil_update_table_stats(cb);

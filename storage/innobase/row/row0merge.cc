@@ -2701,7 +2701,7 @@ run_again:
 			bool	was_lock_wait;
 
 			was_lock_wait = row_mysql_handle_errors(
-				&err, trx, thr, NULL);
+				&err, trx, thr, NULL, table);
 
 			if (was_lock_wait) {
 				goto run_again;
