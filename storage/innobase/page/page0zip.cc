@@ -44,7 +44,6 @@ using namespace std;
 #include "dict0dict.h"
 #include "btr0cur.h"
 #include "log0recv.h"
-#include "zlib.h"
 #endif /* !UNIV_INNOCHECKSUM */
 #include "ut0sort.h"
 #include "page0types.h"
@@ -1207,6 +1206,9 @@ func_exit:
 	return(err);
 }
 
+my_bool page_zip_zlib_wrap = FALSE;
+uint page_zip_zlib_strategy = Z_DEFAULT_STRATEGY;
+
 /**********************************************************************//**
 Compress a page.
 @return TRUE on success, FALSE on failure; page_zip will be left
@@ -1219,7 +1221,8 @@ page_zip_compress(
 				m_start, m_end, m_nonempty */
 	const page_t*	page,	/*!< in: uncompressed page */
 	dict_index_t*	index,	/*!< in: index of the B-tree node */
-	ulint		level,	/*!< in: compression level */
+	uchar		compression_flags,	/*!< in: compression level
+						         and other options */
 	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
 {
 	z_stream	c_stream;
@@ -1240,6 +1243,14 @@ page_zip_compress(
 	int comp_stats_page_size = 0;
 	fil_stats_t* stats;
 	ib_mutex_t* stats_mutex;
+	uint level;
+	uint wrap;
+	uint strategy;
+	int window_bits;
+	page_zip_decode_compression_flags(compression_flags, &level,
+	                                  &wrap, &strategy);
+	window_bits = wrap ? UNIV_PAGE_SIZE_SHIFT
+	                   : - ((int) UNIV_PAGE_SIZE_SHIFT);
 	ulint space_id = page_get_space_id(page);
 	ulonglong start = my_timer_now();
 #endif /* !UNIV_HOTBACKUP */
@@ -1374,8 +1385,8 @@ page_zip_compress(
 	page_zip_set_alloc(&c_stream, heap);
 
 	err = deflateInit2(&c_stream, static_cast<int>(level),
-			   Z_DEFLATED, UNIV_PAGE_SIZE_SHIFT,
-			   MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
+			   Z_DEFLATED, window_bits,
+			   MAX_MEM_LEVEL, strategy);
 	ut_a(err == Z_OK);
 
 	c_stream.next_out = buf;
@@ -4820,7 +4831,7 @@ page_zip_reorganize(
 	/* Restore logging. */
 	mtr_set_log_mode(mtr, log_mode);
 
-	if (!page_zip_compress(page_zip, page, index, page_zip_level, mtr)) {
+	if (!page_zip_compress(page_zip, page, index, page_zip_compression_flags, mtr)) {
 
 #ifndef UNIV_HOTBACKUP
 		buf_block_free(temp_block);
