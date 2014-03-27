@@ -589,7 +589,8 @@ row_mysql_handle_errors(
 				function */
 	trx_t*		trx,	/*!< in: transaction */
 	que_thr_t*	thr,	/*!< in: query thread, or NULL */
-	trx_savept_t*	savept)	/*!< in: savepoint, or NULL */
+	trx_savept_t*	savept,	/*!< in: savepoint, or NULL */
+	dict_table_t*	table)	/*!< in: table */
 {
 	dberr_t	err;
 
@@ -602,6 +603,7 @@ handle_new_error:
 
 	switch (err) {
 	case DB_LOCK_WAIT_TIMEOUT:
+		fil_change_lock_wait_timeout_count(table->space, 1);
 		if (row_rollback_on_timeout) {
 			trx_rollback_to_savepoint(trx, NULL);
 			break;
@@ -630,6 +632,7 @@ handle_new_error:
 		/* MySQL will roll back the latest SQL statement */
 		break;
 	case DB_LOCK_WAIT:
+		fil_change_lock_wait_count(table->space, 1);
 		lock_wait_suspend_thread(thr);
 
 		if (trx->error_state != DB_SUCCESS) {
@@ -1181,7 +1184,8 @@ run_again:
 	if (err != DB_SUCCESS) {
 		que_thr_stop_for_mysql(thr);
 
-		was_lock_wait = row_mysql_handle_errors(&err, trx, thr, NULL);
+		was_lock_wait = row_mysql_handle_errors(&err, trx, thr, NULL,
+		    prebuilt->table);
 
 		if (was_lock_wait) {
 			goto run_again;
@@ -1262,7 +1266,8 @@ run_again:
 	if (err != DB_SUCCESS) {
 		que_thr_stop_for_mysql(thr);
 
-		was_lock_wait = row_mysql_handle_errors(&err, trx, thr, NULL);
+		was_lock_wait = row_mysql_handle_errors(&err, trx, thr, NULL,
+		    table ? table : prebuilt->table);
 
 		if (was_lock_wait) {
 			goto run_again;
@@ -1382,7 +1387,7 @@ error_exit:
 		thr->lock_state = QUE_THR_LOCK_ROW;
 
 		was_lock_wait = row_mysql_handle_errors(
-			&err, trx, thr, &savept);
+			&err, trx, thr, &savept, prebuilt->table);
 
 		thr->lock_state = QUE_THR_LOCK_NOLOCK;
 
@@ -1812,7 +1817,7 @@ run_again:
 		DEBUG_SYNC(trx->mysql_thd, "row_update_for_mysql_error");
 
 		was_lock_wait = row_mysql_handle_errors(&err, trx, thr,
-							&savept);
+				&savept, prebuilt->table);
 		thr->lock_state= QUE_THR_LOCK_NOLOCK;
 
 		if (was_lock_wait) {
@@ -3193,7 +3198,7 @@ run_again:
 			ibool	was_lock_wait;
 
 			was_lock_wait = row_mysql_handle_errors(
-				&err, trx, thr, NULL);
+				&err, trx, thr, NULL, table);
 
 			if (was_lock_wait) {
 				goto run_again;
@@ -4352,7 +4357,7 @@ row_drop_table_for_mysql(
 	case DB_OUT_OF_FILE_SPACE:
 		err = DB_MUST_GET_MORE_FILE_SPACE;
 
-		row_mysql_handle_errors(&err, trx, NULL, NULL);
+		row_mysql_handle_errors(&err, trx, NULL, NULL, table);
 
 		/* raise error */
 		ut_error;
