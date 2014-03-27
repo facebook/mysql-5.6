@@ -4487,7 +4487,7 @@ btr_store_big_rec_extern_fields(
 	ut_a(fil_page_get_type(page_align(rec)) == FIL_PAGE_INDEX);
 
 	if (page_zip) {
-		int	err;
+		int	err = Z_OK;
 
 		/* Zlib deflate needs 128 kilobytes for the default
 		window size, plus 512 << memLevel, plus a few

@@ -36,6 +36,7 @@ using namespace std;
 # include "page0zip.ic"
 #endif
 #undef THIS_MODULE
+#include "fil0fil.h"
 #include "page0page.h"
 #include "mtr0log.h"
 #include "ut0sort.h"
@@ -1224,7 +1225,12 @@ page_zip_compress(
 	ulint		n_blobs	= 0;
 	byte*		storage;/* storage of uncompressed columns */
 #ifndef UNIV_HOTBACKUP
-	ullint		usec = ut_time_us(NULL);
+	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
+	int comp_stats_page_size = 0;
+	fil_space_t* space;
+	ulint space_id = page_get_space_id(page);
+	ulonglong start = my_timer_now();
+	ut_ad(fil_system);
 #endif /* !UNIV_HOTBACKUP */
 #ifdef PAGE_ZIP_COMPRESS_DBG
 	FILE*		logfile = NULL;
@@ -1294,12 +1300,18 @@ page_zip_compress(
 	}
 #endif /* PAGE_ZIP_COMPRESS_DBG */
 #ifndef UNIV_HOTBACKUP
-	page_zip_stat[page_zip->ssize - 1].compressed++;
+	zip_stat->compressed++;
 	if (cmp_per_index_enabled) {
 		mutex_enter(&page_zip_stat_per_index_mutex);
 		page_zip_stat_per_index[index->id].compressed++;
 		mutex_exit(&page_zip_stat_per_index_mutex);
 	}
+	if (dict_index_is_clust(index)) {
+		zip_stat->compressed_primary++;
+	} else {
+		zip_stat->compressed_secondary++;
+	}
+	comp_stats_page_size = UNIV_ZIP_SIZE_MIN << (page_zip->ssize - 1);
 #endif /* !UNIV_HOTBACKUP */
 
 	if (UNIV_UNLIKELY(n_dense * PAGE_ZIP_DIR_SLOT_SIZE
@@ -1449,12 +1461,32 @@ err_exit:
 			dict_index_zip_failure(index);
 		}
 
-		ullint	time_diff = ut_time_us(NULL) - usec;
-		page_zip_stat[page_zip->ssize - 1].compressed_usec
-			+= time_diff;
+		ulonglong time_diff = my_timer_since(start);
+		zip_stat->compressed_time += time_diff;
+		if (dict_index_is_clust(index)) {
+			zip_stat->compressed_primary_time += time_diff;
+		} else {
+			zip_stat->compressed_secondary_time += time_diff;
+		}
+		mutex_enter(&fil_system->mutex);
+		space = fil_space_get_by_id(space_id);
+		if (space) {
+			space->comp_stats.compressed++;
+			if (space_id)
+				space->comp_stats.page_size =
+					comp_stats_page_size;
+			space->comp_stats.compressed_time += time_diff;
+			if (dict_index_is_clust(index)) {
+				space->comp_stats.compressed_primary++;
+				space->comp_stats.compressed_primary_time +=
+					time_diff;
+			}
+		}
+		mutex_exit(&fil_system->mutex);
+
 		if (cmp_per_index_enabled) {
 			mutex_enter(&page_zip_stat_per_index_mutex);
-			page_zip_stat_per_index[index->id].compressed_usec
+			page_zip_stat_per_index[index->id].compressed_time
 				+= time_diff;
 			mutex_exit(&page_zip_stat_per_index_mutex);
 		}
@@ -1517,13 +1549,42 @@ err_exit:
 	}
 #endif /* PAGE_ZIP_COMPRESS_DBG */
 #ifndef UNIV_HOTBACKUP
-	ullint	time_diff = ut_time_us(NULL) - usec;
-	page_zip_stat[page_zip->ssize - 1].compressed_ok++;
-	page_zip_stat[page_zip->ssize - 1].compressed_usec += time_diff;
+	ulonglong time_diff = my_timer_since(start);
+	zip_stat->compressed_ok++;
+	zip_stat->compressed_time += time_diff;
+	zip_stat->compressed_ok_time += time_diff;
+	if (dict_index_is_clust(index)) {
+		zip_stat->compressed_primary_ok++;
+		zip_stat->compressed_primary_time += time_diff;
+		zip_stat->compressed_primary_ok_time += time_diff;
+	} else {
+		zip_stat->compressed_secondary_ok++;
+		zip_stat->compressed_secondary_time += time_diff;
+		zip_stat->compressed_secondary_ok_time += time_diff;
+	}
+
+	mutex_enter(&fil_system->mutex);
+	space = fil_space_get_by_id(space_id);
+	if (space) {
+		space->comp_stats.compressed++;
+		if (space_id)
+			space->comp_stats.page_size = comp_stats_page_size;
+		space->comp_stats.compressed_ok++;
+		space->comp_stats.compressed_time += time_diff;
+		space->comp_stats.compressed_ok_time += time_diff;
+		if (dict_index_is_clust(index)) {
+			space->comp_stats.compressed_primary++;
+			space->comp_stats.compressed_primary_ok++;
+			space->comp_stats.compressed_primary_time += time_diff;
+			space->comp_stats.compressed_primary_ok_time += time_diff;
+		}
+	}
+	mutex_exit(&fil_system->mutex);
+
 	if (cmp_per_index_enabled) {
 		mutex_enter(&page_zip_stat_per_index_mutex);
 		page_zip_stat_per_index[index->id].compressed_ok++;
-		page_zip_stat_per_index[index->id].compressed_usec += time_diff;
+		page_zip_stat_per_index[index->id].compressed_time += time_diff;
 		mutex_exit(&page_zip_stat_per_index_mutex);
 	}
 
@@ -3000,10 +3061,11 @@ page_zip_decompress(
 	page_zip_des_t*	page_zip,/*!< in: data, ssize;
 				out: m_start, m_end, m_nonempty, n_blobs */
 	page_t*		page,	/*!< out: uncompressed page, may be trashed */
-	ibool		all)	/*!< in: TRUE=decompress the whole page;
+	ibool		all,	/*!< in: TRUE=decompress the whole page;
 				FALSE=verify but do not copy some
 				page header fields that should not change
 				after page creation */
+	ulint space_id)
 {
 	z_stream	d_stream;
 	dict_index_t*	index	= NULL;
@@ -3013,7 +3075,11 @@ page_zip_decompress(
 	mem_heap_t*	heap;
 	ulint*		offsets;
 #ifndef UNIV_HOTBACKUP
-	ullint		usec = ut_time_us(NULL);
+	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
+	ulonglong start = my_timer_now();
+	fil_space_t* space;
+	int comp_stats_page_size;
+	ut_ad(fil_system);
 #endif /* !UNIV_HOTBACKUP */
 
 	ut_ad(page_zip_simple_validate(page_zip));
@@ -3190,23 +3256,39 @@ err_exit:
 	ut_a(page_is_comp(page));
 	UNIV_MEM_ASSERT_RW(page, UNIV_PAGE_SIZE);
 
-	page_zip_fields_free(index);
-	mem_heap_free(heap);
 #ifndef UNIV_HOTBACKUP
-	ullint	time_diff = ut_time_us(NULL) - usec;
-	page_zip_stat[page_zip->ssize - 1].decompressed++;
-	page_zip_stat[page_zip->ssize - 1].decompressed_usec += time_diff;
-
+	ulonglong time_diff = my_timer_since(start);
+	zip_stat->decompressed++;
+	zip_stat->decompressed_time += time_diff;
+	if (dict_index_is_clust(index)) {
+		zip_stat->decompressed_primary++;
+		zip_stat->decompressed_primary_time += time_diff;
+	} else {
+		zip_stat->decompressed_secondary++;
+		zip_stat->decompressed_secondary_time += time_diff;
+	}
+	comp_stats_page_size = UNIV_ZIP_SIZE_MIN << (page_zip->ssize - 1);
+	mutex_enter(&fil_system->mutex);
+	space = fil_space_get_by_id(space_id);
+	if (space) {
+		space->comp_stats.decompressed++;
+		space->comp_stats.decompressed_time += time_diff;
+		if (space_id)
+			space->comp_stats.page_size = comp_stats_page_size;
+	}
+	mutex_exit(&fil_system->mutex);
 	index_id_t	index_id = btr_page_get_index_id(page);
 
 	if (srv_cmp_per_index_enabled) {
 		mutex_enter(&page_zip_stat_per_index_mutex);
 		page_zip_stat_per_index[index_id].decompressed++;
-		page_zip_stat_per_index[index_id].decompressed_usec += time_diff;
+		page_zip_stat_per_index[index_id].decompressed_time += time_diff;
 		mutex_exit(&page_zip_stat_per_index_mutex);
 	}
 #endif /* !UNIV_HOTBACKUP */
 
+	page_zip_fields_free(index);
+	mem_heap_free(heap);
 	/* Update the stat counter for LRU policy. */
 	buf_LRU_stat_inc_unzip();
 
@@ -3316,7 +3398,7 @@ page_zip_validate_low(
 #endif /* UNIV_DEBUG_VALGRIND */
 
 	temp_page_zip = *page_zip;
-	valid = page_zip_decompress(&temp_page_zip, temp_page, TRUE);
+	valid = page_zip_decompress(&temp_page_zip, temp_page, TRUE, 0);
 	if (!valid) {
 		fputs("page_zip_validate(): failed to decompress\n", stderr);
 		goto func_exit;
@@ -4864,7 +4946,7 @@ corrupt:
 		       - trailer_size, ptr + 8 + size, trailer_size);
 
 		if (UNIV_UNLIKELY(!page_zip_decompress(page_zip, page,
-						       TRUE))) {
+						       TRUE, 0))) {
 
 			goto corrupt;
 		}
