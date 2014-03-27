@@ -67,11 +67,11 @@ covering the compressed portion of the page, as follows.
 
 MODIFICATION LOG ENTRY FORMAT
 - write record:
-  - (heap_no - 1) << 1 (1..2 bytes)
-  - extra bytes backwards
-  - data bytes
+	- (heap_no - 1) << 1 (1..2 bytes)
+	- extra bytes backwards
+	- data bytes
 - clear record:
-  - (heap_no - 1) << 1 | 1 (1..2 bytes)
+	- (heap_no - 1) << 1 | 1 (1..2 bytes)
 
 The integer values are stored in a variable-length format:
 - 0xxxxxxx: 0..127
@@ -87,17 +87,17 @@ In summary, the compressed page looks like this:
 (4) Page modification log (page_zip->m_start..page_zip->m_end)
 (5) Empty zero-filled space
 (6) BLOB pointers (on leaf pages)
-  - BTR_EXTERN_FIELD_REF_SIZE for each externally stored column
-  - in descending collation order
+	- BTR_EXTERN_FIELD_REF_SIZE for each externally stored column
+	- in descending collation order
 (7) Uncompressed columns of user records, n_dense * uncompressed_size bytes,
-  - indexed by heap_no
-  - DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN for leaf pages of clustered indexes
-  - REC_NODE_PTR_SIZE for non-leaf pages
-  - 0 otherwise
+	- indexed by heap_no
+	- DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN for leaf pages of clustered indexes
+	- REC_NODE_PTR_SIZE for non-leaf pages
+	- 0 otherwise
 (8) dense page directory, stored backwards
-  - n_dense = n_heap - 2
-  - existing records in ascending collation order
-  - deleted records (free list) in link order
+	- n_dense = n_heap - 2
+	- existing records in ascending collation order
+	- deleted records (free list) in link order
 */
 
 /** Start offset of the area that will be compressed */
@@ -191,8 +191,8 @@ page_zip_rec_needs_ext(
 		the encoded heap number.  Check also the available space
 		on the uncompressed page. */
 		return(rec_size - (REC_N_NEW_EXTRA_BYTES - 2 - 1)
-		       >= page_zip_empty_size(n_fields, zip_size)
-		       || rec_size >= page_get_free_space_of_empty(TRUE) / 2);
+			     >= page_zip_empty_size(n_fields, zip_size)
+			     || rec_size >= page_get_free_space_of_empty(TRUE) / 2);
 	}
 
 	return(rec_size >= page_get_free_space_of_empty(comp) / 2);
@@ -213,11 +213,11 @@ page_zip_simple_validate(
 	ut_ad(page_zip->data);
 	ut_ad(page_zip->ssize <= PAGE_ZIP_SSIZE_MAX);
 	ut_ad(page_zip_get_size(page_zip)
-	      > PAGE_DATA + PAGE_ZIP_DIR_SLOT_SIZE);
+		    > PAGE_DATA + PAGE_ZIP_DIR_SLOT_SIZE);
 	ut_ad(page_zip->m_start <= page_zip->m_end);
 	ut_ad(page_zip->m_end < page_zip_get_size(page_zip));
 	ut_ad(page_zip->n_blobs
-	      < page_zip_get_size(page_zip) / BTR_EXTERN_FIELD_REF_SIZE);
+		    < page_zip_get_size(page_zip) / BTR_EXTERN_FIELD_REF_SIZE);
 	return(TRUE);
 }
 #endif /* UNIV_DEBUG */
@@ -251,8 +251,8 @@ page_zip_get_trailer_len(
 	}
 
 	return((page_dir_get_n_heap(page_zip->data) - 2)
-	       * uncompressed_size
-	       + page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE);
+		     * uncompressed_size
+		     + page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE);
 }
 
 /**********************************************************************//**
@@ -280,8 +280,8 @@ page_zip_max_ins_size(
 	trailer_len += PAGE_ZIP_DIR_SLOT_SIZE;
 
 	return((lint) page_zip_get_size(page_zip)
-	       - trailer_len - page_zip->m_end
-	       - (REC_N_NEW_EXTRA_BYTES - 2));
+		     - trailer_len - page_zip->m_end
+		     - (REC_N_NEW_EXTRA_BYTES - 2));
 }
 
 /**********************************************************************//**
@@ -319,7 +319,7 @@ page_zip_available(
 	}
 
 	return(length + trailer_len + page_zip->m_end
-	       < page_zip_get_size(page_zip));
+		     < page_zip_get_size(page_zip));
 }
 
 /**********************************************************************//**
@@ -382,12 +382,53 @@ page_zip_write_header(
 }
 
 /**********************************************************************//**
+Read the compression level and other compression options from the compression
+flag. */
+UNIV_INLINE
+void
+page_zip_decode_compression_flags(
+/*=============================*/
+	uchar	flags,
+	uint*	level,
+	uint*	wrap,
+	uint*	strategy)
+{
+	/* level needs 4 bits 0..9 */
+	*level = flags & 0xf;
+	/* wrap needs 1 bit. Older versions of innodb had wrap=1
+	by default and only compression level was logged.
+	That's why we flip the value of the bit */
+	*wrap = (flags & 0x10) ? 0 : 1;
+	/* strategy needs 3 bits 0..4 */
+	*strategy = flags >> 5;
+	ut_a(*level <= 9);
+	ut_a(*strategy <= 4);
+}
+
+/**********************************************************************//**
+Write the compression level and other compression options into the compression
+flag and return it. */
+UNIV_INLINE
+uchar
+page_zip_encode_compression_flags(
+/*=============================*/
+	uint level,
+	uint wrap,
+	uint strategy)
+{
+	ut_ad((level <= 9) && (wrap <= 1) && (strategy <= 4));
+	return ((uchar)level)
+	       | (((uchar)(wrap ? 0 : 1)) << 4)
+	       | (((uchar)strategy) << 5);
+}
+
+/**********************************************************************//**
 Write a log record of compressing an index page without the data on the page. */
 UNIV_INLINE
 void
 page_zip_compress_write_log_no_data(
 /*================================*/
-	ulint		level,	/*!< in: compression level */
+	uchar		compression_flags,	/*!< in: compression flags */
 	const page_t*	page,	/*!< in: page that is compressed */
 	dict_index_t*	index,	/*!< in: index */
 	mtr_t*		mtr)	/*!< in: mtr */
@@ -396,7 +437,7 @@ page_zip_compress_write_log_no_data(
 		mtr, page, index, MLOG_ZIP_PAGE_COMPRESS_NO_DATA, 1);
 
 	if (log_ptr) {
-		mach_write_to_1(log_ptr, level);
+		mach_write_to_1(log_ptr, compression_flags);
 		mlog_close(mtr, log_ptr + 1);
 	}
 }
@@ -414,19 +455,19 @@ page_zip_parse_compress_no_data(
 	page_zip_des_t*	page_zip,	/*!< out: compressed page */
 	dict_index_t*	index)		/*!< in: index */
 {
-	ulint	level;
+	uchar	compression_flags;
 	if (end_ptr == ptr) {
 		return(NULL);
 	}
 
-	level = mach_read_from_1(ptr);
+	compression_flags = mach_read_from_1(ptr);
 
 	/* If page compression fails then there must be something wrong
 	because a compress log record is logged only if the compression
 	was successful. Crash in this case. */
 
 	if (page
-	    && !page_zip_compress(page_zip, page, index, level, NULL)) {
+		  && !page_zip_compress(page_zip, page, index, compression_flags, NULL)) {
 		ut_error;
 	}
 
