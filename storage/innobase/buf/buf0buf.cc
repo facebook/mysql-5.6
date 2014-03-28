@@ -3189,7 +3189,7 @@ got_block:
 	access_time = buf_page_is_accessed(&fix_block->page);
 
 	/* This is a heuristic and we don't care about ordering issues. */
-	if (access_time == 0) {
+	if (access_time == 0 || fix_block->page.last_access_time > 0) {
 		buf_block_mutex_enter(fix_block);
 
 		buf_page_set_accessed(&fix_block->page);
@@ -3587,6 +3587,7 @@ buf_page_init_low(
 	bpage->buf_fix_count = 0;
 	bpage->freed_page_clock = 0;
 	bpage->access_time = 0;
+	bpage->last_access_time = 0;
 	bpage->newest_modification = 0;
 	bpage->oldest_modification = 0;
 	bpage->db_stats_index = 0;

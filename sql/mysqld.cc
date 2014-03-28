@@ -598,6 +598,8 @@ my_atomic_rwlock_t thread_running_lock;
 my_atomic_rwlock_t slave_open_temp_tables_lock;
 my_atomic_rwlock_t write_query_running_lock;
 ulong aborted_threads, aborted_connects;
+/* status variable of the age of the latest evicted page in buffer pool */
+ulong last_evicted_page_age= 0;
 ulong delayed_insert_timeout, delayed_insert_limit, delayed_queue_size;
 ulong delayed_insert_threads, delayed_insert_writes, delayed_rows_in_use;
 ulong delayed_insert_errors,flush_time;
@@ -8844,6 +8846,7 @@ show_ssl_get_server_not_after(THD *thd, SHOW_VAR *var, char *buff)
 SHOW_VAR status_vars[]= {
   {"Aborted_clients",          (char*) &aborted_threads,        SHOW_LONG},
   {"Aborted_connects",         (char*) &aborted_connects,       SHOW_LONG},
+  {"Last_evicted_page_age",    (char*) &last_evicted_page_age,  SHOW_LONG},
   {"Binlog_bytes_written",     (char*) &binlog_bytes_written,   SHOW_LONGLONG},
   {"Binlog_cache_disk_use",    (char*) &binlog_cache_disk_use,  SHOW_LONG},
   {"Binlog_cache_use",         (char*) &binlog_cache_use,       SHOW_LONG},
