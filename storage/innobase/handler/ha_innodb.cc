@@ -144,6 +144,8 @@ static long innobase_buffer_pool_instances = 1;
 static long long innobase_buffer_pool_size, innobase_log_file_size;
 static unsigned long innobase_sync_pool_size;
 
+ulong innobase_evicted_pages_sampling_ratio = 0;
+
 /** Percentage of the buffer pool to reserve for 'old' blocks.
 Connected to buf_LRU_old_ratio. */
 static uint innobase_old_blocks_pct;
@@ -17917,6 +17919,12 @@ static MYSQL_SYSVAR_UINT(build_prev_version_sleep,
   NULL, NULL, 0, 0, 60 * 1000, 0);
 #endif /* UNIV_DEBUG */
 
+static MYSQL_SYSVAR_ULONG(evicted_pages_sampling_ratio,
+  innobase_evicted_pages_sampling_ratio,
+  PLUGIN_VAR_RQCMDARG,
+  "Sampling ratio of reporting ages of evicted pages. ",
+  NULL, NULL, 0, 0, 1000000, 0);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -17929,6 +17937,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_filename),
   MYSQL_SYSVAR(buffer_pool_dump_now),
   MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
+  MYSQL_SYSVAR(evicted_pages_sampling_ratio),
   MYSQL_SYSVAR(histogram_step_size_async_read),
   MYSQL_SYSVAR(histogram_step_size_async_write),
   MYSQL_SYSVAR(histogram_step_size_sync_read),
