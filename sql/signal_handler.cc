@@ -38,6 +38,7 @@ extern volatile sig_atomic_t calling_initgroups;
 #ifdef HAVE_NPTL
 extern volatile sig_atomic_t ld_assume_kernel_is_set;
 #endif
+extern my_bool opt_core_file;
 
 /**
  * Handler for fatal signals
@@ -250,7 +251,7 @@ extern "C" sig_handler handle_fatal_signal(int sig)
   }
 
 #ifdef HAVE_WRITE_CORE
-  if (test_flags & TEST_CORE_ON_SIGNAL)
+  if (opt_core_file)
   {
     my_safe_printf_stderr("%s", "Writing a core file\n");
     my_write_core(sig);
