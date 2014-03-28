@@ -1,0 +1,40 @@
+# Only test in debug mode since DBUG_EXECUTE_IF is used
+--source include/have_debug.inc
+--source include/no_valgrind_without_big.inc
+--source include/not_embedded.inc
+--source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t;
+--enable_warnings
+
+SELECT @@global.innodb_buffer_pool_size;
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+
+# Create a table and populate it with some data
+CREATE TABLE t (a TEXT, b TEXT) ENGINE=INNODB;
+
+# Enable the debug injection.
+set @@debug="d,test-age-of-evicted-pages";
+
+# Here we end up with 32768 rows in the table
+--disable_query_log
+INSERT INTO t (a, b) VALUES (REPEAT('a', 512), REPEAT('b', 512));
+INSERT INTO t (a, b) VALUES (REPEAT('A', 512), REPEAT('B', 512));
+let $i=14;
+while ($i) {
+  INSERT INTO t (a, b) SELECT a, b FROM t;
+  dec $i;
+}
+--enable_query_log
+
+SELECT count(*) FROM t;
+
+let $age = query_get_value(SHOW STATUS LIKE 'Last_evicted_page_age', Value, 1);
+if (`SELECT $age = 0`) {
+  --echo ### Error: expected age of the evicted page is greater than 0 millisecond.
+}
+if (`SELECT $age > 0`) {
+  --echo ### The age of the evicted page is greater than 0 millisecond as expected.
+}
+DROP TABLE t;
