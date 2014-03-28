@@ -1629,6 +1629,17 @@ struct buf_page_t{
 					0 if the block was never accessed
 					in the buffer pool. Protected by
 					block mutex */
+
+	unsigned	last_access_time;
+					/*!< time of the last access, or 0
+					if this field is not used for this page.
+					It is decided by system variable
+					innodb_evicted_pages_sampling_ratio
+					when this page is accessed at the first
+					time. If this page is chosen, this field
+					gets updated every time when it is
+					accessed, otherwise it is 0. */
+
 # if defined UNIV_DEBUG_FILE_ACCESSES || defined UNIV_DEBUG
 	ibool		file_page_was_freed;
 					/*!< this is set to TRUE when
