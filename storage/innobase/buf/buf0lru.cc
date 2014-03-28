@@ -132,6 +132,9 @@ least this many milliseconds ago.  Not protected by any mutex or latch. */
 UNIV_INTERN uint	buf_LRU_old_threshold_ms;
 /* @} */
 
+/* status variable of the age of the latest evicted page in buffer pool */
+extern ulong last_evicted_page_age;
+
 /******************************************************************//**
 Takes a block out of the LRU list and page hash table.
 If the block is compressed-only (BUF_BLOCK_ZIP_PAGE),
@@ -1938,6 +1941,16 @@ func_exit:
         ut_ad(rw_lock_own(hash_lock, RW_LOCK_EX));
 #endif /* UNIV_SYNC_DEBUG */
 	ut_ad(buf_page_can_relocate(bpage));
+
+	/* Save the age of the latest evicted page in milliseconds
+	into status variable if this page is a chosen sampling page */
+	if (bpage->last_access_time > 0) {
+		ut_ad(bpage->last_access_time >= bpage->access_time);
+		ut_ad(8 == sizeof(last_evicted_page_age));
+		my_atomic_store64((int64 *)&last_evicted_page_age,
+			(int64)((unsigned)ut_time_ms() -
+				bpage->last_access_time));
+	}
 
 	*removed = TRUE;
 
