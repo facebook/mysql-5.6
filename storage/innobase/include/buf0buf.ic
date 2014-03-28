@@ -45,6 +45,8 @@ struct buf_chunk_t{
 	buf_block_t*	blocks;		/*!< array of buffer control blocks */
 };
 
+extern ulong innobase_evicted_pages_sampling_ratio;
+
 /*********************************************************************//**
 Gets the current size of buffer buf_pool in bytes.
 @return size in bytes */
@@ -625,9 +627,18 @@ buf_page_set_accessed(
 
 	ut_a(buf_page_in_file(bpage));
 
-	if (bpage->access_time == 0) {
+        if (bpage->access_time == 0) {
 		/* Make this the time of the first access. */
-		bpage->access_time = static_cast<uint>(ut_time_ms());
+		bpage->access_time = ut_time_ms();
+
+		ut_ad(bpage->last_access_time == 0);
+		if (innobase_evicted_pages_sampling_ratio > 0
+		    && 0 == lrand48() % innobase_evicted_pages_sampling_ratio) {
+			bpage->last_access_time = bpage->access_time;
+		}
+	}
+	else if (bpage->last_access_time > 0) {
+		bpage->last_access_time = ut_time_ms();
 	}
 }
 

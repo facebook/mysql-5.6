@@ -1,0 +1,32 @@
+--source include/no_valgrind_without_big.inc
+--source include/not_embedded.inc
+--source include/have_innodb.inc
+
+SELECT @@global.innodb_buffer_pool_size;
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+
+# Create a table and populate it with some data
+CREATE TABLE ib_bp_test
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(128)))
+ENGINE=INNODB;
+
+# Here we end up with 16382 rows in the table
+--disable_query_log
+INSERT INTO ib_bp_test (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 256));
+INSERT INTO ib_bp_test (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 256));
+let $i=12;
+while ($i) {
+  --eval INSERT INTO ib_bp_test (b, c) VALUES ($i, $i * $i);
+  INSERT INTO ib_bp_test (b, c) SELECT b, c FROM ib_bp_test;
+  dec $i;
+}
+--enable_query_log
+
+let $age = query_get_value(SHOW STATUS LIKE 'Last_evicted_page_age', Value, 1);
+if (`SELECT $age = 0`) {
+  --echo ### Error: expected age of the evicted page is greater than 0 millisecond.
+}
+if (`SELECT $age > 0`) {
+  --echo ### The age of the evicted page is greater than 0 millisecond as expected.
+}
+DROP TABLE ib_bp_test;
