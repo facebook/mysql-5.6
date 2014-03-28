@@ -1,0 +1,14 @@
+drop table if exists t;
+SELECT @@global.innodb_buffer_pool_size;
+@@global.innodb_buffer_pool_size
+5242880
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+@@global.innodb_evicted_pages_sampling_ratio
+1
+CREATE TABLE t (a TEXT, b TEXT) ENGINE=INNODB;
+set @@debug="d,test-age-of-evicted-pages";
+SELECT count(*) FROM t;
+count(*)
+32768
+### The age of the evicted page is greater than 0 millisecond as expected.
+DROP TABLE t;

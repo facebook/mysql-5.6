@@ -1,0 +1,26 @@
+SET @old_val = @@global.innodb_evicted_pages_sampling_ratio;
+SELECT @old_val;
+@old_val
+0
+SET @@global.innodb_evicted_pages_sampling_ratio = 100;
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+@@global.innodb_evicted_pages_sampling_ratio
+100
+SET @@global.innodb_evicted_pages_sampling_ratio = DEFAULT;
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+@@global.innodb_evicted_pages_sampling_ratio
+0
+SET @@global.innodb_evicted_pages_sampling_ratio = 1000000;
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+@@global.innodb_evicted_pages_sampling_ratio
+1000000
+SET @@global.innodb_evicted_pages_sampling_ratio = 1000001;
+Warnings:
+Warning	1292	Truncated incorrect innodb_evicted_pages_sampling_ra value: '1000001'
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+@@global.innodb_evicted_pages_sampling_ratio
+1000000
+SET @@global.innodb_evicted_pages_sampling_ratio = @old_val;
+SELECT @@global.innodb_evicted_pages_sampling_ratio;
+@@global.innodb_evicted_pages_sampling_ratio
+0
