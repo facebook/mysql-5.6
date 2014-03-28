@@ -1,0 +1,2 @@
+--innodb-buffer-pool-size=5M
+--innodb_evicted_pages_sampling_ratio=1
