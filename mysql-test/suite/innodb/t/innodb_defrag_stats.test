@@ -25,12 +25,12 @@ INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
 
 --echo # Not enough page splits to trigger persistent stats write yet.
-select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 
 INSERT INTO t1 (b) SELECT b from t1;
 
 --echo # Persistent stats recorded.
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 
 --echo # Delete some rows.
 let $num_delete = 20;
@@ -45,12 +45,12 @@ while ($num_delete)
 --echo # Server Restarted
 
 --echo # Confirm persistent stats still there after restart.
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 
 alter table t1 defragment;
 --echo # n_page_split should be 0 after defragmentation, n_pages_freed should be non-zero.
 select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_pages_freed', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_pages_freed', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 
 set global innodb_defragment_stats_accuracy = 40;
 
@@ -64,7 +64,7 @@ select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%'
 
 --echo # Table rename should cause stats rename.
 rename table t1 to t2;
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 
 --echo # Drop index should cause stats drop.
 drop index SECOND on t2;
@@ -73,7 +73,7 @@ select count(*) from mysql.innodb_index_stats where table_name like '%t2%' and i
 --source include/restart_mysqld.inc
 --echo Server Restarted
 
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 
 --echo # Clean up
 DROP TABLE t2;

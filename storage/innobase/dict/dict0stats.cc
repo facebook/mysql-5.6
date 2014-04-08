@@ -3752,12 +3752,14 @@ dict_stats_save_defrag_stats(
 	lint	now = (lint) ut_time();
 	mtr_t	mtr;
 	ulint	n_leaf_pages;
+	ulint	n_leaf_reserved;
 	mtr_start(&mtr);
 	mtr_s_lock(dict_index_get_lock(index), &mtr);
-	n_leaf_pages = btr_get_size(index, BTR_N_LEAF_PAGES, &mtr);
+	n_leaf_reserved = btr_get_size_and_reserved(index, BTR_N_LEAF_PAGES,
+						    &n_leaf_pages, &mtr);
 	mtr_commit(&mtr);
 
-	if (n_leaf_pages == ULINT_UNDEFINED) {
+	if (n_leaf_reserved == ULINT_UNDEFINED) {
 		// The index name is different during fast index creation,
 		// so the stats won't be associated with the right index
 		// for later use. We just return without saving.
@@ -3781,6 +3783,16 @@ dict_stats_save_defrag_stats(
 		n_leaf_pages,
 		NULL,
 		"Number of leaf pages when this stat is saved to disk");
+	if (ret != DB_SUCCESS) {
+		goto end;
+	}
+
+	ret = dict_stats_save_index_stat(
+		index, now, "n_leaf_pages_reserved",
+		n_leaf_reserved,
+		NULL,
+		"Number of pages reserved for this index leaves when this stat "
+		"is saved to disk");
 
 end:
 	mutex_exit(&dict_sys->mutex);

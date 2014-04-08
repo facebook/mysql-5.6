@@ -736,6 +736,20 @@ btr_get_size(
 				is s-latched */
 	__attribute__((nonnull, warn_unused_result));
 /**************************************************************//**
+Gets the number of reserved and used pages in a B-tree.
+@return	number of pages reserved, or ULINT_UNDEFINED if the index
+is unavailable */
+UNIV_INTERN
+ulint
+btr_get_size_and_reserved(
+/*=========*/
+	dict_index_t*	index,	/*!< in: index */
+	ulint		flag,	/*!< in: BTR_N_LEAF_PAGES or BTR_TOTAL_SIZE */
+	ulint*		used,	/*!< out: number of pages used (<= reserved) */
+	mtr_t*		mtr)	/*!< in/out: mini-transaction where index
+				is s-latched */
+	__attribute__((nonnull));
+/**************************************************************//**
 Allocates a new file page to be used in an index tree. NOTE: we assume
 that the caller has made the reservation for free extents!
 @retval NULL if no page could be allocated

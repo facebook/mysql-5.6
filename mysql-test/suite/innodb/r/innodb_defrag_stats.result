@@ -18,13 +18,15 @@ INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
 INSERT INTO t1 (b) SELECT b from t1;
 # Not enough page splits to trigger persistent stats write yet.
-select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+select count(*) from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 count(*)
 0
 INSERT INTO t1 (b) SELECT b from t1;
 # Persistent stats recorded.
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 stat_value > 0
+1
+1
 1
 1
 1
@@ -52,8 +54,10 @@ delete from t1 where a between 100 * 2 and 100 * 2 + 30;
 delete from t1 where a between 100 * 1 and 100 * 1 + 30;
 # Server Restarted
 # Confirm persistent stats still there after restart.
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 stat_value > 0
+1
+1
 1
 1
 1
@@ -64,8 +68,10 @@ select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%'
 stat_value = 0
 1
 1
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_pages_freed', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name in ('n_pages_freed', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 stat_value > 0
+1
+1
 1
 1
 1
@@ -85,8 +91,10 @@ stat_value > 0
 1
 # Table rename should cause stats rename.
 rename table t1 to t2;
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 stat_value > 0
+1
+1
 1
 1
 1
@@ -99,8 +107,9 @@ select count(*) from mysql.innodb_index_stats where table_name like '%t2%' and i
 count(*)
 0
 Server Restarted
-select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag');
+select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t2%' and  stat_name  in ('n_pages_freed', 'n_page_split', 'n_leaf_pages_defrag', 'n_leaf_pages_reserved');
 stat_value > 0
+1
 1
 1
 1
