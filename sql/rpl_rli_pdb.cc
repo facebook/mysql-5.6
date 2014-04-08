@@ -20,6 +20,7 @@
 #include "rpl_slave.h"
 #include "sql_string.h"
 #include "sql_base.h"
+#include "transaction.h"
 #include "debug_sync.h"
 #include <hash.h>
 
@@ -2273,8 +2274,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
         else if (ev->get_type_code() != TABLE_MAP_EVENT)
         {
           mysql_bin_log.write_event(ev, Log_event::EVENT_TRANSACTIONAL_CACHE);
-          thd->transaction.all.ha_list = NULL;
-          thd->transaction.stmt.ha_list = NULL;
+          trans_commit_stmt(thd);
         }
         ev->data_written = old_data_written;
         reset_dynamic(&worker->worker_gtid_infos);
