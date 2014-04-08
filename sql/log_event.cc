@@ -3161,8 +3161,12 @@ int Log_event::apply_event(Relay_log_info *rli)
           {
             mysql_bin_log.write_event(this,
                                       Log_event::EVENT_TRANSACTIONAL_CACHE);
-            thd->transaction.all.ha_list = NULL;
-            thd->transaction.stmt.ha_list = NULL;
+            // resets transaction.stmt.ha_list to ensure we don't assert
+            // in trans_check_state() when committing the Xid_log_event
+            // Note this is a no op since no innodb handler is registered
+            // for this statement. Only binlog handler is registered
+            // and it does a binlog_commit which is a no operation.
+            trans_commit_stmt(thd);
           }
           reset_dynamic(&rli->gtid_infos);
           DBUG_RETURN(0);
