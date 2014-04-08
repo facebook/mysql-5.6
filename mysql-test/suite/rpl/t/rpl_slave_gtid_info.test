@@ -1,0 +1,73 @@
+# This test verifies the functionality of slave_gtid_info table.
+# A gtid from the future is inserted into the mysql.slave_gtid_info
+# and slave is expected to skip transactions with gtids less
+# than the committed gtid in slave_gtid_info.
+
+# verify slave continues doing xid commits after it skipped
+# executing some transactions.
+
+source include/master-slave.inc;
+source include/have_gtid.inc;
+
+connection master;
+
+-- let $master_uuid = `select @@server_uuid;`
+create table t1 (a int) engine=innodb;
+
+insert into t1 values(1);
+
+insert into t1 values(2);
+
+sync_slave_with_master;
+
+select * from t1;
+
+--replace_result $master_uuid master_uuid
+eval update mysql.slave_gtid_info set Last_gtid = '$master_uuid:5';
+
+--let $rpl_server_number= 2
+--source include/rpl_restart_server.inc
+
+--disable_warnings
+source include/start_slave.inc;
+--enable_warnings
+
+connection master;
+
+# This is expected to be skipped by slave
+insert into t1 values(3);
+# This is expected to be skipped by slave
+insert into t1 values(4);
+
+# slave should have xids for these transactions
+insert into t1 values(5);
+insert into t1 values(6);
+
+sync_slave_with_master;
+
+# slave is expected to skip transactions with gtids less
+# than the committed gtid in slave_gtid_info. So rows
+# 3 and 4 are not present in table t1.
+select * from t1;
+
+connection slave;
+# Check stopping and starting slave doesn't affect two phase commit.
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+begin;
+insert into t1 values(7);
+insert into t1 values(8);
+commit;
+
+sync_slave_with_master;
+
+# verfiy slave does xid commits
+let $SLAVE_DATADIR = `select @@datadir`;
+
+--echo Number of Xids in slave's binary log
+--exec $MYSQL_BINLOG $SLAVE_DATADIR/slave-bin.000002 | grep 'Xid =' | wc -l
+connection master;
+drop table t1;
+source include/rpl_end.inc;
