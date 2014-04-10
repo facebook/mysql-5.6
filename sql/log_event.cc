@@ -5456,8 +5456,13 @@ int Start_log_event_v3::do_apply_event(Relay_log_info const *rli)
       startup so we are sure the master has restarted and cleared his temp
       tables; the event always has 'created'>0) or 5.0 (then we have to test
       'created').
+
+      created is set to 1 by slave IO thread to trigger a rollback by SQL
+      thread. This is used in case where a partial transaction is logged in
+      the relay log when using GTID protocol. In this case there is no need
+      to destroy temporary tables.
     */
-    if (created)
+    if (created > 1)
     {
       error= close_temporary_tables(thd);
       cleanup_load_tmpdir();
@@ -5916,9 +5921,10 @@ int Format_description_log_event::do_apply_event(Relay_log_info const *rli)
     /* This is not an error (XA is safe), just an information */
     rli->report(INFORMATION_LEVEL, 0,
                 "Rolling back unfinished transaction (no COMMIT "
-                "or ROLLBACK in relay log). A probable cause is that "
+                "or ROLLBACK in relay log). Probable cause are that "
                 "the master died while writing the transaction to "
-                "its binary log, thus rolled back too."); 
+                "its binary log, thus rolled back too, or STOP SLAVE with "
+                "GTIDs resulted in a partial transaction in the relay log.");
     const_cast<Relay_log_info*>(rli)->cleanup_context(thd, 1);
   }
 

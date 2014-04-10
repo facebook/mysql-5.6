@@ -4520,6 +4520,37 @@ Stopping slave I/O thread due to out-of-memory error from master");
       /* XXX: 'synced' should be updated by queue_event to indicate
          whether event has been synced to disk */
       bool synced= 0;
+
+      // An FDE event sent from master after an IO_thread restart must trigger
+      // a cleanup operation by the SQL_thread when using GTID protocol.
+      // This is done by setting the created value in FDE to 1.
+      // Check Format_description_log_event::do_apply_event() to see why this
+      // triggers a rollback of unfinished transaction.
+      //
+      // This is necessary for replication using GTID protocol in the below
+      // scenario. STOP SLAVE may cause a partial relay log transaction to get
+      // logged in relay log. When START SLAVE is executed the partial
+      // transaction must be rolled back before executing the full transaction
+      // with the same GTID.
+      //
+      // If FDE doesn't trigger a SQL_thread clean up operation, SQL_thread
+      // may end up executing a same statement in a transaction which may cause
+      // slave inconsistencies.
+      //
+      // Note during slave reconnect slave doesn't use BINLOG_DUMP_GTID
+      // protocol but instead uses BINLOG_DUMP, so we don't need
+      // to trigger a rollback. cur_conn_used_com_binlog_dump == 0 condition is
+      // used for this purpose.
+      if (event_buf[EVENT_TYPE_OFFSET] == FORMAT_DESCRIPTION_EVENT &&
+          mi->is_auto_position() && !cur_conn_used_com_binlog_dump)
+      {
+        uchar * buf = (uchar *) const_cast<char *>(event_buf);
+        // Don't change the created if it is already > 0
+        if (!uint4korr(buf + LOG_EVENT_MINIMAL_HEADER_LEN + ST_CREATED_OFFSET))
+          int4store(buf + LOG_EVENT_MINIMAL_HEADER_LEN +
+                    ST_CREATED_OFFSET, 1);
+      }
+
       if (queue_event(mi, event_buf, event_len))
       {
         mi->report(ERROR_LEVEL, ER_SLAVE_RELAY_LOG_WRITE_FAILURE,

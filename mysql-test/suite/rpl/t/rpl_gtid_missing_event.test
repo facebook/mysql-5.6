@@ -5,7 +5,7 @@
 
 -- let $old_debug = `select @@global.debug;`
 connection master;
-create table t1(a int);
+create table t1(a int) engine=Innodb;
 sync_slave_with_master;
 -- source include/stop_slave.inc
 change master to master_auto_position=1;
@@ -39,11 +39,35 @@ source include/start_slave_io.inc;
 connection master;
 sync_slave_with_master;
 select * from t1;
+
+-- echo Verify the bug with single threaded replication mode
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers=0;
+source include/start_slave.inc;
+
+connection master;
+delete from t1;
+insert into t1 values(1);
+sync_slave_with_master;
+
+connection master;
+-- exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+set global debug='d,slave_missing_gtid';
+-- error 0,2013
+insert into t1 values (2);
+-- let $rpl_server_number = 1
+-- source include/rpl_reconnect.inc
+-- eval SET GLOBAL debug = `$old_debug`
+
+sync_slave_with_master;
+select * from t1;
+
 connection master;
 drop table t1;
 sync_slave_with_master;
 -- source include/stop_slave.inc
 change master to master_auto_position=0;
+set @@global.slave_parallel_workers=2;
 -- source include/start_slave.inc
 connection master;
 -- source include/rpl_end.inc
