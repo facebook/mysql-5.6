@@ -21,6 +21,7 @@ sync_slave_with_master;
 set global debug = "d,partial_relay_log_transaction";
 
 connection master;
+flush logs;
 insert into t1 values (2);
 connection slave;
 
