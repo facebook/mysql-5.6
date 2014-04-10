@@ -15853,9 +15853,8 @@ innodb_status_output_update(
 	const void*			save MY_ATTRIBUTE((unused)))
 {
 	*static_cast<my_bool*>(var_ptr) = *static_cast<const my_bool*>(save);
-	/* The lock timeout monitor thread also takes care of this
-	output. */
-	os_event_set(lock_sys->timeout_event);
+	/* Wakeup server monitor thread. */
+	os_event_set(srv_monitor_event);
 }
 
 static SHOW_VAR innodb_status_variables_export[]= {
