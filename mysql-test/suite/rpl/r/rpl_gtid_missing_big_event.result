@@ -12,6 +12,7 @@ include/start_slave.inc
 ** Test scenario1 without MTS **
 insert into t1 values(1);
 set global debug = "d,partial_relay_log_transaction";
+flush logs;
 insert into t1 values (2);
 include/wait_for_slave_io_to_stop.inc
 select * from t1;
