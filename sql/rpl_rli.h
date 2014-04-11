@@ -756,7 +756,9 @@ public:
    */
   bool is_in_group() const {
     return (info_thd->variables.option_bits & OPTION_BEGIN) ||
-      (m_flags & (1UL << IN_STMT));
+      (m_flags & (1UL << IN_STMT)) ||
+      (info_thd->variables.gtid_next.type == GTID_GROUP) ||
+      (info_thd->variables.gtid_next.type == ANONYMOUS_GROUP);
   }
 
   int count_relay_log_space();
