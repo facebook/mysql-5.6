@@ -1,0 +1,29 @@
+# This test is to check various cases of logging
+# debug global variables changes
+
+# This test case is only for debug mode
+--source include/have_debug.inc
+
+# Don't test embedded servers
+--source include/not_embedded.inc
+
+--echo ### Sys_var_dbug
+SET @old_val = @@global.debug;
+SELECT @old_val;
+
+SET GLOBAL debug = 'd,foo_debug_injection';
+SELECT @@global.debug;
+
+SET GLOBAL debug = '';
+SELECT @@global.debug;
+
+SET GLOBAL debug = '+O,../../log/foo.1.trace';
+SELECT @@global.debug;
+
+SET GLOBAL debug = @old_val;
+SELECT @@global.debug;
+
+--echo ### Verifying error log
+--let MYSQLTEST_LOG_SYSVAR_CHG=debug
+--source include/log_global_var_changes_perl.inc
+--exit
