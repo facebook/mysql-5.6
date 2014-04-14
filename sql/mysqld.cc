@@ -5445,6 +5445,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
 
   init_global_table_stats();
   init_global_db_stats();
+  init_global_error_stats();
 
   /* call ha_init_key_cache() on all key caches to init them */
   process_key_caches(&ha_init_key_cache);
