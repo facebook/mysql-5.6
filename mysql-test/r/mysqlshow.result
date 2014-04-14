@@ -85,6 +85,7 @@ Database: information_schema
 | COLUMNS                               |
 | COLUMN_PRIVILEGES                     |
 | ENGINES                               |
+| ERROR_STATISTICS                      |
 | EVENTS                                |
 | FILES                                 |
 | GLOBAL_STATUS                         |
@@ -155,6 +156,7 @@ Database: INFORMATION_SCHEMA
 | COLUMNS                               |
 | COLUMN_PRIVILEGES                     |
 | ENGINES                               |
+| ERROR_STATISTICS                      |
 | EVENTS                                |
 | FILES                                 |
 | GLOBAL_STATUS                         |

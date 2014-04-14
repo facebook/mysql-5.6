@@ -360,6 +360,7 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
   {
     reset_global_table_stats();
     reset_global_db_stats();
+    reset_global_error_stats();
 #ifndef EMBEDDED_LIBRARY
     reset_global_user_stats();
 #endif
