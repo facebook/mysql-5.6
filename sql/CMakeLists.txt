@@ -212,6 +212,7 @@ SET(SQL_SOURCE
   mysqld.cc
   sql_client.cc
   table_stats.cc
+  error_stats.cc
   )
 
 IF (WIN32 AND OPENSSL_APPLINK_C)

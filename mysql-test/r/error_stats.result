@@ -1,0 +1,72 @@
+drop table if exists test_error_stats;
+flush statistics;
+select count(*) from information_schema.error_statistics;
+count(*)
+0
+create table test_error_stats (i int primary key, j tinyint not null, k char(6));
+insert into test_error_stats values (null, 1, 'foo');
+ERROR 23000: Column 'i' cannot be null
+insert into test_error_stats values (1, 2, 'bar');
+insert into test_error_stats values (1, 3, '');
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+select count(*) from test_error_stats;
+count(*)
+1
+select error_code, error_name, errors_total from information_schema.error_statistics order by error_code;
+error_code	error_name	errors_total
+1048	ER_BAD_NULL_ERROR	1
+1062	ER_DUP_ENTRY	1
+insert into test_error_stats values (2, 10,'mysqltest'), (3, NULL,'test'), (4, 300,'xyz');
+Warnings:
+Warning	1265	Data truncated for column 'k' at row 1
+Warning	1048	Column 'j' cannot be null
+Warning	1264	Out of range value for column 'j' at row 3
+select count(*) from test_error_stats;
+count(*)
+4
+select error_code, error_name, errors_total from information_schema.error_statistics order by error_code;
+error_code	error_name	errors_total
+1048	ER_BAD_NULL_ERROR	2
+1062	ER_DUP_ENTRY	1
+1264	ER_WARN_DATA_OUT_OF_RANGE	1
+1265	WARN_DATA_TRUNCATED	1
+insert into test_error_stats values (null, 1, 'foobar');
+ERROR 23000: Column 'i' cannot be null
+insert into test_error_stats values (1, 1, 'foobar');
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+insert into test_error_stats values (5, 1,'mysqltest');
+Warnings:
+Warning	1265	Data truncated for column 'k' at row 1
+select error_code, error_name, errors_total from information_schema.error_statistics order by error_code;
+error_code	error_name	errors_total
+1048	ER_BAD_NULL_ERROR	3
+1062	ER_DUP_ENTRY	2
+1264	ER_WARN_DATA_OUT_OF_RANGE	1
+1265	WARN_DATA_TRUNCATED	2
+flush statistics;
+select count(*) from information_schema.error_statistics;
+count(*)
+0
+select * from bogus_table;
+ERROR 42S02: Table 'test.bogus_table' doesn't exist
+show bogus_show;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'bogus_show' at line 1
+use bogus_db;
+ERROR 42000: Unknown database 'bogus_db'
+select bogus_func();
+ERROR 42000: FUNCTION test.bogus_func does not exist
+set global max_tmp_tables=32;
+Warnings:
+Warning	1287	'@@max_tmp_tables' is deprecated and will be removed in a future release.
+select error_code, error_name, errors_total from information_schema.error_statistics order by error_code;
+error_code	error_name	errors_total
+1049	ER_BAD_DB_ERROR	1
+1064	ER_PARSE_ERROR	1
+1146	ER_NO_SUCH_TABLE	1
+1287	ER_WARN_DEPRECATED_SYNTAX	1
+1305	ER_SP_DOES_NOT_EXIST	1
+flush statistics;
+select count(*) from information_schema.error_statistics;
+count(*)
+0
+drop table test_error_stats;

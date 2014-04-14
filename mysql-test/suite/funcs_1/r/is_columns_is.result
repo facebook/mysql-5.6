@@ -50,6 +50,10 @@ def	information_schema	ENGINES	SAVEPOINTS	6	NULL	YES	varchar	3	9	NULL	NULL	NULL	
 def	information_schema	ENGINES	SUPPORT	2		NO	varchar	8	24	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(8)			select	
 def	information_schema	ENGINES	TRANSACTIONS	4	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select	
 def	information_schema	ENGINES	XA	5	NULL	YES	varchar	3	9	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(3)			select	
+def	information_schema	ERROR_STATISTICS	ERRORS_TOTAL	4	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	ERROR_STATISTICS	ERROR_CODE	1	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
+def	information_schema	ERROR_STATISTICS	ERROR_LAST_SEEN	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	ERROR_STATISTICS	ERROR_NAME	2		NO	varchar	255	765	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(255)			select	
 def	information_schema	EVENTS	CHARACTER_SET_CLIENT	22		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	EVENTS	COLLATION_CONNECTION	23		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
 def	information_schema	EVENTS	CREATED	17	0000-00-00 00:00:00	NO	datetime	NULL	NULL	NULL	NULL	0	NULL	NULL	datetime			select	
@@ -616,6 +620,10 @@ NULL	information_schema	DB_STATISTICS	WORKING_SET_SIZE	bigint	NULL	NULL	NULL	NUL
 3.0000	information_schema	ENGINES	TRANSACTIONS	varchar	3	9	utf8	utf8_general_ci	varchar(3)
 3.0000	information_schema	ENGINES	XA	varchar	3	9	utf8	utf8_general_ci	varchar(3)
 3.0000	information_schema	ENGINES	SAVEPOINTS	varchar	3	9	utf8	utf8_general_ci	varchar(3)
+NULL	information_schema	ERROR_STATISTICS	ERROR_CODE	int	NULL	NULL	NULL	NULL	int(11)
+3.0000	information_schema	ERROR_STATISTICS	ERROR_NAME	varchar	255	765	utf8	utf8_general_ci	varchar(255)
+NULL	information_schema	ERROR_STATISTICS	ERROR_LAST_SEEN	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	ERROR_STATISTICS	ERRORS_TOTAL	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	EVENTS	EVENT_CATALOG	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	EVENTS	EVENT_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	EVENTS	EVENT_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)

@@ -8,6 +8,8 @@
 --echo # Test every new reserved and non reserved keywords
 --echo #
 
+flush statistics;
+
 --disable_warnings
 drop table if exists signal_non_reserved;
 --enable_warnings
@@ -2677,6 +2679,9 @@ end $$
 # -- error 1000
 # call test_signal $$
 drop procedure test_signal $$
+
+select error_code, error_name, errors_total from information_schema.error_statistics order by error_code
+$$
 
 delimiter ; $$
 
