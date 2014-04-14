@@ -332,6 +332,12 @@ update_user_stats_after_statement(USER_STATS *us,
                                   my_io_perf_t *start_perf_read_primary,
                                   my_io_perf_t *start_perf_read_secondary);
 
+/* For information_schema.error_statistics */
+extern ST_FIELD_INFO error_stats_fields_info[];
+void init_global_error_stats(void);
+void reset_global_error_stats(void);
+void update_error_stats(uint error);
+int fill_error_stats(THD *thd, TABLE_LIST *tables, Item *cond);
 
 /* Functions to work with system tables. */
 bool open_system_tables_for_read(THD *thd, TABLE_LIST *table_list,
