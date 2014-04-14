@@ -49,6 +49,8 @@ This file contains the implementation of error and warnings related
 using std::min;
 using std::max;
 
+extern void update_error_stats(uint code);
+
 /*
   Design notes about Sql_condition::m_message_text.
 
@@ -732,6 +734,8 @@ Sql_condition *Warning_info::push_warning(THD *thd,
     }
     m_warn_count[(uint) level]++;
   }
+
+  update_error_stats(sql_errno);
 
   m_current_statement_warn_count++;
   return cond;
