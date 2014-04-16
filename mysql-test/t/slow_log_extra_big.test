@@ -6,17 +6,7 @@
 
 --let $file_format_save = `SELECT @@innodb_file_format`
 set @my_slow_logname = @@global.slow_query_log_file;
-
-#
-# Delete the log file here because if the test is run with the
-# --repeat option, the result is concatenated to the log file,
-# and the test fails.
-#
---exec rm -f $MYSQLTEST_VARDIR/mysqld.1/data/slow_log_extra_big-slow.log
-
 set global slow_query_log_file = "slow_log_extra_big-slow.log";
---let $innodb_lru_io_to_unzip_factor_save = `SELECT @@innodb_lru_io_to_unzip_factor`
-set global innodb_lru_io_to_unzip_factor=50;
 
 #
 # Confirm that per-query stats work.
@@ -27,21 +17,12 @@ set session long_query_time = 20;
 drop table if exists big_table_slow;
 create table big_table_slow (id int primary key auto_increment, v varchar(200), t text) engine=innodb key_block_size=8;
 
-insert into big_table_slow values (null, lpad("v", 190, "b"), lpad("a", 3000, "b"));
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
-insert into big_table_slow select null, v, t from big_table_slow;
+let $x = 20000;
+while ($x)
+{
+eval insert into big_table_slow values(2 * $x, lpad("v", $x, "b"), lpad("a", ($x * 100) mod 9000, "b"));
+dec $x;
+}
 
 --enable_query_log
 --enable_warnings
@@ -49,9 +30,6 @@ insert into big_table_slow select null, v, t from big_table_slow;
 set global long_query_time = 0;
 
 connect (con,localhost,root,,);
-
---echo # Confirm that Read_time is correct in the slow query log
-
 select count(*) from big_table_slow;
 
 connect (con1,localhost,root,,);
@@ -65,64 +43,6 @@ select count(*) from big_table_slow where id >10000;
 
 select count(*) from big_table_slow where id < 100000;
 
---echo # Confirm that the unzip_LRU to LRU ratio is about 10%
-
-select VARIABLE_VALUE into @dlen from information_schema.global_status
-where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_DATA';
-
-select VARIABLE_VALUE into @ulen from information_schema.global_status
-where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_UNZIP_LRU';
-
---disable_query_log
-let $within_bounds = `select ((@ulen / @dlen) >= 0.05) AND ((@ulen / @dlen) <= 0.30)`;
-if ($within_bounds) {
-	--echo #
-	--echo # The unzip_LRU to LRU ratio is within bounds
-	--echo # for innodb_unzip_lru_pct = 10
-	--echo #
-}
-if (!$within_bounds) {
-	--echo #
-	--echo # Error: The unzip_LRU to LRU ratio is not within bounds
-	--echo # for innodb_unzip_lru_pct = 10
-	let $ulen_val = `select @ulen`;
-	let $dlen_val = `select @dlen`;
-	--echo # unzip_LRU = $ulen_val, LRU = $dlen_val
-	--echo #
-}
---enable_query_log
-
---echo # Confirm that the unzip_LRU to LRU ratio is about 20%
-
-set global innodb_unzip_lru_pct = 20;
-
-select count(*) from big_table_slow;
-
-select VARIABLE_VALUE into @dlen from information_schema.global_status
-where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_DATA';
-
-select VARIABLE_VALUE into @ulen from information_schema.global_status
-where VARIABLE_NAME = 'INNODB_BUFFER_POOL_PAGES_UNZIP_LRU';
-
---disable_query_log
-let $within_bounds = `select ((@ulen / @dlen) >= 0.15) AND ((@ulen / @dlen) <= 0.40)`;
-if ($within_bounds) {
-	--echo #
-	--echo # The unzip_LRU to LRU ratio is within bounds
-	--echo # for innodb_unzip_lru_pct = 20
-	--echo #
-}
-if (!$within_bounds) {
-  --echo #
-  --echo # Error: The unzip_LRU to LRU ratio is not within bounds
-  --echo # for innodb_unzip_lru_pct = 20
-  let $ulen_val = `select @ulen`;
-  let $dlen_val = `select @dlen`;
-  --echo # unzip_LRU = $ulen_val, LRU = $dlen_val
-  --echo #
-}
---enable_query_log
-
 --echo # Cleanup
 
 connection default;
@@ -135,8 +55,6 @@ drop table big_table_slow;
 
 eval SET GLOBAL innodb_file_format = \"$file_format_save\";
 set global slow_query_log_file = @my_slow_logname;
-eval SET GLOBAL innodb_lru_io_to_unzip_factor = $innodb_lru_io_to_unzip_factor_save;
-set global innodb_unzip_lru_pct = 10;
 
 --echo #
 --echo # This is a hack to check the log result.
