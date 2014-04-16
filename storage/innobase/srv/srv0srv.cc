@@ -437,14 +437,6 @@ UNIV_INTERN ulong	srv_doublewrite_batch_size	= 120;
 
 UNIV_INTERN ulong	srv_replication_delay		= 0;
 
-/** Limit the unzip_LRU to this number of pages expressed as
-a percentage of the number of pages on the LRU. */
-UNIV_INTERN ulong srv_unzip_LRU_pct = 10;
-
-/** The factor to multiply the IO rate so that the cost of it is
- * equivalent to the cost of the rate of page decompression. */
-UNIV_INTERN ulong  srv_lru_io_to_unzip_factor = 50;
-
 #ifdef XTRABACKUP
 UNIV_INTERN ibool	srv_apply_log_only	= FALSE;
 #endif /* XTRABACKUP */
