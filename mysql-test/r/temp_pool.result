@@ -1,16 +1,17 @@
 #
 # BUG#11747548:DETECT ORPHAN TEMP-POOL FILES, AND HANDLE GRACEFULLY.
 #
+# This issue has been fixed in WebScaleSQL by get_temp_pool_slot_without_conflicts()
+#
 #Set up.
 CREATE TABLE pid_table(pid_no INT);
 CREATE TABLE t1 (a BLOB);
 INSERT INTO t1 VALUES (1), (2);
 #Create MYD and MYI files for intrinsic temp table.
 LOAD DATA LOCAL INFILE 'pid_file' INTO TABLE pid_table;
-#Reports an error since the temp file already exists.
-SELECT a FROM t1 ORDER BY rand(1);
-ERROR HY000: Can't create or write to file
-#With patch, the query executes successfully.
+# The (orphan) temp file already exists for the current slot
+# so the next available slot without orphan files will be selected
+# so no error will happen
 SELECT a FROM t1 ORDER BY rand(1);
 a
 1
