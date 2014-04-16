@@ -5,15 +5,12 @@
 
 --disable_query_log
 --let $file_format_save = `SELECT @@innodb_file_format`
---let $innodb_unzip_lru_pct_save = `SELECT @@innodb_unzip_lru_pct`
 --let $innodb_compress_malloc_cache_len_save = `SELECT @@innodb_compress_malloc_cache_len`
 --let $innodb_decompress_malloc_cache_len_save = `SELECT @@innodb_decompress_malloc_cache_len`
 
 --disable_warnings
 drop table if exists big_table_malloc_cache;
 --enable_warnings
-
-set global innodb_unzip_lru_pct=1;
 
 delimiter //;
 create procedure populate_table()
@@ -81,7 +78,6 @@ select  variable_value > 1000 as decompress_misses_enough_no_cache from informat
 drop procedure populate_table;
 drop table big_table_malloc_cache;
 eval SET GLOBAL innodb_file_format = \"$file_format_save\";
-eval SET GLOBAL innodb_unzip_lru_pct = $innodb_unzip_lru_pct_save;
 eval SET GLOBAL innodb_compress_malloc_cache_len = $innodb_compress_malloc_cache_len_save;
 eval SET GLOBAL innodb_decompress_malloc_cache_len = $innodb_compress_malloc_cache_len_save;
 --enable_query_log
