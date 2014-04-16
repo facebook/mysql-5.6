@@ -84,6 +84,7 @@
 #define IGNORE_NONE 0x00 /* no ignore */
 #define IGNORE_DATA 0x01 /* don't dump data for this table */
 #define IGNORE_INSERT_DELAYED 0x02 /* table doesn't support INSERT DELAYED */
+#define IGNORE_TABLE 0x04 /* table no longer exist, ignore this table */
 
 typedef enum {
   KEY_TYPE_NONE,
@@ -2857,6 +2858,10 @@ static uint get_table_structure(char *table, char *db, char *table_type,
   DBUG_PRINT("enter", ("db: %s  table: %s", db, table));
 
   *ignore_flag= check_if_ignore_table(table, table_type);
+
+  if (*ignore_flag & IGNORE_TABLE) {
+    DBUG_RETURN(0);
+  }
 
   delayed= opt_delayed;
   if (delayed && (*ignore_flag & IGNORE_INSERT_DELAYED))
@@ -5635,10 +5640,11 @@ char check_if_ignore_table(const char *table_name, char *table_type)
   if (!(row= mysql_fetch_row(res)))
   {
     fprintf(stderr,
-            "Error: Couldn't read status information for table %s (%s)\n",
+            "Warning: Couldn't read status information for table %s (%s). Skip dumping.\n",
             table_name, mysql_error(mysql));
     mysql_free_result(res);
-    DBUG_RETURN(result);                         /* assume table is ok */
+    result= IGNORE_TABLE;
+    DBUG_RETURN(result);
   }
   if (!(row[1]))
     strmake(table_type, "VIEW", NAME_LEN-1);
