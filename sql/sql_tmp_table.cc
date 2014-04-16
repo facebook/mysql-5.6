@@ -403,6 +403,63 @@ static void setup_tmp_table_column_bitmaps(TABLE *table, uchar *bitmaps)
   table->s->column_bitmap_size= bitmap_buffer_size(field_count);
 }
 
+/**
+  Get a temp pool slot for temp table names without conflicts.
+
+  Returns either a good slot or MY_BIT_NONE
+*/
+static uint get_temp_pool_slot_without_conflicts()
+{
+  char path[FN_REFLEN], full_path_myd[FN_REFLEN], full_path_myi[FN_REFLEN];
+  static const uint MAX_RETRY = 100;
+  uint retry_history[MAX_RETRY];
+  uint retry_count = 0;
+  uint temp_pool_slot = MY_BIT_NONE;
+  my_bool found_it = FALSE;
+  while ((temp_pool_slot = bitmap_lock_set_next(&temp_pool)) != MY_BIT_NONE)
+  {
+    /* We got a slot */
+    sprintf(path, "%s_%lx_%i", tmp_file_prefix,
+            current_pid, temp_pool_slot);
+
+    /* Generate the full path names of MYD and MYI files */
+    fn_format(full_path_myd, path, mysql_tmpdir, ".MYD",
+              MY_REPLACE_EXT | MY_UNPACK_FILENAME);
+    fn_format(full_path_myi, path, mysql_tmpdir, ".MYI",
+              MY_REPLACE_EXT | MY_UNPACK_FILENAME);
+
+    /* The file name can be used if no file with the name exists,
+       otherwise, we will have to try the next slot */
+    if (access(full_path_myd, F_OK) && access(full_path_myi, F_OK))
+    {
+      found_it = TRUE;
+      break;
+    }
+
+    /* Save this slot number into retry history */
+    retry_history[retry_count++] = temp_pool_slot;
+
+    /* Stop trying if we have reached the maximum retry count */
+    if (retry_count == MAX_RETRY)
+    {
+      fprintf(stderr,
+              "Warning: Have tried maximum %u times for temp table names "
+              "based on bitmap but failed, the last name tried was %s\n",
+              MAX_RETRY, path);
+      break;
+    }
+  }
+
+  /* Clear all the slots that we tried but failed so that
+     they can be used later or by other threads */
+  for (uint i = 0; i < retry_count; ++i)
+  {
+    bitmap_lock_clear_bit(&temp_pool, retry_history[i]);
+  }
+
+  /* retruning a good slot or MY_BIT_NONE */
+  return (found_it ? temp_pool_slot : MY_BIT_NONE);
+}
 
 /**
   Create a temp table according to a field list.
@@ -486,7 +543,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
   thd->inc_status_created_tmp_tables();
 
   if (use_temp_pool && !(test_flags & TEST_KEEP_TMP_TABLES))
-    temp_pool_slot = bitmap_lock_set_next(&temp_pool);
+    temp_pool_slot = get_temp_pool_slot_without_conflicts();
 
   if (temp_pool_slot != MY_BIT_NONE) // we got a slot
     sprintf(path, "%s_%lx_%i", tmp_file_prefix,
@@ -1222,7 +1279,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
   */
   thd->inc_status_created_tmp_tables();
   if (use_temp_pool && !(test_flags & TEST_KEEP_TMP_TABLES))
-    temp_pool_slot = bitmap_lock_set_next(&temp_pool);
+    temp_pool_slot = get_temp_pool_slot_without_conflicts();
 
   if (temp_pool_slot != MY_BIT_NONE) // we got a slot
     sprintf(path, "%s_%lx_%i", tmp_file_prefix,

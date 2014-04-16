@@ -4,6 +4,8 @@
 --echo #
 --echo # BUG#11747548:DETECT ORPHAN TEMP-POOL FILES, AND HANDLE GRACEFULLY.
 --echo #
+--echo # This issue has been fixed in WebScaleSQL by get_temp_pool_slot_without_conflicts()
+--echo #
 
 --echo #Set up.
 CREATE TABLE pid_table(pid_no INT);
@@ -21,12 +23,9 @@ EOF
 --write_file $MYSQLTEST_VARDIR/tmp/$temp_file_MYI
 EOF
 
---echo #Reports an error since the temp file already exists.
---replace_regex /.*Can't create\/write *.*/Can't create or write to file/
---error 1
-SELECT a FROM t1 ORDER BY rand(1);
-
---echo #With patch, the query executes successfully.
+--echo # The (orphan) temp file already exists for the current slot
+--echo # so the next available slot without orphan files will be selected
+--echo # so no error will happen
 SELECT a FROM t1 ORDER BY rand(1);
 
 --echo #cleanup
