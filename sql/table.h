@@ -1188,6 +1188,10 @@ public:
   my_bool m_needs_reopen;
 private:
   bool created; /* For tmp tables. TRUE <=> tmp table has been instantiated.*/
+  bool tmp_file_created; /* For tmp tables. It is TRUE when the files of the
+                            tmp table have been created. This makes sure the
+                            temp files get deleted when this flag is TRUE but
+                            'created' is FALSE. */
 public:
   uint max_keys; /* Size of allocated key_info array. */
 
@@ -1298,6 +1302,20 @@ public:
   void set_deleted()
   {
     created= false;
+  }
+
+  /// Return true if files of the tmp table are created, and false otherwise.
+  bool is_tmp_file_created() const { return tmp_file_created; }
+
+  /// Set the files of the tmp table as "created".
+  void set_tmp_file_created()
+  {
+    tmp_file_created= true;
+  }
+  /// Set the files of the tmp table to be "deleted", ie "not created".
+  void set_tmp_file_deleted()
+  {
+    tmp_file_created= false;
   }
 };
 

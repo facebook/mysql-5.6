@@ -7131,6 +7131,12 @@ ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
 ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT
   eng "Query execution was interrupted. The query examined at least %lu rows, which exceeds LIMIT ROWS EXAMINED (%lu). The query result may be incomplete."
 
+ER_FAILED_TO_INSTANTIATE_TMP_TABLE
+  eng "Failed to instantiate temporary table."
+
+ER_FAILED_TO_CREATE_TMP_TABLE_FROM_HEAP
+  eng "Failed to create temporary table from heap."
+
 #
 #  End of 5.6 error messages.
 #
