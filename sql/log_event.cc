@@ -6964,8 +6964,13 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli)
                         rli->get_group_master_log_name(),
                         (ulong) rli->get_group_master_log_pos()));
     mysql_mutex_unlock(&rli->data_lock);
+
+    /*
+      Passing 0 as the new_ts argument here so that last_master_timestamp is
+      not updated - a timestamp for a ROTATE_EVENT may be old.
+    */
     if (rli->is_parallel_exec())
-      rli->reset_notified_checkpoint(0, when.tv_sec + (time_t) exec_time,
+      rli->reset_notified_checkpoint(0, 0,
                                      true/*need_data_lock=true*/);
 
     /*
