@@ -1831,6 +1831,8 @@ bool create_myisam_tmp_table(TABLE *table, KEY *keyinfo,
     table->db_stat=0;
     goto err;
   }
+  table->set_tmp_file_created();
+
   table->in_use->inc_status_created_tmp_disk_tables();
   share->db_record_offset= 1;
   table->file->set_max_bytes(thd->variables.tmp_table_max_file_size);
@@ -1903,6 +1905,21 @@ bool instantiate_tmp_table(TABLE *table, KEY *keyinfo,
                                 options, big_tables,
                                 thd))
       return TRUE;
+
+    DBUG_EXECUTE_IF("fail-to-instantiate-tmp-table", {
+        char myd[FN_REFLEN];
+        char myi[FN_REFLEN];
+        static const char *s1 = "temp-table-names";
+        static const char *s2 = "fail-to-instantiate-tmp-table";
+        sprintf(myd, "%s%s", table->s->table_name.str, ".MYD");
+        sprintf(myi, "%s%s", table->s->table_name.str, ".MYI");
+        fprintf(stderr, "[%s][%s]<MYD>%s<MYI>%s\n", s1, s2, myd, myi);
+        table->in_use->get_stmt_da()->set_error_status(
+                                      ER_FAILED_TO_INSTANTIATE_TMP_TABLE);
+        return TRUE;
+      }
+    );
+
     // Make empty record so random data is not written to disk
     empty_record(table);
   }
@@ -1944,11 +1961,16 @@ free_tmp_table(THD *thd, TABLE *entry)
       entry->file->ha_drop_table(entry->s->table_name.str);
     else
       entry->file->ha_delete_table(entry->s->table_name.str);
-    delete entry->file;
-    entry->file= NULL;
-
-    entry->set_deleted();
   }
+  else if (entry->is_tmp_file_created())
+  {
+    entry->file->ha_delete_table(entry->s->table_name.str);
+  }
+  entry->set_tmp_file_deleted();
+  delete entry->file;
+  entry->file= NULL;
+  entry->set_deleted();
+
   /* free blobs */
   for (Field **ptr=entry->field ; *ptr ; ptr++)
     (*ptr)->free();
@@ -2045,7 +2067,28 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
                                thd->variables.option_bits),
                               thd->variables.big_tables,
                               thd))
+  {
+    if (new_table.is_tmp_file_created())
+      goto err1;
     goto err2;
+  }
+
+  DBUG_EXECUTE_IF("fail-to-create-myisam-from-heap",{
+      DBUG_ASSERT(new_table.is_tmp_file_created());
+      char myd[FN_REFLEN];
+      char myi[FN_REFLEN];
+      static const char *s1 = "temp-table-names";
+      static const char *s2 = "fail-to-create-myisam-from-heap";
+      sprintf(myd, "%s%s", table->s->table_name.str, ".MYD");
+      sprintf(myi, "%s%s", table->s->table_name.str, ".MYI");
+      fprintf(stderr, "[%s][%s]<MYD>%s<MYI>%s\n", s1, s2, myd, myi);
+      thd->get_stmt_da()->set_error_status(
+           ER_FAILED_TO_CREATE_TMP_TABLE_FROM_HEAP);
+      sql_print_error("Failed to create tmp table from heap.");
+      goto err1;
+    }
+  );
+
   if (open_tmp_table(&new_table))
     goto err1;
 
@@ -2157,6 +2200,7 @@ bool create_myisam_from_heap(THD *thd, TABLE *table,
   (void) new_table.file->ha_close();
  err1:
   new_table.file->ha_delete_table(new_table.s->table_name.str);
+  new_table.set_tmp_file_deleted();
  err2:
   delete new_table.file;
   thd_proc_info(thd, save_proc_info);
