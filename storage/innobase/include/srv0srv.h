@@ -1147,6 +1147,8 @@ struct export_var_t{
 	ulint innodb_sec_rec_cluster_reads;	/*!< srv_sec_rec_cluster_reads */
 	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
 
+	ulint innodb_defragment_compression_failures;
+
 	ulint innodb_buffered_aio_submitted;
 	ulint innodb_outstanding_aio_requests;
 #ifdef UNIV_DEBUG
