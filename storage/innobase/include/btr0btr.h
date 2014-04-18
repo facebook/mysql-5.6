@@ -110,6 +110,7 @@ already holding an S latch on the index tree */
 
 /** Work queue for btr_defragment_thread. */
 extern ib_wqueue_t* btr_defragment_wq;
+extern ulint btr_defragment_compression_failures;
 
 /** Item in the work queue for btr_degrament_thread. */
 struct btr_defragment_item_t
