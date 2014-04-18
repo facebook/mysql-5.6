@@ -970,6 +970,8 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_trx_n_rollback_partial,	  SHOW_LONG},
   {"transaction_rollback_total",
   (char*) &export_vars.innodb_trx_n_rollback_total,	  SHOW_LONG},
+  {"defragment_compression_failures",
+   (char*) &export_vars.innodb_defragment_compression_failures, SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
   {"outstanding_aio_requests",
