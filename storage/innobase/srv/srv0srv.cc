@@ -1976,6 +1976,9 @@ srv_export_innodb_status(void)
 	export_vars.innodb_lsn_oldest = lsn_oldest;
 	export_vars.innodb_lsn_diff = lsn_gap;
 
+	export_vars.innodb_defragment_compression_failures =
+		btr_defragment_compression_failures;
+
 	export_vars.innodb_buffered_aio_submitted =
 		srv_stats.n_aio_submitted;
 	export_vars.innodb_outstanding_aio_requests =

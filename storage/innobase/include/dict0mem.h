@@ -607,6 +607,10 @@ struct zip_pad_info_t {
 				/*!< Creation state of mutex member */
 };
 
+/** Number of samples of data size kept when page compression fails for
+a certain index.*/
+#define STAT_DEFRAG_DATA_SIZE_N_SAMPLE	10
+
 /** Data structure for an index.  Most fields will be
 initialized to 0, NULL or FALSE in dict_mem_index_create(). */
 struct dict_index_t{
@@ -705,6 +709,12 @@ struct dict_index_t{
 	ulint		stat_defrag_n_page_split;
 				/* number of page splits since last full index
 				defragmentation. */
+	ulint		stat_defrag_data_size_sample[STAT_DEFRAG_DATA_SIZE_N_SAMPLE];
+				/* data size when compression failure happened
+				the most recent 10 times. */
+	ulint		stat_defrag_sample_next_slot;
+				/* in which slot the next sample should be
+				saved. */
 	/* @} */
 	rw_lock_t	lock;	/*!< read-write lock protecting the
 				upper levels of the index tree */

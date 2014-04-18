@@ -47,9 +47,20 @@ Created 6/2/1994 Heikki Tuuri
 #include "srv0mon.h"
 #include "srv0start.h"
 
+/* Wait time on defragmentation work queue. */
 #define BTR_DEFRAGMENT_WQ_WAIT_IN_USECS		5000000
-/** Work queue for btr_defragment_thread. */
+/* Reduce the target page size by this amount when compression failure happens
+during defragmentaiton. 512 is chosen because it's a power of 2 and it is about
+3% of the page size. When there are compression failures in defragmentation,
+our goal is to get a decent defrag ratio with as few compression failure as
+possible. From experimentation it seems that reduce the target size by 512 every
+time will make sure the page is compressible within a couple of iterations. */
+#define BTR_DEFRAGMENT_PAGE_REDUCTION_STEP_SIZE	512
+/* Work queue for btr_defragment_thread. */
 ib_wqueue_t* btr_defragment_wq = NULL;
+/* Number of compression failures caused by defragmentation since server
+start. */
+ulint btr_defragment_compression_failures = 0;
 
 /**************************************************************//**
 Checks if the page in the cursor can be merged with given page.
@@ -4049,43 +4060,6 @@ btr_defragment_calc_n_recs_for_size(
 }
 
 /*************************************************************//**
-Calculate data size for given number of records from the
-beginning of a block.
-@return data size */
-UNIV_INTERN
-ulint
-btr_defragment_calc_size_for_n_recs(
-	buf_block_t* block,	/*!< in: B-tree page */
-	dict_index_t* index,	/*!< in: index of the page */
-	ulint n_recs)	/*!< in: size limit to fit records in */
-{
-	page_t* page = buf_block_get_frame(block);
-	ulint offsets_[REC_OFFS_NORMAL_SIZE];
-	ulint* offsets = offsets_;
-	rec_offs_init(offsets_);
-	mem_heap_t* heap = NULL;
-	ulint size = 0;
-	page_cur_t cur;
-
-	if (page_get_n_recs(page) <= n_recs) {
-		return page_get_data_size(page);
-	}
-
-	page_cur_set_before_first(block, &cur);
-	page_cur_move_to_next(&cur);
-	for (ulint i = 0; i < n_recs; i++) {
-		rec_t* cur_rec = page_cur_get_rec(&cur);
-		ulint rec_size;
-		offsets = rec_get_offsets(cur_rec, index, offsets,
-					  ULINT_UNDEFINED, &heap);
-		rec_size = rec_offs_size(offsets);
-		size += rec_size;
-		page_cur_move_to_next(&cur);
-	}
-	return size;
-}
-
-/*************************************************************//**
 Merge as many records from the from_block to the to_block. Delete
 the from_block if all records are successfully merged to to_block.
 @return the to_block to target for next merge operation. */
@@ -4123,7 +4097,7 @@ btr_defragment_merge_pages(
 	rec_t* orig_pred;
 
 	// Estimate how many records can be moved from the from_page to
-	// the new page.
+	// the to_page.
 	if (zip_size) {
 		ulint page_diff = UNIV_PAGE_SIZE - *max_data_size;
 		max_ins_size_to_use = (max_ins_size_to_use > page_diff)
@@ -4154,7 +4128,7 @@ btr_defragment_merge_pages(
 		ut_a(max_ins_size >= move_size);
 	}
 
-	// Move records to new page to defragment the new page.
+	// Move records to pack to_page more full.
 	orig_pred = NULL;
 	target_n_recs = n_recs_to_move;
 	while (n_recs_to_move > 0) {
@@ -4164,10 +4138,24 @@ btr_defragment_merge_pages(
 			to_block, from_block, rec, index, mtr);
 		if (orig_pred)
 			break;
-		n_recs_to_move --;
+		// If we reach here, that means compression failed after packing
+		// n_recs_to_move number of records to to_page. We try to reduce
+		// the targeted data size on the to_page by
+		// BTR_DEFRAGMENT_PAGE_REDUCTION_STEP_SIZE and try again.
+		os_atomic_increment_ulint(
+			&btr_defragment_compression_failures, 1);
+		max_ins_size_to_use =
+			move_size > BTR_DEFRAGMENT_PAGE_REDUCTION_STEP_SIZE
+			? move_size - BTR_DEFRAGMENT_PAGE_REDUCTION_STEP_SIZE
+			: 0;
+		if (max_ins_size_to_use == 0) {
+			n_recs_to_move = 0;
+			move_size = 0;
+			break;
+		}
+		n_recs_to_move = btr_defragment_calc_n_recs_for_size(
+			from_block, index, max_ins_size_to_use, &move_size);
 	}
-	move_size = btr_defragment_calc_size_for_n_recs(from_block, index,
-							n_recs_to_move);
 	// If less than target_n_recs are moved, it means there are
 	// compression failures during page_copy_rec_list_start. Adjust
 	// the max_data_size estimation to reduce compression failures
@@ -4321,12 +4309,30 @@ btr_defragment_n_pages(
 	return early. */
 	ut_a(total_n_recs != 0);
 	data_size_per_rec = total_data_size / total_n_recs;
+	// For uncompressed pages, the optimal data size if the free space of a
+	// empty page.
 	optimal_page_size = page_get_free_space_of_empty(
 		page_is_comp(first_page));
+	// For compressed pages, we take compression failures into account.
 	if (zip_size) {
-		optimal_page_size =
-			min(optimal_page_size,
-			    dict_index_zip_pad_optimal_page_size(index));
+		ulint size = 0;
+		int i = 0;
+		// We estimate the optimal data size of the index use samples of
+		// data size. These samples are taken when pages failed to
+		// compress due to insertion on the page. We use the average
+		// of all samples we have as the estimation. Different pages of
+		// the same index vary in compressibility. Average gives a good
+		// enough estimation.
+		for (;i < STAT_DEFRAG_DATA_SIZE_N_SAMPLE; i++) {
+			if (index->stat_defrag_data_size_sample[i] == 0) {
+				break;
+			}
+			size += index->stat_defrag_data_size_sample[i];
+		}
+		if (i != 0) {
+			size = size / i;
+			optimal_page_size = min(optimal_page_size, size);
+		}
 		max_data_size = optimal_page_size;
 	}
 
