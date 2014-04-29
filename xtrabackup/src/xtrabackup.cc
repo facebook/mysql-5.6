@@ -6825,14 +6825,21 @@ skip_check:
 	srv_apply_log_only = (ibool) xtrabackup_apply_log_only;
 
 	/* increase IO threads */
-	if(srv_n_file_io_threads < 10) {
 #ifndef INNODB_VERSION_SHORT
+	if(srv_n_file_io_threads < 10)
 		srv_n_file_io_threads = 10;
 #else
-		srv_n_read_io_threads = 4;
-		srv_n_write_io_threads = 4;
+  if (srv_n_read_io_threads < 4) {
+    msg("xtrabackup: warning: innodb_read_io_threads increased to 4,"
+        "originally was %ld\n", srv_n_read_io_threads);
+	  srv_n_read_io_threads = 4;
+  }
+  if (srv_n_write_io_threads < 4) {
+    msg("xtrabackup: warning: innodb_write_io_threads increased to 4,"
+        "originally was %ld\n", srv_n_write_io_threads);
+	  srv_n_write_io_threads = 4;
+  }
 #endif
-	}
 
 	msg("xtrabackup: Starting InnoDB instance for recovery.\n"
 	    "xtrabackup: Using %lld bytes for buffer pool "
