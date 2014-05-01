@@ -1145,6 +1145,8 @@ const char *binlog_error_action_list[] = {"IGNORE_ERROR", "ABORT_SERVER",
                                           NullS};
 uint32 gtid_executed_compression_period = 0;
 bool opt_log_unsafe_statements;
+bool is_slave = false;
+bool read_only_slave;
 
 const char *timestamp_type_names[] = {"UTC", "SYSTEM", NullS};
 ulong opt_log_timestamps;
@@ -3466,8 +3468,10 @@ void my_message_sql(uint error, const char *str, myf MyFlags) {
       will not result in writing to that log to prevent abuse.
       We're asserting after rather than before printing to make
       the culprit easier to track down.
+
+      FB - Allow errors from the FB range.
     */
-    DBUG_ASSERT(error < ER_SERVER_RANGE_START);
+    DBUG_ASSERT(error < ER_SERVER_RANGE_START || error >= ER_PLACEHOLDER_50000);
   }
 
   /* When simulating OOM, skip writing to error log to avoid mtr errors */
