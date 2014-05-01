@@ -21,7 +21,9 @@ select * from t1;
 a
 1
 2
+set @@global.read_only_slave=0;
 set @@global.super_read_only=0;
 set @@global.read_only=0;
+set @@global.read_only_slave=1;
 drop table t1;
 include/rpl_end.inc
