@@ -1,0 +1,84 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.read_only_slave;
+SELECT @start_value;
+
+SET @@global.read_only_slave = 0;
+SET @@global.read_only_slave = DEFAULT;
+SELECT @@global.read_only_slave;
+
+
+SET @@global.read_only_slave = @start_value;
+SELECT @@global.read_only_slave = TRUE;
+
+
+SET @@global.read_only_slave = 0;
+SELECT @@global.read_only_slave;
+SET @@global.read_only_slave = 1;
+SELECT @@global.read_only_slave;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.read_only_slave = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.read_only_slave = 1;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.read_only_slave;
+
+
+SELECT IF(@@global.read_only_slave, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='read_only_slave';
+
+SET @@global.read_only_slave = OFF;
+SELECT @@global.read_only_slave;
+SET @@global.read_only_slave = ON;
+SELECT @@global.read_only_slave;
+
+SET @@global.read_only_slave = TRUE;
+SELECT @@global.read_only_slave;
+SET @@global.read_only_slave = FALSE;
+SELECT @@global.read_only_slave;
+
+SET @@global.read_only_slave = 1;
+SELECT @@read_only_slave = @@global.read_only_slave;
+
+--Error ER_GLOBAL_VARIABLE
+SET read_only_slave = 1;
+--Error ER_PARSE_ERROR
+SET local.read_only_slave = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.read_only_slave;
+--Error ER_PARSE_ERROR
+SET global.read_only_slave = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.read_only_slave;
+--Error ER_BAD_FIELD_ERROR
+SELECT read_only_slave = @@session.read_only_slave;
+
+
+SET @@global.read_only_slave = @start_value;
+SELECT @@global.read_only_slave;
