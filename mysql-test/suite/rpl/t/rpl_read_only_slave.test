@@ -1,0 +1,57 @@
+source include/master-slave.inc;
+
+connection slave;
+select @@global.read_only;
+
+# Verify setting read_only to 1 succeeds
+set @@global.read_only=1;
+select @@global.read_only;
+
+# Verify setting read_only to 0 fails
+--error ER_READ_ONLY_SLAVE
+set @@global.read_only=0;
+
+# Verify super_read_only to ON/OFF succeeds.
+set @@global.super_read_only=1;
+set @@global.super_read_only=0;
+
+# Verify setting read_only to 0 succeeds if read_only_slave is OFF
+set @@global.read_only_slave=0;
+set @@global.read_only=0;
+set @@global.read_only_slave=1;
+
+select @@global.read_only;
+set @@global.read_only=1;
+
+# Verify setting read_only to 0 fails after server restart
+--let $rpl_server_number=2
+-- let $rpl_server_parameters= --read_only=1
+--source include/rpl_restart_server.inc
+
+--error ER_READ_ONLY_SLAVE
+set @@global.read_only=0;
+
+# Verify setting read_only to 0 after 'reset slave' fails
+source include/stop_slave.inc;
+reset slave;
+--error ER_READ_ONLY_SLAVE
+set @@global.read_only=0;
+
+# Verify setting read_only to 0 after 'reset slave all' succeeds
+--let $_slave_master_host= query_get_value(SHOW SLAVE STATUS, Master_Host, 1)
+--let $_slave_master_user= query_get_value(SHOW SLAVE STATUS, Master_User, 1)
+--let $_slave_master_port= query_get_value(SHOW SLAVE STATUS, Master_Port, 1)
+
+reset slave all;
+set @@global.read_only=0;
+
+--replace_result $_slave_master_host MASTER_HOST $_slave_master_user MASTER_USER $_slave_master_port MASTER_PORT
+--replace_column 2 ####
+--eval CHANGE MASTER TO MASTER_HOST= '$_slave_master_host', MASTER_USER= '$_slave_master_user', MASTER_PORT= $_slave_master_port
+--source include/start_slave.inc
+
+# Verify setting read_only to 0 fails after 'change master to'
+--error ER_READ_ONLY_SLAVE
+set @@global.read_only=0;
+
+source include/rpl_end.inc;

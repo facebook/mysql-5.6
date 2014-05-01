@@ -1,0 +1,90 @@
+SET @start_value = @@global.read_only_slave;
+SELECT @start_value;
+@start_value
+1
+SET @@global.read_only_slave = 0;
+SET @@global.read_only_slave = DEFAULT;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+1
+SET @@global.read_only_slave = @start_value;
+SELECT @@global.read_only_slave = TRUE;
+@@global.read_only_slave = TRUE
+1
+SET @@global.read_only_slave = 0;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+0
+SET @@global.read_only_slave = 1;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+1
+SET @@global.read_only_slave = 2;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of '2'
+SET @@global.read_only_slave = -1;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of '-1'
+SET @@global.read_only_slave = TRUEF;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of 'TRUEF'
+SET @@global.read_only_slave = TRUE_F;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of 'TRUE_F'
+SET @@global.read_only_slave = FALSE0;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of 'FALSE0'
+SET @@global.read_only_slave = OON;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of 'OON'
+SET @@global.read_only_slave = ONN;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of 'ONN'
+SET @@global.read_only_slave = OOFF;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of 'OOFF'
+SET @@global.read_only_slave = 0FF;
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of '0FF'
+SET @@global.read_only_slave = ' ';
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of ' '
+SET @@global.read_only_slave = " ";
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of ' '
+SET @@global.read_only_slave = '';
+ERROR 42000: Variable 'read_only_slave' can't be set to the value of ''
+SET @@session.read_only_slave = 1;
+ERROR HY000: Variable 'read_only_slave' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.read_only_slave;
+ERROR HY000: Variable 'read_only_slave' is a GLOBAL variable
+SELECT IF(@@global.read_only_slave, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='read_only_slave';
+IF(@@global.read_only_slave, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.read_only_slave = OFF;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+0
+SET @@global.read_only_slave = ON;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+1
+SET @@global.read_only_slave = TRUE;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+1
+SET @@global.read_only_slave = FALSE;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+0
+SET @@global.read_only_slave = 1;
+SELECT @@read_only_slave = @@global.read_only_slave;
+@@read_only_slave = @@global.read_only_slave
+1
+SET read_only_slave = 1;
+ERROR HY000: Variable 'read_only_slave' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.read_only_slave = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'read_only_slave = 1' at line 1
+SELECT local.read_only_slave;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.read_only_slave = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'read_only_slave = 1' at line 1
+SELECT global.read_only_slave;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT read_only_slave = @@session.read_only_slave;
+ERROR 42S22: Unknown column 'read_only_slave' in 'field list'
+SET @@global.read_only_slave = @start_value;
+SELECT @@global.read_only_slave;
+@@global.read_only_slave
+1

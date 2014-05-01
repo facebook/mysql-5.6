@@ -7137,6 +7137,8 @@ ER_FAILED_TO_INSTANTIATE_TMP_TABLE
 ER_FAILED_TO_CREATE_TMP_TABLE_FROM_HEAP
   eng "Failed to create temporary table from heap."
 
+ER_READ_ONLY_SLAVE
+  eng "read_only should not be disabled on a slave. Slave with read_only=0 may generate new GTID on its own breaking replication or may cause a split brain. This error can be avoided by turning off the variable read_only_slave. Any session which writes to slaves must set sql_log_bin=0 to avoid GTID generation."
 #
 #  End of 5.6 error messages.
 #

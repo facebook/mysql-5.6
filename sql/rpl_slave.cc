@@ -443,6 +443,7 @@ int init_slave()
     goto err;
   }
 
+  is_slave = active_mi->host[0];
   DBUG_PRINT("info", ("init group master %s %lu  group relay %s %lu event %s %lu\n",
     rli->get_group_master_log_name(),
     (ulong) rli->get_group_master_log_pos(),
@@ -8591,6 +8592,7 @@ int reset_slave(THD *thd, Master_info* mi)
     goto err;
   }
 
+  is_slave = mi->host[0];
   (void) RUN_HOOK(binlog_relay_io, after_reset_slave, (thd, mi));
 err:
   unlock_slave_threads(mi);
@@ -9015,6 +9017,7 @@ bool change_master(THD* thd, Master_info* mi)
     saved_bind_addr, mi->host, mi->port, mi->get_master_log_name(),
     (ulong) mi->get_master_log_pos(), mi->bind_addr);
 
+   is_slave = mi->host[0];
   /*
     If we don't write new coordinates to disk now, then old will remain in
     relay-log.info until START SLAVE is issued; but if mysqld is shutdown
