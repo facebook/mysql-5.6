@@ -808,6 +808,12 @@ The following options may be given as the first argument:
  --read-only         Make all non-temporary tables read-only, with the
  exception for replication (slave) threads and users with
  the SUPER privilege
+ --read-only-slave   Blocks disabling read_only if the server is a slave. This
+ is helpful in asserting that read_only is never disabled
+ on a slave. Slave with read_only=0 may generate new GTID
+ on its own breaking replication or may cause a split
+ brain. 
+ (Defaults to on; use --skip-read-only-slave to disable.)
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
@@ -1388,6 +1394,7 @@ query-prealloc-size 8192
 range-alloc-block-size 4096
 read-buffer-size 131072
 read-only FALSE
+read-only-slave TRUE
 read-rnd-buffer-size 262144
 relay-log (No default value)
 relay-log-index (No default value)
