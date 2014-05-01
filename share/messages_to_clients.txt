@@ -9336,3 +9336,250 @@ reserved-error-section 5000 5999
 # same directory as this file for more
 # information.
 ################################################################################
+
+
+#
+# FB MySQL error codes begin from 50000
+#
+
+start-error-number 50000
+
+ER_PLACEHOLDER_50000
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50001
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50002
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50003
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50004
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50005
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50006
+  eng "Placeholder"
+
+ER_READ_ONLY_SLAVE
+  eng "read_only should not be disabled on a slave. Slave with read_only=0 may generate new GTID on its own breaking replication or may cause a split brain. This error can be avoided by turning off the variable read_only_slave. Any session which writes to slaves must set sql_log_bin=0 to avoid GTID generation."
+
+ER_PLACEHOLDER_50008
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50009
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50010
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50011
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50012
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50013
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50014
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50015
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50016
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50017
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50018
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50019
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50020
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50021
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50022
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50023
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50024
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50025
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50026
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50027
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50028
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50029
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50030
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50031
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50032
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50033
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50034
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50035
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50036
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50037
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50038
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50039
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50040
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50041
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50042
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50043
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50044
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50045
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50046
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50047
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50048
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50049
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50050
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50051
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50052
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50053
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50054
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50055
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50056
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50057
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50058
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50059
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50060
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50061
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50062
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50063
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50064
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50065
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50066
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50067
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50068
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50069
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50070
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50071
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50072
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50073
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50074
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50075
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50076
+  eng "Placeholder"
+
+ER_PLACEHOLDER_50077
+  eng "Placeholder"
+
+#
+# End of 8.0 FB MySQL error messages.
+# (Please read comments from the header of this section before adding error
+#  message here)
+#

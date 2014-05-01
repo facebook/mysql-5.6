@@ -3268,10 +3268,16 @@ static Sys_var_ulong Sys_read_buff_size(
     VALID_RANGE(IO_SIZE * 2, INT_MAX32), DEFAULT(128 * 1024),
     BLOCK_SIZE(IO_SIZE));
 
-static bool check_read_only(sys_var *, THD *thd, set_var *) {
+static bool check_read_only(sys_var *self, THD *thd, set_var *var) {
   /* Prevent self dead-lock */
   if (thd->locked_tables_mode || thd->in_active_multi_stmt_transaction()) {
     my_error(ER_LOCK_OR_ACTIVE_TRANSACTION, MYF(0));
+    return true;
+  }
+
+  if (var && !var->save_result.ulonglong_value && is_slave && read_only_slave &&
+      !strcmp(self->name.str, "read_only")) {
+    my_error(ER_READ_ONLY_SLAVE, MYF(0));
     return true;
   }
   return false;
@@ -6012,6 +6018,14 @@ static Sys_var_ulong Sys_sp_cache_size(
     "one connection.",
     GLOBAL_VAR(stored_program_cache_size), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(16, 512 * 1024), DEFAULT(256), BLOCK_SIZE(1));
+
+static Sys_var_bool Sys_read_only_slave(
+    "read_only_slave",
+    "Blocks disabling read_only if the server is a slave. "
+    "This is helpful in asserting that read_only is never disabled "
+    "on a slave. Slave with read_only=0 may generate new GTID "
+    "on its own breaking replication or may cause a split brain. ",
+    GLOBAL_VAR(read_only_slave), CMD_LINE(OPT_ARG), DEFAULT(true));
 
 static bool check_pseudo_slave_mode(sys_var *self, THD *thd, set_var *var) {
   if (check_session_admin_or_replication_applier(self, thd, var)) return true;
