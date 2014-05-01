@@ -118,13 +118,19 @@ insert into t1 values(1006);
 --error ER_OPTION_PREVENTS_STATEMENT
 insert into t2 values(2006);
 
+# Verify read_only cannot be disabled on slave
+connection slave;
+
 ## Cleanup
 connection master;
 drop user test;
 drop table t1;
 drop table t2;
 --source include/sync_slave_sql_with_master.inc
+# Verify read_only can be disabled on slave if read_only_slave is turned off
+set @@global.read_only_slave=0;
 set global read_only=0;
+set @@global.read_only_slave=1;
 
 
 --source include/rpl_end.inc

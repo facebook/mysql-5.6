@@ -547,6 +547,8 @@ const char *binlog_error_action_list[]= {"IGNORE_ERROR", "ABORT_SERVER", NullS};
 my_bool log_gtid_unsafe_statements;
 ulong gtid_mode;
 bool enable_gtid_mode_on_new_slave_with_old_master;
+my_bool is_slave = false;
+my_bool read_only_slave;
 const char *gtid_mode_names[]=
 {"OFF", "UPGRADE_STEP_1", "UPGRADE_STEP_2", "ON", NullS};
 TYPELIB gtid_mode_typelib=
