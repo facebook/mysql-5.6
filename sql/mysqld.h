@@ -599,6 +599,8 @@ extern my_bool opt_slave_sql_verify_checksum;
 extern my_bool enforce_gtid_consistency;
 extern my_bool log_gtid_unsafe_statements;
 extern char *mysqld_socket_umask;
+extern my_bool is_slave;
+extern my_bool read_only_slave;
 extern ulong sql_slave_skip_counter_usage;
 
 enum enum_gtid_mode
