@@ -46,6 +46,9 @@ skip-replica-start
 # test results will vary, thus a relative path is used.
 replica-load-tmpdir=          ../../tmp
 
+# Disable read-only-slave to allow tests to pass
+loose-read-only-slave=      0
+
 
 [ENV]
 MASTER_MYPORT=              @mysqld.1.port
