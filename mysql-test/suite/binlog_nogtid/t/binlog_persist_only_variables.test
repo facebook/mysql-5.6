@@ -51,6 +51,7 @@ INSERT INTO rplvars (varname, varvalue)
        (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
         'innodb_master_thread_disabled_debug',
         'binlog_file_basedir', 'binlog_index_basedir',
+        'read_only_slave',
         'reset_seconds_behind_master', 'skip_flush_master_info'))
        ORDER BY VARIABLE_NAME;
 --enable_warnings
