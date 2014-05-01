@@ -23,8 +23,10 @@ insert into t1 values(2);
 sync_slave_with_master;
 
 select * from t1;
+set @@global.read_only_slave=0;
 set @@global.super_read_only=0;
 set @@global.read_only=0;
+set @@global.read_only_slave=1;
 
 connection master;
 drop table t1;

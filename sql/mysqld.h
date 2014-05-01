@@ -608,6 +608,8 @@ enum enum_binlogging_impossible_mode
 extern const char *binlogging_impossible_err[];
 extern my_bool log_gtid_unsafe_statements;
 extern char *mysqld_socket_umask;
+extern my_bool is_slave;
+extern my_bool read_only_slave;
 extern ulong sql_slave_skip_counter_usage;
 
 enum enum_gtid_mode
