@@ -484,6 +484,18 @@ static void init_slave_psi_keys(void) {
 }
 #endif /* HAVE_PSI_INTERFACE */
 
+static bool configured_as_slave() {
+  channel_map.assert_some_lock();
+
+  for (mi_map::iterator it = channel_map.begin(); it != channel_map.end();
+       it++) {
+    if (Master_info::is_configured(it->second)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /* Initialize slave structures */
 
 int init_slave() {
@@ -533,6 +545,8 @@ int init_slave() {
     }
   }
 #endif
+
+  is_slave = configured_as_slave();
 
   if (global_gtid_mode.get() == Gtid_mode::OFF) {
     for (auto it : channel_map) {
@@ -9215,6 +9229,8 @@ int reset_slave(THD *thd, Master_info *mi, bool reset_all) {
     mi->channel_unlock();
   }
 
+  is_slave = configured_as_slave();
+
 err:
   return error;
 }
@@ -10280,6 +10296,7 @@ int change_master(THD *thd, Master_info *mi, LEX_MASTER_INFO *lex_mi,
       }
     }
 
+    is_slave = configured_as_slave();
     /*
       If we don't write new coordinates to disk now, then old will remain in
       relay-log.info until START SLAVE is issued; but if mysqld is shutdown
