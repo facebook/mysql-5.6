@@ -55,7 +55,7 @@ INSERT INTO rplvars (varname, varvalue)
        (VARIABLE_NAME NOT IN ('innodb_api_enable_binlog',
         'binlog_file_basedir', 'binlog_index_basedir',
         'skip_flush_master_info', 'skip_flush_relay_worker_info',
-        'reset_seconds_behind_master',
+        'read_only_slave', 'reset_seconds_behind_master',
         'innodb_master_thread_disabled_debug', 'innodb_replication_delay'))
        AND (VARIABLE_NAME NOT LIKE 'rocksdb%')
        ORDER BY VARIABLE_NAME;

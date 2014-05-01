@@ -425,6 +425,8 @@ inline ulonglong microseconds_to_my_timer(double when) {
   return (ulonglong)ret;
 }
 
+extern bool is_slave;
+extern bool read_only_slave;
 extern ulong stored_program_cache_size;
 extern ulong back_log;
 extern "C" MYSQL_PLUGIN_IMPORT ulong server_id;
