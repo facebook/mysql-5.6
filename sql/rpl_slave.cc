@@ -1991,6 +1991,14 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
   int version_number=0;
   version_number= atoi(mysql->server_version);
 
+  const char query_global_attr_version_four[] =
+    "SELECT @@global.server_id, @@global.collation_server, @@global.time_zone";
+  const char query_global_attr_older_versions[] = "SELECT @@global.server_id";
+
+  const char* global_server_id = NULL;
+  const char* global_collation_server = NULL;
+  const char* global_time_zone = NULL;
+
   mi->ignore_checksum_alg = false;
   MYSQL_RES *master_res= 0;
   MYSQL_ROW master_row;
@@ -2150,54 +2158,109 @@ static int get_master_version_and_clock(MYSQL* mysql, Master_info* mi)
                   };);
   master_res= NULL;
   master_row= NULL;
-  if (!mysql_real_query(mysql,
-                        STRING_WITH_LEN("SHOW VARIABLES LIKE 'SERVER_ID'")) &&
-      (master_res= mysql_store_result(mysql)) &&
-      (master_row= mysql_fetch_row(master_res)))
+  if (*mysql->server_version == '4')
   {
-    if ((::server_id == (mi->master_id= strtoul(master_row[1], 0, 10))) &&
-        !mi->rli->replicate_same_server_id)
+    if (!mysql_real_query(mysql,
+                          STRING_WITH_LEN(query_global_attr_version_four)) &&
+        (master_res= mysql_store_result(mysql)) &&
+        (master_row= mysql_fetch_row(master_res)))
     {
-      errmsg= "The slave I/O thread stops because master and slave have equal \
-MySQL server ids; these ids must be different for replication to work (or \
-the --replicate-same-server-id option must be used on slave but this does \
-not always make sense; please check the manual before using it).";
+      global_server_id = master_row[0];
+      global_collation_server = master_row[1];
+      global_time_zone = master_row[2];
+    }
+    else if (mysql_errno(mysql))
+    {
+      if (check_io_slave_killed(mi->info_thd, mi, NULL))
+        goto slave_killed_err;
+      else if (is_network_error(mysql_errno(mysql)))
+      {
+        mi->report(WARNING_LEVEL, mysql_errno(mysql),
+                   "Get master SERVER_ID, COLLATION_SERVER and TIME_ZONE "
+                   "failed with error: %s", mysql_error(mysql));
+        goto network_err;
+      }
+      else if (mysql_errno(mysql) != ER_UNKNOWN_SYSTEM_VARIABLE)
+      {
+        /* Fatal error */
+        errmsg = "The slave I/O thread stops because a fatal error is "
+                 "encountered when it try to get the value of SERVER_ID, "
+                 "COLLATION_SERVER and TIME_ZONE global variable from master.";
+        err_code = mysql_errno(mysql);
+        sprintf(err_buff, "%s Error: %s", errmsg, mysql_error(mysql));
+        goto err;
+      }
+      else
+      {
+        mi->report(WARNING_LEVEL, ER_UNKNOWN_SYSTEM_VARIABLE,
+                   "Unknown system variable 'SERVER_ID', 'COLLATION_SERVER' or "
+                   "'TIME_ZONE' on master, maybe it is a *VERY OLD MASTER*. "
+                   "*NOTE*: slave may experience inconsistency if replicated "
+                   "data deals with collation.");
+      }
+    }
+  }
+  else
+  {
+    if (!mysql_real_query(mysql,
+                          STRING_WITH_LEN(query_global_attr_older_versions)) &&
+        (master_res = mysql_store_result(mysql)) &&
+        (master_row = mysql_fetch_row(master_res)))
+    {
+      global_server_id = master_row[0];
+    }
+    else if (mysql_errno(mysql))
+    {
+      if (check_io_slave_killed(mi->info_thd, mi, NULL))
+      {
+        goto slave_killed_err;
+      }
+      else if (is_network_error(mysql_errno(mysql)))
+      {
+        mi->report(WARNING_LEVEL, mysql_errno(mysql),
+                   "Get master SERVER_ID failed with error: %s",
+                   mysql_error(mysql));
+        goto network_err;
+      }
+      else if (mysql_errno(mysql) != ER_UNKNOWN_SYSTEM_VARIABLE)
+      {
+        /* Fatal error */
+        errmsg = "The slave I/O thread stops because a fatal error is "
+                 "encountered when it try to get the value of SERVER_ID global "
+                 "variable from master.";
+        err_code = mysql_errno(mysql);
+        sprintf(err_buff, "%s Error: %s", errmsg, mysql_error(mysql));
+        goto err;
+      }
+      else
+      {
+        mi->report(WARNING_LEVEL, ER_UNKNOWN_SYSTEM_VARIABLE,
+                   "Unknown system variable 'SERVER_ID' on master, "
+                   "maybe it is a *VERY OLD MASTER*. *NOTE*: slave may "
+                   "experience inconsistency if replicated data deals "
+                   "with collation.");
+      }
+    }
+  }
+
+  if (global_server_id != NULL &&
+      (::server_id == (mi->master_id= strtoul(global_server_id, 0, 10))) &&
+       !mi->rli->replicate_same_server_id)
+  {
+      errmsg = "The slave I/O thread stops because master and slave have equal "
+               "MySQL server ids; these ids must be different for replication "
+               "to work (or the --replicate-same-server-id option must be used "
+               "on slave but this does not always make sense; please check the "
+               "manual before using it).";
       err_code= ER_SLAVE_FATAL_ERROR;
       sprintf(err_buff, ER(err_code), errmsg);
       goto err;
-    }
   }
-  else if (mysql_errno(mysql))
+  if (mi->master_id == 0 &&
+           mi->ignore_server_ids->dynamic_ids.elements > 0)
   {
-    if (check_io_slave_killed(mi->info_thd, mi, NULL))
-      goto slave_killed_err;
-    else if (is_network_error(mysql_errno(mysql)))
-    {
-      mi->report(WARNING_LEVEL, mysql_errno(mysql),
-                 "Get master SERVER_ID failed with error: %s", mysql_error(mysql));
-      goto network_err;
-    }
-    /* Fatal error */
-    errmsg= "The slave I/O thread stops because a fatal error is encountered \
-when it try to get the value of SERVER_ID variable from master.";
-    err_code= mysql_errno(mysql);
-    sprintf(err_buff, "%s Error: %s", errmsg, mysql_error(mysql));
-    goto err;
-  }
-  else if (!master_row && master_res)
-  {
-    mi->report(WARNING_LEVEL, ER_UNKNOWN_SYSTEM_VARIABLE,
-               "Unknown system variable 'SERVER_ID' on master, \
-maybe it is a *VERY OLD MASTER*.");
-  }
-  if (master_res)
-  {
-    mysql_free_result(master_res);
-    master_res= NULL;
-  }
-  if (mi->master_id == 0 && mi->ignore_server_ids->dynamic_ids.elements > 0)
-  {
-    errmsg= "Slave configured with server id filtering could not detect the master server id.";
+    errmsg = "Slave configured with server id filtering could not detect the "
+             "master server id.";
     err_code= ER_SLAVE_FATAL_ERROR;
     sprintf(err_buff, ER(err_code), errmsg);
     goto err;
@@ -2224,52 +2287,18 @@ maybe it is a *VERY OLD MASTER*.");
   if (*mysql->server_version == '3')
     goto err;
 
-  if (*mysql->server_version == '4')
+  if (*mysql->server_version == '4' &&
+      global_collation_server != NULL &&
+      strcmp(global_collation_server,
+             global_system_variables.collation_server->name))
   {
-    master_res= NULL;
-    if (!mysql_real_query(mysql,
-                          STRING_WITH_LEN("SELECT @@GLOBAL.COLLATION_SERVER")) &&
-        (master_res= mysql_store_result(mysql)) &&
-        (master_row= mysql_fetch_row(master_res)))
-    {
-      if (strcmp(master_row[0], global_system_variables.collation_server->name))
-      {
-        errmsg= "The slave I/O thread stops because master and slave have \
-different values for the COLLATION_SERVER global variable. The values must \
-be equal for the Statement-format replication to work";
-        err_code= ER_SLAVE_FATAL_ERROR;
+        errmsg = "The slave I/O thread stops because master and slave have "
+                 "different values for the COLLATION_SERVER global variable. "
+                 "The values must be equal for the Statement-format "
+                 "replication to work";
+        err_code = ER_SLAVE_FATAL_ERROR;
         sprintf(err_buff, ER(err_code), errmsg);
         goto err;
-      }
-    }
-    else if (check_io_slave_killed(mi->info_thd, mi, NULL))
-      goto slave_killed_err;
-    else if (is_network_error(mysql_errno(mysql)))
-    {
-      mi->report(WARNING_LEVEL, mysql_errno(mysql),
-                 "Get master COLLATION_SERVER failed with error: %s", mysql_error(mysql));
-      goto network_err;
-    }
-    else if (mysql_errno(mysql) != ER_UNKNOWN_SYSTEM_VARIABLE)
-    {
-      /* Fatal error */
-      errmsg= "The slave I/O thread stops because a fatal error is encountered \
-when it try to get the value of COLLATION_SERVER global variable from master.";
-      err_code= mysql_errno(mysql);
-      sprintf(err_buff, "%s Error: %s", errmsg, mysql_error(mysql));
-      goto err;
-    }
-    else
-      mi->report(WARNING_LEVEL, ER_UNKNOWN_SYSTEM_VARIABLE,
-                 "Unknown system variable 'COLLATION_SERVER' on master, \
-maybe it is a *VERY OLD MASTER*. *NOTE*: slave may experience \
-inconsistency if replicated data deals with collation.");
-
-    if (master_res)
-    {
-      mysql_free_result(master_res);
-      master_res= NULL;
-    }
   }
 
   /*
@@ -2287,46 +2316,28 @@ inconsistency if replicated data deals with collation.");
     This check is only necessary for 4.x masters (and < 5.0.4 masters but
     those were alpha).
   */
-  if (*mysql->server_version == '4')
+  if (*mysql->server_version == '4' &&
+      global_time_zone != NULL &&
+      strcmp(global_time_zone,
+             global_system_variables.time_zone->get_name()->ptr()))
   {
-    master_res= NULL;
-    if (!mysql_real_query(mysql, STRING_WITH_LEN("SELECT @@GLOBAL.TIME_ZONE")) &&
-        (master_res= mysql_store_result(mysql)) &&
-        (master_row= mysql_fetch_row(master_res)))
-    {
-      if (strcmp(master_row[0],
-                 global_system_variables.time_zone->get_name()->ptr()))
-      {
         errmsg= "The slave I/O thread stops because master and slave have \
 different values for the TIME_ZONE global variable. The values must \
 be equal for the Statement-format replication to work";
         err_code= ER_SLAVE_FATAL_ERROR;
         sprintf(err_buff, ER(err_code), errmsg);
         goto err;
-      }
-    }
-    else if (check_io_slave_killed(mi->info_thd, mi, NULL))
-      goto slave_killed_err;
-    else if (is_network_error(mysql_errno(mysql)))
-    {
-      mi->report(WARNING_LEVEL, mysql_errno(mysql),
-                 "Get master TIME_ZONE failed with error: %s", mysql_error(mysql));
-      goto network_err;
-    } 
-    else
-    {
-      /* Fatal error */
-      errmsg= "The slave I/O thread stops because a fatal error is encountered \
-when it try to get the value of TIME_ZONE global variable from master.";
-      err_code= mysql_errno(mysql);
-      sprintf(err_buff, "%s Error: %s", errmsg, mysql_error(mysql));
-      goto err;
-    }
-    if (master_res)
-    {
-      mysql_free_result(master_res);
-      master_res= NULL;
-    }
+  }
+
+  /*
+    Cleans the queries for UNIX_TIMESTAMP, server_id, collation_server and
+    time_zone
+    Dont free the memory before, this will free the strings too.
+  */
+  if (master_res)
+  {
+    mysql_free_result(master_res);
+    master_res = NULL;
   }
 
   if (mi->heartbeat_period != 0.0)
