@@ -761,57 +761,129 @@ bool File_query_log::write_slow(THD *thd, ulonglong current_utime,
           iso8601_sysvar_logtimestamps); /* purecov: inspected */
     }
 
-    if (my_b_printf(
-            &log_file,
-            "# Query_time: %s  Lock_time: %s"
-            " Rows_sent: %lu  Rows_examined: %lu"
-            " Thread_id: %lu Errno: %lu Killed: %lu"
-            " Bytes_received: %lu Bytes_sent: %lu"
-            " Read_first: %lu Read_last: %lu Read_key: %lu"
-            " Read_next: %lu Read_prev: %lu"
-            " Read_rnd: %lu Read_rnd_next: %lu"
-            " Sort_merge_passes: %lu Sort_range_count: %lu"
-            " Sort_rows: %lu Sort_scan_count: %lu"
-            " Created_tmp_disk_tables: %lu"
-            " Created_tmp_tables: %lu"
-            " Start: %s End: %s\n",
-            query_time_buff, lock_time_buff, (ulong)thd->get_sent_row_count(),
-            (ulong)thd->get_examined_row_count(), (ulong)thd->thread_id(),
-            static_cast<ulong>(
-                thd->is_error() ? thd->get_stmt_da()->mysql_errno() : 0),
-            (ulong)thd->killed,
-            (ulong)(thd->status_var.bytes_received -
-                    thd->copy_status_var_ptr->bytes_received),
-            (ulong)(thd->status_var.bytes_sent -
-                    thd->copy_status_var_ptr->bytes_sent),
-            (ulong)(thd->status_var.ha_read_first_count -
-                    thd->copy_status_var_ptr->ha_read_first_count),
-            (ulong)(thd->status_var.ha_read_last_count -
-                    thd->copy_status_var_ptr->ha_read_last_count),
-            (ulong)(thd->status_var.ha_read_key_count -
-                    thd->copy_status_var_ptr->ha_read_key_count),
-            (ulong)(thd->status_var.ha_read_next_count -
-                    thd->copy_status_var_ptr->ha_read_next_count),
-            (ulong)(thd->status_var.ha_read_prev_count -
-                    thd->copy_status_var_ptr->ha_read_prev_count),
-            (ulong)(thd->status_var.ha_read_rnd_count -
-                    thd->copy_status_var_ptr->ha_read_rnd_count),
-            (ulong)(thd->status_var.ha_read_rnd_next_count -
-                    thd->copy_status_var_ptr->ha_read_rnd_next_count),
-            (ulong)(thd->status_var.filesort_merge_passes -
-                    thd->copy_status_var_ptr->filesort_merge_passes),
-            (ulong)(thd->status_var.filesort_range_count -
-                    thd->copy_status_var_ptr->filesort_range_count),
-            (ulong)(thd->status_var.filesort_rows -
-                    thd->copy_status_var_ptr->filesort_rows),
-            (ulong)(thd->status_var.filesort_scan_count -
-                    thd->copy_status_var_ptr->filesort_scan_count),
-            (ulong)(thd->status_var.created_tmp_disk_tables -
-                    thd->copy_status_var_ptr->created_tmp_disk_tables),
-            (ulong)(thd->status_var.created_tmp_tables -
-                    thd->copy_status_var_ptr->created_tmp_tables),
-            start_time_buff, end_time_buff) == (uint)-1)
-      goto err; /* purecov: inspected */
+    size_t error;
+    const char *log_str =
+        "# Query_time: %s  Lock_time: %s"
+        " Rows_sent: %lu  Rows_examined: %lu"
+        " Thread_id: %lu Errno: %lu Killed: %lu"
+        " Bytes_received: %lu Bytes_sent: %lu"
+        " Read_first: %lu Read_last: %lu Read_key: %lu"
+        " Read_next: %lu Read_prev: %lu"
+        " Read_rnd: %lu Read_rnd_next: %lu"
+        " RocksDB_key_skipped: %lu RocksDB_del_skipped: %lu"
+        " Sort_merge_passes: %lu Sort_range_count: %lu"
+        " Sort_rows: %lu Sort_scan_count: %lu"
+        " Created_tmp_disk_tables: %lu"
+        " Created_tmp_tables: %lu"
+        " Start: %s End: %s\n";
+
+    // If the query start status is valid - i.e. the current thread's
+    // status values should be no less than the query start status,
+    // we substract the query_start from current_status.
+    // Also skip when query_start points to the same data
+    if (thd->copy_status_var_ptr != &thd->status_var &&
+        thd->status_var.bytes_received >=
+            thd->copy_status_var_ptr->bytes_received &&
+        thd->status_var.bytes_sent >= thd->copy_status_var_ptr->bytes_sent &&
+        thd->status_var.ha_read_first_count >=
+            thd->copy_status_var_ptr->ha_read_first_count &&
+        thd->status_var.ha_read_last_count >=
+            thd->copy_status_var_ptr->ha_read_last_count &&
+        thd->status_var.ha_read_key_count >=
+            thd->copy_status_var_ptr->ha_read_key_count &&
+        thd->status_var.ha_read_next_count >=
+            thd->copy_status_var_ptr->ha_read_next_count &&
+        thd->status_var.ha_read_prev_count >=
+            thd->copy_status_var_ptr->ha_read_prev_count &&
+        thd->status_var.ha_read_rnd_count >=
+            thd->copy_status_var_ptr->ha_read_rnd_count &&
+        thd->status_var.ha_read_rnd_next_count >=
+            thd->copy_status_var_ptr->ha_read_rnd_next_count &&
+        thd->status_var.ha_key_skipped_count >=
+            thd->copy_status_var_ptr->ha_key_skipped_count &&
+        thd->status_var.ha_delete_skipped_count >=
+            thd->copy_status_var_ptr->ha_delete_skipped_count &&
+        thd->status_var.filesort_merge_passes >=
+            thd->copy_status_var_ptr->filesort_merge_passes &&
+        thd->status_var.filesort_range_count >=
+            thd->copy_status_var_ptr->filesort_range_count &&
+        thd->status_var.filesort_rows >=
+            thd->copy_status_var_ptr->filesort_rows &&
+        thd->status_var.filesort_scan_count >=
+            thd->copy_status_var_ptr->filesort_scan_count &&
+        thd->status_var.created_tmp_disk_tables >=
+            thd->copy_status_var_ptr->created_tmp_disk_tables &&
+        thd->status_var.created_tmp_tables >=
+            thd->copy_status_var_ptr->created_tmp_tables) {
+      error = my_b_printf(
+          &log_file, log_str, query_time_buff, lock_time_buff,
+          (ulong)thd->get_sent_row_count(),
+          (ulong)thd->get_examined_row_count(), (ulong)thd->thread_id(),
+          static_cast<ulong>(thd->is_error() ? thd->get_stmt_da()->mysql_errno()
+                                             : 0),
+          (ulong)thd->killed,
+          (ulong)(thd->status_var.bytes_received -
+                  thd->copy_status_var_ptr->bytes_received),
+          (ulong)(thd->status_var.bytes_sent -
+                  thd->copy_status_var_ptr->bytes_sent),
+          (ulong)(thd->status_var.ha_read_first_count -
+                  thd->copy_status_var_ptr->ha_read_first_count),
+          (ulong)(thd->status_var.ha_read_last_count -
+                  thd->copy_status_var_ptr->ha_read_last_count),
+          (ulong)(thd->status_var.ha_read_key_count -
+                  thd->copy_status_var_ptr->ha_read_key_count),
+          (ulong)(thd->status_var.ha_read_next_count -
+                  thd->copy_status_var_ptr->ha_read_next_count),
+          (ulong)(thd->status_var.ha_read_prev_count -
+                  thd->copy_status_var_ptr->ha_read_prev_count),
+          (ulong)(thd->status_var.ha_read_rnd_count -
+                  thd->copy_status_var_ptr->ha_read_rnd_count),
+          (ulong)(thd->status_var.ha_read_rnd_next_count -
+                  thd->copy_status_var_ptr->ha_read_rnd_next_count),
+          (ulong)(thd->status_var.ha_key_skipped_count -
+                  thd->copy_status_var_ptr->ha_key_skipped_count),
+          (ulong)(thd->status_var.ha_delete_skipped_count -
+                  thd->copy_status_var_ptr->ha_delete_skipped_count),
+          (ulong)(thd->status_var.filesort_merge_passes -
+                  thd->copy_status_var_ptr->filesort_merge_passes),
+          (ulong)(thd->status_var.filesort_range_count -
+                  thd->copy_status_var_ptr->filesort_range_count),
+          (ulong)(thd->status_var.filesort_rows -
+                  thd->copy_status_var_ptr->filesort_rows),
+          (ulong)(thd->status_var.filesort_scan_count -
+                  thd->copy_status_var_ptr->filesort_scan_count),
+          (ulong)(thd->status_var.created_tmp_disk_tables -
+                  thd->copy_status_var_ptr->created_tmp_disk_tables),
+          (ulong)(thd->status_var.created_tmp_tables -
+                  thd->copy_status_var_ptr->created_tmp_tables),
+          start_time_buff, end_time_buff);
+    } else {
+      error = my_b_printf(
+          &log_file, log_str, query_time_buff, lock_time_buff,
+          (ulong)thd->get_sent_row_count(),
+          (ulong)thd->get_examined_row_count(), (ulong)thd->thread_id(),
+          static_cast<ulong>(thd->is_error() ? thd->get_stmt_da()->mysql_errno()
+                                             : 0),
+          (ulong)thd->killed, (ulong)thd->status_var.bytes_received,
+          (ulong)thd->status_var.bytes_sent,
+          (ulong)thd->status_var.ha_read_first_count,
+          (ulong)thd->status_var.ha_read_last_count,
+          (ulong)thd->status_var.ha_read_key_count,
+          (ulong)thd->status_var.ha_read_next_count,
+          (ulong)thd->status_var.ha_read_prev_count,
+          (ulong)thd->status_var.ha_read_rnd_count,
+          (ulong)thd->status_var.ha_read_rnd_next_count,
+          (ulong)thd->status_var.ha_key_skipped_count,
+          (ulong)thd->status_var.ha_delete_skipped_count,
+          (ulong)thd->status_var.filesort_merge_passes,
+          (ulong)thd->status_var.filesort_range_count,
+          (ulong)thd->status_var.filesort_rows,
+          (ulong)thd->status_var.filesort_scan_count,
+          (ulong)thd->status_var.created_tmp_disk_tables,
+          (ulong)thd->status_var.created_tmp_tables, start_time_buff,
+          end_time_buff);
+    }
+    if (error == (uint)-1) goto err;
   }
 
   if (thd->db().str && strcmp(thd->db().str, db)) {  // Database changed
