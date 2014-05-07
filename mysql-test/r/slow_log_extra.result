@@ -49,6 +49,27 @@ i
 6
 7
 8
+select * from islow;
+flush status;
+select * from mslow ||||
+i
+1
+2
+3
+4
+5
+6
+7
+8
+i
+1
+2
+3
+4
+5
+6
+7
+8
 set global long_query_time=1;
 drop table islow;
 drop table mslow;
