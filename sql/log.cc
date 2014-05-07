@@ -1931,6 +1931,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
   char end_time_buff[80] = "";
   char read_time_buff[80] = "";
   char query_time_buff[22+7], lock_time_buff[22+7];
+  bool use_query_start = false;
   uint buff_len= 0;
   DBUG_ENTER("MYSQL_QUERY_LOG::write");
 
@@ -1938,6 +1939,30 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
   {
     DBUG_RETURN(0);
   }
+
+  // If the query start status is valid - i.e. the current thread's
+  // status values should be no less than the query start status,
+  // we substract the query_start from current_status.
+  // Also skip when query_start points to the same data
+  if (query_start && query_start != &thd->status_var &&
+      thd->status_var.bytes_received >= query_start->bytes_received &&
+      thd->status_var.bytes_sent >= query_start->bytes_sent &&
+      thd->status_var.ha_read_first_count >= query_start->ha_read_first_count &&
+      thd->status_var.ha_read_last_count >= query_start->ha_read_last_count &&
+      thd->status_var.ha_read_key_count >= query_start->ha_read_key_count &&
+      thd->status_var.ha_read_next_count >= query_start->ha_read_next_count &&
+      thd->status_var.ha_read_prev_count >= query_start->ha_read_prev_count &&
+      thd->status_var.ha_read_rnd_count >= query_start->ha_read_rnd_count &&
+      thd->status_var.ha_read_rnd_next_count >= query_start->ha_read_rnd_next_count &&
+      thd->status_var.filesort_merge_passes >= query_start->filesort_merge_passes &&
+      thd->status_var.filesort_range_count >= query_start->filesort_range_count &&
+      thd->status_var.filesort_rows >= query_start->filesort_rows &&
+      thd->status_var.filesort_scan_count >= query_start->filesort_scan_count &&
+      thd->status_var.created_tmp_disk_tables >= query_start->created_tmp_disk_tables &&
+      thd->status_var.created_tmp_tables >= query_start->created_tmp_tables &&
+      thd->status_var.read_requests >= query_start->read_requests &&
+      thd->status_var.read_time >= query_start->read_time)
+    use_query_start = true;
 
   if (!(specialflag & SPECIAL_SHORT_LOG_FORMAT))
   {
@@ -1971,8 +1996,9 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
             tm_tmp.tm_hour, tm_tmp.tm_min, tm_tmp.tm_sec);
 
      sprintf(read_time_buff,"%.6f",
-             my_timer_to_seconds(
-               thd->status_var.read_time - query_start->read_time));
+             my_timer_to_seconds((use_query_start ?
+               thd->status_var.read_time - query_start->read_time :
+               thd->status_var.read_time)));
    }
 
   mysql_mutex_lock(&LOCK_log);
@@ -2009,7 +2035,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       (ulong) thd->get_examined_row_count()) == (uint) -1)
         tmp_errno= errno;
     }
-    else
+    else if (use_query_start)
     {
       if (my_b_printf(&log_file,
                       "# Query_time: %s  Lock_time: %s"
@@ -2067,6 +2093,49 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       read_time_buff) == (uint) -1)
       tmp_errno=errno;
     }
+    else // don't substract query_start status
+    {
+      if (my_b_printf(&log_file,
+                      "# Query_time: %s  Lock_time: %s"
+                      " Rows_sent: %lu  Rows_examined: %lu"
+                      " Thread_id: %lu Errno: %lu Killed: %lu"
+                      " Bytes_received: %lu Bytes_sent: %lu"
+                      " Read_first: %lu Read_last: %lu Read_key: %lu"
+                      " Read_next: %lu Read_prev: %lu"
+                      " Read_rnd: %lu Read_rnd_next: %lu"
+                      " Sort_merge_passes: %lu Sort_range_count: %lu"
+                      " Sort_rows: %lu Sort_scan_count: %lu"
+                      " Created_tmp_disk_tables: %lu"
+                      " Created_tmp_tables: %lu"
+                      " Start: %s End: %s"
+                      " Reads: %lu Read_time: %s\n",
+                      query_time_buff, lock_time_buff,
+                      (ulong) thd->get_sent_row_count(),
+                      (ulong) thd->get_examined_row_count(),
+                      (ulong) thd->thread_id,
+                      (ulong) thd->net.last_errno,
+                      (ulong) thd->killed,
+                      (ulong) thd->status_var.bytes_received,
+                      (ulong) thd->status_var.bytes_sent,
+                      (ulong) thd->status_var.ha_read_first_count,
+                      (ulong) thd->status_var.ha_read_last_count,
+                      (ulong) thd->status_var.ha_read_key_count,
+                      (ulong) thd->status_var.ha_read_next_count,
+                      (ulong) thd->status_var.ha_read_prev_count,
+                      (ulong) thd->status_var.ha_read_rnd_count,
+                      (ulong) thd->status_var.ha_read_rnd_next_count,
+                      (ulong) thd->status_var.filesort_merge_passes,
+                      (ulong) thd->status_var.filesort_range_count,
+                      (ulong) thd->status_var.filesort_rows,
+                      (ulong) thd->status_var.filesort_scan_count,
+                      (ulong) thd->status_var.created_tmp_disk_tables,
+                      (ulong) thd->status_var.created_tmp_tables,
+                      start_time_buff, end_time_buff,
+                      (ulong) thd->status_var.read_requests,
+                      read_time_buff) == (uint) -1)
+      tmp_errno=errno;
+    }
+
 
     if (thd->db && strcmp(thd->db, db))
     {						// Database changed
