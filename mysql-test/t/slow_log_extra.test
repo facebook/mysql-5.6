@@ -44,6 +44,25 @@ select * from islow;
 select * from mslow;
 select * from mslow;
 
+#
+# Testing multi-statement slow log underflow
+#
+
+# PS doesn't support multi-statements
+--disable_ps_protocol
+
+delimiter ||||;
+
+# the following is a multi-stmt query which will be executed in one batch
+# the flush command will reset status in the middle of multi-stmt
+select * from islow;
+flush status;
+select * from mslow ||||
+
+delimiter ;||||
+
+--enable_ps_protocol
+
 connection default;
 set global slow_query_log_file = @my_slow_logname;
 set global long_query_time=1;
