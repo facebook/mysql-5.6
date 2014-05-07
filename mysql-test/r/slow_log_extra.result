@@ -51,6 +51,27 @@ i
 6
 7
 8
+select * from islow;
+flush status;
+select * from mslow ||||
+i
+1
+2
+3
+4
+5
+6
+7
+8
+i
+1
+2
+3
+4
+5
+6
+7
+8
 set global slow_query_log_file = @my_slow_logname;
 set global long_query_time=1;
 drop table islow;
@@ -69,4 +90,7 @@ Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 
 Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 0  Rows_examined: 0 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
 Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 113 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 9 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
