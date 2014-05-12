@@ -739,6 +739,7 @@ char *mysql_data_home= const_cast<char*>(".");
 const char *mysql_real_data_home_ptr= mysql_real_data_home;
 char server_version[SERVER_VERSION_LENGTH];
 char *mysqld_unix_port, *opt_mysql_tmpdir;
+char *mysqld_socket_umask;
 ulong thread_handling;
 
 /** name of reference on left expression in rewritten IN subquery */
@@ -987,7 +988,7 @@ void set_remaining_args(int argc, char **argv)
   remaining_argc= argc;
   remaining_argv= argv;
 }
-/* 
+/*
   Multiple threads of execution use the random state maintained in global
   sql_rand to generate random numbers. sql_rnd_with_mutex use mutex
   LOCK_sql_rand to protect sql_rand across multiple instantiations that use
@@ -1261,7 +1262,7 @@ static void charset_error_reporter(enum loglevel level,
   va_list args;
   va_start(args, format);
   vprint_msg_to_log(level, format, args);
-  va_end(args);                      
+  va_end(args);
 }
 C_MODE_END
 
@@ -2725,7 +2726,8 @@ static void network_init(void)
     arg= 1;
     (void) mysql_socket_setsockopt(unix_sock, SOL_SOCKET, SO_REUSEADDR, (char*)&arg,
           sizeof(arg));
-    umask(0);
+    mode_t socket_umask = (mode_t) strtol(mysqld_socket_umask, nullptr, 8);
+    umask(socket_umask);
     if (mysql_socket_bind(unix_sock, reinterpret_cast<struct sockaddr *> (&UNIXaddr),
                           sizeof(UNIXaddr)) < 0)
     {
@@ -4266,10 +4268,10 @@ rpl_make_log_name(const char *opt,
     MY_REPLACE_EXT | MY_UNPACK_FILENAME | MY_SAFE_PATH;
 
   /* mysql_real_data_home_ptr  may be null if no value of datadir has been
-     specified through command-line or througha cnf file. If that is the 
+     specified through command-line or througha cnf file. If that is the
      case we make mysql_real_data_home_ptr point to mysql_real_data_home
      which, in that case holds the default path for data-dir.
-  */ 
+  */
   if(mysql_real_data_home_ptr == NULL)
     mysql_real_data_home_ptr= mysql_real_data_home;
 
@@ -6224,7 +6226,7 @@ int mysqld_main(int argc, char **argv)
 #endif
   }
 
-  /* 
+  /*
    The subsequent calls may take a long time : e.g. innodb log read.
    Thus set the long running service control manager timeout
   */
@@ -7903,7 +7905,7 @@ struct my_option my_long_options[]=
   {"default-storage-engine", 0, "The default storage engine for new tables",
    &default_storage_engine, 0, 0, GET_STR, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0 },
-  {"default-tmp-storage-engine", 0, 
+  {"default-tmp-storage-engine", 0,
     "The default storage engine for new explict temporary tables",
    &default_tmp_storage_engine, 0, 0, GET_STR, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0 },
@@ -7944,7 +7946,7 @@ struct my_option my_long_options[]=
   {"ignore-db-dir", OPT_IGNORE_DB_DIRECTORY,
    "Specifies a directory to add to the ignore list when collecting "
    "database names from the datadir. Put a blank argument to reset "
-   "the list accumulated so far.", 0, 0, 0, GET_STR, REQUIRED_ARG, 
+   "the list accumulated so far.", 0, 0, 0, GET_STR, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
   {"language", 'L',
    "Client error messages in given language. May be given as a full path. "
@@ -8377,7 +8379,7 @@ static int show_slave_last_heartbeat(THD *thd, SHOW_VAR *var, char *buff)
       buff[0]='\0';
     else
     {
-      thd->variables.time_zone->gmt_sec_to_TIME(&received_heartbeat_time, 
+      thd->variables.time_zone->gmt_sec_to_TIME(&received_heartbeat_time,
         active_mi->last_heartbeat);
       my_datetime_to_str(&received_heartbeat_time, buff, 0);
     }
@@ -8406,7 +8408,7 @@ static int show_slave_rows_last_search_algorithm_used(THD *thd, SHOW_VAR *var, c
 {
   uint res= slave_rows_last_search_algorithm_used;
   const char* s= ((res == Rows_log_event::ROW_LOOKUP_TABLE_SCAN) ? "TABLE_SCAN" :
-                  ((res == Rows_log_event::ROW_LOOKUP_HASH_SCAN) ? "HASH_SCAN" : 
+                  ((res == Rows_log_event::ROW_LOOKUP_HASH_SCAN) ? "HASH_SCAN" :
                    "INDEX_SCAN"));
 
   var->type= SHOW_CHAR;
@@ -9679,7 +9681,7 @@ mysqld_get_one_option(int optid,
       if (push_ignored_db_dir(argument))
       {
         sql_print_error("Can't start server: "
-                        "cannot process --ignore-db-dir=%.*s", 
+                        "cannot process --ignore-db-dir=%.*s",
                         FN_REFLEN, argument);
         return 1;
       }
@@ -9953,7 +9955,7 @@ static int get_options(int *argc_ptr, char ***argv_ptr)
 
   /*
     TIMESTAMP columns get implicit DEFAULT values when
-    --explicit_defaults_for_timestamp is not set. 
+    --explicit_defaults_for_timestamp is not set.
     This behavior is deprecated now.
   */
   if (!opt_help && !global_system_variables.explicit_defaults_for_timestamp)
@@ -10217,7 +10219,7 @@ static int fix_paths(void)
   (void) my_load_path(mysql_real_data_home,mysql_real_data_home,mysql_home);
   (void) my_load_path(pidfile_name, pidfile_name_ptr, mysql_real_data_home);
 
-  convert_dirname(opt_plugin_dir, opt_plugin_dir_ptr ? opt_plugin_dir_ptr : 
+  convert_dirname(opt_plugin_dir, opt_plugin_dir_ptr ? opt_plugin_dir_ptr :
                                   get_relative_path(PLUGINDIR), NullS);
   (void) my_load_path(opt_plugin_dir, opt_plugin_dir, mysql_home);
   opt_plugin_dir_ptr= opt_plugin_dir;
@@ -10351,7 +10353,7 @@ static void create_pid_file()
 
 /**
   Remove the process' pid file.
-  
+
   @param  flags  file operation flags
 */
 
@@ -10365,11 +10367,11 @@ static void delete_pid_file(myf flags)
                               O_RDONLY, flags)))
     return;
 
-  /* Make sure that the pid file was created by the same process. */    
+  /* Make sure that the pid file was created by the same process. */
   uchar buff[MAX_BIGINT_WIDTH + 1];
   size_t error= mysql_file_read(file, buff, sizeof(buff), flags);
   mysql_file_close(file, flags);
-  buff[sizeof(buff) - 1]= '\0'; 
+  buff[sizeof(buff) - 1]= '\0';
   if (error != MY_FILE_ERROR &&
       atol((char *) buff) == (long) getpid())
   {
