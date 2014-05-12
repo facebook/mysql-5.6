@@ -2373,8 +2373,11 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
             error("Could not create log file '%s'", log_file_name);
             DBUG_RETURN(ERROR_STOP);
           }
-          my_fwrite(result_file, (const uchar*) BINLOG_MAGIC,
-                    BIN_LOG_HEADER_SIZE, MYF(0));
+          if (my_fwrite(result_file, (const uchar*) BINLOG_MAGIC,
+                    BIN_LOG_HEADER_SIZE, MYF(0)) != BIN_LOG_HEADER_SIZE) {
+            error("Unable to write header to '%s'", log_file_name);
+            DBUG_RETURN(ERROR_STOP);
+          }
           /*
             Need to handle these events correctly in raw mode too 
             or this could get messy
@@ -2397,7 +2400,11 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 
       if (raw_mode)
       {
-        my_fwrite(result_file, (const uchar*) event_buf, event_len, MYF(0));
+        if (my_fwrite(result_file, (const uchar*) event_buf, event_len,
+                       MYF(0)) != event_len) {
+          error("Unable to write event to '%s'", log_file_name);
+          DBUG_RETURN(ERROR_STOP);
+        }
         if (type == XID_EVENT || ++event_count == opt_flush_result_file)
         {
           event_count = 0;
