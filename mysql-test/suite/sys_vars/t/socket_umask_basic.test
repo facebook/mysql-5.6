@@ -1,0 +1,23 @@
+#
+# only global
+#
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+select @@global.socket_umask;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.socket_umask;
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+show global variables like 'socket_umask';
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+show session variables like 'socket_umask';
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+select * from information_schema.global_variables where variable_name='socket_umask';
+--replace_result $MYSQL_TMP_DIR MYSQL_TMP_DIR
+select * from information_schema.session_variables where variable_name='socket_umask';
+
+#
+# show that it's read-only
+#
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set global socket_umask=1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set session socket_umask=1;
