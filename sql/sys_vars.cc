@@ -756,7 +756,7 @@ static Sys_var_enum Sys_binlog_format(
 
 static const char *binlog_row_image_names[]= {"MINIMAL", "NOBLOB", "FULL", NullS};
 static Sys_var_enum Sys_binlog_row_image(
-       "binlog_row_image", 
+       "binlog_row_image",
        "Controls whether rows should be logged in 'FULL', 'NOBLOB' or "
        "'MINIMAL' formats. 'FULL', means that all columns in the before "
        "and after image are logged. 'NOBLOB', means that mysqld avoids logging "
@@ -1601,7 +1601,7 @@ static Sys_var_mybool Sys_large_pages(
 
 static Sys_var_charptr Sys_language(
        "lc_messages_dir", "Directory where error messages are",
-       READ_ONLY GLOBAL_VAR(lc_messages_dir_ptr), 
+       READ_ONLY GLOBAL_VAR(lc_messages_dir_ptr),
        CMD_LINE(REQUIRED_ARG, OPT_LC_MESSAGES_DIRECTORY),
        IN_FS_CHARSET, DEFAULT(0));
 
@@ -2102,7 +2102,7 @@ static Sys_var_mybool Sys_named_pipe(
 #endif
 
 
-static bool 
+static bool
 check_net_buffer_length(sys_var *self, THD *thd,  set_var *var)
 {
   longlong val;
@@ -2242,7 +2242,7 @@ static bool fix_optimizer_switch(sys_var *self, THD *thd,
                                  enum_var_type type)
 {
   SV *sv= (type == OPT_GLOBAL) ? &global_system_variables : &thd->variables;
-  sv->engine_condition_pushdown= 
+  sv->engine_condition_pushdown=
     MY_TEST(sv->optimizer_switch & OPTIMIZER_SWITCH_ENGINE_CONDITION_PUSHDOWN);
 
   return false;
@@ -2648,7 +2648,23 @@ static Sys_var_charptr Sys_socket(
        READ_ONLY GLOBAL_VAR(mysqld_unix_port), CMD_LINE(REQUIRED_ARG),
        IN_FS_CHARSET, DEFAULT(0));
 
-/* 
+
+static bool check_mysqld_socket_umask(sys_var *self, THD *thd,
+                                      set_var *var)
+{
+  mode_t socket_umask;
+  socket_umask = (mode_t) strtol(var->save_result.string_value.str, nullptr, 8);
+
+  return (socket_umask & ~(0777)) ? true : false;
+}
+
+static Sys_var_charptr Sys_socket_umask(
+       "socket_umask", "Socket umask",
+       READ_ONLY GLOBAL_VAR(mysqld_socket_umask), CMD_LINE(OPT_ARG),
+       IN_FS_CHARSET, DEFAULT("0"), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(check_mysqld_socket_umask));
+
+/*
   thread_concurrency is a no-op on all platforms since
   MySQL 5.1.  It will be removed in the context of
   WL#5265
@@ -2925,7 +2941,7 @@ static bool slave_rows_search_algorithms_check(sys_var *self, THD *thd, set_var 
 
 static const char *slave_rows_search_algorithms_names[]= {"TABLE_SCAN", "INDEX_SCAN", "HASH_SCAN", 0};
 static Sys_var_set Slave_rows_search_algorithms(
-       "slave_rows_search_algorithms", 
+       "slave_rows_search_algorithms",
        "Set of searching algorithms that the slave will use while "
        "searching for records from the storage engine to either "
        "updated or deleted them. Possible values are: INDEX_SCAN, "
@@ -2961,7 +2977,7 @@ bool Sys_var_enum_binlog_checksum::global_update(THD *thd, set_var *var)
   DBUG_ASSERT((ulong) binlog_checksum_options == var->save_result.ulonglong_value);
   DBUG_ASSERT(mysql_bin_log.checksum_alg_reset == BINLOG_CHECKSUM_ALG_UNDEF);
   mysql_mutex_unlock(mysql_bin_log.get_log_lock());
-  
+
   if (check_purge)
     mysql_bin_log.purge();
 
@@ -3604,7 +3620,7 @@ static Sys_var_bit Sys_log_off(
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(check_has_super));
 
 /**
-  This function sets the session variable thd->variables.sql_log_bin 
+  This function sets the session variable thd->variables.sql_log_bin
   to reflect changes to @@session.sql_log_bin.
 
   @param[IN] self   A pointer to the sys_var, i.e. Sys_log_binlog.
@@ -3797,7 +3813,7 @@ static Sys_var_session_special_double Sys_timestamp(
        "timestamp", "Set the time for this client",
        sys_var::ONLY_SESSION, NO_CMD_LINE,
        VALID_RANGE(0, 0), BLOCK_SIZE(1),
-       NO_MUTEX_GUARD, IN_BINLOG, ON_CHECK(check_timestamp), 
+       NO_MUTEX_GUARD, IN_BINLOG, ON_CHECK(check_timestamp),
        ON_UPDATE(update_timestamp), ON_READ(read_timestamp));
 
 static bool update_last_insert_id(THD *thd, set_var *var)
@@ -4036,10 +4052,10 @@ static bool check_log_path(sys_var *self, THD *thd, set_var *var)
   if (!path_length)
     return true;
 
-  if (!is_filename_allowed(var->save_result.string_value.str, 
+  if (!is_filename_allowed(var->save_result.string_value.str,
                            var->save_result.string_value.length, TRUE))
   {
-     my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), 
+     my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0),
               self->name.str, var->save_result.string_value.str);
      return true;
   }
@@ -4679,7 +4695,7 @@ static Sys_var_uint Sys_host_cache_size(
 static Sys_var_charptr Sys_ignore_db_dirs(
        "ignore_db_dirs",
        "The list of directories to ignore when collecting database lists",
-       READ_ONLY GLOBAL_VAR(opt_ignore_db_dirs), 
+       READ_ONLY GLOBAL_VAR(opt_ignore_db_dirs),
        NO_CMD_LINE,
        IN_FS_CHARSET, DEFAULT(0));
 
@@ -5108,7 +5124,7 @@ static Sys_var_mybool Sys_disconnect_on_expired_password(
        READ_ONLY GLOBAL_VAR(disconnect_on_expired_password),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
-#ifndef NO_EMBEDDED_ACCESS_CHECKS 
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
 static Sys_var_mybool Sys_validate_user_plugins(
        "validate_user_plugins",
        "Turns on additional validation of authentication plugins assigned "

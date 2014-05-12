@@ -1041,6 +1041,8 @@ The following options may be given as the first argument:
  hostname-slow.log. Must be enabled to activate other slow
  log options
  --socket=name       Socket file to use for connection
+ --socket-umask[=name] 
+ Socket umask
  --sort-buffer-size=# 
  Each thread that needs to do a sort allocates a buffer of
  this size
@@ -1431,6 +1433,7 @@ slave-type-conversions
 slow-launch-time 2
 slow-log-if-rows-examined-exceed 0
 slow-query-log FALSE
+socket-umask 0
 sort-buffer-size 262144
 sporadic-binlog-dump-fail FALSE
 sql-mode NO_ENGINE_SUBSTITUTION
