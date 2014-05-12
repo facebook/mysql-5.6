@@ -166,7 +166,7 @@ extern ulong max_long_data_size;
 extern ulong current_pid;
 extern ulong expire_logs_days;
 extern my_bool relay_log_recovery;
-extern uint sync_binlog_period, sync_relaylog_period, 
+extern uint sync_binlog_period, sync_relaylog_period,
             sync_relayloginfo_period, sync_masterinfo_period,
             opt_mts_checkpoint_period, opt_mts_checkpoint_group;
 extern ulong opt_tc_log_size, tc_log_max_pages_used, tc_log_page_size;
@@ -177,7 +177,7 @@ extern uint test_flags,select_errors,ha_open_options;
 extern uint protocol_version, mysqld_port, dropping_tables;
 extern uint mysqld_admin_port;
 extern ulong delay_key_write_options;
-extern char *opt_logname, *opt_slow_logname, *opt_bin_logname, 
+extern char *opt_logname, *opt_slow_logname, *opt_bin_logname,
             *opt_relay_logname;
 extern char *opt_backup_history_logname, *opt_backup_progress_logname,
             *opt_backup_settings_name;
@@ -608,6 +608,7 @@ enum enum_binlogging_impossible_mode
 };
 extern const char *binlogging_impossible_err[];
 extern my_bool log_gtid_unsafe_statements;
+extern char *mysqld_socket_umask;
 extern ulong sql_slave_skip_counter_usage;
 
 enum enum_gtid_mode
