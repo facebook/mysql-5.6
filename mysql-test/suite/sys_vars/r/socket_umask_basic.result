@@ -1,0 +1,21 @@
+select @@global.socket_umask;
+@@global.socket_umask
+0
+select @@session.socket_umask;
+ERROR HY000: Variable 'socket_umask' is a GLOBAL variable
+show global variables like 'socket_umask';
+Variable_name	Value
+socket_umask	0
+show session variables like 'socket_umask';
+Variable_name	Value
+socket_umask	0
+select * from information_schema.global_variables where variable_name='socket_umask';
+VARIABLE_NAME	VARIABLE_VALUE
+SOCKET_UMASK	0
+select * from information_schema.session_variables where variable_name='socket_umask';
+VARIABLE_NAME	VARIABLE_VALUE
+SOCKET_UMASK	0
+set global socket_umask=1;
+ERROR HY000: Variable 'socket_umask' is a read only variable
+set session socket_umask=1;
+ERROR HY000: Variable 'socket_umask' is a read only variable
