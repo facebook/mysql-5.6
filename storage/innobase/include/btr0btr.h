@@ -34,7 +34,6 @@ Created 6/2/1994 Heikki Tuuri
 #include "page0cur.h"
 #include "mtr0mtr.h"
 #include "btr0types.h"
-
 #ifndef UNIV_HOTBACKUP
 /** Maximum record size which can be stored on a page, without using the
 special big record storage structure */
@@ -109,30 +108,69 @@ already holding an S latch on the index tree */
 #define BTR_DEFRAGMENT_MAX_N_PAGES	32
 
 /** Work queue for btr_defragment_thread. */
-extern ib_wqueue_t* btr_defragment_wq;
 extern ulint btr_defragment_compression_failures;
+extern ulint btr_defragment_failures;
+extern ulint btr_defragment_count;
 
 /** Item in the work queue for btr_degrament_thread. */
 struct btr_defragment_item_t
 {
 	btr_pcur_t*	pcur;		/* persistent cursor where
 					btr_defragment_n_pages should start */
-	mem_heap_t*	heap;		/* heap used by the work queue */
-	os_event_t	event;	/* if not null, signal after work is done */
-};
+	os_event_t	event;		/* if not null, signal after work
+					is done */
+	bool		removed;	/* Mark an item as removed */
+	ulonglong	last_processed;	/* timestamp of last time this index
+					is processed by defragment thread */
 
+	btr_defragment_item_t(btr_pcur_t* pcur, os_event_t event);
+	~btr_defragment_item_t();
+};
 /******************************************************************//**
-Initialize defragmentation. */
-UNIV_INTERN
+Initialize defragmentation mutex. */
 void
-btr_defragment_init(void);
+btr_defragment_init_mutex();
 /******************************************************************//**
-Create & initialize a btr_defragment_item_t. */
-UNIV_INTERN
+Initialize defragmentation thread. */
+void
+btr_defragment_init_thread();
+/******************************************************************//**
+Shutdown defragmentation. */
+void
+btr_defragment_shutdown();
+/******************************************************************//**
+Check whether the given index is in btr_defragment_wq. */
+bool
+btr_defragment_find_index(
+	dict_index_t*	index);	/*!< Index to find. */
+/******************************************************************//**
+Add an index to btr_defragment_wq. Return a pointer to os_event if this
+is a synchronized defragmentation. */
+os_event_t
+btr_defragment_add_index(
+	dict_index_t*	index,	/*!< index to be added  */
+	bool		async);	/*!< whether this is an async defragmentation */
+/******************************************************************//**
+When table is dropped, this function is called to mark a table as removed in
+btr_efragment_wq. The difference between this function and the remove_index
+function is this will not NULL the event. */
+void
+btr_defragment_remove_table(
+	dict_table_t*	table);	/*!< Index to be removed. */
+/******************************************************************//**
+Mark an index as removed from btr_defragment_wq. */
+void
+btr_defragment_remove_index(
+	dict_index_t*	index);	/*!< Index to be removed. */
+/******************************************************************//**
+Remove an item from btr_defragment_wq. Free the resource as well. */
+void
+btr_defragment_remove_item(
+	btr_defragment_item_t*	item);	/*!< Item to be removed. */
+/******************************************************************//**
+Get an item from btr_defragment_wq to work on. */
 btr_defragment_item_t*
-btr_defragment_create_item(
-	btr_pcur_t*	pcur,
-	os_event_t	event);
+btr_defragment_get_item();
 /*********************************************************************//**
 Check whether we should save defragmentation statistics to persistent storage.
 Currently we save the stats to persistent storage every 100 updates. */

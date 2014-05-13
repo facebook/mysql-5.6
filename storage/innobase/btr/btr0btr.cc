@@ -47,8 +47,11 @@ Created 6/2/1994 Heikki Tuuri
 #include "srv0mon.h"
 #include "srv0start.h"
 
-/* Wait time on defragmentation work queue. */
-#define BTR_DEFRAGMENT_WQ_WAIT_IN_USECS		5000000
+#include <list>
+
+/* When there's no work, either because defragment is disabled, or because no
+query is submitted, thread checks state every BTR_DEFRAGMENT_SLEEP_IN_USECS.*/
+#define BTR_DEFRAGMENT_SLEEP_IN_USECS		1000000
 /* Reduce the target page size by this amount when compression failure happens
 during defragmentaiton. 512 is chosen because it's a power of 2 and it is about
 3% of the page size. When there are compression failures in defragmentation,
@@ -56,11 +59,27 @@ our goal is to get a decent defrag ratio with as few compression failure as
 possible. From experimentation it seems that reduce the target size by 512 every
 time will make sure the page is compressible within a couple of iterations. */
 #define BTR_DEFRAGMENT_PAGE_REDUCTION_STEP_SIZE	512
-/* Work queue for btr_defragment_thread. */
-ib_wqueue_t* btr_defragment_wq = NULL;
+
+/* Work queue for defragmentation. */
+typedef std::list<btr_defragment_item_t*>	btr_defragment_wq_t;
+static btr_defragment_wq_t	btr_defragment_wq;
+
+/* Mutex protecting the defragmentation work queue.*/
+ib_mutex_t		btr_defragment_mutex;
+#ifdef UNIV_PFS_MUTEX
+UNIV_INTERN mysql_pfs_key_t	btr_defragment_mutex_key;
+#endif /* UNIV_PFS_MUTEX */
+
 /* Number of compression failures caused by defragmentation since server
 start. */
 ulint btr_defragment_compression_failures = 0;
+/* Number of btr_defragment_n_pages calls that altered page but didn't
+manage to release any page. */
+ulint btr_defragment_failures = 0;
+/* Total number of btr_defragment_n_pages calls that altered page.
+The difference between btr_defragment_count and btr_defragment_failures shows
+the amount of effort wasted. */
+ulint btr_defragment_count = 0;
 
 /**************************************************************//**
 Checks if the page in the cursor can be merged with given page.
@@ -4366,7 +4385,14 @@ btr_defragment_n_pages(
 	}
 	mem_heap_free(heap);
 	n_defragmented ++;
-	index->stat_defrag_n_pages_freed += (n_pages - n_defragmented);
+	os_atomic_increment_ulint(
+		&btr_defragment_count, 1);
+	if (n_pages == n_defragmented) {
+		os_atomic_increment_ulint(
+			&btr_defragment_failures, 1);
+	} else {
+		index->stat_defrag_n_pages_freed += (n_pages - n_defragmented);
+	}
 	if (end_of_index)
 		return NULL;
 	return current_block;
@@ -4381,23 +4407,52 @@ DECLARE_THREAD(btr_defragment_thread)(
 /*==========================================*/
 	void*	arg)	/*!< in: work queue */
 {
-	ib_wqueue_t*	wq = (ib_wqueue_t*)arg;
 	btr_pcur_t*	pcur;
-	os_event_t	event;
 	btr_cur_t*	cursor;
 	dict_index_t*	index;
 	mtr_t		mtr;
 	buf_block_t*	first_block;
 	buf_block_t*	last_block;
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
-		btr_defragment_item_t* item = (btr_defragment_item_t*)
-			ib_wqueue_timedwait(wq,
-					    BTR_DEFRAGMENT_WQ_WAIT_IN_USECS);
-		if (item == NULL)
+		/* If defragmentation is disabled, sleep before
+		checking whether it's enabled. */
+		if (!srv_defragment) {
+			os_thread_sleep(BTR_DEFRAGMENT_SLEEP_IN_USECS);
 			continue;
+		}
+		/* The following call won't remove the item from work queue.
+		We only get a pointer to it to work on. This will make sure
+		when user issue a kill command, all indices are in the work
+		queue to be searched. This also means that the user thread
+		cannot directly remove the item from queue (since we might be
+		using it). So user thread only marks index as removed. */
+		btr_defragment_item_t* item = btr_defragment_get_item();
+		/* If work queue is empty, sleep and check later. */
+		if (!item) {
+			os_thread_sleep(BTR_DEFRAGMENT_SLEEP_IN_USECS);
+			continue;
+		}
+		/* If an index is marked as removed, we remove it from the work
+		queue. No other thread could be using this item at this point so
+		it's safe to remove now. */
+		if (item->removed) {
+			btr_defragment_remove_item(item);
+			continue;
+		}
 		pcur = item->pcur;
-		event = item->event;
-		mem_heap_free(item->heap);
+		ulonglong now = my_timer_now();
+		ulonglong elapsed = now - item->last_processed;
+		if (elapsed < srv_defragment_interval) {
+			/* If we see an index again before the interval
+			determined by the configured frequency is reached,
+			we just sleep until the interval pass. Since
+			defragmentation of all indices queue up on a single
+			thread, it's likely other indices that follow this one
+			don't need to sleep again. */
+			os_thread_sleep((ulint)my_timer_to_microseconds(
+				srv_defragment_interval - elapsed));
+		}
+		now = my_timer_now();
 		mtr_start(&mtr);
 		btr_pcur_restore_position(BTR_MODIFY_TREE, pcur, &mtr);
 		cursor = btr_pcur_get_btr_cur(pcur);
@@ -4410,64 +4465,251 @@ DECLARE_THREAD(btr_defragment_thread)(
 			/* If we haven't reached the end of the index,
 			place the cursor on the last record of last page,
 			store the cursor position, and put back in queue. */
-			/* TODO: reuse item to avoid memory allocation. */
-			btr_defragment_item_t* new_item;
 			page_t* last_page = buf_block_get_frame(last_block);
 			rec_t* rec = page_rec_get_prev(
 				page_get_supremum_rec(last_page));
+			ut_a(page_rec_is_user_rec(rec));
 			page_cur_position(rec, last_block,
 					  btr_cur_get_page_cur(cursor));
 			btr_pcur_store_position(pcur, &mtr);
-			new_item = btr_defragment_create_item(pcur, event);
-			ib_wqueue_add(wq, new_item, new_item->heap);
 			mtr_commit(&mtr);
+			/* Update the last_processed time of this index. */
+			item->last_processed = now;
 		} else {
 			mtr_commit(&mtr);
 			/* Reaching the end of the index. */
 			dict_stats_empty_defrag_stats(index);
 			dict_stats_save_defrag_stats(index);
 			dict_stats_save_defrag_summary(index);
-			if (event) {
-				os_event_set(event);
-			}
+			btr_defragment_remove_item(item);
 		}
 	}
-	ib_wqueue_free(btr_defragment_wq);
+	btr_defragment_shutdown();
 	os_thread_exit(NULL);
 	OS_THREAD_DUMMY_RETURN;
 }
 
 /******************************************************************//**
-Initialize defragmentation. */
-UNIV_INTERN
-void
-btr_defragment_init(void)
+Constructor for btr_defragment_item_t. */
+btr_defragment_item_t::btr_defragment_item_t(
+	btr_pcur_t* pcur,
+	os_event_t event)
 {
-	ut_a(btr_defragment_wq == NULL);
-	btr_defragment_wq = ib_wqueue_create();
-	ut_a(btr_defragment_wq != NULL);
-	os_thread_create(btr_defragment_thread, btr_defragment_wq, NULL);
+	this->pcur = pcur;
+	this->event = event;
+	this->removed = false;
+	this->last_processed = 0;
 }
 
 /******************************************************************//**
-Create & initialize a btr_defragment_item_t. */
-UNIV_INTERN
-btr_defragment_item_t*
-btr_defragment_create_item(
-	btr_pcur_t*	pcur,
-	os_event_t	event)
+Destructor for btr_defragment_item_t. */
+btr_defragment_item_t::~btr_defragment_item_t() {
+	if (this->pcur) {
+		btr_pcur_free_for_mysql(this->pcur);
+	}
+	if (this->event) {
+		os_event_set(this->event);
+	}
+}
+
+/******************************************************************//**
+Initialize defragment mutex. */
+void
+btr_defragment_init_mutex()
 {
-	mem_heap_t*	heap;
-	btr_defragment_item_t*	item;
+	mutex_create(btr_defragment_mutex_key, &btr_defragment_mutex,
+		     SYNC_ANY_LATCH);
+}
 
-	heap = mem_heap_create(sizeof(*item) + sizeof(ib_list_node_t) + 16);
-	item = static_cast<btr_defragment_item_t*>(
-		mem_heap_alloc(heap, sizeof(*item)));
+/******************************************************************//**
+Initialize defragment thread. */
+void
+btr_defragment_init_thread()
+{
+	srv_defragment_interval = microseconds_to_my_timer(
+		1000000.0 / srv_defragment_frequency);
+	os_thread_create(btr_defragment_thread, NULL, NULL);
+}
 
-	item->pcur = pcur;
-	item->event = event;
-	item->heap = heap;
+/******************************************************************//**
+Shutdown defragmentation. Release all resources. */
+void
+btr_defragment_shutdown()
+{
+	mutex_enter(&btr_defragment_mutex);
+	for (auto iter = btr_defragment_wq.begin();
+	     iter != btr_defragment_wq.end();
+	     ++iter) {
+		btr_defragment_item_t* item = *iter;
+		btr_defragment_wq.erase(iter);
+		delete item;
+	}
+	mutex_exit(&btr_defragment_mutex);
+	mutex_free(&btr_defragment_mutex);
+}
 
+/******************************************************************//**
+Functions used by the query threads: btr_defragment_xxx_index
+Query threads find/add/remove index. */
+/******************************************************************//**
+Check whether the given index is in btr_defragment_wq. We use index->id
+to identify indices. */
+bool
+btr_defragment_find_index(
+	dict_index_t*	index)	/*!< Index to find. */
+{
+	mutex_enter(&btr_defragment_mutex);
+	for (auto iter = btr_defragment_wq.begin();
+	     iter != btr_defragment_wq.end();
+	     ++iter) {
+		btr_defragment_item_t* item = *iter;
+		btr_pcur_t* pcur = item->pcur;
+		btr_cur_t* cursor = btr_pcur_get_btr_cur(pcur);
+		dict_index_t* idx = btr_cur_get_index(cursor);
+		if (index->id == idx->id) {
+			mutex_exit(&btr_defragment_mutex);
+			return true;
+		}
+	}
+	mutex_exit(&btr_defragment_mutex);
+	return false;
+}
+
+/******************************************************************//**
+Query thread uses this function to add an index to btr_defragment_wq.
+Return a pointer to os_event for the query thread to wait on if this is a
+synchronized defragmentation. */
+os_event_t
+btr_defragment_add_index(
+	dict_index_t*	index,	/*!< index to be added  */
+	bool		async)	/*!< whether this is an async defragmentation */
+{
+	mtr_t mtr;
+	ulint space = dict_index_get_space(index);
+	ulint zip_size = dict_table_zip_size(index->table);
+	ulint page_no = dict_index_get_page(index);
+	mtr_start(&mtr);
+	// Load index rood page.
+	page_t* page = btr_page_get(space, zip_size, page_no,
+				    RW_NO_LATCH, index, &mtr);
+	if (btr_page_get_level(page, &mtr) == 0) {
+		// Index root is a leaf page, no need to defragment.
+		mtr_commit(&mtr);
+		return NULL;
+	}
+	btr_pcur_t* pcur = btr_pcur_create_for_mysql();
+	os_event_t event = NULL;
+	if (!async) {
+		event = os_event_create();
+	}
+	btr_pcur_open_at_index_side(true, index, BTR_SEARCH_LEAF, pcur,
+				    true, 0, &mtr);
+	btr_pcur_move_to_next(pcur, &mtr);
+	btr_pcur_store_position(pcur, &mtr);
+	mtr_commit(&mtr);
+	dict_stats_empty_defrag_summary(index);
+	btr_defragment_item_t*	item = new btr_defragment_item_t(pcur, event);
+	mutex_enter(&btr_defragment_mutex);
+	btr_defragment_wq.push_back(item);
+	mutex_exit(&btr_defragment_mutex);
+	return event;
+}
+
+/******************************************************************//**
+When table is dropped, this function is called to mark a table as removed in
+btr_efragment_wq. The difference between this function and the remove_index
+function is this will not NULL the event. */
+void
+btr_defragment_remove_table(
+	dict_table_t*	table)	/*!< Index to be removed. */
+{
+	mutex_enter(&btr_defragment_mutex);
+	for (auto iter = btr_defragment_wq.begin();
+	     iter != btr_defragment_wq.end();
+	     ++iter) {
+		btr_defragment_item_t* item = *iter;
+		btr_pcur_t* pcur = item->pcur;
+		btr_cur_t* cursor = btr_pcur_get_btr_cur(pcur);
+		dict_index_t* idx = btr_cur_get_index(cursor);
+		if (table->id == idx->table->id) {
+			item->removed = true;
+		}
+	}
+	mutex_exit(&btr_defragment_mutex);
+}
+
+/******************************************************************//**
+Query thread uses this function to mark an index as removed in
+btr_efragment_wq. */
+void
+btr_defragment_remove_index(
+	dict_index_t*	index)	/*!< Index to be removed. */
+{
+	mutex_enter(&btr_defragment_mutex);
+	for (auto iter = btr_defragment_wq.begin();
+	     iter != btr_defragment_wq.end();
+	     ++iter) {
+		btr_defragment_item_t* item = *iter;
+		btr_pcur_t* pcur = item->pcur;
+		btr_cur_t* cursor = btr_pcur_get_btr_cur(pcur);
+		dict_index_t* idx = btr_cur_get_index(cursor);
+		if (index->id == idx->id) {
+			item->removed = true;
+			item->event = NULL;
+			break;
+		}
+	}
+	mutex_exit(&btr_defragment_mutex);
+}
+
+/******************************************************************//**
+Functions used by defragmentation thread: btr_defragment_xxx_item.
+Defragmentation thread operates on the work *item*. It gets/removes
+item from the work queue. */
+/******************************************************************//**
+Defragment thread uses this to remove an item from btr_defragment_wq.
+When an item is removed from the work queue, all resources associated with it
+are free as well. */
+void
+btr_defragment_remove_item(
+	btr_defragment_item_t*	item) /*!< Item to be removed. */
+{
+	mutex_enter(&btr_defragment_mutex);
+	for (auto iter = btr_defragment_wq.begin();
+	     iter != btr_defragment_wq.end();
+	     ++iter) {
+		if (item == *iter) {
+			btr_defragment_wq.erase(iter);
+			delete item;
+			break;
+		}
+	}
+	mutex_exit(&btr_defragment_mutex);
+}
+
+/******************************************************************//**
+Defragment thread uses this to get an item from btr_defragment_wq to work on.
+The item is not removed from the work queue so query threads can still access
+this item. We keep it this way so query threads can find and kill a
+defragmentation even if that index is being worked on. Be aware that while you
+work on this item you have no lock protection on it whatsoever. This is OK as
+long as the query threads and defragment thread won't modify the same fields
+without lock protection.
+*/
+btr_defragment_item_t*
+btr_defragment_get_item()
+{
+	if (btr_defragment_wq.empty()) {
+		return nullptr;
+	}
+	mutex_enter(&btr_defragment_mutex);
+	static auto iter = btr_defragment_wq.begin();
+	if (iter == btr_defragment_wq.end()) {
+		iter = btr_defragment_wq.begin();
+	}
+	btr_defragment_item_t* item = *iter;
+	iter++;
+	mutex_exit(&btr_defragment_mutex);
 	return item;
 }
 
