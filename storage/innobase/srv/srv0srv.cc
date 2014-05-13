@@ -235,10 +235,16 @@ UNIV_INTERN ulint	srv_sync_pool_size	= 1024;
 UNIV_INTERN ulint	srv_mem_pool_size	= ULINT_MAX;
 UNIV_INTERN ulint	srv_lock_table_size	= ULINT_MAX;
 
+/* Defragmentation */
+UNIV_INTERN my_bool	srv_defragment = TRUE;
 UNIV_INTERN uint	srv_defragment_n_pages = 7;
 UNIV_INTERN uint	srv_defragment_stats_accuracy = 0;
 UNIV_INTERN uint	srv_defragment_fill_factor_n_recs = 20;
 UNIV_INTERN double	srv_defragment_fill_factor = 0.9;
+UNIV_INTERN uint	srv_defragment_frequency =
+	SRV_DEFRAGMENT_FREQUENCY_DEFAULT;
+UNIV_INTERN ulonglong	srv_defragment_interval = 0;
+
 
 UNIV_INTERN ulint	srv_idle_flush_pct = 100;
 
@@ -1978,6 +1984,8 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_defragment_compression_failures =
 		btr_defragment_compression_failures;
+	export_vars.innodb_defragment_failures = btr_defragment_failures;
+	export_vars.innodb_defragment_count = btr_defragment_count;
 
 	export_vars.innodb_buffered_aio_submitted =
 		srv_stats.n_aio_submitted;
