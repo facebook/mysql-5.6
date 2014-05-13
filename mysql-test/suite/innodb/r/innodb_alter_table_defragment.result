@@ -73,5 +73,14 @@ count(*)
 select count(*) < 185 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
 count(*) < 185
 1
+## Test-5 kill a defragment command
+alter table t1 defragment index second;
+kill query 2;
+ERROR 70100: Query execution was interrupted
+## Test-6 defragment index already being defragmented.
+alter table t1 defragment index PRIMARY async_commit;
+alter table t1 defragment index PRIMARY;
+ERROR 42000: ./test/t1 PRIMARY already exists
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;
