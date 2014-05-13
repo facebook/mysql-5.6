@@ -67,6 +67,19 @@ count(*)
 select count(*) < expected from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' and access_time > 0;
 count(*) < expected
 1
+## Test-5 kill a defragment command
+set global innodb_defragment_frequency = 1;
+alter table t1 defragment;
+kill query ID;
+select sleep(3);
+sleep(3)
+0
+ERROR 70100: Query execution was interrupted
+set global innodb_defragment_frequency = 100;
+## Test-6 defragment index already being defragmented.
+alter table t1 defragment index PRIMARY async_commit;
+alter table t1 defragment index PRIMARY;
+ERROR 42000: ./test/t1 PRIMARY already exists
 call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;
