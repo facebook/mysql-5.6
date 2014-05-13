@@ -329,10 +329,15 @@ extern ulong	srv_trx_log_write_block_size;
 extern ulint	srv_n_read_io_threads;
 extern ulint	srv_n_write_io_threads;
 
+/* Defragmentation */
+#define SRV_DEFRAGMENT_FREQUENCY_DEFAULT 100
+extern my_bool	srv_defragment;
 extern uint	srv_defragment_n_pages;
 extern uint	srv_defragment_stats_accuracy;
 extern uint	srv_defragment_fill_factor_n_recs;
 extern double	srv_defragment_fill_factor;
+extern uint	srv_defragment_frequency;
+extern ulonglong	srv_defragment_interval;
 
 extern ulint	srv_idle_flush_pct;
 
@@ -1148,6 +1153,8 @@ struct export_var_t{
 	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
 
 	ulint innodb_defragment_compression_failures;
+	ulint innodb_defragment_failures;
+	ulint innodb_defragment_count;
 
 	ulint innodb_buffered_aio_submitted;
 	ulint innodb_outstanding_aio_requests;

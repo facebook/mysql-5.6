@@ -1842,6 +1842,9 @@ innobase_start_or_create_for_mysql(void)
 
 	srv_boot();
 
+	/* Initialize online defragmentation mutex. */
+	btr_defragment_init_mutex();
+
 	ib_logf(IB_LOG_LEVEL_INFO,
 		"%s CPU crc32 instructions",
 		ut_crc32_sse2_enabled ? "Using" : "Not using");
@@ -2891,8 +2894,8 @@ files_checked:
 		fts_optimize_init();
 	}
 
-	/* Initialize online defragmentation. */
-	btr_defragment_init();
+	/* Initialize online defragmentation thread. */
+	btr_defragment_init_thread();
 
 #ifdef XTRABACKUP
 skip_processes:

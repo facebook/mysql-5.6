@@ -58,7 +58,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0trx.h"
 
 #include "trx0sys.h"
-#include "mtr0mtr.h"
 #include "rem0types.h"
 #include "row0ins.h"
 #include "row0mysql.h"
@@ -974,6 +973,10 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_trx_n_rollback_total,	  SHOW_LONG},
   {"defragment_compression_failures",
    (char*) &export_vars.innodb_defragment_compression_failures, SHOW_LONG},
+  {"defragment_failures",
+   (char*) &export_vars.innodb_defragment_failures, SHOW_LONG},
+  {"defragment_count",
+   (char*) &export_vars.innodb_defragment_count, SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
   {"outstanding_aio_requests",
@@ -11059,8 +11062,11 @@ ha_innobase::defragment_table(
 	char		norm_name[FN_REFLEN];
 	dict_table_t*	table;
 	dict_index_t*	index;
-	mtr_t		mtr;
 	ibool		one_index = (*index_name != 0);
+	int		ret = 0;
+	if (!srv_defragment) {
+		return ER_FEATURE_DISABLED;
+	}
 	normalize_table_name(norm_name, name);
 	table = dict_table_open_on_name(norm_name, FALSE,
 					FALSE, DICT_ERR_IGNORE_NONE);
@@ -11068,34 +11074,42 @@ ha_innobase::defragment_table(
 	     index = dict_table_get_next_index(index)) {
 		if (one_index && strcasecmp(index_name, index->name) != 0)
 			continue;
-		btr_defragment_item_t* item;
-		os_event_t event = NULL;
-		btr_pcur_t* pcur = btr_pcur_create_for_mysql();
-		mtr_start(&mtr);
-		btr_pcur_open_at_index_side(true, index, BTR_SEARCH_LEAF, pcur,
-					    true, 0, &mtr);
-		btr_pcur_move_to_next(pcur, &mtr);
-		btr_pcur_store_position(pcur, &mtr);
-		mtr_commit(&mtr);
-		dict_stats_empty_defrag_summary(index);
-		if (!async)
-			event = os_event_create();
-		item = btr_defragment_create_item(pcur, event);
-		ib_wqueue_add(btr_defragment_wq, item, item->heap);
-		if (!async) {
-			os_event_wait(event);
+		if (btr_defragment_find_index(index)) {
+			// We borrow this error code. When the same index is
+			// already in the defragmentation queue, issue another
+			// defragmentation only introduces overhead. We return
+			// an error here to let the user know this is not
+			// necessary. Note that this will fail a query that's
+			// trying to defragment a full table if one of the
+			// indicies in that table is already in defragmentation.
+			// We choose this behavior so user is aware of this
+			// rather than silently defragment other indicies of
+			// that table.
+			ret = ER_SP_ALREADY_EXISTS;
+			break;
+		}
+		os_event_t event = btr_defragment_add_index(index, async);
+		if (!async && event) {
+			while(os_event_wait_time(event, 1000000)) {
+				if (thd_killed(current_thd)) {
+					btr_defragment_remove_index(index);
+					ret = ER_QUERY_INTERRUPTED;
+					break;
+				}
+			}
 			os_event_free(event);
 		}
-		btr_pcur_free_for_mysql(pcur);
+		if (ret)
+			break;
 		if (one_index) {
 			one_index = FALSE;
 			break;
 		}
 	}
 	dict_table_close(table, FALSE, FALSE);
-	if (one_index)
-		return ER_NO_SUCH_INDEX;
-	return 0;
+	if (ret == 0 && one_index)
+		ret = ER_NO_SUCH_INDEX;
+	return ret;
 }
 
 /*****************************************************************//**
@@ -16345,6 +16359,23 @@ innodb_log_compressed_pages_update(
 	}
 }
 
+static
+void
+innodb_defragment_frequency_update(
+/*===============================*/
+	THD* thd,  /*!< in: thread handle */
+	struct st_mysql_sys_var* var,  /*!< in: pointer to
+	          system variable */
+	void* var_ptr,/*!< out: where the
+	          formal string goes */
+	const void* save) /*!< in: immediate result
+	          from check function */
+{
+	srv_defragment_frequency = (*static_cast<const uint*>(save));
+	srv_defragment_interval = microseconds_to_my_timer(
+		1000000.0 / srv_defragment_frequency);
+}
+
 /****************************************************************//**
 Parse and enable InnoDB monitor counters during server startup.
 User can list the monitor counters/groups to be enable by specifying
@@ -17326,6 +17357,14 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_load_at_startup, srv_buffer_pool_load_at_st
   "Load the buffer pool from a file named @@innodb_buffer_pool_filename",
   NULL, NULL, FALSE);
 
+static MYSQL_SYSVAR_BOOL(defragment, srv_defragment,
+  PLUGIN_VAR_RQCMDARG,
+  "Enable/disable InnoDB defragmentation. When set to FALSE, all existing "
+  "defragmentation will be paused. And new defragmentation command will fail."
+  "Paused defragmentation commands will resume when this variable is set to "
+  "true again.",
+  NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_UINT(defragment_n_pages, srv_defragment_n_pages,
   PLUGIN_VAR_RQCMDARG,
   "Number of pages considered at once when merging multiple pages to "
@@ -17339,6 +17378,17 @@ static MYSQL_SYSVAR_UINT(defragment_stats_accuracy,
   "are written to persistent storage. Set to 0 meaning disable "
   "defragment stats tracking.",
   NULL, NULL, 0, 0, ~0U, 0);
+
+static MYSQL_SYSVAR_UINT(defragment_frequency, srv_defragment_frequency,
+  PLUGIN_VAR_RQCMDARG,
+  "Do not defragment a single index more than this number of time per second."
+  "This controls the number of time defragmentation thread can request X_LOCK "
+  "on an index. Defragmentation thread will check whether "
+  "1/defragment_frequency (s) has passed since it worked on this index last "
+  "time, and put the index back to the queue if not enough time has passed. "
+  "The actual frequency can only be lower than this given number.",
+  NULL, innodb_defragment_frequency_update,
+  SRV_DEFRAGMENT_FREQUENCY_DEFAULT, 1, 1000, 0);
 
 static MYSQL_SYSVAR_UINT(defragment_fill_factor_n_recs,
   srv_defragment_fill_factor_n_recs,
@@ -17952,8 +18002,10 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_load_now),
   MYSQL_SYSVAR(buffer_pool_load_abort),
   MYSQL_SYSVAR(buffer_pool_load_at_startup),
+  MYSQL_SYSVAR(defragment),
   MYSQL_SYSVAR(defragment_n_pages),
   MYSQL_SYSVAR(defragment_stats_accuracy),
+  MYSQL_SYSVAR(defragment_frequency),
   MYSQL_SYSVAR(defragment_fill_factor),
   MYSQL_SYSVAR(defragment_fill_factor_n_recs),
   MYSQL_SYSVAR(lru_scan_depth),

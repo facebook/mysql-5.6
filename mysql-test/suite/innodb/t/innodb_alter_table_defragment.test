@@ -182,6 +182,44 @@ select count(*) from t1 force index (second);
 --replace_result $expected_new expected
 eval select count(*) < $expected_new from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' and access_time > 0;
 
+--echo ## Test-5 kill a defragment command
+let $orig_frequency = `select @@global.innodb_defragment_frequency`;
+# Make the defragmentation really slow.
+set global innodb_defragment_frequency = 1;
+--disable_query_log
+let $size = $delete_size;
+while ($size)
+{
+    let $j =  100 * $size;
+    eval delete from t1 where a between $j - 40 and $j-30;
+    dec $size;
+}
+--enable_query_log
+
+connect(con1,localhost,root,,);
+connection con1;
+let $conn_id = `select connection_id()`;
+send alter table t1 defragment;
+connection default;
+--replace_result $conn_id ID
+eval kill query $conn_id;
+# Because the defragment query thread wakes up every second to check whether it's killed, there
+# could be a delay from kill command issued to query actually being killed. So we wait a few second
+# to make sure the query should already realize it's been killed.
+select sleep(3);
+connection con1;
+--error ER_QUERY_INTERRUPTED
+reap;
+
+connection default;
+disconnect con1;
+eval set global innodb_defragment_frequency = $orig_frequency;
+
+--echo ## Test-6 defragment index already being defragmented.
+alter table t1 defragment index PRIMARY async_commit;
+--error ER_SP_ALREADY_EXISTS
+alter table t1 defragment index PRIMARY;
+
 call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;
