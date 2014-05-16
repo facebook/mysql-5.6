@@ -6,7 +6,16 @@ DROP TABLE if exists t1;
 --enable_warnings
 
 select @@global.innodb_stats_persistent;
-set global innodb_defragment_stats_accuracy = 20;
+--echo # Set stats accuracy according to page size.
+let $page_size = query_get_value(select @@innodb_page_size, @@innodb_page_size, 1);
+--disable_query_log
+if ($page_size == 16384) {
+   set global innodb_defragment_stats_accuracy = 20;
+}
+if ($page_size == 32768) {
+   set global innodb_defragment_stats_accuracy = 10;
+}
+--enable_query_log
 
 --echo # Create table.
 CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;

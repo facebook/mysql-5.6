@@ -596,6 +596,7 @@ enum options_xtrabackup
   OPT_INNODB_READ_IO_THREADS,
   OPT_INNODB_WRITE_IO_THREADS,
   OPT_INNODB_USE_NATIVE_AIO,
+  OPT_INNODB_PAGE_SIZE,
   OPT_INNODB_FORCE_RECOVERY,
   OPT_INNODB_LOCK_WAIT_TIMEOUT,
   OPT_INNODB_LOG_BUFFER_SIZE,
@@ -886,6 +887,10 @@ Disable with --skip-innodb-doublewrite.", (G_PTR*) &innobase_use_doublewrite,
    (G_PTR*) &srv_use_native_aio,
    (G_PTR*) &srv_use_native_aio, 0, GET_BOOL, NO_ARG,
    FALSE, 0, 0, 0, 0, 0},
+  {"innodb_page_size", OPT_INNODB_PAGE_SIZE,
+   "The universal page size of the database.",
+   (G_PTR*) &innobase_page_size, (G_PTR*) &innobase_page_size, 0,
+   GET_LONG, REQUIRED_ARG, (1 << 14), (1 << 12), (1 << UNIV_PAGE_SIZE_SHIFT_MAX), 0, 1L, 0},
 
 #ifndef __WIN__
   {"debug-sync", OPT_XTRA_DEBUG_SYNC,
@@ -1231,6 +1236,29 @@ innodb_init_param(void)
 
 	my_default_lc_messages = my_locale_by_name("en_US");
 	init_errmessage();
+
+	srv_page_size = 0;
+	srv_page_size_shift = 0;
+
+	if (innobase_page_size != (1 << 14)) {
+		int n_shift = get_bit_shift(innobase_page_size);
+
+		if (n_shift >= 12 && n_shift <= UNIV_PAGE_SIZE_SHIFT_MAX) {
+			msg("InnoDB: Warning: innodb_page_size has been "
+			    "changed from default value 16384.\n");
+			srv_page_size_shift = n_shift;
+			srv_page_size = 1 << n_shift;
+			msg("InnoDB: The universal page size of the "
+			    "database is set to %lu.\n", srv_page_size);
+		} else {
+			msg("InnoDB: Error: invalid value of "
+			    "innobase_page_size: %lu", innobase_page_size);
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		srv_page_size_shift = 14;
+		srv_page_size = (1 << srv_page_size_shift);
+	}
 
 	/* Check that values don't overflow on 32-bit systems. */
 	if (sizeof(ulint) == 4) {
@@ -4283,10 +4311,10 @@ not_consistent:
 		}
 	}
 
-	/* make larger than 2MB */
-	if (file_size < 2*1024*1024L) {
+	/* make larger than 4MB */
+	if (file_size < 4*1024*1024L) {
 		memset(log_buf, 0, UNIV_PAGE_SIZE);
-		while (file_size < 2*1024*1024L) {
+		while (file_size < 4*1024*1024L) {
 			success = xb_os_file_write(src_path, src_file, log_buf,
 						   file_size, UNIV_PAGE_SIZE);
 			if (!success) {
@@ -5615,6 +5643,7 @@ next_opt:
 		printf("innodb_flush_method = \"%s\"\n",
 		       (innobase_unix_file_flush_method != NULL) ?
 		       innobase_unix_file_flush_method : "");
+		printf("innodb_page_size = %ld\n", innobase_page_size);
 		exit(EXIT_SUCCESS);
 	}
 
