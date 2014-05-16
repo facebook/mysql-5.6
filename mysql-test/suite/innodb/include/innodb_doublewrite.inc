@@ -6,7 +6,8 @@ DROP TABLE IF EXISTS t2;
 --enable_warnings
 
 let $data_dir = `SELECT @@datadir`;
-let $corrupt_exec = python suite/innodb/t/innodb_corrupt_doublewrite_pages.py $data_dir;
+let $page_size = `SELECT @@innodb_page_size`;
+let $corrupt_exec = python suite/innodb/t/innodb_corrupt_doublewrite_pages.py $data_dir $page_size;
 
 SET GLOBAL innodb_doublewrite=2;
 CREATE TABLE t1(a INT PRIMARY KEY AUTO_INCREMENT, b char(255) default '') ENGINE=innodb;

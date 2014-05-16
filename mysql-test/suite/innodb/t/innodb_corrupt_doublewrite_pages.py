@@ -1,22 +1,5 @@
 import sys, glob, random, os, threading, subprocess, re, time
 
-UNIV_PAGE_SIZE = 1 << 14
-TRX_SYS_PAGE_NO = 5
-TRX_SYS_DOUBLEWRITE = (UNIV_PAGE_SIZE - 200)
-TRX_SYS_DOUBLEWRITE_MAGIC_N = 536853855
-FSEG_HEADER_SIZE  = 10
-TRX_SYS_DOUBLEWRITE_MAGIC = FSEG_HEADER_SIZE
-TRX_SYS_DOUBLEWRITE_BLOCK1 = 4 + FSEG_HEADER_SIZE
-TRX_SYS_DOUBLEWRITE_BLOCK2  = 8 + FSEG_HEADER_SIZE
-TRX_SYS_DOUBLEWRITE_BLOCK_SIZE = 1048576 / UNIV_PAGE_SIZE
-FIL_PAGE_TYPE_DBLWR_HEADER = 13
-FIL_PAGE_TYPE = 24
-FIL_PAGE_DATA = 38
-FIL_PAGE_OFFSET = 4
-FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID = 34
-DBLWR_FAIL_MESSAGE = "InnoDB: Cannot recover it from the doublewrite buffer because it was written in reduced-doublewrite mode.\n"
-DBLWR_SUCCESS_MESSAGE = "InnoDB: Trying to recover it from the doublewrite buffer.\n"
-
 def get_doublewrite(f):
   f.seek(TRX_SYS_PAGE_NO * UNIV_PAGE_SIZE)
   page = f.read(UNIV_PAGE_SIZE)
@@ -106,11 +89,45 @@ class Command(object):
     return self.process.returncode
 
 def main():
-  if len(sys.argv) < 3:
+  if len(sys.argv) < 4:
     raise Exception('You must specify the path for the data directory of the server and the doublewrite mode')
     exit(1)
   data_dir = sys.argv[1]
-  innodb_doublewrite = int(sys.argv[2])
+  global UNIV_PAGE_SIZE
+  global TRX_SYS_PAGE_NO
+  global TRX_SYS_DOUBLEWRITE
+  global TRX_SYS_DOUBLEWRITE_MAGIC_N
+  global FSEG_HEADER_SIZE
+  global TRX_SYS_DOUBLEWRITE_MAGIC
+  global TRX_SYS_DOUBLEWRITE_BLOCK1
+  global TRX_SYS_DOUBLEWRITE_BLOCK2
+  global TRX_SYS_DOUBLEWRITE_BLOCK_SIZE
+  global FIL_PAGE_TYPE_DBLWR_HEADER
+  global FIL_PAGE_TYPE
+  global FIL_PAGE_DATA
+  global FIL_PAGE_OFFSET
+  global FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID
+  global DBLWR_FAIL_MESSAGE
+  global DBLWR_SUCCESS_MESSAGE
+
+  UNIV_PAGE_SIZE = int(sys.argv[2])
+  TRX_SYS_PAGE_NO = 5
+  TRX_SYS_DOUBLEWRITE = (UNIV_PAGE_SIZE - 200)
+  TRX_SYS_DOUBLEWRITE_MAGIC_N = 536853855
+  FSEG_HEADER_SIZE  = 10
+  TRX_SYS_DOUBLEWRITE_MAGIC = FSEG_HEADER_SIZE
+  TRX_SYS_DOUBLEWRITE_BLOCK1 = 4 + FSEG_HEADER_SIZE
+  TRX_SYS_DOUBLEWRITE_BLOCK2  = 8 + FSEG_HEADER_SIZE
+  TRX_SYS_DOUBLEWRITE_BLOCK_SIZE = 1048576 / UNIV_PAGE_SIZE
+  FIL_PAGE_TYPE_DBLWR_HEADER = 13
+  FIL_PAGE_TYPE = 24
+  FIL_PAGE_DATA = 38
+  FIL_PAGE_OFFSET = 4
+  FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID = 34
+  DBLWR_FAIL_MESSAGE = "InnoDB: Cannot recover it from the doublewrite buffer because it was written in reduced-doublewrite mode.\n"
+  DBLWR_SUCCESS_MESSAGE = "InnoDB: Trying to recover it from the doublewrite buffer.\n"
+
+  innodb_doublewrite = int(sys.argv[3])
   if innodb_doublewrite != 1 and innodb_doublewrite != 2:
     raise Exception("innodb_doublewrite must be 1 or 2 for this test.")
     exit(1)
