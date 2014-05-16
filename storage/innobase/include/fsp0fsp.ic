@@ -49,11 +49,11 @@ fsp_descr_page(
 }
 
 /********************************************************************//**
-Validate and return the tablespace flags, which are stored in the
-tablespace header at offset FSP_SPACE_FLAGS.  They should be 0 for
-ROW_FORMAT=COMPACT and ROW_FORMAT=REDUNDANT. The newer row formats,
-COMPRESSED and DYNAMIC, use a file format > Antelope so they should
-have a file format number plus the DICT_TF_COMPACT bit set.
+Validate the tablespace flags, which are stored in the tablespace header
+at offset FSP_SPACE_FLAGS.  They should be 0 for ROW_FORMAT=COMPACT and
+ROW_FORMAT=REDUNDANT. The newer row formats, COMPRESSED and DYNAMIC, use
+a file format > Antelope so they should have a file format number plus
+the DICT_TF_COMPACT bit set.
 @return	true if check ok */
 UNIV_INLINE
 bool
@@ -327,6 +327,11 @@ xdes_calc_descriptor_page(
 			   + (UNIV_PAGE_SIZE_MAX / FSP_EXTENT_SIZE_MAX)	\
 			   * XDES_SIZE_MAX
 #  error
+# if UNIV_PAGE_SIZE_DEF <= XDES_ARR_OFFSET				\
+			   + (UNIV_PAGE_SIZE_DEF / FSP_EXTENT_SIZE_DEF)	\
+			   * XDES_SIZE_DEF
+#  error
+# endif
 # endif
 # if UNIV_ZIP_SIZE_MIN <= XDES_ARR_OFFSET				\
 			  + (UNIV_ZIP_SIZE_MIN / FSP_EXTENT_SIZE_MIN)	\
