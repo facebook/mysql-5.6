@@ -4846,7 +4846,10 @@ ha_innobase::max_supported_key_length() const
 
 	For page sizes = 16k, InnoDB historically reported 3500 bytes here,
 	But the MySQL limit of 3072 was always used through the handler
-	interface. */
+	interface.
+
+	Note: Handle 16k and 32k pages the same here since the limits
+	are higher than imposed by MySQL. */
 
 	switch (UNIV_PAGE_SIZE) {
 	case 4096:
@@ -9805,6 +9808,7 @@ create_options_are_invalid(
 		case 4:
 		case 8:
 		case 16:
+		case 32:
 			/* Valid KEY_BLOCK_SIZE, check its dependencies. */
 			if (!use_tablespace) {
 				push_warning(
@@ -9823,8 +9827,8 @@ create_options_are_invalid(
 				ret = "KEY_BLOCK_SIZE";
 			}
 
-			/* The maximum KEY_BLOCK_SIZE (KBS) is 16. But if
-			UNIV_PAGE_SIZE is smaller than 16k, the maximum
+			/* The maximum KEY_BLOCK_SIZE (KBS) is UNIV_PAGE_SIZE.
+			With smaller UNIV_PAGE_SIZE, the maximum
 			KBS is also smaller. */
 			kbs_max = ut_min(
 				1 << (UNIV_PAGE_SSIZE_MAX - 1),

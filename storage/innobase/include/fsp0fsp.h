@@ -362,8 +362,13 @@ the extent are free and which contain old tuple version to clean. */
 #define	XDES_SIZE_MAX							\
 	(XDES_BITMAP							\
 	+ UT_BITS_IN_BYTES(FSP_EXTENT_SIZE_MAX * XDES_BITS_PER_PAGE))
+/** File extent data structure size in bytes for DEF page size. */
 
+#define	XDES_SIZE_DEF							\
+	(XDES_BITMAP							\
+	+ UT_BITS_IN_BYTES(FSP_EXTENT_SIZE_DEF * XDES_BITS_PER_PAGE))
 /** File extent data structure size in bytes for MIN page size. */
+
 #define	XDES_SIZE_MIN							\
 	(XDES_BITMAP							\
 	+ UT_BITS_IN_BYTES(FSP_EXTENT_SIZE_MIN * XDES_BITS_PER_PAGE))
@@ -702,12 +707,12 @@ fseg_print(
 #endif /* UNIV_BTR_PRINT */
 
 /********************************************************************//**
-Validate and return the tablespace flags, which are stored in the
-tablespace header at offset FSP_SPACE_FLAGS.  They should be 0 for
-ROW_FORMAT=COMPACT and ROW_FORMAT=REDUNDANT. The newer row formats,
-COMPRESSED and DYNAMIC, use a file format > Antelope so they should
-have a file format number plus the DICT_TF_COMPACT bit set.
-@return	true if check ok */
+Validate the tablespace flags, which are stored in the tablespace header
+at offset FSP_SPACE_FLAGS.  They should be 0 for ROW_FORMAT=COMPACT and
+ROW_FORMAT=REDUNDANT. The newer row formats, COMPRESSED and DYNAMIC, use
+a file format > Antelope so they should have a file format number plus
+the DICT_TF_COMPACT bit set.
+@return true if check ok */
 UNIV_INLINE
 bool
 fsp_flags_is_valid(

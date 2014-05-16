@@ -799,11 +799,11 @@ t1	CREATE TABLE `t1` (
   KEY `idx3` (`c4`(512))
 ) ENGINE=InnoDB AUTO_INCREMENT=185 DEFAULT CHARSET=latin1
 DROP TABLE test_wl5522.t1;
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 INSERT INTO test_wl5522.t1 VALUES
-(100, REPEAT('Karanbir', 899), REPEAT('Ajeeth', 1200));
-Warnings:
-Warning	1265	Data truncated for column 'c2' at row 1
+(100, REPEAT('Karanbir', {varchar_len} / 8), REPEAT('Ajeeth', 1200),
+REPEAT('Ajeeth', 1200));
 INSERT INTO test_wl5522.t1 SELECT * FROM test_wl5522.t1;
 INSERT INTO test_wl5522.t1 SELECT * FROM test_wl5522.t1;
 INSERT INTO test_wl5522.t1 SELECT * FROM test_wl5522.t1;
@@ -819,7 +819,8 @@ FLUSH TABLES test_wl5522.t1 FOR EXPORT;
 backup: t1
 UNLOCK TABLES;
 DROP TABLE test_wl5522.t1;
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -831,7 +832,8 @@ SET SESSION debug="-d,ib_import_trigger_corruption_1";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -843,7 +845,8 @@ SET SESSION debug="-d,buf_page_is_corrupt_failure";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -855,7 +858,8 @@ SET SESSION debug="-d,ib_import_trigger_corruption_2";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -867,7 +871,8 @@ SET SESSION debug="-d,ib_import_trigger_corruption_3";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -879,7 +884,8 @@ SET SESSION debug="-d,ib_import_create_index_failure_1";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -891,7 +897,8 @@ SET SESSION debug="-d,fil_space_create_failure";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
@@ -903,7 +910,8 @@ SET SESSION debug="-d,dict_tf_to_fsp_flags_failure";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
 unlink: t1.cfg
-CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR({varchar_len}),
+c3 BLOB, c4 BLOB) ENGINE = Innodb;
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 SELECT COUNT(*) FROM test_wl5522.t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
