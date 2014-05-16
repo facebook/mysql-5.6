@@ -996,7 +996,7 @@ DROP TABLE t1,t2;
 # Bug #21101 (Prints wrong error message if max row size is too large)
 #
 SET innodb_strict_mode=ON;
---replace_result 8126 {checked_valid} 4030 {checked_valid} 1982 {checked_valid}
+--replace_result 16318 {checked_valid} 8126 {checked_valid} 4030 {checked_valid} 1982 {checked_valid}
 --error ER_TOO_BIG_ROWSIZE
 CREATE TABLE t1 (
 	c01 CHAR(255), c02 CHAR(255), c03 CHAR(255), c04 CHAR(255),
@@ -1006,7 +1006,15 @@ CREATE TABLE t1 (
 	c17 CHAR(255), c18 CHAR(255), c19 CHAR(255), c20 CHAR(255),
 	c21 CHAR(255), c22 CHAR(255), c23 CHAR(255), c24 CHAR(255),
 	c25 CHAR(255), c26 CHAR(255), c27 CHAR(255), c28 CHAR(255),
-	c29 CHAR(255), c30 CHAR(255), c31 CHAR(255), c32 CHAR(255)
+	c29 CHAR(255), c30 CHAR(255), c31 CHAR(255), c32 CHAR(255),
+	c33 CHAR(255), c34 CHAR(255), c35 CHAR(255), c36 CHAR(255),
+	c37 CHAR(255), c38 CHAR(255), c39 CHAR(255), c40 CHAR(255),
+	c41 CHAR(255), c42 CHAR(255), c43 CHAR(255), c44 CHAR(255),
+	c45 CHAR(255), c46 CHAR(255), c47 CHAR(255), c48 CHAR(255),
+	c49 CHAR(255), c50 CHAR(255), c51 CHAR(255), c52 CHAR(255),
+	c53 CHAR(255), c54 CHAR(255), c55 CHAR(255), c56 CHAR(255),
+	c57 CHAR(255), c58 CHAR(255), c59 CHAR(255), c60 CHAR(255),
+	c61 CHAR(255), c62 CHAR(255), c63 CHAR(255), c64 CHAR(255)
 	) ENGINE = InnoDB;
 SET innodb_strict_mode=OFF;
 
