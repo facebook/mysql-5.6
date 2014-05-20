@@ -429,6 +429,7 @@ void init_update_queries(void)
   sql_command_flags[SQLCOM_SHOW_BINLOGS]=     CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_SLAVE_HOSTS]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_BINLOG_EVENTS]= CF_STATUS_COMMAND;
+  sql_command_flags[SQLCOM_SHOW_BINLOG_CACHE]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_STORAGE_ENGINES]= CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_PRIVILEGES]=  CF_STATUS_COMMAND;
   sql_command_flags[SQLCOM_SHOW_WARNS]=       CF_STATUS_COMMAND | CF_DIAGNOSTIC_STMT;
@@ -3251,6 +3252,13 @@ case SQLCOM_PREPARE:
     if (check_global_access(thd, REPL_SLAVE_ACL))
       goto error;
     res = mysql_show_binlog_events(thd);
+    break;
+  }
+  case SQLCOM_SHOW_BINLOG_CACHE:
+  {
+    if (check_global_access(thd, REPL_SLAVE_ACL))
+      goto error;
+    res = mysql_show_binlog_cache(thd);
     break;
   }
 #endif
@@ -9207,4 +9215,56 @@ merge_charset_and_collation(const CHARSET_INFO *cs, const CHARSET_INFO *cl)
     return cl;
   }
   return cs;
+}
+
+// Given a mysql thread id, it returns the thread pointer, and lock the thread
+// from deletion.  If the thread_id is non-existent, or the current thread does
+// not have permission to access the requested thread, we return nullptr.
+//
+// NOTE: The caller is responsible for UNLOCKING the thread after finishing
+// using the thread.
+THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
+{
+  THD *ret_thd = nullptr;
+  bool found = false;
+  const char *user = thd->security_ctx->master_access & PROCESS_ACL ?
+                       NullS : thd->security_ctx->priv_user;
+
+  mysql_mutex_lock(&LOCK_thread_count);
+  Thread_iterator it= global_thread_list_begin();
+  Thread_iterator end= global_thread_list_end();
+  for (; it != end && !found; ++it)
+  {
+    THD *tmp= *it;
+    if (thread_id == tmp->thread_id)
+    {
+      found = true;
+      Security_context *tmp_sctx= tmp->security_ctx;
+      // check thread authorization
+      if ((tmp->vio_ok() || tmp->system_thread) &&
+          (!user || (tmp_sctx->user && !strcmp(tmp_sctx->user, user))))
+      {
+        // Now lock the thread from deletion
+        mysql_mutex_lock(&tmp->LOCK_thd_data);
+
+        // if the thread is already in the middle of deletion
+        // release the lock with not found
+        if (tmp->release_resources_started())
+        {
+          mysql_mutex_unlock(&tmp->LOCK_thd_data);
+          found = false;
+          break;
+        }
+
+        ret_thd = tmp;
+      }
+      else
+        my_error(ER_SHOW_DENIED_ERROR, MYF(0), thread_id);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_thread_count);
+  if (!found)
+    my_error(ER_NO_SUCH_THREAD, MYF(0), thread_id);
+
+  return ret_thd;
 }

@@ -970,6 +970,22 @@ int Log_event::net_send(Protocol *protocol, const char* log_name, my_off_t pos)
     return 1;
   return protocol->write();
 }
+
+/**
+  Only called by SHOW BINLOG EVENTS
+*/
+int Log_event::net_send(Protocol *protocol)
+{
+  const char *event_type;
+
+  protocol->prepare_for_resend();
+  event_type = get_type_str();
+  protocol->store(event_type, strlen(event_type), &my_charset_bin);
+  protocol->store((uint32) server_id);
+  if (pack_info(protocol))
+    return 1;
+  return protocol->write();
+}
 #endif /* HAVE_REPLICATION */
 
 
@@ -990,6 +1006,19 @@ void Log_event::init_show_field_list(List<Item>* field_list)
   field_list->push_back(new Item_return_int("End_log_pos",
                                             MY_INT32_NUM_DECIMAL_DIGITS,
 					    MYSQL_TYPE_LONGLONG));
+  field_list->push_back(new Item_empty_string("Info", 20));
+}
+
+/**
+  init_show_cache_field_list() prepares the column names and types for the
+  output of SHOW BINLOG CACHE; it is used only by SHOW BINLOG CACHE.
+*/
+
+void Log_event::init_show_cache_field_list(List<Item>* field_list)
+{
+  field_list->push_back(new Item_empty_string("Event_type", 20));
+  field_list->push_back(new Item_return_int("Server_id", 10,
+					    MYSQL_TYPE_LONG));
   field_list->push_back(new Item_empty_string("Info", 20));
 }
 
