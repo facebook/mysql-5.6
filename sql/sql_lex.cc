@@ -493,6 +493,7 @@ void lex_start(THD *thd)
   thd->count_comment_bytes= 0;
   lex->limit_rows_examined= 0;
   lex->limit_rows_examined_cnt= ULONGLONG_MAX;
+  lex->thread_id_opt = 0;
   DBUG_VOID_RETURN;
 }
 
