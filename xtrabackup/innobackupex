@@ -1433,6 +1433,7 @@ sub write_slave_info {
     my $position = '';
     my $filename = '';
     my $repository = '';
+    my $gtid_mode = '';
 
     # get slave status. Use single quotes here, otherwise
     # \G is evaluated as a control character.
@@ -1441,8 +1442,15 @@ sub write_slave_info {
     for (@lines) {
         $repository = $1 if /relay_log_info_repository:\s*(\S*)\s*$/;
     }
-    if ($repository ne 'TABLE') {
-        Die "relay_log_info_repository is not TABLE";
+    mysql_send 'SELECT @@global.gtid_mode\G';
+    file_to_array($mysql_stdout, \@lines);
+    for (@lines) {
+      $gtid_mode = $1 if /gtid_mode:\s*(\S*)\s*$/;
+    }
+    # Either gtid_mode=ON or relay_log_info_repository=TABLE is sufficient
+    # for the newly created replica to be consistent.
+    if ($repository ne 'TABLE' && $gtid_mode ne 'ON') {
+      Die "relay_log_info_repository is not TABLE and gtid_moe is not ON";
     }
     mysql_send 'SELECT * FROM mysql.slave_relay_log_info\G';
 
