@@ -1,0 +1,50 @@
+include/master-slave.inc
+[connection master]
+create user mysqluser1;
+grant REPLICATION SLAVE on *.* to mysqluser1;
+create table mysqltest1 (a int) engine=innodb;
+set @@autocommit=0;
+start transaction;
+insert into mysqltest1 values (1);
+update mysqltest1 set a = a+1 where a > 0;
+show binlog cache;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+show binlog cache for $mysqluser1;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+show binlog cache for $root;
+ERROR HY000: You are not owner of thread $root
+show binlog cache for 999;;
+ERROR HY000: Unknown thread id: 999
+show binlog cache;
+Event_type	Server_id	Info
+show binlog cache for $root;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+show binlog cache for $mysqluser1 limit 0;;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1 limit 2;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+show binlog cache for 999;;
+ERROR HY000: Unknown thread id: 999
+commit;
+show binlog cache;
+Event_type	Server_id	Info
+show binlog cache for $root;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1;;
+Event_type	Server_id	Info
+drop table mysqltest1;
+drop user mysqluser1;
+include/rpl_end.inc
