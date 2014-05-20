@@ -1,0 +1,89 @@
+#
+# test SHOW BINLOG CACHE [FOR thread_id] [LIMIT [offset,] row_count]
+#
+
+--disable_warnings
+--source include/master-slave.inc
+--source include/have_innodb.inc
+--source include/not_embedded.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+--enable_warnings
+
+let $conn_root = query_get_value(select ID from information_schema.processlist where INFO like 'select ID%',ID,1);
+
+create user mysqluser1;
+grant REPLICATION SLAVE on *.* to mysqluser1;
+
+connect (a,localhost,mysqluser1,,);
+connection a;
+
+let $conn_mysqluser1 = query_get_value(select ID from information_schema.processlist where INFO like 'select ID%',ID,1);
+
+create table mysqltest1 (a int) engine=innodb;
+set @@autocommit=0;
+
+start transaction;
+insert into mysqltest1 values (1);
+update mysqltest1 set a = a+1 where a > 0;
+
+# show the thread's own binlog cache
+--replace_column 2 ###
+show binlog cache;
+
+# show the thread's own binlog cache
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1;
+
+# no sufficient privilege
+--replace_regex /for [0-9]*/for $root/ /thread [0-9]*/thread $root/
+--error ER_SHOW_DENIED_ERROR
+--eval show binlog cache for $conn_root
+
+# no such thread id
+--error ER_NO_SUCH_THREAD
+--eval show binlog cache for 999;
+
+connection master;
+
+# master connection binlog cache is alway empty
+show binlog cache;
+
+--replace_regex /for [0-9]*/for $root/
+--eval show binlog cache for $conn_root
+
+# check connection a
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1;
+
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1 limit 0;
+
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1 limit 2;
+
+# no such thread id
+--error ER_NO_SUCH_THREAD
+--eval show binlog cache for 999;
+
+connection a;
+# after commit, binlog cache is cleared
+commit;
+
+connection master;
+
+show binlog cache;
+--replace_regex /for [0-9]*/for $root/
+--eval show binlog cache for $conn_root
+
+# now expect empty cache from connection a
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1;
+
+# cleanup
+drop table mysqltest1;
+drop user mysqluser1;
+
+--source include/rpl_end.inc

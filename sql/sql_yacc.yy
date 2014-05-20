@@ -12709,6 +12709,11 @@ show_param:
             LEX *lex= Lex;
             lex->sql_command= SQLCOM_SHOW_BINLOG_EVENTS;
           } opt_limit_clause_init
+        | BINLOG_SYM CACHE_SYM binlog_thread_id
+          {
+            LEX *lex= Lex;
+            lex->sql_command= SQLCOM_SHOW_BINLOG_CACHE;
+          } opt_limit_clause_init
         | RELAYLOG_SYM EVENTS_SYM binlog_in binlog_from
           {
             LEX *lex= Lex;
@@ -12942,6 +12947,11 @@ binlog_in:
 binlog_from:
           /* empty */        { Lex->mi.pos = 4; /* skip magic number */ }
         | FROM ulonglong_num { Lex->mi.pos = $2; }
+        ;
+
+binlog_thread_id:
+          /* empty */        { Lex->thread_id_opt = 0; }
+        | FOR_SYM ulong_num  { Lex->thread_id_opt = $2; }
         ;
 
 wild_and_where:
