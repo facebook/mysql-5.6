@@ -1246,8 +1246,14 @@ public:
     EVENTS.
   */
   static void init_show_field_list(List<Item>* field_list);
+  /*
+    init_show_cache_field_list() prepares the column names and types for the
+    output of SHOW BINLOG CACHE; it is used only by SHOW BINLOG CACHE.
+  */
+  static void init_show_cache_field_list(List<Item>* field_list);
 #ifdef HAVE_REPLICATION
   int net_send(Protocol *protocol, const char* log_name, my_off_t pos);
+  int net_send(Protocol *protocol);
 
   /**
     Stores a string representation of this event in the Protocol.

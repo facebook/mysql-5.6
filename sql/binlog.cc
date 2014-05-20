@@ -2418,6 +2418,116 @@ err:
   DBUG_RETURN(ret);
 }
 
+/* Helper function for SHOW BINLOG CACHE */
+bool show_binlog_cache(THD *thd)
+{
+  Protocol *protocol= thd->protocol;
+  const char *errmsg = 0;
+  bool ret = false;
+
+  DBUG_ENTER("show_binlog_cache");
+
+  DBUG_ASSERT(thd->lex->sql_command == SQLCOM_SHOW_BINLOG_CACHE);
+
+  uint16 binlog_ver = BINLOG_VERSION;
+  Format_description_log_event *description_event= new
+    Format_description_log_event(binlog_ver); /* Binlog ver 4 by default */
+
+  ulong thread_id_opt = thd->lex->thread_id_opt;
+  THD *opt_thd = nullptr;
+  if (thread_id_opt && thread_id_opt != thd->thread_id)
+  {
+    opt_thd = get_opt_thread_with_data_lock(thd, thread_id_opt);
+    if (!opt_thd)
+      DBUG_RETURN(true);
+  }
+
+  SELECT_LEX_UNIT *unit= &thd->lex->unit;
+  ha_rows limit_start, limit_end;
+
+  unit->set_limit(thd->lex->current_select);
+  limit_start= unit->offset_limit_cnt;
+  limit_end= unit->select_limit_cnt;
+
+  IO_CACHE cache_snapshot;
+  binlog_cache_mngr *cache_mngr = nullptr;
+
+  if (opt_thd)
+    cache_mngr = thd_get_cache_mngr(opt_thd);
+  else
+    cache_mngr = thd_get_cache_mngr(thd);
+
+  if (cache_mngr && limit_end-limit_start > 0)
+  {
+    ha_rows event_count = 0;
+    for (int b = 0; b <= 1 && !errmsg && event_count < limit_end; ++b)
+    {
+      // fetch the stmt and trx caches in turn
+      binlog_cache_data *cache_data =
+        cache_mngr->get_binlog_cache_data((bool)b);
+      if (!cache_data->is_binlog_empty())
+      {
+        // get current write cache snapshot and work on the copy
+        // so we don't block/affect the writer. The actual content
+        // of the cache buffer may change and we will validate
+        // later when we construct the log_event object
+        cache_snapshot = cache_data->cache_log;
+        reinit_io_cache(&cache_snapshot, READ_CACHE, 0, 0, 0);
+        uint length = my_b_bytes_in_cache(&cache_snapshot), hdr_offs = 0;
+
+        while (hdr_offs < length && event_count < limit_end)
+        {
+          const char *ev_buf= (const char *)cache_snapshot.read_pos + hdr_offs;
+          uint event_len= uint4korr(ev_buf + EVENT_LEN_OFFSET);
+          const char *ev_data = ev_buf+LOG_EVENT_HEADER_LEN;
+          int2store(ev_data+ST_BINLOG_VER_OFFSET,binlog_ver);
+
+          if (binlog_ver != description_event->binlog_version)
+          {
+            delete description_event;
+            description_event = new Format_description_log_event(binlog_ver);
+          }
+
+          // move to next event header
+          hdr_offs += event_len;
+
+          Log_event *ev = nullptr;
+          if (hdr_offs <= length)
+            ev = Log_event::read_log_event(ev_buf, event_len, &errmsg,
+                                           description_event, false);
+
+          if (ev && ev->is_valid()) // if we get an valid event, output it
+          {
+            if (event_count++ >= limit_start && ev->net_send(protocol))
+            {
+              errmsg = "Net error";
+              delete ev;
+              break;
+            }
+          }
+
+          if (ev)
+            delete ev;
+        } // while()
+      }
+    } // for()
+  }
+
+  // clean up
+  if (opt_thd)
+    mysql_mutex_unlock(&opt_thd->LOCK_thd_data);
+
+  delete description_event;
+
+  if (errmsg)
+    my_error(ER_ERROR_WHEN_EXECUTING_COMMAND, MYF(0),
+             "SHOW BINLOG CACHE", errmsg);
+  else
+    my_eof(thd);
+
+  DBUG_RETURN(ret);
+}
+
 /**
   Execute a SHOW BINLOG EVENTS statement.
 
@@ -2448,6 +2558,38 @@ bool mysql_show_binlog_events(THD* thd)
   ha_binlog_wait(thd);
   
   DBUG_RETURN(show_binlog_events(thd, &mysql_bin_log));
+}
+
+/**
+  Execute a SHOW BINLOG CACHE [FOR thread_id] statement.
+
+  @param thd Pointer to THD object for the client thread executing the
+  statement.
+
+  @retval FALSE success
+  @retval TRUE failure
+*/
+bool mysql_show_binlog_cache(THD* thd)
+{
+  Protocol *protocol= thd->protocol;
+  List<Item> field_list;
+  DBUG_ENTER("mysql_show_binlog_cache");
+
+  DBUG_ASSERT(thd->lex->sql_command == SQLCOM_SHOW_BINLOG_CACHE);
+
+  Log_event::init_show_cache_field_list(&field_list);
+  if (protocol->send_result_set_metadata(&field_list,
+        Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    DBUG_RETURN(TRUE);
+
+  /*
+    Wait for handlers to insert any pending information
+    into the binlog.  For e.g. ndb which updates the binlog asynchronously
+    this is needed so that the uses sees all its own commands in the binlog
+  */
+  ha_binlog_wait(thd);
+
+  DBUG_RETURN(show_binlog_cache(thd));
 }
 
 /**

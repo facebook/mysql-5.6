@@ -1022,6 +1022,7 @@ THD::THD(bool enable_plugins)
   ull=0;
   system_thread= NON_SYSTEM_THREAD;
   cleanup_done= abort_on_warning= 0;
+  m_release_resources_started = 0;
   m_release_resources_done= false;
   peer_port= 0;					// For SHOW PROCESSLIST
   transaction.m_pending_rows_event= 0;
@@ -1615,6 +1616,7 @@ void THD::release_resources()
 
   /* Ensure that no one is using THD */
   mysql_mutex_lock(&LOCK_thd_data);
+  m_release_resources_started = 1;
 
   /* Close connection */
 #ifndef EMBEDDED_LIBRARY

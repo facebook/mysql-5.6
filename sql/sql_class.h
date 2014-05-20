@@ -3337,9 +3337,11 @@ public:
   ~THD();
 
   void release_resources();
+  my_bool release_resources_started() const { return m_release_resources_started; }
   bool release_resources_done() const { return m_release_resources_done; }
 
 private:
+  my_bool m_release_resources_started;
   bool m_release_resources_done;
   bool cleanup_done;
   void cleanup(void);
