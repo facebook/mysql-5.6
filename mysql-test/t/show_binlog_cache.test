@@ -1,0 +1,169 @@
+#
+# test SHOW BINLOG CACHE [FOR thread_id] [LIMIT [offset,] row_count]
+#
+
+--disable_warnings
+--source include/master-slave.inc
+--source include/have_innodb.inc
+--source include/not_embedded.inc
+--source include/have_binlog_format_mixed_or_statement.inc
+--enable_warnings
+
+let $conn_root = query_get_value(select ID from information_schema.processlist where INFO like 'select ID%',ID,1);
+
+create user mysqluser1;
+grant REPLICATION SLAVE on *.* to mysqluser1;
+
+connect (a,localhost,mysqluser1,,);
+connection a;
+
+let $conn_mysqluser1 = query_get_value(select ID from information_schema.processlist where INFO like 'select ID%',ID,1);
+
+create table mysqltest1 (a int) engine=innodb;
+set @@autocommit=0;
+
+start transaction;
+insert into mysqltest1 values (1);
+update mysqltest1 set a = a+1 where a > 0;
+
+# show the thread's own binlog cache
+--replace_column 2 ###
+show binlog cache;
+
+# show the thread's own binlog cache
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1;
+
+# no sufficient privilege
+--replace_regex /for [0-9]*/for $root/ /thread [0-9]*/thread $root/
+--error ER_SHOW_DENIED_ERROR
+--eval show binlog cache for $conn_root
+
+# no such thread id
+--error ER_NO_SUCH_THREAD
+--eval show binlog cache for 999;
+
+connection master;
+
+# master connection binlog cache is alway empty
+show binlog cache;
+
+--replace_regex /for [0-9]*/for $root/
+--eval show binlog cache for $conn_root
+
+# check connection a
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1;
+
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1 limit 0;
+
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1 limit 2;
+
+# no such thread id
+--error ER_NO_SUCH_THREAD
+--eval show binlog cache for 999;
+
+connection a;
+# after commit, binlog cache is cleared
+commit;
+
+connection master;
+
+show binlog cache;
+--replace_regex /for [0-9]*/for $root/
+--eval show binlog cache for $conn_root
+
+# now expect empty cache from connection a
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1;
+
+set @save_binlog_cache_size = @@global.binlog_cache_size;
+set global binlog_cache_size = 4096;
+select @@global.binlog_cache_size;
+
+truncate mysqltest1;
+set @@autocommit=0;
+
+let $cnt= 1;
+start transaction;
+--echo # Start a large transaction so that trx cache will spill to disk
+--echo # Running 200 inserts and 200 updates
+--echo #   insert into mysqltest1 values ($cnt);
+--echo #   update mysqltest1 set a = a+1 where a > 0;
+--disable_query_log
+while ($cnt < 200)
+{
+  eval insert into mysqltest1 values ($cnt);
+  update mysqltest1 set a = a+1 where a > 0;
+  inc $cnt;
+}
+--enable_query_log
+
+# show binlog cache will read from the file associated with the cache
+--replace_column 2 ###
+show binlog cache limit 20;
+
+rollback;
+
+--echo #connection a
+connection a;
+select @@global.binlog_cache_size;
+
+set @@autocommit=0;
+let $cnt= 1;
+start transaction;
+--echo # Start a large transaction so that trx cache will spill to disk
+--echo # Running 200 inserts and 200 updates
+--echo #   insert into mysqltest1 values ($cnt);
+--echo #   update mysqltest1 set a = a+1 where a > 0;
+--disable_query_log
+while ($cnt < 200)
+{
+  eval insert into mysqltest1 values ($cnt);
+  update mysqltest1 set a = a+1 where a > 0;
+  inc $cnt;
+}
+--enable_query_log
+
+--echo #connection master
+connection master;
+
+# master connection binlog cache should be empty
+show binlog cache;
+
+# check connection a
+--replace_column 2 ###
+--replace_regex /for [0-9]*/for $mysqluser1/
+--eval show binlog cache for $conn_mysqluser1 limit 20;
+
+--echo #connection a
+connection a;
+
+rollback;
+
+--echo #Verify Intvar_log_event are valid after running show binlog cache
+create table incr(id bigint(20) not null auto_increment,
+                  name varchar(100) default null, primary key(id));
+begin;
+insert into incr set name = "foo";
+
+show binlog cache;
+show binlog cache;
+commit;
+
+--echo #connection master
+connection master;
+
+set @@global.binlog_cache_size = @save_binlog_cache_size;
+
+# cleanup
+drop table mysqltest1;
+drop user mysqluser1;
+drop table incr;
+
+--source include/rpl_end.inc

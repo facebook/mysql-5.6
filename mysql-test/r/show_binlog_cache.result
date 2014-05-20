@@ -1,0 +1,141 @@
+include/master-slave.inc
+[connection master]
+create user mysqluser1;
+grant REPLICATION SLAVE on *.* to mysqluser1;
+create table mysqltest1 (a int) engine=innodb;
+set @@autocommit=0;
+start transaction;
+insert into mysqltest1 values (1);
+update mysqltest1 set a = a+1 where a > 0;
+show binlog cache;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+show binlog cache for $mysqluser1;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+show binlog cache for $root;
+ERROR HY000: You are not owner of thread $root
+show binlog cache for 999;;
+ERROR HY000: Unknown thread id: 999
+show binlog cache;
+Event_type	Server_id	Info
+show binlog cache for $root;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+show binlog cache for $mysqluser1 limit 0;;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1 limit 2;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+show binlog cache for 999;;
+ERROR HY000: Unknown thread id: 999
+commit;
+show binlog cache;
+Event_type	Server_id	Info
+show binlog cache for $root;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1;;
+Event_type	Server_id	Info
+set @save_binlog_cache_size = @@global.binlog_cache_size;
+set global binlog_cache_size = 4096;
+select @@global.binlog_cache_size;
+@@global.binlog_cache_size
+4096
+truncate mysqltest1;
+set @@autocommit=0;
+start transaction;
+# Start a large transaction so that trx cache will spill to disk
+# Running 200 inserts and 200 updates
+#   insert into mysqltest1 values (1);
+#   update mysqltest1 set a = a+1 where a > 0;
+show binlog cache limit 20;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (2)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (3)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (4)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (5)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (6)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (7)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (8)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (9)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (10)
+rollback;
+#connection a
+select @@global.binlog_cache_size;
+@@global.binlog_cache_size
+4096
+set @@autocommit=0;
+start transaction;
+# Start a large transaction so that trx cache will spill to disk
+# Running 200 inserts and 200 updates
+#   insert into mysqltest1 values (1);
+#   update mysqltest1 set a = a+1 where a > 0;
+#connection master
+show binlog cache;
+Event_type	Server_id	Info
+show binlog cache for $mysqluser1 limit 20;;
+Event_type	Server_id	Info
+Query	###	BEGIN
+Query	###	use `test`; insert into mysqltest1 values (1)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (2)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (3)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (4)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (5)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (6)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (7)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (8)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (9)
+Query	###	use `test`; update mysqltest1 set a = a+1 where a > 0
+Query	###	use `test`; insert into mysqltest1 values (10)
+#connection a
+rollback;
+#Verify Intvar_log_event are valid after running show binlog cache
+create table incr(id bigint(20) not null auto_increment,
+name varchar(100) default null, primary key(id));
+begin;
+insert into incr set name = "foo";
+show binlog cache;
+Event_type	Server_id	Info
+Query	1	BEGIN
+Intvar	1	INSERT_ID=1
+Query	1	use `test`; insert into incr set name = "foo"
+show binlog cache;
+Event_type	Server_id	Info
+Query	1	BEGIN
+Intvar	1	INSERT_ID=1
+Query	1	use `test`; insert into incr set name = "foo"
+commit;
+#connection master
+set @@global.binlog_cache_size = @save_binlog_cache_size;
+drop table mysqltest1;
+drop user mysqluser1;
+drop table incr;
+include/rpl_end.inc
