@@ -1,0 +1,9 @@
+9	{ "id":105, "name":"Eddy", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 , "hoa":99.99 } }	a9
+10	{ "id":106, "name":"Frank", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "children":["Jay", "Raymond"] }	a10
+11	{ "id":107, "name":"Gary", "phone":6507770007, "address":{ "houseNumber":1007, "streetName":"7th", "zipcode":98767 }, "children":["Kayden", "Raymond"] }	a11
+12	{ "id":108, "name":"Harry", "phone":6507770008, "address":{ "houseNumber":1008, "streetName":"8th", "zipcode":98768 }, "children":["Emma", "Jenny"] }	a12
+13	{ "id":109, "name":"Ian", "phone":6507770009, "address":{ "houseNumber":1009, "streetName":"9th", "zipcode":98769, "hoa":59.99 } }	a13
+14	{ "id":110, "name":"Jack", "phone":6507770010, "address":{ "houseNumber":1010, "streetName":"11th", "zipcode":98769 } }	a14
+15	{ "id":111, "name":"Kevin", "phone":6507770011, "address":{ "houseNumber":1011, "streetName":"12nd", "zipcode":98769 }, "children":["Amy"] }	a15
+16	{ "id":112, "address":{ "houseNumber":1012, }	a16
+17	\N	a17
