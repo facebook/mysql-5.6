@@ -95,7 +95,8 @@ enum enum_server_command
 #define PRI_KEY_FLAG	2		/* Field is part of a primary key */
 #define UNIQUE_KEY_FLAG 4		/* Field is part of a unique key */
 #define MULTIPLE_KEY_FLAG 8		/* Field is part of a key */
-#define BLOB_FLAG	16		/* Field is a blob */
+#define BLOB_FLAG	16		/* Field is a blob,
+					   a geometry, or a document */
 #define UNSIGNED_FLAG	32		/* Field is unsigned */
 #define ZEROFILL_FLAG	64		/* Field is zerofill */
 #define BINARY_FLAG	128		/* Field is binary   */
@@ -125,6 +126,8 @@ enum enum_server_command
 #define FIELD_FLAGS_COLUMN_FORMAT 24    /* Field column format, bit 24-25 */
 #define FIELD_FLAGS_COLUMN_FORMAT_MASK (3 << FIELD_FLAGS_COLUMN_FORMAT)
 #define FIELD_IS_DROPPED (1<< 26)       /* Intern: Field is being dropped */
+#define DOCUMENT_FLAG (1<<30)		/* Field document. Document fields
+					   will have BLOB_FLAG too */
 
 #define REFRESH_GRANT		1	/* Refresh grant tables */
 #define REFRESH_LOG		2	/* Start on new log file */
@@ -512,6 +515,7 @@ enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
 			MYSQL_TYPE_TIMESTAMP2,
 			MYSQL_TYPE_DATETIME2,
 			MYSQL_TYPE_TIME2,
+			MYSQL_TYPE_DOCUMENT,
                         MYSQL_TYPE_NEWDECIMAL=246,
 			MYSQL_TYPE_ENUM=247,
 			MYSQL_TYPE_SET=248,
@@ -555,6 +559,7 @@ enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
 #define FIELD_TYPE_INTERVAL    MYSQL_TYPE_ENUM
 #define FIELD_TYPE_GEOMETRY    MYSQL_TYPE_GEOMETRY
 #define FIELD_TYPE_BIT         MYSQL_TYPE_BIT
+#define FIELD_TYPE_DOCUMENT    MYSQL_TYPE_DOCUMENT
 
 
 /* Shutdown/kill enums and constants */ 
