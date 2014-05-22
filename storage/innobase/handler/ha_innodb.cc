@@ -5988,6 +5988,7 @@ innobase_mysql_cmp(
 	case MYSQL_TYPE_BLOB:
 	case MYSQL_TYPE_LONG_BLOB:
 	case MYSQL_TYPE_VARCHAR:
+	case MYSQL_TYPE_DOCUMENT:
 		/* Use the charset number to pick the right charset struct for
 		the comparison. Since the MySQL function get_charset may be
 		slow before Bar removes the mutex operation there, we first
@@ -6056,6 +6057,7 @@ innobase_get_fts_charset(
 	case MYSQL_TYPE_BLOB:
 	case MYSQL_TYPE_LONG_BLOB:
 	case MYSQL_TYPE_VARCHAR:
+	case MYSQL_TYPE_DOCUMENT:
 		/* Use the charset number to pick the right charset struct for
 		the comparison. Since the MySQL function get_charset may be
 		slow before Bar removes the mutex operation there, we first
@@ -6411,6 +6413,10 @@ get_innobase_type_from_mysql_type(
 		return(DATA_DOUBLE);
 	case MYSQL_TYPE_DECIMAL:
 		return(DATA_DECIMAL);
+
+	/* For now we don't create new type for DOCUMENT, DOCUMENT will
+	be treated as DATA_BLOB in InnoDB, just as what GEOMETRY does */
+	case MYSQL_TYPE_DOCUMENT:
 	case MYSQL_TYPE_GEOMETRY:
 	case MYSQL_TYPE_TINY_BLOB:
 	case MYSQL_TYPE_MEDIUM_BLOB:
@@ -6593,9 +6599,12 @@ ha_innobase::store_key_val_for_row(
 			|| mysql_type == MYSQL_TYPE_MEDIUM_BLOB
 			|| mysql_type == MYSQL_TYPE_BLOB
 			|| mysql_type == MYSQL_TYPE_LONG_BLOB
+			/* MYSQL_TYPE_DOCUMENT data is treated
+			as BLOB data in innodb. */
+			|| mysql_type == MYSQL_TYPE_DOCUMENT
 			/* MYSQL_TYPE_GEOMETRY data is treated
 			as BLOB data in innodb. */
-			|| mysql_type == MYSQL_TYPE_GEOMETRY) {
+		        || mysql_type == MYSQL_TYPE_GEOMETRY) {
 
 			const CHARSET_INFO* cs;
 			ulint		key_len;
@@ -14339,7 +14348,8 @@ ha_innobase::cmp_ref(
 		if (mysql_type == MYSQL_TYPE_TINY_BLOB
 			|| mysql_type == MYSQL_TYPE_MEDIUM_BLOB
 			|| mysql_type == MYSQL_TYPE_BLOB
-			|| mysql_type == MYSQL_TYPE_LONG_BLOB) {
+			|| mysql_type == MYSQL_TYPE_LONG_BLOB
+			|| mysql_type == MYSQL_TYPE_DOCUMENT) {
 
 			/* In the MySQL key value format, a column prefix of
 			a BLOB is preceded by a 2-byte length field */

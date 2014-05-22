@@ -1,8 +1,8 @@
 --disable_warnings
 drop table if exists test_json;
 --enable_warnings
-create table test_json(json char(50));
+create table test_json(json document) engine=innodb;
 
 --source suite/json/include/json_func_common.inc
 
---source suite/json/include/json_func_common_2.inc
+--source suite/json/include/json_func_common_2_document.inc
