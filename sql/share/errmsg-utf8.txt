@@ -7146,6 +7146,18 @@ ER_INVALID_JSON
 ER_INVALID_JSON_ARRAY
   eng "Invalid JSON array: '%.64s'"
 
+ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+  eng "Invalid document value: '%.64s' for column '%.192s' at row %ld"
+
+ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
+  eng "A DOCUMENT field is not allowed in non-innodb table"
+
+ER_DOCUMENT_FIELD_IN_PART_FUNC_ERROR
+  eng "A DOCUMENT field is not allowed in partition function"
+
+ER_DOCUMENT_KEY_NOT_SUPPORTED
+  eng "DOCUMENT column '%-.192s' cannot be part of a key"
+
 #
 #  End of 5.6 error messages.
 #

@@ -188,6 +188,7 @@ static SYMBOL symbols[] = {
   { "DISTINCTROW",	SYM(DISTINCT)},	/* Access likes this */
   { "DIV",		SYM(DIV_SYM)},
   { "DO",		SYM(DO_SYM)},
+  { "DOCUMENT",		SYM(DOCUMENT_SYM)},
   { "DOUBLE",		SYM(DOUBLE_SYM)},
   { "DROP",		SYM(DROP)},
   { "DUAL",		SYM(DUAL_SYM)},

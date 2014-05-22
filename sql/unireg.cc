@@ -909,6 +909,10 @@ static bool pack_fields(File file, List<Create_field> &create_fields,
     buff[10]= (uchar) field->unireg_check;
     buff[12]= (uchar) field->interval_id;
     buff[13]= (uchar) field->sql_type; 
+
+    /* MYSQL_TYPE_DOCUMENT will be treated as MYSQL_TYPE_BLOB
+       so no special treatment is needed. */
+
     if (field->sql_type == MYSQL_TYPE_GEOMETRY)
     {
       buff[11]= 0;

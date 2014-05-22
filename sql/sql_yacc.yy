@@ -1227,6 +1227,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  DIV_SYM
 %token  DOUBLE_SYM                    /* SQL-2003-R */
 %token  DO_SYM
+%token  DOCUMENT_SYM                  /* WebScaleSQL-2014 */
 %token  DROP                          /* SQL-2003-R */
 %token  DUAL_SYM
 %token  DUMPFILE
@@ -6602,6 +6603,11 @@ type:
           {
             Lex->charset=&my_charset_bin;
             $$=MYSQL_TYPE_BLOB;
+          }
+        | DOCUMENT_SYM
+          {
+            Lex->charset=&my_charset_bin;
+            $$=MYSQL_TYPE_DOCUMENT;
           }
         | spatial_type
           {

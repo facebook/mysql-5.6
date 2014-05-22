@@ -40,6 +40,13 @@
 #include <errno.h>
 #include "sql_join_buffer.h"             // CACHE_FIELD
 
+
+/*
+ * Note we assume the system charset is UTF8,
+ * which is the encoding of json object in rapidjson
+ */
+#include "../rapidjson/document.h"   // rapidjson's DOM-style API
+
 using std::max;
 using std::min;
 
@@ -1134,6 +1141,7 @@ bool Field::type_can_have_key_part(enum enum_field_types type)
   case MYSQL_TYPE_VAR_STRING:
   case MYSQL_TYPE_STRING:
   case MYSQL_TYPE_GEOMETRY:
+  case MYSQL_TYPE_DOCUMENT:
     return TRUE;
   default:
     return FALSE;
@@ -8330,6 +8338,109 @@ uint Field_geom::is_equal(Create_field *new_field)
 
 #endif /*HAVE_SPATIAL*/
 
+
+/****************************************************************************
+** document type.
+****************************************************************************/
+
+void
+Field_document::sql_type(String &res) const
+{
+  const CHARSET_INFO *cs= &my_charset_latin1;
+  res.set(STRING_WITH_LEN("document"), cs);
+}
+
+
+void
+Field_document::push_warning(const char *from)
+{
+  memset(ptr, 0, Field_blob::pack_length());
+  push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
+                      ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
+                      ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
+                      from, field_name,
+                      (ulong) table->in_use->get_stmt_da()->
+                      current_row_for_warning());
+}
+
+
+type_conversion_status
+Field_document::store(const char *from, uint length, const CHARSET_INFO *cs)
+{
+  ASSERT_COLUMN_MARKED_FOR_WRITE;
+  return store_internal(from, length, cs);
+}
+
+
+type_conversion_status
+Field_document::store(double nr)
+{
+  set_null();
+
+  char buf[128];
+  sprintf(buf, "%.32f", nr);
+  push_warning(buf);
+  return TYPE_ERR_BAD_VALUE;
+}
+
+
+type_conversion_status
+Field_document::store(longlong nr, bool unsigned_val)
+{
+  set_null();
+
+  char buf[128], format[16];
+  unsigned_val ? sprintf(format, "%s", "%llu")
+               : sprintf(format, "%s", "%lld");
+  sprintf(buf, format, nr);
+  push_warning(buf);
+  return TYPE_ERR_BAD_VALUE;
+}
+
+
+type_conversion_status
+Field_document::store_decimal(const my_decimal *nr)
+{
+  set_null();
+
+  char buf[DECIMAL_MAX_STR_LENGTH];
+  String str(buf, sizeof (buf), &my_charset_bin);
+  my_decimal2string(E_DEC_FATAL_ERROR, nr, 0, 0, 0, &str);
+  push_warning(str.c_ptr_safe());
+  return TYPE_ERR_BAD_VALUE;
+}
+
+
+bool
+Field_document::validate(const char *from, uint length,
+                         const CHARSET_INFO *cs)
+{
+  String json(from, length, cs);
+  if (json.is_empty())
+    return false;
+
+  rapidjson::Document document;
+  if (document.Parse<0>(json.c_ptr_safe()).HasParseError())
+    return false;
+
+  return true;
+}
+
+
+type_conversion_status
+Field_document::store_internal(const char *from, uint length,
+                               const CHARSET_INFO *cs)
+{
+  if (!validate(from, length, cs))
+  {
+    set_null();
+    push_warning(from);
+    return TYPE_ERR_BAD_VALUE;
+  }
+  return Field_blob::store_internal(from, length, cs);
+}
+
+
 /****************************************************************************
 ** enum type.
 ** This is a string which only can have a selection of different values.
@@ -9541,6 +9652,7 @@ void Create_field::create_length_to_internal_length(void)
   case MYSQL_TYPE_VAR_STRING:
   case MYSQL_TYPE_STRING:
   case MYSQL_TYPE_VARCHAR:
+  case MYSQL_TYPE_DOCUMENT:
     length*= charset->mbmaxlen;
     key_length= length;
     pack_length= calc_pack_length(sql_type, length);
@@ -9595,6 +9707,8 @@ void Create_field::init_for_tmp_table(enum_field_types sql_type_arg,
   interval= 0;
   charset= &my_charset_bin;
   geom_type= Field::GEOM_GEOMETRY;
+  /* The sub-type of DOCUMENT but there is only one for now. */
+  document_type= Field::DOC_DOCUMENT;
 
   DBUG_PRINT("enter", ("sql_type: %d, length: %u, pack_length: %u",
                        sql_type_arg, length_arg, pack_length_arg));
@@ -9614,6 +9728,10 @@ void Create_field::init_for_tmp_table(enum_field_types sql_type_arg,
 
   case MYSQL_TYPE_GEOMETRY:
     pack_flag= FIELDFLAG_GEOM;
+    break;
+
+  case MYSQL_TYPE_DOCUMENT:
+    pack_flag= FIELDFLAG_DOCUMENT;
     break;
 
   case MYSQL_TYPE_ENUM:
@@ -9660,6 +9778,7 @@ void Create_field::init_for_tmp_table(enum_field_types sql_type_arg,
   case MYSQL_TYPE_LONG_BLOB:
   case MYSQL_TYPE_BLOB:
   case MYSQL_TYPE_GEOMETRY:
+  case MYSQL_TYPE_DOCUMENT:
     // If you are going to use the above types, you have to pass a
     // pack_length as parameter. Assert that is really done.
     DBUG_ASSERT(pack_length_arg != ~0U);
@@ -9674,11 +9793,12 @@ void Create_field::init_for_tmp_table(enum_field_types sql_type_arg,
     (maybe_null ? FIELDFLAG_MAYBE_NULL : 0) |
     (is_unsigned ? 0 : FIELDFLAG_DECIMAL);
 
-  DBUG_PRINT("debug", ("pack_flag: %s%s%s%s%s%s, pack_type: %d",
+  DBUG_PRINT("debug", ("pack_flag: %s%s%s%s%s%s%s, pack_type: %d",
                        FLAGSTR(pack_flag, FIELDFLAG_BINARY),
                        FLAGSTR(pack_flag, FIELDFLAG_NUMBER),
                        FLAGSTR(pack_flag, FIELDFLAG_INTERVAL),
                        FLAGSTR(pack_flag, FIELDFLAG_GEOM),
+                       FLAGSTR(pack_flag, FIELDFLAG_DOCUMENT),
                        FLAGSTR(pack_flag, FIELDFLAG_BLOB),
                        FLAGSTR(pack_flag, FIELDFLAG_DECIMAL),
                        f_packtype(pack_flag)));
@@ -9780,6 +9900,7 @@ bool Create_field::init(THD *thd, const char *fld_name,
   interval= 0;
   pack_length= key_length= 0;
   geom_type= (Field::geometry_type) fld_geom_type;
+  document_type= Field::DOC_DOCUMENT;
   interval_list.empty();
 
   comment= *fld_comment;
@@ -9874,6 +9995,9 @@ bool Create_field::init(THD *thd, const char *fld_name,
     break;
   case MYSQL_TYPE_STRING:
     break;
+  case MYSQL_TYPE_DOCUMENT:
+    flags|= DOCUMENT_FLAG;
+    /* Fall through blob types */
   case MYSQL_TYPE_BLOB:
   case MYSQL_TYPE_TINY_BLOB:
   case MYSQL_TYPE_LONG_BLOB:
@@ -10059,8 +10183,8 @@ bool Create_field::init(THD *thd, const char *fld_name,
         fld_type != MYSQL_TYPE_ENUM &&
         (fld_type != MYSQL_TYPE_VARCHAR || fld_default_value)) ||
        ((length == 0) &&
-        fld_type != MYSQL_TYPE_STRING &&
-        fld_type != MYSQL_TYPE_VARCHAR && fld_type != MYSQL_TYPE_GEOMETRY)))
+        fld_type != MYSQL_TYPE_STRING && fld_type != MYSQL_TYPE_VARCHAR &&
+        fld_type != MYSQL_TYPE_GEOMETRY && fld_type != MYSQL_TYPE_DOCUMENT)))
   {
     my_error((fld_type == MYSQL_TYPE_VAR_STRING ||
               fld_type == MYSQL_TYPE_VARCHAR ||
@@ -10135,6 +10259,7 @@ uint32 calc_pack_length(enum_field_types type,uint32 length)
   case MYSQL_TYPE_MEDIUM_BLOB:	return 3+portable_sizeof_char_ptr;
   case MYSQL_TYPE_LONG_BLOB:	return 4+portable_sizeof_char_ptr;
   case MYSQL_TYPE_GEOMETRY:	return 4+portable_sizeof_char_ptr;
+  case MYSQL_TYPE_DOCUMENT:	return 3+portable_sizeof_char_ptr;
   case MYSQL_TYPE_SET:
   case MYSQL_TYPE_ENUM:
   case MYSQL_TYPE_NEWDECIMAL:
@@ -10195,12 +10320,13 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
   if (is_temporal_real_type(field_type))
     field_charset= &my_charset_numeric;
 
-  DBUG_PRINT("debug", ("field_type: %d, field_length: %u, interval: %p, pack_flag: %s%s%s%s%s",
+  DBUG_PRINT("debug", ("field_type: %d, field_length: %u, interval: %p, pack_flag: %s%s%s%s%s%s",
                        field_type, field_length, interval,
                        FLAGSTR(pack_flag, FIELDFLAG_BINARY),
                        FLAGSTR(pack_flag, FIELDFLAG_INTERVAL),
                        FLAGSTR(pack_flag, FIELDFLAG_NUMBER),
                        FLAGSTR(pack_flag, FIELDFLAG_PACK),
+                       FLAGSTR(pack_flag, FIELDFLAG_DOCUMENT),
                        FLAGSTR(pack_flag, FIELDFLAG_BLOB)));
 
   if (f_is_alpha(pack_flag))
@@ -10233,6 +10359,12 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
 			    unireg_check, field_name, share,
 			    pack_length, geom_type);
 #endif
+
+    if (f_is_document(pack_flag))
+      return new Field_document(ptr,null_pos,null_bit,
+                                unireg_check, field_name, share,
+                                pack_length, Field::DOC_DOCUMENT);
+
     if (f_is_blob(pack_flag))
       return new Field_blob(ptr,null_pos,null_bit,
 			    unireg_check, field_name, share,
@@ -10410,6 +10542,9 @@ Create_field::Create_field(Field *old_field,Field *orig_field) :
     geom_type= ((Field_geom*)old_field)->geom_type;
     break;
 #endif
+  case MYSQL_TYPE_DOCUMENT:
+    document_type= ((Field_document*)old_field)->doc_type;
+    break;
   case MYSQL_TYPE_YEAR:
     if (length != 4)
     {
