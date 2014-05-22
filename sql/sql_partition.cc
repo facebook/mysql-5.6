@@ -549,7 +549,12 @@ static bool set_up_field_array(TABLE *table,
             performance reasons.
         */
 
-        if (unlikely(field->flags & BLOB_FLAG))
+        if (unlikely(field->flags & DOCUMENT_FLAG))
+        {
+          my_error(ER_DOCUMENT_FIELD_IN_PART_FUNC_ERROR, MYF(0));
+          result= TRUE;
+        }
+        else if (unlikely(field->flags & BLOB_FLAG))
         {
           my_error(ER_BLOB_FIELD_IN_PART_FUNC_ERROR, MYF(0));
           result= TRUE;
@@ -2218,6 +2223,7 @@ static int check_part_field(enum_field_types sql_type,
     case MYSQL_TYPE_ENUM:
     case MYSQL_TYPE_SET:
     case MYSQL_TYPE_GEOMETRY:
+    case MYSQL_TYPE_DOCUMENT:
       goto error;
     default:
       goto error;
