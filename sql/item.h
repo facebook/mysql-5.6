@@ -1664,6 +1664,8 @@ public:
   }
   virtual Field::geometry_type get_geometry_type() const
     { return Field::GEOM_GEOMETRY; };
+  virtual Field::document_type get_document_type() const
+    { return Field::DOC_DOCUMENT; };
   String *check_well_formed_result(String *str,
                                    bool send_error,
                                    bool truncate);
@@ -2315,6 +2317,11 @@ public:
   {
     DBUG_ASSERT(field_type() == MYSQL_TYPE_GEOMETRY);
     return field->get_geometry_type();
+  }
+  Field::document_type get_document_type() const
+  {
+    DBUG_ASSERT(field_type() == MYSQL_TYPE_DOCUMENT);
+    return field->get_document_type();
   }
   const CHARSET_INFO *charset_for_protocol(void) const
   { return field->charset_for_protocol(); }
@@ -3669,6 +3676,7 @@ public:
 #include "item_cmpfunc.h"
 #include "item_strfunc.h"
 #include "item_geofunc.h"
+#include "item_jsonfunc.h"
 #include "item_timefunc.h"
 #include "item_subselect.h"
 #include "item_xmlfunc.h"
@@ -4506,6 +4514,7 @@ protected:
   TYPELIB *enum_set_typelib;
   enum_field_types fld_type;
   Field::geometry_type geometry_type;
+  Field::document_type document_type;
 
   void get_full_info(Item *item);
 
@@ -4536,6 +4545,7 @@ public:
   static uint32 display_length(Item *item);
   static enum_field_types get_real_type(Item *);
   Field::geometry_type get_geometry_type() const { return geometry_type; };
+  Field::document_type get_document_type() const { return document_type; };
 };
 
 

@@ -1,5 +1,5 @@
 drop table if exists test_json;
-create table test_json(json text);
+create table test_json(json document) engine=innodb;
 insert into test_json values
 (null),
 ('{}'),
@@ -29,20 +29,32 @@ insert into test_json values
 ('{[]}'),
 ('{"MySQL":"开源数据库"}'),
 ('{"开源数据库":"MySQL"}');
+Warnings:
+Warning	1898	Invalid document value: '' for column 'json' at row 16
+Warning	1898	Invalid document value: '123' for column 'json' at row 17
+Warning	1898	Invalid document value: '1.23' for column 'json' at row 18
+Warning	1898	Invalid document value: 'abc' for column 'json' at row 19
+Warning	1898	Invalid document value: '{"key"}' for column 'json' at row 20
+Warning	1898	Invalid document value: '{1:value}' for column 'json' at row 21
+Warning	1898	Invalid document value: '{"key":"value"' for column 'json' at row 22
+Warning	1898	Invalid document value: '[1,2,3' for column 'json' at row 23
+Warning	1898	Invalid document value: '{}}' for column 'json' at row 24
+Warning	1898	Invalid document value: '[[]' for column 'json' at row 25
+Warning	1898	Invalid document value: '{[]}' for column 'json' at row 26
 select json_valid(json),json from test_json order by 1,2;
 json_valid(json)	json
 NULL	NULL
-0	
-0	1.23
-0	123
-0	abc
-0	[1,2,3
-0	[[]
-0	{"key":"value"
-0	{"key"}
-0	{1:value}
-0	{[]}
-0	{}}
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
 1	[1,2,3]
 1	[1,false,"str",1.2]
 1	[[1,2,3],2,3]
@@ -50,13 +62,13 @@ NULL	NULL
 1	[]
 1	[{"k1":"v1"},2,3]
 1	[{}]
+1	{"MySQL":"开源数据库"}
 1	{"k":"v"}
 1	{"k":[]}
 1	{"k":{}}
 1	{"k1":"v1","k2":true,"k3":3}
 1	{"k1":{"k2":"v2"}}
 1	{"key":[1,2,3]}
-1	{"MySQL":"开源数据库"}
 1	{"开源数据库":"MySQL"}
 1	{}
 truncate test_json;
@@ -379,8 +391,8 @@ NULL	NULL
 1	["str"]
 1	[1.234]
 1	[1]
-1	[null]
 1	[[[[[[]]]]]]
+1	[null]
 2	[true,false]
 2	[{"MySQL":"开源数据库"},"MySQL"]
 2	[{"开源数据库":"MySQL"},"开源数据库"]
@@ -389,15 +401,24 @@ NULL	NULL
 6	[1,"str",null,true,false,1.2345]
 truncate test_json;
 insert into test_json values ('');
+Warnings:
+Warning	1898	Invalid document value: '' for column 'json' at row 1
 select json_extract(json, 'k1') from test_json;
-ERROR HY000: Invalid JSON object: ''
+json_extract(json, 'k1')
+NULL
 truncate test_json;
 insert into test_json values ('');
+Warnings:
+Warning	1898	Invalid document value: '' for column 'json' at row 1
 select json_contains_key(json, 'k1') from test_json;
-ERROR HY000: Invalid JSON object: ''
+json_contains_key(json, 'k1')
+NULL
 truncate test_json;
 insert into test_json values ('');
+Warnings:
+Warning	1898	Invalid document value: '' for column 'json' at row 1
 select json_array_length(json) from test_json;
-ERROR HY000: Invalid JSON object: ''
+json_array_length(json)
+NULL
 truncate test_json;
 drop table test_json;
