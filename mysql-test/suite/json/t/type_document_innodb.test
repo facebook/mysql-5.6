@@ -1,0 +1,103 @@
+--source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t, t1;
+--enable_warnings
+
+# Fail to create table with document column with non-innodb engine
+--error ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
+create table t (i int(8), a document, s text(255)) engine=myisam;
+
+# Fail to create table with document column with size specification
+--error 1064
+create table t (i int(8), a document(65535), s text(255)) engine=innodb;
+
+# Fail to create table with document column with primary key on it
+--error ER_DOCUMENT_KEY_NOT_SUPPORTED
+create table t (i int(8), a document, s text(255), primary key(a)) engine=innodb;
+
+# Fail to create table with partitioning on a document column
+--error ER_FIELD_TYPE_NOT_ALLOWED_AS_PARTITION_FIELD
+create table t (i int(8), a document, s text(255))
+  partition by range columns(a)
+  (partition p0 values less than (0) engine=innodb);
+
+# Fail to create table with partitioning on a non-document column but with non-innodb engine
+--error ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
+create table t (i int(8), a document, s text(255))
+  partition by range columns(i)
+  (partition p0 values less than (0) engine=myisam);
+
+# Create table with document column
+create table t (i int(8), a document, s text(255), primary key (i)) engine=innodb;
+show create table t;
+
+# Fail to create index on a document column
+--error ER_DOCUMENT_KEY_NOT_SUPPORTED
+alter table t add primary key (a);
+
+--error ER_DOCUMENT_KEY_NOT_SUPPORTED
+alter table t add index (a);
+
+--error ER_DOCUMENT_KEY_NOT_SUPPORTED
+create index doc_idx on t (a);
+
+--error ER_DOCUMENT_KEY_NOT_SUPPORTED
+create index doc_idx on t (i, a);
+
+# Fail to partition table on document column
+--error ER_DOCUMENT_FIELD_IN_PART_FUNC_ERROR
+alter table t partition by hash(a) partitions 8;
+
+# Insert invalid JSON, expecting warnings and the field will remain NULL in the new inserted row
+insert into t values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
+
+insert into t values (2, ' ', 'a2');
+
+insert into t values (3, 123, 'a3');
+
+insert into t values (4, 123.456, 'a4');
+
+update t set a='{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }' where i = 1;
+
+update t set a=111222333444555666777888999 where i = 2;
+
+update t set a=123456789.123456789;
+
+# Default is NULL
+update t set a=DEFAULT;
+
+# Insert JSON document in plain text
+insert into t values (5, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
+insert into t values (6, '{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 } }', 'a6');
+insert into t values (7, '{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "hoa":39.99 } }', 'a7');
+insert into t values (8, '{ "id":104, "name":"David", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "children":["Alex", "Bob", "Charlie"] }', 'a8');
+
+# Load data from a file
+load data infile '../../std_data/type_document_innodb.txt' into table t;
+
+select * from t;
+select a from t;
+
+# Temp table with a document type column
+# In MySQL 5.6 all temp tables are created by MyISAM engine. But temp tables with document
+# type columns still will be handled correctly since they will be treated as blobs.
+
+# Create a table and populate it with some data
+create table t1 (a int auto_increment, b varchar(64), c text, d document, primary key (a), key (b, c(128))) engine=innodb;
+
+# Here we end up with 16382 rows in the table
+--disable_query_log
+insert into t1 (b, c, d) values (repeat('b', 64), repeat('c', 256), '{ "id":201, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "street":"1st", "zipcode":98761 } }');
+insert into t1 (b, c, d) values (repeat('B', 64), repeat('C', 256), '{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }');
+let $i=12;
+while ($i) {
+  --eval INSERT INTO t1 (b, c, d) VALUES ($i, $i * $i, '{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }');
+  INSERT INTO t1 (b, c, d) SELECT b, c, d FROM t1;
+  dec $i;
+}
+--enable_query_log
+
+SELECT * FROM t1 WHERE a >= 1000 and a <= 1010;
+
+drop table t, t1;

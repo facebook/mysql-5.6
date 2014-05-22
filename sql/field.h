@@ -53,6 +53,7 @@ Field (abstract)
 |  |  +--Field_varstring
 |  |  +--Field_blob
 |  |     +--Field_geom
+|  |     +--Field_document
 |  |
 |  +--Field_null
 |  +--Field_enum
@@ -510,6 +511,7 @@ public:
     this info anywhere except unireg_check field. This issue will be resolved
     in more clean way with transition to new text based .frm format.
     See also comment for Field_timestamp::Field_timestamp().
+    Both BLOB types and DOCUMENT type share BLOB_FIELD.
   */
   enum utype  { NONE,DATE,SHIELD,NOEMPTY,CASEUP,PNR,BGNR,PGNR,YES,NO,REL,
 		CHECK,EMPTY,UNKNOWN_FIELD,CASEDN,NEXT_NUMBER,INTERVAL_FIELD,
@@ -520,6 +522,10 @@ public:
     GEOM_GEOMETRY = 0, GEOM_POINT = 1, GEOM_LINESTRING = 2, GEOM_POLYGON = 3,
     GEOM_MULTIPOINT = 4, GEOM_MULTILINESTRING = 5, GEOM_MULTIPOLYGON = 6,
     GEOM_GEOMETRYCOLLECTION = 7
+  };
+  enum document_type
+  {
+    DOC_DOCUMENT = 0
   };
   enum imagetype { itRAW, itMBR};
 
@@ -1187,6 +1193,13 @@ public:
     /* shouldn't get here. */
     DBUG_ASSERT(0);
     return GEOM_GEOMETRY;
+  }
+
+  virtual document_type get_document_type()
+  {
+    /* shouldn't get here. */
+    DBUG_ASSERT(0);
+    return DOC_DOCUMENT;
   }
 #ifndef DBUG_OFF
   /* Print field value into debug trace, in NULL-aware way. */
@@ -3252,8 +3265,6 @@ private:
 
 
 class Field_blob :public Field_longstr {
-  virtual type_conversion_status store_internal(const char *from, uint length,
-                                                const CHARSET_INFO *cs);
   /**
     Copy value to memory storage.
   */
@@ -3262,6 +3273,8 @@ class Field_blob :public Field_longstr {
                                       uint max_length,
                                       Blob_mem_storage *blob_storage);
 protected:
+  virtual type_conversion_status store_internal(const char *from, uint length,
+                                                const CHARSET_INFO *cs);
   /**
     The number of bytes used to represent the length of the blob.
   */
@@ -3497,6 +3510,62 @@ public:
 };
 #endif /*HAVE_SPATIAL*/
 
+class Field_document :public Field_blob {
+  bool validate(const char *from, uint length, const CHARSET_INFO *cs);
+  void push_warning(const char *from);
+  virtual type_conversion_status store_internal(const char *from, uint length,
+                                                const CHARSET_INFO *cs);
+public:
+  enum document_type doc_type;
+
+  Field_document(uchar *ptr_arg, uchar *null_ptr_arg, uint null_bit_arg,
+	     enum utype unireg_check_arg, const char *field_name_arg,
+	     TABLE_SHARE *share, uint blob_pack_length,
+	     enum document_type doc_type_arg)
+     :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
+                 field_name_arg, share, blob_pack_length, &my_charset_bin)
+  {
+    doc_type= doc_type_arg;
+    flags|= DOCUMENT_FLAG;
+    packlength = 3;
+  }
+  Field_document(uint32 len_arg,bool maybe_null_arg, const char *field_name_arg,
+	     TABLE_SHARE *share, enum document_type doc_type_arg)
+    :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin)
+  {
+    doc_type= doc_type_arg;
+    flags|= DOCUMENT_FLAG;
+    packlength = 3;
+  }
+  enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
+  enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
+  bool match_collation_to_optimize_range() const { return false; }
+  void sql_type(String &str) const;
+  using Field_blob::store;
+  type_conversion_status store(const char *to, uint length,
+                               const CHARSET_INFO *charset);
+  type_conversion_status store(double nr);
+  type_conversion_status store(longlong nr, bool unsigned_val);
+  type_conversion_status store_decimal(const my_decimal *nr);
+
+  type_conversion_status reset(void)
+  {
+    type_conversion_status res= Field_blob::reset();
+    if (res != TYPE_OK)
+      return res;
+    return maybe_null() ? TYPE_OK : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+  }
+
+  document_type get_document_type() { return doc_type; };
+  Field_document *clone(MEM_ROOT *mem_root) const {
+    DBUG_ASSERT(type() == MYSQL_TYPE_DOCUMENT);
+    return new (mem_root) Field_document(*this);
+  }
+  Field_document *clone() const {
+    DBUG_ASSERT(type() == MYSQL_TYPE_DOCUMENT);
+    return new Field_document(*this);
+  }
+};
 
 class Field_enum :public Field_str {
 protected:
@@ -3788,6 +3857,7 @@ public:
   List<String> interval_list;
   const CHARSET_INFO *charset;
   Field::geometry_type geom_type;
+  Field::document_type document_type;	// Sub-type of DOCUMENT
   Field *field;				// For alter table
 
   uint8 row,col,sc_length,interval_id;	// For rea_create_table
@@ -3917,7 +3987,8 @@ type_conversion_status set_field_to_null_with_conversions(Field *field,
 
 #define FIELDFLAG_TREAT_BIT_AS_CHAR     4096    /* use Field_bit_as_char */
 
-#define FIELDFLAG_LEFT_FULLSCREEN	8192
+#define FIELDFLAG_DOCUMENT		8192    // mangled with decimals!
+
 #define FIELDFLAG_RIGHT_FULLSCREEN	16384
 #define FIELDFLAG_FORMAT_NUMBER		16384	// predit: ###,,## in output
 #define FIELDFLAG_NO_DEFAULT		16384   /* sql */
@@ -3944,6 +4015,7 @@ type_conversion_status set_field_to_null_with_conversions(Field *field,
 #define f_is_bitfield(x)        (((x) & (FIELDFLAG_BITFIELD | FIELDFLAG_NUMBER)) == FIELDFLAG_BITFIELD)
 #define f_is_blob(x)		(((x) & (FIELDFLAG_BLOB | FIELDFLAG_NUMBER)) == FIELDFLAG_BLOB)
 #define f_is_geom(x)		(((x) & (FIELDFLAG_GEOM | FIELDFLAG_NUMBER)) == FIELDFLAG_GEOM)
+#define f_is_document(x)	(((x) & (FIELDFLAG_DOCUMENT | FIELDFLAG_NUMBER)) == FIELDFLAG_DOCUMENT)
 #define f_is_equ(x)		((x) & (1+2+FIELDFLAG_PACK+31*256))
 #define f_settype(x)		(((int) x) << FIELDFLAG_PACK_SHIFT)
 #define f_maybe_null(x)		(x & FIELDFLAG_MAYBE_NULL)
