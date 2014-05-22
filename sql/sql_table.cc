@@ -2967,6 +2967,16 @@ int prepare_create_field(Create_field *sql_field,
     sql_field->unireg_check=Field::BLOB_FIELD;
     (*blob_columns)++;
     break;
+  case MYSQL_TYPE_DOCUMENT:
+    sql_field->pack_flag=FIELDFLAG_DOCUMENT |
+      pack_length_to_packflag(sql_field->pack_length -
+                              portable_sizeof_char_ptr);
+    if (sql_field->charset->state & MY_CS_BINSORT)
+      sql_field->pack_flag|=FIELDFLAG_BINARY;
+    sql_field->length=8;			// Unireg field length
+    sql_field->unireg_check=Field::BLOB_FIELD;
+    (*blob_columns)++;
+    break;
   case MYSQL_TYPE_GEOMETRY:
 #ifdef HAVE_SPATIAL
     if (!(table_flags & HA_CAN_GEOMETRY))
@@ -4029,6 +4039,16 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	    DBUG_RETURN(TRUE);
 	  }
 	}
+
+	/*
+	  Indexes on a column with document type is not supported yet.
+	*/
+	if (sql_field->sql_type == MYSQL_TYPE_DOCUMENT)
+	{
+          my_error(ER_DOCUMENT_KEY_NOT_SUPPORTED, MYF(0), column->field_name.str);
+          DBUG_RETURN(TRUE);
+	}
+
 #ifdef HAVE_SPATIAL
 	if (key->type == Key::SPATIAL)
 	{
@@ -4943,6 +4963,24 @@ bool create_table_impl(THD *thd,
     create_info->data_file_name= create_info->index_file_name= 0;
   }
   create_info->table_options=db_options;
+
+  /*
+    DOCUMENT type is only supported by InnoDB.
+  */
+  if (create_info->db_type->db_type != DB_TYPE_INNODB &&
+      create_info->db_type->db_type != DB_TYPE_PARTITION_DB)
+  {
+    Create_field *field = NULL;
+    List_iterator<Create_field> it(alter_info->create_list);
+    while ((field=it++))
+    {
+      if (f_is_document(field->pack_flag))
+      {
+        my_error(ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE, MYF(0));
+        goto err;
+      }
+    }
+  }
 
   /*
     Create .FRM (and .PAR file for partitioned table).
