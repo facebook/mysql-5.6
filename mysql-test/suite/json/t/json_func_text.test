@@ -4,3 +4,5 @@ drop table if exists test_json;
 create table test_json(json text); # text/varchar
 
 --source suite/json/include/json_func_common.inc
+
+--source suite/json/include/json_func_common_2.inc
