@@ -736,6 +736,23 @@ int ha_partition::create(const char *name, TABLE *table_arg,
   for (i= 0; i < m_part_info->num_parts; i++)
   {
     part_elem= part_it++;
+
+    /*
+      DOCUMENT type is only supported by InnoDB.
+    */
+    if (part_elem->engine_type &&
+        part_elem->engine_type->db_type != DB_TYPE_INNODB)
+    {
+      for (Field **field= table_arg->field; field && *field; field++)
+      {
+        if ((*field)->type() == MYSQL_TYPE_DOCUMENT)
+        {
+          my_error(ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE, MYF(0));
+          DBUG_RETURN(TRUE);
+        }
+      }
+    }
+
     if (m_is_sub_partitioned)
     {
       uint j;
