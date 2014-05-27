@@ -12,8 +12,8 @@ COMMIT;
 SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
 SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
 SELECT VARIABLE_VALUE INTO @innodb_rows_updated_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
-eval SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
-        INTO @table_stat_rows_inserted_1, @table_stat_rows_updated_1, @table_stat_rows_deleted_1
+eval SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED, IO_INDEX_INSERTS
+        INTO @table_stat_rows_inserted_1, @table_stat_rows_updated_1, @table_stat_rows_deleted_1, @table_stat_io_index_inserts_1
         FROM INFORMATION_SCHEMA.TABLE_STATISTICS
         WHERE TABLE_NAME='$fake_changes_table' AND TABLE_SCHEMA='test';
 SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
