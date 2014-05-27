@@ -6,8 +6,8 @@ COMMIT;
 SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
 SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
 SELECT VARIABLE_VALUE INTO @innodb_rows_updated_1 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
-SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
-INTO @table_stat_rows_inserted_1, @table_stat_rows_updated_1, @table_stat_rows_deleted_1
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED, IO_INDEX_INSERTS
+INTO @table_stat_rows_inserted_1, @table_stat_rows_updated_1, @table_stat_rows_deleted_1, @table_stat_io_index_inserts_1
 FROM INFORMATION_SCHEMA.TABLE_STATISTICS
 WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
 SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
@@ -52,8 +52,8 @@ test.t1	check	status	OK
 SELECT VARIABLE_VALUE INTO @innodb_rows_inserted_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_inserted';
 SELECT VARIABLE_VALUE INTO @innodb_rows_deleted_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_deleted';
 SELECT VARIABLE_VALUE INTO @innodb_rows_updated_2 FROM INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARIABLE_NAME = 'Innodb_rows_updated';
-SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
-INTO @table_stat_rows_inserted_2, @table_stat_rows_updated_2, @table_stat_rows_deleted_2
+SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED, IO_INDEX_INSERTS
+INTO @table_stat_rows_inserted_2, @table_stat_rows_updated_2, @table_stat_rows_deleted_2, @table_stat_io_index_inserts_2
 FROM INFORMATION_SCHEMA.TABLE_STATISTICS
 WHERE TABLE_NAME='t1' AND TABLE_SCHEMA='test';
 SELECT ROWS_INSERTED, ROWS_UPDATED, ROWS_DELETED
@@ -78,6 +78,9 @@ SELECT @table_stat_rows_updated_2 - @table_stat_rows_updated_1 AS should_be_0;
 should_be_0
 0
 SELECT @table_stat_rows_deleted_2 - @table_stat_rows_deleted_1 AS should_be_0;
+should_be_0
+0
+SELECT @table_stat_io_index_inserts_2 - @table_stat_io_index_inserts_1 AS should_be_0;
 should_be_0
 0
 SELECT @user_stat_rows_inserted_2 - @user_stat_rows_inserted_1 AS should_be_0;

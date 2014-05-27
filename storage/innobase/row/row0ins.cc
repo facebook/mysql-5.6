@@ -2883,8 +2883,9 @@ row_ins_sec_index_entry_low(
 	}
 
 func_exit:
-	if (err == DB_SUCCESS && (index->type & DICT_CLUSTERED) == 0) {
-		thr_get_trx(thr)->table_io_perf.index_inserts++;
+	if (err == DB_SUCCESS && (index->type & DICT_CLUSTERED) == 0
+	    && UNIV_LIKELY(!trx->fake_changes)) {
+		trx->table_io_perf.index_inserts++;
 	}
 
 	mtr_commit(&mtr);
