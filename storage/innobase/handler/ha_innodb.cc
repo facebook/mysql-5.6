@@ -17336,6 +17336,26 @@ static MYSQL_SYSVAR_UINT(defragment_stats_accuracy,
   "defragment stats tracking.",
   NULL, NULL, 0, 0, ~0U, 0);
 
+static MYSQL_SYSVAR_UINT(defragment_fill_factor_n_recs,
+  srv_defragment_fill_factor_n_recs,
+  PLUGIN_VAR_RQCMDARG,
+  "How many records of space defragmentation should leave on the page. "
+  "This variable, together with innodb_defragment_fill_factor, is introduced "
+  "so defragmentation won't pack the page too full and cause page split on "
+  "the next insert on every page. The variable indicating more defragmentation"
+  " gain is the one effective.",
+  NULL, NULL, 20, 1, 100, 0);
+
+static MYSQL_SYSVAR_DOUBLE(defragment_fill_factor, srv_defragment_fill_factor,
+  PLUGIN_VAR_RQCMDARG,
+  "A number between [0.7, 1] that tells defragmentation how full it should "
+  "fill a page. Default is 0.9. Number below 0.7 won't make much sense."
+  "This variable, together with innodb_defragment_fill_factor_n_recs, is "
+  "introduced so defragmentation won't pack the page too full and cause "
+  "page split on the next insert on every page. The variable indicating more "
+  "defragmentation gain is the one effective.",
+  NULL, NULL, 0.9, 0.7, 1, 0);
+
 static MYSQL_SYSVAR_ULONG(lru_scan_depth, srv_LRU_scan_depth,
   PLUGIN_VAR_RQCMDARG,
   "How deep to scan LRU to keep it clean",
@@ -17935,6 +17955,8 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_load_at_startup),
   MYSQL_SYSVAR(defragment_n_pages),
   MYSQL_SYSVAR(defragment_stats_accuracy),
+  MYSQL_SYSVAR(defragment_fill_factor),
+  MYSQL_SYSVAR(defragment_fill_factor_n_recs),
   MYSQL_SYSVAR(lru_scan_depth),
   MYSQL_SYSVAR(flush_neighbors),
   MYSQL_SYSVAR(checksum_algorithm),

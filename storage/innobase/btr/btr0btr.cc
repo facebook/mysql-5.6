@@ -4096,8 +4096,10 @@ btr_defragment_merge_pages(
 	buf_block_t*	from_block,	/*!< in: origin of merge */
 	buf_block_t*	to_block,	/*!< in: destination of merge */
 	ulint		zip_size,	/*!< in: zip size of the block */
-	ulint*		max_data_size,	/*!< in/out: max data size that can fit
-					in a single page. */
+	ulint		reserved_space,	/*!< in: space reserved for future
+					insert to avoid immediate page split */
+	ulint*		max_data_size,	/*!< in/out: max data size to
+					fit in a single compressed page. */
 	mem_heap_t*	heap,		/*!< in/out: pointer to memory heap */
 	mtr_t*		mtr)		/*!< in/out: mini-transaction */
 {
@@ -4112,13 +4114,28 @@ btr_defragment_merge_pages(
 	ulint max_ins_size_reorg =
 		page_get_max_insert_size_after_reorganize(
 			to_page, n_recs);
+	ulint max_ins_size_to_use = max_ins_size_reorg > reserved_space
+				    ? max_ins_size_reorg - reserved_space : 0;
 	ulint move_size = 0;
 	ulint n_recs_to_move = 0;
 	rec_t* rec = NULL;
 	ulint target_n_recs = 0;
 	rec_t* orig_pred;
-	// Reorganize the page if that yields more space.
-	if (max_ins_size < max_ins_size_reorg) {
+
+	// Estimate how many records can be moved from the from_page to
+	// the new page.
+	if (zip_size) {
+		ulint page_diff = UNIV_PAGE_SIZE - *max_data_size;
+		max_ins_size_to_use = (max_ins_size_to_use > page_diff)
+			       ? max_ins_size_to_use - page_diff : 0;
+	}
+	n_recs_to_move = btr_defragment_calc_n_recs_for_size(
+		from_block, index, max_ins_size_to_use, &move_size);
+
+	// If max_ins_size >= move_size, we can move the records without
+	// reorganizing the page, otherwise we need to reorganize the page
+	// first to release more space.
+	if (move_size > max_ins_size) {
 		if (!btr_page_reorganize_block(false, page_zip_level,
 					       to_block, index,
 					       mtr)) {
@@ -4133,17 +4150,10 @@ btr_defragment_merge_pages(
 			return from_block;
 		}
 		ut_ad(page_validate(to_page, index));
+		max_ins_size = page_get_max_insert_size(to_page, n_recs);
+		ut_a(max_ins_size >= move_size);
 	}
-	// Estimate how many records can be moved from the from_page to
-	// the new page.
-	max_ins_size = page_get_max_insert_size(to_page, n_recs);
-	if (zip_size) {
-		ulint page_diff = UNIV_PAGE_SIZE - *max_data_size;
-		max_ins_size = (max_ins_size > page_diff)
-			       ? max_ins_size - page_diff : 0;
-	}
-	n_recs_to_move = btr_defragment_calc_n_recs_for_size(
-		from_block, index, max_ins_size, &move_size);
+
 	// Move records to new page to defragment the new page.
 	orig_pred = NULL;
 	target_n_recs = n_recs_to_move;
@@ -4244,7 +4254,10 @@ btr_defragment_n_pages(
 	page_t*		first_page;
 	buf_block_t*	current_block;
 	ulint		total_data_size = 0;
+	ulint		total_n_recs = 0;
+	ulint		data_size_per_rec;
 	ulint		optimal_page_size;
+	ulint		reserved_space;
 	ulint		level;
 	ulint		max_data_size = 0;
 	uint		n_defragmented = 0;
@@ -4281,6 +4294,7 @@ btr_defragment_n_pages(
 		page_t* page = buf_block_get_frame(blocks[i-1]);
 		ulint page_no = btr_page_get_next(page, mtr);
 		total_data_size += page_get_data_size(page);
+		total_n_recs += page_get_n_recs(page);
 		if (page_no == FIL_NULL) {
 			n_pages = i;
 			end_of_index = TRUE;
@@ -4305,6 +4319,8 @@ btr_defragment_n_pages(
 
 	/* 2. Calculate how many pages data can fit in. If not compressable,
 	return early. */
+	ut_a(total_n_recs != 0);
+	data_size_per_rec = total_data_size / total_n_recs;
 	optimal_page_size = page_get_free_space_of_empty(
 		page_is_comp(first_page));
 	if (zip_size) {
@@ -4314,6 +4330,11 @@ btr_defragment_n_pages(
 		max_data_size = optimal_page_size;
 	}
 
+	reserved_space = min((ulint)(optimal_page_size
+			      * (1 - srv_defragment_fill_factor)),
+			     (data_size_per_rec
+			      * srv_defragment_fill_factor_n_recs));
+	optimal_page_size -= reserved_space;
 	n_new_slots = (total_data_size + optimal_page_size - 1)
 		      / optimal_page_size;
 	if (n_new_slots >= n_pages) {
@@ -4331,7 +4352,7 @@ btr_defragment_n_pages(
 	for (uint i = 1; i < n_pages; i ++) {
 		buf_block_t* new_block = btr_defragment_merge_pages(
 			index, blocks[i], current_block, zip_size,
-			&max_data_size, heap, mtr);
+			reserved_space, &max_data_size, heap, mtr);
 		if (new_block != current_block) {
 			n_defragmented ++;
 			current_block = new_block;
