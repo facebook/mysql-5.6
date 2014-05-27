@@ -2,7 +2,7 @@ DROP TABLE if exists t1;
 select @@global.innodb_stats_persistent;
 @@global.innodb_stats_persistent
 1
-set global innodb_defragment_stats_accuracy = 20;
+# Set stats accuracy according to page size.
 # Create table.
 CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
 # Populate data

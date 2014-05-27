@@ -4,24 +4,26 @@
 DROP TABLE if exists t1;
 --enable_warnings
 
+let $page_size = query_get_value(select @@innodb_page_size, @@innodb_page_size, 1);
+
 # Create table.
 CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
 
-## Test-1 defragment an empty table
+--echo ## Test-1 defragment an empty table
 alter table t1 defragment;
 
-## Test-2 defragment a single page table
-INSERT INTO t1 VALUES (100000, REPEAT('A', 256));
-INSERT INTO t1 VALUES (200000, REPEAT('A', 256));
-INSERT INTO t1 VALUES (300000, REPEAT('A', 256));
-INSERT INTO t1 VALUES (400000, REPEAT('A', 256));
+--echo ## Test-2 defragment a single page table
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 VALUES (2, REPEAT('A', 256));
+INSERT INTO t1 VALUES (3, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
 
 alter table t1 defragment;
 
-## Test-3 defragment (somewhat) in parallel with delete queries
-let $data_size = 10000;
-let $delete_size = 100;
+--echo ## Test-3 defragment (somewhat) in parallel with delete queries
 
+let $delete_size = 120;
 delimiter //;
 create procedure defragment()
 begin
@@ -36,15 +38,20 @@ delimiter ;//
 
 
 # Populate table.
-let $i = $data_size;
 --disable_query_log
-while ($i)
-{
-  eval
-    INSERT INTO t1 VALUES ($data_size + 1 - $i, REPEAT('A', 256));
-  dec $i;
-}
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
 --enable_query_log
+
+select count(*) from t1;
 
 connect (con1,localhost,root,,test,$MASTER_MYPORT,$MASTER_MYSOCK);
 
@@ -76,15 +83,33 @@ alter table t1 defragment;
 --source include/restart_mysqld.inc
 select count(*) from t1;
 
-# After deletion & defragmentation, there are 8000 records left. Each page can hold about 57 records so there should be less than 145 pages total.
-select count(*) < 145 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+# Before defragmentation, there are 12288 records. After deletion, there are 10203 records left.
+# A 16K page can hold about 57 records. We fill the page 90% full, so there should be less than
+# 205 pages total after defragmentation for 16K pages. For 32K page it should be about half
+# the number.
+
+let $expected = 205;
+if ($page_size == 32768) {
+   let $expected = 103;
+}
+
+--let $result = query_get_value(select count(*) as result from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' and access_time > 0, result, 1)
+
+if ($result > $expected) {
+  --echo fail, $result > $expected
+}
 
 select count(*) from t1 force index (second);
 
-# secondary index is pretty much the same size as primary index so the number of pages should be similar.
-select count(*) < 145 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
+# secondary index is slightly bigger than primary index so the number of pages should be similar.
+let $expected = 210;
+if ($page_size == 32768) {
+   let $expected = 105;
+}
+--replace_result $expected expected
+eval select count(*) < $expected from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' and access_time > 0;
 
-## Test-4 defragment with larger n_pages
+--echo ## Test-4 defragment with larger n_pages
 
 # delete some more records
 --disable_query_log
@@ -107,12 +132,18 @@ alter table t1 defragment;
 select count(*) from t1;
 
 # We didn't create large wholes with the previous deletion, so if innodb_defragment_n_pages = 3, we won't be able to free up many pages.
-select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+let $expected = 195;
+if ($page_size == 32768) {
+   let $expected = 97;
+}
+--replace_result $expected expected
+eval select count(*) > $expected from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' and access_time > 0;
 
 select count(*) from t1 force index (second);
 
 # Same holds for secondary index, not many pages are released.
-select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
+--replace_result $expected expected
+eval select count(*) > $expected from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' and access_time > 0;
 
 SET @@global.innodb_defragment_n_pages = 10;
 
@@ -123,12 +154,23 @@ alter table t1 defragment index PRIMARY;
 select count(*) from t1;
 
 # This time we used innodb_defragment_n_pages = 10, so we should be able to free up some pages.
-select count(*) < 130 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+let $expected_new = 185;
+if ($page_size == 32768) {
+   let $expected_new = 93;
+}
+
+--let $result = query_get_value(select count(*) as result from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' and access_time > 0, result, 1)
+
+if ($result >= $expected_new) {
+  --echo fail, $result >= $expected_new
+  select * from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'PRIMARY' order by page_number;
+}
 
 select count(*) from t1 force index (second);
 
 # We only defragmented the primary index so secondary index size should not change.
-select count(*) > 135 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
+--replace_result $expected expected
+eval select count(*) > $expected from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' and access_time > 0;
 
 SET @@global.innodb_defragment_n_pages = 10;
 
@@ -137,8 +179,9 @@ alter table t1 defragment index second;
 select count(*) from t1 force index (second);
 
 # After defragmenting secondary index the size should be smaller.
-select count(*) < 130 from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' order by page_number;
+--replace_result $expected_new expected
+eval select count(*) < $expected_new from information_schema.innodb_buffer_page where table_name like '%t1%' and index_name = 'second' and access_time > 0;
 
-
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;
