@@ -331,6 +331,8 @@ extern ulint	srv_n_write_io_threads;
 
 extern uint	srv_defragment_n_pages;
 extern uint	srv_defragment_stats_accuracy;
+extern uint	srv_defragment_fill_factor_n_recs;
+extern double	srv_defragment_fill_factor;
 
 extern ulint	srv_idle_flush_pct;
 
