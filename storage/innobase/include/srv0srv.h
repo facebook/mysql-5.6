@@ -1296,6 +1296,8 @@ struct export_var_t{
 
 	ulonglong histogram_file_flush_time_values[NUMBER_OF_HISTOGRAM_BINS];
 	ulonglong histogram_fsync_values[NUMBER_OF_HISTOGRAM_BINS];
+
+	ulonglong innodb_max_trx_id; /*!< trx_sys->max_trx_id */
 };
 
 /** Thread slot in the thread table.  */
