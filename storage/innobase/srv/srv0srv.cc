@@ -2170,6 +2170,8 @@ srv_export_innodb_status(void)
 					&histogram_fsync, i_bins);
 	}
 
+	export_vars.innodb_max_trx_id = trx_sys_get_max_trx_id();
+
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
 

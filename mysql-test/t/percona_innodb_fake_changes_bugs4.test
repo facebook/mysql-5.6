@@ -27,12 +27,12 @@ connection default;
 SET DEBUG_SYNC = 'now WAIT_FOR created';
 
 SHOW INDEX FROM t1;
---source include/start_fake_changes.inc
+SET innodb_fake_changes=1;
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);
---source include/stop_fake_changes.inc
+SET innodb_fake_changes=0;
 SET DEBUG_SYNC = 'now SIGNAL dml_done';
 connection con1;
 reap;

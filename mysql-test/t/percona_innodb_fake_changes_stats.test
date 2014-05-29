@@ -15,8 +15,7 @@ INSERT INTO t1 VALUES (1);
 --echo # SELECT FOR UPDATE gets S not X with fake changes
 --connection conn1
 SET autocommit=0;
---let $fake_changes_table=t1
---source include/start_fake_changes.inc
+SET innodb_fake_changes=1;
 BEGIN;
 SELECT * FROM t1 FOR UPDATE;
 --connection default
@@ -36,7 +35,7 @@ ROLLBACK;
 --connection conn1
 ROLLBACK;
 
---source include/stop_fake_changes.inc
+SET innodb_fake_changes=0;
 SET global innodb_fake_changes_locks=0;
 
 --connection default
@@ -49,6 +48,7 @@ DROP TABLE t1;
 CREATE TABLE t1 (a INT PRIMARY KEY, b INT) engine = InnoDB;
 INSERT INTO t1 VALUES (1,2);
 SHOW INDEX FROM t1;
+--let $fake_changes_table=t1
 --source include/start_fake_changes.inc
 --error ER_ERROR_DURING_COMMIT
 INSERT INTO t1 VALUES (3,9);

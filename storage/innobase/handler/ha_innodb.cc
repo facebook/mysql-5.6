@@ -1216,7 +1216,8 @@ static SHOW_VAR innodb_status_variables[]= {
   {"latency_histogram_file_flush_time",
    (char*) &latency_histogram_file_flush_time, SHOW_ARRAY},
   {"latency_histogram_fsync", (char*) &latency_histogram_fsync, SHOW_ARRAY},
-  {NullS, NullS, SHOW_LONG}
+  {"max_trx_id", (char*) &export_vars.innodb_max_trx_id, SHOW_LONGLONG},
+  {NullS, NullS, SHOW_LONG},
 };
 
 /************************************************************************//**
@@ -12010,6 +12011,10 @@ ha_innobase::info_low(
 
 			dict_stats_upd_option_t	opt;
 			dberr_t			ret;
+
+			dict_mutex_enter_for_mysql();
+			dict_stats_recalc_pool_del(ib_table);
+			dict_mutex_exit_for_mysql();
 
 			prebuilt->trx->op_info = "updating table statistics";
 

@@ -1085,6 +1085,8 @@ row_update_statistics_if_needed(
 	ib_uint64_t	counter;
 	ib_uint64_t	n_rows;
 
+	ut_ad(!trx->fake_changes);
+
 	if (!table->stat_initialized) {
 		DBUG_EXECUTE_IF(
 			"test_upd_stats_if_needed_not_inited",
