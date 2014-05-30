@@ -24,6 +24,14 @@ FLUSH LOGS;
 -- replace_result $MASTER_UUID uuid
 -- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:3 --to-last-log
 
+-- echo ** Reading from remote master using --exclude-gtids **
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --exclude-gtids='$MASTER_UUID:1-3'
+
+-- echo ** Reading from remote master using --exclude-gtids --to-last-log**
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --exclude-gtids='$MASTER_UUID:1-3' --to-last-log
+
 -- replace_result $MASTER_UUID uuid
 -- exec $MYSQL_BINLOG --short-form --read-from-remote-master=BINLOG-DUMP-GTID --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --start-gtid=$MASTER_UUID:4 --to-last-log
 
