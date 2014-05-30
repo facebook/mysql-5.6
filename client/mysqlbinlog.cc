@@ -2324,8 +2324,13 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
         {
           if (!to_last_remote_log)
           {
-            if ((rev->ident_len != logname_len) ||
-                memcmp(rev->new_log_ident, logname, logname_len))
+            // logname is NULL if mysqlbinlog is run with
+            // --exclude-gtids or --start-gtid. In these cases
+            // fake rotate event should not be considered as end of
+            // binlog file.
+            if ((!rev->is_artificial_event() || logname) &&
+                ((rev->ident_len != logname_len) ||
+                memcmp(rev->new_log_ident, logname, logname_len)))
             {
               DBUG_RETURN(OK_CONTINUE);
             }
@@ -2942,7 +2947,7 @@ static int args_post_process(void)
       && opt_remote_proto != BINLOG_DUMP_GTID)
   {
     error("--start-gtid requires --index-file option or "
-          "--read-from-remote-server=BINLOG_DUMP_GTID option");
+          "--read-from-remote-master=BINLOG-DUMP-GTIDS option");
     DBUG_RETURN(ERROR_STOP);
   }
 
@@ -3210,7 +3215,8 @@ int main(int argc, char** argv)
   parse_args(&argc, &argv);
 
   if (!argc && opt_find_gtid_str == NULL &&
-      opt_start_gtid_str == NULL)
+      opt_start_gtid_str == NULL &&
+      opt_exclude_gtids_str == NULL)
   {
     usage();
     free_defaults(defaults_argv);
@@ -3306,7 +3312,13 @@ int main(int argc, char** argv)
         retval = start_gtid_dump(opt_find_gtid_str, true);
     }
   }
-
+  else if (!argc && opt_exclude_gtids_str != NULL)
+  {
+    // server can automatically find binlog file name when using
+    // auto_position using --exclude-gtids. So passing binlog file
+    // name to mysqlbinlog is not necessary in this case.
+    retval = dump_log_entries(NULL);
+  }
   else
   {
     for (save_stop_position= stop_position, stop_position= ~(my_off_t)0 ;
