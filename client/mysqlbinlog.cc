@@ -2109,6 +2109,7 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
   my_off_t old_off= start_position_mot;
   char fname[FN_REFLEN + 1];
   char log_file_name[FN_REFLEN + 1];
+  char cur_log_file_name[FN_REFLEN + 1];
   char *log_file = NULL;
   Exit_status retval= OK_CONTINUE;
   enum enum_server_command command= COM_END;
@@ -2332,11 +2333,23 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
           {
             // logname is NULL if mysqlbinlog is run with
             // --exclude-gtids or --start-gtid. In these cases
-            // fake rotate event should not be considered as end of
+            // the first fake rotate event should not be considered as end of
             // binlog file.
-            if ((!rev->is_artificial_event() || logname) &&
-                ((rev->ident_len != logname_len) ||
-                memcmp(rev->new_log_ident, logname, logname_len)))
+            if (logname == NULL && (opt_exclude_gtids_str != NULL ||
+                opt_start_gtid_str != NULL))
+            {
+              // store the first fake rotate event.
+              // mysqlbinlog exists after reading this binlog file.
+              // If --to-last-log is used, then mysqlbinlog will not
+              // stop after reading this binlog file, but continue reading
+              // all the binary logs.
+              strcpy(cur_log_file_name, rev->new_log_ident);
+              logname = cur_log_file_name;
+              logname_len = strlen(cur_log_file_name);
+            }
+
+            if ((rev->ident_len != logname_len) ||
+                memcmp(rev->new_log_ident, logname, logname_len))
             {
               DBUG_RETURN(OK_CONTINUE);
             }
