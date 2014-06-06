@@ -66,6 +66,14 @@ ib_wqueue_add(
 	mem_heap_t*	heap);	/*!< in: memory heap to use for allocating the
 				list node */
 
+/**
+Signal the queue.
+@param	[in]	work queue */
+
+void
+ib_wqueue_signal(
+	ib_wqueue_t*	wq);
+
 /********************************************************************
 Check if queue is empty. */
 

@@ -1147,7 +1147,8 @@ buf_LRU_buf_pool_running_out(void)
 		if (!recv_recovery_on
 		    && UT_LIST_GET_LEN(buf_pool->free)
 		       + UT_LIST_GET_LEN(buf_pool->LRU)
-		       < buf_pool->curr_size / 4) {
+		       < ut_min(buf_pool->curr_size,
+				buf_pool->old_size) / 4) {
 
 			ret = TRUE;
 		}
@@ -1174,7 +1175,7 @@ buf_LRU_get_free_only(
 
 	block = (buf_block_t*) UT_LIST_GET_FIRST(buf_pool->free);
 
-	if (block) {
+	while (block != NULL) {
 
 		ut_ad(block->page.in_free_list);
 		ut_d(block->page.in_free_list = FALSE);
@@ -1183,14 +1184,28 @@ buf_LRU_get_free_only(
 		ut_a(!buf_page_in_file(&block->page));
 		UT_LIST_REMOVE(list, buf_pool->free, (&block->page));
 
-		mutex_enter(&block->mutex);
+		if (buf_pool->curr_size >= buf_pool->old_size
+		    || !buf_block_will_withdrawn(buf_pool, block)) {
+			/* found valid free block */
+			mutex_enter(&block->mutex);
 
-		buf_block_set_state(block, BUF_BLOCK_READY_FOR_USE);
-		UNIV_MEM_ALLOC(block->frame, UNIV_PAGE_SIZE);
+			buf_block_set_state(block, BUF_BLOCK_READY_FOR_USE);
+			UNIV_MEM_ALLOC(block->frame, UNIV_PAGE_SIZE);
 
-		ut_ad(buf_pool_from_block(block) == buf_pool);
+			ut_ad(buf_pool_from_block(block) == buf_pool);
 
-		mutex_exit(&block->mutex);
+			mutex_exit(&block->mutex);
+			break;
+		}
+
+		/* This should be withdrawn */
+		UT_LIST_ADD_LAST(
+			list,
+			buf_pool->withdraw,
+			&block->page);
+		ut_d(block->in_withdraw_list = TRUE);
+
+		block = (buf_block_t*) UT_LIST_GET_FIRST(buf_pool->free);
 	}
 
 	return(block);
@@ -1209,7 +1224,9 @@ buf_LRU_check_size_of_non_data_objects(
 {
 	ut_ad(buf_pool_mutex_own(buf_pool));
 
-	if (!recv_recovery_on && UT_LIST_GET_LEN(buf_pool->free)
+	if (!recv_recovery_on
+	    && buf_pool->curr_size == buf_pool->old_size
+	    && UT_LIST_GET_LEN(buf_pool->free)
 	    + UT_LIST_GET_LEN(buf_pool->LRU) < buf_pool->curr_size / 20) {
 		ut_print_timestamp(stderr);
 
@@ -1231,6 +1248,7 @@ buf_LRU_check_size_of_non_data_objects(
 		ut_error;
 
 	} else if (!recv_recovery_on
+		   && buf_pool->curr_size == buf_pool->old_size
 		   && (UT_LIST_GET_LEN(buf_pool->free)
 		       + UT_LIST_GET_LEN(buf_pool->LRU))
 		   < buf_pool->curr_size / 3) {
@@ -1364,7 +1382,8 @@ loop:
 
 	}
 
-	if (n_iterations > 20) {
+	if (n_iterations > 20
+	    && srv_buf_pool_old_size == srv_buf_pool_size) {
 		ut_print_timestamp(stderr);
 		fprintf(stderr,
 			"  InnoDB: Warning: difficult to find free blocks in\n"
@@ -2199,8 +2218,18 @@ buf_LRU_block_free_non_file_page(
 		page_zip_set_size(&block->page.zip, 0);
 	}
 
-	UT_LIST_ADD_FIRST(list, buf_pool->free, (&block->page));
-	ut_d(block->page.in_free_list = TRUE);
+	if (buf_pool->curr_size < buf_pool->old_size
+	    && buf_block_will_withdrawn(buf_pool, block)) {
+		/* This should be withdrawn */
+		UT_LIST_ADD_LAST(
+			list,
+			buf_pool->withdraw,
+			&block->page);
+		ut_d(block->in_withdraw_list = TRUE);
+	} else {
+		UT_LIST_ADD_FIRST(list, buf_pool->free, &block->page);
+		ut_d(block->page.in_free_list = TRUE);
+	}
 
 	UNIV_MEM_ASSERT_AND_FREE(block->frame, UNIV_PAGE_SIZE);
 }
