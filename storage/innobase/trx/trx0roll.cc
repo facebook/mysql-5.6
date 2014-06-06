@@ -801,11 +801,15 @@ DECLARE_THREAD(trx_rollback_or_clean_all_recovered)(
 {
 	ut_ad(!srv_read_only_mode);
 
+	buf_pool_resizable_recover = false;
+
 #ifdef UNIV_PFS_THREAD
 	pfs_register_thread(trx_rollback_clean_thread_key);
 #endif /* UNIV_PFS_THREAD */
 
 	trx_rollback_or_clean_recovered(TRUE);
+
+	buf_pool_resizable_recover = true;
 
 	/* We count the number of threads in os_thread_exit(). A created
 	thread should always use that to exit and not use return() to exit. */
