@@ -143,6 +143,8 @@ public:
     m_created_by_in2exists(false)  {}
   Item_bool_func(Item *a,Item *b) : Item_int_func(a,b),
     m_created_by_in2exists(false)  {}
+  Item_bool_func(List<Item> &list) :Item_int_func(list),
+    m_created_by_in2exists(false)  {}
   Item_bool_func(THD *thd, Item_bool_func *item) : Item_int_func(thd, item),
     m_created_by_in2exists(item->m_created_by_in2exists) {}
   bool is_bool_func() { return 1; }
