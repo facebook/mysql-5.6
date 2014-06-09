@@ -7143,6 +7143,12 @@ ER_READ_ONLY_SLAVE
 ER_SHOW_DENIED_ERROR
   eng "You are not owner of thread %lu"
 
+ER_INVALID_JSON
+  eng "Invalid JSON object: '%.64s'"
+
+ER_INVALID_JSON_ARRAY
+  eng "Invalid JSON array: '%.64s'"
+
 #
 #  End of 5.6 error messages.
 #
