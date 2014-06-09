@@ -1,0 +1,189 @@
+# Description
+# -----------
+# Testing json functions on literal strings
+
+#
+# json_valid
+#
+
+# returns NULL
+select json_valid(null);
+
+# valid json strings
+select json_valid('{}');
+select json_valid('{"k":"v"}');
+select json_valid('{"k":{}}');
+select json_valid('{"k":[]}');
+select json_valid('{"k1":"v1","k2":true,"k3":3}');
+select json_valid('{"k1":{"k2":"v2"}}');
+select json_valid('{"key":[1,2,3]}');
+
+select json_valid('[]');
+select json_valid('[[[[[]]]]]');
+select json_valid('[{}]');
+select json_valid('[1,2,3]');
+select json_valid('[1,false,"str",1.2]');
+select json_valid('[{"k1":"v1"},2,3]');
+select json_valid('[[1,2,3],2,3]');
+
+# utf-8 multi-byte character
+select json_valid('{"MySQL":"开源数据库"}');
+select json_valid('{"开源数据库":"MySQL"}');
+
+
+# invalid json strings
+select json_valid('');
+select json_valid(123);
+select json_valid(1.23);
+select json_valid('abc');
+select json_valid('{"key"}');
+select json_valid('{1:value}');
+select json_valid('{"key":"value"');
+select json_valid('[1,2,3');
+select json_valid('{}}');
+select json_valid('[[]');
+select json_valid('{[]}');
+
+#
+# json_extract
+#
+
+# null results (invalid json or key path)
+select json_extract(null,null);
+select json_extract(null,'key');
+select json_extract('{}',null);
+select json_extract('{"k1":"v1"}','k1',null);
+select json_extract('{"k1":"v1"}','k1','k2');
+select json_extract('{"k1":"v1"}','k2');
+select json_extract('[]',1);
+select json_extract('[1]',0);
+select json_extract('[1]',2);
+select json_extract('[1]','k1');
+# duplicate keys will be matched at the first occurrence
+select json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
+
+# valid key paths
+select json_extract('{"k1":"v1"}','k1');
+select json_extract('[1,2,3,4]',1);
+select json_extract('[1,2,3,4]',2);
+select json_extract('[1,2,3,4]',3);
+select json_extract('[1,2,3,4]',4);
+select json_extract('[1,2,3,4]','1');
+select json_extract('[1,2,3,4]','2');
+select json_extract('[1,2,3,4]','3');
+select json_extract('[1,2,3,4]','4');
+
+select json_extract('{"k1":{"k2":{"k3":12.345}}}','k1');
+select json_extract('{"k1":{"k2":{"k3":12.345}}}','k1','k2');
+select json_extract('{"k1":{"k2":{"k3":12.345}}}','k1','k2','k3');
+# test case sensitivity
+select json_extract('{"k1":{"k2":{"k3":12.345}}}','K1');
+# duplicate keys will be matched at the first occurrence
+select json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1');
+# utf-8 multi-byte character
+select json_extract('{"MySQL":"开源数据库"}','MySQL');
+select json_extract('{"开源数据库":"MySQL"}','开源数据库');
+
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2');
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3);
+
+# invalid json object (expecting error)
+--error ER_INVALID_JSON
+select json_extract('', 'k1');
+
+#
+# json_contains_key
+#
+
+# null results
+select json_contains_key(null,null);
+select json_contains_key(null,'key');
+
+# invalid key paths
+select json_contains_key('{}',null);
+select json_contains_key('{"k1":"v1"}','k1',null);
+select json_contains_key('{"k1":"v1"}','k1','k2');
+select json_contains_key('{"k1":"v1"}','k2');
+select json_contains_key('[]',1);
+select json_contains_key('[1]',0);
+select json_contains_key('[1]',2);
+# duplicate keys will be matched at the first occurrence
+select json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
+
+# valid key paths
+select json_contains_key('{"k1":"v1"}','k1');
+select json_contains_key('[1,2,3,4]',1);
+select json_contains_key('[1,2,3,4]',2);
+select json_contains_key('[1,2,3,4]',3);
+select json_contains_key('[1,2,3,4]',4);
+select json_contains_key('[1,2,3,4]','1');
+select json_contains_key('[1,2,3,4]','2');
+select json_contains_key('[1,2,3,4]','3');
+select json_contains_key('[1,2,3,4]','4');
+
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1');
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1','k2');
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1','k2','k3');
+# test case sensitivity
+select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','K1');
+# duplicate keys will be matched at the first occurrence
+select json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1');
+# utf-8 multi-byte character
+select json_contains_key('{"MySQL":"开源数据库"}','MySQL');
+select json_contains_key('{"开源数据库":"MySQL"}','开源数据库');
+
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2');
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3);
+
+# invalid json object (expecting error)
+--error ER_INVALID_JSON
+select json_contains_key('', 'k1');
+
+#
+# json_array_length
+#
+
+# null result
+select json_array_length(null);
+
+# valid arrays
+select json_array_length('[]');
+select json_array_length('[1]');
+select json_array_length('["str"]');
+select json_array_length('[null]');
+select json_array_length('[true,false]');
+select json_array_length('[1.234]');
+select json_array_length('[1,"str",null,true,false,1.2345]');
+
+select json_array_length('[[[[[[]]]]]]');
+select json_array_length('[[],[],[],[],[]]');
+select json_array_length('[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]');
+# utf-8 multi-byte character
+select json_array_length('[{"MySQL":"开源数据库"},"MySQL"]');
+select json_array_length('[{"开源数据库":"MySQL"},"开源数据库"]');
+
+# not json array
+--error ER_INVALID_JSON_ARRAY
+select json_array_length('{}');
+--error ER_INVALID_JSON_ARRAY
+select json_array_length('{"key":"value"}');
+--error ER_INVALID_JSON_ARRAY
+select json_array_length('{"key":[]}');
+
+# invalid json object (expecting error)
+--error ER_INVALID_JSON
+select json_array_length('');
