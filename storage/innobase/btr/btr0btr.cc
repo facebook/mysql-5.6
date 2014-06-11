@@ -4476,11 +4476,34 @@ btr_defragment_add_index(
 }
 
 /******************************************************************//**
+When table is dropped, this function is called to mark a table as removed in
+btr_efragment_wq. The difference between this function and the remove_index
+function is this will not NULL the event. */
+void
+btr_defragment_remove_table(
+	dict_table_t*	table)	/*!< Index to be removed. */
+{
+	mutex_enter(&btr_defragment_mutex);
+	for (auto iter = btr_defragment_wq.begin();
+	     iter != btr_defragment_wq.end();
+	     ++iter) {
+		btr_defragment_item_t* item = *iter;
+		btr_pcur_t* pcur = item->pcur;
+		btr_cur_t* cursor = btr_pcur_get_btr_cur(pcur);
+		dict_index_t* idx = btr_cur_get_index(cursor);
+		if (table->id == idx->table->id) {
+			item->removed = true;
+		}
+	}
+	mutex_exit(&btr_defragment_mutex);
+}
+
+/******************************************************************//**
 Query thread uses this function to mark an index as removed in
 btr_efragment_wq. */
 void
 btr_defragment_remove_index(
-	dict_index_t*	index) /*!< Index to be removed. */
+	dict_index_t*	index)	/*!< Index to be removed. */
 {
 	mutex_enter(&btr_defragment_mutex);
 	for (auto iter = btr_defragment_wq.begin();

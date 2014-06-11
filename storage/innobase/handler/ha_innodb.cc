@@ -10820,6 +10820,7 @@ ha_innobase::defragment_table(
 	dict_table_t*	table;
 	dict_index_t*	index;
 	ibool		one_index = (*index_name != 0);
+	int		ret = 0;
 	if (!srv_defragment) {
 		return ER_FEATURE_DISABLED;
 	}
@@ -10841,27 +10842,31 @@ ha_innobase::defragment_table(
 			// We choose this behavior so user is aware of this
 			// rather than silently defragment other indicies of
 			// that table.
-			return ER_SP_ALREADY_EXISTS;
+			ret = ER_SP_ALREADY_EXISTS;
+			break;
 		}
 		os_event_t event = btr_defragment_add_index(index, async);
 		if (!async && event) {
 			while(os_event_wait_time(event, 1000000)) {
 				if (thd_killed(current_thd)) {
 					btr_defragment_remove_index(index);
+					ret = ER_QUERY_INTERRUPTED;
 					break;
 				}
 			}
 			os_event_free(event);
 		}
+		if (ret)
+			break;
 		if (one_index) {
 			one_index = FALSE;
 			break;
 		}
 	}
 	dict_table_close(table, FALSE, FALSE);
-	if (one_index)
-		return ER_NO_SUCH_INDEX;
-	return 0;
+	if (ret == 0 && one_index)
+		ret = ER_NO_SUCH_INDEX;
+	return ret;
 }
 
 /*****************************************************************//**

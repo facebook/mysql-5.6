@@ -149,6 +149,13 @@ btr_defragment_add_index(
 	dict_index_t*	index,	/*!< index to be added  */
 	bool		async);	/*!< whether this is an async defragmentation */
 /******************************************************************//**
+When table is dropped, this function is called to mark a table as removed in
+btr_efragment_wq. The difference between this function and the remove_index
+function is this will not NULL the event. */
+void
+btr_defragment_remove_table(
+	dict_table_t*	table);	/*!< Index to be removed. */
+/******************************************************************//**
 Mark an index as removed from btr_defragment_wq. */
 void
 btr_defragment_remove_index(
