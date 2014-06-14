@@ -1,0 +1,85 @@
+SET @start_value = @@global.log_only_query_comments;
+SELECT @start_value;
+@start_value
+1
+SET @@global.log_only_query_comments = DEFAULT;
+SELECT @@global.log_only_query_comments = TRUE;
+@@global.log_only_query_comments = TRUE
+1
+SET @@global.log_only_query_comments = ON;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+1
+SET @@global.log_only_query_comments = OFF;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+0
+SET @@global.log_only_query_comments = 2;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of '2'
+SET @@global.log_only_query_comments = -1;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of '-1'
+SET @@global.log_only_query_comments = TRUEF;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of 'TRUEF'
+SET @@global.log_only_query_comments = TRUE_F;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of 'TRUE_F'
+SET @@global.log_only_query_comments = FALSE0;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of 'FALSE0'
+SET @@global.log_only_query_comments = OON;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of 'OON'
+SET @@global.log_only_query_comments = ONN;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of 'ONN'
+SET @@global.log_only_query_comments = OOFF;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of 'OOFF'
+SET @@global.log_only_query_comments = 0FF;
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of '0FF'
+SET @@global.log_only_query_comments = ' ';
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of ' '
+SET @@global.log_only_query_comments = " ";
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of ' '
+SET @@global.log_only_query_comments = '';
+ERROR 42000: Variable 'log_only_query_comments' can't be set to the value of ''
+SET @@session.log_only_query_comments = OFF;
+ERROR HY000: Variable 'log_only_query_comments' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.log_only_query_comments;
+ERROR HY000: Variable 'log_only_query_comments' is a GLOBAL variable
+SELECT IF(@@global.log_only_query_comments, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='log_only_query_comments';
+IF(@@global.log_only_query_comments, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.log_only_query_comments = 0;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+0
+SET @@global.log_only_query_comments = 1;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+1
+SET @@global.log_only_query_comments = TRUE;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+1
+SET @@global.log_only_query_comments = FALSE;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+0
+SET @@global.log_only_query_comments = ON;
+SELECT @@log_only_query_comments = @@global.log_only_query_comments;
+@@log_only_query_comments = @@global.log_only_query_comments
+1
+SET log_only_query_comments = ON;
+ERROR HY000: Variable 'log_only_query_comments' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.log_only_query_comments = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'log_only_query_comments = OFF' at line 1
+SELECT local.log_only_query_comments;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.log_only_query_comments = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'log_only_query_comments = ON' at line 1
+SELECT global.log_only_query_comments;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT log_only_query_comments = @@session.log_only_query_comments;
+ERROR 42S22: Unknown column 'log_only_query_comments' in 'field list'
+SET @@global.log_only_query_comments = @start_value;
+SELECT @@global.log_only_query_comments;
+@@global.log_only_query_comments
+1
