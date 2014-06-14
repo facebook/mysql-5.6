@@ -1,0 +1,24 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+set timestamp=1000000000;
+connection master;
+create table t1 (a int);
+
+# Test queries with no comment.
+insert into t1 values(1);
+
+# Test queries with comment.
+/*Comment test */ insert into t1 values(2);
+
+# Multiple comments with spaces in between them.
+/*Comment test */   /* Comment test*/ insert into t1 values(4);
+
+drop table t1;
+
+let $MYSQLD_DATADIR= `select @@datadir`;
+--exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.000001 | grep -A 1 'Rows_query'
+sync_slave_with_master;
+let $SLAVE_DATADIR= `select @@datadir`;
+--exec $MYSQL_BINLOG -v -v $SLAVE_DATADIR/slave-bin.000001 | grep -A 1 'Rows_query'
+source include/rpl_end.inc;

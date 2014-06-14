@@ -535,6 +535,7 @@ my_bool opt_process_can_disable_bin_log = TRUE;
 static const ulong DEFAULT_SRV_FATAL_SEMAPHORE_TIMEOUT = 600; /* in seconds */
 ulong opt_srv_fatal_semaphore_timeout = DEFAULT_SRV_FATAL_SEMAPHORE_TIMEOUT;
 ulong opt_binlog_rows_event_max_size;
+bool opt_log_only_query_comments = false;
 const char *binlog_checksum_default= "NONE";
 ulong binlog_checksum_options;
 my_bool opt_master_verify_checksum= 0;
