@@ -591,6 +591,7 @@ extern int32 opt_binlog_max_flush_queue_time;
 extern ulong max_binlog_size, max_relay_log_size;
 extern ulong slave_max_allowed_packet;
 extern ulong opt_binlog_rows_event_max_size;
+extern bool opt_log_only_query_comments;
 extern ulong binlog_checksum_options;
 extern const char *binlog_checksum_type_names[];
 extern my_bool opt_master_verify_checksum;
