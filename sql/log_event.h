@@ -4888,9 +4888,12 @@ public:
     : Ignorable_log_event(thd_arg)
   {
     DBUG_ENTER("Rows_query_log_event::Rows_query_log_event");
-    if (!(m_rows_query= (char*) my_malloc(query_len + 1, MYF(MY_WME))))
+    uint32_t len = query_len;
+    if (opt_log_only_query_comments)
+      len = get_comment_length(query, len);
+    if (!(m_rows_query= (char*) my_malloc(len + 1, MYF(MY_WME))))
       return;
-    my_snprintf(m_rows_query, query_len + 1, "%s", query);
+    my_snprintf(m_rows_query, len + 1, "%s", query);
     DBUG_PRINT("enter", ("%s", m_rows_query));
     DBUG_VOID_RETURN;
   }
@@ -4922,6 +4925,17 @@ public:
 
 private:
 
+  /*
+   * Returns the length of comment at the start of the query.
+   * If no comment is present, returns the full length of the
+   * query.
+   *
+   * @param str    query
+   * @param length length of the input string
+   *
+   * @return  comment length.
+   */
+  uint get_comment_length(const char* str, uint length) const;
   char * m_rows_query;
 };
 

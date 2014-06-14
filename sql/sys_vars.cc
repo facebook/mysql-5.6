@@ -951,6 +951,13 @@ static Sys_var_mybool Sys_binlog_rows_query(
        SESSION_VAR(binlog_rows_query_log_events),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_log_query_comments(
+       "log_only_query_comments",
+       "Writes only the comments part at the beginning of the query "
+       "in Rows_query_log_events.",
+       GLOBAL_VAR(opt_log_only_query_comments),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static Sys_var_mybool Sys_binlog_order_commits(
        "binlog_order_commits",
        "Issue internal commit calls in the same order as transactions are"

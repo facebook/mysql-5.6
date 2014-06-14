@@ -404,6 +404,10 @@ The following options may be given as the first argument:
  error log
  (Defaults to on; use --skip-log-gtid-unsafe-statements to disable.)
  --log-isam[=name]   Log all MyISAM changes to file.
+ --log-only-query-comments 
+ Writes only the comments part at the beginning of the
+ query in Rows_query_log_events.
+ (Defaults to on; use --skip-log-only-query-comments to disable.)
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE
  --log-queries-not-using-indexes 
@@ -1261,6 +1265,7 @@ log-error
 log-global-var-changes FALSE
 log-gtid-unsafe-statements TRUE
 log-isam myisam.log
+log-only-query-comments TRUE
 log-output FILE
 log-queries-not-using-indexes FALSE
 log-raw FALSE
