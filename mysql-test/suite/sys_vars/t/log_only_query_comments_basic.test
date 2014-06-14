@@ -1,0 +1,81 @@
+--source include/have_innodb.inc
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.log_only_query_comments;
+SELECT @start_value;
+
+
+SET @@global.log_only_query_comments = DEFAULT;
+SELECT @@global.log_only_query_comments = TRUE;
+
+
+SET @@global.log_only_query_comments = ON;
+SELECT @@global.log_only_query_comments;
+SET @@global.log_only_query_comments = OFF;
+SELECT @@global.log_only_query_comments;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_only_query_comments = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.log_only_query_comments = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_only_query_comments;
+
+
+SELECT IF(@@global.log_only_query_comments, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='log_only_query_comments';
+
+
+SET @@global.log_only_query_comments = 0;
+SELECT @@global.log_only_query_comments;
+SET @@global.log_only_query_comments = 1;
+SELECT @@global.log_only_query_comments;
+
+SET @@global.log_only_query_comments = TRUE;
+SELECT @@global.log_only_query_comments;
+SET @@global.log_only_query_comments = FALSE;
+SELECT @@global.log_only_query_comments;
+
+SET @@global.log_only_query_comments = ON;
+SELECT @@log_only_query_comments = @@global.log_only_query_comments;
+
+--Error ER_GLOBAL_VARIABLE
+SET log_only_query_comments = ON;
+--Error ER_PARSE_ERROR
+SET local.log_only_query_comments = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.log_only_query_comments;
+--Error ER_PARSE_ERROR
+SET global.log_only_query_comments = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.log_only_query_comments;
+--Error ER_BAD_FIELD_ERROR
+SELECT log_only_query_comments = @@session.log_only_query_comments;
+
+SET @@global.log_only_query_comments = @start_value;
+SELECT @@global.log_only_query_comments;
