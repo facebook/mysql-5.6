@@ -1,0 +1,28 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set timestamp=1000000000;
+create table t1 (a int);
+insert into t1 values(1);
+/*Comment test */ insert into t1 values(2);
+/*Comment test */   /* Comment test*/ insert into t1 values(4);
+drop table t1;
+#010909  4:46:40 server id 1  end_log_pos 325 	Rows_query
+# insert into t1 values(1)
+--
+#010909  4:46:40 server id 1  end_log_pos 576 	Rows_query
+# /*Comment test */
+--
+#010909  4:46:40 server id 1  end_log_pos 847 	Rows_query
+# /*Comment test */   /* Comment test*/
+#010909  4:46:40 server id 1  end_log_pos 316 	Rows_query
+# insert into t1 values(1)
+--
+#010909  4:46:40 server id 1  end_log_pos 549 	Rows_query
+# /*Comment test */
+--
+#010909  4:46:40 server id 1  end_log_pos 802 	Rows_query
+# /*Comment test */   /* Comment test*/
+include/rpl_end.inc
