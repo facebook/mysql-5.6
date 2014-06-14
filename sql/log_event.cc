@@ -13664,6 +13664,41 @@ Rows_query_log_event::print(FILE *file,
   }
 }
 #endif
+uint
+Rows_query_log_event::get_comment_length(const char* str, uint length) const {
+  const char *pos = str;
+  const char *end = str + length;
+  int comment_length = 0;
+comment_begin:
+  // In the first loop, look to see if the query text starts with a comment
+  while (pos < end) {
+    if (my_isspace(&my_charset_latin1, *pos)) {
+      // Skip spaces
+      pos++;
+      continue;
+    } else if (*pos == '/' && (pos + 1) < end && *(pos + 1) == '*') {
+      // Comment begins here. Find the end of the comment in the while loop
+      // below.
+      pos += 2;
+      break;
+    }
+    return comment_length ? comment_length : length;
+  }
+  while (pos < end) {
+  // We only get here if the first loop found the start of a comment.
+  // Now look for the end of one.
+    if (*pos++ == '*') {
+      if (pos < end && *pos == '/') {
+        pos++;
+        comment_length = pos - str;
+       // A query can have multiple comments, so start matching
+       // the comment again.
+       goto comment_begin;
+      }
+    }
+  }
+  return comment_length ? comment_length : length;
+}
 
 bool
 Rows_query_log_event::write_data_body(IO_CACHE *file)
