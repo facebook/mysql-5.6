@@ -2993,6 +2993,15 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
 
     // reclaiming resources allocated during the group scheduling
     free_root(&rli->mts_coor_mem_root, MYF(MY_KEEP_PREALLOC));
+    /*
+      Coordinator should not use the main memroot however its not
+      reset elsewhere either, so let's do it safe way
+      The main mem root is also reset by the SQL thread in at the end
+      of applying which Coordinator does not do in this case
+      That concludes the memroot reset can't harm anything in SQL thread roles
+      after Coordinator has finished its current scheduling.
+    */
+    free_root(thd->mem_root, MYF(MY_KEEP_PREALLOC));
 
 #ifndef DBUG_OFF
     w_rr++;
