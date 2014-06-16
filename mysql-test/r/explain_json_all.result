@@ -387,15 +387,12 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	t2	ALL	NULL	NULL	NULL	NULL	2	NULL
 1	PRIMARY	t1	ALL	NULL	NULL	NULL	NULL	7	Using join buffer (Block Nested Loop)
 2	UNION	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
-NULL	UNION RESULT	<union1,2>	ALL	NULL	NULL	NULL	NULL	NULL	Using temporary
 EXPLAIN FORMAT=JSON (SELECT t1.i FROM t1 JOIN t2) UNION ALL (SELECT * FROM t3 WHERE i IN (SELECT i FROM t4 ORDER BY RAND()));
 EXPLAIN
 {
   "query_block": {
     "union_result": {
-      "using_temporary_table": true,
-      "table_name": "<union1,2>",
-      "access_type": "ALL",
+      "using_temporary_table": false,
       "query_specifications": [
         {
           "dependent": false,
@@ -1332,7 +1329,6 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	PRIMARY	<derived2>	ALL	NULL	NULL	NULL	NULL	2	Using temporary; Using filesort
 2	DERIVED	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
 3	UNION	NULL	NULL	NULL	NULL	NULL	NULL	NULL	No tables used
-NULL	UNION RESULT	<union2,3>	ALL	NULL	NULL	NULL	NULL	NULL	Using temporary
 EXPLAIN FORMAT=JSON SELECT a, b FROM 
 (SELECT 1 AS a, 2 AS b
 UNION ALL
@@ -1359,9 +1355,7 @@ EXPLAIN
             "cacheable": true,
             "query_block": {
               "union_result": {
-                "using_temporary_table": true,
-                "table_name": "<union2,3>",
-                "access_type": "ALL",
+                "using_temporary_table": false,
                 "query_specifications": [
                   {
                     "dependent": false,

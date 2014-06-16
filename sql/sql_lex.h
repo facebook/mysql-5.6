@@ -558,6 +558,7 @@ public:
     : union_result(NULL), table(NULL), result(NULL),
       cleaned(false),
       fake_select_lex(NULL),
+      saved_fake_select_lex(NULL),
       explain_marker(0)
   {
   }
@@ -597,6 +598,11 @@ public:
     ORDER BY and LIMIT
   */
   st_select_lex *fake_select_lex;
+  /**
+    SELECT_LEX that stores LIMIT and OFFSET for UNION ALL when no
+    fake_select_lex is used.
+   */
+  st_select_lex *saved_fake_select_lex;
 
   st_select_lex *union_distinct; /* pointer to the last UNION DISTINCT */
   bool describe; /* union exec() called for EXPLAIN */
@@ -647,6 +653,7 @@ public:
   void set_limit(st_select_lex *values);
   void set_thd(THD *thd_arg) { thd= thd_arg; }
   inline bool is_union (); 
+  bool union_needs_tmp_table();
 
   friend void lex_start(THD *thd);
   friend bool subselect_union_engine::exec();
@@ -946,6 +953,22 @@ public:
   */
   void cut_subtree() { slave= 0; }
   bool test_limit();
+  /**
+    Get offset for LIMIT.
+
+    Evaluate offset item if necessary.
+
+    @return Number of rows to skip.
+   */
+  ha_rows get_offset();
+  /**
+    Get limit.
+
+    Evaluate limit item if necessary.
+
+    @return Limit of rows in result.
+   */
+  ha_rows get_limit();
 
   friend void lex_start(THD *thd);
   st_select_lex() : group_list_ptrs(NULL), order_list_ptrs(NULL),
