@@ -727,6 +727,12 @@ return_zero_rows(JOIN *join, List<Item> &fields)
   DBUG_ENTER("return_zero_rows");
 
   join->join_free();
+  /* Update results for FOUND_ROWS */
+  if (!join->send_row_on_empty_set())
+  {
+    join->thd->set_examined_row_count(0);
+    join->thd->limit_found_rows= 0;
+  }
 
   if (!(join->result->send_result_set_metadata(fields,
                                                Protocol::SEND_NUM_ROWS | 
@@ -758,9 +764,6 @@ return_zero_rows(JOIN *join, List<Item> &fields)
     if (!send_error)
       join->result->send_eof();                 // Should be safe
   }
-  /* Update results for FOUND_ROWS */
-  join->thd->set_examined_row_count(0);
-  join->thd->limit_found_rows= 0;
   DBUG_VOID_RETURN;
 }
 
