@@ -1,4 +1,5 @@
-/* Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights
+   reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -2091,8 +2092,11 @@ bool mysql_explain_unit(THD *thd, SELECT_LEX_UNIT *unit, select_result *result)
 
   if (unit->is_union())
   {
-    unit->fake_select_lex->select_number= UINT_MAX; // just for initialization
-    unit->fake_select_lex->options|= SELECT_DESCRIBE;
+    if (unit->fake_select_lex != NULL)
+    {
+      unit->fake_select_lex->select_number= UINT_MAX; // just for initialization
+      unit->fake_select_lex->options|= SELECT_DESCRIBE;
+    }
 
     res= unit->prepare(thd, result, SELECT_NO_UNLOCK | SELECT_DESCRIBE);
 
