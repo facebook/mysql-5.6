@@ -52,11 +52,7 @@ static inline int msg(const char *fmt, ...)
 	return result;
 }
 
-#if MYSQL_VERSION_ID >= 50500
-# define MY_FREE(a) my_free(a)
-#else
-# define MY_FREE(a) my_free(a, MYF(0))
-#endif
+#define MY_FREE(a) my_free(a)
 
 /* Use POSIX_FADV_NORMAL when available */
 
