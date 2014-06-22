@@ -3273,6 +3273,17 @@ int Log_event::apply_event(Relay_log_info *rli)
               rli->gaq->assigned_group_index;
             append_item_to_jobs(job_item, rli->last_assigned_worker, rli);
           }
+          else if (rli->curr_group_seen_gtid || rli->curr_group_seen_begin)
+          {
+            // This is a scenario where "STOP SLAVE" results in a partial
+            // transaction with GTID_NEXT event or BEGIN event in the relay
+            // log. The last enqueued job must be removed from the
+            // Group Assigned Queue (gaq), otherwise the job group for the
+            // partial transaction which has garbage information (since the
+            // transaction is not assigned to any worker thread) ends up in gaq.
+            Slave_job_group job_group;
+            rli->gaq->de_tail((uchar*) &job_group);
+          }
           // Clean rli state to avoid assertions.
           for (uint i= 0; i < rli->curr_group_da.elements; i++)
             delete *(Log_event**) dynamic_array_ptr(&rli->curr_group_da, i);
