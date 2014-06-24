@@ -3333,6 +3333,9 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
       goto err;
     bytes_written+= extra_description_event->data_written;
   }
+
+  DBUG_EXECUTE_IF("delay_open_binlog", sleep(5););
+
   if (flush_io_cache(&log_file) ||
       mysql_file_sync(log_file.file, MYF(MY_WME)))
     goto err;
