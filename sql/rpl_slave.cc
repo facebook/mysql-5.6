@@ -6819,6 +6819,9 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
   if (mi->get_mi_description_event()->binlog_version < 4 &&
       event_type != FORMAT_DESCRIPTION_EVENT /* a way to escape */)
   {
+    // Old FDE doesn't have description of the heartbeat events. Skip them.
+    if (event_type == HEARTBEAT_LOG_EVENT)
+      goto skip_relay_logging;
     int ret= queue_old_event(mi,buf,event_len);
     mysql_mutex_unlock(&mi->data_lock);
     DBUG_RETURN(ret);

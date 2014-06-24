@@ -1,0 +1,21 @@
+source include/master-slave.inc;
+source include/have_debug.inc;
+
+connection master;
+let $old_debug = `select @@global.debug`;
+set global debug = '+d,delay_open_binlog';
+create table t1(a int);
+sync_slave_with_master;
+
+source include/stop_slave.inc;
+change master to master_heartbeat_period=0.25;
+source include/start_slave.inc;
+
+connection master;
+insert into t1 values(1);
+flush logs;
+drop table t1;
+
+set global debug = '$old_debug';
+
+source include/rpl_end.inc;
