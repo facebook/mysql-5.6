@@ -241,6 +241,15 @@ inline double my_timer_to_microseconds(ulonglong when)
   return ret;
 }
 
+/* Convert microseconds in a double to native timer units in a ulonglong */
+inline ulonglong microseconds_to_my_timer(double when)
+{
+  double ret = when;
+  ret *= (double)(my_timer.frequency);
+  ret /= 1000000.0;
+  return (ulonglong)ret;
+}
+
 /** Compression statistics for a fil_space */
 struct comp_stat_struct {
   /** Size of the compressed data on the page */
