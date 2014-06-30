@@ -597,6 +597,9 @@ buf_page_is_corrupted(
 				(lsn_t) mach_read_from_8(
 					read_buf + FIL_PAGE_LSN),
 				current_lsn);
+#ifdef XTRABACKUP
+			abort_with_stack_traces();
+#endif /* XTRABACKUP */
 		}
 	}
 #endif
