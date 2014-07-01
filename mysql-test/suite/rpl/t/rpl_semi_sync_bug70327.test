@@ -3,6 +3,8 @@
 --source include/rpl_init.inc
 
 call mtr.add_suppression("Bad semi-sync reply received *");
+call mtr.add_suppression("Slave SQL: Request to stop slave SQL *");
+
 connection server_1;
 set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
 set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
@@ -39,6 +41,7 @@ source include/rpl_sync.inc;
 
 connection server_3;
 source include/stop_slave.inc;
+source include/save_io_thread_pos.inc;
 change master to master_log_file='master-bin.000002', master_log_pos=120;
 start slave;
 let $slave_io_errno = 1236; # ER_MASTER_FATAL_ERROR_READING_BINLOG
@@ -49,7 +52,8 @@ insert into t1 values(3);
 
 connection server_3;
 source include/stop_slave.inc;
-change master to master_log_file='master-bin.000001', master_log_pos=120;
+replace_result $_saved_pos POS;
+eval change master to master_log_file='$_saved_file', master_log_pos=$_saved_pos;
 source include/start_slave.inc;
 
 connection server_2;
