@@ -159,7 +159,10 @@ int ReplSemiSyncSlave::slaveRequestDump(MYSQL *mysql)
   const char *query;
 
   if (!getSlaveEnabled())
+  {
+    rpl_semi_sync_slave_status = 0;
     return 0;
+  }
 
   /* Check if master server has semi-sync plugin installed */
   query= "SHOW VARIABLES LIKE 'rpl_semi_sync_master_enabled'";
