@@ -106,7 +106,7 @@ bool Item_func_json_valid::val_bool()
   if (json)
   {
     rapidjson::Document document;
-    if (!document.Parse<0>(json->c_ptr()).HasParseError())
+    if (!document.Parse<0>(json->c_ptr_safe()).HasParseError())
       return true;
   }
 
@@ -132,7 +132,7 @@ String *Item_func_json_extract::val_str(String *str)
   if (pstr)
   {
     rapidjson::Document document;
-    if (!document.Parse<0>(pstr->c_ptr()).HasParseError())
+    if (!document.Parse<0>(pstr->c_ptr_safe()).HasParseError())
     {
       rapidjson::Value &value = document;
       unsigned i = 1;
@@ -142,7 +142,7 @@ String *Item_func_json_extract::val_str(String *str)
         {
           rapidjson::Value::Member *member = nullptr;
           if ( (pstr = args[i]->val_str(str)) )
-            member = value.FindMember(pstr->c_ptr());
+            member = value.FindMember(pstr->c_ptr_safe());
 
           if (member)
             value = member->value;
@@ -162,7 +162,7 @@ String *Item_func_json_extract::val_str(String *str)
         res = ValueToString(value,*str,collation.collation);
     }
     else
-      my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr());
+      my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr_safe());
   }
 
   if (!res)
@@ -194,7 +194,7 @@ bool Item_func_json_contains_key::val_bool()
   if (pstr)
   {
     rapidjson::Document document;
-    if (!document.Parse<0>(pstr->c_ptr()).HasParseError())
+    if (!document.Parse<0>(pstr->c_ptr_safe()).HasParseError())
     {
       rapidjson::Value &value = document;
       unsigned i = 1;
@@ -204,7 +204,7 @@ bool Item_func_json_contains_key::val_bool()
         {
           rapidjson::Value::Member *member = nullptr;
           if ( (pstr = args[i]->val_str(&buffer)) )
-            member = value.FindMember(pstr->c_ptr());
+            member = value.FindMember(pstr->c_ptr_safe());
 
           if (member)
             value = member->value;
@@ -224,7 +224,7 @@ bool Item_func_json_contains_key::val_bool()
         res = true;
     }
     else
-      my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr());
+      my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr_safe());
   }
 
   return res;
@@ -251,15 +251,15 @@ longlong Item_func_json_array_length::val_int()
   if (pstr)
   {
     rapidjson::Document document;
-    if (!document.Parse<0>(pstr->c_ptr()).HasParseError())
+    if (!document.Parse<0>(pstr->c_ptr_safe()).HasParseError())
     {
       if (document.IsArray())
         res = document.Size();
       else
-        my_error(ER_INVALID_JSON_ARRAY, MYF(0), pstr->c_ptr());
+        my_error(ER_INVALID_JSON_ARRAY, MYF(0), pstr->c_ptr_safe());
     }
     else
-      my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr());
+      my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr_safe());
   }
 
   return res;
