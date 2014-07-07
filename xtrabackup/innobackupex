@@ -856,7 +856,7 @@ sub apply_log {
     $rcode = system("$cmdline");
     if ($rcode) {
         # failure
-        Die "\n$prefix ibbackup failed";
+        Die "Exit code $rcode from: $cmdline\n$prefix Error: ibbackup failed";
     }
 
     # We should not create ib_logfile files if we prepare for following incremental applies
@@ -867,7 +867,7 @@ sub apply_log {
         $rcode = system("$cmdline");
         if ($rcode) {
             # failure
-            Die "\n$prefix xtrabackup (2nd execution) failed";
+            Die "Exit code $rcode from: $cmdline\n$prefix xtrabackup (2nd execution) failed";
         }
     }
 
@@ -890,7 +890,7 @@ sub apply_log {
             $rcode = system("$cmdline");
             if ($rcode) {
                 # failure
-                Die "\n$prefix Failed to remove stale xtrabackup_slave_info in $backup_dir";
+                Die "Exit code $rcode from: $cmdline\n$prefix Failed to remove stale xtrabackup_slave_info in $backup_dir";
             }
 
         }
