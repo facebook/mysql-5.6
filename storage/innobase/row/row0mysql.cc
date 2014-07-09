@@ -54,6 +54,7 @@ Created 9/17/2000 Heikki Tuuri
 #include "lock0lock.h"
 #include "rem0cmp.h"
 #include "log0log.h"
+#include "btr0defragment.h"
 #include "btr0sea.h"
 #include "fil0fil.h"
 #include "ibuf0ibuf.h"
