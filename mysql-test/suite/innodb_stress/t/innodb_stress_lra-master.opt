@@ -7,3 +7,4 @@
 --innodb_buffer_pool_size=128M
 --innodb_use_native_aio=1
 --innodb_flush_method=O_DIRECT
+--core_file
