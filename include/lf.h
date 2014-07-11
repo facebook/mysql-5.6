@@ -222,6 +222,11 @@ C_MODE_START
 
 #define LF_HASH_UNIQUE 1
 
+typedef int (*lf_key_comparison_func_t) (const uchar *s, size_t slen,
+                                         const uchar *t, size_t tlen);
+
+typedef ulong (*lf_hashfunc_t) (const char *key, size_t key_len);
+
 /* lf_hash overhead per element (that is, sizeof(LF_SLIST) */
 extern const int LF_HASH_OVERHEAD;
 
@@ -235,6 +240,18 @@ typedef struct {
   uint flags;                           /* LF_HASH_UNIQUE, etc */
   int32 volatile size;                  /* size of array */
   int32 volatile count;                 /* number of elements in the hash */
+
+  /*
+    The hash needs to be able to compare keys when they have hash collision.
+
+    By default, key_comparator==NULL, and keys are compared with
+      my_strnncoll(charset, KEY1, KEY2)
+
+    When my_strnncoll cannot provide correct comparison, the user should set
+    key_comparator to provide the comparison function.
+  */
+  lf_key_comparison_func_t  key_comparator;
+  lf_hashfunc_t             hashfunc;
 } LF_HASH;
 
 void lf_hash_init(LF_HASH *hash, uint element_size, uint flags,
