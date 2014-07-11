@@ -1052,7 +1052,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   /*
     We only support auto_increment at start of the PRIMARY KEY.
   */
-  Field *field;
+  //Field *field;
   //if ((field= table_arg->next_number_field))
   /* TODO mdcallag: disable this for now to let UNIQUE indexes kind of work
   if ((field= table_arg->found_next_number_field))
