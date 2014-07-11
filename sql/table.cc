@@ -2141,6 +2141,12 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         if (key == primary_key)
         {
           field->flags|= PRI_KEY_FLAG;
+
+          /*
+            LevelDB SE: we need to re-read to get correct value of
+            HA_PRIMARY_KEY_IN_READ_INDEX
+          */
+          ha_option= handler_file->ha_table_flags();
           /*
             If this field is part of the primary key and all keys contains
             the primary key, then we can use any key to find this column

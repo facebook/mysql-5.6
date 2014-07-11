@@ -947,3 +947,28 @@
    fun:gaih_inet
    fun:getaddrinfo
 }
+
+#
+# LevelDB Storage Engine suppressions
+#
+{
+   Still reachable for once-per-process intializations
+   Memcheck:Leak
+   ...
+   fun:_ZN7leveldb4port8InitOnceEPiPFvvE
+   fun:_ZN7leveldb18BytewiseComparatorEv
+   fun:_ZN7leveldb7OptionsC1Ev
+   fun:_ZL17leveldb_init_funcPv
+}
+
+{
+   Still reachable for once-per-process intializations (2)
+   Memcheck:Leak
+   ...
+   fun:_ZN7leveldbL14InitDefaultEnvEv
+   ...
+   fun:_ZN7leveldb3Env7DefaultEv
+   fun:_ZN7leveldb7OptionsC1Ev
+   fun:_ZL17leveldb_init_funcPv
+}
+

@@ -1,0 +1,67 @@
+# 
+# Basic CREATE TABLE statements
+#
+
+#############################################
+# TODO:
+# A part of the test is currently disabled 
+# because temporary tables are not supported
+#############################################
+
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2;
+--enable_warnings
+
+# Simple create table with minimal table options
+# which are defined in have_engine.inc
+# (default empty) plus ENGINE=
+
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=LevelDB;
+SHOW CREATE TABLE t1;
+
+# IF NOT EXISTS
+CREATE TABLE IF NOT EXISTS t1 (a INT PRIMARY KEY) ENGINE=LevelDB;
+
+# CREATE .. LIKE
+
+CREATE TABLE t2 LIKE t1;
+SHOW CREATE TABLE t2;
+
+--error ER_ILLEGAL_HA_CREATE_OPTION 
+CREATE TEMPORARY TABLE t2 (a INT PRIMARY KEY) ENGINE=LevelDB;
+
+--disable_parsing
+
+DROP TABLE t2;
+
+CREATE TEMPORARY TABLE t2 LIKE t1;
+
+SHOW CREATE TABLE t2;
+DROP TEMPORARY TABLE t2;
+
+--enable_parsing
+
+DROP TABLE t2;
+
+DROP TABLE IF EXISTS t1;
+
+# CREATE .. AS SELECT
+
+# Use the engine as default
+
+SET default_storage_engine = LevelDB;
+
+CREATE TABLE t1 (a INT PRIMARY KEY);
+SHOW CREATE TABLE t1;
+DROP TABLE t1;
+
+CREATE TABLE t1 (a INT PRIMARY KEY) AS SELECT 1 AS a UNION SELECT 2 AS a;
+SHOW CREATE TABLE t1;
+--sorted_result
+SELECT * FROM t1;
+
+# Just to add FLUSH LOGS into the mix while we are in the most common test
+FLUSH LOGS;
+
+DROP TABLE IF EXISTS t1;
+
