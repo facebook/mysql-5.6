@@ -1,0 +1,3 @@
+let $trx_isolation = REPEATABLE READ;
+--source transaction_isolation.inc
+
