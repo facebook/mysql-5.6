@@ -1205,7 +1205,7 @@ append_identifier(THD *thd, String *packet, const char *name, uint length,
       to_length= 1;
     if (to_length == 1 && chr == (uchar) quote_char)
       packet->append(&quote_char, 1, system_charset_info);
-    packet->append(to_name, to_length, system_charset_info);
+    packet->append(to_name, to_length, cs_info);
   }
   packet->append(&quote_char, 1, system_charset_info);
 }

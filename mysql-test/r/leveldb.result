@@ -1,0 +1,1171 @@
+select * from information_schema.engines where engine = 'leveldb';
+ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+LEVELDB	YES	LevelDB storage engine	YES	NO	NO
+drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10;
+drop table if exists t11,t12,t13,t14,t15,t16,t17,t18,t19,t20;
+drop table if exists t21,t22,t23,t24,t25,t26,t27,t28,t29;
+drop table if exists t30,t31,t32,t33,t34,t35,t36,t37,t38,t39;
+drop table if exists t40,t41,t42,t43,t44,t45,t46,t47,t48,t49;
+create table t0 (a int primary key) engine=leveldb;
+show create table t0;
+Table	Create Table
+t0	CREATE TABLE `t0` (
+  `a` int(11) NOT NULL,
+  PRIMARY KEY (`a`)
+) ENGINE=LEVELDB DEFAULT CHARSET=latin1
+drop table t0;
+# Try creating a table without PK:
+create table t1(a int) engine=leveldb;
+ERROR 42000: This table type requires a primary key
+create table t1 (a int primary key, b int) engine=leveldb;
+insert into t1 values (1,1);
+insert into t1 values (2,2);
+select * from t1;
+a	b
+1	1
+2	2
+# Check that we can create another table and insert there
+create table t2 (a varchar(10) primary key, b varchar(10)) engine=leveldb;
+insert into t2 value ('abc','def');
+insert into t2 value ('hijkl','mnopq');
+select * from t2;
+a	b
+abc	def
+hijkl	mnopq
+# Select again from t1 to see that records from different tables dont mix
+select * from t1;
+a	b
+1	1
+2	2
+explain select * from t2 where a='no-such-key';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	NULL	NULL	NULL	NULL	NULL	NULL	NULL	Impossible WHERE noticed after reading const tables
+explain select * from t2 where a='abc';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	const	PRIMARY	PRIMARY	12	const	1	NULL
+select * from t2 where a='abc';
+a	b
+abc	def
+# Try a composite PK
+create table t3 (
+pk1 int, 
+pk2 varchar(10),
+col1 varchar(10),
+primary key(pk1, pk2)
+) engine=leveldb;
+insert into t3 values (2,'two', 'row#2');
+insert into t3 values (3,'three', 'row#3');
+insert into t3 values (1,'one', 'row#1');
+select * from t3;
+pk1	pk2	col1
+1	one	row#1
+2	two	row#2
+3	three	row#3
+select * from t3 where pk1=3 and pk2='three';
+pk1	pk2	col1
+3	three	row#3
+drop table t1, t2, t3;
+# 
+# Test blob values
+#
+create table t4 (a int primary key, b blob) engine=leveldb;
+insert into t4 values (1, repeat('quux-quux', 60));
+insert into t4 values (10, repeat('foo-bar', 43));
+insert into t4 values (5, repeat('foo-bar', 200));
+insert into t4 values (2, NULL);
+select 
+a,
+(case a 
+when 1  then b=repeat('quux-quux', 60)
+when 10 then b=repeat('foo-bar', 43)
+when 5  then b=repeat('foo-bar', 200)
+when 2  then b is null
+else 'IMPOSSIBLE!' end) as CMP
+from t4;
+a	CMP
+1	1
+2	1
+5	1
+10	1
+drop table t4;
+#
+# Test blobs of various sizes
+# 
+# TINYBLOB
+create table t5 (a int primary key, b tinyblob) engine=leveldb;
+insert into t5 values (1, repeat('quux-quux', 6));
+insert into t5 values (10, repeat('foo-bar', 4));
+insert into t5 values (5, repeat('foo-bar', 2));
+select 
+a,
+(case a 
+when 1  then b=repeat('quux-quux', 6)
+when 10 then b=repeat('foo-bar', 4)
+when 5  then b=repeat('foo-bar', 2)
+else 'IMPOSSIBLE!' end) as CMP
+from t5;
+a	CMP
+1	1
+5	1
+10	1
+drop table t5;
+# MEDIUMBLOB
+create table t6 (a int primary key, b mediumblob) engine=leveldb;
+insert into t6 values (1, repeat('AB', 65000));
+insert into t6 values (10, repeat('bbb', 40000));
+insert into t6 values (5, repeat('foo-bar', 2));
+select 
+a,
+(case a 
+when 1  then b=repeat('AB', 65000)
+when 10 then b=repeat('bbb', 40000)
+when 5  then b=repeat('foo-bar', 2)
+else 'IMPOSSIBLE!' end) as CMP
+from t6;
+a	CMP
+1	1
+5	1
+10	1
+drop table t6;
+# LONGBLOB
+create table t7 (a int primary key, b longblob) engine=leveldb;
+insert into t7 values (1, repeat('AB', 65000));
+insert into t7 values (10, repeat('bbb', 40000));
+insert into t7 values (5, repeat('foo-bar', 2));
+select 
+a,
+(case a 
+when 1  then b=repeat('AB', 65000)
+when 10 then b=repeat('bbb', 40000)
+when 5  then b=repeat('foo-bar', 2)
+else 'IMPOSSIBLE!' end) as CMP
+from t7;
+a	CMP
+1	1
+5	1
+10	1
+drop table t7;
+#
+# Check if DELETEs work
+# 
+create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=leveldb;
+insert into t8 values 
+('one', 'eins'),
+('two', 'zwei'),
+('three', 'drei'),
+('four', 'vier'),
+('five', 'funf');
+# Delete by PK
+explain delete from t8 where a='three';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t8	range	PRIMARY	PRIMARY	12	NULL	1	Using where
+delete from t8 where a='three';
+select * from t8;
+a	col1
+five	funf
+four	vier
+one	eins
+two	zwei
+# Delete while doing a full table scan
+delete from t8 where col1='eins' or col1='vier';
+select * from t8;
+a	col1
+five	funf
+two	zwei
+# delete w/o WHERE:
+delete from t8;
+select * from t8;
+a	col1
+#
+# Test UPDATEs
+#
+insert into t8 values 
+('one', 'eins'),
+('two', 'zwei'),
+('three', 'drei'),
+('four', 'vier'),
+('five', 'funf');
+update t8 set col1='dva' where a='two';
+update t8 set a='fourAAA' where col1='vier';
+select * from t8;
+a	col1
+five	funf
+fourAAA	vier
+one	eins
+three	drei
+two	dva
+delete from t8;
+#
+# Basic transactions tests
+#
+begin;
+insert into t8 values ('trx1-val1', 'data');
+insert into t8 values ('trx1-val2', 'data');
+rollback;
+select * from t8;
+a	col1
+begin;
+insert into t8 values ('trx1-val1', 'data');
+insert into t8 values ('trx1-val2', 'data');
+commit;
+select * from t8;
+a	col1
+trx1-val1	data
+trx1-val2	data
+drop table t8;
+#
+# Check if DROP TABLE works
+#
+create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=leveldb;
+select * from t8;
+a	col1
+insert into t8 values ('foo','foo');
+drop table t8;
+create table t8 (a varchar(10) primary key, col1 varchar(12)) engine=leveldb;
+select * from t8;
+a	col1
+drop table t8;
+#
+# MDEV-3961: Assertion ... on creating a TEMPORARY LevelDB table
+#
+CREATE TEMPORARY TABLE t10 (pk INT PRIMARY KEY) ENGINE=LevelDB;
+ERROR HY000: Table storage engine 'LEVELDB' does not support the create option 'TEMPORARY'
+#
+# MDEV-3963: JOIN or WHERE conditions involving keys on LevelDB tables don't work
+#
+CREATE TABLE t10 (i INT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t10 VALUES (1),(3);
+CREATE TABLE t11 (j INT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t11 VALUES (1),(4);
+select * from t10;
+i
+1
+3
+select * from t11;
+j
+1
+4
+EXPLAIN
+SELECT * FROM t10, t11 WHERE i=j;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t10	index	PRIMARY	PRIMARY	4	NULL	1000	Using index
+1	SIMPLE	t11	eq_ref	PRIMARY	PRIMARY	4	test.t10.i	1	Using index
+SELECT * FROM t10, t11 WHERE i=j;
+i	j
+1	1
+DROP TABLE t10,t11;
+#
+# MDEV-3962: SELECT with ORDER BY causes "ERROR 1030 (HY000): Got error 122
+#
+CREATE TABLE t12 (pk INT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t12 VALUES (2),(1);
+SELECT * FROM t12 ORDER BY pk;
+pk
+1
+2
+DROP TABLE t12;
+#
+# MDEV-3964: Assertion `!pk_descr' fails in ha_leveldb::open on adding partitions ...
+#
+create table t14 (pk int primary key) engine=LevelDB partition by hash(pk) partitions 2;
+drop table t14;
+#
+# MDEV-3960: Server crashes on running DISCARD TABLESPACE on a LevelDB table
+#
+create table t9 (i int primary key) engine=leveldb;
+alter table t9 discard tablespace;
+ERROR HY000: Table storage engine for 't9' doesn't have this option
+drop table t9;
+#
+# MDEV-3959: Assertion `slice->size() == table->s->reclength' fails ...
+#   on accessing a table after ALTER
+#
+CREATE TABLE t15 (a INT, leveldb_pk INT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t15 VALUES (1,1),(5,2);
+ALTER TABLE t15 DROP COLUMN a;
+DROP TABLE t15;
+#
+# MDEV-3968: UPDATE produces a wrong result while modifying a PK on a LevelDB table
+#
+create table t16 (pk int primary key, a char(8)) engine=LevelDB;
+insert into t16 values (1,'a'),(2,'b'),(3,'c'),(4,'d');
+update t16 set pk=100, a = 'updated' where a in ('b','c');
+ERROR 23000: Duplicate entry '100' for key 'PRIMARY'
+select * from t16;
+pk	a
+1	a
+2	b
+3	c
+4	d
+drop table t16;
+#
+# MDEV-3970: A set of assorted crashes on inserting a row into a LevelDB table 
+#
+drop table if exists t_very_long_table_name;
+CREATE TABLE `t_very_long_table_name` (
+`c` char(1) NOT NULL,
+`c0` char(0) NOT NULL,
+`c1` char(1) NOT NULL,
+`c20` char(20) NOT NULL,
+`c255` char(255) NOT NULL,
+PRIMARY KEY (`c255`)
+) ENGINE=LevelDB DEFAULT CHARSET=latin1;
+INSERT INTO t_very_long_table_name VALUES ('a', '', 'c', REPEAT('a',20), REPEAT('x',255));
+drop table t_very_long_table_name;
+#
+# Test table locking and read-before-write checks.
+#
+create table t17 (pk varchar(12) primary key, col1 varchar(12)) engine=leveldb;
+insert into t17 values ('row1', 'val1');
+insert into t17 values ('row1', 'val1-try2');
+ERROR 23000: Duplicate entry 'row1' for key 'PRIMARY'
+insert into t17 values ('ROW1', 'val1-try2');
+ERROR 23000: Duplicate entry 'ROW1' for key 'PRIMARY'
+insert into t17 values ('row2', 'val2');
+insert into t17 values ('row3', 'val3');
+# This is ok
+update t17 set pk='row4' where pk='row1';
+# This will try to overwrite another row:
+update t17 set pk='row3' where pk='row2';
+ERROR 23000: Duplicate entry 'row3' for key 'PRIMARY'
+select * from t17;
+pk	col1
+row2	val2
+row3	val3
+row4	val1
+#
+# Locking tests
+#
+# First, make sure there's no locking when transactions update different rows
+set autocommit=0;
+update t17 set col1='UPD1' where pk='row2';
+update t17 set col1='UPD2' where pk='row3';
+commit;
+select * from t17;
+pk	col1
+row2	UPD1
+row3	UPD2
+row4	val1
+# Check the variable
+show variables like 'leveldb_lock_wait_timeout';
+Variable_name	Value
+leveldb_lock_wait_timeout	1
+set leveldb_lock_wait_timeout=2;
+show variables like 'leveldb_lock_wait_timeout';
+Variable_name	Value
+leveldb_lock_wait_timeout	2
+# Try updating the same row from two transactions
+begin;
+update t17 set col1='UPD2-AA' where pk='row2';
+update t17 set col1='UPD2-BB' where pk='row2';
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set leveldb_lock_wait_timeout=1000;
+update t17 set col1='UPD2-CC' where pk='row2';
+rollback;
+select * from t17 where pk='row2';
+pk	col1
+row2	UPD2-CC
+drop table t17;
+#
+#  MDEV-4035: LevelDB: SELECT produces different results inside a transaction (read is not repeatable)
+#
+create table t18 (pk int primary key, i int) engine=LevelDB;
+begin;
+select * from t18;
+pk	i
+select * from t18 where pk = 1;
+pk	i
+connect  con1,localhost,root,,;
+insert into t18 values (1,100);
+connection default;
+select * from t18;
+pk	i
+select * from t18 where pk = 1;
+pk	i
+commit;
+drop table t18;
+#
+# MDEV-4036: LevelDB: INSERT .. ON DUPLICATE KEY UPDATE does not work, produces ER_DUP_KEY
+#
+create table t19 (pk int primary key, i int) engine=LevelDB;
+insert into t19 values (1,1);
+insert into t19 values (1,100) on duplicate key update i = 102;
+select * from t19;
+pk	i
+1	102
+drop table t19;
+# MDEV-4037: LevelDB: REPLACE doesn't work, produces ER_DUP_KEY
+create table t20 (pk int primary key, i int) engine=LevelDB;
+insert into t20 values (1,1);
+replace into t20 values (1,100);
+select * from t20;
+pk	i
+1	100
+drop table t20;
+#
+# MDEV-4041: Server crashes in Primary_key_comparator::get_hashnr on INSERT 
+#
+create table t21 (v varbinary(16) primary key, i int) engine=LevelDB;
+insert into t21 values ('a',1);
+select * from t21;
+v	i
+a	1
+drop table t21;
+#
+# MDEV-4047: LevelDB: Assertion `0' fails in Protocol::end_statement() on multi-table INSERT IGNORE
+#
+CREATE TABLE t22 (a int primary key) ENGINE=LevelDB;
+INSERT INTO t22 VALUES (1),(2);
+CREATE TABLE t23 (b int primary key) ENGINE=LevelDB;
+INSERT INTO t23 SELECT * FROM t22;
+DELETE IGNORE t22.*, t23.* FROM t22, t23 WHERE b < a;
+DROP TABLE t22,t23;
+#
+# MDEV-4046: LevelDB: Multi-table DELETE locks itself and ends with ER_LOCK_WAIT_TIMEOUT
+#
+CREATE TABLE t24 (pk int primary key) ENGINE=LevelDB;
+INSERT INTO t24 VALUES (1),(2);
+CREATE TABLE t25 LIKE t24;
+INSERT INTO t25 SELECT * FROM t24;
+DELETE t25.* FROM t24, t25;
+DROP TABLE t24,t25;
+#
+# MDEV-4044: LevelDB: UPDATE or DELETE with ORDER BY locks itself
+#
+create table t26 (pk int primary key, c char(1)) engine=LevelDB;
+insert into t26 values (1,'a'),(2,'b');
+update t26 set c = 'x' order by pk limit 1;
+delete from t26 order by pk limit 1;
+select * from t26;
+pk	c
+2	b
+drop table t26;
+#
+# Test whether SELECT ... FOR UPDATE puts locks
+#
+create table t27(pk varchar(10) primary key, col1 varchar(20)) engine=LevelDB;
+insert into t27 values 
+('row1', 'row1data'),
+('row2', 'row2data'),
+('row3', 'row3data');
+connection con1;
+begin;
+select * from t27 where pk='row3' for update;
+pk	col1
+row3	row3data
+connection default;
+set leveldb_lock_wait_timeout=1;
+update t27 set col1='row2-modified' where pk='row3';
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+connection con1;
+rollback;
+connection default;
+disconnect con1;
+drop table t27;
+#
+# MDEV-4060: LevelDB: Assertion `! trx->batch' fails in 
+#
+create table t28 (pk int primary key, a int) engine=LevelDB;
+insert into t28 values (1,10),(2,20);
+begin;
+update t28 set a = 100 where pk = 3;
+rollback;
+select * from t28;
+pk	a
+1	10
+2	20
+drop table t28;
+# 
+# Secondary indexes
+#
+create table t30 (
+pk varchar(16) not null primary key, 
+key1 varchar(16) not null, 
+col1 varchar(16) not null,
+key(key1)
+) engine=leveldb;
+insert into t30 values ('row1', 'row1-key', 'row1-data');
+insert into t30 values ('row2', 'row2-key', 'row2-data');
+insert into t30 values ('row3', 'row3-key', 'row3-data');
+explain
+select * from t30 where key1='row2-key';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	ref	key1	key1	18	const	10	Using where
+select * from t30 where key1='row2-key';
+pk	key1	col1
+row2	row2-key	row2-data
+explain 
+select * from t30 where key1='row1';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	ref	key1	key1	18	const	10	Using where
+# This will produce nothing:
+select * from t30 where key1='row1';
+pk	key1	col1
+explain
+select key1 from t30;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	ALL	NULL	NULL	NULL	NULL	1000	NULL
+select key1 from t30;
+key1
+row1-key
+row2-key
+row3-key
+# Create a duplicate record
+insert into t30 values ('row2a', 'row2-key', 'row2a-data');
+# Can we see it?
+select * from t30 where key1='row2-key';
+pk	key1	col1
+row2	row2-key	row2-data
+row2a	row2-key	row2a-data
+delete from t30 where pk='row2';
+select * from t30 where key1='row2-key';
+pk	key1	col1
+row2a	row2-key	row2a-data
+#
+# Range scans on secondary index
+#
+delete from t30;
+insert into t30 values 
+('row1', 'row1-key', 'row1-data'),
+('row2', 'row2-key', 'row2-data'),
+('row3', 'row3-key', 'row3-data'),
+('row4', 'row4-key', 'row4-data'),
+('row5', 'row5-key', 'row5-data');
+explain 
+select * from t30 where key1 <='row3-key';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	key1	key1	18	NULL	10	Using where
+select * from t30 where key1 <='row3-key';
+pk	key1	col1
+row1	row1-key	row1-data
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+explain 
+select * from t30 where key1 between 'row2-key' and 'row4-key';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	key1	key1	18	NULL	10	Using where
+select * from t30 where key1 between 'row2-key' and 'row4-key';
+pk	key1	col1
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+row4	row4-key	row4-data
+explain 
+select * from t30 where key1 in ('row2-key','row4-key');
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	key1	key1	18	NULL	20	Using where
+select * from t30 where key1 in ('row2-key','row4-key');
+pk	key1	col1
+row2	row2-key	row2-data
+row4	row4-key	row4-data
+explain 
+select key1 from t30 where key1 in ('row2-key','row4-key');
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	key1	key1	18	NULL	20	Using where
+select key1 from t30 where key1 in ('row2-key','row4-key');
+key1
+row2-key
+row4-key
+explain 
+select * from t30 where key1 > 'row1-key' and key1 < 'row4-key';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	key1	key1	18	NULL	10	Using where
+select * from t30 where key1 > 'row1-key' and key1 < 'row4-key';
+pk	key1	col1
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+explain 
+select * from t30 order by key1 limit 3;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	index	NULL	key1	18	NULL	3	NULL
+select * from t30 order by key1 limit 3;
+pk	key1	col1
+row1	row1-key	row1-data
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+explain 
+select * from t30 order by key1 desc limit 3;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	index	NULL	key1	18	NULL	3	NULL
+select * from t30 order by key1 desc limit 3;
+pk	key1	col1
+row5	row5-key	row5-data
+row4	row4-key	row4-data
+row3	row3-key	row3-data
+#
+# Range scans on primary key
+#
+explain 
+select * from t30 where pk <='row3';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	PRIMARY	PRIMARY	18	NULL	10	Using where
+select * from t30 where pk <='row3';
+pk	key1	col1
+row1	row1-key	row1-data
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+explain 
+select * from t30 where pk between 'row2' and 'row4';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	PRIMARY	PRIMARY	18	NULL	10	Using where
+select * from t30 where pk between 'row2' and 'row4';
+pk	key1	col1
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+row4	row4-key	row4-data
+explain 
+select * from t30 where pk in ('row2','row4');
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	range	PRIMARY	PRIMARY	18	NULL	2	Using where
+select * from t30 where pk in ('row2','row4');
+pk	key1	col1
+row2	row2-key	row2-data
+row4	row4-key	row4-data
+explain 
+select * from t30 order by pk limit 3;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t30	index	NULL	PRIMARY	18	NULL	3	NULL
+select * from t30 order by pk limit 3;
+pk	key1	col1
+row1	row1-key	row1-data
+row2	row2-key	row2-data
+row3	row3-key	row3-data
+drop table t30;
+#
+# MDEV-3841: LevelDB: Reading by PK prefix does not work
+#
+create table t31 (i int, j int, k int, primary key(i,j,k)) engine=LevelDB;
+insert into t31 values (1,10,100),(2,20,200);
+select * from t31 where i = 1;
+i	j	k
+1	10	100
+select * from t31 where j = 10;
+i	j	k
+1	10	100
+select * from t31 where k = 100;
+i	j	k
+1	10	100
+select * from t31 where i = 1 and j = 10;
+i	j	k
+1	10	100
+select * from t31 where i = 1 and k = 100;
+i	j	k
+1	10	100
+select * from t31 where j = 10 and k = 100;
+i	j	k
+1	10	100
+select * from t31 where i = 1 and j = 10 and k = 100;
+i	j	k
+1	10	100
+drop table t31;
+#
+# MDEV-4055: LevelDB: UPDATE/DELETE by a multi-part PK does not work
+#
+create table t32 (i int, j int, k int, primary key(i,j,k), a varchar(8)) engine=LevelDB;
+insert into t32 values 
+(1,10,100,''),
+(2,20,200,'');
+select * from t32 where i = 1 and j = 10 and k = 100;
+i	j	k	a
+1	10	100	
+update t32 set a = 'updated' where i = 1 and j = 10 and k = 100;
+select * from t32;
+i	j	k	a
+1	10	100	updated
+2	20	200	
+drop table t32;
+#
+# MDEV-3841: LevelDB: Assertion `0' fails in ha_leveldb::index_read_map on range select with ORDER BY .. DESC
+#
+CREATE TABLE t33 (pk INT PRIMARY KEY, a CHAR(1)) ENGINE=LevelDB;
+INSERT INTO t33 VALUES (1,'a'),(2,'b');
+SELECT * FROM t33 WHERE pk <= 10 ORDER BY pk DESC;
+pk	a
+2	b
+1	a
+DROP TABLE t33;
+#
+# MDEV-4081: LevelDB throws error 122 on an attempt to create a table with unique index
+#
+create table t33 (pk int primary key, u int, unique index(u)) engine=LevelDB;
+ERROR HY000: Got error 187 'Unique indexes are not supported' from LEVELDB
+#
+# MDEV-4077: LevelDB: Wrong result (duplicate row) on select with range 
+#
+CREATE TABLE t34 (pk INT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t34 VALUES (10),(11);
+SELECT pk FROM t34 WHERE pk > 5 AND pk < 15;
+pk
+10
+11
+SELECT pk FROM t34 WHERE pk BETWEEN 5 AND 15;
+pk
+10
+11
+SELECT pk FROM t34 WHERE pk > 5;
+pk
+10
+11
+SELECT pk FROM t34 WHERE pk < 15;
+pk
+10
+11
+drop table t34;
+#
+# MDEV-4086: LevelDB does not allow a query with multi-part pk and index and ORDER BY .. DEC
+#
+create table t35 (a int, b int, c int, d int, e int, primary key (a,b,c), key (a,c,d,e)) engine=LevelDB;
+insert into t35 values (1,1,1,1,1),(2,2,2,2,2);
+select * from t35 where a = 1 and c = 1 and d = 1 order by e desc;
+a	b	c	d	e
+1	1	1	1	1
+drop table t35;
+#
+# MDEV-4084: LevelDB: Wrong result on IN subquery with index
+#
+CREATE TABLE t36 (pk INT PRIMARY KEY, a INT, KEY(a)) ENGINE=LevelDB;
+INSERT INTO t36 VALUES (1,10),(2,20);
+SELECT 3 IN ( SELECT a FROM t36 );
+3 IN ( SELECT a FROM t36 )
+0
+drop table t36;
+#
+# MDEV-4084: LevelDB: Wrong result on IN subquery with index
+#
+CREATE TABLE t37 (pk INT PRIMARY KEY, a INT, b CHAR(1), KEY(a), KEY(a,b)) 
+ENGINE=LevelDB;
+INSERT INTO t37 VALUES (1,10,'x'), (2,20,'y');
+SELECT MAX(a) FROM t37 WHERE a < 100;
+MAX(a)
+20
+DROP TABLE t37;
+#
+# MDEV-4090: LevelDB: Wrong result (duplicate rows) on range access with secondary key and ORDER BY DESC
+#
+CREATE TABLE t38 (pk INT PRIMARY KEY, i INT, KEY(i)) ENGINE=LevelDB;
+INSERT INTO t38 VALUES (1,10), (2,20);
+SELECT i FROM t38 WHERE i NOT IN (8) ORDER BY i DESC;
+i
+20
+10
+drop table t38;
+#
+# MDEV-4092: LevelDB: Assertion `in_table(pa, a_len)' fails in LDBSE_KEYDEF::cmp_full_keys 
+#            with a multi-part key and ORDER BY .. DESC
+#
+CREATE TABLE t40 (pk1 INT PRIMARY KEY, a INT, b VARCHAR(1), KEY(b,a)) ENGINE=LevelDB;
+INSERT INTO t40 VALUES (1, 7,'x'),(2,8,'y');
+CREATE TABLE t41 (pk2 INT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t41 VALUES (1),(2);
+SELECT * FROM t40, t41 WHERE pk1 = pk2 AND b = 'o' ORDER BY a DESC;
+pk1	a	b	pk2
+DROP TABLE t40,t41;
+#
+# MDEV-4093: LevelDB: IN subquery by secondary key with NULL among values returns true instead of NULL
+#
+CREATE TABLE t42 (pk INT PRIMARY KEY, a INT, KEY(a)) ENGINE=LevelDB;
+INSERT INTO t42 VALUES (1, NULL),(2, 8);
+SELECT ( 3 ) NOT IN ( SELECT a FROM t42 );
+( 3 ) NOT IN ( SELECT a FROM t42 )
+NULL
+DROP TABLE t42;
+#
+# MDEV-4094: LevelDB: Wrong result on SELECT and ER_KEY_NOT_FOUND on 
+#            DELETE with search by NULL-able secondary key ...
+#
+CREATE TABLE t43 (pk INT PRIMARY KEY, a INT, b CHAR(1), KEY(a)) ENGINE=LevelDB;
+INSERT INTO t43 VALUES (1,8,'g'),(2,9,'x');
+UPDATE t43 SET pk = 10 WHERE a = 8;
+REPLACE INTO t43 ( a ) VALUES ( 8 );
+Warnings:
+Warning	1364	Field 'pk' doesn't have a default value
+REPLACE INTO t43 ( b ) VALUES ( 'y' );
+Warnings:
+Warning	1364	Field 'pk' doesn't have a default value
+SELECT * FROM t43 WHERE a = 8;
+pk	a	b
+10	8	g
+DELETE FROM t43 WHERE a = 8;
+DROP TABLE t43;
+#
+# Basic AUTO_INCREMENT tests
+#
+create table t44(pk int primary key auto_increment, col1 varchar(12)) engine=leveldb;
+insert into t44 (col1) values ('row1');
+insert into t44 (col1) values ('row2');
+insert into t44 (col1) values ('row3');
+select * from t44;
+pk	col1
+1	row1
+2	row2
+3	row3
+drop table t44;
+#
+# ALTER TABLE tests
+#
+create table t45 (pk int primary key, col1 varchar(12)) engine=leveldb;
+insert into t45 values (1, 'row1');
+insert into t45 values (2, 'row2');
+alter table t45 rename t46;
+select * from t46;
+pk	col1
+1	row1
+2	row2
+drop table t46;
+drop table t45;
+ERROR 42S02: Unknown table 'test.t45'
+#
+# Check Bulk loading
+#
+show variables like 'leveldb%';
+Variable_name	Value
+leveldb_bulk_load	OFF
+leveldb_bulk_load_size	1000
+leveldb_lock_wait_timeout	1
+leveldb_max_row_locks	1073741824
+create table t47 (pk int primary key, col1 varchar(12)) engine=leveldb;
+insert into t47 values (1, 'row1');
+insert into t47 values (2, 'row2');
+set leveldb_bulk_load=1;
+insert into t47 values (1, 'row1-NEW'),(2, 'row2-NEW');
+set leveldb_bulk_load=0;
+select * from t47;
+pk	col1
+1	row1-NEW
+2	row2-NEW
+drop table t47;
+#
+# Fix TRUNCATE over empty table (transaction is committed when it wasn't
+# started)
+#
+create table t48(pk int primary key auto_increment, col1 varchar(12)) engine=leveldb;
+set autocommit=0;
+truncate table t48;
+set autocommit=1;
+drop table t48;
+#
+# MDEV-4059: LevelDB: query waiting for a lock cannot be killed until query timeout exceeded
+#
+create table t49 (pk int primary key, a int) engine=LevelDB;
+insert into t49 values (1,10),(2,20);
+begin;
+update t49 set a = 100 where pk = 1;
+connect  con1,localhost,root,,;
+set leveldb_lock_wait_timeout=5000;
+set @var1= to_seconds(now());
+update t49 set a = 1000 where pk = 1;
+connect  con2,localhost,root,,;
+kill query $con1_id;
+connection con1;
+ERROR 70100: Query execution was interrupted
+set @var2= to_seconds(now());
+select (@var2 -@var1) < 400;
+(@var2 -@var1) < 400
+1
+connection default;
+disconnect con1;
+commit;
+drop table t49;
+#
+# Index-only tests for INT-based columns
+#
+create table t1 (pk int primary key, key1 int, col1 int, key(key1)) engine=leveldb;
+insert into t1 values (1,1,1);
+insert into t1 values (2,2,2);
+insert into t1 values (-5,-5,-5);
+# INT column uses index-only:
+explain
+select key1 from t1 where key1=2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	key1	key1	5	const	10	Using index
+select key1 from t1 where key1=2;
+key1
+2
+select key1 from t1 where key1=-5;
+key1
+-5
+drop table t1;
+create table t2 (pk int primary key, key1 int unsigned, col1 int, key(key1)) engine=leveldb;
+insert into t2 values (1,1,1), (2,2,2);
+# INT UNSIGNED column uses index-only:
+explain
+select key1 from t2 where key1=2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	ref	key1	key1	5	const	10	Using index
+select key1 from t2 where key1=2;
+key1
+2
+drop table t2;
+create table t3 (pk bigint primary key, key1 bigint, col1 int, key(key1)) engine=leveldb;
+insert into t3 values (1,1,1), (2,2,2);
+# BIGINT uses index-only:
+explain 
+select key1 from t3 where key1=2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	ref	key1	key1	9	const	10	Using index
+select key1 from t3 where key1=2;
+key1
+2
+drop table t3;
+#
+# Index-only reads for string columns
+#
+create table t1 (
+pk int primary key, 
+key1 char(10) character set binary,
+col1 int,
+key (key1)
+) engine=leveldb;
+insert into t1 values(1, 'one',11), (2,'two',22);
+explain 
+select key1 from t1 where key1='one';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	key1	key1	11	const	10	Using where; Using index
+# The following will produce no rows. This looks like a bug,
+#  but it is actually correct behavior. Binary strings are end-padded
+#  with \0 character (and not space).  Comparison does not ignore
+#   the tail of \0.
+select key1 from t1 where key1='one';
+key1
+explain
+select hex(key1) from t1 where key1='one\0\0\0\0\0\0\0';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	key1	key1	11	const	10	Using where; Using index
+select hex(key1) from t1 where key1='one\0\0\0\0\0\0\0';
+hex(key1)
+6F6E6500000000000000
+drop table t1;
+create table t2 (
+pk int primary key, 
+key1 char(10) collate latin1_bin,
+col1 int,
+key (key1)
+) engine=leveldb;
+insert into t2 values(1, 'one',11), (2,'two',22);
+explain 
+select key1 from t2 where key1='one';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	ref	key1	key1	11	const	10	Using where; Using index
+select key1 from t2 where key1='one';
+key1
+one
+drop table t2;
+create table t3 (
+pk int primary key, 
+key1 char(10) collate utf8_bin,
+col1 int,
+key (key1)
+) engine=leveldb;
+insert into t3 values(1, 'one',11), (2,'two',22);
+explain 
+select key1 from t3 where key1='one';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	ref	key1	key1	31	const	10	Using where; Using index
+select key1 from t3 where key1='one';
+key1
+one
+drop table t3;
+# a VARCHAR column
+create table t4 (
+pk int primary key, 
+key1 varchar(10) collate latin1_bin, 
+key(key1)
+) engine=leveldb;
+insert into t4 values(1, 'one'), (2,'two'),(3,'threee'),(55,'fifty-five');
+explain 
+select key1 from t4 where key1='two';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t4	ref	key1	key1	13	const	10	Using where; Using index
+select key1 from t4 where key1='two';
+key1
+two
+select key1 from t4 where key1='fifty-five';
+key1
+fifty-five
+explain 
+select key1 from t4 where key1 between 's' and 'u';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t4	range	key1	key1	13	NULL	10	Using where; Using index
+select key1 from t4 where key1 between 's' and 'u';
+key1
+threee
+two
+drop table t4;
+# 
+# MDEV-4305: LevelDB: Assertion `((keypart_map + 1) & keypart_map) == 0' fails in calculate_key_len
+# 
+CREATE TABLE t1 (pk1 INT, pk2 CHAR(32), i INT, PRIMARY KEY(pk1,pk2), KEY(i)) ENGINE=LevelDB;
+INSERT INTO t1 VALUES (1,'test1',6),(2,'test2',8);
+SELECT * FROM t1 WHERE i != 3 OR  pk1 > 9;
+pk1	pk2	i
+1	test1	6
+2	test2	8
+DROP TABLE t1;
+# 
+# MDEV-4298: LevelDB: Assertion `thd->is_error() || kill_errno' fails in ha_rows filesort
+# 
+CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, KEY(i)) ENGINE=LevelDB;
+INSERT INTO t1 VALUES (1,1),(2,2);
+BEGIN;
+UPDATE t1 SET i = 100;
+connect  con1,localhost,root,,test;
+DELETE IGNORE FROM t1 ORDER BY i;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+disconnect con1;
+connection default;
+COMMIT;
+DROP TABLE t1;
+#
+# MDEV-4313: LevelDB: Server crashes in LDBSE_KEYDEF::setup on dropping the primary key column
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, i INT NOT NULL, KEY(i)) ENGINE=LevelDB;
+ALTER TABLE t1 DROP COLUMN `pk`;
+ERROR HY000: Got error 188 'Table must have a PRIMARY KEY' from LEVELDB
+DROP TABLE t1;
+#
+# MDEV-4324: LevelDB: Valgrind "Use of uninitialised value" warnings on inserting value into varchar field
+#  (testcase only)
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, c VARCHAR(4)) ENGINE=LevelDB;
+INSERT INTO t1 VALUES (1,'foo'), (2,'bar');
+DROP TABLE t1;
+#
+# MDEV-4304: LevelDB: Index-only scan by a field with utf8_bin collation returns garbage symbols
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, c1 CHAR(1), c2 CHAR(1), KEY(c1)) ENGINE=LevelDB CHARSET utf8 COLLATE utf8_bin;
+INSERT INTO t1 VALUES (1,'h','h');
+SELECT * FROM t1;
+pk	c1	c2
+1	h	h
+SELECT c1 FROM t1;
+c1
+h
+DROP TABLE t1;
+#
+# MDEV-4300: LevelDB: Server crashes in inline_mysql_mutex_lock on SELECT .. FOR UPDATE
+#
+CREATE TABLE t2 (pk INT PRIMARY KEY, i INT, KEY (i)) ENGINE=LevelDB;
+INSERT INTO t2 VALUES (1,4),(2,5);
+SELECT 1 FROM t2 WHERE i < 0 FOR UPDATE;
+1
+DROP TABLE t2;
+#
+# MDEV-4301: LevelDB: Assertion `pack_info != __null' fails in LDBSE_KEYDEF::unpack_record
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, i INT, c CHAR(1), KEY(c,i)) ENGINE=LevelDB;
+INSERT INTO t1 VALUES (1,4,'d'),(2,8,'e');
+SELECT MAX( pk ) FROM t1 WHERE i = 105 AND c = 'h';
+MAX( pk )
+NULL
+DROP TABLE t1;
+#
+# MDEV-4337: LevelDB: Inconsistent results comparing a char field with an int field
+#
+create table t1 (c char(1), i int, primary key(c), key(i)) engine=LevelDB;
+insert into t1 values ('2',2),('6',6);
+select * from t1 where c = i;
+c	i
+2	2
+6	6
+select * from t1 ignore index (i) where c = i;
+c	i
+2	2
+6	6
+drop table t1;
+#
+# Test statement rollback inside a transaction
+#
+create table t1 (pk varchar(12) primary key) engine=leveldb;
+insert into t1 values ('old-val1'),('old-val2');
+create table t2 (pk varchar(12) primary key) engine=leveldb;
+insert into t2 values ('new-val2'),('old-val1');
+begin;
+insert into t1 values ('new-val1');
+insert into t1 select * from t2;
+ERROR 23000: Duplicate entry 'old-val1' for key 'PRIMARY'
+commit;
+select * from t1;
+pk
+new-val1
+old-val1
+old-val2
+drop table t1, t2;
+#
+# MDEV-4383: LevelDB: Wrong result of DELETE .. ORDER BY .. LIMIT: 
+#   rows that should be deleted remain in the table
+#
+CREATE TABLE t2 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=LevelDB;
+CREATE TABLE t1 (pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t1 (pk) VALUES (NULL),(NULL);
+BEGIN;
+INSERT INTO t2 (pk) VALUES (NULL),(NULL);
+INSERT INTO t1 (pk) VALUES (NULL),(NULL),(NULL),(NULL),(NULL),(NULL);
+SELECT * FROM t1 ORDER BY pk LIMIT 9;
+pk
+1
+2
+3
+4
+5
+6
+7
+8
+affected rows: 8
+DELETE FROM t1 ORDER BY pk LIMIT 9;
+affected rows: 8
+SELECT * FROM t1 ORDER BY pk LIMIT 9;
+pk
+affected rows: 0
+DROP TABLE t1,t2;
+#
+# MDEV-4374: LevelDB: Valgrind warnings 'Use of uninitialised value' on 
+#   inserting into a varchar column
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, a VARCHAR(32)) ENGINE=LevelDB;
+INSERT INTO t1 VALUES (1,'foo'),(2,'bar');
+DROP TABLE t1;
+#
+# MDEV-4061: LevelDB: Changes from an interrupted query are still applied
+#
+create table t1 (pk int primary key, a int) engine=LevelDB;
+insert into t1 values (1,10),(2,20);
+set autocommit = 1;
+update t1 set a = sleep(100) where pk = 1;
+connect  con1,localhost,root,,;
+kill query $con_id;
+connection default;
+ERROR 70100: Query execution was interrupted
+select * from t1;
+pk	a
+1	10
+2	20
+disconnect con1;
+drop table t1;
+#
+# MDEV-4099: LevelDB: Wrong results with index and range access after INSERT IGNORE or REPLACE
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, a SMALLINT, b INT, KEY (a)) ENGINE=LevelDB;
+INSERT IGNORE INTO t1 VALUES (1, 157, 0), (2, 1898, -504403), (1, -14659,  0);
+SELECT * FROM t1;
+pk	a	b
+1	157	0
+2	1898	-504403
+SELECT pk FROM t1;
+pk
+1
+2
+SELECT * FROM t1 WHERE a != 97;
+pk	a	b
+1	157	0
+2	1898	-504403
+DROP TABLE t1;
+#
+# Test @@leveldb_max_row_locks
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, a int) ENGINE=LevelDB;
+set @a=-1;
+insert into t1 select (@a:=@a+1), 1234 from information_schema.session_variables limit 100;
+set @tmp1= @@leveldb_max_row_locks;
+set leveldb_max_row_locks= 20;
+update t1 set a=a+10;
+ERROR HY000: Got error 189 'Number of locks held reached @@leveldb_max_row_locks' from LEVELDB
+DROP TABLE t1;

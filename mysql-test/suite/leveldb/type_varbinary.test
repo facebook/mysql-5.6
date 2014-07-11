@@ -1,0 +1,6 @@
+#
+# VARBINARY column types
+#
+
+--source type_varbinary.inc
+

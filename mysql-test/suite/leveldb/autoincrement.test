@@ -1,0 +1,125 @@
+# 
+# Basic AUTO_INCREMENT capabilities
+#
+############################################
+# TODO:
+# This test currently produces wrong result 
+# due to bugs MDEV-4196, MDEV-4197.
+# When the bugs are fixed, 
+# the result will need to be updated
+############################################
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--error ER_GET_ERRNO
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT AUTO_INCREMENT, b CHAR(8), KEY(a)) ENGINE=LevelDB;
+--disable_parsing
+SHOW CREATE TABLE t1;
+
+# Automatic values
+
+INSERT INTO t1 (pk,b) VALUES (1,'a'),(2,'b');
+SELECT a,b FROM t1 ORDER BY a;
+SELECT LAST_INSERT_ID();
+
+INSERT INTO t1 (pk,a,b) VALUES (3,NULL,'c'),(4,0,'d');
+SELECT a,b FROM t1 ORDER BY a;
+SELECT LAST_INSERT_ID();
+
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+let $sql_mode = `SELECT @@sql_mode`;
+SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
+
+INSERT INTO t1 (pk,a,b) VALUES (5,NULL,'e');
+SELECT a,b FROM t1 ORDER BY a;
+SELECT LAST_INSERT_ID();
+
+INSERT INTO t1 (pk,a,b) VALUES (6,0,'f');
+SELECT a,b FROM t1 ORDER BY a;
+SELECT LAST_INSERT_ID();
+
+--replace_result $sql_mode <INITIAL_SQL_MODE>
+eval SET sql_mode = '$sql_mode';
+
+
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+INSERT INTO t1 (pk,a,b) VALUES (7,6,'g'),(8,7,'h');
+
+SELECT LAST_INSERT_ID();
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+
+# Mix of automatic and explicit values
+
+INSERT INTO t1 (pk,a,b) VALUES (9,NULL,'i'),(10,9,'j');
+SELECT a,b FROM t1 ORDER BY a;
+
+SELECT LAST_INSERT_ID();
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+
+# Creating a gap in the sequence
+
+INSERT INTO t1 (pk,a,b) VALUES (11,20,'k');
+
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+INSERT INTO t1 (pk,a,b) VALUES (12,NULL,'l');
+SELECT a,b FROM t1 ORDER BY a;
+
+SELECT LAST_INSERT_ID();
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+
+# Negative values: we will try to insert one just to check that it does not cause a crash
+# although we don't care so much about what happens to the sequence after that, 
+# since the behavior is undefined
+
+INSERT INTO t1 (pk,a,b) VALUES (13,-5,'m');
+SELECT a,b FROM t1 ORDER BY a;
+
+SELECT LAST_INSERT_ID();
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+INSERT INTO t1 (pk,a,b) VALUES (14,NULL,'n');
+
+SELECT LAST_INSERT_ID();
+SHOW CREATE TABLE t1;
+--replace_column 12 #
+query_vertical SHOW TABLE STATUS FROM test LIKE 't1';
+
+DROP TABLE t1;
+--enable_parsing
+
+
+# Autoincrement with table option AUTO_INCREMENT
+
+--error ER_GET_ERRNO
+CREATE TABLE t1 (pk INT PRIMARY KEY, a INT AUTO_INCREMENT, b CHAR(8), KEY(a)) ENGINE=LevelDB AUTO_INCREMENT=100;
+--disable_parsing
+INSERT INTO t1 (pk,a,b) VALUES (1,NULL,'a'),(2,NULL,'b');
+--sorted_result
+SELECT a,b FROM t1;
+SELECT LAST_INSERT_ID();
+
+DROP TABLE t1;
+--enable_parsing
+
