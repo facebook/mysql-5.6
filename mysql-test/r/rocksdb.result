@@ -686,8 +686,8 @@ DROP TABLE t33;
 #
 # MDEV-4081: RocksDB throws error 122 on an attempt to create a table with unique index
 #
+#  Unique indexes can be created, but uniqueness won't be enforced
 create table t33 (pk int primary key, u int, unique index(u)) engine=RocksDB;
-ERROR HY000: Got error 187 'Unique indexes are not supported' from ROCKSDB
 #
 # MDEV-4077: RocksDB: Wrong result (duplicate row) on select with range 
 #
