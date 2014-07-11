@@ -1,0 +1,6 @@
+#
+# TEXT column types
+#
+
+--source type_text.inc
+
