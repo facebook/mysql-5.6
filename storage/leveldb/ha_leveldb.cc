@@ -460,7 +460,8 @@ static int leveldb_init_func(void *p)
     TABLE to create an empty table from scratch. LevelDB cannot efficiently
     re-create a table.
   */
-  leveldb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED;
+  leveldb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
+                       HTON_SUPPORTS_EXTENDED_KEYS;
 
   /*
     As for the datadir, innobase_init() uses mysql_real_data_home for
