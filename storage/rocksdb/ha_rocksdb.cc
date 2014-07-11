@@ -1694,7 +1694,7 @@ int ha_rocksdb::write_row(uchar *buf)
   DBUG_ASSERT(lock_rows);
 
   /* Update AUTO_INCREMENT column */
-  bool using_auto_incr_value= false;
+  //bool using_auto_incr_value= false;
 
   /*
     Note: "buf == table->record[0]" is copied from innodb. I am not aware of
@@ -1707,7 +1707,7 @@ int ha_rocksdb::write_row(uchar *buf)
     {
       DBUG_RETURN(err);
     }
-    using_auto_incr_value= true;
+    //using_auto_incr_value= true;
   }
 
   /* Get a packed primary key value */
@@ -1776,7 +1776,7 @@ int ha_rocksdb::write_row(uchar *buf)
   }
 
   /* Write primary_key -> record */
-  if (!using_auto_incr_value && table->next_number_field)
+  if (/*!using_auto_incr_value &&*/ table->next_number_field)
     update_auto_incr_val();
 
   rocksdb::Slice value_slice;
