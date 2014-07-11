@@ -7,7 +7,7 @@
 # LEVELDB_LIBRARIES= # path to leveldb shared or static libraries
 
 SET(LEVELDB_SE_PLUGIN_STATIC  "leveldb")
-SET(LEVELDB_SE_PLUGIN_MANDATORY TRUE)
+SET(LEVELDB_SE_PLUGIN_MANDATORY FALSE)
 
 FIND_PATH(Leveldb_INCLUDE_DIRS leveldb/db.h PATHS
 $ENV{LEVELDB_INCLUDE}      # environment variable to be used optionally
@@ -18,7 +18,7 @@ ${Leveldb_INCLUDE_DIR}     # this may be set
 /opt/include/leveldb
 )
 IF(NOT EXISTS ${Leveldb_INCLUDE_DIRS})
-  MESSAGE(SEND_ERROR "No leveldb include directory found! Consider using environment variable LEVELDB_INCLUDE=...")
+  # MESSAGE(SEND_ERROR "No leveldb include directory found! Consider using environment variable LEVELDB_INCLUDE=...")
   RETURN()
 ENDIF()
 
@@ -27,7 +27,7 @@ FIND_LIBRARY(Leveldb_LIBS NAMES leveldb
 IF(EXISTS ${Leveldb_LIBS})
   GET_FILENAME_COMPONENT(LINK_DIR ${Leveldb_LIBS} ABSOLUTE)
 ELSE()
-  MESSAGE(SEND_ERROR "No leveldb library directory found! Consider using environment variable LEVELDB_LIBRARIES=...")
+  # MESSAGE(SEND_ERROR "No leveldb library directory found! Consider using environment variable LEVELDB_LIBRARIES=...")
   RETURN()
 ENDIF()
 
