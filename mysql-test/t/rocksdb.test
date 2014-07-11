@@ -613,7 +613,7 @@ DROP TABLE t33;
 #--error ER_GET_ERRMSG
 --echo #  Unique indexes can be created, but uniqueness won't be enforced
 create table t33 (pk int primary key, u int, unique index(u)) engine=RocksDB;
-
+drop table t33;
 
 --echo #
 --echo # MDEV-4077: RocksDB: Wrong result (duplicate row) on select with range 
@@ -1051,4 +1051,30 @@ set rocksdb_max_row_locks= 20;
 --error ER_GET_ERRMSG
 update t1 set a=a+10;
 DROP TABLE t1;
+
+
+--echo # 
+--echo # Test AUTO_INCREMENT behavior problem,
+--echo #  "explicit insert into an auto-inc column is not noticed by RocksDB"
+--echo # 
+create table t1 (i int primary key auto_increment) engine=RocksDB;
+
+insert into t1 values (null);
+insert into t1 values (null);
+select * from t1;
+drop table t1;
+
+create table t2 (i int primary key auto_increment) engine=RocksDB;
+
+insert into t2 values (1);
+select * from t2;
+
+--echo # this fails (ie. used to fail), RocksDB engine did not notice use of '1' above
+insert into t2 values (null);
+select * from t2;
+
+--echo # but then this succeeds, so previous statement must have incremented next number counter
+insert into t2 values (null);
+select * from t2;
+drop table t2;
 
