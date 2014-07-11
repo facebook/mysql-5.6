@@ -688,6 +688,7 @@ DROP TABLE t33;
 #
 #  Unique indexes can be created, but uniqueness won't be enforced
 create table t33 (pk int primary key, u int, unique index(u)) engine=RocksDB;
+drop table t33;
 #
 # MDEV-4077: RocksDB: Wrong result (duplicate row) on select with range 
 #
@@ -1169,3 +1170,34 @@ set rocksdb_max_row_locks= 20;
 update t1 set a=a+10;
 ERROR HY000: Got error 189 'Number of locks held reached @@rocksdb_max_row_locks' from ROCKSDB
 DROP TABLE t1;
+# 
+# Test AUTO_INCREMENT behavior problem,
+#  "explicit insert into an auto-inc column is not noticed by RocksDB"
+# 
+create table t1 (i int primary key auto_increment) engine=RocksDB;
+insert into t1 values (null);
+insert into t1 values (null);
+select * from t1;
+i
+1
+2
+drop table t1;
+create table t2 (i int primary key auto_increment) engine=RocksDB;
+insert into t2 values (1);
+select * from t2;
+i
+1
+# this fails (ie. used to fail), RocksDB engine did not notice use of '1' above
+insert into t2 values (null);
+select * from t2;
+i
+1
+2
+# but then this succeeds, so previous statement must have incremented next number counter
+insert into t2 values (null);
+select * from t2;
+i
+1
+2
+3
+drop table t2;
