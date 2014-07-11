@@ -131,7 +131,7 @@ public:
   /* This may return false when there are really no changes (TODO: still true?) */
   bool is_empty()
   {
-    return test(tree.elements_in_tree == 0);
+    return (tree.elements_in_tree == 0);
   };
 private:
   static int compare_rows(const void* arg, const void *a,const void *b);
