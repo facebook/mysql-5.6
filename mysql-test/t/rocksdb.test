@@ -610,7 +610,8 @@ DROP TABLE t33;
 --echo #
 --echo # MDEV-4081: RocksDB throws error 122 on an attempt to create a table with unique index
 --echo #
---error ER_GET_ERRMSG
+#--error ER_GET_ERRMSG
+--echo #  Unique indexes can be created, but uniqueness won't be enforced
 create table t33 (pk int primary key, u int, unique index(u)) engine=RocksDB;
 
 
