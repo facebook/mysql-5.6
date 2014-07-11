@@ -926,6 +926,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   uint n_keys= table_arg->s->keys;
 
   /* Don't allow to create unique indexes */
+/* TODO mdcallag: disable this for now to pretend to support UNIQUE indexes
   for (i= 0; i < table_arg->s->keys; i++)
   {
     if (table_arg->key_info[i].flags & HA_NOSAME &&
@@ -934,6 +935,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
       DBUG_RETURN(HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED);
     }
   }
+*/
 
   /* Create table/key descriptions and put them into the data dictionary */
   if (!(key_descr= (RDBSE_KEYDEF**)my_malloc(sizeof(RDBSE_KEYDEF*) * n_keys,
@@ -1052,6 +1054,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
   */
   Field *field;
   //if ((field= table_arg->next_number_field))
+  /* TODO mdcallag: disable this for now to let UNIQUE indexes kind of work
   if ((field= table_arg->found_next_number_field))
   {
     int pk= table_arg->s->primary_key;
@@ -1059,6 +1062,7 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
     if (field->field_index !=  pk_field->field_index)
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
+  */
   DBUG_RETURN(0);
 }
 

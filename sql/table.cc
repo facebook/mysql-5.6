@@ -2143,7 +2143,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           field->flags|= PRI_KEY_FLAG;
 
           /*
-            LevelDB SE: we need to re-read to get correct value of
+            LevelDB & RocksDB SE: we need to re-read to get correct value of
             HA_PRIMARY_KEY_IN_READ_INDEX
           */
           ha_option= handler_file->ha_table_flags();
