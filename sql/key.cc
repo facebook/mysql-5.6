@@ -132,15 +132,22 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
     {
       key_length-= HA_KEY_BLOB_LENGTH;
       length= min<uint>(key_length, key_part->length);
-      key_part->field->get_key_image(to_key, length, Field::itRAW);
+      Field *field= key_part->field;
+      my_ptrdiff_t ptrdiff= from_record - field->table->record[0];
+      field->move_field_offset(ptrdiff);
+      field->get_key_image(to_key, length, Field::itRAW);
+      field->move_field_offset(-ptrdiff);
       to_key+= HA_KEY_BLOB_LENGTH;
     }
     else
     {
       length= min<uint>(key_length, key_part->length);
       Field *field= key_part->field;
+      my_ptrdiff_t ptrdiff= from_record - field->table->record[0];
+      field->move_field_offset(ptrdiff);
       const CHARSET_INFO *cs= field->charset();
       uint bytes= field->get_key_image(to_key, length, Field::itRAW);
+      field->move_field_offset(-ptrdiff);
       if (bytes < length)
         cs->cset->fill(cs, (char*) to_key + bytes, length - bytes, ' ');
     }
