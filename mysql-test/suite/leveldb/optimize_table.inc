@@ -1,0 +1,30 @@
+# 
+# OPTIMIZE TABLE statements
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2;
+--enable_warnings
+
+CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
+CREATE TABLE t2 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=LevelDB;
+
+INSERT INTO t1 (a,b) VALUES (3,'c'),(4,'d');
+OPTIMIZE TABLE t1;
+INSERT INTO t2 (a,b) VALUES (4,'d');
+OPTIMIZE NO_WRITE_TO_BINLOG TABLE t2;
+INSERT INTO t2 (a,b) VALUES (5,'e');
+INSERT INTO t1 (a,b) VALUES (6,'f');
+OPTIMIZE LOCAL TABLE t1, t2;
+OPTIMIZE TABLE t1, t2;
+
+DROP TABLE t1, t2;
+
+# OPTIMIZE on a table with index
+
+CREATE TABLE t1 (a INT, b CHAR(8), KEY(a), PRIMARY KEY(b)) ENGINE=LevelDB;
+INSERT INTO t1 (a,b) VALUES (1,'a'),(100,'b'),(2,'c'),(3,'d');
+OPTIMIZE TABLE t1;
+DROP TABLE t1;
+
