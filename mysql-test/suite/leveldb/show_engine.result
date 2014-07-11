@@ -1,0 +1,5 @@
+SHOW ENGINE LevelDB STATUS;
+Type	Name	Status
+SHOW ENGINE LevelDB MUTEX;
+Type	Name	Status
+SHOW ENGINE ALL MUTEX;

@@ -1,0 +1,34 @@
+# 
+# AUTO_INCREMENT on a secondary column in a multi-part key
+#
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# 
+# AUTO_INCREMENT is the primary column in a multiple-column index
+#
+
+CREATE TABLE t1 (a INT AUTO_INCREMENT, b CHAR(8), PRIMARY KEY(a,b)) ENGINE=LevelDB;
+INSERT INTO t1 (b) VALUES ('a'),('b'),('b'),('c'),('a');
+SELECT LAST_INSERT_ID();
+--sorted_result
+SELECT a,b FROM t1;
+DROP TABLE t1;
+
+
+# AUTO_INCREMENT is the secondary column in a multiple-column index,
+# and primary in another index
+#
+--error ER_GET_ERRNO
+CREATE TABLE t1 (a CHAR(8), b INT AUTO_INCREMENT, PRIMARY KEY (a,b), KEY(b)) ENGINE=LevelDB;
+--disable_parsing
+INSERT INTO t1 (a) VALUES ('a'),('b'),('b'),('c'),('a');
+SELECT LAST_INSERT_ID();
+--sorted_result
+SELECT a,b FROM t1;
+DROP TABLE t1;
+--enable_parsing
+
+

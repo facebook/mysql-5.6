@@ -1,0 +1,26 @@
+# 
+# SHOW TABLE STATUS statement
+#
+
+###################################
+# TODO:
+# The result file is likely to change 
+# if MDEV-4197 is fixed
+###################################
+
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2, t3;
+--enable_warnings
+
+CREATE TABLE t1 (a INT, b CHAR(8) PRIMARY KEY) ENGINE=LevelDB;
+INSERT INTO t1 (a,b) VALUES (100,'a'),(2,'foo');
+
+CREATE TABLE t2 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=LevelDB;
+INSERT INTO t2 (a,b) VALUES (1,'bar');
+
+CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=LevelDB CHARACTER SET utf8;
+
+#--replace_column 2 <STORAGE_ENGINE> 4 ### 6 ### 7 ### 8 ### 9 ### 10 ### 12 ### 13 ### 
+--query_vertical SHOW TABLE STATUS WHERE name IN ( 't1', 't2', 't3' )
+DROP TABLE t1, t2, t3;
+
