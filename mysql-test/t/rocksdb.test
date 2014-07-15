@@ -1092,3 +1092,12 @@ select * from t1;
 
 drop table t1;
 
+--echo # 
+--echo # Fix Issue #3: SHOW TABLE STATUS shows Auto_increment=0
+--echo # 
+create table t1 (i int primary key auto_increment) engine=RocksDB;
+
+insert into t1 values (null),(null);
+--query_vertical show table status like 't1';
+drop table t1;
+
