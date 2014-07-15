@@ -1078,3 +1078,17 @@ insert into t2 values (null);
 select * from t2;
 drop table t2;
 
+--echo # 
+--echo # Fix Issue#2: AUTO_INCREMENT value doesn't survive server shutdown
+--echo # 
+create table t1 (i int primary key auto_increment) engine=RocksDB;
+
+insert into t1 values (null);
+insert into t1 values (null);
+--source include/restart_mysqld.inc
+
+insert into t1 values (null);
+select * from t1;
+
+drop table t1;
+
