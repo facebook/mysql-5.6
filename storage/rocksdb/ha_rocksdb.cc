@@ -110,13 +110,13 @@ static uchar* rocksdb_get_key(ROCKSDB_SHARE *share, size_t *length,
 */
 PSI_stage_info stage_waiting_on_row_lock= { 0, "Waiting for row lock", 0};
 
+#ifdef HAVE_PSI_INTERFACE
 static PSI_stage_info *all_rocksdb_stages[]=
 {
   & stage_waiting_on_row_lock
 };
 
 
-#ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key ex_key_mutex_example, ex_key_mutex_ROCKSDB_SHARE_mutex;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
