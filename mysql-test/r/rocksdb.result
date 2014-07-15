@@ -1201,3 +1201,16 @@ i
 2
 3
 drop table t2;
+# 
+# Fix Issue#2: AUTO_INCREMENT value doesn't survive server shutdown
+# 
+create table t1 (i int primary key auto_increment) engine=RocksDB;
+insert into t1 values (null);
+insert into t1 values (null);
+insert into t1 values (null);
+select * from t1;
+i
+1
+2
+3
+drop table t1;
