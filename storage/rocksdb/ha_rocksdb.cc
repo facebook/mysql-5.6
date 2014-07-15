@@ -2058,6 +2058,11 @@ int ha_rocksdb::info(uint flag)
     dup_ref= pk_tuple; //TODO: this should store packed PK.
   }
 
+  if (flag & HA_STATUS_AUTO)
+  {
+    stats.auto_increment_value= tbl_def->auto_incr_val;
+  }
+
   DBUG_RETURN(0);
 }
 
@@ -2431,9 +2436,6 @@ void ha_rocksdb::update_create_info(HA_CREATE_INFO *create_info)
 {
   if (!(create_info->used_fields & HA_CREATE_USED_AUTO))
   {
-    table->file->info(HA_STATUS_AUTO);
-    // TODO: the following is basic, we need to actually
-    //  store the specified value somewhere..
     create_info->auto_increment_value= tbl_def->auto_incr_val;
   }
 }

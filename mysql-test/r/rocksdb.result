@@ -1214,3 +1214,28 @@ i
 2
 3
 drop table t1;
+# 
+# Fix Issue #3: SHOW TABLE STATUS shows Auto_increment=0
+# 
+create table t1 (i int primary key auto_increment) engine=RocksDB;
+insert into t1 values (null),(null);
+show table status like 't1';;
+Name	t1
+Engine	ROCKSDB
+Version	10
+Row_format	Fixed
+Rows	1000
+Avg_row_length	0
+Data_length	0
+Max_data_length	0
+Index_length	0
+Data_free	0
+Auto_increment	3
+Create_time	NULL
+Update_time	NULL
+Check_time	NULL
+Collation	latin1_swedish_ci
+Checksum	NULL
+Create_options	
+Comment	
+drop table t1;
