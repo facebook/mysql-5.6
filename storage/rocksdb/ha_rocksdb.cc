@@ -855,7 +855,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
 
   /* TODO: move the following to where TABLE_SHARE is opened: */
-  if (table->next_number_field)
+  if (table->found_next_number_field)
     load_auto_incr_value();
 
   DBUG_RETURN(0);
