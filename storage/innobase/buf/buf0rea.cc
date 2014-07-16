@@ -119,7 +119,8 @@ buf_read_page_low(
 			treat the tablespace as dropped; this is a timestamp we
 			use to stop dangling page reads from a tablespace
 			which we have DISCARDed + IMPORTed back */
-	ulint	offset)	/*!< in: page number */
+	ulint	offset,	/*!< in: page number */
+	trx_t*	trx)
 {
 	buf_page_t*	bpage;
 	ulint		wake_later;
@@ -224,17 +225,19 @@ not_to_recover:
 	}
 
 	if (zip_size) {
-		*err = fil_io(OS_FILE_READ | wake_later
+		*err = _fil_io(OS_FILE_READ | wake_later
 			      | ignore_nonexistent_pages,
 			      sync, space, zip_size, offset, 0, zip_size,
-			      bpage->zip.data, bpage);
+			      bpage->zip.data, bpage,
+			      trx ? &trx->table_io_perf : NULL);
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
 
-		*err = fil_io(OS_FILE_READ | wake_later
+		*err = _fil_io(OS_FILE_READ | wake_later
 			      | ignore_nonexistent_pages,
 			      sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
-			      ((buf_block_t*) bpage)->frame, bpage);
+			      ((buf_block_t*) bpage)->frame, bpage,
+			      trx ? &trx->table_io_perf : NULL);
 	}
 
 	if (sync) {
@@ -284,8 +287,9 @@ buf_read_ahead_random(
 				or 0 */
 	ulint	offset,		/*!< in: page number of a page which
 				the current thread wants to access */
-	ibool	inside_ibuf)	/*!< in: TRUE if we are inside ibuf
+	ibool	inside_ibuf,	/*!< in: TRUE if we are inside ibuf
 				routine */
+	trx_t*	trx)
 {
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 	ib_int64_t	tablespace_version;
@@ -388,7 +392,7 @@ read_ahead:
 				&err, false,
 				ibuf_mode | OS_AIO_SIMULATED_WAKE_LATER,
 				space, zip_size, FALSE,
-				tablespace_version, i);
+				tablespace_version, i, trx);
 			if (err == DB_TABLESPACE_DELETED) {
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
@@ -438,7 +442,8 @@ buf_read_page(
 /*==========*/
 	ulint	space,	/*!< in: space id */
 	ulint	zip_size,/*!< in: compressed page size in bytes, or 0 */
-	ulint	offset)	/*!< in: page number */
+	ulint	offset,	/*!< in: page number */
+	trx_t*	trx)
 {
 	ib_int64_t	tablespace_version;
 	ulint		count;
@@ -451,7 +456,7 @@ buf_read_page(
 
 	count = buf_read_page_low(&err, true, BUF_READ_ANY_PAGE, space,
 				  zip_size, FALSE,
-				  tablespace_version, offset);
+				  tablespace_version, offset, trx);
 	srv_stats.buf_pool_reads.add(count);
 	if (err == DB_TABLESPACE_DELETED) {
 		ut_print_timestamp(stderr);
@@ -499,7 +504,7 @@ buf_read_page_async(
 				  | OS_AIO_SIMULATED_WAKE_LATER
 				  | BUF_READ_IGNORE_NONEXISTENT_PAGES,
 				  space, zip_size, FALSE,
-				  tablespace_version, offset);
+				  tablespace_version, offset, NULL);
 	srv_stats.buf_pool_reads.add(count);
 
 	/* We do not increment number of I/O operations used for LRU policy
@@ -543,7 +548,8 @@ buf_read_ahead_linear(
 	ulint	space,		/*!< in: space id */
 	ulint	zip_size,	/*!< in: compressed page size in bytes, or 0 */
 	ulint	offset,		/*!< in: page number; see NOTE 3 above */
-	ibool	inside_ibuf)	/*!< in: TRUE if we are inside ibuf routine */
+	ibool	inside_ibuf,	/*!< in: TRUE if we are inside ibuf routine */
+	trx_t*	trx)
 {
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 	ib_int64_t	tablespace_version;
@@ -758,7 +764,8 @@ buf_read_ahead_linear(
 			count += buf_read_page_low(
 				&err, false,
 				ibuf_mode,
-				space, zip_size, FALSE, tablespace_version, i);
+				space, zip_size, FALSE, tablespace_version, i,
+				trx);
 			if (err == DB_TABLESPACE_DELETED) {
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
@@ -848,7 +855,7 @@ buf_read_ibuf_merge_pages(
 		buf_read_page_low(&err, sync && (i + 1 == n_stored),
 				  BUF_READ_ANY_PAGE, space_ids[i],
 				  zip_size, TRUE, space_versions[i],
-				  page_nos[i]);
+				  page_nos[i], NULL);
 
 		if (UNIV_UNLIKELY(err == DB_TABLESPACE_DELETED)) {
 tablespace_deleted:
@@ -991,12 +998,13 @@ not_to_recover:
 		if ((i + 1 == n_stored) && sync) {
 			buf_read_page_low(&err, true, BUF_READ_ANY_PAGE, space,
 					  zip_size, TRUE, tablespace_version,
-					  page_nos[i]);
+					  page_nos[i], NULL);
 		} else {
 			buf_read_page_low(&err, false, BUF_READ_ANY_PAGE
 					  | OS_AIO_SIMULATED_WAKE_LATER,
 					  space, zip_size, TRUE,
-					  tablespace_version, page_nos[i]);
+					  tablespace_version, page_nos[i],
+					  NULL);
 		}
 	}
 

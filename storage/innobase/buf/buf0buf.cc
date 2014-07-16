@@ -2125,7 +2125,8 @@ buf_block_try_discard_uncompressed(
 	bpage = buf_page_hash_get(buf_pool, space, offset);
 
 	if (bpage) {
-		buf_LRU_free_page(bpage, false);
+		ibool	removed;
+		buf_LRU_free_page(bpage, false, &removed);
 	}
 
 	buf_pool_mutex_exit(buf_pool);
@@ -2172,7 +2173,7 @@ lookup:
 		/* Page not in buf_pool: needs to be read from file */
 
 		ut_ad(!hash_lock);
-		buf_read_page(space, zip_size, offset);
+		buf_read_page(space, zip_size, offset, NULL);
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 		ut_a(++buf_dbg_counter % 5771 || buf_validate());
@@ -2743,9 +2744,9 @@ loop:
 			return(NULL);
 		}
 
-		if (buf_read_page(space, zip_size, offset)) {
+		if (buf_read_page(space, zip_size, offset, mtr->trx)) {
 			buf_read_ahead_random(space, zip_size, offset,
-					      ibuf_inside(mtr));
+					      ibuf_inside(mtr), mtr->trx);
 
 			retries = 0;
 		} else if (retries < BUF_PAGE_READ_MAX_RETRIES) {
@@ -3019,6 +3020,7 @@ got_block:
 
 	if ((mode == BUF_GET_IF_IN_POOL || mode == BUF_GET_IF_IN_POOL_OR_WATCH)
 	    && (ibuf_debug || buf_debug_execute_is_force_flush())) {
+		ibool	removed;
 
 		/* Try to evict the block from the buffer pool, to use the
 		insert buffer (change buffer) as much as possible. */
@@ -3032,7 +3034,7 @@ got_block:
 		relocated or enter or exit the buf_pool while we
 		are holding the buf_pool->mutex. */
 
-		if (buf_LRU_free_page(&fix_block->page, true)) {
+		if (buf_LRU_free_page(&fix_block->page, true, &removed)) {
 			buf_pool_mutex_exit(buf_pool);
 			rw_lock_x_lock(hash_lock);
 
@@ -3160,8 +3162,8 @@ got_block:
 		/* In the case of a first access, try to apply linear
 		read-ahead */
 
-		buf_read_ahead_linear(
-			space, zip_size, offset, ibuf_inside(mtr));
+		buf_read_ahead_linear(space, zip_size, offset,
+				      ibuf_inside(mtr), mtr->trx);
 	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
@@ -3275,7 +3277,7 @@ buf_page_optimistic_get(
 		buf_read_ahead_linear(buf_block_get_space(block),
 				      buf_block_get_zip_size(block),
 				      buf_block_get_page_no(block),
-				      ibuf_inside(mtr));
+				      ibuf_inside(mtr), mtr->trx);
 	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
@@ -4416,7 +4418,8 @@ corrupt:
 
 		mutex_exit(buf_page_get_mutex(bpage));
 		if (evict) {
-			buf_LRU_free_page(bpage, true);
+			ibool	removed;
+			buf_LRU_free_page(bpage, true, &removed);
 		}
 
 		break;

@@ -6728,7 +6728,7 @@ err_exclusive_lock:
     */
     mysql_lock_remove(thd, thd->lock, table);
     part_info= lpt->part_info->get_clone();
-    close_thread_table(thd, &thd->open_tables);
+    close_thread_table(thd, &thd->open_tables, false);
     lpt->table_list->table= NULL;
   }
 

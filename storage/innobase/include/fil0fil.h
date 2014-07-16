@@ -306,6 +306,15 @@ struct fil_space_t {
 	UT_LIST_NODE_T(fil_space_t) space_list;
 				/*!< list of all spaces */
 	os_io_perf2_t	io_perf2;/*!< per tablespace IO perf counters */
+	int		n_lru;	/*!< number of pages in LRU */
+	/* If NAME_LEN were visible to InnoDB source, it would be used,
+	instead of FN_LEN+1. */
+	char		db_name[FN_LEN + 1];
+				/*!< name from first or only table */
+	char		table_name[FN_LEN + 1];
+				/*!< name from first or only table */
+	ibool		used;	/*!< cleared by fil_update_table_stats
+				and set by fil_io */
 	ulint		magic_n;/*!< FIL_SPACE_MAGIC_N */
 };
 
@@ -926,13 +935,30 @@ ulint
 fil_space_get_n_reserved_extents(
 /*=============================*/
 	ulint	id);		/*!< in: space id */
+
+#define fil_io(type, sync, space_id, zip_size, block_offset, \
+		byte_offset, len, buf, message) \
+	_fil_io(type, sync, space_id, zip_size, block_offset, \
+		byte_offset, len, buf, message, NULL)
+
+/****************************************************************//**
+Update stats with per-table data from InnoDB tables. */
+UNIV_INTERN
+void
+fil_update_table_stats(
+/*===================*/
+	/* per-table stats callback */
+	void (*cb)(const char* db, const char* tbl,
+		   my_io_perf_t *r, my_io_perf_t *w, my_io_perf_t *r_blob,
+		   const char* engine));
+
 /********************************************************************//**
 Reads or writes data. This operation is asynchronous (aio).
 @return DB_SUCCESS, or DB_TABLESPACE_DELETED if we are trying to do
 i/o on a tablespace which does not exist */
 UNIV_INTERN
 dberr_t
-fil_io(
+_fil_io(
 /*===*/
 	ulint	type,		/*!< in: OS_FILE_READ or OS_FILE_WRITE,
 				ORed to OS_FILE_LOG, if a log i/o
@@ -957,8 +983,11 @@ fil_io(
 	void*	buf,		/*!< in/out: buffer where to store read data
 				or from where to write; in aio this must be
 				appropriately aligned */
-	void*	message)	/*!< in: message for aio handler if non-sync
+	void*	message,	/*!< in: message for aio handler if non-sync
 				aio used, else ignored */
+	os_io_table_perf_t* table_io_perf) /*!< in/out: tracks table IO stats
+				to be used in IS.user_statistics only for
+				sync reads and writes */
 	__attribute__((nonnull(8)));
 /**********************************************************************//**
 Waits for an aio operation to complete. This function is used to write the
