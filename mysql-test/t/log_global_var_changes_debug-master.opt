@@ -1,0 +1,2 @@
+--log-global-var-changes=TRUE
+--force-restart
