@@ -7107,6 +7107,12 @@ ER_PLUGIN_CANNOT_BE_UNINSTALLED
 ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
   eng "Cannot execute statement because it needs to be written to the binary log as multiple statements, and this is not allowed when @@SESSION.GTID_NEXT == 'UUID:NUMBER'."
 
+ER_REQUESTED_PURGED_GTID
+  eng "The requested GTID is purged and so cannot be found in binary logs."
+
+ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
+  eng "The requested GTID is not yet executed and so cannot be found in binary logs."
+
 ER_BLOCK_MYISAM_TABLES
   eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
 
