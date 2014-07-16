@@ -2007,6 +2007,7 @@ public:
   uint   command;
   const char *user,*host,*db,*proc_info,*state_info;
   CSET_STRING query_string;
+  ulong rows_examined, rows_sent;
 };
 
 // For sorting by thread_id.
@@ -2066,6 +2067,10 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
   field->maybe_null=1;
   field_list.push_back(field=new Item_empty_string("Info",max_query_length));
   field->maybe_null=1;
+  field_list.push_back(new Item_return_int("Rows examined",
+        MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_return_int("Rows sent",
+        MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_VOID_RETURN;
@@ -2132,6 +2137,8 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
         if (mysys_var)
           mysql_mutex_unlock(&mysys_var->mutex);
 
+        thd_info->rows_examined= tmp->status_var.rows_examined;
+        thd_info->rows_sent= tmp->status_var.rows_sent;
         /* Lock THD mutex that protects its data when looking at it. */
         if (tmp->query())
         {
@@ -2172,6 +2179,8 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
     protocol->store(thd_info->state_info, system_charset_info);
     protocol->store(thd_info->query_string.str(),
                     thd_info->query_string.charset());
+    protocol->store_long((longlong) thd_info->rows_examined);
+    protocol->store_long((longlong) thd_info->rows_sent);
     if (protocol->write())
       break; /* purecov: inspected */
   }
