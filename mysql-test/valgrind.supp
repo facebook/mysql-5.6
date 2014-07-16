@@ -635,8 +635,10 @@
    fun:_Z22add_pfs_instr_to_arrayPKcS0_
    fun:mysqld_get_one_option
    fun:my_handle_options
-   fun:_Z20handle_early_optionsv
+   fun:handle_options_with_logging
+   fun:_Z20handle_early_optionsc
    fun:_Z11mysqld_mainiPPc
+   fun:main
 }
 
 # Same as shutdown_performance_schema 9,
