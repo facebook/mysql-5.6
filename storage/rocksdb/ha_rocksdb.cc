@@ -706,7 +706,7 @@ void ha_rocksdb::convert_record_to_storage_format(rocksdb::Slice *packed_rec)
       uint32 value_len= blob->get_length();
       uint length_bytes= blob->pack_length() - 8;
       char *data_ptr;
-      memcpy(&data_ptr, blob->ptr + length_bytes, sizeof(uchar*));
+      memcpy(&data_ptr, blob->ptr + length_bytes, sizeof(uchar**));
 
       storage_record.append(data_ptr, value_len);
       uint32 size_to_write= htons(value_len);
@@ -785,7 +785,7 @@ void ha_rocksdb::unpack_blobs_from_retrieved_record(uchar *buf)
       // set 8-byte pointer to 0, like innodb does.
       memset(blob->ptr + length_bytes, 0, 8);
 
-      memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar*));
+      memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar**));
 
       blob_ptr += value_len;
       blob->move_field_offset(-ptr_diff);
