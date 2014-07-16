@@ -1,0 +1,6 @@
+#
+# BOOLEAN column type
+#
+
+--source type_bool.inc
+
