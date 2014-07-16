@@ -63,7 +63,10 @@ bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd);
 void kill_zombie_dump_threads(THD *thd);
 
+uint find_gtid_position_helper(const char *gtid_string, char *log_name,
+                               my_off_t &gtid_pos);
 bool find_gtid_position(THD *thd);
+template <class BINLOG_FILE_READER>
 my_off_t find_gtid_pos_in_log(const char *log_name, const Gtid &gtid,
                               Sid_map *sid_map);
 
