@@ -1,0 +1,80 @@
+#
+# test SHOW STATUS/VARIABLES with thread id
+#
+
+let $conn_root = query_get_value(SHOW processlist,Id,1);
+
+set max_join_size = 1000;
+
+#
+# Test on regular user
+#
+create user mysqluser1;
+connect (a,localhost,mysqluser1,,);
+connection a;
+
+let $conn_mysqluser1 = query_get_value(SHOW processlist,Id,1);
+
+set max_join_size = 2000;
+
+# SHOW VARIABLES
+show variables like 'max_join_size';
+
+--replace_regex /session [0-9]*/session $mysqluser1/
+--eval show session $conn_mysqluser1 variables like 'max_join_size';
+
+--replace_regex /session [0-9]*/session $root/ /thread [0-9]*/thread $root/
+--error ER_SHOW_DENIED_ERROR
+--eval show session $conn_root variables like 'max_join_size';
+
+--error ER_NO_SUCH_THREAD
+--eval show session 999 variables like 'max_join_size';
+
+# SHOW STATUS
+show status like 'com_create_user';
+
+--replace_regex /session [0-9]*/session $mysqluser1/
+--eval show session $conn_mysqluser1 status like 'com_create_user';
+
+--replace_regex /session [0-9]*/session $root/ /thread [0-9]*/thread $root/
+--error ER_SHOW_DENIED_ERROR
+--eval show session $conn_root status like 'com_create_user';
+
+--error ER_NO_SUCH_THREAD
+--eval show session 999 status like 'com_create_user';
+
+#
+# Test on root
+#
+connection default;
+
+# SHOW VARIABLES
+show variables like 'max_join_size';
+
+--replace_regex /session [0-9]*/session $root/
+--eval show session $conn_root variables like 'max_join_size';
+
+--replace_regex /session [0-9]*/session $mysqluser1/
+--eval show session $conn_mysqluser1 variables like 'max_join_size';
+
+show variables like 'max_join_size';
+
+--error ER_NO_SUCH_THREAD
+--eval show session 999 variables like 'max_join_size';
+
+# SHOW STATUS
+show status like 'com_create_user';
+
+--replace_regex /session [0-9]*/session $root/
+--eval show session $conn_root status like 'com_create_user';
+
+--replace_regex /session [0-9]*/session $mysqluser1/
+--eval show session $conn_mysqluser1 status like 'com_create_user';
+
+show status like 'com_create_user';
+
+--error ER_NO_SUCH_THREAD
+--eval show session 999 status like 'com_create_user';
+
+# cleanup
+drop user mysqluser1;
