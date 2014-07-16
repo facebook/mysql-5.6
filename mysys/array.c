@@ -125,7 +125,7 @@ my_bool insert_dynamic_set(DYNAMIC_ARRAY *array, const void *element)
   uint i;
   for (i = 0; i < array->elements; i++)
   {
-    void *temp = dynamic_element(array, i, void*);
+    void *temp = dynamic_element(array, i, void**);
     if (!memcmp(temp, element, (size_t) array->size_of_element))
       return FALSE;
   }

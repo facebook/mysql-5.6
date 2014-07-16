@@ -3171,7 +3171,13 @@ int Log_event::apply_event(Relay_log_info *rli)
           DBUG_RETURN(0);
         }
       }
-      insert_dynamic_set(&rli->gtid_infos, (uchar *) &gtid_info);
+      /*
+         In MTS mode, slave worker flushes gtid_info to the slave_gtid_info
+         table, so corridnator thread don't need to store the current
+         transaction's gtid information.
+       */
+      if (seq_execution)
+        insert_dynamic_set(&rli->gtid_infos, (uchar *) &gtid_info);
     } while(it++);
     free_root(&rli->gtid_info_mem_root, MYF(MY_KEEP_PREALLOC));
   }
