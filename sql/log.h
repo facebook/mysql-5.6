@@ -74,7 +74,7 @@ class TC_LOG
 
      @return Error code on failure, zero on success.
    */
-  virtual enum_result commit(THD *thd, bool all) = 0;
+  virtual enum_result commit(THD *thd, bool all, bool async) = 0;
 
   /**
      Log a rollback record of the transaction to the transaction
@@ -101,7 +101,7 @@ class TC_LOG
 
      @return Error code on failure, zero on success.
    */
-  virtual int prepare(THD *thd, bool all) = 0;
+  virtual int prepare(THD *thd, bool all, bool async) = 0;
 };
 
 
@@ -111,14 +111,14 @@ public:
   TC_LOG_DUMMY() {}
   int open(const char *opt_name)        { return 0; }
   void close()                          { }
-  enum_result commit(THD *thd, bool all) {
-    return ha_commit_low(thd, all) ? RESULT_ABORTED : RESULT_SUCCESS;
+  enum_result commit(THD *thd, bool all, bool async) {
+    return ha_commit_low(thd, all, async) ? RESULT_ABORTED : RESULT_SUCCESS;
   }
   int rollback(THD *thd, bool all) {
     return ha_rollback_low(thd, all);
   }
-  int prepare(THD *thd, bool all) {
-    return ha_prepare_low(thd, all);
+  int prepare(THD *thd, bool all, bool async) {
+    return ha_prepare_low(thd, all, async);
   }
 };
 
@@ -163,13 +163,15 @@ class TC_LOG_MMAP: public TC_LOG
   TC_LOG_MMAP(): inited(0) {}
   int open(const char *opt_name);
   void close();
-  enum_result commit(THD *thd, bool all);
+  enum_result commit(THD *thd, bool all, bool async);
   int rollback(THD *thd, bool all)      { return ha_rollback_low(thd, all); }
-  int prepare(THD *thd, bool all)       { return ha_prepare_low(thd, all); }
+  int prepare(THD *thd, bool all, bool async) {
+    return ha_prepare_low(thd, all, async);
+  }
   int recover();
 
 private:
-  int log_xid(THD *thd, my_xid xid);
+  int log_xid(THD *thd, my_xid xid, bool async);
   int unlog(ulong cookie, my_xid xid);
   void get_active_from_pool();
   int sync();

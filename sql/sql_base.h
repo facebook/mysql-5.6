@@ -171,7 +171,7 @@ TABLE *find_temporary_table(THD *thd, const char *db, const char *table_name);
 TABLE *find_temporary_table(THD *thd, const TABLE_LIST *tl);
 TABLE *find_temporary_table(THD *thd, const char *table_key,
                             uint table_key_length);
-void close_thread_tables(THD *thd);
+void close_thread_tables(THD *thd, bool async_commit=FALSE);
 bool fill_record_n_invoke_before_triggers(THD *thd, List<Item> &fields,
                                           List<Item> &values,
                                           bool ignore_errors,

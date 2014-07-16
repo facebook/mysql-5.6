@@ -209,6 +209,9 @@ template <class T> bool valid_buffer_range(T jump,
   return (jump <= available_buffer(buf_start, buf_current, buf_len));
 }
 
+/* Session level option for ASYNC_COMMIT */
+#define OPTION_ASYNC_COMMIT             (ULL(1) << 37) // THD, user
+
 /* The rest of the file is included in the server only */
 #ifndef MYSQL_CLIENT
 
