@@ -1,0 +1,6 @@
+(from config file) @@slave_net_timeout = 120
+(from config file) @@binlog_direct_non_transactional_updates = 1
+(from config file) @@log-bin = 'master-bin'
+(from config file) @@general_log = 1
+(from config file) @@slow_query_log = 1
+(from config file) @@server_id = 1
