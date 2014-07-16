@@ -82,23 +82,23 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
 
     // "unique" secondary keys support:
     bool unique_secondary_index= false;
-    uint loop_actual_key_parts= key_info->actual_key_parts;
+    m_key_parts= key_info->actual_key_parts;
     if (keyno != tbl->s->primary_key && (key_info->flags & HA_NOSAME))
     {
       // From SQL layer's point of view, Unique secondary indexes do not
       // have primary key columns at the end. Internally, they do.
-      loop_actual_key_parts += n_pk_key_parts;
+      m_key_parts += n_pk_key_parts;
       unique_secondary_index= true;
     }
 
-    size_t size= sizeof(Field_pack_info) * loop_actual_key_parts;
+    size_t size= sizeof(Field_pack_info) * m_key_parts;
     pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
 
     uint len= INDEX_NUMBER_SIZE;
     int unpack_len= 0;
     KEY_PART_INFO *key_part= key_info->key_part;
     /* this loop also loops over the 'extended key' tail */
-    for (uint i= 0; i < loop_actual_key_parts; i++)
+    for (uint i= 0; i < m_key_parts; i++)
     {
       Field *field= key_part->field;
 
@@ -213,6 +213,19 @@ void RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
   }
 }
 
+static Field *get_field_by_keynr(TABLE *tbl, KEY *key_info, uint part)
+{
+  if (part < key_info->actual_key_parts)
+  {
+    return key_info->key_part[part].field;
+  }
+  else
+  {
+    uint pk= tbl->s->primary_key;
+    KEY *pk_info= &tbl->key_info[pk];
+    return pk_info->key_part[part - key_info->actual_key_parts].field;
+  }
+}
 
 /*
   Get index columns from the record and pack them into mem-comparable form.
@@ -244,11 +257,17 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl, const uchar *record,
 
   // The following includes the 'extended key' tail:
   if (n_key_parts == 0 || n_key_parts == MAX_REF_PARTS)
-    n_key_parts= key_info->actual_key_parts;
+    n_key_parts= m_key_parts;
 
   for (uint i=0; i < n_key_parts; i++)
   {
-    Field *field= key_info->key_part[i].field;
+    /*
+    Field *field= (i < key_info->actual_key_parts)?
+                  key_info->key_part[i].field :
+                  tbl->key_info[tbl->s->primary_key].key_part[i -
+                  key_info->actual_key_parts].field;*/
+    Field *field= get_field_by_keynr(tbl, key_info, i);
+
     my_ptrdiff_t ptr_diff= record - tbl->record[0];
     field->move_field_offset(ptr_diff);
 
@@ -312,10 +331,11 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
   if (unpack_info->size() != unpack_data_len)
     return 1;
 
-  for (uint i= 0; i < key_info->actual_key_parts ; i++)
+  for (uint i= 0; i < m_key_parts ; i++)
   {
-    Field *field= key_info->key_part[i].field;
     Field_pack_info *fpi= &pack_info[i];
+    //Field *field= fpi->field;
+    Field *field= get_field_by_keynr(table, key_info, i);
 
     if (fpi->unpack_func)
     {
