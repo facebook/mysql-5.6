@@ -7161,6 +7161,12 @@ ER_DOCUMENT_KEY_NOT_SUPPORTED
 ER_DOCUMENT_FIELD_NOT_ALLOWED
   eng "DOCUMENT fields are not allowed"
 
+ER_REQUESTED_PURGED_GTID
+  eng "The requested GTID is purged and so cannot be found in binary logs."
+
+ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
+  eng "The requested GTID is not yet executed and so cannot be found in binary logs."
+
 #
 #  End of 5.6 error messages.
 #
