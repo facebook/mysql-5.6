@@ -30,8 +30,10 @@
 #include "mysql_com.h"      // USERNAME_LENGTH
 #include "sql/sql_const.h"  // MAX_PASSWORD_LENGTH
 
+struct Gtid;
 class Gtid_set;
 class String;
+class Sid_map;
 class THD;
 
 extern bool server_id_supplied;
@@ -61,6 +63,13 @@ bool show_master_offset(THD *thd, const char *file, ulonglong pos,
 bool show_master_status(THD *thd);
 bool show_binlogs(THD *thd);
 void kill_zombie_dump_threads(THD *thd);
+
+uint find_gtid_position_helper(const char *gtid_string, char *log_name,
+                               my_off_t &gtid_pos);
+bool find_gtid_position(THD *thd);
+template <class BINLOG_FILE_READER>
+my_off_t find_gtid_pos_in_log(const char *log_name, const Gtid &gtid,
+                              Sid_map *sid_map);
 
 /**
   Process a COM_BINLOG_DUMP_GTID packet.

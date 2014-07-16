@@ -28,6 +28,7 @@
 #include "my_config.h"
 
 #include <assert.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_SYS_TIME_H

@@ -43,6 +43,14 @@ const int BINLOG_NAME_SIZE_INFO_SIZE = 4;
 */
 const int BINLOG_DUMP_NON_BLOCK = 1 << 0;
 
+/*
+  Used in flags field of the query packet in com_binlog_dump_gtid command.
+  If this field is set, server needs to use start_gtid_protocol where it
+  starts dumping events from the starting position of Gtid_log_event
+  corresponsing to the GTID used in the com_binlog_dump_gtid command.
+*/
+#define USING_START_GTID_PROTOCOL (1 << 15)
+
 /**
    Enumeration of the reserved formats of Binlog extra row information
 */
