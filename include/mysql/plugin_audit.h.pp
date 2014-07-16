@@ -345,6 +345,7 @@ enum enum_sql_command {
   SQLCOM_DROP_SRS,
   SQLCOM_SHOW_ENGINE_TRX,
   SQLCOM_SHOW_MEMORY_STATUS,
+  SQLCOM_FIND_GTID_POSITION,
   SQLCOM_END
 };
 #include "plugin_audit_message_types.h"

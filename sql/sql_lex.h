@@ -3722,6 +3722,8 @@ struct LEX : public Query_tables_list {
   Prealloced_array<Item_func_get_system_var *, 1> plugin_var_bind_list{
       PSI_NOT_INSTRUMENTED};
 
+  char *gtid_string; /* For find gtid position */
+
   /// Table being inserted into (may be a view)
   TABLE_LIST *insert_table;
   /// Leaf table being inserted into (always a base table)

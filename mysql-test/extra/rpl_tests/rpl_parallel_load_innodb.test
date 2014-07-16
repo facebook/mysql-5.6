@@ -40,7 +40,7 @@ connection slave;
 call mtr.add_suppression('Slave: Error dropping database'); ## todo: fix
 
 source include/stop_slave.inc;
-start slave;
+source include/start_slave.inc;
 
 connection master;
 
@@ -97,7 +97,7 @@ while($i)
 
 
 # not gather events into relay log w/o executing yet
-stop slave sql_thread;
+stop replica sql_thread;
 
 ##call p1(1);
 

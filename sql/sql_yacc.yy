@@ -1390,6 +1390,14 @@ void warn_about_deprecated_binary(THD *thd)
 
 
 /*
+   Tokens from FB MySQL
+
+   Token numbers starting 1200.
+*/
+%token  FIND 1200
+%token<lexer.keyword> GTID_SYM 1201
+
+/*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
 */
@@ -2328,6 +2336,7 @@ simple_statement:
         | execute                       { $$= nullptr; }
         | explain_stmt
         | flush                         { $$= nullptr; }
+        | find                          { $$= nullptr; }
         | get_diagnostics               { $$= nullptr; }
         | group_replication             { $$= nullptr; }
         | grant                         { $$= nullptr; }
@@ -2520,6 +2529,24 @@ help:
           }
         ;
 
+/* find gtid positon */
+
+find:
+         FIND BINLOG_SYM
+         {
+           LEX *lex = Lex;
+           lex->sql_command = SQLCOM_FIND_GTID_POSITION;
+         }
+         gtid_def
+         {}
+      ;
+
+gtid_def:
+        GTID_SYM EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->gtid_string = $3.str;
+        }
+      ;
 /* change master */
 
 change_replication_source:
@@ -15342,6 +15369,7 @@ ident_keywords_unambiguous:
         | GRANTS
         | GROUP_REPLICATION
         | GTID_ONLY_SYM
+        | GTID_SYM
         | HASH_SYM
         | HISTOGRAM_SYM
         | HISTORY_SYM
