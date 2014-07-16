@@ -1,0 +1,24 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+SHOW STATUS LIKE 'Threads_running';
+Variable_name	Value
+Threads_running	1
+SHOW STATUS LIKE 'Threads_binlog_client';
+Variable_name	Value
+Threads_binlog_client	1
+STOP SLAVE;
+FLUSH LOGS;
+drop table if exists t1, t2;
+create table t1 (a int);
+insert into t1 values (1);
+drop table t1;
+FLUSH LOGS;
+SHOW STATUS LIKE 'Threads_running';
+Variable_name	Value
+Threads_running	1
+SHOW STATUS LIKE 'Threads_binlog_client';
+Variable_name	Value
+Threads_binlog_client	0
