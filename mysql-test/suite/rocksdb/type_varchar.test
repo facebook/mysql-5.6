@@ -1,0 +1,6 @@
+#
+# VARCHAR column types
+#
+
+--source type_varchar.inc
+
