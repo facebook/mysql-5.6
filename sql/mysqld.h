@@ -241,7 +241,7 @@ void dec_connection_count();
 
 // These are needed for unit testing.
 void set_remaining_args(int argc, char **argv);
-int init_common_variables();
+int init_common_variables(my_bool logging);
 void my_init_signals();
 bool gtid_server_init();
 void gtid_server_cleanup();
@@ -809,7 +809,7 @@ extern ulong opt_ndb_wait_setup;
 extern const char *load_default_groups[];
 extern struct my_option my_long_options[];
 extern struct my_option my_long_early_options[];
-int handle_early_options();
+int handle_early_options(my_bool logging);
 void adjust_related_options(ulong *requested_open_files);
 extern int mysqld_server_started;
 extern "C" MYSQL_PLUGIN_IMPORT int orig_argc;

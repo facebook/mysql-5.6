@@ -800,6 +800,14 @@ static bool binlog_direct_check(sys_var *self, THD *thd, set_var *var)
   return false;
 }
 
+my_bool opt_log_global_var_changes= FALSE;
+static Sys_var_mybool Sys_log_global_var_changes(
+       "log_global_var_changes",
+       "All the value changes of global variables will be logged into server "
+       "log when this is set to TRUE.",
+       GLOBAL_VAR(opt_log_global_var_changes),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_binlog_direct(
        "binlog_direct_non_transactional_updates",
        "Causes updates to non-transactional engines using statement format to "

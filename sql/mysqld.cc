@@ -1365,7 +1365,7 @@ uint connection_count= 0;
 
 pthread_handler_t signal_hand(void *arg);
 static int mysql_init_variables(void);
-static int get_options(int *argc_ptr, char ***argv_ptr);
+static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging);
 static void add_terminator(vector<my_option> *options);
 extern "C" my_bool mysqld_get_one_option(int, const struct my_option *, char *);
 static void set_server_version(void);
@@ -4282,7 +4282,7 @@ rpl_make_log_name(const char *opt,
 }
 
 
-int init_common_variables()
+int init_common_variables(my_bool logging)
 {
   umask(((~my_umask) & 0666));
   connection_errors_select= 0;
@@ -4437,7 +4437,7 @@ int init_common_variables()
                      SQLCOM_END + 8);
 #endif
 
-  if (get_options(&remaining_argc, &remaining_argv))
+  if (get_options(&remaining_argc, &remaining_argv, logging))
     return 1;
   set_server_version();
 
@@ -6018,7 +6018,7 @@ int mysqld_main(int argc, char **argv)
   init_pfs_instrument_array();
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
-  ho_error= handle_early_options();
+  ho_error= handle_early_options(TRUE);
 
   {
     ulong requested_open_files;
@@ -6136,7 +6136,7 @@ int mysqld_main(int argc, char **argv)
   }
 #endif
 
-  if (init_common_variables())
+  if (init_common_variables(TRUE))
     unireg_abort(1);        // Will do exit
 
   my_init_signals();
@@ -7632,7 +7632,7 @@ error:
   The performance schema needs to be initialized as early as possible,
   before to-be-instrumented objects of the server are initialized.
 */
-int handle_early_options()
+int handle_early_options(my_bool logging)
 {
   int ho_error;
   vector<my_option> all_early_options;
@@ -7661,8 +7661,19 @@ int handle_early_options()
   my_getopt_error_reporter= buffered_option_error_reporter;
   my_charset_error_reporter= buffered_option_error_reporter;
 
-  ho_error= handle_options(&remaining_argc, &remaining_argv,
-                           &all_early_options[0], mysqld_get_one_option);
+  if (logging)
+  {
+    ho_error = handle_options_with_logging(&remaining_argc, &remaining_argv,
+                                           &all_early_options[0],
+                                           mysqld_get_one_option);
+  }
+  else
+  {
+    ho_error = handle_options(&remaining_argc, &remaining_argv,
+                              &all_early_options[0],
+                              mysqld_get_one_option);
+  }
+
   if (ho_error == 0)
   {
     /* Add back the program name handle_options removes */
@@ -9898,7 +9909,7 @@ C_MODE_END
   @todo
   - FIXME add EXIT_TOO_MANY_ARGUMENTS to "mysys_err.h" and return that code?
 */
-static int get_options(int *argc_ptr, char ***argv_ptr)
+static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging)
 {
   int ho_error;
 
@@ -9919,8 +9930,18 @@ static int get_options(int *argc_ptr, char ***argv_ptr)
   /* Skip unknown options so that they may be processed later by plugins */
   my_getopt_skip_unknown= TRUE;
 
-  if ((ho_error= handle_options(argc_ptr, argv_ptr, &all_options[0],
-                                mysqld_get_one_option)))
+  if (logging)
+  {
+    ho_error= handle_options_with_logging(argc_ptr, argv_ptr, &all_options[0],
+                                          mysqld_get_one_option);
+  }
+  else
+  {
+    ho_error= handle_options(argc_ptr, argv_ptr, &all_options[0],
+                             mysqld_get_one_option);
+  }
+
+  if (ho_error)
     return ho_error;
 
   if (!opt_help)
