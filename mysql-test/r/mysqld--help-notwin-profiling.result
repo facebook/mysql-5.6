@@ -396,6 +396,9 @@ The following options may be given as the first argument:
  Log queries longer than log-datagram-usecs to a unix
  local datagram socket
  --log-error[=name]  Error log file
+ --log-global-var-changes 
+ All the value changes of global variables will be logged
+ into server log when this is set to TRUE.
  --log-gtid-unsafe-statements 
  When turned on, logs the gtid unsafe statements in the
  error log
@@ -1251,6 +1254,7 @@ log-bin-use-v1-row-events FALSE
 log-datagram FALSE
 log-datagram-usecs 0
 log-error 
+log-global-var-changes FALSE
 log-gtid-unsafe-statements TRUE
 log-isam myisam.log
 log-output FILE

@@ -562,7 +562,7 @@ int init_embedded_server(int argc, char **argv, char **groups)
   system_charset_info= &my_charset_utf8_general_ci;
   sys_var_init();
 
-  int ho_error= handle_early_options();
+  int ho_error= handle_early_options(FALSE);
   if (ho_error != 0)
   {
     buffered_logs.print();
@@ -573,7 +573,7 @@ int init_embedded_server(int argc, char **argv, char **groups)
   ulong requested_open_files_dummy;
   adjust_related_options(&requested_open_files_dummy);
 
-  if (init_common_variables())
+  if (init_common_variables(FALSE))
   {
     mysql_server_end();
     return 1;
