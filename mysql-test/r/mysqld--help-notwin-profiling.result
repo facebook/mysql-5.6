@@ -107,6 +107,9 @@ The following options may be given as the first argument:
  On a fatal error when statements cannot be binlogged the
  behaviour can be ignore the error and let the master
  continue or abort the server. 
+ --block-create-myisam 
+ Blocks creation of non-temporary MyISAM tables outside of
+ mysql schema.
  --block-encryption-mode=name 
  mode for AES_ENCRYPT/AES_DECRYPT
  --bootstrap         Used by mysql installation scripts.
@@ -1017,6 +1020,7 @@ binlog-row-image FULL
 binlog-rows-query-log-events FALSE
 binlog-stmt-cache-size 32768
 binlogging-impossible-mode IGNORE_ERROR
+block-create-myisam FALSE
 block-encryption-mode aes-128-ecb
 bulk-insert-buffer-size 8388608
 character-set-client-handshake TRUE
