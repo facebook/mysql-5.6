@@ -281,6 +281,25 @@ class Global_THD_manager {
   void inc_thread_created() { atomic_thread_created++; }
 
   /**
+   Retrieves binlog client thread running statistic variable.
+   @return int Returns the total number of binlog client threads
+   currently running
+  */
+  int get_num_thread_binlog_client() const {
+    return atomic_num_thread_binlog_client;
+  }
+
+  /**
+    Increments binlog client thread running statistic variable.
+  */
+  void inc_thread_binlog_client() { atomic_num_thread_binlog_client++; }
+
+  /**
+    Decrements binlog client thread running statistic variable.
+  */
+  void dec_thread_binlog_client() { atomic_num_thread_binlog_client--; }
+
+  /**
     Returns an unused thread id.
   */
   my_thread_id get_new_thread_id();
@@ -378,6 +397,9 @@ class Global_THD_manager {
 
   // Cumulative number of threads created by mysqld daemon.
   std::atomic<ulonglong> atomic_thread_created;
+
+  // Count of active binlog client threads
+  std::atomic<int> atomic_num_thread_binlog_client;
 
   // Counter to assign thread id.
   my_thread_id thread_id_counter;

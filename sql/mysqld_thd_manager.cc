@@ -160,6 +160,7 @@ Global_THD_manager::Global_THD_manager()
     thread_ids(PSI_INSTRUMENT_ME),
     atomic_num_thread_running(0),
     atomic_thread_created(0),
+    atomic_num_thread_binlog_client(0),
     thread_id_counter(reserved_thread_id + 1),
     unit_test(false)
 {
