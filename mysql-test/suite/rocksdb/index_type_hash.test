@@ -1,0 +1,10 @@
+#
+# Index type HASH
+#
+
+let $index_type = HASH;
+
+--source index.inc
+
+let $index_type =;
+
