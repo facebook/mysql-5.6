@@ -24,6 +24,8 @@ extern bool server_id_supplied;
 extern int max_binlog_dump_events;
 extern my_bool opt_sporadic_binlog_dump_fail;
 extern my_bool opt_show_slave_auth_info;
+/* Size for preallocated replication buffer size */
+extern ulong rpl_event_buffer_size;
 
 typedef struct st_slave_info
 {
