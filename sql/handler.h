@@ -870,9 +870,9 @@ struct handlerton
      NOTE 'all' is also false in auto-commit mode where 'end of statement'
      and 'real commit' mean the same event.
    */
-   int  (*commit)(handlerton *hton, THD *thd, bool all);
+   int  (*commit)(handlerton *hton, THD *thd, bool all, bool async);
    int  (*rollback)(handlerton *hton, THD *thd, bool all);
-   int  (*prepare)(handlerton *hton, THD *thd, bool all);
+   int  (*prepare)(handlerton *hton, THD *thd, bool all, bool async);
    int  (*recover)(handlerton *hton, XID *xid_list, uint len);
    int  (*commit_by_xid)(handlerton *hton, XID *xid);
    int  (*rollback_by_xid)(handlerton *hton, XID *xid);
@@ -3483,7 +3483,8 @@ int ha_release_temporary_latches(THD *thd);
 /* transactions: interface to handlerton functions */
 int ha_start_consistent_snapshot(THD *thd);
 int ha_commit_or_rollback_by_xid(THD *thd, XID *xid, bool commit);
-int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock= false);
+int ha_commit_trans(THD *thd, bool all, bool async,
+                    bool ignore_global_read_lock= false);
 int ha_rollback_trans(THD *thd, bool all);
 int ha_prepare(THD *thd);
 int ha_recover(HASH *commit_list);
@@ -3493,8 +3494,8 @@ int ha_recover(HASH *commit_list);
  intended to be used by the transaction coordinators to
  commit/prepare/rollback transactions in the engines.
 */
-int ha_commit_low(THD *thd, bool all, bool run_after_commit= true);
-int ha_prepare_low(THD *thd, bool all);
+int ha_commit_low(THD *thd, bool all, bool async, bool run_after_commit= true);
+int ha_prepare_low(THD *thd, bool all, bool async);
 int ha_rollback_low(THD *thd, bool all);
 
 /* transactions: these functions never call handlerton functions directly */

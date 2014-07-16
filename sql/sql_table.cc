@@ -2659,7 +2659,7 @@ err:
           commit, in these cases we must force a commit.
         */
         if (gtid_mode > 0 && (trans_tmp_table_deleted || non_tmp_table_deleted))
-          error |= mysql_bin_log.commit(thd, true);
+          error |= mysql_bin_log.commit(thd, true, false);
       }
       if (trans_tmp_table_deleted ||
           (have_nonexistent_tmp_table && !non_trans_tmp_table_deleted))
@@ -2684,7 +2684,7 @@ err:
           commit, in these cases we must force a commit.
         */
         if (gtid_mode > 0 && non_tmp_table_deleted)
-          error |= mysql_bin_log.commit(thd, true);
+          error |= mysql_bin_log.commit(thd, true, false);
       }
       if (non_tmp_table_deleted)
       {

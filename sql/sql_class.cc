@@ -1549,7 +1549,7 @@ void THD::cleanup(void)
     actions.
    */
   if (tc_log)
-    tc_log->commit(this, true);
+    tc_log->commit(this, true, false);
 
   /*
     Debug sync system must be closed after tc_log->commit(), because
