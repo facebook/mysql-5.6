@@ -765,7 +765,14 @@ bool com_binlog_dump(THD *thd, char *packet, uint packet_length)
 
   general_log_print(thd, thd->get_command(), "Log: '%s'  Pos: %ld",
                     packet + 10, (long) pos);
+
+  my_atomic_add32(&thread_binlog_client, 1);
+  dec_thread_running();
+
   mysql_binlog_send(thd, thd->strdup(packet + 10), (my_off_t) pos, NULL, flags);
+
+  inc_thread_running();
+  my_atomic_add32(&thread_binlog_client, -1);
 
   unregister_slave(thd, true, true/*need_lock_slave_list=true*/);
   /*  fake COM_QUIT -- if we get here, the thread needs to terminate */

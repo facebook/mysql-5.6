@@ -1,0 +1,21 @@
+--source include/master-slave.inc
+
+SHOW STATUS LIKE 'Threads_running';
+SHOW STATUS LIKE 'Threads_binlog_client';
+
+connection slave;
+STOP SLAVE;
+
+connection master;
+
+FLUSH LOGS;
+--disable_warnings
+drop table if exists t1, t2;
+create table t1 (a int);
+insert into t1 values (1);
+drop table t1;
+--enable_warnings
+FLUSH LOGS;
+
+SHOW STATUS LIKE 'Threads_running';
+SHOW STATUS LIKE 'Threads_binlog_client';
