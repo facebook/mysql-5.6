@@ -4738,6 +4738,11 @@ end_with_restore_list:
     
     break;
   }
+#ifdef HAVE_REPLICATION
+  case SQLCOM_FIND_GTID_POSITION:
+   res = find_gtid_position(thd);
+   break;
+#endif /* HAVE_REPLICATION */
   case SQLCOM_KILL:
   {
     Item *it= (Item *)lex->value_list.head();

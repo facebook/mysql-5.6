@@ -2466,6 +2466,7 @@ uint sp_get_flags_for_command(LEX *lex)
   case SQLCOM_SHOW_VARIABLES:
   case SQLCOM_SHOW_WARNS:
   case SQLCOM_REPAIR:
+  case SQLCOM_FIND_GTID_POSITION:
     flags= sp_head::MULTI_RESULTS;
     break;
   /*

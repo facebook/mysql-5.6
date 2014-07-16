@@ -1269,6 +1269,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  FAULTS_SYM
 %token  FETCH_SYM                     /* SQL-2003-R */
 %token  FILE_SYM
+%token  FIND
 %token  FIRST_SYM                     /* SQL-2003-N */
 %token  FIXED_SYM
 %token  FLOAT_NUM
@@ -1290,6 +1291,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  GET_FORMAT                    /* MYSQL-FUNC */
 %token  GET_SYM                       /* SQL-2003-R */
 %token  GLOBAL_SYM                    /* SQL-2003-R */
+%token  GTID_SYM
 %token  GRANT                         /* SQL-2003-R */
 %token  GRANTS
 %token  GROUP_SYM                     /* SQL-2003-R */
@@ -1950,7 +1952,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         part_column_list
         server_def server_options_list server_option
         definer_opt no_definer definer get_diagnostics
-        alter_user_list
+        alter_user_list find
 END_OF_INPUT
 
 %type <NONE> call sp_proc_stmts sp_proc_stmts1 sp_proc_stmt
@@ -2103,6 +2105,7 @@ statement:
         | drop
         | execute
         | flush
+        | find
         | get_diagnostics
         | grant
         | handler
@@ -2244,6 +2247,24 @@ help:
           }
         ;
 
+/* find gtid positon */
+
+find:
+         FIND BINLOG_SYM
+         {
+           LEX *lex = Lex;
+           lex->sql_command = SQLCOM_FIND_GTID_POSITION;
+         }
+         gtid_def
+         {}
+      ;
+
+gtid_def:
+        GTID_SYM EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->gtid_string = $3.str;
+        }
+      ;
 /* change master */
 
 change:
@@ -14449,6 +14470,7 @@ keyword_sp:
         | GEOMETRYCOLLECTION       {}
         | GET_FORMAT               {}
         | GRANTS                   {}
+        | GTID_SYM                 {}
         | GLOBAL_SYM               {}
         | HASH_SYM                 {}
         | HOSTS_SYM                {}
