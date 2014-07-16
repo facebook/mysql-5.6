@@ -5289,6 +5289,9 @@ size_t my_strmov_quoted_identifier_helper(int q, char *buffer,
                                           const char* identifier,
                                           uint length);
 
+my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
+                              Sid_map *sid_map);
+
 /**
   @} (end of group Replication)
 */
