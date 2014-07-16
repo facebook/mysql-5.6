@@ -1229,6 +1229,12 @@ void warn_about_deprecated_national(THD *thd)
 %token<keyword> SECONDARY_LOAD_SYM            /* MYSQL */
 %token<keyword> SECONDARY_UNLOAD_SYM          /* MYSQL */
 
+/*
+   Tokens from FB MySQL
+*/
+%token  FIND
+%token<keyword> GTID_SYM
+
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -2051,6 +2057,7 @@ simple_statement:
         | execute                       { $$= nullptr; }
         | explain_stmt
         | flush                         { $$= nullptr; }
+        | find                          { $$= nullptr; }
         | get_diagnostics               { $$= nullptr; }
         | group_replication             { $$= nullptr; }
         | grant                         { $$= nullptr; }
@@ -2197,6 +2204,24 @@ help:
           }
         ;
 
+/* find gtid positon */
+
+find:
+         FIND BINLOG_SYM
+         {
+           LEX *lex = Lex;
+           lex->sql_command = SQLCOM_FIND_GTID_POSITION;
+         }
+         gtid_def
+         {}
+      ;
+
+gtid_def:
+        GTID_SYM EQ TEXT_STRING_sys_nonewline
+        {
+          Lex->gtid_string = $3.str;
+        }
+      ;
 /* change master */
 
 change:
@@ -13946,6 +13971,7 @@ role_or_label_keyword:
         | GET_MASTER_PUBLIC_KEY_SYM
         | GLOBAL_SYM
         | GRANTS
+        | GTID_SYM
         | HASH_SYM
         | HISTOGRAM_SYM
         | HISTORY_SYM

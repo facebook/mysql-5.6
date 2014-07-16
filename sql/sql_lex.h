@@ -3595,6 +3595,8 @@ struct LEX : public Query_tables_list {
       Plugins_array;
   Plugins_array plugins;
 
+  char *gtid_string; /* For find gtid position */
+
   /// Table being inserted into (may be a view)
   TABLE_LIST *insert_table;
   /// Leaf table being inserted into (always a base table)
