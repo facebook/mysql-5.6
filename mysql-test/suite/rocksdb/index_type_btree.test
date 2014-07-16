@@ -1,0 +1,10 @@
+#
+# Index type BTREE
+#
+
+let $index_type = BTREE;
+
+--source index.inc
+
+let $index_type =;
+
