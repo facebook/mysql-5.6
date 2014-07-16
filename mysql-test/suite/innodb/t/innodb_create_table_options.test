@@ -1,0 +1,76 @@
+--source include/have_innodb.inc
+let $file_format_save = `SELECT @@innodb_file_format`;
+let $file_per_table_save = `SELECT @@innodb_file_per_table`;
+SET GLOBAL innodb_file_format='Barracuda';
+SET GLOBAL innodb_file_per_table=ON;
+
+# Make sure that non-compressed table creation works as usual.
+CREATE TABLE t0(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPACT;
+SHOW CREATE TABLE t0;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t0';
+# Make sure that regular compressed tables work as usual. Note that the default compression format uses COMPRESION=ZLIB_STREAM.
+CREATE TABLE t1(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+SHOW CREATE TABLE t1;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t1';
+# Make sure that the new COMPRESSION keyword is supported without the use of COMPRESSION_FLAGS.
+CREATE TABLE t2(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB KEY_BLOCK_SIZE=4;
+SHOW CREATE TABLE t2;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
+# Create a table with both COMPRESSION and COMPRESSION_FLAGS specified where COMPRESSION_FLAGS is within the acceptable range.
+CREATE TABLE t3(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 COMPRESSION=LZMA COMPRESSION_FLAGS=123;
+SHOW CREATE TABLE t3;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
+# Create a table where COMPRESSION_FLAGS is set to minimum possible value.
+CREATE TABLE t4(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=ZLIB_STREAM COMPRESSION_FLAGS=0 KEY_BLOCK_SIZE=8;
+SHOW CREATE TABLE t4;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t4';
+# Create a table where COMPRESSION_FLAGS is set to maximum possible value.
+CREATE TABLE t5(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=SNAPPY KEY_BLOCK_SIZE=4 COMPRESSION_FLAGS=255;
+SHOW CREATE TABLE t5;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t5';
+# Create a table where KEY_BLOCK_SIZE is set to its maximum possible value.
+CREATE TABLE t6(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=QUICKLZ KEY_BLOCK_SIZE=16;
+SHOW CREATE TABLE t6;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t6';
+# Create a table where COMPRESSION_FLAGS is set to a value larger than its maximum possible value.
+CREATE TABLE t7(a INT PRIMARY KEY) ENGINE=InnoDB ROW_FORMAT=COMPRESSED COMPRESSION=LZ4 KEY_BLOCK_SIZE=8 COMPRESSION_FLAGS=256;
+SHOW CREATE TABLE t7;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t7';
+
+# restart mysql to make sure that the table schemata are persisted.
+--source include/restart_mysqld.inc
+SET GLOBAL innodb_file_format='Barracuda';
+SET GLOBAL innodb_file_per_table=ON;
+
+SHOW CREATE TABLE t1;
+SHOW CREATE TABLE t2;
+SHOW CREATE TABLE t3;
+SHOW CREATE TABLE t4;
+SHOW CREATE TABLE t5;
+SHOW CREATE TABLE t6;
+SHOW CREATE TABLE t7;
+
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test';
+
+ALTER TABLE t1 ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t1';
+
+ALTER TABLE t2 ADD COLUMN (b int);
+SHOW CREATE TABLE t2;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t2';
+
+ALTER TABLE t3 COMPRESSION_FLAGS=16;
+SHOW CREATE TABLE t3;
+SELECT table_name, `compression`, `compression_flags`, `key_block_size` FROM information_schema.tables WHERE table_schema='test' AND table_name='t3';
+
+DROP TABLE t0;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+DROP TABLE t5;
+DROP TABLE t6;
+DROP TABLE t7;
+eval SET GLOBAL innodb_file_format=$file_format_save;
+eval SET GLOBAL innodb_file_per_table=$file_per_table_save;
