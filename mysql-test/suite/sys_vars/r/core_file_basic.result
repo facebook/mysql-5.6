@@ -4,3 +4,28 @@ CORE_FILE	ON
 SHOW GLOBAL VARIABLES LIKE '%core%';
 Variable_name	Value
 core_file	ON
+SET @old_val = @@global.core_file;
+SELECT @old_val;
+@old_val
+1
+SET GLOBAL core_file = FALSE;
+SELECT @@core_file;
+@@core_file
+0
+SHOW GLOBAL VARIABLES LIKE '%core%';
+Variable_name	Value
+core_file	OFF
+SET GLOBAL core_file = TRUE;
+SELECT @@core_file;
+@@core_file
+1
+SHOW GLOBAL VARIABLES LIKE '%core%';
+Variable_name	Value
+core_file	ON
+SET @@global.core_file = @old_val;
+SELECT @@global.core_file;
+@@global.core_file
+1
+SHOW GLOBAL VARIABLES LIKE '%core%';
+Variable_name	Value
+core_file	ON
