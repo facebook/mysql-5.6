@@ -91,6 +91,7 @@ enum enum_sql_command {
   SQLCOM_ALTER_USER,
   SQLCOM_SHOW_ENGINE_TRX,
   SQLCOM_SHOW_MEMORY_STATUS,
+  SQLCOM_FIND_GTID_POSITION,
 
   /*
     When a command is added here, be sure it's also added in mysqld.cc
