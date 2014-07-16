@@ -490,6 +490,8 @@ enum enum_binlogging_impossible_mode
   ABORT_SERVER= 1
 };
 extern const char *binlogging_impossible_err[];
+extern ulong sql_slave_skip_counter_usage;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.
