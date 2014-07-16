@@ -75,9 +75,9 @@ static int binlog_savepoint_set(handlerton *hton, THD *thd, void *sv);
 static int binlog_savepoint_rollback(handlerton *hton, THD *thd, void *sv);
 static bool binlog_savepoint_rollback_can_release_mdl(handlerton *hton,
                                                       THD *thd);
-static int binlog_commit(handlerton *hton, THD *thd, bool all);
+static int binlog_commit(handlerton *hton, THD *thd, bool all, bool async);
 static int binlog_rollback(handlerton *hton, THD *thd, bool all);
-static int binlog_prepare(handlerton *hton, THD *thd, bool all);
+static int binlog_prepare(handlerton *hton, THD *thd, bool all, bool async);
 
 
 /**
@@ -326,7 +326,7 @@ public:
   }
 
   int finalize(THD *thd, Log_event *end_event);
-  int flush(THD *thd, my_off_t *bytes, bool *wrote_xid);
+  int flush(THD *thd, my_off_t *bytes, bool *wrote_xid, bool async);
   int write_event(THD *thd, Log_event *event);
 
   virtual ~binlog_cache_data()
@@ -766,14 +766,14 @@ public:
                          be touched.
     @return Error code on error, zero if no error.
    */
-  int flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid)
+  int flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid, bool async)
   {
     my_off_t stmt_bytes= 0;
     my_off_t trx_bytes= 0;
     DBUG_ASSERT(stmt_cache.has_xid() == 0 && trx_cache.has_xid() <= 1);
-    if (int error= stmt_cache.flush(thd, &stmt_bytes, wrote_xid))
+    if (int error= stmt_cache.flush(thd, &stmt_bytes, wrote_xid, async))
       return error;
-    if (int error= trx_cache.flush(thd, &trx_bytes, wrote_xid))
+    if (int error= trx_cache.flush(thd, &trx_bytes, wrote_xid, async))
       return error;
     *bytes_written= stmt_bytes + trx_bytes;
     return 0;
@@ -1141,7 +1141,7 @@ int gtid_empty_group_log_and_cleanup(THD *thd)
       gtid_before_write_cache(thd, cache_data))
     goto err;
 
-  ret= mysql_bin_log.commit(thd, true);
+  ret= mysql_bin_log.commit(thd, true, false);
 
 err:
   DBUG_RETURN(ret);
@@ -1199,7 +1199,8 @@ binlog_cache_data::finalize(THD *thd, Log_event *end_event)
   @see binlog_cache_data::finalize
  */
 int
-binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid)
+binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid,
+                         bool async)
 {
   /*
     Doing a commit or a rollback including non-transactional tables,
@@ -1224,7 +1225,7 @@ binlog_cache_data::flush(THD *thd, my_off_t *bytes_written, bool *wrote_xid)
       if the cache is not reset.
      */
     if (!(error= gtid_before_write_cache(thd, this)))
-      error= mysql_bin_log.write_cache(thd, this);
+      error= mysql_bin_log.write_cache(thd, this, async);
 
     if (flags.with_xid && error == 0)
       *wrote_xid= true;
@@ -1308,7 +1309,7 @@ binlog_trx_cache_data::truncate(THD *thd, bool all)
   DBUG_RETURN(error);
 }
 
-static int binlog_prepare(handlerton *hton, THD *thd, bool all)
+static int binlog_prepare(handlerton *hton, THD *thd, bool all, bool async)
 {
   /*
     do nothing.
@@ -1335,7 +1336,7 @@ static int binlog_prepare(handlerton *hton, THD *thd, bool all)
 
   @see handlerton::commit
 */
-static int binlog_commit(handlerton *hton, THD *thd, bool all)
+static int binlog_commit(handlerton *hton, THD *thd, bool all, bool async)
 {
   DBUG_ENTER("binlog_commit");
   /*
@@ -5058,7 +5059,7 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
 
   // Flush and sync
   bool error= false;
-  if (flush_and_sync(0) == 0)
+  if (flush_and_sync(0, 0) == 0)
   {
     // If relay log is too big, rotate
     if ((uint) my_b_append_tell(&log_file) >
@@ -5135,14 +5136,14 @@ bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
 }
 #endif // ifdef HAVE_REPLICATION
 
-bool MYSQL_BIN_LOG::flush_and_sync(const bool force)
+bool MYSQL_BIN_LOG::flush_and_sync(bool async, const bool force)
 {
   mysql_mutex_assert_owner(&LOCK_log);
 
   if (flush_io_cache(&log_file))
     return 1;
 
-  std::pair<bool, bool> result= sync_binlog_file(force);
+  std::pair<bool, bool> result= sync_binlog_file(force, async);
 
   return result.first;
 }
@@ -5448,7 +5449,7 @@ int MYSQL_BIN_LOG::rotate(bool force_rotate, bool* check_purge)
         sql_print_error("The server was unable to create a new log file. "
                         "An incident event has been written to the binary "
                         "log which will stop the slaves.");
-        flush_and_sync(0);
+        flush_and_sync(0, 0);
       }
 
     *check_purge= true;
@@ -5841,7 +5842,7 @@ bool MYSQL_BIN_LOG::write_incident(Incident_log_event *ev, bool need_lock_log,
 
   if (do_flush_and_sync)
   {
-    if (!error && !(error= flush_and_sync()))
+    if (!error && !(error= flush_and_sync(false, false)))
     {
       bool check_purge= false;
       signal_update();
@@ -5902,7 +5903,8 @@ bool MYSQL_BIN_LOG::write_incident(THD *thd, bool need_lock_log,
     'cache' needs to be reinitialized after this functions returns.
 */
 
-bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data)
+bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data,
+                                bool async)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::write_cache(THD *, binlog_cache_data *, bool)");
 
@@ -5935,7 +5937,7 @@ bool MYSQL_BIN_LOG::write_cache(THD *thd, binlog_cache_data *cache_data)
                         if ((write_error= do_write_cache(cache)))
                           DBUG_PRINT("info", ("error writing binlog cache: %d",
                                                write_error));
-                        flush_and_sync(true);
+                        flush_and_sync(async, true);
                         DBUG_PRINT("info", ("crashing before writing xid"));
                         DBUG_SUICIDE();
                       });
@@ -6326,11 +6328,11 @@ void MYSQL_BIN_LOG::close()
   @retval 0    success
   @retval 1    error
 */
-int MYSQL_BIN_LOG::prepare(THD *thd, bool all)
+int MYSQL_BIN_LOG::prepare(THD *thd, bool all, bool async)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::prepare");
 
-  int error= ha_prepare_low(thd, all);
+  int error= ha_prepare_low(thd, all, async);
 
   DBUG_RETURN(error);
 }
@@ -6361,7 +6363,7 @@ int MYSQL_BIN_LOG::prepare(THD *thd, bool all)
   @retval 1    error, transaction was neither logged nor committed
   @retval 2    error, transaction was logged but not committed
 */
-TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all)
+TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all, bool async)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::commit");
 
@@ -6380,7 +6382,7 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all)
    */
   if (cache_mngr == NULL)
   {
-    if (ha_commit_low(thd, all))
+    if (ha_commit_low(thd, all, async))
       DBUG_RETURN(RESULT_ABORTED);
     DBUG_RETURN(RESULT_SUCCESS);
   }
@@ -6499,12 +6501,12 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all)
   */
   if (stuff_logged)
   {
-    if (ordered_commit(thd, all))
+    if (ordered_commit(thd, all, false, async))
       DBUG_RETURN(RESULT_INCONSISTENT);
   }
   else
   {
-    if (ha_commit_low(thd, all))
+    if (ha_commit_low(thd, all, async))
       DBUG_RETURN(RESULT_INCONSISTENT);
   }
 
@@ -6527,12 +6529,12 @@ TC_LOG::enum_result MYSQL_BIN_LOG::commit(THD *thd, bool all)
    copy it if they need it after the hook has returned.
  */
 std::pair<int,my_off_t>
-MYSQL_BIN_LOG::flush_thread_caches(THD *thd)
+MYSQL_BIN_LOG::flush_thread_caches(THD *thd, bool async)
 {
   binlog_cache_mngr *cache_mngr= thd_get_cache_mngr(thd);
   my_off_t bytes= 0;
   bool wrote_xid= false;
-  int error= cache_mngr->flush(thd, &bytes, &wrote_xid);
+  int error= cache_mngr->flush(thd, &bytes, &wrote_xid, async);
   if (!error && bytes > 0)
   {
     /*
@@ -6564,7 +6566,8 @@ MYSQL_BIN_LOG::flush_thread_caches(THD *thd)
 int
 MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
                                          bool *rotate_var,
-                                         THD **out_queue_var)
+                                         THD **out_queue_var,
+                                         bool async)
 {
   DBUG_ASSERT(total_bytes_var && rotate_var && out_queue_var);
   my_off_t total_bytes= 0;
@@ -6588,7 +6591,7 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
   while ((max_udelay == 0 || my_micro_time() < start_utime + max_udelay) && has_more)
   {
     std::pair<bool,THD*> current= stage_manager.pop_front(Stage_manager::FLUSH_STAGE);
-    std::pair<int,my_off_t> result= flush_thread_caches(current.second);
+    std::pair<int,my_off_t> result= flush_thread_caches(current.second, async);
     has_more= current.first;
     total_bytes+= result.second;
     if (flush_error == 1)
@@ -6607,7 +6610,7 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
     THD *queue= stage_manager.fetch_queue_for(Stage_manager::FLUSH_STAGE);
     for (THD *head= queue ; head ; head = head->next_to_commit)
     {
-      std::pair<int,my_off_t> result= flush_thread_caches(head);
+      std::pair<int,my_off_t> result= flush_thread_caches(head, async);
       total_bytes+= result.second;
       if (flush_error == 1)
         flush_error= result.first;
@@ -6639,7 +6642,7 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
  */
 
 void
-MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first)
+MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first, bool async)
 {
   mysql_mutex_assert_owner(&LOCK_commit);
   Thread_excursion excursion(thd);
@@ -6673,7 +6676,7 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first)
         /*
           storage engine commit
         */
-        if (ha_commit_low(head, all, false))
+        if (ha_commit_low(head, all, async, false))
           head->commit_error= THD::CE_COMMIT_ERROR;
       }
       DBUG_PRINT("debug", ("commit_error: %d, flags.pending: %s",
@@ -6699,7 +6702,8 @@ MYSQL_BIN_LOG::process_commit_stage_queue(THD *thd, THD *first)
  */
 
 void
-MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first)
+MYSQL_BIN_LOG::process_after_commit_stage_queue(THD *thd, THD *first,
+						bool async)
 {
   Thread_excursion excursion(thd);
   for (THD *head= first; head; head= head->next_to_commit)
@@ -6812,13 +6816,14 @@ MYSQL_BIN_LOG::flush_cache_to_file(my_off_t *end_pos_var)
   Call fsync() to sync the file to disk.
 */
 std::pair<bool, bool>
-MYSQL_BIN_LOG::sync_binlog_file(bool force)
+MYSQL_BIN_LOG::sync_binlog_file(bool force, bool async)
 {
   bool synced= false;
   unsigned int sync_period= get_sync_period();
-  if (force || (sync_period && ++sync_counter >= sync_period))
+  if (force || (!async && (sync_period && ++sync_counter >= sync_period)))
   {
     sync_counter= 0;
+    statistic_increment(binlog_fsync_count, &LOCK_status);
     if (mysql_file_sync(log_file.file, MYF(MY_WME)))
       return std::make_pair(true, synced);
     synced= true;
@@ -6848,7 +6853,7 @@ MYSQL_BIN_LOG::sync_binlog_file(bool force)
    success.
  */
 int
-MYSQL_BIN_LOG::finish_commit(THD *thd)
+MYSQL_BIN_LOG::finish_commit(THD *thd, bool async)
 {
   if (thd->transaction.flags.commit_low)
   {
@@ -6857,7 +6862,7 @@ MYSQL_BIN_LOG::finish_commit(THD *thd)
       storage engine commit
     */
     if (thd->commit_error == THD::CE_NONE &&
-        ha_commit_low(thd, all, false))
+        ha_commit_low(thd, all, async, false))
       thd->commit_error= THD::CE_COMMIT_ERROR;
     /*
       Decrement the prepared XID counter after storage engine commit
@@ -6945,7 +6950,8 @@ MYSQL_BIN_LOG::finish_commit(THD *thd)
                be skipped (it is handled by the caller somehow) and @c
                false otherwise (the normal case).
  */
-int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit)
+int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
+                                  bool async)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::ordered_commit");
   int flush_error= 0;
@@ -7001,11 +7007,12 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit)
   {
     DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
                           thd->thread_id, thd->commit_error));
-    DBUG_RETURN(finish_commit(thd));
+    DBUG_RETURN(finish_commit(thd, async));
   }
 
   THD *wait_queue= NULL;
-  flush_error= process_flush_stage_queue(&total_bytes, &do_rotate, &wait_queue);
+  flush_error= process_flush_stage_queue(&total_bytes, &do_rotate, &wait_queue,
+                                         async);
 
   my_off_t flush_end_pos= 0;
   if (flush_error == 0 && total_bytes > 0)
@@ -7046,13 +7053,13 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit)
   {
     DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
                           thd->thread_id, thd->commit_error));
-    DBUG_RETURN(finish_commit(thd));
+    DBUG_RETURN(finish_commit(thd, async));
   }
   THD *final_queue= stage_manager.fetch_queue_for(Stage_manager::SYNC_STAGE);
   if (flush_error == 0 && total_bytes > 0)
   {
     DEBUG_SYNC(thd, "before_sync_binlog_file");
-    std::pair<bool, bool> result= sync_binlog_file(false);
+    std::pair<bool, bool> result= sync_binlog_file(false, async);
     flush_error= result.first;
   }
 
@@ -7075,18 +7082,18 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit)
     {
       DBUG_PRINT("return", ("Thread ID: %lu, commit_error: %d",
                             thd->thread_id, thd->commit_error));
-      DBUG_RETURN(finish_commit(thd));
+      DBUG_RETURN(finish_commit(thd, async));
     }
     THD *commit_queue= stage_manager.fetch_queue_for(Stage_manager::COMMIT_STAGE);
     DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                     DEBUG_SYNC(thd, "before_process_commit_stage_queue"););
-    process_commit_stage_queue(thd, commit_queue);
+    process_commit_stage_queue(thd, commit_queue, async);
     mysql_mutex_unlock(&LOCK_commit);
     /*
       Process after_commit after LOCK_commit is released for avoiding
       3-way deadlock among user thread, rotate thread and dump thread.
     */
-    process_after_commit_stage_queue(thd, commit_queue);
+    process_after_commit_stage_queue(thd, commit_queue, async);
     final_queue= commit_queue;
   }
   else
@@ -7100,7 +7107,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit)
     deadlock. We don't need the return value here since it is in
     thd->commit_error, which is returned below.
   */
-  (void) finish_commit(thd);
+  (void) finish_commit(thd, async);
 
   /*
     If we need to rotate, we do it without commit error.
