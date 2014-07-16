@@ -1,0 +1,24 @@
+#
+# Cleanup after rpl_parallel_load_innodb.test
+#
+
+if ($databases == '')
+{
+  let $databases = 16;
+}
+connection master;
+
+--disable_query_log
+--disable_result_log
+
+let $i = $databases;
+while($i)
+{
+  dec $i;
+  eval drop database test$i;
+}
+
+--enable_result_log
+--enable_query_log
+
+sync_slave_with_master;

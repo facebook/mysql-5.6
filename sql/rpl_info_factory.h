@@ -23,6 +23,7 @@
 #include "rpl_mi.h"
 #include "rpl_rli.h"
 #include "rpl_rli_pdb.h"
+#include "rpl_gtid_info.h"
 #include "rpl_info_file.h"
 #include "rpl_info_table.h"
 #include "rpl_info_dummy.h"
@@ -46,6 +47,9 @@ public:
                                      Relay_log_info *rli,
                                      bool is_gaps_collecting_phase);
   static bool reset_workers(Relay_log_info *rli);
+  static bool reset_gtid_infos(Relay_log_info *rli);
+  static Gtid_info *create_gtid_info(uint db_id);
+  static bool init_gtid_info_repository(Relay_log_info *rli);
 private:
   typedef struct
   {
@@ -68,6 +72,8 @@ private:
   static struct_file_data mi_file_data;
   static struct_table_data worker_table_data;
   static struct_file_data worker_file_data;
+  static struct_table_data gtid_info_table_data;
+  static struct_file_data gtid_info_file_data;
 
   static void init_repository_metadata();
   static bool decide_repository(Rpl_info *info,

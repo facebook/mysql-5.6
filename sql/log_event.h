@@ -45,6 +45,7 @@
 #include "sql_class.h"                          /* THD */
 #include "rpl_utility.h"                        /* Hash_slave_rows */
 #include "rpl_filter.h"
+#include "rpl_gtid_info.h"
 #endif
 
 /* Forward declarations */
@@ -1015,7 +1016,6 @@ public:
     EVENT_SKIP_COUNT
   };
 
-protected:
   enum enum_event_cache_type 
   {
     EVENT_INVALID_CACHE= 0,
@@ -1332,9 +1332,21 @@ public:
   {
     return(event_cache_type == EVENT_STMT_CACHE);
   }
+  inline void set_using_trans_cache()
+  {
+    event_cache_type = EVENT_TRANSACTIONAL_CACHE;
+  }
+  inline void set_using_stmt_cache()
+  {
+    event_cache_type = EVENT_STMT_CACHE;
+  }
   inline bool is_using_immediate_logging() const
   {
     return(event_logging_type == EVENT_IMMEDIATE_LOGGING);
+  }
+  inline void set_immediate_logging()
+  {
+    event_logging_type = EVENT_IMMEDIATE_LOGGING;
   }
   Log_event(const char* buf, const Format_description_log_event
             *description_event);
@@ -1671,6 +1683,16 @@ protected:
      non-zero. The caller shall decrease the counter by one.
    */
   virtual enum_skip_reason do_shall_skip(Relay_log_info *rli);
+
+public:
+  void apply_query_event(char *query, uint32 query_length_arg);
+  bool is_row_log_event();
+  inline void reset_log_pos()
+  {
+    // Reset log_pos while writing a relay log event to the binlog.
+    // This ensures log_pos is calculated relative to slave's binlog.
+    log_pos = 0;
+  }
 #endif
 };
 
@@ -4960,6 +4982,7 @@ public:
 #if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
   int do_apply_event(Relay_log_info const *rli);
   int do_update_pos(Relay_log_info *rli);
+  void set_last_gtid(char *last_gtid);
 #endif
 
   /**

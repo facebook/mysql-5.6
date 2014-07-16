@@ -3,6 +3,7 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
+call mtr.add_suppression("Recovery from master pos");
 call mtr.add_suppression('Slave: Error dropping database');
 include/stop_slave.inc
 start slave;
@@ -10,92 +11,93 @@ include/sync_slave_sql_with_master.inc
 stop slave sql_thread;
 insert into test0.benchmark set state='slave is processing load';
 start slave sql_thread;
+use test0;
+insert into benchmark set state='slave ends load';
 use test;
-select * from test0.benchmark into outfile 'benchmark.out';
+select * from test1.benchmark into outfile  'benchmark.out';
 select ts from test0.benchmark where state like 'master started load' into @m_0;
 select ts from test0.benchmark where state like 'master ends load' into @m_1;
-select ts from test0.benchmark where state like 'slave takes on load' into @s_0;
+select ts from test0.benchmark where state like 'slave takes on load' into @s_m0;
+select ts from test0.benchmark where state like 'slave is supposed to finish with load' into @s_m1;
 select ts from test0.benchmark where state like 'slave ends load' into @s_1;
+select ts from test0.benchmark where state like 'slave is processing load' into @s_0;
 select time_to_sec(@m_1) - time_to_sec(@m_0) as 'delta.out';
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test15.tm_nk, slave:test15.tm_nk]
 include/diff_tables.inc [master:test15.ti_nk, slave:test15.ti_nk]
-include/diff_tables.inc [master:test15.tm_wk, slave:test15.tm_wk]
 include/diff_tables.inc [master:test15.ti_wk, slave:test15.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test14.tm_nk, slave:test14.tm_nk]
 include/diff_tables.inc [master:test14.ti_nk, slave:test14.ti_nk]
-include/diff_tables.inc [master:test14.tm_wk, slave:test14.tm_wk]
 include/diff_tables.inc [master:test14.ti_wk, slave:test14.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test13.tm_nk, slave:test13.tm_nk]
 include/diff_tables.inc [master:test13.ti_nk, slave:test13.ti_nk]
-include/diff_tables.inc [master:test13.tm_wk, slave:test13.tm_wk]
 include/diff_tables.inc [master:test13.ti_wk, slave:test13.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test12.tm_nk, slave:test12.tm_nk]
 include/diff_tables.inc [master:test12.ti_nk, slave:test12.ti_nk]
-include/diff_tables.inc [master:test12.tm_wk, slave:test12.tm_wk]
 include/diff_tables.inc [master:test12.ti_wk, slave:test12.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test11.tm_nk, slave:test11.tm_nk]
 include/diff_tables.inc [master:test11.ti_nk, slave:test11.ti_nk]
-include/diff_tables.inc [master:test11.tm_wk, slave:test11.tm_wk]
 include/diff_tables.inc [master:test11.ti_wk, slave:test11.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test10.tm_nk, slave:test10.tm_nk]
 include/diff_tables.inc [master:test10.ti_nk, slave:test10.ti_nk]
-include/diff_tables.inc [master:test10.tm_wk, slave:test10.tm_wk]
 include/diff_tables.inc [master:test10.ti_wk, slave:test10.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test9.tm_nk, slave:test9.tm_nk]
 include/diff_tables.inc [master:test9.ti_nk, slave:test9.ti_nk]
-include/diff_tables.inc [master:test9.tm_wk, slave:test9.tm_wk]
 include/diff_tables.inc [master:test9.ti_wk, slave:test9.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test8.tm_nk, slave:test8.tm_nk]
 include/diff_tables.inc [master:test8.ti_nk, slave:test8.ti_nk]
-include/diff_tables.inc [master:test8.tm_wk, slave:test8.tm_wk]
 include/diff_tables.inc [master:test8.ti_wk, slave:test8.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test7.tm_nk, slave:test7.tm_nk]
 include/diff_tables.inc [master:test7.ti_nk, slave:test7.ti_nk]
-include/diff_tables.inc [master:test7.tm_wk, slave:test7.tm_wk]
 include/diff_tables.inc [master:test7.ti_wk, slave:test7.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test6.tm_nk, slave:test6.tm_nk]
 include/diff_tables.inc [master:test6.ti_nk, slave:test6.ti_nk]
-include/diff_tables.inc [master:test6.tm_wk, slave:test6.tm_wk]
 include/diff_tables.inc [master:test6.ti_wk, slave:test6.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test5.tm_nk, slave:test5.tm_nk]
 include/diff_tables.inc [master:test5.ti_nk, slave:test5.ti_nk]
-include/diff_tables.inc [master:test5.tm_wk, slave:test5.tm_wk]
 include/diff_tables.inc [master:test5.ti_wk, slave:test5.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test4.tm_nk, slave:test4.tm_nk]
 include/diff_tables.inc [master:test4.ti_nk, slave:test4.ti_nk]
-include/diff_tables.inc [master:test4.tm_wk, slave:test4.tm_wk]
 include/diff_tables.inc [master:test4.ti_wk, slave:test4.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test3.tm_nk, slave:test3.tm_nk]
 include/diff_tables.inc [master:test3.ti_nk, slave:test3.ti_nk]
-include/diff_tables.inc [master:test3.tm_wk, slave:test3.tm_wk]
 include/diff_tables.inc [master:test3.ti_wk, slave:test3.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test2.tm_nk, slave:test2.tm_nk]
 include/diff_tables.inc [master:test2.ti_nk, slave:test2.ti_nk]
-include/diff_tables.inc [master:test2.tm_wk, slave:test2.tm_wk]
 include/diff_tables.inc [master:test2.ti_wk, slave:test2.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test1.tm_nk, slave:test1.tm_nk]
 include/diff_tables.inc [master:test1.ti_nk, slave:test1.ti_nk]
-include/diff_tables.inc [master:test1.tm_wk, slave:test1.tm_wk]
 include/diff_tables.inc [master:test1.ti_wk, slave:test1.ti_wk]
 include/sync_slave_sql_with_master.inc
-include/diff_tables.inc [master:test0.tm_nk, slave:test0.tm_nk]
 include/diff_tables.inc [master:test0.ti_nk, slave:test0.ti_nk]
-include/diff_tables.inc [master:test0.tm_wk, slave:test0.tm_wk]
 include/diff_tables.inc [master:test0.ti_wk, slave:test0.ti_wk]
 include/sync_slave_sql_with_master.inc
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	mtr	master_uuid:1
+2	test15	master_uuid:1859
+3	test14	master_uuid:1861
+4	test13	master_uuid:1863
+5	test12	master_uuid:1865
+6	test11	master_uuid:1867
+7	test10	master_uuid:1869
+8	test9	master_uuid:1871
+9	test8	master_uuid:1873
+10	test7	master_uuid:1875
+11	test6	master_uuid:1877
+12	test5	master_uuid:1879
+13	test4	master_uuid:1881
+14	test3	master_uuid:1883
+15	test2	master_uuid:1885
+16	test1	master_uuid:1887
+17	test0	master_uuid:1889
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+change master to master_auto_position=1;
+include/start_slave.inc
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-1889
+include/sync_slave_sql_with_master.inc
+master_uuid:1-1889
+reset master;
 include/rpl_end.inc

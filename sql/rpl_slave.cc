@@ -379,6 +379,13 @@ int init_slave()
     goto err;
   }
 
+  if ((error = Rpl_info_factory::init_gtid_info_repository(rli) ))
+  {
+    sql_print_error("Error creating gtid_info\n");
+    error = 1;
+    goto err;
+  }
+
   /*
     This is the startup routine and as such we try to
     configure both the SLAVE_SQL and SLAVE_IO.
@@ -460,7 +467,10 @@ int init_recovery(Master_info* mi, const char** errmsg)
   Relay_log_info *rli= mi->rli;
   char *group_master_log_name= NULL;
 
-  if (rli->recovery_parallel_workers)
+  /**
+     Avoid mts_recovery_groups if gtid_mode is ON.
+  */
+  if (rli->recovery_parallel_workers && gtid_mode == 0)
   {
     /*
       This is not idempotent and a crash after this function and before
@@ -622,7 +632,7 @@ int remove_info(Master_info* mi)
   mi->rli->end_info();
 
   if (mi->remove_info() || Rpl_info_factory::reset_workers(mi->rli) ||
-      mi->rli->remove_info())
+      Rpl_info_factory::reset_gtid_infos(mi->rli) || mi->rli->remove_info())
     goto err;
 
   error= 0;
@@ -1217,7 +1227,7 @@ int start_slave_threads(bool need_lock_slave, bool wait_for_start,
       MTS-recovery gaps gathering is placed onto common execution path
       for either START-SLAVE and --skip-start-slave= 0 
     */
-    if (mi->rli->recovery_parallel_workers != 0)
+    if (mi->rli->recovery_parallel_workers != 0 && gtid_mode == 0)
       error= mts_recovery_groups(mi->rli);
     if (!error)
       error= start_slave_thread(
