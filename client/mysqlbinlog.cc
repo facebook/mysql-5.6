@@ -43,6 +43,7 @@
 #include <time.h>
 #include <algorithm>
 #include <map>
+#include <string>
 #include <utility>
 
 #include "caching_sha2_passwordopt-vars.h"
@@ -74,8 +75,10 @@
 
 #include <tuple>
 
+using std::map;
 using std::max;
 using std::min;
+using std::string;
 
 /**
   For storing information of the Format_description_event of the currently
@@ -785,7 +788,10 @@ enum Exit_status {
 /*
   Options that will be used to filter out events.
 */
-static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr;
+static char *opt_include_gtids_str = nullptr, *opt_exclude_gtids_str = nullptr,
+            *opt_start_gtid_str = nullptr, *opt_find_gtid_str = nullptr;
+static char *opt_index_file_str = nullptr;
+Gtid_set_map previous_gtid_set_map;
 static bool opt_skip_gtids = false;
 static bool filter_based_on_gtids = false;
 static bool opt_require_row_format = false;
@@ -2066,6 +2072,20 @@ static struct my_option my_long_options[] = {
      REQUIRED_ARG,
      /* def_val */ 1024 * 1024, /* min_value */ 1024, /* max_value */ UINT_MAX,
      nullptr, /* block_size */ 1024, nullptr},
+    {"start-gtid", OPT_START_GTID,
+     "Binlog dump from the given gtid. This requires index-file option.",
+     &opt_start_gtid_str, &opt_start_gtid_str, 0, GET_STR_ALLOC, REQUIRED_ARG,
+     0, 0, 0, nullptr, 0, nullptr},
+    {"find-gtid-position", OPT_FIND_GTID_POSITION,
+     "Prints binlog file name and starting position of Gtid_log_event "
+     "corresponding to the given gtid. This requires index-file option.",
+     &opt_find_gtid_str, &opt_find_gtid_str, 0, GET_STR_ALLOC, REQUIRED_ARG, 0,
+     0, 0, nullptr, 0, nullptr},
+    {"index-file", OPT_INDEX_FILE,
+     "Path to the index file, required "
+     "for initialization of previous gtid sets (local log only).",
+     &opt_index_file_str, &opt_index_file_str, 0, GET_STR_ALLOC, REQUIRED_ARG,
+     0, 0, 0, nullptr, 0, nullptr},
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr},
 };
@@ -2646,7 +2666,8 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
                    logname,
                    start_position,
                    server_id,
-                   get_dump_flags() | MYSQL_RPL_SKIP_HEARTBEAT,
+                   get_dump_flags() | MYSQL_RPL_SKIP_HEARTBEAT |
+                       (opt_start_gtid_str ? USING_START_GTID_PROTOCOL : 0),
                    0,
                    nullptr,
                    nullptr,
@@ -3144,6 +3165,11 @@ static int args_post_process(void) {
     }
   }
 
+  if (opt_start_gtid_str != nullptr && opt_exclude_gtids_str != nullptr) {
+    error("--start-gtid and --exclude-gtids should not be used together");
+    return ERROR_STOP;
+  }
+
   global_sid_lock->rdlock();
 
   if (opt_include_gtids_str != nullptr) {
@@ -3173,6 +3199,37 @@ static int args_post_process(void) {
           " and"
           "--stop-never-slave-server-id= %" PRId64 ". ",
           connection_server_id, stop_never_slave_server_id);
+
+  if (opt_start_gtid_str != nullptr && opt_find_gtid_str != nullptr) {
+    error(
+        "--start-gtid and --find-gtid-position options should not be "
+        "used together");
+    return ERROR_STOP;
+  }
+
+  if (opt_find_gtid_str != nullptr && opt_index_file_str == nullptr) {
+    error("--find-gtid-position requires --index-file option");
+    return ERROR_STOP;
+  }
+
+  if (opt_start_gtid_str != nullptr && opt_index_file_str == nullptr &&
+      opt_remote_proto != BINLOG_DUMP_GTID) {
+    error(
+        "--start-gtid requires --index-file option or "
+        "--read-from-remote-server=BINLOG_DUMP_GTID option");
+    return ERROR_STOP;
+  }
+
+  if (opt_start_gtid_str != nullptr && opt_remote_proto == BINLOG_DUMP_GTID) {
+    global_sid_lock->rdlock();
+    if (gtid_set_excluded->add_gtid_text(opt_start_gtid_str) !=
+        RETURN_STATUS_OK) {
+      error("Could not configure --start-gtid '%s'", opt_start_gtid_str);
+      global_sid_lock->unlock();
+      return ERROR_STOP;
+    }
+    global_sid_lock->unlock();
+  }
 
   return OK_CONTINUE;
 }
@@ -3209,6 +3266,171 @@ inline bool gtid_client_init() {
   return res;
 }
 
+/**
+   Parses the index file and builds the previous_gtid_set_map
+
+   @param index_file_path path to index file
+
+   @return true  Failure
+           false Success
+*/
+static bool init_previous_gtid_set_map(char *index_file_path) {
+  DBUG_ENTER("init_previous_gtid_set_map");
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
+  uchar *previous_gtid_set_in_file = NULL;
+  int length;
+  int index_dir_len = dirname_length(opt_index_file_str);
+  bool ret = false;
+
+  IO_CACHE index_file;
+  File file = -1;
+
+  if ((file = my_open(index_file_path, O_RDONLY, MYF(MY_WME))) < 0) {
+    error("Error opening index file");
+    DBUG_RETURN(true);
+  }
+
+  if (init_io_cache(&index_file, file, IO_SIZE, READ_CACHE, 0, 0,
+                    MYF(MY_WME))) {
+    error("Error initializing index file cache");
+    ret = true;
+    my_close(file, MYF(MY_WME));
+    DBUG_RETURN(true);
+  }
+
+  my_b_seek(&index_file, 0);
+  while ((length = my_b_gets(&index_file, file_name_and_gtid_set_length,
+                             sizeof(file_name_and_gtid_set_length))) >= 1) {
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_string_length = 0;
+    char *save_ptr = strchr(file_name_and_gtid_set_length, ' ');
+    if (save_ptr != NULL) {
+      *save_ptr = 0;  // replace ' ' with '\0'
+      save_ptr++;
+      gtid_string_length = atol(save_ptr);
+    }
+    if (gtid_string_length > 0) {
+      previous_gtid_set_in_file = (uchar *)my_malloc(
+          PSI_NOT_INSTRUMENTED, gtid_string_length + 1, MYF(MY_WME));
+      if (previous_gtid_set_in_file == NULL) {
+        error("Malloc Failed to allocate %d bytes of memory",
+              gtid_string_length + 1);
+        ret = true;
+        goto end;
+      }
+      if (my_b_read(&index_file, previous_gtid_set_in_file,
+                    gtid_string_length + 1)) {
+        error(
+            "Previous gtid set of binlog %s is corrupted in binlog "
+            "index file",
+            file_name_and_gtid_set_length);
+        my_free(previous_gtid_set_in_file);
+        ret = true;
+        goto end;
+      }
+    }
+    int binlog_dir_len = dirname_length(file_name_and_gtid_set_length);
+    char binlog_file[FN_REFLEN];
+    strcpy(binlog_file, opt_index_file_str);
+    strcpy(binlog_file + index_dir_len,
+           file_name_and_gtid_set_length + binlog_dir_len);
+    previous_gtid_set_map.insert(std::pair<string, string>(
+        string(binlog_file),
+        string((char *)previous_gtid_set_in_file, gtid_string_length)));
+    my_free(previous_gtid_set_in_file);
+  }
+
+end:
+  /*
+    Since the end_io_cache() writes to the file errors may happen.
+   */
+  if (end_io_cache(&index_file)) {
+    ret = true;
+  }
+
+  my_close(file, MYF(MY_WME));
+
+  DBUG_RETURN(ret);
+}
+
+/**
+  Finds starting binlog to start the dump by iterating over
+  previous_gtid_set_map. Dumps events starting from the given GTID
+  if find_position is false, otherwise prints binlog name and starting
+  position of Gtid_log_event corresponding to the given GTID.
+
+  @param gtid_string   GTID to start the dump
+  @param find_position true if using find-gtid-position
+                       false if using start-gtid
+
+  @retval ERROR_STOP  An error occurred - the program should terminate.
+  @retval OK_CONTINUE No error, the program should continue.
+  @retval OK_STOP     No error, but the end of the specified range of
+                      events to process has been reached and the program
+                      should terminate.
+*/
+static Exit_status start_gtid_dump(char *gtid_string, bool find_position) {
+  DBUG_ENTER("start_gtid_dump");
+  Exit_status retval = OK_CONTINUE;
+  Sid_map sid_map(NULL);
+  Gtid gtid;
+  std::map<std::string, std::string>::reverse_iterator rit;
+  std::map<std::string, std::string>::iterator it, last_log_it;
+  it = previous_gtid_set_map.end();
+  last_log_it = --previous_gtid_set_map.end();
+
+  Gtid_set previous_gtid_set(&sid_map);
+  if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK) {
+    error("Couldn't find position of a malformed Gtid %s", gtid_string);
+    DBUG_RETURN(ERROR_STOP);
+  }
+
+  for (rit = previous_gtid_set_map.rbegin();
+       rit != previous_gtid_set_map.rend(); ++rit) {
+    previous_gtid_set.add_gtid_encoding((const uchar *)rit->second.c_str(),
+                                        rit->second.length());
+    if (!previous_gtid_set.contains_gtid(gtid)) {
+      it = previous_gtid_set_map.find(rit->first.c_str());
+      break;
+    }
+    previous_gtid_set.clear();
+  }
+
+  if (it == previous_gtid_set_map.end()) {
+    error("Requested Gtid is purged and so cannot be found in binary logs");
+    DBUG_RETURN(ERROR_STOP);
+  }
+
+  my_off_t pos = find_gtid_pos_in_log<Mysqlbinlog_file_reader>(
+      it->first.c_str(), gtid, &sid_map);
+  if (pos == 0) {
+    error(
+        "Request gtid is not in executed set and so cannot be "
+        "found in binary logs");
+    DBUG_RETURN(ERROR_STOP);
+  }
+
+  if (find_position) {
+    int dir_len = dirname_length(it->first.c_str());
+    fprintf(result_file, "Log_name: %s\n", it->first.c_str() + dir_len);
+    fprintf(result_file, "Position: %llu", pos);
+    DBUG_RETURN(OK_CONTINUE);
+  }
+
+  my_off_t save_stop_position = stop_position;
+  stop_position = ULLONG_MAX;
+  start_position = pos;
+
+  while (it != previous_gtid_set_map.end()) {
+    char *args = const_cast<char *>(it->first.c_str());
+    if ((retval = dump_multiple_logs(1, &args)) != OK_CONTINUE)
+      DBUG_RETURN(retval);
+    start_position = BIN_LOG_HEADER_SIZE;
+    if (++it == last_log_it) stop_position = save_stop_position;
+  }
+  DBUG_RETURN(retval);
+}
+
 int main(int argc, char **argv) {
   Exit_status retval = OK_CONTINUE;
   MY_INIT(argv[0]);
@@ -3233,7 +3455,7 @@ int main(int argc, char **argv) {
 
   parse_args(&argc, &argv);
 
-  if (!argc) {
+  if (!argc && opt_find_gtid_str == nullptr && opt_start_gtid_str == nullptr) {
     usage();
     my_end(my_end_arg);
     return EXIT_FAILURE;
@@ -3274,7 +3496,7 @@ int main(int argc, char **argv) {
   else
     load_processor.init_by_cur_dir();
 
-  if (!raw_mode) {
+  if (!raw_mode && opt_find_gtid_str == nullptr) {
     fprintf(result_file, "/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;\n");
 
     if (disable_log_bin)
@@ -3312,9 +3534,27 @@ int main(int argc, char **argv) {
     fprintf(result_file, "/*!80019 SET @@SESSION.REQUIRE_ROW_FORMAT=1*/;\n\n");
   }
 
-  retval = dump_multiple_logs(argc, argv);
+  if (opt_start_gtid_str != nullptr || opt_find_gtid_str != nullptr) {
+    if (opt_start_gtid_str != nullptr && opt_remote_proto == BINLOG_DUMP_GTID) {
+      char *args = const_cast<char *>("");
+      retval = dump_multiple_logs(1, &args);
+    } else {
+      if (init_previous_gtid_set_map(opt_index_file_str)) {
+        error(
+            "initialization of the previous gtid log events from index file "
+            "failed");
+        exit(1);
+      }
+      if (opt_start_gtid_str)
+        retval = start_gtid_dump(opt_start_gtid_str, false);
+      else if (opt_find_gtid_str)
+        retval = start_gtid_dump(opt_find_gtid_str, true);
+    }
+  } else {
+    retval = dump_multiple_logs(argc, argv);
+  }
 
-  if (!raw_mode) {
+  if (!raw_mode && opt_find_gtid_str == nullptr) {
     fprintf(result_file, "# End of log file\n");
 
     fprintf(result_file,
