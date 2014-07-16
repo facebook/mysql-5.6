@@ -96,7 +96,6 @@ typedef Bitmap<((MAX_INDEXES + 7) / 8 * 8)> Key_map; /* Used for finding keys */
 #define TEST_KEEP_TMP_TABLES 16
 #define TEST_READCHECK 64 /**< Force use of readcheck */
 #define TEST_NO_EXTRA 128
-#define TEST_CORE_ON_SIGNAL 256 /**< Give core if signal */
 #define TEST_NO_STACKTRACE 512
 #define TEST_SIGINT 1024 /**< Allow sigint on threads */
 #define TEST_SYNCHRONIZATION          \
@@ -367,6 +366,7 @@ enum enum_binlog_error_action {
 };
 extern const char *binlog_error_action_list[];
 
+extern bool opt_core_file;
 extern bool slave_high_priority_ddl;
 extern ulonglong slave_high_priority_lock_wait_timeout_nsec;
 extern double slave_high_priority_lock_wait_timeout_double;
