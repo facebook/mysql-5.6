@@ -138,6 +138,7 @@ public:
     pk_key_parts(NULL),
     pack_info(NULL),
     keyno(keyno_arg),
+    m_key_parts(0),
     maxlength(0) // means 'not intialized'
   {
     store_index_number(index_number_storage_form, indexnr_arg);
@@ -180,6 +181,12 @@ private:
   Field_pack_info *pack_info;
 
   uint keyno; /* number of this index in the table */
+
+  /*
+    Number of key parts in the index (including "index extension"). This is how
+    many elemants are in the pack_info array.
+  */
+  uint m_key_parts;
 
   /*
     Length of the mem-comparable form. In the encoding we're using, it is
