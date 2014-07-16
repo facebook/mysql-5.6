@@ -2152,8 +2152,8 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
         if (mysys_var)
           mysql_mutex_unlock(&mysys_var->mutex);
 
-        thd_info->rows_examined= tmp->status_var.rows_examined;
-        thd_info->rows_sent= tmp->status_var.rows_sent;
+        thd_info->rows_examined= tmp->get_examined_row_count();
+        thd_info->rows_sent= tmp->get_sent_row_count();
         /* Lock THD mutex that protects its data when looking at it. */
         if (tmp->query())
         {
