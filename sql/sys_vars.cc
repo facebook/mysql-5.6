@@ -39,6 +39,7 @@
 
 #include "events.h"
 #include <thr_alarm.h>
+#include "rpl_master.h"
 #include "rpl_slave.h"
 #include "rpl_mi.h"
 #include "rpl_rli.h"
@@ -4151,6 +4152,14 @@ static Sys_var_ulong Sys_rpl_read_size(
        GLOBAL_VAR(rpl_read_size), CMD_LINE(REQUIRED_ARG),
        VALID_RANGE(IO_SIZE * 2, ULONG_MAX), DEFAULT(IO_SIZE * 2),
        BLOCK_SIZE(IO_SIZE));
+
+static Sys_var_ulong Sys_rpl_event_buffer_size(
+       "rpl_event_buffer_size",
+       "The size of the preallocated event buffer for slave connections that "
+       "avoids calls to malloc & free for events smaller than this.",
+       GLOBAL_VAR(rpl_event_buffer_size), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(16 * 1024, 128 * 1024 * 1024), DEFAULT(1024 * 1024),
+       BLOCK_SIZE(1024));
 
 static Sys_var_mybool Sys_slave_allow_batching(
        "slave_allow_batching", "Allow slave to batch requests",

@@ -861,6 +861,10 @@ The following options may be given as the first argument:
  between 0 and the real lag when the IO thread is the
  bottleneck.
  (Defaults to on; use --skip-reset-seconds-behind-master to disable.)
+ --rpl-event-buffer-size=# 
+ The size of the preallocated event buffer for slave
+ connections that avoids calls to malloc & free for events
+ smaller than this.
  --rpl-read-size=#   The size for reads done from the binlog and relay log.
  --rpl-stop-slave-timeout=# 
  Timeout in seconds to wait for slave to stop before
@@ -1316,6 +1320,7 @@ report-password (No default value)
 report-port 0
 report-user (No default value)
 reset-seconds-behind-master TRUE
+rpl-event-buffer-size 1048576
 rpl-read-size 8192
 rpl-stop-slave-timeout 604800
 safe-user-create FALSE
