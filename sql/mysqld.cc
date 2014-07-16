@@ -9073,6 +9073,15 @@ static int show_max_used_connections_time(THD *thd, SHOW_VAR *var, char *buff) {
   return 0;
 }
 
+static int show_num_thread_binlog_client(THD *, SHOW_VAR *var, char *buff) {
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+  long long *value = reinterpret_cast<long long *>(buff);
+  *value = static_cast<long long>(
+      Global_THD_manager::get_instance()->get_num_thread_binlog_client());
+  return 0;
+}
+
 static int show_num_thread_running(THD *, SHOW_VAR *var, char *buff) {
   var->type = SHOW_LONGLONG;
   var->value = buff;
@@ -9674,6 +9683,8 @@ SHOW_VAR status_vars[] = {
     {"Tc_log_page_size", (char *)&tc_log_page_size, SHOW_LONG_NOFLUSH,
      SHOW_SCOPE_GLOBAL},
     {"Tc_log_page_waits", (char *)&tc_log_page_waits, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"Threads_binlog_client", (char *)&show_num_thread_binlog_client, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
     {"Threads_cached",
      (char *)&Per_thread_connection_handler::blocked_pthread_count,
