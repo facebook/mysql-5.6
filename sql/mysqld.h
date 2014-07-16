@@ -606,6 +606,7 @@ enum enum_binlogging_impossible_mode
   ABORT_SERVER= 1
 };
 extern const char *binlogging_impossible_err[];
+extern my_bool log_gtid_unsafe_statements;
 extern ulong sql_slave_skip_counter_usage;
 
 enum enum_gtid_mode
