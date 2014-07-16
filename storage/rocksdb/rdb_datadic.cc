@@ -80,20 +80,32 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       pk_key_parts= 0;
     }
 
-    size_t size= sizeof(Field_pack_info) * key_info->actual_key_parts;
+    // "unique" secondary keys support:
+    bool unique_secondary_index= false;
+    uint loop_actual_key_parts= key_info->actual_key_parts;
+    if (keyno != tbl->s->primary_key && (key_info->flags & HA_NOSAME))
+    {
+      // From SQL layer's point of view, Unique secondary indexes do not
+      // have primary key columns at the end. Internally, they do.
+      loop_actual_key_parts += n_pk_key_parts;
+      unique_secondary_index= true;
+    }
+
+    size_t size= sizeof(Field_pack_info) * loop_actual_key_parts;
     pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
 
     uint len= INDEX_NUMBER_SIZE;
     int unpack_len= 0;
+    KEY_PART_INFO *key_part= key_info->key_part;
     /* this loop also loops over the 'extended key' tail */
-    for (uint i= 0; i < key_info->actual_key_parts; i++)
+    for (uint i= 0; i < loop_actual_key_parts; i++)
     {
-      Field *field= key_info->key_part[i].field;
+      Field *field= key_part->field;
 
       if (field->real_maybe_null())
         len +=1; // NULL-byte
 
-      pack_info[i].setup(key_info->key_part[i].field);
+      pack_info[i].setup(field);
       pack_info[i].image_offset= len;
       pack_info[i].unpack_data_offset= unpack_len;
 
@@ -111,6 +123,13 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
 
       len        += pack_info[i].image_len;
       unpack_len += pack_info[i].unpack_data_len;
+
+      key_part++;
+      /* For "unique" secondary indexes, pretend they have "index extensions" */
+      if (unique_secondary_index && i+1 == key_info->actual_key_parts)
+      {
+        key_part= pk_info->key_part;
+      }
     }
     maxlength= len;
     unpack_data_len= unpack_len;
