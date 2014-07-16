@@ -5374,7 +5374,8 @@ finish:
     /* report error issued during command execution */
     if (thd->killed_errno())
       thd->send_kill_message();
-    if (thd->killed == THD::KILL_QUERY || thd->killed == THD::KILL_BAD_DATA)
+    if (thd->killed == THD::KILL_QUERY || thd->killed == THD::KILL_BAD_DATA ||
+        thd->killed == THD::ABORT_QUERY)
     {
       thd->killed= THD::NOT_KILLED;
       thd->mysys_var->abort= 0;
@@ -6298,6 +6299,7 @@ void THD::reset_for_next_command()
   thd->rand_used= 0;
   thd->set_sent_row_count(0);
   thd->set_examined_row_count(0);
+  thd->set_accessed_rows_and_keys(0);
 
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags= 0;
