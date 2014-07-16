@@ -2399,6 +2399,7 @@ struct LEX: public Query_tables_list
   enum enum_yes_no_unknown tx_chain, tx_release;
   bool safe_to_cache_query;
   bool disable_flashcache;
+  bool async_commit;
   bool subqueries, ignore;
   st_parsing_options parsing_options;
   Alter_info alter_info;

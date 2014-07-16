@@ -4844,7 +4844,7 @@ int Query_log_event::do_apply_event(Relay_log_info const *rli,
         init_timer = my_timer_now();
         last_timer = init_timer;
         mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
-		&last_timer);
+                    &last_timer, NULL);
         /* Finalize server status flags after executing a statement. */
         thd->update_server_status();
         command_slave_seconds += my_timer_since(init_timer);

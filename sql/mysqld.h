@@ -328,6 +328,7 @@ extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
 extern int32 thread_binlog_client;
 
 extern my_bool opt_log_slow_extra;
+extern ulonglong binlog_fsync_count;
 
 /* SHOW STATS var: Name of current timer */
 extern const char *timer_in_use;

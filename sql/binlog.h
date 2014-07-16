@@ -514,21 +514,22 @@ private:
   bool change_stage(THD *thd, Stage_manager::StageID stage,
                     THD* queue, mysql_mutex_t *leave,
                     mysql_mutex_t *enter);
-  std::pair<int,my_off_t> flush_thread_caches(THD *thd);
+  std::pair<int,my_off_t> flush_thread_caches(THD *thd, bool async);
   int flush_cache_to_file(my_off_t *flush_end_pos);
-  int finish_commit(THD *thd);
-  std::pair<bool, bool> sync_binlog_file(bool force);
-  void process_commit_stage_queue(THD *thd, THD *queue);
-  void process_after_commit_stage_queue(THD *thd, THD *first);
+  int finish_commit(THD *thd, bool async);
+  std::pair<bool, bool> sync_binlog_file(bool force, bool async);
+  void process_commit_stage_queue(THD *thd, THD *queue, bool async);
+  void process_after_commit_stage_queue(THD *thd, THD *first, bool async);
   int process_flush_stage_queue(my_off_t *total_bytes_var, bool *rotate_var,
-                                THD **out_queue_var);
-  int ordered_commit(THD *thd, bool all, bool skip_commit = false);
+                                THD **out_queue_var, bool async);
+  int ordered_commit(THD *thd, bool all, bool skip_commit = false,
+                     bool async=false);
 public:
   int open_binlog(const char *opt_name);
   void close();
-  enum_result commit(THD *thd, bool all);
+  enum_result commit(THD *thd, bool all, bool async);
   int rollback(THD *thd, bool all);
-  int prepare(THD *thd, bool all);
+  int prepare(THD *thd, bool all, bool async);
   int recover(IO_CACHE *log, Format_description_log_event *fdle,
               my_off_t *valid_pos);
   int recover(IO_CACHE *log, Format_description_log_event *fdle);
@@ -597,7 +598,8 @@ public:
   int new_file(Format_description_log_event *extra_description_event);
 
   bool write_event(Log_event* event_info);
-  bool write_cache(THD *thd, class binlog_cache_data *binlog_cache_data);
+  bool write_cache(THD *thd, class binlog_cache_data *binlog_cache_data,
+                   bool async);
   int  do_write_cache(IO_CACHE *cache);
 
   void set_write_error(THD *thd, bool is_transactional);
@@ -639,7 +641,7 @@ public:
      @retval 0 Success
      @retval other Failure
   */
-  bool flush_and_sync(const bool force= false);
+  bool flush_and_sync(bool async, const bool force);
   int purge_logs(const char *to_log, bool included,
                  bool need_lock_index, bool need_update_threads,
                  ulonglong *decrease_log_space, bool auto_purge);

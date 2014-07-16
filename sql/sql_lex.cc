@@ -445,6 +445,7 @@ void lex_start(THD *thd)
   lex->subqueries= FALSE;
   lex->context_analysis_only= 0;
   lex->disable_flashcache= FALSE;
+  lex->async_commit = FALSE;
   lex->derived_tables= 0;
   lex->safe_to_cache_query= 1;
   lex->leaf_tables_insert= 0;
