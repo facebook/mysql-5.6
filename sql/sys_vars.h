@@ -76,6 +76,25 @@ enum charset_enum {IN_SYSTEM_CHARSET, IN_FS_CHARSET};
 
 static const char *bool_values[3]= {"OFF", "ON", 0};
 
+extern my_bool opt_log_global_var_changes;
+
+#define FMT_LONG "%ld to %ld"
+#define FMT_ULONGLONG "%llu to %llu"
+#define FMT_DOUBLE "%f to %f"
+#define FMT_STR "'%s' to '%s'"
+#define PREFIX_STR "Global variable @@%s has been changed from "
+#define SUFFIX_STR " by user %s from host %s"
+#define FORMAT(fmt) \
+  PREFIX_STR fmt SUFFIX_STR
+
+#define LOG_GLOBAL_VAR_CHANGES(fmt, old_val, new_val) \
+  do { \
+    const char *format = FORMAT(fmt); \
+    const char *user = (char *)thd->security_ctx->user; \
+    const char *host = (char *)thd->security_ctx->get_host()->ptr(); \
+    sql_print_information(format, name.str, old_val, new_val, user, host); \
+  } while (0)
+
 /**
   A small wrapper class to pass getopt arguments as a pair
   to the Sys_var_* constructors. It improves type safety and helps
@@ -226,6 +245,21 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      T old_val = global_var(T);
+      global_var(T)= var->save_result.ulonglong_value;
+      if (ARGT == GET_LONG)
+      {
+        LOG_GLOBAL_VAR_CHANGES(FMT_LONG, (long)old_val, (long)global_var(T));
+      }
+      else
+      {
+        LOG_GLOBAL_VAR_CHANGES(FMT_ULONGLONG,
+                               (ulonglong)old_val, (ulonglong)global_var(T));
+      }
+      return false;
+    }
     global_var(T)= var->save_result.ulonglong_value;
     return false;
   }
@@ -352,6 +386,15 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      char *old_val = strdup((char *)global_value_ptr(thd, 0));
+      global_var(ulong)= var->save_result.ulonglong_value;
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val,
+                             (const char *)global_value_ptr(thd, 0));
+      free(old_val);
+      return false;
+    }
     global_var(ulong)= var->save_result.ulonglong_value;
     return false;
   }
@@ -401,6 +444,14 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      ulonglong old_val = (ulonglong)*(my_bool *)global_value_ptr(thd, 0);
+      global_var(my_bool)= var->save_result.ulonglong_value;
+      LOG_GLOBAL_VAR_CHANGES(FMT_ULONGLONG, old_val,
+                             (ulonglong)*(my_bool *)global_value_ptr(thd, 0));
+      return false;
+    }
     global_var(my_bool)= var->save_result.ulonglong_value;
     return false;
   }
@@ -504,6 +555,13 @@ public:
     }
     else
       new_val= 0;
+
+    if (opt_log_global_var_changes)
+    {
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, global_var(char*),
+                             (new_val ? new_val : ""));
+    }
+
     if (flags & ALLOCATED)
       my_free(global_var(char*));
     flags|= ALLOCATED;
@@ -674,6 +732,12 @@ public:
   bool global_update(THD *thd, set_var *var)
   {
     const char *val= var->save_result.string_value.str;
+    if (opt_log_global_var_changes)
+    {
+      char old_val[256];
+      DBUG_EXPLAIN_INITIAL(old_val, sizeof(old_val));
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val, (val ? val : ""));
+    }
     DBUG_SET_INITIAL(val);
     return false;
   }
@@ -772,6 +836,12 @@ public:
     if (key_cache->in_init)
       return true;
 
+    if (opt_log_global_var_changes)
+    {
+      LOG_GLOBAL_VAR_CHANGES(FMT_ULONGLONG,
+                             keycache_var(key_cache, offset),
+                             new_value);
+    }
     return keycache_update(thd, key_cache, offset, new_value);
   }
   uchar *global_value_ptr(THD *thd, LEX_STRING *base)
@@ -832,6 +902,13 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      double old_val = global_var(double);
+      global_var(double)= var->save_result.double_value;
+      LOG_GLOBAL_VAR_CHANGES(FMT_DOUBLE, old_val, global_var(double));
+      return false;
+    }
     global_var(double)= var->save_result.double_value;
     return false;
   }
@@ -1010,6 +1087,15 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      char *old_val = strdup((char *)global_value_ptr(thd, 0));
+      global_var(ulonglong)= var->save_result.ulonglong_value;
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val,
+                             (const char *)global_value_ptr(thd, 0));
+      free(old_val);
+      return false;
+    }
     global_var(ulonglong)= var->save_result.ulonglong_value;
     return false;
   }
@@ -1111,6 +1197,15 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      char *old_val = strdup((char *)global_value_ptr(thd, 0));
+      global_var(ulonglong)= var->save_result.ulonglong_value;
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val,
+                             (const char *)global_value_ptr(thd, 0));
+      free(old_val);
+      return false;
+    }
     global_var(ulonglong)= var->save_result.ulonglong_value;
     return false;
   }
@@ -1196,24 +1291,30 @@ public:
     }
     return false;
   }
-  void do_update(plugin_ref *valptr, plugin_ref newval)
+  void do_update(THD *thd, plugin_ref *valptr, plugin_ref newval)
   {
     plugin_ref oldval= *valptr;
     if (oldval != newval)
     {
+      if (opt_log_global_var_changes)
+      {
+        char *old_val = strdup(plugin_name(oldval)->str);
+        LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val, plugin_name(newval)->str);
+        free(old_val);
+      }
       *valptr= my_plugin_lock(NULL, &newval);
       plugin_unlock(NULL, oldval);
     }
   }
   bool session_update(THD *thd, set_var *var)
   {
-    do_update((plugin_ref*)session_var_ptr(thd),
+    do_update(thd, (plugin_ref*)session_var_ptr(thd),
               var->save_result.plugin);
     return false;
   }
   bool global_update(THD *thd, set_var *var)
   {
-    do_update((plugin_ref*)global_var_ptr(),
+    do_update(thd, (plugin_ref*)global_var_ptr(),
               var->save_result.plugin);
     return false;
   }
@@ -1382,6 +1483,14 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      ulonglong old_val = (ulonglong)*(my_bool *)(global_value_ptr(thd, 0));
+      set(global_var_ptr(), var->save_result.ulonglong_value);
+      LOG_GLOBAL_VAR_CHANGES(FMT_ULONGLONG, old_val,
+                             (ulonglong)*(my_bool *)(global_value_ptr(thd, 0)));
+      return false;
+    }
     set(global_var_ptr(), var->save_result.ulonglong_value);
     return false;
   }
@@ -1640,6 +1749,16 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      char *old_val = strdup(global_var(uchar*)
+                             ? (const char*)global_value_ptr(thd, 0) : "");
+      global_var(const void*)= var->save_result.ptr;
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val, (global_var(uchar*)
+                             ? (const char*)global_value_ptr(thd, 0) : ""));
+      free(old_val);
+      return false;
+    }
     global_var(const void*)= var->save_result.ptr;
     return false;
   }
@@ -1718,6 +1837,15 @@ public:
   }
   bool global_update(THD *thd, set_var *var)
   {
+    if (opt_log_global_var_changes)
+    {
+      char *old_val = strdup((char *)global_value_ptr(thd, 0));
+      global_var(Time_zone*)= var->save_result.time_zone;
+      LOG_GLOBAL_VAR_CHANGES(FMT_STR, old_val,
+                             (const char*)global_value_ptr(thd, 0));
+      free(old_val);
+      return false;
+    }
     global_var(Time_zone*)= var->save_result.time_zone;
     return false;
   }

@@ -1,0 +1,26 @@
+SET @old_val = @@GLOBAL.log_global_var_changes;
+SELECT @old_val;
+@old_val
+0
+SET @@GLOBAL.log_global_var_changes = FALSE;
+SELECT @@GLOBAL.log_global_var_changes;
+@@GLOBAL.log_global_var_changes
+0
+SET GLOBAL log_global_var_changes = TRUE;
+SELECT @@GLOBAL.log_global_var_changes;
+@@GLOBAL.log_global_var_changes
+1
+SELECT COUNT(@@GLOBAL.log_global_var_changes);
+COUNT(@@GLOBAL.log_global_var_changes)
+1
+1 Expected
+SELECT COUNT(@@local.log_global_var_changes);
+ERROR HY000: Variable 'log_global_var_changes' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SELECT COUNT(@@SESSION.log_global_var_changes);
+ERROR HY000: Variable 'log_global_var_changes' is a GLOBAL variable
+Expected error 'Variable is a GLOBAL variable'
+SET @@GLOBAL.log_global_var_changes = @old_val;
+SELECT @@GLOBAL.log_global_var_changes;
+@@GLOBAL.log_global_var_changes
+0
