@@ -1798,7 +1798,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         ws_nweights func_datetime_precision
         ws_level_flag_desc ws_level_flag_reverse ws_level_flags
         opt_ws_levels ws_level_list ws_level_list_item ws_level_number
-        ws_level_range ws_level_list_or_range  
+        ws_level_range ws_level_list_or_range opt_var_tid
 
 %type <ulonglong_number>
         ulonglong_num real_ulonglong_num size_number
@@ -14810,8 +14810,13 @@ option_type:
 opt_var_type:
           /* empty */ { $$=OPT_SESSION; }
         | GLOBAL_SYM  { $$=OPT_GLOBAL; }
-        | LOCAL_SYM   { $$=OPT_SESSION; }
-        | SESSION_SYM { $$=OPT_SESSION; }
+        | LOCAL_SYM opt_var_tid { $$=OPT_SESSION; Lex->thread_id_opt=$2; }
+        | SESSION_SYM opt_var_tid { $$=OPT_SESSION; Lex->thread_id_opt=$2; }
+        ;
+
+opt_var_tid:
+          /* empty */        { $$=0; }
+        | ulong_num          { $$=$1; }
         ;
 
 opt_var_ident_type:

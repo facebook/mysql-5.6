@@ -9240,7 +9240,9 @@ THD* get_opt_thread_with_data_lock(THD *thd, ulong thread_id)
     {
       found = true;
       Security_context *tmp_sctx= tmp->security_ctx;
-      // check thread authorization
+      // Check thread authorization. The logic is taken from function
+      // mysqld_list_processes(). Essentially if you are not a super user,
+      // you can only grab your own thread.
       if ((tmp->vio_ok() || tmp->system_thread) &&
           (!user || (tmp_sctx->user && !strcmp(tmp_sctx->user, user))))
       {

@@ -2555,13 +2555,15 @@ inline void make_upper(char *buf)
     *buf= my_toupper(system_charset_info, *buf);
 }
 
+// note: var_thd is the optional thread specified in the show commands
+// if var_thd is nullptr, we retrieve the status array from thd itself.
 static bool show_status_array(THD *thd, const char *wild,
                               SHOW_VAR *variables,
                               enum enum_var_type value_type,
                               struct system_status_var *status_var,
                               const char *prefix, TABLE *table,
                               bool ucase_names,
-                              Item *cond)
+                              Item *cond, THD *var_thd = nullptr)
 {
   my_aligned_storage<SHOW_VAR_FUNC_BUFF_SIZE, MY_ALIGNOF(long)> buffer;
   char * const buff= buffer.data;
@@ -2576,6 +2578,9 @@ static bool show_status_array(THD *thd, const char *wild,
   bool res= FALSE;
   const CHARSET_INFO *charset= system_charset_info;
   DBUG_ENTER("show_status_array");
+
+  if (!var_thd)
+    var_thd = thd;
 
   thd->count_cuted_fields= CHECK_FIELD_WARN;  
   null_lex_str.str= 0;				// For sys_var->value_ptr()
@@ -2608,7 +2613,8 @@ static bool show_status_array(THD *thd, const char *wild,
     if (show_type == SHOW_ARRAY)
     {
       show_status_array(thd, wild, (SHOW_VAR *) var->value, value_type,
-                        status_var, name_buffer, table, ucase_names, partial_cond);
+                        status_var, name_buffer, table, ucase_names,
+                        partial_cond, var_thd);
     }
     else
     {
@@ -2625,7 +2631,8 @@ static bool show_status_array(THD *thd, const char *wild,
         {
           sys_var *var= ((sys_var *) value);
           show_type= var->show_type();
-          value= (char*) var->value_ptr(thd, value_type, &null_lex_str);
+          // we get the var value in the var_thd from show commands
+          value= (char*) var->value_ptr(var_thd, value_type, &null_lex_str);
           charset= var->charset(thd);
         }
 
@@ -2738,7 +2745,8 @@ static bool show_status_array(THD *thd, const char *wild,
 
         mysql_mutex_unlock(&LOCK_global_system_variables);
 
-        if (schema_table_store_record(thd, table))
+        // store the record to var_thd
+        if (schema_table_store_record(var_thd, table))
         {
           res= TRUE;
           goto end;
@@ -6696,6 +6704,15 @@ int fill_variables(THD *thd, TABLE_LIST *tables, Item *cond)
   bool upper_case_names= (schema_table_idx != SCH_VARIABLES);
   bool sorted_vars= (schema_table_idx == SCH_VARIABLES);
 
+  ulong thread_id_opt = lex->thread_id_opt;
+  THD *var_thd = nullptr;
+  if (thread_id_opt && thread_id_opt != thd->thread_id)
+  {
+    var_thd = get_opt_thread_with_data_lock(thd, thread_id_opt);
+    if (!var_thd)
+      DBUG_RETURN(1);
+  }
+
   if (lex->option_type == OPT_GLOBAL ||
       schema_table_idx == SCH_GLOBAL_VARIABLES)
     option_type= OPT_GLOBAL;
@@ -6712,9 +6729,13 @@ int fill_variables(THD *thd, TABLE_LIST *tables, Item *cond)
   mysql_rwlock_unlock(&LOCK_system_variables_hash);
 
   res= show_status_array(thd, wild, sys_var_array, option_type, NULL, "",
-                         tables->table, upper_case_names, cond);
+                         tables->table, upper_case_names, cond, var_thd);
 
   mysql_mutex_unlock(&LOCK_plugin_delete);
+
+  if (var_thd)
+    mysql_mutex_unlock(&var_thd->LOCK_thd_data);
+
   DBUG_RETURN(res);
 }
 
@@ -6731,11 +6752,24 @@ int fill_status(THD *thd, TABLE_LIST *tables, Item *cond)
   enum enum_var_type option_type;
   bool upper_case_names= (schema_table_idx != SCH_STATUS);
 
+  ulong thread_id_opt = lex->thread_id_opt;
+  THD *var_thd = nullptr;
+  if (thread_id_opt && thread_id_opt != thd->thread_id)
+  {
+    var_thd = get_opt_thread_with_data_lock(thd, thread_id_opt);
+    if (!var_thd)
+      DBUG_RETURN(1);
+  }
+
   if (schema_table_idx == SCH_STATUS)
   {
     option_type= lex->option_type;
     if (option_type == OPT_GLOBAL)
       tmp1= &tmp;
+    else if (var_thd) {
+      tmp = var_thd->status_var;
+      tmp1= &tmp;
+    }
     else
       tmp1= thd->initial_status_var;
   }
@@ -6747,7 +6781,7 @@ int fill_status(THD *thd, TABLE_LIST *tables, Item *cond)
   else
   { 
     option_type= OPT_SESSION;
-    tmp1= &thd->status_var;
+    tmp1= var_thd? &var_thd->status_var : &thd->status_var;
   }
 
   /*
@@ -6761,9 +6795,13 @@ int fill_status(THD *thd, TABLE_LIST *tables, Item *cond)
   res= show_status_array(thd, wild,
                          (SHOW_VAR *)all_status_vars.buffer,
                          option_type, tmp1, "", tables->table,
-                         upper_case_names, cond);
+                         upper_case_names, cond, var_thd);
   if (thd->fill_status_recursion_level-- == 1) 
     mysql_mutex_unlock(&LOCK_status);
+
+  if (var_thd)
+    mysql_mutex_unlock(&var_thd->LOCK_thd_data);
+
   DBUG_RETURN(res);
 }
 
