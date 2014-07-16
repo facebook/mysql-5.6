@@ -109,10 +109,13 @@ extern my_error_reporter my_getopt_error_reporter;
 
 extern int handle_options (int *argc, char ***argv, 
 			   const struct my_option *longopts, my_get_one_option);
+extern int handle_options_with_logging (int *argc, char ***argv,
+			   const struct my_option *longopts, my_get_one_option);
 extern int my_handle_options (int *argc, char ***argv,
                               const struct my_option *longopts,
                               my_get_one_option,
-                              const char **command_list);
+                              const char **command_list,
+                              my_bool logging);
 extern void print_cmdline_password_warning();
 extern void my_cleanup_options(const struct my_option *options);
 extern void my_cleanup_options(const struct my_option *options);
