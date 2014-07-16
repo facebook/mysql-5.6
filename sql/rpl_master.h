@@ -53,6 +53,9 @@ bool show_binlogs(THD* thd);
 void kill_zombie_dump_threads(String *slave_uuid);
 void kill_all_dump_threads();
 
+bool find_gtid_position(THD *thd);
+my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
+                              Sid_map *sid_map);
 /**
   Process a COM_BINLOG_DUMP_GTID packet.
 
