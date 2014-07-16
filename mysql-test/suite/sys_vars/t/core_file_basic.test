@@ -1,2 +1,20 @@
 SELECT * FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES WHERE VARIABLE_NAME LIKE '%core%';
 SHOW GLOBAL VARIABLES LIKE '%core%';
+
+SET @old_val = @@global.core_file;
+SELECT @old_val;
+
+SET GLOBAL core_file = FALSE;
+SELECT @@core_file;
+
+SHOW GLOBAL VARIABLES LIKE '%core%';
+
+SET GLOBAL core_file = TRUE;
+SELECT @@core_file;
+
+SHOW GLOBAL VARIABLES LIKE '%core%';
+
+SET @@global.core_file = @old_val;
+SELECT @@global.core_file;
+
+SHOW GLOBAL VARIABLES LIKE '%core%';
