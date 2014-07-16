@@ -24,7 +24,7 @@ SET DEBUG_SYNC='now SIGNAL go';
 --connection default
 # We are yet to copy threads when connection 2 and connection 3 joined the
 # system. So this will show all 4 connections ( default + connection 1,2,3).
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent>
 --reap
 
 # Test 2: To prove that connections which joined after copying thread will not
@@ -42,12 +42,12 @@ SET DEBUG_SYNC='now SIGNAL go';
 # This will show 4 connections only ( default + connection 1,2,3 ).  Connections
 # (connection4, connection 5) which entered after reading the first element
 # from the iterator will not be processed by show processlist.
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent>
 --reap
 
 #Now try the command once again.
 # This will show 6 connections ( default + connection 1,2,3,4,5 )
---replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info>
+--replace_column 1 <Id> 3 <Host> 5 <Command> 6 <Time> 7 <State> 8 <Info> 9 <RExam> 10 <RSent>
 SHOW PROCESSLIST;
 
 --echo "Cleanup"
