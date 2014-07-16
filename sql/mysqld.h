@@ -325,6 +325,8 @@ extern char pidfile_name[FN_REFLEN], system_time_zone[30], *opt_init_file;
 extern char default_logfile_name[FN_REFLEN];
 extern char log_error_file[FN_REFLEN], *opt_tc_log_file;
 
+extern int32 thread_binlog_client;
+
 extern my_bool opt_log_slow_extra;
 
 /* SHOW STATS var: Name of current timer */
