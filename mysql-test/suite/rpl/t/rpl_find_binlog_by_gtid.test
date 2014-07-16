@@ -1,0 +1,33 @@
+-- source include/have_gtid.inc
+-- source include/master-slave.inc
+
+-- connection master
+-- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
+-- let $include_silent = 1
+-- source extra/rpl_tests/rpl_parallel_load_innodb.test
+
+-- echo === Check FIND BINLOG GTID works with a multi threaded slave ===
+
+-- connection master
+-- let $gtid_executed = `select @@global.gtid_executed;`
+-- let $gtid_executed = `SELECT REPLACE('$gtid_executed', '$MASTER_UUID', 'uuid');`
+-- let $last_gitd_transaction_id = `SELECT SUBSTRING_INDEX('$gtid_executed', '-', -1);`
+
+-- connection slave
+-- let $i = 1
+-- disable_query_log
+while ($i <= $last_gitd_transaction_id)
+{
+  -- let $log_name = query_get_value("FIND BINLOG GTID = '$MASTER_UUID:$i'", Log_name, 1)
+  -- let $log_pos = query_get_value("FIND BINLOG GTID = '$MASTER_UUID:$i'", Position, 1)
+  -- let $gtid = query_get_value("SHOW BINLOG EVENTS IN '$log_name' FROM $log_pos LIMIT 1", Info, 1)
+
+  -- let assert_text = Gtid used in FIND BINLOG GITD and returned by SHOW BINLOG EVENTS should be same
+  -- let assert_cond = `SELECT "$gtid" = "SET @@SESSION.GTID_NEXT= '$MASTER_UUID:$i'"`
+  -- source include/assert.inc
+  -- inc $i
+}
+-- enable_query_log
+-- let $include_silent =
+
+-- source include/rpl_end.inc
