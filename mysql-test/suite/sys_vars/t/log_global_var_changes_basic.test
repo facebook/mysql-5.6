@@ -1,0 +1,24 @@
+# Basic tests for sysvar log_global_var_changes
+
+SET @old_val = @@GLOBAL.log_global_var_changes;
+SELECT @old_val;
+
+SET @@GLOBAL.log_global_var_changes = FALSE;
+SELECT @@GLOBAL.log_global_var_changes;
+
+SET GLOBAL log_global_var_changes = TRUE;
+SELECT @@GLOBAL.log_global_var_changes;
+
+SELECT COUNT(@@GLOBAL.log_global_var_changes);
+--echo 1 Expected
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@local.log_global_var_changes);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT COUNT(@@SESSION.log_global_var_changes);
+--echo Expected error 'Variable is a GLOBAL variable'
+
+SET @@GLOBAL.log_global_var_changes = @old_val;
+SELECT @@GLOBAL.log_global_var_changes;
