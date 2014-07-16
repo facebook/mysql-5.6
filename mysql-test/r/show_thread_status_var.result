@@ -1,0 +1,52 @@
+set max_join_size = 1000;
+create user mysqluser1;
+set max_join_size = 2000;
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	2000
+show session $mysqluser1 variables like 'max_join_size';;
+Variable_name	Value
+max_join_size	2000
+show session $root variables like 'max_join_size';;
+ERROR HY000: You are not owner of thread $root
+show session 999 variables like 'max_join_size';;
+ERROR HY000: Unknown thread id: 999
+show status like 'com_create_user';
+Variable_name	Value
+Com_create_user	0
+show session $mysqluser1 status like 'com_create_user';;
+Variable_name	Value
+Com_create_user	0
+show session $root status like 'com_create_user';;
+ERROR HY000: You are not owner of thread $root
+show session 999 status like 'com_create_user';;
+ERROR HY000: Unknown thread id: 999
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	1000
+show session $root variables like 'max_join_size';;
+Variable_name	Value
+max_join_size	1000
+show session $mysqluser1 variables like 'max_join_size';;
+Variable_name	Value
+max_join_size	2000
+show variables like 'max_join_size';
+Variable_name	Value
+max_join_size	1000
+show session 999 variables like 'max_join_size';;
+ERROR HY000: Unknown thread id: 999
+show status like 'com_create_user';
+Variable_name	Value
+Com_create_user	1
+show session $root status like 'com_create_user';;
+Variable_name	Value
+Com_create_user	1
+show session $mysqluser1 status like 'com_create_user';;
+Variable_name	Value
+Com_create_user	0
+show status like 'com_create_user';
+Variable_name	Value
+Com_create_user	1
+show session 999 status like 'com_create_user';;
+ERROR HY000: Unknown thread id: 999
+drop user mysqluser1;
