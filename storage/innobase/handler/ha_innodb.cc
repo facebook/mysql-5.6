@@ -976,9 +976,10 @@ innobase_commit(
 	THD*		thd,		/*!< in: MySQL thread handle of the
 					user for whom the transaction should
 					be committed */
-	bool		commit_trx);	/*!< in: true - commit transaction
+	bool		commit_trx,	/*!< in: true - commit transaction
 					false - the current SQL statement
 					ended */
+	bool		async);		/*!< in: TRUE - don't sync log */
 
 /*****************************************************************//**
 Rolls back a transaction to a savepoint.
@@ -1126,9 +1127,11 @@ innobase_xa_prepare(
 	THD*		thd,		/*!< in: handle to the MySQL thread of
 					the user whose XA transaction should
 					be prepared */
-	bool		all);		/*!< in: true - prepare transaction
+	bool		all,		/*!< in: true - prepare transaction
 					false - the current SQL statement
 					ended */
+	bool		async);		/*!< in: TRUE - don't sync log */
+
 /*******************************************************************//**
 This function is used to recover X/Open XA distributed transactions.
 @return	number of prepared transactions stored in xid_list */
@@ -3911,9 +3914,10 @@ innobase_commit(
 	THD*		thd,		/*!< in: MySQL thread handle of the
 					user for whom the transaction should
 					be committed */
-	bool		commit_trx)	/*!< in: true - commit transaction
+	bool		commit_trx,	/*!< in: true - commit transaction
 					false - the current SQL statement
 					ended */
+	bool		async)		/*!< in: TRUE - don't sync log */
 {
 	trx_t*		trx;
 
@@ -3996,7 +4000,7 @@ retry:
 		trx_deregister_from_2pc(trx);
 
 		/* Now do a write + flush of logs. */
-		trx_commit_complete_for_mysql(trx);
+		trx_commit_complete_for_mysql(trx, async);
 	} else {
 		/* We just mark the SQL statement ended and do not do a
 		transaction commit */
@@ -7043,7 +7047,7 @@ no_commit:
 			no need to re-acquire locks on it. */
 
 			/* Altering to InnoDB format */
-			innobase_commit(ht, user_thd, 1);
+			innobase_commit(ht, user_thd, 1, FALSE);
 			/* Note that this transaction is still active. */
 			trx_register_for_2pc(prebuilt->trx);
 			/* We will need an IX lock on the destination table. */
@@ -7059,7 +7063,7 @@ no_commit:
 
 			/* Commit the transaction.  This will release the table
 			locks, so they have to be acquired again. */
-			innobase_commit(ht, user_thd, 1);
+			innobase_commit(ht, user_thd, 1, FALSE);
 			/* Note that this transaction is still active. */
 			trx_register_for_2pc(prebuilt->trx);
 			/* Re-acquire the table lock on the source table. */
@@ -12847,7 +12851,7 @@ ha_innobase::external_lock(
 				thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)) {
 
 			if (trx_is_started(trx)) {
-				innobase_commit(ht, thd, TRUE);
+				innobase_commit(ht, thd, TRUE, FALSE);
 			}
 
 		} else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED
@@ -14090,9 +14094,10 @@ innobase_xa_prepare(
 	THD*		thd,		/*!< in: handle to the MySQL thread of
 					the user whose XA transaction should
 					be prepared */
-	bool		prepare_trx)	/*!< in: true - prepare transaction
+	bool		prepare_trx,	/*!< in: true - prepare transaction
 					false - the current SQL statement
 					ended */
+	bool		async)		/*!< in: TRUE - don't sync log */
 {
 	int		error = 0;
 	trx_t*		trx = check_trx_exists(thd);
@@ -14131,7 +14136,7 @@ innobase_xa_prepare(
 
 		ut_ad(trx_is_registered_for_2pc(trx));
 
-		trx_prepare_for_mysql(trx);
+		trx_prepare_for_mysql(trx, async);
 
 		error = 0;
 	} else {
