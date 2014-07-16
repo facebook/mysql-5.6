@@ -34,10 +34,10 @@ lock tables t2 write;
 call bug9486();
 show processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-#	root	localhost	test	Query	#	STATE	show processlist	1	1	#
+#	root	localhost	test	Query	#	STATE	show processlist	0	0	#
 #	root	localhost	test	Query	#	Waiting for table metadata lock	update t1, t2 set val= 1 where id1=id2	0	0	#
 #	root	localhost	test	Sleep	#		NULL	0	0	#
-#	root	localhost	test	Sleep	#		NULL	0	1	#
+#	root	localhost	test	Sleep	#		NULL	1	1	#
 unlock tables;
 drop procedure bug9486;
 drop table t1, t2;
