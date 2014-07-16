@@ -181,6 +181,9 @@ enum options_client {
   OPT_RECEIVE_BUFFER_SIZE,
   OPT_LONG_QUERY_TIME,
   OPT_IGNORE_VIEWS,
+  OPT_START_GTID,
+  OPT_FIND_GTID_POSITION,
+  OPT_INDEX_FILE,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };

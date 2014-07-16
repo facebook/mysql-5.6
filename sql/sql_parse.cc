@@ -4168,6 +4168,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
 
       break;
     }
+    case SQLCOM_FIND_GTID_POSITION: {
+      res = find_gtid_position(thd);
+      break;
+    }
     case SQLCOM_KILL: {
       Item *it = lex->kill_value_list.head();
 

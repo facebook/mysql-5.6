@@ -59,12 +59,14 @@
 #include "sql/item.h"
 #include "sql/item_func.h"           // user_var_entry
 #include "sql/log.h"                 // log_*()
+#include "sql/log_event.h"           // Log_event
 #include "sql/mysqld.h"              // server_id
 #include "sql/mysqld_thd_manager.h"  // Global_THD_manager
 #include "sql/protocol.h"
 #include "sql/protocol_classic.h"
 #include "sql/psi_memory_key.h"
 #include "sql/rpl_binlog_sender.h"      // Binlog_sender
+#include "sql/rpl_constants.h"          // USING_START_GTID_PROTOCOL
 #include "sql/rpl_filter.h"             // binlog_filter
 #include "sql/rpl_group_replication.h"  // is_group_replication_running
 #include "sql/rpl_gtid.h"
@@ -72,6 +74,7 @@
 #include "sql/sql_class.h"    // THD
 #include "sql/sql_list.h"
 #include "sql/system_variables.h"
+#include "sql_lex.h"
 #include "sql_string.h"
 #include "thr_mutex.h"
 #include "typelib.h"
@@ -957,7 +960,7 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, size_t packet_length) {
   */
   ushort flags = 0;
   uint32 data_size = 0;
-  uint64 pos = 0;
+  my_off_t pos = 0;
   char name[FN_REFLEN + 1];
   uint32 name_size = 0;
   char *gtid_string = nullptr;
@@ -966,6 +969,7 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, size_t packet_length) {
   Sid_map sid_map(
       nullptr /*no sid_lock because this is a completely local object*/);
   Gtid_set slave_gtid_executed(&sid_map);
+  uint error;
 
   DBUG_ASSERT(!thd->status_var_aggregated);
   thd->status_var.com_other++;
@@ -977,25 +981,33 @@ bool com_binlog_dump_gtid(THD *thd, char *packet, size_t packet_length) {
   READ_INT(name_size, 4);
   READ_STRING(name, name_size, sizeof(name));
   READ_INT(pos, 8);
-  DBUG_PRINT("info", ("pos=%" PRIu64 " flags=%d server_id=%d", pos, flags,
-                      thd->server_id));
+  DBUG_PRINT("info",
+             ("pos=%llu flags=%d server_id=%d", pos, flags, thd->server_id));
   READ_INT(data_size, 4);
   CHECK_PACKET_SIZE(data_size);
   if (slave_gtid_executed.add_gtid_encoding(packet_position, data_size) !=
       RETURN_STATUS_OK)
     return true;
   slave_gtid_executed.to_string(&gtid_string);
-  DBUG_PRINT("info",
-             ("Slave %d requested to read %s at position %" PRIu64 " gtid set "
-              "'%s'.",
-              thd->server_id, name, pos, gtid_string));
+  DBUG_PRINT("info", ("Slave %d requested to read %s at position %llu gtid set "
+                      "'%s'.",
+                      thd->server_id, name, pos, gtid_string));
 
   kill_zombie_dump_threads(thd);
   query_logger.general_log_print(thd, thd->get_command(),
-                                 "Log: '%s' Pos: %" PRIu64 " GTIDs: '%s'", name,
-                                 pos, gtid_string);
+                                 "Log: '%s' Pos: %llu GTIDs: '%s'", name, pos,
+                                 gtid_string);
+  if ((flags & USING_START_GTID_PROTOCOL)) {
+    if ((error = find_gtid_position_helper(gtid_string, name, pos))) {
+      my_error(error, MYF(0));
+      my_free(gtid_string);
+      return true;
+    }
+    mysql_binlog_send(thd, name, (my_off_t)pos, NULL, flags);
+  } else
+    mysql_binlog_send(thd, name, (my_off_t)pos, &slave_gtid_executed, flags);
+
   my_free(gtid_string);
-  mysql_binlog_send(thd, name, (my_off_t)pos, &slave_gtid_executed, flags);
 
   unregister_slave(thd, true, true /*need_lock_slave_list=true*/);
   /*  fake COM_QUIT -- if we get here, the thread needs to terminate */
@@ -1418,4 +1430,116 @@ bool show_binlogs(THD *thd) {
 err:
   mysql_bin_log.unlock_index();
   return true;
+}
+
+/*
+  Finds the binlog file name and starting position of corresponding
+  Gtid_log_event of gtid_string and store in parameters log_name
+  and pos respectively
+
+  @param[in]  gtid_string Gtid in string format.
+  @param[out] log_name    Binlog file name where the gtid is physically
+                          located.
+  @param[out] pos         Position of gtid in log_name binlog.
+
+  @return >0 Failure
+           0 Success
+*/
+uint find_gtid_position_helper(const char *gtid_string, char *log_name,
+                               my_off_t &gtid_pos) {
+  DBUG_ENTER("find_gtid_position_helper");
+  Gtid gtid;
+  Sid_map sid_map(NULL);
+  uint error = ER_UNKNOWN_ERROR;
+  int dir_len;
+
+  Gtid_set previous_gtid_set(&sid_map);
+
+  const Gtid_set_map *previous_gtid_set_map;
+
+  if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK) {
+    goto err;
+  }
+
+  mysql_bin_log.lock_index();
+  previous_gtid_set_map = mysql_bin_log.get_previous_gtid_set_map();
+
+  for (auto rit = previous_gtid_set_map->rbegin();
+       rit != previous_gtid_set_map->rend(); ++rit) {
+    previous_gtid_set.add_gtid_encoding((const uchar *)rit->second.c_str(),
+                                        rit->second.length());
+
+    if (!previous_gtid_set.contains_gtid(gtid)) {
+      /*
+        Unlock index here since we don't iterate over the
+        previous_gtid_set_map anymore.
+      */
+      mysql_bin_log.unlock_index();
+      gtid_pos = find_gtid_pos_in_log<Binlog_file_reader>(rit->first.c_str(),
+                                                          gtid, &sid_map);
+      if (!gtid_pos) {
+        error = ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET;
+        goto err;
+      }
+
+      dir_len = dirname_length(rit->first.c_str());
+      strcpy(log_name, rit->first.c_str() + dir_len);
+
+      DBUG_RETURN(0);
+    }
+    previous_gtid_set.clear();
+  }
+  mysql_bin_log.unlock_index();
+  error = ER_REQUESTED_PURGED_GTID;
+
+err:
+  DBUG_RETURN(error);
+}
+
+/**
+  Execute FIND BINLOG GTID statement.
+
+  @param thd Pointer to THD object for the client thread executing the
+             statement.
+
+  @retval false Success
+  @retval true  Failure
+*/
+bool find_gtid_position(THD *thd) {
+  DBUG_ENTER("find_gtid_position");
+
+  char log_name[FN_REFLEN];
+  my_off_t gtid_pos = 0;
+  uint error = ER_UNKNOWN_ERROR;
+
+  Protocol *protocol = thd->get_protocol();
+  List<Item> field_list;
+  field_list.push_back(new Item_empty_string("Log_name", 255));
+  field_list.push_back(
+      new Item_return_int("Position", 20, MYSQL_TYPE_LONGLONG));
+
+  if (thd->send_result_metadata(&field_list,
+                                Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
+    goto err;
+
+  error = find_gtid_position_helper(thd->lex->gtid_string, log_name, gtid_pos);
+
+  if (error) goto err;
+
+  protocol->start_row();
+  protocol->store_string(log_name, strlen(log_name), &my_charset_bin);
+  protocol->store(gtid_pos);
+
+  if (protocol->end_row()) {
+    DBUG_PRINT("info", ("protocol->write failed inf find_gtid_position()"));
+    goto err;
+  }
+
+  my_eof(thd);
+  DBUG_RETURN(false);
+
+err:
+  DBUG_PRINT("info", ("error: %u", error));
+  my_error(error, MYF(0), "Unknown error occured while finding gtid position");
+  DBUG_RETURN(true);
 }

@@ -9389,11 +9389,11 @@ ER_PLACEHOLDER_50013
 ER_PLACEHOLDER_50014
   eng "Placeholder"
 
-ER_PLACEHOLDER_50015
-  eng "Placeholder"
+ER_REQUESTED_PURGED_GTID
+  eng "The requested GTID is purged and so cannot be found in binary logs."
 
-ER_PLACEHOLDER_50016
-  eng "Placeholder"
+ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET
+  eng "The requested GTID is not yet executed and so cannot be found in binary logs."
 
 ER_PLACEHOLDER_50017
   eng "Placeholder"

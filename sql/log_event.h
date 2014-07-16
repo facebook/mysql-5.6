@@ -4430,6 +4430,11 @@ size_t my_strmov_quoted_identifier_helper(int q, char *buffer,
 template <typename T>
 bool net_field_length_checked(const uchar **packet, size_t *max_length, T *out);
 
+template <class BINLOG_FILE_READER>
+my_off_t find_gtid_pos_in_log(const char *log_name, const Gtid &gtid,
+                              Sid_map *sid_map);
+#include "find_gtid_impl.cc"
+
 /**
    Extract basic info about an event:  type, query, is it ignorable
 
