@@ -2,21 +2,21 @@ SET @def_var= @@session.transaction_prealloc_size;
 SET SESSION transaction_prealloc_size=1024*1024*1024*1;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	1	<TID>
+<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	0	<TID>
 SET SESSION transaction_prealloc_size=1024*1024*1024*2;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	1	<TID>
+<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	0	<TID>
 SET SESSION transaction_prealloc_size=1024*1024*1024*3;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	1	<TID>
+<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	0	<TID>
 SET SESSION transaction_prealloc_size=1024*1024*1024*4;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	1	<TID>
+<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	0	<TID>
 SET SESSION transaction_prealloc_size=1024*1024*1024*5;
 SHOW PROCESSLIST;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	1	<TID>
+<Id>	root	<Host>	test	Query	<Time>	<State>	SHOW PROCESSLIST	0	0	<TID>
 SET @@session.transaction_prealloc_size= @def_var;
