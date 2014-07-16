@@ -786,7 +786,7 @@ static void handle_bootstrap_impl(THD *thd)
       break;
     }
 
-    mysql_parse(thd, thd->query(), length, &parser_state, NULL);
+    mysql_parse(thd, thd->query(), length, &parser_state, NULL, NULL);
     sql_print_information("query: %s", thd->query());
     bootstrap_error= thd->is_error();
     thd->protocol->end_statement();
@@ -1274,6 +1274,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   /* for USER_STATISTICS */
   my_io_perf_t start_perf_read, start_perf_read_blob;
   my_io_perf_t start_perf_read_primary, start_perf_read_secondary;
+  my_bool async_commit = FALSE;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
@@ -1487,7 +1488,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       break;
 
     mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
-		&last_timer);
+                &last_timer, &async_commit);
 
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
@@ -1566,7 +1567,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
       mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
-		&last_timer);
+                  &last_timer, &async_commit);
     }
 
     DBUG_PRINT("info",("query ready"));
@@ -1672,7 +1673,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     thd->lex->unit.cleanup();
     /* No need to rollback statement transaction, it's not started. */
     DBUG_ASSERT(thd->transaction.stmt.is_empty());
-    close_thread_tables(thd);
+    close_thread_tables(thd, async_commit);
     thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
 
     if (thd->transaction_rollback_request)
@@ -2548,6 +2549,9 @@ mysql_execute_command(THD *thd,
       thd->get_stmt_da()->opt_clear_warning_info(thd->query_id);
   }
 
+  /* Apply Session level ASYNC COMMIT */
+  lex->async_commit = lex->async_commit ||
+                      (thd->variables.option_bits & OPTION_ASYNC_COMMIT);
 #ifdef HAVE_REPLICATION
   if (unlikely(thd->slave_thread))
   {
@@ -2771,7 +2775,7 @@ mysql_execute_command(THD *thd,
       DBUG_RETURN(-1);
 
     /* Commit the normal transaction if one is active. */
-    if (trans_commit_implicit(thd))
+    if (trans_commit_implicit(thd, lex->async_commit))
       goto error;
     /* Release metadata locks acquired in this transaction. */
     thd->mdl_context.release_transactional_locks();
@@ -4514,7 +4518,7 @@ end_with_restore_list:
     bool tx_release= (lex->tx_release == TVL_YES ||
                       (thd->variables.completion_type == 2 &&
                        lex->tx_release != TVL_NO));
-    if (trans_commit(thd))
+    if (trans_commit(thd, lex->async_commit))
       goto error;
     thd->mdl_context.release_transactional_locks();
     /* Begin transaction with the same isolation level. */
@@ -5340,7 +5344,7 @@ finish:
     {
       /* If commit fails, we should be able to reset the OK status. */
       thd->get_stmt_da()->set_overwrite_status(true);
-      trans_commit_stmt(thd);
+      trans_commit_stmt(thd, lex->async_commit);
       thd->get_stmt_da()->set_overwrite_status(false);
     }
   }
@@ -5372,7 +5376,7 @@ finish:
     /* If commit fails, we should be able to reset the OK status. */
     thd->get_stmt_da()->set_overwrite_status(true);
     /* Commit the normal transaction if one is active. */
-    trans_commit_implicit(thd);
+    trans_commit_implicit(thd, lex->async_commit);
     thd->get_stmt_da()->set_overwrite_status(false);
     thd->mdl_context.release_transactional_locks();
   }
@@ -6682,7 +6686,8 @@ static bool throttle_query_if_needed(THD* thd)
 */
 
 void mysql_parse(THD *thd, char *rawbuf, uint length,
-                 Parser_state *parser_state, ulonglong *last_timer)
+                 Parser_state *parser_state, ulonglong *last_timer,
+                 my_bool* async_commit)
 {
   int error __attribute__((unused));
   ulonglong statement_start_time;
@@ -6696,6 +6701,8 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
   else
     statement_start_time= my_timer_now();
 
+  if (async_commit)
+    *async_commit = FALSE;
   /*
     Warning.
     The purpose of query_cache_send_result_to_client() is to lookup the
@@ -6770,6 +6777,9 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 
     if (!err)
     {
+      if (async_commit)
+        *async_commit = lex->async_commit;
+
       thd->m_statement_psi= MYSQL_REFINE_STATEMENT(thd->m_statement_psi,
                                                    sql_statement_info[thd->lex->sql_command].m_key);
 

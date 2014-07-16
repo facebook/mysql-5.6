@@ -1340,7 +1340,7 @@ close_all_tables_for_name(THD *thd, TABLE_SHARE *share,
     leave prelocked mode if needed.
 */
 
-void close_thread_tables(THD *thd)
+void close_thread_tables(THD *thd, bool async_commit)
 {
   TABLE *table;
   DBUG_ENTER("close_thread_tables");
@@ -1729,7 +1729,7 @@ bool close_temporary_tables(THD *thd)
 
         thd->get_stmt_da()->set_overwrite_status(true);
         if ((error= (mysql_bin_log.write_event(&qinfo) ||
-                     mysql_bin_log.commit(thd, true) ||
+                     mysql_bin_log.commit(thd, true, false) ||
                      error)))
         {
           /*
@@ -1761,7 +1761,7 @@ bool close_temporary_tables(THD *thd)
 
         thd->get_stmt_da()->set_overwrite_status(true);
         if ((error= (mysql_bin_log.write_event(&qinfo) ||
-                     mysql_bin_log.commit(thd, true) ||
+                     mysql_bin_log.commit(thd, true, false) ||
                      error)))
         {
           /*

@@ -2738,17 +2738,17 @@ int TC_LOG_MMAP::overflow()
   and uses the functions that were there with the old interface to
   implement the logic.
  */
-TC_LOG::enum_result TC_LOG_MMAP::commit(THD *thd, bool all)
+TC_LOG::enum_result TC_LOG_MMAP::commit(THD *thd, bool all, bool async)
 {
   DBUG_ENTER("TC_LOG_MMAP::commit");
   unsigned long cookie= 0;
   my_xid xid= thd->transaction.xid_state.xid.get_my_xid();
 
   if (all && xid)
-    if ((cookie= log_xid(thd, xid)))
+    if ((cookie= log_xid(thd, xid, async)))
       DBUG_RETURN(RESULT_ABORTED);    // Failed to log the transaction
 
-  if (ha_commit_low(thd, all))
+  if (ha_commit_low(thd, all, async))
     DBUG_RETURN(RESULT_INCONSISTENT); // Transaction logged, but not committed
 
   /* If cookie is non-zero, something was logged */
@@ -2786,7 +2786,7 @@ TC_LOG::enum_result TC_LOG_MMAP::commit(THD *thd, bool all)
     to the position in memory where xid was logged to.
 */
 
-int TC_LOG_MMAP::log_xid(THD *thd, my_xid xid)
+int TC_LOG_MMAP::log_xid(THD *thd, my_xid xid, bool async)
 {
   int err;
   PAGE *p;
