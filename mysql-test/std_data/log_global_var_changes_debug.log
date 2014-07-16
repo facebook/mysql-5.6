@@ -1,0 +1,4 @@
+@@debug has been changed from '' to 'd,foo_debug_injection' by user USER from host HOST
+@@debug has been changed from 'd,foo_debug_injection' to '' by user USER from host HOST
+@@debug has been changed from '' to '+O,../../log/foo.1.trace' by user USER from host HOST
+@@debug has been changed from 'O,../../log/foo.1.trace' to '' by user USER from host HOST
