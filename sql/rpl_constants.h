@@ -86,4 +86,12 @@ enum ExtraRowInfoFormat {
 #define EXTRA_ROW_INFO_HDR_BYTES 2
 #define EXTRA_ROW_INFO_MAX_PAYLOAD (255 - EXTRA_ROW_INFO_HDR_BYTES)
 
+/*
+  Used in flags field of the query packet in com_binlog_dump_gtid command.
+  If this field is set, server needs to use start_gtid_protocol where it
+  starts dumping events from the starting position of Gtid_log_event
+  corresponsing to the GTID used in the com_binlog_dump_gtid command.
+*/
+#define USING_START_GTID_PROTOCOL (1 << 15)
+
 #endif /* RPL_CONSTANTS_H */

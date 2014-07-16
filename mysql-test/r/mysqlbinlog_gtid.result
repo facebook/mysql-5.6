@@ -1,0 +1,235 @@
+set timestamp=1000000000;
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+FLUSH LOGS;
+insert into t1 values(3);
+insert into t1 values(4);
+FLUSH LOGS;
+** Reading from local binlog **
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+ROLLBACK/*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:3'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(2)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+DELIMITER ;
+DELIMITER /*!*/;
+# uuid:1-3
+SET @@SESSION.GTID_NEXT= 'uuid:4'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(3)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:5'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(4)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+DELIMITER ;
+DELIMITER /*!*/;
+# uuid:1-5
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:4'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(3)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:5'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(4)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+DELIMITER ;
+DELIMITER /*!*/;
+# uuid:1-5
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+** Reading from remote master with GTIDS on **
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:3'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(2)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+# uuid:1-3
+SET @@SESSION.GTID_NEXT= 'uuid:4'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(3)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:5'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(4)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+# uuid:1-5
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:4'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(3)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'uuid:5'/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+insert into t1 values(4)
+/*!*/;
+SET TIMESTAMP=1000000000/*!*/;
+COMMIT
+/*!*/;
+SET @@SESSION.GTID_NEXT= 'AUTOMATIC' /* added by mysqlbinlog */ /*!*/;
+# uuid:1-5
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+PURGE BINARY LOGS TO 'master-bin.000002';
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+drop table t1;
