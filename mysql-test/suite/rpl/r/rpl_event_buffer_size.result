@@ -1,0 +1,29 @@
+include/master-slave.inc
+[connection master]
+drop table if exists t1;
+SET @@global.rpl_event_buffer_size=16384;
+SELECT @@global.rpl_event_buffer_size;
+@@global.rpl_event_buffer_size
+16384
+include/stop_slave.inc
+include/start_slave.inc
+create table `t1` (`f1` LONGTEXT) ENGINE=MyISAM;
+INSERT INTO t1(f1) VALUES(REPEAT('a', 10000));
+INSERT INTO t1(f1) VALUES(REPEAT('b', 20000));
+INSERT INTO t1(f1) VALUES(REPEAT('b', 100000));
+select length(f1), md5(f1) from t1 order by length(f1);
+length(f1)	md5(f1)
+10000	0d0c9c4db6953fee9e03f528cafd7d3e
+20000	2d0580be1e7272df1c79b31ebe4d259d
+70000	cfd2a8f79ae38d406abe7c81bd4ad571
+100000	09bfb3d92f4ec0691eec3644563f3ef4
+select length(f1), md5(f1) from t1 order by length(f1);
+length(f1)	md5(f1)
+10000	0d0c9c4db6953fee9e03f528cafd7d3e
+20000	2d0580be1e7272df1c79b31ebe4d259d
+70000	cfd2a8f79ae38d406abe7c81bd4ad571
+100000	09bfb3d92f4ec0691eec3644563f3ef4
+==== clean up ====
+DROP TABLE t1;
+SET @@global.rpl_event_buffer_size= 1048576;
+include/rpl_end.inc

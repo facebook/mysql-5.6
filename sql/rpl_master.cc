@@ -30,6 +30,7 @@
 
 int max_binlog_dump_events = 0; // unlimited
 my_bool opt_sporadic_binlog_dump_fail = 0;
+ulong rpl_event_buffer_size;
 
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
@@ -416,22 +417,30 @@ static int fake_rotate_event(NET* net, String* packet, char* log_file_name,
 }
 
 /*
-  Reset thread transmit packet buffer for event sending
+  Reset a transmit packet buffer for event sending. This function
+  uses a pre-allocated buffer for the transmit packet.
 
   This function allocates header bytes for event transmission, and
   should be called before store the event data to the packet buffer.
 */
 static int reset_transmit_packet(THD *thd, ushort flags,
                                  ulong *ev_offset, const char **errmsg,
-                                 bool observe_transmission)
+                                 bool observe_transmission,
+                                 String *packet, char *packet_buffer,
+                                 ulong packet_buffer_size)
 {
   int ret= 0;
-  String *packet= &thd->packet;
 
   /* reserve and set default header */
-  packet->length(0);
-  packet->set("\0", 1, &my_charset_bin);
 
+  /*
+    use the pre-allocated buffer. Realloc in string class
+    don't free external buffer (packet_buffer), it allocs
+    its own buffer first (see String::realloc()) before realloc.
+  */
+  packet->set(packet_buffer, (uint32) packet_buffer_size, &my_charset_bin);
+  packet->length(0);
+  packet->append("\0", 1);
   if (observe_transmission &&
       RUN_HOOK(binlog_transmit, reserve_header, (thd, flags, packet)))
   {
@@ -666,7 +675,8 @@ static int send_last_skip_group_heartbeat(THD *thd, NET* net, String *packet,
  /* Save the current read packet */ 
   save_packet.swap(*packet);
 
-  if (reset_transmit_packet(thd, 0, ev_offset, errmsg, observe_transmission))
+  if (reset_transmit_packet(thd, 0, ev_offset, errmsg, observe_transmission,
+                            packet, NULL, 0))
     DBUG_RETURN(-1);
 
   /* Send heart beat event to the slave to update slave  threads coordinates */
@@ -885,6 +895,18 @@ static void processlist_slave_offset(char *output_info,
   DBUG_VOID_RETURN;
 }
 
+static void repl_cleanup(String *packet, char *packet_buffer)
+{
+  if (packet_buffer != NULL)
+  {
+    /* Make sure it does not reference packet_buffer */
+    packet->free();
+
+    /* Free the fixed packet buffer. */
+    my_free(packet_buffer);
+  }
+}
+
 void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                        const Gtid_set* slave_gtid_executed, int flags)
 {
@@ -912,7 +934,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   IO_CACHE log;
   File file = -1;
-  String* packet = &thd->packet;
+  /*
+    Use a local string here to avoid disturbing the
+    contents of thd->packet. Note that calling thd->packet->free() here will
+    make code elsewhere crash
+  */
+  String packet_str;
+  String* packet = &packet_str;
   time_t last_event_sent_ts= time(0);
   bool time_for_hb_event= false;
   int error= 0;
@@ -941,6 +969,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
   /* The number of times to skip calls to processlist_slave_offset */
   int skip_state_update;
+
+  /*
+   Preallocate fixed buffer for event packets. If an event is more
+   than the size, String class will re-allocate memory and we will
+   reset the packet memory for the next packet creation command.
+   This reduces calls to malloc and free.
+  */
+  const ulong packet_buffer_size = rpl_event_buffer_size;
+  char *packet_buffer = NULL;
 
   /*
     Dump thread sends ER_MASTER_FATAL_ERROR_READING_BINLOG instead of the real
@@ -1008,6 +1045,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   {
     errmsg = "Misconfigured master - server_id was not set";
     my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
+    GOTO_ERR;
+  }
+
+  packet_buffer = (char*) my_malloc(packet_buffer_size, MYF(MY_WME));
+  if (packet_buffer == NULL) {
+    errmsg   = "Master failed pre-allocate event fixed buffer";
+    my_errno= ER_OUTOFMEMORY;
     GOTO_ERR;
   }
 
@@ -1138,7 +1182,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   has_transmit_started= true;
   /* reset transmit packet for the fake rotate event below */
   if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                            observe_transmission))
+                            observe_transmission,
+                            packet, packet_buffer, packet_buffer_size))
     GOTO_ERR;
 
   /*
@@ -1201,7 +1246,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     /* reset transmit packet for the event read from binary log
        file */
     if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                              observe_transmission))
+                              observe_transmission,
+                              packet, packet_buffer, packet_buffer_size))
       GOTO_ERR;
 
      /*
@@ -1300,7 +1346,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
     /* reset the transmit packet for the event read from binary log
        file */
     if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                              observe_transmission))
+                              observe_transmission,
+                              packet, packet_buffer, packet_buffer_size))
       GOTO_ERR;
     DBUG_EXECUTE_IF("semi_sync_3-way_deadlock",
                     {
@@ -1598,7 +1645,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
       /* reset transmit packet for next loop */
       if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                                observe_transmission))
+                                observe_transmission,
+                                packet, packet_buffer, packet_buffer_size))
         GOTO_ERR;
     }
 
@@ -1656,7 +1704,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         /* reset the transmit packet for the event read from binary log
            file */
         if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                                  observe_transmission))
+                                  observe_transmission,
+                                  packet, packet_buffer, packet_buffer_size))
           GOTO_ERR;
         
 	/*
@@ -1725,20 +1774,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 	  {
             DBUG_PRINT("info", ("stopping dump thread because server_id==0 or the BINLOG_DUMP_NON_BLOCK flag is set: server_id=%u flags=%d", thd->server_id, flags));
             mysql_mutex_unlock(log_lock);
-            DBUG_EXECUTE_IF("inject_hb_event_on_mysqlbinlog_dump_thread",
-            {
-              /*
-                Send one HB event (with anything in it, content is irrelevant).
-                We just want to check that mysqlbinlog will be able to ignore it.
-
-                Suicide on failure, since if it happens the entire purpose of the
-                test is comprimised.
-               */
-              if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                                        observe_transmission) ||
-                  send_heartbeat_event(net, packet, p_coord, current_checksum_alg))
-                DBUG_SUICIDE();
-            });
 	    goto end;
 	  }
 
@@ -1799,7 +1834,9 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 #endif
               /* reset transmit packet for the heartbeat event */
               if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                                        observe_transmission))
+                                        observe_transmission,
+                                        packet, packet_buffer,
+                                        packet_buffer_size))
               {
                 thd->EXIT_COND(&old_stage);
                 GOTO_ERR;
@@ -1990,7 +2027,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
       /* reset transmit packet for the possible fake rotate event */
       if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
-                                observe_transmission))
+                                observe_transmission,
+                                packet, packet_buffer, packet_buffer_size))
         GOTO_ERR;
       
       /*
@@ -2036,6 +2074,7 @@ end:
   thd->variables.max_allowed_packet= old_max_allowed_packet;
   /* Undo any calls done by processlist_slave_offset */
   thd->set_query(orig_query, orig_query_length);
+  repl_cleanup(packet, packet_buffer);
   DBUG_VOID_RETURN;
 
 err:
@@ -2081,6 +2120,7 @@ err:
   my_message(my_errno, error_text, MYF(0));
   /* Undo any calls done by processlist_slave_offset */
   thd->set_query(orig_query, orig_query_length);
+  repl_cleanup(packet, packet_buffer);
   DBUG_VOID_RETURN;
 }
 
