@@ -935,6 +935,7 @@ bool com_binlog_dump(THD *thd, char *packet, size_t packet_length) {
 
   query_logger.general_log_print(thd, thd->get_command(), "Log: '%s'  Pos: %ld",
                                  packet + 10, (long)pos);
+
   mysql_binlog_send(thd, thd->mem_strdup(packet + 10), (my_off_t)pos, nullptr,
                     flags);
 
@@ -1006,9 +1007,17 @@ error_malformed_packet:
 
 void mysql_binlog_send(THD *thd, char *log_ident, my_off_t pos,
                        Gtid_set *slave_gtid_executed, uint32 flags) {
+  auto *thd_manager = Global_THD_manager::get_instance();
+
+  thd_manager->inc_thread_binlog_client();
+  thd_manager->dec_thread_running();
+
   Binlog_sender sender(thd, log_ident, pos, slave_gtid_executed, flags);
 
   sender.run();
+
+  thd_manager->inc_thread_running();
+  thd_manager->dec_thread_binlog_client();
 }
 
 /**
