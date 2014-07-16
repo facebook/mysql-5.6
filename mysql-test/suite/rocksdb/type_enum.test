@@ -1,0 +1,6 @@
+#
+# ENUM column type
+#
+
+--source type_enum.inc
+
