@@ -34,7 +34,7 @@ PROCESSLIST	CREATE TEMPORARY TABLE `PROCESSLIST` (
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
-ID	root	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	3	5	TID
+ID	root	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
 SELECT * FROM processlist  ORDER BY id;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL
@@ -169,7 +169,7 @@ Grants for ddicttestuser1@localhost
 GRANT PROCESS ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
-ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	5	2	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -183,8 +183,8 @@ GRANT PROCESS ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
-ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	13	9	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
+ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -206,9 +206,9 @@ GRANT PROCESS ON *.* TO ''@'localhost'
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID		HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
-ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	13	9	TID
+ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID		HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -231,8 +231,8 @@ GRANT USAGE ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -270,9 +270,9 @@ GRANT SUPER ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD '*22DA
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -295,10 +295,10 @@ GRANT USAGE ON *.* TO 'ddicttestuser1'@'localhost' IDENTIFIED BY PASSWORD
 SHOW processlist;
 Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	4	4	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -346,13 +346,13 @@ ID		HOST_NAME	information_schema	Sleep	TIME		NULL	2	2	TID
 ID		HOST_NAME	information_schema	Sleep	TIME		NULL	4	4	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	4	4	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	5	5	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
 ID	ddicttestuser2	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
-ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	13	9	TID
+ID	root	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID		HOST_NAME	information_schema	Sleep	TIME		NULL
@@ -406,11 +406,11 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	4	4	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	5	5	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
 ID	ddicttestuser1	HOST_NAME	information_schema	Execute	TIME	executing	SELECT * FROM information_schema.processlist
@@ -441,11 +441,11 @@ Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
 ID	ddicttestuser1	HOST_NAME	information_schema	Query	TIME	STATE	SHOW processlist	0	0	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	0	0	TID
+ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	1	1	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	3	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	4	4	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	5	5	TID
-ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	6	3	TID
 ID	ddicttestuser1	HOST_NAME	information_schema	Sleep	TIME		NULL	8	8	TID
 SELECT * FROM information_schema.processlist;
 ID	USER	HOST	DB	COMMAND	TIME	STATE	INFO
