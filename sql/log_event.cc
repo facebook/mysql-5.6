@@ -14294,3 +14294,77 @@ size_t my_strmov_quoted_identifier_helper(int q, char *buffer,
   return ++written;
 }
 
+/**
+  Finds the position of given gtid by scanning through the given file
+  and comparing the given gtid with gtid in each Gtid_log_event.
+
+  @param log_name File to look in.
+  @param gtid     GTID to search for.
+  @param sid_map  Sid_map used when parsing Gtid_log_event.
+
+  @retval 0 if GTID is not found.
+  @retval starting offset of the corresponding Gtid_log_event in the file,
+          if GTID is found.
+*/
+my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid,
+                              Sid_map *sid_map)
+{
+  DBUG_ENTER("find_gtid_pos_in_log");
+  DBUG_PRINT("info", ("Scanning log: %s", log_name));
+
+  IO_CACHE log;
+  File file = -1;
+  Log_event *ev = NULL;
+  my_off_t pos = BIN_LOG_HEADER_SIZE;
+  /*
+    Create a Format_description_log_event that is used to read the
+    first event of the log.
+  */
+  Format_description_log_event fd_ev(BINLOG_VERSION), *fd_ev_p= &fd_ev;
+
+#ifndef MYSQL_CLIENT
+  const char *errmsg = NULL;
+  if (!fd_ev.is_valid())
+    goto err;
+
+  if ((file = open_binlog_file(&log, log_name, &errmsg)) < 0)
+  {
+    sql_print_error("%s", errmsg);
+    goto err;
+  }
+#else
+  if ((file = my_open(log_name, O_RDONLY, MYF(MY_WME))) < 0)
+  {
+    error("Error opening binlog file");
+    goto err;
+  }
+
+  if (init_io_cache(&log, file, IO_SIZE, READ_CACHE, 0, 0, MYF(MY_WME)))
+  {
+    error("Error initializing binlog file cache");
+    goto err;
+  }
+#endif
+
+  my_b_seek(&log, BIN_LOG_HEADER_SIZE);
+#ifndef MYSQL_CLIENT
+  while ((ev = Log_event::read_log_event(&log, 0, fd_ev_p, false, NULL)) !=
+         NULL)
+#else
+  while ((ev = Log_event::read_log_event(&log, fd_ev_p, false)) != NULL)
+#endif
+  {
+    if (ev->get_type_code() == GTID_LOG_EVENT)
+    {
+      Gtid_log_event *gtid_ev = (Gtid_log_event *) ev;
+      if (gtid_ev->get_sidno(sid_map) == gtid.sidno &&
+            gtid_ev->get_gno() == gtid.gno)
+        DBUG_RETURN(pos);
+    }
+    if (ev != fd_ev_p)
+      delete ev;
+    pos = my_b_tell(&log);
+  }
+err:
+  DBUG_RETURN(0);
+}
