@@ -36,11 +36,51 @@ static double getopt_double(char *arg, const struct my_option *optp, int *err);
 static void init_variables(const struct my_option *, init_func_p);
 static void init_one_value(const struct my_option *, void *, longlong);
 static void fini_one_value(const struct my_option *, void *, longlong);
-static int setval(const struct my_option *, void *, char *, my_bool);
+static int setval(const struct my_option *, void *, char *, my_bool,
+                  my_bool, my_bool);
 static char *check_struct_option(char *cur_arg, char *key_name);
 static my_bool get_bool_argument(const struct my_option *opts,
                                  const char *argument,
                                  bool *error);
+
+#define FMAT_INT "%d"
+#define FMAT_LONG "%ld"
+#define FMAT_UINT "%u"
+#define FMAT_ULONG "%lu"
+#define FMAT_LONGLONG "%lld"
+#define FMAT_ULONGLONG "%llu"
+#define FMAT_DOUBLE "%f"
+#define FMAT_STR "'%s'"
+
+#define FORMAT(fmat) \
+  "[Note] Global variable initial value (from %s) @@%s = " fmat "\n"
+
+#define SOURCE_OF_ARG(is_cmdline_arg) \
+  (is_cmdline_arg ? "cmd line" : "config file")
+
+#define LOG_GLOBAL_VAR(fmt, new_v) \
+  do { \
+    if (logging) { \
+      fprintf(stderr, FORMAT(fmt), SOURCE_OF_ARG(is_cmdline_arg), \
+              opts->name, new_v); \
+    } \
+  } while(0)
+
+#define LOG_GLOBAL_VAR_IF_TRUE(fmt, bool_v, new_v) \
+  do { \
+    if (logging && bool_v) { \
+      fprintf(stderr, FORMAT(fmt), SOURCE_OF_ARG(is_cmdline_arg), \
+              opts->name, new_v); \
+    } \
+  } while(0)
+
+#define LOG_GLOBAL_VAR_IF_CHANGED(fmt, old_v, new_v) \
+  do { \
+    if (logging && old_v != new_v) { \
+      fprintf(stderr, FORMAT(fmt), SOURCE_OF_ARG(is_cmdline_arg), \
+              opts->name, new_v); \
+    } \
+  } while(0)
 
 /*
   The following three variables belong to same group and the number and
@@ -110,7 +150,14 @@ int handle_options(int *argc, char ***argv,
 		   const struct my_option *longopts,
                    my_get_one_option get_one_option)
 {
-  return my_handle_options(argc, argv, longopts, get_one_option, NULL);
+  return my_handle_options(argc, argv, longopts, get_one_option, NULL, FALSE);
+}
+
+int handle_options_with_logging(int *argc, char ***argv,
+                                const struct my_option *longopts,
+                                my_get_one_option get_one_option)
+{
+  return my_handle_options(argc, argv, longopts, get_one_option, NULL, TRUE);
 }
 
 union ull_dbl
@@ -204,6 +251,7 @@ double getopt_ulonglong2double(ulonglong v)
                              The parsing terminates if a match is found. At
                              exit, argv [out] would contain all the remaining
                              unparsed options along with the matched command.
+  @param [in] logging        log global variable values if it is TRUE.
 
   @return error in case of ambiguous or unknown options,
           0 on success.
@@ -211,7 +259,8 @@ double getopt_ulonglong2double(ulonglong v)
 int my_handle_options(int *argc, char ***argv,
                       const struct my_option *longopts,
                       my_get_one_option get_one_option,
-                      const char **command_list)
+                      const char **command_list,
+                      my_bool logging)
 {
   uint UNINIT_VAR(opt_found), argvpos= 0, length;
   my_bool end_of_options= 0, must_be_var, set_maximum_value,
@@ -563,7 +612,7 @@ int my_handle_options(int *argc, char ***argv,
 		}
 	      }
 	      if ((error= setval(optp, optp->value, argument,
-				 set_maximum_value)))
+                                 set_maximum_value, logging, is_cmdline_arg)))
 		return error;
               if (get_one_option && get_one_option(optp->id, optp, argument))
                 return EXIT_UNSPECIFIED_ERROR;
@@ -608,7 +657,8 @@ int my_handle_options(int *argc, char ***argv,
           (*argc)--; /* option handled (short), decrease argument count */
 	continue;
       }
-      if ((error= setval(optp, value, argument, set_maximum_value)))
+      if ((error= setval(optp, value, argument, set_maximum_value,
+                         logging, is_cmdline_arg)))
 	return error;
       if (get_one_option && get_one_option(optp->id, optp, argument))
         return EXIT_UNSPECIFIED_ERROR;
@@ -746,7 +796,8 @@ static my_bool get_bool_argument(const struct my_option *opts,
 */
 
 static int setval(const struct my_option *opts, void *value, char *argument,
-		  my_bool set_maximum_value)
+                  my_bool set_maximum_value, my_bool logging,
+                  my_bool is_cmdline_arg)
 {
   int err= 0, res= 0;
   bool error= 0;
@@ -766,51 +817,107 @@ static int setval(const struct my_option *opts, void *value, char *argument,
 
     switch ((opts->var_type & GET_TYPE_MASK)) {
     case GET_BOOL: /* If argument differs from 0, enable option, else disable */
+    {
+      my_bool old_v = *((my_bool*) value);
       *((my_bool*) value)= get_bool_argument(opts, argument, &error);
       if(error)
         my_getopt_error_reporter(WARNING_LEVEL,
             "option '%s': boolean value '%s' wasn't recognized. Set to OFF.",
             opts->name, argument);
+      else
+        LOG_GLOBAL_VAR_IF_CHANGED(FMAT_INT, old_v, *((my_bool*) value));
       break;
+    }
     case GET_INT:
+    {
+      int old_v = *((int*) value);
       *((int*) value)= (int) getopt_ll(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_INT, old_v, *((int*) value));
       break;
+    }
     case GET_UINT:
+    {
+      uint old_v = *((uint*) value);
       *((uint*) value)= (uint) getopt_ull(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_UINT, old_v, *((uint*) value));
       break;
+    }
     case GET_LONG:
+    {
+      long old_v = *((long*) value);
       *((long*) value)= (long) getopt_ll(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_LONG, old_v, *((long*) value));
       break;
+    }
     case GET_ULONG:
+    {
+      /* Note that the name says the type is ulong
+         but the actual internal type is long */
+      long old_v = *((long*) value);
       *((long*) value)= (long) getopt_ull(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_LONG, old_v, *((long*) value));
       break;
+    }
     case GET_LL:
+    {
+      longlong old_v = *((longlong*) value);
       *((longlong*) value)= getopt_ll(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_LONGLONG, old_v, *((longlong*) value));
       break;
+    }
     case GET_ULL:
+    {
+      ulonglong old_v = *((ulonglong*) value);
       *((ulonglong*) value)= getopt_ull(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_ULONGLONG, old_v, *((ulonglong*) value));
       break;
+    }
     case GET_DOUBLE:
+    {
+      double old_v = *((double*) value);
       *((double*) value)= getopt_double(argument, opts, &err);
+      LOG_GLOBAL_VAR_IF_CHANGED(FMAT_DOUBLE, old_v, *((double*) value));
       break;
+    }
     case GET_STR:
+    {
+      if (argument == enabled_my_option)
+        break; /* string options don't use this default of "1" */
+      bool val_changed = (argument && *((char**) value) &&
+                          (0 != strcmp(argument, *((char**) value))));
+      *((char**) value)= argument;
+      LOG_GLOBAL_VAR_IF_TRUE(FMAT_STR, val_changed, *((char**) value));
+      break;
+    }
     case GET_PASSWORD:
+    {
       if (argument == enabled_my_option)
         break; /* string options don't use this default of "1" */
       *((char**) value)= argument;
+      /* Password string won't be logged for security reasons */
+      LOG_GLOBAL_VAR(FMAT_STR, "Password was set.");
       break;
+    }
     case GET_STR_ALLOC:
+    {
       if (argument == enabled_my_option)
         break; /* string options don't use this default of "1" */
-      my_free(*((char**) value));
-      if (!(*((char**) value)= my_strdup(argument, MYF(MY_WME))))
+      char *new_val = my_strdup(argument, MYF(MY_WME));
+      if (!new_val)
       {
         res= EXIT_OUT_OF_MEMORY;
         goto ret;
-      };
+      }
+      char *p = *((char**) value);
+      bool val_changed = (!p || (0 != strcmp(p, new_val)));
+      my_free(p);
+      *((char**) value) = new_val;
+      LOG_GLOBAL_VAR_IF_TRUE(FMAT_STR, val_changed, *((char**) value));
       break;
+    }
     case GET_ENUM:
       {
+        bool val_changed = false;
         int type= find_type(argument, opts->typelib, FIND_TYPE_BASIC);
         if (type == 0)
         {
@@ -824,6 +931,7 @@ static int setval(const struct my_option *opts, void *value, char *argument,
             res= EXIT_ARGUMENT_INVALID;
             goto ret;
           }
+          val_changed = (*(ulong*)value != arg);
           *(ulong*)value= arg;
         }
         else if (type < 0)
@@ -832,7 +940,11 @@ static int setval(const struct my_option *opts, void *value, char *argument,
           goto ret;
         }
         else
+        {
+          val_changed = (*(ulong*)value != ulong(type - 1));
           *(ulong*)value= type - 1;
+        }
+        LOG_GLOBAL_VAR_IF_TRUE(FMAT_STR, val_changed, argument);
       }
       break;
     case GET_SET:
@@ -847,15 +959,17 @@ static int setval(const struct my_option *opts, void *value, char *argument,
           res= EXIT_ARGUMENT_INVALID;
           goto ret;
         };
+        bool val_changed = (*(ulonglong*)value != arg);
         *(ulonglong*)value= arg;
         err= 0;
+        LOG_GLOBAL_VAR_IF_TRUE(FMAT_STR, val_changed, argument);
       }
       break;
     case GET_FLAGSET:
       {
         char *error;
         uint error_len;
-
+        ulonglong old_v = *((ulonglong*)value);
         *((ulonglong*)value)=
               find_set_from_flags(opts->typelib, opts->typelib->count, 
                                   *(ulonglong *)value, opts->def_value,
@@ -866,6 +980,7 @@ static int setval(const struct my_option *opts, void *value, char *argument,
           res= EXIT_ARGUMENT_INVALID;
           goto ret;
         };
+        LOG_GLOBAL_VAR_IF_CHANGED(FMAT_ULONGLONG, old_v, *((ulonglong*)value));
       }
       break;
     case GET_NO_ARG: /* get_one_option has taken care of the value already */

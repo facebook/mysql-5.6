@@ -1,0 +1,224 @@
+# This test is to check various cases of
+# logging global variables changes
+
+# Don't test embedded servers
+--source include/not_embedded.inc
+
+SET @old_config = @@global.log_global_var_changes;
+SELECT @old_config;
+
+--echo ###### Enable logging global var changes
+SET GLOBAL log_global_var_changes = TRUE;
+
+--echo ###### Integer category
+--echo ### Sys_var_uint
+SET @old_val = @@global.part_scan_max;
+SELECT @old_val;
+
+SET GLOBAL part_scan_max = 1000;
+SELECT @@global.part_scan_max;
+
+SET @@global.part_scan_max = @old_val;
+SELECT @@global.part_scan_max;
+
+--echo ### Sys_var_ulong
+SET @old_val = @@global.sort_buffer_size;
+SELECT @old_val;
+
+SET GLOBAL sort_buffer_size = 1000000;
+SELECT @@global.sort_buffer_size;
+
+SET @@global.sort_buffer_size = @old_val;
+SELECT @@global.sort_buffer_size;
+
+--echo ### Sys_var_harows
+SET @old_val = @@global.max_join_size;
+SELECT @old_val;
+
+SET GLOBAL max_join_size = 10;
+SELECT @@global.max_join_size;
+
+SET @@global.max_join_size = @old_val;
+SELECT @@global.max_join_size;
+
+--echo ### Sys_var_ulonglong
+SET @old_val = @@global.tmp_table_size;
+SELECT @old_val;
+
+SET GLOBAL tmp_table_size = 1048576;
+SELECT @@global.tmp_table_size;
+
+SET @@global.tmp_table_size = @old_val;
+SELECT @@global.tmp_table_size;
+
+--echo ### Sys_var_long
+SET @old_val = @@global.optimizer_trace_limit;
+SELECT @old_val;
+
+SET GLOBAL optimizer_trace_limit = 1048576;
+SELECT @@global.optimizer_trace_limit;
+
+SET @@global.optimizer_trace_limit = @old_val;
+SELECT @@global.optimizer_trace_limit;
+
+--echo ### Sys_var_enum
+SET @old_val = @@global.allow_noncurrent_db_rw;
+SELECT @old_val;
+
+SET GLOBAL allow_noncurrent_db_rw = LOG_WARN;
+SELECT @@global.allow_noncurrent_db_rw;
+
+SET @@global.allow_noncurrent_db_rw = @old_val;
+SELECT @@global.allow_noncurrent_db_rw;
+
+--echo ### Sys_var_mybool
+SET @old_val = @@global.process_can_disable_bin_log;
+SELECT @old_val;
+
+SET GLOBAL process_can_disable_bin_log = FALSE;
+SELECT @@process_can_disable_bin_log;
+
+SET @@global.process_can_disable_bin_log = @old_val;
+SELECT @@global.process_can_disable_bin_log;
+
+--echo ### Sys_var_keycache
+SET @old_val = @@global.key_buffer_size;
+SELECT @old_val;
+
+SET GLOBAL key_buffer_size = 4096;
+SELECT @@global.key_buffer_size;
+
+SET GLOBAL key_buffer_size = @old_val;
+SELECT @old_val;
+
+--echo ###### String category
+--echo ### Sys_var_charptr
+SET @old_val = @@global.histogram_step_size_delete_command;
+SELECT @old_val;
+
+SET GLOBAL histogram_step_size_delete_command = '9999us';
+SELECT @@global.histogram_step_size_delete_command;
+
+SET GLOBAL histogram_step_size_delete_command = @old_val;
+SELECT @@global.histogram_step_size_delete_command;
+
+--echo ### Sys_var_lexstring
+SET @old_val = @@global.init_connect;
+SELECT @old_val;
+
+SET GLOBAL init_connect = 'init_connect';
+SELECT @@global.init_connect;
+
+SET GLOBAL init_connect = @old_val;
+SELECT @@global.init_connect;
+
+--echo ###### Double category
+--echo ### Sys_var_double
+SET @old_val = @@long_query_time;
+SELECT @old_val;
+
+SET GLOBAL long_query_time = 1.2345;
+SELECT @@global.long_query_time;
+
+SET GLOBAL long_query_time = @old_val;
+SELECT @@long_query_time;
+
+--echo ### Sys_var_flagset
+SET @old_val = @@global.optimizer_trace_features;
+SELECT @old_val;
+
+SET GLOBAL optimizer_trace_features = 'greedy_search=off';
+SELECT @@global.optimizer_trace_features;
+
+SET GLOBAL optimizer_trace_features = @old_val;
+SELECT @old_val;
+
+--echo ### Sys_var_set
+SET @old_val = @@global.slave_type_conversions;
+SELECT @old_val;
+
+SET GLOBAL slave_type_conversions = ALL_NON_LOSSY;
+SELECT @@global.slave_type_conversions;
+
+SET GLOBAL slave_type_conversions = @old_val;
+SELECT @old_val;
+
+--echo ### Sys_var_plugin
+SET @old_val = @@default_storage_engine;
+SELECT @old_val;
+
+SET @@default_storage_engine = InnoDB;
+SELECT @@default_storage_engine;
+
+SET @@default_storage_engine = @old_val;
+SELECT @@default_storage_engine;
+
+--echo ### Sys_var_bit
+SET @old_val = @@global.unique_checks;
+SELECT @old_val;
+
+SET GLOBAL unique_checks = 0;
+SELECT @@global.unique_checks;
+
+SET GLOBAL unique_checks = TRUE;
+SELECT @@global.unique_checks;
+
+SET GLOBAL unique_checks = FALSE;
+SELECT @@global.unique_checks;
+
+SET GLOBAL unique_checks = @old_val;
+SELECT @@global.unique_checks;
+
+--echo ### Sys_var_struct
+SET @old_val = @@global.character_set_filesystem;
+SELECT @old_val;
+
+SET GLOBAL character_set_filesystem = latin1;
+SELECT @@global.character_set_filesystem;
+
+SET @@global.character_set_filesystem = default;
+SELECT @@global.character_set_filesystem;
+
+SET @@global.character_set_filesystem = latin2;
+SELECT @@global.character_set_filesystem;
+
+SET @@global.character_set_filesystem = @old_val;
+SELECT @@global.character_set_filesystem;
+
+--echo ### Sys_var_tz
+SET @old_val = @@global.time_zone;
+SELECT @old_val;
+
+SET GLOBAL time_zone = 'Europe/Moscow';
+SELECT @@global.time_zone;
+
+SET @@global.time_zone = @old_val;
+SELECT @@global.time_zone;
+
+--echo ### Session var ### Sys_var_ulong
+SET @old_val = @@session.bulk_insert_buffer_size;
+SELECT @old_val;
+
+SET SESSION bulk_insert_buffer_size = 100;
+SELECT @@session.bulk_insert_buffer_size;
+
+SET @@session.bulk_insert_buffer_size = @old_val;
+SELECT @@session.bulk_insert_buffer_size;
+
+--echo ### Session var ### Sys_var_enum
+SET @old_val = @@session.binlog_row_image;
+SELECT @old_val;
+
+SET SESSION binlog_row_image = NOBLOB;
+SELECT @@session.binlog_row_image;
+
+SET @@session.binlog_row_image = @old_val;
+SELECT @@session.binlog_row_image;
+
+--echo ### Verifying error log
+--let MYSQLTEST_LOG_SYSVAR_CHG=
+--source include/log_global_var_changes_perl.inc
+
+SET GLOBAL log_global_var_changes = @old_config;
+SELECT @@global.log_global_var_changes;
+--exit
