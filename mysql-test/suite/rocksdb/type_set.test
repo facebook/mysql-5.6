@@ -1,0 +1,6 @@
+#
+# SET column type
+#
+
+--source type_set.inc
+

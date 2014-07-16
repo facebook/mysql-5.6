@@ -1,0 +1,11 @@
+type_blob_indexes : MDEV-4097 (Indexes on text/blob fields are not allowed)
+type_text_indexes : MDEV-4097 (Indexes on text/blob fields are not allowed)
+cons_snapshot_repeatable_read : Consistent read does not work
+cons_snapshot_serializable : Consistent read does not work
+select_for_update : Not supported?
+select_lock_in_share_mode : Not supported?
+level_read_committed : Not supported?
+level_read_uncommitted : Not supported?
+level_serializable: Not supported?
+level_repeatable_read: Can't seen own changes
+
