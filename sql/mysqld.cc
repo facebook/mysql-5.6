@@ -905,6 +905,7 @@ static std::list<THD*> *waiting_thd_list= NULL;
 Checkable_rwlock *global_sid_lock= NULL;
 Sid_map *global_sid_map= NULL;
 Gtid_state *gtid_state= NULL;
+extern my_bool opt_core_file;
 
 /*
   global_thread_list and waiting_thd_list are both pointers to objects
@@ -2295,7 +2296,7 @@ err:
   unireg_abort(1);
 
 #ifdef PR_SET_DUMPABLE
-  if (test_flags & TEST_CORE_ON_SIGNAL)
+  if (opt_core_file)
   {
     /* inform kernel that process is dumpable */
     (void) prctl(PR_SET_DUMPABLE, 1);
@@ -3587,7 +3588,7 @@ void my_init_signals(void)
 
   my_sigset(THR_SERVER_ALARM,print_signal_warning); // Should never be called!
 
-  if (!(test_flags & TEST_NO_STACKTRACE) || (test_flags & TEST_CORE_ON_SIGNAL))
+  if (!(test_flags & TEST_NO_STACKTRACE) || opt_core_file)
   {
     sa.sa_flags = SA_RESETHAND | SA_NODEFER;
     sigemptyset(&sa.sa_mask);
@@ -3611,7 +3612,7 @@ void my_init_signals(void)
   }
 
 #ifdef HAVE_GETRLIMIT
-  if (test_flags & TEST_CORE_ON_SIGNAL)
+  if (opt_core_file)
   {
     /* Change limits so that we will get a core file */
     STRUCT_RLIMIT rl;
@@ -9632,7 +9633,7 @@ mysqld_get_one_option(int optid,
     opt_specialflag|=SPECIAL_NO_RESOLVE;
     break;
   case (int) OPT_WANT_CORE:
-    test_flags |= TEST_CORE_ON_SIGNAL;
+    opt_core_file = TRUE;
     break;
   case (int) OPT_SKIP_STACK_TRACE:
     test_flags|=TEST_NO_STACKTRACE;
@@ -10049,7 +10050,7 @@ static int get_options(int *argc_ptr, char ***argv_ptr, my_bool logging)
   {
     /* Allow break with SIGINT, no core or stack trace */
     test_flags|= TEST_SIGINT | TEST_NO_STACKTRACE;
-    test_flags&= ~TEST_CORE_ON_SIGNAL;
+    opt_core_file = FALSE;
   }
   /* Set global MyISAM variables from delay_key_write_options */
   fix_delay_key_write(0, 0, OPT_GLOBAL);
