@@ -409,7 +409,7 @@ static const uint sizeof_trailing_where= sizeof(" WHERE ") - 1;
 static handler *federated_create_handler(handlerton *hton,
                                          TABLE_SHARE *table,
                                          MEM_ROOT *mem_root);
-static int federated_commit(handlerton *hton, THD *thd, bool all);
+static int federated_commit(handlerton *hton, THD *thd, bool all, bool async);
 static int federated_rollback(handlerton *hton, THD *thd, bool all);
 
 /* Federated storage engine handlerton */
@@ -3371,7 +3371,7 @@ int ha_federated::external_lock(THD *thd, int lock_type)
 }
 
 
-static int federated_commit(handlerton *hton, THD *thd, bool all)
+static int federated_commit(handlerton *hton, THD *thd, bool all, bool async)
 {
   int return_val= 0;
   ha_federated *trx= (ha_federated *) thd_get_ha_data(thd, hton);

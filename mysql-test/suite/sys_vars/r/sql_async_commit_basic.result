@@ -1,0 +1,114 @@
+set SQL_ASYNC_COMMIT=1;
+drop table if exists t1;
+drop table if exists t2;
+drop table if exists t3;
+CREATE TABLE t1 ( a int unsigned primary key, b int unsigned) ENGINE=InnoDB;
+CREATE TABLE t2 ( a int unsigned primary key, b int unsigned) ENGINE=InnoDB;
+CREATE TABLE t3 ( a int unsigned primary key, b int unsigned) ENGINE=InnoDB;
+show global variables like "innodb_flush_log_at_trx_commit";
+Variable_name	Value
+innodb_flush_log_at_trx_commit	1
+show global variables like "sync_binlog";
+Variable_name	Value
+sync_binlog	1
+select variable_value into @bfc1 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
+INSERT INTO t1 VALUES (1, 0);
+INSERT INTO t1 VALUES (2, 0);
+INSERT INTO t1 VALUES (3, 0);
+INSERT INTO t1 VALUES (4, 0);
+INSERT INTO t2 VALUES (10, 0);
+INSERT INTO t2 VALUES (11, 0);
+INSERT INTO t3 SELECT * from t1;
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
+select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 0';
+@bfc2 - @bfc1	binlog_fsync_count diff should be 0
+0	binlog_fsync_count diff should be 0
+DELETE FROM t1;
+INSERT INTO t1 SELECT * from t3;
+INSERT INTO t1 VALUES (5, 0);
+SELECT * FROM t1 WHERE a=5;
+a	b
+5	0
+REPLACE INTO t1 VALUES (5, 1);
+SELECT * FROM t1 WHERE a=5;
+a	b
+5	1
+UPDATE t1 SET b = 1 WHERE a = 2;
+SELECT * FROM t1 WHERE a=2;
+a	b
+2	1
+DELETE FROM t1 WHERE a = 3;
+SELECT * FROM t1 WHERE a=3;
+a	b
+INSERT INTO t1 SELECT * FROM t2;
+SELECT * FROM t1 WHERE a >= 10;
+a	b
+10	0
+11	0
+INSERT INTO t1 VALUES (11, 0) ON DUPLICATE KEY UPDATE b = b + 1;
+SELECT * FROM t1 WHERE a=11;
+a	b
+11	1
+BEGIN;
+INSERT INTO t1 VALUES (12, 0);
+COMMIT;
+SELECT * FROM t1 ORDER BY a;
+a	b
+1	0
+2	1
+4	0
+5	1
+10	0
+11	1
+12	0
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
+select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 0';
+@bfc2 - @bfc1	binlog_fsync_count diff should be 0
+0	binlog_fsync_count diff should be 0
+set SQL_ASYNC_COMMIT=0;
+select variable_value into @bfc1 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
+DELETE FROM t1 ASYNC_COMMIT;
+INSERT INTO t1 SELECT * from t3 ASYNC_COMMIT;
+INSERT INTO t1 VALUES (5, 0);
+SELECT * FROM t1 WHERE a=5;
+a	b
+5	0
+REPLACE INTO t1 VALUES (5, 1);
+SELECT * FROM t1 WHERE a=5;
+a	b
+5	1
+UPDATE t1 SET b = 1 WHERE a = 2;
+SELECT * FROM t1 WHERE a=2;
+a	b
+2	1
+DELETE FROM t1 WHERE a = 3;
+SELECT * FROM t1 WHERE a=3;
+a	b
+INSERT INTO t1 SELECT * FROM t2;
+SELECT * FROM t1 WHERE a >= 10;
+a	b
+10	0
+11	0
+INSERT INTO t1 VALUES (11, 0) ON DUPLICATE KEY UPDATE b = b + 1;
+SELECT * FROM t1 WHERE a=11;
+a	b
+11	1
+BEGIN;
+INSERT INTO t1 VALUES (12, 0);
+COMMIT;
+SELECT * FROM t1 ORDER BY a;
+a	b
+1	0
+2	1
+4	0
+5	1
+10	0
+11	1
+12	0
+select variable_value into @bfc2 from information_schema.global_status where variable_name = 'Binlog_fsync_count';
+select @bfc2 - @bfc1, 'binlog_fsync_count diff should be 7';
+@bfc2 - @bfc1	binlog_fsync_count diff should be 7
+7	binlog_fsync_count diff should be 7
+drop table t1;
+drop table t2;
+drop table t3;

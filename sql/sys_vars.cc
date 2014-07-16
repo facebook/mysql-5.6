@@ -74,7 +74,7 @@ TYPELIB bool_typelib={ array_elements(bool_values)-1, "", bool_values, 0 };
   causes further includes.  [TODO] Eliminate this forward declaration
   and include a file with the prototype instead.
 */
-extern void close_thread_tables(THD *thd);
+extern void close_thread_tables(THD *thd, bool async_commit);
 
 
 static bool update_buffer_size(THD *thd, KEY_CACHE *key_cache,
@@ -3513,6 +3513,11 @@ static Sys_var_bit Sys_unique_checks(
        SESSION_VAR(option_bits), NO_CMD_LINE,
        REVERSE(OPTION_RELAXED_UNIQUE_CHECKS),
        DEFAULT(TRUE), NO_MUTEX_GUARD, IN_BINLOG);
+
+static Sys_var_bit Sys_async_commit(
+       "sql_async_commit", "sql_async_commit",
+       SESSION_VAR(option_bits), NO_CMD_LINE,
+       OPTION_ASYNC_COMMIT, DEFAULT(FALSE));
 
 #ifdef ENABLED_PROFILING
 static Sys_var_bit Sys_profiling(
