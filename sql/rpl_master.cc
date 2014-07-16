@@ -2658,4 +2658,145 @@ err:
   DBUG_RETURN(TRUE);
 }
 
+/**
+  Execute FIND BINLOG GTID statement.
+
+  @param thd Pointer to THD object for the client thread executing the
+             statement.
+
+  @retval false Success
+  @retval true  Failure
+*/
+
+bool find_gtid_position(THD *thd)
+{
+  DBUG_ENTER("find_gtid_position");
+  Gtid gtid;
+  Sid_map sid_map(NULL);
+  uint error = ER_UNKNOWN_ERROR;
+
+  Gtid_set previous_gtid_set(&sid_map);
+
+  std::map<std::string, std::string>::reverse_iterator rit;
+  std::map<std::string, std::string> *previous_gtid_set_map;
+
+  Protocol *protocol = thd->protocol;
+  List<Item> field_list;
+  field_list.push_back(new Item_empty_string("Log_name", 255));
+  field_list.push_back(new Item_return_int("Position", 20,
+                                            MYSQL_TYPE_LONGLONG));
+
+  if (protocol->send_result_set_metadata(&field_list,
+                                         Protocol::SEND_NUM_ROWS |
+                                         Protocol::SEND_EOF))
+    goto err;
+
+  if (gtid.parse(&sid_map, thd->lex->gtid_string) != RETURN_STATUS_OK)
+    goto err;
+
+  mysql_bin_log.lock_index();
+  previous_gtid_set_map = mysql_bin_log.get_previous_gtid_set_map();
+
+  for (rit = previous_gtid_set_map->rbegin();
+       rit != previous_gtid_set_map->rend(); ++rit)
+  {
+
+    previous_gtid_set.add_gtid_encoding((const uchar*)rit->second.c_str(),
+                                        rit->second.length());
+
+    if (!previous_gtid_set.contains_gtid(gtid))
+    {
+      /*
+        Unlock index here since we don't iterate over the
+        previous_gtid_set_map anymore.
+      */
+      mysql_bin_log.unlock_index();
+      my_off_t gtid_pos = find_gtid_pos_in_log(rit->first.c_str(), gtid, &sid_map);
+      if (!gtid_pos)
+      {
+        error = ER_REQUESTED_GTID_NOT_IN_EXECUTED_SET;
+        goto err;
+      }
+
+      int dir_len= dirname_length(rit->first.c_str());
+      protocol->prepare_for_resend();
+      protocol->store(rit->first.c_str() + dir_len,
+                      rit->first.length() - dir_len, &my_charset_bin);
+      protocol->store(gtid_pos);
+
+      if (protocol->write())
+      {
+        DBUG_PRINT("info", ("protocol->write failed inf find_gtid_position()"));
+        goto err;
+      }
+
+      my_eof(thd);
+      DBUG_RETURN(false);
+    }
+    previous_gtid_set.clear();
+  }
+  mysql_bin_log.unlock_index();
+  error = ER_REQUESTED_PURGED_GTID;
+err:
+  DBUG_PRINT("info", ("error: %u", error));
+  my_error(error, MYF(0),
+           "Unknown error occured while finding gtid position");
+  DBUG_RETURN(true);
+}
+
+/**
+  Finds the position of given gtid by scanning through the given file
+  and comparing the given gtid with gtid in each Gtid_log_event.
+
+  @param log_name File to look in.
+  @param gtid     GTID to search for.
+  @param sid_map  Sid_map used when parsing Gtid_log_event.
+
+  @retval 0 if GTID is not found.
+  @retval starting offset of the corresponding Gtid_log_event in the file,
+          if GTID is found.
+*/
+my_off_t find_gtid_pos_in_log(const char* log_name, const Gtid &gtid, Sid_map *sid_map)
+{
+  DBUG_ENTER("find_gtid_pos_in_log");
+  DBUG_PRINT("info", ("Scanning log: %s", log_name));
+
+  IO_CACHE log;
+  const char *errmsg = NULL;
+  File file = -1;
+  Log_event *ev = NULL;
+  my_off_t pos = BIN_LOG_HEADER_SIZE;
+
+  /*
+    Create a Format_description_log_event that is used to read the
+    first event of the log.
+  */
+  Format_description_log_event fd_ev(BINLOG_VERSION), *fd_ev_p= &fd_ev;
+  if (!fd_ev.is_valid())
+    goto err;
+
+  if ((file=open_binlog_file(&log, log_name, &errmsg)) < 0)
+  {
+    sql_print_error("%s", errmsg);
+    goto err;
+  }
+
+  my_b_seek(&log, BIN_LOG_HEADER_SIZE);
+  while ((ev = Log_event::read_log_event(&log, 0, fd_ev_p, false, NULL)) !=
+         NULL)
+  {
+    if (ev->get_type_code() == GTID_LOG_EVENT)
+    {
+      Gtid_log_event *gtid_ev = (Gtid_log_event *) ev;
+      if (gtid_ev->get_sidno(sid_map) == gtid.sidno &&
+            gtid_ev->get_gno() == gtid.gno)
+        DBUG_RETURN(pos);
+    }
+    if (ev != fd_ev_p)
+      delete ev;
+    pos = my_b_tell(&log);
+  }
+err:
+  DBUG_RETURN(0);
+}
 #endif /* HAVE_REPLICATION */

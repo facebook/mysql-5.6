@@ -1,0 +1,17 @@
+RESET MASTER;
+drop table if exists t1;
+Warnings:
+Note	1051	Unknown table 'test.t1'
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+FLUSH LOGS;
+insert into t1 values(3);
+FIND BINLOG GTID = 'malformed_gtid';
+ERROR HY000: Malformed GTID specification 'malformed_gtid'.
+PURGE BINARY LOGS TO 'master-bin.000002';
+FIND BINLOG GTID = 'uuid:1';
+ERROR HY000: The requested GTID is purged and so cannot be found in binary logs.
+FIND BINLOG GTID = 'uuid:10';
+ERROR HY000: The requested GTID is not yet executed and so cannot be found in binary logs.
+drop table t1;
