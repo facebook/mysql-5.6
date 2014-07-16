@@ -1,0 +1,6 @@
+#
+# BLOB column types
+#
+
+--source type_blob.inc
+
