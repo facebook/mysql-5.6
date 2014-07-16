@@ -1,0 +1,56 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @@global.gtid_purged = 'uuid:1-1000000000000000000';
+set @@global.gtid_purged = 'uuid:1-1000000000000000000';
+call mtr.add_suppression("Recovery from master");
+create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
+insert into t1 values(1);
+FLUSH LOGS;
+insert into t1 values(2);
+select * from t1;
+a
+1
+2
+use mysql;
+select * from slave_gtid_info;
+Id	Database_name	Last_gtid
+1	mtr	uuid:1000000000000000001
+2	test	uuid:1000000000000000004
+drop table t1;
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	mtr	uuid:1000000000000000001
+2	test	uuid:1000000000000000005
+create database db1;
+create database db2;
+use db1;
+create table table_db1 (a int, PRIMARY KEY(a)) ENGINE=INNODB;
+use db2;
+create table table_db2 (a int, PRIMARy KEY(a)) ENGINE=INNODB;
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	mtr	uuid:1000000000000000001
+2	test	uuid:1000000000000000005
+3	db1	uuid:1000000000000000008
+4	db2	uuid:1000000000000000009
+use db1;
+insert into db2.table_db2 values(1);
+use db2;
+insert into db1.table_db1 values(1);
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	mtr	uuid:1000000000000000001
+2	test	uuid:1000000000000000005
+3	db1	uuid:1000000000000000011
+4	db2	uuid:1000000000000000010
+include/rpl_restart_server.inc [server_number=2 gtids=on]
+include/start_slave.inc
+drop database db1;
+drop database db2;
+select @@global.gtid_executed;
+@@global.gtid_executed
+uuid:1-1000000000000000013
+include/rpl_end.inc
