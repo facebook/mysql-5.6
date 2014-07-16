@@ -591,6 +591,7 @@ my_bool log_bin_use_v1_row_events= 0;
 bool thread_cache_size_specified= false;
 bool host_cache_size_specified= false;
 bool table_definition_cache_specified= false;
+ulong sql_slave_skip_counter_usage = 0;
 
 Error_log_throttle err_log_throttle(Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
                                     sql_print_error,
@@ -8468,6 +8469,8 @@ SHOW_VAR status_vars[]= {
     SHOW_FUNC},
   {"Ssl_server_not_after",     (char*) &show_ssl_get_server_not_after,
     SHOW_FUNC},
+  {"Sql_slave_skip_counter_usage", (char*) &sql_slave_skip_counter_usage,
+    SHOW_LONG},
 #ifndef HAVE_YASSL
   {"Rsa_public_key",           (char*) &show_rsa_public_key, SHOW_FUNC},
 #endif
