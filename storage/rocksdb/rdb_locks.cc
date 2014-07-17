@@ -303,7 +303,8 @@ void LockTable::release_lock(LF_PINS *pins, Row_lock *own_lock)
     char *rowkey= own_lock->rowkey;
     own_lock->deleted= true;
     mysql_mutex_unlock(&own_lock->mutex);
-    int res= lf_hash_delete(&lf_hash, pins, own_lock->rowkey, own_lock->len);
+    int res __attribute__((unused));
+    res= lf_hash_delete(&lf_hash, pins, own_lock->rowkey, own_lock->len);
     DBUG_ASSERT(res == 0);
     my_free(rowkey);
   }
