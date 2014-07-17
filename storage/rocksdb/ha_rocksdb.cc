@@ -1532,7 +1532,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   rocksdb::Slice key_slice(rowid, rowid_size);
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
-  Row_lock *lock;
+  Row_lock *UNINIT_VAR(lock); // protected by 'if (lock_rows)'
   bool timed_out;
   if (lock_rows)
   {
