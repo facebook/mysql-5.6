@@ -17294,11 +17294,7 @@ static MYSQL_SYSVAR_STR(change_buffering, innobase_change_buffering,
   "Buffer changes to reduce random access: "
   "OFF, ON, inserting, deleting, changing, or purging.",
   innodb_change_buffering_validate,
-#ifndef XTRABACKUP
   innodb_change_buffering_update, "all");
-#else /* !XTRABACKUP */
-  innodb_change_buffering_update, "none");
-#endif /* !XTRABACKUP */
 
 static MYSQL_SYSVAR_UINT(change_buffer_max_size,
   innobase_change_buffer_max_size,

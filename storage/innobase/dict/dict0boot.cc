@@ -450,17 +450,11 @@ dict_boot(void)
 
 	/* Initialize the insert buffer table and index for each tablespace */
 
-#ifndef XTRABACKUP
 	ibuf_init_at_db_start();
-#endif /* !XTRABACKUP */
 
 	dberr_t	err = DB_SUCCESS;
 
-#ifndef XTRABACKUP
 	if (srv_read_only_mode && !ibuf_is_empty()) {
-#else
-	if (false) {
-#endif /* !XTRABACKUP */
 
 		ib_logf(IB_LOG_LEVEL_ERROR,
 			"Change buffer must be empty when --innodb-read-only "

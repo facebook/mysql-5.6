@@ -1403,7 +1403,6 @@ srv_undo_tablespaces_init(
 	return(DB_SUCCESS);
 }
 
-#ifndef XTRABACKUP
 /********************************************************************
 Wait for the purge thread(s) to start up. */
 static
@@ -1439,7 +1438,6 @@ srv_start_wait_for_purge_to_start()
 		}
 	}
 }
-#endif /* !XTRABACKUP */
 
 /********************************************************************
 Starts InnoDB and creates a new database if database files
@@ -1466,9 +1464,7 @@ innobase_start_or_create_for_mysql(void)
 	ulint		io_limit;
 	mtr_t		mtr;
 	ib_bh_t*	ib_bh;
-#ifndef XTRABACKUP
 	ulint		n_recovered_trx;
-#endif /* !XTRABACKUP */
 	char		logfilename[10000];
 	char*		logfile0	= NULL;
 	size_t		dirnamelen;
@@ -2228,9 +2224,7 @@ files_checked:
 		trx_sys_create_sys_pages();
 
 		ib_bh = trx_sys_init_at_db_start();
-#ifndef XTRABACKUP
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
-#endif /* !XTRABACKUP */
 
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
@@ -2282,9 +2276,7 @@ files_checked:
 		}
 
 		ib_bh = trx_sys_init_at_db_start();
-#ifndef XTRABACKUP
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
-#endif /* !XTRABACKUP */
 
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
@@ -2348,9 +2340,7 @@ files_checked:
 		}
 
 		ib_bh = trx_sys_init_at_db_start();
-#ifndef XTRABACKUP
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
-#endif /* !XTRABACKUP */
 
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
@@ -2368,7 +2358,6 @@ files_checked:
 		}
 #endif /* XTRABACKUP */
 
-#ifndef XTRABACKUP
 		if (srv_force_recovery < SRV_FORCE_NO_IBUF_MERGE) {
 			/* The following call is necessary for the insert
 			buffer to work with multiple tablespaces. We must
@@ -2397,7 +2386,6 @@ files_checked:
 
 			dict_check_tablespaces_and_store_max_id(dict_check);
 		}
-#endif /* !XTRABACKUP */
 
 		if (!srv_force_recovery
 		    && !recv_sys->found_corrupt_log
@@ -2484,9 +2472,7 @@ files_checked:
 		}
 
 		srv_startup_is_before_trx_rollback_phase = FALSE;
-#ifndef XTRABACKUP
 		recv_recovery_rollback_active();
-#endif /* !XTRABACKUP */
 
 		/* It is possible that file_format tag has never
 		been set. In this case we initialize it to minimum
@@ -2590,7 +2576,6 @@ files_checked:
 	}
 
 	/* Create the SYS_FOREIGN and SYS_FOREIGN_COLS system tables */
-#ifndef XTRABACKUP
 	err = dict_create_or_check_foreign_constraint_tables();
 	if (err != DB_SUCCESS) {
 		return(err);
@@ -2601,7 +2586,6 @@ files_checked:
 	if (err != DB_SUCCESS) {
 		return(err);
 	}
-#endif /* !XTRABACKUP */
 
 	srv_is_being_started = FALSE;
 
@@ -2617,7 +2601,6 @@ files_checked:
 			NULL, thread_ids + (1 + SRV_MAX_N_IO_THREADS));
 	}
 
-#ifndef XTRABACKUP
 	if (!srv_read_only_mode
 	    && srv_force_recovery < SRV_FORCE_NO_BACKGROUND) {
 
@@ -2638,11 +2621,8 @@ files_checked:
 		srv_start_wait_for_purge_to_start();
 
 	} else {
-#endif /* !XTRABACKUP */
 		purge_sys->state = PURGE_STATE_DISABLED;
-#ifndef XTRABACKUP
 	}
-#endif /* !XTRABACKUP */
 
 	if (!srv_read_only_mode) {
 		os_thread_create(buf_flush_page_cleaner_thread, NULL, NULL);
@@ -2781,7 +2761,6 @@ files_checked:
 			(ulong) srv_force_recovery);
 	}
 
-#ifndef XTRABACKUP
 	if (srv_force_recovery == 0) {
 		/* In the insert buffer we may have even bigger tablespace
 		id's, because we may have dropped those tablespaces, but
@@ -2801,7 +2780,6 @@ files_checked:
 		/* Create the thread that will optimize the FTS sub-system. */
 		fts_optimize_init();
 	}
-#endif /* !XTRABACKUP */
 
 	/* Initialize online defragmentation. */
 	btr_defragment_init();
@@ -2865,7 +2843,7 @@ innobase_shutdown_for_mysql(void)
 	}
 
 #ifdef XTRABACKUP
-	if (false) {
+	if (!srv_read_only_mode && !srv_apply_log_only) {
 #else /* XTRABACKUP */
 	if (!srv_read_only_mode) {
 #endif /* XTRABACKUP */
@@ -2976,14 +2954,11 @@ innobase_shutdown_for_mysql(void)
 		dict_stats_thread_deinit();
 	}
 
-#ifndef XTRABACKUP
 	/* This must be disabled before closing the buffer pool
 	and closing the data dictionary.  */
 	btr_search_disable();
 
 	ibuf_close();
-#endif /* !XTRABACKUP */
-
 	log_shutdown();
 	lock_sys_close();
 	trx_sys_file_format_close();
@@ -2997,9 +2972,7 @@ innobase_shutdown_for_mysql(void)
 		mutex_free(&srv_misc_tmpfile_mutex);
 	}
 
-#ifndef XTRABACKUP
 	dict_close();
-#endif /* !XTRABACKUP */
 	btr_search_sys_free();
 
 	/* 3. Free all InnoDB's own mutexes and the os_fast_mutexes inside

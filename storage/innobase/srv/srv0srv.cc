@@ -2756,9 +2756,7 @@ srv_master_do_active_tasks(void)
 	start_time = my_timer_now();
 	srv_main_thread_op_info = "doing insert buffer merge";
 	counter_time = ut_time_us(NULL);
-#ifndef XTRABACKUP
 	ibuf_contract_in_background(0, FALSE);
-#endif /* !XTRABACKUP */
 	MONITOR_INC_TIME_IN_MICRO_SECS(
 		MONITOR_SRV_IBUF_MERGE_MICROSECOND, counter_time);
 	srv_ibuf_contract_time += my_timer_since(start_time);
@@ -2857,9 +2855,7 @@ srv_master_do_idle_tasks(void)
 	/* Do an ibuf merge */
 	counter_time = ut_time_us(NULL);
 	srv_main_thread_op_info = "doing insert buffer merge";
-#ifndef XTRABACKUP
 	ibuf_contract_in_background(0, TRUE);
-#endif /* !XTRABACKUP */
 	MONITOR_INC_TIME_IN_MICRO_SECS(
 		MONITOR_SRV_IBUF_MERGE_MICROSECOND, counter_time);
 
@@ -2935,11 +2931,7 @@ srv_master_do_shutdown_tasks(
 
 	/* Do an ibuf merge */
 	srv_main_thread_op_info = "doing insert buffer merge";
-#ifndef XTRABACKUP
 	n_bytes_merged = ibuf_contract_in_background(0, TRUE);
-#else
-	n_bytes_merged = 0;
-#endif /* !XTRABACKUP */
 
 	/* Flush logs if needed */
 	srv_sync_log_buffer_in_background();
