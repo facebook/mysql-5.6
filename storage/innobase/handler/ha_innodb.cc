@@ -16788,6 +16788,12 @@ static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
   "Enableds deadlock detection checking.",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_ULONG(aio_old_usecs, os_aio_old_usecs,
+  PLUGIN_VAR_RQCMDARG,
+  "AIO requests are scheduled in file offset order until they are at least"
+  " this old and then they are scheduled oldest first.",
+  NULL, NULL, 2000000, 0, 10000000, 0);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -16948,6 +16954,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(fil_make_page_dirty_debug),
   MYSQL_SYSVAR(saved_page_number_debug),
 #endif /* UNIV_DEBUG */
+  MYSQL_SYSVAR(aio_old_usecs),
   MYSQL_SYSVAR(zlib_wrap),
   MYSQL_SYSVAR(zlib_strategy),
   NULL
