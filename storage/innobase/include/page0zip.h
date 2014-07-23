@@ -42,7 +42,6 @@ Created June 2005 by Marko Makela
 #include "trx0types.h"
 #include "mem0mem.h"
 #endif /* !UNIV_INNOCHECKSUM */
-#include "zlib.h"
 
 /* Below macros are used to calculate the memory requirement for zlib's
 compression/decompression streams */
@@ -578,24 +577,6 @@ void
 page_zip_reset_stat_per_index();
 /*===========================*/
 
-/**********************************************************************//**
-This function determines the sign for window_bits and reads the zlib header
-from the decompress stream. The data may have been compressed with a negative
-(no adler32 headers) or a positive (with adler32 headers) window_bits.
-Regardless of the current value of page_zip_zlib_wrap, we always
-first try the positive window_bits then negative window_bits, because the
-surest way to determine if the stream has adler32 headers is to see if the
-stream begins with the zlib header together with the adler32 value of it.
-This adds a tiny bit of overhead for the pages that were compressed without
-adler32s.
-@return TRUE if stream is initialized and zlib header was read, FALSE
-if data can be decompressed with neither window_bits nor -window_bits */
-UNIV_INTERN
-ibool
-page_zip_init_d_stream(
-	z_stream* strm,
-	int window_bits,
-	ibool read_zlib_header);
 #endif /* !UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
