@@ -54,7 +54,8 @@ using namespace std;
 # include "dict0boot.h"
 # include "lock0lock.h"
 # include "srv0srv.h"
-# include "zlib.h"
+# include "zlib_embedded/zlib.h"
+# include "comp0zlib.h"
 #endif /* !UNIV_INNOCHECKSUM */
 # include "buf0lru.h"
 # include "srv0mon.h"
@@ -67,6 +68,7 @@ using namespace std;
 
 #ifdef UNIV_INNOCHECKSUM
 #include "mach0data.h"
+#include "zlib.h"
 #endif /* UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
@@ -2608,39 +2610,17 @@ page_zip_compress_zlib(
 			    is written into this parameter */
 	mem_heap_t* heap) /*!< in/out: temporary memory heap */
 {
-	z_stream c_stream;
-	int err;
-	uint level;
-	uint wrap;
-	uint strategy;
-	int window_bits;
-#ifdef UNIV_DEBUG
-	FILE*		logfile = NULL;
-#endif
-	level = compression_flags & 0xf;
-	wrap = compression_flags & 0x10;
-	strategy = compression_flags >> 5;
+	uint level = compression_flags & 0xf;
+	uint wrap = compression_flags & 0x10;
+	uint strategy = compression_flags >> 5;
+	int window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
+			       : -((int)UNIV_PAGE_SIZE_SHIFT);
 	ut_a(level <= 10);
 	ut_a(strategy <= 4);
 	level = level ? level - 1 : 6;
-	window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
-	                   : -((int)UNIV_PAGE_SIZE_SHIFT);
-	c_stream.next_in = (byte*)in;
-	c_stream.avail_in = avail_in;
-	c_stream.next_out = out;
-	c_stream.avail_out = avail_out;
-	/* Tell zlib to allocate memory from heap */
-	page_zip_set_alloc(&c_stream, heap);
-	/* Initialize zlib */
-	err = deflateInit2(&c_stream, level,
-	                   Z_DEFLATED, window_bits,
-	                   MAX_MEM_LEVEL, strategy);
-	ut_a(err == Z_OK);
-	/* compress the serialized buffer */
-	err = deflate(&c_stream, Z_FINISH);
-	ut_a(Z_OK == deflateEnd(&c_stream));
-	*total_out = c_stream.total_out;
-	return (err == Z_STREAM_END);
+	return comp_zlib_compress(in, avail_in, out, avail_out, total_out,
+				  page_zip_zalloc, page_zip_free, heap,
+				  level, window_bits, strategy);
 }
 
 /**********************************************************************//**
@@ -4146,15 +4126,11 @@ first try the positive window_bits then negative window_bits, because the
 surest way to determine if the stream has adler32 headers is to see if the
 stream begins with the zlib header together with the adler32 value of it.
 This adds a tiny bit of overhead for the pages that were compressed without
-adler32s.
-@return TRUE if stream is initialized and zlib header was read, FALSE
-if data can be decompressed with neither window_bits nor -window_bits */
-UNIV_INTERN
-ibool
+adler32s. */
+static
+void
 page_zip_init_d_stream(
-	z_stream* strm,
-	int window_bits,
-	ibool read_zlib_header)
+	z_stream* strm)
 {
 	/* Save initial stream position, in case a reset is required. */
 	Bytef* next_in = strm->next_in;
@@ -4162,37 +4138,22 @@ page_zip_init_d_stream(
 	ulint avail_in = strm->avail_in;
 	ulint avail_out = strm->avail_out;
 
-	if (UNIV_UNLIKELY(inflateInit2(strm, window_bits) != Z_OK)) {
-		/* init must always succeed regardless of window_bits */
-		ut_error;
-	}
-	/* Try decoding a zlib header assuming adler32. */
-	if (inflate(strm, Z_BLOCK) == Z_OK)
-		/* A valid header was found, all is well.  So, we return
-		   with the stream positioned just after this header. */
-		return(TRUE);
+	/* initialization must always succeed regardless of the sign of
+	   window_bits */
+	ut_a(inflateInit2(strm, UNIV_PAGE_SIZE_SHIFT) == Z_OK);
 
-	/* A valid header was not found, so now we need to re-try this
-	   read assuming there is *no* header (negative window_bits).
-           So, we need to reset the stream to the original position,
-           and change the window_bits to negative, with inflateReset2(). */
-	strm->next_in = next_in;
-	strm->next_out = next_out;
-	strm->avail_in = avail_in;
-	strm->avail_out = avail_out;
-	if (UNIV_UNLIKELY(inflateReset2(strm, -window_bits) != Z_OK)) {
-		/* init must always succeed regardless of window_bits */
-		ut_error;
+	/* Try decoding zlib header assuming adler32. Reset the stream on
+	   failure. */
+	if (inflate(strm, Z_BLOCK) != Z_OK) {
+		/* reset the stream */
+		strm->next_in = next_in;
+		strm->next_out = next_out;
+		strm->avail_in = avail_in;
+		strm->avail_out = avail_out;
+		ut_a(inflateReset2(strm, -UNIV_PAGE_SIZE_SHIFT) == Z_OK);
+		/* read the zlib header */
+		ut_a(inflate(strm, Z_BLOCK) == Z_OK);
 	}
-
-	if (read_zlib_header) {
-		/* No valid header was found, and we still want the header
-                   read to have happened, with negative window_bits. */
-		return(inflate(strm, Z_BLOCK) == Z_OK);
-	}
-	/* Did not find a header, but didn't require one, so just return
-           with the stream position reset to where it originally was. */
-	return(TRUE);
 }
 
 /***************************************************************//**
@@ -4343,19 +4304,13 @@ page_zip_decompress_zlib_stream(
 	d_stream.next_out = page + PAGE_ZIP_START;
 	d_stream.avail_out = UNIV_PAGE_SIZE - PAGE_ZIP_START;
 
-	if (UNIV_UNLIKELY(!page_zip_init_d_stream(&d_stream,
-						  UNIV_PAGE_SIZE_SHIFT,
-						  TRUE))) {
-		page_zip_fail(("page_zip_decompress_zlib_stream:"
-			       " 1 inflate(Z_BLOCK)=%s\n", d_stream.msg));
-		return FALSE;
-	}
+	page_zip_init_d_stream(&d_stream);
 
 	/* Decode index */
 	if (UNIV_UNLIKELY(inflate(&d_stream, Z_BLOCK) != Z_OK)) {
 
 		page_zip_fail(("page_zip_decompress_zlib_stream:"
-			       " 2 inflate(Z_BLOCK)=%s\n", d_stream.msg));
+			       " 1 inflate(Z_BLOCK)=%s\n", d_stream.msg));
 		return FALSE;
 	}
 
@@ -4390,7 +4345,7 @@ page_zip_decompress_zlib_stream(
 						    offsets, &heap_status,
 						    heap))) {
 			page_zip_fail(("page_zip_decompress_zlib_stream:"
-				       " 3 page_zip_decompress_node_ptrs"
+				       " 2 page_zip_decompress_node_ptrs"
 				       " failed"));
 			page_zip_fields_free(index);
 			return FALSE;
@@ -4403,7 +4358,7 @@ page_zip_decompress_zlib_stream(
 							   index,
 							   &heap_status))) {
 			page_zip_fail(("page_zip_decompress_zlib_stream:"
-				       " 4 page_zip_decompress_sec failed"));
+				       " 3 page_zip_decompress_sec failed"));
 			page_zip_fields_free(index);
 			return FALSE;
 		}
@@ -4417,7 +4372,7 @@ page_zip_decompress_zlib_stream(
 							     &heap_status,
 							     heap))) {
 			page_zip_fail(("page_zip_decompress_zlib_stream:"
-				       " 5 page_zip_decompress_clust failed"));
+				       " 4 page_zip_decompress_clust failed"));
 			page_zip_fields_free(index);
 			return FALSE;
 		}
@@ -4460,30 +4415,12 @@ page_zip_decompress_zlib(
 			   read the compressed contents */
 	mem_heap_t* heap) /*!< in: temporary memory heap */
 {
-	z_stream d_stream;
-	uint wrap;
-	int window_bits;
-	int err;
-	wrap = compression_flags & 0x10;
-	window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
-	                   : -((int)UNIV_PAGE_SIZE_SHIFT);
-	d_stream.next_in = (byte*)in;
-	d_stream.avail_in = avail_in;
-	d_stream.next_out = out;
-	d_stream.avail_out = avail_out;
-	page_zip_set_alloc(&d_stream, heap);
-	err = inflateInit2(&d_stream, window_bits);
-	ut_ad(err == Z_OK);
-	err = inflate(&d_stream, Z_FINISH);
-	if (err != Z_STREAM_END) {
-		err = inflateEnd(&d_stream);
-		ut_ad(err == Z_OK);
-		return FALSE;
-	}
-	err = inflateEnd(&d_stream);
-	ut_ad(err == Z_OK);
-	*total_in = d_stream.total_in;
-	return TRUE;
+	uint wrap = compression_flags & 0x10;
+	int window_bits = wrap ? (int)UNIV_PAGE_SIZE_SHIFT
+			       : -((int)UNIV_PAGE_SIZE_SHIFT);
+	return comp_zlib_decompress(in, avail_in, out, avail_out, total_in,
+				    page_zip_zalloc, page_zip_free, heap,
+				    window_bits);
 }
 /**********************************************************************//**
 Decompress a page using bzip2.  This function should tolerate errors on the
