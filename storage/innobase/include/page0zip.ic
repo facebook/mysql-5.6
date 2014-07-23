@@ -91,7 +91,7 @@ In summary, the compressed page looks like this:
   - in descending collation order
 (7) Uncompressed columns of user records, n_dense * uncompressed_size bytes,
   - indexed by heap_no
-  - DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN for leaf pages of clustered indexes
+  - DATA_TRX_RBP_LEN for leaf pages of clustered indexes
   - REC_NODE_PTR_SIZE for non-leaf pages
   - 0 otherwise
 (8) dense page directory, stored backwards
@@ -110,6 +110,8 @@ In summary, the compressed page looks like this:
 #define PAGE_ZIP_DIR_SLOT_OWNED	0x4000
 /** 'deleted' flag */
 #define PAGE_ZIP_DIR_SLOT_DEL	0x8000
+#define DATA_TRX_RBP_LEN (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+/* the total length for transaction id and rollback pointer */
 
 /**********************************************************************//**
 Determine the size of a compressed page in bytes.
@@ -243,8 +245,7 @@ page_zip_get_trailer_len(
 			+ REC_NODE_PTR_SIZE;
 		ut_ad(!page_zip->n_blobs);
 	} else if (is_clust) {
-		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE
-			+ DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
+		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE + DATA_TRX_RBP_LEN;
 	} else {
 		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE;
 		ut_ad(!page_zip->n_blobs);
