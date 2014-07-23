@@ -958,6 +958,15 @@ dict_table_zip_size(
 /*================*/
 	const dict_table_t*	table)	/*!< in: table */
 	__attribute__((nonnull, warn_unused_result));
+/********************************************************************//**
+Check whether the table uses the compact metadata format.
+@return TRUE if compact metadata format is used, FALSE otherwise. */
+UNIV_INLINE
+ibool
+dict_table_is_compact_metadata(
+/*================*/
+	const dict_table_t*	table)	/*!< in: table */
+	__attribute__((nonnull, warn_unused_result));
 #ifndef UNIV_HOTBACKUP
 /*********************************************************************//**
 Obtain exclusive locks on all index trees of the table. This is to prevent
