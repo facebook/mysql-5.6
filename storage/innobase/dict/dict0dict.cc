@@ -2309,8 +2309,9 @@ dict_index_too_big_for_tree(
 		an empty page, minus a byte for recoding the heap
 		number in the page modification log.  The maximum
 		allowed node pointer size is half that. */
-		page_rec_max = page_zip_empty_size(new_index->n_fields,
-						   zip_size);
+		page_rec_max = page_zip_empty_size(
+					new_index->n_fields, zip_size,
+					dict_table_is_compact_metadata(table));
 		if (page_rec_max) {
 			page_rec_max--;
 		}

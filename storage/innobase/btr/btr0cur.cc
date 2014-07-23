@@ -1305,7 +1305,9 @@ btr_cur_optimistic_insert(
 	rec_size = rec_get_converted_size(index, entry, n_ext);
 
 	if (page_zip_rec_needs_ext(rec_size, page_is_comp(page),
-				   dtuple_get_n_fields(entry), zip_size)) {
+				   dtuple_get_n_fields(entry), zip_size,
+				   dict_table_is_compact_metadata(
+							index->table))) {
 
 		/* The record is so big that we have to store some fields
 		externally on separate database pages */
@@ -1324,7 +1326,8 @@ btr_cur_optimistic_insert(
 		Subtract one byte for the encoded heap_no in the
 		modification log. */
 		ulint	free_space_zip = page_zip_empty_size(
-			cursor->index->n_fields, zip_size);
+			cursor->index->n_fields, zip_size,
+			dict_table_is_compact_metadata(index->table));
 		ulint	n_uniq = dict_index_get_n_unique_in_tree(index);
 
 		ut_ad(dict_table_is_comp(index->table));
@@ -1591,7 +1594,9 @@ btr_cur_pessimistic_insert(
 	if (page_zip_rec_needs_ext(rec_get_converted_size(index, entry, n_ext),
 				   dict_table_is_comp(index->table),
 				   dtuple_get_n_fields(entry),
-				   zip_size)) {
+				   zip_size,
+				   dict_table_is_compact_metadata(
+							index->table))) {
 		/* The record is so big that we have to store some fields
 		externally on separate database pages */
 
@@ -2231,7 +2236,8 @@ any_extern:
 	if (page_zip) {
 		if (page_zip_rec_needs_ext(new_rec_size, page_is_comp(page),
 					   dict_index_get_n_fields(index),
-					   page_zip_get_size(page_zip))) {
+					   page_zip_get_size(page_zip),
+             dict_table_is_comp(index->table))) {
 		  goto any_extern;
 		}
 
@@ -2607,13 +2613,14 @@ btr_cur_pessimistic_update(
 			    rec_get_converted_size(index, new_entry, n_ext),
 			    TRUE,
 			    dict_index_get_n_fields(index),
-			    page_zip_get_size(page_zip))) {
+			    page_zip_get_size(page_zip),
+			    page_zip->compact_metadata)) {
 
 			goto make_external;
 		}
 	} else if (page_zip_rec_needs_ext(
 			   rec_get_converted_size(index, new_entry, n_ext),
-			   page_is_comp(page), 0, 0)) {
+			   page_is_comp(page), 0, 0, FALSE)) {
 make_external:
 		big_rec_vec = dtuple_convert_big_rec(index, new_entry, &n_ext);
 		if (UNIV_UNLIKELY(big_rec_vec == NULL)) {

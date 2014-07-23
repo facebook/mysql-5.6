@@ -2432,8 +2432,9 @@ btr_page_get_split_rec(
 	if (page_zip) {
 		/* Estimate the free space of an empty compressed page. */
 		ulint	free_space_zip = page_zip_empty_size(
-			cursor->index->n_fields,
-			page_zip_get_size(page_zip));
+						cursor->index->n_fields,
+						page_zip_get_size(page_zip),
+						page_zip->compact_metadata);
 
 		if (free_space > (ulint) free_space_zip) {
 			free_space = (ulint) free_space_zip;
