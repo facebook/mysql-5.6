@@ -238,6 +238,20 @@ fil_node_complete_io(
 				the node as modified if
 				type == OS_FILE_WRITE */
 /*******************************************************************//**
+Frees a fil_stats_t object. fil_system->mutex should not be held
+when this is called to avoid mutex contention. */
+static
+void
+fil_stats_free(
+/*===========*/
+	ulint		id);		/* in: space id */
+/*******************************************************************//**
+Frees all fil_stats_t objects. fil_system->mutex should not be held
+when this is called to avoid mutex contention. */
+static
+void
+fil_stats_all_free();
+/*******************************************************************//**
 Frees a space object from the tablespace memory cache. Closes the files in
 the chain but does not delete them. There must not be any pending i/o's or
 flushes on the files.
@@ -247,8 +261,7 @@ ibool
 fil_space_free(
 /*===========*/
 	ulint		id,		/* in: space id */
-	ibool		x_latched);	/* in: TRUE if caller has space->latch
-					in X mode */
+	ibool		x_latched);	/* in: TRUE if caller has space->latch */
 /********************************************************************//**
 Reads data from a space to a buffer. Remember that the possible incomplete
 blocks at the end of file are ignored: they are not taken into account when
@@ -359,8 +372,8 @@ fil_update_table_stats_one_cell(
 
 	while (space && found < max_per_cell) {
 
-		if (space->used) {
-			space->used = FALSE;
+		if (space->stats.used) {
+			space->stats.used = FALSE;
 
 			read_arr[found] = space->io_perf2.read;
 			write_arr[found] = space->io_perf2.write;
@@ -368,7 +381,7 @@ fil_update_table_stats_one_cell(
 			read_arr_primary[found] = space->io_perf2.read_primary;
 			read_arr_secondary[found] = space->io_perf2.read_secondary;
 			page_stats_arr[found] = space->io_perf2.page_stats;
-			comp_stats_arr[found] = space->comp_stats;
+			comp_stats_arr[found] = space->stats.comp_stats;
 
 			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
 				space->db_name);
@@ -468,7 +481,7 @@ fil_update_table_stats(
 		fil_space_t*	space = static_cast<fil_space_t*>(cell->node);
 
 		while (space) {
-			if (space->used)
+			if (space->stats.used)
 				++per_cell;
 
 			space = static_cast<fil_space_t*>(HASH_GET_NEXT(hash, space));
@@ -1380,6 +1393,7 @@ fil_space_create(
 	ulint		purpose)/*!< in: FIL_TABLESPACE, or FIL_LOG if log */
 {
 	fil_space_t*	space;
+	ib_mutex_t*	stats_mutex;
 	char		db_name[FN_LEN + 1];
 	char		table_name[FN_LEN + 1];
 
@@ -1414,6 +1428,10 @@ fil_space_create(
 				"from the cache with id %lu",
 				name, (ulong) id);
 
+			/* Prefer not to call this when fil_system->mutex is
+			locked - not possible here. Good thing this is rare. */
+			fil_stats_free(space->id);
+
 			ibool	success = fil_space_free(space->id, FALSE);
 			ut_a(success);
 
@@ -1442,7 +1460,6 @@ fil_space_create(
 	space->id = id;
 	strcpy(space->db_name, db_name);
 	strcpy(space->table_name, table_name);
-	space->used = TRUE;
 
 	fil_system->tablespace_version++;
 	space->tablespace_version = fil_system->tablespace_version;
@@ -1484,11 +1501,20 @@ fil_space_create(
 	my_io_perf_init(&(space->io_perf2.read_secondary));
 	memset(&(space->io_perf2.page_stats), 0,
 	       sizeof space->io_perf2.page_stats);
-	memset(&(space->comp_stats), 0, sizeof space->comp_stats);
+	memset(&(space->stats.comp_stats), 0, sizeof space->stats.comp_stats);
+	space->stats.id = id;
+	space->stats.magic_n = FIL_STATS_MAGIC_N;
+	space->stats.used = TRUE;
+	space->stats.stats_next = NULL;
 
 	UT_LIST_ADD_LAST(space_list, fil_system->space_list, space);
 
 	mutex_exit(&fil_system->mutex);
+	stats_mutex = hash_get_mutex(fil_system->stats_hash, id);
+	mutex_enter(stats_mutex);
+	HASH_INSERT(fil_stats_t, stats_next, fil_system->stats_hash,
+		    id, (&space->stats));
+	mutex_exit(stats_mutex);
 
 	return(TRUE);
 }
@@ -1552,6 +1578,47 @@ fil_assign_new_space_id(
 
 	return(success);
 }
+
+/*******************************************************************//**
+Frees a fil_stats_t object. Prefer that fil_system->mutex is not locked
+when this is held to avoid mutex contention. */
+static
+void
+fil_stats_free(
+/*===========*/
+	ulint		id)		/* in: space id */
+{
+	fil_stats_t*	stats;
+	ib_mutex_t*	stats_mutex;
+
+	stats_mutex = hash_get_mutex(fil_system->stats_hash, id);
+	ut_ad(!mutex_own(stats_mutex));
+	mutex_enter(stats_mutex);
+
+	HASH_SEARCH(stats_next, fil_system->stats_hash, id,
+		    fil_stats_t*, stats,
+		    ut_ad(stats->magic_n == FIL_STATS_MAGIC_N),
+		    stats->id == id);
+
+	if (stats) {
+		HASH_DELETE(fil_stats_t, stats_next, fil_system->stats_hash,
+			    id, stats);
+	}
+	mutex_exit(stats_mutex);
+}
+
+/*******************************************************************//**
+Frees all fil_stats_t objects. fil_system->mutex should not be held
+when this is called to avoid mutex contention. */
+static
+void
+fil_stats_all_free()
+{
+	hash_mutex_enter_all(fil_system->stats_hash);
+	hash_table_clear(fil_system->stats_hash);
+	hash_mutex_exit_all(fil_system->stats_hash);
+}
+
 
 /*******************************************************************//**
 Frees a space object from the tablespace memory cache. Closes the files in
@@ -1622,6 +1689,7 @@ fil_space_free(
 
 	rw_lock_free(&(space->latch));
 
+	fil_stats_free(id);
 	mem_free(space->name);
 	mem_free(space);
 
@@ -1852,6 +1920,10 @@ fil_init(
 	fil_system->spaces = hash_create(hash_size);
 	fil_system->name_hash = hash_create(hash_size);
 
+	fil_system->stats_hash = hash_create(hash_size);
+	hash_create_sync_obj(fil_system->stats_hash, HASH_TABLE_SYNC_MUTEX,
+			     64, SYNC_NO_ORDER_CHECK);
+
 	UT_LIST_INIT(fil_system->LRU);
 
 	fil_system->max_n_open = max_n_open;
@@ -1974,6 +2046,7 @@ fil_close_all_files(void)
 	}
 
 	mutex_exit(&fil_system->mutex);
+	fil_stats_all_free();
 }
 
 /*******************************************************************//**
@@ -5992,7 +6065,7 @@ _fil_io(
 		ut_error;
 	}
 
-	space->used = TRUE;
+	space->stats.used = TRUE;
 
 	/* Now we have made the changes in the data structures of fil_system */
 	mutex_exit(&fil_system->mutex);
@@ -6485,6 +6558,7 @@ fil_close(void)
 	hash_table_free(fil_system->spaces);
 
 	hash_table_free(fil_system->name_hash);
+	hash_table_free(fil_system->stats_hash);
 
 	ut_a(UT_LIST_GET_LEN(fil_system->LRU) == 0);
 	ut_a(UT_LIST_GET_LEN(fil_system->unflushed_spaces) == 0);
