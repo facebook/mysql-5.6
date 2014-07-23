@@ -61,6 +61,9 @@ enum {
 #define BTR_CUR_HASH_ADAPT
 
 #ifdef UNIV_DEBUG
+/* Number of btr_cur_del_mark_set_clust_rec_pessimistic() calls. */
+extern ulint btr_cur_pessimistic_del_mark_count;
+
 /*********************************************************//**
 Returns the page cursor component of a tree cursor.
 @return	pointer to page cursor component */
@@ -292,16 +295,24 @@ btr_cur_update_alloc_zip_func(
 	ulint		length,	/*!< in: size needed */
 	bool		create,	/*!< in: true=delete-and-insert,
 				false=update-in-place */
+	ulint		heap_no,/*!< in: when compact metadata is used, this
+				value is needed to determine if the record
+				metadata can be stored on the trailer without
+				making the trailer size grow */
 	mtr_t*		mtr,	/*!< in/out: mini-transaction */
 	trx_t*		trx)	/*!< in: NULL or transaction */
 #ifdef UNIV_DEBUG
-	__attribute__((nonnull(1,2,3,7), warn_unused_result));
-# define btr_cur_update_alloc_zip(page_zip,cursor,index,offsets,len,cr,mtr,trx) \
-	btr_cur_update_alloc_zip_func(page_zip,cursor,index,offsets,len,cr,mtr,trx)
+	__attribute__((nonnull(1,2,3,8), warn_unused_result));
+# define btr_cur_update_alloc_zip(page_zip, cursor, index, offsets, len, cr, \
+				  heap_no, mtr, trx) \
+	btr_cur_update_alloc_zip_func(page_zip, cursor, index, offsets, len, \
+				      cr, heap_no, mtr, trx)
 #else /* UNIV_DEBUG */
-	__attribute__((nonnull(1,2,3,6), warn_unused_result));
-# define btr_cur_update_alloc_zip(page_zip,cursor,index,offsets,len,cr,mtr,trx) \
-	btr_cur_update_alloc_zip_func(page_zip,cursor,index,len,cr,mtr,trx)
+	__attribute__((nonnull(1,2,3,7), warn_unused_result));
+# define btr_cur_update_alloc_zip(page_zip, cursor, index, offsets, len, cr, \
+				  heap_no, mtr, trx) \
+	btr_cur_update_alloc_zip_func(page_zip, cursor, index, len, cr, \
+				      heap_no, mtr, trx)
 #endif /* UNIV_DEBUG */
 /*************************************************************//**
 Updates a record when the update causes no size changes in its fields.
@@ -425,6 +436,19 @@ btr_cur_del_mark_set_clust_rec(
 	que_thr_t*	thr,	/*!< in: query thread */
 	mtr_t*		mtr)	/*!< in/out: mini-transaction */
 	__attribute__((nonnull, warn_unused_result));
+/***********************************************************//**
+Marks a clustered index record deleted. Writes an undo log record to
+undo log on this delete marking. Writes in the trx id field the id
+of the deleting transaction, and in the roll ptr field pointer to the
+undo log record created.
+@return	DB_SUCCESS, DB_LOCK_WAIT, or error number */
+UNIV_INTERN
+dberr_t
+btr_cur_del_mark_set_clust_rec_pessimistic(
+	btr_cur_t*	cursor,	/*!< in: cursor */
+	mem_heap_t**	heap,	/*!< in/out: pointer to memory heap */
+	que_thr_t*	thr,	/*!< in: query thread */
+	mtr_t*		mtr);	/*!< in/out: mini-transaction */
 /***********************************************************//**
 Sets a secondary index record delete mark to TRUE or FALSE.
 @return	DB_SUCCESS, DB_LOCK_WAIT, or error number */

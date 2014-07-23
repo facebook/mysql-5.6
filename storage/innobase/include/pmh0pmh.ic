@@ -7,6 +7,7 @@
 #include "mach0data.h"
 #include "ut0ut.h"
 #include "data0type.h"
+#include "trx0undo.h"
 
 /***************************************************************************
 The hash table consists of one or more linked lists which are called buckets.
@@ -18,11 +19,27 @@ The part of the trailer of the compressed page that stores the hash table looks
 like this (from higher memory address to lower memory address because it's
 located at the end of the page and grows upwards):
 
-	nc | BH_0 | BH_1 .. | BH_(nb-1) | CELL_0 | CELL_1 | ... | CELL_(nc - 1)
+	num_cells | first_insert | bitmap_header | bitmap | BH_0 | BH_1 ..
+	| BH_(nb-1) | CELL_0 | CELL_1 | ... | CELL_(nc - 1)
 
 where
 
-	nc = total number of cells in the hash table.
+	num_cells = total number of cells in the hash table.
+	first_insert = the transaction id and the rollback pointer for the first
+	fresh insert to the page. If a transaction inserts multiple records into
+	a page, we do not need to store rollback pointers for any of these
+	records because the rollback pointers make sense only if there is a
+	prior version of the record. This is especially important initially when
+	loading records into a table. During this loading, we do not waste space
+	by storing full DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN for each record.
+	Instead we store a bitmap that determines which records have the
+	same transaction id of the first_insert.
+	bitmap_header = contains the size of the following bitmap. bitmap_header
+	occupies only 1 byte.
+	bitmap = bitmap is used to store which records' transaction ids and
+	rollback pointers match the transaction id and the rollback pointer of
+	the first fresh insert to the page. rec_no th bit is set if the rec_no
+	th record's transaction id matches the transaction id of first_insert.
 	BH_i = the header for the i th bucket contains 1 + the cell number of
 	       the first cell that belongs to the i th bucket. If this number is
 	       zero, that means there are no cells that belong to the i th
@@ -53,12 +70,28 @@ of 13 bytes (= DATA_TRX_RBP_LEN) to store transaction id and rollback pointer.
 We therefore use 15 bytes for each cell:
   key (rec_no/nb(5-bit)) | next_cell# (11-bit) | value (trx_id + rbp, 13-byte)
 The total size of the hash table is given by
-PMH_HEADER_LEN + UT_BITS_IN_BYTES(11 * nb) + 15 * nc */
+PMH_HEADER_LEN + bitmapsize + UT_BITS_IN_BYTES(11 * nb) + 15 * nc */
 
 #if PMH_NUM_BUCKETS_SHIFT < 6
 #error "The number of buckets must be at least 64"
 #endif
 
+/* Get number of cells in minihashmap.
+storage: Pointer to the start of minihashmap. */
+#define pmh_get_num_cells(storage) mach_read_from_2(storage - PMH_NUM_CELL_LEN)
+/* Set the number of cells in minihashmap.
+storage: Pointer to the start of minihashmap.
+value: number of sells to set. */
+#define pmh_set_num_cells(storage, value) \
+	mach_write_to_2(storage - PMH_NUM_CELL_LEN, value)
+/* Get number of bytes used to store bitmap.
+bitmap_header: Pointer to the bitmap header. */
+#define pmh_get_bitmap_header(bitmap_header) mach_read_from_1(bitmap_header)
+/* Set the number of bytes used to store bitmap in bitmap header.
+bitmap_header: Pointer to the bitmap header.
+value: value to set. */
+#define pmh_set_bitmap_header(bitmap_header, value) \
+	mach_write_to_1(bitmap_header, value)
 /************************************************************************
 Gets the bucket header of the bucket_no-th bucket. The header consists of the
 cell number of the first cell in this bucket and a bit that indicates whether
@@ -83,9 +116,14 @@ pmh_get_bucket_header(
 	"1 bit is reserved to indicate the bucket is empty."
 #endif
 	ulint n;
-	/* We need to read 12 bits starting from 12 * bucket_no-th bit which is
-	   1.5 * bucket_no-th byte. */
-	storage -= PMH_HEADER_LEN + bucket_no + (bucket_no >> 1);
+	/* skip the PMH header */
+	storage -= PMH_HEADER_LEN;
+	/* skip the bitmap */
+	storage -= pmh_get_bitmap_header(storage);
+
+	/* We need to read 12 bits starting from 12 * bucket_no th bit which is
+	   1.5 * bucket_no th byte. */
+	storage -= bucket_no + (bucket_no >> 1);
 	if (bucket_no & 1) {
 		n = *(storage - 1) & 0xf0;
 		n <<= 4;
@@ -117,7 +155,11 @@ pmh_set_bucket_header(
 				header. */
 {
 	byte b;
-	storage -= PMH_HEADER_LEN + bucket_no + (bucket_no >> 1);
+	/* skip the PMH header */
+	storage -= PMH_HEADER_LEN;
+	/* skip the bitmap */
+	storage -= pmh_get_bitmap_header(storage);
+	storage -= bucket_no + (bucket_no >> 1);
 	if (cell_no == ULINT_UNDEFINED) {
 		cell_no = 0;
 	} else {
@@ -140,15 +182,22 @@ Initialize the hash table for transaction ids and rollback pointers. */
 UNIV_INLINE
 void
 pmh_init(
-	byte*	storage)	/*!< in: Pointer to the start of the data for
+	byte*	storage,	/*!< in: Pointer to the start of the data for
 				the hash table in a compressed page's trailer.
 				The data is stored starting from higher memory
 				addresses going to lower memory addresses. */
+	ulint n_dense) /* number of user records on the page */
 {
+	ulint bitmap_size = UT_BITS_IN_BYTES(n_dense);
+	ut_a(bitmap_size < 256);
 	/* set num_cells and bucket headers to zero */
-	memset(storage - PMH_BUCKET_HEADERS_LEN - PMH_HEADER_LEN,
+	memset(storage - (PMH_HEADER_LEN
+			  + bitmap_size
+			  + PMH_BUCKET_HEADERS_LEN),
 	       0,
-	       PMH_BUCKET_HEADERS_LEN + PMH_HEADER_LEN);
+	       PMH_HEADER_LEN + bitmap_size + PMH_BUCKET_HEADERS_LEN);
+	/* store the bitmap size */
+	pmh_set_bitmap_header(storage - PMH_HEADER_LEN, bitmap_size);
 }
 
 /*************************************************************************//**
@@ -164,9 +213,10 @@ pmh_size(
 					going to lower memory addresses. */
 {
 	return PMH_HEADER_LEN
-	       + PMH_BUCKET_HEADERS_LEN /* 11 bits for each bucket header */
+	       + pmh_get_bitmap_header(storage - PMH_HEADER_LEN) /* bitmap */
+	       + PMH_BUCKET_HEADERS_LEN
 	       /* hash cells */
-	       + mach_read_from_2(storage - PMH_HEADER_LEN) * PMH_CELL_LEN;
+	       + pmh_get_num_cells(storage) * PMH_CELL_LEN;
 }
 
 /*************************************************************************//**
@@ -189,7 +239,12 @@ pmh_get_cell(
 {
 	ulint n;
 	const byte* cell;
-	cell = storage - PMH_HEADER_LEN - PMH_BUCKET_HEADERS_LEN
+	/* skip the PMH header */
+	storage -= PMH_HEADER_LEN;
+	/* skip the bitmap */
+	storage -= pmh_get_bitmap_header(storage);
+	cell = storage
+	       - PMH_BUCKET_HEADERS_LEN
 	       - (*cell_no) * PMH_CELL_LEN;
 	n = mach_read_from_2(cell - 2);
 	*cell_no = n & PMH_NEXT_CELL_MASK;
@@ -230,37 +285,69 @@ pmh_set_cell(
 	      || ((~PMH_NEXT_CELL_MASK) & next_cell_no) == 0);
 	if (next_cell_no == ULINT_UNDEFINED)
 		next_cell_no = 0;
-	cell = storage - PMH_HEADER_LEN - PMH_BUCKET_HEADERS_LEN
+	/* skip the PMH header */
+	storage -= PMH_HEADER_LEN;
+	/* skip the bitmap */
+	storage -= pmh_get_bitmap_header(storage);
+	cell = storage
+	       - PMH_BUCKET_HEADERS_LEN
 	       - cell_no * PMH_CELL_LEN;
 	mach_write_to_2(cell - 2, key | next_cell_no);
 	if (value)
 		memcpy(cell - PMH_CELL_LEN, value, PMH_VALUE_LEN);
 }
 
-#ifdef UNIV_DEBUG
+/* transaction id rollback pointer value for a deleted record: 13-byte 0 */
+extern const byte* PMH_VALUE_EMPTY;
+
 /*************************************************************************//**
 Return a pointer to the trx id and rbp stored in the hash table for rec_no.
-@return a pointer to a buffer that has trx_id and rbp back to back or NULL */
+If there is no entry that belongs to rec_no, we return the default transaction
+id and rollback pointer which is the first fresh insert to the page.
+@return a pointer to a buffer that has trx_id and rbp back to back or the
+default values for these fields */
 UNIV_INLINE
 const byte*
 pmh_get(
-	const byte*	storage,/*!< in: Pointer to the start of the
-				data for the hash table in a compressed
-				page's trailer. The data is stored
-				starting from higher memory addresses
-				going to lower memory addresses. */
-	ulint		rec_no)	/*!< in: rec_no for to search for.
-				rec_no = heap_no - PAGE_HEAP_NO_USER_LOW */
+	const byte*	storage,	/*!< in: Pointer to the start of the
+					data for the hash table in a compressed
+					page's trailer. The data is stored
+					starting from higher memory addresses
+					going to lower memory addresses. */
+	ulint		rec_no,		/*!< in: rec_no for to search for.
+					rec_no = heap_no
+						 - PAGE_HEAP_NO_USER_LOW */
+	ulint*		space_needed)	/*!< out: Size by which the minihashmap
+					would grow if an entry with rec_no
+					added to the trailer. */
 {
 	ulint bucket_no;
 	ulint key;
 	ulint key_cur = ULINT_UNDEFINED;
 	ulint cell_next;
 	const byte* value = NULL;
-
-	if (mach_read_from_2(storage - PMH_HEADER_LEN) == 0) {
-		/* hashtable is empty */
+	const byte* bitmap = storage - PMH_HEADER_LEN;
+	ibool bit_is_set;
+	if (rec_no >= 8 * pmh_get_bitmap_header(bitmap)) {
+		if (space_needed)
+			*space_needed = PMH_CELL_LEN + PMH_BITMAP_INCREMENT;
 		return NULL;
+	}
+	bit_is_set = *(bitmap - rec_no / 8 - 1) & (1 << (rec_no & 0x7));
+
+	if (bit_is_set) {
+		if (space_needed)
+			*space_needed = PMH_CELL_LEN;
+		/* the bitmap indicates this record can have the same trx id
+		 * and rbp as the first fresh insert */
+		return storage - PMH_NUM_CELL_LEN - DATA_TRX_RBP_LEN;
+	}
+
+	if (pmh_get_num_cells(storage) == 0) {
+		if (space_needed)
+			*space_needed = PMH_CELL_LEN;
+		/* hashtable is empty */
+		return PMH_VALUE_EMPTY;
 	}
 
 	bucket_no = rec_no & PMH_BUCKET_MASK;
@@ -272,13 +359,40 @@ pmh_get(
 	}
 
 	if (key_cur == key) {
+		if (space_needed)
+			*space_needed = 0;
 		return value;
 	}
 
 	ut_ad(cell_next == ULINT_UNDEFINED);
-	return NULL;
+	if (space_needed)
+		*space_needed = PMH_CELL_LEN;
+	return PMH_VALUE_EMPTY;
 }
+
+/*************************************************************************//**
+Enlarge the space allocated for the bitmap that stores the information of which
+records match the stored transaction id and rollback pointer. */
+UNIV_INLINE
+void
+pmh_enlarge_bitmap(
+	byte* storage)
+{
+	byte* bitmap = storage - PMH_HEADER_LEN;
+	ulint bitmap_size = pmh_get_bitmap_header(bitmap);
+	byte* bitmap_end = bitmap - bitmap_size;
+	byte* storage_end = storage - pmh_size(storage);
+#ifdef UNIV_DEBUG
+	byte* b = storage_end - 1;
+	while (b >= storage_end - PMH_BITMAP_INCREMENT)
+		ut_a(*b-- == (byte)0);
 #endif
+	memmove(storage_end - PMH_BITMAP_INCREMENT,
+		storage_end, bitmap_end - storage_end);
+	memset(bitmap_end - PMH_BITMAP_INCREMENT, 0, PMH_BITMAP_INCREMENT);
+	ut_a(bitmap_size + PMH_BITMAP_INCREMENT < 256);
+	pmh_set_bitmap_header(bitmap, bitmap_size + PMH_BITMAP_INCREMENT);
+}
 
 /*************************************************************************//**
 Store the key-value pair (rec_no, value) in the hash table. The bytes of the
@@ -301,8 +415,44 @@ pmh_put(
 	ulint key_cur = ULINT_UNDEFINED;
 	ulint bucket_no = rec_no & PMH_BUCKET_MASK;
 	ulint key = (rec_no >> PMH_NUM_BUCKETS_SHIFT) << PMH_KEY_SHIFT;
-	ulint num_cells = mach_read_from_2(storage - 2);
+	ulint num_cells = pmh_get_num_cells(storage);
+	byte* first_insert = storage - PMH_NUM_CELL_LEN - DATA_TRX_RBP_LEN;
+	/* If the reserved space is not used yet,
+	trx_undo_trx_id_is_insert(first_insert) will return 0. */
+	bool first_insert_used = trx_undo_trx_id_is_insert(first_insert);
+	bool value_is_fresh_insert = trx_undo_trx_id_is_insert(value);
+	byte* bitmap = storage - PMH_HEADER_LEN;
+	if (rec_no >= 8 * pmh_get_bitmap_header(bitmap)) {
+		pmh_enlarge_bitmap(storage);
+	}
 	cell_next = pmh_get_bucket_header(storage, bucket_no);
+
+	if (value_is_fresh_insert) {
+		/* If this is the first fresh insert to the hash table then we
+		store the trx id and the rbp in the reserved space for the first
+		fresh insert right after the number of cells. */
+		if (!first_insert_used) {
+			memcpy(first_insert, value, DATA_TRX_RBP_LEN);
+		}
+		/* If this is a fresh insert that matches the transaction id of
+		the first fresh insert to the page, then it is OK to not store
+		anything about this record in the trx-rbp hash table. Later when
+		we restore the trx ids and rbps, we will use the first fresh
+		insert's trx_id and rbp for all the records that do not have an
+		entry in this hash table. */
+		if (!first_insert_used
+		    || !memcmp(first_insert, value, DATA_TRX_ID_LEN)) {
+			/* set the bit for rec_no */
+			*(bitmap - rec_no / 8 - 1) |= (byte)1 << (rec_no & 7);
+#ifdef UNIV_DEBUG
+			ut_a(pmh_get(storage, rec_no, NULL) == first_insert);
+#endif
+			return;
+		}
+	}
+
+	/* unset the bit for rec_no */
+	*(bitmap - rec_no / 8 - 1) &= ~((byte)1 << (rec_no & 7));
 
 	while (cell_next != ULINT_UNDEFINED && key_cur != key) {
 		cell_cur = cell_next;
@@ -313,7 +463,7 @@ pmh_put(
 		/* this is an update */
 		ut_ad(cell_cur != ULINT_UNDEFINED);
 		pmh_set_cell(storage, cell_cur, key, cell_next, value);
-	} else {
+	} else if (memcmp(value, PMH_VALUE_EMPTY, PMH_VALUE_LEN)) {
 		/* this is an insert */
 		ut_ad(cell_next == ULINT_UNDEFINED);
 		if (UNIV_UNLIKELY(key_cur == ULINT_UNDEFINED)) {
@@ -331,59 +481,23 @@ pmh_put(
 				     NULL);
 		}
 		pmh_set_cell(storage, num_cells, key, ULINT_UNDEFINED, value);
-		mach_write_to_2(storage - 2, num_cells + 1);
+		pmh_set_num_cells(storage, num_cells + 1);
 	}
-	ut_ad(!memcmp(value, pmh_get(storage, rec_no), PMH_VALUE_LEN));
-}
-
-/***********************************************************************//**
-This function provides a way to iterate over the key-value pairs in the hash
-table and restore the transaction id and rollback pointers efficiently. The
-recs parameter must have the records ordered in heap_no order such that
-	recs[rec_no] == rec
-where rec's record number is rec_no. */
-UNIV_INLINE
-void
-pmh_restore_trx_rbp(
-	const byte*	storage,/*!< in: Pointer to the start of the
-				data for the hash table in a compressed
-				page's trailer. The data is stored
-				starting from higher memory addresses
-				going to lower memory addresses. */
-	rec_t**		recs,	/*!< in: records sorted by record number */
-	ulint**		offsets,/*!< out: pointer to memory allocated for record
-				offsets */
-	const dict_index_t*	index,	/*!< in: index needed to compute
-					offsets */
-	ulint		trx_id_col,	/*!< in: the column number for
-					transaction id */
-	mem_heap_t**	heap)	/*!< in: temporary memeory heap */
-{
-	const byte* value;
-	ulint rec_no;
-	ulint bucket_no;
-	ulint cell_next;
-	ulint num_cells = mach_read_from_2(storage - 2);
-	ulint len;
-	byte* field;
-	rec_t* rec;
-	if (!num_cells)
-		return;
-	for (bucket_no = 0; bucket_no < PMH_NUM_BUCKETS; ++bucket_no) {
-		cell_next = pmh_get_bucket_header(storage, bucket_no);
-		while (cell_next != ULINT_UNDEFINED) {
-			pmh_get_cell(storage, &cell_next, &rec_no, &value);
-			rec_no =  ((rec_no >> PMH_KEY_SHIFT)
-				   << PMH_NUM_BUCKETS_SHIFT) | bucket_no;
-			rec = recs[rec_no];
-			*offsets = rec_get_offsets(rec, index, *offsets,
-						   ULINT_UNDEFINED, heap);
-			field = rec_get_nth_field(rec, *offsets, trx_id_col,
-						  &len);
-			memcpy(field, value, DATA_TRX_RBP_LEN);
+#ifdef UNIV_DEBUG
+	{
+		const byte* val = pmh_get(storage, rec_no, NULL);
+		if (val == first_insert) {
+			ut_a((value[DATA_TRX_ID_LEN] & 0x80)
+			     && !memcmp(value, first_insert, DATA_TRX_ID_LEN));
+		} else if (val == PMH_VALUE_EMPTY) {
+			ut_a(!memcmp(value, PMH_VALUE_EMPTY, PMH_VALUE_LEN));
+		} else {
+			ut_a(!memcmp(value, val, PMH_VALUE_LEN));
 		}
 	}
+#endif
 }
+
 
 #ifdef UNIV_MATERIALIZE
 # undef UNIV_INLINE
