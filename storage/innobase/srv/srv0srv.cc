@@ -56,6 +56,7 @@ Created 10/8/1995 Heikki Tuuri
 #include "ibuf0ibuf.h"
 #include "buf0flu.h"
 #include "buf0lru.h"
+#include "btr0cur.h"
 #include "btr0sea.h"
 #include "dict0load.h"
 #include "dict0boot.h"
@@ -1987,6 +1988,8 @@ srv_export_innodb_status(void)
 #ifdef UNIV_DEBUG
 	export_vars.innodb_max_outstanding_aio_requests =
 		os_aio_max_outstanding;
+	export_vars.innodb_pessimistic_del_mark_count =
+		btr_cur_pessimistic_del_mark_count;
 #endif /* UNIV_DEBUG */
 	export_vars.innodb_logical_read_ahead_misses =
 		srv_stats.n_logical_read_ahead_misses;

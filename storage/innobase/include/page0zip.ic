@@ -364,44 +364,82 @@ page_zip_available(
 	const page_zip_des_t*	page_zip,/*!< in: compressed page */
 	ibool			is_clust,/*!< in: TRUE if clustered index */
 	ulint			length,	/*!< in: combined size of the record */
-	ulint			create)	/*!< in: nonzero=add the record to
+	ulint			create,	/*!< in: nonzero=add the record to
 					the heap */
+	ulint			heap_no)/*!< in: when compact metadata is used,
+					this value is needed to determine if
+					the record metadata can be stored on
+					the trailer without making the
+					trailer size grow */
 {
-
-	/* TODO: FIX  THIS function for compact metadata because it assumes
-	   all of trx id and rbs will be stored in the trailer */
 	ulint	trailer_len;
 
-	ut_ad(length > REC_N_NEW_EXTRA_BYTES);
+	ut_ad(!length || (length > REC_N_NEW_EXTRA_BYTES));
+	ut_ad(!create || length);
 
 	trailer_len = page_zip_get_trailer_len(page_zip, is_clust);
 
 	/* Subtract the fixed extra bytes and add the maximum
 	space needed for identifying the record (encoded heap_no). */
-	length -= REC_N_NEW_EXTRA_BYTES - 2;
+	if (length) {
+		length += 2; /* encoded heap_no in modification log */
+		length -= REC_N_NEW_EXTRA_BYTES; /* this information is stored
+						    on the trailer */
+	}
 
 	if (create > 0) {
 		/* When a record is created, a pointer may be added to
 		the dense directory.
-		Likewise, space for the columns that will not be
-		compressed will be allocated from the page trailer.
+		Likewise, if the metadata is not stored in the compact format
+		the space for the columns that will not be compressed will be
+		allocated from the page trailer.
 		Also the BLOB pointers will be allocated from there, but
 		we may as well count them in the length of the record. */
-
 		trailer_len += PAGE_ZIP_DIR_SLOT_SIZE;
-		if (page_zip->compact_metadata) {
-			/* The minihashmap on  the trailer increases in size
-			   when a new record is added.
-			   TODO(nizamordulu): handling of this case and the
-			   update case for compact metadata will change
-			   substantially when minihashmap is fully
-			   implemented. */
-			trailer_len += PMH_CELL_LEN - DATA_TRX_RBP_LEN;
+	}
+
+	if (is_clust
+	    && page_zip->compact_metadata
+	    && page_is_leaf(page_zip->data)) {
+		/* subtract the size for metadata from the record size because
+		trx id and rbp will be stored in the minihashmap on the
+		trailer */
+		if (length)
+			length -= DATA_TRX_RBP_LEN;
+		if (create) {
+			/* If a new record is inserted then its heap_no is not
+			reliable because the page may be reorganized before
+			insertion. We therefore assume there is no entry in
+			minihashmap for the newly inserted record. This is
+			a upper bound of the trailer_len. */
+			trailer_len += PMH_CELL_LEN + PMH_BITMAP_INCREMENT;
+		} else {
+			byte* trx_rbp_storage;
+			byte* externs;
+			ulint n_blobs;
+			ulint space_needed = 0;
+
+			externs = page_zip_dir_start(page_zip);
+			/* it is important not to use page_zip->n_blobs here
+			because it might not have been set */
+			n_blobs = mach_read_from_2(externs - 2);
+			trx_rbp_storage = externs
+					  - (n_blobs
+					     * BTR_EXTERN_FIELD_REF_SIZE + 2);
+			pmh_get(trx_rbp_storage,
+				heap_no - PAGE_HEAP_NO_USER_LOW,
+				&space_needed);
+			trailer_len += space_needed;
 		}
 	}
 
-	return(length + trailer_len + page_zip->m_end
-	       < page_zip_get_size(page_zip));
+	return(page_zip->m_end /* current length of the mlog */
+	       + length /* space used on the modification log for the new
+			   or updated record */
+	       + 1 /* end marker null byte for the modification log */
+	       + trailer_len /* length of the trailer after the record is
+				inserted/updated */
+	       <= page_zip_get_size(page_zip)); /* compressed page size */
 }
 
 /**********************************************************************//**

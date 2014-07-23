@@ -96,6 +96,8 @@ compression algorithm changes in zlib. */
 UNIV_INTERN my_bool	page_zip_log_pages = false;
 
 UNIV_INTERN my_bool page_zip_debug = FALSE;
+/* transaction id rollback pointer value for a deleted record: 13-byte 0 */
+const byte* PMH_VALUE_EMPTY = ((byte*)"\0\0\0\0\0\0\0\0\0\0\0\0\0");
 
 /* Please refer to ../include/page0zip.ic for a description of the
 compressed page format. */
@@ -975,33 +977,6 @@ page_zip_store_blobs_for_rec(
 }
 
 /**********************************************************************//**
-Restore trx id and rollback pointer of a record from the trailer of the
-compressed page. This should be called only for pages with non-compact
-metadata format. */
-static
-void
-page_zip_restore_trx_rbp(
-	byte* trx_rbp_storage, /* in: storage for transaciton ids and rollback
-				  pointers */
-	rec_t* rec, /* in/out: the record whose uncompressed fields must be
-		       restored from the trailer of page_zip->data */
-	ulint rec_no, /* in: the index of rec in recs. This is basically
-			 heap_no - PAGE_HEAP_NO_USER_LOW */
-	const ulint* offsets, /* in: the offsets of the record as obtained by
-				 rec_get_offsets() */
-	ulint trx_id_col)
-{
-	ulint len;
-	byte* dst;
-	ut_ad(trx_id_col && (trx_id_col != ULINT_UNDEFINED));
-	dst = rec_get_nth_field(rec, offsets, trx_id_col, &len);
-	ut_ad(len >= DATA_TRX_RBP_LEN);
-	memcpy(dst,
-	       trx_rbp_storage - DATA_TRX_RBP_LEN * (rec_no + 1),
-	       DATA_TRX_RBP_LEN);
-}
-
-/**********************************************************************//**
 * Restore the blob pointers of a record from the trailer of the compressed
 * page.
 */
@@ -1092,9 +1067,6 @@ page_zip_restore_trx_rbp_blobs(
 		externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
 		n_blobs = mach_read_from_2(externs);
 		trx_rbp_storage = externs - n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
-		/* restore the transaction id and rollback pointers */
-		pmh_restore_trx_rbp(trx_rbp_storage, recs, &offsets, index,
-				    trx_id_col, &heap);
 	} else {
 		trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
 		externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
@@ -1111,22 +1083,23 @@ page_zip_restore_trx_rbp_blobs(
 	ut_a(!page_zip->n_blobs);
 	for (rec_no = 0; rec_no < n_dense; ++rec_no) {
 		ulint n_ext;
-		if (page_zip->compact_metadata
-		    && (page_zip->n_blobs >= n_blobs)) {
-			/* We already restored transaction id and rollback
-			pointers for compact metadata page, and now we know
-			we are done with blob pointers. */
-			break;
-		}
+		byte* dst;
+		ulint len;
+		const byte* trx_rbp;
 		rec = recs[rec_no];
 		ut_ad(rec_no + PAGE_HEAP_NO_USER_LOW
 		      == rec_get_heap_no_new(rec));
-		offsets = rec_get_offsets(rec, index, offsets,
-					  ULINT_UNDEFINED, &heap);
-		if (!page_zip->compact_metadata) {
-			page_zip_restore_trx_rbp(trx_rbp_storage, rec, rec_no,
-						 offsets, trx_id_col);
+		offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
+					  &heap);
+		dst = rec_get_nth_field(rec, offsets, trx_id_col, &len);
+		if (page_zip->compact_metadata) {
+			trx_rbp = pmh_get(trx_rbp_storage, rec_no, NULL);
+		} else {
+			ut_ad(len >= DATA_TRX_RBP_LEN);
+			trx_rbp = trx_rbp_storage
+				  - DATA_TRX_RBP_LEN * (rec_no + 1);
 		}
+		memcpy(dst, trx_rbp, DATA_TRX_RBP_LEN);
 		n_ext = rec_offs_n_extern(offsets);
 		if (n_ext && !page_zip_dir_find_free(page_zip,
 						     page_offset(rec))) {
@@ -2344,7 +2317,7 @@ page_zip_serialize(
 					  - 2;
 				mach_write_to_2(externs, 0);
 				trx_rbp_storage = externs;
-				pmh_init(trx_rbp_storage);
+				pmh_init(trx_rbp_storage, n_dense);
 			} else {
 				trx_rbp_storage = page_zip_dir_start_low(
 							page_zip, n_dense);
@@ -2463,6 +2436,7 @@ page_zip_serialize(
 			page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets,
 					       rec_no, trx_id_col,
 					       page_zip->compact_metadata);
+			page_zip_size_check(page_zip, TRUE);
 		}
 	}
 	*serialized_len = buf_ptr - buf;
@@ -4462,25 +4436,30 @@ UNIV_INTERN
 ibool
 page_zip_decompress_low(
 /*================*/
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	ibool all, /*!< in: TRUE=decompress the whole page; FALSE=verify but do
-		     not copy some page header fields that should not change
-		     after page creation */
-	ulint space_id, /*!< in: id of the space this page belongs */
-	ulint fsp_flags, /*!< in: used to compute compression type and flags.
-			     If this is ULINT_UNDEFINED then fsp_flags is
-			     determined by other means. */
-	mem_heap_t** heap_ptr, /*!< out: if heap_ptr is not NULL, then
-				 *heap_ptr is set to the heap that's allocated
-				 by this function. The caller is responsible
-				 for freeing the heap. */
-	dict_index_t** index_ptr) /*!< out: if index_ptr is not NULL, then
-				    *index_ptr is set to the index object
-				    that's created by this function. The caller
-				    is responsible for calling
-				    dict_index_mem_free(). */
+	page_zip_des_t*	page_zip,/*!< in: data, ssize;
+				out: m_start, m_end, m_nonempty, n_blobs */
+	page_t*		page,	/*!< out: uncompressed page, may be trashed */
+	ibool		all,	/*!< in: TRUE=decompress the whole page;
+				FALSE=verify but do not copy some
+				page header fields that should not change
+				after page creation */
+	ulint		space_id,/*!< in: id of the space this page belongs */
+	ulint		fsp_flags,/*!< in: used to compute compression type and
+				flags. If this is ULINT_UNDEFINED then fsp_flags
+				is determined by other means. */
+	mem_heap_t**	heap_ptr,/*!< out: if heap_ptr is not NULL, then
+				*heap_ptr is set to the heap that's allocated
+				by this function. The caller is responsible
+				for freeing the heap. */
+	dict_index_t**	index_ptr,/*!< out: if index_ptr is not NULL, then
+				*index_ptr is set to the index object
+				that's created by this function. The caller
+				is responsible for calling
+				dict_index_mem_free(). */
+	ulint* trx_id_col_ptr)	/*!< out: *trx_id_col_ptr will be set to the
+				 column number for the transaction id column
+				 if this is a leaf primary key page. Otherwise
+				 it will be set to ULINT_UNDEFINED */
 {
 	dict_index_t* index = NULL;
 	rec_t** recs; /*!< dense page directory, sorted by address */
@@ -4650,6 +4629,9 @@ page_zip_decompress_low(
 			&trx_id_col, &heap_status, &data_end, heap);
 	}
 
+	if (trx_id_col_ptr)
+		*trx_id_col_ptr = trx_id_col;
+
 	if (!ret)
 		goto err_exit;
 
@@ -4718,15 +4700,15 @@ page_zip_decompress_low(
 						+ page_zip->m_end));
 	page_zip->m_end = mod_log_ptr - page_zip->data;
 
-	/* size check */
-	page_zip_size_check(page_zip, dict_index_is_clust(index));
-
 	/* restore uncompressed fields if the page is a node pointer page or a
 	   primary key leaf page */
 	if (trx_id_col) {
 		page_zip_restore_trx_rbp_blobs(page_zip, recs, index,
 					       trx_id_col, heap);
 	}
+
+	/* size check */
+	page_zip_size_check(page_zip, dict_index_is_clust(index));
 
 	/* set the extra bytes */
 	if (UNIV_UNLIKELY(!page_zip_set_extra_bytes(page_zip, page,
@@ -4831,6 +4813,100 @@ page_zip_hexdump_func(
 UNIV_INTERN ibool	page_zip_validate_header_only = FALSE;
 
 /**********************************************************************//**
+Validate that two records are the same, except trx_id and roll pointer.
+@return TRUE if validation pass. */
+static
+ibool
+page_zip_validate_cmp(
+	const page_zip_des_t*	page_zip,/*!< in: compressed page */
+	const dict_index_t*	index,	/*!< in: the index of the page */
+	ulint			trx_id_col,/*!<in: column number of the trx_id*/
+	ulint*			offsets,/*!< in: array returned by
+					rec_get_offsets() */
+	const rec_t*		rec1,	/*!<in: record to be compared */
+	const rec_t*		rec2)	/*!<in: record to be compared */
+{
+	ulint extra_size = rec_offs_extra_size(offsets);
+	ulint data_size = rec_offs_data_size(offsets);
+	byte* src1;
+	byte* src2;
+	ulint len1;
+	ulint len2;
+	if (memcmp(rec1 - extra_size,
+		   rec2 - extra_size,
+		   extra_size)) {
+		fprintf(stderr,
+			"page_zip_validate: extra bytes for the records do not "
+			"match offs1=%lu, offs2=%lu extra_size=%lu\n",
+			page_offset(rec1),
+			page_offset(rec2),
+			extra_size);
+		return FALSE;
+	}
+	if (memcmp(rec1, rec2, data_size)) {
+		if (page_zip->compact_metadata && trx_id_col
+		    && trx_id_col != ULINT_UNDEFINED) {
+			src1 = rec_get_nth_field((rec_t*)rec1, offsets,
+						 trx_id_col, &len1);
+			ut_a((len1 == DATA_TRX_ID_LEN)
+			     || (len1 == DATA_TRX_RBP_LEN));
+			src2 = rec_get_nth_field((rec_t*)rec2, offsets,
+						 trx_id_col, &len2);
+			ut_a((len2 == DATA_TRX_ID_LEN)
+			     || (len2 == DATA_TRX_RBP_LEN));
+			len1 = src1 - rec1;
+			len2 = src2 - rec2;
+			if (len1 != len2) {
+				fprintf(stderr,
+					"page_zip_validate: lengths before "
+					"transaction id column are not the "
+					"same. offs1=%lu offs2=%lu "
+					"len1=%lu len2=%lu\n",
+					page_offset(rec1),
+					page_offset(rec2),
+					len1,
+					len2);
+				return FALSE;
+			}
+			if (memcmp(rec1, rec2, len1)) {
+				fprintf(stderr,
+					"page_zip_validate: the bytes before "
+					"the transaction id column do not "
+					"match. offs1=%lu offs2=%lu len=%lu\n",
+					page_offset(rec1),
+					page_offset(rec2),
+					len1);
+				return FALSE;
+			}
+			src1 += DATA_TRX_RBP_LEN;
+			src2 += DATA_TRX_RBP_LEN;
+			len1 = rec1 + data_size - src1;
+			len2 = rec2 + data_size - src2;
+			ut_a(len1 == len2);
+			if (memcmp(src1, src2, len1)) {
+				fprintf(stderr,
+					"page_zip_validate: the bytes after "
+					"the rollback column do not "
+					"match. offs2=%lu offs2=%lu len=%lu\n",
+					page_offset(rec1),
+					page_offset(rec2),
+					len1);
+				return FALSE;
+			}
+			return TRUE;
+		}
+		fprintf(stderr,
+			"page_zip_validate: record data is not identical. "
+			"offs1=%lu offs2=%lu data_size=%lu\n",
+			page_offset(rec1),
+			page_offset(rec2),
+			data_size);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+/**********************************************************************//**
 Check that the compressed and decompressed pages match.
 @return	TRUE if valid, FALSE if not */
 UNIV_INTERN
@@ -4849,6 +4925,7 @@ page_zip_validate_low(
 	ibool		valid;
 	mem_heap_t* heap = NULL;
 	dict_index_t**	index_ptr;
+	ulint trx_id_col = ULINT_UNDEFINED;
 	if (index) {
 		index_ptr = NULL;
 	} else {
@@ -4887,7 +4964,7 @@ page_zip_validate_low(
 	valid = page_zip_decompress_low(
 			&temp_page_zip, temp_page, TRUE,
 			page_get_space_id(page), ULINT_UNDEFINED,
-			&heap, index_ptr);
+			&heap, index_ptr, &trx_id_col);
 	if (!valid) {
 		fputs("page_zip_validate(): failed to decompress\n", stderr);
 		goto func_exit;
@@ -4994,15 +5071,17 @@ page_zip_validate_low(
 			offsets = rec_get_offsets(
 				rec, index, offsets,
 				ULINT_UNDEFINED, &heap);
-
-			if (memcmp(rec - rec_offs_extra_size(offsets),
-				   trec - rec_offs_extra_size(offsets),
-				   rec_offs_size(offsets))) {
+			valid = page_zip_validate_cmp(page_zip,
+						      index,
+						      trx_id_col,
+						      offsets,
+						      rec,
+						      trec);
+			if (!valid) {
 				page_zip_fail(
 					("page_zip_validate: "
 					 "record content: 0x%02x",
 					 (unsigned) page_offset(rec)));
-				valid = FALSE;
 				break;
 			}
 
@@ -5237,6 +5316,7 @@ page_zip_write_rec(
 		page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets, rec_no,
 				       trx_id_col, page_zip->compact_metadata);
 		page_zip_write_rec_blobs(page_zip, index, rec, offsets, create);
+		page_zip_size_check(page_zip, TRUE);
 	}
 	ut_a(!*data);
 	ut_ad((ulint) (data - page_zip->data) < page_zip_get_size(page_zip));
@@ -5620,6 +5700,7 @@ page_zip_write_trx_id_and_roll_ptr(
 		pmh_put(storage,
 			rec_get_heap_no_new(rec) - PAGE_HEAP_NO_USER_LOW,
 			field);
+		page_zip_size_check(page_zip, TRUE);
 	} else {
 		memcpy(storage, field, DATA_TRX_RBP_LEN);
 	}
@@ -5703,6 +5784,7 @@ page_zip_clear_rec(
 		if (page_zip->compact_metadata) {
 			pmh_put(trx_rbp_storage,
 				heap_no - PAGE_HEAP_NO_USER_LOW, field);
+			page_zip_size_check(page_zip, TRUE);
 		} else {
 			memset(trx_rbp_storage
 			       - (heap_no - 1) * DATA_TRX_RBP_LEN,
