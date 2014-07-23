@@ -83,6 +83,10 @@ struct page_zip_des_t
 					/*!< 0 or compressed page shift size;
 					the size in bytes is
 					(UNIV_ZIP_SIZE_MIN >> 1) << ssize. */
+	unsigned	compact_metadata:1;
+					/*!< the metadata is stored in a compact
+					format if this field is set. It only
+					applies to PK leaf pages. */
 };
 
 /** Compression statistics for a given page size */

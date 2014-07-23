@@ -116,7 +116,9 @@ page_zip_rec_needs_ext(
 	ulint	comp,		/*!< in: nonzero=compact format */
 	ulint	n_fields,	/*!< in: number of fields in the record;
 				ignored if zip_size == 0 */
-	ulint	zip_size)	/*!< in: compressed page size in bytes, or 0 */
+	ulint	zip_size,	/*!< in: compressed page size in bytes, or 0 */
+	ibool	compact_metadata) /*!< in: whether the metadata is stored in
+				       the compact format */
 	__attribute__((const));
 
 /**********************************************************************//**
@@ -127,7 +129,9 @@ ulint
 page_zip_empty_size(
 /*================*/
 	ulint	n_fields,	/*!< in: number of columns in the index */
-	ulint	zip_size)	/*!< in: compressed page size in bytes */
+	ulint	zip_size,	/*!< in: compressed page size in bytes */
+	ibool	compact_metadata)	/*!< in: if TRUE calculate the minimum
+					  size when compact metadata is used */
 	__attribute__((const));
 #endif /* !UNIV_HOTBACKUP */
 
