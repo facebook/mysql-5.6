@@ -136,6 +136,12 @@ UNIV_INTERN ulint	srv_max_file_format_at_startup = UNIV_FORMAT_MAX;
 /** Place locks to records only i.e. do not use next-key locking except
 on duplicate key checking and foreign key checking */
 UNIV_INTERN ibool	srv_locks_unsafe_for_binlog = FALSE;
+
+/** When TRUE then get S locks rather than X locks on rows
+when innodb_fake_changes is set for a transaction. When FALSE
+do not get row locks. */
+UNIV_INTERN my_bool	srv_fake_changes_locks= TRUE;
+
 /** Sort buffer size in index creation */
 UNIV_INTERN ulong	srv_sort_buf_size = 1048576;
 /** Maximum modification log file size for online index creation */
