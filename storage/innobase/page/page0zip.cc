@@ -54,7 +54,7 @@ using namespace std;
 # include "dict0boot.h"
 # include "lock0lock.h"
 # include "srv0srv.h"
-# include "zlib.h"
+# include "zlib_embedded/zlib.h"
 #endif /* !UNIV_INNOCHECKSUM */
 # include "buf0lru.h"
 # include "srv0mon.h"
@@ -67,6 +67,7 @@ using namespace std;
 
 #ifdef UNIV_INNOCHECKSUM
 #include "mach0data.h"
+#include "zlib.h"
 #endif /* UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
@@ -3110,15 +3111,11 @@ first try the positive window_bits then negative window_bits, because the
 surest way to determine if the stream has adler32 headers is to see if the
 stream begins with the zlib header together with the adler32 value of it.
 This adds a tiny bit of overhead for the pages that were compressed without
-adler32s.
-@return TRUE if stream is initialized and zlib header was read, FALSE
-if data can be decompressed with neither window_bits nor -window_bits */
-UNIV_INTERN
-ibool
+adler32s. */
+static
+void
 page_zip_init_d_stream(
-	z_stream* strm,
-	int window_bits,
-	ibool read_zlib_header)
+	z_stream* strm)
 {
 	/* Save initial stream position, in case a reset is required. */
 	Bytef* next_in = strm->next_in;
@@ -3126,37 +3123,22 @@ page_zip_init_d_stream(
 	ulint avail_in = strm->avail_in;
 	ulint avail_out = strm->avail_out;
 
-	if (UNIV_UNLIKELY(inflateInit2(strm, window_bits) != Z_OK)) {
-		/* init must always succeed regardless of window_bits */
-		ut_error;
-	}
-	/* Try decoding a zlib header assuming adler32. */
-	if (inflate(strm, Z_BLOCK) == Z_OK)
-		/* A valid header was found, all is well.  So, we return
-		   with the stream positioned just after this header. */
-		return(TRUE);
+	/* initialization must always succeed regardless of the sign of
+	   window_bits */
+	ut_a(inflateInit2(strm, UNIV_PAGE_SIZE_SHIFT) == Z_OK);
 
-	/* A valid header was not found, so now we need to re-try this
-	   read assuming there is *no* header (negative window_bits).
-           So, we need to reset the stream to the original position,
-           and change the window_bits to negative, with inflateReset2(). */
-	strm->next_in = next_in;
-	strm->next_out = next_out;
-	strm->avail_in = avail_in;
-	strm->avail_out = avail_out;
-	if (UNIV_UNLIKELY(inflateReset2(strm, -window_bits) != Z_OK)) {
-		/* init must always succeed regardless of window_bits */
-		ut_error;
+	/* Try decoding zlib header assuming adler32. Reset the stream on
+	   failure. */
+	if (inflate(strm, Z_BLOCK) != Z_OK) {
+		/* reset the stream */
+		strm->next_in = next_in;
+		strm->next_out = next_out;
+		strm->avail_in = avail_in;
+		strm->avail_out = avail_out;
+		ut_a(inflateReset2(strm, -UNIV_PAGE_SIZE_SHIFT) == Z_OK);
+		/* read the zlib header */
+		ut_a(inflate(strm, Z_BLOCK) == Z_OK);
 	}
-
-	if (read_zlib_header) {
-		/* No valid header was found, and we still want the header
-                   read to have happened, with negative window_bits. */
-		return(inflate(strm, Z_BLOCK) == Z_OK);
-	}
-	/* Did not find a header, but didn't require one, so just return
-           with the stream position reset to where it originally was. */
-	return(TRUE);
 }
 
 /**********************************************************************//**
@@ -3277,12 +3259,7 @@ zlib_error:
 	d_stream.next_out = page + PAGE_ZIP_START;
 	d_stream.avail_out = UNIV_PAGE_SIZE - PAGE_ZIP_START;
 
-	if (!page_zip_init_d_stream(&d_stream, UNIV_PAGE_SIZE_SHIFT, TRUE)) {
-
-		page_zip_fail(("page_zip_decompress:"
-			       " 1 inflate(Z_BLOCK)=%s\n", d_stream.msg));
-		goto zlib_error;
-	}
+	page_zip_init_d_stream(&d_stream);
 
 	if (UNIV_UNLIKELY(inflate(&d_stream, Z_BLOCK) != Z_OK)) {
 

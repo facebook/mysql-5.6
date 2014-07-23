@@ -5329,6 +5329,41 @@ btr_copy_blob_prefix(
 	}
 }
 
+/**********************************************************************//**
+This function determines the sign for window_bits from the decompression
+stream. The data may have been compressed with a negative (no adler32 headers)
+or a positive (with adler32 headers) window_bits. Regardless of the current
+value of page_zip_zlib_wrap, we always first try the positive window_bits then
+negative window_bits, because the surest way to determine if the stream has
+adler32 headers is to see if the stream begins with the zlib header together
+with the adler32 value of it. This adds a tiny bit of overhead for the pages
+that were compressed without adler32s. */
+static
+void
+btr_cur_init_d_stream(
+	z_stream* strm)
+{
+	Bytef* next_in = strm->next_in;
+	Bytef* next_out = strm->next_out;
+	ulint avail_in = strm->avail_in;
+	ulint avail_out = strm->avail_out;
+
+	/* initialization must always succeed regardless of the sign of
+	   window_bits */
+	ut_a(inflateInit2(strm, BTR_CUR_BLOB_WBITS) == Z_OK);
+
+	/* Try decoding zlib header assuming adler32. Reset the stream on
+	   failure. */
+	if (inflate(strm, Z_BLOCK) != Z_OK) {
+		/* reset the stream */
+		strm->next_in = next_in;
+		strm->next_out = next_out;
+		strm->avail_in = avail_in;
+		strm->avail_out = avail_out;
+		ut_a(inflateReset2(strm, -BTR_CUR_BLOB_WBITS) == Z_OK);
+	}
+}
+
 /*******************************************************************//**
 Copies the prefix of a compressed BLOB.  The clustered index record
 that points to this BLOB must be protected by a lock or a page latch.
@@ -5417,10 +5452,8 @@ btr_copy_zblob_prefix(
 		d_stream.avail_in = static_cast<uInt>(zip_size - offset);
 
 		if (!inflate_inited) {
-			inflate_inited = page_zip_init_d_stream(&d_stream,
-				15 /* Default windowBits for zlib */,
-				FALSE);
-			ut_a(inflate_inited);
+			btr_cur_init_d_stream(&d_stream);
+			inflate_inited = TRUE;
 		}
 
 		err = inflate(&d_stream, Z_NO_FLUSH);
