@@ -237,6 +237,25 @@ struct fil_node_t {
 /** Value of fil_node_t::magic_n */
 #define	FIL_NODE_MAGIC_N	89389
 
+/** Per-tablespace stats. Stored separate from fil_space_struct to reduce
+mutex contention on fil_system->mutex. Entries are removed from here
+before fil_space_free is called. Entries are added to here after
+fil_space_struct is added to fil_system->spaces. So there are two small
+windows when an id is in fil_system->spaces but not in
+fil_system->stats_hash.
+*/
+typedef struct fil_stats_struct {
+	hash_node_t	stats_next;	/*!< hash chain node */
+	comp_stats_t	comp_stats;	/*!< compression counters */
+	ulint		id;		/*!< space id */
+	ibool		used;		/*!< cleared by fil_update_table_stats
+					and set by fil_io */
+	ulint		magic_n;	/*!< FIL_STATS_MAGIC_N */
+} fil_stats_t;
+
+/** Value of fil_stats_struct::magic_n */
+#define FIL_STATS_MAGIC_N	89411
+
 /** Tablespace or log data space: let us call them by a common name space */
 struct fil_space_t {
 	char*		name;	/*!< space name = the path to the first file in
@@ -307,16 +326,13 @@ struct fil_space_t {
 	UT_LIST_NODE_T(fil_space_t) space_list;
 				/*!< list of all spaces */
 	os_io_perf2_t	io_perf2;/*!< per tablespace IO perf counters */
-	int		n_lru;	/*!< number of pages in LRU */
-	comp_stats_t	comp_stats; /*!< per tablespace compression counters */
+	fil_stats_t	stats;	/*!< per tablespace stats used in stats_hash */
 	/* If NAME_LEN were visible to InnoDB source, it would be used,
 	instead of FN_LEN+1. */
 	char		db_name[FN_LEN + 1];
 				/*!< name from first or only table */
 	char		table_name[FN_LEN + 1];
 				/*!< name from first or only table */
-	ibool		used;	/*!< cleared by fil_update_table_stats
-				and set by fil_io */
 	ulint		magic_n;/*!< FIL_SPACE_MAGIC_N */
 	ib_uint64_t	primary_index_id;/*!< index_id of the primary index */
 };
@@ -348,6 +364,8 @@ struct fil_system_t {
 					id */
 	hash_table_t*	name_hash;	/*!< hash table based on the space
 					name */
+	hash_table_t* stats_hash;	/*!< hash table based on the space id
+					or fil_stats_t */
 	UT_LIST_BASE_NODE_T(fil_node_t) LRU;
 					/*!< base node for the LRU list of the
 					most recently used open files with no
@@ -426,6 +444,33 @@ fil_space_get_by_id(
 		    space->id == id);
 
 	return(space);
+}
+/*******************************************************************//**
+Returns the fil_stats_t for a table space by a given id. This can return
+NULL the space for id is not found. There are small windows where this
+can return NULL right after a space was created and right before it is
+deleted. This also returns a mutex that was locked to access the hash
+table. That _must_ always be unlocked whether or not this returns NULL. */
+static inline
+fil_stats_t*
+fil_get_stats_lock_mutex_by_id(
+/*================*/
+	ulint		id,	/*!< in: space id */
+	ib_mutex_t**	mutex)	/*!< out: mutex to unlock when done */
+{
+	fil_stats_t*	stats;
+	ut_ad(!mutex_own(&fil_system->mutex));
+
+	*mutex = hash_get_mutex(fil_system->stats_hash, id);
+	ut_ad(!mutex_own(*mutex));
+	mutex_enter(*mutex);
+
+	HASH_SEARCH(stats_next, fil_system->stats_hash, id,
+		    fil_stats_t*, stats,
+		    ut_ad(stats->magic_n == FIL_STATS_MAGIC_N),
+		    stats->id == id);
+
+	return stats;
 }
 /*******************************************************************//**
 Returns the latch of a file space.
