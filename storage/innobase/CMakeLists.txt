@@ -420,7 +420,19 @@ SET(INNOBASE_SOURCES
 	ut/ut0rnd.cc
 	ut/ut0ut.cc
 	ut/ut0vec.cc
-	ut/ut0wqueue.cc)
+	ut/ut0wqueue.cc
+	comp/comp0zlib.cc
+	zlib_embedded/adler32.c
+	zlib_embedded/compress.c
+	zlib_embedded/crc32.c
+	zlib_embedded/deflate.c
+	zlib_embedded/infback.c
+	zlib_embedded/inffast.c
+	zlib_embedded/inflate.c
+	zlib_embedded/inftrees.c
+	zlib_embedded/trees.c
+	zlib_embedded/zutil.c
+)
 
 IF(WITH_INNODB)
   # Legacy option
