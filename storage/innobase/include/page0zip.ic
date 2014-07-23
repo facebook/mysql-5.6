@@ -172,7 +172,9 @@ page_zip_rec_needs_ext(
 	ulint	comp,		/*!< in: nonzero=compact format */
 	ulint	n_fields,	/*!< in: number of fields in the record;
 				ignored if zip_size == 0 */
-	ulint	zip_size)	/*!< in: compressed page size in bytes, or 0 */
+	ulint	zip_size,	/*!< in: compressed page size in bytes, or 0 */
+	ibool	compact_metadata) /*!< in: whether the metadata is stored in
+				       the compact format */
 {
 	ut_ad(rec_size > comp ? REC_N_NEW_EXTRA_BYTES : REC_N_OLD_EXTRA_BYTES);
 	ut_ad(ut_is_2pow(zip_size));
@@ -193,7 +195,8 @@ page_zip_rec_needs_ext(
 		the encoded heap number.  Check also the available space
 		on the uncompressed page. */
 		return(rec_size - (REC_N_NEW_EXTRA_BYTES - 2 - 1)
-		       >= page_zip_empty_size(n_fields, zip_size)
+		       >= page_zip_empty_size(n_fields, zip_size,
+		                              compact_metadata)
 		       || rec_size >= page_get_free_space_of_empty(TRUE) / 2);
 	}
 
@@ -236,24 +239,49 @@ page_zip_get_trailer_len(
 	ibool			is_clust)/*!< in: TRUE if clustered index */
 {
 	ulint	uncompressed_size;
+	ulint	blob_storage_size = 0;
+	ulint	trx_rbp_size = 0;
+	ulint	n_dense = page_dir_get_n_heap(page_zip->data) - 2;
 
 	ut_ad(page_zip_simple_validate(page_zip));
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
 	if (!page_is_leaf(page_zip->data)) {
-		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE
-			+ REC_NODE_PTR_SIZE;
+		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE + REC_NODE_PTR_SIZE;
 		ut_ad(!page_zip->n_blobs);
 	} else if (is_clust) {
-		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE + DATA_TRX_RBP_LEN;
+		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE;
+		if (page_zip->compact_metadata) {
+			byte* externs = page_zip->data
+					+ page_zip_get_size(page_zip)
+					- n_dense * PAGE_ZIP_DIR_SLOT_SIZE
+					- 2; /* 2 bytes for n_blobs */
+			/* it's important not to use page_zip->n_blobs here
+			   because it might not have been set for compact
+			   metadata format. */
+			ulint n_blobs = mach_read_from_2(externs);
+			blob_storage_size =
+				n_blobs * BTR_EXTERN_FIELD_REF_SIZE + 2;
+			/* TODO(nizamordulu): trx_rbp_size will change when
+			   we store metadata in a compact format */
+			trx_rbp_size = n_dense * DATA_TRX_RBP_LEN;
+		} else {
+			/* we use page_zip->n_blobs because the non-compact
+			   metadata format does not store the number of blobs
+			   on the trailer. Because of this, if this function is
+			   called before page_zip->n_blobs is computed, it will
+			   return a lower-bound on the trailer length instead
+			   of the exact length */
+			blob_storage_size =
+				page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+			trx_rbp_size = n_dense * DATA_TRX_RBP_LEN;
+		}
 	} else {
 		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE;
 		ut_ad(!page_zip->n_blobs);
 	}
 
-	return((page_dir_get_n_heap(page_zip->data) - 2)
-	       * uncompressed_size
-	       + page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE);
+	return(n_dense * uncompressed_size + trx_rbp_size + blob_storage_size);
 }
 
 /**********************************************************************//**
