@@ -64,6 +64,15 @@ hash_create(
 	ulint	n);	/*!< in: number of array cells */
 #ifndef UNIV_HOTBACKUP
 /*************************************************************//**
+Calls mutex_free for mutexes created by hash_create_mutexes_func.
+No need to call this when the caller runs after sync_close. */
+UNIV_INTERN
+void
+hash_free_mutexes_func(
+/*=====================*/
+	hash_table_t*		table);	/*!< in: hash table */
+
+/*************************************************************//**
 Creates a sync object array array to protect a hash table.
 ::sync_obj can be mutexes or rw_locks depening on the type of
 hash table. */
