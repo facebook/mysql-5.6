@@ -4106,6 +4106,7 @@ public:
   int get_gis_debug() { return gis_debug; }
   void set_gis_debug(int arg) { gis_debug= arg; }
 #endif
+  void reset_diagnostics();
 
 private:
 

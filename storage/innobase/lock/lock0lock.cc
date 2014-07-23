@@ -4404,7 +4404,9 @@ lock_table(
 	ut_a(flags == 0);
 
 	trx = thr_get_trx(thr);
-
+	if (UNIV_UNLIKELY(trx->fake_changes) && mode == LOCK_IX) {
+		mode = LOCK_IS;
+	}
 	/* Look for equal or stronger locks the same trx already
 	has on the table. No need to acquire the lock mutex here
 	because only this transacton can add/access table locks
@@ -5936,6 +5938,10 @@ lock_rec_insert_check_and_lock(
 	}
 
 	trx = thr_get_trx(thr);
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		return(DB_SUCCESS);
+	}
+
 	next_rec = page_rec_get_next_const(rec);
 	next_rec_heap_no = page_rec_get_heap_no(next_rec);
 
@@ -6135,6 +6141,10 @@ lock_clust_rec_modify_check_and_lock(
 		return(DB_SUCCESS);
 	}
 
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
+		return(DB_SUCCESS);
+	}
+
 	heap_no = rec_offs_comp(offsets)
 		? rec_get_heap_no_new(rec)
 		: rec_get_heap_no_old(rec);
@@ -6194,6 +6204,10 @@ lock_sec_rec_modify_check_and_lock(
 
 	if (flags & BTR_NO_LOCKING_FLAG) {
 
+		return(DB_SUCCESS);
+	}
+
+	if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
 		return(DB_SUCCESS);
 	}
 
@@ -6290,6 +6304,18 @@ lock_sec_rec_read_check_and_lock(
 		return(DB_SUCCESS);
 	}
 
+	if (!srv_fake_changes_locks)
+	{
+		if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
+			return(DB_SUCCESS);
+		}
+	} else {
+		if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)
+		    && mode == LOCK_X) {
+			mode = LOCK_S;
+		}
+	}
+
 	heap_no = page_rec_get_heap_no(rec);
 
 	/* Some transaction may have an implicit x-lock on the record only
@@ -6367,6 +6393,19 @@ lock_clust_rec_read_check_and_lock(
 
 		return(DB_SUCCESS);
 	}
+
+	if (!srv_fake_changes_locks)
+	{
+		if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
+			return(DB_SUCCESS);
+		}
+	} else {
+		if (thr && UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)
+		    && mode == LOCK_X) {
+			mode = LOCK_S;
+		}
+	}
+
 
 	heap_no = page_rec_get_heap_no(rec);
 
