@@ -17427,6 +17427,18 @@ static MYSQL_SYSVAR_UINT(build_prev_version_sleep,
   NULL, NULL, 0, 0, 60 * 1000, 0);
 #endif /* UNIV_DEBUG */
 
+static MYSQL_SYSVAR_ULONG(unzip_lru_pct, srv_unzip_LRU_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "The limit for the size of the unzip_LRU as a percentage of the "
+  "size of the LRU.",
+  NULL, NULL, 10, 1, 90, 0);
+
+static MYSQL_SYSVAR_ULONG(lru_io_to_unzip_factor, srv_lru_io_to_unzip_factor,
+  PLUGIN_VAR_RQCMDARG,
+  "The factor by which the IO rate is multiplied to make it equivalent to the "
+  "cost of decompressing a database page. ",
+  NULL, NULL, 50, 1, 1000000, 0);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -17603,6 +17615,8 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(lra_sleep),
   MYSQL_SYSVAR(lra_n_spaces),
   MYSQL_SYSVAR(segment_reserve_factor),
+  MYSQL_SYSVAR(unzip_lru_pct),
+  MYSQL_SYSVAR(lru_io_to_unzip_factor),
   MYSQL_SYSVAR(zlib_wrap),
   MYSQL_SYSVAR(zlib_strategy),
   MYSQL_SYSVAR(lru_manager_max_sleep_time),

@@ -383,6 +383,8 @@ extern ulong	srv_max_purge_lag;
 extern ulong	srv_max_purge_lag_delay;
 
 extern ulong	srv_replication_delay;
+extern ulong  srv_unzip_LRU_pct;
+extern ulong  srv_lru_io_to_unzip_factor;
 
 #ifdef XTRABACKUP
 extern ibool	srv_apply_log_only;
