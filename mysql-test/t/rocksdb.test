@@ -1139,3 +1139,14 @@ select count(*) from t1;
 set autocommit=1;
 drop table t0, t1;
 
+--echo #
+--echo # Check status variables
+--echo #
+--replace_column 2 #
+show status like 'rocksdb%';
+
+select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME LIKE 'rocksdb%';
+--echo # RocksDB-SE's status variables are global internally 
+--echo #  but they are shown as both session and global, like InnoDB's status vars.
+select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%';
+
