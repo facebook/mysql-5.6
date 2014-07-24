@@ -26,6 +26,7 @@
 #include "rocksdb/db.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/write_batch.h"
+#include "rocksdb/statistics.h"
 
 #include "sql_string.h"
 
