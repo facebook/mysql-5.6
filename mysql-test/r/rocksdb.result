@@ -1282,3 +1282,29 @@ count(*)
 0
 set autocommit=1;
 drop table t0, t1;
+#
+# Check status variables
+#
+show status like 'rocksdb%';
+Variable_name	Value
+rocksdb_bytes_written	#
+rocksdb_bytes_read	#
+rocksdb_number_keys_written	#
+rocksdb_number_keys_read	#
+rocksdb_number_keys_updated	#
+select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME LIKE 'rocksdb%';
+VARIABLE_NAME
+ROCKSDB_BYTES_WRITTEN
+ROCKSDB_BYTES_READ
+ROCKSDB_NUMBER_KEYS_WRITTEN
+ROCKSDB_NUMBER_KEYS_READ
+ROCKSDB_NUMBER_KEYS_UPDATED
+# RocksDB-SE's status variables are global internally 
+#  but they are shown as both session and global, like InnoDB's status vars.
+select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%';
+VARIABLE_NAME
+ROCKSDB_BYTES_WRITTEN
+ROCKSDB_BYTES_READ
+ROCKSDB_NUMBER_KEYS_WRITTEN
+ROCKSDB_NUMBER_KEYS_READ
+ROCKSDB_NUMBER_KEYS_UPDATED

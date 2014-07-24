@@ -434,6 +434,7 @@ static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
   return 0;
 }
 
+static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 
 static int rocksdb_init_func(void *p)
 {
@@ -472,9 +473,11 @@ static int rocksdb_init_func(void *p)
   row_locks.init(compare_mem_comparable_keys,
                  Primary_key_comparator::get_hashnr);
 
+  rocksdb_stats= rocksdb::CreateDBStatistics();
   rocksdb::Options main_opts;
   main_opts.create_if_missing = true;
   main_opts.comparator= &primary_key_comparator;
+  main_opts.statistics= rocksdb_stats;
   rocksdb::Status status;
   status= rocksdb::DB::Open(main_opts, "./rocksdb", &rdb);
 
@@ -2470,14 +2473,57 @@ static int show_rocksdb_vars(THD *thd, SHOW_VAR *var, char *buff)
 }
 #endif
 
+typedef struct {
+  long bytes_written;
+  long bytes_read;
+  long number_keys_written;
+  long number_keys_read;
+  long number_keys_updated;
+} ROCKSDBSE_STATUS_VARS;
+
+static ROCKSDBSE_STATUS_VARS rocksdb_counters;
+
+static SHOW_VAR rocksdb_status_variables[]= {
+  {"bytes_written",        (char*) &rocksdb_counters.bytes_written, SHOW_LONG},
+  {"bytes_read",           (char*) &rocksdb_counters.bytes_read, SHOW_LONG},
+  {"number_keys_written",  (char*) &rocksdb_counters.number_keys_written, SHOW_LONG},
+  {"number_keys_read",     (char*) &rocksdb_counters.number_keys_read, SHOW_LONG},
+  {"number_keys_updated",  (char*) &rocksdb_counters.number_keys_updated, SHOW_LONG},
+  {NullS, NullS, SHOW_LONG}
+};
+
+
+void rocksdb_export_status()
+{
+  ROCKSDBSE_STATUS_VARS &r= rocksdb_counters;
+  // TODO: should we protect the below with taking/releasing a mutex, like
+  // innodb does?
+  r.bytes_written=       rocksdb_stats->getTickerCount(rocksdb::BYTES_WRITTEN);
+  r.bytes_read=          rocksdb_stats->getTickerCount(rocksdb::BYTES_READ);
+  r.number_keys_written= rocksdb_stats->getTickerCount(rocksdb::NUMBER_KEYS_WRITTEN);
+  r.number_keys_read=    rocksdb_stats->getTickerCount(rocksdb::NUMBER_KEYS_READ);
+  r.number_keys_updated= rocksdb_stats->getTickerCount(rocksdb::NUMBER_KEYS_UPDATED);
+}
+
+
+static int show_rocksdb_status_vars(THD* thd, SHOW_VAR *var, char* buff)
+{
+  rocksdb_export_status();
+  var->type = SHOW_ARRAY;
+  var->value = (char*) &rocksdb_status_variables;
+  return(0);
+}
+
+
+static SHOW_VAR rocksdb_status_vars[]=
+{
+  {"rocksdb", (char*) &show_rocksdb_status_vars, SHOW_FUNC},
+  {NullS, NullS, SHOW_LONG}
+};
+
+
 struct st_mysql_storage_engine rocksdb_storage_engine=
 { MYSQL_HANDLERTON_INTERFACE_VERSION };
-
-static struct st_mysql_show_var func_status[]=
-{
- // {"Cassandra",  (char *)show_rocksdb_vars, SHOW_FUNC},
-  {0,0,SHOW_UNDEF}
-};
 
 mysql_declare_plugin(rocksdb_se)
 {
@@ -2490,7 +2536,7 @@ mysql_declare_plugin(rocksdb_se)
   rocksdb_init_func,                            /* Plugin Init */
   rocksdb_done_func,                            /* Plugin Deinit */
   0x0001,                                       /* version number (0.1) */
-  func_status,                                  /* status variables */
+  rocksdb_status_vars,                          /* status variables */
   rocksdb_system_variables,                     /* system variables */
   NULL,                                         /* config options */
   0,                                            /* flags */
