@@ -1785,7 +1785,7 @@ int ha_rocksdb::write_row(uchar *buf)
   trx->changes.Put(key_slice, value_slice);
   trx->n_writes++;
 
-  if (do_locking && trx->n_writes > THDVAR(table->in_use, bulk_load_size))
+  if (!do_locking && trx->n_writes > THDVAR(table->in_use, bulk_load_size))
   {
     /* Bulk insert mode: flush the write batch if it became too big */
     if (trx->flush_batch())
