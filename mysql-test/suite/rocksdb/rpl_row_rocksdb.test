@@ -1,0 +1,23 @@
+source include/master-slave.inc;
+
+connection master;
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+connection master;
+
+select @@binlog_format;
+create table t1 (pk int primary key) engine=rocksdb;
+insert into t1 values (1),(2),(3);
+
+--source include/sync_slave_sql_with_master.inc
+connection slave;
+
+select * from t1;
+
+connection master;
+drop table t1;
+
+--source include/rpl_end.inc
+
