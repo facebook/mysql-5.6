@@ -12,6 +12,8 @@ set global debug='d,slave_missing_gtid';
 insert into t1 values (2);
 include/rpl_reconnect.inc
 SET GLOBAL debug = ``;
+include/stop_slave_io.inc
+include/start_slave_io.inc
 select * from t1;
 a
 1
