@@ -174,7 +174,7 @@ public:
         If we don't set it, filesort crashes, because it assumes rowids are
         1..8 byte numbers
     */
-    return HA_BINLOG_STMT_CAPABLE |
+    return HA_BINLOG_ROW_CAPABLE |
            HA_REC_NOT_IN_SEQ |
            HA_REQUIRE_PRIMARY_KEY |
            (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
