@@ -41,19 +41,23 @@ set @save.slave_transaction_retries= @@global.slave_transaction_retries;
 # notices no more groups left neither to read nor to process (demo 2).
 #
 
-start slave io_thread;
-source include/wait_for_slave_io_to_start.inc;
+source include/start_slave.inc;
 
 connection master;
 
 --disable_query_log
 # todo: sleep() is deterministic!!!
 call mtr.add_suppression('.*Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT.*');
+call mtr.add_suppression('.*Lock wait timeout exceeded.*');
 --enable_query_log
 
 create table t1 (f1 int) engine=innodb;
 create table t2 (f1 int) engine=innodb;
-save_master_pos;
+# tables are created on slave
+sync_slave_with_master;
+source include/stop_slave_sql.inc;
+
+connection master;
 
 # 1st transaction that will be used to compute SBM.
 # It will hang $idle time at least in processing to get min estimate for SBM
@@ -68,9 +72,6 @@ begin;
   insert into t2 values (1);
 commit;
 
-connection slave;
-source include/start_slave.inc;
-
 #
 # all events are in relay-log
 #
@@ -78,14 +79,11 @@ connection master;
 
 source include/sync_slave_io_with_master.inc;
 
-# tables are created on slave
-connection slave;
-sync_with_master;
-
 connection slave1;
 lock table t2 write;  # to block 2nd trans
 
 connection slave;
+source include/start_slave_sql.inc;
 
 let $count= 1;
 let $table= t1;
