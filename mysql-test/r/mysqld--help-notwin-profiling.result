@@ -198,6 +198,7 @@ The following options may be given as the first argument:
  client that does INSERT DELAYED will wait until there is
  room in the queue again.This variable is deprecated along
  with INSERT DELAYED.
+ --disable-trigger   Disable triggers for the session.
  --disable-working-set-size 
  Do not maintain working set size if on
  --disconnect-on-expired-password 
@@ -1199,6 +1200,7 @@ delay-key-write ON
 delayed-insert-limit 100
 delayed-insert-timeout 300
 delayed-queue-size 1000
+disable-trigger FALSE
 disable-working-set-size FALSE
 disconnect-on-expired-password TRUE
 disconnect-slave-event-count 0
