@@ -652,7 +652,8 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pk_tuple(NULL), pk_packed_tuple(NULL),
     sec_key_packed_tuple(NULL), sec_key_tails(NULL),
     lock_rows(FALSE),
-    keyread_only(FALSE)
+    keyread_only(FALSE),
+    field_enc(NULL)
 {}
 
 
@@ -676,66 +677,111 @@ const char **ha_rocksdb::bas_ext() const
 
 void ha_rocksdb::convert_record_to_storage_format(rocksdb::Slice *packed_rec)
 {
-  Field **field;
-
-  for (field= table->field; *field; field++)
-  {
-    if ((*field)->real_type() == MYSQL_TYPE_VARCHAR)
-    {
-      Field_varstring* field_var= (Field_varstring*)*field;
-      /* Fill unused bytes with zeros */
-      uint used_size= field_var->length_bytes + (*field)->data_length();
-      uint total_size= (*field)->pack_length();
-      memset((*field)->ptr + used_size, 0, total_size - used_size);
-    }
-  }
-
-  if (!table->s->blob_fields)
-  {
-    *packed_rec = rocksdb::Slice((char*)table->record[0], table->s->reclength);
-    return;
-  }
-
-  /* Ok have blob fields */
   storage_record.length(0);
-  storage_record.append((const char*)table->record[0], table->s->reclength);
+  /* All NULL bits are initially 0 */
+  storage_record.fill(null_bytes_in_rec, 0);
 
-  // for each blob column
-  for (field= table->field; *field; field++)
+  for (uint i=0; i < table->s->fields; i++)
   {
-    if ((*field)->type() == MYSQL_TYPE_BLOB)
+    Field *field= table->field[i];
+    if (field_enc[i].maybe_null())
     {
-      Field_blob *blob= (Field_blob*)(*field);
-      uint32 value_len= blob->get_length();
-      uint length_bytes= blob->pack_length() - 8;
+      char *data= (char*)storage_record.ptr();
+      if (field->is_null())
+      {
+        data[field_enc[i].null_offset] |= field_enc[i].null_mask;
+        /* Don't write anything for NULL values */
+        continue;
+      }
+    }
+
+    if (field_enc[i].field_type == MYSQL_TYPE_BLOB)
+    {
+      Field_blob *blob= (Field_blob*)field;
+      /* Get the number of bytes needed to store length*/
+      uint length_bytes= blob->pack_length() - portable_sizeof_char_ptr;
+
+      /* Store the length of the value */
+      storage_record.append((char*)blob->ptr, length_bytes);
+
+      /* Store the blob value itself */
       char *data_ptr;
       memcpy(&data_ptr, blob->ptr + length_bytes, sizeof(uchar**));
-
-      storage_record.append(data_ptr, value_len);
-      uint32 size_to_write= htons(value_len);
-      size_t pointer_offset= (blob->ptr - table->record[0]) + length_bytes;
-      memcpy((char*)storage_record.ptr() + pointer_offset, &size_to_write,
-             sizeof(uint32));
+      storage_record.append(data_ptr, blob->get_length());
+    }
+    else if (field_enc[i].field_type == MYSQL_TYPE_VARCHAR)
+    {
+      Field_varstring* field_var= (Field_varstring*)field;
+      uint data_len;
+      /* field_var->length_bytes is 1 or 2 */
+      if (field_var->length_bytes == 1)
+      {
+        data_len= field_var->ptr[0];
+      }
+      else
+      {
+        DBUG_ASSERT(field_var->length_bytes==2);
+        data_len= uint2korr(field_var->ptr);
+      }
+      storage_record.append((char*)field_var->ptr,
+                            field_var->length_bytes + data_len);
+    }
+    else
+    {
+      /* Copy the field data */
+      uint len= field->pack_length_in_rec();
+      storage_record.append((char*)field->ptr, len);
     }
   }
   *packed_rec= rocksdb::Slice(storage_record.ptr(), storage_record.length());
 }
 
 
-void ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
+/*
+  @param  slice Record in storage format
+  @param  buf   Store record in table->record[0] form here
+*/
+int ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
                                                     uchar *buf)
 {
-  if (!table->s->blob_fields)
-  {
-    DBUG_ASSERT(slice->size() == table->s->reclength);
-    memcpy(buf, slice->data(), slice->size());
-  }
-  else
-  {
-    retrieved_record.assign(slice->data(), slice->size());
-    convert_record_from_storage_format(buf);
-  }
+  retrieved_record.assign(slice->data(), slice->size());
+  return convert_record_from_storage_format(buf);
 }
+
+
+/*
+  A simple string reader.
+*/
+
+class Stream_reader
+{
+  const char* ptr;
+  uint len;
+public:
+  Stream_reader(const std::string &str)
+  {
+    ptr= &str.at(0);
+    len= str.length();
+  }
+  /*
+    Read the next @param size bytes. Returns pointer to the bytes read, or
+    NULL if the remaining string doesn't have that many bytes.
+  */
+  const char *read(uint size)
+  {
+    const char *res;
+    if (len < size)
+      res= NULL;
+    else
+    {
+      res= ptr;
+      ptr += size;
+      len -= size;
+    }
+    return res;
+  }
+  uint remaining_bytes() { return len; }
+};
 
 
 /*
@@ -744,56 +790,97 @@ void ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
 
   If the table has blobs, the unpacked data in buf may keep pointers to the
   data in this->retrieved_record.
+
+  @return
+    0      OK
+    other  Error inpacking the data
 */
 
-void ha_rocksdb::convert_record_from_storage_format(uchar * buf)
+int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
 {
-  if (!table->s->blob_fields)
+  Stream_reader reader(retrieved_record);
+  my_ptrdiff_t ptr_diff= buf - table->record[0];
+
+  const char *null_bytes;
+  if (!(null_bytes= reader.read(null_bytes_in_rec)))
+    return HA_ERR_INTERNAL_ERROR;
+
+  for (uint i=0; i < table->s->fields; i++)
   {
-    DBUG_ASSERT(retrieved_record.length() == table->s->reclength);
-    memcpy(buf, retrieved_record.c_str(), retrieved_record.length());
-    return;
-  }
-  else
-    unpack_blobs_from_retrieved_record(buf);
-}
-
-
-void ha_rocksdb::unpack_blobs_from_retrieved_record(uchar *buf)
-{
-  /*
-    Unpack the blobs
-     Blobs in the record are stored as
-      [record-0 format] [blob data#1] [blob data#2]
-  */
-  memcpy(buf, retrieved_record.c_str(), table->s->reclength);
-
-  const char *blob_ptr= retrieved_record.c_str() + table->s->reclength;
-
-  // for each blob column
-  for (Field **field= table->field; *field; field++)
-  {
-    if ((*field)->type() == MYSQL_TYPE_BLOB)
+    Field *field= table->field[i];
+    if (field_enc[i].maybe_null())
     {
-      Field_blob *blob= (Field_blob*)(*field);
-      my_ptrdiff_t ptr_diff= buf - table->record[0];
-      blob->move_field_offset(ptr_diff);
-      /*
-        We've got the blob length when we've memcpy'ed table->record[0].
-        But there's still offset instead of blob pointer.
-      */
-      uint32 value_len= blob->get_length();
-      uint length_bytes= blob->pack_length() - 8;
+      if (null_bytes[field_enc[i].null_offset] & field_enc[i].null_mask)
+      {
+        field->set_null(ptr_diff);
+        /* NULL value means no data is stored */
+        continue;
+      }
+      else
+        field->set_notnull(ptr_diff);
+    }
 
+    if (field_enc[i].field_type == MYSQL_TYPE_BLOB)
+    {
+      Field_blob *blob= (Field_blob*)field;
+      /* Get the number of bytes needed to store length*/
+      uint length_bytes= blob->pack_length() - portable_sizeof_char_ptr;
+
+      const char *data_len_str;
+      if (!(data_len_str= reader.read(length_bytes)))
+        return HA_ERR_INTERNAL_ERROR;
+      memcpy(blob->ptr, data_len_str, length_bytes);
+
+      uint32 data_len= blob->get_length((uchar*)data_len_str, length_bytes,
+                                        table->s->db_low_byte_first);
+      const char *blob_ptr;
+      if (!(blob_ptr= reader.read(data_len)))
+        return HA_ERR_INTERNAL_ERROR;
+
+      blob->move_field_offset(ptr_diff);
       // set 8-byte pointer to 0, like innodb does.
       memset(blob->ptr + length_bytes, 0, 8);
-
       memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar**));
-
-      blob_ptr += value_len;
       blob->move_field_offset(-ptr_diff);
     }
+    else if (field_enc[i].field_type == MYSQL_TYPE_VARCHAR)
+    {
+      Field_varstring* field_var= (Field_varstring*)field;
+      const char *data_len_str;
+      if (!(data_len_str= reader.read(field_var->length_bytes)))
+        return HA_ERR_INTERNAL_ERROR;
+
+      uint data_len;
+      /* field_var->length_bytes is 1 or 2 */
+      if (field_var->length_bytes == 1)
+      {
+        data_len= data_len_str[0];
+      }
+      else
+      {
+        DBUG_ASSERT(field_var->length_bytes==2);
+        data_len= uint2korr(data_len_str);
+      }
+      if (!(reader.read(data_len)))
+        return HA_ERR_INTERNAL_ERROR;
+      field_var->move_field_offset(ptr_diff);
+      memcpy(field_var->ptr, data_len_str, field_var->length_bytes + data_len);
+      field_var->move_field_offset(-ptr_diff);
+    }
+    else
+    {
+      const char *data_bytes;
+      uint len= field->pack_length_in_rec();
+      if (!(data_bytes= reader.read(len)))
+        return HA_ERR_INTERNAL_ERROR;
+      field->move_field_offset(ptr_diff);
+      memcpy((char*)field->ptr, data_bytes, len);
+      field->move_field_offset(-ptr_diff);
+    }
   }
+  DBUG_ASSERT(reader.remaining_bytes() == 0);
+
+  return 0;
 }
 
 
@@ -803,6 +890,44 @@ static void make_dbname_tablename(StringBuffer<64> *str, TABLE *table_arg)
   str->append('.');
   str->append(table_arg->s->table_name.str, table_arg->s->table_name.length);
   str->c_ptr_safe();
+}
+
+
+void ha_rocksdb::setup_field_converters()
+{
+  uint i;
+  uint null_bytes= 0;
+  uchar cur_null_mask=0x1;
+
+  if (!(field_enc= (FIELD_ENCODER*)my_malloc(table->s->fields*sizeof(FIELD_ENCODER), MYF(0))))
+    return;
+
+  for (i= 0; i < table->s->fields; i++)
+  {
+    Field *field= table->field[i];
+    field_enc[i].field_type= field->real_type();
+    //TODO: setup other copying data
+    if (field->real_maybe_null())
+    {
+      field_enc[i].null_mask= cur_null_mask;
+      field_enc[i].null_offset=null_bytes;
+      if (cur_null_mask == 0x80)
+      {
+        cur_null_mask= 0x1;
+        null_bytes++;
+      }
+      else
+        cur_null_mask= cur_null_mask << 1;
+    }
+    else
+      field_enc[i].null_mask= 0;
+  }
+
+  /* Count the last, unfinished NULL-bits byte */
+  if (cur_null_mask != 0x1)
+    null_bytes++;
+
+  null_bytes_in_rec= null_bytes;
 }
 
 
@@ -850,6 +975,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
       max_packed_sec_key_len= packed_len;
   }
 
+  setup_field_converters();
+
   if (!(sec_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
                                                 MYF(0))) ||
       !((sec_key_tails= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))))
@@ -887,6 +1014,10 @@ int ha_rocksdb::close(void)
   if (sec_key_tails)
     my_free(sec_key_tails);
   sec_key_tails= NULL;
+
+  if (field_enc)
+    my_free(field_enc);
+  field_enc= NULL;
 
   DBUG_RETURN(free_share(share));
 }
@@ -1446,7 +1577,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     {
       /* Unpack from the row we've read */
       rocksdb::Slice value= scan_it->value();
-      convert_record_from_storage_format(&value, buf);
+      rc= convert_record_from_storage_format(&value, buf);
     }
   }
   else
@@ -1559,9 +1690,8 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
     if (lock_rows)
       trx->add_lock(lock);
     last_rowkey.copy((const char*)rowid, rowid_size, &my_charset_bin);
-    convert_record_from_storage_format(buf);
+    rc= convert_record_from_storage_format(buf);
     table->status= 0;
-    rc= 0;
   }
   else
   {
@@ -1934,16 +2064,14 @@ retry:
         trx->add_lock(lock);
 
         last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        convert_record_from_storage_format(buf);
+        rc= convert_record_from_storage_format(buf);
         table->status= 0;
-        rc= 0;
       }
       else
       {
         last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
         rocksdb::Slice value= scan_it->value();
-        convert_record_from_storage_format(&value, buf);
-        rc= 0;
+        rc= convert_record_from_storage_format(&value, buf);
         table->status= 0;
       }
     }
