@@ -2667,4 +2667,23 @@ INSERT INTO t1 VALUES(0);
 
 DROP TABLE t1;
 
+--echo # Test disable_trigger session variable
+create table t1 (i int);
+
+set @@session.disable_trigger = TRUE;
+create trigger trg before insert on t1 for each row set @a:=1;
+set @a:=0;
+select @a;
+insert into t1 values (1);
+select @a;
+drop trigger trg;
+
+# let us test simple trigger reading some values
+create trigger trg before insert on t1 for each row set @a:=new.i;
+insert into t1 values (123);
+select @a;
+drop trigger trg;
+
+drop table t1;
+
 --echo End of 6.0 tests.
