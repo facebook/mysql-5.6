@@ -1,0 +1,152 @@
+####################### mysql-test\t\disable_trigger_basic.test ###############
+#                                                                             #
+# Variable Name: disable_trigger                                              #
+# Scope: SESSION                                                              #
+# Access Type: Dynamic                                                        #
+# Data Type: boolean                                                          #
+# Default Value:                                                              #
+# Valid Values: 0,1                                                           #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2014-07-30                                                   #
+# Author:  Rongrong                                                           #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable disable_trigger          #
+#              that checks the behavior of this variable in the following ways#
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+
+##############################################################################
+#      Saving initial value of disable_trigger in a temporary variable       #
+##############################################################################
+
+SET @session_start_value = @@session.disable_trigger;
+SELECT @session_start_value;
+
+########################################################################
+#           Display the DEFAULT value of disable_trigger               #
+########################################################################
+
+SET @@session.disable_trigger = 0;
+SET @@session.disable_trigger = DEFAULT;
+SELECT @@session.disable_trigger;
+
+SET @@session.disable_trigger = 1;
+SET @@session.disable_trigger = DEFAULT;
+SELECT @@session.disable_trigger;
+
+
+#############################################################################
+#   Check if disable_trigger can be accessed with and without @@ sign       #
+#############################################################################
+
+SET disable_trigger = 1;
+SELECT @@disable_trigger;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.disable_trigger;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.disable_trigger;
+
+SET session disable_trigger = 0;
+SELECT @@session.disable_trigger;
+
+
+########################################################################
+#      change the value of disable_trigger to a valid value            #
+########################################################################
+
+SET @@session.disable_trigger = 0;
+SELECT @@session.disable_trigger;
+SET @@session.disable_trigger = 1;
+SELECT @@session.disable_trigger;
+
+
+###########################################################################
+#       Change the value of disable_trigger to invalid value              #
+###########################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = "T";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = TRÜE;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = ÕN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = OF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = ÓFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = '¹';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.disable_trigger = NO;
+
+
+###########################################################################
+#       Test if accessing global disable_trigger gives error              #
+###########################################################################
+
+SET @@global.disable_trigger = 1;
+SELECT @@global.disable_trigger;
+SET @@global.disable_trigger = 0;
+
+#########################################################################
+#     Check if the value in GLOBAL Table contains variable value        #
+#########################################################################
+
+SELECT count(VARIABLE_VALUE) FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES WHERE VARIABLE_NAME='disable_trigger';
+
+#########################################################################
+#     Check if the value in GLOBAL Table matches value in variable      #
+#########################################################################
+
+SELECT IF(@@session.disable_trigger, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='disable_trigger';
+SELECT @@session.disable_trigger;
+SELECT VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='disable_trigger';
+
+###################################################################
+#        Check if ON and OFF values can be used on variable       #
+###################################################################
+
+SET @@session.disable_trigger = OFF;
+SELECT @@session.disable_trigger;
+SET @@session.disable_trigger = ON;
+SELECT @@session.disable_trigger;
+
+###################################################################
+#      Check if TRUE and FALSE values can be used on variable     #
+###################################################################
+
+SET @@session.disable_trigger = TRUE;
+SELECT @@session.disable_trigger;
+SET @@session.disable_trigger = FALSE;
+SELECT @@session.disable_trigger;
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@session.disable_trigger = @session_start_value;
+SELECT @@session.disable_trigger;
+
+###############################################################
+#                END OF disable_trigger TESTS                 #
+###############################################################

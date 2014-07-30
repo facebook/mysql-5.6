@@ -2274,4 +2274,24 @@ DROP TABLE t2;
 INSERT INTO t1 VALUES(0);
 ERROR 42S02: Table 'test.t2' doesn't exist
 DROP TABLE t1;
+# Test disable_trigger session variable
+create table t1 (i int);
+set @@session.disable_trigger = TRUE;
+create trigger trg before insert on t1 for each row set @a:=1;
+set @a:=0;
+select @a;
+@a
+0
+insert into t1 values (1);
+select @a;
+@a
+0
+drop trigger trg;
+create trigger trg before insert on t1 for each row set @a:=new.i;
+insert into t1 values (123);
+select @a;
+@a
+0
+drop trigger trg;
+drop table t1;
 End of 6.0 tests.

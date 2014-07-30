@@ -2145,6 +2145,9 @@ bool Table_triggers_list::process_triggers(THD *thd,
   sp_head *sp_trigger= bodies[event][time_type];
   SELECT_LEX *save_current_select;
 
+  if (thd->variables.disable_trigger)
+    return FALSE;
+
   if (check_for_broken_triggers())
     return true;
 
