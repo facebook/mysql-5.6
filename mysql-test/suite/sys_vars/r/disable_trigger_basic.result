@@ -1,0 +1,95 @@
+SET @session_start_value = @@session.disable_trigger;
+SELECT @session_start_value;
+@session_start_value
+0
+SET @@session.disable_trigger = 0;
+SET @@session.disable_trigger = DEFAULT;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0
+SET @@session.disable_trigger = 1;
+SET @@session.disable_trigger = DEFAULT;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0
+SET disable_trigger = 1;
+SELECT @@disable_trigger;
+@@disable_trigger
+1
+SELECT session.disable_trigger;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.disable_trigger;
+ERROR 42S02: Unknown table 'local' in field list
+SET session disable_trigger = 0;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0
+SET @@session.disable_trigger = 0;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0
+SET @@session.disable_trigger = 1;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+1
+SET @@session.disable_trigger = -1;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of '-1'
+SET @@session.disable_trigger = 2;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of '2'
+SET @@session.disable_trigger = "T";
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'T'
+SET @@session.disable_trigger = "Y";
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'Y'
+SET @@session.disable_trigger = TRÜE;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'TRÜE'
+SET @@session.disable_trigger = ÕN;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'ÕN'
+SET @@session.disable_trigger = OF;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'OF'
+SET @@session.disable_trigger = ÓFF;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'ÓFF'
+SET @@session.disable_trigger = '¹';
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of '¹'
+SET @@session.disable_trigger = NO;
+ERROR 42000: Variable 'disable_trigger' can't be set to the value of 'NO'
+SET @@global.disable_trigger = 1;
+SELECT @@global.disable_trigger;
+@@global.disable_trigger
+1
+SET @@global.disable_trigger = 0;
+SELECT count(VARIABLE_VALUE) FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES WHERE VARIABLE_NAME='disable_trigger';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.disable_trigger, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='disable_trigger';
+IF(@@session.disable_trigger, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+1
+SELECT VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='disable_trigger';
+VARIABLE_VALUE
+ON
+SET @@session.disable_trigger = OFF;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0
+SET @@session.disable_trigger = ON;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+1
+SET @@session.disable_trigger = TRUE;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+1
+SET @@session.disable_trigger = FALSE;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0
+SET @@session.disable_trigger = @session_start_value;
+SELECT @@session.disable_trigger;
+@@session.disable_trigger
+0

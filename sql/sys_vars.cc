@@ -542,6 +542,12 @@ static Sys_var_mybool Sys_block_create_myisam(
        GLOBAL_VAR(block_create_myisam),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_disable_trigger(
+       "disable_trigger",
+       "Disable triggers for the session.",
+       SESSION_VAR(disable_trigger),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_ulong Sys_auto_increment_increment(
        "auto_increment_increment",
        "Auto-increment columns are incremented by this",
