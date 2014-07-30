@@ -443,6 +443,7 @@ typedef struct system_variables
   ulonglong tmp_table_max_file_size;
   ulonglong long_query_time;
   my_bool end_markers_in_json;
+  my_bool disable_trigger;
   /* A bitmap for switching optimizations on/off */
   ulonglong optimizer_switch;
   ulonglong optimizer_trace; ///< bitmap to tune optimizer tracing
