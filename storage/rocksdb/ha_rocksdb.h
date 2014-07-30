@@ -142,6 +142,36 @@ class ha_rocksdb: public handler
   /* Idea copied from InnoDB's convert_error_code_to_mysql */
   int return_lock_failure(bool timed_out);
 
+  /*
+    Descriptor telling how to decode/encode a field to on-disk record storage
+    format. Not all information is in the structure yet, but eventually we
+    want to have as much as possible there to avoid virtual calls.
+
+    For encoding/decoding of index tuples, see RDBSE_KEYDEF.
+  */
+  typedef struct st_field_encoder
+  {
+    uint null_offset;
+    uchar null_mask;  // 0 means the field cannot be null
+
+    enum_field_types field_type;
+
+    bool maybe_null() { return null_mask != 0; }
+  } FIELD_ENCODER;
+
+  /*
+    Array of table->s->fields elements telling how to store fields in the
+    record.
+  */
+  FIELD_ENCODER *field_enc;
+
+  /*
+    Number of bytes in on-disk (storage) record format that are used for
+    storing SQL NULL flags.
+  */
+  uint null_bytes_in_rec;
+
+  void setup_field_converters();
 public:
   ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}
@@ -196,9 +226,8 @@ public:
 
   int rename_table(const char *from, const char *to);
 
-  void unpack_blobs_from_retrieved_record(uchar *buf);
-  void convert_record_from_storage_format(rocksdb::Slice *slice, uchar *buf);
-  void convert_record_from_storage_format(uchar *buf);
+  int convert_record_from_storage_format(rocksdb::Slice *slice, uchar *buf);
+  int convert_record_from_storage_format(uchar *buf);
 
   void convert_record_to_storage_format(rocksdb::Slice *packed_rec);
 
