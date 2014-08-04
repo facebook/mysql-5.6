@@ -125,12 +125,6 @@ static const byte supremum_extra_data[] = {
 	0x65, 0x6d, 0x75, 0x6d	/* "supremum" */
 };
 
-/* The minimum length of the modification log in order for it to be
-compressed */
-#define PAGE_ZIP_MLOG_MIN_LEN 10
-/* The flag that determines whether the mlog is compressed */
-#define PAGE_ZIP_MLOG_COMPRESSED 0x8000UL
-
 /** Assert that a block of memory is filled with zero bytes.
 Compare at most sizeof(field_ref_zero) bytes.
 @param b	in: memory block
@@ -828,9 +822,10 @@ page_zip_size_check(
 						page_zip->m_end and
 						the page headers from
 						page_zip->data */
-	ibool			is_clust)	/* in: true if a clustered
-						leaf page */
+	const dict_index_t*	index)		/* in: index object
+						for the table */
 {
+	ulint	is_clust = dict_index_is_clust(index);
 	ulint	trailer_len = page_zip_get_trailer_len(page_zip, is_clust);
 	if (UNIV_UNLIKELY(page_zip->m_end + trailer_len
 			  >= page_zip_get_size(page_zip))) {
@@ -938,12 +933,9 @@ page_zip_store_blobs_for_rec(
 	if (!n_ext) {
 		return;
 	}
-	/* If the comp type is DICT_TF_COMP_ZLIB_STREAM, then this record
-	may be one of the purged records otherwise it can not be a purged
-	record because purged records are not serialized. We do not store
-	blob pointers for purged records. */
-	if (page_zip->comp_type == DICT_TF_COMP_ZLIB_STREAM
-	    && page_zip_dir_find_free(page_zip, page_offset(rec))) {
+	/* TODO(rongrong): we don't have to check for purged records for
+	new compression, update this when comp_type is stored in page_zip. */
+	if (page_zip_dir_find_free(page_zip, page_offset(rec))) {
 		return;
 	}
 
@@ -2086,6 +2078,7 @@ page_zip_compress_clust(
 					     &trx_rbp_storage);
 		page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets, rec_no,
 				       trx_id_col, FALSE);
+		page_zip_size_check(page_zip, index);
 	}
 func_exit:
 	return(err);
@@ -2436,7 +2429,7 @@ page_zip_serialize(
 			page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets,
 					       rec_no, trx_id_col,
 					       page_zip->compact_metadata);
-			page_zip_size_check(page_zip, TRUE);
+			page_zip_size_check(page_zip, index);
 		}
 	}
 	*serialized_len = buf_ptr - buf;
@@ -2659,7 +2652,9 @@ zlib_error:
 	in the last 7 or 8 bytes of the stream. Make Valgrind happy. */
 	UNIV_MEM_VALID(page_zip->data + PAGE_DATA, c_stream.total_out);
 
+#ifdef UNIV_DEBUG
 	page_zip->m_start =
+#endif /* UNIV_DEBUG */
 	page_zip->m_end = PAGE_DATA + c_stream.total_out;
 	page_zip->m_nonempty = FALSE;
 
@@ -2675,76 +2670,6 @@ zlib_error:
 #endif /* UNIV_DEBUG */
 
 	return(TRUE);
-}
-
-/*************************************************************//**
-Compress the modification log of a compressed page. There can be multiple
-compressed mlogs, only the last mlog remains uncompressed until this function
-is called.
-@return TRUE if the mlog compression was successful. */
-ibool
-page_zip_compress_mlog(
-	page_zip_des_t*		page_zip,
-					/* compressed page whose mlog needs to
-					be compressed. */
-	const page_t*		page,	/* uncompressed version of the page */
-	const dict_index_t*	index,	/* record schema */
-	mtr_t*			mtr)	/* mini transaction */
-{
-	mem_heap_t* heap;
-	ulint avail_out;
-	ibool ret;
-	comp_state_t comp_state;
-	if (!page_zip->m_nonempty
-	    || (page_zip->comp_type == DICT_TF_COMP_ZLIB_STREAM)) {
-		return FALSE;
-	}
-	/* Don't attempt to compress mlog if the mlog is too short */
-	if (page_zip->m_end - page_zip->m_start < PAGE_ZIP_MLOG_MIN_LEN)
-		return FALSE;
-	page_zip_size_check(page_zip, dict_index_is_clust(index));
-	heap = mem_heap_create_cached(0, malloc_cache_compress);
-	/* We need to make sure that we have enough space for an mlog header
-	after compressing the current mlog. */
-	avail_out = page_zip->m_end - page_zip->m_start
-				    - 2 * PAGE_ZIP_MLOG_HEADER_LEN;
-
-	comp_state.in = page_zip->data + page_zip->m_start
-			+ PAGE_ZIP_MLOG_HEADER_LEN;
-	comp_state.avail_in = page_zip->m_end - page_zip->m_start
-			      - PAGE_ZIP_MLOG_HEADER_LEN;
-	comp_state.out = static_cast<byte*> (mem_heap_alloc(heap, avail_out));
-	comp_state.avail_out = avail_out;
-	comp_state.heap = heap;
-	comp_state.level = page_zip->comp_level;
-	ret = comp_compress(page_zip->comp_type, &comp_state);
-	if (ret) {
-		ulint len;
-		ut_a(comp_state.avail_out < avail_out);
-		len = avail_out - comp_state.avail_out;
-		memcpy(page_zip->data + page_zip->m_start
-		       + PAGE_ZIP_MLOG_HEADER_LEN,
-		       comp_state.out,
-		       len);
-		mach_write_to_2(page_zip->data + page_zip->m_start,
-				PAGE_ZIP_MLOG_COMPRESSED | len);
-		ut_a(page_zip->m_start + PAGE_ZIP_MLOG_HEADER_LEN + len
-		     <= page_zip->m_end);
-		page_zip->m_start += PAGE_ZIP_MLOG_HEADER_LEN + len;
-		memset(page_zip->data + page_zip->m_start,
-		       0,
-		       page_zip->m_end - page_zip->m_start);
-		page_zip->m_end = page_zip->m_start + PAGE_ZIP_MLOG_HEADER_LEN;
-		page_zip_size_check(page_zip, dict_index_is_clust(index));
-		mem_heap_free(heap);
-		if (mtr) {
-			page_zip_compress_write_log_mlog(page, index, mtr);
-		}
-		return TRUE;
-	}
-
-	mem_heap_free(heap);
-	return FALSE;
 }
 
 /**********************************************************************//**
@@ -2767,6 +2692,8 @@ page_zip_compress(
 	ulint fsp_flags;
 	ibool ret;
 	mem_heap_t* heap = NULL;
+	uchar comp_level;
+	uchar comp_type;
 	ulint n_dense;
 	uint serialized_len = 0;
 	ulint compressed_len = 0;
@@ -2876,6 +2803,8 @@ page_zip_compress(
 	/* asking a heap of size 0 will just give a memory block
 	   with the default block size which is OK */
 	heap = mem_heap_create_cached(0, malloc_cache_compress);
+	comp_level = FSP_FLAGS_GET_COMP_LEVEL(fsp_flags);
+	comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
 	new_page_zip.data = static_cast<byte*> (
 				mem_heap_alloc(
 					heap, page_zip_get_size(page_zip)));
@@ -2890,12 +2819,8 @@ page_zip_compress(
 	memcpy(new_page_zip.data, page, PAGE_DATA);
 	page_zip->compact_metadata = new_page_zip.compact_metadata
 				   = FSP_FLAGS_GET_COMPACT_METADATA(fsp_flags);
-	page_zip->comp_type = new_page_zip.comp_type
-			    = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
-	page_zip->comp_level = new_page_zip.comp_level
-			     = FSP_FLAGS_GET_COMP_LEVEL(fsp_flags);
 
-	if (page_zip->comp_type == DICT_TF_COMP_ZLIB_STREAM) {
+	if (comp_type == DICT_TF_COMP_ZLIB_STREAM) {
 		ret = page_zip_compress_zlib_stream(
 			&new_page_zip, page, index,
 			global_compression_flags, heap);
@@ -2915,7 +2840,6 @@ page_zip_compress(
 		avail_out = page_zip_get_size(&new_page_zip)
 			    - PAGE_DATA /* page header */
 			    - trailer_len /* compressed page trailer */
-			    - PAGE_ZIP_MLOG_HEADER_LEN /* mlog header */
 			    - 1; /* end marker for the modification log */
 		if (avail_out <= 0)
 			goto err_exit;
@@ -2923,14 +2847,14 @@ page_zip_compress(
 		comp_state.out = new_page_zip.data + PAGE_DATA;
 		comp_state.avail_in = serialized_len;
 		comp_state.avail_out = avail_out;
-		comp_state.level = page_zip->comp_level;
+		comp_state.level = comp_level;
 		comp_state.heap = heap;
-		ret = comp_compress(page_zip->comp_type, &comp_state);
+		ret = comp_compress(comp_type, &comp_state);
 		if (ret) {
 			ut_a(avail_out > (lint)comp_state.avail_out);
 			compressed_len = avail_out - comp_state.avail_out;
 			new_page_zip.m_nonempty = FALSE;
-			new_page_zip.m_start = PAGE_DATA + compressed_len;
+			new_page_zip.m_end = PAGE_DATA + compressed_len;
 		}
 	}
 
@@ -2979,12 +2903,11 @@ err_exit:
 		return(FALSE);
 	}
 
-	page_zip->m_start = new_page_zip.m_start;
-	if (page_zip->comp_type == DICT_TF_COMP_ZLIB_STREAM) {
-		page_zip->m_end = page_zip->m_start;
-	} else {
-		page_zip->m_end = page_zip->m_start + PAGE_ZIP_MLOG_HEADER_LEN;
-	}
+
+#ifdef UNIV_DEBUG
+	page_zip->m_start =
+#endif /* UNIV_DEBUG */
+	page_zip->m_end = new_page_zip.m_end;
 	page_zip->m_nonempty = FALSE;
 	page_zip->n_blobs = new_page_zip.n_blobs;
 	/* Copy those header fields that will not be written
@@ -3002,9 +2925,9 @@ err_exit:
 	mem_heap_free(heap);
 
 	/* Zero out the area reserved for the modification log. */
-	memset(page_zip->data + page_zip->m_start,
+	memset(page_zip->data + page_zip->m_end,
 	       0,
-	       page_zip_get_size(page_zip) - page_zip->m_start - trailer_len);
+	       page_zip_get_size(page_zip) - page_zip->m_end - trailer_len);
 
 	if (UNIV_UNLIKELY(page_zip_debug)) {
 		ut_a(page_zip_validate(page_zip, page, index));
@@ -3441,8 +3364,8 @@ page_zip_apply_log(
 	ulint		n_dense,/*!< in: size of recs[] */
 	ulint		trx_id_col,/*!< in: column number of trx_id in the index,
 				or ULINT_UNDEFINED if none */
-	ulint*		heap_status,
-				/*!< in/out: heap_no and status bits for
+	ulint		heap_status,
+				/*!< in: heap_no and status bits for
 				the next record to uncompress */
 	dict_index_t*	index,	/*!< in: index of the page */
 	ulint*		offsets)/*!< in/out: work area for
@@ -3484,17 +3407,17 @@ page_zip_apply_log(
 		rec = recs[(val >> 1) - 1];
 
 		hs = ((val >> 1) + 1) << REC_HEAP_NO_SHIFT;
-		hs |= (*heap_status) & ((1 << REC_HEAP_NO_SHIFT) - 1);
+		hs |= heap_status & ((1 << REC_HEAP_NO_SHIFT) - 1);
 
 		/* This may either be an old record that is being
 		overwritten (updated in place, or allocated from
 		the free list), or a new record, with the next
 		available_heap_no. */
-		if (UNIV_UNLIKELY(hs > (*heap_status))) {
+		if (UNIV_UNLIKELY(hs > heap_status)) {
 			page_zip_fail(("page_zip_apply_log: %lu > %lu\n",
-				       (ulong) hs, (ulong) *heap_status));
+				       (ulong) hs, (ulong) heap_status));
 			return(NULL);
-		} else if (hs == (*heap_status)) {
+		} else if (hs == heap_status) {
 			/* A new record was allocated from the heap. */
 			if (UNIV_UNLIKELY(val & 1)) {
 				/* Only existing records may be cleared. */
@@ -3504,7 +3427,7 @@ page_zip_apply_log(
 					       (ulong) hs));
 				return(NULL);
 			}
-			(*heap_status) += 1 << REC_HEAP_NO_SHIFT;
+			heap_status += 1 << REC_HEAP_NO_SHIFT;
 		}
 
 		mach_write_to_2(rec - REC_NEW_HEAP_NO, hs);
@@ -4418,7 +4341,7 @@ page_zip_decompress_zlib_stream(
 		}
 	}
 
-	page_zip->m_end = page_zip->m_start = PAGE_DATA + d_stream.total_in;
+	page_zip->m_end = PAGE_DATA + d_stream.total_in;
 	*index_ptr = index;
 	*trx_id_col_ptr = trx_id_col;
 	*heap_status_ptr = heap_status;
@@ -4474,10 +4397,12 @@ page_zip_decompress_low(
 	byte* data_end = NULL; /*!< pointer to the end of the data after the
 				 compressed page image is decompressed from the
 				 compressed page image */
-	ulint trailer_len_min; /*!< minimum length of the trailer after the
-				 compressed page image is decompressed */
+	ulint trailer_len; /*!< length of the trailer after the compressed page
+			     image is decompressed */
 	ibool ret;
-	byte* buf = NULL;
+	uchar comp_level;
+	uchar comp_type;
+	byte* buf;
 #ifndef UNIV_HOTBACKUP
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
 	ulonglong start = my_timer_now();
@@ -4595,11 +4520,11 @@ page_zip_decompress_low(
 	/* Set number of blobs to zero */
 	page_zip->n_blobs = 0;
 
-	page_zip->comp_level = FSP_FLAGS_GET_COMP_LEVEL(fsp_flags);
-	page_zip->comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
+	comp_level = FSP_FLAGS_GET_COMP_LEVEL(fsp_flags);
+	comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
 	page_zip->compact_metadata = FSP_FLAGS_GET_COMPACT_METADATA(fsp_flags);
 
-	if (page_zip->comp_type == DICT_TF_COMP_ZLIB_STREAM) {
+	if (comp_type == DICT_TF_COMP_ZLIB_STREAM) {
 		/* compress using zlib's streaming interface */
 		ret = page_zip_decompress_zlib_stream(page_zip, page, recs,
 						      n_dense, &index,
@@ -4609,7 +4534,8 @@ page_zip_decompress_low(
 	} else {
 		ulint compressed_len = 0;
 		comp_state_t comp_state;
-		ulint avail_in = page_zip_get_size(page_zip) - PAGE_DATA - 1;
+		ulint avail_in = page_zip_get_size(page_zip)
+				 - PAGE_DATA - 1;
 		/* buffer for storing the serialized page */
 		buf = static_cast<byte*>(
 				mem_heap_alloc(heap, 2 * UNIV_PAGE_SIZE));
@@ -4617,13 +4543,12 @@ page_zip_decompress_low(
 		comp_state.avail_in = avail_in;
 		comp_state.out = buf;
 		comp_state.avail_out = 2 * UNIV_PAGE_SIZE;
-		comp_state.level = page_zip->comp_level;
+		comp_state.level = comp_level;
 		comp_state.heap = heap;
-		comp_decompress(page_zip->comp_type, &comp_state);
+		comp_decompress(comp_type, &comp_state);
 		ut_a(avail_in > comp_state.avail_in);
 		compressed_len = avail_in - comp_state.avail_in;
-		page_zip->m_start = compressed_len + PAGE_DATA;
-		page_zip->m_end = page_zip->m_start + PAGE_ZIP_MLOG_HEADER_LEN;
+		page_zip->m_end = compressed_len + PAGE_DATA;
 		ret = page_zip_deserialize(
 			page, buf, recs, n_dense, &index, &offsets,
 			&trx_id_col, &heap_status, &data_end, heap);
@@ -4640,65 +4565,37 @@ page_zip_decompress_low(
 					       page_dir_get_n_slots(page) - 1);
 	memset(data_end, 0, page_dir_start - data_end);
 
-	/* Apply the modification log. At this point page_zip->m_start must have
+	ut_d(page_zip->m_start = page_zip->m_end);
+
+	/* Apply the modification log. At this point page_zip->m_end must have
 	been set to where the compression output ends. */
-	trailer_len_min = page_zip_get_trailer_len(
-		page_zip, trx_id_col && (trx_id_col != ULINT_UNDEFINED));
-	if (page_zip->comp_type == DICT_TF_COMP_ZLIB_STREAM) {
-		ulint max_mlog_len = page_zip_get_size(page_zip)
-				     - page_zip->m_start - trailer_len_min;
-		mod_log_ptr = page_zip_apply_log(
-				page_zip->data + page_zip->m_start,
-				max_mlog_len, recs, n_dense, trx_id_col,
-				&heap_status, index, offsets);
-		ut_a(mod_log_ptr);
-	} else {
-		/* modification logs can be compressed */
-		byte* data = page_zip->data + page_zip->m_start;
-		const byte* ptr;
-		ulint len = mach_read_from_2(data);
-		ulint ulen;
-		comp_state_t comp_state;
-		ut_a(buf);
-		comp_state.level = page_zip->comp_level;
-		comp_state.heap = heap;
-		comp_state.out = NULL;
-		data += PAGE_ZIP_MLOG_HEADER_LEN;
-		while (len & PAGE_ZIP_MLOG_COMPRESSED) {
-			len &= ~PAGE_ZIP_MLOG_COMPRESSED;
-			comp_state.in = data;
-			comp_state.avail_in = len;
-			if (!comp_state.out) {
-				comp_state.out =
-					static_cast<byte*> (
-						mem_heap_alloc(heap,
-							       UNIV_PAGE_SIZE));
-			}
-			comp_state.avail_out = UNIV_PAGE_SIZE;
-			comp_decompress(page_zip->comp_type, &comp_state);
-			ut_a(!comp_state.avail_in);
-			ulen = UNIV_PAGE_SIZE - comp_state.avail_out;
-			comp_state.out[ulen] = '\0';
-			ptr = page_zip_apply_log(comp_state.out, ulen + 1, recs,
-						 n_dense, trx_id_col,
-						 &heap_status, index, offsets);
-			ut_a(ptr);
-			ut_a(ptr == comp_state.out + ulen);
-			data += len;
-			len = mach_read_from_2(data);
-			data += PAGE_ZIP_MLOG_HEADER_LEN;
-		}
-		page_zip->m_start = (data - page_zip->data)
-				    - PAGE_ZIP_MLOG_HEADER_LEN;
-		mod_log_ptr = page_zip_apply_log(data, len + 1, recs,
-						 n_dense, trx_id_col,
-						 &heap_status, index, offsets);
-		ut_a(mod_log_ptr);
+	trailer_len = page_zip_get_trailer_len(page_zip,
+					       trx_id_col
+					       && (trx_id_col
+						   != ULINT_UNDEFINED));
+
+	mod_log_ptr = page_zip_apply_log(page_zip->data + page_zip->m_end,
+					 page_zip_get_size(page_zip)
+					 - page_zip->m_end
+					 - trailer_len,
+					 recs,
+					 n_dense,
+					 trx_id_col,
+					 heap_status,
+					 index,
+					 offsets);
+	if (UNIV_UNLIKELY(!mod_log_ptr)) {
+		page_zip_fail(("page_zip_decompress_low 2: applying "
+			       "modification log failed"));
+		goto err_exit;
 	}
 
 	page_zip->m_nonempty = (mod_log_ptr != (page_zip->data
 						+ page_zip->m_end));
 	page_zip->m_end = mod_log_ptr - page_zip->data;
+
+	/* size check */
+	page_zip_size_check(page_zip, index);
 
 	/* restore uncompressed fields if the page is a node pointer page or a
 	   primary key leaf page */
@@ -4708,7 +4605,7 @@ page_zip_decompress_low(
 	}
 
 	/* size check */
-	page_zip_size_check(page_zip, dict_index_is_clust(index));
+	page_zip_size_check(page_zip, index);
 
 	/* set the extra bytes */
 	if (UNIV_UNLIKELY(!page_zip_set_extra_bytes(page_zip, page,
@@ -4974,11 +4871,13 @@ page_zip_validate_low(
 			       page_zip->n_blobs, temp_page_zip.n_blobs));
 		valid = FALSE;
 	}
+#ifdef UNIV_DEBUG
 	if (page_zip->m_start != temp_page_zip.m_start) {
 		page_zip_fail(("page_zip_validate: m_start: %u!=%u\n",
 			       page_zip->m_start, temp_page_zip.m_start));
 		valid = FALSE;
 	}
+#endif /* UNIV_DEBUG */
 	if (page_zip->m_end != temp_page_zip.m_end) {
 		page_zip_fail(("page_zip_validate: m_end: %u!=%u\n",
 			       page_zip->m_end, temp_page_zip.m_end));
@@ -5235,7 +5134,7 @@ page_zip_write_rec(
 	ut_ad(rec_offs_comp(offsets));
 	ut_ad(rec_offs_validate(rec, index, offsets));
 
-	ut_a(page_zip->m_start >= PAGE_DATA);
+	ut_ad(page_zip->m_start >= PAGE_DATA);
 
 	page = page_align(rec);
 
@@ -5316,18 +5215,12 @@ page_zip_write_rec(
 		page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets, rec_no,
 				       trx_id_col, page_zip->compact_metadata);
 		page_zip_write_rec_blobs(page_zip, index, rec, offsets, create);
-		page_zip_size_check(page_zip, TRUE);
+		page_zip_size_check(page_zip, index);
 	}
 	ut_a(!*data);
 	ut_ad((ulint) (data - page_zip->data) < page_zip_get_size(page_zip));
 	page_zip->m_end = data - page_zip->data;
 	page_zip->m_nonempty = TRUE;
-
-	if (page_zip->comp_type != DICT_TF_COMP_ZLIB_STREAM) {
-		mach_write_to_2(page_zip->data + page_zip->m_start,
-				page_zip->m_end - page_zip->m_start
-				- PAGE_ZIP_MLOG_HEADER_LEN);
-	}
 
 	if (UNIV_UNLIKELY(page_zip_debug)) {
 		ut_a(page_zip_validate(page_zip, page_align(rec), index));
@@ -5425,7 +5318,7 @@ page_zip_write_blob_ptr(
 	ut_ad(rec_offs_any_extern(offsets));
 	ut_ad(rec_offs_nth_extern(offsets, n));
 
-	ut_a(page_zip->m_start >= PAGE_DATA);
+	ut_ad(page_zip->m_start >= PAGE_DATA);
 	ut_ad(page_zip_header_cmp(page_zip, page));
 
 	ut_ad(page_is_leaf(page));
@@ -5655,7 +5548,7 @@ page_zip_write_trx_id_and_roll_ptr(
 	ut_ad(rec_offs_validate(rec, NULL, offsets));
 	ut_ad(rec_offs_comp(offsets));
 
-	ut_a(page_zip->m_start >= PAGE_DATA);
+	ut_ad(page_zip->m_start >= PAGE_DATA);
 	ut_ad(page_zip_header_cmp(page_zip, page));
 
 	ut_ad(page_is_leaf(page));
@@ -5700,7 +5593,6 @@ page_zip_write_trx_id_and_roll_ptr(
 		pmh_put(storage,
 			rec_get_heap_no_new(rec) - PAGE_HEAP_NO_USER_LOW,
 			field);
-		page_zip_size_check(page_zip, TRUE);
 	} else {
 		memcpy(storage, field, DATA_TRX_RBP_LEN);
 	}
@@ -5784,7 +5676,7 @@ page_zip_clear_rec(
 		if (page_zip->compact_metadata) {
 			pmh_put(trx_rbp_storage,
 				heap_no - PAGE_HEAP_NO_USER_LOW, field);
-			page_zip_size_check(page_zip, TRUE);
+			page_zip_size_check(page_zip, index);
 		} else {
 			memset(trx_rbp_storage
 			       - (heap_no - 1) * DATA_TRX_RBP_LEN,
@@ -6420,22 +6312,6 @@ page_zip_copy_recs(
 	page_zip_compress_write_log(page_zip, page, index, mtr);
 }
 #endif /* !UNIV_HOTBACKUP */
-
-/**********************************************************************//**
-Parse the log record of compressing the mlog of a compressed page. */
-UNIV_INTERN
-byte*
-page_zip_parse_compress_mlog(
-	byte*			ptr,		/*!< in: buffer */
-	byte*			end_ptr __attribute__((unused)),
-						/*!< in: buffer end */
-	page_zip_des_t*		page_zip,	/*!< out: compressed page */
-	const dict_index_t*	index)		/* in: record schema */
-{
-	if (page_zip)
-		page_zip_compress_mlog(page_zip, NULL, index, NULL);
-	return ptr;
-}
 
 /**********************************************************************//**
 Parses a log record of compressing an index page.
