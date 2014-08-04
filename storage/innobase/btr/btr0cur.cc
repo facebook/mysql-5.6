@@ -1916,12 +1916,6 @@ btr_cur_update_alloc_zip_func(
 		return(true);
 	}
 
-	if (page_zip_compress_mlog(page_zip, page, index, mtr)
-	    && page_zip_available(page_zip, dict_index_is_clust(index),
-				  length, create, heap_no)) {
-		return(true);
-	}
-
 	if (!page_zip->m_nonempty && !page_has_garbage(page)) {
 		/* The page has been freshly compressed, so
 		reorganizing it will not help. */
@@ -3154,7 +3148,6 @@ btr_cur_del_mark_set_clust_rec(
 {
 	roll_ptr_t	roll_ptr;
 	dberr_t		err;
-	page_t*		page;
 	page_zip_des_t*	page_zip;
 	trx_t*		trx;
 
@@ -3174,7 +3167,6 @@ btr_cur_del_mark_set_clust_rec(
 	ut_ad(dict_index_is_clust(index));
 	ut_ad(!rec_get_deleted_flag(rec, rec_offs_comp(offsets)));
 
-	page = buf_block_get_frame(block);
 	page_zip = buf_block_get_page_zip(block);
 	trx = thr ? thr_get_trx(thr) : NULL;
 
@@ -3188,12 +3180,7 @@ btr_cur_del_mark_set_clust_rec(
 	    && page_zip->compact_metadata
 	    && !page_zip_available(page_zip, TRUE, 0, 0,
 				   rec_get_heap_no_new(rec))) {
-		/* Try compress modification log first. */
-		page_zip_compress_mlog(page_zip, page, index, mtr);
-		if (!page_zip_available(page_zip, TRUE, 0, 0,
-					rec_get_heap_no_new(rec))) {
-			return(DB_ZIP_OVERFLOW);
-		}
+		return(DB_ZIP_OVERFLOW);
 	}
 
 	err = lock_clust_rec_modify_check_and_lock(BTR_NO_LOCKING_FLAG, block,

@@ -187,8 +187,7 @@ For 1 - 8 bytes, the flag value must give the length also! @{ */
 						without logging it's image */
 #define MLOG_ZIP_PAGE_REORGANIZE ((byte)53)	/*!< reorganize a compressed
 						page */
-#define MLOG_ZIP_COMPRESS_MLOG ((byte)54) /*!< Compress the modification log */
-#define MLOG_BIGGEST_TYPE	((byte)55)	/*!< biggest value (used in
+#define MLOG_BIGGEST_TYPE	((byte)53)	/*!< biggest value (used in
 						assertions) */
 /* @} */
 

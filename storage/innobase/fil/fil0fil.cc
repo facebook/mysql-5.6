@@ -3819,18 +3819,11 @@ fil_create_new_single_table_tablespace(
 
 		page_zip_set_size(&page_zip, zip_size);
 		page_zip.data = page + UNIV_PAGE_SIZE;
-		page_zip.compact_metadata = DICT_TF_GET_COMPACT_METADATA(flags);
-		page_zip.comp_type = DICT_TF_GET_COMP_TYPE(flags);
-		page_zip.m_nonempty = 0;
-		page_zip.n_blobs = 0;
-		page_zip.m_start = 0;
-
-		if (page_zip.comp_type == DICT_TF_COMP_ZLIB_STREAM) {
-			page_zip.m_end = 0;
-		} else {
-			page_zip.m_end = PAGE_ZIP_MLOG_HEADER_LEN;
-		}
-
+#ifdef UNIV_DEBUG
+		page_zip.m_start =
+#endif /* UNIV_DEBUG */
+			page_zip.m_end = page_zip.m_nonempty =
+			page_zip.n_blobs = 0;
 		buf_flush_init_for_writing(page, &page_zip, 0);
 		ret = os_file_write(path, file, page_zip.data, 0, zip_size);
 	}

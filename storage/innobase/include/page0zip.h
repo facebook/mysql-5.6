@@ -51,9 +51,6 @@ compression/decompression streams */
 #define INFLATE_MEMORY_BOUND(windowBits) \
     ((1L << (windowBits)) + (128UL << 10))
 
-/* The header length for the modification log */
-#define PAGE_ZIP_MLOG_HEADER_LEN 2
-
 /* Compression level to be used by zlib. Settable by user. */
 extern uint	page_zip_level;
 
@@ -607,29 +604,6 @@ page_zip_parse_compress_no_data(
 	dict_index_t*	index)		/*!< in: index */
 	__attribute__((nonnull(1,2)));
 
-/*************************************************************//**
-Write a redo log record of compressing the modification log of a compressed
-page. */
-UNIV_INLINE
-void
-page_zip_compress_write_log_mlog(
-	const page_t*		page,	/* uncompressed version of the page */
-	const dict_index_t*	index,	/* record schema */
-	mtr_t*			mtr);	/* mini transaction */
-
-/*************************************************************//**
-Parse the redo log record of compressing the modification log of a compressed
-page.
-@return pointer to the log buffer after parsing the record. */
-UNIV_INTERN
-byte*
-page_zip_parse_compress_mlog(
-	byte*			ptr,		/*!< in: buffer */
-	byte*			end_ptr __attribute__((unused)),
-						/*!< in: buffer end */
-	page_zip_des_t*		page_zip,	/*!< out: compressed page */
-	const dict_index_t*	index);		/* in: record schema */
-
 /**********************************************************************//**
 Reset the counters used for filling
 INFORMATION_SCHEMA.innodb_cmp_per_index. */
@@ -670,7 +644,6 @@ page_zip_dir_start_offs(
 	ulint			n_dense);	/*!< in: directory size */
 
 #endif /* !UNIV_INNOCHECKSUM */
-
 /*************************************************************//**
 Gets a pointer to the compressed page trailer (the dense page directory),
 including deleted records (the free list).
@@ -686,20 +659,6 @@ including deleted records (the free list).
 @return pointer to the dense page directory */
 #define page_zip_dir_start(page_zip) \
 	page_zip_dir_start_low(page_zip, page_zip_dir_elems(page_zip))
-
-/*************************************************************//**
-Compress the modification log of a compressed page. There can be multiple
-compressed mlogs, only the last mlog remains uncompressed until this function
-is called.
-@return TRUE if the mlog compression was successful. */
-ibool
-page_zip_compress_mlog(
-	page_zip_des_t*		page_zip,
-					/* compressed page whose mlog needs to
-					be compressed. */
-	const page_t*		page,	/* uncompressed version of the page */
-	const dict_index_t*	index,	/* record schema */
-	mtr_t*			mtr);	/* mini transaction */
 
 #ifndef UNIV_HOTBACKUP
 /** Check if a pointer to an uncompressed page matches a compressed page.
