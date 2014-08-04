@@ -563,25 +563,6 @@ page_zip_compress_write_log_no_data(
 }
 
 /**********************************************************************//**
-Write a redo log record of compressing the mlog of a compressed page.
-We only write a record that mlog compression happened without logging
-any data. This assumes that the compression algorithm in use is deterministic
-and multiple compression runs will yield the same result. */
-UNIV_INLINE
-void
-page_zip_compress_write_log_mlog(
-	const page_t*		page,	/* uncompressed version of the page */
-	const dict_index_t*	index,	/* record schema */
-	mtr_t*			mtr)	/* mini transaction */
-{
-	byte* log_ptr = mlog_open_and_write_index(
-		mtr, page, index, MLOG_ZIP_COMPRESS_MLOG, 0);
-	if (log_ptr) {
-		mlog_close(mtr, log_ptr);
-	}
-}
-
-/**********************************************************************//**
 Parses a log record of compressing an index page without the data.
 @return	end of log record or NULL */
 UNIV_INLINE
