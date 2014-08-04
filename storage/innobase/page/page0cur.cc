@@ -1238,12 +1238,6 @@ page_cur_insert_rec_zip(
 		&& rec_size <= page_get_max_insert_size_after_reorganize(
 			page, 1);
 
-	if (!reorg_before_insert
-	    && !page_zip_available(page_zip, dict_index_is_clust(index),
-				   rec_size, 1, rec_get_heap_no_new(rec))) {
-		page_zip_compress_mlog(page_zip, page, index, mtr);
-	}
-
 	/* 2. Try to find suitable space from page memory management */
 	if (!page_zip_available(page_zip, dict_index_is_clust(index),
 				rec_size, 1, ULINT_UNDEFINED)
