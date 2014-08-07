@@ -30,6 +30,59 @@ inline void store_index_number(uchar *dst, uint32 number)
 #endif
 }
 
+
+/*
+  A simple string reader.
+  - it keeps position within the string that we read from
+  - it prevents one from reading beyond the end of the string.
+  (todo: rename to String_reader)
+*/
+
+class Stream_reader
+{
+  const char* ptr;
+  uint len;
+public:
+  Stream_reader(const std::string &str)
+  {
+    ptr= &str.at(0);
+    len= str.length();
+  }
+
+  Stream_reader(const rocksdb::Slice *slice)
+  {
+    ptr= slice->data();
+    len= slice->size();
+  }
+
+  /*
+    Read the next @param size bytes. Returns pointer to the bytes read, or
+    NULL if the remaining string doesn't have that many bytes.
+  */
+  const char *read(uint size)
+  {
+    const char *res;
+    if (len < size)
+      res= NULL;
+    else
+    {
+      res= ptr;
+      ptr += size;
+      len -= size;
+    }
+    return res;
+  }
+  uint remaining_bytes() { return len; }
+
+  /*
+    Return pointer to data that will be read by next read() call (if there is
+    nothing left to read, returns pointer to beyond the end of previous read()
+    call)
+  */
+  const char *get_current_ptr() { return ptr; }
+};
+
+
 /*
   An object of this class represents information about an index in an SQL
   table. It provides services to encode and decode index tuples.
@@ -101,6 +154,8 @@ public:
     This can be used to compare prefixes.
     if  X is a prefix of Y, then we consider that X = Y.
   */
+  // psergey-todo: this seems to work for variable-length keys, does it?
+  // {pb, b_len} describe the lookup key, which can be a prefix of pa/a_len.
   int cmp_full_keys(const char *pa, uint a_len, const char *pb, uint b_len,
                     uint n_parts)
   {
@@ -124,8 +179,8 @@ public:
   }
 
   /* Must only be called for secondary keys: */
-  uint get_primary_key_tuple(RDBSE_KEYDEF *pk_descr, const char *key,
-                             char *pk_buffer);
+  uint get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
+                             const rocksdb::Slice *key, char *pk_buffer);
 
   /* Return max length of mem-comparable form */
   uint max_storage_fmt_length()
@@ -135,11 +190,12 @@ public:
 
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg) :
     index_number(indexnr_arg),
-    pk_key_parts(NULL),
+    pk_part_no(NULL),
     pack_info(NULL),
     keyno(keyno_arg),
     m_key_parts(0),
-    maxlength(0) // means 'not intialized'
+    maxlength(0), // means 'not intialized'
+    pack_buffer(NULL)
   {
     store_index_number(index_number_storage_form, indexnr_arg);
   }
@@ -160,22 +216,14 @@ private:
 
   friend class RDBSE_TABLE_DEF; // for index_number above
 
-  class PK_KEY_PART
-  {
-  public:
-    uint offset;
-    uint size;
-  };
+  /* Number of key parts in the primary key*/
+  uint n_pk_key_parts;
 
   /*
-    Array of descriptions of primary key columns.
-     - element #0 describes the first PK column,
-     - element #1 describes the second PK column, and so forth.
-    the offsets are offsets of column representation in StorageFormat
-    representation of this index.
+     pk_part_no[X]=Y means that keypart #X of this key is key part #Y of the
+     primary key.  Y==-1 means this column is not present in the primary key.
   */
-  PK_KEY_PART *pk_key_parts;
-  uint n_pk_key_parts;
+  uint *pk_part_no;
 
   /* Array of index-part descriptors. */
   Field_pack_info *pack_info;
@@ -188,21 +236,24 @@ private:
   */
   uint m_key_parts;
 
-  /*
-    Length of the mem-comparable form. In the encoding we're using, it is
-    constant (any value will have this length).
-  */
+  /* Maximum length of the mem-comparable form. */
   uint maxlength;
 
   /* Length of the unpack_data */
   uint unpack_data_len;
+
+  uchar *pack_buffer;
 };
 
 
 typedef void (*make_unpack_info_t) (Field_pack_info *fpi, Field *field, uchar *dst);
 typedef int (*index_field_unpack_t)(Field_pack_info *fpi, Field *field,
-                                    const uchar *tuple,
+                                    Stream_reader *reader,
                                     const uchar *unpack_info);
+
+typedef int (*index_field_skip_t)(Field_pack_info *fpi, Stream_reader *reader);
+
+typedef void (*index_field_pack_t)(Field_pack_info *fpi, Field *field, uchar* buf, uchar **dst);
 
 /*
   This stores information about how a field can be packed to mem-comparable
@@ -212,14 +263,8 @@ typedef int (*index_field_unpack_t)(Field_pack_info *fpi, Field *field,
 class Field_pack_info
 {
 public:
-  /*
-    Offset of the image of this field in the mem-comparable image. This field
-    must be set from outside of the class
-  */
-  int image_offset;
-
   /* Length of mem-comparable image of the field, in bytes */
-  int image_len;
+  int max_image_len;
 
   /* Length of image in the unpack data */
   int unpack_data_len;
@@ -229,6 +274,13 @@ public:
   int field_data_offset;
 
   bool maybe_null; /* TRUE <=> NULL-byte is stored */
+
+  /*
+    Valid only for VARCHAR fields.
+  */
+  const CHARSET_INFO *varchar_charset;
+
+  index_field_pack_t pack_func;
 
   /*
     Pack function is assumed to be:
@@ -245,6 +297,11 @@ public:
     and restores the original value.
   */
   index_field_unpack_t unpack_func;
+
+  /*
+    This function skips over mem-comparable form.
+  */
+  index_field_skip_t skip_func;
 
   bool setup(Field *field);
 };
