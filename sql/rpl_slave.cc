@@ -4431,7 +4431,7 @@ Stopping slave I/O thread due to out-of-memory error from master");
       if (event_buf[EVENT_TYPE_OFFSET] == FORMAT_DESCRIPTION_EVENT &&
           mi->is_auto_position() && !cur_conn_used_com_binlog_dump)
       {
-        uchar * buf = mysql->net.read_pos + 1;
+        uchar * buf = (uchar *) const_cast<char *>(event_buf);
         // Don't change the created if it is already > 0
         if (!uint4korr(buf + LOG_EVENT_MINIMAL_HEADER_LEN + ST_CREATED_OFFSET))
           int4store(buf + LOG_EVENT_MINIMAL_HEADER_LEN +
