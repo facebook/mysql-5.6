@@ -750,41 +750,6 @@ int ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
 
 
 /*
-  A simple string reader.
-*/
-
-class Stream_reader
-{
-  const char* ptr;
-  uint len;
-public:
-  Stream_reader(const std::string &str)
-  {
-    ptr= &str.at(0);
-    len= str.length();
-  }
-  /*
-    Read the next @param size bytes. Returns pointer to the bytes read, or
-    NULL if the remaining string doesn't have that many bytes.
-  */
-  const char *read(uint size)
-  {
-    const char *res;
-    if (len < size)
-      res= NULL;
-    else
-    {
-      res= ptr;
-      ptr += size;
-      len -= size;
-    }
-    return res;
-  }
-  uint remaining_bytes() { return len; }
-};
-
-
-/*
   Unpack the record in this->retrieved_record from storage format into
   buf (which can be table->record[0] or table->record[1])
 
@@ -893,6 +858,10 @@ static void make_dbname_tablename(StringBuffer<64> *str, TABLE *table_arg)
 }
 
 
+/*
+  Setup data needed to convert table->record[] to and from record storage format.
+*/
+
 void ha_rocksdb::setup_field_converters()
 {
   uint i;
@@ -906,7 +875,7 @@ void ha_rocksdb::setup_field_converters()
   {
     Field *field= table->field[i];
     field_enc[i].field_type= field->real_type();
-    //TODO: setup other copying data
+
     if (field->real_maybe_null())
     {
       field_enc[i].null_mask= cur_null_mask;
@@ -1303,8 +1272,11 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
     {
       int rc;
       //TODO: We could here check if we have ran out of range we're scanning
-      uint size= key_descr[keyno]->get_primary_key_tuple(pk_descr, key.data(),
+      uint size= key_descr[keyno]->get_primary_key_tuple(pk_descr, &key,
                                                          (char*) pk_packed_tuple);
+      if (size == (uint)-1)
+        return HA_ERR_INTERNAL_ERROR;
+
       last_rowkey.copy((const char*)pk_packed_tuple, size, &my_charset_bin);
 
       if (keyread_only && !lock_rows)
@@ -1533,7 +1505,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
       if (find_flag == HA_READ_PREFIX_LAST)
       {
         packed_size= kd->pack_index_tuple(table, sec_key_packed_tuple, key,
-                                          n_used_parts);
+                                          keypart_map);
         /*
           Check if the record has the same search prefix.
         */
@@ -1582,21 +1554,26 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   else
   {
-    pk_size= kd->get_primary_key_tuple(pk_descr, rkey.data(),
+    pk_size= kd->get_primary_key_tuple(pk_descr, &rkey,
                                        (char*) pk_packed_tuple);
-    last_rowkey.copy((const char*)pk_packed_tuple, pk_size, &my_charset_bin);
-
-    if (keyread_only && !lock_rows)
+    if (pk_size != (uint)-1)
     {
-      /* Get the key columns and primary key value */
-      rocksdb::Slice value= scan_it->value();
-      if (kd->unpack_record(table, buf, &rkey, &value))
-        rc= HA_ERR_INTERNAL_ERROR;
+      last_rowkey.copy((const char*)pk_packed_tuple, pk_size, &my_charset_bin);
+
+      if (keyread_only && !lock_rows)
+      {
+        /* Get the key columns and primary key value */
+        rocksdb::Slice value= scan_it->value();
+        if (kd->unpack_record(table, buf, &rkey, &value))
+          rc= HA_ERR_INTERNAL_ERROR;
+        else
+          rc= 0;
+      }
       else
-        rc= 0;
+        rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, pk_size);
     }
     else
-      rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, pk_size);
+      rc= HA_ERR_INTERNAL_ERROR;
   }
 
   if (rc)
