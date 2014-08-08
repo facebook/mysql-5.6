@@ -72,11 +72,30 @@ static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   NULL, NULL, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
 
+static long long rocksdb_block_cache_size;
+static long long rocksdb_write_buffer_size;
+
+static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "block_cache size for RocksDB",
+  NULL, NULL, /* RocksDB's default is 8 MB: */ 8*1024*1024L,
+  /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
+
+static MYSQL_SYSVAR_LONGLONG(write_buffer_size, rocksdb_write_buffer_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "options.write_buffer_size for RocksDB",
+  NULL, NULL, /* RocksDB's default is 4 MB: */ 4*1024*1024L,
+  /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
+
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
   MYSQL_SYSVAR(max_row_locks),
   MYSQL_SYSVAR(bulk_load),
   MYSQL_SYSVAR(bulk_load_size),
+
+  MYSQL_SYSVAR(block_cache_size),
+  MYSQL_SYSVAR(write_buffer_size),
+
   NULL
 };
 
@@ -469,6 +488,10 @@ static int rocksdb_init_func(void *p)
   main_opts.create_if_missing = true;
   main_opts.comparator= &primary_key_comparator;
   main_opts.statistics= rocksdb_stats;
+
+  main_opts.write_buffer_size= rocksdb_write_buffer_size;
+  main_opts.block_cache= rocksdb::NewLRUCache(rocksdb_block_cache_size);
+
   rocksdb::Status status;
   status= rocksdb::DB::Open(main_opts, "./rocksdb", &rdb);
 
@@ -483,6 +506,10 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
 
   sql_print_information("RocksDB instance opened");
+  sql_print_information("  write_buffer_size=%lu",
+                        rdb->GetOptions().write_buffer_size);
+  sql_print_information("  cache.getCapacity()=%lu",
+                        rdb->GetOptions().block_cache->GetCapacity());
   DBUG_RETURN(0);
 }
 

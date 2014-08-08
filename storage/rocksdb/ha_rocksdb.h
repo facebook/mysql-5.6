@@ -24,6 +24,7 @@
 #include "my_base.h"                     /* ha_rows */
 
 #include "rocksdb/db.h"
+#include "rocksdb/cache.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/write_batch.h"
 #include "rocksdb/statistics.h"
