@@ -81,15 +81,6 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 };
 
 
-#if 0
-static SHOW_VAR rocksdb_status_variables[]= {
-  {"row_insert_batches",
-    (char*) &rocksdb_counters.row_insert_batches,  SHOW_LONG},
-...
-  {NullS, NullS, SHOW_LONG}
-};
-#endif
-
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -2564,19 +2555,6 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
   mysql_mutex_unlock(&tbl_def->mutex);
 }
 
-
-#if 0
-//TODO: do we have any status vars?
-static int show_rocksdb_vars(THD *thd, SHOW_VAR *var, char *buff)
-{
-  //innodb_export_status();
-  //rocksdb_counters_copy= rocksdb_counters;
-
-  var->type= SHOW_ARRAY;
-  //var->value= (char *) &rocksdb_status_variables;
-  return 0;
-}
-#endif
 
 typedef struct {
   long bytes_written;
