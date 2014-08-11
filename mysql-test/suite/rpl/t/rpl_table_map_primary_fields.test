@@ -1,0 +1,36 @@
+source include/mysqlbinlog_have_debug.inc;
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+set timestamp=1000000000;
+connection master;
+create table t1 (i1 int);
+insert into t1 values(1);
+drop table t1;
+
+create table t1 (i1 int, primary key(i1));
+insert into t1 values(1);
+drop table t1;
+
+create table t1(i1 int, i2 int, i3 int, primary key(i1, i2, i3));
+insert into t1 values(1, 1, 1);
+drop table t1;
+
+create table t1(i1 int, i2 int, i3 int, primary key(i3, i2, i1));
+insert into t1 values(1, 1, 1);
+drop table t1;
+
+create table t1(i1 int, i2 int, i3 int, i4 int, i5 int, i6 int, i7 int, i8 int, i9 int, primary key(i4, i8, i9));
+insert into t1 values(1, 1, 1, 1, 1, 1, 1, 1, 1);
+drop table t1;
+
+# Verify a client can understand the primary key field indexes in the binary log.
+echo ## Primary key fields of tables on master;
+let $MYSQLD_DATADIR= `select @@datadir`;
+--exec $MYSQL_BINLOG -#d,print_primary_key_fields -v -v $MYSQLD_DATADIR/master-bin.000001 | grep 'Primary Key Fields'
+sync_slave_with_master;
+
+echo ## Primary key fields of tables on slave;
+let $SLAVE_DATADIR= `select @@datadir`;
+--exec $MYSQL_BINLOG -#d,print_primary_key_fields -v -v $SLAVE_DATADIR/slave-bin.000001 | grep 'Primary Key Fields'
+source include/rpl_end.inc;
