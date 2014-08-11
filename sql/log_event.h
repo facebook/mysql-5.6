@@ -4016,6 +4016,8 @@ private:
   ulong          m_field_metadata_size;   
   uchar         *m_null_bits;
   uchar         *m_meta_memory;
+  uchar *m_primary_key_fields;
+  uint m_primary_key_fields_size;
 };
 
 
