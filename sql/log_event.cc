@@ -12007,7 +12007,8 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     m_field_metadata(0),
     m_field_metadata_size(0),
     m_null_bits(0),
-    m_meta_memory(NULL)
+    m_meta_memory(NULL),
+    m_primary_key_fields(0)
 {
   uchar cbuf[sizeof(m_colcnt) + 1];
   uchar *cbuf_end;
@@ -12046,10 +12047,13 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     replication.
   */
   uint num_null_bytes= (m_table->s->fields + 7) / 8;
-  m_data_size+= num_null_bytes;
+  // Both m_null_bits and m_primary_key_fields has num_null_bytes size, so
+  // increase m_data_size by 2 * num_null_bytes.
+  m_data_size+= 2 * num_null_bytes;
   m_meta_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                  &m_null_bits, num_null_bytes,
                                  &m_field_metadata, (m_colcnt * 2),
+                                 &m_primary_key_fields, num_null_bytes,
                                  NULL);
 
   memset(m_field_metadata, 0, (m_colcnt * 2));
@@ -12088,6 +12092,17 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     if (!strcmp(db_name, ""))
       m_flags |= TM_REFERRED_FK_DB_F;
   }
+  memset(m_primary_key_fields, 0, num_null_bytes);
+  uint primary_key = m_table->s->primary_key;
+  // Validate that there exists a valid primary key.
+  if (m_table->key_info && primary_key < MAX_KEY) {
+    KEY *key_info = m_table->key_info + primary_key;
+    for (uint i=0; i < key_info->user_defined_key_parts; ++i)
+    {
+      uint16 fieldnr = key_info->key_part[i].fieldnr - 1;
+      m_primary_key_fields[(fieldnr/8)] += 1 << (fieldnr % 8);
+    }
+  }
 }
 #endif /* !defined(MYSQL_CLIENT) */
 
@@ -12107,7 +12122,7 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
     m_colcnt(0), m_coltype(0),
     m_memory(NULL), m_table_id(ULONGLONG_MAX), m_flags(0),
     m_data_size(0), m_field_metadata(0), m_field_metadata_size(0),
-    m_null_bits(0), m_meta_memory(NULL)
+    m_null_bits(0), m_meta_memory(NULL), m_primary_key_fields(0)
 {
   unsigned int bytes_read= 0;
   DBUG_ENTER("Table_map_log_event::Table_map_log_event(const char*,uint,...)");
@@ -12190,10 +12205,13 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
       m_meta_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                      &m_null_bits, num_null_bytes,
                                      &m_field_metadata, m_field_metadata_size,
+                                     &m_primary_key_fields, num_null_bytes,
                                      NULL);
       memcpy(m_field_metadata, ptr_after_colcnt, m_field_metadata_size);
       ptr_after_colcnt= (uchar*)ptr_after_colcnt + m_field_metadata_size;
       memcpy(m_null_bits, ptr_after_colcnt, num_null_bytes);
+      ptr_after_colcnt= (uchar*)ptr_after_colcnt + num_null_bytes;
+      memcpy(m_primary_key_fields, ptr_after_colcnt, num_null_bytes);
     }
   }
 
@@ -12491,7 +12509,9 @@ bool Table_map_log_event::write_data_body(IO_CACHE *file)
           wrapper_my_b_safe_write(file, m_coltype, m_colcnt) ||
           wrapper_my_b_safe_write(file, mbuf, (size_t) (mbuf_end - mbuf)) ||
           wrapper_my_b_safe_write(file, m_field_metadata, m_field_metadata_size),
-          wrapper_my_b_safe_write(file, m_null_bits, (m_colcnt + 7) / 8));
+          wrapper_my_b_safe_write(file, m_null_bits, (m_colcnt + 7) / 8) ||
+          wrapper_my_b_safe_write(file, m_primary_key_fields,
+                                  (m_colcnt + 7) / 8));
  }
 #endif
 
@@ -12527,6 +12547,15 @@ void Table_map_log_event::print(FILE *, PRINT_EVENT_INFO *print_event_info)
     my_b_printf(&print_event_info->head_cache,
                 "\tTable_map: `%s`.`%s` mapped to number %llu\n",
                 m_dbnam, m_tblnam, m_table_id.id());
+    DBUG_EXECUTE_IF("print_primary_key_fields", {
+                     my_b_printf(&print_event_info->head_cache,
+                                 "Primary Key Fields: ` ");
+                     for (ulong i = 0; i < m_colcnt; ++i) {
+                       if (m_primary_key_fields[i / 8] & (1 << (i % 8)))
+                         my_b_printf(&print_event_info->head_cache, "%lu ", i);
+                     }
+                     my_b_printf(&print_event_info->head_cache, "`\n");
+                     });
     print_base64(&print_event_info->body_cache, print_event_info, TRUE);
   }
 }
