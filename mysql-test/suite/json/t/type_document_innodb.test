@@ -4,8 +4,11 @@
 drop table if exists t, t1, t2, t3;
 --enable_warnings
 
-SET @start_allow_document_type = @@global.allow_document_type;
-SELECT @start_allow_document_type;
+SET @start_global_allow_document_type = @@global.allow_document_type;
+SELECT @start_global_allow_document_type;
+
+SET @start_session_allow_document_type = @@session.allow_document_type;
+SELECT @start_session_allow_document_type;
 
 # Fail to create table with document column with non-innodb engine
 --error ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
@@ -142,8 +145,8 @@ SELECT * from t2;
 update t2 set a=DEFAULT;
 
 # Disable document type when @@global.allow_document_type is false.
-SET @@global.allow_document_type = false;
-SELECT @@global.allow_document_type;
+SET @@session.allow_document_type = false;
+SELECT @@session.allow_document_type;
 
 --error ER_DOCUMENT_FIELD_NOT_ALLOWED
 create table t3 (i int(8), a document, s text(255)) engine=innodb;
@@ -157,15 +160,18 @@ alter table t3 add column a document;
 alter table t3 modify column s document;
 
 # Enable document type
-SET @@global.allow_document_type = true;
-SELECT @@global.allow_document_type;
+SET @@session.allow_document_type = true;
+SELECT @@session.allow_document_type;
 
 alter table t3 add column a document;
 
 alter table t3 modify column s document;
 
 # Restore the original value
-SET @@global.allow_document_type = @start_allow_document_type;
+SET @@global.allow_document_type = @start_global_allow_document_type;
 SELECT @@global.allow_document_type;
+
+SET @@session.allow_document_type = @start_session_allow_document_type;
+SELECT @@session.allow_document_type;
 
 drop table t, t1, t2, t3;

@@ -1,0 +1,207 @@
+drop table if exists t1, t2, t3, t4;
+CREATE TABLE t1 (
+a int not null,
+doc document not null,
+primary key (a),
+key (doc)) engine=innodb;
+ERROR HY000: DOCUMENT column 'doc' cannot be part of a key
+CREATE TABLE t1 (
+a int not null,
+b char (10) not null,
+doc document not null,
+primary key (a),
+key (doc.id as int),
+key (doc.name as string)) engine=innodb;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')) engine=innodb' at line 7
+CREATE TABLE t1 (
+a int not null,
+b char (10) not null,
+doc document not null,
+primary key (a),
+key (doc.id as int),
+key (doc.address as binary)) engine=innodb;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')) engine=innodb' at line 7
+CREATE TABLE t1 (
+a int not null,
+b int,
+c char (10),
+doc document not null,
+primary key (a),
+UNIQUE key b_a (b, a),
+UNIQUE key c_doc (c, doc.address.zipcode as int)
+) engine=innodb;
+SHOW INDEXES IN t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t1	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
+t1	0	b_a	2	a	A	-	NULL	NULL		BTREE		
+t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
+t1	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+insert into t1 values (1,10,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 }, "bool":"True", "a.b.c.":1 }');
+insert into t1 values (2,20,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 }, "int64":2222222220123456789, "a.b.c.":2 }');
+insert into t1 values (3,30,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333, "a.b.c.":3 }');
+insert into t1 values (4,40,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
+SHOW INDEXES IN t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t1	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
+t1	0	b_a	2	a	A	-	NULL	NULL		BTREE		
+t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
+t1	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+SELECT * FROM t1;
+a	b	c	doc
+1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
+2	20	@2	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762},"int64":2222222220123456789,"a.b.c.":2}
+3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
+4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
+ALTER TABLE t1 DROP KEY b_a;
+SHOW INDEXES IN t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
+t1	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+SELECT * FROM t1;
+a	b	c	doc
+1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
+2	20	@2	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762},"int64":2222222220123456789,"a.b.c.":2}
+3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
+4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
+ALTER TABLE t1 DROP KEY c_doc;
+SHOW INDEXES IN t1;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+SELECT * FROM t1;
+a	b	c	doc
+1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
+2	20	@2	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762},"int64":2222222220123456789,"a.b.c.":2}
+3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
+4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
+CREATE TABLE t2 (
+a int not null,
+b char (10) not null,
+doc document not null,
+primary key (a),
+key (doc.id as int),
+key (doc.double as double),
+key doc_bool (doc.bool as bool),
+key (doc.name as string(64)),
+key doc_name_100 (doc.name as string(100)),
+key doc_binary (doc.address as binary(64)),
+key (doc.address as binary(100))) engine=innodb;
+Warnings:
+Note	1831	Duplicate index 'doc_2' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
+Note	1831	Duplicate index 'doc_binary' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
+Note	1831	Duplicate index 'doc_4' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
+SHOW INDEXES IN t2;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t2	1	doc	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_2	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_bool	1	doc	A	-	1	NULL		BTREE		
+t2	1	doc_3	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
+t2	1	doc_binary	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_4	1	doc	A	-	100	NULL		BTREE		
+insert into t2 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 }, "bool":"True" }');
+insert into t2 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 }, "int64":2222222220123456789 }');
+insert into t2 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333 }');
+insert into t2 values (4,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"] }');
+SHOW INDEXES IN t2;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t2	1	doc	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_2	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_bool	1	doc	A	-	1	NULL		BTREE		
+t2	1	doc_3	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
+t2	1	doc_binary	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_4	1	doc	A	-	100	NULL		BTREE		
+ALTER TABLE t2 DROP KEY doc_bool;
+SHOW INDEXES IN t2;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t2	1	doc	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_2	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_3	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
+t2	1	doc_binary	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_4	1	doc	A	-	100	NULL		BTREE		
+ALTER TABLE t2 DROP KEY doc_name_100;
+SHOW INDEXES IN t2;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t2	1	doc	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_2	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_3	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_binary	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_4	1	doc	A	-	100	NULL		BTREE		
+ALTER TABLE t2 DROP KEY doc_binary;
+SHOW INDEXES IN t2;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t2	1	doc	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_2	1	doc	A	-	8	NULL		BTREE		
+t2	1	doc_3	1	doc	A	-	64	NULL		BTREE		
+t2	1	doc_4	1	doc	A	-	100	NULL		BTREE		
+CREATE TABLE t3 (
+a int not null,
+b int,
+c char (10),
+doc document not null,
+primary key (a),
+UNIQUE key b_a (b, a)
+) engine=innodb;
+SHOW INDEXES IN t3;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t3	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
+t3	0	b_a	2	a	A	-	NULL	NULL		BTREE		
+insert into t3 values (1,10,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 }, "bool":"True", "a.b.c.":1 }');
+insert into t3 values (2,20,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 }, "int64":2222222220123456789, "a.b.c.":2 }');
+insert into t3 values (3,30,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333, "a.b.c.":3 }');
+insert into t3 values (4,40,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
+SELECT * FROM t3;
+a	b	c	doc
+1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
+2	20	@2	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762},"int64":2222222220123456789,"a.b.c.":2}
+3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
+4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
+CREATE UNIQUE INDEX c_doc ON t3 (c, doc.address.zipcode as int);
+SHOW INDEXES IN t3;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t3	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
+t3	0	b_a	2	a	A	-	NULL	NULL		BTREE		
+t3	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
+t3	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+SELECT * FROM t3;
+a	b	c	doc
+1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
+2	20	@2	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762},"int64":2222222220123456789,"a.b.c.":2}
+3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
+4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
+ALTER TABLE t3 DROP KEY b_a;
+SHOW INDEXES IN t3;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+t3	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
+t3	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+ALTER TABLE t3 DROP KEY c_doc;
+SHOW INDEXES IN t3;
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
+t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
+SELECT * FROM t3;
+a	b	c	doc
+1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
+2	20	@2	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762},"int64":2222222220123456789,"a.b.c.":2}
+3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
+4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
+CREATE TABLE t4 (
+a int not null,
+b char (10) not null,
+doc document not null,
+primary key (a),
+key id_a_double_b_bool (doc.id as int, a, doc.double as double, b, doc.bool as bool),
+key a_name_b_name100_address_a_address100_b (a, doc.name as string(64), b, doc.name as string(100), doc.address as binary(64), a, doc.address as binary(100), b)) engine=innodb;
+ERROR 42S21: Duplicate column name 'doc'
+drop table t1, t2, t3;
