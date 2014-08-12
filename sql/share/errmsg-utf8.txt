@@ -7158,6 +7158,9 @@ ER_DOCUMENT_FIELD_IN_PART_FUNC_ERROR
 ER_DOCUMENT_KEY_NOT_SUPPORTED
   eng "DOCUMENT column '%-.192s' cannot be part of a key"
 
+ER_DOCUMENT_FIELD_NOT_ALLOWED
+  eng "DOCUMENT fields are not allowed"
+
 #
 #  End of 5.6 error messages.
 #
