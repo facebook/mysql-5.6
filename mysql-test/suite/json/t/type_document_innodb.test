@@ -1,8 +1,11 @@
 --source include/have_innodb.inc
 
 --disable_warnings
-drop table if exists t, t1;
+drop table if exists t, t1, t2;
 --enable_warnings
+
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
 
 # Fail to create table with document column with non-innodb engine
 --error ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
@@ -100,4 +103,34 @@ while ($i) {
 
 SELECT * FROM t1 WHERE a >= 1000 and a <= 1010;
 
-drop table t, t1;
+--error 1064
+SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
+
+# Disable document type when @@global.allow_document_type is false.
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+
+--error ER_DOCUMENT_FIELD_NOT_ALLOWED
+create table t2 (i int(8), a document, s text(255)) engine=innodb;
+
+create table t2 (i int(8), s text(255)) engine=innodb;
+
+--error ER_DOCUMENT_FIELD_NOT_ALLOWED
+alter table t2 add column a document;
+
+--error ER_DOCUMENT_FIELD_NOT_ALLOWED
+alter table t2 modify column s document;
+
+# Enable document type
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+
+alter table t2 add column a document;
+
+alter table t2 modify column s document;
+
+# Restore the original value
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+
+drop table t, t1, t2;
