@@ -1,4 +1,8 @@
-drop table if exists t, t1;
+drop table if exists t, t1, t2;
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
+1
 create table t (i int(8), a document, s text(255)) engine=myisam;
 ERROR HY000: A DOCUMENT field is not allowed in non-innodb table
 create table t (i int(8), a document(65535), s text(255)) engine=innodb;
@@ -116,4 +120,27 @@ a	b	c	d
 1008	12	144	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
 1009	11	121	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
 1010	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{ "id":201, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "street":"1st", "zipcode":98761 } }
-drop table t, t1;
+SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'document) FROM t1 WHERE a >= 1000 and a <= 1010' at line 1
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+create table t2 (i int(8), a document, s text(255)) engine=innodb;
+ERROR HY000: DOCUMENT fields are not allowed
+create table t2 (i int(8), s text(255)) engine=innodb;
+alter table t2 add column a document;
+ERROR HY000: DOCUMENT fields are not allowed
+alter table t2 modify column s document;
+ERROR HY000: DOCUMENT fields are not allowed
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+alter table t2 add column a document;
+alter table t2 modify column s document;
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+drop table t, t1, t2;
