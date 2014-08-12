@@ -201,6 +201,7 @@ let $MYSQLD_DATADIR= `select @@datadir;`;
 # Forget GTIDs
 RESET MASTER;
 --exec $MYSQL_BINLOG $MYSQLD_DATADIR/master-bin.saved | $MYSQL
+--remove_file $MYSQLD_DATADIR/master-bin.saved
 --connection master1
 select * from t1 order by a;
 DROP TABLE t1;
