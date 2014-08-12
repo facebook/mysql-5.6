@@ -4965,10 +4965,12 @@ bool create_table_impl(THD *thd,
   create_info->table_options=db_options;
 
   /*
-    DOCUMENT type is only supported by InnoDB.
+    DOCUMENT type is only supported by InnoDB and it is only
+    allowed if sys var allow_document_type is true.
   */
-  if (create_info->db_type->db_type != DB_TYPE_INNODB &&
-      create_info->db_type->db_type != DB_TYPE_PARTITION_DB)
+  if ((create_info->db_type->db_type != DB_TYPE_INNODB &&
+       create_info->db_type->db_type != DB_TYPE_PARTITION_DB) ||
+      !allow_document_type)
   {
     Create_field *field = NULL;
     List_iterator<Create_field> it(alter_info->create_list);
@@ -4976,7 +4978,14 @@ bool create_table_impl(THD *thd,
     {
       if (f_is_document(field->pack_flag))
       {
-        my_error(ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE, MYF(0));
+        if (!allow_document_type)
+        {
+          my_error(ER_DOCUMENT_FIELD_NOT_ALLOWED, MYF(0));
+        }
+        else
+        {
+          my_error(ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE, MYF(0));
+        }
         goto err;
       }
     }
