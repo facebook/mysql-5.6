@@ -1,0 +1,66 @@
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
+0
+SET @@global.allow_document_type = true;
+SET @@global.allow_document_type = DEFAULT;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type = false;
+@@global.allow_document_type = false
+1
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+SET @@global.allow_document_type = 1;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+SET @@global.allow_document_type = 0;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+SET @@global.allow_document_type = -1;
+ERROR 42000: Variable 'allow_document_type' can't be set to the value of '-1'
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+SET @@global.allow_document_type = 100;
+ERROR 42000: Variable 'allow_document_type' can't be set to the value of '100'
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+SET @@global.allow_document_type = 1000.01;
+ERROR 42000: Incorrect argument type to variable 'allow_document_type'
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+SET @@session.allow_document_type = 10;
+ERROR HY000: Variable 'allow_document_type' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.allow_document_type;
+ERROR HY000: Variable 'allow_document_type' is a GLOBAL variable
+SELECT @@global.allow_document_type = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='allow_document_type';
+@@global.allow_document_type = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SELECT @@allow_document_type = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='allow_document_type';
+@@allow_document_type = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0

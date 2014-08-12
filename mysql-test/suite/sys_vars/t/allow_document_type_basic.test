@@ -1,0 +1,48 @@
+--source include/load_sysvars.inc
+
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+
+SET @@global.allow_document_type = true;
+SET @@global.allow_document_type = DEFAULT;
+SELECT @@global.allow_document_type;
+
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type = false;
+
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+
+SET @@global.allow_document_type = 1;
+SELECT @@global.allow_document_type;
+SET @@global.allow_document_type = 0;
+
+SELECT @@global.allow_document_type;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.allow_document_type = -1;
+SELECT @@global.allow_document_type;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.allow_document_type = 100;
+SELECT @@global.allow_document_type;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.allow_document_type = 1000.01;
+SELECT @@global.allow_document_type;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.allow_document_type = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.allow_document_type;
+
+SELECT @@global.allow_document_type = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='allow_document_type';
+
+SELECT @@allow_document_type = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='allow_document_type';
+
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;

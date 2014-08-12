@@ -478,6 +478,7 @@ handlerton *partition_hton;
 
 uint opt_server_id_bits= 0;
 ulong opt_server_id_mask= 0;
+my_bool allow_document_type = FALSE;
 my_bool block_create_myisam = FALSE;
 my_bool read_only= 0, opt_readonly= 0;
 my_bool super_read_only = 0, opt_super_readonly = 0;
