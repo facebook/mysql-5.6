@@ -12,6 +12,8 @@ The following options may be given as the first argument:
  Option used by mysql-test for debugging and testing of
  replication.
  --admin-port=#      Port number to use for connections from admin.
+ --allow-document-type 
+ Allows document type when creating or altering tables.
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
@@ -1155,6 +1157,7 @@ The following options may be given as the first argument:
 Variables (--variable-name=value)
 abort-slave-event-count 0
 admin-port 0
+allow-document-type FALSE
 allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
