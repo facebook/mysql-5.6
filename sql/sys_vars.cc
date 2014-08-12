@@ -535,6 +535,12 @@ static Sys_var_long Sys_pfs_connect_attrs_size(
 #endif /* EMBEDDED_LIBRARY */
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+static Sys_var_mybool Sys_allow_document_type(
+       "allow_document_type",
+       "Allows document type when creating or altering tables.",
+       GLOBAL_VAR(allow_document_type),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_block_create_myisam(
        "block_create_myisam",
        "Blocks creation of non-temporary MyISAM tables outside of mysql "
