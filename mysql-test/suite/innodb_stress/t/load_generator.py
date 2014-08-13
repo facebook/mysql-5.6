@@ -434,6 +434,7 @@ if  __name__ == '__main__':
   fake_changes = int(sys.argv[13])
   checksum = int(sys.argv[14])
   secondary_checks = int(sys.argv[15])
+  no_defrag = int(sys.argv[16])
 
   checksum_worker = None
   workers = []
@@ -464,7 +465,9 @@ if  __name__ == '__main__':
                     server_pid, do_blob, max_id, fake_changes, secondary_checks)
     workers.append(worker)
 
-  defrag_worker = DefragmentWorker(MySQLdb.connect(user=user, host=host, port=port, db=db))
+  if no_defrag == 0:
+      defrag_worker = DefragmentWorker(MySQLdb.connect(user=user, host=host, port=port, db=db))
+
   if kill_db_after:
     print >> log, "kill mysqld"
     time.sleep(kill_db_after)
