@@ -33,7 +33,7 @@ create temporary table tt as select * from x;
 select count(*) from mt;
 select count(*) from tt;
 
---query_vertical select * from information_schema.table_statistics where table_name != 'x'
+--query_vertical select * from information_schema.table_statistics where table_name = 'mt' or table_name = 'tt';
 
 #
 # confirm that multiple statements are handled
