@@ -95,7 +95,7 @@ count(*)
 select count(*) from tt;
 count(*)
 4
-select * from information_schema.table_statistics where table_name != 'x';
+select * from information_schema.table_statistics where table_name = 'mt' or table_name = 'tt';;
 delete from x;
 flush statistics;
 insert into x values (1, 'foo');
