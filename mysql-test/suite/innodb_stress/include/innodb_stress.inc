@@ -30,6 +30,10 @@ call mtr.add_suppression("innodb_zip_debug is enabled and this is a non-debug my
 call mtr.add_suppression("Error in Log_event::read_log_event()");
 # Page corruption are possible during crash tests. This should not fail the test.
 call mtr.add_suppression("Warning: database page corruption or a failed");
+
+# Some tests create transactions larger than the defined buffer size. Suppress
+# to test the auto-extend code path rather than increasing the buffer size.
+call mtr.add_suppression("InnoDB: The transaction log size is too large for innodb_log_buffer_size");
 --enable_query_log
 
 --sync_slave_with_master
