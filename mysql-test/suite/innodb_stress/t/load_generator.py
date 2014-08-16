@@ -271,7 +271,7 @@ class Worker(threading.Thread):
     print >> self.log, "thread %d started, run from %d to %d" % (
         self.xid, self.loop_num, self.num_xactions)
 
-    while not self.num_xactions or (self.loop_num < self.num_xactions):
+    while self.loop_num < self.num_xactions:
       idx = self.rand.randint(0, self.max_id)
       insert_or_update = self.rand.randint(0, 3)
       self.loop_num += 1
