@@ -389,6 +389,7 @@ btr_defragment_merge_pages(
 	ulint target_n_recs = 0;
 	rec_t* orig_pred;
 
+	ut_a(level == 0);
 	// Estimate how many records can be moved from the from_page to
 	// the to_page.
 	if (zip_size) {
@@ -435,6 +436,7 @@ btr_defragment_merge_pages(
 		// n_recs_to_move number of records to to_page. We try to reduce
 		// the targeted data size on the to_page by
 		// BTR_DEFRAGMENT_PAGE_REDUCTION_STEP_SIZE and try again.
+		ut_a(zip_size);
 		os_atomic_increment_ulint(
 			&btr_defragment_compression_failures, 1);
 		max_ins_size_to_use =
@@ -490,22 +492,29 @@ btr_defragment_merge_pages(
 			// the merged records, update record locks and
 			// node pointer.
 			dtuple_t* node_ptr;
+			rec_t* first_rec;
+			ut_a(page_rec_is_user_rec(rec));
+			btr_node_ptr_delete(index, from_block, mtr);
 			page_delete_rec_list_start(rec, from_block,
 						   index, mtr);
 			lock_update_split_and_merge(to_block,
 						    orig_pred,
 						    from_block);
-			btr_node_ptr_delete(index, from_block, mtr);
-			rec = page_rec_get_next(
+			first_rec = page_rec_get_next(
 				page_get_infimum_rec(from_page));
+			ut_a(first_rec == rec);
 			node_ptr = dict_index_build_node_ptr(
-				index, rec, page_get_page_no(from_page),
+				index, first_rec, page_get_page_no(from_page),
 				heap, level + 1);
-			btr_insert_on_non_leaf_level(0, index, level+1,
+			btr_insert_on_non_leaf_level(0, index, level + 1,
 						     node_ptr, mtr);
+			ut_a(page_get_n_recs(from_page) + n_recs_to_move
+			     == n_recs);
 		}
 		to_block = from_block;
 	}
+	ut_a(!page_is_empty(from_page));
+	ut_a(!page_is_empty(to_page));
 	return to_block;
 }
 
@@ -572,6 +581,8 @@ btr_defragment_n_pages(
 	/* 1. Load the pages and calculate the total data size. */
 	blocks[0] = block;
 	for (uint i = 1; i <= n_pages; i++) {
+		btr_assert_not_corrupted(blocks[i-1], index);
+		ut_ad(mtr_memo_contains(mtr, blocks[i-1], MTR_MEMO_PAGE_X_FIX));
 		page_t* page = buf_block_get_frame(blocks[i-1]);
 		ulint page_no = btr_page_get_next(page, mtr);
 		total_data_size += page_get_data_size(page);
