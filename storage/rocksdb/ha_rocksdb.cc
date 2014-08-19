@@ -837,7 +837,7 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
       /* field_var->length_bytes is 1 or 2 */
       if (field_var->length_bytes == 1)
       {
-        data_len= data_len_str[0];
+        data_len= (uchar)data_len_str[0];
       }
       else
       {
