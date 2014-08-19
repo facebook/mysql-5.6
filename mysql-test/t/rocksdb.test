@@ -1150,3 +1150,18 @@ select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME L
 --echo #  but they are shown as both session and global, like InnoDB's status vars.
 select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%';
 
+
+--echo #
+--echo # Fix issue #9: HA_ERR_INTERNAL_ERROR when running linkbench
+--echo #
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1 (
+  pk int primary key, 
+  col1 varchar(255),
+  key(col1)
+) engine=rocksdb;
+insert into t1 select a, repeat('123456789ABCDEF-', 15) from t0;
+select * from t1 where pk=3;
+drop table t0, t1;
