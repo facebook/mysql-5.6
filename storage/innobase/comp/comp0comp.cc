@@ -47,7 +47,10 @@ comp_decompress(
 	comp_state_t* comp_state) /* in: in, avail_in, avail_out.
 				     out: out, avail_out, avail_in */
 {
-	ut_a(comp_type <= DICT_TF_COMP_MAX);
+	if (comp_type > DICT_TF_COMP_MAX) {
+		fprintf(stderr, "comp_type = %u\n", comp_type);
+		ut_a(comp_type <= DICT_TF_COMP_MAX);
+	}
 	comp_interfaces[comp_type]->decompress(comp_state);
 }
 /*****************************************************************************
