@@ -819,10 +819,12 @@ ERROR 42S02: Unknown table 'test.t45'
 #
 show variables like 'rocksdb%';
 Variable_name	Value
+rocksdb_block_cache_size	8388608
 rocksdb_bulk_load	OFF
 rocksdb_bulk_load_size	1000
 rocksdb_lock_wait_timeout	1
 rocksdb_max_row_locks	1073741824
+rocksdb_write_buffer_size	4194304
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
@@ -1308,3 +1310,18 @@ ROCKSDB_BYTES_READ
 ROCKSDB_NUMBER_KEYS_WRITTEN
 ROCKSDB_NUMBER_KEYS_READ
 ROCKSDB_NUMBER_KEYS_UPDATED
+#
+# Fix issue #9: HA_ERR_INTERNAL_ERROR when running linkbench
+#
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+pk int primary key, 
+col1 varchar(255),
+key(col1)
+) engine=rocksdb;
+insert into t1 select a, repeat('123456789ABCDEF-', 15) from t0;
+select * from t1 where pk=3;
+pk	col1
+3	123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-123456789ABCDEF-
+drop table t0, t1;
