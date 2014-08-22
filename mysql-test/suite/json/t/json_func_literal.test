@@ -56,22 +56,22 @@ select json_extract('{"k1":"v1"}','k1',null);
 select json_extract('{"k1":"v1"}','k1','k2');
 select json_extract('{"k1":"v1"}','k2');
 select json_extract('[]',1);
-select json_extract('[1]',0);
-select json_extract('[1]',2);
+select json_extract('[1]',1);
+select json_extract('[1]',-1);
 select json_extract('[1]','k1');
 # duplicate keys will be matched at the first occurrence
 select json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
 
 # valid key paths
 select json_extract('{"k1":"v1"}','k1');
+select json_extract('[1,2,3,4]',0);
 select json_extract('[1,2,3,4]',1);
 select json_extract('[1,2,3,4]',2);
 select json_extract('[1,2,3,4]',3);
-select json_extract('[1,2,3,4]',4);
+select json_extract('[1,2,3,4]','0');
 select json_extract('[1,2,3,4]','1');
 select json_extract('[1,2,3,4]','2');
 select json_extract('[1,2,3,4]','3');
-select json_extract('[1,2,3,4]','4');
 
 select json_extract('{"k1":{"k2":{"k3":12.345}}}','k1');
 select json_extract('{"k1":{"k2":{"k3":12.345}}}','k1','k2');
@@ -85,14 +85,14 @@ select json_extract('{"MySQL":"开源数据库"}','MySQL');
 select json_extract('{"开源数据库":"MySQL"}','开源数据库');
 
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0);
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2);
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4);
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2');
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1);
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2);
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2');
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1);
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
 
 # invalid json object (expecting error)
 --error ER_INVALID_JSON
@@ -112,21 +112,21 @@ select json_contains_key('{"k1":"v1"}','k1',null);
 select json_contains_key('{"k1":"v1"}','k1','k2');
 select json_contains_key('{"k1":"v1"}','k2');
 select json_contains_key('[]',1);
-select json_contains_key('[1]',0);
-select json_contains_key('[1]',2);
+select json_contains_key('[1]',1);
+select json_contains_key('[1]',-2);
 # duplicate keys will be matched at the first occurrence
 select json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
 
 # valid key paths
 select json_contains_key('{"k1":"v1"}','k1');
+select json_contains_key('[1,2,3,4]',0);
 select json_contains_key('[1,2,3,4]',1);
 select json_contains_key('[1,2,3,4]',2);
 select json_contains_key('[1,2,3,4]',3);
-select json_contains_key('[1,2,3,4]',4);
+select json_contains_key('[1,2,3,4]','0');
 select json_contains_key('[1,2,3,4]','1');
 select json_contains_key('[1,2,3,4]','2');
 select json_contains_key('[1,2,3,4]','3');
-select json_contains_key('[1,2,3,4]','4');
 
 select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1');
 select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1','k2');
@@ -140,14 +140,14 @@ select json_contains_key('{"MySQL":"开源数据库"}','MySQL');
 select json_contains_key('{"开源数据库":"MySQL"}','开源数据库');
 
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0);
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2);
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4);
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2');
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1);
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2);
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2');
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1);
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
 
 # invalid json object (expecting error)
 --error ER_INVALID_JSON
