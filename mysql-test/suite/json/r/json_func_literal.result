@@ -103,46 +103,44 @@ NULL
 select json_extract('[]',1);
 json_extract('[]',1)
 NULL
-select json_extract('[1]',0);
-json_extract('[1]',0)
+select json_extract('[1]',1);
+json_extract('[1]',1)
 NULL
-select json_extract('[1]',2);
-json_extract('[1]',2)
+select json_extract('[1]',-1);
+json_extract('[1]',-1)
 NULL
 select json_extract('[1]','k1');
 json_extract('[1]','k1')
 NULL
-Warnings:
-Warning	1292	Truncated incorrect INTEGER value: 'k1'
 select json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
 json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2')
 NULL
 select json_extract('{"k1":"v1"}','k1');
 json_extract('{"k1":"v1"}','k1')
 v1
+select json_extract('[1,2,3,4]',0);
+json_extract('[1,2,3,4]',0)
+1
 select json_extract('[1,2,3,4]',1);
 json_extract('[1,2,3,4]',1)
-1
+2
 select json_extract('[1,2,3,4]',2);
 json_extract('[1,2,3,4]',2)
-2
+3
 select json_extract('[1,2,3,4]',3);
 json_extract('[1,2,3,4]',3)
-3
-select json_extract('[1,2,3,4]',4);
-json_extract('[1,2,3,4]',4)
 4
+select json_extract('[1,2,3,4]','0');
+json_extract('[1,2,3,4]','0')
+1
 select json_extract('[1,2,3,4]','1');
 json_extract('[1,2,3,4]','1')
-1
+2
 select json_extract('[1,2,3,4]','2');
 json_extract('[1,2,3,4]','2')
-2
+3
 select json_extract('[1,2,3,4]','3');
 json_extract('[1,2,3,4]','3')
-3
-select json_extract('[1,2,3,4]','4');
-json_extract('[1,2,3,4]','4')
 4
 select json_extract('{"k1":{"k2":{"k3":12.345}}}','k1');
 json_extract('{"k1":{"k2":{"k3":12.345}}}','k1')
@@ -168,29 +166,29 @@ MySQL
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1')
 [1,{"k2":["v1",2,true]},3,false]
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0);
+json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0)
+1
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1)
-1
+{"k2":["v1",2,true]}
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2)
-{"k2":["v1",2,true]}
+3
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3)
-3
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4);
-json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4)
 0
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2');
-json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2')
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2');
+json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2')
 ["v1",2,true]
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1);
-json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1)
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0);
+json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0)
 v1
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2);
-json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2)
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1);
+json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1)
 2
-select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3);
-json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3)
+select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
+json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2)
 1
 select json_extract('', 'k1');
 ERROR HY000: Invalid JSON object: ''
@@ -215,17 +213,20 @@ json_contains_key('{"k1":"v1"}','k2')
 select json_contains_key('[]',1);
 json_contains_key('[]',1)
 0
-select json_contains_key('[1]',0);
-json_contains_key('[1]',0)
+select json_contains_key('[1]',1);
+json_contains_key('[1]',1)
 0
-select json_contains_key('[1]',2);
-json_contains_key('[1]',2)
+select json_contains_key('[1]',-2);
+json_contains_key('[1]',-2)
 0
 select json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
 json_contains_key('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2')
 0
 select json_contains_key('{"k1":"v1"}','k1');
 json_contains_key('{"k1":"v1"}','k1')
+1
+select json_contains_key('[1,2,3,4]',0);
+json_contains_key('[1,2,3,4]',0)
 1
 select json_contains_key('[1,2,3,4]',1);
 json_contains_key('[1,2,3,4]',1)
@@ -236,8 +237,8 @@ json_contains_key('[1,2,3,4]',2)
 select json_contains_key('[1,2,3,4]',3);
 json_contains_key('[1,2,3,4]',3)
 1
-select json_contains_key('[1,2,3,4]',4);
-json_contains_key('[1,2,3,4]',4)
+select json_contains_key('[1,2,3,4]','0');
+json_contains_key('[1,2,3,4]','0')
 1
 select json_contains_key('[1,2,3,4]','1');
 json_contains_key('[1,2,3,4]','1')
@@ -247,9 +248,6 @@ json_contains_key('[1,2,3,4]','2')
 1
 select json_contains_key('[1,2,3,4]','3');
 json_contains_key('[1,2,3,4]','3')
-1
-select json_contains_key('[1,2,3,4]','4');
-json_contains_key('[1,2,3,4]','4')
 1
 select json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1');
 json_contains_key('{"k1":{"k2":{"k3":12.345}}}','k1')
@@ -275,6 +273,9 @@ json_contains_key('{"开源数据库":"MySQL"}','开源数据库')
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
 json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1')
 1
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0);
+json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',0)
+1
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1);
 json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1)
 1
@@ -284,20 +285,17 @@ json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2)
 select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
 json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3)
 1
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4);
-json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',4)
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2');
+json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2')
 1
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2');
-json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2')
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0);
+json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0)
 1
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1);
-json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',1)
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1);
+json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1)
 1
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2);
-json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',2)
-1
-select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3);
-json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2,'k2',3)
+select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
+json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2)
 1
 select json_contains_key('', 'k1');
 ERROR HY000: Invalid JSON object: ''

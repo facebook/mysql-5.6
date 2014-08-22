@@ -1,0 +1,74 @@
+FBSON: a binary storage format for JSON strings
+
+=  Format Detail  (FBSON v1)=
+
+The format proposed here is inspired from Universal Binary JSON
+(http://ubjson.org/) and BSON (http://bsonspec.org/spec.html). I simplified and
+unified the two open specs, while removed much grammer that are irrelavent to
+JSON. FBSON is fully compatible with JSON standards (http://json.org/).
+
+== Key ==
+
+key ::= 0x00 int8    //1-byte dictionary kid
+      | int8 (byte*) //int8 (non-zero) is the size of the key string
+
+Key name length cannot exceed 64 characters.
+
+== Primitive Values ==
+
+A primitive value has the following format: a type byte followed by value bytes
+(0 byte to variable length). 
+
+primitive_value ::= 0x00          //null value (0 byte)
+                  | 0x01          //boolean true (0 byte)
+                  | 0x02          //boolean false (0 byte)
+                  | 0x03 int8     //char/int8 (1 byte)
+                  | 0x04 int16    //int16 (2 bytes)
+                  | 0x05 int32    //int32 (4 bytes)
+                  | 0x06 int64    //int64 (8 bytes)
+                  | 0x07 double   //floating point (8 bytes)
+                  | 0x08 string   //variable length string
+                  | 0x09 binary   //variable length binary
+
+string ::= int32 (byte*) //int32 is the size of the string
+binary ::= int32 (byte*) //int32 is the size of the binary blob
+
+Note: FBSON strings may not be null-terminated.
+
+== Container Values ==
+
+A container type is either an object type or an array type.
+
+container ::= 0x0A int32 key_value_list //object, int32 is the total bytes
+            | 0x0B int32 value_list     //array, int32 is the total bytes
+
+key_value_list ::= key value key_value_list
+value_list     ::= value value_list
+value          ::= primitive_value | container
+
+In the trivial case, an empty container can be encoded to a type byte followed
+by size 0.
+
+== Document ==
+
+A document is simply a container. Version information is stored in the first
+byte for backward compatibility.
+
+document ::= int8 container //the first byte is reserved for version info
+
+The maximum length of a JSON document must be less then 16MB (and hence the
+maximum length of any string value must be less then 16MB). Traversing the
+document is fast since every value is precisely sized.
+
+= FBSON Library Implementation Overview =
+
+We do parsing and serialization of JSON string at the same time. Parsed JSON
+types are directly serialized onto FBSON packed bytes. Therefore, to get the
+FBSON packed bytes after parsing is simply a sequence read of the blob. 
+
+FBSON classes are essentially packed structs aligned with FBSON bytes. So
+desrialization of the packed bytes into C++ objects is highly efficient
+(equivalent to a simple cast from the underlying bytes), and doesn't incur any
+memory allocation or copying.
+
+More implementation detail can be found in the source comments.
