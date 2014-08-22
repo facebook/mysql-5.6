@@ -59,16 +59,16 @@ select length(json_extract(json,null)),json_extract(json,null),json from test_js
 select length(json_extract(json,'k1')),json_extract(json,'k1'),json from test_json order by 1,2,3;
 select length(json_extract(json,'k1','k2')),json_extract(json,'k1','k2'),json from test_json order by 1,2,3;
 select length(json_extract(json,'k1','k2','k3')),json_extract(json,'k1','k2','k3'),json from test_json order by 1,2,3;
-select length(json_extract(json,1)),json_extract(json,1),json from test_json order by 1,2,3;
-select length(json_extract(json,'2')),json_extract(json,'2'),json from test_json order by 1,2,3;
-select length(json_extract(json,'k1',2)),json_extract(json,'k1',2),json from test_json order by 1,2,3;
-select length(json_extract(json,'k1',2,'k2')),json_extract(json,'k1',2,'k2'),json from test_json order by 1,2,3;
-select length(json_extract(json,'k1',2,'k2',1)),json_extract(json,'k1',2,'k2',1),json from test_json order by 1,2,3;
+select length(json_extract(json,0)),json_extract(json,0),json from test_json order by 1,2,3;
+select length(json_extract(json,'1')),json_extract(json,'1'),json from test_json order by 1,2,3;
+select length(json_extract(json,'k1',1)),json_extract(json,'k1',1),json from test_json order by 1,2,3;
+select length(json_extract(json,'k1',1,'k2')),json_extract(json,'k1',1,'k2'),json from test_json order by 1,2,3;
+select length(json_extract(json,'k1',1,'k2',0)),json_extract(json,'k1',1,'k2',0),json from test_json order by 1,2,3;
 
 # test create table...select
 truncate test_json;
 insert into test_json values ('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
-create table test_json2 (json text) select json_extract(json,'k1',2,'k2',1) json from test_json;
+create table test_json2 (json text) select json_extract(json,'k1',1,'k2',0) json from test_json;
 show columns from test_json2;
 select * from test_json2;
 drop table test_json2;
@@ -105,11 +105,11 @@ select json_contains_key(json,'k2'),json from test_json order by 1,2;
 select json_contains_key(json,'k1'),json from test_json order by 1,2;
 select json_contains_key(json,'k1','k2'),json from test_json order by 1,2;
 select json_contains_key(json,'k1','k2','k3'),json from test_json order by 1,2;
-select json_contains_key(json,1),json from test_json order by 1,2;
-select json_contains_key(json,'2'),json from test_json order by 1,2;
-select json_contains_key(json,'k1',2),json from test_json order by 1,2;
-select json_contains_key(json,'k1',2,'k2'),json from test_json order by 1,2;
-select json_contains_key(json,'k1',2,'k2',1),json from test_json order by 1,2;
+select json_contains_key(json,0),json from test_json order by 1,2;
+select json_contains_key(json,'1'),json from test_json order by 1,2;
+select json_contains_key(json,'k1',1),json from test_json order by 1,2;
+select json_contains_key(json,'k1',1,'k2'),json from test_json order by 1,2;
+select json_contains_key(json,'k1',1,'k2',0),json from test_json order by 1,2;
 
 truncate test_json;
 
