@@ -16,7 +16,7 @@
 */
 
 
-/* This file defines all json string functions (using rapidjson) */
+/* This file defines all json string functions (using FBSON library) */
 
 
 /* May include caustic 3rd-party defs. Use early, so it can override nothing. */
@@ -33,58 +33,68 @@
 
 /*
  * Note we assume the system charset is UTF8,
- * which is the encoding of json object in rapidjson
+ * which is the encoding of json object in FBSON
  */
-#include "../rapidjson/document.h"   // rapidjson's DOM-style API
-#include "../rapidjson/writer.h"     // for stringify JSON
-#include "../rapidjson/stringbuffer.h"
+#include "../fbson/FbsonJsonParser.h"
+#include "../fbson/FbsonUtil.h"
 
 static String*
-ValueToString(rapidjson::Value &value, String &str, const CHARSET_INFO *cs)
+ValueToString(fbson::FbsonValue *pval, String &str, const CHARSET_INFO *cs)
 {
   String *res = &str;
 
-  switch (value.GetType())
+  switch (pval->type())
   {
-  case rapidjson::kFalseType:
+  case fbson::FbsonType::T_False:
     {
       res->set_int(0, true /*unsigned_flag*/, cs);
       break;
     }
-  case rapidjson::kTrueType:
+  case fbson::FbsonType::T_True:
     {
       res->set_int(1, true /*unsigned_flag*/, cs);
       break;
     }
-  case rapidjson::kObjectType:
-  case rapidjson::kArrayType:
+  case fbson::FbsonType::T_Object:
+  case fbson::FbsonType::T_Array:
     {
-      rapidjson::StringBuffer buffer;
-      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-      value.Accept(writer);
-      res->copy(buffer.GetString(), buffer.GetSize(), cs);
+      fbson::FbsonToJson tojson;
+      std::string json = tojson.json(pval);
+      res->copy(json.c_str(), json.size(), cs);
       break;
     }
-  case rapidjson::kStringType:
+  case fbson::FbsonType::T_String:
     {
-      res->copy(value.GetString(), value.GetStringLength(), cs);
+      fbson::StringVal *str_val = (fbson::StringVal *)pval;
+      res->copy(str_val->getBlob(), str_val->getBlobLen(), cs);
       break;
     }
-  case rapidjson::kNumberType:
+  case fbson::FbsonType::T_Int8:
     {
-			if (value.IsInt())
-        res->set_int(value.GetInt(), false, cs);
-			else if (value.IsUint())
-        res->set_int(value.GetUint(), true, cs);
-			else if (value.IsInt64())
-        res->set_int(value.GetInt64(), false, cs);
-			else if (value.IsUint64())
-        res->set_int(value.GetUint64(), true, cs);
-			else /* value.IsDouble() */
-        res->set_real(value.GetDouble(), NOT_FIXED_DEC, cs);
+      res->set_int(((fbson::Int8Val*)pval)->val(), false, cs);
       break;
     }
-  case rapidjson::kNullType:
+  case fbson::FbsonType::T_Int16:
+    {
+      res->set_int(((fbson::Int16Val*)pval)->val(), false, cs);
+      break;
+    }
+  case fbson::FbsonType::T_Int32:
+    {
+      res->set_int(((fbson::Int32Val*)pval)->val(), false, cs);
+      break;
+    }
+  case fbson::FbsonType::T_Int64:
+    {
+      res->set_int(((fbson::Int64Val*)pval)->val(), false, cs);
+      break;
+    }
+  case fbson::FbsonType::T_Double:
+    {
+      res->set_real(((fbson::DoubleVal*)pval)->val(), NOT_FIXED_DEC, cs);
+      break;
+    }
+  case fbson::FbsonType::T_Null:
   default:
       res = nullptr;
   }
@@ -105,8 +115,8 @@ bool Item_func_json_valid::val_bool()
   null_value= (json ? 0:1);
   if (json)
   {
-    rapidjson::Document document;
-    if (!document.Parse<0>(json->c_ptr_safe()).HasParseError())
+    fbson::FbsonJsonParser parser;
+    if (parser.parse(json->c_ptr_safe()))
       return true;
   }
 
@@ -131,35 +141,41 @@ String *Item_func_json_extract::val_str(String *str)
   String *pstr = args[0]->val_str(str);
   if (pstr)
   {
-    rapidjson::Document document;
-    if (!document.Parse<0>(pstr->c_ptr_safe()).HasParseError())
+    fbson::FbsonJsonParser parser;
+    if (parser.parse(pstr->c_ptr_safe()))
     {
-      rapidjson::Value &value = document;
-      unsigned i = 1;
-      for (; i < arg_count; ++i)
-      {
-        if (value.IsObject())
-        {
-          rapidjson::Value::Member *member = nullptr;
-          if ( (pstr = args[i]->val_str(str)) )
-            member = value.FindMember(pstr->c_ptr_safe());
+      fbson::FbsonOutStream *out = parser.getWriter().getOutput();
+      fbson::FbsonValue *pval = fbson::FbsonDocument::createValue(
+          out->getBuffer(), out->getSize());
+      DBUG_ASSERT(pval);
 
-          if (member)
-            value = member->value;
-          else break;
-        }
-        else if (value.IsArray())
+      unsigned i = 1;
+      for (; i < arg_count && pval && pstr; ++i)
+      {
+        if (pval->isObject())
         {
-          // array index parameter is 1-based
-          int index = args[i]->val_int();
-          if (index > 0 && (unsigned)index <= value.Size())
-            value = value[(unsigned)index-1];
-          else break;
+          if ( (pstr = args[i]->val_str(str)) )
+            pval = ((fbson::ObjectVal*)pval)->find(pstr->c_ptr_safe());
         }
-        else break;
+        else if (pval->isArray())
+        {
+          if ( (pstr = args[i]->val_str(str)) )
+          {
+            // array index parameter is 0-based
+            char *end = nullptr;
+            int index = strtol(pstr->c_ptr_safe(), &end, 0);
+            if (end && !*end)
+              pval = ((fbson::ArrayVal*)pval)->get(index);
+            else
+              pval = nullptr;
+          }
+        }
+        else
+          pval = nullptr;
       }
-      if (i == arg_count)
-        res = ValueToString(value,*str,collation.collation);
+
+      if (pval && pstr)
+        res = ValueToString(pval,*str,collation.collation);
     }
     else
       my_error(ER_INVALID_JSON, MYF(0), pstr->c_ptr_safe());
@@ -193,34 +209,40 @@ bool Item_func_json_contains_key::val_bool()
   null_value = (pstr? 0:1);
   if (pstr)
   {
-    rapidjson::Document document;
-    if (!document.Parse<0>(pstr->c_ptr_safe()).HasParseError())
+    fbson::FbsonJsonParser parser;
+    if (parser.parse(pstr->c_ptr_safe()))
     {
-      rapidjson::Value &value = document;
-      unsigned i = 1;
-      for (; i < arg_count; ++i)
-      {
-        if (value.IsObject())
-        {
-          rapidjson::Value::Member *member = nullptr;
-          if ( (pstr = args[i]->val_str(&buffer)) )
-            member = value.FindMember(pstr->c_ptr_safe());
+      fbson::FbsonOutStream *out = parser.getWriter().getOutput();
+      fbson::FbsonValue *pval = fbson::FbsonDocument::createValue(
+          out->getBuffer(), out->getSize());
+      DBUG_ASSERT(pval);
 
-          if (member)
-            value = member->value;
-          else break;
-        }
-        else if (value.IsArray())
+      unsigned i = 1;
+      for (; i < arg_count && pval && pstr; ++i)
+      {
+        if (pval->isObject())
         {
-          // array index parameter is 1-based
-          int index = args[i]->val_int();
-          if (index > 0 && (unsigned)index <= value.Size())
-            value = value[(unsigned)index-1];
-          else break;
+          if ( (pstr = args[i]->val_str(&buffer)) )
+            pval = ((fbson::ObjectVal*)pval)->find(pstr->c_ptr_safe());
         }
-        else break;
+        else if (pval->isArray())
+        {
+          if ( (pstr = args[i]->val_str(&buffer)) )
+          {
+            // array index parameter is 0-based
+            char *end = nullptr;
+            int index = strtol(pstr->c_ptr_safe(), &end, 0);
+            if (end && !*end)
+              pval = ((fbson::ArrayVal*)pval)->get(index);
+            else
+              pval = nullptr;
+          }
+        }
+        else
+          pval = nullptr;
       }
-      if (i == arg_count)
+
+      if (pval && pstr)
         res = true;
     }
     else
@@ -250,11 +272,16 @@ longlong Item_func_json_array_length::val_int()
   null_value = (pstr? 0:1);
   if (pstr)
   {
-    rapidjson::Document document;
-    if (!document.Parse<0>(pstr->c_ptr_safe()).HasParseError())
+    fbson::FbsonJsonParser parser;
+    if (parser.parse(pstr->c_ptr_safe()))
     {
-      if (document.IsArray())
-        res = document.Size();
+      fbson::FbsonOutStream *out = parser.getWriter().getOutput();
+      fbson::FbsonValue *pval = fbson::FbsonDocument::createValue(
+          out->getBuffer(), out->getSize());
+      DBUG_ASSERT(pval);
+
+      if (pval->isArray())
+        res = ((fbson::ArrayVal*)pval)->numElem();
       else
         my_error(ER_INVALID_JSON_ARRAY, MYF(0), pstr->c_ptr_safe());
     }
