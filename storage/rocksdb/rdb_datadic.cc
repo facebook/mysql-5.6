@@ -74,12 +74,11 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     if (keyno != tbl->s->primary_key)
     {
       n_pk_key_parts= pk_info->actual_key_parts;
-      pk_part_no= (uint*)my_malloc(sizeof(uint)*n_pk_key_parts, MYF(0));
     }
     else
     {
       pk_info= NULL;
-      pk_part_no= NULL;
+      n_pk_key_parts= 0;
     }
 
     // "unique" secondary keys support:
@@ -92,6 +91,11 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       m_key_parts += n_pk_key_parts;
       unique_secondary_index= true;
     }
+
+    if (keyno != tbl->s->primary_key)
+      pk_part_no= (uint*)my_malloc(sizeof(uint)*m_key_parts, MYF(0));
+    else
+      pk_part_no= NULL;
 
     size_t size= sizeof(Field_pack_info) * m_key_parts;
     pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
