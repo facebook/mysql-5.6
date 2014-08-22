@@ -43,9 +43,9 @@
 
 /*
  * Note we assume the system charset is UTF8,
- * which is the encoding of json object in rapidjson
+ * which is the encoding of json object in FBSON
  */
-#include "../rapidjson/document.h"   // rapidjson's DOM-style API
+#include "../fbson/FbsonJsonParser.h"
 
 using std::max;
 using std::min;
@@ -8419,11 +8419,8 @@ Field_document::validate(const char *from, uint length,
   if (json.is_empty())
     return false;
 
-  rapidjson::Document document;
-  if (document.Parse<0>(json.c_ptr_safe()).HasParseError())
-    return false;
-
-  return true;
+  fbson::FbsonJsonParser parser;
+  return parser.parse(json.c_ptr_safe());
 }
 
 
