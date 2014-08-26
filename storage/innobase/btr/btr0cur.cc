@@ -281,7 +281,7 @@ btr_cur_latch_leaves(
 		get_block->check_index_page_at_flush = TRUE;
 		return;
 	case BTR_SEARCH_TREE:
-		ut_ad(mtr->trx->fake_changes);
+		ut_ad(mtr->trx->fake_changes || mtr->trx->ha_index_read_level);
 		/* fall thru */
 	case BTR_MODIFY_TREE:
 		mode = latch_mode == BTR_SEARCH_TREE ? RW_S_LATCH : RW_X_LATCH;
@@ -433,7 +433,6 @@ btr_cur_search_to_nth_level(
 	/* Currently, PAGE_CUR_LE is the only search mode used for searches
 	ending to upper levels */
 
-	ut_ad(level == 0 || mode == PAGE_CUR_LE);
 	ut_ad(dict_index_check_search_tuple(index, tuple));
 	ut_ad(!dict_index_is_ibuf(index) || ibuf_inside(mtr));
 	ut_ad(dtuple_check_typed(tuple));
@@ -584,28 +583,6 @@ btr_cur_search_to_nth_level(
 	low_bytes = 0;
 
 	height = ULINT_UNDEFINED;
-
-	/* We use these modified search modes on non-leaf levels of the
-	B-tree. These let us end up in the right B-tree leaf. In that leaf
-	we use the original search mode. */
-
-	switch (mode) {
-	case PAGE_CUR_GE:
-		page_mode = PAGE_CUR_L;
-		break;
-	case PAGE_CUR_G:
-		page_mode = PAGE_CUR_LE;
-		break;
-	default:
-#ifdef PAGE_CUR_LE_OR_EXTENDS
-		ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE
-		      || mode == PAGE_CUR_LE_OR_EXTENDS);
-#else /* PAGE_CUR_LE_OR_EXTENDS */
-		ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE);
-#endif /* PAGE_CUR_LE_OR_EXTENDS */
-		page_mode = mode;
-		break;
-	}
 
 	/* Loop and search until we arrive at the desired level */
 
@@ -764,7 +741,33 @@ retry_page_get:
 		}
 
 		page_mode = mode;
+	} else if (height == level) {
+		page_mode = mode;
+	} else {
+		/* We use these modified search modes on levels above the given
+		level of the B-tree. These let us end up in the right B-tree
+		page. In that page we use the original search mode. */
+
+		switch (mode) {
+		case PAGE_CUR_GE:
+			page_mode = PAGE_CUR_L;
+			break;
+		case PAGE_CUR_G:
+			page_mode = PAGE_CUR_LE;
+			break;
+		default:
+#ifdef PAGE_CUR_LE_OR_EXTENDS
+			ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE
+			      || mode == PAGE_CUR_LE_OR_EXTENDS);
+#else /* PAGE_CUR_LE_OR_EXTENDS */
+			ut_ad(mode == PAGE_CUR_L || mode == PAGE_CUR_LE);
+#endif /* PAGE_CUR_LE_OR_EXTENDS */
+			page_mode = mode;
+			break;
+		}
 	}
+
+
 
 	page_cur_search_with_match(
 		block, index, tuple, page_mode, &up_match, &up_bytes,

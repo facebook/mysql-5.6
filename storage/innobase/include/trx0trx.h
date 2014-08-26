@@ -905,6 +905,8 @@ struct trx_t{
 	ulint		lra_sleep;	/* lra_sleep is the sleep time in
 					milliseconds. */
 	ulint		lra_tree_height;
+	uint		ha_index_read_level;
+					/*btree level to read by HANDLER*/
 	ulint		flush_log_later;/* In 2PC, we hold the
 					prepare_commit mutex across
 					both phases. In that case, we
