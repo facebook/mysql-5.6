@@ -2733,6 +2733,32 @@ int handler::ha_index_init(uint idx, bool sorted)
   DBUG_RETURN(result);
 }
 
+/**
+  Initialize use of index with the btree level to access.
+  level > 0 is used by HANDLER statement for InnoDB only.
+
+  @param idx     Index to use
+  @param sorted  Use sorted order
+
+  @return Operation status
+    @retval 0     Success
+    @retval != 0  Error (error code returned)
+*/
+
+int handler::ha_index_init_with_level(uint idx, bool sorted, ulong level)
+{
+  DBUG_EXECUTE_IF("ha_index_init_fail", return HA_ERR_TABLE_DEF_CHANGED;);
+  int result;
+  DBUG_ENTER("ha_index_init");
+  DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
+              m_lock_type != F_UNLCK);
+  DBUG_ASSERT(inited == NONE);
+  if (!(result= index_init_with_level(idx, sorted, level)))
+    inited= INDEX;
+  end_range= NULL;
+  DBUG_RETURN(result);
+}
+
 
 /**
   End use of index.
