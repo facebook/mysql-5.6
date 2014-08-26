@@ -909,6 +909,8 @@ struct trx_t{
 					we skip XA steps */
 	lra_t		lra;		/* Data structure for logical read
 					ahead states. */
+	uint		ha_index_read_level;
+					/*btree level to read by HANDLER*/
 	ulint		flush_log_later;/* In 2PC, we hold the
 					prepare_commit mutex across
 					both phases. In that case, we
