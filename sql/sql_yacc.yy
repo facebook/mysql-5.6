@@ -1777,7 +1777,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         opt_natural_language_mode opt_query_expansion
         opt_ev_status opt_ev_on_completion ev_on_completion opt_ev_comment
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
-        trg_action_time trg_event
+        trg_action_time trg_event handler_step
 
 /*
   Bit field of MYSQL_START_TRANS_OPT_* flags.
@@ -1872,7 +1872,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %type <ha_rkey_mode> handler_rkey_mode
 
 %type <ha_read_mode> handler_read_or_scan handler_scan_function
-        handler_rkey_function
+        handler_rkey_function handler_rkey
 
 %type <cast_type> cast_type
 
@@ -1913,7 +1913,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         select_item_list select_item values_list no_braces
         opt_limit_clause delete_limit_clause fields opt_values values
         opt_procedure_analyse_params
-        handler
+        handler handler_read_clause
         opt_precision opt_ignore opt_column opt_restrict
         grant revoke set lock unlock string_list field_options field_option
         field_opt_list opt_binary ascii unicode table_lock_list table_lock
@@ -15427,6 +15427,11 @@ handler:
             if (!lex->current_select->add_table_to_list(lex->thd, $2, 0, 0))
               MYSQL_YYABORT;
           }
+          handler_read_clause
+          {}
+          ;
+
+handler_read_clause:
           handler_read_or_scan where_clause opt_limit_clause
           {
             THD *thd= YYTHD;
@@ -15439,9 +15444,30 @@ handler:
                        "stored functions in HANDLER ... READ");
               MYSQL_YYABORT;
             }
+            lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_handler_read($1,
+                                  lex->ident.str, lex->insert_list,
+                                  thd->m_parser_state->m_yacc.m_ha_rkey_mode,
+                                  0, 1);
+            if (lex->m_sql_cmd == NULL)
+              MYSQL_YYABORT;
+          }
+        | ON LEVEL_SYM ulong_num ident handler_rkey handler_step opt_limit_clause
+          {
+            THD *thd= YYTHD;
+            LEX *lex= Lex;
+            Lex->expr_allows_subselect= TRUE;
+            Lex->ident= $4;
+            /* Stored functions are not supported for HANDLER READ. */
+            if (lex->uses_stored_routines())
+            {
+              my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+                       "stored functions in HANDLER ... READ");
+              MYSQL_YYABORT;
+            }
             lex->m_sql_cmd= new (thd->mem_root) Sql_cmd_handler_read($5,
                                   lex->ident.str, lex->insert_list,
-                                  thd->m_parser_state->m_yacc.m_ha_rkey_mode);
+                                  thd->m_parser_state->m_yacc.m_ha_rkey_mode,
+                                  $3, $6);
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -15462,17 +15488,21 @@ handler_rkey_function:
         | NEXT_SYM  { $$= RNEXT;  }
         | PREV_SYM  { $$= RPREV;  }
         | LAST_SYM  { $$= RLAST;  }
-        | handler_rkey_mode
-          {
-            YYTHD->m_parser_state->m_yacc.m_ha_rkey_mode= $1;
-            Lex->insert_list= new List_item;
-            if (! Lex->insert_list)
-              MYSQL_YYABORT;
-          }
-          '(' values ')'
-          {
-            $$= RKEY;
-          }
+        | handler_rkey { $$= $1;  }
+        ;
+
+handler_rkey:
+        handler_rkey_mode
+        {
+          YYTHD->m_parser_state->m_yacc.m_ha_rkey_mode= $1;
+          Lex->insert_list= new List_item;
+          if (! Lex->insert_list)
+            MYSQL_YYABORT;
+        }
+        '(' values ')'
+        {
+          $$= RKEY;
+        }
         ;
 
 handler_rkey_mode:
@@ -15481,6 +15511,11 @@ handler_rkey_mode:
         | LE     { $$=HA_READ_KEY_OR_PREV; }
         | GT_SYM { $$=HA_READ_AFTER_KEY;   }
         | LT     { $$=HA_READ_BEFORE_KEY;  }
+        ;
+
+handler_step:
+        /* empty */ { $$ = 1; }
+        | EVERY_SYM ulong_num { $$ = $2; }
         ;
 
 /* GRANT / REVOKE */

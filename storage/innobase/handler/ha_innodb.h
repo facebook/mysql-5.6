@@ -87,7 +87,7 @@ class ha_innobase: public handler
                                    const uchar* record);
 	inline void update_thd(THD* thd);
 	void update_thd();
-	int change_active_index(uint keynr);
+	int change_active_index(uint keynr, ulong level);
 	int general_fetch(uchar* buf, uint direction, uint match_mode);
 	dberr_t innobase_lock_autoinc();
 	ulonglong innobase_peek_autoinc();
@@ -140,6 +140,8 @@ class ha_innobase: public handler
 	void unlock_row();
 
 	int index_init(uint index, bool sorted);
+	int index_init_with_level(uint index, bool sorted, ulong level);
+	int index_read_set_level(dict_index_t* index, ulong level);
 	int index_end();
 	int index_read(uchar * buf, const uchar * key,
 		uint key_len, enum ha_rkey_function find_flag);

@@ -62,9 +62,11 @@ public:
   Sql_cmd_handler_read(enum_ha_read_modes read_mode,
                        const char *key_name,
                        List<Item> *key_expr,
-                       ha_rkey_function rkey_mode)
+                       ha_rkey_function rkey_mode,
+                       ulong level,
+                       ulong step)
     : m_read_mode(read_mode), m_key_name(key_name), m_key_expr(key_expr),
-      m_rkey_mode(rkey_mode)
+      m_rkey_mode(rkey_mode), m_level(level), m_step(step)
   {}
 
   virtual ~Sql_cmd_handler_read()
@@ -92,6 +94,13 @@ private:
 
   /** Type of condition for key values to be satisfied. */
   enum ha_rkey_function m_rkey_mode;
+
+  /** B-tree level for which the read should be operated on. InnoDB only. */
+  ulong m_level;
+
+  /** Only return record every m_step records. */
+  ulong m_step;
+
 };
 
 

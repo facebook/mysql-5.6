@@ -1189,6 +1189,8 @@ ibool
 dict_index_contains_col_or_prefix(
 /*==============================*/
 	const dict_index_t*	index,	/*!< in: index */
+	bool			key_only,/*!< in: Even for cluster index, only
+					return true if field is in the key*/
 	ulint			n)	/*!< in: column number */
 	__attribute__((nonnull, warn_unused_result));
 /********************************************************************//**

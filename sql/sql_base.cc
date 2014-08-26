@@ -8266,7 +8266,7 @@ int setup_wild(THD *thd, TABLE_LIST *tables, List<Item> &fields,
       else if (insert_fields(thd, ((Item_field*) item)->context,
                              ((Item_field*) item)->db_name,
                              ((Item_field*) item)->table_name, &it,
-                             any_privileges))
+                             any_privileges, -1))
       {
 	DBUG_RETURN(-1);
       }
@@ -8604,7 +8604,7 @@ bool setup_tables_and_check_access(THD *thd,
 bool
 insert_fields(THD *thd, Name_resolution_context *context, const char *db_name,
 	      const char *table_name, List_iterator<Item> *it,
-              bool any_privileges)
+              bool any_privileges, int keyno)
 {
   Field_iterator_table_ref field_iterator;
   bool found;
@@ -8714,13 +8714,18 @@ insert_fields(THD *thd, Name_resolution_context *context, const char *db_name,
       if (item->type() == Item::FIELD_ITEM && tables->cacheable_table)
         ((Item_field *)item)->cached_table= tables;
 
-      if (!found)
-      {
-        found= TRUE;
-        it->replace(item); /* Replace '*' with the first found item. */
+      field = field_iterator.field();
+      if (keyno < 0 || (field && field->part_of_key.is_set(keyno))) {
+        if (!found)
+        {
+          found= TRUE;
+          it->replace(item); /* Replace '*' with the first found item. */
+        }
+        else
+          it->after(item);   /* Add 'item' to the SELECT list. */
       }
       else
-        it->after(item);   /* Add 'item' to the SELECT list. */
+        continue;
 
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
       /*
@@ -8755,7 +8760,7 @@ insert_fields(THD *thd, Name_resolution_context *context, const char *db_name,
       }
 #endif
 
-      if ((field= field_iterator.field()))
+      if (field)
       {
         /* Mark fields as used to allow storage engine to optimze access */
         bitmap_set_bit(field->table->read_set, field->field_index);

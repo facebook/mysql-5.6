@@ -2051,6 +2051,7 @@ public:
   int ha_open(TABLE *table, const char *name, int mode, int test_if_locked);
   int ha_close(void);
   int ha_index_init(uint idx, bool sorted);
+  int ha_index_init_with_level(uint idx, bool sorted, ulong level);
   int ha_index_end();
   int ha_rnd_init(bool scan);
   int ha_rnd_end();
@@ -3154,6 +3155,16 @@ private:
     last_active_index= active_index= idx;
     return 0;
   }
+
+  virtual int index_init_with_level(uint idx, bool sorted, ulong level)
+  {
+    if (level > 0) {
+      return HA_ADMIN_NOT_IMPLEMENTED;
+    }
+    last_active_index= active_index= idx;
+    return 0;
+  }
+
   virtual int index_end() { active_index= MAX_KEY; return 0; }
   /**
     rnd_init() can be called two times without rnd_end() in between
