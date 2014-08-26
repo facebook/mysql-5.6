@@ -501,7 +501,7 @@ bool Sql_cmd_handler_read::execute(THD *thd)
   Protocol	*protocol= thd->protocol;
   char		buff[MAX_FIELD_WIDTH];
   String	buffer(buff, sizeof(buff), system_charset_info);
-  int           error, keyno= -1;
+  int           error= 0, keyno= -1;
   uint          num_rows;
   uchar		*UNINIT_VAR(key);
   uint		UNINIT_VAR(key_len);
@@ -513,6 +513,7 @@ bool Sql_cmd_handler_read::execute(THD *thd)
   enum enum_ha_read_modes mode= m_read_mode;
   Item          *cond= select_lex->where;
   ha_rows select_limit_cnt, offset_limit_cnt;
+  ulong step = 1;
   DBUG_ENTER("Sql_cmd_handler_read::execute");
   DBUG_PRINT("enter",("'%s'.'%s' as '%s'",
                       tables->db, tables->table_name, tables->alias));
@@ -662,7 +663,7 @@ retry:
   }
 
   if (insert_fields(thd, &select_lex->context,
-                    tables->db, tables->alias, &it, 0))
+                    tables->db, tables->alias, &it, 0, m_level ? keyno : -1))
     goto err;
 
   protocol->send_result_set_metadata(&list, Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF);
@@ -685,7 +686,9 @@ retry:
         {
           /* Check if we read from the same index. */
           DBUG_ASSERT((uint) keyno == table->file->get_index());
-          error= table->file->ha_index_next(table->record[0]);
+          step = m_step;
+          while (step && !(error= table->file->ha_index_next(table->record[0])))
+            --step;
           break;
         }
       }
@@ -721,7 +724,9 @@ retry:
       DBUG_ASSERT((uint) keyno == table->file->get_index());
       if (table->file->inited == handler::INDEX)
       {
-        error= table->file->ha_index_prev(table->record[0]);
+        step = m_step;
+        while (step && !(error= table->file->ha_index_prev(table->record[0])))
+          --step;
         break;
       }
       /* else fall through, for more info, see comment before 'case RFIRST'. */
@@ -735,7 +740,12 @@ retry:
     case RNEXT_SAME:
       /* Continue scan on "(keypart1,keypart2,...)=(c1, c2, ...)  */
       DBUG_ASSERT(table->file->inited == handler::INDEX);
-      error= table->file->ha_index_next_same(table->record[0], key, key_len);
+      step = m_step;
+      while (step &&
+             !(error= table->file->ha_index_next_same(table->record[0],
+                                                      key,
+                                                      key_len)))
+        --step;
       break;
     case RKEY:
     {
@@ -775,7 +785,7 @@ retry:
       if ((error= table->file->ha_index_or_rnd_end()))
         break;
       key_copy(key, table->record[0], table->key_info + keyno, key_len);
-      if (!(error= table->file->ha_index_init(keyno, 1)))
+      if (!(error= table->file->ha_index_init_with_level(keyno, 1, m_level)))
         error= table->file->ha_index_read_map(table->record[0],
                                               key, keypart_map, m_rkey_mode);
       mode=rkey_to_rnext[(int)m_rkey_mode];
@@ -792,9 +802,15 @@ retry:
         continue;
       if (error != HA_ERR_KEY_NOT_FOUND && error != HA_ERR_END_OF_FILE)
       {
-        sql_print_error("mysql_ha_read: Got error %d when reading table '%s'",
-                        error, tables->table_name);
-        table->file->print_error(error,MYF(0));
+        if(error == ER_DATA_OUT_OF_RANGE)
+          my_error(ER_DATA_OUT_OF_RANGE, MYF(0), "btree level", "handler read");
+        else if (error == HA_ADMIN_NOT_IMPLEMENTED)
+          my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "handler read level");
+        else {
+          sql_print_error("mysql_ha_read: Got error %d when reading table '%s'",
+                          error, tables->table_name);
+          table->file->print_error(error,MYF(0));
+        }
         goto err;
       }
       goto ok;
