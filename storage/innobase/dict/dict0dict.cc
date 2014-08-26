@@ -854,18 +854,20 @@ ibool
 dict_index_contains_col_or_prefix(
 /*==============================*/
 	const dict_index_t*	index,	/*!< in: index */
+	bool			key_only,/*!< in: Even for cluster index, only
+					return true if field is in the key*/
 	ulint			n)	/*!< in: column number */
 {
 	const dict_field_t*	field;
 	const dict_col_t*	col;
 	ulint			pos;
 	ulint			n_fields;
+	ulint			is_clust;
 
 	ut_ad(index);
 	ut_ad(index->magic_n == DICT_INDEX_MAGIC_N);
-
-	if (dict_index_is_clust(index)) {
-
+	is_clust = dict_index_is_clust(index);
+	if (is_clust && !key_only) {
 		return(TRUE);
 	}
 
@@ -876,7 +878,7 @@ dict_index_contains_col_or_prefix(
 	for (pos = 0; pos < n_fields; pos++) {
 		field = dict_index_get_nth_field(index, pos);
 
-		if (col == field->col) {
+		if (col == field->col && (!is_clust || pos < index->n_uniq)) {
 
 			return(TRUE);
 		}

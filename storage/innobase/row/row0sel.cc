@@ -4029,6 +4029,8 @@ row_search_for_mysql(
 	ibool		table_lock_waited		= FALSE;
 	byte*		next_buf			= 0;
 	ibool		use_clustered_index		= FALSE;
+	uint		read_level = 0;
+	ulint		latch_mode = BTR_SEARCH_LEAF;
 
 	rec_offs_init(offsets_);
 
@@ -4450,6 +4452,15 @@ wait_table_again:
 
 	/* Open or restore index cursor position */
 
+	read_level = trx->ha_index_read_level;
+	latch_mode = read_level
+			   ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
+	/* We don't really care about isolation when reading the
+	internal nodes. */
+	if (read_level) {
+		trx->isolation_level = TRX_ISO_READ_UNCOMMITTED;
+	}
+
 	if (UNIV_LIKELY(direction != 0)) {
 		ibool	need_to_process = sel_restore_position_for_mysql(
 			&same_user_rec, BTR_SEARCH_LEAF,
@@ -4478,9 +4489,10 @@ wait_table_again:
 
 	} else if (dtuple_get_n_fields(search_tuple) > 0) {
 
-		btr_pcur_open_with_no_init(index, search_tuple, mode,
-					   BTR_SEARCH_LEAF,
-					   pcur, 0, &mtr);
+		btr_pcur_open_with_no_init_func_low(index, search_tuple, mode,
+						    latch_mode,
+						    pcur, read_level, 0,
+						    __FILE__, __LINE__, &mtr);
 
 		pcur->trx_if_known = trx;
 
@@ -4515,8 +4527,8 @@ wait_table_again:
 		}
 	} else if (mode == PAGE_CUR_G || mode == PAGE_CUR_L) {
 		btr_pcur_open_at_index_side(
-			mode == PAGE_CUR_G, index, BTR_SEARCH_LEAF,
-			pcur, false, 0, &mtr);
+			mode == PAGE_CUR_G, index, latch_mode,
+			pcur, false, read_level, &mtr);
 	}
 
 rec_loop:

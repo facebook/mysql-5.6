@@ -2357,6 +2357,9 @@ public:
   /* container for handler's private per-connection data */
   Ha_data ha_data[MAX_HA];
 
+  /* handler read btree level for innodb */
+  ulong ha_read_level;
+
   /*
     Position of first event in Binlog
     *after* last event written by this

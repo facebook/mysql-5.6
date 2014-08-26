@@ -2119,7 +2119,7 @@ public:
   friend bool insert_fields(THD *thd, Name_resolution_context *context,
                             const char *db_name,
                             const char *table_name, List_iterator<Item> *it,
-                            bool any_privileges);
+                            bool any_privileges, int keyno);
 };
 
 
