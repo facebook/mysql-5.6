@@ -2282,47 +2282,117 @@ static int check_host_name(const char *pattern, const char *name)
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
 
-static my_bool ssl_check_SAN(const char* server_hosname, GENERAL_NAME* gn_entry,
-			     my_bool SAN_DNS_checked)
+static my_bool ssl_check_SAN_DNS(const char* server_hostname, GENERAL_NAME* gn_entry)
+{
+  my_bool        retcode= 0;
+  int            length;
+  unsigned char* CN_utf8;
+
+  length= ASN1_STRING_to_UTF8(&CN_utf8, gn_entry->d.dNSName);
+
+  DBUG_PRINT("info", ("aternative hostname in cert: %s", CN_utf8));
+
+  // Don't compare if string has null inside
+  if (length > 0 && (uint32_t) length == strlen((const char*) CN_utf8) &&
+      !check_host_name((char*) CN_utf8, server_hostname))
+  {
+    retcode= 1;  // success!
+  }
+  // else mismatch - keep checking
+
+  OPENSSL_free(CN_utf8);
+
+  return retcode;
+}
+
+static my_bool ssl_check_SAN_IPADD(Vio* vio, GENERAL_NAME* gn_entry)
 {
   my_bool retcode= 0;
 
-  if (gn_entry != NULL && gn_entry->type == GEN_DNS)
+  if (vio->type != VIO_TYPE_SSL)
   {
-    *SAN_DNS_checked= 1;  // at least one DNS entry checked
+    DBUG_PRINT("error", ("vio->type unexpectedly non-SSL"));
+  }
+  else
+  {
+    /* We must call vio_peer_addr to populate vio->remote; this is
+     * a hack to get around the limited vio API */
+    my_bool  peer_rc;
+    char     unused_ip[NI_MAXHOST];
+    uint16_t unused_port;
 
-    unsigned char* CN_utf8;
-    int length= ASN1_STRING_to_UTF8(&CN_utf8, gn_entry->d.dNSName);
-
-    DBUG_PRINT("info", ("aternative hostname in cert: %s", CN_utf8));
-
-    // Don't compare if string has null inside
-    if (length > 0 && (uint32_t) length == strlen((const char*) CN_utf8) &&
-	!check_host_name((char*) CN_utf8, server_hostname))
+    peer_rc= vio_peer_addr(vio, unused_ip, &unused_port, NI_MAXHOST);
+    if (!peer_rc)
     {
-      retcode= 1;  // success!
-    }
-    // else mismatch - keep checking
+      DBUG_PRINT("info", ("alternative ip address in cert: %s", unused_ip));
 
-    OPENSSL_free(CN_utf8);
+      /* Check ipv4 and ipv6 addresses */
+      char* data= (char*) ASN1_STRING_data(gn_entry->d.ia5);
+      int   length= ASN1_STRING_length(gn_entry->d.ia5);
+
+      struct sockaddr* sa= (struct sockaddr*) &vio->remote;
+      if (sa->sa_family == AF_INET && length == sizeof(struct in_addr))
+      {
+        struct sockaddr_in* sa_in= (struct sockaddr_in*) sa;
+        if (memcmp(&sa_in->sin_addr, data, length) == 0)
+        {
+          retcode= 1;
+        }
+      }
+      else if (sa->sa_family == AF_INET6 && length == sizeof(struct in6_addr))
+      {
+        struct sockaddr_in6* sa_in6= (struct sockaddr_in6*) sa;
+        if (memcmp(&sa_in6->sin6_addr, data, length) == 0)
+        {
+          retcode= 1;
+        }
+      }
+      else
+      {
+        DBUG_PRINT("error", ("unexpected sa_family/length (%d/%d)",
+                   sa->sa_family, length));
+      }
+    }
   }
 
   return retcode;
 }
 
-static my_bool ssl_check_SANs(X509* server_cert, const char* server_hostname,
-			      my_bool* SAN_DNS_checked)
+static my_bool ssl_check_SAN(Vio* vio, const char* server_hostname,
+                             GENERAL_NAME* gn_entry, my_bool* SAN_DNS_checked)
 {
-  my_bool	 found= 0;
+  my_bool retcode= 0;
+
+  if (gn_entry != NULL)
+  {
+    if (gn_entry->type == GEN_DNS)
+    {
+      *SAN_DNS_checked= 1;  // at least one DNS entry checked
+
+      retcode= ssl_check_SAN_DNS(server_hostname, gn_entry);
+    }
+    else if (gn_entry->type == GEN_IPADD)
+    {
+      retcode= ssl_check_SAN_IPADD(vio, gn_entry);
+    }
+  }
+
+  return retcode;
+}
+
+static my_bool ssl_check_SANs(Vio* vio, X509* server_cert,
+			      const char* server_hostname, my_bool* SAN_DNS_checked)
+{
+  my_bool	 found = 0;
   GENERAL_NAMES* names;
 
-  names = X509_get_ext_d2(server_cert, NID_subject_alt_name, 0, 0);
+  names = X509_get_ext_d2i(server_cert, NID_subject_alt_name, 0, 0);
   if (names)
   {
     int count= sk_GENERAL_NAME_num(names);
-    for (index= 0; index < count && !found; index++)
+    for (int index= 0; index < count && !found; index++)
     {
-      found= ssl_check_SAN(server_hostname,
+      found= ssl_check_SAN(vio, server_hostname,
 			   sk_GENERAL_NAME_value(names, index),
 			   SAN_DNS_checked);
     }
@@ -2464,7 +2534,7 @@ static int ssl_verify_server_cert(Vio* vio, const char* server_hostname,
 	Check subject alternative names (SANs) first.
       */
       my_bool SAN_DNS_checked= 0;
-      if (ssl_check_SANs(server_cert, server_hostname, &SAN_DNS_checked))
+      if (ssl_check_SANs(vio, server_cert, server_hostname, &SAN_DNS_checked))
       {
 	retcode= 0;
       }
@@ -2481,7 +2551,7 @@ static int ssl_verify_server_cert(Vio* vio, const char* server_hostname,
     }
   }
 
-  return DBUG_RETURN(retcode);
+  DBUG_RETURN(retcode);
 }
 
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
