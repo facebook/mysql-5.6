@@ -576,7 +576,11 @@ buf_dblwr_init_or_load_pages(
 				mach_read_from_4(page + FIL_PAGE_SPACE_ID);
 			ulint page_no  =
 				mach_read_from_4(page + FIL_PAGE_OFFSET);
-			recv_dblwr.add(page, space_id, page_no);
+			/* Do not bother checking unused doublewrite pages. */
+			if (space_id != TRX_SYS_SPACE ||
+			    !buf_dblwr_page_inside(page_no)) {
+				recv_dblwr.add(page, space_id, page_no);
+			}
 		}
 
 		page += UNIV_PAGE_SIZE;
