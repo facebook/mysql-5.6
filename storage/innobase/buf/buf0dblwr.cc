@@ -536,6 +536,9 @@ buf_dblwr_init_or_load_pages(
 			ulint page_no = mach_read_from_4(ptr);
 			ptr += 4;
 			recv_dblwr.add(NULL, space_id, page_no);
+			fprintf(stderr,
+				"InnoDB: DBLWR: space/page %lu/%lu (TORN)\n",
+                                space_id, page_no);
 		}
 	}
 	if (header_found)
@@ -577,6 +580,9 @@ buf_dblwr_init_or_load_pages(
 			ulint page_no  =
 				mach_read_from_4(page + FIL_PAGE_OFFSET);
 			recv_dblwr.add(page, space_id, page_no);
+			fprintf(stderr,
+				"InnoDB: DBLWR: space/page %lu/%lu (FULL)\n",
+                                space_id, page_no);
 		}
 
 		page += UNIV_PAGE_SIZE;
