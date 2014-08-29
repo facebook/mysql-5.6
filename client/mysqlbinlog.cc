@@ -1676,7 +1676,9 @@ static struct my_option my_long_options[] =
    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"find-gtid-position", OPT_FIND_GTID_POSITION,
    "Prints binlog file name and starting position of Gtid_log_event "
-   "corresponding to the given gtid. This requires index-file option.",
+   "corresponding to the given gtid. If the input string is a gtid set, "
+   "mysqlbinlog prints latest binlog file name whose previous gtid set "
+   "is a subset of the input gtid set. This requires index-file option.",
    &opt_find_gtid_str, &opt_find_gtid_str, 0,
    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"index-file", OPT_INDEX_FILE, "Path to the index file, required "
@@ -3245,17 +3247,33 @@ static Exit_status start_gtid_dump(char *gtid_string, bool find_position)
   DBUG_ENTER("start_gtid_dump");
   Exit_status retval = OK_CONTINUE;
   Sid_map sid_map = NULL;
+  bool searching_gtid_set = false;
+  my_off_t pos = BIN_LOG_HEADER_SIZE;
   Gtid gtid;
+  Gtid_set gtid_set(&sid_map);
   std::map<std::string, std::string>::reverse_iterator rit;
   std::map<std::string, std::string>::iterator it, last_log_it;
   it = previous_gtid_set_map.end();
   last_log_it = --previous_gtid_set_map.end();
 
   Gtid_set previous_gtid_set(&sid_map);
-  if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK)
+  if (!find_position || Gtid::is_valid(gtid_string))
   {
-    error("Couldn't find position of a malformed Gtid %s", gtid_string);
-    DBUG_RETURN(ERROR_STOP);
+    if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK)
+    {
+      error("Couldn't find position of a malformed Gtid %s", gtid_string);
+      DBUG_RETURN(ERROR_STOP);
+    }
+  }
+  else
+  {
+    // Check if the value given to find-gtid-position is gtid set.
+    if (gtid_set.add_gtid_text(gtid_string) != RETURN_STATUS_OK)
+    {
+      error("Couldn't find position of a malformed Gtid %s", gtid_string);
+      DBUG_RETURN(ERROR_STOP);
+    }
+    searching_gtid_set = true;
   }
 
   for (rit = previous_gtid_set_map.rbegin();
@@ -3263,7 +3281,8 @@ static Exit_status start_gtid_dump(char *gtid_string, bool find_position)
   {
     previous_gtid_set.add_gtid_encoding((const uchar*)rit->second.c_str(),
                                         rit->second.length());
-    if (!previous_gtid_set.contains_gtid(gtid))
+    if (searching_gtid_set ? previous_gtid_set.is_subset(&gtid_set) :
+        !previous_gtid_set.contains_gtid(gtid))
     {
       it = previous_gtid_set_map.find(rit->first.c_str());
       break;
@@ -3277,19 +3296,23 @@ static Exit_status start_gtid_dump(char *gtid_string, bool find_position)
     DBUG_RETURN(ERROR_STOP);
   }
 
-  my_off_t pos = find_gtid_pos_in_log(it->first.c_str(), gtid, &sid_map);
-  if (pos == 0)
+  if (!searching_gtid_set)
   {
-    error("Request gtid is not in executed set and so cannot be "
-          "found in binary logs");
-    DBUG_RETURN(ERROR_STOP);
+    pos = find_gtid_pos_in_log(it->first.c_str(), gtid, &sid_map);
+    if (pos == 0)
+    {
+      error("Request gtid is not in executed set and so cannot be "
+            "found in binary logs");
+      DBUG_RETURN(ERROR_STOP);
+    }
   }
 
   if (find_position)
   {
     int dir_len = dirname_length(it->first.c_str());
     fprintf(result_file, "Log_name: %s\n", it->first.c_str() + dir_len);
-    fprintf(result_file, "Position: %llu", pos);
+    if (!searching_gtid_set)
+      fprintf(result_file, "Position: %llu", pos);
     DBUG_RETURN(OK_CONTINUE);
   }
 
