@@ -6,6 +6,10 @@ FLUSH LOGS;
 insert into t1 values(3);
 insert into t1 values(4);
 FLUSH LOGS;
+Log_name: master-bin.000002
+
+Log_name: master-bin.000003
+
 ** Reading from local binlog **
 /*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
 /*!40019 SET @@session.max_insert_delayed_threads=0*/;
