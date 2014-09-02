@@ -29,6 +29,8 @@
 #include "rdb_locks.h"
 #include "rdb_rowmods.h"
 
+#include "rocksdb/table.h"
+
 void dbug_dump_database(rocksdb::DB *db);
 
 static handler *rocksdb_create_handler(handlerton *hton,
@@ -500,7 +502,10 @@ static int rocksdb_init_func(void *p)
 
   main_opts.write_buffer_size= rocksdb_write_buffer_size;
   main_opts.target_file_size_base= rocksdb_target_file_size_base;
-  main_opts.block_cache= rocksdb::NewLRUCache(rocksdb_block_cache_size);
+
+  rocksdb::BlockBasedTableOptions table_options;
+  table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
+  main_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
 
   rocksdb::Status status;
   status= rocksdb::DB::Open(main_opts, "./rocksdb", &rdb);
@@ -520,8 +525,6 @@ static int rocksdb_init_func(void *p)
                         rdb->GetOptions().write_buffer_size);
   sql_print_information("  target_file_size_base=%d",
                         rdb->GetOptions().target_file_size_base);
-  sql_print_information("  cache.getCapacity()=%lu",
-                        rdb->GetOptions().block_cache->GetCapacity());
   DBUG_RETURN(0);
 }
 
