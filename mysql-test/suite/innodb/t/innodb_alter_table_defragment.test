@@ -220,6 +220,17 @@ alter table t1 defragment index PRIMARY async_commit;
 --error ER_SP_ALREADY_EXISTS
 alter table t1 defragment index PRIMARY;
 
+# if async_commit defragmentation doesn't finish before drop table, it will
+# cause crash after the table is dropped. So we clean up the unfinished async
+# defrag query (if any) before test cleanup.
+let $conn_id = `select connection_id()`;
+--replace_result $conn_id ID
+--error ER_QUERY_INTERRUPTED
+eval kill query $conn_id;
+
+# wait a bit for defrag thread to pick up the kill signal
+select sleep(3);
+
 call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;
