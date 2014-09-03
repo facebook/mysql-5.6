@@ -80,6 +80,11 @@ set global innodb_defragment_frequency = 100;
 alter table t1 defragment index PRIMARY async_commit;
 alter table t1 defragment index PRIMARY;
 ERROR 42000: ./test/t1 PRIMARY already exists
+kill query ID;
+ERROR 70ID00: Query execution was interrupted
+select sleep(3);
+sleep(3)
+0
 call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;
