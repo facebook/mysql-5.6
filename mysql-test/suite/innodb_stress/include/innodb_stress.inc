@@ -23,8 +23,8 @@ if ($fake_changes)
 
 --connection master
 
-# since this test generates lot of errors in log, suppress checking errors
-call mtr.add_suppression(".*");
+# some versions of this test use zipdebug, and so generate this warning in non-debug builds
+call mtr.add_suppression("innodb_zip_debug is enabled and this is a non-debug mysqld. Please disable it immediately if the machine is serving production traffic.");
 
 --sync_slave_with_master
 
