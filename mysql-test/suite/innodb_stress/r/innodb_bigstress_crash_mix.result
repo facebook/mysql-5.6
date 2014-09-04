@@ -12,7 +12,8 @@ msg_checksum varchar(128),
 KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
-COMPRESSION_FLAGS=0x6
+COMPRESSION=ZLIB
+COMPRESSION_LEVEL=3
 KEY_BLOCK_SIZE=1;
 Wait for reconnect
 Checksum master
@@ -40,7 +41,8 @@ KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 COMPRESSION=BZIP
-KEY_BLOCK_SIZE=1;
+COMPRESSION_LEVEL=1
+KEY_BLOCK_SIZE=4;
 Wait for reconnect
 Checksum master
 stop slave;
@@ -67,7 +69,8 @@ KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 COMPRESSION=LZMA
-KEY_BLOCK_SIZE=1;
+COMPRESSION_LEVEL=2
+KEY_BLOCK_SIZE=8;
 Wait for reconnect
 Checksum master
 stop slave;
@@ -121,6 +124,7 @@ KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 COMPRESSION=QUICKLZ
+COMPRESSION_LEVEL=3
 KEY_BLOCK_SIZE=1;
 Wait for reconnect
 Checksum master
@@ -148,6 +152,7 @@ KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 COMPRESSION=LZ4
+COMPRESSION_LEVEL=2
 KEY_BLOCK_SIZE=1;
 Wait for reconnect
 Checksum master

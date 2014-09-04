@@ -58,9 +58,11 @@ is found in a remote location, not the default data directory. */
 /** Width of the COMP_TYPE flag. This flag determines the compression used
 for a compressed table. */
 #define FSP_FLAGS_WIDTH_COMP_TYPE	4
-/** Width of the extra argument passed to the compression algorithm used for
+/** Width of the compression level passed to the compression algorithm used for
 a compressed table. */
-#define FSP_FLAGS_WIDTH_COMP_FLAGS 8
+#define FSP_FLAGS_WIDTH_COMP_LEVEL 4
+/** Width of the compact metadata bit */
+#define FSP_FLAGS_WIDTH_COMPACT_METADATA 1
 /** Width of all the currently known tablespace flags */
 #define FSP_FLAGS_WIDTH		(FSP_FLAGS_WIDTH_POST_ANTELOPE	\
 				+ FSP_FLAGS_WIDTH_ZIP_SSIZE	\
@@ -68,7 +70,8 @@ a compressed table. */
 				+ FSP_FLAGS_WIDTH_PAGE_SSIZE	\
 				+ FSP_FLAGS_WIDTH_DATA_DIR	\
 				+ FSP_FLAGS_WIDTH_COMP_TYPE	\
-				+ FSP_FLAGS_WIDTH_COMP_FLAGS)
+				+ FSP_FLAGS_WIDTH_COMP_LEVEL	\
+				+ FSP_FLAGS_WIDTH_COMPACT_METADATA)
 
 /** A mask of all the known/used bits in tablespace flags */
 #define FSP_FLAGS_MASK		(~(~0 << FSP_FLAGS_WIDTH))
@@ -90,12 +93,15 @@ a compressed table. */
 /** Zero relative shift position of the start of the compression type bits */
 #define FSP_FLAGS_POS_COMP_TYPE (FSP_FLAGS_POS_DATA_DIR	\
 					+ FSP_FLAGS_WIDTH_DATA_DIR)
-/** Zero relative shift position of the start of the compression param bits */
-#define FSP_FLAGS_POS_COMP_FLAGS (FSP_FLAGS_POS_COMP_TYPE \
+/** Zero relative shift position of the start of the compression level bits */
+#define FSP_FLAGS_POS_COMP_LEVEL (FSP_FLAGS_POS_COMP_TYPE \
 					+ FSP_FLAGS_WIDTH_COMP_TYPE)
+/** Zero relative shift position of the start of the compact metadata bit */
+#define FSP_FLAGS_POS_COMPACT_METADATA (FSP_FLAGS_POS_COMP_LEVEL \
+					+ FSP_FLAGS_WIDTH_COMP_LEVEL)
 /** Zero relative shift position of the start of the UNUSED bits */
-#define FSP_FLAGS_POS_UNUSED		(FSP_FLAGS_POS_COMP_FLAGS	\
-					+ FSP_FLAGS_WIDTH_COMP_FLAGS)
+#define FSP_FLAGS_POS_UNUSED		(FSP_FLAGS_POS_COMPACT_METADATA \
+					+ FSP_FLAGS_WIDTH_COMPACT_METADATA)
 
 /** Bit mask of the POST_ANTELOPE field */
 #define FSP_FLAGS_MASK_POST_ANTELOPE				\
@@ -121,10 +127,14 @@ a compressed table. */
 #define FSP_FLAGS_MASK_COMP_TYPE	\
 		((~(~0 << FSP_FLAGS_WIDTH_COMP_TYPE))	\
 		 << FSP_FLAGS_POS_COMP_TYPE)
-/** Bit mask of the COMP_FLAGS field */
-#define FSP_FLAGS_MASK_COMP_FLAGS	\
-		((~(~0 << FSP_FLAGS_WIDTH_COMP_FLAGS))	\
-		 << FSP_FLAGS_POS_COMP_FLAGS)
+/** Bit mask of the COMP_LEVEL field */
+#define FSP_FLAGS_MASK_COMP_LEVEL	\
+		((~(~0 << FSP_FLAGS_WIDTH_COMP_LEVEL))	\
+		 << FSP_FLAGS_POS_COMP_LEVEL)
+/** Bit mask of the COMPACT_METADATA field */
+#define FSP_FLAGS_MASK_COMPACT_METADATA	\
+		((~(~0 << FSP_FLAGS_WIDTH_COMPACT_METADATA))	\
+		 << FSP_FLAGS_POS_COMPACT_METADATA)
 
 /** Return the value of the POST_ANTELOPE field */
 #define FSP_FLAGS_GET_POST_ANTELOPE(flags)			\
@@ -150,10 +160,14 @@ a compressed table. */
 #define FSP_FLAGS_GET_COMP_TYPE(flags)	\
 		((flags & FSP_FLAGS_MASK_COMP_TYPE)	\
 		 >> FSP_FLAGS_POS_COMP_TYPE)
-/** Return the value of COMP_FLAGS field */
-#define FSP_FLAGS_GET_COMP_FLAGS(flags)	\
-		((flags & FSP_FLAGS_MASK_COMP_FLAGS)	\
-		 >> FSP_FLAGS_POS_COMP_FLAGS)
+/** Return the value of COMP_LEVEL field */
+#define FSP_FLAGS_GET_COMP_LEVEL(flags)	\
+		((flags & FSP_FLAGS_MASK_COMP_LEVEL)	\
+		 >> FSP_FLAGS_POS_COMP_LEVEL)
+/** Return the value of COMPACT_METADATA field */
+#define FSP_FLAGS_GET_COMPACT_METADATA(flags)	\
+		((flags & FSP_FLAGS_MASK_COMPACT_METADATA)	\
+		 >> FSP_FLAGS_POS_COMPACT_METADATA)
 
 /** Return the contents of the UNUSED bits */
 #define FSP_FLAGS_GET_UNUSED(flags)				\

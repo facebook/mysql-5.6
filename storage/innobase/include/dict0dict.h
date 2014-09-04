@@ -896,22 +896,6 @@ dict_tf_get_format(
 	ulint		flags)		/*!< in: dict_table_t::flags */
 	__attribute__((warn_unused_result));
 /********************************************************************//**
-Determine the compression type from a dict_table_t::flags.
-@return compression type. */
-UNIV_INLINE
-rec_compression_type_t
-dict_tf_get_compression_type(
-	ulint	flags)
-	__attribute__((warn_unused_result));
-/********************************************************************//**
-Determine the compression flags from a dict_table_t::flags.
-@return compression flags. */
-UNIV_INLINE
-ulong
-dict_tf_get_compression_flags(
-	ulint	flags)
-	__attribute__((warn_unused_result));
-/********************************************************************//**
 Set the various values in a dict_table_t::flags pointer. */
 UNIV_INLINE
 void
@@ -921,8 +905,10 @@ dict_tf_set(
 	rec_format_t	format,		/*!< in: file format */
 	ulint		zip_ssize,	/*!< in: zip shift size */
 	bool		use_data_dir,	/*!< in: table uses DATA DIRECTORY */
-	rec_compression_type_t	compression,
-	ulong		compression_flags)
+	rec_compression_type_t	compression, /*!< in: compression type */
+	ulong		compression_level, /*!< in: compression level */
+	ulong		compact_metadata) /*!< in: whether metadata should be
+					    stored in a compact format */
 	__attribute__((nonnull));
 /********************************************************************//**
 The core functionality for dict_tf_to_fsp_flags(). See the documentation
