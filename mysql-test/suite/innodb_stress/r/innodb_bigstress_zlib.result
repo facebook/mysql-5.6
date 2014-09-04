@@ -13,7 +13,8 @@ KEY msg_i(msg_prefix))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 COMPRESSION=ZLIB
-COMPRESSION_FLAGS=0x6
+COMPRESSION_LEVEL=1
+COMPACT_METADATA=0
 KEY_BLOCK_SIZE=1;
 call mtr.add_suppression("innodb_zip_debug is enabled and this is a non-debug mysqld. Please disable it immediately if the machine is serving production traffic.");
 Checksum master
