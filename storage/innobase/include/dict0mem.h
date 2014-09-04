@@ -126,9 +126,12 @@ allows InnoDB to update_create_info() accordingly. */
 /** Width of the COMP_TYPE flag. This flag determines the compression used
 for a compressed table. */
 #define DICT_TF_WIDTH_COMP_TYPE	4
-/** Width of the extra argument passed to the compression algorithm used for
+/** Width of the compression level passed to the compression algorithm used for
 a compressed table. */
-#define DICT_TF_WIDTH_COMP_FLAGS 8
+#define DICT_TF_WIDTH_COMP_LEVEL 4
+/** Width of the COMPACT_METADATA flag. When set the transaction ids and
+rollback pointers are stored in a compact format. */
+#define DICT_TF_WIDTH_COMPACT_METADATA 1
 
 /** Width of all the currently known table flags */
 #define DICT_TF_BITS	(DICT_TF_WIDTH_COMPACT		\
@@ -136,7 +139,8 @@ a compressed table. */
 			+ DICT_TF_WIDTH_ATOMIC_BLOBS	\
 			+ DICT_TF_WIDTH_DATA_DIR	\
 			+ DICT_TF_WIDTH_COMP_TYPE	\
-			+ DICT_TF_WIDTH_COMP_FLAGS)
+			+ DICT_TF_WIDTH_COMP_LEVEL	\
+			+ DICT_TF_WIDTH_COMPACT_METADATA)
 
 /** A mask of all the known/used bits in table flags */
 #define DICT_TF_BIT_MASK	(~(~0 << DICT_TF_BITS))
@@ -155,12 +159,15 @@ a compressed table. */
 /** Zero relative shift position of the start of the compression type bits */
 #define DICT_TF_POS_COMP_TYPE	(DICT_TF_POS_DATA_DIR		\
 					+ DICT_TF_WIDTH_DATA_DIR)
-/** Zero relative shift position of the start of the compression param bits */
-#define DICT_TF_POS_COMP_FLAGS (DICT_TF_POS_COMP_TYPE \
+/** Zero relative shift position of the start of the compression level bits */
+#define DICT_TF_POS_COMP_LEVEL (DICT_TF_POS_COMP_TYPE \
 					+ DICT_TF_WIDTH_COMP_TYPE)
+/** Zero relative shift position of the start of the compact metadata bit */
+#define DICT_TF_POS_COMPACT_METADATA (DICT_TF_POS_COMP_LEVEL \
+					+ DICT_TF_WIDTH_COMP_LEVEL)
 /** Zero relative shift position of the start of the UNUSED bits */
-#define DICT_TF_POS_UNUSED		(DICT_TF_POS_COMP_FLAGS		\
-					+ DICT_TF_WIDTH_COMP_FLAGS)
+#define DICT_TF_POS_UNUSED		(DICT_TF_POS_COMPACT_METADATA	\
+					+ DICT_TF_WIDTH_COMPACT_METADATA)
 
 /** Bit mask of the COMPACT field */
 #define DICT_TF_MASK_COMPACT				\
@@ -182,10 +189,14 @@ a compressed table. */
 #define DICT_TF_MASK_COMP_TYPE				\
 		((~(~0 << DICT_TF_WIDTH_COMP_TYPE))	\
 		<< DICT_TF_POS_COMP_TYPE)
-/** Bit mask of the COMP_FLAGS field */
-#define DICT_TF_MASK_COMP_FLAGS				\
-		((~(~0 << DICT_TF_WIDTH_COMP_FLAGS))	\
-		<< DICT_TF_POS_COMP_FLAGS)
+/** Bit mask of the COMP_LEVEL field */
+#define DICT_TF_MASK_COMP_LEVEL				\
+		((~(~0 << DICT_TF_WIDTH_COMP_LEVEL))	\
+		<< DICT_TF_POS_COMP_LEVEL)
+/** Bit mask of the COMPACT_METADATA field */
+#define DICT_TF_MASK_COMPACT_METADATA				\
+		((~(~0 << DICT_TF_WIDTH_COMPACT_METADATA))	\
+		<< DICT_TF_POS_COMPACT_METADATA)
 
 /** Return the value of the COMPACT field */
 #define DICT_TF_GET_COMPACT(flags)			\
@@ -207,10 +218,14 @@ a compressed table. */
 #define DICT_TF_GET_COMP_TYPE(flags)		\
 		((flags & DICT_TF_MASK_COMP_TYPE)	\
 		>> DICT_TF_POS_COMP_TYPE)
-/** Return the compression flags */
-#define DICT_TF_GET_COMP_FLAGS(flags)		\
-		((flags & DICT_TF_MASK_COMP_FLAGS)	\
-		>> DICT_TF_POS_COMP_FLAGS)
+/** Return the compression level */
+#define DICT_TF_GET_COMP_LEVEL(flags)		\
+		((flags & DICT_TF_MASK_COMP_LEVEL)	\
+		>> DICT_TF_POS_COMP_LEVEL)
+/** Return the compact_metadata bit */
+#define DICT_TF_GET_COMPACT_METADATA(flags)		\
+		((flags & DICT_TF_MASK_COMPACT_METADATA)	\
+		>> DICT_TF_POS_COMPACT_METADATA)
 /** Return the contents of the UNUSED bits */
 #define DICT_TF_GET_UNUSED(flags)			\
 		(flags >> DICT_TF_POS_UNUSED)
