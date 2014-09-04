@@ -2611,7 +2611,7 @@ page_zip_compress(
 	ulint fsp_flags;
 	ibool ret;
 	mem_heap_t* heap = NULL;
-	uchar comp_flags;
+	uchar comp_level;
 	uchar comp_type;
 	ulint n_dense;
 	uint serialized_len = 0;
@@ -2722,7 +2722,7 @@ page_zip_compress(
 	/* asking a heap of size 0 will just give a memory block
 	   with the default block size which is OK */
 	heap = mem_heap_create_cached(0, malloc_cache_compress);
-	comp_flags = FSP_FLAGS_GET_COMP_FLAGS(fsp_flags);
+	comp_level = FSP_FLAGS_GET_COMP_LEVEL(fsp_flags);
 	comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
 	new_page_zip.data = static_cast<byte*> (
 				mem_heap_alloc(
@@ -2763,7 +2763,7 @@ page_zip_compress(
 		comp_state.out = new_page_zip.data + PAGE_DATA;
 		comp_state.avail_in = serialized_len;
 		comp_state.avail_out = avail_out;
-		comp_state.level = comp_flags;
+		comp_state.level = comp_level;
 		comp_state.heap = heap;
 		ret = comp_compress(comp_type, &comp_state);
 		ut_a(avail_out > (lint)comp_state.avail_out);
@@ -4269,7 +4269,7 @@ page_zip_decompress_low(
 	ulint trailer_len; /*!< length of the trailer after the compressed page
 			     image is decompressed */
 	ibool ret;
-	uchar comp_flags;
+	uchar comp_level;
 	uchar comp_type;
 	byte* buf;
 #ifndef UNIV_HOTBACKUP
@@ -4389,7 +4389,7 @@ page_zip_decompress_low(
 	/* Set number of blobs to zero */
 	page_zip->n_blobs = 0;
 
-	comp_flags = FSP_FLAGS_GET_COMP_FLAGS(fsp_flags);
+	comp_level = FSP_FLAGS_GET_COMP_LEVEL(fsp_flags);
 	comp_type = FSP_FLAGS_GET_COMP_TYPE(fsp_flags);
 
 	if (comp_type == DICT_TF_COMP_ZLIB_STREAM) {
@@ -4411,7 +4411,7 @@ page_zip_decompress_low(
 		comp_state.avail_in = avail_in;
 		comp_state.out = buf;
 		comp_state.avail_out = 2 * UNIV_PAGE_SIZE;
-		comp_state.level = comp_flags;
+		comp_state.level = comp_level;
 		comp_state.heap = heap;
 		comp_decompress(comp_type, &comp_state);
 		ut_a(avail_in > comp_state.avail_in);
