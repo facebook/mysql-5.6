@@ -33,7 +33,8 @@ Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
   partition_names(rhs.partition_names, mem_root),
   num_parts(rhs.num_parts),
   requested_algorithm(rhs.requested_algorithm),
-  requested_lock(rhs.requested_lock)
+  requested_lock(rhs.requested_lock),
+  defrag_index(rhs.defrag_index)
 {
   /*
     Make deep copies of used objects.
@@ -426,11 +427,15 @@ bool Sql_cmd_defragment_table::execute(THD *thd)
   char path[FN_REFLEN + 1];
   build_table_filename(path, sizeof(path) - 1, first_table->db,
                                      first_table->alias, "", 0);
-  int ret = handler->ha_defragment_table(path);
+  LEX_STRING index = thd->lex->alter_info.defrag_index;
+  int ret = handler->ha_defragment_table(path, index.str,
+                                         thd->lex->async_commit);
   close_thread_tables(thd);
   if (ret == 0)
     my_ok(thd);
   else if (ret == HA_ADMIN_NOT_IMPLEMENTED)
     my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
+  else
+    my_error(ret, MYF(0), path);
   return (ret < 0);
 }
