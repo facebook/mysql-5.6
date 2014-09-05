@@ -1,0 +1,123 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @@global.read_only=0;
+set @@global.read_only=1;
+drop procedure if exists master_procedure;
+create procedure master_procedure()
+begin
+drop table if exists t1;
+create table t1(id1 int);
+insert into t1 values(1);
+insert into t1 values(2);
+select @@global.gtid_mode;
+select @@global.read_only;
+end;
+//
+drop procedure if exists slave_procedure;
+create procedure slave_procedure()
+begin
+select @@global.gtid_mode;
+select @@global.read_only;
+select * from t1;
+end;
+//
+** Both Master and slave with gtid_mode=OFF **
+call master_procedure();
+@@global.gtid_mode
+OFF
+@@global.read_only
+0
+call slave_procedure();
+@@global.gtid_mode
+OFF
+@@global.read_only
+1
+id1
+1
+2
+include/rpl_restart_server.inc [server_number=2 gtids=on parameters: --read_only=1]
+** Master with gtid_mode=OFF and Slave with gtid_mode=ON **
+call master_procedure();
+@@global.gtid_mode
+OFF
+@@global.read_only
+0
+select @@global.gtid_executed;
+@@global.gtid_executed
+
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+call slave_procedure();
+@@global.gtid_mode
+ON
+@@global.read_only
+1
+id1
+1
+2
+select @@global.gtid_executed;
+@@global.gtid_executed
+
+include/rpl_restart_server.inc [server_number=1 gtids=on parameters: --read_only=0]
+** Both master and slave with gtid_mode=ON **
+call master_procedure();
+@@global.gtid_mode
+ON
+@@global.read_only
+0
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-4
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+call slave_procedure();
+@@global.gtid_mode
+ON
+@@global.read_only
+1
+id1
+1
+2
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-4
+drop table t1;
+drop procedure master_procedure;
+drop procedure slave_procedure;
+** Testing scenario where read_only is turned OFF in master causing it to
+generate gtid_events from the middle of active binlog **
+include/rpl_reset.inc
+include/rpl_restart_server.inc [server_number=2 gtids=on parameters: --read_only=1]
+include/rpl_restart_server.inc [server_number=1 gtids=on parameters: --read_only=1]
+create table t1(id1 int);
+insert into t1 values(100);
+insert into t1 values(200);
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+select * from t1;
+id1
+100
+200
+set @@global.read_only=0;
+insert into t1 values(300);
+insert into t1 values(400);
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-2
+include/stop_slave.inc
+change master to master_auto_position=1;
+include/start_slave.inc
+select * from t1;
+id1
+100
+200
+300
+400
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-2
+drop table t1;
+include/rpl_end.inc
