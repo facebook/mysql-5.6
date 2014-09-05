@@ -12685,6 +12685,8 @@ show_param:
             if (prepare_schema_table(YYTHD, lex, 0, SCH_PLUGINS))
               MYSQL_YYABORT;
           }
+        | MEMORY_SYM STATUS_SYM
+          { Lex->sql_command = SQLCOM_SHOW_MEMORY_STATUS; }
         | ENGINE_SYM known_storage_engines show_engine_param
           { Lex->create_info.db_type= $2; }
         | ENGINE_SYM ALL show_engine_param
