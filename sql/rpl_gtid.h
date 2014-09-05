@@ -2405,6 +2405,17 @@ enum enum_group_type
     It is important that AUTOMATIC_GROUP==0 so that the default value
     for thd->variables->gtid_next.type is AUTOMATIC_GROUP.
   */
+  /**
+    AUTOMATIC_GROUP indicates that a new GTID will be allocated by this server
+    for the current transaction.
+    GTID_GROUP indicates that a GTID was already allocated for this transaction
+    possibly by another server.
+    ANONYMOUS_GROUP indicates that the current transaction will not be assigned
+    a GTID. This is set by using 'set @@gtid_next='ANONYMOUS'' and will create
+    a new log event called ANONYMOUS_GTID_LOG_EVENT.
+    INVALID_GROUP indicates that the GTID is not valid.
+    UNDEFINE_GROUP indicates that no other group type is still assigned.
+  */
   AUTOMATIC_GROUP= 0, GTID_GROUP, ANONYMOUS_GROUP, INVALID_GROUP, UNDEFINED_GROUP
 };
 
