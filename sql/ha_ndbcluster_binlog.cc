@@ -6476,6 +6476,7 @@ ndb_binlog_thread_func(void *arg)
 
   pthread_detach_this_thread();
   thd->real_id= pthread_self();
+  thd->capture_system_thread_id();
   mysql_mutex_lock(&LOCK_thread_count);
   add_global_thread(thd);
   mysql_mutex_unlock(&LOCK_thread_count);
