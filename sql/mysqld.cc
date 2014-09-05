@@ -717,6 +717,10 @@ The documentation is based on the source files such as:
 #include "sql/dd/upgrade/upgrade.h"          // dd::upgrade::in_progress
 #include "sql/srv_session.h"
 
+#ifdef HAVE_JEMALLOC
+#include <jemalloc/jemalloc.h>
+#endif
+
 using std::max;
 using std::min;
 using std::vector;
@@ -3632,6 +3636,10 @@ SHOW_VAR com_status_vars[] = {
     {"show_master_status",
      (char *)offsetof(System_status_var,
                       com_stat[(uint)SQLCOM_SHOW_MASTER_STAT]),
+     SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
+    {"show_memory_status",
+     (char *)offsetof(System_status_var,
+                      com_stat[(uint)SQLCOM_SHOW_MEMORY_STATUS]),
      SHOW_LONG_STATUS, SHOW_SCOPE_ALL},
     {"show_open_tables",
      (char *)offsetof(System_status_var,
@@ -7607,6 +7615,87 @@ struct my_option my_long_options[] = {
 
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
+#ifdef HAVE_JEMALLOC
+static int show_jemalloc_sizet(THD *thd MY_ATTRIBUTE((unused)), SHOW_VAR *var,
+                               char *buff, const char *stat_name) {
+  size_t len, val;
+  len = sizeof(val);
+
+  var->type = SHOW_LONGLONG;
+  var->value = buff;
+
+  if (!mallctl(stat_name, &val, &len, NULL, 0)) {
+    *((ulonglong *)buff) = (ulonglong)val;
+  } else {
+    *((ulonglong *)buff) = 0;
+  }
+
+  /* Always return 0 to avoid worrying about error handling */
+  return 0;
+}
+
+static int show_jemalloc_unsigned(THD *thd MY_ATTRIBUTE((unused)),
+                                  SHOW_VAR *var, char *buff,
+                                  const char *stat_name) {
+  unsigned val;
+  size_t len = sizeof(val);
+
+  var->type = SHOW_LONG;
+  var->value = buff;
+
+  if (!mallctl(stat_name, &val, &len, NULL, 0)) {
+    *((ulong *)buff) = (ulong)val;
+  } else {
+    *((ulong *)buff) = 0;
+  }
+
+  /* Always return 0 to avoid worrying about error handling */
+  return 0;
+}
+
+static int show_jemalloc_bool(THD *thd MY_ATTRIBUTE((unused)), SHOW_VAR *var,
+                              char *buff, const char *stat_name) {
+  bool val;
+  size_t len = sizeof(val);
+
+  var->type = SHOW_LONG;
+  var->value = buff;
+
+  if (!mallctl(stat_name, &val, &len, NULL, 0)) {
+    *((ulong *)buff) = (ulong)val;
+  } else {
+    *((ulong *)buff) = 0;
+  }
+
+  /* Always return 0 to avoid worrying about error handling */
+  return 0;
+}
+
+static int show_jemalloc_arenas_narenas(THD *thd, SHOW_VAR *var, char *buff) {
+  return show_jemalloc_unsigned(thd, var, buff, "arenas.narenas");
+}
+
+static int show_jemalloc_opt_narenas(THD *thd, SHOW_VAR *var, char *buff) {
+  return show_jemalloc_sizet(thd, var, buff, "opt.narenas");
+}
+
+static int show_jemalloc_opt_tcache(THD *thd, SHOW_VAR *var, char *buff) {
+  return show_jemalloc_bool(thd, var, buff, "opt.tcache");
+}
+
+static int show_jemalloc_active(THD *thd, SHOW_VAR *var, char *buff) {
+  return show_jemalloc_sizet(thd, var, buff, "stats.active");
+}
+
+static int show_jemalloc_allocated(THD *thd, SHOW_VAR *var, char *buff) {
+  return show_jemalloc_sizet(thd, var, buff, "stats.allocated");
+}
+
+static int show_jemalloc_mapped(THD *thd, SHOW_VAR *var, char *buff) {
+  return show_jemalloc_sizet(thd, var, buff, "stats.mapped");
+}
+#endif
+
 static int show_queries(THD *thd, SHOW_VAR *var, char *) {
   var->type = SHOW_LONGLONG;
   var->value = (char *)&thd->query_id;
@@ -8396,6 +8485,20 @@ SHOW_VAR status_vars[] = {
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
     {"Handler_write", (char *)offsetof(System_status_var, ha_write_count),
      SHOW_LONGLONG_STATUS, SHOW_SCOPE_ALL},
+#ifdef HAVE_JEMALLOC
+    {"Jemalloc_arenas_narenas", (char *)&show_jemalloc_arenas_narenas,
+     SHOW_FUNC, SHOW_SCOPE_ALL},
+    {"Jemalloc_opt_narenas", (char *)&show_jemalloc_opt_narenas, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Jemalloc_opt_tcache", (char *)&show_jemalloc_opt_tcache, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Jemalloc_stats_active", (char *)&show_jemalloc_active, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Jemalloc_stats_allocated", (char *)&show_jemalloc_allocated, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+    {"Jemalloc_stats_mapped", (char *)&show_jemalloc_mapped, SHOW_FUNC,
+     SHOW_SCOPE_ALL},
+#endif
     {"Key_blocks_not_flushed",
      (char *)offsetof(KEY_CACHE, global_blocks_changed), SHOW_KEY_CACHE_LONG,
      SHOW_SCOPE_GLOBAL},
