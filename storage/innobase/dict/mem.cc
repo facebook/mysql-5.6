@@ -145,6 +145,36 @@ void dict_mem_table_free(dict_table_t *table) /*!< in: table */
   mem_heap_free(table->heap);
 }
 
+/** System databases */
+static const char *innobase_system_databases[] = {
+    "mysql/", "information_schema/", "performance_schema/", NullS};
+
+/** Determines if a table belongs to a system database
+ @return */
+static bool dict_mem_table_is_system(
+    char *name) /*!< in: table name */
+{
+  ut_ad(name);
+
+  /* table has the following format: database/table
+  and some system table are of the form SYS_* */
+  if (strchr(name, '/')) {
+    int table_len = strlen(name);
+    const char *system_db;
+    int i = 0;
+    while ((system_db = innobase_system_databases[i++]) &&
+           (system_db != NullS)) {
+      int len = strlen(system_db);
+      if (table_len > len && !strncmp(name, system_db, len)) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    return true;
+  }
+}
+
 /** Creates a table memory object.
  @return own: table object */
 dict_table_t *dict_mem_table_create(
@@ -185,6 +215,7 @@ dict_table_t *dict_mem_table_create(
   table->flags = (unsigned int)flags;
   table->flags2 = (unsigned int)flags2;
   table->name.m_name = mem_strdup(name);
+  table->is_system_db = dict_mem_table_is_system(table->name.m_name);
   table->space = (unsigned int)space;
   table->dd_space_id = dd::INVALID_OBJECT_ID;
   table->n_t_cols = (unsigned int)(n_cols + table->get_n_sys_cols());
