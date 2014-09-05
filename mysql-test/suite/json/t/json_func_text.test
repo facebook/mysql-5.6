@@ -6,3 +6,8 @@ create table test_json(json text); # text/varchar
 --source suite/json/include/json_func_common.inc
 
 --source suite/json/include/json_func_common_2.inc
+
+#
+# cleanup
+#
+drop table test_json;

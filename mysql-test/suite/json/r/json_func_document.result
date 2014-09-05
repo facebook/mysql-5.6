@@ -55,22 +55,22 @@ NULL	NULL
 NULL	NULL
 NULL	NULL
 NULL	NULL
-1	[1,2,3]
-1	[1,false,"str",1.2]
-1	[[1,2,3],2,3]
-1	[[[[[]]]]]
-1	[]
-1	[{"k1":"v1"},2,3]
-1	[{}]
-1	{"MySQL":"开源数据库"}
-1	{"k":"v"}
-1	{"k":[]}
-1	{"k":{}}
-1	{"k1":"v1","k2":true,"k3":3}
-1	{"k1":{"k2":"v2"}}
-1	{"key":[1,2,3]}
-1	{"开源数据库":"MySQL"}
 1	{}
+1	{"k":{}}
+1	{"k":[]}
+1	{"k":"v"}
+1	{"key":[1,2,3]}
+1	{"k1":{"k2":"v2"}}
+1	{"k1":"v1","k2":true,"k3":3}
+1	{"MySQL":"开源数据库"}
+1	{"开源数据库":"MySQL"}
+1	[]
+1	[{}]
+1	[1,2,3]
+1	[[1,2,3],2,3]
+1	[{"k1":"v1"},2,3]
+1	[1,false,"str",1.2]
+1	[[[[[]]]]]
 truncate test_json;
 insert into test_json values
 (null),
@@ -83,83 +83,83 @@ insert into test_json values
 select length(json_extract(json,null)),json_extract(json,null),json from test_json order by 1,2,3;
 length(json_extract(json,null))	json_extract(json,null)	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	[1,2,3,4]
 select length(json_extract(json,'k1')),json_extract(json,'k1'),json from test_json order by 1,2,3;
 length(json_extract(json,'k1'))	json_extract(json,'k1')	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
 NULL	NULL	{}
-2	v1	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	[1,2,3,4]
 2	v1	{"k1":"v1"}
+2	v1	{"k1":"v1","k1":{"k2":"v2"}}
 20	{"k2":{"k3":12.345}}	{"k1":{"k2":{"k3":12.345}}}
 32	[1,{"k2":["v1",2,true]},3,false]	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select length(json_extract(json,'k1','k2')),json_extract(json,'k1','k2'),json from test_json order by 1,2,3;
 length(json_extract(json,'k1','k2'))	json_extract(json,'k1','k2')	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	[1,2,3,4]
 13	{"k3":12.345}	{"k1":{"k2":{"k3":12.345}}}
 select length(json_extract(json,'k1','k2','k3')),json_extract(json,'k1','k2','k3'),json from test_json order by 1,2,3;
 length(json_extract(json,'k1','k2','k3'))	json_extract(json,'k1','k2','k3')	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	[1,2,3,4]
 6	12.345	{"k1":{"k2":{"k3":12.345}}}
 select length(json_extract(json,0)),json_extract(json,0),json from test_json order by 1,2,3;
 length(json_extract(json,0))	json_extract(json,0)	json
 NULL	NULL	NULL
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 1	1	[1,2,3,4]
 select length(json_extract(json,'1')),json_extract(json,'1'),json from test_json order by 1,2,3;
 length(json_extract(json,'1'))	json_extract(json,'1')	json
 NULL	NULL	NULL
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 1	2	[1,2,3,4]
 select length(json_extract(json,'k1',1)),json_extract(json,'k1',1),json from test_json order by 1,2,3;
 length(json_extract(json,'k1',1))	json_extract(json,'k1',1)	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	[1,2,3,4]
 20	{"k2":["v1",2,true]}	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select length(json_extract(json,'k1',1,'k2')),json_extract(json,'k1',1,'k2'),json from test_json order by 1,2,3;
 length(json_extract(json,'k1',1,'k2'))	json_extract(json,'k1',1,'k2')	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	[1,2,3,4]
 13	["v1",2,true]	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select length(json_extract(json,'k1',1,'k2',0)),json_extract(json,'k1',1,'k2',0),json from test_json order by 1,2,3;
 length(json_extract(json,'k1',1,'k2',0))	json_extract(json,'k1',1,'k2',0)	json
 NULL	NULL	NULL
-NULL	NULL	[1,2,3,4]
-NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
-NULL	NULL	{"k1":"v1"}
-NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	[1,2,3,4]
 2	v1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 truncate test_json;
 insert into test_json values ('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
@@ -195,101 +195,101 @@ insert into test_json values
 select json_contains_key(json,null),json from test_json order by 1,2;
 json_contains_key(json,null)	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	[1,2,3,4]
 select json_contains_key(json,'k1',null),json from test_json order by 1,2;
 json_contains_key(json,'k1',null)	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	[1,2,3,4]
 select json_contains_key(json,'k2'),json from test_json order by 1,2;
 json_contains_key(json,'k2')	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	[1,2,3,4]
 select json_contains_key(json,'k1'),json from test_json order by 1,2;
 json_contains_key(json,'k1')	json
 NULL	NULL
-0	[1,2,3,4]
 0	{}
-1	{"k1":"v1","k1":{"k2":"v2"}}
+0	[1,2,3,4]
 1	{"k1":"v1"}
-1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+1	{"k1":"v1","k1":{"k2":"v2"}}
 1	{"k1":{"k2":{"k3":12.345}}}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select json_contains_key(json,'k1','k2'),json from test_json order by 1,2;
 json_contains_key(json,'k1','k2')	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	[1,2,3,4]
 1	{"k1":{"k2":{"k3":12.345}}}
 select json_contains_key(json,'k1','k2','k3'),json from test_json order by 1,2;
 json_contains_key(json,'k1','k2','k3')	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	[1,2,3,4]
 1	{"k1":{"k2":{"k3":12.345}}}
 select json_contains_key(json,0),json from test_json order by 1,2;
 json_contains_key(json,0)	json
 NULL	NULL
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 1	[1,2,3,4]
 select json_contains_key(json,'1'),json from test_json order by 1,2;
 json_contains_key(json,'1')	json
 NULL	NULL
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 1	[1,2,3,4]
 select json_contains_key(json,'k1',1),json from test_json order by 1,2;
 json_contains_key(json,'k1',1)	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	[1,2,3,4]
 1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select json_contains_key(json,'k1',1,'k2'),json from test_json order by 1,2;
 json_contains_key(json,'k1',1,'k2')	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	[1,2,3,4]
 1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select json_contains_key(json,'k1',1,'k2',0),json from test_json order by 1,2;
 json_contains_key(json,'k1',1,'k2',0)	json
 NULL	NULL
-0	[1,2,3,4]
-0	{"k1":"v1","k1":{"k2":"v2"}}
-0	{"k1":"v1"}
-0	{"k1":{"k2":{"k3":12.345}}}
 0	{}
+0	{"k1":"v1"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	[1,2,3,4]
 1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 truncate test_json;
 insert into test_json values
@@ -322,17 +322,25 @@ select json_array_length(json),json from test_json order by 1,2;
 json_array_length(json)	json
 NULL	NULL
 0	[]
+1	[null]
+1	[1]
 1	["str"]
 1	[1.234]
-1	[1]
 1	[[[[[[]]]]]]
-1	[null]
 2	[true,false]
 2	[{"MySQL":"开源数据库"},"MySQL"]
 2	[{"开源数据库":"MySQL"},"开源数据库"]
 4	[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]
 5	[[],[],[],[],[]]
 6	[1,"str",null,true,false,1.2345]
+truncate test_json;
+insert into test_json values
+(null),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select json_array_length(json_extract(json, 'k1')),json
+from test_json where json_valid(json) is true order by 1,2;
+json_array_length(json_extract(json, 'k1'))	json
+4	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 truncate test_json;
 insert into test_json values ('');
 Warnings:

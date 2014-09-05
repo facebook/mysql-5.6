@@ -146,3 +146,17 @@ insert into test_json values
 select json_array_length(json),json from test_json order by 1,2;
 
 truncate test_json;
+
+#
+# nested function call
+#
+
+# test on table
+insert into test_json values
+(null),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+
+select json_array_length(json_extract(json, 'k1')),json
+from test_json where json_valid(json) is true order by 1,2;
+
+truncate test_json;
