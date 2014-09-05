@@ -22,6 +22,8 @@
 #include "my_decimal.h"                         /* my_decimal */
 #include "sql_error.h"                          /* Sql_condition */
 #include "mysql_version.h"                      /* FRM_VER */
+#include "../fbson/FbsonJsonParser.h"
+#include "../fbson/FbsonUtil.h"
 
 /*
 
@@ -651,6 +653,7 @@ public:
      This trickery is used to decrease a number of malloc calls.
   */
   virtual String *val_str(String*,String *)=0;
+  virtual String *val_doc(String*,String *) { return nullptr; }
   String *val_int_as_str(String *val_buffer, my_bool unsigned_flag);
   /*
    str_needs_quotes() returns TRUE if the value returned by val_str() needs
@@ -3547,6 +3550,8 @@ public:
   type_conversion_status store(double nr);
   type_conversion_status store(longlong nr, bool unsigned_val);
   type_conversion_status store_decimal(const my_decimal *nr);
+  String *val_str(String*,String *);
+  String *val_doc(String*, String*);
 
   type_conversion_status reset(void)
   {
