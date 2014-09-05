@@ -4709,6 +4709,12 @@ static Sys_var_mybool Sys_simplified_binlog_gtid_recovery(
        READ_ONLY GLOBAL_VAR(simplified_binlog_gtid_recovery),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_log_gtid_unsafe_statements(
+       "log_gtid_unsafe_statements",
+       "When turned on, logs the gtid unsafe statements in the error log",
+       GLOBAL_VAR(log_gtid_unsafe_statements),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static Sys_var_ulong Sys_sp_cache_size(
        "stored_program_cache",
        "The soft upper limit for number of cached stored routines for "
