@@ -2014,6 +2014,7 @@ public:
   { TRASH(ptr, size); }
 
   ulong thread_id;
+  ulong system_thread_id;
   time_t start_time;
   uint   command;
   const char *user,*host,*db,*proc_info,*state_info;
@@ -2082,6 +2083,8 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
         MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
   field_list.push_back(new Item_return_int("Rows sent",
         MY_INT32_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONG));
+  field_list.push_back(new Item_int(NAME_STRING("Tid"), 0,
+                                    MY_INT64_NUM_DECIMAL_DIGITS));
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
     DBUG_VOID_RETURN;
@@ -2116,6 +2119,7 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
         thread_info *thd_info= new thread_info;
 
         thd_info->thread_id=tmp->thread_id;
+        thd_info->system_thread_id= tmp->system_thread_id;
         thd_info->user= thd->strdup(tmp_sctx->user ? tmp_sctx->user :
                                     (tmp->system_thread ?
                                      "system user" : "unauthenticated user"));
@@ -2192,6 +2196,7 @@ void mysqld_list_processes(THD *thd,const char *user, bool verbose)
                     thd_info->query_string.charset());
     protocol->store_long((longlong) thd_info->rows_examined);
     protocol->store_long((longlong) thd_info->rows_sent);
+    protocol->store((ulonglong) thd_info->system_thread_id);
     if (protocol->write())
       break; /* purecov: inspected */
   }

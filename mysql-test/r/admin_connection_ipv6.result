@@ -60,8 +60,8 @@ super2
 ## Switch to default connection
 ## Show processlist: only the default connection will be listed
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con_super1_1,2,3,4
 ## Connections non_admin_con_super1_5 will fail due to too many connections for a user
 connect(::1,super1,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -70,16 +70,16 @@ ERROR 42000: User super1 already has more than 'max_user_connections' active con
 ## Switch to default connection
 ## Show processlist: totally 9 connections will be listed: the 8 non-admin connections and the default one
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port
 ## This will fail due to the limit of the max number of connections
 connect(::1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -90,21 +90,21 @@ ERROR HY000: Too many connections
 ## Switch to default connection
 ## Show processlist: totally 14 connections will be listed: the 5 admin connections, the 8 non-admin connections, and the default one
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
 ## Switch to non_admin_con_super1_1
 select user from mysql.user order by 1 asc;
 user
@@ -242,8 +242,8 @@ super2
 ## Switch to default connection
 ## Show processlist: only the default connection will be listed
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con_super1_1,2,3,4
 ## Connections non_admin_con_super1_5 will fail due to too many connections for a user
 connect(0:0:0:0:0:0:0:1,super1,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -252,16 +252,16 @@ ERROR 42000: User super1 already has more than 'max_user_connections' active con
 ## Switch to default connection
 ## Show processlist: totally 9 connections will be listed: the 8 non-admin connections and the default one
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port
 ## This will fail due to the limit of the max number of connections
 connect(0:0:0:0:0:0:0:1,root,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -272,21 +272,21 @@ ERROR HY000: Too many connections
 ## Switch to default connection
 ## Show processlist: totally 14 connections will be listed: the 5 admin connections, the 8 non-admin connections, and the default one
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
 ## Switch to non_admin_con_super1_1
 select user from mysql.user order by 1 asc;
 user
@@ -424,8 +424,8 @@ super2
 ## Switch to default connection
 ## Show processlist: only the default connection will be listed
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
 ## Start connections non_admin_con_super1_1,2,3,4
 ## Connections non_admin_con_super1_5 will fail due to too many connections for a user
 connect(0000:0000:0000:0000:0000:0000:0000:0001,super1,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -434,16 +434,16 @@ ERROR 42000: User super1 already has more than 'max_user_connections' active con
 ## Switch to default connection
 ## Show processlist: totally 9 connections will be listed: the 8 non-admin connections and the default one
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	test	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	test	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
 ## Start a connection fail_non_admin_con9 at master port
 ## This will fail due to the limit of the max number of connections
 connect(0000:0000:0000:0000:0000:0000:0000:0001,root,,mysql,MASTER_PORT,MASTER_SOCKET);
@@ -454,21 +454,21 @@ ERROR HY000: Too many connections
 ## Switch to default connection
 ## Show processlist: totally 14 connections will be listed: the 5 admin connections, the 8 non-admin connections, and the default one
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	mysql	-	-	-	-	-	-
--	root	localhost	test	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super1	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
--	super2	localhost	mysql	-	-	-	-	-	-
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	mysql	-	-	-	-	-	-	-
+-	root	localhost	test	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super1	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
+-	super2	localhost	mysql	-	-	-	-	-	-	-
 ## Switch to non_admin_con_super1_1
 select user from mysql.user order by 1 asc;
 user
