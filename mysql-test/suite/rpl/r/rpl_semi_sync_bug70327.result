@@ -1,0 +1,45 @@
+include/rpl_init.inc [topology=1->2, 1->3]
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+call mtr.add_suppression("Bad semi-sync reply received *");
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+set global rpl_semi_sync_master_timeout= 60000 /* 60s */;
+set @save_slave_enabled=@@global.rpl_semi_sync_slave_enabled;
+set @save_slave_enabled=@@global.rpl_semi_sync_slave_enabled;
+set global rpl_semi_sync_master_wait_no_slave = OFF;
+set global rpl_semi_sync_master_enabled = ON;
+set global rpl_semi_sync_slave_enabled = ON;
+include/stop_slave.inc
+include/start_slave.inc
+set global rpl_semi_sync_slave_enabled = ON;
+include/stop_slave.inc
+include/start_slave.inc
+create table if not exists t1 (a int) engine=innodb;
+insert into t1 values(1);
+insert into t1 values(2);
+include/rpl_sync.inc
+include/stop_slave.inc
+change master to master_log_file='master-bin.000002', master_log_pos=120;
+start slave;
+include/wait_for_slave_io_error.inc [errno=1236]
+insert into t1 values(3);
+include/stop_slave.inc
+change master to master_log_file='master-bin.000001', master_log_pos=120;
+include/start_slave.inc
+include/stop_slave.inc
+include/start_slave.inc
+set @@global.rpl_semi_sync_slave_enabled=@save_slave_enabled;
+include/stop_slave.inc
+include/start_slave.inc
+set @@global.rpl_semi_sync_slave_enabled=@save_slave_enabled;
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;
+drop table t1;
+include/rpl_end.inc
