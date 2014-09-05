@@ -463,6 +463,10 @@ static ulint		srv_n_rows_inserted_old		= 0;
 static ulint		srv_n_rows_updated_old		= 0;
 static ulint		srv_n_rows_deleted_old		= 0;
 static ulint		srv_n_rows_read_old		= 0;
+static ulint		srv_n_system_rows_inserted_old	= 0;
+static ulint		srv_n_system_rows_updated_old	= 0;
+static ulint		srv_n_system_rows_deleted_old	= 0;
+static ulint		srv_n_system_rows_read_old	= 0;
 
 UNIV_INTERN ulint	srv_truncated_status_writes	= 0;
 UNIV_INTERN ulint	srv_available_undo_logs         = 0;
@@ -1239,6 +1243,11 @@ srv_refresh_innodb_monitor_stats(void)
 	srv_n_rows_deleted_old = srv_stats.n_rows_deleted;
 	srv_n_rows_read_old = srv_stats.n_rows_read;
 
+	srv_n_system_rows_inserted_old = srv_stats.n_system_rows_inserted;
+	srv_n_system_rows_updated_old = srv_stats.n_system_rows_updated;
+	srv_n_system_rows_deleted_old = srv_stats.n_system_rows_deleted;
+	srv_n_system_rows_read_old = srv_stats.n_system_rows_read;
+
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
 
@@ -1443,11 +1452,33 @@ srv_printf_innodb_monitor(
 		/ time_elapsed,
 		((ulint) srv_stats.n_rows_read - srv_n_rows_read_old)
 		/ time_elapsed);
-
+	fprintf(file,
+		"Number of system rows inserted " ULINTPF
+		", updated " ULINTPF ", deleted " ULINTPF
+		", read " ULINTPF "\n",
+		(ulint) srv_stats.n_system_rows_inserted,
+		(ulint) srv_stats.n_system_rows_updated,
+		(ulint) srv_stats.n_system_rows_deleted,
+		(ulint) srv_stats.n_system_rows_read);
+	fprintf(file,
+		"%.2f inserts/s, %.2f updates/s,"
+		" %.2f deletes/s, %.2f reads/s\n",
+		((ulint) srv_stats.n_system_rows_inserted
+		 - srv_n_system_rows_inserted_old) / time_elapsed,
+		((ulint) srv_stats.n_system_rows_updated
+		 - srv_n_system_rows_updated_old) / time_elapsed,
+		((ulint) srv_stats.n_system_rows_deleted
+		 - srv_n_system_rows_deleted_old) / time_elapsed,
+		((ulint) srv_stats.n_system_rows_read
+		 - srv_n_system_rows_read_old) / time_elapsed);
 	srv_n_rows_inserted_old = srv_stats.n_rows_inserted;
 	srv_n_rows_updated_old = srv_stats.n_rows_updated;
 	srv_n_rows_deleted_old = srv_stats.n_rows_deleted;
 	srv_n_rows_read_old = srv_stats.n_rows_read;
+	srv_n_system_rows_inserted_old = srv_stats.n_system_rows_inserted;
+	srv_n_system_rows_updated_old = srv_stats.n_system_rows_updated;
+	srv_n_system_rows_deleted_old = srv_stats.n_system_rows_deleted;
+	srv_n_system_rows_read_old = srv_stats.n_system_rows_read;
 
 	fputs("----------------------------\n"
 	      "END OF INNODB MONITOR OUTPUT\n"
@@ -1846,6 +1877,17 @@ srv_export_innodb_status(void)
 	export_vars.innodb_rows_updated = srv_stats.n_rows_updated;
 
 	export_vars.innodb_rows_deleted = srv_stats.n_rows_deleted;
+
+	export_vars.innodb_system_rows_read = srv_stats.n_system_rows_read;
+
+	export_vars.innodb_system_rows_inserted =
+		srv_stats.n_system_rows_inserted;
+
+	export_vars.innodb_system_rows_updated =
+		srv_stats.n_system_rows_updated;
+
+	export_vars.innodb_system_rows_deleted =
+		srv_stats.n_system_rows_deleted;
 
 	export_vars.innodb_num_open_files = fil_n_file_opened;
 
