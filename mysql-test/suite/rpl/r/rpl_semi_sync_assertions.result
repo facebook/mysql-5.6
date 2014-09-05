@@ -1,0 +1,26 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+set @save_slave_enabled=@@global.rpl_semi_sync_slave_enabled;
+set global rpl_semi_sync_master_timeout= 60000 /* 60s */;
+set global rpl_semi_sync_master_wait_no_slave = OFF;
+set global rpl_semi_sync_master_enabled = ON;
+set global rpl_semi_sync_slave_enabled = ON;
+include/stop_slave.inc
+include/start_slave.inc
+create table if not exists t1 (a int);
+insert into t1 values(1);
+set global rpl_semi_sync_master_enabled = OFF;
+include/stop_slave.inc
+include/start_slave.inc
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;
+set @@global.rpl_semi_sync_slave_enabled=@save_slave_enabled;
+drop table t1;
+include/rpl_end.inc
