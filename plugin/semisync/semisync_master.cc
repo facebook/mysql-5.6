@@ -957,28 +957,22 @@ int ReplSemiSyncMaster::reserveSyncHeader(unsigned char *header,
   function_enter(kWho);
 
   int hlen=0;
-  if (!is_semi_sync_slave())
+  DBUG_ASSERT(is_semi_sync_slave());
+  /* No enough space for the extra header, disable semi-sync master */
+  if (sizeof(kSyncHeader) > size)
   {
-    hlen= 0;
+    sql_print_warning("No enough space in the packet "
+                      "for semi-sync extra header, "
+                      "semi-sync replication disabled");
+    disableMaster();
+    return 0;
   }
-  else
-  {
-    /* No enough space for the extra header, disable semi-sync master */
-    if (sizeof(kSyncHeader) > size)
-    {
-      sql_print_warning("No enough space in the packet "
-                        "for semi-sync extra header, "
-                        "semi-sync replication disabled");
-      disableMaster();
-      return 0;
-    }
-    
-    /* Set the magic number and the sync status.  By default, no sync
-     * is required.
-     */
-    memcpy(header, kSyncHeader, sizeof(kSyncHeader));
-    hlen= sizeof(kSyncHeader);
-  }
+
+  /* Set the magic number and the sync status.  By default, no sync
+   * is required.
+   */
+  memcpy(header, kSyncHeader, sizeof(kSyncHeader));
+  hlen= sizeof(kSyncHeader);
   return function_exit(kWho, hlen);
 }
 
@@ -994,7 +988,8 @@ int ReplSemiSyncMaster::updateSyncHeader(unsigned char *packet,
   /* If the semi-sync master is not enabled, or the slave is not a semi-sync
    * target, do not request replies from the slave.
    */
-  if (!getMasterEnabled() || !is_semi_sync_slave())
+  DBUG_ASSERT(is_semi_sync_slave());
+  if (!getMasterEnabled())
     return 0;
 
   function_enter(kWho);
