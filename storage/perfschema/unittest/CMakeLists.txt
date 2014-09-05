@@ -68,6 +68,14 @@ TARGET_LINK_LIBRARIES(pfs_connect_attr-t sql binlog rpl master slave sql)
 TARGET_LINK_LIBRARIES(pfs_connect_attr-t mysys mysys_ssl)
 TARGET_LINK_LIBRARIES(pfs_connect_attr-t vio ${SSL_LIBRARIES})
 TARGET_LINK_LIBRARIES(pfs_connect_attr-t strings dbug regex mysys ${ZLIB_LIBRARY})
+IF(WITH_MYSQLD_LDFLAGS)
+  GET_TARGET_PROPERTY(pfs_connect_attr-t LINK_FLAGS MYSQLD_LINK_FLAGS)
+  IF(NOT MYSQLD_LINK_FLAGS)
+    SET(MYSQLD_LINK_FLAGS)
+  ENDIF()
+  SET_TARGET_PROPERTIES(pfs_connect_attr-t PROPERTIES LINK_FLAGS
+     "${MYSQLD_LINK_FLAGS} ${WITH_MYSQLD_LDFLAGS}")
+ENDIF()
 ADD_TEST(pfs_connect_attr pfs_connect_attr-t)
 
 # On windows, pfs_connect_attr-t may depend on openssl dlls.
