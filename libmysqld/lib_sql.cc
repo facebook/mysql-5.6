@@ -731,6 +731,7 @@ void *create_embedded_thd(int client_flag)
   thd->init_for_queries();
   thd->client_capabilities= client_flag;
   thd->real_id= pthread_self();
+  thd->capture_system_thread_id();
 
   thd->db= NULL;
   thd->db_length= 0;
