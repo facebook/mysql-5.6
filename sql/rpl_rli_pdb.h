@@ -9,6 +9,7 @@
 #include <my_sys.h>
 #include <my_bitmap.h>
 #include "rpl_slave.h"
+#include "rpl_gtid.h"
 
 /**
   Legends running throughout the module:
@@ -161,6 +162,7 @@ typedef struct st_slave_job_group
   char*    checkpoint_log_name;
   my_off_t checkpoint_relay_log_pos; // T-event lop_pos filled by W for CheckPoint
   char*    checkpoint_relay_log_name;
+  char *worker_last_gtid;
   volatile uchar done;  // Flag raised by W,  read and reset by Coordinator
   ulong    shifted;     // shift the last CP bitmap at receiving a new CP
   time_t   ts;          // Group's timestampt to update Seconds_behind_master
@@ -177,6 +179,7 @@ typedef struct st_slave_job_group
     group_master_log_pos= group_relay_log_pos= 0;
     group_master_log_name= NULL; // todo: remove
     group_relay_log_name= NULL;
+    worker_last_gtid = NULL;
     worker_id= MTS_WORKER_UNDEF;
     total_seqno= seqno;
     checkpoint_log_name= NULL;
@@ -312,6 +315,7 @@ public:
   mysql_cond_t  jobs_cond; // condition variable for the jobs queue
   Relay_log_info *c_rli;   // pointer to Coordinator's rli
   DYNAMIC_ARRAY curr_group_exec_parts; // Current Group Executed Partitions
+  DYNAMIC_ARRAY worker_gtid_infos;
   bool curr_group_seen_begin; // is set to TRUE with explicit B-event
   ulong id;                 // numberic identifier of the Worker
 
@@ -351,6 +355,7 @@ public:
     When WQ length is dropped below overrun the counter is reset.
   */
   ulong excess_cnt;
+  char worker_last_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   /*
     Coordinates of the last CheckPoint (CP) this Worker has
     acknowledged; part of is persisent data
