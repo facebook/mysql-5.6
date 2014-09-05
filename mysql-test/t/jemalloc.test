@@ -1,0 +1,2 @@
+
+select variable_name from information_schema.global_status where variable_name like "Jemalloc%" order by 1;
