@@ -68,10 +68,12 @@ int repl_semi_report_rollback(Trans_param *param)
 
 int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
 				 const char *log_file,
-				 my_off_t log_pos)
+				 my_off_t log_pos,
+                                 MYSQL_BIN_LOG *mysql_bin_log)
 {
   bool semi_sync_slave= repl_semisync.is_semi_sync_slave();
-  
+  repl_semisync.set_mysql_binlog(mysql_bin_log);
+
   if (semi_sync_slave)
   {
     /* One more semi-sync slave */
