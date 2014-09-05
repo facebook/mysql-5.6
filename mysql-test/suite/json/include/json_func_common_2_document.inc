@@ -15,8 +15,3 @@ insert into test_json values ('');
 select json_array_length(json) from test_json;
 
 truncate test_json;
-
-#
-# cleanup
-#
-drop table test_json;
