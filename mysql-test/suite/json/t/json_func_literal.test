@@ -187,3 +187,9 @@ select json_array_length('{"key":[]}');
 # invalid json object (expecting error)
 --error ER_INVALID_JSON
 select json_array_length('');
+
+#
+# nested function call
+#
+
+select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'));
