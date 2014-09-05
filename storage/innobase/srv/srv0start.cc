@@ -2910,6 +2910,9 @@ files_checked:
 		fts_optimize_init();
 	}
 
+	/* Initialize online defragmentation. */
+	btr_defragment_init();
+
 #ifdef XTRABACKUP
 skip_processes:
 #endif /* XTRABACKUP */
