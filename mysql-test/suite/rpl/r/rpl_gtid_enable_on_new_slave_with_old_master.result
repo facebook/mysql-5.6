@@ -16,5 +16,8 @@ select * from t1;
 id1	id2
 1	100
 2	200
+select @@global.gtid_executed;
+@@global.gtid_executed
+UUID:1-3
 drop table t1;
 include/rpl_end.inc
