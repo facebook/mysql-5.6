@@ -237,6 +237,8 @@ UNIV_INTERN ulint	srv_sync_pool_size	= 1024;
 UNIV_INTERN ulint	srv_mem_pool_size	= ULINT_MAX;
 UNIV_INTERN ulint	srv_lock_table_size	= ULINT_MAX;
 
+UNIV_INTERN uint	srv_defragment_n_pages = 7;
+
 UNIV_INTERN ulint	srv_idle_flush_pct = 100;
 
 /* This parameter is deprecated. Use srv_n_io_[read|write]_threads
