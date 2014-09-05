@@ -1068,6 +1068,7 @@ public:
   */
   virtual bool val_bool();
   virtual String *val_nodeset(String*) { return 0; }
+  virtual String *val_doc(String *str) { return 0; }
 
 protected:
   /* Helper functions, see item_sum.cc */
@@ -2199,6 +2200,7 @@ public:
   longlong val_date_temporal();
   my_decimal *val_decimal(my_decimal *);
   String *val_str(String*);
+  String *val_doc(String*);
   double val_result();
   longlong val_int_result();
   longlong val_time_temporal_result();
