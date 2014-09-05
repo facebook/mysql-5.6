@@ -426,7 +426,7 @@ bool Sql_cmd_defragment_table::execute(THD *thd)
   char path[FN_REFLEN + 1];
   build_table_filename(path, sizeof(path) - 1, first_table->db,
                                      first_table->alias, "", 0);
-  int ret = handler->ha_defragment_table(path);
+  int ret = handler->ha_defragment_table(path, thd->lex->async_commit);
   close_thread_tables(thd);
   if (ret == 0)
     my_ok(thd);
