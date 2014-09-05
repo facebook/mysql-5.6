@@ -59,6 +59,14 @@ UNIV_INTERN mysql_pfs_key_t	autoinc_mutex_key;
 table name as unique as possible. */
 static ib_uint32_t	dict_temp_file_num;
 
+/** System databases */
+static const char* innobase_system_databases[] = {
+	"mysql/",
+	"information_schema/",
+	"performance_schema/",
+	NullS
+};
+
 /**********************************************************************//**
 Creates a table memory object.
 @return	own: table object */
@@ -91,6 +99,7 @@ dict_mem_table_create(
 	table->flags2 = (unsigned int) flags2;
 	table->name = static_cast<char*>(ut_malloc(strlen(name) + 1));
 	memcpy(table->name, name, strlen(name) + 1);
+	table->is_system_db = dict_mem_table_is_system(table->name);
 	table->space = (unsigned int) space;
 	table->n_cols = (unsigned int) (n_cols + DATA_N_SYS_COLS);
 
@@ -133,6 +142,36 @@ dict_mem_table_create(
 	new(&table->referenced_set) dict_foreign_set();
 
 	return(table);
+}
+
+/****************************************************************//**
+Determines if a table belongs to a system database
+@return */
+UNIV_INTERN
+bool
+dict_mem_table_is_system(
+/*================*/
+	char	*name)		/*!< in: table name */
+{
+	ut_ad(name);
+
+	/* table has the following format: database/table
+	and some system table are of the form SYS_* */
+	if (strchr(name, '/')) {
+		int table_len = strlen(name);
+		const char *system_db;
+		int i = 0;
+		while ((system_db = innobase_system_databases[i++])
+			&& (system_db != NullS)) {
+			int len = strlen(system_db);
+			if (table_len > len && !strncmp(name, system_db, len)) {
+				return true;
+			}
+		}
+		return false;
+	} else {
+		return true;
+	}
 }
 
 /****************************************************************//**
