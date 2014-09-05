@@ -2278,6 +2278,30 @@ void kill_zombie_dump_threads(String *slave_uuid)
 }
 
 
+/*
+  Kill all Binlog_dump threads.
+*/
+void kill_all_dump_threads()
+{
+  mysql_mutex_lock(&LOCK_thread_count);
+  THD *tmp= NULL;
+  Thread_iterator it= global_thread_list_begin();
+  Thread_iterator end= global_thread_list_end();
+  for (; it != end; ++it)
+  {
+    if ((*it)->get_command() == COM_BINLOG_DUMP ||
+        (*it)->get_command() == COM_BINLOG_DUMP_GTID)
+    {
+      tmp= *it;
+      mysql_mutex_lock(&tmp->LOCK_thd_data);
+      tmp->awake(THD::KILL_CONNECTION);
+      mysql_mutex_unlock(&tmp->LOCK_thd_data);
+    }
+  }
+  mysql_mutex_unlock(&LOCK_thread_count);
+}
+
+
 /**
   Execute a RESET MASTER statement.
 
