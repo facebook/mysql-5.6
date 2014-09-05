@@ -1,0 +1,8 @@
+select variable_name from information_schema.global_status where variable_name like "Jemalloc%" order by 1;
+variable_name
+JEMALLOC_ARENAS_NARENAS
+JEMALLOC_OPT_NARENAS
+JEMALLOC_OPT_TCACHE
+JEMALLOC_STATS_ACTIVE
+JEMALLOC_STATS_ALLOCATED
+JEMALLOC_STATS_MAPPED
