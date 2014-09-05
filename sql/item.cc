@@ -2692,6 +2692,15 @@ String *Item_field::val_str(String *str)
   return field->val_str(str,&str_value);
 }
 
+String *Item_field::val_doc(String *str)
+{
+  DBUG_ASSERT(fixed == 1);
+  if ((null_value=field->is_null()))
+    return 0;
+  str->set_charset(str_value.charset());
+  return field->val_doc(str,&str_value);
+}
+
 
 double Item_field::val_real()
 {
