@@ -20,6 +20,7 @@
 #define SEMISYNC_MASTER_H
 
 #include "semisync.h"
+#include "binlog.h"
 
 #ifdef HAVE_PSI_INTERFACE
 extern PSI_mutex_key key_ss_mutex_LOCK_binlog_;
@@ -432,6 +433,7 @@ class ReplSemiSyncMaster
 
   bool            state_;                    /* whether semi-sync is switched */
 
+  MYSQL_BIN_LOG *mysql_bin_log_;
   void lock();
   void unlock();
   void cond_broadcast();
@@ -611,6 +613,10 @@ class ReplSemiSyncMaster
    * go off for that.
    */
   int resetMaster();
+  void set_mysql_binlog(MYSQL_BIN_LOG *mysql_bin_log) {
+    mysql_bin_log_ = mysql_bin_log;
+  }
+
 };
 
 /* System and status variables for the master component */
