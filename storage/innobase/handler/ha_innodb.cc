@@ -10878,18 +10878,48 @@ UNIV_INTERN
 int
 ha_innobase::defragment_table(
 /*======================*/
-	const char*	name)	/*!< in: table name */
+	const char*	name,		/*!< in: table name */
+	const char*	index_name,	/*!< in: index name */
+	bool		async)		/*!< in: whether to wait until finish */
 {
 	char		norm_name[FN_REFLEN];
 	dict_table_t*	table;
 	dict_index_t*	index;
+	mtr_t		mtr;
+	ibool		one_index = (*index_name != 0);
 	normalize_table_name(norm_name, name);
 	table = dict_table_open_on_name(norm_name, FALSE,
 					FALSE, DICT_ERR_IGNORE_NONE);
 	for (index = dict_table_get_first_index(table); index;
 	     index = dict_table_get_next_index(index)) {
+		if (one_index && strcasecmp(index_name, index->name) != 0)
+			continue;
+		btr_defragment_item_t* item;
+		os_event_t event = NULL;
+		btr_pcur_t* pcur = btr_pcur_create_for_mysql();
+		mtr_start(&mtr);
+		btr_pcur_open_at_index_side(true, index, BTR_SEARCH_LEAF, pcur,
+					    true, 0, &mtr);
+		btr_pcur_move_to_next(pcur, &mtr);
+		btr_pcur_store_position(pcur, &mtr);
+		mtr_commit(&mtr);
+		if (!async)
+			event = os_event_create();
+		item = btr_defragment_create_item(pcur, event);
+		ib_wqueue_add(btr_defragment_wq, item, item->heap);
+		if (!async) {
+			os_event_wait(event);
+			os_event_free(event);
+		}
+		btr_pcur_free_for_mysql(pcur);
+		if (one_index) {
+			one_index = FALSE;
+			break;
+		}
 	}
 	dict_table_close(table, FALSE, FALSE);
+	if (one_index)
+		return ER_NO_SUCH_INDEX;
 	return 0;
 }
 
@@ -16985,6 +17015,12 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_load_at_startup, srv_buffer_pool_load_at_st
   "Load the buffer pool from a file named @@innodb_buffer_pool_filename",
   NULL, NULL, FALSE);
 
+static MYSQL_SYSVAR_UINT(defragment_n_pages, srv_defragment_n_pages,
+  PLUGIN_VAR_RQCMDARG,
+  "Number of pages considered at once when merging multiple pages to "
+  "defragment",
+  NULL, NULL, 7, 2, 32, 0);
+
 static MYSQL_SYSVAR_ULONG(lru_scan_depth, srv_LRU_scan_depth,
   PLUGIN_VAR_RQCMDARG,
   "How deep to scan LRU to keep it clean",
@@ -17569,6 +17605,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_load_now),
   MYSQL_SYSVAR(buffer_pool_load_abort),
   MYSQL_SYSVAR(buffer_pool_load_at_startup),
+  MYSQL_SYSVAR(defragment_n_pages),
   MYSQL_SYSVAR(lru_scan_depth),
   MYSQL_SYSVAR(flush_neighbors),
   MYSQL_SYSVAR(checksum_algorithm),

@@ -104,6 +104,44 @@ already holding an S latch on the index tree */
 			  | BTR_ESTIMATE		\
 			  | BTR_IGNORE_SEC_UNIQUE	\
 			  | BTR_ALREADY_S_LATCHED))
+
+/* Max number of pages to consider at once during defragmentation. */
+#define BTR_DEFRAGMENT_MAX_N_PAGES	32
+
+/** Work queue for btr_defragment_thread. */
+extern ib_wqueue_t* btr_defragment_wq;
+
+/** Item in the work queue for btr_degrament_thread. */
+struct btr_defragment_item_t
+{
+	btr_pcur_t*	pcur;		/* persistent cursor where
+					btr_defragment_n_pages should start */
+	mem_heap_t*	heap;		/* heap used by the work queue */
+	os_event_t	event;	/* if not null, signal after work is done */
+};
+
+/******************************************************************//**
+Initialize defragmentation. */
+UNIV_INTERN
+void
+btr_defragment_init(void);
+/******************************************************************//**
+Create & initialize a btr_defragment_item_t. */
+UNIV_INTERN
+btr_defragment_item_t*
+btr_defragment_create_item(
+	btr_pcur_t*	pcur,
+	os_event_t	event);
+/******************************************************************//**
+Thread that merges consecutive b-tree pages into fewer pages to defragment
+the index. */
+extern "C" UNIV_INTERN
+os_thread_ret_t
+DECLARE_THREAD(btr_defragment_thread)(
+/*==========================================*/
+	void*	arg);		/*!< in: a dummy parameter required by
+				os_thread_create */
+
 #endif /* UNIV_HOTBACKUP */
 
 /**************************************************************//**
@@ -614,6 +652,24 @@ btr_compress(
 				if the page would become empty */
 	ibool		adjust,	/*!< in: TRUE if should adjust the
 				cursor position even if compression occurs */
+	mtr_t*		mtr)	/*!< in/out: mini-transaction */
+	__attribute__((nonnull));
+/*************************************************************//**
+Tries to merge N consecutive pages, starting from the page pointed by the
+cursor. Skip space 0. Only consider leaf pages.
+This function first loads all N pages into memory, then for each of
+the pages other than the first page, it tries to move as many records
+as possible to the left sibling to keep the left sibling full. During
+the process, if any page becomes empty, that page will be removed from
+the level list. Record locks, hash, and node pointers are updated after
+page reorganization.
+@return pointer to the last block processed, or NULL if reaching end of index */
+UNIV_INTERN
+buf_block_t*
+btr_defragment_n_pages(
+	buf_block_t*	block,	/*!< in: starting block for defragmentation */
+	dict_index_t*	index,	/*!< in: index tree */
+	uint		n_pages,/*!< in: number of pages to defragment */
 	mtr_t*		mtr)	/*!< in/out: mini-transaction */
 	__attribute__((nonnull));
 /*************************************************************//**

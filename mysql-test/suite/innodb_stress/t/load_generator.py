@@ -345,6 +345,45 @@ class Worker(WorkerThread):
     except Exception, e:
       print >> self.log, "commit error %s" % e
 
+
+class DefragmentWorker(WorkerThread):
+  def __init__(self, con):
+    WorkerThread.__init__(self, 'worker-defragment')
+    self.num_defragment = 0
+    self.con = con
+    self.con.autocommit(True)
+    self.start_time = time.time()
+    self.daemon = True
+    self.stopped = False
+    self.start()
+
+  def stop(self):
+    self.stopped = True
+
+  def finish(self):
+    print >> self.log, "defragment ran %d times" % self.num_defragment
+    print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
+    self.log.close()
+    self.con.close()
+
+  def runme(self):
+    print >> self.log, "defragmentation thread started"
+    cur = self.con.cursor()
+    while not self.stopped:
+      try:
+        print >> self.log, "Starting defrag."
+        cur.execute("ALTER TABLE t1 DEFRAGMENT")
+        print >> self.log, "Defrag completed successfully."
+        self.num_defragment += 1
+        time.sleep(random.randint(0, 10))
+      except MySQLdb.Error, e:
+        # Handle crash tests that kill the server while defragment runs.
+        if e.args[0] == 2006 or e.args[0] == 2013:
+          print >> self.log, "Server crashed while defrag was running."
+        else:
+          raise e
+
+
 if  __name__ == '__main__':
   global LG_TMP_DIR
 
@@ -363,8 +402,10 @@ if  __name__ == '__main__':
   fake_changes = int(sys.argv[13])
   checksum = int(sys.argv[14])
   secondary_checks = int(sys.argv[15])
+  no_defrag = int(sys.argv[16])
 
   checksum_worker = None
+  defrag_worker = None
   workers = []
   server_pid = int(open(pid_file).read())
   log = open('/%s/main.log' % LG_TMP_DIR, 'a')
@@ -405,6 +446,10 @@ if  __name__ == '__main__':
                     server_pid, do_blob, max_id, fake_changes, secondary_checks)
     workers.append(worker)
 
+  if no_defrag == 0:
+    defrag_worker = DefragmentWorker(MySQLdb.connect(user=user, host=host,
+                                                     port=port, db=db))
+
   if kill_db_after:
     print >> log, "kill mysqld"
     time.sleep(kill_db_after)
@@ -416,6 +461,13 @@ if  __name__ == '__main__':
     w.join()
     if w.exception:
       print "Worker hit an exception:\n%s\n" % w.exception
+      worker_failed = True
+  if defrag_worker:
+    defrag_worker.stop()
+    defrag_worker.join()
+    if defrag_worker.exception:
+      print ("Defrag worker hit an exception:\n%s\n." %
+             defrag_worker.exception)
       worker_failed = True
 
   if checksum_worker:

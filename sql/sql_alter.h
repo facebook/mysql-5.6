@@ -17,6 +17,8 @@
 #ifndef SQL_ALTER_TABLE_H
 #define SQL_ALTER_TABLE_H
 
+#include "sql_class.h"
+
 class Alter_drop;
 class Alter_column;
 class Key;
@@ -191,14 +193,16 @@ public:
   enum_alter_table_algorithm    requested_algorithm;
   // Type of ALTER TABLE lock.
   enum_alter_table_lock         requested_lock;
-
+  // Defragment index.
+  LEX_STRING                    defrag_index;
 
   Alter_info() :
     flags(0),
     keys_onoff(LEAVE_AS_IS),
     num_parts(0),
     requested_algorithm(ALTER_TABLE_ALGORITHM_DEFAULT),
-    requested_lock(ALTER_TABLE_LOCK_DEFAULT)
+    requested_lock(ALTER_TABLE_LOCK_DEFAULT),
+    defrag_index(EMPTY_STR)
   {}
 
   void reset()
@@ -213,6 +217,7 @@ public:
     partition_names.empty();
     requested_algorithm= ALTER_TABLE_ALGORITHM_DEFAULT;
     requested_lock= ALTER_TABLE_LOCK_DEFAULT;
+    defrag_index = EMPTY_STR;
   }
 
 
