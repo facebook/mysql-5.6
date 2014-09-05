@@ -1,0 +1,43 @@
+source include/have_innodb.inc;
+source include/master-slave.inc;
+
+connection master;
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+
+connection slave;
+set @save_slave_enabled=@@global.rpl_semi_sync_slave_enabled;
+
+connection master;
+set global rpl_semi_sync_master_timeout= 60000 /* 60s */;
+set global rpl_semi_sync_master_wait_no_slave = OFF;
+set global rpl_semi_sync_master_enabled = ON;
+
+connection slave;
+set global rpl_semi_sync_slave_enabled = ON;
+
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+create table if not exists t1 (a int);
+insert into t1 values(1);
+set global rpl_semi_sync_master_enabled = OFF;
+
+connection slave;
+# This should not cause assert on master
+source include/stop_slave.inc;
+source include/start_slave.inc;
+
+connection master;
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;
+
+connection slave;
+set @@global.rpl_semi_sync_slave_enabled=@save_slave_enabled;
+
+connection master;
+drop table t1;
+source include/rpl_end.inc;
