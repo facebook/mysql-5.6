@@ -1,0 +1,148 @@
+# This test verifies the functionality of the GTIDs during deployment
+# The scenarios that are tested are
+# 1) Both Master and slave with gtid_mode=OFF.
+# 2) Master with gtid_mode=OFF, slave with gtid_mode=ON.
+# 3) Both master and slave with gtid_mode=ON.
+# After each scenario, global variable @@gtid_executed is verified to be same
+# in both master and slave.
+# Note that throughout the test master has read_only=0 and slave
+# has read_only=1.
+#
+-- source include/master-slave.inc
+-- connection master
+-- let $master_uuid = `select @@server_uuid;`
+set @@global.read_only=0;
+-- connection slave
+set @@global.read_only=1;
+-- connection master
+
+-- disable_warnings ONCE
+drop procedure if exists master_procedure;
+
+DELIMITER //;
+create procedure master_procedure()
+begin
+  drop table if exists t1;
+  create table t1(id1 int);
+  insert into t1 values(1);
+  insert into t1 values(2);
+  select @@global.gtid_mode;
+  select @@global.read_only;
+end;
+//
+DELIMITER ;//
+
+-- disable_warnings ONCE
+drop procedure if exists slave_procedure;
+
+DELIMITER //;
+create procedure slave_procedure()
+begin
+  select @@global.gtid_mode;
+  select @@global.read_only;
+  select * from t1;
+end;
+//
+DELIMITER ;//
+
+-- echo ** Both Master and slave with gtid_mode=OFF **
+-- connection master
+call master_procedure();
+sync_slave_with_master;
+call slave_procedure();
+
+-- let $rpl_server_number= 2
+-- let $rpl_start_with_gtids= 1
+-- let $rpl_server_parameters= --read_only=1
+-- source include/rpl_restart_server.inc
+-- echo ** Master with gtid_mode=OFF and Slave with gtid_mode=ON **
+-- connection master
+call master_procedure();
+-- replace_result $master_uuid master_uuid
+select @@global.gtid_executed;
+-- connection slave
+-- disable_warnings
+-- source include/start_slave.inc
+-- enable_warnings
+-- connection master
+-- let $use_gtids= 0
+-- source include/sync_slave_sql_with_master.inc
+call slave_procedure();
+-- replace_result $master_uuid master_uuid
+select @@global.gtid_executed;
+
+-- let $rpl_server_number= 1
+-- let $rpl_start_with_gtids= 1
+-- let $rpl_server_parameters= --read_only=0
+-- source include/rpl_restart_server.inc
+-- echo ** Both master and slave with gtid_mode=ON **
+-- connection master
+call master_procedure();
+-- replace_result $master_uuid master_uuid
+select @@global.gtid_executed;
+-- connection slave
+-- disable_warnings
+-- source include/start_slave.inc
+-- enable_warnings
+-- connection master
+-- let $use_gtids= 0
+-- source include/sync_slave_sql_with_master.inc
+call slave_procedure();
+-- replace_result $master_uuid master_uuid
+select @@global.gtid_executed;
+
+-- connection master
+drop table t1;
+drop procedure master_procedure;
+drop procedure slave_procedure;
+
+-- echo ** Testing scenario where read_only is turned OFF in master causing it to
+-- echo generate gtid_events from the middle of active binlog **
+
+-- source include/rpl_reset.inc
+
+-- let $rpl_server_number= 2
+-- let $rpl_start_with_gtids= 1
+-- let $rpl_server_parameters= --read_only=1
+-- source include/rpl_restart_server.inc
+
+-- let $rpl_server_number= 1
+-- let $rpl_start_with_gtids= 1
+-- let $rpl_server_parameters= --read_only=1
+-- source include/rpl_restart_server.inc
+
+-- connection master
+-- let $master_uuid = `select @@server_uuid;`
+create table t1(id1 int);
+insert into t1 values(100);
+insert into t1 values(200);
+
+-- connection slave
+-- disable_warnings
+-- source include/start_slave.inc
+-- enable_warnings
+-- connection master
+-- let $use_gtids= 0
+-- source include/sync_slave_sql_with_master.inc
+select * from t1;
+
+-- connection master
+set @@global.read_only=0;
+insert into t1 values(300);
+insert into t1 values(400);
+-- replace_result $master_uuid master_uuid
+select @@global.gtid_executed;
+
+-- connection slave
+-- source include/stop_slave.inc
+change master to master_auto_position=1;
+-- source include/start_slave.inc
+-- connection master
+sync_slave_with_master;
+select * from t1;
+-- replace_result $master_uuid master_uuid
+select @@global.gtid_executed;
+
+-- connection master
+drop table t1;
+-- source include/rpl_end.inc
