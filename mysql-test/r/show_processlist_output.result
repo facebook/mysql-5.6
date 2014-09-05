@@ -3,7 +3,7 @@ insert into t1 values
 (1),(2),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14);
 select *, sleep(2) from t1 where id > 6 AND id < 8943;
 show processlist;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-#	root	localhost	test	Query	#	STATE	show processlist	0	0
-#	root	localhost	test	Sleep	#		NULL	8	8
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+#	root	localhost	test	Query	#	STATE	show processlist	0	0	#
+#	root	localhost	test	Sleep	#		NULL	8	8	#
 drop table t1;
