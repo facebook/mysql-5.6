@@ -346,3 +346,6 @@ select json_array_length('{"key":[]}');
 ERROR HY000: Invalid JSON array: '{"key":[]}'
 select json_array_length('');
 ERROR HY000: Invalid JSON object: ''
+select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'));
+json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'))
+4

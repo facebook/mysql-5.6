@@ -74,17 +74,17 @@ i	a	s
 2	NULL	a2
 3	NULL	a3
 4	NULL	a4
-5	{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }	a5
-6	{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 } }	a6
-7	{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "hoa":39.99 } }	a7
-8	{ "id":104, "name":"David", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "children":["Alex", "Bob", "Charlie"] }	a8
-9	{ "id":105, "name":"Eddy", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 , "hoa":99.99 } }	a9
-10	{ "id":106, "name":"Frank", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "children":["Jay", "Raymond"] }	a10
-11	{ "id":107, "name":"Gary", "phone":6507770007, "address":{ "houseNumber":1007, "streetName":"7th", "zipcode":98767 }, "children":["Kayden", "Raymond"] }	a11
-12	{ "id":108, "name":"Harry", "phone":6507770008, "address":{ "houseNumber":1008, "streetName":"8th", "zipcode":98768 }, "children":["Emma", "Jenny"] }	a12
-13	{ "id":109, "name":"Ian", "phone":6507770009, "address":{ "houseNumber":1009, "streetName":"9th", "zipcode":98769, "hoa":59.99 } }	a13
-14	{ "id":110, "name":"Jack", "phone":6507770010, "address":{ "houseNumber":1010, "streetName":"11th", "zipcode":98769 } }	a14
-15	{ "id":111, "name":"Kevin", "phone":6507770011, "address":{ "houseNumber":1011, "streetName":"12nd", "zipcode":98769 }, "children":["Amy"] }	a15
+5	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
+6	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762}}	a6
+7	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"hoa":39.99}}	a7
+8	{"id":104,"name":"David","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"children":["Alex","Bob","Charlie"]}	a8
+9	{"id":105,"name":"Eddy","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"hoa":99.99}}	a9
+10	{"id":106,"name":"Frank","phone":6507770006,"address":{"houseNumber":1006,"streetName":"6th","zipcode":98766},"children":["Jay","Raymond"]}	a10
+11	{"id":107,"name":"Gary","phone":6507770007,"address":{"houseNumber":1007,"streetName":"7th","zipcode":98767},"children":["Kayden","Raymond"]}	a11
+12	{"id":108,"name":"Harry","phone":6507770008,"address":{"houseNumber":1008,"streetName":"8th","zipcode":98768},"children":["Emma","Jenny"]}	a12
+13	{"id":109,"name":"Ian","phone":6507770009,"address":{"houseNumber":1009,"streetName":"9th","zipcode":98769,"hoa":59.99}}	a13
+14	{"id":110,"name":"Jack","phone":6507770010,"address":{"houseNumber":1010,"streetName":"11th","zipcode":98769}}	a14
+15	{"id":111,"name":"Kevin","phone":6507770011,"address":{"houseNumber":1011,"streetName":"12nd","zipcode":98769},"children":["Amy"]}	a15
 16	NULL	a16
 17	NULL	a17
 select a from t;
@@ -93,33 +93,33 @@ NULL
 NULL
 NULL
 NULL
-{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }
-{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 } }
-{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "hoa":39.99 } }
-{ "id":104, "name":"David", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "children":["Alex", "Bob", "Charlie"] }
-{ "id":105, "name":"Eddy", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 , "hoa":99.99 } }
-{ "id":106, "name":"Frank", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "children":["Jay", "Raymond"] }
-{ "id":107, "name":"Gary", "phone":6507770007, "address":{ "houseNumber":1007, "streetName":"7th", "zipcode":98767 }, "children":["Kayden", "Raymond"] }
-{ "id":108, "name":"Harry", "phone":6507770008, "address":{ "houseNumber":1008, "streetName":"8th", "zipcode":98768 }, "children":["Emma", "Jenny"] }
-{ "id":109, "name":"Ian", "phone":6507770009, "address":{ "houseNumber":1009, "streetName":"9th", "zipcode":98769, "hoa":59.99 } }
-{ "id":110, "name":"Jack", "phone":6507770010, "address":{ "houseNumber":1010, "streetName":"11th", "zipcode":98769 } }
-{ "id":111, "name":"Kevin", "phone":6507770011, "address":{ "houseNumber":1011, "streetName":"12nd", "zipcode":98769 }, "children":["Amy"] }
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762}}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"hoa":39.99}}
+{"id":104,"name":"David","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"children":["Alex","Bob","Charlie"]}
+{"id":105,"name":"Eddy","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"hoa":99.99}}
+{"id":106,"name":"Frank","phone":6507770006,"address":{"houseNumber":1006,"streetName":"6th","zipcode":98766},"children":["Jay","Raymond"]}
+{"id":107,"name":"Gary","phone":6507770007,"address":{"houseNumber":1007,"streetName":"7th","zipcode":98767},"children":["Kayden","Raymond"]}
+{"id":108,"name":"Harry","phone":6507770008,"address":{"houseNumber":1008,"streetName":"8th","zipcode":98768},"children":["Emma","Jenny"]}
+{"id":109,"name":"Ian","phone":6507770009,"address":{"houseNumber":1009,"streetName":"9th","zipcode":98769,"hoa":59.99}}
+{"id":110,"name":"Jack","phone":6507770010,"address":{"houseNumber":1010,"streetName":"11th","zipcode":98769}}
+{"id":111,"name":"Kevin","phone":6507770011,"address":{"houseNumber":1011,"streetName":"12nd","zipcode":98769},"children":["Amy"]}
 NULL
 NULL
 create table t1 (a int auto_increment, b varchar(64), c text, d document, primary key (a), key (b, c(128))) engine=innodb;
 SELECT * FROM t1 WHERE a >= 1000 and a <= 1010;
 a	b	c	d
-1000	12	144	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1001	11	121	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1002	10	100	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1003	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{ "id":201, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "street":"1st", "zipcode":98761 } }
-1004	BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB	CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1005	12	144	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1006	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{ "id":201, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "street":"1st", "zipcode":98761 } }
-1007	BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB	CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1008	12	144	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1009	11	121	{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }
-1010	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{ "id":201, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "street":"1st", "zipcode":98761 } }
+1000	12	144	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1001	11	121	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1002	10	100	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1003	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{"id":201,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"street":"1st","zipcode":98761}}
+1004	BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB	CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1005	12	144	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1006	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{"id":201,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"street":"1st","zipcode":98761}}
+1007	BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB	CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1008	12	144	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1009	11	121	{"id":202,"name":"David","phone":6507770002,"address":{"houseNumber":1004,"street":"2nd","zipcode":98762},"children":["Alex","Bob","Charlie"]}
+1010	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{"id":201,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"street":"1st","zipcode":98761}}
 SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'document) FROM t1 WHERE a >= 1000 and a <= 1010' at line 1
 SET @@global.allow_document_type = false;
