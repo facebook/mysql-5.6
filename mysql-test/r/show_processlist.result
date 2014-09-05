@@ -11,11 +11,11 @@ connect connection2,localhost,root,,test,$MASTER_MYPORT,;
 connect connection3,localhost,root,,test,$MASTER_MYPORT,;
 SET DEBUG_SYNC='now SIGNAL go';
 connection default;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
 SET DEBUG_SYNC='after_copying_threads SIGNAL parked1 WAIT_FOR go';
 SHOW PROCESSLIST;
 connection connection1;
@@ -25,19 +25,19 @@ connect connection4,localhost,root,,test,$MASTER_MYPORT,;
 connect connection5,localhost,root,,test,$MASTER_MYPORT,;
 SET DEBUG_SYNC='now SIGNAL go';
 connection default;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
 SHOW PROCESSLIST;
-Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
-<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>
+Id	User	Host	db	Command	Time	State	Info	Rows examined	Rows sent	Tid
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
+<Id>	root	<Host>	test	<Command>	<Time>	<State>	<Info>	<RExam>	<RSent>	<TID>
 "Cleanup"
 SET DEBUG_SYNC='RESET';
 disconnect connection1;

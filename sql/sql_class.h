@@ -2955,6 +2955,8 @@ public:
   void set_status_no_index_used();
   void set_status_no_good_index_used();
 
+  void capture_system_thread_id();
+
   const CHARSET_INFO *db_charset;
 #if defined(ENABLED_PROFILING)
   PROFILING  profiling;
@@ -2998,6 +3000,13 @@ public:
   ulong	     rand_saved_seed1, rand_saved_seed2;
   pthread_t  real_id;                           /* For debugging */
   my_thread_id  thread_id;
+
+#ifdef TARGET_OS_LINUX
+  pid_t      system_thread_id;
+#else /* TARGET_OS_LINUX */
+  uint       system_thread_id;
+#endif /* TARGET_OS_LINUX */
+
   uint	     tmp_table;
   uint	     server_status,open_options;
   enum enum_thread_type system_thread;

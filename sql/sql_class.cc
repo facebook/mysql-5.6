@@ -64,6 +64,10 @@
 
 #include <mysql/psi/mysql_statement.h>
 
+#ifdef TARGET_OS_LINUX
+#include <sys/syscall.h>
+#endif // TARGET_OS_LINUX
+
 using std::min;
 using std::max;
 
@@ -995,6 +999,7 @@ THD::THD(bool enable_plugins)
   slave_thread = 0;
   memset(&variables, 0, sizeof(variables));
   thread_id= 0;
+  system_thread_id= 0;
   one_shot_set= 0;
   file_id = 0;
   query_id= 0;
@@ -1995,6 +2000,10 @@ bool THD::store_globals()
   */
   mysys_var->id= thread_id;
   real_id= pthread_self();                      // For debugging
+
+#ifdef TARGET_OS_LINUX
+  capture_system_thread_id();
+#endif // TARGET_OS_LINUX
 
   /*
     We have to call thr_lock_info_init() again here as THD may have been
@@ -4754,6 +4763,15 @@ void THD::set_status_no_good_index_used()
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(set_statement_no_good_index_used)(m_statement_psi);
 #endif
+}
+
+void THD::capture_system_thread_id()
+{
+#ifdef TARGET_OS_LINUX
+  system_thread_id = syscall(SYS_gettid);
+#else // TARGET_OS_LINUX
+  system_thread_id = 0;
+#endif // TARGET_OS_LINUX
 }
 
 void THD::set_command(enum enum_server_command command)
