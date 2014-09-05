@@ -531,6 +531,9 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
   int   cmp;
   bool  can_release_threads = false;
   bool  need_copy_send_pos = true;
+  LOG_INFO linfo;
+  char *log_name;
+  my_off_t log_pos;
 
   if (!(getMasterEnabled()))
     return 0;
@@ -543,6 +546,59 @@ int ReplSemiSyncMaster::reportReplyBinlog(uint32 server_id,
   if (!getMasterEnabled())
     goto l_end;
 
+  if (commit_file_name_inited_)
+  {
+    /*
+      It is not possible for a slave reply packet to have coordinates
+      greater than commit_file_name_ and commit_file_pos_.
+      after_flush hook running during the flush phase of ordered_commit
+      sets commit_file_name_ and commit_file_pos_ while holding LOCK_log.
+      dump_thread is allowed to read only events upto commit_file_name_
+      and commit_file_pos_, so it is not possible for any slave to receive
+      any events greater than commit_file_name_ and commit_file_pos_.
+    */
+    log_name = commit_file_name_;
+    log_pos = commit_file_pos_;
+  }
+  else
+  {
+    unlock();
+    /*
+      NOTE: get_current_log() acquires LOCK_log, so unlock() must be done
+      before calling get_current_log().
+      Taking LOCK_log after lock() causes deadlock between this thread
+      and a thread inside Repl_semi_sync::writeTranxInBinlog which also
+      acquires both locks.
+    */
+    mysql_bin_log_->get_current_log(&linfo);
+    log_name = base_name(linfo.log_file_name);
+    log_pos = linfo.pos;
+    lock();
+    /*
+      Need to check semi-sync status again since LOCK_binlog is
+      released and acquired which could have changed the status.
+      If not checked, we may hit assert(active_tranxs_ != NULL);
+      assertion.
+    */
+    if (!getMasterEnabled())
+      goto l_end;
+  }
+
+  /*
+    Sanity check the log and pos from the reply. If it is from the 'future'
+    then the slave is horked in some way or the packet was corrupted
+    on the network. In either case we should ignore the reply.
+  */
+  if (ActiveTranx::compare(log_file_name, log_file_pos,
+                           log_name, log_pos) > 0)
+  {
+    sql_print_error("Bad semi-sync reply received: "
+                    "reply position (%s, %llu), "
+                    "current binlog position (%s, %llu).",
+                    log_file_name, log_file_pos,
+                    log_name, log_pos);
+    goto l_end;
+  }
   if (!is_on())
     /* We check to see whether we can switch semi-sync ON. */
     try_switch_on(server_id, log_file_name, log_file_pos);
@@ -834,14 +890,16 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
 int ReplSemiSyncMaster::switch_off()
 {
   const char *kWho = "ReplSemiSyncMaster::switch_off";
-  int result;
+  int result = 0;
 
   function_enter(kWho);
   state_ = false;
 
-  /* Clear the active transaction list. */
-  assert(active_tranxs_ != NULL);
-  result = active_tranxs_->clear_active_tranx_nodes(NULL, 0);
+  if (active_tranxs_ != NULL)
+  {
+    /* Clear the active transaction list. */
+    result = active_tranxs_->clear_active_tranx_nodes(NULL, 0);
+  }
 
   rpl_semi_sync_master_off_times++;
   wait_file_name_inited_   = false;

@@ -17,6 +17,7 @@
 #define REPLICATION_H
 
 #include <mysql.h>
+#include "binlog.h"
 
 typedef struct st_mysql MYSQL;
 
@@ -176,7 +177,8 @@ typedef struct Binlog_transmit_observer {
      @retval 1 Failure
   */
   int (*transmit_start)(Binlog_transmit_param *param,
-                        const char *log_file, my_off_t log_pos);
+                        const char *log_file, my_off_t log_pos,
+                        MYSQL_BIN_LOG *mysql_bin_log);
 
   /**
      This callback is called when binlog dumping stops
