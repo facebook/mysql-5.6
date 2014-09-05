@@ -665,8 +665,8 @@ class FbsonJsonParserT {
       return false;
     }
 
-    val *= pow(10, exp - frac);
-    if (isnan(val) || isinf(val)) {
+    val *= ::pow(10, exp - frac);
+    if (::isnan(val) || ::isinf(val)) {
       err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
       return false;
     }

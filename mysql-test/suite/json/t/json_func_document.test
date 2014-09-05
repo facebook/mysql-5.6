@@ -6,3 +6,8 @@ create table test_json(json document) engine=innodb;
 --source suite/json/include/json_func_common.inc
 
 --source suite/json/include/json_func_common_2_document.inc
+
+#
+# cleanup
+#
+drop table test_json;

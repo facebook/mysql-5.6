@@ -41,12 +41,6 @@
 #include "sql_join_buffer.h"             // CACHE_FIELD
 
 
-/*
- * Note we assume the system charset is UTF8,
- * which is the encoding of json object in FBSON
- */
-#include "../fbson/FbsonJsonParser.h"
-
 using std::max;
 using std::min;
 
@@ -8411,30 +8405,55 @@ Field_document::store_decimal(const my_decimal *nr)
 }
 
 
-bool
-Field_document::validate(const char *from, uint length,
-                         const CHARSET_INFO *cs)
-{
-  String json(from, length, cs);
-  if (json.is_empty())
-    return false;
-
-  fbson::FbsonJsonParser parser;
-  return parser.parse(json.c_ptr_safe());
-}
-
-
 type_conversion_status
 Field_document::store_internal(const char *from, uint length,
                                const CHARSET_INFO *cs)
 {
-  if (!validate(from, length, cs))
+  if (!from || !length)
+  {
+    set_null();
+    push_warning("");
+    return TYPE_ERR_BAD_VALUE;
+  }
+
+  fbson::FbsonOutStream os;
+  fbson::FbsonJsonParser parser(os);
+  if (parser.parse(from, length))
+  {
+    return Field_blob::store_internal(os.getBuffer(), os.getSize(), cs);
+  }
+  else
   {
     set_null();
     push_warning(from);
     return TYPE_ERR_BAD_VALUE;
   }
-  return Field_blob::store_internal(from, length, cs);
+}
+
+// document's val_str will convert FBSON binary stored in the field to JSON
+String *Field_document::val_str(String *val_buffer,
+                                String *val_ptr __attribute__((unused)))
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  char *blob;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    val_buffer->copy("", 0, charset());
+  else
+  {
+    fbson::FbsonValue *pval =
+        fbson::FbsonDocument::createValue(blob, get_length(ptr));
+    fbson::FbsonToJson tojson;
+    std::string json = tojson.json(pval);
+    val_buffer->copy((const char*)json.c_str(),json.size(),charset());
+  }
+  return val_buffer;
+}
+
+// val_doc returns the FBSON binary directly (like Blob's val_str)
+String *Field_document::val_doc(String *val_buffer, String *val_ptr)
+{
+  return Field_blob::val_str(val_buffer, val_ptr);
 }
 
 
