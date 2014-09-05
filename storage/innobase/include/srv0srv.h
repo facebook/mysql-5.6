@@ -319,6 +319,8 @@ extern ulong	srv_trx_log_write_block_size;
 extern ulint	srv_n_read_io_threads;
 extern ulint	srv_n_write_io_threads;
 
+extern uint	srv_defragment_n_pages;
+
 extern ulint	srv_idle_flush_pct;
 
 /*!< page_cleaner_thread should run once per this many milliseconds */
