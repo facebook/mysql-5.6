@@ -27,10 +27,13 @@
 #include "rpl_handler.h"
 #include "rpl_master.h"
 #include "debug_sync.h"
+#include <errno.h>
+#include <sys/socket.h>
 
 int max_binlog_dump_events = 0; // unlimited
 my_bool opt_sporadic_binlog_dump_fail = 0;
 ulong rpl_event_buffer_size;
+uint rpl_send_buffer_size = 0;
 
 #ifndef DBUG_OFF
 static int binlog_dump_count = 0;
@@ -948,6 +951,18 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   const char *errmsg = "Unknown error";
   char error_text[MAX_SLAVE_ERRMSG]; // to be send to slave via my_message()
   NET* net = &thd->net;
+  if (rpl_send_buffer_size &&
+      (setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_SNDBUF,
+                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
+#ifdef UNIV_LINUX
+       ||
+       setsockopt(net->vio->mysql_socket.fd, IPPROTO_TCP, TCP_WINDOW_CLAMP,
+                  &rpl_send_buffer_size, sizeof(rpl_send_buffer_size)) == -1
+#endif
+      ))
+    sql_print_warning("Failed to set SO_SNDBUF with (error: %s).",
+                      strerror(errno));
+
   mysql_mutex_t *log_lock;
   mysql_cond_t *log_cond;
   uint8 current_checksum_alg= BINLOG_CHECKSUM_ALG_UNDEF;
