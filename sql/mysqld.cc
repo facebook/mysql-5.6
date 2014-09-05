@@ -1577,6 +1577,14 @@ static void close_connections(void)
     sleep(2);         // Give threads time to die
 
   /*
+    There's a small window in which the dump threads may miss getting
+    woken up. Kick them one more time to make sure because close_connection()
+    below won't unblock them and the server will hang waiting for them to
+    exit.
+  */
+  kill_all_dump_threads();
+
+  /*
     Force remaining threads to die by closing the connection to the client
     This will ensure that threads that are waiting for a command from the
     client on a blocking read call are aborted.
