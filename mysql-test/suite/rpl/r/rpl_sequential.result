@@ -9,7 +9,7 @@ zero
 0
 call mtr.add_suppression('Slave: Error dropping database');
 include/stop_slave.inc
-start slave;
+include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 stop slave sql_thread;
 insert into test0.benchmark set state='slave is processing load';
