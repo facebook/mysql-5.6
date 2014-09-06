@@ -1,0 +1,24 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table t1(a int) engine = innodb;
+include/stop_slave.inc
+set @old_debug = @@global.debug;
+set @@global.debug = '+d,slave_skipping_gtid';
+include/start_slave_io.inc
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+start slave sql_thread until relay_log_file='slave-relay-bin.000004', relay_log_pos=4;
+include/wait_for_slave_sql_to_stop.inc
+set @@global.debug = @old_debug;
+include/start_slave_sql.inc
+drop table t1;
+verify slave's gtid_executed is consistent with master
+select @@global.gtid_executed;
+@@global.gtid_executed
+master_uuid:1-6
+include/rpl_end.inc
