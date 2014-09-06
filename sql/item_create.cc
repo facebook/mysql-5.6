@@ -5433,6 +5433,114 @@ Create_func_year_week::create_native(THD *thd, LEX_STRING name,
 }
 
 
+class Create_func_json_valid : public Create_func_arg1
+{
+public:
+  virtual Item *create(THD *thd, Item *arg1);
+
+  static Create_func_json_valid s_singleton;
+
+protected:
+  Create_func_json_valid() {}
+  virtual ~Create_func_json_valid() {}
+};
+
+Create_func_json_valid Create_func_json_valid::s_singleton;
+
+Item*
+Create_func_json_valid::create(THD *thd, Item *arg1)
+{
+  return new (thd->mem_root) Item_func_json_valid(arg1);
+}
+
+
+class Create_func_json_extract : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_json_extract s_singleton;
+
+protected:
+  Create_func_json_extract() {}
+  virtual ~Create_func_json_extract() {}
+};
+
+Create_func_json_extract Create_func_json_extract::s_singleton;
+
+Item*
+Create_func_json_extract::create_native(THD *thd, LEX_STRING name,
+                                        List<Item> *item_list)
+{
+  int arg_count= 0;
+
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count < 2)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+    return NULL;
+  }
+
+  return new (thd->mem_root) Item_func_json_extract(*item_list);
+}
+
+
+class Create_func_json_contains_key : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_json_contains_key s_singleton;
+
+protected:
+  Create_func_json_contains_key() {}
+  virtual ~Create_func_json_contains_key() {}
+};
+
+Create_func_json_contains_key Create_func_json_contains_key::s_singleton;
+
+Item*
+Create_func_json_contains_key::create_native(THD *thd, LEX_STRING name,
+                                        List<Item> *item_list)
+{
+  int arg_count= 0;
+
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count < 2)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+    return NULL;
+  }
+
+  return new (thd->mem_root) Item_func_json_contains_key(*item_list);
+}
+
+
+class Create_func_json_array_length : public Create_func_arg1
+{
+public:
+  virtual Item *create(THD *thd, Item *arg1);
+
+  static Create_func_json_array_length s_singleton;
+
+protected:
+  Create_func_json_array_length() {}
+  virtual ~Create_func_json_array_length() {}
+};
+
+Create_func_json_array_length Create_func_json_array_length::s_singleton;
+
+Item*
+Create_func_json_array_length::create(THD *thd, Item *arg1)
+{
+  return new (thd->mem_root) Item_func_json_array_length(arg1);
+}
+
+
 struct Native_func_registry
 {
   LEX_STRING name;
@@ -5737,6 +5845,11 @@ static Native_func_registry func_array[] =
   { { C_STRING_WITH_LEN("X") }, GEOM_BUILDER(Create_func_x)},
   { { C_STRING_WITH_LEN("Y") }, GEOM_BUILDER(Create_func_y)},
   { { C_STRING_WITH_LEN("YEARWEEK") }, BUILDER(Create_func_year_week)},
+
+  { { C_STRING_WITH_LEN("JSON_VALID") }, BUILDER(Create_func_json_valid)},
+  { { C_STRING_WITH_LEN("JSON_EXTRACT") }, BUILDER(Create_func_json_extract)},
+  { { C_STRING_WITH_LEN("JSON_CONTAINS_KEY") }, BUILDER(Create_func_json_contains_key)},
+  { { C_STRING_WITH_LEN("JSON_ARRAY_LENGTH") }, BUILDER(Create_func_json_array_length)},
 
   { {0, 0}, NULL}
 };
