@@ -71,6 +71,7 @@ using std::max;
 
 char server_version[SERVER_VERSION_LENGTH];
 ulong filter_server_id = 0;
+ulong filter_thread_id = 0;
 /* 
   One statement can result in a sequence of several events: Intvar_log_events,
   User_var_log_events, and Rand_log_events, followed by one
@@ -909,6 +910,9 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
     switch (ev_type) {
     case QUERY_EVENT:
     {
+      bool const skip_thread= filter_thread_id &&
+          (filter_thread_id !=
+           static_cast<Query_log_event const &>(*ev).thread_id);
       bool parent_query_skips=
           !((Query_log_event*) ev)->is_trans_keyword() &&
            shall_skip_database(((Query_log_event*) ev)->db);
@@ -921,13 +925,18 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
         Log_event *temp_event= pop_event_array.event;
         my_off_t temp_log_pos= pop_event_array.event_pos;
         print_event_info->hexdump_from= (opt_hexdump ? temp_log_pos : 0); 
-        if (!parent_query_skips)
+        if (!parent_query_skips && !skip_thread)
           temp_event->print(result_file, print_event_info);
         delete temp_event;
       }
       
       print_event_info->hexdump_from= (opt_hexdump ? pos : 0);
       reset_dynamic(&buff_ev);
+
+      if (skip_thread)
+      {
+        goto end;
+      }
 
       if (parent_query_skips)
       {
@@ -1576,6 +1585,11 @@ static struct my_option my_long_options[] =
    &stop_position, &stop_position, 0, GET_ULL,
    REQUIRED_ARG, (longlong)(~(my_off_t)0), BIN_LOG_HEADER_SIZE,
    (ulonglong)(~(my_off_t)0), 0, 0, 0},
+  {"thread-id", OPT_THREAD_ID,
+   "Restrict output of query log events to those stored with the given thread "
+   "id.",
+   &filter_thread_id, &filter_thread_id, 0, GET_ULONG,
+   REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"to-last-log", 't', "Requires -R. Will not stop at the end of the "
    "requested binlog but rather continue printing until the end of the last "
    "binlog of the MySQL server. If you send the output to the same MySQL "
