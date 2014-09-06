@@ -3673,6 +3673,7 @@ public:
 #include "item_subselect.h"
 #include "item_xmlfunc.h"
 #include "item_create.h"
+#include "item_jsonfunc.h"
 #endif
 
 /**
