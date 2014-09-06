@@ -69,6 +69,11 @@ my_bool	net_flush(NET *net);
 #include "errmsg.h"
 #include <violite.h>
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+#endif
+
 #if !defined(__WIN__)
 #include <my_pthread.h>				/* because of signal()	*/
 #endif /* !defined(__WIN__) */
@@ -2194,6 +2199,73 @@ mysql_get_ssl_cipher(MYSQL *mysql __attribute__((unused)))
 
 
 /*
+  Compare DNS name against pattern with a wildcard.
+
+  WARNING: this is a hack. For proper implementation use
+           X509_check_host() from OpenSSL once it gets released.
+
+  We are implementing the most strict rules as per RFC 6125
+  sections 6.4.3 and 7.2.
+
+  Only do wildcard matching for the single left-most wildcard
+  and only match a single label. E.g.:
+
+     '*.fb.com' will match 'a.fb.com' but not 'b.a.fb.com'.
+     '*.com' will not match anything. Sadly 'anything.uk.co'
+       will match '*.uk.co.'. There's no simple way around it.
+       Use X509_check_host() once it becomes available.
+     'a*fb.com' will not match anything.
+
+  Refer to RFC 6125 for details.
+
+  SYNOPSIS
+  check_host_name()
+    pattern          wildcard pattern or regular domain name string.
+    name             fully qualified domain name of the host.
+                     We expect it to be a valid domain name and thus
+                     we are not doing any sanity checks.
+
+  RETURN VALUES
+   0 Success
+   1 Failed to validate the name against pattern
+
+ */
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+
+static int check_host_name(const char *pattern, const char *name)
+{
+  const char *p = name;
+
+  if (!pattern || !name)
+    return 1;
+
+  if (*pattern != '*')
+    return strcmp(pattern, name);
+
+  if (*(pattern+1) != '.')
+    return 1;
+
+  p = strchr(name, '.');
+  if (!p)
+    return 1;
+  ++p;
+
+  /*
+    These are the parts we need to compare, but first make sure
+    there's another subdomain level after in the name. No CA should
+    ever issue '*.com', but you never know.
+   */
+  if (!strchr(p, '.'))
+    return 1;
+
+  return strcmp(pattern+2, p);
+}
+
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
+
+
+/*
   Check the server's (subject) Common Name against the
   hostname we connected to
 
@@ -2216,8 +2288,20 @@ static int ssl_verify_server_cert(Vio *vio, const char* server_hostname, const c
 {
   SSL *ssl;
   X509 *server_cert;
-  char *cp1, *cp2;
-  char buf[256];
+  X509_NAME *name;
+  GENERAL_NAMES *names = 0;
+  int index;
+  int count;
+  X509_NAME_ENTRY *entry;
+  ASN1_STRING *CN_data;
+  unsigned char *CN_utf8 = 0;
+  int length;
+  GENERAL_NAME *gn_entry;
+  int SAN_DNS_checked = 0;
+  int retcode = 0;
+
+  *errptr = NULL;
+
   DBUG_ENTER("ssl_verify_server_cert");
   DBUG_PRINT("enter", ("server_hostname: %s", server_hostname));
 
@@ -2249,29 +2333,99 @@ static int ssl_verify_server_cert(Vio *vio, const char* server_hostname, const c
     We already know that the certificate exchanged was valid; the SSL library
     handled that. Now we need to verify that the contents of the certificate
     are what we expect.
+
+    Check subject alternative names (SANs) first.
   */
-
-  X509_NAME_oneline(X509_get_subject_name(server_cert), buf, sizeof(buf));
-  X509_free (server_cert);
-
-  DBUG_PRINT("info", ("hostname in cert: %s", buf));
-  cp1= strstr(buf, "/CN=");
-  if (cp1)
+  names = X509_get_ext_d2i(server_cert, NID_subject_alt_name, 0, 0);
+  if (names)
   {
-    cp1+= 4; /* Skip the "/CN=" that we found */
-    /* Search for next / which might be the delimiter for email */
-    cp2= strchr(cp1, '/');
-    if (cp2)
-      *cp2= '\0';
-    DBUG_PRINT("info", ("Server hostname in cert: %s", cp1));
-    if (!strcmp(cp1, server_hostname))
+    count = sk_GENERAL_NAME_num(names);
+    for(index = 0; index < count; index++)
+    {
+      gn_entry = sk_GENERAL_NAME_value(names, index);
+      if (!gn_entry)
+        continue;
+
+      if (gn_entry->type == GEN_DNS)
+      {
+        SAN_DNS_checked = 1; /* at least one DNS entry checked */
+        length = ASN1_STRING_to_UTF8(&CN_utf8, gn_entry->d.dNSName);
+        if (length <= 0)
+          continue;
+
+        DBUG_PRINT("info", ("alternative hostname in cert: %s", CN_utf8));
+
+        /* Don't compare if string has null inside. */
+        if (((unsigned)length == strlen((const char *)CN_utf8)) &&
+            !check_host_name((char *)CN_utf8, server_hostname))
+        {
+          /* Success */
+          goto done;
+        }
+        else
+        {
+          /* mismatch: keep checking */
+          OPENSSL_free(CN_utf8);
+          CN_utf8 = 0;
+          continue;
+        }
+      }
+    }
+    GENERAL_NAMES_free(names);
+    names = 0;
+  }
+
+  /* Only check CN if there are no alternative names with DNS. */
+  if (!SAN_DNS_checked) {
+    name = X509_get_subject_name(server_cert);
+    if (!name)
+      goto err;
+
+    index = X509_NAME_get_index_by_NID(name, NID_commonName, -1);
+    if (index < 0)
+      goto err;
+
+    entry = X509_NAME_get_entry(name, index);
+    if (!entry)
+      goto err;
+
+    CN_data = X509_NAME_ENTRY_get_data(entry);
+    if (!CN_data)
+      goto err;
+
+    length = ASN1_STRING_to_UTF8(&CN_utf8, CN_data);
+
+    if (length <= 0)
+      goto err;
+
+    if ((unsigned)length != strlen((const char *)CN_utf8))
+    {
+      *errptr= "failed SSL certificate validation due to null inside CN";
+      goto err;
+    }
+
+    DBUG_PRINT("info", ("hostname in cert: %s", CN_utf8));
+    if (!check_host_name((const char *)CN_utf8, server_hostname))
     {
       /* Success */
-      DBUG_RETURN(0);
+      goto done;
     }
   }
-  *errptr= "SSL certificate validation failure";
-  DBUG_RETURN(1);
+
+err:
+  /* Set general error message. */
+  if (!*errptr)
+    *errptr= "SSL certificate validation failure";
+  retcode = 1;
+
+done:
+  /* Standard free does not need NULL check, but that's OpenSSL, who knows... */
+  if (names)
+    GENERAL_NAMES_free(names);
+  if (CN_utf8)
+    OPENSSL_free(CN_utf8);
+  X509_free(server_cert);
+  DBUG_RETURN(retcode);
 }
 
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
