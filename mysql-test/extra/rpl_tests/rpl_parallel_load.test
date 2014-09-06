@@ -16,7 +16,7 @@ connection slave;
 call mtr.add_suppression('Slave: Error dropping database'); ## todo: fix
 
 source include/stop_slave.inc;
-start slave;
+source include/start_slave.inc;
 
 connection master;
 
