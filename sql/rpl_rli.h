@@ -760,6 +760,8 @@ public:
   bool is_in_group() const {
     return (info_thd->variables.option_bits & OPTION_BEGIN) ||
       (m_flags & (1UL << IN_STMT)) ||
+      (info_thd->variables.gtid_next.type == GTID_GROUP) ||
+      (info_thd->variables.gtid_next.type == ANONYMOUS_GROUP) ||
       /* If a SET GTID_NEXT was issued we are inside of a group */
       info_thd->owned_gtid.sidno;
   }
