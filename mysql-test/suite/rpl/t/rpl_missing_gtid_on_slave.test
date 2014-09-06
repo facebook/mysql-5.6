@@ -1,0 +1,41 @@
+source include/master-slave.inc;
+source include/have_gtid.inc;
+source include/have_debug.inc;
+source include/have_binlog_format_statement.inc;
+
+connection master;
+create table t1(a int) engine = innodb;
+
+let $master_uuid = `select @@server_uuid;`;
+
+sync_slave_with_master;
+
+source include/stop_slave.inc;
+
+set @old_debug = @@global.debug;
+set @@global.debug = '+d,slave_skipping_gtid';
+source include/start_slave_io.inc;
+
+connection master;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+insert into t1 values(4);
+
+connection slave;
+start slave sql_thread until relay_log_file='slave-relay-bin.000004', relay_log_pos=4;
+source include/wait_for_slave_sql_to_stop.inc;
+set @@global.debug = @old_debug;
+
+source include/start_slave_sql.inc;
+
+connection master;
+drop table t1;
+
+sync_slave_with_master;
+
+-- echo verify slave's gtid_executed is consistent with master
+replace_result $master_uuid master_uuid;
+select @@global.gtid_executed;
+
+source include/rpl_end.inc;
