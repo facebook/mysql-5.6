@@ -1,0 +1,403 @@
+drop table if exists test_json;
+create table test_json(json char(50));
+insert into test_json values
+(null),
+('{}'),
+('{"k":"v"}'),
+('{"k":{}}'),
+('{"k":[]}'),
+('{"k1":"v1","k2":true,"k3":3}'),
+('{"k1":{"k2":"v2"}}'),
+('{"key":[1,2,3]}'),
+('[]'),
+('[[[[[]]]]]'),
+('[{}]'),
+('[1,2,3]'),
+('[1,false,"str",1.2]'),
+('[{"k1":"v1"},2,3]'),
+('[[1,2,3],2,3]'),
+(''),
+(123),
+(1.23),
+('abc'),
+('{"key"}'),
+('{1:value}'),
+('{"key":"value"'),
+('[1,2,3'),
+('{}}'),
+('[[]'),
+('{[]}'),
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select json_valid(json),json from test_json order by 1,2;
+json_valid(json)	json
+NULL	NULL
+0	
+0	1.23
+0	123
+0	abc
+0	[1,2,3
+0	[[]
+0	{"key":"value"
+0	{"key"}
+0	{1:value}
+0	{[]}
+0	{}}
+1	[1,2,3]
+1	[1,false,"str",1.2]
+1	[[1,2,3],2,3]
+1	[[[[[]]]]]
+1	[]
+1	[{"k1":"v1"},2,3]
+1	[{}]
+1	{"k":"v"}
+1	{"k":[]}
+1	{"k":{}}
+1	{"k1":"v1","k2":true,"k3":3}
+1	{"k1":{"k2":"v2"}}
+1	{"key":[1,2,3]}
+1	{"MySQL":"开源数据库"}
+1	{"开源数据库":"MySQL"}
+1	{}
+truncate test_json;
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select length(json_extract(json,null)),json_extract(json,null),json from test_json order by 1,2,3;
+length(json_extract(json,null))	json_extract(json,null)	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{}
+select length(json_extract(json,'k1')),json_extract(json,'k1'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1'))	json_extract(json,'k1')	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{}
+2	v1	{"k1":"v1","k1":{"k2":"v2"}}
+2	v1	{"k1":"v1"}
+20	{"k2":{"k3":12.345}}	{"k1":{"k2":{"k3":12.345}}}
+32	[1,{"k2":["v1",2,true]},3,false]	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select length(json_extract(json,'k1','k2')),json_extract(json,'k1','k2'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1','k2'))	json_extract(json,'k1','k2')	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	{}
+13	{"k3":12.345}	{"k1":{"k2":{"k3":12.345}}}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+select length(json_extract(json,'k1','k2','k3')),json_extract(json,'k1','k2','k3'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1','k2','k3'))	json_extract(json,'k1','k2','k3')	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	{}
+6	12.345	{"k1":{"k2":{"k3":12.345}}}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+select length(json_extract(json,1)),json_extract(json,1),json from test_json order by 1,2,3;
+length(json_extract(json,1))	json_extract(json,1)	json
+NULL	NULL	NULL
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{}
+1	1	[1,2,3,4]
+select length(json_extract(json,'2')),json_extract(json,'2'),json from test_json order by 1,2,3;
+length(json_extract(json,'2'))	json_extract(json,'2')	json
+NULL	NULL	NULL
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{}
+1	2	[1,2,3,4]
+select length(json_extract(json,'k1',2)),json_extract(json,'k1',2),json from test_json order by 1,2,3;
+length(json_extract(json,'k1',2))	json_extract(json,'k1',2)	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{}
+20	{"k2":["v1",2,true]}	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select length(json_extract(json,'k1',2,'k2')),json_extract(json,'k1',2,'k2'),json from test_json order by 1,2,3;
+length(json_extract(json,'k1',2,'k2'))	json_extract(json,'k1',2,'k2')	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{}
+13	["v1",2,true]	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select length(json_extract(json,'k1',2,'k2',1)),json_extract(json,'k1',2,'k2',1),json from test_json order by 1,2,3;
+length(json_extract(json,'k1',2,'k2',1))	json_extract(json,'k1',2,'k2',1)	json
+NULL	NULL	NULL
+NULL	NULL	[1,2,3,4]
+NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
+NULL	NULL	{}
+2	v1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+truncate test_json;
+insert into test_json values ('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+create table test_json2 (json text) select json_extract(json,'k1',2,'k2',1) json from test_json;
+show columns from test_json2;
+Field	Type	Null	Key	Default	Extra
+json	text	YES		NULL	
+select * from test_json2;
+json
+v1
+drop table test_json2;
+truncate test_json;
+insert into test_json values
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select length(json_extract(json,'MySQL')),json_extract(json,'MySQL'),json from test_json order by 1,2,3;
+length(json_extract(json,'MySQL'))	json_extract(json,'MySQL')	json
+NULL	NULL	{"开源数据库":"MySQL"}
+15	开源数据库	{"MySQL":"开源数据库"}
+select length(json_extract(json,'开源数据库')),json_extract(json,'开源数据库'),json from test_json order by 1,2,3;
+length(json_extract(json,'开源数据库'))	json_extract(json,'开源数据库')	json
+NULL	NULL	{"MySQL":"开源数据库"}
+5	MySQL	{"开源数据库":"MySQL"}
+truncate test_json;
+insert into test_json values ('');
+select json_extract(json, 'k1') from test_json;
+ERROR HY000: Invalid JSON object: ''
+truncate test_json;
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select json_contains_key(json,null),json from test_json order by 1,2;
+json_contains_key(json,null)	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+select json_contains_key(json,'k1',null),json from test_json order by 1,2;
+json_contains_key(json,'k1',null)	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select json_contains_key(json,'k2'),json from test_json order by 1,2;
+json_contains_key(json,'k2')	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+select json_contains_key(json,'k1'),json from test_json order by 1,2;
+json_contains_key(json,'k1')	json
+NULL	NULL
+0	[1,2,3,4]
+0	{}
+1	{"k1":"v1","k1":{"k2":"v2"}}
+1	{"k1":"v1"}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+1	{"k1":{"k2":{"k3":12.345}}}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select json_contains_key(json,'k1','k2'),json from test_json order by 1,2;
+json_contains_key(json,'k1','k2')	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{}
+1	{"k1":{"k2":{"k3":12.345}}}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+select json_contains_key(json,'k1','k2','k3'),json from test_json order by 1,2;
+json_contains_key(json,'k1','k2','k3')	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{}
+1	{"k1":{"k2":{"k3":12.345}}}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k2'
+select json_contains_key(json,1),json from test_json order by 1,2;
+json_contains_key(json,1)	json
+NULL	NULL
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	[1,2,3,4]
+select json_contains_key(json,'2'),json from test_json order by 1,2;
+json_contains_key(json,'2')	json
+NULL	NULL
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	[1,2,3,4]
+select json_contains_key(json,'k1',2),json from test_json order by 1,2;
+json_contains_key(json,'k1',2)	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select json_contains_key(json,'k1',2,'k2'),json from test_json order by 1,2;
+json_contains_key(json,'k1',2,'k2')	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+select json_contains_key(json,'k1',2,'k2',1),json from test_json order by 1,2;
+json_contains_key(json,'k1',2,'k2',1)	json
+NULL	NULL
+0	[1,2,3,4]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+Warnings:
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+Warning	1292	Truncated incorrect INTEGER value: 'k1'
+truncate test_json;
+insert into test_json values
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select length(json_contains_key(json,'MySQL')),json_contains_key(json,'MySQL'),json from test_json order by 1,2,3;
+length(json_contains_key(json,'MySQL'))	json_contains_key(json,'MySQL')	json
+1	0	{"开源数据库":"MySQL"}
+1	1	{"MySQL":"开源数据库"}
+select length(json_contains_key(json,'开源数据库')),json_contains_key(json,'开源数据库'),json from test_json order by 1,2,3;
+length(json_contains_key(json,'开源数据库'))	json_contains_key(json,'开源数据库')	json
+1	0	{"MySQL":"开源数据库"}
+1	1	{"开源数据库":"MySQL"}
+truncate test_json;
+insert into test_json values ('');
+select json_contains_key(json, 'k1') from test_json;
+ERROR HY000: Invalid JSON object: ''
+truncate test_json;
+insert into test_json values
+(null),
+('[]'),
+('[1]'),
+('["str"]'),
+('[null]'),
+('[true,false]'),
+('[1.234]'),
+('[1,"str",null,true,false,1.2345]'),
+('[[[[[[]]]]]]'),
+('[[],[],[],[],[]]'),
+('[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]'),
+('[{"MySQL":"开源数据库"},"MySQL"]'),
+('[{"开源数据库":"MySQL"},"开源数据库"]');
+select json_array_length(json),json from test_json order by 1,2;
+json_array_length(json)	json
+NULL	NULL
+0	[]
+1	["str"]
+1	[1.234]
+1	[1]
+1	[null]
+1	[[[[[[]]]]]]
+2	[true,false]
+2	[{"MySQL":"开源数据库"},"MySQL"]
+2	[{"开源数据库":"MySQL"},"开源数据库"]
+4	[[1,2,3],{"k1":"v1"},{"k2":2},[4,5,6]]
+5	[[],[],[],[],[]]
+6	[1,"str",null,true,false,1.2345]
+truncate test_json;
+insert into test_json values ('');
+select json_array_length(json) from test_json;
+ERROR HY000: Invalid JSON object: ''
+truncate test_json;
+drop table test_json;
