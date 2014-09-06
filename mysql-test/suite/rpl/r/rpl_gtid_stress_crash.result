@@ -8,7 +8,6 @@ include/stop_slave.inc
 change master to master_auto_position=1;
 include/start_slave.inc
 call mtr.add_suppression('Slave: Error dropping database');
-start slave;
 stop slave sql_thread;
 insert into test0.benchmark set state='slave is processing load';
 start slave sql_thread;
