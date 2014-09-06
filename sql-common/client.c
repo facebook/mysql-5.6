@@ -69,6 +69,11 @@ my_bool	net_flush(NET *net);
 #include "errmsg.h"
 #include <violite.h>
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+#endif
+
 #if !defined(__WIN__)
 #include <my_pthread.h>				/* because of signal()	*/
 #endif /* !defined(__WIN__) */
@@ -2209,15 +2214,222 @@ mysql_get_ssl_cipher(MYSQL *mysql MY_ATTRIBUTE((unused)))
 
 
 /*
+  Compare DNS name against pattern with a wildcard.
+
+  WARNING: this is a hack. For proper implementation use
+           X509_check_host() from OpenSSL once it gets released.
+
+  We are implementing the most strict rules as per RFC 6125
+  sections 6.4.3 and 7.2.
+
+  Only do wildcard matching for the single left-most wildcard
+  and only match a single label. E.g.:
+
+     '*.fb.com' will match 'a.fb.com' but not 'b.a.fb.com'.
+     '*.com' will not match anything. Sadly 'anything.uk.co'
+       will match '*.uk.co.'. There's no simple way around it.
+       Use X509_check_host() once it becomes available.
+     'a*fb.com' will not match anything.
+
+  Refer to RFC 6125 for details.
+
+  SYNOPSIS
+  check_host_name()
+    pattern          wildcard pattern or regular domain name string.
+    name             fully qualified domain name of the host.
+                     We expect it to be a valid domain name and thus
+                     we are not doing any sanity checks.
+
+  RETURN VALUES
+   0 Success
+   1 Failed to validate the name against pattern
+
+ */
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+
+static int check_host_name(const char *pattern, const char *name)
+{
+  const char *p = name;
+
+  if (!pattern || !name)
+    return 1;
+
+  if (*pattern != '*')
+    return strcmp(pattern, name);
+
+  if (*(pattern+1) != '.')
+    return 1;
+
+  p = strchr(name, '.');
+  if (!p)
+    return 1;
+  ++p;
+
+  /*
+    These are the parts we need to compare, but first make sure
+    there's another subdomain level after in the name. No CA should
+    ever issue '*.com', but you never know.
+   */
+  if (!strchr(p, '.'))
+    return 1;
+
+  return strcmp(pattern+2, p);
+}
+
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
+
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+
+static my_bool ssl_check_SAN(const char* server_hosname, GENERAL_NAME* gn_entry,
+			     my_bool SAN_DNS_checked)
+{
+  my_bool retcode= 0;
+
+  if (gn_entry != NULL && gn_entry->type == GEN_DNS)
+  {
+    *SAN_DNS_checked= 1;  // at least one DNS entry checked
+
+    unsigned char* CN_utf8;
+    int length= ASN1_STRING_to_UTF8(&CN_utf8, gn_entry->d.dNSName);
+
+    DBUG_PRINT("info", ("aternative hostname in cert: %s", CN_utf8));
+
+    // Don't compare if string has null inside
+    if (length > 0 && (uint32_t) length == strlen((const char*) CN_utf8) &&
+	!check_host_name((char*) CN_utf8, server_hostname))
+    {
+      retcode= 1;  // success!
+    }
+    // else mismatch - keep checking
+
+    OPENSSL_free(CN_utf8);
+  }
+
+  return retcode;
+}
+
+static my_bool ssl_check_SANs(X509* server_cert, const char* server_hostname,
+			      my_bool* SAN_DNS_checked)
+{
+  my_bool	 found= 0;
+  GENERAL_NAMES* names;
+
+  names = X509_get_ext_d2(server_cert, NID_subject_alt_name, 0, 0);
+  if (names)
+  {
+    int count= sk_GENERAL_NAME_num(names);
+    for (index= 0; index < count && !found; index++)
+    {
+      found= ssl_check_SAN(server_hostname,
+			   sk_GENERAL_NAME_value(names, index),
+			   SAN_DNS_checked);
+    }
+
+    GENERAL_NAMES_free(names);
+  }
+
+  return found;
+}
+
+static ASN1_STRING* ssl_get_CN(X509* server_cert)
+{
+  ASN1_STRING* asn1= NULL;
+  X509_NAME*   subject= X509_get_subject_name(server_cert);
+
+  if (subject != NULL)
+  {
+    // Find the CN location in the subject
+    int cn_loc= X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
+    if (cn_loc >= 0)
+    {
+      // Get the CN entry for the given locaiton
+      X509_NAME_ENTRY* cn_entry= X509_NAME_get_entry(subject, cn_loc);
+      if (cn_entry != NULL)
+      {
+	// Get CN from common name entry
+	asn1= X509_NAME_ENTRY_get_data(cn_entry);
+      }
+    }
+  }
+
+  return asn1;
+}
+
+static my_bool ssl_check_CN(X509* server_cert, const char* server_hostname,
+			    const char** errptr)
+{
+  my_bool     found= 0;
+  const char *err = "SSL certificate validation failure";;
+
+  ASN1_STRING* CN_asn1= ssl_get_CN(server_cert);
+  if (CN_asn1 != NULL)
+  {
+    unsigned char* CN_utf8;
+    int length= ASN1_STRING_to_UTF8(&CN_utf8, CN_asn1);
+
+    if (length > 0)
+    {
+      // There should not be any NULL embedded in the CN
+      if ((uint32_t) length != strlen((const char*) CN_utf8))
+      {
+	err= "failed SSL certificate validation due to null insde CN";
+      }
+      else
+      {
+	DBUG_PRINT("info", ("Server hostname in cert: %s", CN_utf8));
+	found= check_host_name((const char*) CN_utf8, server_hostname) == 0;
+      }
+    }
+
+    OPENSSL_free(CN_utf8);
+  }
+
+  if (!found)
+  {
+    *errptr= err;
+  }
+
+  return found;
+}
+
+static X509* ssl_get_server_cert(Vio* vio, const char** errptr)
+{
+  SSL*  ssl;
+  X509* server_cert= NULL;
+
+  ssl= (SSL*) vio->ssl_arg;
+  if (ssl == NULL)
+  {
+    *errptr= "No SSL pointer found";
+  }
+  else
+  {
+    server_cert= SSL_get_peer_certificate(ssl);
+    if (server_cert == NULL)
+    {
+      *errptr= "Could not get server certificate";
+    }
+    else if (SSL_get_verify_result(ssl) != X509_V_OK)
+    {
+      *errptr= "Failed to verify the server certificate";
+    }
+  }
+
+  return server_cert;
+}
+
+/*
   Check the server's (subject) Common Name against the
   hostname we connected to
 
   SYNOPSIS
   ssl_verify_server_cert()
-    vio              pointer to a SSL connected vio
+    vio		     pointer to a SSL connected vio
     server_hostname  name of the server that we connected to
-    errptr           if we fail, we'll return (a pointer to a string
-                     describing) the reason here
+    errptr	     if we fail, we'll return (a pointer to a string
+		     describing) the reason here
 
   RETURN VALUES
    0 Success
@@ -2225,106 +2437,51 @@ mysql_get_ssl_cipher(MYSQL *mysql MY_ATTRIBUTE((unused)))
 
  */
 
-#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-
-static int ssl_verify_server_cert(Vio *vio, const char* server_hostname, const char **errptr)
+static int ssl_verify_server_cert(Vio* vio, const char* server_hostname,
+				  const char** errptr)
 {
-  SSL *ssl;
+  int   retcode= 1;
   X509 *server_cert= NULL;
-  char *cn= NULL;
-  int cn_loc= -1;
-  ASN1_STRING *cn_asn1= NULL;
-  X509_NAME_ENTRY *cn_entry= NULL;
-  X509_NAME *subject= NULL;
-  int ret_validation= 1;
 
   DBUG_ENTER("ssl_verify_server_cert");
-  DBUG_PRINT("enter", ("server_hostname: %s", server_hostname));
-
-  if (!(ssl= (SSL*)vio->ssl_arg))
-  {
-    *errptr= "No SSL pointer found";
-    goto error;
-  }
 
   if (!server_hostname)
   {
     *errptr= "No server hostname supplied";
-    goto error;
   }
-
-  if (!(server_cert= SSL_get_peer_certificate(ssl)))
+  else
   {
-    *errptr= "Could not get server certificate";
-    goto error;
+    DBUG_PRINT("enter", ("server_hostname: %s", server_hostname));
+
+    server_cert= ssl_get_server_cert(vio, errptr);
+    if (server_cert != NULL)
+    {
+      /*
+	We already know that the certificate exchanged was valid; the SSL
+	library handled that. Now we need to verify that the contents of the
+	certificate are what we expect.
+
+	Check subject alternative names (SANs) first.
+      */
+      my_bool SAN_DNS_checked= 0;
+      if (ssl_check_SANs(server_cert, server_hostname, &SAN_DNS_checked))
+      {
+	retcode= 0;
+      }
+      else if (!SAN_DNS_checked)
+      {
+	// Only check CN if there are no alternative names with DNS
+	if (ssl_check_CN(server_cert, server_hostname, errptr))
+	{
+	  retcode= 0;
+	}
+      }
+
+      X509_free(server_cert);
+    }
   }
 
-  if (X509_V_OK != SSL_get_verify_result(ssl))
-  {
-    *errptr= "Failed to verify the server certificate";
-    goto error;
-  }
-  /*
-    We already know that the certificate exchanged was valid; the SSL library
-    handled that. Now we need to verify that the contents of the certificate
-    are what we expect.
-  */
-
-  /*
-   Some notes for future development
-   We should check host name in alternative name first and then if needed check in common name.
-   Currently yssl doesn't support alternative name.
-   openssl 1.0.2 support X509_check_host method for host name validation, we may need to start using
-   X509_check_host in the future.
-  */
-
-  subject= X509_get_subject_name((X509 *) server_cert);
-  // Find the CN location in the subject
-  cn_loc= X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
-  if (cn_loc < 0)
-  {
-    *errptr= "Failed to get CN location in the certificate subject";
-    goto error;
-  }
-
-  // Get the CN entry for given location
-  cn_entry= X509_NAME_get_entry(subject, cn_loc);
-  if (cn_entry == NULL)
-  {
-    *errptr= "Failed to get CN entry using CN location";
-    goto error;
-  }
-
-  // Get CN from common name entry
-  cn_asn1 = X509_NAME_ENTRY_get_data(cn_entry);
-  if (cn_asn1 == NULL)
-  {
-    *errptr= "Failed to get CN from CN entry";
-    goto error;
-  }
-
-  cn= (char *) ASN1_STRING_data(cn_asn1);
-
-  // There should not be any NULL embedded in the CN
-  if ((size_t)ASN1_STRING_length(cn_asn1) != strlen(cn))
-  {
-    *errptr= "NULL embedded in the certificate CN";
-    goto error;
-  }
-
-  DBUG_PRINT("info", ("Server hostname in cert: %s", cn));
-  if (!strcmp(cn, server_hostname))
-  {
-    /* Success */
-    ret_validation= 0;
-  }
-
-  *errptr= "SSL certificate validation failure";
-
-error:
-  if (server_cert != NULL)
-    X509_free (server_cert);
-  DBUG_RETURN(ret_validation);
+  return DBUG_RETURN(retcode);
 }
 
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
