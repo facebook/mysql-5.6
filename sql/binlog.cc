@@ -5140,7 +5140,9 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
                      {max_size=0;});
     // If relay log is too big, rotate
     if ((uint) my_b_append_tell(&log_file) >
-        DBUG_EVALUATE_IF("rotate_slave_debug_group", 500, max_size))
+        DBUG_EVALUATE_IF("rotate_slave_debug_group", 500,
+                          DBUG_EVALUATE_IF("slave_skipping_gtid",
+                                           870, max_size)))
     {
       error= new_file_without_locking(mi->get_mi_description_event());
       DBUG_EXECUTE_IF ("set_max_size_zero",
