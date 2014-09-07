@@ -133,8 +133,8 @@ int Row_table::compare_rows(const void* arg, const void *a, const void *b)
   return res;
 }
 
-
-bool Row_table::Put(rocksdb::Slice& key, rocksdb::Slice& val)
+bool Row_table::Put(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key,
+                    rocksdb::Slice& val)
 {
   uchar *data = (uchar*)alloc_root(&mem_root, ROW_DATA_SIZE + key.size() +
                                               val.size());
@@ -142,6 +142,7 @@ bool Row_table::Put(rocksdb::Slice& key, rocksdb::Slice& val)
   ROW_DATA *rdata= (ROW_DATA*)data;
   rdata->key_len= key.size();
   rdata->value_len= val.size();
+  rdata->cf= cf;
   rdata->stmt_id= stmt_id;
   rdata->prev_version= NULL;
   memcpy(data + ROW_DATA_SIZE, key.data(), key.size());
@@ -174,12 +175,13 @@ bool Row_table::Put(rocksdb::Slice& key, rocksdb::Slice& val)
   Put a tombstone into the table
 */
 
-bool Row_table::Delete(rocksdb::Slice& key)
+bool Row_table::Delete(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key)
 {
   uchar *data = (uchar*)alloc_root(&mem_root, ROW_DATA_SIZE + key.size());
   ROW_DATA *rdata= (ROW_DATA*)data;
   rdata->key_len= key.size();
   rdata->value_len= DATA_IS_TOMBSTONE;
+  rdata->cf= cf;
   rdata->stmt_id= stmt_id;
   rdata->prev_version= NULL;
   memcpy(data + ROW_DATA_SIZE, key.data(), key.size());
@@ -360,4 +362,12 @@ rocksdb::Slice Row_table_iter::value()
   ROW_DATA *row= *row_ptr;
   return rocksdb::Slice(((char*)row) + ROW_DATA_SIZE + row->key_len,
                         row->value_len);
+}
+
+
+rocksdb::ColumnFamilyHandle *Row_table_iter::cf_handle()
+{
+  DBUG_ASSERT(Valid());
+  ROW_DATA *row= *row_ptr;
+  return row->cf;
 }
