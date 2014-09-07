@@ -24,6 +24,8 @@ typedef struct st_row_data
   /* Can have a special value: DATA_IS_TOMBSTONE */
   size_t value_len;
 
+  rocksdb::ColumnFamilyHandle *cf;
+
   /* Previous version */
   struct st_row_data *prev_version;
 
@@ -84,6 +86,8 @@ public:
   bool is_tombstone();
   rocksdb::Slice key();
   rocksdb::Slice value();
+
+  rocksdb::ColumnFamilyHandle *cf_handle();
 };
 
 
@@ -115,8 +119,9 @@ public:
   void reinit();
 
   /* Operations to put a row, or a tombstone */
-  bool Put(rocksdb::Slice& key, rocksdb::Slice& val);
-  bool Delete(rocksdb::Slice& key);
+  bool Put(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key,
+           rocksdb::Slice& val);
+  bool Delete(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key);
 
   /* Lookup may find nothing, find row, of find a tombstone */
   bool Get(rocksdb::Slice &key, std::string *record, bool *found);

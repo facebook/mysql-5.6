@@ -1190,3 +1190,50 @@ select * from t1 where id1 = 3;
 
 drop table t0,t1;
 
+--echo #
+--echo # Test column families
+--echo # 
+
+create table t1 (
+  pk int primary key,
+  col1 int, 
+  col2 int,
+  key(col1) comment 'cf3',
+  key(col2) comment 'cf4'
+) engine=rocksdb;
+
+insert into t1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5);
+
+explain
+select * from t1 where col1=2;
+select * from t1 where col1=2;
+ 
+explain
+select * from t1 where col2=3;
+select * from t1 where col2=3;
+
+select * from t1 where pk=4;
+
+drop table t1;
+
+--echo #
+--echo # Try primary key in a non-default CF:
+--echo #
+create table t1 (
+  pk int,
+  col1 int, 
+  col2 int,
+  key(col1) comment 'cf3',
+  key(col2) comment 'cf4',
+  primary key (pk) comment 'cf5'
+) engine=rocksdb;
+insert into t1 values (1,1,1), (2,2,2), (3,3,3), (4,4,4), (5,5,5);
+
+explain
+select * from t1 where col1=2;
+select * from t1 where col1=2;
+
+select * from t1 where pk=4;
+ 
+
+drop table t1;

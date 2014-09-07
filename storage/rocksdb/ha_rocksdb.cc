@@ -30,6 +30,7 @@
 #include "rdb_rowmods.h"
 
 #include "rocksdb/table.h"
+#include <map>
 
 void dbug_dump_database(rocksdb::DB *db);
 
@@ -43,6 +44,128 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
 handlerton *rocksdb_hton;
 
 rocksdb::DB *rdb= NULL;
+
+rocksdb::ColumnFamilyOptions default_cf_opts;
+
+
+/*
+  We need a column family manager. Its functions:
+  - create column families (synchronized, don't create the same twice)
+  - keep count in each column family.
+     = the count is kept on-disk.
+     = there are no empty CFs. initially count=1.
+     = then, when doing DDL, we increase or decrease it.
+       (atomicity is maintained by being in the same WriteBatch with DDLs)
+     = if DROP discovers that now count=0, it removes the CF.
+
+  Current state is:
+  - CFs are created in a synchronized way. We can't remove them, yet.
+*/
+
+class Column_family_manager
+{
+  typedef std::map<std::string, rocksdb::ColumnFamilyHandle*> ColumnFamilyHandleMap;
+
+  ColumnFamilyHandleMap cf_map;
+
+  rocksdb::ColumnFamilyHandle *default_cf;
+
+  mysql_mutex_t cfm_mutex;
+public:
+  /*
+    This is called right after the DB::Open() call. The parameters describe column
+    families that are present in the database. The first CF is the default CF.
+  */
+  void init(std::vector<std::string> *names,
+            std::vector<rocksdb::ColumnFamilyHandle*> *handles);
+  void cleanup();
+
+  /* Used by CREATE TABLE. name=NULL means use default column family */
+  rocksdb::ColumnFamilyHandle* get_or_create_cf(const char *name);
+
+  /* Used by table open */
+  rocksdb::ColumnFamilyHandle* get_cf(const char *name);
+
+  void drop_cf();
+};
+
+Column_family_manager cf_manager;
+
+
+void Column_family_manager::init(std::vector<std::string> *names,
+                                 std::vector<rocksdb::ColumnFamilyHandle*> *handles)
+{
+  mysql_mutex_init(NULL, &cfm_mutex, MY_MUTEX_INIT_FAST);
+  DBUG_ASSERT(names->size() == handles->size());
+  DBUG_ASSERT(names->size() > 0);
+
+  default_cf= (*handles)[0];
+  for (size_t i = 0; i < names->size(); ++i)
+    cf_map[(*names)[i]]= (*handles)[i];
+}
+
+
+void Column_family_manager::cleanup()
+{
+  ColumnFamilyHandleMap::iterator it;
+  for (it= cf_map.begin(); it!=cf_map.end(); it++)
+  {
+    delete it->second;
+  }
+  mysql_mutex_destroy(&cfm_mutex);
+}
+
+
+rocksdb::ColumnFamilyHandle*
+Column_family_manager::get_or_create_cf(const char *name)
+{
+  rocksdb::ColumnFamilyHandle* cf_handle;
+  ColumnFamilyHandleMap::iterator it;
+
+  mysql_mutex_lock(&cfm_mutex);
+  if (name == NULL)
+  {
+    cf_handle= default_cf;
+  }
+  else if ((it= cf_map.find(name)) != cf_map.end())
+    cf_handle= it->second;
+  else
+  {
+    /* Create a Column Family. */
+    std::string cf_name(name);
+    rocksdb::Status s= rdb->CreateColumnFamily(default_cf_opts, name,
+                                               &cf_handle);
+    if (s.ok())
+      cf_map[cf_name]= cf_handle;
+    else
+      cf_handle= NULL;
+  }
+  mysql_mutex_unlock(&cfm_mutex);
+
+  return cf_handle;
+}
+
+
+rocksdb::ColumnFamilyHandle*
+Column_family_manager::get_cf(const char *name)
+{
+  rocksdb::ColumnFamilyHandle* cf_handle;
+  ColumnFamilyHandleMap::iterator it;
+
+  mysql_mutex_lock(&cfm_mutex);
+  if (name == NULL)
+  {
+    cf_handle= default_cf;
+  }
+  else if ((it= cf_map.find(name)) != cf_map.end())
+    cf_handle= it->second;
+  else
+    cf_handle= NULL;
+  mysql_mutex_unlock(&cfm_mutex);
+
+  return cf_handle;
+}
+
 
 Table_ddl_manager ddl_manager;
 
@@ -193,7 +316,7 @@ public:
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
   static ulong get_hashnr(const char *key, size_t key_len);
-  const char* Name() const { return "RocksDB_SE_v2.2"; }
+  const char* Name() const { return "RocksDB_SE_v3.0"; }
 
   //TODO: advanced funcs:
   // - FindShortestSeparator
@@ -313,11 +436,11 @@ private:
     {
       if (iter.is_tombstone())
       {
-        batch.Delete(iter.key());
+        batch.Delete(iter.cf_handle(), iter.key());
       }
       else
       {
-        batch.Put(iter.key(), iter.value());
+        batch.Put(iter.cf_handle(), iter.key(), iter.value());
       }
     }
     rocksdb::Status s= rdb->Write(rocksdb::WriteOptions(), &batch);
@@ -495,20 +618,66 @@ static int rocksdb_init_func(void *p)
                  Primary_key_comparator::get_hashnr);
 
   rocksdb_stats= rocksdb::CreateDBStatistics();
-  rocksdb::Options main_opts;
-  main_opts.create_if_missing = true;
-  main_opts.comparator= &primary_key_comparator;
-  main_opts.statistics= rocksdb_stats;
 
-  main_opts.write_buffer_size= rocksdb_write_buffer_size;
-  main_opts.target_file_size_base= rocksdb_target_file_size_base;
+  std::string rocksdb_db_name=  "./rocksdb";
+
+  std::vector<std::string> cf_names;
+
+  rocksdb::DBOptions db_opts;
+  db_opts.create_if_missing = true;
+  db_opts.statistics= rocksdb_stats;
+
+  rocksdb::Status status;
+
+  status= rocksdb::DB::ListColumnFamilies(db_opts, rocksdb_db_name,
+                                          &cf_names);
+  if (!status.ok())
+  {
+    /*
+      When we start on an empty datadir, ListColumnFamilies returns IOError,
+      and RocksDB doesn't provide any way to check what kind of error it was.
+      Checking system errno happens to work right now.
+    */
+    if (status.IsIOError() && errno == ENOENT)
+    {
+      sql_print_information("RocksDB: column families not found, starting new");
+    }
+    else
+    {
+      std::string err_text= status.ToString();
+      sql_print_error("RocksDB: Error listing column families: %s", err_text.c_str());
+      DBUG_RETURN(1);
+    }
+  }
+  else
+    sql_print_information("RocksDB: %ld column families found", cf_names.size());
+
+  std::vector<rocksdb::ColumnFamilyDescriptor> cf_descr;
+  std::vector<rocksdb::ColumnFamilyHandle*> cf_handles;
+
+  default_cf_opts.comparator= &primary_key_comparator;
+  default_cf_opts.write_buffer_size= rocksdb_write_buffer_size;
+  default_cf_opts.target_file_size_base= rocksdb_target_file_size_base;
 
   rocksdb::BlockBasedTableOptions table_options;
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
-  main_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+  default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
 
-  rocksdb::Status status;
-  status= rocksdb::DB::Open(main_opts, "./rocksdb", &rdb);
+  // TODO: is RocksDB's default CF always named "default"?
+  if (cf_names.size() == 0)
+    cf_names.push_back("default");
+
+  for (size_t i = 0; i < cf_names.size(); ++i)
+  {
+    cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i],
+                                                       default_cf_opts));
+  }
+
+  rocksdb::Options main_opts(db_opts, default_cf_opts);
+  status= rocksdb::DB::Open(main_opts, rocksdb_db_name, cf_descr,
+                            &cf_handles, &rdb);
+
+  cf_manager.init(&cf_names, &cf_handles);
 
   if (!status.ok())
   {
@@ -540,6 +709,8 @@ static int rocksdb_done_func(void *p)
 
   row_locks.cleanup();
   ddl_manager.cleanup();
+
+  cf_manager.cleanup();
 
   delete rdb;
   rdb= NULL;
@@ -956,7 +1127,15 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   pk_key_parts= table->key_info[table->s->primary_key].user_defined_key_parts;
 
   uint key_len= table->key_info[table->s->primary_key].key_length;
+
+  const char *comment= table->key_info[table->s->primary_key].comment.str;
+  rocksdb::ColumnFamilyHandle *cf_handle;
+  if (!(cf_handle= cf_manager.get_cf(comment)))
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+
   pk_descr->setup(table);  // move this into get_share() ??
+  pk_descr->set_cf_handle(cf_handle);
+
   uint packed_key_len= pk_descr->max_storage_fmt_length();
 
   if (!(pk_tuple= (uchar*)my_malloc(key_len, MYF(0))) ||
@@ -970,7 +1149,12 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     if (i == table->s->primary_key) /* Primary key was processed above */
       continue;
 
+    comment= table->key_info[i].comment.str;
+    if (!(cf_handle= cf_manager.get_cf(comment)))
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+
     key_descr[i]->setup(table);  // move this into get_share() ??
+    key_descr[i]->set_cf_handle(cf_handle);
 
     uint packed_len= key_descr[i]->max_storage_fmt_length();
     if (packed_len > max_packed_sec_key_len)
@@ -1083,7 +1267,16 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 
   for (i= 0; i < table_arg->s->keys; i++)
   {
-    if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i)))
+    /*
+      index comment has Column Family name. If there was no comment, we get
+      NULL, and it means use default column family.
+    */
+    const char *comment= table_arg->key_info[i].comment.str;
+    rocksdb::ColumnFamilyHandle* cf_handle= cf_manager.get_or_create_cf(comment);
+    if (!cf_handle)
+      goto error;
+
+    if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i, cf_handle)))
       goto error;
   }
   pk_descr= key_descr[table_arg->s->primary_key];
@@ -1382,7 +1575,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
-  setup_index_scan(&slice);
+  setup_index_scan(kd->get_cf(), &slice);
   bool move_forward= true;
 
 
@@ -1691,7 +1884,8 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   bool found;
   if (!trx->changes.Get(key_slice, &retrieved_record, &found))
   {
-    rocksdb::Status s= rdb->Get(options, key_slice, &retrieved_record);
+    rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
+                                &retrieved_record);
     found= !s.IsNotFound();
   }
 
@@ -1765,7 +1959,7 @@ int ha_rocksdb::index_first(uchar *buf)
   key_descr[active_index]->get_infimum_key(key, &key_size);
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(&index_key);
+  setup_index_scan(key_descr[active_index]->get_cf(), &index_key);
   skip_scan_it_next_call= TRUE;
 
   rc= index_next(buf);
@@ -1785,7 +1979,7 @@ int ha_rocksdb::index_last(uchar *buf)
   key_descr[active_index]->get_supremum_key(key, &key_size);
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(&index_key);
+  setup_index_scan(key_descr[active_index]->get_cf(), &index_key);
 
   if (!scan_it->Valid())
   {
@@ -1881,7 +2075,8 @@ int ha_rocksdb::write_row(uchar *buf)
     bool found;
     if (!trx->changes.Get(key_slice, &retrieved_record, &found))
     {
-      rocksdb::Status s= rdb->Get(options, key_slice, &retrieved_record);
+      rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
+                                  &retrieved_record);
       found= !s.IsNotFound();
     }
 
@@ -1913,7 +2108,7 @@ int ha_rocksdb::write_row(uchar *buf)
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
       rocksdb::Slice value_slice((const char*)sec_key_tails, tail_size);
-      trx->changes.Put(secondary_key_slice, value_slice);
+      trx->changes.Put(key_descr[i]->get_cf(), secondary_key_slice, value_slice);
       trx->n_writes++;
     }
   }
@@ -1925,7 +2120,7 @@ int ha_rocksdb::write_row(uchar *buf)
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(&value_slice);
 
-  trx->changes.Put(key_slice, value_slice);
+  trx->changes.Put(pk_descr->get_cf(), key_slice, value_slice);
   trx->n_writes++;
 
   if (!do_locking && trx->n_writes > THDVAR(table->in_use, bulk_load_size))
@@ -1943,7 +2138,8 @@ int ha_rocksdb::write_row(uchar *buf)
   Open a cursor and position it at the passed record
 */
 
-void ha_rocksdb::setup_index_scan(rocksdb::Slice *slice)
+void ha_rocksdb::setup_index_scan(rocksdb::ColumnFamilyHandle *cf,
+                                  rocksdb::Slice *slice)
 {
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
@@ -1956,7 +2152,7 @@ void ha_rocksdb::setup_index_scan(rocksdb::Slice *slice)
     rocksdb::ReadOptions options;
     if (!lock_rows)
       options.snapshot= trx->snapshot;
-    rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options);
+    rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, cf);
     scan_it= new Apply_changes_iter;
     scan_it->init(&trx->changes, rocksdb_it);
   }
@@ -1979,7 +2175,7 @@ int ha_rocksdb::rnd_init(bool scan)
     pk_descr->get_infimum_key(pk_packed_tuple, &key_size);
     rocksdb::Slice table_key((const char*)pk_packed_tuple, key_size);
 
-    setup_index_scan(&table_key);
+    setup_index_scan(pk_descr->get_cf(), &table_key);
     skip_scan_it_next_call= true;
   }
   else
@@ -2150,7 +2346,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
   trx->prepare_for_write();
-  trx->changes.Delete(key_slice);
+  trx->changes.Delete(pk_descr->get_cf(), key_slice);
   DBUG_ASSERT(buf == table->record[0]);
 
   // Delete the record for every secondary index
@@ -2163,7 +2359,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
                                              NULL, NULL);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
-      trx->changes.Delete(secondary_key_slice);
+      trx->changes.Delete(key_descr[i]->get_cf(), secondary_key_slice);
     }
   }
 
@@ -2243,13 +2439,15 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 {
   DBUG_ENTER("ha_rocksdb::update_row");
   DBUG_ASSERT(lock_rows);
-
   /*
     old_data points to record we're updating. It is the same as the record
     we've just read (for multi-table UPDATE, too, because SQL layer will make
     an rnd_pos() call to re-read the record before calling update_row())
   */
   DBUG_ASSERT(new_data == table->record[0]);
+
+  //psergey-todo: how come we don't get locks for the 'old_data'?  because
+  // we've already taken them when reading??
 
   /* Get a rowkey fo the new record */
   uint packed_size= pk_descr->pack_record(table, new_data, pk_packed_tuple,
@@ -2290,7 +2488,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
     trx->prepare_for_write();
     trx->add_lock(lock);
-    trx->changes.Delete(old_key_slice);
+    trx->changes.Delete(pk_descr->get_cf(), old_key_slice);
   }
 
   trx->prepare_for_write();
@@ -2311,7 +2509,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
                                                NULL, NULL);
         rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                            packed_size);
-        trx->changes.Delete(secondary_key_slice);
+        trx->changes.Delete(key_descr[i]->get_cf(), secondary_key_slice);
       }
 
       // Then, Put().
@@ -2322,7 +2520,8 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
         rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                            packed_size);
         rocksdb::Slice value_slice((const char*)sec_key_tails, tail_size);
-        trx->changes.Put(secondary_key_slice, value_slice);
+        trx->changes.Put(key_descr[i]->get_cf(), secondary_key_slice,
+                         value_slice);
       }
     }
   }
@@ -2332,7 +2531,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   /* Write the table record */
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(&value_slice);
-  trx->changes.Put(key_slice, value_slice);
+  trx->changes.Put(pk_descr->get_cf(), key_slice, value_slice);
 
   DBUG_RETURN(0);
 }
