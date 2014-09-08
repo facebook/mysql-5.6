@@ -640,7 +640,8 @@ static int rocksdb_init_func(void *p)
     */
     if (status.IsIOError() && errno == ENOENT)
     {
-      sql_print_information("RocksDB: column families not found, starting new");
+      sql_print_information("RocksDB: Got ENOENT when listing column families");
+      sql_print_information("RocksDB:   assuming that we're creating a new database");
     }
     else
     {
@@ -663,7 +664,10 @@ static int rocksdb_init_func(void *p)
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
 
-  // TODO: is RocksDB's default CF always named "default"?
+  /*
+    If there are no column families, we're creating the new database.
+    Create one column family named "default".
+  */
   if (cf_names.size() == 0)
     cf_names.push_back("default");
 
