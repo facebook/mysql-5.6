@@ -31,6 +31,7 @@
 
 #include "rocksdb/table.h"
 #include <map>
+#include <sstream>
 
 void dbug_dump_database(rocksdb::DB *db);
 
@@ -578,6 +579,44 @@ static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
   return 0;
 }
 
+
+/*
+  This is called for SHOW ENGINE ROCKSDB STATUS|LOGS|etc.
+
+  For now, produce info about live files (which gives an imprecise idea about
+  what column families are there)
+*/
+
+static bool rocksdb_show_status(handlerton*		hton,
+                                THD*			thd,
+                                stat_print_fn*		stat_print,
+                                enum ha_stat_type	stat_type)
+{
+  bool res= false;
+  if (stat_type == HA_ENGINE_STATUS)
+  {
+    std::vector<rocksdb::LiveFileMetaData> metadata_vec;
+
+    rdb->GetLiveFilesMetaData(&metadata_vec);
+    std::ostringstream buf;
+
+    for (auto it= metadata_vec.begin(); it!=metadata_vec.end(); it++)
+    {
+      buf << "cf=" << it->column_family_name;
+      buf << " name=" << it->name;
+      buf << " size=" << it->size;
+      buf << std::endl;
+    }
+
+    std::string str= buf.str();
+    res= stat_print(thd, rocksdb_hton_name,
+                    (uint)strlen(rocksdb_hton_name),
+                    STRING_WITH_LEN("live_files"),
+                    str.c_str(), str.size());
+  }
+  return res;
+}
+
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 
 static int rocksdb_init_func(void *p)
@@ -599,6 +638,7 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->commit=   rocksdb_commit;
   rocksdb_hton->rollback= rocksdb_rollback;
   rocksdb_hton->db_type=  DB_TYPE_ROCKSDB;
+  rocksdb_hton->show_status= rocksdb_show_status;
 
   /*
     Don't specify HTON_CAN_RECREATE in flags. re-create is used by TRUNCATE
