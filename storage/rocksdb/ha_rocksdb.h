@@ -71,6 +71,8 @@ class RDBSE_TABLE_DEF;
 class Row_lock;
 class Rdb_transaction;
 
+const char *const rocksdb_hton_name= "ROCKSDB";
+
 /** @brief
   Class definition for the storage engine
 */
@@ -181,7 +183,7 @@ public:
   /** @brief
     The name that will be used for display purposes.
    */
-  const char *table_type() const { return "ROCKSDB"; }
+  const char *table_type() const { return rocksdb_hton_name; }
 
   /* The following is only used by SHOW KEYS: */
   const char *index_type(uint inx) { return "BTREE"; }
