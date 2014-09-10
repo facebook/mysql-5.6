@@ -3254,11 +3254,18 @@ static Exit_status start_gtid_dump(char *gtid_string, bool find_position)
   last_log_it = --previous_gtid_set_map.end();
 
   Gtid_set previous_gtid_set(&sid_map);
-  if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK)
+  if (!find_position || Gtid::is_valid(gtid_string))
+  {
+    if (gtid.parse(&sid_map, gtid_string) != RETURN_STATUS_OK)
+    {
+      error("Couldn't find position of a malformed Gtid %s", gtid_string);
+      DBUG_RETURN(ERROR_STOP);
+    }
+  }
+  else
   {
     // Check if the value given to find-gtid-position is gtid set.
-    if (!find_position ||
-        gtid_set.add_gtid_text(gtid_string) != RETURN_STATUS_OK)
+    if (gtid_set.add_gtid_text(gtid_string) != RETURN_STATUS_OK)
     {
       error("Couldn't find position of a malformed Gtid %s", gtid_string);
       DBUG_RETURN(ERROR_STOP);
