@@ -25,151 +25,50 @@
 
 #include "my_bit.h"
 
+#include <sstream>
+
 #include "rdb_datadic.h"
 #include "rdb_locks.h"
 #include "rdb_rowmods.h"
 
+#include "rdb_cf_option.h"
+#include "rdb_cf_manager.h"
+
 #include "rocksdb/table.h"
-#include <map>
-#include <sstream>
 
 void dbug_dump_database(rocksdb::DB *db);
-
 static handler *rocksdb_create_handler(handlerton *hton,
                                        TABLE_SHARE *table,
                                        MEM_ROOT *mem_root);
-
 void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
               uint key_length);
 
+///////////////////////////////////////////////////////////
+// Parameters and settings
+///////////////////////////////////////////////////////////
+extern const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
+extern const int ROCKSDB_TARGET_FILE_SIZE_BASE_DEFAULT;
+static char * rocksdb_write_buffer_size_str;
+Numeric_cf_option write_buffer_size_map;
+
+static char * rocksdb_target_file_size_base_str;
+Numeric_cf_option target_file_size_base_map;
+
+
+///////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////
 handlerton *rocksdb_hton;
 
 rocksdb::DB *rdb= NULL;
 
+static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
+
 rocksdb::ColumnFamilyOptions default_cf_opts;
 
 
-/*
-  We need a column family manager. Its functions:
-  - create column families (synchronized, don't create the same twice)
-  - keep count in each column family.
-     = the count is kept on-disk.
-     = there are no empty CFs. initially count=1.
-     = then, when doing DDL, we increase or decrease it.
-       (atomicity is maintained by being in the same WriteBatch with DDLs)
-     = if DROP discovers that now count=0, it removes the CF.
-
-  Current state is:
-  - CFs are created in a synchronized way. We can't remove them, yet.
-*/
-
-class Column_family_manager
-{
-  typedef std::map<std::string, rocksdb::ColumnFamilyHandle*> ColumnFamilyHandleMap;
-
-  ColumnFamilyHandleMap cf_map;
-
-  rocksdb::ColumnFamilyHandle *default_cf;
-
-  mysql_mutex_t cfm_mutex;
-public:
-  /*
-    This is called right after the DB::Open() call. The parameters describe column
-    families that are present in the database. The first CF is the default CF.
-  */
-  void init(std::vector<std::string> *names,
-            std::vector<rocksdb::ColumnFamilyHandle*> *handles);
-  void cleanup();
-
-  /* Used by CREATE TABLE. name=NULL means use default column family */
-  rocksdb::ColumnFamilyHandle* get_or_create_cf(const char *name);
-
-  /* Used by table open */
-  rocksdb::ColumnFamilyHandle* get_cf(const char *name);
-
-  void drop_cf();
-};
-
 Column_family_manager cf_manager;
-
-
-void Column_family_manager::init(std::vector<std::string> *names,
-                                 std::vector<rocksdb::ColumnFamilyHandle*> *handles)
-{
-  mysql_mutex_init(NULL, &cfm_mutex, MY_MUTEX_INIT_FAST);
-  DBUG_ASSERT(names->size() == handles->size());
-  DBUG_ASSERT(names->size() > 0);
-
-  default_cf= (*handles)[0];
-  for (size_t i = 0; i < names->size(); ++i)
-    cf_map[(*names)[i]]= (*handles)[i];
-}
-
-
-void Column_family_manager::cleanup()
-{
-  ColumnFamilyHandleMap::iterator it;
-  for (it= cf_map.begin(); it!=cf_map.end(); it++)
-  {
-    delete it->second;
-  }
-  mysql_mutex_destroy(&cfm_mutex);
-}
-
-
-rocksdb::ColumnFamilyHandle*
-Column_family_manager::get_or_create_cf(const char *name)
-{
-  rocksdb::ColumnFamilyHandle* cf_handle;
-  ColumnFamilyHandleMap::iterator it;
-
-  mysql_mutex_lock(&cfm_mutex);
-  if (name == NULL)
-  {
-    cf_handle= default_cf;
-  }
-  else if ((it= cf_map.find(name)) != cf_map.end())
-    cf_handle= it->second;
-  else
-  {
-    /* Create a Column Family. */
-    std::string cf_name(name);
-    rocksdb::Status s= rdb->CreateColumnFamily(default_cf_opts, name,
-                                               &cf_handle);
-    if (s.ok())
-      cf_map[cf_name]= cf_handle;
-    else
-      cf_handle= NULL;
-  }
-  mysql_mutex_unlock(&cfm_mutex);
-
-  return cf_handle;
-}
-
-
-rocksdb::ColumnFamilyHandle*
-Column_family_manager::get_cf(const char *name)
-{
-  rocksdb::ColumnFamilyHandle* cf_handle;
-  ColumnFamilyHandleMap::iterator it;
-
-  mysql_mutex_lock(&cfm_mutex);
-  if (name == NULL)
-  {
-    cf_handle= default_cf;
-  }
-  else if ((it= cf_map.find(name)) != cf_map.end())
-    cf_handle= it->second;
-  else
-    cf_handle= NULL;
-  mysql_mutex_unlock(&cfm_mutex);
-
-  return cf_handle;
-}
-
-
 Table_ddl_manager ddl_manager;
-
 LockTable row_locks;
 
 /*
@@ -181,6 +80,109 @@ static HASH rocksdb_open_tables;
 /* The mutex used to init the hash; variable for example share methods */
 mysql_mutex_t rocksdb_mutex;
 
+
+//////////////////////////////////////////////////////////////////////////////
+// Options parse support functions
+//////////////////////////////////////////////////////////////////////////////
+
+static int
+rocksdb_write_buffer_size_validate(THD* thd,
+                                   struct st_mysql_sys_var* var,
+                                   void* save,
+                                   struct st_mysql_value* value)
+{
+  /* The option is read-only, it should never be updated */
+  DBUG_ASSERT(0);
+  return 1;
+#if 0
+  const char*  param_str;
+  char         buff[STRING_BUFFER_USUAL_SIZE];
+  int          len= sizeof(buff);
+
+  param_str= value->val_str(value, buff, &len);
+  if (param_str != NULL)
+  {
+    if (parse_multi_number(param_str, &write_buffer_size_map))
+    {
+      save= (void*)1;
+      return 1;
+    }
+  }
+  save= NULL;
+  return 0;
+#endif
+}
+
+
+static void
+rocksdb_write_buffer_size_update(THD* thd,
+                                 struct st_mysql_sys_var* var,
+                                 void* var_ptr,
+                                 const void* save)
+{
+  /* The option is read-only, it should never be updated */
+  DBUG_ASSERT(0);
+}
+
+
+static bool rocksdb_parse_write_buffer_size_arg()
+{
+  write_buffer_size_map.default_val= ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
+  if (parse_per_cf_numeric(rocksdb_write_buffer_size_str, &write_buffer_size_map))
+  {
+    sql_print_error("RocksDB: Invalid value for rocksdb_write_buffer_size: %s",
+                    rocksdb_write_buffer_size_str);
+    return true;
+  }
+  else
+    return false;
+}
+
+
+static int
+rocksdb_target_file_size_base_validate(THD* thd,
+                                       struct st_mysql_sys_var* var,
+                                       void* save,
+                                       struct st_mysql_value* value)
+{
+  /* The option is read-only, it should never be updated */
+  DBUG_ASSERT(0);
+  return 1;
+}
+
+
+static void
+rocksdb_target_file_size_base_update(THD* thd,
+                                     struct st_mysql_sys_var* var,
+                                     void* var_ptr,
+                                     const void* save)
+{
+  /* The option is read-only, it should never be updated */
+  DBUG_ASSERT(0);
+}
+
+
+static bool rocksdb_parse_target_file_size_base_arg()
+{
+  target_file_size_base_map.default_val= ROCKSDB_TARGET_FILE_SIZE_BASE_DEFAULT;
+  if (parse_per_cf_numeric(rocksdb_target_file_size_base_str,
+                           &target_file_size_base_map))
+  {
+    sql_print_error("RocksDB: Invalid value for rocksdb_target_file_size_base: %s",
+                    rocksdb_target_file_size_base_str);
+    return true;
+  }
+  else
+    return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Options definitions
+//////////////////////////////////////////////////////////////////////////////
+static long long rocksdb_block_cache_size;
+
+//static long long rocksdb_write_buffer_size;
+//static int rocksdb_target_file_size_base;
 
 //TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -198,28 +200,36 @@ static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   NULL, NULL, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
 
-static long long rocksdb_block_cache_size;
-static long long rocksdb_write_buffer_size;
-static int rocksdb_target_file_size_base;
-
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "block_cache size for RocksDB",
   NULL, NULL, /* RocksDB's default is 8 MB: */ 8*1024*1024L,
   /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
 
-static MYSQL_SYSVAR_LONGLONG(write_buffer_size, rocksdb_write_buffer_size,
+static MYSQL_SYSVAR_STR(write_buffer_size, rocksdb_write_buffer_size_str,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "options.write_buffer_size for RocksDB",
-  NULL, NULL, /* RocksDB's default is 4 MB: */ 4*1024*1024L,
-  /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
+  "options.write_buffer_size for RocksDB (Can also be set per-column family)",
+  rocksdb_write_buffer_size_validate,
+  rocksdb_write_buffer_size_update, "4194304" /* default is 4 MB for default CF */);
+const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
+static MYSQL_SYSVAR_STR(target_file_size_base,
+  rocksdb_target_file_size_base_str,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "options.target_file_size_base for RocksDB (Can also be set per-column family)",
+  rocksdb_target_file_size_base_validate,
+  rocksdb_target_file_size_base_update,
+  "2097152" /* default is 2 MB for default CF */);
+const int ROCKSDB_TARGET_FILE_SIZE_BASE_DEFAULT=2097152;
+
+#if 0
 static MYSQL_SYSVAR_INT(target_file_size_base,
   rocksdb_target_file_size_base,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "options.target_file_size_base for RocksDB",
   NULL, NULL, /* RocksDB's default is 2 MB: */ 2*1024*1024L,
   /* min */ 1024L, /* max */ INT_MAX, /* Block size */1024L);
+#endif
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
@@ -327,13 +337,13 @@ public:
   void FindShortSuccessor(std::string* key) const {}
 };
 
-Primary_key_comparator primary_key_comparator;
+Primary_key_comparator rocksdb_pk_comparator;
 
 int compare_mem_comparable_keys(const uchar *a, size_t a_len, const uchar *b, size_t b_len)
 {
   rocksdb::Slice a_slice((char*)a, a_len);
   rocksdb::Slice b_slice((char*)b, b_len);
-  return primary_key_comparator.Compare(a_slice, b_slice);
+  return rocksdb_pk_comparator.Compare(a_slice, b_slice);
 }
 
 
@@ -617,7 +627,20 @@ static bool rocksdb_show_status(handlerton*		hton,
   return res;
 }
 
-static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
+
+void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts)
+{
+  *opts= default_cf_opts;
+  int tfsb= target_file_size_base_map.get_val(cf_name.c_str());
+  size_t wbs= write_buffer_size_map.get_val(cf_name.c_str());
+
+  opts->write_buffer_size= wbs;
+  opts->target_file_size_base= tfsb;
+}
+
+/*
+  Engine initialization function
+*/
 
 static int rocksdb_init_func(void *p)
 {
@@ -626,6 +649,13 @@ static int rocksdb_init_func(void *p)
 #ifdef HAVE_PSI_INTERFACE
   init_rocksdb_psi_keys();
 #endif
+
+  /* Parse command-line option values */
+  if (rocksdb_parse_write_buffer_size_arg() ||
+      rocksdb_parse_target_file_size_base_arg())
+  {
+    DBUG_RETURN(1);
+  }
 
   rocksdb_hton= (handlerton *)p;
   mysql_mutex_init(ex_key_mutex_example, &rocksdb_mutex, MY_MUTEX_INIT_FAST);
@@ -648,10 +678,6 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
                        HTON_SUPPORTS_EXTENDED_KEYS;
 
-  /*
-    As for the datadir, innobase_init() uses mysql_real_data_home for
-    embedded server, and current directory for the "full server".
-  */
   DBUG_ASSERT(!mysqld_embedded);
 
   row_locks.init(compare_mem_comparable_keys,
@@ -696,9 +722,10 @@ static int rocksdb_init_func(void *p)
   std::vector<rocksdb::ColumnFamilyDescriptor> cf_descr;
   std::vector<rocksdb::ColumnFamilyHandle*> cf_handles;
 
-  default_cf_opts.comparator= &primary_key_comparator;
-  default_cf_opts.write_buffer_size= rocksdb_write_buffer_size;
-  default_cf_opts.target_file_size_base= rocksdb_target_file_size_base;
+  default_cf_opts.comparator= &rocksdb_pk_comparator;
+
+  default_cf_opts.write_buffer_size= write_buffer_size_map.get_default_val();
+  default_cf_opts.target_file_size_base= target_file_size_base_map.get_default_val();
 
   rocksdb::BlockBasedTableOptions table_options;
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
@@ -709,12 +736,22 @@ static int rocksdb_init_func(void *p)
     Create one column family named "default".
   */
   if (cf_names.size() == 0)
-    cf_names.push_back("default");
+    cf_names.push_back(DEFAULT_CF_NAME);
 
+  sql_print_information("RocksDB: Column Families at start:");
   for (size_t i = 0; i < cf_names.size(); ++i)
   {
-    cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i],
-                                                       default_cf_opts));
+    int tfsb= target_file_size_base_map.get_val(cf_names[i].c_str());
+    size_t wbs= write_buffer_size_map.get_val(cf_names[i].c_str());
+
+    sql_print_information("  cf=%s", cf_names[i].c_str());
+    sql_print_information("    write_buffer_size=%ld", wbs);
+    sql_print_information("    target_file_size_base=%d", tfsb);
+
+    rocksdb::ColumnFamilyOptions opts(default_cf_opts);
+    opts.write_buffer_size= wbs;
+    opts.target_file_size_base= tfsb;
+    cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i], opts));
   }
 
   rocksdb::Options main_opts(db_opts, default_cf_opts);
@@ -734,10 +771,6 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
 
   sql_print_information("RocksDB instance opened");
-  sql_print_information("  write_buffer_size=%lu",
-                        rdb->GetOptions().write_buffer_size);
-  sql_print_information("  target_file_size_base=%d",
-                        rdb->GetOptions().target_file_size_base);
   DBUG_RETURN(0);
 }
 
@@ -1311,16 +1344,18 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 
   for (i= 0; i < table_arg->s->keys; i++)
   {
+    rocksdb::ColumnFamilyHandle* cf_handle;
     /*
       index comment has Column Family name. If there was no comment, we get
-      NULL, and it means use default column family.
+      NULL, and it means use the default column family.
     */
     const char *comment= table_arg->key_info[i].comment.str;
-    rocksdb::ColumnFamilyHandle* cf_handle= cf_manager.get_or_create_cf(comment);
+    cf_handle= cf_manager.get_or_create_cf(rdb, comment);
     if (!cf_handle)
       goto error;
 
-    if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i, cf_handle)))
+    if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i,
+                                         cf_handle)))
       goto error;
   }
   pk_descr= key_descr[table_arg->s->primary_key];
@@ -2502,7 +2537,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
   /* Compare rowkey for the new record with rowkey for the old one */
   rocksdb::Slice old_key_slice(last_rowkey.ptr(), last_rowkey.length());
-  if (primary_key_comparator.Compare(key_slice, old_key_slice))
+  if (rocksdb_pk_comparator.Compare(key_slice, old_key_slice))
   {
     /* Ok, they are different. We're doing DELETE+PUT */
 
