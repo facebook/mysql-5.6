@@ -33,6 +33,8 @@
 
 #include "rdb_applyiter.h"
 
+const char * const DEFAULT_CF_NAME= "default";
+
 //#ifdef HAVE_PSI_INTERFACE
 extern PSI_stage_info stage_waiting_on_row_lock;
 
