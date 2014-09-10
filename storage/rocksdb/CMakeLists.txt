@@ -48,7 +48,9 @@ IF(ROCKSDB_OK)
       rdb_datadic.cc rdb_datadic.h
       rdb_locks.cc rdb_locks.h
       rdb_rowmods.cc rdb_rowmods.h
-      rdb_applyiter.cc rdb_applyiter.h)
+      rdb_applyiter.cc rdb_applyiter.h
+      rdb_cf_option.cc rdb_cf_option.h
+      rdb_cf_manager.cc rdb_cf_manager.h)
 
   MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE STATIC_ONLY MANDATORY LINK_LIBRARIES ${LINK_DIR} snappy bz2)
 
