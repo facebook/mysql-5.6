@@ -232,4 +232,35 @@ page_zip_dir_get(
 				- PAGE_ZIP_DIR_SLOT_SIZE * (slot + 1)));
 }
 
+/***************************************************************//**
+Return the trx_id_col used in compression.
+TODO: Having secondary index leaf return 0 and node_ptr return ULINT_UNDEFINED
+      a hack. Remove this logic later.
+@return cluster index leaf page: trx_id_col
+        secondary index leaf page: 0
+        node_ptr page: ULINT_UNDEFINED
+*/
+ulint inline
+page_zip_get_trx_id_col_for_compression(
+	const page_t*		page,	/*!< in: uncompressed page */
+	const dict_index_t*	index)	/*!< in: index the page belongs to */
+{
+	ulint trx_id_col = ULINT_UNDEFINED;
+	if (UNIV_LIKELY(page_is_leaf(page))) {
+		if (dict_index_is_clust(index)) {
+			trx_id_col = dict_index_get_sys_col_pos(index,
+								DATA_TRX_ID);
+			ut_ad(trx_id_col > 0);
+			ut_ad(trx_id_col != ULINT_UNDEFINED);
+		} else {
+			/* Signal the absence of trx_id
+			in page_zip_fields_encode() */
+			ut_ad(dict_index_get_sys_col_pos(index, DATA_TRX_ID)
+			      == ULINT_UNDEFINED);
+			trx_id_col = 0;
+		}
+	}
+	return trx_id_col;
+}
+
 #endif /* PAGE0ZIP_HELPER_H */
