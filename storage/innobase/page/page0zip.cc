@@ -4453,6 +4453,10 @@ page_zip_decompress_low(
 		} else {
 			mutex_exit(stats_mutex);
 			fsp_flags = fil_space_get_flags(space_id);
+			if (fsp_flags == ULINT_UNDEFINED) {
+				fprintf(stderr, "space_id = %lu\n", space_id);
+				ut_a(fsp_flags != ULINT_UNDEFINED);
+			}
 		}
 	} else {
 		ut_a(!stats || stats->fsp_flags == fsp_flags);
