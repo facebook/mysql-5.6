@@ -42,6 +42,7 @@ using namespace std;
 #include "fsp0fsp.h"
 #include "page0page.h"
 #include "page0zip_helper.h"
+#include "page0zip_stats.h"
 #include "page0zip_trailer.h"
 #include "mtr0log.h"
 #include "dict0dict.h"
@@ -1764,7 +1765,7 @@ record is at least 16 bytes. */
 	(MEM_SPACE_NEEDED(PZ_SERIALIZED_BUF_SIZE) \
 	 + MEM_SPACE_NEEDED((UNIV_PAGE_SIZE / 16) * sizeof(ulint)))
 /***************************************************************//**
-Memory needed by page_zip_decompress_low(). memory used by the called
+Memory needed by page_zip_decompress(). memory used by the called
 functions is not included. See the comment to PZ_MEM_COMP_ZLIB_STREAM for
 why we take n_dense to be UNIV_PAGE_SIZE / 16. */
 #define PZ_MEM_DECOMP_BASE \
@@ -1860,37 +1861,6 @@ page_zip_clean_garbage(
 
 my_bool page_zip_zlib_wrap = FALSE;
 uint page_zip_zlib_strategy = Z_DEFAULT_STRATEGY;
-
-/***************************************************************//**
-Return the trx_id_col used in compression.
-TODO: Having secondary index leaf return 0 and node_ptr return ULINT_UNDEFINED
-      a hack. Remove this logic later.
-@return cluster index leaf page: trx_id_col
-        secondary index leaf page: 0
-        node_ptr page: ULINT_UNDEFINED
-*/
-ulint inline
-page_zip_get_trx_id_col_for_compression(
-	const page_t*		page,	/*!< in: uncompressed page */
-	const dict_index_t*	index)	/*!< in: index the page belongs to */
-{
-	ulint trx_id_col = ULINT_UNDEFINED;
-	if (UNIV_LIKELY(page_is_leaf(page))) {
-		if (dict_index_is_clust(index)) {
-			trx_id_col = dict_index_get_sys_col_pos(index,
-								DATA_TRX_ID);
-			ut_ad(trx_id_col > 0);
-			ut_ad(trx_id_col != ULINT_UNDEFINED);
-		} else {
-			/* Signal the absence of trx_id
-			in page_zip_fields_encode() */
-			ut_ad(dict_index_get_sys_col_pos(index, DATA_TRX_ID)
-			      == ULINT_UNDEFINED);
-			trx_id_col = 0;
-		}
-	}
-	return trx_id_col;
-}
 
 /***************************************************************//**
 Write the records on the page to the output buffer in a format in which
@@ -2282,8 +2252,6 @@ page_zip_compress(
 #ifndef UNIV_HOTBACKUP
 	ulonglong time_diff;
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
-	fil_stats_t* stats;
-	ib_mutex_t* stats_mutex;
 	ulonglong start = my_timer_now();
 	ulint space_id = page_get_space_id(page);
 #endif /* !UNIV_HOTBACKUP */
@@ -2293,19 +2261,7 @@ page_zip_compress(
 	anytime. */
 	my_bool	cmp_per_index_enabled = srv_cmp_per_index_enabled;
 
-	/* We prefer getting the fsp_flags from table stats because its mutex
-	is partitioned, but if that is not possible we fall back to getting the
-	table flags from the space object which is protected by a global
-	mutex. */
-	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
-	if (UNIV_LIKELY(!!stats)) {
-		fsp_flags = stats->fsp_flags;
-		mutex_exit(stats_mutex);
-	} else {
-		mutex_exit(stats_mutex);
-		fsp_flags = fil_space_get_flags(space_id);
-	}
-
+	fsp_flags = fil_get_fsp_flags(space_id, ULINT_UNDEFINED);
 	memset(&new_page_zip, 0, sizeof(new_page_zip));
 	new_page_zip.ssize = page_zip->ssize;
 
@@ -2336,21 +2292,6 @@ page_zip_compress(
 
 	/* The dense directory excludes the infimum and supremum records. */
 	n_dense = page_dir_get_n_heap(page) - PAGE_HEAP_NO_USER_LOW;
-
-#ifndef UNIV_HOTBACKUP
-	zip_stat->compressed++;
-	if (cmp_per_index_enabled) {
-		mutex_enter(&page_zip_stat_per_index_mutex);
-		page_zip_stat_per_index[index->id].compressed++;
-		mutex_exit(&page_zip_stat_per_index_mutex);
-	}
-	if (dict_index_is_clust(index)) {
-		zip_stat->compressed_primary++;
-	} else {
-		zip_stat->compressed_secondary++;
-	}
-#endif
-
 
 	if (UNIV_UNLIKELY(n_dense * PAGE_ZIP_DIR_SLOT_SIZE
 			  >= page_zip_get_size(page_zip))) {
@@ -2447,33 +2388,18 @@ err_exit:
 		}
 
 		time_diff = my_timer_since(start);
-		zip_stat->compressed_time += time_diff;
-		if (dict_index_is_clust(index)) {
-			zip_stat->compressed_primary_time += time_diff;
-		} else {
-			zip_stat->compressed_secondary_time += time_diff;
-		}
+		page_zip_update_zip_stats_compress(zip_stat, time_diff, false,
+						   dict_index_is_clust(index));
 
-		if (stats) {
-			mutex_enter(stats_mutex);
-			stats->comp_stats.page_size = page_zip_get_size(
-								page_zip);
-			++stats->comp_stats.compressed;
-			stats->comp_stats.compressed_time += time_diff;
-			if (dict_index_is_clust(index)) {
-				++stats->comp_stats.compressed_primary;
-				stats->comp_stats.compressed_primary_time +=
-					time_diff;
-				stats->comp_stats.padding =
-					UNIV_PAGE_SIZE
-					- dict_index_zip_pad_optimal_page_size(
-						index);
-			}
-			mutex_exit(stats_mutex);
-		}
+		page_zip_update_fil_comp_stats_compress(
+			space_id, page_zip_get_size(page_zip),
+			time_diff, false, dict_index_is_clust(index),
+			UNIV_PAGE_SIZE
+			- dict_index_zip_pad_optimal_page_size(index));
 
 		if (cmp_per_index_enabled) {
 			mutex_enter(&page_zip_stat_per_index_mutex);
+			page_zip_stat_per_index[index->id].compressed++;
 			page_zip_stat_per_index[index->id].compressed_time
 				+= time_diff;
 			mutex_exit(&page_zip_stat_per_index_mutex);
@@ -2522,43 +2448,17 @@ err_exit:
 
 #ifndef UNIV_HOTBACKUP
 	time_diff = my_timer_since(start);
-	zip_stat->compressed_ok++;
-	zip_stat->compressed_time += time_diff;
-	zip_stat->compressed_ok_time += time_diff;
-	if (dict_index_is_clust(index)) {
-		zip_stat->compressed_primary_ok++;
-		zip_stat->compressed_primary_time += time_diff;
-		zip_stat->compressed_primary_ok_time += time_diff;
-	} else {
-		zip_stat->compressed_secondary_ok++;
-		zip_stat->compressed_secondary_time += time_diff;
-		zip_stat->compressed_secondary_ok_time += time_diff;
-	}
+	page_zip_update_zip_stats_compress(zip_stat, time_diff, true,
+					   dict_index_is_clust(index));
+	page_zip_update_fil_comp_stats_compress(
+		space_id, page_zip_get_size(page_zip),
+		time_diff, true, dict_index_is_clust(index),
+		UNIV_PAGE_SIZE - dict_index_zip_pad_optimal_page_size(index));
 
-	if (stats) {
-		mutex_enter(stats_mutex);
-		++stats->comp_stats.compressed;
-		stats->comp_stats.page_size = page_zip_get_size(page_zip);
-		++stats->comp_stats.compressed_ok;
-		stats->comp_stats.compressed_time += time_diff;
-		stats->comp_stats.compressed_ok_time += time_diff;
-		if (dict_index_is_clust(index)) {
-			++stats->comp_stats.compressed_primary;
-			++stats->comp_stats.compressed_primary_ok;
-			stats->comp_stats.compressed_primary_time += time_diff;
-			stats->comp_stats.compressed_primary_ok_time +=
-				time_diff;
-			/* only update the padding for table if this is the
-			primary index */
-			stats->comp_stats.padding =
-				UNIV_PAGE_SIZE
-				- dict_index_zip_pad_optimal_page_size(index);
-		}
-		mutex_exit(stats_mutex);
-	}
 
 	if (cmp_per_index_enabled) {
 		mutex_enter(&page_zip_stat_per_index_mutex);
+		page_zip_stat_per_index[index->id].compressed++;
 		page_zip_stat_per_index[index->id].compressed_ok++;
 		page_zip_stat_per_index[index->id].compressed_time += time_diff;
 		mutex_exit(&page_zip_stat_per_index_mutex);
@@ -3895,27 +3795,30 @@ inconsistency is detected.
 @return TRUE on success, FALSE on failure */
 UNIV_INTERN
 ibool
-page_zip_decompress_low(
+page_zip_decompress(
 /*================*/
-	page_zip_des_t* page_zip, /*!< in: data, ssize; out: m_start, m_end,
-				    m_nonempty, n_blobs */
-	page_t* page, /*!< out: uncompressed page, may be trashed */
-	ibool all, /*!< in: TRUE=decompress the whole page; FALSE=verify but do
-		     not copy some page header fields that should not change
-		     after page creation */
-	ulint space_id, /*!< in: id of the space this page belongs */
-	ulint fsp_flags, /*!< in: used to compute compression type and flags.
-			     If this is ULINT_UNDEFINED then fsp_flags is
-			     determined by other means. */
-	mem_heap_t** heap_ptr, /*!< out: if heap_ptr is not NULL, then
-				 *heap_ptr is set to the heap that's allocated
-				 by this function. The caller is responsible
-				 for freeing the heap. */
-	dict_index_t** index_ptr) /*!< out: if index_ptr is not NULL, then
-				    *index_ptr is set to the index object
-				    that's created by this function. The caller
-				    is responsible for calling
-				    dict_index_mem_free(). */
+	page_zip_des_t*	page_zip,	/*!< in: data, ssize; out: m_start,
+					m_end, m_nonempty, n_blobs */
+	page_t*		page,		/*!< out: uncompressed page, may be
+					trashed */
+	ibool		all,		/*!< in: TRUE=decompress the whole page;
+					FALSE=verify but do not copy some
+					page header fields that should not
+					change after page creation */
+	ulint		space_id,	/*!< in: table space id */
+	ulint		fsp_flags,	/*!< in: used to compute compression
+					type and flags. If this is
+					ULINT_UNDEFINED then fsp_flags is
+					determined by other means. */
+	mem_heap_t**	heap_ptr,	/*!< out: if index_ptr is not NULL then
+					*heap_ptr is set to the heap that is
+					allocated by this function. The caller
+					is responsible for freeing the heap. */
+	dict_index_t**	index_ptr)	/*!< out: if index_ptr is not NULL then
+					*index_ptr is set to the index object
+					that's created by this function. The
+					caller is responsible for calling
+					dict_index_mem_free().*/
 {
 	dict_index_t* index = NULL;
 	rec_t** recs; /*!< dense page directory, sorted by address */
@@ -3939,37 +3842,19 @@ page_zip_decompress_low(
 #ifndef UNIV_HOTBACKUP
 	page_zip_stat_t* zip_stat = &page_zip_stat[page_zip->ssize - 1];
 	ulonglong start = my_timer_now();
-	fil_stats_t* stats;
-	ib_mutex_t* stats_mutex;
 #endif /* !UNIV_HOTBACKUP */
 
 	ut_ad(page_zip_simple_validate(page_zip));
 	UNIV_MEM_ASSERT_W(page, UNIV_PAGE_SIZE);
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
-	stats = fil_get_stats_lock_mutex_by_id(space_id, &stats_mutex);
-	if (UNIV_LIKELY(fsp_flags == ULINT_UNDEFINED)) {
-		/* We prefer getting the fsp_flags from table stats because
-		   its mutex is partitioned, but if that is not possible we
-		   fall back to getting the table flags from the space object
-		   which is protected by a global mutex. */
-		if (UNIV_LIKELY(!!stats)) {
-			fsp_flags = stats->fsp_flags;
-			mutex_exit(stats_mutex);
-		} else {
-			mutex_exit(stats_mutex);
-			fsp_flags = fil_space_get_flags(space_id);
-		}
-	} else {
-		ut_a(!stats || stats->fsp_flags == fsp_flags);
-		mutex_exit(stats_mutex);
-	}
+	fsp_flags = fil_get_fsp_flags(space_id, fsp_flags);
 
 	/* The dense directory excludes the infimum and supremum records. */
 	n_dense = page_dir_get_n_heap(page_zip->data) - PAGE_HEAP_NO_USER_LOW;
 	if (UNIV_UNLIKELY(n_dense * PAGE_ZIP_DIR_SLOT_SIZE
 			  >= page_zip_get_size(page_zip))) {
-		page_zip_fail("page_zip_decompress_low 1: %lu %lu\n",
+		page_zip_fail("page_zip_decompress 1: %lu %lu\n",
 			       (ulong) n_dense,
 			       (ulong) page_zip_get_size(page_zip));
 		return(FALSE);
@@ -4115,7 +4000,7 @@ page_zip_decompress_low(
 					 index,
 					 offsets);
 	if (UNIV_UNLIKELY(!mod_log_ptr)) {
-		page_zip_fail("page_zip_decompress_low 2: applying "
+		page_zip_fail("page_zip_decompress 2: applying "
 			       "modification log failed");
 		goto err_exit;
 	}
@@ -4153,24 +4038,10 @@ err_exit:
 
 #ifndef UNIV_HOTBACKUP
 	ulonglong time_diff = my_timer_since(start);
-	zip_stat->decompressed++;
-	zip_stat->decompressed_time += time_diff;
-	if (dict_index_is_clust(index)) {
-		zip_stat->decompressed_primary++;
-		zip_stat->decompressed_primary_time += time_diff;
-	} else {
-		zip_stat->decompressed_secondary++;
-		zip_stat->decompressed_secondary_time += time_diff;
-	}
-
-	if (stats) {
-		mutex_enter(stats_mutex);
-		++stats->comp_stats.decompressed;
-		stats->comp_stats.decompressed_time += time_diff;
-		stats->comp_stats.page_size = page_zip_get_size(page_zip);
-		mutex_exit(stats_mutex);
-	}
-
+	page_zip_update_zip_stats_decompress(zip_stat, time_diff,
+					     dict_index_is_clust(index));
+	page_zip_update_fil_comp_stats_decompress(
+		space_id, page_zip_get_size(page_zip), time_diff);
 	index_id_t	index_id = btr_page_get_index_id(page);
 
 	if (srv_cmp_per_index_enabled) {
@@ -4257,7 +4128,7 @@ page_zip_validate_low(
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
 	temp_page_zip = *page_zip;
-	valid = page_zip_decompress_low(
+	valid = page_zip_decompress(
 			&temp_page_zip, temp_page, TRUE,
 			page_get_space_id(page), ULINT_UNDEFINED,
 			&heap, index_ptr);
