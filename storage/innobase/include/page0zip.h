@@ -170,10 +170,6 @@ page_zip_compress(
 	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
 	__attribute__((nonnull(1,2,3)));
 
-#define page_zip_decompress(page_zip, page, all, space_id, fsp_flags) \
-		page_zip_decompress_low((page_zip), (page), (all), \
-		                        (space_id), (fsp_flags), NULL, NULL)
-
 /**********************************************************************//**
 Decompress a page.  This function should tolerate errors on the compressed
 page.  Instead of letting assertions fail, it will return FALSE if an
@@ -181,28 +177,33 @@ inconsistency is detected.
 @return	TRUE on success, FALSE on failure */
 UNIV_INTERN
 ibool
-page_zip_decompress_low(
+page_zip_decompress(
 /*================*/
-	page_zip_des_t*	page_zip,/*!< in: data, ssize;
-				out: m_start, m_end, m_nonempty, n_blobs */
-	page_t*		page,	/*!< out: uncompressed page, may be trashed */
-	ibool		all,	/*!< in: TRUE=decompress the whole page;
-				FALSE=verify but do not copy some
-				page header fields that should not change
-				after page creation */
+	page_zip_des_t*	page_zip,	/*!< in: data, ssize; out: m_start,
+					m_end, m_nonempty, n_blobs */
+	page_t*		page,		/*!< out: uncompressed page, may be
+					trashed */
+	ibool		all,		/*!< in: TRUE=decompress the whole page;
+					FALSE=verify but do not copy some
+					page header fields that should not
+					change after page creation */
 #ifndef UNIV_INNOCHECKSUM
-	ulint space_id,
-	ulint fsp_flags, /* used to compute compression type and flags.
-	If this is ULINT_UNDEFINED then fsp_flags is determined by other
-	means. */
-	mem_heap_t** heap_ptr, /*!< out: if index_ptr is not NULL then
-	*heap_ptr is set to the heap that is allocated by this function. The
-	caller is responsible for freeing the heap. */
-	dict_index_t** index_ptr) /*!< out: if index_ptr is not NULL then
-	*index_ptr is set to the index object that's created by this function.
-	The caller is responsible for calling dict_index_mem_free(). */
+	ulint		space_id,	/*!< in: table space id */
+	ulint		fsp_flags,	/*!< in: used to compute compression
+					type and flags. If this is
+					ULINT_UNDEFINED then fsp_flags is
+					determined by other means. */
+	mem_heap_t**	heap_ptr=NULL,	/*!< out: if index_ptr is not NULL then
+					*heap_ptr is set to the heap that is
+					allocated by this function. The caller
+					is responsible for freeing the heap. */
+	dict_index_t**	index_ptr=NULL)	/*!< out: if index_ptr is not NULL then
+					*index_ptr is set to the index object
+					that's created by this function. The
+					caller is responsible for calling
+					dict_index_mem_free().*/
 #else
-	ulint space_id)
+	ulint		space_id)	/*!< in: table space id */
 #endif
 	__attribute__((nonnull(1,2)));
 

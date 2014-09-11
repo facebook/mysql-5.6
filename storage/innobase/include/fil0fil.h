@@ -1358,5 +1358,36 @@ fil_print(
 /*=======*/
 	FILE* file);	/* in: print results to this */
 
+static inline
+ulint
+fil_get_fsp_flags(
+/*================*/
+	ulint		space_id,	/*!< in: space id */
+	ulint		expected_flags)	/*!< in: if not UNIV_UNDEFINED,
+					validate flags */
+{
+	ib_mutex_t* mutex;
+	fil_stats_t* stats;
+	ulint fsp_flags;
+	/* We prefer getting the fsp_flags from table stats because its mutex
+	is partitioned, but if that is not possible we fall back to getting the
+	table flags from the space object which is protected by a global
+	mutex. */
+	stats = fil_get_stats_lock_mutex_by_id(space_id, &mutex);
+	if (UNIV_UNLIKELY(expected_flags != ULINT_UNDEFINED)) {
+		ut_a(!stats || stats->fsp_flags == expected_flags);
+		mutex_exit(mutex);
+		return expected_flags;
+	}
+	if (UNIV_LIKELY(!!stats)) {
+		fsp_flags = stats->fsp_flags;
+		mutex_exit(mutex);
+	} else {
+		mutex_exit(mutex);
+		fsp_flags = fil_space_get_flags(space_id);
+	}
+	return fsp_flags;
+}
+
 #endif /* !UNIV_INNOCHECKSUM */
 #endif /* fil0fil_h */
