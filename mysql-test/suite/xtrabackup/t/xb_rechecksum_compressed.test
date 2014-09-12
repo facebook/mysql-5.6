@@ -1,0 +1,48 @@
+--source include/have_innodb.inc
+
+--source include/have_innodb_max_16k.inc
+
+source suite/xtrabackup/include/xb_setup.inc;
+
+connection server_1;
+SET GLOBAL innodb_checksum_algorithm = 'innodb';
+CREATE DATABASE db1;
+
+CREATE TABLE db1.t1 (
+  `id` int(10) NOT NULL auto_increment,
+  `k` int(10),
+  `data` varchar(255),
+  PRIMARY KEY (`id`),
+  KEY (`k`)
+) key_block_size=8 engine=innodb;
+
+let $socket = `select @@socket`;
+--exec suite/xtrabackup/include/xb_load_data.sh $socket 2>&1
+
+--let $rpl_server_number= 2
+--source include/rpl_stop_server.inc
+
+--exec suite/xtrabackup/include/xb_xbstream_run.sh 2>&1
+
+--let $rpl_server_number= 2
+--source include/rpl_start_server.inc
+
+connection server_2;
+SET GLOBAL innodb_checksum_algorithm = 'strict_crc32';
+SELECT COUNT(*) FROM db1.t1;
+
+connection server_1;
+let $checksum1 = `CHECKSUM TABLES db1.t1`;
+connection server_2;
+let $checksum2 = `CHECKSUM TABLES db1.t1`;
+
+if($checksum1 != $checksum2) {
+  echo Checksums ($checksum1 and $checksum2) do not match;
+}
+
+connection server_1;
+DROP DATABASE db1;
+connection server_2;
+DROP DATABASE db1;
+
+source suite/xtrabackup/include/xb_cleanup.inc;

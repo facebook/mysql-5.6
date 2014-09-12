@@ -1,0 +1,20 @@
+include/rpl_init.inc [topology=none]
+include/rpl_default_connections.inc
+SET GLOBAL innodb_checksum_algorithm = 'innodb';
+CREATE DATABASE db1;
+CREATE TABLE db1.t1 (
+`id` int(10) NOT NULL auto_increment,
+`k` int(10),
+`data` varchar(255),
+PRIMARY KEY (`id`),
+KEY (`k`)
+) engine=innodb;
+include/rpl_stop_server.inc [server_number=2]
+include/rpl_start_server.inc [server_number=2]
+SET GLOBAL innodb_checksum_algorithm = 'strict_crc32';
+SELECT COUNT(*) FROM db1.t1;
+COUNT(*)
+10000
+DROP DATABASE db1;
+DROP DATABASE db1;
+include/rpl_end.inc
