@@ -30,6 +30,11 @@
 
 namespace fbson {
 
+// lengths includes sign
+#define MAX_INT_DIGITS 11
+#define MAX_INT64_DIGITS 20
+#define MAX_DOUBLE_DIGITS 23 // 1(sign)+16(significant)+1(decimal)+5(exponent)
+
 /*
  * FBSON's implementation of input buffer
  */
@@ -73,6 +78,8 @@ class FbsonOutStream : public std::ostream {
 
   void put(char c) { write(&c, 1); }
 
+  void write(const char *c_str) { write(c_str, strlen(c_str)); }
+
   void write(const char *bytes, uint32_t len) {
     if (len == 0)
       return;
@@ -82,6 +89,42 @@ class FbsonOutStream : public std::ostream {
     }
 
     memcpy(head_ + size_, bytes, len);
+    size_ += len;
+  }
+
+  // write the integer to string
+  void write(int i) {
+    // snprintf automatically adds a NULL, so we need one more char
+    if (size_ + MAX_INT_DIGITS + 1 > capacity_) {
+      realloc(MAX_INT_DIGITS + 1);
+    }
+
+    int len = snprintf(head_ + size_, MAX_INT_DIGITS + 1, "%d", i);
+    assert(len > 0);
+    size_ += len;
+  }
+
+  // write the 64bit integer to string
+  void write(int64_t l) {
+    // snprintf automatically adds a NULL, so we need one more char
+    if (size_ + MAX_INT64_DIGITS + 1 > capacity_) {
+      realloc(MAX_INT64_DIGITS + 1);
+    }
+
+    int len = snprintf(head_ + size_, MAX_INT64_DIGITS + 1, "%ld", l);
+    assert(len > 0);
+    size_ += len;
+  }
+
+  // write the double to string
+  void write(double d) {
+    // snprintf automatically adds a NULL, so we need one more char
+    if (size_ + MAX_DOUBLE_DIGITS + 1 > capacity_) {
+      realloc(MAX_DOUBLE_DIGITS + 1);
+    }
+
+    int len = snprintf(head_ + size_, MAX_DOUBLE_DIGITS + 1, "%.15g", d);
+    assert(len > 0);
     size_ += len;
   }
 
