@@ -22,66 +22,76 @@
 
 namespace fbson {
 
+#define OUT_BUF_SIZE 1024
+
 /*
  * FbsonToJson converts an FbsonValue object to a JSON string.
  */
 class FbsonToJson {
  public:
+  FbsonToJson() : os_(buffer_, OUT_BUF_SIZE) {}
+
   // get json string
-  std::string json(const FbsonValue *val) {
-    oss.str("");
-    intern_json(val);
-    return oss.str();
+  const char *json(const FbsonValue *pval) {
+    os_.clear();
+    os_.seekp(0);
+
+    if (pval) {
+      intern_json(pval);
+    }
+
+    os_.put(0);
+    return os_.getBuffer();
   }
 
  private:
-  // recursively print value to oss
+  // recursively convert FbsonValue
   void intern_json(const FbsonValue *val) {
     switch (val->type()) {
     case FbsonType::T_Null: {
-      oss << "null";
+      os_.write("null", 4);
       break;
     }
     case FbsonType::T_True: {
-      oss << "true";
+      os_.write("true", 4);
       break;
     }
     case FbsonType::T_False: {
-      oss << "false";
+      os_.write("false", 5);
       break;
     }
     case FbsonType::T_Int8: {
-      oss << (int)(((Int8Val *)val)->val());
+      os_.write(((Int8Val *)val)->val());
       break;
     }
     case FbsonType::T_Int16: {
-      oss << (int)(((Int16Val *)val)->val());
+      os_.write(((Int16Val *)val)->val());
       break;
     }
     case FbsonType::T_Int32: {
-      oss << (int)(((Int32Val *)val)->val());
+      os_.write(((Int32Val *)val)->val());
       break;
     }
     case FbsonType::T_Int64: {
-      oss << (int64_t)(((Int64Val *)val)->val());
+      os_.write(((Int64Val *)val)->val());
       break;
     }
     case FbsonType::T_Double: {
-      oss << (double)(((DoubleVal *)val)->val());
+      os_.write(((DoubleVal *)val)->val());
       break;
     }
     case FbsonType::T_String: {
-      oss << "\"";
-      oss.write(((StringVal *)val)->getBlob(),
+      os_.put('"');
+      os_.write(((StringVal *)val)->getBlob(),
                 ((StringVal *)val)->getBlobLen());
-      oss << "\"";
+      os_.put('"');
       break;
     }
     case FbsonType::T_Binary: {
-      oss << "\"<BINARY>";
-      oss.write(((BinaryVal *)val)->getBlob(),
+      os_.write("\"<BINARY>", 9);
+      os_.write(((BinaryVal *)val)->getBlob(),
                 ((BinaryVal *)val)->getBlobLen());
-      oss << "<BINARY>\"";
+      os_.write("<BINARY>\"", 9);
       break;
     }
     case FbsonType::T_Object: {
@@ -97,61 +107,62 @@ class FbsonToJson {
     }
   }
 
-  // print object to oss
+  // convert object
   void object_to_json(const ObjectVal *val) {
-    oss << "{";
+    os_.put('{');
 
     auto iter = val->begin();
     auto iter_fence = val->end();
 
     while (iter < iter_fence) {
-      // print key
+      // write key
       if (iter->klen()) {
-        oss << "\"";
-        oss.write(iter->getKeyStr(), iter->klen());
-        oss << "\"";
+        os_.put('"');
+        os_.write(iter->getKeyStr(), iter->klen());
+        os_.put('"');
       } else {
-        oss << (int)iter->getKeyId();
+        os_.write(iter->getKeyId());
       }
-      oss << ":";
+      os_.put(':');
 
-      // print value
+      // convert value
       intern_json(iter->value());
 
       ++iter;
       if (iter != iter_fence) {
-        oss << ",";
+        os_.put(',');
       }
     }
 
     assert(iter == iter_fence);
 
-    oss << "}";
+    os_.put('}');
   }
 
-  // print array to json
+  // convert array to json
   void array_to_json(const ArrayVal *val) {
-    oss << "[";
+    os_.put('[');
 
     auto iter = val->begin();
     auto iter_fence = val->end();
 
     while (iter != iter_fence) {
-      // print value
+      // convert value
       intern_json((const FbsonValue *)iter);
       ++iter;
       if (iter != iter_fence) {
-        oss << ",";
+        os_.put(',');
       }
     }
 
     assert(iter == iter_fence);
 
-    oss << "]";
+    os_.put(']');
   }
 
  private:
-  std::ostringstream oss;
+  FbsonOutStream os_;
+  char buffer_[OUT_BUF_SIZE];
 };
 
 } // namespace fbson
