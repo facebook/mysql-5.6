@@ -1,0 +1,7 @@
+!include suite/xtrabackup/xb_base.cnf
+
+[mysqld.1]
+innodb_checksum_algorithm=innodb
+
+[mysqld.2]
+innodb_checksum_algorithm=strict_crc32
