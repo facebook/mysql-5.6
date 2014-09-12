@@ -120,8 +120,6 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #define xb_os_file_write(name, file, buf, offset, n) \
 	pfs_os_file_write_func(name, file, buf, offset,	\
 			       n, __FILE__, __LINE__)
-#define xb_buf_page_is_corrupted(page, zip_size)	\
-	buf_page_is_corrupted(TRUE, page, zip_size)
 #define xb_btr_pcur_open_at_index_side(from_left, index, latch_mode, pcur, \
 				       init_pcur, level, mtr)		\
 	btr_pcur_open_at_index_side(from_left, index, latch_mode, pcur,	\
@@ -2010,6 +2008,53 @@ end:
 	ut_free(buf);
 
 	return(zip_size);
+}
+
+/***********************************************************************
+Calls buf_page_is_corrupted to check if a page is corrupt. Some of
+the available checksum methods tolerate checksums calculated with
+deprecated formulas for backwards compatibility. For those checksum
+methods, this function will replace the checksums in the page with
+recalculated canonical ones. */
+static
+ibool
+xb_buf_page_is_corrupted(
+/*==================*/
+	byte*		read_buf,	/*!< in: a database page */
+	ulint		zip_size)	/*!< in: size of compressed page;
+					0 for uncompressed pages */
+{
+	if (buf_page_is_corrupted(TRUE, read_buf, zip_size))
+	{
+		// report back the page corruption - no recalculation of
+		// checksums required
+		return TRUE;
+	}
+
+	// page is not corrupted - continue with canonicalisation of checksums
+
+	switch ((srv_checksum_algorithm_t) srv_checksum_algorithm) {
+	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_STRICT_INNODB:
+	case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
+		// for the STRICT variants buf_page_is_corrupted would have
+		// reported page corruption if a deprecated formula had been
+		// used -> no work required
+		break;
+	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
+	case SRV_CHECKSUM_ALGORITHM_CRC32:
+	case SRV_CHECKSUM_ALGORITHM_INNODB:
+	case SRV_CHECKSUM_ALGORITHM_NONE:
+		if (zip_size)
+		{
+			buf_flush_update_zip_checksum(read_buf, zip_size);
+		} else {
+			buf_update_uncompressed_page_checksums(read_buf);
+		}
+		break;
+	}
+
+	return FALSE;
 }
 
 /* TODO: We may tune the behavior (e.g. by fil_aio)*/
