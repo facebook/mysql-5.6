@@ -574,9 +574,9 @@ class FbsonJsonParserT {
 
       in.ignore();
 
-      // if the number is too big, first parse it as double iff we see a
+      // if the number overflows int64_t, first parse it as double iff we see a
       // decimal point later. Otherwise, will treat it as overflow
-      if (val < 0) {
+      if (val < 0 && val > std::numeric_limits<int64_t>::min()) {
         return parseDouble(in, (uint64_t)val, precision, sign);
       }
 
@@ -610,8 +610,13 @@ class FbsonJsonParserT {
   }
 
   // parse IEEE745 double precision:
-  // Significand precision length - 16
+  // Significand precision length - 15
   // Maximum exponent value - 308
+  //
+  // "If a decimal string with at most 15 significant digits is converted to
+  // IEEE 754 double precision representation and then converted back to a
+  // string with the same number of significant digits, then the final string
+  // should match the original"
   bool parseDouble(std::istream &in, double val, int precision, int sign) {
     int integ = precision;
     int frac = 0;
@@ -627,7 +632,7 @@ class FbsonJsonParserT {
     int exp = 0;
     while (in.good() && !strchr(kJsonDelim, ch)) {
       if (ch >= '0' && ch <= '9') {
-        if (precision < 16) {
+        if (precision < 15) {
           val = val * 10 + (ch - '0');
           if (is_frac) {
             ++frac;
@@ -665,8 +670,8 @@ class FbsonJsonParserT {
       return false;
     }
 
-    val *= ::pow(10, exp - frac);
-    if (::isnan(val) || ::isinf(val)) {
+    val *= std::pow(10, exp - frac);
+    if (std::isnan(val) || std::isinf(val)) {
       err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
       return false;
     }
