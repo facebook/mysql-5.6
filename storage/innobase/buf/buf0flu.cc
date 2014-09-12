@@ -699,8 +699,7 @@ void
 buf_flush_update_zip_checksum(
 /*==========================*/
 	buf_frame_t*	page,		/*!< in/out: Page to update */
-	ulint		zip_size,	/*!< in: Compressed page size */
-	lsn_t		lsn)		/*!< in: Lsn to stamp on the page */
+	ulint		zip_size)	/*!< in: Compressed page size */
 {
 	ut_a(zip_size > 0);
 
@@ -710,9 +709,23 @@ buf_flush_update_zip_checksum(
 			static_cast<srv_checksum_algorithm_t>(
 				srv_checksum_algorithm)));
 
+	mach_write_to_4(page + FIL_PAGE_SPACE_OR_CHKSUM, checksum);
+}
+
+/********************************************************************//**
+Update the LSN in a compressed page. */
+UNIV_INTERN
+void
+buf_flush_update_zip_lsn(
+/*==========================*/
+	buf_frame_t*	page,		/*!< in/out: Page to update */
+	ulint		zip_size,	/*!< in: Compressed page size */
+	lsn_t		lsn)		/*!< in: Lsn to stamp on the page */
+{
+	ut_a(zip_size > 0);
+
 	mach_write_to_8(page + FIL_PAGE_LSN, lsn);
 	memset(page + FIL_PAGE_FILE_FLUSH_LSN, 0, 8);
-	mach_write_to_4(page + FIL_PAGE_SPACE_OR_CHKSUM, checksum);
 }
 
 /********************************************************************//**
@@ -726,8 +739,6 @@ buf_flush_init_for_writing(
 	lsn_t	newest_lsn)	/*!< in: newest modification lsn
 				to the page */
 {
-	ib_uint32_t	checksum = 0 /* silence bogus gcc warning */;
-
 	ut_ad(page);
 
 	if (page_zip_) {
@@ -755,6 +766,8 @@ buf_flush_init_for_writing(
 		case FIL_PAGE_INDEX:
 
 			buf_flush_update_zip_checksum(
+				page_zip->data, zip_size);
+			buf_flush_update_zip_lsn(
 				page_zip->data, zip_size, newest_lsn);
 
 			return;
@@ -775,6 +788,20 @@ buf_flush_init_for_writing(
 
 	mach_write_to_8(page + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM,
 			newest_lsn);
+
+	buf_update_uncompressed_page_checksums(page);
+}
+
+
+/********************************************************************//**
+Calculates and updates the checksums of an uncompressed page. */
+UNIV_INTERN
+void
+buf_update_uncompressed_page_checksums(
+/*=======================*/
+	byte*	page)		/*!< in/out: page */
+{
+	ib_uint32_t	checksum = 0 /* silence bogus gcc warning */;
 
 	/* Store the new formula checksum */
 

@@ -2163,8 +2163,11 @@ PageConverter::operator() (
 			/* Calculate and update the checksum of non-btree
 			pages for compressed tables explicitly here. */
 
-			buf_flush_update_zip_checksum(
-				get_frame(block), get_zip_size(),
+			ulint const zip_size = get_zip_size();
+			buf_frame_t * const frame = get_frame(block);
+
+			buf_flush_update_zip_checksum(frame, zip_size);
+			buf_flush_update_zip_lsn(frame, zip_size,
 				m_current_lsn);
 		}
 
