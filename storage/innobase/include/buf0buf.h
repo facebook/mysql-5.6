@@ -1453,6 +1453,15 @@ void
 buf_flush_update_zip_checksum(
 /*==========================*/
 	buf_frame_t*	page,		/*!< in/out: Page to update */
+	ulint		zip_size);	/*!< in: Compressed page size */
+
+/********************************************************************//**
+Update the LSN in a compressed page. */
+UNIV_INTERN
+void
+buf_flush_update_zip_lsn(
+/*==========================*/
+	buf_frame_t*	page,		/*!< in/out: Page to update */
 	ulint		zip_size,	/*!< in: Compressed page size */
 	lsn_t		lsn);		/*!< in: Lsn to stamp on the page */
 
