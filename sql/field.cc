@@ -8444,8 +8444,8 @@ String *Field_document::val_str(String *val_buffer,
     fbson::FbsonValue *pval =
         fbson::FbsonDocument::createValue(blob, get_length(ptr));
     fbson::FbsonToJson tojson;
-    std::string json = tojson.json(pval);
-    val_buffer->copy((const char*)json.c_str(),json.size(),charset());
+    const char *json = tojson.json(pval);
+    val_buffer->copy(json, strlen(json), charset());
   }
   return val_buffer;
 }

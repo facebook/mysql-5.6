@@ -65,8 +65,8 @@ ValueToString(fbson::FbsonValue *pval, String &str, const CHARSET_INFO *cs)
   case fbson::FbsonType::T_Array:
     {
       fbson::FbsonToJson tojson;
-      std::string json = tojson.json(pval);
-      str.copy(json.c_str(), json.size(), cs);
+      const char *json = tojson.json(pval);
+      str.copy(json, strlen(json), cs);
       return true;
     }
   case fbson::FbsonType::T_String:
