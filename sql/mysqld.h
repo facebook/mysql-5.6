@@ -381,6 +381,64 @@ inline ulonglong microseconds_to_my_timer(double when)
   return (ulonglong)ret;
 }
 
+/** Compression statistics for a fil_space */
+struct comp_stats_struct {
+  /** Size of the compressed data on the page */
+  int page_size;
+  /** Number of page compressions */
+  ulonglong compressed;
+  /** Number of successful page compressions */
+  ulonglong compressed_ok;
+  /** Number of compressions in primary index */
+  ulonglong compressed_primary;
+  /** Number of successful compressions in primary index */
+  ulonglong compressed_primary_ok;
+  /** Number of page decompressions */
+  ulonglong decompressed;
+  /** Duration of page compressions */
+  ulonglong compressed_time;
+  /** Duration of successful page compressions */
+  ulonglong compressed_ok_time;
+  /** Duration of page decompressions */
+  ulonglong decompressed_time;
+  /** Duration of primary index page compressions */
+  ulonglong compressed_primary_time;
+  /** Duration of successful primary index page compressions */
+  ulonglong compressed_primary_ok_time;
+};
+
+/** Compression statistics */
+typedef struct comp_stats_struct comp_stats_t;
+
+/** Compression statistics for a fil_space */
+struct comp_stats_atomic_struct {
+  /** Size of the compressed data on the page */
+  atomic_stat<int> page_size;
+  /** Number of page compressions */
+  atomic_stat<ulonglong> compressed;
+  /** Number of successful page compressions */
+  atomic_stat<ulonglong> compressed_ok;
+  /** Number of compressions in primary index */
+  atomic_stat<ulonglong> compressed_primary;
+  /** Number of successful compressions in primary index */
+  atomic_stat<ulonglong> compressed_primary_ok;
+  /** Number of page decompressions */
+  atomic_stat<ulonglong> decompressed;
+  /** Duration of page compressions */
+  atomic_stat<ulonglong> compressed_time;
+  /** Duration of successful page compressions */
+  atomic_stat<ulonglong> compressed_ok_time;
+  /** Duration of page decompressions */
+  atomic_stat<ulonglong> decompressed_time;
+  /** Duration of primary index page compressions */
+  atomic_stat<ulonglong> compressed_primary_time;
+  /** Duration of successful primary index page compressions */
+  atomic_stat<ulonglong> compressed_primary_ok_time;
+};
+
+/** Compression statistics, atomic */
+typedef struct comp_stats_atomic_struct comp_stats_atomic_t;
+
 /* Struct used for IO performance counters within a single thread */
 struct my_io_perf_struct {
   ulonglong bytes;
