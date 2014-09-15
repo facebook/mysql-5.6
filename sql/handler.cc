@@ -4488,12 +4488,14 @@ bool handler::ha_commit_inplace_alter_table(TABLE *altered_table,
      The exception is if we're about to roll back changes (commit= false).
      In this case, we might be rolling back after a failed lock upgrade,
      so we could be holding the same lock level as for inplace_alter_table().
+     TABLE::mdl_ticket is 0 for temporary tables.
    */
-   DBUG_ASSERT(ha_thd()->mdl_context.is_lock_owner(MDL_key::TABLE,
+   DBUG_ASSERT((table->s->tmp_table != NO_TMP_TABLE && !table->mdl_ticket) ||
+               (ha_thd()->mdl_context.is_lock_owner(MDL_key::TABLE,
                                                    table->s->db.str,
                                                    table->s->table_name.str,
                                                    MDL_EXCLUSIVE) ||
-               !commit);
+               !commit));
 
    return commit_inplace_alter_table(altered_table, ha_alter_info, commit);
 }
