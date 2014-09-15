@@ -1,0 +1,53 @@
+--source include/have_innodb.inc
+--source include/have_debug.inc
+
+SET @start_global_value = @@global.innodb_build_prev_version_sleep;
+SELECT @start_global_value;
+
+#
+# exists as global only
+#
+select @@global.innodb_build_prev_version_sleep between 0 and 60000;
+select @@global.innodb_build_prev_version_sleep;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_build_prev_version_sleep;
+show global variables like 'innodb_build_prev_version_sleep';
+show session variables like 'innodb_build_prev_version_sleep';
+select * from information_schema.global_variables where variable_name='innodb_build_prev_version_sleep';
+select * from information_schema.session_variables where variable_name='innodb_build_prev_version_sleep';
+
+#
+# show that it's writable
+#
+set global innodb_build_prev_version_sleep=1;
+select @@global.innodb_build_prev_version_sleep;
+select * from information_schema.global_variables where variable_name='innodb_build_prev_version_sleep';
+select * from information_schema.session_variables where variable_name='innodb_build_prev_version_sleep';
+set @@global.innodb_build_prev_version_sleep=0;
+select @@global.innodb_build_prev_version_sleep;
+select * from information_schema.global_variables where variable_name='innodb_build_prev_version_sleep';
+select * from information_schema.session_variables where variable_name='innodb_build_prev_version_sleep';
+--error ER_GLOBAL_VARIABLE
+set session innodb_build_prev_version_sleep='some';
+--error ER_GLOBAL_VARIABLE
+set @@session.innodb_build_prev_version_sleep='some';
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_build_prev_version_sleep=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_build_prev_version_sleep='foo';
+set global innodb_build_prev_version_sleep=-2;
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_build_prev_version_sleep=1e1;
+set global innodb_build_prev_version_sleep=60000;
+set global innodb_build_prev_version_sleep=60001;
+
+#
+# Cleanup
+#
+
+SET @@global.innodb_build_prev_version_sleep = @start_global_value;
+SELECT @@global.innodb_build_prev_version_sleep;

@@ -1,0 +1,93 @@
+--source include/have_debug.inc
+--source include/have_innodb.inc
+
+#
+# When the connection is killed in the new location, an error is written to
+# the log because convert_error_code_to_mysql has fall throughs for
+# DB_INTERRUPTED.
+#
+call mtr.add_suppression(".ERROR. Got error -1 when reading table '\./test/t1'");
+
+set global innodb_build_prev_version_sleep = 5000;
+
+create table t1 (
+  a int primary key auto_increment,
+  b int, c int) engine=innodb;
+
+--let $num_rows = 500
+--disable_query_log
+while ($num_rows)
+{
+  eval insert into t1 (b, c)
+       values (floor(rand($num_rows * 2) * 2147483647),
+               floor(rand($num_rows * 2 + 1) * 2147483647));
+  --dec $num_rows
+}
+--enable_query_log
+
+create table t2 (kill_id int);
+
+connect (con2,localhost,root,,);
+start transaction with consistent snapshot;
+
+connect (con1,localhost,root,,);
+--disable_reconnect
+insert into t2 values (connection_id());
+start transaction with consistent snapshot;
+
+connection default;
+--let $num_updates = 500
+--disable_query_log
+while ($num_updates)
+{
+  update t1 set c = c + 1 where a = 250;
+  --dec $num_updates
+}
+--enable_query_log
+
+connection con1;
+send select * from t1 where a = 250;
+
+connection default;
+sleep 1;
+select ((@id := kill_id) - kill_id) from t2;
+kill @id;
+sleep 1;
+
+# Look for the message in the log file
+--perl
+  open FILE, "$ENV{'MYSQLTEST_VARDIR'}/log/mysqld.1.err" or die;
+  my @lines = <FILE>;
+  my $check = 0;
+  foreach $line (@lines) {
+    if ($line =~ m/CURRENT\_TEST.*/) {
+      if ($line =~ m/.*innodb_plugin\.innodb\_kill\_build\_previous/) {
+        $check = 1;
+      } else {
+        $check = 0;
+      }
+    }
+    if ($check && $line =~ m/Detected killed connection in row_vers_build_for_consistent_read/) {
+      print "$1\n";
+    }
+  }
+EOF
+
+connection con1;
+--error 2013
+reap;
+
+connection default;
+set global innodb_build_prev_version_sleep = 0;
+
+connection con2;
+# First version of the fix didn't release the lock which was acquired. Verify
+# that hitting the code path again doesn't lock up the server.
+select * from t1 where a = 250;
+
+disconnect con2;
+
+connection default;
+drop table t1;
+drop table t2;
+
