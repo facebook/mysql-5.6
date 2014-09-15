@@ -1428,6 +1428,51 @@ srv_printf_innodb_monitor(
 }
 
 /******************************************************************//**
+Set compression related counters */
+static void
+export_zip(
+/*=======*/
+	ulint*			compressed,
+	ulint*			compressed_ok,
+	ulonglong*		compressed_time,
+	ulonglong*		compressed_ok_time,
+	ulint*			compressed_primary,
+	ulint*			compressed_primary_ok,
+	ulonglong*		compressed_primary_time,
+	ulonglong*		compressed_primary_ok_time,
+	ulint*			compressed_secondary,
+	ulint*			compressed_secondary_ok,
+	ulonglong*		compressed_secondary_time,
+	ulonglong*		compressed_secondary_ok_time,
+	ulint*			decompressed,
+	ulonglong*		decompressed_time,
+	ulint*			decompressed_primary,
+	ulonglong*		decompressed_primary_time,
+	ulint*			decompressed_secondary,
+	ulonglong*		decompressed_secondary_time,
+	page_zip_stat_t*	zip_stat)
+{
+	*compressed		= zip_stat->compressed;
+	*compressed_ok		= zip_stat->compressed_ok;
+	*compressed_time	= zip_stat->compressed_time;
+	*compressed_ok_time	= zip_stat->compressed_ok_time;
+	*compressed_primary	= zip_stat->compressed_primary;
+	*compressed_primary_ok = zip_stat->compressed_primary_ok;
+	*compressed_primary_time = zip_stat->compressed_primary_time;
+	*compressed_primary_ok_time	= zip_stat->compressed_primary_ok_time;
+	*compressed_secondary	= zip_stat->compressed_secondary;
+	*compressed_secondary_ok = zip_stat->compressed_secondary_ok;
+	*compressed_secondary_time = zip_stat->compressed_secondary_time;
+	*compressed_secondary_ok_time	= zip_stat->compressed_secondary_ok_time;
+	*decompressed		= zip_stat->decompressed;
+	*decompressed_time	= zip_stat->decompressed_time;
+	*decompressed_primary	= zip_stat->decompressed_primary;
+	*decompressed_primary_time = zip_stat->decompressed_primary_time;
+	*decompressed_secondary	= zip_stat->decompressed_secondary;
+	*decompressed_secondary_time = zip_stat->decompressed_secondary_time;
+}
+
+/******************************************************************//**
 Function to pass InnoDB status variables to MySQL */
 UNIV_INTERN
 void
@@ -1440,6 +1485,8 @@ srv_export_innodb_status(void)
 	ulint			old_LRU_len;
 	ulint			free_len;
 	ulint			flush_list_len;
+	ulint			unzip_LRU_len;
+	uint i;
 	ib_uint64_t lsn_oldest = buf_pool_get_oldest_modification();
 	ib_uint64_t lsn_current = log_sys->lsn;
 	ib_uint64_t lsn_gap = lsn_current - lsn_oldest;
@@ -1447,7 +1494,8 @@ srv_export_innodb_status(void)
 
 	buf_get_total_stat(&stat);
 	buf_get_total_list_len(
-		&LRU_len, &old_LRU_len, &free_len, &flush_list_len);
+		&LRU_len, &old_LRU_len, &free_len, &flush_list_len,
+		&unzip_LRU_len);
 	buf_get_total_list_size_in_bytes(&buf_pools_list_size);
 
 	mutex_enter(&srv_innodb_monitor_mutex);
@@ -1589,6 +1637,8 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_buffer_pool_bytes_dirty =
 		buf_pools_list_size.flush_list_bytes;
+
+	export_vars.innodb_buffer_pool_pages_unzip = unzip_LRU_len;
 
 	export_vars.innodb_buffer_pool_pages_free = free_len;
 
@@ -1866,6 +1916,121 @@ srv_export_innodb_status(void)
 	export_vars.innodb_logical_read_ahead_in_buf_pool =
 		srv_stats.n_logical_read_ahead_in_buf_pool;
 
+	for (i = 0; i < PAGE_ZIP_SSIZE_MAX - 1; i++) {
+		page_zip_stat_t*        zip_stat = &page_zip_stat[i];
+
+		ulint page_size = UNIV_ZIP_SIZE_MIN << i;
+
+		switch (page_size) {
+		case 1024:
+			export_zip(&export_vars.zip1024_compressed,
+				&export_vars.zip1024_compressed_ok,
+				&export_vars.zip1024_compressed_time,
+				&export_vars.zip1024_compressed_ok_time,
+				&export_vars.zip1024_compressed_primary,
+				&export_vars.zip1024_compressed_primary_ok,
+				&export_vars.zip1024_compressed_primary_time,
+				&export_vars.zip1024_compressed_primary_ok_time,
+				&export_vars.zip1024_compressed_secondary,
+				&export_vars.zip1024_compressed_secondary_ok,
+				&export_vars.zip1024_compressed_secondary_time,
+				&export_vars.zip1024_compressed_secondary_ok_time,
+				&export_vars.zip1024_decompressed,
+				&export_vars.zip1024_decompressed_time,
+				&export_vars.zip1024_decompressed_primary,
+				&export_vars.zip1024_decompressed_primary_time,
+				&export_vars.zip1024_decompressed_secondary,
+				&export_vars.zip1024_decompressed_secondary_time,
+				zip_stat);
+			break;
+		case 2048:
+			export_zip(&export_vars.zip2048_compressed,
+				&export_vars.zip2048_compressed_ok,
+				&export_vars.zip2048_compressed_time,
+				&export_vars.zip2048_compressed_ok_time,
+				&export_vars.zip2048_compressed_primary,
+				&export_vars.zip2048_compressed_primary_ok,
+				&export_vars.zip2048_compressed_primary_time,
+				&export_vars.zip2048_compressed_primary_ok_time,
+				&export_vars.zip2048_compressed_secondary,
+				&export_vars.zip2048_compressed_secondary_ok,
+				&export_vars.zip2048_compressed_secondary_time,
+				&export_vars.zip2048_compressed_secondary_ok_time,
+				&export_vars.zip2048_decompressed,
+				&export_vars.zip2048_decompressed_time,
+				&export_vars.zip2048_decompressed_primary,
+				&export_vars.zip2048_decompressed_primary_time,
+				&export_vars.zip2048_decompressed_secondary,
+				&export_vars.zip2048_decompressed_secondary_time,
+				zip_stat);
+			break;
+		case 4096:
+			export_zip(&export_vars.zip4096_compressed,
+				&export_vars.zip4096_compressed_ok,
+				&export_vars.zip4096_compressed_time,
+				&export_vars.zip4096_compressed_ok_time,
+				&export_vars.zip4096_compressed_primary,
+				&export_vars.zip4096_compressed_primary_ok,
+				&export_vars.zip4096_compressed_primary_time,
+				&export_vars.zip4096_compressed_primary_ok_time,
+				&export_vars.zip4096_compressed_secondary,
+				&export_vars.zip4096_compressed_secondary_ok,
+				&export_vars.zip4096_compressed_secondary_time,
+				&export_vars.zip4096_compressed_secondary_ok_time,
+				&export_vars.zip4096_decompressed,
+				&export_vars.zip4096_decompressed_time,
+				&export_vars.zip4096_decompressed_primary,
+				&export_vars.zip4096_decompressed_primary_time,
+				&export_vars.zip4096_decompressed_secondary,
+				&export_vars.zip4096_decompressed_secondary_time,
+				zip_stat);
+			break;
+		case 8192:
+			export_zip(&export_vars.zip8192_compressed,
+				&export_vars.zip8192_compressed_ok,
+				&export_vars.zip8192_compressed_time,
+				&export_vars.zip8192_compressed_ok_time,
+				&export_vars.zip8192_compressed_primary,
+				&export_vars.zip8192_compressed_primary_ok,
+				&export_vars.zip8192_compressed_primary_time,
+				&export_vars.zip8192_compressed_primary_ok_time,
+				&export_vars.zip8192_compressed_secondary,
+				&export_vars.zip8192_compressed_secondary_ok,
+				&export_vars.zip8192_compressed_secondary_time,
+				&export_vars.zip8192_compressed_secondary_ok_time,
+				&export_vars.zip8192_decompressed,
+				&export_vars.zip8192_decompressed_time,
+				&export_vars.zip8192_decompressed_primary,
+				&export_vars.zip8192_decompressed_primary_time,
+				&export_vars.zip8192_decompressed_secondary,
+				&export_vars.zip8192_decompressed_secondary_time,
+				zip_stat);
+			break;
+		case 16384:
+			export_zip(&export_vars.zip16384_compressed,
+				&export_vars.zip16384_compressed_ok,
+				&export_vars.zip16384_compressed_time,
+				&export_vars.zip16384_compressed_ok_time,
+				&export_vars.zip16384_compressed_primary,
+				&export_vars.zip16384_compressed_primary_ok,
+				&export_vars.zip16384_compressed_primary_time,
+				&export_vars.zip16384_compressed_primary_ok_time,
+				&export_vars.zip16384_compressed_secondary,
+				&export_vars.zip16384_compressed_secondary_ok,
+				&export_vars.zip16384_compressed_secondary_time,
+				&export_vars.zip16384_compressed_secondary_ok_time,
+				&export_vars.zip16384_decompressed,
+				&export_vars.zip16384_decompressed_time,
+				&export_vars.zip16384_decompressed_primary,
+				&export_vars.zip16384_decompressed_primary_time,
+				&export_vars.zip16384_decompressed_secondary,
+				&export_vars.zip16384_decompressed_secondary_time,
+				zip_stat);
+			break;
+		default:
+			break;
+		}
+	}
 	mutex_exit(&srv_innodb_monitor_mutex);
 }
 

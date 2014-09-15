@@ -47,6 +47,7 @@ clear_table_stats_counters(TABLE_STATS* table_stats)
   table_stats->queries_empty.clear();
 
   memset(&table_stats->page_stats, 0, sizeof(table_stats->page_stats));
+  memset(&table_stats->comp_stats, 0, sizeof(table_stats->comp_stats));
 }
 
 static TABLE_STATS*
@@ -205,6 +206,18 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"ROWS_READ", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROWS_REQUESTED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
+  {"COMPRESSED_PAGE_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_OPS_OK", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_OK_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"COMPRESS_PRIMARY_OK_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"UNCOMPRESS_OPS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"UNCOMPRESS_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+
   {"ROWS_INDEX_FIRST", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"ROWS_INDEX_NEXT", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
@@ -283,6 +296,21 @@ void copy_page_stats_with_races(page_stats_atomic_t *out, page_stats_t *in)
   out->n_pages_written_blob.set_maybe(in->n_pages_written_blob);
 }
 
+void copy_comp_stats_with_races(comp_stats_atomic_t *out, comp_stats_t *in)
+{
+  out->page_size.set_maybe(in->page_size);
+  out->compressed.set_maybe(in->compressed);
+  out->compressed_ok.set_maybe(in->compressed_ok);
+  out->compressed_primary.set_maybe(in->compressed_primary);
+  out->compressed_primary_ok.set_maybe(in->compressed_primary_ok);
+  out->decompressed.set_maybe(in->decompressed);
+  out->compressed_time.set_maybe(in->compressed_time);
+  out->compressed_ok_time.set_maybe(in->compressed_ok_time);
+  out->decompressed_time.set_maybe(in->decompressed_time);
+  out->compressed_primary_time.set_maybe(in->compressed_primary_time);
+  out->compressed_primary_ok_time.set_maybe(in->compressed_primary_ok_time);
+}
+
 void fill_table_stats_cb(const char *db,
                          const char *table,
                          my_io_perf_t *r,
@@ -291,6 +319,7 @@ void fill_table_stats_cb(const char *db,
                          my_io_perf_t *r_primary,
                          my_io_perf_t *r_secondary,
                          page_stats_t *page_stats,
+                         comp_stats_t *comp_stats,
                          const char *engine)
 {
   TABLE_STATS *stats;
@@ -307,6 +336,8 @@ void fill_table_stats_cb(const char *db,
   copy_io_perf_with_races(&stats->io_perf_read_secondary, r_secondary);
 
   copy_page_stats_with_races(&stats->page_stats, page_stats);
+
+  copy_comp_stats_with_races(&stats->comp_stats, comp_stats);
 }
 
 int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
@@ -329,6 +360,12 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
         table_stats->rows_deleted.load() == 0 &&
         table_stats->rows_read.load() == 0 &&
         table_stats->rows_requested.load() == 0 &&
+        table_stats->comp_stats.compressed.load() == 0 &&
+        table_stats->comp_stats.compressed_ok.load() == 0 &&
+        table_stats->comp_stats.compressed_time.load() == 0 &&
+        table_stats->comp_stats.compressed_ok_time.load() == 0 &&
+        table_stats->comp_stats.decompressed.load() == 0 &&
+        table_stats->comp_stats.decompressed_time.load() == 0 &&
         table_stats->io_perf_read.requests.load() == 0 &&
         table_stats->io_perf_write.requests.load() == 0 &&
         table_stats->io_perf_read_blob.requests.load() == 0 &&
@@ -360,6 +397,27 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store(table_stats->rows_deleted.load(), TRUE);
     table->field[f++]->store(table_stats->rows_read.load(), TRUE);
     table->field[f++]->store(table_stats->rows_requested.load(), TRUE);
+
+    table->field[f++]->store(table_stats->comp_stats.page_size.load(), TRUE);
+    table->field[f++]->store(table_stats->comp_stats.compressed.load(), TRUE);
+    table->field[f++]->store(
+      table_stats->comp_stats.compressed_ok.load(), TRUE);
+    table->field[f++]->store(
+      table_stats->comp_stats.compressed_primary.load(), TRUE);
+    table->field[f++]->store(
+      table_stats->comp_stats.compressed_primary_ok.load(), TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+      table_stats->comp_stats.compressed_time.load()), TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+      table_stats->comp_stats.compressed_ok_time.load()), TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+      table_stats->comp_stats.compressed_primary_time.load()), TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+      table_stats->comp_stats.compressed_primary_ok_time.load()), TRUE);
+    table->field[f++]->store(
+      table_stats->comp_stats.decompressed.load(), TRUE);
+    table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+      table_stats->comp_stats.decompressed_time.load()), TRUE);
 
     table->field[f++]->store(table_stats->rows_index_first.load(), TRUE);
     table->field[f++]->store(table_stats->rows_index_next.load(), TRUE);

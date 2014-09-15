@@ -361,7 +361,8 @@ buf_get_total_list_len(
 	ulint*		LRU_len,	/*!< out: length of all LRU lists */
 	ulint*		old_LRU_len,	/*!< out: length of all old LRU lists */
 	ulint*		free_len,	/*!< out: length of all free lists */
-	ulint*		flush_list_len)	/*!< out: length of all flush lists */
+	ulint*		flush_list_len,	/*!< out: length of all flush lists */
+	ulint*		unzip_LRU_len)	/*!< out: length of all unzip LRU lists */
 {
 	ulint		i;
 
@@ -369,6 +370,7 @@ buf_get_total_list_len(
 	*old_LRU_len = 0;
 	*free_len = 0;
 	*flush_list_len = 0;
+	*unzip_LRU_len = 0;
 
 	for (i = 0; i < srv_buf_pool_instances; i++) {
 		buf_pool_t*	buf_pool;
@@ -379,6 +381,7 @@ buf_get_total_list_len(
 		*old_LRU_len += buf_pool->LRU_old_len;
 		*free_len += UT_LIST_GET_LEN(buf_pool->free);
 		*flush_list_len += UT_LIST_GET_LEN(buf_pool->flush_list);
+		*unzip_LRU_len += UT_LIST_GET_LEN(buf_pool->unzip_LRU);
 	}
 }
 
@@ -2374,7 +2377,8 @@ buf_zip_decompress(
 	switch (fil_page_get_type(frame)) {
 	case FIL_PAGE_INDEX:
 		if (page_zip_decompress(&block->page.zip,
-					block->frame, TRUE)) {
+					block->frame, TRUE,
+					block->page.space)) {
 			return(TRUE);
 		}
 
@@ -5234,9 +5238,11 @@ buf_get_modified_ratio_pct(void)
 	ulint		old_lru_len = 0;
 	ulint		free_len = 0;
 	ulint		flush_list_len = 0;
+	ulint		unzip_LRU_len = 0;
 
 	buf_get_total_list_len(
-		&lru_len, &old_lru_len, &free_len, &flush_list_len);
+		&lru_len, &old_lru_len, &free_len, &flush_list_len,
+		&unzip_LRU_len);
 
 	percentage = (100.0 * flush_list_len) / (1.0 + lru_len + free_len);
 
