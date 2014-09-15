@@ -1309,6 +1309,13 @@ static Sys_var_enum Sys_event_scheduler(
        ON_CHECK(event_scheduler_check), ON_UPDATE(event_scheduler_update));
 #endif
 
+static Sys_var_mybool Sys_expand_fast_index_creation(
+       "expand_fast_index_creation",
+       "Enable/disable improvements to the InnoDB fast index creation "
+       "functionality.",
+       SESSION_VAR(expand_fast_index_creation), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE));
+
 static Sys_var_ulong Sys_expire_logs_days(
        "expire_logs_days",
        "If non-zero, binary logs will be purged after expire_logs_days "
