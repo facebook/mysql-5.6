@@ -17378,6 +17378,16 @@ static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
   "this is reached.",
   NULL, NULL, 256, 0, 1024, 0);
 
+#ifdef UNIV_DEBUG
+extern	uint	row_build_prev_version_sleep;
+
+static MYSQL_SYSVAR_UINT(build_prev_version_sleep,
+  row_build_prev_version_sleep,
+  PLUGIN_VAR_RQCMDARG,
+  "Sleep this many milliseconds in row_vers_build_for_consistent_read.",
+  NULL, NULL, 0, 0, 60 * 1000, 0);
+#endif /* UNIV_DEBUG */
+
 static MYSQL_SYSVAR_BOOL(fake_changes_locks, srv_fake_changes_locks,
   PLUGIN_VAR_NOCMDARG,
   "If enabled transactions will get S locks rather than X locks "
@@ -17551,6 +17561,9 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(aio_slow_usecs),
   MYSQL_SYSVAR(aio_old_usecs),
   MYSQL_SYSVAR(aio_outstanding_requests),
+#ifdef UNIV_DEBUG
+  MYSQL_SYSVAR(build_prev_version_sleep),
+#endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(fake_changes),
   MYSQL_SYSVAR(fake_changes_locks),
   MYSQL_SYSVAR(lra_size),
