@@ -572,6 +572,8 @@ typedef struct system_variables
   ulong max_statement_time;
 
   ulong allow_noncurrent_db_rw;
+
+  my_bool expand_fast_index_creation;
 } SV;
 
 

@@ -3076,6 +3076,8 @@ op_ok:
 
 	ut_a(ctx->trx->lock.n_active_thrs == 0);
 
+	DBUG_EXECUTE_IF("crash_innodb_add_index_after", DBUG_SUICIDE(););
+
 error_handling:
 	/* After an error, remove all those index definitions from the
 	dictionary which were defined. */
