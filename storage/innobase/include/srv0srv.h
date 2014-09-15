@@ -953,6 +953,7 @@ struct export_var_t{
 	ulint innodb_buffer_pool_bytes_data;	/*!< File bytes used */
 	ulint innodb_buffer_pool_pages_dirty;	/*!< Dirty data pages */
 	ulint innodb_buffer_pool_bytes_dirty;	/*!< File bytes modified */
+	ulint innodb_buffer_pool_pages_unzip;	/*!< #pages on buf_pool->unzip_LRU */
 	ulint innodb_buffer_pool_pages_misc;	/*!< Miscellanous pages */
 	ulint innodb_buffer_pool_pages_free;	/*!< Free pages */
 #ifdef UNIV_DEBUG
@@ -1128,6 +1129,97 @@ struct export_var_t{
 						total for all transactions that
 						used a non-zero
 						innodb_lra_size. */
+	/* The following are per-page size stats from page_zip_stat */
+	ulint		zip1024_compressed;
+	ulint		zip1024_compressed_ok;
+	ulonglong	zip1024_compressed_time;
+	ulonglong	zip1024_compressed_ok_time;
+	ulint		zip1024_compressed_primary;
+	ulint		zip1024_compressed_primary_ok;
+	ulonglong	zip1024_compressed_primary_time;
+	ulonglong	zip1024_compressed_primary_ok_time;
+	ulint		zip1024_compressed_secondary;
+	ulint		zip1024_compressed_secondary_ok;
+	ulonglong	zip1024_compressed_secondary_time;
+	ulonglong	zip1024_compressed_secondary_ok_time;
+	ulint		zip1024_decompressed;
+	ulonglong	zip1024_decompressed_time;
+	ulint		zip1024_decompressed_primary;
+	ulonglong	zip1024_decompressed_primary_time;
+	ulint		zip1024_decompressed_secondary;
+	ulonglong	zip1024_decompressed_secondary_time;
+	ulint		zip2048_compressed;
+	ulint		zip2048_compressed_ok;
+	ulonglong	zip2048_compressed_time;
+	ulonglong	zip2048_compressed_ok_time;
+	ulint		zip2048_compressed_primary;
+	ulint		zip2048_compressed_primary_ok;
+	ulonglong	zip2048_compressed_primary_time;
+	ulonglong	zip2048_compressed_primary_ok_time;
+	ulint		zip2048_compressed_secondary;
+	ulint		zip2048_compressed_secondary_ok;
+	ulonglong	zip2048_compressed_secondary_time;
+	ulonglong	zip2048_compressed_secondary_ok_time;
+	ulint		zip2048_decompressed;
+	ulonglong	zip2048_decompressed_time;
+	ulint		zip2048_decompressed_primary;
+	ulonglong	zip2048_decompressed_primary_time;
+	ulint		zip2048_decompressed_secondary;
+	ulonglong	zip2048_decompressed_secondary_time;
+	ulint		zip4096_compressed;
+	ulint		zip4096_compressed_ok;
+	ulonglong	zip4096_compressed_time;
+	ulonglong	zip4096_compressed_ok_time;
+	ulint		zip4096_compressed_primary;
+	ulint		zip4096_compressed_primary_ok;
+	ulonglong	zip4096_compressed_primary_time;
+	ulonglong	zip4096_compressed_primary_ok_time;
+	ulint		zip4096_compressed_secondary;
+	ulint		zip4096_compressed_secondary_ok;
+	ulonglong	zip4096_compressed_secondary_time;
+	ulonglong	zip4096_compressed_secondary_ok_time;
+	ulint		zip4096_decompressed;
+	ulonglong	zip4096_decompressed_time;
+	ulint		zip4096_decompressed_primary;
+	ulonglong	zip4096_decompressed_primary_time;
+	ulint		zip4096_decompressed_secondary;
+	ulonglong	zip4096_decompressed_secondary_time;
+	ulint		zip8192_compressed;
+	ulint		zip8192_compressed_ok;
+	ulonglong	zip8192_compressed_time;
+	ulonglong	zip8192_compressed_ok_time;
+	ulint		zip8192_compressed_primary;
+	ulint		zip8192_compressed_primary_ok;
+	ulonglong	zip8192_compressed_primary_time;
+	ulonglong	zip8192_compressed_primary_ok_time;
+	ulint		zip8192_compressed_secondary;
+	ulint		zip8192_compressed_secondary_ok;
+	ulonglong	zip8192_compressed_secondary_time;
+	ulonglong	zip8192_compressed_secondary_ok_time;
+	ulint		zip8192_decompressed;
+	ulonglong	zip8192_decompressed_time;
+	ulint		zip8192_decompressed_primary;
+	ulonglong	zip8192_decompressed_primary_time;
+	ulint		zip8192_decompressed_secondary;
+	ulonglong	zip8192_decompressed_secondary_time;
+	ulint		zip16384_compressed;
+	ulint		zip16384_compressed_ok;
+	ulonglong	zip16384_compressed_time;
+	ulonglong	zip16384_compressed_ok_time;
+	ulint		zip16384_compressed_primary;
+	ulint		zip16384_compressed_primary_ok;
+	ulonglong	zip16384_compressed_primary_time;
+	ulonglong	zip16384_compressed_primary_ok_time;
+	ulint		zip16384_compressed_secondary;
+	ulint		zip16384_compressed_secondary_ok;
+	ulonglong	zip16384_compressed_secondary_time;
+	ulonglong	zip16384_compressed_secondary_ok_time;
+	ulint		zip16384_decompressed;
+	ulonglong	zip16384_decompressed_time;
+	ulint		zip16384_decompressed_primary;
+	ulonglong	zip16384_decompressed_primary_time;
+	ulint		zip16384_decompressed_secondary;
+	ulonglong	zip16384_decompressed_secondary_time;
 };
 
 /** Thread slot in the thread table.  */

@@ -4499,7 +4499,7 @@ btr_store_big_rec_extern_fields(
 	}
 
 	if (page_zip) {
-		int	err;
+		int	err = Z_OK;
 
 		/* Zlib deflate needs 128 kilobytes for the default
 		window size, plus 512 << memLevel, plus a few
