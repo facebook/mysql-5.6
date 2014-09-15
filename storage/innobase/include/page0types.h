@@ -87,14 +87,41 @@ struct page_zip_des_t
 struct page_zip_stat_t {
 	/** Number of page compressions */
 	ulint		compressed;
+	/** Number of primary index page compressions */
+	ulint		compressed_primary;
+	/** Number of secondary index page compressions */
+	ulint		compressed_secondary;
 	/** Number of successful page compressions */
 	ulint		compressed_ok;
+	/** Number of successful primary index page compressions */
+	ulint		compressed_primary_ok;
+	/** Number of succesful secondary index page compressions */
+	ulint		compressed_secondary_ok;
 	/** Number of page decompressions */
 	ulint		decompressed;
-	/** Duration of page compressions in microseconds */
-	ib_uint64_t	compressed_usec;
-	/** Duration of page decompressions in microseconds */
-	ib_uint64_t	decompressed_usec;
+	/** Number of primary index page decompressions */
+	ulint		decompressed_primary;
+	/** Number of secondary index page decompressions */
+	ulint		decompressed_secondary;
+	/** Duration of page compressions */
+	ulonglong	compressed_time;
+	/** Duration of primary index page compressions */
+	ulonglong	compressed_primary_time;
+	/** Duration of secondary index page compressions */
+	ulonglong	compressed_secondary_time;
+	/** Duration of successful page compressions */
+	ulonglong	compressed_ok_time;
+	/** Duration of successful primary index page compressions */
+	ulonglong	compressed_primary_ok_time;
+	/** Duration of successful secondary index page compressions */
+	ulonglong	compressed_secondary_ok_time;
+	/** Duration of page decompressions */
+	ulonglong	decompressed_time;
+	/** Duration of primary index page decompressions */
+	ulonglong	decompressed_primary_time;
+	/** Duration of secondary index page decompressions */
+	ulonglong	decompressed_secondary_time;
+
 	page_zip_stat_t() :
 		/* Initialize members to 0 so that when we do
 		stlmap[key].compressed++ and element with "key" does not
@@ -102,8 +129,9 @@ struct page_zip_stat_t {
 		compressed(0),
 		compressed_ok(0),
 		decompressed(0),
-		compressed_usec(0),
-		decompressed_usec(0)
+		compressed_time(0),
+		compressed_ok_time(0),
+		decompressed_time(0)
 	{ }
 };
 

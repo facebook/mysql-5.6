@@ -1410,7 +1410,9 @@ buf_get_total_list_len(
 	ulint*		LRU_len,	/*!< out: length of all LRU lists */
 	ulint*		old_LRU_len,	/*!< out: length of all old LRU lists */
 	ulint*		free_len,	/*!< out: length of all free lists */
-	ulint*		flush_list_len);/*!< out: length of all flush lists */
+	ulint*		flush_list_len,	/*!< out: length of all flush lists */
+	ulint*		unzip_LRU_len);	/*!< out: length of all unzip LRU lists */
+
 /********************************************************************//**
 Get total list size in bytes from all buffer pools. */
 UNIV_INTERN
