@@ -11,3 +11,5 @@ create table s1 (a int not null primary key, b int not null, index bx(b)) engine
 create table src(a int, b int);
 
 source include/show_table_stats.test;
+
+show global status like "%zip%";

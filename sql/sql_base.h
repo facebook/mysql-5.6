@@ -286,6 +286,7 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       my_io_perf_t *r_primary,
 			       my_io_perf_t *r_secondary,
 			       page_stats_t* page_stats,
+			       comp_stats_t* comp_stats,
 			       const char *engine);
 
 /* For information_schema.user_statistics */
