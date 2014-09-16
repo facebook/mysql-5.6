@@ -269,7 +269,13 @@ static os_event_t*	os_aio_segment_wait_events = NULL;
 /* Performance counters indexed by global segment number */
 static my_io_perf_t os_aio_perf[SRV_MAX_N_IO_THREADS];
 
-#define OS_AIO_OLD_TIME (2 * my_timer.frequency)	/* 2 Seconds */
+/** AIO requests are scheduled in file offset order until they are at least
+   this old and then they have priority. */
+UNIV_INTERN ulong	os_aio_old_usecs	= 2000000;
+
+/** IO requests that take long than this to service (excludes wait time)
+    are counted as "slow" requests and reported. */
+#define OS_AIO_SLOW_TIME (my_timer.frequency)
 
 /** The aio arrays for non-ibuf i/o and ibuf i/o, as well as sync aio. These
 are NULL when the module has not yet been initialized. @{ */
@@ -296,6 +302,9 @@ UNIV_INTERN ulint	os_n_file_reads_old	= 0;
 UNIV_INTERN ulint	os_n_file_writes_old	= 0;
 UNIV_INTERN ulint	os_n_fsyncs_old		= 0;
 UNIV_INTERN time_t	os_last_printout;
+
+/** Number of fsyncs that took longer than os_n_slow_secs */
+static ulint		os_n_slow_fsyncs	= 0;
 
 /* Global counters for sync and async IO */
 my_io_perf_t os_async_read_perf;
@@ -351,6 +360,9 @@ os_io_perf_update_wait(
 
 	perf->wait_time += wait_time;
 	perf->wait_time_max = max(wait_time, perf->wait_time_max);
+
+	if (wait_time >= OS_AIO_SLOW_TIME)
+		perf->old_ios += 1;
 }
 
 /***********************************************************************//**
@@ -377,7 +389,7 @@ os_io_perf_update_all(
 	perf->svc_time += svc_time;
 	perf->svc_time_max = max(svc_time, perf->svc_time_max);
 
-	if (svc_time >= OS_AIO_OLD_TIME) {
+	if (wait_time >= OS_AIO_SLOW_TIME) {
 		perf->old_ios += 1;
 	}
 
@@ -2374,6 +2386,7 @@ os_file_flush_func(
 	return(FALSE);
 #else
 	int	ret;
+	ulonglong	flush_time;
 	ulonglong	start_time = my_timer_now();
 
 #if defined(HAVE_DARWIN_THREADS)
@@ -2405,7 +2418,11 @@ os_file_flush_func(
 #else
 	ret = os_file_fsync(file);
 #endif
-	os_file_flush_time += my_timer_since(start_time);
+	flush_time = my_timer_since(start_time);
+	if (flush_time >= OS_AIO_SLOW_TIME)
+		++os_n_slow_fsyncs;
+
+	os_file_flush_time += flush_time;
 
 	if (ret == 0) {
 		return(TRUE);
@@ -5575,7 +5592,7 @@ restart:
 
 	n_consecutive = 0;
 
-	/* If there are requests of at least age=OS_AIO_OLD_TIME, then pick the
+	/* If there are requests of at least age=os_aio_old_usecs, then pick the
 	oldest one to prevent starvation. If several requests have the same age,
 	then pick the one at the lowest offset. */
 
@@ -5590,8 +5607,8 @@ restart:
 		if (slot->reserved) {
 			age = now - slot->reservation_time;
 
-			if ((age >= OS_AIO_OLD_TIME && age > biggest_age)
-			    || (age >= OS_AIO_OLD_TIME && age == biggest_age
+			if ((age >= os_aio_old_usecs && age > biggest_age)
+			    || (age >= os_aio_old_usecs && age == biggest_age
 				&& slot->offset < lowest_offset)) {
 
 				/* Found an i/o request */
@@ -5637,7 +5654,7 @@ restart:
 		goto wait_for_io;
 	}
 
-	if (biggest_age >= OS_AIO_OLD_TIME) {
+	if (biggest_age >= my_timer_to_microseconds(OS_AIO_SLOW_TIME)) {
 		os_aio_perf[global_segment].old_ios += 1;
 	}
 
@@ -6103,9 +6120,11 @@ os_aio_print(
 
 	double os_file_flush_sec = my_timer_to_seconds(os_file_flush_time);
 	fprintf(file,
-		"File flushes: %lu requests, %.2f seconds, %.2f msecs/r\n",
+		"File flushes: %lu requests, %.2f seconds, %.2f msecs/r"
+		", %lu old\n",
 		os_n_fsyncs, os_file_flush_sec,
-		os_file_flush_sec / (double)(max(os_n_fsyncs, 1)));
+		os_file_flush_sec / (double)(max(os_n_fsyncs, 1)),
+		os_n_slow_fsyncs);
 
 	if (os_file_n_pending_preads != 0 || os_file_n_pending_pwrites != 0) {
 		fprintf(file,
