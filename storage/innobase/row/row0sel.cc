@@ -3947,7 +3947,7 @@ row_read_ahead_logical(
 				&err, FALSE,
 				BUF_READ_ANY_PAGE | OS_AIO_SIMULATED_WAKE_LATER,
 				space, zip_size, FALSE, tablespace_version,
-				trx->lra_sort_arr[i], TRUE);
+				trx->lra_sort_arr[i], trx, TRUE);
 		}
 #ifdef LINUX_NATIVE_AIO
 		os_aio_linux_dispatch_read_array_submit();
