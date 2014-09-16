@@ -61,6 +61,10 @@ extern ulint	os_n_pending_reads;
 /** Number of pending write operations */
 extern ulint	os_n_pending_writes;
 
+/** AIO requests are scheduled in file offset order until they are at least
+   this old and then they are scheduled oldest first. */
+extern ulong	os_aio_old_usecs;
+
 /** Number of outstanding aio requests */
 extern volatile ulint	os_aio_n_outstanding;
 #ifdef UNIV_DEBUG
