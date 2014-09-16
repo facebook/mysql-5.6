@@ -36,6 +36,8 @@ Created 12/18/1995 Heikki Tuuri
 #include "page0types.h"
 #include "fsp0types.h"
 
+extern double fseg_reserve_factor;
+
 #endif /* !UNIV_INNOCHECKSUM */
 
 /* @defgroup fsp_flags InnoDB Tablespace Flag Constants @{ */
@@ -254,16 +256,6 @@ typedef	byte	fseg_inode_t;
 				single page */
 
 #define FSEG_MAGIC_N_VALUE	97937874
-
-#define	FSEG_FILLFACTOR		8	/* If this value is x, then if
-					the number of unused but reserved
-					pages in a segment is less than
-					reserved pages * 1/x, and there are
-					at least FSEG_FRAG_LIMIT used pages,
-					then we allow a new empty extent to
-					be added to the segment in
-					fseg_alloc_free_page. Otherwise, we
-					use unused pages of the segment. */
 
 #define FSEG_FRAG_LIMIT		FSEG_FRAG_ARR_N_SLOTS
 					/* If the segment has >= this many
