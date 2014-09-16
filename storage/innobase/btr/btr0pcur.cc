@@ -437,8 +437,82 @@ btr_pcur_move_to_next_page(
 	next_page = buf_block_get_frame(next_block);
 #ifdef UNIV_BTR_DEBUG
 	ut_a(page_is_comp(next_page) == page_is_comp(page));
-	ut_a(btr_page_get_prev(next_page, mtr)
-	     == buf_block_get_page_no(btr_pcur_get_block(cursor)));
+
+	// the following paragraph acts like
+	// ut_a(btr_page_get_prev(next_page, mtr)
+	//      == buf_block_get_page_no(btr_pcur_get_block(cursor)))
+	// ...but with additional debug output
+	ulint const next_page_prev_page_no =
+		btr_page_get_prev(next_page, mtr);
+	ulint const page_no_from_block =
+		buf_block_get_page_no(btr_pcur_get_block(cursor));
+	if (!(next_page_prev_page_no == page_no_from_block)) {
+		ut_dbg_assertion_failed(
+			"btr_page_get_prev(next_page, mtr) == "
+			"buf_block_get_page_no(btr_pcur_get_block(cursor))",
+			__FILE__, (ulint) __LINE__);
+
+		ulint const prev_page_no =
+			btr_page_get_prev(page, mtr);
+		ulint const page_no =
+			page_get_page_no(page);
+		ulint const next_page_page_no =
+			page_get_page_no(next_page);
+		ulint const next_page_next_page_no =
+			btr_page_get_next(next_page, mtr);
+		ulint const cur_page_offset =
+			page_offset(cursor->btr_cur.page_cur.rec);
+
+		fprintf(stderr,
+			" * current page\n"
+			"   - prev_page_no: %10lu (0x%08lx)\n"
+			"   - page_no:      %10lu (0x%08lx)\n"
+			"     (from block)  %10lu (0x%08lx)\n"
+			"   - next_page_no: %10lu (0x%08lx)\n"
+			"   - number of records: %5lu\n"
+			"   - index id:          %5lu\n"
+			" * next page\n"
+			"   - prev_page_no: %10lu (0x%08lx)\n"
+			"   - page_no:      %10lu (0x%08lx)\n"
+			"   - next_page_no: %10lu (0x%08lx)\n"
+			" * cursor\n"
+			"   - offset in page: %5lu (0x%04lx)\n"
+			"",
+			prev_page_no, prev_page_no,
+			page_no, page_no,
+			page_no_from_block, page_no_from_block,
+			next_page_no, next_page_no,
+			(ulong) page_header_get_field(page, PAGE_N_RECS),
+			(ulong) page_header_get_field(page, PAGE_INDEX_ID),
+			next_page_prev_page_no, next_page_prev_page_no,
+			next_page_page_no, next_page_page_no,
+			next_page_next_page_no, next_page_next_page_no,
+			cur_page_offset, cur_page_offset
+		       );
+
+		if (dict_index_t * const idx = cursor->btr_cur.index)
+		{
+			fprintf(stderr,
+				"   - index id:          %5lu\n"
+				"   - index name: %s\n",
+				(ulong) idx->id,
+				idx->name
+			       );
+		}
+
+		ut_hexdump(page, UNIV_PAGE_SIZE);
+		ut_hexdump(next_page, UNIV_PAGE_SIZE);
+
+		if (dict_index_t * const idx = cursor->btr_cur.index)
+		{
+			fprintf(stderr,
+				"   - btr_validate_index returned okay=%s\n",
+				btr_validate_index(idx, 0) ? "true" : "false"
+			       );
+		}
+
+		UT_DBG_PANIC;
+	}
 #endif /* UNIV_BTR_DEBUG */
 	next_block->check_index_page_at_flush = TRUE;
 
