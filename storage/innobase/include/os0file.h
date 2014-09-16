@@ -452,6 +452,7 @@ struct os_io_perf2_struct {
 	my_io_perf_t	read_blob;
 	my_io_perf_t	read_primary;
 	my_io_perf_t	read_secondary;
+	page_stats_t	page_stats;
 };
 typedef struct os_io_perf2_struct os_io_perf2_t;
 

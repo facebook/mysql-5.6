@@ -1,0 +1,18 @@
+drop table if exists t1;
+CREATE TABLE t1 (a int not null primary key, b blob) engine=innodb;
+insert into t1 values (1, repeat("test", PAGE_SIZE / 4));
+insert into t1 values (2, repeat("test", PAGE_SIZE / 4));
+insert into t1 values (5, repeat("test", PAGE_SIZE / 4));
+flush tables t1;
+select
+INNODB_PAGES_WRITTEN >= 7, INNODB_PAGES_WRITTEN_INDEX >= 1, INNODB_PAGES_WRITTEN_BLOB >= 3
+from information_schema.table_statistics where table_name like 't1%';
+INNODB_PAGES_WRITTEN >= 7	INNODB_PAGES_WRITTEN_INDEX >= 1	INNODB_PAGES_WRITTEN_BLOB >= 3
+1	1	1
+select * from t1 where a=1;
+select
+INNODB_PAGES_READ, INNODB_PAGES_READ_INDEX, INNODB_PAGES_READ_BLOB
+from information_schema.table_statistics where table_name like 't1%';
+INNODB_PAGES_READ	INNODB_PAGES_READ_INDEX	INNODB_PAGES_READ_BLOB
+3	1	1
+drop table t1;
