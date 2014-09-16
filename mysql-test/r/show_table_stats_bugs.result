@@ -1,0 +1,44 @@
+drop table if exists x;
+flush statistics;
+create table x (i int primary key auto_increment, j char(255)) ;
+insert into x values (null, 'foobar');
+insert into x select null,'foobar' from x;
+insert into x select null,'foobar' from x;
+analyze table x;
+Table	Op	Msg_type	Msg_text
+test.x	analyze	status	OK
+select count(*) from x;
+count(*)
+4
+select i, max(j) from x group by i order by i;
+i	max(j)
+1	foobar
+2	foobar
+3	foobar
+4	foobar
+select * from information_schema.table_statistics where table_schema = 'test';
+TABLE_SCHEMA	TABLE_NAME	TABLE_ENGINE	ROWS_INSERTED	ROWS_UPDATED	ROWS_DELETED	ROWS_READ	ROWS_REQUESTED	ROWS_INDEX_FIRST	ROWS_INDEX_NEXT	IO_READ_BYTES	IO_READ_REQUESTS	IO_READ_SVC_USECS	IO_READ_SVC_USECS_MAX	IO_READ_WAIT_USECS	IO_READ_WAIT_USECS_MAX	IO_READ_OLD_IOS	IO_WRITE_BYTES	IO_WRITE_REQUESTS	IO_WRITE_SVC_USECS	IO_WRITE_SVC_USECS_MAX	IO_WRITE_WAIT_USECS	IO_WRITE_WAIT_USECS_MAX	IO_WRITE_OLD_IOS	IO_READ_BYTES_BLOB	IO_READ_REQUESTS_BLOB	IO_READ_SVC_USECS_BLOB	IO_READ_SVC_USECS_MAX_BLOB	IO_READ_WAIT_USECS_BLOB	IO_READ_WAIT_USECS_MAX_BLOB	IO_READ_OLD_IOS_BLOB	IO_INDEX_INSERTS	QUERIES_USED
+test	x	MyISAM	4	0	0	7	9	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	6
+flush statistics;
+create temporary table mt engine=myisam as select * from x;
+create temporary table tt as select * from x;
+select count(*) from mt;
+count(*)
+4
+select count(*) from tt;
+count(*)
+4
+select * from information_schema.table_statistics where table_name != 'x';
+TABLE_SCHEMA	TABLE_NAME	TABLE_ENGINE	ROWS_INSERTED	ROWS_UPDATED	ROWS_DELETED	ROWS_READ	ROWS_REQUESTED	ROWS_INDEX_FIRST	ROWS_INDEX_NEXT	IO_READ_BYTES	IO_READ_REQUESTS	IO_READ_SVC_USECS	IO_READ_SVC_USECS_MAX	IO_READ_WAIT_USECS	IO_READ_WAIT_USECS_MAX	IO_READ_OLD_IOS	IO_WRITE_BYTES	IO_WRITE_REQUESTS	IO_WRITE_SVC_USECS	IO_WRITE_SVC_USECS_MAX	IO_WRITE_WAIT_USECS	IO_WRITE_WAIT_USECS_MAX	IO_WRITE_OLD_IOS	IO_READ_BYTES_BLOB	IO_READ_REQUESTS_BLOB	IO_READ_SVC_USECS_BLOB	IO_READ_SVC_USECS_MAX_BLOB	IO_READ_WAIT_USECS_BLOB	IO_READ_WAIT_USECS_MAX_BLOB	IO_READ_OLD_IOS_BLOB	IO_INDEX_INSERTS	QUERIES_USED
+delete from x;
+flush statistics;
+insert into x values (1, 'foo');
+insert into x values (2, 'bar');
+update x set j='foo2' where i=1;
+update x set j='bar2' where i=2;
+delete from x where i=1;
+delete from x where i=2;
+select * from information_schema.table_statistics where table_name = 'x';
+TABLE_SCHEMA	TABLE_NAME	TABLE_ENGINE	ROWS_INSERTED	ROWS_UPDATED	ROWS_DELETED	ROWS_READ	ROWS_REQUESTED	ROWS_INDEX_FIRST	ROWS_INDEX_NEXT	IO_READ_BYTES	IO_READ_REQUESTS	IO_READ_SVC_USECS	IO_READ_SVC_USECS_MAX	IO_READ_WAIT_USECS	IO_READ_WAIT_USECS_MAX	IO_READ_OLD_IOS	IO_WRITE_BYTES	IO_WRITE_REQUESTS	IO_WRITE_SVC_USECS	IO_WRITE_SVC_USECS_MAX	IO_WRITE_WAIT_USECS	IO_WRITE_WAIT_USECS_MAX	IO_WRITE_OLD_IOS	IO_READ_BYTES_BLOB	IO_READ_REQUESTS_BLOB	IO_READ_SVC_USECS_BLOB	IO_READ_SVC_USECS_MAX_BLOB	IO_READ_WAIT_USECS_BLOB	IO_READ_WAIT_USECS_MAX_BLOB	IO_READ_OLD_IOS_BLOB	IO_INDEX_INSERTS	QUERIES_USED
+test	x	MyISAM	2	2	2	4	4	4	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	6
+drop table x;

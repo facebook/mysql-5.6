@@ -1,0 +1,248 @@
+
+let $se= `select @@GLOBAL.storage_engine`;
+
+--replace_result $se ENGINE
+show create table p1;
+
+--replace_result $se ENGINE
+show create table s1;
+
+insert into src values
+ (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),
+ (10,10),(11,11),(12,12),(13,13),(14,14),(15,15),(16,16),(17,17),(18,18),(19,19),
+ (20,20),(21,21),(22,12),(23,23),(24,24),(25,25),(26,26),(27,27),(28,28),(29,29);
+
+# Test insert
+
+echo "";
+echo Test insert;
+echo "";
+
+flush statistics;
+
+insert into p1 values (1,1), (2,2);
+
+# Confirm that command output is sane with and without wildcard matches
+
+--replace_result $se ENGINE
+select TABLE_SCHEMA,TABLE_NAME,TABLE_ENGINE,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,ROWS_READ,ROWS_REQUESTED,ROWS_INDEX_FIRST,ROWS_INDEX_NEXT,IO_INDEX_INSERTS
+from information_schema.table_statistics where table_name = 'p1';
+
+--replace_result $se ENGINE
+select TABLE_SCHEMA,TABLE_NAME,TABLE_ENGINE,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,ROWS_READ,ROWS_REQUESTED,ROWS_INDEX_FIRST,ROWS_INDEX_NEXT,IO_INDEX_INSERTS
+from information_schema.table_statistics where table_name like 'p%' order by ROWS_INSERTED;
+
+select 'should be 0,2,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+--replace_result $se ENGINE
+select Table_Engine from information_schema.table_statistics where table_name = 'p1';
+
+# Test delete
+
+echo "";
+echo Test delete;
+echo "";
+
+flush statistics;
+
+# Do not use 'delete from p1' as that is converted to truncate for some engines
+delete from p1 where (a+b) > 0;
+
+select 'should be 2,0,0,2', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+delete from p1;
+insert into p1 values (1,1), (2,2);
+
+# Test insert select
+
+echo "";
+echo Test insert select;
+echo "";
+
+flush statistics;
+
+insert into p2 select * from p1;
+
+select 'should be 2,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+select 'should be 0,2,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p2';
+
+# Test update with PK scans
+
+echo "";
+echo Test update with PK scans;
+echo "";
+
+delete from p1;
+insert into p1 select * from src;
+--disable_result_log
+analyze table p1;
+--enable_result_log
+flush statistics;
+update p1 set a = 32 where a = 1;
+
+select 'should be (1 or 2),0,1,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+flush statistics;
+update p1 set a = 51 where a = 32;
+
+select 'should be (1 or 2),0,1,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+delete from p1;
+insert into p1 select * from src;
+--disable_result_log
+analyze table p1;
+--enable_result_log
+
+# Test update with secondary index scans
+
+echo "";
+echo Test update with secondary index scans
+echo "";
+
+delete from s1;
+insert into s1 select * from src;
+--disable_result_log
+analyze table s1;
+--enable_result_log
+flush statistics;
+
+update s1 set a = 31 where b = 1;
+
+select 'should be 0,1,0', Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+select Rows_read = 1 or Rows_read = 2 from information_schema.table_statistics where table_name = 's1';
+
+delete from s1;
+insert into s1 select * from src;
+--disable_result_log
+analyze table s1;
+--enable_result_log
+
+# Test delete with PK scans
+
+echo "";
+echo Test delete with PK scans;
+echo "";
+
+flush statistics;
+delete from p1 where a = 31;
+
+select 'should be 0,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+select 'should be 1', Rows_requested from information_schema.table_statistics where table_name = 'p1';
+
+flush statistics;
+delete from p1 where a = 2;
+
+select 'should be 1,0,0,1', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+delete from p1;
+insert into p1 select * from src;
+
+# Test delete with secondary index scans
+
+echo "";
+echo Test delete with secondary index scans;
+echo "";
+
+flush statistics;
+delete from s1 where b = 1;
+
+select 'should be 1,0,0,1', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+delete from s1;
+insert into s1 select * from src;
+--disable_result_log
+analyze table s1;
+--enable_result_log
+
+# Test select on PK index
+
+echo "";
+echo Test select with PK scans;
+echo "";
+
+# point lookup
+flush statistics;
+select count(*) from p1 where a = 1;
+
+select 'should be 1,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+# less than min
+flush statistics;
+select count(*) from p1 where a < 0;
+
+select 'should be (0 or 1),0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+# descending full scan
+flush statistics;
+select a from p1 where a < 32 order by a desc;
+
+select 'should be 29,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+# ascending full scan
+flush statistics;
+select a from p1 where a > 0 order by a;
+
+select 'should be 29,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'p1';
+
+# Test select on secondary index
+
+echo "";
+echo Test select with secondary scans;
+echo "";
+
+# point lookup
+flush statistics;
+select * from s1 where b = 1;
+
+select 'should be 1,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# less than min
+flush statistics;
+select b from s1 where b < 0;
+
+select 'should be (0 or 1),0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# less than second from min
+flush statistics;
+select b from s1 where b < 2;
+
+select 'should be (1 or 2),0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# descending full scan
+flush statistics;
+select b from s1 where b < 4 order by b desc;
+
+select 'should be 3,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# descending range scan
+flush statistics;
+select b from s1 where b < 2 order by b desc;
+
+select 'should be 1,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# ascending full scan
+flush statistics;
+select b from s1 where b > -1 order by b;
+
+select 'should be 29,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# ascending range scan
+flush statistics;
+select b from s1 where b > 27 order by b;
+
+select 'should be 2,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# truncate
+select count(*) from s1;
+flush statistics;
+delete from s1;
+
+select 'should be 29,0,0,29', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 's1';
+
+# Cleanup
+connection default;
+
+drop table p1;
+drop table p2;
+drop table s1;
+drop table src;
