@@ -506,6 +506,11 @@ static ulint		srv_main_shutdown_loops		= 0;
 /** Log writes involving flush. */
 static ulint		srv_log_writes_and_flush	= 0;
 
+ulint	srv_n_commit_all	= 0;
+ulint	srv_n_commit_with_undo	= 0;
+ulint	srv_n_rollback_total	= 0;
+ulint	srv_n_rollback_partial	= 0;
+
 /** Number of times secondary index lookup triggered cluster lookup */
 atomic_stat<ulint>	srv_sec_rec_cluster_reads;
 
@@ -1719,6 +1724,11 @@ srv_export_innodb_status(void)
 	export_vars.innodb_srv_free_log_time= srv_free_log_time;
 	export_vars.innodb_srv_drop_table_time= srv_drop_table_time;
 	export_vars.innodb_srv_purge_time= srv_purge_time;
+
+	export_vars.innodb_trx_n_commit_all= srv_n_commit_all;
+	export_vars.innodb_trx_n_commit_with_undo= srv_n_commit_with_undo;
+	export_vars.innodb_trx_n_rollback_partial= srv_n_rollback_partial;
+	export_vars.innodb_trx_n_rollback_total= srv_n_rollback_total;
 
 	export_vars.innodb_sec_rec_cluster_reads =
 		srv_sec_rec_cluster_reads.load();

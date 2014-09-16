@@ -655,7 +655,7 @@ ib_trx_commit(
 		return(err);
 	}
 
-	trx_commit(trx);
+	trx_commit(trx, TRUE);
 
 	return(DB_SUCCESS);
 }
