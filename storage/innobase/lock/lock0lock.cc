@@ -5258,6 +5258,14 @@ lock_print_info_summary(
 		"Lock stats: %lu deadlocks, %lu lock wait timeouts\n",
 		srv_lock_deadlocks, srv_lock_wait_timeouts);
 
+	fprintf(file,
+		"Commits: %lu all, %lu with undo\n",
+		srv_n_commit_all, srv_n_commit_with_undo);
+
+	fprintf(file,
+		"Rollback: %lu total, %lu partial\n",
+		srv_n_rollback_total, srv_n_rollback_partial);
+
 #ifdef PRINT_NUM_OF_LOCK_STRUCTS
 	fprintf(file,
 		"Total number of lock structs in row lock hash table %lu\n",

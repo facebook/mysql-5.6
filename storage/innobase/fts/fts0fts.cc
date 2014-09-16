@@ -2098,7 +2098,7 @@ fts_create_index_tables(
 	err = fts_create_index_tables_low(trx, index, table->name, table->id);
 
 	if (err == DB_SUCCESS) {
-		trx_commit(trx);
+		trx_commit(trx, TRUE);
 	}
 
 	return(err);

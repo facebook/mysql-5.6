@@ -510,6 +510,18 @@ extern my_bool srv_print_all_deadlocks;
 
 extern my_bool	srv_cmp_per_index_enabled;
 
+/** Number of commits */
+extern ulint srv_n_commit_all;
+
+/** Number of commits for which undo was generated */
+extern ulint srv_n_commit_with_undo;
+
+/** Number of full rollbacks */
+extern ulint srv_n_rollback_total;
+
+/** Number of partial rollbacks */
+extern ulint srv_n_rollback_partial;
+
 /** Number of times secondary index lookup triggered cluster lookup */
 extern atomic_stat<ulint>	srv_sec_rec_cluster_reads;
 /** Number of times prefix optimization avoided triggering cluster lookup */
@@ -1012,6 +1024,11 @@ struct export_var_t{
 	ulint innodb_log_sync_commit_sync;
 	ulint innodb_log_sync_flush_dirty;
 	ulint innodb_log_sync_other;
+
+	ulint innodb_trx_n_commit_all;		/*!< srv_n_commit_with_undo */
+	ulint innodb_trx_n_commit_with_undo;	/*!< srv_n_commit_with_undo */
+	ulint innodb_trx_n_rollback_partial;	/*!< srv_n_rollback_partial */
+	ulint innodb_trx_n_rollback_total;	/*!< srv_n_rollback_total */
 
 	ulint innodb_sec_rec_cluster_reads;	/*!< srv_sec_rec_cluster_reads */
 	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
