@@ -546,6 +546,14 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
   "Timeout in seconds an InnoDB transaction may wait for a lock before being rolled back. Values above 100000000 disable the timeout.",
   NULL, NULL, 50, 0, 1024 * 1024 * 1024, 0);
 
+static MYSQL_THDVAR_BOOL(fake_changes, PLUGIN_VAR_OPCMDARG,
+  "In the transaction after enabled, UPDATE, INSERT and DELETE only move the "
+  "cursor to the records and do nothing other operations (no changes, no ibuf, "
+  "no undo, no transaction log) in the transaction. This is to cause "
+  "replication prefetch IO. ATTENTION: the transaction started after enabled "
+  "is affected.",
+  NULL, NULL, FALSE);
+
 static MYSQL_THDVAR_ULONG(lra_size, PLUGIN_VAR_OPCMDARG,
   "The size (in MBs) of the total size of the pages that innodb will prefetch "
   "while scanning a table during this session. This is meant to be used only "
@@ -903,6 +911,14 @@ innobase_commit(
 					false - the current SQL statement
 					ended */
 
+/*****************************************************************//**
+*/
+static
+bool
+innobase_is_fake_change(
+/*==============*/
+    handlerton *hton,
+    THD* thd);
 /*****************************************************************//**
 Rolls back a transaction to a savepoint.
 @return 0 if success, HA_ERR_NO_SAVEPOINT if no savepoint with the
@@ -1576,6 +1592,18 @@ thd_to_trx(
 {
 	return(*(trx_t**) thd_ha_data(thd, innodb_hton_ptr));
 }
+
+/********************************************************************//**
+@return TRUE if fake-changes are enabled for this transaction. */
+my_bool
+ha_innobase::is_fake_change_enabled(
+/*========================*/
+	THD*		thd)	/*!< in: MySQL thread */
+{
+	trx_t*	trx = thd_to_trx(thd);
+	return (trx && UNIV_UNLIKELY(trx->fake_changes));
+}
+
 
 /********************************************************************//**
 Call this function when mysqld passes control to the client. That is to
@@ -2303,6 +2331,7 @@ innobase_trx_init(
 	trx->check_unique_secondary = !thd_test_options(
 		thd, OPTION_RELAXED_UNIQUE_CHECKS);
 
+	trx->fake_changes = THDVAR(thd, fake_changes);
 	trx_lra_reset(trx,
 		      THDVAR(thd, lra_size),
 		      THDVAR(thd, lra_n_node_recs_before_sleep),
@@ -3099,6 +3128,7 @@ innobase_init(
 				innobase_rollback_to_savepoint_can_release_mdl;
 	innobase_hton->savepoint_release = innobase_release_savepoint;
 	innobase_hton->commit = innobase_commit;
+	innobase_hton->is_fake_change = innobase_is_fake_change;
 	innobase_hton->rollback = innobase_rollback;
 	innobase_hton->prepare = innobase_xa_prepare;
 	innobase_hton->recover = innobase_xa_recover;
@@ -3797,6 +3827,14 @@ innobase_commit(
 		trx_search_latch_release_if_reserved(trx);
 	}
 
+	if (UNIV_UNLIKELY(trx->fake_changes && (commit_trx || (!thd_test_options(thd,
+						OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))))) {
+		innobase_rollback(hton, thd, commit_trx); /* rollback implicitly */
+		thd_reset_diagnostics(thd); /* because debug assertion code complains,
+                                   if something left */
+		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
+	}
+
 	/* Transaction is deregistered only in a commit or a rollback. If
 	it is deregistered we know there cannot be resources to be freed
 	and we could return immediately.  For the time being, we play safe
@@ -3888,6 +3926,21 @@ retry:
 	innobase_srv_conc_force_exit_innodb(trx);
 
 	DBUG_RETURN(0);
+}
+
+/*****************************************************************//**
+Return TRUE when this is a fake change and commit and binlog write
+should not occur. */
+static
+bool
+innobase_is_fake_change(
+/*==================*/
+	handlerton	*hton,	/*!< in: Innodb handlerton */
+	THD*		thd)	/*!< in: MySQL thread handle of the user for whom
+				the transaction should be committed */
+{
+	trx_t*		trx = check_trx_exists(thd);
+	return UNIV_UNLIKELY(trx->fake_changes);
 }
 
 /*****************************************************************//**
@@ -6955,7 +7008,7 @@ no_commit:
 	error = row_insert_for_mysql((byte*) record, prebuilt);
 	DEBUG_SYNC(user_thd, "ib_after_row_insert");
 
-	if (error == DB_SUCCESS)
+	if (error == DB_SUCCESS && UNIV_LIKELY(!trx->fake_changes))
 		stats.rows_inserted++;
 
 	/* Handle duplicate key errors */
@@ -7415,7 +7468,7 @@ ha_innobase::update_row(
 
 	error = row_update_for_mysql((byte*) old_row, prebuilt);
 
-	if (error == DB_SUCCESS)
+	if (error == DB_SUCCESS && UNIV_LIKELY(!trx->fake_changes))
 		stats.rows_updated++;
 
 	/* We need to do some special AUTOINC handling for the following case:
@@ -7520,7 +7573,7 @@ ha_innobase::delete_row(
 
 	error = row_update_for_mysql((byte*) record, prebuilt);
 
-	if (error == DB_SUCCESS)
+	if (error == DB_SUCCESS && UNIV_LIKELY(!trx->fake_changes))
 		stats.rows_deleted++;
 
 	innobase_srv_conc_exit_innodb(trx, true);
@@ -9902,6 +9955,11 @@ ha_innobase::create(
 
 	trx = innobase_trx_allocate(thd);
 
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		innobase_commit_low(trx);
+		trx_free_for_mysql(trx);
+		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
+	}
 	/* Latch the InnoDB data dictionary exclusively so that no deadlocks
 	or lock waits can happen in it during a table create operation.
 	Drop table etc. do this latching in row0mysql.cc. */
@@ -10264,6 +10322,10 @@ ha_innobase::truncate()
 
 	update_thd(ha_thd());
 
+	if (UNIV_UNLIKELY(prebuilt->trx->fake_changes)) {
+		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
+	}
+
 	if (!trx_is_started(prebuilt->trx)) {
 		++prebuilt->trx->will_lock;
 	}
@@ -10344,6 +10406,12 @@ ha_innobase::delete_table(
 	trx_search_latch_release_if_reserved(parent_trx);
 
 	trx = innobase_trx_allocate(thd);
+
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		innobase_commit_low(trx);
+		trx_free_for_mysql(trx);
+		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
+	}
 
 	name_len = strlen(name);
 
@@ -10463,6 +10531,13 @@ innobase_drop_database(
 	innobase_casedn_str(namebuf);
 #endif
 	trx = innobase_trx_allocate(thd);
+
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		my_free(namebuf);
+		innobase_commit_low(trx);
+		trx_free_for_mysql(trx);
+		return; /* ignore */
+	}
 
 	/* Either the transaction is already flagged as a locking transaction
 	or it hasn't been started yet. */
@@ -10622,6 +10697,11 @@ ha_innobase::rename_table(
 	trx_search_latch_release_if_reserved(parent_trx);
 
 	trx = innobase_trx_allocate(thd);
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		innobase_commit_low(trx);
+		trx_free_for_mysql(trx);
+		DBUG_RETURN(HA_ERR_WRONG_COMMAND);
+	}
 
 	/* We are doing a DDL operation. */
 	++trx->will_lock;
@@ -13872,6 +13952,18 @@ innobase_xa_prepare(
 		return(0);
 	}
 
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+
+		if (prepare_trx
+		    || (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT
+					  | OPTION_BEGIN))) {
+
+			thd_reset_diagnostics(thd);
+			return(HA_ERR_WRONG_COMMAND);
+		}
+		return(0);
+	}
+
 	thd_get_xid(thd, (MYSQL_XID*) &trx->xid);
 
 	/* Release a possible FIFO ticket and search latch. Since we will
@@ -13895,6 +13987,12 @@ innobase_xa_prepare(
 		this is an SQL statement end and autocommit is on */
 
 		ut_ad(trx_is_registered_for_2pc(trx));
+
+		if (UNIV_UNLIKELY(trx->fake_changes)) {
+			/* Caller does rollback on error */
+			thd_reset_diagnostics(thd); /* avoid debug assertion */
+			return HA_ERR_WRONG_COMMAND;
+		}
 
 		trx_prepare_for_mysql(trx);
 
@@ -16892,6 +16990,13 @@ static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
   "this is reached.",
   NULL, NULL, 256, 0, 1024, 0);
 
+static MYSQL_SYSVAR_BOOL(fake_changes_locks, srv_fake_changes_locks,
+  PLUGIN_VAR_NOCMDARG,
+  "If enabled transactions will get S locks rather than X locks "
+  "on rows. If disabled rows will not be locked and this might prevent "
+  "some lock wait timeouts.",
+  NULL, NULL, TRUE);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -17055,6 +17160,8 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
 #endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(aio_old_usecs),
   MYSQL_SYSVAR(aio_outstanding_requests),
+  MYSQL_SYSVAR(fake_changes),
+  MYSQL_SYSVAR(fake_changes_locks),
   MYSQL_SYSVAR(lra_size),
   MYSQL_SYSVAR(lra_n_node_recs_before_sleep),
   MYSQL_SYSVAR(lra_sleep),

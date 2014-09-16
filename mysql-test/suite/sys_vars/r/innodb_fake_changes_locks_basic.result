@@ -1,0 +1,17 @@
+SET @@GLOBAL.innodb_fake_changes_locks=1;
+SELECT @@global.innodb_fake_changes_locks;
+@@global.innodb_fake_changes_locks
+1
+SET @@GLOBAL.innodb_fake_changes_locks=0;
+SELECT @@global.innodb_fake_changes_locks;
+@@global.innodb_fake_changes_locks
+0
+SET @@GLOBAL.innodb_fake_changes_locks=default;
+SELECT @@global.innodb_fake_changes_locks;
+@@global.innodb_fake_changes_locks
+1
+SET @@GLOBAL.innodb_fake_changes_locks=2;
+ERROR 42000: Variable 'innodb_fake_changes_locks' can't be set to the value of '2'
+SELECT @@global.innodb_fake_changes_locks;
+@@global.innodb_fake_changes_locks
+1

@@ -1,0 +1,59 @@
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--connect (conn1,localhost,root,,)
+--connection default
+
+CREATE TABLE t1 (a INT primary key, b int, unique key (b)) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1,1);
+
+SET autocommit=1;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
+
+--echo # Confirm that duplicate key errors on REPLACE works
+
+--error ER_ERROR_DURING_COMMIT
+REPLACE INTO t1 VALUES (1,1);
+
+--error ER_ERROR_DURING_COMMIT
+REPLACE INTO t1 VALUES (1,2);
+
+--echo # Confirm that duplicate key errors are OK
+
+BEGIN;
+REPLACE INTO t1 VALUES (1,2);
+SELECT * from t1;
+REPLACE INTO t1 VALUES (1,1);
+SELECT * from t1;
+ROLLBACK;
+
+BEGIN;
+
+--error ER_DUP_ENTRY
+REPLACE INTO t1 VALUES (2,1);
+
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES (1,1);
+
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES (1,2);
+
+--error ER_DUP_ENTRY
+INSERT INTO t1 VALUES (2,1);
+
+ROLLBACK;
+
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (1,1) ON DUPLICATE KEY UPDATE b=b+10;
+
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (1,2) ON DUPLICATE KEY UPDATE b=b+10;
+
+--source include/stop_fake_changes.inc
+SELECT * from t1;
+
+DROP TABLE t1;

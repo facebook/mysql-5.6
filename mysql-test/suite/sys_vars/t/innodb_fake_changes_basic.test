@@ -1,0 +1,18 @@
+#
+# Basic test for innodb_fake_changes
+#
+
+-- source include/have_innodb.inc
+
+SET @@GLOBAL.innodb_fake_changes=1;
+SELECT @@global.innodb_fake_changes;
+
+SET @@GLOBAL.innodb_fake_changes=0;
+SELECT @@global.innodb_fake_changes;
+
+SET @@GLOBAL.innodb_fake_changes=default;
+SELECT @@global.innodb_fake_changes;
+
+-- error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_fake_changes=2;
+SELECT @@global.innodb_fake_changes;
