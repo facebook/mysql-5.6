@@ -355,6 +355,13 @@ UNIV_INTERN ulint	srv_lock_deadlocks	= 0;
 /** Number of row lock wait timeouts */
 UNIV_INTERN ulint	srv_lock_wait_timeouts	= 0;
 
+/** Count as "slow" file read, write and fsync requests that take this long */
+UNIV_INTERN ulint	srv_io_slow_usecs	= 0;
+
+/** Count as "old" file read and write requests that wait this long in bg arrays
+before getting scheduled */
+UNIV_INTERN ulint	srv_io_old_usecs	= 0;
+
 /** Maximum number of outstanding aio requests. We stop submitting batched
 aio read requests when the number of outstanding aio requests exceed this
 number. But the maximum is not strictly enforced. There could be a short period
@@ -1459,6 +1466,10 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_data_fsync_time = os_file_flush_time;
 
+	export_vars.innodb_data_fsync_slow = os_fsync_too_slow;
+
+	export_vars.innodb_data_fsync_max_time = os_fsync_max_time;
+
 	export_vars.innodb_data_read = srv_stats.data_read;
 
 	export_vars.innodb_data_reads = os_n_file_reads;
@@ -1475,6 +1486,12 @@ srv_export_innodb_status(void)
 	export_vars.innodb_data_async_read_svc_time =
 		os_async_read_perf.svc_time ;
 
+	export_vars.innodb_data_async_read_old_ios =
+		os_async_read_old_ios;
+
+	export_vars.innodb_data_async_read_slow_ios =
+		os_async_read_perf.slow_ios;
+
 	export_vars.innodb_data_sync_read_bytes = os_sync_read_perf.bytes;
 
 	export_vars.innodb_data_sync_read_requests =
@@ -1482,6 +1499,9 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_data_sync_read_svc_time =
 		os_sync_read_perf.svc_time;
+
+	export_vars.innodb_data_sync_read_slow_ios =
+		os_sync_read_perf.slow_ios;
 
 	export_vars.innodb_data_async_write_bytes = os_async_write_perf.bytes;
 
@@ -1491,6 +1511,12 @@ srv_export_innodb_status(void)
 	export_vars.innodb_data_async_write_svc_time =
 		os_async_write_perf.svc_time;
 
+	export_vars.innodb_data_async_write_old_ios =
+		os_async_write_old_ios;
+
+	export_vars.innodb_data_async_write_slow_ios =
+		os_async_write_perf.slow_ios;
+
 	export_vars.innodb_data_sync_write_bytes = os_sync_write_perf.bytes;
 
 	export_vars.innodb_data_sync_write_requests =
@@ -1499,11 +1525,16 @@ srv_export_innodb_status(void)
 	export_vars.innodb_data_sync_write_svc_time =
 		os_sync_write_perf.svc_time;
 
+	export_vars.innodb_data_sync_write_slow_ios =
+		os_sync_write_perf.slow_ios;
+
 	export_vars.innodb_data_log_write_bytes = os_log_write_perf.bytes;
 
 	export_vars.innodb_data_log_write_requests = os_log_write_perf.requests;
 
 	export_vars.innodb_data_log_write_svc_time = os_log_write_perf.svc_time;
+
+	export_vars.innodb_data_log_write_slow_ios = os_log_write_perf.slow_ios;
 
 	export_vars.innodb_data_double_write_bytes = os_double_write_perf.bytes;
 
@@ -1512,6 +1543,9 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_data_double_write_svc_time =
 		os_double_write_perf.svc_time;
+
+	export_vars.innodb_data_double_write_slow_ios=
+		os_double_write_perf.slow_ios;
 
 	export_vars.innodb_buffer_pool_flushed_lru = stat.n_flushed_lru;
 

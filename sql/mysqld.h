@@ -389,7 +389,7 @@ struct my_io_perf_struct {
   ulonglong svc_time_max;
   ulonglong wait_time; /*!< total time in the request array */
   ulonglong wait_time_max;
-  ulonglong old_ios; /*!< requests that take too long */
+  ulonglong slow_ios; /*!< requests that take too long */
 };
 typedef struct my_io_perf_struct my_io_perf_t;
 
@@ -401,7 +401,7 @@ struct my_io_perf_atomic_struct {
   atomic_stat<ulonglong> svc_time_max;
   atomic_stat<ulonglong> wait_time; /*!< total time in the request array */
   atomic_stat<ulonglong> wait_time_max;
-  atomic_stat<ulonglong> old_ios; /*!< requests that take too long */
+  atomic_stat<ulonglong> slow_ios; /*!< requests that take too long */
 };
 typedef struct my_io_perf_atomic_struct my_io_perf_atomic_t;
 
@@ -420,7 +420,7 @@ static inline void my_io_perf_atomic_init(my_io_perf_atomic_t* perf) {
   perf->svc_time_max.clear();
   perf->wait_time.clear();
   perf->wait_time_max.clear();
-  perf->old_ios.clear();
+  perf->slow_ios.clear();
 }
 
 /* Returns a - b in diff */
@@ -436,7 +436,7 @@ void my_io_perf_sum_atomic(
   ulonglong requests,
   ulonglong svc_time,
   ulonglong wait_time,
-  ulonglong old_ios);
+  ulonglong slow_ios);
 
 /* Accumulates io perf values using atomic operations */
 static inline void my_io_perf_sum_atomic_helper(
@@ -449,7 +449,7 @@ static inline void my_io_perf_sum_atomic_helper(
     perf->requests,
     perf->svc_time,
     perf->wait_time,
-    perf->old_ios);
+    perf->slow_ios);
 }
 
 /* Fetches table stats for a given table */
