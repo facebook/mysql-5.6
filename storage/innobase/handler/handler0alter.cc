@@ -5584,7 +5584,7 @@ ha_innobase::commit_inplace_alter_table(
 		log_buffer_flush_to_disk() returns. In the
 		logical sense the commit in the file-based
 		data structures happens here. */
-		trx_commit_low(trx, &mtr);
+		trx_commit_low(trx, &mtr, commit);
 
 		/* If server crashes here, the dictionary in
 		InnoDB and MySQL will differ.  The .ibd files

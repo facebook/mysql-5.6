@@ -119,9 +119,11 @@ trx_rollback_to_savepoint_low(
 	if (savept == NULL) {
 		trx_rollback_finish(trx);
 		MONITOR_INC(MONITOR_TRX_ROLLBACK);
+		srv_n_rollback_total++;
 	} else {
 		trx->lock.que_state = TRX_QUE_RUNNING;
 		MONITOR_INC(MONITOR_TRX_ROLLBACK_SAVEPOINT);
+		srv_n_rollback_partial++;
 	}
 
 	ut_a(trx->error_state == DB_SUCCESS);
@@ -1317,7 +1319,7 @@ trx_rollback_finish(
 {
 	ut_a(trx->undo_no_arr == NULL || trx->undo_no_arr->n_used == 0);
 
-	trx_commit(trx);
+	trx_commit(trx, FALSE);
 
 	trx->lock.que_state = TRX_QUE_RUNNING;
 }

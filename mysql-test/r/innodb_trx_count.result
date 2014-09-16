@@ -1,0 +1,44 @@
+drop table if exists t1;
+create table t1(i int primary key) engine=innodb;
+insert into t1 values (1);
+"Confirm Innodb_transaction_rollback_{partial,total} are incremented"
+begin;
+select * from t1 for update;
+i
+1
+begin;
+update t1 set i=2 where i=1;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+rollback;
+commit_all_diff
+0
+commit_undo_diff
+0
+rollback_total_diff
+1
+rollback_partial_diff
+1
+"Confirm Innodb_transaction_commit_{all,with_undo} are incremented"
+rollback;
+update t1 set i=2 where i=1;
+commit_all_diff
+1
+commit_undo_diff
+1
+rollback_total_diff
+0
+rollback_partial_diff
+0
+"Confirm readonly transactions increment Innodb_transaction_commit_all"
+select * from t1;
+i
+2
+commit_all_diff
+1
+commit_undo_diff
+0
+rollback_total_diff
+0
+rollback_partial_diff
+0
+drop table t1;
