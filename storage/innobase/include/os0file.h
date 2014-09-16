@@ -61,10 +61,6 @@ extern ulint	os_n_pending_reads;
 /** Number of pending write operations */
 extern ulint	os_n_pending_writes;
 
-/** AIO requests are scheduled in file offset order until they are at least
-   this old and then they are scheduled oldest first. */
-extern ulong	os_aio_old_usecs;
-
 /** Number of outstanding aio requests */
 extern volatile ulint	os_aio_n_outstanding;
 #ifdef UNIV_DEBUG
@@ -223,6 +219,17 @@ extern ulint	os_n_fsyncs;
 /** Seconds waiting for file flushes to finish */
 extern ulonglong	os_file_flush_time;
 
+/** Number of times InnoDB fsync took more than srv_io_slow_usecs */
+extern ulint	os_fsync_too_slow;
+
+/** Max time for InnoDB fsync */
+extern ulonglong	os_fsync_max_time;
+
+/** Number of async reads that waited longer than srv_io_old_usecs */
+extern ulint	os_async_read_old_ios;
+
+/** Number of async writes that waited longer than srv_io_old_usecs */
+extern ulint	os_async_write_old_ios;
 
 #ifdef UNIV_PFS_IO
 /* Keys to register InnoDB I/O with performance schema */
