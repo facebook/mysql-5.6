@@ -837,12 +837,12 @@ static ST_FIELD_INFO i_s_file_status_fields_info[]=
 	 STRUCT_FLD(old_name,		"Requests"),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-	{STRUCT_FLD(field_name,		"OLD"),
+	{STRUCT_FLD(field_name,		"SLOW"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
 	 STRUCT_FLD(value,		0),
 	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
-	 STRUCT_FLD(old_name,		"Old"),
+	 STRUCT_FLD(old_name,		"Slow"),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
 	{STRUCT_FLD(field_name,		"BYTES"),
@@ -936,7 +936,7 @@ i_s_file_status_fill_low(
 	OK(field_store_string(table->field[0], file_name));
 	OK(field_store_string(table->field[1], operation));
 	OK(table->field[2]->store(io_perf->requests));
-	OK(table->field[3]->store(io_perf->old_ios));
+	OK(table->field[3]->store(io_perf->slow_ios));
 	OK(table->field[4]->store(io_perf->bytes));
 	OK(table->field[5]->store((double) io_perf->bytes / nzero_requests));
 	OK(table->field[6]->store(my_timer_to_seconds(io_perf->svc_time)));
