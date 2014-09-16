@@ -131,4 +131,19 @@ speedo_show(
 
 #endif /* !UNIV_INNOCHECKSUM */
 
+/**********************************************************************//**
+Dump a block of memory on the standard error stream, "hexdump -C"-style. */
+UNIV_INTERN
+void
+ut_hexdump_func(
+/*==================*/
+	const char*	name,	/*!< in: name of the data structure */
+	const void*	buf,	/*!< in: data */
+	ulint		size);	/*!< in: length of the data, in bytes */
+
+/** Dump a block of memory on the standard error stream, "hexdump -C"-style.
+@param buf	in: data
+@param size	in: length of the data, in bytes */
+#define ut_hexdump(buf, size) ut_hexdump_func(#buf, buf, size)
+
 #endif
