@@ -2140,6 +2140,12 @@ IO_READ_SLOW_IOS_SECONDARY	bigint(21)	NO		0
 IO_INDEX_INSERTS	bigint(21)	NO		0	
 QUERIES_USED	bigint(21)	NO		0	
 QUERIES_EMPTY	bigint(21)	NO		0	
+INNODB_PAGES_READ	int(11)	NO		0	
+INNODB_PAGES_READ_INDEX	int(11)	NO		0	
+INNODB_PAGES_READ_BLOB	int(11)	NO		0	
+INNODB_PAGES_WRITTEN	int(11)	NO		0	
+INNODB_PAGES_WRITTEN_INDEX	int(11)	NO		0	
+INNODB_PAGES_WRITTEN_BLOB	int(11)	NO		0	
 select * from information_schema.table_statistics where TABLE_NAME = "does not exist";
 describe information_schema.user_statistics;
 Field	Type	Null	Key	Default	Extra
