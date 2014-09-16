@@ -1,0 +1,1 @@
+--skip-core-file --innodb_sync_checkpoint_limit=95
