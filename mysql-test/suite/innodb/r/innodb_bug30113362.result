@@ -37,7 +37,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 SELECT CLUST_INDEX_SIZE FROM information_schema.INNODB_TABLESTATS WHERE NAME = 'test/t1';
 CLUST_INDEX_SIZE
-1856
+1792
 SET GLOBAL innodb_limit_optimistic_insert_debug = 0;
 DELETE FROM t1 WHERE a00 = 'cnm';
 # Test start
@@ -59,7 +59,7 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 SELECT CLUST_INDEX_SIZE FROM information_schema.INNODB_TABLESTATS WHERE NAME = 'test/t1';
 CLUST_INDEX_SIZE
-1856
+1792
 SET DEBUG_SYNC = 'RESET';
 DELETE FROM t1 WHERE a00 = 'dpn';
 ALTER TABLE t1 COMMENT='MERGE_THRESHOLD=35';
@@ -91,6 +91,6 @@ Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 SELECT CLUST_INDEX_SIZE FROM information_schema.INNODB_TABLESTATS WHERE NAME = 'test/t1';
 CLUST_INDEX_SIZE
-1856
+1792
 SET DEBUG_SYNC = 'RESET';
 DROP TABLE t1;

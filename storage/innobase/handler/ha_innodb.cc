@@ -21716,6 +21716,15 @@ static MYSQL_SYSVAR_BOOL(
     "if supported",
     nullptr, nullptr, FALSE);
 
+static MYSQL_SYSVAR_DOUBLE(
+    segment_reserve_factor, fseg_reserve_factor, PLUGIN_VAR_OPCMDARG,
+    "If this value is x, then if the number of unused but reserved"
+    " pages in a segment is less than reserved pages * x, and there are"
+    " at least FSEG_FRAG_LIMIT used pages, then we allow a new empty extent to"
+    " be added to the segment in fseg_alloc_free_page. Otherwise, we"
+    " use unused pages of the segment.",
+    NULL, NULL, 0.01, 0.0003, 0.4, 0);
+
 /* If the default value of innodb_buffer_pool_size is increased to be more than
 BUF_POOL_SIZE_THRESHOLD (srv/srv0start.cc), then srv_buf_pool_instances_default
 can be removed and 8 used instead. The problem with the current setup is that
@@ -22883,6 +22892,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(lra_debug),
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
+    MYSQL_SYSVAR(segment_reserve_factor),
     MYSQL_SYSVAR(aio_outstanding_requests),
     MYSQL_SYSVAR(lra_size),
     MYSQL_SYSVAR(lra_pages_before_sleep),

@@ -51,6 +51,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "buf0buf.h"
 #endif /* UNIV_HOTBACKUP */
 
+extern double fseg_reserve_factor;
+
 class DDL_Record;
 extern std::vector<DDL_Record *> ts_encrypt_ddl_records;
 extern mysql_cond_t resume_encryption_cond;
@@ -242,17 +244,6 @@ the fragment pages */
 single page */
 
 #define FSEG_MAGIC_N_VALUE 97937874
-
-#define FSEG_FILLFACTOR                  \
-  8 /* If this value is x, then if       \
-    the number of unused but reserved    \
-    pages in a segment is less than      \
-    reserved pages * 1/x, and there are  \
-    at least FSEG_FRAG_LIMIT used pages, \
-    then we allow a new empty extent to  \
-    be added to the segment in           \
-    fseg_alloc_free_page. Otherwise, we  \
-    use unused pages of the segment. */
 
 #define FSEG_FRAG_LIMIT FSEG_FRAG_ARR_N_SLOTS
 /* If the segment has >= this many
