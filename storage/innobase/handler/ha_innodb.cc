@@ -16818,6 +16818,15 @@ static MYSQL_SYSVAR_BOOL(log_compressed_pages, page_zip_log_pages,
   " not deterministic.",
   NULL, innodb_log_compressed_pages_update, FALSE);
 
+static MYSQL_SYSVAR_DOUBLE(segment_reserve_factor, fseg_reserve_factor,
+  PLUGIN_VAR_OPCMDARG,
+  "If this value is x, then if the number of unused but reserved"
+  " pages in a segment is less than reserved pages * x, and there are"
+  " at least FSEG_FRAG_LIMIT used pages, then we allow a new empty extent to"
+  " be added to the segment in fseg_alloc_free_page. Otherwise, we"
+  " use unused pages of the segment.",
+  NULL, NULL, 0.01, 0.0003, 0.4, 0);
+
 static MYSQL_SYSVAR_LONG(additional_mem_pool_size, innobase_additional_mem_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DEPRECATED. This option may be removed in future releases, "
@@ -17587,6 +17596,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(lra_pages_before_sleep),
   MYSQL_SYSVAR(lra_sleep),
   MYSQL_SYSVAR(lra_n_spaces),
+  MYSQL_SYSVAR(segment_reserve_factor),
   MYSQL_SYSVAR(zlib_wrap),
   MYSQL_SYSVAR(zlib_strategy),
   MYSQL_SYSVAR(lru_manager_max_sleep_time),
