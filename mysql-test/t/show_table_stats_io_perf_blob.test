@@ -25,9 +25,9 @@ select * from t1 where a=1;
 
 --replace_result $innodb_page_size PAGE_SIZE
 eval select 'should be 3,3,0,1,1,0',
-IO_READ_BYTES DIV $innodb_page_size, IO_READ_REQUESTS, IO_READ_OLD_IOS,
+IO_READ_BYTES DIV $innodb_page_size, IO_READ_REQUESTS, IO_READ_SLOW_IOS,
 IO_READ_BYTES_BLOB DIV $innodb_page_size, IO_READ_REQUESTS_BLOB,
-IO_READ_OLD_IOS_BLOB
+IO_READ_SLOW_IOS_BLOB
 from information_schema.table_statistics where table_name like 't1%';
 
 drop table t1;
