@@ -80,6 +80,8 @@ class ha_innobase: public handler
 					ROW_SEL_EXACT, ROW_SEL_EXACT_PREFIX,
 					or undefined */
 	uint		num_write_row;	/*!< number of write_row() calls */
+	ha_statistics*	ha_partition_stats; /*!< stats of the partition owner
+					handler (if there is one) */
 
 	uint store_key_val_for_row(uint keynr, char* buff, uint buff_len,
                                    const uchar* record);
@@ -94,6 +96,12 @@ class ha_innobase: public handler
 	dberr_t innobase_get_autoinc(ulonglong* value);
 	void innobase_initialize_autoinc();
 	dict_index_t* innobase_get_index(uint keynr);
+
+	inline void init_trx_table_stats(trx_t* trx, bool write);
+	inline void update_stats_from_trx(trx_t* trx, bool write);
+
+	inline void innobase_srv_conc_enter_innodb(trx_t* trx, bool write);
+	inline void innobase_srv_conc_exit_innodb(trx_t* trx, bool write);
 
 	/* Init values for the class: */
  public:
@@ -285,6 +293,7 @@ class ha_innobase: public handler
 	/** @} */
 	bool check_if_incompatible_data(HA_CREATE_INFO *info,
 					uint table_changes);
+	void set_partition_owner_stats(ha_statistics *stats);
 private:
 	/** Builds a 'template' to the prebuilt struct.
 
