@@ -828,6 +828,7 @@ struct trx_t{
 					FALSE, one can save CPU time and about
 					150 bytes in the undo log size as then
 					we skip XA steps */
+	ulint		fake_changes;
 	ulint		lra_size;	/* Total size (in MBs) of the
 					pages that will be prefetched by
 					logical read ahead. */
