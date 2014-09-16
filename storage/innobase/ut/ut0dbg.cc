@@ -137,3 +137,72 @@ speedo_show(
 }
 
 #endif /* UNIV_COMPILE_TEST_FUNCS */
+
+/**********************************************************************//**
+Dump a block of memory on the standard error stream, "hexdump -C"-style. */
+UNIV_INTERN
+void
+ut_hexdump_func(
+/*==================*/
+	const char*	name,	/*!< in: name of the data structure */
+	const void*	buf,	/*!< in: data */
+	ulint		size)	/*!< in: length of the data, in bytes */
+{
+	const byte*	s	= static_cast<const byte*>(buf);
+	ulint		addr;
+	const ulint	width	= 16; /* bytes per line */
+
+	fprintf(stderr, "%s:\n", name);
+
+	for (addr = 0; addr < size; addr += width) {
+		// line prefix: relative address of first byte displayed in line
+		fprintf(stderr, "%08lx ", (ulong) addr);
+
+		ulong const line_bytes = ut_min(width, size - addr);
+
+		// output hex-encoded bytes
+		for (ulong x = 0; x < line_bytes; ++x)
+		{
+			if (x % 8 == 0)
+			{
+				putc(' ', stderr);
+			}
+
+			fprintf(stderr, " %02x", (byte) s[x]);
+		}
+
+		// get the formatting right: add padding spaces in last line
+		for (ulong x = line_bytes; x < width; ++x)
+		{
+			if (x % 8 == 0)
+			{
+				fputs("    ", stderr);
+			} else {
+				fputs("   ", stderr);
+			}
+		}
+
+		// print out the data itself, but replace all characters that
+		// are not printable characters with '.'
+		fputs("  |", stderr);
+
+		for (ulong x = 0; x < line_bytes; ++x)
+		{
+			char const c = s[x];
+			if (c >= 0x20 && c < 0x7f)
+			{
+				// 7 bit ASCII printable character
+				putc(c, stderr);
+			} else {
+				putc('.', stderr);
+			}
+		}
+
+		fputs("|\n", stderr);
+
+		s += line_bytes;
+	}
+
+	// print out relative address of the end of the hexdumped data
+	fprintf(stderr, "%08lx\n", (ulong) size);
+}
