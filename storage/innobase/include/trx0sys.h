@@ -605,6 +605,9 @@ struct trx_sys_t{
 	ib_mutex_t		mutex;		/*!< mutex protecting most fields in
 					this structure except when noted
 					otherwise */
+	ib_mutex_t	trx_memory_mutex;	/*< Mutex protecting the trx
+					memory creation */
+
 	ulint		n_prepared_trx;	/*!< Number of transactions currently
 					in the XA PREPARED state */
 	ulint		n_prepared_recovered_trx; /*!< Number of transactions
