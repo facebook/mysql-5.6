@@ -490,6 +490,13 @@ i/o handler thread */
 extern const char* srv_io_thread_op_info[];
 extern const char* srv_io_thread_function[];
 
+/** Count as "slow" file read, write and fsync requests that take this long */
+extern ulint	srv_io_slow_usecs;
+
+/** Count as "old" file read and write requests that wait this long in bg arrays
+before getting scheduled */
+extern ulint	srv_io_old_usecs;
+
 /** Maximum number of outstanding aio requests from batched aio read submission.
 We stop submitting batched aio read requests when the number of outstanding aio
 requests exceed this number. But the maximum is not strictly enforced. There
@@ -904,6 +911,8 @@ struct export_var_t{
 	ulint innodb_data_pending_fsyncs;	/*!< Pending fsyncs */
 	ulint innodb_data_fsyncs;		/*!< Number of fsyncs so far */
 	ulonglong innodb_data_fsync_time;	/*!< Time performing fsync */
+	ulint innodb_data_fsync_slow;		/*!< Number of slow fsyncs */
+	ulonglong innodb_data_fsync_max_time;	/*!< Max duration */
 	ulint innodb_data_read;			/*!< Data bytes read */
 	ulint innodb_data_writes;		/*!< I/O write requests */
 	ulint innodb_data_written;		/*!< Data bytes written */
@@ -911,21 +920,29 @@ struct export_var_t{
 	ulint innodb_data_async_read_bytes;	/*!< #bytes for async reads */
 	ulint innodb_data_async_read_requests;	/*!< #requests for async reads */
 	ulonglong innodb_data_async_read_svc_time;/*!< service time for async reads */
+	ulint innodb_data_async_read_slow_ios;	/*!< # with slow svc time */
+	ulint innodb_data_async_read_old_ios;	/*!< # with slow wait time */
 	ulint innodb_data_sync_read_bytes;	/*!< #bytes for sync reads */
 	ulint innodb_data_sync_read_requests;	/*!< #requests for sync reads */
 	ulonglong innodb_data_sync_read_svc_time;/*!< service time for sync reads */
+	ulint innodb_data_sync_read_slow_ios;	/*!< # with slow svc time */
 	ulint innodb_data_async_write_bytes;	/*!< #bytes for async writes */
 	ulint innodb_data_async_write_requests;	/*!< #requests for async writes */
 	ulonglong innodb_data_async_write_svc_time;/*!< service time for async writes */
+	ulint innodb_data_async_write_slow_ios;	/*!< # with slow svc time */
+	ulint innodb_data_async_write_old_ios;	/*!< # with slow wait time */
 	ulint innodb_data_sync_write_bytes;	/*!< #bytes for sync writes */
 	ulint innodb_data_sync_write_requests;	/*!< #requests for sync writes */
 	ulonglong innodb_data_sync_write_svc_time;/*!< service time for sync writes */
+	ulint innodb_data_sync_write_slow_ios;	/*!< # with slow svc time */
 	ulint innodb_data_log_write_bytes;	/*!< #bytes for log writes */
 	ulint innodb_data_log_write_requests;	/*!< #requests for log writes */
 	ulonglong innodb_data_log_write_svc_time;/*!< service time for log writes */
+	ulint innodb_data_log_write_slow_ios;	/*!< # with slow svc time */
 	ulint innodb_data_double_write_bytes;	/*!< #bytes for double writes */
 	ulint innodb_data_double_write_requests;/*!< #requests for double writes */
 	ulonglong innodb_data_double_write_svc_time;/*!< service time for double writes */
+	ulint innodb_data_double_write_slow_ios;/*!< # with slow svc time */
 	char  innodb_buffer_pool_dump_status[512];/*!< Buf pool dump status */
 	char  innodb_buffer_pool_load_status[512];/*!< Buf pool load status */
 	ulint innodb_buffer_pool_flushed_lru;	/*!< #pages flushed from LRU */
