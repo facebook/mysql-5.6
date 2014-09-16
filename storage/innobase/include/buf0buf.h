@@ -96,6 +96,8 @@ extern buf_block_t*	back_block1;	/*!< first block, for --apply-log */
 extern buf_block_t*	back_block2;	/*!< second block, for page reorganize */
 #endif /* !UNIV_HOTBACKUP */
 
+extern ulint buf_malloc_cache_len;
+
 /** @brief States of a control block
 @see buf_page_t
 
@@ -292,8 +294,10 @@ Allocates a buf_page_t descriptor. This function must succeed. In case
 of failure we assert in this function. */
 UNIV_INLINE
 buf_page_t*
-buf_page_alloc_descriptor(void)
+buf_page_alloc_descriptor(
 /*===========================*/
+	buf_pool_t*	buf_pool,
+	ibool		buf_pool_mutex_owned)
 	__attribute__((malloc));
 /********************************************************************//**
 Free a buf_page_t descriptor. */
@@ -301,7 +305,9 @@ UNIV_INLINE
 void
 buf_page_free_descriptor(
 /*=====================*/
-	buf_page_t*	bpage)	/*!< in: bpage descriptor to free. */
+	buf_page_t*	bpage,	/*!< in: bpage descriptor to free. */
+	buf_pool_t*	buf_pool,
+	ibool		buf_pool_mutex_owned)
 	__attribute__((nonnull));
 
 /********************************************************************//**
@@ -1596,6 +1602,9 @@ struct buf_page_t{
 
 	UT_LIST_NODE_T(buf_page_t) LRU;
 					/*!< node of the LRU list */
+	UT_LIST_NODE_T(buf_page_t) malloc_cache;
+					/*!< node of the linked list to cache
+					memory allocations */
 #ifdef UNIV_DEBUG
 	ibool		in_LRU_list;	/*!< TRUE if the page is in
 					the LRU list; used in
@@ -2104,6 +2113,11 @@ struct buf_pool_t{
 	UT_LIST_BASE_NODE_T(buf_page_t) flush_list;
 					/*!< base node of the modified block
 					list */
+	UT_LIST_BASE_NODE_T(buf_page_t) buf_malloc_cache;
+					/*!< base of buf_malloc_cache list */
+	ulint		n_buf_malloc_cache;
+					/*number of entries in
+					buf_malloc_cache allowed.*/
 	ibool		init_flush[BUF_FLUSH_N_TYPES];
 					/*!< this is TRUE when a flush of the
 					given type is being initialized */
