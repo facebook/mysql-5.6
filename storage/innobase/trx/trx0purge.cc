@@ -1271,7 +1271,7 @@ run_synchronously:
 
 	MONITOR_INC_VALUE(MONITOR_PURGE_INVOKED, 1);
 	MONITOR_INC_VALUE(MONITOR_PURGE_N_PAGE_HANDLED, n_pages_handled);
-
+	srv_purged_pages += n_pages_handled;
 	return(n_pages_handled);
 }
 
