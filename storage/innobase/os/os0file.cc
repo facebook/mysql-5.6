@@ -406,6 +406,45 @@ os_io_perf_update_all(
 	os_io_perf_update_wait(perf, stop_time, req_time);
 }
 
+/**********************************************************************//**
+Update per page type stats. */
+UNIV_INLINE
+void
+os_io_perf_update_page_stats(
+/*======================*/
+	ulint		io_type,
+	ulint		fil_type,
+	os_io_perf2_t*	io_perf2)
+{
+	if(io_type == OS_FILE_READ) {
+		io_perf2->page_stats.n_pages_read++;
+		switch (fil_type) {
+			case FIL_PAGE_INDEX:
+				io_perf2->page_stats.n_pages_read_index++;
+				break;
+			case FIL_PAGE_TYPE_BLOB:
+			case FIL_PAGE_TYPE_ZBLOB:
+			case FIL_PAGE_TYPE_ZBLOB2:
+				io_perf2->page_stats.n_pages_read_blob++;
+				break;
+		}
+	}
+	else if(io_type == OS_FILE_WRITE) {
+		io_perf2->page_stats.n_pages_written++;
+		switch (fil_type) {
+			case FIL_PAGE_INDEX:
+				io_perf2->page_stats.n_pages_written_index++;
+				break;
+			case FIL_PAGE_TYPE_BLOB:
+			case FIL_PAGE_TYPE_ZBLOB:
+			case FIL_PAGE_TYPE_ZBLOB2:
+				io_perf2->page_stats.n_pages_written_blob++;
+				break;
+		}
+	}
+}
+
+
 #ifdef UNIV_DEBUG
 # ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
@@ -4894,7 +4933,8 @@ os_aio_func(
 					elapsed_time, end_time, start_time);
 			}
 			/* Handle type spacific page IO stats */
-			ulint page_type= fil_page_get_type((const unsigned char *)buf);
+			ulint page_type = fil_page_get_type((const unsigned char *)buf);
+			os_io_perf_update_page_stats(type, page_type, io_perf2);
 			my_io_perf_t* space_index_io_perf= NULL;
 			my_io_perf_t* table_index_io_perf= NULL;
 			if (primary_index_id && FIL_PAGE_INDEX == page_type)
@@ -5414,6 +5454,7 @@ os_aio_linux_handle(
 	ulint		n;
 	ulint		i;
 	ibool		ret = FALSE;
+	ulonglong now = 0;
 
 	/* Should never be doing Sync IO here. */
 	ut_a(global_seg != ULINT_UNDEFINED);
@@ -5433,6 +5474,7 @@ os_aio_linux_handle(
 				continue;
 			} else if (slot->io_already_done) {
 				/* Something for us to work on. */
+				now = my_timer_now();
 				goto found;
 			} else {
 				any_reserved = TRUE;
@@ -5474,6 +5516,7 @@ found:
 	ut_ad(slot != NULL);
 	ut_ad(slot->reserved);
 	ut_ad(slot->io_already_done);
+	ut_ad(now);
 
 	*message1 = slot->message1;
 	*message2 = slot->message2;
@@ -5499,6 +5542,27 @@ found:
 	}
 
 	os_mutex_exit(array->mutex);
+
+	/* Update stats for this request. */
+	os_io_perf_update_all(&os_aio_perf[global_seg], slot->n_bytes, 0, now,
+			       slot->reservation_time);
+	/* Update async stats. */
+	os_io_perf_update_all(slot->type == OS_FILE_WRITE
+			      ? &os_async_write_perf
+			      : &os_async_read_perf,
+			      slot->n_bytes,
+			      0, /*native aio svc_time not known*/
+			      now, slot->reservation_time);
+	/* Per fil_space_t counters */
+	os_io_perf_update_all(slot->type == OS_FILE_WRITE
+			      ? &(slot->io_perf2->write)
+			      : &(slot->io_perf2->read),
+			      slot->n_bytes,
+			      0, /*native aio svc_time not known*/
+			      now, slot->reservation_time);
+	/* Per page type counters */
+	os_io_perf_update_page_stats(slot->type, fil_page_get_type(slot->buf),
+				     slot->io_perf2);
 
 	/* Update outstanding requets count */
 #if defined(HAVE_ATOMIC_BUILTINS) && UNIV_WORD_SIZE == 8
@@ -5869,6 +5933,11 @@ slot_io_done:
 	*message2 = aio_slot->message2;
 
 	*type = aio_slot->type;
+	if(aio_slot->type == OS_FILE_READ || aio_slot->type == OS_FILE_WRITE) {
+		os_io_perf_update_page_stats(aio_slot->type,
+					     fil_page_get_type(aio_slot->buf),
+					     aio_slot->io_perf2);
+	}
 
 	os_mutex_exit(array->mutex);
 
