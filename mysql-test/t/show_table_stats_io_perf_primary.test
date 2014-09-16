@@ -29,8 +29,8 @@ select * from t1 where a=1;
 --replace_result $innodb_page_size PAGE_SIZE
 eval select
 IO_READ_BYTES_PRIMARY DIV $innodb_page_size,
-IO_READ_REQUESTS_PRIMARY, IO_READ_OLD_IOS_PRIMARY,
-IO_READ_BYTES_SECONDARY, IO_READ_REQUESTS_SECONDARY, IO_READ_OLD_IOS_SECONDARY
+IO_READ_REQUESTS_PRIMARY, IO_READ_SLOW_IOS_PRIMARY,
+IO_READ_BYTES_SECONDARY, IO_READ_REQUESTS_SECONDARY, IO_READ_SLOW_IOS_SECONDARY
 from information_schema.table_statistics where table_name like 't1%';
 
 --replace_result $innodb_page_size PAGE_SIZE
@@ -85,6 +85,6 @@ drop procedure select_rows;
 
 --echo # The primary key and secondary index IO stats should all be zeros
 select
-IO_READ_BYTES_PRIMARY, IO_READ_REQUESTS_PRIMARY, IO_READ_OLD_IOS_PRIMARY,
-IO_READ_BYTES_SECONDARY, IO_READ_REQUESTS_SECONDARY, IO_READ_OLD_IOS_SECONDARY
+IO_READ_BYTES_PRIMARY, IO_READ_REQUESTS_PRIMARY, IO_READ_SLOW_IOS_PRIMARY,
+IO_READ_BYTES_SECONDARY, IO_READ_REQUESTS_SECONDARY, IO_READ_SLOW_IOS_SECONDARY
 from information_schema.table_statistics where table_name like 'system%';
