@@ -495,6 +495,11 @@ UNIV_INTERN FILE*	srv_misc_tmpfile;
 UNIV_INTERN ulint	srv_main_thread_process_no	= 0;
 UNIV_INTERN ulint	srv_main_thread_id		= 0;
 
+/** See the sync_checkpoint_limit user variable declaration in ha_innodb.cc */
+UNIV_INTERN ulint	srv_sync_checkpoint_limit	= 0;
+/** Number of pages processed by trx_purge */
+UNIV_INTERN ulint	srv_purged_pages	= 0;
+
 /* The following counts are used by the srv_master_thread. */
 
 /** Iterations of the loop bounded by 'srv_active' label. */
@@ -1428,6 +1433,10 @@ srv_export_innodb_status(void)
 	ulint			old_LRU_len;
 	ulint			free_len;
 	ulint			flush_list_len;
+	ib_uint64_t lsn_oldest = buf_pool_get_oldest_modification();
+	ib_uint64_t lsn_current = log_sys->lsn;
+	ib_uint64_t lsn_gap = lsn_current - lsn_oldest;
+	ib_uint64_t lsn_checkpoint = log_sys->last_checkpoint_lsn;
 
 	buf_get_total_stat(&stat);
 	buf_get_total_list_len(
@@ -1672,6 +1681,7 @@ srv_export_innodb_status(void)
 	export_vars.innodb_pages_written_blob = stat.n_pages_written_blob;
 
 	export_vars.innodb_purge_pending = trx_sys->rseg_history_len;
+	export_vars.innodb_purged_pages= srv_purged_pages;
 
 	export_vars.innodb_row_lock_waits = srv_stats.n_lock_wait_count;
 
@@ -1771,6 +1781,27 @@ srv_export_innodb_status(void)
 		srv_sec_rec_cluster_reads.load();
 	export_vars.innodb_sec_rec_cluster_reads_avoided =
 		srv_sec_rec_cluster_reads_avoided.load();
+
+	export_vars.innodb_preflush_async_limit = log_sys->max_modified_age_async;
+	export_vars.innodb_preflush_sync_limit = log_sys->max_modified_age_sync;
+	if (!lsn_oldest) {
+		export_vars.innodb_preflush_async_margin =
+			log_sys->max_modified_age_async;
+		export_vars.innodb_preflush_sync_margin =
+			log_sys->max_modified_age_sync;
+	} else {
+		export_vars.innodb_preflush_async_margin =
+			(log_sys->max_modified_age_async >= lsn_gap) ?
+			(log_sys->max_modified_age_async - lsn_gap) : 0;
+		export_vars.innodb_preflush_sync_margin =
+			(log_sys->max_modified_age_sync >= lsn_gap) ?
+			(log_sys->max_modified_age_sync - lsn_gap) : 0;
+	}
+	export_vars.innodb_checkpoint_lsn = lsn_checkpoint;
+	export_vars.innodb_checkpoint_diff = lsn_current - lsn_checkpoint;
+	export_vars.innodb_lsn_current = lsn_current;
+	export_vars.innodb_lsn_oldest = lsn_oldest;
+	export_vars.innodb_lsn_diff = lsn_gap;
 
 	export_vars.innodb_buffered_aio_submitted =
 		srv_stats.n_aio_submitted;

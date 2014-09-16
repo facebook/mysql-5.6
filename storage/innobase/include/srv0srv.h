@@ -577,6 +577,12 @@ do {								\
 
 #endif /* !UNIV_HOTBACKUP */
 
+/** See the sync_checkpoint_limit user variable declaration in ha_innodb.cc */
+extern ulong srv_sync_checkpoint_limit;
+
+/** Number of pages processed by trx_purge */
+extern ulint srv_purged_pages;
+
 /** Types of raw partitions in innodb_data_file_path */
 enum {
 	SRV_NOT_RAW = 0,	/*!< Not a raw partition */
@@ -891,6 +897,8 @@ srv_purge_wakeup(void);
 
 /** Status variables to be passed to MySQL */
 struct export_var_t{
+	ib_int64_t innodb_checkpoint_lsn;	/*!< last_checkpoint_lsn */
+	ib_int64_t innodb_checkpoint_diff;	/*!< lsn - last_checkpoint_lsn */
 	ulint innodb_data_pending_reads;	/*!< Pending reads */
 	ulint innodb_data_pending_writes;	/*!< Pending writes */
 	ulint innodb_data_pending_fsyncs;	/*!< Pending fsyncs */
@@ -1051,6 +1059,15 @@ struct export_var_t{
 	ulint innodb_log_sync_commit_sync;
 	ulint innodb_log_sync_flush_dirty;
 	ulint innodb_log_sync_other;
+
+	ib_int64_t innodb_lsn_current;		/*!< log_sys->lsn */
+	ib_int64_t innodb_lsn_diff;		/*!< lsn_current - lsn_oldest */
+	ib_int64_t innodb_lsn_oldest;		/*!< log_buf_pool_get_oldest_modification */
+	ulint innodb_preflush_async_limit;	/*!< max_modified_age_async */
+	ulint innodb_preflush_sync_limit;	/*!< max_modified_age_sync */
+	ulint innodb_preflush_async_margin;	/*!< age - max_modified_age_async */
+	ulint innodb_preflush_sync_margin;	/*!< age - max_modified_age_sync */
+	ulint innodb_purged_pages;		/*!< srv_purged_pages */
 
 	ulint innodb_trx_n_commit_all;		/*!< srv_n_commit_with_undo */
 	ulint innodb_trx_n_commit_with_undo;	/*!< srv_n_commit_with_undo */
