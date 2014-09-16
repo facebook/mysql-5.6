@@ -273,6 +273,14 @@ row_ins_sec_index_entry_by_modify(
 		returns. After that point, the TEMP_INDEX_PREFIX
 		would be dropped from the index name in
 		commit_inplace_alter_table(). */
+    /* Another exception here is when sql thread updates the delete
+    marked node and unmarks it before the faker thread got here.
+    This can happen with multi threaded slave and when faker thread
+    tries to update the same secondary index node as that of sql slave
+    worker. */
+    trx_t* trx=thr_get_trx(thr);
+    if (UNIV_UNLIKELY(trx->fake_changes))
+      return(DB_SUCCESS);
 		ut_a(update->n_fields == 0);
 		ut_a(*cursor->index->name == TEMP_INDEX_PREFIX);
 		ut_ad(!dict_index_is_online_ddl(cursor->index));
@@ -1737,6 +1745,9 @@ exit_func:
 	if (UNIV_LIKELY_NULL(heap)) {
 		mem_heap_free(heap);
 	}
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		err = DB_SUCCESS;
+	}
 	return(err);
 }
 
@@ -2315,6 +2326,7 @@ row_ins_clust_index_entry_low(
 	big_rec_t*	big_rec		= NULL;
 	mtr_t		mtr;
 	mem_heap_t*	offsets_heap	= NULL;
+	ulint		use_mode;
 
 	ut_ad(dict_index_is_clust(index));
 	ut_ad(!dict_index_is_unique(index)
@@ -2323,9 +2335,16 @@ row_ins_clust_index_entry_low(
 
 	mtr_start_trx(&mtr, thr_get_trx(thr));
 
-	if (mode == BTR_MODIFY_LEAF && dict_index_is_online_ddl(index)) {
-		mode = BTR_MODIFY_LEAF | BTR_ALREADY_S_LATCHED;
+	/* Note: built-in online schema changes may not work when
+	fake_changes is TRUE. It should be tested what to do
+	(e.g. acquire lock or not) before using them together*/
+	if (UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
+		use_mode = (mode & BTR_MODIFY_TREE) ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
+	} else if (mode == BTR_MODIFY_LEAF && dict_index_is_online_ddl(index)) {
+		use_mode = mode = BTR_MODIFY_LEAF | BTR_ALREADY_S_LATCHED;
 		mtr_s_lock(dict_index_get_lock(index), &mtr);
+	} else {
+		use_mode = mode;
 	}
 
 	cursor.thr = thr;
@@ -2334,7 +2353,7 @@ row_ins_clust_index_entry_low(
 	the function will return in both low_match and up_match of the
 	cursor sensible values */
 
-	btr_cur_search_to_nth_level(index, 0, entry, PAGE_CUR_LE, mode,
+	btr_cur_search_to_nth_level(index, 0, entry, PAGE_CUR_LE, use_mode,
 				    &cursor, 0, __FILE__, __LINE__, &mtr);
 
 #ifdef UNIV_DEBUG
@@ -2398,7 +2417,8 @@ err_exit:
 
 		rec_t*		rec		= btr_cur_get_rec(&cursor);
 
-		if (big_rec) {
+		if (big_rec && UNIV_LIKELY(!thr_get_trx(thr)->fake_changes)) {
+			/* skip store extern */
 			ut_a(err == DB_SUCCESS);
 			/* Write out the externally stored
 			columns while still x-latching
@@ -2452,6 +2472,8 @@ err_exit:
 			the following assertion failure will
 			effectively "roll back" the operation. */
 			ut_a(err == DB_SUCCESS);
+		}
+		if (big_rec) {
 			dtuple_big_rec_free(big_rec);
 		}
 
@@ -2496,6 +2518,11 @@ err_exit:
 		if (UNIV_LIKELY_NULL(big_rec)) {
 			mtr_commit(&mtr);
 
+		if (UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes)) {
+			/* skip store extern */
+			dtuple_convert_back_big_rec(index, entry, big_rec);
+			goto func_exit;
+		}
 			/* Online table rebuild could read (and
 			ignore) the incomplete record at this point.
 			If online rebuild is in progress, the
@@ -2531,6 +2558,8 @@ func_exit:
 
 /***************************************************************//**
 Starts a mini-transaction and checks if the index will be dropped.
+Transaction handle (trx) must be passed here because btr_cur_latch_leaves()
+has an assertion that involves mtr->trx->fake_changes.
 @return true if the index is to be dropped */
 static __attribute__((nonnull, warn_unused_result))
 bool
@@ -2598,7 +2627,8 @@ row_ins_sec_index_entry_low(
 	que_thr_t*	thr)	/*!< in: query thread */
 {
 	btr_cur_t	cursor;
-	ulint		search_mode	= mode | BTR_INSERT;
+	ulint		search_mode = 0;
+	ulint		use_mode = 0;
 	dberr_t		err		= DB_SUCCESS;
 	ulint		n_unique;
 	mtr_t		mtr;
@@ -2638,10 +2668,19 @@ row_ins_sec_index_entry_low(
 	the function will return in both low_match and up_match of the
 	cursor sensible values */
 
-	if (!thr_get_trx(thr)->check_unique_secondary) {
-		search_mode |= BTR_IGNORE_SEC_UNIQUE;
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		search_mode |= (mode & BTR_MODIFY_TREE) ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
+	} else if (!(trx->check_unique_secondary)) {
+		search_mode |= mode | BTR_INSERT | BTR_IGNORE_SEC_UNIQUE;
+	} else {
+		search_mode |= mode | BTR_INSERT;
 	}
 
+	if (UNIV_UNLIKELY(trx->fake_changes)) {
+		use_mode = (mode & BTR_MODIFY_TREE) ? BTR_SEARCH_TREE : BTR_SEARCH_LEAF;
+	} else {
+		use_mode = search_mode & ~(BTR_INSERT | BTR_IGNORE_SEC_UNIQUE);
+	}
 	btr_cur_search_to_nth_level(index, 0, entry, PAGE_CUR_LE,
 				    search_mode,
 				    &cursor, 0, __FILE__, __LINE__, &mtr);
@@ -2719,7 +2758,7 @@ row_ins_sec_index_entry_low(
 
 		btr_cur_search_to_nth_level(
 			index, 0, entry, PAGE_CUR_LE,
-			search_mode & ~(BTR_INSERT | BTR_IGNORE_SEC_UNIQUE),
+			use_mode,
 			&cursor, 0, __FILE__, __LINE__, &mtr);
 	}
 
