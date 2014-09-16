@@ -405,6 +405,41 @@ struct my_io_perf_atomic_struct {
 };
 typedef struct my_io_perf_atomic_struct my_io_perf_atomic_t;
 
+/* struct used in per page type stats in IS.table_stats */
+struct page_stats_struct {
+  /*!< number read operations of all pages at given space*/
+  ulong n_pages_read;
+
+  /*!< number read operations of FIL_PAGE_INDEX pages at given space*/
+  ulong n_pages_read_index;
+
+  /*!< number read operations FIL_PAGE_TYPE_BLOB and FIL_PAGE_TYPE_ZBLOB
+       and FIL_PAGE_TYPE_ZBLOB2 pages at given space*/
+  ulong n_pages_read_blob;
+
+  /*!< number write operations of all pages at given space*/
+  ulong n_pages_written;
+
+  /*!< number write operations of FIL_PAGE_INDEX pages at given space*/
+  ulong n_pages_written_index;
+
+  /*!< number write operations FIL_PAGE_TYPE_BLOB and FIL_PAGE_TYPE_ZBLOB
+       and FIL_PAGE_TYPE_ZBLOB2 pages at given space*/
+  ulong n_pages_written_blob;
+};
+typedef struct page_stats_struct page_stats_t;
+
+/* struct used in per page type stats in IS.table_stats, atomic version */
+struct page_stats_atomic_struct {
+  atomic_stat<ulong> n_pages_read;
+  atomic_stat<ulong> n_pages_read_index;
+  atomic_stat<ulong> n_pages_read_blob;
+  atomic_stat<ulong> n_pages_written;
+  atomic_stat<ulong> n_pages_written_index;
+  atomic_stat<ulong> n_pages_written_blob;
+};
+typedef struct page_stats_atomic_struct page_stats_atomic_t;
+
 /* Per-table operation and IO statistics */
 
 /* Initialize an my_io_perf_t struct. */
