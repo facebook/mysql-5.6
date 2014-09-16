@@ -1,0 +1,80 @@
+# Confirm that cursor->tree_height is initialized when calling btr_cur_pessimistic_insert
+# for transactions with innodb_fake_changes set
+
+--source include/have_innodb.inc
+
+--let $file_format_save = `SELECT @@innodb_file_format`
+--let $file_format_max_save = `SELECT @@innodb_file_format_max`
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+--echo Test compressed
+create table t1 (id int primary key auto_increment, v varchar(200), t text) engine=innodb key_block_size=8;
+
+let $mx_id = 200;
+let $x = $mx_id;
+
+--echo Load table
+--disable_query_log
+while ($x)
+{
+eval insert into t1 values(2 * $x, lpad("v", $x + 1, "b"), lpad("a", ($x * 100) mod 9000, "b"));
+dec $x;
+}
+--enable_query_log
+select count(*) from t1;
+
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
+
+--echo Test fake changes
+--disable_query_log
+let $x = $mx_id;
+while ($x)
+{
+--error 1180
+eval insert into t1 values (2 * $x + 1, "foo", lpad("a", (($x * 100) + 4500) mod 9000, "b"));
+dec $x;
+}
+--enable_query_log
+
+--source include/stop_fake_changes.inc
+DROP TABLE t1;
+
+--echo Test for uncompressed
+create table t1 (id int primary key auto_increment, v varchar(200), t text) engine=innodb;
+
+let $mx_id = 200;
+let $x = $mx_id;
+
+--echo Load table
+--disable_query_log
+while ($x)
+{
+eval insert into t1 values(2 * $x, lpad("v", $x + 1, "b"), lpad("a", ($x * 100) mod 9000, "b"));
+dec $x;
+}
+--enable_query_log
+select count(*) from t1;
+
+--source include/start_fake_changes.inc
+
+--echo Test fake changes
+--disable_query_log
+let $x = $mx_id;
+while ($x)
+{
+--error 1180
+eval insert into t1 values (2 * $x + 1, "foo", lpad("a", (($x * 100) + 4500) mod 9000, "b"));
+dec $x;
+}
+--enable_query_log
+
+--source include/stop_fake_changes.inc
+DROP TABLE t1;
+
+# restore innodb_file_format and innodb_file_format_check
+eval SET GLOBAL innodb_file_format = \"$file_format_save\";
+eval SET GLOBAL innodb_file_format_max = \"$file_format_max_save\";
