@@ -1737,6 +1737,8 @@ row_upd_sec_index_entry(
 			? BTR_MODIFY_LEAF
 			: BTR_MODIFY_LEAF | BTR_DELETE_MARK;
 	}
+	mode = UNIV_UNLIKELY(trx->fake_changes)
+		? BTR_SEARCH_LEAF : BTR_MODIFY_LEAF;
 
 	/* Set the query thread, so that ibuf_insert_low() will be
 	able to invoke thd_get_trx(). */
@@ -2002,9 +2004,11 @@ row_upd_clust_rec_by_insert(
 		the previous invocation of this function. Mark the
 		off-page columns in the entry inherited. */
 
-		change_ownership = row_upd_clust_rec_by_insert_inherit(
-			NULL, NULL, entry, node->update);
-		ut_a(change_ownership);
+		if (UNIV_LIKELY(!trx->fake_changes)) {
+			change_ownership = row_upd_clust_rec_by_insert_inherit(
+				NULL, NULL, entry, node->update);
+			ut_a(change_ownership);
+		}
 		/* fall through */
 	case UPD_NODE_INSERT_CLUSTERED:
 		/* A lock wait occurred in row_ins_clust_index_entry() in
@@ -2034,7 +2038,8 @@ err_exit:
 		delete-marked old record, mark them disowned by the
 		old record and owned by the new entry. */
 
-		if (rec_offs_any_extern(offsets)) {
+		if (rec_offs_any_extern(offsets)
+		    && UNIV_LIKELY(!trx->fake_changes)) {
 			change_ownership = row_upd_clust_rec_by_insert_inherit(
 				rec, offsets, entry, node->update);
 
@@ -2160,7 +2165,9 @@ row_upd_clust_rec(
 	the same transaction do not modify the record in the meantime.
 	Therefore we can assert that the restoration of the cursor succeeds. */
 
-	ut_a(btr_pcur_restore_position(BTR_MODIFY_TREE, pcur, mtr));
+	ut_a(btr_pcur_restore_position(
+		     UNIV_UNLIKELY(thr_get_trx(thr)->fake_changes) ?
+		     BTR_SEARCH_TREE : BTR_MODIFY_TREE, pcur, mtr));
 
 	ut_ad(!rec_get_deleted_flag(btr_pcur_get_rec(pcur),
 				    dict_table_is_comp(index->table)));
@@ -2174,7 +2181,7 @@ row_upd_clust_rec(
 		&offsets, offsets_heap, heap, &big_rec,
 		node->update, node->cmpl_info,
 		thr, thr_get_trx(thr)->id, mtr);
-	if (big_rec) {
+	if (big_rec && UNIV_LIKELY(!mtr->trx->fake_changes)) {
 		ut_a(err == DB_SUCCESS);
 		/* Write out the externally stored
 		columns while still x-latching
@@ -2400,7 +2407,8 @@ row_upd_clust_step(
 		}
 	}
 
-	ut_ad(lock_trx_has_rec_x_lock(thr_get_trx(thr), index->table,
+	ut_ad(thr_get_trx(thr)->fake_changes ||
+	      lock_trx_has_rec_x_lock(thr_get_trx(thr), index->table,
 				      btr_pcur_get_block(pcur),
 				      page_rec_get_heap_no(rec)));
 

@@ -1,0 +1,42 @@
+source include/have_innodb.inc;
+source include/have_debug.inc;
+CREATE TABLE t1(id INT NOT NULL PRIMARY KEY, data text) Engine=InnoDB;
+
+INSERT INTO t1 VALUES(1, '');
+INSERT INTO t1 VALUES(2, '');
+INSERT INTO t1 VALUES(3, '');
+INSERT INTO t1 VALUES(4, '');
+
+DELETE FROM t1 WHERE id = 4;
+--let $fake_changes_table=t1
+--source include/start_fake_changes.inc
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (4, lpad('a',12000,'b'));
+--source include/stop_fake_changes.inc
+SELECT * FROM t1;
+DROP TABLE t1;
+
+connect (con1,localhost,root,,);
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT) engine = InnoDB;
+INSERT INTO t1 VALUES (1,2);
+connection con1;
+SET DEBUG_SYNC = 'row_log_apply_after SIGNAL created WAIT_FOR dml_done';
+--send
+ALTER TABLE t1 ADD UNIQUE INDEX(b);
+connection default;
+SET DEBUG_SYNC = 'now WAIT_FOR created';
+
+SHOW INDEX FROM t1;
+--source include/start_fake_changes.inc
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (3,9);
+--error ER_ERROR_DURING_COMMIT
+INSERT INTO t1 VALUES (3,9);
+--source include/stop_fake_changes.inc
+SET DEBUG_SYNC = 'now SIGNAL dml_done';
+connection con1;
+reap;
+INSERT INTO t1 VALUES (5,9);
+SHOW INDEX FROM t1;
+DROP TABLE t1;
+disconnect con1;
