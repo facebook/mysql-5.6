@@ -702,6 +702,12 @@ int thd_sql_command(const THD *thd)
 }
 
 extern "C"
+void thd_reset_diagnostics(THD *thd)
+{
+  thd->reset_diagnostics();
+}
+
+extern "C"
 int thd_tx_isolation(const THD *thd)
 {
   return (int) thd->tx_isolation;
@@ -4704,6 +4710,10 @@ void THD::get_definer(LEX_USER *definer)
     get_default_definer(this, definer);
 }
 
+void THD::reset_diagnostics()
+{
+  main_da.reset_diagnostics_area();
+}
 
 /**
   Mark transaction to rollback and mark error as fatal to a sub-statement.

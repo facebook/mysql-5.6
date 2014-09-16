@@ -1,0 +1,17 @@
+#
+# Basic test for innodb_fake_changes_locks
+#
+-- source include/have_innodb.inc
+
+SET @@GLOBAL.innodb_fake_changes_locks=1;
+SELECT @@global.innodb_fake_changes_locks;
+
+SET @@GLOBAL.innodb_fake_changes_locks=0;
+SELECT @@global.innodb_fake_changes_locks;
+
+SET @@GLOBAL.innodb_fake_changes_locks=default;
+SELECT @@global.innodb_fake_changes_locks;
+
+-- error ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_fake_changes_locks=2;
+SELECT @@global.innodb_fake_changes_locks;

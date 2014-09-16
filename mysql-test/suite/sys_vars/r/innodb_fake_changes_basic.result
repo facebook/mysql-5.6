@@ -1,0 +1,17 @@
+SET @@GLOBAL.innodb_fake_changes=1;
+SELECT @@global.innodb_fake_changes;
+@@global.innodb_fake_changes
+1
+SET @@GLOBAL.innodb_fake_changes=0;
+SELECT @@global.innodb_fake_changes;
+@@global.innodb_fake_changes
+0
+SET @@GLOBAL.innodb_fake_changes=default;
+SELECT @@global.innodb_fake_changes;
+@@global.innodb_fake_changes
+0
+SET @@GLOBAL.innodb_fake_changes=2;
+ERROR 42000: Variable 'innodb_fake_changes' can't be set to the value of '2'
+SELECT @@global.innodb_fake_changes;
+@@global.innodb_fake_changes
+0
