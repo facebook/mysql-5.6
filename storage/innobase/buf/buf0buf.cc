@@ -3135,7 +3135,7 @@ got_block:
 		read-ahead */
 
 		buf_read_ahead_linear(
-			space, zip_size, offset, ibuf_inside(mtr));
+			space, zip_size, offset, ibuf_inside(mtr), mtr->trx);
 	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
@@ -3249,7 +3249,7 @@ buf_page_optimistic_get(
 		buf_read_ahead_linear(buf_block_get_space(block),
 				      buf_block_get_zip_size(block),
 				      buf_block_get_page_no(block),
-				      ibuf_inside(mtr));
+				      ibuf_inside(mtr), mtr->trx);
 	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG

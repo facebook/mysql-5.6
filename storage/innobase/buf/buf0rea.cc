@@ -100,7 +100,6 @@ in buf_pool, or if the page is in the doublewrite buffer blocks in
 which case it is never read into the pool, or if the tablespace does
 not exist or is being dropped
 @return 1 if read request is issued. 0 if it is not */
-static
 ulint
 buf_read_page_low(
 /*==============*/
@@ -507,7 +506,8 @@ buf_read_ahead_linear(
 	ulint	space,		/*!< in: space id */
 	ulint	zip_size,	/*!< in: compressed page size in bytes, or 0 */
 	ulint	offset,		/*!< in: page number; see NOTE 3 above */
-	ibool	inside_ibuf)	/*!< in: TRUE if we are inside ibuf routine */
+	ibool	inside_ibuf,	/*!< in: TRUE if we are inside ibuf routine */
+	trx_t*	trx)
 {
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 	ib_int64_t	tablespace_version;
@@ -535,6 +535,12 @@ buf_read_ahead_linear(
 
 	if (UNIV_UNLIKELY(srv_startup_is_before_trx_rollback_phase)) {
 		/* No read-ahead to avoid thread deadlocks */
+		return(0);
+	}
+
+	/* linear read ahead is disabled if user requested logical read ahead.
+	*/
+	if (trx && trx->lra_size) {
 		return(0);
 	}
 
