@@ -853,12 +853,19 @@ of failure we assert in this function.
 @return: the allocated descriptor. */
 UNIV_INLINE
 buf_page_t*
-buf_page_alloc_descriptor(void)
+buf_page_alloc_descriptor(buf_pool_t* buf_pool, ibool buf_pool_mutex_owned)
 /*===========================*/
 {
 	buf_page_t*	bpage;
-
-	bpage = (buf_page_t*) ut_malloc(sizeof *bpage);
+	ut_ad(!buf_pool_mutex_owned || buf_pool_mutex_own(buf_pool));
+	/* If the buffer pool mutex is held, then we try to get a free'd
+	bpage from buf_malloc_cache, otherwise we allocate a new buf_page */
+	if (buf_pool_mutex_owned && UT_LIST_GET_LEN(buf_pool->buf_malloc_cache) > 0) {
+		bpage = UT_LIST_GET_FIRST(buf_pool->buf_malloc_cache);
+		UT_LIST_REMOVE(malloc_cache, buf_pool->buf_malloc_cache, bpage);
+	} else {
+		bpage = (buf_page_t*) ut_malloc(sizeof *bpage);
+	}
 	ut_d(memset(bpage, 0, sizeof *bpage));
 	UNIV_MEM_ALLOC(bpage, sizeof *bpage);
 
@@ -871,9 +878,20 @@ UNIV_INLINE
 void
 buf_page_free_descriptor(
 /*=====================*/
-	buf_page_t*	bpage)	/*!< in: bpage descriptor to free. */
+	buf_page_t*	bpage,	/*!< in: bpage descriptor to free. */
+	buf_pool_t*	buf_pool,
+	ibool buf_pool_mutex_owned)
 {
-	ut_free(bpage);
+	ut_ad(!buf_pool_mutex_owned || buf_pool_mutex_own(buf_pool));
+	/* If the buffer pool mutex is held, then we store the free'd bpage
+	in buf_malloc_cache, otherwise deallocate it */
+	if (buf_pool_mutex_owned
+	    && (UT_LIST_GET_LEN(buf_pool->buf_malloc_cache)
+	       < buf_pool->n_buf_malloc_cache)) {
+		UT_LIST_ADD_FIRST(malloc_cache, buf_pool->buf_malloc_cache, bpage);
+	} else {
+		ut_free(bpage);
+	}
 }
 
 /********************************************************************//**
