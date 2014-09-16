@@ -738,8 +738,10 @@ log_calc_max_ages(void)
 	ulint		free;
 	ibool		success		= TRUE;
 	lsn_t		smallest_capacity;
+	lsn_t		original_smallest_capacity;
 	lsn_t		archive_margin;
 	lsn_t		smallest_archive_margin;
+	double		manual_limit = srv_sync_checkpoint_limit / 100.0;
 
 	mutex_enter(&(log_sys->mutex));
 
@@ -768,8 +770,14 @@ log_calc_max_ages(void)
 		group = UT_LIST_GET_NEXT(log_groups, group);
 	}
 
+	original_smallest_capacity = smallest_capacity;
+
 	/* Add extra safety */
-	smallest_capacity = smallest_capacity - smallest_capacity / 10;
+	if (!srv_sync_checkpoint_limit) {
+		smallest_capacity = smallest_capacity - smallest_capacity / 10;
+	} else {
+		smallest_capacity = smallest_capacity * manual_limit;
+	}
 
 	/* For each OS thread we must reserve so much free space in the
 	smallest log group that it can accommodate the log entries produced
@@ -786,18 +794,44 @@ log_calc_max_ages(void)
 		margin = smallest_capacity - free;
 	}
 
-	margin = margin - margin / 10;	/* Add still some extra safety */
+	if (!srv_sync_checkpoint_limit) {
+		margin = margin - margin / 10;	/* Add still some extra safety */
+	}
 
 	log_sys->log_group_capacity = smallest_capacity;
 
-	log_sys->max_modified_age_async = margin
-		- margin / LOG_POOL_PREFLUSH_RATIO_ASYNC;
-	log_sys->max_modified_age_sync = margin
-		- margin / LOG_POOL_PREFLUSH_RATIO_SYNC;
+	if (!srv_sync_checkpoint_limit) {
+		log_sys->max_modified_age_async = margin
+			- margin / LOG_POOL_PREFLUSH_RATIO_ASYNC;
+		log_sys->max_modified_age_sync = margin
+			- margin / LOG_POOL_PREFLUSH_RATIO_SYNC;
 
-	log_sys->max_checkpoint_age_async = margin - margin
-		/ LOG_POOL_CHECKPOINT_RATIO_ASYNC;
+		log_sys->max_checkpoint_age_async = margin - margin
+			/ LOG_POOL_CHECKPOINT_RATIO_ASYNC;
+	} else {
+		log_sys->max_modified_age_async = margin * 0.90;
+		log_sys->max_modified_age_sync = margin * 0.95;
+
+		log_sys->max_checkpoint_age_async = margin * 0.98;
+	}
+
 	log_sys->max_checkpoint_age = margin;
+
+	fprintf(stderr,
+		"InnoDB: Used %s checkpoint limits with %lu sync_checkpoint_limit, "
+		" %lu capacity, preflush: %lu/%.2f sync, %lu/%.2f async "
+		" checkpoint: %lu/%.2f sync, %lu/%.2f async\n",
+		srv_sync_checkpoint_limit ? "manual" : "computed",
+		srv_sync_checkpoint_limit,
+		original_smallest_capacity,
+		log_sys->max_modified_age_sync,
+		(double) log_sys->max_modified_age_sync / original_smallest_capacity,
+		log_sys->max_modified_age_async,
+		(double) log_sys->max_modified_age_async / original_smallest_capacity,
+		log_sys->max_checkpoint_age,
+		(double) log_sys->max_checkpoint_age / original_smallest_capacity,
+		log_sys->max_checkpoint_age_async,
+		(double) log_sys->max_checkpoint_age_async / original_smallest_capacity);
 
 #ifdef UNIV_LOG_ARCHIVE
 	log_sys->max_archived_lsn_age = smallest_archive_margin;
