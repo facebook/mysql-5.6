@@ -1,0 +1,35 @@
+--source include/have_innodb.inc
+
+#
+# show the global and session values;
+#
+
+--echo Valid values must be between 0 and 100000000 inclusive.
+select @@global.innodb_aio_old_usecs in (0, 1, 99999999, 100000000);
+
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_aio_old_usecs;
+
+show global variables like 'innodb_aio_old_usecs';
+show session variables like 'innodb_aio_old_usecs';
+
+select * from information_schema.global_variables where variable_name='innodb_aio_old_usecs';
+select * from information_schema.session_variables where variable_name='innodb_aio_old_usecs';
+
+set global innodb_aio_old_usecs=-1;
+select @@global.innodb_aio_old_usecs;
+set global innodb_aio_old_usecs=0;
+select @@global.innodb_aio_old_usecs;
+set global innodb_aio_old_usecs=100000000;
+select @@global.innodb_aio_old_usecs;
+set global innodb_aio_old_usecs=100000001;
+select @@global.innodb_aio_old_usecs;
+set global innodb_aio_old_usecs=1000000000000;
+select @@global.innodb_aio_old_usecs;
+
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_aio_old_usecs="A";
+
+select @@global.innodb_aio_old_usecs;
+set global innodb_aio_old_usecs=DEFAULT;
+select @@global.innodb_aio_old_usecs;
