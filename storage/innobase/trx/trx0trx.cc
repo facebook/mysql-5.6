@@ -96,21 +96,26 @@ based on the value of lra_size. */
 UNIV_INTERN
 void
 trx_lra_reset(
-	trx_t* trx, /*!< in: transaction */
-	ulint lra_size, /*!< in: lra_size in MB.
-				       If 0, the fields that are releated
-				       to logical-read-ahead will be free'd
-				       if they were initialized. */
-	ulint lra_n_node_recs_before_sleep,
-					/*!< in: lra_n_node_recs_before_sleep
-					is the number of node pointer records
-					traversed while holding the index lock
-					before releasing the index lock and
-					sleeping for a short period of time so
-					that the other threads get a chance to
-					x-latch the index lock. */
-	ulint lra_sleep)		/* lra_sleep is the sleep time in
-					milliseconds. */
+	trx_t*	trx,		/*!< in: transaction */
+	ulint	lra_size,	/*!< in: lra_size in MB.
+				If 0, the fields that are releated
+				to logical-read-ahead will be free'd
+				if they were initialized. */
+	ulint	lra_n_node_recs_before_sleep,
+				/*!< in: lra_n_node_recs_before_sleep
+				is the number of node pointer records
+				traversed while holding the index lock
+				before releasing the index lock and
+				sleeping for a short period of time so
+				that the other threads get a chance to
+				x-latch the index lock. */
+	ulint	lra_sleep,	/*!< in: lra_sleep is the sleep time in
+				milliseconds. */
+	ulint	lra_n_spaces,
+				/*!< in: lra_n_spaces is the number
+				of space switches before lra is disabled. */
+	bool	reset_lra_count_n_spaces)
+				/*!< in: whether to reset lra_count_n_spaces. */
 {
 #ifndef TARGET_OS_LINUX
 	if (lra_size) {
@@ -128,6 +133,7 @@ trx_lra_reset(
 	}
 #endif /* TARGET_OS_LINUX */
 	trx->lra_size = lra_size;
+	trx->lra_n_spaces = lra_n_spaces;
 	trx->lra_space_id = 0;
 	trx->lra_n_pages = 0;
 	trx->lra_n_pages_since = 0;
@@ -135,6 +141,9 @@ trx_lra_reset(
 	trx->lra_n_node_recs_before_sleep = lra_n_node_recs_before_sleep;
 	trx->lra_sleep = lra_sleep;
 	trx->lra_tree_height = 0;
+	if (reset_lra_count_n_spaces) {
+		trx->lra_count_n_spaces = 0;
+	}
 	if (lra_size) {
 		ulint n_pages_max =
 			(lra_size << 20L) / UNIV_ZIP_SIZE_MIN;
@@ -279,7 +288,7 @@ trx_create(void)
 	trx->lra_cur = NULL;
 	trx->lra_ht1 = NULL;
 	trx->lra_ht2 = NULL;
-	trx_lra_reset(trx, 0, 0, 0);
+	trx_lra_reset(trx, 0, 0, 0, 0, true);
 
 	return(trx);
 }
@@ -369,7 +378,7 @@ trx_free(
 	}
 
 	mutex_free(&trx->mutex);
-	trx_lra_reset(trx, 0, 0, 0);
+	trx_lra_reset(trx, 0, 0, 0, 0, true);
 
 	mem_free(trx);
 }
