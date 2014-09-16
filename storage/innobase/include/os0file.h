@@ -327,10 +327,11 @@ The wrapper functions have the prefix of "innodb_". */
 	pfs_os_file_close_func(file, __FILE__, __LINE__)
 
 # define os_aio(type, mode, name, file, buf, offset,			\
-		n, message1, message2, io_perf2, tab, should_buffer)	\
+		n, message1, message2, primary_index_id, io_perf2, tab,	\
+		should_buffer) \
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
-		n, message1, message2, __FILE__, __LINE__, io_perf2,	\
-		tab, should_buffer)
+		n, message1, message2, __FILE__, __LINE__, 		\
+		primary_index_id, io_perf2, tab, should_buffer)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -372,9 +373,11 @@ to original un-instrumented file I/O APIs */
 # define os_file_close(file)	os_file_close_func(file)
 
 # define os_aio(type, mode, name, file, buf, offset, n,			\
-		message1, message2, io_perf2, tab, should_buffer)	\
+		message1, message2, primary_index_id, io_perf2, tab,	\
+		should_buffer)						\
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2, io_perf2, tab, should_buffer)
+		    message1, message2, primary_index_id, io_perf2, tab,\
+		    should_buffer)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -438,6 +441,8 @@ struct os_io_perf2_struct {
 	my_io_perf_t	read;
 	my_io_perf_t	write;
 	my_io_perf_t	read_blob;
+	my_io_perf_t	read_primary;
+	my_io_perf_t	read_secondary;
 };
 typedef struct os_io_perf2_struct os_io_perf2_t;
 
@@ -447,6 +452,8 @@ struct os_io_table_perf_struct {
 	my_io_perf_t	read;			/*!< sync read */
 	my_io_perf_t	write;			/*!< sync write */
 	my_io_perf_t	read_blob;		/*!< sync blob read */
+	my_io_perf_t	read_primary;	/*!< sync read for primary index */
+	my_io_perf_t	read_secondary;/*!< sync read for secondary index */
 	longlong	index_inserts;		/*!< secondary index inserts */
 };
 typedef struct os_io_table_perf_struct os_io_table_perf_t;
@@ -814,6 +821,7 @@ pfs_os_aio_func(
                                 OS_AIO_SYNC */
 	const char*	src_file,/*!< in: file name where func invoked */
 	ulint		src_line,/*!< in: line where the func invoked */
+	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 					counters */
 	os_io_table_perf_t* table_io_perf,
@@ -1188,6 +1196,7 @@ os_aio_func(
 				(can be used to identify a completed
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
+	ib_uint64_t*	primary_index_id,/*!< in: index_id of primary index */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 				counters */
 	os_io_table_perf_t* table_io_perf,
