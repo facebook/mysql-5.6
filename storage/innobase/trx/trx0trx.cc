@@ -1162,6 +1162,7 @@ trx_write_serialisation_history(
 	mutex_exit(&rseg->mutex);
 
 	MONITOR_INC(MONITOR_TRX_COMMIT_UNDO);
+	srv_n_commit_with_undo++;
 
 	/* Update the latest MySQL binlog name and offset info
 	in trx sys header if MySQL binlogging is on or the database
@@ -1309,9 +1310,10 @@ void
 trx_commit_in_memory(
 /*=================*/
 	trx_t*	trx,	/*!< in/out: transaction */
-	lsn_t	lsn)	/*!< in: log sequence number of the mini-transaction
+	lsn_t	lsn,	/*!< in: log sequence number of the mini-transaction
 			commit of trx_write_serialisation_history(), or 0
 			if the transaction did not modify anything */
+	ibool	for_commit)	/*!< in: for rollback when FALSE */
 {
 	trx->must_flush_log_later = FALSE;
 
@@ -1343,6 +1345,9 @@ trx_commit_in_memory(
 		read_view_remove(trx->global_read_view, false);
 
 		MONITOR_INC(MONITOR_TRX_NL_RO_COMMIT);
+		if(for_commit) {
+			srv_n_commit_all++;
+		}
 	} else {
 		lock_trx_release_locks(trx);
 
@@ -1359,10 +1364,16 @@ trx_commit_in_memory(
 			UT_LIST_REMOVE(trx_list, trx_sys->ro_trx_list, trx);
 			ut_d(trx->in_ro_trx_list = FALSE);
 			MONITOR_INC(MONITOR_TRX_RO_COMMIT);
+			if(for_commit) {
+				srv_n_commit_all++;
+			}
 		} else {
 			UT_LIST_REMOVE(trx_list, trx_sys->rw_trx_list, trx);
 			ut_d(trx->in_rw_trx_list = FALSE);
 			MONITOR_INC(MONITOR_TRX_RW_COMMIT);
+			if(for_commit) {
+				srv_n_commit_all++;
+			}
 		}
 
 		/* If this transaction came from trx_allocate_for_mysql(),
@@ -1492,8 +1503,9 @@ void
 trx_commit_low(
 /*===========*/
 	trx_t*	trx,	/*!< in/out: transaction */
-	mtr_t*	mtr)	/*!< in/out: mini-transaction (will be committed),
+	mtr_t*	mtr,	/*!< in/out: mini-transaction (will be committed),
 			or NULL if trx made no modifications */
+	ibool	for_commit)	/*!< in: for rollback when FALSE */
 {
 	lsn_t	lsn;
 
@@ -1551,7 +1563,7 @@ trx_commit_low(
 		lsn = 0;
 	}
 
-	trx_commit_in_memory(trx, lsn);
+	trx_commit_in_memory(trx, lsn, for_commit);
 }
 
 /****************************************************************//**
@@ -1559,8 +1571,8 @@ Commits a transaction. */
 UNIV_INTERN
 void
 trx_commit(
-/*=======*/
-	trx_t*	trx)	/*!< in/out: transaction */
+	trx_t*	trx,		/*!< in/out: transaction */
+	ibool	for_commit)	/*!< in: for rollback when FALSE */
 {
 	mtr_t	local_mtr;
 	mtr_t*	mtr;
@@ -1572,7 +1584,7 @@ trx_commit(
 		mtr = NULL;
 	}
 
-	trx_commit_low(trx, mtr);
+	trx_commit_low(trx, mtr, for_commit);
 }
 
 /****************************************************************//**
@@ -1736,7 +1748,7 @@ trx_commit_step(
 
 		trx->lock.que_state = TRX_QUE_COMMITTING;
 
-		trx_commit(trx);
+		trx_commit(trx, TRUE);
 
 		ut_ad(trx->lock.wait_thr == NULL);
 
@@ -1790,7 +1802,7 @@ trx_commit_for_mysql(
 	case TRX_STATE_ACTIVE:
 	case TRX_STATE_PREPARED:
 		trx->op_info = "committing";
-		trx_commit(trx);
+		trx_commit(trx, TRUE);
 		MONITOR_DEC(MONITOR_TRX_ACTIVE);
 		trx->op_info = "";
 		return(DB_SUCCESS);
