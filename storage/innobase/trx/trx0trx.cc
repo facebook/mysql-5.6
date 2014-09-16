@@ -90,6 +90,115 @@ trx_set_detailed_error_from_file(
 			    sizeof(trx->detailed_error));
 }
 
+/***************************************************************
+ It turns out to be very efficient for all of our trx_t structures to
+ be in contiguous memory; this forced locality results in significant
+ speedups when iterating over the open transactions.  We achieve this
+ with trx_t blocks of contiguous memory, each holding TRX_PER_BLOCK
+ trx_t's.  As we fill blocks, we allocate new ones.
+
+ TRX_PER_BLOCK is pretty arbitrary, but you want it to be large (so
+ that all transactions span only a handful of memory regions).
+ */
+#define TRX_PER_BLOCK (1024 * 1024 / sizeof(trx_t))
+struct trx_block_struct {
+	struct trx_block_struct* next_block;
+	trx_t transactions[TRX_PER_BLOCK];
+};
+
+/* A linked list of our transaction blocks. */
+static struct trx_block_struct* transaction_blocks = NULL;
+/* Track the next free transaction (for fast allocation) */
+static trx_t *next_free_transaction = NULL;
+
+
+#ifdef UNIV_DEBUG_VALGRIND
+/********************************************************************//**
+Frees trx_t pool */
+UNIV_INTERN
+void
+trx_free_trx_pool()
+/*==============*/
+{
+	trx_t*  next;
+
+	/* Confirm that the list looks OK */
+	next = next_free_transaction;
+	while (next) {
+		ut_ad(next->magic_n == TRX_FREE_MAGIC_N);
+		next = next->next_free_trx;
+	}
+
+	next_free_transaction = NULL;
+
+	while (transaction_blocks) {
+		struct trx_block_struct *next_block =
+			transaction_blocks->next_block;
+		mem_free(transaction_blocks);
+		transaction_blocks = next_block;
+	}
+}
+#endif
+
+
+trx_t*
+trx_allocate()
+{
+	uint i;
+	trx_t* ret = NULL;
+
+	mutex_enter(&trx_sys->trx_memory_mutex);
+	/* If we don't have a next_free_transaction -- either because
+	*  this is the first allocation or because we are using every
+	*  transaction in previous blocks -- allocate a new one, set
+	*  all of the trx_t's next_free_trx pointer to the next trx_t
+	*  in the block, and set next_free_transaction to be the first
+	*  trx_t in the block. */
+
+	if (!next_free_transaction) {
+		struct trx_block_struct* block_tmp =
+			static_cast<struct trx_block_struct*>(
+				mem_zalloc(sizeof(struct trx_block_struct)));
+		block_tmp->next_block = transaction_blocks;
+		transaction_blocks = block_tmp;
+
+		for (i = 0; i < TRX_PER_BLOCK; ++i) {
+			trx_t* next = NULL;
+			if (i < TRX_PER_BLOCK - 1) {
+				next = &(block_tmp->transactions[i + 1]);
+			}
+			block_tmp->transactions[i].next_free_trx = next;
+			block_tmp->transactions[i].magic_n = TRX_FREE_MAGIC_N;
+		}
+
+		next_free_transaction = &(transaction_blocks->transactions[0]);
+	}
+
+	ut_a(next_free_transaction->magic_n == TRX_FREE_MAGIC_N);
+
+	/* We return the next free transaction and remove it from the list. */
+	ret = next_free_transaction;
+	next_free_transaction = ret->next_free_trx;
+	ret->next_free_trx = NULL;
+	mutex_exit(&trx_sys->trx_memory_mutex);
+	return ret;
+}
+
+void trx_deallocate(trx_t* t) {
+	mutex_enter(&trx_sys->trx_memory_mutex);
+	ut_a(t->magic_n == TRX_MAGIC_N);
+	memset(t, 0, sizeof(trx_t));
+	/* Place this transaction at the head of our free list.   Note
+	* that if somehow this is the last used transaction in a
+	* transaction block, we do not free the block.  This is a
+	* wasteful optimization as there are at most a few megabytes of
+	* blocks in an extremely busy system. */
+
+	t->next_free_trx = next_free_transaction;
+	t->magic_n = TRX_FREE_MAGIC_N;
+	next_free_transaction = t;
+	mutex_exit(&trx_sys->trx_memory_mutex);
+}
 
 /*************************************************************//**
 Initialize data structures related to logical-read-ahead. */
@@ -272,7 +381,7 @@ trx_create(void)
 	mem_heap_t*	heap;
 	ib_alloc_t*	heap_alloc;
 
-	trx = static_cast<trx_t*>(mem_zalloc(sizeof(*trx)));
+	trx = trx_allocate();
 
 	mutex_create(trx_mutex_key, &trx->mutex, SYNC_TRX);
 
@@ -375,6 +484,7 @@ trx_allocate_for_mysql(void)
 	return(trx);
 }
 
+
 /********************************************************************//**
 Frees a transaction object. */
 static
@@ -423,7 +533,7 @@ trx_free(
 	mutex_free(&trx->mutex);
 	trx_lra_free(&(trx->lra));
 
-	mem_free(trx);
+	trx_deallocate(trx);
 }
 
 /********************************************************************//**
