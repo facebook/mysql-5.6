@@ -304,6 +304,12 @@ def	information_schema	TABLE_PRIVILEGES	PRIVILEGE_TYPE	5		NO	varchar	64	192	NULL
 def	information_schema	TABLE_PRIVILEGES	TABLE_CATALOG	2		NO	varchar	512	1536	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(512)			select	
 def	information_schema	TABLE_PRIVILEGES	TABLE_NAME	4		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	TABLE_PRIVILEGES	TABLE_SCHEMA	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
+def	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ	49	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
+def	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ_BLOB	51	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
+def	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ_INDEX	50	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
+def	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN	52	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
+def	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN_BLOB	54	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
+def	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN_INDEX	53	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(11)			select	
 def	information_schema	TABLE_STATISTICS	IO_INDEX_INSERTS	46	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	TABLE_STATISTICS	IO_READ_BYTES	11	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	TABLE_STATISTICS	IO_READ_BYTES_BLOB	25	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
@@ -850,6 +856,12 @@ NULL	information_schema	TABLE_STATISTICS	IO_READ_SLOW_IOS_SECONDARY	bigint	NULL	
 NULL	information_schema	TABLE_STATISTICS	IO_INDEX_INSERTS	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	TABLE_STATISTICS	QUERIES_USED	bigint	NULL	NULL	NULL	NULL	bigint(21)
 NULL	information_schema	TABLE_STATISTICS	QUERIES_EMPTY	bigint	NULL	NULL	NULL	NULL	bigint(21)
+NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ_INDEX	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_READ_BLOB	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN_INDEX	int	NULL	NULL	NULL	NULL	int(11)
+NULL	information_schema	TABLE_STATISTICS	INNODB_PAGES_WRITTEN_BLOB	int	NULL	NULL	NULL	NULL	int(11)
 3.0000	information_schema	TRIGGERS	TRIGGER_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	TRIGGERS	TRIGGER_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	TRIGGERS	TRIGGER_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
