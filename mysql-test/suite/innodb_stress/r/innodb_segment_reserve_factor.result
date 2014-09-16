@@ -1,0 +1,19 @@
+# create the actual table
+CREATE TABLE t1(
+id INT AUTO_INCREMENT PRIMARY KEY,
+msg VARCHAR(255),
+KEY msg_i(msg))
+ENGINE=INNODB
+ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+# decompress the data file
+# t1 is populated with high segment_reserve_factor
+SET GLOBAL innodb_segment_reserve_factor = 0.125;
+LOAD DATA INFILE 'segment_reserve_factor.dat' INTO TABLE t1;
+# t2 is populated with low segment_reserve_factor
+SET GLOBAL innodb_segment_reserve_factor = 0.002;
+CREATE TABLE t2 like t1;
+LOAD DATA INFILE 'segment_reserve_factor.dat' INTO TABLE t2;
+# comparing the sizes of t1.ibd and t2.ibd (t2.ibd must be at most 95% of t1.ibd)
+'stat -c %s $MYSQLTEST_VARDIR/mysqld.1/data/test/t1.ibd  $MYSQLTEST_VARDIR/mysqld.1/data/test/t2.ibd | xargs | awk '{if ($2/$1 < .95) print "PASS"; else print "FAIL";}'
+PASS
