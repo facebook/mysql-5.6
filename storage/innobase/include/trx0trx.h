@@ -105,6 +105,14 @@ void
 trx_free_for_background(
 /*====================*/
 	trx_t*	trx);	/*!< in, own: trx object */
+#ifdef UNIV_DEBUG_VALGRIND
+/********************************************************************//**
+Frees trx_t pool */
+UNIV_INTERN
+void
+trx_free_trx_pool();
+/*==============*/
+#endif
 /********************************************************************//**
 At shutdown, frees a transaction object that is in the PREPARED state. */
 UNIV_INTERN
@@ -641,6 +649,7 @@ struct trx_lock_t {
 };
 
 #define TRX_MAGIC_N	91118598
+#define TRX_FREE_MAGIC_N	8675309
 
 /*******************************************************************//**
 Helper data structure to store page numbers in an internally-linked hash
@@ -955,6 +964,10 @@ struct trx_t{
 					Protected by trx_sys_t::mutex
 					when trx->in_rw_trx_list. Initially
 					set to TRX_ID_MAX. */
+
+	trx_t*		next_free_trx;	/*!< Next transaction free
+					(see trx_create for details)
+					NULL if transaction is in use */
 
 	time_t		start_time;	/*!< time the trx state last time became
 					TRX_STATE_ACTIVE */
