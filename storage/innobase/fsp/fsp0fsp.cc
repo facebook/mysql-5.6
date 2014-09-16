@@ -50,6 +50,15 @@ Created 11/29/1995 Heikki Tuuri
 #include "dict0mem.h"
 #include "srv0start.h"
 
+double fseg_reserve_factor = 0.01; /* If this value is x, then if
+	        the number of unused but reserved
+	        pages in a segment is less than
+	        reserved pages * x, and there are
+	        at least FSEG_FRAG_LIMIT used pages,
+	        then we allow a new empty extent to
+	        be added to the segment in
+	        fseg_alloc_free_page. Otherwise, we
+	        use unused pages of the segment. */
 
 #ifndef UNIV_HOTBACKUP
 /** Flag to indicate if we have printed the tablespace full error. */
@@ -2384,7 +2393,7 @@ take_hinted_page:
 		goto got_hinted_page;
 		/*-----------------------------------------------------------*/
 	} else if (xdes_get_state(descr, mtr) == XDES_FREE
-		   && reserved - used < reserved / FSEG_FILLFACTOR
+		   && reserved - used < reserved * fseg_reserve_factor
 		   && used >= FSEG_FRAG_LIMIT) {
 
 		/* 2. We allocate the free extent from space and can take
@@ -2406,7 +2415,7 @@ take_hinted_page:
 		goto take_hinted_page;
 		/*-----------------------------------------------------------*/
 	} else if ((direction != FSP_NO_DIR)
-		   && ((reserved - used) < reserved / FSEG_FILLFACTOR)
+		   && ((reserved - used) < reserved * fseg_reserve_factor)
 		   && (used >= FSEG_FRAG_LIMIT)
 		   && (!!(ret_descr
 			  = fseg_alloc_free_extent(seg_inode,
