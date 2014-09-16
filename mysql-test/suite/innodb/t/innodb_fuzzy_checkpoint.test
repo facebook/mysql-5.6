@@ -1,0 +1,64 @@
+--echo #
+--echo # Testing crash during a drop with innodb_sync_checkpoint_limit set to
+--echo # confirm recovery works with that set to a large value
+--echo #
+--source include/not_embedded.inc
+--echo # Don't test this under valgrind, memory leaks will occur
+--source include/not_valgrind.inc
+
+--echo # Binary must be compiled with debug for crash to occur
+--source include/have_debug.inc
+--source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t1,t0;
+--enable_warnings
+
+# since this test generates lot of errors in log, suppress checking errors
+call mtr.add_suppression(".*");
+
+create table t0(i int primary key auto_increment) engine=innodb;
+create table t1(i int primary key) engine=innodb;
+insert into t1 values (1), (2), (3), (4);
+
+insert into t0 values (null), (null), (null), (null);
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+insert into t0 select null from t0;
+select count(*) from t0;
+
+begin;
+eval insert into t1 values (5);
+set session debug="d,crash_commit_before";
+--echo # Write file to make mysql-test-run.pl expect crash
+--exec echo "restart" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error 2013
+commit;
+
+--echo # Turn on reconnect
+--enable_reconnect
+
+--echo # poll the server waiting for it to be back online
+--source include/wait_until_connected_again.inc
+
+--echo # confirm 5 is not inserted into t1
+select * from t1;
+
+select count(*) from t0;
+
+drop table t0;
+drop table t1;
+set session debug = 'RESET';
+
