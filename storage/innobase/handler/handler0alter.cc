@@ -5716,7 +5716,7 @@ ha_innobase::commit_inplace_alter_table(
 			ut_ad(trx_state_eq(trx, TRX_STATE_ACTIVE));
 			ut_ad(trx->insert_undo || trx->update_undo);
 
-			trx_commit_low(trx, &mtr);
+			trx_commit_low(trx, &mtr, commit);
 		}
 
 		/* If server crashes here, the dictionary in
