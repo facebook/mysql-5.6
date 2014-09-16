@@ -1,0 +1,9 @@
+SET @orig = @@global.innodb_malloc_cache_len;
+SELECT @orig;
+@orig
+1000
+SET GLOBAL innodb_malloc_cache_len = 20000;
+SELECT @@global.innodb_malloc_cache_len;
+@@global.innodb_malloc_cache_len
+20000
+SET GLOBAL innodb_malloc_cache_len = @orig;
