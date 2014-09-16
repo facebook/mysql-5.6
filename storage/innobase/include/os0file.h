@@ -36,6 +36,7 @@ Created 10/21/1995 Heikki Tuuri
 #define os0file_h
 
 #include "univ.i"
+#include "mysqld.h"
 
 #ifndef __WIN__
 #include <dirent.h>
