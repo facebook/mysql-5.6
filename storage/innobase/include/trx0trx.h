@@ -197,7 +197,8 @@ UNIV_INTERN
 void
 trx_commit(
 /*=======*/
-	trx_t*	trx)	/*!< in/out: transaction */
+	trx_t*	trx,		/*!< in/out: transaction */
+	ibool	for_commit)	/*!< in: for rollback when FALSE */
 	__attribute__((nonnull));
 /****************************************************************//**
 Commits a transaction and a mini-transaction. */
@@ -206,8 +207,9 @@ void
 trx_commit_low(
 /*===========*/
 	trx_t*	trx,	/*!< in/out: transaction */
-	mtr_t*	mtr)	/*!< in/out: mini-transaction (will be committed),
+	mtr_t*	mtr,	/*!< in/out: mini-transaction (will be committed),
 			or NULL if trx made no modifications */
+	ibool	for_commit)	/*!< in: for rollback when FALSE */
 	__attribute__((nonnull(1)));
 /****************************************************************//**
 Cleans up a transaction at database startup. The cleanup is needed if
