@@ -212,7 +212,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_READ_SVC_USECS_MAX", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_MAX", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"IO_READ_OLD_IOS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SLOW_IOS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"IO_WRITE_BYTES", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_WRITE_REQUESTS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -220,7 +220,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_WRITE_SVC_USECS_MAX", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_WRITE_WAIT_USECS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_WRITE_WAIT_USECS_MAX", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"IO_WRITE_OLD_IOS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_WRITE_SLOW_IOS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"IO_READ_BYTES_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_REQUESTS_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -228,7 +228,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_READ_SVC_USECS_MAX_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_MAX_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"IO_READ_OLD_IOS_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SLOW_IOS_BLOB", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"IO_READ_BYTES_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_REQUESTS_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -236,7 +236,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_READ_SVC_USECS_MAX_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_MAX_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"IO_READ_OLD_IOS_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SLOW_IOS_PRIMARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"IO_READ_BYTES_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_REQUESTS_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -244,7 +244,7 @@ ST_FIELD_INFO table_stats_fields_info[]=
   {"IO_READ_SVC_USECS_MAX_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"IO_READ_WAIT_USECS_MAX_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
-  {"IO_READ_OLD_IOS_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
+  {"IO_READ_SLOW_IOS_SECONDARY", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
 
   {"IO_INDEX_INSERTS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
   {"QUERIES_USED", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0, 0, SKIP_OPEN_TABLE},
@@ -261,7 +261,7 @@ void copy_io_perf_with_races(my_io_perf_atomic_t *out, my_io_perf_t *in)
   out->svc_time_max.set_maybe(in->svc_time_max);
   out->wait_time.set_maybe(in->wait_time);
   out->wait_time_max.set_maybe(in->wait_time_max);
-  out->old_ios.set_maybe(in->old_ios);
+  out->slow_ios.set_maybe(in->slow_ios);
 }
 
 void fill_table_stats_cb(const char *db,
@@ -350,7 +350,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store((ulonglong)my_timer_to_microseconds(
                              table_stats->io_perf_read.wait_time_max.load()),
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_read.old_ios.load(), TRUE);
+    table->field[f++]->store(table_stats->io_perf_read.slow_ios.load(), TRUE);
 
     table->field[f++]->store(table_stats->io_perf_write.bytes.load(), TRUE);
     table->field[f++]->store(table_stats->io_perf_write.requests.load(), TRUE);
@@ -366,7 +366,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store((ulonglong)my_timer_to_microseconds(
                              table_stats->io_perf_write.wait_time_max.load()),
                              TRUE);
-    table->field[f++]->store(table_stats->io_perf_write.old_ios.load(), TRUE);
+    table->field[f++]->store(table_stats->io_perf_write.slow_ios.load(), TRUE);
 
     table->field[f++]->store(table_stats->io_perf_read_blob.bytes.load(), TRUE);
     table->field[f++]->store(table_stats->io_perf_read_blob.requests.load(),
@@ -383,7 +383,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store((ulonglong)my_timer_to_microseconds(
                              table_stats->io_perf_read_blob.wait_time_max.load()
                              ), TRUE);
-    table->field[f++]->store(table_stats->io_perf_read_blob.old_ios.load(),
+    table->field[f++]->store(table_stats->io_perf_read_blob.slow_ios.load(),
                              TRUE);
 
     table->field[f++]->store(
@@ -399,7 +399,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store((ulonglong)my_timer_to_microseconds(
       table_stats->io_perf_read_primary.wait_time_max.load()), TRUE);
     table->field[f++]->store(
-      table_stats->io_perf_read_primary.old_ios.load(), TRUE);
+      table_stats->io_perf_read_primary.slow_ios.load(), TRUE);
 
     table->field[f++]->store(
       table_stats->io_perf_read_secondary.bytes.load(), TRUE);
@@ -414,7 +414,7 @@ int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond)
     table->field[f++]->store((ulonglong)my_timer_to_microseconds(
       table_stats->io_perf_read_secondary.wait_time_max.load()), TRUE);
     table->field[f++]->store(
-      table_stats->io_perf_read_secondary.old_ios.load(), TRUE);
+      table_stats->io_perf_read_secondary.slow_ios.load(), TRUE);
 
     table->field[f++]->store(table_stats->index_inserts.load(), TRUE);
     table->field[f++]->store(table_stats->queries_used.load(), TRUE);
