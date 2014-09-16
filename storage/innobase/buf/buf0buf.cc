@@ -546,6 +546,8 @@ buf_block_alloc(
 }
 #endif /* !UNIV_HOTBACKUP */
 
+UNIV_INTERN ulint		buf_malloc_cache_len = 1000;
+
 /********************************************************************//**
 Checks if a page is all zeroes.
 @return	TRUE if the page is all zeroes */
@@ -1406,6 +1408,7 @@ buf_pool_init_instance(
 
 		UT_LIST_INIT(buf_pool->LRU);
 		UT_LIST_INIT(buf_pool->free);
+		UT_LIST_INIT(buf_pool->buf_malloc_cache);
 		UT_LIST_INIT(buf_pool->withdraw);
 		buf_pool->withdraw_target = 0;
 		UT_LIST_INIT(buf_pool->flush_list);
@@ -1469,6 +1472,9 @@ buf_pool_init_instance(
 		buf_pool->zip_hash = hash_create(2 * buf_pool->curr_size);
 
 		buf_pool->last_printout_time = ut_time();
+
+		buf_pool->n_buf_malloc_cache =
+				buf_malloc_cache_len / srv_buf_pool_instances;
 	}
 	/* 2. Initialize flushing fields
 	-------------------------------- */
@@ -1507,6 +1513,23 @@ buf_pool_init_instance(
 }
 
 /********************************************************************//**
+Frees the buffer page malloc cache. */
+UNIV_INTERN
+void
+buf_malloc_cache_free(
+/*======================*/
+	buf_pool_t*	buf_pool)	/*in: buffer pool instance */
+{
+	buf_page_t* bpage = UT_LIST_GET_FIRST(buf_pool->buf_malloc_cache);
+	buf_page_t* tmp;
+	while (bpage) {
+		tmp = UT_LIST_GET_NEXT(malloc_cache, bpage);
+		ut_free(bpage);
+		bpage = tmp;
+	}
+}
+
+/********************************************************************//**
 free one buffer pool instance */
 static
 void
@@ -1532,11 +1555,13 @@ buf_pool_free_instance(
 			when doing a fast shutdown. */
 			ut_ad(state == BUF_BLOCK_ZIP_PAGE
 			      || srv_fast_shutdown == 2);
-			buf_page_free_descriptor(bpage);
+			buf_page_free_descriptor(bpage, buf_pool, FALSE);
 		}
 
 		bpage = prev_bpage;
 	}
+
+	buf_malloc_cache_free(buf_pool);
 
 	mem_free(buf_pool->watch);
 	buf_pool->watch = NULL;
@@ -4205,6 +4230,7 @@ buf_page_get_gen(
 	buf_block_t*	fix_block;
 	ib_mutex_t*	fix_mutex = NULL;
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
+	ibool		buf_page_cached = FALSE;
 
 	ut_ad(mtr);
 	ut_ad(mtr->state == MTR_ACTIVE);
@@ -4513,6 +4539,12 @@ got_block:
 
 		++buf_pool->n_pend_unzip;
 
+		if (UT_LIST_GET_LEN(buf_pool->buf_malloc_cache)
+		    < buf_pool->n_buf_malloc_cache) {
+			buf_page_free_descriptor(bpage, buf_pool, TRUE);
+			buf_page_cached = TRUE;
+		}
+
 		mutex_exit(&buf_pool->zip_mutex);
 		buf_pool_mutex_exit(buf_pool);
 
@@ -4520,7 +4552,8 @@ got_block:
 
 		buf_block_mutex_exit(block);
 
-		buf_page_free_descriptor(bpage);
+		if (!buf_page_cached)
+			buf_page_free_descriptor(bpage, buf_pool, FALSE);
 
 		/* Decompress the page while not holding
 		buf_pool->mutex or block->mutex. */
@@ -5364,7 +5397,7 @@ err_exit:
 			}
 		}
 
-		bpage = buf_page_alloc_descriptor();
+		bpage = buf_page_alloc_descriptor(buf_pool, TRUE);
 
 		/* Initialize the buf_pool pointer. */
 		bpage->buf_pool_index = buf_pool_index(buf_pool);
