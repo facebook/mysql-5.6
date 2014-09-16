@@ -1,0 +1,42 @@
+--source include/have_innodb.inc
+--disable_query_log
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+--exec rm -f var/mysqld.1/data/test/segment_reserve_factor.dat
+--enable_warnings
+--let $segment_reserve_factor_save = `SELECT @@innodb_segment_reserve_factor`
+--enable_query_log
+
+--echo # create the actual table
+CREATE TABLE t1(
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  msg VARCHAR(255),
+  KEY msg_i(msg))
+ENGINE=INNODB
+ROW_FORMAT=COMPRESSED
+KEY_BLOCK_SIZE=8;
+
+--echo # decompress the data file
+--exec gunzip -c suite/innodb_stress/t/innodb_segment_reserve_factor.dat.gz > $MYSQLTEST_VARDIR/mysqld.1/data/test/segment_reserve_factor.dat
+
+--echo # t1 is populated with high segment_reserve_factor
+SET GLOBAL innodb_segment_reserve_factor = 0.125;
+LOAD DATA INFILE 'segment_reserve_factor.dat' INTO TABLE t1;
+
+--echo # t2 is populated with low segment_reserve_factor
+SET GLOBAL innodb_segment_reserve_factor = 0.002;
+CREATE TABLE t2 like t1;
+LOAD DATA INFILE 'segment_reserve_factor.dat' INTO TABLE t2;
+
+--echo # comparing the sizes of t1.ibd and t2.ibd (t2.ibd must be at most 95% of t1.ibd)
+
+--let $cmd_string = 'stat -c %s \$MYSQLTEST_VARDIR/mysqld.1/data/test/t1.ibd  \$MYSQLTEST_VARDIR/mysqld.1/data/test/t2.ibd | xargs | awk '{if (\$2/\$1 < .95) print "PASS"; else print "FAIL";}'
+--let $cmd = stat -c %s $MYSQLTEST_VARDIR/mysqld.1/data/test/t1.ibd  $MYSQLTEST_VARDIR/mysqld.1/data/test/t2.ibd | xargs | awk '{if (\$2/\$1 < .95) print "PASS"; else print "FAIL";}'
+--echo $cmd_string
+--exec $cmd
+
+--disable_query_log
+DROP TABLE t1, t2;
+eval SET GLOBAL innodb_segment_reserve_factor=$segment_reserve_factor_save;
+--exec rm -f $MYSQL_VARDIR/mysqld.1/data/test/segment_reserve_factor.dat
+--enable_query_log
