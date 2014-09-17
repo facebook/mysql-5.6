@@ -375,6 +375,8 @@ lock_wait_suspend_thread(
 		trx->error_state = DB_LOCK_WAIT_TIMEOUT;
 
 		MONITOR_INC(MONITOR_TIMEOUT);
+
+		srv_lock_wait_timeouts++;
 	}
 
 	if (trx_is_interrupted(trx)) {
