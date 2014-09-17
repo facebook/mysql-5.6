@@ -1,0 +1,119 @@
+# Test Innodb_row_lock_deadlocks and Innodb_row_lock_wait_timeouts from SHOW STATUS
+
+-- source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists lockt;
+--enable_warnings
+
+create table lockt(i int primary key) engine=innodb;
+insert into lockt values (1), (2);
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+#
+# deadlock test
+#
+--echo
+--echo Test deadlock
+--echo
+
+let $d1=query_get_value(SHOW STATUS like "Innodb_row_lock_deadlocks", Value, 1);
+
+connection con1;
+begin;
+select * from lockt where i=1 for update;
+
+connection con2;
+begin;
+select * from lockt where i=2 for update;
+send select * from lockt where i=1 for update;
+
+connection con1;
+sleep 0.5;
+--error ER_LOCK_DEADLOCK
+select * from lockt where i=2 for update;
+rollback;
+
+connection con2;
+reap;
+rollback;
+
+let $d2=query_get_value(SHOW STATUS like "Innodb_row_lock_deadlocks", Value, 1);
+
+--disable_query_log
+eval select $d2 - $d1 as N_deadlocks, 'must be 1';
+--enable_query_log
+
+#
+# lock wait timeout test
+#
+--echo
+--echo Test lock wait timeout
+--echo
+
+let $d1=query_get_value(SHOW STATUS like "Innodb_row_lock_wait_timeouts", Value, 1);
+
+connection con1;
+begin;
+select * from lockt where i=1 for update;
+
+connection con2;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from lockt where i=1 for update;
+
+connection con2;
+rollback;
+
+let $d2=query_get_value(SHOW STATUS like "Innodb_row_lock_wait_timeouts", Value, 1);
+
+--disable_query_log
+eval select $d2 - $d1 as N_lock_wait_timeouts, 'must be 1';
+--enable_query_log
+
+#
+# deadlock test with innodb_deadlock_detect=0
+#
+--echo
+--echo Test deadlock with innodb_deadlock_detect=0
+--echo
+
+set global innodb_deadlock_detect=0;
+
+let $d1=query_get_value(SHOW STATUS like "Innodb_row_lock_wait_timeouts", Value, 1);
+
+connection con1;
+begin;
+select * from lockt where i=1 for update;
+
+connection con2;
+begin;
+select * from lockt where i=2 for update;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from lockt where i=1 for update;
+
+connection con1;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from lockt where i=2 for update;
+rollback;
+
+connection con2;
+rollback;
+
+let $d2=query_get_value(SHOW STATUS like "Innodb_row_lock_wait_timeouts", Value, 1);
+
+--disable_query_log
+eval select $d2 - $d1 as N_deadlocks, 'must be 2';
+--enable_query_log
+
+set global innodb_deadlock_detect=1;
+
+#
+# cleanup
+#
+--echo
+--echo Cleanup
+--echo
+
+drop table lockt;
