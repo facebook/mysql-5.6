@@ -3501,6 +3501,8 @@ lock_deadlock_start_print()
 	ut_ad(lock_mutex_own());
 	ut_ad(!srv_read_only_mode);
 
+	srv_lock_deadlocks++;
+
 	rewind(lock_latest_err_file);
 	ut_print_timestamp(lock_latest_err_file);
 
@@ -5251,6 +5253,10 @@ lock_print_info_summary(
 	fprintf(file,
 		"History list length %lu\n",
 		(ulong) trx_sys->rseg_history_len);
+
+	fprintf(file,
+		"Lock stats: %lu deadlocks, %lu lock wait timeouts\n",
+		srv_lock_deadlocks, srv_lock_wait_timeouts);
 
 #ifdef PRINT_NUM_OF_LOCK_STRUCTS
 	fprintf(file,
