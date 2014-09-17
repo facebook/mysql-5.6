@@ -68,6 +68,8 @@ Created 10/8/1995 Heikki Tuuri
 #include "srv0mon.h"
 #include "ut0crc32.h"
 
+#include "mysqld.h"
+
 #include "mysql/plugin.h"
 #include "mysql/service_thd_wait.h"
 
@@ -314,6 +316,27 @@ UNIV_INTERN srv_stats_t	srv_stats;
 
 /* structure to pass status variables to MySQL */
 UNIV_INTERN export_var_t export_vars;
+
+/** Time doing a checkpoint */
+UNIV_INTERN ulonglong   srv_checkpoint_time	= 0;
+
+/** Time in insert buffer */
+UNIV_INTERN ulonglong   srv_ibuf_contract_time	= 0;
+
+/** Time flushing logs */
+UNIV_INTERN ulonglong   srv_log_flush_time	= 0;
+
+/** Time enforcing dict cache limit */
+UNIV_INTERN ulonglong   srv_cache_limit_time	= 0;
+
+/** Time checking log freespace */
+UNIV_INTERN ulonglong   srv_free_log_time	= 0;
+
+/** Time doing background table drop */
+UNIV_INTERN ulonglong   srv_drop_table_time	= 0;
+
+/** Time in trx_purge */
+UNIV_INTERN ulonglong   srv_purge_time		= 0;
 
 /** Normally 0. When nonzero, skip some phases of crash recovery,
 starting from SRV_FORCE_IGNORE_CORRUPT, so that data can be recovered
@@ -656,6 +679,19 @@ srv_print_master_thread_info(
 		srv_main_active_loops,
 		srv_main_shutdown_loops,
 		srv_main_idle_loops);
+
+	fprintf(file,
+		"Seconds in background IO: %.2f insert buffer, "
+		"%.2f log flush, %.2f purge, %.2f cache limit, "
+		"%.2f free log, %.2f drop table, %.2f checkpoint\n",
+		my_timer_to_seconds(srv_ibuf_contract_time),
+		my_timer_to_seconds(srv_log_flush_time),
+		my_timer_to_seconds(srv_cache_limit_time),
+		my_timer_to_seconds(srv_free_log_time),
+		my_timer_to_seconds(srv_drop_table_time),
+		my_timer_to_seconds(srv_purge_time),
+		my_timer_to_seconds(srv_checkpoint_time));
+
 	fprintf(file, "srv_master_thread log flush and writes: %lu\n",
 		srv_log_writes_and_flush);
 }
@@ -1645,6 +1681,14 @@ srv_export_innodb_status(void)
 	export_vars.innodb_rwlock_x_spin_rounds = rw_lock_stats.rw_x_spin_round_count;
 	export_vars.innodb_rwlock_x_spin_waits = rw_lock_stats.rw_x_spin_wait_count;
 
+	export_vars.innodb_srv_checkpoint_time= srv_checkpoint_time;
+	export_vars.innodb_srv_ibuf_contract_time= srv_ibuf_contract_time;
+	export_vars.innodb_srv_log_flush_time= srv_log_flush_time;
+	export_vars.innodb_srv_cache_limit_time= srv_cache_limit_time;
+	export_vars.innodb_srv_free_log_time= srv_free_log_time;
+	export_vars.innodb_srv_drop_table_time= srv_drop_table_time;
+	export_vars.innodb_srv_purge_time= srv_purge_time;
+
 	export_vars.innodb_sec_rec_cluster_reads =
 		srv_sec_rec_cluster_reads.load();
 	export_vars.innodb_sec_rec_cluster_reads_avoided =
@@ -2253,6 +2297,7 @@ srv_master_do_active_tasks(void)
 {
 	ib_time_t	cur_time = ut_time();
 	ullint		counter_time = ut_time_us(NULL);
+	ulonglong	start_time;
 
 	/* First do the tasks that we are suppose to do at each
 	invocation of this function. */
@@ -2264,10 +2309,12 @@ srv_master_do_active_tasks(void)
 	/* ALTER TABLE in MySQL requires on Unix that the table handler
 	can drop tables lazily after there no longer are SELECT
 	queries to them. */
+	start_time = my_timer_now();
 	srv_main_thread_op_info = "doing background drop tables";
 	row_drop_tables_for_mysql_in_background();
 	MONITOR_INC_TIME_IN_MICRO_SECS(
 		MONITOR_SRV_BACKGROUND_DROP_TABLE_MICROSECOND, counter_time);
+	srv_drop_table_time += my_timer_since(start_time);
 
 	if (srv_shutdown_state > 0) {
 		return;
@@ -2275,21 +2322,27 @@ srv_master_do_active_tasks(void)
 
 	/* make sure that there is enough reusable space in the redo
 	log files */
+	start_time = my_timer_now();
 	srv_main_thread_op_info = "checking free log space";
 	log_free_check();
+	srv_free_log_time += my_timer_since(start_time);
 
 	/* Do an ibuf merge */
+	start_time = my_timer_now();
 	srv_main_thread_op_info = "doing insert buffer merge";
 	counter_time = ut_time_us(NULL);
 	ibuf_contract_in_background(0, FALSE);
 	MONITOR_INC_TIME_IN_MICRO_SECS(
 		MONITOR_SRV_IBUF_MERGE_MICROSECOND, counter_time);
+	srv_ibuf_contract_time += my_timer_since(start_time);
 
 	/* Flush logs if needed */
+	start_time = my_timer_now();
 	srv_main_thread_op_info = "flushing log";
 	srv_sync_log_buffer_in_background();
 	MONITOR_INC_TIME_IN_MICRO_SECS(
 		MONITOR_SRV_LOG_FLUSH_MICROSECOND, counter_time);
+	srv_log_flush_time += my_timer_since(start_time);
 
 	/* Now see if various tasks that are performed at defined
 	intervals need to be performed. */
@@ -2311,24 +2364,28 @@ srv_master_do_active_tasks(void)
 		return;
 	}
 
+	start_time = my_timer_now();
 	if (cur_time % SRV_MASTER_DICT_LRU_INTERVAL == 0) {
 		srv_main_thread_op_info = "enforcing dict cache limit";
 		srv_master_evict_from_table_cache(50);
 		MONITOR_INC_TIME_IN_MICRO_SECS(
 			MONITOR_SRV_DICT_LRU_MICROSECOND, counter_time);
 	}
+	srv_cache_limit_time += my_timer_since(start_time);
 
 	if (srv_shutdown_state > 0) {
 		return;
 	}
 
 	/* Make a new checkpoint */
+	start_time = my_timer_now();
 	if (cur_time % SRV_MASTER_CHECKPOINT_INTERVAL == 0) {
 		srv_main_thread_op_info = "making checkpoint";
 		log_checkpoint(TRUE, FALSE);
 		MONITOR_INC_TIME_IN_MICRO_SECS(
 			MONITOR_SRV_CHECKPOINT_MICROSECOND, counter_time);
 	}
+	srv_checkpoint_time += my_timer_since(start_time);
 }
 
 /*********************************************************************//**
@@ -2765,6 +2822,9 @@ srv_do_purge(
 			break;
 		}
 
+		ulonglong	start_time;
+		start_time = my_timer_now();
+
 		n_pages_purged = trx_purge(
 			n_use_threads, srv_purge_batch_size, false);
 
@@ -2773,6 +2833,8 @@ srv_do_purge(
 			n_pages_purged += trx_purge(
 				1, srv_purge_batch_size, true);
 		}
+
+		srv_purge_time += my_timer_since(start_time);
 
 		*n_total_purged += n_pages_purged;
 
