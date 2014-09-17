@@ -702,6 +702,12 @@ extern ulint srv_dml_needed_delay;
 #define SRV_MAX_N_IO_THREADS 130
 #endif /* UNIV_HOTBACKUP */
 
+/** Number of deadlocks */
+extern ulint srv_lock_deadlocks;
+
+/** Number of lock wait timeouts */
+extern ulint srv_lock_wait_timeouts;
+
 /* Array of English strings describing the current state of an
 i/o handler thread */
 extern const char *srv_io_thread_op_info[];
@@ -1117,6 +1123,8 @@ struct export_var_t {
   ulint innodb_ibuf_deletes;                   /*!< ibuf->n_deletes */
   ulint innodb_ibuf_merges;                    /*!< ibuf->n_merges */
   ulint innodb_ibuf_size;                      /*!< ibuf->size */
+  ulint innodb_lock_deadlocks;                 /*!< srv_lock_deadlocks */
+  ulint innodb_lock_wait_timeouts;             /*!< srv_lock_wait_timeouts */
   ulint innodb_log_waits;                      /*!< srv_log_waits */
   ulint innodb_log_write_requests;             /*!< srv_log_write_requests */
   ulint innodb_log_writes;                     /*!< srv_log_writes */
@@ -1128,6 +1136,7 @@ struct export_var_t {
   ulint innodb_pages_created;          /*!< buf_pool->stat.n_pages_created */
   ulint innodb_pages_read;             /*!< buf_pool->stat.n_pages_read */
   ulint innodb_pages_written;          /*!< buf_pool->stat.n_pages_written */
+  ulint innodb_purge_pending;          /*!< trx_sys->rseg_history_len */
   ulint innodb_row_lock_waits;         /*!< srv_n_lock_wait_count */
   ulint innodb_row_lock_current_waits; /*!< srv_n_lock_wait_current_count */
   int64_t innodb_row_lock_time;        /*!< srv_n_lock_wait_time
