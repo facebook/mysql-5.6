@@ -1,0 +1,60 @@
+drop table if exists lockt;
+create table lockt(i int primary key) engine=innodb;
+insert into lockt values (1), (2);
+
+Test deadlock
+
+begin;
+select * from lockt where i=1 for update;
+i
+1
+begin;
+select * from lockt where i=2 for update;
+i
+2
+select * from lockt where i=1 for update;
+select * from lockt where i=2 for update;
+ERROR 40001: Deadlock found when trying to get lock; try restarting transaction
+rollback;
+i
+1
+rollback;
+N_deadlocks	must be 1
+1	must be 1
+
+Test lock wait timeout
+
+begin;
+select * from lockt where i=1 for update;
+i
+1
+select * from lockt where i=1 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+rollback;
+N_lock_wait_timeouts	must be 1
+1	must be 1
+
+Test deadlock with innodb_deadlock_detect=0
+
+set global innodb_deadlock_detect=0;
+begin;
+select * from lockt where i=1 for update;
+i
+1
+begin;
+select * from lockt where i=2 for update;
+i
+2
+select * from lockt where i=1 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+select * from lockt where i=2 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+rollback;
+rollback;
+N_deadlocks	must be 2
+2	must be 2
+set global innodb_deadlock_detect=1;
+
+Cleanup
+
+drop table lockt;
