@@ -918,6 +918,28 @@ struct export_var_t{
 	ulint innodb_rwlock_x_spin_rounds;	/*!< rw_x_spin_round_count */
 	ulint innodb_rwlock_x_spin_waits;	/*!< rw_x_spin_wait_count */
 
+	ulint innodb_log_checkpoints;
+	ulint innodb_log_syncs;
+
+	ulint innodb_log_write_archive;
+	ulint innodb_log_write_background_async;
+	ulint innodb_log_write_background_sync;
+	ulint innodb_log_write_checkpoint_async;
+	ulint innodb_log_write_checkpoint_sync;
+	ulint innodb_log_write_commit_async;
+	ulint innodb_log_write_commit_sync;
+	ulint innodb_log_write_flush_dirty;
+	ulint innodb_log_write_other;
+	ulint innodb_log_sync_archive;
+	ulint innodb_log_sync_background_async;
+	ulint innodb_log_sync_background_sync;
+	ulint innodb_log_sync_checkpoint_async;
+	ulint innodb_log_sync_checkpoint_sync;
+	ulint innodb_log_sync_commit_async;
+	ulint innodb_log_sync_commit_sync;
+	ulint innodb_log_sync_flush_dirty;
+	ulint innodb_log_sync_other;
+
 	ulint innodb_sec_rec_cluster_reads;	/*!< srv_sec_rec_cluster_reads */
 	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
 

@@ -888,6 +888,17 @@ log_init(void)
 
 	log_sys->n_pending_writes = 0;
 
+	{
+		int x;
+		for (x = 0; x < LOG_WRITE_FROM_NUMBER; ++x) {
+			log_sys->log_sync_callers[x] = 0;
+			log_sys->log_sync_syncers[x] = 0;
+		}
+	}
+
+	log_sys->n_syncs = 0;
+	log_sys->n_checkpoints = 0;
+
 	log_sys->no_flush_event = os_event_create();
 
 	os_event_set(log_sys->no_flush_event);
@@ -1433,9 +1444,10 @@ log_write_up_to(
 			LSN_MAX if not specified */
 	ulint	wait,	/*!< in: LOG_NO_WAIT, LOG_WAIT_ONE_GROUP,
 			or LOG_WAIT_ALL_GROUPS */
-	ibool	flush_to_disk)
+	ibool	flush_to_disk,
 			/*!< in: TRUE if we want the written log
 			also to be flushed to disk */
+	log_sync_type	caller)	/* in: identifies caller */
 {
 	log_group_t*	group;
 	ulint		start_offset;
@@ -1448,6 +1460,8 @@ log_write_up_to(
 	ulint		unlock;
 
 	ut_ad(!srv_read_only_mode);
+
+	log_sys->log_sync_callers[caller]++;
 
 	if (recv_no_ibuf_operations) {
 		/* Recovery is running and no operations on the log files are
@@ -1602,6 +1616,8 @@ loop:
 		so we have also flushed to disk what we have written */
 
 		log_sys->flushed_to_disk_lsn = log_sys->write_lsn;
+		log_sys->n_syncs++;
+		log_sys->log_sync_syncers[caller]++;
 
 	} else if (flush_to_disk) {
 
@@ -1609,6 +1625,8 @@ loop:
 
 		fil_flush(group->space_id);
 		log_sys->flushed_to_disk_lsn = log_sys->write_lsn;
+		log_sys->n_syncs++;
+		log_sys->log_sync_syncers[caller]++;
 	}
 
 	mutex_enter(&(log_sys->mutex));
@@ -1666,7 +1684,8 @@ log_buffer_flush_to_disk(void)
 
 	mutex_exit(&(log_sys->mutex));
 
-	log_write_up_to(lsn, LOG_WAIT_ALL_GROUPS, TRUE);
+	log_write_up_to(lsn, LOG_WAIT_ALL_GROUPS, TRUE,
+			LOG_WRITE_FROM_BACKGROUND_SYNC);
 }
 
 /****************************************************************//**
@@ -1688,7 +1707,9 @@ log_buffer_sync_in_background(
 
 	mutex_exit(&(log_sys->mutex));
 
-	log_write_up_to(lsn, LOG_NO_WAIT, flush);
+	log_write_up_to(lsn, LOG_NO_WAIT, flush,
+			flush ? LOG_WRITE_FROM_BACKGROUND_SYNC :
+			LOG_WRITE_FROM_BACKGROUND_ASYNC);
 }
 
 /********************************************************************
@@ -1718,7 +1739,8 @@ log_flush_margin(void)
 	mutex_exit(&(log->mutex));
 
 	if (lsn) {
-		log_write_up_to(lsn, LOG_NO_WAIT, FALSE);
+		log_write_up_to(lsn, LOG_NO_WAIT, FALSE,
+				LOG_WRITE_FROM_INTERNAL);
 	}
 }
 
@@ -2095,6 +2117,7 @@ log_checkpoint(
 	}
 
 	mutex_enter(&(log_sys->mutex));
+	log_sys->n_checkpoints++;
 
 	ut_ad(!recv_no_log_write);
 	oldest_lsn = log_buf_pool_get_oldest_modification();
@@ -2109,7 +2132,8 @@ log_checkpoint(
 	write-ahead-logging algorithm ensures that the log has been flushed
 	up to oldest_lsn. */
 
-	log_write_up_to(oldest_lsn, LOG_WAIT_ALL_GROUPS, TRUE);
+	log_write_up_to(oldest_lsn, LOG_WAIT_ALL_GROUPS, TRUE,
+			LOG_WRITE_FROM_CHECKPOINT_SYNC);
 
 	mutex_enter(&(log_sys->mutex));
 
@@ -2798,7 +2822,8 @@ arch_none:
 
 		mutex_exit(&(log_sys->mutex));
 
-		log_write_up_to(limit_lsn, LOG_WAIT_ALL_GROUPS, TRUE);
+		log_write_up_to(limit_lsn, LOG_WAIT_ALL_GROUPS, TRUE,
+				LOG_WRITE_FROM_LOG_ARCHIVE);
 
 		calc_new_limit = FALSE;
 
@@ -3600,6 +3625,8 @@ log_print(
 {
 	double	time_elapsed;
 	time_t	current_time;
+	ib_uint64_t	oldest_lsn;
+	ulint	age;
 
 	mutex_enter(&(log_sys->mutex));
 
@@ -3624,12 +3651,63 @@ log_print(
 
 	fprintf(file,
 		"%lu pending log writes, %lu pending chkp writes\n"
-		"%lu log i/o's done, %.2f log i/o's/second\n",
+		"%lu log i/o's done, %.2f log i/o's/second\n"
+		"%lu syncs, %lu checkpoints\n",
 		(ulong) log_sys->n_pending_writes,
 		(ulong) log_sys->n_pending_checkpoint_writes,
 		(ulong) log_sys->n_log_ios,
 		((double)(log_sys->n_log_ios - log_sys->n_log_ios_old)
-		 / time_elapsed));
+		 / time_elapsed),
+		log_sys->n_syncs, log_sys->n_checkpoints);
+
+	fprintf(file,
+		"log sync callers: %lu buffer pool, "
+		"background %lu sync and %lu async, "
+		"%lu internal, checkpoint %lu sync and %lu async, %lu archive, "
+		"commit %lu sync and %lu async\n",
+		log_sys->log_sync_callers[LOG_WRITE_FROM_DIRTY_BUFFER],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_BACKGROUND_SYNC],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_BACKGROUND_ASYNC],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_INTERNAL],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_CHECKPOINT_SYNC],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_CHECKPOINT_ASYNC],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_LOG_ARCHIVE],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_COMMIT_SYNC],
+		log_sys->log_sync_callers[LOG_WRITE_FROM_COMMIT_ASYNC]);
+
+	fprintf(file,
+		"log sync syncers: %lu buffer pool, "
+		"background %lu sync and %lu async, "
+		"%lu internal, checkpoint %lu sync and %lu async, %lu archive, "
+		"commit %lu sync and %lu async\n",
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_DIRTY_BUFFER],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_BACKGROUND_SYNC],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_BACKGROUND_ASYNC],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_INTERNAL],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_CHECKPOINT_SYNC],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_CHECKPOINT_ASYNC],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_LOG_ARCHIVE],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_COMMIT_SYNC],
+		log_sys->log_sync_syncers[LOG_WRITE_FROM_COMMIT_ASYNC]);
+
+	oldest_lsn = log_buf_pool_get_oldest_modification();
+	age = (ulint) (log_sys->lsn - oldest_lsn);
+
+	fprintf(file,
+		"Foreground flush margins: sync %lu async %lu\n"
+		"Space to flush margin:     sync %lu async %lu\n"
+		"Current_LSN - Min_LSN     %lu\n"
+		"Checkpoint age            %lu\n"
+		"Max checkpoint age        %lu\n",
+		log_sys->max_modified_age_sync,
+		log_sys->max_modified_age_async,
+		(age < log_sys->max_modified_age_sync) ?
+		(log_sys->max_modified_age_sync - age) : 0,
+		(age < log_sys->max_modified_age_async) ?
+		(log_sys->max_modified_age_async - age) : 0,
+		age,
+		(ulint) (log_sys->lsn - log_sys->last_checkpoint_lsn),
+		log_sys->max_checkpoint_age);
 
 	log_sys->n_log_ios_old = log_sys->n_log_ios;
 	log_sys->last_printout_time = current_time;
