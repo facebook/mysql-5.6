@@ -445,6 +445,12 @@ extern ulint	srv_fatal_semaphore_wait_threshold;
 #define SRV_SEMAPHORE_WAIT_EXTENSION	7200
 extern ulint	srv_dml_needed_delay;
 
+/** Number of extra writes done in buf_flush_try_neighbors from LRU list */
+extern ulint	srv_neighbors_flushed_lru;
+
+/** Number of extra writes done in buf_flush_try_neighbors from flush list */
+extern ulint	srv_neighbors_flushed_list;
+
 /** Time doing a checkpoint */
 extern ulonglong  srv_checkpoint_time;
 
@@ -909,6 +915,10 @@ struct export_var_t{
 	ulint innodb_buffer_pool_read_ahead_rnd;/*!< srv_read_ahead_rnd */
 	ulint innodb_buffer_pool_read_ahead;	/*!< srv_read_ahead */
 	ulint innodb_buffer_pool_read_ahead_evicted;/*!< srv_read_ahead evicted*/
+
+	ulint innodb_buffer_pool_neighbors_flushed_list;/*!< srv_neighbors_flushed_list */
+	ulint innodb_buffer_pool_neighbors_flushed_lru;/*!< srv_neighbors_flushed_lru */
+
 	ulint innodb_dblwr_pages_written;	/*!< srv_dblwr_pages_written */
 	ulint innodb_dblwr_writes;		/*!< srv_dblwr_writes */
 	ulint innodb_hash_nonsearches;		/*!< btr_cur_n_sea */

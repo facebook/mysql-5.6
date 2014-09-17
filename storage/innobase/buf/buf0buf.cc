@@ -4859,7 +4859,8 @@ buf_print_instance(
 		"n pending reads %lu\n"
 		"n pending flush LRU %lu list %lu single page %lu\n"
 		"pages made young %lu, not young %lu\n"
-		"pages read %lu, created %lu, written %lu\n",
+		"pages read %lu, created %lu, written %lu\n"
+		"neighbor pages flushed: %lu by list, %lu by LRU\n",
 		(ulong) size,
 		(ulong) UT_LIST_GET_LEN(buf_pool->LRU),
 		(ulong) UT_LIST_GET_LEN(buf_pool->free),
@@ -4873,7 +4874,9 @@ buf_print_instance(
 		(ulong) buf_pool->stat.n_pages_not_made_young,
 		(ulong) buf_pool->stat.n_pages_read,
 		(ulong) buf_pool->stat.n_pages_created,
-		(ulong) buf_pool->stat.n_pages_written);
+		(ulong) buf_pool->stat.n_pages_written,
+		(ulong) srv_neighbors_flushed_list,
+		(ulong) srv_neighbors_flushed_lru);
 
 	buf_flush_list_mutex_exit(buf_pool);
 
@@ -5349,7 +5352,8 @@ buf_print_io_instance(
 		"Evicted after read ahead without access: %lu\n"
 		"Pending reads %lu\n"
 		"Pending writes: LRU %lu, flush list %lu, single page %lu\n"
-		"Total writes: %lu LRU, %lu flush list, %lu single page\n",
+		"Total writes: %lu LRU, %lu flush list, %lu single page\n"
+		"Neighbor pages flushed: %lu from list, %lu from LRU\n",
 		pool_info->pool_size,
 		pool_info->free_list_len,
 		pool_info->lru_len,
@@ -5368,7 +5372,9 @@ buf_print_io_instance(
 		pool_info->n_pending_flush_single_page,
 		pool_info->n_flushed_lru,
 		pool_info->n_flushed_list,
-		pool_info->n_flushed_single_page);
+		pool_info->n_flushed_single_page,
+		(ulong) srv_neighbors_flushed_list,
+		(ulong) srv_neighbors_flushed_lru);
 
 	fprintf(file,
 		"Pages made young %lu, not young %lu\n"
