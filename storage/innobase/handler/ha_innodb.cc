@@ -691,6 +691,12 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_sec_rec_cluster_reads_avoided, SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
+  {"outstanding_aio_requests",
+   (char*) &export_vars.innodb_outstanding_aio_requests,  SHOW_LONG},
+#ifdef UNIV_DEBUG
+  {"max_outstanding_aio_requests",
+   (char*) &export_vars.innodb_max_outstanding_aio_requests, SHOW_LONG},
+#endif /* UNIV_DEBUG */
   {"logical_read_ahead_misses",
    (char*) &export_vars.innodb_logical_read_ahead_misses, SHOW_LONG},
   {"logical_read_ahead_prefetched",
@@ -16613,6 +16619,12 @@ static MYSQL_SYSVAR_BOOL(deadlock_detect, srv_deadlock_detect,
   "Enableds deadlock detection checking.",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
+  PLUGIN_VAR_RQCMDARG,
+  "Maximum number of outstanding AIO requests. Stall aio requests submission if"
+  "this is reached.",
+  NULL, NULL, 256, 0, 1024, 0);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -16773,6 +16785,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(saved_page_number_debug),
   MYSQL_SYSVAR(lra_test),
 #endif /* UNIV_DEBUG */
+  MYSQL_SYSVAR(aio_outstanding_requests),
   MYSQL_SYSVAR(lra_size),
   MYSQL_SYSVAR(lra_n_node_recs_before_sleep),
   MYSQL_SYSVAR(lra_sleep),
