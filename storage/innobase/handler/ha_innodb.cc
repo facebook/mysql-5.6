@@ -725,6 +725,46 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_sec_rec_cluster_reads,	  SHOW_LONG},
   {"secondary_index_triggered_cluster_reads_avoided",
   (char*) &export_vars.innodb_sec_rec_cluster_reads_avoided, SHOW_LONG},
+  {"log_checkpoints",
+  (char*) &export_vars.innodb_log_checkpoints,		  SHOW_LONG},
+  {"log_syncs",
+  (char*) &export_vars.innodb_log_syncs,		  SHOW_LONG},
+  {"log_write_archive",
+  (char*) &export_vars.innodb_log_write_archive,	  SHOW_LONG},
+  {"log_write_background_async",
+  (char*) &export_vars.innodb_log_write_background_async, SHOW_LONG},
+  {"log_write_background_sync",
+  (char*) &export_vars.innodb_log_write_background_sync,  SHOW_LONG},
+  {"log_write_checkpoint_async",
+  (char*) &export_vars.innodb_log_write_checkpoint_async, SHOW_LONG},
+  {"log_write_checkpoint_sync",
+  (char*) &export_vars.innodb_log_write_checkpoint_sync,  SHOW_LONG},
+  {"log_write_commit_async",
+  (char*) &export_vars.innodb_log_write_commit_async,	  SHOW_LONG},
+  {"log_write_commit_sync",
+  (char*) &export_vars.innodb_log_write_commit_sync,	  SHOW_LONG},
+  {"log_write_flush_dirty",
+  (char*) &export_vars.innodb_log_write_flush_dirty,	  SHOW_LONG},
+  {"log_write_other",
+  (char*) &export_vars.innodb_log_write_other,		  SHOW_LONG},
+  {"log_sync_archive",
+  (char*) &export_vars.innodb_log_sync_archive,		  SHOW_LONG},
+  {"log_sync_background_async",
+  (char*) &export_vars.innodb_log_sync_background_async,  SHOW_LONG},
+  {"log_sync_background_sync",
+  (char*) &export_vars.innodb_log_sync_background_sync,	  SHOW_LONG},
+  {"log_sync_checkpoint_async",
+  (char*) &export_vars.innodb_log_sync_checkpoint_async,  SHOW_LONG},
+  {"log_sync_checkpoint_sync",
+  (char*) &export_vars.innodb_log_sync_checkpoint_sync,	  SHOW_LONG},
+  {"log_sync_commit_async",
+  (char*) &export_vars.innodb_log_sync_commit_async,	  SHOW_LONG},
+  {"log_sync_commit_sync",
+  (char*) &export_vars.innodb_log_sync_commit_sync,	  SHOW_LONG},
+  {"log_sync_flush_dirty",
+  (char*) &export_vars.innodb_log_sync_flush_dirty,	  SHOW_LONG},
+  {"log_sync_other",
+  (char*) &export_vars.innodb_log_sync_other,		  SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
   {"outstanding_aio_requests",
@@ -3504,9 +3544,12 @@ innobase_flush_logs(
 		if (target_lsn == 0) {
 			log_buffer_flush_to_disk();
 		} else if (srv_flush_log_at_trx_commit > 0) {
+			bool sync = srv_flush_log_at_trx_commit == 1;
 			log_write_up_to(target_lsn,
 					LOG_WAIT_ONE_GROUP,
-					(srv_flush_log_at_trx_commit == 1));
+					sync, sync ?
+					LOG_WRITE_FROM_COMMIT_SYNC :
+					LOG_WRITE_FROM_COMMIT_ASYNC);
 		}
 	}
 
