@@ -1259,6 +1259,16 @@ buf_flush_try_neighbors(
 					(count - 1));
 	}
 
+	if (count > 1) {
+		/* This function should do 1 or more writes. If there are more,
+		count the extra writes by type. */
+		if (flush_type == BUF_FLUSH_LRU) {
+			srv_neighbors_flushed_lru += count - 1;
+		} else if (flush_type == BUF_FLUSH_LIST) {
+			srv_neighbors_flushed_list += count - 1;
+		}
+	}
+
 	return(count);
 }
 
