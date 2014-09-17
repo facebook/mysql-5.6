@@ -445,6 +445,27 @@ extern ulint	srv_fatal_semaphore_wait_threshold;
 #define SRV_SEMAPHORE_WAIT_EXTENSION	7200
 extern ulint	srv_dml_needed_delay;
 
+/** Time doing a checkpoint */
+extern ulonglong  srv_checkpoint_time;
+
+/** Time in insert buffer */
+extern ulonglong  srv_ibuf_contract_time;
+
+/** Time flushing logs */
+extern ulonglong  srv_log_flush_time;
+
+/** Time enforcing dict cache limit */
+extern ulonglong  srv_cache_limit_time;
+
+/** Time checking log freespace */
+extern ulonglong  srv_free_log_time;
+
+/** Time doing background table drop */
+extern ulonglong  srv_drop_table_time;
+
+/** Time in trx_purge */
+extern ulonglong  srv_purge_time;
+
 #ifndef HAVE_ATOMIC_BUILTINS
 /** Mutex protecting some server global variables. */
 extern ib_mutex_t	server_mutex;
@@ -937,6 +958,14 @@ struct export_var_t{
 	ulint innodb_rwlock_x_os_waits;		/*!< rw_x_os_wait_count */
 	ulint innodb_rwlock_x_spin_rounds;	/*!< rw_x_spin_round_count */
 	ulint innodb_rwlock_x_spin_waits;	/*!< rw_x_spin_wait_count */
+
+	ulonglong innodb_srv_checkpoint_time;	/*!< srv_checkpoint_time */
+	ulonglong innodb_srv_ibuf_contract_time;/*!< srv_ibuf_contract_time */
+	ulonglong innodb_srv_log_flush_time;	/*!< srv_log_flush_time */
+	ulonglong innodb_srv_cache_limit_time;	/*!< srv_cache_limit_time */
+	ulonglong innodb_srv_free_log_time;	/*!< srv_free_log_time */
+	ulonglong innodb_srv_drop_table_time;	/*!< srv_drop_table_time */
+	ulonglong innodb_srv_purge_time;	/*!< srv_purge_time */
 
 	ulint innodb_log_checkpoints;
 	ulint innodb_log_syncs;
