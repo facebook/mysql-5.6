@@ -192,6 +192,23 @@ void
 log_io_complete(
 /*============*/
 	log_group_t*	group);	/*!< in: log group */
+
+/**********************************************************
+Describes the caller of log_write_up_to. */
+
+typedef enum {
+	LOG_WRITE_FROM_DIRTY_BUFFER,
+	LOG_WRITE_FROM_BACKGROUND_SYNC,
+	LOG_WRITE_FROM_BACKGROUND_ASYNC,
+	LOG_WRITE_FROM_INTERNAL,
+	LOG_WRITE_FROM_CHECKPOINT_SYNC,
+	LOG_WRITE_FROM_CHECKPOINT_ASYNC,
+	LOG_WRITE_FROM_LOG_ARCHIVE,
+	LOG_WRITE_FROM_COMMIT_SYNC,
+	LOG_WRITE_FROM_COMMIT_ASYNC,
+	LOG_WRITE_FROM_NUMBER
+} log_sync_type;
+
 /******************************************************//**
 This function is called, e.g., when a transaction wants to commit. It checks
 that the log has been written to the log file up to the last log entry written
@@ -205,9 +222,10 @@ log_write_up_to(
 			the log should be written, LSN_MAX if not specified */
 	ulint	wait,	/*!< in: LOG_NO_WAIT, LOG_WAIT_ONE_GROUP,
 			or LOG_WAIT_ALL_GROUPS */
-	ibool	flush_to_disk);
+	ibool	flush_to_disk,
 			/*!< in: TRUE if we want the written log
 			also to be flushed to disk */
+	log_sync_type	caller);/* in: identifies the caller */
 /****************************************************************//**
 Does a syncronous flush of the log buffer to disk. */
 UNIV_INTERN
@@ -855,6 +873,13 @@ struct log_t{
 					AND flushed to disk */
 	ulint		n_pending_writes;/*!< number of currently
 					pending flushes or writes */
+	ulint		log_sync_callers[LOG_WRITE_FROM_NUMBER];
+					/* counts calls to log_write_up_to */
+	ulint		log_sync_syncers[LOG_WRITE_FROM_NUMBER];
+					/* counts calls to log_write_up_to when
+					log file is sync'd */
+	ulint		n_syncs;	/* number of fsyncs done for log file */
+	ulint		n_checkpoints;	/* number of calls to log_checkpoint */
 	/* NOTE on the 'flush' in names of the fields below: starting from
 	4.0.14, we separate the write of the log file and the actual fsync()
 	or other method to flush it to disk. The names below shhould really
