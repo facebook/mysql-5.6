@@ -25,7 +25,7 @@
 
 
 /*
-  Read a number from a string. The number may have a suffix Kk/Mm/Gg.
+  Read a number from a string. The number may have a suffix Kk/Mm/Gg/Tt.
   The code is copied from eval_num_suffix().
 
   @param  str     INOUT string pointer
@@ -52,6 +52,8 @@ bool read_number_and_suffix(const char **str, longlong *number)
     num*= 1024L * 1024L;
   else if (*endchar == 'g' || *endchar == 'G')
     num*= 1024L * 1024L * 1024L;
+  else if (*endchar == 't' || *endchar == 'T')
+    num*= 1024LL * 1024LL * 1024LL * 1024LL;
   else
     suffix_chars= 0;
 
@@ -63,10 +65,10 @@ bool read_number_and_suffix(const char **str, longlong *number)
 
 
 /*
-  Read column family name, followed by semicolon ':'
+  Read column family name, followed by colon ':'
 
   @param  str     INOUT string pointer. On return points to right after
-                        the semicolon.
+                        the colon.
   @return 0 - OK
           1 - Error
 */
@@ -79,17 +81,27 @@ bool read_cf_name(const char **str_arg)
   if (str[0] == ':')
   {
     *str_arg= str + 1;
-    return 0; /* OK */
+    return false; /* OK */
   }
-  return 1; /* Error */
+  return true; /* Error */
 }
 
 
 /*
+  @brief
+  Parse a per-Column Family numeric argument. It can be a single number of
+  specify value for each CF.
+
+  @detail
   Parse a string value that maybe either
   - a single number-with-suffix
   - a line in form
-     cfname:value,cfname2:value2,...
+
+      cfname:value,cfname2:value2,...
+
+    where cfname='default' also sets the default value (which is used for
+    the column family named 'default' and also column families for which
+    the value wasn't specified explicitly.)
 
   @param  str        String with option value
   @param  out  OUT   Parsed option value
@@ -123,8 +135,9 @@ bool parse_per_cf_numeric(const char *str, Numeric_cf_option *out)
     out->name_map[cf_name_str]= num;
 
     /*
-      However, if there is column family named "DEFAULT" it is take in as
-      default.
+      If column family is named "default", its pameter value is also the
+      default value for column familes which dont have an explicitly specified
+      value.
     */
     if (!strcmp(cf_name_str.c_str(), DEFAULT_CF_NAME))
       out->default_val= num;

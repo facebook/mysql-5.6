@@ -741,16 +741,14 @@ static int rocksdb_init_func(void *p)
   sql_print_information("RocksDB: Column Families at start:");
   for (size_t i = 0; i < cf_names.size(); ++i)
   {
-    int tfsb= target_file_size_base_map.get_val(cf_names[i].c_str());
-    size_t wbs= write_buffer_size_map.get_val(cf_names[i].c_str());
+    rocksdb::ColumnFamilyOptions opts;
+    get_cf_options(cf_names[i], &opts);
 
     sql_print_information("  cf=%s", cf_names[i].c_str());
-    sql_print_information("    write_buffer_size=%ld", wbs);
-    sql_print_information("    target_file_size_base=%d", tfsb);
+    sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
+    sql_print_information("    target_file_size_base=%d",
+                          opts.target_file_size_base);
 
-    rocksdb::ColumnFamilyOptions opts(default_cf_opts);
-    opts.write_buffer_size= wbs;
-    opts.target_file_size_base= tfsb;
     cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i], opts));
   }
 
