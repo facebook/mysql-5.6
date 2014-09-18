@@ -2757,7 +2757,9 @@ int ha_rocksdb::delete_table(const char *tablename)
 
 void ha_rocksdb::remove_rows(RDBSE_TABLE_DEF *tbl)
 {
-  rocksdb::Iterator* it= rdb->NewIterator(rocksdb::ReadOptions());
+  rocksdb::ReadOptions opts;
+  opts.total_order_seek= true;
+  rocksdb::Iterator* it= rdb->NewIterator(opts);
 
   char key_buf[MAX_KEY_LENGTH];
   uint key_len;
