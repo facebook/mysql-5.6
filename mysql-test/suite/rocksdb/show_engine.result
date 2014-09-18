@@ -1,14 +1,6 @@
 SHOW ENGINE rocksdb STATUS;
 Type	Name	Status
-ROCKSDB	live_files	cf=default name=/000020.sst size=236629
-cf=default name=/000016.sst size=329126
-cf=default name=/000012.sst size=237072
-cf=default name=/000008.sst size=330647
-cf=default name=/000010.sst size=209635
-cf=default name=/000014.sst size=209635
-cf=default name=/000018.sst size=209635
-cf=default name=/000022.sst size=209633
-
+ROCKSDB	live_files	#
 SHOW ENGINE rocksdb MUTEX;
 Type	Name	Status
 SHOW ENGINE ALL MUTEX;
