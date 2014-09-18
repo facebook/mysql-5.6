@@ -988,6 +988,11 @@ RDBSE_TABLE_DEF* Table_ddl_manager::find(uchar *table_name,
 }
 
 
+/*
+  Put table definition of `tbl` into the mapping, and also write it to the
+  on-disk data dictionary.
+*/
+
 int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict)
 {
   uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
