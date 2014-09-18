@@ -412,20 +412,24 @@ class Table_ddl_manager
   };
 
 public:
+  /* Load the data dictionary from on-disk storage */
   bool init(rocksdb::DB *rdb_dict);
-  void cleanup();
 
-  int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::DB *rdb_dict);
-  int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);
-  void remove(RDBSE_TABLE_DEF *rec, rocksdb::DB *rdb_dict, bool lock=true);
+  void cleanup();
 
   RDBSE_TABLE_DEF *find(uchar *table_name, uint len, bool lock=true);
 
+  /* Modify the mapping and write it to on-disk storage */
+  int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::DB *rdb_dict);
+  void remove(RDBSE_TABLE_DEF *rec, rocksdb::DB *rdb_dict, bool lock=true);
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
               rocksdb::DB *rdb_dict);
 
   int get_next_number() { return sequence.get_next_number(); }
 private:
+  /* Put the data into in-memory table (only) */
+  int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);
+
   static uchar* get_hash_key(RDBSE_TABLE_DEF *rec, size_t *length,
                              my_bool not_used __attribute__((unused)));
   static void free_hash_elem(void* data);
