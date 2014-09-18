@@ -4,6 +4,7 @@
 # If it starts producing an actual result, the result file
 # will need to be updated, and possibly masked.
 
+--replace_column 3 #
 SHOW ENGINE rocksdb STATUS;
 SHOW ENGINE rocksdb MUTEX;
 # For SHOW ALL MUTEX even the number of lines is volatile, so the result logging is disabled
