@@ -6456,15 +6456,27 @@ page_zip_verify_checksum(
 	just don't include this code. */
 	/* declare empty pages non-corrupted */
 	if (stored == 0) {
-		/* make sure that the page is really empty */
+		/* the checksum field is zero, so page might be empty */
 		ulint i;
 		for (i = 0; i < size; i++) {
 			if (*((const char*) data + i) != 0) {
-				return(FALSE);
+				/* Non-zero byte detected in page data.
+				 * Break from the loop now (i < size) */
+				break;
 			}
 		}
 
-		return(TRUE);
+		if (i == size) {
+			/* We have checked all bytes in the page and they are
+			 * all zero. While the saved checksum (0) is technically
+			 * not correct, the page shall still be considered
+			 * not corrupted. */
+			return(TRUE);
+		}
+
+		/* The page is not empty. Continue with regular checks, as
+		 * 0 might just be the correct and valid checksum for this
+		 * page. */
 	}
 #endif
 
