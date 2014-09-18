@@ -756,7 +756,6 @@ static int rocksdb_init_func(void *p)
   status= rocksdb::DB::Open(main_opts, rocksdb_db_name, cf_descr,
                             &cf_handles, &rdb);
 
-  cf_manager.init(&cf_names, &cf_handles);
 
   if (!status.ok())
   {
@@ -764,6 +763,7 @@ static int rocksdb_init_func(void *p)
     sql_print_error("RocksDB: Error opening instance: %s", err_text.c_str());
     DBUG_RETURN(1);
   }
+  cf_manager.init(&cf_names, &cf_handles);
 
   if (ddl_manager.init(rdb))
     DBUG_RETURN(1);
