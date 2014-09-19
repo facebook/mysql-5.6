@@ -44,10 +44,14 @@ size_t my_read(File Filedes, uchar *Buffer, size_t Count, myf MyFlags)
   for (;;)
   {
     errno= 0;					/* Linux, Windows don't reset this on EOF/success */
+    size_t roundedcount = Count;
+    if ((MyFlags & MY_DIRECT) && (roundedcount % IO_SIZE != 0))
+      roundedcount = ((roundedcount+IO_SIZE) & (~(IO_SIZE-1)));
+
 #ifdef _WIN32
-    readbytes= my_win_read(Filedes, Buffer, Count);
+    readbytes= my_win_read(Filedes, Buffer, roundedcount);
 #else
-    readbytes= read(Filedes, Buffer, Count);
+    readbytes= read(Filedes, Buffer, roundedcount);
 #endif
     DBUG_EXECUTE_IF ("simulate_file_read_error",
                      {
