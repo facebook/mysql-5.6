@@ -40,6 +40,10 @@
 #include "sql_trigger.h"
 #include "sql_show.h"
 #include <algorithm>
+#if defined(__linux__)
+#include <sys/vfs.h>
+#include <linux/magic.h>
+#endif
 
 using std::min;
 using std::max;
@@ -92,7 +96,7 @@ public:
             const String &line_start,
             const String &line_term,
 	    const String &enclosed,
-            int escape,bool get_it_from_net, bool is_fifo);
+            int escape,bool get_it_from_net, bool is_fifo, bool is_direct);
   ~READ_INFO();
   int read_field();
   int read_fixed_length(void);
@@ -446,16 +450,30 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
     if ((stat_info.st_mode & S_IFIFO) == S_IFIFO)
       is_fifo= 1;
 #endif
+
+#if defined(__linux__)
+    struct statfs st;
+    if (statfs(name, &st) == 0 && st.f_type == TMPFS_MAGIC)
+    {
+      // Option not supported on TMPFS
+      thd->lex->disable_flashcache = false;
+     }
+#endif
+
+    int direct = thd->lex->disable_flashcache ? (O_DIRECT|O_SYNC) : 0;
     if ((file= mysql_file_open(key_file_load,
-                               name, O_RDONLY, MYF(MY_WME))) < 0)
+                               name, O_RDONLY | direct, MYF(MY_WME))) < 0)
 
       DBUG_RETURN(TRUE);
   }
 
+  if (thd->lex->disable_flashcache)
+    tot_length = (tot_length + IO_SIZE) & (~(IO_SIZE-1)) ;
   READ_INFO read_info(file,tot_length,
                       ex->cs ? ex->cs : thd->variables.collation_database,
 		      *field_term,*ex->line_start, *ex->line_term, *enclosed,
-		      info.escape_char, read_file_from_client, is_fifo);
+		      info.escape_char, read_file_from_client, is_fifo,
+          thd->lex->disable_flashcache);
   if (read_info.error)
   {
     if (file >= 0)
@@ -1365,7 +1383,8 @@ READ_INFO::READ_INFO(File file_par, uint tot_length, const CHARSET_INFO *cs,
                      const String &line_start,
                      const String &line_term,
                      const String &enclosed_par,
-                     int escape, bool get_it_from_net, bool is_fifo)
+                     int escape, bool get_it_from_net, bool is_fifo,
+                     bool is_direct)
   :file(file_par), buff_length(tot_length), escape_char(escape),
    found_end_of_line(false), eof(false), need_end_io_cache(false),
    error(false), line_cuted(false), found_null(false), read_charset(cs)
@@ -1416,11 +1435,12 @@ READ_INFO::READ_INFO(File file_par, uint tot_length, const CHARSET_INFO *cs,
     error=1; /* purecov: inspected */
   else
   {
+    int direct = is_direct ? MY_DIRECT : 0;
     end_of_buff=buffer+buff_length;
     if (init_io_cache(&cache,(get_it_from_net) ? -1 : file, 0,
 		      (get_it_from_net) ? READ_NET :
 		      (is_fifo ? READ_FIFO : READ_CACHE),0L,1,
-		      MYF(MY_WME)))
+		      MYF(MY_WME | direct)))
     {
       my_free(buffer); /* purecov: inspected */
       buffer= NULL;
