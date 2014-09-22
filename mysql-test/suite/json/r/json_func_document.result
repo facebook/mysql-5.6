@@ -466,8 +466,213 @@ select json_array_length(json) from test_json;
 json_array_length(json)
 NULL
 truncate test_json;
+show variables like 'use_fbson_output_format';
+Variable_name	Value
+use_fbson_output_format	OFF
+set global use_fbson_output_format = true;
+ERROR HY000: Variable 'use_fbson_output_format' is a SESSION variable and can't be used with SET GLOBAL
+set use_fbson_output_format = true;
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select HEX(json) from test_json;
+HEX(json)
+NULL
+010A00000000
+010A0A000000026B3108020000007631
+010A04000000026B3101
+010A04000000026B3102
+010A04000000026B3100
+010A05000000026B31030C
+010A0C000000026B3107AE47E17A14AEF33F
+010B080000000301030203030304
+010A1C000000026B310A14000000026B320A0C000000026B3307713D0AD7A3B02840
+010A1C000000026B3108020000007631026B310A0A000000026B3208020000007632
+010A24000000026B310B1C00000003010A12000000026B320B0A00000008020000007631030201030302
+select HEX(json_extract(json,null)) from test_json order by 1;
+HEX(json_extract(json,null))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+select HEX(json_extract(json,'k1')) from test_json order by 1;
+HEX(json_extract(json,'k1'))
+NULL
+NULL
+NULL
+00
+01
+02
+030C
+07AE47E17A14AEF33F
+08020000007631
+08020000007631
+0A14000000026B320A0C000000026B3307713D0AD7A3B02840
+0B1C00000003010A12000000026B320B0A00000008020000007631030201030302
+select HEX(json_extract(json,'k1','k2')) from test_json order by 1;
+HEX(json_extract(json,'k1','k2'))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+0A0C000000026B3307713D0AD7A3B02840
+select HEX(json_extract(json,'k1','k2','k3')) from test_json order by 1;
+HEX(json_extract(json,'k1','k2','k3'))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+07713D0AD7A3B02840
+select HEX(json_extract(json,0)) from test_json order by 1;
+HEX(json_extract(json,0))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+0301
+select HEX(json_extract(json,'1')) from test_json order by 1;
+HEX(json_extract(json,'1'))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+0302
+select HEX(json_extract(json,'k1',1)) from test_json order by 1;
+HEX(json_extract(json,'k1',1))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+0A12000000026B320B0A00000008020000007631030201
+select HEX(json_extract(json,'k1',1,'k2')) from test_json order by 1;
+HEX(json_extract(json,'k1',1,'k2'))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+0B0A00000008020000007631030201
+select HEX(json_extract(json,'k1',1,'k2',0)) from test_json order by 1;
+HEX(json_extract(json,'k1',1,'k2',0))
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+08020000007631
+truncate test_json;
+insert into test_json values
+('{"MySQL":"开源数据库"}'),
+('{"开源数据库":"MySQL"}');
+select HEX(json) from test_json;
+HEX(json)
+010A1A000000054D7953514C080F000000E5BC80E6BA90E695B0E68DAEE5BA93
+010A1A0000000FE5BC80E6BA90E695B0E68DAEE5BA9308050000004D7953514C
+select HEX(json_extract(json,'MySQL')) from test_json order by 1;
+HEX(json_extract(json,'MySQL'))
+NULL
+080F000000E5BC80E6BA90E695B0E68DAEE5BA93
+select HEX(json_extract(json,'开源数据库')) from test_json order by 1;
+HEX(json_extract(json,'开源数据库'))
+NULL
+08050000004D7953514C
+truncate test_json;
+insert into test_json values('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
+select HEX(json) from test_json;
+HEX(json)
+010A24000000026B310B1C00000003010A12000000026B320B0A00000008020000007631030201030302
+select HEX(json_extract(json_extract(json_extract(json_extract(json, 'k1'), 1), 'k2'), 0)) from test_json;
+HEX(json_extract(json_extract(json_extract(json_extract(json, 'k1'), 1), 'k2'), 0))
+08020000007631
+select json_contains_key(json_extract(json, 'k1', 1), 'k2') from test_json;
+json_contains_key(json_extract(json, 'k1', 1), 'k2')
+1
+select json_array_length(json_extract(json, 'k1')) from test_json;
+json_array_length(json_extract(json, 'k1'))
+4
+select HEX(json_extract(json_extract(json, 'foo'), 'k2')) from test_json;
+HEX(json_extract(json_extract(json, 'foo'), 'k2'))
+NULL
+truncate test_json;
+select HEX(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2'));
+HEX(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2'))
+0B0A00000008020000007631030201
+select json_contains_key(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1', 1), 'k2');
+json_contains_key(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1', 1), 'k2')
+1
 INSERT INTO test_json VALUES ('{\"name\":\"Bob Thompson\",\"age\":45,\"age_string\":\"45\",\"big_age\":1234567890123,\"amount\":1.23456789,\"amount_string\":\"1.23456789\",\"true_value\":true,\"true_string\":\"true\",\"true_json\":\"true\",\"false_value\":false,\"false_string\":\"false\",\"false_json\":\"false\",\"null_value\":null,\"null_string\":\"null\",\"null_json\":\"null\",\"empty_string\":\"\",\"zero\":0,\"json_vector1\":\"[]\",\"json_vector2\":\"[1,2,3]\",\"json_vector3\":\"\\\"[]\\\"\",\"json_vector4\":\"\\\"[1,2,3]\\\"\",\"json_vector5\":\"\'[]\'\",\"json_vector6\":\"\'[1,2,3]\'\",\"json_vector7\":\"[]\",\"json_vector8\":\"[1,2,3]\",\"json_map1\":\"{}\",\"json_map2\":\"{\\\\\\\"a\\\\\\\":1,\\\\\\\"b\\\\\\\":2,\\\\\\\"c\\\\\\\":3}\",\"json_map3\":\"\\\"{}\\\"\",\"json_map4\":\"\\\"{\\\\\\\"a\\\\\\\":1,\\\\\\\"b\\\\\\\":2,\\\\\\\"c\\\\\\\":3}\\\"\",\"json_map5\":\"\'{}\'\",\"json_map6\":\"\'{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}\'\",\"json_map7\":\"{}\",\"json_map8\":\"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}\",\"address\":{\"street\":\"8008 Left Ln.\",\"state\":\"CA\",\"zipcode\":90210},\"jobs\":[\"CEO\",\"Director\",\"Engineer\"],\"map_of_vectors\":{\"one\":[10,20,30],\"two\":[\"x\",\"y\"],\"three\":[],\"four\":[true,false,null,1.2345]},\"vector_of_maps\":[{\"xx\":10,\"yy\":20,\"zz\":30},{\"100\":\"x\",\"324\":\"y\"},{},{\"x1\":true,\"x2\":false,\"x3\":null,\"x4\":1.2345}]}');
-select * from test_json;
+select HEX(json) from test_json;
+HEX(json)
+010A16040000046E616D65080C000000426F622054686F6D70736F6E03616765032D0A6167655F737472696E6708020000003435076269675F61676506CB04FB711F01000006616D6F756E74071CDE8342CAC0F33F0D616D6F756E745F737472696E67080A000000312E32333435363738390A747275655F76616C7565010B747275655F737472696E6708040000007472756509747275655F6A736F6E0804000000747275650B66616C73655F76616C7565020C66616C73655F737472696E67080500000066616C73650A66616C73655F6A736F6E080500000066616C73650A6E756C6C5F76616C7565000B6E756C6C5F737472696E6708040000006E756C6C096E756C6C5F6A736F6E08040000006E756C6C0C656D7074795F737472696E670800000000047A65726F03000C6A736F6E5F766563746F723108020000005B5D0C6A736F6E5F766563746F723208070000005B312C322C335D0C6A736F6E5F766563746F723308060000005C225B5D5C220C6A736F6E5F766563746F7234080B0000005C225B312C322C335D5C220C6A736F6E5F766563746F72350804000000275B5D270C6A736F6E5F766563746F72360809000000275B312C322C335D270C6A736F6E5F766563746F723708020000005B5D0C6A736F6E5F766563746F723808070000005B312C322C335D096A736F6E5F6D61703108020000007B7D096A736F6E5F6D61703208250000007B5C5C5C22615C5C5C223A312C5C5C5C22625C5C5C223A322C5C5C5C22635C5C5C223A337D096A736F6E5F6D61703308060000005C227B7D5C22096A736F6E5F6D61703408290000005C227B5C5C5C22615C5C5C223A312C5C5C5C22625C5C5C223A322C5C5C5C22635C5C5C223A337D5C22096A736F6E5F6D6170350804000000277B7D27096A736F6E5F6D617036081B000000277B5C22615C223A312C5C22625C223A322C5C22635C223A337D27096A736F6E5F6D61703708020000007B7D096A736F6E5F6D61703808190000007B5C22615C223A312C5C22625C223A322C5C22635C223A337D07616464726573730A3300000006737472656574080D00000038303038204C656674204C6E2E05737461746508020000004341077A6970636F64650562600100046A6F62730B22000000080300000043454F08080000004469726563746F720808000000456E67696E6565720E6D61705F6F665F766563746F72730A45000000036F6E650B06000000030A0314031E0374776F0B0C0000000801000000780801000000790574687265650B0000000004666F75720B0C000000010200078E976E1283C0F33F0E766563746F725F6F665F6D6170730B4F0000000A0F000000027878030A0279790314027A7A031E0A1400000003313030080100000078033332340801000000790A000000000A18000000027831010278320202783300027834078E976E1283C0F33F
+set use_fbson_output_format = false;
+select json from test_json;
 json
 {"name":"Bob Thompson","age":45,"age_string":"45","big_age":1234567890123,"amount":1.23456789,"amount_string":"1.23456789","true_value":true,"true_string":"true","true_json":"true","false_value":false,"false_string":"false","false_json":"false","null_value":null,"null_string":"null","null_json":"null","empty_string":"","zero":0,"json_vector1":"[]","json_vector2":"[1,2,3]","json_vector3":"\"[]\"","json_vector4":"\"[1,2,3]\"","json_vector5":"'[]'","json_vector6":"'[1,2,3]'","json_vector7":"[]","json_vector8":"[1,2,3]","json_map1":"{}","json_map2":"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}","json_map3":"\"{}\"","json_map4":"\"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}\"","json_map5":"'{}'","json_map6":"'{\"a\":1,\"b\":2,\"c\":3}'","json_map7":"{}","json_map8":"{\"a\":1,\"b\":2,\"c\":3}","address":{"street":"8008 Left Ln.","state":"CA","zipcode":90210},"jobs":["CEO","Director","Engineer"],"map_of_vectors":{"one":[10,20,30],"two":["x","y"],"three":[],"four":[true,false,null,1.2345]},"vector_of_maps":[{"xx":10,"yy":20,"zz":30},{"100":"x","324":"y"},{},{"x1":true,"x2":false,"x3":null,"x4":1.2345}]}
+truncate test_json;
+set use_fbson_output_format = DEFAULT;
 drop table test_json;

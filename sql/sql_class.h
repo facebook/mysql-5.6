@@ -567,6 +567,8 @@ typedef struct system_variables
   my_bool expand_fast_index_creation;
 
   ulong max_statement_time;
+
+  my_bool use_fbson_output_format;
 } SV;
 
 
