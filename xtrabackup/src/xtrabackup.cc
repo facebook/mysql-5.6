@@ -5865,11 +5865,9 @@ not_consistent:
 			+ LOG_CHECKPOINT_OFFSET_LOW32,
 			LOG_FILE_HDR_SIZE + (ulint) ut_dulint_minus(max_lsn,
 			ut_dulint_align_down(max_lsn,OS_FILE_LOG_BLOCK_SIZE)));
-#ifdef XTRADB_BASED
-	MACH_WRITE_64(log_buf + LOG_CHECKPOINT_1 + LOG_CHECKPOINT_ARCHIVED_LSN,
-			(ib_uint64_t)(LOG_FILE_HDR_SIZE + ut_dulint_minus(max_lsn,
-					ut_dulint_align_down(max_lsn,OS_FILE_LOG_BLOCK_SIZE))));
-#endif
+	mach_write_to_4(log_buf + LOG_CHECKPOINT_1
+			+ LOG_CHECKPOINT_OFFSET_HIGH32,
+			0);
 	fold = ut_fold_binary(log_buf + LOG_CHECKPOINT_1, LOG_CHECKPOINT_CHECKSUM_1);
 	mach_write_to_4(log_buf + LOG_CHECKPOINT_1 + LOG_CHECKPOINT_CHECKSUM_1, fold);
 
@@ -5882,11 +5880,9 @@ not_consistent:
 			+ LOG_CHECKPOINT_OFFSET_LOW32,
 			LOG_FILE_HDR_SIZE + (ulint) ut_dulint_minus(max_lsn,
 			ut_dulint_align_down(max_lsn,OS_FILE_LOG_BLOCK_SIZE)));
-#ifdef XTRADB_BASED
-	MACH_WRITE_64(log_buf + LOG_CHECKPOINT_2 + LOG_CHECKPOINT_ARCHIVED_LSN,
-			(ib_uint64_t)(LOG_FILE_HDR_SIZE + ut_dulint_minus(max_lsn,
-					ut_dulint_align_down(max_lsn,OS_FILE_LOG_BLOCK_SIZE))));
-#endif
+	mach_write_to_4(log_buf + LOG_CHECKPOINT_2
+			+ LOG_CHECKPOINT_OFFSET_HIGH32,
+			0);
         fold = ut_fold_binary(log_buf + LOG_CHECKPOINT_2, LOG_CHECKPOINT_CHECKSUM_1);
         mach_write_to_4(log_buf + LOG_CHECKPOINT_2 + LOG_CHECKPOINT_CHECKSUM_1, fold);
 
