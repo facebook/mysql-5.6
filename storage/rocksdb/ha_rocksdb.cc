@@ -1073,16 +1073,20 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
       const char *data_len_str;
       if (!(data_len_str= reader.read(length_bytes)))
         return HA_ERR_INTERNAL_ERROR;
+
+      blob->move_field_offset(ptr_diff);
       memcpy(blob->ptr, data_len_str, length_bytes);
 
       uint32 data_len= blob->get_length((uchar*)data_len_str, length_bytes,
                                         table->s->db_low_byte_first);
       const char *blob_ptr;
       if (!(blob_ptr= reader.read(data_len)))
+      {
+        blob->move_field_offset(-ptr_diff);
         return HA_ERR_INTERNAL_ERROR;
+      }
 
-      blob->move_field_offset(ptr_diff);
-      // set 8-byte pointer to 0, like innodb does.
+      // set 8-byte pointer to 0, like innodb does (relevant for 32-bit platforms)
       memset(blob->ptr + length_bytes, 0, 8);
       memcpy(blob->ptr + length_bytes, &blob_ptr, sizeof(uchar**));
       blob->move_field_offset(-ptr_diff);
@@ -2835,6 +2839,13 @@ int ha_rocksdb::extra(enum ha_extra_function operation)
     break;
   case HA_EXTRA_NO_KEYREAD:
     keyread_only= FALSE;
+    break;
+  case HA_EXTRA_FLUSH:
+    /*
+      If the table has blobs, then they are part of retrieved_record. This call
+      invalidates them.
+    */
+    retrieved_record.clear();
     break;
   default:
     break;
