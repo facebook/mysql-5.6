@@ -1399,3 +1399,14 @@ select * from t1 where pk=4;
 pk	col1	col2
 4	4	4
 drop table t1;
+#
+# Issue #15: SIGSEGV from reading in blob data
+#
+CREATE TABLE t1 (
+id int not null,
+blob_col text,
+PRIMARY KEY (id)
+) ENGINE=ROCKSDB CHARSET=latin1;
+INSERT INTO t1 SET id=123, blob_col=repeat('z',64000) ON DUPLICATE KEY UPDATE blob_col=VALUES(blob_col);
+INSERT INTO t1 SET id=123, blob_col=''                ON DUPLICATE KEY UPDATE blob_col=VALUES(blob_col);
+DROP TABLE t1;
