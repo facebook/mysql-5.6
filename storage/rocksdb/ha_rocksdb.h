@@ -122,7 +122,13 @@ class ha_rocksdb: public handler
   /* Buffer used by convert_record_to_storage_format() */
   String storage_record;
 
-  /* Last retrieved record, in table->record[0] data format */
+  /*
+    Last retrieved record, in table->record[0] data format. It also serves as
+    as storage for blob data (Field_blob object have pointers to here)
+
+    TODO: Dont we lose one malloc() per record read by having it as std::string
+    instead of rocksdb::Slice?
+  */
   std::string retrieved_record;
 
   /* If TRUE, reads should place locks on rows */
@@ -311,6 +317,13 @@ public:
   int external_lock(THD *thd, int lock_type);
   int delete_all_rows(void);
   int truncate();
+
+  int reset()
+  {
+    /* Free blob data */
+    retrieved_record.clear();
+    return 0;
+  }
 
   void remove_rows(RDBSE_TABLE_DEF *tbl);
   ha_rows records_in_range(uint inx, key_range *min_key,
