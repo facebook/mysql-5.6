@@ -189,9 +189,10 @@ public:
   }
 
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
-               rocksdb::ColumnFamilyHandle* cf_handle_arg) :
+               rocksdb::ColumnFamilyHandle* cf_handle_arg, bool is_auto_cf_arg) :
     index_number(indexnr_arg),
     cf_handle(cf_handle_arg),
+    is_auto_cf(is_auto_cf_arg),
     pk_part_no(NULL),
     pack_info(NULL),
     keyno(keyno_arg),
@@ -208,9 +209,11 @@ public:
   };
 
   void setup(TABLE *table);
-  void set_cf_handle(rocksdb::ColumnFamilyHandle* cf_handle_arg)
+  void set_cf_handle(rocksdb::ColumnFamilyHandle* cf_handle_arg,
+                     bool is_auto_cf_arg)
   {
     cf_handle= cf_handle_arg;
+    is_auto_cf= is_auto_cf_arg;
   }
 
   rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
@@ -223,6 +226,9 @@ private:
   uchar index_number_storage_form[INDEX_NUMBER_SIZE];
 
   rocksdb::ColumnFamilyHandle* cf_handle;
+public:
+  bool is_auto_cf;
+private:
 
   friend class RDBSE_TABLE_DEF; // for index_number above
 
