@@ -1207,13 +1207,16 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   uint key_len= table->key_info[table->s->primary_key].key_length;
 
-  const char *comment= table->key_info[table->s->primary_key].comment.str;
+  const char *comment=  table->key_info[table->s->primary_key].comment.str;
+  const char *idx_name= table->key_info[table->s->primary_key].name;
   rocksdb::ColumnFamilyHandle *cf_handle;
-  if (!(cf_handle= cf_manager.get_cf(comment)))
+  bool is_auto_cf;
+  if (!(cf_handle= cf_manager.get_cf(comment, fullname.c_ptr(), idx_name,
+                                     &is_auto_cf)))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   pk_descr->setup(table);  // move this into get_share() ??
-  pk_descr->set_cf_handle(cf_handle);
+  pk_descr->set_cf_handle(cf_handle, is_auto_cf);
 
   uint packed_key_len= pk_descr->max_storage_fmt_length();
 
@@ -1229,11 +1232,13 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
       continue;
 
     comment= table->key_info[i].comment.str;
-    if (!(cf_handle= cf_manager.get_cf(comment)))
+    idx_name= table->key_info[i].name;
+    if (!(cf_handle= cf_manager.get_cf(comment, fullname.c_ptr(), idx_name,
+                                       &is_auto_cf)))
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
     key_descr[i]->setup(table);  // move this into get_share() ??
-    key_descr[i]->set_cf_handle(cf_handle);
+    key_descr[i]->set_cf_handle(cf_handle, is_auto_cf);
 
     uint packed_len= key_descr[i]->max_storage_fmt_length();
     if (packed_len > max_packed_sec_key_len)
@@ -1352,12 +1357,21 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
       NULL, and it means use the default column family.
     */
     const char *comment= table_arg->key_info[i].comment.str;
-    cf_handle= cf_manager.get_or_create_cf(rdb, comment);
+    if (looks_like_per_index_cf_typo(comment))
+    {
+      my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+               "column family name looks like a typo of $per_index_cf");
+      goto error;
+    }
+    bool is_auto_cf;
+    cf_handle= cf_manager.get_or_create_cf(rdb, comment, db_table,
+                                           table_arg->key_info[i].name,
+                                           &is_auto_cf);
     if (!cf_handle)
       goto error;
 
     if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i,
-                                         cf_handle)))
+                                         cf_handle, is_auto_cf)))
       goto error;
   }
   pk_descr= key_descr[table_arg->s->primary_key];
@@ -2801,6 +2815,32 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
 
   if (rocksdb_normalize_tablename(to, &to_str))
     return HA_ERR_INTERNAL_ERROR;
+
+  /* Check if any index has a per-index column family */
+  {
+    /*
+      We can't check this directly, because
+      1. the object that referred to the old table has been close()d.
+      2. this ha_rocksdb object has no connection to any table at all, it has
+         been just created with (TABLE*)NULL.
+
+      So, we have to find the old table in the ddl_manager (it's there because
+      it has been opened by this statement), and check is_auto_cf there.
+    */
+    RDBSE_TABLE_DEF *tdef;
+    if (!(tdef= ddl_manager.find((uchar*)from_str.c_ptr(), from_str.length())))
+      return HA_ERR_INTERNAL_ERROR;
+
+    for (uint i= 0; i < tdef->n_keys; i++)
+    {
+      if (tdef->key_descr[i]->is_auto_cf)
+      {
+        my_error(ER_NOT_SUPPORTED_YET, MYF(0),
+                 "ALTER TABLE on table with per-index CF");
+        return HA_ERR_INTERNAL_ERROR;
+      }
+    }
+  }
 
   if (ddl_manager.rename((uchar*)from_str.ptr(), from_str.length(),
                          (uchar*)to_str.ptr(), to_str.length(), rdb))

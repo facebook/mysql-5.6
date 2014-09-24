@@ -33,7 +33,26 @@
 
 #include "rdb_applyiter.h"
 
+
+/*
+  This is
+  - the name of the default Column Family (the CF which stores indexes which didn't
+    explicity specify which CF they are in)
+  - the name used to set the default column family parameter for per-cf
+    arguments.
+*/
 const char * const DEFAULT_CF_NAME= "default";
+
+/*
+  Column family name which means "put this index into its own column family".
+  See get_per_index_cf_name.
+*/
+const char * const PER_INDEX_CF_NAME = "$per_index_cf";
+
+inline bool looks_like_per_index_cf_typo(const char *name)
+{
+  return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
+}
 
 //#ifdef HAVE_PSI_INTERFACE
 extern PSI_stage_info stage_waiting_on_row_lock;
