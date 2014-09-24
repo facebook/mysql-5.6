@@ -1251,3 +1251,35 @@ INSERT INTO t1 SET id=123, blob_col=''                ON DUPLICATE KEY UPDATE bl
 DROP TABLE t1;
 
 
+--echo #
+--echo # Issue #17: Automatic per-index column families
+--echo #
+create table t1 (
+  id int not null,
+  key1 int,
+  PRIMARY KEY (id),
+  index (key1) comment '$per_index_cf'
+) engine=rocksdb;
+
+--echo # Unfortunately there is no way to check which column family everything goes to
+insert into t1 values (1,1);
+select * from t1;
+
+--echo # Check that ALTER and RENAME are disallowed
+--error ER_NOT_SUPPORTED_YET
+alter table t1 add col2 int;
+
+--error ER_NOT_SUPPORTED_YET
+rename table t1 to t2;
+
+drop table t1;
+
+--echo # Check detection of typos in \$per_index_cf
+--error ER_NOT_SUPPORTED_YET
+create table t1 (
+  id int not null,
+  key1 int,
+  PRIMARY KEY (id),
+  index (key1) comment '$per_idnex_cf'
+)engine=rocksdb;
+
