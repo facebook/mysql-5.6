@@ -49,35 +49,72 @@ void Column_family_manager::cleanup()
 }
 
 
+/*
+  Generate Column Family name for per-index column families
+
+  @param res  OUT  Column Family name
+*/
+
+void get_per_index_cf_name(const char *db_table_name, const char *index_name,
+                           std::string *res)
+{
+  res->assign(db_table_name);
+  res->append(".");
+  res->append(index_name);
+}
+
+
+/*
+  @brief
+  Find column family by name. If it doesn't exist, create it
+
+  @detail
+    See Column_family_manager::get_cf
+*/
 rocksdb::ColumnFamilyHandle*
-Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *name)
+Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
+                                        const char *db_table_name,
+                                        const char *index_name,
+                                        bool *is_automatic)
 {
   rocksdb::ColumnFamilyHandle* cf_handle;
   ColumnFamilyHandleMap::iterator it;
 
   mysql_mutex_lock(&cfm_mutex);
-  if (name == NULL)
+  *is_automatic= false;
+  if (cf_name == NULL)
   {
     cf_handle= default_cf;
   }
-  else if ((it= cf_map.find(name)) != cf_map.end())
-    cf_handle= it->second;
   else
   {
-    /* Create a Column Family. */
-    std::string cf_name(name);
-    rocksdb::ColumnFamilyOptions opts;
-    get_cf_options(cf_name, &opts);
+    std::string per_index_name;
+    if (!strcmp(cf_name, PER_INDEX_CF_NAME))
+    {
+      get_per_index_cf_name(db_table_name, index_name, &per_index_name);
+      cf_name= per_index_name.c_str();
+      *is_automatic= true;
+    }
 
-    sql_print_information("RocksDB: creating column family %s", cf_name.c_str());
-    sql_print_information("    write_buffer_size=%ld",    opts.write_buffer_size);
-    sql_print_information("    target_file_size_base=%d", opts.target_file_size_base);
-
-    rocksdb::Status s= rdb->CreateColumnFamily(opts, name, &cf_handle);
-    if (s.ok())
-      cf_map[cf_name]= cf_handle;
+    if ((it= cf_map.find(cf_name)) != cf_map.end())
+      cf_handle= it->second;
     else
-      cf_handle= NULL;
+    {
+      /* Create a Column Family. */
+      std::string cf_name_str(cf_name);
+      rocksdb::ColumnFamilyOptions opts;
+      get_cf_options(cf_name_str, &opts);
+
+      sql_print_information("RocksDB: creating column family %s", cf_name_str.c_str());
+      sql_print_information("    write_buffer_size=%ld",    opts.write_buffer_size);
+      sql_print_information("    target_file_size_base=%d", opts.target_file_size_base);
+
+      rocksdb::Status s= rdb->CreateColumnFamily(opts, cf_name_str, &cf_handle);
+      if (s.ok())
+        cf_map[cf_name_str]= cf_handle;
+      else
+        cf_handle= NULL;
+    }
   }
   mysql_mutex_unlock(&cfm_mutex);
 
@@ -85,19 +122,46 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *name)
 }
 
 
+/*
+  Find column family by its cf_name.
+
+  @detail
+  dbname.tablename  and index_name are also parameters, because
+  cf_name=PER_INDEX_CF_NAME means that column family name is a function
+  of table/index name.
+
+  @param out is_automatic  TRUE<=> column family name is auto-assigned based on
+                           db_table_name and index_name.
+*/
+
 rocksdb::ColumnFamilyHandle*
-Column_family_manager::get_cf(const char *name)
+Column_family_manager::get_cf(const char *cf_name,
+                              const char *db_table_name,
+                              const char *index_name,
+                              bool *is_automatic)
 {
   rocksdb::ColumnFamilyHandle* cf_handle;
   ColumnFamilyHandleMap::iterator it;
 
+  *is_automatic= false;
   mysql_mutex_lock(&cfm_mutex);
-  if (name == NULL)
+  if (cf_name == NULL)
     cf_handle= default_cf;
-  else if ((it= cf_map.find(name)) != cf_map.end())
-    cf_handle= it->second;
   else
-    cf_handle= NULL;
+  {
+    std::string per_index_name;
+    if (!strcmp(cf_name, PER_INDEX_CF_NAME))
+    {
+      get_per_index_cf_name(db_table_name, index_name, &per_index_name);
+      cf_name= per_index_name.c_str();
+      *is_automatic= true;
+    }
+
+    if ((it= cf_map.find(cf_name)) != cf_map.end())
+      cf_handle= it->second;
+    else
+      cf_handle= NULL;
+  }
   mysql_mutex_unlock(&cfm_mutex);
 
   return cf_handle;
