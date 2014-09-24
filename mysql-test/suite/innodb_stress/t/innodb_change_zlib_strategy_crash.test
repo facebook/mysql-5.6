@@ -14,6 +14,7 @@
 --let $file_format_save = `SELECT @@innodb_file_format`
 --let $log_compressed_pages_save = `SELECT @@innodb_log_compressed_pages`
 --let $innodb_zlib_strategy_save = `SELECT @@innodb_zlib_strategy`
+--enable_query_log
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
