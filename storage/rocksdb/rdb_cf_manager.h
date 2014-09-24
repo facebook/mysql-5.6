@@ -22,6 +22,9 @@
 */
 void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
+void get_per_index_cf_name(const char *db_table_name, const char *index_name,
+                           std::string *res);
+
 /*
   We need a column family manager. Its functions:
   - create column families (synchronized, don't create the same twice)
@@ -54,12 +57,22 @@ public:
             std::vector<rocksdb::ColumnFamilyHandle*> *handles);
   void cleanup();
 
-  /* Used by CREATE TABLE. name=NULL means use default column family */
+  /*
+    Used by CREATE TABLE.
+    - cf_name=NULL means use default column family
+    - cf_name=_auto_ means use 'dbname.tablename.indexname'
+  */
   rocksdb::ColumnFamilyHandle* get_or_create_cf(rocksdb::DB *rdb,
-                                                const char *name);
+                                                const char *cf_name,
+                                                const char *db_table_name,
+                                                const char *index_name,
+                                                bool *is_automatic);
 
   /* Used by table open */
-  rocksdb::ColumnFamilyHandle* get_cf(const char *name);
+  rocksdb::ColumnFamilyHandle* get_cf(const char *cf_name,
+                                      const char *db_table_name,
+                                      const char *index_name,
+                                      bool *is_automatic);
 
   // void drop_cf(); -- not implemented so far.
 };
