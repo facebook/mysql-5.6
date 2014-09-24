@@ -949,7 +949,8 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
         initialization requires that there is an open TABLE* where we could
         look at Field* objects and set max_length and other attributes
       */
-      tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, NULL);
+      tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, NULL,
+                                               false);
 
       /* Keep track of what was the last index number we saw */
       if (max_number < index_number)
