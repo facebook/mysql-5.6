@@ -94,8 +94,8 @@ length(json_extract(json,'k1'))	json_extract(json,'k1')	json
 NULL	NULL	NULL
 NULL	NULL	{}
 NULL	NULL	[1,2,3,4]
-2	v1	{"k1":"v1"}
-2	v1	{"k1":"v1","k1":{"k2":"v2"}}
+4	"v1"	{"k1":"v1"}
+4	"v1"	{"k1":"v1","k1":{"k2":"v2"}}
 20	{"k2":{"k3":12.345}}	{"k1":{"k2":{"k3":12.345}}}
 32	[1,{"k2":["v1",2,true]},3,false]	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select length(json_extract(json,'k1','k2')),json_extract(json,'k1','k2'),json from test_json order by 1,2,3;
@@ -160,7 +160,7 @@ NULL	NULL	{"k1":"v1"}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	[1,2,3,4]
-2	v1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+4	"v1"	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 truncate test_json;
 insert into test_json values ('{"k1":[1,{"k2":["v1",2,true]},3,false]}');
 create table test_json2 (json text) select json_extract(json,'k1',1,'k2',0) json from test_json;
@@ -169,7 +169,7 @@ Field	Type	Null	Key	Default	Extra
 json	text	YES		NULL	
 select * from test_json2;
 json
-v1
+"v1"
 drop table test_json2;
 truncate test_json;
 insert into test_json values
@@ -178,11 +178,11 @@ insert into test_json values
 select length(json_extract(json,'MySQL')),json_extract(json,'MySQL'),json from test_json order by 1,2,3;
 length(json_extract(json,'MySQL'))	json_extract(json,'MySQL')	json
 NULL	NULL	{"开源数据库":"MySQL"}
-15	开源数据库	{"MySQL":"开源数据库"}
+17	"开源数据库"	{"MySQL":"开源数据库"}
 select length(json_extract(json,'开源数据库')),json_extract(json,'开源数据库'),json from test_json order by 1,2,3;
 length(json_extract(json,'开源数据库'))	json_extract(json,'开源数据库')	json
 NULL	NULL	{"MySQL":"开源数据库"}
-5	MySQL	{"开源数据库":"MySQL"}
+7	"MySQL"	{"开源数据库":"MySQL"}
 truncate test_json;
 insert into test_json values
 (null),

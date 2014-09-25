@@ -117,7 +117,7 @@ json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2')
 NULL
 select json_extract('{"k1":"v1"}','k1');
 json_extract('{"k1":"v1"}','k1')
-v1
+"v1"
 select json_extract('[1,2,3,4]',0);
 json_extract('[1,2,3,4]',0)
 1
@@ -156,13 +156,13 @@ json_extract('{"k1":{"k2":{"k3":12.345}}}','K1')
 NULL
 select json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1');
 json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1')
-v1
+"v1"
 select json_extract('{"MySQL":"开源数据库"}','MySQL');
 json_extract('{"MySQL":"开源数据库"}','MySQL')
-开源数据库
+"开源数据库"
 select json_extract('{"开源数据库":"MySQL"}','开源数据库');
 json_extract('{"开源数据库":"MySQL"}','开源数据库')
-MySQL
+"MySQL"
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1');
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1')
 [1,{"k2":["v1",2,true]},3,false]
@@ -177,19 +177,19 @@ json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',2)
 3
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',3)
-0
+false
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2');
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2')
 ["v1",2,true]
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',0)
-v1
+"v1"
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',1)
 2
 select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2)
-1
+true
 select json_extract('', 'k1');
 ERROR HY000: Invalid JSON object: ''
 select json_contains_key(null,null);
