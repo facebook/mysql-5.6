@@ -1621,7 +1621,6 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  STATUS_SYM
 %token  STDDEV_SAMP_SYM               /* SQL-2003-N */
 %token  STD_SYM
-%token  STEP_SYM
 %token  STOP_SYM
 %token  STORAGE_SYM
 %token  STRAIGHT_JOIN
@@ -15489,7 +15488,7 @@ handler_rkey_mode:
 
 handler_step:
         /* empty */ { $$ = 1; }
-        | STEP_SYM ulong_num { $$ = $2; }
+        | EVERY_SYM ulong_num { $$ = $2; }
         ;
 
 /* GRANT / REVOKE */

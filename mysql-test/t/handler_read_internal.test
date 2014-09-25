@@ -1,6 +1,6 @@
 --source include/have_innodb.inc
 --source include/have_innodb_16k.inc
-
+--source include/big_test.inc
 --disable_warnings
 drop table if exists t1, t2, t3;
 --enable_warnings
@@ -49,7 +49,7 @@ insert into t2 select * from t1;
 --echo # Table has only one level so far. Query should fail. #
 handler t1 open;
 --error ER_DATA_OUT_OF_RANGE
-handler t1 read on level 1 `a` > (2, 2) step 5 limit 10;
+handler t1 read on level 1 `a` > (2, 2) every 5 limit 10;
 handler t1 close;
 
 --echo # Populate more data #
@@ -94,23 +94,23 @@ insert into t1 (a, b, c, d, e, f) select a, b, c, d, e, f from t1;
 --echo # Test query on level 1, primary index #
 handler t1 open;
 handler t1 read on level 1 `primary` >= (1) limit 25;
-handler t1 read on level 1 `primary` >= (1) step 2 limit 15;
+handler t1 read on level 1 `primary` >= (1) every 2 limit 15;
 handler t1 read on level 1 `primary` > (100) limit 5;
 handler t1 read `primary` < (551) limit 2;
 handler t1 read on level 1 `primary` < (551) limit 10;
 handler t1 read on level 1 `primary` <= (551) limit 10;
-handler t1 read on level 1 `primary` <= (551) step 2 limit 5;
+handler t1 read on level 1 `primary` <= (551) every 2 limit 5;
 
 --echo # Test query on level 1 other indices #
 handler t1 read `b` >= (5, "abc") limit 10;
 handler t1 read on level 1 `b` >= (5, "abc") limit 10;
-handler t1 read on level 1 `b` >= (5, "abc") step 2 limit 5;
+handler t1 read on level 1 `b` >= (5, "abc") every 2 limit 5;
 handler t1 read on level 1 `b` > (5, "abc") limit 10;
-handler t1 read on level 1 `b` > (5, "abc") step 2 limit 5;
+handler t1 read on level 1 `b` > (5, "abc") every 2 limit 5;
 handler t1 read on level 1 `a` = (1) limit 10;
-handler t1 read on level 1 `a` = (1) step 2 limit 10;
+handler t1 read on level 1 `a` = (1) every 2 limit 10;
 --error ER_DATA_OUT_OF_RANGE
-handler t1 read on level 2 `a` > (1) step 5 limit 10;
+handler t1 read on level 2 `a` > (1) every 5 limit 10;
 handler t1 read on level 1 `f` > ('C') limit 10;
 handler t1 close;
 
@@ -129,7 +129,7 @@ insert into t1 (a, b, c, d, e, f) select a, b, c, d, e, f from t1;
 --echo # Test query on level 2 #
 handler t1 open;
 handler t1 read on level 1 `primary` >= (1000) limit 20;
-handler t1 read on level 1 `primary` >= (1000) step 2 limit 10;
+handler t1 read on level 1 `primary` >= (1000) every 2 limit 10;
 handler t1 read on level 2 `primary` < (10000000) limit 5;
 handler t1 read on level 2 `primary` < (100000) limit 5;
 handler t1 close;
@@ -140,7 +140,7 @@ handler t2 read `a` > (2, 2) limit 10;
 --error ER_CHECK_NOT_IMPLEMENTED
 handler t2 read on level 1 `a` > (2, 2);
 --error ER_CHECK_NOT_IMPLEMENTED
-handler t2 read on level 1 `a` > (2, 2) step 5;
+handler t2 read on level 1 `a` > (2, 2) every 5;
 handler t2 close;
 
 drop table t1;
