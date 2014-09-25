@@ -51,28 +51,28 @@ ValueToString(fbson::FbsonValue *pval, String &str, const CHARSET_INFO *cs)
 
   switch (pval->type())
   {
+  case fbson::FbsonType::T_Null:
+    {
+      str.set("null", 4, cs);
+      return true;
+    }
   case fbson::FbsonType::T_False:
     {
-      str.set_int(0, true /*unsigned_flag*/, cs);
+      str.set("false", 5, cs);
       return true;
     }
   case fbson::FbsonType::T_True:
     {
-      str.set_int(1, true /*unsigned_flag*/, cs);
+      str.set("true", 4, cs);
       return true;
     }
+  case fbson::FbsonType::T_String:
   case fbson::FbsonType::T_Object:
   case fbson::FbsonType::T_Array:
     {
       fbson::FbsonToJson tojson;
       const char *json = tojson.json(pval);
       str.copy(json, strlen(json), cs);
-      return true;
-    }
-  case fbson::FbsonType::T_String:
-    {
-      fbson::StringVal *str_val = (fbson::StringVal *)pval;
-      str.copy(str_val->getBlob(), str_val->getBlobLen(), cs);
       return true;
     }
   case fbson::FbsonType::T_Int8:
@@ -100,7 +100,6 @@ ValueToString(fbson::FbsonValue *pval, String &str, const CHARSET_INFO *cs)
       str.set_real(((fbson::DoubleVal*)pval)->val(), NOT_FIXED_DEC, cs);
       return true;
     }
-  case fbson::FbsonType::T_Null:
   default:
       return false;
   }
