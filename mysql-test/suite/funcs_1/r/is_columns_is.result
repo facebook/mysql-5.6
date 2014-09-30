@@ -460,6 +460,7 @@ def	information_schema	USER_STATISTICS	CONNECTIONS_CONCURRENT	14	0	NO	int	NULL	N
 def	information_schema	USER_STATISTICS	CONNECTIONS_DENIED_MAX_GLOBAL	15	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	CONNECTIONS_DENIED_MAX_USER	16	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	CONNECTIONS_LOST	17	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
+def	information_schema	USER_STATISTICS	CONNECTIONS_SSL_TOTAL	61	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	CONNECTIONS_TOTAL	18	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	DISK_READ_BYTES	19	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
 def	information_schema	USER_STATISTICS	DISK_READ_BYTES_BLOB	23	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(21)			select	
@@ -1074,6 +1075,7 @@ NULL	information_schema	USER_STATISTICS	TRANSACTIONS_ROLLBACK	bigint	NULL	NULL	N
 NULL	information_schema	USER_STATISTICS	GTID_UNSAFE_CREATE_SELECT	bigint	NULL	NULL	NULL	NULL	bigint(11)
 NULL	information_schema	USER_STATISTICS	GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION	bigint	NULL	NULL	NULL	NULL	bigint(11)
 NULL	information_schema	USER_STATISTICS	GTID_UNSAFE_NON_TRANSACTIONAL_TABLE	bigint	NULL	NULL	NULL	NULL	bigint(11)
+NULL	information_schema	USER_STATISTICS	CONNECTIONS_SSL_TOTAL	bigint	NULL	NULL	NULL	NULL	bigint(21)
 3.0000	information_schema	VIEWS	TABLE_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	VIEWS	TABLE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	VIEWS	TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)

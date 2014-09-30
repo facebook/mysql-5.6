@@ -77,6 +77,9 @@ void fix_user_conn(THD *thd, bool global_max)
   mysql_mutex_lock(&LOCK_user_conn);
   thd->decrement_user_connections_counter();
   us->connections_total.dec();
+  if (thd->net.vio->type == VIO_TYPE_SSL) {
+    us->connections_ssl_total.dec();
+  }
 
   if (global_max)
     us->connections_denied_max_global.inc();
@@ -133,6 +136,9 @@ int get_or_create_user_conn(THD *thd, const char *user,
   thd->set_user_connect(uc);
   thd->increment_user_connections_counter();
   uc->user_stats.connections_total.inc();
+  if (thd->net.vio->type == VIO_TYPE_SSL) {
+    uc->user_stats.connections_ssl_total.inc();
+  }
 end:
   mysql_mutex_unlock(&LOCK_user_conn);
   return return_val;
@@ -459,7 +465,7 @@ bool thd_init_client_charset(THD *thd, uint cs_number)
       my_error(ER_WRONG_VALUE_FOR_VAR, MYF(0), "character_set_client",
                global_system_variables.character_set_client->csname);
       return true;
-    }    
+    }
     thd->variables.character_set_client=
       global_system_variables.character_set_client;
     thd->variables.collation_connection=
@@ -1111,6 +1117,7 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->connections_denied_max_user.clear();
   user_stats->connections_lost.clear();
   user_stats->connections_total.clear();
+  user_stats->connections_ssl_total.clear();
   user_stats->errors_access_denied.clear();
   user_stats->errors_total.clear();
   user_stats->microseconds_wall.clear();
@@ -1433,6 +1440,7 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
     us->n_gtid_unsafe_create_drop_temporary_table_in_transaction.load(), TRUE);
   table->field[f++]->store(us->n_gtid_unsafe_non_transactional_table.load(),
                            TRUE);
+  table->field[f++]->store(us->connections_ssl_total.load(), TRUE);
   DBUG_VOID_RETURN;
 }
 
