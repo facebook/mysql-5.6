@@ -148,7 +148,6 @@ class FbsonOutStream : public std::ostream {
     if (alloc_) {
       char *new_buf = (char *)::realloc(head_, capacity_);
       assert(new_buf);
-      free(head_);
       head_ = new_buf;
     } else {
       char *new_buf = (char *)::malloc(capacity_);
