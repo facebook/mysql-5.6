@@ -2234,6 +2234,7 @@ TRANSACTIONS_ROLLBACK	bigint(21)	NO		0
 GTID_UNSAFE_CREATE_SELECT	bigint(11)	NO		0	
 GTID_UNSAFE_CREATE_DROP_TEMPORARY_TABLE_IN_TRANSACTION	bigint(11)	NO		0	
 GTID_UNSAFE_NON_TRANSACTIONAL_TABLE	bigint(11)	NO		0	
+CONNECTIONS_SSL_TOTAL	bigint(21)	NO		0	
 select * from information_schema.user_statistics where USER_NAME = "does not exist";
 describe information_schema.user_latency_histograms;
 Field	Type	Null	Key	Default	Extra
