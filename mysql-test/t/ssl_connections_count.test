@@ -1,0 +1,59 @@
+# Turn on ssl between the client and server
+-- source include/have_ssl_communication.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+--disable_query_log
+--disable_result_log
+
+--let $sessions_count=3
+
+#create users
+--let $i=$sessions_count
+while ($i) {
+--dec $i
+--eval CREATE USER 'user_$i'@'localhost' IDENTIFIED BY 'mypass';
+}
+
+#create ssl and non-ssl connections
+--let $i=$sessions_count
+while ($i) {
+--dec $i
+--connect (connection_ssl_$i,localhost,user_$i,mypass,,,,SSL)
+  SELECT 1;
+--connect (connection_$i,localhost,user_$i,mypass,,,,)
+  SELECT 1;
+}
+
+#get statistics
+--enable_query_log
+--enable_result_log
+--connection default
+
+SELECT USER_NAME, CONNECTIONS_TOTAL, CONNECTIONS_SSL_TOTAL FROM
+INFORMATION_SCHEMA.USER_STATISTICS WHERE USER_NAME LIKE "user_%" ORDER BY USER_NAME;
+
+--disable_query_log
+--disable_result_log
+
+#close connections
+--let $i=$sessions_count
+while ($i) {
+--dec $i
+--disconnect connection_$i
+--disconnect connection_ssl_$i
+}
+
+--connection default
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
+#remove users
+--let $i=$sessions_count
+while ($i) {
+--dec $i
+--eval DROP USER 'user_$i'@'localhost';
+}
+
