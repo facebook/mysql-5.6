@@ -125,6 +125,13 @@ static ibool		srv_start_has_been_called = FALSE;
 SRV_SHUTDOWN_CLEANUP and then to SRV_SHUTDOWN_LAST_PHASE, and so on */
 UNIV_INTERN enum srv_shutdown_state	srv_shutdown_state = SRV_SHUTDOWN_NONE;
 
+#ifdef XTRABACKUP
+/** Special XTRABACKUP command line switch to disable background
+tasks. The effect is that of srv_force_recovery=SRV_FORCE_NO_BACKGROUND
+without srv_force_recovery=SRV_FORCE_IGNORE_CORRUPT. */
+extern my_bool		xtrabackup_no_background;
+#endif // ifdef XTRABACKUP
+
 /** Files comprising the system tablespace */
 os_file_t	files[1000];
 
@@ -1478,6 +1485,9 @@ srv_start_wait_for_purge_to_start()
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE
 	       && srv_force_recovery < SRV_FORCE_NO_BACKGROUND
+#ifdef XTRABACKUP
+	       && !xtrabackup_no_background
+#endif // ifdef XTRABACKUP
 	       && state == PURGE_STATE_INIT) {
 
 		switch (state = trx_purge_state()) {
@@ -2714,7 +2724,11 @@ files_checked:
 	}
 
 	if (!srv_read_only_mode
-	    && srv_force_recovery < SRV_FORCE_NO_BACKGROUND) {
+	    && srv_force_recovery < SRV_FORCE_NO_BACKGROUND
+#ifdef XTRABACKUP
+	    && !xtrabackup_no_background
+#endif // ifdef XTRABACKUP
+	   ) {
 
 		os_thread_create(
 			srv_purge_coordinator_thread,

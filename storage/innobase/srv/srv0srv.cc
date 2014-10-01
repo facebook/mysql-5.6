@@ -356,6 +356,12 @@ starting from SRV_FORCE_IGNORE_CORRUPT, so that data can be recovered
 by SELECT or mysqldump. When this is nonzero, we do not allow any user
 modifications to the data. */
 UNIV_INTERN ulong	srv_force_recovery;
+#ifdef XTRABACKUP
+/** Special XTRABACKUP command line switch to disable background
+tasks. The effect is that of srv_force_recovery=SRV_FORCE_NO_BACKGROUND
+without srv_force_recovery=SRV_FORCE_IGNORE_CORRUPT. */
+extern my_bool		xtrabackup_no_background;
+#endif // ifdef XTRABACKUP
 #ifndef DBUG_OFF
 /** Inject a crash at different steps of the recovery process.
 This is for testing and debugging only. */
@@ -3038,7 +3044,11 @@ DECLARE_THREAD(srv_master_thread)(
 
 	last_print_time = ut_time();
 loop:
-	if (srv_force_recovery >= SRV_FORCE_NO_BACKGROUND) {
+	if (srv_force_recovery >= SRV_FORCE_NO_BACKGROUND
+#ifdef XTRABACKUP
+	    || xtrabackup_no_background
+#endif // ifdef XTRABACKUP
+	) {
 		goto suspend_thread;
 	}
 
@@ -3578,7 +3588,11 @@ srv_purge_wakeup(void)
 {
 	ut_ad(!srv_read_only_mode);
 
-	if (srv_force_recovery < SRV_FORCE_NO_BACKGROUND) {
+	if (srv_force_recovery < SRV_FORCE_NO_BACKGROUND
+#ifdef XTRABACKUP
+	    && !xtrabackup_no_background
+#endif // ifdef XTRABACKUP
+	) {
 
 		srv_release_threads(SRV_PURGE, 1);
 
