@@ -1476,6 +1476,7 @@ srv_start_wait_for_purge_to_start()
 
 	ut_a(state != PURGE_STATE_DISABLED);
 
+#ifndef XTRABACKUP
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE
 	       && srv_force_recovery < SRV_FORCE_NO_BACKGROUND
 	       && state == PURGE_STATE_INIT) {
@@ -1497,6 +1498,7 @@ srv_start_wait_for_purge_to_start()
 			ut_error;
 		}
 	}
+#endif // ifndef XTRABACKUP
 }
 
 /********************************************************************
@@ -2705,7 +2707,11 @@ files_checked:
 	}
 
 	if (!srv_read_only_mode
-	    && srv_force_recovery < SRV_FORCE_NO_BACKGROUND) {
+	    && srv_force_recovery < SRV_FORCE_NO_BACKGROUND
+#ifdef XTRABACKUP
+	    && 0
+#endif // ifdef XTRABACKUP
+	   ) {
 
 		os_thread_create(
 			srv_purge_coordinator_thread,

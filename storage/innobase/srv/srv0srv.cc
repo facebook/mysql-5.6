@@ -3038,7 +3038,10 @@ DECLARE_THREAD(srv_master_thread)(
 
 	last_print_time = ut_time();
 loop:
-	if (srv_force_recovery >= SRV_FORCE_NO_BACKGROUND) {
+#ifndef XTRABACKUP
+	if (srv_force_recovery >= SRV_FORCE_NO_BACKGROUND)
+#endif // ifndef XTRABACKUP
+	{
 		goto suspend_thread;
 	}
 
@@ -3576,6 +3579,7 @@ srv_purge_wakeup(void)
 {
 	ut_ad(!srv_read_only_mode);
 
+#ifndef XTRABACKUP
 	if (srv_force_recovery < SRV_FORCE_NO_BACKGROUND) {
 
 		srv_release_threads(SRV_PURGE, 1);
@@ -3586,5 +3590,6 @@ srv_purge_wakeup(void)
 			srv_release_threads(SRV_WORKER, n_workers);
 		}
 	}
+#endif // ifndef XTRABACKUP
 }
 
