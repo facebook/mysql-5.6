@@ -443,6 +443,7 @@ my_bool innobase_locks_unsafe_for_binlog        = FALSE;
 my_bool innobase_rollback_on_timeout		= FALSE;
 my_bool innobase_create_status_file		= FALSE;
 my_bool innobase_adaptive_hash_index		= TRUE;
+my_bool xtrabackup_no_background		= FALSE;
 
 static char *internal_innobase_data_file_path	= NULL;
 
@@ -596,6 +597,7 @@ enum options_xtrabackup
   OPT_INNODB_USE_NATIVE_AIO,
   OPT_INNODB_PAGE_SIZE,
   OPT_INNODB_FORCE_RECOVERY,
+  OPT_INNODB_NO_BACKGROUND,
   OPT_INNODB_LOCK_WAIT_TIMEOUT,
   OPT_INNODB_LOG_BUFFER_SIZE,
   OPT_INNODB_LOG_FILE_SIZE,
@@ -826,6 +828,11 @@ Disable with --skip-innodb-doublewrite.", (G_PTR*) &innobase_use_doublewrite,
    "Helps to save your data in case the disk image of the database becomes corrupt.",
    (G_PTR*) &innobase_force_recovery, (G_PTR*) &innobase_force_recovery, 0,
    GET_LONG, REQUIRED_ARG, 0, 0, 6, 0, 1, 0},
+
+  {"innodb_no_background", OPT_INNODB_NO_BACKGROUND,
+   "Disable background threads.",
+   (G_PTR*) &xtrabackup_no_background, (G_PTR*) &xtrabackup_no_background, 0,
+   GET_BOOL, NO_ARG, 1, 0, 0, 0, 0, 0},
 
   {"innodb_lock_wait_timeout", OPT_INNODB_LOCK_WAIT_TIMEOUT,
    "Timeout in seconds an InnoDB transaction may wait for a lock before being rolled back.",
