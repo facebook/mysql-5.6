@@ -717,14 +717,6 @@ DECLARE_THREAD(btr_defragment_thread)(
 			os_thread_sleep(BTR_DEFRAGMENT_SLEEP_IN_USECS);
 			continue;
 		}
-		/* If an index is marked as removed, we remove it from the work
-		queue. No other thread could be using this item at this point so
-		it's safe to remove now. */
-		if (item->removed) {
-			btr_defragment_remove_item(item);
-			continue;
-		}
-		pcur = item->pcur;
 		ulonglong now = my_timer_now();
 		ulonglong elapsed = now - item->last_processed;
 		if (elapsed < srv_defragment_interval) {
@@ -737,7 +729,15 @@ DECLARE_THREAD(btr_defragment_thread)(
 			os_thread_sleep((ulint)my_timer_to_microseconds(
 				srv_defragment_interval - elapsed));
 		}
+		/* If an index is marked as removed, we remove it from the work
+		queue. No other thread could be using this item at this point so
+		it's safe to remove now. */
+		if (item->removed) {
+			btr_defragment_remove_item(item);
+			continue;
+		}
 		now = my_timer_now();
+		pcur = item->pcur;
 		mtr_start(&mtr);
 		btr_pcur_restore_position(BTR_MODIFY_TREE, pcur, &mtr);
 		cursor = btr_pcur_get_btr_cur(pcur);
