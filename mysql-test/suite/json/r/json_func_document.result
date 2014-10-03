@@ -184,6 +184,15 @@ length(json_extract(json,'开源数据库'))	json_extract(json,'开源数据库'
 NULL	NULL	{"MySQL":"开源数据库"}
 7	"MySQL"	{"开源数据库":"MySQL"}
 truncate test_json;
+insert into test_json values ('{"k":1, "kk":2, "kkkk":4}');
+select json_extract(json, 'k') k,
+json_extract(json, 'kk') kk,
+json_extract(json, 'kkk') kkk,
+json_extract(json, 'kkkk') kkkk
+from test_json;
+k	kk	kkk	kkkk
+1	2	NULL	4
+truncate test_json;
 insert into test_json values
 (null),
 ('{}'),

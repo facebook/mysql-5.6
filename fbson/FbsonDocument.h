@@ -511,7 +511,8 @@ class ObjectVal : public ContainerVal {
   // find the FBSON value by a key string
   FbsonValue *find(const char *key, hDictFind handler = nullptr) const {
     int key_id = -1;
-    if (handler && (key_id = handler(key, strlen(key))) >= 0) {
+    unsigned int klen = strlen(key);
+    if (handler && (key_id = handler(key, klen)) >= 0) {
       return find(key_id);
     }
 
@@ -520,8 +521,7 @@ class ObjectVal : public ContainerVal {
 
     while (pch < fence) {
       FbsonKeyValue *pkey = (FbsonKeyValue *)(pch);
-      unsigned klen = pkey->klen();
-      if (klen && strncmp(key, pkey->getKeyStr(), klen) == 0) {
+      if (klen == pkey->klen() && strncmp(key, pkey->getKeyStr(), klen) == 0) {
         return pkey->value();
       }
       pch += pkey->numPackedBytes();
