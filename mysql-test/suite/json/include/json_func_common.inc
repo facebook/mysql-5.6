@@ -85,6 +85,16 @@ select length(json_extract(json,'开源数据库')),json_extract(json,'开源数
 
 truncate test_json;
 
+# test special case: one key is prefix of another
+insert into test_json values ('{"k":1, "kk":2, "kkkk":4}');
+select json_extract(json, 'k') k,
+       json_extract(json, 'kk') kk,
+       json_extract(json, 'kkk') kkk,
+       json_extract(json, 'kkkk') kkkk
+from test_json;
+
+truncate test_json;
+
 #
 # json_contains_key
 #
