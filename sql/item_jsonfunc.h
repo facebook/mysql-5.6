@@ -37,6 +37,18 @@ public:
   const char *func_name() const { return "json_extract"; }
   String *val_str(String *);
   void fix_length_and_dec();
+
+protected:
+  String *intern_val_str(String *str, bool val_only);
+};
+
+class Item_func_json_extract_value :public Item_func_json_extract
+{
+public:
+  Item_func_json_extract_value(List<Item> &list) :Item_func_json_extract(list){}
+  Item_func_json_extract_value(Item *a,Item *b) :Item_func_json_extract(a,b){}
+  const char *func_name() const { return "json_extract_value"; }
+  String *val_str(String *);
 };
 
 class Item_func_json_contains_key :public Item_bool_func
