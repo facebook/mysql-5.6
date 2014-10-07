@@ -50,6 +50,11 @@ insert into test_json values
 (null),
 ('{}'),
 ('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}'),
 ('[1,2,3,4]'),
 ('{"k1":{"k2":{"k3":12.345}}}'),
 ('{"k1":"v1","k1":{"k2":"v2"}}'),
@@ -92,6 +97,30 @@ select json_extract(json, 'k') k,
        json_extract(json, 'kkk') kkk,
        json_extract(json, 'kkkk') kkkk
 from test_json;
+
+truncate test_json;
+
+#
+# json_extract_value
+#
+
+# test on table
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}');
+
+select length(json_extract_value(json,null)),json_extract_value(json,null),json from test_json order by 1,2,3;
+select length(json_extract_value(json,'k1')),json_extract_value(json,'k1'),json from test_json order by 1,2,3;
+select length(json_extract_value(json,'k1','k2')),json_extract_value(json,'k1','k2'),json from test_json order by 1,2,3;
+
+# json_extract_value in where clause
+select json from test_json where json_extract_value(json,'k1') > 1 order by 1;
 
 truncate test_json;
 
