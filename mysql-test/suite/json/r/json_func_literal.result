@@ -118,6 +118,21 @@ NULL
 select json_extract('{"k1":"v1"}','k1');
 json_extract('{"k1":"v1"}','k1')
 "v1"
+select json_extract('{"k1":true}','k1');
+json_extract('{"k1":true}','k1')
+true
+select json_extract('{"k1":false}','k1');
+json_extract('{"k1":false}','k1')
+false
+select json_extract('{"k1":null}','k1');
+json_extract('{"k1":null}','k1')
+null
+select json_extract('{"k1":12}','k1');
+json_extract('{"k1":12}','k1')
+12
+select json_extract('{"k1":1.23}','k1');
+json_extract('{"k1":1.23}','k1')
+1.23
 select json_extract('[1,2,3,4]',0);
 json_extract('[1,2,3,4]',0)
 1
@@ -192,6 +207,24 @@ json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2)
 true
 select json_extract('', 'k1');
 ERROR HY000: Invalid JSON object: ''
+select json_extract_value('{"k1":"v1"}','k1');
+json_extract_value('{"k1":"v1"}','k1')
+v1
+select json_extract_value('{"k1":true}','k1');
+json_extract_value('{"k1":true}','k1')
+1
+select json_extract_value('{"k1":false}','k1');
+json_extract_value('{"k1":false}','k1')
+0
+select json_extract_value('{"k1":null}','k1');
+json_extract_value('{"k1":null}','k1')
+NULL
+select json_extract_value('{"k1":12}','k1');
+json_extract_value('{"k1":12}','k1')
+12
+select json_extract_value('{"k1":1.23}','k1');
+json_extract_value('{"k1":1.23}','k1')
+1.23
 select json_contains_key(null,null);
 json_contains_key(null,null)
 NULL
