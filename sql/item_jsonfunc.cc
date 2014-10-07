@@ -41,10 +41,14 @@
  * Input: pval - FbsonValue object to convert
  *        str - output
  *        cs - character set
+ *        json_text - whether to return json text or native values
  * Output: true - success
  */
 static bool
-ValueToString(fbson::FbsonValue *pval, String &str, const CHARSET_INFO *cs)
+ValueToString(fbson::FbsonValue *pval,
+              String &str,
+              const CHARSET_INFO *cs,
+              bool json_text)
 {
   if (!pval)
     return false;
@@ -53,20 +57,43 @@ ValueToString(fbson::FbsonValue *pval, String &str, const CHARSET_INFO *cs)
   {
   case fbson::FbsonType::T_Null:
     {
-      str.set("null", 4, cs);
-      return true;
+      if (json_text)
+      {
+        str.set("null", 4, cs);
+        return true;
+      }
+      else
+        return false;
     }
   case fbson::FbsonType::T_False:
     {
-      str.set("false", 5, cs);
+      if (json_text)
+        str.set("false", 5, cs);
+      else
+        str.set_int(0, true /*unsigned_flag*/, cs);
+
       return true;
     }
   case fbson::FbsonType::T_True:
     {
-      str.set("true", 4, cs);
+      if (json_text)
+        str.set("true", 4, cs);
+      else
+        str.set_int(1, true /*unsigned_flag*/, cs);
+
       return true;
     }
   case fbson::FbsonType::T_String:
+    {
+      if (!json_text)
+      {
+        // copy the string without double quotes
+        fbson::StringVal *str_val = (fbson::StringVal *)pval;
+        str.copy(str_val->getBlob(), str_val->getBlobLen(), cs);
+        return true;
+      }
+      // else json_text, fall through
+    }
   case fbson::FbsonType::T_Object:
   case fbson::FbsonType::T_Array:
     {
@@ -244,11 +271,7 @@ json_extract_helper(Item **args,
   return pval;
 }
 
-/*
- * Item_func_json_extract
- */
-
-String *Item_func_json_extract::val_str(String *str)
+String *Item_func_json_extract::intern_val_str(String *str, bool json_text)
 {
   DBUG_ASSERT(fixed);
 
@@ -263,7 +286,7 @@ String *Item_func_json_extract::val_str(String *str)
     {
       pval = get_fbson_val(pstr->ptr(), pstr->length());
       pval = json_extract_helper(args, arg_count, pval, str);
-      if (ValueToString(pval,*str,collation.collation))
+      if (ValueToString(pval, *str, collation.collation, json_text))
         return str;
     }
     else
@@ -271,7 +294,7 @@ String *Item_func_json_extract::val_str(String *str)
       fbson::FbsonOutStream os;
       pval = get_fbson_val(pstr->c_ptr_safe(), os);
       pval = json_extract_helper(args, arg_count, pval, str);
-      if (ValueToString(pval,*str,collation.collation))
+      if (ValueToString(pval, *str, collation.collation, json_text))
         return str;
     }
   }
@@ -280,11 +303,48 @@ String *Item_func_json_extract::val_str(String *str)
   return nullptr;
 }
 
+/*
+ * Item_func_json_extract
+ * The retrurned string format is valid JSON text, such as:
+ *   true, false
+ *   null
+ *   "string"
+ *   123, 123.45
+ *   {"key":"value"}
+ *   [1,2,3]
+ *
+ * This is useful if we want to get value in JSON format from key path.
+ */
+
+String *Item_func_json_extract::val_str(String *str)
+{
+  return intern_val_str(str, true /* json_text */);
+}
+
 void Item_func_json_extract::fix_length_and_dec()
 {
   // use the json data size (first arg)
   ulonglong char_length= args[0]->max_char_length();
   fix_char_length_ulonglong(char_length);
+}
+
+/*
+ * Item_func_json_extract_value
+ * The returned string format is raw value, such as:
+ *   1 (for true), 0 (for false)
+ *   NULL row (for null)
+ *   string (no double quotes)
+ *   123, 123.45
+ *   {"key":"value"}
+ *   [1,2,3]
+ *
+ * This is useful if the value will be directly used in comparsions on string
+ * vs. integer, in the WHERE clause.
+ */
+
+String *Item_func_json_extract_value::val_str(String *str)
+{
+  return Item_func_json_extract::intern_val_str(str, false /* json_text */);
 }
 
 /*
