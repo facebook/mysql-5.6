@@ -64,6 +64,11 @@ select json_extract('{"k1":"v1","k1":{"k2":"v2"}}','k1','k2');
 
 # valid key paths
 select json_extract('{"k1":"v1"}','k1');
+select json_extract('{"k1":true}','k1');
+select json_extract('{"k1":false}','k1');
+select json_extract('{"k1":null}','k1');
+select json_extract('{"k1":12}','k1');
+select json_extract('{"k1":1.23}','k1');
 select json_extract('[1,2,3,4]',0);
 select json_extract('[1,2,3,4]',1);
 select json_extract('[1,2,3,4]',2);
@@ -97,6 +102,17 @@ select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
 # invalid json object (expecting error)
 --error ER_INVALID_JSON
 select json_extract('', 'k1');
+
+#
+# json_extract_value
+#
+
+select json_extract_value('{"k1":"v1"}','k1');
+select json_extract_value('{"k1":true}','k1');
+select json_extract_value('{"k1":false}','k1');
+select json_extract_value('{"k1":null}','k1');
+select json_extract_value('{"k1":12}','k1');
+select json_extract_value('{"k1":1.23}','k1');
 
 #
 # json_contains_key
