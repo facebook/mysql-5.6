@@ -76,6 +76,11 @@ insert into test_json values
 (null),
 ('{}'),
 ('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}'),
 ('[1,2,3,4]'),
 ('{"k1":{"k2":{"k3":12.345}}}'),
 ('{"k1":"v1","k1":{"k2":"v2"}}'),
@@ -84,7 +89,12 @@ select length(json_extract(json,null)),json_extract(json,null),json from test_js
 length(json_extract(json,null))	json_extract(json,null)	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
@@ -94,15 +104,25 @@ length(json_extract(json,'k1'))	json_extract(json,'k1')	json
 NULL	NULL	NULL
 NULL	NULL	{}
 NULL	NULL	[1,2,3,4]
+2	12	{"k1":12}
 4	"v1"	{"k1":"v1"}
 4	"v1"	{"k1":"v1","k1":{"k2":"v2"}}
+4	1.23	{"k1":1.23}
+4	null	{"k1":null}
+4	true	{"k1":true}
+5	false	{"k1":false}
 20	{"k2":{"k3":12.345}}	{"k1":{"k2":{"k3":12.345}}}
 32	[1,{"k2":["v1",2,true]},3,false]	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 select length(json_extract(json,'k1','k2')),json_extract(json,'k1','k2'),json from test_json order by 1,2,3;
 length(json_extract(json,'k1','k2'))	json_extract(json,'k1','k2')	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 NULL	NULL	[1,2,3,4]
@@ -111,7 +131,12 @@ select length(json_extract(json,'k1','k2','k3')),json_extract(json,'k1','k2','k3
 length(json_extract(json,'k1','k2','k3'))	json_extract(json,'k1','k2','k3')	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 NULL	NULL	[1,2,3,4]
@@ -120,7 +145,12 @@ select length(json_extract(json,0)),json_extract(json,0),json from test_json ord
 length(json_extract(json,0))	json_extract(json,0)	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
@@ -129,7 +159,12 @@ select length(json_extract(json,'1')),json_extract(json,'1'),json from test_json
 length(json_extract(json,'1'))	json_extract(json,'1')	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	{"k1":[1,{"k2":["v1",2,true]},3,false]}
@@ -138,7 +173,12 @@ select length(json_extract(json,'k1',1)),json_extract(json,'k1',1),json from tes
 length(json_extract(json,'k1',1))	json_extract(json,'k1',1)	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	[1,2,3,4]
@@ -147,7 +187,12 @@ select length(json_extract(json,'k1',1,'k2')),json_extract(json,'k1',1,'k2'),jso
 length(json_extract(json,'k1',1,'k2'))	json_extract(json,'k1',1,'k2')	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	[1,2,3,4]
@@ -156,7 +201,12 @@ select length(json_extract(json,'k1',1,'k2',0)),json_extract(json,'k1',1,'k2',0)
 length(json_extract(json,'k1',1,'k2',0))	json_extract(json,'k1',1,'k2',0)	json
 NULL	NULL	NULL
 NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
 NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
 NULL	NULL	{"k1":"v1","k1":{"k2":"v2"}}
 NULL	NULL	{"k1":{"k2":{"k3":12.345}}}
 NULL	NULL	[1,2,3,4]
@@ -192,6 +242,50 @@ json_extract(json, 'kkkk') kkkk
 from test_json;
 k	kk	kkk	kkkk
 1	2	NULL	4
+truncate test_json;
+insert into test_json values
+(null),
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":true}'),
+('{"k1":false}'),
+('{"k1":null}'),
+('{"k1":12}'),
+('{"k1":1.23}');
+select length(json_extract_value(json,null)),json_extract_value(json,null),json from test_json order by 1,2,3;
+length(json_extract_value(json,null))	json_extract_value(json,null)	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
+select length(json_extract_value(json,'k1')),json_extract_value(json,'k1'),json from test_json order by 1,2,3;
+length(json_extract_value(json,'k1'))	json_extract_value(json,'k1')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1":null}
+1	0	{"k1":false}
+1	1	{"k1":true}
+2	12	{"k1":12}
+2	v1	{"k1":"v1"}
+4	1.23	{"k1":1.23}
+select length(json_extract_value(json,'k1','k2')),json_extract_value(json,'k1','k2'),json from test_json order by 1,2,3;
+length(json_extract_value(json,'k1','k2'))	json_extract_value(json,'k1','k2')	json
+NULL	NULL	NULL
+NULL	NULL	{}
+NULL	NULL	{"k1":null}
+NULL	NULL	{"k1":true}
+NULL	NULL	{"k1":false}
+NULL	NULL	{"k1":12}
+NULL	NULL	{"k1":"v1"}
+NULL	NULL	{"k1":1.23}
+select json from test_json where json_extract_value(json,'k1') > 1 order by 1;
+json
+{"k1":12}
+{"k1":1.23}
 truncate test_json;
 insert into test_json values
 (null),
