@@ -1,0 +1,68 @@
+============================
+BACKGROUND THREAD
+SEMAPHORES
+TRANSACTIONS
+FILE I/O
+TABLESPACE I/O
+INSERT BUFFER AND ADAPTIVE HASH INDEX
+LOG
+BUFFER POOL AND MEMORY
+ROW OPERATIONS
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+BACKGROUND THREAD
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+SEMAPHORES
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+FILE I/O
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+TABLESPACE I/O
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+INSERT BUFFER AND ADAPTIVE HASH INDEX
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+LOG
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+BUFFER POOL AND MEMORY
+END OF INNODB MONITOR OUTPUT
+============================
+============================
+ROW OPERATIONS
+END OF INNODB MONITOR OUTPUT
+============================
+CREATE TABLE background (
+thread INT,
+semaphores INT,
+fk INT,
+file INT,
+tablespace INT,
+insbuffer INT,
+logs INT,
+memory INT,
+row INT,
+operations INT
+);
+affected rows: 0
+INSERT INTO background SET thread=1, semaphores=2, fk=3, file=4, tablespace=5, insbuffer=6, logs=7, memory=8, row=9, operations=10;
+affected rows: 1
+SELECT thread, semaphores, fk, file, tablespace, insbuffer, logs, memory, row, operations FROM background;
+thread	semaphores	fk	file	tablespace	insbuffer	logs	memory	row	operations
+1	2	3	4	5	6	7	8	9	10
+affected rows: 1
+DROP TABLE background;
+affected rows: 0
