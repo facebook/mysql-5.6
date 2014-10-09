@@ -189,7 +189,7 @@ static bool compare_table_with_partition(THD *thd, TABLE *table,
   part_table->use_all_columns();
   table->use_all_columns();
   if (mysql_prepare_alter_table(thd, part_table, &part_create_info,
-                                &part_alter_info, &part_alter_ctx))
+                                &part_alter_info, &part_alter_ctx, false))
   {
     my_error(ER_TABLES_DIFFERENT_METADATA, MYF(0));
     DBUG_RETURN(TRUE);
