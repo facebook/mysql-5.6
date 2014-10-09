@@ -1,0 +1,57 @@
+# This test verifies that the corresponding InnoDB status commands only return
+# the sections requested
+
+let OUTPUT1 = query_get_value(SHOW ENGINE INNODB STATUS, Status, 1);
+let OUTPUT2 = query_get_value(SHOW ENGINE INNODB STATUS BACKGROUND THREAD, Status, 1);
+let OUTPUT3 = query_get_value(SHOW ENGINE INNODB STATUS SEMAPHORES, Status,	1);
+let OUTPUT4 = query_get_value(SHOW ENGINE INNODB STATUS FK, Status, 1);
+let OUTPUT5 = query_get_value(SHOW ENGINE INNODB STATUS FILE, Status, 1);
+let OUTPUT6 = query_get_value(SHOW ENGINE INNODB STATUS TABLESPACE, Status,	1);
+let OUTPUT7 = query_get_value(SHOW ENGINE INNODB STATUS INSBUFFER, Status, 1);
+let OUTPUT8 = query_get_value(SHOW ENGINE INNODB STATUS LOGS, Status, 1);
+let OUTPUT9 = query_get_value(SHOW ENGINE INNODB STATUS MEMORY, Status, 1);
+let OUTPUT10 = query_get_value(SHOW ENGINE INNODB STATUS ROW OPERATIONS, Status, 1);
+perl;
+$total_outputs = 10;
+
+# Subrotine that extracts section headers
+sub print_status_section_headers
+{
+  print("============================\n");
+  $in_header = 0;
+  foreach (@line = split/\n/, $_[0]) {
+    if (/^[\-]+$/) {
+      $in_header = 1 - $in_header;
+    } elsif ($in_header == 1) {
+      if (!/^MUTEX INFO|RW-LATCH INFO$/) {
+        print "$_\n";
+      }
+    }
+  }
+}
+
+for ($i = 1; $i <= $total_outputs; ++$i) {
+  print_status_section_headers($ENV{"OUTPUT$i"});
+}
+EOF
+
+# This part verifies that all the new tokens that were added to the lexer
+# won't become reserved words
+--enable_info
+CREATE TABLE background (
+  thread INT,
+  semaphores INT,
+  fk INT,
+  file INT,
+  tablespace INT,
+  insbuffer INT,
+  logs INT,
+  memory INT,
+  row INT,
+  operations INT
+);
+
+INSERT INTO background SET thread=1, semaphores=2, fk=3, file=4, tablespace=5, insbuffer=6, logs=7, memory=8, row=9, operations=10;
+SELECT thread, semaphores, fk, file, tablespace, insbuffer, logs, memory, row, operations FROM background;
+
+DROP TABLE background;

@@ -2461,6 +2461,9 @@ struct LEX: public Query_tables_list
 
   ulong thread_id_opt; //thread id option
 
+  /* Used to request detailed status information from storage engines */
+  enum ha_stat_type status_type;
+
 private:
   bool m_broken; ///< see mark_broken()
   /// Current SP parsing context.

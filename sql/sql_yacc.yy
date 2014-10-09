@@ -1112,6 +1112,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  AUTO_INC
 %token  AVG_ROW_LENGTH
 %token  AVG_SYM                       /* SQL-2003-N */
+%token  BACKGROUND_SYM
 %token  BACKUP_SYM
 %token  BEFORE_SYM                    /* SQL-2003-N */
 %token  BEGIN_SYM                     /* SQL-2003-R */
@@ -1272,6 +1273,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  FIND
 %token  FIRST_SYM                     /* SQL-2003-N */
 %token  FIXED_SYM
+%token  FK_SYM
 %token  FLOAT_NUM
 %token  FLOAT_SYM                     /* SQL-2003-R */
 %token  FLUSH_SYM
@@ -1324,6 +1326,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  INITIAL_SIZE_SYM
 %token  INNER_SYM                     /* SQL-2003-R */
 %token  INOUT_SYM                     /* SQL-2003-R */
+%token  INSBUFFER_SYM
 %token  INSENSITIVE_SYM               /* SQL-2003-R */
 %token  INSERT                        /* SQL-2003-R */
 %token  INSERT_METHOD
@@ -1465,6 +1468,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  ON                            /* SQL-2003-R */
 %token  ONE_SYM
 %token  ONLY_SYM                      /* SQL-2003-R */
+%token  OPERATIONS_SYM
 %token  OPEN_SYM                      /* SQL-2003-R */
 %token  OPTIMIZE
 %token  OPTIONS_SYM
@@ -1568,6 +1572,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SECOND_SYM                    /* SQL-2003-R */
 %token  SECURITY_SYM                  /* SQL-2003-N */
 %token  SELECT_SYM                    /* SQL-2003-R */
+%token  SEMAPHORES_SYM
 %token  SENSITIVE_SYM                 /* FUTURE-USE */
 %token  SEPARATOR_SYM
 %token  SERIALIZABLE_SYM              /* SQL-2003-N */
@@ -1651,6 +1656,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  TEXT_SYM
 %token  THAN_SYM
 %token  THEN_SYM                      /* SQL-2003-R */
+%token  THREAD_SYM
 %token  TIMESTAMP                     /* SQL-2003-R */
 %token  TIMESTAMP_ADD
 %token  TIMESTAMP_DIFF
@@ -12935,8 +12941,29 @@ show_param:
           }
         ;
 
+opt_show_engine_status_param:
+        /* Empty */
+          { Lex->status_type= HA_ENGINE_STATUS; }
+        | BACKGROUND_SYM THREAD_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_BACKGROUND_THREAD; }
+        | FILE_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_FILE; }
+        | FK_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_FK; }
+        | INSBUFFER_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_INSBUFFER; }
+        | LOGS_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_LOG; }
+        | MEMORY_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_MEMORY; }
+        | ROW_SYM OPERATIONS_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_ROW_OPERATIONS; }
+        | SEMAPHORES_SYM
+          { Lex->status_type= HA_ENGINE_STATUS_SEMAPHORES; }
+        | TABLESPACE
+          { Lex->status_type= HA_ENGINE_STATUS_TABLESPACE; }
 show_engine_param:
-          STATUS_SYM
+          STATUS_SYM opt_show_engine_status_param
           { Lex->sql_command= SQLCOM_SHOW_ENGINE_STATUS; }
         | MUTEX_SYM
           { Lex->sql_command= SQLCOM_SHOW_ENGINE_MUTEX; }
@@ -14402,6 +14429,7 @@ keyword_sp:
         | AUTOEXTEND_SIZE_SYM      {}
         | AVG_ROW_LENGTH           {}
         | AVG_SYM                  {}
+        | BACKGROUND_SYM           {}
         | BINLOG_SYM               {}
         | BIT_SYM                  {}
         | BLOCK_SYM                {}
@@ -14481,6 +14509,7 @@ keyword_sp:
         | FILE_SYM                 {}
         | FIRST_SYM                {}
         | FIXED_SYM                {}
+        | FK_SYM                   {}
         | GENERAL                  {}
         | GEOMETRY_SYM             {}
         | GEOMETRYCOLLECTION       {}
@@ -14497,6 +14526,7 @@ keyword_sp:
         | IMPORT                   {}
         | INDEXES                  {}
         | INITIAL_SIZE_SYM         {}
+        | INSBUFFER_SYM            {}
         | IO_SYM                   {}
         | IPC_SYM                  {}
         | ISOLATION                {}
@@ -14573,6 +14603,7 @@ keyword_sp:
         | OLD_PASSWORD             {}
         | ONE_SYM                  {}
         | ONLY_SYM                 {}
+        | OPERATIONS_SYM           {}
         | PACK_KEYS_SYM            {}
         | PAGE_SYM                 {}
         | PARTIAL                  {}
@@ -14626,6 +14657,7 @@ keyword_sp:
         | SCHEDULE_SYM             {}
         | SCHEMA_NAME_SYM          {}
         | SECOND_SYM               {}
+        | SEMAPHORES_SYM           {}
         | SERIAL_SYM               {}
         | SERIALIZABLE_SYM         {}
         | SESSION_SYM              {}
@@ -14668,6 +14700,7 @@ keyword_sp:
         | TEMPTABLE_SYM            {}
         | TEXT_SYM                 {}
         | THAN_SYM                 {}
+        | THREAD_SYM               {}
         | TRANSACTION_SYM          {}
         | TRIGGERS_SYM             {}
         | TIMESTAMP                {}
