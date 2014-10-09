@@ -52,8 +52,6 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
     my_free(pk_part_no);
   if (pack_info)
     my_free(pack_info);
-  if (pack_buffer)
-    my_free(pack_buffer);
 }
 
 
@@ -142,8 +140,6 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     }
     maxlength= max_len;
     unpack_data_len= unpack_len;
-
-    pack_buffer= (uchar*)my_malloc(max_part_len, MYF(0));
   }
 }
 
@@ -242,7 +238,19 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
 }
 
 
-uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *packed_tuple,
+/*
+  Convert index tuple into storage (i.e. mem-comparable) format
+
+  @detail
+    Currently this is done by unpacking into table->record[0] and then
+    packing index columns into storage format.
+
+  @param pack_buffer Temporary area for packing varchar columns. Its
+                     size is at least max_storage_fmt_length() bytes.
+*/
+
+uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
+                                    uchar *packed_tuple,
                                     const uchar *key_tuple,
                                     key_part_map keypart_map)
 {
@@ -256,7 +264,7 @@ uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *packed_tuple,
     n_used_parts= 0; // Full key is used
 
   /* Then, convert the record into a mem-comparable form */
-  return pack_record(tbl, tbl->record[0], packed_tuple, NULL, NULL,
+  return pack_record(tbl, pack_buffer, tbl->record[0], packed_tuple, NULL, NULL,
                      n_used_parts);
 }
 
@@ -296,6 +304,8 @@ static Field *get_field_by_keynr(TABLE *tbl, KEY *key_info, uint part)
   @param
     tbl                   Table we're working on
     record           IN   Record buffer with fields in table->record format
+    pack_buffer      IN   Temporary area for packing varchars. The size is
+                          at least max_storage_fmt_length() bytes.
     packed_tuple     OUT  Key in the mem-comparable form
     unpack_info      OUT  Unpack data
     unpack_info_len  OUT  Unpack data length
@@ -309,7 +319,9 @@ static Field *get_field_by_keynr(TABLE *tbl, KEY *key_info, uint part)
     Length of the packed tuple
 */
 
-uint RDBSE_KEYDEF::pack_record(TABLE *tbl, const uchar *record,
+uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
+                               uchar *pack_buffer,
+                               const uchar *record,
                                uchar *packed_tuple,
                                uchar *unpack_info, int *unpack_info_len,
                                uint n_key_parts)
