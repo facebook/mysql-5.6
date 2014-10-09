@@ -930,6 +930,7 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pk_can_be_decoded(false),
     pk_tuple(NULL), pk_packed_tuple(NULL),
     sec_key_packed_tuple(NULL), sec_key_tails(NULL),
+    pack_buffer(NULL),
     lock_rows(FALSE),
     keyread_only(FALSE),
     field_enc(NULL)
@@ -1249,7 +1250,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   if (!(sec_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
                                                 MYF(0))) ||
-      !((sec_key_tails= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))))
+      !((sec_key_tails= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))) ||
+      !((pack_buffer=(uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
@@ -1284,6 +1286,10 @@ int ha_rocksdb::close(void)
   if (sec_key_tails)
     my_free(sec_key_tails);
   sec_key_tails= NULL;
+
+  if (pack_buffer)
+    my_free(pack_buffer);
+  pack_buffer= NULL;
 
   if (field_enc)
     my_free(field_enc);
@@ -1643,7 +1649,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
       Equality lookup over primary key, using full tuple.
       This is a special case, use DB::Get.
     */
-    uint size= kd->pack_index_tuple(table, pk_packed_tuple, key, keypart_map);
+    uint size= kd->pack_index_tuple(table, pack_buffer, pk_packed_tuple, key,
+                                    keypart_map);
     rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, size);
     DBUG_RETURN(rc);
   }
@@ -1652,7 +1659,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
 
   uint packed_size;
 
-  packed_size= kd->pack_index_tuple(table, sec_key_packed_tuple, key,
+  packed_size= kd->pack_index_tuple(table, pack_buffer,
+                                    sec_key_packed_tuple, key,
                                     keypart_map);
 
   if (find_flag == HA_READ_PREFIX_LAST_OR_PREV ||
@@ -1825,7 +1833,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
       else
       if (find_flag == HA_READ_PREFIX_LAST)
       {
-        packed_size= kd->pack_index_tuple(table, sec_key_packed_tuple, key,
+        packed_size= kd->pack_index_tuple(table, pack_buffer,
+                                          sec_key_packed_tuple, key,
                                           keypart_map);
         /*
           Check if the record has the same search prefix.
@@ -1912,6 +1921,142 @@ int ha_rocksdb::index_read_last_map(uchar * buf, const uchar * key,
                                     key_part_map keypart_map)
 {
   return index_read_map(buf, key, keypart_map, HA_READ_PREFIX_LAST);
+}
+
+
+/*
+  Print a value into provided buffer, in hex form.
+*/
+void hexdump_value(char *strbuf, size_t strbuf_size, const rocksdb::Slice &val)
+{
+  char *p= strbuf;
+  strbuf_size -= 3;
+  for (size_t i= 0; i < val.size(); i++)
+  {
+    char *pp= p;
+    uint c= (uint)(uchar)val[i];
+    DBUG_ASSERT( c < 0x100);
+    p += snprintf(p, strbuf + strbuf_size - p, "%02x", c);
+    DBUG_ASSERT(p - pp == 2);
+    if (p >= strbuf + strbuf_size - 10)
+    {
+      // End the value with '..' if we ran out of buffer space
+      p[0]= '.';
+      p[1]= '.';
+      p[2]=0;
+      return;
+    }
+  }
+  *p= 0;
+}
+
+
+int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
+{
+  uint pk= table->s->primary_key;
+  String rowkey_copy;
+  String sec_key_copy;
+
+  // Only when debugging: don't use snapshot when reading
+  // Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  // trx->snapshot= NULL;
+
+  /* For each secondary index, check that we can get a PK value from it */
+  sql_print_information("Checking table %s", table->s->table_name.str);
+  for (uint keyno= 0; keyno < table->s->keys; keyno++)
+  {
+    if (keyno != pk)
+    {
+      extra(HA_EXTRA_KEYREAD);
+      ha_index_init(keyno, true);
+      ha_rows rows= 0;
+      int res;
+      sql_print_information("  Checking index %s", table->key_info[keyno].name);
+      while (1)
+      {
+        if (!rows)
+          res= index_first(table->record[0]);
+        else
+          res= index_next(table->record[0]);
+
+        if (res == HA_ERR_END_OF_FILE)
+          break;
+        if (res)
+        {
+          // error
+          sql_print_error("  .. row %lld: index scan error %d", rows, res);
+          goto error;
+        }
+        rocksdb::Slice key= scan_it->key();
+        sec_key_copy.copy(key.data(), key.size(), &my_charset_bin);
+        rowkey_copy.copy(last_rowkey.ptr(), last_rowkey.length(),
+                         &my_charset_bin);
+        if ((res= get_row_by_rowid(table->record[0], rowkey_copy.ptr(),
+                                   rowkey_copy.length())))
+        {
+          sql_print_error("  .. row %lld: failed to fetch row by rowid", rows);
+          goto error;
+        }
+        /* Check if we get the same PK value */
+        uint packed_size= pk_descr->pack_record(table, pack_buffer, table->record[0],
+                                                pk_packed_tuple, NULL, NULL);
+        if (packed_size != rowkey_copy.length() ||
+            memcmp(pk_packed_tuple, rowkey_copy.ptr(), packed_size))
+        {
+          sql_print_error("  .. row %lld: PK value mismatch", rows);
+          goto print_and_error;
+        }
+
+        /* Check if we get the same secondary key value */
+        int tail_size;
+        packed_size= key_descr[keyno]->pack_record(table, pack_buffer,
+                                                   table->record[0],
+                                                   sec_key_packed_tuple,
+                                                   sec_key_tails, &tail_size);
+        if (packed_size != sec_key_copy.length() ||
+            memcmp(sec_key_packed_tuple, sec_key_copy.ptr(), packed_size))
+        {
+          sql_print_error("  .. row %lld: secondary index value mismatch", rows);
+          goto print_and_error;
+        }
+        rows++;
+        continue;
+
+print_and_error:
+        {
+          char buf[1000];
+          hexdump_value(buf, 1000, rocksdb::Slice(rowkey_copy.ptr(),
+                                                  rowkey_copy.length()));
+          sql_print_error("  rowkey: %s", buf);
+
+          hexdump_value(buf, 1000, rocksdb::Slice(retrieved_record.data(),
+                                                  retrieved_record.size()));
+          sql_print_error("  record: %s", buf);
+
+          hexdump_value(buf, 1000, rocksdb::Slice(sec_key_copy.ptr(),
+                                                  sec_key_copy.length()));
+          sql_print_error("  index: %s", buf);
+
+          goto error;
+        }
+      }
+      sql_print_information("  ... %lld records found", rows);
+      ha_index_end();
+    }
+  }
+  extra(HA_EXTRA_NO_KEYREAD);
+
+  /*
+    TODO: we should check also for PK records that are missing in the secondary
+    indexes.
+    For that, need to walk through the PK and check that every PK record has a
+    proper counterpart in each secondary index.
+  */
+  return HA_ADMIN_OK;
+error:
+  ha_index_or_rnd_end();
+  extra(HA_EXTRA_NO_KEYREAD);
+  return HA_ADMIN_CORRUPT;
 }
 
 
@@ -2143,7 +2288,8 @@ int ha_rocksdb::write_row(uchar *buf)
   }
 
   /* Get a packed primary key value */
-  uint packed_size= pk_descr->pack_record(table, buf, pk_packed_tuple, NULL, NULL);
+  uint packed_size= pk_descr->pack_record(table, pack_buffer, buf,
+                                          pk_packed_tuple, NULL, NULL);
   rocksdb::Slice key_slice((const char*)pk_packed_tuple, packed_size);
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
@@ -2197,7 +2343,8 @@ int ha_rocksdb::write_row(uchar *buf)
       int packed_size;
       int tail_size;
 
-      packed_size= key_descr[i]->pack_record(table, buf, sec_key_packed_tuple,
+      packed_size= key_descr[i]->pack_record(table, pack_buffer, buf,
+                                             sec_key_packed_tuple,
                                              sec_key_tails, &tail_size);
 
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
@@ -2450,7 +2597,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
     if (i != table->s->primary_key)
     {
       int packed_size;
-      packed_size= key_descr[i]->pack_record(table, buf, sec_key_packed_tuple,
+      packed_size= key_descr[i]->pack_record(table, pack_buffer,
+                                             buf, sec_key_packed_tuple,
                                              NULL, NULL);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
@@ -2545,7 +2693,8 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   // we've already taken them when reading??
 
   /* Get a rowkey fo the new record */
-  uint packed_size= pk_descr->pack_record(table, new_data, pk_packed_tuple,
+  uint packed_size= pk_descr->pack_record(table, pack_buffer, new_data,
+                                          pk_packed_tuple,
                                           NULL, NULL);
 
   rocksdb::Slice key_slice((const char*)pk_packed_tuple, packed_size);
@@ -2599,7 +2748,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
       // First, a Delete()
       {
-        packed_size= key_descr[i]->pack_record(table, old_data,
+        packed_size= key_descr[i]->pack_record(table, pack_buffer, old_data,
                                                sec_key_packed_tuple,
                                                NULL, NULL);
         rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
@@ -2609,7 +2758,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
       // Then, Put().
       {
-        packed_size= key_descr[i]->pack_record(table, new_data,
+        packed_size= key_descr[i]->pack_record(table, pack_buffer, new_data,
                                                sec_key_packed_tuple,
                                                sec_key_tails, &tail_size);
         rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
