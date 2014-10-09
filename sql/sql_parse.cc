@@ -3324,7 +3324,7 @@ case SQLCOM_PREPARE:
     {
       if (check_global_access(thd, PROCESS_ACL))
         goto error;
-      res = ha_show_status(thd, lex->create_info.db_type, HA_ENGINE_STATUS);
+      res = ha_show_status(thd, lex->create_info.db_type, lex->status_type);
       break;
     }
   case SQLCOM_SHOW_ENGINE_MUTEX:
