@@ -87,7 +87,11 @@ public:
   An object of this class represents information about an index in an SQL
   table. It provides services to encode and decode index tuples.
 
-  There are several data encodings.
+  Note: a table (as in, on-disk table) has a single RDBSE_KEYDEF object which
+  is shared across multiple TABLE* objects and may be used simultaneously from
+  different threads.
+
+  There are several data encodings:
 
   === SQL LAYER ===
   SQL layer uses two encodings:
@@ -123,12 +127,18 @@ class RDBSE_KEYDEF
 {
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
-  uint pack_index_tuple(TABLE *tbl, uchar *packed_tuple,
+  uint pack_index_tuple(TABLE *tbl,
+                        uchar *pack_buffer,
+                        uchar *packed_tuple,
                         const uchar *key_tuple, key_part_map keypart_map);
 
   /* Convert a key from Table->record format to mem-comparable form */
-  uint pack_record(TABLE *tbl, const uchar *record, uchar *packed_tuple,
-                   uchar *unpack_info, int *unpack_info_len,
+  uint pack_record(TABLE *tbl,
+                   uchar *pack_buffer,
+                   const uchar *record,
+                   uchar *packed_tuple,
+                   uchar *unpack_info,
+                   int *unpack_info_len,
                    uint n_key_parts=0);
   int unpack_record(TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
@@ -197,8 +207,7 @@ public:
     pack_info(NULL),
     keyno(keyno_arg),
     m_key_parts(0),
-    maxlength(0), // means 'not intialized'
-    pack_buffer(NULL)
+    maxlength(0) // means 'not intialized'
   {
     store_index_number(index_number_storage_form, indexnr_arg);
   }
@@ -257,8 +266,6 @@ private:
 
   /* Length of the unpack_data */
   uint unpack_data_len;
-
-  uchar *pack_buffer;
 };
 
 
