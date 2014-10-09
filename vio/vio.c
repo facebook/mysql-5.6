@@ -197,10 +197,10 @@ my_bool vio_reset(Vio* vio, enum enum_vio_type type,
     such as the socket blocking mode.
   */
   if (old_vio.read_timeout >= 0)
-    ret|= vio_timeout(vio, 0, old_vio.read_timeout);
+    ret|= vio_timeout(vio, 0, old_vio.read_timeout / 1000);
 
   if (old_vio.write_timeout >= 0)
-    ret|= vio_timeout(vio, 1, old_vio.write_timeout);
+    ret|= vio_timeout(vio, 1, old_vio.write_timeout / 1000);
 
   DBUG_RETURN(test(ret));
 }
