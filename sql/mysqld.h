@@ -285,6 +285,7 @@ extern ulonglong slave_type_conversions_options;
 extern my_bool read_only, opt_readonly, super_read_only, opt_super_readonly;
 extern my_bool allow_document_type;
 extern my_bool block_create_myisam;
+extern my_bool block_create_no_primary_key;
 extern my_bool lower_case_file_system;
 extern ulonglong slave_rows_search_algorithms_options;
 #ifndef DBUG_OFF
