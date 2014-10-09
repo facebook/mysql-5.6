@@ -182,7 +182,8 @@ int mysql_discard_or_import_tablespace(THD *thd,
 bool mysql_prepare_alter_table(THD *thd, TABLE *table,
                                HA_CREATE_INFO *create_info,
                                Alter_info *alter_info,
-                               Alter_table_ctx *alter_ctx);
+                               Alter_table_ctx *alter_ctx,
+                               bool validate_primary_key_existance);
 bool mysql_trans_prepare_alter_copy_data(THD *thd);
 bool mysql_trans_commit_alter_copy_data(THD *thd);
 bool mysql_alter_table(THD *thd, char *new_db, char *new_name,
