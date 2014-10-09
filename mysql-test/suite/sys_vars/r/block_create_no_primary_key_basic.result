@@ -1,0 +1,66 @@
+SET @start_block_create_no_primary_key = @@global.block_create_no_primary_key;
+SELECT @start_block_create_no_primary_key;
+@start_block_create_no_primary_key
+0
+SET @@global.block_create_no_primary_key = true;
+SET @@global.block_create_no_primary_key = DEFAULT;
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0
+SET @@global.block_create_no_primary_key = @start_block_create_no_primary_key;
+SELECT @@global.block_create_no_primary_key = false;
+@@global.block_create_no_primary_key = false
+1
+SET @@global.block_create_no_primary_key = false;
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0
+SET @@global.block_create_no_primary_key = true;
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+1
+SET @@global.block_create_no_primary_key = 1;
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+1
+SET @@global.block_create_no_primary_key = 0;
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0
+SET @@global.block_create_no_primary_key = -1;
+ERROR 42000: Variable 'block_create_no_primary_key' can't be set to the value of '-1'
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0
+SET @@global.block_create_no_primary_key = 100;
+ERROR 42000: Variable 'block_create_no_primary_key' can't be set to the value of '100'
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0
+SET @@global.block_create_no_primary_key = 1000.01;
+ERROR 42000: Incorrect argument type to variable 'block_create_no_primary_key'
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0
+SET @@session.block_create_no_primary_key = 10;
+ERROR HY000: Variable 'block_create_no_primary_key' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.block_create_no_primary_key;
+ERROR HY000: Variable 'block_create_no_primary_key' is a GLOBAL variable
+SELECT @@global.block_create_no_primary_key = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='block_create_no_primary_key';
+@@global.block_create_no_primary_key = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SELECT @@block_create_no_primary_key = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='block_create_no_primary_key';
+@@block_create_no_primary_key = VARIABLE_VALUE
+1
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: 'OFF'
+SET @@global.block_create_no_primary_key = @start_block_create_no_primary_key;
+SELECT @@global.block_create_no_primary_key;
+@@global.block_create_no_primary_key
+0

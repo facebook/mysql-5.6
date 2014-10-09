@@ -5405,7 +5405,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
   local_create_info.db_type= src_table->table->s->db_type();
   local_create_info.row_type= src_table->table->s->row_type;
   if (mysql_prepare_alter_table(thd, src_table->table, &local_create_info,
-                                &local_alter_info, &local_alter_ctx))
+                                &local_alter_info, &local_alter_ctx, false))
     goto err;
 #ifdef WITH_PARTITION_STORAGE_ENGINE
   /* Partition info is not handled by mysql_prepare_alter_table() call. */
@@ -6967,6 +6967,8 @@ upgrade_old_temporal_types(THD *thd, Alter_info *alter_info)
                               this distinction is gone and we just carry
                               around two structures.
   @param[in,out]  alter_ctx   Runtime context for ALTER TABLE.
+  @param          validate_primary_key_existence  true if we need to
+                              validate the existence of a primary key
 
   @return
     Fills various create_info members based on information retrieved
@@ -6983,7 +6985,8 @@ bool
 mysql_prepare_alter_table(THD *thd, TABLE *table,
                           HA_CREATE_INFO *create_info,
                           Alter_info *alter_info,
-                          Alter_table_ctx *alter_ctx)
+                          Alter_table_ctx *alter_ctx,
+                          bool validate_primary_key_existence)
 {
   /* New column definitions are added here */
   List<Create_field> new_create_list;
@@ -7004,8 +7007,12 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
                            & ~(HA_OPTION_PACK_RECORD));
   uint used_fields= create_info->used_fields;
   KEY *key_info=table->key_info;
+  List_iterator<Key> new_key_iterator;
+  Key *key_element;
   bool rc= TRUE;
   bool skip_secondary;
+  bool deleted_primary= false;
+  bool added_primary= false;
 
   DBUG_ENTER("mysql_prepare_alter_table");
 
@@ -7267,6 +7274,10 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     if (drop)
     {
       drop_it.remove();
+      if (my_strcasecmp(system_charset_info, drop->name, primary_key_name) == 0)
+      {
+        deleted_primary= true;
+      }
       continue;
     }
 
@@ -7297,6 +7308,12 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
            We are dropping a column associated with an index.
         */
         index_column_dropped= true;
+
+        // Check if we're dropping the primary key
+        if (!my_strcasecmp(system_charset_info, key_name, primary_key_name))
+        {
+          deleted_primary= true;
+        }
 	continue;				// Field is removed
       }
       uint key_part_length=key_part->length;
@@ -7479,6 +7496,28 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   alter_info->create_list.swap(new_create_list);
   alter_info->key_list.swap(new_key_list);
   alter_info->delayed_key_list.swap(delayed_key_list);
+
+  // If we deleted a primary key and we need to make sure there's a primary key,
+  // iterate over the added keys to make sure it was added
+  if (deleted_primary && validate_primary_key_existence)
+  {
+    // Iterare over new key list to see if
+    // we added a new primary
+    new_key_iterator = List_iterator<Key>(new_key_list);
+    while ((key_element = new_key_iterator++))
+    {
+      if (key_element->type == Key::PRIMARY)
+      {
+        added_primary= true;
+        break;
+      }
+    }
+    if (!added_primary)
+    {
+      my_error(ER_BLOCK_NO_PRIMARY_KEY, MYF(0), NULL);
+      goto err;
+    }
+  }
 err:
   DBUG_RETURN(rc);
 }
@@ -8350,8 +8389,10 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
   }
 #endif
 
+  bool validate_primary_key_existence = should_check_table_for_primary_key(
+      create_info, table_list);
   if (mysql_prepare_alter_table(thd, table, create_info, alter_info,
-                                &alter_ctx))
+                                &alter_ctx, validate_primary_key_existence))
   {
     DBUG_RETURN(true);
   }

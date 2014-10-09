@@ -45,6 +45,7 @@
                               // mysql_alter_table,
                               // mysql_backup_table,
                               // mysql_restore_table
+                              // primary_key_name
 #include "sql_reload.h"       // reload_acl_and_cache
 #include "sql_admin.h"        // mysql_assign_to_keycache
 #include "sql_connect.h"      // check_user,
@@ -8622,6 +8623,29 @@ bool block_myisam_tables(HA_CREATE_INFO *create_info,
 }
 
 /**
+   Check if the current change should be checked for a primary key.
+   Changes within mysql and mtr shouldn't be checked.
+   This is controlled by the cnf option block_create_no_primary_key.
+   Only INNODB tables should be checked.
+
+   @param create_info info of table to be created or altered.
+          table_list  table which will be created or altered.
+
+   @return  true  if the current table should be checked for a primary key
+            false otherwise
+*/
+bool should_check_table_for_primary_key(HA_CREATE_INFO *create_info,
+                                        TABLE_LIST *table_list)
+{
+  return (block_create_no_primary_key &&
+          create_info->db_type &&
+          create_info->db_type->db_type == DB_TYPE_INNODB &&
+          !(create_info->options & HA_LEX_CREATE_TMP_TABLE) &&
+          strcmp(table_list->db, "mysql") != 0 &&
+          strcmp(table_list->db, "mtr") != 0);
+}
+
+/**
   CREATE TABLE query pre-check.
 
   @param thd			Thread handler
@@ -8642,11 +8666,36 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
   ulong want_priv;
   bool error= TRUE;                                 // Error message is given
   DBUG_ENTER("create_table_precheck");
+  Alter_info *alter_info = &lex->alter_info;
 
   if (block_myisam_tables(&lex->create_info, create_table))
   {
     my_error(ER_BLOCK_MYISAM_TABLES, MYF(0), NULL);
     goto err;
+  }
+
+  if (should_check_table_for_primary_key(&lex->create_info, create_table))
+  {
+    // Creating table, make sure we find a primary key
+    List_iterator<Key> key_iterator(alter_info->key_list);
+    Key *key;
+    bool primary_key_found= false;
+    while ((key= key_iterator++))
+    {
+      if (key->type == Key::PRIMARY)
+      {
+        // We found the primary key, allow the table to be created / altered
+        primary_key_found= true;
+        break;
+      }
+    }
+
+    if (!primary_key_found)
+    {
+      // No primary key found, block table from being created / altered
+      my_error(ER_BLOCK_NO_PRIMARY_KEY, MYF(0), NULL);
+      goto err;
+    }
   }
 
   /*
