@@ -1297,7 +1297,8 @@ srv_printf_innodb_monitor(
 	FILE*	file,		/*!< in: output stream */
 	ibool	nowait,		/*!< in: whether to wait for the
 				lock_sys_t:: mutex */
-	ibool   include_trxs)	/*!< in: include per-transaction output */
+	srv_monitor_stats_types include_stats)	/*!< in: types of status info to
+				include */
 {
 	double	time_elapsed;
 	time_t	current_time;
@@ -1326,159 +1327,191 @@ srv_printf_innodb_monitor(
 		"Per second averages calculated from the last %lu seconds\n",
 		(ulong) time_elapsed);
 
-	fputs("-----------------\n"
-	      "BACKGROUND THREAD\n"
-	      "-----------------\n", file);
-	srv_print_master_thread_info(file);
-
-	fputs("----------\n"
-	      "SEMAPHORES\n"
-	      "----------\n", file);
-	sync_print(file);
-
-	/* Conceptually, srv_innodb_monitor_mutex has a very high latching
-	order level in sync0sync.h, while dict_foreign_err_mutex has a very
-	low level 135. Therefore we can reserve the latter mutex here without
-	a danger of a deadlock of threads. */
-
-	mutex_enter(&dict_foreign_err_mutex);
-
-	if (!srv_read_only_mode && ftell(dict_foreign_err_file) != 0L) {
-		fputs("------------------------\n"
-		      "LATEST FOREIGN KEY ERROR\n"
-		      "------------------------\n", file);
-		ut_copy_file(file, dict_foreign_err_file);
+	if (include_stats.background_thread) {
+		fputs("-----------------\n"
+		      "BACKGROUND THREAD\n"
+		      "-----------------\n", file);
+		srv_print_master_thread_info(file);
 	}
 
-	mutex_exit(&dict_foreign_err_mutex);
-
-	/* Only if lock_print_info_summary proceeds correctly,
-	before we call the lock_print_info_all_transactions
-	to print all the lock information. IMPORTANT NOTE: This
-	function acquires the lock mutex on success. */
-	ret = lock_print_info_summary(file, nowait);
-
-	if (include_trxs && ret) {
-		/* NOTE: If we get here then we have the lock mutex. This
-		function will release the lock mutex that we acquired when
-		we called the lock_print_info_summary() function earlier. */
-
-		lock_print_info_all_transactions(file);
-	} else if (ret) {
-		lock_mutex_exit();
+	if (include_stats.semaphores) {
+		fputs("----------\n"
+		      "SEMAPHORES\n"
+		      "----------\n", file);
+		sync_print(file);
 	}
 
-	fputs("--------\n"
-	      "FILE I/O\n"
-	      "--------\n", file);
-	os_aio_print(file);
+	if (include_stats.fk) {
+		/* Conceptually, srv_innodb_monitor_mutex has a very high
+    latching order level in sync0sync.h, while dict_foreign_err_mutex
+    has a very low level 135. Therefore we can reserve the latter
+    mutex here without a danger of a deadlock of threads. */
 
-	fputs("--------------\n"
-	      "TABLESPACE I/O\n"
-	      "--------------\n", file);
-	fil_print(file);
+		mutex_enter(&dict_foreign_err_mutex);
 
-	fputs("-------------------------------------\n"
-	      "INSERT BUFFER AND ADAPTIVE HASH INDEX\n"
-	      "-------------------------------------\n", file);
-	ibuf_print(file);
+		if (!srv_read_only_mode && ftell(dict_foreign_err_file) != 0L) {
+			fputs("------------------------\n"
+			      "LATEST FOREIGN KEY ERROR\n"
+			      "------------------------\n", file);
+			ut_copy_file(file, dict_foreign_err_file);
+		}
 
-	ha_print_info(file, btr_search_sys->hash_index);
+		mutex_exit(&dict_foreign_err_mutex);
+	}
 
-	fprintf(file,
-		"%.2f hash searches/s, %.2f non-hash searches/s\n",
-		(btr_cur_n_sea - btr_cur_n_sea_old)
-		/ time_elapsed,
-		(btr_cur_n_non_sea - btr_cur_n_non_sea_old)
-		/ time_elapsed);
+	if (include_stats.trx) {
+		/* Only if lock_print_info_summary proceeds correctly,
+		before we call the lock_print_info_all_transactions
+		to print all the lock information. IMPORTANT NOTE: This
+		function acquires the lock mutex on success. */
+		ret = lock_print_info_summary(file, nowait);
+
+		if (include_stats.trx_detailed && ret) {
+			/* NOTE: If we get here then we have the lock mutex.
+      This function will release the lock mutex that we
+      acquired when we called the lock_print_info_summary()
+      function earlier. */
+
+			lock_print_info_all_transactions(file);
+		} else if (ret) {
+			lock_mutex_exit();
+		}
+	} else {
+    ret = TRUE;
+  }
+
+	if (include_stats.file) {
+		fputs("--------\n"
+		      "FILE I/O\n"
+		      "--------\n", file);
+		os_aio_print(file);
+	}
+
+	if (include_stats.tablespace) {
+		fputs("--------------\n"
+		      "TABLESPACE I/O\n"
+		      "--------------\n", file);
+		fil_print(file);
+	}
+
+	if (include_stats.insbuffer) {
+		fputs("-------------------------------------\n"
+		      "INSERT BUFFER AND ADAPTIVE HASH INDEX\n"
+		      "-------------------------------------\n", file);
+		ibuf_print(file);
+
+		ha_print_info(file, btr_search_sys->hash_index);
+
+		fprintf(file,
+			"%.2f hash searches/s, %.2f non-hash searches/s\n",
+			(btr_cur_n_sea - btr_cur_n_sea_old)
+			/ time_elapsed,
+			(btr_cur_n_non_sea - btr_cur_n_non_sea_old)
+			/ time_elapsed);
+	}
+	/* Resetting counters regardless of whether we were printing them.
+	Otherwise the stats will go crazy due to srv_last_monitor_time reset */
 	btr_cur_n_sea_old = btr_cur_n_sea;
 	btr_cur_n_non_sea_old = btr_cur_n_non_sea;
 
-	fputs("---\n"
-	      "LOG\n"
-	      "---\n", file);
-	log_print(file);
-
-	fputs("----------------------\n"
-	      "BUFFER POOL AND MEMORY\n"
-	      "----------------------\n", file);
-	fprintf(file,
-		"Total memory allocated " ULINTPF
-		"; in additional pool allocated " ULINTPF "\n",
-		ut_total_allocated_memory,
-		mem_pool_get_reserved(mem_comm_pool));
-	fprintf(file, "Dictionary memory allocated " ULINTPF "\n",
-		dict_sys->size);
-
-	buf_print_io(file);
-
-	fputs("--------------\n"
-	      "ROW OPERATIONS\n"
-	      "--------------\n", file);
-	fprintf(file, "%ld queries inside InnoDB, %lu queries in queue\n",
-		(long) srv_conc_get_active_threads(),
-		srv_conc_get_waiting_threads());
-
-	/* This is a dirty read, without holding trx_sys->mutex. */
-	fprintf(file, "%lu read views open inside InnoDB\n",
-		UT_LIST_GET_LEN(trx_sys->view_list));
-
-	n_reserved = fil_space_get_n_reserved_extents(0);
-	if (n_reserved > 0) {
-		fprintf(file,
-			"%lu tablespace extents now reserved for"
-			" B-tree split operations\n",
-			(ulong) n_reserved);
+	if (include_stats.log) {
+		fputs("---\n"
+		      "LOG\n"
+		      "---\n", file);
+		log_print(file);
 	}
 
-#ifdef UNIV_LINUX
-	fprintf(file, "Main thread process no. %lu, id %lu, state: %s\n",
-		(ulong) srv_main_thread_process_no,
-		(ulong) srv_main_thread_id,
-		srv_main_thread_op_info);
-#else
-	fprintf(file, "Main thread id %lu, state: %s\n",
-		(ulong) srv_main_thread_id,
-		srv_main_thread_op_info);
-#endif
-	fprintf(file,
-		"Number of rows inserted " ULINTPF
-		", updated " ULINTPF ", deleted " ULINTPF
-		", read " ULINTPF "\n",
-		(ulint) srv_stats.n_rows_inserted,
-		(ulint) srv_stats.n_rows_updated,
-		(ulint) srv_stats.n_rows_deleted,
-		(ulint) srv_stats.n_rows_read);
-	fprintf(file,
-		"%.2f inserts/s, %.2f updates/s,"
-		" %.2f deletes/s, %.2f reads/s\n",
-		((ulint) srv_stats.n_rows_inserted - srv_n_rows_inserted_old)
-		/ time_elapsed,
-		((ulint) srv_stats.n_rows_updated - srv_n_rows_updated_old)
-		/ time_elapsed,
-		((ulint) srv_stats.n_rows_deleted - srv_n_rows_deleted_old)
-		/ time_elapsed,
-		((ulint) srv_stats.n_rows_read - srv_n_rows_read_old)
-		/ time_elapsed);
-	fprintf(file,
-		"Number of system rows inserted " ULINTPF
-		", updated " ULINTPF ", deleted " ULINTPF
-		", read " ULINTPF "\n",
-		(ulint) srv_stats.n_system_rows_inserted,
-		(ulint) srv_stats.n_system_rows_updated,
-		(ulint) srv_stats.n_system_rows_deleted,
-		(ulint) srv_stats.n_system_rows_read);
-	fprintf(file,
-		"%.2f inserts/s, %.2f updates/s,"
-		" %.2f deletes/s, %.2f reads/s\n",
-		((ulint) srv_stats.n_system_rows_inserted
-		 - srv_n_system_rows_inserted_old) / time_elapsed,
-		((ulint) srv_stats.n_system_rows_updated
-		 - srv_n_system_rows_updated_old) / time_elapsed,
-		((ulint) srv_stats.n_system_rows_deleted
-		 - srv_n_system_rows_deleted_old) / time_elapsed,
-		((ulint) srv_stats.n_system_rows_read
-		 - srv_n_system_rows_read_old) / time_elapsed);
+	if (include_stats.memory) {
+		fputs("----------------------\n"
+		      "BUFFER POOL AND MEMORY\n"
+		      "----------------------\n", file);
+		fprintf(file,
+			"Total memory allocated " ULINTPF
+			"; in additional pool allocated " ULINTPF "\n",
+			ut_total_allocated_memory,
+			mem_pool_get_reserved(mem_comm_pool));
+		fprintf(file, "Dictionary memory allocated " ULINTPF "\n",
+			dict_sys->size);
+
+		buf_print_io(file);
+	}
+
+	if (include_stats.row_operations) {
+		fputs("--------------\n"
+		      "ROW OPERATIONS\n"
+		      "--------------\n", file);
+		fprintf(file, "%ld queries inside InnoDB, %lu queries"
+        "in queue\n",
+			(long) srv_conc_get_active_threads(),
+			srv_conc_get_waiting_threads());
+
+		/* This is a dirty read, without holding trx_sys->mutex. */
+		fprintf(file, "%lu read views open inside InnoDB\n",
+			UT_LIST_GET_LEN(trx_sys->view_list));
+
+		n_reserved = fil_space_get_n_reserved_extents(0);
+		if (n_reserved > 0) {
+			fprintf(file,
+				"%lu tablespace extents now reserved for"
+				" B-tree split operations\n",
+				(ulong) n_reserved);
+		}
+
+	#ifdef UNIV_LINUX
+		fprintf(file, "Main thread process no. %lu, id %lu,"
+        " state: %s\n",
+			(ulong) srv_main_thread_process_no,
+			(ulong) srv_main_thread_id,
+			srv_main_thread_op_info);
+	#else
+		fprintf(file, "Main thread id %lu, state: %s\n",
+			(ulong) srv_main_thread_id,
+			srv_main_thread_op_info);
+	#endif
+		fprintf(file,
+			"Number of rows inserted " ULINTPF
+			", updated " ULINTPF ", deleted " ULINTPF
+			", read " ULINTPF "\n",
+			(ulint) srv_stats.n_rows_inserted,
+			(ulint) srv_stats.n_rows_updated,
+			(ulint) srv_stats.n_rows_deleted,
+			(ulint) srv_stats.n_rows_read);
+		fprintf(file,
+			"%.2f inserts/s, %.2f updates/s,"
+			" %.2f deletes/s, %.2f reads/s\n",
+			((ulint) srv_stats.n_rows_inserted -
+          srv_n_rows_inserted_old)
+			/ time_elapsed,
+			((ulint) srv_stats.n_rows_updated -
+          srv_n_rows_updated_old)
+			/ time_elapsed,
+			((ulint) srv_stats.n_rows_deleted -
+          srv_n_rows_deleted_old)
+			/ time_elapsed,
+			((ulint) srv_stats.n_rows_read - srv_n_rows_read_old)
+			/ time_elapsed);
+		fprintf(file,
+			"Number of system rows inserted " ULINTPF
+			", updated " ULINTPF ", deleted " ULINTPF
+			", read " ULINTPF "\n",
+			(ulint) srv_stats.n_system_rows_inserted,
+			(ulint) srv_stats.n_system_rows_updated,
+			(ulint) srv_stats.n_system_rows_deleted,
+			(ulint) srv_stats.n_system_rows_read);
+		fprintf(file,
+			"%.2f inserts/s, %.2f updates/s,"
+			" %.2f deletes/s, %.2f reads/s\n",
+			((ulint) srv_stats.n_system_rows_inserted
+			 - srv_n_system_rows_inserted_old) / time_elapsed,
+			((ulint) srv_stats.n_system_rows_updated
+			 - srv_n_system_rows_updated_old) / time_elapsed,
+			((ulint) srv_stats.n_system_rows_deleted
+			 - srv_n_system_rows_deleted_old) / time_elapsed,
+			((ulint) srv_stats.n_system_rows_read
+			 - srv_n_system_rows_read_old) / time_elapsed);
+	}
+	/* Resetting counters regardless of whether we were printing them.
+	Otherwise the stats will go crazy due to srv_last_monitor_time reset */
 	srv_n_rows_inserted_old = srv_stats.n_rows_inserted;
 	srv_n_rows_updated_old = srv_stats.n_rows_updated;
 	srv_n_rows_deleted_old = srv_stats.n_rows_deleted;
@@ -2248,9 +2281,12 @@ loop:
 				last_srv_print_monitor = TRUE;
 			}
 
+			srv_monitor_stats_types types;
+			memset(&types, 0, sizeof(types));
+			types.trx = types.trx_detailed = true;
 			if (!srv_printf_innodb_monitor(stderr,
 						MUTEX_NOWAIT(mutex_skipped),
-						TRUE)) {
+						types)) {
 				mutex_skipped++;
 			} else {
 				/* Reset the counter */
@@ -2267,9 +2303,12 @@ loop:
 		if (!srv_read_only_mode && srv_innodb_status) {
 			mutex_enter(&srv_monitor_file_mutex);
 			rewind(srv_monitor_file);
+			srv_monitor_stats_types types;
+			memset(&types, 0, sizeof(types));
+			types.trx = types.trx_detailed = true;
 			if (!srv_printf_innodb_monitor(srv_monitor_file,
 						MUTEX_NOWAIT(mutex_skipped),
-						TRUE)) {
+						types)) {
 				mutex_skipped++;
 			} else {
 				mutex_skipped = 0;
