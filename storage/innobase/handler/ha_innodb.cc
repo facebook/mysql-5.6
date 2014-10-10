@@ -9878,7 +9878,6 @@ create_options_are_invalid(
 		case 4:
 		case 8:
 		case 16:
-		case 32:
 			/* Valid KEY_BLOCK_SIZE, check its dependencies. */
 			if (!use_tablespace) {
 				push_warning(
@@ -9897,8 +9896,8 @@ create_options_are_invalid(
 				ret = "KEY_BLOCK_SIZE";
 			}
 
-			/* The maximum KEY_BLOCK_SIZE (KBS) is UNIV_PAGE_SIZE.
-			With smaller UNIV_PAGE_SIZE, the maximum
+			/* The maximum KEY_BLOCK_SIZE (KBS) is 16. But if
+			UNIV_PAGE_SIZE is smaller than 16k, the maximum
 			KBS is also smaller. */
 			kbs_max = ut_min(
 				1 << (UNIV_PAGE_SSIZE_MAX - 1),
@@ -10113,6 +10112,23 @@ create_options_are_invalid(
 			break;
 		}
 	}
+
+	/* Don't support compressed table when page size > 16k. */
+	if ((kbs_specified || row_format == ROW_TYPE_COMPRESSED)
+	    && UNIV_PAGE_SIZE > UNIV_PAGE_SIZE_DEF) {
+		push_warning(
+			thd, Sql_condition::WARN_LEVEL_WARN,
+			ER_ILLEGAL_HA_CREATE_OPTION,
+			"InnoDB: Cannot create a COMPRESSED table"
+			" when innodb_page_size > 16k.");
+
+		if (kbs_specified) {
+			ret = "KEY_BLOCK_SIZE";
+		} else {
+			ret = "ROW_TYPE";
+		}
+	}
+
 	return(ret);
 }
 
@@ -10462,6 +10478,17 @@ index_bad:
 		row_format = ROW_TYPE_COMPACT;
 	case ROW_TYPE_COMPACT:
 		break;
+	}
+
+	/* Don't support compressed table when page size > 16k. */
+	if (zip_allowed && zip_ssize && UNIV_PAGE_SIZE > UNIV_PAGE_SIZE_DEF) {
+		push_warning(
+			thd, Sql_condition::WARN_LEVEL_WARN,
+			ER_ILLEGAL_HA_CREATE_OPTION,
+			"InnoDB: Cannot create a COMPRESSED table"
+			" when innodb_page_size > 16k."
+			" Assuming ROW_FORMAT=COMPACT.");
+		zip_allowed = FALSE;
 	}
 
 	/* Set the table flags */
@@ -17793,7 +17820,7 @@ static MYSQL_SYSVAR_ULONG(page_size, srv_page_size,
 static MYSQL_SYSVAR_LONG(log_buffer_size, innobase_log_buffer_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "The size of the buffer which InnoDB uses to write log to the log files on disk.",
-  NULL, NULL, 8*1024*1024L, 256*1024L, LONG_MAX, 1024);
+  NULL, NULL, 16*1024*1024L, 256*1024L, LONG_MAX, 1024);
 
 static MYSQL_SYSVAR_LONGLONG(log_file_size, innobase_log_file_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,

@@ -3,6 +3,7 @@
 --echo #
 --source include/not_embedded.inc
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 --disable_query_log
 # record the file format in order to restore in the end.
 --let $file_format_save = `SELECT @@innodb_file_format`
