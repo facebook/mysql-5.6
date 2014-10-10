@@ -180,6 +180,7 @@ static bool rocksdb_parse_target_file_size_base_arg()
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
+static unsigned long rocksdb_compaction_style;
 
 //static long long rocksdb_write_buffer_size;
 //static int rocksdb_target_file_size_base;
@@ -199,6 +200,15 @@ static MYSQL_THDVAR_ULONG(max_row_locks, PLUGIN_VAR_RQCMDARG,
 static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   NULL, NULL, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
+
+static MYSQL_SYSVAR_ULONG(compaction_style, rocksdb_compaction_style,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "options.compaction_style for RocksDB",
+  NULL, NULL,
+  /*default*/ rocksdb::CompactionStyle::kCompactionStyleLevel,
+  /*min*/ rocksdb::CompactionStyle::kCompactionStyleLevel,
+  /*max*/ rocksdb::CompactionStyle::kCompactionStyleFIFO,
+  0);
 
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -240,6 +250,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(block_cache_size),
   MYSQL_SYSVAR(write_buffer_size),
   MYSQL_SYSVAR(target_file_size_base),
+  MYSQL_SYSVAR(compaction_style),
 
   NULL
 };
@@ -726,6 +737,7 @@ static int rocksdb_init_func(void *p)
 
   default_cf_opts.write_buffer_size= write_buffer_size_map.get_default_val();
   default_cf_opts.target_file_size_base= target_file_size_base_map.get_default_val();
+  default_cf_opts.compaction_style = (rocksdb::CompactionStyle)rocksdb_compaction_style;
 
   rocksdb::BlockBasedTableOptions table_options;
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
