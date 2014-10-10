@@ -1053,17 +1053,13 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
   for (uint i=0; i < table->s->fields; i++)
   {
     Field *field= table->field[i];
-    if (field_enc[i].maybe_null())
-    {
-      if (null_bytes[field_enc[i].null_offset] & field_enc[i].null_mask)
-      {
-        field->set_null(ptr_diff);
-        /* NULL value means no data is stored */
-        continue;
-      }
-      else
-        field->set_notnull(ptr_diff);
-    }
+
+    int isNull = field_enc[i].maybe_null() &&
+      (null_bytes[field_enc[i].null_offset] & field_enc[i].null_mask) != 0;
+    if (isNull)
+      field->set_null(ptr_diff);
+    else
+      field->set_notnull(ptr_diff);
 
     if (field_enc[i].field_type == MYSQL_TYPE_BLOB)
     {
@@ -1071,11 +1067,23 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
       /* Get the number of bytes needed to store length*/
       uint length_bytes= blob->pack_length() - portable_sizeof_char_ptr;
 
+      blob->move_field_offset(ptr_diff);
+
+      if (isNull)
+      {
+        memset(blob->ptr, 0, length_bytes + sizeof(uchar**));
+        blob->move_field_offset(-ptr_diff);
+        /* NULL value means no data is stored */
+        continue;
+      }
+
       const char *data_len_str;
       if (!(data_len_str= reader.read(length_bytes)))
+      {
+        blob->move_field_offset(-ptr_diff);
         return HA_ERR_INTERNAL_ERROR;
+      }
 
-      blob->move_field_offset(ptr_diff);
       memcpy(blob->ptr, data_len_str, length_bytes);
 
       uint32 data_len= blob->get_length((uchar*)data_len_str, length_bytes,
@@ -1094,6 +1102,9 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
     }
     else if (field_enc[i].field_type == MYSQL_TYPE_VARCHAR)
     {
+      if (isNull)
+        continue;
+
       Field_varstring* field_var= (Field_varstring*)field;
       const char *data_len_str;
       if (!(data_len_str= reader.read(field_var->length_bytes)))
@@ -1118,6 +1129,9 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
     }
     else
     {
+      if (isNull)
+        continue;
+
       const char *data_bytes;
       uint len= field->pack_length_in_rec();
       if (!(data_bytes= reader.read(len)))
