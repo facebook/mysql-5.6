@@ -2284,7 +2284,7 @@ static int ssl_verify_server_cert(Vio *vio, const char* server_hostname, const c
   SSL *ssl;
   X509 *server_cert;
   X509_NAME *name;
-  GENERAL_NAMES *names = 0;
+  STACK_OF(GENERAL_NAME) *names = 0;
   int index;
   int count;
   X509_NAME_ENTRY *entry;

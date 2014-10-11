@@ -45,6 +45,12 @@
 #include <errno.h>
 #include "probes_mysql.h"
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 
 using std::min;
@@ -543,6 +549,7 @@ net_write_command_nonblocking(NET *net, uchar command,
 {
   net_async_status status;
   ssize_t rc;
+  ssize_t len = prefix_len + packet_len;
   DBUG_ENTER(__func__);
   DBUG_DUMP("net write prefix", prefix, prefix_len);
   DBUG_DUMP("net write pkt", packet, packet_len);

@@ -459,13 +459,25 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
       thd->lex->disable_flashcache = false;
      }
 #endif
+    int f_nocache = 0;
+    int direct = thd->lex->disable_flashcache ? O_SYNC : 0;
+#if defined(O_DIRECT)
+    direct |= O_DIRECT;
+#elif defined(F_NOCACHE)
+    f_nocache = thd->lex->disable_flashcache ? F_NOCACHE : 0;
+#endif
 
-    int direct = thd->lex->disable_flashcache ? (O_DIRECT|O_SYNC) : 0;
     if ((file= mysql_file_open(key_file_load,
                                name, O_RDONLY | direct, MYF(MY_WME))) < 0)
-
       DBUG_RETURN(TRUE);
-  }
+
+      if (f_nocache) {
+        if (fcntl(file, f_nocache, 1) < 0) {
+          mysql_file_close(file, MYF(0));
+          DBUG_RETURN(TRUE);
+        }
+      }
+    }
 
   if (thd->lex->disable_flashcache)
     tot_length = (tot_length + IO_SIZE) & (~(IO_SIZE-1)) ;
