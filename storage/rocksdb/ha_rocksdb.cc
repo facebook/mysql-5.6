@@ -1933,11 +1933,11 @@ void hexdump_value(char *strbuf, size_t strbuf_size, const rocksdb::Slice &val)
   strbuf_size -= 3;
   for (size_t i= 0; i < val.size(); i++)
   {
-    char *pp= p;
     uint c= (uint)(uchar)val[i];
     DBUG_ASSERT( c < 0x100);
-    p += snprintf(p, strbuf + strbuf_size - p, "%02x", c);
-    DBUG_ASSERT(p - pp == 2);
+    int len= snprintf(p, strbuf + strbuf_size - p, "%02x", c);
+    DBUG_ASSERT(len == 2);
+    p += len;
     if (p >= strbuf + strbuf_size - 10)
     {
       // End the value with '..' if we ran out of buffer space
