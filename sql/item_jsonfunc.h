@@ -20,9 +20,6 @@
 
 /* This file defines all json functions */
 
-#define INT64_C(c) c ## LL
-#define UINT64_C(c) c ## ULL
-
 class Item_func_json_valid :public Item_bool_func
 {
 public:
