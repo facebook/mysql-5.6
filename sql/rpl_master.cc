@@ -1105,7 +1105,7 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   LOG_POS_COORD last_skip_coord_buf= {last_skip_log_name, BIN_LOG_HEADER_SIZE},
                 *p_last_skip_coord= &last_skip_coord_buf;
   bool observe_transmission= false;
-  bool semi_sync_slave;
+  bool semi_sync_slave = false;
 
   if (heartbeat_period != LL(0))
   {
