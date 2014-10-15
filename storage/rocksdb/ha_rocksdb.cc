@@ -36,6 +36,12 @@
 
 #include "rocksdb/table.h"
 
+/* This is here to get PRIu64, PRId64 */
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
+
 void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(handlerton *hton,
                                        TABLE_SHARE *table,
@@ -758,7 +764,7 @@ static int rocksdb_init_func(void *p)
 
     sql_print_information("  cf=%s", cf_names[i].c_str());
     sql_print_information("    write_buffer_size=%ld", opts.write_buffer_size);
-    sql_print_information("    target_file_size_base=%d",
+    sql_print_information("    target_file_size_base=%" PRIu64,
                           opts.target_file_size_base);
 
     cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i], opts));
