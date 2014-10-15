@@ -24,6 +24,11 @@
 
 #include "rdb_cf_manager.h"
 
+/* This is here to get PRIu64, PRId64 */
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
 
 void Column_family_manager::init(std::vector<std::string> *names,
                                  std::vector<rocksdb::ColumnFamilyHandle*> *handles)
@@ -107,7 +112,8 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
 
       sql_print_information("RocksDB: creating column family %s", cf_name_str.c_str());
       sql_print_information("    write_buffer_size=%ld",    opts.write_buffer_size);
-      sql_print_information("    target_file_size_base=%d", opts.target_file_size_base);
+      sql_print_information("    target_file_size_base=%" PRIu64,
+                            opts.target_file_size_base);
 
       rocksdb::Status s= rdb->CreateColumnFamily(opts, cf_name_str, &cf_handle);
       if (s.ok())
