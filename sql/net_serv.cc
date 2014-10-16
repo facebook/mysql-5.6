@@ -45,6 +45,12 @@
 #include <errno.h>
 #include "probes_mysql.h"
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 
 using std::min;
