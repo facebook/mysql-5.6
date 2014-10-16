@@ -9,28 +9,42 @@ PS_51_VERSION=5.1.59-13.0
 PS_55_VERSION=5.5.16-22.0
 
 if [ -r ../CMakeCache.txt ]; then
-  echo BUILD_TYPE= ${BUILD_TYPE:="$(grep CMAKE_BUILD_TYPE:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
-  echo SRC_DIR= ${SRC_DIR:="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2 -d=)"}
-  echo CMAKE= ${CMAKE:="$(grep CMAKE_COMMAND:INTERNAL= ../CMakeCache.txt | cut -f2 -d=)"}
-  echo CXX= ${CXX:="$(grep CMAKE_CXX_COMPILER:FILEPATH= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_CXX_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
-  echo CC= ${CC:="$(grep CMAKE_C_COMPILER:FILEPATH= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
-  echo CXXFLAGS= ${CXXFLAGS:="$(grep CMAKE_CXX_FLAGS:STRING= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
-  echo CFLAGS= ${CFLAGS:="$(grep CMAKE_C_FLAGS:STRING= ../CMakeCache.txt | cut -f2 -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2 -d=)"}
+  echo BUILD_TYPE= ${BUILD_TYPE:="$(grep CMAKE_BUILD_TYPE:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo SRC_DIR= ${SRC_DIR:="$(grep MySQL_SOURCE_DIR:STATIC= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo CMAKE= ${CMAKE:="$(grep CMAKE_COMMAND:INTERNAL= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo AR= ${LD:="$(grep CMAKE_AR:FILEPATH= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo LD= ${LD:="$(grep CMAKE_LINKER:FILEPATH= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo RANLIB= ${LD:="$(grep CMAKE_RANLIB:FILEPATH= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo CC= ${CC:="$(grep CMAKE_C_COMPILER:FILEPATH= ../CMakeCache.txt | cut -f2- -d=) $(grep CMAKE_C_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo CXX= ${CXX:="$(grep CMAKE_CXX_COMPILER:FILEPATH= ../CMakeCache.txt | cut -f2- -d=) $(grep CMAKE_CXX_COMPILER_ARG1:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo CFLAGS= ${CFLAGS:="$(grep CMAKE_C_FLAGS:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo CXXFLAGS= ${CXXFLAGS:="$(grep CMAKE_CXX_FLAGS:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo LDFLAGS= ${LDFLAGS:="$(grep CMAKE_EXE_LINKER_FLAGS:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
+  echo MYSQLD_LDFLAGS= ${MYSQLD_LDFLAGS:="$(grep MYSQLD_LDFLAGS:STRING= ../CMakeCache.txt | cut -f2- -d=)"}
 else
   echo BUILD_TYPE= ${BUILD_TYPE:=RelWithDebInfo}
   echo SRC_DIR= ${SRC_DIR:=$(readlink -f ..)}
   echo CMAKE= ${CMAKE:=cmake}
-  echo CXX= ${CXX:=g++}
+  echo AR= ${AR:-}
+  echo LD= ${AR:-}
+  echo RANLIB= ${AR:-}
   echo CC= ${CC:=gcc}
-  echo CXXFLAGS= ${CXXFLAGS:-}
+  echo CXX= ${CXX:=g++}
   echo CFLAGS= ${CFLAGS:-}
+  echo CXXFLAGS= ${CXXFLAGS:-}
+  echo LDFLAGS= ${LDFLAGS:-}
+  echo MYSQLD_LDFLAGS= ${MYSQLD_LDFLAGS:-}
 fi
 
+export AR="$AR"
+export LD="$LD"
+export RANLIB="$RANLIB"
 export CC="$CC"
 export CXX="$CXX"
 export CFLAGS="$CFLAGS -DXTRABACKUP"
 export CXXFLAGS="$CXXFLAGS -DXTRABACKUP -fno-rtti -fno-exceptions"
 export LDFLAGS="$LDFLAGS"
+export MYSQLD_LDFLAGS="$MYSQLD_LDFLAGS"
 export SRC_DIR="$SRC_DIR"
 export BUILD_TYPE="$BUILD_TYPE"
 
