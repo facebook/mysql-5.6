@@ -132,6 +132,7 @@ typedef struct internal_state {
 
     Posf *head; /* Heads of the hash chains or NIL. */
 
+    uInt  ins_h;          /* hash index of string to be inserted */
     uInt  hash_size;      /* number of elements in hash table */
     uInt  hash_bits;      /* log2(hash_size) */
     uInt  hash_mask;      /* hash_size-1 */
