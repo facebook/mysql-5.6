@@ -95,6 +95,10 @@ function build_libarchive()
 	cd $top_dir/src/libarchive
 
 	${CMAKE}  . \
+	    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+	    -DCMAKE_AR=$AR \
+	    -DCMAKE_LINKER=$LD \
+	    -DCMAKE_RANLIB=$RANLIB \
 	    -DENABLE_CPIO=OFF \
 	    -DENABLE_OPENSSL=OFF \
 	    -DENABLE_TAR=OFF \
