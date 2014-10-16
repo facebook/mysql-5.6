@@ -29,7 +29,7 @@ fi
 export CC="$CC"
 export CXX="$CXX"
 export CFLAGS="$CFLAGS -DXTRABACKUP"
-export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions"
+export CXXFLAGS="$CXXFLAGS -DXTRABACKUP -fno-rtti -fno-exceptions"
 export LDFLAGS="$LDFLAGS"
 export SRC_DIR="$SRC_DIR"
 export BUILD_TYPE="$BUILD_TYPE"
