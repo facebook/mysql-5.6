@@ -182,6 +182,7 @@ enum enum_prop {
 #include <sys/time.h>
 
 #include <chrono>
+#include <string>
 
 // Simple timer to log how long operations took and ensure they are "fast".
 class AsyncTimer {
