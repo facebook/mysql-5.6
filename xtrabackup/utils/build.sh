@@ -147,6 +147,7 @@ case "$type" in
         mysql_version_short=${mysql_version:0:3}
         server_dir=$top_dir/mysql-$mysql_version_short
         configure_cmd="${CMAKE} $SRC_DIR \
+                -DWITH_MYSQLD_LDFLAGS='$MYSQLD_LDFLAGS' \
                 -DWITH_INNOBASE_STORAGE_ENGINE=ON \
                 -DWITH_PERFSCHEMA_STORAGE_ENGINE=ON \
                 -DMYSQL_DATADIR="/var/lib/mysql" \
@@ -158,6 +159,9 @@ case "$type" in
                 -DWITH_EMBEDDED_SERVER=1 \
                 -DMYSQL_MAINTAINER_MODE=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
+                -DCMAKE_AR=$AR \
+                -DCMAKE_LINKER=$LD \
+                -DCMAKE_RANLIB=$RANLIB \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE"
         if [ -n "$CMAKE_PREFIX_PATH" ]; then
                 configure_cmd+=" -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH"
