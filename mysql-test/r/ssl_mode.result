@@ -15,7 +15,6 @@ CREATE TABLE `t1` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 INSERT INTO `t1` VALUES (0);
 # mysqladmin
-Warning: Using a password on the command line interface can be insecure.
 mysqld is alive
 # mysqlcheck
 test.t1                                            OK
