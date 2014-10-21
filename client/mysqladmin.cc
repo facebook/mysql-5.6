@@ -994,7 +994,6 @@ static int execute_commands(MYSQL *mysql,int argc, char **argv)
       }
       else
       {
-        print_cmdline_password_warning();
         typed_password= argv[1];
       }
 
