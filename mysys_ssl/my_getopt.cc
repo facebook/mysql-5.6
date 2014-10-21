@@ -545,8 +545,6 @@ int my_handle_options(int *argc, char ***argv,
 	else
 	  argument= optend;
 
-        if (optp->var_type == GET_PASSWORD && is_cmdline_arg && argument)
-          print_cmdline_password_warning();
       }
       else  /* must be short option */
       {
@@ -584,8 +582,6 @@ int my_handle_options(int *argc, char ***argv,
 		  argument= optend + 1;
 		  /* This is in effect a jump out of the outer loop */
 		  optend= (char*) " ";
-                  if (optp->var_type == GET_PASSWORD && is_cmdline_arg)
-                    print_cmdline_password_warning();
 		}
 		else
 		{
@@ -697,25 +693,6 @@ done:
   */
   (*argv)[argvpos]= 0;
   return 0;
-}
-
-
-/**
- * This function should be called to print a warning message
- * if password string is specified on the command line.
- */
-
-void print_cmdline_password_warning()
-{
-  static my_bool password_warning_announced= FALSE;
-
-  if (!password_warning_announced)
-  {
-    fprintf(stderr, "Warning: Using a password on the command line "
-            "interface can be insecure.\n");
-    (void) fflush(stderr);
-    password_warning_announced= TRUE;
-  }
 }
 
 
