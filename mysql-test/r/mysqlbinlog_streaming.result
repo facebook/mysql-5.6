@@ -1,0 +1,64 @@
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+set @save_max_connections=@@global.max_connections;
+[ enable semi-sync on master ]
+set global rpl_semi_sync_master_timeout= 60000 /* 60s */;
+set global rpl_semi_sync_master_enabled = 1;
+show variables like 'rpl_semi_sync_master_enabled';
+Variable_name	Value
+rpl_semi_sync_master_enabled	ON
+[ status of semi-sync on master should be ON even without any semi-sync slaves ]
+show status like 'Rpl_semi_sync_master_clients';
+Variable_name	Value
+Rpl_semi_sync_master_clients	0
+show status like 'Rpl_semi_sync_master_status';
+Variable_name	Value
+Rpl_semi_sync_master_status	ON
+
+--- mysqlbinlog failing to read ---
+ERROR: Failed to read binary log master-bin.100001, error 1236
+
+--- mysqlbinlog getting timeout ---
+SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+COUNT(*)
+1
+KILL CONNECTION @id;
+
+--- mysqlbinlog exit on failing to retry connection ---
+set @@global.max_connections=@save_max_connections;
+SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+COUNT(*)
+1
+KILL CONNECTION @id;
+
+--- Binlog Dump should not exist after killing mysqlbinlog and reaching heartbeat_period ---
+
+--- Auto-reconnecting mysqlbinlog ---
+KILL CONNECTION @id;
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+SET TIMESTAMP= UNIX_TIMESTAMP("2031-01-01 12:00:00");
+INSERT INTO t1 VALUES(1);
+SET TIMESTAMP= UNIX_TIMESTAMP("2032-01-01 12:00:00");
+INSERT INTO t1 VALUES(2);
+SET TIMESTAMP= UNIX_TIMESTAMP("2033-01-01 12:00:00");
+INSERT INTO t1 VALUES(3);
+FLUSH LOGS;
+SET TIMESTAMP= UNIX_TIMESTAMP("2034-01-01 12:00:00");
+INSERT INTO t1 VALUES(4);
+SET TIMESTAMP= UNIX_TIMESTAMP("2035-01-01 12:00:00");
+INSERT INTO t1 VALUES(5);
+FLUSH LOGS;
+INSERT INTO t1 VALUES (101);
+INSERT INTO t1 VALUES (102);
+INSERT INTO t1 VALUES (103);
+KILL CONNECTION @id;
+INSERT INTO t1 VALUES (104);
+INSERT INTO t1 VALUES (105);
+#
+# Clean up
+#
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;
+DROP TABLE t1;

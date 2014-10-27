@@ -1,0 +1,249 @@
+source include/have_semisync.inc;
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+source include/have_log_bin.inc;
+set @save_master_timeout=@@global.rpl_semi_sync_master_timeout;
+set @save_master_wait_no_slave=@@global.rpl_semi_sync_master_wait_no_slave;
+set @save_master_enabled=@@global.rpl_semi_sync_master_enabled;
+set @save_max_connections=@@global.max_connections;
+
+echo [ enable semi-sync on master ];
+set global rpl_semi_sync_master_timeout= 60000 /* 60s */;
+set global rpl_semi_sync_master_enabled = 1;
+show variables like 'rpl_semi_sync_master_enabled';
+
+echo [ status of semi-sync on master should be ON even without any semi-sync slaves ];
+show status like 'Rpl_semi_sync_master_clients';
+show status like 'Rpl_semi_sync_master_status';
+
+# setting env variable
+--let mysqlbinlog_timeout_options= --raw --read-from-remote-server --stop-never --to-last-log  --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --result-file=$MYSQL_TMP_DIR/ --use-semisync  --net_timeout=3 --heartbeat_period_ms=0
+--let mysqlbinlog_reconnect_options= --raw --read-from-remote-server --stop-never --to-last-log  --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --result-file=$MYSQL_TMP_DIR/ --use-semisync --heartbeat_period_ms=1000 --reconnect_interval_ms=3000 --net_timeout=3
+--let MYSQLD_DATADIR= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
+
+--disable_query_log
+select "--- mysqlbinlog failing to read ---" as "";
+--enable_query_log
+--write_file $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+#!/bin/bash
+$MYSQL_BINLOG $mysqlbinlog_reconnect_options  master-bin.100001 > /dev/null 2>$MYSQL_TMP_DIR/semisync.err 
+rc=$?
+if [[ $rc == 1 ]]; then
+  cat $MYSQL_TMP_DIR/semisync.err | grep ERROR
+  exit 0
+fi
+exit 1
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+--exec $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+
+
+--disable_query_log
+select "--- mysqlbinlog getting timeout ---" as "";
+--enable_query_log
+
+# Invoking mysqlbinlog and connecting mysql, then sleeping 5 seconds.
+# It should hit net_timeout during sleep so after sleep the mysqlbinlog process should no longer exist.
+--write_file $MYSQL_TMP_DIR/mbl_timeout.sh
+#!/bin/bash
+$MYSQL_BINLOG $mysqlbinlog_timeout_options  master-bin.000001 > /dev/null 2>$MYSQL_TMP_DIR/semisync.err &
+p=$!
+while :
+do
+  if ps -p $p > /dev/null; then
+    break
+  fi
+  sleep 1
+done
+sleep 5
+while :
+do
+  if ! ps -p $p > /dev/null; then
+    break
+  fi
+  sleep 1
+done
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mbl_timeout.sh
+--exec $MYSQL_TMP_DIR/mbl_timeout.sh
+
+# zombie binlog dump keeps running because no heartbeat/update is running
+SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
+let $ignore= `SELECT @id := $ID`;
+KILL CONNECTION @id;
+let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+
+
+--disable_query_log
+select "--- mysqlbinlog exit on failing to retry connection ---" as "";
+--enable_query_log
+
+--write_file $MYSQL_TMP_DIR/mbl_exit.sh
+#!/bin/bash
+$MYSQL_BINLOG $mysqlbinlog_timeout_options --reconnect_interval_ms=3000  master-bin.000001 > /dev/null 2>$MYSQL_TMP_DIR/semisync.err &
+p=$!
+while :
+do
+  if ps -p $p > /dev/null; then
+    break
+  fi
+  sleep 1
+done
+# making new connections rejected. then mysqlbinlog reconnect should fail, then mysqlbinlog should exit.
+$MYSQL --user=root --host=127.0.0.1 --port=$MASTER_MYPORT -e "SET GLOBAL max_connections=1"
+sleep 5
+while :
+do
+  if ! ps -p $p > /dev/null; then
+    break
+  fi
+  sleep 1
+done
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mbl_exit.sh
+--exec $MYSQL_TMP_DIR/mbl_exit.sh
+
+set @@global.max_connections=@save_max_connections;
+# zombie binlog dump keeps running because no heartbeat/update is running
+SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
+let $ignore= `SELECT @id := $ID`;
+KILL CONNECTION @id;
+let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+
+
+--disable_query_log
+select "--- Binlog Dump should not exist after killing mysqlbinlog and reaching heartbeat_period ---" as "";
+--enable_query_log
+
+--write_file $MYSQL_TMP_DIR/mbl_multi_kill.sh
+#!/bin/bash
+pids=()
+# invoking 10 mysqlbinlog clients. After 5 seconds, kill half of them with SIGTERM and the rest of them with SIGKILL.
+# in both cases, mysqlbinlog should exit and after heartbeat_period, binlog dump threads should disappear.
+for i in `seq 1 10`
+do
+$MYSQL_BINLOG $mysqlbinlog_reconnect_options master-bin.000001 > /dev/null 2>$MYSQL_TMP_DIR/semisync$i.err &
+p=$!
+pids=("${pids[@]}" $p)
+done
+
+# long enough sleep seconds than heartbeat_period, so that master can kill zombie binlog dump threads
+sleep 5
+
+# The number of Binlog Dump threads should be 10
+while :
+do
+  COUNT=`$MYSQL --user=root --host=127.0.0.1 --port=$MASTER_MYPORT -e "SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%'\G" 2>> $MYSQL_TMP_DIR/mbl_multi_kill.log | grep COUNT | awk {'print $2'}`
+  if [ "$COUNT" = 10 ]; then
+    break
+  else
+    sleep 2
+  fi
+done
+
+for ((i=0; i<${#pids[@]}; ++i))
+do
+n=$((i%2))
+if test $n -eq 0
+then
+  kill -TERM ${pids[$i]}
+fi
+if test $n -eq 1
+then
+  kill -KILL ${pids[$i]}
+fi
+done
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mbl_multi_kill.sh
+--exec $MYSQL_TMP_DIR/mbl_multi_kill.sh
+
+# if explicitly killing mysqlbinlog, they do not reconnect
+let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+
+--write_file $MYSQL_TMP_DIR/mbl.sh
+#!/bin/bash
+$MYSQL_BINLOG $mysqlbinlog_reconnect_options  master-bin.000001 > /dev/null 2>$MYSQL_TMP_DIR/semisync.err &
+p=$!
+echo "#!/bin/bash" > $MYSQL_TMP_DIR/mbl_cleanup.sh
+echo "kill -TERM $p" >> $MYSQL_TMP_DIR/mbl_cleanup.sh
+chmod 0755 $MYSQL_TMP_DIR/mbl_cleanup.sh 
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mbl.sh
+--exec $MYSQL_TMP_DIR/mbl.sh
+
+let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+
+--disable_query_log
+select "--- Auto-reconnecting mysqlbinlog ---" as "";
+--enable_query_log
+
+# killing binlog dump thread. mysqlbinlog should automatically reconnect.
+let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
+let $ignore= `SELECT @id := $ID`;
+KILL CONNECTION @id;
+# binlog dump thread terminated after heartbeat_period_ms, then mysqlbinlog should automatically reconnect after reconnect_interval_ms
+let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+
+CREATE TABLE t1 (a INT) ENGINE=InnoDB;
+--source extra/binlog_tests/binlog_mysqlbinlog_fill.inc
+INSERT INTO t1 VALUES (101);
+INSERT INTO t1 VALUES (102);
+INSERT INTO t1 VALUES (103);
+
+let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
+let $ignore= `SELECT @id := $ID`;
+KILL CONNECTION @id;
+# binlog dump thread terminated after heartbeat_period_ms, then mysqlbinlog should automatically reconnect after reconnect_interval_ms
+let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
+--source include/wait_condition.inc
+
+INSERT INTO t1 VALUES (104);
+INSERT INTO t1 VALUES (105);
+
+--write_file $MYSQL_TMP_DIR/chk_b_size.sh
+#!/bin/bash
+for f in master-bin.000001 master-bin.000002 master-bin.000003
+do
+src=$(stat -c %s $MYSQLD_DATADIR/$f)
+dst=$(stat -c %s $MYSQL_TMP_DIR/$f)
+if [[ $src -ne $dst ]]; then
+  echo "binlog size is not same! src=$src dst=$dst"
+  exit 1
+fi
+done
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/chk_b_size.sh
+--exec $MYSQL_TMP_DIR/chk_b_size.sh
+
+
+--echo #
+--echo # Clean up
+--echo #
+
+--remove_file $MYSQL_TMP_DIR/mbl.sh
+--remove_file $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+--remove_file $MYSQL_TMP_DIR/mbl_timeout.sh
+--remove_file $MYSQL_TMP_DIR/mbl_exit.sh
+--remove_file $MYSQL_TMP_DIR/mbl_multi_kill.sh
+--remove_file $MYSQL_TMP_DIR/chk_b_size.sh
+--remove_file $MYSQL_TMP_DIR/semisync.err
+--remove_file $MYSQL_TMP_DIR/master-bin.000001
+--remove_file $MYSQL_TMP_DIR/master-bin.000002
+--remove_file $MYSQL_TMP_DIR/master-bin.000003
+
+set @@global.rpl_semi_sync_master_timeout=@save_master_timeout;
+set @@global.rpl_semi_sync_master_wait_no_slave=@save_master_wait_no_slave;
+set @@global.rpl_semi_sync_master_enabled=@save_master_enabled;
+DROP TABLE t1;
+--exec $MYSQL_TMP_DIR/mbl_cleanup.sh
+--remove_file $MYSQL_TMP_DIR/mbl_cleanup.sh
+
