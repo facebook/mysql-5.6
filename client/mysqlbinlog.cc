@@ -163,6 +163,9 @@ static MYSQL* mysql = NULL;
 static char* dirname_for_local_load= 0;
 static uint opt_server_id_bits = 0;
 static ulong opt_server_id_mask = 0;
+static uint opt_net_timeout = 0;
+static uint opt_reconnect_interval_ms = 0;
+static unsigned long long opt_heartbeat_period_ms = 0;
 Sid_map *global_sid_map= NULL;
 Checkable_rwlock *global_sid_lock= NULL;
 Gtid_set *gtid_set_included= NULL;
@@ -1471,6 +1474,15 @@ static struct my_option my_long_options[] =
   {"force-read", 'f', "Force reading unknown binlog events.",
    &force_opt, &force_opt, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0,
    0, 0},
+  {"heartbeat_period_ms", OPT_HEARTBEAT_PERIOD_MS,
+   "Intervals in milliseconds for master to send a heartbeat packet to binlog "
+   "tailer. This has to be lower than net_timeout. After heartbeat_period_ms "
+   "is passed after binlog tailer is dead, zombie binlog dump thread "
+   "disappears. Default is half of net_timeout, which is every "
+   "15000 milliseconds. This parameter is equivalent to "
+   "MASTER_HEARTBEAT_PERIOD, but unit is millisecond.",
+   &opt_heartbeat_period_ms, &opt_heartbeat_period_ms,
+   0, GET_ULONG, REQUIRED_ARG, 15000, 0, 86400000, 0, 0, 0},
   {"hexdump", 'H', "Augment output with hexadecimal and ASCII event dump.",
    &opt_hexdump, &opt_hexdump, 0, GET_BOOL, NO_ARG,
    0, 0, 0, 0, 0, 0},
@@ -1479,6 +1491,14 @@ static struct my_option my_long_options[] =
   {"local-load", 'l', "Prepare local temporary files for LOAD DATA INFILE in the specified directory.",
    &dirname_for_local_load, &dirname_for_local_load, 0,
    GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"net_timeout", OPT_NET_TIMEOUT, "This is equivalent to slave_net_timeout."
+   "When mysqlbinlog does not receive any packet for net_timeout seconds,"
+   "it tries to reconnect after reconnect_interval_ms milliseconds."
+   "If it fails to connect within net_timeout seconds, mysqlbinlog exits "
+   "regardless of reconnect_interval_ms settings. net_timeout should be longer "
+   "than heartbeat_period_ms. Default is 30 seconds.",
+   &opt_net_timeout, &opt_net_timeout,
+   0, GET_UINT, REQUIRED_ARG, 30, 0, 86400, 0, 0, 0},
   {"offset", 'o', "Skip the first N entries.", &offset, &offset,
    0, GET_ULL, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"password", 'p', "Password to connect to remote server.",
@@ -1514,6 +1534,11 @@ static struct my_option my_long_options[] =
    "statements, output is to log files.",
    &raw_mode, &raw_mode, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0,
    0, 0},
+  {"reconnect_interval_ms", OPT_RECONNECT_INTERVAL_MS,
+   "Intervals in milliseconds to reconnect to the master. "
+   "0 means reconnect is disabled. Default is 0.",
+   &opt_reconnect_interval_ms, &opt_reconnect_interval_ms,
+   0, GET_UINT, REQUIRED_ARG, 0, 0, 86400000, 0, 0, 0},
   {"result-file", 'r', "Direct output to a given file. With --raw this is a "
    "prefix for the file names.",
    &output_file, &output_file, 0, GET_STR, REQUIRED_ARG,
@@ -1933,11 +1958,30 @@ static Exit_status safe_connect()
   mysql_options(mysql, MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
                 &opt_receive_buffer_size);
 
+  if (opt_net_timeout)
+  {
+    mysql_options(mysql, MYSQL_OPT_CONNECT_TIMEOUT, (char *) &opt_net_timeout);
+    mysql_options(mysql, MYSQL_OPT_READ_TIMEOUT, (char *) &opt_net_timeout);
+  }
+
   if (!mysql_real_connect(mysql, host, user, pass, 0, port, sock, 0))
   {
     error("Failed on connect: %s", mysql_error(mysql));
     return ERROR_STOP;
   }
+  if (opt_use_semisync)
+  {
+    // Check with master if it has semisync enabled and notify
+    // master this is a semisync enabled slave.
+    if (repl_semisync.slaveRequestDump(mysql))
+      return ERROR_STOP;
+  }
+  mysql->reconnect= 0;
+  return OK_CONTINUE;
+}
+
+
+void init_semisync() {
   if (opt_use_semisync)
   {
     // set semi sync slave status to true
@@ -1952,13 +1996,7 @@ static Exit_status safe_connect()
       rpl_semi_sync_slave_trace_level = 0;
     // Initialize semi sync slave functionality
     repl_semisync.initObject();
-    // Check with master if it has semisync enabled and notify
-    // master this is a semisync enabled slave.
-    if (repl_semisync.slaveRequestDump(mysql))
-      return ERROR_STOP;
   }
-  mysql->reconnect= 0;
-  return OK_CONTINUE;
 }
 
 
@@ -2088,6 +2126,9 @@ static Exit_status check_master_version()
   MYSQL_RES* res = 0;
   MYSQL_ROW row;
   const char* version;
+  char llbuf[22];
+  const char query_format[]= "SET @master_heartbeat_period = %s";
+  char query[sizeof(query_format) - 2 + sizeof(llbuf)];
 
   if (mysql_query(mysql, "SELECT VERSION()") ||
       !(res = mysql_store_result(mysql)))
@@ -2150,6 +2191,20 @@ static Exit_status check_master_version()
     goto err;
   }
 
+  if (opt_heartbeat_period_ms > 0) {
+    /*
+      the period is an ulonglong of nano-secs.
+    */
+    llstr((ulonglong) (opt_heartbeat_period_ms*1000000UL), llbuf);
+    sprintf(query, query_format, llbuf);
+
+    if (mysql_real_query(mysql, query, strlen(query)))
+    {
+      error("Couldn't set master_heartbeat_period.");
+      goto err;
+    }
+  }
+
   mysql_free_result(res);
   DBUG_RETURN(OK_CONTINUE);
 
@@ -2164,55 +2219,39 @@ static int get_dump_flags()
   return stop_never ? 0 : BINLOG_DUMP_NON_BLOCK;
 }
 
+/**
+  Tries to connect to MySQL server if needed
+
+  @retval 0 Reconnect succeeded
+  @retval non-zero Failed to connect, or did not reconnect
+*/
+static int try_to_reconnect() {
+  if (!opt_reconnect_interval_ms) {
+    return 1;
+  }
+  usleep(opt_reconnect_interval_ms*1000);
+  warning("Trying to reconnect..");
+  return safe_connect();
+}
 
 /**
-  Requests binlog dump from a remote server and prints the events it
-  receives.
-
-  @param[in,out] print_event_info Parameters and context state
-  determining how to print.
-  @param[in] logname Name of input binlog.
+  Requests binlog dump from specified binlog file and position.
+  @param[in] logname - starting binlog file
+  @param[in] logname_len - length of logname
+  @param[in] real_start_pos - starting position of the binlog file
 
   @retval ERROR_STOP An error occurred - the program should terminate.
   @retval OK_CONTINUE No error, the program should continue.
-  @retval OK_STOP No error, but the end of the specified range of
-  events to process has been reached and the program should terminate.
 */
-static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
-                                           const char* logname)
+static int request_dump(const char *logname,
+                        size_t logname_len, my_off_t real_start_pos)
 {
+  DBUG_ENTER("request_dump");
   uchar *command_buffer= NULL;
   size_t command_size= 0;
-  ulong len= 0;
-  uint logname_len= 0;
   uint server_id= 0;
-  NET* net= NULL;
-  my_off_t old_off= start_position_mot;
-  char fname[FN_REFLEN + 1];
-  char log_file_name[FN_REFLEN + 1];
-  char cur_log_file_name[FN_REFLEN + 1];
-  char *log_file = NULL;
-  Exit_status retval= OK_CONTINUE;
   enum enum_server_command command= COM_END;
-
-  bool semi_sync_need_reply = false;
-  uint event_count = 0;
-
-  DBUG_ENTER("dump_remote_log_entries");
-
-  fname[0]= log_file_name[0]= 0;
-
-  /*
-    Even if we already read one binlog (case of >=2 binlogs on command line),
-    we cannot re-use the same connection as before, because it is now dead
-    (COM_BINLOG_DUMP kills the thread when it finishes).
-  */
-  if ((retval= safe_connect()) != OK_CONTINUE)
-    DBUG_RETURN(retval);
-  net= &mysql->net;
-
-  if ((retval= check_master_version()) != OK_CONTINUE)
-    DBUG_RETURN(retval);
+  const uint BINLOG_NAME_INFO_SIZE= logname_len;
 
   /*
     Fake a server ID to log continously. This will show as a
@@ -2233,14 +2272,6 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 
 #endif
 
-  size_t tlen = logname ? strlen(logname) : 0;
-  if (tlen > UINT_MAX) 
-  {
-    error("Log name too long.");
-    DBUG_RETURN(ERROR_STOP);
-  }
-  const uint BINLOG_NAME_INFO_SIZE= logname_len= tlen;
-  
   if (opt_remote_proto == BINLOG_DUMP_NON_GTID)
   {
     command= COM_BINLOG_DUMP;
@@ -2258,7 +2289,7 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
       COM_BINLOG_DUMP accepts only 4 bytes for the position, so
       we are forced to cast to uint32.
     */
-    int4store(ptr_buffer, (uint32) start_position);
+    int4store(ptr_buffer, (uint32) real_start_pos);
     ptr_buffer+= ::BINLOG_POS_OLD_INFO_SIZE;
     int2store(ptr_buffer, get_dump_flags());
     ptr_buffer+= ::BINLOG_FLAGS_INFO_SIZE;
@@ -2302,7 +2333,7 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
     ptr_buffer+= ::BINLOG_NAME_SIZE_INFO_SIZE;
     memcpy(ptr_buffer, logname, BINLOG_NAME_INFO_SIZE);
     ptr_buffer+= BINLOG_NAME_INFO_SIZE;
-    int8store(ptr_buffer, start_position);
+    int8store(ptr_buffer, real_start_pos);
     ptr_buffer+= ::BINLOG_POS_INFO_SIZE;
     int4store(ptr_buffer, encoded_data_size);
     ptr_buffer+= ::BINLOG_DATA_SIZE_INFO_SIZE;
@@ -2314,15 +2345,99 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
     command_size= ptr_buffer - command_buffer;
     DBUG_ASSERT(command_size == (allocation_size - 1));
   }
-
+#ifndef DBUG_OFF
+    fprintf(stderr, "Requesting binlog dump from %s pos %llu\n",
+            logname, real_start_pos);
+#endif
   if (simple_command(mysql, command, command_buffer, command_size, 1))
   {
-    error("Got fatal error sending the log dump command.");
+    error("Got fatal error sending the log dump command. %s",
+          mysql_error(mysql));
     my_free(command_buffer);
     DBUG_RETURN(ERROR_STOP);
   }
   my_free(command_buffer);
+  DBUG_RETURN(OK_CONTINUE);
+}
 
+
+/**
+  Requests binlog dump from a remote server and prints the events it
+  receives.
+
+  @param[in,out] print_event_info Parameters and context state
+  determining how to print.
+  @param[in] logname Name of input binlog.
+
+  @retval ERROR_STOP An error occurred - the program should terminate.
+  @retval OK_CONTINUE No error, the program should continue.
+  @retval OK_STOP No error, but the end of the specified range of
+  events to process has been reached and the program should terminate.
+*/
+static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
+                                           const char* logname)
+{
+  ulong len= 0;
+  uint logname_len= 0;
+  NET* net= NULL;
+  /*
+    cur_logname and old_off point binlog file:pos where mysqlbinlog is
+    currently reading. They need to be updated real-time, since when
+    mysqlbinlog reconnects, it needs to dump from proper starting file:pos.
+  */
+  char cur_logname[FN_REFLEN + 1];
+  my_off_t old_off= start_position_mot;
+  char fname[FN_REFLEN + 1];
+  char log_file_name[FN_REFLEN + 1];
+  char cur_log_file_name[FN_REFLEN + 1];
+  char *log_file = NULL;
+  Exit_status retval= OK_CONTINUE;
+
+  bool semi_sync_need_reply = false;
+  uint event_count = 0;
+  fname[0]= log_file_name[0]= cur_logname[0]= 0;
+  size_t tlen = logname ? strlen(logname) : 0;
+
+  DBUG_ENTER("dump_remote_log_entries");
+
+  if (tlen > FN_REFLEN)
+  {
+    error("Log name too long.");
+    DBUG_RETURN(ERROR_STOP);
+  }
+  logname_len = tlen;
+  if (logname)
+    strncpy(cur_logname, logname, sizeof(cur_logname));
+
+  init_semisync();
+
+  /*
+    Even if we already read one binlog (case of >=2 binlogs on command line),
+    we cannot re-use the same connection as before, because it is now dead
+    (COM_BINLOG_DUMP kills the thread when it finishes).
+  */
+  if ((retval= safe_connect()) != OK_CONTINUE)
+    DBUG_RETURN(retval);
+
+connected:
+  net= &mysql->net;
+
+  if ((retval= check_master_version()) != OK_CONTINUE) {
+    error("Failed to check master version");
+    DBUG_RETURN(retval);
+  }
+  /*
+    Requesting binlog dump from file:pos = cur_logname:old_off.
+  */
+  if (request_dump(cur_logname, strlen(cur_logname), old_off)) {
+    warning("Got error on requesting dump.");
+    if (try_to_reconnect())
+    {
+      error("Failed to reconnect");
+      DBUG_RETURN(ERROR_STOP);
+    }
+    goto connected;
+  }
   for (;;)
   {
     const char *error_msg= NULL;
@@ -2332,11 +2447,32 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
     len= cli_safe_read(mysql);
     if (len == packet_error)
     {
-      error("Got error reading packet from server: %s", mysql_error(mysql));
-      DBUG_RETURN(ERROR_STOP);
+      uint mysql_error_number= mysql_errno(mysql);
+      switch (mysql_error_number) {
+      case CR_NET_PACKET_TOO_LARGE:
+        error("Got a packet bigger than 'slave_max_allowed_packet' bytes");
+        DBUG_RETURN(ERROR_STOP);
+      case ER_MASTER_FATAL_ERROR_READING_BINLOG:
+        error("Failed to read binary log %s, error %d", cur_logname,
+          mysql_errno(mysql));
+        DBUG_RETURN(ERROR_STOP);
+      case ER_OUT_OF_RESOURCES:
+        error("Stopping due to out-of-memory error from mysqld");
+        DBUG_RETURN(ERROR_STOP);
+      default:
+        warning("Got error reading packet from server: %s", mysql_error(mysql));
+        if (try_to_reconnect())
+        {
+          error("Failed to reconnect");
+          DBUG_RETURN(ERROR_STOP);
+        }
+        goto connected;
+      }
     }
-    if (len < 8 && net->read_pos[0] == 254)
+
+    if (len < 8 && net->read_pos[0] == 254) {
       break; // end of data
+    }
     DBUG_PRINT("info",( "len: %lu  net->read_pos[5]: %d\n",
 			len, net->read_pos[5]));
     /*
@@ -2461,10 +2597,24 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
             continue;
           }
           /*
+            rev->new_log_ident points a logfile to read. If the new file
+            is ahead the current log file, mysqlbinlog should read from the
+            first position of the new file so setting position (old_off)
+            to the head. If the new file is the same as current logfile,
+            it means fake rotate
+            event was sent, and position should not be changed.
+          */
+          int c = strcmp(cur_logname, rev->new_log_ident);
+          // switching to new file
+          if(c < 0) {
+            old_off = BIN_LOG_HEADER_SIZE;
+            strcpy(cur_logname, rev->new_log_ident);
+          }
+
+          /*
              Reset the value of '# at pos' field shown against first event of
              next binlog file (fake rotate) picked by mysqlbinlog --to-last-log
-         */
-          old_off= start_position_mot;
+          */
           event_len = 0; // fake Rotate, so don't increment old_off
         }
       }
@@ -2482,31 +2632,47 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
           event_len = 0;
         if (raw_mode)
         {
-          if (result_file && (result_file != stdout))
-            my_fclose(result_file, MYF(0));
-          if (!(result_file = my_fopen(log_file_name, O_WRONLY | O_BINARY,
-                                       MYF(MY_WME))))
-          {
-            error("Could not create log file '%s'", log_file_name);
-            DBUG_RETURN(ERROR_STOP);
-          }
-          DBUG_EXECUTE_IF("simulate_result_file_write_error_for_FD_event",
-                          DBUG_SET("+d,simulate_fwrite_error"););
-          if (my_fwrite(result_file, (const uchar*) BINLOG_MAGIC,
-                        BIN_LOG_HEADER_SIZE, MYF(MY_NABP)))
-          {
-            error("Could not write into log file '%s'", log_file_name);
-            DBUG_RETURN(ERROR_STOP);
-          }
-          /*
-            Need to handle these events correctly in raw mode too 
-            or this could get messy
+          /* Format description event needs to be written if:
+            - pos points the head of the binlog (pos == BIN_LOG_HEADER_SIZE)
+            - pos points --start-position and
+            current log equals to starting logfile
+
+            When executing binlog dump after reconnect, it receives
+            Format description event but it should not be written because
+            it is not the beginning of the binlog.
           */
-          delete glob_description_event;
-          glob_description_event= (Format_description_log_event*) ev;
-          print_event_info->common_header_len= glob_description_event->common_header_len;
-          ev->temp_buf= 0;
-          ev= 0;
+          if (old_off == BIN_LOG_HEADER_SIZE ||
+              (old_off == start_position_mot &&
+              !strcmp(logname, cur_logname))) {
+            if (result_file && (result_file != stdout))
+              my_fclose(result_file, MYF(0));
+            if (!(result_file = my_fopen(log_file_name, O_WRONLY | O_BINARY,
+                                         MYF(MY_WME))))
+            {
+              error("Could not create log file '%s'", log_file_name);
+              DBUG_RETURN(ERROR_STOP);
+            }
+            DBUG_EXECUTE_IF("simulate_result_file_write_error_for_FD_event",
+                            DBUG_SET("+d,simulate_fwrite_error"););
+            if (my_fwrite(result_file, (const uchar*) BINLOG_MAGIC,
+                          BIN_LOG_HEADER_SIZE, MYF(MY_NABP)))
+            {
+              error("Could not write into log file '%s'", log_file_name);
+              DBUG_RETURN(ERROR_STOP);
+            }
+            /*
+              Need to handle these events correctly in raw mode too
+              or this could get messy
+            */
+            delete glob_description_event;
+            glob_description_event= (Format_description_log_event*) ev;
+            print_event_info->common_header_len=
+              glob_description_event->common_header_len;
+            ev->temp_buf= 0;
+            ev= 0;
+          } else {
+            event_len= 0;
+          }
         }
       }
       
