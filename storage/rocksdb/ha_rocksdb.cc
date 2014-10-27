@@ -771,6 +771,10 @@ static int rocksdb_init_func(void *p)
   }
 
   rocksdb::Options main_opts(db_opts, default_cf_opts);
+  main_opts.env->SetBackgroundThreads(main_opts.max_background_flushes,
+                                      rocksdb::Env::Priority::HIGH);
+  main_opts.env->SetBackgroundThreads(main_opts.max_background_compactions,
+                                      rocksdb::Env::Priority::LOW);
   status= rocksdb::DB::Open(main_opts, rocksdb_db_name, cf_descr,
                             &cf_handles, &rdb);
 
