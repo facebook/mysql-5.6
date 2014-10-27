@@ -1411,6 +1411,10 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         GOTO_ERR;
       }
 #endif
+
+      if (thd->killed)
+        goto end;
+
       /*
         log's filename does not change while it's active
       */
