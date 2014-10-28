@@ -1054,6 +1054,8 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
   /* The number of times to skip calls to processlist_slave_offset */
   int skip_state_update;
 
+  int skip_event_heartbeat_cnt = 10;
+
   /*
    Preallocate fixed buffer for event packets. If an event is more
    than the size, String class will re-allocate memory and we will
@@ -1598,6 +1600,22 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
       {
         p_last_skip_coord->pos= p_coord->pos;
         strcpy(p_last_skip_coord->file_name, p_coord->file_name);
+        if (!skip_event_heartbeat_cnt--)
+        {
+          skip_event_heartbeat_cnt = 10;
+          if (reset_transmit_packet(thd, flags, &ev_offset, &errmsg,
+                                    observe_transmission,
+                                    packet, packet_buffer, packet_buffer_size,
+                                    semi_sync_slave))
+            GOTO_ERR;
+          if (send_heartbeat_event(net, packet, p_coord,
+                                   current_checksum_alg))
+          {
+            errmsg = "Failed on my_net_write()";
+            my_errno= ER_UNKNOWN_ERROR;
+            GOTO_ERR;
+          }
+        }
       }
 
       if (!skip_group && last_skip_group
