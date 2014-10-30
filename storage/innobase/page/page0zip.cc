@@ -172,36 +172,6 @@ page_zip_fail_func(
 
 
 #ifndef UNIV_INNOCHECKSUM
-/**********************************************************************//**
-When the page size grows above 16 KB the offset stored in the dense
-directory will exceed the 14 bits allocated for it by default. Thus,
-32KB pages increase the slot size to 3 bytes and give a full 2 bytes for
-the offset. */
-UNIV_INLINE
-ulint
-mach_read_dir_slot(
-/*===============*/
-	const byte*	b)	/*!< in: pointer to bytes */
-{
-	if (UNIV_PAGE_SIZE <= UNIV_PAGE_SIZE_DEF)
-		return mach_read_from_2(b);
-	else
-		return mach_read_from_3(b);
-}
-
-UNIV_INLINE
-void
-mach_write_dir_slot(
-/*================*/
-	byte*	b,	/*!< in: pointer bytes where to store */
-	ulint	n)	/*!< in: ulint integer to be stored */
-{
-	if (UNIV_PAGE_SIZE <= UNIV_PAGE_SIZE_DEF)
-		return mach_write_to_2(b, n);
-	else
-		return mach_write_to_3(b, n);
-}
-
 #ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
 Determine the guaranteed free space on an empty page.
@@ -264,7 +234,7 @@ page_zip_dir_find_low(
 	ut_ad(slot <= end);
 
 	for (; slot < end; slot += PAGE_ZIP_DIR_SLOT_SIZE) {
-		if ((mach_read_dir_slot(slot) & PAGE_ZIP_DIR_SLOT_MASK)
+		if ((mach_read_from_2(slot) & PAGE_ZIP_DIR_SLOT_MASK)
 		    == offset) {
 			return(slot);
 		}
@@ -325,7 +295,7 @@ page_zip_dir_get(
 {
 	ut_ad(page_zip_simple_validate(page_zip));
 	ut_ad(slot < page_zip_dir_size(page_zip) / PAGE_ZIP_DIR_SLOT_SIZE);
-	return(mach_read_dir_slot(page_zip->data + page_zip_get_size(page_zip)
+	return(mach_read_from_2(page_zip->data + page_zip_get_size(page_zip)
 				- PAGE_ZIP_DIR_SLOT_SIZE * (slot + 1)));
 }
 
@@ -663,9 +633,6 @@ page_zip_dir_encode(
 
 	i = 0;
 
-	ut_a(!(PAGE_ZIP_DIR_SLOT_MASK & (PAGE_ZIP_DIR_SLOT_MASK + 1)));
-	ut_a(!(PAGE_ZIP_DIR_SLOT_MASK < UNIV_PAGE_SIZE - 1));
-
 	for (;;) {
 		ulint	info_bits;
 		offs = rec_get_next_offs(rec, TRUE);
@@ -678,6 +645,12 @@ page_zip_dir_encode(
 		ut_a(heap_no < n_heap);
 		ut_a(offs < UNIV_PAGE_SIZE - PAGE_DIR);
 		ut_a(offs >= PAGE_ZIP_START);
+#if PAGE_ZIP_DIR_SLOT_MASK & (PAGE_ZIP_DIR_SLOT_MASK + 1)
+# error "PAGE_ZIP_DIR_SLOT_MASK is not 1 less than a power of 2"
+#endif
+#if PAGE_ZIP_DIR_SLOT_MASK < UNIV_PAGE_SIZE_MAX - 1
+# error "PAGE_ZIP_DIR_SLOT_MASK < UNIV_PAGE_SIZE_MAX - 1"
+#endif
 		if (UNIV_UNLIKELY(rec_get_n_owned_new(rec))) {
 			offs |= PAGE_ZIP_DIR_SLOT_OWNED;
 		}
@@ -692,7 +665,7 @@ page_zip_dir_encode(
 		REC_INFO_MIN_REC_FLAG set. */
 		min_mark = 0;
 
-		mach_write_dir_slot(buf - PAGE_ZIP_DIR_SLOT_SIZE * ++i, offs);
+		mach_write_to_2(buf - PAGE_ZIP_DIR_SLOT_SIZE * ++i, offs);
 
 		if (UNIV_LIKELY_NULL(recs)) {
 			/* Ensure that each heap_no occurs at most once. */
@@ -718,7 +691,7 @@ page_zip_dir_encode(
 		ut_a(!rec[-REC_N_NEW_EXTRA_BYTES]); /* info_bits and n_owned */
 		ut_a(rec_get_status(rec) == status);
 
-		mach_write_dir_slot(buf - PAGE_ZIP_DIR_SLOT_SIZE * ++i, offs);
+		mach_write_to_2(buf - PAGE_ZIP_DIR_SLOT_SIZE * ++i, offs);
 
 		if (UNIV_LIKELY_NULL(recs)) {
 			/* Ensure that each heap_no occurs at most once. */
@@ -5145,11 +5118,9 @@ page_zip_write_rec(
 	ut_a(slot);
 	/* Copy the delete mark. */
 	if (rec_get_deleted_flag(rec, TRUE)) {
-		*slot |= (PAGE_ZIP_DIR_SLOT_DEL >>
-			  (8 * (PAGE_ZIP_DIR_SLOT_SIZE - 1)));
+		*slot |= PAGE_ZIP_DIR_SLOT_DEL >> 8;
 	} else {
-		*slot &= ~(PAGE_ZIP_DIR_SLOT_DEL >>
-			   (8 * (PAGE_ZIP_DIR_SLOT_SIZE - 1)));
+		*slot &= ~(PAGE_ZIP_DIR_SLOT_DEL >> 8);
 	}
 
 	ut_ad(rec_get_start((rec_t*) rec, offsets) >= page + PAGE_ZIP_START);
@@ -5722,11 +5693,9 @@ page_zip_rec_set_deleted(
 	ut_a(slot);
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 	if (flag) {
-		*slot |= (PAGE_ZIP_DIR_SLOT_DEL >>
-			  (8 * (PAGE_ZIP_DIR_SLOT_SIZE - 1)));
+		*slot |= (PAGE_ZIP_DIR_SLOT_DEL >> 8);
 	} else {
-		*slot &= ~(PAGE_ZIP_DIR_SLOT_DEL >>
-			   (8 * (PAGE_ZIP_DIR_SLOT_SIZE - 1)));
+		*slot &= ~(PAGE_ZIP_DIR_SLOT_DEL >> 8);
 	}
 	if (UNIV_UNLIKELY(page_zip_debug)) {
 		ut_a(page_zip_validate(page_zip, page_align(rec), NULL));
@@ -5748,11 +5717,9 @@ page_zip_rec_set_owned(
 	ut_a(slot);
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 	if (flag) {
-		*slot |= (PAGE_ZIP_DIR_SLOT_OWNED >>
-			  (8 * (PAGE_ZIP_DIR_SLOT_SIZE - 1)));
+		*slot |= (PAGE_ZIP_DIR_SLOT_OWNED >> 8);
 	} else {
-		*slot &= ~(PAGE_ZIP_DIR_SLOT_OWNED >>
-			   (8 * (PAGE_ZIP_DIR_SLOT_SIZE - 1)));
+		*slot &= ~(PAGE_ZIP_DIR_SLOT_OWNED >> 8);
 	}
 }
 
@@ -5831,8 +5798,7 @@ page_zip_dir_insert(
 
 	/* Write the entry for the inserted record.
 	The "owned" and "deleted" flags must be zero. */
-	mach_write_dir_slot(slot_rec - PAGE_ZIP_DIR_SLOT_SIZE,
-			    page_offset(rec));
+	mach_write_to_2(slot_rec - PAGE_ZIP_DIR_SLOT_SIZE, page_offset(rec));
 }
 
 /**********************************************************************//**
@@ -5894,7 +5860,7 @@ page_zip_dir_delete(
 
 	/* Write the entry for the deleted record.
 	The "owned" and "deleted" flags will be cleared. */
-	mach_write_dir_slot(slot_free, page_offset(rec));
+	mach_write_to_2(slot_free, page_offset(rec));
 
 	if (!page_is_leaf(page) || !dict_index_is_clust(index)) {
 		ut_ad(!rec_offs_any_extern(offsets));

@@ -980,13 +980,12 @@ fil_node_open_file(
 			ut_error;
 		}
 
-		if (size_bytes >= FSP_EXTENT_SIZE * UNIV_PAGE_SIZE) {
+		if (size_bytes >= 1024 * 1024) {
+
 /* In xtrabackup, the size should be exact for after applying .delta */
 #ifndef XTRABACKUP
-			/* Truncate the size to extent size. */
-			size_bytes = ut_2pow_round(size_bytes,
-						   FSP_EXTENT_SIZE *
-						   UNIV_PAGE_SIZE);
+			/* Truncate the size to whole megabytes. */
+			size_bytes = ut_2pow_round(size_bytes, 1024 * 1024);
 #endif /* !XTRABACKUP */
 		}
 
@@ -6270,7 +6269,6 @@ _fil_io(
 		case 4096: zip_size_shift = 12; break;
 		case 8192: zip_size_shift = 13; break;
 		case 16384: zip_size_shift = 14; break;
-		case 32768: zip_size_shift = 15; break;
 		default: ut_error;
 		}
 		offset = ((os_offset_t) block_offset << zip_size_shift)

@@ -1193,20 +1193,10 @@ DROP TABLE test_wl5522.t1;
 ####
 # Create a table and save the tablespace and .cfg file, we need to create
 # a Btree that has several levels
-let $varchar_len= 256;
-if (`SELECT @@innodb_page_size > 16384`)
-{
-  let $varchar_len= 4096;
-}
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
-
---replace_result $varchar_len {varchar_len}
-eval INSERT INTO test_wl5522.t1 VALUES
-	(100, REPEAT('Karanbir', $varchar_len / 8), REPEAT('Ajeeth', 1200),
-	 REPEAT('Ajeeth', 1200));
+INSERT INTO test_wl5522.t1 VALUES
+	(100, REPEAT('Karanbir', 899), REPEAT('Ajeeth', 1200));
 
 INSERT INTO test_wl5522.t1 SELECT * FROM test_wl5522.t1;
 INSERT INTO test_wl5522.t1 SELECT * FROM test_wl5522.t1;
@@ -1228,9 +1218,7 @@ UNLOCK TABLES;
 
 DROP TABLE test_wl5522.t1;
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1261,9 +1249,7 @@ EOF
 
 #
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1293,9 +1279,7 @@ ib_unlink_tablespace("test_wl5522", "t1");
 EOF
 
 #
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1325,9 +1309,7 @@ ib_unlink_tablespace("test_wl5522", "t1");
 EOF
 #
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1356,9 +1338,7 @@ do 'include/innodb-util.inc';
 ib_unlink_tablespace("test_wl5522", "t1");
 EOF
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1380,9 +1360,7 @@ EOF
 
 #
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1413,9 +1391,7 @@ EOF
 
 #
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
@@ -1446,9 +1422,7 @@ EOF
 
 #
 
---replace_result $varchar_len {varchar_len}
-eval CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR($varchar_len),
-	c3 BLOB, c4 BLOB) ENGINE = Innodb;
+CREATE TABLE test_wl5522.t1 (c1 INT, c2 VARCHAR(1024), c3 BLOB) ENGINE = Innodb;
 
 ALTER TABLE test_wl5522.t1 DISCARD TABLESPACE;
 
