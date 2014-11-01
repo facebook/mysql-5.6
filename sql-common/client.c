@@ -757,7 +757,11 @@ cli_advanced_command(MYSQL *mysql, enum enum_server_command command,
     if (mysql_reconnect(mysql) || stmt_skip)
       DBUG_RETURN(1);
   }
-  vio_set_blocking(net->vio, TRUE);
+  // Set blocking mode except if ssl is involved
+  if (!(mysql->client_flag & CLIENT_SSL))
+  {
+    vio_set_blocking(net->vio, TRUE);
+  }
   if (mysql->status != MYSQL_STATUS_READY ||
       mysql->server_status & SERVER_MORE_RESULTS_EXISTS)
   {
@@ -5735,7 +5739,8 @@ mysql_fetch_row(MYSQL_RES *res) {
   MYSQL *mysql = res->handle;
   MYSQL_ROW row;
   mysql_fetch_row_core(res, &row, FALSE);
-  if (mysql && row == NULL && mysql->net.vio && !vio_is_blocking(mysql->net.vio))
+  if (mysql && row == NULL && mysql->net.vio &&
+      !vio_is_blocking(mysql->net.vio) && !(mysql->client_flag & CLIENT_SSL))
   {
     vio_set_blocking(mysql->net.vio, TRUE);
   }
