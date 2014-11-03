@@ -35,6 +35,7 @@
 #include "rdb_cf_manager.h"
 
 #include "rocksdb/table.h"
+#include "utilities/convenience.h"
 
 /* This is here to get PRIu64, PRId64 */
 #ifndef __STDC_FORMAT_MACROS
@@ -60,6 +61,8 @@ Numeric_cf_option write_buffer_size_map;
 static char * rocksdb_target_file_size_base_str;
 Numeric_cf_option target_file_size_base_map;
 
+static char * rocksdb_db_options;
+static char * rocksdb_default_cf_options;
 
 ///////////////////////////////////////////////////////////
 // Globals
@@ -186,7 +189,6 @@ static bool rocksdb_parse_target_file_size_base_arg()
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
-static unsigned long rocksdb_compaction_style;
 
 //static long long rocksdb_write_buffer_size;
 //static int rocksdb_target_file_size_base;
@@ -207,15 +209,6 @@ static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   NULL, NULL, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
 
-static MYSQL_SYSVAR_ULONG(compaction_style, rocksdb_compaction_style,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "options.compaction_style for RocksDB",
-  NULL, NULL,
-  /*default*/ rocksdb::CompactionStyle::kCompactionStyleLevel,
-  /*min*/ rocksdb::CompactionStyle::kCompactionStyleLevel,
-  /*max*/ rocksdb::CompactionStyle::kCompactionStyleFIFO,
-  0);
-
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "block_cache size for RocksDB",
@@ -228,6 +221,16 @@ static MYSQL_SYSVAR_STR(write_buffer_size, rocksdb_write_buffer_size_str,
   rocksdb_write_buffer_size_validate,
   rocksdb_write_buffer_size_update, "4194304" /* default is 4 MB for default CF */);
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
+
+static MYSQL_SYSVAR_STR(db_options, rocksdb_db_options,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "db options for RocksDB",
+  NULL, NULL, "");
+
+static MYSQL_SYSVAR_STR(default_cf_options, rocksdb_default_cf_options,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "default cf options for RocksDB",
+  NULL, NULL, "");
 
 static MYSQL_SYSVAR_STR(target_file_size_base,
   rocksdb_target_file_size_base_str,
@@ -255,8 +258,9 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(block_cache_size),
   MYSQL_SYSVAR(write_buffer_size),
+  MYSQL_SYSVAR(db_options),
+  MYSQL_SYSVAR(default_cf_options),
   MYSQL_SYSVAR(target_file_size_base),
-  MYSQL_SYSVAR(compaction_style),
 
   NULL
 };
@@ -707,6 +711,7 @@ static int rocksdb_init_func(void *p)
   std::vector<std::string> cf_names;
 
   rocksdb::DBOptions db_opts;
+
   db_opts.create_if_missing = true;
   db_opts.statistics= rocksdb_stats;
 
@@ -743,11 +748,24 @@ static int rocksdb_init_func(void *p)
 
   default_cf_opts.write_buffer_size= write_buffer_size_map.get_default_val();
   default_cf_opts.target_file_size_base= target_file_size_base_map.get_default_val();
-  default_cf_opts.compaction_style = (rocksdb::CompactionStyle)rocksdb_compaction_style;
 
   rocksdb::BlockBasedTableOptions table_options;
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+
+  if (!rocksdb::GetDBOptionsFromString(
+        db_opts,
+        std::string(rocksdb_db_options),
+        &db_opts)) {
+    DBUG_RETURN(1);
+  }
+
+  if (!rocksdb::GetColumnFamilyOptionsFromString(
+        default_cf_opts,
+        std::string(rocksdb_default_cf_options),
+        &default_cf_opts)) {
+    DBUG_RETURN(1);
+  }
 
   /*
     If there are no column families, we're creating the new database.
