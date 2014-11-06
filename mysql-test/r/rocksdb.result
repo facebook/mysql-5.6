@@ -1440,3 +1440,34 @@ PRIMARY KEY (id),
 index (key1) comment '$per_idnex_cf'
 )engine=rocksdb;
 ERROR 42000: This version of MySQL doesn't yet support 'column family name looks like a typo of $per_index_cf'
+#
+# Issue #22: SELECT ... FOR UPDATE takes a long time
+#
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1 (
+id1 int,
+id2 int,
+value1 int,
+value2 int,
+primary key(id1, id2) COMMENT 'new_column_family',
+key(id2)
+) engine=rocksdb default charset=latin1 collate=latin1_bin;
+insert into t1 select A.a, B.a, 31, 1234 from t0 A, t0 B;
+explain 
+select * from t1 where id1=30 and value1=30 for update;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	PRIMARY	PRIMARY	4	const	10	Using where
+set @var1=(select variable_value 
+from information_schema.global_status 
+where variable_name='rocksdb_number_keys_read');
+select * from t1 where id1=3 and value1=3 for update;
+id1	id2	value1	value2
+set @var2=(select variable_value 
+from information_schema.global_status 
+where variable_name='rocksdb_number_keys_read');
+# The following must return true (before the fix, the difference was 70):
+select (@var2 - @var1) < 12;
+(@var2 - @var1) < 12
+1
+drop table t0,t1;
