@@ -2553,7 +2553,8 @@ retry:
         bool found;
         if (!trx->changes.Get(key, &retrieved_record, &found))
         {
-          rocksdb::Status s= rdb->Get(options, key, &retrieved_record);
+          rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key,
+                                      &retrieved_record);
           found= !s.IsNotFound();
         }
 
@@ -2774,7 +2775,8 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
     {
       rocksdb::ReadOptions options;
       /* Not setting options.snapshot, we need to check the real contents */
-      rocksdb::Status s= rdb->Get(options, key_slice, &retrieved_record);
+      rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
+                                  &retrieved_record);
       found= !s.IsNotFound();
     }
 
