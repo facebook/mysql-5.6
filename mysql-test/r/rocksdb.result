@@ -822,7 +822,8 @@ Variable_name	Value
 rocksdb_block_cache_size	8388608
 rocksdb_bulk_load	OFF
 rocksdb_bulk_load_size	1000
-rocksdb_compaction_style	0
+rocksdb_db_options	
+rocksdb_default_cf_options	
 rocksdb_lock_wait_timeout	1
 rocksdb_max_row_locks	1073741824
 rocksdb_target_file_size_base	2097152
