@@ -21,6 +21,22 @@ show status like 'Rpl_semi_sync_master_status';
 --let mysqlbinlog_reconnect_options= --raw --read-from-remote-server --stop-never --to-last-log  --user=root --host=127.0.0.1 --port=$MASTER_MYPORT --result-file=$MYSQL_TMP_DIR/ --use-semisync --heartbeat_period_ms=1000 --reconnect_interval_ms=3000 --net_timeout=3
 --let MYSQLD_DATADIR= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
 
+--disable_query_log
+select "--- mysqlbinlog failing to read ---" as "";
+--enable_query_log
+--write_file $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+#!/bin/bash
+$MYSQL_BINLOG $mysqlbinlog_reconnect_options  master-bin.100001 > /dev/null 2>$MYSQL_TMP_DIR/semisync.err 
+rc=$?
+if [[ $rc == 1 ]]; then
+  cat $MYSQL_TMP_DIR/semisync.err | grep ERROR
+  exit 0
+fi
+exit 1
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+--exec $MYSQL_TMP_DIR/mbl_fail_to_read.sh
+
 
 --disable_query_log
 select "--- mysqlbinlog getting timeout ---" as "";
@@ -214,6 +230,7 @@ EOF
 --echo #
 
 --remove_file $MYSQL_TMP_DIR/mbl.sh
+--remove_file $MYSQL_TMP_DIR/mbl_fail_to_read.sh
 --remove_file $MYSQL_TMP_DIR/mbl_timeout.sh
 --remove_file $MYSQL_TMP_DIR/mbl_exit.sh
 --remove_file $MYSQL_TMP_DIR/mbl_multi_kill.sh

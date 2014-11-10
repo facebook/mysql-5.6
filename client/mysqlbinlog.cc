@@ -2450,8 +2450,11 @@ connected:
       switch (mysql_error_number) {
       case CR_NET_PACKET_TOO_LARGE:
         error("Got a packet bigger than 'slave_max_allowed_packet' bytes");
+        DBUG_RETURN(ERROR_STOP);
       case ER_MASTER_FATAL_ERROR_READING_BINLOG:
-        error(ER(ER_MASTER_FATAL_ERROR_READING_BINLOG));
+        error("Failed to read binary log %s, error %d", cur_logname,
+          mysql_errno(mysql));
+        DBUG_RETURN(ERROR_STOP);
       case ER_OUT_OF_RESOURCES:
         error("Stopping due to out-of-memory error from mysqld");
         DBUG_RETURN(ERROR_STOP);

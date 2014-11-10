@@ -16,6 +16,9 @@ show status like 'Rpl_semi_sync_master_status';
 Variable_name	Value
 Rpl_semi_sync_master_status	ON
 
+--- mysqlbinlog failing to read ---
+ERROR: Failed to read binary log master-bin.100001, error 1236
+
 --- mysqlbinlog getting timeout ---
 SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 COUNT(*)
