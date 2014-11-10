@@ -37,7 +37,6 @@ do
   if ps -p $p > /dev/null; then
     break
   fi
-  echo "waiting mysqlbinlog to start.."
   sleep 1
 done
 sleep 5
@@ -46,7 +45,6 @@ do
   if ! ps -p $p > /dev/null; then
     break
   fi
-  echo "waiting mysqlbinlog to exit.."
   sleep 1
 done
 EOF
@@ -75,7 +73,6 @@ do
   if ps -p $p > /dev/null; then
     break
   fi
-  echo "waiting mysqlbinlog to start.."
   sleep 1
 done
 # making new connections rejected. then mysqlbinlog reconnect should fail, then mysqlbinlog should exit.
@@ -86,7 +83,6 @@ do
   if ! ps -p $p > /dev/null; then
     break
   fi
-  echo "waiting mysqlbinlog to exit.."
   sleep 1
 done
 EOF
@@ -129,7 +125,6 @@ do
   if [ "$COUNT" = 10 ]; then
     break
   else
-    echo "waiting the number of binlog dump threads : $COUNT"  >> $MYSQL_TMP_DIR/mbl_multi_kill.log
     sleep 2
   fi
 done
