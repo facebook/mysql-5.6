@@ -37,7 +37,9 @@ report_errors(SSL* ssl)
 
   DBUG_ENTER("report_errors");
 
-  while ((l= ERR_get_error_line_data(&file,&line,&data,&flags)))
+  /* Peek at the error queue; don't use get_error so that the error is
+     preserved for our caller. */
+  if ((l= ERR_peek_error_line_data(&file,&line,&data,&flags)))
   {
     DBUG_PRINT("error", ("OpenSSL: %s:%s:%d:%s\n", ERR_error_string(l,buf),
 			 file,line,(flags&ERR_TXT_STRING)?data:"")) ;
@@ -143,20 +145,24 @@ static my_bool ssl_should_retry(Vio *vio, int ret,
     break;
   default:
 #ifndef DBUG_OFF  /* Debug build */
-    /* Note: the OpenSSL error queue gets cleared in report_errors(). */
     report_errors(ssl);
-#else             /* Release build */
-# ifndef HAVE_YASSL
-    /* OpenSSL: clear the error queue. */
-    ERR_clear_error();
-# endif
 #endif
     should_retry= FALSE;
     ssl_set_sys_error(ssl_error);
     break;
   }
 
-  *ssl_errno_holder= ssl_error;
+  /*
+    ERR_get_error() is actually the error we generally want to
+    display if SSL_get_error indicates it is an SSL error (instead
+    of, say, a network issue)
+  */
+  if (ssl_error == SSL_ERROR_SSL) {
+    *ssl_errno_holder= ERR_get_error();
+  } else {
+    *ssl_errno_holder= ssl_error;
+  }
+  ERR_clear_error();
 
   return should_retry;
 }
@@ -391,6 +397,7 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   {
     DBUG_PRINT("error", ("SSL_new failure"));
     *ssl_errno_holder= ERR_get_error();
+    ERR_clear_error();
     DBUG_RETURN(1);
   }
   DBUG_PRINT("info", ("ssl: 0x%lx timeout: %ld", (long) ssl, timeout));
