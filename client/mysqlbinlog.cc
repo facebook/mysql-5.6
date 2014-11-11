@@ -2223,13 +2223,13 @@ static int get_dump_flags()
   Tries to connect to MySQL server if needed
 
   @retval 0 Reconnect succeeded
-  @retval non-zero Failed to connect, or retry count exceeded
+  @retval non-zero Failed to connect, or did not reconnect
 */
 static int try_to_reconnect() {
   if (!opt_reconnect_interval_ms) {
     return 1;
   }
-  usleep(opt_reconnect_interval_ms);
+  usleep(opt_reconnect_interval_ms*1000);
   warning("Trying to reconnect..");
   return safe_connect();
 }
