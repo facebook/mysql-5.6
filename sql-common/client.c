@@ -2370,6 +2370,44 @@ static int ssl_verify_server_cert(Vio *vio, const char* server_hostname, const c
           continue;
         }
       }
+      else if (gn_entry->type == GEN_IPADD) {
+        if (!vio || vio->type != VIO_TYPE_SSL) {
+          DBUG_PRINT("error", ("vio null or vio->type unexpectedly non-ssl"));
+          continue;
+        }
+        /* We must call vio_peer_addr to populate vio->remote; this is
+         * a hack to get around the limited vio API. */
+        my_bool peer_rc;
+        char unused_ip[NI_MAXHOST];
+        uint16_t unused_port;
+        peer_rc = vio_peer_addr(vio, unused_ip, &unused_port, NI_MAXHOST);
+        if (peer_rc) {
+          continue;
+        }
+        DBUG_PRINT("info", ("alternative ip address in cert: %s", unused_ip));
+
+        /* Check ipv4 and ipv6 addresses */
+        char* data = (char*)ASN1_STRING_data(gn_entry->d.ia5);
+        int length = ASN1_STRING_length(gn_entry->d.ia5);
+
+        struct sockaddr* sa = (struct sockaddr*)&vio->remote;
+        if (sa->sa_family == AF_INET && length == sizeof(struct in_addr)) {
+          struct sockaddr_in* sa_in = (struct sockaddr_in*)sa;
+          if (memcmp(&sa_in->sin_addr, data, length) == 0) {
+            goto done;
+          }
+        }
+        else if (sa->sa_family == AF_INET6 &&
+                 length == sizeof(struct in6_addr)) {
+          struct sockaddr_in6* sa_in6 = (struct sockaddr_in6*)sa;
+          if (memcmp(&sa_in6->sin6_addr, data, length) == 0) {
+            goto done;
+          }
+        } else {
+          DBUG_PRINT("error", ("unexpected sa_family/length (%d/%d)",
+                               sa->sa_family, length));
+        }
+      }
     }
     GENERAL_NAMES_free(names);
     names = 0;
