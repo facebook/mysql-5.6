@@ -3913,7 +3913,9 @@ public:
   {
     TM_NO_FLAGS = 0U,
     TM_BIT_LEN_EXACT_F = (1U << 0),
-    TM_REFERRED_FK_DB_F = (1U << 1)
+    TM_REFERRED_FK_DB_F = (1U << 1),
+    // MariaDB flags (we starts from the other end)
+    TM_BIT_HAS_TRIGGERS_F = (1U << 14)
   };
 
   flag_set get_flags(flag_set flag) const { return m_flags & flag; }
@@ -4205,6 +4207,10 @@ public:
 
   const uchar* get_extra_row_data() const   { return m_extra_row_data; }
 
+#if defined(MYSQL_SERVER) && defined(HAVE_REPLICATION)
+  virtual uint8 get_trg_event_map() = 0;
+#endif
+
 protected:
   /* 
      The constructors are protected since you're supposed to inherit
@@ -4311,6 +4317,7 @@ private:
     for doing an index scan with HASH_SCAN search algorithm.
   */
   uchar *m_distinct_key_spare_buf;
+  bool master_had_triggers;
 
   // Unpack the current row into m_table->record[0]
   int unpack_current_row(const Relay_log_info *const rli,
@@ -4525,6 +4532,10 @@ private:
     @returns 0 on success. Otherwise, the error code.
   */
   int do_scan_and_update(Relay_log_info const *rli);
+public:
+  bool process_triggers(trg_event_type event,
+                        trg_action_time_type time_type,
+                        bool old_row_is_record1);
 #endif /* defined(MYSQL_SERVER) && defined(HAVE_REPLICATION) */
 
   friend class Old_rows_log_event;
@@ -4588,6 +4599,7 @@ private:
   virtual int do_before_row_operations(const Slave_reporting_capability *const);
   virtual int do_after_row_operations(const Slave_reporting_capability *const,int);
   virtual int do_exec_row(const Relay_log_info *const);
+  uint8 get_trg_event_map();
 #endif
 };
 
@@ -4661,6 +4673,7 @@ protected:
   virtual int do_before_row_operations(const Slave_reporting_capability *const);
   virtual int do_after_row_operations(const Slave_reporting_capability *const,int);
   virtual int do_exec_row(const Relay_log_info *const);
+  uint8 get_trg_event_map();
 #endif /* defined(MYSQL_SERVER) && defined(HAVE_REPLICATION) */
 };
 
@@ -4724,6 +4737,7 @@ protected:
   virtual int do_before_row_operations(const Slave_reporting_capability *const);
   virtual int do_after_row_operations(const Slave_reporting_capability *const,int);
   virtual int do_exec_row(const Relay_log_info *const);
+  uint8 get_trg_event_map();
 #endif
 };
 
