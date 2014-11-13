@@ -1,0 +1,23 @@
+--source include/not_embedded.inc
+
+set @old_slave_run_triggers_for_rbr = @@global.slave_run_triggers_for_rbr;
+
+select @@global.slave_run_triggers_for_rbr;
+set global slave_run_triggers_for_rbr = 1;
+select @@global.slave_run_triggers_for_rbr;
+set global slave_run_triggers_for_rbr = LOGGING;
+select @@global.slave_run_triggers_for_rbr;
+set global slave_run_triggers_for_rbr = YES;
+select @@global.slave_run_triggers_for_rbr;
+set global slave_run_triggers_for_rbr = NO;
+select @@global.slave_run_triggers_for_rbr;
+
+--error ER_WRONG_VALUE_FOR_VAR
+set global slave_run_triggers_for_rbr = 100;
+--error ER_WRONG_VALUE_FOR_VAR
+set global slave_run_triggers_for_rbr = WRONG_VALUE;
+
+--error ER_GLOBAL_VARIABLE
+set session slave_run_triggers_for_rbr = 1;
+
+set @@global.slave_run_triggers_for_rbr = @old_slave_run_triggers_for_rbr;
