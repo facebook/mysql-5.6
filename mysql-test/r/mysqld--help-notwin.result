@@ -1018,6 +1018,15 @@ The following options may be given as the first argument:
  the slave will always pick the most suitable algorithm
  for any given scenario. (Default: INDEX_SCAN,
  TABLE_SCAN).
+ --slave-run-triggers-for-rbr=name 
+ Modes for how triggers in row-base replication on slave
+ side will be executed. Legal values are NO (default), YES
+ and LOGGING. NO means that trigger for RBR will not be
+ running on slave. YES and LOGGING means that triggers
+ will be running on slave, if there was not triggers
+ running on the master for the statement. LOGGING also
+ means results of that the executed triggers work will be
+ written to the binlog.
  --slave-skip-errors=name 
  Tells the slave thread to continue replication when a
  query event returns an error from the provided list
@@ -1453,6 +1462,7 @@ slave-net-timeout 3600
 slave-parallel-workers 0
 slave-pending-jobs-size-max 16777216
 slave-rows-search-algorithms TABLE_SCAN,INDEX_SCAN
+slave-run-triggers-for-rbr NO
 slave-skip-errors (No default value)
 slave-sql-verify-checksum TRUE
 slave-transaction-retries 10

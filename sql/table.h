@@ -1216,6 +1216,10 @@ public:
   bool all_partitions_pruned_away;
 #endif
   MDL_ticket *mdl_ticket;
+#ifdef HAVE_REPLICATION
+  /* used in RBR Triggers */
+  bool master_had_triggers;
+#endif
 
   void init(THD *thd, TABLE_LIST *tl);
   bool fill_item_list(List<Item> *item_list) const;
@@ -1317,6 +1321,9 @@ public:
   {
     tmp_file_created= false;
   }
+  void prepare_triggers_for_insert_stmt_or_event();
+  bool prepare_triggers_for_delete_stmt_or_event();
+  bool prepare_triggers_for_update_stmt_or_event();
 };
 
 
