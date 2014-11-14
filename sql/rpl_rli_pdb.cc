@@ -2227,7 +2227,8 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   worker->set_master_log_pos(ev->log_pos);
   worker->set_gaq_index(ev->mts_group_idx);
 
-  if (gtid_mode > 0 && ev->contains_partition_info(false))
+  if (gtid_mode > 0 && ev->contains_partition_info(false) &&
+      ev->mts_number_dbs() != OVER_MAX_DBS_IN_EVENT_MTS)
   {
     for (uint i = 0; i < worker->curr_group_exec_parts.elements; i++)
     {
