@@ -62,6 +62,7 @@ while($i)
   let $i1 = $i;
   dec $i1;
   
+  eval drop database if exists test$i1;
   eval create database test$i1;
   eval use test$i1;
   create table ti_nk (a int, b int, c text) engine=innodb;

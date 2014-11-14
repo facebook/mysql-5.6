@@ -75,29 +75,29 @@ use mysql;
 select * from slave_gtid_info;
 Id	Database_name	Last_gtid
 1	mtr	master_uuid:1
-2	test15	master_uuid:1859
-3	test14	master_uuid:1861
-4	test13	master_uuid:1863
-5	test12	master_uuid:1865
-6	test11	master_uuid:1867
-7	test10	master_uuid:1869
-8	test9	master_uuid:1871
-9	test8	master_uuid:1873
-10	test7	master_uuid:1875
-11	test6	master_uuid:1877
-12	test5	master_uuid:1879
-13	test4	master_uuid:1881
-14	test3	master_uuid:1883
-15	test2	master_uuid:1885
-16	test1	master_uuid:1887
-17	test0	master_uuid:1889
+2	test15	master_uuid:1875
+3	test14	master_uuid:1877
+4	test13	master_uuid:1879
+5	test12	master_uuid:1881
+6	test11	master_uuid:1883
+7	test10	master_uuid:1885
+8	test9	master_uuid:1887
+9	test8	master_uuid:1889
+10	test7	master_uuid:1891
+11	test6	master_uuid:1893
+12	test5	master_uuid:1895
+13	test4	master_uuid:1897
+14	test3	master_uuid:1899
+15	test2	master_uuid:1901
+16	test1	master_uuid:1903
+17	test0	master_uuid:1905
 include/rpl_restart_server.inc [server_number=2 gtids=on]
 change master to master_auto_position=1;
 include/start_slave.inc
 select @@global.gtid_executed;
 @@global.gtid_executed
-master_uuid:1-1889
+master_uuid:1-1905
 include/sync_slave_sql_with_master.inc
-master_uuid:1-1889
+master_uuid:1-1905
 reset master;
 include/rpl_end.inc
