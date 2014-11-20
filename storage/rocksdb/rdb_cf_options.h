@@ -14,10 +14,15 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include <map>
+#include <string>
+#include <unordered_map>
+
+namespace rocksdb {
+  class ColumnFamilyOptions;
+}
 
 /*
-  Numeric per-column family option value.
+  Per-column family options configs.
 
   Per-column family option can be set
   - Globally (the same value applies to all column families)
@@ -25,33 +30,19 @@
     and also there is a default value which applies to column
     families not found in the map.
 */
-class Numeric_cf_option
-{
+class Cf_options {
 public:
-  typedef std::map<std::string, longlong> NameToLonglong;
+  void Get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
-  /* cf_name -> value map*/
-  NameToLonglong name_map;
+  bool SetDefault(const std::string &default_config);
+  bool ParseConfigFile(const std::string &path);
+
+private:
+  typedef std::unordered_map<std::string, std::string> NameToConfig;
+
+  /* cf_name -> value map */
+  NameToConfig name_map_;
 
   /* The default value (if there is only one value, it is stored here) */
-  longlong default_val;
-
-  /* Get option value for column family with name cf_name */
-  longlong get_val(const char *cf_name)
-  {
-    NameToLonglong::iterator it= name_map.find(cf_name);
-    if (it != name_map.end())
-    {
-      return it->second;
-    }
-    else
-      return default_val;
-  }
-
-  longlong get_default_val() { return default_val; }
+  std::string default_config_;
 };
-
-/*
-  Parse string representation of per-column family option and store it in *out
-*/
-bool parse_per_cf_numeric(const char *str, Numeric_cf_option *out);
