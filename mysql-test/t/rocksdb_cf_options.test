@@ -1,0 +1,94 @@
+let MYSQLD_DATADIR= `SELECT @@datadir`;
+let file= $MYSQL_TMP_DIR/cf_configs.cnf;
+
+# create new column families with no configs in cf_configs.cnf file
+
+create table t1 (a int,
+                primary key (a) comment 'cf1') engine=rocksdb;
+create table t2 (a int,
+                primary key (a) comment 'cf2') engine=rocksdb;
+create table t3 (a int,
+                primary key (a) comment 'cf3') engine=rocksdb;
+
+insert into t1 values (1);
+insert into t2 values (2);
+insert into t3 values (2);
+
+# restart with new column families in DB
+
+--source include/restart_mysqld.inc
+
+# check column family options in log -- should be all default settings
+
+--echo
+--echo Default options for all column families:
+--echo
+--exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/rocksdb/LOG| sed 's/^.*Options/Options/';
+
+# create cf configs for cf1 and cf2
+
+--remove_file $file
+--write_file $file
+# cf 1 and 2 both set write_buffer_size
+# but then they each set separate params so we can
+# check defaults as well
+
+# the messy # syntax is to make sure comment support is robust
+  ### and the extra whitespace is to check string trimming    
+
+ cf1=write_buffer_size  = 8m;  target_file_size_base=2m
+cf2 =  write_buffer_size=16m;max_bytes_for_level_multiplier=8    # extra comment
+
+EOF
+
+--source include/restart_mysqld.inc
+
+# check column family options in log -- should reflect individual settings
+
+--echo
+--echo Individualized options for column families:
+--echo
+--exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/rocksdb/LOG| sed 's/^.*Options/Options/';
+
+# syntax error in file
+
+--remove_file $file
+--write_file $file
+cf1
+EOF
+
+--exec echo "restart" > $_expect_file_name
+--error 1
+--source include/wait_until_connected_again.inc
+
+# invalid cf option config
+
+--remove_file $file
+--write_file $file
+cf1=write_buffer_size=8m;
+EOF
+
+--exec echo "restart" > $_expect_file_name
+--error 1
+--source include/wait_until_connected_again.inc
+
+# missing file
+
+--remove_file $file
+
+--exec echo "restart" > $_expect_file_name
+--error 1
+--source include/wait_until_connected_again.inc
+
+# clean up
+
+--write_file $file
+EOF
+
+--source include/restart_mysqld.inc
+
+--echo
+drop table t1,t2,t3;
+
+--remove_file $file
+
