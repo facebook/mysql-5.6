@@ -31,7 +31,7 @@
 #include "rdb_locks.h"
 #include "rdb_rowmods.h"
 
-#include "rdb_cf_option.h"
+#include "rdb_cf_options.h"
 #include "rdb_cf_manager.h"
 
 #include "rocksdb/table.h"
@@ -54,15 +54,11 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
 // Parameters and settings
 ///////////////////////////////////////////////////////////
 extern const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
-extern const int ROCKSDB_TARGET_FILE_SIZE_BASE_DEFAULT;
-static char * rocksdb_write_buffer_size_str;
-Numeric_cf_option write_buffer_size_map;
-
-static char * rocksdb_target_file_size_base_str;
-Numeric_cf_option target_file_size_base_map;
 
 static char * rocksdb_db_options;
 static char * rocksdb_default_cf_options;
+static char * rocksdb_cf_options_file;
+Cf_options rocksdb_cf_options_map;
 
 ///////////////////////////////////////////////////////////
 // Globals
@@ -95,64 +91,10 @@ mysql_mutex_t rocksdb_mutex;
 //////////////////////////////////////////////////////////////////////////////
 
 static int
-rocksdb_write_buffer_size_validate(THD* thd,
-                                   struct st_mysql_sys_var* var,
-                                   void* save,
-                                   struct st_mysql_value* value)
-{
-  /* The option is read-only, it should never be updated */
-  DBUG_ASSERT(0);
-  return 1;
-#if 0
-  const char*  param_str;
-  char         buff[STRING_BUFFER_USUAL_SIZE];
-  int          len= sizeof(buff);
-
-  param_str= value->val_str(value, buff, &len);
-  if (param_str != NULL)
-  {
-    if (parse_multi_number(param_str, &write_buffer_size_map))
-    {
-      save= (void*)1;
-      return 1;
-    }
-  }
-  save= NULL;
-  return 0;
-#endif
-}
-
-
-static void
-rocksdb_write_buffer_size_update(THD* thd,
+rocksdb_cf_options_file_validate(THD* thd,
                                  struct st_mysql_sys_var* var,
-                                 void* var_ptr,
-                                 const void* save)
-{
-  /* The option is read-only, it should never be updated */
-  DBUG_ASSERT(0);
-}
-
-
-static bool rocksdb_parse_write_buffer_size_arg()
-{
-  write_buffer_size_map.default_val= ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
-  if (parse_per_cf_numeric(rocksdb_write_buffer_size_str, &write_buffer_size_map))
-  {
-    sql_print_error("RocksDB: Invalid value for rocksdb_write_buffer_size: %s",
-                    rocksdb_write_buffer_size_str);
-    return true;
-  }
-  else
-    return false;
-}
-
-
-static int
-rocksdb_target_file_size_base_validate(THD* thd,
-                                       struct st_mysql_sys_var* var,
-                                       void* save,
-                                       struct st_mysql_value* value)
+                                 void* save,
+                                 struct st_mysql_value* value)
 {
   /* The option is read-only, it should never be updated */
   DBUG_ASSERT(0);
@@ -161,28 +103,13 @@ rocksdb_target_file_size_base_validate(THD* thd,
 
 
 static void
-rocksdb_target_file_size_base_update(THD* thd,
-                                     struct st_mysql_sys_var* var,
-                                     void* var_ptr,
-                                     const void* save)
+rocksdb_cf_options_file_update(THD* thd,
+                               struct st_mysql_sys_var* var,
+                               void* var_ptr,
+                               const void* save)
 {
   /* The option is read-only, it should never be updated */
   DBUG_ASSERT(0);
-}
-
-
-static bool rocksdb_parse_target_file_size_base_arg()
-{
-  target_file_size_base_map.default_val= ROCKSDB_TARGET_FILE_SIZE_BASE_DEFAULT;
-  if (parse_per_cf_numeric(rocksdb_target_file_size_base_str,
-                           &target_file_size_base_map))
-  {
-    sql_print_error("RocksDB: Invalid value for rocksdb_target_file_size_base: %s",
-                    rocksdb_target_file_size_base_str);
-    return true;
-  }
-  else
-    return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -215,13 +142,6 @@ static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   NULL, NULL, /* RocksDB's default is 8 MB: */ 8*1024*1024L,
   /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
 
-static MYSQL_SYSVAR_STR(write_buffer_size, rocksdb_write_buffer_size_str,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "options.write_buffer_size for RocksDB (Can also be set per-column family)",
-  rocksdb_write_buffer_size_validate,
-  rocksdb_write_buffer_size_update, "4194304" /* default is 4 MB for default CF */);
-const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
-
 static MYSQL_SYSVAR_STR(db_options, rocksdb_db_options,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "db options for RocksDB",
@@ -232,23 +152,13 @@ static MYSQL_SYSVAR_STR(default_cf_options, rocksdb_default_cf_options,
   "default cf options for RocksDB",
   NULL, NULL, "");
 
-static MYSQL_SYSVAR_STR(target_file_size_base,
-  rocksdb_target_file_size_base_str,
+static MYSQL_SYSVAR_STR(cf_options_file, rocksdb_cf_options_file,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "options.target_file_size_base for RocksDB (Can also be set per-column family)",
-  rocksdb_target_file_size_base_validate,
-  rocksdb_target_file_size_base_update,
-  "2097152" /* default is 2 MB for default CF */);
-const int ROCKSDB_TARGET_FILE_SIZE_BASE_DEFAULT=2097152;
+  "path to cnf file with cf options for RocksDB",
+  rocksdb_cf_options_file_validate,
+  rocksdb_cf_options_file_update, "");
 
-#if 0
-static MYSQL_SYSVAR_INT(target_file_size_base,
-  rocksdb_target_file_size_base,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "options.target_file_size_base for RocksDB",
-  NULL, NULL, /* RocksDB's default is 2 MB: */ 2*1024*1024L,
-  /* min */ 1024L, /* max */ INT_MAX, /* Block size */1024L);
-#endif
+const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(lock_wait_timeout),
@@ -257,10 +167,9 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(bulk_load_size),
 
   MYSQL_SYSVAR(block_cache_size),
-  MYSQL_SYSVAR(write_buffer_size),
   MYSQL_SYSVAR(db_options),
   MYSQL_SYSVAR(default_cf_options),
-  MYSQL_SYSVAR(target_file_size_base),
+  MYSQL_SYSVAR(cf_options_file),
 
   NULL
 };
@@ -651,12 +560,7 @@ static bool rocksdb_show_status(handlerton*		hton,
 
 void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts)
 {
-  *opts= default_cf_opts;
-  int tfsb= target_file_size_base_map.get_val(cf_name.c_str());
-  size_t wbs= write_buffer_size_map.get_val(cf_name.c_str());
-
-  opts->write_buffer_size= wbs;
-  opts->target_file_size_base= tfsb;
+  rocksdb_cf_options_map.Get(cf_name, opts);
 }
 
 /*
@@ -670,13 +574,6 @@ static int rocksdb_init_func(void *p)
 #ifdef HAVE_PSI_INTERFACE
   init_rocksdb_psi_keys();
 #endif
-
-  /* Parse command-line option values */
-  if (rocksdb_parse_write_buffer_size_arg() ||
-      rocksdb_parse_target_file_size_base_arg())
-  {
-    DBUG_RETURN(1);
-  }
 
   rocksdb_hton= (handlerton *)p;
   mysql_mutex_init(ex_key_mutex_example, &rocksdb_mutex, MY_MUTEX_INIT_FAST);
@@ -746,8 +643,7 @@ static int rocksdb_init_func(void *p)
 
   default_cf_opts.comparator= &rocksdb_pk_comparator;
 
-  default_cf_opts.write_buffer_size= write_buffer_size_map.get_default_val();
-  default_cf_opts.target_file_size_base= target_file_size_base_map.get_default_val();
+  default_cf_opts.write_buffer_size = ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
   rocksdb::BlockBasedTableOptions table_options;
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
@@ -760,10 +656,10 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
-  if (!rocksdb::GetColumnFamilyOptionsFromString(
-        default_cf_opts,
-        std::string(rocksdb_default_cf_options),
-        &default_cf_opts)) {
+  if (!rocksdb_cf_options_map.SetDefault(
+        std::string(rocksdb_default_cf_options)) ||
+      !rocksdb_cf_options_map.ParseConfigFile(
+        std::string(rocksdb_cf_options_file))) {
     DBUG_RETURN(1);
   }
 
