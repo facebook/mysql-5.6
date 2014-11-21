@@ -25,27 +25,23 @@ confirm sql_log_bin can be set
 set global process_can_disable_bin_log=1;
 show global variables like "sql_log_bin";
 Variable_name	Value
-sql_log_bin	ON
 show session variables like "sql_log_bin";
 Variable_name	Value
 sql_log_bin	ON
 set session sql_log_bin=0;
 show global variables like "sql_log_bin";
 Variable_name	Value
-sql_log_bin	ON
 show session variables like "sql_log_bin";
 Variable_name	Value
 sql_log_bin	OFF
 show global variables like "sql_log_bin";
 Variable_name	Value
-sql_log_bin	ON
 show session variables like "sql_log_bin";
 Variable_name	Value
 sql_log_bin	ON
 set session sql_log_bin=1;
 show global variables like "sql_log_bin";
 Variable_name	Value
-sql_log_bin	ON
 show session variables like "sql_log_bin";
 Variable_name	Value
 sql_log_bin	ON
@@ -60,7 +56,6 @@ ERROR 42000: Access denied; you need (at least one of) the SUPER privilege(s) fo
 set global process_can_disable_bin_log=1;
 show global variables like "sql_log_bin";
 Variable_name	Value
-sql_log_bin	ON
 show session variables like "sql_log_bin";
 Variable_name	Value
 sql_log_bin	ON
