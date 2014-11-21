@@ -468,6 +468,7 @@ typedef struct GENERAL_NAME {
     int type;
     union {
         ASN1_STRING* ia5;
+        ASN1_STRING* dNSName;
     } d;
 } GENERAL_NAME;
 

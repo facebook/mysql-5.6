@@ -560,7 +560,7 @@ net_write_command_nonblocking(NET *net, uchar command,
 
   switch (net->async_operation) {
     case NET_ASYNC_OP_IDLE:
-      MYSQL_NET_WRITE_START(len);
+      MYSQL_NET_WRITE_START((prefix_len + packet_len));
       if (!begin_packet_write_state(net, command, packet, packet_len, prefix, prefix_len)) {
         *res = 0;
         goto done;
