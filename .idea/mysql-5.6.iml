@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Debug/libmysql/libmysql_exports_file.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Debug/libmysql/libmysql_exports_file.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Debug/sql/sql_builtin.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Debug/sql/sql_builtin.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/MinSizeRel/libmysql/libmysql_exports_file.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/MinSizeRel/libmysql/libmysql_exports_file.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/MinSizeRel/sql/sql_builtin.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/MinSizeRel/sql/sql_builtin.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/RelWithDebInfo/libmysql/libmysql_exports_file.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/RelWithDebInfo/libmysql/libmysql_exports_file.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/RelWithDebInfo/sql/sql_builtin.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/RelWithDebInfo/sql/sql_builtin.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Release/libmysql/libmysql_exports_file.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Release/libmysql/libmysql_exports_file.cc" isTestSource="false" />
+    </content>
+    <content url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Release/sql/sql_builtin.cc">
+      <sourceFolder url="file://$USER_HOME$/Library/Caches/clion10/cmake/generated/ed386ee6/ed386ee6/Release/sql/sql_builtin.cc" isTestSource="false" />
+    </content>
+    <content url="file://$MODULE_DIR$" />
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+
