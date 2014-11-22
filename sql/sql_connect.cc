@@ -174,7 +174,8 @@ int check_for_max_user_connections(THD *thd, USER_CONN *uc, bool *global_max)
   mysql_mutex_lock(&LOCK_user_conn);
   if (global_system_variables.max_user_connections &&
       !uc->user_resources.user_conn &&
-      global_system_variables.max_user_connections < (uint) uc->connections)
+      global_system_variables.max_user_connections < (uint) uc->connections &&
+      !thd->is_admin_connection())
   {
     my_error(ER_TOO_MANY_USER_CONNECTIONS, MYF(0), uc->user);
     *global_max = true;
@@ -1035,29 +1036,6 @@ end_thread:
     thd= current_thd;
     thd->thread_stack= (char*) &thd;
   }
-}
-
-void handle_connection_within_current_thread(THD *thd)
-{
-  thd->thread_stack= (char*) &thd;
-  if (setup_connection_thread_globals(thd))
-    return;
-
-  if (thd_prepare_connection(thd))
-    goto end_thread;
-
-  while (thd_is_connection_alive(thd))
-  {
-    mysql_audit_release(thd);
-    if (do_command(thd))
-      break;
-  }
-  end_connection(thd);
-
-end_thread:
-  close_connection(thd);
-  thd->release_resources();
-  delete thd;
 }
 
 /* This is a BSD license and covers the changes to the end of the file */
