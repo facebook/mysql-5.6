@@ -336,12 +336,10 @@ arg_cmp_func Arg_comparator::comparator_matrix[5][2] =
 /* static variables */
 
 #ifdef HAVE_PSI_INTERFACE
-#if !defined(EMBEDDED_LIBRARY)
-#if defined(_WIN32) || defined(HAVE_SMEM)
+#if (defined(_WIN32) || defined(HAVE_SMEM)) && !defined(EMBEDDED_LIBRARY)
 static PSI_thread_key key_thread_handle_con_namedpipes;
-#endif /* _WIN32 || HAVE_SMEM */
 static PSI_cond_key key_COND_handler_count;
-#endif /* !EMBEDDED_LIBRARY */
+#endif /* _WIN32 || HAVE_SMEM && !EMBEDDED_LIBRARY */
 
 #if defined(HAVE_SMEM) && !defined(EMBEDDED_LIBRARY)
 static PSI_thread_key key_thread_handle_con_sharedmem;
@@ -564,7 +562,7 @@ volatile sig_atomic_t calling_initgroups= 0; /**< Used in SIGSEGV handler. */
 #endif
 uint mysqld_port, test_flags, select_errors, dropping_tables, ha_open_options;
 uint mysqld_port_timeout;
-uint mysqld_admin_port;
+ulong mysqld_admin_port;
 ulong delay_key_write_options;
 uint protocol_version;
 uint lower_case_table_names;
@@ -1269,10 +1267,9 @@ struct rand_struct sql_rand; ///< used by sql_class.cc:THD::THD()
 
 #ifndef EMBEDDED_LIBRARY
 struct passwd *user_info;
-static pthread_t select_thread;
+static pthread_t select_thread, admin_select_thread;
 static uint thr_kill_signal;
-static mysql_cond_t COND_handler_count;
-static uint handler_count;
+static bool admin_select_thread_running= false;
 #endif
 
 /* OS specific variables */
@@ -1281,6 +1278,8 @@ static uint handler_count;
 #undef   getpid
 #include <process.h>
 
+static mysql_cond_t COND_handler_count;
+static uint handler_count;
 static bool start_mode=0, use_opt_args;
 static int opt_argc;
 static char **opt_argv;
@@ -1370,8 +1369,9 @@ static int init_thread_environment();
 static char *get_relative_path(const char *path);
 static int fix_paths(void);
 void handle_connections_sockets(bool admin);
-pthread_handler_t handle_connections_admin_sockets_thread(void *arg);
+#ifdef _WIN32
 pthread_handler_t handle_connections_sockets_thread(void *arg);
+#endif
 pthread_handler_t kill_server_thread(void *arg);
 static void bootstrap(MYSQL_FILE *file);
 static bool read_init_file(char *file_name);
@@ -1421,6 +1421,10 @@ static void close_connections(void)
                       (ulong) select_thread));
   mysql_mutex_lock(&LOCK_thread_count);
 
+  /* the select thread will always wait for admin thread to exit
+     so select_thread_in_use won't be set to false if
+     admin_select_thread_running is still true */
+  int kill_ret = 0, kill_admin_ret = 0;
   while (select_thread_in_use)
   {
     struct timespec abstime;
@@ -1429,7 +1433,16 @@ static void close_connections(void)
     DBUG_PRINT("info",("Waiting for select thread"));
 
 #ifndef DONT_USE_THR_ALARM
-    if (pthread_kill(select_thread, thr_client_alarm))
+
+    if (!kill_admin_ret && admin_select_thread_running)
+      kill_admin_ret = pthread_kill(admin_select_thread, thr_client_alarm);
+
+    if (!kill_ret)
+      kill_ret = pthread_kill(select_thread, thr_client_alarm);
+
+    if (kill_ret &&
+        (!admin_select_thread_running ||
+         (admin_select_thread_running && kill_admin_ret)))
       break;          // allready dead
 #endif
     set_timespec(abstime, 2);
@@ -1654,14 +1667,15 @@ static void close_connections(void)
 }
 
 #ifdef HAVE_CLOSE_SERVER_SOCK
-static void close_socket(MYSQL_SOCKET sock, const char *info)
+static void close_socket(MYSQL_SOCKET *sock, const char *info)
 {
   DBUG_ENTER("close_socket");
-
-  if (mysql_socket_getfd(sock) != INVALID_SOCKET)
+  MYSQL_SOCKET tmp_sock = *sock;
+  if (mysql_socket_getfd(tmp_sock) != INVALID_SOCKET)
   {
+    *sock = MYSQL_INVALID_SOCKET;
     DBUG_PRINT("info", ("calling shutdown on %s socket", info));
-    (void) mysql_socket_shutdown(sock, SHUT_RDWR);
+    (void) mysql_socket_shutdown(tmp_sock, SHUT_RDWR);
   }
   DBUG_VOID_RETURN;
 }
@@ -1672,9 +1686,9 @@ static void close_server_sock()
 #ifdef HAVE_CLOSE_SERVER_SOCK
   DBUG_ENTER("close_server_sock");
 
-  close_socket(ip_sock, "TCP/IP");
-  close_socket(admin_ip_sock, "TCP/IP");
-  close_socket(unix_sock, "unix/IP");
+  close_socket(&ip_sock, "TCP/IP");
+  close_socket(&admin_ip_sock, "TCP/IP");
+  close_socket(&unix_sock, "unix/IP");
 
   if (mysql_socket_getfd(unix_sock) != INVALID_SOCKET)
   {
@@ -5743,23 +5757,9 @@ static void handle_connections_methods()
                                     &hThread, &connection_attrib,
                                     handle_connections_sockets_thread, 0)))
     {
-      sql_print_warning("Can't create thread to handle TCP/IP (errno= %d)",
-                        error);
+      sql_print_warning("Can't create thread to handle TCP/IP"
+                        " (errno= %d)", error);
       handler_count--;
-    }
-
-    if (mysql_socket_getfd(admin_ip_sock) != INVALID_SOCKET)
-    {
-      handler_count++;
-      if ((error= mysql_thread_create(key_thread_handle_con_admin_sockets,
-                                      &hThread, &connection_attrib,
-                                      handle_connections_admin_sockets_thread,
-                                      0)))
-      {
-        sql_print_warning("Can't create thread to handle TCP/IP for admin "
-                          "(errno= %d)", error);
-        handler_count--;
-      }
     }
   }
 #ifdef HAVE_SMEM
@@ -5796,38 +5796,61 @@ void decrement_handler_count()
 #endif /* defined(_WIN32) || defined(HAVE_SMEM) */
 
 #if (!defined(_WIN32) && !defined(HAVE_SMEM) && !defined(EMBEDDED_LIBRARY))
+
+pthread_handler_t handle_connections_admin_sockets_thread(void *arg)
+{
+  sql_print_information("admin socket thread starting");
+
+  my_thread_init();
+  handle_connections_sockets(true);
+
+  sql_print_information("admin socket thread exiting");
+
+  mysql_mutex_lock(&LOCK_thread_count);
+
+  DBUG_ASSERT(admin_select_thread_running);
+  admin_select_thread_running = false;
+  my_thread_end();
+
+  mysql_cond_broadcast(&COND_thread_count);
+  mysql_mutex_unlock(&LOCK_thread_count);
+
+  pthread_exit(0);
+  return 0;
+}
+
 static void handle_connections_sockets_all()
 {
   DBUG_ENTER("handle_connections_sockets_all");
 
   mysql_mutex_lock(&LOCK_thread_count);
-  mysql_cond_init(key_COND_handler_count, &COND_handler_count, NULL);
-  handler_count=0;
 
   // handle admin connections in a separate thread.
   if (mysql_socket_getfd(admin_ip_sock) != INVALID_SOCKET &&
       !opt_disable_networking)
   {
-    pthread_t hThread;
     int error;
-    handler_count++;
+    DBUG_ASSERT(!admin_select_thread_running);
+    admin_select_thread_running = true;
     if ((error= mysql_thread_create(key_thread_handle_con_admin_sockets,
-                                    &hThread, &connection_attrib,
+                                    &admin_select_thread, &connection_attrib,
                                     handle_connections_admin_sockets_thread,0)))
     {
-      sql_print_warning("Can't create thread to handle TCP/IP for admin "
-                        "(errno= %d)", error);
-      handler_count--;
+      sql_print_error("Can't create thread to handle TCP/IP for admin "
+                      "(errno= %d)", error);
+      admin_select_thread_running = false;
     }
   }
   mysql_mutex_unlock(&LOCK_thread_count);
 
+  // handle regular connections to UNIX socket and TCP socket in main thread.
   handle_connections_sockets(false);
 
   mysql_mutex_lock(&LOCK_thread_count);
 
-  while (handler_count > 0)
-    mysql_cond_wait(&COND_handler_count, &LOCK_thread_count);
+  // waitting for admin select thread exit
+  while (admin_select_thread_running)
+    mysql_cond_wait(&COND_thread_count, &LOCK_thread_count);
   mysql_mutex_unlock(&LOCK_thread_count);
   DBUG_VOID_RETURN;
 }
@@ -6858,7 +6881,8 @@ static void create_new_thread(THD *thd)
 
   mysql_mutex_lock(&LOCK_connection_count);
 
-  if (connection_count >= max_connections + 1 || abort_loop)
+  if (((connection_count >= max_connections + 1) &&
+       (!thd->is_admin_connection())) || abort_loop)
   {
     mysql_mutex_unlock(&LOCK_connection_count);
 
@@ -7200,35 +7224,22 @@ void handle_connections_sockets(bool admin)
       thd->security_ctx->set_host((char*) my_localhost);
 
     if (admin)
-    {
       thd->set_admin_connection();
-      handle_connection_within_current_thread(thd);
-    }
-    else
-    {
-      create_new_thread(thd);
-    }
+
+    create_new_thread(thd);
   }
   DBUG_VOID_RETURN;
 }
 
-pthread_handler_t handle_connections_admin_sockets_thread(void *arg)
-{
-  my_thread_init();
-  handle_connections_sockets(true);
-  decrement_handler_count();
-  return 0;
-}
-
+#ifdef _WIN32
 pthread_handler_t handle_connections_sockets_thread(void *arg)
 {
   my_thread_init();
-  handle_connections_sockets(false);
+  handle_connections_sockets();
   decrement_handler_count();
   return 0;
 }
 
-#ifdef _WIN32
 pthread_handler_t handle_connections_namedpipes(void *arg)
 {
   HANDLE hConnectedPipe;
@@ -7801,10 +7812,6 @@ struct my_option my_long_options[]=
    &abort_slave_event_count,  &abort_slave_event_count,
    0, GET_INT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
 #endif /* HAVE_REPLICATION */
-  {"admin-port", OPT_ADMIN_PORT,
-   "Port number to use for connections from admin.",
-   &mysqld_admin_port, &mysqld_admin_port,
-   0, GET_UINT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"allow-suspicious-udfs", 0,
    "Allows use of UDFs consisting of only one symbol xxx() "
    "without corresponding xxx_init() or xxx_deinit(). That also means "
@@ -10581,9 +10588,9 @@ PSI_cond_key key_gtid_ensure_index_cond;
 
 static PSI_cond_info all_server_conds[]=
 {
-#if !defined(EMBEDDED_LIBRARY)
+#if (defined(_WIN32) || defined(HAVE_SMEM)) && !defined(EMBEDDED_LIBRARY)
   { &key_COND_handler_count, "COND_handler_count", PSI_FLAG_GLOBAL},
-#endif /* !EMBEDDED_LIBRARY */
+#endif /* _WIN32 || HAVE_SMEM && !EMBEDDED_LIBRARY */
 #ifdef HAVE_MMAP
   { &key_PAGE_cond, "PAGE::cond", 0},
   { &key_COND_active, "TC_LOG_MMAP::COND_active", 0},
