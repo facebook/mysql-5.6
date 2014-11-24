@@ -822,12 +822,11 @@ Variable_name	Value
 rocksdb_block_cache_size	8388608
 rocksdb_bulk_load	OFF
 rocksdb_bulk_load_size	1000
+rocksdb_cf_options_file	
 rocksdb_db_options	
 rocksdb_default_cf_options	
 rocksdb_lock_wait_timeout	1
 rocksdb_max_row_locks	1073741824
-rocksdb_target_file_size_base	2097152
-rocksdb_write_buffer_size	4194304
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
