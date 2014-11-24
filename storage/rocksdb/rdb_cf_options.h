@@ -18,7 +18,7 @@
 #include <unordered_map>
 
 namespace rocksdb {
-  class ColumnFamilyOptions;
+class ColumnFamilyOptions;
 }
 
 /*
@@ -31,13 +31,13 @@ namespace rocksdb {
     families not found in the map.
 */
 class Cf_options {
-public:
+ public:
   void Get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
   bool SetDefault(const std::string &default_config);
   bool ParseConfigFile(const std::string &path);
 
-private:
+ private:
   typedef std::unordered_map<std::string, std::string> NameToConfig;
 
   /* cf_name -> value map */

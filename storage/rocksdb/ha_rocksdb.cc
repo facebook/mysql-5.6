@@ -35,7 +35,7 @@
 #include "rdb_cf_manager.h"
 
 #include "rocksdb/table.h"
-#include "utilities/convenience.h"
+#include "rocksdb/utilities/convenience.h"
 
 /* This is here to get PRIu64, PRId64 */
 #ifndef __STDC_FORMAT_MACROS
