@@ -578,6 +578,103 @@ int ha_partition::rename_table(const char *from, const char *to)
   DBUG_RETURN(del_ren_table(from, to));
 }
 
+/*
+  Defragment table
+
+  SYNOPSIS
+    defragment_table()
+    name                   Table name
+    index_name             Index name
+    async                  Whether to wait until finish (If async is true, then defragmentation will be run parallel as many as partition count)
+    alter_info             Altering info for partition selection
+
+  RETURN VALUES
+    >0                Error
+    0                 Success
+*/
+int ha_partition::defragment_table(const char* name, const char* index_name, bool async, Alter_info* alter_info)
+{
+	uint i = 0;
+	bool error= false;
+	char part_name_buff[FN_REFLEN];
+	uint num_parts= m_part_info->partitions.elements;
+	uint num_subparts= m_part_info->num_subparts;
+	uint req_parts = 0;
+
+	List_iterator<partition_element> part_it(m_part_info->partitions);
+
+	DBUG_ENTER("ha_partition::defragment");
+
+	if(alter_info){
+		req_parts = alter_info->defrag_parts.elements;
+	}
+
+	do
+	{
+		partition_element *part_elem= part_it++;
+		if (m_is_sub_partitioned)
+		{
+			List_iterator<partition_element> sub_it(part_elem->subpartitions);
+			uint j= 0, part;
+			do
+			{
+				bool skip = false;
+				partition_element *sub_elem= sub_it++;
+				part= i * num_subparts + j;
+
+				if(req_parts>0){
+					skip = true;
+					String* req_part_name;
+					List_iterator<String> req_part_it(alter_info->defrag_parts);
+					while((req_part_name= req_part_it++))
+					{
+						const char* req_part_name_cptr = req_part_name->c_ptr();
+						if(!my_strcasecmp(system_charset_info, sub_elem->partition_name, req_part_name_cptr))
+						{
+							skip = false;
+							break;
+						}
+					}
+				}
+
+				if(!skip)
+				{
+					create_subpartition_name(part_name_buff, name, part_elem->partition_name, sub_elem->partition_name, NORMAL_PART_NAME);
+					if (m_file[part]->ha_defragment_table(part_name_buff, index_name, async, NULL))
+						error= true;
+				}
+			} while (!error && ++j < num_subparts);
+		}
+		else
+		{
+			bool skip = false;
+
+			if(req_parts>0){
+				skip = true;
+				String* req_part_name;
+				List_iterator<String> req_part_it(alter_info->defrag_parts);
+				while((req_part_name= req_part_it++))
+				{
+					const char* req_part_name_cptr = req_part_name->c_ptr();
+					if(!my_strcasecmp(system_charset_info, part_elem->partition_name, req_part_name_cptr))
+					{
+						skip = false;
+						break;
+					}
+				}
+			}
+
+			if(!skip)
+			{
+				create_partition_name(part_name_buff, name, part_elem->partition_name, NORMAL_PART_NAME, TRUE);
+				if (m_file[i]->ha_defragment_table(part_name_buff, index_name, async, NULL))
+					error= true;
+			}
+		}
+	} while (!error && ++i < num_parts);
+
+	DBUG_RETURN(error);
+}
 
 /*
   Create the handler file (.par-file)
