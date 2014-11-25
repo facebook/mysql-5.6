@@ -3229,6 +3229,12 @@ int Log_event::apply_event(Relay_log_info *rli)
             trans_commit_stmt(thd);
           }
           reset_dynamic(&rli->gtid_infos);
+          // Table map events are required for row log events even if
+          // the current transaction needs to be skipped. Table map events
+          // don't modify any data, so this event is safe to
+          // apply multiple times.
+          if (get_type_code() == TABLE_MAP_EVENT)
+            break;
           DBUG_RETURN(0);
         }
       }
@@ -3242,14 +3248,13 @@ int Log_event::apply_event(Relay_log_info *rli)
     }
   }
 
-  /**
-     Rows_log_event which come after a Table_map event doesn't contain any
-     partition info. They should be skipped if the table_map event was
-     skipped.
-  */
-  if (seq_execution && !rli->gtid_infos.elements &&
-      gtid_mode > 0 && is_row_log_event())
-    DBUG_RETURN(0);
+  if (is_row_log_event())
+  {
+    Rows_log_event *row_ev = (Rows_log_event *) this;
+    if (seq_execution && !rli->gtid_infos.elements &&
+        gtid_mode > 0)
+      row_ev->m_binlog_only = TRUE;
+  }
 
   if (rli->is_mts_recovery())
   {
@@ -11496,6 +11501,26 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
       when restarting.
      */
     const_cast<Relay_log_info*>(rli)->set_flag(Relay_log_info::IN_STMT);
+
+    if (m_binlog_only)
+    {
+      // We are inside a transaction which should not be applied to
+      // the storage engine, so write these row events to the binlog and exit.
+      // Table map events are necessary before every row event.
+      if (table->file->write_locked_table_maps(thd))
+        DBUG_RETURN(HA_ERR_RBR_LOGGING_FAILED);
+      // Use the table_id of this server.
+      m_table_id = m_table->s->table_map_id;
+      error = mysql_bin_log.write_event(this,
+                                        Log_event::EVENT_TRANSACTIONAL_CACHE);
+      if (get_flags(STMT_END_F) && !error &&
+          !(error = rows_event_stmt_cleanup(rli, thd)))
+      {
+        // This is end row update in the current statment.
+        thd->clear_binlog_table_maps();
+      }
+      DBUG_RETURN(error);
+    }
 
      if ( m_width == table->s->fields && bitmap_is_set_all(&m_cols))
       set_flags(COMPLETE_ROWS_F);

@@ -2,6 +2,11 @@
 -- source include/master-slave.inc
 -- source include/have_innodb.inc
 -- source include/have_debug.inc
+# Writing skipped row log events require table map events.
+# But this test generates the scenario where slave skips a transaction
+# on a table which has already been dropped, so sql_thread fails
+# finding the dropped table.
+-- source include/have_binlog_format_statement.inc
 
 
 connection master;
