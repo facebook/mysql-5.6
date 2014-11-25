@@ -6934,13 +6934,17 @@ uchar *Field_string::pack(uchar *to, const uchar *from,
            (this is for not packing padding adding bytes in BINARY 
            fields).
   */
-  if (field_charset->mbmaxlen == 1)
+  if (key_type() != HA_KEYTYPE_BINARY)
   {
-    while (length && from[length-1] == field_charset->pad_char)
-      length --;
+    if (field_charset->mbmaxlen == 1)
+    {
+      while (length && from[length-1] == field_charset->pad_char)
+        length --;
+    }
+    else
+      length = field_charset->cset->lengthsp(field_charset,
+                                             (const char*) from, length);
   }
-  else
-    length= field_charset->cset->lengthsp(field_charset, (const char*) from, length);
 
   // Length always stored little-endian
   *to++= (uchar) length;
