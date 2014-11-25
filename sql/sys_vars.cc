@@ -2407,7 +2407,8 @@ static bool check_read_only(sys_var *self, THD *thd, set_var *var)
     return true;
   }
 
-  if (var && !var->save_result.ulonglong_value && is_slave && read_only_slave)
+  if (var && !var->save_result.ulonglong_value && is_slave && read_only_slave &&
+      !strcmp(self->name.str, "read_only"))
   {
     my_error(ER_READ_ONLY_SLAVE, MYF(0));
     return true;
