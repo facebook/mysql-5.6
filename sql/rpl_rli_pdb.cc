@@ -2272,11 +2272,18 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     }
   }
 
-  if (!worker->worker_gtid_infos.elements && gtid_mode > 0
-      && ev->is_row_log_event())
-    skip_event = true;
+  if (ev->is_row_log_event())
+  {
+    Rows_log_event *row_ev = (Rows_log_event *) ev;
+    if (!worker->worker_gtid_infos.elements && gtid_mode > 0)
+      row_ev->m_binlog_only = TRUE;
+  }
 
-  if (!skip_event)
+  // Table map events are required for row log events even if
+  // the current transaction needs to be skipped in storage engine.
+  // Table map events don't modify any data, so this event is safe to apply
+  // multiple times.
+  if (!skip_event || ev->get_type_code() == TABLE_MAP_EVENT)
     error= ev->do_apply_event_worker(worker);
 
   if (is_gtid_event(ev))

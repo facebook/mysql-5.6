@@ -4540,6 +4540,11 @@ private:
 #endif /* defined(MYSQL_SERVER) && defined(HAVE_REPLICATION) */
 
   friend class Old_rows_log_event;
+
+public:
+  // This variable is set to TRUE for row log events which needs be logged
+  // to binlog but should not be applied to the storage engine.
+  my_bool m_binlog_only = FALSE;
 };
 
 /**
