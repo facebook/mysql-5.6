@@ -11,6 +11,10 @@ select @@global.read_only;
 --error ER_READ_ONLY_SLAVE
 set @@global.read_only=0;
 
+# Verify super_read_only to ON/OFF succeeds.
+set @@global.super_read_only=1;
+set @@global.super_read_only=0;
+
 # Verify setting read_only to 0 succeeds if read_only_slave is OFF
 set @@global.read_only_slave=0;
 set @@global.read_only=0;
