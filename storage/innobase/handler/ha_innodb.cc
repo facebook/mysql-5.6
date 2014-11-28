@@ -18503,7 +18503,7 @@ static MYSQL_SYSVAR_ULONG(api_bk_commit_interval, ib_bk_commit_interval,
 static MYSQL_SYSVAR_STR(change_buffering, innobase_change_buffering,
   PLUGIN_VAR_RQCMDARG,
   "Buffer changes to reduce random access: "
-  "OFF, ON, inserting, deleting, changing, or purging.",
+  "all, deletes, changes, inserts, none, purges.",
   innodb_change_buffering_validate,
   innodb_change_buffering_update, "all");
 
