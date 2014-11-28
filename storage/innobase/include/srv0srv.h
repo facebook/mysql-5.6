@@ -160,19 +160,31 @@ struct srv_stats_t {
 /* Struct for specifying which types of status information to return */
 
 struct srv_monitor_stats_types {
-	ibool trx;
-	ibool trx_detailed;
-	ibool background_thread;
-	ibool file;
-	ibool fk;
-	ibool insbuffer;
-	ibool log;
-	ibool memory;
-	ibool row_operations;
-	ibool semaphores;
-	ibool tablespace;
-};
+	bool trx = false;
+	bool background_thread = false;
+	bool file = false;
+	bool fk = false;
+	bool insbuffer = false;
+	bool log = false;
+	bool memory = false;
+	bool row_operations = false;
+	bool semaphores = false;
+	bool tablespace = false;
 
+	srv_monitor_stats_types& set_all() {
+		trx = true;
+		background_thread = true;
+		file = true;
+		fk = true;
+		insbuffer = true;
+		log = true;
+		memory = true;
+		row_operations = true;
+		semaphores = true;
+		tablespace = true;
+		return *this;
+	}
+};
 extern const char*	srv_main_thread_op_info;
 
 /** Prefix used by MySQL to indicate pre-5.1 table name encoding */
@@ -809,8 +821,9 @@ srv_printf_innodb_monitor(
 	FILE*	file,		/*!< in: output stream */
 	ibool	nowait,		/*!< in: whether to wait for the
 				lock_sys_t::mutex */
-	struct srv_monitor_stats_types include_stats);	/*!< in: types of
-					status info to include */
+	ibool	include_trxs,	/*!< in: include per-transaction output */
+	srv_monitor_stats_types	status_type);	/*!< in: types of status info
+						to include */
 
 /**********************************************************************
 Output for SHOW INNODB TRANSACTION STATUS */

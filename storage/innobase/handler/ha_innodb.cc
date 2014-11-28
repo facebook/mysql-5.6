@@ -13750,21 +13750,10 @@ innodb_show_status(
 	if (stat_type == HA_ENGINE_TRX) {
 		srv_printf_innodb_transaction(srv_monitor_file);
 	} else {
-		struct srv_monitor_stats_types types;
-		memset(&types, 0, sizeof(types));
-
+		srv_monitor_stats_types types;
 		switch (stat_type) {
 		case HA_ENGINE_STATUS:
-			types.background_thread = true;
-			types.file = true;
-			types.fk = true;
-			types.insbuffer = true;
-			types.log = true;
-			types.memory = true;
-			types.row_operations = true;
-			types.semaphores = true;
-			types.tablespace = true;
-			types.trx = true;
+			types = types.set_all();
 			break;
 		case HA_ENGINE_STATUS_BACKGROUND_THREAD:
 			types.background_thread = true;
@@ -13796,7 +13785,8 @@ innodb_show_status(
 		default:
 			break;
 		}
-		srv_printf_innodb_monitor(srv_monitor_file, FALSE, types);
+		srv_printf_innodb_monitor(srv_monitor_file, FALSE,
+					  FALSE, types);
 	}
 
 	os_file_set_eof(srv_monitor_file);

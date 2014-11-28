@@ -1297,13 +1297,14 @@ srv_printf_innodb_monitor(
 	FILE*	file,		/*!< in: output stream */
 	ibool	nowait,		/*!< in: whether to wait for the
 				lock_sys_t:: mutex */
-	srv_monitor_stats_types include_stats)	/*!< in: types of status info to
-				include */
+	ibool	include_trxs,	/*!< in: include per-transaction output */
+	srv_monitor_stats_types	status_type)	/*!< in: types of status info
+						to include */
 {
 	double	time_elapsed;
 	time_t	current_time;
 	ulint	n_reserved;
-	ibool	ret;
+	ibool	ret = TRUE;
 
 	mutex_enter(&srv_innodb_monitor_mutex);
 
@@ -1327,25 +1328,26 @@ srv_printf_innodb_monitor(
 		"Per second averages calculated from the last %lu seconds\n",
 		(ulong) time_elapsed);
 
-	if (include_stats.background_thread) {
+	if (status_type.background_thread) {
 		fputs("-----------------\n"
 		      "BACKGROUND THREAD\n"
 		      "-----------------\n", file);
 		srv_print_master_thread_info(file);
 	}
 
-	if (include_stats.semaphores) {
+	if (status_type.semaphores) {
 		fputs("----------\n"
 		      "SEMAPHORES\n"
 		      "----------\n", file);
 		sync_print(file);
 	}
 
-	if (include_stats.fk) {
+	if (status_type.fk) {
 		/* Conceptually, srv_innodb_monitor_mutex has a very high
-    latching order level in sync0sync.h, while dict_foreign_err_mutex
-    has a very low level 135. Therefore we can reserve the latter
-    mutex here without a danger of a deadlock of threads. */
+		latching order level in sync0sync.h, while
+		dict_foreign_err_mutex has a very low level 135. Therefore we
+		can reserve the latter mutex here without a danger of a deadlock
+		of threads. */
 
 		mutex_enter(&dict_foreign_err_mutex);
 
@@ -1359,42 +1361,40 @@ srv_printf_innodb_monitor(
 		mutex_exit(&dict_foreign_err_mutex);
 	}
 
-	if (include_stats.trx) {
+	if (status_type.trx) {
 		/* Only if lock_print_info_summary proceeds correctly,
 		before we call the lock_print_info_all_transactions
 		to print all the lock information. IMPORTANT NOTE: This
 		function acquires the lock mutex on success. */
 		ret = lock_print_info_summary(file, nowait);
 
-		if (include_stats.trx_detailed && ret) {
+		if (include_trxs && ret) {
 			/* NOTE: If we get here then we have the lock mutex.
-      This function will release the lock mutex that we
-      acquired when we called the lock_print_info_summary()
-      function earlier. */
+			This function will release the lock mutex that we
+			acquired when we called the lock_print_info_summary()
+			function earlier. */
 
 			lock_print_info_all_transactions(file);
 		} else if (ret) {
 			lock_mutex_exit();
 		}
-	} else {
-    ret = TRUE;
-  }
+	}
 
-	if (include_stats.file) {
+	if (status_type.file) {
 		fputs("--------\n"
 		      "FILE I/O\n"
 		      "--------\n", file);
 		os_aio_print(file);
 	}
 
-	if (include_stats.tablespace) {
+	if (status_type.tablespace) {
 		fputs("--------------\n"
 		      "TABLESPACE I/O\n"
 		      "--------------\n", file);
 		fil_print(file);
 	}
 
-	if (include_stats.insbuffer) {
+	if (status_type.insbuffer) {
 		fputs("-------------------------------------\n"
 		      "INSERT BUFFER AND ADAPTIVE HASH INDEX\n"
 		      "-------------------------------------\n", file);
@@ -1414,14 +1414,14 @@ srv_printf_innodb_monitor(
 	btr_cur_n_sea_old = btr_cur_n_sea;
 	btr_cur_n_non_sea_old = btr_cur_n_non_sea;
 
-	if (include_stats.log) {
+	if (status_type.log) {
 		fputs("---\n"
 		      "LOG\n"
 		      "---\n", file);
 		log_print(file);
 	}
 
-	if (include_stats.memory) {
+	if (status_type.memory) {
 		fputs("----------------------\n"
 		      "BUFFER POOL AND MEMORY\n"
 		      "----------------------\n", file);
@@ -1436,14 +1436,14 @@ srv_printf_innodb_monitor(
 		buf_print_io(file);
 	}
 
-	if (include_stats.row_operations) {
+	if (status_type.row_operations) {
 		fputs("--------------\n"
 		      "ROW OPERATIONS\n"
 		      "--------------\n", file);
 		fprintf(file, "%ld queries inside InnoDB, %lu queries"
-        "in queue\n",
-			(long) srv_conc_get_active_threads(),
-			srv_conc_get_waiting_threads());
+				"in queue\n",
+				(long) srv_conc_get_active_threads(),
+				srv_conc_get_waiting_threads());
 
 		/* This is a dirty read, without holding trx_sys->mutex. */
 		fprintf(file, "%lu read views open inside InnoDB\n",
@@ -1457,17 +1457,17 @@ srv_printf_innodb_monitor(
 				(ulong) n_reserved);
 		}
 
-	#ifdef UNIV_LINUX
+#ifdef UNIV_LINUX
 		fprintf(file, "Main thread process no. %lu, id %lu,"
-        " state: %s\n",
+			" state: %s\n",
 			(ulong) srv_main_thread_process_no,
 			(ulong) srv_main_thread_id,
 			srv_main_thread_op_info);
-	#else
+#else
 		fprintf(file, "Main thread id %lu, state: %s\n",
 			(ulong) srv_main_thread_id,
 			srv_main_thread_op_info);
-	#endif
+#endif
 		fprintf(file,
 			"Number of rows inserted " ULINTPF
 			", updated " ULINTPF ", deleted " ULINTPF
@@ -1480,13 +1480,13 @@ srv_printf_innodb_monitor(
 			"%.2f inserts/s, %.2f updates/s,"
 			" %.2f deletes/s, %.2f reads/s\n",
 			((ulint) srv_stats.n_rows_inserted -
-          srv_n_rows_inserted_old)
+			srv_n_rows_inserted_old)
 			/ time_elapsed,
 			((ulint) srv_stats.n_rows_updated -
-          srv_n_rows_updated_old)
+			srv_n_rows_updated_old)
 			/ time_elapsed,
 			((ulint) srv_stats.n_rows_deleted -
-          srv_n_rows_deleted_old)
+			srv_n_rows_deleted_old)
 			/ time_elapsed,
 			((ulint) srv_stats.n_rows_read - srv_n_rows_read_old)
 			/ time_elapsed);
@@ -2233,6 +2233,7 @@ DECLARE_THREAD(srv_monitor_thread)(
 	time_t		last_monitor_time;
 	ulint		mutex_skipped;
 	ibool		last_srv_print_monitor;
+	srv_monitor_stats_types	types;
 
 	ut_ad(!srv_read_only_mode);
 
@@ -2279,12 +2280,9 @@ loop:
 				last_srv_print_monitor = TRUE;
 			}
 
-			srv_monitor_stats_types types;
-			memset(&types, 0, sizeof(types));
-			types.trx = types.trx_detailed = true;
-			if (!srv_printf_innodb_monitor(stderr,
-						MUTEX_NOWAIT(mutex_skipped),
-						types)) {
+			if (!srv_printf_innodb_monitor(
+				stderr, MUTEX_NOWAIT(mutex_skipped),
+				TRUE, types.set_all())) {
 				mutex_skipped++;
 			} else {
 				/* Reset the counter */
@@ -2301,12 +2299,9 @@ loop:
 		if (!srv_read_only_mode && srv_innodb_status) {
 			mutex_enter(&srv_monitor_file_mutex);
 			rewind(srv_monitor_file);
-			srv_monitor_stats_types types;
-			memset(&types, 0, sizeof(types));
-			types.trx = types.trx_detailed = true;
-			if (!srv_printf_innodb_monitor(srv_monitor_file,
-						MUTEX_NOWAIT(mutex_skipped),
-						types)) {
+			if (!srv_printf_innodb_monitor(
+				srv_monitor_file, MUTEX_NOWAIT(mutex_skipped),
+				TRUE, types.set_all())) {
 				mutex_skipped++;
 			} else {
 				mutex_skipped = 0;
