@@ -2250,6 +2250,37 @@ my_bool page_zip_zlib_wrap = FALSE;
 uint page_zip_zlib_strategy = Z_DEFAULT_STRATEGY;
 
 /***************************************************************//**
+Return the trx_id_col used in compression.
+TODO: Having secondary index leaf return 0 and node_ptr return ULINT_UNDEFINED
+      a hack. Remove this logic later.
+@return cluster index leaf page: trx_id_col
+        secondary index leaf page: 0
+        node_ptr page: ULINT_UNDEFINED
+*/
+ulint inline
+page_zip_get_trx_id_col_for_compression(
+	const page_t*		page,	/*!< in: uncompressed page */
+	const dict_index_t*	index)	/*!< in: index the page belongs to */
+{
+	ulint trx_id_col = ULINT_UNDEFINED;
+	if (UNIV_LIKELY(page_is_leaf(page))) {
+		if (dict_index_is_clust(index)) {
+			trx_id_col = dict_index_get_sys_col_pos(index,
+								DATA_TRX_ID);
+			ut_ad(trx_id_col > 0);
+			ut_ad(trx_id_col != ULINT_UNDEFINED);
+		} else {
+			/* Signal the absence of trx_id
+			in page_zip_fields_encode() */
+			ut_ad(dict_index_get_sys_col_pos(index, DATA_TRX_ID)
+			      == ULINT_UNDEFINED);
+			trx_id_col = 0;
+		}
+	}
+	return trx_id_col;
+}
+
+/***************************************************************//**
 Write the records on the page to the output buffer in a format in which
 they can be recovered one by one after decompression. The uncompressed
 fields of the record -if any- are stored in the compressed page trailer
@@ -2298,36 +2329,23 @@ page_zip_serialize(
 
 	n_dense = page_zip_dir_elems(page_zip);
 
-	if (page_is_leaf(page)) {
-		if (dict_index_is_clust(index)) {
-			trx_id_col = dict_index_get_sys_col_pos(
-				index, DATA_TRX_ID);
-			ut_ad(trx_id_col > 0);
-			ut_ad(trx_id_col != ULINT_UNDEFINED);
-			if (page_zip->compact_metadata) {
-				externs = page_zip_dir_start_low(page_zip,
-								 n_dense)
-					  - 2;
-				mach_write_to_2(externs, 0);
-				trx_rbp_storage = externs;
-				pmh_init(trx_rbp_storage, n_dense);
-			} else {
-				trx_rbp_storage = page_zip_dir_start_low(
-							page_zip, n_dense);
-				externs = trx_rbp_storage
-					  - n_dense * DATA_TRX_RBP_LEN;
-			}
+	trx_id_col = page_zip_get_trx_id_col_for_compression(page, index);
+	if (trx_id_col) {
+		/* leaf page of a primary key, store transaction id,
+		   rollback pointer, and blob pointers */
+		if (page_zip->compact_metadata) {
+			externs = page_zip_dir_start_low(page_zip,
+							 n_dense)
+				  - 2;
+			mach_write_to_2(externs, 0);
+			trx_rbp_storage = externs;
+			pmh_init(trx_rbp_storage, n_dense);
 		} else {
-			/* Signal the absence of trx_id
-			in page_zip_fields_encode() */
-			ut_ad(dict_index_get_sys_col_pos(index, DATA_TRX_ID)
-			      == ULINT_UNDEFINED);
-			trx_id_col = 0;
+			trx_rbp_storage = page_zip_dir_start_low(
+						page_zip, n_dense);
+			externs = trx_rbp_storage
+				  - n_dense * DATA_TRX_RBP_LEN;
 		}
-	} else {
-		/* node ptr page */
-		trx_id_col = ULINT_UNDEFINED;
-		node_ptr_storage = page_zip_dir_start_low(page_zip, n_dense);
 	}
 
 	/* Check if there is enough space on the compressed page for the
@@ -2415,14 +2433,14 @@ page_zip_serialize(
 		if (UNIV_UNLIKELY(trx_id_col == ULINT_UNDEFINED)) {
 			/* node pointer page */
 			/* store the pointers uncompressed */
+			node_ptr_storage = page_zip_dir_start_low(page_zip,
+								  n_dense);
 			memcpy(node_ptr_storage
 			       - REC_NODE_PTR_SIZE * (rec_no + 1),
 			       rec_get_end((rec_t*)rec, offsets)
 			       - REC_NODE_PTR_SIZE,
 			       REC_NODE_PTR_SIZE);
 		} else if (trx_id_col) {
-			/* leaf page of a primary key, store transaction id,
-			   rollback pointer, and blob pointers */
 			page_zip_store_blobs_for_rec(page_zip, index, rec_no,
 						     rec, offsets, externs,
 						     &trx_rbp_storage);
@@ -2530,26 +2548,18 @@ page_zip_compress_zlib_stream(
 	/* Subtract the space reserved for uncompressed data. */
 	/* Page header and the end marker of the modification log */
 	c_stream.avail_out = page_zip_get_size(page_zip) - PAGE_DATA - 1;
+
 	/* Dense page directory and uncompressed columns, if any */
+	trx_id_col = page_zip_get_trx_id_col_for_compression(page, index);
+
 	if (page_is_leaf(page)) {
 		if (dict_index_is_clust(index)) {
-			trx_id_col = dict_index_get_sys_col_pos(
-				index, DATA_TRX_ID);
-			ut_ad(trx_id_col > 0);
-			ut_ad(trx_id_col != ULINT_UNDEFINED);
-
 			slot_size = PAGE_ZIP_DIR_SLOT_SIZE + DATA_TRX_RBP_LEN;
 		} else {
-			/* Signal the absence of trx_id
-			in page_zip_fields_encode() */
-			ut_ad(dict_index_get_sys_col_pos(index, DATA_TRX_ID)
-			      == ULINT_UNDEFINED);
-			trx_id_col = 0;
 			slot_size = PAGE_ZIP_DIR_SLOT_SIZE;
 		}
 	} else {
 		slot_size = PAGE_ZIP_DIR_SLOT_SIZE + REC_NODE_PTR_SIZE;
-		trx_id_col = ULINT_UNDEFINED;
 	}
 
 	if (UNIV_UNLIKELY(c_stream.avail_out <= n_dense * slot_size
@@ -5141,17 +5151,7 @@ page_zip_write_rec(
 	*data++ = (byte) ((rec_no + 1) << 1);
 	ut_ad(!*data);
 
-	if (UNIV_LIKELY(page_is_leaf(page))) {
-		if (dict_index_is_clust(index)) {
-			n_dense = page_zip_dir_elems(page_zip);
-			trx_id_col = dict_index_get_sys_col_pos(index,
-								DATA_TRX_ID);
-		} else {
-			trx_id_col = 0;
-		}
-	} else {
-		trx_id_col = ULINT_UNDEFINED;
-	}
+	trx_id_col = page_zip_get_trx_id_col_for_compression(page, index);
 
 	/* Serialize the record into modification log */
 #ifdef UNIV_DEBUG
@@ -5170,6 +5170,7 @@ page_zip_write_rec(
 		       REC_NODE_PTR_SIZE);
 	} else if (trx_id_col) {
 		/* primary key page */
+		n_dense = page_zip_dir_elems(page_zip);
 		trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
 		if (page_zip->compact_metadata) {
 			trx_rbp_storage -=
