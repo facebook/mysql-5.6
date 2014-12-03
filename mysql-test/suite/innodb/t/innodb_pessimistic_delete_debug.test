@@ -1,4 +1,0 @@
---source include/have_debug.inc
---source suite/innodb/include/innodb_pessimistic_delete.inc
-
-show global status like "Innodb_pessimistic_del_mark";
