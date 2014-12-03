@@ -3041,7 +3041,7 @@ func_start:
 	page_zip = buf_block_get_page_zip(block);
 
 	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
-	ut_a(!page_is_empty(page));
+	ut_ad(!page_is_empty(page));
 
 	/* try to insert to the next page if possible before split */
 	rec = btr_insert_into_right_sibling(
