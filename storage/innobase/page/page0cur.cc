@@ -1240,7 +1240,7 @@ page_cur_insert_rec_zip(
 
 	/* 2. Try to find suitable space from page memory management */
 	if (!page_zip_available(page_zip, dict_index_is_clust(index),
-				rec_size, 1, ULINT_UNDEFINED)
+				rec_size, 1)
 	    || reorg_before_insert) {
 		/* The values can change dynamically. */
 		bool	log_compressed	= page_zip_log_pages;
@@ -1269,7 +1269,7 @@ page_cur_insert_rec_zip(
 
 			if (page_zip_available(
 				    page_zip, dict_index_is_clust(index),
-				    rec_size, 1, ULINT_UNDEFINED)) {
+				    rec_size, 1)) {
 				goto use_heap;
 			}
 
@@ -1288,7 +1288,7 @@ page_cur_insert_rec_zip(
 
 			if (page_zip_available(
 				    page_zip, dict_index_is_clust(index),
-				    rec_size, 1, ULINT_UNDEFINED)) {
+				    rec_size, 1)) {
 				/* After reorganizing, there is space
 				available. */
 				goto use_heap;
