@@ -32,7 +32,6 @@ Created June 2005 by Marko Makela
 #include "page0zip.h"
 #include "mtr0log.h"
 #include "page0page.h"
-#include "pmh0pmh.h"
 
 /* The format of compressed pages is as follows.
 
@@ -111,6 +110,8 @@ In summary, the compressed page looks like this:
 #define PAGE_ZIP_DIR_SLOT_OWNED	0x4000
 /** 'deleted' flag */
 #define PAGE_ZIP_DIR_SLOT_DEL	0x8000
+#define DATA_TRX_RBP_LEN (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
+/* the total length for transaction id and rollback pointer */
 
 /**********************************************************************//**
 Determine the size of a compressed page in bytes.
@@ -226,54 +227,12 @@ page_zip_simple_validate(
 }
 #endif /* UNIV_DEBUG */
 
-/*************************************************************//**
-Gets the number of elements in the dense page directory, including deleted
-records (the free list).
-@return number of elements in the dense page directory */
-UNIV_INLINE
-ulint
-page_zip_dir_elems(
-/*===============*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	/* Exclude the page infimum and supremum from the record count. */
-	return(page_dir_get_n_heap(page_zip->data) - PAGE_HEAP_NO_USER_LOW);
-}
-
-/*************************************************************//**
-Gets the size of the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@return length of dense page directory, in bytes */
-UNIV_INLINE
-ulint
-page_zip_dir_size(
-/*==============*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	return(PAGE_ZIP_DIR_SLOT_SIZE * page_zip_dir_elems(page_zip));
-}
-
-/*************************************************************//**
-Gets an offset to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@return offset of the dense page directory */
-UNIV_INLINE
-ulint
-page_zip_dir_start_offs(
-/*====================*/
-	const page_zip_des_t*	page_zip,	/*!< in: compressed page */
-	ulint			n_dense)	/*!< in: directory size */
-{
-	ut_ad(n_dense * PAGE_ZIP_DIR_SLOT_SIZE < page_zip_get_size(page_zip));
-	return(page_zip_get_size(page_zip) - n_dense * PAGE_ZIP_DIR_SLOT_SIZE);
-}
-
 /**********************************************************************//**
-Determine the length of the page trailer.
+Determine if the length of the page trailer.
 @return length of the page trailer, in bytes, not including the
 terminating zero byte of the modification log */
 UNIV_INLINE
-ulint
+ibool
 page_zip_get_trailer_len(
 /*=====================*/
 	const page_zip_des_t*	page_zip,/*!< in: compressed page */
@@ -282,7 +241,7 @@ page_zip_get_trailer_len(
 	ulint	uncompressed_size;
 	ulint	blob_storage_size = 0;
 	ulint	trx_rbp_size = 0;
-	ulint	n_dense = page_zip_dir_elems(page_zip);
+	ulint	n_dense = page_dir_get_n_heap(page_zip->data) - 2;
 
 	ut_ad(page_zip_simple_validate(page_zip));
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
@@ -293,19 +252,19 @@ page_zip_get_trailer_len(
 	} else if (is_clust) {
 		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE;
 		if (page_zip->compact_metadata) {
-			byte* externs = page_zip_dir_start_low(page_zip,
-							       n_dense)
+			byte* externs = page_zip->data
+					+ page_zip_get_size(page_zip)
+					- n_dense * PAGE_ZIP_DIR_SLOT_SIZE
 					- 2; /* 2 bytes for n_blobs */
 			/* it's important not to use page_zip->n_blobs here
 			   because it might not have been set for compact
 			   metadata format. */
 			ulint n_blobs = mach_read_from_2(externs);
-			byte* trx_rbp_storage =
-				externs
-				- n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
 			blob_storage_size =
 				n_blobs * BTR_EXTERN_FIELD_REF_SIZE + 2;
-			trx_rbp_size = pmh_size(trx_rbp_storage);
+			/* TODO(nizamordulu): trx_rbp_size will change when
+			   we store metadata in a compact format */
+			trx_rbp_size = n_dense * DATA_TRX_RBP_LEN;
 		} else {
 			/* we use page_zip->n_blobs because the non-compact
 			   metadata format does not store the number of blobs
@@ -367,9 +326,6 @@ page_zip_available(
 	ulint			create)	/*!< in: nonzero=add the record to
 					the heap */
 {
-
-	/* TODO: FIX  THIS function for compact metadata because it assumes
-	   all of trx id and rbs will be stored in the trailer */
 	ulint	trailer_len;
 
 	ut_ad(length > REC_N_NEW_EXTRA_BYTES);
@@ -389,15 +345,6 @@ page_zip_available(
 		we may as well count them in the length of the record. */
 
 		trailer_len += PAGE_ZIP_DIR_SLOT_SIZE;
-		if (page_zip->compact_metadata) {
-			/* The minihashmap on  the trailer increases in size
-			   when a new record is added.
-			   TODO(nizamordulu): handling of this case and the
-			   update case for compact metadata will change
-			   substantially when minihashmap is fully
-			   implemented. */
-			trailer_len += PMH_CELL_LEN - DATA_TRX_RBP_LEN;
-		}
 	}
 
 	return(length + trailer_len + page_zip->m_end
