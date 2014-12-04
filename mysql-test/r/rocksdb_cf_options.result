@@ -10,38 +10,48 @@ insert into t3 values (2);
 
 Default options for all column families:
 
+Options.db_write_buffer_size: 0
 Options for column family "default":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10
 Options for column family "cf1":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10
 Options for column family "cf2":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10
 Options for column family "cf3":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10
 
 Individualized options for column families:
 
+Options.db_write_buffer_size: 0
 Options for column family "default":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10
 Options for column family "cf1":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 8388608
 Options.target_file_size_base: 2097152
 Options.max_bytes_for_level_multiplier: 10
 Options for column family "cf2":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 16777216
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 8
 Options for column family "cf3":
+Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10

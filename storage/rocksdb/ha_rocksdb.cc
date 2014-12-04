@@ -241,7 +241,7 @@ static MYSQL_SYSVAR_ULONG(max_manifest_file_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::max_manifest_file_size for RocksDB",
   NULL, NULL, db_options.max_manifest_file_size,
-  /* min */ 0L, /* max */ LONG_MAX, 0);
+  /* min */ 0L, /* max */ ULONG_MAX, 0);
 
 static MYSQL_SYSVAR_INT(table_cache_numshardbits,
   db_options.table_cache_numshardbits,
