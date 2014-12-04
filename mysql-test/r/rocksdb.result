@@ -819,14 +819,43 @@ ERROR 42S02: Unknown table 'test.t45'
 #
 show variables like 'rocksdb%';
 Variable_name	Value
+rocksdb_advise_random_on_open	ON
+rocksdb_allow_mmap_reads	OFF
+rocksdb_allow_mmap_writes	OFF
+rocksdb_allow_os_buffer	ON
 rocksdb_block_cache_size	8388608
 rocksdb_bulk_load	OFF
 rocksdb_bulk_load_size	1000
+rocksdb_bytes_per_sync	0
 rocksdb_cf_options_file	
-rocksdb_db_options	
+rocksdb_create_if_missing	ON
+rocksdb_create_missing_column_families	OFF
+rocksdb_db_write_buffer_size	0
 rocksdb_default_cf_options	
+rocksdb_delete_obsolete_files_period_micros	21600000000
+rocksdb_disabledatasync	OFF
+rocksdb_enable_thread_tracking	OFF
+rocksdb_error_if_exists	OFF
+rocksdb_is_fd_close_on_exec	ON
+rocksdb_keep_log_file_num	1000
 rocksdb_lock_wait_timeout	1
+rocksdb_log_file_time_to_roll	0
+rocksdb_manifest_preallocation_size	4194304
+rocksdb_max_background_compactions	1
+rocksdb_max_background_flushes	1
+rocksdb_max_log_file_size	0
+rocksdb_max_manifest_file_size	18446744073709551615
+rocksdb_max_open_files	5000
 rocksdb_max_row_locks	1073741824
+rocksdb_max_total_wal_size	0
+rocksdb_paranoid_checks	ON
+rocksdb_skip_log_error_on_recovery	OFF
+rocksdb_table_cache_numshardbits	4
+rocksdb_table_cache_remove_scan_count_limit	16
+rocksdb_use_adaptive_mutex	OFF
+rocksdb_use_fsync	OFF
+rocksdb_wal_size_limit_mb	0
+rocksdb_wal_ttl_seconds	0
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
