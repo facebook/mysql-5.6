@@ -55,7 +55,6 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
 ///////////////////////////////////////////////////////////
 extern const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
-static char * rocksdb_db_options;
 static char * rocksdb_default_cf_options;
 static char * rocksdb_cf_options_file;
 Cf_options rocksdb_cf_options_map;
@@ -117,6 +116,15 @@ rocksdb_cf_options_file_update(THD* thd,
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
 
+static rocksdb::DBOptions init_db_options() {
+  rocksdb::DBOptions o;
+  o.create_if_missing = true;
+  o.statistics = rocksdb_stats;
+  return o;
+}
+
+static rocksdb::DBOptions db_options = init_db_options();
+
 //static long long rocksdb_write_buffer_size;
 //static int rocksdb_target_file_size_base;
 
@@ -136,16 +144,207 @@ static MYSQL_THDVAR_ULONG(bulk_load_size, PLUGIN_VAR_RQCMDARG,
   "Max #records in a batch for bulk-load mode",
   NULL, NULL, /*default*/ 1000, /*min*/ 1, /*max*/ 1024*1024*1024, 0);
 
+static MYSQL_SYSVAR_BOOL(create_if_missing,
+  *reinterpret_cast<my_bool*>(&db_options.create_if_missing),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::create_if_missing for RocksDB",
+  NULL, NULL, db_options.create_if_missing);
+
+static MYSQL_SYSVAR_BOOL(create_missing_column_families,
+  *reinterpret_cast<my_bool*>(&db_options.create_missing_column_families),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::create_missing_column_families for RocksDB",
+  NULL, NULL, db_options.create_missing_column_families);
+
+static MYSQL_SYSVAR_BOOL(error_if_exists,
+  *reinterpret_cast<my_bool*>(&db_options.error_if_exists),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::error_if_exists for RocksDB",
+  NULL, NULL, db_options.error_if_exists);
+
+static MYSQL_SYSVAR_BOOL(paranoid_checks,
+  *reinterpret_cast<my_bool*>(&db_options.paranoid_checks),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::paranoid_checks for RocksDB",
+  NULL, NULL, db_options.paranoid_checks);
+
+static MYSQL_SYSVAR_INT(max_open_files,
+  db_options.max_open_files,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_open_files for RocksDB",
+  NULL, NULL, db_options.max_open_files,
+  /* min */ -1, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(max_total_wal_size,
+  db_options.max_total_wal_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_total_wal_size for RocksDB",
+  NULL, NULL, db_options.max_total_wal_size,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(disableDataSync,
+  *reinterpret_cast<my_bool*>(&db_options.disableDataSync),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::disableDataSync for RocksDB",
+  NULL, NULL, db_options.disableDataSync);
+
+static MYSQL_SYSVAR_BOOL(use_fsync,
+  *reinterpret_cast<my_bool*>(&db_options.use_fsync),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::use_fsync for RocksDB",
+  NULL, NULL, db_options.use_fsync);
+
+static MYSQL_SYSVAR_ULONG(delete_obsolete_files_period_micros,
+  db_options.delete_obsolete_files_period_micros,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::delete_obsolete_files_period_micros for RocksDB",
+  NULL, NULL, db_options.delete_obsolete_files_period_micros,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_INT(max_background_compactions,
+  db_options.max_background_compactions,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_background_compactions for RocksDB",
+  NULL, NULL, db_options.max_background_compactions,
+  /* min */ 1, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_INT(max_background_flushes,
+  db_options.max_background_flushes,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_background_flushes for RocksDB",
+  NULL, NULL, db_options.max_background_flushes,
+  /* min */ 1, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(max_log_file_size,
+  db_options.max_log_file_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_log_file_size for RocksDB",
+  NULL, NULL, db_options.max_log_file_size,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(log_file_time_to_roll,
+  db_options.log_file_time_to_roll,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::log_file_time_to_roll for RocksDB",
+  NULL, NULL, db_options.log_file_time_to_roll,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(keep_log_file_num,
+  db_options.keep_log_file_num,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::keep_log_file_num for RocksDB",
+  NULL, NULL, db_options.keep_log_file_num,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(max_manifest_file_size,
+  db_options.max_manifest_file_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::max_manifest_file_size for RocksDB",
+  NULL, NULL, db_options.max_manifest_file_size,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_INT(table_cache_numshardbits,
+  db_options.table_cache_numshardbits,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::table_cache_numshardbits for RocksDB",
+  NULL, NULL, db_options.table_cache_numshardbits,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_INT(table_cache_remove_scan_count_limit,
+  db_options.table_cache_remove_scan_count_limit,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::table_cache_remove_scan_count_limit for RocksDB",
+  NULL, NULL, db_options.table_cache_remove_scan_count_limit,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(WAL_ttl_seconds,
+  db_options.WAL_ttl_seconds,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::WAL_ttl_seconds for RocksDB",
+  NULL, NULL, db_options.WAL_ttl_seconds,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(WAL_size_limit_MB,
+  db_options.WAL_size_limit_MB,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::WAL_size_limit_MB for RocksDB",
+  NULL, NULL, db_options.WAL_size_limit_MB,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_ULONG(manifest_preallocation_size,
+  db_options.manifest_preallocation_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::manifest_preallocation_size for RocksDB",
+  NULL, NULL, db_options.manifest_preallocation_size,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(allow_os_buffer,
+  *reinterpret_cast<my_bool*>(&db_options.allow_os_buffer),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::allow_os_buffer for RocksDB",
+  NULL, NULL, db_options.allow_os_buffer);
+
+static MYSQL_SYSVAR_BOOL(allow_mmap_reads,
+  *reinterpret_cast<my_bool*>(&db_options.allow_mmap_reads),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::allow_mmap_reads for RocksDB",
+  NULL, NULL, db_options.allow_mmap_reads);
+
+static MYSQL_SYSVAR_BOOL(allow_mmap_writes,
+  *reinterpret_cast<my_bool*>(&db_options.allow_mmap_writes),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::allow_mmap_writes for RocksDB",
+  NULL, NULL, db_options.allow_mmap_writes);
+
+static MYSQL_SYSVAR_BOOL(is_fd_close_on_exec,
+  *reinterpret_cast<my_bool*>(&db_options.is_fd_close_on_exec),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::is_fd_close_on_exec for RocksDB",
+  NULL, NULL, db_options.is_fd_close_on_exec);
+
+static MYSQL_SYSVAR_BOOL(skip_log_error_on_recovery,
+  *reinterpret_cast<my_bool*>(&db_options.skip_log_error_on_recovery),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::skip_log_error_on_recovery for RocksDB",
+  NULL, NULL, db_options.skip_log_error_on_recovery);
+
+static MYSQL_SYSVAR_BOOL(advise_random_on_open,
+  *reinterpret_cast<my_bool*>(&db_options.advise_random_on_open),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::advise_random_on_open for RocksDB",
+  NULL, NULL, db_options.advise_random_on_open);
+
+static MYSQL_SYSVAR_ULONG(db_write_buffer_size,
+  db_options.db_write_buffer_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::db_write_buffer_size for RocksDB",
+  NULL, NULL, db_options.db_write_buffer_size,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(use_adaptive_mutex,
+  *reinterpret_cast<my_bool*>(&db_options.use_adaptive_mutex),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::use_adaptive_mutex for RocksDB",
+  NULL, NULL, db_options.use_adaptive_mutex);
+
+static MYSQL_SYSVAR_ULONG(bytes_per_sync,
+  db_options.bytes_per_sync,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::bytes_per_sync for RocksDB",
+  NULL, NULL, db_options.bytes_per_sync,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(enable_thread_tracking,
+  *reinterpret_cast<my_bool*>(&db_options.enable_thread_tracking),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::enable_thread_tracking for RocksDB",
+  NULL, NULL, db_options.enable_thread_tracking);
+
 static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "block_cache size for RocksDB",
   NULL, NULL, /* RocksDB's default is 8 MB: */ 8*1024*1024L,
   /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
-
-static MYSQL_SYSVAR_STR(db_options, rocksdb_db_options,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "db options for RocksDB",
-  NULL, NULL, "");
 
 static MYSQL_SYSVAR_STR(default_cf_options, rocksdb_default_cf_options,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -166,8 +365,38 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(bulk_load),
   MYSQL_SYSVAR(bulk_load_size),
 
+  MYSQL_SYSVAR(create_if_missing),
+  MYSQL_SYSVAR(create_missing_column_families),
+  MYSQL_SYSVAR(error_if_exists),
+  MYSQL_SYSVAR(paranoid_checks),
+  MYSQL_SYSVAR(max_open_files),
+  MYSQL_SYSVAR(max_total_wal_size),
+  MYSQL_SYSVAR(disableDataSync),
+  MYSQL_SYSVAR(use_fsync),
+  MYSQL_SYSVAR(delete_obsolete_files_period_micros),
+  MYSQL_SYSVAR(max_background_compactions),
+  MYSQL_SYSVAR(max_background_flushes),
+  MYSQL_SYSVAR(max_log_file_size),
+  MYSQL_SYSVAR(log_file_time_to_roll),
+  MYSQL_SYSVAR(keep_log_file_num),
+  MYSQL_SYSVAR(max_manifest_file_size),
+  MYSQL_SYSVAR(table_cache_numshardbits),
+  MYSQL_SYSVAR(table_cache_remove_scan_count_limit),
+  MYSQL_SYSVAR(WAL_ttl_seconds),
+  MYSQL_SYSVAR(WAL_size_limit_MB),
+  MYSQL_SYSVAR(manifest_preallocation_size),
+  MYSQL_SYSVAR(allow_os_buffer),
+  MYSQL_SYSVAR(allow_mmap_reads),
+  MYSQL_SYSVAR(allow_mmap_writes),
+  MYSQL_SYSVAR(is_fd_close_on_exec),
+  MYSQL_SYSVAR(skip_log_error_on_recovery),
+  MYSQL_SYSVAR(advise_random_on_open),
+  MYSQL_SYSVAR(db_write_buffer_size),
+  MYSQL_SYSVAR(use_adaptive_mutex),
+  MYSQL_SYSVAR(bytes_per_sync),
+  MYSQL_SYSVAR(enable_thread_tracking),
+
   MYSQL_SYSVAR(block_cache_size),
-  MYSQL_SYSVAR(db_options),
   MYSQL_SYSVAR(default_cf_options),
   MYSQL_SYSVAR(cf_options_file),
 
@@ -607,14 +836,9 @@ static int rocksdb_init_func(void *p)
 
   std::vector<std::string> cf_names;
 
-  rocksdb::DBOptions db_opts;
-
-  db_opts.create_if_missing = true;
-  db_opts.statistics= rocksdb_stats;
-
   rocksdb::Status status;
 
-  status= rocksdb::DB::ListColumnFamilies(db_opts, rocksdb_db_name,
+  status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_db_name,
                                           &cf_names);
   if (!status.ok())
   {
@@ -649,13 +873,6 @@ static int rocksdb_init_func(void *p)
   table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
 
-  if (!rocksdb::GetDBOptionsFromString(
-        db_opts,
-        std::string(rocksdb_db_options),
-        &db_opts)) {
-    DBUG_RETURN(1);
-  }
-
   if (!rocksdb_cf_options_map.SetDefault(
         std::string(rocksdb_default_cf_options)) ||
       !rocksdb_cf_options_map.ParseConfigFile(
@@ -684,7 +901,7 @@ static int rocksdb_init_func(void *p)
     cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i], opts));
   }
 
-  rocksdb::Options main_opts(db_opts, default_cf_opts);
+  rocksdb::Options main_opts(db_options, default_cf_opts);
   main_opts.env->SetBackgroundThreads(main_opts.max_background_flushes,
                                       rocksdb::Env::Priority::HIGH);
   main_opts.env->SetBackgroundThreads(main_opts.max_background_compactions,
