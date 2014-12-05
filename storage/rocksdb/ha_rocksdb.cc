@@ -115,6 +115,7 @@ rocksdb_cf_options_file_update(THD* thd,
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
+static uint64_t rocksdb_info_log_level;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -124,6 +125,22 @@ static rocksdb::DBOptions init_db_options() {
 }
 
 static rocksdb::DBOptions db_options = init_db_options();
+
+static const char* info_log_level_names[] = {
+  "debug_level",
+  "info_level",
+  "warn_level",
+  "error_level",
+  "fatal_level",
+  NullS
+};
+
+static TYPELIB info_log_level_typelib = {
+  array_elements(info_log_level_names) - 1,
+  "info_log_level_typelib",
+  info_log_level_names,
+  nullptr
+};
 
 //TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -164,6 +181,12 @@ static MYSQL_SYSVAR_BOOL(paranoid_checks,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::paranoid_checks for RocksDB",
   NULL, NULL, db_options.paranoid_checks);
+
+static MYSQL_SYSVAR_ENUM(info_log_level,
+  rocksdb_info_log_level,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::info_log_level for RocksDB",
+  NULL, NULL, db_options.info_log_level, &info_log_level_typelib);
 
 static MYSQL_SYSVAR_INT(max_open_files,
   db_options.max_open_files,
@@ -373,6 +396,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(create_missing_column_families),
   MYSQL_SYSVAR(error_if_exists),
   MYSQL_SYSVAR(paranoid_checks),
+  MYSQL_SYSVAR(info_log_level),
   MYSQL_SYSVAR(max_open_files),
   MYSQL_SYSVAR(max_total_wal_size),
   MYSQL_SYSVAR(disableDataSync),
@@ -842,6 +866,8 @@ static int rocksdb_init_func(void *p)
   std::vector<std::string> cf_names;
 
   rocksdb::Status status;
+
+  db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
 
   status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_db_name,
                                           &cf_names);
