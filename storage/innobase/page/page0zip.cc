@@ -41,6 +41,7 @@ using namespace std;
 #ifndef UNIV_INNOCHECKSUM
 #include "fsp0fsp.h"
 #include "page0page.h"
+#include "page0zip_helper.h"
 #include "mtr0log.h"
 #include "dict0dict.h"
 #include "btr0cur.h"
@@ -121,52 +122,6 @@ static const byte supremum_extra_data[] = {
 	0x65, 0x6d, 0x75, 0x6d	/* "supremum" */
 };
 
-/** Assert that a block of memory is filled with zero bytes.
-Compare at most sizeof(field_ref_zero) bytes.
-@param b	in: memory block
-@param s	in: size of the memory block, in bytes */
-#define ASSERT_ZERO(b, s) \
-	ut_ad(!memcmp(b, field_ref_zero, ut_min(s, sizeof field_ref_zero)))
-/** Assert that a BLOB pointer is filled with zero bytes.
-@param b	in: BLOB pointer */
-#define ASSERT_ZERO_BLOB(b) \
-	ut_ad(!memcmp(b, field_ref_zero, sizeof field_ref_zero))
-
-/* Enable some extra debugging output. */
-#if defined UNIV_DEBUG
-#include <stdarg.h>
-__attribute__((format (printf, 1, 2)))
-/**********************************************************************//**
-Report a failure to decompress or compress.
-@return	number of characters printed */
-static
-int
-page_zip_fail_func(
-/*===============*/
-	const char*	fmt,	/*!< in: printf(3) format string */
-	...)			/*!< in: arguments corresponding to fmt */
-{
-	int	res;
-	va_list	ap;
-
-	ut_print_timestamp(stderr);
-	fputs("  InnoDB: ", stderr);
-	va_start(ap, fmt);
-	res = vfprintf(stderr, fmt, ap);
-	va_end(ap);
-
-	return(res);
-}
-/** Wrapper for page_zip_fail_func()
-@param fmt_args	in: printf(3) format string and arguments */
-#define page_zip_fail(fmt_args) page_zip_fail_func fmt_args
-#else /* UNIV_DEBUG */
-/** Dummy wrapper for page_zip_fail_func()
-@param fmt_args  ignored: printf(3) format string and arguments */
-# define page_zip_fail(fmt_args) /* empty */
-#endif /* UNIV_DEBUG */
-
-
 #ifndef UNIV_INNOCHECKSUM
 #ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
@@ -195,163 +150,7 @@ page_zip_empty_size(
 		- compressBound(static_cast<uLong>(2 * (n_fields + 1)));
 	return(size > 0 ? (ulint) size : 0);
 }
-#endif /* !UNIV_HOTBACKUP */
 
-/*************************************************************//**
-Gets the number of elements in the dense page directory,
-including deleted records (the free list).
-@return	number of elements in the dense page directory */
-UNIV_INLINE
-ulint
-page_zip_dir_elems(
-/*===============*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	/* Exclude the page infimum and supremum from the record count. */
-	return(page_dir_get_n_heap(page_zip->data) - PAGE_HEAP_NO_USER_LOW);
-}
-
-/*************************************************************//**
-Gets the size of the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@return	length of dense page directory, in bytes */
-UNIV_INLINE
-ulint
-page_zip_dir_size(
-/*==============*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	return(PAGE_ZIP_DIR_SLOT_SIZE * page_zip_dir_elems(page_zip));
-}
-
-/*************************************************************//**
-Gets an offset to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@return	offset of the dense page directory */
-UNIV_INLINE
-ulint
-page_zip_dir_start_offs(
-/*====================*/
-	const page_zip_des_t*	page_zip,	/*!< in: compressed page */
-	ulint			n_dense)	/*!< in: directory size */
-{
-	ut_ad(n_dense * PAGE_ZIP_DIR_SLOT_SIZE < page_zip_get_size(page_zip));
-
-	return(page_zip_get_size(page_zip) - n_dense * PAGE_ZIP_DIR_SLOT_SIZE);
-}
-
-/*************************************************************//**
-Gets a pointer to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@param[in] page_zip	compressed page
-@param[in] n_dense	number of entries in the directory
-@return	pointer to the dense page directory */
-#define page_zip_dir_start_low(page_zip, n_dense)			\
-	((page_zip)->data + page_zip_dir_start_offs(page_zip, n_dense))
-/*************************************************************//**
-Gets a pointer to the compressed page trailer (the dense page directory),
-including deleted records (the free list).
-@param[in] page_zip	compressed page
-@return	pointer to the dense page directory */
-#define page_zip_dir_start(page_zip)					\
-	page_zip_dir_start_low(page_zip, page_zip_dir_elems(page_zip))
-
-/*************************************************************//**
-Gets the size of the compressed page trailer (the dense page directory),
-only including user records (excluding the free list).
-@return	length of dense page directory comprising existing records, in bytes */
-UNIV_INLINE
-ulint
-page_zip_dir_user_size(
-/*===================*/
-	const page_zip_des_t*	page_zip)	/*!< in: compressed page */
-{
-	ulint	size = PAGE_ZIP_DIR_SLOT_SIZE
-		* page_get_n_recs(page_zip->data);
-	ut_ad(size <= page_zip_dir_size(page_zip));
-	return(size);
-}
-
-/*************************************************************//**
-Find the slot of the given record in the dense page directory.
-@return	dense directory slot, or NULL if record not found */
-UNIV_INLINE
-byte*
-page_zip_dir_find_low(
-/*==================*/
-	byte*	slot,			/*!< in: start of records */
-	byte*	end,			/*!< in: end of records */
-	ulint	offset)			/*!< in: offset of user record */
-{
-	ut_ad(slot <= end);
-
-	for (; slot < end; slot += PAGE_ZIP_DIR_SLOT_SIZE) {
-		if ((mach_read_from_2(slot) & PAGE_ZIP_DIR_SLOT_MASK)
-		    == offset) {
-			return(slot);
-		}
-	}
-
-	return(NULL);
-}
-
-/*************************************************************//**
-Find the slot of the given non-free record in the dense page directory.
-@return	dense directory slot, or NULL if record not found */
-UNIV_INLINE
-byte*
-page_zip_dir_find(
-/*==============*/
-	page_zip_des_t*	page_zip,		/*!< in: compressed page */
-	ulint		offset)			/*!< in: offset of user record */
-{
-	byte*	end	= page_zip->data + page_zip_get_size(page_zip);
-
-	ut_ad(page_zip_simple_validate(page_zip));
-
-	return(page_zip_dir_find_low(end - page_zip_dir_user_size(page_zip),
-				     end,
-				     offset));
-}
-
-/*************************************************************//**
-Find the slot of the given free record in the dense page directory.
-@return	dense directory slot, or NULL if record not found */
-UNIV_INLINE
-byte*
-page_zip_dir_find_free(
-/*===================*/
-	page_zip_des_t*	page_zip,		/*!< in: compressed page */
-	ulint		offset)			/*!< in: offset of user record */
-{
-	byte*	end	= page_zip->data + page_zip_get_size(page_zip);
-
-	ut_ad(page_zip_simple_validate(page_zip));
-
-	return(page_zip_dir_find_low(end - page_zip_dir_size(page_zip),
-				     end - page_zip_dir_user_size(page_zip),
-				     offset));
-}
-
-/*************************************************************//**
-Read a given slot in the dense page directory.
-@return record offset on the uncompressed page, possibly ORed with
-PAGE_ZIP_DIR_SLOT_DEL or PAGE_ZIP_DIR_SLOT_OWNED */
-UNIV_INLINE
-ulint
-page_zip_dir_get(
-/*=============*/
-	const page_zip_des_t*	page_zip,	/*!< in: compressed page */
-	ulint			slot)		/*!< in: slot
-						(0=first user record) */
-{
-	ut_ad(page_zip_simple_validate(page_zip));
-	ut_ad(slot < page_zip_dir_size(page_zip) / PAGE_ZIP_DIR_SLOT_SIZE);
-	return(mach_read_from_2(page_zip->data + page_zip_get_size(page_zip)
-				- PAGE_ZIP_DIR_SLOT_SIZE * (slot + 1)));
-}
-
-#ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
 Write a log record of compressing an index page. */
 static
@@ -856,34 +655,6 @@ Log the operation if page_zip_compress_dbg is set.
 #endif /* UNIV_DEBUG */
 
 /**********************************************************************//**
-This function makes sure that the compressed page image and modification
-log part of the page does not overlap with the uncompressed trailer of the
-page. The uncompressed trailer grows backwards whereas the compressed page
-image and modification log grow forward. */
-UNIV_INLINE
-void
-page_zip_size_check(
-	const page_zip_des_t*	page_zip,	/* in: the page_zip
-						object, we use
-						page_zip->m_end and
-						the page headers from
-						page_zip->data */
-	const dict_index_t*	index)		/* in: index object
-						for the table */
-{
-	ulint	is_clust = dict_index_is_clust(index);
-	ulint	trailer_len = page_zip_get_trailer_len(page_zip, is_clust);
-	if (UNIV_UNLIKELY(page_zip->m_end + trailer_len
-			  >= page_zip_get_size(page_zip))) {
-		page_zip_fail(("page_zip_size_check: %lu + %lu >= "
-			       "%lu is_clust = %lu\n", (ulint) page_zip->m_end,
-			       trailer_len, page_zip_get_size(page_zip),
-			       is_clust));
-		ut_error;
-	}
-}
-
-/**********************************************************************//**
 Store the transaction id and rollback pointer of a record on the trailer. */
 static
 void
@@ -1052,10 +823,10 @@ page_zip_restore_blobs(
 		if (rec_offs_nth_extern(offsets, i)) {
 			dst = rec_get_nth_field(rec, offsets, i, &len);
 			if (UNIV_UNLIKELY(len < BTR_EXTERN_FIELD_REF_SIZE)) {
-				page_zip_fail(("length of a field with an "
+				page_zip_fail("length of a field with an "
 					       "external pointer can not be "
 					       "less than %d",
-					       BTR_EXTERN_FIELD_REF_SIZE));
+					       BTR_EXTERN_FIELD_REF_SIZE);
 				ut_error;
 			}
 			dst += len - BTR_EXTERN_FIELD_REF_SIZE;
@@ -1095,8 +866,7 @@ page_zip_restore_uncompressed_fields_all(
 
 	if (UNIV_UNLIKELY(trx_id_col == ULINT_UNDEFINED)) {
 		/* node pointer page */
-		byte* node_ptrs_storage = page_zip_dir_start_low(page_zip,
-								 n_dense);
+		byte* node_ptrs_storage = page_zip_dir_start(page_zip);
 		for (rec_no = 0; rec_no < n_dense; ++rec_no) {
 			rec = recs[rec_no];
 			ut_ad(rec_no + PAGE_HEAP_NO_USER_LOW
@@ -1118,13 +888,12 @@ page_zip_restore_uncompressed_fields_all(
 		   fields */
 		ut_ad(!page_zip->n_blobs);
 		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
+			externs = page_zip_dir_start(page_zip) - 2;
 			n_blobs = mach_read_from_2(externs);
 			trx_rbp_storage = externs
 					  - n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
 		} else {
-			trx_rbp_storage = page_zip_dir_start_low(page_zip,
-								 n_dense);
+			trx_rbp_storage = page_zip_dir_start(page_zip);
 			externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
 		}
 		for (rec_no = 0; rec_no < n_dense; ++rec_no) {
@@ -1446,29 +1215,29 @@ page_zip_deserialize_clust_ext_rec(
 			/* zerofill the trx id and roll ptr of the record */
 			memset(dst, 0, DATA_TRX_RBP_LEN);
 			if (UNIV_UNLIKELY(dst - next_out >= end - data)) {
-				page_zip_fail((
+				page_zip_fail(
 					"page_zip_deserialize_clust_ext_rec: "
 					"trx_id len %lu, %p - %p >= %p - %p\n",
 					(ulong) len,
 					(const void*) dst,
 					(const void*) next_out,
 					(const void*) end,
-					(const void*) data));
+					(const void*) data);
 				ut_error;
 			}
 			if (UNIV_UNLIKELY(len < DATA_TRX_RBP_LEN)) {
-				page_zip_fail((
+				page_zip_fail(
 					"page_zip_deserialize_clust_ext_rec: "
 					"trx_id len %lu < %d\n",
 					len,
-					DATA_TRX_RBP_LEN));
+					DATA_TRX_RBP_LEN);
 				ut_error;
 			}
 			if (UNIV_UNLIKELY(rec_offs_nth_extern(offsets, i))) {
-				page_zip_fail((
+				page_zip_fail(
 					"page_zip_serialize_clust_ext_rec: "
 					"column %lu must be trx id column but "
-					"it has blob pointers.\n", i));
+					"it has blob pointers.\n", i);
 				ut_error;
 			}
 
@@ -1485,12 +1254,12 @@ page_zip_deserialize_clust_ext_rec(
 			len += dst - next_out - BTR_EXTERN_FIELD_REF_SIZE;
 
 			if (UNIV_UNLIKELY(data + len >= end)) {
-				page_zip_fail((
+				page_zip_fail(
 					"page_zip_deserialize_clust_ext_rec: "
 					"ext %p + %lu >= %p\n",
 					(const void*) data,
 					(ulong) len,
-					(const void*) end));
+					(const void*) end);
 				ut_error;
 			}
 
@@ -1503,11 +1272,11 @@ page_zip_deserialize_clust_ext_rec(
 	/* Copy the last bytes of the record */
 	len = rec_get_end(rec, offsets) - next_out;
 	if (UNIV_UNLIKELY(data + len >= end)) {
-		page_zip_fail(("page_zip_deserialize_clust_ext_rec: "
+		page_zip_fail("page_zip_deserialize_clust_ext_rec: "
 			       "last %p + %lu >= %p\n",
 			       (const void*) data,
 			       (ulong) len,
-			       (const void*) end));
+			       (const void*) end);
 		ut_error;
 	}
 	memcpy(next_out, data, len);
@@ -1539,11 +1308,11 @@ page_zip_deserialize_clust_rec(
 	byte*	b;
 
 	if (UNIV_UNLIKELY(data + l >= end)) {
-		page_zip_fail(("page_zip_deserialize_clust_rec: "
+		page_zip_fail("page_zip_deserialize_clust_rec: "
 			       "%p + %lu >= %p\n",
 			       (const void*) data,
 			       (ulong) l,
-			       (const void*) end));
+			       (const void*) end);
 		ut_error;
 	}
 
@@ -1558,11 +1327,11 @@ page_zip_deserialize_clust_rec(
 	b = rec + l + DATA_TRX_RBP_LEN;
 	len = rec_get_end(rec, offsets) - b;
 	if (UNIV_UNLIKELY(data + len >= end)) {
-		page_zip_fail(("page_zip_deserialize_clust_rec: "
+		page_zip_fail("page_zip_deserialize_clust_rec: "
 			       "%p + %lu >= %p\n",
 			       (const void*) data,
 			       (ulong) len,
-			       (const void*) end));
+			       (const void*) end);
 		ut_error;
 	}
 	memcpy(b, data, len);
@@ -1590,11 +1359,11 @@ page_zip_deserialize_sec_rec(
 
 	/* Copy all data bytes of a record in a secondary index */
 	if (UNIV_UNLIKELY(data + len >= end)) {
-		page_zip_fail(("page_zip_deserialize_sec_rec :"
+		page_zip_fail("page_zip_deserialize_sec_rec :"
 			       "sec %p + %lu >= %p\n",
 			       (const void*) data,
 			       (ulong) len,
-			       (const void*) end));
+			       (const void*) end);
 		ut_error;
 	}
 	memcpy(rec, data, len);
@@ -1621,11 +1390,11 @@ page_zip_deserialize_node_ptrs_rec(
 	ulint	len = rec_offs_data_size(offsets) - REC_NODE_PTR_SIZE;
 	/* Copy the data bytes, except node_ptr */
 	if (UNIV_UNLIKELY(data + len >= end)) {
-		page_zip_fail(("page_zip_deserialize_sec_rec: "
+		page_zip_fail("page_zip_deserialize_sec_rec: "
 			       "node_ptr %p + %lu >= %p\n",
 			       (const void*) data,
 			       (ulong) len,
-			       (const void*) end));
+			       (const void*) end);
 		ut_error;
 	}
 	memcpy(rec, data, len);
@@ -1727,7 +1496,7 @@ page_zip_compress_node_ptrs(
 	ulint*	offsets = NULL;
 	ulint	n_dense = page_zip_dir_elems(page_zip);
 	ulint rec_no;
-	byte* node_ptrs_storage = page_zip_dir_start_low(page_zip, n_dense);
+	byte* node_ptrs_storage = page_zip_dir_start(page_zip);
 
 	do {
 		const rec_t*	rec = *recs++;
@@ -2067,11 +1836,11 @@ page_zip_compress_clust(
 	ut_ad(page_zip->n_blobs == 0);
 
 	if (page_zip->compact_metadata) {
-		externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
+		externs = page_zip_dir_start(page_zip) - 2;
 		mach_write_to_2(externs, 0);
 		trx_rbp_storage = externs;
 	} else {
-		trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
+		trx_rbp_storage = page_zip_dir_start(page_zip);
 		externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
 	}
 
@@ -2364,14 +2133,11 @@ page_zip_serialize(
 		/* leaf page of a primary key, store transaction id,
 		   rollback pointer, and blob pointers */
 		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start_low(page_zip,
-							 n_dense)
-				  - 2;
+			externs = page_zip_dir_start(page_zip) - 2;
 			mach_write_to_2(externs, 0);
 			trx_rbp_storage = externs;
 		} else {
-			trx_rbp_storage = page_zip_dir_start_low(
-						page_zip, n_dense);
+			trx_rbp_storage = page_zip_dir_start(page_zip);
 			externs = trx_rbp_storage
 				  - n_dense * DATA_TRX_RBP_LEN;
 		}
@@ -2428,8 +2194,7 @@ page_zip_serialize(
 		if (UNIV_UNLIKELY(trx_id_col == ULINT_UNDEFINED)) {
 			/* node pointer page */
 			/* store the pointers uncompressed */
-			node_ptr_storage = page_zip_dir_start_low(page_zip,
-								  n_dense);
+			node_ptr_storage = page_zip_dir_start(page_zip);
 			memcpy(node_ptr_storage
 			       - REC_NODE_PTR_SIZE * (rec_no + 1),
 			       rec_get_end((rec_t*)rec, offsets)
@@ -3073,15 +2838,15 @@ page_zip_fields_decode(
 
 	if (UNIV_UNLIKELY(n > REC_MAX_N_FIELDS)) {
 
-		page_zip_fail(("page_zip_fields_decode: n = %lu\n",
-			       (ulong) n));
+		page_zip_fail("page_zip_fields_decode: n = %lu\n",
+			       (ulong) n);
 		return(NULL);
 	}
 
 	if (UNIV_UNLIKELY(b > end)) {
 
-		page_zip_fail(("page_zip_fields_decode: %p > %p\n",
-			       (const void*) b, (const void*) end));
+		page_zip_fail("page_zip_fields_decode: %p > %p\n",
+			       (const void*) b, (const void*) end);
 		return(NULL);
 	}
 
@@ -3183,8 +2948,8 @@ page_zip_dir_decode(
 	n_recs = page_get_n_recs(page);
 
 	if (UNIV_UNLIKELY(n_recs > n_dense)) {
-		page_zip_fail(("page_zip_dir_decode 1: %lu > %lu\n",
-			       (ulong) n_recs, (ulong) n_dense));
+		page_zip_fail("page_zip_dir_decode 1: %lu > %lu\n",
+			       (ulong) n_recs, (ulong) n_dense);
 		return(FALSE);
 	}
 
@@ -3213,9 +2978,9 @@ page_zip_dir_decode(
 
 		if (UNIV_UNLIKELY((offs & PAGE_ZIP_DIR_SLOT_MASK)
 				  < PAGE_ZIP_START + REC_N_NEW_EXTRA_BYTES)) {
-			page_zip_fail(("page_zip_dir_decode 2: %u %u %lx\n",
+			page_zip_fail("page_zip_dir_decode 2: %u %u %lx\n",
 				       (unsigned) i, (unsigned) n_recs,
-				       (ulong) offs));
+				       (ulong) offs);
 			return(FALSE);
 		}
 
@@ -3228,9 +2993,9 @@ page_zip_dir_decode(
 			page, page_dir_get_n_slots(page) - 1);
 
 		if (UNIV_UNLIKELY(slot != last_slot)) {
-			page_zip_fail(("page_zip_dir_decode 3: %p != %p\n",
+			page_zip_fail("page_zip_dir_decode 3: %p != %p\n",
 				       (const void*) slot,
-				       (const void*) last_slot));
+				       (const void*) last_slot);
 			return(FALSE);
 		}
 	}
@@ -3240,9 +3005,9 @@ page_zip_dir_decode(
 		ulint	offs = page_zip_dir_get(page_zip, i);
 
 		if (UNIV_UNLIKELY(offs & ~PAGE_ZIP_DIR_SLOT_MASK)) {
-			page_zip_fail(("page_zip_dir_decode 4: %u %u %lx\n",
+			page_zip_fail("page_zip_dir_decode 4: %u %u %lx\n",
 				       (unsigned) i, (unsigned) n_dense,
-				       (ulong) offs));
+				       (ulong) offs);
 			return(FALSE);
 		}
 
@@ -3290,10 +3055,10 @@ page_zip_set_extra_bytes(
 		offs &= PAGE_ZIP_DIR_SLOT_MASK;
 		if (UNIV_UNLIKELY(offs < PAGE_ZIP_START
 				  + REC_N_NEW_EXTRA_BYTES)) {
-			page_zip_fail(("page_zip_set_extra_bytes 1:"
+			page_zip_fail("page_zip_set_extra_bytes 1:"
 				       " %u %u %lx\n",
 				       (unsigned) i, (unsigned) n,
-				       (ulong) offs));
+				       (ulong) offs);
 			return(FALSE);
 		}
 
@@ -3317,8 +3082,8 @@ page_zip_set_extra_bytes(
 			return(TRUE);
 		}
 
-		page_zip_fail(("page_zip_set_extra_bytes 2: %u != %u\n",
-			       (unsigned) i, (unsigned) n));
+		page_zip_fail("page_zip_set_extra_bytes 2: %u != %u\n",
+			       (unsigned) i, (unsigned) n);
 		return(FALSE);
 	}
 
@@ -3329,8 +3094,8 @@ page_zip_set_extra_bytes(
 		if (UNIV_UNLIKELY(!offs)
 		    || UNIV_UNLIKELY(offs & ~PAGE_ZIP_DIR_SLOT_MASK)) {
 
-			page_zip_fail(("page_zip_set_extra_bytes 3: %lx\n",
-				       (ulong) offs));
+			page_zip_fail("page_zip_set_extra_bytes 3: %lx\n",
+				       (ulong) offs);
 			return(FALSE);
 		}
 
@@ -3389,21 +3154,21 @@ page_zip_apply_log(
 		if (val & 0x80) {
 			val = (val & 0x7f) << 8 | *data++;
 			if (UNIV_UNLIKELY(!val)) {
-				page_zip_fail(("page_zip_apply_log:"
+				page_zip_fail("page_zip_apply_log:"
 					       " invalid val %x%x\n",
-					       data[-2], data[-1]));
+					       data[-2], data[-1]);
 				return(NULL);
 			}
 		}
 		if (UNIV_UNLIKELY(data >= end)) {
-			page_zip_fail(("page_zip_apply_log: %p >= %p\n",
+			page_zip_fail("page_zip_apply_log: %p >= %p\n",
 				       (const void*) data,
-				       (const void*) end));
+				       (const void*) end);
 			return(NULL);
 		}
 		if (UNIV_UNLIKELY((val >> 1) > n_dense)) {
-			page_zip_fail(("page_zip_apply_log: %lu>>1 > %lu\n",
-				       (ulong) val, (ulong) n_dense));
+			page_zip_fail("page_zip_apply_log: %lu>>1 > %lu\n",
+				       (ulong) val, (ulong) n_dense);
 			return(NULL);
 		}
 
@@ -3418,17 +3183,17 @@ page_zip_apply_log(
 		the free list), or a new record, with the next
 		available_heap_no. */
 		if (UNIV_UNLIKELY(hs > heap_status)) {
-			page_zip_fail(("page_zip_apply_log: %lu > %lu\n",
-				       (ulong) hs, (ulong) heap_status));
+			page_zip_fail("page_zip_apply_log: %lu > %lu\n",
+				       (ulong) hs, (ulong) heap_status);
 			return(NULL);
 		} else if (hs == heap_status) {
 			/* A new record was allocated from the heap. */
 			if (UNIV_UNLIKELY(val & 1)) {
 				/* Only existing records may be cleared. */
-				page_zip_fail(("page_zip_apply_log:"
+				page_zip_fail("page_zip_apply_log:"
 					       " attempting to create"
 					       " deleted rec %lu\n",
-					       (ulong) hs));
+					       (ulong) hs);
 				return(NULL);
 			}
 			heap_status += 1 << REC_HEAP_NO_SHIFT;
@@ -3507,8 +3272,8 @@ page_zip_decompress_trailing_garbage(
 			      - page_offset(d_stream->next_out);
 	if (UNIV_UNLIKELY(d_stream->avail_out > UNIV_PAGE_SIZE
 						- PAGE_ZIP_START - PAGE_DIR)) {
-		page_zip_fail(("page_zip_decompress_trailing_garbage: "
-			       "avail_out = %u\n", d_stream->avail_out));
+		page_zip_fail("page_zip_decompress_trailing_garbage: "
+			       "avail_out = %u\n", d_stream->avail_out);
 		ut_error;
 	}
 }
@@ -3562,9 +3327,9 @@ page_zip_decompress_node_ptrs(
 			}
 			/* fall through */
 		default:
-			page_zip_fail(("page_zip_decompress_node_ptrs:"
+			page_zip_fail("page_zip_decompress_node_ptrs:"
 				       " 1 inflate(Z_SYNC_FLUSH)=%s\n",
-				       d_stream->msg));
+				       d_stream->msg);
 			goto zlib_error;
 		}
 
@@ -3595,9 +3360,9 @@ page_zip_decompress_node_ptrs(
 			}
 			/* fall through */
 		default:
-			page_zip_fail(("page_zip_decompress_node_ptrs:"
+			page_zip_fail("page_zip_decompress_node_ptrs:"
 				       " 2 inflate(Z_SYNC_FLUSH)=%s\n",
-				       d_stream->msg));
+				       d_stream->msg);
 			goto zlib_error;
 		}
 
@@ -3613,8 +3378,8 @@ page_zip_decompress_node_ptrs(
 	page_zip_decompress_trailing_garbage(page_zip, d_stream);
 
 	if (UNIV_UNLIKELY(inflate(d_stream, Z_FINISH) != Z_STREAM_END)) {
-		page_zip_fail(("page_zip_decompress_node_ptrs: "
-			       "inflate(Z_FINISH) = %s\n", d_stream->msg));
+		page_zip_fail("page_zip_decompress_node_ptrs: "
+			       "inflate(Z_FINISH) = %s\n", d_stream->msg);
 zlib_error:
 		inflateEnd(d_stream);
 		return(FALSE);
@@ -3680,9 +3445,9 @@ page_zip_decompress_sec(
 				}
 				/* fall through */
 			default:
-				page_zip_fail(("page_zip_decompress_sec:"
+				page_zip_fail("page_zip_decompress_sec:"
 					       " inflate(Z_SYNC_FLUSH)=%s\n",
-					       d_stream->msg));
+					       d_stream->msg);
 				goto zlib_error;
 			}
 		}
@@ -3696,9 +3461,9 @@ page_zip_decompress_sec(
 	page_zip_decompress_trailing_garbage(page_zip, d_stream);
 
 	if (UNIV_UNLIKELY(inflate(d_stream, Z_FINISH) != Z_STREAM_END)) {
-		page_zip_fail(("page_zip_decompress_sec: "
+		page_zip_fail("page_zip_decompress_sec: "
 			       " inflate(Z_FINISH) = %s\n",
-			       d_stream->msg));
+			       d_stream->msg);
 zlib_error:
 		inflateEnd(d_stream);
 		return(FALSE);
@@ -3739,17 +3504,17 @@ page_zip_decompress_clust_ext_rec(
 			dst = rec_get_nth_field(rec, offsets, i, &len);
 			if (UNIV_UNLIKELY(len < DATA_TRX_RBP_LEN)) {
 
-				page_zip_fail(("page_zip_decompress_clust_ext_rec:1"
+				page_zip_fail("page_zip_decompress_clust_ext_rec:1"
 					       " len[%lu] = %lu\n",
-					       (ulong) i, (ulong) len));
+					       (ulong) i, (ulong) len);
 				ut_error;
 			}
 
 			if (rec_offs_nth_extern(offsets, i)) {
 
-				page_zip_fail(("page_zip_decompress_clust_ext_rec:2"
+				page_zip_fail("page_zip_decompress_clust_ext_rec:2"
 					       " DB_TRX_ID at %lu is ext\n",
-					       (ulong) i));
+					       (ulong) i);
 				ut_error;
 			}
 
@@ -3761,16 +3526,16 @@ page_zip_decompress_clust_ext_rec(
 			case Z_OK:
 			case Z_BUF_ERROR:
 				if (UNIV_UNLIKELY(d_stream->avail_out)) {
-					page_zip_fail(("page_zip_decompress_clust_ext_rec:3"
+					page_zip_fail("page_zip_decompress_clust_ext_rec:3"
 									" inflate(Z_SYNC_FLUSH)=%s\n",
-									d_stream->msg));
+									d_stream->msg);
 					ut_error;
 				}
 				break;
 			default:
-				page_zip_fail(("page_zip_decompress_clust_ext_rec:4"
+				page_zip_fail("page_zip_decompress_clust_ext_rec:4"
 					       " inflate(Z_SYNC_FLUSH)=%s\n",
-					       d_stream->msg));
+					       d_stream->msg);
 				ut_error;
 				break;
 			}
@@ -3796,16 +3561,16 @@ page_zip_decompress_clust_ext_rec(
 			case Z_OK:
 			case Z_BUF_ERROR:
 				if (UNIV_UNLIKELY(d_stream->avail_out)) {
-					page_zip_fail(("page_zip_decompress_clust_ext_rec:5"
+					page_zip_fail("page_zip_decompress_clust_ext_rec:5"
 									" inflate(Z_SYNC_FLUSH)=%s\n",
-									d_stream->msg));
+									d_stream->msg);
 					ut_error;
 				}
 				break;
 			default:
-				page_zip_fail(("page_zip_decompress_clust_ext_rec:6"
+				page_zip_fail("page_zip_decompress_clust_ext_rec:6"
 					       " 2 inflate(Z_SYNC_FLUSH)=%s\n",
-					       d_stream->msg));
+					       d_stream->msg);
 				ut_error;
 				break;
 			}
@@ -3838,16 +3603,16 @@ page_zip_decompress_clust_ext_rec(
 	case Z_OK:
 	case Z_BUF_ERROR:
 		if (UNIV_UNLIKELY(d_stream->avail_out)) {
-			page_zip_fail(("page_zip_decompress_clust_ext_rec:7"
+			page_zip_fail("page_zip_decompress_clust_ext_rec:7"
 							" inflate(Z_SYNC_FLUSH)=%s\n",
-							d_stream->msg));
+							d_stream->msg);
 			ut_error;
 		}
 		break;
 	default:
-		page_zip_fail(("page_zip_decompress_clust_ext_rec:8"
+		page_zip_fail("page_zip_decompress_clust_ext_rec:8"
 						" inflate(Z_SYNC_FLUSH)=%s\n",
-						d_stream->msg));
+						d_stream->msg);
 		ut_error;
 		break;
 	}
@@ -3882,16 +3647,16 @@ page_zip_decompress_clust_rec(
 	case Z_OK:
 	case Z_BUF_ERROR:
 		if (UNIV_UNLIKELY(d_stream->avail_out)) {
-			page_zip_fail(("page_zip_decompress_clust_rec:"
+			page_zip_fail("page_zip_decompress_clust_rec:"
 							" 1 inflate(Z_SYNC_FLUSH)=%s\n",
-							d_stream->msg));
+							d_stream->msg);
 			ut_error;
 		}
 		break;
 	default:
-		page_zip_fail(("page_zip_decompress_clust_rec:"
+		page_zip_fail("page_zip_decompress_clust_rec:"
 						" 2 inflate(Z_SYNC_FLUSH)=%s\n",
-						d_stream->msg));
+						d_stream->msg);
 		ut_error;
 		break;
 	}
@@ -3916,8 +3681,8 @@ page_zip_decompress_clust_rec(
 	/* Skip trx_id and roll_ptr */
 	dst = rec_get_nth_field(rec, offsets, trx_id_col, &len);
 	if (UNIV_UNLIKELY(len < DATA_TRX_RBP_LEN)) {
-		page_zip_fail(("page_zip_decompress_clust_rec:"
-			       " 3 len = %lu\n", (ulong) len));
+		page_zip_fail("page_zip_decompress_clust_rec:"
+			       " 3 len = %lu\n", (ulong) len);
 		ut_error;
 	}
 
@@ -3928,16 +3693,16 @@ page_zip_decompress_clust_rec(
 	case Z_OK:
 	case Z_BUF_ERROR:
 		if (UNIV_UNLIKELY(d_stream->avail_out)) {
-				page_zip_fail(("page_zip_decompress_clust_rec:"
+				page_zip_fail("page_zip_decompress_clust_rec:"
 								" 4 inflate(Z_SYNC_FLUSH)=%s\n",
-								d_stream->msg));
+								d_stream->msg);
 				ut_error;
 		}
 		break;
 	default:
-		page_zip_fail(("page_zip_decompress_clust_rec:"
+		page_zip_fail("page_zip_decompress_clust_rec:"
 			       " 5 inflate(Z_SYNC_FLUSH)=%s\n",
-			       d_stream->msg));
+			       d_stream->msg);
 		ut_error;
 		break;
 	}
@@ -3960,16 +3725,16 @@ page_zip_decompress_clust_rec(
 	case Z_OK:
 	case Z_BUF_ERROR:
 		if (UNIV_UNLIKELY(d_stream->avail_out)) {
-			page_zip_fail(("page_zip_decompress_clust_rec:"
+			page_zip_fail("page_zip_decompress_clust_rec:"
 							" 6 inflate(Z_SYNC_FLUSH)=%s\n",
-							d_stream->msg));
+							d_stream->msg);
 			ut_error;
 		}
 		break;
 	default:
-		page_zip_fail(("page_zip_decompress_clust_rec:"
+		page_zip_fail("page_zip_decompress_clust_rec:"
 			       " 7 inflate(Z_SYNC_FLUSH)=%s\n",
-			       d_stream->msg));
+			       d_stream->msg);
 		ut_error;
 		break;
 	}
@@ -4025,9 +3790,9 @@ page_zip_decompress_clust(
 	page_zip_decompress_trailing_garbage(page_zip, d_stream);
 
 	if (UNIV_UNLIKELY(inflate(d_stream, Z_FINISH) != Z_STREAM_END)) {
-		page_zip_fail(("page_zip_decompress_clust: "
+		page_zip_fail("page_zip_decompress_clust: "
 			       " inflate(Z_FINISH) = %s\n",
-			       d_stream->msg));
+			       d_stream->msg);
 		ut_error;
 	}
 
@@ -4235,8 +4000,8 @@ page_zip_decompress_zlib_stream(
 	/* Decode index */
 	if (UNIV_UNLIKELY(inflate(&d_stream, Z_BLOCK) != Z_OK)) {
 
-		page_zip_fail(("page_zip_decompress_zlib_stream:"
-			       " 1 inflate(Z_BLOCK)=%s\n", d_stream.msg));
+		page_zip_fail("page_zip_decompress_zlib_stream:"
+			       " 1 inflate(Z_BLOCK)=%s\n", d_stream.msg);
 		return FALSE;
 	}
 
@@ -4270,9 +4035,9 @@ page_zip_decompress_zlib_stream(
 						    recs, n_dense, index,
 						    offsets, &heap_status,
 						    heap))) {
-			page_zip_fail(("page_zip_decompress_zlib_stream:"
+			page_zip_fail("page_zip_decompress_zlib_stream:"
 				       " 2 page_zip_decompress_node_ptrs"
-				       " failed"));
+				       " failed");
 			page_zip_fields_free(index);
 			return FALSE;
 		}
@@ -4283,8 +4048,8 @@ page_zip_decompress_zlib_stream(
 							   recs, n_dense,
 							   index,
 							   &heap_status))) {
-			page_zip_fail(("page_zip_decompress_zlib_stream:"
-				       " 3 page_zip_decompress_sec failed"));
+			page_zip_fail("page_zip_decompress_zlib_stream:"
+				       " 3 page_zip_decompress_sec failed");
 			page_zip_fields_free(index);
 			return FALSE;
 		}
@@ -4297,8 +4062,8 @@ page_zip_decompress_zlib_stream(
 							     offsets,
 							     &heap_status,
 							     heap))) {
-			page_zip_fail(("page_zip_decompress_zlib_stream:"
-				       " 4 page_zip_decompress_clust failed"));
+			page_zip_fail("page_zip_decompress_zlib_stream:"
+				       " 4 page_zip_decompress_clust failed");
 			page_zip_fields_free(index);
 			return FALSE;
 		}
@@ -4394,9 +4159,9 @@ page_zip_decompress_low(
 	n_dense = page_dir_get_n_heap(page_zip->data) - PAGE_HEAP_NO_USER_LOW;
 	if (UNIV_UNLIKELY(n_dense * PAGE_ZIP_DIR_SLOT_SIZE
 			  >= page_zip_get_size(page_zip))) {
-		page_zip_fail(("page_zip_decompress_low 1: %lu %lu\n",
+		page_zip_fail("page_zip_decompress_low 1: %lu %lu\n",
 			       (ulong) n_dense,
-			       (ulong) page_zip_get_size(page_zip)));
+			       (ulong) page_zip_get_size(page_zip));
 		return(FALSE);
 	}
 
@@ -4540,8 +4305,8 @@ page_zip_decompress_low(
 					 index,
 					 offsets);
 	if (UNIV_UNLIKELY(!mod_log_ptr)) {
-		page_zip_fail(("page_zip_decompress_low 2: applying "
-			       "modification log failed"));
+		page_zip_fail("page_zip_decompress_low 2: applying "
+			       "modification log failed");
 		goto err_exit;
 	}
 
@@ -4660,7 +4425,7 @@ page_zip_validate_low(
 	    || memcmp(page_zip->data + FIL_PAGE_TYPE, page + FIL_PAGE_TYPE, 2)
 	    || memcmp(page_zip->data + FIL_PAGE_DATA, page + FIL_PAGE_DATA,
 		      PAGE_DATA - FIL_PAGE_DATA)) {
-		page_zip_fail(("page_zip_validate: page header\n"));
+		page_zip_fail("page_zip_validate: page header\n");
 		ut_hexdump(page_zip, sizeof *page_zip);
 		ut_hexdump(page_zip->data, page_zip_get_size(page_zip));
 		ut_hexdump(page, UNIV_PAGE_SIZE);
@@ -4691,26 +4456,26 @@ page_zip_validate_low(
 		goto func_exit;
 	}
 	if (page_zip->n_blobs != temp_page_zip.n_blobs) {
-		page_zip_fail(("page_zip_validate: n_blobs: %u!=%u\n",
-			       page_zip->n_blobs, temp_page_zip.n_blobs));
+		page_zip_fail("page_zip_validate: n_blobs: %u!=%u\n",
+			       page_zip->n_blobs, temp_page_zip.n_blobs);
 		valid = FALSE;
 	}
 #ifdef UNIV_DEBUG
 	if (page_zip->m_start != temp_page_zip.m_start) {
-		page_zip_fail(("page_zip_validate: m_start: %u!=%u\n",
-			       page_zip->m_start, temp_page_zip.m_start));
+		page_zip_fail("page_zip_validate: m_start: %u!=%u\n",
+			       page_zip->m_start, temp_page_zip.m_start);
 		valid = FALSE;
 	}
 #endif /* UNIV_DEBUG */
 	if (page_zip->m_end != temp_page_zip.m_end) {
-		page_zip_fail(("page_zip_validate: m_end: %u!=%u\n",
-			       page_zip->m_end, temp_page_zip.m_end));
+		page_zip_fail("page_zip_validate: m_end: %u!=%u\n",
+			       page_zip->m_end, temp_page_zip.m_end);
 		valid = FALSE;
 	}
 	if (page_zip->m_nonempty != temp_page_zip.m_nonempty) {
-		page_zip_fail(("page_zip_validate(): m_nonempty: %u!=%u\n",
+		page_zip_fail("page_zip_validate(): m_nonempty: %u!=%u\n",
 			       page_zip->m_nonempty,
-			       temp_page_zip.m_nonempty));
+			       temp_page_zip.m_nonempty);
 		valid = FALSE;
 	}
 	if (memcmp(page + PAGE_HEADER, temp_page + PAGE_HEADER,
@@ -4742,14 +4507,14 @@ page_zip_validate_low(
 
 				/* Only the minimum record flag
 				differed.  Let us ignore it. */
-				page_zip_fail(("page_zip_validate: "
+				page_zip_fail("page_zip_validate: "
 					       "min_rec_flag "
 					       "(%s"
 					       "%lu,%lu,0x%02lx)\n",
 					       sloppy ? "ignored, " : "",
 					       page_get_space_id(page),
 					       page_get_page_no(page),
-					       (ulong) page[offset]));
+                                              (ulong) page[offset]);
 				valid = sloppy;
 				goto func_exit;
 			}
@@ -4761,10 +4526,10 @@ page_zip_validate_low(
 
 		while (rec || trec) {
 			if (page_offset(rec) != page_offset(trec)) {
-				page_zip_fail(("page_zip_validate: "
+				page_zip_fail("page_zip_validate: "
 					       "PAGE_FREE list: %u!=%u\n",
 					       (unsigned) page_offset(rec),
-					       (unsigned) page_offset(trec)));
+					       (unsigned) page_offset(trec));
 				valid = FALSE;
 				goto func_exit;
 			}
@@ -4782,10 +4547,10 @@ page_zip_validate_low(
 
 		do {
 			if (page_offset(rec) != page_offset(trec)) {
-				page_zip_fail(("page_zip_validate: "
+				page_zip_fail("page_zip_validate: "
 					       "record list: 0x%02x!=0x%02x\n",
 					       (unsigned) page_offset(rec),
-					       (unsigned) page_offset(trec)));
+					       (unsigned) page_offset(trec));
 				valid = FALSE;
 				break;
 			}
@@ -4799,9 +4564,9 @@ page_zip_validate_low(
 				   trec - rec_offs_extra_size(offsets),
 				   rec_offs_size(offsets))) {
 				page_zip_fail(
-					("page_zip_validate: "
-					 "record content: 0x%02x",
-					 (unsigned) page_offset(rec)));
+					"page_zip_validate: "
+					"record content: 0x%02x",
+					(unsigned) page_offset(rec));
 				valid = FALSE;
 				break;
 			}
@@ -4892,9 +4657,9 @@ page_zip_write_rec_blobs(
 	ut_ad(blob_no <= page_zip->n_blobs);
 
 	if (page_zip->compact_metadata) {
-		externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
+		externs = page_zip_dir_start(page_zip) - 2;
 	} else {
-		externs = page_zip_dir_start_low(page_zip, n_dense)
+		externs = page_zip_dir_start(page_zip)
 			  - n_dense * DATA_TRX_RBP_LEN;
 	}
 
@@ -4947,7 +4712,6 @@ page_zip_write_rec(
 	ulint		trx_id_col;
 	byte*		node_ptr_storage = NULL;
 	byte*		trx_rbp_storage;
-	ulint		n_dense = ULINT_UNDEFINED;
 
 	ut_ad(PAGE_ZIP_MATCH(rec, page_zip));
 	ut_ad(page_zip_simple_validate(page_zip));
@@ -5017,8 +4781,7 @@ page_zip_write_rec(
 		       REC_NODE_PTR_SIZE);
 	} else if (trx_id_col) {
 		/* primary key page */
-		n_dense = page_zip_dir_elems(page_zip);
-		trx_rbp_storage = page_zip_dir_start_low(page_zip, n_dense);
+		trx_rbp_storage = page_zip_dir_start(page_zip);
 		if (page_zip->compact_metadata) {
 			trx_rbp_storage -=
 				2
@@ -5579,47 +5342,32 @@ page_zip_dir_insert(
 		/* Use the first slot. */
 		slot_rec = page_zip->data + page_zip_get_size(page_zip);
 	} else {
-		byte*	end	= page_zip->data + page_zip_get_size(page_zip);
-		byte*	start	= end - page_zip_dir_user_size(page_zip);
-
-		if (UNIV_LIKELY(!free_rec)) {
-			/* PAGE_N_RECS was already incremented
-			in page_cur_insert_rec_zip(), but the
-			dense directory slot at that position
-			contains garbage.  Skip it. */
-			start += PAGE_ZIP_DIR_SLOT_SIZE;
-		}
-
-		slot_rec = page_zip_dir_find_low(start, end,
-						 page_offset(prev_rec));
+		slot_rec = page_zip_dir_find(page_zip,
+					     page_offset(prev_rec));
 		ut_a(slot_rec);
 	}
 
-	/* Read the old n_dense (n_heap may have been incremented). */
-	n_dense = page_dir_get_n_heap(page_zip->data)
-		- (PAGE_HEAP_NO_USER_LOW + 1);
-
 	if (UNIV_LIKELY_NULL(free_rec)) {
 		/* The record was allocated from the free list.
-		Shift the dense directory only up to that slot.
-		Note that in this case, n_dense is actually
-		off by one, because page_cur_insert_rec_zip()
-		did not increment n_heap. */
-		ut_ad(rec_get_heap_no_new(rec) < n_dense + 1
-		      + PAGE_HEAP_NO_USER_LOW);
+		The total number of heap records won't change in this case.
+		Shift the dense directory only up to that slot.*/
+		ut_ad(rec_get_heap_no_new(rec)
+		      < page_dir_get_n_heap(page_zip->data));
 		ut_ad(rec >= free_rec);
-		slot_free = page_zip_dir_find(page_zip, page_offset(free_rec));
+		slot_free = page_zip_dir_find_free(page_zip,
+						   page_offset(free_rec));
 		ut_ad(slot_free);
 		slot_free += PAGE_ZIP_DIR_SLOT_SIZE;
 	} else {
 		/* The record was allocated from the heap.
-		Shift the entire dense directory. */
-		ut_ad(rec_get_heap_no_new(rec) == n_dense
-		      + PAGE_HEAP_NO_USER_LOW);
+		The newly added heap record should have the largest heap_no.
+		Shift to the end of the dense page directory. */
+		ut_ad(rec_get_heap_no_new(rec)
+		      == page_dir_get_n_heap(page_zip->data) - 1);
 
-		/* Shift to the end of the dense page directory. */
+		n_dense = page_zip_dir_elems(page_zip);
 		slot_free = page_zip->data + page_zip_get_size(page_zip)
-			- PAGE_ZIP_DIR_SLOT_SIZE * n_dense;
+			    - PAGE_ZIP_DIR_SLOT_SIZE * (n_dense - 1);
 	}
 
 	/* Shift the dense directory to allocate place for rec. */
@@ -5708,14 +5456,14 @@ page_zip_dir_delete(
 		ut_a(blob_no + n_ext <= page_zip->n_blobs);
 
 		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start_low(page_zip, n_dense) - 2;
+			externs = page_zip_dir_start(page_zip) - 2;
 			trx_rbp_storage = externs
 					  - (page_zip->n_blobs
 					     * BTR_EXTERN_FIELD_REF_SIZE);
 			ut_ad(page_zip->n_blobs == mach_read_from_2(externs));
 			mach_write_to_2(externs, page_zip->n_blobs - n_ext);
 		} else {
-			externs = page_zip_dir_start_low(page_zip, n_dense)
+			externs = page_zip_dir_start(page_zip)
 				  - n_dense * DATA_TRX_RBP_LEN;
 		}
 

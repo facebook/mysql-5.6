@@ -1551,9 +1551,6 @@ use_heap:
 		page_rec_set_next(cursor->rec, insert_rec);
 	}
 
-	page_header_set_field(page, page_zip, PAGE_N_RECS,
-			      1 + page_get_n_recs(page));
-
 	/* 5. Set the n_owned field in the inserted record to zero,
 	and set the heap_no field */
 	rec_set_n_owned_new(insert_rec, NULL, 0);
@@ -1563,6 +1560,9 @@ use_heap:
 			   rec_offs_size(offsets));
 
 	page_zip_dir_insert(page_zip, cursor->rec, free_rec, insert_rec);
+
+	page_header_set_field(page, page_zip, PAGE_N_RECS,
+			      1 + page_get_n_recs(page));
 
 	/* 6. Update the last insertion info in page header */
 
