@@ -26,6 +26,10 @@ Created June 2005 by Marko Makela, refactored by Rongrong Dec. 2014.
 #ifndef PAGE0ZIP_HELPER_H
 #define PAGE0ZIP_HELPER_H
 
+//#include "dict0mem.h"
+#include "dict0dict.h"
+#include "page0zip.h"
+
 /* Enable some extra debugging output. */
 #include <cstdarg>
 /**********************************************************************//**
