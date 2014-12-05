@@ -3244,52 +3244,187 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
   mysql_mutex_unlock(&tbl_def->mutex);
 }
 
+#define SHOW_FNAME(name) rocksdb_show_##name
 
-typedef struct {
-  long bytes_written;
-  long bytes_read;
-  long number_keys_written;
-  long number_keys_read;
-  long number_keys_updated;
-} ROCKSDBSE_STATUS_VARS;
+#define DEF_SHOW_FUNC(name, key) \
+  static int SHOW_FNAME(name)(MYSQL_THD thd, SHOW_VAR *var, char *buff)  \
+  {                                                                      \
+    rocksdb_status_counters.name =                                       \
+      rocksdb_stats->getTickerCount(rocksdb::key);                       \
+    var->type = SHOW_LONG;                                               \
+    var->value = (char *)&rocksdb_status_counters.name;                  \
+    return 0;                                                            \
+  }
 
-static ROCKSDBSE_STATUS_VARS rocksdb_counters;
+#define DEF_STATUS_VAR(name) \
+  {"rocksdb_" #name, (char*) &SHOW_FNAME(name), SHOW_FUNC}
 
-static SHOW_VAR rocksdb_status_variables[]= {
-  {"bytes_written",        (char*) &rocksdb_counters.bytes_written, SHOW_LONG},
-  {"bytes_read",           (char*) &rocksdb_counters.bytes_read, SHOW_LONG},
-  {"number_keys_written",  (char*) &rocksdb_counters.number_keys_written, SHOW_LONG},
-  {"number_keys_read",     (char*) &rocksdb_counters.number_keys_read, SHOW_LONG},
-  {"number_keys_updated",  (char*) &rocksdb_counters.number_keys_updated, SHOW_LONG},
-  {NullS, NullS, SHOW_LONG}
+struct rocksdb_status_counters_t {
+  uint64_t block_cache_miss;
+  uint64_t block_cache_hit;
+  uint64_t block_cache_add;
+  uint64_t block_cache_index_miss;
+  uint64_t block_cache_index_hit;
+  uint64_t block_cache_filter_miss;
+  uint64_t block_cache_filter_hit;
+  uint64_t block_cache_data_miss;
+  uint64_t block_cache_data_hit;
+  uint64_t bloom_filter_useful;
+  uint64_t memtable_hit;
+  uint64_t memtable_miss;
+  uint64_t compaction_key_drop_new;
+  uint64_t compaction_key_drop_obsolete;
+  uint64_t compaction_key_drop_user;
+  uint64_t number_keys_written;
+  uint64_t number_keys_read;
+  uint64_t number_keys_updated;
+  uint64_t bytes_written;
+  uint64_t bytes_read;
+  uint64_t no_file_closes;
+  uint64_t no_file_opens;
+  uint64_t no_file_errors;
+  uint64_t l0_slowdown_micros;
+  uint64_t memtable_compaction_micros;
+  uint64_t l0_num_files_stall_micros;
+  uint64_t rate_limit_delay_millis;
+  uint64_t num_iterators;
+  uint64_t number_multiget_get;
+  uint64_t number_multiget_keys_read;
+  uint64_t number_multiget_bytes_read;
+  uint64_t number_deletes_filtered;
+  uint64_t number_merge_failures;
+  uint64_t sequence_number;
+  uint64_t bloom_filter_prefix_checked;
+  uint64_t bloom_filter_prefix_useful;
+  uint64_t number_reseeks_iteration;
+  uint64_t getupdatessince_calls;
+  uint64_t block_cachecompressed_miss;
+  uint64_t block_cachecompressed_hit;
+  uint64_t wal_synced;
+  uint64_t wal_bytes;
+  uint64_t write_self;
+  uint64_t write_other;
+  uint64_t write_timedout;
+  uint64_t write_wal;
+  uint64_t flush_write_bytes;
+  uint64_t compact_read_bytes;
+  uint64_t compact_write_bytes;
+  uint64_t number_superversion_acquires;
+  uint64_t number_superversion_releases;
+  uint64_t number_superversion_cleanups;
+  uint64_t number_block_not_compressed;
 };
 
+static rocksdb_status_counters_t rocksdb_status_counters;
 
-void rocksdb_export_status()
-{
-  ROCKSDBSE_STATUS_VARS &r= rocksdb_counters;
-  // TODO: should we protect the below with taking/releasing a mutex, like
-  // innodb does?
-  r.bytes_written=       rocksdb_stats->getTickerCount(rocksdb::BYTES_WRITTEN);
-  r.bytes_read=          rocksdb_stats->getTickerCount(rocksdb::BYTES_READ);
-  r.number_keys_written= rocksdb_stats->getTickerCount(rocksdb::NUMBER_KEYS_WRITTEN);
-  r.number_keys_read=    rocksdb_stats->getTickerCount(rocksdb::NUMBER_KEYS_READ);
-  r.number_keys_updated= rocksdb_stats->getTickerCount(rocksdb::NUMBER_KEYS_UPDATED);
-}
+DEF_SHOW_FUNC(block_cache_miss, BLOCK_CACHE_MISS)
+DEF_SHOW_FUNC(block_cache_hit, BLOCK_CACHE_HIT)
+DEF_SHOW_FUNC(block_cache_add, BLOCK_CACHE_ADD)
+DEF_SHOW_FUNC(block_cache_index_miss, BLOCK_CACHE_INDEX_MISS)
+DEF_SHOW_FUNC(block_cache_index_hit, BLOCK_CACHE_INDEX_HIT)
+DEF_SHOW_FUNC(block_cache_filter_miss, BLOCK_CACHE_FILTER_MISS)
+DEF_SHOW_FUNC(block_cache_filter_hit, BLOCK_CACHE_FILTER_HIT)
+DEF_SHOW_FUNC(block_cache_data_miss, BLOCK_CACHE_DATA_MISS)
+DEF_SHOW_FUNC(block_cache_data_hit, BLOCK_CACHE_DATA_HIT)
+DEF_SHOW_FUNC(bloom_filter_useful, BLOOM_FILTER_USEFUL)
+DEF_SHOW_FUNC(memtable_hit, MEMTABLE_HIT)
+DEF_SHOW_FUNC(memtable_miss, MEMTABLE_MISS)
+DEF_SHOW_FUNC(compaction_key_drop_new, COMPACTION_KEY_DROP_NEWER_ENTRY)
+DEF_SHOW_FUNC(compaction_key_drop_obsolete, COMPACTION_KEY_DROP_OBSOLETE)
+DEF_SHOW_FUNC(compaction_key_drop_user, COMPACTION_KEY_DROP_USER)
+DEF_SHOW_FUNC(number_keys_written, NUMBER_KEYS_WRITTEN)
+DEF_SHOW_FUNC(number_keys_read, NUMBER_KEYS_READ)
+DEF_SHOW_FUNC(number_keys_updated, NUMBER_KEYS_UPDATED)
+DEF_SHOW_FUNC(bytes_written, BYTES_WRITTEN)
+DEF_SHOW_FUNC(bytes_read, BYTES_READ)
+DEF_SHOW_FUNC(no_file_closes, NO_FILE_CLOSES)
+DEF_SHOW_FUNC(no_file_opens, NO_FILE_OPENS)
+DEF_SHOW_FUNC(no_file_errors, NO_FILE_ERRORS)
+DEF_SHOW_FUNC(l0_slowdown_micros, STALL_L0_SLOWDOWN_MICROS)
+DEF_SHOW_FUNC(memtable_compaction_micros, STALL_MEMTABLE_COMPACTION_MICROS)
+DEF_SHOW_FUNC(l0_num_files_stall_micros, STALL_L0_NUM_FILES_MICROS)
+DEF_SHOW_FUNC(rate_limit_delay_millis, RATE_LIMIT_DELAY_MILLIS)
+DEF_SHOW_FUNC(num_iterators, NO_ITERATORS)
+DEF_SHOW_FUNC(number_multiget_get, NUMBER_MULTIGET_CALLS)
+DEF_SHOW_FUNC(number_multiget_keys_read, NUMBER_MULTIGET_KEYS_READ)
+DEF_SHOW_FUNC(number_multiget_bytes_read, NUMBER_MULTIGET_BYTES_READ)
+DEF_SHOW_FUNC(number_deletes_filtered, NUMBER_FILTERED_DELETES)
+DEF_SHOW_FUNC(number_merge_failures, NUMBER_MERGE_FAILURES)
+DEF_SHOW_FUNC(sequence_number, SEQUENCE_NUMBER)
+DEF_SHOW_FUNC(bloom_filter_prefix_checked, BLOOM_FILTER_PREFIX_CHECKED)
+DEF_SHOW_FUNC(bloom_filter_prefix_useful, BLOOM_FILTER_PREFIX_USEFUL)
+DEF_SHOW_FUNC(number_reseeks_iteration, NUMBER_OF_RESEEKS_IN_ITERATION)
+DEF_SHOW_FUNC(getupdatessince_calls, GET_UPDATES_SINCE_CALLS)
+DEF_SHOW_FUNC(block_cachecompressed_miss, BLOCK_CACHE_COMPRESSED_MISS)
+DEF_SHOW_FUNC(block_cachecompressed_hit, BLOCK_CACHE_COMPRESSED_HIT)
+DEF_SHOW_FUNC(wal_synced, WAL_FILE_SYNCED)
+DEF_SHOW_FUNC(wal_bytes, WAL_FILE_BYTES)
+DEF_SHOW_FUNC(write_self, WRITE_DONE_BY_SELF)
+DEF_SHOW_FUNC(write_other, WRITE_DONE_BY_OTHER)
+DEF_SHOW_FUNC(write_timedout, WRITE_TIMEDOUT)
+DEF_SHOW_FUNC(write_wal, WRITE_WITH_WAL)
+DEF_SHOW_FUNC(flush_write_bytes, FLUSH_WRITE_BYTES)
+DEF_SHOW_FUNC(compact_read_bytes, COMPACT_READ_BYTES)
+DEF_SHOW_FUNC(compact_write_bytes, COMPACT_WRITE_BYTES)
+DEF_SHOW_FUNC(number_superversion_acquires, NUMBER_SUPERVERSION_ACQUIRES)
+DEF_SHOW_FUNC(number_superversion_releases, NUMBER_SUPERVERSION_RELEASES)
+DEF_SHOW_FUNC(number_superversion_cleanups, NUMBER_SUPERVERSION_CLEANUPS)
+DEF_SHOW_FUNC(number_block_not_compressed, NUMBER_BLOCK_NOT_COMPRESSED)
 
-
-static int show_rocksdb_status_vars(THD* thd, SHOW_VAR *var, char* buff)
-{
-  rocksdb_export_status();
-  var->type = SHOW_ARRAY;
-  var->value = (char*) &rocksdb_status_variables;
-  return(0);
-}
-
-
-static SHOW_VAR rocksdb_status_vars[]=
-{
-  {"rocksdb", (char*) &show_rocksdb_status_vars, SHOW_FUNC},
+static SHOW_VAR rocksdb_status_vars[]= {
+  DEF_STATUS_VAR(block_cache_miss),
+  DEF_STATUS_VAR(block_cache_hit),
+  DEF_STATUS_VAR(block_cache_add),
+  DEF_STATUS_VAR(block_cache_index_miss),
+  DEF_STATUS_VAR(block_cache_index_hit),
+  DEF_STATUS_VAR(block_cache_filter_miss),
+  DEF_STATUS_VAR(block_cache_filter_hit),
+  DEF_STATUS_VAR(block_cache_data_miss),
+  DEF_STATUS_VAR(block_cache_data_hit),
+  DEF_STATUS_VAR(bloom_filter_useful),
+  DEF_STATUS_VAR(memtable_hit),
+  DEF_STATUS_VAR(memtable_miss),
+  DEF_STATUS_VAR(compaction_key_drop_new),
+  DEF_STATUS_VAR(compaction_key_drop_obsolete),
+  DEF_STATUS_VAR(compaction_key_drop_user),
+  DEF_STATUS_VAR(number_keys_written),
+  DEF_STATUS_VAR(number_keys_read),
+  DEF_STATUS_VAR(number_keys_updated),
+  DEF_STATUS_VAR(bytes_written),
+  DEF_STATUS_VAR(bytes_read),
+  DEF_STATUS_VAR(no_file_closes),
+  DEF_STATUS_VAR(no_file_opens),
+  DEF_STATUS_VAR(no_file_errors),
+  DEF_STATUS_VAR(l0_slowdown_micros),
+  DEF_STATUS_VAR(memtable_compaction_micros),
+  DEF_STATUS_VAR(l0_num_files_stall_micros),
+  DEF_STATUS_VAR(rate_limit_delay_millis),
+  DEF_STATUS_VAR(num_iterators),
+  DEF_STATUS_VAR(number_multiget_get),
+  DEF_STATUS_VAR(number_multiget_keys_read),
+  DEF_STATUS_VAR(number_multiget_bytes_read),
+  DEF_STATUS_VAR(number_deletes_filtered),
+  DEF_STATUS_VAR(number_merge_failures),
+  DEF_STATUS_VAR(sequence_number),
+  DEF_STATUS_VAR(bloom_filter_prefix_checked),
+  DEF_STATUS_VAR(bloom_filter_prefix_useful),
+  DEF_STATUS_VAR(number_reseeks_iteration),
+  DEF_STATUS_VAR(getupdatessince_calls),
+  DEF_STATUS_VAR(block_cachecompressed_miss),
+  DEF_STATUS_VAR(block_cachecompressed_hit),
+  DEF_STATUS_VAR(wal_synced),
+  DEF_STATUS_VAR(wal_bytes),
+  DEF_STATUS_VAR(write_self),
+  DEF_STATUS_VAR(write_other),
+  DEF_STATUS_VAR(write_timedout),
+  DEF_STATUS_VAR(write_wal),
+  DEF_STATUS_VAR(flush_write_bytes),
+  DEF_STATUS_VAR(compact_read_bytes),
+  DEF_STATUS_VAR(compact_write_bytes),
+  DEF_STATUS_VAR(number_superversion_acquires),
+  DEF_STATUS_VAR(number_superversion_releases),
+  DEF_STATUS_VAR(number_superversion_cleanups),
+  DEF_STATUS_VAR(number_block_not_compressed),
   {NullS, NullS, SHOW_LONG}
 };
 
