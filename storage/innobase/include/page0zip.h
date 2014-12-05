@@ -296,18 +296,6 @@ page_zip_write_rec(
 	ulint		create)	/*!< in: nonzero=insert, zero=update */
 	__attribute__((nonnull));
 
-/***********************************************************//**
-Parses a log record of writing a BLOB pointer of a record.
-@return	end of log record or NULL */
-UNIV_INTERN
-byte*
-page_zip_parse_write_blob_ptr(
-/*==========================*/
-	byte*		ptr,	/*!< in: redo log buffer */
-	byte*		end_ptr,/*!< in: redo log buffer end */
-	page_t*		page,	/*!< in/out: uncompressed page */
-	page_zip_des_t*	page_zip);/*!< in/out: compressed page */
-
 /**********************************************************************//**
 Write a BLOB pointer of a record on the leaf page of a clustered index.
 The information must already have been updated on the uncompressed page. */
@@ -324,18 +312,6 @@ page_zip_write_blob_ptr(
 	mtr_t*		mtr)	/*!< in: mini-transaction handle,
 				or NULL if no logging is needed */
 	__attribute__((nonnull(1,2,3,4)));
-
-/***********************************************************//**
-Parses a log record of writing the node pointer of a record.
-@return	end of log record or NULL */
-UNIV_INTERN
-byte*
-page_zip_parse_write_node_ptr(
-/*==========================*/
-	byte*		ptr,	/*!< in: redo log buffer */
-	byte*		end_ptr,/*!< in: redo log buffer end */
-	page_t*		page,	/*!< in/out: uncompressed page */
-	page_zip_des_t*	page_zip);/*!< in/out: compressed page */
 
 /**********************************************************************//**
 Write the node pointer of a record on a non-leaf compressed page. */
@@ -426,34 +402,6 @@ page_zip_dir_add_slot(
 					zero for others */
 	__attribute__((nonnull));
 
-/***********************************************************//**
-Parses a log record of writing to the header of a page.
-@return	end of log record or NULL */
-UNIV_INTERN
-byte*
-page_zip_parse_write_header(
-/*========================*/
-	byte*		ptr,	/*!< in: redo log buffer */
-	byte*		end_ptr,/*!< in: redo log buffer end */
-	page_t*		page,	/*!< in/out: uncompressed page */
-	page_zip_des_t*	page_zip);/*!< in/out: compressed page */
-
-/**********************************************************************//**
-Write data to the uncompressed header portion of a page.  The data must
-already have been written to the uncompressed page.
-However, the data portion of the uncompressed page may differ from
-the compressed page when a record is being inserted in
-page_cur_insert_rec_low(). */
-UNIV_INLINE
-void
-page_zip_write_header(
-/*==================*/
-	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	str,	/*!< in: address on the uncompressed page */
-	ulint		length,	/*!< in: length of the data */
-	mtr_t*		mtr)	/*!< in: mini-transaction, or NULL */
-	__attribute__((nonnull(1,2)));
-
 /**********************************************************************//**
 Reorganize and compress a page.  This is a low-level operation for
 compressed pages, to be used when page_zip_compress() fails.
@@ -498,21 +446,6 @@ page_zip_copy_recs(
 	mtr_t*			mtr)		/*!< in: mini-transaction */
 	__attribute__((nonnull));
 #endif /* !UNIV_HOTBACKUP */
-
-/**********************************************************************//**
-Parses a log record of compressing an index page.
-@return	end of log record or NULL */
-UNIV_INTERN
-byte*
-page_zip_parse_compress(
-/*====================*/
-	byte*		ptr,	/*!< in: buffer */
-	byte*		end_ptr,/*!< in: buffer end */
-	page_t*		page,	/*!< out: uncompressed page */
-	page_zip_des_t*	page_zip,/*!< out: compressed page */
-	ulint		space_id) /*!< in: used to obtain compression
-				  type and compression flags */
-	__attribute__((nonnull(1,2)));
 
 /**********************************************************************//**
 Calculate the compressed page checksum.
@@ -576,20 +509,6 @@ page_zip_encode_compression_flags(
     page_zip_level, \
     page_zip_zlib_wrap, \
     page_zip_zlib_strategy)
-
-/**********************************************************************//**
-Parses a log record of compressing an index page without the data.
-@return	end of log record or NULL */
-UNIV_INLINE
-byte*
-page_zip_parse_compress_no_data(
-/*============================*/
-	byte*		ptr,		/*!< in: buffer */
-	byte*		end_ptr,	/*!< in: buffer end */
-	page_t*		page,		/*!< in: uncompressed page */
-	page_zip_des_t*	page_zip,	/*!< out: compressed page */
-	dict_index_t*	index)		/*!< in: index */
-	__attribute__((nonnull(1,2)));
 
 /**********************************************************************//**
 Reset the counters used for filling
