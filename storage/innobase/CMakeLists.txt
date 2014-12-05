@@ -370,6 +370,8 @@ SET(INNOBASE_SOURCES
 	page/page0cur.cc
 	page/page0page.cc
 	page/page0zip.cc
+	page/page0zip_mlog.cc
+	page/page0zip_trailer.cc
 	pars/lexyy.cc
 	pars/pars0grm.cc
 	pars/pars0opt.cc
