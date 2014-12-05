@@ -116,6 +116,7 @@ rocksdb_cf_options_file_update(THD* thd,
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
 static uint64_t rocksdb_info_log_level;
+static uint64_t rocksdb_index_type;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -125,6 +126,7 @@ static rocksdb::DBOptions init_db_options() {
 }
 
 static rocksdb::DBOptions db_options = init_db_options();
+static rocksdb::BlockBasedTableOptions table_options;
 
 static const char* info_log_level_names[] = {
   "debug_level",
@@ -139,6 +141,19 @@ static TYPELIB info_log_level_typelib = {
   array_elements(info_log_level_names) - 1,
   "info_log_level_typelib",
   info_log_level_names,
+  nullptr
+};
+
+static const char* index_type_names[] = {
+  "kBinarySearch",
+  "kHashSearch",
+  NullS
+};
+
+static TYPELIB index_type_typelib = {
+  array_elements(index_type_names) - 1,
+  "index_type_typelib",
+  index_type_names,
   nullptr
 };
 
@@ -373,6 +388,57 @@ static MYSQL_SYSVAR_LONGLONG(block_cache_size, rocksdb_block_cache_size,
   NULL, NULL, /* RocksDB's default is 8 MB: */ 8*1024*1024L,
   /* min */ 1024L, /* max */ LONGLONG_MAX, /* Block size */1024L);
 
+static MYSQL_SYSVAR_BOOL(cache_index_and_filter_blocks,
+  *reinterpret_cast<my_bool*>(&table_options.cache_index_and_filter_blocks),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::cache_index_and_filter_blocks for RocksDB",
+  NULL, NULL, table_options.cache_index_and_filter_blocks);
+
+static MYSQL_SYSVAR_ENUM(index_type,
+  rocksdb_index_type,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::index_type for RocksDB",
+  NULL, NULL, (uint64_t)table_options.index_type, &index_type_typelib);
+
+static MYSQL_SYSVAR_BOOL(hash_index_allow_collision,
+  *reinterpret_cast<my_bool*>(&table_options.hash_index_allow_collision),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::hash_index_allow_collision for RocksDB",
+  NULL, NULL, table_options.hash_index_allow_collision);
+
+static MYSQL_SYSVAR_BOOL(no_block_cache,
+  *reinterpret_cast<my_bool*>(&table_options.no_block_cache),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::no_block_cache for RocksDB",
+  NULL, NULL, table_options.no_block_cache);
+
+static MYSQL_SYSVAR_ULONG(block_size,
+  table_options.block_size,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::block_size for RocksDB",
+  NULL, NULL, table_options.block_size,
+  /* min */ 1L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_INT(block_size_deviation,
+  table_options.block_size_deviation,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::block_size_deviation for RocksDB",
+  NULL, NULL, table_options.block_size_deviation,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_INT(block_restart_interval,
+  table_options.block_restart_interval,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::block_restart_interval for RocksDB",
+  NULL, NULL, table_options.block_restart_interval,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(whole_key_filtering,
+  *reinterpret_cast<my_bool*>(&table_options.whole_key_filtering),
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "BlockBasedTableOptions::whole_key_filtering for RocksDB",
+  NULL, NULL, table_options.whole_key_filtering);
+
 static MYSQL_SYSVAR_STR(default_cf_options, rocksdb_default_cf_options,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "default cf options for RocksDB",
@@ -426,6 +492,15 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(enable_thread_tracking),
 
   MYSQL_SYSVAR(block_cache_size),
+  MYSQL_SYSVAR(cache_index_and_filter_blocks),
+  MYSQL_SYSVAR(index_type),
+  MYSQL_SYSVAR(hash_index_allow_collision),
+  MYSQL_SYSVAR(no_block_cache),
+  MYSQL_SYSVAR(block_size),
+  MYSQL_SYSVAR(block_size_deviation),
+  MYSQL_SYSVAR(block_restart_interval),
+  MYSQL_SYSVAR(whole_key_filtering),
+
   MYSQL_SYSVAR(default_cf_options),
   MYSQL_SYSVAR(cf_options_file),
 
@@ -900,8 +975,12 @@ static int rocksdb_init_func(void *p)
 
   default_cf_opts.write_buffer_size = ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
-  rocksdb::BlockBasedTableOptions table_options;
-  table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
+  table_options.index_type =
+    (rocksdb::BlockBasedTableOptions::IndexType)rocksdb_index_type;
+
+  if (!table_options.no_block_cache) {
+    table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
+  }
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
 
   if (!rocksdb_cf_options_map.SetDefault(
