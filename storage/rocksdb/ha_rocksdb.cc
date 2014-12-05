@@ -125,9 +125,6 @@ static rocksdb::DBOptions init_db_options() {
 
 static rocksdb::DBOptions db_options = init_db_options();
 
-//static long long rocksdb_write_buffer_size;
-//static int rocksdb_target_file_size_base;
-
 //TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
   "Number of seconds to wait for lock",
@@ -308,6 +305,13 @@ static MYSQL_SYSVAR_BOOL(skip_log_error_on_recovery,
   "DBOptions::skip_log_error_on_recovery for RocksDB",
   NULL, NULL, db_options.skip_log_error_on_recovery);
 
+static MYSQL_SYSVAR_UINT(stats_dump_period_sec,
+  db_options.stats_dump_period_sec,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::stats_dump_period_sec for RocksDB",
+  NULL, NULL, db_options.stats_dump_period_sec,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
 static MYSQL_SYSVAR_BOOL(advise_random_on_open,
   *reinterpret_cast<my_bool*>(&db_options.advise_random_on_open),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -390,6 +394,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(allow_mmap_writes),
   MYSQL_SYSVAR(is_fd_close_on_exec),
   MYSQL_SYSVAR(skip_log_error_on_recovery),
+  MYSQL_SYSVAR(stats_dump_period_sec),
   MYSQL_SYSVAR(advise_random_on_open),
   MYSQL_SYSVAR(db_write_buffer_size),
   MYSQL_SYSVAR(use_adaptive_mutex),
