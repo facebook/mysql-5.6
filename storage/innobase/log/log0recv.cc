@@ -41,7 +41,7 @@ Created 9/20/1997 Heikki Tuuri
 #include "mtr0mtr.h"
 #include "mtr0log.h"
 #include "page0cur.h"
-#include "page0zip.h"
+#include "page0zip_mlog.h"
 #include "btr0btr.h"
 #include "btr0cur.h"
 #include "ibuf0ibuf.h"
