@@ -1079,7 +1079,7 @@ use_heap:
 	/* 5. Set the n_owned field in the inserted record to zero,
 	and set the heap_no field */
 	if (page_is_comp(page)) {
-		rec_set_n_owned_new(insert_rec, NULL, 0);
+		rec_set_n_owned_new(insert_rec, 0);
 		rec_set_heap_no_new(insert_rec, heap_no);
 	} else {
 		rec_set_n_owned_old(insert_rec, 0);
@@ -1133,7 +1133,7 @@ use_heap:
 		ulint	n_owned;
 		if (page_is_comp(page)) {
 			n_owned = rec_get_n_owned_new(owner_rec);
-			rec_set_n_owned_new(owner_rec, NULL, n_owned + 1);
+			rec_set_n_owned_new(owner_rec, n_owned + 1);
 		} else {
 			n_owned = rec_get_n_owned_old(owner_rec);
 			rec_set_n_owned_old(owner_rec, n_owned + 1);
@@ -1555,7 +1555,7 @@ use_heap:
 
 	/* 5. Set the n_owned field in the inserted record to zero,
 	and set the heap_no field */
-	rec_set_n_owned_new(insert_rec, NULL, 0);
+	rec_set_n_owned_new(insert_rec, 0);
 	rec_set_heap_no_new(insert_rec, heap_no);
 
 	UNIV_MEM_ASSERT_RW(rec_get_start(insert_rec, offsets),
@@ -1608,7 +1608,7 @@ use_heap:
 		ulint	n_owned;
 
 		n_owned = rec_get_n_owned_new(owner_rec);
-		rec_set_n_owned_new(owner_rec, page_zip, n_owned + 1);
+		page_rec_set_n_owned_new(owner_rec, page_zip, n_owned + 1);
 
 		/* 8. Now we have incremented the n_owned field of the owner
 		record. If the number exceeds PAGE_DIR_SLOT_MAX_N_OWNED,
@@ -1803,7 +1803,7 @@ page_copy_rec_list_end_to_created_page(
 			rec_set_next_offs_new(prev_rec,
 					      page_offset(insert_rec));
 
-			rec_set_n_owned_new(insert_rec, NULL, 0);
+			rec_set_n_owned_new(insert_rec, 0);
 			rec_set_heap_no_new(insert_rec,
 					    PAGE_HEAP_NO_USER_LOW + n_recs);
 		} else {
