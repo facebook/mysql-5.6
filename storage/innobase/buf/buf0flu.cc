@@ -34,6 +34,7 @@ Created 11/11/1995 Heikki Tuuri
 #include "srv0start.h"
 #include "srv0srv.h"
 #include "page0zip.h"
+#include "page0zip_checksum.h"
 #ifndef UNIV_HOTBACKUP
 #include "ut0byte.h"
 #include "ut0lst.h"
