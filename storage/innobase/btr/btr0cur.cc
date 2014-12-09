@@ -234,7 +234,10 @@ btr_rec_set_deleted_flag(
 	ulint		flag)	/*!< in: nonzero if delete marked */
 {
 	if (page_rec_is_comp(rec)) {
-		rec_set_deleted_flag_new(rec, page_zip, flag);
+		rec_set_deleted_flag_new(rec, flag);
+		if (page_zip) {
+			page_zip_rec_set_deleted(page_zip, rec, flag);
+		}
 	} else {
 		ut_ad(!page_zip);
 		rec_set_deleted_flag_old(rec, flag);
