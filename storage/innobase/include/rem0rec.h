@@ -31,7 +31,6 @@ Created 5/30/1994 Heikki Tuuri
 #include "data0data.h"
 #include "rem0types.h"
 #include "mtr0types.h"
-#include "page0types.h"
 #endif /* !UNIV_INNOCHECKSUM */
 
 /* Info bit denoting the predefined minimum record: this bit is set
@@ -201,7 +200,6 @@ void
 rec_set_n_owned_new(
 /*================*/
 	rec_t*		rec,	/*!< in/out: new-style physical record */
-	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
 	ulint		n_owned)/*!< in: the number of owned */
 	__attribute__((nonnull(1)));
 /******************************************************//**
@@ -301,7 +299,6 @@ void
 rec_set_deleted_flag_new(
 /*=====================*/
 	rec_t*		rec,	/*!< in/out: new-style physical record */
-	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
 	ulint		flag)	/*!< in: nonzero if delete marked */
 	__attribute__((nonnull(1)));
 /******************************************************//**
