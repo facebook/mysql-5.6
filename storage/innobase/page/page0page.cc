@@ -386,7 +386,7 @@ page_create_low(
 	if (UNIV_LIKELY(comp)) {
 		ut_a(infimum_rec == page + PAGE_NEW_INFIMUM);
 
-		rec_set_n_owned_new(infimum_rec, NULL, 1);
+		rec_set_n_owned_new(infimum_rec, 1);
 		rec_set_heap_no_new(infimum_rec, 0);
 	} else {
 		ut_a(infimum_rec == page + PAGE_OLD_INFIMUM);
@@ -415,7 +415,7 @@ page_create_low(
 	if (UNIV_LIKELY(comp)) {
 		ut_a(supremum_rec == page + PAGE_NEW_SUPREMUM);
 
-		rec_set_n_owned_new(supremum_rec, NULL, 1);
+		rec_set_n_owned_new(supremum_rec, 1);
 		rec_set_heap_no_new(supremum_rec, 1);
 	} else {
 		ut_a(supremum_rec == page + PAGE_OLD_SUPREMUM);
@@ -1541,8 +1541,9 @@ page_dir_balance_slot(
 		if (page_is_comp(page)) {
 			new_rec = rec_get_next_ptr(old_rec, TRUE);
 
-			rec_set_n_owned_new(old_rec, page_zip, 0);
-			rec_set_n_owned_new(new_rec, page_zip, n_owned + 1);
+			page_rec_set_n_owned_new(old_rec, page_zip, 0);
+			page_rec_set_n_owned_new(new_rec, page_zip,
+						 n_owned + 1);
 		} else {
 			new_rec = rec_get_next_ptr(old_rec, FALSE);
 

@@ -474,6 +474,15 @@ page_dir_slot_get_n_owned(
 /*======================*/
 	const page_dir_slot_t*	slot);	/*!< in: page directory slot */
 /***************************************************************//**
+This is used to set the owned records field of a record. */
+UNIV_INLINE
+void
+page_rec_set_n_owned_new(
+/*================*/
+	rec_t*		rec,	/*!< in/out: new-style physical record */
+	page_zip_des_t*	page_zip,/*!< in/out: compressed page, or NULL */
+	ulint		n_owned);/*!< in: the number of owned */
+/***************************************************************//**
 This is used to set the owned records field of a directory slot. */
 UNIV_INLINE
 void
