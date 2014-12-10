@@ -87,4 +87,13 @@ page_zip_store_blobs(
 	ulint		n_prev_blobs);	/*!< in: number of blob pointers that
 					were already stored before */
 
+/**********************************************************************//**
+Add a slot to the dense page directory. */
+void
+page_zip_dir_add_slot(
+/*==================*/
+	page_zip_des_t*	page_zip,	/*!< in/out: compressed page */
+	bool		is_clustered)	/*!< in: clustered index? */
+	__attribute__((nonnull));
+
 #endif /* PAGE0ZIP_TRAILER_H */
