@@ -316,6 +316,12 @@ class FbsonValue {
   // size of the total packed bytes
   unsigned int numPackedBytes() const;
 
+  // size of the value in bytes
+  unsigned int size() const;
+
+  // get the raw byte array of the value
+  const char *getValuePtr() const;
+
  protected:
   FbsonType type_; // type info
 
@@ -490,6 +496,9 @@ class ContainerVal : public FbsonValue {
  public:
   // size of the container payload only
   unsigned int getContainerSize() const { return size_; }
+
+  // return the container payload as byte array
+  const char *getPayload() const { return payload_; }
 
   // size of the total packed bytes
   unsigned int numPackedBytes() const {
@@ -697,6 +706,53 @@ inline unsigned int FbsonValue::numPackedBytes() const {
   }
   default:
     return 0;
+  }
+}
+
+inline unsigned int FbsonValue::size() const {
+  switch (type_) {
+  case FbsonType::T_Int8: { return sizeof(int8_t); }
+  case FbsonType::T_Int16: { return sizeof(int16_t); }
+  case FbsonType::T_Int32: { return sizeof(int32_t); }
+  case FbsonType::T_Int64: { return sizeof(int64_t); }
+  case FbsonType::T_Double: { return sizeof(double); }
+  case FbsonType::T_String:
+  case FbsonType::T_Binary: { return ((BlobVal *)(this))->getBlobLen(); }
+
+  case FbsonType::T_Object:
+  case FbsonType::T_Array: {
+    return ((ContainerVal *)(this))->getContainerSize();
+  }
+  case FbsonType::T_Null:
+  case FbsonType::T_True:
+  case FbsonType::T_False:
+  default:
+    return 0;
+  }
+}
+
+inline const char *FbsonValue::getValuePtr() const {
+  switch (type_) {
+  case FbsonType::T_Int8:
+  case FbsonType::T_Int16:
+  case FbsonType::T_Int32:
+  case FbsonType::T_Int64:
+  case FbsonType::T_Double:
+    return ((char *)this) + sizeof(FbsonType);
+
+  case FbsonType::T_String:
+  case FbsonType::T_Binary:
+    return ((BlobVal *)(this))->getBlob();
+
+  case FbsonType::T_Object:
+  case FbsonType::T_Array:
+    return ((ContainerVal *)(this))->getPayload();
+
+  case FbsonType::T_Null:
+  case FbsonType::T_True:
+  case FbsonType::T_False:
+  default:
+    return nullptr;
   }
 }
 
