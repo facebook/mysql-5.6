@@ -360,11 +360,12 @@ UNIV_INTERN
 void
 page_zip_dir_insert(
 /*================*/
-	page_zip_des_t*	page_zip,/*!< in/out: compressed page */
-	const byte*	prev_rec,/*!< in: record after which to insert */
-	const byte*	free_rec,/*!< in: record from which rec was
-				allocated, or NULL */
-	byte*		rec);	/*!< in: record to insert */
+	page_zip_des_t*	page_zip,	/*!< in/out: compressed page */
+	const byte*	prev_rec,	/*!< in: record after which to insert */
+	const byte*	free_rec,	/*!< in: record from which rec was
+					allocated, or NULL */
+	byte*		rec,		/*!< in: record to insert */
+	bool		is_clustered);	/*!< in: clustered index? */
 
 /**********************************************************************//**
 Shift the dense page directory and the array of BLOB pointers
@@ -380,17 +381,6 @@ page_zip_dir_delete(
 	const byte*		free)		/*!< in: previous start of
 						the free list */
 	__attribute__((nonnull(1,2,3,4)));
-
-/**********************************************************************//**
-Add a slot to the dense page directory. */
-UNIV_INTERN
-void
-page_zip_dir_add_slot(
-/*==================*/
-	page_zip_des_t*	page_zip,	/*!< in/out: compressed page */
-	ulint		is_clustered)	/*!< in: nonzero for clustered index,
-					zero for others */
-	__attribute__((nonnull));
 
 /**********************************************************************//**
 Reorganize and compress a page.  This is a low-level operation for
