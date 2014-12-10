@@ -164,3 +164,66 @@ page_zip_store_blobs(
 		}
 	}
 }
+
+/**********************************************************************//**
+Add a slot to the dense page directory. */
+void
+page_zip_dir_add_slot(
+/*==================*/
+	page_zip_des_t*	page_zip,	/*!< in/out: compressed page */
+	bool		is_clustered)	/*!< in: clustered index? */
+{
+	ulint	n_dense;
+	byte*	dir;
+	byte*	stored;
+
+	ut_ad(page_is_comp(page_zip->data));
+	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
+
+	/* Read the old n_dense (n_heap has already been incremented). */
+	n_dense = page_dir_get_n_heap(page_zip->data)
+		- (PAGE_HEAP_NO_USER_LOW + 1);
+
+	dir = page_zip->data + page_zip_get_size(page_zip)
+		- PAGE_ZIP_DIR_SLOT_SIZE * n_dense;
+
+	if (!page_is_leaf(page_zip->data)) {
+		ut_ad(!page_zip->n_blobs);
+		stored = dir - n_dense * REC_NODE_PTR_SIZE;
+	} else if (is_clustered) {
+		if (page_zip->compact_metadata) {
+			/* No need to memmove blob storage because it's before
+			   trx rbp storage */
+			stored = dir
+				 - 2
+				 - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE
+				 - n_dense * DATA_TRX_RBP_LEN;
+		} else {
+			/* Move the BLOB pointer array backwards to make space
+			   for the roll_ptr and trx_id columns and the dense
+			   directory slot. */
+			byte* externs;
+			stored = dir - n_dense * DATA_TRX_RBP_LEN;
+			externs = stored
+				  - (page_zip->n_blobs
+				     * BTR_EXTERN_FIELD_REF_SIZE);
+			ASSERT_ZERO(externs
+				    - (PAGE_ZIP_DIR_SLOT_SIZE
+				       + DATA_TRX_RBP_LEN),
+				    PAGE_ZIP_DIR_SLOT_SIZE + DATA_TRX_RBP_LEN);
+			memmove(externs
+				- (PAGE_ZIP_DIR_SLOT_SIZE + DATA_TRX_RBP_LEN),
+				externs,
+				stored - externs);
+		}
+	} else {
+		/* secondary index leaf page */
+		stored = dir;
+		ASSERT_ZERO(stored - PAGE_ZIP_DIR_SLOT_SIZE,
+			    PAGE_ZIP_DIR_SLOT_SIZE);
+	}
+
+	/* Move the uncompressed area backwards to make space
+	for one directory slot. */
+	memmove(stored - PAGE_ZIP_DIR_SLOT_SIZE, stored, dir - stored);
+}
