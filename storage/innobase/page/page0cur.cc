@@ -1528,7 +1528,6 @@ use_heap:
 			return(NULL);
 		}
 
-		page_zip_dir_add_slot(page_zip, dict_index_is_clust(index));
 	}
 
 	/* 3. Create the record */
@@ -1559,7 +1558,8 @@ use_heap:
 	UNIV_MEM_ASSERT_RW(rec_get_start(insert_rec, offsets),
 			   rec_offs_size(offsets));
 
-	page_zip_dir_insert(page_zip, cursor->rec, free_rec, insert_rec);
+	page_zip_dir_insert(page_zip, cursor->rec, free_rec, insert_rec,
+			    dict_index_is_clust(index) != 0);
 
 	page_header_set_field(page, page_zip, PAGE_N_RECS,
 			      1 + page_get_n_recs(page));
