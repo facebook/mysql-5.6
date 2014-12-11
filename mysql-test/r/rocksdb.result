@@ -824,9 +824,13 @@ rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
 rocksdb_allow_os_buffer	ON
 rocksdb_block_cache_size	8388608
+rocksdb_block_restart_interval	16
+rocksdb_block_size	4096
+rocksdb_block_size_deviation	10
 rocksdb_bulk_load	OFF
 rocksdb_bulk_load_size	1000
 rocksdb_bytes_per_sync	0
+rocksdb_cache_index_and_filter_blocks	OFF
 rocksdb_cf_options_file	
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
@@ -836,6 +840,9 @@ rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_disabledatasync	OFF
 rocksdb_enable_thread_tracking	OFF
 rocksdb_error_if_exists	OFF
+rocksdb_hash_index_allow_collision	ON
+rocksdb_index_type	kBinarySearch
+rocksdb_info_log_level	info_level
 rocksdb_is_fd_close_on_exec	ON
 rocksdb_keep_log_file_num	1000
 rocksdb_lock_wait_timeout	1
@@ -848,14 +855,17 @@ rocksdb_max_manifest_file_size	18446744073709551615
 rocksdb_max_open_files	5000
 rocksdb_max_row_locks	1073741824
 rocksdb_max_total_wal_size	0
+rocksdb_no_block_cache	OFF
 rocksdb_paranoid_checks	ON
 rocksdb_skip_log_error_on_recovery	OFF
+rocksdb_stats_dump_period_sec	3600
 rocksdb_table_cache_numshardbits	4
 rocksdb_table_cache_remove_scan_count_limit	16
 rocksdb_use_adaptive_mutex	OFF
 rocksdb_use_fsync	OFF
 rocksdb_wal_size_limit_mb	0
 rocksdb_wal_ttl_seconds	0
+rocksdb_whole_key_filtering	ON
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
@@ -1320,27 +1330,171 @@ drop table t0, t1;
 #
 show status like 'rocksdb%';
 Variable_name	Value
-rocksdb_bytes_written	#
+rocksdb_block_cache_add	#
+rocksdb_block_cache_data_hit	#
+rocksdb_block_cache_data_miss	#
+rocksdb_block_cache_filter_hit	#
+rocksdb_block_cache_filter_miss	#
+rocksdb_block_cache_hit	#
+rocksdb_block_cache_index_hit	#
+rocksdb_block_cache_index_miss	#
+rocksdb_block_cache_miss	#
+rocksdb_block_cachecompressed_hit	#
+rocksdb_block_cachecompressed_miss	#
+rocksdb_bloom_filter_prefix_checked	#
+rocksdb_bloom_filter_prefix_useful	#
+rocksdb_bloom_filter_useful	#
 rocksdb_bytes_read	#
-rocksdb_number_keys_written	#
+rocksdb_bytes_written	#
+rocksdb_compact_read_bytes	#
+rocksdb_compact_write_bytes	#
+rocksdb_compaction_key_drop_new	#
+rocksdb_compaction_key_drop_obsolete	#
+rocksdb_compaction_key_drop_user	#
+rocksdb_flush_write_bytes	#
+rocksdb_getupdatessince_calls	#
+rocksdb_l0_num_files_stall_micros	#
+rocksdb_l0_slowdown_micros	#
+rocksdb_memtable_compaction_micros	#
+rocksdb_memtable_hit	#
+rocksdb_memtable_miss	#
+rocksdb_no_file_closes	#
+rocksdb_no_file_errors	#
+rocksdb_no_file_opens	#
+rocksdb_num_iterators	#
+rocksdb_number_block_not_compressed	#
+rocksdb_number_deletes_filtered	#
 rocksdb_number_keys_read	#
 rocksdb_number_keys_updated	#
+rocksdb_number_keys_written	#
+rocksdb_number_merge_failures	#
+rocksdb_number_multiget_bytes_read	#
+rocksdb_number_multiget_get	#
+rocksdb_number_multiget_keys_read	#
+rocksdb_number_reseeks_iteration	#
+rocksdb_number_superversion_acquires	#
+rocksdb_number_superversion_cleanups	#
+rocksdb_number_superversion_releases	#
+rocksdb_rate_limit_delay_millis	#
+rocksdb_sequence_number	#
+rocksdb_wal_bytes	#
+rocksdb_wal_synced	#
+rocksdb_write_other	#
+rocksdb_write_self	#
+rocksdb_write_timedout	#
+rocksdb_write_wal	#
 select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME LIKE 'rocksdb%';
 VARIABLE_NAME
-ROCKSDB_BYTES_WRITTEN
+ROCKSDB_BLOCK_CACHE_ADD
+ROCKSDB_BLOCK_CACHE_DATA_HIT
+ROCKSDB_BLOCK_CACHE_DATA_MISS
+ROCKSDB_BLOCK_CACHE_FILTER_HIT
+ROCKSDB_BLOCK_CACHE_FILTER_MISS
+ROCKSDB_BLOCK_CACHE_HIT
+ROCKSDB_BLOCK_CACHE_INDEX_HIT
+ROCKSDB_BLOCK_CACHE_INDEX_MISS
+ROCKSDB_BLOCK_CACHE_MISS
+ROCKSDB_BLOCK_CACHECOMPRESSED_HIT
+ROCKSDB_BLOCK_CACHECOMPRESSED_MISS
+ROCKSDB_BLOOM_FILTER_PREFIX_CHECKED
+ROCKSDB_BLOOM_FILTER_PREFIX_USEFUL
+ROCKSDB_BLOOM_FILTER_USEFUL
 ROCKSDB_BYTES_READ
-ROCKSDB_NUMBER_KEYS_WRITTEN
+ROCKSDB_BYTES_WRITTEN
+ROCKSDB_COMPACT_READ_BYTES
+ROCKSDB_COMPACT_WRITE_BYTES
+ROCKSDB_COMPACTION_KEY_DROP_NEW
+ROCKSDB_COMPACTION_KEY_DROP_OBSOLETE
+ROCKSDB_COMPACTION_KEY_DROP_USER
+ROCKSDB_FLUSH_WRITE_BYTES
+ROCKSDB_GETUPDATESSINCE_CALLS
+ROCKSDB_L0_NUM_FILES_STALL_MICROS
+ROCKSDB_L0_SLOWDOWN_MICROS
+ROCKSDB_MEMTABLE_COMPACTION_MICROS
+ROCKSDB_MEMTABLE_HIT
+ROCKSDB_MEMTABLE_MISS
+ROCKSDB_NO_FILE_CLOSES
+ROCKSDB_NO_FILE_ERRORS
+ROCKSDB_NO_FILE_OPENS
+ROCKSDB_NUM_ITERATORS
+ROCKSDB_NUMBER_BLOCK_NOT_COMPRESSED
+ROCKSDB_NUMBER_DELETES_FILTERED
 ROCKSDB_NUMBER_KEYS_READ
 ROCKSDB_NUMBER_KEYS_UPDATED
+ROCKSDB_NUMBER_KEYS_WRITTEN
+ROCKSDB_NUMBER_MERGE_FAILURES
+ROCKSDB_NUMBER_MULTIGET_BYTES_READ
+ROCKSDB_NUMBER_MULTIGET_GET
+ROCKSDB_NUMBER_MULTIGET_KEYS_READ
+ROCKSDB_NUMBER_RESEEKS_ITERATION
+ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
+ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
+ROCKSDB_NUMBER_SUPERVERSION_RELEASES
+ROCKSDB_RATE_LIMIT_DELAY_MILLIS
+ROCKSDB_SEQUENCE_NUMBER
+ROCKSDB_WAL_BYTES
+ROCKSDB_WAL_SYNCED
+ROCKSDB_WRITE_OTHER
+ROCKSDB_WRITE_SELF
+ROCKSDB_WRITE_TIMEDOUT
+ROCKSDB_WRITE_WAL
 # RocksDB-SE's status variables are global internally 
 #  but they are shown as both session and global, like InnoDB's status vars.
 select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%';
 VARIABLE_NAME
-ROCKSDB_BYTES_WRITTEN
+ROCKSDB_BLOCK_CACHE_ADD
+ROCKSDB_BLOCK_CACHE_DATA_HIT
+ROCKSDB_BLOCK_CACHE_DATA_MISS
+ROCKSDB_BLOCK_CACHE_FILTER_HIT
+ROCKSDB_BLOCK_CACHE_FILTER_MISS
+ROCKSDB_BLOCK_CACHE_HIT
+ROCKSDB_BLOCK_CACHE_INDEX_HIT
+ROCKSDB_BLOCK_CACHE_INDEX_MISS
+ROCKSDB_BLOCK_CACHE_MISS
+ROCKSDB_BLOCK_CACHECOMPRESSED_HIT
+ROCKSDB_BLOCK_CACHECOMPRESSED_MISS
+ROCKSDB_BLOOM_FILTER_PREFIX_CHECKED
+ROCKSDB_BLOOM_FILTER_PREFIX_USEFUL
+ROCKSDB_BLOOM_FILTER_USEFUL
 ROCKSDB_BYTES_READ
-ROCKSDB_NUMBER_KEYS_WRITTEN
+ROCKSDB_BYTES_WRITTEN
+ROCKSDB_COMPACT_READ_BYTES
+ROCKSDB_COMPACT_WRITE_BYTES
+ROCKSDB_COMPACTION_KEY_DROP_NEW
+ROCKSDB_COMPACTION_KEY_DROP_OBSOLETE
+ROCKSDB_COMPACTION_KEY_DROP_USER
+ROCKSDB_FLUSH_WRITE_BYTES
+ROCKSDB_GETUPDATESSINCE_CALLS
+ROCKSDB_L0_NUM_FILES_STALL_MICROS
+ROCKSDB_L0_SLOWDOWN_MICROS
+ROCKSDB_MEMTABLE_COMPACTION_MICROS
+ROCKSDB_MEMTABLE_HIT
+ROCKSDB_MEMTABLE_MISS
+ROCKSDB_NO_FILE_CLOSES
+ROCKSDB_NO_FILE_ERRORS
+ROCKSDB_NO_FILE_OPENS
+ROCKSDB_NUM_ITERATORS
+ROCKSDB_NUMBER_BLOCK_NOT_COMPRESSED
+ROCKSDB_NUMBER_DELETES_FILTERED
 ROCKSDB_NUMBER_KEYS_READ
 ROCKSDB_NUMBER_KEYS_UPDATED
+ROCKSDB_NUMBER_KEYS_WRITTEN
+ROCKSDB_NUMBER_MERGE_FAILURES
+ROCKSDB_NUMBER_MULTIGET_BYTES_READ
+ROCKSDB_NUMBER_MULTIGET_GET
+ROCKSDB_NUMBER_MULTIGET_KEYS_READ
+ROCKSDB_NUMBER_RESEEKS_ITERATION
+ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
+ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
+ROCKSDB_NUMBER_SUPERVERSION_RELEASES
+ROCKSDB_RATE_LIMIT_DELAY_MILLIS
+ROCKSDB_SEQUENCE_NUMBER
+ROCKSDB_WAL_BYTES
+ROCKSDB_WAL_SYNCED
+ROCKSDB_WRITE_OTHER
+ROCKSDB_WRITE_SELF
+ROCKSDB_WRITE_TIMEDOUT
+ROCKSDB_WRITE_WAL
 #
 # Fix issue #9: HA_ERR_INTERNAL_ERROR when running linkbench
 #
