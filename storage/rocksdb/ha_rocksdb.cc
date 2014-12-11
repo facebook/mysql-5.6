@@ -893,6 +893,7 @@ static bool rocksdb_show_status(handlerton*		hton,
 
 void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts)
 {
+  *opts = default_cf_opts;
   rocksdb_cf_options_map.Get(cf_name, opts);
 }
 
