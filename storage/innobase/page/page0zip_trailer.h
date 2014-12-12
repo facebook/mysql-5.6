@@ -30,7 +30,6 @@ Refactored by Rongrong Zhong.
 #define PAGE0ZIP_TRAILER_H
 
 #include "page0types.h"
-#include "page0zip_helper.h"
 #include "dict0mem.h"
 
 /******************************************************//**
