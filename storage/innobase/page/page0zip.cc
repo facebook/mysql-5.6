@@ -1863,7 +1863,6 @@ page_zip_serialize(
 	ulint* offsets = NULL;
 	ulint		trx_id_col;
 	ulint rec_no;
-	byte* node_ptr_storage = NULL;
 	byte* trx_rbp_storage = NULL;
 	byte* externs = NULL;
 	byte* buf = static_cast<byte*>(
@@ -1944,12 +1943,8 @@ page_zip_serialize(
 		if (UNIV_UNLIKELY(trx_id_col == ULINT_UNDEFINED)) {
 			/* node pointer page */
 			/* store the pointers uncompressed */
-			node_ptr_storage = page_zip_dir_start(page_zip);
-			memcpy(node_ptr_storage
-			       - REC_NODE_PTR_SIZE * (rec_no + 1),
-			       rec_get_end((rec_t*)rec, offsets)
-			       - REC_NODE_PTR_SIZE,
-			       REC_NODE_PTR_SIZE);
+			page_zip_trailer_write_node_ptr(page_zip, rec_no,
+							rec, offsets);
 		} else if (trx_id_col) {
 			page_zip_store_blobs_for_rec(page_zip, index, rec_no,
 						     rec, offsets, externs,
@@ -4356,7 +4351,6 @@ page_zip_write_rec(
 	ulint		rec_no;
 	byte*		slot;
 	ulint		trx_id_col;
-	byte*		node_ptr_storage = NULL;
 	byte*		trx_rbp_storage;
 
 	ut_ad(PAGE_ZIP_MATCH(rec, page_zip));
@@ -4421,10 +4415,7 @@ page_zip_write_rec(
 	page_zip->data */
 	if (UNIV_UNLIKELY(trx_id_col == ULINT_UNDEFINED)) {
 		/* node ptr page */
-		node_ptr_storage = page_zip_dir_start(page_zip);
-		memcpy(node_ptr_storage - REC_NODE_PTR_SIZE * (rec_no + 1),
-		       rec_get_end((rec_t*)rec, offsets) - REC_NODE_PTR_SIZE,
-		       REC_NODE_PTR_SIZE);
+		page_zip_trailer_write_node_ptr(page_zip, rec_no, rec, offsets);
 	} else if (trx_id_col) {
 		/* primary key page */
 		trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip, false);
