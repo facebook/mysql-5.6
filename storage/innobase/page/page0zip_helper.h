@@ -29,6 +29,10 @@ Created June 2005 by Marko Makela, refactored by Rongrong Dec. 2014.
 #include "dict0dict.h"
 #include "page0zip.h"
 
+/* 2 bytes are used to store the number of blob pointers when compact metadata
+is used*/
+#define COMPACT_METADATA_N_BLOB_STORAGE_SIZE 2
+
 /* Enable some extra debugging output. */
 #include <cstdarg>
 /**********************************************************************//**
@@ -239,7 +243,7 @@ TODO: Having secondary index leaf return 0 and node_ptr return ULINT_UNDEFINED
         secondary index leaf page: 0
         node_ptr page: ULINT_UNDEFINED
 */
-ulint inline
+inline ulint
 page_zip_get_trx_id_col_for_compression(
 	const page_t*		page,	/*!< in: uncompressed page */
 	const dict_index_t*	index)	/*!< in: index the page belongs to */
@@ -260,6 +264,95 @@ page_zip_get_trx_id_col_for_compression(
 		}
 	}
 	return trx_id_col;
+}
+
+/**********************************************************************//**
+Return the size of trx_rbp storage space. */
+inline ulint
+page_zip_get_trx_rbp_storage_size(
+	page_zip_des_t*	page_zip)	/*!< in: compressed page */
+{
+	/*TODO(rongrong): This will change when we implement compact metadata.*/
+	return page_zip_dir_elems(page_zip) * DATA_TRX_RBP_LEN;
+}
+
+/**********************************************************************//**
+Returns the bottom of blob ptrs storage space. blob ptrs storage space grows
+backwards from here. For compact_metadata, n_blob is at the returned pointer
+location. */
+inline byte*
+page_zip_get_blob_ptr_storage(
+	page_zip_des_t*	page_zip)	/*!< in: compressed page */
+{
+	byte* blob_ptr_storage = page_zip_dir_start(page_zip);
+	if (page_zip->compact_metadata) {
+		blob_ptr_storage -= COMPACT_METADATA_N_BLOB_STORAGE_SIZE;
+	} else {
+		blob_ptr_storage -=
+			page_zip_get_trx_rbp_storage_size(page_zip);
+	}
+	return blob_ptr_storage;
+}
+
+/**********************************************************************//**
+Writes n_blob to the beginning of blob_ptr storage. */
+inline void
+page_zip_write_n_blob(
+	page_zip_des_t*	page_zip,	/*!< in: compressed page */
+	ulint		n_blob)		/*!< in: n_blob */
+{
+	/* We only need to write n_blob when using compact metatdata format. */
+	ut_ad(page_zip->compact_metadata);
+	byte* blob_ptr_storage = page_zip_get_blob_ptr_storage(page_zip);
+	mach_write_to_2(blob_ptr_storage, n_blob);
+}
+
+/**********************************************************************//**
+Reads n_blob from the beginning of blob_ptr storage. */
+inline ulint
+page_zip_read_n_blob(
+	page_zip_des_t*	page_zip)	/*!< in: compressed page */
+{
+	/* We only need to write n_blob when using compact metatdata format. */
+	ut_ad(page_zip->compact_metadata);
+	byte* blob_ptr_storage = page_zip_get_blob_ptr_storage(page_zip);
+	return mach_read_from_2(blob_ptr_storage);
+}
+
+/**********************************************************************//**
+Return the size of blob_ptr storage space. */
+inline ulint
+page_zip_get_blob_ptr_storage_size(
+	page_zip_des_t*	page_zip,	/*!< in: compressed page */
+	bool		read_n_blob)	/*!< in: don't use page_zip->n_blob,
+					read from page. */
+{
+	ulint n_blobs = page_zip->n_blobs;
+	if (read_n_blob) {
+		n_blobs = page_zip_read_n_blob(page_zip);
+	}
+	ulint size = n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+	if(page_zip->compact_metadata)
+		size += COMPACT_METADATA_N_BLOB_STORAGE_SIZE;
+	return size;
+}
+
+/**********************************************************************//**
+Returns the bottom of trx_rbp storage space. trx_rbp storage space grows
+backwards from here. */
+inline byte*
+page_zip_get_trx_rbp_storage(
+	page_zip_des_t*	page_zip,	/*!< in: compressed page */
+	bool		read_n_blob)	/*!< in: don't use page_zip->n_blob,
+					read from page. */
+{
+	byte* trx_rbp_storage = page_zip_dir_start(page_zip);
+	if (page_zip->compact_metadata) {
+		trx_rbp_storage -=
+			page_zip_get_blob_ptr_storage_size(page_zip,
+							   read_n_blob);
+	}
+	return trx_rbp_storage;
 }
 
 #endif /* PAGE0ZIP_HELPER_H */
