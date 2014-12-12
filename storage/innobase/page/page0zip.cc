@@ -682,19 +682,10 @@ page_zip_restore_uncompressed_fields_all(
 		byte* trx_rbp_storage;
 		byte* externs;
 		ulint n_ext;
-		ulint n_blobs = ULINT_UNDEFINED;
 		/* page_zip->n_blobs must be zero before restoring uncompressed
 		   fields */
-		ut_ad(!page_zip->n_blobs);
-		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start(page_zip) - 2;
-			n_blobs = mach_read_from_2(externs);
-			trx_rbp_storage = externs
-					  - n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
-		} else {
-			trx_rbp_storage = page_zip_dir_start(page_zip);
-			externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
-		}
+		externs = page_zip_get_blob_ptr_storage(page_zip);
+		trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip, true);
 		for (rec_no = 0; rec_no < n_dense; ++rec_no) {
 			rec = recs[rec_no];
 			ut_ad(rec_no + PAGE_HEAP_NO_USER_LOW
@@ -713,8 +704,6 @@ page_zip_restore_uncompressed_fields_all(
 				page_zip->n_blobs += n_ext;
 			}
 		}
-		ut_a(!page_zip->compact_metadata
-		     || n_blobs == page_zip->n_blobs);
 	}
 }
 
@@ -1634,13 +1623,10 @@ page_zip_compress_clust(
 
 	ut_ad(page_zip->n_blobs == 0);
 
+	externs = page_zip_get_blob_ptr_storage(page_zip);
+	trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip, false);
 	if (page_zip->compact_metadata) {
-		externs = page_zip_dir_start(page_zip) - 2;
 		mach_write_to_2(externs, 0);
-		trx_rbp_storage = externs;
-	} else {
-		trx_rbp_storage = page_zip_dir_start(page_zip);
-		externs = trx_rbp_storage - n_dense * DATA_TRX_RBP_LEN;
 	}
 
 	for (rec_no = 0; rec_no < n_dense; ++rec_no) {
@@ -1901,14 +1887,10 @@ page_zip_serialize(
 		/* leaf page of a primary key, store transaction id,
 		   rollback pointer, and blob pointers */
 		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start(page_zip) - 2;
-			mach_write_to_2(externs, 0);
-			trx_rbp_storage = externs;
-		} else {
-			trx_rbp_storage = page_zip_dir_start(page_zip);
-			externs = trx_rbp_storage
-				  - n_dense * DATA_TRX_RBP_LEN;
+			page_zip_write_n_blob(page_zip, 0);
 		}
+		trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip, false);
+		externs = page_zip_get_blob_ptr_storage(page_zip);
 	}
 
 	/* Check if there is enough space on the compressed page for the
@@ -4316,7 +4298,6 @@ page_zip_write_rec_blobs(
 	byte* externs;
 	ulint blob_no;
 	ulint n_ext = rec_offs_n_extern(offsets);
-	ulint n_dense = page_zip_dir_elems(page_zip);
 
 	if (!n_ext) {
 		return;
@@ -4325,27 +4306,23 @@ page_zip_write_rec_blobs(
 	blob_no = page_zip_get_n_prev_extern(page_zip, rec, index);
 	ut_ad(blob_no <= page_zip->n_blobs);
 
-	if (page_zip->compact_metadata) {
-		externs = page_zip_dir_start(page_zip) - 2;
-	} else {
-		externs = page_zip_dir_start(page_zip)
-			  - n_dense * DATA_TRX_RBP_LEN;
-	}
+	externs = page_zip_get_blob_ptr_storage(page_zip);
 
 	if (create && page_zip->compact_metadata) {
 		/* memmove the trx rbp storage to make room for the blob
 		   pointers */
+		ulint trx_rbp_storage_size =
+			page_zip_get_trx_rbp_storage_size(page_zip);
 		byte* trx_rbp_storage_end =
-			externs
-			- (page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE)
-			- (n_dense * DATA_TRX_RBP_LEN);
+			page_zip_get_trx_rbp_storage(page_zip, false)
+			- trx_rbp_storage_size;
 		memmove(trx_rbp_storage_end
 			- n_ext * BTR_EXTERN_FIELD_REF_SIZE,
 			trx_rbp_storage_end,
-			n_dense * DATA_TRX_RBP_LEN);
+			trx_rbp_storage_size);
 		/* store the number of blobs in the beginning of externs */
-		ut_ad(page_zip->n_blobs == mach_read_from_2(externs));
-		mach_write_to_2(externs, page_zip->n_blobs + n_ext);
+		ut_ad(page_zip->n_blobs == page_zip_read_n_blob(page_zip));
+		page_zip_write_n_blob(page_zip, page_zip->n_blobs + n_ext);
 	}
 
 	if (create) {
@@ -4450,12 +4427,7 @@ page_zip_write_rec(
 		       REC_NODE_PTR_SIZE);
 	} else if (trx_id_col) {
 		/* primary key page */
-		trx_rbp_storage = page_zip_dir_start(page_zip);
-		if (page_zip->compact_metadata) {
-			trx_rbp_storage -=
-				2
-				+ page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
-		}
+		trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip, false);
 		page_zip_store_trx_rbp(trx_rbp_storage, rec, offsets, rec_no,
 				       trx_id_col);
 		page_zip_write_rec_blobs(page_zip, index, rec, offsets, create);
@@ -4638,14 +4610,9 @@ page_zip_write_trx_id_and_roll_ptr(
 
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
-	if (page_zip->compact_metadata) {
-		storage = page_zip_dir_start(page_zip)
-			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE - 2
-			  - (rec_get_heap_no_new(rec) - 1) * DATA_TRX_RBP_LEN;
-	} else {
-		storage = page_zip_dir_start(page_zip)
-			  - (rec_get_heap_no_new(rec) - 1) * DATA_TRX_RBP_LEN;
-	}
+	storage = page_zip_get_trx_rbp_storage(page_zip, false)
+		  - (rec_get_heap_no_new(rec) - 1) * DATA_TRX_RBP_LEN;
+
 #if DATA_TRX_ID + 1 != DATA_ROLL_PTR
 # error "DATA_TRX_ID + 1 != DATA_ROLL_PTR"
 #endif
@@ -4736,15 +4703,7 @@ page_zip_clear_rec(
 			= dict_col_get_clust_pos(
 			dict_table_get_sys_col(
 				index->table, DATA_TRX_ID), index);
-		if (page_zip->compact_metadata) {
-			/* trx rbp storage comes after blob pointers */
-			trx_rbp_storage = page_zip_dir_start(page_zip)
-					  - (page_zip->n_blobs
-					     * BTR_EXTERN_FIELD_REF_SIZE)
-					  - 2;
-		} else {
-			trx_rbp_storage = page_zip_dir_start(page_zip);
-		}
+		trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip, false);
 		field	= rec_get_nth_field(rec, offsets, trx_id_pos, &len);
 		ut_ad(len == DATA_TRX_ID_LEN);
 
@@ -4907,8 +4866,6 @@ page_zip_dir_delete(
 	byte*	slot_free;
 	ulint	n_ext;
 	page_t*	page	= page_align(rec);
-	byte*	trx_rbp_storage = NULL;
-	byte*	trx_rbp_storage_end;
 
 	ut_ad(rec_offs_validate(rec, index, offsets));
 	ut_ad(rec_offs_comp(offsets));
@@ -4961,35 +4918,34 @@ page_zip_dir_delete(
 		byte*	externs;
 		byte*	ext_end;
 		ulint n_dense = page_zip_dir_elems(page_zip);
+		ulint old_n_blobs = page_zip->n_blobs;
+		ulint new_n_blobs = page_zip->n_blobs - n_ext;
 
 		blob_no = page_zip_get_n_prev_extern(page_zip, rec, index);
 		ut_a(blob_no + n_ext <= page_zip->n_blobs);
 
+		externs = page_zip_get_blob_ptr_storage(page_zip);
 		if (page_zip->compact_metadata) {
-			externs = page_zip_dir_start(page_zip) - 2;
-			trx_rbp_storage = externs
-					  - (page_zip->n_blobs
-					     * BTR_EXTERN_FIELD_REF_SIZE);
-			ut_ad(page_zip->n_blobs == mach_read_from_2(externs));
-			mach_write_to_2(externs, page_zip->n_blobs - n_ext);
-		} else {
-			externs = page_zip_dir_start(page_zip)
-				  - n_dense * DATA_TRX_RBP_LEN;
+			ut_ad(old_n_blobs == page_zip_read_n_blob(page_zip));
+			page_zip_write_n_blob(page_zip, new_n_blobs);
 		}
 
 		ext_end = externs
-			  - page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
+			  - old_n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
 		externs -= blob_no * BTR_EXTERN_FIELD_REF_SIZE;
-		page_zip->n_blobs -= n_ext;
 
 		/* Shift the blob pointers array. */
 		memmove(ext_end + n_ext * BTR_EXTERN_FIELD_REF_SIZE,
 			ext_end,
-			((page_zip->n_blobs - blob_no)
+			((new_n_blobs - blob_no)
 			 * BTR_EXTERN_FIELD_REF_SIZE));
 		if (page_zip->compact_metadata) {
+			byte*	trx_rbp_storage = NULL;
+			byte*	trx_rbp_storage_end;
 			/* shift the trx rbp storage because blob storage got
 			   smaller */
+			trx_rbp_storage = page_zip_get_trx_rbp_storage(page_zip,
+								       false);
 			trx_rbp_storage_end = trx_rbp_storage
 					      - n_dense * DATA_TRX_RBP_LEN;
 			memmove(trx_rbp_storage_end
@@ -5005,6 +4961,7 @@ page_zip_dir_delete(
 			/* zerofill the remaining parts of the blob storage */
 			memset(ext_end, 0, n_ext * BTR_EXTERN_FIELD_REF_SIZE);
 		}
+		page_zip->n_blobs = new_n_blobs;
 	}
 
 skip_blobs:
