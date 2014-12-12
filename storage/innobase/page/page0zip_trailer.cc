@@ -27,6 +27,7 @@ Originally in page/page0zip.cc created June 2005 by Marko Makela.
 Refactored by Rongrong Zhong.
 *******************************************************/
 #include "page0zip_trailer.h"
+#include "page0zip_helper.h"
 
 /******************************************************//**
 Determine how many externally stored columns are contained
