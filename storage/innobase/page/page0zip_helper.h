@@ -355,4 +355,19 @@ page_zip_get_trx_rbp_storage(
 	return trx_rbp_storage;
 }
 
+/**********************************************************************//**
+Returns the bottom of node_ptr storage space. node_ptr storage space grows
+backwards from here. */
+inline void
+page_zip_trailer_write_node_ptr(
+	page_zip_des_t*	page_zip,/*!< in: compressed page */
+	ulint		rec_no,	/*!< in: heap_no - PAGE_HEAP_NO_USER_LOW */
+	const rec_t*	rec,	/*!< in: record */
+	const ulint*	offsets)/*!< in: array returned by rec_get_offsets() */
+{
+	byte* node_ptr_storage = page_zip_dir_start(page_zip);
+	memcpy(node_ptr_storage - REC_NODE_PTR_SIZE * (rec_no + 1),
+	       rec_get_end((rec_t*)rec, offsets) - REC_NODE_PTR_SIZE,
+	       REC_NODE_PTR_SIZE);
+}
 #endif /* PAGE0ZIP_HELPER_H */
