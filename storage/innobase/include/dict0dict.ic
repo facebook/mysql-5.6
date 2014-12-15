@@ -781,8 +781,9 @@ dict_tf_set(
 		ut_ad(zip_ssize == 0);
 		break;
 	}
-	if (format == REC_FORMAT_COMPRESSED 
-		&& compression != REC_COMPRESSION_ZLIB_STREAM)
+	if (format == REC_FORMAT_COMPRESSED &&
+	    compression != REC_COMPRESSION_ZLIB_STREAM &&
+	    compression != REC_COMPRESSION_UNUSED)
 	{
 		*flags |= compression_level << DICT_TF_POS_COMP_LEVEL;
 		*flags |= compact_metadata << DICT_TF_POS_COMPACT_METADATA;

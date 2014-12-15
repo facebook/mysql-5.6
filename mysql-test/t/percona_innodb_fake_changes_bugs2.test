@@ -2,6 +2,7 @@
 # for transactions with innodb_fake_changes set
 
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 
 --let $file_format_save = `SELECT @@innodb_file_format`
 --let $file_format_max_save = `SELECT @@innodb_file_format_max`
