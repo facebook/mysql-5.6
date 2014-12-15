@@ -1,5 +1,6 @@
 --source include/not_valgrind.inc
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;

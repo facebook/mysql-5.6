@@ -1,5 +1,6 @@
 --source include/not_valgrind.inc
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 --source include/master-slave.inc
 --echo # Binary must be compiled with debug for this test
 --source include/have_debug.inc

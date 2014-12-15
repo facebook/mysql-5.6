@@ -654,8 +654,8 @@ page_zip_dir_encode(
 #if PAGE_ZIP_DIR_SLOT_MASK & (PAGE_ZIP_DIR_SLOT_MASK + 1)
 # error "PAGE_ZIP_DIR_SLOT_MASK is not 1 less than a power of 2"
 #endif
-#if PAGE_ZIP_DIR_SLOT_MASK < UNIV_PAGE_SIZE_MAX - 1
-# error "PAGE_ZIP_DIR_SLOT_MASK < UNIV_PAGE_SIZE_MAX - 1"
+#if PAGE_ZIP_DIR_SLOT_MASK < UNIV_ZIP_SIZE_MAX - 1
+# error "PAGE_ZIP_DIR_SLOT_MASK < UNIV_ZIP_SIZE_MAX - 1"
 #endif
 		if (UNIV_UNLIKELY(rec_get_n_owned_new(rec))) {
 			offs |= PAGE_ZIP_DIR_SLOT_OWNED;
@@ -5251,7 +5251,7 @@ page_zip_write_rec(
 	ut_a(slot);
 	/* Copy the delete mark. */
 	if (rec_get_deleted_flag(rec, TRUE)) {
-		*slot |= PAGE_ZIP_DIR_SLOT_DEL >> 8;
+		*slot |= (PAGE_ZIP_DIR_SLOT_DEL >> 8);
 	} else {
 		*slot &= ~(PAGE_ZIP_DIR_SLOT_DEL >> 8);
 	}
@@ -5938,7 +5938,8 @@ page_zip_dir_insert(
 
 	/* Write the entry for the inserted record.
 	The "owned" and "deleted" flags must be zero. */
-	mach_write_to_2(slot_rec - PAGE_ZIP_DIR_SLOT_SIZE, page_offset(rec));
+	mach_write_to_2(slot_rec - PAGE_ZIP_DIR_SLOT_SIZE,
+			    page_offset(rec));
 }
 
 /**********************************************************************//**

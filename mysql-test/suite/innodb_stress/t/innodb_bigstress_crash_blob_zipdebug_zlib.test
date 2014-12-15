@@ -4,6 +4,7 @@
 --source include/not_valgrind.inc
 --source include/have_innodb.inc
 --source include/master-slave.inc
+--source include/have_innodb_max_16k.inc
 --source include/big_test.inc
 
 --disable_warnings
