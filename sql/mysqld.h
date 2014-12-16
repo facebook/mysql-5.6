@@ -640,6 +640,8 @@ enum enum_binlog_error_action
   ABORT_SERVER= 1
 };
 extern const char *binlog_error_action_list[];
+extern ulong sql_slave_skip_counter_usage;
+
 enum enum_gtid_mode
 {
   /// Support only anonymous groups, not GTIDs.
