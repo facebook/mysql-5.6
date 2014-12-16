@@ -1,0 +1,49 @@
+SET GLOBAL innodb_file_per_table= ON;
+CREATE TABLE tab1(c1 INT PRIMARY KEY,c2 VARCHAR(20)) ENGINE=InnoDB;
+CREATE INDEX idx1 ON tab1(c2(10));
+INSERT INTO tab1 VALUES(1, 'Innochecksum InnoDB1');
+# shutdown the server
+[2]: Test for verbose short option, output from innochecksum
+# Print the verbose output
+InnoDB offline file checksum utility.
+
+Variables (--variable-name=value)
+and boolean options {FALSE|TRUE}  Value (after reading options)
+--------------------------------- ----------------------------------------
+verbose                           TRUE
+count                             FALSE
+start-page                        0
+end-page                          0
+page                              0
+per-page-details                  FALSE
+Table is uncompressed
+Page size is 16384K
+file tab1.ibd = 114688 bytes (7 pages)...
+InnoChecksum; checking pages in range 0 to 6
+0	bad checksum
+2	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+2	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+23		1		1		1		21
+22		1		1		1		44
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+23		0	1	0	0	0	0	0	0	0	0	0	0
+22		0	1	0	0	0	0	0	0	0	0	0	0
+# Restart the server
+DROP TABLE tab1;
+SET @@GLOBAL.innodb_file_per_table= 1;
