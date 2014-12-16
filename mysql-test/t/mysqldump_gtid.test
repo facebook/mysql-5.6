@@ -1,0 +1,11 @@
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+
+-- let $MASTER_UUID = `SELECT @@SERVER_UUID;`
+
+-- replace_result $MASTER_UUID uuid
+-- exec $MYSQL_DUMP --skip_comments --single_transaction --set_gtid_purged=COMMENTED --dump_date=false test
+
+drop table t1;
