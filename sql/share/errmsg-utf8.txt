@@ -7106,6 +7106,10 @@ ER_PLUGIN_CANNOT_BE_UNINSTALLED
 
 ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
   eng "Cannot execute statement because it needs to be written to the binary log as multiple statements, and this is not allowed when @@SESSION.GTID_NEXT == 'UUID:NUMBER'."
+
+ER_BLOCK_MYISAM_TABLES
+  eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
+
 #
 #  End of 5.6 error messages.
 #
