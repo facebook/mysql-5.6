@@ -503,7 +503,9 @@ static struct my_option my_long_options[] = {
      "used, this option does nothing. If AUTO is used and GTIDs are enabled "
      "on the server, 'SET @@GLOBAL.GTID_PURGED' is added to the output. "
      "If GTIDs are disabled, AUTO does nothing. If no value is supplied "
-     "then the default (AUTO) value will be considered.",
+     "then the default (AUTO) value will be considered. If "
+     "--single-transaction is set, then the GTID information is extracted from "
+     "the output of START TRANSACTION query.",
      0, 0, 0, GET_STR, OPT_ARG, 0, 0, 0, 0, 0, 0},
 #if defined(_WIN32)
     {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
@@ -5025,7 +5027,7 @@ static int purge_bin_logs_to(MYSQL *mysql_con, char *log_name) {
 }
 
 static int start_transaction(MYSQL *mysql_con, char *filename_out,
-                             char *pos_out) {
+                             char *pos_out, char **gtid_executed_set_pointer) {
   verbose_msg("-- Starting transaction...\n");
   /*
     We use BEGIN for old servers. --single-transaction --master-data will fail
@@ -5071,6 +5073,12 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
       }
       strcpy(filename_out, row[0]);
       strcpy(pos_out, row[1]);
+
+      if (row[2][0] != '\0') {
+        *gtid_executed_set_pointer = (char *)my_malloc(
+            PSI_NOT_INSTRUMENTED, strlen(row[2]) + 1, MYF(MY_WME));
+        strcpy(*gtid_executed_set_pointer, row[2]);
+      }
     }
     mysql_free_result(res);
   }
@@ -5342,6 +5350,7 @@ static void set_session_binlog(bool flag) {
   dump file.
 
   @param[in]  mysql_con     connection to the server
+  @param[in]  gtid_executed_set   string for gtid_purged
 
   @retval     false         successfully printed GTID_PURGED sets
                              in the dump file.
@@ -5349,7 +5358,8 @@ static void set_session_binlog(bool flag) {
 
 */
 
-static bool add_set_gtid_purged(MYSQL *mysql_con) {
+static bool add_set_gtid_purged(MYSQL *mysql_con,
+                                const char *gtid_executed_set) {
   MYSQL_RES *gtid_purged_res;
   MYSQL_ROW gtid_set;
   ulonglong num_sets, idx;
@@ -5360,7 +5370,8 @@ static bool add_set_gtid_purged(MYSQL *mysql_con) {
     return true;
 
   /* Proceed only if gtid_purged_res is non empty */
-  if ((num_sets = mysql_num_rows(gtid_purged_res)) > 0) {
+  num_sets = mysql_num_rows(gtid_purged_res);
+  if (gtid_executed_set || num_sets > 0) {
     if (opt_comments)
       fprintf(md_result_file,
               "\n--\n-- GTID state at the beginning of the backup \n--\n\n");
@@ -5373,15 +5384,20 @@ static bool add_set_gtid_purged(MYSQL *mysql_con) {
       fprintf(md_result_file, "SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '");
     }
 
-    /* formatting is not required, even for multiple gtid sets */
-    for (idx = 0; idx < num_sets - 1; idx++) {
+    if (gtid_executed_set) {
+      /* print out the gtid set and close the set expression */
+      fprintf(md_result_file, "%s';%s\n", gtid_executed_set, comment_suffix);
+    } else {
+      /* formatting is not required, even for multiple gtid sets */
+      for (idx = 0; idx < num_sets - 1; idx++) {
+        gtid_set = mysql_fetch_row(gtid_purged_res);
+        fprintf(md_result_file, "%s,", (char *)gtid_set[0]);
+      }
+      /* for the last set */
       gtid_set = mysql_fetch_row(gtid_purged_res);
-      fprintf(md_result_file, "%s,", (char *)gtid_set[0]);
+      /* close the SET expression */
+      fprintf(md_result_file, "%s';%s\n", (char *)gtid_set[0], comment_suffix);
     }
-    /* for the last set */
-    gtid_set = mysql_fetch_row(gtid_purged_res);
-    /* close the SET expression */
-    fprintf(md_result_file, "%s';%s\n", (char *)gtid_set[0], comment_suffix);
   }
   mysql_free_result(gtid_purged_res);
 
@@ -5394,13 +5410,15 @@ static bool add_set_gtid_purged(MYSQL *mysql_con) {
   setting the SET @@GLOBAL.GTID_PURGED in the output.
 
   @param[in]          mysql_con     the connection to the server
+  @param[in]          gtid_executed_set gtid string for purged comment
 
   @retval             false         successful according to the value
                                     of opt_set_gtid_purged.
   @retval             true          fail.
 */
 
-static bool process_set_gtid_purged(MYSQL *mysql_con) {
+static bool process_set_gtid_purged(MYSQL *mysql_con,
+                                    const char *gtid_executed_set) {
   MYSQL_RES *gtid_mode_res;
   MYSQL_ROW gtid_mode_row;
   char *gtid_mode_val = 0;
@@ -5444,7 +5462,7 @@ static bool process_set_gtid_purged(MYSQL *mysql_con) {
     }
 
     set_session_binlog(false);
-    if (add_set_gtid_purged(mysql_con)) {
+    if (add_set_gtid_purged(mysql_con, gtid_executed_set)) {
       mysql_free_result(gtid_mode_res);
       return true;
     }
@@ -5690,6 +5708,7 @@ static void dynstr_realloc_checked(DYNAMIC_STRING *str,
 int main(int argc, char **argv) {
   char bin_log_name[FN_REFLEN] = "";
   char bin_log_pos[21] = "";  // 20 digits plus trailing null byte
+  char *gtid_executed_set = NULL;
   int exit_code, md_result_fd = 0;
   MY_INIT("mysqldump");
 
@@ -5751,7 +5770,7 @@ int main(int argc, char **argv) {
   }
 
   if (opt_single_transaction &&
-      start_transaction(mysql, bin_log_name, bin_log_pos))
+      start_transaction(mysql, bin_log_name, bin_log_pos, &gtid_executed_set))
     goto err;
 
   /* Add 'STOP SLAVE to beginning of dump */
@@ -5759,7 +5778,7 @@ int main(int argc, char **argv) {
 
   /* Process opt_set_gtid_purged and add SET @@GLOBAL.GTID_PURGED if required.
    */
-  if (process_set_gtid_purged(mysql)) goto err;
+  if (process_set_gtid_purged(mysql, gtid_executed_set)) goto err;
 
   if (opt_master_data) {
     if (bin_log_name[0] && bin_log_pos[0]) {
@@ -5845,6 +5864,7 @@ int main(int argc, char **argv) {
   */
 err:
   dbDisconnect(current_host);
+  if (gtid_executed_set) my_free(gtid_executed_set);
   if (!path) write_footer(md_result_file);
   free_resources();
 
