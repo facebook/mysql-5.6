@@ -593,6 +593,11 @@ static SHOW_VAR latency_histogram_double_write[NUMBER_OF_HISTOGRAM_BINS + 1];
 static SHOW_VAR latency_histogram_file_flush_time[NUMBER_OF_HISTOGRAM_BINS + 1];
 static SHOW_VAR latency_histogram_fsync[NUMBER_OF_HISTOGRAM_BINS + 1];
 
+static MYSQL_THDVAR_STR(tmpdir,
+  PLUGIN_VAR_OPCMDARG|PLUGIN_VAR_MEMALLOC,
+  "Directory for temporary files during DDL operations.",
+  NULL, NULL, "");
+
 static SHOW_VAR innodb_status_variables[]= {
   {"adaptive_hash_hits",
   (char*) &export_vars.innodb_hash_searches,		  SHOW_LONG},
@@ -1934,6 +1939,26 @@ thd_supports_xa(
 	return(THDVAR(thd, support_xa));
 }
 
+/** Get the value of innodb_tmpdir.
+@param[in]	thd	thread handle, or NULL to query
+			the global innodb_tmpdir.
+@return value or NULL if innodb_tmpdir is set to default value "" */
+UNIV_INTERN
+const char*
+thd_innodb_tmpdir(
+	THD*	thd)
+{
+#ifdef UNIV_SYNC_DEBUG
+	ut_ad(!sync_thread_levels_nonempty_trx(false));
+#endif /* UNIV_SYNC_DEBUG */
+
+	const char*	tmp_dir = THDVAR(thd, tmpdir);
+	if (tmp_dir != NULL && *tmp_dir == '\0') {
+		tmp_dir = NULL;
+	}
+
+	return(tmp_dir);
+}
 /******************************************************************//**
 Returns the lock wait timeout for the current connection.
 @return	the lock wait timeout, in seconds */
@@ -2489,13 +2514,14 @@ innobase_get_lower_case_table_names(void)
 	return(lower_case_table_names);
 }
 
-/*********************************************************************//**
-Creates a temporary file.
+/** Create a temporary file in the location specified by the parameter
+path. If the path is null, then it will be created in tmpdir.
+@param[in]	path	location for creating temporary file
 @return	temporary file descriptor, or < 0 on error */
 UNIV_INTERN
 int
-innobase_mysql_tmpfile(void)
-/*========================*/
+innobase_mysql_tmpfile(
+	const char*	path)
 {
 	int	fd2 = -1;
 	File	fd;
@@ -2505,7 +2531,11 @@ innobase_mysql_tmpfile(void)
 		return(-1);
 	);
 
-	fd = mysql_tmpfile("ib");
+	if (path == NULL) {
+		fd = mysql_tmpfile("ib");
+	} else {
+		fd = mysql_tmpfile_path(path, "ib");
+	}
 
 	if (fd >= 0) {
 		/* Copy the file descriptor, so that the additional resources
@@ -18285,6 +18315,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
 #endif /* HAVE_ATOMIC_BUILTINS */
   MYSQL_SYSVAR(prefix_index_cluster_optimization),
   MYSQL_SYSVAR(thread_sleep_delay),
+  MYSQL_SYSVAR(tmpdir),
   MYSQL_SYSVAR(autoinc_lock_mode),
   MYSQL_SYSVAR(version),
   MYSQL_SYSVAR(use_fdatasync),
