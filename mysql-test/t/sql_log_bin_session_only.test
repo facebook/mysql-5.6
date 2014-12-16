@@ -1,0 +1,15 @@
+select @@sql_log_bin;
+set sql_log_bin                   =0;
+select @@sql_log_bin;
+--error ER_LOCAL_VARIABLE
+set global sql_log_bin = 0;
+select @@session.sql_log_bin;
+set @@session.sql_log_bin         =1;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+set @sql_log_bin                  =@@global.sql_log_bin;
+--error ER_LOCAL_VARIABLE
+set @@global.sql_log_bin          =0;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@global.sql_log_bin;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@session.sql_log_bin         =2;
