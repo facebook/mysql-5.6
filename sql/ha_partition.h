@@ -317,6 +317,7 @@ public:
   */
   virtual int delete_table(const char *from);
   virtual int rename_table(const char *from, const char *to);
+  virtual int defragment_table(const char* name, const char* index_name, bool async, Alter_info* alter_info);
   virtual int create(const char *name, TABLE *form,
 		     HA_CREATE_INFO *create_info);
   virtual int create_handler_files(const char *name,
