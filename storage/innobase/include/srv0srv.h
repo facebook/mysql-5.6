@@ -374,7 +374,6 @@ extern my_bool			srv_stats_auto_recalc;
 extern ulong	srv_use_doublewrite_buf;
 extern my_bool	srv_doublewrite_reset;
 extern ulong	srv_doublewrite_batch_size;
-extern ulong	srv_checksum_algorithm;
 
 extern double	srv_max_buf_pool_modified_pct;
 extern ulong	srv_max_purge_lag;
