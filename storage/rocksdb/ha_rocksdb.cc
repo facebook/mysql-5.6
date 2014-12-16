@@ -121,7 +121,6 @@ static uint64_t rocksdb_index_type;
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
-  o.statistics = rocksdb_stats;
   return o;
 }
 
@@ -969,6 +968,7 @@ static int rocksdb_init_func(void *p)
                  Primary_key_comparator::get_hashnr);
 
   rocksdb_stats= rocksdb::CreateDBStatistics();
+  db_options.statistics = rocksdb_stats;
 
   std::string rocksdb_db_name=  "./rocksdb";
 
