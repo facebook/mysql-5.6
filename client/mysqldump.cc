@@ -179,14 +179,16 @@ static int first_error = 0;
 FILE *md_result_file = 0;
 FILE *stderror_file = 0;
 
-const char *set_gtid_purged_mode_names[] = {"OFF", "AUTO", "ON", NullS};
+const char *set_gtid_purged_mode_names[] = {"OFF", "AUTO", "ON", "COMMENTED",
+                                            NullS};
 static TYPELIB set_gtid_purged_mode_typelib = {
     array_elements(set_gtid_purged_mode_names) - 1, "",
     set_gtid_purged_mode_names, NULL};
 static enum enum_set_gtid_purged_mode {
   SET_GTID_PURGED_OFF = 0,
   SET_GTID_PURGED_AUTO = 1,
-  SET_GTID_PURGED_ON = 2
+  SET_GTID_PURGED_ON = 2,
+  SET_GTID_PURGED_COMMENTED = 3
 } opt_set_gtid_purged_mode = SET_GTID_PURGED_AUTO;
 
 #if defined(_WIN32)
@@ -514,12 +516,15 @@ static struct my_option my_long_options[] = {
      &opt_set_charset, 0, GET_BOOL, NO_ARG, 1, 0, 0, 0, 0, 0},
     {"set-gtid-purged", OPT_SET_GTID_PURGED,
      "Add 'SET @@GLOBAL.GTID_PURGED' to the output. Possible values for "
-     "this option are ON, OFF and AUTO. If ON is used and GTIDs "
-     "are not enabled on the server, an error is generated. If OFF is "
+     "this option are ON, COMMENTED, OFF and AUTO. If ON is used and GTIDs "
+     "are not enabled on the server, an error is generated. If COMMENTED is "
+     "used, '@SET @@GLOBAL.GTID_PURGED' is added as a comment. If OFF is "
      "used, this option does nothing. If AUTO is used and GTIDs are enabled "
      "on the server, 'SET @@GLOBAL.GTID_PURGED' is added to the output. "
      "If GTIDs are disabled, AUTO does nothing. If no value is supplied "
-     "then the default (AUTO) value will be considered.",
+     "then the default (AUTO) value will be considered. If "
+     "--single-transaction is set, then the GTID information is extracted from "
+     "the output of START TRANSACTION query.",
      0, 0, 0, GET_STR, OPT_ARG, 0, 0, 0, 0, 0, 0},
 #if defined(_WIN32)
     {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
@@ -5035,7 +5040,7 @@ static int purge_bin_logs_to(MYSQL *mysql_con, char *log_name) {
 }
 
 static int start_transaction(MYSQL *mysql_con, char *filename_out,
-                             char *pos_out) {
+                             char *pos_out, char **gtid_executed_set_pointer) {
   verbose_msg("-- Starting transaction...\n");
   /*
     We use BEGIN for old servers. --single-transaction --master-data will fail
@@ -5080,6 +5085,12 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
       }
       strcpy(filename_out, row[0]);
       strcpy(pos_out, row[1]);
+
+      if (row[2][0] != '\0') {
+        *gtid_executed_set_pointer = (char *)my_malloc(
+            PSI_NOT_INSTRUMENTED, strlen(row[2]) + 1, MYF(MY_WME));
+        strcpy(*gtid_executed_set_pointer, row[2]);
+      }
     }
   }
   return 0;
@@ -5345,6 +5356,28 @@ static void set_session_binlog(bool flag) {
 }
 
 /**
+  This function gets the GTID_EXECUTED sets from a cstring and assigns those
+  sets to GTID_PURGED in the dump file
+*/
+
+static void write_set_gtid_purged_from_cstring(char *gtid_executed_set) {
+  if (opt_set_gtid_purged_mode == SET_GTID_PURGED_OFF) {
+    return;
+  }
+  if (opt_comments)
+    fprintf(md_result_file,
+            "\n--\n-- GTID state extracted from the output of "
+            "START TRANSACTION\n--\n\n");
+  if (opt_set_gtid_purged_mode == SET_GTID_PURGED_COMMENTED) {
+    fprintf(md_result_file, "/*SET @@GLOBAL.GTID_PURGED='%s';*/\n",
+            gtid_executed_set);
+  } else {
+    fprintf(md_result_file, "SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '%s';\n",
+            gtid_executed_set);
+  }
+}
+
+/**
   This function gets the GTID_EXECUTED sets from the
   server and assigns those sets to GTID_PURGED in the
   dump file.
@@ -5373,7 +5406,13 @@ static bool add_set_gtid_purged(MYSQL *mysql_con) {
       fprintf(md_result_file,
               "\n--\n-- GTID state at the beginning of the backup \n--\n\n");
 
-    fprintf(md_result_file, "SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '");
+    const char *comment_suffix = "";
+    if (opt_set_gtid_purged_mode == SET_GTID_PURGED_COMMENTED) {
+      comment_suffix = "*/";
+      fprintf(md_result_file, "/*SET @@GLOBAL.GTID_PURGED='");
+    } else {
+      fprintf(md_result_file, "SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '");
+    }
 
     /* formatting is not required, even for multiple gtid sets */
     for (idx = 0; idx < num_sets - 1; idx++) {
@@ -5383,7 +5422,7 @@ static bool add_set_gtid_purged(MYSQL *mysql_con) {
     /* for the last set */
     gtid_set = mysql_fetch_row(gtid_purged_res);
     /* close the SET expression */
-    fprintf(md_result_file, "%s';\n", (char *)gtid_set[0]);
+    fprintf(md_result_file, "%s';%s\n", (char *)gtid_set[0], comment_suffix);
   }
   mysql_free_result(gtid_purged_res);
 
@@ -5452,7 +5491,8 @@ static bool process_set_gtid_purged(MYSQL *mysql_con) {
     }
   } else /* gtid_mode is off */
   {
-    if (opt_set_gtid_purged_mode == SET_GTID_PURGED_ON) {
+    if (opt_set_gtid_purged_mode == SET_GTID_PURGED_ON ||
+        opt_set_gtid_purged_mode == SET_GTID_PURGED_COMMENTED) {
       fprintf(stderr, "Error: Server has GTIDs disabled.\n");
       mysql_free_result(gtid_mode_res);
       return true;
@@ -5691,6 +5731,7 @@ static void dynstr_realloc_checked(DYNAMIC_STRING *str,
 int main(int argc, char **argv) {
   char bin_log_name[FN_REFLEN] = "";
   char bin_log_pos[21] = "";  // 20 digits plus trailing null byte
+  char *gtid_executed_set = NULL;
   int exit_code, md_result_fd = 0;
   MY_INIT("mysqldump");
 
@@ -5753,7 +5794,7 @@ int main(int argc, char **argv) {
   }
 
   if (opt_single_transaction &&
-      start_transaction(mysql, bin_log_name, bin_log_pos))
+      start_transaction(mysql, bin_log_name, bin_log_pos, &gtid_executed_set))
     goto err;
 
   /* Add 'STOP SLAVE to beginning of dump */
@@ -5761,7 +5802,13 @@ int main(int argc, char **argv) {
 
   /* Process opt_set_gtid_purged and add SET @@GLOBAL.GTID_PURGED if required.
    */
-  if (process_set_gtid_purged(mysql)) goto err;
+  if (!gtid_executed_set) {
+    // start transaction did not set gtid_executed_set, do gtids the old way
+    if (process_set_gtid_purged(mysql)) goto err;
+  } else {
+    write_set_gtid_purged_from_cstring(gtid_executed_set);
+    my_free(gtid_executed_set);
+  }
 
   if (opt_master_data) {
     if (bin_log_name[0] && bin_log_pos[0]) {
