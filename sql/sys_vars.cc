@@ -4236,6 +4236,10 @@ static Sys_var_uint Sys_slave_net_timeout(
 static bool check_slave_skip_counter(sys_var *self, THD *thd, set_var *var)
 {
   bool result= false;
+  sql_print_warning("sql_slave_skip_counter is going to be "
+                    "deprecated when gtid_mode is enabled. This "
+                    "should not be used. ");
+  sql_slave_skip_counter_usage++;
   mysql_mutex_lock(&LOCK_active_mi);
   if (active_mi != NULL)
   {
