@@ -113,11 +113,11 @@ SET @@session.sql_log_bin = NO;
 #       and there is no error on reading it.                              #
 ########################################################################### 
 
-SELECT @@global.sql_log_bin;
---Error ER_WRONG_VALUE_FOR_VAR
+--error ER_LOCAL_VARIABLE
 SET @@global.sql_log_bin = 0;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
 SELECT @@global.sql_log_bin;
---Error ER_WRONG_VALUE_FOR_VAR
+--error ER_LOCAL_VARIABLE
 SET @@global.sql_log_bin = 1;
 
 --echo '#----------------------FN_DYNVARS_156_06------------------------#'
