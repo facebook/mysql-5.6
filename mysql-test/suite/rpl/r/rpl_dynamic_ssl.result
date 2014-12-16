@@ -1,0 +1,64 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop table if exists t1;
+create table t1 (a int);
+** Test the default value of --ssl **
+select @@global.ssl;
+@@global.ssl
+0
+** Change the ssl configuration **
+set @@global.ssl_ca='MYSQL_TEST_DIR/std_data/cacert.pem';
+set @@global.ssl_cert='MYSQL_TEST_DIR/std_data/server-cert.pem';
+set @@global.ssl_key='MYSQL_TEST_DIR/std_data/server-key.pem';
+** Turn on ssl **
+set @@global.ssl=1;
+** Verify ssl configuration cannot be changed while --ssl=1 **
+set @@global.ssl_ca='ca';
+ERROR HY000: Cannot change the dynamic variable ssl_ca while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+set @@global.ssl_capath='capath';
+ERROR HY000: Cannot change the dynamic variable ssl_capath while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+set @@global.ssl_cert='cert';
+ERROR HY000: Cannot change the dynamic variable ssl_cert while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+set @@global.ssl_key='key';
+ERROR HY000: Cannot change the dynamic variable ssl_key while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+set @@global.ssl_cipher='cipher';
+ERROR HY000: Cannot change the dynamic variable ssl_cipher while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+set @@global.ssl_crl='crl';
+ERROR HY000: Cannot change the dynamic variable ssl_crl while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+set @@global.ssl_crlpath='crlpath';
+ERROR HY000: Cannot change the dynamic variable ssl_crlpath while ssl is ON. First turn off ssl using SET @@global.ssl=0.
+insert into t1 values(1);
+insert into t1 values(2);
+select * from t1;
+a
+1
+2
+include/stop_slave.inc
+** Change the slave io_thread's ssl configuration **
+change master to
+master_ssl=1,
+master_ssl_ca ='MYSQL_TEST_DIR/std_data/cacert.pem',
+master_ssl_cert='MYSQL_TEST_DIR/std_data/client-cert.pem',
+master_ssl_key='MYSQL_TEST_DIR/std_data/client-key.pem';
+include/start_slave.inc
+delete from t1;
+insert into t1 values(3);
+insert into t1 values(4);
+** Verify replication is progressing **
+select * from t1 order by a;
+a
+3
+4
+include/stop_slave.inc
+change master to
+master_ssl = 0,
+master_ssl_ca = '',
+master_ssl_cert = '',
+master_ssl_key = '';
+include/start_slave.inc
+drop table t1;
+set @@global.ssl=0;
+include/rpl_end.inc
