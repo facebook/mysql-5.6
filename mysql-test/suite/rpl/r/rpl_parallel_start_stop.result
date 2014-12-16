@@ -52,6 +52,9 @@ include/start_slave.inc
 include/sync_slave_sql_with_master.inc
 stop slave sql_thread;
 set @@global.sql_slave_skip_counter=7;
+show global status like 'Sql_slave_skip_counter_usage';
+Variable_name	Value
+Sql_slave_skip_counter_usage	1
 begin;
 select max(a) + 1 from t1 into @a;
 insert into t1 set a=@a;
