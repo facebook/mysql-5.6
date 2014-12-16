@@ -197,6 +197,7 @@ connection master;
 connection slave;
 stop slave sql_thread;
 set @@global.sql_slave_skip_counter=7;
+show global status like 'Sql_slave_skip_counter_usage';
 
 connection master;
 
