@@ -1,0 +1,243 @@
+CREATE TABLE t1 (j LONGBLOB) ENGINE = InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1;
+INSERT INTO t1 VALUES (repeat('abcdefghijklmnopqrstuvwxyz',200));
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+INSERT INTO t1 SELECT * from t1;
+# stop the server
+[2]:# Run the innochecksum when file isn't provided.
+# It will print the innochecksum usage similar to --help option.
+InnoDB offline file checksum utility.
+innochecksum Ver #.#.#
+Copyright (c) YEAR, YEAR , Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+InnoDB offline file checksum utility.
+Usage: innochecksum [-c] [-s <start page>] [-e <end page>] [-p <page>] [-v] [-d] <filename>
+  -?, --help          Displays this help and exits.
+  -I, --info          Synonym for --help.
+  -V, --version       Displays version information and exits.
+  -v, --verbose       Verbose (prints progress every 5 seconds).
+  -d, --debug         Debug mode (prints checksums for each page, implies
+                      verbose).
+  -u, --debug         Skip corrupt pages.
+  -c, --count         Print the count of pages in the file.
+  -s, --start-page=#  Start on this page number (0 based).
+  -e, --end-page=#    End at this page number (0 based).
+  -p, --page=#        Check only this page (0 based).
+  -i, --per-page-details 
+                      Print out per-page detail information.
+
+Variables (--variable-name=value)
+and boolean options {FALSE|TRUE}  Value (after reading options)
+--------------------------------- ----------------------------------------
+verbose                           FALSE
+count                             FALSE
+start-page                        0
+end-page                          0
+page                              0
+per-page-details                  FALSE
+[3]:# check the short option for "count" and exit
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is #K
+#
+# Restart the DB server
+DROP TABLE t1;
+[5]:# Check the innochecksum for compressed table t1 with different key_block_size
+# Test for KEY_BLOCK_SIZE=1
+===> Testing  size=1
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 1024K
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+60	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+23		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+23		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
+# Test for KEY_BLOCK_SIZE=2
+===> Testing  size=2
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=2;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 2048K
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+28	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+24		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+24		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
+# Test for for KEY_BLOCK_SIZE=4
+===> Testing  size=4
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 4096K
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+12	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+25		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+25		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
+# Test for for KEY_BLOCK_SIZE=8
+===> Testing  size=8
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 8192K
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+4	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+26		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+26		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
+SET innodb_strict_mode=OFF;
+# Test for KEY_BLOCK_SIZE=16
+===> Testing  size=16
+CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255)) ENGINE=INNODB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=16;
+insert into t1 values(1,"I");
+insert into t1 values(2,"AM");
+insert into t1 values(3,"COMPRESSED");
+InnoDB offline file checksum utility.
+Table is compressed
+Key block size is 16384K
+0	bad checksum
+1	FIL_PAGE_INDEX
+0	FIL_PAGE_UNDO_LOG
+1	FIL_PAGE_INODE
+0	FIL_PAGE_IBUF_FREE_LIST
+2	FIL_PAGE_TYPE_ALLOCATED
+1	FIL_PAGE_IBUF_BITMAP
+0	FIL_PAGE_TYPE_SYS
+0	FIL_PAGE_TYPE_TRX_SYS
+1	FIL_PAGE_TYPE_FSP_HDR
+0	FIL_PAGE_TYPE_XDES
+0	FIL_PAGE_TYPE_BLOB
+0	FIL_PAGE_TYPE_ZBLOB
+0	other
+0	max index_id
+undo type: 0 insert, 0 update, 0 other
+undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
+index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
+27		1		1		3		85
+
+index_id	page_data_bytes_histgram(empty,...,oversized)
+27		0	1	0	0	0	0	0	0	0	0	0	0
+select * from t1;
+id	msg
+1	I
+2	AM
+3	COMPRESSED
+drop table t1;
+# Test[5] completed
