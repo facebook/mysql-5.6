@@ -1,0 +1,21 @@
+select @@sql_log_bin;
+@@sql_log_bin
+1
+set sql_log_bin                   =0;
+select @@sql_log_bin;
+@@sql_log_bin
+0
+set global sql_log_bin = 0;
+ERROR HY000: Variable 'sql_log_bin' is a SESSION variable and can't be used with SET GLOBAL
+select @@session.sql_log_bin;
+@@session.sql_log_bin
+0
+set @@session.sql_log_bin         =1;
+set @sql_log_bin                  =@@global.sql_log_bin;
+ERROR HY000: Variable 'sql_log_bin' is a SESSION variable
+set @@global.sql_log_bin          =0;
+ERROR HY000: Variable 'sql_log_bin' is a SESSION variable and can't be used with SET GLOBAL
+select @@global.sql_log_bin;
+ERROR HY000: Variable 'sql_log_bin' is a SESSION variable
+set @@session.sql_log_bin         =2;
+ERROR 42000: Variable 'sql_log_bin' can't be set to the value of '2'
