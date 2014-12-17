@@ -2132,7 +2132,8 @@ public:
   int ha_rename_table(const char *from, const char *to);
   int ha_delete_table(const char *name);
   void ha_drop_table(const char *name);
-  int ha_defragment_table(const char *name, const char *index, bool async);
+  int ha_defragment_table(const char *name, const char *index,
+                          bool async, Alter_info* alter_info);
 
   int ha_create(const char *name, TABLE *form, HA_CREATE_INFO *info);
 
@@ -3337,7 +3338,8 @@ public:
   virtual int discard_or_import_tablespace(my_bool discard)
   { return (my_errno=HA_ERR_WRONG_COMMAND); }
   virtual void drop_table(const char *name);
-  virtual int defragment_table(const char *name, const char *index, bool async)
+  virtual int defragment_table(const char *name, const char *index,
+                               bool async, Alter_info* alter_info)
   { return HA_ADMIN_NOT_IMPLEMENTED; }
   virtual int create(const char *name, TABLE *form, HA_CREATE_INFO *info)=0;
 

@@ -11304,7 +11304,8 @@ ha_innobase::defragment_table(
 /*======================*/
 	const char*	name,		/*!< in: table name */
 	const char*	index_name,	/*!< in: index name */
-	bool		async)		/*!< in: whether to wait until finish */
+	bool		async,		/*!< in: whether to wait until finish */
+	Alter_info* alter_info)		/*!< in: not used */
 {
 	char		norm_name[FN_REFLEN];
 	dict_table_t*	table;
