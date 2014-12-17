@@ -117,6 +117,8 @@ rocksdb_cf_options_file_update(THD* thd,
 static long long rocksdb_block_cache_size;
 static uint64_t rocksdb_info_log_level;
 static uint64_t rocksdb_index_type;
+static uint64_t rocksdb_write_sync;
+static rocksdb::WriteOptions rocksdb_write_options;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -155,6 +157,27 @@ static TYPELIB index_type_typelib = {
   index_type_names,
   nullptr
 };
+
+enum write_sync_options {
+  WRITE_SYNC_OFF,
+  WRITE_SYNC_ON_COMMIT,
+  WRITE_SYNC_BACKGROUND
+};
+
+static const char* write_sync_names[] = {
+  "off",
+  "on_commit",
+  "background",
+  NullS
+};
+
+static TYPELIB write_sync_typelib = {
+  array_elements(write_sync_names) - 1,
+  "write_sync_typelib",
+  write_sync_names,
+  nullptr
+};
+
 
 //TODO: 0 means don't wait at all, and we don't support it yet?
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
@@ -449,6 +472,32 @@ static MYSQL_SYSVAR_STR(cf_options_file, rocksdb_cf_options_file,
   rocksdb_cf_options_file_validate,
   rocksdb_cf_options_file_update, "");
 
+static MYSQL_SYSVAR_ENUM(write_sync,
+  rocksdb_write_sync,
+  PLUGIN_VAR_RQCMDARG,
+  "WriteOptions::write_sync for RocksDB",
+  NULL, NULL, WRITE_SYNC_OFF, &write_sync_typelib);
+
+static MYSQL_SYSVAR_BOOL(write_disable_wal,
+  *reinterpret_cast<my_bool*>(&rocksdb_write_options.disableWAL),
+  PLUGIN_VAR_RQCMDARG,
+  "WriteOptions::disableWAL for RocksDB",
+  NULL, NULL, rocksdb_write_options.disableWAL);
+
+static MYSQL_SYSVAR_ULONG(write_timeout_hint_us,
+  rocksdb_write_options.timeout_hint_us,
+  PLUGIN_VAR_RQCMDARG,
+  "WriteOptions::timeout_hint_us for RocksDB",
+  NULL, NULL, rocksdb_write_options.timeout_hint_us,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+static MYSQL_SYSVAR_BOOL(write_ignore_missing_column_families,
+  *reinterpret_cast<my_bool*>(
+    &rocksdb_write_options.ignore_missing_column_families),
+  PLUGIN_VAR_RQCMDARG,
+  "WriteOptions::ignore_missing_column_families for RocksDB",
+  NULL, NULL, rocksdb_write_options.ignore_missing_column_families);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -503,9 +552,30 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(default_cf_options),
   MYSQL_SYSVAR(cf_options_file),
 
+  MYSQL_SYSVAR(write_sync),
+  MYSQL_SYSVAR(write_disable_wal),
+  MYSQL_SYSVAR(write_timeout_hint_us),
+  MYSQL_SYSVAR(write_ignore_missing_column_families),
+
   NULL
 };
 
+static rocksdb::WriteOptions get_write_options() {
+  rocksdb::WriteOptions opt(rocksdb_write_options);
+  switch (rocksdb_write_sync) {
+    case WRITE_SYNC_OFF:
+      opt.sync = false;
+      break;
+    case WRITE_SYNC_ON_COMMIT:
+      opt.sync = true;
+      break;
+    case WRITE_SYNC_BACKGROUND:
+      // this option is not implemented yet
+      DBUG_ASSERT(0);
+      break;
+  }
+  return opt;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -743,7 +813,7 @@ private:
         }
       }
     }
-    rocksdb::Status s= rdb->Write(rocksdb::WriteOptions(), &batch);
+    rocksdb::Status s= rdb->Write(get_write_options(), &batch);
     res= !s.ok(); // we return true when something failed
     return res;
   }
@@ -1068,7 +1138,6 @@ static int rocksdb_init_func(void *p)
   sql_print_information("RocksDB instance opened");
   DBUG_RETURN(0);
 }
-
 
 static int rocksdb_done_func(void *p)
 {
@@ -3367,7 +3436,7 @@ void ha_rocksdb::remove_rows(RDBSE_TABLE_DEF *tbl)
       rocksdb::Slice key= it->key();
       if (!tbl->key_descr[i]->covers_key(key.data(), key.size()))
         break;
-      rdb->Delete(rocksdb::WriteOptions(), key);
+      rdb->Delete(get_write_options(), key);
       it->Next();
     }
   }
