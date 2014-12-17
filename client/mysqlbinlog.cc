@@ -2395,18 +2395,19 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 
   bool semi_sync_need_reply = false;
   uint event_count = 0;
-  fname[0]= log_file_name[0]= 0;
+  fname[0]= log_file_name[0]= cur_logname[0]= 0;
   size_t tlen = logname ? strlen(logname) : 0;
 
   DBUG_ENTER("dump_remote_log_entries");
 
-  if (tlen > UINT_MAX)
+  if (tlen > FN_REFLEN)
   {
     error("Log name too long.");
     DBUG_RETURN(ERROR_STOP);
   }
   logname_len = tlen;
-  sprintf(cur_logname, logname);
+  if (logname)
+    strncpy(cur_logname, logname, sizeof(cur_logname));
 
   init_semisync();
 
