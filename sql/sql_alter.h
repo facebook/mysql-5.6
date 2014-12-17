@@ -194,6 +194,8 @@ public:
   enum_alter_table_lock         requested_lock;
   // Defragment index.
   LEX_STRING                    defrag_index;
+  // Defragment partition
+  List<String>                  defrag_parts;
 
   Alter_info() :
     flags(0),
@@ -210,6 +212,7 @@ public:
     alter_list.empty();
     key_list.empty();
     create_list.empty();
+    defrag_parts.empty();
     flags= 0;
     keys_onoff= LEAVE_AS_IS;
     num_parts= 0;

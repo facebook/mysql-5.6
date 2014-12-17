@@ -317,6 +317,8 @@ public:
   */
   virtual int delete_table(const char *from);
   virtual int rename_table(const char *from, const char *to);
+  virtual int defragment_table(const char* name, const char* index_name,
+                               Alter_info* alter_info);
   virtual int create(const char *name, TABLE *form,
 		     HA_CREATE_INFO *create_info);
   virtual int create_handler_files(const char *name,
@@ -342,6 +344,11 @@ public:
   virtual bool check_if_incompatible_data(HA_CREATE_INFO *create_info,
                                           uint table_changes);
 private:
+  int defragment_partition(const char* table_name, const char* part_name,
+                           const char* subpart_name, const char* index_name,
+                           int part);
+  bool should_defragment_partition(List<String>& defrag_parts,
+                                   const char*part_name);
   int copy_partitions(ulonglong * const copied, ulonglong * const deleted);
   void cleanup_new_partition(uint part_count);
   int prepare_new_partition(TABLE *table, HA_CREATE_INFO *create_info,
