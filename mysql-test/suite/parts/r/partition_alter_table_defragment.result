@@ -1,0 +1,46 @@
+DROP TABLE if exists t1;
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+## Create test table
+CREATE TABLE t1 (
+id INT NOT NULL AUTO_INCREMENT,
+fname CHAR(30) DEFAULT NULL,
+lname CHAR(30) NOT NULL DEFAULT '',
+PRIMARY KEY (id, lname),
+INDEX ix_lname (lname)
+) ENGINE=InnoDB
+PARTITION BY RANGE (id)
+SUBPARTITION BY KEY (lname)
+SUBPARTITIONS 2
+(PARTITION p0 VALUES LESS THAN (100) ENGINE = InnoDB,
+PARTITION p1 VALUES LESS THAN (300) ENGINE = InnoDB,
+PARTITION p2 VALUES LESS THAN (600) ENGINE = InnoDB,
+PARTITION p3 VALUES LESS THAN MAXVALUE ENGINE = InnoDB);
+CREATE TABLE t2 (
+id INT NOT NULL AUTO_INCREMENT,
+fname CHAR(30) DEFAULT NULL,
+lname CHAR(30) NOT NULL DEFAULT '',
+PRIMARY KEY (id, lname),
+INDEX ix_lname (lname)
+) ENGINE=InnoDB
+PARTITION BY RANGE (id)
+(PARTITION p0 VALUES LESS THAN (100) ENGINE = InnoDB,
+PARTITION p1 VALUES LESS THAN (300) ENGINE = InnoDB,
+PARTITION p2 VALUES LESS THAN (600) ENGINE = InnoDB,
+PARTITION p3 VALUES LESS THAN MAXVALUE ENGINE = InnoDB);
+## Populate test table
+## Delete hole rows
+## Test-1 defragment specific sub-partition and index
+ALTER TABLE t1 DEFRAGMENT PARTITION (p0sp0, P0sp1, P1SP1) INDEX PRIMARY;
+## Test-2 defragment specific sub-partition without index
+ALTER TABLE t1 DEFRAGMENT PARTITION (p0sp0, P1SP1);
+## Test-3 defragment specific partition and index
+ALTER TABLE t2 DEFRAGMENT PARTITION (p2, P3) INDEX PRIMARY;
+## Test-4 defragment specific partition without index
+ALTER TABLE t2 DEFRAGMENT PARTITION (p1);
+## Test-5 defragment specific index without partition
+ALTER TABLE t1 DEFRAGMENT INDEX ix_lname;
+## Test-6 defragment whole partitioned table
+ALTER TABLE t2 DEFRAGMENT;
+## Clean test table
+DROP TABLE t1;
+DROP TABLE t2;
