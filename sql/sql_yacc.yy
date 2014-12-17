@@ -7920,11 +7920,22 @@ index_defragmentation:
         ;
 
 defragment:
-          DEFRAGMENT_SYM index_defragmentation
+          DEFRAGMENT_SYM opt_use_partition index_defragmentation
           {
             THD *thd= YYTHD;
             Lex->m_sql_cmd= new (thd->mem_root)
               Sql_cmd_defragment_table();
+
+            /* $2 would be null if alter statement does not have
+            PARTITION (x, y, ...) phrase */
+            if($2)
+            {
+              List_iterator<String> it(*$2);
+              String *tmp;
+              while ((tmp= it++))
+                  Lex->alter_info.defrag_parts.push_back(tmp);
+            }
+
             if (Lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }

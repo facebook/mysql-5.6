@@ -613,6 +613,96 @@ int ha_partition::rename_table(const char *from, const char *to)
   DBUG_RETURN(del_ren_table(from, to));
 }
 
+bool ha_partition::should_defragment_partition(List<String>& defrag_parts,
+                                               const char* part_name)
+{
+  uint req_parts = defrag_parts.elements;
+  if (req_parts == 0) {
+    return true;
+  }
+  String* req_part_name;
+  List_iterator<String> req_part_it(defrag_parts);
+  while((req_part_name = req_part_it++)) {
+    const char* req_part_name_cptr = req_part_name->c_ptr();
+    if(!my_strcasecmp(system_charset_info, part_name,
+                      req_part_name_cptr)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+int ha_partition::defragment_partition(const char* table_name,
+                                       const char* part_name,
+                                       const char* subpart_name,
+                                       const char* index_name,
+                                       int part)
+{
+  char part_name_buff[FN_REFLEN];
+  if (subpart_name)
+    create_subpartition_name(part_name_buff, table_name, part_name,
+                             subpart_name, NORMAL_PART_NAME);
+  else
+    create_partition_name(part_name_buff, table_name, part_name,
+                          NORMAL_PART_NAME, true);
+
+  return m_file[part]->ha_defragment_table(part_name_buff, index_name, NULL);
+}
+
+/*
+  Defragment table
+
+  SYNOPSIS
+    defragment_table()
+    name                   Table name
+    index_name             Index name
+    alter_info             Altering info for partition selection
+
+  RETURN VALUES
+    >0                Error
+    0                 Success
+*/
+int ha_partition::defragment_table(const char* name, const char* index_name,
+                                   Alter_info* alter_info)
+{
+  int error = 0;
+  uint num_parts = m_part_info->partitions.elements;
+
+  List_iterator<partition_element> part_it(m_part_info->partitions);
+
+  DBUG_ENTER("ha_partition::defragment");
+
+  for (uint i = 0; i < num_parts; i++) {
+    partition_element *part_elem = part_it++;
+    if (m_is_sub_partitioned) {
+      List_iterator<partition_element> sub_it(part_elem->subpartitions);
+      uint num_subparts = m_part_info->num_subparts;
+      uint part;
+      for (uint j = 0; j < num_subparts; j++) {
+        partition_element *sub_elem = sub_it++;
+        part = i * num_subparts + j;
+        if (should_defragment_partition(alter_info->defrag_parts,
+                                        sub_elem->partition_name)) {
+          if ((error = defragment_partition(name, part_elem->partition_name,
+                                            sub_elem->partition_name,
+                                            index_name, part))) {
+            DBUG_RETURN(error);
+          }
+        }
+      }
+    } else {
+      if (should_defragment_partition(alter_info->defrag_parts,
+                                      part_elem->partition_name)) {
+        if ((error = defragment_partition(name, part_elem->partition_name,
+                                          NULL, index_name, i))) {
+          DBUG_RETURN(error);
+        }
+      }
+    }
+  }
+
+  DBUG_RETURN(0);
+}
 
 /*
   Create the handler file (.par-file)
