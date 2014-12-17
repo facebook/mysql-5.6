@@ -212,7 +212,7 @@ btr_defragment_remove_table(
 		btr_pcur_t* pcur = item->pcur;
 		btr_cur_t* cursor = btr_pcur_get_btr_cur(pcur);
 		dict_index_t* idx = btr_cur_get_index(cursor);
-		if (table->id == idx->table->id) {
+		if (!item->removed && table->id == idx->table->id) {
 			item->removed = true;
 		}
 	}

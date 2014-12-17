@@ -1,0 +1,82 @@
+--source include/have_innodb.inc
+
+--disable_warnings
+DROP TABLE if exists t1;
+--enable_warnings
+
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+
+--echo ## Create test table
+CREATE TABLE t1 (
+  id INT NOT NULL AUTO_INCREMENT,
+  fname CHAR(30) DEFAULT NULL,
+  lname CHAR(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (id, lname),
+  INDEX ix_lname (lname)
+) ENGINE=InnoDB
+PARTITION BY RANGE (id)
+SUBPARTITION BY KEY (lname)
+SUBPARTITIONS 2
+(PARTITION p0 VALUES LESS THAN (100) ENGINE = InnoDB,
+ PARTITION p1 VALUES LESS THAN (300) ENGINE = InnoDB,
+ PARTITION p2 VALUES LESS THAN (600) ENGINE = InnoDB,
+ PARTITION p3 VALUES LESS THAN MAXVALUE ENGINE = InnoDB);
+
+CREATE TABLE t2 (
+  id INT NOT NULL AUTO_INCREMENT,
+  fname CHAR(30) DEFAULT NULL,
+  lname CHAR(30) NOT NULL DEFAULT '',
+  PRIMARY KEY (id, lname),
+  INDEX ix_lname (lname)
+) ENGINE=InnoDB
+PARTITION BY RANGE (id)
+(PARTITION p0 VALUES LESS THAN (100) ENGINE = InnoDB,
+ PARTITION p1 VALUES LESS THAN (300) ENGINE = InnoDB,
+ PARTITION p2 VALUES LESS THAN (600) ENGINE = InnoDB,
+ PARTITION p3 VALUES LESS THAN MAXVALUE ENGINE = InnoDB);
+
+--echo ## Populate test table
+--disable_query_log
+INSERT INTO t1 VALUES (NULL, 'matt', 'lee'), (NULL, 'lara', 'kim'), (NULL, 'seonguck', 'ryu');
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+INSERT INTO t1 SELECT NULL, fname, lname FROM t1;
+
+INSERT INTO t2 SELECT * FROM t1;
+
+--echo ## Delete hole rows
+let $delete_rows = 150;
+while($delete_rows)
+{
+    DELETE FROM t1 WHERE id = ROUND(RAND()*1000) % 768;
+    DELETE FROM t2 WHERE id = ROUND(RAND()*1000) % 768;
+    dec $delete_rows;
+}
+--enable_query_log
+
+--echo ## Test-1 defragment specific sub-partition and index
+ALTER TABLE t1 DEFRAGMENT PARTITION (p0sp0, P0sp1, P1SP1) INDEX PRIMARY;
+
+--echo ## Test-2 defragment specific sub-partition without index
+ALTER TABLE t1 DEFRAGMENT PARTITION (p0sp0, P1SP1);
+
+-- echo ## Test-3 defragment specific partition and index
+ALTER TABLE t2 DEFRAGMENT PARTITION (p2, P3) INDEX PRIMARY;
+
+-- echo ## Test-4 defragment specific partition without index
+ALTER TABLE t2 DEFRAGMENT PARTITION (p1);
+
+--echo ## Test-5 defragment specific index without partition
+ALTER TABLE t1 DEFRAGMENT INDEX ix_lname;
+
+--echo ## Test-6 defragment whole partitioned table
+ALTER TABLE t2 DEFRAGMENT;
+
+--echo ## Clean test table
+DROP TABLE t1;
+DROP TABLE t2;
