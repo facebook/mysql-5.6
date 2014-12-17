@@ -433,7 +433,8 @@ bool Sql_cmd_defragment_table::execute(THD *thd)
                                      first_table->alias, "", 0);
   LEX_STRING index = thd->lex->alter_info.defrag_index;
   THD_STAGE_INFO(thd, stage_alter_inplace);
-  int ret = handler->ha_defragment_table(path, index.str);
+  int ret = handler->ha_defragment_table(path, index.str,
+                                         &thd->lex->alter_info);
   DEBUG_SYNC(thd, "defragment_after_defrag");
   close_thread_tables(thd);
   if (ret == 0)
