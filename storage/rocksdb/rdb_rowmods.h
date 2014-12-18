@@ -16,6 +16,7 @@
 
 #include "my_tree.h"
 
+class RDBSE_KEYDEF;
 
 typedef struct st_row_data
 {
@@ -24,9 +25,10 @@ typedef struct st_row_data
   /* Can have a special value: DATA_IS_TOMBSTONE */
   size_t value_len;
 
-  rocksdb::ColumnFamilyHandle *cf;
+  /* RocksDB-SE index this row is from. This allows to get the Column Family */
+  RDBSE_KEYDEF *keydef;
 
-  /* Previous version */
+  /* Previous version of the row with this key */
   struct st_row_data *prev_version;
 
   /* Number of the statement that inserted this row/tombstone */
@@ -59,6 +61,9 @@ class Row_table_iter
 {
   Row_table *rtable; /* Table this iterator is for*/
 
+  /* Whether we are iterating through forward or reverse keyspace */
+  bool is_reverse;
+
   /* The following are for tree iteration: */
   TREE_ELEMENT *parents[MAX_TREE_HEIGHT+1];
   TREE_ELEMENT **last_pos;
@@ -71,7 +76,7 @@ class Row_table_iter
   int change_id;
   friend class Row_table;
 public:
-  Row_table_iter(Row_table *rtable_arg);
+  Row_table_iter(Row_table *rtable_arg, bool is_reverse_arg);
 
   /* Scanning functions */
   void Seek(const rocksdb::Slice &slice);
@@ -86,19 +91,48 @@ public:
   bool is_tombstone();
   rocksdb::Slice key();
   rocksdb::Slice value();
-
-  rocksdb::ColumnFamilyHandle *cf_handle();
+  /*
+    RocksDB-SE index this row belongs to (this also allows to get the column
+    family)
+  */
+  RDBSE_KEYDEF *keydef();
 };
 
 
 /*
   A storage for rows, or their tombstones. One can use rocksdb-like iterators
   to traverse the rows.
+
+  == Relationship with Column Families ==
+  There is only one Row_table object that stores rows from all Column Families.
+  We rely on the fact that no two rows have the same key, even if they are in
+  different column families.
+
+  The rows store pointer to their RDBSE_KEYDEF, one can find out which Column
+  Family the row is from by calling Row_table_iter::keydef().
+
+  == Forward/backward ordered CFs ==
+  We use two trees - one for rows from forward-ordered CFs, and one for rows
+  from backward-ordered CFs.
+
+  (we could theoretically use a separate tree for each CF, but TREE stucture is
+   too heavy for this.
+
+   I've also considered a solution where both forward an backward-ordered data
+   is kept in the same tree. We could compare by index_no first, and then
+   compare the remainder in either forward or reverse sorting. This defines an
+   ordering sufficient for TREE object to operate, but causes difficult issues
+   at table start/end.
+  )
 */
 
 class Row_table
 {
-  TREE tree;
+  /* Tree for column families using forward ordering */
+  TREE fw_tree;
+  /* Tree for column families using backward ordering */
+  TREE bw_tree;
+
   MEM_ROOT mem_root;
 
   /* Current statement id */
@@ -107,6 +141,7 @@ class Row_table
   /*
     This is incremented on every change, so iterators can know
     if they were invalidated and should re-position themselves.
+    (todo: can have a separate change_id for every tree)
   */
   int change_id;
 
@@ -119,12 +154,13 @@ public:
   void reinit();
 
   /* Operations to put a row, or a tombstone */
-  bool Put(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key,
+  bool Put(RDBSE_KEYDEF *keydef, rocksdb::Slice& key,
            rocksdb::Slice& val);
-  bool Delete(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key);
+  bool Delete(RDBSE_KEYDEF *keydef, rocksdb::Slice& key);
 
   /* Lookup may find nothing, find row, of find a tombstone */
-  bool Get(rocksdb::Slice &key, std::string *record, bool *found);
+  bool Get(RDBSE_KEYDEF *keydef, rocksdb::Slice &key,
+           std::string *record, bool *found);
 
   /*
     Statement support. It is possible to rollback all changes made by the
@@ -136,8 +172,11 @@ public:
   /* This may return false when there are really no changes (TODO: still true?) */
   bool is_empty()
   {
-    return (tree.elements_in_tree == 0);
+    return (fw_tree.elements_in_tree == 0 && bw_tree.elements_in_tree == 0);
   };
 private:
   static int compare_rows(const void* arg, const void *a,const void *b);
+  static int compare_rows_rev(const void* arg, const void *a,const void *b);
 };
+
+
