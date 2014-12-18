@@ -4038,6 +4038,7 @@ private:
   uchar         *m_null_bits;
   uchar         *m_meta_memory;
   uchar *m_primary_key_fields;
+  uint m_primary_key_fields_size;
   /* Table column names are added to the Table_map_log_event at the end
      in the following format:
      a) Length of the column name including the terminating '\0' is added in

@@ -16,6 +16,10 @@ create table t1(i1 int, i2 int, i3 int, primary key(i1, i2, i3));
 insert into t1 values(1, 1, 1);
 drop table t1;
 
+create table t1(i1 int, i2 int, i3 int, primary key(i3, i2, i1));
+insert into t1 values(1, 1, 1);
+drop table t1;
+
 create table t1(i1 int, i2 int, i3 int, i4 int, i5 int, i6 int, i7 int, i8 int, i9 int, primary key(i4, i8, i9));
 insert into t1 values(1, 1, 1, 1, 1, 1, 1, 1, 1);
 drop table t1;

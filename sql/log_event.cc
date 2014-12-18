@@ -12180,6 +12180,7 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     m_null_bits(0),
     m_meta_memory(NULL),
     m_primary_key_fields(0),
+    m_primary_key_fields_size(0),
     m_column_names(0),
     m_column_names_size(0)
 {
@@ -12237,13 +12238,32 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     replication.
   */
   uint num_null_bytes= (m_table->s->fields + 7) / 8;
-  // Both m_null_bits and m_primary_key_fields has num_null_bytes size, so
-  // increase m_data_size by 2 * num_null_bytes.
-  m_data_size+= 2 * num_null_bytes;
+  m_data_size+= num_null_bytes;
+
+  KEY *pkey_info = NULL;
+  // Validate that there exists a valid primary key
+  // and calculate the space required to store primary key
+  // column indexes.
+  if (m_table->key_info && m_table->s->primary_key < MAX_KEY) {
+    pkey_info = m_table->key_info + m_table->s->primary_key;
+    // see net_store_length()
+    if (pkey_info->user_defined_key_parts < 251)
+      m_primary_key_fields_size += 1;
+    else
+      m_primary_key_fields_size += 3;
+
+    for (uint i=0; i < pkey_info->user_defined_key_parts; ++i)
+    {
+      if ((pkey_info->key_part[i].fieldnr - 1) < 251)
+        m_primary_key_fields_size += 1;
+      else
+        m_primary_key_fields_size += 3;
+    }
+  }
+
   m_meta_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                  &m_null_bits, num_null_bytes,
                                  &m_field_metadata, (m_colcnt * 2),
-                                 &m_primary_key_fields, num_null_bytes,
                                  NULL);
 
   if (m_column_names_size)
@@ -12289,15 +12309,22 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     if (!strcmp(db_name, ""))
       m_flags |= TM_REFERRED_FK_DB_F;
   }
-  memset(m_primary_key_fields, 0, num_null_bytes);
-  uint primary_key = m_table->s->primary_key;
-  // Validate that there exists a valid primary key.
-  if (m_table->key_info && primary_key < MAX_KEY) {
-    KEY *key_info = m_table->key_info + primary_key;
-    for (uint i=0; i < key_info->user_defined_key_parts; ++i)
+
+  if (m_primary_key_fields_size < 251)
+    m_data_size += 1;
+  else
+    m_data_size += 3;
+  m_data_size += m_primary_key_fields_size;
+
+  if (m_primary_key_fields_size)
+  {
+    m_primary_key_fields = (uchar*) my_malloc(m_primary_key_fields_size,
+                                              MYF(MY_WME));
+    uchar *ptr = m_primary_key_fields;
+    ptr = net_store_length(ptr, pkey_info->user_defined_key_parts);
+    for (uint i=0; i < pkey_info->user_defined_key_parts; ++i)
     {
-      uint16 fieldnr = key_info->key_part[i].fieldnr - 1;
-      m_primary_key_fields[(fieldnr/8)] += 1 << (fieldnr % 8);
+      ptr = net_store_length(ptr, (pkey_info->key_part[i].fieldnr - 1));
     }
   }
 
@@ -12332,7 +12359,7 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
     m_memory(NULL), m_table_id(ULONGLONG_MAX), m_flags(0),
     m_data_size(0), m_field_metadata(0), m_field_metadata_size(0),
     m_null_bits(0), m_meta_memory(NULL), m_primary_key_fields(0),
-    m_column_names(0), m_column_names_size(0)
+    m_primary_key_fields_size(0), m_column_names(0), m_column_names_size(0)
 {
   unsigned int bytes_read= 0;
   DBUG_ENTER("Table_map_log_event::Table_map_log_event(const char*,uint,...)");
@@ -12415,7 +12442,6 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
       m_meta_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                      &m_null_bits, num_null_bytes,
                                      &m_field_metadata, m_field_metadata_size,
-                                     &m_primary_key_fields, num_null_bytes,
                                      NULL);
       memcpy(m_field_metadata, ptr_after_colcnt, m_field_metadata_size);
       ptr_after_colcnt= (uchar*)ptr_after_colcnt + m_field_metadata_size;
@@ -12423,8 +12449,16 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
       ptr_after_colcnt= (uchar*)ptr_after_colcnt + num_null_bytes;
       if ((ptr_after_colcnt - (uchar *)buf) < event_len)
       {
-        memcpy(m_primary_key_fields, ptr_after_colcnt, num_null_bytes);
-        ptr_after_colcnt = (uchar*)ptr_after_colcnt + num_null_bytes;
+        m_primary_key_fields_size = net_field_length(&ptr_after_colcnt);
+        if (m_primary_key_fields_size)
+        {
+          m_primary_key_fields =  (uchar*) my_malloc(m_primary_key_fields_size,
+                                                     MYF(MY_WME));
+          memcpy(m_primary_key_fields, ptr_after_colcnt,
+                 m_primary_key_fields_size);
+          ptr_after_colcnt = (uchar*)ptr_after_colcnt +
+                             m_primary_key_fields_size;
+        }
         m_column_names_size = event_len - (ptr_after_colcnt - (uchar *)buf);
         if (m_column_names_size)
         {
@@ -12444,6 +12478,7 @@ Table_map_log_event::~Table_map_log_event()
   my_free(m_meta_memory);
   my_free(m_memory);
   my_free(m_column_names);
+  my_free(m_primary_key_fields);
 }
 
 /*
@@ -12725,6 +12760,10 @@ bool Table_map_log_event::write_data_body(IO_CACHE *file)
   uchar mbuf[sizeof(m_field_metadata_size)];
   uchar *const mbuf_end= net_store_length(mbuf, m_field_metadata_size);
 
+  uchar m_size_buf[sizeof(m_primary_key_fields_size)];
+  uchar *const m_size_buf_end = net_store_length(m_size_buf,
+                                                 m_primary_key_fields_size);
+
   return (wrapper_my_b_safe_write(file, dbuf,      sizeof(dbuf)) ||
           wrapper_my_b_safe_write(file, (const uchar*)m_dbnam,   m_dblen+1) ||
           wrapper_my_b_safe_write(file, tbuf,      sizeof(tbuf)) ||
@@ -12734,8 +12773,10 @@ bool Table_map_log_event::write_data_body(IO_CACHE *file)
           wrapper_my_b_safe_write(file, mbuf, (size_t) (mbuf_end - mbuf)) ||
           wrapper_my_b_safe_write(file, m_field_metadata, m_field_metadata_size),
           wrapper_my_b_safe_write(file, m_null_bits, (m_colcnt + 7) / 8) ||
+          wrapper_my_b_safe_write(file, m_size_buf,
+                                  (size_t) (m_size_buf_end - m_size_buf)) ||
           wrapper_my_b_safe_write(file, m_primary_key_fields,
-                                  (m_colcnt + 7) / 8) ||
+                                  m_primary_key_fields_size) ||
           wrapper_my_b_safe_write(file, m_column_names,
                                   m_column_names_size));
 
@@ -12776,10 +12817,16 @@ void Table_map_log_event::print(FILE *, PRINT_EVENT_INFO *print_event_info)
                 m_dbnam, m_tblnam, m_table_id.id());
     DBUG_EXECUTE_IF("print_primary_key_fields", {
                      my_b_printf(&print_event_info->head_cache,
-                                 "Primary Key Fields: ` ");
-                     for (ulong i = 0; i < m_colcnt; ++i) {
-                       if (m_primary_key_fields[i / 8] & (1 << (i % 8)))
-                         my_b_printf(&print_event_info->head_cache, "%lu ", i);
+                                 "#Primary Key Fields: ` ");
+                     if (m_primary_key_fields)
+                     {
+                       uchar *ptr = m_primary_key_fields;
+                       uint n = net_field_length(&ptr);
+                       for (ulong i = 0; i < n; ++i) {
+                         uint field_index = net_field_length(&ptr);
+                         my_b_printf(&print_event_info->head_cache, "%u ",
+                                     field_index);
+                       }
                      }
                      my_b_printf(&print_event_info->head_cache, "`\n");
                      });
