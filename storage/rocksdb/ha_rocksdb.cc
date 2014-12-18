@@ -560,6 +560,25 @@ static void init_rocksdb_psi_keys()
 #endif
 
 
+static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)
+{
+  size_t a_size= a.size();
+  size_t b_size= b.size();
+  size_t len= (a_size < b_size) ? a_size : b_size;
+  int res;
+
+  if ((res= memcmp(a.data(), b.data(), len)))
+    return res;
+
+  /* Ok, res== 0 */
+  if (a_size != b_size)
+  {
+    return a_size < b_size? -1 : 1;
+  }
+  return 0;
+}
+
+
 /*
   The keys are in form: {index_number} {mem-comparable-key}
 
@@ -572,25 +591,12 @@ class Primary_key_comparator : public rocksdb::Comparator
 public:
   int Compare(const rocksdb::Slice& a, const rocksdb::Slice& b) const
   {
-    size_t a_size= a.size();
-    size_t b_size= b.size();
-    size_t len= (a_size < b_size) ? a_size : b_size;
-    int res;
-
-    if ((res= memcmp(a.data(), b.data(), len)))
-      return res;
-
-    /* Ok, res== 0 */
-    if (a_size != b_size)
-    {
-      return a_size < b_size? -1 : 1;
-    }
-    return 0;
+    return bytewise_compare(a,b);
   }
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
   static ulong get_hashnr(const char *key, size_t key_len);
-  const char* Name() const { return "RocksDB_SE_v3.0"; }
+  const char* Name() const { return "RocksDB_SE_v3.1"; }
 
   //TODO: advanced funcs:
   // - FindShortestSeparator
@@ -600,8 +606,26 @@ public:
   void FindShortSuccessor(std::string* key) const {}
 };
 
-Primary_key_comparator rocksdb_pk_comparator;
 
+class Reverse_comparator : public rocksdb::Comparator
+{
+  int Compare(const rocksdb::Slice& a, const rocksdb::Slice& b) const
+  {
+    return -bytewise_compare(a,b);
+  }
+  const char* Name() const { return "rev:RocksDB_SE_v3.1"; }
+  void FindShortestSeparator(std::string* start, const rocksdb::Slice& limit) const {}
+  void FindShortSuccessor(std::string* key) const {}
+};
+
+
+Primary_key_comparator rocksdb_pk_comparator;
+Reverse_comparator     rocksdb_rev_pk_comparator;
+
+/*
+  This function doesn't support reverse comparisons. They are handled by the
+  caller.
+*/
 int compare_mem_comparable_keys(const uchar *a, size_t a_len, const uchar *b, size_t b_len)
 {
   rocksdb::Slice a_slice((char*)a, a_len);
@@ -704,17 +728,20 @@ private:
     if (changes.is_empty())
       return false;
 
-    Row_table_iter iter(&changes);
-
-    for (iter.SeekToFirst(); iter.Valid(); iter.Next())
+    for (int reverse=0; reverse <= 1; reverse++)
     {
-      if (iter.is_tombstone())
+      Row_table_iter iter(&changes, (bool)reverse);
+
+      for (iter.SeekToFirst(); iter.Valid(); iter.Next())
       {
-        batch.Delete(iter.cf_handle(), iter.key());
-      }
-      else
-      {
-        batch.Put(iter.cf_handle(), iter.key(), iter.value());
+        if (iter.is_tombstone())
+        {
+          batch.Delete(iter.keydef()->get_cf(), iter.key());
+        }
+        else
+        {
+          batch.Put(iter.keydef()->get_cf(), iter.key(), iter.value());
+        }
       }
     }
     rocksdb::Status s= rdb->Write(rocksdb::WriteOptions(), &batch);
@@ -895,6 +922,12 @@ void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *op
 {
   *opts = default_cf_opts;
   rocksdb_cf_options_map.Get(cf_name, opts);
+
+  // Set the comparator according to 'rev:'
+  if (is_cf_name_reverse(cf_name.c_str()))
+    opts->comparator= &rocksdb_rev_pk_comparator;
+  else
+    opts->comparator= &rocksdb_pk_comparator;
 }
 
 /*
@@ -1477,7 +1510,11 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   StringBuffer<64> fullname;
   make_dbname_tablename(&fullname, table);
   if (!(tbl_def= ddl_manager.find((uchar*)fullname.c_ptr(), fullname.length())))
+  {
+    my_error(ER_INTERNAL_ERROR, MYF(0),
+             "Attempt to open a table that is not present in RocksDB-SE data dictionary");
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
 
   key_descr= tbl_def->key_descr;
   pk_descr= key_descr[table->s->primary_key];
@@ -1495,7 +1532,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   pk_descr->setup(table);  // move this into get_share() ??
-  pk_descr->set_cf_handle(cf_handle, is_auto_cf);
+  pk_descr->set_cf_handle(cf_handle, is_cf_name_reverse(comment),
+                          is_auto_cf);
 
   uint packed_key_len= pk_descr->max_storage_fmt_length();
 
@@ -1517,7 +1555,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
     key_descr[i]->setup(table);  // move this into get_share() ??
-    key_descr[i]->set_cf_handle(cf_handle, is_auto_cf);
+    key_descr[i]->set_cf_handle(cf_handle, is_cf_name_reverse(comment),
+                                is_auto_cf);
 
     uint packed_len= key_descr[i]->max_storage_fmt_length();
     if (packed_len > max_packed_sec_key_len)
@@ -1655,7 +1694,9 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
       goto error;
 
     if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i,
-                                         cf_handle, is_auto_cf)))
+                                         cf_handle,
+                                         is_cf_name_reverse(comment),
+                                         is_auto_cf)))
       goto error;
   }
   pk_descr= key_descr[table_arg->s->primary_key];
@@ -1956,7 +1997,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
-  setup_index_scan(kd->get_cf(), &slice);
+  setup_index_scan(kd, &slice);
   bool move_forward= true;
 
 
@@ -2400,7 +2441,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
     options.snapshot= trx->snapshot;
 
   bool found;
-  if (!trx->changes.Get(key_slice, &retrieved_record, &found))
+  if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
   {
     rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
                                 &retrieved_record);
@@ -2429,13 +2470,21 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
 
 int ha_rocksdb::index_next(uchar *buf)
 {
-  return index_next_with_direction(buf, true);
+  bool moves_forward= true;
+  if (key_descr[active_index]->is_reverse_cf)
+    moves_forward= false;
+
+  return index_next_with_direction(buf, moves_forward);
 }
 
 
 int ha_rocksdb::index_prev(uchar *buf)
 {
-  return index_next_with_direction(buf, false);
+  bool moves_forward= false;
+  if (key_descr[active_index]->is_reverse_cf)
+    moves_forward= true;
+
+  return index_next_with_direction(buf, moves_forward);
 }
 
 
@@ -2467,6 +2516,51 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
 
 int ha_rocksdb::index_first(uchar *buf)
 {
+  return key_descr[active_index]->is_reverse_cf ? index_last_intern(buf):
+                                                  index_first_intern(buf);
+}
+
+
+int ha_rocksdb::index_last(uchar *buf)
+{
+  return key_descr[active_index]->is_reverse_cf ? index_first_intern(buf):
+                                                  index_last_intern(buf);
+}
+
+
+/*
+  Start scanning from the "first" value.
+
+  The 'first' here means "the first from start of the key space".
+  For reverse-ordered key spaces, the first value will be the biggest, 'zzzz'.
+
+  An picture of a forward-ordered keyspace (remember, the keys have form
+  'indexnr-keyval'. Suppose the index we are at has number n)
+
+      (n-1) - ...
+      ( n )          <--- 1. (n) doesn't exist in the db but it would be here.
+      ( n ) - aaa       <--- 2. Seek("n") will put us here on the first index
+      ( n ) - bbb               record.
+      ( n ) - cc
+
+  So, need to do: Seek(n);
+
+  A backward-ordered keyspace:
+
+      (n+1) - bbb
+      (n+1) - aaa
+      (n+1)        <--- (n+1) doesn't exist in the db but would be here.
+      ( n ) - ccc       <--- 1. We need to be here.
+      ( n ) - bbb
+      ( n ) - aaa
+      ( n )
+
+  So, need to: Seek(n+1);
+
+*/
+
+int ha_rocksdb::index_first_intern(uchar *buf)
+{
   uchar *key;
   uint key_size;
   int rc;
@@ -2474,10 +2568,15 @@ int ha_rocksdb::index_first(uchar *buf)
 
   key= (active_index == table->s->primary_key)? pk_packed_tuple :
                                                 sec_key_packed_tuple;
-  key_descr[active_index]->get_infimum_key(key, &key_size);
+
+  if (key_descr[active_index]->is_reverse_cf)
+    key_descr[active_index]->get_supremum_key(key, &key_size);
+  else
+    key_descr[active_index]->get_infimum_key(key, &key_size);
+
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(key_descr[active_index]->get_cf(), &index_key);
+  setup_index_scan(key_descr[active_index], &index_key);
   skip_scan_it_next_call= TRUE;
 
   rc= index_next(buf);
@@ -2485,7 +2584,43 @@ int ha_rocksdb::index_first(uchar *buf)
 }
 
 
-int ha_rocksdb::index_last(uchar *buf)
+/*
+  Start scanning from the "last" value
+
+  The 'last' here means "the last from start of the key space".
+  For reverse-ordered key spaces, we will actually read the smallest value.
+
+  An picture of a forward-ordered keyspace (remember, the keys have form
+  'indexnr-keyval'. Suppose the we are at a key that has number n)
+
+     (n-1)-something
+     ( n )-aaa
+     ( n )-bbb
+     ( n )-ccc            <----------- Need to seek to here.
+     (n+1)      <---- Doesn't exist, but would be here.
+     (n+1)-smth, or no value at all
+
+   RocksDB's Iterator::Seek($val) seeks to "at $val or first value that's
+   greater". We can't see to "(n)-ccc" directly, because we don't know what
+   is the value of 'ccc' (the biggest record with prefix (n)). Instead, we seek
+   to "(n+1)", which is the least possible value that's greater than any value
+   in index #n. Then we step one record back.
+
+   So, need to:  it->Seek(n+1) || it->SeekToLast(); it->Prev();
+
+   A backward-ordered keyspace:
+
+      (n+1)-something
+      ( n ) - ccc
+      ( n ) - bbb
+      ( n ) - aaa       <---------------- (*) Need to seek here.
+      ( n ) <--- Doesn't exist, but would be here.
+      (n-1)-smth, or no value at all
+
+   So, need to:  it->Seek(n) || it->SeekToLast(); it->Prev();
+*/
+
+int ha_rocksdb::index_last_intern(uchar *buf)
 {
   uchar *key;
   uint key_size;
@@ -2494,10 +2629,15 @@ int ha_rocksdb::index_last(uchar *buf)
 
   key= (active_index == table->s->primary_key)? pk_packed_tuple :
                                                 sec_key_packed_tuple;
-  key_descr[active_index]->get_supremum_key(key, &key_size);
+
+  if (key_descr[active_index]->is_reverse_cf)
+    key_descr[active_index]->get_infimum_key(key, &key_size);
+  else
+    key_descr[active_index]->get_supremum_key(key, &key_size);
+
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(key_descr[active_index]->get_cf(), &index_key);
+  setup_index_scan(key_descr[active_index], &index_key);
 
   if (!scan_it->Valid())
   {
@@ -2539,8 +2679,6 @@ void ha_rocksdb::unlock_row()
   }
 }
 
-
-//static const char* empty_str="";
 
 int ha_rocksdb::write_row(uchar *buf)
 {
@@ -2592,7 +2730,7 @@ int ha_rocksdb::write_row(uchar *buf)
     rocksdb::ReadOptions options;
 
     bool found;
-    if (!trx->changes.Get(key_slice, &retrieved_record, &found))
+    if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
     {
       rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
                                   &retrieved_record);
@@ -2628,7 +2766,7 @@ int ha_rocksdb::write_row(uchar *buf)
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
       rocksdb::Slice value_slice((const char*)sec_key_tails, tail_size);
-      trx->changes.Put(key_descr[i]->get_cf(), secondary_key_slice, value_slice);
+      trx->changes.Put(key_descr[i], secondary_key_slice, value_slice);
       trx->n_writes++;
     }
   }
@@ -2640,7 +2778,7 @@ int ha_rocksdb::write_row(uchar *buf)
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(&value_slice);
 
-  trx->changes.Put(pk_descr->get_cf(), key_slice, value_slice);
+  trx->changes.Put(pk_descr, key_slice, value_slice);
   trx->n_writes++;
 
   if (!do_locking && trx->n_writes > THDVAR(table->in_use, bulk_load_size))
@@ -2658,7 +2796,7 @@ int ha_rocksdb::write_row(uchar *buf)
   Open a cursor and position it at the passed record
 */
 
-void ha_rocksdb::setup_index_scan(rocksdb::ColumnFamilyHandle *cf,
+void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
                                   rocksdb::Slice *slice)
 {
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
@@ -2672,9 +2810,9 @@ void ha_rocksdb::setup_index_scan(rocksdb::ColumnFamilyHandle *cf,
     rocksdb::ReadOptions options;
     if (!lock_rows)
       options.snapshot= trx->snapshot;
-    rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, cf);
+    rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, keydef->get_cf());
     scan_it= new Apply_changes_iter;
-    scan_it->init(&trx->changes, rocksdb_it);
+    scan_it->init(keydef, &trx->changes, rocksdb_it);
   }
 
   /*
@@ -2692,10 +2830,14 @@ int ha_rocksdb::rnd_init(bool scan)
   if (scan)
   {
     uint key_size;
-    pk_descr->get_infimum_key(pk_packed_tuple, &key_size);
+    if (pk_descr->is_reverse_cf)
+      pk_descr->get_supremum_key(pk_packed_tuple, &key_size);
+    else
+      pk_descr->get_infimum_key(pk_packed_tuple, &key_size);
+
     rocksdb::Slice table_key((const char*)pk_packed_tuple, key_size);
 
-    setup_index_scan(pk_descr->get_cf(), &table_key);
+    setup_index_scan(pk_descr, &table_key);
     skip_scan_it_next_call= true;
   }
   else
@@ -2775,7 +2917,7 @@ retry:
         rocksdb::ReadOptions options;
         /* lock_rows==TRUE, so not setting options.snapshot */
         bool found;
-        if (!trx->changes.Get(key, &retrieved_record, &found))
+        if (!trx->changes.Get(pk_descr, key, &retrieved_record, &found))
         {
           rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key,
                                       &retrieved_record);
@@ -2867,7 +3009,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
   trx->prepare_for_write();
-  trx->changes.Delete(pk_descr->get_cf(), key_slice);
+  trx->changes.Delete(pk_descr, key_slice);
   DBUG_ASSERT(buf == table->record[0]);
 
   // Delete the record for every secondary index
@@ -2881,7 +3023,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
                                              NULL, NULL);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
-      trx->changes.Delete(key_descr[i]->get_cf(), secondary_key_slice);
+      trx->changes.Delete(key_descr[i], secondary_key_slice);
     }
   }
 
@@ -2995,7 +3137,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
       DBUG_RETURN(return_lock_failure(timed_out));
 
     bool found;
-    if (!trx->changes.Get(key_slice, &retrieved_record, &found))
+    if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
     {
       rocksdb::ReadOptions options;
       /* Not setting options.snapshot, we need to check the real contents */
@@ -3012,7 +3154,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
     trx->prepare_for_write();
     trx->add_lock(lock);
-    trx->changes.Delete(pk_descr->get_cf(), old_key_slice);
+    trx->changes.Delete(pk_descr, old_key_slice);
   }
 
   trx->prepare_for_write();
@@ -3033,7 +3175,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
                                                NULL, NULL);
         rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                            packed_size);
-        trx->changes.Delete(key_descr[i]->get_cf(), secondary_key_slice);
+        trx->changes.Delete(key_descr[i], secondary_key_slice);
       }
 
       // Then, Put().
@@ -3044,8 +3186,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
         rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                            packed_size);
         rocksdb::Slice value_slice((const char*)sec_key_tails, tail_size);
-        trx->changes.Put(key_descr[i]->get_cf(), secondary_key_slice,
-                         value_slice);
+        trx->changes.Put(key_descr[i], secondary_key_slice, value_slice);
       }
     }
   }
@@ -3055,7 +3196,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   /* Write the table record */
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(&value_slice);
-  trx->changes.Put(pk_descr->get_cf(), key_slice, value_slice);
+  trx->changes.Put(pk_descr, key_slice, value_slice);
 
   DBUG_RETURN(0);
 }
