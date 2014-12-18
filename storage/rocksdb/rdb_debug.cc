@@ -83,23 +83,26 @@ void dump_value(FILE *out, const rocksdb::Slice &val)
 
 void dump_trx_changes(FILE *out, Row_table &changes)
 {
-  Row_table_iter iter(&changes);
-  fprintf(out, "TRX %p\n", current_thd);
-  for (iter.SeekToFirst(); iter.Valid(); iter.Next())
+  for (int reverse= 0; reverse <= 1; reverse++)
+  Row_table_iter iter(&changes, (bool)reverse);
   {
-    if (iter.is_tombstone())
+    fprintf(out, "TRX %p\n", current_thd);
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next())
     {
-      fprintf(out, "DEL ");
-      dump_value(out, iter.key());
-      fputs("\n", out);
-    }
-    else
-    {
-      fprintf(out, "PUT ");
-      dump_value(out, iter.key());
-      fputs(" ", out);
-      dump_value(out, iter.value());
-      fputs("\n", out);
+      if (iter.is_tombstone())
+      {
+        fprintf(out, "DEL ");
+        dump_value(out, iter.key());
+        fputs("\n", out);
+      }
+      else
+      {
+        fprintf(out, "PUT ");
+        dump_value(out, iter.key());
+        fputs(" ", out);
+        dump_value(out, iter.value());
+        fputs("\n", out);
+      }
     }
   }
 }
