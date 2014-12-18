@@ -169,8 +169,7 @@ class ha_rocksdb: public handler
 
   int create_key_defs(TABLE *table_arg, const char *db_table, uint len);
   int secondary_index_read(int keyno, uchar *buf);
-  void setup_index_scan(rocksdb::ColumnFamilyHandle *cf,
-                        rocksdb::Slice *slice);
+  void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice);
   int get_row_by_rowid(uchar *buf, const char *pk_tuple, uint pk_tuple_size);
 
   void update_auto_incr_val();
@@ -316,6 +315,10 @@ public:
 
   int index_first(uchar *buf);
   int index_last(uchar *buf);
+private:
+  int index_first_intern(uchar *buf);
+  int index_last_intern(uchar *buf);
+public:
   int index_end();
 
   void unlock_row();
