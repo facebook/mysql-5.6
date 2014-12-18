@@ -136,6 +136,9 @@ struct srv_stats_t {
 
   /** Number of rows inserted */
   ulint_ctr_64_t n_rows_inserted;
+
+  /** Number of buffered aio requests submitted */
+  ulint_ctr_64_t n_aio_submitted;
 };
 
 struct Srv_threads {
@@ -1000,6 +1003,7 @@ struct export_var_t {
                                       index lookups when freeing
                                       file pages */
 #endif                                /* UNIV_DEBUG */
+  ulint innodb_buffered_aio_submitted;
 };
 
 #ifndef UNIV_HOTBACKUP

@@ -73,13 +73,19 @@ flag is cleared and the x-lock released by an i/o-handler thread.
 @param[in]	page_id		page id
 @param[in]	page_size	page size
 @param[in]	unzip		true=request uncompressed page
+@param[in]	should_buffer	whether to buffer an aio request.  AIO read
+                                ahead uses this. If you plan to use this
+                                parameter, make sure you remember to call
+                                os_aio_linux_dispatch_read_array_submit when
+                                you're ready to commit all your request/
 @return 1 if a read request was queued, 0 if the page already resided in
 buf_pool, or if the page is in the doublewrite buffer blocks in which case it
 is never read into the pool, or if the tablespace does not exist or is being
 dropped */
 static ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                                const page_id_t &page_id,
-                               const page_size_t &page_size, bool unzip) {
+                               const page_size_t &page_size, bool unzip,
+                               bool should_buffer) {
   buf_page_t *bpage;
 
   *err = DB_SUCCESS;
@@ -135,8 +141,8 @@ static ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
   IORequest request(type | IORequest::READ);
 
-  *err = fil_io(request, sync, page_id, page_size, 0, page_size.physical(), dst,
-                bpage);
+  *err = _fil_io(request, sync, page_id, page_size, 0, page_size.physical(),
+                 dst, bpage, should_buffer);
 
   if (sync) {
     thd_wait_end(NULL);
@@ -278,7 +284,7 @@ read_ahead:
 
     if (!ibuf_bitmap_page(cur_page_id, page_size)) {
       count += buf_read_page_low(&err, false, IORequest::DO_NOT_WAKE, ibuf_mode,
-                                 cur_page_id, page_size, false);
+                                 cur_page_id, page_size, false, false);
 
       if (err == DB_TABLESPACE_DELETED) {
         ib::warn(ER_IB_MSG_140) << "Random readahead trying to"
@@ -324,7 +330,7 @@ ibool buf_read_page(const page_id_t &page_id, const page_size_t &page_size) {
   dberr_t err;
 
   count = buf_read_page_low(&err, true, 0, BUF_READ_ANY_PAGE, page_id,
-                            page_size, false);
+                            page_size, false, false);
 
   srv_stats.buf_pool_reads.add(count);
 
@@ -352,9 +358,9 @@ ibool buf_read_page_background(const page_id_t &page_id,
   ulint count;
   dberr_t err;
 
-  count = buf_read_page_low(&err, sync,
-                            IORequest::DO_NOT_WAKE | IORequest::IGNORE_MISSING,
-                            BUF_READ_ANY_PAGE, page_id, page_size, false);
+  count = buf_read_page_low(
+      &err, sync, IORequest::DO_NOT_WAKE | IORequest::IGNORE_MISSING,
+      BUF_READ_ANY_PAGE, page_id, page_size, false, false);
 
   srv_stats.buf_pool_reads.add(count);
 
@@ -614,7 +620,7 @@ ulint buf_read_ahead_linear(const page_id_t &page_id,
 
     if (!ibuf_bitmap_page(cur_page_id, page_size)) {
       count += buf_read_page_low(&err, false, IORequest::DO_NOT_WAKE, ibuf_mode,
-                                 cur_page_id, page_size, false);
+                                 cur_page_id, page_size, false, true);
 
       if (err == DB_TABLESPACE_DELETED) {
         ib::warn(ER_IB_MSG_142) << "linear readahead trying to"
@@ -625,6 +631,10 @@ ulint buf_read_ahead_linear(const page_id_t &page_id,
       }
     }
   }
+#if defined(LINUX_NATIVE_AIO)
+  /* Tell aio to submit all buffered requests. */
+  os_aio_linux_dispatch_read_array_submit();
+#endif
 
   /* In simulated aio we wake the aio handler threads only after
   queuing all aio requests, in native aio the following call does
@@ -691,7 +701,7 @@ void buf_read_ibuf_merge_pages(
 
     buf_read_page_low(&err, sync && (i + 1 == n_stored),
                       IORequest::IGNORE_MISSING, BUF_READ_ANY_PAGE, page_id,
-                      page_size, true);
+                      page_size, true, false);
 
     if (err == DB_TABLESPACE_DELETED) {
       /* We have deleted or are deleting the single-table
@@ -781,10 +791,10 @@ void buf_read_recv_pages(bool sync, space_id_t space_id,
 
     if ((i + 1 == n_stored) && sync) {
       buf_read_page_low(&err, true, 0, BUF_READ_ANY_PAGE, cur_page_id,
-                        page_size, true);
+                        page_size, true, false);
     } else {
       buf_read_page_low(&err, false, IORequest::DO_NOT_WAKE, BUF_READ_ANY_PAGE,
-                        cur_page_id, page_size, true);
+                        cur_page_id, page_size, true, false);
     }
   }
 
