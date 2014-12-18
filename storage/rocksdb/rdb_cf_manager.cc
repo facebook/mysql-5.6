@@ -30,6 +30,18 @@
 #endif
 #include <inttypes.h>
 
+
+/* Check if ColumnFamily name says it's a reverse-ordered CF */
+bool is_cf_name_reverse(const char *name)
+{
+  /* NULL means the default CF is used.. (TODO: can the default CF be reverse?) */
+  if (name && !strncmp(name, "rev:", 4))
+    return true;
+  else
+    return false;
+}
+
+
 void Column_family_manager::init(std::vector<std::string> *names,
                                  std::vector<rocksdb::ColumnFamilyHandle*> *handles)
 {
