@@ -41,11 +41,13 @@ Apply_changes_iter::~Apply_changes_iter()
 }
 
 
-void Apply_changes_iter::init(Row_table *trx_arg, rocksdb::Iterator *rdb_arg)
+void Apply_changes_iter::init(bool is_reverse_arg, Row_table *trx_arg,
+                              rocksdb::Iterator *rdb_arg)
 {
   delete trx;
   delete rdb;
-  trx= new Row_table_iter(trx_arg);
+  is_reverse= is_reverse_arg;
+  trx= new Row_table_iter(trx_arg, is_reverse);
   rdb= rdb_arg;
   valid= false;
 }
@@ -136,6 +138,9 @@ void Apply_changes_iter::advance(int direction)
       int cmp= direction *
                compare_mem_comparable_keys((const uchar*)trx_key.data(), trx_key.size(),
                                            (const uchar*)rdb_key.data(), rdb_key.size());
+      if (is_reverse)
+        cmp *= -1;
+
       if (!cmp) // keys are equal
       {
         if (trx->is_tombstone())
