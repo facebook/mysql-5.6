@@ -199,9 +199,11 @@ public:
   }
 
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
-               rocksdb::ColumnFamilyHandle* cf_handle_arg, bool is_auto_cf_arg) :
+               rocksdb::ColumnFamilyHandle* cf_handle_arg,
+               bool is_reverse_cf_arg, bool is_auto_cf_arg) :
     index_number(indexnr_arg),
     cf_handle(cf_handle_arg),
+    is_reverse_cf(is_reverse_cf_arg),
     is_auto_cf(is_auto_cf_arg),
     pk_part_no(NULL),
     pack_info(NULL),
@@ -219,9 +221,11 @@ public:
 
   void setup(TABLE *table);
   void set_cf_handle(rocksdb::ColumnFamilyHandle* cf_handle_arg,
+                     bool is_reverse_cf_arg,
                      bool is_auto_cf_arg)
   {
     cf_handle= cf_handle_arg;
+    is_reverse_cf= is_reverse_cf_arg;
     is_auto_cf= is_auto_cf_arg;
   }
 
@@ -235,7 +239,11 @@ private:
   uchar index_number_storage_form[INDEX_NUMBER_SIZE];
 
   rocksdb::ColumnFamilyHandle* cf_handle;
+
 public:
+  /* If true, the column family stores data in the reverse order */
+  bool is_reverse_cf;
+
   bool is_auto_cf;
 private:
 
