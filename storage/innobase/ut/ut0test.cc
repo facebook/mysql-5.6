@@ -311,7 +311,7 @@ Ret_t Tester::find_ondisk_page_type(std::vector<std::string> &tokens) noexcept {
   IORequest read_io_type(IORequest::READ);
   const dberr_t err =
       os_aio(read_io_type, AIO_mode::SYNC, node->name, node->handle, buf.data(),
-             offset, OS_FILE_LOG_BLOCK_SIZE, false, nullptr, nullptr);
+             offset, OS_FILE_LOG_BLOCK_SIZE, false, false, nullptr, nullptr);
   if (err != DB_SUCCESS) {
     page_type_t page_type = fil_page_get_type(buf.data());
     TLOG("Could not read page_id=" << page_id << ", page_type=" << page_type
@@ -467,7 +467,7 @@ Ret_t Tester::clear_page_prefix(const space_id_t space_id, page_no_t page_no,
   byte *buf = mem;
   IORequest read_io_type(IORequest::READ);
   dberr_t err = os_aio(read_io_type, AIO_mode::SYNC, node->name, node->handle,
-                       buf, offset, buf_size, false, nullptr, nullptr);
+                       buf, offset, buf_size, false, false, nullptr, nullptr);
   if (err != DB_SUCCESS) {
     page_type_t page_type = fil_page_get_type(buf);
     TLOG("Could not read page_id=" << page_id << ", page type=" << page_type
@@ -487,7 +487,7 @@ Ret_t Tester::clear_page_prefix(const space_id_t space_id, page_no_t page_no,
 
   IORequest write_io_type(IORequest::WRITE);
   err = os_aio(write_io_type, AIO_mode::SYNC, node->name, node->handle, buf,
-               offset, buf_size, false, nullptr, nullptr);
+               offset, buf_size, false, false, nullptr, nullptr);
   if (err == DB_SUCCESS) {
     TLOG("Successfully zeroed prefix of page_id=" << page_id << ", prefix="
                                                   << prefix_length);
