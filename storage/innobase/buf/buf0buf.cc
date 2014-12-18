@@ -4027,7 +4027,7 @@ void Buf_fetch<T>::read_page() {
     dberr_t err;
 
     auto ret = buf_read_page_low(&err, false, 0, BUF_READ_ANY_PAGE, m_page_id,
-                                 m_page_size, false);
+                                 m_page_size, false, false);
     success = ret > 0;
 
     if (success) {

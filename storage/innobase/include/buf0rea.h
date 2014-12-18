@@ -50,13 +50,17 @@ flag is cleared and the x-lock released by an i/o-handler thread.
 @param[in]      page_id         page id
 @param[in]      page_size       page size
 @param[in]      unzip           true=request uncompressed page
+@param[in]	should_buffer		whether to buffer an aio request. AIO
+read ahead uses this. If you plan to use this parameter, make sure you remember
+to call os_aio_linux_dispatch_read_array_submit when you're ready to commit all
+your request
 @return 1 if a read request was queued, 0 if the page already resided in
 buf_pool, or if the page is in the doublewrite buffer blocks in which case it
 is never read into the pool, or if the tablespace does not exist or is being
 dropped */
 ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                         const page_id_t &page_id, const page_size_t &page_size,
-                        bool unzip);
+                        bool unzip, bool should_buffer);
 
 /** High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets

@@ -1082,7 +1082,8 @@ class Fil_shard {
   [[nodiscard]] dberr_t do_io(const IORequest &type, bool sync,
                               const page_id_t &page_id,
                               const page_size_t &page_size, ulint byte_offset,
-                              ulint len, void *buf, void *message);
+                              ulint len, void *buf, void *message,
+                              bool should_buffer);
 
   /** Iterate through all persistent tablespace files (FIL_TYPE_TABLESPACE)
   returning the nodes via callback function f.
@@ -7589,8 +7590,8 @@ dberr_t Fil_shard::get_file_for_io(fil_space_t *space, page_no_t *page_no,
 
 dberr_t Fil_shard::do_io(const IORequest &type, bool sync,
                          const page_id_t &page_id, const page_size_t &page_size,
-                         ulint byte_offset, ulint len, void *buf,
-                         void *message) {
+                         ulint byte_offset, ulint len, void *buf, void *message,
+                         bool should_buffer) {
   IORequest req_type(type);
 
   ut_ad(req_type.validate());
@@ -7863,7 +7864,7 @@ dberr_t Fil_shard::do_io(const IORequest &type, bool sync,
   err = os_aio(
       req_type, aio_mode, file->name, file->handle, buf, offset, len,
       fsp_is_system_temporary(page_id.space()) ? false : srv_read_only_mode,
-      file, message);
+      should_buffer, file, message);
 
 #endif /* UNIV_HOTBACKUP */
 
@@ -7962,9 +7963,9 @@ void fil_aio_wait(ulint segment) {
 }
 #endif /* !UNIV_HOTBACKUP */
 
-dberr_t fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
-               const page_size_t &page_size, ulint byte_offset, ulint len,
-               void *buf, void *message) {
+dberr_t _fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
+                const page_size_t &page_size, ulint byte_offset, ulint len,
+                void *buf, void *message, bool should_buffer) {
   auto shard = fil_system->shard_by_id(page_id.space());
 #ifdef UNIV_DEBUG
   if (!sync) {
@@ -7975,7 +7976,7 @@ dberr_t fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
 #endif
 
   auto const err = shard->do_io(type, sync, page_id, page_size, byte_offset,
-                                len, buf, message);
+                                len, buf, message, should_buffer);
 #ifdef UNIV_DEBUG
   /* If the error prevented async io, then we haven't actually transferred the
   io responsibility at all, so we revert the debug io responsibility info. */
