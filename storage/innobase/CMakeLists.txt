@@ -371,6 +371,7 @@ SET(INNOBASE_SOURCES
 	page/page0page.cc
 	page/page0zip.cc
 	page/page0zip_checksum.cc
+	page/page0zip_fields.cc
 	page/page0zip_mlog.cc
 	page/page0zip_trailer.cc
 	pars/lexyy.cc
