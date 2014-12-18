@@ -1525,9 +1525,13 @@ dberr_t fil_redo_io(const IORequest &type, const page_id_t &page_id,
 @return error code
 @retval DB_SUCCESS on success
 @retval DB_TABLESPACE_DELETED if the tablespace does not exist */
-dberr_t fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
-               const page_size_t &page_size, ulint byte_offset, ulint len,
-               void *buf, void *message) MY_ATTRIBUTE((warn_unused_result));
+dberr_t _fil_io(const IORequest &type, bool sync, const page_id_t &page_id,
+                const page_size_t &page_size, ulint byte_offset, ulint len,
+                void *buf, void *message, bool should_buffer)
+    MY_ATTRIBUTE((warn_unused_result));
+
+#define fil_io(type, sync, page_id, page_size, byte_offset, len, buf, message) \
+  _fil_io(type, sync, page_id, page_size, byte_offset, len, buf, message, false)
 
 /** Waits for an aio operation to complete. This function is used to write the
 handler for completed requests. The aio array of pending requests is divided

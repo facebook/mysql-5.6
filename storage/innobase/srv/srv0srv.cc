@@ -1711,6 +1711,8 @@ void srv_export_innodb_status(void) {
   }
 #endif /* UNIV_DEBUG */
 
+  export_vars.innodb_buffered_aio_submitted = srv_stats.n_aio_submitted;
+
   mutex_exit(&srv_innodb_monitor_mutex);
 }
 

@@ -914,10 +914,10 @@ The wrapper functions have the prefix of "innodb_". */
 
 #define os_file_close_pfs(file) pfs_os_file_close_func(file, __FILE__, __LINE__)
 
-#define os_aio(type, mode, name, file, buf, offset, n, read_only, message1,    \
-               message2)                                                       \
-  pfs_os_aio_func(type, mode, name, file, buf, offset, n, read_only, message1, \
-                  message2, __FILE__, __LINE__)
+#define os_aio(type, mode, name, file, buf, offset, n, read_only,    \
+               should_buffer, message1, message2)                    \
+  pfs_os_aio_func(type, mode, name, file, buf, offset, n, read_only, \
+                  should_buffer, message1, message2, __FILE__, __LINE__)
 
 #define os_file_read_pfs(type, file_name, file, buf, offset, n)          \
   pfs_os_file_read_func(type, file_name, file, buf, offset, n, __FILE__, \
@@ -1149,6 +1149,11 @@ an asynchronous I/O operation.
 @param[in]	offset		file offset where to read
 @param[in]	n		number of bytes to read
 @param[in]	read_only	if true read only mode checks are enforced
+@param[in]	should_buffer	Whether to buffer an aio request.
+                                AIO read ahead uses this. If you plan to
+                                use this parameter, make sure you remember
+                                to call os_aio_linux_dispatch_read_array_submit
+                                when you're ready to commit all your requests.
 @param[in,out]	m1		Message for the AIO handler, (can be used to
                                 identify a completed AIO operation); ignored
                                 if mode is OS_AIO_SYNC
@@ -1161,8 +1166,9 @@ an asynchronous I/O operation.
 UNIV_INLINE
 dberr_t pfs_os_aio_func(IORequest &type, AIO_mode mode, const char *name,
                         pfs_os_file_t file, void *buf, os_offset_t offset,
-                        ulint n, bool read_only, fil_node_t *m1, void *m2,
-                        const char *src_file, uint src_line);
+                        ulint n, bool read_only, bool should_buffer,
+                        fil_node_t *m1, void *m2, const char *src_file,
+                        uint src_line);
 
 /** NOTE! Please use the corresponding macro os_file_write(), not directly
 this function!
@@ -1281,9 +1287,9 @@ to original un-instrumented file I/O APIs */
 
 #define os_file_close_pfs(file) os_file_close_func(file)
 
-#define os_aio(type, mode, name, file, buf, offset, n, read_only, message1, \
-               message2)                                                    \
-  os_aio_func(type, mode, name, file, buf, offset, n, read_only, message1,  \
+#define os_aio(type, mode, name, file, buf, offset, n, read_only,          \
+               should_buffer, message1, message2)                          \
+  os_aio_func(type, mode, name, file, buf, offset, n, read_only, message1, \
               message2)
 
 #define os_file_read_pfs(type, file_name, file, buf, offset, n) \
@@ -1597,6 +1603,11 @@ Requests an asynchronous i/o operation.
 @param[in]	offset		file offset where to read
 @param[in]	n		number of bytes to read
 @param[in]	read_only	if true read only mode checks are enforced
+@param[in]	should_buffer	Whether to buffer an aio request.
+                                AIO read ahead uses this. If you plan to
+                                use this parameter, make sure you remember
+                                to call os_aio_linux_dispatch_read_array_submit
+                                when you're ready to commit all your requests.
 @param[in,out]	m1		Message for the AIO handler, (can be used to
                                 identify a completed AIO operation); ignored
                                 if mode is OS_AIO_SYNC
@@ -1606,7 +1617,8 @@ Requests an asynchronous i/o operation.
 @return DB_SUCCESS or error code */
 dberr_t os_aio_func(IORequest &type, AIO_mode aio_mode, const char *name,
                     pfs_os_file_t file, void *buf, os_offset_t offset, ulint n,
-                    bool read_only, fil_node_t *m1, void *m2);
+                    bool read_only, bool should_buffer, fil_node_t *m1,
+                    void *m2);
 
 /** Wakes up all async i/o threads so that they know to exit themselves in
 shutdown. */
@@ -1673,6 +1685,11 @@ void os_aio_print_pending_io(FILE *file);
 @param[out]	free_space	free space available in bytes
 @return DB_SUCCESS if all OK */
 dberr_t os_get_free_space(const char *path, uint64_t &free_space);
+
+#if defined(LINUX_NATIVE_AIO)
+/** Submit buffered AIO requests on the given segment to the kernel. */
+void os_aio_linux_dispatch_read_array_submit();
+#endif /* LINUX_NATIVE_AIO */
 
 /** This function returns information about the specified file
 @param[in]	path		pathname of the file
