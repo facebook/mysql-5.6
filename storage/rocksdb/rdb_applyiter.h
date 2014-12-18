@@ -17,6 +17,8 @@
 class Row_table;
 class Row_table_iter;
 
+class RDBSE_KEYDEF;
+
 /*
   A class that looks like RocksDB's iterator, but internally it takes into
   account the changes made by the transaction.
@@ -33,10 +35,14 @@ class Apply_changes_iter
   /* These are the iterators we're merging. We own them, so should free them */
   Row_table_iter *trx;
   rocksdb::Iterator* rdb;
+
+  /* If true, we're scanning reverse-ordered data */
+  bool is_reverse;
 public:
   Apply_changes_iter();
   ~Apply_changes_iter();
-  void init(Row_table *trx_arg, rocksdb::Iterator *rdb_arg);
+  void init(bool is_reverse_arg, Row_table *trx_arg,
+            rocksdb::Iterator *rdb_arg);
 
   void Next();
   void Prev();

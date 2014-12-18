@@ -18,18 +18,28 @@
 #include "my_base.h"                     /* ha_rows */
 #include "my_sys.h"
 #include "my_tree.h"
+#include <mysql/plugin.h>
+#include "ha_rocksdb.h"
+#include "sql_class.h"
 
 #include "rocksdb/db.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/write_batch.h"
 #include "rdb_rowmods.h"
+#include "rdb_datadic.h"
 
 void Row_table::init()
 {
-  init_tree(&tree, 512 /*default_alloc_size*/, 0 /*memory_limit*/,
+  init_tree(&fw_tree, 512 /*default_alloc_size*/, 0 /*memory_limit*/,
             sizeof(void*)/*size*/, Row_table::compare_rows, 1 /*with_delete*/,
             NULL /*free_element*/, NULL/*custom_arg*/);
-  tree.flag |= TREE_NO_DUPS;
+  fw_tree.flag |= TREE_NO_DUPS;
+
+  init_tree(&bw_tree, 512 /*default_alloc_size*/, 0 /*memory_limit*/,
+            sizeof(void*)/*size*/, Row_table::compare_rows_rev, 1 /*with_delete*/,
+            NULL /*free_element*/, NULL/*custom_arg*/);
+  bw_tree.flag |= TREE_NO_DUPS;
+
   init_alloc_root(&mem_root, 512, 512);
   stmt_id= 1;
   change_id= 0;
@@ -38,7 +48,7 @@ void Row_table::init()
 
 void Row_table::reinit()
 {
-  if (tree.elements_in_tree > 0)
+  if (fw_tree.elements_in_tree > 0 || bw_tree.elements_in_tree > 0)
   {
     cleanup();
     init();
@@ -48,7 +58,8 @@ void Row_table::reinit()
 
 void Row_table::cleanup()
 {
-  delete_tree(&tree);
+  delete_tree(&fw_tree);
+  delete_tree(&bw_tree);
   free_root(&mem_root, MYF(0));
 }
 
@@ -66,10 +77,13 @@ void Row_table::cleanup()
           false - means found nothing
 */
 
-bool Row_table::Get(rocksdb::Slice &key, std::string *record, bool *found)
+bool Row_table::Get(RDBSE_KEYDEF *keydef, rocksdb::Slice &key,
+                    std::string *record, bool *found)
 {
   ROW_DATA **row_ptr;
-  if ((row_ptr= (ROW_DATA**)tree_search(&tree, &key, &key)))
+  TREE *tree= keydef->is_reverse_cf? &bw_tree : &fw_tree;
+
+  if ((row_ptr= (ROW_DATA**)tree_search(tree, &key, &key)))
   {
     ROW_DATA *row= *row_ptr;
     if (row->value_len == DATA_IS_TOMBSTONE)
@@ -83,6 +97,12 @@ bool Row_table::Get(rocksdb::Slice &key, std::string *record, bool *found)
   }
   else
     return false; /* Not found */
+}
+
+
+int Row_table::compare_rows_rev(const void* arg, const void *a,const void *b)
+{
+  return -compare_rows(arg, a, b);
 }
 
 
@@ -133,7 +153,7 @@ int Row_table::compare_rows(const void* arg, const void *a, const void *b)
   return res;
 }
 
-bool Row_table::Put(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key,
+bool Row_table::Put(RDBSE_KEYDEF *keydef, rocksdb::Slice& key,
                     rocksdb::Slice& val)
 {
   uchar *data = (uchar*)alloc_root(&mem_root, ROW_DATA_SIZE + key.size() +
@@ -142,18 +162,20 @@ bool Row_table::Put(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key,
   ROW_DATA *rdata= (ROW_DATA*)data;
   rdata->key_len= key.size();
   rdata->value_len= val.size();
-  rdata->cf= cf;
+  rdata->keydef= keydef;
   rdata->stmt_id= stmt_id;
   rdata->prev_version= NULL;
   memcpy(data + ROW_DATA_SIZE, key.data(), key.size());
   memcpy(data + ROW_DATA_SIZE + key.size(), val.data(), val.size());
 
   change_id++;
-  if (!tree_insert(&tree, &data, /*key_size*/0, NULL/*custom_arg*/))
+  TREE *tree= keydef->is_reverse_cf? &bw_tree : &fw_tree;
+
+  if (!tree_insert(tree, &data, /*key_size*/0, NULL/*custom_arg*/))
   {
     /* There is already a record with this key (or Out-Of-Memory) */
     ROW_DATA **row_ptr;
-    row_ptr= (ROW_DATA**)tree_search(&tree, &key, &key);
+    row_ptr= (ROW_DATA**)tree_search(tree, &key, &key);
     if (!row_ptr)
       return true;
 
@@ -175,24 +197,25 @@ bool Row_table::Put(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key,
   Put a tombstone into the table
 */
 
-bool Row_table::Delete(rocksdb::ColumnFamilyHandle *cf, rocksdb::Slice& key)
+bool Row_table::Delete(RDBSE_KEYDEF *keydef, rocksdb::Slice& key)
 {
   uchar *data = (uchar*)alloc_root(&mem_root, ROW_DATA_SIZE + key.size());
   ROW_DATA *rdata= (ROW_DATA*)data;
   rdata->key_len= key.size();
   rdata->value_len= DATA_IS_TOMBSTONE;
-  rdata->cf= cf;
+  rdata->keydef= keydef;
   rdata->stmt_id= stmt_id;
   rdata->prev_version= NULL;
   memcpy(data + ROW_DATA_SIZE, key.data(), key.size());
 
   change_id++;
+  TREE *tree= keydef->is_reverse_cf? &bw_tree : &fw_tree;
 
-  if (!tree_insert(&tree, &data, /*key_size*/0, NULL/*custom_arg*/))
+  if (!tree_insert(tree, &data, /*key_size*/0, NULL/*custom_arg*/))
   {
     /* There is already a record with this key (or Out-Of-Memory) */
     ROW_DATA **row_ptr;
-    row_ptr= (ROW_DATA**)tree_search(&tree, &key, &key);
+    row_ptr= (ROW_DATA**)tree_search(tree, &key, &key);
     if (!row_ptr)
       return true; /* OOM */
 
@@ -223,44 +246,49 @@ void Row_table::start_stmt()
 */
 void Row_table::rollback_stmt()
 {
-  ROW_DATA *delete_list= NULL;
-  Row_table_iter iter(this);
-
-  /*
-    To avoid invalidating the iterator, first collect all items that need to be
-    deleted in a linked list, and then actually do the deletes.
-  */
-  for (iter.SeekToFirst(); iter.Valid(); iter.Next())
+  for (int reverse=0; reverse <= 1; reverse++)
   {
-    if ((*iter.row_ptr)->stmt_id == stmt_id)
+    ROW_DATA *delete_list= NULL;
+    Row_table_iter iter(this, (bool)reverse);
+
+    /*
+      To avoid invalidating the iterator, first collect all items that need to be
+      deleted in a linked list, and then actually do the deletes.
+    */
+    for (iter.SeekToFirst(); iter.Valid(); iter.Next())
     {
-      if ((*iter.row_ptr)->prev_version)
+      if ((*iter.row_ptr)->stmt_id == stmt_id)
       {
-        /*
-          This element has a previous version (the previous version is what the
-          element was before the current statement).
-          Replace the element with the its previous version. They have the same
-          key value, so there is no need to re-balance the tree.
-        */
-        *iter.row_ptr= (*iter.row_ptr)->prev_version;
-      }
-      else
-      {
-        /* No previous version. Record for removal */
-        (*iter.row_ptr)->prev_version= delete_list;
-        delete_list= (*iter.row_ptr);
+        if ((*iter.row_ptr)->prev_version)
+        {
+          /*
+            This element has a previous version (the previous version is what the
+            element was before the current statement).
+            Replace the element with the its previous version. They have the same
+            key value, so there is no need to re-balance the tree.
+          */
+          *iter.row_ptr= (*iter.row_ptr)->prev_version;
+        }
+        else
+        {
+          /* No previous version. Record for removal */
+          (*iter.row_ptr)->prev_version= delete_list;
+          delete_list= (*iter.row_ptr);
+        }
       }
     }
-  }
 
-  /* Do all of the recorded deletes */
-  while (delete_list)
-  {
-    ROW_DATA *next= delete_list->prev_version;
+    /* Do all of the recorded deletes */
+    TREE *tree= reverse? &bw_tree : &fw_tree;
 
-    tree_delete(&tree, &delete_list, /*key_size*/ 0, NULL);
+    while (delete_list)
+    {
+      ROW_DATA *next= delete_list->prev_version;
 
-    delete_list= next;
+      tree_delete(tree, &delete_list, /*key_size*/ 0, NULL);
+
+      delete_list= next;
+    }
   }
 
   change_id++;
@@ -271,14 +299,16 @@ void Row_table::rollback_stmt()
  * Row_table_iter
  ***************************************************************************/
 
-Row_table_iter::Row_table_iter(Row_table *rtable_arg) :
-  rtable(rtable_arg), row_ptr(NULL), change_id(rtable_arg->change_id)
+Row_table_iter::Row_table_iter(Row_table *rtable_arg, bool is_reverse_arg) :
+  rtable(rtable_arg), is_reverse(is_reverse_arg), row_ptr(NULL),
+  change_id(rtable_arg->change_id)
 {}
 
 
 void Row_table_iter::Seek(const rocksdb::Slice &slice)
 {
-  row_ptr= (ROW_DATA**)tree_search_key(&rtable->tree, &slice, parents, &last_pos,
+  TREE *tree= is_reverse? &rtable->bw_tree : &rtable->fw_tree;
+  row_ptr= (ROW_DATA**)tree_search_key(tree, &slice, parents, &last_pos,
                                        HA_READ_KEY_OR_NEXT, &slice/*custom_arg*/);
   change_id= rtable->change_id;
 }
@@ -286,7 +316,8 @@ void Row_table_iter::Seek(const rocksdb::Slice &slice)
 
 void Row_table_iter::SeekToFirst()
 {
-  row_ptr= (ROW_DATA**)tree_search_edge(&rtable->tree, parents, &last_pos,
+  TREE *tree= is_reverse? &rtable->bw_tree : &rtable->fw_tree;
+  row_ptr= (ROW_DATA**)tree_search_edge(tree, parents, &last_pos,
                                         offsetof(TREE_ELEMENT, left));
   change_id= rtable->change_id;
 }
@@ -294,7 +325,8 @@ void Row_table_iter::SeekToFirst()
 
 void Row_table_iter::SeekToLast()
 {
-  row_ptr= (ROW_DATA**)tree_search_edge(&rtable->tree, parents, &last_pos,
+  TREE *tree= is_reverse? &rtable->bw_tree : &rtable->fw_tree;
+  row_ptr= (ROW_DATA**)tree_search_edge(tree, parents, &last_pos,
                                         offsetof(TREE_ELEMENT, right));
   change_id= rtable->change_id;
 }
@@ -302,16 +334,17 @@ void Row_table_iter::SeekToLast()
 
 void Row_table_iter::Next()
 {
+  TREE *tree= is_reverse? &rtable->bw_tree : &rtable->fw_tree;
   if (rtable->change_id != change_id)
   {
     change_id= rtable->change_id;
-    row_ptr= (ROW_DATA**)tree_search_key(&rtable->tree, row_ptr, parents,
+    row_ptr= (ROW_DATA**)tree_search_key(tree, row_ptr, parents,
                                          &last_pos, HA_READ_AFTER_KEY,
                                          NULL/*custom_arg*/);
   }
   else
   {
-    row_ptr= (ROW_DATA**)tree_search_next(&rtable->tree, &last_pos,
+    row_ptr= (ROW_DATA**)tree_search_next(tree, &last_pos,
                                           offsetof(TREE_ELEMENT, left),
                                           offsetof(TREE_ELEMENT, right));
   }
@@ -320,16 +353,17 @@ void Row_table_iter::Next()
 
 void Row_table_iter::Prev()
 {
+  TREE *tree= is_reverse? &rtable->bw_tree : &rtable->fw_tree;
   if (rtable->change_id != change_id)
   {
     change_id= rtable->change_id;
-    row_ptr= (ROW_DATA**)tree_search_key(&rtable->tree, row_ptr, parents,
+    row_ptr= (ROW_DATA**)tree_search_key(tree, row_ptr, parents,
                                          &last_pos, HA_READ_BEFORE_KEY,
                                          NULL/*custom_arg*/);
   }
   else
   {
-    row_ptr= (ROW_DATA**)tree_search_next(&rtable->tree, &last_pos,
+    row_ptr= (ROW_DATA**)tree_search_next(tree, &last_pos,
                                           offsetof(TREE_ELEMENT, right),
                                           offsetof(TREE_ELEMENT, left));
   }
@@ -365,9 +399,10 @@ rocksdb::Slice Row_table_iter::value()
 }
 
 
-rocksdb::ColumnFamilyHandle *Row_table_iter::cf_handle()
+RDBSE_KEYDEF *Row_table_iter::keydef()
 {
   DBUG_ASSERT(Valid());
   ROW_DATA *row= *row_ptr;
-  return row->cf;
+  return row->keydef;
 }
+
