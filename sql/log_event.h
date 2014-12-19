@@ -3936,7 +3936,7 @@ public:
   {
     return new table_def(m_coltype, m_colcnt, m_field_metadata,
                          m_field_metadata_size, m_null_bits, m_flags,
-                         m_column_names);
+                         m_column_names, m_sign_bits);
   }
 #endif
   const Table_id& get_table_id() const { return m_table_id; }
@@ -4026,6 +4026,11 @@ private:
   uchar         *m_meta_memory;
   uchar *m_primary_key_fields;
   uint m_primary_key_fields_size;
+  // Bitmap storing the unsigned flag for all the columns in this table.
+  // This is necessary for external application reading mysql binary logs
+  // and get the correct value of integer types.
+  uchar *m_sign_bits;
+
   /* Table column names are added to the Table_map_log_event at the end
      in the following format:
      a) Length of the column name including the terminating '\0' is added in
