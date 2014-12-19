@@ -11,6 +11,7 @@ information_schema
 mtr
 mysql
 performance_schema
+rocksdb
 test
 test_ignore
 USE test;
@@ -40,6 +41,7 @@ information_schema
 mtr
 mysql
 performance_schema
+rocksdb
 test
 USE test;
 SHOW TABLES;

@@ -8,6 +8,7 @@ information_schema
 mtr
 mysql
 performance_schema
+rocksdb
 test
 set global allow_noncurrent_db_rw = OFF;
 connect (non_current_db,localhost,root,,*NO-ONE*);

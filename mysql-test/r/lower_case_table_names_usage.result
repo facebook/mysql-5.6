@@ -20,6 +20,7 @@ Bar
 mtr
 mysql
 performance_schema
+rocksdb
 test
 #
 # Ensure this table is created with ascii_bin
