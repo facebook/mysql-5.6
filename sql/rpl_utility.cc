@@ -1101,16 +1101,17 @@ err:
 table_def::table_def(unsigned char *types, ulong size,
                      uchar *field_metadata, int metadata_size,
                      uchar *null_bitmap, uint16 flags,
-                     const uchar *column_names)
+                     const uchar *column_names, uchar *sign_bits)
   : m_size(size), m_type(0), m_field_metadata_size(metadata_size),
     m_field_metadata(0), m_null_bits(0), m_flags(flags),
-    m_memory(NULL)
+    m_memory(NULL), m_sign_bits(0)
 {
   m_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                      &m_type, size,
                                      &m_field_metadata,
                                      size * sizeof(uint16),
                                      &m_null_bits, (size + 7) / 8,
+                                     &m_sign_bits, (size + 7) / 8,
                                      NULL);
 
   memset(m_field_metadata, 0, size * sizeof(uint16));
@@ -1193,6 +1194,9 @@ table_def::table_def(unsigned char *types, ulong size,
   }
   if (m_size && null_bitmap)
     memcpy(m_null_bits, null_bitmap, (m_size + 7) / 8);
+
+  if (m_size && sign_bits)
+    memcpy(m_sign_bits, sign_bits, (m_size + 7) / 8);
 
 #ifdef MYSQL_SERVER
   init_dynamic_array(&m_column_names, sizeof(char*), 10, 10);
