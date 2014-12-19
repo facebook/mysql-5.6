@@ -10,6 +10,7 @@ foo
 mtr
 mysql
 performance_schema
+rocksdb
 test
 drop schema foo;
 #
