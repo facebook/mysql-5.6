@@ -2042,20 +2042,22 @@ my_b_write_quoted_with_length(IO_CACHE *file, const uchar *ptr, uint length)
 
 
 /**
-  Prints a 32-bit number in both signed and unsigned representation
+  Prints a 32-bit number in signed or unsigned representation
   
   @param[in] file              IO cache
   @param[in] sl                Signed number
   @param[in] ul                Unsigned number
+  @param[in] is_unsigned       Print unsigned representation
 */
 static void
-my_b_write_sint32_and_uint32(IO_CACHE *file, int32 si, uint32 ui)
+my_b_write_sint32_or_uint32(IO_CACHE *file, int32 si, uint32 ui,
+                             my_bool is_unsigned)
 {
-  my_b_printf(file, "%d", si);
-  if (si < 0)
-    my_b_printf(file, " (%u)", ui);
+  if (!is_unsigned)
+    my_b_printf(file, "%d", si);
+  else
+    my_b_printf(file, "%u", ui);
 }
-
 
 /**
   Print a packed value of the given SQL type into IO cache
@@ -2066,13 +2068,14 @@ my_b_write_sint32_and_uint32(IO_CACHE *file, int32 si, uint32 ui)
   @param[in] meta              Column meta information
   @param[out] typestr          SQL type string buffer (for verbose output)
   @param[out] typestr_length   Size of typestr
+  @param[in] is_unsigned       Unsigned type
   
   @retval   - number of bytes scanned from ptr.
 */
 static size_t
 log_event_print_value(IO_CACHE *file, const uchar *ptr,
                       uint type, uint meta,
-                      char *typestr, size_t typestr_length)
+                      char *typestr, size_t typestr_length, my_bool is_unsigned)
 {
   uint32 length= 0;
 
@@ -2101,16 +2104,18 @@ log_event_print_value(IO_CACHE *file, const uchar *ptr,
     {
       int32 si= sint4korr(ptr);
       uint32 ui= uint4korr(ptr);
-      my_b_write_sint32_and_uint32(file, si, ui);
-      my_snprintf(typestr, typestr_length, "INT");
+      my_b_write_sint32_or_uint32(file, si, ui, is_unsigned);
+      my_snprintf(typestr, typestr_length,
+                  is_unsigned ? "INT UNSIGNED" : "INT");
       return 4;
     }
 
   case MYSQL_TYPE_TINY:
     {
-      my_b_write_sint32_and_uint32(file, (int) (signed char) *ptr,
-                                  (uint) (unsigned char) *ptr);
-      my_snprintf(typestr, typestr_length, "TINYINT");
+      my_b_write_sint32_or_uint32(file, (int) (signed char) *ptr,
+                                  (uint) (unsigned char) *ptr, is_unsigned);
+      my_snprintf(typestr, typestr_length,
+                  is_unsigned ? "TINYINT UNSIGNED" : "TINYINT");
       return 1;
     }
 
@@ -2118,8 +2123,9 @@ log_event_print_value(IO_CACHE *file, const uchar *ptr,
     {
       int32 si= (int32) sint2korr(ptr);
       uint32 ui= (uint32) uint2korr(ptr);
-      my_b_write_sint32_and_uint32(file, si, ui);
-      my_snprintf(typestr, typestr_length, "SHORTINT");
+      my_b_write_sint32_or_uint32(file, si, ui, is_unsigned);
+      my_snprintf(typestr, typestr_length,
+                  is_unsigned ? "SHORTINT UNSIGNED" : "SHORTINT");
       return 2;
     }
   
@@ -2127,24 +2133,29 @@ log_event_print_value(IO_CACHE *file, const uchar *ptr,
     {
       int32 si= sint3korr(ptr);
       uint32 ui= uint3korr(ptr);
-      my_b_write_sint32_and_uint32(file, si, ui);
-      my_snprintf(typestr, typestr_length, "MEDIUMINT");
+      my_b_write_sint32_or_uint32(file, si, ui, is_unsigned);
+      my_snprintf(typestr, typestr_length,
+                  is_unsigned ? "MEDIUMINT UNSIGNED" : "MEDIUMINT");
       return 3;
     }
 
   case MYSQL_TYPE_LONGLONG:
     {
       char tmp[64];
-      longlong si= sint8korr(ptr);
-      longlong10_to_str(si, tmp, -10);
-      my_b_printf(file, "%s", tmp);
-      if (si < 0)
+      if (is_unsigned)
       {
         ulonglong ui= uint8korr(ptr);
         longlong10_to_str((longlong) ui, tmp, 10);
-        my_b_printf(file, " (%s)", tmp);        
+        my_b_printf(file, "%s", tmp);
       }
-      my_snprintf(typestr, typestr_length, "LONGINT");
+      else
+      {
+        longlong si= sint8korr(ptr);
+        longlong10_to_str(si, tmp, -10);
+        my_b_printf(file, "%s", tmp);
+      }
+      my_snprintf(typestr, typestr_length,
+                  is_unsigned ? "LONGINT UNSIGNED" : "LONGINT");
       return 8;
     }
 
@@ -2435,7 +2446,8 @@ Rows_log_event::print_verbose_one_row(IO_CACHE *file, table_def *td,
       }
       size_t size= log_event_print_value(file, value,
                                          td->type(i), td->field_metadata(i),
-                                         typestr, sizeof(typestr));
+                                         typestr, sizeof(typestr),
+                                         td->is_unsigned(i));
       if (!size)
         return 0;
 
@@ -12302,6 +12314,7 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     m_meta_memory(NULL),
     m_primary_key_fields(0),
     m_primary_key_fields_size(0),
+    m_sign_bits(0),
     m_column_names(0),
     m_column_names_size(0)
 {
@@ -12359,7 +12372,9 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     replication.
   */
   uint num_null_bytes= (m_table->s->fields + 7) / 8;
-  m_data_size+= num_null_bytes;
+  // Both m_null_bits and m_sign_bits has num_null_bytes size, so
+  // increase m_data_size by 2 * num_null_bytes.
+  m_data_size+= 2*num_null_bytes;
 
   KEY *pkey_info = NULL;
   // Validate that there exists a valid primary key
@@ -12385,6 +12400,7 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
   m_meta_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                  &m_null_bits, num_null_bytes,
                                  &m_field_metadata, (m_colcnt * 2),
+                                 &m_sign_bits, num_null_bytes,
                                  NULL);
 
   if (m_column_names_size)
@@ -12449,6 +12465,13 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     }
   }
 
+  memset(m_sign_bits, 0, num_null_bytes);
+  for (unsigned int i = 0; i < m_table->s->fields; ++i)
+  {
+    if (m_table->field[i]->flags & UNSIGNED_FLAG)
+      m_sign_bits[(i / 8)] += 1 << (i % 8);
+  }
+
   if (log_column_names)
   {
     uint index = 0;
@@ -12480,7 +12503,8 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
     m_memory(NULL), m_table_id(ULONGLONG_MAX), m_flags(0),
     m_data_size(0), m_field_metadata(0), m_field_metadata_size(0),
     m_null_bits(0), m_meta_memory(NULL), m_primary_key_fields(0),
-    m_primary_key_fields_size(0), m_column_names(0), m_column_names_size(0)
+    m_primary_key_fields_size(0), m_sign_bits(0), m_column_names(0),
+    m_column_names_size(0)
 {
   unsigned int bytes_read= 0;
   DBUG_ENTER("Table_map_log_event::Table_map_log_event(const char*,uint,...)");
@@ -12563,6 +12587,7 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
       m_meta_memory= (uchar *)my_multi_malloc(MYF(MY_WME),
                                      &m_null_bits, num_null_bytes,
                                      &m_field_metadata, m_field_metadata_size,
+                                     &m_sign_bits, num_null_bytes,
                                      NULL);
       memcpy(m_field_metadata, ptr_after_colcnt, m_field_metadata_size);
       ptr_after_colcnt= (uchar*)ptr_after_colcnt + m_field_metadata_size;
@@ -12580,6 +12605,8 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
           ptr_after_colcnt = (uchar*)ptr_after_colcnt +
                              m_primary_key_fields_size;
         }
+        memcpy(m_sign_bits, ptr_after_colcnt, num_null_bytes);
+        ptr_after_colcnt= (uchar*)ptr_after_colcnt + num_null_bytes;
         m_column_names_size = event_len - (ptr_after_colcnt - (uchar *)buf);
         if (m_column_names_size)
         {
@@ -12768,7 +12795,7 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli)
     new (&table_list->m_tabledef)
       table_def(m_coltype, m_colcnt,
                 m_field_metadata, m_field_metadata_size,
-                m_null_bits, m_flags, m_column_names);
+                m_null_bits, m_flags, m_column_names, m_sign_bits);
     table_list->m_tabledef_valid= TRUE;
     table_list->m_conv_table= NULL;
     table_list->open_type= OT_BASE_ONLY;
@@ -12898,6 +12925,7 @@ bool Table_map_log_event::write_data_body(IO_CACHE *file)
                                   (size_t) (m_size_buf_end - m_size_buf)) ||
           wrapper_my_b_safe_write(file, m_primary_key_fields,
                                   m_primary_key_fields_size) ||
+          wrapper_my_b_safe_write(file, m_sign_bits, (m_colcnt + 7) / 8) ||
           wrapper_my_b_safe_write(file, m_column_names,
                                   m_column_names_size));
 
