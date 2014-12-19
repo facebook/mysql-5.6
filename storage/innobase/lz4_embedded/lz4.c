@@ -649,7 +649,7 @@ _last_literals:
 }
 
 
-int LZ4_compress_limitedOutput(const char* source,
+int LZ4_embedded_compress_limitedOutput(const char* source,
                                char* dest,
                                int isize,
                                int maxOutputSize,
@@ -676,12 +676,12 @@ int LZ4_compress_limitedOutput(const char* source,
 }
 
 
-int LZ4_compress(const char* source,
+int LZ4_embedded_compress(const char* source,
                  char* dest,
                  int isize,
                  void* ctx)
 {
-    return LZ4_compress_limitedOutput(source, dest, isize, LZ4_compressBound(isize), ctx);
+    return LZ4_embedded_compress_limitedOutput(source, dest, isize, LZ4_embedded_compressBound(isize), ctx);
 }
 
 
@@ -691,13 +691,13 @@ int LZ4_compress(const char* source,
 // Decompression functions
 //****************************
 
-// Note : The decoding functions LZ4_uncompress() and LZ4_uncompress_unknownOutputSize()
+// Note : The decoding functions LZ4_embedded_uncompress() and LZ4_embedded_uncompress_unknownOutputSize()
 //		are safe against "buffer overflow" attack type.
 //		They will never write nor read outside of the provided output buffers.
-//      LZ4_uncompress_unknownOutputSize() also insures that it will never read outside of the input buffer.
+//      LZ4_embedded_uncompress_unknownOutputSize() also insures that it will never read outside of the input buffer.
 //		A corrupted input will produce an error result, a negative int, indicating the position of the error within input stream.
 
-int LZ4_uncompress(const char* source,
+int LZ4_embedded_uncompress(const char* source,
                  char* dest,
                  int osize)
 {
@@ -780,7 +780,7 @@ _output_error:
 }
 
 
-int LZ4_uncompress_unknownOutputSize(
+int LZ4_embedded_uncompress_unknownOutputSize(
                 const char* source,
                 char* dest,
                 int isize,

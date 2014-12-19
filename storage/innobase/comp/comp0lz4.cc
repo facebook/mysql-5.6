@@ -3,7 +3,7 @@
 #include "comp0types.h"
 
 /*****************************************************************************
-The auxiliary memory required by LZ4_compress() is as follows:
+The auxiliary memory required by LZ4_embedded_compress() is as follows:
 
   sizeof(struct refTables)
   = sizeof(HTYPE) * HASHTABLESIZE
@@ -13,7 +13,7 @@ See lz4.c for details */
 #define COMP_LZ4_MEM_AUX (4UL * (1UL << (14 - 2)))
 
 /*****************************************************************************
-The auxiliary memory required by LZ4_compressHC() is as follows:
+The auxiliary memory required by LZ4_embedded_compressHC() is as follows:
 
   sizeof(LZ4HC_Data_Structure)
   = sizeof(BYTE*) + sizeof(HTYPE) * HASHTABLESIZE + sizeof(U16) * MAXD
@@ -64,7 +64,7 @@ comp_lz4_compress(
 			out = (char*)mem_heap_alloc(comp_state->heap,
 						    comp_len_max);
 		}
-		comp_len = LZ4_compressHC((const char*)comp_state->in,
+		comp_len = LZ4_embedded_compressHC((const char*)comp_state->in,
 					  (char*)out,
 					  (int)comp_state->avail_in, ctx);
 		if (comp_len + 2 > (unsigned int)comp_state->avail_out) {
@@ -84,7 +84,7 @@ comp_lz4_compress(
 
 		/* allocate memory for LZ4 to use as scratch space */
 		ctx = mem_heap_alloc(comp_state->heap, COMP_LZ4_MEM_AUX);
-		comp_len = LZ4_compress_limitedOutput(
+		comp_len = LZ4_embedded_compress_limitedOutput(
 				(char*)comp_state->in,
 				(char*)comp_state->out + 2,
 				(int)comp_state->avail_in,
@@ -117,7 +117,7 @@ comp_lz4_decompress(
 	int uncomp_len = (((int)comp_state->in[0]) << 8)
 			 | (int)comp_state->in[1];
 	ut_a(uncomp_len <= (int)comp_state->avail_out);
-	comp_len = LZ4_uncompress((char*)comp_state->in + 2,
+	comp_len = LZ4_embedded_uncompress((char*)comp_state->in + 2,
 				  (char*)comp_state->out,
 				  uncomp_len);
 	ut_a(comp_len > 0);
@@ -134,8 +134,8 @@ LZ4HC compression needs an intermediate buffer of size
 LZ4_COMPRESSBOUND(UNIV_PAGE_SIZE) because it does not perform
 boundary checks on the output buffer.
 Other than the intermediate buffer, the total memory required by
-LZ4_compressHC() is COMP_LZ4HC_MEM_AUX.
-The additional memory required by LZ4_compress() is COMP_LZ4_MEM_AUX */
+LZ4_embedded_compressHC() is COMP_LZ4HC_MEM_AUX.
+The additional memory required by LZ4_embedded_compress() is COMP_LZ4_MEM_AUX */
 static comp_interface_t comp_lz4_obj = {
 	comp_lz4_compress,
 	comp_lz4_decompress,
