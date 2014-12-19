@@ -910,7 +910,7 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
 }
 
 
-static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx)
+static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 {
   if (commit_trx)
   {
@@ -3048,7 +3048,7 @@ int ha_rocksdb::index_end()
 }
 
 
-int ha_rocksdb::delete_all_rows()
+int ha_rocksdb::delete_all_rows(ha_rows* nrows)
 {
   DBUG_ENTER("ha_rocksdb::delete_all_rows");
   /*
