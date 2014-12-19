@@ -11,8 +11,9 @@ SET(ROCKSDB_SE_PLUGIN_MANDATORY TRUE)
 
 
 FIND_PATH(Rocksdb_INCLUDE_DIRS rocksdb/db.h PATHS
+${Rocksdb_INCLUDE_DIRS}
 $ENV{ROCKSDB_INCLUDE}      # environment variable to be used optionally
-${Rocksdb_INCLUDE_DIR}     # this may be set
+${ROCKSDB_INCLUDE_DIR}     # this may be set
 )
 IF(NOT EXISTS ${Rocksdb_INCLUDE_DIRS})
   MESSAGE(SEND_ERROR "No rocksdb include directory found! Consider using environment variable ROCKSDB_INCLUDE=...")
@@ -20,7 +21,7 @@ IF(NOT EXISTS ${Rocksdb_INCLUDE_DIRS})
 ENDIF()
 
 FIND_LIBRARY(Rocksdb_LIBS NAMES rocksdb
-             PATHS ${Rocksdb_LIB_PATHS} ${Rocksdb_LIB} $ENV{ROCKSDB_LIBRARIES})
+             PATHS ${Rocksdb_LIB} ${ROCKSDB_LIBRARY} $ENV{ROCKSDB_LIBRARIES})
 IF(EXISTS ${Rocksdb_LIBS})
   GET_FILENAME_COMPONENT(LINK_DIR ${Rocksdb_LIBS} ABSOLUTE)
 ELSE()
@@ -32,9 +33,6 @@ INCLUDE_DIRECTORIES(AFTER ${Rocksdb_INCLUDE_DIRS})
 SET(CMAKE_REQUIRED_INCLUDES ${Rocksdb_INCLUDE_DIRS})
 
 # SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
-
-# TODO is there a better way to do this?
-#LINK_LIBRARIES(snappy bz2)
 
 CHECK_CXX_SOURCE_COMPILES(
 "
@@ -52,7 +50,33 @@ IF(ROCKSDB_OK)
       rdb_cf_options.cc rdb_cf_options.h
       rdb_cf_manager.cc rdb_cf_manager.h)
 
-  MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE STATIC_ONLY MANDATORY LINK_LIBRARIES ${LINK_DIR} snappy bz2)
+
+  # Link correct versions of libraries
+
+  SET(rocksdb_static_libs )
+
+  IF (NOT "$ENV{WITH_LZ4}" STREQUAL "")
+    SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_LZ4}/lib/liblz4.a)
+  ELSE()
+    SET(rocksdb_static_libs ${rocksdb_static_libs} lz4)
+  ENDIF()
+
+  IF (NOT "$ENV{WITH_BZ2}" STREQUAL "")
+    SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_BZ2}/lib/libbz2.a)
+  ELSE()
+    SET(rocksdb_static_libs ${rocksdb_static_libs} bz2)
+  ENDIF()
+
+  IF (NOT "$ENV{WITH_SNAPPY}" STREQUAL "")
+    SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_SNAPPY}/lib/libsnappy.a)
+  ELSE()
+    SET(rocksdb_static_libs ${rocksdb_static_libs} snappy)
+  ENDIF()
+
+
+  # Add plugin
+
+  MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE STATIC_ONLY MANDATORY LINK_LIBRARIES ${LINK_DIR} ${rocksdb_static_libs})
 
   ADD_SUBDIRECTORY(unittest)
 ENDIF(ROCKSDB_OK)

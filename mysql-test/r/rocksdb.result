@@ -866,6 +866,10 @@ rocksdb_use_fsync	OFF
 rocksdb_wal_size_limit_mb	0
 rocksdb_wal_ttl_seconds	0
 rocksdb_whole_key_filtering	ON
+rocksdb_write_disable_wal	OFF
+rocksdb_write_ignore_missing_column_families	OFF
+rocksdb_write_sync	off
+rocksdb_write_timeout_hint_us	0
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
 insert into t47 values (2, 'row2');
@@ -1063,7 +1067,7 @@ DROP TABLE t1;
 #
 CREATE TABLE t1 (pk INT PRIMARY KEY, i INT NOT NULL, KEY(i)) ENGINE=RocksDB;
 ALTER TABLE t1 DROP COLUMN `pk`;
-ERROR HY000: Got error 193 'Table must have a PRIMARY KEY' from ROCKSDB
+ERROR HY000: Got error 194 'Table must have a PRIMARY KEY' from ROCKSDB
 DROP TABLE t1;
 #
 # MDEV-4324: RocksDB: Valgrind "Use of uninitialised value" warnings on inserting value into varchar field
@@ -1147,18 +1151,14 @@ SELECT * FROM t1 ORDER BY pk LIMIT 9;
 pk
 1
 2
-3
-4
-5
-6
-7
-8
-affected rows: 8
+affected rows: 2
 DELETE FROM t1 ORDER BY pk LIMIT 9;
-affected rows: 8
+affected rows: 2
 SELECT * FROM t1 ORDER BY pk LIMIT 9;
 pk
-affected rows: 0
+1
+2
+affected rows: 2
 DROP TABLE t1,t2;
 #
 # MDEV-4374: RocksDB: Valgrind warnings 'Use of uninitialised value' on 
@@ -1211,7 +1211,7 @@ insert into t1 select (@a:=@a+1), 1234 from information_schema.session_variables
 set @tmp1= @@rocksdb_max_row_locks;
 set rocksdb_max_row_locks= 20;
 update t1 set a=a+10;
-ERROR HY000: Got error 194 'Number of locks held reached @@rocksdb_max_row_locks' from ROCKSDB
+ERROR HY000: Got error 195 'Number of locks held reached @@rocksdb_max_row_locks' from ROCKSDB
 DROP TABLE t1;
 # 
 # Test AUTO_INCREMENT behavior problem,
@@ -1281,6 +1281,10 @@ Collation	latin1_swedish_ci
 Checksum	NULL
 Create_options	
 Comment	
+Compression	NULL
+Compression_level	0
+Key_block_size	0
+Compact_metadata	0
 drop table t1;
 #
 # Fix Issue #4: Crash when using pseudo-unique keys
