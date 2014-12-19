@@ -2,3 +2,6 @@
 	path = boost
 	url = https://github.com/boostorg/boost.git
 	ignore = dirty
+[submodule "rocksdb"]
+	path = rocksdb
+	url = https://github.com/facebook/rocksdb.git
