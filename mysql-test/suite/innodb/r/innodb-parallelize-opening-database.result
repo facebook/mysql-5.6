@@ -172,6 +172,7 @@ information_schema
 mtr
 mysql
 performance_schema
+rocksdb
 test
 testdb_1
 testdb_2
@@ -470,6 +471,7 @@ information_schema
 mtr
 mysql
 performance_schema
+rocksdb
 test
 testdb_1
 testdb_10
