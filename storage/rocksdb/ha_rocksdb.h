@@ -343,7 +343,7 @@ public:
   int extra(enum ha_extra_function operation);
   int start_stmt(THD *thd, thr_lock_type lock_type);
   int external_lock(THD *thd, int lock_type);
-  int delete_all_rows(void);
+  int delete_all_rows(ha_rows* nrows);
   int truncate();
 
   int reset()
