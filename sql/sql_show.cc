@@ -6136,7 +6136,24 @@ static void store_schema_partitions_record(THD *thd, TABLE *schema_table,
   CHARSET_INFO *cs= system_charset_info;
   PARTITION_STATS stat_info;
   MYSQL_TIME time;
-  file->get_dynamic_partition_info(&stat_info, part_id);
+
+  bool need_partition_info = false;
+  /* 12..21 are fields populated by table statistics (TABLE_ROWS..CHECKSUM)
+   *
+   * Addition of any fields in this function needs to match this check
+   */
+  for (int f=12; f<=21; f++) {
+    if (bitmap_is_set(table->read_set, f)) {
+        need_partition_info = true;
+        break;
+    }
+  }
+
+  if (need_partition_info)
+    file->get_dynamic_partition_info(&stat_info, part_id);
+  else
+    memset(&stat_info, 0, sizeof(stat_info));
+
   table->field[0]->store(STRING_WITH_LEN("def"), cs);
   table->field[12]->store((longlong) stat_info.records, TRUE);
   table->field[13]->store((longlong) stat_info.mean_rec_length, TRUE);
