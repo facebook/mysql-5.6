@@ -243,7 +243,7 @@ public:
    */
   table_def(unsigned char *types, ulong size, uchar *field_metadata,
             int metadata_size, uchar *null_bitmap, uint16 flags,
-            const uchar* column_names);
+            const uchar* column_names, uchar *sign_bits);
 
   ~table_def();
 
@@ -339,6 +339,12 @@ public:
     DBUG_ASSERT(index < m_size);
     return ((m_null_bits[(index / 8)] & 
             (1 << (index % 8))) == (1 << (index %8)));
+  }
+
+  my_bool is_unsigned(uint index) const
+  {
+    DBUG_ASSERT(index < m_size);
+    return (m_sign_bits[(index / 8)] & (1 << (index % 8)));
   }
 
   /*
@@ -439,6 +445,7 @@ private:
 #ifdef MYSQL_SERVER
   DYNAMIC_ARRAY m_column_names;
 #endif /* MYSQL_SERVER */
+  uchar* m_sign_bits;
 };
 
 
