@@ -1,0 +1,3 @@
+[submodule "rocksdb"]
+	path = rocksdb
+	url = git@github.com:facebook/rocksdb.git

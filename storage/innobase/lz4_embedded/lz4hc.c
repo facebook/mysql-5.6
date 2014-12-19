@@ -657,7 +657,7 @@ _Search3:
 }
 
 
-int LZ4_compressHC(const char* source,
+int LZ4_embedded_compressHC(const char* source,
 				 char* dest,
 				 int isize,
 				 void* ctx)

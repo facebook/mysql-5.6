@@ -40,14 +40,14 @@ extern "C" {
 
 #include "lz4_embedded/lz4_prefix.h"
 
-int LZ4_compressHC (const char* source, char* dest, int isize, void* scratch);
+int LZ4_embedded_compressHC (const char* source, char* dest, int isize, void* scratch);
 
 /*
-LZ4_compressHC :
+LZ4_embedded_compressHC :
 	return : the number of bytes in compressed buffer dest
 	note : destination buffer must be already allocated.
 		To avoid any problem, size it to handle worst cases situations (input data not compressible)
-		Worst case size evaluation is provided by function LZ4_compressBound() (see "lz4.h")
+		Worst case size evaluation is provided by function LZ4_embedded_compressBound() (see "lz4.h")
 */
 
 
