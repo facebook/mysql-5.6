@@ -3,7 +3,7 @@ SET GLOBAL rocksdb_write_timeout_hint_us=555;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=true;
 create table aaa (id int primary key, i int) engine rocksdb;
 select variable_value into @a from information_schema.global_status where variable_name='rocksdb_wal_synced';
-SET GLOBAL rocksdb_write_sync=off;
+SET LOCAL rocksdb_write_sync=off;
 insert aaa(id, i) values(1,1);
 select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
 select @b-@a;
@@ -22,7 +22,7 @@ select @b-@a;
 @b-@a
 0
 set @a=@b;
-SET GLOBAL rocksdb_write_sync=on_commit;
+SET LOCAL rocksdb_write_sync=1;
 insert aaa(id, i) values(4,1);
 select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
 select @b-@a;
@@ -41,8 +41,37 @@ select @b-@a;
 @b-@a
 1
 set @a=@b;
+SET GLOBAL rocksdb_background_sync=on;
+SET LOCAL rocksdb_write_sync=off;
+insert aaa(id, i) values(7,1);
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+0
+set @a=@b;
+insert aaa(id, i) values(8,1);
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+0
+set @a=@b;
+insert aaa(id, i) values(9,1);
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+0
+set @a=@b;
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+1
+set @a=@b;
+SET LOCAL rocksdb_write_timeout_hint_us=333;
+truncate table aaa;
+SET LOCAL rocksdb_write_timeout_hint_us=444;
 drop table aaa;
 SET GLOBAL rocksdb_write_sync=off;
 SET GLOBAL rocksdb_write_disable_wal=false;
 SET GLOBAL rocksdb_write_timeout_hint_us=0;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=false;
+SET GLOBAL rocksdb_background_sync=off;
