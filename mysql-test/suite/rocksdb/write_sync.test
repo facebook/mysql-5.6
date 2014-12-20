@@ -5,7 +5,7 @@ SET GLOBAL rocksdb_write_ignore_missing_column_families=true;
 create table aaa (id int primary key, i int) engine rocksdb;
 
 select variable_value into @a from information_schema.global_status where variable_name='rocksdb_wal_synced';
-SET GLOBAL rocksdb_write_sync=off;
+SET LOCAL rocksdb_write_sync=off;
 insert aaa(id, i) values(1,1);
 select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
 select @b-@a;
@@ -19,7 +19,7 @@ select variable_value into @b from information_schema.global_status where variab
 select @b-@a;
 set @a=@b;
 
-SET GLOBAL rocksdb_write_sync=on_commit;
+SET LOCAL rocksdb_write_sync=1;
 insert aaa(id, i) values(4,1);
 select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
 select @b-@a;
@@ -33,10 +33,37 @@ select variable_value into @b from information_schema.global_status where variab
 select @b-@a;
 set @a=@b;
 
+SET GLOBAL rocksdb_background_sync=on;
+SET LOCAL rocksdb_write_sync=off;
+insert aaa(id, i) values(7,1);
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+set @a=@b;
+insert aaa(id, i) values(8,1);
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+set @a=@b;
+insert aaa(id, i) values(9,1);
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+set @a=@b;
+
+let $status_var=rocksdb_wal_synced;
+let $status_var_value=5;
+source include/wait_for_status_var.inc;
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+set @a=@b;
+
+SET LOCAL rocksdb_write_timeout_hint_us=333;
+truncate table aaa;
+
 # Cleanup
+SET LOCAL rocksdb_write_timeout_hint_us=444;
 drop table aaa;
 SET GLOBAL rocksdb_write_sync=off;
 SET GLOBAL rocksdb_write_disable_wal=false;
 SET GLOBAL rocksdb_write_timeout_hint_us=0;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=false;
+SET GLOBAL rocksdb_background_sync=off;
 
