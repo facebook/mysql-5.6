@@ -66,7 +66,9 @@ UNIV_INTERN
 void
 dict_stats_defrag_pool_add(
 /*=======================*/
-	const dict_index_t*	index);	/*!< in: table to add */
+	const dict_index_t*	index,		/*!< in: index to add */
+	bool			save_summary);	/*!< in: if true, save
+						defrag summary as well. */
 
 /*****************************************************************//**
 Delete a given index from the auto defrag pool. */

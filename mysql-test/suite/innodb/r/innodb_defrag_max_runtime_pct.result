@@ -1,0 +1,113 @@
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 0;
+'innodb_defragment_max_runtime_pct_defrag_table(send)'
+TRUNCATE TABLE t1;
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 VALUES (2, REPEAT('A', 256));
+INSERT INTO t1 VALUES (3, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+alter table t1 defragment;
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value = 0;
+Variable_name	Value
+Innodb_defragment_runtime_pct	0
+SET GLOBAL innodb_defragment_max_runtime_pct = 100;
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 100;
+'innodb_defragment_max_runtime_pct_defrag_table(send)'
+TRUNCATE TABLE t1;
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 VALUES (2, REPEAT('A', 256));
+INSERT INTO t1 VALUES (3, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+alter table t1 defragment;
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 90;
+Variable_name	Value
+Innodb_defragment_runtime_pct	<pct>
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 90;
+'innodb_defragment_max_runtime_pct_defrag_table(send)'
+TRUNCATE TABLE t1;
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 VALUES (2, REPEAT('A', 256));
+INSERT INTO t1 VALUES (3, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+alter table t1 defragment;
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 80 and Value < 100;
+Variable_name	Value
+Innodb_defragment_runtime_pct	<pct>
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 50;
+'innodb_defragment_max_runtime_pct_defrag_table(send)'
+TRUNCATE TABLE t1;
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 VALUES (2, REPEAT('A', 256));
+INSERT INTO t1 VALUES (3, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+alter table t1 defragment;
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 40 and Value < 60;
+Variable_name	Value
+Innodb_defragment_runtime_pct	<pct>
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 10;
+'innodb_defragment_max_runtime_pct_defrag_table(send)'
+TRUNCATE TABLE t1;
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 VALUES (2, REPEAT('A', 256));
+INSERT INTO t1 VALUES (3, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+alter table t1 defragment;
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 0 and Value < 20;
+Variable_name	Value
+Innodb_defragment_runtime_pct	<pct>
+drop table t1;
