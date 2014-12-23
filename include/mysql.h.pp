@@ -360,7 +360,8 @@ enum mysql_option
   MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
   MYSQL_OPT_CONNECT_TIMEOUT_MS,
   MYSQL_OPT_READ_TIMEOUT_MS,
-  MYSQL_OPT_WRITE_TIMEOUT_MS
+  MYSQL_OPT_WRITE_TIMEOUT_MS,
+  MYSQL_OPT_SSL_SESSION
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
@@ -559,6 +560,9 @@ my_bool mysql_ssl_set(MYSQL *mysql, const char *key,
           const char *cert, const char *ca,
           const char *capath, const char *cipher);
 const char * mysql_get_ssl_cipher(MYSQL *mysql);
+void mysql_get_ssl_session(MYSQL *mysql,
+                                              unsigned char* buffer,
+                                              long *buffer_len);
 my_bool mysql_change_user(MYSQL *mysql, const char *user,
        const char *passwd, const char *db);
 MYSQL * mysql_real_connect(MYSQL *mysql, const char *host,
