@@ -4714,6 +4714,13 @@ get_quote_count(const char *line)
   return quote_count;
 }
 
+/* A simple session buffer for SSL connections.  We simply try to
+   reuse the most recently seen session; the server will reject it if
+   it is invalid (or, say, it came from another host, etc).  16k is
+   well above a reasonable session limit. */
+static unsigned char ssl_session_buffer[16384];
+static long ssl_session_len = 0;
+
 static int
 sql_real_connect(char *host,char *database,char *user,char *password,
 		 uint silent)
@@ -4750,6 +4757,10 @@ sql_real_connect(char *host,char *database,char *user,char *password,
 		  opt_ssl_capath, opt_ssl_cipher);
     mysql_options(&mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
     mysql_options(&mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
+    if (ssl_session_len > 0) {
+      mysql_options4(&mysql, MYSQL_OPT_SSL_SESSION,
+                     ssl_session_buffer, (void*)ssl_session_len);
+    }
   }
   mysql_options(&mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
                 (char*)&opt_ssl_verify_server_cert);
@@ -4826,6 +4837,12 @@ sql_real_connect(char *host,char *database,char *user,char *password,
       return ignore_errors ? -1 : 1;		// Abort
     }
     return -1;					// Retryable
+  }
+  ssl_session_len = sizeof(ssl_session_buffer);
+  mysql_get_ssl_session(&mysql, ssl_session_buffer, &ssl_session_len);
+  if (ssl_session_len < 0) {
+    DBUG_PRINT("error", ("unable to save SSL session buffer, ret: %ld",
+                         ssl_session_len));
   }
 
 #ifdef __WIN__

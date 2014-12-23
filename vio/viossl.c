@@ -383,6 +383,7 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
 
 
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+                  unsigned char* ssl_session_data, long ssl_session_length,
                   ssl_handshake_func_t func,
                   unsigned long *ssl_errno_holder)
 {
@@ -392,7 +393,6 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   DBUG_ENTER("ssl_do");
   DBUG_PRINT("enter", ("ptr: 0x%lx, sd: %d  ctx: 0x%lx",
                        (long) ptr, sd, (long) ptr->ssl_context));
-
   if (!(ssl= SSL_new(ptr->ssl_context)))
   {
     DBUG_PRINT("error", ("SSL_new failure"));
@@ -400,6 +400,33 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     ERR_clear_error();
     DBUG_RETURN(1);
   }
+  if (ssl_session_data && ssl_session_length > 0) {
+    const unsigned char* data_copy = ssl_session_data;
+    SSL_SESSION *sess = d2i_SSL_SESSION(NULL,
+                                        &data_copy,
+                                        ssl_session_length);
+    /* Errors below are non-fatal; simply report them and continue on. */
+    if (!sess) {
+#ifndef DBUG_OFF
+      DBUG_PRINT("error", ("d2i_SSL_SESSION failed"));
+      report_errors(ssl);
+#endif
+      ERR_clear_error();
+    } else {
+      if (!SSL_set_session(ssl, sess)) {
+#ifndef DBUG_OFF
+        DBUG_PRINT("error", ("SSL_set_session failed"));
+        report_errors(ssl);
+#endif
+        ERR_clear_error();
+      } else {
+        DBUG_PRINT("info", ("reused existing session %ld",
+                            (long)sess));
+      }
+      SSL_SESSION_free(sess);
+    }
+  }
+
   DBUG_PRINT("info", ("ssl: 0x%lx timeout: %ld", (long) ssl, timeout));
   SSL_clear(ssl);
   SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
@@ -428,6 +455,8 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     SSL_free(ssl);
     DBUG_RETURN(1);
   }
+
+  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
 
   /*
     Connection succeeded. Install new function handlers,
@@ -475,15 +504,17 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslaccept");
-  DBUG_RETURN(ssl_do(ptr, vio, timeout, SSL_accept, ssl_errno_holder));
+  DBUG_RETURN(ssl_do(ptr, vio, timeout, NULL, 0, SSL_accept, ssl_errno_holder));
 }
 
 
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+               unsigned char* ssl_session_data, long ssl_session_length,
                unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslconnect");
-  DBUG_RETURN(ssl_do(ptr, vio, timeout, SSL_connect, ssl_errno_holder));
+  DBUG_RETURN(ssl_do(ptr, vio, timeout, ssl_session_data, ssl_session_length,
+                     SSL_connect, ssl_errno_holder));
 }
 
 
