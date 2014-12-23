@@ -93,6 +93,7 @@ enum enum_sql_command {
   SQLCOM_SHOW_MEMORY_STATUS,
   SQLCOM_FIND_GTID_POSITION,
   SQLCOM_GTID_EXECUTED,
+  SQLCOM_RBR_COLUMN_NAMES,
 
   /*
     When a command is added here, be sure it's also added in mysqld.cc

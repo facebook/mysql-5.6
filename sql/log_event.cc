@@ -11713,7 +11713,28 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
     /* WRITE ROWS EVENTS store the bitmap in m_cols instead of m_cols_ai */
     MY_BITMAP *after_image= ((get_general_type_code() == UPDATE_ROWS_EVENT) ?
                              &m_cols_ai : &m_cols);
-    bitmap_intersect(table->write_set, after_image);
+    table_def *tabledef= NULL;
+    TABLE *conv_table= NULL;
+    assert(rli->get_table_data(table, &tabledef, &conv_table));
+    if (tabledef->have_column_names())
+    {
+      bitmap_clear_all(table->write_set);
+      // use column names to find out the correct field indices
+      // on slave's table.
+      for (uint i = 0; i < tabledef->size(); ++i)
+      {
+        if (bitmap_is_set(after_image, i))
+        {
+          const char* col_name = tabledef->get_column_name(i);
+          Field *const field = find_field_in_table_sef(table, col_name);
+          // field may be NULL if the field is removed on slave.
+          if (field)
+            bitmap_set_bit(table->write_set, field->field_index);
+        }
+      }
+    }
+    else
+      bitmap_intersect(table->write_set, after_image);
 
     this->slave_exec_mode= slave_exec_mode_options; // fix the mode
 
@@ -12280,7 +12301,9 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     m_null_bits(0),
     m_meta_memory(NULL),
     m_primary_key_fields(0),
-    m_primary_key_fields_size(0)
+    m_primary_key_fields_size(0),
+    m_column_names(0),
+    m_column_names_size(0)
 {
   uchar cbuf[sizeof(m_colcnt) + 1];
   uchar *cbuf_end;
@@ -12312,6 +12335,19 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
     m_coltype= reinterpret_cast<uchar*>(m_memory);
     for (unsigned int i= 0 ; i < m_table->s->fields ; ++i)
       m_coltype[i]= m_table->field[i]->binlog_type();
+  }
+
+  my_bool log_column_names = tbl->s->rbr_column_names;
+
+  if (log_column_names)
+  {
+    // get column_names size.
+    for (unsigned int i= 0 ; i < m_table->s->fields ; i++)
+    {
+      // + 1 for storing the length of the column name.
+      // + 1 for '\0'
+      m_column_names_size += strlen(m_table->s->field[i]->field_name) + 1 + 1;
+    }
   }
 
   /*
@@ -12348,6 +12384,13 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
                                  &m_null_bits, num_null_bytes,
                                  &m_field_metadata, (m_colcnt * 2),
                                  NULL);
+
+  if (m_column_names_size)
+  {
+    // allocate memory for column names.
+    m_column_names = (uchar*) my_malloc(m_column_names_size, MYF(MY_WME));
+    m_data_size += m_column_names_size;
+  }
 
   memset(m_field_metadata, 0, (m_colcnt * 2));
 
@@ -12403,6 +12446,18 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
       ptr = net_store_length(ptr, (pkey_info->key_part[i].fieldnr - 1));
     }
   }
+
+  if (log_column_names)
+  {
+    uint index = 0;
+    for (uint i= 0 ; i < m_table->s->fields ; i++)
+    {
+      uint length = strlen(m_table->s->field[i]->field_name) + 1;
+      m_column_names[index++] = length;
+      strcpy((char*)(m_column_names + index), m_table->s->field[i]->field_name);
+      index += length;
+    }
+  }
 }
 #endif /* !defined(MYSQL_CLIENT) */
 
@@ -12423,7 +12478,7 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
     m_memory(NULL), m_table_id(ULONGLONG_MAX), m_flags(0),
     m_data_size(0), m_field_metadata(0), m_field_metadata_size(0),
     m_null_bits(0), m_meta_memory(NULL), m_primary_key_fields(0),
-    m_primary_key_fields_size(0)
+    m_primary_key_fields_size(0), m_column_names(0), m_column_names_size(0)
 {
   unsigned int bytes_read= 0;
   DBUG_ENTER("Table_map_log_event::Table_map_log_event(const char*,uint,...)");
@@ -12523,6 +12578,12 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
           ptr_after_colcnt = (uchar*)ptr_after_colcnt +
                              m_primary_key_fields_size;
         }
+        m_column_names_size = event_len - (ptr_after_colcnt - (uchar *)buf);
+        if (m_column_names_size)
+        {
+          m_column_names = (uchar*) my_malloc(m_column_names_size, MYF(MY_WME));
+          memcpy(m_column_names, ptr_after_colcnt, m_column_names_size);
+        }
       }
     }
   }
@@ -12535,6 +12596,7 @@ Table_map_log_event::~Table_map_log_event()
 {
   my_free(m_meta_memory);
   my_free(m_memory);
+  my_free(m_column_names);
   my_free(m_primary_key_fields);
 }
 
@@ -12704,7 +12766,7 @@ int Table_map_log_event::do_apply_event(Relay_log_info const *rli)
     new (&table_list->m_tabledef)
       table_def(m_coltype, m_colcnt,
                 m_field_metadata, m_field_metadata_size,
-                m_null_bits, m_flags);
+                m_null_bits, m_flags, m_column_names);
     table_list->m_tabledef_valid= TRUE;
     table_list->m_conv_table= NULL;
     table_list->open_type= OT_BASE_ONLY;
@@ -12833,7 +12895,10 @@ bool Table_map_log_event::write_data_body(IO_CACHE *file)
           wrapper_my_b_safe_write(file, m_size_buf,
                                   (size_t) (m_size_buf_end - m_size_buf)) ||
           wrapper_my_b_safe_write(file, m_primary_key_fields,
-                                  m_primary_key_fields_size));
+                                  m_primary_key_fields_size) ||
+          wrapper_my_b_safe_write(file, m_column_names,
+                                  m_column_names_size));
+
  }
 #endif
 

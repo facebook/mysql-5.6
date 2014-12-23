@@ -476,6 +476,7 @@ given at all. */
    given at all.
 */
 #define HA_CREATE_USED_STATS_SAMPLE_PAGES (1L << 24)
+#define HA_CREATE_USED_RBR_COLUMN_NAMES (1L << 47)
 
 
 /*
@@ -1102,6 +1103,8 @@ typedef struct st_ha_create_information
   uint extra_size;                      /* length of extra data segment */
   bool varchar;                         /* 1 if table has a VARCHAR */
   enum ha_storage_media storage_media;  /* DEFAULT, DISK or MEMORY */
+  bool rbr_column_names; /* If true, column names for this table are logged
+                            in Table_map_log_events */
 } HA_CREATE_INFO;
 
 /**
@@ -1252,6 +1255,8 @@ public:
     and OPTIMIZE TABLE operations.
   */
   static const HA_ALTER_FLAGS RECREATE_TABLE             = 1L << 29;
+
+  static const HA_ALTER_FLAGS ALTER_RBR_COLUMN_NAMES = 1L << 47;
 
   /**
     Create options (like MAX_ROWS) for the new version of table.

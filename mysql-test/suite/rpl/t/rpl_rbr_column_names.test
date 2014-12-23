@@ -1,0 +1,73 @@
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+call mtr.add_suppression("Slave SQL.*Column [0-9] of table .test.t[0-9]*. cannot be converted from type.* Error_code: 1677");
+
+connection master;
+create table t1 (a int, b text) rbr_column_names=1;
+show create table t1;
+sync_slave_with_master;
+
+drop table t1;
+create table t1 (b text);
+--echo Check slave can deal with missing columns
+connection master;
+insert into t1 values(1, "column1");
+sync_slave_with_master;
+select * from t1;
+
+drop table t1;
+create table t1 (b text, a int);
+--echo Check slave can deal with columns in different order
+connection master;
+insert into t1(a, b) values(2, "column2");
+update t1 set b="update column2" where a=2;
+sync_slave_with_master;
+select * from t1;
+
+drop table t1;
+create table t1 (extra_column text, a int, b text);
+--echo Check slave can deal with new columns added at the beginning
+connection master;
+insert into t1 values(2, "column2");
+sync_slave_with_master;
+select * from t1;
+
+drop table t1;
+create table t1(a int, extra_column text, b text);
+--echo Check slave can deal with new columns added in the middle
+connection master;
+insert into t1 values(2, "column2");
+insert into t1 values(3, "column3");
+delete from t1 where a=3 and b="column3";
+sync_slave_with_master;
+select * from t1;
+
+drop table t1;
+create table t1 (a int, b int);
+--echo Check slave fails with an error due to type mismatch
+connection master;
+insert into t1 values(1, "column2");
+connection slave;
+let $slave_sql_errno=convert_error(ER_SLAVE_CONVERSION_FAILED);
+source include/wait_for_slave_sql_error.inc;
+source include/stop_slave.inc;
+let $rpl_only_running_threads= 1;
+source include/rpl_reset.inc;
+
+--echo Check rbr_column_names can be changed using ALTER TABLE
+connection master;
+alter table t1 rbr_column_names = 0;
+show create table t1;
+sync_slave_with_master;
+show create table t1;
+
+connection master;
+alter table t1 rbr_column_names = 1;
+show create table t1;
+sync_slave_with_master;
+show create table t1;
+
+
+connection master;
+drop table t1;
+source include/rpl_end.inc;
