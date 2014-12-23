@@ -1,0 +1,37 @@
+--source include/have_innodb.inc
+
+SET @start_innodb_defragment_max_runtime_pct = @@global.innodb_defragment_max_runtime_pct;
+SELECT @start_innodb_defragment_max_runtime_pct;
+
+SELECT COUNT(@@global.innodb_defragment_max_runtime_pct);
+
+# test valid value
+SET @@global.innodb_defragment_max_runtime_pct = 20;
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+# test valid min
+SET @@global.innodb_defragment_max_runtime_pct = 1;
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+# test valid max
+SET @@global.innodb_defragment_max_runtime_pct = 100;
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+# test invalid value < min
+SET @@global.innodb_defragment_max_runtime_pct = -1;
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+# test invalid value > max
+SET @@global.innodb_defragment_max_runtime_pct = 10000;
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+# test wrong type
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_defragment_max_runtime_pct = 10.5;
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_defragment_max_runtime_pct = "abc";
+SELECT @@global.innodb_defragment_max_runtime_pct;
+
+SET @@global.innodb_defragment_max_runtime_pct = @start_innodb_defragment_max_runtime_pct;
