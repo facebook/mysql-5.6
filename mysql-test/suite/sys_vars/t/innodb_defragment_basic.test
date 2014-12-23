@@ -12,6 +12,13 @@ SELECT @@global.innodb_defragment;
 SET GLOBAL innodb_defragment = ON;
 SELECT @@global.innodb_defragment;
 
+# Turn innodb_defragment_pause on, then turn innodb_defragment off.
+# This should automatically turn innodb_defragment_pause off again.
+SET GLOBAL innodb_defragment_pause = ON;
+SELECT @@global.innodb_defragment_pause;
+SET GLOBAL innodb_defragment = OFF;
+SELECT @@global.innodb_defragment_pause;
+
 # Wrong value
 --error ER_WRONG_VALUE_FOR_VAR
 SET GLOBAL innodb_defragment = 100;

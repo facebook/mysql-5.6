@@ -14,7 +14,7 @@ SET @@global.innodb_defragment_frequency = 1;
 SELECT @@global.innodb_defragment_frequency;
 
 # test valid max
-SET @@global.innodb_defragment_frequency = 1000;
+SET @@global.innodb_defragment_frequency = 1000000;
 SELECT @@global.innodb_defragment_frequency;
 
 # test invalid value < min
@@ -22,7 +22,7 @@ SET @@global.innodb_defragment_frequency = -1;
 SELECT @@global.innodb_defragment_frequency;
 
 # test invalid value > max
-SET @@global.innodb_defragment_frequency = 10000;
+SET @@global.innodb_defragment_frequency = 10000000;
 SELECT @@global.innodb_defragment_frequency;
 
 # test wrong type

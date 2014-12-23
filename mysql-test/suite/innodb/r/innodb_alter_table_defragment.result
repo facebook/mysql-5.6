@@ -71,15 +71,19 @@ count(*) < expected
 set global innodb_defragment_frequency = 1;
 alter table t1 defragment;
 kill query ID;
-select sleep(3);
-sleep(3)
-0
 ERROR 70100: Query execution was interrupted
-set global innodb_defragment_frequency = 100;
-## Test-6 defragment index already being defragmented.
-alter table t1 defragment index PRIMARY async_commit;
+## Test-6 Defragment when feature enabled but defragmentation is paused
+set @@global.innodb_defragment_pause = true;
+alter table t1 defragment;
+select info from information_schema.processlist where info like 'alter%';
+info
+alter table t1 defragment
+set @@global.innodb_defragment_pause = false;
+## Test-7 Defragment when feature disabled should return error
+set @my_innodb_defragment = @@global.innodb_defragment;
+set @@global.innodb_defragment = false;
 alter table t1 defragment index PRIMARY;
-ERROR 42000: ./test/t1 PRIMARY already exists
-call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+ERROR HY000: The 'ALTER TABLE DEFRAGMENT' feature is disabled; you need MySQL built with 'innodb_defragment' to have it working
 DROP PROCEDURE defragment;
+set @@global.innodb_defragment = @my_innodb_defragment;
 DROP TABLE t1;

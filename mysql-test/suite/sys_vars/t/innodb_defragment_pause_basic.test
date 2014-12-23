@@ -1,0 +1,20 @@
+-- source include/have_innodb.inc
+
+# Check the default value
+SET @orig = @@global.innodb_defragment_pause;
+SELECT @orig;
+
+# Turn off
+SET GLOBAL innodb_defragment_pause = OFF;
+SELECT @@global.innodb_defragment_pause;
+
+# Turn on
+SET GLOBAL innodb_defragment_pause = ON;
+SELECT @@global.innodb_defragment_pause;
+
+# Wrong value
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_defragment_pause = 100;
+SELECT @@global.innodb_defragment_pause;
+
+SET GLOBAL innodb_defragment_pause = @orig;

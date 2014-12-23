@@ -1,0 +1,21 @@
+DROP TABLE if exists t1;
+select @@global.super_read_only;
+@@global.super_read_only
+0
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+set DEBUG_SYNC='defragment_after_open_table SIGNAL opened';
+SET DEBUG_SYNC='defragment_after_defrag WAIT_FOR done';
+alter table t1 defragment;
+SET DEBUG_SYNC='now WAIT_FOR opened';
+set global super_read_only=1;
+SET DEBUG_SYNC='now signal done';
+set global read_only=0;
+flush table t1;
+drop table t1;

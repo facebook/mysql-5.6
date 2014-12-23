@@ -18,6 +18,7 @@
                                              // mysql_exchange_partition
 #include "sql_base.h"                        // open_temporary_tables
 #include "sql_alter.h"
+#include "debug_sync.h"                      // DEBUG_SYNC
 
 
 Alter_info::Alter_info(const Alter_info &rhs, MEM_ROOT *mem_root)
@@ -416,12 +417,15 @@ bool Sql_cmd_defragment_table::execute(THD *thd)
   Alter_table_prelocking_strategy alter_prelocking_strategy;
   uint tables_opened;
   MDL_savepoint mdl_savepoint = thd->mdl_context.mdl_savepoint();
-  bool error = open_tables(thd, &first_table, &tables_opened, 0,
+  uint flags = MYSQL_OPEN_SKIP_SCOPED_MDL_LOCK;
+  bool error = open_tables(thd, &first_table, &tables_opened, flags,
                            &alter_prelocking_strategy);
   if (error) {
     thd->mdl_context.rollback_to_savepoint(mdl_savepoint);
     return true;
   }
+
+  DEBUG_SYNC(thd, "defragment_after_open_table");
 
   handler *handler = first_table->table->file;
   char path[FN_REFLEN + 1];
@@ -429,8 +433,8 @@ bool Sql_cmd_defragment_table::execute(THD *thd)
                                      first_table->alias, "", 0);
   LEX_STRING index = thd->lex->alter_info.defrag_index;
   THD_STAGE_INFO(thd, stage_alter_inplace);
-  int ret = handler->ha_defragment_table(path, index.str,
-                                         thd->lex->async_commit);
+  int ret = handler->ha_defragment_table(path, index.str);
+  DEBUG_SYNC(thd, "defragment_after_defrag");
   close_thread_tables(thd);
   if (ret == 0)
     my_ok(thd);
