@@ -1,0 +1,32 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @saved_slave_type_conversions = @@global.slave_type_conversions;
+set @@global.slave_type_conversions = 'ALL_LOSSY,ALL_NON_LOSSY';
+create table t1(a int, b tinyblob, c int) rbr_column_names=1;
+Check slave can deal with reordering of columns
+drop table t1;
+create table t1(a int, c tinyint, b mediumblob) rbr_column_names=1;
+insert into t1 values(1, "tiny blob", 100);
+select * from t1;
+a	c	b
+1	100	tiny blob
+Check slave can deal with deleted columns
+drop table t1;
+create table t1(c tinyint, b mediumblob) rbr_column_names=1;
+insert into t1 values(1, "tiny blob", 100);
+select * from t1;
+c	b
+100	tiny blob
+Check slave can deal with added columns
+drop table t1;
+create table t1(a int, d int, c tinyint, b mediumblob) rbr_column_names=1;
+insert into t1 values(1, "tiny blob", 100);
+select * from t1;
+a	d	c	b
+1	NULL	100	tiny blob
+set @@global.slave_type_conversions = @saved_slave_type_conversions;
+drop table t1;
+include/rpl_end.inc

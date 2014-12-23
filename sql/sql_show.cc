@@ -1544,6 +1544,7 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
   create_info.compression = share->compression_type;
   create_info.compression_level = share->compression_level;
   create_info.compact_metadata = share->compact_metadata;
+  create_info.rbr_column_names = share->rbr_column_names;
   file->update_create_info(&create_info);
   primary_key= share->primary_key;
 
@@ -1779,6 +1780,9 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
         }
       }
     }
+    if (create_info.rbr_column_names)
+      packet->append(STRING_WITH_LEN(" RBR_COLUMN_NAMES=1"));
+
     table->file->append_create_info(packet);
     if (share->comment.length)
     {

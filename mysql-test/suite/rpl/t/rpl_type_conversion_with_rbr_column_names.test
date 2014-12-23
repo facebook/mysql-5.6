@@ -1,0 +1,42 @@
+# This test verifies slave_type_conversions when
+# rbr_column_names is enabled for a table.
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+
+connection slave;
+set @saved_slave_type_conversions = @@global.slave_type_conversions;
+set @@global.slave_type_conversions = 'ALL_LOSSY,ALL_NON_LOSSY';
+
+connection master;
+create table t1(a int, b tinyblob, c int) rbr_column_names=1;
+sync_slave_with_master;
+
+--echo Check slave can deal with reordering of columns
+drop table t1;
+create table t1(a int, c tinyint, b mediumblob) rbr_column_names=1;
+connection master;
+insert into t1 values(1, "tiny blob", 100);
+sync_slave_with_master;
+select * from t1;
+
+--echo Check slave can deal with deleted columns
+drop table t1;
+create table t1(c tinyint, b mediumblob) rbr_column_names=1;
+connection master;
+insert into t1 values(1, "tiny blob", 100);
+sync_slave_with_master;
+select * from t1;
+
+--echo Check slave can deal with added columns
+drop table t1;
+create table t1(a int, d int, c tinyint, b mediumblob) rbr_column_names=1;
+connection master;
+insert into t1 values(1, "tiny blob", 100);
+sync_slave_with_master;
+select * from t1;
+
+set @@global.slave_type_conversions = @saved_slave_type_conversions;
+connection master;
+drop table t1;
+source include/rpl_end.inc;
+

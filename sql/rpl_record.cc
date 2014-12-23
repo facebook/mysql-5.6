@@ -155,6 +155,129 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
 }
 #endif
 
+#if !defined(MYSQL_CLIENT) && defined(HAVE_REPLICATION)
+/**
+   Unpack a row into @c table->record[0].
+
+   This should be only used when table_map_log_event contains column names.
+   This function iterates over the columns of master and finds corresponding
+   field in slave's table using the column names stored in table_def.
+
+   Note, a hash for field names is created if number of fields in the table
+   is above MAX_FIELDS_BEFORE_HASH. We will use this hash for lookup when
+   available (see find_field_in_table_sef).
+
+   @param table   Table to unpack into
+   @param colcnt  Number of columns to read from record
+   @param row_data
+                  Packed row data
+   @param cols    Pointer to bitset describing columns to fill in
+   @param curr_row_end
+                  Pointer to variable that will hold the value of the
+                  one-after-end position for the current row
+   @param master_reclength
+                  Pointer to variable that will be set to the length of the
+                  record on the master side
+   @param row_end
+                  Pointer to variable that will hold the value of the
+                  end position for the data in the row event
+
+   @retval 0 No error
+
+   @retval HA_ERR_GENERIC
+   A generic, internal, error caused the unpacking to fail.
+
+*/
+int unpack_row_with_column_info(TABLE *table, uint const colcnt,
+                                uchar const *const row_data,
+                                MY_BITMAP const *cols,
+                                uchar const **const current_row_end,
+                                ulong *const master_reclength,
+                                uchar const *const row_end,
+                                table_def* tabledef,
+                                TABLE *conv_table)
+{
+  DBUG_ENTER("unpack_row_with_column_info");
+  uchar const *null_bits= row_data;
+  size_t const master_null_byte_count= (bitmap_bits_set(cols) + 7) / 8;
+  uchar const *pack_ptr= row_data + master_null_byte_count;
+  uint null_bit_index = 0;
+
+  for (uint i = 0; i < tabledef->size(); ++i)
+  {
+    if (!bitmap_is_set(cols, i))
+      // Field not actually present in the row_data
+      continue;
+    const char* col_name = tabledef->get_column_name(i);
+    DBUG_ASSERT(col_name);
+    // use conversion table if present.
+    Field *conv_field = conv_table ? conv_table->field[i] : NULL;
+    Field *const field = conv_field ? conv_field :
+      find_field_in_table_sef(table, col_name);
+    int is_null= (null_bits[null_bit_index / 8]
+                  >> (null_bit_index % 8))  & 0x01;
+    if (field)
+    {
+      if (is_null)
+      {
+        // Handle null column case.
+        if (field->maybe_null())
+        {
+          field->reset();
+          field->set_null();
+        }
+        else
+        {
+          field->set_default();
+          push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN,
+                              ER_BAD_NULL_ERROR, ER(ER_BAD_NULL_ERROR),
+                              field->field_name);
+        }
+      }
+      else
+      {
+        field->set_notnull();
+        uint16 const metadata = tabledef->field_metadata(i);
+        uint32 len = tabledef->calc_field_size(i, (uchar *) pack_ptr);
+        if (pack_ptr + len > row_end)
+        {
+          pack_ptr += len;
+          my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
+          DBUG_RETURN(ER_SLAVE_CORRUPT_EVENT);
+        }
+        pack_ptr= field->unpack(field->ptr, pack_ptr, metadata, TRUE);
+      }
+      if (conv_field)
+      {
+        Copy_field copy;
+        copy.set(find_field_in_table_sef(table, col_name), conv_field, TRUE);
+        (*copy.do_copy)(&copy);
+      }
+    }
+    else
+    {
+      // This column is removed on slave, so skip this field.
+      if (!is_null)
+      {
+        uint32 len = tabledef->calc_field_size(i, (uchar *) pack_ptr);
+        if (pack_ptr + len > row_end)
+        {
+          pack_ptr += len;
+          my_error(ER_SLAVE_CORRUPT_EVENT, MYF(0));
+          DBUG_RETURN(ER_SLAVE_CORRUPT_EVENT);
+        }
+        pack_ptr += len;
+      }
+    }
+    ++null_bit_index;
+  }
+  *current_row_end = pack_ptr;
+  if (master_reclength)
+  {
+    *master_reclength = table->s->reclength;
+  }
+  DBUG_RETURN(0);
+}
 
 /**
    Unpack a row into @c table->record[0].
@@ -198,7 +321,6 @@ pack_row(TABLE *table, MY_BITMAP const* cols,
    @retval HA_ERR_GENERIC
    A generic, internal, error caused the unpacking to fail.
  */
-#if !defined(MYSQL_CLIENT) && defined(HAVE_REPLICATION)
 int
 unpack_row(Relay_log_info const *rli,
            TABLE *table, uint const colcnt,
@@ -253,6 +375,13 @@ unpack_row(Relay_log_info const *rli,
    */
   if (rli && !table_found)
     DBUG_RETURN(HA_ERR_GENERIC);
+
+  if (tabledef->have_column_names())
+  {
+    DBUG_RETURN(unpack_row_with_column_info(table, colcnt, row_data, cols,
+                                            current_row_end, master_reclength,
+                                            row_end, tabledef, conv_table));
+  }
 
   for (field_ptr= begin_ptr ; field_ptr < end_ptr && *field_ptr ; ++field_ptr)
   {
