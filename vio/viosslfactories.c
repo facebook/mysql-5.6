@@ -220,6 +220,9 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
     DBUG_RETURN(0);
   }
 
+  /* There should be no pending errors at this point */
+  DBUG_ASSERT(ERR_peek_error() == 0);
+
   /* Load certs from the trusted ca */
   if (SSL_CTX_load_verify_locations(ssl_fd->ssl_context, ca_file, ca_path) == 0)
   {
@@ -248,6 +251,10 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
       DBUG_RETURN(0);
     }
   }
+
+  /* SSL_CTX_load_verify_locations sometimes leaves the error stack
+     not clear.  Let's clear it. */
+  ERR_clear_error();
 
   if (crl_file || crl_path)
   {
