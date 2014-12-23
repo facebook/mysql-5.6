@@ -68,6 +68,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "dict0crea.h"
 #include "btr0cur.h"
 #include "btr0btr.h"
+#include "btr0defragment.h"
 #include "fsp0fsp.h"
 #include "sync0sync.h"
 #include "fil0fil.h"

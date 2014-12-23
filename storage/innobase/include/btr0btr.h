@@ -104,90 +104,6 @@ already holding an S latch on the index tree */
 			  | BTR_IGNORE_SEC_UNIQUE	\
 			  | BTR_ALREADY_S_LATCHED))
 
-/* Max number of pages to consider at once during defragmentation. */
-#define BTR_DEFRAGMENT_MAX_N_PAGES	32
-
-/** Work queue for btr_defragment_thread. */
-extern ulint btr_defragment_compression_failures;
-extern ulint btr_defragment_failures;
-extern ulint btr_defragment_count;
-
-/** Item in the work queue for btr_degrament_thread. */
-struct btr_defragment_item_t
-{
-	btr_pcur_t*	pcur;		/* persistent cursor where
-					btr_defragment_n_pages should start */
-	os_event_t	event;		/* if not null, signal after work
-					is done */
-	bool		removed;	/* Mark an item as removed */
-	ulonglong	last_processed;	/* timestamp of last time this index
-					is processed by defragment thread */
-
-	btr_defragment_item_t(btr_pcur_t* pcur, os_event_t event);
-	~btr_defragment_item_t();
-};
-/******************************************************************//**
-Initialize defragmentation mutex. */
-void
-btr_defragment_init_mutex();
-/******************************************************************//**
-Initialize defragmentation thread. */
-void
-btr_defragment_init_thread();
-/******************************************************************//**
-Shutdown defragmentation. */
-void
-btr_defragment_shutdown();
-/******************************************************************//**
-Check whether the given index is in btr_defragment_wq. */
-bool
-btr_defragment_find_index(
-	dict_index_t*	index);	/*!< Index to find. */
-/******************************************************************//**
-Add an index to btr_defragment_wq. Return a pointer to os_event if this
-is a synchronized defragmentation. */
-os_event_t
-btr_defragment_add_index(
-	dict_index_t*	index,	/*!< index to be added  */
-	bool		async);	/*!< whether this is an async defragmentation */
-/******************************************************************//**
-When table is dropped, this function is called to mark a table as removed in
-btr_efragment_wq. The difference between this function and the remove_index
-function is this will not NULL the event. */
-void
-btr_defragment_remove_table(
-	dict_table_t*	table);	/*!< Index to be removed. */
-/******************************************************************//**
-Mark an index as removed from btr_defragment_wq. */
-void
-btr_defragment_remove_index(
-	dict_index_t*	index);	/*!< Index to be removed. */
-/******************************************************************//**
-Remove an item from btr_defragment_wq. Free the resource as well. */
-void
-btr_defragment_remove_item(
-	btr_defragment_item_t*	item);	/*!< Item to be removed. */
-/******************************************************************//**
-Get an item from btr_defragment_wq to work on. */
-btr_defragment_item_t*
-btr_defragment_get_item();
-/*********************************************************************//**
-Check whether we should save defragmentation statistics to persistent storage.
-Currently we save the stats to persistent storage every 100 updates. */
-UNIV_INTERN
-void
-btr_defragment_save_defrag_stats_if_needed(
-	dict_index_t*	index);	/*!< in: index */
-/******************************************************************//**
-Thread that merges consecutive b-tree pages into fewer pages to defragment
-the index. */
-extern "C" UNIV_INTERN
-os_thread_ret_t
-DECLARE_THREAD(btr_defragment_thread)(
-/*==========================================*/
-	void*	arg);		/*!< in: a dummy parameter required by
-				os_thread_create */
-
 #endif /* UNIV_HOTBACKUP */
 
 /**************************************************************//**
@@ -532,6 +448,32 @@ btr_root_raise_and_insert(
 	ulint		n_ext,	/*!< in: number of externally stored columns */
 	mtr_t*		mtr)	/*!< in: mtr */
 	__attribute__((nonnull, warn_unused_result));
+
+/*************************************************************//**
+Reorganizes an index page.
+
+IMPORTANT: On success, the caller will have to update IBUF_BITMAP_FREE
+if this is a compressed leaf page in a secondary index. This has to
+be done either within the same mini-transaction, or by invoking
+ibuf_reset_free_bits() before mtr_commit(). On uncompressed pages,
+IBUF_BITMAP_FREE is unaffected by reorganization.
+
+@retval true if the operation was successful
+@retval false if it is a compressed page, and recompression failed */
+bool
+btr_page_reorganize_block(
+/*======================*/
+	bool		recovery,/*!< in: true if called in recovery:
+				locks should not be updated, i.e.,
+				there cannot exist locks on the
+				page, and a hash index should not be
+				dropped: it cannot exist */
+	uchar		compression_flags,/*!< in: compression options to be used
+				if dealing with compressed page */
+	buf_block_t*	block,	/*!< in/out: B-tree page */
+	dict_index_t*	index,	/*!< in: the index tree of the page */
+	mtr_t*		mtr)	/*!< in/out: mini-transaction */
+	__attribute__((nonnull));
 /*************************************************************//**
 Reorganizes an index page.
 
@@ -645,6 +587,42 @@ btr_insert_on_non_leaf_level_func(
 # define btr_insert_on_non_leaf_level(f,i,l,t,m)			\
 	btr_insert_on_non_leaf_level_func(f,i,l,t,__FILE__,__LINE__,m)
 #endif /* !UNIV_HOTBACKUP */
+
+#ifdef UNIV_SYNC_DEBUG
+/*************************************************************//**
+Removes a page from the level list of pages.
+@param space	in: space where removed
+@param zip_size	in: compressed page size in bytes, or 0 for uncompressed
+@param page	in/out: page to remove
+@param index	in: index tree
+@param mtr	in/out: mini-transaction */
+# define btr_level_list_remove(space,zip_size,page,index,mtr)		\
+	btr_level_list_remove_func(space,zip_size,page,index,mtr)
+#else /* UNIV_SYNC_DEBUG */
+/*************************************************************//**
+Removes a page from the level list of pages.
+@param space	in: space where removed
+@param zip_size	in: compressed page size in bytes, or 0 for uncompressed
+@param page	in/out: page to remove
+@param index	in: index tree
+@param mtr	in/out: mini-transaction */
+# define btr_level_list_remove(space,zip_size,page,index,mtr)		\
+	btr_level_list_remove_func(space,zip_size,page,mtr)
+#endif /* UNIV_SYNC_DEBUG */
+/*************************************************************//**
+Removes a page from the level list of pages. */
+void
+btr_level_list_remove_func(
+/*=======================*/
+	ulint			space,	/*!< in: space where removed */
+	ulint			zip_size,/*!< in: compressed page size in bytes
+					or 0 for uncompressed pages */
+	page_t*			page,	/*!< in/out: page to remove */
+#ifdef UNIV_SYNC_DEBUG
+	const dict_index_t*	index,	/*!< in: index tree */
+#endif /* UNIV_SYNC_DEBUG */
+	mtr_t*			mtr)	/*!< in/out: mini-transaction */
+	__attribute__((nonnull));
 /****************************************************************//**
 Sets a record as the predefined minimum record. */
 UNIV_INTERN
@@ -678,6 +656,19 @@ btr_check_node_ptr(
 	mtr_t*		mtr)	/*!< in: mtr */
 	__attribute__((nonnull, warn_unused_result));
 #endif /* UNIV_DEBUG */
+/*************************************************************//**
+If page is the only on its level, this function moves its records to the
+father page, thus reducing the tree height.
+@return father block */
+buf_block_t*
+btr_lift_page_up(
+/*=============*/
+	dict_index_t*	index,	/*!< in: index tree */
+	buf_block_t*	block,	/*!< in: page which is the only on its level;
+				must not be empty: use
+				btr_discard_only_page_on_level if the last
+				record from the page should be removed */
+	mtr_t*		mtr);	/*!< in: mtr */
 /*************************************************************//**
 Tries to merge the page first to the left immediate brother if such a
 brother exists, and the node pointers to the current page and to the
