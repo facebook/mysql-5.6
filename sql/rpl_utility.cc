@@ -868,14 +868,27 @@ table_def::compatible_with(THD *thd, Relay_log_info *rli,
 {
   /*
     We only check the initial columns for the tables.
+
+    If column names are logged by the master, we check all
+    the columns present in master.
   */
-  uint const cols_to_check= min<ulong>(table->s->fields, size());
+  uint cols_to_check = have_column_names() ? size() :
+    min<ulong>(table->s->fields, size());
+
   TABLE *tmp_table= NULL;
 
   for (uint col= 0 ; col < cols_to_check ; ++col)
   {
-    Field *const field= table->field[col];
+    Field *field = have_column_names() ?
+      find_field_in_table_sef(table, get_column_name(col)) :
+      table->field[col];
     int order;
+    if (!field)
+    {
+      // This column is removed on slave
+      continue;
+    }
+
     if (can_convert_field_to(field, type(col), field_metadata(col), rli, m_flags, &order))
     {
       DBUG_PRINT("debug", ("Checking column %d -"
@@ -911,7 +924,8 @@ table_def::compatible_with(THD *thd, Relay_log_info *rli,
       DBUG_PRINT("debug", ("Checking column %d -"
                            " field '%s' can not be converted",
                            col, field->field_name));
-      DBUG_ASSERT(col < size() && col < table->s->fields);
+      DBUG_ASSERT(col < size() && (col < table->s->fields
+                  || have_column_names()));
       DBUG_ASSERT(table->s->db.str && table->s->table_name.str);
       const char *db_name= table->s->db.str;
       const char *tbl_name= table->s->table_name.str;
@@ -933,19 +947,24 @@ table_def::compatible_with(THD *thd, Relay_log_info *rli,
   if (tmp_table)
   {
     for (unsigned int col= 0; col < tmp_table->s->fields; ++col)
-      if (tmp_table->field[col])
+    {
+      Field *const slave_field = have_column_names() ?
+        find_field_in_table_sef(table, get_column_name(col)) :
+        table->field[col];
+      if (tmp_table->field[col] && slave_field)
       {
         char source_buf[MAX_FIELD_WIDTH];
         char target_buf[MAX_FIELD_WIDTH];
         String source_type(source_buf, sizeof(source_buf), &my_charset_latin1);
         String target_type(target_buf, sizeof(target_buf), &my_charset_latin1);
         tmp_table->field[col]->sql_type(source_type);
-        table->field[col]->sql_type(target_type);
+        slave_field->sql_type(target_type);
         DBUG_PRINT("debug", ("Field %s - conversion required."
                              " Source type: '%s', Target type: '%s'",
                              tmp_table->field[col]->field_name,
                              source_type.c_ptr_safe(), target_type.c_ptr_safe()));
       }
+    }
   }
 #endif
 
@@ -974,7 +993,8 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
     min(columns@master, columns@slave) columns in the
     conversion table.
   */
-  uint const cols_to_create= min<ulong>(target_table->s->fields, size());
+  uint const cols_to_create = have_column_names() ? size() :
+    min<ulong>(target_table->s->fields, size());
 
   // Default value : treat all values signed
   bool unsigned_flag= FALSE;
@@ -989,6 +1009,10 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
 
   for (uint col= 0 ; col < cols_to_create; ++col)
   {
+    Field * const slave_field = have_column_names() ?
+      find_field_in_table_sef(target_table, get_column_name(col)) :
+      target_table->field[col];
+
     Create_field *field_def=
       (Create_field*) alloc_root(thd->mem_root, sizeof(Create_field));
     if (field_list.push_back(field_def))
@@ -1005,7 +1029,8 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
       int precision;
     case MYSQL_TYPE_ENUM:
     case MYSQL_TYPE_SET:
-      interval= static_cast<Field_enum*>(target_table->field[col])->typelib;
+      if (slave_field)
+        interval= static_cast<Field_enum*>(slave_field)->typelib;
       pack_length= field_metadata(col) & 0x00ff;
       break;
 
@@ -1046,7 +1071,8 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
 
     DBUG_PRINT("debug", ("sql_type: %d, target_field: '%s', max_length: %d, decimals: %d,"
                          " maybe_null: %d, unsigned_flag: %d, pack_length: %u",
-                         binlog_type(col), target_table->field[col]->field_name,
+                         binlog_type(col), slave_field ?
+                         slave_field->field_name : "",
                          max_length, decimals, TRUE, unsigned_flag, pack_length));
     field_def->init_for_tmp_table(type(col),
                                   max_length,
@@ -1054,7 +1080,8 @@ TABLE *table_def::create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *
                                   TRUE,          // maybe_null
                                   unsigned_flag, // unsigned_flag
                                   pack_length);
-    field_def->charset= target_table->field[col]->charset();
+    if (slave_field)
+      field_def->charset= slave_field->charset();
     field_def->interval= interval;
   }
 
@@ -1073,7 +1100,8 @@ err:
 
 table_def::table_def(unsigned char *types, ulong size,
                      uchar *field_metadata, int metadata_size,
-                     uchar *null_bitmap, uint16 flags)
+                     uchar *null_bitmap, uint16 flags,
+                     const uchar *column_names)
   : m_size(size), m_type(0), m_field_metadata_size(metadata_size),
     m_field_metadata(0), m_null_bits(0), m_flags(flags),
     m_memory(NULL)
@@ -1165,12 +1193,38 @@ table_def::table_def(unsigned char *types, ulong size,
   }
   if (m_size && null_bitmap)
     memcpy(m_null_bits, null_bitmap, (m_size + 7) / 8);
+
+#ifdef MYSQL_SERVER
+  init_dynamic_array(&m_column_names, sizeof(char*), 10, 10);
+  if (column_names) {
+    // store column names in to an array.
+    for (uint i= 0; i < m_size; i++)
+    {
+      uint length = (uint) *column_names++;
+      // memory allocated by this malloc is freed in
+      // the class destructor.
+      char* str = (char*) my_malloc(length, MYF(0));
+      strncpy(str, (const char*)column_names, length);
+      insert_dynamic(&m_column_names, (uchar*) &str);
+      column_names += length;
+    }
+  }
+#endif /* MYSQL_SERVER */
 }
 
 
 table_def::~table_def()
 {
   my_free(m_memory);
+#ifdef MYSQL_SERVER
+  for (uint i = 0; i < m_column_names.elements; ++i)
+  {
+    char **str =
+      dynamic_element(&m_column_names, i, char**);
+    my_free(*str);
+  }
+  delete_dynamic(&m_column_names);
+#endif /* MYSQL_SERVER */
 #ifndef DBUG_OFF
   m_type= 0;
   m_size= 0;

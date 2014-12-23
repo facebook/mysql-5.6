@@ -26,6 +26,7 @@ typedef struct st_bitmap MY_BITMAP;
 #if !defined(MYSQL_CLIENT)
 size_t pack_row(TABLE* table, MY_BITMAP const* cols,
                 uchar *row_data, const uchar *data);
+#include "sql_base.h"
 #endif
 
 #if !defined(MYSQL_CLIENT) && defined(HAVE_REPLICATION)
