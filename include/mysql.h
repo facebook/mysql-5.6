@@ -512,6 +512,11 @@ my_bool		STDCALL mysql_ssl_set(MYSQL *mysql, const char *key,
 				      const char *cert, const char *ca,
 				      const char *capath, const char *cipher);
 const char *    STDCALL mysql_get_ssl_cipher(MYSQL *mysql);
+my_bool		STDCALL mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
+							      char* subject_buf,
+							      size_t subject_buflen,
+							      char* issuer_buf,
+							      size_t issuer_buflen);
 my_bool		STDCALL mysql_change_user(MYSQL *mysql, const char *user, 
 					  const char *passwd, const char *db);
 MYSQL *		STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
