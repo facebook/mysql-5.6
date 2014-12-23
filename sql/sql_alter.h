@@ -124,6 +124,8 @@ public:
   // Set for ADD [COLUMN] FIRST | AFTER
   static const uint ALTER_COLUMN_ORDER          = 1L << 25;
 
+  static const ulong ALTER_RBR_COLUMN_NAMES = 1L << 47;
+
 
   enum enum_enable_or_disable { LEAVE_AS_IS, ENABLE, DISABLE };
 
