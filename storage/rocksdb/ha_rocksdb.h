@@ -216,6 +216,9 @@ class ha_rocksdb: public handler
   uint null_bytes_in_rec;
 
   void setup_field_converters();
+
+  // the buffer size should be at least 2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE
+  rocksdb::Range get_range(uint i, uchar buf[]) const;
 public:
   ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}

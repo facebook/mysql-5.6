@@ -3387,6 +3387,24 @@ int ha_rocksdb::info(uint flag)
   if (flag & HA_STATUS_VARIABLE)
   {
     stats.records= rocksdb_debug_optimizer_n_rows;
+    stats.index_file_length= 0;
+
+    for (uint i=0; i < table->s->keys; i++)
+    {
+      uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+      auto range = get_range(i, buf);
+      uint64_t size;
+      rdb->GetApproximateSizes(key_descr[i]->get_cf(),
+                             &range, 1, &size);
+      if (i == table->s->primary_key)
+      {
+        stats.data_file_length = size;
+      }
+      else
+      {
+        stats.index_file_length += size;
+      }
+    }
   }
   if (flag & HA_STATUS_CONST)
   {
@@ -3851,6 +3869,27 @@ void ha_rocksdb::update_create_info(HA_CREATE_INFO *create_info)
   }
 }
 
+rocksdb::Range ha_rocksdb::get_range(
+  uint i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
+{
+  uchar* buf_begin = buf;
+  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  if (key_descr[i]->is_reverse_cf)
+  {
+    store_index_number(buf_begin, key_descr[i]->get_index_number()+1);
+    store_index_number(buf_end, key_descr[i]->get_index_number());
+  }
+  else
+  {
+    store_index_number(buf_begin, key_descr[i]->get_index_number());
+    store_index_number(buf_end, key_descr[i]->get_index_number() + 1);
+  }
+
+  return rocksdb::Range(
+    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
+    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
+}
+
 /**
   Doing manual compaction on OPTIMIZE TABLE in RocksDB.
   Compaction itself is executed by background thread in RocksDB, but
@@ -3869,19 +3908,10 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
   int rc= 0;
   for (uint i= 0; i < table->s->keys; i++)
   {
-    uchar buf_begin[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    uchar buf_end[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    int delta= 1;
-    if (key_descr[i]->is_reverse_cf)
-      delta= -1;
-
-    store_index_number(buf_begin, key_descr[i]->get_index_number());
-    store_index_number(buf_end, key_descr[i]->get_index_number() + delta);
-
-    rocksdb::Slice idx_begin((char*)buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
-    rocksdb::Slice idx_end((char*)buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
-
-    if (!rdb->CompactRange(key_descr[i]->get_cf(), &idx_begin, &idx_end).ok())
+    uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
+    auto range = get_range(i, buf);
+    if (!rdb->CompactRange(key_descr[i]->get_cf(),
+                           &range.start, &range.limit).ok())
     {
       rc= 1;
       break;
