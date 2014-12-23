@@ -128,7 +128,7 @@ enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
    MYSQL_TYPE_TIME2,
    MYSQL_TYPE_DOCUMENT,
    MYSQL_TYPE_DOCUMENT_PATH,
-   MYSQL_TYPE_NEWDECIMAL=246,
+                        MYSQL_TYPE_NEWDECIMAL=246,
    MYSQL_TYPE_ENUM=247,
    MYSQL_TYPE_SET=248,
    MYSQL_TYPE_TINY_BLOB=249,
@@ -565,6 +565,11 @@ const char * mysql_get_ssl_cipher(MYSQL *mysql);
 void mysql_get_ssl_session(MYSQL *mysql,
                                               unsigned char* buffer,
                                               long *buffer_len);
+my_bool mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
+             char* subject_buf,
+             size_t subject_buflen,
+             char* issuer_buf,
+             size_t issuer_buflen);
 my_bool mysql_change_user(MYSQL *mysql, const char *user,
        const char *passwd, const char *db);
 MYSQL * mysql_real_connect(MYSQL *mysql, const char *host,
@@ -583,13 +588,13 @@ int mysql_real_query(MYSQL *mysql, const char *q,
 MYSQL_RES * mysql_store_result(MYSQL *mysql);
 MYSQL_RES * mysql_use_result(MYSQL *mysql);
 my_bool mysql_real_connect_nonblocking_init(MYSQL *mysql,
-                                                            const char *host,
-                                                            const char *user,
-                                                            const char *passwd,
-                                                            const char *db,
-                                                            unsigned int port,
-                                                            const char *unix_socket,
-                                                            unsigned long clientflag);
+           const char *host,
+           const char *user,
+           const char *passwd,
+           const char *db,
+           unsigned int port,
+           const char *unix_socket,
+           unsigned long clientflag);
 net_async_status mysql_real_connect_nonblocking_run(MYSQL *mysql,
                                                             int *error);
 net_async_status
@@ -652,7 +657,7 @@ MYSQL_FIELD_OFFSET mysql_field_seek(MYSQL_RES *result,
         MYSQL_FIELD_OFFSET offset);
 MYSQL_ROW mysql_fetch_row(MYSQL_RES *result);
 net_async_status mysql_fetch_row_nonblocking(MYSQL_RES *res,
-                                                     MYSQL_ROW* row);
+           MYSQL_ROW* row);
 unsigned long * mysql_fetch_lengths(MYSQL_RES *result);
 MYSQL_FIELD * mysql_fetch_field(MYSQL_RES *result);
 MYSQL_RES * mysql_list_fields(MYSQL *mysql, const char *table,
