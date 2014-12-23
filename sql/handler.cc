@@ -4662,12 +4662,12 @@ handler::ha_drop_table(const char *name)
 */
 
 int
-handler::ha_defragment_table(const char *name, const char *index, bool async)
+handler::ha_defragment_table(const char *name, const char *index)
 {
   DBUG_ASSERT(m_lock_type == F_UNLCK);
   mark_trx_read_write();
 
-  return defragment_table(name, index, async);
+  return defragment_table(name, index);
 }
 
 

@@ -331,13 +331,16 @@ extern ulint	srv_n_write_io_threads;
 
 /* Defragmentation */
 #define SRV_DEFRAGMENT_FREQUENCY_DEFAULT 100
+#define SRV_DEFRAGMENT_MAX_RUNTIME_PCT_DEFAULT 50
 extern my_bool	srv_defragment;
+extern my_bool	srv_defragment_pause;
 extern uint	srv_defragment_n_pages;
 extern uint	srv_defragment_stats_accuracy;
 extern uint	srv_defragment_fill_factor_n_recs;
 extern double	srv_defragment_fill_factor;
 extern uint	srv_defragment_frequency;
 extern ulonglong	srv_defragment_interval;
+extern uint srv_defragment_max_runtime_pct;
 
 extern ulint	srv_idle_flush_pct;
 
@@ -1155,6 +1158,9 @@ struct export_var_t{
 	ulint innodb_defragment_compression_failures;
 	ulint innodb_defragment_failures;
 	ulint innodb_defragment_count;
+  ulint innodb_defragment_runtime_pct;
+  ulint innodb_defragment_avg_runtime;
+  ulint innodb_defragment_avg_idletime;
 
 	ulint innodb_buffered_aio_submitted;
 	ulint innodb_outstanding_aio_requests;

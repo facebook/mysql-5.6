@@ -68,6 +68,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "dict0crea.h"
 #include "btr0cur.h"
 #include "btr0btr.h"
+#include "btr0defragment.h"
 #include "fsp0fsp.h"
 #include "sync0sync.h"
 #include "fil0fil.h"
@@ -977,6 +978,12 @@ static SHOW_VAR innodb_status_variables[]= {
    (char*) &export_vars.innodb_defragment_failures, SHOW_LONG},
   {"defragment_count",
    (char*) &export_vars.innodb_defragment_count, SHOW_LONG},
+  {"defragment_runtime_pct",
+   (char*) &export_vars.innodb_defragment_runtime_pct, SHOW_LONG},
+  {"defragment_avg_runtime",
+   (char*) &export_vars.innodb_defragment_avg_runtime, SHOW_LONG},
+  {"defragment_avg_idletime",
+   (char*) &export_vars.innodb_defragment_avg_idletime, SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
   {"outstanding_aio_requests",
@@ -11056,8 +11063,7 @@ int
 ha_innobase::defragment_table(
 /*======================*/
 	const char*	name,		/*!< in: table name */
-	const char*	index_name,	/*!< in: index name */
-	bool		async)		/*!< in: whether to wait until finish */
+	const char*	index_name)	/*!< in: index name */
 {
 	char		norm_name[FN_REFLEN];
 	dict_table_t*	table;
@@ -11088,8 +11094,8 @@ ha_innobase::defragment_table(
 			ret = ER_SP_ALREADY_EXISTS;
 			break;
 		}
-		os_event_t event = btr_defragment_add_index(index, async);
-		if (!async && event) {
+		os_event_t event = btr_defragment_add_index(index);
+		if (event) {
 			while(os_event_wait_time(event, 1000000)) {
 				if (thd_killed(current_thd)) {
 					btr_defragment_remove_index(index);
@@ -16361,6 +16367,24 @@ innodb_log_compressed_pages_update(
 
 static
 void
+innodb_defragment_update(
+/*===============================*/
+	THD* thd,  /*!< in: thread handle */
+	struct st_mysql_sys_var* var,  /*!< in: pointer to
+	          system variable */
+	void* var_ptr,/*!< out: where the
+	          formal string goes */
+	const void* save) /*!< in: immediate result
+	          from check function */
+{
+	srv_defragment = (*static_cast<const my_bool*>(save));
+	if (!srv_defragment) {
+		srv_defragment_pause = FALSE;
+	}
+}
+
+static
+void
 innodb_defragment_frequency_update(
 /*===============================*/
 	THD* thd,  /*!< in: thread handle */
@@ -16374,6 +16398,19 @@ innodb_defragment_frequency_update(
 	srv_defragment_frequency = (*static_cast<const uint*>(save));
 	srv_defragment_interval = microseconds_to_my_timer(
 		1000000.0 / srv_defragment_frequency);
+}
+
+static
+void
+innodb_defragment_max_runtime_pct_update(
+/*===============================*/
+  THD* thd,  /*!< in: thread handle */
+  struct st_mysql_sys_var* var,  /*!< in: pointer to system variable */
+  void* var_ptr,/*!< out: where the formal string goes */
+  const void* save) /*!< in: immediate result from check function */
+{
+  const uint pct = (*static_cast<const uint*>(save));
+  srv_defragment_max_runtime_pct = pct > 100 ? 100 : pct;
 }
 
 /****************************************************************//**
@@ -17360,10 +17397,16 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_load_at_startup, srv_buffer_pool_load_at_st
 static MYSQL_SYSVAR_BOOL(defragment, srv_defragment,
   PLUGIN_VAR_RQCMDARG,
   "Enable/disable InnoDB defragmentation. When set to FALSE, all existing "
-  "defragmentation will be paused. And new defragmentation command will fail."
+  "defragmentation will continue, and new defragmentation command will fail.",
+  NULL, innodb_defragment_update, TRUE);
+
+static MYSQL_SYSVAR_BOOL(defragment_pause, srv_defragment_pause,
+  PLUGIN_VAR_RQCMDARG,
+  "Pause InnoDB defragmentation. When set to TRUE, all existing "
+  "defragmentation will be paused, and new defragmentation will queue up."
   "Paused defragmentation commands will resume when this variable is set to "
-  "true again.",
-  NULL, NULL, TRUE);
+  "FALSE again.",
+  NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_UINT(defragment_n_pages, srv_defragment_n_pages,
   PLUGIN_VAR_RQCMDARG,
@@ -17388,7 +17431,17 @@ static MYSQL_SYSVAR_UINT(defragment_frequency, srv_defragment_frequency,
   "time, and put the index back to the queue if not enough time has passed. "
   "The actual frequency can only be lower than this given number.",
   NULL, innodb_defragment_frequency_update,
-  SRV_DEFRAGMENT_FREQUENCY_DEFAULT, 1, 1000, 0);
+  SRV_DEFRAGMENT_FREQUENCY_DEFAULT, 1, 1000000, 0);
+
+static MYSQL_SYSVAR_UINT(defragment_max_runtime_pct,
+  srv_defragment_max_runtime_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "Do not defragment a single index more than this pct of clock time. "
+  "This controls the amount of clock time defrag will consume while starving "
+  "IO to the index under processing. This is achieved by leaving enough gap "
+  "between scheduling of defrag to maintain the runtime percentage",
+  NULL, innodb_defragment_max_runtime_pct_update,
+  SRV_DEFRAGMENT_MAX_RUNTIME_PCT_DEFAULT, 0, 100, 0);
 
 static MYSQL_SYSVAR_UINT(defragment_fill_factor_n_recs,
   srv_defragment_fill_factor_n_recs,
@@ -18003,9 +18056,11 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_load_abort),
   MYSQL_SYSVAR(buffer_pool_load_at_startup),
   MYSQL_SYSVAR(defragment),
+  MYSQL_SYSVAR(defragment_pause),
   MYSQL_SYSVAR(defragment_n_pages),
   MYSQL_SYSVAR(defragment_stats_accuracy),
   MYSQL_SYSVAR(defragment_frequency),
+  MYSQL_SYSVAR(defragment_max_runtime_pct),
   MYSQL_SYSVAR(defragment_fill_factor),
   MYSQL_SYSVAR(defragment_fill_factor_n_recs),
   MYSQL_SYSVAR(lru_scan_depth),

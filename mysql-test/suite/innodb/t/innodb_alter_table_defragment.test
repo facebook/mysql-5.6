@@ -4,6 +4,14 @@
 DROP TABLE if exists t1;
 --enable_warnings
 
+# Suppress the warning as it is expected that
+# dict_stats_process_entry_from_defrag_pool running in the background will
+# increase the table's ref count, which causes the warning during dropping
+# table t1.
+--disable_query_log
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+--enable_query_log
+
 let $page_size = query_get_value(select @@innodb_page_size, @@innodb_page_size, 1);
 
 # Create table.
@@ -200,26 +208,68 @@ connect(con1,localhost,root,,);
 connection con1;
 let $conn_id = `select connection_id()`;
 send alter table t1 defragment;
+
+# Ensure defrag from send command has started before proceeding
+# further in the test.
 connection default;
+let $wait_condition=
+  select count(*) = 1 from information_schema.processlist
+  where info like 'alter%';
+--source include/wait_condition.inc
+
 --replace_result $conn_id ID
 eval kill query $conn_id;
-# Because the defragment query thread wakes up every second to check whether it's killed, there
-# could be a delay from kill command issued to query actually being killed. So we wait a few second
-# to make sure the query should already realize it's been killed.
-select sleep(3);
+
 connection con1;
 --error ER_QUERY_INTERRUPTED
 reap;
 
+# The connection / thread that got ER_QUERY_INTERRUPTED only set a flag
+# in the core of the defrag structures. Removal of the index from those
+# structures happens asychronously, and we're sometimes seeing test failures
+# from Test-6 below because it hasn't happened yet. Since I'm unable to find
+# any status variable to know when the async operation has completed,
+# use the nuclear option of restarting the server.
+--source include/restart_mysqld.inc
 connection default;
-disconnect con1;
-eval set global innodb_defragment_frequency = $orig_frequency;
+--enable_reconnect
+--source include/wait_until_connected_again.inc
+connection con1;
+--enable_reconnect
+--source include/wait_until_connected_again.inc
 
---echo ## Test-6 defragment index already being defragmented.
-alter table t1 defragment index PRIMARY async_commit;
---error ER_SP_ALREADY_EXISTS
+--echo ## Test-6 Defragment when feature enabled but defragmentation is paused
+connection default;
+set @@global.innodb_defragment_pause = true;
+connection con1;
+send alter table t1 defragment;
+
+# Ensure defrag from send command has started before proceeding
+# further in the test.
+connection default;
+let $wait_condition=
+  select count(*) = 1 from information_schema.processlist
+  where info like 'alter%';
+--source include/wait_condition.inc
+select info from information_schema.processlist where info like 'alter%';
+
+set @@global.innodb_defragment_pause = false;
+connection con1;
+reap;
+
+connection default;
+
+--echo ## Test-7 Defragment when feature disabled should return error
+set @my_innodb_defragment = @@global.innodb_defragment;
+set @@global.innodb_defragment = false;
+--error ER_FEATURE_DISABLED
 alter table t1 defragment index PRIMARY;
 
-call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+#
+# clean up
+#
+disconnect con1;
 DROP PROCEDURE defragment;
+set @@global.innodb_defragment = @my_innodb_defragment;
+
 DROP TABLE t1;

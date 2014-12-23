@@ -1,0 +1,18 @@
+SET @orig = @@global.innodb_defragment_pause;
+SELECT @orig;
+@orig
+0
+SET GLOBAL innodb_defragment_pause = OFF;
+SELECT @@global.innodb_defragment_pause;
+@@global.innodb_defragment_pause
+0
+SET GLOBAL innodb_defragment_pause = ON;
+SELECT @@global.innodb_defragment_pause;
+@@global.innodb_defragment_pause
+1
+SET GLOBAL innodb_defragment_pause = 100;
+ERROR 42000: Variable 'innodb_defragment_pause' can't be set to the value of '100'
+SELECT @@global.innodb_defragment_pause;
+@@global.innodb_defragment_pause
+1
+SET GLOBAL innodb_defragment_pause = @orig;

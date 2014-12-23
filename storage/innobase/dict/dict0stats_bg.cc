@@ -66,6 +66,7 @@ typedef recalc_pool_t::iterator	recalc_pool_iterator_t;
 struct defrag_pool_item_t {
 	table_id_t	table_id;
 	index_id_t	index_id;
+	bool		save_summary;
 };
 typedef std::vector<defrag_pool_item_t>	defrag_pool_t;
 static defrag_pool_t			defrag_pool;
@@ -201,7 +202,9 @@ UNIV_INTERN
 void
 dict_stats_defrag_pool_add(
 /*=======================*/
-	const dict_index_t*	index)	/*!< in: table to add */
+	const dict_index_t*	index,		/*!< in: index to add */
+	bool			save_summary)	/*!< in: if true, save
+						defrag summary as well. */
 {
 	defrag_pool_item_t item;
 
@@ -215,6 +218,12 @@ dict_stats_defrag_pool_add(
 	     ++iter) {
 		if ((*iter).table_id == index->table->id
 		    && (*iter).index_id == index->id) {
+			/* If called from defragmentation thread to
+			save defrag summary, overwrite the previous
+			request. */
+			if (save_summary) {
+				(*iter).save_summary = save_summary;
+			}
 			mutex_exit(&defrag_pool_mutex);
 			return;
 		}
@@ -222,6 +231,7 @@ dict_stats_defrag_pool_add(
 
 	item.table_id = index->table->id;
 	item.index_id = index->id;
+	item.save_summary = save_summary;
 	defrag_pool.push_back(item);
 
 	mutex_exit(&defrag_pool_mutex);
@@ -237,9 +247,7 @@ static
 bool
 dict_stats_defrag_pool_get(
 /*=======================*/
-	table_id_t*	table_id,	/*!< out: table id, or unmodified if
-					list is empty */
-	index_id_t*	index_id)	/*!< out: index id, or unmodified if
+	defrag_pool_item_t&	item)	/*!< out: defrag item, or unmodified if
 					list is empty */
 {
 	ut_ad(!srv_read_only_mode);
@@ -251,9 +259,7 @@ dict_stats_defrag_pool_get(
 		return(false);
 	}
 
-	defrag_pool_item_t& item = defrag_pool.back();
-	*table_id = item.table_id;
-	*index_id = item.index_id;
+	item = defrag_pool.back();
 
 	defrag_pool.pop_back();
 
@@ -455,13 +461,12 @@ void
 dict_stats_process_entry_from_defrag_pool()
 /*=======================================*/
 {
-	table_id_t	table_id;
-	index_id_t	index_id;
+	defrag_pool_item_t	item;
 
 	ut_ad(!srv_read_only_mode);
 
 	/* pop the first index from the auto defrag pool */
-	if (!dict_stats_defrag_pool_get(&table_id, &index_id)) {
+	if (!dict_stats_defrag_pool_get(item)) {
 		/* no index in defrag pool */
 		return;
 	}
@@ -472,7 +477,7 @@ dict_stats_process_entry_from_defrag_pool()
 
 	/* If the table is no longer cached, we've already lost the in
 	memory stats so there's nothing really to write to disk. */
-	table = dict_table_open_on_id(table_id, TRUE,
+	table = dict_table_open_on_id(item.table_id, TRUE,
 				      DICT_TABLE_OP_OPEN_ONLY_IF_CACHED);
 
 	if (table == NULL) {
@@ -488,7 +493,8 @@ dict_stats_process_entry_from_defrag_pool()
 	}
 	mutex_exit(&dict_sys->mutex);
 
-	dict_index_t*	index = dict_table_find_index_on_id(table, index_id);
+	dict_index_t*	index = dict_table_find_index_on_id(table,
+							    item.index_id);
 
 	if (index == NULL) {
 		return;
@@ -501,6 +507,9 @@ dict_stats_process_entry_from_defrag_pool()
 	}
 
 	dict_stats_save_defrag_stats(index);
+	if (item.save_summary) {
+		dict_stats_save_defrag_summary(index);
+	}
 	dict_table_close(table, FALSE, FALSE);
 }
 

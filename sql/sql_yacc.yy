@@ -7879,7 +7879,7 @@ index_defragmentation:
         ;
 
 defragment:
-          DEFRAGMENT_SYM index_defragmentation opt_async_commit
+          DEFRAGMENT_SYM index_defragmentation
           {
             THD *thd= YYTHD;
             Lex->m_sql_cmd= new (thd->mem_root)

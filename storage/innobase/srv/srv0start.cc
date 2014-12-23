@@ -63,6 +63,7 @@ Created 2/16/1996 Heikki Tuuri
 #include "trx0sys.h"
 #include "btr0btr.h"
 #include "btr0cur.h"
+#include "btr0defragment.h"
 #include "rem0rec.h"
 #include "ibuf0ibuf.h"
 #include "srv0start.h"
@@ -1842,7 +1843,7 @@ innobase_start_or_create_for_mysql(void)
 
 	srv_boot();
 
-	/* Initialize online defragmentation mutex. */
+	/* Initialize online defragmentation mutex only. */
 	btr_defragment_init_mutex();
 
 	ib_logf(IB_LOG_LEVEL_INFO,
