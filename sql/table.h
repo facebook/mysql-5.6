@@ -757,6 +757,9 @@ struct TABLE_SHARE
   const File_parser *view_def;
 
 
+  // If true, column names for this table are logged in Table_map_log_events
+  bool rbr_column_names;
+
   /*
     Set share's table cache key and update its db and table name appropriately.
 

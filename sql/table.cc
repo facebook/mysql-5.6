@@ -1072,6 +1072,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
     share->null_field_first= 1;
     share->stats_sample_pages= uint2korr(head+42);
     share->stats_auto_recalc= static_cast<enum_stats_auto_recalc>(head[44]);
+    share->rbr_column_names = head[45] & 0x80 ? true : false;
   }
   if (!share->table_charset)
   {
@@ -3030,8 +3031,7 @@ File create_frm(THD *thd, const char *name, const char *db,
     int2store(fileinfo+42, create_info->stats_sample_pages & 0xffff);
     fileinfo[44]= (uchar) create_info->stats_auto_recalc;
     fileinfo[45]= 0;
-    fileinfo[46]= (uchar) (create_info->compression_flags > 0xff
-                            ? 0 : create_info->compression_flags);
+    fileinfo[45] |= (create_info->rbr_column_names) ? 0x80 : 0;
     int4store(fileinfo+47, key_length);
     tmp= MYSQL_VERSION_ID;          // Store to avoid warning from int4store
     int4store(fileinfo+51, tmp);
@@ -3081,6 +3081,7 @@ void update_create_info_from_table(HA_CREATE_INFO *create_info, TABLE *table)
   create_info->comment= share->comment;
   create_info->storage_media= share->default_storage_media;
   create_info->tablespace= share->tablespace;
+  create_info->rbr_column_names = share->rbr_column_names;
 
   DBUG_VOID_RETURN;
 }

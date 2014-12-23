@@ -1543,6 +1543,7 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
   create_info.row_type= share->row_type;
   create_info.compression_flags = share->compression_flags;
   create_info.compression = share->compression_type;
+  create_info.rbr_column_names = share->rbr_column_names;
   file->update_create_info(&create_info);
   primary_key= share->primary_key;
 
@@ -1771,6 +1772,9 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       end= longlong10_to_str(create_info.compression_flags, buff, 10);
       packet->append(buff, (uint) (end - buff));
     }
+    if (create_info.rbr_column_names)
+      packet->append(STRING_WITH_LEN(" RBR_COLUMN_NAMES=1"));
+
     table->file->append_create_info(packet);
     if (share->comment.length)
     {

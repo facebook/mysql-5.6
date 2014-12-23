@@ -1517,6 +1517,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  QUICK
 %token  QUICKLZ_SYM
 %token  RANGE_SYM                     /* SQL-2003-R */
+%token  RBR_COLUMN_NAMES_SYM
 %token  READS_SYM                     /* SQL-2003-R */
 %token  READ_ONLY_SYM
 %token  READ_SYM                      /* SQL-2003-N */
@@ -6279,6 +6280,12 @@ create_table_option:
           {
             Lex->create_info.used_fields|= HA_CREATE_USED_COMPRESSION_FLAGS;
             Lex->create_info.compression_flags= $3;
+          }
+        | RBR_COLUMN_NAMES_SYM opt_equal ulong_num
+          {
+            Lex->create_info.used_fields |= HA_CREATE_USED_RBR_COLUMN_NAMES;
+            Lex->create_info.rbr_column_names = $3 ? true : false;
+            Lex->alter_info.flags |= Alter_info::ALTER_RBR_COLUMN_NAMES;
           }
         ;
 
