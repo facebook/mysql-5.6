@@ -5793,6 +5793,8 @@ static bool fill_alter_inplace_info(THD *thd,
   /* Check for: ALTER TABLE FORCE, ALTER TABLE ENGINE and OPTIMIZE TABLE. */
   if (alter_info->flags & Alter_info::ALTER_RECREATE)
     ha_alter_info->handler_flags|= Alter_inplace_info::RECREATE_TABLE;
+  if (alter_info->flags & Alter_info::ALTER_RBR_COLUMN_NAMES)
+    ha_alter_info->handler_flags |= Alter_info::ALTER_RBR_COLUMN_NAMES;
 
   /*
     If we altering table with old VARCHAR fields we will be automatically
@@ -7012,7 +7014,7 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   List<Key_part_spec> key_parts;
   uint db_create_options= (table->s->db_create_options
                            & ~(HA_OPTION_PACK_RECORD));
-  uint used_fields= create_info->used_fields;
+  ulong used_fields= create_info->used_fields;
   KEY *key_info=table->key_info;
   List_iterator<Key> new_key_iterator;
   Key *key_element;
@@ -7041,6 +7043,9 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   }
   if (!(used_fields & HA_CREATE_USED_KEY_BLOCK_SIZE))
     create_info->key_block_size= table->s->key_block_size;
+
+  if (!(used_fields & HA_CREATE_USED_RBR_COLUMN_NAMES))
+    create_info->rbr_column_names = table->s->rbr_column_names;
 
   if (!(used_fields & HA_CREATE_USED_STATS_SAMPLE_PAGES))
     create_info->stats_sample_pages= table->s->stats_sample_pages;

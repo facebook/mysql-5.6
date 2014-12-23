@@ -242,7 +242,8 @@ public:
     @param null_bitmap The bitmap of fields that can be null
    */
   table_def(unsigned char *types, ulong size, uchar *field_metadata,
-            int metadata_size, uchar *null_bitmap, uint16 flags);
+            int metadata_size, uchar *null_bitmap, uint16 flags,
+            const uchar* column_names);
 
   ~table_def();
 
@@ -402,6 +403,20 @@ public:
    thread's memroot, NULL if the table could not be created
    */
   TABLE *create_conversion_table(THD *thd, Relay_log_info *rli, TABLE *target_table) const;
+
+  bool have_column_names() const
+  {
+    return m_column_names.elements != 0;
+  }
+
+  const char* get_column_name(uint index) const
+  {
+    if (index >= m_column_names.elements)
+      return 0;
+    char **str = dynamic_element(&m_column_names, index, char**);
+    return *str;
+  }
+
 #endif
 
 
@@ -413,6 +428,9 @@ private:
   uchar *m_null_bits;
   uint16 m_flags;         // Table flags
   uchar *m_memory;
+#ifdef MYSQL_SERVER
+  DYNAMIC_ARRAY m_column_names;
+#endif /* MYSQL_SERVER */
 };
 
 
