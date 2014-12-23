@@ -465,6 +465,7 @@ static SYMBOL symbols[] = {
   { "QUICK",	        SYM(QUICK)},
   { "QUICKLZ", SYM(QUICKLZ_SYM)},
   { "RANGE",            SYM(RANGE_SYM)},
+  { "RBR_COLUMN_NAMES", SYM(RBR_COLUMN_NAMES_SYM)},
   { "READ",		SYM(READ_SYM)},
   { "READ_ONLY",	SYM(READ_ONLY_SYM)},
   { "READ_WRITE",	SYM(READ_WRITE_SYM)},
