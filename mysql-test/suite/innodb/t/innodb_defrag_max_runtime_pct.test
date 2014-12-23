@@ -1,0 +1,87 @@
+# Note: There is an implicit assumption that the timers won't be delayed too
+# much. The conditions has to be relaxed if this test gets noisy.
+
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256), KEY SECOND(a, b)) ENGINE=INNODB;
+
+#
+# Test 0% runtime
+#
+--source include/restart_mysqld.inc
+
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 0;
+
+--let $send =1
+--source suite/innodb/include/innodb_defrag_max_runtime_pct_defrag_table.inc
+
+--sleep 1
+
+connect(conn,127.0.0.1,root);
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value = 0;
+SET GLOBAL innodb_defragment_max_runtime_pct = 100;
+
+connection default;
+reap;
+disconnect conn;
+
+#
+# Test 100% runtime
+#
+--source include/restart_mysqld.inc
+
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 100;
+
+--let $send =0
+--source suite/innodb/include/innodb_defrag_max_runtime_pct_defrag_table.inc
+
+--replace_column 2 <pct>
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 90;
+
+#
+# Test 90%
+#
+--source include/restart_mysqld.inc
+
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 90;
+
+--let $send =0
+--source suite/innodb/include/innodb_defrag_max_runtime_pct_defrag_table.inc
+
+--replace_column 2 <pct>
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 80 and Value < 100;
+
+#
+# Test 50% runtime
+#
+--source include/restart_mysqld.inc
+
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 50;
+
+--let $send =0
+--source suite/innodb/include/innodb_defrag_max_runtime_pct_defrag_table.inc
+
+--replace_column 2 <pct>
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 40 and Value < 60;
+
+#
+# Test 10% runtime
+#
+--source include/restart_mysqld.inc
+
+SET GLOBAL innodb_defragment_frequency = 1000000;
+SET GLOBAL innodb_defragment_max_runtime_pct = 10;
+
+--let $send =0
+--source suite/innodb/include/innodb_defrag_max_runtime_pct_defrag_table.inc
+
+--replace_column 2 <pct>
+SHOW STATUS where Variable_name like 'Innodb_defragment_runtime_pct' and Value > 0 and Value < 20;
+
+#
+# Cleanup
+#
+--source include/restart_mysqld.inc
+drop table t1;

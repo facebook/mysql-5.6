@@ -10,9 +10,17 @@ SET GLOBAL innodb_defragment = ON;
 SELECT @@global.innodb_defragment;
 @@global.innodb_defragment
 1
+SET GLOBAL innodb_defragment_pause = ON;
+SELECT @@global.innodb_defragment_pause;
+@@global.innodb_defragment_pause
+1
+SET GLOBAL innodb_defragment = OFF;
+SELECT @@global.innodb_defragment_pause;
+@@global.innodb_defragment_pause
+0
 SET GLOBAL innodb_defragment = 100;
 ERROR 42000: Variable 'innodb_defragment' can't be set to the value of '100'
 SELECT @@global.innodb_defragment;
 @@global.innodb_defragment
-1
+0
 SET GLOBAL innodb_defragment = @orig;
