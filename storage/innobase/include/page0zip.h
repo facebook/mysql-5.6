@@ -35,13 +35,11 @@ Created June 2005 by Marko Makela
 
 #include "page0types.h"
 #include "buf0types.h"
-#ifndef UNIV_INNOCHECKSUM
 #include "mtr0types.h"
 #include "dict0types.h"
 #include "srv0srv.h"
 #include "trx0types.h"
 #include "mem0mem.h"
-#endif /* !UNIV_INNOCHECKSUM */
 
 /* Below macros are used to calculate the memory requirement for zlib's
 compression/decompression streams */
@@ -54,12 +52,10 @@ compression/decompression streams */
 /* Compression level to be used by zlib. Settable by user. */
 extern uint	page_zip_level;
 
-#ifndef UNIV_INNOCHECKSUM
 extern ulint	malloc_cache_compress_len;
 extern ulint	malloc_cache_decompress_len;
 extern mem_block_cache_t*	malloc_cache_compress;
 extern mem_block_cache_t*	malloc_cache_decompress;
-#endif /* !UNIV_INNOCHECKSUM */
 
 
 /* Calculates block size as an upper bound required for memory, used for
@@ -85,7 +81,6 @@ extern my_bool page_zip_zlib_wrap;
 extern uint page_zip_zlib_strategy;
 extern my_bool page_zip_debug;
 
-#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Determine the size of a compressed page in bytes.
 @return	size in bytes */
@@ -152,7 +147,6 @@ page_zip_set_alloc(
 /*===============*/
 	void*		stream,		/*!< in/out: zlib stream */
 	mem_heap_t*	heap);		/*!< in: memory heap to use */
-#endif /* !UNIV_INNOCHECKSUM */
 
 /**********************************************************************//**
 Compress a page.
@@ -187,7 +181,6 @@ page_zip_decompress(
 					FALSE=verify but do not copy some
 					page header fields that should not
 					change after page creation */
-#ifndef UNIV_INNOCHECKSUM
 	ulint		space_id,	/*!< in: table space id */
 	ulint		fsp_flags,	/*!< in: used to compute compression
 					type and flags. If this is
@@ -202,9 +195,6 @@ page_zip_decompress(
 					that's created by this function. The
 					caller is responsible for calling
 					dict_index_mem_free().*/
-#else
-	ulint		space_id)	/*!< in: table space id */
-#endif
 	__attribute__((nonnull(1,2)));
 
 #ifdef UNIV_DEBUG
@@ -243,7 +233,6 @@ page_zip_validate(
 	const dict_index_t*	index)	/*!< in: index of the page, if known */
 	__attribute__((nonnull(1,2)));
 
-#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Determine how big record can be inserted without recompressing the page.
 @return a positive number indicating the maximum size of a record
@@ -425,7 +414,6 @@ page_zip_reorganize(
 	dict_index_t*	index,	/*!< in: index of the B-tree node */
 	mtr_t*		mtr)	/*!< in: mini-transaction */
 	__attribute__((nonnull));
-#endif /* !UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
@@ -448,30 +436,6 @@ page_zip_copy_recs(
 	__attribute__((nonnull));
 #endif /* !UNIV_HOTBACKUP */
 
-/**********************************************************************//**
-Calculate the compressed page checksum.
-@return	page checksum */
-UNIV_INTERN
-ulint
-page_zip_calc_checksum(
-/*===================*/
-        const void*     data,   /*!< in: compressed page */
-        ulint           size,   /*!< in: size of compressed page */
-	srv_checksum_algorithm_t algo) /*!< in: algorithm to use */
-	__attribute__((nonnull));
-
-/**********************************************************************//**
-Verify a compressed page's checksum.
-@return	TRUE if the stored checksum is valid according to the value of
-innodb_checksum_algorithm */
-UNIV_INTERN
-ibool
-page_zip_verify_checksum(
-/*=====================*/
-	const void*	data,	/*!< in: compressed page */
-	ulint		size);	/*!< in: size of compressed page */
-
-#ifndef UNIV_INNOCHECKSUM
 /**********************************************************************//**
 Write a log record of compressing an index page without the data on the page. */
 UNIV_INLINE
@@ -519,7 +483,6 @@ void
 page_zip_reset_stat_per_index();
 /*===========================*/
 
-#endif /* !UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
 /** Check if a pointer to an uncompressed page matches a compressed page.
@@ -546,10 +509,8 @@ from outside the buffer pool.
 # define UNIV_INLINE	UNIV_INLINE_ORIGINAL
 #endif
 
-#ifndef UNIV_INNOCHECKSUM
 #ifndef UNIV_NONINL
 # include "page0zip.ic"
 #endif
-#endif /* !UNIV_INNOCHECKSUM */
 
 #endif /* page0zip_h */
