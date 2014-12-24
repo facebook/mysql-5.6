@@ -37,8 +37,6 @@ using namespace std;
 #endif
 #undef THIS_MODULE
 #include "fil0fil.h"
-#include "buf0checksum.h"
-#ifndef UNIV_INNOCHECKSUM
 #include "fsp0fsp.h"
 #include "page0page.h"
 #include "page0zip_helper.h"
@@ -48,11 +46,9 @@ using namespace std;
 #include "dict0dict.h"
 #include "btr0cur.h"
 #include "log0recv.h"
-#endif /* !UNIV_INNOCHECKSUM */
 #include "ut0sort.h"
 #include "page0types.h"
 #ifndef UNIV_HOTBACKUP
-#ifndef UNIV_INNOCHECKSUM
 # include "buf0buf.h"
 # include "btr0sea.h"
 # include "dict0boot.h"
@@ -60,23 +56,17 @@ using namespace std;
 # include "srv0srv.h"
 # include "zlib_embedded/zlib.h"
 # include "comp0comp.h"
-#endif /* !UNIV_INNOCHECKSUM */
 # include "buf0lru.h"
 # include "srv0mon.h"
-# include "ut0crc32.h"
 #else /* !UNIV_HOTBACKUP */
 # define lock_move_reorganize_page(block, temp_block)	((void) 0)
 # define buf_LRU_stat_inc_unzip()			((void) 0)
 #endif /* !UNIV_HOTBACKUP */
 #include "blind_fwrite.h"
 
-#ifdef UNIV_INNOCHECKSUM
 #include "mach0data.h"
-#include "zlib.h"
-#endif /* UNIV_INNOCHECKSUM */
 
 #ifndef UNIV_HOTBACKUP
-#ifndef UNIV_INNOCHECKSUM
 /** Statistics on compression, indexed by page_zip_des_t::ssize - 1 */
 UNIV_INTERN page_zip_stat_t		page_zip_stat[PAGE_ZIP_SSIZE_MAX];
 /** Statistics on compression, indexed by index->id */
@@ -86,7 +76,6 @@ UNIV_INTERN ib_mutex_t			page_zip_stat_per_index_mutex;
 #ifdef HAVE_PSI_INTERFACE
 UNIV_INTERN mysql_pfs_key_t		page_zip_stat_per_index_mutex_key;
 #endif /* HAVE_PSI_INTERFACE */
-#endif /* !UNIV_INNOCHECKSUM */
 #endif /* !UNIV_HOTBACKUP */
 
 /* Compression level to be used by zlib. Settable by user. */
@@ -124,7 +113,6 @@ static const byte supremum_extra_data[] = {
 	0x65, 0x6d, 0x75, 0x6d	/* "supremum" */
 };
 
-#ifndef UNIV_INNOCHECKSUM
 #ifndef UNIV_HOTBACKUP
 /**********************************************************************//**
 Determine the guaranteed free space on an empty page.
@@ -5282,145 +5270,3 @@ page_zip_copy_recs(
 	page_zip_compress_write_log(page_zip, page, index, mtr);
 }
 #endif /* !UNIV_HOTBACKUP */
-#endif /* !UNIV_INNOCHECKSUM */
-
-/**********************************************************************//**
-Calculate the compressed page checksum.
-@return	page checksum */
-UNIV_INTERN
-ulint
-page_zip_calc_checksum(
-/*===================*/
-	const void*	data,	/*!< in: compressed page */
-	ulint		size,	/*!< in: size of compressed page */
-	srv_checksum_algorithm_t algo) /*!< in: algorithm to use */
-{
-	uLong		adler;
-	ib_uint32_t	crc32;
-	const Bytef*	s = static_cast<const byte*>(data);
-
-	/* Exclude FIL_PAGE_SPACE_OR_CHKSUM, FIL_PAGE_LSN,
-	and FIL_PAGE_FILE_FLUSH_LSN from the checksum. */
-
-	switch (algo) {
-	case SRV_CHECKSUM_ALGORITHM_CRC32:
-	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
-	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
-
-		ut_ad(size > FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-
-		crc32 = ut_crc32(s + FIL_PAGE_OFFSET,
-				 FIL_PAGE_LSN - FIL_PAGE_OFFSET)
-			^ ut_crc32(s + FIL_PAGE_TYPE, 2)
-			^ ut_crc32(s + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID,
-				   size - FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-
-		return((ulint) crc32);
-	case SRV_CHECKSUM_ALGORITHM_INNODB:
-	case SRV_CHECKSUM_ALGORITHM_STRICT_INNODB:
-		ut_ad(size > FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-
-		adler = adler32(0L, s + FIL_PAGE_OFFSET,
-				FIL_PAGE_LSN - FIL_PAGE_OFFSET);
-		adler = adler32(adler, s + FIL_PAGE_TYPE, 2);
-		adler = adler32(
-			adler, s + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID,
-			static_cast<uInt>(size)
-			- FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
-
-		return((ulint) adler);
-	case SRV_CHECKSUM_ALGORITHM_NONE:
-	case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
-		return(BUF_NO_CHECKSUM_MAGIC);
-	/* no default so the compiler will emit a warning if new enum
-	is added and not handled here */
-	}
-
-	ut_error;
-	return(0);
-}
-
-/**********************************************************************//**
-Verify a compressed page's checksum.
-@return	TRUE if the stored checksum is valid according to the value of
-innodb_checksum_algorithm */
-UNIV_INTERN
-ibool
-page_zip_verify_checksum(
-/*=====================*/
-	const void*	data,	/*!< in: compressed page */
-	ulint		size)	/*!< in: size of compressed page */
-{
-	ib_uint32_t	stored;
-	ib_uint32_t	calc;
-	ib_uint32_t	crc32 = 0 /* silence bogus warning */;
-	ib_uint32_t	innodb = 0 /* silence bogus warning */;
-
-	stored = static_cast<ib_uint32_t>(mach_read_from_4(
-		static_cast<const unsigned char*>(data) + FIL_PAGE_SPACE_OR_CHKSUM));
-
-#if FIL_PAGE_LSN % 8
-#error "FIL_PAGE_LSN must be 64 bit aligned"
-#endif
-
-#ifndef UNIV_INNOCHECKSUM
-	/* innochecksum doesn't compile with ut_d. Since we don't
-	need to check for empty pages when running innochecksum,
-	just don't include this code. */
-	/* Check if page is empty */
-	if (stored == 0
-	    && *reinterpret_cast<const ib_uint64_t*>(static_cast<const char*>(
-		data)
-		+ FIL_PAGE_LSN) == 0) {
-		/* make sure that the page is really empty */
-		ulint i;
-		for (i = 0; i < size; i++) {
-			if (*((const char*) data + i) != 0) {
-				return(FALSE);
-			}
-		}
-		/* Empty page */
-		return(TRUE);
-	}
-#endif
-
-	calc = static_cast<ib_uint32_t>(page_zip_calc_checksum(
-		data, size, static_cast<srv_checksum_algorithm_t>(
-			srv_checksum_algorithm)));
-
-	if (stored == calc) {
-		return(TRUE);
-	}
-
-	switch ((srv_checksum_algorithm_t) srv_checksum_algorithm) {
-	case SRV_CHECKSUM_ALGORITHM_STRICT_CRC32:
-	case SRV_CHECKSUM_ALGORITHM_STRICT_INNODB:
-	case SRV_CHECKSUM_ALGORITHM_STRICT_NONE:
-		return(stored == calc);
-	case SRV_CHECKSUM_ALGORITHM_CRC32:
-	case SRV_CHECKSUM_ALGORITHM_FACEBOOK:
-		/* Facebook and crc32 can also accept an innodb-style
-		 * checksum (aka adler32) */
-		if (stored == BUF_NO_CHECKSUM_MAGIC) {
-			return(TRUE);
-		}
-		crc32 = calc;
-		innodb = static_cast<ib_uint32_t>(page_zip_calc_checksum(
-			data, size, SRV_CHECKSUM_ALGORITHM_INNODB));
-		break;
-	case SRV_CHECKSUM_ALGORITHM_INNODB:
-		if (stored == BUF_NO_CHECKSUM_MAGIC) {
-			return(TRUE);
-		}
-		crc32 = static_cast<ib_uint32_t>(page_zip_calc_checksum(
-			data, size, SRV_CHECKSUM_ALGORITHM_CRC32));
-		innodb = calc;
-		break;
-	case SRV_CHECKSUM_ALGORITHM_NONE:
-		return(TRUE);
-	/* no default so the compiler will emit a warning if new enum
-	is added and not handled here */
-	}
-
-	return(stored == crc32 || stored == innodb);
-}
