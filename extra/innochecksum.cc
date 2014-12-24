@@ -58,7 +58,7 @@ The parts not included are excluded by #ifndef UNIV_INNOCHECKSUM. */
 #include "buf0checksum.h"        /* buf_calc_page_*() */
 #include "fil0fil.h"             /* FIL_* */
 #include "page0page.h"           /* PAGE_* */
-#include "page0zip.h"            /* page_zip_*() */
+#include "page0zip_checksum.h"   /* page_zip_*() */
 #include "trx0undo.h"            /* TRX_* */
 #include "fsp0fsp.h"             /* fsp_flags_get_page_size() &
                                     fsp_flags_get_zip_size() */
