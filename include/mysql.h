@@ -182,7 +182,8 @@ enum mysql_option
   MYSQL_OPT_CONNECT_TIMEOUT_MS,
   MYSQL_OPT_READ_TIMEOUT_MS,
   MYSQL_OPT_WRITE_TIMEOUT_MS,
-  MYSQL_OPT_SSL_SESSION
+  MYSQL_OPT_SSL_SESSION,
+  MYSQL_OPT_SSL_CONTEXT
 };
 
 /**
@@ -519,6 +520,18 @@ my_bool		STDCALL mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
 							      size_t subject_buflen,
 							      char* issuer_buf,
 							      size_t issuer_buflen);
+/* Take ownership of the OpenSSL SSL_CTX instance associated with this
+ * connection.  In general, SSL_CTX objects should be re-used.  Either
+ * one can be taken from an existing connection or created by hand (in
+ * which case the mysql SSL options such as MYSQL_OPT_SSL_KEY are
+ * ignored since they influence the SSL_CTX object).  If you are using
+ * yassl, just stop and switch to OpenSSL.
+ *
+ * The caller is responsible for freeing this via SSL_CTX_free.  Note
+ * that this is a void* strictly to avoid including SSL headers in
+ * this file.
+ */
+void *          STDCALL mysql_take_ssl_context_ownership(MYSQL *mysql);
 my_bool		STDCALL mysql_change_user(MYSQL *mysql, const char *user, 
 					  const char *passwd, const char *db);
 MYSQL *		STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
