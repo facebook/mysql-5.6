@@ -42,6 +42,10 @@
 #include <signal.h>
 #include <violite.h>
 
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#include <openssl/ssl.h>
+#endif
+
 #include <algorithm>
 
 using std::min;
@@ -1395,10 +1399,14 @@ int main(int argc,char *argv[])
   if (opt_outfile)
     end_tee();
   mysql_end(0);
+
 #ifndef _lint
   DBUG_RETURN(0);				// Keep compiler happy
 #endif
 }
+
+/* The SSL context that will be reused across invocations. */
+static void* ssl_context;
 
 sig_handler mysql_end(int sig)
 {
@@ -1457,6 +1465,9 @@ sig_handler mysql_end(int sig)
   mysql_server_end();
   free_defaults(defaults_argv);
   my_end(my_end_arg);
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  SSL_CTX_free((SSL_CTX*)ssl_context);
+#endif
   exit(status.exit_status);
 }
 
@@ -4761,6 +4772,9 @@ sql_real_connect(char *host,char *database,char *user,char *password,
       mysql_options4(&mysql, MYSQL_OPT_SSL_SESSION,
                      ssl_session_buffer, (void*)ssl_session_len);
     }
+    if (ssl_context) {
+      mysql_options(&mysql, MYSQL_OPT_SSL_CONTEXT, ssl_context);
+    }
   }
   mysql_options(&mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
                 (char*)&opt_ssl_verify_server_cert);
@@ -4844,6 +4858,7 @@ sql_real_connect(char *host,char *database,char *user,char *password,
     DBUG_PRINT("error", ("unable to save SSL session buffer, ret: %ld",
                          ssl_session_len));
   }
+  ssl_context = mysql_take_ssl_context_ownership(&mysql);
 
 #ifdef __WIN__
   /* Convert --execute buffer from UTF8MB4 to connection character set */
