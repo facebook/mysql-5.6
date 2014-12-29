@@ -5005,7 +5005,7 @@ void end_ssl()
 #ifndef EMBEDDED_LIBRARY
   if (ssl_acceptor_fd)
   {
-    free_vio_ssl_acceptor_fd(ssl_acceptor_fd);
+    free_vio_ssl_fd(ssl_acceptor_fd);
     ssl_acceptor_fd= 0;
   }
   have_ssl = SHOW_OPTION_DISABLED;
