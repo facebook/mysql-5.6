@@ -5008,6 +5008,7 @@ bool open_tables(THD *thd, TABLE_LIST **start, uint *counter, uint flags,
   bool error= FALSE;
   bool some_routine_modifies_data= FALSE;
   bool has_prelocking_list;
+  const char *prev_proc_info= thd->proc_info;
   DBUG_ENTER("open_tables");
 
   /* Accessing data in XA_IDLE or XA_PREPARED is not allowed. */
@@ -5269,6 +5270,8 @@ err:
   {
     (*table_to_open)->table= NULL;
   }
+
+  thd->proc_info= prev_proc_info;
   DBUG_PRINT("open_tables", ("returning: %d", (int) error));
   DBUG_RETURN(error);
 }
