@@ -40,6 +40,7 @@ struct st_mysql_options_extention {
   my_bool enable_cleartext_plugin;
   unsigned char *ssl_session_data;              /* serialized ssl session */
   long ssl_session_length;                      /* length of said session */
+  void* ssl_context;
 };
 
 typedef struct st_mysql_methods
