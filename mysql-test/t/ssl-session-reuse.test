@@ -1,0 +1,12 @@
+# This test should work in embedded server after we fix mysqltest
+-- source include/not_embedded.inc
+-- source include/have_ssl_communication.inc
+-- source include/have_openssl.inc
+
+--echo # test ssl session reuse
+--replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+
+# check ssl connection then reconnect and check that ssl session was reused (ssl_sessions_reused=1 after reconnect)
+let $commands="SHOW VARIABLES like 'ssl'; SHOW STATUS like 'ssl_sessions_reused'; connect; SHOW VARIABLES like 'ssl'; SHOW STATUS like 'ssl_sessions_reused';";
+
+--exec echo $commands | $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/cacert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/client-cert.pem 
