@@ -17,9 +17,6 @@
 
 #ifdef HAVE_OPENSSL
 
-static my_bool     ssl_algorithms_added    = FALSE;
-static my_bool     ssl_error_strings_loaded= FALSE;
-
 static unsigned char dh512_p[]=
 {
   0xDA,0x58,0x3C,0x16,0xD9,0x85,0x22,0x89,0xD0,0xE4,0xAF,0x75,
@@ -146,22 +143,23 @@ vio_set_cert_stuff(SSL_CTX *ctx, const char *cert_file, const char *key_file,
   DBUG_RETURN(0);
 }
 
+pthread_mutex_t ssl_init_mutex = PTHREAD_MUTEX_INITIALIZER;
+static my_bool ssl_initialized = FALSE;
 
 void ssl_start()
 {
-  if (!ssl_algorithms_added)
-  {
-    ssl_algorithms_added= TRUE;
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
-
+  pthread_mutex_lock(&ssl_init_mutex);
+  if (ssl_initialized) {
+    pthread_mutex_unlock(&ssl_init_mutex);
+    return;
   }
 
-  if (!ssl_error_strings_loaded)
-  {
-    ssl_error_strings_loaded= TRUE;
-    SSL_load_error_strings();
-  }
+  SSL_library_init();
+  OpenSSL_add_all_algorithms();
+  SSL_load_error_strings();
+
+  ssl_initialized = TRUE;
+  pthread_mutex_unlock(&ssl_init_mutex);
 }
 
 /************************ VioSSLFd **********************************/
