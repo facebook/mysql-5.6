@@ -2156,10 +2156,11 @@ mysql_ssl_free(MYSQL *mysql __attribute__((unused)))
     my_free(mysql->options.extension->ssl_crl);
     my_free(mysql->options.extension->ssl_crlpath);
     my_free(mysql->options.extension->ssl_session_data);
+    mysql->options.extension->ssl_context = NULL;
   }
-  if (ssl_fd)
-    SSL_CTX_free(ssl_fd->ssl_context);
-  my_free(mysql->connector_fd);
+  if (ssl_fd) {
+    free_vio_ssl_fd(ssl_fd);
+  }
   mysql->options.ssl_key = 0;
   mysql->options.ssl_cert = 0;
   mysql->options.ssl_ca = 0;
@@ -2226,6 +2227,19 @@ mysql_get_ssl_session(MYSQL* mysql __attribute__((unused)),
   }
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
   DBUG_VOID_RETURN;
+}
+
+void* STDCALL
+mysql_take_ssl_context_ownership(MYSQL* mysql __attribute__((unused))) {
+  DBUG_ENTER("mysql_take_ssl_context_ownership");
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  if (mysql->connector_fd) {
+    struct st_VioSSLFd *ssl_fd= (struct st_VioSSLFd*) mysql->connector_fd;
+    ssl_fd->owned = FALSE;
+    DBUG_RETURN(ssl_fd->ssl_context);
+  }
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
+  DBUG_RETURN(NULL);
 }
 
 my_bool STDCALL
@@ -3096,7 +3110,8 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
       mysql->options.ssl_ca || mysql->options.ssl_capath ||
       mysql->options.ssl_cipher ||
       (mysql->options.extension && mysql->options.extension->ssl_crl) || 
-      (mysql->options.extension && mysql->options.extension->ssl_crlpath))
+      (mysql->options.extension && mysql->options.extension->ssl_crlpath) ||
+      (mysql->options.extension && mysql->options.extension->ssl_context))
     mysql->options.use_ssl= 1;
   if (mysql->options.use_ssl)
     mysql->client_flag|= CLIENT_SSL;
@@ -3154,17 +3169,22 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
     }
 
     /* Create the VioSSLConnectorFd - init SSL and load certs */
-    if (!(ssl_fd= new_VioSSLConnectorFd(options->ssl_key,
-                                        options->ssl_cert,
-                                        options->ssl_ca,
-                                        options->ssl_capath,
-                                        options->ssl_cipher,
-                                        &ssl_init_error,
-                                        options->extension ? 
-                                        options->extension->ssl_crl : NULL,
-                                        options->extension ? 
-                                        options->extension->ssl_crlpath : NULL)))
-    {
+    if (options->extension && options->extension->ssl_context) {
+      ssl_fd= new_VioSSLConnectorFdFromContext(options->extension->ssl_context,
+                                               &ssl_init_error);
+    } else {
+      ssl_fd= new_VioSSLConnectorFd(options->ssl_key,
+                                    options->ssl_cert,
+                                    options->ssl_ca,
+                                    options->ssl_capath,
+                                    options->ssl_cipher,
+                                    &ssl_init_error,
+                                    options->extension ?
+                                    options->extension->ssl_crl : NULL,
+                                    options->extension ?
+                                    options->extension->ssl_crlpath : NULL);
+    }
+    if (!ssl_fd) {
       set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
                                ER(CR_SSL_CONNECTION_ERROR), sslGetErrString(ssl_init_error));
       goto error;
@@ -6016,6 +6036,10 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
   case MYSQL_OPT_SSL_CRL:      EXTENSION_SET_SSL_STRING(&mysql->options,
                                                         ssl_crl, arg);
                                break;
+  case MYSQL_OPT_SSL_CONTEXT:
+    ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+    mysql->options.extension->ssl_context = (void*)arg;
+    break;
   case MYSQL_OPT_SSL_CRLPATH:  EXTENSION_SET_SSL_STRING(&mysql->options,
                                                         ssl_crlpath, arg);
                                break;

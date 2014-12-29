@@ -220,6 +220,7 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
   if (!(ssl_fd= ((struct st_VioSSLFd*)
                  my_malloc(sizeof(struct st_VioSSLFd),MYF(0)))))
     DBUG_RETURN(0);
+  ssl_fd->owned = TRUE;
 
   if (!(ssl_fd->ssl_context= SSL_CTX_new(is_client ?
                                          TLSv1_client_method() :
@@ -245,8 +246,7 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
     *error= SSL_INITERR_CIPHERS;
     DBUG_PRINT("error", ("%s", sslGetErrString(*error)));
     report_errors();
-    SSL_CTX_free(ssl_fd->ssl_context);
-    my_free(ssl_fd);
+    free_vio_ssl_fd(ssl_fd);
     DBUG_RETURN(0);
   }
 
@@ -265,8 +265,7 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
       DBUG_PRINT("error", ("SSL_CTX_load_verify_locations failed : %s", 
                  sslGetErrString(*error)));
       report_errors();
-      SSL_CTX_free(ssl_fd->ssl_context);
-      my_free(ssl_fd);
+      free_vio_ssl_fd(ssl_fd);
       DBUG_RETURN(0);
     }
 
@@ -276,8 +275,7 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
       *error= SSL_INITERR_BAD_PATHS;
       DBUG_PRINT("error", ("%s", sslGetErrString(*error)));
       report_errors();
-      SSL_CTX_free(ssl_fd->ssl_context);
-      my_free(ssl_fd);
+      free_vio_ssl_fd(ssl_fd);
       DBUG_RETURN(0);
     }
   }
@@ -303,8 +301,7 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
       *error= SSL_INITERR_BAD_PATHS;
       DBUG_PRINT("error", ("%s", sslGetErrString(*error)));
       report_errors();
-      SSL_CTX_free(ssl_fd->ssl_context);
-      my_free(ssl_fd);
+      free_vio_ssl_fd(ssl_fd);
       DBUG_RETURN(0);
     }
 #endif
@@ -314,8 +311,7 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
   {
     DBUG_PRINT("error", ("vio_set_cert_stuff failed"));
     report_errors();
-    SSL_CTX_free(ssl_fd->ssl_context);
-    my_free(ssl_fd);
+    free_vio_ssl_fd(ssl_fd);
     DBUG_RETURN(0);
   }
 
@@ -371,6 +367,24 @@ new_VioSSLConnectorFd(const char *key_file, const char *cert_file,
 }
 
 
+/************************ VioSSLConnectorFdFromContext ************************/
+struct st_VioSSLFd *
+new_VioSSLConnectorFdFromContext(SSL_CTX* context,
+                                 enum enum_ssl_init_error *error)
+{
+  struct st_VioSSLFd *ssl_fd;
+  if (!(ssl_fd= ((struct st_VioSSLFd*)
+                 my_malloc(sizeof(struct st_VioSSLFd),MYF(0))))) {
+    *error = SSL_INITERR_MEMFAIL;
+    return NULL;
+  }
+  ssl_fd->ssl_context = context;
+  ssl_fd->owned = FALSE;
+
+  return ssl_fd;
+}
+
+
 /************************ VioSSLAcceptorFd **********************************/
 struct st_VioSSLFd *
 new_VioSSLAcceptorFd(const char *key_file, const char *cert_file,
@@ -404,9 +418,11 @@ new_VioSSLAcceptorFd(const char *key_file, const char *cert_file,
   return ssl_fd;
 }
 
-void free_vio_ssl_acceptor_fd(struct st_VioSSLFd *fd)
+void free_vio_ssl_fd(struct st_VioSSLFd *fd)
 {
-  SSL_CTX_free(fd->ssl_context);
+  if (fd->owned) {
+    SSL_CTX_free(fd->ssl_context);
+  }
   my_free(fd);
 }
 #endif /* HAVE_OPENSSL */
