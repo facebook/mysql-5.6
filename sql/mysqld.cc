@@ -9437,6 +9437,7 @@ mysqld_get_one_option(int optid,
   case OPT_BINLOGGING_IMPOSSIBLE_MODE:
     WARN_DEPRECATED(NULL, "--binlogging_impossible_mode",
                     "'--binlog_error_action'");
+		break;
 #ifndef EMBEDDED_LIBRARY
   case 'V':
     print_version();
