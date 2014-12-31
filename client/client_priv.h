@@ -126,6 +126,14 @@ enum options_client
 */
 #define PERFORMANCE_SCHEMA_DB_NAME "performance_schema"
 
+#if defined(USE_MYSQL_REAL_CONNECT_WRAPPER)
+static MYSQL *
+mysql_real_connect_wrapper(MYSQL *mysql, const char *host,
+                           const char *user, const char *passwd,
+                           const char *db, uint port,
+                           const char *unix_socket, ulong client_flag);
+#endif
+
 /**
   Wrapper for mysql_real_connect() that checks if SSL connection is establised.
 
@@ -143,8 +151,13 @@ MYSQL *mysql_connect_ssl_check(MYSQL *mysql_arg, const char *host,
                                const char *unix_socket, ulong client_flag,
                                my_bool ssl_required MY_ATTRIBUTE((unused)))
 {
+#if defined(USE_MYSQL_REAL_CONNECT_WRAPPER)
+  MYSQL *mysql= mysql_real_connect_wrapper(mysql_arg, host, user, passwd, db,
+                                           port, unix_socket, client_flag);
+#else
   MYSQL *mysql= mysql_real_connect(mysql_arg, host, user, passwd, db, port,
                                    unix_socket, client_flag);
+#endif
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
   if (mysql &&                                   /* connection established. */
       ssl_required &&                            /* --ssl-mode=REQUIRED. */
@@ -159,3 +172,4 @@ MYSQL *mysql_connect_ssl_check(MYSQL *mysql_arg, const char *host,
 #endif
   return mysql;
 }
+

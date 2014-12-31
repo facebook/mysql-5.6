@@ -5574,3 +5574,26 @@ SYM_16(my_init);
 
 #endif
 #endif  /* EXPORT_SYMVER16 */
+
+net_async_status STDCALL mysql_next_result_nonblocking(MYSQL *mysql, int* error)
+{
+  my_bool err;
+  if (mysql->status != MYSQL_STATUS_READY)
+  {
+    set_mysql_error(mysql, CR_COMMANDS_OUT_OF_SYNC, unknown_sqlstate);
+    *error = 1;
+    return NET_ASYNC_COMPLETE;
+  }
+  net_clear_error(&mysql->net);
+  mysql->affected_rows = ~(my_ulonglong) 0;
+  if (mysql->server_status & SERVER_MORE_RESULTS_EXISTS)
+  {
+    if ((*mysql->methods->next_result_nonblocking)(mysql, &err) ==
+        NET_ASYNC_NOT_READY)
+      return NET_ASYNC_NOT_READY;
+    *error = (int) err;
+    return NET_ASYNC_COMPLETE;
+  }
+  *error = -1;
+  return NET_ASYNC_COMPLETE;
+}
