@@ -1,6 +1,7 @@
 # Only test in debug mode since DBUG_EXECUTE_IF is used
 --source include/have_debug.inc
 --source include/not_embedded.inc
+--disable_async_client
 
 call mtr.add_suppression(".*Failed to prepare the tmp table.*");
 call mtr.add_suppression(".*Failed to create tmp table from heap.*");
