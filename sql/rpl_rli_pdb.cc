@@ -2034,7 +2034,7 @@ static void slave_worker_update_statistics(Slave_worker *worker,
 
   }
 
-  if (ev && ev->worker && ev->get_type_code() != ROWS_QUERY_LOG_EVENT)
+  if (ev && ev->worker)
   {
     delete ev;
   }
