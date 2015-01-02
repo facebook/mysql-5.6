@@ -4965,6 +4965,13 @@ com_status(String *buffer __attribute__((unused)),
 
     tee_fprintf(stdout, "SSL:\t\t\tCipher in use is %s\n",
                 status_str);
+    if (mysql.net.vio && mysql.net.vio->ssl_arg) {
+      SSL* ssl = (SSL*)mysql.net.vio->ssl_arg;
+      SSL_SESSION* sess = SSL_get_session(ssl);
+      if (sess) {
+        SSL_SESSION_print_fp(stdout, sess);
+      }
+    }
     if (mysql_get_ssl_server_cerfificate_info(&mysql,
                                               subject_buf, sizeof(subject_buf),
                                               issuer_buf, sizeof(issuer_buf))) {
