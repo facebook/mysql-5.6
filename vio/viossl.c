@@ -435,7 +435,8 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   SSL_set_options(ssl,
                   SSL_OP_NO_COMPRESSION |
                   SSL_OP_NO_SSLv2 |
-                  SSL_OP_NO_SSLv3
+                  SSL_OP_NO_SSLv3 |
+                  SSL_OP_SINGLE_DH_USE
                   );
 #endif
 
