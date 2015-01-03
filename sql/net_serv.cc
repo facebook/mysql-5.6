@@ -989,6 +989,12 @@ static my_bool net_read_raw_loop(NET *net, size_t count)
   return MY_TEST(count);
 }
 
+/* Helper function to read up to count bytes from the network connection/
+
+   Returns packet_error (-1) on EOF or other errors, 0 if the read
+   would block, and otherwise the number of bytes read (which may be
+   less than the requested amount).
+*/
 static ulong net_read_available(NET *net,
                                 size_t count)
 {
@@ -997,30 +1003,29 @@ static ulong net_read_available(NET *net,
 
   if (net->cur_pos + count > net->buff + net->max_packet) {
     if (net_realloc(net, net->max_packet + count)) {
-      goto error;
+      DBUG_RETURN(packet_error);
     }
   }
 
   recvcnt= vio_read(net->vio, net->cur_pos, count);
 
-  /* VIO_SOCKET_ERROR (-1) indicates an error. */
+  /* Call would block, just return with socket_errno set */
   if (recvcnt == VIO_SOCKET_ERROR &&
       (socket_errno == SOCKET_EAGAIN ||
        socket_errno == SOCKET_EWOULDBLOCK)) {
-    DBUG_RETURN(packet_error);
+    DBUG_RETURN(0);
   }
-  if (recvcnt != VIO_SOCKET_ERROR) {
+
+  /* Not EOF and not an error?  Return the bytes read.*/
+  if (recvcnt != 0 && recvcnt != VIO_SOCKET_ERROR) {
     net->cur_pos += recvcnt;
     update_statistics(thd_increment_bytes_received(recvcnt));
     DBUG_RETURN(recvcnt);
   }
 
-error:
-  /* Socket should be closed. */
+  /* EOF or hard failure; socket should be closed. */
   net->error= 2;
-
   net->last_errno= ER_NET_READ_ERROR;
-
   DBUG_RETURN(packet_error);
 }
 

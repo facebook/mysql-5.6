@@ -56,6 +56,7 @@ int vio_socket_io_wait(Vio *vio, enum enum_vio_io_event event)
 {
   timeout_t timeout;
   int ret;
+  DBUG_ENTER(__func__);
 
   DBUG_ASSERT(event == VIO_IO_EVENT_READ || event == VIO_IO_EVENT_WRITE);
 
@@ -82,7 +83,8 @@ int vio_socket_io_wait(Vio *vio, enum enum_vio_io_event event)
     break;
   }
 
-  return ret;
+  DBUG_PRINT("exit", ("ret: %d", ret));
+  DBUG_RETURN(ret);
 }
 
 
@@ -116,25 +118,25 @@ size_t vio_read(Vio *vio, uchar *buf, size_t size)
   {
     int error= socket_errno;
 
-    /* The operation would block? */
+    /* Error encountered that is unrelated to blocking; percolate it up. */
     if (error != SOCKET_EAGAIN && error != SOCKET_EWOULDBLOCK)
       break;
 
     /* non-blocking with either EAGAIN or EWOULDBLOCK -- don't call
      * io_wait. 0 bytes are available. */
+    DBUG_ASSERT(error == SOCKET_EAGAIN || error == SOCKET_EWOULDBLOCK);
     if (!vio_is_blocking(vio)) {
-      DBUG_RETURN(0);
+      DBUG_PRINT("info", ("vio_read on nonblocking socket read no bytes"));
+      DBUG_RETURN(-1);
     }
 
     /* Wait for input data to become available. */
-    if ((ret= vio_socket_io_wait(vio, VIO_IO_EVENT_READ)))
+    if ((ret= vio_socket_io_wait(vio, VIO_IO_EVENT_READ))) {
       break;
+    }
   }
 
-  if (ret == 0) {
-    ret = (size_t) -1;
-  }
-
+  DBUG_PRINT("exit", ("ret: %ld", ret));
   DBUG_RETURN(ret);
 }
 
