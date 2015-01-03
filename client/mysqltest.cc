@@ -219,44 +219,26 @@ class AsyncTimer {
 int socket_event_listen(net_async_block_state async_blocking_state,
                         my_socket fd)
 {
-  fd_set read;
-  fd_set write;
-  fd_set except;
   int result;
+  pollfd pfd;
+  pfd.fd = fd;
   switch (async_blocking_state)
   {
     case NET_NONBLOCKING_READ:
-      FD_ZERO(&read);
-      FD_ZERO(&except);
-      FD_SET(fd, &read);
-      FD_SET(fd, &except);
-      result = select(fd+1, &read, NULL, &except, NULL);
+      pfd.events = POLLIN;
       break;
     case NET_NONBLOCKING_WRITE:
-      FD_ZERO(&write);
-      FD_ZERO(&except);
-      FD_SET(fd, &write);
-      FD_SET(fd, &except);
-      result = select(fd+1, NULL, &write, &except, NULL);
+      pfd.events = POLLOUT;
       break;
     case NET_NONBLOCKING_CONNECT:
-      FD_ZERO(&write);
-      FD_ZERO(&except);
-      FD_SET(fd, &write);
-      FD_SET(fd, &except);
-      result = select(fd+1, NULL, &write, &except, NULL);
+      pfd.events = POLLIN | POLLOUT;
       break;
     default:
       DBUG_ASSERT(FALSE);
-      result = -1;
   }
+  result = poll(&pfd, 1, -1);
   if (result < 0) {
-    perror("select");
-  }
-
-  if (FD_ISSET(fd, &except)) {
-    fprintf(stderr, "socket %d in exception set\n", fd);
-    result = -1;
+    perror("poll");
   }
 
   return result;
@@ -276,7 +258,7 @@ async_mysql_fetch_row_wrapper(MYSQL_RES* res)
                                      mysql_get_file_descriptor(mysql));
     if (result == -1)
     {
-      fprintf(stderr, "Error in select()\n");
+      fprintf(stderr, "Error in poll\n");
       return (MYSQL_ROW) NULL;
     }
   }
@@ -341,7 +323,7 @@ async_mysql_real_query_wrapper(MYSQL *mysql, const char *query, ulong length)
                                      mysql_get_file_descriptor(mysql));
     if (result == -1)
     {
-      printf("Error in select() or net->async_blocking_state");
+      printf("Error in poll() or net->async_blocking_state");
       return 1;
     }
   }
@@ -473,7 +455,7 @@ async_mysql_query_wrapper(MYSQL *mysql, const  char *query)
                                      mysql_get_file_descriptor(mysql));
     if (result == -1)
     {
-      printf("Error in select() or net->async_blocking_state");
+      printf("Error in poll() or net->async_blocking_state");
       return 1;
     }
   }
@@ -497,7 +479,7 @@ async_mysql_free_result_wrapper(MYSQL_RES *result)
                                      mysql_get_file_descriptor(mysql));
     if (result == -1)
     {
-      printf("Error in select() or net->async_blocking_state");
+      printf("Error in poll() or net->async_blocking_state");
       return;
     }
   }
