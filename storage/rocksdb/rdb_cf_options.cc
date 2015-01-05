@@ -67,7 +67,7 @@ bool Cf_options::SetDefault(const std::string &default_config) {
   if (!default_config.empty() &&
       !rocksdb::GetColumnFamilyOptionsFromString(options,
                                                  default_config,
-                                                 &options)) {
+                                                 &options).ok()) {
     fprintf(stderr,
             "Invalid default column family config: %s\n",
             default_config.c_str());
@@ -131,7 +131,8 @@ bool Cf_options::ParseConfigFile(const std::string &path) {
       return false;
     }
 
-    if (!rocksdb::GetColumnFamilyOptionsFromString(options, config, &options)) {
+    if (!rocksdb::GetColumnFamilyOptionsFromString(
+        options, config, &options).ok()) {
       fprintf(stderr,
               "Invalid column family config for %s in file %s: %s\n",
               cf.c_str(),
