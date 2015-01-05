@@ -19,6 +19,10 @@ alter table t2 defragment;
 ERROR 42000: The storage engine for the table doesn't support 
 alter table t3 defragment;
 ERROR 42S02: Table 'test.t3' doesn't exist
+set global innodb_defragment = 0;
+alter table t1 defragment;
+ERROR HY000: The 'ALTER TABLE DEFRAGMENT' feature is disabled; you need MySQL built with 'innodb_defragment' to have it working
+set global innodb_defragment = 1;
 show binlog events in 'master-bin.000001' from 120;
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
 master-bin.000001	120	Query	1	241	use `test`; DROP TABLE IF EXISTS `t1` 
