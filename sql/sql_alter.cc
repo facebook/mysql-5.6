@@ -441,6 +441,8 @@ bool Sql_cmd_defragment_table::execute(THD *thd)
     my_ok(thd);
   else if (ret == HA_ADMIN_NOT_IMPLEMENTED)
     my_error(ER_CHECK_NOT_IMPLEMENTED, MYF(0), "");
+  else if (ret == ER_FEATURE_DISABLED)
+    my_error(ret, MYF(0), "ALTER TABLE DEFRAGMENT", "innodb_defragment");
   else if (ret == ER_SP_ALREADY_EXISTS)
     my_error(ret, MYF(0), path, index.str);
   else
