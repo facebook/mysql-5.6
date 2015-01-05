@@ -27,6 +27,11 @@ alter table t2 defragment;
 --error ER_NO_SUCH_TABLE
 alter table t3 defragment;
 
+set global innodb_defragment = 0;
+--error ER_FEATURE_DISABLED
+alter table t1 defragment;
+set global innodb_defragment = 1;
+
 --replace_regex /\/\*.*//
 show binlog events in 'master-bin.000001' from 120;
 
