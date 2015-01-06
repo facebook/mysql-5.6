@@ -304,7 +304,7 @@ btr_defragment_save_defrag_stats_if_needed(
 	    && dict_index_get_space(index) != 0 // do not track system tables
 	    && index->stat_defrag_modified_counter
 	       >= srv_defragment_stats_accuracy) {
-		dict_stats_defrag_pool_add(index);
+		dict_stats_defrag_pool_add(index, false);
 		index->stat_defrag_modified_counter = 0;
 	}
 }
@@ -773,8 +773,7 @@ DECLARE_THREAD(btr_defragment_thread)(
 			mtr_commit(&mtr);
 			/* Reaching the end of the index. */
 			dict_stats_empty_defrag_stats(index);
-			dict_stats_save_defrag_stats(index);
-			dict_stats_save_defrag_summary(index);
+			dict_stats_defrag_pool_add(index, true);
 			btr_defragment_remove_item(item);
 		}
 	}
