@@ -67,18 +67,6 @@ using namespace std;
 
 #include "mach0data.h"
 
-#ifndef UNIV_HOTBACKUP
-/** Statistics on compression, indexed by page_zip_des_t::ssize - 1 */
-UNIV_INTERN page_zip_stat_t		page_zip_stat[PAGE_ZIP_SSIZE_MAX];
-/** Statistics on compression, indexed by index->id */
-UNIV_INTERN page_zip_stat_per_index_t	page_zip_stat_per_index;
-/** Mutex protecting page_zip_stat_per_index */
-UNIV_INTERN ib_mutex_t			page_zip_stat_per_index_mutex;
-#ifdef HAVE_PSI_INTERFACE
-UNIV_INTERN mysql_pfs_key_t		page_zip_stat_per_index_mutex_key;
-#endif /* HAVE_PSI_INTERFACE */
-#endif /* !UNIV_HOTBACKUP */
-
 /* Compression level to be used by zlib. Settable by user. */
 UNIV_INTERN uint	page_zip_level = DEFAULT_COMPRESSION_LEVEL;
 
@@ -2208,11 +2196,8 @@ err_exit:
 			- dict_index_zip_pad_optimal_page_size(index));
 
 		if (cmp_per_index_enabled) {
-			mutex_enter(&page_zip_stat_per_index_mutex);
-			page_zip_stat_per_index[index->id].compressed++;
-			page_zip_stat_per_index[index->id].compressed_time
-				+= time_diff;
-			mutex_exit(&page_zip_stat_per_index_mutex);
+			page_zip_update_per_index_stats_compress(
+				index->id, time_diff, false);
 		}
 #endif /* !UNIV_HOTBACKUP */
 		return(FALSE);
@@ -2265,13 +2250,9 @@ err_exit:
 		time_diff, true, dict_index_is_clust(index),
 		UNIV_PAGE_SIZE - dict_index_zip_pad_optimal_page_size(index));
 
-
 	if (cmp_per_index_enabled) {
-		mutex_enter(&page_zip_stat_per_index_mutex);
-		page_zip_stat_per_index[index->id].compressed++;
-		page_zip_stat_per_index[index->id].compressed_ok++;
-		page_zip_stat_per_index[index->id].compressed_time += time_diff;
-		mutex_exit(&page_zip_stat_per_index_mutex);
+		page_zip_update_per_index_stats_compress(
+			index->id, time_diff, true);
 	}
 
 	if (page_is_leaf(page)) {
@@ -3722,10 +3703,7 @@ err_exit:
 	index_id_t	index_id = btr_page_get_index_id(page);
 
 	if (srv_cmp_per_index_enabled) {
-		mutex_enter(&page_zip_stat_per_index_mutex);
-		page_zip_stat_per_index[index_id].decompressed++;
-		page_zip_stat_per_index[index_id].decompressed_time += time_diff;
-		mutex_exit(&page_zip_stat_per_index_mutex);
+		page_zip_update_per_index_stats_decompress(index_id, time_diff);
 	}
 #endif /* !UNIV_HOTBACKUP */
 

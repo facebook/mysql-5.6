@@ -27,6 +27,50 @@ compression stats
 
 #include "fil0fil.h"
 
+#ifndef UNIV_HOTBACKUP
+/** Statistics on compression, indexed by page_zip_des_t::ssize - 1 */
+UNIV_INTERN page_zip_stat_t		page_zip_stat[PAGE_ZIP_SSIZE_MAX];
+/** Statistics on compression, indexed by index->id */
+UNIV_INTERN page_zip_stat_per_index_t	page_zip_stat_per_index;
+/** Mutex protecting page_zip_stat_per_index */
+UNIV_INTERN ib_mutex_t			page_zip_stat_per_index_mutex;
+#ifdef HAVE_PSI_INTERFACE
+UNIV_INTERN mysql_pfs_key_t		page_zip_stat_per_index_mutex_key;
+#endif /* HAVE_PSI_INTERFACE */
+
+/**********************************************************************//**
+Store per index compression stats. */
+inline
+void
+page_zip_update_per_index_stats_compress(
+	ulint			index_id,	/*!< in: index to update. */
+	ulonglong		time_diff,	/*!< in: time for compression */
+	bool			success)	/*!< in: compression success? */
+{
+	mutex_enter(&page_zip_stat_per_index_mutex);
+	page_zip_stat_per_index[index_id].compressed++;
+	page_zip_stat_per_index[index_id].compressed_time += time_diff;
+	if (success) {
+		page_zip_stat_per_index[index_id].compressed_ok++;
+	}
+	mutex_exit(&page_zip_stat_per_index_mutex);
+}
+
+/**********************************************************************//**
+Store per index compression stats. */
+inline
+void
+page_zip_update_per_index_stats_decompress(
+	ulint			index_id,	/*!< in: index to update. */
+	ulonglong		time_diff)	/*!< in: time for compression */
+{
+	mutex_enter(&page_zip_stat_per_index_mutex);
+	page_zip_stat_per_index[index_id].decompressed++;
+	page_zip_stat_per_index[index_id].decompressed_time += time_diff;
+	mutex_exit(&page_zip_stat_per_index_mutex);
+}
+#endif /* !UNIV_HOTBACKUP */
+
 inline
 void
 page_zip_update_zip_stats_compress(
