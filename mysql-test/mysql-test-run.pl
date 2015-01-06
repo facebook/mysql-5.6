@@ -372,6 +372,15 @@ sub main {
 
   init_timers();
 
+  if ( $opt_async_client )
+  {
+    mtr_report("Tests will be run in async client mode");
+  }
+  else
+  {
+    mtr_report("Tests will be run in sync (default) client mode");
+  }
+
   mtr_report("Collecting tests...");
   my $tests= collect_test_cases($opt_reorder, $opt_suites, \@opt_cases, \@opt_skip_test_list);
   mark_time_used('collect');
