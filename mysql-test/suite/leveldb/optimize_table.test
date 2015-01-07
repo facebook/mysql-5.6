@@ -1,6 +1,0 @@
-# 
-# OPTIMIZE TABLE statements
-#
-
---source optimize_table.inc
-
