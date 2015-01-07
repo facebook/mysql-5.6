@@ -2408,12 +2408,16 @@ buf_LRU_block_remove_hashed(
 		return(false);
 
 	case BUF_BLOCK_FILE_PAGE:
-		memset(((buf_block_t*) bpage)->frame
-		       + FIL_PAGE_OFFSET, 0xff, 4);
-		memset(((buf_block_t*) bpage)->frame
-		       + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 0xff, 4);
 		UNIV_MEM_INVALID(((buf_block_t*) bpage)->frame,
 				 UNIV_PAGE_SIZE);
+		UNIV_MEM_VALID(((buf_block_t*) bpage)->frame
+		       + FIL_PAGE_OFFSET, 4);
+		memset(((buf_block_t*) bpage)->frame
+		       + FIL_PAGE_OFFSET, 0xff, 4);
+		UNIV_MEM_VALID(((buf_block_t*) bpage)->frame
+		       + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 4);
+		memset(((buf_block_t*) bpage)->frame
+		       + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 0xff, 4);
 		buf_page_set_state(bpage, BUF_BLOCK_REMOVE_HASH);
 
 		if (buf_pool->flush_rbt == NULL) {
