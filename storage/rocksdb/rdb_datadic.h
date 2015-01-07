@@ -253,9 +253,25 @@ public:
     m_key_parts(0),
     maxlength(0) // means 'not intialized'
   {
-    store_index_number(index_number_storage_form, indexnr_arg);
-    DBUG_ASSERT(cf_handle_arg != nullptr);
+    store_index_number(index_number_storage_form, index_number);
+    DBUG_ASSERT(cf_handle != nullptr);
   }
+
+  RDBSE_KEYDEF(const RDBSE_KEYDEF* k, uint keyno_arg) :
+    index_number(k->index_number),
+    cf_handle(k->cf_handle),
+    is_reverse_cf(k->is_reverse_cf),
+    is_auto_cf(k->is_auto_cf),
+    pk_part_no(NULL),
+    pack_info(NULL),
+    keyno(keyno_arg),
+    m_key_parts(0),
+    maxlength(0) // means 'not intialized'
+  {
+    store_index_number(index_number_storage_form, index_number);
+    DBUG_ASSERT(cf_handle != nullptr);
+  }
+
   ~RDBSE_KEYDEF();
 
   enum {
