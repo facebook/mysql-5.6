@@ -1,6 +1,0 @@
-#
-# BIT column type
-#
-
---source type_bit.inc
-
