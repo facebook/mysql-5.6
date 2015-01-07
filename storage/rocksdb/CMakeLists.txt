@@ -48,7 +48,8 @@ IF(ROCKSDB_OK)
       rdb_rowmods.cc rdb_rowmods.h
       rdb_applyiter.cc rdb_applyiter.h
       rdb_cf_options.cc rdb_cf_options.h
-      rdb_cf_manager.cc rdb_cf_manager.h)
+      rdb_cf_manager.cc rdb_cf_manager.h
+      rdb_dropped_indices.cc rdb_dropped_indices.h)
 
 
   # Link correct versions of libraries
