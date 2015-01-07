@@ -1,7 +1,0 @@
-#
-# Date and time column types
-# (DATE, DATETIME, TIMESTAMP, TIME, YEAR)
-#
-
---source type_date_time.inc
-

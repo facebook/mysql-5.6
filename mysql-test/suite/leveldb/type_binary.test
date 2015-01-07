@@ -1,6 +1,0 @@
-#
-# BINARY column types
-#
-
---source type_binary.inc
-
