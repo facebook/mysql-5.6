@@ -1807,9 +1807,11 @@ buf_page_realloc(
 		ut_ad(new_block->page.in_page_hash);
 
 		buf_block_modify_clock_inc(block);
-		memset(block->frame + FIL_PAGE_OFFSET, 0xff, 4);
-		memset(block->frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 0xff, 4);
 		UNIV_MEM_INVALID(block->frame, UNIV_PAGE_SIZE);
+		UNIV_MEM_VALID(block->frame + FIL_PAGE_OFFSET, 4);
+		memset(block->frame + FIL_PAGE_OFFSET, 0xff, 4);
+		UNIV_MEM_VALID(block->frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 4);
+		memset(block->frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 0xff, 4);
 		buf_block_set_state(block, BUF_BLOCK_REMOVE_HASH);
 
 		/* Relocate buf_pool->flush_list. */
