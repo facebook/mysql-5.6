@@ -1,5 +1,0 @@
-let $trx_isolation = READ COMMITTED;
-
---source transaction_isolation.inc
---source consistent_snapshot.inc
-
