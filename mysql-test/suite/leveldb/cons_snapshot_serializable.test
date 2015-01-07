@@ -1,4 +1,0 @@
-let $trx_isolation = SERIALIZABLE;
-
---source consistent_snapshot.inc
-
