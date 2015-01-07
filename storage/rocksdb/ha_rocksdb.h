@@ -55,8 +55,11 @@ inline bool looks_like_per_index_cf_typo(const char *name)
   return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
 }
 
-//#ifdef HAVE_PSI_INTERFACE
 extern PSI_stage_info stage_waiting_on_row_lock;
+
+#ifdef HAVE_PSI_INTERFACE
+extern PSI_mutex_key key_mutex_dropped_indices_manager;
+#endif
 
 extern "C"
 void thd_enter_cond(MYSQL_THD thd, mysql_cond_t *cond, mysql_mutex_t *mutex,
