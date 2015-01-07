@@ -33,8 +33,12 @@
 
 #include "rdb_cf_options.h"
 #include "rdb_cf_manager.h"
+#include "rdb_dropped_indices.h"
 
+#include "rocksdb/compaction_filter.h"
 #include "rocksdb/rate_limiter.h"
+#include "rocksdb/slice.h"
+#include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/utilities/convenience.h"
@@ -54,6 +58,7 @@ static handler *rocksdb_create_handler(handlerton *hton,
 void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
               uint key_length);
 void* background_thread(void*);
+void* drop_index_thread(void*);
 bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
                           const bool use_all_keys,
@@ -643,6 +648,7 @@ PSI_stage_info stage_waiting_on_row_lock= { 0, "Waiting for row lock", 0};
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_thread_key key_thread_background;
+static PSI_thread_key key_thread_drop_index;
 
 static PSI_stage_info *all_rocksdb_stages[]=
 {
@@ -651,7 +657,8 @@ static PSI_stage_info *all_rocksdb_stages[]=
 
 
 static PSI_mutex_key ex_key_mutex_example, ex_key_mutex_ROCKSDB_SHARE_mutex,
-  key_mutex_background, key_mutex_stop_background;
+  key_mutex_background, key_mutex_stop_background,
+  key_mutex_drop_index, key_drop_index_interrupt_mutex;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
 {
@@ -659,18 +666,23 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &ex_key_mutex_ROCKSDB_SHARE_mutex, "ROCKSDB_SHARE::mutex", 0},
   { &key_mutex_background, "background", PSI_FLAG_GLOBAL},
   { &key_mutex_stop_background, "stop background", PSI_FLAG_GLOBAL},
+  { &key_mutex_drop_index, "drop index", PSI_FLAG_GLOBAL},
+  { &key_drop_index_interrupt_mutex, "drop index interrupt", PSI_FLAG_GLOBAL},
+  { &key_mutex_dropped_indices_manager, "dropped indices manager", PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key key_cond_stop;
 
 static PSI_cond_info all_rocksdb_conds[]=
 {
-  { &key_cond_stop, "cond_stop", PSI_FLAG_GLOBAL}
+  { &key_cond_stop, "cond_stop", PSI_FLAG_GLOBAL},
+  { &key_drop_index_interrupt_cond, "cond_stop_drop_index", PSI_FLAG_GLOBAL},
 };
 
 static PSI_thread_info all_rocksdb_threads[]=
 {
   { &key_thread_background, "background", PSI_FLAG_GLOBAL},
+  { &key_thread_drop_index, "drop index", PSI_FLAG_GLOBAL},
 };
 
 static void init_rocksdb_psi_keys()
@@ -768,7 +780,55 @@ int compare_mem_comparable_keys(const uchar *a, size_t a_len, const uchar *b, si
   return rocksdb_pk_comparator.Compare(a_slice, b_slice);
 }
 
+static Dropped_indices_manager dropped_indices_manager;
+static mysql_mutex_t drop_index_mutex;
+static mysql_mutex_t drop_index_interrupt_mutex;
+static mysql_cond_t drop_index_interrupt_cond;
+static bool stop_drop_index_thread;
 
+class Rdb_CompactionFilter : public rocksdb::CompactionFilterV2
+{
+public:
+  Rdb_CompactionFilter() {}
+
+  virtual std::vector<bool> Filter(int level,
+                      const SliceVector& keys,
+                      const SliceVector& existing_values,
+                      std::vector<std::string>* new_values,
+                      std::vector<bool>* values_changed) const override {
+
+    // check if this batch of keys is from a dropped index
+    bool deleted = dropped_indices_manager.has_index(keys[0]);
+
+    return std::vector<bool>(keys.size(), deleted);
+  }
+
+  virtual const char* Name() const override {
+    return "Rdb_CompactionFilter";
+  }
+};
+
+class Rdb_CompactionFilterFactory : public rocksdb::CompactionFilterFactoryV2
+{
+public:
+  Rdb_CompactionFilterFactory()
+    : CompactionFilterFactoryV2(
+        rocksdb::NewFixedPrefixTransform(RDBSE_KEYDEF::INDEX_NUMBER_SIZE)) {}
+
+  ~Rdb_CompactionFilterFactory() {
+    delete GetPrefixExtractor();
+  }
+
+  const char* Name() const override {
+    return "Rdb_CompactionFilterFactory";
+  }
+
+  std::unique_ptr<rocksdb::CompactionFilterV2> CreateCompactionFilterV2(
+      const rocksdb::CompactionFilterContext& context) {
+    return std::unique_ptr<rocksdb::CompactionFilterV2>(
+      new Rdb_CompactionFilter);
+  }
+};
 
 /*
   This is a rocksdb connection. Its members represent the current transaction,
@@ -1325,6 +1385,11 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
                        HTON_SUPPORTS_EXTENDED_KEYS;
 
+  mysql_mutex_init(key_mutex_drop_index, &drop_index_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_drop_index_interrupt_mutex, &drop_index_interrupt_mutex,
+                   MY_MUTEX_INIT_FAST);
+  mysql_cond_init(key_drop_index_interrupt_cond, &drop_index_interrupt_cond, NULL);
+
   DBUG_ASSERT(!mysqld_embedded);
 
   row_locks.init(compare_mem_comparable_keys,
@@ -1374,6 +1439,7 @@ static int rocksdb_init_func(void *p)
   std::vector<rocksdb::ColumnFamilyHandle*> cf_handles;
 
   default_cf_opts.comparator= &rocksdb_pk_comparator;
+  default_cf_opts.compaction_filter_factory_v2.reset(new Rdb_CompactionFilterFactory);
 
   default_cf_opts.write_buffer_size = ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
@@ -1436,6 +1502,8 @@ static int rocksdb_init_func(void *p)
   if (ddl_manager.init(rdb, &cf_manager))
     DBUG_RETURN(1);
 
+  dropped_indices_manager.init(rdb, &ddl_manager);
+
   stop_background_thread = false;
   pthread_t thread_handle;
   auto err = mysql_thread_create(
@@ -1445,6 +1513,18 @@ static int rocksdb_init_func(void *p)
   );
   if (err != 0) {
     sql_print_error("RocksDB: Couldn't start the background thread: (errno=%d)",
+                    err);
+    DBUG_RETURN(1);
+  }
+
+  stop_drop_index_thread = false;
+  err = mysql_thread_create(
+    key_thread_drop_index, &thread_handle,
+    nullptr,
+    drop_index_thread, NULL
+  );
+  if (err != 0) {
+    sql_print_error("RocksDB: Couldn't start the drop index thread: (errno=%d)",
                     err);
     DBUG_RETURN(1);
   }
@@ -1464,9 +1544,19 @@ static int rocksdb_done_func(void *p)
   mysql_cond_signal(&stop_cond);
   mysql_mutex_unlock(&stop_cond_mutex);
 
+  // signal the drop index thread to stop
+  mysql_mutex_lock(&drop_index_interrupt_mutex);
+  stop_drop_index_thread = true;
+  mysql_cond_signal(&drop_index_interrupt_cond);
+  mysql_mutex_unlock(&drop_index_interrupt_mutex);
+
   // wait for the background thread to finish
   mysql_mutex_lock(&background_mutex);
   mysql_mutex_unlock(&background_mutex);
+
+  // wait for the drop index thread to finish
+  mysql_mutex_lock(&drop_index_mutex);
+  mysql_mutex_unlock(&drop_index_mutex);
 
   if (rocksdb_open_tables.records)
     error= 1;
@@ -1476,6 +1566,7 @@ static int rocksdb_done_func(void *p)
   row_locks.cleanup();
   ddl_manager.cleanup();
   binlog_manager.cleanup();
+  dropped_indices_manager.cleanup();
   cf_manager.cleanup();
 
   delete rdb;
@@ -3990,6 +4081,86 @@ int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
   return 0;
 }
 
+static rocksdb::Range get_range(
+  RDBSE_KEYDEF* keydef,
+  uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2],
+  int offset1, int offset2)
+{
+  uchar* buf_begin = buf;
+  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  store_index_number(buf_begin, keydef->get_index_number() + offset1);
+  store_index_number(buf_end, keydef->get_index_number() + offset2);
+
+  return rocksdb::Range(
+    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
+    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
+}
+
+rocksdb::Range ha_rocksdb::get_range(
+  uint i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
+{
+  RDBSE_KEYDEF* keydef = key_descr[i];
+
+  if (key_descr[i]->is_reverse_cf)
+    return ::get_range(keydef, buf, 1, 0);
+  else
+    return ::get_range(keydef, buf, 0, 1);
+}
+
+
+void* drop_index_thread(void*)
+{
+  mysql_mutex_lock(&drop_index_mutex);
+  mysql_mutex_lock(&drop_index_interrupt_mutex);
+
+  for (;;) {
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += dropped_indices_manager.empty()
+      ? 24*60*60 // no filtering
+      : 60; // filtering
+    uint32 ret = mysql_cond_timedwait(&drop_index_interrupt_cond,
+                                      &drop_index_interrupt_mutex, &ts);
+
+    if (stop_drop_index_thread) {
+      assert(ret == 0);
+      break;
+    }
+
+    Dropped_Index_Map indices = dropped_indices_manager.get_indices();
+    if (!indices.empty()) {
+      std::unordered_set<uint32> finished;
+      uchar buf[2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+      rocksdb::ReadOptions read_opts;
+      read_opts.total_order_seek = true; // disable bloom filter
+
+      for (auto d : indices) {
+        std::unique_ptr<rocksdb::Iterator> it(
+          rdb->NewIterator(read_opts, d.second->get_cf()));
+
+        rocksdb::Range r = get_range(d.second, buf,
+                                     0, d.second->is_reverse_cf ? 1 : 0);
+
+        // look for entry with index's prefix
+        // if none exists, we're finished with this index
+        it->Seek(r.start);
+        if (!it->Valid() || !rocksdb::Slice(it->key()).starts_with(r.limit)) {
+          finished.insert(d.first);
+        }
+      }
+
+      if (!finished.empty()) {
+        dropped_indices_manager.remove_indices(finished);
+      }
+    }
+  }
+
+  mysql_mutex_unlock(&drop_index_interrupt_mutex);
+  mysql_mutex_unlock(&drop_index_mutex);
+
+  return nullptr;
+}
+
 /*
   Note: the following function is called when the table is not open. That is,
   this->table==NULL, pk_key_descr==NULL, etc.
@@ -4014,7 +4185,12 @@ int ha_rocksdb::delete_table(const char *tablename)
   if (!(tbl= ddl_manager.find((uchar*)strbuf.c_ptr(), strbuf.length())))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
-  remove_rows(tbl);
+  dropped_indices_manager.add_indices(tbl->key_descr, tbl->n_keys);
+
+  // signal thread
+  mysql_mutex_lock(&drop_index_interrupt_mutex);
+  mysql_cond_signal(&drop_index_interrupt_cond);
+  mysql_mutex_unlock(&drop_index_interrupt_mutex);
 
   /*
     Remove the table entry in data dictionary (this will also remove it from
@@ -4163,27 +4339,6 @@ void ha_rocksdb::update_create_info(HA_CREATE_INFO *create_info)
   {
     create_info->auto_increment_value= tbl_def->auto_incr_val;
   }
-}
-
-rocksdb::Range ha_rocksdb::get_range(
-  uint i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
-{
-  uchar* buf_begin = buf;
-  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
-  if (key_descr[i]->is_reverse_cf)
-  {
-    store_index_number(buf_begin, key_descr[i]->get_index_number()+1);
-    store_index_number(buf_end, key_descr[i]->get_index_number());
-  }
-  else
-  {
-    store_index_number(buf_begin, key_descr[i]->get_index_number());
-    store_index_number(buf_end, key_descr[i]->get_index_number() + 1);
-  }
-
-  return rocksdb::Range(
-    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
-    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
 }
 
 /**
