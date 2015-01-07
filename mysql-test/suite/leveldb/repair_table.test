@@ -1,6 +1,0 @@
-# 
-# REPAIR TABLE statements
-#
-
---source repair_table.inc
-
