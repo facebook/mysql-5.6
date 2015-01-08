@@ -4,6 +4,8 @@
 DROP TABLE if exists t1;
 --enable_warnings
 
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+
 --echo ## Create test table
 CREATE TABLE t1 (
   id INT NOT NULL AUTO_INCREMENT,
