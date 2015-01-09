@@ -116,6 +116,7 @@ rocksdb_cf_options_file_update(THD* thd,
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
 static uint64_t rocksdb_info_log_level;
+static char * rocksdb_wal_dir;
 static uint64_t rocksdb_index_type;
 static uint64_t rocksdb_write_sync;
 static rocksdb::WriteOptions rocksdb_write_options;
@@ -250,6 +251,11 @@ static MYSQL_SYSVAR_BOOL(use_fsync,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::use_fsync for RocksDB",
   NULL, NULL, db_options.use_fsync);
+
+static MYSQL_SYSVAR_STR(wal_dir, rocksdb_wal_dir,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::wal_dir for RocksDB",
+  NULL, NULL, db_options.wal_dir.c_str());
 
 static MYSQL_SYSVAR_ULONG(delete_obsolete_files_period_micros,
   db_options.delete_obsolete_files_period_micros,
@@ -515,6 +521,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(max_total_wal_size),
   MYSQL_SYSVAR(disableDataSync),
   MYSQL_SYSVAR(use_fsync),
+  MYSQL_SYSVAR(wal_dir),
   MYSQL_SYSVAR(delete_obsolete_files_period_micros),
   MYSQL_SYSVAR(max_background_compactions),
   MYSQL_SYSVAR(max_background_flushes),
@@ -1047,6 +1054,7 @@ static int rocksdb_init_func(void *p)
   rocksdb::Status status;
 
   db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
+  db_options.wal_dir = rocksdb_wal_dir;
 
   status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_db_name,
                                           &cf_names);
