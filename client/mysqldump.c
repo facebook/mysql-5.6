@@ -127,6 +127,9 @@ static char compatible_mode_normal_str[255];
 /* Server supports character_set_results session variable? */
 static my_bool server_supports_switching_charsets= TRUE;
 static ulong opt_compatible_mode= 0;
+static ulong opt_lra_size = 0;
+static ulong opt_lra_sleep = 0;
+static ulong opt_lra_n_node_recs_before_sleep = 0;
 #define MYSQL_OPT_MASTER_DATA_EFFECTIVE_SQL 1
 #define MYSQL_OPT_MASTER_DATA_COMMENTED_SQL 2
 #define MYSQL_OPT_SLAVE_DATA_EFFECTIVE_SQL 1
@@ -390,6 +393,18 @@ static struct my_option my_long_options[] =
   {"log-error", OPT_ERROR_LOG_FILE, "Append warnings and errors to given file.",
    &log_error_file, &log_error_file, 0, GET_STR,
    REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"lra_size", OPT_LRA_SIZE,
+   "Set innodb_lra_size for the session of this dump.",
+   &opt_lra_size, &opt_lra_size, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 16384, 0,
+   0, 0},
+  {"lra_sleep", OPT_LRA_SLEEP,
+   "Set innodb_lra_sleep for the session of this dump.",
+   &opt_lra_sleep, &opt_lra_sleep, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 1000, 0,
+   0, 0},
+  {"lra_n_node_recs_before_sleep", OPT_LRA_N_NODE_RECS_BEFORE_SLEEP,
+   "Set innodb_lra_n_node_recs_before_sleep for the session of this dump.",
+   &opt_lra_n_node_recs_before_sleep, &opt_lra_n_node_recs_before_sleep,
+   0, GET_ULONG, REQUIRED_ARG, 1024, 128, ULONG_MAX, 0, 0, 0},
   {"master-data", OPT_MASTER_DATA,
    "This causes the binary log position and filename to be appended to the "
    "output. If equal to 1, will print it as a CHANGE MASTER command; if equal"
@@ -1565,6 +1580,36 @@ static int connect_to_db(char *host, char *user,char *passwd)
               compatible_mode_normal_str);
   if (mysql_query_with_error_report(mysql, 0, buff))
     DBUG_RETURN(1);
+
+  if (opt_lra_size)
+  {
+    my_snprintf(buff, sizeof(buff), "SET innodb_lra_size=%lu", opt_lra_size);
+    if (mysql_query(mysql, buff))
+    {
+      fprintf(stderr,
+              "%s: Warning: Server does not support logical read ahead. "
+              "--lra* options will be ignored.\n", my_progname);
+    }
+    else
+    {
+      if (opt_lra_sleep)
+      {
+        my_snprintf(buff, sizeof(buff), "SET innodb_lra_sleep=%lu",
+                    opt_lra_sleep);
+        if (mysql_query_with_error_report(mysql, 0, buff))
+          DBUG_RETURN(1);
+      }
+      if (opt_lra_n_node_recs_before_sleep)
+      {
+        my_snprintf(buff, sizeof(buff),
+                    "SET innodb_lra_n_node_recs_before_sleep=%lu",
+                    opt_lra_n_node_recs_before_sleep);
+        if (mysql_query_with_error_report(mysql, 0, buff))
+          DBUG_RETURN(1);
+      }
+    }
+  }
+
   /*
     set time_zone to UTC to allow dumping date types between servers with
     different time zone settings
