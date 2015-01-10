@@ -132,6 +132,9 @@ Master_info::Master_info(
   start_plugin_auth[0]= 0; start_plugin_dir[0]= 0;
   start_user[0]= 0;
   ignore_server_ids= new Server_ids(sizeof(::server_id));
+  ssl_actual_cipher[0] = 0;
+  ssl_master_issuer[0] = 0;
+  ssl_master_subject[0] = 0;
 }
 
 Master_info::~Master_info()
