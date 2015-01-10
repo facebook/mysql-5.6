@@ -2482,10 +2482,10 @@ const char * STDCALL
 mysql_get_ssl_cipher(MYSQL *mysql __attribute__((unused)))
 {
   DBUG_ENTER("mysql_get_ssl_cipher");
-#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#if defined(HAVE_OPENSSL)
   if (mysql->net.vio && mysql->net.vio->ssl_arg)
     DBUG_RETURN(SSL_get_cipher_name((SSL*)mysql->net.vio->ssl_arg));
-#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
+#endif /* HAVE_OPENSSL */
   DBUG_RETURN(NULL);
 }
 
@@ -2538,7 +2538,7 @@ mysql_get_ssl_server_cerfificate_info(MYSQL *mysql __attribute__((unused)),
                                       size_t issuer_buflen __attribute__((unused)))
 {
   DBUG_ENTER("mysql_get_ssl_server_cerfificate_info");
-#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#if defined(HAVE_OPENSSL)
   SSL* ssl = (SSL*)mysql->net.vio->ssl_arg;
   X509 *cert = NULL;
 

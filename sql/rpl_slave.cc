@@ -2968,6 +2968,16 @@ bool show_slave_status(THD* thd, Master_info* mi)
   field_list.push_back(new Item_return_int("Auto_Position", sizeof(ulong),
                                            MYSQL_TYPE_LONG));
 
+  field_list.push_back(new Item_empty_string("Master_SSL_Actual_Cipher",
+                                             mi != NULL ?
+                                             sizeof(mi->ssl_actual_cipher) : 0));
+  field_list.push_back(new Item_empty_string("Master_SSL_Subject",
+                                             mi != NULL ?
+                                             sizeof(mi->ssl_master_subject) : 0));
+  field_list.push_back(new Item_empty_string("Master_SSL_Issuer",
+                                             mi != NULL ?
+                                             sizeof(mi->ssl_master_issuer) : 0));
+
   if (protocol->send_result_set_metadata(&field_list,
                             Protocol::SEND_NUM_ROWS | Protocol::SEND_EOF))
   {
@@ -3216,6 +3226,10 @@ bool show_slave_status(THD* thd, Master_info* mi)
     protocol->store(sql_gtid_set_buffer, &my_charset_bin);
     // Auto_Position
     protocol->store(mi->is_auto_position() ? 1 : 0);
+    // ssl xxx
+    protocol->store(mi->ssl_actual_cipher, &my_charset_bin);
+    protocol->store(mi->ssl_master_issuer, &my_charset_bin);
+    protocol->store(mi->ssl_master_subject, &my_charset_bin);
 
     mysql_mutex_unlock(&mi->rli->err_lock);
     mysql_mutex_unlock(&mi->err_lock);
@@ -7536,6 +7550,18 @@ replication resumed in log '%s' at position %s", mi->get_user(),
     thd->set_active_vio(mysql->net.vio);
 #endif
   }
+  if (mysql_get_ssl_cipher(mysql)) {
+    strncpy(mi->ssl_actual_cipher,
+            mysql_get_ssl_cipher(mysql),
+            sizeof(mi->ssl_actual_cipher));
+    mi->ssl_actual_cipher[sizeof(mi->ssl_actual_cipher) - 1] = 0;
+
+    mysql_get_ssl_server_cerfificate_info(
+      mysql,
+      mi->ssl_master_issuer, sizeof(mi->ssl_master_issuer),
+      mi->ssl_master_subject, sizeof(mi->ssl_master_subject));
+  }
+
   mysql->reconnect= 1;
   DBUG_PRINT("exit",("slave_was_killed: %d", slave_was_killed));
   DBUG_RETURN(slave_was_killed);
