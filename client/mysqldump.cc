@@ -154,6 +154,9 @@ static uint opt_enable_cleartext_plugin = 0;
 static bool using_opt_enable_cleartext_plugin = false;
 static uint opt_mysql_port = 0, opt_master_data;
 static uint opt_slave_data;
+static ulong opt_lra_size = 0;
+static ulong opt_lra_sleep = 0;
+static ulong opt_lra_pages_before_sleep = 0;
 static ulong opt_timeout = 0;
 static uint my_end_arg;
 static char *opt_mysql_unix_port = nullptr;
@@ -427,6 +430,18 @@ static struct my_option my_long_options[] = {
      "Append warnings and errors to given file.", &log_error_file,
      &log_error_file, nullptr, GET_STR, REQUIRED_ARG, 0, 0, 0, nullptr, 0,
      nullptr},
+    {"lra_size", OPT_LRA_SIZE,
+     "Set innodb_lra_size for the session of this dump.", &opt_lra_size,
+     &opt_lra_size, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 16384, nullptr, 0,
+     nullptr},
+    {"lra_sleep", OPT_LRA_SLEEP,
+     "Set innodb_lra_sleep for the session of this dump.", &opt_lra_sleep,
+     &opt_lra_sleep, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 1000, nullptr, 0,
+     nullptr},
+    {"lra_pages_before_sleep", OPT_LRA_PAGES_BEFORE_SLEEP,
+     "Set innodb_lra_pages_before_sleep for the session of this dump.",
+     &opt_lra_pages_before_sleep, &opt_lra_pages_before_sleep, 0, GET_ULONG,
+     REQUIRED_ARG, 1024, 128, ULONG_MAX, nullptr, 0, nullptr},
     {"master-data", OPT_MASTER_DATA,
      "This causes the binary log position and filename to be appended to the "
      "output. If equal to 1, will print it as a CHANGE MASTER command; if equal"
@@ -1598,6 +1613,26 @@ static int connect_to_db(char *host, char *user, char *passwd) {
   snprintf(buff, sizeof(buff), "/*!40100 SET @@SQL_MODE='%s' */",
            ansi_mode ? "ANSI" : "");
   if (mysql_query_with_error_report(mysql, nullptr, buff)) return 1;
+
+  if (opt_lra_size) {
+    snprintf(buff, sizeof(buff), "SET innodb_lra_size=%lu", opt_lra_size);
+    if (mysql_query(mysql, buff)) {
+      fprintf(stderr,
+              "%s: Warning: Server does not support logical read ahead. "
+              "--lra* options will be ignored.\n",
+              my_progname);
+    } else {
+      if (opt_lra_sleep) {
+        snprintf(buff, sizeof(buff), "SET innodb_lra_sleep=%lu", opt_lra_sleep);
+        if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+      }
+      if (opt_lra_pages_before_sleep) {
+        snprintf(buff, sizeof(buff), "SET innodb_lra_pages_before_sleep=%lu",
+                 opt_lra_pages_before_sleep);
+        if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+      }
+    }
+  }
 
   if (opt_timeout) {
     snprintf(buff, sizeof(buff),
