@@ -28,6 +28,9 @@ Master_SSL_CA_Path = ''
 Master_SSL_CA_File = 'MYSQL_TEST_DIR/std_data/cacert.pem'
 Master_SSL_Cert = 'MYSQL_TEST_DIR/std_data/client-cert.pem'
 Master_SSL_Key = 'MYSQL_TEST_DIR/std_data/client-key.pem'
+Master_SSL_Actual_Cipher = 'ECDHE-RSA-AES256-GCM-SHA384'
+Master_SSL_Subject = '/C=SE/ST=Uppsala/O=MySQL AB/CN=localhost'
+Master_SSL_Issuer = '/C=SE/ST=Uppsala/L=Uppsala/O=MySQL AB'
 include/check_slave_is_running.inc
 STOP SLAVE;
 select * from t1;
@@ -41,6 +44,9 @@ Master_SSL_CA_Path = ''
 Master_SSL_CA_File = 'MYSQL_TEST_DIR/std_data/cacert.pem'
 Master_SSL_Cert = 'MYSQL_TEST_DIR/std_data/client-cert.pem'
 Master_SSL_Key = 'MYSQL_TEST_DIR/std_data/client-key.pem'
+Master_SSL_Actual_Cipher = 'ECDHE-RSA-AES256-GCM-SHA384'
+Master_SSL_Subject = '/C=SE/ST=Uppsala/O=MySQL AB/CN=localhost'
+Master_SSL_Issuer = '/C=SE/ST=Uppsala/L=Uppsala/O=MySQL AB'
 include/check_slave_is_running.inc
 drop user replssl@localhost;
 drop table t1;
