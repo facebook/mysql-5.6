@@ -246,6 +246,9 @@ public:
   char ssl_cipher[FN_REFLEN], ssl_key[FN_REFLEN];
   char ssl_crl[FN_REFLEN], ssl_crlpath[FN_REFLEN];
   my_bool ssl_verify_server_cert;
+  char ssl_actual_cipher[FN_REFLEN],
+    ssl_master_issuer[FN_REFLEN],
+    ssl_master_subject[FN_REFLEN];
 
   MYSQL* mysql;
   uint32 file_id;				/* for 3.23 load data infile */
