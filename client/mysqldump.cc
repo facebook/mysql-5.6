@@ -154,6 +154,7 @@ static uint opt_enable_cleartext_plugin = 0;
 static bool using_opt_enable_cleartext_plugin = false;
 static uint opt_mysql_port = 0, opt_master_data;
 static uint opt_slave_data;
+static ulong opt_timeout = 0;
 static uint my_end_arg;
 static char *opt_mysql_unix_port = nullptr;
 static char *opt_bind_addr = nullptr;
@@ -566,6 +567,11 @@ static struct my_option my_long_options[] = {
      nullptr},
     {"tables", OPT_TABLES, "Overrides option --databases (-B).", nullptr,
      nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
+    {"timeout", OPT_TIMEOUT,
+     "Set data transfer timeouts for server-side session "
+     "(default server setting, if 0)",
+     &opt_timeout, &opt_timeout, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 3600 * 12,
+     nullptr, 0, nullptr},
     {"triggers", OPT_TRIGGERS, "Dump triggers for each dumped table.",
      &opt_dump_triggers, &opt_dump_triggers, nullptr, GET_BOOL, NO_ARG, 1, 0, 0,
      nullptr, 0, nullptr},
@@ -1589,6 +1595,15 @@ static int connect_to_db(char *host, char *user, char *passwd) {
   snprintf(buff, sizeof(buff), "/*!40100 SET @@SQL_MODE='%s' */",
            ansi_mode ? "ANSI" : "");
   if (mysql_query_with_error_report(mysql, nullptr, buff)) return 1;
+
+  if (opt_timeout) {
+    snprintf(buff, sizeof(buff),
+             "SET wait_timeout=%lu, "
+             "net_write_timeout=%lu",
+             opt_timeout, opt_timeout);
+    if (mysql_query_with_error_report(mysql, 0, buff)) return 1;
+  }
+
   /*
     set time_zone to UTC to allow dumping date types between servers with
     different time zone settings

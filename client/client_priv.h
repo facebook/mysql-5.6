@@ -173,6 +173,7 @@ enum options_client {
   OPT_SSL_FIPS_MODE,
   OPT_TLS_CIPHERSUITES,
   OPT_MYSQL_BINARY_AS_HEX,
+  OPT_TIMEOUT,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
