@@ -96,6 +96,7 @@ typedef struct st_net {
   char last_error[512];
   char sqlstate[5 +1];
   void *extension;
+  unsigned int receive_buffer_size;
   unsigned char *cur_pos;
   net_async_block_state async_blocking_state;
   net_async_operation async_operation;
@@ -357,6 +358,7 @@ enum mysql_option
   MYSQL_SERVER_PUBLIC_KEY,
   MYSQL_ENABLE_CLEARTEXT_PLUGIN,
   MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
   MYSQL_OPT_CONNECT_TIMEOUT_MS,
   MYSQL_OPT_READ_TIMEOUT_MS,
   MYSQL_OPT_WRITE_TIMEOUT_MS
