@@ -127,6 +127,7 @@ static char compatible_mode_normal_str[255];
 /* Server supports character_set_results session variable? */
 static my_bool server_supports_switching_charsets= TRUE;
 static ulong opt_compatible_mode= 0;
+static ulong opt_timeout = 0;
 static ulong opt_lra_size = 0;
 static ulong opt_lra_sleep = 0;
 static ulong opt_lra_n_node_recs_before_sleep = 0;
@@ -535,6 +536,10 @@ static struct my_option my_long_options[] =
    "and .txt files.) NOTE: This only works if mysqldump is run on the same "
    "machine as the mysqld server.",
    &path, &path, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"timeout", OPT_TIMEOUT,
+   "Set data transfer timeouts for server-side session (default server setting, if 0)",
+   &opt_timeout, &opt_timeout, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 3600*12, 0,
+   0, 0},
   {"tables", OPT_TABLES, "Overrides option --databases (-B).",
    0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"triggers", OPT_TRIGGERS, "Dump triggers for each dumped table.",
@@ -1594,6 +1599,14 @@ static int connect_to_db(char *host, char *user,char *passwd)
               compatible_mode_normal_str);
   if (mysql_query_with_error_report(mysql, 0, buff))
     DBUG_RETURN(1);
+
+  if (opt_timeout)
+  {
+    my_snprintf(buff, sizeof(buff), "SET wait_timeout=%lu, "
+                "net_write_timeout=%lu", opt_timeout, opt_timeout);
+    if (mysql_query_with_error_report(mysql, 0, buff))
+      DBUG_RETURN(1);
+  }
 
   if (opt_lra_size)
   {
