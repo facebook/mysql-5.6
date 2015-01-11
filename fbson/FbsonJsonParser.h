@@ -56,6 +56,7 @@
 #define FBSON_FBSONPARSER_H
 
 #include <cmath>
+#include <limits>
 #include "FbsonDocument.h"
 #include "FbsonWriter.h"
 
