@@ -199,6 +199,7 @@ static uint opt_semisync_debug = 0;
 ReplSemiSyncSlave repl_semisync;
 
 static uint opt_receive_buffer_size = 0;
+static uint opt_flush_result_file = 0;
 
 static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
                                           const char* logname);
@@ -1642,6 +1643,11 @@ static struct my_option my_long_options[] =
    UINT_MAX, // Maximum value,
    1024, // Block size,
    0, 0},
+  {"flush-result-file", OPT_FLUSH_RESULT_FILE,
+   "The maximum number of events received by mysqlbinlog in raw_mode without "
+   "flushing the result file. ",
+   &opt_flush_result_file, &opt_flush_result_file, 0,
+   GET_UINT, REQUIRED_ARG, 1000, 1, UINT_MAX, 1, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
 };
 
@@ -2152,6 +2158,7 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
   enum enum_server_command command= COM_END;
 
   bool semi_sync_need_reply = false;
+  uint event_count = 0;
 
   DBUG_ENTER("dump_remote_log_entries");
 
@@ -2462,6 +2469,11 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
         {
           error("Could not write into log file '%s'", log_file_name);
           retval= ERROR_STOP;
+        }
+        if (type == XID_EVENT || ++event_count == opt_flush_result_file)
+        {
+          event_count = 0;
+          fflush(result_file);
         }
         if (ev)
         {
