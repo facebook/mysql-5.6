@@ -2,32 +2,45 @@ SET GLOBAL rocksdb_write_disable_wal=false;
 SET GLOBAL rocksdb_write_timeout_hint_us=555;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=true;
 create table aaa (id int primary key, i int) engine rocksdb;
+select variable_value into @a from information_schema.global_status where variable_name='rocksdb_wal_synced';
 SET GLOBAL rocksdb_write_sync=off;
 insert aaa(id, i) values(1,1);
-show status like 'rocksdb_wal_synced';
-Variable_name	Value
-rocksdb_wal_synced	1
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+0
+set @a=@b;
 insert aaa(id, i) values(2,1);
-show status like 'rocksdb_wal_synced';
-Variable_name	Value
-rocksdb_wal_synced	1
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+0
+set @a=@b;
 insert aaa(id, i) values(3,1);
-show status like 'rocksdb_wal_synced';
-Variable_name	Value
-rocksdb_wal_synced	1
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+0
+set @a=@b;
 SET GLOBAL rocksdb_write_sync=on_commit;
 insert aaa(id, i) values(4,1);
-show status like 'rocksdb_wal_synced';
-Variable_name	Value
-rocksdb_wal_synced	2
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+1
+set @a=@b;
 insert aaa(id, i) values(5,1);
-show status like 'rocksdb_wal_synced';
-Variable_name	Value
-rocksdb_wal_synced	3
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+1
+set @a=@b;
 insert aaa(id, i) values(6,1);
-show status like 'rocksdb_wal_synced';
-Variable_name	Value
-rocksdb_wal_synced	4
+select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
+select @b-@a;
+@b-@a
+1
+set @a=@b;
 drop table aaa;
 SET GLOBAL rocksdb_write_sync=off;
 SET GLOBAL rocksdb_write_disable_wal=false;
