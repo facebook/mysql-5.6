@@ -23,6 +23,10 @@ Collation	latin1_swedish_ci
 Checksum	NULL
 Create_options	
 Comment	
+Compression	NULL
+Compression_level	0
+Key_block_size	0
+Compact_metadata	0
 Name	t2
 Engine	ROCKSDB
 Version	10
@@ -41,6 +45,10 @@ Collation	latin1_swedish_ci
 Checksum	NULL
 Create_options	
 Comment	
+Compression	NULL
+Compression_level	0
+Key_block_size	0
+Compact_metadata	0
 Name	t3
 Engine	ROCKSDB
 Version	10
@@ -59,4 +67,8 @@ Collation	utf8_general_ci
 Checksum	NULL
 Create_options	
 Comment	
+Compression	NULL
+Compression_level	0
+Key_block_size	0
+Compact_metadata	0
 DROP TABLE t1, t2, t3;
