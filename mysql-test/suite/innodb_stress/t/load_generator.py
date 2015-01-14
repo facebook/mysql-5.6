@@ -448,14 +448,26 @@ if  __name__ == '__main__':
 
   if num_records_before:
     print >> log, "populate table do_blob is %d" % do_blob
-    con = MySQLdb.connect(user=user, host=host, port=port, db=db)
+    con = None
+    retry = 3
+    while not con and retry > 0:
+        con = MySQLdb.connect(user=user, host=host, port=port, db=db)
+        retry = retry - 1
+    if not con:
+        print >> log, "Cannot connect to MySQL after 3 attempts."
+        sys.exit(1)
     if not populate_table(con, num_records_before, do_blob, log):
       sys.exit(1)
     con.close()
 
   if checksum:
     print >> log, "start the checksum thread"
-    checksum_worker = ChecksumWorker(MySQLdb.connect(user=user, host=host, port=port, db=db), checksum)
+    con = MySQLdb.connect(user=user, host=host, port=port, db=db)
+    if not con:
+        print >> log, "Cannot connect to MySQL server"
+        sys.exit(1)
+
+    checksum_worker = ChecksumWorker(con, checksum)
     workers.append(checksum_worker)
 
   print >> log, "start %d threads" % num_workers
