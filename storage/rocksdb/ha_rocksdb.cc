@@ -2889,7 +2889,7 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
       options.snapshot= trx->snapshot;
     rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, keydef->get_cf());
     scan_it= new Apply_changes_iter;
-    scan_it->init(keydef, &trx->changes, rocksdb_it);
+    scan_it->init(keydef->is_reverse_cf, &trx->changes, rocksdb_it);
   }
 
   /*
