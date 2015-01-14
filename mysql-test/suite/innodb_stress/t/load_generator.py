@@ -383,6 +383,7 @@ class DefragmentWorker(threading.Thread):
     self.log = open('/%s/worker-defragment.log' % LG_TMP_DIR, 'a')
     self.start_time = time.time()
     self.daemon = True
+    self.stopped = False
     self.start()
 
   def run(self):
@@ -400,6 +401,9 @@ class DefragmentWorker(threading.Thread):
     finally:
       self.finish()
 
+  def stop(self):
+      self.stopped = True
+
   def finish(self):
     print >> self.log, "defragment ran %d times" % self.num_defragment
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
@@ -409,7 +413,7 @@ class DefragmentWorker(threading.Thread):
   def runme(self):
     print >> self.log, "defragmentation thread started"
     cur = self.con.cursor()
-    while True:
+    while not self.stopped:
       print >> self.log, "defrag"
       cur.execute("ALTER TABLE t1 DEFRAGMENT")
       time.sleep(random.randint(0, 10))
@@ -488,6 +492,8 @@ if  __name__ == '__main__':
   print >> log, "wait for threads"
   for w in workers:
     w.join()
+  defrag_worker.stop()
+  defrag_worker.join()
 
   if checksum_worker and checksum_worker.checksum != checksum:
     print >> log, "checksums do not match. given checksum=%d, calculated checksum=%d" % (checksum, checksum_worker.checksum)
