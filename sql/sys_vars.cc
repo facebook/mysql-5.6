@@ -983,6 +983,11 @@ static Sys_var_mybool Sys_log_query_comments(
        GLOBAL_VAR(opt_log_only_query_comments),
        CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 
+static Sys_var_mybool Sys_log_column_names(
+       "log_column_names",
+       "Writes column name information in table map log events.",
+       GLOBAL_VAR(opt_log_column_names), CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_binlog_order_commits(
        "binlog_order_commits",
        "Issue internal commit calls in the same order as transactions are"

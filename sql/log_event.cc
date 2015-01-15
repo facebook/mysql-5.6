@@ -2431,11 +2431,17 @@ Rows_log_event::print_verbose_one_row(IO_CACHE *file, table_def *td,
     
     if (is_null)
     {
-      my_b_printf(file, "###   @%d=NULL", static_cast<int>(i + 1));
+      if (td->have_column_names())
+        my_b_printf(file, "###   %s=NULL", td->get_column_name(i));
+      else
+        my_b_printf(file, "###   @%d=NULL", static_cast<int>(i + 1));
     }
     else
     {
-      my_b_printf(file, "###   @%d=", static_cast<int>(i + 1));
+      if (td->have_column_names())
+        my_b_printf(file, "###   %s=", td->get_column_name(i));
+      else
+        my_b_printf(file, "###   @%d=", static_cast<int>(i + 1));
       size_t fsize= td->calc_field_size((uint)i, (uchar*) value);
       if (value + fsize > m_rows_end)
       {
@@ -12352,7 +12358,7 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
       m_coltype[i]= m_table->field[i]->binlog_type();
   }
 
-  my_bool log_column_names = tbl->s->rbr_column_names;
+  my_bool log_column_names = tbl->s->rbr_column_names || opt_log_column_names;
 
   if (log_column_names)
   {

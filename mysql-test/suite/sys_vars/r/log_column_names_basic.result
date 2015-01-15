@@ -1,0 +1,85 @@
+SET @start_value = @@global.log_column_names;
+SELECT @start_value;
+@start_value
+0
+SET @@global.log_column_names = DEFAULT;
+SELECT @@global.log_column_names = TRUE;
+@@global.log_column_names = TRUE
+0
+SET @@global.log_column_names = ON;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+1
+SET @@global.log_column_names = OFF;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+0
+SET @@global.log_column_names = 2;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of '2'
+SET @@global.log_column_names = -1;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of '-1'
+SET @@global.log_column_names = TRUEF;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of 'TRUEF'
+SET @@global.log_column_names = TRUE_F;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of 'TRUE_F'
+SET @@global.log_column_names = FALSE0;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of 'FALSE0'
+SET @@global.log_column_names = OON;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of 'OON'
+SET @@global.log_column_names = ONN;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of 'ONN'
+SET @@global.log_column_names = OOFF;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of 'OOFF'
+SET @@global.log_column_names = 0FF;
+ERROR 42000: Variable 'log_column_names' can't be set to the value of '0FF'
+SET @@global.log_column_names = ' ';
+ERROR 42000: Variable 'log_column_names' can't be set to the value of ' '
+SET @@global.log_column_names = " ";
+ERROR 42000: Variable 'log_column_names' can't be set to the value of ' '
+SET @@global.log_column_names = '';
+ERROR 42000: Variable 'log_column_names' can't be set to the value of ''
+SET @@session.log_column_names = OFF;
+ERROR HY000: Variable 'log_column_names' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.log_column_names;
+ERROR HY000: Variable 'log_column_names' is a GLOBAL variable
+SELECT IF(@@global.log_column_names, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='log_column_names';
+IF(@@global.log_column_names, "ON", "OFF") = VARIABLE_VALUE
+1
+SET @@global.log_column_names = 0;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+0
+SET @@global.log_column_names = 1;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+1
+SET @@global.log_column_names = TRUE;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+1
+SET @@global.log_column_names = FALSE;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+0
+SET @@global.log_column_names = ON;
+SELECT @@log_column_names = @@global.log_column_names;
+@@log_column_names = @@global.log_column_names
+1
+SET log_column_names = ON;
+ERROR HY000: Variable 'log_column_names' is a GLOBAL variable and should be set with SET GLOBAL
+SET local.log_column_names = OFF;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'log_column_names = OFF' at line 1
+SELECT local.log_column_names;
+ERROR 42S02: Unknown table 'local' in field list
+SET global.log_column_names = ON;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'log_column_names = ON' at line 1
+SELECT global.log_column_names;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT log_column_names = @@session.log_column_names;
+ERROR 42S22: Unknown column 'log_column_names' in 'field list'
+SET @@global.log_column_names = @start_value;
+SELECT @@global.log_column_names;
+@@global.log_column_names
+0
