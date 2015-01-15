@@ -16,8 +16,10 @@ select count(*) from t1;
 count(*)
 256
 delete from t1;
+set global DEBUG="+d,ib_row_purge_debug_pause";
 rollback;
 show global status like "Innodb_drop_table_purge_skipped_row";
 Variable_name	Value
 Innodb_drop_table_purge_skipped_row	0
 drop table t1;
+set global DEBUG="-d,ib_row_purge_debug_pause";
