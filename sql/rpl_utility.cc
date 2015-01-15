@@ -1198,7 +1198,6 @@ table_def::table_def(unsigned char *types, ulong size,
   if (m_size && sign_bits)
     memcpy(m_sign_bits, sign_bits, (m_size + 7) / 8);
 
-#ifdef MYSQL_SERVER
   init_dynamic_array(&m_column_names, sizeof(char*), 10, 10);
   if (column_names) {
     // store column names in to an array.
@@ -1213,14 +1212,12 @@ table_def::table_def(unsigned char *types, ulong size,
       column_names += length;
     }
   }
-#endif /* MYSQL_SERVER */
 }
 
 
 table_def::~table_def()
 {
   my_free(m_memory);
-#ifdef MYSQL_SERVER
   for (uint i = 0; i < m_column_names.elements; ++i)
   {
     char **str =
@@ -1228,7 +1225,6 @@ table_def::~table_def()
     my_free(*str);
   }
   delete_dynamic(&m_column_names);
-#endif /* MYSQL_SERVER */
 #ifndef DBUG_OFF
   m_type= 0;
   m_size= 0;

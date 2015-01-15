@@ -1,0 +1,81 @@
+--source include/have_innodb.inc
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.log_column_names;
+SELECT @start_value;
+
+
+SET @@global.log_column_names = DEFAULT;
+SELECT @@global.log_column_names = TRUE;
+
+
+SET @@global.log_column_names = ON;
+SELECT @@global.log_column_names;
+SET @@global.log_column_names = OFF;
+SELECT @@global.log_column_names;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_column_names = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.log_column_names = OFF;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_column_names;
+
+
+SELECT IF(@@global.log_column_names, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='log_column_names';
+
+
+SET @@global.log_column_names = 0;
+SELECT @@global.log_column_names;
+SET @@global.log_column_names = 1;
+SELECT @@global.log_column_names;
+
+SET @@global.log_column_names = TRUE;
+SELECT @@global.log_column_names;
+SET @@global.log_column_names = FALSE;
+SELECT @@global.log_column_names;
+
+SET @@global.log_column_names = ON;
+SELECT @@log_column_names = @@global.log_column_names;
+
+--Error ER_GLOBAL_VARIABLE
+SET log_column_names = ON;
+--Error ER_PARSE_ERROR
+SET local.log_column_names = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.log_column_names;
+--Error ER_PARSE_ERROR
+SET global.log_column_names = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.log_column_names;
+--Error ER_BAD_FIELD_ERROR
+SELECT log_column_names = @@session.log_column_names;
+
+SET @@global.log_column_names = @start_value;
+SELECT @@global.log_column_names;
