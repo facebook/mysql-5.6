@@ -417,6 +417,7 @@ public:
    */
   TABLE *create_conversion_table(THD *thd, Relay_log_info *rli, TABLE
                                  *target_table, MEM_ROOT *mem_root= NULL) const;
+#endif
 
   bool have_column_names() const
   {
@@ -431,9 +432,6 @@ public:
     return *str;
   }
 
-#endif
-
-
 private:
   ulong m_size;           // Number of elements in the types array
   unsigned char *m_type;  // Array of type descriptors
@@ -442,9 +440,7 @@ private:
   uchar *m_null_bits;
   uint16 m_flags;         // Table flags
   uchar *m_memory;
-#ifdef MYSQL_SERVER
   DYNAMIC_ARRAY m_column_names;
-#endif /* MYSQL_SERVER */
   uchar* m_sign_bits;
 };
 
