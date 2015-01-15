@@ -63,13 +63,6 @@ delimiter ;||||
 
 --enable_ps_protocol
 
-connection default;
-set global slow_query_log_file = @my_slow_logname;
-set global long_query_time=1;
-disconnect con;
-drop table islow;
-drop table mslow;
-
 --echo #
 --echo # This is a hack to check the log result.
 --echo # We strip off time related fields (non-deterministic) ana verify the rest are correct.
@@ -85,5 +78,12 @@ foreach $line (@lines) {
   }
 }
 EOF
+
+connection default;
+set global long_query_time=1;
+set global slow_query_log_file = @my_slow_logname;
+disconnect con;
+drop table islow;
+drop table mslow;
 
 --exit
