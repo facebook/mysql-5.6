@@ -555,6 +555,8 @@ row_purge_del_mark(
 /*===============*/
 	purge_node_t*	node)	/*!< in/out: row purge node */
 {
+	DBUG_EXECUTE_IF("ib_row_purge_debug_pause", return(false););
+
 	mem_heap_t*	heap;
 
 	heap = mem_heap_create(1024);

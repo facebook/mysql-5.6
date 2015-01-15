@@ -3506,6 +3506,8 @@ DECLARE_THREAD(srv_purge_coordinator_thread)(
 	void*	arg __attribute__((unused)))	/*!< in: a dummy parameter
 						required by os_thread_create */
 {
+	my_thread_init();
+
 	srv_slot_t*	slot;
 	ulint           n_total_purged = ULINT_UNDEFINED;
 
@@ -3613,6 +3615,8 @@ DECLARE_THREAD(srv_purge_coordinator_thread)(
 	}
 
 	buf_pool_resizable_purge = true;
+
+	my_thread_end();
 
 	/* We count the number of threads in os_thread_exit(). A created
 	thread should always use that to exit and not use return() to exit. */
