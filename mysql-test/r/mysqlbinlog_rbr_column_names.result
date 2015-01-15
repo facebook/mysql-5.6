@@ -1,0 +1,111 @@
+SET SESSION binlog_format = 'ROW';
+SET SESSION binlog_row_image = FULL;
+SET @old_log_column_names = @@global.log_column_names;
+SET GLOBAL log_column_names = TRUE;
+CREATE TABLE numeric_table (col_bool BOOL,
+col_tinyint TINYINT,
+col_smallint SMALLINT,
+col_mediumint MEDIUMINT,
+col_int INT,
+col_bigint BIGINT,
+col_u_tinyint TINYINT UNSIGNED,
+col_u_smallint SMALLINT UNSIGNED,
+col_u_mediumint MEDIUMINT UNSIGNED,
+col_u_int INT UNSIGNED,
+col_u_bigint BIGINT UNSIGNED,
+col_float FLOAT,
+col_double DOUBLE);
+CREATE TABLE string_table (col_char10 CHAR(10),
+col_varchar10 VARCHAR(10),
+col_binary10 BINARY(10),
+col_varbinary10 VARBINARY(10));
+INSERT INTO numeric_table (col_bool) VALUES (TRUE);
+INSERT INTO numeric_table (col_tinyint, col_smallint, col_mediumint, col_int,
+col_bigint) VALUES (63, 16380, 4194300, 1073741800, 1152921504606846976);
+INSERT INTO numeric_table (col_float, col_double) VALUE (28342.2, 12312834.123123);
+INSERT INTO string_table (col_char10) VALUES ("hihi");
+UPDATE string_table SET col_char10=CONCAT(col_char10, col_char10);
+INSERT INTO string_table (col_varchar10) VALUES ("vars");
+UPDATE string_table SET col_varchar10=CONCAT(col_varchar10, col_varchar10);
+FLUSH LOGS;
+### INSERT INTO `test`.`numeric_table`
+### SET
+###   col_bool=1 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   col_tinyint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_smallint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_mediumint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_int=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_bigint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_u_tinyint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_u_smallint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_u_mediumint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_u_int=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_u_bigint=NULL /* TINYINT meta=0 nullable=1 is_null=1 */
+###   col_float=NULL /* TINYINT meta=4 nullable=1 is_null=1 */
+###   col_double=NULL /* TINYINT meta=8 nullable=1 is_null=1 */
+### INSERT INTO `test`.`numeric_table`
+### SET
+###   col_bool=NULL /* type=1 meta=0 nullable=1 is_null=1 */
+###   col_tinyint=63 /* TINYINT meta=0 nullable=1 is_null=0 */
+###   col_smallint=16380 /* SHORTINT meta=0 nullable=1 is_null=0 */
+###   col_mediumint=4194300 /* MEDIUMINT meta=0 nullable=1 is_null=0 */
+###   col_int=1073741800 /* INT meta=0 nullable=1 is_null=0 */
+###   col_bigint=1152921504606846976 /* LONGINT meta=0 nullable=1 is_null=0 */
+###   col_u_tinyint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_smallint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_mediumint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_int=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_u_bigint=NULL /* LONGINT meta=0 nullable=1 is_null=1 */
+###   col_float=NULL /* LONGINT meta=4 nullable=1 is_null=1 */
+###   col_double=NULL /* LONGINT meta=8 nullable=1 is_null=1 */
+### INSERT INTO `test`.`numeric_table`
+### SET
+###   col_bool=NULL /* type=1 meta=0 nullable=1 is_null=1 */
+###   col_tinyint=NULL /* type=1 meta=0 nullable=1 is_null=1 */
+###   col_smallint=NULL /* type=2 meta=0 nullable=1 is_null=1 */
+###   col_mediumint=NULL /* type=9 meta=0 nullable=1 is_null=1 */
+###   col_int=NULL /* type=3 meta=0 nullable=1 is_null=1 */
+###   col_bigint=NULL /* type=8 meta=0 nullable=1 is_null=1 */
+###   col_u_tinyint=NULL /* type=1 meta=0 nullable=1 is_null=1 */
+###   col_u_smallint=NULL /* type=2 meta=0 nullable=1 is_null=1 */
+###   col_u_mediumint=NULL /* type=9 meta=0 nullable=1 is_null=1 */
+###   col_u_int=NULL /* type=3 meta=0 nullable=1 is_null=1 */
+###   col_u_bigint=NULL /* type=8 meta=0 nullable=1 is_null=1 */
+###   col_float=28342.2              /* FLOAT meta=4 nullable=1 is_null=0 */
+###   col_double=12312834.123122999445 /* DOUBLE meta=8 nullable=1 is_null=0 */
+### INSERT INTO `test`.`string_table`
+### SET
+###   col_char10='hihi' /* STRING(10) meta=65034 nullable=1 is_null=0 */
+###   col_varchar10=NULL /* STRING(10) meta=10 nullable=1 is_null=1 */
+###   col_binary10=NULL /* STRING(10) meta=65034 nullable=1 is_null=1 */
+###   col_varbinary10=NULL /* STRING(10) meta=10 nullable=1 is_null=1 */
+### UPDATE `test`.`string_table`
+### WHERE
+###   col_char10='hihi' /* STRING(10) meta=65034 nullable=1 is_null=0 */
+###   col_varchar10=NULL /* STRING(10) meta=10 nullable=1 is_null=1 */
+###   col_binary10=NULL /* STRING(10) meta=65034 nullable=1 is_null=1 */
+###   col_varbinary10=NULL /* STRING(10) meta=10 nullable=1 is_null=1 */
+### SET
+###   col_char10='hihihihi' /* STRING(10) meta=65034 nullable=1 is_null=0 */
+###   col_varchar10=NULL /* STRING(10) meta=10 nullable=1 is_null=1 */
+###   col_binary10=NULL /* STRING(10) meta=65034 nullable=1 is_null=1 */
+###   col_varbinary10=NULL /* STRING(10) meta=10 nullable=1 is_null=1 */
+### INSERT INTO `test`.`string_table`
+### SET
+###   col_char10=NULL /* type=254 meta=65034 nullable=1 is_null=1 */
+###   col_varchar10='vars' /* VARSTRING(10) meta=10 nullable=1 is_null=0 */
+###   col_binary10=NULL /* VARSTRING(10) meta=65034 nullable=1 is_null=1 */
+###   col_varbinary10=NULL /* VARSTRING(10) meta=10 nullable=1 is_null=1 */
+### UPDATE `test`.`string_table`
+### WHERE
+###   col_char10=NULL /* type=254 meta=65034 nullable=1 is_null=1 */
+###   col_varchar10='vars' /* VARSTRING(10) meta=10 nullable=1 is_null=0 */
+###   col_binary10=NULL /* VARSTRING(10) meta=65034 nullable=1 is_null=1 */
+###   col_varbinary10=NULL /* VARSTRING(10) meta=10 nullable=1 is_null=1 */
+### SET
+###   col_char10=NULL /* type=254 meta=65034 nullable=1 is_null=1 */
+###   col_varchar10='varsvars' /* VARSTRING(10) meta=10 nullable=1 is_null=0 */
+###   col_binary10=NULL /* VARSTRING(10) meta=65034 nullable=1 is_null=1 */
+###   col_varbinary10=NULL /* VARSTRING(10) meta=10 nullable=1 is_null=1 */
+SET GLOBAL log_column_names = @old_log_column_names;
+DROP TABLE numeric_table, string_table;

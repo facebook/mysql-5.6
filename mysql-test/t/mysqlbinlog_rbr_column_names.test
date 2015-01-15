@@ -1,0 +1,48 @@
+source include/have_log_bin.inc;
+SET SESSION binlog_format = 'ROW';
+SET SESSION binlog_row_image = FULL;
+
+SET @old_log_column_names = @@global.log_column_names;
+SET GLOBAL log_column_names = TRUE;
+
+CREATE TABLE numeric_table (col_bool BOOL,
+                            col_tinyint TINYINT,
+                            col_smallint SMALLINT,
+                            col_mediumint MEDIUMINT,
+                            col_int INT,
+                            col_bigint BIGINT,
+                            col_u_tinyint TINYINT UNSIGNED,
+                            col_u_smallint SMALLINT UNSIGNED,
+                            col_u_mediumint MEDIUMINT UNSIGNED,
+                            col_u_int INT UNSIGNED,
+                            col_u_bigint BIGINT UNSIGNED,
+                            col_float FLOAT,
+                            col_double DOUBLE);
+
+CREATE TABLE string_table (col_char10 CHAR(10),
+                           col_varchar10 VARCHAR(10),
+                           col_binary10 BINARY(10),
+                           col_varbinary10 VARBINARY(10));
+
+INSERT INTO numeric_table (col_bool) VALUES (TRUE);
+
+INSERT INTO numeric_table (col_tinyint, col_smallint, col_mediumint, col_int,
+  col_bigint) VALUES (63, 16380, 4194300, 1073741800, 1152921504606846976);
+
+INSERT INTO numeric_table (col_float, col_double) VALUE (28342.2, 12312834.123123);
+
+INSERT INTO string_table (col_char10) VALUES ("hihi");
+UPDATE string_table SET col_char10=CONCAT(col_char10, col_char10);
+
+INSERT INTO string_table (col_varchar10) VALUES ("vars");
+UPDATE string_table SET col_varchar10=CONCAT(col_varchar10, col_varchar10);
+
+FLUSH LOGS;
+
+let $MYSQLD_DATADIR= `SELECT @@datadir`;
+# Verify column names are logged in the binlog for all the tables
+--exec $MYSQL_BINLOG -v -v $MYSQLD_DATADIR/master-bin.000001 | grep '###'
+
+SET GLOBAL log_column_names = @old_log_column_names;
+
+DROP TABLE numeric_table, string_table;
