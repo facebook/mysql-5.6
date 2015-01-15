@@ -11,14 +11,9 @@ if (-e "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_extra-slow.log") {
 }
 EOF
 
+set @my_long_query_time = @@global.long_query_time;
 set @my_slow_logname = @@global.slow_query_log_file;
 set global slow_query_log_file = "slow_log_extra-slow.log";
-
-set timestamp=10;
-select unix_timestamp(), sleep(2);
-
-let $MYSQLD_DATADIR= `select @@datadir`;
---exec [ "1" -eq `grep "SET timestamp=10;" $MYSQLD_DATADIR/slow_log_extra-slow.log | wc -l` ]
 
 #
 # Confirm that per-query stats work.
@@ -64,15 +59,13 @@ delimiter ;||||
 --enable_ps_protocol
 
 connection default;
+set global long_query_time = @my_long_query_time;
 set global slow_query_log_file = @my_slow_logname;
-set global long_query_time=1;
 disconnect con;
-drop table islow;
-drop table mslow;
 
 --echo #
 --echo # This is a hack to check the log result.
---echo # We strip off time related fields (non-deterministic) ana verify the rest are correct.
+--echo # We strip off time related fields (non-deterministic) and verify the rest are correct.
 --echo #
 
 --perl
@@ -86,4 +79,5 @@ foreach $line (@lines) {
 }
 EOF
 
---exit
+drop table islow;
+drop table mslow;
