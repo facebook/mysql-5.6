@@ -3,6 +3,7 @@
 #
 
 --source include/have_innodb.inc
+--source include/have_debug.inc
 
 call mtr.add_suppression("InnoDB: Error: trying to do.*");
 
@@ -28,6 +29,8 @@ select count(*) from t1;
 connection default;
 delete from t1;
 
+set global DEBUG="+d,ib_row_purge_debug_pause";
+
 connection con1;
 rollback;
 
@@ -38,5 +41,8 @@ show global status like "Innodb_drop_table_purge_skipped_row";
 drop table t1;
 
 let $wait_timeout= 120; # Override default 30 seconds with 120, as this can be really slow in Valgrind
+
+set global DEBUG="-d,ib_row_purge_debug_pause";
+
 let $wait_condition= select (VARIABLE_VALUE > 100) from information_schema.global_status where VARIABLE_NAME = 'Innodb_drop_table_purge_skipped_row';
 --source include/wait_condition.inc
