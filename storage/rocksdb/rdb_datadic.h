@@ -219,6 +219,12 @@ public:
     INDEX_NUMBER_SIZE= 4
   };
 
+  enum {
+    DDL_ENTRY_INDEX_START_NUMBER=1,
+    // TODO: set max limit for DDL_ENTRY_INDEX_NUMBER
+    BINLOG_INFO_INDEX_NUMBER=0xfffffff0,
+  };
+
   void setup(TABLE *table);
   void set_cf_handle(rocksdb::ColumnFamilyHandle* cf_handle_arg,
                      bool is_reverse_cf_arg,
@@ -428,10 +434,6 @@ class Table_ddl_manager
 
   Sequence_generator sequence;
 
-  enum {
-    DDL_ENTRY_INDEX_NUMBER=1
-  };
-
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(rocksdb::DB *rdb_dict);
@@ -454,4 +456,41 @@ private:
   static uchar* get_hash_key(RDBSE_TABLE_DEF *rec, size_t *length,
                              my_bool not_used __attribute__((unused)));
   static void free_hash_elem(void* data);
+};
+
+
+/*
+  Writing binlog information into RocksDB at commit(),
+  and retrieving binlog information at crash recovery.
+  commit() and recovery are always executed by at most single client
+  at the same time, so concurrency control is not needed.
+
+  Binlog info is stored in RocksDB as the following.
+   key: BINLOG_INFO_INDEX_NUMBER
+   value: packed single row:
+     binlog_name_length (2 byte form)
+     binlog_name
+     binlog_position (4 byte form)
+     binlog_gtid_length (2 byte form)
+     binlog_gtid
+*/
+class Binlog_info_manager
+{
+public:
+  bool init(rocksdb::DB *rdb_dict);
+  void cleanup();
+  void update(const char* binlog_name, const my_off_t binlog_pos,
+              const char* binlog_gtid, rocksdb::WriteBatch& batch);
+  bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
+
+private:
+  rocksdb::DB *rdb;
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  rocksdb::Slice key_slice;
+  rocksdb::Slice pack_value(char* buf,
+                            const char* binlog_name,
+                            const my_off_t binlog_pos,
+                            const char* binlog_gtid);
+  void unpack_value(const char* value, char* binlog_name,
+                    my_off_t& binlog_pos, char* binlog_gtid);
 };

@@ -3634,7 +3634,8 @@ const char *ha_legacy_type_name(legacy_db_type legacy_type);
 const char *get_canonical_filename(handler *file, const char *path,
                                    char *tmp_path);
 bool mysql_xa_recover(THD *thd);
-
+bool is_binlog_advanced(const char *b1, const my_off_t p1,
+                        const char *b2, const my_off_t p2);
 
 inline const char *table_case_name(HA_CREATE_INFO *info, const char *name)
 {
