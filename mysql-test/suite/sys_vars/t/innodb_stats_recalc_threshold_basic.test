@@ -1,0 +1,30 @@
+--source include/have_innodb.inc
+
+SET @start_innodb_stats_recalc_threshold = @@global.innodb_stats_recalc_threshold;
+SELECT @start_innodb_stats_recalc_threshold;
+
+SELECT COUNT(@@global.innodb_stats_recalc_threshold);
+
+SET @@global.innodb_stats_recalc_threshold = 0.11111111;
+SELECT @@global.innodb_stats_recalc_threshold;
+
+SET @@global.innodb_stats_recalc_threshold = 1;
+SELECT @@global.innodb_stats_recalc_threshold;
+
+SET @@global.innodb_stats_recalc_threshold = 0.001;
+SELECT @@global.innodb_stats_recalc_threshold;
+
+SET @@global.innodb_stats_recalc_threshold = 0.00001;
+SELECT @@global.innodb_stats_recalc_threshold;
+
+SET @@global.innodb_stats_recalc_threshold = -1;
+SELECT @@global.innodb_stats_recalc_threshold;
+
+SET @@global.innodb_stats_recalc_threshold = 2;
+SELECT @@global.innodb_stats_recalc_threshold;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_stats_recalc_threshold = "abc";
+SELECT @@global.innodb_stats_recalc_threshold;
+
+SET @@global.innodb_stats_recalc_threshold = @start_innodb_stats_recalc_threshold;
