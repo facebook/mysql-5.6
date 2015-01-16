@@ -2,7 +2,7 @@
 
 connection master;
 -- let $uuid = `select @@server_uuid;`
-create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
+-- eval create table t1(a int, PRIMARY KEY(a)) ENGINE=$engine
 insert into t1 values(1);
 insert into t1 values(2);
 sync_slave_with_master;
