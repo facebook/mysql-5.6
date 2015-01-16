@@ -273,7 +273,6 @@ values */
 
 static bool innobase_rollback_on_timeout = FALSE;
 static bool innobase_create_status_file = FALSE;
-bool innobase_stats_on_metadata = TRUE;
 static bool innodb_optimize_fulltext_only = FALSE;
 
 static char *innodb_version_str = (char *)INNODB_VERSION_STR;
@@ -892,6 +891,12 @@ static MYSQL_THDVAR_BOOL(strict_mode, PLUGIN_VAR_OPCMDARG,
 static MYSQL_THDVAR_BOOL(ft_enable_stopword, PLUGIN_VAR_OPCMDARG,
                          "Create FTS index with stopword.", nullptr, nullptr,
                          /* default */ TRUE);
+
+static MYSQL_THDVAR_BOOL(
+    stats_on_metadata, PLUGIN_VAR_OPCMDARG,
+    "Enable statistics gathering for metadata commands such as SHOW TABLE "
+    "STATUS for tables that use transient statistics (off by default)",
+    NULL, NULL, /* default */ FALSE);
 
 static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
                           "Timeout in seconds an InnoDB transaction may wait "
@@ -1790,6 +1795,19 @@ void thd_set_lock_wait_time(THD *thd,    /*!< in/out: thread handle */
   if (thd) {
     thd_storage_lock_wait(thd, value);
   }
+}
+
+/** Get the value of innodb_stats_on_metadata.
+@param[in]	thd	thread handle
+@retval innodb_stats_on_metadata */
+bool thd_stats_on_metadata(THD *thd) {
+#ifdef UNIV_DEBUG
+  trx_t *trx = thd_to_trx(thd);
+  btrsea_sync_check check(trx->has_search_latch);
+  ut_ad(!sync_check_iterate(check));
+#endif /* UNIV_DEBUG */
+
+  return THDVAR(thd, stats_on_metadata);
 }
 
 /** Get the value of innodb_tmpdir.
@@ -16342,21 +16360,18 @@ int ha_innobase::info_low(uint flag, bool is_analyze) {
   ib_table = m_prebuilt->table;
   DBUG_ASSERT(ib_table->n_ref_count > 0);
 
+  const bool stats_on_metadata =
+      table_share->table_category == TABLE_CATEGORY_USER &&
+      THDVAR(ha_thd(), stats_on_metadata);
   if (flag & HA_STATUS_TIME) {
-    if (is_analyze || innobase_stats_on_metadata) {
+    if (is_analyze || stats_on_metadata) {
       dict_stats_upd_option_t opt;
       dberr_t ret;
 
       m_prebuilt->trx->op_info = "updating table statistics";
 
       if (dict_stats_is_persistent_enabled(ib_table)) {
-        if (is_analyze) {
-          opt = DICT_STATS_RECALC_PERSISTENT;
-        } else {
-          /* This is e.g. 'SHOW INDEXES', fetch
-          the persistent stats from disk. */
-          opt = DICT_STATS_FETCH_ONLY_IF_NOT_IN_MEMORY;
-        }
+        opt = DICT_STATS_RECALC_PERSISTENT;
       } else {
         opt = DICT_STATS_RECALC_TRANSIENT;
       }
@@ -16827,6 +16842,25 @@ static bool innobase_get_table_statistics(
     dict_stats_init(ib_table);
 
     ut_a(ib_table->stat_initialized);
+
+    const bool stats_on_metadata = THDVAR(thd, stats_on_metadata);
+    if (stats_on_metadata) {
+      dict_stats_upd_option_t opt;
+      dberr_t ret;
+
+      if (dict_stats_is_persistent_enabled(ib_table)) {
+        opt = DICT_STATS_RECALC_PERSISTENT;
+      } else {
+        opt = DICT_STATS_RECALC_TRANSIENT;
+      }
+
+      ut_ad(!mutex_own(&dict_sys->mutex));
+      ret = dict_stats_update(ib_table, opt);
+
+      if (ret != DB_SUCCESS) {
+        return true;
+      }
+    }
 
     /* Note it may look like ib_table->* arguments are
     redundant. If you see the usage of this call in info_low(),
@@ -21056,13 +21090,6 @@ static MYSQL_SYSVAR_BOOL(
     status_file, innobase_create_status_file,
     PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_NOSYSVAR,
     "Enable SHOW ENGINE INNODB STATUS output in the innodb_status.<pid> file",
-    nullptr, nullptr, FALSE);
-
-static MYSQL_SYSVAR_BOOL(
-    stats_on_metadata, innobase_stats_on_metadata, PLUGIN_VAR_OPCMDARG,
-    "Enable statistics gathering for metadata commands such as"
-    " SHOW TABLE STATUS for tables that use transient statistics (off by "
-    "default)",
     nullptr, nullptr, FALSE);
 
 static MYSQL_SYSVAR_ULONGLONG(
