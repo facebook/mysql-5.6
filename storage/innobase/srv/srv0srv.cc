@@ -449,6 +449,7 @@ UNIV_INTERN unsigned long long	srv_stats_transient_sample_pages = 8;
 UNIV_INTERN my_bool		srv_stats_persistent = TRUE;
 UNIV_INTERN unsigned long long	srv_stats_persistent_sample_pages = 20;
 UNIV_INTERN my_bool		srv_stats_auto_recalc = TRUE;
+UNIV_INTERN double		srv_stats_recalc_threshold = 0.1;
 
 UNIV_INTERN ulong	srv_use_doublewrite_buf	= 1;
 UNIV_INTERN my_bool	srv_doublewrite_reset = FALSE;
