@@ -1,3 +1,5 @@
+RETURN() # MyRocks is disabled
+
 # TODO: Copyrights
 #
 # Optional environment variables that may be used, if library

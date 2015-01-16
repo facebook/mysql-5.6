@@ -3,7 +3,6 @@
 --source include/master-slave.inc
 
 --source include/rpl_connection_slave.inc
---source include/not_slave_use_idempotent_for_recovery.inc
 --source include/rpl_connection_master.inc
 
 call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
