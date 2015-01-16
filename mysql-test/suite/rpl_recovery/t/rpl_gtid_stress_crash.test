@@ -1,0 +1,26 @@
+--source include/big_test.inc
+--source include/not_valgrind.inc
+--source include/master-slave.inc
+
+--source include/rpl_connection_slave.inc
+--source include/rpl_connection_master.inc
+
+call mtr.add_suppression("Unsafe statement written to the binary log using statement format since BINLOG_FORMAT = STATEMENT");
+
+--source include/sync_slave_sql_with_master.inc
+--source include/stop_slave.inc
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 1;
+--source include/start_slave.inc
+
+--let $iter = 40
+--let $databases = 30
+--let $num_crashes = 100
+--let $include_silent = 1
+--source extra/rpl_tests/rpl_parallel_load_innodb.test
+--let $include_silent = 0
+
+--source include/stop_slave.inc
+CHANGE REPLICATION SOURCE TO SOURCE_AUTO_POSITION = 0;
+--source include/start_slave.inc
+
+--source include/rpl_end.inc
