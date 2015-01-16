@@ -1,0 +1,7 @@
+call mtr.add_suppression("Recovery from master pos");
+-- source suite/rocksdb_rpl/t/rpl_gtid_crash_safe_wal_corrupt.inc
+-- exec perl -ne 'print "Binlog Info Found\n" if (/^RocksDB: Last binlog file.*slave-bin\.000001\n/)' $MYSQLTEST_VARDIR/log/mysqld.2.err
+-- move_file $MYSQLTEST_VARDIR/log/mysqld.2.err $MYSQLTEST_VARDIR/log/mysqld.2.err.orig
+-- write_file $MYSQLTEST_VARDIR/log/mysqld.2.err
+EOF
+

@@ -5632,7 +5632,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
                                 &global_system_variables.temp_table_plugin))
     unireg_abort(1);
 
-  if (total_ha_2pc > 1 || (1 == total_ha_2pc && opt_bin_log))
+  if (total_ha_2pc > 2 || (1 == total_ha_2pc && opt_bin_log))
   {
     if (opt_bin_log)
       tc_log= &mysql_bin_log;

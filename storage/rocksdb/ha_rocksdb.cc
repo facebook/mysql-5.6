@@ -74,6 +74,7 @@ rocksdb::ColumnFamilyOptions default_cf_opts;
 
 Column_family_manager cf_manager;
 Table_ddl_manager ddl_manager;
+Binlog_info_manager binlog_manager;
 LockTable row_locks;
 
 /*
@@ -735,6 +736,10 @@ public:
 
   uint n_writes;
 
+  const char* mysql_log_file_name;
+  my_off_t mysql_log_offset;
+  const char* mysql_gtid;
+
   /*
     These are needed to use LF-Hash. They are allocated per-thread. Logically,
     they are not part of the transaction but it's convenient to have them here.
@@ -788,10 +793,12 @@ public:
     trx_locks.clear();
   }
 
-  bool commit(THD* thd)
+  bool commit(THD *thd)
   {
     bool res= false;
-    flush_batch(thd);
+    thd_binlog_pos(thd, &mysql_log_file_name, &mysql_log_offset,
+                   &mysql_gtid);
+    flush_batch(thd, true);
     /* rollback() will delete snapshot, batch and locks */
     rollback();
     return res;
@@ -799,13 +806,21 @@ public:
 
 private:
 
-  int flush_batch_intern(THD* thd)
+  int flush_batch_intern(THD* thd, bool on_commit)
   {
     bool res= false;
     rocksdb::WriteBatch batch;
 
     if (changes.is_empty())
       return false;
+
+    if (on_commit)
+    {
+      binlog_manager.update(mysql_log_file_name,
+                            mysql_log_offset,
+                            mysql_gtid,
+                            batch);
+    }
 
     for (int reverse=0; reverse <= 1; reverse++)
     {
@@ -829,9 +844,9 @@ private:
   }
 
 public:
-  int flush_batch(THD* thd)
+  int flush_batch(THD *thd, bool on_commit=false)
   {
-    bool bres= flush_batch_intern(thd);
+    bool bres= flush_batch_intern(thd, on_commit);
     changes.reinit();
     n_writes= 0;
     return bres;
@@ -916,6 +931,45 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
     row_locks.put_pins(trx->pins);
   delete trx;
   trx= NULL;
+  return 0;
+}
+
+/**
+  Doing nothing at prepare(). But defining handler::prepare() is needed
+  for Xid binlog event to be written at commit.
+*/
+static int rocksdb_prepare(handlerton* hton, THD* thd, bool all, bool async)
+{
+  return 0;
+}
+
+/**
+  Reading last committed binary log info from RocksDB system row.
+  The info is needed for crash safe slave/master to work.
+*/
+static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
+                           char* binlog_file, my_off_t* binlog_pos)
+{
+  if (binlog_file && binlog_pos)
+  {
+    char file_buf[FN_REFLEN+1]= {0};
+    my_off_t pos;
+    char gtid_buf[FN_REFLEN+1]= {0};
+    if (binlog_manager.read(file_buf, pos, gtid_buf))
+    {
+      if (is_binlog_advanced(binlog_file, *binlog_pos, file_buf, pos))
+      {
+        strcpy(binlog_file, file_buf);
+        *binlog_pos= pos;
+        fprintf(stderr, "RocksDB: Last binlog file position %llu,"
+                " file name %s\n", pos, file_buf);
+        if (*gtid_buf)
+        {
+          fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);
+        }
+      }
+    }
+  }
   return 0;
 }
 
@@ -1033,6 +1087,8 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->state=    SHOW_OPTION_YES;
   rocksdb_hton->create=   rocksdb_create_handler;
   rocksdb_hton->close_connection= rocksdb_close_connection;
+  rocksdb_hton->prepare=   rocksdb_prepare;
+  rocksdb_hton->recover=   rocksdb_recover;
   rocksdb_hton->commit=   rocksdb_commit;
   rocksdb_hton->rollback= rocksdb_rollback;
   rocksdb_hton->db_type=  DB_TYPE_ROCKSDB;
@@ -1147,6 +1203,9 @@ static int rocksdb_init_func(void *p)
   }
   cf_manager.init(&cf_names, &cf_handles);
 
+  if (binlog_manager.init(rdb))
+    DBUG_RETURN(1);
+
   if (ddl_manager.init(rdb))
     DBUG_RETURN(1);
 
@@ -1189,7 +1248,7 @@ static int rocksdb_done_func(void *p)
 
   row_locks.cleanup();
   ddl_manager.cleanup();
-
+  binlog_manager.cleanup();
   cf_manager.cleanup();
 
   delete rdb;
@@ -2894,7 +2953,7 @@ int ha_rocksdb::write_row(uchar *buf)
   if (!do_locking && trx->n_writes > THDVAR(table->in_use, bulk_load_size))
   {
     /* Bulk insert mode: flush the write batch if it became too big */
-    if (trx->flush_batch(table->in_use))
+    if (trx->flush_batch(table->in_use, false))
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
