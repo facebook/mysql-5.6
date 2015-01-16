@@ -46,8 +46,6 @@ SET @@global.innodb_file_format_check='On';
 
 --error ER_GLOBAL_VARIABLE
 SET session innodb_large_prefix='OFF';
---error ER_GLOBAL_VARIABLE
-SET @@session.innodb_stats_on_metadata='ON';
 
 #
 # Check if the value in GLOBAL Table matches value in variable 

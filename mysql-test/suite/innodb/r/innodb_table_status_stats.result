@@ -1,0 +1,18 @@
+DROP TABLE if exists t1;
+# Create & populate table.
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
+# Force a stats update because normal stats calculation is done in background with separate thread
+# thus unpredictable.
+analyze table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+pass
+1
+# The table currently have 128 records, adding another 10 will not trigger stats recalculation by default (< 10%).
+# Querying the stats should not trigger a stats recalculation by default.
+pass
+1
+# Querying the stats should trigger a stats recalculation when innod_stats_on_metadata is enabled.
+pass
+1
+drop table t1;
