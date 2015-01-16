@@ -1104,7 +1104,8 @@ row_update_statistics_if_needed(
 	n_rows = dict_table_get_n_rows(table);
 
 	if (dict_stats_is_persistent_enabled(table)) {
-		if (counter > n_rows / 10 /* 10% */
+		if (counter > static_cast<ib_uint64_t>
+			      (n_rows * srv_stats_recalc_threshold)
 		    && dict_stats_auto_recalc_is_enabled(table)) {
 
 			dict_stats_recalc_pool_add(table);
