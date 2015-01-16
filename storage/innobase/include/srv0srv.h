@@ -439,6 +439,7 @@ extern unsigned long long	srv_stats_transient_sample_pages;
 extern my_bool			srv_stats_persistent;
 extern unsigned long long	srv_stats_persistent_sample_pages;
 extern my_bool			srv_stats_auto_recalc;
+extern double			srv_stats_recalc_threshold;
 extern my_bool srv_recv_ibuf_operations;
 
 extern ulong	srv_use_doublewrite_buf;

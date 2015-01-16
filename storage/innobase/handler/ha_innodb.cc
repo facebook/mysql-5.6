@@ -17659,6 +17659,12 @@ static MYSQL_SYSVAR_BOOL(stats_auto_recalc, srv_stats_auto_recalc,
   "new statistics)",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_DOUBLE(stats_recalc_threshold, srv_stats_recalc_threshold,
+  PLUGIN_VAR_OPCMDARG,
+  "When automatically recalculate persistent statistics, the percentage of "
+  "rows changed in the table that should trigger a recalculation.",
+  NULL, NULL, 0.1, 0.001, 1, 0);
+
 static MYSQL_SYSVAR_ULONGLONG(stats_persistent_sample_pages,
   srv_stats_persistent_sample_pages,
   PLUGIN_VAR_RQCMDARG,
@@ -18620,6 +18626,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(stats_persistent),
   MYSQL_SYSVAR(stats_persistent_sample_pages),
   MYSQL_SYSVAR(stats_auto_recalc),
+  MYSQL_SYSVAR(stats_recalc_threshold),
   MYSQL_SYSVAR(adaptive_hash_index),
   MYSQL_SYSVAR(stats_method),
   MYSQL_SYSVAR(replication_delay),
