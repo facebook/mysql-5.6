@@ -370,6 +370,7 @@ extern ulint	srv_n_write_io_threads;
 /* Defragmentation */
 #define SRV_DEFRAGMENT_FREQUENCY_DEFAULT 100
 extern my_bool	srv_defragment;
+extern my_bool	srv_defragment_pause;
 extern uint	srv_defragment_n_pages;
 extern uint	srv_defragment_stats_accuracy;
 extern uint	srv_defragment_fill_factor_n_recs;

@@ -212,15 +212,34 @@ connection con1;
 reap;
 
 connection default;
-disconnect con1;
 eval set global innodb_defragment_frequency = $orig_frequency;
 
---echo ## Test-6 defragment index already being defragmented.
+--echo ## Test-6 Defragment when feature enabled but defragmentation is paused
+set @@global.innodb_defragment_pause = true;
+connection con1;
+send alter table t1 defragment;
+connection default;
+select info from information_schema.processlist where info like 'alter%';
+
+set @@global.innodb_defragment_pause = false;
+connection con1;
+reap;
+connection default;
+disconnect con1;
+
+
+--echo ## Test-7 defragment index already being defragmented.
 alter table t1 defragment index PRIMARY async_commit;
 --error ER_SP_ALREADY_EXISTS
 alter table t1 defragment index PRIMARY;
 
-# if async_commit defragmentation doesn't finish before drop table, it will
+--echo ## Test-8 Defragment when feature disabled should return error
+set @@global.innodb_defragment = false;
+--error ER_FEATURE_DISABLED
+alter table t1 defragment index PRIMARY;
+set @@global.innodb_defragment = true;
+
+# if async_commit defragment ation doesn't finish before drop table, it will
 # cause crash after the table is dropped. So we clean up the unfinished async
 # defrag query (if any) before test cleanup.
 let $conn_id = `select connection_id()`;

@@ -76,10 +76,22 @@ sleep(3)
 0
 ERROR 70100: Query execution was interrupted
 set global innodb_defragment_frequency = 100;
-## Test-6 defragment index already being defragmented.
+## Test-6 Defragment when feature enabled but defragmentation is paused
+set @@global.innodb_defragment_pause = true;
+alter table t1 defragment;
+select info from information_schema.processlist where info like 'alter%';
+info
+alter table t1 defragment
+set @@global.innodb_defragment_pause = false;
+## Test-7 defragment index already being defragmented.
 alter table t1 defragment index PRIMARY async_commit;
 alter table t1 defragment index PRIMARY;
 ERROR 42000: ./test/t1 PRIMARY already exists
+## Test-8 Defragment when feature disabled should return error
+set @@global.innodb_defragment = false;
+alter table t1 defragment index PRIMARY;
+ERROR HY000: The 'ALTER TABLE DEFRAGMENT' feature is disabled; you need MySQL built with 'innodb_defragment' to have it working
+set @@global.innodb_defragment = true;
 kill query ID;
 ERROR 70ID00: Query execution was interrupted
 select sleep(3);

@@ -708,9 +708,11 @@ DECLARE_THREAD(btr_defragment_thread)(
 			buf_pool_resizable_btr_defragment = false;
 		}
 
-		/* If defragmentation is disabled, sleep before
-		checking whether it's enabled. */
-		if (!srv_defragment) {
+		/* If defragmentation is paused, sleep before
+		checking whether we should resume. srv_defragment_pause
+		will always be false if defragment is disabled, allowing
+		existing defragmentations to finish. */
+		if (srv_defragment_pause) {
 			os_thread_sleep(BTR_DEFRAGMENT_SLEEP_IN_USECS);
 			continue;
 		}

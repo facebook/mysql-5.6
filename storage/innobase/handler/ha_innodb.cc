@@ -16968,6 +16968,24 @@ innodb_log_compressed_pages_update(
 
 static
 void
+innodb_defragment_update(
+/*===============================*/
+	THD* thd,  /*!< in: thread handle */
+	struct st_mysql_sys_var* var,  /*!< in: pointer to
+	          system variable */
+	void* var_ptr,/*!< out: where the
+	          formal string goes */
+	const void* save) /*!< in: immediate result
+	          from check function */
+{
+	srv_defragment = (*static_cast<const my_bool*>(save));
+	if (!srv_defragment) {
+		srv_defragment_pause = FALSE;
+	}
+}
+
+static
+void
 innodb_defragment_frequency_update(
 /*===============================*/
 	THD* thd,  /*!< in: thread handle */
@@ -18005,10 +18023,16 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_load_at_startup, srv_buffer_pool_load_at_st
 static MYSQL_SYSVAR_BOOL(defragment, srv_defragment,
   PLUGIN_VAR_RQCMDARG,
   "Enable/disable InnoDB defragmentation. When set to FALSE, all existing "
-  "defragmentation will be paused. And new defragmentation command will fail."
+  "defragmentation will continue, and new defragmentation command will fail.",
+  NULL, innodb_defragment_update, TRUE);
+
+static MYSQL_SYSVAR_BOOL(defragment_pause, srv_defragment_pause,
+  PLUGIN_VAR_RQCMDARG,
+  "Pause InnoDB defragmentation. When set to TRUE, all existing "
+  "defragmentation will be paused, and new defragmentation will queue up."
   "Paused defragmentation commands will resume when this variable is set to "
-  "true again.",
-  NULL, NULL, TRUE);
+  "FALSE again.",
+  NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_UINT(defragment_n_pages, srv_defragment_n_pages,
   PLUGIN_VAR_RQCMDARG,
@@ -18656,6 +18680,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(buffer_pool_load_abort),
   MYSQL_SYSVAR(buffer_pool_load_at_startup),
   MYSQL_SYSVAR(defragment),
+  MYSQL_SYSVAR(defragment_pause),
   MYSQL_SYSVAR(defragment_n_pages),
   MYSQL_SYSVAR(defragment_stats_accuracy),
   MYSQL_SYSVAR(defragment_frequency),

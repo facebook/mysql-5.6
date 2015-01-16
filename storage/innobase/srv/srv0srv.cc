@@ -245,6 +245,7 @@ UNIV_INTERN ulint	srv_lock_table_size	= ULINT_MAX;
 
 /* Defragmentation */
 UNIV_INTERN my_bool	srv_defragment = TRUE;
+UNIV_INTERN my_bool	srv_defragment_pause = FALSE;
 UNIV_INTERN uint	srv_defragment_n_pages = 7;
 UNIV_INTERN uint	srv_defragment_stats_accuracy = 0;
 UNIV_INTERN uint	srv_defragment_fill_factor_n_recs = 20;
