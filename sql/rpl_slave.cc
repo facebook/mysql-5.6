@@ -453,8 +453,8 @@ int init_slave()
     (ulong) rli->get_event_relay_log_pos()));
 
   if (active_mi->host[0] &&
-      mysql_bin_log.innodb_binlog_pos != ULONGLONG_MAX &&
-      mysql_bin_log.innodb_binlog_file[0] &&
+      mysql_bin_log.engine_binlog_pos != ULONGLONG_MAX &&
+      mysql_bin_log.engine_binlog_file[0] &&
       gtid_mode > 0)
   {
     /*
@@ -483,7 +483,7 @@ int init_slave()
     global_sid_lock->wrlock();
     char file_name[FN_REFLEN + 1];
     mysql_bin_log.make_log_name(file_name,
-                                mysql_bin_log.innodb_binlog_file);
+                                mysql_bin_log.engine_binlog_file);
 
     const_cast<Gtid_set *>(gtid_state->get_logged_gtids())->clear();
     MYSQL_BIN_LOG::enum_read_gtids_from_binlog_status ret =
@@ -492,7 +492,7 @@ int init_slave()
                                              gtid_state->get_logged_gtids()),
                                            NULL, NULL, NULL, global_sid_map,
                                            opt_master_verify_checksum,
-                                           mysql_bin_log.innodb_binlog_pos);
+                                           mysql_bin_log.engine_binlog_pos);
     global_sid_lock->unlock();
     // rotate writes the consistent gtid_executed as previous_gtid_log_event
     // in next binlog. This is done to avoid situations where there is a
@@ -511,8 +511,8 @@ int init_slave()
                        "to find out crash safe gtid_executed "
                        "Replication will not be setup due to "
                        "possible data inconsistency with master. ",
-                       mysql_bin_log.innodb_binlog_file,
-                       mysql_bin_log.innodb_binlog_pos);
+                       mysql_bin_log.engine_binlog_file,
+                       mysql_bin_log.engine_binlog_pos);
       error = 1;
       goto err;
     }
