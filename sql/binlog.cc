@@ -2682,7 +2682,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
    is_relay_log(0), signal_cnt(0),
    checksum_alg_reset(BINLOG_CHECKSUM_ALG_UNDEF),
    relay_log_checksum_alg(BINLOG_CHECKSUM_ALG_UNDEF),
-   innodb_binlog_pos(ULONGLONG_MAX),
+   engine_binlog_pos(ULONGLONG_MAX),
    previous_gtid_set(0)
 {
   /*
@@ -2692,7 +2692,7 @@ MYSQL_BIN_LOG::MYSQL_BIN_LOG(uint *sync_period)
     before main().
   */
   index_file_name[0] = 0;
-  innodb_binlog_file[0] = 0;
+  engine_binlog_file[0] = 0;
   memset(&index_file, 0, sizeof(index_file));
   memset(&purge_index_file, 0, sizeof(purge_index_file));
   memset(&crash_safe_index_file, 0, sizeof(crash_safe_index_file));
@@ -6567,7 +6567,7 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
     is never used for relay logs.
   */
   DBUG_ASSERT(!is_relay_log);
-  DBUG_ASSERT(total_ha_2pc > 1 || (1 == total_ha_2pc && opt_bin_log));
+  DBUG_ASSERT(total_ha_2pc > 2 || (1 == total_ha_2pc && opt_bin_log));
   DBUG_ASSERT(opt_name && opt_name[0]);
 
   if (!my_b_inited(&index_file))
@@ -6641,7 +6641,27 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       error= recover(&log, (Format_description_log_event *)ev, &valid_pos);
     }
     else
-      error=0;
+    {
+      /*
+       * If we are here, it implies either mysqld was shutdown cleanly or
+       * it was killed during binlog rotation where old binlog file was
+       * closed cleanly but new binlog file was not created. In the later case,
+       * the storage engine recovery must be triggered so that engine's binlog
+       * coordinates (engine_binlog_file and engine_binlog_pos) are updated
+       * properly.
+       *
+       * Note we don't need binlog recovery here since it was closed cleanly.
+       * Since recovery in fb-mysql works assuming storage engine as source
+       * of truth, it doesn't need the list of xids to recover.
+       * We will update binlog state (GTID_SET) based on the storage engine
+       * coordinates in init_slave().
+       */
+      HASH xids;
+      my_hash_init(&xids, &my_charset_bin, TC_LOG_PAGE_SIZE/3, 0,
+                   sizeof(my_xid), 0, 0, MYF(0));
+      error= ha_recover(&xids, engine_binlog_file, &engine_binlog_pos);
+      my_hash_free(&xids);
+    }
 
     delete ev;
     end_io_cache(&log);
@@ -7697,7 +7717,7 @@ int MYSQL_BIN_LOG::recover(IO_CACHE *log, Format_description_log_event *fdle,
     delete ev;
   }
 
-  if (ha_recover(&xids, innodb_binlog_file, &innodb_binlog_pos))
+  if (ha_recover(&xids, engine_binlog_file, &engine_binlog_pos))
     goto err2;
 
   free_root(&mem_root, MYF(0));

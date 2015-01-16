@@ -127,6 +127,7 @@ SET @create_innodb_index_stats="CREATE TABLE IF NOT EXISTS innodb_index_stats (
 ) ENGINE=INNODB DEFAULT CHARSET=utf8 COLLATE=utf8_bin STATS_PERSISTENT=0";
 
 set @have_innodb= (select count(engine) from information_schema.engines where engine='INNODB' and support != 'NO');
+set @have_rocksdb= (select count(engine) from information_schema.engines where engine='ROCKSDB' and support != 'NO');
 
 SET @str=IF(@have_innodb <> 0, @create_innodb_table_stats, "SET @dummy = 0");
 PREPARE stmt FROM @str;
@@ -151,7 +152,7 @@ SET @cmd="CREATE TABLE IF NOT EXISTS slave_relay_log_info (
   Id INTEGER UNSIGNED NOT NULL COMMENT 'Internal Id that uniquely identifies this record.',  
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Relay Log Information'";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -182,7 +183,7 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_master_info (
   Enabled_auto_position BOOLEAN NOT NULL COMMENT 'Indicates whether GTIDs will be used to retrieve events from the master.', 
   PRIMARY KEY(Host, Port)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Master Information'";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -202,18 +203,18 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_worker_info (
   Checkpoint_group_bitmap BLOB NOT NULL, 
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Worker Information'";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
 SET @cmd= "CREATE TABLE IF NOT EXISTS slave_gtid_info (
   Id INTEGER UNSIGNED NOT NULL,
-  Database_name CHAR(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
-  Last_gtid CHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
+  Database_name VARCHAR(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  Last_gtid VARCHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Gtid Information'";
 
-SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
