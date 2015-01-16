@@ -902,13 +902,13 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
 
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-  store_index_number(ddl_entry, DDL_ENTRY_INDEX_NUMBER);
+  store_index_number(ddl_entry, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
   rocksdb::Slice ddl_entry_slice((char*)ddl_entry, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
   rocksdb::Iterator* it;
   it= rdb_dict->NewIterator(rocksdb::ReadOptions());
   int i= 0;
-  int max_number= DDL_ENTRY_INDEX_NUMBER + 1;
+  int max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next())
   {
     char *ptr;
@@ -1011,7 +1011,7 @@ int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict
   uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
 
-  store_index_number(buf, DDL_ENTRY_INDEX_NUMBER);
+  store_index_number(buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
   pos+= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
 
   memcpy(buf + pos, tbl->dbname_tablename.ptr(), tbl->dbname_tablename.length());
@@ -1058,7 +1058,7 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict, bool
   uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
 
-  store_index_number(buf, DDL_ENTRY_INDEX_NUMBER);
+  store_index_number(buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
   pos+= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
 
   memcpy(buf + pos, tbl->dbname_tablename.ptr(), tbl->dbname_tablename.length());
@@ -1099,7 +1099,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
   rec->key_descr= NULL; /* so that it's not free'd when deleting the old rec */
 
   // Create a new key
-  store_index_number(new_buf, DDL_ENTRY_INDEX_NUMBER);
+  store_index_number(new_buf, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
   new_pos+= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
 
   memcpy(new_buf + new_pos, new_rec->dbname_tablename.ptr(),
@@ -1122,4 +1122,155 @@ void Table_ddl_manager::cleanup()
   my_hash_free(&ddl_hash);
   mysql_rwlock_destroy(&rwlock);
   sequence.cleanup();
+}
+
+
+bool Binlog_info_manager::init(rocksdb::DB *rdb_dict)
+{
+  rdb= rdb_dict;
+  store_index_number(key_buf, RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER);
+  key_slice = rocksdb::Slice((char*)key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  return false;
+}
+
+
+void Binlog_info_manager::cleanup()
+{
+}
+
+/**
+  Set binlog name, pos and optionally gtid into WriteBatch.
+  This function should be called as part of transaction commit,
+  since binlog info is set only at transaction commit.
+  Actual write into RocksDB is not done here, so checking if
+  write succeeded or not is not possible here.
+  @param binlog_name   Binlog name
+  @param binlog_pos    Binlog pos
+  @param binlog_gtid   Binlog GTID
+  @param batch         WriteBatch
+*/
+void Binlog_info_manager::update(const char* binlog_name,
+                                 const my_off_t binlog_pos,
+                                 const char* binlog_gtid,
+                                 rocksdb::WriteBatch& batch)
+{
+  if (binlog_name && binlog_pos)
+  {
+    // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
+    char  value_buf[1024];
+    batch.Put(key_slice,
+              pack_value(value_buf, binlog_name, binlog_pos, binlog_gtid));
+  }
+}
+
+/**
+  Read binlog committed entry stored in RocksDB, then unpack
+  @param[OUT] binlog_name  Binlog name
+  @param[OUT] binlog_pos   Binlog pos
+  @param[OUT] binlog_gtid  Binlog GTID
+  @return
+    true is binlog info was found
+    false otherwise
+*/
+bool Binlog_info_manager::read(char* binlog_name, my_off_t& binlog_pos,
+                               char* binlog_gtid)
+{
+  bool ret= false;
+  if (binlog_name)
+  {
+    std::string value;
+    rocksdb::ReadOptions options;
+    rocksdb::Status status = rdb->Get(options, key_slice, &value);
+    if(status.ok())
+    {
+      unpack_value(value.c_str(), binlog_name, binlog_pos, binlog_gtid);
+      ret= true;
+    }
+  }
+  return ret;
+}
+
+/**
+  Pack binlog_name, binlog_pos, binlog_gtid into preallocated
+  buffer, then converting and returning a RocksDB Slice
+  @param buf           Preallocated buffer to set binlog info.
+  @param binlog_name   Binlog name
+  @param binlog_pos    Binlog pos
+  @param binlog_gtid   Binlog GTID
+  @return              rocksdb::Slice converted from buf and its length
+*/
+rocksdb::Slice Binlog_info_manager::pack_value(char *buf,
+                                               const char* binlog_name,
+                                               const my_off_t binlog_pos,
+                                               const char* binlog_gtid)
+{
+  uint pack_len= 0;
+
+  // store binlog file name length
+  uint binlog_name_len = strlen(binlog_name);
+  int2store(buf, binlog_name_len);
+  pack_len += 2;
+
+  // store binlog file name
+  memcpy(buf+pack_len, binlog_name, binlog_name_len);
+  pack_len += binlog_name_len;
+
+  // store binlog pos
+  int4store(buf+pack_len, binlog_pos);
+  pack_len += 4;
+
+  // store binlog gtid length.
+  // If gtid was not set, store 0 instead
+  uint binlog_gtid_len = binlog_gtid? strlen(binlog_gtid) : 0;
+  int2store(buf+pack_len, binlog_gtid_len);
+  pack_len += 2;
+
+  if (binlog_gtid_len > 0)
+  {
+    // store binlog gtid
+    memcpy(buf+pack_len, binlog_gtid, binlog_gtid_len);
+    pack_len += binlog_gtid_len;
+  }
+
+  return rocksdb::Slice(buf, pack_len);
+}
+
+/**
+  Unpack value then split into binlog_name, binlog_pos (and binlog_gtid)
+  @param[IN]  value        Binlog state info fetched from RocksDB
+  @param[OUT] binlog_name  Binlog name
+  @param[OUT] binlog_pos   Binlog pos
+  @param[OUT] binlog_gtid  Binlog GTID
+*/
+void Binlog_info_manager::unpack_value(const char* value, char* binlog_name,
+                                       my_off_t& binlog_pos,
+                                       char* binlog_gtid)
+{
+  uint pack_len= 0;
+
+  // read binlog file name length
+  uint binlog_name_len= uint2korr(value);
+  pack_len= 2;
+  if (binlog_name_len)
+  {
+    // read and set binlog name
+    memcpy(binlog_name, value+pack_len, binlog_name_len);
+    binlog_name[binlog_name_len]= '\0';
+    pack_len += binlog_name_len;
+
+    // read and set binlog pos
+    binlog_pos= uint4korr(value+pack_len);
+    pack_len += 4;
+
+    // read gtid length
+    uint binlog_gtid_len= uint2korr(value+pack_len);
+    pack_len += 2;
+    if (binlog_gtid && binlog_gtid_len > 0)
+    {
+      // read and set gtid
+      memcpy(binlog_gtid, value+pack_len, binlog_gtid_len);
+      binlog_gtid[binlog_gtid_len]= '\0';
+      pack_len += binlog_gtid_len;
+    }
+  }
 }
