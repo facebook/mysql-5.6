@@ -1,2 +1,2 @@
---gtid_mode=ON --enforce_gtid_consistency --log_slave_updates --max_binlog_size=50000
---slave_parallel_workers=10
+--gtid_mode=ON --enforce_gtid_consistency --log_slave_updates
+--slave_parallel_workers=10 --relay_log_recovery=1
