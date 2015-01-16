@@ -1299,8 +1299,6 @@ by InnoDB.
 page_cur_mode_t convert_search_mode_to_innobase(
     enum ha_rkey_function find_flag);
 
-extern bool innobase_stats_on_metadata;
-
 /** Calculate Record Per Key value.
 Need to exclude the NULL value if innodb_stats_method is set to "nulls_ignored"
 @param[in]      index   InnoDB index.

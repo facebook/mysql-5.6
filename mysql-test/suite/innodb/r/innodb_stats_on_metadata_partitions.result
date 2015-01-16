@@ -1,0 +1,22 @@
+CREATE TABLE t (a INT NOT NULL AUTO_INCREMENT,
+b INT NOT NULL,
+c INT DEFAULT NULL,
+PRIMARY KEY (a, b),
+KEY b (b, c)) ENGINE=InnoDB
+PARTITION BY RANGE (b)
+(PARTITION p0 VALUES LESS THAN (100),
+PARTITION p1 VALUES LESS THAN (200),
+PARTITION p2 VALUES LESS THAN (300),
+PARTITION p3 VALUES LESS THAN (MAXVALUE));
+INSERT INTO t VALUES (NULL, 0, 0);
+INSERT INTO t SELECT NULL, 0, 0 FROM t;
+INSERT INTO t SELECT NULL, 0, 0 FROM t a, t b, t c, t d, t e, t f, t g;
+ANALYZE TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	analyze	status	OK
+SET innodb_stats_on_metadata = OFF;
+include/assert.inc ["Index 'b' cardinality is expected be 1 (when innodb_stats_on_metadata = OFF)"]
+SET innodb_stats_on_metadata = ON;
+include/assert.inc ["Index 'b' cardinality is expected be 1 (when innodb_stats_on_metadata = ON)"]
+SET innodb_stats_on_metadata = DEFAULT;
+DROP TABLE t;
