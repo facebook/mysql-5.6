@@ -1,0 +1,1 @@
+-- source suite/rocksdb_rpl/t/rpl_gtid_crash_safe_wal_corrupt.inc
