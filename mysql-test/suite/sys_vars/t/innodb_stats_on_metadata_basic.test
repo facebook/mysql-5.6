@@ -14,7 +14,6 @@ SELECT @start_global_value;
 --echo Valid values are 'ON' and 'OFF' 
 select @@global.innodb_stats_on_metadata in (0, 1);
 select @@global.innodb_stats_on_metadata;
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
 select @@session.innodb_stats_on_metadata;
 show global variables like 'innodb_stats_on_metadata';
 show session variables like 'innodb_stats_on_metadata';
@@ -40,9 +39,7 @@ set @@global.innodb_stats_on_metadata='ON';
 select @@global.innodb_stats_on_metadata;
 select * from information_schema.global_variables where variable_name='innodb_stats_on_metadata';
 select * from information_schema.session_variables where variable_name='innodb_stats_on_metadata';
---error ER_GLOBAL_VARIABLE
 set session innodb_stats_on_metadata='OFF';
---error ER_GLOBAL_VARIABLE
 set @@session.innodb_stats_on_metadata='ON';
 
 #
