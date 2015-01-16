@@ -39,8 +39,6 @@ ERROR HY000: Variable 'innodb_file_format_check' is a read only variable
 Expected error 'Read only variable'
 SET session innodb_large_prefix='OFF';
 ERROR HY000: Variable 'innodb_large_prefix' is a GLOBAL variable and should be set with SET GLOBAL
-SET @@session.innodb_stats_on_metadata='ON';
-ERROR HY000: Variable 'innodb_stats_on_metadata' is a GLOBAL variable and should be set with SET GLOBAL
 SELECT IF(@@GLOBAL.innodb_file_format_check, "ON", "OFF") = VARIABLE_VALUE
 FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
 WHERE VARIABLE_NAME='innodb_file_format_check';
