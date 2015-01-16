@@ -215,6 +215,11 @@ module (ib::Tester).
 char **thd_innodb_interpreter(THD *thd);
 #endif /* UNIV_DEBUG */
 
+/** Get the value of innodb_stats_on_metadata.
+@param[in]	thd	thread handle
+@retval innodb_stats_on_metadata */
+bool thd_stats_on_metadata(THD *thd);
+
 /** Get the current setting of the table_cache_size global parameter. We do
  a dirty read because for one there is no synchronization object and
  secondly there is little harm in doing so even if we get a torn read.

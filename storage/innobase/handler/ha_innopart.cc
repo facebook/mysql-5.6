@@ -3454,13 +3454,7 @@ static int update_table_stats(dict_table_t *table, bool is_analyze) {
   dberr_t ret;
 
   if (dict_stats_is_persistent_enabled(table)) {
-    if (is_analyze) {
-      opt = DICT_STATS_RECALC_PERSISTENT;
-    } else {
-      /* This is e.g. 'SHOW INDEXES',
-      fetch the persistent stats from disk. */
-      opt = DICT_STATS_FETCH_ONLY_IF_NOT_IN_MEMORY;
-    }
+    opt = DICT_STATS_RECALC_PERSISTENT;
   } else {
     opt = DICT_STATS_RECALC_TRANSIENT;
   }
@@ -3502,6 +3496,9 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
 
   ut_ad(m_part_share->get_table_part(0)->n_ref_count > 0);
 
+  const bool stats_on_metadata =
+      table_share->table_category == TABLE_CATEGORY_USER &&
+      thd_stats_on_metadata(ha_thd());
   if ((flag & HA_STATUS_TIME) != 0) {
     stats.update_time = 0;
 
@@ -3514,7 +3511,7 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
         return error;
       }
     }
-    if (is_analyze || innobase_stats_on_metadata) {
+    if (is_analyze || stats_on_metadata) {
       m_prebuilt->trx->op_info = "updating table statistics";
     }
 
@@ -3523,7 +3520,7 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
     for (uint i = m_part_info->get_first_used_partition(); i < m_tot_parts;
          i = m_part_info->get_next_used_partition(i)) {
       ib_table = m_part_share->get_table_part(i);
-      if (is_analyze || innobase_stats_on_metadata) {
+      if (is_analyze || stats_on_metadata) {
         error = update_table_stats(ib_table, is_analyze);
         if (error != 0) {
           m_prebuilt->trx->op_info = "";
@@ -3535,7 +3532,7 @@ int ha_innopart::info_low(uint flag, bool is_analyze) {
                                        ib_table->update_time.load())));
     }
 
-    if (is_analyze || innobase_stats_on_metadata) {
+    if (is_analyze || stats_on_metadata) {
       m_prebuilt->trx->op_info = "returning various info to MySQL";
     }
   }
