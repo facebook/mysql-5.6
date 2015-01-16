@@ -1,0 +1,52 @@
+--source include/have_innodb.inc
+--source include/have_innodb_16k.inc
+
+--disable_warnings
+DROP TABLE if exists t1;
+--enable_warnings
+
+--echo # Create & populate table.
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
+
+--disable_query_log
+INSERT INTO t1 VALUES (1, REPEAT('A', 256));
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+INSERT INTO t1 (b) SELECT b from t1;
+--enable_query_log
+
+--echo # Force a stats update because normal stats calculation is done in background with separate thread
+--echo # thus unpredictable.
+analyze table t1;
+
+--disable_query_log
+--let $page_count = query_get_value(select count(*) as result from information_schema.innodb_buffer_page where table_name like '%t1%' and access_time > 0, result, 1)
+--let $data_length = query_get_value(select data_length from information_schema.tables where table_name='t1', data_length, 1)
+--eval select $page_count * 16384 = $data_length as pass
+
+--echo # The table currently have 128 records, adding another 10 will not trigger stats recalculation by default (< 10%).
+let $count=10;
+while ($count) {
+  INSERT INTO t1 (b) VALUES (REPEAT('A', 256));
+  dec $count;
+}
+
+--let $page_count = query_get_value(select count(*) as result from information_schema.innodb_buffer_page where table_name like '%t1%' and access_time > 0, result, 1)
+--let $data_length = query_get_value(select data_length from information_schema.tables where table_name='t1', data_length, 1)
+--echo # Querying the stats should not trigger a stats recalculation by default.
+--eval select $page_count * 16384 != $data_length as pass
+
+set session innodb_stats_on_metadata = on;
+--let $page_count = query_get_value(select count(*) as result from information_schema.innodb_buffer_page where table_name like '%t1%' and access_time > 0, result, 1)
+--let $data_length = query_get_value(select data_length from information_schema.tables where table_name='t1', data_length, 1)
+--echo # Querying the stats should trigger a stats recalculation when innod_stats_on_metadata is enabled.
+--eval select $page_count * 16384 = $data_length as pass
+
+--enable_query_log
+
+# Clean up
+drop table t1;
