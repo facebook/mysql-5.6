@@ -15244,11 +15244,13 @@ innobase_xa_recover(
 	my_off_t*	binlog_pos)	/*!< in/out: Last valid binlog pos */
 {
 	DBUG_ASSERT(hton == innodb_hton_ptr);
-	if (binlog_file) {
+	if (binlog_file && binlog_pos &&
+		is_binlog_advanced(binlog_file, *binlog_pos,
+			trx_sys_mysql_bin_log_name,
+			trx_sys_mysql_bin_log_pos))
+	{
 		ut_memcpy(binlog_file, trx_sys_mysql_bin_log_name, FN_REFLEN);
 		binlog_file[FN_REFLEN] = 0;
-	}
-	if (binlog_pos && trx_sys_mysql_bin_log_pos > 0) {
 		*binlog_pos = trx_sys_mysql_bin_log_pos;
 	}
 	if (len == 0 || xid_list == NULL) {
