@@ -190,7 +190,6 @@ static my_bool	innobase_use_checksums			= TRUE;
 static my_bool	innobase_locks_unsafe_for_binlog	= FALSE;
 static my_bool	innobase_rollback_on_timeout		= FALSE;
 static my_bool	innobase_create_status_file		= FALSE;
-static my_bool	innobase_stats_on_metadata		= TRUE;
 static my_bool	innobase_large_prefix			= FALSE;
 static my_bool	innodb_optimize_fulltext_only		= FALSE;
 
@@ -597,6 +596,13 @@ static MYSQL_THDVAR_STR(tmpdir,
   PLUGIN_VAR_OPCMDARG|PLUGIN_VAR_MEMALLOC,
   "Directory for temporary files during DDL operations.",
   NULL, NULL, "");
+
+static MYSQL_THDVAR_BOOL(stats_on_metadata,
+  PLUGIN_VAR_OPCMDARG,
+  "Enable statistics gathering for metadata commands such as "
+  "SHOW TABLE STATUS for tables that use transient statistics or persistent "
+  "statistics. (OFF by default)",
+  NULL, NULL, FALSE);
 
 static SHOW_VAR innodb_status_variables[]= {
   {"adaptive_hash_hits",
@@ -12104,7 +12110,8 @@ ha_innobase::info_low(
 	DBUG_ASSERT(ib_table->n_ref_count > 0);
 
 	if (flag & HA_STATUS_TIME) {
-		if (is_analyze || innobase_stats_on_metadata) {
+		bool stats_on_metadata = THDVAR(ha_thd(), stats_on_metadata);
+		if (is_analyze || stats_on_metadata) {
 
 			dict_stats_upd_option_t	opt;
 			dberr_t			ret;
@@ -12113,13 +12120,7 @@ ha_innobase::info_low(
 
 			if (dict_stats_is_persistent_enabled(ib_table)) {
 
-				if (is_analyze) {
-					opt = DICT_STATS_RECALC_PERSISTENT;
-				} else {
-					/* This is e.g. 'SHOW INDEXES', fetch
-					the persistent stats from disk. */
-					opt = DICT_STATS_FETCH_ONLY_IF_NOT_IN_MEMORY;
-				}
+				opt = DICT_STATS_RECALC_PERSISTENT;
 			} else {
 				opt = DICT_STATS_RECALC_TRANSIENT;
 			}
@@ -17625,12 +17626,6 @@ static MYSQL_SYSVAR_BOOL(rollback_on_timeout, innobase_rollback_on_timeout,
 static MYSQL_SYSVAR_BOOL(status_file, innobase_create_status_file,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_NOSYSVAR,
   "Enable SHOW ENGINE INNODB STATUS output in the innodb_status.<pid> file",
-  NULL, NULL, FALSE);
-
-static MYSQL_SYSVAR_BOOL(stats_on_metadata, innobase_stats_on_metadata,
-  PLUGIN_VAR_OPCMDARG,
-  "Enable statistics gathering for metadata commands such as "
-  "SHOW TABLE STATUS for tables that use transient statistics (off by default)",
   NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_ULONGLONG(stats_sample_pages, srv_stats_transient_sample_pages,
