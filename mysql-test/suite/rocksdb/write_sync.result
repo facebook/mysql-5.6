@@ -5,67 +5,44 @@ create table aaa (id int primary key, i int) engine rocksdb;
 select variable_value into @a from information_schema.global_status where variable_name='rocksdb_wal_synced';
 SET LOCAL rocksdb_write_sync=off;
 insert aaa(id, i) values(1,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
 0
-set @a=@b;
 insert aaa(id, i) values(2,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
 0
-set @a=@b;
 insert aaa(id, i) values(3,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
 0
-set @a=@b;
 SET LOCAL rocksdb_write_sync=1;
 insert aaa(id, i) values(4,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
 1
-set @a=@b;
 insert aaa(id, i) values(5,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
-1
-set @a=@b;
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
+2
 insert aaa(id, i) values(6,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
-1
-set @a=@b;
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
+3
 SET GLOBAL rocksdb_background_sync=on;
 SET LOCAL rocksdb_write_sync=off;
 insert aaa(id, i) values(7,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
-0
-set @a=@b;
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
+3
 insert aaa(id, i) values(8,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
-0
-set @a=@b;
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
+3
 insert aaa(id, i) values(9,1);
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
-0
-set @a=@b;
-select variable_value into @b from information_schema.global_status where variable_name='rocksdb_wal_synced';
-select @b-@a;
-@b-@a
-1
-set @a=@b;
+select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
+variable_value-@a
+3
 SET LOCAL rocksdb_write_timeout_hint_us=333;
 truncate table aaa;
 SET LOCAL rocksdb_write_timeout_hint_us=444;
