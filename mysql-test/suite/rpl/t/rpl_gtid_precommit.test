@@ -1,0 +1,60 @@
+--disable_warnings
+--source include/master-slave.inc
+--enable_warnings
+--source include/rpl_set_gtid_mode.inc
+--source include/have_debug.inc
+--source include/have_binlog_format_row.inc
+
+connection master;
+--let $old_gtid_precommit = `SELECT @@global.gtid_precommit`
+--let $old_binlog_error_action = `SELECT @@global.binlog_error_action`
+
+SET GLOBAL gtid_precommit = 0;
+CREATE TABLE t1 (a INT PRIMARY KEY, b INT);
+INSERT INTO t1 VALUES (1,2);
+INSERT INTO t1 VALUES (2,3);
+INSERT INTO t1 VALUES (3,4);
+
+SET GLOBAL gtid_precommit = 1;
+INSERT INTO t1 VALUES (4,5);
+INSERT INTO t1 VALUES (5,6);
+INSERT INTO t1 VALUES (6,7);
+
+SET GLOBAL gtid_precommit = 0;
+--echo #Lost record(7,8) on both master and slave if failed to write binlog file.
+SET SESSION DEBUG = 'd,simulate_do_write_cache_failure';
+SET GLOBAL binlog_error_action = ABORT_SERVER;
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error ER_BINLOG_LOGGING_IMPOSSIBLE
+INSERT INTO t1 VALUES (7,8);
+--let $rpl_server_number= 1
+--source include/rpl_start_server.inc
+--source include/rpl_reconnect.inc
+
+--echo #Lost record(8,9) on both master and slave if failed to write binlog file.
+SET GLOBAL gtid_precommit = 1;
+SET SESSION DEBUG = 'd,simulate_do_write_cache_failure';
+SET GLOBAL binlog_error_action = ABORT_SERVER;
+--exec echo "wait" > $MYSQLTEST_VARDIR/tmp/mysqld.1.expect
+--error ER_BINLOG_LOGGING_IMPOSSIBLE
+INSERT INTO t1 VALUES (8,9);
+--let $rpl_server_number= 1
+--source include/rpl_start_server.inc
+--source include/rpl_reconnect.inc
+
+SET SESSION DEBUG = '';
+INSERT INTO t1 VALUES (9,10);
+
+sync_slave_with_master;
+SELECT SUBSTRING_INDEX(@@GLOBAL.GTID_EXECUTED, ":", -1) AS GTID_SET_ON_SLAVE;
+SELECT  * from t1 ORDER BY a;
+
+connection master;
+SELECT SUBSTRING_INDEX(@@GLOBAL.GTID_EXECUTED, ":", -1) AS GTID_SET_ON_MASTER;
+SELECT * FROM t1 ORDER BY a;
+
+#cleanup
+--eval SET GLOBAL gtid_precommit = $old_gtid_precommit
+--eval SET GLOBAL binlog_error_action = $old_binlog_error_action
+DROP TABLE t1;
+
