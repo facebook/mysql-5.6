@@ -1218,8 +1218,14 @@ dict_index_add_col(
 	dict_index_t*		index,		/*!< in/out: index */
 	const dict_table_t*	table,		/*!< in: table */
 	dict_col_t*		col,		/*!< in: column */
-	ulint			prefix_len)	/*!< in: column prefix length */
-	MY_ATTRIBUTE((nonnull));
+	ulint			prefix_len,	/*!< in: column prefix length */
+	unsigned		doc_path_type = 0,
+						/*!< in: document path type */
+	const char*             document_path = 0,
+						/*!< in: document path */
+	const dict_col_t*       doc_path_col = 0)
+						/*!< in: document column type */
+	MY_ATTRIBUTE((nonnull(1, 2, 3)));
 #ifndef UNIV_HOTBACKUP
 /*******************************************************************//**
 Copies types of fields contained in index to tuple. */

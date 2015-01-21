@@ -241,7 +241,9 @@ enum dict_col_sys_fields_enum {
 	DICT_COL__SYS_FIELDS__INDEX_ID		= 0,
 	DICT_COL__SYS_FIELDS__POS		= 1,
 	DICT_COL__SYS_FIELDS__COL_NAME		= 2,
-	DICT_NUM_COLS__SYS_FIELDS		= 3
+	DICT_COL__SYS_FIELDS__DOC_PATH_NAME	= 3,
+	DICT_COL__SYS_FIELDS__DOC_PATH_TYPE	= 4,
+	DICT_NUM_COLS__SYS_FIELDS		= 5
 };
 /* The field numbers in the SYS_FIELDS clustered index */
 enum dict_fld_sys_fields_enum {
@@ -250,7 +252,10 @@ enum dict_fld_sys_fields_enum {
 	DICT_FLD__SYS_FIELDS__DB_TRX_ID		= 2,
 	DICT_FLD__SYS_FIELDS__DB_ROLL_PTR	= 3,
 	DICT_FLD__SYS_FIELDS__COL_NAME		= 4,
-	DICT_NUM_FIELDS__SYS_FIELDS		= 5
+	DICT_FLD__SYS_FIELDS__DOC_PATH_NAME	= 5,
+	DICT_NUM_FIELDS_OLD__SYS_FIELDS		= 5,
+	DICT_FLD__SYS_FIELDS__DOC_PATH_TYPE	= 6,
+	DICT_NUM_FIELDS__SYS_FIELDS		= 7
 };
 /* The columns in SYS_FOREIGN */
 enum dict_col_sys_foreign_enum {

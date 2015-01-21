@@ -1,0 +1,31 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Resizing redo log from");
+call mtr.add_suppression("Starting to delete and rewrite log files");
+call mtr.add_suppression("New log files created");
+create table t1(a int, doc document, primary key (a), key(doc.id as int)) engine=innodb;
+insert into t1 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":100}"));
+select a from t1 use document keys;
+a
+1
+begin;
+insert into t1 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":200}"));
+rollback;
+select a from t1 use document keys;
+a
+1
+update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":200}") where a=1;
+select a from t1;
+a
+1
+update t1 set doc='{"bad_json" : "comma missing" "key" : 1}' where a=1;
+Warnings:
+Warning	1898	Invalid document value: '{"bad_json" : "comma missing" "key" : 1}' for column 'doc' at row 1
+delete from t1 where a=1;
+select a from t1;
+a
+drop table t1;
+include/rpl_end.inc

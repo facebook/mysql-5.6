@@ -488,7 +488,8 @@ dict_create_sys_fields_tuple(
 
 	sys_fields = dict_sys->sys_fields;
 
-	entry = dtuple_create(heap, 3 + DATA_N_SYS_COLS);
+	entry = dtuple_create(heap,
+			      DICT_NUM_COLS__SYS_FIELDS + DATA_N_SYS_COLS);
 
 	dict_table_copy_types(entry, sys_fields);
 
@@ -529,6 +530,26 @@ dict_create_sys_fields_tuple(
 
 	dfield_set_data(dfield, field->name,
 			ut_strlen(field->name));
+
+	/* 5: DOCUMENT_PATH_NAME */
+	dfield = dtuple_get_nth_field(entry,
+				      DICT_COL__SYS_FIELDS__DOC_PATH_NAME);
+
+	if (field->document_path) {
+		dfield_set_data(dfield, field->document_path,
+				ut_strlen(field->document_path));
+	} else {
+		dfield_set_null(dfield);
+	}
+
+	/* 6: DOCUMENT_PATH_TYPE */
+	dfield = dtuple_get_nth_field(entry,
+				      DICT_COL__SYS_FIELDS__DOC_PATH_TYPE);
+
+	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	mach_write_to_4(ptr, field->document_path_type);
+	dfield_set_data(dfield, ptr, 4);
+
 	/*---------------------------------*/
 
 	return(entry);

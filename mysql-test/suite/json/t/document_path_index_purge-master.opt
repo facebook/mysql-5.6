@@ -1,0 +1,5 @@
+--allow_document_type=ON
+--max_allowed_packet=32M
+--innodb_log_file_size=128M
+--innodb_file_format='Barracuda'
+
