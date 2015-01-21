@@ -1322,7 +1322,13 @@ row_upd_changes_ord_field_binary_func(
 		const byte*		buf;
 
 		ind_field = dict_index_get_nth_field(index, i);
-		col = dict_field_get_col(ind_field);
+		/* search for this field in dict_col_get_clust_pos
+		is based on memory address of col.
+		dict_field_get_col returns doc_path_col if the
+		field is a document path, so the search fails
+		for document path fields if dict_field_get_col() is
+		used. Directly access the col value of the struct. */
+		col = ind_field->col;
 		col_no = dict_col_get_no(col);
 
 		upd_field = upd_get_field_by_field_no(
