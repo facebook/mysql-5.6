@@ -86,7 +86,6 @@ row_purge_node_create(
 Repositions the pcur in the purge node on the clustered index record,
 if found.
 @return	TRUE if the record was found */
-static
 ibool
 row_purge_reposition_pcur(
 /*======================*/
@@ -571,7 +570,7 @@ row_purge_del_mark(
 
 		if (node->index->type != DICT_FTS) {
 			dtuple_t*	entry = row_build_index_entry_low(
-				node->row, NULL, node->index, heap);
+				node->row, NULL, node->index, heap, node);
 			row_purge_remove_sec_if_poss(node, node->index, entry);
 			mem_heap_empty(heap);
 		}
@@ -603,8 +602,41 @@ row_purge_upd_exist_or_extern_func(
 	ut_ad(rw_lock_own(&dict_operation_lock, RW_LOCK_SHARED));
 #endif /* UNIV_SYNC_DEBUG */
 
-	if (node->rec_type == TRX_UNDO_UPD_DEL_REC
-	    || (node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
+	ibool		document_path_index = FALSE;
+	dict_index_t*	index = node->index;
+	while (index != NULL) {
+		for (ulint i=0; i < dict_index_get_n_fields(index); ++i) {
+			dict_field_t* field =
+				dict_index_get_nth_field(index, i);
+			if (field->document_path) {
+				document_path_index = TRUE;
+				break;
+			}
+		}
+		if (document_path_index) {
+			break;
+		}
+		index = dict_table_get_next_index(index);
+	}
+
+	/* We should not skip secondary index purge when processing
+	TRX_UNDO_UPD_DEL_REC for document path indexes. Consider
+	the following scenario
+	1. Record delete record
+	2. Update of delete marked record
+	Since purge can process undo log records out of order, if 2 is
+	processed first, the external fields are freed and when purge
+	comes to process record 1, it cannot construct secondary index
+	entries because of missing external fields. To avoid this, purge
+	thread should not skip secondary index purge here. Note there may
+	be redundant purge again when processing 1, but it is fine.
+
+	To be extra safe, it's better to do this only for tables with
+	document path indexes.
+	*/
+	if ((node->rec_type == TRX_UNDO_UPD_DEL_REC &&
+	     !document_path_index) ||
+		(node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
 
 		goto skip_secondaries;
 	}
@@ -622,7 +654,8 @@ row_purge_upd_exist_or_extern_func(
 						     thr, NULL, NULL)) {
 			/* Build the older version of the index entry */
 			dtuple_t*	entry = row_build_index_entry_low(
-				node->row, NULL, node->index, heap);
+				node->row, NULL, node->index, heap,
+				node, undo_rec);
 			row_purge_remove_sec_if_poss(node, node->index, entry);
 			mem_heap_empty(heap);
 		}
@@ -707,6 +740,12 @@ skip_secondaries:
 				- BTR_EXTERN_FIELD_REF_SIZE,
 				NULL, NULL, NULL, 0, RB_NONE, &mtr);
 			mtr_commit(&mtr);
+			DBUG_EXECUTE_IF("crash_after_purge_upd",
+					{
+						my_sleep(1000 * 1000 * 10);
+						DBUG_SUICIDE();
+					});
+
 		}
 	}
 }
@@ -875,6 +914,15 @@ row_purge_record_func(
 		dict_table_close(node->table, FALSE, FALSE);
 		node->table = NULL;
 	}
+	DBUG_EXECUTE_IF("crash_purge_del_after_remove_clust",
+			{
+				// Sleep a while to let the commit go to disk
+				my_sleep(1000 * 1000 * 10);
+				// Clustered index record is removed only
+				// in row_purge_del_mark()
+				if(node->rec_type == TRX_UNDO_DEL_MARK_REC)
+					DBUG_SUICIDE();
+			});
 
 	return(purged);
 }
