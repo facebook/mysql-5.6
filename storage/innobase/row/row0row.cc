@@ -46,6 +46,174 @@ Created 4/20/1996 Heikki Tuuri
 #include "rem0cmp.h"
 #include "read0read.h"
 #include "ut0mem.h"
+#include "row0purge.h"
+
+/*****************************************************************//**
+Identifies if the exteneral field pointed by the field reference
+is freed (either fully or partially)
+@return TRUE if freed
+*/
+static
+ibool
+is_field_ref_freed(
+/*======================*/
+	const byte* field_ref)	/*< in: field reference */
+{
+	/* More info on this is in btr_free_externally_stored_field() */
+	return (mach_read_from_4(field_ref
+			+ BTR_EXTERN_PAGE_NO) == FIL_NULL ||
+		mach_read_from_4(field_ref
+			+ BTR_EXTERN_LEN + 4) == 0);
+}
+
+/*****************************************************************//**
+Fetches the document path value and stores it in field. Reads the external
+pages of the doc_field if available
+@return FALSE	Succesully read external pages
+	TRUE	Cannot construct index entry
+*/
+UNIV_INTERN
+ibool
+fetch_document_path_value(
+/*=====================*/
+	const dict_field_t*	ind_field,	/*!< in: index field */
+	const dfield_t*		doc_field,	/*!< in: row field */
+	dfield_t*		field,		/*< in/out: extracted fbson data
+						is stored here */
+	mem_heap_t*		heap,		/*< in: memory heap */
+	dict_index_t*		index,		/*< in: index structure */
+	purge_node_t*		node,		/*< in: purge thread */
+	trx_undo_rec_t*		undo_rec)	/*< in: undo record.
+		Note, this is only passed while purging an update. */
+{
+	mtr_t		mtr;
+	dfield_t	full_field = *doc_field;
+	ulint		full_len = 0;
+	const byte*	buf = 0;
+        const byte*	data = (const byte*)dfield_get_data(&full_field);
+	ulint		len = dfield_get_len(&full_field);
+	dfield_set_null(field);
+	if (dfield_is_ext(doc_field)) {
+		if (dict_table_get_format(index->table) >= UNIV_FORMAT_B) {
+			/* In compressed file format, undo-log records have
+			redundant prefix which is also available in external
+			pages. Strip the prefix so the FBJSON is valid and
+			useful in extracting document path values. */
+			ut_ad(len >= BTR_EXTERN_FIELD_REF_SIZE);
+			data = data + len - BTR_EXTERN_FIELD_REF_SIZE;
+			len = BTR_EXTERN_FIELD_REF_SIZE;
+		}
+		if (!memcmp(data + len - BTR_EXTERN_FIELD_REF_SIZE,
+			field_ref_zero, BTR_EXTERN_FIELD_REF_SIZE)) {
+			/* Ignore unset external field reference */
+			return(TRUE);
+		}
+		if (node) {
+			rec_t*		rec;
+			ulint*		offsets;
+			dict_index_t*	clust_index =
+				dict_table_get_first_index(index->table);
+			const upd_field_t*	ufield;
+
+			trx_rseg_t*	rseg;
+			buf_block_t*	block;
+			ulint		internal_offset;
+			byte*		data_field;
+			byte*		field_ref;
+			ibool		is_insert;
+			ulint		rseg_id;
+			ulint		page_no;
+			ulint		offset;
+
+			const dict_col_t* col = dict_field_get_col(ind_field);
+			ulint clust_pos =
+				dict_col_get_clust_pos(col, clust_index);
+
+			/* Find if the purge is an update or delete based on
+			undo_rec. undo log record (undo_rec) is passed in
+			update scenario. */
+			if (undo_rec) {
+				/* Logic to find the field reference is
+				picked from row_purge_upd_exist_or_extern */
+				ufield = upd_get_field_by_field_no(node->update,
+								   clust_pos);
+				internal_offset
+					= ((const byte*)
+					   dfield_get_data(&ufield->new_val))
+					- undo_rec;
+				ut_a(internal_offset < UNIV_PAGE_SIZE);
+				trx_undo_decode_roll_ptr(node->roll_ptr,
+							 &is_insert, &rseg_id,
+							 &page_no, &offset);
+				rseg = trx_sys_get_nth_rseg(trx_sys, rseg_id);
+				ut_a(rseg != NULL);
+				ut_a(rseg->id == rseg_id);
+				mtr_start(&mtr);
+				block = buf_page_get(
+					rseg->space, 0, page_no,
+					RW_S_LATCH, &mtr);
+				data_field = buf_block_get_frame(block)
+					   + offset + internal_offset;
+				ut_a(dfield_get_len(&ufield->new_val)
+				     >= BTR_EXTERN_FIELD_REF_SIZE);
+				field_ref = data_field
+					  + dfield_get_len(&ufield->new_val)
+					  - BTR_EXTERN_FIELD_REF_SIZE;
+				mtr_commit(&mtr);
+				if (is_field_ref_freed(field_ref)) {
+					return(TRUE);
+				}
+			} else {
+				mtr_start(&mtr);
+				/* lock on clustered index record is necessary
+				when reading external pages. We only need this
+				for purge as other callers have taken a
+				lock already. */
+				if (!row_purge_reposition_pcur(BTR_SEARCH_LEAF,
+					node, &mtr)) {
+					/* record was purged already. We don't
+					find external pages. */
+					goto func_exit;
+				}
+				rec = btr_pcur_get_rec(&node->pcur);
+				offsets = rec_get_offsets(
+					rec, clust_index, NULL,
+					ULINT_UNDEFINED, &heap);
+				if (node->roll_ptr !=
+					row_get_rec_roll_ptr(rec,
+						clust_index, offsets)) {
+					/* record modified after delete marking.
+					The secondary indexes gets removed
+					during the processing of the update
+					by purge thread */
+					goto func_exit;
+				}
+				field_ref =
+					rec +
+					btr_rec_get_field_ref_offs(offsets,
+								   clust_pos);
+				if (is_field_ref_freed(field_ref)) {
+					goto func_exit;
+				}
+			}
+		}
+		/* Read full field */
+		buf = btr_copy_externally_stored_field(&full_len, data,
+			dict_tf_get_zip_size(index->table->flags),
+			len, heap, NULL);
+func_exit:
+		if (node && !undo_rec) {
+			btr_pcur_commit_specify_mtr(&node->pcur, &mtr);
+		}
+		if (!full_len) {
+			return(TRUE);
+		}
+		dfield_set_data(&full_field, (const void*)buf, full_len);
+	}
+	/* Extract the document path value */
+	dfield_set_document_path_data(ind_field, &full_field, field, heap);
+	return(FALSE);
+}
 
 /*****************************************************************//**
 When an insert or purge to a table is performed, this function builds
@@ -62,9 +230,13 @@ row_build_index_entry_low(
 	const row_ext_t*	ext,	/*!< in: externally stored column
 					prefixes, or NULL */
 	dict_index_t*		index,	/*!< in: index on the table */
-	mem_heap_t*		heap)	/*!< in: memory heap from which
+	mem_heap_t*		heap,	/*!< in: memory heap from which
 					the memory for the index entry
 					is allocated */
+	purge_node_t*		node,	/*!< in: purge thread */
+	trx_undo_rec_t*		undo_rec)
+					/*!<in: undo record.
+					NULL if this is TRX_UNDO_DEL_MARK_REC */
 {
 	dtuple_t*	entry;
 	ulint		entry_len;
@@ -109,6 +281,15 @@ row_build_index_entry_low(
 		len = dfield_get_len(dfield2);
 
 		dfield_copy(dfield, dfield2);
+
+		if (ind_field->document_path) {
+			if (fetch_document_path_value(
+				ind_field, dfield2, dfield,
+				heap, index, node, undo_rec)) {
+				return(NULL);
+			}
+			continue;
+		}
 
 		if (dfield_is_null(dfield)) {
 			continue;

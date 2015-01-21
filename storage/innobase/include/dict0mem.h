@@ -390,6 +390,25 @@ UNIV_INTERN
 void
 dict_mem_index_add_field(
 /*=====================*/
+        dict_index_t*   index,          /*!< in: index */
+        const char*     name,           /*!< in: column name */
+        ulint           prefix_len,	/*!< in: 0 or the column prefix length
+                                        in a MySQL index like
+                                        INDEX (textcol(25)) */
+	unsigned	doc_path_type,	/*!< in: document path type */
+	const char*	document_path,
+					/*!< in: document path */
+	const dict_col_t*	doc_path_col = 0);
+					/*!< in: document column type */
+
+/**********************************************************************//**
+Adds a field definition to an index. NOTE: does not take a copy
+of the column name if the field is a column. The memory occupied
+by the column name may be released only after publishing the index. */
+UNIV_INTERN
+void
+dict_mem_index_add_field(
+/*=====================*/
 	dict_index_t*	index,		/*!< in: index */
 	const char*	name,		/*!< in: column name */
 	ulint		prefix_len);	/*!< in: 0 or the column prefix length
@@ -564,16 +583,13 @@ struct dict_field_t{
 	unsigned	fixed_len:10;	/*!< 0 or the fixed length of the
 					column if smaller than
 					DICT_ANTELOPE_MAX_INDEX_COL_LEN */
-	bool		is_document_path;
-					/*!< if this field is a document
-					path */
 	unsigned	document_path_type;
-					/*!< the data type of this document
-					path */
-	char**		document_path_list;
-					/*!< document path list */
-	unsigned	document_path_list_size;
-					/*!< document path list size */
+					/*!< Document path type */
+	const char*	document_path;
+					/*!< Full document path stoed in binary,
+					if this field is a document path */
+	dict_col_t*	doc_path_col;	/*!< Column representation for
+					document path fields */
 };
 
 /**********************************************************************//**

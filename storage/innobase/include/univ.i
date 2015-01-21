@@ -668,4 +668,8 @@ typedef void* os_thread_ret_t;
 extern ulong	srv_page_size_shift;
 extern ulong	srv_page_size;
 
+#ifndef NAMES_SEP_CHAR
+#define NAMES_SEP_CHAR  '\377'
+#endif
+
 #endif

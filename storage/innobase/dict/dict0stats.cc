@@ -479,10 +479,9 @@ dict_stats_table_clone_create(
 				heap, index->fields[i].name);
 
 			/* Initialize document paths related data */
-			idx->fields[i].is_document_path = false;
 			idx->fields[i].document_path_type = 0;
-			idx->fields[i].document_path_list = NULL;
-			idx->fields[i].document_path_list_size = 0;
+			idx->fields[i].document_path = 0;
+			idx->fields[i].doc_path_col = 0;
 		}
 
 		/* hook idx into t->indexes */

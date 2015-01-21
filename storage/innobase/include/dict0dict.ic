@@ -30,6 +30,10 @@ Created 1/8/1996 Heikki Tuuri
 #include "fsp0fsp.h"
 #include "srv0srv.h"
 #include "sync0rw.h" /* RW_S_LATCH */
+#include "m_string.h"
+#include "../fbson/FbsonDocument.h"
+#include "../fbson/FbsonJsonParser.h"
+#include "../fbson/FbsonUtil.h"
 
 /*********************************************************************//**
 Gets the minimum number of bytes per character.
@@ -198,7 +202,13 @@ dict_col_get_clust_pos(
 	for (i = 0; i < clust_index->n_def; i++) {
 		const dict_field_t*	field = &clust_index->fields[i];
 
-		if (!field->prefix_len && field->col == col) {
+		/* Need to compare position of columns in the table since
+		dict_field_get_col() returns doc_path_col for document path
+		indexes.
+		*/
+		if (!field->prefix_len &&
+		    dict_col_get_no(dict_field_get_col(field)) ==
+			dict_col_get_no(col)) {
 			return(i);
 		}
 	}
@@ -1140,6 +1150,10 @@ dict_field_get_col(
 {
 	ut_ad(field);
 
+	if (field->doc_path_col) {
+		DBUG_ASSERT(field->document_path);
+		return(field->doc_path_col);
+	}
 	return(field->col);
 }
 
@@ -1511,3 +1525,121 @@ dict_table_get_index_on_first_col(
 }
 
 #endif /* !UNIV_HOTBACKUP */
+
+UNIV_INLINE
+void
+dfield_copy_type(
+/*=====================*/
+	dfield_t*		field,
+	const dict_col_t*	col)
+{
+	field->type.mtype = col->mtype;
+	field->type.prtype = col->prtype;
+	field->type.len = col->len;
+	field->type.mbminmaxlen = col->mbminmaxlen;
+}
+
+/**********************************************************************//**
+Extracts the data from the document field BLOB using the path name and stores
+the field in InnoDB format. A NULL is set in the following cases
+
+* Data type of input document path field and the data type of the index
+are not compatible and conversion is not possible without loosing precision.
+
+* Document path value is not found in the input document field
+
+* Document path type is FbsonType::T_Null
+
+*/
+UNIV_INLINE
+void
+dfield_set_document_path_data(
+/*=====================*/
+	const dict_field_t*	ind_field,	/*!< in: index field */
+	const dfield_t*		row_field,	/*!< in: row field */
+	dfield_t*		field,		/*< in/out: extracted fbson data
+						is stored here */
+	mem_heap_t*		heap)		/*< in: memory heap */
+{
+	/* copy document path type to field */
+        dfield_copy_type(field, ind_field->doc_path_col);
+	if (dfield_is_null(row_field)) {
+		dfield_set_null(field);
+		return;
+	}
+	char delim[1];
+	delim[0] = NAMES_SEP_CHAR;
+	ut_ad(ind_field->document_path_type);
+	fbson::FbsonValue *doc = fbson::FbsonDocument::createValue(
+		(const char*)dfield_get_data(row_field), dfield_get_len(row_field));
+	fbson::FbsonValue *pval = doc->findPath(ind_field->document_path, delim);
+	if (pval) {
+		unsigned doc_type = ind_field->document_path_type;
+		if ((pval->isTrue() || pval->isFalse()) &&
+		    doc_type == MYSQL_TYPE_TINY) {
+			void* buf = mem_heap_alloc(heap, 1);
+			mach_write_to_1((unsigned char*)buf,
+					pval->isTrue() ? 1 : 0);
+			dfield_set_data(field, buf, 1);
+		} else if ((pval->isInt8() || pval->isInt16() ||
+			   pval->isInt32() || pval->isInt64())) {
+                        ib_uint64_t val = 0;
+                        if (pval->isInt8()) {
+                                val = ((fbson::Int8Val *)pval)->val();
+                        } else if (pval->isInt16()) {
+                                val = ((fbson::Int16Val *)pval)->val();
+                        } else if (pval->isInt32()) {
+                                val = ((fbson::Int32Val *)pval)->val();
+                        } else if (pval->isInt64()) {
+                                val = ((fbson::Int64Val *)pval)->val();
+                        }
+			if (doc_type == MYSQL_TYPE_LONGLONG) {
+				/* store in big-endian */
+				void* buf = mem_heap_alloc(heap, 8);
+				/* fbson integers are always signed */
+				mach_write_ulonglong((byte*)buf, val, 8, false);
+				dfield_set_data(field, buf, 8);
+			} else if (doc_type == MYSQL_TYPE_DOUBLE) {
+				void* buf = mem_heap_alloc(heap, 8);
+				mach_double_write((unsigned char*)buf, (double)val);
+				dfield_set_data(field, buf, 8);
+			} else if (doc_type == MYSQL_TYPE_STRING ||
+				   doc_type == MYSQL_TYPE_BLOB) {
+				char* buf = (char*)mem_heap_alloc(heap, 30);
+				longlong2str(val, buf, -10);
+                                dfield_set_data(field, buf,
+						ind_field->prefix_len < strlen(buf) ?
+						ind_field->prefix_len : strlen(buf));
+			}
+		} else if (pval->isDouble()) {
+			double val = ((fbson::DoubleVal *)pval)->val();
+			if (doc_type == MYSQL_TYPE_DOUBLE) {
+				void* buf = mem_heap_alloc(heap, 8);
+				mach_double_write((unsigned char*)buf, val);
+				dfield_set_data(field, buf, 8);
+			} else if (doc_type == MYSQL_TYPE_STRING ||
+				   doc_type == MYSQL_TYPE_BLOB) {
+				char* buf = (char*)mem_heap_alloc(heap, 30);
+				sprintf(buf, "%.15g", val);
+				dfield_set_data(field, buf,
+						ind_field->prefix_len < strlen(buf) ?
+						ind_field->prefix_len : strlen(buf));
+			}
+		} else if (pval->isString() && doc_type == MYSQL_TYPE_STRING) {
+			dfield_set_data(field, pval->getValuePtr(),
+					ind_field->prefix_len < pval->size() ?
+					ind_field->prefix_len : pval->size());
+		} else if ((pval->isBinary() || pval->isString() || pval->isObject()
+			   || pval->isArray()) && doc_type == MYSQL_TYPE_BLOB) {
+			/* TODO: In future we may want to handle objects and arrays differently. */
+			dfield_set_data(field, pval->getValuePtr(),
+					ind_field->prefix_len < pval->size() ?
+					ind_field->prefix_len : pval->size());
+		} else {
+			dfield_set_null(field);
+		}
+	} else {
+		/* document path doesn't exist in the input document field*/
+		dfield_set_null(field);
+	}
+}

@@ -3390,6 +3390,11 @@ btr_cur_pessimistic_delete(
 		btr_rec_free_externally_stored_fields(index,
 						      rec, offsets, page_zip,
 						      rb_ctx, mtr);
+		DBUG_EXECUTE_IF("crash_purge_del_after_free_extern",
+				{
+					my_sleep(1000 * 1000 * 10);
+					DBUG_SUICIDE();
+				});
 #ifdef UNIV_ZIP_DEBUG
 		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
 #endif /* UNIV_ZIP_DEBUG */
@@ -4112,7 +4117,6 @@ btr_estimate_number_of_different_key_vals(
 /***********************************************************//**
 Gets the offset of the pointer to the externally stored part of a field.
 @return	offset of the pointer to the externally stored part */
-static
 ulint
 btr_rec_get_field_ref_offs(
 /*=======================*/
@@ -5196,6 +5200,11 @@ btr_free_externally_stored_field(
 
 		/* Commit mtr and release the BLOB block to save memory. */
 		btr_blob_free(ext_block, TRUE, &mtr);
+                DBUG_EXECUTE_IF("crash_freeing_external_pages",
+				{
+					my_sleep(1000 * 1000 * 10);
+					DBUG_SUICIDE();
+				});
 	}
 }
 

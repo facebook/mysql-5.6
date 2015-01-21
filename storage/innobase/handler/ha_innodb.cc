@@ -9900,19 +9900,29 @@ found:
 
 		if (key_part->document_path_key_part)
 		{
-		  DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
+			if (key_part->document_path_key_part->type !=
+			    	MYSQL_TYPE_STRING &&
+			    key_part->document_path_key_part->type !=
+				MYSQL_TYPE_BLOB) {
+				/* prefix_len should be 0 for document path
+				types other than STRING and BLOB. */
+				prefix_len = 0;
+			}
+			DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
 
-		  dict_mem_index_add_document_path(
-		    index,
-		    prefix_len,
-		    key_part->document_path_key_part->type,
-		    key_part->document_path_key_part->names,
-		    key_part->document_path_key_part->number_of_names);
+			const DOCUMENT_PATH_KEY_PART_INFO *doc_path =
+				key_part->document_path_key_part;
+			dict_mem_index_add_document_path(
+				index,
+				prefix_len,
+				doc_path->type,
+				doc_path->names,
+				doc_path->number_of_names);
 		}
 		else
 		{
 		  dict_mem_index_add_field(
-		    index, key_part->field->field_name, prefix_len);
+			index, key_part->field->field_name, prefix_len);
 		}
 	}
 

@@ -2617,10 +2617,9 @@ row_import_cfg_read_index_fields(
 		}
 
 		/* Initialize document paths related data */
-		field->is_document_path = false;
 		field->document_path_type = 0;
-		field->document_path_list = NULL;
-		field->document_path_list_size = 0;
+		field->document_path = 0;
+		field->doc_path_col = 0;
 
 		field->prefix_len = mach_read_from_4(ptr);
 		ptr += sizeof(ib_uint32_t);

@@ -1,0 +1,17 @@
+call mtr.add_suppression("Resizing redo log from");
+call mtr.add_suppression("Starting to delete and rewrite log files");
+call mtr.add_suppression("New log files created");
+Verify purge of a delete marked index record
+create table t1(a int, doc document, primary key (a), key(doc.id as int)) engine=innodb;
+insert into t1 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":100}"));
+delete from t1 where a=1;
+Verify purge of an update of non delete marked record
+insert into t1 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":100}"));
+update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 7700), "\"id\":100}") where a=2;
+update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":200}") where a=2;
+Verify purge of an update of delete marked record
+begin;
+delete from t1 where a=2;
+insert into t1 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":300}"));
+commit;
+drop table t1;

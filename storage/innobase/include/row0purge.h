@@ -121,6 +121,17 @@ struct purge_node_t{
 
 };
 
+/***********************************************************//**
+Repositions the pcur in the purge node on the clustered index record,
+if found.
+@return TRUE if the record was found */
+ibool
+row_purge_reposition_pcur(
+/*======================*/
+	ulint		mode,	/*!< in: latching mode */
+	purge_node_t*	node,	/*!< in: row purge node */
+	mtr_t*		mtr);	/*!< in: mtr */
+
 #ifndef UNIV_NONINL
 #include "row0purge.ic"
 #endif
