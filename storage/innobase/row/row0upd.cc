@@ -1320,7 +1320,6 @@ row_upd_changes_ord_field_binary_func(
 		dfield_t		dfield_ext;
 		ulint			dfield_len;
 		const byte*		buf;
-
 		ind_field = dict_index_get_nth_field(index, i);
 		col = dict_field_get_col(ind_field);
 		col_no = dict_col_get_no(col);
@@ -1338,6 +1337,22 @@ row_upd_changes_ord_field_binary_func(
 		}
 
 		dfield = dtuple_get_nth_field(row, col_no);
+
+		if (ind_field->document_path) {
+			mem_heap_t*		heap = mem_heap_create(10240);
+			dfield_t dfield1, dfield2;
+			fetch_document_path_value(
+				ind_field, dfield, &dfield1,
+				heap, index, NULL);
+			fetch_document_path_value(
+				ind_field, &upd_field->new_val, &dfield2,
+				heap, index, NULL);
+			ibool res = !dfield_datas_are_binary_equal(&dfield1,
+					&dfield2, ind_field->prefix_len);
+			mem_heap_free(heap);
+			return res;
+		}
+
 
 		/* This treatment of column prefix indexes is loosely
 		based on row_build_index_entry(). */

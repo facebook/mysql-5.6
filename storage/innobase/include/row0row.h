@@ -70,6 +70,26 @@ row_get_rec_roll_ptr(
 	const dict_index_t*	index,	/*!< in: clustered index */
 	const ulint*		offsets)/*!< in: rec_get_offsets(rec, index) */
 	__attribute__((nonnull, warn_unused_result));
+/*********************************************************************//**
+Fetches the document path value and stores it in field. Reads the external
+pages of the doc_field if available
+@return FALSE	succesully read external pages
+	TRUE	error reading external pages. Purge can skip this
+		current record
+*/
+UNIV_INTERN
+ibool
+fetch_document_path_value(
+/*======================*/
+	const dict_field_t*	ind_field,	/*!< in: index field */
+	const dfield_t*		doc_field,	/*!< in: row field */
+	dfield_t*		field,		/*< in/out: extracted fbson data
+						is stored here */
+	mem_heap_t*		heap,		/*< in: memory heap */
+	dict_index_t*		index,		/*< in: index structure */
+	purge_node_t*		node,		/*< in: purge thread */
+	trx_undo_rec_t*		undo_rec = NULL);
+						/*!<in: undo record */
 /*****************************************************************//**
 When an insert or purge to a table is performed, this function builds
 the entry to be inserted into or purged from an index on the table.
@@ -85,9 +105,14 @@ row_build_index_entry_low(
 	const row_ext_t*	ext,	/*!< in: externally stored column
 					prefixes, or NULL */
 	dict_index_t*		index,	/*!< in: index on the table */
-	mem_heap_t*		heap)	/*!< in: memory heap from which
+	mem_heap_t*		heap,	/*!< in: memory heap from which
 					the memory for the index entry
 					is allocated */
+	purge_node_t*		node = NULL,
+					/*!< in: purge thread */
+	trx_undo_rec_t*		undo_rec = NULL)
+					/*!< in: undo record.
+					NULL if this is TRX_UNDO_DEL_MARK_REC */
 	__attribute__((warn_unused_result, nonnull(1,3,4)));
 /*****************************************************************//**
 When an insert or purge to a table is performed, this function builds

@@ -80,7 +80,7 @@ public:
 class KEY_PART_INFO {	/* Info about a key part */
 public:
   Field *field;
-  DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part;
+  DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part = 0;
   uint	offset;				/* offset in record (from 0) */
   uint	null_offset;			/* Offset to null_bit in record */
   /* Length of key part in bytes, excluding NULL flag and length bytes */
