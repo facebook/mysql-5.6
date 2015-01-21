@@ -1,0 +1,38 @@
+# Verifies secondary indexes on document paths by running DML operations with big json documents
+
+source include/have_innodb.inc;
+source include/master-slave.inc;
+connection master;
+
+# Add suppression for expected warning(s) in error log
+call mtr.add_suppression("Resizing redo log from");
+call mtr.add_suppression("Starting to delete and rewrite log files");
+call mtr.add_suppression("New log files created");
+
+create table t1(a int, doc document, primary key (a), key(doc.id as int)) engine=innodb;
+
+insert into t1 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":100}"));
+
+select a from t1 use document keys; # uses secondary index
+
+# Verify rollback
+begin;
+insert into t1 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":200}"));
+rollback;
+select a from t1 use document keys;
+
+# Verify update
+update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":200}") where a=1;
+
+select a from t1;
+
+# update document value to NULL
+update t1 set doc='{"bad_json" : "comma missing" "key" : 1}' where a=1;
+
+# Verify delete
+delete from t1 where a=1;
+
+select a from t1;
+
+drop table t1;
+source include/rpl_end.inc;

@@ -1470,6 +1470,8 @@ dict_load_field_low(
 	ulint		prefix_len;
 	ibool		first_field;
 	ulint		position;
+	const char*	document_path = 0;
+	unsigned	doc_path_type = 0;
 
 	/* Either index or sys_field is supplied, not both */
 	ut_a((!index) || (!sys_field));
@@ -1478,7 +1480,8 @@ dict_load_field_low(
 		return(dict_load_field_del);
 	}
 
-	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS) {
+	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS &&
+	    rec_get_n_fields_old(rec) != DICT_NUM_FIELDS_OLD__SYS_FIELDS) {
 		return("wrong number of columns in SYS_FIELDS record");
 	}
 
@@ -1541,6 +1544,24 @@ err_len:
 		goto err_len;
 	}
 
+	/* Check number of fields before reading new metdata related to
+	document paths */
+	if (rec_get_n_fields_old(rec) == DICT_NUM_FIELDS__SYS_FIELDS) {
+		field = rec_get_nth_field_old(
+			rec, DICT_FLD__SYS_FIELDS__DOC_PATH_NAME, &len);
+		if (len != UNIV_SQL_NULL) {
+			ut_ad(len > 0);
+			document_path = (const char*) field;
+		}
+
+		field = rec_get_nth_field_old(
+			rec, DICT_FLD__SYS_FIELDS__DOC_PATH_TYPE, &len);
+		if (len != 4) {
+			goto err_len;
+		}
+		doc_path_type = mach_read_from_4(field);
+	}
+
 	field = rec_get_nth_field_old(
 		rec, DICT_FLD__SYS_FIELDS__COL_NAME, &len);
 	if (len == 0 || len == UNIV_SQL_NULL) {
@@ -1548,9 +1569,13 @@ err_len:
 	}
 
 	if (index) {
+		/* memory allocated by my_strndup is freed
+		in dict_mem_index_free() */
 		dict_mem_index_add_field(
 			index, mem_heap_strdupl(heap, (const char*) field, len),
-			prefix_len);
+			prefix_len, doc_path_type,
+			document_path ? my_strndup(document_path,
+			ut_strlen(document_path), MYF(0)) : 0);
 	} else {
 		ut_a(sys_field);
 		ut_a(pos);
@@ -1559,6 +1584,12 @@ err_len:
 			heap, (const char*) field, len);
 		sys_field->prefix_len = prefix_len;
 		*pos = position;
+		sys_field->document_path_type = doc_path_type;
+		/* memory allocated by my_strndup is freed
+		in dict_mem_index_free() */
+		sys_field->document_path = document_path ?
+			my_strndup(document_path,
+				   ut_strlen(document_path), MYF(0)) : 0;
 	}
 
 	return(NULL);
