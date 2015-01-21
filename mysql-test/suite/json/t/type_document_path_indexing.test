@@ -69,6 +69,18 @@ insert into t1 values (2,20,'@2','{ "id":102, "name":"Bob", "phone":6507770002, 
 insert into t1 values (3,30,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333, "a.b.c.":3 }');
 insert into t1 values (4,40,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
 
+insert into t1 values (5,50,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+
+# Duplicate entry for c_doc.address.zipcode
+--error ER_DUP_ENTRY
+insert into t1 values (6,60,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+
+update t1 set doc='{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
+# Duplicate entry for c_doc.address.zipcode becuase of the previous update
+--error ER_DUP_ENTRY
+insert into t1 values (6,60,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+delete from t1 where a = 5;
+
 --replace_column 7 -
 SHOW INDEXES IN t1;
 
@@ -101,11 +113,11 @@ CREATE TABLE t2 (
        doc document not null,
        primary key (a),
        key (doc.id as int),
-       key (doc.double as double),
+       UNIQUE key doc_double (doc.double as double),
        key doc_bool (doc.bool as bool),
-       key (doc.name as string(64)),
+       UNIQUE key doc_name (doc.name as string(64)),
        key doc_name_100 (doc.name as string(100)),
-       key doc_binary (doc.address as binary(64)),
+       UNIQUE key doc_address (doc.address as binary(64)),
        key (doc.address as binary(100))) engine=innodb;
 
 SHOW CREATE TABLE t2;
@@ -116,6 +128,42 @@ insert into t2 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "a
 insert into t2 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 }, "int64":2222222220123456789 }');
 insert into t2 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333 }');
 insert into t2 values (4,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"] }');
+
+insert into t2 values (5,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+
+# Duplicate entry for doc.double
+--error ER_DUP_ENTRY
+insert into t2 values (6,'@6','{ "id":106, "name":"Charlie_106", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "double":3.333333 }');
+
+# Duplicate entry for doc.name
+--error ER_DUP_ENTRY
+insert into t2 values (6,'@6','{ "id":106, "name":"Eddard", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+
+# Duplicate entry for doc.address
+--error ER_DUP_ENTRY
+insert into t2 values (6,'@6','{ "id":106, "name":"Ned", "phone":6507770006, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+
+update t2 set doc='{ "id":105, "name":"Ned", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
+# Duplicate entry for doc.address because of previous update
+--error ER_DUP_ENTRY
+insert into t2 values (6,'@6','{ "id":106, "name":"Ned Stark", "phone":6507770006, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+
+# int value for a double type index
+insert into t2 values(7,'@7','{ "double" : 123}');
+--error ER_DUP_ENTRY
+insert into t2 values(8, '@8','{ "double" : 123.0}');
+
+# int value for string type index
+insert into t2 values(8,'@8','{ "name" : 123}');
+--error ER_DUP_ENTRY
+insert into t2 values(9, '@9','{ "name" : "123"}');
+
+# double value for string type index
+insert into t2 values(9,'@9','{ "name" : 123.1231131232}');
+--error ER_DUP_ENTRY
+insert into t2 values(10, '@10','{ "name" : "123.1231131232"}');
+
+delete from t2 where a = 5;
 
 --replace_column 7 -
 SHOW INDEXES IN t2;
@@ -130,7 +178,7 @@ ALTER TABLE t2 DROP KEY doc_name_100;
 --replace_column 7 -
 SHOW INDEXES IN t2;
 
-ALTER TABLE t2 DROP KEY doc_binary;
+ALTER TABLE t2 DROP KEY doc_address;
 
 --replace_column 7 -
 SHOW INDEXES IN t2;
@@ -162,7 +210,12 @@ insert into t3 values (4,40,'@4','{ "id":104, "name":"Don", "phone":6507770004, 
 
 SELECT * FROM t3;
 
-CREATE UNIQUE INDEX c_doc ON t3 (c, doc.address.zipcode as int);
+# Verify online DDL is compatible with creating index on document path keys
+ALTER TABLE t3 ADD UNIQUE INDEX c_doc (c, doc.address.zipcode as int);
+
+# Duplicate entry for c_doc.address.zipcode
+--error ER_DUP_ENTRY
+insert into t3 values (5,50,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
 
 --replace_column 7 -
 SHOW INDEXES IN t3;

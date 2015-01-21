@@ -665,9 +665,9 @@ dict_mem_index_add_field(
 	ulint		prefix_len,	/*!< in: 0 or the column prefix length
 					in a MySQL index like
 					INDEX (textcol(25)) */
-	char** doc_path_list,	/*!< in: column name */
-	uint document_path_list_len,
-	unsigned doc_path_type)
+	unsigned doc_path_type,		/*!< in: document path data type */
+	const char* document_path,	/*!< in: document path */
+	const dict_col_t* doc_path_col)	/*!< in: document column type */
 {
 	dict_field_t*	field;
 
@@ -681,28 +681,16 @@ dict_mem_index_add_field(
 	field->name = name;
 	field->prefix_len = (unsigned int) prefix_len;
 
-	if (doc_path_list)
-	{
-	  DBUG_ASSERT(document_path_list_len >= 2);
-	  field->is_document_path = true;
-	  field->document_path_type = doc_path_type;
-	  field->document_path_list_size =
-	    document_path_list_len;
-	  field->document_path_list = (char**)
-	    my_malloc(sizeof(char**) * field->document_path_list_size,
-		      MYF(0));
-	  for (uint i = 0; i < field->document_path_list_size; i++)
-	  {
-	    field->document_path_list[i] =
-	      (char*)my_strdup(doc_path_list[i], MYF(0));
-	  }
-	}
-	else
-	{
-	  field->is_document_path = false;
-	  field->document_path_type = 0;
-	  field->document_path_list = NULL;
-	  field->document_path_list_size = 0;
+	field->document_path_type = doc_path_type;
+	field->document_path = document_path;
+	if (field->document_path) {
+		DBUG_ASSERT(doc_path_type);
+		/* freed in dict_mem_index_free */
+		field->doc_path_col =
+			(dict_col_t*) my_malloc(sizeof(dict_col_t), MYF(0));
+		if (doc_path_col) {
+			*field->doc_path_col = *doc_path_col;
+		}
 	}
 }
 
@@ -717,12 +705,8 @@ dict_mem_index_add_field(
 					in a MySQL index like
 					INDEX (textcol(25)) */
 {
-  dict_mem_index_add_field(index, name, prefix_len, 0, NULL, 0);
+  dict_mem_index_add_field(index, name, prefix_len, 0, 0);
 }
-
-#ifndef NAMES_SEP_CHAR
-#define NAMES_SEP_CHAR    '\377'
-#endif
 
 UNIV_INTERN
 void
@@ -736,28 +720,28 @@ dict_mem_index_add_document_path(
 	char** document_path_list,	/*!< in: column names */
 	uint document_path_list_len)	/*!< in: column names count */
 {
-  /* concatenate all the document paths as the name */
-  uint total_len = 0;
-  for (uint i = 0; i < document_path_list_len; i++)
-    total_len += strlen(document_path_list[i]) + 1;
-  total_len++;
+	/* concatenate all the document paths as the name */
+	uint total_len = 0;
+	for (uint i = 1; i < document_path_list_len; i++) {
+		/* +1 for NAMES_SEP_CHAR */
+		total_len += ut_strlen(document_path_list[i]) + 1;
+	}
 
-  /* ownership transfers to callee */
-  char *buf = (char*) my_malloc((uint)total_len, MYF(0));
-  char *p = buf;
-  for (uint i = 0; i < document_path_list_len; i++)
-  {
-     uint len = strlen(document_path_list[i]);
-     memcpy(p, document_path_list[i], len);
-     p += len;
-     *p++ = NAMES_SEP_CHAR;
-  }
-  *p++ = '\0';
-
-  dict_mem_index_add_field(index, buf, prefix_len,
-			   document_path_list,
-			   document_path_list_len,
-			   document_path_type);
+	ut_ad(total_len > 0);
+	/* ownership transfers to callee */
+	char *buf = (char*) my_malloc((uint)total_len, MYF(0));
+	char *p = buf;
+	for (uint i = 1; i < document_path_list_len; i++)
+	{
+		uint len = ut_strlen(document_path_list[i]);
+		ut_ad(len <= 64);
+		memcpy(p, document_path_list[i], len);
+		p += len;
+		*p++ = NAMES_SEP_CHAR;
+	}
+	*(--p) = '\0';
+	dict_mem_index_add_field(index, document_path_list[0], prefix_len,
+				 document_path_type, buf);
 }
 
 
@@ -780,17 +764,15 @@ dict_mem_index_free(
 
 	for (uint i = 0; i < index->n_def; ++i)
 	{
-	  dict_field_t *field = dict_index_get_nth_field(index, i);
-	  if (field->is_document_path)
-	  {
-	    my_free((char *)field->name);
-	    field->name = NULL;
-	    for (uint j = 0; j < field->document_path_list_size; j++)
-	    {
-	      my_free(field->document_path_list[j]);
-	    }
-	    my_free(field->document_path_list);
-	  }
+		dict_field_t *field = dict_index_get_nth_field(index, i);
+		if (field->document_path) {
+			my_free((void*)field->document_path);
+			field->document_path = 0;
+		}
+		if (field->doc_path_col) {
+			my_free((void*)field->doc_path_col);
+			field->doc_path_col = 0;
+		}
 	}
 
 	dict_index_zip_pad_mutex_destroy(index);
