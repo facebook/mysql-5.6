@@ -114,6 +114,12 @@ row_build_index_entry_low(
 			continue;
 		}
 
+		if (ind_field->document_path) {
+			dfield_set_document_path_data(ind_field,
+				dfield2, dfield, heap);
+			continue;
+		}
+
 		if (ind_field->prefix_len == 0
 		    && (!dfield_is_ext(dfield)
 			|| dict_index_is_clust(index))) {
