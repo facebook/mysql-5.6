@@ -1,0 +1,38 @@
+# Tests the functionality of purge thread on document path indexes
+source include/have_innodb.inc;
+
+call mtr.add_suppression("Resizing redo log from");
+call mtr.add_suppression("Starting to delete and rewrite log files");
+call mtr.add_suppression("New log files created");
+
+--echo Verify purge of a delete marked index record
+create table t1(a int, doc document, primary key (a), key(doc.id as int)) engine=innodb;
+# Creates TRX_UNDO_INSERT_REC type record in undo log.
+# Purge has nothing to do here
+insert into t1 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":100}"));
+# Creates TRX_UNDO_DEL_MARK_REC type record in undo log.
+# Purge removes the entry first from secondary indexes and finally from
+# clustered index.
+delete from t1 where a=1;
+
+--echo Verify purge of an update of non delete marked record
+insert into t1 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":100}"));
+# Creates TRX_UNDO_UPD_EXIST_REC type record in undo log with flag
+# UPD_NODE_NO_ORD_CHANGE. Purge doesn't have anything to remove in secondary
+# index, it frees external pages of old record.
+update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 7700), "\"id\":100}") where a=2;
+# Creates TRX_UNDO_UPD_EXIST_REC type record in undo log without the flag
+# UPD_NODE_NO_ORD_CHANGE. Purge removes entry from secondary index.
+update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":200}") where a=2;
+
+--echo Verify purge of an update of delete marked record
+# Need to do this in a transaction to avoid purge processing
+# the undo log from delete which causes the insert to create
+# a undo log record of type TRX_UNDO_INSERT_REC (i,e; fresh insert)
+begin;
+delete from t1 where a=2;
+# Creates TRX_UNDO_UPD_EXIST_REC type record in undo log.
+insert into t1 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":300}"));
+commit;
+
+drop table t1;

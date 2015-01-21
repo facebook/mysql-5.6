@@ -54,10 +54,9 @@ dict_mem_fill_index_struct(
 
 		/* Initialize document path related data */
 		for (ulint i = 0; i < n_fields; i++) {
-			index->fields[i].is_document_path = false;
 			index->fields[i].document_path_type = 0;
-			index->fields[i].document_path_list = NULL;
-			index->fields[i].document_path_list_size = 0;
+			index->fields[i].document_path = 0;
+			index->fields[i].doc_path_col = 0;
 		}
 	} else {
 		index->name = index_name;

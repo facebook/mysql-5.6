@@ -437,8 +437,39 @@ void key_unpack(String *to, TABLE *table, KEY *key)
         continue;
       }
     }
-    field_unpack(to, key_part->field, table->record[0], key_part->length,
-                 MY_TEST(key_part->key_part_flag & HA_PART_KEY_SEG));
+    if (key_part->document_path_key_part)
+    {
+      // Extract the actual value from json using document path
+      List<Document_key> document_path_keys;
+      for (uint i=1; i < key_part->document_path_key_part->number_of_names; ++i)
+      {
+        LEX_STRING s;
+        s.str = key_part->document_path_key_part->names[i],
+        s.length = strlen(key_part->document_path_key_part->names[i]);
+        Document_key *dk = new Document_key(s, i);
+        document_path_keys.push_back(dk);
+      }
+      my_bool is_null = false;
+      String tmp;
+      key_part->field->document_path_val_str(document_path_keys, &tmp, is_null);
+      if (is_null)
+      {
+        to->append(STRING_WITH_LEN("NULL"));
+      }
+      else
+      {
+        if (tmp.length() > key_part->length)
+          tmp.length(key_part->length);
+        ErrConvString err(&tmp);
+        to->append(err.ptr());
+      }
+      document_path_keys.delete_elements();
+    }
+    else
+    {
+      field_unpack(to, key_part->field, table->record[0], key_part->length,
+                   MY_TEST(key_part->key_part_flag & HA_PART_KEY_SEG));
+    }
   }
   dbug_tmp_restore_column_map(table->read_set, old_map);
   DBUG_VOID_RETURN;
