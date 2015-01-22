@@ -3271,8 +3271,14 @@ int ha_rocksdb::info(uint flag)
 void ha_rocksdb::position(const uchar *record)
 {
   DBUG_ENTER("ha_rocksdb::position");
-
-  memcpy(ref, last_rowkey.ptr(), ref_length);
+  /*
+    Get packed primary key value from the record.
+    (Note: last_rowkey has the packed PK of last-read-row, which allows to
+    handle most cases, but there is an exception to this: when slave applies
+    RBR events, it fills the record and then calls position(); rnd_pos())
+  */
+  pk_descr->pack_record(table, pack_buffer, record, ref,
+                        NULL, NULL);
   DBUG_VOID_RETURN;
 }
 
