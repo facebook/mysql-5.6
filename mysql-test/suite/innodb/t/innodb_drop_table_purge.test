@@ -37,5 +37,6 @@ disconnect con1;
 show global status like "Innodb_drop_table_purge_skipped_row";
 drop table t1;
 
+let $wait_timeout= 120; # Override default 30 seconds with 120, as this can be really slow in Valgrind
 let $wait_condition= select (VARIABLE_VALUE > 100) from information_schema.global_status where VARIABLE_NAME = 'Innodb_drop_table_purge_skipped_row';
 --source include/wait_condition.inc
