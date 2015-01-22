@@ -322,6 +322,19 @@ class FbsonValue {
   // get the raw byte array of the value
   const char *getValuePtr() const;
 
+  // find the FBSON value by a key path string (null terminated)
+  FbsonValue* findPath(const char* key_path,
+                        const char* delim = ".",
+                        hDictFind handler = nullptr) {
+    return findPath(key_path, strlen(key_path), delim, handler);
+  }
+
+  // find the FBSON value by a key path string (with length)
+  FbsonValue* findPath(const char* key_path,
+                        unsigned int len,
+                        const char* delim,
+                        hDictFind handler);
+
  protected:
   FbsonType type_; // type info
 
@@ -517,28 +530,27 @@ class ContainerVal : public FbsonValue {
  */
 class ObjectVal : public ContainerVal {
  public:
-  // find the FBSON value by a key string
-  FbsonValue *find(const char *key, hDictFind handler = nullptr) const {
+  // find the FBSON value by a key string (null terminated)
+  FbsonValue* find(const char* key, hDictFind handler = nullptr) const {
+    if (!key)
+      return nullptr;
+
+    return find(key, strlen(key), handler);
+  }
+
+  // find the FBSON value by a key string (with length)
+  FbsonValue* find(const char* key,
+                   unsigned int klen,
+                   hDictFind handler = nullptr) const {
+    if (!key || !klen)
+      return nullptr;
+
     int key_id = -1;
-    unsigned int klen = strlen(key);
     if (handler && (key_id = handler(key, klen)) >= 0) {
       return find(key_id);
     }
 
-    const char *pch = payload_;
-    const char *fence = payload_ + size_;
-
-    while (pch < fence) {
-      FbsonKeyValue *pkey = (FbsonKeyValue *)(pch);
-      if (klen == pkey->klen() && strncmp(key, pkey->getKeyStr(), klen) == 0) {
-        return pkey->value();
-      }
-      pch += pkey->numPackedBytes();
-    }
-
-    assert(pch == fence);
-
-    return nullptr;
+    return internalFind(key, klen);
   }
 
   // find the FBSON value by a key dictionary ID
@@ -576,6 +588,24 @@ class ObjectVal : public ContainerVal {
 
   const_iterator end() const {
     return const_iterator((pointer)(payload_ + size_));
+  }
+
+ private:
+  FbsonValue* internalFind(const char* key, unsigned int klen) const {
+    const char* pch = payload_;
+    const char* fence = payload_ + size_;
+
+    while (pch < fence) {
+      FbsonKeyValue* pkey = (FbsonKeyValue*)(pch);
+      if (klen == pkey->klen() && strncmp(key, pkey->getKeyStr(), klen) == 0) {
+        return pkey->value();
+      }
+      pch += pkey->numPackedBytes();
+    }
+
+    assert(pch == fence);
+
+    return nullptr;
   }
 
  private:
@@ -754,6 +784,70 @@ inline const char *FbsonValue::getValuePtr() const {
   default:
     return nullptr;
   }
+}
+
+inline FbsonValue* FbsonValue::findPath(const char* key_path,
+                                         unsigned int kp_len,
+                                         const char* delim = ".",
+                                         hDictFind handler = nullptr) {
+  if (!key_path || !kp_len)
+    return nullptr;
+
+  if (!delim)
+    delim = "."; // default delimiter
+
+  FbsonValue* pval = this;
+  const char* fence = key_path + kp_len;
+  char idx_buf[21]; // buffer to parse array index (integer value)
+
+  while (pval && key_path < fence) {
+    const char* key = key_path;
+    unsigned int klen = 0;
+    // find the current key
+    for (; key_path != fence && *key_path != *delim; ++key_path, ++klen)
+      ;
+
+    if (!klen)
+      return nullptr;
+
+    switch (pval->type_) {
+    case FbsonType::T_Object: {
+      pval = ((ObjectVal*)pval)->find(key, klen, handler);
+      break;
+    }
+
+    case FbsonType::T_Array: {
+      // parse string into an integer (array index)
+      if (klen >= sizeof(idx_buf))
+        return nullptr;
+
+      memcpy(idx_buf, key, klen);
+      idx_buf[klen] = 0;
+
+      char* end = nullptr;
+      int index = strtol(idx_buf, &end, 10);
+      if (end && !*end)
+        pval = ((fbson::ArrayVal*)pval)->get(index);
+      else
+        // incorrect index string
+        return nullptr;
+      break;
+    }
+
+    default:
+      return nullptr;
+    }
+
+    // skip the delimiter
+    if (key_path < fence) {
+      ++key_path;
+      if (key_path == fence)
+        // we have a trailing delimiter at the end
+        return nullptr;
+    }
+  }
+
+  return pval;
 }
 
 #pragma pack(pop)
