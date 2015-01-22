@@ -554,6 +554,94 @@ TEST(FBSON_PARSER, object) {
   EXPECT_EQ(strlen("v3_1"), pval->size());
   EXPECT_EQ("v3_1", std::string(pval->getValuePtr(), pval->size()));
 
+  // find a value by key path
+  pval = doc.getValue()->findPath("k1");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  // packed bytes size: 1+4+strlen("v1")
+  EXPECT_EQ(7, pval->numPackedBytes());
+  EXPECT_EQ(strlen("v1"), pval->size());
+  EXPECT_EQ("v1", std::string(pval->getValuePtr(), pval->size()));
+
+  pval = doc.getValue()->findPath("k2");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isObject());
+  // packed bytes size: 1+4+(1+strlen("k2_1"))+(1+4+strlen("v2_1"))
+  EXPECT_EQ(19, pval->numPackedBytes());
+  EXPECT_STREQ("{\"k2_1\":\"v2_1\"}", tojson.json(pval));
+
+  pval = doc.getValue()->findPath("k2.k2_1");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  // packed bytes size: 1+4+strlen("v2_1")
+  EXPECT_EQ(9, pval->numPackedBytes());
+  EXPECT_EQ(strlen("v2_1"), pval->size());
+  EXPECT_EQ("v2_1", std::string(pval->getValuePtr(), pval->size()));
+
+  // find a value by key path with string length
+  pval = doc.getValue()->findPath("k3.0.k3_1", 9);
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  // packed bytes size: 1+4+strlen("v3_1")
+  EXPECT_EQ(9, pval->numPackedBytes());
+  EXPECT_EQ(strlen("v3_1"), pval->size());
+  EXPECT_EQ("v3_1", std::string(pval->getValuePtr(), pval->size()));
+
+  // find a value by key path with custom delimiter
+  pval = doc.getValue()->findPath("k3\t0\tk3_1", "\t");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  // packed bytes size: 1+4+strlen("v3_1")
+  EXPECT_EQ(9, pval->numPackedBytes());
+  EXPECT_EQ(strlen("v3_1"), pval->size());
+  EXPECT_EQ("v3_1", std::string(pval->getValuePtr(), pval->size()));
+
+  // find a value by key path with NULL delimiter
+  pval = doc.getValue()->findPath("k2\0k2_1", 7, ""/* NULL delim */);
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  // packed bytes size: 1+4+strlen("v2_1")
+  EXPECT_EQ(9, pval->numPackedBytes());
+  EXPECT_EQ(strlen("v2_1"), pval->size());
+  EXPECT_EQ("v2_1", std::string(pval->getValuePtr(), pval->size()));
+
+  // find a value by key path with NULL delimiter
+  pval = doc.getValue()->findPath("k3\0000\0k3_1", 9, ""/* NULL delim */);
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  // packed bytes size: 1+4+strlen("v3_1")
+  EXPECT_EQ(9, pval->numPackedBytes());
+  EXPECT_EQ(strlen("v3_1"), pval->size());
+  EXPECT_EQ("v3_1", std::string(pval->getValuePtr(), pval->size()));
+
+  // path doesn't exist
+  pval = doc.getValue()->findPath("k4");
+  EXPECT_TRUE(pval == nullptr);
+
+  // path doesn't exist
+  pval = doc.getValue()->findPath("k2.k2_2");
+  EXPECT_TRUE(pval == nullptr);
+
+  // empty key in the path
+  pval = doc.getValue()->findPath("k3..k3_1");
+  EXPECT_TRUE(pval == nullptr);
+
+  // empty key in the path (trailing delimiter)
+  pval = doc.getValue()->findPath("k3.0.");
+  EXPECT_TRUE(pval == nullptr);
+
+  // incorrect delimiter
+  pval = doc.getValue()->findPath("k3\t0\tk3_1", "\\");
+  EXPECT_TRUE(pval == nullptr);
+
+  // array index is not a number
+  pval = doc.getValue()->findPath("k3.0a.k3_1");
+  EXPECT_TRUE(pval == nullptr);
+
+  // array index out of range
+  pval = doc.getValue()->findPath("k3.123456789.k3_1");
+  EXPECT_TRUE(pval == nullptr);
+
   // empty object
   str.assign("{}");
   EXPECT_TRUE(parser.parse(str.c_str()));
