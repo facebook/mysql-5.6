@@ -927,8 +927,11 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
   store_index_number(ddl_entry, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
   rocksdb::Slice ddl_entry_slice((char*)ddl_entry, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
+  /* Reading data dictionary should always skip bloom filter */
+  rocksdb::ReadOptions read_options;
+  read_options.total_order_seek = true;
   rocksdb::Iterator* it;
-  it= rdb_dict->NewIterator(rocksdb::ReadOptions());
+  it= rdb_dict->NewIterator(read_options);
   int i= 0;
   int max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next())
