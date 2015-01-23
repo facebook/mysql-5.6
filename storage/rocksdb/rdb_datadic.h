@@ -203,6 +203,11 @@ public:
     return maxlength;
   }
 
+  uint get_m_key_parts()
+  {
+    return m_key_parts;
+  }
+
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
                rocksdb::ColumnFamilyHandle* cf_handle_arg,
                bool is_reverse_cf_arg, bool is_auto_cf_arg) :
