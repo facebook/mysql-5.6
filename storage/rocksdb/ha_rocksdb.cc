@@ -38,6 +38,7 @@
 #include "rocksdb/table.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/utilities/convenience.h"
+#include "rocksdb/slice_transform.h"
 
 /* This is here to get PRIu64, PRId64 */
 #ifndef __STDC_FORMAT_MACROS
@@ -52,6 +53,9 @@ static handler *rocksdb_create_handler(handlerton *hton,
 void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
               uint key_length);
 void* background_thread(void*);
+bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
+                          const rocksdb::Slice &eq_cond,
+                          const bool use_all_keys);
 
 ///////////////////////////////////////////////////////////
 // Parameters and settings
@@ -2264,12 +2268,16 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   rocksdb::Slice slice((char*)sec_key_packed_tuple, packed_size);
 
 
+  bool use_all_keys= false;
+  if (find_flag == HA_READ_KEY_EXACT &&
+      my_count_bits(keypart_map) == kd->get_m_key_parts())
+    use_all_keys= true;
   rocksdb::Slice rkey;
   /*
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
-  setup_index_scan(kd, &slice);
+  setup_index_scan(kd, &slice, use_all_keys);
   bool move_forward= true;
 
 
@@ -3069,7 +3077,8 @@ int ha_rocksdb::write_row(uchar *buf)
 */
 
 void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
-                                  rocksdb::Slice *slice)
+                                  rocksdb::Slice *slice,
+                                  bool use_all_keys)
 {
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
@@ -3082,6 +3091,8 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
     rocksdb::ReadOptions options;
     if (!lock_rows)
       options.snapshot= trx->snapshot;
+    if (!can_use_bloom_filter(keydef, *slice, use_all_keys))
+      options.total_order_seek= true;
     rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, keydef->get_cf());
     scan_it= new Apply_changes_iter;
     scan_it->init(keydef->is_reverse_cf, &trx->changes, rocksdb_it);
@@ -4068,4 +4079,65 @@ void* background_thread(void*)
   mysql_mutex_unlock(&background_mutex);
 
   return nullptr;
+}
+
+
+/**
+  Deciding if it is possible to use bloom filter or not.
+
+  @detail
+   Even if bloom filter exists, it is not always possible
+   to use bloom filter. If using bloom filter when you shouldn't,
+   false negative may happen -- fewer rows than expected may be returned.
+   It is users' responsibility to use bloom filter correctly.
+
+   If bloom filter does not exist, return value does not matter because
+   RocksDB does not use bloom filter internally.
+
+  @param keydef
+  @param eq_cond      Equal condition part of the key. This always includes
+                      system index id (4 bytes).
+  @param use_all_keys True if all key parts are set with equal conditions.
+                      This is aware of extended keys.
+*/
+bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
+                          const rocksdb::Slice &eq_cond,
+                          const bool use_all_keys)
+{
+  bool can_use= false;
+  rocksdb::Options opt = rdb->GetOptions(keydef->get_cf());
+  if (opt.prefix_extractor)
+  {
+    /*
+      This is an optimized use case for CappedPrefixTransform.
+      If eq_cond length >= prefix extractor length, it is
+      always possible to use bloom filter. Keys longer than the
+      capped prefix length will be truncated down to the capped length
+      and the resulting key is added to the bloom filter.
+
+      Keys shorter than the capped prefix length will be added to
+      the bloom filter. When keys are looked up, key conditionals
+      longer than the capped length can be used; key conditionals
+      shorter require all parts of the key to be available
+      for the short key match.
+    */
+    if (opt.prefix_extractor->SameResultWhenAppended(eq_cond))
+      can_use= true;
+    else if (use_all_keys && opt.prefix_extractor->InRange(eq_cond))
+      can_use= true;
+    else
+      can_use= false;
+  } else
+  {
+    /*
+      if prefix extractor is not defined, all key parts have to be
+      used by eq_cond.
+    */
+    if (use_all_keys)
+      can_use= true;
+    else
+      can_use= false;
+  }
+
+  return can_use;
 }
