@@ -72,6 +72,9 @@ INSERT INTO t1 (b) SELECT b from t1;
 select stat_value = 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
 
 INSERT INTO t1 (b) SELECT b from t1;
+--disable_result_log
+select sleep(5);
+--enable_result_log
 --echo # Persistent stats write triggered
 select stat_value > 0 from mysql.innodb_index_stats where table_name like '%t1%' and  stat_name = 'n_page_split';
 
