@@ -1,0 +1,39 @@
+let tmpl_ddl= suite/rocksdb/t/bloomfilter_table_def.tmpl;
+let ddl= $MYSQL_TMP_DIR/bloomfilter_create.sql;
+
+#BF is sometimes invoked and useful
+select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+--exec sed s/##CF##//g $tmpl_ddl > $ddl
+--source $ddl
+--source suite/rocksdb/t/bloomfilter_load_select.inc
+select case when variable_value-@c > 70 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u > 50 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+
+#BF is always invoked but not useful at all
+select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+--exec sed s/##CF##/" COMMENT 'cf_short_prefix'"/g $tmpl_ddl > $ddl
+--source $ddl
+--source suite/rocksdb/t/bloomfilter_load_select.inc
+select case when variable_value-@c > 100 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u = 0 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+
+
+#BF is most of the time invoked and useful
+select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+--exec sed s/##CF##/" COMMENT 'cf_long_prefix'"/g $tmpl_ddl > $ddl
+--source $ddl
+--source suite/rocksdb/t/bloomfilter_load_select.inc
+select case when variable_value-@c > 30 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+
+# cleanup
+truncate table t1;
+optimize table t1;
+truncate table t2;
+optimize table t2;
+drop table if exists t1;
+drop table if exists t2;
+--remove_file $ddl
