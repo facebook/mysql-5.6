@@ -29,7 +29,7 @@ SELECT VARIABLE_VALUE INTO @wb2 from INFORMATION_SCHEMA.GLOBAL_STATUS WHERE VARI
 SELECT @w2 - @w1 >= 5 as diff;
 diff
 1
-SELECT @wind2 - @wind1 as diff;
+SELECT @wind2 - @wind1 > 0 as diff;
 diff
 1
 SELECT @wul2 - @wul1 > 0 as diff;
