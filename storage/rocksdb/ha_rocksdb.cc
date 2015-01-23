@@ -3651,6 +3651,45 @@ void ha_rocksdb::update_create_info(HA_CREATE_INFO *create_info)
   }
 }
 
+/**
+  Doing manual compaction on OPTIMIZE TABLE in RocksDB.
+  Compaction itself is executed by background thread in RocksDB, but
+  CompactRange() waits until compaction completes so this function
+  may take a long time.
+  Since RocksDB dataset is allocated per index id, OPTIMIZE TABLE
+  triggers manual compaction for all indexes of the table.
+
+  Compaction range is from the beginning of the index id to
+  the first row of the next index id. When using reverse order
+  column family, the first row of the next index id should be
+  the last row of the previous index id.
+*/
+int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
+{
+  int rc= 0;
+  for (uint i= 0; i < table->s->keys; i++)
+  {
+    uchar buf_begin[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+    uchar buf_end[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+    int delta= 1;
+    if (key_descr[i]->is_reverse_cf)
+      delta= -1;
+
+    store_index_number(buf_begin, key_descr[i]->get_index_number());
+    store_index_number(buf_end, key_descr[i]->get_index_number() + delta);
+
+    rocksdb::Slice idx_begin((char*)buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    rocksdb::Slice idx_end((char*)buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+
+    if (!rdb->CompactRange(key_descr[i]->get_cf(), &idx_begin, &idx_end).ok())
+    {
+      rc= 1;
+      break;
+    }
+  }
+  return rc;
+}
+
 
 void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
                                     ulonglong nb_desired_values,
