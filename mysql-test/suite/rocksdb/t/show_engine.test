@@ -1,0 +1,30 @@
+#
+# SHOW ENGINE STATUS command
+# Checking that the command doesn't produce an error.
+# If it starts producing an actual result, the result file
+# will need to be updated, and possibly masked.
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+DROP TABLE IF EXISTS t4;
+--enable_warnings
+
+CREATE TABLE t1 (i INT, PRIMARY KEY (i) COMMENT 'cf_t1') ENGINE = ROCKSDB;
+CREATE TABLE t2 (j INT, PRIMARY KEY (j) COMMENT 'cf_t2') ENGINE = ROCKSDB;
+CREATE TABLE t3 (k INT, PRIMARY KEY (k) COMMENT 'cf_t1') ENGINE = ROCKSDB;
+CREATE TABLE t4 (l INT, PRIMARY KEY (l) COMMENT 'cf_t4') ENGINE = ROCKSDB;
+--replace_column 3 #
+SHOW ENGINE rocksdb STATUS;
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
+DROP TABLE t4;
+
+SHOW ENGINE rocksdb MUTEX;
+# For SHOW ALL MUTEX even the number of lines is volatile, so the result logging is disabled
+--disable_result_log
+SHOW ENGINE ALL MUTEX;
+--enable_result_log
+
