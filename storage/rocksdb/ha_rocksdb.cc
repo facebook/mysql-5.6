@@ -36,6 +36,7 @@
 
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/table.h"
+#include "rocksdb/metadata.h"
 #include "rocksdb/utilities/convenience.h"
 
 /* This is here to get PRIu64, PRId64 */
@@ -1038,24 +1039,40 @@ static bool rocksdb_show_status(handlerton*		hton,
   bool res= false;
   if (stat_type == HA_ENGINE_STATUS)
   {
-    std::vector<rocksdb::LiveFileMetaData> metadata_vec;
+    std::vector<std::string> cf_names;
+    std::vector<std::string>::iterator it;
+    rocksdb::ColumnFamilyHandle* cfh;
+    rocksdb::ColumnFamilyMetaData metadata;
+    std::string str;
 
-    rdb->GetLiveFilesMetaData(&metadata_vec);
-    std::ostringstream buf;
-
-    for (auto it= metadata_vec.begin(); it!=metadata_vec.end(); it++)
-    {
-      buf << "cf=" << it->column_family_name;
-      buf << " name=" << it->name;
-      buf << " size=" << it->size;
-      buf << std::endl;
+    if (rdb->GetProperty("rocksdb.dbstats", &str)) {
+      res= stat_print(thd, STRING_WITH_LEN("DB"),
+                      STRING_WITH_LEN("db"),
+                      str.c_str(), str.size());
     }
 
-    std::string str= buf.str();
-    res= stat_print(thd, rocksdb_hton_name,
-                    (uint)strlen(rocksdb_hton_name),
-                    STRING_WITH_LEN("live_files"),
-                    str.c_str(), str.size());
+    cf_names= cf_manager.get_cf_names();
+    for (it= cf_names.begin(); it != cf_names.end(); it++) {
+      bool is_automatic;
+      std::ostringstream buf;
+
+      /*
+        Only the cf name is important. Whether it was generated automatically
+        does not matter, so is_automatic is ignored.
+      */
+      cfh= cf_manager.get_cf(it->c_str(), nullptr, nullptr, &is_automatic);
+      if (cfh == nullptr) {
+        continue;
+      }
+
+      if (!rdb->GetProperty(cfh, "rocksdb.cfstats", &str)) {
+        continue;
+      }
+
+      res= stat_print(thd, STRING_WITH_LEN("COMPACTION"),
+                      it->c_str(), it->size(),
+                      str.c_str(), str.size());
+    }
   }
   return res;
 }
