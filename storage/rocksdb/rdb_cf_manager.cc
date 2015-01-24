@@ -184,3 +184,17 @@ Column_family_manager::get_cf(const char *cf_name,
 
   return cf_handle;
 }
+
+std::vector<std::string>
+Column_family_manager::get_cf_names(void)
+{
+  std::vector<std::string> names;
+  ColumnFamilyHandleMap::iterator it;
+
+  mysql_mutex_lock(&cfm_mutex);
+  for (it= cf_map.begin(); it != cf_map.end(); it++) {
+    names.push_back(it->first);
+  }
+  mysql_mutex_unlock(&cfm_mutex);
+  return names;
+}

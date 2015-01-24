@@ -74,5 +74,9 @@ public:
                                       const char *index_name,
                                       bool *is_automatic);
 
+  /* Used to iterate over column families for show status */
+  std::vector<std::string> get_cf_names(void);
+
   // void drop_cf(); -- not implemented so far.
 };
+
