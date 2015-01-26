@@ -936,6 +936,17 @@ extern ulint	btr_cur_n_sea_old;
 extern uint	btr_cur_limit_optimistic_insert_debug;
 #endif /* UNIV_DEBUG */
 
+/* The following function is added to provide more information for the
+occasional btr_page_get_prev(next_page, mtr) == current_page_no failure. */
+#ifdef UNIV_BTR_DEBUG
+void
+btr_cur_assert_page_no(
+	page_t* page,
+	page_t* next_page,
+	btr_cur_t* cursor,
+	mtr_t* mtr);
+#endif /* UNIV_BTR_DEBUG */
+
 #ifndef UNIV_NONINL
 #include "btr0cur.ic"
 #endif
