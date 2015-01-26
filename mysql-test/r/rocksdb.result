@@ -823,6 +823,7 @@ rocksdb_advise_random_on_open	ON
 rocksdb_allow_mmap_reads	OFF
 rocksdb_allow_mmap_writes	OFF
 rocksdb_allow_os_buffer	ON
+rocksdb_background_sync	OFF
 rocksdb_block_cache_size	8388608
 rocksdb_block_restart_interval	16
 rocksdb_block_size	4096
@@ -857,6 +858,7 @@ rocksdb_max_row_locks	1073741824
 rocksdb_max_total_wal_size	0
 rocksdb_no_block_cache	OFF
 rocksdb_paranoid_checks	ON
+rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_stats_dump_period_sec	3600
 rocksdb_table_cache_numshardbits	4
@@ -869,7 +871,7 @@ rocksdb_wal_ttl_seconds	0
 rocksdb_whole_key_filtering	ON
 rocksdb_write_disable_wal	OFF
 rocksdb_write_ignore_missing_column_families	OFF
-rocksdb_write_sync	off
+rocksdb_write_sync	OFF
 rocksdb_write_timeout_hint_us	0
 create table t47 (pk int primary key, col1 varchar(12)) engine=rocksdb;
 insert into t47 values (1, 'row1');
