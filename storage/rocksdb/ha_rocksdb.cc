@@ -34,6 +34,7 @@
 #include "rdb_cf_options.h"
 #include "rdb_cf_manager.h"
 
+#include "rocksdb/rate_limiter.h"
 #include "rocksdb/table.h"
 #include "rocksdb/utilities/convenience.h"
 
@@ -121,6 +122,7 @@ rocksdb_cf_options_file_update(THD* thd,
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
+static uint64_t rocksdb_rate_limiter_bytes_per_sec;
 static uint64_t rocksdb_info_log_level;
 static char * rocksdb_wal_dir;
 static uint64_t rocksdb_index_type;
@@ -203,6 +205,13 @@ static MYSQL_SYSVAR_BOOL(paranoid_checks,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::paranoid_checks for RocksDB",
   NULL, NULL, db_options.paranoid_checks);
+
+static MYSQL_SYSVAR_ULONG(rate_limiter_bytes_per_sec,
+  rocksdb_rate_limiter_bytes_per_sec,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::rate_limiter bytes_per_sec for RocksDB",
+  NULL, NULL, 0L,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
 
 static MYSQL_SYSVAR_ENUM(info_log_level,
   rocksdb_info_log_level,
@@ -501,6 +510,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(create_missing_column_families),
   MYSQL_SYSVAR(error_if_exists),
   MYSQL_SYSVAR(paranoid_checks),
+  MYSQL_SYSVAR(rate_limiter_bytes_per_sec),
   MYSQL_SYSVAR(info_log_level),
   MYSQL_SYSVAR(max_open_files),
   MYSQL_SYSVAR(max_total_wal_size),
@@ -1116,6 +1126,10 @@ static int rocksdb_init_func(void *p)
 
   rocksdb::Status status;
 
+  if (rocksdb_rate_limiter_bytes_per_sec != 0) {
+    db_options.rate_limiter.reset(
+      rocksdb::NewGenericRateLimiter(rocksdb_rate_limiter_bytes_per_sec));
+  }
   db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
   db_options.wal_dir = rocksdb_wal_dir;
 
