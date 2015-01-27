@@ -1077,6 +1077,76 @@ static bool rocksdb_show_status(handlerton*		hton,
   return res;
 }
 
+/*
+    Supporting START TRANSACTION WITH CONSISTENT [ROCKSDB] SNAPSHOT
+
+    Features:
+    1. Supporting START TRANSACTION WITH CONSISTENT SNAPSHOT
+    2. Getting current binlog position in addition to #1.
+
+    The second feature is done by START TRANSACTION WITH
+    CONSISTENT ROCKSDB SNAPSHOT. This is Facebook's extension, and
+    it works like existing START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT.
+
+    - When not setting engine, START TRANSACTION WITH CONSISTENT SNAPSHOT
+    takes both InnoDB and RocksDB snapshots, and both InnoDB and RocksDB
+    participate in transaction. When executing COMMIT, both InnoDB and
+    RocksDB modifications are committed. Remember that XA is not supported yet,
+    so mixing engines is not recommended anyway.
+
+    - When setting engine, START TRANSACTION WITH CONSISTENT.. takes
+    snapshot for the specified engine only. But it starts both
+    InnoDB and RocksDB transactions.
+*/
+static int rocksdb_start_trx_and_assign_read_view(
+        handlerton*     hton,           /*!< in: RocksDB handlerton */
+        THD*            thd,            /*!< in: MySQL thread handle of the
+                                        user for whom the transaction should
+                                        be committed */
+        char*           binlog_file,    /* out: binlog file for last commit */
+        ulonglong*      binlog_pos,     /* out: binlog pos for last commit */
+        char**  gtid_executed,  /* out: Gtids logged until last commit */
+        int*    gtid_executed_length)   /*out: Length of gtid_executed string */
+{
+  ulong const tx_isolation = thd_tx_isolation(thd);
+
+  if (tx_isolation != ISO_REPEATABLE_READ)
+  {
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "Only REPEATABLE READ isolation level is supported "
+                    "for START TRANSACTION WITH CONSISTENT SNAPSHOT "
+                    "in RocksDB Storage Engine.", MYF(0));
+    return 1;
+  }
+
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx == NULL)
+  {
+    if (!(trx= new Rdb_transaction))
+      return 1;
+    trx->pins= row_locks.get_pins();
+  }
+
+  if (trx->snapshot)
+    rdb->ReleaseSnapshot(trx->snapshot);
+
+  if (binlog_file)
+  {
+    if (binlog_pos && mysql_bin_log_is_open())
+      mysql_bin_log_lock_commits();
+    else
+      return 1;
+  }
+
+  trx->snapshot= rdb->GetSnapshot();
+
+  if (binlog_file)
+    mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
+                                 gtid_executed_length);
+
+  return 0;
+}
+
 
 void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts)
 {
@@ -1120,6 +1190,8 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->rollback= rocksdb_rollback;
   rocksdb_hton->db_type=  DB_TYPE_ROCKSDB;
   rocksdb_hton->show_status= rocksdb_show_status;
+  rocksdb_hton->start_consistent_snapshot=
+    rocksdb_start_trx_and_assign_read_view;
 
   /*
     Don't specify HTON_CAN_RECREATE in flags. re-create is used by TRUNCATE
