@@ -16,7 +16,7 @@ connect (con2,localhost,root,,);
 
 connection con1;
 
-CREATE TABLE t1 (a INT, pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=rocksdb;
+CREATE TABLE t1 (a INT, pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=ROCKSDB;
 eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
 
 # While a consistent snapshot transaction is executed,
@@ -37,6 +37,71 @@ connection default;
 disconnect con1;
 disconnect con2;
 DROP TABLE t1;
+
+connect (con1,localhost,root,,);
+connect (con2,localhost,root,,);
+
+connection con1;
+CREATE TABLE r1 (id int primary key, value int, value2 int) engine=ROCKSDB;
+insert into r1 values (1,1,1),(2,2,2),(3,3,3),(4,4,4);
+
+BEGIN;
+
+connection con2;
+INSERT INTO r1 values (5,5,5);
+
+connection con1;
+SELECT * FROM r1; # 5
+
+connection con2;
+INSERT INTO r1 values (6,6,6);
+
+connection con1;
+SELECT * FROM r1; # 5
+COMMIT;
+SELECT * FROM r1; # 6
+
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+connection con2;
+INSERT INTO r1 values (7,7,7);
+
+connection con1;
+SELECT * FROM r1; # 6
+
+connection con2;
+INSERT INTO r1 values (8,8,8);
+
+connection con1;
+SELECT * FROM r1; # 6
+COMMIT;
+SELECT * FROM r1; # 8
+
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+connection con2;
+INSERT INTO r1 values (9,9,9);
+
+connection con1;
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+connection con2;
+INSERT INTO r1 values (10,10,10);
+
+connection con1;
+SELECT * FROM r1; # 9
+
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+INSERT INTO r1 values (11,11,11);
+SELECT * FROM r1; # self changes should be visible
+
+
+drop table r1;
+
+connection default;
+disconnect con1;
+disconnect con2;
+
 
 --source include/wait_until_count_sessions.inc
 
