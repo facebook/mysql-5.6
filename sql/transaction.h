@@ -23,7 +23,8 @@ class THD;
 
 bool trans_check_state(THD *thd);
 
-bool trans_begin(THD *thd, uint flags= 0, bool* need_ok = NULL);
+bool trans_begin(THD *thd, uint flags= 0, bool* need_ok = NULL,
+                 handlerton* hton = NULL);
 bool trans_commit(THD *thd, bool async = FALSE);
 bool trans_commit_implicit(THD *thd, bool async = FALSE);
 bool trans_rollback(THD *thd);

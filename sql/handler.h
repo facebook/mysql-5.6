@@ -365,8 +365,8 @@ static const uint MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT        = 1;
 static const uint MYSQL_START_TRANS_OPT_READ_ONLY                 = 2;
 // READ WRITE option
 static const uint MYSQL_START_TRANS_OPT_READ_WRITE                = 4;
-// WITH CONSISTENT INNODB SNAPSHOT option
-static const uint MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT = 8;
+// WITH CONSISTENT INNODB|ROCKSDB SNAPSHOT option
+static const uint MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT = 8;
 
 /* Flags for method is_fatal_error */
 #define HA_CHECK_DUP_KEY 1
@@ -3569,7 +3569,8 @@ int ha_release_temporary_latches(THD *thd);
 int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
                                  ulonglong* binlog_pos,
                                  char **gtid_executed,
-                                 int* gtid_executed_length);
+                                 int* gtid_executed_length,
+                                 handlerton *hton);
 int ha_commit_or_rollback_by_xid(THD *thd, XID *xid, bool commit);
 int ha_commit_trans(THD *thd, bool all, bool async,
                     bool ignore_global_read_lock= false);

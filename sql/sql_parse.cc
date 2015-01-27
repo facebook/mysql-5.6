@@ -4869,7 +4869,8 @@ end_with_restore_list:
   case SQLCOM_BEGIN:
   {
     bool need_ok = true;
-    if (trans_begin(thd, lex->start_transaction_opt, &need_ok))
+    if (trans_begin(thd, lex->start_transaction_opt, &need_ok,
+                    lex->create_info.db_type))
       goto error;
     if (need_ok)
       my_ok(thd);
