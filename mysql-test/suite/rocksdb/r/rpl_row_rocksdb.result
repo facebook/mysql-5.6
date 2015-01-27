@@ -26,9 +26,17 @@ insert into t1 values (3,1,1);
 insert into t1 values (4,1,1);
 insert into t1 values (5,1,1);
 update t1 set value2=100 where id=1;
+update t1 set value2=200 where id=2;
+update t1 set value2=300 where id=3;
 include/sync_slave_sql_with_master.inc
 select * from t1 where id=1;
 id	value	value2
 1	1	100
+select * from t1 where id=2;
+id	value	value2
+2	1	200
+select * from t1 where id=3;
+id	value	value2
+3	1	300
 drop table t1;
 include/rpl_end.inc
