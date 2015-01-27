@@ -126,7 +126,7 @@ static bool xa_trans_force_rollback(THD *thd)
   @retval TRUE   Failure
 */
 
-bool trans_begin(THD *thd, uint flags, bool* need_ok)
+bool trans_begin(THD *thd, uint flags, bool* need_ok, handlerton *hton)
 {
   int res= FALSE;
   DBUG_ENTER("trans_begin");
@@ -190,9 +190,9 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok)
 
   /* ha_start_consistent_snapshot() relies on OPTION_BEGIN flag set. */
   if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_SNAPSHOT)
-    res= ha_start_consistent_snapshot(thd, NULL, NULL, NULL, NULL);
+    res= ha_start_consistent_snapshot(thd, NULL, NULL, NULL, NULL, NULL);
 #ifdef HAVE_REPLICATION
-  else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT)
+  else if (flags & MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT)
   {
     char binlog_file[FN_REFLEN];
     char *gtid_executed = NULL;
@@ -201,7 +201,8 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok)
     DBUG_ASSERT(need_ok != NULL);
 
     res= (ha_start_consistent_snapshot(thd, binlog_file, &binlog_pos,
-                                       &gtid_executed, &gtid_executed_length) ||
+                                       &gtid_executed, &gtid_executed_length,
+                                       hton) ||
           show_master_offset(thd, binlog_file, binlog_pos, gtid_executed,
                              gtid_executed_length, need_ok));
     my_free(gtid_executed);
