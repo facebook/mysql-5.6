@@ -8582,7 +8582,8 @@ start_transaction_option:
           }
         | WITH CONSISTENT_SYM known_storage_engines SNAPSHOT_SYM
           {
-             $$= MYSQL_START_TRANS_OPT_WITH_CONS_INNODB_SNAPSHOT;
+            $$= MYSQL_START_TRANS_OPT_WITH_CONS_ENGINE_SNAPSHOT;
+            Lex->create_info.db_type = $3;
           }
         | READ_SYM ONLY_SYM
           {
