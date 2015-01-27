@@ -2285,23 +2285,18 @@ struct snapshot_handlerton_st
 static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
                                    void *arg)
 {
-  snapshot_handlerton_st* info = (snapshot_handlerton_st*)(arg);
-
   handlerton *hton= plugin_data(plugin, handlerton *);
   if (hton->state == SHOW_OPTION_YES &&
       hton->start_consistent_snapshot)
   {
-    info->error = false;
-
-    if (hton->start_consistent_snapshot(hton, thd, info->binlog_file,
-                                        info->binlog_pos,
-                                        info->gtid_executed,
-                                        info->gtid_executed_length)) {
+    if (hton->start_consistent_snapshot(hton, thd, NULL, NULL, NULL, NULL))
+    {
       my_printf_error(ER_UNKNOWN_ERROR,
-                      "Cannot start InnoDB transaction or binlog disabled",
+                      "Cannot start transaction",
                       MYF(0));
       return TRUE;
     }
+    *((bool *)arg)= false;
   }
   return FALSE;
 }
@@ -2309,27 +2304,49 @@ static my_bool snapshot_handlerton(THD *thd, plugin_ref plugin,
 int ha_start_consistent_snapshot(THD *thd, char *binlog_file,
                                  ulonglong* binlog_pos,
                                  char** gtid_executed,
-                                 int* gtid_executed_length)
+                                 int* gtid_executed_length,
+                                 handlerton *hton)
 {
-  snapshot_handlerton_st info;
-  info.binlog_file = binlog_file;
-  info.binlog_pos = binlog_pos;
-  info.gtid_executed = gtid_executed;
-  info.gtid_executed_length = gtid_executed_length;
-  info.error = true;
+  bool error= true;
 
-  if (plugin_foreach(thd, snapshot_handlerton,
-                     MYSQL_STORAGE_ENGINE_PLUGIN, &info)) {
-    return TRUE;
+  if (hton == NULL)
+  {
+    if (plugin_foreach(thd, snapshot_handlerton,
+                       MYSQL_STORAGE_ENGINE_PLUGIN, &error)) {
+      return TRUE;
+    }
+  }
+  else
+  {
+    error= false;
+    if (hton->state == SHOW_OPTION_YES &&
+        hton->start_consistent_snapshot)
+    {
+      if (hton->start_consistent_snapshot(hton, thd, binlog_file, binlog_pos,
+                                          gtid_executed, gtid_executed_length))
+      {
+        my_printf_error(ER_UNKNOWN_ERROR,
+                        "Cannot start transaction or binlog disabled",
+                        MYF(0));
+        return TRUE;
+      }
+    }
+    else
+    {
+      my_printf_error(ER_UNKNOWN_ERROR,
+                      "Consistent Snapshot is not supported for this engine",
+                      MYF(0));
+      return TRUE;
+    }
   }
 
   /*
     Same idea as when one wants to CREATE TABLE in one engine which does not
     exist:
   */
-  if (info.error)
-    my_printf_error(ER_UNKNOWN_ERROR, "InnoDB disabled", MYF(0));
-  return info.error;
+  if (error)
+    my_printf_error(ER_UNKNOWN_ERROR, "Engine disabled", MYF(0));
+  return error;
 }
 
 
