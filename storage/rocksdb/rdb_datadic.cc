@@ -333,7 +333,10 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
   store_index_number(tuple, index_number);
   tuple += INDEX_NUMBER_SIZE;
 
-  // The following includes the 'extended key' tail:
+  // If n_key_parts is 0, it means all columns.
+  // The following includes the 'extended key' tail.
+  // The 'extended key' includes primary key. This is done to 'uniqify'
+  // non-unique indexes
   if (n_key_parts == 0 || n_key_parts == MAX_REF_PARTS)
     n_key_parts= m_key_parts;
 
@@ -341,6 +344,9 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
   {
     Field *field= get_field_by_keynr(tbl, key_info, i);
 
+    // Old Field methods expected the record pointer to be at tbl->record[0].
+    // The quick and easy way to fix this was to pass along the offset
+    // for the pointer.
     my_ptrdiff_t ptr_diff= record - tbl->record[0];
 
     if (field->real_maybe_null())
@@ -359,6 +365,7 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
       }
     }
 
+    // Set the offset for methods which do not take an offset as an argument
     field->move_field_offset(ptr_diff);
     pack_info[i].pack_func(&pack_info[i], field, pack_buffer, &tuple);
 
@@ -407,6 +414,10 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
 
   Stream_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
+
+  // Old Field methods expected the record pointer to be at tbl->record[0].
+  // The quick and easy way to fix this was to pass along the offset
+  // for the pointer.
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
   if (unpack_info->size() != unpack_data_len)
@@ -441,6 +452,7 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
           return 1;
       }
 
+      // Set the offset for methods which do not take an offset as an argument
       field->move_field_offset(ptr_diff);
       int res= fpi->unpack_func(fpi, field, &reader,
                             unpack_ptr + fpi->unpack_data_offset);
@@ -578,6 +590,16 @@ const uint ESCAPE_LENGTH=9;
 void pack_with_varchar_encoding(Field_pack_info *fpi, Field *field, uchar *buf,
                                 uchar **dst)
 {
+  /*
+    Use a flag byte every Nth byte. Set it to (255 - #pad) where #pad is 0
+    when the var length field filled all N-1 previous bytes and #pad is
+    otherwise the number of padding bytes used.
+
+    If N=8 and the field is:
+    * 3 bytes (1, 2, 3) this is encoded as: 1, 2, 3, 0, 0, 0, 0, 251
+    * 4 bytes (1, 2, 3, 0) this is encoded as: 1, 2, 3, 0, 0, 0, 0, 252
+    And the 4 byte string compares as greater than the 3 byte string
+  */
   const CHARSET_INFO *charset= field->charset();
   Field_varstring *field_var= (Field_varstring*)field;
 
