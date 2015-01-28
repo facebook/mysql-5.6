@@ -1154,14 +1154,18 @@ SELECT * FROM t1 ORDER BY pk LIMIT 9;
 pk
 1
 2
-affected rows: 2
+3
+4
+5
+6
+7
+8
+affected rows: 8
 DELETE FROM t1 ORDER BY pk LIMIT 9;
-affected rows: 2
+affected rows: 8
 SELECT * FROM t1 ORDER BY pk LIMIT 9;
 pk
-1
-2
-affected rows: 2
+affected rows: 0
 DROP TABLE t1,t2;
 #
 # MDEV-4374: RocksDB: Valgrind warnings 'Use of uninitialised value' on 
