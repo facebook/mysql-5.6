@@ -939,15 +939,16 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
     rocksdb::Slice key= it->key();
     rocksdb::Slice val= it->value();
 
+    if (key.size() >= RDBSE_KEYDEF::INDEX_NUMBER_SIZE &&
+        memcmp(key.data(), ddl_entry, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
+      break;
+
     if (key.size() <= RDBSE_KEYDEF::INDEX_NUMBER_SIZE)
     {
       sql_print_error("RocksDB: Table_store: key has length %d (corruption?)",
                       (int)key.size());
       return true;
     }
-
-    if (memcmp(key.data(), ddl_entry, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
-      break;
 
     tdef->dbname_tablename.append(key.data() + RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
                                   key.size() - RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
