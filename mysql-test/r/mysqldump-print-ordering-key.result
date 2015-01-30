@@ -43,7 +43,6 @@ CREATE TABLE `table1` (
 -- Dumping data for table `table1`
 --
 /* ORDERING KEY : (null) */;
-/* ORDERING KEY : (null) */;
 
 LOCK TABLES `table1` WRITE;
 /*!40000 ALTER TABLE `table1` DISABLE KEYS */;

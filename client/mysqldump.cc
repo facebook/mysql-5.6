@@ -138,7 +138,8 @@ static bool verbose = 0, opt_no_create_info = 0, opt_no_data = 0, quick = 1,
             opt_comments_used = 0, opt_alltspcs = 0, opt_notspcs = 0,
             opt_drop_trigger = 0, opt_network_timeout = 0,
             stats_tables_included = 0, column_statistics = false,
-            opt_print_ordering_key = 0, opt_ignore_views = 0;
+            opt_print_ordering_key = 0, opt_ignore_views = 0, opt_rocksdb = 0,
+            opt_order_by_primary_desc = 0;
 static bool insert_pat_inited = 0, debug_info_flag = 0, debug_check_flag = 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection, *mysql = 0;
@@ -487,6 +488,9 @@ static struct my_option my_long_options[] = {
      "InnoDB table, but will make the dump itself take considerably longer.",
      &opt_order_by_primary, &opt_order_by_primary, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      0, 0, 0},
+    {"order-by-primary-desc", OPT_ORDER_BY_PRIMARY_DESC,
+     "Taking backup ORDER BY primary key DESC.", &opt_order_by_primary_desc,
+     &opt_order_by_primary_desc, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
     {"password", 'p',
      "Password to use when connecting to server. If password is not given it's "
      "solicited on the tty.",
@@ -587,6 +591,8 @@ static struct my_option my_long_options[] = {
      &opt_tz_utc, &opt_tz_utc, 0, GET_BOOL, NO_ARG, 1, 0, 0, 0, 0, 0},
     {"user", 'u', "User for login if not current user.", &current_user,
      &current_user, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"rocksdb", OPT_USE_ROCKSDB, "Take RocksDB backup.", &opt_rocksdb,
+     &opt_rocksdb, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
     {"verbose", 'v', "Print info about the various stages.", &verbose, &verbose,
      0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
     {"version", 'V', "Output version information and exit.", 0, 0, 0,
@@ -630,7 +636,7 @@ static int dump_all_databases();
 static char *quote_name(const char *name, char *buff, bool force);
 char check_if_ignore_table(const char *table_name, char *table_type);
 bool is_infoschema_db(const char *db);
-static char *primary_key_fields(const char *table_name);
+static char *primary_key_fields(const char *table_name, const bool desc);
 static bool get_view_structure(char *table, char *db);
 static bool dump_all_views_in_db(char *database);
 static int dump_all_tablespaces();
@@ -2659,7 +2665,9 @@ static uint get_table_structure(char *table, char *db, char *table_type,
   result_table = quote_name(table, table_buff, 1);
   opt_quoted_table = quote_name(table, table_buff2, 0);
 
-  if (opt_order_by_primary) order_by = primary_key_fields(result_table);
+  if (opt_order_by_primary || opt_order_by_primary_desc)
+    order_by = primary_key_fields(result_table,
+                                  opt_order_by_primary_desc ? true : false);
 
   if (!opt_xml && !mysql_query_with_error_report(mysql, 0, query_buff)) {
     /* using SHOW CREATE statement */
@@ -3708,7 +3716,8 @@ static void dump_table(char *table, char *db) {
         DB_error(mysql, "when trying to save the result of EXPLAIN SELECT *.");
         goto err;
       }
-      fprintf(md_result_file, "/* ORDERING KEY : %s */;\n", row[5]);
+      fprintf(md_result_file, "/* ORDERING KEY%s : %s */;\n",
+              opt_order_by_primary_desc ? " (DESC)" : "", row[5]);
 
       if (res) mysql_free_result(res);
       dynstr_free(&explain_query_string);
@@ -5081,10 +5090,13 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
 
   {
     MYSQL_RES *res = NULL;
+    const char *command_innodb =
+        "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT";
+    const char *command_rocksdb =
+        "START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT";
 
     if (mysql_query_with_error_report(
-            mysql_con, &res,
-            "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT") ||
+            mysql_con, &res, opt_rocksdb ? command_rocksdb : command_innodb) ||
         !res)
       return 1;
 
@@ -5246,7 +5258,7 @@ bool is_infoschema_db(const char *db) {
     the table unsorted, rather than exit without dumping the data.
 */
 
-static char *primary_key_fields(const char *table_name) {
+static char *primary_key_fields(const char *table_name, const bool desc) {
   MYSQL_RES *res = NULL;
   MYSQL_ROW row;
   /* SHOW KEYS FROM + table name * 2 (escaped) + 2 quotes + \0 */
@@ -5279,6 +5291,7 @@ static char *primary_key_fields(const char *table_name) {
     do {
       quoted_field = quote_name(row[4], buff, 0);
       result_length += strlen(quoted_field) + 1; /* + 1 for ',' or \0 */
+      if (desc) result_length += 5; /* + 1 for space, and + 4 for "DESC" */
     } while ((row = mysql_fetch_row(res)) && atoi(row[3]) > 1);
   }
 
@@ -5298,8 +5311,9 @@ static char *primary_key_fields(const char *table_name) {
     end = my_stpcpy(result, quoted_field);
     while ((row = mysql_fetch_row(res)) && atoi(row[3]) > 1) {
       quoted_field = quote_name(row[4], buff, 0);
-      end = strxmov(end, ",", quoted_field, NullS);
+      end = strxmov(end, desc ? " DESC," : ",", quoted_field, NullS);
     }
+    if (desc) end = strxmov(end, " DESC", NullS);
   }
 
 cleanup:
