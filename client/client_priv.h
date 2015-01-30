@@ -194,6 +194,8 @@ enum options_client {
   OPT_START_GTID,
   OPT_FIND_GTID_POSITION,
   OPT_INDEX_FILE,
+  OPT_ORDER_BY_PRIMARY_DESC,
+  OPT_USE_ROCKSDB,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
