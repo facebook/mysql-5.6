@@ -118,7 +118,7 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_include_master_host_port= 0,
                 opt_events= 0, opt_comments_used= 0,
                 opt_alltspcs=0, opt_notspcs= 0, opt_drop_trigger= 0,
-                opt_secure_auth= 1;
+                opt_secure_auth= 1, opt_rocksdb= 0, opt_order_by_primary_desc=0;
 static my_bool insert_pat_inited= 0, debug_info_flag= 0, debug_check_flag= 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection,*mysql=0;
@@ -476,6 +476,9 @@ static struct my_option my_long_options[] =
   {"order-by-primary", OPT_ORDER_BY_PRIMARY,
    "Sorts each table's rows by primary key, or first unique key, if such a key exists.  Useful when dumping a MyISAM table to be loaded into an InnoDB table, but will make the dump itself take considerably longer.",
    &opt_order_by_primary, &opt_order_by_primary, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"order-by-primary-desc", OPT_ORDER_BY_PRIMARY_DESC,
+   "Taking backup ORDER BY primary key DESC.",
+   &opt_order_by_primary_desc, &opt_order_by_primary_desc, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"password", 'p',
    "Password to use when connecting to server. If password is not given it's solicited on the tty.",
    0, 0, 0, GET_PASSWORD, OPT_ARG, 0, 0, 0, 0, 0, 0},
@@ -578,6 +581,8 @@ static struct my_option my_long_options[] =
    &current_user, &current_user, 0, GET_STR, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
 #endif
+  {"rocksdb", OPT_USE_ROCKSDB, "Take RocksDB backup.",
+   &opt_rocksdb, &opt_rocksdb, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"verbose", 'v', "Print info about the various stages.",
    &verbose, &verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"version",'V', "Output version information and exit.", 0, 0, 0,
@@ -614,7 +619,7 @@ static int dump_databases(char **);
 static int dump_all_databases();
 static char *quote_name(const char *name, char *buff, my_bool force);
 char check_if_ignore_table(const char *table_name, char *table_type);
-static char *primary_key_fields(const char *table_name);
+static char *primary_key_fields(const char *table_name, const my_bool desc);
 static my_bool get_view_structure(char *table, char* db);
 static my_bool dump_all_views_in_db(char *database);
 static int dump_all_tablespaces();
@@ -2906,8 +2911,8 @@ static uint get_table_structure(char *table, char *db, char *table_type,
   if (opt_innodb_optimize_keys && !strcmp(table_type, "InnoDB"))
     has_pk= has_primary_key(table);
 
-  if (opt_order_by_primary)
-    order_by= primary_key_fields(result_table);
+  if (opt_order_by_primary || opt_order_by_primary_desc)
+    order_by= primary_key_fields(result_table, opt_order_by_primary_desc? TRUE : FALSE);
 
   if (!opt_xml && !mysql_query_with_error_report(mysql, 0, query_buff))
   {
@@ -3959,7 +3964,8 @@ static void dump_table(char *table, char *db)
         DB_error(mysql, "when trying to save the result of EXPLAIN SELECT *.");
         goto err;
       }
-      fprintf(md_result_file, "/* ORDERING KEY : %s */;\n", row[5]);
+      fprintf(md_result_file, "/* ORDERING KEY %s : %s */;\n",
+              opt_order_by_primary_desc ? "(DESC)" : "", row[5]);
     }
 
     if (!opt_xml && !opt_compact)
@@ -5506,10 +5512,12 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
 
   {
     MYSQL_RES *res = NULL;
+    const char* command_innodb=  "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT";
+    const char* command_rocksdb= "START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT";
 
     if (mysql_query_with_error_report(
         mysql_con, &res,
-        "START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT") || !res)
+        opt_rocksdb? command_rocksdb : command_innodb) || !res)
       return 1;
 
     {
@@ -5709,7 +5717,7 @@ char check_if_ignore_table(const char *table_name, char *table_type)
     the table unsorted, rather than exit without dumping the data.
 */
 
-static char *primary_key_fields(const char *table_name)
+static char *primary_key_fields(const char *table_name, const my_bool desc)
 {
   MYSQL_RES  *res= NULL;
   MYSQL_ROW  row;
@@ -5745,6 +5753,10 @@ static char *primary_key_fields(const char *table_name)
     {
       quoted_field= quote_name(row[4], buff, 0);
       result_length+= strlen(quoted_field) + 1; /* + 1 for ',' or \0 */
+      if (desc)
+      {
+        result_length+= 5; /* + 1 for space, and + 4 for "DESC" */
+      }
     } while ((row= mysql_fetch_row(res)) && atoi(row[3]) > 1);
   }
 
@@ -5766,7 +5778,11 @@ static char *primary_key_fields(const char *table_name)
     while ((row= mysql_fetch_row(res)) && atoi(row[3]) > 1)
     {
       quoted_field= quote_name(row[4], buff, 0);
-      end= strxmov(end, ",", quoted_field, NullS);
+      end= strxmov(end, desc? " DESC," : ",", quoted_field, NullS);
+    }
+    if (desc)
+    {
+      end= strmov(end, " DESC");
     }
   }
 
