@@ -460,11 +460,24 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
      }
 #endif
 
-    int direct = thd->lex->disable_flashcache ? (O_DIRECT|O_SYNC) : 0;
+#if defined(O_DIRECT)
+    int direct = thd->lex->disable_flashcache ? O_SYNC | O_DIRECT : 0;
+#else
+    int direct = thd->lex->disable_flashcache ? O_SYNC : 0;
+#endif //O_DIRECT
+
     if ((file= mysql_file_open(key_file_load,
                                name, O_RDONLY | direct, MYF(MY_WME))) < 0)
-
       DBUG_RETURN(TRUE);
+
+#if defined(F_NOCACHE)
+    if (thd->lex->disable_flashcache) {
+      if (fcntl(file, F_NOCACHE, 1) < 0) {
+        mysql_file_close(file, MYF(0));
+        DBUG_RETURN(TRUE);
+      }
+    }
+#endif //F_NOCACHE
   }
 
   if (thd->lex->disable_flashcache)

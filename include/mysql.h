@@ -42,6 +42,12 @@
 extern "C" {
 #endif
 
+#include "mysql_version.h"
+#include "mysql_com.h"
+#include "mysql_time.h"
+
+#include "my_list.h" /* for LISTs used in 'MYSQL' and 'MYSQL_STMT' */
+
 #ifndef MY_GLOBAL_INCLUDED                /* If not standard header */
 #ifndef MYSQL_ABI_CHECK
 #include <sys/socket.h>
@@ -69,12 +75,6 @@ typedef int my_socket;
 #endif /* __WIN__ */
 #endif /* my_socket_defined */
 #endif /* MY_GLOBAL_INCLUDED */
-
-#include "mysql_version.h"
-#include "mysql_com.h"
-#include "mysql_time.h"
-
-#include "my_list.h" /* for LISTs used in 'MYSQL' and 'MYSQL_STMT' */
 
 extern unsigned int mysql_port;
 extern char *mysql_unix_port;
