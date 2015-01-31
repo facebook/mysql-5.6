@@ -2014,6 +2014,7 @@ buf_flush_single_page_from_LRU(
 			if (freed) {
 				/* block and buffer pool mutex have
 				already been reelased. */
+				srv_stats.buf_pool_flushed.add(1);
 				break;
 			}
 			mutex_exit(block_mutex);
