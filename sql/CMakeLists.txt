@@ -108,6 +108,7 @@ SET(SQL_SHARED_SOURCES
   protocol.cc
   records.cc
   rpl_handler.cc
+  session_tracker.cc
   scheduler.cc 
   set_var.cc 
   signal_handler.cc
@@ -181,6 +182,7 @@ SET(SQL_SHARED_SOURCES
   sql_view.cc
   strfunc.cc
   sys_vars.cc
+  sys_vars_resource_mgr.cc
   table.cc
   table_cache.cc
   thr_malloc.cc 
