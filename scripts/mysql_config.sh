@@ -125,7 +125,7 @@ include="-I$pkgincludedir"
 for remove in DDBUG_OFF DSAFE_MUTEX DFORCE_INIT_OF_VARS \
               DEXTRA_DEBUG DHAVE_purify O 'O[0-9]' 'xO[0-9]' 'W[-A-Za-z]*' \
               'mtune=[-A-Za-z0-9]*' 'mcpu=[-A-Za-z0-9]*' 'march=[-A-Za-z0-9]*' \
-              unroll2 ip mp restrict
+              unroll2 ip mp restrict 'specs=[A-Za-z0-9/]*\.spec'
 do
   # The first option we might strip will always have a space before it because
   # we set -I$pkgincludedir as the first option
