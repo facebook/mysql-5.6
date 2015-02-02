@@ -46,6 +46,9 @@
 #include <mysql_com_server.h>
 #include "sql_data_change.h"
 
+#include "sys_vars_resource_mgr.h"
+#include "session_tracker.h"
+
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
 /**
@@ -684,6 +687,8 @@ typedef struct system_variables
   my_bool use_fbson_output_format;
   my_bool sql_log_bin_triggers;
 
+  char *track_sysvars_ptr;
+  my_bool session_track_schema;
 } SV;
 
 
@@ -4417,6 +4422,11 @@ private:
    */
   LEX_STRING invoker_user;
   LEX_STRING invoker_host;
+
+public:
+  Session_tracker session_tracker;
+  Session_sysvar_resource_manager session_sysvar_res_mgr;
+
 };
 
 /*
