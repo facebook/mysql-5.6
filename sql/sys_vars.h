@@ -1,3 +1,5 @@
+#ifndef SYS_VARS_H_INCLUDED
+#define SYS_VARS_H_INCLUDED
 /* Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
@@ -472,10 +474,6 @@ public:
 
   Backing store: char*
 
-  @note
-  This class supports only GLOBAL variables, because THD on destruction
-  does not destroy individual members of SV, there's no way to free
-  allocated string variables for every thread.
 */
 class Sys_var_charptr: public sys_var
 {
@@ -496,22 +494,18 @@ public:
               substitute, parse_flag)
   {
     is_os_charset= is_os_charset_arg == IN_FS_CHARSET;
-    /*
-     use GET_STR_ALLOC - if ALLOCATED it must be *always* allocated,
-     otherwise (GET_STR) you'll never know whether to free it or not.
-     (think of an exit because of an error right after my_getopt)
-    */
     option.var_type= (flags & ALLOCATED) ? GET_STR_ALLOC : GET_STR;
     global_var(const char*)= def_val;
-    DBUG_ASSERT(scope() == GLOBAL);
     DBUG_ASSERT(size == sizeof(char *));
   }
+
   void cleanup()
   {
     if (flags & ALLOCATED)
       my_free(global_var(char*));
     flags&= ~ALLOCATED;
   }
+
   bool do_check(THD *thd, set_var *var)
   {
     char buff[STRING_BUFFER_USUAL_SIZE], buff2[STRING_BUFFER_USUAL_SIZE];
@@ -538,11 +532,17 @@ public:
 
     return false;
   }
+
   bool session_update(THD *thd, set_var *var)
   {
-    DBUG_ASSERT(FALSE);
-    return true;
+    char *new_val=  var->save_result.string_value.str;
+    size_t new_val_len= var->save_result.string_value.length;
+    char *ptr= ((char *)&thd->variables + offset);
+
+    return thd->session_sysvar_res_mgr.update((char **) ptr, new_val,
+                                              new_val_len);
   }
+
   bool global_update(THD *thd, set_var *var)
   {
     char *new_val, *ptr= var->save_result.string_value.str;
@@ -568,8 +568,14 @@ public:
     global_var(char*)= new_val;
     return false;
   }
+
   void session_save_default(THD *thd, set_var *var)
-  { DBUG_ASSERT(FALSE); }
+  {
+    char *ptr= (char*)(intptr)option.def_value;
+    var->save_result.string_value.str= ptr;
+    var->save_result.string_value.length= ptr ? strlen(ptr) : 0;
+  }
+
   void global_save_default(THD *thd, set_var *var)
   {
     char *ptr= (char*)(intptr)option.def_value;
@@ -2451,3 +2457,5 @@ public:
     DBUG_RETURN((uchar *)buf);
   }
 };
+
+#endif /* SYS_VARS_H_INCLUDED */
