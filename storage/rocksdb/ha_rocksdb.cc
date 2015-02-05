@@ -713,7 +713,7 @@ public:
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
   static ulong get_hashnr(const char *key, size_t key_len);
-  const char* Name() const { return "RocksDB_SE_v3.2"; }
+  const char* Name() const { return "RocksDB_SE_v3.3"; }
 
   //TODO: advanced funcs:
   // - FindShortestSeparator
@@ -730,7 +730,7 @@ class Reverse_comparator : public rocksdb::Comparator
   {
     return -bytewise_compare(a,b);
   }
-  const char* Name() const { return "rev:RocksDB_SE_v3.2"; }
+  const char* Name() const { return "rev:RocksDB_SE_v3.3"; }
   void FindShortestSeparator(std::string* start, const rocksdb::Slice& limit) const {}
   void FindShortSuccessor(std::string* key) const {}
 };
@@ -1330,12 +1330,12 @@ static int rocksdb_init_func(void *p)
     sql_print_error("RocksDB: Error opening instance: %s", err_text.c_str());
     DBUG_RETURN(1);
   }
-  cf_manager.init(&cf_names, &cf_handles);
+  cf_manager.init(&cf_handles);
 
   if (binlog_manager.init(rdb))
     DBUG_RETURN(1);
 
-  if (ddl_manager.init(rdb))
+  if (ddl_manager.init(rdb, &cf_manager))
     DBUG_RETURN(1);
 
   stop_background_thread = false;
@@ -1855,17 +1855,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   uint key_len= table->key_info[table->s->primary_key].key_length;
 
-  const char *comment=  table->key_info[table->s->primary_key].comment.str;
-  const char *idx_name= table->key_info[table->s->primary_key].name;
-  rocksdb::ColumnFamilyHandle *cf_handle;
-  bool is_auto_cf;
-  if (!(cf_handle= cf_manager.get_cf(comment, fullname.c_ptr(), idx_name,
-                                     &is_auto_cf)))
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-
   pk_descr->setup(table);  // move this into get_share() ??
-  pk_descr->set_cf_handle(cf_handle, is_cf_name_reverse(comment),
-                          is_auto_cf);
 
   uint packed_key_len= pk_descr->max_storage_fmt_length();
 
@@ -1880,15 +1870,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     if (i == table->s->primary_key) /* Primary key was processed above */
       continue;
 
-    comment= table->key_info[i].comment.str;
-    idx_name= table->key_info[i].name;
-    if (!(cf_handle= cf_manager.get_cf(comment, fullname.c_ptr(), idx_name,
-                                       &is_auto_cf)))
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-
     key_descr[i]->setup(table);  // move this into get_share() ??
-    key_descr[i]->set_cf_handle(cf_handle, is_cf_name_reverse(comment),
-                                is_auto_cf);
 
     uint packed_len= key_descr[i]->max_storage_fmt_length();
     if (packed_len > max_packed_sec_key_len)
