@@ -16,6 +16,7 @@
 
 class RDBSE_KEYDEF;
 class Field_pack_info;
+class Column_family_manager;
 
 inline void store_index_number(uchar *dst, uint32 number)
 {
@@ -225,11 +226,19 @@ public:
     maxlength(0) // means 'not intialized'
   {
     store_index_number(index_number_storage_form, indexnr_arg);
+    DBUG_ASSERT(cf_handle_arg != nullptr);
   }
   ~RDBSE_KEYDEF();
 
   enum {
-    INDEX_NUMBER_SIZE= 4
+    INDEX_NUMBER_SIZE= 4,
+    PACKED_SIZE = 9, // two ints + 1 uchar
+  };
+
+  // bit flags for combining bools when writing to disk
+  enum {
+    REVERSE_CF_FLAG = 1,
+    AUTO_CF_FLAG = 2,
   };
 
   enum {
@@ -239,14 +248,6 @@ public:
   };
 
   void setup(TABLE *table);
-  void set_cf_handle(rocksdb::ColumnFamilyHandle* cf_handle_arg,
-                     bool is_reverse_cf_arg,
-                     bool is_auto_cf_arg)
-  {
-    cf_handle= cf_handle_arg;
-    is_reverse_cf= is_reverse_cf_arg;
-    is_auto_cf= is_auto_cf_arg;
-  }
 
   rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
 
@@ -457,7 +458,7 @@ class Table_ddl_manager
 
 public:
   /* Load the data dictionary from on-disk storage */
-  bool init(rocksdb::DB *rdb_dict);
+  bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
 
   void cleanup();
 
