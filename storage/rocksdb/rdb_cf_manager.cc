@@ -45,25 +45,23 @@ bool is_cf_name_reverse(const char *name)
 static PSI_mutex_key ex_key_cfm;
 #endif
 
-void Column_family_manager::init(std::vector<std::string> *names,
-                                 std::vector<rocksdb::ColumnFamilyHandle*> *handles)
+void Column_family_manager::init(std::vector<rocksdb::ColumnFamilyHandle*> *handles)
 {
   mysql_mutex_init(ex_key_cfm, &cfm_mutex, MY_MUTEX_INIT_FAST);
-  DBUG_ASSERT(names->size() == handles->size());
-  DBUG_ASSERT(names->size() > 0);
+  DBUG_ASSERT(handles->size() > 0);
 
   default_cf= (*handles)[0];
-  for (size_t i = 0; i < names->size(); ++i)
-    cf_map[(*names)[i]]= (*handles)[i];
+  for (auto cfh : *handles) {
+    cf_name_map[cfh->GetName()] = cfh;
+    cf_id_map[cfh->GetID()] = cfh;
+  }
 }
 
 
 void Column_family_manager::cleanup()
 {
-  ColumnFamilyHandleMap::iterator it;
-  for (it= cf_map.begin(); it!=cf_map.end(); it++)
-  {
-    delete it->second;
+  for (auto it : cf_name_map) {
+    delete it.second;
   }
   mysql_mutex_destroy(&cfm_mutex);
 }
@@ -98,7 +96,6 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
                                         bool *is_automatic)
 {
   rocksdb::ColumnFamilyHandle* cf_handle;
-  ColumnFamilyHandleMap::iterator it;
 
   mysql_mutex_lock(&cfm_mutex);
   *is_automatic= false;
@@ -116,7 +113,8 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
       *is_automatic= true;
     }
 
-    if ((it= cf_map.find(cf_name)) != cf_map.end())
+    auto it = cf_name_map.find(cf_name);
+    if (it != cf_name_map.end())
       cf_handle= it->second;
     else
     {
@@ -131,10 +129,12 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
                             opts.target_file_size_base);
 
       rocksdb::Status s= rdb->CreateColumnFamily(opts, cf_name_str, &cf_handle);
-      if (s.ok())
-        cf_map[cf_name_str]= cf_handle;
-      else
+      if (s.ok()) {
+        cf_name_map[cf_handle->GetName()] = cf_handle;
+        cf_id_map[cf_handle->GetID()] = cf_handle;
+      } else {
         cf_handle= NULL;
+      }
     }
   }
   mysql_mutex_unlock(&cfm_mutex);
@@ -162,7 +162,6 @@ Column_family_manager::get_cf(const char *cf_name,
                               bool *is_automatic)
 {
   rocksdb::ColumnFamilyHandle* cf_handle;
-  ColumnFamilyHandleMap::iterator it;
 
   *is_automatic= false;
   mysql_mutex_lock(&cfm_mutex);
@@ -178,11 +177,22 @@ Column_family_manager::get_cf(const char *cf_name,
       *is_automatic= true;
     }
 
-    if ((it= cf_map.find(cf_name)) != cf_map.end())
-      cf_handle= it->second;
-    else
-      cf_handle= NULL;
+    auto it = cf_name_map.find(cf_name);
+    cf_handle = (it != cf_name_map.end()) ? it->second : nullptr;
   }
+  mysql_mutex_unlock(&cfm_mutex);
+
+  return cf_handle;
+}
+
+rocksdb::ColumnFamilyHandle* Column_family_manager::get_cf(uint32_t id)
+{
+  rocksdb::ColumnFamilyHandle* cf_handle = nullptr;
+
+  mysql_mutex_lock(&cfm_mutex);
+  auto it = cf_id_map.find(id);
+  if (it != cf_id_map.end())
+    cf_handle = it->second;
   mysql_mutex_unlock(&cfm_mutex);
 
   return cf_handle;
@@ -192,11 +202,10 @@ std::vector<std::string>
 Column_family_manager::get_cf_names(void)
 {
   std::vector<std::string> names;
-  ColumnFamilyHandleMap::iterator it;
 
   mysql_mutex_lock(&cfm_mutex);
-  for (it= cf_map.begin(); it != cf_map.end(); it++) {
-    names.push_back(it->first);
+  for (auto it : cf_name_map) {
+    names.push_back(it.first);
   }
   mysql_mutex_unlock(&cfm_mutex);
   return names;
