@@ -28,6 +28,7 @@
 #include "rocksdb/comparator.h"
 #include "rocksdb/write_batch.h"
 #include "rocksdb/statistics.h"
+#include "rocksdb/perf_context.h"
 
 #include "sql_string.h"
 
@@ -85,6 +86,9 @@ typedef struct st_rocksdb_share {
   //mysql_mutex_t mutex;
 
   THR_LOCK lock;
+
+  /* Stores cumulative table statistics */
+  my_io_perf_atomic_t io_perf_read;
 } ROCKSDB_SHARE;
 
 class RDBSE_KEYDEF;
@@ -220,6 +224,14 @@ class ha_rocksdb: public handler
 
   // the buffer size should be at least 2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE
   rocksdb::Range get_range(uint i, uchar buf[]) const;
+
+  /*
+    Perf timers for data reads
+   */
+  my_io_perf_t io_perf;
+  void io_perf_start(void);
+  void io_perf_end_and_record(void);
+
 public:
   ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}
