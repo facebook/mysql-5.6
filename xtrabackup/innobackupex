@@ -849,6 +849,8 @@ sub apply_log {
         $options = $options . " --incremental-dir=$option_incremental_dir";
     }
 
+    $options = $options . " --innodb_flush_method=O_DIRECT_NO_FSYNC";
+
     # run ibbackup as a child process
     $cmdline = "$option_ibbackup_binary $options";
     $now = current_time();
