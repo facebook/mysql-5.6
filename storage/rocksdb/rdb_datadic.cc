@@ -24,6 +24,7 @@
 #include "my_bit.h"
 
 #include "rdb_datadic.h"
+#include "rdb_cf_manager.h"
 
 
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
@@ -36,6 +37,10 @@ void write_int(String *out, uint32 val)
   out->append((char*)&buf, 4);
 }
 
+void write_byte(String *out, uchar val)
+{
+  out->append((char*)&val, 1);
+}
 
 uint32 read_int(char **data)
 {
@@ -45,6 +50,13 @@ uint32 read_int(char **data)
   return ntohl(buf);
 }
 
+uchar read_byte(char **data)
+{
+  uchar buf;
+  memcpy(&buf, *data, sizeof(uchar));
+  *data += sizeof(uchar);
+  return buf;
+}
 
 RDBSE_KEYDEF::~RDBSE_KEYDEF()
 {
@@ -886,16 +898,28 @@ void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
   Write table definition DDL entry.
 
   We write
-    dbname.tablename -> {index_nr, index_nr, index_nr, ... }
+    dbname.tablename -> {key_entry, key_entry, key_entry, ... }
+
+  Where key entries are a tuple of
+    ( index_nr, column_family_id, flags )
 */
 
 void RDBSE_TABLE_DEF::write_to(rocksdb::DB *rdb_dict, uchar *key, size_t keylen)
 {
-  StringBuffer<32> indexes;
+  StringBuffer<8 * RDBSE_KEYDEF::PACKED_SIZE> indexes;
+  indexes.alloc(n_keys * RDBSE_KEYDEF::PACKED_SIZE);
 
   for (uint i=0; i < n_keys; i++)
   {
-    write_int(&indexes, key_descr[i]->index_number);
+    RDBSE_KEYDEF* kd = key_descr[i];
+
+    uchar flags =
+      (kd->is_reverse_cf ? RDBSE_KEYDEF::REVERSE_CF_FLAG : 0) |
+      (kd->is_auto_cf ? RDBSE_KEYDEF::AUTO_CF_FLAG : 0);
+
+    write_int(&indexes, kd->index_number);
+    write_int(&indexes, kd->get_cf()->GetID());
+    write_byte(&indexes, flags);
   }
   rocksdb::Slice skey((char*)key, keylen);
   rocksdb::Slice svalue(indexes.c_ptr(), indexes.length());
@@ -921,7 +945,7 @@ void Table_ddl_manager::free_hash_elem(void* data)
 }
 
 
-bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
+bool Table_ddl_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager)
 {
   mysql_rwlock_init(0, &rwlock);
   (void) my_hash_init(&ddl_hash, /*system_charset_info*/&my_charset_bin, 32,0,0,
@@ -964,19 +988,13 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
 
     // Now, read the DDLs.
 
-    if (val.size() < RDBSE_KEYDEF::INDEX_NUMBER_SIZE)
-    {
-      sql_print_error("RocksDB: Table_store: no keys defined in %*s",
-                      (int)key.size(), key.data());
-      return true;
-    }
-    if (val.size() % RDBSE_KEYDEF::INDEX_NUMBER_SIZE)
+    if (val.size() % RDBSE_KEYDEF::PACKED_SIZE)
     {
       sql_print_error("RocksDB: Table_store: invalid keylist for table %s",
                       tdef->dbname_tablename.c_ptr_safe());
       return true;
     }
-    tdef->n_keys= val.size() / RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+    tdef->n_keys= val.size() / RDBSE_KEYDEF::PACKED_SIZE;
     if (!(tdef->key_descr= new RDBSE_KEYDEF*[tdef->n_keys]))
       return true;
 
@@ -987,14 +1005,20 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
     for (uint keyno=0; ptr < ptr_end; keyno++)
     {
       int index_number= read_int(&ptr);
+      int cf_id= read_int(&ptr);
+      uchar flags = read_byte(&ptr);
+
+      rocksdb::ColumnFamilyHandle* cfh = cf_manager->get_cf(cf_id);
+      DBUG_ASSERT(cfh != nullptr);
 
       /*
         We can't fully initialize RDBSE_KEYDEF object here, because full
         initialization requires that there is an open TABLE* where we could
         look at Field* objects and set max_length and other attributes
       */
-      tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, NULL,
-                                               false, false);
+      tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, cfh,
+                                               flags & RDBSE_KEYDEF::REVERSE_CF_FLAG,
+                                               flags & RDBSE_KEYDEF::AUTO_CF_FLAG);
 
       /* Keep track of what was the last index number we saw */
       if (max_number < index_number)
