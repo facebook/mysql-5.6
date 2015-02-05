@@ -39,6 +39,7 @@
 #include "rocksdb/metadata.h"
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/perf_context.h"
 
 /* This is here to get PRIu64, PRId64 */
 #ifndef __STDC_FORMAT_MACROS
@@ -59,6 +60,12 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           bool is_ascending);
 static int rocksdb_normalize_tablename(const char *tablename,
                                        StringBuffer<256> *strbuf);
+static bool rocksdb_strip_tablename_partition(const char *tablename,
+                                              StringBuffer<256> *strbuf);
+
+static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table);
+static std::vector<std::string> get_share_names(void);
+static int free_share(ROCKSDB_SHARE *share);
 
 ///////////////////////////////////////////////////////////
 // Parameters and settings
@@ -137,6 +144,7 @@ static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_records_in_range;
 static uint32_t rocksdb_debug_optimizer_n_rows;
+static uint32_t rocksdb_perf_context_level;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -228,6 +236,14 @@ static MYSQL_SYSVAR_ENUM(info_log_level,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::info_log_level for RocksDB",
   NULL, NULL, db_options.info_log_level, &info_log_level_typelib);
+
+static MYSQL_SYSVAR_UINT(perf_context_level,
+  rocksdb_perf_context_level,
+  PLUGIN_VAR_RQCMDARG,
+  "Perf Context Level for rocksdb internal timer stat collection",
+  NULL, NULL, rocksdb::kEnableCount,
+  /* min */ 0L, /* max */ UINT_MAX, 0);
+
 
 static MYSQL_SYSVAR_INT(max_open_files,
   db_options.max_open_files,
@@ -565,6 +581,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(use_adaptive_mutex),
   MYSQL_SYSVAR(bytes_per_sync),
   MYSQL_SYSVAR(enable_thread_tracking),
+  MYSQL_SYSVAR(perf_context_level),
 
   MYSQL_SYSVAR(block_cache_size),
   MYSQL_SYSVAR(cache_index_and_filter_blocks),
@@ -1174,6 +1191,85 @@ static int rocksdb_start_trx_and_assign_read_view(
   return 0;
 }
 
+/*
+  This is called for INFORMATION_SCHEMA
+*/
+static void rocksdb_update_table_stats(
+	/* per-table stats callback */
+	void (*cb)(const char* db, const char* tbl, bool is_partition,
+		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
+		   my_io_perf_t* r_primary, my_io_perf_t* r_secondary,
+		   page_stats_t *page_stats, comp_stats_t *comp_stats,
+		   int n_lock_wait, int n_lock_wait_timeout,
+		   const char* engine))
+{
+	my_io_perf_t io_perf_read;
+	my_io_perf_t io_perf;
+  page_stats_t page_stats;
+  comp_stats_t comp_stats;
+  std::vector<std::string> tablenames;
+
+  /*
+    Most of these are for innodb, so setting them to 0.
+    TODO: possibly separate out primary vs. secondary index reads
+   */
+  memset(&io_perf, 0, sizeof(io_perf));
+  memset(&page_stats, 0, sizeof(page_stats));
+  memset(&comp_stats, 0, sizeof(comp_stats));
+
+  tablenames= get_share_names();
+
+  for (auto it : tablenames)
+  {
+    ROCKSDB_SHARE *share;
+    StringBuffer<256> buf, fullname, dbname, tablename;
+    bool is_partition;
+    int pos;
+
+    rocksdb_normalize_tablename(it.c_str(), &buf);
+    is_partition= rocksdb_strip_tablename_partition(buf.c_ptr(), &fullname);
+
+    /* Normalize returns dbname.tablename */
+    pos= fullname.strstr(String(".", &my_charset_bin));
+
+    /* Invalid table name? */
+    if (pos < 0)
+      continue;
+
+    dbname.append(fullname.c_ptr(), pos);
+    tablename.append(fullname.c_ptr() + pos + 1,
+                     fullname.length() - pos - 1);
+
+    /* It doesn't look like TABLE is needed here in get_share */
+    share= get_share(it.c_str(), nullptr);
+    if (!share)
+      continue;
+
+    io_perf_read.bytes= share->io_perf_read.bytes.load();
+    io_perf_read.requests= share->io_perf_read.requests.load();
+
+    /*
+      Convert from rocksdb timer to mysql timer. RocksDB values are
+      in nanoseconds, but table statistics expect the value to be
+      in my_timer format.
+     */
+    io_perf_read.svc_time=
+      microseconds_to_my_timer(share->io_perf_read.svc_time.load() / 1000);
+    io_perf_read.svc_time_max=
+      microseconds_to_my_timer(share->io_perf_read.svc_time_max.load() / 1000);
+    io_perf_read.wait_time=
+      microseconds_to_my_timer(share->io_perf_read.wait_time.load() / 1000);
+    io_perf_read.wait_time_max=
+      microseconds_to_my_timer(share->io_perf_read.wait_time_max.load() / 1000);
+    io_perf_read.slow_ios= share->io_perf_read.slow_ios.load();
+    free_share(share);
+
+    (*cb)(dbname.c_ptr(), tablename.c_ptr(), is_partition, &io_perf_read,
+          &io_perf, &io_perf, &io_perf, &io_perf, &page_stats, &comp_stats, 0,
+          0, rocksdb_hton_name);
+  }
+}
+
 
 void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts)
 {
@@ -1219,6 +1315,7 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->show_status= rocksdb_show_status;
   rocksdb_hton->start_consistent_snapshot=
     rocksdb_start_trx_and_assign_read_view;
+  rocksdb_hton->update_table_stats = rocksdb_update_table_stats;
 
   /*
     Don't specify HTON_CAN_RECREATE in flags. re-create is used by TRUNCATE
@@ -1429,6 +1526,7 @@ static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table)
     thr_lock_init(&share->lock);
     //mysql_mutex_init(ex_key_mutex_ROCKSDB_SHARE_mutex,
     //                 &share->mutex, MY_MUTEX_INIT_FAST);
+    my_io_perf_atomic_init(&share->io_perf_read);
   }
   share->use_count++;
   mysql_mutex_unlock(&rocksdb_mutex);
@@ -1440,6 +1538,25 @@ error:
   my_free(share);
 
   return NULL;
+}
+
+
+static std::vector<std::string> get_share_names(void)
+{
+  int i;
+  ROCKSDB_SHARE *share;
+  std::vector<std::string> names;
+
+  mysql_mutex_lock(&rocksdb_mutex);
+  for (i = 0;
+       (share= (ROCKSDB_SHARE*) my_hash_element(&rocksdb_open_tables, i));
+       i++)
+  {
+    names.push_back(share->table_name);
+  }
+  mysql_mutex_unlock(&rocksdb_mutex);
+
+  return names;
 }
 
 
@@ -1827,6 +1944,31 @@ void ha_rocksdb::setup_field_converters()
   null_bytes_in_rec= null_bytes;
 }
 
+void ha_rocksdb::io_perf_start(void)
+{
+  rocksdb::SetPerfLevel(
+    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level));
+  my_io_perf_init(&io_perf);
+  io_perf.bytes= rocksdb::perf_context.block_read_byte;
+  io_perf.requests= rocksdb::perf_context.block_read_count;
+  io_perf.svc_time= rocksdb::perf_context.block_read_time;
+}
+
+void ha_rocksdb::io_perf_end_and_record(void)
+{
+  io_perf.bytes= rocksdb::perf_context.block_read_byte - io_perf.bytes;
+  io_perf.requests= rocksdb::perf_context.block_read_count - io_perf.requests;
+
+  /*
+    Rocksdb does not distinguish between I/O service and wait time, so just use
+    svc time.
+   */
+  io_perf.svc_time= rocksdb::perf_context.block_read_time - io_perf.svc_time;
+  io_perf.svc_time_max= io_perf.svc_time;
+
+  if (io_perf.bytes != 0 || io_perf.requests != 0 || io_perf.svc_time != 0)
+    my_io_perf_sum_atomic_helper(&share->io_perf_read, &io_perf);
+}
 
 int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 {
@@ -2060,6 +2202,25 @@ static int rocksdb_normalize_tablename(const char *tablename,
 
 /**
   @brief
+  strips the partition suffix "#P#" from the tablename
+
+  @param strbuf returns tablename with suffix removed
+  @return true if partition suffix was removed
+*/
+static bool rocksdb_strip_tablename_partition(const char *tablename,
+                                              StringBuffer<256> *strbuf)
+{
+  const char *s= strstr(tablename, "#P#");
+  if (s)
+    strbuf->append(tablename, s - tablename);
+  else
+    strbuf->append(tablename);
+  return s != NULL;
+}
+
+
+/**
+  @brief
   create() is called to create a database. The variable name will have the name
   of the table.
 
@@ -2223,6 +2384,8 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const
 
 int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
 {
+  stats.rows_requested++;
+
   if (scan_it->Valid())
   {
     rocksdb::Slice key= scan_it->key();
@@ -2231,11 +2394,17 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
     if (key_descr[keyno]->covers_key(key.data(), key.size()))
     {
       int rc;
+
+      io_perf_start();
+
       //TODO: We could here check if we have ran out of range we're scanning
       uint size= key_descr[keyno]->get_primary_key_tuple(pk_descr, &key,
                                                          (char*) pk_packed_tuple);
       if (size == (uint)-1)
+      {
+        io_perf_end_and_record();
         return HA_ERR_INTERNAL_ERROR;
+      }
 
       last_rowkey.copy((const char*)pk_packed_tuple, size, &my_charset_bin);
 
@@ -2243,15 +2412,22 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
       {
         rocksdb::Slice value= scan_it->value();
         if (key_descr[keyno]->unpack_record(table, buf, &key, &value))
+        {
+          io_perf_end_and_record();
           return HA_ERR_INTERNAL_ERROR;
+        }
         rc= 0;
       }
       else
         rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, size);
 
+      io_perf_end_and_record();
+
       if (!rc)
       {
         table->status= 0;
+        stats.rows_read++;
+        stats.rows_index_next++;
         return rc;
       }
     }
@@ -2273,6 +2449,9 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   uint key_parts= table->key_info[active_index].user_defined_key_parts;
   RDBSE_KEYDEF *kd= key_descr[active_index];
 
+  stats.rows_requested++;
+  io_perf_start();
+
   if (active_index == table->s->primary_key &&
       find_flag == HA_READ_KEY_EXACT &&
       ((keypart_map == ((key_part_map(1) << key_parts) - 1) ||
@@ -2285,6 +2464,12 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     uint size= kd->pack_index_tuple(table, pack_buffer, pk_packed_tuple, key,
                                     keypart_map);
     rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, size);
+    if (!rc)
+    {
+      stats.rows_read++;
+      stats.rows_index_first++;
+    }
+    io_perf_end_and_record();
     DBUG_RETURN(rc);
   }
 
@@ -2549,7 +2734,12 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     table->status= STATUS_NOT_FOUND;
   }
   else
+  {
     table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_first++;
+  }
+  io_perf_end_and_record();
   DBUG_RETURN(rc);
 }
 
@@ -2898,6 +3088,15 @@ int ha_rocksdb::index_first_intern(uchar *buf)
   skip_scan_it_next_call= TRUE;
 
   rc= index_next(buf);
+  if (!rc)
+  {
+    /*
+      index_next is always incremented on success, so decrement if it is
+      index_first instead
+     */
+    stats.rows_index_first++;
+    stats.rows_index_next--;
+  }
   DBUG_RETURN(rc);
 }
 
@@ -2984,6 +3183,15 @@ int ha_rocksdb::index_last_intern(uchar *buf)
   else
     rc= secondary_index_read(active_index, buf);
 
+  if (!rc)
+  {
+    /*
+      index_next is always incremented on success, so decrement if it is
+      index_first instead
+     */
+    stats.rows_index_first++;
+    stats.rows_index_next--;
+  }
   DBUG_RETURN(rc);
 }
 
@@ -3106,6 +3314,8 @@ int ha_rocksdb::write_row(uchar *buf)
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
+  stats.rows_inserted++;
+
   DBUG_RETURN(0);
 }
 
@@ -3184,6 +3394,9 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
 {
   int rc;
   DBUG_ENTER("ha_rocksdb::rnd_next");
+
+  stats.rows_requested++;
+  io_perf_start();
 
   if (!scan_it)
   {
@@ -3270,6 +3483,12 @@ retry:
   else
     rc= HA_ERR_END_OF_FILE;
 
+  if (!rc) {
+    stats.rows_read++;
+    stats.rows_index_next++;
+  }
+  io_perf_end_and_record();
+
   DBUG_RETURN(rc);
 }
 
@@ -3348,6 +3567,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
       trx->changes.Delete(key_descr[i], secondary_key_slice);
     }
   }
+
+  stats.rows_deleted++;
 
   DBUG_RETURN(0);
 }
@@ -3560,6 +3781,8 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(&value_slice);
   trx->changes.Put(pk_descr, key_slice, value_slice);
+
+  stats.rows_updated++;
 
   DBUG_RETURN(0);
 }
