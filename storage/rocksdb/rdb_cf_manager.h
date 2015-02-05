@@ -41,9 +41,8 @@ void get_per_index_cf_name(const char *db_table_name, const char *index_name,
 
 class Column_family_manager
 {
-  typedef std::map<std::string, rocksdb::ColumnFamilyHandle*> ColumnFamilyHandleMap;
-
-  ColumnFamilyHandleMap cf_map;
+  std::map<std::string, rocksdb::ColumnFamilyHandle*> cf_name_map;
+  std::map<uint32_t, rocksdb::ColumnFamilyHandle*> cf_id_map;
 
   rocksdb::ColumnFamilyHandle *default_cf;
 
@@ -53,8 +52,7 @@ public:
     This is called right after the DB::Open() call. The parameters describe column
     families that are present in the database. The first CF is the default CF.
   */
-  void init(std::vector<std::string> *names,
-            std::vector<rocksdb::ColumnFamilyHandle*> *handles);
+  void init(std::vector<rocksdb::ColumnFamilyHandle*> *handles);
   void cleanup();
 
   /*
@@ -73,6 +71,9 @@ public:
                                       const char *db_table_name,
                                       const char *index_name,
                                       bool *is_automatic);
+
+  /* Look up cf by id; used by datadic */
+  rocksdb::ColumnFamilyHandle* get_cf(uint32_t);
 
   /* Used to iterate over column families for show status */
   std::vector<std::string> get_cf_names(void);
