@@ -924,23 +924,26 @@ i_s_file_status_fill_low(
 	TABLE*		table,	  /*!< in/out: table to fill */
 	const char*	file_name,/*!< in: file name for this record */
 	const char*	operation,/*!< in: either "read" or "write" */
-	os_io_perf_t*	io_perf)  /*!< in: stats collected for the table */
+	my_io_perf_t*	io_perf)  /*!< in: stats collected for the table */
 {
 	DBUG_ENTER("i_s_file_status_fill_low");
 
 	restore_record(table, s->default_values);
+
+	double nzero_requests = io_perf->requests;
+	if (nzero_requests < 1.0) nzero_requests = 1.0;
 
 	OK(field_store_string(table->field[0], file_name));
 	OK(field_store_string(table->field[1], operation));
 	OK(table->field[2]->store(io_perf->requests));
 	OK(table->field[3]->store(io_perf->old_ios));
 	OK(table->field[4]->store(io_perf->bytes));
-	OK(table->field[5]->store((double) io_perf->bytes / io_perf->requests));
+	OK(table->field[5]->store((double) io_perf->bytes / nzero_requests));
 	OK(table->field[6]->store(my_timer_to_seconds(io_perf->svc_time)));
-	OK(table->field[7]->store(my_timer_to_milliseconds(io_perf->svc_time) / io_perf->requests));
+	OK(table->field[7]->store(my_timer_to_milliseconds(io_perf->svc_time) / nzero_requests));
 	OK(table->field[8]->store((ulonglong)(my_timer_to_milliseconds(io_perf->svc_time_max))));
 	OK(table->field[9]->store(my_timer_to_seconds(io_perf->wait_time)));
-	OK(table->field[10]->store(my_timer_to_milliseconds(io_perf->wait_time) / io_perf->requests));
+	OK(table->field[10]->store(my_timer_to_milliseconds(io_perf->wait_time) / nzero_requests));
 	OK(table->field[11]->store((ulonglong)(my_timer_to_milliseconds(io_perf->wait_time_max))));
 
 	DBUG_RETURN(schema_table_store_record(thd, table));

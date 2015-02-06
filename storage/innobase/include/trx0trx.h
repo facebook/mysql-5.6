@@ -39,6 +39,7 @@ Created 3/26/1996 Heikki Tuuri
 #include "trx0xa.h"
 #include "ut0vec.h"
 #include "fts0fts.h"
+#include "os0file.h"
 #include "btr0types.h"
 
 #ifdef TARGET_OS_LINUX
@@ -1115,6 +1116,7 @@ struct trx_t{
 	bool		api_auto_commit;/*!< automatic commit */
 	bool		read_write;	/*!< if read and write operation */
 
+	os_io_table_perf_t	table_io_perf;/*!< per table io perf counters */
 	/*------------------------------*/
 	char detailed_error[256];	/*!< detailed error message for last
 					error, or empty. */

@@ -1,0 +1,20 @@
+drop table if exists bt;
+create table bt (i int) engine=blackhole;
+flush statistics;
+insert into bt values (1), (2);
+select 'should be 0,2,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'bt';
+should be 0,2,0,0	Rows_read	Rows_inserted	Rows_updated	Rows_deleted
+should be 0,2,0,0	0	2	0	0
+flush statistics;
+delete from bt;
+select 'should be 0,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'bt';
+should be 0,0,0,0	Rows_read	Rows_inserted	Rows_updated	Rows_deleted
+flush statistics;
+delete from bt where i=1;
+select 'should be 0,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'bt';
+should be 0,0,0,0	Rows_read	Rows_inserted	Rows_updated	Rows_deleted
+flush statistics;
+update bt set i=2 where i=1;
+select 'should be 0,0,0,0', Rows_read,Rows_inserted,Rows_updated,Rows_deleted from information_schema.table_statistics where table_name = 'bt';
+should be 0,0,0,0	Rows_read	Rows_inserted	Rows_updated	Rows_deleted
+drop table bt;
