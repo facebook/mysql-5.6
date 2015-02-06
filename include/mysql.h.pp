@@ -511,7 +511,7 @@ struct mysql_st_mysql_csm_context {
   socklen_t len;
   unsigned long pkt_length;
   char *host_info;
-  char buff[(64*3)+(16*3)+100];
+  char buff[(64*3)+(80*3)+100];
   int scramble_data_len;
   int pkt_scramble_len;
   char *scramble_data;
