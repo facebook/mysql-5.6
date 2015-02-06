@@ -679,6 +679,44 @@ dict_tf_get_rec_format(
 	return(REC_FORMAT_DYNAMIC);
 }
 
+UNIV_INLINE
+rec_compression_type_t
+dict_tf_get_compression_type(
+	ulint	flags)
+{
+	ut_a(dict_tf_is_valid(flags));
+	ut_ad(dict_tf_get_rec_format(flags) == REC_FORMAT_COMPRESSED);
+	switch (flags & DICT_TF_MASK_COMP_TYPE) {
+	case DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_ZLIB_STREAM;
+	case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_ZLIB;
+	case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_BZIP;
+	case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_LZMA;
+	case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_SNAPPY;
+	case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_QUICKLZ;
+	case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_LZ4;
+	default:
+		ut_error;
+	}
+}
+
+/********************************************************************//**
+Determine the compression flags from a dict_table_t::flags.
+@return compression flags. */
+UNIV_INLINE
+ulong
+dict_tf_get_compression_flags(
+	ulint	flags)
+{
+	return (ulong)(flags & DICT_TF_MASK_COMP_FLAGS) >> DICT_TF_POS_COMP_FLAGS;
+}
+
 /********************************************************************//**
 Determine the file format from a dict_table_t::flags.
 @return	file format version */
@@ -719,7 +757,9 @@ dict_tf_set(
 	ulint*		flags,		/*!< in/out: table flags */
 	rec_format_t	format,		/*!< in: file format */
 	ulint		zip_ssize,	/*!< in: zip shift size */
-	bool		use_data_dir)	/*!< in: table uses DATA DIRECTORY */
+	bool		use_data_dir,	/*!< in: table uses DATA DIRECTORY */
+	rec_compression_type_t	compression,
+	ulong		compression_flags)
 {
 	switch (format) {
 	case REC_FORMAT_REDUNDANT:
@@ -737,11 +777,39 @@ dict_tf_set(
 		break;
 	case REC_FORMAT_DYNAMIC:
 		*flags = DICT_TF_COMPACT
-			| (1 << DICT_TF_POS_ATOMIC_BLOBS);
+		| (1 << DICT_TF_POS_ATOMIC_BLOBS);
 		ut_ad(zip_ssize == 0);
 		break;
 	}
-
+	if (format == REC_FORMAT_COMPRESSED &&
+	    compression != REC_COMPRESSION_ZLIB_STREAM &&
+	    compression != REC_COMPRESSION_UNUSED)
+	{
+		*flags |= compression_flags << DICT_TF_POS_COMP_FLAGS;
+		switch (compression) {
+		case REC_COMPRESSION_ZLIB:
+			*flags |= DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE;
+			break;
+		case REC_COMPRESSION_BZIP:
+			*flags |= DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE;
+			break;
+		case REC_COMPRESSION_LZMA:
+			*flags |= DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE;
+			break;
+		case REC_COMPRESSION_SNAPPY:
+			*flags |= DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE;
+			break;
+		case REC_COMPRESSION_QUICKLZ:
+			*flags |= DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE;
+			break;
+		case REC_COMPRESSION_LZ4:
+			*flags |= DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE;
+			break;
+		default:
+			ut_error;
+			break;
+		}
+	}
 	if (use_data_dir) {
 		*flags |= (1 << DICT_TF_POS_DATA_DIR);
 	}
@@ -783,6 +851,11 @@ dict_tf_to_fsp_flags(
 	fsp_flags |= DICT_TF_HAS_DATA_DIR(table_flags)
 		     ? FSP_FLAGS_MASK_DATA_DIR : 0;
 
+	/* COMPRESSION type is in a different position in fsp_flag */
+	fsp_flags |= DICT_TF_GET_COMP_TYPE(table_flags) << FSP_FLAGS_POS_COMP_TYPE;
+	/* COMPRESSION_FLAGS is in a different position in fsp_flag */
+	fsp_flags |= DICT_TF_GET_COMP_FLAGS(table_flags)
+			     << FSP_FLAGS_POS_COMP_FLAGS;
 	ut_a(fsp_flags_is_valid(fsp_flags));
 
 	return(fsp_flags);
@@ -814,7 +887,9 @@ dict_sys_tables_type_to_tf(
 	/* ZIP_SSIZE, ATOMIC_BLOBS & DATA_DIR are the same. */
 	flags |= type & (DICT_TF_MASK_ZIP_SSIZE
 			 | DICT_TF_MASK_ATOMIC_BLOBS
-			 | DICT_TF_MASK_DATA_DIR);
+			 | DICT_TF_MASK_DATA_DIR
+			 | DICT_TF_MASK_COMP_TYPE
+			 | DICT_TF_MASK_COMP_FLAGS);
 
 	return(flags);
 }
@@ -845,7 +920,9 @@ dict_tf_to_sys_tables_type(
 	/* ZIP_SSIZE, ATOMIC_BLOBS & DATA_DIR are the same. */
 	type |= flags & (DICT_TF_MASK_ZIP_SSIZE
 			 | DICT_TF_MASK_ATOMIC_BLOBS
-			 | DICT_TF_MASK_DATA_DIR);
+			 | DICT_TF_MASK_DATA_DIR
+			 | DICT_TF_MASK_COMP_TYPE
+			 | DICT_TF_MASK_COMP_FLAGS);
 
 	return(type);
 }
