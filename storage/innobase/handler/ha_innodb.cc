@@ -1112,6 +1112,14 @@ static SHOW_VAR innodb_status_variables[] = {
     {"buffered_aio_submitted",
      (char *)&export_vars.innodb_buffered_aio_submitted, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
+    {"outstanding_aio_requests",
+     (char *)&export_vars.innodb_outstanding_aio_requests, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+#ifdef UNIV_DEBUG
+    {"max_outstanding_aio_requests",
+     (char *)&export_vars.innodb_max_outstanding_aio_requests, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+#endif /* UNIV_DEBUG */
     {"logical_read_ahead_misses",
      (char *)&export_vars.innodb_logical_read_ahead_misses, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
@@ -20511,6 +20519,13 @@ static MYSQL_SYSVAR_STR(directories, innobase_directories,
                         "'innodb-data-home-dir;innodb-undo-directory;datadir'",
                         NULL, NULL, NULL);
 
+static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Maximum number of outstanding AIO requests. Stall "
+                          "aio requests submission if"
+                          "this is reached.",
+                          NULL, NULL, 256, 0, 1024, 0);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -20712,6 +20727,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(ddl_log_crash_reset_debug),
     MYSQL_SYSVAR(lra_debug),
 #endif /* UNIV_DEBUG */
+    MYSQL_SYSVAR(aio_outstanding_requests),
     MYSQL_SYSVAR(lra_size),
     MYSQL_SYSVAR(lra_pages_before_sleep),
     MYSQL_SYSVAR(lra_sleep),
