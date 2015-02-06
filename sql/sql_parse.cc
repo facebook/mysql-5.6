@@ -1212,6 +1212,36 @@ void reset_statement_timer(THD *thd)
 #endif
 
 
+/*
+  This is the function to perform the check for variable
+  "allow_noncurrent_db_rw". It will assume the command is
+  a query. And check whether this query command invovles
+  any table that is not in current datbase.
+
+  @returns
+    0 Nothing to do.
+    1 Log the query.
+    2 Log the query with warning.
+    3 Disallow the query.
+ */
+
+static int process_noncurrent_db_rw (THD *thd, TABLE_LIST *all_tables)
+{
+  DBUG_ENTER("process_noncurrent_db_rw");
+  if (!thd->variables.allow_noncurrent_db_rw)
+    DBUG_RETURN(0); /* Allow cross db read and write. */
+  for (TABLE_LIST *table= all_tables; table; table= table->next_global)
+  {
+    my_bool skip_table = table->derived || table->view ||
+      table->schema_table || !strcmp(table->db,"mysql");
+    if (skip_table)
+      continue;
+    if ((!thd->db && table->db) || strcmp(thd->db, table->db))
+      DBUG_RETURN((int)thd->variables.allow_noncurrent_db_rw);
+  }
+  DBUG_RETURN(0);
+}
+
 /**
   Perform one connection-level (COM_XXXX) command.
 
@@ -2611,6 +2641,35 @@ mysql_execute_command(THD *thd)
       {
         my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only");
       }
+      DBUG_RETURN(-1);
+    }
+    int ret = process_noncurrent_db_rw(thd, all_tables);
+    if (ret > 0) /* For all options other than ON */
+    {
+      /* Log the query */
+      const char* crosss_db_log_prefix = "CROSS_SHARD_QUERY: ";
+      size_t prefix_len = strlen(crosss_db_log_prefix);
+      size_t log_len = prefix_len + thd->query_length();
+      char* cross_db_query_log = (char *)my_malloc(log_len + 1, MYF(MY_WME));
+      memcpy(cross_db_query_log, crosss_db_log_prefix, prefix_len);
+      memcpy(cross_db_query_log + prefix_len, thd->query(), thd->query_length());
+      cross_db_query_log[log_len] = 0;
+      slow_log_print(thd, cross_db_query_log, log_len);
+      my_free(cross_db_query_log);
+    }
+    if (ret == 2) /* For LOG_WARN */
+    {
+      /* Warning message to user */
+     push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
+       ER_OPTION_PREVENTS_STATEMENT,
+       ER(ER_OPTION_PREVENTS_STATEMENT),
+       "--allow_noncurrent_db_rw=LOG_WARN");
+    }
+    if (ret == 3) /* For OFF */
+    {
+      /* Error message to user */
+      my_error(ER_OPTION_PREVENTS_STATEMENT,  MYF(0),
+               "--allow_noncurrent_db_rw=OFF");
       DBUG_RETURN(-1);
     }
 #ifdef HAVE_REPLICATION
