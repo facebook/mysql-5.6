@@ -60,6 +60,13 @@ extern ulint	os_n_pending_reads;
 /** Number of pending write operations */
 extern ulint	os_n_pending_writes;
 
+/** Number of outstanding aio requests */
+extern volatile ulint	os_aio_n_outstanding;
+#ifdef UNIV_DEBUG
+/** Maximum outstanding aio requests observed */
+extern ulint		os_aio_max_outstanding;
+#endif /* UNIV_DEBUG */
+
 #ifdef __WIN__
 
 /** We define always WIN_ASYNC_IO, and check at run-time whether
