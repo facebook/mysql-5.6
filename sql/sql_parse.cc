@@ -130,7 +130,20 @@ using std::min;
    (LP)->sql_command == SQLCOM_DROP_FUNCTION ? \
    "FUNCTION" : "PROCEDURE")
 
-static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables);
+/* Time handling client commands */
+ulonglong command_seconds = 0;
+
+/* Time parsing client commands */
+ulonglong parse_seconds = 0;
+
+/* Time doing work post-parse but before execution */
+ulonglong pre_exec_seconds = 0;
+
+/* Time executing client commands */
+ulonglong exec_seconds = 0;
+
+static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
+	ulonglong *last_timer);
 static bool check_show_access(THD *thd, TABLE_LIST *table);
 static void sql_kill(THD *thd, ulong id, bool only_kill_query);
 static bool lock_tables_precheck(THD *thd, TABLE_LIST *tables);
@@ -786,7 +799,7 @@ static void handle_bootstrap_impl(THD *thd)
       break;
     }
 
-    mysql_parse(thd, thd->query(), length, &parser_state);
+    mysql_parse(thd, thd->query(), length, &parser_state, NULL);
 
     bootstrap_error= thd->is_error();
     thd->protocol->end_statement();
@@ -1270,8 +1283,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 {
   NET *net= &thd->net;
   bool error= 0;
+  ulonglong init_timer, last_timer;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
+
+  init_timer = my_timer_now();
+  last_timer = init_timer;
 
   /* SHOW PROFILE instrumentation, begin */
 #if defined(ENABLED_PROFILING)
@@ -1499,7 +1516,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     if (parser_state.init(thd, thd->query(), thd->query_length()))
       break;
 
-    mysql_parse(thd, thd->query(), thd->query_length(), &parser_state);
+    mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
+		&last_timer);
 
     while (!thd->killed && (parser_state.m_lip.found_semicolon != NULL) &&
            ! thd->is_error())
@@ -1577,7 +1595,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
       thd->set_time(); /* Reset the query start time. */
       parser_state.reset(beginning_of_next_stmt, length);
       /* TODO: set thd->lex->sql_command to SQLCOM_END here */
-      mysql_parse(thd, beginning_of_next_stmt, length, &parser_state);
+      mysql_parse(thd, beginning_of_next_stmt, length, &parser_state,
+		&last_timer);
     }
 
     DBUG_PRINT("info",("query ready"));
@@ -1968,6 +1987,11 @@ done:
 #if defined(ENABLED_PROFILING)
   thd->profiling.finish_current_query();
 #endif
+
+  /* Don't count the thread running on a master to send binlog events to a
+     slave as that runs a long time. */
+  if (command != COM_BINLOG_DUMP)
+    command_seconds += my_timer_since(init_timer);
 
   DBUG_RETURN(error);
 }
@@ -2446,7 +2470,7 @@ err:
 */
 
 int
-mysql_execute_command(THD *thd)
+mysql_execute_command(THD *thd, ulonglong *last_timer)
 {
   int res= FALSE;
   int  up_result= 0;
@@ -2808,7 +2832,7 @@ mysql_execute_command(THD *thd)
     thd->initial_status_var= &old_status_var;
 
     if (!(res= select_precheck(thd, lex, all_tables, first_table)))
-      res= execute_sqlcom_select(thd, all_tables);
+      res= execute_sqlcom_select(thd, all_tables, last_timer);
 
     /* Don't log SHOW STATUS commands to slow query log */
     thd->server_status&= ~(SERVER_QUERY_NO_INDEX_USED |
@@ -2852,7 +2876,7 @@ mysql_execute_command(THD *thd)
     if ((res= select_precheck(thd, lex, all_tables, first_table)))
       break;
 
-    res= execute_sqlcom_select(thd, all_tables);
+    res= execute_sqlcom_select(thd, all_tables, last_timer);
     break;
   }
 case SQLCOM_PREPARE:
@@ -5237,6 +5261,8 @@ error:
   res= TRUE;
 
 finish:
+  if (last_timer && lex->sql_command != SQLCOM_SELECT)
+    exec_seconds += my_timer_since_and_update(last_timer);
 
   DBUG_ASSERT(!thd->in_active_multi_stmt_transaction() ||
                thd->in_multi_stmt_transaction_mode());
@@ -5317,7 +5343,8 @@ finish:
   DBUG_RETURN(res || thd->is_error());
 }
 
-static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables)
+static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables,
+	ulonglong *last_timer)
 {
   LEX	*lex= thd->lex;
   select_result *result= lex->result;
@@ -5340,7 +5367,12 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables)
     statement_timer_armed= set_statement_timer(thd);
 #endif
 
-  if (!(res= open_normal_and_derived_tables(thd, all_tables, 0)))
+  res = open_normal_and_derived_tables(thd, all_tables, 0);
+
+  if (last_timer)
+    pre_exec_seconds += my_timer_since_and_update(last_timer);
+
+  if(!res)
   {
     if (lex->describe)
     {
@@ -5379,6 +5411,8 @@ static bool execute_sqlcom_select(THD *thd, TABLE_LIST *all_tables)
     reset_statement_timer(thd);
 #endif
 
+  if (last_timer)
+    exec_seconds += my_timer_since_and_update(last_timer);
   DEBUG_SYNC(thd, "after_table_open");
   return res;
 }
@@ -6592,7 +6626,7 @@ static bool throttle_query_if_needed(THD* thd)
 */
 
 void mysql_parse(THD *thd, char *rawbuf, uint length,
-                 Parser_state *parser_state)
+                 Parser_state *parser_state, ulonglong *last_timer)
 {
   int error MY_ATTRIBUTE((unused));
 
@@ -6670,6 +6704,9 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
       }
     }
 
+    if (last_timer)
+      parse_seconds += my_timer_since_and_update(last_timer);
+
     if (!err)
     {
       thd->m_statement_psi= MYSQL_REFINE_STATEMENT(thd->m_statement_psi,
@@ -6722,7 +6759,7 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             error= 1;
           }
           else
-            error= mysql_execute_command(thd);
+            error= mysql_execute_command(thd, last_timer);
           if (error == 0 &&
               thd->variables.gtid_next.type == GTID_GROUP &&
               thd->owned_gtid.sidno != 0 &&

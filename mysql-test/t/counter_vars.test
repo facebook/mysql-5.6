@@ -1,0 +1,68 @@
+#Set all to zero
+flush status;
+
+--disable_query_log
+
+#Warm up the counters, to generate some numbers
+let $ignore1 = `show status like '%_seconds'`;
+let $ignore2 = `show status like '%_seconds'`;
+let $ignore3 = `show status like '%_seconds'`;
+let $ignore4 = `show status like '%_seconds'`;
+
+#Get counters (exec MUST be first)
+let $exec = `show status like 'Exec_seconds'`;
+let $command = `show status like 'Command_seconds'`;
+
+if (`select SUBSTRING('$command', 17)+0 < SUBSTRING('$exec', 14)+0`)
+{
+  --die Exec took longer than whole command.
+}
+
+#Set all to zero
+flush status;
+
+#Get counters
+let $exec = `show status like 'Exec_seconds'`;
+let $command = `show status like 'Command_seconds'`;
+let $parse = `show status like 'Parse_seconds'`;
+
+#Check sanity
+if (`select SUBSTRING('$command', 17)+0 > 1.0`)
+{
+  --die Took more than a second to read a counter.
+}
+if (`select SUBSTRING('$exec', 14)+0 > 1.0`)
+{
+  --die Took more than a second to read a counter.
+}
+if (`select SUBSTRING('$parse', 15)+0 > 1.0`)
+{
+  --die Took more than a second to read a counter.
+}
+
+#Set all to zero
+flush status;
+
+#Waste ~1.1 seconds
+select sleep(1.1);
+
+#Get counters
+let $exec = `show status like 'Exec_seconds'`;
+let $command = `show status like 'Command_seconds'`;
+let $parse = `show status like 'Parse_seconds'`;
+
+#Check sanity
+if (`select SUBSTRING('$command', 17)+0 < 1.0`)
+{
+  --die Sleep(1.1) took less than a second.
+}
+if (`select SUBSTRING('$exec', 14)+0 < 1.0`)
+{
+  --die Sleep(1.1) took less than a second.
+}
+if (`select SUBSTRING('$parse', 15)+0 > 1.0`)
+{
+  --die Parsing Sleep(1.1) took more than a second.
+}
+
+--enable_query_log
