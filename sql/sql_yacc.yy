@@ -1163,10 +1163,11 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  COMMITTED_SYM                 /* SQL-2003-N */
 %token  COMMIT_SYM                    /* SQL-2003-R */
 %token  COMPACT_SYM
+%token  COMPACT_METADATA_SYM
 %token  COMPLETION_SYM
 %token  COMPRESSED_SYM
 %token  COMPRESSION_SYM
-%token  COMPRESSION_FLAGS_SYM
+%token  COMPRESSION_LEVEL_SYM
 %token  CONCURRENT
 %token  CONDITION_SYM                 /* SQL-2003-R, SQL-2008-R */
 %token  CONNECTION_SYM
@@ -6244,10 +6245,15 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_COMPRESSION;
             Lex->create_info.compression= $3;
           }
-        | COMPRESSION_FLAGS_SYM opt_equal ulong_num
+        | COMPRESSION_LEVEL_SYM opt_equal ulong_num
           {
-            Lex->create_info.used_fields|= HA_CREATE_USED_COMPRESSION_FLAGS;
-            Lex->create_info.compression_flags= $3;
+            Lex->create_info.used_fields|= HA_CREATE_USED_COMPRESSION_LEVEL;
+            Lex->create_info.compression_level= $3;
+          }
+        | COMPACT_METADATA_SYM opt_equal ulong_num
+          {
+            Lex->create_info.used_fields|= HA_CREATE_USED_COMPACT_METADATA;
+            Lex->create_info.compact_metadata= $3;
           }
         ;
 

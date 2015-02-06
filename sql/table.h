@@ -658,7 +658,9 @@ struct TABLE_SHARE
   }
   enum row_type row_type;		/* How rows are stored */
   enum compression_type compression_type;
-  ulong compression_flags; /* 1 byte used for compression options */
+  ulong compression_level; /* 4 bits used for compression level */
+  ulong compact_metadata; /* if 1 the transaction ids and rollback pointers
+			     will be stored in a compact format */
   enum tmp_table_type tmp_table;
 
   uint ref_count;                       /* How many TABLE objects uses this */

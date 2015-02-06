@@ -1057,7 +1057,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
     share->avg_row_length= uint4korr(head+34);
     share->row_type= (row_type) (head[40] & 0xf);
     share->compression_type= (compression_type) ((head[40] & 0xf0) >> 4);
-    share->compression_flags= head[46];
+    share->compression_level= head[46] & 0xf;
+    share->compact_metadata= head[46] & 0x10 ? 1 : 0;
     share->table_charset= get_charset((((uint) head[41]) << 8) + 
                                         (uint) head[38],MYF(0));
     share->null_field_first= 1;
@@ -3021,8 +3022,9 @@ File create_frm(THD *thd, const char *name, const char *db,
     int2store(fileinfo+42, create_info->stats_sample_pages & 0xffff);
     fileinfo[44]= (uchar) create_info->stats_auto_recalc;
     fileinfo[45]= 0;
-    fileinfo[46]= (uchar) (create_info->compression_flags > 0xff
-                            ? 0 : create_info->compression_flags);
+    fileinfo[46]= (uchar) (create_info->compression_level > 0xf
+                           ? 0 : create_info->compression_level);
+    fileinfo[46]|= (create_info->compact_metadata == 1) ? 0x10 : 0;
     int4store(fileinfo+47, key_length);
     tmp= MYSQL_VERSION_ID;          // Store to avoid warning from int4store
     int4store(fileinfo+51, tmp);
@@ -3064,7 +3066,8 @@ void update_create_info_from_table(HA_CREATE_INFO *create_info, TABLE *table)
   create_info->table_options= share->db_create_options;
   create_info->avg_row_length= share->avg_row_length;
   create_info->row_type= share->row_type;
-  create_info->compression_flags= share->compression_flags;
+  create_info->compression_level= share->compression_level;
+  create_info->compact_metadata= share->compact_metadata;
   create_info->compression= share->compression_type;
   create_info->key_block_size= share->key_block_size;
   create_info->default_table_charset= share->table_charset;

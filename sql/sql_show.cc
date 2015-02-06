@@ -1541,8 +1541,9 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
   memset(&create_info, 0, sizeof(create_info));
   /* Allow update_create_info to update row type */
   create_info.row_type= share->row_type;
-  create_info.compression_flags = share->compression_flags;
   create_info.compression = share->compression_type;
+  create_info.compression_level = share->compression_level;
+  create_info.compact_metadata = share->compact_metadata;
   file->update_create_info(&create_info);
   primary_key= share->primary_key;
 
@@ -1767,9 +1768,16 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       char* end;
       packet->append(STRING_WITH_LEN(" COMPRESSION="));
       packet->append(ha_compression_type[(uint) create_info.compression]);
-      packet->append(STRING_WITH_LEN(" COMPRESSION_FLAGS="));
-      end= longlong10_to_str(create_info.compression_flags, buff, 10);
-      packet->append(buff, (uint) (end - buff));
+      if (create_info.compression != COMPRESSION_TYPE_ZLIB_STREAM) {
+        packet->append(STRING_WITH_LEN(" COMPRESSION_LEVEL="));
+        end= longlong10_to_str(create_info.compression_level, buff, 10);
+        packet->append(buff, (uint) (end - buff));
+        if (create_info.compact_metadata == 1) {
+          packet->append(STRING_WITH_LEN(" COMPACT_METADATA=1"));
+        } else {
+          packet->append(STRING_WITH_LEN(" COMPACT_METADATA=0"));
+        }
+      }
     }
     table->file->append_create_info(packet);
     if (share->comment.length)
@@ -4521,39 +4529,40 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
     if (share->row_type == ROW_TYPE_COMPRESSED) {
       switch (share->compression_type) {
       case COMPRESSION_TYPE_ZLIB_STREAM:
-        tmp_buff= "ZLIB_STREAM";
+        table->field[21]->store(STRING_WITH_LEN("ZLIB_STREAM"), cs);
         break;
       case COMPRESSION_TYPE_ZLIB:
-        tmp_buff= "ZLIB";
+        table->field[21]->store(STRING_WITH_LEN("ZLIB"), cs);
         break;
       case COMPRESSION_TYPE_BZIP:
-        tmp_buff= "BZIP";
+        table->field[21]->store(STRING_WITH_LEN("BZIP"), cs);
         break;
       case COMPRESSION_TYPE_LZMA:
-        tmp_buff= "LZMA";
+        table->field[21]->store(STRING_WITH_LEN("LZMA"), cs);
         break;
       case COMPRESSION_TYPE_SNAPPY:
-        tmp_buff= "SNAPPY";
+        table->field[21]->store(STRING_WITH_LEN("SNAPPY"), cs);
         break;
       case COMPRESSION_TYPE_QUICKLZ:
-        tmp_buff= "QUICKLZ";
+        table->field[21]->store(STRING_WITH_LEN("QUICKLZ"), cs);
         break;
       case COMPRESSION_TYPE_LZ4:
-        tmp_buff= "LZ4";
+        table->field[21]->store(STRING_WITH_LEN("LZ4"), cs);
         break;
       default:
         info_error = HA_ERR_GENERIC;
         goto err;
         break;
       }
-      table->field[21]->store(tmp_buff, strlen(tmp_buff), cs);
       table->field[21]->set_notnull();
-      table->field[22]->store((longlong) share->compression_flags, TRUE);
+      table->field[22]->store((longlong) share->compression_level, TRUE);
       table->field[23]->store((longlong) share->key_block_size, TRUE);
+      table->field[24]->store(share->compact_metadata == 1 ? 1LL : 0LL, TRUE);
     } else {
       table->field[21]->set_null();
       table->field[22]->store(0, TRUE);
       table->field[23]->store(0LL, TRUE);
+      table->field[24]->store(0LL, TRUE);
     }
     /* Collect table info from the storage engine  */
 
@@ -7619,10 +7628,12 @@ ST_FIELD_INFO tables_fields_info[]=
   {"TABLE_COMMENT", TABLE_COMMENT_MAXLEN, MYSQL_TYPE_STRING, 0, 0, 
    "Comment", OPEN_FRM_ONLY},
   {"COMPRESSION", 64, MYSQL_TYPE_STRING, 0, 1, "Compression", OPEN_FRM_ONLY},
-  {"COMPRESSION_FLAGS", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
-   "Compression_flags", OPEN_FRM_ONLY},
+  {"COMPRESSION_LEVEL", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
+   "Compression_level", OPEN_FRM_ONLY},
   {"KEY_BLOCK_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
    "Key_block_size", OPEN_FRM_ONLY},
+  {"COMPACT_METADATA", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
+   "Compact_metadata", OPEN_FRM_ONLY},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 

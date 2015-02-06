@@ -25,6 +25,9 @@ Created 12/18/1995 Heikki Tuuri
 
 #ifndef UNIV_INNOCHECKSUM
 
+#include "dict0mem.h"
+#include "fsp0fsp.h"
+
 /***********************************************************************//**
 Checks if a page address is an extent descriptor page address.
 @return	TRUE if a descriptor page */
@@ -63,6 +66,9 @@ fsp_flags_is_valid(
 	ulint	atomic_blobs = FSP_FLAGS_HAS_ATOMIC_BLOBS(flags);
 	ulint	page_ssize = FSP_FLAGS_GET_PAGE_SSIZE(flags);
 	ulint	unused = FSP_FLAGS_GET_UNUSED(flags);
+	ulint	comp_type = FSP_FLAGS_GET_COMP_TYPE(flags);
+	ulint	comp_level = FSP_FLAGS_GET_COMP_LEVEL(flags);
+	ulint	compact_metadata = FSP_FLAGS_GET_COMPACT_METADATA(flags);
 
 	DBUG_EXECUTE_IF("fsp_flags_is_valid_failure", return(false););
 
@@ -101,6 +107,40 @@ fsp_flags_is_valid(
 		return(false);
 
 	} else if (UNIV_PAGE_SIZE != UNIV_PAGE_SIZE_ORIG && !page_ssize) {
+		return(false);
+	}
+
+	if (zip_ssize) {
+		if ((comp_type == DICT_TF_COMP_ZLIB_STREAM)
+		    && (comp_level || compact_metadata)) {
+			return(false);
+		}
+		switch (comp_type) {
+		case DICT_TF_COMP_ZLIB:
+			if (comp_level > 9)
+				return(false);
+			break;
+		case DICT_TF_COMP_BZIP:
+			/* no restriction on comp_level for bzip */
+			break;
+		case DICT_TF_COMP_LZMA:
+			if (comp_level > 2)
+				return(false);
+			break;
+		case DICT_TF_COMP_SNAPPY:
+			if (comp_level)
+				return(false);
+			break;
+		case DICT_TF_COMP_QUICKLZ:
+			if (comp_level > 3)
+				return(false);
+			break;
+		case DICT_TF_COMP_LZ4:
+			if (comp_level > 2)
+				return(false);
+			break;
+		}
+	} else if (comp_type || comp_level || compact_metadata) {
 		return(false);
 	}
 

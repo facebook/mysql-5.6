@@ -405,7 +405,7 @@ enum row_type { ROW_TYPE_NOT_USED=-1, ROW_TYPE_DEFAULT, ROW_TYPE_FIXED,
                 ROW_TYPE_PAGE };
 
 enum compression_type {
-	COMPRESSION_TYPE_NOT_USED=-1, COMPRESSION_TYPE_ZLIB_STREAM=0,
+	COMPRESSION_TYPE_ZLIB_STREAM=0,
 	COMPRESSION_TYPE_ZLIB, COMPRESSION_TYPE_BZIP,
 	COMPRESSION_TYPE_LZMA, COMPRESSION_TYPE_SNAPPY,
 	COMPRESSION_TYPE_QUICKLZ, COMPRESSION_TYPE_LZ4
@@ -483,8 +483,9 @@ given at all. */
    given at all.
 */
 #define HA_CREATE_USED_STATS_SAMPLE_PAGES (1L << 24)
-#define HA_CREATE_USED_COMPRESSION   (1L << 25)
-#define HA_CREATE_USED_COMPRESSION_FLAGS   (1L << 26)
+#define HA_CREATE_USED_COMPRESSION (1L << 25)
+#define HA_CREATE_USED_COMPRESSION_LEVEL (1L << 26)
+#define HA_CREATE_USED_COMPACT_METADATA (1L << 27)
 
 
 /*
@@ -1098,8 +1099,12 @@ typedef struct st_ha_create_information
   */
   enum row_type row_type;
   enum compression_type compression;
-  ulong compression_flags; /* compression parameters for the specific row_type
-                           only 1 byte must be used. */
+  ulong compression_level; /* The level parameter is passed to the compression
+                              library. Higher values mean more aggressive but
+                              possibly slower compression. Only the lower 4 bits
+                              must be used */
+  ulong compact_metadata; /* If set to 1, transaction ids and rollback pointers
+                             in innodb are stored in a compact format */
   uint null_bits;                       /* NULL bits at start of record */
   uint options;				/* OR of HA_CREATE_ options */
   uint merge_insert_method;
@@ -2252,11 +2257,6 @@ public:
   virtual enum row_type get_row_type() const { return ROW_TYPE_NOT_USED; }
 
   virtual const char *index_type(uint key_number) { DBUG_ASSERT(0); return "";}
-
-  virtual enum compression_type get_compression_type() const
-  { return COMPRESSION_TYPE_NOT_USED; }
-
-  virtual ulong get_compression_flags() const { return 0; }
 
   /**
     Signal that the table->read_set and table->write_set table maps changed
