@@ -39,30 +39,35 @@ SET @default_max_user_connections = @@global.max_user_connections;
 
 Set Global max_user_connections=2;
 
+flush privileges;
+grant usage on *.* to mysqltest@localhost;
+flush user_resources;
+
 --echo '#--------------------FN_DYNVARS_114_01-------------------------#'
 ########################################
 #Should not make more then 2 connection#
 ########################################
 
---echo ** Connecting conn1 using username 'root' **
-CONNECT (conn1,localhost,root,,);
+--echo ** Connecting conn1 using username 'mysqltest' **
+CONNECT (conn1,localhost,mysqltest,,);
 
---echo ** Connecting conn2 using username 'root' **
-CONNECT (conn2,localhost,root,,);
+--echo ** Connecting conn2 using username 'mysqltest' **
+CONNECT (conn2,localhost,mysqltest,,);
 
---echo ** Connecting conn3 using username 'root' **
+--echo ** Connecting conn3 using username 'mysqltest' **
 --disable_query_log
 --Error ER_TOO_MANY_USER_CONNECTIONS
-CONNECT (conn3,localhost,root,,);
+CONNECT (conn3,localhost,mysqltest,,);
 --enable_query_log
 --echo Expected error "too many connections"
 
 --echo ** Disconnecting conn1 **
 DISCONNECT conn1;
+CONNECTION default;
 
 --echo ** Poll till disconnected conn1 disappears from processlist
 let $wait_condition= SELECT count(id) <= 2
-   FROM information_schema.processlist WHERE user = 'root';
+   FROM information_schema.processlist WHERE user = 'mysqltest';
 --source include/wait_condition.inc
 
 --echo '#--------------------FN_DYNVARS_114_02-------------------------#'
@@ -71,10 +76,10 @@ let $wait_condition= SELECT count(id) <= 2
 #####################################################
 
 Set Global max_user_connections=3;
---echo ** Connecting conn5 using username 'root' **
-CONNECT (conn5,localhost,root,,);
---echo ** Connecting conn6 using username 'root' **
-CONNECT (conn6,localhost,root,,);
+--echo ** Connecting conn5 using username 'mysqltest' **
+CONNECT (conn5,localhost,mysqltest,,);
+--echo ** Connecting conn6 using username 'mysqltest' **
+CONNECT (conn6,localhost,mysqltest,,);
 
 #
 # Cleanup
@@ -87,6 +92,7 @@ CONNECTION default;
 DISCONNECT conn2;
 DISCONNECT conn5;
 DISCONNECT conn6;
+DROP user mysqltest@localhost;
 
 SET @@global.max_user_connections = @default_max_user_connections;
 
