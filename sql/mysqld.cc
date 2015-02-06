@@ -772,6 +772,7 @@ CHARSET_INFO *error_message_charset_info;
 MY_LOCALE *my_default_lc_messages;
 MY_LOCALE *my_default_lc_time_names;
 
+SHOW_COMP_OPTION have_openssl;
 SHOW_COMP_OPTION have_ssl, have_symlink, have_dlopen, have_query_cache;
 SHOW_COMP_OPTION have_geometry, have_rtree_keys;
 SHOW_COMP_OPTION have_crypt, have_compress;
@@ -814,6 +815,7 @@ mysql_mutex_t LOCK_slave_net_timeout;
 mysql_mutex_t LOCK_log_throttle_qni;
 #ifdef HAVE_OPENSSL
 mysql_mutex_t LOCK_des_key_file;
+mysql_rwlock_t LOCK_use_ssl;
 #endif
 mysql_rwlock_t LOCK_grant, LOCK_sys_init_connect, LOCK_sys_init_slave;
 mysql_rwlock_t LOCK_system_variables_hash;
@@ -1378,7 +1380,6 @@ static void create_pid_file();
 static void mysqld_exit(int exit_code) __attribute__((noreturn));
 #endif
 static void delete_pid_file(myf flags);
-static void end_ssl();
 
 
 #ifndef EMBEDDED_LIBRARY
@@ -2108,6 +2109,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_global_table_stats);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
+  mysql_rwlock_destroy(&LOCK_use_ssl);
 #ifndef HAVE_YASSL
   for (int i= 0; i < CRYPTO_num_locks(); ++i)
     mysql_rwlock_destroy(&openssl_stdlocks[i].lock);
@@ -4514,6 +4516,7 @@ static int init_thread_environment()
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
+  mysql_rwlock_init(key_rwlock_LOCK_use_ssl, &LOCK_use_ssl);
 #ifndef HAVE_YASSL
   openssl_stdlocks= (openssl_lock_t*) OPENSSL_malloc(CRYPTO_num_locks() *
                                                      sizeof(openssl_lock_t));
@@ -4625,7 +4628,7 @@ static void openssl_lock(int mode, openssl_lock_t *lock, const char *file,
 #endif /* HAVE_OPENSSL */
 
 
-static int init_ssl()
+bool init_ssl()
 {
 #ifdef HAVE_OPENSSL
 #ifndef HAVE_YASSL
@@ -4635,6 +4638,17 @@ static int init_ssl()
 #ifndef EMBEDDED_LIBRARY
   if (opt_use_ssl)
   {
+#ifdef HAVE_YASSL
+    /* yaSSL doesn't support CRL. */
+    if (opt_ssl_crl || opt_ssl_crlpath)
+    {
+      sql_print_warning("Failed to setup SSL because yaSSL "
+                        "doesn't support CRL");
+      opt_use_ssl = 0;
+      have_ssl= SHOW_OPTION_DISABLED;
+      return false;
+    }
+#endif
     enum enum_ssl_init_error error= SSL_INITERR_NOERROR;
 
     /* having ssl_acceptor_fd != 0 signals the use of SSL */
@@ -4650,7 +4664,10 @@ static int init_ssl()
       sql_print_warning("SSL error: %s", sslGetErrString(error));
       opt_use_ssl = 0;
       have_ssl= SHOW_OPTION_DISABLED;
+      // return true to specify that the current ssl configuration is invalid.
+      return true;
     }
+    have_ssl = SHOW_OPTION_YES;
   }
   else
   {
@@ -4663,14 +4680,14 @@ static int init_ssl()
     load_des_key_file(des_key_file);
 #ifndef HAVE_YASSL
   if (init_rsa_keys())
-    return 1;
+    return true;
 #endif
 #endif /* HAVE_OPENSSL */
-  return 0;
+  return false;
 }
 
 
-static void end_ssl()
+void end_ssl()
 {
 #ifdef HAVE_OPENSSL
 #ifndef EMBEDDED_LIBRARY
@@ -4679,6 +4696,7 @@ static void end_ssl()
     free_vio_ssl_acceptor_fd(ssl_acceptor_fd);
     ssl_acceptor_fd= 0;
   }
+  have_ssl = SHOW_OPTION_DISABLED;
 #endif /* ! EMBEDDED_LIBRARY */
 #ifndef HAVE_YASSL
   deinit_rsa_keys();
@@ -7711,12 +7729,6 @@ struct my_option my_long_options[]=
    &opt_sporadic_binlog_dump_fail, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0,
    0},
 #endif /* HAVE_REPLICATION */
-#ifdef HAVE_OPENSSL
-  {"ssl", 0,
-   "Enable SSL for connection (automatically enabled with other flags).",
-   &opt_use_ssl, &opt_use_ssl, 0, GET_BOOL, OPT_ARG, 0, 0, 0,
-   0, 0, 0},
-#endif
 #ifdef __WIN__
   {"standalone", 0,
   "Dummy option to start as a standalone program (NT).", 0, 0, 0, GET_NO_ARG,
@@ -8822,9 +8834,9 @@ static int mysql_init_variables(void)
 #endif
 
 #ifdef HAVE_OPENSSL
-  have_ssl=SHOW_OPTION_YES;
+  have_openssl = have_ssl = SHOW_OPTION_YES;
 #else
-  have_ssl=SHOW_OPTION_NO;
+  have_openssl = have_ssl = SHOW_OPTION_NO;
 #endif
 #ifdef HAVE_BROKEN_REALPATH
   have_symlink=SHOW_OPTION_NO;
@@ -8953,7 +8965,6 @@ mysqld_get_one_option(int optid,
     WARN_DEPRECATED(NULL, "--simplified_binlog_gtid_recovery",
                     "'--binlog_gtid_simple_recovery'");
     break;
-#include <sslopt-case.h>
 #ifndef EMBEDDED_LIBRARY
   case 'V':
     print_version();
@@ -9899,6 +9910,7 @@ PSI_mutex_key key_PAGE_lock, key_LOCK_sync, key_LOCK_active, key_LOCK_pool;
 
 #ifdef HAVE_OPENSSL
 PSI_mutex_key key_LOCK_des_key_file;
+PSI_rwlock_key key_rwlock_LOCK_use_ssl;
 #endif /* HAVE_OPENSSL */
 
 PSI_mutex_key key_BINLOG_LOCK_commit;
@@ -10053,6 +10065,9 @@ static PSI_rwlock_info all_server_rwlocks[]=
   { &key_rwlock_Binlog_transmit_delegate_lock, "Binlog_transmit_delegate::lock", PSI_FLAG_GLOBAL},
   { &key_rwlock_Binlog_relay_IO_delegate_lock, "Binlog_relay_IO_delegate::lock", PSI_FLAG_GLOBAL},
 #endif
+#ifdef HAVE_OPENSSL
+  { &key_rwlock_LOCK_use_ssl, "LOCK_use_ssl", PSI_FLAG_GLOBAL},
+#endif /* HAVE_OPENSSL */
   { &key_rwlock_LOCK_grant, "LOCK_grant", PSI_FLAG_GLOBAL},
   { &key_rwlock_LOCK_logger, "LOGGER::LOCK_logger", 0},
   { &key_rwlock_LOCK_sys_init_connect, "LOCK_sys_init_connect", PSI_FLAG_GLOBAL},
