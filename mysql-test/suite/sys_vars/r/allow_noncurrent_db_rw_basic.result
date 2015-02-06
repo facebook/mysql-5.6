@@ -1,0 +1,90 @@
+set @start_allow_noncurrent_db_rw= @@global.allow_noncurrent_db_rw;
+set global allow_noncurrent_db_rw = ALLOWED;
+ERROR 42000: Variable 'allow_noncurrent_db_rw' can't be set to the value of 'ALLOWED'
+Expected error ER_WRONG_VALUE_FOR_VAR
+show databases;
+Database
+information_schema
+mtr
+mysql
+performance_schema
+test
+set global allow_noncurrent_db_rw = OFF;
+connect (non_current_db,localhost,root,,*NO-ONE*);
+select database();
+database()
+NULL
+create table test.allow_noncurrent_db_rw_create (id int);
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+set global allow_noncurrent_db_rw = LOG;
+connect (con1,localhost,root,,test);
+connection default;
+drop database if exists mysqltest_db1;
+drop database if exists mysqltest_db2;
+create database mysqltest_db1;
+create database mysqltest_db2;
+connect (con_test_db1,localhost,root,,mysqltest_db1);
+create table t1 (id int);
+create table t2 (id int);
+insert t1 values(1);
+insert t2 values(1);
+connect (con_test_db2,localhost,root,,mysqltest_db2);
+create table t1 (id int);
+create table t2 (id int);
+insert t1 values(1);
+insert t2 values(1);
+set allow_noncurrent_db_rw = LOG_WARN;
+select * from mysqltest_db1.t1;
+id
+1
+Warnings:
+Note	1290	The MySQL server is running with the --allow_noncurrent_db_rw=LOG_WARN option so it cannot execute this statement
+set allow_noncurrent_db_rw = OFF;
+select * from mysqltest_db1.t1;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+insert mysqltest_db1.t1 values(2);
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+update mysqltest_db1.t1 set id=11 where id =1;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+insert t1 values(100);
+insert into mysqltest_db1.t1 SELECT * from t1 where id=100;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+create table mysqltest_db1.t_create (id int) select * from t1;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+delete from mysqltest_db1.t1 where id=1;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+replace into mysqltest_db1.t1 SELECT * from t1 where id=100;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+alter table mysqltest_db1.t1 add column (id2 int);
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
+1	2	3	(SELECT * FROM mysqltest_db1.t1 WHERE id = T.id)
+1	2	3	1
+SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db1.t2 test2 WHERE test1.id = test2.id;
+id	id
+1	1
+set allow_noncurrent_db_rw = LOG_WARN;
+SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
+1	2	3	(SELECT * FROM mysqltest_db1.t1 WHERE id = T.id)
+1	2	3	1
+Warnings:
+Note	1290	The MySQL server is running with the --allow_noncurrent_db_rw=LOG_WARN option so it cannot execute this statement
+SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db2.t2 test2 WHERE test1.id = test2.id;
+id	id
+1	1
+Warnings:
+Note	1290	The MySQL server is running with the --allow_noncurrent_db_rw=LOG_WARN option so it cannot execute this statement
+set allow_noncurrent_db_rw = OFF;
+SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db2.t2 test2 WHERE test1.id = test2.id;
+ERROR HY000: The MySQL server is running with the --allow_noncurrent_db_rw=OFF option so it cannot execute this statement
+set allow_noncurrent_db_rw = ON;
+rename table mysqltest_db1.t1 to mysqltest_db2.t2_1;
+rename table mysqltest_db2.t2_1 to mysqltest_db1.t1;
+select * from mysqltest_db1.t1;
+id
+1
+drop database mysqltest_db1;
+drop database mysqltest_db2;
+set global allow_noncurrent_db_rw= @start_allow_noncurrent_db_rw;

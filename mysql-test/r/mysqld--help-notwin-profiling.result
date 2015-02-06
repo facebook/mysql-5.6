@@ -11,6 +11,9 @@ The following options may be given as the first argument:
  --abort-slave-event-count=# 
  Option used by mysql-test for debugging and testing of
  replication.
+ --allow-noncurrent-db-rw=name 
+ Switch to allow/deny reads and writes to a table not in
+ the current database.
  --allow-suspicious-udfs 
  Allows use of UDFs consisting of only one symbol xxx()
  without corresponding xxx_init() or xxx_deinit(). That
@@ -1039,6 +1042,7 @@ The following options may be given as the first argument:
 
 Variables (--variable-name=value)
 abort-slave-event-count 0
+allow-noncurrent-db-rw ON
 allow-suspicious-udfs FALSE
 auto-increment-increment 1
 auto-increment-offset 1

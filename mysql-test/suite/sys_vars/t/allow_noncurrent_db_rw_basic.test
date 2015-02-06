@@ -1,0 +1,130 @@
+############## mysql-test\t\allow_noncurrent_db_rw_basic.test ##################
+#                                                                              #
+# Variable Name: allow_noncurrent_db_rw                                        #
+# Scope: GLOBAL & SESSION                                                      #
+# Access Type: Dynamic                                                         #
+# Data Type: Numeric                                                           #
+# Default Value: 0                                                             #
+# Range: 0,1,2 & 3                                                             #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2012-11-06                                                    #
+# Author: Mayank Agarwal                                                       #
+#                                                                              #
+# Description: Allow/deny read/write to table not in the current database      #
+#                                                                              #
+# Reference: http://dev.mysql.com/doc/refman/5.1/en/                           #
+#  server-system-variables.html                                                #
+#                                                                              #
+################################################################################
+
+--source include/not_embedded.inc
+--source include/load_sysvars.inc
+
+################################################################################
+#                    START OF allow_noncurrent_db_rw TEST                      #
+################################################################################
+
+set @start_allow_noncurrent_db_rw= @@global.allow_noncurrent_db_rw;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+set global allow_noncurrent_db_rw = ALLOWED;
+--ECHO Expected error ER_WRONG_VALUE_FOR_VAR
+
+show databases;
+
+set global allow_noncurrent_db_rw = OFF;
+--echo connect (non_current_db,localhost,root,,*NO-ONE*);
+connect (non_current_db,localhost,root,,*NO-ONE*);
+select database();
+--error ER_OPTION_PREVENTS_STATEMENT
+create table test.allow_noncurrent_db_rw_create (id int);
+
+set global allow_noncurrent_db_rw = LOG;
+
+--echo connect (con1,localhost,root,,test);
+connect (con1,localhost,root,,test);
+
+--echo connection default;
+connection default;
+
+--disable_warnings
+drop database if exists mysqltest_db1;
+drop database if exists mysqltest_db2;
+create database mysqltest_db1;
+create database mysqltest_db2;
+--enable_warnings
+
+--echo connect (con_test_db1,localhost,root,,mysqltest_db1);
+connect (con_test_db1,localhost,root,,mysqltest_db1);
+create table t1 (id int);
+create table t2 (id int);
+insert t1 values(1);
+insert t2 values(1);
+
+--echo connect (con_test_db2,localhost,root,,mysqltest_db2);
+connect (con_test_db2,localhost,root,,mysqltest_db2);
+create table t1 (id int);
+create table t2 (id int);
+insert t1 values(1);
+insert t2 values(1);
+
+connection con_test_db2;
+
+set allow_noncurrent_db_rw = LOG_WARN;
+select * from mysqltest_db1.t1;
+
+set allow_noncurrent_db_rw = OFF;
+--error ER_OPTION_PREVENTS_STATEMENT
+select * from mysqltest_db1.t1;
+
+--error ER_OPTION_PREVENTS_STATEMENT
+insert mysqltest_db1.t1 values(2);
+
+--error ER_OPTION_PREVENTS_STATEMENT
+update mysqltest_db1.t1 set id=11 where id =1;
+
+insert t1 values(100);
+
+--error ER_OPTION_PREVENTS_STATEMENT
+insert into mysqltest_db1.t1 SELECT * from t1 where id=100;
+
+--error ER_OPTION_PREVENTS_STATEMENT
+create table mysqltest_db1.t_create (id int) select * from t1;
+
+--error ER_OPTION_PREVENTS_STATEMENT
+delete from mysqltest_db1.t1 where id=1;
+
+--error ER_OPTION_PREVENTS_STATEMENT
+replace into mysqltest_db1.t1 SELECT * from t1 where id=100;
+
+--error ER_OPTION_PREVENTS_STATEMENT
+alter table mysqltest_db1.t1 add column (id2 int);
+
+connection con_test_db1;
+SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
+SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db1.t2 test2 WHERE test1.id = test2.id;
+
+set allow_noncurrent_db_rw = LOG_WARN;
+SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
+SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db2.t2 test2 WHERE test1.id = test2.id;
+
+set allow_noncurrent_db_rw = OFF;
+--error ER_OPTION_PREVENTS_STATEMENT
+SELECT 1, 2, 3, (SELECT * FROM mysqltest_db1.t1 WHERE id = T.id) FROM mysqltest_db2.t2 T;
+--error ER_OPTION_PREVENTS_STATEMENT
+SELECT test1.*, test2.* FROM mysqltest_db1.t1 test1, mysqltest_db2.t2 test2 WHERE test1.id = test2.id;
+
+set allow_noncurrent_db_rw = ON;
+rename table mysqltest_db1.t1 to mysqltest_db2.t2_1;
+rename table mysqltest_db2.t2_1 to mysqltest_db1.t1;
+select * from mysqltest_db1.t1;
+
+connection default;
+drop database mysqltest_db1;
+drop database mysqltest_db2;
+set global allow_noncurrent_db_rw= @start_allow_noncurrent_db_rw;
+
+################################################################################
+#                    END OF allow_noncurrent_db_rw  TEST                       #
+################################################################################
