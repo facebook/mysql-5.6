@@ -41,14 +41,6 @@ ALTER TABLE t2 DEFRAGMENT PARTITION (p1);
 ALTER TABLE t1 DEFRAGMENT INDEX ix_lname;
 ## Test-6 defragment whole partitioned table
 ALTER TABLE t2 DEFRAGMENT;
-## Test-7 defragment specific partition and index (async commit)
-ALTER TABLE t1 DEFRAGMENT PARTITION (p0sp0, P1SP1) INDEX PRIMARY async_commit;
-## Test-8 defragment specific partition without index (async commit)
-ALTER TABLE t1 DEFRAGMENT PARTITION (p0sp0, P1SP1) async_commit;
-## Test-9 defragment specific index without partition (async commit)
-ALTER TABLE t1 DEFRAGMENT INDEX ix_lname async_commit;
-## Test-10 defragment whole partitioned table (async commit)
-ALTER TABLE t1 DEFRAGMENT async_commit;
 ## Clean test table
 DROP TABLE t1;
 DROP TABLE t2;

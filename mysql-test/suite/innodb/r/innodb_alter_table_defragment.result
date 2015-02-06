@@ -83,20 +83,10 @@ select info from information_schema.processlist where info like 'alter%';
 info
 alter table t1 defragment
 set @@global.innodb_defragment_pause = false;
-## Test-7 defragment index already being defragmented.
-alter table t1 defragment index PRIMARY async_commit;
-alter table t1 defragment index PRIMARY;
-ERROR 42000: ./test/t1 PRIMARY already exists
-## Test-8 Defragment when feature disabled should return error
+## Test-7 Defragment when feature disabled should return error
 set @@global.innodb_defragment = false;
 alter table t1 defragment index PRIMARY;
 ERROR HY000: The 'ALTER TABLE DEFRAGMENT' feature is disabled; you need MySQL built with 'innodb_defragment' to have it working
 set @@global.innodb_defragment = true;
-kill query ID;
-ERROR 70ID00: Query execution was interrupted
-select sleep(3);
-sleep(3)
-0
-call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
 DROP PROCEDURE defragment;
 DROP TABLE t1;

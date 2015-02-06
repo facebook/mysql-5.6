@@ -636,8 +636,7 @@ int ha_partition::defragment_partition(const char* table_name,
                                        const char* part_name,
                                        const char* subpart_name,
                                        const char* index_name,
-                                       int part,
-                                       bool async)
+                                       int part)
 {
   char part_name_buff[FN_REFLEN];
   if (subpart_name)
@@ -647,8 +646,7 @@ int ha_partition::defragment_partition(const char* table_name,
     create_partition_name(part_name_buff, table_name, part_name,
                           NORMAL_PART_NAME, true);
 
-  return m_file[part]->ha_defragment_table(part_name_buff, index_name,
-                                           async, NULL);
+  return m_file[part]->ha_defragment_table(part_name_buff, index_name, NULL);
 }
 
 /*
@@ -658,9 +656,6 @@ int ha_partition::defragment_partition(const char* table_name,
     defragment_table()
     name                   Table name
     index_name             Index name
-    async                  Whether to wait until finish (If async is true,
-                           return immediately without waiting for defragment
-                           to finish.
     alter_info             Altering info for partition selection
 
   RETURN VALUES
@@ -668,7 +663,7 @@ int ha_partition::defragment_partition(const char* table_name,
     0                 Success
 */
 int ha_partition::defragment_table(const char* name, const char* index_name,
-                                   bool async, Alter_info* alter_info)
+                                   Alter_info* alter_info)
 {
   int error = 0;
   uint num_parts = m_part_info->partitions.elements;
@@ -690,7 +685,7 @@ int ha_partition::defragment_table(const char* name, const char* index_name,
                                         sub_elem->partition_name)) {
           if ((error = defragment_partition(name, part_elem->partition_name,
                                             sub_elem->partition_name,
-                                            index_name, part, async))) {
+                                            index_name, part))) {
             DBUG_RETURN(error);
           }
         }
@@ -699,7 +694,7 @@ int ha_partition::defragment_table(const char* name, const char* index_name,
       if (should_defragment_partition(alter_info->defrag_parts,
                                       part_elem->partition_name)) {
         if ((error = defragment_partition(name, part_elem->partition_name,
-                                          NULL, index_name, i, async))) {
+                                          NULL, index_name, i))) {
           DBUG_RETURN(error);
         }
       }

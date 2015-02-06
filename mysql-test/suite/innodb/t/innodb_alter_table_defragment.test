@@ -225,31 +225,13 @@ set @@global.innodb_defragment_pause = false;
 connection con1;
 reap;
 connection default;
-disconnect con1;
 
-
---echo ## Test-7 defragment index already being defragmented.
-alter table t1 defragment index PRIMARY async_commit;
---error ER_SP_ALREADY_EXISTS
-alter table t1 defragment index PRIMARY;
-
---echo ## Test-8 Defragment when feature disabled should return error
+--echo ## Test-7 Defragment when feature disabled should return error
 set @@global.innodb_defragment = false;
 --error ER_FEATURE_DISABLED
 alter table t1 defragment index PRIMARY;
 set @@global.innodb_defragment = true;
 
-# if async_commit defragment ation doesn't finish before drop table, it will
-# cause crash after the table is dropped. So we clean up the unfinished async
-# defrag query (if any) before test cleanup.
-let $conn_id = `select connection_id()`;
---replace_result $conn_id ID
---error ER_QUERY_INTERRUPTED
-eval kill query $conn_id;
-
-# wait a bit for defrag thread to pick up the kill signal
-select sleep(3);
-
-call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+disconnect con1;
 DROP PROCEDURE defragment;
 DROP TABLE t1;

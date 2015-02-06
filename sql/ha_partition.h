@@ -318,7 +318,7 @@ public:
   virtual int delete_table(const char *from);
   virtual int rename_table(const char *from, const char *to);
   virtual int defragment_table(const char* name, const char* index_name,
-                               bool async, Alter_info* alter_info);
+                               Alter_info* alter_info);
   virtual int create(const char *name, TABLE *form,
 		     HA_CREATE_INFO *create_info);
   virtual int create_handler_files(const char *name,
@@ -346,7 +346,7 @@ public:
 private:
   int defragment_partition(const char* table_name, const char* part_name,
                            const char* subpart_name, const char* index_name,
-                           int part, bool async);
+                           int part);
   bool should_defragment_partition(List<String>& defrag_parts,
                                    const char*part_name);
   int copy_partitions(ulonglong * const copied, ulonglong * const deleted);
