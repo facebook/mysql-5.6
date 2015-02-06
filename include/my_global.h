@@ -581,6 +581,10 @@ typedef SOCKET_SIZE_TYPE size_socket;
 #define FN_CURLIB	'.'	/* ./ is used as abbrev for current dir */
 #define FN_PARENTDIR	".."	/* Parent directory; Must be a string */
 
+#define FN_LEN_STR	__TO_STR(FN_LEN)	/* FN_LEN as a string */
+#define __TO_STR(s)	__TO_STR2(s)	/* Get a #define's value as a string */
+#define __TO_STR2(s)	#s		/* Support macro for __TO_STR() */
+
 #ifdef _WIN32
 #define FN_LIBCHAR	'\\'
 #define FN_LIBCHAR2	'/'

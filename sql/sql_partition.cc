@@ -6751,7 +6751,7 @@ void handle_alter_part_error(ALTER_PARTITION_PARAM_TYPE *lpt,
       the table cache.
     */
     mysql_lock_remove(thd, thd->lock, table);
-    close_thread_table(thd, &thd->open_tables);
+    close_thread_table(thd, &thd->open_tables, false);
     lpt->table_list->table= NULL;
   }
   else

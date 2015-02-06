@@ -823,7 +823,10 @@ int ha_myisam::write_row(uchar *buf)
     if ((error= update_auto_increment()))
       return error;
   }
-  return mi_write(file,buf);
+  int e= mi_write(file,buf);
+  if (!e)
+    stats.rows_inserted++;
+  return e;
 }
 
 int ha_myisam::check(THD* thd, HA_CHECK_OPT* check_opt)
@@ -1606,13 +1609,19 @@ bool ha_myisam::is_crashed() const
 int ha_myisam::update_row(const uchar *old_data, uchar *new_data)
 {
   ha_statistic_increment(&SSV::ha_update_count);
-  return mi_update(file,old_data,new_data);
+  int error= mi_update(file,old_data,new_data);
+  if (!error)
+    stats.rows_updated++;
+  return error;
 }
 
 int ha_myisam::delete_row(const uchar *buf)
 {
   ha_statistic_increment(&SSV::ha_delete_count);
-  return mi_delete(file,buf);
+  int error= mi_delete(file,buf);
+  if (!error)
+    stats.rows_deleted++;
+  return error;
 }
 
 C_MODE_START
@@ -1663,7 +1672,17 @@ int ha_myisam::index_read_map(uchar *buf, const uchar *key,
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_key_count);
   int error=mi_rkey(file, buf, active_index, key, keypart_map, find_flag);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_first++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1677,7 +1696,17 @@ int ha_myisam::index_read_idx_map(uchar *buf, uint index, const uchar *key,
   MYSQL_INDEX_READ_ROW_START(table_share->db.str, table_share->table_name.str);
   ha_statistic_increment(&SSV::ha_read_key_count);
   int error=mi_rkey(file, buf, index, key, keypart_map, find_flag);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_first++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1691,7 +1720,17 @@ int ha_myisam::index_read_last_map(uchar *buf, const uchar *key,
   ha_statistic_increment(&SSV::ha_read_key_count);
   int error=mi_rkey(file, buf, active_index, key, keypart_map,
                     HA_READ_PREFIX_LAST);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_first++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   DBUG_RETURN(error);
 }
@@ -1702,7 +1741,17 @@ int ha_myisam::index_next(uchar *buf)
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_next_count);
   int error=mi_rnext(file,buf,active_index);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_next++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1713,7 +1762,17 @@ int ha_myisam::index_prev(uchar *buf)
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_prev_count);
   int error=mi_rprev(file,buf, active_index);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_next++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1724,7 +1783,17 @@ int ha_myisam::index_first(uchar *buf)
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_first_count);
   int error=mi_rfirst(file, buf, active_index);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_first++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1735,7 +1804,17 @@ int ha_myisam::index_last(uchar *buf)
   DBUG_ASSERT(inited==INDEX);
   ha_statistic_increment(&SSV::ha_read_last_count);
   int error=mi_rlast(file, buf, active_index);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_first++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1752,7 +1831,17 @@ int ha_myisam::index_next_same(uchar *buf,
   {
     error= mi_rnext_same(file,buf);
   } while (error == HA_ERR_RECORD_DELETED);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+    stats.rows_index_next++;
+  }
+  stats.rows_requested++;
   MYSQL_INDEX_READ_ROW_DONE(error);
   return error;
 }
@@ -1771,7 +1860,16 @@ int ha_myisam::rnd_next(uchar *buf)
                        TRUE);
   ha_statistic_increment(&SSV::ha_read_rnd_next_count);
   int error=mi_scan(file, buf);
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+  }
+  stats.rows_requested++;
   MYSQL_READ_ROW_DONE(error);
   return error;
 }
@@ -1787,7 +1885,16 @@ int ha_myisam::rnd_pos(uchar *buf, uchar *pos)
                        FALSE);
   ha_statistic_increment(&SSV::ha_read_rnd_count);
   int error=mi_rrnd(file, buf, my_get_ptr(pos,ref_length));
-  table->status=error ? STATUS_NOT_FOUND: 0;
+  if (error)
+  {
+    table->status= STATUS_NOT_FOUND;
+  }
+  else
+  {
+    table->status= 0;
+    stats.rows_read++;
+  }
+  stats.rows_requested++;
   MYSQL_READ_ROW_DONE(error);
   return error;
 }
@@ -1902,9 +2009,19 @@ int ha_myisam::extra_opt(enum ha_extra_function operation, ulong cache_size)
   return mi_extra(file, operation, (void*) &cache_size);
 }
 
-int ha_myisam::delete_all_rows()
+int ha_myisam::delete_all_rows(ha_rows* nrows)
 {
-  return mi_delete_all_rows(file);
+  MI_ISAMINFO misam_info;
+  (void) mi_status(file,&misam_info, HA_STATUS_VARIABLE | HA_STATUS_NO_LOCK);
+
+  int r= mi_delete_all_rows(file);
+
+  if (!r)
+    stats.rows_deleted += misam_info.records;
+  if (nrows != NULL)
+    *nrows= misam_info.records;
+
+  return r;
 }
 
 

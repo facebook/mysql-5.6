@@ -472,7 +472,7 @@ public:
   virtual int write_row(uchar * buf);
   virtual int update_row(const uchar * old_data, uchar * new_data);
   virtual int delete_row(const uchar * buf);
-  virtual int delete_all_rows(void);
+  virtual int delete_all_rows(ha_rows* nrows = NULL);
   virtual int truncate();
   virtual void start_bulk_insert(ha_rows rows);
   virtual int end_bulk_insert();
