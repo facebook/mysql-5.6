@@ -1109,6 +1109,10 @@ bool table_definition_cache_specified = false;
 ulong locked_account_connection_count = 0;
 bool opt_log_slow_extra = false;
 
+bool log_datagram = 0;
+ulong log_datagram_usecs = 0;
+int log_datagram_sock = -1;
+
 /**
   Limit of the total number of prepared statements in the server.
   Is necessary to protect the server against out-of-memory attacks.
@@ -5650,7 +5654,7 @@ static int init_server_components() {
   ft_init_stopwords();
 
   init_max_user_conn();
-
+  setup_datagram_socket(NULL, NULL, OPT_GLOBAL);
   DBUG_RETURN(0);
 }
 
@@ -8747,12 +8751,15 @@ static int mysql_init_variables() {
   memset(&global_status_var, 0, sizeof(global_status_var));
   opt_large_pages = 0;
   opt_super_large_pages = 0;
+  log_datagram = 0;
+  log_datagram_usecs = 0;
 #if defined(ENABLED_DEBUG_SYNC)
   opt_debug_sync_timeout = 0;
 #endif /* defined(ENABLED_DEBUG_SYNC) */
   server_uuid[0] = 0;
 
   opt_log_slow_extra = FALSE;
+  log_datagram_sock = -1;
 
   /* Character sets */
   system_charset_info = &my_charset_utf8_general_ci;
@@ -10937,4 +10944,60 @@ bool drop_native_table_for_pfs(const char *schema_name,
   THD *thd = current_thd;
   DBUG_ASSERT(thd);
   return do_drop_native_table_for_pfs(thd, schema_name, table_name);
+}
+
+/*
+  Called whenever log_datagram is updated. This is used to initialize the
+  datagram socket and connect to it. Called from init_server_components
+  also.
+*/
+bool setup_datagram_socket(sys_var *self MY_ATTRIBUTE((unused)),
+                           THD *thd MY_ATTRIBUTE((unused)),
+                           enum_var_type type MY_ATTRIBUTE((unused))) {
+  if (log_datagram_sock >= 0) {
+    close(log_datagram_sock);
+    log_datagram_sock = -1;
+  }
+  if (log_datagram) {
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strcpy(addr.sun_path, "slocket");
+    log_datagram_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+
+    if (log_datagram_sock < 0) {
+      sql_print_information(
+          "slocket creation failed with error %d; "
+          "slocket closed",
+          errno);
+      log_datagram = 0;
+      return false;
+    }
+
+    // set nonblocking
+    if (fcntl(log_datagram_sock, F_SETFL,
+              O_NONBLOCK | fcntl(log_datagram_sock, F_GETFL)) == -1) {
+      log_datagram = 0;
+      close(log_datagram_sock);
+      log_datagram_sock = -1;
+      sql_print_information(
+          "slocket set nonblocking failed with error %d; "
+          "slocket closed",
+          errno);
+      return false;
+    }
+
+    if (connect(log_datagram_sock, (sockaddr *)&addr,
+                strlen(addr.sun_path) + sizeof(addr.sun_family)) < 0) {
+      log_datagram = 0;
+      close(log_datagram_sock);
+      log_datagram_sock = -1;
+      sql_print_information(
+          "slocket connect failed with error %d; "
+          "slocket closed",
+          errno);
+      return false;
+    }
+  }
+  return false;
 }

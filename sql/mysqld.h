@@ -27,7 +27,9 @@
 
 #include <signal.h>
 #include <stdint.h>  // int32_t
+#include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <time.h>
 #include <atomic>
 
@@ -62,6 +64,9 @@
 #endif  // _WIN32
 #include "sql/sql_bitmap.h"
 #include "sql/sql_const.h"  // UUID_LENGTH
+#include "sql/set_var.h"  // enum_var_type
+#include "sql/system_variables.h"
+#include "sql/thr_malloc.h"
 
 class Rpl_global_filter;
 class THD;
@@ -394,6 +399,12 @@ extern char *opt_log_error_services;
 /** The size of the host_cache. */
 extern uint host_cache_size;
 extern ulong log_error_verbosity;
+
+/* Enable logging queries to a unix local datagram socket */
+extern bool log_datagram;
+extern ulong log_datagram_usecs;
+extern int log_datagram_sock;
+bool setup_datagram_socket(sys_var *self, THD *thd, enum_var_type type);
 
 extern bool persisted_globals_load;
 extern bool opt_keyring_operations;

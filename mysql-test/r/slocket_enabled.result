@@ -1,0 +1,15 @@
+set global log_datagram_usecs=0;
+set global log_datagram=1;
+show variables like 'log_datagram';
+Variable_name	Value
+log_datagram	OFF
+set global log_datagram=1;
+show variables like 'log_datagram';
+Variable_name	Value
+log_datagram	ON
+show variables like 'log_datagram';
+Variable_name	Value
+log_datagram	ON
+show variables like 'log_datagram';
+Variable_name	Value
+log_datagram	OFF
