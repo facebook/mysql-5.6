@@ -7,7 +7,7 @@ dp DOUBLE PRECISION (64,10)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	f	A	NULL	NULL	NULL		BTREE		
+t1	0	PRIMARY	1	f	A	1000	NULL	NULL		BTREE		
 INSERT INTO t1 (f,r,d,dp) VALUES
 (1.2345,1422.22,1.2345,1234567.89),
 (0,0,0,0),
@@ -45,9 +45,9 @@ UNIQUE KEY r_dp (r,dp)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	0	r_dp	1	r	A	NULL	NULL	NULL	YES	BTREE		
-t1	0	r_dp	2	dp	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	0	r_dp	1	r	A	500	NULL	NULL	YES	BTREE		
+t1	0	r_dp	2	dp	A	1000	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -73,8 +73,8 @@ UNIQUE KEY(d)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	0	d	1	d	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	0	d	1	d	A	1000	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
@@ -102,8 +102,8 @@ KEY(d)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	1	d	1	d	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	1	d	1	d	A	500	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (1.2345,1422.22,1.2345,1234567.89,1),
 (0,0,0,0,2),
