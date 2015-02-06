@@ -1,0 +1,90 @@
+DROP TABLE IF EXISTS t1,t2;
+#
+# Test comment_bytes
+#
+# Create table t1.t2
+CREATE TABLE t1 (id INT NOT NULL, a INT, PRIMARY KEY (id));
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6);
+CREATE TABLE t2 (id INT NOT NULL, b INT, PRIMARY KEY (id));
+INSERT INTO t2 VALUES (6, 7), (7, 8), (8, 9), (9, 0);
+# COMMENT_BYTES field for table t1 and t2 should be 0
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+0
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+0
+# After performing a query with comments in it , COMMENT_BYTES field for t1 should be 9
+SELECT * FROM/*hello*/ t1;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+9
+# After performing a query with comments in it , COMMENT_BYTES field for t2 should be 17
+/* Hello World */SELECT * FROM t2;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+17
+# After performing a join query with comments in it , COMMENT_BYTES field for t1 and t2 should be incremented by 17
+/* Hello World */SELECT * FROM t1,t2;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+26
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+34
+# After performing another query with comments in it, COMMENT_BYTES field for t1 should be incremented by 9
+SELECT * FROM t1 /*World*/
+;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+35
+# After performing another query with multiple comments in it, COMMENT_BYTES field for t2  should be incremented by 37
+/*World*/SELECT * FROM/* This is a long comment */ t2;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+71
+# After performing a query with /*! versioned comments in it (version greater than current MySQL Version) , COMMENT_BYTES field for t1 should be incremented by 17
+SELECT * FROM/*!60000 hello */ t1;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+52
+# After performing a query with /*! versioned comments in it (version less than current MySQL Version) , COMMENT_BYTES field for t1 should be incremented by 0
+SELECT * FROM t1/*!50000 WHERE id=2 */;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+52
+# After performing another query with "#" comment in it, COMMENT_BYTES field for t1  should be incremented by 24
+SELECT * FROM t1 # This is a hash comment
+;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+76
+# After performing another query with "#" comment in it, COMMENT_BYTES field for t2  should be incremented by 5
+SELECT * FROM t2 #hash
+;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+76
+# After performing another query with "#" and "/* */" comments in it, COMMENT_BYTES field for t2  should be incremented by 15
+/*cstyle*/SELECT * FROM t2 #hash
+;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+91
+# After performing another query with "-- " comment in it, COMMENT_BYTES field for t1  should be incremented by 13
+SELECT * FROM t1 -- doubledash;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+89
+# After performing another query with "-- " and "/* */" comments in it, COMMENT_BYTES field for t1  should be incremented by 23
+SELECT * FROM /*cstyle*/t1 -- doubledash;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+COMMENT_BYTES
+112
+# After performing another query with "-- " comment in it, COMMENT_BYTES field for t2  should be incremented by 14
+SELECT * FROM t2 -- Hello World
+;
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+COMMENT_BYTES
+105
+DROP TABLE t1, t2;
