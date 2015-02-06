@@ -931,6 +931,7 @@ THD::THD(bool enable_plugins)
    first_successful_insert_id_in_cur_stmt(0),
    stmt_depends_on_first_successful_insert_id_in_prev_stmt(FALSE),
    m_examined_row_count(0),
+   m_accessed_rows_and_keys(0),
    m_digest(NULL),
    m_statement_psi(NULL),
    m_idle_psi(NULL),
@@ -2585,6 +2586,8 @@ bool select_send::send_data(List<Item> &items)
     unit->offset_limit_cnt--;
     DBUG_RETURN(FALSE);
   }
+  if (thd->killed == THD::ABORT_QUERY)
+    DBUG_RETURN(FALSE);
 
   /*
     We may be passing the control from mysqld to the client: release the
@@ -2879,6 +2882,8 @@ bool select_export::send_data(List<Item> &items)
     unit->offset_limit_cnt--;
     DBUG_RETURN(0);
   }
+  if (thd->killed == THD::ABORT_QUERY)
+    DBUG_RETURN(0);
   row_count++;
   Item *item;
   uint used_length=0,items_left=items.elements;
@@ -3135,6 +3140,8 @@ bool select_dump::send_data(List<Item> &items)
     unit->offset_limit_cnt--;
     DBUG_RETURN(0);
   }
+  if (thd->killed == THD::ABORT_QUERY)
+    DBUG_RETURN(0);
   if (row_count++ > 1) 
   {
     my_message(ER_TOO_MANY_ROWS, ER(ER_TOO_MANY_ROWS), MYF(0));
@@ -3182,6 +3189,8 @@ bool select_singlerow_subselect::send_data(List<Item> &items)
     unit->offset_limit_cnt--;
     DBUG_RETURN(0);
   }
+  if (thd->killed == THD::ABORT_QUERY)
+    DBUG_RETURN(0);
   List_iterator_fast<Item> li(items);
   Item *val_item;
   for (uint i= 0; (val_item= li++); i++)
@@ -3346,6 +3355,8 @@ bool select_exists_subselect::send_data(List<Item> &items)
     unit->offset_limit_cnt--;
     DBUG_RETURN(0);
   }
+  if (thd->killed == THD::ABORT_QUERY)
+    DBUG_RETURN(0);
   /*
     A subquery may be evaluated 1) by executing the JOIN 2) by optimized
     functions (index_subquery, subquery materialization).
@@ -4634,6 +4645,17 @@ void THD::set_examined_row_count(ha_rows count)
 {
   m_examined_row_count= count;
   MYSQL_SET_STATEMENT_ROWS_EXAMINED(m_statement_psi, m_examined_row_count);
+}
+
+void THD::set_accessed_rows_and_keys(ulonglong count)
+{
+  m_accessed_rows_and_keys= count;
+}
+
+void THD::check_limit_rows_examined()
+{
+  if (++m_accessed_rows_and_keys > lex->limit_rows_examined_cnt)
+    killed= ABORT_QUERY;
 }
 
 void THD::inc_sent_row_count(ha_rows count)
