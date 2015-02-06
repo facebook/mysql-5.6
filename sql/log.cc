@@ -1719,6 +1719,116 @@ char *make_query_log_name(char *buff, enum_log_table_type log_type) {
                    MYF(MY_UNPACK_FILENAME | MY_REPLACE_EXT));
 }
 
+bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime) {
+  // enough space for query plus all extra info (max 8 lines)
+  const size_t buf_sz = 8 * 80 + thd->query().length;
+  size_t len = 0;
+  ssize_t sent = 0;
+  char *buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, buf_sz, MYF(MY_WME));
+  if (!buf) {
+    return 1;
+  }
+
+  double query_duration = (end_utime - thd->start_utime) / 1000000.0;
+  double lock_duration = thd->get_lock_usec() / 1000000.0;
+
+  Security_context *sctx = thd->security_context();
+  time_t end_time = thd->start_time.tv_sec + (time_t)query_duration;
+  struct tm local;
+  localtime_r(&end_time, &local);
+
+  if (len < buf_sz)
+    len += snprintf(buf, buf_sz - len, "# Time: %02d%02d%02d %2d:%02d:%02d\n",
+                    local.tm_year % 100, local.tm_mon + 1, local.tm_mday,
+                    local.tm_hour, local.tm_min, local.tm_sec);
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "# Threadid: %lu \n",
+                    static_cast<ulong>(thd->thread_id()));
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "# User@Host: %s[%s] @ %s [%s]\n",
+                    sctx->priv_user().length ? sctx->priv_user().str : "",
+                    sctx->user().length ? sctx->user().str : "",
+                    sctx->host().length ? sctx->host().str : "",
+                    sctx->ip().length ? sctx->ip().str : "");
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "# Query_time: %.6f  Lock_time: %.6f  ", query_duration,
+                    lock_duration);
+
+  if (len < buf_sz)
+    len += snprintf(
+        buf + len, buf_sz - len, "# Rows_sent: %lu  Rows_examined: %lu\n",
+        (ulong)thd->get_sent_row_count(), (ulong)thd->get_examined_row_count());
+
+  if (thd->db().str && len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "use %s; ", thd->db().str);
+
+  if (thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt &&
+      len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "SET last_insert_id=%lld; ",
+                    thd->first_successful_insert_id_in_prev_stmt_for_binlog);
+
+  if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() &&
+      len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "SET insert_id=%lld; ",
+                    thd->auto_inc_intervals_in_cur_stmt_for_binlog.minimum());
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "SET timestamp=%u;\n",
+                    (unsigned int)thd->start_time.tv_sec);
+  // query_length == 0 also appears to mean that this is a command
+  if ((!thd->query().str || !thd->query().length) && len < buf_sz) {
+    if (thd->get_command() < COM_END)
+      len += snprintf(buf + len, buf_sz - len, "# administrator command: %s\n",
+                      Command_names::str_global(thd->get_command()).c_str());
+    else
+      len += snprintf(buf + len, buf_sz - len, "# unknown command: %d\n",
+                      (int)thd->get_command());
+  } else if (len + thd->query().length + 2 < buf_sz) {
+    memcpy(buf + len, thd->query().str, thd->query().length);
+    len += thd->query().length;
+    len += snprintf(buf + len, buf_sz - len, ";\n");
+  }
+
+  // fail if we can't send everything
+  if (len > buf_sz) {
+    my_free(buf);
+    return 1;
+  }
+  sent = write(sockfd, buf, len);
+
+  my_free(buf);
+  // error if send failed
+  return sent <= 0;
+}
+
+/*
+  Log to a unix local datagram socket
+*/
+void log_to_datagram(THD *thd, ulonglong end_utime) {
+  if (log_datagram && log_datagram_sock >= 0 &&
+      thd->get_lock_usec() >= log_datagram_usecs) {
+    thd_proc_info(thd, "datagram logging");
+
+    if (write_log_to_socket(log_datagram_sock, thd, end_utime)) {
+      // we don't care if the packet was dropped due to contention or
+      // if it was too large to fit inside the kernel's buffers
+      if (errno != EAGAIN && errno != EMSGSIZE) {
+        log_datagram = false;
+        close(log_datagram_sock);
+        log_datagram_sock = -1;
+        sql_print_information(
+            "slocket send failed with error %d; "
+            "slocket closed",
+            errno);
+      }
+    }
+  }
+}
+
 bool log_slow_applicable(THD *thd) {
   DBUG_TRACE;
 
@@ -1746,6 +1856,10 @@ bool log_slow_applicable(THD *thd) {
 
   // The docs say slow queries must be counted even when the log is off.
   if (log_this_query) thd->status_var.long_query_count++;
+
+  ulonglong end_utime_of_query = my_micro_time();
+  // log to unix datagram socket
+  log_to_datagram(thd, end_utime_of_query);
 
   /*
     Do not log administrative statements unless the appropriate option is
