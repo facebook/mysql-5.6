@@ -6,7 +6,7 @@ c SET('01','22','23','33','34','39','40','44','50','63','64') PRIMARY KEY
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	c	A	NULL	NULL	NULL		BTREE		
+t1	0	PRIMARY	1	c	A	1000	NULL	NULL		BTREE		
 INSERT INTO t1 (a,b,c) VALUES 
 ('','test2,test3','01,34,44,23'),
 ('',5,2),
@@ -55,8 +55,8 @@ INDEX(a)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	1	a	1	a	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	1	a	1	a	A	500	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (a,b,c,pk) VALUES
 ('','test2,test3','01,34,44,23',1),
 ('',5,2,2),
