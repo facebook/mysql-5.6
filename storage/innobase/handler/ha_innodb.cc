@@ -4257,7 +4257,8 @@ retry:
                 is not written to the binary log, the file name will
                 be a NULL pointer. */
                 unsigned long long pos;
-                thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos);
+                thd_binlog_pos(thd, &trx->mysql_log_file_name, &pos,
+                               &trx->mysql_gtid);
                 trx->mysql_log_offset= static_cast<ib_int64_t>(pos);
 		/* Don't do write + flush right now. For group commit
 		to work we want to do the flush later. */
