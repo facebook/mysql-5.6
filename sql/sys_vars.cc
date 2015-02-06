@@ -534,6 +534,13 @@ static Sys_var_long Sys_pfs_connect_attrs_size(
 #endif /* EMBEDDED_LIBRARY */
 #endif /* WITH_PERFSCHEMA_STORAGE_ENGINE */
 
+static Sys_var_mybool Sys_block_create_myisam(
+       "block_create_myisam",
+       "Blocks creation of non-temporary MyISAM tables outside of mysql "
+       "schema.",
+       GLOBAL_VAR(block_create_myisam),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_ulong Sys_auto_increment_increment(
        "auto_increment_increment",
        "Auto-increment columns are incremented by this",

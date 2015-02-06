@@ -8078,6 +8078,29 @@ void create_table_set_open_action_and_adjust_tables(LEX *lex)
   }
 }
 
+/**
+   Block non-temporary myisam table creation outside of mysql
+   and mtr schemas. This is controlled by the cnf option
+   block_create_myisam which by default is false.
+
+   @param create_info info of table to be created or altered.
+          table_list  table which will be created or altered.
+
+   @return true  Block the current sql query
+           false otherwise
+*/
+bool block_myisam_tables(HA_CREATE_INFO *create_info,
+                         TABLE_LIST *table_list)
+{
+  if (block_create_myisam &&
+      strcmp(table_list->db, "mysql") &&
+      strcmp(table_list->db, "mtr") &&
+      create_info->db_type &&
+      create_info->db_type->db_type == DB_TYPE_MYISAM &&
+      !(create_info->options & HA_LEX_CREATE_TMP_TABLE))
+    return true;
+  return false;
+}
 
 /**
   CREATE TABLE query pre-check.
@@ -8100,6 +8123,12 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
   ulong want_priv;
   bool error= TRUE;                                 // Error message is given
   DBUG_ENTER("create_table_precheck");
+
+  if (block_myisam_tables(&lex->create_info, create_table))
+  {
+    my_error(ER_BLOCK_MYISAM_TABLES, MYF(0), NULL);
+    goto err;
+  }
 
   /*
     Require CREATE [TEMPORARY] privilege on new table; for

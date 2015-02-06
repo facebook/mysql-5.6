@@ -48,6 +48,8 @@ bool mysql_insert_select_prepare(THD *thd);
 bool update_precheck(THD *thd, TABLE_LIST *tables);
 bool delete_precheck(THD *thd, TABLE_LIST *tables);
 bool insert_precheck(THD *thd, TABLE_LIST *tables);
+bool block_myisam_tables(HA_CREATE_INFO *create_info,
+                         TABLE_LIST *table_list);
 bool create_table_precheck(THD *thd, TABLE_LIST *tables,
                            TABLE_LIST *create_table);
 bool check_fk_parent_table_access(THD *thd,

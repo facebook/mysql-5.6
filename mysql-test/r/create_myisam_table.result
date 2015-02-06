@@ -1,0 +1,28 @@
+create temporary table temp_table (a int) ENGINE=MYISAM;
+use mysql;
+create table mysql_table (a int) ENGINE=MYISAM;
+create table test.myisam_table (a int) ENGINE=MYISAM;
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
+use test;
+create table myisam_table (a int) ENGINE=MYISAM;
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
+create table mysql.myisam_table (a int) ENGINE=MYISAM;
+create table innodb_table (a int) ENGINE=INNODB;
+create table if not exists mysql.myisam_table (a int) ENGINE=MYISAM;
+Warnings:
+Note	1050	Table 'myisam_table' already exists
+create table if not exists mysql.myisam_table2 (a int) ENGINE=MYISAM;
+create table if not exists myisam_table (a int) ENGINE=MYISAM;
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
+alter table innodb_table ENGINE=MYISAM;
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
+alter table mysql.mysql_table ENGINE=MYISAM;
+alter table mysql.myisam_table ENGINE=INNODB;
+drop table temp_table;
+drop table innodb_table;
+use mysql;
+alter table test.innodb_table ENGINE=MYISAM;
+ERROR HY000: Non-temporary MyISAM tables cannot be created outside mysql schema.
+drop table mysql_table;
+drop table myisam_table;
+drop table myisam_table2;
