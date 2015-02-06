@@ -3175,7 +3175,7 @@ Execute_sql_statement::execute_server_code(THD *thd)
   rewrite_query_if_needed(thd);
   log_execute_line(thd);
 
-  error= mysql_execute_command(thd) ;
+  error= mysql_execute_command(thd, NULL);
   thd->m_statement_psi= parent_locker;
 
 end:
@@ -4050,7 +4050,7 @@ bool Prepared_statement::execute(String *expanded_query, bool open_cursor)
       rewrite_query_if_needed(thd);
       log_execute_line(thd);
 
-      error= mysql_execute_command(thd);
+      error= mysql_execute_command(thd, NULL);
       thd->m_statement_psi= parent_locker;
       MYSQL_QUERY_EXEC_DONE(error);
     }

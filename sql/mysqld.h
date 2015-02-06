@@ -787,6 +787,17 @@ extern char default_logfile_name[FN_REFLEN];
 
 #define mysql_tmpdir (my_tmpdir(&mysql_tmpdir_list))
 
+/* Time handling client commands for non-replication clients */
+extern ulonglong command_seconds;
+/* Time handling client commands for replication */
+extern ulonglong command_slave_seconds;
+/* Time parsing client commands */
+extern ulonglong parse_seconds;
+/* Time doing work post-parse but before execution */
+extern ulonglong pre_exec_seconds;
+/* Time executing client commands */
+extern ulonglong exec_seconds;
+
 extern MYSQL_PLUGIN_IMPORT const key_map key_map_empty;
 extern MYSQL_PLUGIN_IMPORT key_map key_map_full;          /* Should be threaded as const */
 
