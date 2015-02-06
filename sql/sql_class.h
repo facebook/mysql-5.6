@@ -2295,6 +2295,11 @@ public:
   ulonglong rows_index_first;
   ulonglong rows_index_next;
 
+  /* Counter for information_schema.TABLE_STATISTICS.
+     To be assigned to the corresponding table after parsing query
+  */
+  ulonglong count_comment_bytes;
+
   inline void reset_user_stats_counters() {
     rows_deleted = rows_updated = rows_inserted = rows_read = 0;
     rows_index_first = rows_index_next = 0;
