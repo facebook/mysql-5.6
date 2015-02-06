@@ -1367,9 +1367,13 @@ buf_free_from_unzip_LRU_list_batch(
 	while (block != NULL && count < max
 	       && free_len < srv_LRU_scan_depth
 	       && lru_len > UT_LIST_GET_LEN(buf_pool->LRU) / 10) {
+		ibool	freed;
+		ibool	removed;
 
 		++scanned;
-		if (buf_LRU_free_page(&block->page, false)) {
+		freed = buf_LRU_free_page(&block->page, false, &removed);
+
+		if (freed) {
 			/* Block was freed. buf_pool->mutex potentially
 			released and reacquired */
 			++count;
@@ -1439,9 +1443,14 @@ buf_flush_LRU_list_batch(
 		mutex_exit(block_mutex);
 
 		if (evict) {
+			ibool	freed;
+			ibool	removed;
+
 			/* block is ready for eviction i.e., it is
 			clean and is not IO-fixed or buffer fixed. */
-			if (buf_LRU_free_page(bpage, true)) {
+			freed = buf_LRU_free_page(bpage, true, &removed);
+
+			if (freed) {
 				++evict_count;
 			}
 		} else {
@@ -1890,7 +1899,8 @@ buf_flush_single_page_from_LRU(
 			/* block is ready for eviction i.e., it is
 			clean and is not IO-fixed or buffer fixed. */
 			mutex_exit(block_mutex);
-			if (buf_LRU_free_page(bpage, true)) {
+			ibool removed;
+			if (buf_LRU_free_page(bpage, true, &removed)) {
 				buf_pool_mutex_exit(buf_pool);
 				freed = TRUE;
 				break;

@@ -49,8 +49,6 @@ Created 3/26/1996 Heikki Tuuri
 #include "ut0vec.h"
 #include "btr0pcur.h"
 
-#include "mysqld.h"
-
 #include<set>
 
 /** Set of table_id */
@@ -315,6 +313,8 @@ trx_create(void)
 	trx->api_auto_commit = false;
 
 	trx->read_write = true;
+
+	memset(&trx->table_io_perf, 0, sizeof(trx->table_io_perf));
 
 	heap = mem_heap_create(sizeof(ib_vector_t) + sizeof(void*) * 8);
 	heap_alloc = ib_heap_allocator_create(heap);

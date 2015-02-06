@@ -1,0 +1,15 @@
+drop table if exists t1;
+CREATE TABLE t1 (a int not null primary key, b blob) engine=innodb;
+insert into t1 values (1, repeat("test", PAGE_SIZE / 4));
+select count(*) from t1;
+count(*)
+1
+select * from t1 where a=1;
+select 'should be 3,3,0,1,1,0',
+IO_READ_BYTES DIV PAGE_SIZE, IO_READ_REQUESTS, IO_READ_OLD_IOS,
+IO_READ_BYTES_BLOB DIV PAGE_SIZE, IO_READ_REQUESTS_BLOB,
+IO_READ_OLD_IOS_BLOB
+from information_schema.table_statistics where table_name like 't1%';
+should be 3,3,0,1,1,0	IO_READ_BYTES DIV PAGE_SIZE	IO_READ_REQUESTS	IO_READ_OLD_IOS	IO_READ_BYTES_BLOB DIV PAGE_SIZE	IO_READ_REQUESTS_BLOB	IO_READ_OLD_IOS_BLOB
+should be 3,3,0,1,1,0	3	3	0	1	1	0
+drop table t1;
