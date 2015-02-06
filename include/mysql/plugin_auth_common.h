@@ -22,8 +22,12 @@
 */
 #define MYSQL_PLUGIN_AUTH_COMMON_INCLUDED
 
-/** the max allowed length for a user name */
-#define MYSQL_USERNAME_LENGTH 48
+/**
+   The max allowed length for a user name. Equivalent to USERNAME_LENGTH
+   which is USERNAME_CHAR_LENGTH*SYSTEM_CHARSET_MBMAXLEN.
+*/
+
+#define MYSQL_USERNAME_LENGTH 240
 
 /**
   return values of the plugin authenticate_user() method.

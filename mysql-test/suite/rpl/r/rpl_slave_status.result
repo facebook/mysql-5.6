@@ -5,11 +5,11 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 ==== Create new replication user ====
 [on master]
-GRANT REPLICATION SLAVE ON *.* TO rpl@127.0.0.1 IDENTIFIED BY 'rpl';
+GRANT REPLICATION SLAVE ON *.* TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890@127.0.0.1 IDENTIFIED BY 'rpl';
 [on slave]
 include/sync_slave_sql_with_master.inc
 include/stop_slave.inc
-CHANGE MASTER TO master_user='rpl', master_password='rpl';
+CHANGE MASTER TO master_user='abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890', master_password='rpl';
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
@@ -25,7 +25,7 @@ n
 1
 ==== Delete new replication user ====
 [on master]
-DROP USER rpl@127.0.0.1;
+DROP USER abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890@127.0.0.1;
 FLUSH PRIVILEGES;
 [on slave]
 include/sync_slave_sql_with_master.inc

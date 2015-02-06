@@ -24,85 +24,86 @@ SET NAMES binary;
 # Test that SSL options works properly
 #
 
-delete from mysql.user where user='mysqltest_1';
-delete from mysql.db where user='mysqltest_1';
+delete from mysql.user where user='mysql_test_user_name_1';
+delete from mysql.db where user='mysql_test_user_name_1';
 flush privileges;
-grant select on mysqltest.* to mysqltest_1@localhost require cipher "EDH-RSA-DES-CBC3-SHA";
-show grants for mysqltest_1@localhost;
-grant delete on mysqltest.* to mysqltest_1@localhost;
-query_vertical select * from mysql.user where user="mysqltest_1";
-show grants for mysqltest_1@localhost;
-revoke delete on mysqltest.* from mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-grant select on mysqltest.* to mysqltest_1@localhost require NONE;
-show grants for mysqltest_1@localhost;
-grant USAGE on mysqltest.* to mysqltest_1@localhost require cipher "EDH-RSA-DES-CBC3-SHA" AND SUBJECT "testsubject" ISSUER "MySQL AB";
-show grants for mysqltest_1@localhost;
-revoke all privileges on mysqltest.* from mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-delete from mysql.user where user='mysqltest_1';
+grant select on mysqltest.* to mysql_test_user_name_1@localhost require cipher "EDH-RSA-DES-CBC3-SHA";
+show grants for mysql_test_user_name_1@localhost;
+grant delete on mysqltest.* to mysql_test_user_name_1@localhost;
+query_vertical select * from mysql.user where user="mysql_test_user_name_1";
+show grants for mysql_test_user_name_1@localhost;
+revoke delete on mysqltest.* from mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+grant select on mysqltest.* to mysql_test_user_name_1@localhost require NONE;
+show grants for mysql_test_user_name_1@localhost;
+grant USAGE on mysqltest.* to mysql_test_user_name_1@localhost require cipher "EDH-RSA-DES-CBC3-SHA" AND SUBJECT "testsubject" ISSUER "MySQL AB";
+show grants for mysql_test_user_name_1@localhost;
+revoke all privileges on mysqltest.* from mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+delete from mysql.user where user='mysql_test_user_name_1';
 flush privileges;
 
 #
 # Test of GRANTS specifying user limits
 #
-delete from mysql.user where user='mysqltest_1';
+delete from mysql.user where user='mysql_test_user_name_1';
 flush privileges;
-grant usage on *.* to mysqltest_1@localhost with max_queries_per_hour 10;
-query_vertical select * from mysql.user where user="mysqltest_1";
-show grants for mysqltest_1@localhost;
-grant usage on *.* to mysqltest_1@localhost with max_updates_per_hour 20 max_connections_per_hour 30;
-query_vertical select * from mysql.user where user="mysqltest_1";
-show grants for mysqltest_1@localhost;
+grant usage on *.* to mysql_test_user_name_1@localhost with max_queries_per_hour 10;
+query_vertical select * from mysql.user where user="mysql_test_user_name_1";
+show grants;
+show grants for mysql_test_user_name_1@localhost;
+grant usage on *.* to mysql_test_user_name_1@localhost with max_updates_per_hour 20 max_connections_per_hour 30;
+query_vertical select * from mysql.user where user="mysql_test_user_name_1";
+show grants for mysql_test_user_name_1@localhost;
 # This is just to double check that one won't ignore results of selects
 flush privileges;
-show grants for mysqltest_1@localhost;
-delete from mysql.user where user='mysqltest_1';
+show grants for mysql_test_user_name_1@localhost;
+delete from mysql.user where user='mysql_test_user_name_1';
 flush privileges;
 
 #
 # Test that the new db privileges are stored/retrieved correctly
 #
 
-grant CREATE TEMPORARY TABLES, LOCK TABLES on mysqltest.* to mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
+grant CREATE TEMPORARY TABLES, LOCK TABLES on mysqltest.* to mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
 flush privileges;
-show grants for mysqltest_1@localhost;
-revoke CREATE TEMPORARY TABLES on mysqltest.* from mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-grant ALL PRIVILEGES on mysqltest.* to mysqltest_1@localhost with GRANT OPTION;
+show grants for mysql_test_user_name_1@localhost;
+revoke CREATE TEMPORARY TABLES on mysqltest.* from mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+grant ALL PRIVILEGES on mysqltest.* to mysql_test_user_name_1@localhost with GRANT OPTION;
 flush privileges;
-show grants for mysqltest_1@localhost;
-revoke LOCK TABLES, ALTER on mysqltest.* from mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-revoke all privileges on mysqltest.* from mysqltest_1@localhost;
-delete from mysql.user where user='mysqltest_1';
+show grants for mysql_test_user_name_1@localhost;
+revoke LOCK TABLES, ALTER on mysqltest.* from mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+revoke all privileges on mysqltest.* from mysql_test_user_name_1@localhost;
+delete from mysql.user where user='mysql_test_user_name_1';
 flush privileges;
-grant usage on test.* to mysqltest_1@localhost with grant option;
-show grants for mysqltest_1@localhost;
-delete from mysql.user where user='mysqltest_1';
-delete from mysql.db where user='mysqltest_1';
-delete from mysql.tables_priv where user='mysqltest_1';
-delete from mysql.columns_priv where user='mysqltest_1';
+grant usage on test.* to mysql_test_user_name_1@localhost with grant option;
+show grants for mysql_test_user_name_1@localhost;
+delete from mysql.user where user='mysql_test_user_name_1';
+delete from mysql.db where user='mysql_test_user_name_1';
+delete from mysql.tables_priv where user='mysql_test_user_name_1';
+delete from mysql.columns_priv where user='mysql_test_user_name_1';
 flush privileges;
 --error ER_NONEXISTING_GRANT
-show grants for mysqltest_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
 
 #
 # Test what happens when you have same table and colum level grants
 #
 
 create table t1 (a int);
-GRANT select,update,insert on t1 to mysqltest_1@localhost;
-GRANT select (a), update (a),insert(a), references(a) on t1 to mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-select table_priv,column_priv from mysql.tables_priv where user="mysqltest_1";
-REVOKE select (a), update on t1 from mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-REVOKE select,update,insert,insert (a) on t1 from mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-GRANT select,references on t1 to mysqltest_1@localhost;
-select table_priv,column_priv from mysql.tables_priv where user="mysqltest_1";
+GRANT select,update,insert on t1 to mysql_test_user_name_1@localhost;
+GRANT select (a), update (a),insert(a), references(a) on t1 to mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+select table_priv,column_priv from mysql.tables_priv where user="mysql_test_user_name_1";
+REVOKE select (a), update on t1 from mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+REVOKE select,update,insert,insert (a) on t1 from mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+GRANT select,references on t1 to mysql_test_user_name_1@localhost;
+select table_priv,column_priv from mysql.tables_priv where user="mysql_test_user_name_1";
 grant all on test.* to mysqltest_3@localhost with grant option;
 revoke all on test.* from mysqltest_3@localhost;
 show grants for mysqltest_3@localhost;
@@ -113,10 +114,10 @@ revoke all on test.t1 from mysqltest_2@localhost;
 show grants for mysqltest_2@localhost;
 revoke grant option on test.t1 from mysqltest_2@localhost;
 show grants for mysqltest_2@localhost;
-delete from mysql.user where user='mysqltest_1' or user="mysqltest_2" or user="mysqltest_3";
-delete from mysql.db where user='mysqltest_1' or user="mysqltest_2" or user="mysqltest_3";
-delete from mysql.tables_priv where user='mysqltest_1' or user="mysqltest_2" or user="mysqltest_3";
-delete from mysql.columns_priv where user='mysqltest_1' or user="mysqltest_2" or user="mysqltest_3";
+delete from mysql.user where user='mysql_test_user_name_1' or user="mysqltest_2" or user="mysqltest_3";
+delete from mysql.db where user='mysql_test_user_name_1' or user="mysqltest_2" or user="mysqltest_3";
+delete from mysql.tables_priv where user='mysql_test_user_name_1' or user="mysqltest_2" or user="mysqltest_3";
+delete from mysql.columns_priv where user='mysql_test_user_name_1' or user="mysqltest_2" or user="mysqltest_3";
 flush privileges;
 drop table t1;
 
@@ -124,7 +125,7 @@ drop table t1;
 # Test some error conditions
 #
 --error ER_WRONG_USAGE
-GRANT FILE on mysqltest.*  to mysqltest_1@localhost;
+GRANT FILE on mysqltest.*  to mysql_test_user_name_1@localhost;
 select 1;     # To test that the previous command didn't cause problems
 
 #
@@ -202,10 +203,10 @@ drop_user3@localhost, drop_user4@localhost;
 drop user drop_user1@localhost, drop_user2@localhost, drop_user3@localhost,
 drop_user4@localhost;
 drop table t1;
-grant usage on *.* to mysqltest_1@localhost identified by "password";
-grant select, update, insert on test.* to mysqltest_1@localhost;
-show grants for mysqltest_1@localhost;
-drop user mysqltest_1@localhost;
+grant usage on *.* to mysql_test_user_name_1@localhost identified by "password";
+grant select, update, insert on test.* to mysql_test_user_name_1@localhost;
+show grants for mysql_test_user_name_1@localhost;
+drop user mysql_test_user_name_1@localhost;
 
 #
 # Bug#3403 Wrong encoding in SHOW GRANTS output
@@ -824,7 +825,7 @@ disconnect master;
 # Bug#10668 CREATE USER does not enforce username length limit
 #
 --error ER_WRONG_STRING_LENGTH
-create user mysqltest1_thisisreallytoolong;
+create user abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a;
 
 #
 # Test for Bug#16899 Possible buffer overflow in handling of DEFINER-clause.
@@ -914,13 +915,13 @@ USE test;
 # Working with database-level privileges.
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON mysqltest.* TO 1234567890abcdefGHIKL@localhost;
+GRANT CREATE ON mysqltest.* TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 GRANT CREATE ON mysqltest.* TO some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON mysqltest.* FROM 1234567890abcdefGHIKL@localhost;
+REVOKE CREATE ON mysqltest.* FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 REVOKE CREATE ON mysqltest.* FROM some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
@@ -928,13 +929,13 @@ REVOKE CREATE ON mysqltest.* FROM some_user_name@1234567890abcdefghij1234567890a
 # Working with table-level privileges.
 
 --error ER_WRONG_STRING_LENGTH
-GRANT CREATE ON t1 TO 1234567890abcdefGHIKL@localhost;
+GRANT CREATE ON t1 TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 GRANT CREATE ON t1 TO some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE CREATE ON t1 FROM 1234567890abcdefGHIKL@localhost;
+REVOKE CREATE ON t1 FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 REVOKE CREATE ON t1 FROM some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
@@ -942,13 +943,13 @@ REVOKE CREATE ON t1 FROM some_user_name@1234567890abcdefghij1234567890abcdefghij
 # Working with routine-level privileges.
 
 --error ER_WRONG_STRING_LENGTH
-GRANT EXECUTE ON PROCEDURE p1 TO 1234567890abcdefGHIKL@localhost;
+GRANT EXECUTE ON PROCEDURE p1 TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 GRANT EXECUTE ON PROCEDURE p1 TO some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
 
 --error ER_WRONG_STRING_LENGTH
-REVOKE EXECUTE ON PROCEDURE p1 FROM 1234567890abcdefGHIKL@localhost;
+REVOKE EXECUTE ON PROCEDURE p1 FROM abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890a@localhost;
 
 --error ER_WRONG_STRING_LENGTH
 REVOKE EXECUTE ON PROCEDURE t1 FROM some_user_name@1234567890abcdefghij1234567890abcdefghij1234567890abcdefghijQWERTY;
@@ -1586,7 +1587,7 @@ grant select on test.* to юзер_юзер@localhost;
 revoke all on test.* from юзер_юзер@localhost;
 drop user юзер_юзер@localhost;
 --error ER_WRONG_STRING_LENGTH
-grant select on test.* to очень_длинный_юзер@localhost;
+grant select on test.* to очень_длинный_юзерочень_длинный_юзер_очень_длинный_юзерочень_длинный_юзер_юзерррр@localhost;
 set names default;
 
 #

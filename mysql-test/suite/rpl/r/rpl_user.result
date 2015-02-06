@@ -9,24 +9,24 @@ set session sql_log_bin=1;
 set session sql_log_bin=0;
 delete from mysql.user where Host='fakehost';
 set session sql_log_bin=1;
-create user 'foo'@'fakehost';
-create user 'foo'@'fakehost', 'bar'@'fakehost';
-ERROR HY000: Operation CREATE USER failed for 'foo'@'fakehost'
-create user 'foo'@'fakehost', 'bar'@'fakehost';
-ERROR HY000: Operation CREATE USER failed for 'foo'@'fakehost','bar'@'fakehost'
+create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost';
+create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost', 'bar'@'fakehost';
+ERROR HY000: Operation CREATE USER failed for 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost'
+create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost', 'bar'@'fakehost';
+ERROR HY000: Operation CREATE USER failed for 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost','bar'@'fakehost'
 create user 'foo1'@'fakehost' IDENTIFIED BY 'foo1', 'foo2'@'fakehost'
   IDENTIFIED BY PASSWORD'*1111111111111111111111111111111111111111',
 'foo3'@'fakehost';
 include/sync_slave_sql_with_master.inc
 select Host,User from mysql.user where Host='fakehost';
 Host	User
+fakehost	abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890
 fakehost	bar
-fakehost	foo
 fakehost	foo1
 fakehost	foo2
 fakehost	foo3
 include/diff_tables.inc [master:mysql.user, slave:mysql.user]
-rename user 'foo'@'fakehost' to 'foofoo'@'fakehost';
+rename user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost' to 'foofoo'@'fakehost';
 rename user 'not_exist_user1'@'fakehost' to 'foobar'@'fakehost', 'bar'@'fakehost' to 'barbar'@'fakehost';
 ERROR HY000: Operation RENAME USER failed for 'not_exist_user1'@'fakehost'
 rename user 'not_exist_user1'@'fakehost' to 'foobar'@'fakehost', 'not_exist_user2'@'fakehost' to 'barfoo'@'fakehost';
@@ -71,10 +71,10 @@ DROP USER must_change2@localhost;
 include/sync_slave_sql_with_master.inc
 include/show_binlog_events.inc
 Log_name	Pos	Event_type	Server_id	End_log_pos	Info
-master-bin.000001	#	Query	#	#	use `test`; create user 'foo'@'fakehost'
-master-bin.000001	#	Query	#	#	use `test`; create user 'foo'@'fakehost', 'bar'@'fakehost'
+master-bin.000001	#	Query	#	#	use `test`; create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost'
+master-bin.000001	#	Query	#	#	use `test`; create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost', 'bar'@'fakehost'
 master-bin.000001	#	Query	#	#	use `test`; CREATE USER 'foo1'@'fakehost' IDENTIFIED BY PASSWORD '*6EAC5249D53050AE649BDB0CC4B85D1AE90CA16E','foo2'@'fakehost' IDENTIFIED BY PASSWORD '*1111111111111111111111111111111111111111','foo3'@'fakehost'
-master-bin.000001	#	Query	#	#	use `test`; rename user 'foo'@'fakehost' to 'foofoo'@'fakehost'
+master-bin.000001	#	Query	#	#	use `test`; rename user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost' to 'foofoo'@'fakehost'
 master-bin.000001	#	Query	#	#	use `test`; rename user 'not_exist_user1'@'fakehost' to 'foobar'@'fakehost', 'bar'@'fakehost' to 'barbar'@'fakehost'
 master-bin.000001	#	Query	#	#	use `test`; drop user 'foofoo'@'fakehost'
 master-bin.000001	#	Query	#	#	use `test`; drop user 'foo1'@'fakehost', 'foo2'@'fakehost', 'foo3'@'fakehost'
