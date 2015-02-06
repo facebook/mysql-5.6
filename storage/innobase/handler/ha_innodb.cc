@@ -797,6 +797,12 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_sec_rec_cluster_reads_avoided, SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
+  {"outstanding_aio_requests",
+   (char*) &export_vars.innodb_outstanding_aio_requests,  SHOW_LONG},
+#ifdef UNIV_DEBUG
+  {"max_outstanding_aio_requests",
+   (char*) &export_vars.innodb_max_outstanding_aio_requests, SHOW_LONG},
+#endif /* UNIV_DEBUG */
   {"logical_read_ahead_misses",
    (char*) &export_vars.innodb_logical_read_ahead_misses, SHOW_LONG},
   {"logical_read_ahead_prefetched",
@@ -16977,6 +16983,12 @@ static MYSQL_SYSVAR_BOOL(page_cleaner_adaptive_sleep, srv_pc_adaptive_sleep,
   PLUGIN_VAR_RQCMDARG,
   "Enable adaptive sleep time calculation for page cleaner thread",
   NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
+  PLUGIN_VAR_RQCMDARG,
+  "Maximum number of outstanding AIO requests. Stall aio requests submission if"
+  "this is reached.",
+  NULL, NULL, 256, 0, 1024, 0);
 
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
