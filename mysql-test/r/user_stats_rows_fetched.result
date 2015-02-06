@@ -1,0 +1,96 @@
+drop table if exists userstats;
+drop table if exists userstats2;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+create table userstats2 (i int primary key, j int) engine=innodb;
+create index us2x on userstats2(j);
+insert into userstats values (1,1), (2,2), (3,3), (4,4);
+insert into userstats2 select * from userstats;
+
+At start
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	0
+select * from userstats;
+i	j
+1	1
+2	2
+3	3
+4	4
+
+select 4 rows: rows_fetched incremented by 4
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	4
+select * from userstats order by i;
+i	j
+1	1
+2	2
+3	3
+4	4
+
+select 4 rows: rows_fetched incremented by 4
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	8
+select * from userstats order by i limit 3;
+i	j
+1	1
+2	2
+3	3
+
+select 3 rows: rows_fetched incremented by 3
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	11
+select count(*) from userstats;
+count(*)
+4
+
+select 1 rows: rows_fetched incremented by 1
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	12
+select * from userstats where i < 0;
+i	j
+
+select 0 rows: rows_fetched incremented by 0
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	12
+select * from userstats us, userstats2 us2 where us.i = us2.i;
+i	j	i	j
+1	1	1	1
+2	2	2	2
+3	3	3	3
+4	4	4	4
+
+select 4 rows: rows_fetched incremented by 4
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	16
+delete from userstats2;
+update userstats set j=5 where i=3;
+insert into userstats2 values (6,6);
+insert into userstats2 select * from userstats;
+
+after insert update delete: no change
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	16
+show global variables like "innodb_doublewrite";
+Variable_name	Value
+innodb_doublewrite	1
+
+after show 1 row: increment by 1
+
+select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_fetched	17
+drop table userstats;
+drop table userstats2;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;

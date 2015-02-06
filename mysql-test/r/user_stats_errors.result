@@ -1,0 +1,39 @@
+drop table if exists userstats;
+drop table if exists userstats2;
+flush statistics;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+insert into userstats values (1,1), (2,2), (3,3), (4,4);
+
+At start
+
+select errors_total from information_schema.user_statistics where user_name = 'mysqltest_1';
+errors_total	0
+select * from userstats2;
+ERROR 42S02: Table 'test.userstats2' doesn't exist
+
+increment by 1
+
+select errors_total from information_schema.user_statistics where user_name = 'mysqltest_1';
+errors_total	1
+begin;
+select * from userstats for update;
+i	j
+1	1
+2	2
+3	3
+4	4
+select * from userstats for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+
+increment by 1
+
+select errors_total from information_schema.user_statistics where user_name = 'mysqltest_1';
+errors_total	2
+rollback;
+drop table userstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;

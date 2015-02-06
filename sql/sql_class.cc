@@ -1411,6 +1411,7 @@ void THD::init(void)
 
   my_io_perf_init(&io_perf_read);
   my_io_perf_init(&io_perf_write);
+  my_io_perf_init(&io_perf_read_blob);
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
@@ -3722,6 +3723,8 @@ void thd_increment_bytes_sent(ulong length)
   if (likely(thd != 0))
   { /* current_thd==0 when close_connection() calls net_send_error() */
     thd->status_var.bytes_sent+= length;
+    USER_STATS *us= thd_get_user_stats(thd);
+    us->bytes_sent.inc(length);
   }
 }
 
@@ -3729,6 +3732,8 @@ void thd_increment_bytes_sent(ulong length)
 void thd_increment_bytes_received(ulong length)
 {
   current_thd->status_var.bytes_received+= length;
+  USER_STATS *us= thd_get_user_stats(current_thd);
+  us->bytes_received.inc(length);
 }
 
 

@@ -388,6 +388,14 @@ static mysql_cond_t COND_thread_cache, COND_flush_thread_cache;
 
 /* Global variables */
 
+/* USER_STATS for the SQL slave */
+USER_STATS slave_user_stats;
+/*
+  USER_STATS for everything that doesn't have THD::user_connect except
+  the SQL slave
+*/
+USER_STATS other_user_stats;
+
 bool opt_bin_log, opt_ignore_builtin_innodb= 0;
 my_bool opt_log, opt_slow_log, opt_log_raw;
 ulonglong log_output_options;
@@ -3116,6 +3124,40 @@ void init_my_timer(void)
 }
 
 /**********************************************************************
+Return a - b in diff */
+void my_io_perf_diff(my_io_perf_t* diff,
+                    const my_io_perf_t* a, const my_io_perf_t* b)
+{
+  if (a->bytes > b->bytes)
+    diff->bytes = a->bytes - b->bytes;
+  else
+    diff->bytes = 0;
+
+  if (a->requests > b->requests)
+    diff->requests = a->requests - b->requests;
+  else
+    diff->requests = 0;
+
+  if (a->svc_time > b->svc_time)
+    diff->svc_time = a->svc_time - b->svc_time;
+  else
+    diff->svc_time = 0;
+
+  if (a->wait_time > b->wait_time)
+    diff->wait_time = a->wait_time - b->wait_time;
+  else
+    diff->wait_time = 0;
+
+  if (a->old_ios > b->old_ios)
+    diff->old_ios = a->old_ios - b->old_ios;
+  else
+    diff->old_ios = 0;
+
+  diff->svc_time_max = max(a->svc_time_max, b->svc_time_max);
+  diff->wait_time_max = max(a->wait_time_max, b->wait_time_max);
+}
+
+/**********************************************************************
 Accumulate per-table IO stats helper function */
 void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf)
 {
@@ -3474,6 +3516,10 @@ void my_message_sql(uint error, const char *str, myf MyFlags)
   {
     if (MyFlags & ME_FATALERROR)
       thd->is_fatal_error= 1;
+
+    USER_STATS *us = thd_get_user_stats(thd);
+    us->errors_total.inc();
+
     (void) thd->raise_condition(error,
                                 NULL,
                                 Sql_condition::WARN_LEVEL_ERROR,
@@ -5835,6 +5881,19 @@ int mysqld_main(int argc, char **argv)
   my_str_malloc= &my_str_malloc_mysqld;
   my_str_free= &my_str_free_mysqld;
   my_str_realloc= &my_str_realloc_mysqld;
+
+  /*
+    Initialize user_stats object for SQL replication thread.
+    See thd_get_user_stats.
+  */
+  init_user_stats(&slave_user_stats);
+
+  /*
+    Initialize user_stats object for everything else
+    (not SQL slave, not a real user)
+    See thd_get_user_stats.
+  */
+  init_user_stats(&other_user_stats);
 
   /*
     init signals & alarm

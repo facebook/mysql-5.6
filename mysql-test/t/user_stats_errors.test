@@ -1,0 +1,96 @@
+#
+# Test IS.user_statistics for rows_* counters
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc2, localhost, mysqltest_1,,);
+connection default;
+connect (muc1, localhost, mysqltest_1,,);
+
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+
+insert into userstats values (1,1), (2,2), (3,3), (4,4);
+
+--echo
+--echo At start
+--echo
+connection default;
+--query_vertical select errors_total from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# select from table that does not exist
+#
+
+--error ER_NO_SUCH_TABLE
+select * from userstats2;
+--echo
+--echo increment by 1
+--echo
+connection default;
+--query_vertical select errors_total from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# An error from Innodb
+#
+
+begin;
+select * from userstats for update;
+
+connection muc2;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from userstats for update;
+--echo
+--echo increment by 1
+--echo
+connection default;
+--query_vertical select errors_total from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+rollback;
+
+# Cleanup
+connection default;
+disconnect muc1;
+disconnect muc2;
+
+drop table userstats;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
