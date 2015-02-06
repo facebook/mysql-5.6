@@ -7089,8 +7089,11 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
   if (!(used_fields & HA_CREATE_USED_COMPRESSION))
     create_info->compression= table->s->compression_type;
 
-  if (!(used_fields & HA_CREATE_USED_COMPRESSION_FLAGS))
-    create_info->compression_flags= table->s->compression_flags;
+  if (!(used_fields & HA_CREATE_USED_COMPRESSION_LEVEL))
+    create_info->compression_level= table->s->compression_level;
+
+  if (!(used_fields & HA_CREATE_USED_COMPACT_METADATA))
+    create_info->compact_metadata= table->s->compact_metadata;
 
   if (!(used_fields & HA_CREATE_USED_RBR_COLUMN_NAMES))
     create_info->rbr_column_names = table->s->rbr_column_names;
