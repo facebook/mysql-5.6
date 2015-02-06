@@ -1,0 +1,34 @@
+#Set all to zero
+flush status;
+
+#Start counters
+--let $start_parse = query_get_value(show status like "Parse_seconds", Value, 1)
+--let $start_pre_exec = query_get_value(show status like "Pre_exec_seconds", Value, 1)
+--let $start_exec = query_get_value(show status like "Exec_seconds", Value, 1)
+--let $start_command = query_get_value(show status like "Command_seconds", Value, 1)
+
+#Waste ~1.1 seconds
+select sleep(1.1);
+
+#Get counters
+--let $end_parse = query_get_value(show status like "Parse_seconds", Value, 1)
+--let $end_pre_exec = query_get_value(show status like "Pre_exec_seconds", Value, 1)
+--let $end_exec = query_get_value(show status like "Exec_seconds", Value, 1)
+--let $end_command = query_get_value(show status like "Command_seconds", Value, 1)
+
+#Check sanity
+--let $assert_text= Parse_seconds should be smaller than a second.
+--let $assert_cond= $end_parse - $start_parse < 1.0
+--source include/assert.inc
+
+--let $assert_text= Pre_exec_seconds should be smaller than a second.
+--let $assert_cond= $end_pre_exec - $start_pre_exec < 1.0
+--source include/assert.inc
+
+--let $assert_text= Exec_seconds should be bigger than a second.
+--let $assert_cond= $end_exec - $start_exec > 1.0
+--source include/assert.inc
+
+--let $assert_text= Command_seconds should be bigger than a second.
+--let $assert_cond= $end_command - $start_command > 1.0
+--source include/assert.inc
