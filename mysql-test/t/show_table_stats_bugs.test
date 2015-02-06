@@ -1,0 +1,60 @@
+#
+# tests for bugs in SHOW TABLE_STATISTICS
+#
+
+--disable_warnings
+drop table if exists x;
+--enable_warnings
+
+#
+# Confirm that duplicate entries do not occur in SHOW TABLE_STATISTICS
+#
+
+flush statistics;
+create table x (i int primary key auto_increment, j char(255)) ;
+
+insert into x values (null, 'foobar');
+insert into x select null,'foobar' from x;
+insert into x select null,'foobar' from x;
+
+analyze table x;
+select count(*) from x;
+select i, max(j) from x group by i order by i;
+select * from information_schema.table_statistics where table_schema = 'test';
+
+#
+# Confirm that temporary tables are not listed in SHOW TABLE_STATISTICS
+#
+
+flush statistics;
+create temporary table mt engine=myisam as select * from x;
+create temporary table tt as select * from x;
+
+select count(*) from mt;
+select count(*) from tt;
+
+select * from information_schema.table_statistics where table_name != 'x';
+
+#
+# confirm that multiple statements are handled
+#
+
+delete from x;
+flush statistics;
+
+insert into x values (1, 'foo');
+insert into x values (2, 'bar');
+
+update x set j='foo2' where i=1;
+update x set j='bar2' where i=2;
+
+delete from x where i=1;
+delete from x where i=2;
+
+select * from information_schema.table_statistics where table_name = 'x';
+
+#
+# cleanup
+#
+
+drop table x;
