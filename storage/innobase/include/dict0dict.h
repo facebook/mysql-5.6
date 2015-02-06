@@ -896,15 +896,33 @@ dict_tf_get_format(
 	ulint		flags)		/*!< in: dict_table_t::flags */
 	__attribute__((warn_unused_result));
 /********************************************************************//**
+Determine the compression type from a dict_table_t::flags.
+@return compression type. */
+UNIV_INLINE
+rec_compression_type_t
+dict_tf_get_compression_type(
+	ulint	flags)
+	__attribute__((warn_unused_result));
+/********************************************************************//**
+Determine the compression flags from a dict_table_t::flags.
+@return compression flags. */
+UNIV_INLINE
+ulong
+dict_tf_get_compression_flags(
+	ulint	flags)
+	__attribute__((warn_unused_result));
+/********************************************************************//**
 Set the various values in a dict_table_t::flags pointer. */
 UNIV_INLINE
 void
 dict_tf_set(
 /*========*/
-	ulint*		flags,		/*!< in/out: table */
+	ulint*		flags,		/*!< in/out: table flags */
 	rec_format_t	format,		/*!< in: file format */
 	ulint		zip_ssize,	/*!< in: zip shift size */
-	bool		remote_path)	/*!< in: table uses DATA DIRECTORY */
+	bool		use_data_dir,	/*!< in: table uses DATA DIRECTORY */
+	rec_compression_type_t	compression,
+	ulong		compression_flags)
 	__attribute__((nonnull));
 /********************************************************************//**
 Convert a 32 bit integer table flags to the 32 bit integer that is

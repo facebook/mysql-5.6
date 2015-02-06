@@ -4670,7 +4670,48 @@ ha_innobase::get_row_type() const
 	return(ROW_TYPE_NOT_USED);
 }
 
+UNIV_INTERN
+enum compression_type
+ha_innobase::get_compression_type() const
+/*=============================*/
+{
+	if (prebuilt && prebuilt->table) {
+		const ulint	flags = prebuilt->table->flags;
+		ut_ad(dict_tf_get_rec_format(flags) == REC_FORMAT_COMPRESSED);
+		switch (dict_tf_get_compression_type(flags)) {
+		case REC_COMPRESSION_ZLIB_STREAM:
+			return(COMPRESSION_TYPE_ZLIB_STREAM);
+		case REC_COMPRESSION_ZLIB:
+			return(COMPRESSION_TYPE_ZLIB);
+		case REC_COMPRESSION_BZIP:
+			return(COMPRESSION_TYPE_BZIP);
+		case REC_COMPRESSION_LZMA:
+			return(COMPRESSION_TYPE_LZMA);
+		case REC_COMPRESSION_QUICKLZ:
+			return(COMPRESSION_TYPE_QUICKLZ);
+		case REC_COMPRESSION_SNAPPY:
+			return(COMPRESSION_TYPE_SNAPPY);
+		case REC_COMPRESSION_LZ4:
+			return(COMPRESSION_TYPE_LZ4);
+		default:
+			ut_error;
+			break;
+		}
+	}
+	ut_ad(0);
+	return(COMPRESSION_TYPE_ZLIB_STREAM);
+}
 
+UNIV_INTERN
+ulong
+ha_innobase::get_compression_flags() const
+{
+	if (prebuilt && prebuilt->table) {
+		return dict_tf_get_compression_flags(prebuilt->table->flags);
+	}
+	ut_ad(0);
+	return 0;
+}
 
 /****************************************************************//**
 Get the table flags to use for the statement.
@@ -9717,6 +9758,7 @@ create_options_are_invalid(
 	ibool	kbs_specified	= FALSE;
 	const char*	ret	= NULL;
 	enum row_type	row_format	= form->s->row_type;
+	ulong compression_flags = create_info->compression_flags;
 
 	ut_ad(thd != NULL);
 
@@ -9849,6 +9891,30 @@ create_options_are_invalid(
 			ER_ILLEGAL_HA_CREATE_OPTION,
 			"InnoDB: INDEX DIRECTORY is not supported");
 		ret = "INDEX DIRECTORY";
+	}
+
+	if (row_format != ROW_TYPE_COMPRESSED
+		|| create_info->compression == COMPRESSION_TYPE_ZLIB_STREAM) {
+		if (create_info->compression_flags) {
+			push_warning_printf(
+			    thd, Sql_condition::WARN_LEVEL_WARN,
+			    ER_ILLEGAL_HA_CREATE_OPTION,
+			    "InnoDB: COMPRESSION_FLAGS can be nonzero only if "
+			    "ROW_FORMAT=COMPRESSED and COMPRESSION is one of "
+			    "the following: ZLIB, BZIP, LZMA, SNAPPY, QUICKLZ, "
+			    "or LZ4");
+			ret = "COMPRESSION_FLAGS";
+		}
+	}
+
+	if (compression_flags > 0xff) {
+		push_warning_printf(
+		    thd, Sql_condition::WARN_LEVEL_WARN,
+		    ER_ILLEGAL_HA_CREATE_OPTION,
+		    "InnoDB: too large COMPRESSION_FLAGS = %lu."
+		    " COMPRESSION_FLAGS must be between 0 and 255 inclusive.",
+		    compression_flags);
+		ret = "COMPRESSION_FLAGS";
 	}
 
 	/* Don't support compressed table when page size > 16k. */
@@ -10034,8 +10100,10 @@ innobase_table_flags(
 	bool		zip_allowed = true;
 	ulint		zip_ssize = 0;
 	enum row_type	row_format;
+	rec_compression_type_t	compression = REC_COMPRESSION_UNUSED;
 	rec_format_t	innodb_row_format = REC_FORMAT_COMPACT;
 	bool		use_data_dir;
+	ulong		compression_flags = 0;
 
 	/* Cache the value of innodb_file_format, in case it is
 	modified by another thread while the table is being created. */
@@ -10169,6 +10237,7 @@ index_bad:
 		}
 	}
 
+
 	/* Validate the row format.  Correct it if necessary */
 	switch (row_format) {
 	case ROW_TYPE_REDUNDANT:
@@ -10229,11 +10298,51 @@ index_bad:
 		zip_ssize = 0;
 	}
 
+	if (zip_allowed && zip_ssize) {
+		compression_flags = create_info->compression_flags;
+		switch (create_info->compression) {
+		case COMPRESSION_TYPE_ZLIB_STREAM:
+			compression = REC_COMPRESSION_ZLIB_STREAM;
+			break;
+		case COMPRESSION_TYPE_ZLIB:
+			compression = REC_COMPRESSION_ZLIB;
+			break;
+		case COMPRESSION_TYPE_BZIP:
+			compression = REC_COMPRESSION_BZIP;
+			break;
+		case COMPRESSION_TYPE_LZMA:
+			compression = REC_COMPRESSION_LZMA;
+			break;
+		case COMPRESSION_TYPE_QUICKLZ:
+			compression = REC_COMPRESSION_QUICKLZ;
+			break;
+		case COMPRESSION_TYPE_SNAPPY:
+			compression = REC_COMPRESSION_SNAPPY;
+			break;
+		case COMPRESSION_TYPE_LZ4:
+			compression = REC_COMPRESSION_LZ4;
+			break;
+		default:
+			ut_error;
+			break;
+		}
+		if (compression_flags > 0xff) {
+			push_warning_printf(
+				thd, Sql_condition::WARN_LEVEL_WARN,
+				ER_ILLEGAL_HA_CREATE_OPTION,
+				"InnoDB: ignoring COMPRESSION_FLAGS=%lu "
+				"unless COMPRESSION_FLAGS is between "
+				"0 and 255.", compression_flags);
+			compression_flags = 0;
+		}
+	}
+
 	use_data_dir = use_tablespace
 		       && ((create_info->data_file_name != NULL)
 		       && !(create_info->options & HA_LEX_CREATE_TMP_TABLE));
 
-	dict_tf_set(flags, innodb_row_format, zip_ssize, use_data_dir);
+	dict_tf_set(flags, innodb_row_format, zip_ssize,
+				use_data_dir, compression, compression_flags);
 
 	if (create_info->options & HA_LEX_CREATE_TMP_TABLE) {
 		*flags2 |= DICT_TF2_TEMPORARY;
@@ -14642,8 +14751,12 @@ ha_innobase::check_if_incompatible_data(
 		return(COMPATIBLE_DATA_NO);
 	}
 
-	/* Specifying KEY_BLOCK_SIZE requests a rebuild of the table. */
-	if (info->used_fields & HA_CREATE_USED_KEY_BLOCK_SIZE) {
+	/* Specifying KEY_BLOCK_SIZE, COMPRESSION or COMPRESSION_FLAGS
+	requests a rebuild of the table. */
+	if (info->used_fields &
+		(HA_CREATE_USED_KEY_BLOCK_SIZE
+		 | HA_CREATE_USED_COMPRESSION
+		 | HA_CREATE_USED_COMPRESSION_FLAGS)) {
 		return(COMPATIBLE_DATA_NO);
 	}
 

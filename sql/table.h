@@ -32,6 +32,8 @@
 #include "parse_file.h"
 #include "table_id.h"
 
+#define FILE_INFO_LENGTH 64L
+
 /* Structs that defines the TABLE */
 
 class Item;				/* Needed by ORDER */
@@ -655,6 +657,8 @@ struct TABLE_SHARE
     return db_plugin ? plugin_data(db_plugin, handlerton*) : NULL;
   }
   enum row_type row_type;		/* How rows are stored */
+  enum compression_type compression_type;
+  ulong compression_flags; /* 1 byte used for compression options */
   enum tmp_table_type tmp_table;
 
   uint ref_count;                       /* How many TABLE objects uses this */

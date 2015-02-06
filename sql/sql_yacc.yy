@@ -1022,6 +1022,7 @@ bool match_authorized_user(Security_context *ctx, LEX_USER *user)
   enum ha_key_alg key_alg;
   handlerton *db_type;
   enum row_type row_type;
+  enum compression_type compression_type;
   enum ha_rkey_function ha_rkey_mode;
   enum enum_ha_read_modes ha_read_mode;
   enum enum_tx_isolation tx_isolation;
@@ -1131,6 +1132,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  BTREE_SYM
 %token  BY                            /* SQL-2003-R */
 %token  BYTE_SYM
+%token  BZIP_SYM
 %token  CACHE_SYM
 %token  CALL_SYM                      /* SQL-2003-R */
 %token  CASCADE                       /* SQL-2003-N */
@@ -1163,6 +1165,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  COMPACT_SYM
 %token  COMPLETION_SYM
 %token  COMPRESSED_SYM
+%token  COMPRESSION_SYM
+%token  COMPRESSION_FLAGS_SYM
 %token  CONCURRENT
 %token  CONDITION_SYM                 /* SQL-2003-R, SQL-2008-R */
 %token  CONNECTION_SYM
@@ -1365,6 +1369,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  LONG_SYM
 %token  LOOP_SYM
 %token  LOW_PRIORITY
+%token  LZ4_SYM
+%token  LZMA_SYM
 %token  LT                            /* OPERATOR */
 %token  MASTER_AUTO_POSITION_SYM
 %token  MASTER_BIND_SYM
@@ -1499,6 +1505,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  QUARTER_SYM
 %token  QUERY_SYM
 %token  QUICK
+%token  QUICKLZ_SYM
 %token  RANGE_SYM                     /* SQL-2003-R */
 %token  READS_SYM                     /* SQL-2003-R */
 %token  READ_ONLY_SYM
@@ -1575,6 +1582,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SLAVE
 %token  SLOW
 %token  SMALLINT                      /* SQL-2003-R */
+%token  SNAPPY_SYM
 %token  SNAPSHOT_SYM
 %token  SOCKET_SYM
 %token  SONAME_SYM
@@ -1709,6 +1717,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  YEAR_MONTH_SYM
 %token  YEAR_SYM                      /* SQL-2003-R */
 %token  ZEROFILL
+%token  ZLIB_SYM
+%token  ZLIB_STREAM_SYM
 
 %left   JOIN_SYM INNER_SYM STRAIGHT_JOIN CROSS LEFT RIGHT
 /* A dummy token to force the priority of table_ref production in a join. */
@@ -1848,6 +1858,8 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %type <db_type> storage_engines known_storage_engines
 
 %type <row_type> row_types
+
+%type <compression_type> compression_types
 
 %type <tx_isolation> isolation_types
 
@@ -6227,6 +6239,16 @@ create_table_option:
             Lex->create_info.used_fields|= HA_CREATE_USED_KEY_BLOCK_SIZE;
             Lex->create_info.key_block_size= $3;
           }
+        | COMPRESSION_SYM opt_equal compression_types
+          {
+            Lex->create_info.used_fields|= HA_CREATE_USED_COMPRESSION;
+            Lex->create_info.compression= $3;
+          }
+        | COMPRESSION_FLAGS_SYM opt_equal ulong_num
+          {
+            Lex->create_info.used_fields|= HA_CREATE_USED_COMPRESSION_FLAGS;
+            Lex->create_info.compression_flags= $3;
+          }
         ;
 
 default_charset:
@@ -6316,6 +6338,16 @@ row_types:
         | REDUNDANT_SYM  { $$= ROW_TYPE_REDUNDANT; }
         | COMPACT_SYM    { $$= ROW_TYPE_COMPACT; }
         ;
+
+compression_types:
+          ZLIB_STREAM_SYM        { $$= COMPRESSION_TYPE_ZLIB_STREAM; }
+          | ZLIB_SYM       { $$= COMPRESSION_TYPE_ZLIB; }
+          | BZIP_SYM       { $$= COMPRESSION_TYPE_BZIP; }
+          | LZMA_SYM       { $$= COMPRESSION_TYPE_LZMA; }
+          | SNAPPY_SYM     { $$= COMPRESSION_TYPE_SNAPPY; }
+          | QUICKLZ_SYM    { $$= COMPRESSION_TYPE_QUICKLZ; }
+          | LZ4_SYM        { $$= COMPRESSION_TYPE_LZ4; }
+          ;
 
 merge_insert_types:
          NO_SYM          { $$= MERGE_INSERT_DISABLED; }

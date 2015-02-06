@@ -201,9 +201,12 @@ innobase_need_rebuild(
 	    == Alter_inplace_info::CHANGE_CREATE_OPTION
 	    && !(ha_alter_info->create_info->used_fields
 		 & (HA_CREATE_USED_ROW_FORMAT
-		    | HA_CREATE_USED_KEY_BLOCK_SIZE))) {
+		    | HA_CREATE_USED_KEY_BLOCK_SIZE
+		    | HA_CREATE_USED_COMPRESSION
+		    | HA_CREATE_USED_COMPRESSION_FLAGS))) {
 		/* Any other CHANGE_CREATE_OPTION than changing
-		ROW_FORMAT or KEY_BLOCK_SIZE is ignored. */
+		ROW_FORMAT, KEY_BLOCK_SIZE, COMPRESSION, or COMPRESSION_FLAGS
+		is ignored. */
 		return(false);
 	}
 
