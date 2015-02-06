@@ -1,0 +1,108 @@
+--disable_warnings
+DROP TABLE IF EXISTS t1,t2;
+--enable_warnings
+
+--echo #
+--echo # Test comment_bytes
+--echo #
+
+--echo # Create table t1.t2
+CREATE TABLE t1 (id INT NOT NULL, a INT, PRIMARY KEY (id));
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6);
+
+CREATE TABLE t2 (id INT NOT NULL, b INT, PRIMARY KEY (id));
+INSERT INTO t2 VALUES (6, 7), (7, 8), (8, 9), (9, 0);
+
+--echo # COMMENT_BYTES field for table t1 and t2 should be 0
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # After performing a query with comments in it , COMMENT_BYTES field for t1 should be 9
+--disable_result_log
+SELECT * FROM/*hello*/ t1;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # After performing a query with comments in it , COMMENT_BYTES field for t2 should be 17
+--disable_result_log
+/* Hello World */SELECT * FROM t2;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # After performing a join query with comments in it , COMMENT_BYTES field for t1 and t2 should be incremented by 17
+--disable_result_log
+/* Hello World */SELECT * FROM t1,t2;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # After performing another query with comments in it, COMMENT_BYTES field for t1 should be incremented by 9
+--disable_result_log
+query SELECT * FROM t1 /*World*/
+;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # After performing another query with multiple comments in it, COMMENT_BYTES field for t2  should be incremented by 37
+--disable_result_log
+/*World*/SELECT * FROM/* This is a long comment */ t2;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # After performing a query with /*! versioned comments in it (version greater than current MySQL Version) , COMMENT_BYTES field for t1 should be incremented by 17
+--disable_result_log
+SELECT * FROM/*!60000 hello */ t1;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # After performing a query with /*! versioned comments in it (version less than current MySQL Version) , COMMENT_BYTES field for t1 should be incremented by 0
+--disable_result_log
+SELECT * FROM t1/*!50000 WHERE id=2 */;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # After performing another query with "#" comment in it, COMMENT_BYTES field for t1  should be incremented by 24
+--disable_result_log
+SELECT * FROM t1 # This is a hash comment
+;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # After performing another query with "#" comment in it, COMMENT_BYTES field for t2  should be incremented by 5
+--disable_result_log
+SELECT * FROM t2 #hash
+;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # After performing another query with "#" and "/* */" comments in it, COMMENT_BYTES field for t2  should be incremented by 15
+--disable_result_log
+/*cstyle*/SELECT * FROM t2 #hash
+;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+
+--echo # After performing another query with "-- " comment in it, COMMENT_BYTES field for t1  should be incremented by 13
+--disable_result_log
+SELECT * FROM t1 -- doubledash;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # After performing another query with "-- " and "/* */" comments in it, COMMENT_BYTES field for t1  should be incremented by 23
+--disable_result_log
+SELECT * FROM /*cstyle*/t1 -- doubledash;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't1';
+
+
+--echo # After performing another query with "-- " comment in it, COMMENT_BYTES field for t2  should be incremented by 14
+--disable_result_log
+SELECT * FROM t2 -- Hello World
+;
+--enable_result_log
+SELECT COMMENT_BYTES FROM information_schema.table_statistics where table_name = 't2';
+
+
+DROP TABLE t1, t2;
+
