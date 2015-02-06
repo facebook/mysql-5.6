@@ -90,6 +90,8 @@ bool select_union::send_data(List<Item> &values)
     unit->offset_limit_cnt--;
     return 0;
   }
+  if (thd->killed == THD::ABORT_QUERY)
+    return 0;
   fill_record(thd, table->field, values, 1, NULL);
   if (thd->is_error())
     return 1;
@@ -768,6 +770,15 @@ bool st_select_lex_unit::exec()
         add_rows+= (ulonglong) (thd->limit_found_rows -
                    (ulonglong)(table->file->stats.records - records_at_start));
       }
+      if (thd->killed == THD::ABORT_QUERY)
+      {
+        /*
+          Stop execution of the remaining queries in the UNIONS, and produce
+          the current result.
+        */
+        thd->killed= THD::NOT_KILLED;
+        break;
+      }
     }
   }
 
@@ -777,6 +788,12 @@ bool st_select_lex_unit::exec()
     saved_error= true;
     List<Item_func_match> empty_list;
     empty_list.empty();
+
+    /*
+      Disable LIMIT ROWS EXAMINED in order to produce the possibly incomplete
+      result of the UNION without interruption due to exceeding the limit.
+    */
+    thd->lex->limit_rows_examined_cnt= ULONGLONG_MAX;
 
     set_limit(global_parameters);
     if (init_prepare_fake_select_lex(thd, true))
@@ -815,6 +832,7 @@ bool st_select_lex_unit::exec()
     thd->inc_examined_row_count(examined_rows);
   }
   thd->lex->current_select= lex_select_save;
+  thd->lex->set_limit_rows_examined();
   DBUG_RETURN(saved_error);
 }
 
