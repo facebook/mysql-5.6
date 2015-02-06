@@ -7128,6 +7128,9 @@ ER_CANNOT_CHANGE_SSL_VAR
 ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED
   eng "Temporary table file is too big"
 
+ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT
+  eng "Query execution was interrupted. The query examined at least %lu rows, which exceeds LIMIT ROWS EXAMINED (%lu). The query result may be incomplete."
+
 #
 #  End of 5.6 error messages.
 #

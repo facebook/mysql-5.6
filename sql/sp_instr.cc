@@ -609,6 +609,9 @@ bool sp_lex_instr::validate_lex_and_execute_core(THD *thd,
       m_first_execution= true;
     }
 
+    if (!m_lex->limit_rows_examined_fix_fields())
+      return true;
+
     /*
       Install the metadata observer. If some metadata version is
       different from prepare time and an observer is installed,

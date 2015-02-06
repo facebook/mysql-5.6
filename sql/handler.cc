@@ -2549,7 +2549,10 @@ err:
 void handler::ha_statistic_increment(ulonglong SSV::*offset) const
 {
   if (table && table->in_use)
+  {
     status_var_increment(table->in_use->status_var.*offset);
+    table->in_use->check_limit_rows_examined();
+  }
 }
 
 void **handler::ha_data(THD *thd) const

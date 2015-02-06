@@ -113,6 +113,19 @@ JOIN::exec()
   if (thd->lex->ignore)
     thd->lex->current_select->no_error= true;
 
+  /*
+    Enable LIMIT ROWS EXAMINED during query execution if:
+    (1) This JOIN is the outermost query (not a subquery or derived table)
+        This ensures that the limit is enabled when actual execution begins, and
+        not if a subquery is evaluated during optimization of the outer query.
+    (2) This JOIN is not the result of a UNION. In this case do not apply the
+        limit in order to produce the partial query result stored in the
+        UNION temp table.
+  */
+  if (!select_lex->outer_select() &&                            // (1)
+      select_lex != select_lex->master_unit()->fake_select_lex) // (2)
+    thd->lex->set_limit_rows_examined();
+
   if (prepare_result(&columns_list))
     DBUG_VOID_RETURN;
 
@@ -932,8 +945,29 @@ do_select(JOIN *join)
     JOIN_TAB *join_tab= join->join_tab + join->const_tables;
     DBUG_ASSERT(join->primary_tables);
     error= join->first_select(join,join_tab,0);
-    if (error >= NESTED_LOOP_OK)
+    if (error >= NESTED_LOOP_OK && join->thd->killed != THD::ABORT_QUERY)
       error= join->first_select(join,join_tab,1);
+    if (error == NESTED_LOOP_QUERY_LIMIT)
+      error= NESTED_LOOP_OK;                    /* select_limit used */
+  }
+  if (join->thd->killed == THD::ABORT_QUERY)
+  {
+    error= NESTED_LOOP_OK;
+    /*
+      If LIMIT ROWS EXAMINED interrupted query execution in outermost query,
+      issue a warning. If interruption occured in one of the inner queries,
+      then queries which are outer related to it will be interrupted as well.
+      To avoid warning duplication, the warning is issued only in outermost
+      query.
+    */
+    if (!join->select_lex->outer_select())
+    {
+      push_warning_printf(join->thd, Sql_condition::WARN_LEVEL_WARN,
+                          ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT,
+                          ER(ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT),
+                          join->thd->get_accessed_rows_and_keys(),
+                          join->thd->lex->limit_rows_examined->val_uint());
+    }
   }
 
   join->thd->limit_found_rows= join->send_records;
@@ -3398,6 +3432,7 @@ JOIN_TAB::remove_duplicates()
   ulong reclength,offset;
   uint field_count;
   List<Item> *field_list= (this-1)->fields;
+  THD *thd= this->join->thd;
   DBUG_ENTER("remove_duplicates");
 
   DBUG_ASSERT(join->tmp_tables > 0 && table->s->tmp_table != NO_TMP_TABLE);
@@ -3425,6 +3460,13 @@ JOIN_TAB::remove_duplicates()
            table->field[table->s->fields - field_count]->
            offset(table->record[0]) : 0);
   reclength= table->s->reclength-offset;
+  /*
+    Disable LIMIT ROWS EXAMINED in order to avoid interrupting prematurely
+    duplicate removal, and produce a possibly incomplete query result.
+  */
+  thd->lex->limit_rows_examined_cnt= ULONGLONG_MAX;
+  if (thd->killed == THD::ABORT_QUERY)
+    thd->killed= THD::NOT_KILLED;
 
   free_io_cache(table);				// Safety
   table->file->info(HA_STATUS_VARIABLE);
@@ -3439,6 +3481,8 @@ JOIN_TAB::remove_duplicates()
     error=remove_dup_with_compare(join->thd, table, first_field, offset,
 				  having);
 
+  if (join->select_lex != join->select_lex->master_unit()->fake_select_lex)
+    thd->lex->set_limit_rows_examined();
   free_blobs(first_field);
   DBUG_RETURN(error);
 }

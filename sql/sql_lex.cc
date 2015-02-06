@@ -507,6 +507,8 @@ void lex_start(THD *thd)
   lex->mark_broken(false);
   thd->count_comment_bytes= 0;
   lex->max_statement_time= 0;
+  lex->limit_rows_examined= 0;
+  lex->limit_rows_examined_cnt= ULONGLONG_MAX;
   DBUG_VOID_RETURN;
 }
 
@@ -2997,7 +2999,8 @@ void Query_tables_list::destroy_query_tables_list()
 
 LEX::LEX()
   :result(0), option_type(OPT_DEFAULT), is_change_password(false),
-  is_set_password_sql(false), is_lex_started(0)
+   is_set_password_sql(false), is_lex_started(0),
+   limit_rows_examined_cnt(ULONGLONG_MAX)
 {
 
   my_init_dynamic_array2(&plugins, sizeof(plugin_ref),
@@ -3008,6 +3011,40 @@ LEX::LEX()
   reset_query_tables_list(TRUE);
 }
 
+bool LEX::limit_rows_examined_fix_fields()
+{
+  DBUG_ASSERT(! thd->stmt_arena->is_stmt_prepare());
+  if (limit_rows_examined)
+  {
+    /*
+      fix_fields() is not called for limit_rows_examined. This item can be
+      Item_int (which does not require fix_fields()) or Item_splocal.
+
+      Since limit_rows_examined is assigned in sql_yacc.yy and used only as
+      member of LEX there is no specific place to call fix_fields for it.
+      Current method created for this reason.
+
+      We can call fix_fields() here, because limit_rows_examined can be of two
+      types only: Item_int and Item_splocal. Item_int::fix_fields() is trivial,
+      and Item_splocal::fix_fields() (or rather Item_sp_variable::fix_fields())
+      has the following specific:
+        1) it does not affect other items;
+        2) it does not fail.
+
+      Nevertheless DBUG_ASSERT was added to catch future changes in
+      fix_fields() implementation. Also added runtime check against a result
+      of fix_fields() in order to handle error condition in non-debug build.
+    */
+    bool fix_fields_successful= true;
+    if (!limit_rows_examined->fixed)
+    {
+      fix_fields_successful= !limit_rows_examined->fix_fields(thd, NULL);
+      DBUG_ASSERT(fix_fields_successful);
+    }
+    return fix_fields_successful;
+  }
+  return true;
+}
 
 /*
   Check whether the merging algorithm can be used on this VIEW
