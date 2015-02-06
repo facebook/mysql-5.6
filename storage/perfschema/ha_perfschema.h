@@ -174,7 +174,7 @@ public:
 
   int info(uint);
 
-  int delete_all_rows(void);
+  int delete_all_rows(ha_rows* nrows = NULL);
 
   int truncate();
 

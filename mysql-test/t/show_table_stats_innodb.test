@@ -1,0 +1,13 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+--disable_warnings
+drop table if exists p1,p2,s1,src;
+--enable_warnings
+
+create table p1 (a int not null primary key, b int not null) engine=innodb;
+create table p2 (a int not null primary key, b int not null) engine=innodb;
+create table s1 (a int not null primary key, b int not null, index bx(b)) engine=innodb;
+create table src(a int, b int);
+
+source include/show_table_stats.test;

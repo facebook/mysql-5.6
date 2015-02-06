@@ -1,0 +1,39 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+let $MYSQLD_DATADIR= `SELECT @@datadir`;
+
+--disable_warnings
+drop table if exists p1;
+--enable_warnings
+
+-- let $innodb_page_size= `SELECT @@innodb_page_size`
+
+create table p1 (a int not null primary key, b int not null) engine=innodb
+  partition by range(a) (
+    partition part0 values less than (10),
+    partition part1 values less than (20),
+    partition part2 values less than (30),
+    partition part3 values less than (100)
+  );
+
+insert into p1 values
+ (1,1),(2,2),(3,3),(4,4),(5,5),(6,6),(7,7),(8,8),(9,9),
+ (10,10),(11,11),(12,12),(13,13),(14,14),(15,15),(16,16),(17,17),(18,18),(19,19),
+ (20,20),(21,21),(22,12),(23,23),(24,24),(25,25),(26,26),(27,27),(28,28),(29,29);
+
+
+# Clear innodb page cache so the read stats can be deterministic
+--source include/restart_mysqld.inc
+
+select count(*) from p1;
+
+select * from p1 where a=3;
+
+echo should be 2 2 0;
+--replace_result $innodb_page_size PAGE_SIZE
+eval select table_name, IO_READ_BYTES DIV $innodb_page_size,
+IO_READ_REQUESTS, IO_READ_OLD_IOS
+from information_schema.table_statistics where table_name like 'p1%';
+
+drop table p1;

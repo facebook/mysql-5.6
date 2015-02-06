@@ -36,6 +36,7 @@ Created 10/21/1995 Heikki Tuuri
 #define os0file_h
 
 #include "univ.i"
+#include "mysqld.h"
 
 #ifndef __WIN__
 #include <dirent.h>
@@ -322,10 +323,10 @@ The wrapper functions have the prefix of "innodb_". */
 	pfs_os_file_close_func(file, __FILE__, __LINE__)
 
 # define os_aio(type, mode, name, file, buf, offset,			\
-		n, message1, message2, io_perf2, should_buffer)	\
+		n, message1, message2, io_perf2, tab, should_buffer)	\
 	pfs_os_aio_func(type, mode, name, file, buf, offset,		\
 		n, message1, message2, __FILE__, __LINE__, io_perf2,	\
-		should_buffer)
+		tab, should_buffer)
 
 # define os_file_read(file, buf, offset, n)				\
 	pfs_os_file_read_func(file, buf, offset, n, __FILE__, __LINE__)
@@ -367,9 +368,9 @@ to original un-instrumented file I/O APIs */
 # define os_file_close(file)	os_file_close_func(file)
 
 # define os_aio(type, mode, name, file, buf, offset, n,			\
-		message1, message2, io_perf2, should_buffer)		\
+		message1, message2, io_perf2, tab, should_buffer)	\
 	os_aio_func(type, mode, name, file, buf, offset, n,		\
-		    message1, message2, io_perf2, should_buffer)
+		    message1, message2, io_perf2, tab, should_buffer)
 
 # define os_file_read(file, buf, offset, n)	\
 	os_file_read_func(file, buf, offset, n)
@@ -427,45 +428,36 @@ typedef HANDLE	os_file_dir_t;	/*!< directory stream */
 typedef DIR*	os_file_dir_t;	/*!< directory stream */
 #endif
 
-/* Struct used for IO performance counters */
-struct os_io_perf_struct {
-	ulint	bytes;
-	ulint	requests;
-	ulonglong	svc_time;      /*!< time to do read or write operation */
-	ulonglong	svc_time_max;
-	ulonglong	wait_time;     /*!< total time in the request array */
-	ulonglong	wait_time_max;
-	uint	old_ios; /*!< requests that take too long */
-};
-typedef struct os_io_perf_struct os_io_perf_t;
-
 /* Added so os_aio() can be called with one pointer for read and write
 performance counters. */
 struct os_io_perf2_struct {
-	os_io_perf_t	read;
-	os_io_perf_t	write;
+	my_io_perf_t	read;
+	my_io_perf_t	write;
+	my_io_perf_t	read_blob;
 };
 typedef struct os_io_perf2_struct os_io_perf2_t;
 
+/* Added so os_aio() can be called with one pointer for table
+performance counters. */
+struct os_io_table_perf_struct {
+	my_io_perf_t	read;			/*!< sync read */
+	my_io_perf_t	write;			/*!< sync write */
+	my_io_perf_t	read_blob;		/*!< sync blob read */
+	longlong	index_inserts;		/*!< secondary index inserts */
+};
+typedef struct os_io_table_perf_struct os_io_table_perf_t;
+
 /** Performance statistics for async reads */
-extern os_io_perf_t	os_async_read_perf;
+extern my_io_perf_t	os_async_read_perf;
 
 /** Performance statistics for async writes */
-extern os_io_perf_t	os_async_write_perf;
+extern my_io_perf_t	os_async_write_perf;
 
 /** Performance statistics for sync reads */
-extern os_io_perf_t	os_sync_read_perf;
+extern my_io_perf_t	os_sync_read_perf;
 
 /** Performance statistics for sync writes */
-extern os_io_perf_t	os_sync_write_perf;
-
-/***************************************************************************
-Initialize an os_io_perf_t struct. */
-
-void
-os_io_perf_init(
-/*=============*/
-	os_io_perf_t*	perf);
+extern my_io_perf_t	os_sync_write_perf;
 
 /**************************************************************************
 Prints IO statistics. */
@@ -474,7 +466,7 @@ void
 os_io_perf_print(
 /*==============*/
 	FILE*		file,
-	os_io_perf_t*	perf,
+	my_io_perf_t*	perf,
 	ibool		newline);
 
 #ifdef __WIN__
@@ -820,6 +812,10 @@ pfs_os_aio_func(
 	ulint		src_line,/*!< in: line where the func invoked */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 					counters */
+	os_io_table_perf_t* table_io_perf,
+				/*!< in/out: table IO stats counted for
+				IS.user_statistics only for sync read
+				and writes */
 	ibool		should_buffer);
 				/*!< in: Whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
@@ -1190,6 +1186,10 @@ os_aio_func(
 				OS_AIO_SYNC */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t performance
 				counters */
+	os_io_table_perf_t* table_io_perf,
+				/*!< in/out: table IO stats counted for
+				IS.user_statistics only for sync read
+				and writes */
 	ibool	should_buffer);	/*!< in: Whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember

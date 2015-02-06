@@ -1603,7 +1603,7 @@ end:
   DELETE without WHERE calls this
 */
 
-int ha_tina::delete_all_rows()
+int ha_tina::delete_all_rows(ha_rows* nrows)
 {
   int rc;
   DBUG_ENTER("ha_tina::delete_all_rows");

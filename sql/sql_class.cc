@@ -1409,6 +1409,9 @@ void THD::init(void)
   else
     variables.option_bits&= ~OPTION_BIN_LOG;
 
+  my_io_perf_init(&io_perf_read);
+  my_io_perf_init(&io_perf_write);
+
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
   debug_sync_init_thread(this);

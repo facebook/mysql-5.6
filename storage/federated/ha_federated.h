@@ -248,7 +248,7 @@ public:
   int repair(THD* thd, HA_CHECK_OPT* check_opt);
   int optimize(THD* thd, HA_CHECK_OPT* check_opt);
 
-  int delete_all_rows(void);
+  int delete_all_rows(ha_rows* nrows = NULL);
   int truncate();
   int create(const char *name, TABLE *form,
              HA_CREATE_INFO *create_info);                      //required

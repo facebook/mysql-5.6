@@ -1032,7 +1032,8 @@ void Relay_log_info::close_temporary_tables()
       slave restarts, but it is a better intention to not delete them.
     */
     DBUG_PRINT("info", ("table: 0x%lx", (long) table));
-    close_temporary(table, 1, 0);
+    // TODO: Check if we need to have a THD here for slow-query-log
+    close_temporary(NULL, table, 1, 0);
   }
   save_temporary_tables= 0;
   slave_open_temp_tables= 0;

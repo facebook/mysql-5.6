@@ -4400,6 +4400,7 @@ btr_blob_free(
 	buf_pool_t*	buf_pool = buf_pool_from_block(block);
 	ulint		space	= buf_block_get_space(block);
 	ulint		page_no	= buf_block_get_page_no(block);
+	ibool		removed = FALSE;
 
 	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
 
@@ -4415,12 +4416,12 @@ btr_blob_free(
 	    && buf_block_get_space(block) == space
 	    && buf_block_get_page_no(block) == page_no) {
 
-		if (!buf_LRU_free_page(&block->page, all)
+		if (!buf_LRU_free_page(&block->page, all, &removed)
 		    && all && block->page.zip.data) {
 			/* Attempt to deallocate the uncompressed page
 			if the whole block cannot be deallocted. */
 
-			buf_LRU_free_page(&block->page, false);
+			buf_LRU_free_page(&block->page, false, &removed);
 		}
 	}
 

@@ -708,7 +708,7 @@ int ha_example::extra(enum ha_extra_function operation)
   JOIN::reinit() in sql_select.cc and
   st_select_lex_unit::exec() in sql_union.cc.
 */
-int ha_example::delete_all_rows()
+int ha_example::delete_all_rows(ha_rows* nrows)
 {
   DBUG_ENTER("ha_example::delete_all_rows");
   DBUG_RETURN(HA_ERR_WRONG_COMMAND);
