@@ -70,8 +70,7 @@ Add an index to btr_defragment_wq. Return a pointer to os_event if this
 is a synchronized defragmentation. */
 os_event_t
 btr_defragment_add_index(
-	dict_index_t*	index,	/*!< index to be added  */
-	bool		async);	/*!< whether this is an async defragmentation */
+	dict_index_t*	index);	/*!< index to be added  */
 /******************************************************************//**
 When table is dropped, this function is called to mark a table as removed in
 btr_efragment_wq. The difference between this function and the remove_index
