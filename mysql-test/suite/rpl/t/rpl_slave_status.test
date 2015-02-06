@@ -23,13 +23,13 @@
 --echo ==== Create new replication user ====
 --echo [on master]
 connection master;
-GRANT REPLICATION SLAVE ON *.* TO rpl@127.0.0.1 IDENTIFIED BY 'rpl';
+GRANT REPLICATION SLAVE ON *.* TO abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890@127.0.0.1 IDENTIFIED BY 'rpl';
 
 --echo [on slave]
 --source include/sync_slave_sql_with_master.inc
 source include/stop_slave.inc;
 --replace_column 2 ####
-CHANGE MASTER TO master_user='rpl', master_password='rpl';
+CHANGE MASTER TO master_user='abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890', master_password='rpl';
 source include/start_slave.inc;
 
 --echo ==== Do replication as new user ====
@@ -44,7 +44,7 @@ SELECT * FROM t1;
 --echo ==== Delete new replication user ====
 --echo [on master]
 connection master;
-DROP USER rpl@127.0.0.1;
+DROP USER abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890@127.0.0.1;
 FLUSH PRIVILEGES;
 
 --echo [on slave]

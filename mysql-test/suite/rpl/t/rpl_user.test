@@ -19,11 +19,11 @@ set session sql_log_bin=1;
 # Test create user
 #
 connection master;
-create user 'foo'@'fakehost';
+create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost';
 --error ER_CANNOT_USER
-create user 'foo'@'fakehost', 'bar'@'fakehost';
+create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost', 'bar'@'fakehost';
 --error ER_CANNOT_USER
-create user 'foo'@'fakehost', 'bar'@'fakehost';
+create user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost', 'bar'@'fakehost';
 
 # In log event, Plaintext password 'foo1' is replaced by ciphertext.
 create user 'foo1'@'fakehost' IDENTIFIED BY 'foo1', 'foo2'@'fakehost'
@@ -38,7 +38,7 @@ source include/diff_tables.inc;
 # Test rename user
 #
 connection master;
-rename user 'foo'@'fakehost' to 'foofoo'@'fakehost';
+rename user 'abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890abcdefghij1234567890'@'fakehost' to 'foofoo'@'fakehost';
 --error ER_CANNOT_USER
 rename user 'not_exist_user1'@'fakehost' to 'foobar'@'fakehost', 'bar'@'fakehost' to 'barbar'@'fakehost';
 --error ER_CANNOT_USER
