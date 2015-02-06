@@ -1,0 +1,42 @@
+#
+# Test IS.user_statistics for bytes* counters
+# These might not be portable, sorry
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+--disable_warnings
+drop table if exists userstats;
+--enable_warnings
+
+create table userstats (i int primary key, j int);
+
+flush statistics;
+--echo
+--echo At start
+--echo
+--query_vertical select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';
+
+insert into userstats values (1,1);
+--echo
+--echo after insert
+--echo
+--query_vertical select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';
+
+
+select * from userstats;
+--echo
+--echo after select
+--echo
+--query_vertical select bytes_sent, bytes_received from information_schema.user_statistics where user_name = 'root';
+
+# Cleanup
+drop table userstats;
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+

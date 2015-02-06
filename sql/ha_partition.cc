@@ -7573,7 +7573,7 @@ ha_rows ha_partition::records_in_range(uint inx, key_range *min_key,
     examined_parts_rows += m_file[part_id]->stats.records;
 
     rows= m_file[part_id]->records_in_range(inx, min_key, max_key);
-      
+
     DBUG_PRINT("info", ("part %u match %lu rows of %lu", part_id, (ulong) rows,
                         (ulong) m_file[part_id]->stats.records));
 
