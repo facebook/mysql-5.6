@@ -7842,6 +7842,12 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
 {
   DBUG_ENTER("mysql_alter_table");
 
+  if (block_myisam_tables(create_info, table_list))
+  {
+    my_error(ER_BLOCK_MYISAM_TABLES, MYF(0), NULL);
+    DBUG_RETURN(true);
+  }
+
   /*
     Check if we attempt to alter mysql.slow_log or
     mysql.general_log table and return an error if
