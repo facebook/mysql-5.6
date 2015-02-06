@@ -452,6 +452,12 @@ i/o handler thread */
 extern const char* srv_io_thread_op_info[];
 extern const char* srv_io_thread_function[];
 
+/** Maximum number of outstanding aio requests from batched aio read submission.
+We stop submitting batched aio read requests when the number of outstanding aio
+requests exceed this number. But the maximum is not strictly enforced. There
+could be a short period of time the number is exceeded. */
+extern ulint	srv_io_outstanding_requests;
+
 /* the number of purge threads to use from the worker pool (currently 0 or 1) */
 extern ulong srv_n_purge_threads;
 
@@ -893,6 +899,10 @@ struct export_var_t{
 	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
 
 	ulint innodb_buffered_aio_submitted;
+	ulint innodb_outstanding_aio_requests;
+#ifdef UNIV_DEBUG
+	ulint innodb_max_outstanding_aio_requests;
+#endif /* UNIV_DEBUG */
 	ulint innodb_logical_read_ahead_misses;	/*!< total number of pages that
 						logical-read-ahead missed
 						during a table scan.
