@@ -1539,6 +1539,7 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit)
   int error=0;
   THD_TRANS *trans=all ? &thd->transaction.all : &thd->transaction.stmt;
   Ha_trx_info *ha_info= trans->ha_list, *ha_info_next;
+  bool is_real_trans= all || thd->transaction.all.ha_list == 0;
   DBUG_ENTER("ha_commit_low");
 
   if (ha_info)
@@ -1553,6 +1554,11 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit)
         error=1;
       }
       status_var_increment(thd->status_var.ha_commit_count);
+      if (is_real_trans)
+      {
+        USER_STATS *us= thd_get_user_stats(thd);
+        us->transactions_commit.inc();
+      }
       ha_info_next= ha_info->next();
       ha_info->reset(); /* keep it conveniently zero-filled */
     }
@@ -1615,6 +1621,8 @@ int ha_rollback_low(THD *thd, bool all)
         error= 1;
       }
       status_var_increment(thd->status_var.ha_rollback_count);
+      USER_STATS *us= thd_get_user_stats(thd);
+      us->transactions_rollback.inc();
       ha_info_next= ha_info->next();
       ha_info->reset(); /* keep it conveniently zero-filled */
     }
@@ -2131,6 +2139,8 @@ int ha_rollback_to_savepoint(THD *thd, SAVEPOINT *sv)
       error=1;
     }
     status_var_increment(thd->status_var.ha_rollback_count);
+    USER_STATS *us= thd_get_user_stats(thd);
+    us->transactions_rollback.inc();
     ha_info_next= ha_info->next();
     ha_info->reset(); /* keep it conveniently zero-filled */
   }
@@ -7061,6 +7071,13 @@ void handler::update_global_table_stats(THD *thd)
     my_io_perf_sum(&thd->io_perf_read, &stats.table_io_perf_read);
     my_io_perf_sum(&thd->io_perf_write, &stats.table_io_perf_write);
     my_io_perf_sum(&thd->io_perf_read_blob, &stats.table_io_perf_read_blob);
+
+    thd->rows_deleted += stats.rows_deleted;
+    thd->rows_updated += stats.rows_updated;
+    thd->rows_inserted += stats.rows_inserted;
+    thd->rows_read += stats.rows_read;
+    thd->rows_index_first += stats.rows_index_first;
+    thd->rows_index_next += stats.rows_index_next;
   }
 
   stats.reset_table_stats();
