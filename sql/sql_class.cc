@@ -1412,6 +1412,8 @@ void THD::init(void)
   my_io_perf_init(&io_perf_read);
   my_io_perf_init(&io_perf_write);
   my_io_perf_init(&io_perf_read_blob);
+  my_io_perf_init(&io_perf_read_primary);
+  my_io_perf_init(&io_perf_read_secondary);
 
 #if defined(ENABLED_DEBUG_SYNC)
   /* Initialize the Debug Sync Facility. See debug_sync.cc. */
