@@ -2017,6 +2017,10 @@ bool log_slow_applicable(THD *thd)
   if (unlikely(thd->in_sub_stmt))
     DBUG_RETURN(false);                         // Don't set time for sub stmt
 
+  ulonglong end_utime_of_query= thd->current_utime();
+  // log to unix datagram socket
+  log_to_datagram(thd, end_utime_of_query);
+
   /*
     Do not log administrative statements unless the appropriate option is
     set.
@@ -2090,6 +2094,131 @@ void log_slow_statement(THD *thd)
   DBUG_VOID_RETURN;
 }
 
+/*
+  Log to a unix local datagram socket
+*/
+void log_to_datagram(THD *thd, ulonglong end_utime)
+{
+  if (log_datagram &&
+      log_datagram_sock >= 0 &&
+      end_utime - thd->utime_after_lock >= log_datagram_usecs)
+  {
+    thd_proc_info(thd, "datagram logging");
+
+    if (write_log_to_socket(log_datagram_sock, thd, end_utime))
+    {
+      // we don't care if the packet was dropped due to contention or
+      // if it was too large to fit inside the kernel's buffers
+      if (errno != EAGAIN && errno != EMSGSIZE)
+      {
+        log_datagram = 0;
+        close(log_datagram_sock);
+        log_datagram_sock = -1;
+        sql_print_information("slocket send failed with error %d; "
+                              "slocket closed", errno);
+      }
+    }
+  }
+}
+
+bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
+{
+  // enough space for query plus all extra info (max 7 lines)
+  size_t buf_sz = 7 * 80 + thd->query_length();
+  size_t len = 0;
+  ssize_t sent = 0;
+  char *buf = (char *)my_malloc(buf_sz, MYF(MY_WME));
+  if (!buf) {
+    return 1;
+  }
+
+  double query_duration= (end_utime - thd->start_utime) / 1000000.0;
+  double lock_duration= (end_utime - thd->utime_after_lock)
+                        / 1000000.0;
+
+  Security_context *sctx= thd->security_ctx;
+  time_t end_time = thd->start_time.tv_sec + (time_t) query_duration;
+  struct tm local;
+  localtime_r(&end_time, &local);
+
+  if (len < buf_sz)
+    len += snprintf(buf, buf_sz - len,
+                    "# Time: %02d%02d%02d %2d:%02d:%02d\n",
+                    local.tm_year % 100,
+                    local.tm_mon+1,
+                    local.tm_mday,
+                    local.tm_hour,
+                    local.tm_min,
+                    local.tm_sec);
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "# User@Host: %s[%s] @ %s [%s]\n",
+                    sctx->priv_user ? sctx->priv_user : "",
+                    sctx->user ? sctx->user : "",
+                    sctx->get_host() ? sctx->get_host()->c_ptr() : "",
+                    sctx->get_ip() ? sctx->get_ip()->c_ptr() : "");
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "# Query_time: %.6f  Lock_time: %.6f  ",
+                    query_duration, lock_duration);
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "# Rows_sent: %lu  Rows_examined: %lu\n",
+                    (ulong) thd->get_sent_row_count(),
+                    (ulong) thd->get_examined_row_count());
+
+  if (thd->db && len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len, "use %s; ", thd->db);
+
+  if (thd->stmt_depends_on_first_successful_insert_id_in_prev_stmt &&
+      len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "SET last_insert_id=%lld; ",
+                    thd->first_successful_insert_id_in_prev_stmt_for_binlog);
+
+  if (thd->auto_inc_intervals_in_cur_stmt_for_binlog.nb_elements() &&
+      len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "SET insert_id=%lld; ",
+                    thd->auto_inc_intervals_in_cur_stmt_for_binlog.minimum());
+
+  if (len < buf_sz)
+    len += snprintf(buf + len, buf_sz - len,
+                    "SET timestamp=%u;\n",
+                    (unsigned int) thd->start_time.tv_sec);
+  // query_length == 0 also appears to mean that this is a command
+  if ((!thd->query() || !thd->query_length()) && len < buf_sz)
+  {
+    if (thd->get_command() < COM_END)
+      len += snprintf(buf + len, buf_sz - len,
+                      "# administrator command: %s\n",
+                      command_name[thd->get_command()].str);
+    else
+      len += snprintf(buf + len, buf_sz - len,
+                      "# unknown command: %d\n", (int) thd->get_command());
+  }
+  else if (len + thd->query_length() + 2 < buf_sz)
+  {
+    memcpy(buf + len, thd->query(), thd->query_length());
+    len += thd->query_length();
+    len += snprintf(buf + len, buf_sz - len, ";\n");
+  }
+
+  // fail if we can't send everything
+  if (len > buf_sz)
+  {
+    my_free(buf);
+    return 1;
+  }
+  sent = write(sockfd, buf, len);
+
+  my_free(buf);
+  // error if send failed
+  return sent <= 0;
+}
 
 /**
   Create a TABLE_LIST object for an INFORMATION_SCHEMA table.

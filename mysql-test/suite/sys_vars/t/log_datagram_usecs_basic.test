@@ -1,0 +1,162 @@
+############## mysql-test\t\log_datagram_usecs_basic.test  ####################
+#                                                                             #
+# Variable Name: log_datagram_usecs                                           #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: numeric                                                          #
+# Default Value:0                                                             #
+# Range: 0-18446744073709551615                                               #
+#                                                                             #
+#                                                                             #
+#                                                                             #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2012-11-02                                                   #
+# Author:  Santosh                                                            #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable log_datagram_usecs       #
+#              that checks the behavior of this variable in the following ways#
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+# Reference: http://dev.mysql.com/doc/refman/5.1/en/                          #
+#  server-system-variables.html                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+########################################################################
+#              START OF log_datagram_usecs TESTS                       #
+########################################################################
+
+
+SET @start_log_datagram_usecs = @@global.log_datagram_usecs;
+SELECT @start_log_datagram_usecs;
+
+--echo '#--------------------FN_DYNVARS_072_01------------------------#'
+########################################################################
+#           Display the DEFAULT value of log_datagram_usecs            #
+########################################################################
+
+SET @@global.log_datagram_usecs = 5000;
+SET @@global.log_datagram_usecs = DEFAULT;
+SELECT @@global.log_datagram_usecs;
+
+
+--echo '#---------------------FN_DYNVARS_072_02-------------------------#'
+###############################################
+#     Verify default value of variable        #
+###############################################
+
+SET @@global.log_datagram_usecs = @start_log_datagram_usecs;
+SELECT @@global.log_datagram_usecs = 0;
+
+--echo '#--------------------FN_DYNVARS_072_03------------------------#'
+########################################################################
+#    Change the value of log_datagram_usecs to a valid value           #
+########################################################################
+
+SET @@global.log_datagram_usecs = 4096;
+SELECT @@global.log_datagram_usecs;
+SET @@global.log_datagram_usecs = 4294967295;
+SELECT @@global.log_datagram_usecs;
+SET @@global.log_datagram_usecs = 4294967294;
+SELECT @@global.log_datagram_usecs;
+SET @@global.log_datagram_usecs = 4097;
+SELECT @@global.log_datagram_usecs;
+SET @@global.log_datagram_usecs = 65535;
+SELECT @@global.log_datagram_usecs;
+
+
+--echo '#--------------------FN_DYNVARS_072_04-------------------------#'
+#########################################################################
+#      Change the value of log_datagram_usecs to invalid value          #
+#########################################################################
+
+SET @@global.log_datagram_usecs = -1;
+SELECT @@global.log_datagram_usecs;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_datagram_usecs = 18446744073709551616;
+SELECT @@global.log_datagram_usecs;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_datagram_usecs = 10000.01;
+SELECT @@global.log_datagram_usecs;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_datagram_usecs = ON;
+SELECT @@global.log_datagram_usecs;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_datagram_usecs = 'test';
+SELECT @@global.log_datagram_usecs;
+
+
+--echo '#-------------------FN_DYNVARS_072_05----------------------------#'
+##########################################################################
+#       Test if accessing session log_datagram_usecs gives error         #
+##########################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.log_datagram_usecs = 4096;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_datagram_usecs;
+
+
+--echo '#----------------------FN_DYNVARS_072_06------------------------#'
+##############################################################################
+# Check if the value in GLOBAL & SESSION Tables matches values in variable   #
+##############################################################################
+
+SELECT @@global.log_datagram_usecs = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='log_datagram_usecs';
+
+SELECT @@log_datagram_usecs = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='log_datagram_usecs';
+
+
+--echo '#---------------------FN_DYNVARS_072_08----------------------#'
+########################################################################################################
+#    Check if accessing variable with SESSION,LOCAL and without SCOPE points to same session variable  #
+########################################################################################################
+
+SET @@global.log_datagram_usecs = 5000;
+SELECT @@log_datagram_usecs = @@global.log_datagram_usecs;
+
+
+--echo '#---------------------FN_DYNVARS_072_09----------------------#'
+################################################################################
+#   Check if log_datagram_usecs can be accessed with and without @@ sign       #
+################################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET log_datagram_usecs = 6000;
+SELECT @@log_datagram_usecs;
+--Error ER_PARSE_ERROR
+SET local.log_datagram_usecs = 7000;
+--Error ER_UNKNOWN_TABLE
+SELECT local.log_datagram_usecs;
+--Error ER_PARSE_ERROR
+SET global.log_datagram_usecs = 8000;
+--Error ER_UNKNOWN_TABLE
+SELECT global.log_datagram_usecs;
+--Error ER_BAD_FIELD_ERROR
+SELECT log_datagram_usecs = @@session.log_datagram_usecs;
+
+
+##############################
+#   Restore initial value    #
+##############################
+
+SET @@global.log_datagram_usecs = @start_log_datagram_usecs;
+SELECT @@global.log_datagram_usecs;
+SET @@global.log_datagram_usecs= @start_log_datagram_usecs;
+SELECT @@global.log_datagram_usecs;
+
+
+######################################################################
+#              END OF log_datagram_usecs TESTS                       #
+######################################################################

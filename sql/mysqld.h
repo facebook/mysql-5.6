@@ -26,6 +26,10 @@
 #include "sql_cmd.h"                       /* SQLCOM_END */
 #include "my_rdtsc.h"                      /* my_timer* */
 #include <set>
+#include "sql_priv.h"                      /* enum_var_type */
+// for unix sockets
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "atomic_stat.h"
 
 class THD;
@@ -689,6 +693,11 @@ extern my_atomic_rwlock_t write_query_running_lock;
 extern uint host_cache_size;
 void init_sql_statement_names();
 
+/* Enable logging queries to a unix local datagram socket */
+extern my_bool log_datagram;
+extern ulong log_datagram_usecs;
+extern int log_datagram_sock;
+
 /* flashcache */
 extern int cachedev_fd;
 
@@ -803,6 +812,7 @@ extern PSI_socket_key key_socket_tcpip, key_socket_unix, key_socket_client_conne
 
 void init_server_psi_keys();
 #endif /* HAVE_PSI_INTERFACE */
+bool setup_datagram_socket(sys_var *self, THD *thd, enum_var_type type);
 
 /*
   MAINTAINER: Please keep this list in order, to limit merge collisions.
