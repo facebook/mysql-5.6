@@ -7119,6 +7119,9 @@ ER_NON_RO_SELECT_DISABLE_TIMER
 ER_QUERY_THROTTLED 70101
  eng "Query execution was throttled"
 
+ER_BLOCK_MYISAM_TABLES
+  eng "Non-temporary MyISAM tables cannot be created outside mysql schema."
+
 #
 #  End of 5.6 error messages.
 #
