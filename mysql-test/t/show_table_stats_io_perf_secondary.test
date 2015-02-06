@@ -1,0 +1,39 @@
+source include/not_embedded.inc;
+source include/have_innodb.inc;
+
+--disable_warnings
+drop table if exists t1;
+--enable_warnings
+
+-- let $innodb_page_size= `SELECT @@innodb_page_size`
+
+CREATE TABLE t1 (a int not null primary key, b int) engine=innodb;
+create index SECONDARY on t1(b);
+
+insert into t1 values (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6);
+
+# Clear innodb page cache so the read stats can be deterministic
+select count(*) from t1;
+# Can't Clear innodb page cache, so restart mysqld to generate reads
+--source include/restart_mysqld.inc
+flush statistics;
+
+select * from t1 where b=1;
+
+--replace_result $innodb_page_size PAGE_SIZE
+eval select
+IO_READ_BYTES DIV $innodb_page_size, IO_READ_REQUESTS, IO_READ_OLD_IOS,
+IO_READ_BYTES_PRIMARY, IO_READ_REQUESTS_PRIMARY, IO_READ_OLD_IOS_PRIMARY,
+IO_READ_BYTES_SECONDARY DIV $innodb_page_size,
+IO_READ_REQUESTS_SECONDARY, IO_READ_OLD_IOS_SECONDARY
+from information_schema.table_statistics where table_name like 't1%';
+
+--replace_result $innodb_page_size PAGE_SIZE
+eval select
+DISK_READ_BYTES DIV $innodb_page_size, DISK_READ_REQUESTS,
+DISK_READ_BYTES_PRIMARY, DISK_READ_REQUESTS_PRIMARY,
+DISK_READ_BYTES_SECONDARY DIV $innodb_page_size, DISK_READ_REQUESTS_SECONDARY
+from information_schema.user_statistics where
+USER_NAME=substring_index(user(),'@',1);
+
+drop table t1;
