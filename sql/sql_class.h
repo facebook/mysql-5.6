@@ -2861,6 +2861,12 @@ private:
   */
   ha_rows m_examined_row_count;
 
+  /**
+    The number of rows and/or keys examined by the query, both read,
+    changed or written.
+  */
+  ulonglong m_accessed_rows_and_keys;
+
 private:
   USER_CONN *m_user_connect;
 
@@ -2887,8 +2893,18 @@ public:
   ha_rows get_examined_row_count() const
   { return m_examined_row_count; }
 
+  ulonglong get_accessed_rows_and_keys() const
+  { return m_accessed_rows_and_keys; }
+
   void set_sent_row_count(ha_rows count);
   void set_examined_row_count(ha_rows count);
+  void set_accessed_rows_and_keys(ulonglong count);
+
+  /**
+    Check if the number of rows accessed by a statement exceeded
+    LIMIT ROWS EXAMINED. If so, signal the query engine to stop execution.
+  */
+  void check_limit_rows_examined();
 
   void inc_sent_row_count(ha_rows count);
   void inc_examined_row_count(ha_rows count);
@@ -3104,6 +3120,12 @@ public:
     KILL_CONNECTION=ER_SERVER_SHUTDOWN,
     KILL_QUERY=ER_QUERY_INTERRUPTED,
     KILL_TIMEOUT=ER_QUERY_TIMEOUT,
+    /*
+      ABORT_QUERY signals to the query processor to stop execution ASAP without
+      issuing an error. Instead a warning is issued, and when possible a partial
+      query result is returned to the client.
+    */
+    ABORT_QUERY=ER_QUERY_EXCEEDED_ROWS_EXAMINED_LIMIT,
     KILLED_NO_VALUE      /* means neither of the states */
   };
   killed_state volatile killed;
@@ -3704,8 +3726,9 @@ public:
   void end_statement();
   inline int killed_errno() const
   {
-    killed_state killed_val; /* to cache the volatile 'killed' */
-    return (killed_val= killed) != KILL_BAD_DATA ? killed_val : 0;
+    killed_state killed_val= killed; /* to cache the volatile 'killed' */
+    return killed_val != KILL_BAD_DATA && killed_val != ABORT_QUERY ?
+      killed_val : 0;
   }
   inline void send_kill_message() const
   {
