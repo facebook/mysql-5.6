@@ -7,7 +7,7 @@ n2 NUMERIC(65,4)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	d1	A	NULL	NULL	NULL		BTREE		
+t1	0	PRIMARY	1	d1	A	1000	NULL	NULL		BTREE		
 INSERT INTO t1 (d1,d2,n1,n2) VALUES 
 (10.22,60.12345,123456,14.3456),
 (10.0,60.12345,123456,14),
@@ -53,9 +53,9 @@ UNIQUE INDEX n1_n2 (n1,n2)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	0	n1_n2	1	n1	A	NULL	NULL	NULL	YES	BTREE		
-t1	0	n1_n2	2	n2	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	0	n1_n2	1	n1	A	500	NULL	NULL	YES	BTREE		
+t1	0	n1_n2	2	n2	A	1000	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (10.22,60.12345,123456,14.3456,1),
 (10.0,60.12345,123456,14,2),
@@ -89,8 +89,8 @@ INDEX (d2)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	1	d2	1	d2	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	1	d2	1	d2	A	500	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (d1,d2,n1,n2,pk) VALUES
 (10.22,60.12345,123456,14.3456,1),
 (10.0,60.12345,123456,14,2),
