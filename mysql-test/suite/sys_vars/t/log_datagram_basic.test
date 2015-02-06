@@ -1,0 +1,163 @@
+############## mysql-test\t\log_datagram_basic.test ###########################
+#                                                                             #
+# Variable Name: log_datagram                                                 #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: boolean                                                          #
+# Default Value: OFF                                                          #
+# Range:                                                                      #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2012-11-02                                                   #
+# Author:  Santosh                                                            #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable log_datagram             #
+#              that checks the behavior of this variable in the following ways#
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+# Reference: http://dev.mysql.com/doc/refman/5.1/en/                          #
+#  server-system-variables.html#option_mysqld_log_datagram                    #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+####################################################################
+#           START OF log_datagram TESTS                            #
+####################################################################
+
+
+#############################################################
+#                 Save initial value                        #
+#############################################################
+
+SET @start_global_value = @@global.log_datagram;
+SELECT @start_global_value;
+
+--echo '#--------------------FN_DYNVARS_054_01-------------------------#'
+########################################################################
+#     Display the DEFAULT value of log_datagram                        #
+########################################################################
+
+SET @@global.log_datagram = ON;
+SET @@global.log_datagram = DEFAULT;
+SELECT @@global.log_datagram;
+
+--echo '#--------------------FN_DYNVARS_054_02-------------------------#'
+########################################################################
+#     Check the DEFAULT value of log_datagram                          #
+########################################################################
+
+
+SET @@global.log_datagram = DEFAULT;
+SELECT @@global.log_datagram;
+
+let $MYSQLD_DATADIR=`select @@datadir`;
+--exec $MYSQL_TEST_DIR/t/slocket_listen.sh $MYSQL_TEST_DIR/t/slocket_listen.py $MYSQLD_DATADIR slocket_enabled
+
+--echo '#--------------------FN_DYNVARS_054_03-------------------------#'
+##############################################################################
+# Change the value of log_datagram to a valid value for GLOBAL Scope         #
+##############################################################################
+
+SET @@global.log_datagram = ON;
+SELECT @@global.log_datagram;
+SET @@global.log_datagram = OFF;
+SELECT @@global.log_datagram;
+SET @@global.log_datagram = 0;
+SELECT @@global.log_datagram;
+SET @@global.log_datagram = 1;
+SELECT @@global.log_datagram;
+SET @@global.log_datagram = TRUE;
+SELECT @@global.log_datagram;
+SET @@global.log_datagram = FALSE;
+SELECT @@global.log_datagram;
+
+--echo '#------------------FN_DYNVARS_054_04-----------------------#'
+################################################################
+# Change the value of log_datagram to an invalid value         #
+################################################################
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = 'ONN';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = "OFFF";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = TTRUE;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = FELSE;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = -1024;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = 65536;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.log_datagram = 65530.34;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_datagram = test;
+
+--echo '#-------------------FN_DYNVARS_072_05----------------------------#'
+##########################################################################
+#       Test if accessing session log_datagram gives error               #
+##########################################################################
+--Error ER_GLOBAL_VARIABLE
+SET @@session.log_datagram = TRUE;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_datagram;
+
+--echo '#----------------------FN_DYNVARS_072_06------------------------#'
+#############################################################################
+# Check if the value in GLOBAL & SESSION Tables matches values in variable  #
+#############################################################################
+
+SELECT @@global.log_datagram = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='log_datagram';
+
+SELECT @@log_datagram = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='log_datagram';
+
+--echo '#------------------FN_DYNVARS_054_07-----------------------#'
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+SELECT IF(@@global.log_datagram, "ON", "OFF") = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='log_datagram';
+
+--echo '#---------------------FN_DYNVARS_072_08----------------------#'
+#############################################################################
+#   Check if log_datagram can be accessed with and without @@ sign          #
+#############################################################################
+--Error ER_GLOBAL_VARIABLE
+SET log_datagram = ON;
+SELECT @@log_datagram;
+--Error ER_PARSE_ERROR
+SET local.log_datagram = OFF;
+--Error ER_UNKNOWN_TABLE
+SELECT local.log_datagram;
+--Error ER_PARSE_ERROR
+SET global.log_datagram = ON;
+--Error ER_UNKNOWN_TABLE
+SELECT global.log_datagram;
+--Error ER_BAD_FIELD_ERROR
+SELECT log_datagram = @@session.log_datagram;
+
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.log_datagram = @start_global_value;
+SELECT @@global.log_datagram;
+
+--exec $MYSQL_TEST_DIR/t/kill_slocket_listen.sh $MYSQLD_DATADIR
+
+#########################################################
+#                 END OF log_datagram TESTS             #
+#########################################################
+
