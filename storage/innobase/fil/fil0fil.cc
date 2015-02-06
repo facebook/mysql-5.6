@@ -1178,6 +1178,9 @@ fil_space_create(
 		    ut_fold_string(name), space);
 	space->is_in_unflushed_spaces = false;
 
+	os_io_perf_init(&(space->io_perf2.read));
+	os_io_perf_init(&(space->io_perf2.write));
+
 	UT_LIST_ADD_LAST(space_list, fil_system->space_list, space);
 
 	mutex_exit(&fil_system->mutex);
@@ -5106,7 +5109,7 @@ retry:
 		success = os_aio(OS_FILE_WRITE, OS_AIO_SYNC,
 				 node->name, node->handle, buf,
 				 offset, page_size * n_pages,
-				 NULL, NULL, false);
+				 NULL, NULL, &space->io_perf2, false);
 #endif /* UNIV_HOTBACKUP */
 		if (success) {
 			os_has_said_disk_full = FALSE;
@@ -5698,6 +5701,7 @@ _fil_io(
 	/* Queue the aio request */
 	ret = os_aio(type, mode | wake_later, node->name, node->handle, buf,
 		     offset, len, node, message,
+		     &space->io_perf2,
 		     should_buffer);
 #endif /* UNIV_HOTBACKUP */
 	ut_a(ret);
@@ -6542,3 +6546,13 @@ fil_mtr_rename_log(
 	}
 }
 #endif /* !XTRABACKUP */
+
+/*************************************************************************
+Print tablespace data for SHOW INNODB STATUS. */
+void
+fil_print(
+/*=======*/
+       FILE* file)     /* in: print results to this */
+{
+	/* left empty function body for future port of fsync caller stats */
+}
