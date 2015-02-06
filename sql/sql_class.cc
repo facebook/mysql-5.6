@@ -365,9 +365,10 @@ Thread_iterator thd_get_global_thread_list_end()
 extern "C"
 void thd_binlog_pos(const THD *thd,
                     const char **file_var,
-                    unsigned long long *pos_var)
+                    unsigned long long *pos_var,
+                    const char **gtid_var)
 {
-  thd->get_trans_pos(file_var, pos_var);
+  thd->get_trans_pos(file_var, pos_var, gtid_var);
 }
 
 /**
@@ -920,6 +921,7 @@ THD::THD(bool enable_plugins)
    m_trans_log_file(NULL),
    m_trans_fixed_log_file(NULL),
    m_trans_end_pos(0),
+   m_trans_gtid(NULL),
    table_map_for_update(0),
    arg_of_last_insert_id_function(FALSE),
    first_successful_insert_id_in_prev_stmt(0),
@@ -1071,6 +1073,7 @@ THD::THD(bool enable_plugins)
 
   binlog_next_event_pos.file_name= NULL;
   binlog_next_event_pos.pos= 0;
+  trans_gtid[0] = 0;
 
   timer= NULL;
   timer_cache= NULL;

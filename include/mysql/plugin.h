@@ -613,10 +613,12 @@ void thd_set_kill_status(const MYSQL_THD thd);
   @param thd Use thread connection handle
   @param file_var Pointer to variable that will hold the file name.
   @param pos_var Pointer to variable that will hold the file position.
+  @param gtid_var Pointer to variable that will hold the GTID.
  */
 void thd_binlog_pos(const MYSQL_THD thd,
                     const char **file_var,
-                    unsigned long long *pos_var);
+                    unsigned long long *pos_var,
+                    const char **gtid_var);
 
 /**
   Return the thread id of a user thread
