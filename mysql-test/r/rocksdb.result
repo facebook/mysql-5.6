@@ -836,6 +836,8 @@ rocksdb_cf_options_file
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
 rocksdb_db_write_buffer_size	0
+rocksdb_debug_optimizer_n_rows	1000
+rocksdb_debug_optimizer_records_in_range	10
 rocksdb_default_cf_options	
 rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_disabledatasync	OFF
