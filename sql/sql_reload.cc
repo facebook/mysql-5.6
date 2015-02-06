@@ -355,6 +355,10 @@ bool reload_acl_and_cache(THD *thd, unsigned long options,
 #endif
  if (options & REFRESH_USER_RESOURCES)
    reset_mqh((LEX_USER *) NULL, 0);             /* purecov: inspected */
+
+  if (options & REFRESH_STATISTICS)
+    reset_global_table_stats();
+
  if (*write_to_binlog != -1)
    *write_to_binlog= tmp_write_to_binlog;
  /*

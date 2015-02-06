@@ -119,6 +119,7 @@ buf_read_page_low(
 			use to stop dangling page reads from a tablespace
 			which we have DISCARDed + IMPORTed back */
 	ulint	offset,	/*!< in: page number */
+	trx_t*	trx,	/*!< in: transaction object */
 	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
@@ -232,6 +233,7 @@ not_to_recover:
 			       | ignore_nonexistent_pages,
 			       sync, space, zip_size, offset, 0, zip_size,
 			       bpage->zip.data, bpage,
+			       trx ? &trx->table_io_perf : NULL,
 			       should_buffer);
 	} else {
 		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
@@ -240,6 +242,7 @@ not_to_recover:
 			       | ignore_nonexistent_pages,
 			       sync, space, 0, offset, 0, UNIV_PAGE_SIZE,
 			       ((buf_block_t*) bpage)->frame, bpage,
+			       trx ? &trx->table_io_perf : NULL,
 			       should_buffer);
 	}
 
@@ -290,8 +293,9 @@ buf_read_ahead_random(
 				or 0 */
 	ulint	offset,		/*!< in: page number of a page which
 				the current thread wants to access */
-	ibool	inside_ibuf)	/*!< in: TRUE if we are inside ibuf
+	ibool	inside_ibuf,	/*!< in: TRUE if we are inside ibuf
 				routine */
+	trx_t*	trx)
 {
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 	ib_int64_t	tablespace_version;
@@ -394,7 +398,7 @@ read_ahead:
 				&err, false,
 				ibuf_mode | OS_AIO_SIMULATED_WAKE_LATER,
 				space, zip_size, FALSE,
-				tablespace_version, i, FALSE);
+				tablespace_version, i, trx, FALSE);
 			if (err == DB_TABLESPACE_DELETED) {
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
@@ -444,7 +448,8 @@ buf_read_page(
 /*==========*/
 	ulint	space,	/*!< in: space id */
 	ulint	zip_size,/*!< in: compressed page size in bytes, or 0 */
-	ulint	offset)	/*!< in: page number */
+	ulint	offset,	/*!< in: page number */
+	trx_t*	trx)
 {
 	ib_int64_t	tablespace_version;
 	ulint		count;
@@ -457,7 +462,7 @@ buf_read_page(
 
 	count = buf_read_page_low(&err, true, BUF_READ_ANY_PAGE, space,
 				  zip_size, FALSE,
-				  tablespace_version, offset, FALSE);
+				  tablespace_version, offset, trx, FALSE);
 	srv_stats.buf_pool_reads.add(count);
 	if (err == DB_TABLESPACE_DELETED) {
 		ut_print_timestamp(stderr);
@@ -505,7 +510,7 @@ buf_read_page_async(
 				  | OS_AIO_SIMULATED_WAKE_LATER
 				  | BUF_READ_IGNORE_NONEXISTENT_PAGES,
 				  space, zip_size, FALSE,
-				  tablespace_version, offset, FALSE);
+				  tablespace_version, offset, NULL, FALSE);
 	srv_stats.buf_pool_reads.add(count);
 
 	/* We do not increment number of I/O operations used for LRU policy
@@ -549,7 +554,8 @@ buf_read_ahead_linear(
 	ulint	space,		/*!< in: space id */
 	ulint	zip_size,	/*!< in: compressed page size in bytes, or 0 */
 	ulint	offset,		/*!< in: page number; see NOTE 3 above */
-	ibool	inside_ibuf)	/*!< in: TRUE if we are inside ibuf routine */
+	ibool	inside_ibuf,	/*!< in: TRUE if we are inside ibuf routine */
+	trx_t*	trx)
 {
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
 	ib_int64_t	tablespace_version;
@@ -764,7 +770,7 @@ buf_read_ahead_linear(
 				&err, false,
 				ibuf_mode,
 				space, zip_size, FALSE, tablespace_version, i,
-				TRUE);
+				trx, TRUE);
 			if (err == DB_TABLESPACE_DELETED) {
 				ut_print_timestamp(stderr);
 				fprintf(stderr,
@@ -858,7 +864,7 @@ buf_read_ibuf_merge_pages(
 		buf_read_page_low(&err, sync && (i + 1 == n_stored),
 				  BUF_READ_ANY_PAGE, space_ids[i],
 				  zip_size, TRUE, space_versions[i],
-				  page_nos[i], FALSE);
+				  page_nos[i], NULL, FALSE);
 
 		if (UNIV_UNLIKELY(err == DB_TABLESPACE_DELETED)) {
 tablespace_deleted:
@@ -1001,13 +1007,13 @@ not_to_recover:
 		if ((i + 1 == n_stored) && sync) {
 			buf_read_page_low(&err, true, BUF_READ_ANY_PAGE, space,
 					  zip_size, TRUE, tablespace_version,
-					  page_nos[i], FALSE);
+					  page_nos[i], NULL, FALSE);
 		} else {
 			buf_read_page_low(&err, false, BUF_READ_ANY_PAGE
 					  | OS_AIO_SIMULATED_WAKE_LATER,
 					  space, zip_size, TRUE,
 					  tablespace_version, page_nos[i],
-					  FALSE);
+					  NULL, FALSE);
 		}
 	}
 
