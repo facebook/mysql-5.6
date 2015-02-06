@@ -285,6 +285,21 @@ typedef void (*table_stats_cb)(const char *db, const char *table,
 			       my_io_perf_t *r_blob,
 			       const char *engine);
 
+/* For information_schema.user_statistics */
+extern ST_FIELD_INFO user_stats_fields_info[];
+void init_user_stats(USER_STATS *user_stats);
+void reset_global_user_stats();
+int fill_user_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+void
+update_user_stats_after_statement(USER_STATS *us,
+                                  THD *thd,
+                                  ulonglong wall_time,
+                                  bool is_other_command,
+                                  bool is_xid_event,
+                                  my_io_perf_t *start_perf_read,
+                                  my_io_perf_t *start_perf_read_blob);
+
+
 /* Functions to work with system tables. */
 bool open_system_tables_for_read(THD *thd, TABLE_LIST *table_list,
                                  Open_tables_backup *backup);

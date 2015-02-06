@@ -1,0 +1,166 @@
+#
+# Test IS.user_statistics for rows_* counters
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+
+create table userstats2 (i int primary key, j int) engine=innodb;
+create index us2x on userstats2(j);
+
+insert into userstats values (1,1), (2,2), (3,3), (4,4);
+insert into userstats2 select * from userstats;
+
+--echo
+--echo At start
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check select
+#
+
+select * from userstats;
+--echo
+--echo select 4 rows: rows_fetched incremented by 4
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check select with order by
+#
+
+select * from userstats order by i;
+--echo
+--echo select 4 rows: rows_fetched incremented by 4
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check select with order by and limit
+#
+
+select * from userstats order by i limit 3;
+--echo
+--echo select 3 rows: rows_fetched incremented by 3
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check aggregation
+#
+
+select count(*) from userstats;
+--echo
+--echo select 1 rows: rows_fetched incremented by 1
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check empty select
+#
+
+select * from userstats where i < 0;
+--echo
+--echo select 0 rows: rows_fetched incremented by 0
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check join
+#
+
+select * from userstats us, userstats2 us2 where us.i = us2.i;
+--echo
+--echo select 4 rows: rows_fetched incremented by 4
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check insert,update,delete
+#
+
+delete from userstats2;
+update userstats set j=5 where i=3;
+insert into userstats2 values (6,6);
+insert into userstats2 select * from userstats;
+--echo
+--echo after insert update delete: no change
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+#
+# Check SHOW
+#
+
+show global variables like "innodb_doublewrite";
+--echo
+--echo after show 1 row: increment by 1
+--echo
+connection default;
+--query_vertical select rows_fetched from information_schema.user_statistics where user_name = 'mysqltest_1'
+connection muc1;
+
+# Cleanup
+drop table userstats;
+drop table userstats2;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+

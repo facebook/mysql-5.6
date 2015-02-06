@@ -1,0 +1,159 @@
+#
+# Test IS.user_statistics for rows_* counters
+#
+
+# Requires privileges to be enabled
+--source include/not_embedded.inc
+
+--source include/have_innodb.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+# Be sure that nothing will bother us
+--disable_query_log
+delete from mysql.user where user like 'mysqltest\_%';
+delete from mysql.db where user like 'mysqltest\_%';
+delete from mysql.tables_priv where user like 'mysqltest\_%';
+delete from mysql.columns_priv where user like 'mysqltest\_%';
+flush privileges;
+--enable_query_log
+
+--disable_warnings
+drop table if exists userstats;
+drop table if exists userstats2;
+--enable_warnings
+
+flush statistics;
+
+# Limits doesn't work with prepared statements (yet)
+--disable_ps_protocol
+
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+
+connect (muc1, localhost, mysqltest_1,,);
+
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+
+create table userstats2 (i int primary key, j int) engine=innodb;
+create index us2x on userstats2(j);
+
+--echo
+--echo At start
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check rows_inserted
+#
+
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+
+--echo
+--echo After inserts: Increment rows_inserted by 5, rows_read by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check rows_inserted, rows_deleted after replace
+#
+
+replace into userstats value (6,6);
+
+--echo
+--echo Replace does insert: Increment rows_inserted by 1, rows_deleted by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+replace into userstats value (1,1);
+
+--echo
+--echo Replace 1 row: Increment rows_updated by 1, rows_read by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check rows_deleted after delete
+#
+
+delete from userstats where i = 1;
+
+--echo
+--echo Delete 1 row: Increment rows_deleted by 1, rows_read by 0
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+delete from userstats where i = 0;
+
+--echo
+--echo Delete 0 rows: Increment nothing
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+select count(*) from userstats;
+begin;
+delete from userstats;
+rollback;
+
+--echo
+--echo Delete 4 rows: Increment rows_deleted by 4, rows_read by 8
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+delete userstats, userstats2 from userstats inner join userstats2 where userstats.i = userstats2.i;
+
+--echo
+--echo Multi-table delete of 2 rows: Increment rows_deleted by 2
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted from information_schema.user_statistics where user_name = 'mysqltest_1'
+truncate table userstats2;
+
+--echo
+--echo Truncate: nothing changes
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+#
+# Check rows_updated
+#
+
+update userstats set j=j+1 where i = 2;
+
+--echo
+--echo Update 1 row: Increment rows_updated by 1, rows_read by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+update userstats set j=j+1 where i = 7;
+--echo
+--echo Update 0 rows: Increment nothing
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+insert into userstats set i=6, j=6 on duplicate key update j=j+1;
+
+--echo
+--echo Update 1 row: Increment rows_updated by 1, rows_read by 1
+--echo
+--query_vertical select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1'
+
+# Cleanup
+drop table userstats;
+drop table userstats2;
+connection default;
+
+disconnect muc1;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+
+--enable_ps_protocol
+
+# Wait till all disconnects are completed
+--source include/wait_until_count_sessions.inc
+
