@@ -2540,6 +2540,17 @@ static Sys_var_enum Sys_thread_handling(
        , READ_ONLY GLOBAL_VAR(thread_handling), CMD_LINE(REQUIRED_ARG),
        thread_handling_names, DEFAULT(0));
 
+static const char *allow_noncurrent_db_rw_levels[] =
+{
+  "ON", "LOG", "LOG_WARN", "OFF", 0
+};
+static Sys_var_enum Sys_allow_noncurrent_db_rw(
+        "allow_noncurrent_db_rw",
+        "Switch to allow/deny reads and writes to a table not in the "
+        "current database.",
+        SESSION_VAR(allow_noncurrent_db_rw), CMD_LINE(REQUIRED_ARG),
+        allow_noncurrent_db_rw_levels, DEFAULT(0));
+
 #ifdef HAVE_QUERY_CACHE
 static bool fix_query_cache_size(sys_var *self, THD *thd, enum_var_type type)
 {
