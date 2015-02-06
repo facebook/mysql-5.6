@@ -827,6 +827,15 @@ static ulint os_n_fsyncs_old = 0;
 std::atomic<ulint> os_n_pending_writes{0};
 /** Number of pending read operations */
 std::atomic<ulint> os_n_pending_reads{0};
+/** Number of outstanding aio requests */
+std::atomic<ulint> os_aio_n_outstanding{0};
+
+#ifdef UNIV_DEBUG
+/** Maximum outstanding aio requests observed */
+ulint os_aio_max_outstanding = 0;
+#endif /* UNIV_DEBUG */
+bool os_aio_batch_submission_blocked = false;
+static os_event_t os_aio_outstanding_requests_wait_event = NULL;
 
 static std::chrono::steady_clock::time_point os_last_printout;
 bool os_has_said_disk_full = false;
@@ -2526,6 +2535,16 @@ dberr_t LinuxAIOHandler::poll(fil_node_t **m1, void **m2, IORequest *request) {
 
   *request = slot->type;
 
+  /* Update outstanding requests count */
+  os_aio_n_outstanding.fetch_sub(1);
+
+  /* Signal the batch aio request submission to resume. */
+  if (os_aio_batch_submission_blocked &&
+      os_aio_n_outstanding < srv_io_outstanding_requests) {
+    os_aio_batch_submission_blocked = FALSE;
+    os_event_set(os_aio_outstanding_requests_wait_event);
+  }
+
   m_array->release(slot);
 
   m_array->release();
@@ -2572,41 +2591,61 @@ static dberr_t os_aio_linux_handler(ulint global_segment, fil_node_t **m1,
 /** Submit buffered AIO requests on the given segment to the kernel. */
 void AIO::linux_dispatch_read_array_submit() {
   AIO *array = AIO::s_reads;
-  ulint total_submitted = 0;
   if (!srv_use_native_aio) {
     return;
   }
-  array->acquire();
+  /* Go through each segment in the array to batch all requests in the
+  segment and submit together. */
   /* Submit aio requests buffered on all segments. */
   for (ulint i = 0; i < array->m_n_segments; i++) {
-    int count = array->m_count[i];
-    if (count > 0) {
-      ulint iocb_index = i * array->m_slots.size() / array->m_n_segments;
-      int submitted;
-      submitted = io_submit(array->m_aio_ctx[i], count,
-                            &(array->m_pending[iocb_index]));
-      if (submitted == count) {
-        total_submitted += submitted;
-      } else {
-        /* io_submit returns number of successfully
-        queued requests or -errno. */
-        fprintf(stderr,
-                "Trying to submit %d aio "
-                "requests, io_submit returns %d.\n",
-                count, submitted);
-        if (submitted < 0) {
-          errno = -submitted;
-        }
-        ut_error;
-      }
+    ulint count;
+    ulint slots_per_segment;
+    ulint iocb_index;
+    int submitted;
+    /* Wait if we exceed outstanding aio request threshold. */
+    if (os_aio_n_outstanding >= srv_io_outstanding_requests) {
+      os_event_reset(os_aio_outstanding_requests_wait_event);
+      os_aio_batch_submission_blocked = TRUE;
+      os_event_wait(os_aio_outstanding_requests_wait_event);
     }
-  }
-  /* Reset the aio request buffer. */
-  memset(array->m_pending, 0x0, sizeof(struct iocb *) * array->m_slots.size());
-  memset(array->m_count, 0x0, sizeof(ulint) * array->m_n_segments);
-  array->release();
 
-  srv_stats.n_aio_submitted.add(total_submitted);
+    array->acquire();
+    count = array->m_count[i];
+    /* If current segment is empty, continue. */
+    if (count == 0) {
+      array->release();
+      continue;
+    }
+    /* Batch and submit all requests from the segment. */
+    slots_per_segment = array->m_slots.size() / array->m_n_segments;
+    iocb_index = i * slots_per_segment;
+    submitted =
+        io_submit(array->m_aio_ctx[i], count, &(array->m_pending[iocb_index]));
+    if (submitted <= 0) {
+      /* io_submit returns number of successfully
+      queued requests or -errno. */
+      errno = -submitted;
+      array->release();
+      break;
+    }
+    /* Reset the aio request buffer. */
+    memset(&array->m_pending[iocb_index], 0x0,
+           sizeof(struct iocb *) * slots_per_segment);
+    array->m_count[i] = 0;
+    array->release();
+
+    /* Update outstanding requests statistics. */
+    os_aio_n_outstanding.fetch_add(submitted);
+
+#ifdef UNIV_DEBUG
+    /* Update max outstanding requests statistics.*/
+    if (os_aio_n_outstanding > os_aio_max_outstanding) {
+      os_aio_max_outstanding = os_aio_n_outstanding;
+    }
+#endif /* UNIV_DEBUG */
+    /* Update submitted aio requests statistics. */
+    srv_stats.n_aio_submitted.add(submitted);
+  }
 }
 
 /** Submit buffered AIO requests on the given segment to the kernel. */
@@ -2660,6 +2699,8 @@ bool AIO::linux_dispatch(Slot *slot, bool should_buffer) {
 
   if (ret != 1) {
     errno = -ret;
+  } else {
+    os_aio_n_outstanding.fetch_add(1);
   }
 
   return (ret == 1);
@@ -6523,6 +6564,8 @@ bool AIO::start(ulint n_per_seg, ulint n_readers, ulint n_writers,
     os_aio_segment_wait_events[i] = os_event_create();
   }
 
+  os_aio_outstanding_requests_wait_event = os_event_create();
+
   os_last_printout = std::chrono::steady_clock::now();
 
   return true;
@@ -6716,6 +6759,10 @@ void os_aio_free() {
 
   ut::free(os_aio_segment_wait_events);
   os_aio_segment_wait_events = nullptr;
+
+  os_event_destroy(os_aio_outstanding_requests_wait_event);
+  os_aio_outstanding_requests_wait_event = NULL;
+
   os_aio_n_segments = 0;
 
   for (Blocks::iterator it = block_cache->begin(); it != block_cache->end();
