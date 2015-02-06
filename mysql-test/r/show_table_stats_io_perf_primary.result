@@ -1,0 +1,60 @@
+drop table if exists t1;
+drop table if exists t2;
+CREATE TABLE t1 (a int not null primary key, b int) engine=innodb;
+create index SECONDARY on t1(b);
+insert into t1 values (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6);
+select count(*) from t1;
+count(*)
+6
+# Can't Clear innodb page cache, so restart mysqld to generate reads
+flush statistics;
+select * from t1 where a=1;
+a	b
+1	1
+select
+IO_READ_BYTES_PRIMARY DIV PAGE_SIZE,
+IO_READ_REQUESTS_PRIMARY, IO_READ_OLD_IOS_PRIMARY,
+IO_READ_BYTES_SECONDARY, IO_READ_REQUESTS_SECONDARY, IO_READ_OLD_IOS_SECONDARY
+from information_schema.table_statistics where table_name like 't1%';
+IO_READ_BYTES_PRIMARY DIV PAGE_SIZE	IO_READ_REQUESTS_PRIMARY	IO_READ_OLD_IOS_PRIMARY	IO_READ_BYTES_SECONDARY	IO_READ_REQUESTS_SECONDARY	IO_READ_OLD_IOS_SECONDARY
+1	1	0	0	0	0
+select
+DISK_READ_BYTES_PRIMARY DIV PAGE_SIZE, DISK_READ_REQUESTS_PRIMARY,
+DISK_READ_BYTES_SECONDARY, DISK_READ_REQUESTS_SECONDARY
+from information_schema.user_statistics where
+USER_NAME=substring_index(user(),'@',1);
+DISK_READ_BYTES_PRIMARY DIV PAGE_SIZE	DISK_READ_REQUESTS_PRIMARY	DISK_READ_BYTES_SECONDARY	DISK_READ_REQUESTS_SECONDARY
+1	1	0	0
+CREATE TABLE t2 (a int not null primary key, b blob) engine=innodb;
+create procedure insert_rows (loops int)
+begin
+declare v1 int default 0;
+while v1 < loops do
+insert into t2 values (v1, repeat("t", 100 * 1000));
+set v1 = v1 + 1;
+end while;
+end//
+create procedure select_rows (loops int)
+begin
+declare v1 int default 0;
+while v1 < loops do
+select * from t2 where a=v1;
+set v1 = v1 + 1;
+end while;
+end//
+call insert_rows(100);
+select count(*) from t2;
+# Can't Clear innodb page cache, so restart mysqld to generate reads
+flush statistics;
+call select_rows(100);
+drop table t1;
+drop table t2;
+drop procedure insert_rows;
+drop procedure select_rows;
+# The primary key and secondary index IO stats should all be zeros
+select
+IO_READ_BYTES_PRIMARY, IO_READ_REQUESTS_PRIMARY, IO_READ_OLD_IOS_PRIMARY,
+IO_READ_BYTES_SECONDARY, IO_READ_REQUESTS_SECONDARY, IO_READ_OLD_IOS_SECONDARY
+from information_schema.table_statistics where table_name like 'system%';
+IO_READ_BYTES_PRIMARY	IO_READ_REQUESTS_PRIMARY	IO_READ_OLD_IOS_PRIMARY	IO_READ_BYTES_SECONDARY	IO_READ_REQUESTS_SECONDARY	IO_READ_OLD_IOS_SECONDARY
+0	0	0	0	0	0

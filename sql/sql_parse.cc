@@ -787,7 +787,7 @@ static void handle_bootstrap_impl(THD *thd)
     }
 
     mysql_parse(thd, thd->query(), length, &parser_state, NULL);
-
+    sql_print_information("query: %s", thd->query());
     bootstrap_error= thd->is_error();
     thd->protocol->end_statement();
 
@@ -1271,7 +1271,9 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   NET *net= &thd->net;
   bool error= 0;
   ulonglong init_timer, last_timer;
-  my_io_perf_t start_perf_read, start_perf_read_blob; /* for USER_STATISTICS */
+  /* for USER_STATISTICS */
+  my_io_perf_t start_perf_read, start_perf_read_blob;
+  my_io_perf_t start_perf_read_primary, start_perf_read_secondary;
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
@@ -1325,6 +1327,8 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   */
   start_perf_read = thd->io_perf_read;
   start_perf_read_blob = thd->io_perf_read_blob;
+  start_perf_read_primary = thd->io_perf_read_primary;
+  start_perf_read_secondary = thd->io_perf_read_secondary;
 
   /**
     Clear the set of flags that are expected to be cleared at the
@@ -1971,7 +1975,9 @@ done:
       update_user_stats_after_statement(us, thd, wall_time,
                                         command != COM_QUERY,
                                         FALSE, &start_perf_read,
-                                        &start_perf_read_blob);
+                                        &start_perf_read_blob,
+                                        &start_perf_read_primary,
+                                        &start_perf_read_secondary);
     }
 #endif
   }

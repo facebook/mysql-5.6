@@ -2937,6 +2937,7 @@ dict_index_build_internal_clust(
 	ulint		trx_id_pos;
 	ulint		i;
 	ibool*		indexed;
+	fil_space_t*	fil_space;
 
 	ut_ad(table && index);
 	ut_ad(dict_index_is_clust(index));
@@ -2948,6 +2949,14 @@ dict_index_build_internal_clust(
 					  index->name, table->space,
 					  index->type,
 					  index->n_fields + table->n_cols);
+
+	/* Tell tablespace the index_id of primary key. */
+	if (index) {
+		mutex_enter(&fil_system->mutex);
+		fil_space = fil_space_get_by_id(table->space);
+		if (fil_space) fil_space->primary_index_id = index->id;
+		mutex_exit(&fil_system->mutex);
+	}
 
 	/* Copy other relevant data from the old index struct to the new
 	struct: it inherits the values */

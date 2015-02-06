@@ -1,0 +1,3 @@
+--default-storage-engine=innodb
+--innodb-file-per-table
+--innodb_buffer_pool_size=6mb
