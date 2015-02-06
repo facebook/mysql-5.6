@@ -2617,6 +2617,9 @@ static bool show_status_array(THD *thd, const char *wild,
           /* 6 is the default precision for '%f' in sprintf() */
           end= buff + my_fcvt(*(double *) value, 6, buff, NULL);
           break;
+        case SHOW_TIMER_STATUS:
+          value= ((char *) status_var + (ulong) value);
+          /* fall through */
         case SHOW_TIMER:
           { /* 6 is the default precision for '%f' in sprintf() */
             double tmp_val = my_timer_to_seconds(*(longlong*) value);

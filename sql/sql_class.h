@@ -630,9 +630,20 @@ typedef struct system_status_var
   ulonglong com_stmt_fetch;
   ulonglong com_stmt_reset;
   ulonglong com_stmt_close;
+  ulonglong read_requests;      /* Number of synchronous read requests */
+  ulonglong rows_examined;
+  ulonglong rows_sent;
 
   ulonglong bytes_received;
   ulonglong bytes_sent;
+
+  /* Performance counters */
+  ulonglong command_time;       /* Time handling client commands */
+  ulonglong parse_time;         /* Time parsing client commands */
+  ulonglong pre_exec_time;      /* Time doing work post-parse but before execution */
+  ulonglong exec_time;          /* Time executing client commands */
+  ulonglong open_table_time;    /* Time in open_table() when LOCK_open is locked */
+  ulonglong read_time;          /* Time doing synchronous reads */
 
   ulonglong max_statement_time_exceeded;
   ulonglong max_statement_time_set;

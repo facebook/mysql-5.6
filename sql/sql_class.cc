@@ -2552,6 +2552,7 @@ bool select_send::send_data(List<Item> &items)
   }
 
   thd->inc_sent_row_count(1);
+  thd->status_var.rows_sent++;
 
   if (thd->vio_ok())
     DBUG_RETURN(protocol->write());
