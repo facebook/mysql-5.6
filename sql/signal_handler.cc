@@ -181,6 +181,9 @@ extern "C" sig_handler handle_fatal_signal(int sig)
     case THD::KILLED_NO_VALUE:
       kreason= "KILLED_NO_VALUE";
       break;
+    case THD::ABORT_QUERY:
+      kreason= "ABORT_QUERY";
+      break;
     }
     my_safe_printf_stderr("%s", "\n"
       "Trying to get some variables.\n"
