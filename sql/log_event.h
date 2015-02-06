@@ -458,6 +458,7 @@ struct sql_ex_info
 
 /* 4 bytes which all binlogs should begin with */
 #define BINLOG_MAGIC        "\xfe\x62\x69\x6e"
+#define SIZEOF_BINLOG_MAGIC 4
 
 /*
   The 2 flags below were useless :

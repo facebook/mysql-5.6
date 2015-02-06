@@ -2519,6 +2519,9 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 
   @param[in] logname Name of input binlog.
 
+  @param[in] stream_file Used to indicate that file is a stream and
+             therefore can't seek back and forth
+
   @retval ERROR_STOP An error occurred - the program should terminate.
   @retval OK_CONTINUE No error, the program should continue.
   @retval OK_STOP No error, but the end of the specified range of
@@ -2526,7 +2529,8 @@ static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
 */
 static Exit_status check_header(IO_CACHE* file,
                                 PRINT_EVENT_INFO *print_event_info,
-                                const char* logname)
+                                const char* logname,
+                                bool stream_file)
 {
   DBUG_ENTER("check_header");
   uchar header[BIN_LOG_HEADER_SIZE];
@@ -2543,14 +2547,22 @@ static Exit_status check_header(IO_CACHE* file,
 
   pos= my_b_tell(file);
 
-  /* fstat the file to check if the file is a regular file. */
-  if (my_fstat(file->file, &my_file_stat, MYF(0)) == -1)
+  if (!stream_file)
   {
-    error("Unable to stat the file.");
+    /* fstat the file to check if the file is a regular file. */
+    if (my_fstat(file->file, &my_file_stat, MYF(0)) == -1)
+    {
+      error("Unable to stat the file.");
+      DBUG_RETURN(ERROR_STOP);
+    }
+    if ((my_file_stat.st_mode & S_IFMT) == S_IFREG)
+      my_b_seek(file, (my_off_t)0);
+  }
+  if (stream_file && pos != (my_off_t)0)
+  {
+    error("Cannot rewind to header in a stream.");
     DBUG_RETURN(ERROR_STOP);
   }
-  if ((my_file_stat.st_mode & S_IFMT) == S_IFREG)
-    my_b_seek(file, (my_off_t)0);
 
   if (my_b_read(file, header, sizeof(header)))
   {
@@ -2561,6 +2573,72 @@ static Exit_status check_header(IO_CACHE* file,
   {
     error("File is not a binary log file.");
     DBUG_RETURN(ERROR_STOP);
+  }
+
+  /*
+    The rest of this function tries to figure out binlog format etc by reading
+    some events. We have two codepaths based on whether it is streaming file
+    or not. This is because we cannot go back and forth in a stream. Since the
+    streaming file only needs to be supported for 5.0+ formats, the code for
+    streaming path is simpler than the non-streaming case that handles all
+    formats.
+  */
+  if (stream_file)
+  {
+    for (;;)
+    {
+      pos= my_b_tell(file);
+
+      if (pos >= start_position)
+      {
+        DBUG_RETURN(OK_CONTINUE);
+      }
+
+      Log_event *ev;
+      if (!(ev= Log_event::read_log_event(file, glob_description_event,
+                                          opt_verify_binlog_checksum)))
+      {
+        if (file->error)
+        {
+          error("Could not read a log_event at offset %llu;"
+                " this could be a log format error or read error.",
+                (ulonglong)pos);
+          DBUG_RETURN(ERROR_STOP);
+        }
+        // EOF
+        DBUG_RETURN(OK_CONTINUE);
+      }
+
+      if (ev->get_type_code() != FORMAT_DESCRIPTION_EVENT)
+      {
+        delete ev;
+        ev = NULL;
+        continue;
+      }
+
+      Format_description_log_event *new_description_event =
+        static_cast<Format_description_log_event *>(ev);
+
+      if (opt_base64_output_mode == BASE64_OUTPUT_AUTO)
+      {
+        /*
+          process_event will delete *description_event and set it to
+          the new one, so we should not do it ourselves in this
+          case.
+        */
+        Exit_status retval= process_event(print_event_info,
+                                          new_description_event, pos,
+                                          logname);
+        if (retval != OK_CONTINUE)
+          DBUG_RETURN(retval);
+      }
+      else
+      {
+        delete glob_description_event;
+        glob_description_event= new_description_event;
+      }
+    }
+    DBUG_RETURN(OK_CONTINUE);
   }
 
   /*
@@ -2718,7 +2796,8 @@ static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
       my_close(fd, MYF(MY_WME));
       return ERROR_STOP;
     }
-    if ((retval= check_header(file, print_event_info, logname)) != OK_CONTINUE)
+    if ((retval= check_header(file, print_event_info, logname, false))
+        != OK_CONTINUE)
       goto end;
   }
   else
@@ -2745,23 +2824,9 @@ static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
       error("Failed to init IO cache.");
       return ERROR_STOP;
     }
-    if ((retval= check_header(file, print_event_info, logname)) != OK_CONTINUE)
+    if ((retval= check_header(file, print_event_info, logname, true))
+        != OK_CONTINUE)
       goto end;
-    if (start_position)
-    {
-      /* skip 'start_position' characters from stdin */
-      uchar buff[IO_SIZE];
-      my_off_t length,tmp;
-      for (length= start_position_mot ; length > 0 ; length-=tmp)
-      {
-	tmp= min<size_t>(length, sizeof(buff));
-	if (my_b_read(file, buff, (uint) tmp))
-        {
-          error("Failed reading from file.");
-          goto err;
-        }
-      }
-    }
   }
 
   if (!glob_description_event || !glob_description_event->is_valid())
@@ -3000,6 +3065,13 @@ int main(int argc, char** argv)
   if (gtid_client_init())
   {
     error("Could not initialize GTID structuress.");
+    exit(1);
+  }
+
+  if ((argc == 1) && (stop_position != (ulonglong)(~(my_off_t)0)) &&
+      (!strcmp(argv[0], "-")))
+  {
+    error("stop_position not allowed when input is STDIN");
     exit(1);
   }
 
