@@ -7072,6 +7072,9 @@ void handler::update_global_table_stats(THD *thd)
     my_io_perf_sum(&thd->io_perf_write, &stats.table_io_perf_write);
     my_io_perf_sum(&thd->io_perf_read_blob, &stats.table_io_perf_read_blob);
 
+    thd->status_var.read_requests = thd->io_perf_read.requests;
+    thd->status_var.read_time = thd->io_perf_read.svc_time;
+
     thd->rows_deleted += stats.rows_deleted;
     thd->rows_updated += stats.rows_updated;
     thd->rows_inserted += stats.rows_inserted;
