@@ -8247,6 +8247,10 @@ ST_SCHEMA_TABLE schema_tables[]=
    OPEN_TRIGGER_ONLY|OPTIMIZE_I_S_TABLE},
   {"USER_PRIVILEGES", user_privileges_fields_info, create_schema_table, 
    fill_schema_user_privileges, 0, 0, -1, -1, 0, 0},
+#ifndef EMBEDDED_LIBRARY
+  {"USER_STATISTICS", user_stats_fields_info, create_schema_table,
+   fill_user_stats, NULL, NULL, -1, -1, false, 0},
+#endif
   {"VARIABLES", variables_fields_info, create_schema_table, fill_variables,
    make_old_format, 0, 0, -1, 1, 0},
   {"VIEWS", view_fields_info, create_schema_table, 

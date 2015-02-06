@@ -9617,6 +9617,7 @@ static bool secure_auth(MPVIO_EXT *mpvio)
     my_error(ER_NOT_SUPPORTED_AUTH_MODE, MYF(0));
     general_log_print(thd, COM_CONNECT, ER(ER_NOT_SUPPORTED_AUTH_MODE));
   }
+  // TODO(mcallaghan): count this per user name
   return 1;
 }
 
@@ -11237,12 +11238,8 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
       DBUG_RETURN(1);
     }
 
-    /* Don't allow the user to connect if he has done too many queries */
-    if ((acl_user->user_resource.questions || acl_user->user_resource.updates ||
-         acl_user->user_resource.conn_per_hour ||
-         acl_user->user_resource.user_conn || 
-         global_system_variables.max_user_connections) &&
-        get_or_create_user_conn(thd,
+    /* Always get USER_CONN as it stores USER_STATS. */
+    if (get_or_create_user_conn(thd,
           (opt_old_style_user_limits ? sctx->user : sctx->priv_user),
           (opt_old_style_user_limits ? sctx->host_or_ip : sctx->priv_host),
           &acl_user->user_resource))
@@ -11259,15 +11256,6 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
   }
   else
     sctx->skip_grants();
-
-  const USER_CONN *uc;
-  if ((uc= thd->get_user_connect()) &&
-      (uc->user_resources.conn_per_hour || uc->user_resources.user_conn ||
-       global_system_variables.max_user_connections) &&
-       check_for_max_user_connections(thd, uc))
-  {
-    DBUG_RETURN(1); // The error is set in check_for_max_user_connections()
-  }
 
   DBUG_PRINT("info",
              ("Capabilities: %lu  packet_length: %ld  Host: '%s'  "
@@ -11286,12 +11274,34 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
     mysql_mutex_unlock(&LOCK_connection_count);
     if (!count_ok)
     {                                         // too many connections
-      release_user_connection(thd);
       statistic_increment(connection_errors_max_connection, &LOCK_status);
       my_error(ER_CON_COUNT_ERROR, MYF(0));
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+      fix_user_conn(thd, true); // Undo work by get_or_create_user_conn
+#endif
       DBUG_RETURN(1);
     }
   }
+
+  USER_CONN *uc = const_cast<USER_CONN*>(thd->get_user_connect());
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  bool global_max = false;
+  if (uc &&
+      (uc->user_resources.conn_per_hour || uc->user_resources.user_conn ||
+       global_system_variables.max_user_connections) &&
+      check_for_max_user_connections(thd, uc, &global_max))
+  {
+    fix_user_conn(thd, global_max); // Undo work by get_or_create_user_conn
+    DBUG_RETURN(1); // The error is set in check_for_max_user_connections()
+  }
+#else
+  if (uc &&
+      (uc->user_resources.conn_per_hour || uc->user_resources.user_conn ||
+       global_system_variables.max_user_connections))
+  {
+    DBUG_RETURN(1); // The error is set in check_for_max_user_connections()
+  }
+#endif
 
   /*
     This is the default access rights for the current database.  It's
@@ -11306,7 +11316,12 @@ acl_authenticate(THD *thd, uint com_change_user_pkt_len)
     if (mysql_change_db(thd, &mpvio.db, FALSE))
     {
       /* mysql_change_db() has pushed the error message. */
-      release_user_connection(thd);
+      USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
+      if (uc)
+      {
+        decrease_user_connections(uc);
+        uc->user_stats.errors_access_denied.inc();
+      }
       Host_errors errors;
       errors.m_default_database= 1;
       inc_host_errors(mpvio.ip, &errors);

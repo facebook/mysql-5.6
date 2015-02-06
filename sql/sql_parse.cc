@@ -1283,6 +1283,7 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   NET *net= &thd->net;
   bool error= 0;
   ulonglong init_timer, last_timer;
+  my_io_perf_t start_perf_read, start_perf_read_blob; /* for USER_STATISTICS */
   DBUG_ENTER("dispatch_command");
   DBUG_PRINT("info",("packet: '%*.s'; command: %d", packet_length, packet, command));
 
@@ -1328,6 +1329,14 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
 
   if (!(server_command_flags[command] & CF_SKIP_QUESTIONS))
     statistic_increment(thd->status_var.questions, &LOCK_status);
+
+  thd->reset_user_stats_counters();
+
+  /* The vars in THD are per-session. We need per-statement values.
+     The per-session var is read now and diffed later.
+  */
+  start_perf_read = thd->io_perf_read;
+  start_perf_read_blob = thd->io_perf_read_blob;
 
   /**
     Clear the set of flags that are expected to be cleared at the
@@ -1964,7 +1973,25 @@ done:
   /* Don't count the thread running on a master to send binlog events to a
      slave as that runs a long time. */
   if (command != COM_BINLOG_DUMP)
-    command_seconds += my_timer_since(init_timer);
+  {
+    ulonglong wall_time = my_timer_since(init_timer);
+    command_seconds += wall_time;
+#ifndef EMBEDDED_LIBRARY
+    if (thd)
+    {
+      USER_STATS *us= thd_get_user_stats(thd);
+      update_user_stats_after_statement(us, thd, wall_time,
+                                        command != COM_QUERY,
+                                        FALSE, &start_perf_read,
+                                        &start_perf_read_blob);
+    }
+#endif
+  }
+  if (thd->lex->sql_command == SQLCOM_SELECT && thd->get_sent_row_count() == 0)
+  {
+    USER_STATS *us= thd_get_user_stats(thd);
+    us->queries_empty.inc();
+  }
 
   DBUG_RETURN(error);
 }
@@ -2443,7 +2470,9 @@ err:
 */
 
 int
-mysql_execute_command(THD *thd, ulonglong *last_timer)
+mysql_execute_command(THD *thd,
+                      ulonglong *statement_start_time,
+                      ulonglong *post_parse)
 {
   int res= FALSE;
   int  up_result= 0;
@@ -2805,7 +2834,7 @@ mysql_execute_command(THD *thd, ulonglong *last_timer)
     thd->initial_status_var= &old_status_var;
 
     if (!(res= select_precheck(thd, lex, all_tables, first_table)))
-      res= execute_sqlcom_select(thd, all_tables, last_timer);
+      res= execute_sqlcom_select(thd, all_tables, post_parse);
 
     /* Don't log SHOW STATUS commands to slow query log */
     thd->server_status&= ~(SERVER_QUERY_NO_INDEX_USED |
@@ -2849,7 +2878,7 @@ mysql_execute_command(THD *thd, ulonglong *last_timer)
     if ((res= select_precheck(thd, lex, all_tables, first_table)))
       break;
 
-    res= execute_sqlcom_select(thd, all_tables, last_timer);
+    res= execute_sqlcom_select(thd, all_tables, post_parse);
     break;
   }
 case SQLCOM_PREPARE:
@@ -5227,8 +5256,73 @@ error:
   res= TRUE;
 
 finish:
-  if (last_timer && lex->sql_command != SQLCOM_SELECT)
-    exec_seconds += my_timer_since_and_update(last_timer);
+
+  /* Count commands by type. Uses a separate switch statement as I don't want to
+     repeat the increment of commands_other in so many cases.
+  */
+  if (thd)
+  {
+    USER_STATS *us= thd_get_user_stats(thd);
+    ulonglong microsecs= (ulonglong)
+      my_timer_to_microseconds(my_timer_since(*statement_start_time));
+
+    switch (lex->sql_command) {
+    case SQLCOM_UPDATE:
+    case SQLCOM_UPDATE_MULTI:
+      us->commands_update.inc();
+      us->microseconds_update.inc(microsecs);
+      break;
+    case SQLCOM_DELETE:
+    case SQLCOM_DELETE_MULTI:
+      us->commands_delete.inc();
+      us->microseconds_delete.inc(microsecs);
+      break;
+    case SQLCOM_INSERT:
+    case SQLCOM_INSERT_SELECT:
+    case SQLCOM_REPLACE:
+    case SQLCOM_REPLACE_SELECT:
+    case SQLCOM_LOAD:
+      us->commands_insert.inc();
+      us->microseconds_insert.inc(microsecs);
+      break;
+    case SQLCOM_SELECT:
+      us->commands_select.inc();
+      us->microseconds_select.inc(microsecs);
+      break;
+    case SQLCOM_CREATE_TABLE:
+    case SQLCOM_ALTER_TABLE:
+    case SQLCOM_DROP_TABLE:
+    case SQLCOM_CREATE_INDEX:
+    case SQLCOM_DROP_INDEX:
+    case SQLCOM_CREATE_DB:
+    case SQLCOM_DROP_DB:
+    case SQLCOM_ALTER_DB:
+    case SQLCOM_TRUNCATE:
+      us->commands_ddl.inc();
+      us->microseconds_other.inc(microsecs);
+      break;
+    case SQLCOM_BEGIN:
+    case SQLCOM_COMMIT:
+    case SQLCOM_ROLLBACK:
+      us->commands_transaction.inc();
+      us->microseconds_transaction.inc(microsecs);
+      break;
+    case SQLCOM_HA_CLOSE:
+    case SQLCOM_HA_OPEN:
+    case SQLCOM_HA_READ:
+//    case SQLCOM_HA_OPEN_READ_CLOSE:
+      us->commands_handler.inc();
+      us->microseconds_handler.inc(microsecs);
+      break;
+    default:
+      us->commands_other.inc();
+      us->microseconds_other.inc(microsecs);
+      break;
+    }
+  }
+
+  if (post_parse && lex->sql_command != SQLCOM_SELECT)
+    exec_seconds += my_timer_since_and_update(post_parse);
 
   DBUG_ASSERT(!thd->in_active_multi_stmt_transaction() ||
                thd->in_multi_stmt_transaction_mode());
@@ -6291,7 +6385,8 @@ void THD::reset_for_next_command()
   thd->get_stmt_da()->reset_diagnostics_area();
   thd->get_stmt_da()->reset_for_next_command();
   thd->rand_used= 0;
-  thd->m_sent_row_count= thd->m_examined_row_count= 0;
+  thd->set_sent_row_count(0);
+  thd->set_examined_row_count(0);
 
   thd->reset_current_stmt_binlog_format_row();
   thd->binlog_unsafe_warning_flags= 0;
@@ -6595,10 +6690,16 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
                  Parser_state *parser_state, ulonglong *last_timer)
 {
   int error __attribute__((unused));
+  ulonglong statement_start_time;
 
   DBUG_ENTER("mysql_parse");
 
   DBUG_EXECUTE_IF("parser_debug", turn_parser_debug_on(););
+
+  if (last_timer)
+    statement_start_time= *last_timer;
+  else
+    statement_start_time= my_timer_now();
 
   /*
     Warning.
@@ -6669,7 +6770,6 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
           general_log_write(thd, COM_QUERY, thd->query(), qlen);
       }
     }
-
     if (last_timer)
       parse_seconds += my_timer_since_and_update(last_timer);
 
@@ -6725,7 +6825,8 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             error= 1;
           }
           else
-            error= mysql_execute_command(thd, last_timer);
+            error=
+              mysql_execute_command(thd, &statement_start_time, last_timer);
           if (error == 0 &&
               thd->variables.gtid_next.type == GTID_GROUP &&
               thd->owned_gtid.sidno != 0 &&
@@ -6802,6 +6903,13 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
 
   if (get_throttle_query_type(thd->lex) == THROTTLE_QUERY_WRITE)
     dec_write_query_running();
+
+  if (thd->get_user_connect())
+  {
+    USER_STATS *us=
+      &((const_cast<USER_CONN*>(thd->get_user_connect()))->user_stats);
+    us->rows_fetched.inc(thd->get_sent_row_count());
+  }
 
   DBUG_VOID_RETURN;
 }

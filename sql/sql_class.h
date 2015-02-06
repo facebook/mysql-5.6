@@ -2264,6 +2264,23 @@ public:
   my_io_perf_t io_perf_write;	/* IO perf counters for slow query log */
   my_io_perf_t io_perf_read_blob;/* IO perf counters for slow query log */
 
+  /* Counters for information_schema.USER_STATISTICS.
+     Set to 0 at statement start
+  */
+  ulonglong rows_deleted;
+  ulonglong rows_updated;
+  ulonglong rows_inserted;
+  ulonglong rows_read;
+  /* ulonglong rows_fetched; TODO(mcallaghan) */
+
+  ulonglong rows_index_first;
+  ulonglong rows_index_next;
+
+  inline void reset_user_stats_counters() {
+    rows_deleted = rows_updated = rows_inserted = rows_read = 0;
+    rows_index_first = rows_index_next = 0;
+  }
+
   thr_lock_type update_lock_default;
   Delayed_insert *di;
 
@@ -4171,6 +4188,30 @@ private:
   LEX_STRING invoker_user;
   LEX_STRING invoker_host;
 };
+
+/*
+  Use this to get the USER_STATS handle for a THD as THD::user_connect is not
+  set for the slave SQL replication thread and for other background threads.
+*/
+inline USER_STATS* thd_get_user_stats(THD* thd)
+{
+  USER_CONN* uc = const_cast<USER_CONN*>(thd->get_user_connect());
+  USER_STATS* us;
+  if (uc)
+  {
+    us= &(uc->user_stats);
+  }
+  else if (thd->slave_thread)
+  {
+    us= &slave_user_stats;
+  }
+  else
+  {
+    us= &other_user_stats;
+  }
+  DBUG_ASSERT(us->magic == USER_STATS_MAGIC);
+  return us;
+}
 
 /**
   A simple holder for the Prepared Statement Query_arena instance in THD.
