@@ -79,6 +79,13 @@ extern ulint os_n_pending_writes;
 /* Flush after each os_fsync_threshold bytes */
 extern unsigned long long os_fsync_threshold;
 
+/** Number of outstanding aio requests */
+extern ulint os_aio_n_outstanding;
+#ifdef UNIV_DEBUG
+/** Maximum outstanding aio requests observed */
+extern ulint os_aio_max_outstanding;
+#endif /* UNIV_DEBUG */
+
 /** File offset in bytes */
 typedef ib_uint64_t os_offset_t;
 
