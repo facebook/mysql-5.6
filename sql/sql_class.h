@@ -569,6 +569,8 @@ typedef struct system_variables
   my_bool show_old_temporals;
 
   ulong max_statement_time;
+
+  ulong allow_noncurrent_db_rw;
 } SV;
 
 
