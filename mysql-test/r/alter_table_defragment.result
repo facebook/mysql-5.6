@@ -11,7 +11,6 @@ insert into t1 values (2, REPEAT("a", 256));
 alter table t1 defragment;
 alter table t1 defragment index primary;
 alter table t1 defragment index second;
-alter table t1 defragment async_commit;
 alter table t1 defragment index notexist;
 ERROR 42S12: Table './test/t1' has no index like the one used in CREATE INDEX; recreate the table
 insert into t2 values (1, REPEAT("a", 256));
