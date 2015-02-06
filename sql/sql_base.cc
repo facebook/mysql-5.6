@@ -3214,6 +3214,8 @@ table_found:
 
   table->next= thd->open_tables;		/* Link into simple list */
   thd->set_open_tables(table);
+  table->count_comment_bytes= thd->count_comment_bytes;    /* Assigning the
+                                   comment bytes count to the relevant table */
 
   table->reginfo.lock_type=TL_READ;		/* Assume read */
 

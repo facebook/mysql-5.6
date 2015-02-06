@@ -505,6 +505,7 @@ void lex_start(THD *thd)
   lex->is_change_password= false;
   lex->is_set_password_sql= false;
   lex->mark_broken(false);
+  thd->count_comment_bytes= 0;
   lex->max_statement_time= 0;
   DBUG_VOID_RETURN;
 }
@@ -882,19 +883,23 @@ static inline uint int_token(const char *str,uint length)
 
   @retval  Whether EOF reached before comment is closed.
 */
-bool consume_comment(Lex_input_stream *lip, int remaining_recursions_permitted)
+bool consume_comment(Lex_input_stream *lip, int remaining_recursions_permitted,
+                                                ulonglong *count_comment_bytes)
 {
   reg1 uchar c;
   while (! lip->eof())
   {
     c= lip->yyGet();
 
+    ++ (*count_comment_bytes);
     if (remaining_recursions_permitted > 0)
     {
       if ((c == '/') && (lip->yyPeek() == '*'))
       {
         lip->yySkip(); /* Eat asterisk */
-        consume_comment(lip, remaining_recursions_permitted-1);
+        ++ (*count_comment_bytes); /* Counting the asterisk */
+        consume_comment(lip, remaining_recursions_permitted-1,
+                        count_comment_bytes);
         continue;
       }
     }
@@ -904,6 +909,7 @@ bool consume_comment(Lex_input_stream *lip, int remaining_recursions_permitted)
       if (lip->yyPeek() == '/')
       {
         lip->yySkip(); /* Eat slash */
+        ++ (*count_comment_bytes);
         return FALSE;
       }
     }
@@ -1035,6 +1041,7 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
            my_iscntrl(cs,lip->yyPeekn(1))))
       {
         state=MY_LEX_COMMENT;
+        thd->count_comment_bytes+= 1;
         break;
       }
 
@@ -1461,7 +1468,10 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
 
     case MY_LEX_COMMENT:			//  Comment
       lex->select_lex.options|= OPTION_FOUND_COMMENT;
-      while ((c = lip->yyGet()) != '\n' && c) ;
+      if (c == '#')
+        thd->count_comment_bytes+= 1;
+      while ((c = lip->yyGet()) != '\n' && c)
+        ++ thd->count_comment_bytes;
       lip->yyUnget();                   // Safety against eof
       state = MY_LEX_START;		// Try again
       break;
@@ -1485,6 +1495,7 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
         lip->yySkip();
         lip->yySkip();
         lip->yySkip();
+        thd->count_comment_bytes+= 3;
 
         /*
           The special comment format is very strict:
@@ -1518,6 +1529,7 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
             /* Expand the content of the special comment as real code */
             lip->set_echo(TRUE);
             state=MY_LEX_START;
+            thd->count_comment_bytes-= 3;
             break;  /* Do not treat contents as a comment.  */
           }
           else
@@ -1527,7 +1539,9 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
               being propagated infinitely (eg. to a slave).
             */
             char *pcom= lip->yyUnput(' ');
-            comment_closed= ! consume_comment(lip, 1);
+            thd->count_comment_bytes-= 1;
+            comment_closed= ! consume_comment(lip, 1,
+                                              &(thd->count_comment_bytes));
             if (! comment_closed)
             {
               *pcom= '!';
@@ -1548,7 +1562,8 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
         lip->in_comment= PRESERVE_COMMENT;
         lip->yySkip();                  // Accept /
         lip->yySkip();                  // Accept *
-        comment_closed= ! consume_comment(lip, 0);
+        thd->count_comment_bytes+= 2;   // Counting / and *
+        comment_closed= ! consume_comment(lip, 0,&(thd->count_comment_bytes));
         /* regular comments can have zero comments inside. */
       }
       /*
