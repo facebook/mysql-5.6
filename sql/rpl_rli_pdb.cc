@@ -19,6 +19,7 @@
 #include "rpl_rli_pdb.h"
 #include "rpl_slave.h"
 #include "sql_string.h"
+#include "sql_base.h"
 #include <hash.h>
 
 #ifndef DBUG_OFF
@@ -1967,6 +1968,15 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     }
   }
 
+  my_io_perf_t start_perf_read, start_perf_read_blob;
+  ulonglong init_timer, wall_time;
+  bool is_other, is_xid, update_slave_stats;
+  /* Initialize for user_statistics, see dispatch_command */
+  thd->reset_user_stats_counters();
+  start_perf_read = thd->io_perf_read;
+  start_perf_read_blob = thd->io_perf_read_blob;
+  init_timer = my_timer_now();
+
   worker->set_future_event_relay_log_pos(ev->future_event_relay_log_pos);
   worker->set_master_log_pos(ev->log_pos);
   worker->set_gaq_index(ev->mts_group_idx);
@@ -1998,6 +2008,30 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
       while (true) my_sleep(6000000);
     }
 #endif
+  }
+  wall_time = my_timer_since(init_timer);
+  /* Update counters for USER_STATS */
+  is_other= FALSE;
+  is_xid= FALSE;
+  update_slave_stats= FALSE;
+  /* TODO: handle WRITE_ROWS_EVENT, UPDATE_ROWS_EVENT, DELETE_ROWS_EVENT */
+  switch (ev->get_type_code())
+  {
+    case XID_EVENT:
+      is_xid= TRUE;
+      update_slave_stats= TRUE;
+      break;
+    case QUERY_EVENT:
+      update_slave_stats= TRUE;
+      break;
+    default:
+      break;
+  }
+  if (update_slave_stats)
+  {
+    USER_STATS *us= thd_get_user_stats(thd);
+    update_user_stats_after_statement(us, thd, wall_time, is_other, is_xid,
+                                      &start_perf_read, &start_perf_read_blob);
   }
 
   mysql_mutex_lock(&worker->jobs_lock);

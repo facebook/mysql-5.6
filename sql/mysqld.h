@@ -422,6 +422,9 @@ static inline void my_io_perf_atomic_init(my_io_perf_atomic_t* perf) {
   perf->old_ios.clear();
 }
 
+/* Returns a - b in diff */
+void my_io_perf_diff(my_io_perf_t* diff,
+                     const my_io_perf_t* a, const my_io_perf_t* b);
 /* Accumulates io perf values */
 void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf);
 

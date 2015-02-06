@@ -1,0 +1,27 @@
+drop table if exists userstats;
+create table userstats (i int primary key, j int) engine=innodb;
+insert into userstats values (1,1);
+insert into userstats values (2,2);
+insert into userstats values (3,3);
+flush statistics;
+
+At start
+
+select queries_empty from information_schema.user_statistics where user_name = 'root';;
+queries_empty	0
+select * from userstats where i < 2;
+i	j
+1	1
+
+should be empty_queries=0
+
+select queries_empty from information_schema.user_statistics where user_name = 'root';;
+queries_empty	0
+select * from userstats where i < 1;
+i	j
+
+should be empty_queries=1
+
+select queries_empty from information_schema.user_statistics where user_name = 'root';;
+queries_empty	1
+drop table userstats;

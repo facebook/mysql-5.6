@@ -888,6 +888,10 @@ void sp_instr_stmt::print(String *str)
 
 bool sp_instr_stmt::exec_core(THD *thd, uint *nextp)
 {
+  ulonglong start_time, last_time;
+  start_time = my_timer_now();
+  last_time = start_time;
+
   MYSQL_QUERY_EXEC_START(thd->query(),
                          thd->thread_id,
                          (char *) (thd->db ? thd->db : ""),
@@ -901,7 +905,7 @@ bool sp_instr_stmt::exec_core(THD *thd, uint *nextp)
   PSI_statement_locker *statement_psi_saved= thd->m_statement_psi;
   thd->m_statement_psi= NULL;
 
-  bool rc= mysql_execute_command(thd, NULL);
+  bool rc= mysql_execute_command(thd, &start_time, &last_time);
 
   thd->lex->set_sp_current_parsing_ctx(NULL);
   thd->lex->sphead= NULL;

@@ -1,0 +1,266 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop table if exists userstats;
+drop table if exists userstats2;
+grant usage on *.* to mysqltest_1@localhost;
+flush user_resources;
+create table userstats (i int primary key, j int) engine=innodb;
+create index usx on userstats(j);
+create table userstats2 (i int primary key, j int) engine=innodb;
+create index us2x on userstats2(j);
+flush statistics;
+
+At start
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	0
+select commands_insert, commands_update, commands_delete from information_schema.user_statistics where user_name = 'mysqltest_1';
+commands_insert	0
+commands_update	0
+commands_delete	0
+show create table userstats;
+Table	Create Table
+userstats	CREATE TABLE `userstats` (
+  `i` int(11) NOT NULL,
+  `j` int(11) DEFAULT NULL,
+  PRIMARY KEY (`i`),
+  KEY `usx` (`j`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+
+slave at start
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	0
+select commands_insert, commands_update, commands_delete from information_schema.user_statistics where user_name = 'sys:slave';
+commands_insert	0
+commands_update	0
+commands_delete	0
+insert into userstats values (1,1);
+insert into userstats values (2,2), (3,3);
+insert into userstats2 values (4,4);
+insert into userstats select * from userstats2;
+
+After inserts: Increment rows_inserted by 5, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	1
+
+slave after inserts: Increment rows_inserted by 5, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	5
+rows_updated	0
+rows_deleted	0
+rows_read	1
+select commands_insert, commands_update, commands_delete from information_schema.user_statistics where user_name = 'sys:slave';
+commands_insert	4
+commands_update	0
+commands_delete	0
+replace into userstats value (6,6);
+
+Replace does insert: Increment rows_inserted by 1, rows_deleted by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	0
+rows_deleted	0
+rows_read	1
+
+slave replace does insert: Increment rows_inserted by 1, rows_deleted by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	0
+rows_deleted	0
+rows_read	1
+replace into userstats value (1,1);
+
+Replace 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	0
+rows_read	2
+
+slave replace 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	1
+rows_deleted	0
+rows_read	2
+delete from userstats where i = 1;
+
+Delete 1 row: Increment rows_deleted by 1, rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+
+slave delete 1 row: Increment rows_deleted by 1, rows_read by 0
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+delete from userstats where i = 0;
+
+Delete 0 rows: Increment nothing
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+
+slave delete 0 rows: Increment nothing
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+
+Delete 4 rows: Increment rows_deleted by 4, rows_read by 8
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+
+slave delete 4 rows: Increment rows_deleted by 4, rows_read by 8
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	1
+rows_deleted	1
+rows_read	3
+delete userstats, userstats2 from userstats inner join userstats2 where userstats.i = userstats2.i;
+
+Multi-table delete of 2 rows: Increment rows_deleted by 2
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	3
+
+slave multi-table delete of 2 rows: Increment rows_deleted by 2
+
+select rows_inserted, rows_updated, rows_deleted from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	1
+rows_deleted	3
+truncate table userstats2;
+
+Truncate: nothing changes
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	1
+rows_deleted	3
+rows_read	6
+
+slave truncate: nothing changes
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	1
+rows_deleted	3
+rows_read	6
+update userstats set j=j+1 where i = 2;
+
+Update 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	2
+rows_deleted	3
+rows_read	7
+
+slave update 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	2
+rows_deleted	3
+rows_read	7
+update userstats set j=j+1 where i = 7;
+
+Update 0 rows: Increment nothing
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	2
+rows_deleted	3
+rows_read	7
+
+slave update 0 rows: Increment nothing
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	2
+rows_deleted	3
+rows_read	7
+insert into userstats set i=6, j=6 on duplicate key update j=j+1;
+
+Update 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	6
+rows_updated	3
+rows_deleted	3
+rows_read	8
+
+slave update 1 row: Increment rows_updated by 1, rows_read by 1
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	6
+rows_updated	3
+rows_deleted	3
+rows_read	8
+select count(*) from userstats;
+count(*)
+3
+flush statistics;
+begin;
+delete from userstats;
+rollback;
+
+Delete with rollback
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'mysqltest_1';
+rows_inserted	0
+rows_updated	0
+rows_deleted	3
+rows_read	3
+
+slave delete with rollback
+
+select rows_inserted, rows_updated, rows_deleted, rows_read from information_schema.user_statistics where user_name = 'sys:slave';
+rows_inserted	0
+rows_updated	0
+rows_deleted	0
+rows_read	0
+drop table userstats;
+drop table userstats2;
+drop user mysqltest_1@localhost;
+flush privileges;
+flush user_resources;
+include/rpl_end.inc
