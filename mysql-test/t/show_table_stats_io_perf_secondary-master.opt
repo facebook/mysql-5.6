@@ -1,0 +1,2 @@
+--default-storage-engine=innodb
+--innodb-file-per-table

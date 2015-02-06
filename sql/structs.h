@@ -219,6 +219,8 @@ typedef struct user_resources {
 typedef struct st_user_stats {
   my_io_perf_atomic_t	io_perf_read;
   my_io_perf_atomic_t	io_perf_read_blob;
+  my_io_perf_atomic_t	io_perf_read_primary;
+  my_io_perf_atomic_t	io_perf_read_secondary;
   atomic_stat<ulonglong> bytes_received;
   atomic_stat<ulonglong> bytes_sent;
   atomic_stat<ulonglong> binlog_bytes_written;
@@ -351,7 +353,12 @@ typedef struct st_table_stats {
   my_io_perf_atomic_t io_perf_read;	/* Read IO performance counters */
   my_io_perf_atomic_t io_perf_write;	/* Write IO performance counters */
   my_io_perf_atomic_t io_perf_read_blob;/* Blob read IO performance counters */
+  my_io_perf_atomic_t io_perf_read_primary;/* Read IO performance counters for
+                                              primary index */
+  my_io_perf_atomic_t io_perf_read_secondary;/* Read IO performance counters for
+                                                secondary index */
   atomic_stat<ulonglong> index_inserts;	/* Number of secondary index inserts. */
+  atomic_stat<ulonglong> queries_empty;	/* Number of non-join empty queries */
 
   const char* engine_name;
 } TABLE_STATS;

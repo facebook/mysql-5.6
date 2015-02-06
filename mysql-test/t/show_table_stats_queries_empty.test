@@ -1,0 +1,48 @@
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2;
+--enable_warnings
+
+--echo #
+--echo # Test queries_empty
+--echo #
+
+--echo # Create table t1, t2
+CREATE TABLE t1 (id INT NOT NULL, a INT, PRIMARY KEY (id));
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6);
+
+CREATE TABLE t2 (id INT NOT NULL, b INT, PRIMARY KEY (id));
+INSERT INTO t2 VALUES (6, 7), (7, 8), (8, 9), (9, 0);
+
+--echo # QUERIES_EMPTY field for table t1 and t2 should be 0
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't1';
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # after performing a non-empty query, QUERIES_EMPTY field for t1 should still be 0
+SELECT count(*) FROM t1;
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # after performing an empty result query, QUERIES_EMPTY field for t1 should be 1
+SELECT * FROM t1 WHERE id = 7;
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't1';
+
+--echo # after performing a non-empty query, QUERIES_EMPTY field for t2 should still be 0
+SELECT count(*) FROM t2;
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # after performing an empty result query, QUERIES_EMPTY field for t2 should be 1
+SELECT * FROM t2 WHERE id = 5;
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name ='t2';
+
+--echo # after performing a non-empty result query on both t1 and t2, the QUERIES_EMPTY count
+--echo # for both tables should be still be 1.
+SELECT * FROM t1, t2 WHERE t1.id = t2.id;
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't1';
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't2';
+
+--echo # after performing an empty result query on both t1 and t2, the QUERIES_EMPTY count
+--echo # for both tables should be incremented by 1 (count should be 2).
+SELECT * FROM t1, t2 WHERE t1.a = t2.b;
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't1';
+SELECT QUERIES_EMPTY FROM information_schema.table_statistics where table_name = 't2';
+
+DROP TABLE t1, t2;

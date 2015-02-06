@@ -1087,6 +1087,8 @@ void init_user_stats(USER_STATS *user_stats)
 
   my_io_perf_atomic_init(&(user_stats->io_perf_read));
   my_io_perf_atomic_init(&(user_stats->io_perf_read_blob));
+  my_io_perf_atomic_init(&(user_stats->io_perf_read_primary));
+  my_io_perf_atomic_init(&(user_stats->io_perf_read_secondary));
 
   user_stats->binlog_bytes_written.clear();
   user_stats->bytes_received.clear();
@@ -1139,9 +1141,12 @@ update_user_stats_after_statement(USER_STATS *us,
                                   bool is_other_command,
                                   bool is_xid_event,
                                   my_io_perf_t *start_perf_read,
-                                  my_io_perf_t *start_perf_read_blob)
+                                  my_io_perf_t *start_perf_read_blob,
+                                  my_io_perf_t *start_perf_read_primary,
+                                  my_io_perf_t *start_perf_read_secondary)
 {
   my_io_perf_t diff_io_perf, diff_io_perf_blob;
+  my_io_perf_t diff_io_perf_primary, diff_io_perf_secondary;
   ulonglong wall_microsecs= my_timer_to_microseconds(wall_time);
 
   us->microseconds_wall.inc(wall_microsecs);
@@ -1164,10 +1169,19 @@ update_user_stats_after_statement(USER_STATS *us,
     us->rows_index_next.inc(thd->rows_index_next);
 
     my_io_perf_diff(&diff_io_perf, &thd->io_perf_read, start_perf_read);
-    my_io_perf_sum_atomic_helper(&(us->io_perf_read), &diff_io_perf);
+    my_io_perf_diff(&diff_io_perf_blob, &thd->io_perf_read_blob,
+                    start_perf_read_blob);
+    my_io_perf_diff(&diff_io_perf_primary, &thd->io_perf_read_primary,
+                    start_perf_read_primary);
+    my_io_perf_diff(&diff_io_perf_secondary, &thd->io_perf_read_secondary,
+                    start_perf_read_secondary);
 
-    my_io_perf_diff(&diff_io_perf_blob, &thd->io_perf_read_blob, start_perf_read_blob);
+    my_io_perf_sum_atomic_helper(&(us->io_perf_read), &diff_io_perf);
     my_io_perf_sum_atomic_helper(&(us->io_perf_read_blob), &diff_io_perf_blob);
+    my_io_perf_sum_atomic_helper(&(us->io_perf_read_primary),
+                                 &diff_io_perf_primary);
+    my_io_perf_sum_atomic_helper(&(us->io_perf_read_secondary),
+                                 &diff_io_perf_secondary);
   }
   else
   {
@@ -1219,6 +1233,21 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
                            TRUE);
   table->field[f++]->store((ulonglong)my_timer_to_microseconds(
                              us->io_perf_read_blob.wait_time.load()),
+                           TRUE);
+  table->field[f++]->store(us->io_perf_read_primary.bytes.load(), TRUE);
+  table->field[f++]->store(us->io_perf_read_primary.requests.load(), TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_primary.svc_time.load()), TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_primary.wait_time.load()),
+                           TRUE);
+  table->field[f++]->store(us->io_perf_read_secondary.bytes.load(), TRUE);
+  table->field[f++]->store(us->io_perf_read_secondary.requests.load(), TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_secondary.svc_time.load()),
+                           TRUE);
+  table->field[f++]->store((ulonglong)my_timer_to_microseconds(
+                             us->io_perf_read_secondary.wait_time.load()),
                            TRUE);
   table->field[f++]->store(us->errors_access_denied.load(), TRUE);
   table->field[f++]->store(us->errors_total.load(), TRUE);
