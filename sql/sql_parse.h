@@ -112,6 +112,8 @@ void do_handle_bootstrap(THD *thd);
 bool dispatch_command(enum enum_server_command command, THD *thd,
 		      char* packet, uint packet_length);
 void log_slow_statement(THD *thd);
+void log_to_datagram(THD *thd, ulonglong end_utime_of_query);
+bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime_of_query);
 bool log_slow_applicable(THD *thd);
 void log_slow_do(THD *thd);
 bool append_file_to_dir(THD *thd, const char **filename_ptr,
