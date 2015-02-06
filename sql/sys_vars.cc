@@ -3019,49 +3019,95 @@ static Sys_var_ulong Sys_max_statement_time(
        VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1));
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+static bool reinit_ssl(sys_var *self, THD *thd, enum_var_type type)
+{
+  end_ssl();
+  if (!opt_use_ssl)
+    return false;
+  return init_ssl();
+}
+
+/*
+  Block changing values of ssl sys_vars when server is running with --ssl=1.
+
+  @return true  ssl related sys_var cannot changed.
+          false sys_var can be changed.
+*/
+static bool check_ssl(sys_var *self, THD *thd, set_var * var)
+{
+  if (opt_use_ssl)
+  {
+    my_error(ER_CANNOT_CHANGE_SSL_VAR, MYF(0), self->name);
+    return true;
+  }
+  return false;
+}
+#endif
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+#define SSL_VAR_TYPE(X) GLOBAL_VAR(X)
 #define SSL_OPT(X) CMD_LINE(REQUIRED_ARG,X)
+#define SSL_ON_CHECK() ON_CHECK(check_ssl)
 #else
+#define SSL_VAR_TYPE(X) READ_ONLY GLOBAL_VAR(X)
 #define SSL_OPT(X) NO_CMD_LINE
+#define SSL_ON_CHECK() ON_CHECK(NULL)
+#endif
+
+#if defined(HAVE_OPENSSL)
+static PolyLock_rwlock PLock_use_ssl(&LOCK_use_ssl);
+static Sys_var_mybool Sys_use_ssl(
+       "ssl",
+       "Enable SSL for connection",
+       GLOBAL_VAR(opt_use_ssl), CMD_LINE(OPT_ARG), DEFAULT(FALSE),
+       &PLock_use_ssl, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(reinit_ssl));
 #endif
 
 static Sys_var_charptr Sys_ssl_ca(
        "ssl_ca",
-       "CA file in PEM format (check OpenSSL docs, implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_ca), SSL_OPT(OPT_SSL_CA),
-       IN_FS_CHARSET, DEFAULT(0));
+       "CA file in PEM format",
+       SSL_VAR_TYPE(opt_ssl_ca), SSL_OPT(OPT_SSL_CA),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 static Sys_var_charptr Sys_ssl_capath(
        "ssl_capath",
-       "CA directory (check OpenSSL docs, implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_capath), SSL_OPT(OPT_SSL_CAPATH),
-       IN_FS_CHARSET, DEFAULT(0));
+       "CA directory",
+       SSL_VAR_TYPE(opt_ssl_capath), SSL_OPT(OPT_SSL_CAPATH),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 static Sys_var_charptr Sys_ssl_cert(
-       "ssl_cert", "X509 cert in PEM format (implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_cert), SSL_OPT(OPT_SSL_CERT),
-       IN_FS_CHARSET, DEFAULT(0));
+       "ssl_cert", "X509 cert in PEM format",
+       SSL_VAR_TYPE(opt_ssl_cert), SSL_OPT(OPT_SSL_CERT),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 static Sys_var_charptr Sys_ssl_cipher(
-       "ssl_cipher", "SSL cipher to use (implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_cipher), SSL_OPT(OPT_SSL_CIPHER),
-       IN_FS_CHARSET, DEFAULT(0));
+       "ssl_cipher", "SSL cipher to use",
+       SSL_VAR_TYPE(opt_ssl_cipher), SSL_OPT(OPT_SSL_CIPHER),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 static Sys_var_charptr Sys_ssl_key(
-       "ssl_key", "X509 key in PEM format (implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_key), SSL_OPT(OPT_SSL_KEY),
-       IN_FS_CHARSET, DEFAULT(0));
+       "ssl_key", "X509 key in PEM format",
+       SSL_VAR_TYPE(opt_ssl_key), SSL_OPT(OPT_SSL_KEY),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 static Sys_var_charptr Sys_ssl_crl(
        "ssl_crl",
-       "CRL file in PEM format (check OpenSSL docs, implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_crl), SSL_OPT(OPT_SSL_CRL),
-       IN_FS_CHARSET, DEFAULT(0));
+       "CRL file in PEM format",
+       SSL_VAR_TYPE(opt_ssl_crl), SSL_OPT(OPT_SSL_CRL),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 static Sys_var_charptr Sys_ssl_crlpath(
        "ssl_crlpath",
-       "CRL directory (check OpenSSL docs, implies --ssl)",
-       READ_ONLY GLOBAL_VAR(opt_ssl_crlpath), SSL_OPT(OPT_SSL_CRLPATH),
-       IN_FS_CHARSET, DEFAULT(0));
+       "CRL directory",
+       SSL_VAR_TYPE(opt_ssl_crlpath), SSL_OPT(OPT_SSL_CRLPATH),
+       IN_FS_CHARSET, DEFAULT(0), NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       SSL_ON_CHECK());
 
 
 // why ENUM and not BOOL ?
@@ -3975,9 +4021,13 @@ static Sys_var_have Sys_have_geometry(
        "have_geometry", "have_geometry",
        READ_ONLY GLOBAL_VAR(have_geometry), NO_CMD_LINE);
 
+/*
+  have_openssl = SHOW_OPTION_YES if mysqld is built with openssl support.
+                 SHOW_OPTION_NO  if mysqld is buit without openssl support.
+*/
 static Sys_var_have Sys_have_openssl(
        "have_openssl", "have_openssl",
-       READ_ONLY GLOBAL_VAR(have_ssl), NO_CMD_LINE);
+       READ_ONLY GLOBAL_VAR(have_openssl), NO_CMD_LINE);
 
 static Sys_var_have Sys_have_profiling(
        "have_profiling", "have_profiling",
@@ -3992,6 +4042,13 @@ static Sys_var_have Sys_have_rtree_keys(
        "have_rtree_keys", "have_rtree_keys",
        READ_ONLY GLOBAL_VAR(have_rtree_keys), NO_CMD_LINE);
 
+/*
+  have_ssl = SHOW_OPTION_YES      if mysqld is built with openssl support and
+                                  running with --ssl=1.
+             SHOW_OPTION_DISABLED if mysqld is built with openssl but
+                                  running with --ssl=0.
+             SHOW_OPTION_NO       if mysqld is buit without openssl support.
+*/
 static Sys_var_have Sys_have_ssl(
        "have_ssl", "have_ssl",
        READ_ONLY GLOBAL_VAR(have_ssl), NO_CMD_LINE);

@@ -746,6 +746,7 @@ extern PSI_mutex_key key_PAGE_lock, key_LOCK_sync, key_LOCK_active,
 
 #ifdef HAVE_OPENSSL
 extern PSI_mutex_key key_LOCK_des_key_file;
+extern PSI_rwlock_key key_rwlock_LOCK_use_ssl;
 #endif
 
 extern PSI_mutex_key key_BINLOG_LOCK_commit;
@@ -844,6 +845,8 @@ extern PSI_socket_key key_socket_tcpip, key_socket_unix, key_socket_client_conne
 void init_server_psi_keys();
 #endif /* HAVE_PSI_INTERFACE */
 bool setup_datagram_socket(sys_var *self, THD *thd, enum_var_type type);
+bool init_ssl();
+void end_ssl();
 
 /*
   MAINTAINER: Please keep this list in order, to limit merge collisions.
@@ -1026,6 +1029,7 @@ extern mysql_mutex_t
        LOCK_sql_slave_skip_counter, LOCK_slave_net_timeout;
 #ifdef HAVE_OPENSSL
 extern mysql_mutex_t LOCK_des_key_file;
+extern mysql_rwlock_t LOCK_use_ssl;
 #endif
 extern mysql_mutex_t LOCK_server_started;
 extern mysql_cond_t COND_server_started;
@@ -1036,6 +1040,7 @@ extern int32 num_thread_running;
 extern my_atomic_rwlock_t thread_running_lock;
 extern my_atomic_rwlock_t slave_open_temp_tables_lock;
 
+extern my_bool opt_use_ssl;
 extern char *opt_ssl_ca, *opt_ssl_capath, *opt_ssl_cert, *opt_ssl_cipher,
             *opt_ssl_key, *opt_ssl_crl, *opt_ssl_crlpath;
 
