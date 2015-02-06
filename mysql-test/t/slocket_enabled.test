@@ -1,0 +1,30 @@
+# to log even very fast statements
+set global log_datagram_usecs=0;
+
+# this should fail
+set global log_datagram=1;
+
+# should be disabled because connect will have failed
+show variables like 'log_datagram';
+
+let $MYSQLD_DATADIR=`select @@datadir`;
+--exec $MYSQL_TEST_DIR/t/slocket_listen.sh $MYSQL_TEST_DIR/t/slocket_listen.py $MYSQLD_DATADIR slocket_enabled
+
+# this should succeed
+set global log_datagram=1;
+
+# should be enabled, because connect will have succeeded
+show variables like 'log_datagram';
+
+--exec $MYSQL_TEST_DIR/t/kill_slocket_listen.sh $MYSQLD_DATADIR
+
+# should be enabled, no failure yet
+show variables like 'log_datagram';
+
+# should be disabled after send failure
+show variables like 'log_datagram';
+
+# verify that slocket recorded something
+--exec [ `cat $MYSQLTEST_VARDIR/log/slocket_enabled.listen.log | wc -l` -gt 10 ]
+
+
