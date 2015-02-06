@@ -7,7 +7,7 @@ d BIT(64)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	b	A	NULL	NULL	NULL		BTREE		
+t1	0	PRIMARY	1	b	A	1000	NULL	NULL		BTREE		
 INSERT INTO t1 (a,b,c,d) VALUES 
 (0,0xFFFFF,0,1),(0,256,0xAAA,0x12345),(1,16,0,0xFFFFFFF),(0,11,12,13),
 (1,100,101,102),(0,12,13,14),(1,13,14,15),(0,101,201,202),(1,1000,1001,1002),
@@ -39,8 +39,8 @@ INDEX(a)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	1	a	1	a	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	1	a	1	a	A	500	NULL	NULL	YES	BTREE		
 INSERT INTO t1 (a,b,c,d,pk) VALUES
 (0,0xFFFFF,0,1,1),(0,256,0xAAA,0x12345,2),(1,16,0,0xFFFFFFF,3),(0,11,12,13,4),
 (1,100,101,102,5),(0,12,13,14,6),(1,13,14,15,7),(0,101,201,202,8),(1,1000,1001,1002,9),

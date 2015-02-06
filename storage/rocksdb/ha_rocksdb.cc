@@ -132,6 +132,8 @@ static uint64_t rocksdb_info_log_level;
 static char * rocksdb_wal_dir;
 static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
+static uint32_t rocksdb_debug_optimizer_records_in_range;
+static uint32_t rocksdb_debug_optimizer_n_rows;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -503,6 +505,21 @@ static MYSQL_THDVAR_BOOL(write_ignore_missing_column_families,
   "WriteOptions::ignore_missing_column_families for RocksDB",
   NULL, NULL, rocksdb::WriteOptions().ignore_missing_column_families);
 
+/* debugging purpose and will be deprected once implemented. */
+static MYSQL_SYSVAR_UINT(debug_optimizer_records_in_range,
+  rocksdb_debug_optimizer_records_in_range,
+  PLUGIN_VAR_RQCMDARG,
+  "Used for records_in_range(). Testing purpose only and will be deprecated",
+  NULL, NULL, 10,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
+static MYSQL_SYSVAR_UINT(debug_optimizer_n_rows,
+  rocksdb_debug_optimizer_n_rows,
+  PLUGIN_VAR_RQCMDARG,
+  "Used for info(). Testing purpose only and will be deprecated",
+  NULL, NULL, 1000,
+  /* min */ 0, /* max */ INT_MAX, 0);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -565,6 +582,9 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(write_disable_wal),
   MYSQL_SYSVAR(write_timeout_hint_us),
   MYSQL_SYSVAR(write_ignore_missing_column_families),
+
+  MYSQL_SYSVAR(debug_optimizer_records_in_range),
+  MYSQL_SYSVAR(debug_optimizer_n_rows),
 
   NULL
 };
@@ -3323,13 +3343,30 @@ int ha_rocksdb::info(uint flag)
 
   if (flag & HA_STATUS_VARIABLE)
   {
-    stats.records= 1000;
+    stats.records= rocksdb_debug_optimizer_n_rows;
   }
   if (flag & HA_STATUS_CONST)
   {
     DBUG_ASSERT(table->s->primary_key != MAX_KEY);
 
     ref_length= pk_descr->max_storage_fmt_length();
+
+    // TODO: Needs to reimplement after having real index statistics
+    // Fake cardinality implementation. For example, (idx1, idx2, idx3) index
+    // will have rec_per_key for (idx1)=4, (idx1,2)=2, and (idx1,2,3)=1.
+    // rec_per_key for the whole index is 1, and multiplied by 2^n if
+    // n suffix columns of the index are not used.
+    for (uint i= 0; i < table->s->keys; i++)
+    {
+      uint j= 0;
+      for (j = 0; j < table->key_info[i].actual_key_parts; j++)
+      {
+        uint x = 1 << (table->key_info[i].actual_key_parts-j-1);
+        if (x > stats.records)
+          x = stats.records;
+        table->key_info[i].rec_per_key[j]= x;
+      }
+    }
   }
 
   if (flag & HA_STATUS_ERRKEY)
@@ -3759,7 +3796,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
                                      key_range *max_key)
 {
   DBUG_ENTER("ha_rocksdb::records_in_range");
-  DBUG_RETURN(10);                         // low number to force index usage
+  DBUG_RETURN(rocksdb_debug_optimizer_records_in_range);   // low number to force index usage
 }
 
 
