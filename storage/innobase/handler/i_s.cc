@@ -810,6 +810,267 @@ UNIV_INTERN struct st_mysql_plugin	i_s_innodb_trx =
 	STRUCT_FLD(flags, 0UL),
 };
 
+/* Fields of the dynamic table information_schema.innodb_file_status. */
+static ST_FIELD_INFO i_s_file_status_fields_info[]=
+{
+	{STRUCT_FLD(field_name,		"FILE"),
+	 STRUCT_FLD(field_length,	FN_REFLEN),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_STRING),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"File"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"OPERATION"),
+	 STRUCT_FLD(field_length,	FN_REFLEN),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_STRING),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"Operation"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"REQUESTS"),
+	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,		"Requests"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"OLD"),
+	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,		"Old"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"BYTES"),
+	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,		"Bytes"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"BYTES/R"),
+	 STRUCT_FLD(field_length,	0),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"Bytes/r"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"SVC:SECS"),
+	 STRUCT_FLD(field_length,	0),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"Svc:secs"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"SVC:MSECS/R"),
+	 STRUCT_FLD(field_length,	0),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"Svc:msecs/r"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"SVC:MAX_MSECS"),
+	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,		"Svc:max_msecs"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"WAIT:SECS"),
+	 STRUCT_FLD(field_length,	0),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"Wait:secs"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"WAIT:MSECS/R"),
+	 STRUCT_FLD(field_length,	0),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	0),
+	 STRUCT_FLD(old_name,		"Wait:msecs/r"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	{STRUCT_FLD(field_name,		"WAIT:MAX_MSECS"),
+	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
+	 STRUCT_FLD(value,		0),
+	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,		"Wait:max_msecs"),
+	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
+
+	END_OF_ST_FIELD_INFO
+};
+
+/************************************************************************//**
+Fill in a single row for the dynamic table
+information_schema.innodb_file_status.
+@return	0 on success */
+static
+int
+i_s_file_status_fill_low(
+/*=====================*/
+	THD*		thd,	  /*!< in: thread */
+	TABLE*		table,	  /*!< in/out: table to fill */
+	const char*	file_name,/*!< in: file name for this record */
+	const char*	operation,/*!< in: either "read" or "write" */
+	os_io_perf_t*	io_perf)  /*!< in: stats collected for the table */
+{
+	DBUG_ENTER("i_s_file_status_fill_low");
+
+	restore_record(table, s->default_values);
+
+	OK(field_store_string(table->field[0], file_name));
+	OK(field_store_string(table->field[1], operation));
+	OK(table->field[2]->store(io_perf->requests));
+	OK(table->field[3]->store(io_perf->old_ios));
+	OK(table->field[4]->store(io_perf->bytes));
+	OK(table->field[5]->store((double) io_perf->bytes / io_perf->requests));
+	OK(table->field[6]->store(my_timer_to_seconds(io_perf->svc_time)));
+	OK(table->field[7]->store(my_timer_to_milliseconds(io_perf->svc_time) / io_perf->requests));
+	OK(table->field[8]->store((ulonglong)(my_timer_to_milliseconds(io_perf->svc_time_max))));
+	OK(table->field[9]->store(my_timer_to_seconds(io_perf->wait_time)));
+	OK(table->field[10]->store(my_timer_to_milliseconds(io_perf->wait_time) / io_perf->requests));
+	OK(table->field[11]->store((ulonglong)(my_timer_to_milliseconds(io_perf->wait_time_max))));
+
+	DBUG_RETURN(schema_table_store_record(thd, table));
+}
+
+/************************************************************************//**
+Populates the FILE_STATUS information_schema table.
+@return	0 on success */
+static
+int
+i_s_file_status_fill(
+/*=================*/
+	THD*		thd,	/*!< in: thread */
+	TABLE_LIST*	tables,	/*!< in/out: tables to fill */
+	Item*		cond)	/*!< in: condition (not used) */
+{
+	TABLE *table = tables->table;
+	fil_system_t*	system	= fil_system;
+	fil_space_t*	space;
+
+	DBUG_ENTER("i_s_file_status");
+
+	/* deny access to non-superusers */
+	if (check_global_access(thd, PROCESS_ACL)) {
+
+		DBUG_RETURN(0);
+	}
+
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
+
+	mutex_enter(&(system->mutex));
+
+	space = UT_LIST_GET_FIRST(system->space_list);
+
+	while (space != NULL) {
+		if (space->io_perf2.read.requests) {
+			if (i_s_file_status_fill_low(thd, table, space->name, "read",
+							&(space->io_perf2.read)))
+			{
+				mutex_exit(&(system->mutex));
+				DBUG_RETURN(1);
+			}
+		}
+		if (space->io_perf2.write.requests) {
+			if (i_s_file_status_fill_low(thd, table, space->name, "write",
+							&(space->io_perf2.write)))
+			{
+				mutex_exit(&(system->mutex));
+				DBUG_RETURN(1);
+			}
+		}
+		space = UT_LIST_GET_NEXT(space_list, space);
+	}
+
+	mutex_exit(&(system->mutex));
+
+	DBUG_RETURN(0);
+}
+
+/*******************************************************************//**
+Bind the dynamic table information_schema.innodb_file_status.
+@return	0 on success */
+static
+int
+i_s_file_status_init(
+/*=========*/
+	void*	p)	/*!< in/out: table schema object */
+{
+	DBUG_ENTER("i_s_file_status_init");
+	ST_SCHEMA_TABLE* schema = (ST_SCHEMA_TABLE*) p;
+
+	schema->fields_info = i_s_file_status_fields_info;
+	schema->fill_table = i_s_file_status_fill;
+
+	DBUG_RETURN(0);
+}
+
+UNIV_INTERN struct st_mysql_plugin	i_s_innodb_file_status =
+{
+	/* the plugin type (a MYSQL_XXX_PLUGIN value) */
+	/* int */
+	STRUCT_FLD(type, MYSQL_INFORMATION_SCHEMA_PLUGIN),
+
+	/* pointer to type-specific plugin descriptor */
+	/* void* */
+	STRUCT_FLD(info, &i_s_info),
+
+	/* plugin name */
+	/* const char* */
+	STRUCT_FLD(name, "INNODB_FILE_STATUS"),
+
+	/* plugin author (for SHOW PLUGINS) */
+	/* const char* */
+	STRUCT_FLD(author, plugin_author),
+
+	/* general descriptive text (for SHOW PLUGINS) */
+	/* const char* */
+	STRUCT_FLD(descr, "Per-file statistics for the InnoDB file IO"),
+
+	/* the plugin license (PLUGIN_LICENSE_XXX) */
+	/* int */
+	STRUCT_FLD(license, PLUGIN_LICENSE_GPL),
+
+	/* the function to invoke when plugin is loaded */
+	/* int (*)(void*); */
+	STRUCT_FLD(init, i_s_file_status_init),
+
+	/* the function to invoke when plugin is unloaded */
+	/* int (*)(void*); */
+	STRUCT_FLD(deinit, i_s_common_deinit),
+
+	/* plugin version (for SHOW PLUGINS) */
+	/* unsigned int */
+	STRUCT_FLD(version, INNODB_VERSION_SHORT),
+
+	/* struct st_mysql_show_var* */
+	STRUCT_FLD(status_vars, NULL),
+
+	/* struct st_mysql_sys_var** */
+	STRUCT_FLD(system_vars, NULL),
+
+	/* reserved for dependency checking */
+	/* void* */
+	STRUCT_FLD(__reserved1, NULL),
+
+	/* Plugin flags */
+	/* unsigned long */
+	STRUCT_FLD(flags, 0UL),
+};
+
 /* Fields of the dynamic table INFORMATION_SCHEMA.innodb_locks */
 static ST_FIELD_INFO	innodb_locks_fields_info[] =
 {
