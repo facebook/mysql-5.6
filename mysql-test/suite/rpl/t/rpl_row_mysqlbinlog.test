@@ -249,16 +249,21 @@ select "--- Test 5 LOAD DATA --" as "";
 --exec $MYSQL_BINLOG --short-form --local-load=$MYSQLTEST_VARDIR/tmp/ --stop-position=$binlog_start_pos --read-from-remote-server --user=root --host=127.0.0.1 --port=$MASTER_MYPORT master-bin.000002
 
 # Bug#7853 (mysqlbinlog does not accept input from stdin)
-
+# stop-position is not allowed with STDIN because, when multiple files are
+# streamed it gets applied to first binlog while the caller may be expecting
+# that it gets applied to last binlog file.
+#
 --disable_query_log ONCE
 select "--- Test 6 reading stdin --" as "";
 let $MYSQLD_DATADIR= `select @@datadir;`;
 --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+-- error 1
 --exec $MYSQL_BINLOG --short-form --stop-position=$stop_position1 - < $MYSQLD_DATADIR/master-bin.000001
 
 --disable_query_log ONCE
 select "--- Test 7 reading stdin w/position --" as "";
 --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+--error 1
 --exec $MYSQL_BINLOG --short-form --start-position=$position --stop-position=$stop_position - < $MYSQLD_DATADIR/master-bin.000001
        
 # Bug#16217 (mysql client did not know how not switch its internal charset)
