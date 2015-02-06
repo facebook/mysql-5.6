@@ -55,12 +55,20 @@ to the two Barracuda row formats COMPRESSED and DYNAMIC. */
 /** Width of the DATA_DIR flag.  This flag indicates that the tablespace
 is found in a remote location, not the default data directory. */
 #define FSP_FLAGS_WIDTH_DATA_DIR	1
+/** Width of the COMP_TYPE flag. This flag determines the compression used
+for a compressed table. */
+#define FSP_FLAGS_WIDTH_COMP_TYPE	4
+/** Width of the extra argument passed to the compression algorithm used for
+a compressed table. */
+#define FSP_FLAGS_WIDTH_COMP_FLAGS 8
 /** Width of all the currently known tablespace flags */
 #define FSP_FLAGS_WIDTH		(FSP_FLAGS_WIDTH_POST_ANTELOPE	\
 				+ FSP_FLAGS_WIDTH_ZIP_SSIZE	\
 				+ FSP_FLAGS_WIDTH_ATOMIC_BLOBS	\
 				+ FSP_FLAGS_WIDTH_PAGE_SSIZE	\
-				+ FSP_FLAGS_WIDTH_DATA_DIR)
+				+ FSP_FLAGS_WIDTH_DATA_DIR	\
+				+ FSP_FLAGS_WIDTH_COMP_TYPE	\
+				+ FSP_FLAGS_WIDTH_COMP_FLAGS)
 
 /** A mask of all the known/used bits in tablespace flags */
 #define FSP_FLAGS_MASK		(~(~0 << FSP_FLAGS_WIDTH))
@@ -79,9 +87,15 @@ is found in a remote location, not the default data directory. */
 /** Zero relative shift position of the start of the UNUSED bits */
 #define FSP_FLAGS_POS_DATA_DIR		(FSP_FLAGS_POS_PAGE_SSIZE	\
 					+ FSP_FLAGS_WIDTH_PAGE_SSIZE)
-/** Zero relative shift position of the start of the UNUSED bits */
-#define FSP_FLAGS_POS_UNUSED		(FSP_FLAGS_POS_DATA_DIR	\
+/** Zero relative shift position of the start of the compression type bits */
+#define FSP_FLAGS_POS_COMP_TYPE (FSP_FLAGS_POS_DATA_DIR	\
 					+ FSP_FLAGS_WIDTH_DATA_DIR)
+/** Zero relative shift position of the start of the compression param bits */
+#define FSP_FLAGS_POS_COMP_FLAGS (FSP_FLAGS_POS_COMP_TYPE \
+					+ FSP_FLAGS_WIDTH_COMP_TYPE)
+/** Zero relative shift position of the start of the UNUSED bits */
+#define FSP_FLAGS_POS_UNUSED		(FSP_FLAGS_POS_COMP_FLAGS	\
+					+ FSP_FLAGS_WIDTH_COMP_FLAGS)
 
 /** Bit mask of the POST_ANTELOPE field */
 #define FSP_FLAGS_MASK_POST_ANTELOPE				\
