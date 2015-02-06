@@ -558,6 +558,8 @@ typedef struct system_variables
   Gtid_set_or_null gtid_next_list;
 
   ulong max_statement_time;
+
+  ulong allow_noncurrent_db_rw;
 } SV;
 
 
