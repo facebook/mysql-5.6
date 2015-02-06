@@ -8,7 +8,7 @@ y YEAR
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	dt	A	NULL	NULL	NULL		BTREE		
+t1	0	PRIMARY	1	dt	A	1000	NULL	NULL		BTREE		
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y) VALUES
 ('2012-01-12', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000'),
@@ -48,8 +48,8 @@ INDEX (ts)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	1	ts	1	ts	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	1	ts	1	ts	A	500	NULL	NULL	YES	BTREE		
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 ('2012-01-12', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000','12:00:00'),
@@ -80,9 +80,9 @@ INDEX (y,t)
 ) ENGINE=rocksdb;
 SHOW INDEX IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	pk	A	NULL	NULL	NULL		BTREE		
-t1	1	y	1	y	A	NULL	NULL	NULL	YES	BTREE		
-t1	1	y	2	t	A	NULL	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	pk	A	1000	NULL	NULL		BTREE		
+t1	1	y	1	y	A	250	NULL	NULL	YES	BTREE		
+t1	1	y	2	t	A	500	NULL	NULL	YES	BTREE		
 SET @tm = '2012-04-09 05:27:00';
 INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 ('2012-01-12', '2010-11-22 12:33:54', '2011-11-14 21:45:55', '00:12:33', '2000','18:18:18'),
