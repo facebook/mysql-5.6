@@ -4570,7 +4570,8 @@ handler::check_if_supported_inplace_alter(TABLE *altered_table,
                                   HA_CREATE_USED_MAX_ROWS) ||
       (table->s->row_type != create_info->row_type) ||
       (table->s->compression_type != create_info->compression) ||
-      (table->s->compression_flags != create_info->compression_flags))
+      (table->s->compression_level != create_info->compression_level) ||
+      (table->s->compact_metadata != create_info->compact_metadata))
     DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
 
   uint table_changes= (ha_alter_info->handler_flags &
