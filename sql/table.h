@@ -1113,6 +1113,8 @@ public:
   uint          temp_pool_slot;		/* Used by intern temp tables */
   uint		db_stat;		/* mode of file as in handler.h */
   int		current_lock;           /* Type of lock on table */
+  ulonglong count_comment_bytes;        /* Count of Bytes of Comments
+                                           in the Query using this table */
 
   /*
     0 or JOIN_TYPE_{LEFT|RIGHT}. Currently this is only compared to 0.

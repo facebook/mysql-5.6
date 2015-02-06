@@ -7106,6 +7106,12 @@ void handler::update_global_table_stats(THD *thd)
         thd->get_sent_row_count() == 0) {
       table_stats->queries_empty.inc();
     }
+
+    if (thd && thd->open_tables)
+    {
+      table_stats->comment_bytes.inc(table->count_comment_bytes);
+      table->count_comment_bytes = 0;
+    }
   }
 
   if (thd)
