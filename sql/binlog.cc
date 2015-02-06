@@ -6632,6 +6632,20 @@ MYSQL_BIN_LOG::flush_thread_caches(THD *thd, bool async)
   binlog_cache_mngr *cache_mngr= thd_get_cache_mngr(thd);
   my_off_t bytes= 0;
   bool wrote_xid= false;
+  Cached_group *last_group = NULL;
+  // group cache is reset after flush. So last gtid in the
+  // group cache should be stored before flush.
+  binlog_cache_data *cache_data=
+    cache_mngr->get_binlog_cache_data(true);
+  if (cache_data)
+  {
+    Group_cache *group_cache = &cache_data->group_cache;
+    if (group_cache)
+    {
+      last_group = group_cache->get_last_group();
+    }
+  }
+
   int error= cache_mngr->flush(thd, &bytes, &wrote_xid, async);
   if (!error && bytes > 0)
   {
@@ -6639,7 +6653,7 @@ MYSQL_BIN_LOG::flush_thread_caches(THD *thd, bool async)
       Note that set_trans_pos does not copy the file name. See
       this function documentation for more info.
     */
-    thd->set_trans_pos(log_file_name, my_b_tell(&log_file));
+    thd->set_trans_pos(log_file_name, my_b_tell(&log_file), last_group);
     if (wrote_xid)
       inc_prep_xids(thd);
   }

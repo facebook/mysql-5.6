@@ -2495,6 +2495,8 @@ private:
   const char *m_trans_log_file;
   char *m_trans_fixed_log_file;
   my_off_t m_trans_end_pos;
+  const char *m_trans_gtid;
+  char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
   /**@}*/
 
 public:
@@ -3000,7 +3002,8 @@ public:
      transaction written when committing this transaction.
    */
   /**@{*/
-  void set_trans_pos(const char *file, my_off_t pos)
+  void set_trans_pos(const char *file, my_off_t pos,
+                     const Cached_group *gtid_group)
   {
     DBUG_ENTER("THD::set_trans_pos");
     DBUG_ASSERT(((file == 0) && (pos == 0)) || ((file != 0) && (pos != 0)));
@@ -3021,19 +3024,34 @@ public:
     }
 
     m_trans_end_pos= pos;
+
+    if (gtid_group)
+    {
+      global_sid_lock->rdlock();
+      gtid_group->spec.to_string(global_sid_map, trans_gtid);
+      global_sid_lock->unlock();
+      m_trans_gtid = trans_gtid;
+    }
+    else
+      m_trans_gtid = NULL;
+
     DBUG_PRINT("return", ("m_trans_log_file: %s, m_trans_fixed_log_file: %s, "
-                          "m_trans_end_pos: %llu", m_trans_log_file,
-                          m_trans_fixed_log_file, m_trans_end_pos));
+                          "m_trans_end_pos: %llu m_trans_gtid: %s",
+                          m_trans_log_file, m_trans_fixed_log_file,
+                          m_trans_end_pos, m_trans_gtid));
     DBUG_VOID_RETURN;
   }
 
-  void get_trans_pos(const char **file_var, my_off_t *pos_var) const
+  void get_trans_pos(const char **file_var, my_off_t *pos_var,
+                     const char **gtid_var) const
   {
     DBUG_ENTER("THD::get_trans_pos");
     if (file_var)
       *file_var = m_trans_log_file;
     if (pos_var)
       *pos_var= m_trans_end_pos;
+    if (gtid_var)
+      *gtid_var = m_trans_gtid;
     DBUG_PRINT("return", ("file: %s, pos: %llu",
                           file_var ? *file_var : "<none>",
                           pos_var ? *pos_var : 0));
