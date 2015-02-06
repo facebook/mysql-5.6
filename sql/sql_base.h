@@ -256,19 +256,34 @@ bool open_normal_and_derived_tables(THD *thd, TABLE_LIST *tables, uint flags);
 bool lock_tables(THD *thd, TABLE_LIST *tables, uint counter, uint flags);
 void free_io_cache(TABLE *entry);
 void intern_close_table(TABLE *entry);
-void close_thread_table(THD *thd, TABLE **table_ptr);
+void close_thread_table(THD *thd, TABLE **table_ptr, bool update_stats);
 bool close_temporary_tables(THD *thd);
 TABLE_LIST *unique_table(THD *thd, TABLE_LIST *table, TABLE_LIST *table_list,
                          bool check_alias);
 int drop_temporary_table(THD *thd, TABLE_LIST *table_list, bool *is_trans);
 void close_temporary_table(THD *thd, TABLE *table, bool free_share,
                            bool delete_table);
-void close_temporary(TABLE *table, bool free_share, bool delete_table);
+void close_temporary(THD* thd, TABLE *table, bool free_share,
+		     bool delete_table);
 bool rename_temporary_table(THD* thd, TABLE *table, const char *new_db,
 			    const char *table_name);
 bool open_temporary_tables(THD *thd, TABLE_LIST *tl_list);
 bool open_temporary_table(THD *thd, TABLE_LIST *tl);
 bool is_equal(const LEX_STRING *a, const LEX_STRING *b);
+
+/* for SHOW GLOBAL TABLE STATUS */
+void update_table_stats(THD* thd, TABLE *table_ptr, bool follow_next);
+extern HASH global_table_stats;
+extern mysql_mutex_t LOCK_global_table_stats;
+void init_global_table_stats(void);
+void free_global_table_stats(void);
+void reset_global_table_stats(void);
+extern ST_FIELD_INFO table_stats_fields_info[];
+int fill_table_stats(THD *thd, TABLE_LIST *tables, Item *cond);
+typedef void (*table_stats_cb)(const char *db, const char *table,
+			       my_io_perf_t* r, my_io_perf_t* w,
+			       my_io_perf_t *r_blob,
+			       const char *engine);
 
 /* Functions to work with system tables. */
 bool open_system_tables_for_read(THD *thd, TABLE_LIST *table_list,

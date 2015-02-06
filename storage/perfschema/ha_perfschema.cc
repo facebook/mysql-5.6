@@ -378,7 +378,7 @@ int ha_perfschema::info(uint flag)
   DBUG_RETURN(0);
 }
 
-int ha_perfschema::delete_all_rows(void)
+int ha_perfschema::delete_all_rows(ha_rows* nrows)
 {
   int result;
 

@@ -3006,7 +3006,7 @@ int ha_federated::reset(void)
   Called from sql_union.cc by st_select_lex_unit::exec().
 */
 
-int ha_federated::delete_all_rows()
+int ha_federated::delete_all_rows(ha_rows* nrows)
 {
   char query_buffer[FEDERATED_QUERY_BUFFER_SIZE];
   String query(query_buffer, sizeof(query_buffer), &my_charset_bin);

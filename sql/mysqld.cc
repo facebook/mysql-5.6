@@ -739,6 +739,7 @@ SHOW_COMP_OPTION have_statement_timeout= SHOW_OPTION_DISABLED;
 
 pthread_key(MEM_ROOT**,THR_MALLOC);
 pthread_key(THD*, THR_THD);
+mysql_mutex_t LOCK_global_table_stats;
 mysql_mutex_t LOCK_thread_created;
 mysql_mutex_t LOCK_thread_count, LOCK_thd_remove;
 mysql_mutex_t
@@ -1946,6 +1947,7 @@ void clean_up(bool print_message)
   free_tmpdir(&mysql_tmpdir_list);
   my_free(opt_bin_logname);
   bitmap_free(&temp_pool);
+  free_global_table_stats();
   free_max_user_conn();
 #ifdef HAVE_REPLICATION
   end_slave_list();
@@ -2051,6 +2053,7 @@ static void clean_up_mutexes()
   mysql_mutex_destroy(&LOCK_crypt);
   mysql_mutex_destroy(&LOCK_user_conn);
   mysql_mutex_destroy(&LOCK_connection_count);
+  mysql_mutex_destroy(&LOCK_global_table_stats);
 #ifdef HAVE_OPENSSL
   mysql_mutex_destroy(&LOCK_des_key_file);
 #ifndef HAVE_YASSL
@@ -3109,6 +3112,46 @@ void init_my_timer(void)
     my_timer.resolution = 10;	/* Another sign it's bad */
     my_timer.routine = 0;	/* None */
   }
+}
+
+/**********************************************************************
+Accumulate per-table IO stats helper function */
+void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf)
+{
+  sum->bytes += perf->bytes;
+  sum->requests += perf->requests;
+  sum->svc_time += perf->svc_time;
+  sum->svc_time_max = max(sum->svc_time_max, perf->svc_time_max);
+  sum->wait_time += perf->wait_time;
+  sum->wait_time_max = max(sum->wait_time_max, perf->wait_time_max);
+  sum->old_ios += perf->old_ios;
+}
+
+/**********************************************************************
+Accumulate per-table IO stats helper function using atomic ops */
+void my_io_perf_sum_atomic(
+    my_io_perf_atomic_t* sum,
+    ulonglong bytes,
+    ulonglong requests,
+    ulonglong svc_time,
+    ulonglong wait_time,
+    ulonglong old_ios)
+{
+  sum->bytes.inc(bytes);
+  sum->requests.inc(requests);
+
+  sum->svc_time.inc(svc_time);
+  sum->wait_time.inc(wait_time);
+
+  // In the unlikely case that two threads attempt to update the max
+  // value at the same time, only the first will succeed.  It's possible
+  // that the second thread would have set a larger max value, but we
+  // would rather error on the side of simplicity and avoid looping the
+  // compare-and-swap.
+  sum->svc_time_max.set_max_maybe(svc_time);
+  sum->wait_time_max.set_max_maybe(wait_time);
+
+  sum->old_ios.inc(old_ios);
 }
 
 #if !defined(__WIN__)
@@ -4348,6 +4391,8 @@ static int init_thread_environment()
                    &LOCK_connection_count, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_log_throttle_qni,
                    &LOCK_log_throttle_qni, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_global_table_stats,
+                   &LOCK_global_table_stats, MY_MUTEX_INIT_FAST);
 #ifdef HAVE_OPENSSL
   mysql_mutex_init(key_LOCK_des_key_file,
                    &LOCK_des_key_file, MY_MUTEX_INIT_FAST);
@@ -4968,6 +5013,8 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     }
   }
 #endif /* !EMBEDDED_LIBRARY */
+
+  init_global_table_stats();
 
   /* call ha_init_key_cache() on all key caches to init them */
   process_key_caches(&ha_init_key_cache);
@@ -9669,6 +9716,7 @@ PSI_mutex_key
   key_mutex_slave_parallel_worker,
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOG_INFO_lock, key_LOCK_thread_count,
+  key_LOCK_global_table_stats,
   key_LOCK_log_throttle_qni;
 PSI_mutex_key key_LOCK_thd_remove;
 PSI_mutex_key key_RELAYLOG_LOCK_commit;
@@ -9761,6 +9809,7 @@ static PSI_mutex_info all_server_mutexes[]=
   { &key_LOCK_thread_count, "LOCK_thread_count", PSI_FLAG_GLOBAL},
   { &key_LOCK_thd_remove, "LOCK_thd_remove", PSI_FLAG_GLOBAL},
   { &key_LOCK_log_throttle_qni, "LOCK_log_throttle_qni", PSI_FLAG_GLOBAL},
+  { &key_LOCK_global_table_stats, "LOCK_global_table_stats", PSI_FLAG_GLOBAL},
   { &key_gtid_ensure_index_mutex, "Gtid_state", PSI_FLAG_GLOBAL},
   { &key_LOCK_thread_created, "LOCK_thread_created", PSI_FLAG_GLOBAL },
 #ifdef HAVE_MY_TIMER

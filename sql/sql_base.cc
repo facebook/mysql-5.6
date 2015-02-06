@@ -1235,10 +1235,17 @@ static void close_open_tables(THD *thd)
 {
   mysql_mutex_assert_not_owner(&LOCK_open);
 
+  /*
+     Update global table stats before LOCK_open might be locked.
+     This is done for performance so it is OK when LOCK_open has been
+     locked by the caller.
+  */
+  update_table_stats(thd, thd->open_tables, true);
+
   DBUG_PRINT("info", ("thd->open_tables: 0x%lx", (long) thd->open_tables));
 
   while (thd->open_tables)
-    close_thread_table(thd, &thd->open_tables);
+    close_thread_table(thd, &thd->open_tables, false);
 }
 
 
@@ -1298,7 +1305,7 @@ close_all_tables_for_name(THD *thd, TABLE_SHARE *share,
       if (table->db_stat && /* Not true for partitioned tables. */
           skip_table == NULL)
         table->file->extra(HA_EXTRA_PREPARE_FOR_DROP);
-      close_thread_table(thd, prev);
+      close_thread_table(thd, prev, true);
     }
     else
     {
@@ -1472,7 +1479,7 @@ void close_thread_tables(THD *thd)
 
 /* move one table to free list */
 
-void close_thread_table(THD *thd, TABLE **table_ptr)
+void close_thread_table(THD *thd, TABLE **table_ptr, bool update_stats)
 {
   TABLE *table= *table_ptr;
   DBUG_ENTER("close_thread_table");
@@ -1488,6 +1495,14 @@ void close_thread_table(THD *thd, TABLE **table_ptr)
                                              table->s->table_name.str,
                                              MDL_SHARED));
   table->mdl_ticket= NULL;
+
+  /* Avoid a mutex hotspot by allowing some callers to update table stats
+     prior to calling this function.
+  */
+  if (update_stats && table->file)
+  {
+    table->file->update_global_table_stats(thd);
+  }
 
   mysql_mutex_lock(&thd->LOCK_thd_data);
   *table_ptr=table->next;
@@ -1567,7 +1582,7 @@ bool close_temporary_tables(THD *thd)
     for (table= thd->temporary_tables; table; table= tmp_next)
     {
       tmp_next= table->next;
-      close_temporary(table, 1, 1);
+      close_temporary(thd, table, 1, 1);
     }
     thd->temporary_tables= 0;
     if (thd->slave_thread)
@@ -1696,7 +1711,7 @@ bool close_temporary_tables(THD *thd)
         }
 
         next= table->next;
-        close_temporary(table, 1, 1);
+        close_temporary(thd, table, 1, 1);
       }
       thd->clear_error();
       const CHARSET_INFO *cs_save= thd->variables.character_set_client;
@@ -1773,7 +1788,7 @@ bool close_temporary_tables(THD *thd)
     else
     {
       next= table->next;
-      close_temporary(table, 1, 1);
+      close_temporary(thd, table, 1, 1);
     }
   }
   if (!was_quote_show)
@@ -2201,7 +2216,7 @@ void close_temporary_table(THD *thd, TABLE *table,
     DBUG_ASSERT(slave_open_temp_tables || !thd->temporary_tables);
     modify_slave_open_temp_tables(thd, -1);
   }
-  close_temporary(table, free_share, delete_table);
+  close_temporary(thd, table, free_share, delete_table);
   DBUG_VOID_RETURN;
 }
 
@@ -2214,13 +2229,14 @@ void close_temporary_table(THD *thd, TABLE *table,
     If this is needed, use close_temporary_table()
 */
 
-void close_temporary(TABLE *table, bool free_share, bool delete_table)
+void close_temporary(THD *thd, TABLE *table, bool free_share, bool delete_table)
 {
   handlerton *table_type= table->s->db_type();
   DBUG_ENTER("close_temporary");
   DBUG_PRINT("tmptable", ("closing table: '%s'.'%s'",
                           table->s->db.str, table->s->table_name.str));
 
+  table->file->update_global_table_stats(thd);
   free_io_cache(table);
   closefrm(table, 0);
   if (delete_table)
@@ -2330,7 +2346,7 @@ void drop_open_table(THD *thd, TABLE *table, const char *db_name,
     handlerton *table_type= table->s->db_type();
 
     table->file->extra(HA_EXTRA_PREPARE_FOR_DROP);
-    close_thread_table(thd, &thd->open_tables);
+    close_thread_table(thd, &thd->open_tables, true);
     /* Remove the table share from the table cache. */
     tdc_remove_table(thd, TDC_RT_REMOVE_ALL, db_name, table_name,
                      FALSE);
@@ -3560,7 +3576,7 @@ unlink_all_closed_tables(THD *thd, MYSQL_LOCK *lock, size_t reopen_count)
 
       thd->open_tables->pos_in_locked_tables->table= NULL;
 
-      close_thread_table(thd, &thd->open_tables);
+      close_thread_table(thd, &thd->open_tables, true);
     }
   }
   /* Exclude all closed tables from the LOCK TABLES list. */

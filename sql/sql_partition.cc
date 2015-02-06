@@ -6749,7 +6749,7 @@ err_exclusive_lock:
       the table cache.
     */
     mysql_lock_remove(thd, thd->lock, table);
-    close_thread_table(thd, &thd->open_tables);
+    close_thread_table(thd, &thd->open_tables, false);
     lpt->table_list->table= NULL;
   }
 

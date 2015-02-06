@@ -246,7 +246,7 @@ public:
   int info(uint);                                               ///< required
   int extra(enum ha_extra_function operation);
   int external_lock(THD *thd, int lock_type);                   ///< required
-  int delete_all_rows(void);
+  int delete_all_rows(ha_rows* nrows = NULL);
   int truncate();
   ha_rows records_in_range(uint inx, key_range *min_key,
                            key_range *max_key);

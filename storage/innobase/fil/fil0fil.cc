@@ -28,6 +28,8 @@ Created 10/25/1995 Heikki Tuuri
 #include <debug_sync.h>
 #include <my_dbug.h>
 
+#include "log.h"
+
 #include "mem0mem.h"
 #include "hash0hash.h"
 #include "os0file.h"
@@ -160,6 +162,10 @@ fil_system_t*	fil_system	= NULL;
 #else /* __WIN__ */
 # define fil_buffering_disabled(s)	(0)
 #endif /* __WIN__ */
+
+/** Count usage of the doublewrite buffer separate from other activity to
+the system tablespace. */
+os_io_perf2_t	io_perf_doublewrite;
 
 #ifdef UNIV_DEBUG
 /** Try fil_validate() every this many times */
@@ -300,6 +306,217 @@ fil_write(
 
 	return(fil_io(OS_FILE_WRITE, sync, space_id, zip_size, block_offset,
 					   byte_offset, len, buf, message));
+}
+
+/****************************************************************//**
+Invokes table stats callback for all entries in one cell. */
+static void
+fil_update_table_stats_one_cell(
+/*============================*/
+	ulint		cell_number,	/*!< in: cell to report */
+	my_io_perf_t*	read_arr,	/*!< in: buffer for read stats */
+	my_io_perf_t*	write_arr,	/*!< in: buffer for write stats */
+	my_io_perf_t*	read_arr_blob,	/*!< in: buf for read stats for blob */
+	ulint		max_per_cell,	/*!< in: size of buffers */
+	void		(*cb)(const char* db,
+				const char* tbl,
+				my_io_perf_t *r,
+				my_io_perf_t *w,
+				my_io_perf_t *r_blob,
+				const char* engine),
+	char*		db_name_buf,	/*!< in: buffer for db names */
+	char*		table_name_buf)	/*!< in: buffer for table names */
+{
+	ulint		n_cells;
+	hash_cell_t*	cell;
+	fil_space_t*	space;
+	ulint		found = 0;
+	ulint		report = 0;
+
+	mutex_enter(&fil_system->mutex);
+	n_cells = hash_get_n_cells(fil_system->spaces);
+
+	if ((cell_number + 1) > n_cells) {
+		mutex_exit(&fil_system->mutex);
+		return;
+	}
+
+	cell = hash_get_nth_cell(fil_system->spaces, cell_number);
+	space = static_cast<fil_space_t*>(cell->node);
+
+	/* Copy out all entries for which stats must be reported */
+
+	while (space && found < max_per_cell) {
+
+		if (space->used) {
+			space->used = FALSE;
+
+			read_arr[found] = space->io_perf2.read;
+			write_arr[found] = space->io_perf2.write;
+			read_arr_blob[found] = space->io_perf2.read_blob;
+
+			strcpy(&(db_name_buf[found * (FN_LEN+1)]),
+				space->db_name);
+			strcpy(&(table_name_buf[found * (FN_LEN+1)]),
+				space->table_name);
+
+			found++;
+		}
+
+		space = static_cast<fil_space_t*>(HASH_GET_NEXT(hash, space));
+	}
+
+	mutex_exit(&fil_system->mutex);
+
+	/* Invoke callback after releasing mutex */
+
+	for (; report < found; ++report) {
+		cb(&(db_name_buf[report * (FN_LEN+1)]),
+			 &(table_name_buf[report * (FN_LEN+1)]),
+			 &(read_arr[report]),
+			 &(write_arr[report]),
+			 &(read_arr_blob[report]),
+			 "InnoDB");
+	}
+}
+
+/****************************************************************//**
+Update stats with per-table data from InnoDB tables. */
+UNIV_INTERN
+void
+fil_update_table_stats(
+/*===================*/
+	/* per-table stats callback */
+	void (*cb)(const char* db,
+			const char* tbl,
+			my_io_perf_t *r,
+			my_io_perf_t *w,
+			my_io_perf_t *r_blob,
+			const char* engine))
+{
+	ulint		n_cells;
+	ulint		n;
+	ulint		max_per_cell = 0;
+	my_io_perf_t*	read_arr;
+	my_io_perf_t*	write_arr;
+	my_io_perf_t*	read_arr_blob;
+	char*		db_name_buf;
+	char*		table_name_buf;
+	static ibool	in_progress = FALSE;
+
+	/* This invokes the callback to report table stats for all
+	tablespaces with the assumption that file-per-table is used.
+	If it is not used, then the callback consumer assigns all
+	load per tablespace to the first table in the tablespace.
+
+	The code below figures out the max number of entries per
+	cell that might have data to be reported, allocates memory
+	and then calls fil_update_table_stats_one_cell to make
+	one pass over the hash table per cell and copy out data
+	for all entries per pass. This locks the fil_system mutex
+	once per pass. The mutex is not locked when the callback
+	is invoked.
+
+	To avoid allocating memory per cell the alternative is an O(N*N)
+	iteration of the hash table. I prefer not to do that. */
+
+	mutex_enter(&fil_system->mutex);
+
+	if (in_progress) {
+		/* Return rather than wait. No need for complexity */
+		mutex_exit(&fil_system->mutex);
+		return;
+	}
+
+	in_progress = TRUE;
+
+	n_cells = hash_get_n_cells(fil_system->spaces);
+
+	/* First figure out the max number of entries per cell
+	for which data is to be reported. */
+
+	for (n = 0; n < n_cells; ++n) {
+		ulint		per_cell = 0;
+		hash_cell_t*	cell = hash_get_nth_cell(fil_system->spaces, n);
+		fil_space_t*	space = static_cast<fil_space_t*>(cell->node);
+
+		while (space) {
+			if (space->used)
+				++per_cell;
+
+			space = static_cast<fil_space_t*>(HASH_GET_NEXT(hash, space));
+		}
+
+		if (per_cell > max_per_cell)
+			max_per_cell = per_cell;
+	}
+
+	mutex_exit(&fil_system->mutex);
+
+	if (!max_per_cell) {
+		mutex_enter(&fil_system->mutex);
+		in_progress = FALSE;
+		mutex_exit(&fil_system->mutex);
+		return;
+	}
+
+	/* Then allocate memory for the max */
+
+	read_arr = (my_io_perf_t*) ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+	write_arr = (my_io_perf_t*) ut_malloc(sizeof(my_io_perf_t) * max_per_cell);
+	read_arr_blob = (my_io_perf_t*) ut_malloc(
+				sizeof(my_io_perf_t) * max_per_cell);
+	db_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
+	table_name_buf = (char*) ut_malloc((FN_LEN+1) * max_per_cell);
+
+	if (!read_arr || !write_arr || !read_arr_blob ||
+			!table_name_buf || !db_name_buf) {
+
+		mutex_enter(&fil_system->mutex);
+		in_progress = FALSE;
+		mutex_exit(&fil_system->mutex);
+
+		if (read_arr)
+			ut_free(read_arr);
+		if (write_arr)
+			ut_free(write_arr);
+		if (read_arr_blob)
+			ut_free(read_arr_blob);
+		if (db_name_buf)
+			ut_free(db_name_buf);
+		if (table_name_buf)
+			ut_free(table_name_buf);
+
+		sql_print_error("Memory allocation failure in table stats.");
+		return;
+	}
+
+	/* Then copy out the valid data one cell at a time */
+
+	for (n = 0; n < n_cells; ++n) {
+		fil_update_table_stats_one_cell(
+			n, read_arr, write_arr, read_arr_blob,
+			max_per_cell, cb, db_name_buf,
+			table_name_buf);
+	}
+
+	ut_free(read_arr);
+	ut_free(write_arr);
+	ut_free(read_arr_blob);
+	ut_free(table_name_buf);
+	ut_free(db_name_buf);
+
+	/* Invoke the callback for doublewrite buffer IO */
+	cb("sys:innodb" /* schema */,
+		 "doublewrite" /* table */,
+		 &io_perf_doublewrite.read,
+		 &io_perf_doublewrite.write,
+		 &io_perf_doublewrite.read_blob,
+		 "InnoDB");
+
+	mutex_enter(&fil_system->mutex);
+	in_progress = FALSE;
+	mutex_exit(&fil_system->mutex);
 }
 
 /*******************************************************************//**
@@ -1075,6 +1292,49 @@ fil_space_truncate_start(
 #endif /* UNIV_LOG_ARCHIVE */
 
 /*******************************************************************//**
+Parse db and table name from tablespace name. Use "sys:innodb" for
+db name of the system tablespace and logfiles and tablespace names
+that cannot be parsed. Use "log" as the table name for log files.
+Use "system" as the table name for the system tablespace.
+For the tablespace "foo/bar", the db name is "foo" and the
+table name is "bar". This expects names to be of the form:
+   "db/table"
+
+@return values in db_name and table_name. */
+static void
+parse_db_and_table(
+/*===============*/
+	const char*	name,		/*!< in: name to parse */
+	char*		db_name,	/*!< out: return db name */
+	char*		table_name,	/*!< out: return table name */
+	ulint		purpose,	/*!< in: type of tablespace */
+	ulint		id)		/*!< in: tablespace id */
+{
+	if (purpose == FIL_LOG) {
+		strcpy(db_name, "sys:innodb");
+		strcpy(table_name, "log");
+	} else if (id == 0) {
+		strcpy(db_name, "sys:innodb");
+		strcpy(table_name, "system");
+	} else {
+		if (sscanf(name, "%" FN_LEN_STR "[^/]/%" FN_LEN_STR "[^/]",
+		    db_name, table_name) != 2) {
+			strcpy(db_name, "sys:innodb");
+			strcpy(table_name, "other");
+			fprintf(stderr,
+				"InnoDB: unable to parse table and "
+				"db name from ::%s::\n", name);
+		} else {
+			// Use only base table name for partitioned tables
+			char *part = strstr(table_name, "#P#");
+			if (part) {
+				*part = '\0';
+			}
+		}
+	}
+}
+
+/*******************************************************************//**
 Creates a space memory object and puts it to the 'fil system' hash table.
 If there is an error, prints an error message to the .err log.
 @return	TRUE if success */
@@ -1088,8 +1348,12 @@ fil_space_create(
 	ulint		purpose)/*!< in: FIL_TABLESPACE, or FIL_LOG if log */
 {
 	fil_space_t*	space;
+	char		db_name[FN_LEN + 1];
+	char		table_name[FN_LEN + 1];
 
 	DBUG_EXECUTE_IF("fil_space_create_failure", return(false););
+
+	parse_db_and_table(name, db_name, table_name, purpose, id);
 
 	ut_a(fil_system);
 	ut_a(fsp_flags_is_valid(flags));
@@ -1144,6 +1408,9 @@ fil_space_create(
 
 	space->name = mem_strdup(name);
 	space->id = id;
+	strcpy(space->db_name, db_name);
+	strcpy(space->table_name, table_name);
+	space->used = TRUE;
 
 	fil_system->tablespace_version++;
 	space->tablespace_version = fil_system->tablespace_version;
@@ -1178,8 +1445,9 @@ fil_space_create(
 		    ut_fold_string(name), space);
 	space->is_in_unflushed_spaces = false;
 
-	os_io_perf_init(&(space->io_perf2.read));
-	os_io_perf_init(&(space->io_perf2.write));
+	my_io_perf_init(&(space->io_perf2.read));
+	my_io_perf_init(&(space->io_perf2.write));
+	my_io_perf_init(&(space->io_perf2.read_blob));
 
 	UT_LIST_ADD_LAST(space_list, fil_system->space_list, space);
 
@@ -1550,6 +1818,10 @@ fil_init(
 	UT_LIST_INIT(fil_system->LRU);
 
 	fil_system->max_n_open = max_n_open;
+
+	my_io_perf_init(&io_perf_doublewrite.read);
+	my_io_perf_init(&io_perf_doublewrite.write);
+	my_io_perf_init(&io_perf_doublewrite.read_blob);
 
 	for (int x = 0; x < FLUSH_FROM_NUMBER; ++x)
 	{
@@ -2784,6 +3056,7 @@ fil_rename_tablespace_in_mem(
 
 	HASH_DELETE(fil_space_t, name_hash, fil_system->name_hash,
 		    ut_fold_string(space->name), space);
+
 	mem_free(space->name);
 	mem_free(node->name);
 
@@ -2998,6 +3271,11 @@ skip_second_rename:
 
 			ut_a(fil_rename_tablespace_in_mem(
 					space, node, old_name, old_path));
+		} else {
+			parse_db_and_table(new_name,
+					   space->db_name,
+					   space->table_name,
+					   FIL_TABLESPACE, id);
 		}
 	}
 
@@ -5114,7 +5392,7 @@ retry:
 		success = os_aio(OS_FILE_WRITE, OS_AIO_SYNC,
 				 node->name, node->handle, buf,
 				 offset, page_size * n_pages,
-				 NULL, NULL, &space->io_perf2, false);
+				 NULL, NULL, &space->io_perf2, NULL, false);
 #endif /* UNIV_HOTBACKUP */
 		if (success) {
 			os_has_said_disk_full = FALSE;
@@ -5487,6 +5765,9 @@ _fil_io(
 				appropriately aligned */
 	void*	message,	/*!< in: message for aio handler if non-sync
 				aio used, else ignored */
+	os_io_table_perf_t* table_io_perf,/* in/out: tracks table IO stats
+				to be counted in IS.user_statistics only
+				for sync reads and writes */
 	ibool	should_buffer)	/*!< in: whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
@@ -5658,6 +5939,8 @@ _fil_io(
 		ut_error;
 	}
 
+	space->used = TRUE;
+
 	/* Now we have made the changes in the data structures of fil_system */
 	mutex_exit(&fil_system->mutex);
 
@@ -5707,7 +5990,7 @@ _fil_io(
 	ret = os_aio(type, mode | wake_later, node->name, node->handle, buf,
 		     offset, len, node, message,
 		     &space->io_perf2,
-		     should_buffer);
+		     table_io_perf, should_buffer);
 #endif /* UNIV_HOTBACKUP */
 	ut_a(ret);
 

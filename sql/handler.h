@@ -706,6 +706,7 @@ enum enum_schema_tables
   SCH_TABLE_CONSTRAINTS,
   SCH_TABLE_NAMES,
   SCH_TABLE_PRIVILEGES,
+  SCH_TABLE_STATISTICS,
   SCH_TRIGGERS,
   SCH_USER_PRIVILEGES,
   SCH_VARIABLES,
@@ -961,6 +962,11 @@ struct handlerton
   bool (*is_supported_system_table)(const char *db,
                                     const char *table_name,
                                     bool is_sql_layer_system_table);
+
+  void (*update_table_stats)(void (*cb)(const char *db, const char *tbl,
+                                        my_io_perf_t *r, my_io_perf_t *w,
+                                        my_io_perf_t *r_blob,
+                                        const char *engine));
 
    uint32 license; /* Flag for Engine License */
    void *data; /* Location for engines to keep personal structures */
@@ -1717,18 +1723,39 @@ public:
   ulong check_time;
   ulong update_time;
   uint block_size;			/* index block size */
-  
+
+  void reset_table_stats();
+  bool has_table_stats();
+
+  /* Counts for TABLE_STATISTICS */
+  ulonglong rows_inserted;	/* count rows inserted */
+  ulonglong rows_updated;	/* count rows updated */
+  ulonglong rows_deleted;	/* count rows deleted */
+  ulonglong rows_read;		/* count row read attempts that return a row */
+  ulonglong rows_requested;	/* count row read attempts, successful or not */
+
+  /* Count row reads by access type */
+  ulonglong rows_index_first;	/* first read of a row on index scan */
+  ulonglong rows_index_next;	/* reads after first on index scan */
+
   /*
     number of buffer bytes that native mrr implementation needs,
   */
-  uint mrr_length_per_rec; 
+  uint mrr_length_per_rec;
+
+  my_io_perf_t table_io_perf_read;  /* per table IO perf counters */
+  my_io_perf_t table_io_perf_write; /* per table IO perf counters */
+  my_io_perf_t table_io_perf_read_blob; /* per table IO perf counters */
+  ulonglong index_inserts;          /* per table secondary index inserts */
 
   ha_statistics():
     data_file_length(0), max_data_file_length(0),
     index_file_length(0), delete_length(0), auto_increment_value(0),
     records(0), deleted(0), mean_rec_length(0), create_time(0),
     check_time(0), update_time(0), block_size(0)
-  {}
+  {
+    reset_table_stats();
+  }
 };
 
 uint calculate_key_len(TABLE *, uint, const uchar *, key_part_map);
@@ -1809,6 +1836,8 @@ protected:
   TABLE_SHARE *table_share;             /* The table definition */
   TABLE *table;                         /* The current open table */
   Table_flags cached_table_flags;       /* Set on init() and open() */
+  /* table_stats saves a hash table search when set. */
+  TABLE_STATS *table_stats;
 
   ha_rows estimation_rows_to_insert;
 public:
@@ -1944,6 +1973,7 @@ private:
 public:
   handler(handlerton *ht_arg, TABLE_SHARE *share_arg)
     :table_share(share_arg), table(0),
+    table_stats(NULL),
     estimation_rows_to_insert(0), ht(ht_arg),
     ref(0), range_scan_direction(RANGE_SCAN_ASC),
     in_range_check_pushed_down(false), end_range(NULL),
@@ -2028,7 +2058,7 @@ public:
   int ha_end_bulk_insert();
   int ha_bulk_update_row(const uchar *old_data, uchar *new_data,
                          uint *dup_key_found);
-  int ha_delete_all_rows();
+  int ha_delete_all_rows(ha_rows* nrows = NULL);
   int ha_truncate();
   int ha_reset_auto_increment(ulonglong value);
   int ha_optimize(THD* thd, HA_CHECK_OPT* check_opt);
@@ -2087,6 +2117,9 @@ public:
   {
     table= table_arg;
     table_share= share;
+    table_stats= NULL;
+    // TODO: Assert that stats have been saved.
+    stats.reset_table_stats();
   }
   /* Estimates calculation */
   virtual double scan_time()
@@ -3018,6 +3051,16 @@ public:
     return 0;
   }
 
+  /* Update global per-table counters for work done by this handler. Should be
+     called at the end of a statement.
+  */
+  void update_global_table_stats(THD *thd);
+
+  /**
+    Called by owner ha_partition (if there's one) to assign stats object
+  */
+  virtual void set_partition_owner_stats(ha_statistics* stats) {}
+
 protected:
   /* Service methods for use by storage engines. */
   void ha_statistic_increment(ulonglong SSV::*offset) const;
@@ -3176,8 +3219,10 @@ public:
     If the handler don't support this, then this function will
     return HA_ERR_WRONG_COMMAND and MySQL will delete the rows one
     by one.
+
+    @param nrows If not NULL, it will be set to the number of rows deleted
   */
-  virtual int delete_all_rows()
+  virtual int delete_all_rows(ha_rows* nrows = NULL)
   { return (my_errno=HA_ERR_WRONG_COMMAND); }
   /**
     Quickly remove all rows from a table.
@@ -3397,6 +3442,13 @@ int ha_delete_table(THD *thd, handlerton *db_type, const char *path,
 
 /* statistics and info */
 bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat);
+
+/* Get updated table statistics from all engines */
+void ha_get_table_stats(void (*cb)(const char* db, const char* tbl,
+                                   my_io_perf_t* r, my_io_perf_t* w,
+                                   my_io_perf_t* r_blob,
+                                   const char* engine));
+
 
 /* discovery */
 int ha_create_table_from_engine(THD* thd, const char *db, const char *name);

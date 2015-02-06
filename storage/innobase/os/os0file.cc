@@ -267,7 +267,7 @@ struct os_aio_array_t{
 static os_event_t*	os_aio_segment_wait_events = NULL;
 
 /* Performance counters indexed by global segment number */
-static os_io_perf_t os_aio_perf[SRV_MAX_N_IO_THREADS];
+static my_io_perf_t os_aio_perf[SRV_MAX_N_IO_THREADS];
 
 #define OS_AIO_OLD_TIME (2 * my_timer.frequency)	/* 2 Seconds */
 
@@ -298,11 +298,11 @@ UNIV_INTERN ulint	os_n_fsyncs_old		= 0;
 UNIV_INTERN time_t	os_last_printout;
 
 /* Global counters for sync and async IO */
-os_io_perf_t os_async_read_perf;
-os_io_perf_t os_async_write_perf;
+my_io_perf_t os_async_read_perf;
+my_io_perf_t os_async_write_perf;
 
-os_io_perf_t os_sync_read_perf;
-os_io_perf_t os_sync_write_perf;
+my_io_perf_t os_sync_read_perf;
+my_io_perf_t os_sync_write_perf;
 
 /* Timer units waiting for fsync or fdatasync to finish */
 ulonglong os_file_flush_time = 0;
@@ -334,37 +334,42 @@ UNIV_INTERN volatile ibool	os_aio_batch_submission_blocked = FALSE;
 static os_event_t		os_aio_outstanding_requests_wait_event = NULL;
 
 /**********************************************************************//**
-Initialize an os_io_perf_t struct. */
+Update wait stats for my_io_perf_t for all blocks after the first block in
+a merged request. */
 
+UNIV_INLINE
 void
-os_io_perf_init(
-/*=============*/
-	os_io_perf_t*   perf)
+os_io_perf_update_wait(
+	my_io_perf_t*	perf,		/*!< in: struct to update */
+	ulonglong	stop_time,	/*!< in: timer units since epoch */
+	ulonglong	req_time)	/*!< in: when IO request submitted */
 {
-	perf->bytes = 0;
-	perf->requests = 0;
-	perf->svc_time = 0;
-	perf->svc_time_max = 0;
-	perf->wait_time = 0;
-	perf->wait_time_max = 0;
-	perf->old_ios = 0;
+	ulonglong wait_time = 0;
+	if (stop_time > req_time) {
+		wait_time = stop_time - req_time;
+	}
+
+	perf->wait_time += wait_time;
+	perf->wait_time_max = max(wait_time, perf->wait_time_max);
 }
 
 /***********************************************************************//**
-Update os_io_perf_t after an IO request. */
+Update my_io_perf_t after an IO request. */
 
 UNIV_INLINE
 void
 os_io_perf_update_all(
 /*===============*/
-	os_io_perf_t*	perf,		/*!< in: struct to update */
+	my_io_perf_t*	perf,		/*!< in: struct to update */
 	ulint		bytes,		/*!< in: size of request */
 	ulonglong	svc_time,	/*!< in: timer units to perform IO */
 	ulonglong	stop_time,	/*!< in: timer units since epoch */
-	ulonglong	wait_start)	/*!< in: when IO request submitted */
+	ulonglong	req_time)	/*!< in: when IO request submitted */
 {
 	ulonglong wait_time = 0;
-	if(stop_time > wait_start) wait_time = stop_time - wait_start;
+	if (stop_time > req_time) {
+		wait_time = stop_time - req_time;
+	}
 
 	perf->requests++;
 	perf->bytes += bytes;
@@ -372,24 +377,10 @@ os_io_perf_update_all(
 	perf->svc_time += svc_time;
 	perf->svc_time_max = max(svc_time, perf->svc_time_max);
 
-	perf->wait_time += wait_time;
-	perf->wait_time_max = max(wait_time, perf->wait_time_max);
-}
+	if (svc_time >= OS_AIO_OLD_TIME) {
+		perf->old_ios += 1;
+	}
 
-/***********************************************************************//**
-Update wait stats for os_io_perf_t for all blocks after the first block in
-a merged request. */
-
-UNIV_INLINE
-void
-os_io_perf_update_wait(
-/*===============*/
-	os_io_perf_t*	perf,		/*!< in: struct to update */
-	ulonglong	stop_time,	/*!< in: timer units since epoch */
-	ulonglong	wait_start)	/*!< in: when IO request submitted */
-{
-	ulonglong wait_time = 0;
-	if(stop_time > wait_start) wait_time = stop_time - wait_start;
 	perf->wait_time += wait_time;
 	perf->wait_time_max = max(wait_time, perf->wait_time_max);
 }
@@ -3997,14 +3988,14 @@ os_aio_init(
 
 	srv_reset_io_thread_op_info();
 	for (ulint i = 0; i < (2 + n_read_segs + n_write_segs); i++) {
-		os_io_perf_init(&os_aio_perf[i]);
+		my_io_perf_init(&os_aio_perf[i]);
 	}
 
-	os_io_perf_init(&os_async_read_perf);
-	os_io_perf_init(&os_async_write_perf);
+	my_io_perf_init(&os_async_read_perf);
+	my_io_perf_init(&os_async_write_perf);
 
-	os_io_perf_init(&os_sync_read_perf);
-	os_io_perf_init(&os_sync_write_perf);
+	my_io_perf_init(&os_sync_read_perf);
+	my_io_perf_init(&os_sync_write_perf);
 
 	os_aio_read_array = os_aio_array_create(
 		n_read_segs * n_per_seg, n_read_segs);
@@ -4781,6 +4772,9 @@ os_aio_func(
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
 	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t perf counters */
+	os_io_table_perf_t* table_io_perf,/*!< in/out: counts table IO stats
+				for IS.user_statistics only for sync
+				reads and writes */
 	ibool	should_buffer)	/*!< in: Whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
@@ -4852,12 +4846,38 @@ os_aio_func(
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->read), n,
 				elapsed_time, end_time, start_time);
+			if (table_io_perf) {
+				/* Per table counters */
+				os_io_perf_update_all(&(table_io_perf->read), n,
+					elapsed_time, end_time, start_time);
+			}
+			ulint page_type= fil_page_get_type((const unsigned char *)buf);
+			if (FIL_PAGE_TYPE_BLOB == page_type ||
+				FIL_PAGE_TYPE_ZBLOB == page_type ||
+				FIL_PAGE_TYPE_ZBLOB2 == page_type)
+			{
+				/* Per fil_space_t counters */
+				os_io_perf_update_all(&(io_perf2->read_blob), n,
+				elapsed_time, end_time, start_time);
+				if (table_io_perf)
+				{
+					/* Per table counters */
+					os_io_perf_update_all(&(table_io_perf->read_blob), n,
+					elapsed_time, end_time, start_time);
+				}
+			}
+
 		} else {
 			os_io_perf_update_all(&os_sync_write_perf, n,
 				elapsed_time, end_time, start_time);
 			/* Per fil_space_t counters */
 			os_io_perf_update_all(&(io_perf2->write), n,
 				elapsed_time, end_time, start_time);
+			if (table_io_perf) {
+				/* Per table counters */
+				os_io_perf_update_all(&(table_io_perf->write), n,
+					elapsed_time, end_time, start_time);
+			}
 		}
 		return r;
 	}
@@ -5888,13 +5908,13 @@ void
 os_io_perf_print(
 /*==============*/
 	FILE*           file,
-	os_io_perf_t*   perf,
+	my_io_perf_t*   perf,
 	ibool           newline)
 {
 	double nzero_requests = max(perf->requests, 1);
 
 	fprintf(file,
-		"%lu requests, %u old, %.2f bytes/r, "
+		"%llu requests, %llu old, %.2f bytes/r, "
 		"svc: %.2f secs, %.2f msecs/r, %.2f max msecs, "
 		"wait: %.2f secs %.2f msecs/r, %.2f max msecs",
 		perf->requests, perf->old_ios,

@@ -1,0 +1,14 @@
+drop database if exists x;
+drop table if exists y;
+create database x;
+use x;
+create table y (i int primary key auto_increment, pad char(200)) engine=innodb;
+insert into y values (null, 'foobar');
+insert into y select null, pad from y;
+insert into y select null, pad from y;
+insert into y select null, pad from y;
+select ROWS_INSERTED, IO_READ_REQUESTS, IO_WRITE_REQUESTS > 0 from information_schema.table_statistics where table_schema = 'x' and table_name = 'y';
+ROWS_INSERTED	IO_READ_REQUESTS	IO_WRITE_REQUESTS > 0
+8	0	1
+drop table y;
+drop database x;
