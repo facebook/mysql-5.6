@@ -32,6 +32,7 @@ The interface to the operating system file i/o primitives
 Created 10/21/1995 Heikki Tuuri
 *******************************************************/
 
+#include "mysqld.h"
 #include "os0file.h"
 
 #ifdef UNIV_NONINL
@@ -59,6 +60,8 @@ Created 10/21/1995 Heikki Tuuri
 #if defined(LINUX_NATIVE_AIO)
 #include <libaio.h>
 #endif
+
+#define max(a,b) ((a)>(b)?(a):(b))
 
 /** Insert buffer segment id */
 static const ulint IO_IBUF_SEGMENT = 0;
@@ -157,7 +160,7 @@ struct os_aio_slot_t{
 	ulint		pos;		/*!< index of the slot in the aio
 					array */
 	ibool		reserved;	/*!< TRUE if this slot is reserved */
-	time_t		reservation_time;/*!< time when reserved */
+	double		reservation_time;/*!< time when reserved */
 	ulint		len;		/*!< length of the block to read or
 					write */
 	byte*		buf;		/*!< buffer used in i/o */
@@ -175,6 +178,8 @@ struct os_aio_slot_t{
 					and which can be used to identify
 					which pending aio operation was
 					completed */
+	os_io_perf2_t*	io_perf2;	/*!< per fil_space_t performance
+					counters */
 #ifdef WIN_ASYNC_IO
 	HANDLE		handle;		/*!< handle object we need in the
 					OVERLAPPED struct */
@@ -261,6 +266,11 @@ struct os_aio_array_t{
 /** Array of events used in simulated aio */
 static os_event_t*	os_aio_segment_wait_events = NULL;
 
+/* Performance counters indexed by global segment number */
+static os_io_perf_t os_aio_perf[SRV_MAX_N_IO_THREADS];
+
+#define OS_AIO_OLD_TIME (2 * my_timer.frequency)	/* 2 Seconds */
+
 /** The aio arrays for non-ibuf i/o and ibuf i/o, as well as sync aio. These
 are NULL when the module has not yet been initialized. @{ */
 static os_aio_array_t*	os_aio_read_array	= NULL;	/*!< Reads */
@@ -287,6 +297,16 @@ UNIV_INTERN ulint	os_n_file_writes_old	= 0;
 UNIV_INTERN ulint	os_n_fsyncs_old		= 0;
 UNIV_INTERN time_t	os_last_printout;
 
+/* Global counters for sync and async IO */
+os_io_perf_t os_async_read_perf;
+os_io_perf_t os_async_write_perf;
+
+os_io_perf_t os_sync_read_perf;
+os_io_perf_t os_sync_write_perf;
+
+/* Timer units waiting for fsync or fdatasync to finish */
+ulonglong os_file_flush_time = 0;
+
 UNIV_INTERN ibool	os_has_said_disk_full	= FALSE;
 
 #if !defined(UNIV_HOTBACKUP)	\
@@ -312,6 +332,67 @@ UNIV_INTERN ulint		os_aio_max_outstanding = 0;
 #endif /* UNIV_DEBUG */
 UNIV_INTERN volatile ibool	os_aio_batch_submission_blocked = FALSE;
 static os_event_t		os_aio_outstanding_requests_wait_event = NULL;
+
+/**********************************************************************//**
+Initialize an os_io_perf_t struct. */
+
+void
+os_io_perf_init(
+/*=============*/
+	os_io_perf_t*   perf)
+{
+	perf->bytes = 0;
+	perf->requests = 0;
+	perf->svc_time = 0;
+	perf->svc_time_max = 0;
+	perf->wait_time = 0;
+	perf->wait_time_max = 0;
+	perf->old_ios = 0;
+}
+
+/***********************************************************************//**
+Update os_io_perf_t after an IO request. */
+
+UNIV_INLINE
+void
+os_io_perf_update_all(
+/*===============*/
+	os_io_perf_t*	perf,		/*!< in: struct to update */
+	ulint		bytes,		/*!< in: size of request */
+	ulonglong	svc_time,	/*!< in: timer units to perform IO */
+	ulonglong	stop_time,	/*!< in: timer units since epoch */
+	ulonglong	wait_start)	/*!< in: when IO request submitted */
+{
+	ulonglong wait_time = 0;
+	if(stop_time > wait_start) wait_time = stop_time - wait_start;
+
+	perf->requests++;
+	perf->bytes += bytes;
+
+	perf->svc_time += svc_time;
+	perf->svc_time_max = max(svc_time, perf->svc_time_max);
+
+	perf->wait_time += wait_time;
+	perf->wait_time_max = max(wait_time, perf->wait_time_max);
+}
+
+/***********************************************************************//**
+Update wait stats for os_io_perf_t for all blocks after the first block in
+a merged request. */
+
+UNIV_INLINE
+void
+os_io_perf_update_wait(
+/*===============*/
+	os_io_perf_t*	perf,		/*!< in: struct to update */
+	ulonglong	stop_time,	/*!< in: timer units since epoch */
+	ulonglong	wait_start)	/*!< in: when IO request submitted */
+{
+	ulonglong wait_time = 0;
+	if(stop_time > wait_start) wait_time = stop_time - wait_start;
+	perf->wait_time += wait_time;
+	perf->wait_time_max = max(wait_time, perf->wait_time_max);
+}
 
 #ifdef UNIV_DEBUG
 # ifndef UNIV_HOTBACKUP
@@ -2302,6 +2383,7 @@ os_file_flush_func(
 	return(FALSE);
 #else
 	int	ret;
+	ulonglong	start_time = my_timer_now();
 
 #if defined(HAVE_DARWIN_THREADS)
 # ifndef F_FULLFSYNC
@@ -2332,6 +2414,7 @@ os_file_flush_func(
 #else
 	ret = os_file_fsync(file);
 #endif
+	os_file_flush_time += my_timer_since(start_time);
 
 	if (ret == 0) {
 		return(TRUE);
@@ -3913,6 +3996,15 @@ os_aio_init(
 #endif /* LINUX_NATIVE_AIO */
 
 	srv_reset_io_thread_op_info();
+	for (ulint i = 0; i < (2 + n_read_segs + n_write_segs); i++) {
+		os_io_perf_init(&os_aio_perf[i]);
+	}
+
+	os_io_perf_init(&os_async_read_perf);
+	os_io_perf_init(&os_async_write_perf);
+
+	os_io_perf_init(&os_sync_read_perf);
+	os_io_perf_init(&os_sync_write_perf);
 
 	os_aio_read_array = os_aio_array_create(
 		n_read_segs * n_per_seg, n_read_segs);
@@ -4209,6 +4301,7 @@ os_aio_array_reserve_slot(
 				the aio operation */
 	void*		message2,/*!< in: message to be passed along with
 				the aio operation */
+	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t perf counters */
 	os_file_t	file,	/*!< in: file handle */
 	const char*	name,	/*!< in: name of the file or path as a
 				null-terminated string */
@@ -4295,9 +4388,10 @@ found:
 	}
 
 	slot->reserved = TRUE;
-	slot->reservation_time = ut_time();
+	slot->reservation_time = my_timer_now();
 	slot->message1 = message1;
 	slot->message2 = message2;
+	slot->io_perf2 = io_perf2;
 	slot->file     = file;
 	slot->name     = name;
 	slot->len      = len;
@@ -4686,11 +4780,13 @@ os_aio_func(
 				(can be used to identify a completed
 				aio operation); ignored if mode is
 				OS_AIO_SYNC */
+	os_io_perf2_t*	io_perf2,/*!< in: per fil_space_t perf counters */
 	ibool	should_buffer)	/*!< in: Whether to buffer an aio request.
 				AIO read ahead uses this. If you plan to
 				use this parameter, make sure you remember
 				to call os_aio_linux_dispatch_read_array_submit
 				when you're ready to commit all your requests.*/
+
 {
 	os_aio_array_t*	array;
 	os_aio_slot_t*	slot;
@@ -4735,14 +4831,35 @@ os_aio_func(
 		os_file_write(). Instead, we should use os_file_read_func()
 		and os_file_write_func() */
 
+		ibool r;
+		ulonglong start_time;
+
+		start_time = my_timer_now();
 		if (type == OS_FILE_READ) {
-			return(os_file_read_func(file, buf, offset, n));
+			r = os_file_read_func(file, buf, offset, n);
+		} else {
+			ut_ad(!srv_read_only_mode);
+			ut_a(type == OS_FILE_WRITE);
+			r = os_file_write_func(name, file, buf, offset, n);
 		}
 
-		ut_ad(!srv_read_only_mode);
-		ut_a(type == OS_FILE_WRITE);
-
-		return(os_file_write_func(name, file, buf, offset, n));
+		ulonglong elapsed_time = my_timer_since(start_time);
+		ulonglong end_time = start_time + elapsed_time;
+		/* These stats are not exact because a mutex is not locked. */
+		if (type == OS_FILE_READ) {
+			os_io_perf_update_all(&os_sync_read_perf, n,
+				elapsed_time, end_time, start_time);
+			/* Per fil_space_t counters */
+			os_io_perf_update_all(&(io_perf2->read), n,
+				elapsed_time, end_time, start_time);
+		} else {
+			os_io_perf_update_all(&os_sync_write_perf, n,
+				elapsed_time, end_time, start_time);
+			/* Per fil_space_t counters */
+			os_io_perf_update_all(&(io_perf2->write), n,
+				elapsed_time, end_time, start_time);
+		}
+		return r;
 	}
 
 try_again:
@@ -4787,8 +4904,8 @@ try_again:
 		array = NULL; /* Eliminate compiler warning */
 	}
 
-	slot = os_aio_array_reserve_slot(type, array, message1, message2, file,
-					 name, buf, offset, n);
+	slot = os_aio_array_reserve_slot(type, array, message1, message2,
+					 io_perf2, file, name, buf, offset, n);
 	if (type == OS_FILE_READ) {
 		if (srv_use_native_aio) {
 			os_n_file_reads++;
@@ -5342,14 +5459,17 @@ os_aio_simulated_handle(
 	ulint		total_len;
 	ulint		offs;
 	os_offset_t	lowest_offset;
-	ulint		biggest_age;
-	ulint		age;
+	double		biggest_age;
+	double		age;
 	byte*		combined_buf;
 	byte*		combined_buf2;
 	ibool		ret;
 	ibool		any_reserved;
 	ulint		n;
 	os_aio_slot_t*	aio_slot;
+
+	ulonglong	start_time, stop_time, elapsed_time;
+	ulonglong	now;
 
 	/* Fix compiler warning */
 	*consecutive_ios = NULL;
@@ -5387,6 +5507,7 @@ restart:
 
 	os_mutex_enter(array->mutex);
 
+	now = my_timer_now();
 	for (ulint i = 0; i < n; i++) {
 		os_aio_slot_t*	slot;
 
@@ -5405,6 +5526,17 @@ restart:
 
 			aio_slot = slot;
 			ret = TRUE;
+
+			/* Update wait stats for this request. Other stats were
+			updated as part of the merged request. */
+			os_io_perf_update_wait(&os_aio_perf[global_segment],
+						now, slot->reservation_time);
+			/* Per fil_space_t counters */
+			os_io_perf_update_wait(slot->type == OS_FILE_WRITE ?
+						&(slot->io_perf2->write) :
+						&(slot->io_perf2->read),
+						now, slot->reservation_time);
+
 			goto slot_io_done;
 		} else {
 			any_reserved = TRUE;
@@ -5423,8 +5555,8 @@ restart:
 
 	n_consecutive = 0;
 
-	/* If there are at least 2 seconds old requests, then pick the oldest
-	one to prevent starvation. If several requests have the same age,
+	/* If there are requests of at least age=OS_AIO_OLD_TIME, then pick the
+	oldest one to prevent starvation. If several requests have the same age,
 	then pick the one at the lowest offset. */
 
 	biggest_age = 0;
@@ -5436,12 +5568,10 @@ restart:
 		slot = os_aio_array_get_nth_slot(array, i + segment * n);
 
 		if (slot->reserved) {
+			age = now - slot->reservation_time;
 
-			age = (ulint) difftime(
-				ut_time(), slot->reservation_time);
-
-			if ((age >= 2 && age > biggest_age)
-			    || (age >= 2 && age == biggest_age
+			if ((age >= OS_AIO_OLD_TIME && age > biggest_age)
+			    || (age >= OS_AIO_OLD_TIME && age == biggest_age
 				&& slot->offset < lowest_offset)) {
 
 				/* Found an i/o request */
@@ -5485,6 +5615,10 @@ restart:
 		/* No i/o requested at the moment */
 
 		goto wait_for_io;
+	}
+
+	if (biggest_age >= OS_AIO_OLD_TIME) {
+		os_aio_perf[global_segment].old_ios += 1;
 	}
 
 	/* if n_consecutive != 0, then we have assigned
@@ -5573,6 +5707,7 @@ consecutive_loop:
 	srv_set_io_thread_op_info(global_segment, "doing file i/o");
 
 	/* Do the i/o with ordinary, synchronous i/o functions: */
+	start_time = my_timer_now();
 	if (aio_slot->type == OS_FILE_WRITE) {
 		ut_ad(!srv_read_only_mode);
 		ret = os_file_write(
@@ -5583,6 +5718,8 @@ consecutive_loop:
 			aio_slot->file, combined_buf,
 			aio_slot->offset, total_len);
 	}
+	elapsed_time = my_timer_since(start_time);
+	stop_time = start_time + elapsed_time;
 
 	ut_a(ret);
 	srv_set_io_thread_op_info(global_segment, "file i/o done");
@@ -5602,6 +5739,29 @@ consecutive_loop:
 	if (combined_buf2) {
 		ut_free(combined_buf2);
 	}
+
+	/* Update statistics. The mutex is not locked and the race is OK. */
+	if (aio_slot->type == OS_FILE_WRITE) {
+		os_io_perf_update_all(&os_async_write_perf,
+			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
+			aio_slot->reservation_time);
+		/* Per fil_space_t counters */
+		os_io_perf_update_all(&(aio_slot->io_perf2->write),
+			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
+			aio_slot->reservation_time);
+	} else {
+		os_io_perf_update_all(&os_async_read_perf,
+			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
+			aio_slot->reservation_time);
+		/* Per fil_space_t counters */
+		os_io_perf_update_all(&(aio_slot->io_perf2->read),
+			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
+			aio_slot->reservation_time);
+	}
+
+	os_io_perf_update_all(&os_aio_perf[global_segment],
+			n_consecutive * UNIV_PAGE_SIZE, elapsed_time, stop_time,
+			aio_slot->reservation_time);
 
 	os_mutex_enter(array->mutex);
 
@@ -5712,6 +5872,46 @@ os_aio_validate(void)
 	return(TRUE);
 }
 
+struct os_io_perf_stats_struct {
+	ulint	bytes;
+	ulint	requests;
+	ulonglong	svc_time;
+	ulonglong	svc_time_max;
+	ulonglong	wait_time;
+	ulonglong	wait_time_max;
+};
+
+/**********************************************************************//**
+Prints IO statistics. */
+
+void
+os_io_perf_print(
+/*==============*/
+	FILE*           file,
+	os_io_perf_t*   perf,
+	ibool           newline)
+{
+	double nzero_requests = max(perf->requests, 1);
+
+	fprintf(file,
+		"%lu requests, %u old, %.2f bytes/r, "
+		"svc: %.2f secs, %.2f msecs/r, %.2f max msecs, "
+		"wait: %.2f secs %.2f msecs/r, %.2f max msecs",
+		perf->requests, perf->old_ios,
+		perf->bytes / nzero_requests,
+		/* svc: starts here */
+		my_timer_to_seconds(perf->svc_time),
+		my_timer_to_milliseconds(perf->svc_time) / nzero_requests,
+		my_timer_to_milliseconds(perf->svc_time_max),
+		/* wait: starts here */
+		my_timer_to_seconds(perf->wait_time),
+		my_timer_to_milliseconds(perf->wait_time) / nzero_requests,
+		my_timer_to_milliseconds(perf->wait_time_max));
+
+	if (newline)
+		fprintf(file, "\n");
+}
+
 /**********************************************************************//**
 Prints pending IO requests per segment of an aio array.
 We probably don't need per segment statistics but they can help us
@@ -5757,6 +5957,8 @@ os_aio_print_array(
 {
 	ulint			n_reserved = 0;
 	ulint			n_res_seg[SRV_MAX_N_IO_THREADS];
+	ulint			num_pending = 0;
+	ulint			num_done = 0;
 
 	os_mutex_enter(array->mutex);
 
@@ -5774,6 +5976,11 @@ os_aio_print_array(
 		seg_no = (i * array->n_segments) / array->n_slots;
 
 		if (slot->reserved) {
+			if (slot->io_already_done)
+				num_done++;
+			else
+				num_pending++;
+
 			++n_reserved;
 			++n_res_seg[seg_no];
 
@@ -5786,6 +5993,12 @@ os_aio_print_array(
 	fprintf(file, " %lu", (ulong) n_reserved);
 
 	os_aio_print_segment_info(file, n_res_seg, array);
+
+	fprintf(file,
+		"Summary of background IO slot status: %lu pending, "
+		"%lu done, sleep set %lu\n",
+		num_pending, num_done,
+		os_aio_recommend_sleep_for_read_threads);
 
 	os_mutex_exit(array->mutex);
 }
@@ -5803,10 +6016,12 @@ os_aio_print(
 	double		avg_bytes_read;
 
 	for (ulint i = 0; i < srv_n_file_io_threads; ++i) {
-		fprintf(file, "I/O thread %lu state: %s (%s)",
+		fprintf(file, "I/O thread %lu state: %s (%s) ",
 			(ulong) i,
 			srv_io_thread_op_info[i],
 			srv_io_thread_function[i]);
+
+		os_io_perf_print(file, &os_aio_perf[i], FALSE);
 
 #ifndef __WIN__
 		if (IS_SET(&os_aio_segment_wait_events[i]->ev)) {
@@ -5853,6 +6068,24 @@ os_aio_print(
 		(ulong) os_n_file_reads,
 		(ulong) os_n_file_writes,
 		(ulong) os_n_fsyncs);
+
+	fprintf(file, "Async reads: ");
+	os_io_perf_print(file, &os_async_read_perf, TRUE);
+
+	fprintf(file, "Async writes: ");
+	os_io_perf_print(file, &os_async_write_perf, TRUE);
+
+	fprintf(file, "Sync reads: ");
+	os_io_perf_print(file, &os_sync_read_perf, TRUE);
+
+	fprintf(file, "Sync writes: ");
+	os_io_perf_print(file, &os_sync_write_perf, TRUE);
+
+	double os_file_flush_sec = my_timer_to_seconds(os_file_flush_time);
+	fprintf(file,
+		"File flushes: %lu requests, %.2f seconds, %.2f msecs/r\n",
+		os_n_fsyncs, os_file_flush_sec,
+		os_file_flush_sec / (double)(max(os_n_fsyncs, 1)));
 
 	if (os_file_n_pending_preads != 0 || os_file_n_pending_pwrites != 0) {
 		fprintf(file,
