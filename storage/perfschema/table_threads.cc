@@ -46,7 +46,7 @@ static const TABLE_FIELD_TYPE field_types[]=
   },
   {
     { C_STRING_WITH_LEN("PROCESSLIST_USER") },
-    { C_STRING_WITH_LEN("varchar(16)") },
+    { C_STRING_WITH_LEN("varchar(80)") },
     { NULL, 0}
   },
   {
