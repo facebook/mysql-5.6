@@ -38,6 +38,9 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+COMPRESSION	NULL
+COMPRESSION_FLAGS	0
+KEY_BLOCK_SIZE	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -61,6 +64,9 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+COMPRESSION	NULL
+COMPRESSION_FLAGS	0
+KEY_BLOCK_SIZE	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -84,6 +90,9 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+COMPRESSION	NULL
+COMPRESSION_FLAGS	0
+KEY_BLOCK_SIZE	0
 user_comment	
 Separator	-----------------------------------------------------
 SHOW TABLES FROM test1;
@@ -130,6 +139,9 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+COMPRESSION	NULL
+COMPRESSION_FLAGS	0
+KEY_BLOCK_SIZE	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -153,6 +165,9 @@ TABLE_COLLATION	latin1_swedish_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
+COMPRESSION	NULL
+COMPRESSION_FLAGS	0
+KEY_BLOCK_SIZE	0
 user_comment	
 Separator	-----------------------------------------------------
 SHOW TABLES FROM test1;
