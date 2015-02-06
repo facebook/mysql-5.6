@@ -3488,6 +3488,8 @@ end_with_restore_list:
     memset(&create_info, 0, sizeof(create_info));
     create_info.db_type= 0;
     create_info.row_type= ROW_TYPE_NOT_USED;
+    create_info.compression= COMPRESSION_TYPE_NOT_USED;
+    create_info.compression_flags= 0;
     create_info.default_table_charset= thd->variables.collation_database;
 
     res= mysql_alter_table(thd, first_table->db, first_table->table_name,

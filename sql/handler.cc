@@ -101,6 +101,10 @@ const char *ha_row_type[] = {
   "?","?","?"
 };
 
+const char *ha_compression_type[] = {
+  "ZLIB_STREAM", "ZLIB", "BZIP", "LZMA", "SNAPPY", "QUICKLZ", "LZ4"
+};
+
 const char *tx_isolation_names[] =
 { "READ-UNCOMMITTED", "READ-COMMITTED", "REPEATABLE-READ", "SERIALIZABLE",
   NullS};
@@ -4564,7 +4568,9 @@ handler::check_if_supported_inplace_alter(TABLE *altered_table,
                                   HA_CREATE_USED_DEFAULT_CHARSET |
                                   HA_CREATE_USED_PACK_KEYS |
                                   HA_CREATE_USED_MAX_ROWS) ||
-      (table->s->row_type != create_info->row_type))
+      (table->s->row_type != create_info->row_type) ||
+      (table->s->compression_type != create_info->compression) ||
+      (table->s->compression_flags != create_info->compression_flags))
     DBUG_RETURN(HA_ALTER_INPLACE_NOT_SUPPORTED);
 
   uint table_changes= (ha_alter_info->handler_flags &
