@@ -1,0 +1,49 @@
+-- source include/load_sysvars.inc
+
+SET @start_block_create_myisam = @@global.block_create_myisam;
+SELECT @start_block_create_myisam;
+
+SET @@global.block_create_myisam = true;
+SET @@global.block_create_myisam = DEFAULT;
+SELECT @@global.block_create_myisam;
+
+SET @@global.block_create_myisam = @start_block_create_myisam;
+SELECT @@global.block_create_myisam = false;
+
+SET @@global.block_create_myisam = false;
+SELECT @@global.block_create_myisam;
+SET @@global.block_create_myisam = true;
+SELECT @@global.block_create_myisam;
+
+SET @@global.block_create_myisam = 1;
+SELECT @@global.block_create_myisam;
+SET @@global.block_create_myisam = 0;
+
+SELECT @@global.block_create_myisam;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.block_create_myisam = -1;
+SELECT @@global.block_create_myisam;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.block_create_myisam = 100;
+SELECT @@global.block_create_myisam;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.block_create_myisam = 1000.01;
+SELECT @@global.block_create_myisam;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.block_create_myisam = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.block_create_myisam;
+
+SELECT @@global.block_create_myisam = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='block_create_myisam';
+
+SELECT @@block_create_myisam = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='block_create_myisam';
+
+
+SET @@global.block_create_myisam = @start_block_create_myisam;
+SELECT @@global.block_create_myisam;
