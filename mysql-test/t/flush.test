@@ -178,6 +178,11 @@ disconnect con1;
 --source include/wait_until_disconnected.inc
 connection default;
 
+#
+# flush table_statistics
+#
+flush statistics;
+
 --echo End of 5.0 tests
 
 #

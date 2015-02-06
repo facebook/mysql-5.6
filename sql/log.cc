@@ -1921,7 +1921,10 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                             const char *sql_text, uint sql_text_len)
 {
   bool error= 0;
-  char buff[80], start_time_buff[80], end_time_buff[80];
+  char buff[80] = "";
+  char start_time_buff[80] = "";
+  char end_time_buff[80] = "";
+  char read_time_buff[80] = "";
   char query_time_buff[22+7], lock_time_buff[22+7];
   uint buff_len= 0;
   DBUG_ENTER("MYSQL_QUERY_LOG::write");
@@ -1961,6 +1964,9 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
     localtime_r(&query_start_arg,&tm_tmp);
     sprintf(start_time_buff,"%2d:%02d:%02d",
             tm_tmp.tm_hour, tm_tmp.tm_min, tm_tmp.tm_sec);
+
+     sprintf(read_time_buff,"%.6f",
+             my_timer_to_seconds(thd->io_perf_read.svc_time));
    }
 
   mysql_mutex_lock(&LOCK_log);
@@ -2010,7 +2016,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Sort_rows: %lu Sort_scan_count: %lu"
                       " Created_tmp_disk_tables: %lu"
                       " Created_tmp_tables: %lu"
-                      " Start: %s End: %s\n",
+                      " Start: %s End: %s"
+                      " Reads: %lu Read_time: %s\n",
                       query_time_buff, lock_time_buff,
                       (ulong) thd->get_sent_row_count(),
                       (ulong) thd->get_examined_row_count(),
@@ -2032,7 +2039,9 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       (ulong) thd->status_var.filesort_scan_count,
                       (ulong) thd->status_var.created_tmp_disk_tables,
                       (ulong) thd->status_var.created_tmp_tables,
-                      start_time_buff, end_time_buff) == (uint) -1)
+                      start_time_buff, end_time_buff,
+                      (ulong) thd->io_perf_read.requests,
+                      read_time_buff) == (uint) -1)
       tmp_errno=errno;
     }
 

@@ -91,8 +91,9 @@ bool
 buf_LRU_free_page(
 /*==============*/
 	buf_page_t*	bpage,	/*!< in: block to be freed */
-	bool		zip)	/*!< in: true if should remove also the
+	bool		zip,	/*!< in: true if should remove also the
 				compressed page of an uncompressed page */
+	ibool*		removed)/*!< out: return TRUE if block removed */
 	__attribute__((nonnull));
 /******************************************************************//**
 Try to free a replaceable block.

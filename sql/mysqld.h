@@ -26,6 +26,7 @@
 #include "sql_cmd.h"                       /* SQLCOM_END */
 #include "my_rdtsc.h"                      /* my_timer* */
 #include <set>
+#include "atomic_stat.h"
 
 class THD;
 struct handlerton;
@@ -377,6 +378,79 @@ inline ulonglong microseconds_to_my_timer(double when)
   return (ulonglong)ret;
 }
 
+/* Struct used for IO performance counters within a single thread */
+struct my_io_perf_struct {
+  ulonglong bytes;
+  ulonglong requests;
+  ulonglong svc_time; /*!< time to do read or write operation */
+  ulonglong svc_time_max;
+  ulonglong wait_time; /*!< total time in the request array */
+  ulonglong wait_time_max;
+  ulonglong old_ios; /*!< requests that take too long */
+};
+typedef struct my_io_perf_struct my_io_perf_t;
+
+/* Struct used for IO performance counters, shared among multiple threads */
+struct my_io_perf_atomic_struct {
+  atomic_stat<ulonglong> bytes;
+  atomic_stat<ulonglong> requests;
+  atomic_stat<ulonglong> svc_time; /*!< time to do read or write operation */
+  atomic_stat<ulonglong> svc_time_max;
+  atomic_stat<ulonglong> wait_time; /*!< total time in the request array */
+  atomic_stat<ulonglong> wait_time_max;
+  atomic_stat<ulonglong> old_ios; /*!< requests that take too long */
+};
+typedef struct my_io_perf_atomic_struct my_io_perf_atomic_t;
+
+/* Per-table operation and IO statistics */
+
+/* Initialize an my_io_perf_t struct. */
+static inline void my_io_perf_init(my_io_perf_t* perf) {
+  memset(perf, 0, sizeof(*perf));
+}
+
+/* Initialize an my_io_perf_atomic_t struct. */
+static inline void my_io_perf_atomic_init(my_io_perf_atomic_t* perf) {
+  perf->bytes.clear();
+  perf->requests.clear();
+  perf->svc_time.clear();
+  perf->svc_time_max.clear();
+  perf->wait_time.clear();
+  perf->wait_time_max.clear();
+  perf->old_ios.clear();
+}
+
+/* Accumulates io perf values */
+void my_io_perf_sum(my_io_perf_t* sum, const my_io_perf_t* perf);
+
+/* Accumulates io perf values using atomic operations */
+void my_io_perf_sum_atomic(
+  my_io_perf_atomic_t* sum,
+  ulonglong bytes,
+  ulonglong requests,
+  ulonglong svc_time,
+  ulonglong wait_time,
+  ulonglong old_ios);
+
+/* Accumulates io perf values using atomic operations */
+static inline void my_io_perf_sum_atomic_helper(
+  my_io_perf_atomic_t* sum,
+  const my_io_perf_t* perf)
+{
+  my_io_perf_sum_atomic(
+    sum,
+    perf->bytes,
+    perf->requests,
+    perf->svc_time,
+    perf->wait_time,
+    perf->old_ios);
+}
+
+/* Fetches table stats for a given table */
+struct TABLE;
+struct st_table_stats* get_table_stats(TABLE *table,
+                                       struct handlerton *engine_type);
+
 /*Move UUID_LENGTH from item_strfunc.h*/
 #define UUID_LENGTH (8+1+4+1+4+1+4+1+12)
 extern char server_uuid[UUID_LENGTH+1];
@@ -562,6 +636,7 @@ extern PSI_mutex_key
   key_mutex_slave_parallel_worker,
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOCK_thread_count, key_LOCK_thd_remove,
+  key_LOCK_global_table_stats,
   key_LOCK_log_throttle_qni;
 extern PSI_mutex_key key_RELAYLOG_LOCK_commit;
 extern PSI_mutex_key key_RELAYLOG_LOCK_commit_queue;

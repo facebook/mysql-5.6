@@ -1034,6 +1034,17 @@ innobase_file_format_validate_and_set(
 /*==================================*/
 	const char*	format_max);	/*!< in: parameter value */
 
+/****************************************************************//**
+Update stats with per-table data from InnoDB tables. */
+static
+void
+innobase_update_table_stats(
+/*===============*/
+	/* per-table stats callback */
+	void (*cb)(const char* db, const char* tbl,
+		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
+		   const char* engine));
+
 /*******************************************************************//**
 This function is used to prepare an X/Open XA distributed transaction.
 @return	0 or error number */
@@ -1362,15 +1373,71 @@ innobase_get_type(void)
 {
 	return (innodb_hton_ptr->db_type);
 }
+
+/**********************************************************************
+Init per-table IO stats structure */
+inline
+void
+ha_innobase::init_trx_table_stats(
+/*=========================*/
+	trx_t*	trx,	/* out: transaction handle */
+	bool	write)	/* in: true for a write operation */
+{
+	my_io_perf_init(&trx->table_io_perf.read);
+	my_io_perf_init(&trx->table_io_perf.read_blob);
+
+	if (write) {
+		my_io_perf_init(&trx->table_io_perf.write);
+		trx->table_io_perf.index_inserts = 0;
+	}
+
+	if (!table_stats)
+		table_stats = get_table_stats(table, ht);
+}
+
+/**********************************************************************
+Accumulate per-table IO stats */
+inline
+void
+ha_innobase::update_stats_from_trx(
+/*=========================*/
+	trx_t*	trx,	/* in: transaction handle */
+	bool	write)	/* in: true for a write operation */
+{
+	my_io_perf_sum(&stats.table_io_perf_read, &trx->table_io_perf.read);
+	my_io_perf_sum(&stats.table_io_perf_read_blob, &trx->table_io_perf.read_blob);
+	if (ha_partition_stats != NULL)
+	{
+		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read),
+		               &trx->table_io_perf.read);
+		my_io_perf_sum(&(ha_partition_stats->table_io_perf_read_blob),
+		               &trx->table_io_perf.read_blob);
+	}
+
+	if (write) {
+		my_io_perf_sum(&stats.table_io_perf_write, &trx->table_io_perf.write);
+		stats.index_inserts += trx->table_io_perf.index_inserts;
+		if (ha_partition_stats != NULL)
+		{
+			my_io_perf_sum(&(ha_partition_stats->table_io_perf_write),
+				       &trx->table_io_perf.write);
+			ha_partition_stats->index_inserts += trx->table_io_perf.index_inserts;
+		}
+	}
+}
+
 /******************************************************************//**
 Save some CPU by testing the value of srv_thread_concurrency in inline
 functions. */
-static inline
+inline
 void
-innobase_srv_conc_enter_innodb(
+ha_innobase::innobase_srv_conc_enter_innodb(
 /*===========================*/
-	trx_t*	trx)	/*!< in: transaction handle */
+	trx_t*	trx,	/*!< in: transaction handle */
+	bool	write)	/*!< in: true for a write operation */
 {
+	init_trx_table_stats(trx, write);
+
 	if (srv_thread_concurrency) {
 		if (trx->n_tickets_to_enter_innodb > 0) {
 
@@ -1396,12 +1463,15 @@ innobase_srv_conc_enter_innodb(
 /******************************************************************//**
 Note that the thread wants to leave InnoDB only if it doesn't have
 any spare tickets. */
-static inline
+inline
 void
-innobase_srv_conc_exit_innodb(
+ha_innobase::innobase_srv_conc_exit_innodb(
 /*==========================*/
-	trx_t*	trx)	/*!< in: transaction handle */
+	trx_t*	trx,	/*!< in: transaction handle */
+	bool write)	/*!< in: true for a write operation */
 {
+	update_stats_from_trx(trx, write);
+
 #ifdef UNIV_SYNC_DEBUG
 	ut_ad(!sync_thread_levels_nonempty_trx(trx->has_search_latch));
 #endif /* UNIV_SYNC_DEBUG */
@@ -2467,7 +2537,8 @@ ha_innobase::ha_innobase(
 		  HA_TABLE_SCAN_ON_INDEX | HA_CAN_FULLTEXT |
 		  HA_CAN_FULLTEXT_EXT | HA_CAN_EXPORT),
 	start_of_scan(0),
-	num_write_row(0)
+	num_write_row(0),
+	ha_partition_stats(NULL)
 {}
 
 /*********************************************************************//**
@@ -3068,6 +3139,8 @@ innobase_init(
 
 	innobase_hton->data = &innodb_api_cb;
 
+	innobase_hton->update_table_stats = innobase_update_table_stats;
+
 	ut_a(DATA_MYSQL_TRUE_VARCHAR == (ulint)MYSQL_TYPE_VARCHAR);
 
 #ifndef DBUG_OFF
@@ -3630,6 +3703,20 @@ innobase_flush_logs(
 	}
 
 	DBUG_RETURN(result);
+}
+
+/****************************************************************//**
+Update stats with per-table data from InnoDB tables. */
+static
+void
+innobase_update_table_stats(
+/*===============*/
+	/* per-table stats callback */
+	void (*cb)(const char* db, const char* tbl,
+		   my_io_perf_t* r, my_io_perf_t* w, my_io_perf_t* r_blob,
+		   const char* engine))
+{
+	fil_update_table_stats(cb);
 }
 
 /*****************************************************************//**
@@ -6917,10 +7004,13 @@ no_commit:
 		build_template(true);
 	}
 
-	innobase_srv_conc_enter_innodb(prebuilt->trx);
+	innobase_srv_conc_enter_innodb(prebuilt->trx, true);
 
 	error = row_insert_for_mysql((byte*) record, prebuilt);
 	DEBUG_SYNC(user_thd, "ib_after_row_insert");
+
+	if (error == DB_SUCCESS)
+		stats.rows_inserted++;
 
 	/* Handle duplicate key errors */
 	if (auto_inc_used) {
@@ -7009,7 +7099,7 @@ set_max_autoinc:
 		}
 	}
 
-	innobase_srv_conc_exit_innodb(prebuilt->trx);
+	innobase_srv_conc_exit_innodb(prebuilt->trx, true);
 
 report_error:
 	if (error == DB_TABLESPACE_DELETED) {
@@ -7375,9 +7465,12 @@ ha_innobase::update_row(
 
 	ut_a(prebuilt->template_type == ROW_MYSQL_WHOLE_ROW);
 
-	innobase_srv_conc_enter_innodb(trx);
+	innobase_srv_conc_enter_innodb(trx, true);
 
 	error = row_update_for_mysql((byte*) old_row, prebuilt);
+
+	if (error == DB_SUCCESS)
+		stats.rows_updated++;
 
 	/* We need to do some special AUTOINC handling for the following case:
 
@@ -7418,7 +7511,7 @@ ha_innobase::update_row(
 		}
 	}
 
-	innobase_srv_conc_exit_innodb(trx);
+	innobase_srv_conc_exit_innodb(trx, true);
 
 func_exit:
 	int err = convert_error_code_to_mysql(error,
@@ -7477,11 +7570,14 @@ ha_innobase::delete_row(
 
 	prebuilt->upd_node->is_delete = TRUE;
 
-	innobase_srv_conc_enter_innodb(trx);
+	innobase_srv_conc_enter_innodb(trx, true);
 
 	error = row_update_for_mysql((byte*) record, prebuilt);
 
-	innobase_srv_conc_exit_innodb(trx);
+	if (error == DB_SUCCESS)
+		stats.rows_deleted++;
+
+	innobase_srv_conc_exit_innodb(trx, true);
 
 	/* Tell the InnoDB server that there might be work for
 	utility threads: */
@@ -7799,22 +7895,25 @@ ha_innobase::index_read(
 
 	if (mode != PAGE_CUR_UNSUPP) {
 
-		innobase_srv_conc_enter_innodb(prebuilt->trx);
+		innobase_srv_conc_enter_innodb(prebuilt->trx, false);
 
 		ret = row_search_for_mysql((byte*) buf, mode, prebuilt,
 					   match_mode, 0);
 
-		innobase_srv_conc_exit_innodb(prebuilt->trx);
+		innobase_srv_conc_exit_innodb(prebuilt->trx, false);
 	} else {
 
 		ret = DB_UNSUPPORTED;
 	}
 
+	stats.rows_requested++;
 	switch (ret) {
 	case DB_SUCCESS:
 		error = 0;
 		table->status = 0;
 		srv_stats.n_rows_read.add((size_t) prebuilt->trx->id, 1);
+		stats.rows_read++;
+		stats.rows_index_first++;
 		break;
 	case DB_RECORD_NOT_FOUND:
 		error = HA_ERR_KEY_NOT_FOUND;
@@ -8055,18 +8154,21 @@ ha_innobase::general_fetch(
 
 	ut_a(prebuilt->trx == thd_to_trx(user_thd));
 
-	innobase_srv_conc_enter_innodb(prebuilt->trx);
+	innobase_srv_conc_enter_innodb(prebuilt->trx, false);
 
 	ret = row_search_for_mysql(
 		(byte*) buf, 0, prebuilt, match_mode, direction);
 
-	innobase_srv_conc_exit_innodb(prebuilt->trx);
+	innobase_srv_conc_exit_innodb(prebuilt->trx, false);
 
+	stats.rows_requested++;
 	switch (ret) {
 	case DB_SUCCESS:
 		error = 0;
 		table->status = 0;
 		srv_stats.n_rows_read.add((size_t) prebuilt->trx->id, 1);
+		stats.rows_read++;
+		stats.rows_index_next++;
 		break;
 	case DB_RECORD_NOT_FOUND:
 		error = HA_ERR_END_OF_FILE;
@@ -8275,6 +8377,11 @@ ha_innobase::rnd_next(
 		start_of_scan = 0;
 	} else {
 		error = general_fetch(buf, ROW_SEL_NEXT, 0);
+		if (!error) {
+			/* rows_index_next only counts index scans and this
+			is a table scan. undo the increment. */
+			stats.rows_index_next--;
+		}
 	}
 
 	DBUG_RETURN(error);
@@ -8572,12 +8679,12 @@ next_record:
 		tuple. */
 		innobase_fts_create_doc_id_key(tuple, index, &search_doc_id);
 
-		innobase_srv_conc_enter_innodb(prebuilt->trx);
+		innobase_srv_conc_enter_innodb(prebuilt->trx, false);
 
 		dberr_t ret = row_search_for_mysql(
 			(byte*) buf, PAGE_CUR_GE, prebuilt, ROW_SEL_EXACT, 0);
 
-		innobase_srv_conc_exit_innodb(prebuilt->trx);
+		innobase_srv_conc_exit_innodb(prebuilt->trx, false);
 
 		switch (ret) {
 		case DB_SUCCESS:
@@ -14260,6 +14367,13 @@ innodb_max_dirty_pages_pct_lwm_update(
 	srv_max_dirty_pages_pct_lwm = in_val;
 }
 
+UNIV_INTERN
+void
+ha_innobase::set_partition_owner_stats(ha_statistics *stats)
+{
+	ha_partition_stats= stats;
+}
+
 /************************************************************//**
 Validate the file format name and return its corresponding id.
 @return	valid file format id */
@@ -15392,7 +15506,8 @@ innodb_buffer_pool_evict_uncompressed(void)
 			ut_ad(block->in_unzip_LRU_list);
 			ut_ad(block->page.in_LRU_list);
 
-			if (!buf_LRU_free_page(&block->page, false)) {
+			ibool removed;
+			if (!buf_LRU_free_page(&block->page, false, &removed)) {
 				all_evicted = false;
 			}
 

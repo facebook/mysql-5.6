@@ -5467,7 +5467,7 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
               (MYSQL_OPEN_GET_NEW_TABLE). Now we can close the table
               without risking to close some locked table.
             */
-            close_thread_table(thd, &thd->open_tables);
+            close_thread_table(thd, &thd->open_tables, true);
           }
         }
       }
@@ -6661,7 +6661,7 @@ static bool mysql_inplace_alter_table(THD *thd,
     restore state of the TABLE object which we used for obtaining of
     handler object to make it usable for later reopening.
   */
-  close_thread_table(thd, &thd->open_tables);
+  close_thread_table(thd, &thd->open_tables, false);
   table_list->table= NULL;
 
   // Rename altered table if requested.
