@@ -3764,13 +3764,16 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
   }
   if (reason == Log_event::EVENT_SKIP_NOT)
   {
-    my_io_perf_t start_perf_read, start_perf_read_blob;
+    my_io_perf_t start_perf_read, start_perf_read_blob,
+                 start_perf_read_primary, start_perf_read_secondary;
     ulonglong init_timer;
 
     /* Initialize for user_statistics, see dispatch_command */
     thd->reset_user_stats_counters();
     start_perf_read = thd->io_perf_read;
     start_perf_read_blob = thd->io_perf_read_blob;
+    start_perf_read_primary = thd->io_perf_read_primary;
+    start_perf_read_secondary = thd->io_perf_read_secondary;
 
     // Sleeps if needed, and unlocks rli->data_lock.
     if (sql_delay_event(ev, thd, rli))
@@ -3917,7 +3920,9 @@ apply_event_and_update_pos(Log_event** ptr_ev, THD* thd, Relay_log_info* rli)
         USER_STATS *us= thd_get_user_stats(thd);
         update_user_stats_after_statement(us, thd, wall_time, is_other, is_xid,
                                           &start_perf_read,
-                                          &start_perf_read_blob);
+                                          &start_perf_read_blob,
+                                          &start_perf_read_primary,
+                                          &start_perf_read_secondary);
       }
     }
   }
