@@ -118,7 +118,7 @@ bool mysql_open_cursor(THD *thd, select_result *result,
   parent_locker= thd->m_statement_psi;
   thd->m_digest= NULL;
   thd->m_statement_psi= NULL;
-  bool rc= mysql_execute_command(thd);
+  bool rc= mysql_execute_command(thd, NULL);
   thd->m_digest= parent_digest;
   DEBUG_SYNC(thd, "after_table_close");
   thd->m_statement_psi= parent_locker;

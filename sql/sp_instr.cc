@@ -901,7 +901,7 @@ bool sp_instr_stmt::exec_core(THD *thd, uint *nextp)
   PSI_statement_locker *statement_psi_saved= thd->m_statement_psi;
   thd->m_statement_psi= NULL;
 
-  bool rc= mysql_execute_command(thd);
+  bool rc= mysql_execute_command(thd, NULL);
 
   thd->lex->set_sp_current_parsing_ctx(NULL);
   thd->lex->sphead= NULL;
