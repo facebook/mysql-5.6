@@ -105,6 +105,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -127,6 +128,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -159,6 +161,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -191,6 +194,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -224,6 +228,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -257,6 +262,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -286,6 +292,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -444,6 +451,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -501,6 +509,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -557,6 +566,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant
@@ -617,6 +627,7 @@ ORDER BY name;
 name	file_format	row_format
 mysql/innodb_index_stats	Antelope	Compact or Redundant
 mysql/innodb_table_stats	Antelope	Compact or Redundant
+mysql/slave_gtid_info	Antelope	Compact or Redundant
 mysql/slave_master_info	Antelope	Compact or Redundant
 mysql/slave_relay_log_info	Antelope	Compact or Redundant
 mysql/slave_worker_info	Antelope	Compact or Redundant

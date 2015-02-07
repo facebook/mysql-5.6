@@ -207,6 +207,17 @@ PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
 
+SET @cmd= "CREATE TABLE IF NOT EXISTS slave_gtid_info (
+  Id INTEGER UNSIGNED NOT NULL,
+  Database_name CHAR(64) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  Last_gtid CHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
+  PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Gtid Information'";
+
+SET @str=IF(@have_innodb <> 0, CONCAT(@cmd, ' ENGINE= INNODB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+PREPARE stmt FROM @str;
+EXECUTE stmt;
+DROP PREPARE stmt;
+
 --
 -- PERFORMANCE SCHEMA INSTALLATION
 -- Note that this script is also reused by mysql_upgrade,

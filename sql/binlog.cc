@@ -5271,7 +5271,7 @@ MYSQL_BIN_LOG::flush_and_set_pending_rows_event(THD *thd,
   Write an event to the binary log.
 */
 
-bool MYSQL_BIN_LOG::write_event(Log_event *event_info)
+bool MYSQL_BIN_LOG::write_event(Log_event *event_info, int force_cache_type)
 {
   THD *thd= event_info->thd;
   bool error= 1;
@@ -5321,6 +5321,16 @@ bool MYSQL_BIN_LOG::write_event(Log_event *event_info)
           !binlog_filter->db_ok(local_db))))
       DBUG_RETURN(0);
 #endif /* HAVE_REPLICATION */
+
+    if (force_cache_type == Log_event::EVENT_STMT_CACHE)
+    {
+      event_info->set_using_stmt_cache();
+      event_info->set_immediate_logging();
+    }
+    else if (force_cache_type == Log_event::EVENT_TRANSACTIONAL_CACHE)
+    {
+      event_info->set_using_trans_cache();
+    }
 
     DBUG_ASSERT(event_info->is_using_trans_cache() || event_info->is_using_stmt_cache());
     

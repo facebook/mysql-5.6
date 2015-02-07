@@ -52,6 +52,8 @@ slave_ignored_err_throttle(window_size,
                            "Error log throttle: %lu time(s) Error_code: 1237"
                            " \"Slave SQL thread ignored the query because of"
                            " replicate-*-table rules\" got suppressed.");
+#include "rpl_info_factory.h"
+
 #endif /* MYSQL_CLIENT */
 
 #include <base64.h>
@@ -3058,6 +3060,45 @@ Slave_worker *Log_event::get_slave_worker(Relay_log_info *rli)
 }
 
 /**
+   Executes a simple query. This is only used to write an empty gtid event
+   into the binlog. This should not be used elsewhere.
+
+   @param[in]  query         Query to be executed
+   @paramp[in] query_arg_len Length of the query
+*/
+void Log_event::apply_query_event(char *query, uint32 query_arg_len)
+{
+  thd->set_time(&when);
+  thd->set_query(query, query_arg_len, thd->charset());
+  Parser_state parser_state;
+  if (!parser_state.init(thd, thd->query(), thd->query_length()))
+  {
+    ulonglong init_timer, last_timer;
+    init_timer = my_timer_now();
+    last_timer = init_timer;
+    mysql_parse(thd, thd->query(), thd->query_length(), &parser_state,
+                &last_timer, NULL);
+    thd->update_server_status();
+  }
+  thd->reset_query();
+  thd->lex->sql_command = SQLCOM_END;
+}
+
+bool Log_event::is_row_log_event()
+{
+  switch (get_type_code())
+  {
+    case WRITE_ROWS_EVENT:
+    case UPDATE_ROWS_EVENT:
+    case DELETE_ROWS_EVENT:
+      return true;
+    default:
+      return false;
+  }
+  return false;
+}
+
+/**
    Scheduling event to execute in parallel or execute it directly.
    In MTS case the event gets associated with either Coordinator or a
    Worker.  A special case of the association is NULL when the Worker
@@ -3078,13 +3119,116 @@ int Log_event::apply_event(Relay_log_info *rli)
 
   worker= rli;
 
+  parallel= rli->is_parallel_exec();
+  actual_exec_mode = get_mts_execution_mode(::server_id,
+                       rli->mts_group_status == Relay_log_info::MTS_IN_GROUP);
+
+  bool seq_execution = (!parallel || actual_exec_mode != EVENT_EXEC_PARALLEL);
+
+  rli->ends_group = ends_group();
+  /**
+     Check if the current event changes any databases. Last gtid executed per
+     database are stored in slave_gtid_info table for crash safe slave.
+  */
+  Mts_db_names mts_dbs;
+  // OVER_MAX_DBS_IN_EVENT_MTS is used for special queries like 'flush tables'
+  // which don't need to be crash safe.
+  if ((rli->part_event = contains_partition_info(false)) && gtid_mode > 0 &&
+      get_mts_dbs(&mts_dbs) != OVER_MAX_DBS_IN_EVENT_MTS &&
+      rli != thd->rli_fake)
+  {
+    for (int i = 0; i < mts_dbs.num; ++i)
+    {
+      const char *db_name = mts_dbs.name[i];
+      Gtid_info *gtid_info = NULL;
+      rli->gtid_info_hash_rdlock();
+      gtid_info = (Gtid_info *)my_hash_search(&rli->map_db_to_gtid_info,
+                                              (const uchar*) db_name,
+                                              strlen(db_name));
+      rli->gtid_info_hash_unlock();
+      if (!gtid_info)
+      {
+        /**
+           This is the first event in the replication stream on the database
+           db_name. Create a new repository for this database.
+        */
+        if (!(gtid_info = Rpl_info_factory::create_gtid_info(
+                            rli->gtid_info_next_id)))
+        {
+          sql_print_error("Error creating gtid_info\n");
+          break;
+        }
+        rli->gtid_info_next_id++;
+        // Set the gtid_info database and insert into the global hash.
+        gtid_info->set_database_name(db_name);
+        // Avoids slave workers writing to empty slave_gtid_info table
+        // causing timeout errors.
+        gtid_info->flush_info(true);
+        rli->gtid_info_hash_wrlock();
+        my_hash_insert(&rli->map_db_to_gtid_info, (uchar*) gtid_info);
+        rli->gtid_info_hash_unlock();
+      }
+      else
+      {
+        DBUG_ASSERT(gtid_info);
+        /**
+           Events are passed to worker threads and filtered there if necessary
+           in case of MTS.
+        */
+        if (seq_execution && gtid_info->skip_event(rli->last_gtid))
+        {
+          reset_log_pos();
+          if (!rli->curr_group_seen_begin)
+          {
+            /**
+               This is a case where we are skipping a non-transactional event
+               which require a commit for skipped gtid to be written into the
+               binlog.
+            */
+            apply_query_event((char *)"BEGIN", 5);
+            mysql_bin_log.write_event(this, Log_event::EVENT_STMT_CACHE);
+            apply_query_event((char *)"COMMIT", 6);
+          }
+          else if (get_type_code() != TABLE_MAP_EVENT)
+          {
+            mysql_bin_log.write_event(this,
+                                      Log_event::EVENT_TRANSACTIONAL_CACHE);
+            thd->transaction.all.ha_list = NULL;
+            thd->transaction.stmt.ha_list = NULL;
+          }
+          reset_dynamic(&rli->gtid_infos);
+          // Table map events are required for row log events even if
+          // the current transaction needs to be skipped. Table map events
+          // don't modify any data, so this event is safe to
+          // apply multiple times.
+          if (get_type_code() == TABLE_MAP_EVENT)
+            break;
+          DBUG_RETURN(0);
+        }
+      }
+      /*
+         In MTS mode, slave worker flushes gtid_info to the slave_gtid_info
+         table, so corridnator thread don't need to store the current
+         transaction's gtid information.
+       */
+      if (seq_execution)
+        insert_dynamic_set(&rli->gtid_infos, (uchar *) &gtid_info);
+    }
+  }
+
+  if (is_row_log_event() && rli != thd->rli_fake)
+  {
+    Rows_log_event *row_ev = (Rows_log_event *) this;
+    if (seq_execution && !rli->gtid_infos.elements &&
+        gtid_mode > 0)
+      row_ev->m_binlog_only = TRUE;
+  }
+
   if (rli->is_mts_recovery())
   {
     bool skip= 
       bitmap_is_set(&rli->recovery_groups, rli->mts_recovery_index) &&
-      (get_mts_execution_mode(::server_id,
-       rli->mts_group_status == Relay_log_info::MTS_IN_GROUP)
-       == EVENT_EXEC_PARALLEL);
+      (actual_exec_mode == EVENT_EXEC_PARALLEL);
     if (skip)
     {
       DBUG_RETURN(0);
@@ -3095,11 +3239,7 @@ int Log_event::apply_event(Relay_log_info *rli)
     }
   }
 
-  if (!(parallel= rli->is_parallel_exec()) ||
-      ((actual_exec_mode= 
-        get_mts_execution_mode(::server_id, 
-                           rli->mts_group_status == Relay_log_info::MTS_IN_GROUP))
-       != EVENT_EXEC_PARALLEL))
+  if (seq_execution)
   {
     if (parallel)
     {
@@ -3172,7 +3312,19 @@ int Log_event::apply_event(Relay_log_info *rli)
     }
     thd->print_proc_info("Executing %s event at position %lu",
                          get_type_str(), log_pos);
-    DBUG_RETURN(do_apply_event(rli));
+    int error = do_apply_event(rli);
+    if (is_gtid_event(this))
+    {
+      // Reset gtid_infos at the start of the group.
+      reset_dynamic(&rli->gtid_infos);
+      Gtid_log_event *gtid_ev = (Gtid_log_event *) this;
+      gtid_ev->set_last_gtid(rli->last_gtid);
+    }
+    else if (starts_group())
+      rli->curr_group_seen_begin = true;
+    else if (rli->ends_group)
+      rli->curr_group_seen_begin = false;
+    DBUG_RETURN(error);
   }
 
   DBUG_ASSERT(actual_exec_mode == EVENT_EXEC_PARALLEL);
@@ -7566,10 +7718,6 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                       rli_ptr->get_event_relay_log_name(),
                       rli_ptr->get_event_relay_log_pos()));
 
-  DBUG_EXECUTE_IF("crash_after_update_pos_before_apply",
-                  sql_print_information("Crashing crash_after_update_pos_before_apply.");
-                  DBUG_SUICIDE(););
-
   /**
     Commit operation expects the global transaction state variable 'xa_state'to
     be set to 'XA_NOTR'. In order to simulate commit failure we set
@@ -7607,6 +7755,13 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                       rli_ptr->get_group_master_log_pos(),
                       rli_ptr->get_group_relay_log_name(),
                       rli_ptr->get_group_relay_log_pos()));
+
+  if ((error = rli_ptr->flush_gtid_infos(true)))
+    goto err;
+
+  DBUG_EXECUTE_IF("crash_after_update_pos_before_apply",
+                  sql_print_information("Crashing crash_after_update_pos_before_apply.");
+                  DBUG_SUICIDE(););
   mysql_mutex_unlock(&rli_ptr->data_lock);
   error= do_commit(thd);
   mysql_mutex_lock(&rli_ptr->data_lock);
@@ -11384,6 +11539,26 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
      */
     const_cast<Relay_log_info*>(rli)->set_flag(Relay_log_info::IN_STMT);
 
+    if (m_binlog_only)
+    {
+      // We are inside a transaction which should not be applied to
+      // the storage engine, so write these row events to the binlog and exit.
+      // Table map events are necessary before every row event.
+      if (table->file->write_locked_table_maps(thd))
+        DBUG_RETURN(HA_ERR_RBR_LOGGING_FAILED);
+      // Use the table_id of this server.
+      m_table_id = m_table->s->table_map_id;
+      error = mysql_bin_log.write_event(this,
+                                        Log_event::EVENT_TRANSACTIONAL_CACHE);
+      if (get_flags(STMT_END_F) && !error &&
+          !(error = rows_event_stmt_cleanup(rli, thd)))
+      {
+        // This is end row update in the current statment.
+        thd->clear_binlog_table_maps();
+      }
+      DBUG_RETURN(error);
+    }
+
      if ( m_width == table->s->fields && bitmap_is_set_all(&m_cols))
       set_flags(COMPLETE_ROWS_F);
 
@@ -13721,6 +13896,11 @@ int Gtid_log_event::do_apply_event(Relay_log_info const *rli)
     DBUG_RETURN(1);
 
   DBUG_RETURN(0);
+}
+
+void Gtid_log_event::set_last_gtid(char *last_gtid)
+{
+  spec.to_string(&sid, last_gtid);
 }
 
 int Gtid_log_event::do_update_pos(Relay_log_info *rli)
