@@ -1,0 +1,68 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+create database test2;
+create table test2.t2 (b int);
+create database test3;
+create table test3.t3 (b int);
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:2
+2	test2	uuid:4
+3	test3	uuid:6
+begin;
+delete from mysql.slave_gtid_info;
+insert into t1 values(2);
+select sleep(20);
+sleep(20)
+0
+commit;
+insert into t1 values(3);
+select * from t1;
+a
+1
+2
+3
+include/stop_slave.inc
+set @@global.slave_parallel_workers=2;
+include/start_slave.inc
+begin;
+delete from mysql.slave_gtid_info;
+insert into t1 values(4);
+select sleep(20);
+sleep(20)
+0
+commit;
+insert into t1 values(5);
+select * from t1;
+a
+1
+2
+3
+4
+5
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:10
+insert into test2.t2 values(1);
+insert into test3.t3 values(1);
+include/stop_slave.inc
+delete from mysql.slave_gtid_info where Id=2;
+include/start_slave.inc
+insert into test2.t2 values(1);
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:10
+3	test3	uuid:12
+4	test2	uuid:13
+include/stop_slave.inc
+set @@global.slave_parallel_workers=0;
+include/start_slave.inc
+drop database test2;
+drop database test3;
+drop table t1;
+include/rpl_end.inc
