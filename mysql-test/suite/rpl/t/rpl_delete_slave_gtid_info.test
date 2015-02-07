@@ -1,0 +1,90 @@
+source include/master-slave.inc;
+source include/have_binlog_format_statement.inc;
+source include/have_gtid.inc;
+
+--connect (slave2, 127.0.0.1, root, ,test, $SLAVE_MYPORT,)
+
+connection master;
+let $uuid = `select @@server_uuid;`;
+create table t1 (a int) engine=innodb;
+insert into t1 values(1);
+
+create database test2;
+create table test2.t2 (b int);
+create database test3;
+create table test3.t3 (b int);
+
+sync_slave_with_master;
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+# simulate temporary error when writing to slave_gtid_info table.
+connection slave2;
+begin;
+delete from mysql.slave_gtid_info;
+
+connection master;
+insert into t1 values(2);
+
+connection slave2;
+select sleep(20);
+commit;
+
+connection master;
+insert into t1 values(3);
+sync_slave_with_master;
+select * from t1;
+
+# simulate temporary error when writing to slave_gtid_info table with MTS
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers=2;
+source include/start_slave.inc;
+
+connection slave2;
+begin;
+delete from mysql.slave_gtid_info;
+
+connection master;
+insert into t1 values(4);
+
+connection slave2;
+select sleep(20);
+commit;
+
+connection master;
+insert into t1 values(5);
+sync_slave_with_master;
+select * from t1;
+
+
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+# Remove one row in the middle of slave_gtid_info and verify there won't be any collisions
+# when inserting into slave_gtid_info table
+connection master;
+insert into test2.t2 values(1);
+insert into test3.t3 values(1);
+sync_slave_with_master;
+
+source include/stop_slave.inc;
+delete from mysql.slave_gtid_info where Id=2;
+source include/start_slave.inc;
+
+connection master;
+insert into test2.t2 values(1);
+sync_slave_with_master;
+
+--replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+# so mtr won't complain
+source include/stop_slave.inc;
+set @@global.slave_parallel_workers=0;
+source include/start_slave.inc;
+
+connection master;
+drop database test2;
+drop database test3;
+drop table t1;
+source include/rpl_end.inc;

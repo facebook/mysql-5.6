@@ -109,6 +109,29 @@ my_bool insert_dynamic(DYNAMIC_ARRAY *array, const void *element)
   return FALSE;
 }
 
+/**
+   Insert element at the end of the array only if the element
+   is not already found in the array. This function takes O(n)
+   and expected to be used only with small size arrays.
+
+   @param[in] array
+   @param[in] element
+
+   @return FALSE OK
+           TRUE  Insert failed
+*/
+my_bool insert_dynamic_set(DYNAMIC_ARRAY *array, const void *element)
+{
+  uint i;
+  for (i = 0; i < array->elements; i++)
+  {
+    void *temp = dynamic_element(array, i, void**);
+    if (!memcmp(temp, element, (size_t) array->size_of_element))
+      return FALSE;
+  }
+  return insert_dynamic(array, element);
+}
+
 
 /*
   Alloc space for next element(s) 

@@ -17,6 +17,7 @@ proc
 procs_priv
 proxies_priv
 servers
+slave_gtid_info
 slave_master_info
 slave_relay_log_info
 slave_worker_info

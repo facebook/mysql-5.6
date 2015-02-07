@@ -147,6 +147,9 @@ def	mysql	servers	Server_name	1		NO	char	64	192	NULL	NULL	NULL	utf8	utf8_general
 def	mysql	servers	Socket	7		NO	char	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	char(64)			select,insert,update,references	
 def	mysql	servers	Username	4		NO	char	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	char(64)			select,insert,update,references	
 def	mysql	servers	Wrapper	8		NO	char	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	char(64)			select,insert,update,references	
+def	mysql	slave_gtid_info	Database_name	2	NULL	NO	char	64	192	NULL	NULL	NULL	utf8	utf8_bin	char(64)			select,insert,update,references	
+def	mysql	slave_gtid_info	Id	1	NULL	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(10) unsigned	PRI		select,insert,update,references	
+def	mysql	slave_gtid_info	Last_gtid	3	NULL	YES	char	56	168	NULL	NULL	NULL	utf8	utf8_bin	char(56)			select,insert,update,references	
 def	mysql	slave_master_info	Bind	17	NULL	YES	text	65535	65535	NULL	NULL	NULL	utf8	utf8_bin	text			select,insert,update,references	Displays which interface is employed when connecting to the MySQL server
 def	mysql	slave_master_info	Connect_retry	8	NULL	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(10) unsigned			select,insert,update,references	The period (in seconds) that the slave will wait before trying to reconnect to the master.
 def	mysql	slave_master_info	Enabled_auto_position	23	NULL	NO	tinyint	NULL	NULL	3	0	NULL	NULL	NULL	tinyint(1)			select,insert,update,references	Indicates whether GTIDs will be used to retrieve events from the master.
@@ -484,6 +487,9 @@ NULL	mysql	servers	Port	int	NULL	NULL	NULL	NULL	int(4)
 3.0000	mysql	servers	Socket	char	64	192	utf8	utf8_general_ci	char(64)
 3.0000	mysql	servers	Wrapper	char	64	192	utf8	utf8_general_ci	char(64)
 3.0000	mysql	servers	Owner	char	64	192	utf8	utf8_general_ci	char(64)
+NULL	mysql	slave_gtid_info	Id	int	NULL	NULL	NULL	NULL	int(10) unsigned
+3.0000	mysql	slave_gtid_info	Database_name	char	64	192	utf8	utf8_bin	char(64)
+3.0000	mysql	slave_gtid_info	Last_gtid	char	56	168	utf8	utf8_bin	char(56)
 NULL	mysql	slave_master_info	Number_of_lines	int	NULL	NULL	NULL	NULL	int(10) unsigned
 1.0000	mysql	slave_master_info	Master_log_name	text	65535	65535	utf8	utf8_bin	text
 NULL	mysql	slave_master_info	Master_log_pos	bigint	NULL	NULL	NULL	NULL	bigint(20) unsigned
