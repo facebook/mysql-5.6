@@ -97,6 +97,7 @@ insert into t1 values(100);
 insert into t1 values(200);
 include/start_slave.inc
 include/sync_slave_sql_with_master.inc
+include/stop_slave.inc
 select * from t1;
 id1
 100
@@ -104,10 +105,19 @@ id1
 set @@global.read_only=0;
 insert into t1 values(300);
 insert into t1 values(400);
+set @@global.read_only=1;
+insert into t1 values(500);
+insert into t1 values(600);
+set @@global.read_only=0;
+insert into t1 values(700);
+create table test (a int);
+set @@global.read_only=1;
+drop table test;
+set @@global.read_only=0;
+insert into t1 values(800);
 select @@global.gtid_executed;
 @@global.gtid_executed
-master_uuid:1-2
-include/stop_slave.inc
+master_uuid:1-5
 change master to master_auto_position=1;
 include/start_slave.inc
 select * from t1;
@@ -116,8 +126,10 @@ id1
 200
 300
 400
+700
+800
 select @@global.gtid_executed;
 @@global.gtid_executed
-master_uuid:1-2
+master_uuid:1-5
 drop table t1;
 include/rpl_end.inc
