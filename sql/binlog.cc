@@ -8328,6 +8328,12 @@ int THD::decide_logging_format(TABLE_LIST *tables)
   DBUG_RETURN(0);
 }
 
+static void log_gtid_incompatible_statements(THD *thd)
+{
+  if (log_gtid_unsafe_statements)
+    sql_print_information("gtid unsafe query executed on db: %s Query info: %s",
+                           thd->db, thd->query());
+}
 
 bool THD::is_ddl_gtid_compatible()
 {
@@ -8344,6 +8350,7 @@ bool THD::is_ddl_gtid_compatible()
       !(lex->create_info.options & HA_LEX_CREATE_TMP_TABLE) &&
       lex->select_lex.item_list.elements)
   {
+    log_gtid_incompatible_statements(this);
     /*
       CREATE ... SELECT (without TEMPORARY) is unsafe because if
       binlog_format=row it will be logged as a CREATE TABLE followed
@@ -8371,6 +8378,7 @@ bool THD::is_ddl_gtid_compatible()
     */
     if (in_multi_stmt_transaction_mode())
     {
+      log_gtid_incompatible_statements(this);
       if (us) {
         my_atomic_add32(
           (int*)&us->n_gtid_unsafe_create_drop_temporary_table_in_transaction,
@@ -8421,6 +8429,7 @@ THD::is_dml_gtid_compatible(bool transactional_table,
       !(non_transactional_tmp_tables && is_current_stmt_binlog_format_row()) &&
       !DBUG_EVALUATE_IF("allow_gtid_unsafe_non_transactional_updates", 1, 0))
   {
+    log_gtid_incompatible_statements(this);
     USER_STATS *us = thd_get_user_stats(this);
     if (us) {
       my_atomic_add32((int*)&us->n_gtid_unsafe_non_transactional_table, 1);
