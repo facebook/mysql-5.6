@@ -63,6 +63,9 @@
 #ifndef FBSON_FBSONDOCUMENT_H
 #define FBSON_FBSONDOCUMENT_H
 
+#include <string.h>
+#include <assert.h>
+
 namespace fbson {
 
 #pragma pack(push, 1)
@@ -353,7 +356,7 @@ class NumberValT : public FbsonValue {
   unsigned int numPackedBytes() const { return sizeof(FbsonValue) + sizeof(T); }
 
   // catch all unknow specialization of the template class
-  bool setVal(T val) { return false; }
+  bool setVal(T value) { return false; }
 
  private:
   T num_;
@@ -365,12 +368,12 @@ typedef NumberValT<int8_t> Int8Val;
 
 // override setVal for Int8Val
 template <>
-inline bool Int8Val::setVal(int8_t val) {
+inline bool Int8Val::setVal(int8_t value) {
   if (!isInt8()) {
     return false;
   }
 
-  num_ = val;
+  num_ = value;
   return true;
 }
 
@@ -378,12 +381,12 @@ typedef NumberValT<int16_t> Int16Val;
 
 // override setVal for Int16Val
 template <>
-inline bool Int16Val::setVal(int16_t val) {
+inline bool Int16Val::setVal(int16_t value) {
   if (!isInt16()) {
     return false;
   }
 
-  num_ = val;
+  num_ = value;
   return true;
 }
 
@@ -391,12 +394,12 @@ typedef NumberValT<int32_t> Int32Val;
 
 // override setVal for Int32Val
 template <>
-inline bool Int32Val::setVal(int32_t val) {
+inline bool Int32Val::setVal(int32_t value) {
   if (!isInt32()) {
     return false;
   }
 
-  num_ = val;
+  num_ = value;
   return true;
 }
 
@@ -404,12 +407,12 @@ typedef NumberValT<int64_t> Int64Val;
 
 // override setVal for Int64Val
 template <>
-inline bool Int64Val::setVal(int64_t val) {
+inline bool Int64Val::setVal(int64_t value) {
   if (!isInt64()) {
     return false;
   }
 
-  num_ = val;
+  num_ = value;
   return true;
 }
 
@@ -417,12 +420,12 @@ typedef NumberValT<double> DoubleVal;
 
 // override setVal for DoubleVal
 template <>
-inline bool DoubleVal::setVal(double val) {
+inline bool DoubleVal::setVal(double value) {
   if (!isDouble()) {
     return false;
   }
 
-  num_ = val;
+  num_ = value;
   return true;
 }
 
@@ -448,17 +451,17 @@ class BlobVal : public FbsonValue {
   char payload_[0];
 
   // set new blob bytes
-  bool internalSetVal(const char *blob, uint32_t size) {
+  bool internalSetVal(const char *blob, uint32_t blobSize) {
     // if we cannot fit the new blob, fail the operation
-    if (size > size_) {
+    if (blobSize > size_) {
       return false;
     }
 
-    memcpy(payload_, blob, size);
+    memcpy(payload_, blob, blobSize);
 
     // Set the reset of the bytes to 0.  Note we cannot change the size_ of the
     // current payload, as all values are packed.
-    memset(payload_ + size, 0, size_ - size);
+    memset(payload_ + blobSize, 0, size_ - blobSize);
 
     return true;
   }
@@ -471,12 +474,12 @@ class BlobVal : public FbsonValue {
  */
 class BinaryVal : public BlobVal {
  public:
-  bool setVal(const char *blob, uint32_t size) {
+  bool setVal(const char *blob, uint32_t blobSize) {
     if (!isBinary()) {
       return false;
     }
 
-    return internalSetVal(blob, size);
+    return internalSetVal(blob, blobSize);
   }
 
  private:
@@ -489,12 +492,12 @@ class BinaryVal : public BlobVal {
  */
 class StringVal : public BlobVal {
  public:
-  bool setVal(const char *str, uint32_t size) {
+  bool setVal(const char *str, uint32_t blobSize) {
     if (!isString()) {
       return false;
     }
 
-    return internalSetVal(str, size);
+    return internalSetVal(str, blobSize);
   }
 
  private:
