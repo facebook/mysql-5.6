@@ -52,6 +52,26 @@ const char* info_rli_fields[]=
   "id"
 };
 
+extern "C"
+uchar *get_gtid_info_key(const uchar *record, size_t *length,
+                         my_bool not_used __attribute__((unused)))
+{
+
+  Gtid_info *entry = (Gtid_info *) record;
+  *length = strlen(entry->get_database_name());
+
+  return ((uchar*) entry->get_database_name());
+}
+
+extern "C"
+void free_gtid_info_entry(Gtid_info *entry)
+{
+  if (entry)
+  {
+    delete entry;
+  }
+}
+
 Relay_log_info::Relay_log_info(bool is_slave_recovery
 #ifdef HAVE_PSI_INTERFACE
                                ,PSI_mutex_key *param_key_info_run_lock,
@@ -76,6 +96,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    replicate_same_server_id(::replicate_same_server_id),
    cur_log_fd(-1), relay_log(&sync_relaylog_period),
    is_relay_log_recovery(is_slave_recovery),
+   part_event(false),
+   ends_group(false),
    save_temporary_tables(0),
    cur_log_old_open_count(0), group_relay_log_pos(0), event_relay_log_pos(0),
    group_master_log_pos(0),
@@ -92,6 +114,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    retried_trans(0),
    tables_to_lock(0), tables_to_lock_count(0),
    rows_query_ev(NULL), last_event_start_time(0), deferred_events(NULL),
+   curr_group_seen_gtid(false),
+   curr_group_seen_begin(false),
    slave_parallel_workers(0),
    recovery_parallel_workers(0), checkpoint_seqno(0),
    checkpoint_group(opt_mts_checkpoint_group), 
@@ -122,7 +146,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
 #endif
 
   group_relay_log_name[0]= event_relay_log_name[0]=
-    group_master_log_name[0]= 0;
+    group_master_log_name[0] = last_gtid[0] = 0;
   until_log_name[0]= ign_master_log_name_end[0]= 0;
   set_timespec_nsec(last_clock, 0);
   memset(&cache_buf, 0, sizeof(cache_buf));
@@ -140,6 +164,8 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
   relay_log.init_pthread_objects();
   do_server_version_split(::server_version, slave_version_split);
   last_retrieved_gtid.clear();
+  init_gtid_infos();
+
   DBUG_VOID_RETURN;
 }
 
@@ -166,6 +192,25 @@ void Relay_log_info::deinit_workers()
   delete_dynamic(&workers);
 }
 
+void Relay_log_info::init_gtid_infos()
+{
+  my_init_dynamic_array(&gtid_infos, sizeof(Gtid_info *), 1, 1);
+  gtid_info_hash_inited =
+    (my_hash_init(&map_db_to_gtid_info, &my_charset_bin,
+                  0, 0, 0, (my_hash_get_key) get_gtid_info_key,
+                  (my_hash_free_key) free_gtid_info_entry, 0) == 0);
+  mysql_rwlock_init(0, &gtid_info_hash_lock);
+}
+
+void Relay_log_info::deinit_gtid_infos()
+{
+  delete_dynamic(&gtid_infos);
+  if (gtid_info_hash_inited)
+    my_hash_free(&map_db_to_gtid_info);
+  mysql_rwlock_destroy(&gtid_info_hash_lock);
+  gtid_info_hash_inited = false;
+}
+
 Relay_log_info::~Relay_log_info()
 {
   DBUG_ENTER("Relay_log_info::~Relay_log_info");
@@ -180,6 +225,7 @@ Relay_log_info::~Relay_log_info()
   relay_log.cleanup();
   set_rli_description_event(NULL);
   last_retrieved_gtid.clear();
+  deinit_gtid_infos();
 
   DBUG_VOID_RETURN;
 }
@@ -1079,8 +1125,25 @@ int Relay_log_info::inc_group_relay_log_pos(ulonglong log_pos,
 
     See sql/rpl_rli.h for further information on this behavior.
   */
-  error= flush_info(FALSE);
+  if ((error = flush_info(FALSE)))
+    goto err;
 
+  /**
+     Gtid_infos need to be flushed only if
+
+     1) The current transaction is ended because of a COMMIT or ROLLBACK
+        or XID which can be known by the variable ends_group or
+
+     2) If the current event causes an implicit commit which can be
+        determined if the current group didn't see a BEGIN and the current
+        event contains partition info meaning that it is a CREATE DATABASE or
+        DROP DATABASE kind of event.
+  */
+  if ((ends_group || (!curr_group_seen_begin && part_event))
+      && (error = flush_gtid_infos(false)))
+    goto err;
+
+err:
   mysql_cond_broadcast(&data_cond);
   if (need_data_lock)
     mysql_mutex_unlock(&data_lock);
@@ -1737,7 +1800,8 @@ int Relay_log_info::rli_init_info()
 
     if (hot_log)
       mysql_mutex_unlock(log_lock);
-    DBUG_RETURN(recovery_parallel_workers ? mts_recovery_groups(this) : 0);
+    DBUG_RETURN((gtid_mode == 0 && recovery_parallel_workers) ?
+                mts_recovery_groups(this) : 0);
   }
 
   cur_log_fd = -1;
@@ -2002,6 +2066,7 @@ void Relay_log_info::end_info()
   */
   close_temporary_tables();
 
+  my_hash_reset(&map_db_to_gtid_info);
   DBUG_VOID_RETURN;
 }
 
@@ -2440,4 +2505,33 @@ void Relay_log_info::adapt_to_master_version(Format_description_log_event *fdle)
       s_features[i].upgrade(thd);
     }
   }
+}
+
+/**
+   Flushes gtid info state after executing the current event.
+   @param[in] force Forces the synchronization.
+
+   @return false Success
+           true  Failure
+*/
+int Relay_log_info::flush_gtid_infos(bool force)
+{
+  DBUG_ENTER("Relay_log_info::flush_gtid_infos");
+  bool error = false;
+  if (gtid_mode > 0 && last_gtid[0] != 0)
+  {
+    for (uint i = 0; i < gtid_infos.elements; i++)
+    {
+      Gtid_info *gtid_info = *dynamic_element(&gtid_infos, i, Gtid_info**);
+      DBUG_ASSERT(gtid_info);
+#ifndef DBUG_OFF
+      DBUG_ASSERT(!gtid_info->skip_event(last_gtid));
+#endif
+      gtid_info->set_last_gtid(last_gtid);
+      if ((error = gtid_info->flush_info(force)))
+        break;
+    }
+  }
+  reset_dynamic(&gtid_infos);
+  DBUG_RETURN(error);
 }
