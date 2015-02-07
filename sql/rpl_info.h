@@ -20,6 +20,7 @@
 #include "sql_class.h"
 #include "rpl_info_handler.h"
 #include "rpl_reporting.h"
+#include "rpl_gtid.h"
 
 class Rpl_info : public Slave_reporting_capability
 {
