@@ -27,6 +27,8 @@ Rpl_info_factory::struct_table_data Rpl_info_factory::mi_table_data;
 Rpl_info_factory::struct_file_data Rpl_info_factory::mi_file_data;
 Rpl_info_factory::struct_file_data Rpl_info_factory::worker_file_data;
 Rpl_info_factory::struct_table_data Rpl_info_factory::worker_table_data;
+Rpl_info_factory::struct_file_data Rpl_info_factory::gtid_info_file_data;
+Rpl_info_factory::struct_table_data Rpl_info_factory::gtid_info_table_data;
 
 /**
   Creates both a Master info and a Relay log info repository whose types are
@@ -354,6 +356,35 @@ err:
 }
 
 /**
+   Deletes all info from slave gtid info tables. This is done during
+   reset slave.
+
+   @return false Success
+           true  Failure
+*/
+bool Rpl_info_factory::reset_gtid_infos(Relay_log_info *rli)
+{
+  DBUG_ENTER("Rpl_info_factory::reset_gtid_infos");
+  bool error = true;
+
+  if (Rpl_info_file::do_reset_info(Gtid_info::get_number_info_gtid_fields(),
+                                   gtid_info_file_data.pattern,
+                                   gtid_info_file_data.name_indexed))
+    goto err;
+
+  if (Rpl_info_table::do_reset_info(Gtid_info::get_number_info_gtid_fields(),
+                                    MYSQL_SCHEMA_NAME.str, GTID_INFO_NAME.str))
+    goto err;
+
+  error = false;
+
+err:
+  if (error)
+    sql_print_error("could not delete Gtid info repository");
+  DBUG_RETURN(error);
+}
+
+/**
   Creates a Slave worker repository whose type is defined as a parameter.
   
   @param[in]  rli_option Type of the repository, e.g. FILE TABLE.
@@ -451,6 +482,130 @@ static void build_worker_info_name(char* to,
 }
 
 /**
+   Creates a slave gtid info repository which stores the last gtid seen
+   in replication stream for a single database.
+
+   @param[in] id Internal id of the repository
+
+   @return NULL Failure
+           Pointer to the new repository.
+*/
+Gtid_info *Rpl_info_factory::create_gtid_info(uint id)
+{
+  Rpl_info_handler* handler_src= NULL;
+  Rpl_info_handler* handler_dest= NULL;
+  Gtid_info* gtid_info = NULL;
+  const char *msg= "Failed to allocate memory for the gtid info "
+                   "structure";
+  uint rli_option = INFO_REPOSITORY_TABLE;
+  // Crash safe slave functionality is guaranteed only if
+  // table repository is used.
+  DBUG_ASSERT(rli_option == INFO_REPOSITORY_TABLE);
+  DBUG_ENTER("Rpl_info_factory::create_gtid_info");
+
+  if (!(gtid_info = new Gtid_info(id
+#ifdef HAVE_PSI_INTERFACE
+                                  ,&key_gtid_info_run_lock,
+                                  &key_gtid_info_data_lock,
+                                  &key_gtid_info_sleep_lock,
+                                  &key_gtid_info_data_cond,
+                                  &key_gtid_info_start_cond,
+                                  &key_gtid_info_stop_cond,
+                                  &key_gtid_info_sleep_cond
+#endif
+                                  )))
+    goto err;
+
+
+  if(init_repositories(gtid_info_table_data, gtid_info_file_data,
+                       rli_option, id + 1, &handler_src,
+                       &handler_dest, &msg))
+    goto err;
+
+  if (decide_repository(gtid_info, rli_option, &handler_src,
+                        &handler_dest, &msg))
+    goto err;
+
+  if (gtid_info->gtid_init_info())
+  {
+    msg= "Failed to initialize the gtid info structure";
+    goto err;
+  }
+
+  if (gtid_info->update_is_transactional())
+    sql_print_error("Error checking if the gtid_info repository "
+                    "is transactional.");
+  if (!gtid_info->is_transactional())
+    sql_print_warning("slave_gtid_info table must use transactional storage "
+                      "engine, otherwise crash safe slave functionality is not "
+                      "guaranteed.");
+
+  DBUG_RETURN(gtid_info);
+err:
+  delete handler_src;
+  delete handler_dest;
+  if (gtid_info)
+  {
+    gtid_info->set_rpl_info_handler(NULL);
+    delete gtid_info;
+  }
+  sql_print_error("Error creating gtid info: %s.", msg);
+  DBUG_RETURN(NULL);
+}
+
+/**
+   Initializes the gtid_info repositories by reading from the table
+   slave_gtid_info and inserts each repository in to the hash
+   map_db_to_gtid_info.
+
+   @param[in] rli Relay log info.
+
+   @return false Success
+           true  Failure
+*/
+bool Rpl_info_factory::init_gtid_info_repository(Relay_log_info *rli)
+{
+  DBUG_ENTER("Rpl_info_factory::init_gtid_info_repository");
+
+  my_hash_reset(&rli->map_db_to_gtid_info);
+  rli->gtid_info_next_id = 0;
+  if (gtid_mode > 0)
+  {
+    uint i = 0;
+    while (true)
+    {
+      Gtid_info *gtid_info = NULL;
+      if (!(gtid_info = create_gtid_info(i)))
+      {
+        DBUG_RETURN(true);
+      }
+      enum enum_return_check check_info;
+      check_info = gtid_info->check_info();
+      if (check_info == REPOSITORY_DOES_NOT_EXIST)
+      {
+        gtid_info->end_info();
+        delete gtid_info;
+        break;
+      }
+      else if (check_info == ERROR_CHECKING_REPOSITORY)
+      {
+        sql_print_information("Error checking slave_gtid_info repository");
+        DBUG_RETURN(true);
+      }
+      else
+      {
+        rli->gtid_info_next_id = gtid_info->internal_id;
+        rli->gtid_info_hash_wrlock();
+        my_hash_insert(&rli->map_db_to_gtid_info, (uchar *) gtid_info);
+        rli->gtid_info_hash_unlock();
+      }
+      i++;
+    }
+  }
+  DBUG_RETURN(false);
+}
+
+/**
   Initializes startup information on diferent repositories.
 */
 void Rpl_info_factory::init_repository_metadata()
@@ -459,6 +614,7 @@ void Rpl_info_factory::init_repository_metadata()
   size_t len;
   char* relay_log_info_file_name;
   char relay_log_info_file_dirpart[FN_REFLEN];
+  char *pos;
 
   /* Extract the directory name from relay_log_info_file */
   dirname_part(relay_log_info_file_dirpart, relay_log_info_file, &len);
@@ -491,6 +647,18 @@ void Rpl_info_factory::init_repository_metadata()
                          relay_log_info_file_dirpart,
                          relay_log_info_file_name);
   worker_file_data.name_indexed= true;
+
+  gtid_info_table_data.n_fields = Gtid_info::get_number_info_gtid_fields();
+  gtid_info_table_data.schema = MYSQL_SCHEMA_NAME.str;
+  gtid_info_table_data.name = GTID_INFO_NAME.str;
+  gtid_info_file_data.n_fields = Gtid_info::get_number_info_gtid_fields();
+  pos = strmov(gtid_info_file_data.name, "gtid-");
+  pos = strmov(pos, relay_log_info_file);
+  strmov(pos, ".");
+  pos = strmov(gtid_info_file_data.pattern, "gtid-");
+  pos = strmov(pos, relay_log_info_file);
+  strmov(pos, ".");
+  gtid_info_file_data.name_indexed = true;
 }
 
 

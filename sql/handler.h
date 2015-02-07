@@ -2091,6 +2091,7 @@ public:
   int ha_write_row(uchar * buf);
   int ha_update_row(const uchar * old_data, uchar * new_data);
   int ha_delete_row(const uchar * buf);
+  int write_locked_table_maps(THD *thd);
   void ha_release_auto_increment();
 
   int check_collation_compatibility();

@@ -10487,7 +10487,10 @@ PSI_mutex_key
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOG_INFO_lock, key_LOCK_thread_count,
   key_LOCK_global_table_stats,
-  key_LOCK_log_throttle_qni;
+  key_LOCK_log_throttle_qni,
+  key_gtid_info_run_lock,
+  key_gtid_info_data_lock,
+  key_gtid_info_sleep_lock;
 PSI_mutex_key key_LOCK_thd_remove;
 PSI_mutex_key key_RELAYLOG_LOCK_commit;
 PSI_mutex_key key_RELAYLOG_LOCK_commit_queue;
@@ -10585,6 +10588,9 @@ static PSI_mutex_info all_server_mutexes[]=
 #ifdef HAVE_MY_TIMER
   { &key_thd_timer_mutex, "thd_timer_mutex", 0},
 #endif
+  { &key_gtid_info_run_lock, "Gtid_info::run_lock", 0},
+  { &key_gtid_info_data_lock, "Gtid_info::data_lock", 0},
+  { &key_gtid_info_sleep_lock, "Gtid_info::sleep_lock", 0}
 };
 
 PSI_rwlock_key key_rwlock_LOCK_grant, key_rwlock_LOCK_logger,
@@ -10638,7 +10644,9 @@ PSI_cond_key key_BINLOG_update_cond,
   key_relay_log_info_sleep_cond, key_cond_slave_parallel_pend_jobs,
   key_cond_slave_parallel_worker,
   key_TABLE_SHARE_cond, key_user_level_lock_cond,
-  key_COND_thread_count, key_COND_thread_cache, key_COND_flush_thread_cache;
+  key_COND_thread_count, key_COND_thread_cache, key_COND_flush_thread_cache,
+  key_gtid_info_data_cond, key_gtid_info_start_cond, key_gtid_info_stop_cond,
+  key_gtid_info_sleep_cond;
 PSI_cond_key key_RELAYLOG_update_cond;
 PSI_cond_key key_BINLOG_COND_done;
 PSI_cond_key key_RELAYLOG_COND_done;
@@ -10688,6 +10696,10 @@ static PSI_cond_info all_server_conds[]=
 #ifdef HAVE_MY_TIMER
   { &key_thread_timer_notifier, "thread_timer_notifier", PSI_FLAG_GLOBAL},
 #endif
+  { &key_gtid_info_data_cond, "Gtid_info::data_cond", 0},
+  { &key_gtid_info_start_cond, "Gtid_info::start_cond", 0},
+  { &key_gtid_info_stop_cond, "Gtid_info::stop_cond", 0},
+  { &key_gtid_info_sleep_cond, "Gtid_info::sleep_cond", 0}
 };
 
 PSI_thread_key key_thread_bootstrap, key_thread_delayed_insert,

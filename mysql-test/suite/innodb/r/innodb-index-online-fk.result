@@ -125,6 +125,7 @@ SYS_FOREIGN_COLS
 SYS_TABLESPACES
 mysql/innodb_index_stats
 mysql/innodb_table_stats
+mysql/slave_gtid_info
 mysql/slave_master_info
 mysql/slave_relay_log_info
 mysql/slave_worker_info
@@ -318,6 +319,7 @@ SYS_FOREIGN_COLS
 SYS_TABLESPACES
 mysql/innodb_index_stats
 mysql/innodb_table_stats
+mysql/slave_gtid_info
 mysql/slave_master_info
 mysql/slave_relay_log_info
 mysql/slave_worker_info
@@ -345,6 +347,7 @@ SYS_FOREIGN_COLS
 SYS_TABLESPACES
 mysql/innodb_index_stats
 mysql/innodb_table_stats
+mysql/slave_gtid_info
 mysql/slave_master_info
 mysql/slave_relay_log_info
 mysql/slave_worker_info
@@ -383,6 +386,7 @@ SYS_FOREIGN_COLS
 SYS_TABLESPACES
 mysql/innodb_index_stats
 mysql/innodb_table_stats
+mysql/slave_gtid_info
 mysql/slave_master_info
 mysql/slave_relay_log_info
 mysql/slave_worker_info
@@ -421,6 +425,7 @@ SYS_FOREIGN_COLS
 SYS_TABLESPACES
 mysql/innodb_index_stats
 mysql/innodb_table_stats
+mysql/slave_gtid_info
 mysql/slave_master_info
 mysql/slave_relay_log_info
 mysql/slave_worker_info

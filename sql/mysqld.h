@@ -898,7 +898,10 @@ extern PSI_mutex_key
   key_structure_guard_mutex, key_TABLE_SHARE_LOCK_ha_data,
   key_LOCK_error_messages, key_LOCK_thread_count, key_LOCK_thd_remove,
   key_LOCK_global_table_stats,
-  key_LOCK_log_throttle_qni;
+  key_LOCK_log_throttle_qni,
+  key_gtid_info_run_lock,
+  key_gtid_info_data_lock,
+  key_gtid_info_sleep_lock;
 extern PSI_mutex_key key_RELAYLOG_LOCK_commit;
 extern PSI_mutex_key key_RELAYLOG_LOCK_commit_queue;
 extern PSI_mutex_key key_RELAYLOG_LOCK_done;
@@ -933,7 +936,9 @@ extern PSI_cond_key key_BINLOG_update_cond,
   key_relay_log_info_sleep_cond, key_cond_slave_parallel_pend_jobs,
   key_cond_slave_parallel_worker,
   key_TABLE_SHARE_cond, key_user_level_lock_cond,
-  key_COND_thread_count, key_COND_thread_cache, key_COND_flush_thread_cache;
+  key_COND_thread_count, key_COND_thread_cache, key_COND_flush_thread_cache,
+  key_gtid_info_data_cond, key_gtid_info_start_cond, key_gtid_info_stop_cond,
+  key_gtid_info_sleep_cond;
 extern PSI_cond_key key_BINLOG_COND_done;
 extern PSI_cond_key key_RELAYLOG_COND_done;
 extern PSI_cond_key key_RELAYLOG_update_cond;

@@ -706,7 +706,10 @@ int init_recovery(Master_info* mi, const char** errmsg)
   Relay_log_info *rli= mi->rli;
   char *group_master_log_name= NULL;
 
-  if (rli->recovery_parallel_workers)
+  /**
+     Avoid mts_recovery_groups if gtid_mode is ON.
+  */
+  if (rli->recovery_parallel_workers && gtid_mode == 0)
   {
     /*
       This is not idempotent and a crash after this function and before
@@ -883,7 +886,7 @@ int remove_info(Master_info* mi)
   mi->rli->end_info();
 
   if (mi->remove_info() || Rpl_info_factory::reset_workers(mi->rli) ||
-      mi->rli->remove_info())
+      Rpl_info_factory::reset_gtid_infos(mi->rli) || mi->rli->remove_info())
     goto err;
 
   error= 0;
@@ -1478,7 +1481,7 @@ int start_slave_threads(bool need_lock_slave, bool wait_for_start,
       MTS-recovery gaps gathering is placed onto common execution path
       for either START-SLAVE and --skip-start-slave= 0 
     */
-    if (mi->rli->recovery_parallel_workers != 0)
+    if (mi->rli->recovery_parallel_workers != 0 && gtid_mode == 0)
       error= mts_recovery_groups(mi->rli);
     if (!error)
       error= start_slave_thread(
@@ -4135,6 +4138,9 @@ static bool coord_handle_partial_binlogged_transaction(Relay_log_info *rli,
   ((Query_log_event*) rollback_event)->db= "";
   rollback_event->data_written= 0;
   rollback_event->server_id= ev->server_id;
+  // Set a flag for this special ROLLBACK event so the slave worker
+  // skips updating slave_gtid_info table.
+  rollback_event->set_relay_log_event();
   /*
     We must be careful to avoid SQL thread increasing its position
     farther than the event that triggered this QUERY(ROLLBACK).
@@ -6000,6 +6006,14 @@ pthread_handler_t handle_slave_sql(void *arg)
     mysql_mutex_unlock(&rli->run_lock);
     rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR, 
                 "Failed during slave workers initialization");
+    goto err;
+  }
+  if (Rpl_info_factory::init_gtid_info_repository(rli))
+  {
+    mysql_cond_broadcast(&rli->start_cond);
+    mysql_mutex_unlock(&rli->run_lock);
+    rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                "Error creating gtid_info");
     goto err;
   }
   /*
