@@ -1,0 +1,84 @@
+--source include/load_sysvars.inc
+
+SET @start_value = @@global.log_gtid_unsafe_statements;
+SELECT @start_value;
+
+SET @@global.log_gtid_unsafe_statements = 0;
+SET @@global.log_gtid_unsafe_statements = DEFAULT;
+SELECT @@global.log_gtid_unsafe_statements;
+
+
+SET @@global.log_gtid_unsafe_statements = @start_value;
+SELECT @@global.log_gtid_unsafe_statements = TRUE;
+
+
+SET @@global.log_gtid_unsafe_statements = 0;
+SELECT @@global.log_gtid_unsafe_statements;
+SET @@global.log_gtid_unsafe_statements = 1;
+SELECT @@global.log_gtid_unsafe_statements;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.log_gtid_unsafe_statements = '';
+
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.log_gtid_unsafe_statements = 1;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.log_gtid_unsafe_statements;
+
+
+SELECT IF(@@global.log_gtid_unsafe_statements, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='log_gtid_unsafe_statements';
+
+SET @@global.log_gtid_unsafe_statements = OFF;
+SELECT @@global.log_gtid_unsafe_statements;
+SET @@global.log_gtid_unsafe_statements = ON;
+SELECT @@global.log_gtid_unsafe_statements;
+
+SET @@global.log_gtid_unsafe_statements = TRUE;
+SELECT @@global.log_gtid_unsafe_statements;
+SET @@global.log_gtid_unsafe_statements = FALSE;
+SELECT @@global.log_gtid_unsafe_statements;
+
+SET @@global.log_gtid_unsafe_statements = 1;
+SELECT @@log_gtid_unsafe_statements = @@global.log_gtid_unsafe_statements;
+
+--Error ER_GLOBAL_VARIABLE
+SET log_gtid_unsafe_statements = 1;
+--Error ER_PARSE_ERROR
+SET local.log_gtid_unsafe_statements = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT local.log_gtid_unsafe_statements;
+--Error ER_PARSE_ERROR
+SET global.log_gtid_unsafe_statements = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.log_gtid_unsafe_statements;
+--Error ER_BAD_FIELD_ERROR
+SELECT log_gtid_unsafe_statements = @@session.log_gtid_unsafe_statements;
+
+
+SET @@global.log_gtid_unsafe_statements = @start_value;
+SELECT @@global.log_gtid_unsafe_statements;
