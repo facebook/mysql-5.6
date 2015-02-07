@@ -1,0 +1,81 @@
+-- source include/have_gtid.inc
+-- source include/master-slave.inc
+-- source include/have_innodb.inc
+-- source include/have_debug.inc
+# Writing skipped row log events require table map events.
+# But this test generates the scenario where slave skips a transaction
+# on a table which has already been dropped, so sql_thread fails
+# finding the dropped table.
+-- source include/have_binlog_format_statement.inc
+
+
+connection master;
+-- let $uuid = `select @@server_uuid;`
+-- replace_result $uuid uuid
+-- eval set @@global.gtid_purged = '$uuid:1-1000000000000000000'
+connection slave;
+-- replace_result $uuid uuid
+-- eval set @@global.gtid_purged = '$uuid:1-1000000000000000000'
+
+connection master;
+call mtr.add_suppression("Recovery from master");
+create table t1(a int, PRIMARY KEY(a)) ENGINE=INNODB;
+insert into t1 values(1);
+sync_slave_with_master;
+FLUSH LOGS;
+
+connection master;
+insert into t1 values(2);
+sync_slave_with_master;
+select * from t1;
+use mysql;
+-- replace_result $uuid uuid
+select * from slave_gtid_info;
+connection master;
+drop table t1;
+sync_slave_with_master;
+-- replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+# Test contents of slave_gtid_info after creating different
+# databases.
+connection master;
+create database db1;
+create database db2;
+use db1;
+create table table_db1 (a int, PRIMARY KEY(a)) ENGINE=INNODB;
+use db2;
+create table table_db2 (a int, PRIMARy KEY(a)) ENGINE=INNODB;
+sync_slave_with_master;
+-- replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+connection master;
+use db1;
+# Row corresponding to db2 gets updated.
+insert into db2.table_db2 values(1);
+use db2;
+# Row corresponding to db1 gets updated.
+insert into db1.table_db1 values(1);
+sync_slave_with_master;
+-- replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
+
+-- let $MYSQLD_DATADIR = `select @@datadir`
+-- remove_file $MYSQLD_DATADIR/slave-bin.000003
+-- let sed = /slave-bin.000003/,\$d
+-- exec sed -i '$sed' $MYSQLD_DATADIR/slave-bin.index
+
+-- let $rpl_start_with_gtids= 1
+-- source include/rpl_restart_server.inc
+-- source include/start_slave.inc
+
+connection master;
+drop database db1;
+drop database db2;
+sync_slave_with_master;
+
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+
+-- source include/rpl_end.inc
