@@ -396,6 +396,10 @@ The following options may be given as the first argument:
  Log queries longer than log-datagram-usecs to a unix
  local datagram socket
  --log-error[=name]  Error log file
+ --log-gtid-unsafe-statements 
+ When turned on, logs the gtid unsafe statements in the
+ error log
+ (Defaults to on; use --skip-log-gtid-unsafe-statements to disable.)
  --log-isam[=name]   Log all MyISAM changes to file.
  --log-output=name   Syntax: log-output=value[,value...], where "value" could
  be TABLE, FILE or NONE
@@ -1245,6 +1249,7 @@ log-bin-use-v1-row-events FALSE
 log-datagram FALSE
 log-datagram-usecs 0
 log-error 
+log-gtid-unsafe-statements TRUE
 log-isam myisam.log
 log-output FILE
 log-queries-not-using-indexes FALSE
