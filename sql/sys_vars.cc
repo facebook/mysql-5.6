@@ -4746,6 +4746,12 @@ static Sys_var_mybool Sys_simplified_binlog_gtid_recovery(
        DEFAULT(FALSE), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
        ON_UPDATE(0), DEPRECATED("'@@binlog_gtid_simple_recovery'"));
 
+static Sys_var_mybool Sys_log_gtid_unsafe_statements(
+       "log_gtid_unsafe_statements",
+       "When turned on, logs the gtid unsafe statements in the error log",
+       GLOBAL_VAR(log_gtid_unsafe_statements),
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
+
 static Sys_var_ulong Sys_sp_cache_size(
        "stored_program_cache",
        "The soft upper limit for number of cached stored routines for "
