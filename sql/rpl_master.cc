@@ -1585,9 +1585,13 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
              which don't have corresponding gtid_event.
           */
           skip_group = true;
-          gtid_event_logged = false;
         }
         break;
+      }
+
+      if (event_type == XID_EVENT)
+      {
+        gtid_event_logged = false;
       }
 
       if (goto_next_binlog)
@@ -1998,12 +2002,15 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
                  logged before them.
               */
               skip_group = true;
-              gtid_event_logged = false;
             }
 
             break;
           }
 
+          if (event_type == XID_EVENT)
+          {
+            gtid_event_logged = false;
+          }
           /* The present event was skipped in a GTID protocol, store the coordinates */
           if (skip_group)
           {
