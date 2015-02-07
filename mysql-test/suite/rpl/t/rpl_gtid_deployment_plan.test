@@ -124,17 +124,27 @@ insert into t1 values(200);
 -- connection master
 -- let $use_gtids= 0
 -- source include/sync_slave_sql_with_master.inc
+-- source include/stop_slave.inc
 select * from t1;
 
 -- connection master
 set @@global.read_only=0;
 insert into t1 values(300);
 insert into t1 values(400);
+set @@global.read_only=1;
+insert into t1 values(500);
+insert into t1 values(600);
+set @@global.read_only=0;
+insert into t1 values(700);
+create table test (a int);
+set @@global.read_only=1;
+drop table test;
+set @@global.read_only=0;
+insert into t1 values(800);
 -- replace_result $master_uuid master_uuid
 select @@global.gtid_executed;
 
 -- connection slave
--- source include/stop_slave.inc
 change master to master_auto_position=1;
 -- source include/start_slave.inc
 -- connection master
