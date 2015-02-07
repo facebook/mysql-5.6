@@ -6738,11 +6738,6 @@ int fill_variables(THD *thd, TABLE_LIST *tables, Item *cond)
       schema_table_idx == SCH_GLOBAL_VARIABLES)
     option_type= OPT_GLOBAL;
 
-  /*
-    Lock LOCK_plugin_delete to avoid deletion of any plugins while creating
-    SHOW_VAR array and hold it until all variables are stored in the table.
-  */
-  mysql_mutex_lock(&LOCK_plugin_delete);
   // Lock LOCK_system_variables_hash to prepare SHOW_VARs array.
   mysql_rwlock_rdlock(&LOCK_system_variables_hash);
   DEBUG_SYNC(thd, "acquired_LOCK_system_variables_hash");
@@ -6751,8 +6746,6 @@ int fill_variables(THD *thd, TABLE_LIST *tables, Item *cond)
 
   res= show_status_array(thd, wild, sys_var_array, option_type, NULL, "",
                          tables->table, upper_case_names, cond, var_thd);
-
-  mysql_mutex_unlock(&LOCK_plugin_delete);
 
   if (var_thd)
     mysql_mutex_unlock(&var_thd->LOCK_thd_data);
