@@ -40,12 +40,12 @@ InnoChecksum; checking pages in range 0 to 6
 undo type: 0 insert, 0 update, 0 other
 undo state: 0 active, 0 cached, 0 to_free, 0 to_purge, 0 prepared, 0 other
 index_id	#pages		#leaf_pages	#recs_per_page	#bytes_per_page
-23		1		1		1		21
-22		1		1		1		44
+24		1		1		1		21
+23		1		1		1		44
 
 index_id	page_data_bytes_histgram(empty,...,oversized)
+24		0	1	0	0	0	0	0	0	0	0	0	0
 23		0	1	0	0	0	0	0	0	0	0	0	0
-22		0	1	0	0	0	0	0	0	0	0	0	0
 # Restart the server
 DROP TABLE tab1;
 SET @@GLOBAL.innodb_file_per_table= 1;

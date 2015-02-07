@@ -168,6 +168,23 @@ public:
   */
   bool is_relay_log_recovery;
 
+  DYNAMIC_ARRAY gtid_infos;
+  // global hash to store the slave gtid_info repositories mapped by db names.
+  HASH map_db_to_gtid_info;
+  /**
+    Reader writer lock to protect map_db_to_gtid_info. The hash
+    is updated only by coordinator thread. slave worker threads only
+    search in this hash.
+  */
+  mysql_rwlock_t gtid_info_hash_lock;
+  // Last gtid seen by coordinator thread.
+  char last_gtid[Gtid::MAX_TEXT_LENGTH + 1];
+  bool gtid_info_hash_inited;
+  bool part_event;  // true if the current event contains partition event.
+  bool ends_group;
+  // next available id for new gtid info
+  uint gtid_info_next_id;
+
   /* The following variables are safe to read any time */
 
   /*
@@ -598,6 +615,23 @@ public:
   /* counterpart of the init */
   void deinit_workers();
 
+  void init_gtid_infos();
+
+  void deinit_gtid_infos();
+
+  inline void gtid_info_hash_rdlock()
+  {
+    mysql_rwlock_rdlock(&gtid_info_hash_lock);
+  }
+  inline void gtid_info_hash_wrlock()
+  {
+    mysql_rwlock_wrlock(&gtid_info_hash_lock);
+  }
+  inline void gtid_info_hash_unlock()
+  {
+    mysql_rwlock_unlock(&gtid_info_hash_lock);
+  }
+  int flush_gtid_infos(bool force);
   /**
      returns true if there is any gap-group of events to execute
                   at slave starting phase.

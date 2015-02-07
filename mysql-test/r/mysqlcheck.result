@@ -21,6 +21,7 @@ mysql.proc                                         OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
 mysql.servers                                      OK
+mysql.slave_gtid_info                              OK
 mysql.slave_master_info                            OK
 mysql.slave_relay_log_info                         OK
 mysql.slave_worker_info                            OK
@@ -57,6 +58,9 @@ mysql.proc                                         OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
 mysql.servers                                      OK
+mysql.slave_gtid_info
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mysql.slave_master_info
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK
@@ -93,6 +97,7 @@ mysql.proc                                         OK
 mysql.procs_priv                                   OK
 mysql.proxies_priv                                 OK
 mysql.servers                                      OK
+mysql.slave_gtid_info                              OK
 mysql.slave_master_info                            OK
 mysql.slave_relay_log_info                         OK
 mysql.slave_worker_info                            OK
@@ -127,6 +132,9 @@ mysql.proc                                         Table is already up to date
 mysql.procs_priv                                   Table is already up to date
 mysql.proxies_priv                                 Table is already up to date
 mysql.servers                                      Table is already up to date
+mysql.slave_gtid_info
+note     : Table does not support optimize, doing recreate + analyze instead
+status   : OK
 mysql.slave_master_info
 note     : Table does not support optimize, doing recreate + analyze instead
 status   : OK

@@ -799,6 +799,7 @@ extern my_bool init_dynamic_array2(DYNAMIC_ARRAY *array, uint element_size,
 extern my_bool init_dynamic_array(DYNAMIC_ARRAY *array, uint element_size,
                                   uint init_alloc, uint alloc_increment);
 extern my_bool insert_dynamic(DYNAMIC_ARRAY *array, const void *element);
+extern my_bool insert_dynamic_set(DYNAMIC_ARRAY *array, const void *element);
 extern void *alloc_dynamic(DYNAMIC_ARRAY *array);
 extern void *pop_dynamic(DYNAMIC_ARRAY*);
 extern my_bool set_dynamic(DYNAMIC_ARRAY *array, const void *element,
