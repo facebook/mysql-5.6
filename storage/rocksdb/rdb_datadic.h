@@ -45,8 +45,11 @@ class Stream_reader
 public:
   Stream_reader(const std::string &str)
   {
-    ptr= &str.at(0);
     len= str.length();
+    if (len)
+      ptr= &str.at(0);
+    else
+      ptr= NULL;
   }
 
   Stream_reader(const rocksdb::Slice *slice)
@@ -247,6 +250,14 @@ public:
 
   rocksdb::ColumnFamilyHandle *get_cf() { return cf_handle; }
 
+  /* Check if keypart #kp can be unpacked from index tuple */
+  bool can_unpack(uint kp) const;
+
+  /*
+    Current code assumes that unpack_data occupies fixed length regardless of
+    the value that is stored.
+  */
+  bool get_unpack_data_len() { return unpack_data_len; }
 private:
 
   /* Global number of this index (used as prefix in StorageFormat) */
