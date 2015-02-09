@@ -711,7 +711,7 @@ public:
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
   static ulong get_hashnr(const char *key, size_t key_len);
-  const char* Name() const { return "RocksDB_SE_v3.1"; }
+  const char* Name() const { return "RocksDB_SE_v3.2"; }
 
   //TODO: advanced funcs:
   // - FindShortestSeparator
@@ -728,7 +728,7 @@ class Reverse_comparator : public rocksdb::Comparator
   {
     return -bytewise_compare(a,b);
   }
-  const char* Name() const { return "rev:RocksDB_SE_v3.1"; }
+  const char* Name() const { return "rev:RocksDB_SE_v3.2"; }
   void FindShortestSeparator(std::string* start, const rocksdb::Slice& limit) const {}
   void FindShortSuccessor(std::string* key) const {}
 };
@@ -1556,6 +1556,10 @@ void ha_rocksdb::convert_record_to_storage_format(rocksdb::Slice *packed_rec)
 
   for (uint i=0; i < table->s->fields; i++)
   {
+    /* Don't pack decode-able PK key parts */
+    if (field_enc[i].skip)
+      continue;
+
     Field *field= table->field[i];
     if (field_enc[i].maybe_null())
     {
@@ -1624,7 +1628,9 @@ int ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
 
 /*
   Unpack the record in this->retrieved_record from storage format into
-  buf (which can be table->record[0] or table->record[1])
+  buf (which can be table->record[0] or table->record[1]).
+
+  psergey-todo: this->last_rowkey has a part of the data.
 
   If the table has blobs, the unpacked data in buf may keep pointers to the
   data in this->retrieved_record.
@@ -1639,12 +1645,26 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
   Stream_reader reader(retrieved_record);
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
-  const char *null_bytes;
-  if (!(null_bytes= reader.read(null_bytes_in_rec)))
+  /*
+    Decode PK fields from the key
+  */
+  rocksdb::Slice rowkey_slice(last_rowkey.ptr(), last_rowkey.length());
+
+  DBUG_ASSERT(pk_descr->get_unpack_data_len() == 0);
+  rocksdb::Slice pk_unpack_info_slice;
+  if (pk_descr->unpack_record(table, buf, &rowkey_slice, &pk_unpack_info_slice))
+    return HA_ERR_INTERNAL_ERROR;
+
+  /* Other fields are decoded from the value */
+  const char * UNINIT_VAR(null_bytes);
+  if (null_bytes_in_rec && !(null_bytes= reader.read(null_bytes_in_rec)))
     return HA_ERR_INTERNAL_ERROR;
 
   for (uint i=0; i < table->s->fields; i++)
   {
+    if (field_enc[i].skip)
+      continue;
+
     Field *field= table->field[i];
 
     int isNull = field_enc[i].maybe_null() &&
@@ -1765,6 +1785,29 @@ void ha_rocksdb::setup_field_converters()
   for (i= 0; i < table->s->fields; i++)
   {
     Field *field= table->field[i];
+    field_enc[i].skip= false;
+
+    /*
+      Check if this field is
+      - a part of primary key, and
+      - it can be decoded back from its key image.
+      If both hold, we don't need to store this field in the value part of
+      RocksDB's key-value pair.
+    */
+    if (field->part_of_key.is_set(table->s->primary_key))
+    {
+      KEY *pk_info= &table->key_info[table->s->primary_key];
+      for (uint kp= 0; kp < pk_info->user_defined_key_parts; kp++)
+      {
+        if (field->field_index + 1 == pk_info->key_part[kp].fieldnr)
+        {
+          if (pk_descr->can_unpack(kp))
+            field_enc[i].skip= true; /* Don't store */
+          break;
+        }
+      }
+    }
+
     field_enc[i].field_type= field->real_type();
 
     if (field->real_maybe_null())
