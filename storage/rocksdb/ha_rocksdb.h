@@ -192,6 +192,9 @@ class ha_rocksdb: public handler
   */
   typedef struct st_field_encoder
   {
+    /* skip=true means this is decodeable part of PK and so not stored */
+    bool skip;
+
     uint null_offset;
     uchar null_mask;  // 0 means the field cannot be null
 
