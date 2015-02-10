@@ -14,10 +14,10 @@ create table t1(f1 int);
 insert into t1 values (5);
 
 grant select on test.* to ssl_user1@localhost require SSL;
-grant select on test.* to ssl_user2@localhost require cipher "DHE-RSA-AES256-SHA";
-grant select on test.* to ssl_user3@localhost require cipher "DHE-RSA-AES256-SHA" AND SUBJECT "/C=SE/ST=Stockholm/L=Stockholm/O=Oracle/OU=MySQL/CN=Client";
-grant select on test.* to ssl_user4@localhost require cipher "DHE-RSA-AES256-SHA" AND SUBJECT "/C=SE/ST=Stockholm/L=Stockholm/O=Oracle/OU=MySQL/CN=Client" ISSUER "/C=SE/ST=Stockholm/L=Stockholm/O=Oracle/OU=MySQL/CN=CA";
-grant select on test.* to ssl_user5@localhost require cipher "DHE-RSA-AES256-SHA" AND SUBJECT "xxx";
+grant select on test.* to ssl_user2@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384";
+grant select on test.* to ssl_user3@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384" AND SUBJECT "/C=SE/ST=Uppsala/O=MySQL AB/CN=client";
+grant select on test.* to ssl_user4@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384" AND SUBJECT "/C=SE/ST=Uppsala/O=MySQL AB/CN=client" ISSUER "/C=SE/ST=Uppsala/L=Uppsala/O=MySQL AB";
+grant select on test.* to ssl_user5@localhost require cipher "ECDHE-RSA-AES256-GCM-SHA384" AND SUBJECT "xxx";
 flush privileges;
 
 connect (con1,localhost,ssl_user1,,,,,SSL);
@@ -116,7 +116,7 @@ drop table t1;
 # - Usa a cipher that both yaSSL and OpenSSL supports
 #
 --exec echo "SHOW STATUS LIKE 'Ssl_cipher'; exit;" > $MYSQLTEST_VARDIR/tmp/test.sql
---exec $MYSQL_TEST --ssl-cipher=DHE-RSA-AES256-SHA < $MYSQLTEST_VARDIR/tmp/test.sql 2>&1
+--exec $MYSQL_TEST --ssl-cipher=ECDHE-RSA-AES256-GCM-SHA384 < $MYSQLTEST_VARDIR/tmp/test.sql 2>&1
 
 #
 # Bug#25309 SSL connections without CA certificate broken since MySQL 5.0.23
@@ -212,7 +212,7 @@ DROP TABLE t1;
 #
 
 # Common ciphers to openssl and yassl
---exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=DHE-RSA-AES256-SHA
+--exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=ECDHE-RSA-AES256-GCM-SHA384
 --exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=EDH-RSA-DES-CBC3-SHA
 --exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=AES256-SHA
 --exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=RC4-SHA
