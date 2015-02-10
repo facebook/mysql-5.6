@@ -1,4 +1,5 @@
 --source include/have_innodb.inc
+--source include/have_innodb_16k.inc
 --source include/have_native_aio.inc
 
 --disable_warnings
