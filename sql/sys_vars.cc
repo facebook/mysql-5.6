@@ -4168,6 +4168,14 @@ static Sys_var_ulong Sys_rpl_event_buffer_size(
        VALID_RANGE(16 * 1024, 128 * 1024 * 1024), DEFAULT(1024 * 1024),
        BLOCK_SIZE(1024));
 
+static Sys_var_uint Sys_rpl_receive_buffer_size(
+       "rpl_receive_buffer_size",
+       "The size of input buffer for the socket used during receving "
+       "events from a master.",
+       GLOBAL_VAR(rpl_receive_buffer_size), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024),
+       BLOCK_SIZE(1024));
+
 static Sys_var_mybool Sys_slave_allow_batching(
        "slave_allow_batching", "Allow slave to batch requests",
        GLOBAL_VAR(opt_slave_allow_batching),
