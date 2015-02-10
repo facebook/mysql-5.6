@@ -135,21 +135,47 @@ ValueToString(fbson::FbsonValue *pval,
 }
 
 /*
- * Checks if item is a document
+ * Get FBSON value object from item if item is FBSON binary
+ * Otherwise, the string is pointed by json
  * Input: item - input item
- *        json - output, json string or fbson blob
- * Output: true - output is fbson blob (doc type)
- *         false - output is json string
+ * Output: json - a json string or an fbson binary blob
+ * Return: FbsonValue object
+ *
+ * Note: if the item is a document column, the item value is Fbson binary and
+ * an FbsonValue object is returned (the fbson binary is stored in the json
+ * output param). Otherwise, the item's string value depends on two conditions:
+ * (1) whether it is a DOC_EXTRACT_FUNC, and (2) whether
+ * use_fbson_output_format is turned on. If both are true, the item value is
+ * Fbson binary and FbsonValue object is returned. Otherwise, the JSON string
+ * is stored in json (output param) and return value is nullptr.
  */
-static bool is_doc_type(Item *item, String *&json, String *buffer)
+static fbson::FbsonValue *get_fbson_val(Item *item,
+                                        String *&json,
+                                        String *buffer)
 {
-  bool doc_type = (item->field_type() == MYSQL_TYPE_DOCUMENT);
-  if (doc_type)
+  fbson::FbsonValue *pval = nullptr;
+  if (item->field_type() == MYSQL_TYPE_DOCUMENT)
+  {
+    // item is a document field, and json is an fbson binary
     json = item->val_doc(buffer); // this is an FBSON blob
+    if (json)
+      pval = fbson::FbsonDocument::createValue(json->ptr(), json->length());
+  }
   else
+  {
     json = item->val_str(buffer);
+    // we check again if the string is actually FBSON value binary.
+    // if use_fbson_output_format is true and item is DOC_EXTRACT_FUNC,
+    // then json is a fbson binary, and we convert it to FbsonValue object.
+    // otherwise, json is a JSON string.
+    if (json &&
+        current_thd->variables.use_fbson_output_format &&
+        item->type() == item->FUNC_ITEM &&
+        ((Item_func*)item)->functype() == ((Item_func*)item)->DOC_EXTRACT_FUNC)
+      pval = (fbson::FbsonValue*)(json->ptr());
+  }
 
-  return doc_type;
+  return pval;
 }
 
 /*
@@ -178,21 +204,6 @@ static fbson::FbsonValue *get_fbson_val(const char *c_str,
 }
 
 /*
- * Gets FBSON value object directly from str (FBSON blob)
- * Input: str - FBSON blob
- *        len - blob length
- * Output: FbsonValue object.
- */
-static fbson::FbsonValue *get_fbson_val(const char *str, unsigned int len)
-{
-  // this is an FBSON blob
-  fbson::FbsonValue *pval = fbson::FbsonDocument::createValue(str, len);
-  DBUG_ASSERT(pval);
-
-  return pval;
-}
-
-/*
  * Item_func_json_valid
  */
 
@@ -204,11 +215,13 @@ bool Item_func_json_valid::val_bool()
   String buffer;
   String *json = nullptr;
 
-  bool doc_type = is_doc_type(args[0], json, &buffer);
+  // we try to get FbsonVal if first input arg is FBSON binary
+  // otherwise the input arg string is returned/stored in json
+  fbson::FbsonValue *pval = get_fbson_val(args[0], json, &buffer);
 
   if (json)
   {
-    if (doc_type)
+    if (pval)
       return true; // FBSON blob
 
     fbson::FbsonJsonParser parser;
@@ -229,29 +242,28 @@ longlong Item_func_json_valid::val_int()
  * Input: args - path arguments
  *        arg_count - # of path elements
  *        pval - FBSON value object to extract from
- *        str - string buffer
  * Output: FbsonValue object pointed by key path.
  *         NULL if path is invalid
  */
 static fbson::FbsonValue*
 json_extract_helper(Item **args,
                     uint arg_count,
-                    fbson::FbsonValue *pval, /* in: fbson value object */
-                    String *str) /* out: string buffer */
+                    fbson::FbsonValue *pval) /* in: fbson value object */
 {
+  String buffer;
+  String *pstr;
   for (unsigned i = 1; i < arg_count && pval; ++i)
   {
-    String *pstr;
     if (pval->isObject())
     {
-      if ( (pstr = args[i]->val_str(str)) )
+      if ( (pstr = args[i]->val_str(&buffer)) )
         pval = ((fbson::ObjectVal*)pval)->find(pstr->c_ptr_safe());
       else
         pval = nullptr;
     }
     else if (pval->isArray())
     {
-      if ( (pstr = args[i]->val_str(str)) )
+      if ( (pstr = args[i]->val_str(&buffer)) )
       {
         // array index parameter is 0-based
         char *end = nullptr;
@@ -278,23 +290,35 @@ String *Item_func_json_extract::intern_val_str(String *str, bool json_text)
   null_value = 0;
   String *pstr = nullptr;
 
-  bool doc_type = is_doc_type(args[0], pstr, str);
+  // we try to get FbsonVal if first input arg is FBSON binary
+  // otherwise the input arg string is returned/stored in pstr
+  fbson::FbsonValue *pval = get_fbson_val(args[0], pstr, str);
+
   if (pstr)
   {
-    fbson::FbsonValue *pval = nullptr;
-    if (doc_type)
+    if (pval)
     {
-      pval = get_fbson_val(pstr->ptr(), pstr->length());
-      pval = json_extract_helper(args, arg_count, pval, str);
-      if (ValueToString(pval, *str, collation.collation, json_text))
+      pval = json_extract_helper(args, arg_count, pval);
+      if (pval && current_thd->variables.use_fbson_output_format)
+      {
+        // if we output FBSON, set the returning str to the underlying buffer
+        str->set((char*)pval, pval->numPackedBytes(), collation.collation);
+        return str;
+      }
+      else if (ValueToString(pval,*str,collation.collation, json_text))
         return str;
     }
     else
     {
       fbson::FbsonOutStream os;
       pval = get_fbson_val(pstr->c_ptr_safe(), os);
-      pval = json_extract_helper(args, arg_count, pval, str);
-      if (ValueToString(pval, *str, collation.collation, json_text))
+      pval = json_extract_helper(args, arg_count, pval);
+      if (pval && current_thd->variables.use_fbson_output_format)
+      {
+        str->copy((char*)pval, pval->numPackedBytes(), collation.collation);
+        return str;
+      }
+      else if (ValueToString(pval, *str, collation.collation, json_text))
         return str;
     }
   }
@@ -359,20 +383,21 @@ bool Item_func_json_contains_key::val_bool()
   String buffer;
   String *pstr = nullptr;
 
-  bool doc_type = is_doc_type(args[0], pstr, &buffer);
+  // we try to get FbsonVal if first input arg is FBSON binary
+  // otherwise the input arg string is returned/stored in pstr
+  fbson::FbsonValue *pval = get_fbson_val(args[0], pstr, &buffer);
+
   if (pstr)
   {
-    fbson::FbsonValue *pval = nullptr;
-    if (doc_type)
+    if (pval)
     {
-      pval = get_fbson_val(pstr->ptr(), pstr->length());
-      return json_extract_helper(args, arg_count, pval, &buffer) != nullptr;
+      return json_extract_helper(args, arg_count, pval) != nullptr;
     }
     else
     {
       fbson::FbsonOutStream os;
       pval = get_fbson_val(pstr->c_ptr_safe(), os);
-      return json_extract_helper(args, arg_count, pval, &buffer) != nullptr;
+      return json_extract_helper(args, arg_count, pval) != nullptr;
     }
   }
 
@@ -415,14 +440,14 @@ longlong Item_func_json_array_length::val_int()
   String buffer;
   String *pstr = nullptr;
 
-  bool doc_type = is_doc_type(args[0], pstr, &buffer);
+  // we try to get FbsonVal if first input arg is FBSON binary
+  // otherwise the input arg string is returned/stored in pstr
+  fbson::FbsonValue *pval = get_fbson_val(args[0], pstr, &buffer);
 
   if (pstr)
   {
-    fbson::FbsonValue *pval = nullptr;
-    if (doc_type)
+    if (pval)
     {
-      pval = get_fbson_val(pstr->ptr(), pstr->length());
       return json_array_length_helper(pval, pstr->c_ptr_safe());
     }
     else
