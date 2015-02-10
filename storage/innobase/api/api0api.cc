@@ -234,10 +234,20 @@ dict_table_t*
 ib_open_table_by_id(
 /*================*/
 	ib_id_u64_t	tid,		/*!< in: table id to lookup */
+	ib_trx_t	ib_trx,		/*!< in: Current transaction handle
+					can be NULL */
 	ib_bool_t	locked)		/*!< in: TRUE if own dict mutex */
 {
 	dict_table_t*	table;
 	table_id_t	table_id;
+
+	if (buf_pool_resizing
+	    && (ib_trx == NULL || ib_trx->state == TRX_STATE_NOT_STARTED)) {
+		/* during resizing buffer pool,
+		opening table without transaction is not safe.
+		So, treated as failed. */
+		return(NULL);
+	}
 
 	table_id = tid;
 
@@ -268,6 +278,44 @@ ib_open_table_by_name(
 	const char*	name)		/*!< in: table name to lookup */
 {
 	dict_table_t*	table;
+
+	/* TODO: We don't have trx information here.
+	So, cannot judge safeness for resizing buffer pool.
+	Always fails during resizing buffer pool. */
+	if (buf_pool_resizing) {
+		return(NULL);
+	}
+
+	table = dict_table_open_on_name(name, FALSE, FALSE,
+					DICT_ERR_IGNORE_NONE);
+
+	if (table != NULL && table->ibd_file_missing) {
+		table = NULL;
+	}
+
+	return(table);
+}
+
+/********************************************************************//**
+Open a table using the table name, if found then increment table ref count.
+@return table instance if found */
+static
+void*
+ib_open_table_by_name_trx(
+/*======================*/
+	ib_trx_t	ib_trx,		/*!< in: Current transaction handle
+					can be NULL */
+	const char*	name)		/*!< in: table name to lookup */
+{
+	dict_table_t*	table;
+
+	if (buf_pool_resizing
+	    && (ib_trx == NULL || ib_trx->state == TRX_STATE_NOT_STARTED)) {
+		/* during resizing buffer pool,
+		opening table without transaction is not safe.
+		So, treated as failed. */
+		return(NULL);
+	}
 
 	table = dict_table_open_on_name(name, FALSE, FALSE,
 					DICT_ERR_IGNORE_NONE);
@@ -558,6 +606,9 @@ ib_trx_start(
 	trx->api_auto_commit = auto_commit;
 	trx->read_write = read_write;
 
+	/* indicates primary transaction. */
+	trx->is_primary = true;
+
 	trx_start_if_not_started(trx);
 
 	trx->isolation_level = ib_trx_level;
@@ -657,6 +708,8 @@ ib_trx_commit(
 
 	trx_commit(trx, TRUE);
 
+	trx->is_primary = false;
+
 	return(DB_SUCCESS);
 }
 
@@ -677,6 +730,10 @@ ib_trx_rollback(
 
         /* It should always succeed */
         ut_a(err == DB_SUCCESS);
+
+	trx->is_primary = false;
+
+	ib_wake_master_thread();
 
 	return(err);
 }
@@ -942,9 +999,9 @@ ib_cursor_open_table_using_id(
 	dict_table_t*	table;
 
 	if (ib_trx == NULL || !ib_schema_lock_is_exclusive(ib_trx)) {
-		table = ib_open_table_by_id(table_id, FALSE);
+		table = ib_open_table_by_id(table_id, ib_trx, FALSE);
 	} else {
-		table = ib_open_table_by_id(table_id, TRUE);
+		table = ib_open_table_by_id(table_id, ib_trx, TRUE);
 	}
 
 	if (table == NULL) {
@@ -975,9 +1032,9 @@ ib_cursor_open_index_using_id(
 	ulint		table_id = (ulint)( index_id >> 32);
 
 	if (ib_trx == NULL || !ib_schema_lock_is_exclusive(ib_trx)) {
-		table = ib_open_table_by_id(table_id, FALSE);
+		table = ib_open_table_by_id(table_id, ib_trx, FALSE);
 	} else {
-		table = ib_open_table_by_id(table_id, TRUE);
+		table = ib_open_table_by_id(table_id, ib_trx, TRUE);
 	}
 
 	if (table == NULL) {
@@ -1029,6 +1086,15 @@ ib_cursor_open_index_using_name(
 	*idx_type = 0;
 	*idx_id = 0;
 	*ib_crsr = NULL;
+
+	if (buf_pool_resizing
+	    && (cursor->prebuilt->trx == NULL
+		|| cursor->prebuilt->trx->state == TRX_STATE_NOT_STARTED)) {
+		/* during resizing buffer pool,
+		opening table without transaction is not safe.
+		So, treated as failed. */
+		return(DB_ERROR);
+	}
 
 	/* We want to increment the ref count, so we do a redundant search. */
 	table = dict_table_open_on_id(cursor->prebuilt->table->id,
@@ -1096,14 +1162,15 @@ ib_cursor_open_table(
 
 	if (ib_trx != NULL) {
 	       if (!ib_schema_lock_is_exclusive(ib_trx)) {
-			table = (dict_table_t*)ib_open_table_by_name(
-				normalized_name);
+			table = (dict_table_t*)ib_open_table_by_name_trx(
+				ib_trx, normalized_name);
 		} else {
 			/* NOTE: We do not acquire MySQL metadata lock */
 			table = ib_lookup_table_by_name(normalized_name);
 		}
 	} else {
-		table = (dict_table_t*)ib_open_table_by_name(normalized_name);
+		table = (dict_table_t*)ib_open_table_by_name_trx(
+			ib_trx, normalized_name);
 	}
 
 	mem_free(normalized_name);
@@ -3294,7 +3361,7 @@ ib_table_lock(
 
 	ut_a(trx->state != TRX_STATE_NOT_STARTED);
 
-	table = ib_open_table_by_id(table_id, FALSE);
+	table = ib_open_table_by_id(table_id, ib_trx, FALSE);
 
 	if (table == NULL) {
 		return(DB_TABLE_NOT_FOUND);
