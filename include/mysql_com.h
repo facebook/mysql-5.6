@@ -494,6 +494,7 @@ typedef struct st_net {
   ulong async_multipacket_read_saved_whereb;
   ulong async_multipacket_read_total_len;
   my_bool async_multipacket_read_started;
+  unsigned int receive_buffer_size;
 } NET;
 
 
