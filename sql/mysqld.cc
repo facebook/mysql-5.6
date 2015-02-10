@@ -5625,6 +5625,14 @@ a file name for --log-bin-index option", opt_binlog_index_name);
 
   if (opt_bin_log)
   {
+    if (mysql_bin_log.init_gtid_sets(
+          const_cast<Gtid_set *>(gtid_state->get_logged_gtids()),
+          const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
+          NULL/*last_gtid*/,
+          opt_master_verify_checksum,
+          true/*true=need lock*/))
+      unireg_abort(1);
+
     /*
       Configures what object is used by the current log to store processed
       gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to
@@ -6277,45 +6285,6 @@ int mysqld_main(int argc, char **argv)
       global_sid_lock->unlock();
       if (ret)
         unireg_abort(1);
-
-      if (mysql_bin_log.init_gtid_sets(
-            const_cast<Gtid_set *>(gtid_state->get_logged_gtids()),
-            const_cast<Gtid_set *>(gtid_state->get_lost_gtids()),
-            NULL,
-            opt_master_verify_checksum,
-            true/*true=need lock*/, true))
-        unireg_abort(1);
-
-      /*
-        Write the previous set of gtids at this point because during
-        the creation of the binary log this is not done as we cannot
-        move the init_gtid_sets() to a place before openning the binary
-        log. This requires some investigation.
-
-        /Alfranio
-      */
-      if (gtid_mode > 0)
-      {
-        global_sid_lock->wrlock();
-        const Gtid_set *logged_gtids= gtid_state->get_logged_gtids();
-        if (gtid_mode > 1 || !logged_gtids->is_empty())
-        {
-          Previous_gtids_log_event prev_gtids_ev(logged_gtids);
-          global_sid_lock->unlock();
-
-          prev_gtids_ev.checksum_alg= binlog_checksum_options;
-
-          if (prev_gtids_ev.write(mysql_bin_log.get_log_file()))
-            unireg_abort(1);
-          mysql_bin_log.add_bytes_written(prev_gtids_ev.data_written);
-
-          if (flush_io_cache(mysql_bin_log.get_log_file()) ||
-              mysql_file_sync(mysql_bin_log.get_log_file()->file, MYF(MY_WME)))
-            unireg_abort(1);
-        }
-        else
-          global_sid_lock->unlock();
-      }
     }
   }
 
