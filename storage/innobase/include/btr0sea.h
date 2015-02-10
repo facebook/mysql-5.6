@@ -41,6 +41,15 @@ void
 btr_search_sys_create(
 /*==================*/
 	ulint	hash_size);	/*!< in: hash index hash table size */
+
+/**
+Resize hash index hash table.
+@param	[in]	hash_size	hash index hash table size */
+
+void
+btr_search_sys_resize(
+	ulint	hash_size);
+
 /*****************************************************************//**
 Frees the adaptive search system at a database shutdown. */
 UNIV_INTERN

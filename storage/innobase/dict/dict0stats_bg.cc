@@ -528,8 +528,10 @@ DECLARE_THREAD(dict_stats_thread)(
 	ut_a(!srv_read_only_mode);
 
 	srv_dict_stats_thread_active = TRUE;
+	buf_pool_resizable_stats = false;
 
 	while (!SHUTTING_DOWN()) {
+		buf_pool_resizable_stats = true;
 
 		/* Wake up periodically even if not signaled. This is
 		because we may lose an event - if the below call to
@@ -538,6 +540,11 @@ DECLARE_THREAD(dict_stats_thread)(
 		os_event_reset(). */
 		os_event_wait_time(
 			dict_stats_event, MIN_RECALC_INTERVAL * 1000000);
+
+		if (buf_pool_resizing) {
+			os_event_wait(buf_pool_resized_event);
+		}
+		buf_pool_resizable_stats = false;
 
 		if (SHUTTING_DOWN()) {
 			break;
@@ -551,6 +558,7 @@ DECLARE_THREAD(dict_stats_thread)(
 		os_event_reset(dict_stats_event);
 	}
 
+	buf_pool_resizable_stats = true;
 	srv_dict_stats_thread_active = FALSE;
 
 	/* We count the number of threads in os_thread_exit(). A created

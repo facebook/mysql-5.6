@@ -704,6 +704,12 @@ ibool
 fts_optimize_is_init(void);
 /*======================*/
 
+/**
+Signal the optimize thread. */
+
+void
+fts_optimize_wakeup();
+
 /****************************************************************//**
 Drops index ancillary tables for a FTS index
 @return DB_SUCCESS or error code */

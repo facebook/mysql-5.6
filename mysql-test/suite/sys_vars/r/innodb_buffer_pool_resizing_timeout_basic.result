@@ -1,0 +1,32 @@
+SET @old_val = @@global.innodb_buffer_pool_resizing_timeout;
+SELECT @old_val;
+@old_val
+10
+SET @@global.innodb_buffer_pool_resizing_timeout = 10;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+@@global.innodb_buffer_pool_resizing_timeout
+10
+SET @@global.innodb_buffer_pool_resizing_timeout = 86400;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+@@global.innodb_buffer_pool_resizing_timeout
+86400
+SET @@global.innodb_buffer_pool_resizing_timeout = DEFAULT;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+@@global.innodb_buffer_pool_resizing_timeout
+10
+SET @@global.innodb_buffer_pool_resizing_timeout = 9;
+Warnings:
+Warning	1292	Truncated incorrect innodb_buffer_pool_resizing_time value: '9'
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+@@global.innodb_buffer_pool_resizing_timeout
+10
+SET @@global.innodb_buffer_pool_resizing_timeout = 86401;
+Warnings:
+Warning	1292	Truncated incorrect innodb_buffer_pool_resizing_time value: '86401'
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+@@global.innodb_buffer_pool_resizing_timeout
+86400
+SET @@global.innodb_buffer_pool_resizing_timeout = @old_val;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+@@global.innodb_buffer_pool_resizing_timeout
+10

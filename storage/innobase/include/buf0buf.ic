@@ -1482,6 +1482,8 @@ buf_get_nth_chunk_block(
 {
 	const buf_chunk_t*	chunk;
 
+	ut_ad(!buf_pool_forbidden);
+
 	chunk = buf_pool->chunks + n;
 	*chunk_size = chunk->size;
 	return(chunk->blocks);

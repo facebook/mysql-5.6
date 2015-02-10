@@ -1119,6 +1119,26 @@ trx_start_low(
 	ut_ad(trx_state_eq(trx, TRX_STATE_NOT_STARTED));
 	ut_ad(UT_LIST_GET_LEN(trx->lock.trx_locks) == 0);
 
+	/* If is primary transaction,
+	should wait during buffer pool resizing. */
+	if (trx->is_primary
+	    && trx->buf_pool_reference == 0) {
+		if (buf_pool_resizing) {
+			if (trx->declared_to_be_inside_innodb) {
+				/* Exit not to block the another
+				active transaction's re-enter */
+				srv_conc_force_exit_innodb(trx);
+			}
+
+			DEBUG_SYNC_C("wait_for_buf_pool_resizing");
+
+			os_event_wait(buf_pool_resized_event);
+		}
+
+		/* block resizing buffer pool until set trx->state */
+		os_inc_counter(server_mutex, buf_pool_referenced);
+	}
+
 	/* Check whether it is an AUTOCOMMIT SELECT */
 	trx->auto_commit = (trx->api_trx && trx->api_auto_commit)
 			   || thd_trx_is_auto_commit(trx->mysql_thd);
@@ -1189,6 +1209,14 @@ trx_start_low(
 	ut_ad(trx_sys_validate_trx_list());
 
 	mutex_exit(&trx_sys->mutex);
+
+	if (trx->is_primary
+	    && trx->buf_pool_reference == 0) {
+		/* now trx is active and it blocks resizing buffer pool.
+		this atomic operation should work also as write barrier
+		for trx->state. */
+		os_dec_counter(server_mutex, buf_pool_referenced);
+	}
 
 	trx->start_time = ut_time();
 

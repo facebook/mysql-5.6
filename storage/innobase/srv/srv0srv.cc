@@ -84,6 +84,8 @@ UNIV_INTERN ibool	srv_error_monitor_active = FALSE;
 
 UNIV_INTERN ibool	srv_buf_dump_thread_active = FALSE;
 
+bool	srv_buf_resize_thread_active = false;
+
 UNIV_INTERN ibool	srv_dict_stats_thread_active = FALSE;
 
 UNIV_INTERN const char*	srv_main_thread_op_info = "";
@@ -214,8 +216,10 @@ UNIV_INTERN const byte*	srv_latin1_ordering;
 
 /* use os/external memory allocator */
 UNIV_INTERN my_bool	srv_use_sys_malloc	= TRUE;
-/* requested size in kilobytes */
+/* requested size in bytes */
 UNIV_INTERN ulint	srv_buf_pool_size	= ULINT_MAX;
+/* requested unit size of chunks in bytes */
+ulong	srv_buf_pool_chunk_unit = 0;
 /* force virtual page preallocation (prefault) */
 UNIV_INTERN my_bool	srv_buf_pool_populate	= FALSE;
 /* requested number of buffer pool instances */
@@ -227,7 +231,9 @@ UNIV_INTERN ulong	srv_LRU_scan_depth	= 1024;
 /** whether or not to flush neighbors of a block */
 UNIV_INTERN ulong	srv_flush_neighbors	= 1;
 /* previously requested size */
-UNIV_INTERN ulint	srv_buf_pool_old_size;
+ulint	srv_buf_pool_old_size	= 0;
+/* current size as scaling factor for the other components */
+ulint	srv_buf_pool_base_size	= 0;
 /* current size in kilobytes */
 UNIV_INTERN ulint	srv_buf_pool_curr_size	= 0;
 /* requested size (number) */
@@ -262,6 +268,10 @@ UNIV_INTERN my_bool	srv_random_read_ahead	= FALSE;
 in the buffer cache and accessed sequentially for InnoDB to trigger a
 readahead request. */
 UNIV_INTERN ulong	srv_read_ahead_threshold	= 56;
+
+/** Maximum on-disk size of change buffer in terms of percentage
+of the buffer pool. */
+uint	srv_change_buffer_max_size = CHANGE_BUFFER_DEFAULT_SIZE;
 
 UNIV_INTERN ulong	srv_trx_log_write_block_size	= 4096;
 
@@ -510,6 +520,8 @@ UNIV_INTERN mysql_pfs_key_t	server_mutex_key;
 UNIV_INTERN mysql_pfs_key_t	srv_innodb_monitor_mutex_key;
 /** Key to register srv_monitor_file_mutex with performance schema */
 UNIV_INTERN mysql_pfs_key_t	srv_monitor_file_mutex_key;
+/** Key to register longest_buf_resizing_trx_stall_time_mutex */
+UNIV_INTERN mysql_pfs_key_t	longest_buf_resizing_trx_stall_time_mutex_key;
 /** Key to register srv_dict_tmpfile_mutex with performance schema */
 UNIV_INTERN mysql_pfs_key_t	srv_dict_tmpfile_mutex_key;
 /** Key to register the mutex with performance schema */
@@ -730,6 +742,9 @@ UNIV_INTERN os_event_t	srv_error_event;
 
 /** Event to signal the buffer pool dump/load thread */
 UNIV_INTERN os_event_t	srv_buf_dump_event;
+
+/** Event to signal the buffer pool resize thread */
+os_event_t	srv_buf_resize_event;
 
 /** The buffer pool dump/load file name */
 UNIV_INTERN char*	srv_buf_dump_filename;
@@ -1111,6 +1126,8 @@ srv_init(void)
 		UT_LIST_INIT(srv_sys->tasks);
 	}
 
+	srv_buf_resize_event = os_event_create();
+
 	/* page_zip_stat_per_index_mutex is acquired from:
 	1. page_zip_compress() (after SYNC_FSP)
 	2. page_zip_decompress()
@@ -1157,6 +1174,9 @@ srv_free(void)
 		os_event_free(srv_buf_dump_event);
 		srv_buf_dump_event = NULL;
 	}
+
+	os_event_free(srv_buf_resize_event);
+	srv_buf_resize_event = NULL;
 }
 
 /*********************************************************************//**
@@ -2574,7 +2594,11 @@ srv_any_background_threads_are_active(void)
 	const char*	thread_active = NULL;
 
 	if (srv_read_only_mode) {
-		return(NULL);
+		if (srv_buf_resize_thread_active) {
+			thread_active = "buf_resize_thread";
+		}
+		os_event_set(srv_buf_resize_event);
+		return(thread_active);
 	} else if (srv_error_monitor_active) {
 		thread_active = "srv_error_monitor_thread";
 	} else if (lock_sys->timeout_thread_active) {
@@ -2590,6 +2614,7 @@ srv_any_background_threads_are_active(void)
 	os_event_set(srv_error_event);
 	os_event_set(srv_monitor_event);
 	os_event_set(srv_buf_dump_event);
+	os_event_set(srv_buf_resize_event);
 	os_event_set(lock_sys->timeout_event);
 	os_event_set(dict_stats_event);
 
@@ -3061,6 +3086,8 @@ DECLARE_THREAD(srv_master_thread)(
 
 	ut_ad(!srv_read_only_mode);
 
+	buf_pool_resizable_master = false;
+
 #ifdef UNIV_DEBUG_THREAD_CREATION
 	fprintf(stderr, "Master thread starts, id %lu\n",
 		os_thread_pf(os_thread_get_curr_id()));
@@ -3088,7 +3115,13 @@ loop:
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 
+		buf_pool_resizable_master = true;
 		srv_master_sleep();
+
+		if (buf_pool_resizing_bg) {
+			os_event_wait(buf_pool_resized_event);
+		}
+		buf_pool_resizable_master = false;
 
 		MONITOR_INC(MONITOR_MASTER_THREAD_SLEEP);
 
@@ -3124,6 +3157,8 @@ suspend_thread:
 	}
 
 	goto loop;
+
+	buf_pool_resizable_master = true;
 
 	OS_THREAD_DUMMY_RETURN;	/* Not reached, avoid compiler warning */
 }
@@ -3478,6 +3513,8 @@ DECLARE_THREAD(srv_purge_coordinator_thread)(
 	ut_a(trx_purge_state() == PURGE_STATE_INIT);
 	ut_a(srv_force_recovery < SRV_FORCE_NO_BACKGROUND);
 
+	buf_pool_resizable_purge = false;
+
 	rw_lock_x_lock(&purge_sys->latch);
 
 	purge_sys->running = true;
@@ -3500,6 +3537,8 @@ DECLARE_THREAD(srv_purge_coordinator_thread)(
 	ulint	rseg_history_len = trx_sys->rseg_history_len;
 
 	do {
+		buf_pool_resizable_purge = true;
+
 		/* If there are no records to purge or the last
 		purge didn't purge any records then wait for activity. */
 
@@ -3509,6 +3548,12 @@ DECLARE_THREAD(srv_purge_coordinator_thread)(
 
 			srv_purge_coordinator_suspend(slot, rseg_history_len);
 		}
+
+		if (buf_pool_resizing) {
+			os_event_wait(buf_pool_resized_event);
+		}
+
+		buf_pool_resizable_purge = false;
 
 		if (srv_purge_should_exit(n_total_purged)) {
 			ut_a(!slot->suspended);
@@ -3565,6 +3610,8 @@ DECLARE_THREAD(srv_purge_coordinator_thread)(
 	if (srv_n_purge_threads > 1) {
 		srv_release_threads(SRV_WORKER, srv_n_purge_threads - 1);
 	}
+
+	buf_pool_resizable_purge = true;
 
 	/* We count the number of threads in os_thread_exit(). A created
 	thread should always use that to exit and not use return() to exit. */
