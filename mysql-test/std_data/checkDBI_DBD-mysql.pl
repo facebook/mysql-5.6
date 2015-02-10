@@ -28,7 +28,7 @@
 # NOTE: The "shebang" on the first line of this script should always point to
 #       /usr/bin/perl, so that we can use this script to check whether or not we
 #       support running perl scripts with such a shebang without specifying the
-#       perl interpreter on the command line. Such a script is mysqlhotcopy.
+#       perl interpreter on the command line.
 #
 #       When run as "checkDBI_DBD-mysql.pl" the shebang line will be evaluated
 #       and used. When run as "perl checkDBI_DBD-mysql.pl" the shebang line is
