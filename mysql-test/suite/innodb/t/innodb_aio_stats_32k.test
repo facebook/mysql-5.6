@@ -1,0 +1,13 @@
+--source include/have_innodb.inc
+--source include/have_innodb_32k.inc
+--source include/have_native_aio.inc
+
+let $page_size = 32768;
+let $expected_min_io_write_requests = 400;
+let $expected_aio_calls = 575;
+let $expected_read_requests_lo = 637;
+let $expected_read_requests_hi = 638;
+let $expected_page_reads_lo = 637;
+let $expected_page_reads_hi = 638;
+let $expected_page_reads_index = 609;
+--source innodb_aio_stats.inc
