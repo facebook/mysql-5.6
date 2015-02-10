@@ -460,6 +460,10 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   }
 #endif
 
+#ifndef HAVE_YASSL
+  SSL_set_options(ssl, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+#endif
+
   /*
     Since yaSSL does not support non-blocking send operations, use
     special transport functions that properly handles non-blocking
@@ -476,6 +480,9 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 
   if ((r= ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)) < 1)
   {
+#ifndef DBUG_OFF  /* Debug build */
+    report_errors(ssl);
+#endif
     DBUG_PRINT("error", ("SSL_connect/accept failure"));
     SSL_free(ssl);
     DBUG_RETURN(1);
