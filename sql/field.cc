@@ -8348,13 +8348,21 @@ Field_document::sql_type(String &res) const
 void
 Field_document::push_warning(const char *from)
 {
-  memset(ptr, 0, Field_blob::pack_length());
   push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
                       ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
                       ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
                       from, field_name,
                       (ulong) table->in_use->get_stmt_da()->
                       current_row_for_warning());
+}
+
+
+void
+Field_document::push_error(const char *from)
+{
+  char buffer[256];
+  sprintf(buffer, "Invalid document value: %.128s", from);
+  my_message(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD, buffer, MYF(0));
 }
 
 
@@ -8369,11 +8377,19 @@ Field_document::store(const char *from, uint length, const CHARSET_INFO *cs)
 type_conversion_status
 Field_document::store(double nr)
 {
-  set_null();
-
   char buf[128];
   sprintf(buf, "%.32f", nr);
-  push_warning(buf);
+
+  if (real_maybe_null())
+  {
+    set_null();
+    memset(ptr, 0, Field_blob::pack_length());
+    push_warning(buf);
+  }
+  else
+  {
+    push_error(buf);
+  }
   return TYPE_ERR_BAD_VALUE;
 }
 
@@ -8381,13 +8397,21 @@ Field_document::store(double nr)
 type_conversion_status
 Field_document::store(longlong nr, bool unsigned_val)
 {
-  set_null();
-
   char buf[128], format[16];
   unsigned_val ? sprintf(format, "%s", "%llu")
                : sprintf(format, "%s", "%lld");
   sprintf(buf, format, nr);
-  push_warning(buf);
+
+  if (real_maybe_null())
+  {
+    set_null();
+    memset(ptr, 0, Field_blob::pack_length());
+    push_warning(buf);
+  }
+  else
+  {
+    push_error(buf);
+  }
   return TYPE_ERR_BAD_VALUE;
 }
 
@@ -8395,12 +8419,20 @@ Field_document::store(longlong nr, bool unsigned_val)
 type_conversion_status
 Field_document::store_decimal(const my_decimal *nr)
 {
-  set_null();
-
   char buf[DECIMAL_MAX_STR_LENGTH];
   String str(buf, sizeof (buf), &my_charset_bin);
   my_decimal2string(E_DEC_FATAL_ERROR, nr, 0, 0, 0, &str);
-  push_warning(str.c_ptr_safe());
+
+  if (real_maybe_null())
+  {
+    set_null();
+    memset(ptr, 0, Field_blob::pack_length());
+    push_warning(str.c_ptr_safe());
+  }
+  else
+  {
+    push_error(str.c_ptr_safe());
+  }
   return TYPE_ERR_BAD_VALUE;
 }
 
@@ -8411,7 +8443,8 @@ Field_document::store_internal(const char *from, uint length,
 {
   if (!from || !length)
   {
-    set_null();
+    if (real_maybe_null())
+      set_null();
     push_warning("");
     return TYPE_ERR_BAD_VALUE;
   }
@@ -8424,8 +8457,23 @@ Field_document::store_internal(const char *from, uint length,
   }
   else
   {
-    set_null();
-    push_warning(from);
+    /*
+       When a document value to be inserted is not valid, if the field cannot
+       be NULL then the whole insertion will fail and errors will be returned,
+       if the field can be NULL then the insertion will succeed but the field
+       will be NULL and warnings will be returned.
+       Updates will fail anyway if the document value is not valid.
+    */
+    if (real_maybe_null())
+    {
+      set_null();
+      memset(ptr, 0, Field_blob::pack_length());
+      push_warning(from);
+    }
+    else
+    {
+      push_error(from);
+    }
     return TYPE_ERR_BAD_VALUE;
   }
 }
