@@ -9026,7 +9026,7 @@ fill_record(THD * thd, List<Item> &fields, List<Item> &values,
     table->auto_increment_field_not_null= FALSE;
     f.rewind();
   }
-  while ((fld= f++))
+  while ((fld= f++) && ! thd->is_error())
   {
     if (!(field= fld->field_for_view_update()))
     {
