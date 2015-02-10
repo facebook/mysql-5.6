@@ -82,6 +82,7 @@
 #include "sql_acl.h"                       // SUPER_ACL
 #include <hash.h>
 #include <assert.h>
+#include "sql_readonly.h"                  // check_ro
 
 /**
   @defgroup Locking Locking
@@ -116,7 +117,6 @@ static int
 lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
 {
   uint system_count= 0, i= 0;
-  bool enforce_ro = true;
   /*
     Identifies if the executed sql command can updated either a log
     or rpl info table.
@@ -125,8 +125,6 @@ lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
 
   DBUG_ENTER("lock_tables_check");
 
-  if (!opt_super_readonly)
-    enforce_ro = !(thd->security_ctx->master_access & SUPER_ACL);
   log_table_write_query=
      is_log_table_write_query(thd->lex->sql_command);
 
@@ -197,10 +195,10 @@ lock_tables_check(THD *thd, TABLE **tables, uint count, uint flags)
     */
     if (!(flags & MYSQL_LOCK_IGNORE_GLOBAL_READ_ONLY) && !t->s->tmp_table)
     {
-      if (t->reginfo.lock_type >= TL_WRITE_ALLOW_WRITE &&
-          enforce_ro && opt_readonly && !thd->slave_thread)
+      if (t->reginfo.lock_type >= TL_WRITE_ALLOW_WRITE && check_ro(thd))
       {
-        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0), "--read-only");
+        my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
+                 opt_super_readonly ? "--read-only (super)" : "--read-only");
         DBUG_RETURN(1);
       }
     }
