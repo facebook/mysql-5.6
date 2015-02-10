@@ -946,6 +946,7 @@ typedef struct NET {
   unsigned long async_multipacket_read_saved_whereb;
   unsigned long async_multipacket_read_total_len;
   bool async_multipacket_read_started;
+  unsigned int receive_buffer_size;
 } NET;
 
 #define packet_error (~(unsigned long)0)

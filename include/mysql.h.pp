@@ -168,6 +168,7 @@ typedef struct NET {
   unsigned long async_multipacket_read_saved_whereb;
   unsigned long async_multipacket_read_total_len;
   bool async_multipacket_read_started;
+  unsigned int receive_buffer_size;
 } NET;
 enum mysql_enum_shutdown_level {
   SHUTDOWN_DEFAULT = 0,
@@ -463,7 +464,8 @@ enum mysql_option {
   MYSQL_OPT_OPTIONAL_RESULTSET_METADATA,
   MYSQL_OPT_SSL_FIPS_MODE,
   MYSQL_OPT_SSL_SESSION,
-  MYSQL_OPT_SSL_CONTEXT
+  MYSQL_OPT_SSL_CONTEXT,
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {
