@@ -24,7 +24,9 @@ include/rpl_stop_server.inc [server_number=1]
 include/start_slave.inc
 include/rpl_stop_server.inc [server_number=2]
 # relocate  binlogs
+include/relocate_binlogs.inc
 # relocate  relay logs
+include/relocate_binlogs.inc
 # Restart slave with options log-bin, relay-log set to the new paths
 # Slave server has restarted successfully
 include/start_slave.inc
@@ -41,6 +43,8 @@ include/diff_tables.inc [master:t1,slave:t1]
 DROP TABLE t1;
 include/stop_slave.inc
 include/rpl_stop_server.inc [server_number=2]
+include/relocate_binlogs.inc
+include/relocate_binlogs.inc
 # remove tmpdir
 # restarted with previous slave settings
 include/start_slave.inc

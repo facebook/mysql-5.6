@@ -81,6 +81,14 @@
 #define FN_EXTLEN 20      /* Max length of extension (part of FN_LEN) */
 #define FN_REFLEN 512     /* Max length of full path-name */
 #define FN_REFLEN_SE 4000 /* Max length of full path-name in SE */
+/*
+  Max length of full path-name followed by length of previous_gtid_set in
+  a binlog file separated by the delimiter ' '.
+
+  Gtid set length is stored as long int which takes 10 characters in decimal.
+  An extra character is used for '\0'.
+*/
+#define FILE_AND_GTID_SET_LENGTH (FN_REFLEN + 12)
 #define FN_EXTCHAR '.'
 #define FN_HOMELIB '~'    /* ~/ is used as abbrev for home dir */
 #define FN_CURLIB '.'     /* ./ is used as abbrev for current dir */

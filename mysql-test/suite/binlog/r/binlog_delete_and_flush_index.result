@@ -1,7 +1,8 @@
 RESET MASTER;
 CREATE TABLE t1 (a int);
+include/rpl_gen_binlog_index_file.inc
 ### assertion: index file contains regular entries
-SET @index=LOAD_FILE('MYSQLTEST_VARDIR/mysqld.1/data//binlog.index');
+SET @index=LOAD_FILE('MYSQLTEST_VARDIR/tmp/binlog_index.txt');
 SELECT @index;
 @index
 binlog.000001
@@ -16,7 +17,8 @@ Log_name	Pos	Event_type	Server_id	End_log_pos	Info
 binlog.000001	#	Query	#	#	use `test`; CREATE TABLE t1 (a int)
 FLUSH LOGS;
 ### assertion: index file contains renamed binlog and the new one
-SET @index=LOAD_FILE('MYSQLTEST_VARDIR/mysqld.1/data//binlog.index');
+include/rpl_gen_binlog_index_file.inc
+SET @index=LOAD_FILE('MYSQLTEST_VARDIR/tmp/binlog_index.txt');
 SELECT @index;
 @index
 binlog-b34582.000001
@@ -42,7 +44,8 @@ binlog.000002	#	#
 ### assertion: assert that binlog files were indeed purged (using file_exists calls)
 ### assertion: assert that not purged binlog file exists
 ### assertion: show index file contents and these should match show binary logs issued above
-SET @index=LOAD_FILE('MYSQLTEST_VARDIR/mysqld.1/data//binlog.index');
+include/rpl_gen_binlog_index_file.inc
+SET @index=LOAD_FILE('MYSQLTEST_VARDIR/tmp/binlog_index.txt');
 SELECT @index;
 @index
 binlog.000002
