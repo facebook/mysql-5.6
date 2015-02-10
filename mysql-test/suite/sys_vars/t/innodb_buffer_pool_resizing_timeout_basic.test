@@ -1,0 +1,24 @@
+--source include/load_sysvars.inc
+
+SET @old_val = @@global.innodb_buffer_pool_resizing_timeout;
+SELECT @old_val;
+
+SET @@global.innodb_buffer_pool_resizing_timeout = 10;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+
+SET @@global.innodb_buffer_pool_resizing_timeout = 86400;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+
+SET @@global.innodb_buffer_pool_resizing_timeout = DEFAULT;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+
+#--warning 1292
+SET @@global.innodb_buffer_pool_resizing_timeout = 9;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+
+#--warning 1292
+SET @@global.innodb_buffer_pool_resizing_timeout = 86401;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;
+
+SET @@global.innodb_buffer_pool_resizing_timeout = @old_val;
+SELECT @@global.innodb_buffer_pool_resizing_timeout;

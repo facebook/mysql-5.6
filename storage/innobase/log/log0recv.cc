@@ -443,7 +443,6 @@ recv_sys_init(
 
 /********************************************************//**
 Empties the hash table when it has been fully processed. */
-static
 void
 recv_sys_empty_hash(void)
 /*=====================*/
@@ -471,7 +470,6 @@ recv_sys_empty_hash(void)
 # ifndef UNIV_LOG_DEBUG
 /********************************************************//**
 Frees the recovery system. */
-static
 void
 recv_sys_debug_free(void)
 /*=====================*/

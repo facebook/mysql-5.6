@@ -17,6 +17,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 *****************************************************************************/
 
 #include "ut0wqueue.h"
+#include "buf0buf.h"
 
 /*******************************************************************//**
 @file ut/ut0wqueue.cc
@@ -77,6 +78,17 @@ ib_wqueue_add(
 	os_event_set(wq->event);
 
 	mutex_exit(&wq->mutex);
+}
+
+/**
+Signal the queue.
+@param	[in]	work queue */
+
+void
+ib_wqueue_signal(
+	ib_wqueue_t*	wq)
+{
+	os_event_set(wq->event);
 }
 
 /****************************************************************//**
@@ -141,6 +153,12 @@ ib_wqueue_timedwait(
 		if (node) {
 			ib_list_remove(wq->items, node);
 
+			mutex_exit(&wq->mutex);
+			break;
+		}
+
+		if (buf_pool_resizing && buf_pool_referenced == 0) {
+			/* same behavior to timeout case */
 			mutex_exit(&wq->mutex);
 			break;
 		}

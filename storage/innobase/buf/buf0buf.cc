@@ -48,11 +48,13 @@ Created 11/5/1995 Heikki Tuuri
 #include "log0log.h"
 #endif /* !UNIV_HOTBACKUP */
 #include "srv0srv.h"
+#include "srv0start.h"
 #include "dict0dict.h"
 #include "log0recv.h"
 #include "page0zip.h"
 #include "srv0mon.h"
 #include "buf0checksum.h"
+#include "buf0dump.h"
 
 #include <new>
 
@@ -252,6 +254,31 @@ static const ulint BUF_PAGE_READ_MAX_RETRIES = 100;
 
 /** The buffer pools of the database */
 UNIV_INTERN buf_pool_t*	buf_pool_ptr;
+
+/** true when resizing buffer pool size and needed to pause all other
+threads. */
+bool		buf_pool_resizing = false;
+bool		buf_pool_resizing_bg = false;
+#ifdef UNIV_DEBUG
+bool		buf_pool_forbidden;
+#endif /* UNIV_DEBUG */
+
+/** Event to pause threads */
+os_event_t	buf_pool_resized_event;
+
+/** Indicates by background threads to be ready for resize. */
+volatile bool	buf_pool_resizable_master = true;
+volatile bool	buf_pool_resizable_purge = true;
+volatile bool	buf_pool_resizable_page_cleaner = true;
+volatile bool	buf_pool_resizable_dump = true;
+volatile bool	buf_pool_resizable_stats = true;
+volatile bool	buf_pool_resizable_fts_optimize = true;
+volatile bool	buf_pool_resizable_recover = true;
+volatile bool	buf_pool_resizable_btr_defragment = true;
+volatile ulint	buf_pool_referenced = 0;
+
+extern long long innobase_buffer_pool_size;
+extern ulong innobase_buffer_pool_resizing_timeout;
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
 static ulint	buf_dbg_counter	= 0; /*!< This is used to insert validation
@@ -503,6 +530,8 @@ buf_block_alloc(
 	static ulint	buf_pool_index;
 
 	if (buf_pool == NULL) {
+		/* should not be called when resizing buffer pool */
+		ut_ad(!buf_pool_forbidden);
 		/* We are allocating memory from any buffer pool, ensure
 		we spread the grace on all buffer pool instances. */
 		index = buf_pool_index++ % srv_buf_pool_instances;
@@ -1084,6 +1113,7 @@ buf_block_init(
 	block->page.in_free_list = FALSE;
 	block->page.in_LRU_list = FALSE;
 	block->in_unzip_LRU_list = FALSE;
+	block->in_withdraw_list = FALSE;
 #endif /* UNIV_DEBUG */
 #if defined UNIV_AHI_DEBUG || defined UNIV_DEBUG
 	block->n_pointers = 0;
@@ -1140,6 +1170,8 @@ buf_chunk_init(
 	/* Reserve space for the block descriptors. */
 	mem_size += ut_2pow_round((mem_size / UNIV_PAGE_SIZE) * (sizeof *block)
 				  + (UNIV_PAGE_SIZE - 1), UNIV_PAGE_SIZE);
+
+        DBUG_EXECUTE_IF("ib_buf_chunk_init_fails", return(NULL););
 
 	chunk->mem_size = mem_size;
 	chunk->mem = os_mem_alloc_large(&chunk->mem_size, populate);
@@ -1327,6 +1359,7 @@ buf_pool_set_sizes(void)
 
 	srv_buf_pool_curr_size = curr_size;
 	srv_buf_pool_old_size = srv_buf_pool_size;
+	srv_buf_pool_base_size = srv_buf_pool_size;
 
 	buf_pool_mutex_exit_all();
 }
@@ -1344,7 +1377,11 @@ buf_pool_init_instance(
 	ulint		instance_no)	/*!< in: id of the instance */
 {
 	ulint		i;
+	ulint		chunk_size;
 	buf_chunk_t*	chunk;
+
+	ut_ad(srv_buf_pool_chunk_unit == 0
+	      || buf_pool_size % srv_buf_pool_chunk_unit == 0);
 
 	/* 1. Initialize general fields
 	------------------------------- */
@@ -1356,27 +1393,69 @@ buf_pool_init_instance(
 	buf_pool_mutex_enter(buf_pool);
 
 	if (buf_pool_size > 0) {
-		buf_pool->n_chunks = 1;
+		if (srv_buf_pool_chunk_unit > 0) {
+			buf_pool->n_chunks
+				= buf_pool_size / srv_buf_pool_chunk_unit;
+			chunk_size = srv_buf_pool_chunk_unit;
+		} else {
+			buf_pool->n_chunks = 1;
+			chunk_size = buf_pool_size;
+		}
 
-		buf_pool->chunks = chunk =
-			(buf_chunk_t*) mem_zalloc(sizeof *chunk);
+		buf_pool->chunks =
+			(buf_chunk_t*) mem_zalloc(
+				buf_pool->n_chunks * sizeof(*chunk));
 
+		UT_LIST_INIT(buf_pool->LRU);
 		UT_LIST_INIT(buf_pool->free);
 		UT_LIST_INIT(buf_pool->buf_malloc_cache);
+		UT_LIST_INIT(buf_pool->withdraw);
+		buf_pool->withdraw_target = 0;
+		UT_LIST_INIT(buf_pool->flush_list);
+		UT_LIST_INIT(buf_pool->unzip_LRU);
 
-		if (!buf_chunk_init(buf_pool, chunk, buf_pool_size, populate)) {
-			mem_free(chunk);
-			mem_free(buf_pool);
+#if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
+		UT_LIST_INIT(buf_pool->zip_clean);
+#endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
-			buf_pool_mutex_exit(buf_pool);
-
-			return(DB_ERROR);
+		for (i = 0; i < UT_ARR_SIZE(buf_pool->zip_free); ++i) {
+			UT_LIST_INIT(
+				buf_pool->zip_free[i]);
 		}
+
+		buf_pool->curr_size = 0;
+		chunk = buf_pool->chunks;
+
+		do {
+			if (!buf_chunk_init(buf_pool, chunk, chunk_size, populate)) {
+				while (--chunk >= buf_pool->chunks) {
+					buf_block_t*	block = chunk->blocks;
+
+					for (i = chunk->size; i--; block++) {
+						mutex_free(&block->mutex);
+						rw_lock_free(&block->lock);
+#ifdef UNIV_SYNC_DEBUG
+						rw_lock_free(&block->debug_latch);
+#endif /* UNIV_SYNC_DEBUG */
+					}
+
+					os_mem_free_large(chunk->mem, chunk->mem_size);
+				}
+				mem_free(buf_pool->chunks);
+				buf_pool_mutex_exit(buf_pool);
+
+				return(DB_ERROR);
+			}
+
+			buf_pool->curr_size += chunk->size;
+		} while (++chunk < buf_pool->chunks + buf_pool->n_chunks);
 
 		buf_pool->instance_no = instance_no;
 		buf_pool->old_pool_size = buf_pool_size;
-		buf_pool->curr_size = chunk->size;
 		buf_pool->curr_pool_size = buf_pool->curr_size * UNIV_PAGE_SIZE;
+
+		buf_pool->old_size = buf_pool->curr_size;
+		buf_pool->n_chunks_new = buf_pool->n_chunks;
 
 		/* Number of locks protecting page_hash must be a
 		power of two */
@@ -1518,6 +1597,14 @@ buf_pool_init(
 	ut_ad(n_instances <= MAX_BUFFER_POOLS);
 	ut_ad(n_instances == srv_buf_pool_instances);
 
+	buf_pool_resizing = false;
+	buf_pool_resizing_bg = false;
+	buf_pool_resized_event = os_event_create();
+
+	os_event_set(buf_pool_resized_event);
+
+	ut_d(buf_pool_forbidden = false);
+
 	buf_pool_ptr = (buf_pool_t*) mem_zalloc(
 		n_instances * sizeof *buf_pool_ptr);
 
@@ -1562,6 +1649,1419 @@ buf_pool_free(
 	buf_pool_ptr = NULL;
 }
 
+UNIV_INTERN
+void
+buf_pool_free_resized_event()
+{
+	os_event_free(buf_pool_resized_event);
+}
+
+/**
+Show intention to access buffer pool pages without transaction.
+@param	[in]	trx	transaction */
+
+void
+buf_pool_reference_start(
+	trx_t*	trx)
+{
+	bool	is_first = (trx == NULL || trx->buf_pool_reference == 0);
+
+	if (is_first
+	    && (trx == NULL || trx->state == TRX_STATE_NOT_STARTED)
+	    && buf_pool_resizing) {
+		if (trx != NULL && trx->declared_to_be_inside_innodb) {
+			/* Exit not to block the another
+			active transaction's re-enter */
+			srv_conc_force_exit_innodb(trx);
+		}
+		DEBUG_SYNC_C("wait_for_buf_pool_resizing");
+		os_event_wait(buf_pool_resized_event);
+	}
+
+	if (is_first) {
+		os_inc_counter(server_mutex, buf_pool_referenced);
+	}
+
+	if (trx != NULL) {
+		++trx->buf_pool_reference;
+	}
+}
+
+/**
+Drop intention to access buffer pool pages without transaction.
+@param	[in]	trx	transaction */
+
+void
+buf_pool_reference_end(
+	trx_t*	trx)
+{
+	ut_ad(buf_pool_referenced > 0);
+
+	if (trx != NULL) {
+		ut_ad(trx->buf_pool_reference > 0);
+
+		--trx->buf_pool_reference;
+	}
+
+	if (trx == NULL || trx->buf_pool_reference == 0) {
+		os_dec_counter(server_mutex, buf_pool_referenced);
+	}
+}
+
+/**
+Reallocate a control block.
+@param	[in]	buf_pool	buffer pool instance
+@param	[in]	block		pointer to control block
+@retval		false if failed because of no free blocks. */
+static
+bool
+buf_page_realloc(
+	buf_pool_t*	buf_pool,
+	buf_block_t*	block)
+{
+	buf_block_t*	new_block;
+
+	ut_ad(buf_pool_mutex_own(buf_pool));
+	ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
+
+	new_block = buf_LRU_get_free_only(buf_pool);
+
+	if (new_block == NULL) {
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Buffer page %p cannot reallocate in buf_page_realloc()"
+			" due to no available free page in free list.",
+			&block->page);
+		return(false); /* free_list was not enough */
+	}
+
+	rw_lock_t*	hash_lock = buf_page_hash_lock_get(buf_pool,
+		buf_page_address_fold(block->page.space, block->page.offset));
+
+	rw_lock_x_lock(hash_lock);
+	mutex_enter(&block->mutex);
+
+	if (buf_page_can_relocate(&block->page)) {
+
+		mutex_enter(&new_block->mutex);
+
+		memcpy(new_block->frame, block->frame, UNIV_PAGE_SIZE);
+		memcpy(&new_block->page, &block->page, sizeof block->page);
+
+		/* relocate LRU list */
+		ut_ad(block->page.in_LRU_list);
+		ut_ad(!block->page.in_zip_hash);
+		ut_d(block->page.in_LRU_list = FALSE);
+
+		buf_LRU_adjust_hp(buf_pool, &block->page);
+
+		buf_page_t*	prev_b = UT_LIST_GET_PREV(LRU, &block->page);
+		UT_LIST_REMOVE(LRU, buf_pool->LRU, &block->page);
+
+		if (prev_b != NULL) {
+			UT_LIST_INSERT_AFTER(LRU, buf_pool->LRU, prev_b, &new_block->page);
+		} else {
+			UT_LIST_ADD_FIRST(LRU, buf_pool->LRU, &new_block->page);
+		}
+
+		if (buf_pool->LRU_old == &block->page) {
+			buf_pool->LRU_old = &new_block->page;
+		}
+
+		ut_ad(new_block->page.in_LRU_list);
+
+		/* relocate unzip_LRU list */
+		if (block->page.zip.data != NULL) {
+			ut_ad(block->in_unzip_LRU_list);
+			ut_d(new_block->in_unzip_LRU_list = TRUE);
+			UNIV_MEM_DESC(&new_block->page.zip.data,
+				      page_zip_get_size(&new_block->page.zip));
+
+			buf_block_t*	prev_block = UT_LIST_GET_PREV(unzip_LRU, block);
+			UT_LIST_REMOVE(unzip_LRU, buf_pool->unzip_LRU, block);
+
+			ut_d(block->in_unzip_LRU_list = FALSE);
+			block->page.zip.data = NULL;
+			page_zip_set_size(&block->page.zip, 0);
+
+			if (prev_block != NULL) {
+				UT_LIST_INSERT_AFTER(unzip_LRU, buf_pool->unzip_LRU, prev_block, new_block);
+			} else {
+				UT_LIST_ADD_FIRST(unzip_LRU, buf_pool->unzip_LRU, new_block);
+			}
+		} else {
+			ut_ad(!block->in_unzip_LRU_list);
+			ut_d(new_block->in_unzip_LRU_list = FALSE);
+		}
+
+		/* relocate buf_pool->page_hash */
+		ut_ad(block->page.in_page_hash);
+		ut_ad(&block->page == buf_page_hash_get_low(buf_pool,
+					block->page.space, block->page.offset,
+					buf_page_address_fold(block->page.space, block->page.offset)));
+		ut_d(block->page.in_page_hash = FALSE);
+		ulint	fold = buf_page_address_fold(block->page.space, block->page.offset);
+		ut_ad(fold == buf_page_address_fold(new_block->page.space, new_block->page.offset));
+		HASH_DELETE(buf_page_t, hash, buf_pool->page_hash, fold, (&block->page));
+		HASH_INSERT(buf_page_t, hash, buf_pool->page_hash, fold, (&new_block->page));
+
+		ut_ad(new_block->page.in_page_hash);
+
+		buf_block_modify_clock_inc(block);
+		memset(block->frame + FIL_PAGE_OFFSET, 0xff, 4);
+		memset(block->frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID, 0xff, 4);
+		UNIV_MEM_INVALID(block->frame, UNIV_PAGE_SIZE);
+		buf_block_set_state(block, BUF_BLOCK_REMOVE_HASH);
+
+		/* Relocate buf_pool->flush_list. */
+		if (block->page.oldest_modification) {
+			buf_flush_relocate_on_flush_list(
+				&block->page, &new_block->page);
+		}
+
+		/* set other flags of buf_block_t */
+		new_block->check_index_page_at_flush
+			= block->check_index_page_at_flush;
+
+		ut_ad(!block->index);
+		new_block->index	= NULL;
+		new_block->n_hash_helps	= 0;
+		new_block->n_fields	= 1;
+		new_block->left_side	= TRUE;
+
+		new_block->lock_hash_val = block->lock_hash_val;
+		ut_ad(new_block->lock_hash_val == lock_rec_hash(
+			new_block->page.space,
+			new_block->page.offset));
+
+		rw_lock_x_unlock(hash_lock);
+		mutex_exit(&new_block->mutex);
+
+		/* free block */
+		buf_block_set_state(block, BUF_BLOCK_MEMORY);
+		buf_LRU_block_free_non_file_page(block);
+
+		mutex_exit(&block->mutex);
+	} else {
+		rw_lock_x_unlock(hash_lock);
+		mutex_exit(&block->mutex);
+
+		/* free new_block */
+		mutex_enter(&new_block->mutex);
+		buf_LRU_block_free_non_file_page(new_block);
+		mutex_exit(&new_block->mutex);
+	}
+
+	return(true); /* free_list was enough */
+}
+
+/**
+Sets the global variable that feeds MySQL's innodb_buffer_pool_resize_status
+to the specified string. The format and the following parameters are the
+same as the ones used for printf(3).
+@param	[in]	fmt	format
+@param	[in]	...	extra parameters according to fmt */
+static
+void
+buf_resize_status(
+	const char*	fmt,
+	...)
+{
+	va_list	ap;
+
+	va_start(ap, fmt);
+
+	ut_vsnprintf(
+		export_vars.innodb_buffer_pool_resize_status,
+		sizeof(export_vars.innodb_buffer_pool_resize_status),
+		fmt, ap);
+
+	va_end(ap);
+}
+
+/**
+Determines if a block is intended to be withdrawn.
+@param	[in]	buf_pool	buffer pool instance
+@param	[in]	block		pointer to control block
+@retval		true if will be withdrawn */
+
+bool
+buf_block_will_withdrawn(
+	buf_pool_t*		buf_pool,
+	const buf_block_t*	block)
+{
+	ut_ad(buf_pool->curr_size < buf_pool->old_size);
+	ut_ad(srv_buf_pool_chunk_unit > 0);
+
+	const buf_chunk_t*	chunk = buf_pool->chunks
+					+ buf_pool->n_chunks_new;
+	const buf_chunk_t*	echunk = buf_pool->chunks
+						 + buf_pool->n_chunks;
+
+	while (chunk < echunk) {
+		if (block >= chunk->blocks
+		    && block < chunk->blocks + chunk->size) {
+			return(true);
+		}
+		++chunk;
+	}
+	return(false);
+}
+
+/**
+Determines if a frame is intended to be withdrawn.
+@param	[in]	buf_pool	buffer pool instance
+@param	[in]	ptr		pointer to a frame
+@retval		true if will be withdrawn */
+
+bool
+buf_frame_will_withdrawn(
+	buf_pool_t*	buf_pool,
+	const byte*	ptr)
+{
+	ut_ad(buf_pool->curr_size < buf_pool->old_size);
+	ut_ad(srv_buf_pool_chunk_unit > 0);
+
+	const buf_chunk_t*	chunk = buf_pool->chunks
+					+ buf_pool->n_chunks_new;
+	const buf_chunk_t*	echunk = buf_pool->chunks
+					 + buf_pool->n_chunks;
+
+	while (chunk < echunk) {
+		if (ptr >= chunk->blocks->frame
+		    && ptr < (chunk->blocks + chunk->size - 1)->frame
+			     + UNIV_PAGE_SIZE) {
+			return(true);
+		}
+		++chunk;
+	}
+	return(false);
+}
+
+
+/**
+Give up buffer pool resizing, return all the blocks
+in withdraw list to free list */
+
+void
+buf_pool_giveup_resizing(const char* warning)
+{
+	ut_ad(srv_buf_pool_chunk_unit > 0);
+
+	for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+		buf_pool_t* buf_pool = buf_pool_from_array(i);
+		buf_pool_mutex_enter(buf_pool);
+
+		buf_block_t* block = (buf_block_t*)
+			UT_LIST_GET_FIRST(buf_pool->withdraw);
+
+		while (block != NULL) {
+			UT_LIST_REMOVE(
+				list,
+				buf_pool->withdraw,
+				&block->page);
+			UT_LIST_ADD_LAST(
+				list,
+				buf_pool->free,
+				&block->page);
+			ut_d(block->in_withdraw_list = FALSE);
+			ut_d(block->page.in_free_list = TRUE);
+
+			block = (buf_block_t*)
+				UT_LIST_GET_FIRST(
+					buf_pool->withdraw);
+		}
+
+		buf_pool->withdraw_target = 0;
+		buf_pool->curr_size
+			= buf_pool->old_size;
+		buf_pool->n_chunks_new = buf_pool->n_chunks;
+		buf_pool_mutex_exit(buf_pool);
+	}
+
+	innobase_buffer_pool_size =
+		static_cast<long long>(srv_buf_pool_old_size);
+
+	srv_buf_pool_size = srv_buf_pool_old_size;
+
+	ib_logf(IB_LOG_LEVEL_WARN, "%s", warning);
+}
+
+
+/** Withdraw the buffer pool blocks from end of the buffer pool instance
+until withdrawn by buf_pool->withdraw_target.
+@param[in]	buf_pool	buffer pool instance
+@retval true	if retry is needed */
+static
+bool
+buf_pool_withdraw_blocks(
+	buf_pool_t* buf_pool,
+	bool& should_giveup_resizing)
+{
+	ut_ad(!should_giveup_resizing);
+
+	buf_block_t*	block;
+	ulint		loop_count = 0;
+	ulint		i = buf_pool_index(buf_pool);
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"buffer pool %lu : start to withdraw"
+		" the last %lu blocks.",
+		i, buf_pool->withdraw_target);
+
+	/* Minimize buf_pool->zip_free[i] lists */
+	buf_pool_mutex_enter(buf_pool);
+	buf_buddy_condense_free(buf_pool);
+	buf_pool_mutex_exit(buf_pool);
+
+	/* Keep trying as long as we haven't withdrawn enough */
+	while (UT_LIST_GET_LEN(buf_pool->withdraw)
+			< buf_pool->withdraw_target) {
+
+		/* Try up to 10 times */
+		if (++loop_count > 10) {
+			if (!buf_pool_resizing) {
+				/* this is the first round of
+				withdraw attempt before pausing
+				user threads, give up for now.
+				will retry after user threads
+				have paused. */
+				ib_logf(IB_LOG_LEVEL_INFO,
+					"buffer pool %lu : will retry"
+					" to withdraw after all"
+					" transactions have finished.",
+					i);
+
+				/* need retry later */
+				return(true);
+			}
+			else {
+				/* this is the retry after user
+				threads have paused so give up
+				and won't retry anymore. This
+				buffer pool resizing will fail*/
+
+				should_giveup_resizing = true;
+
+				ib_logf(IB_LOG_LEVEL_INFO,
+					"buffer pool %lu : won't"
+					" retry withdraw.", i);
+
+				/* won't retry anymore */
+				return(false);
+			}
+		}
+
+
+		/* try to withdraw from free_list */
+		ulint	count1 = 0;
+
+		buf_pool_mutex_enter(buf_pool);
+		block = (buf_block_t*)
+			UT_LIST_GET_FIRST(buf_pool->free);
+		while (block != NULL
+		       && UT_LIST_GET_LEN(buf_pool->withdraw)
+			  < buf_pool->withdraw_target) {
+
+			ut_ad(block->page.in_free_list);
+			ut_ad(!block->page.in_flush_list);
+			ut_ad(!block->page.in_LRU_list);
+			ut_a(!buf_page_in_file(&block->page));
+
+			buf_block_t*	next_block;
+			next_block = (buf_block_t*)
+				     UT_LIST_GET_NEXT(
+					list,
+					&block->page);
+
+			if (buf_block_will_withdrawn(buf_pool, block)) {
+				/* This should be withdrawn */
+				UT_LIST_REMOVE(
+					list,
+					buf_pool->free,
+					&block->page);
+				UT_LIST_ADD_LAST(
+					list,
+					buf_pool->withdraw,
+					&block->page);
+				ut_d(block->in_withdraw_list = TRUE);
+				count1++;
+			}
+			block = next_block;
+		}
+
+		buf_pool_mutex_exit(buf_pool);
+
+		/* reserve free_list length */
+		if (UT_LIST_GET_LEN(buf_pool->withdraw)
+		    < buf_pool->withdraw_target) {
+
+			ulint	scan_depth;
+			ulint	n_flushed = 0;
+
+			/* cap scan_depth with current LRU size. */
+			buf_pool_mutex_enter(buf_pool);
+			scan_depth = UT_LIST_GET_LEN(buf_pool->LRU);
+			buf_pool_mutex_exit(buf_pool);
+
+			scan_depth = ut_min(
+				ut_max(buf_pool->withdraw_target
+				       - UT_LIST_GET_LEN(
+						buf_pool->withdraw),
+				       srv_LRU_scan_depth),
+				scan_depth);
+
+			buf_flush_do_batch(buf_pool, BUF_FLUSH_LRU,
+				scan_depth, 0, &n_flushed);
+			buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
+
+			if (n_flushed) {
+				MONITOR_INC_VALUE_CUMULATIVE(
+					MONITOR_LRU_BATCH_FLUSH_TOTAL_PAGE,
+					MONITOR_LRU_BATCH_FLUSH_COUNT,
+					MONITOR_LRU_BATCH_FLUSH_PAGES,
+					n_flushed);
+			}
+		}
+
+		/* relocate blocks/buddies in withdrawn area */
+		ulint	count2 = 0;
+
+		buf_pool_mutex_enter(buf_pool);
+		buf_page_t*	bpage;
+		bpage = UT_LIST_GET_FIRST(buf_pool->LRU);
+		while (bpage != NULL) {
+			ib_mutex_t*	block_mutex;
+			buf_page_t*	next_bpage;
+
+			block_mutex = buf_page_get_mutex(bpage);
+			mutex_enter(block_mutex);
+
+			next_bpage = UT_LIST_GET_NEXT(LRU, bpage);
+
+			if (bpage->zip.data != NULL
+			    && buf_frame_will_withdrawn(
+				buf_pool,
+				static_cast<byte*>(bpage->zip.data))) {
+
+				if (buf_page_can_relocate(bpage)) {
+					mutex_exit(block_mutex);
+					buf_pool_mutex_exit_forbid(buf_pool);
+					if(!buf_buddy_realloc(buf_pool, bpage->zip.data,
+							      page_zip_get_size(&bpage->zip))) {
+						/* failed to allocate block */
+						buf_pool_mutex_exit_allow(buf_pool);
+						break;
+					}
+					buf_pool_mutex_exit_allow(buf_pool);
+					mutex_enter(block_mutex);
+					count2++;
+				}
+				/* NOTE: if the page is in use, not reallocated yet */
+			}
+
+			if (buf_page_get_state(bpage)
+			    == BUF_BLOCK_FILE_PAGE
+			    && buf_block_will_withdrawn(
+				buf_pool,
+				reinterpret_cast<buf_block_t*>(bpage))) {
+
+				if (buf_page_can_relocate(bpage)) {
+					mutex_exit(block_mutex);
+					buf_pool_mutex_exit_forbid(buf_pool);
+					if(!buf_page_realloc(buf_pool,
+							     (buf_block_t*) bpage)) {
+						/* failed to allocate block */
+						buf_pool_mutex_exit_allow(buf_pool);
+						break;
+					}
+					buf_pool_mutex_exit_allow(buf_pool);
+					count2++;
+				} else {
+					mutex_exit(block_mutex);
+				}
+				/* NOTE: if the page is in use, not reallocated yet */
+			} else {
+				mutex_exit(block_mutex);
+			}
+
+			bpage = next_bpage;
+		}
+		buf_pool_mutex_exit(buf_pool);
+
+		buf_resize_status("buffer pool %lu :"
+			" withdrawing blocks. (%lu/%lu)",
+			i, UT_LIST_GET_LEN(buf_pool->withdraw),
+			buf_pool->withdraw_target);
+
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"buffer pool %lu : withdrew %lu blocks"
+			" from free list. tried to relocate"
+			" %lu pages. (%lu/%lu)",
+			i, count1, count2,
+			UT_LIST_GET_LEN(buf_pool->withdraw),
+			buf_pool->withdraw_target);
+	}
+
+	/* We have withdrawn though for this buffer pool instance, confirm it */
+	const buf_chunk_t*	chunk
+		= buf_pool->chunks
+		  + buf_pool->n_chunks_new;
+	const buf_chunk_t*	echunk
+		= buf_pool->chunks
+		  + buf_pool->n_chunks;
+	while (chunk < echunk) {
+		block = chunk->blocks;
+		for (ulint j = chunk->size; j--; block++) {
+			/* If !=BUF_BLOCK_NOT_USED block in the withdrawn area,
+			it means corruption something */
+			ut_a(buf_block_get_state(block) == BUF_BLOCK_NOT_USED);
+			ut_ad(block->in_withdraw_list);
+		}
+		++chunk;
+	}
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"buffer pool %lu : withdrawn target %lu blocks.",
+		i, UT_LIST_GET_LEN(buf_pool->withdraw));
+
+	return(false);
+}
+
+
+/** resize page_hash and zip_hash for a buffer pool instance.
+@param[in]	buf_pool	buffer pool instance */
+static
+void
+buf_pool_resize_hash(
+	buf_pool_t*	buf_pool)
+{
+	ut_ad(srv_buf_pool_base_size > srv_buf_pool_size * 2
+		|| srv_buf_pool_base_size * 2 < srv_buf_pool_size);
+
+	hash_table_t*	new_hash_table;
+
+	/* recreate page_hash */
+	new_hash_table = ha_create(
+		2 * buf_pool->curr_size,
+		srv_n_page_hash_locks,
+		MEM_HEAP_FOR_PAGE_HASH,
+		SYNC_BUF_PAGE_HASH);
+
+	hash_lock_x_all(new_hash_table);
+
+	for (ulint j = 0; j < hash_get_n_cells(buf_pool->page_hash); j++) {
+
+		buf_page_t*	bpage = static_cast<buf_page_t*>(
+					HASH_GET_FIRST(buf_pool->page_hash, j));
+		while (bpage) {
+			buf_page_t*	prev_bpage = bpage;
+			ulint		fold;
+
+			bpage = static_cast<buf_page_t*>(HASH_GET_NEXT(
+					hash, prev_bpage));
+
+			fold = buf_page_address_fold(prev_bpage->space,
+							prev_bpage->offset);
+
+			HASH_DELETE(buf_page_t, hash,
+				buf_pool->page_hash, fold, prev_bpage);
+
+			HASH_INSERT(buf_page_t, hash,
+				new_hash_table, fold, prev_bpage);
+		}
+	}
+
+	/* All rw locks in page hash need to be removed
+	from global rw_lock_list before being released */
+	hash_table_t* ha = buf_pool->page_hash;
+	for (ulint j = 0; j < ha->n_sync_obj; ++j) {
+		rw_lock_t *rw = &ha->sync_obj.rw_locks[j];
+		mutex_enter(&rw_lock_list_mutex);
+		UT_LIST_REMOVE(list, rw_lock_list, rw);
+		--rw_lock_count;
+		mutex_exit(&rw_lock_list_mutex);
+	}
+
+	hash_unlock_x_all(buf_pool->page_hash);
+
+	ha_clear(buf_pool->page_hash);
+	hash_table_free(buf_pool->page_hash);
+	buf_pool->page_hash = new_hash_table;
+
+	/* recreate zip_hash */
+	new_hash_table = hash_create(2 * buf_pool->curr_size);
+
+	for (ulint j = 0; j < hash_get_n_cells(buf_pool->zip_hash); j++) {
+
+		buf_page_t*	bpage = static_cast<buf_page_t*>(
+					HASH_GET_FIRST(buf_pool->zip_hash, j));
+		while (bpage) {
+			buf_page_t*	prev_bpage = bpage;
+			ulint		fold;
+
+			bpage = static_cast<buf_page_t*>(HASH_GET_NEXT(
+					hash, prev_bpage));
+
+			fold = BUF_POOL_ZIP_FOLD(
+					buf_pool, (buf_block_t*)prev_bpage);
+
+			HASH_DELETE(buf_page_t, hash,
+				buf_pool->zip_hash, fold, prev_bpage);
+
+			HASH_INSERT(buf_page_t, hash,
+				new_hash_table, fold, prev_bpage);
+		}
+	}
+
+	hash_table_free(buf_pool->zip_hash);
+	buf_pool->zip_hash = new_hash_table;
+}
+
+/**
+Resize the buffer pool based on srv_buf_pool_size from
+srv_buf_pool_old_size.
+@retval		true if success. false if something warn */
+
+bool
+buf_pool_resize()
+{
+	buf_pool_t*	buf_pool;
+	ulint		new_instance_size;
+	bool		warning = false;
+	const char*	warning_message = NULL;
+	bool		should_giveup_resizing = false;
+	struct timeval start_resizing, end_resizing;
+
+	ut_ad(!buf_pool_resizing);
+	ut_ad(!buf_pool_resizing_bg);
+	ut_ad(srv_buf_pool_chunk_unit > 0);
+
+	new_instance_size = srv_buf_pool_size / srv_buf_pool_instances;
+	new_instance_size /= UNIV_PAGE_SIZE;
+
+	buf_resize_status("Resizing buffer pool from %lu to %lu (unit = %lu).",
+			  srv_buf_pool_old_size, srv_buf_pool_size,
+			  srv_buf_pool_chunk_unit);
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"start to resize buffer pool from %lu to %lu (unit = %lu).",
+		srv_buf_pool_old_size, srv_buf_pool_size,
+		srv_buf_pool_chunk_unit);
+
+	/* set new limit for all buffer pool for resizing */
+	for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+		buf_pool = buf_pool_from_array(i);
+		buf_pool_mutex_enter(buf_pool);
+
+		ut_ad(buf_pool->curr_size == buf_pool->old_size);
+		ut_ad(buf_pool->n_chunks_new == buf_pool->n_chunks);
+		ut_ad(UT_LIST_GET_LEN(buf_pool->withdraw) == 0);
+		ut_ad(buf_pool->flush_rbt == NULL);
+
+		buf_pool->curr_size = new_instance_size;
+
+		buf_pool->n_chunks_new = new_instance_size
+					 * UNIV_PAGE_SIZE
+					 / srv_buf_pool_chunk_unit;
+
+		buf_pool_mutex_exit(buf_pool);
+	}
+
+	/* disable AHI if needed */
+	bool	btr_search_disabled = false;
+
+	buf_resize_status("Disabling adaptive hash index.");
+
+	rw_lock_s_lock(&btr_search_latch);
+	if (btr_search_enabled) {
+		rw_lock_s_unlock(&btr_search_latch);
+		btr_search_disabled = true;
+	} else {
+		rw_lock_s_unlock(&btr_search_latch);
+	}
+
+	btr_search_disable();
+
+	if (btr_search_disabled) {
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"disabled adaptive hash index.");
+	}
+
+	/* set withdraw target */
+	for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+		buf_pool = buf_pool_from_array(i);
+		if (buf_pool->curr_size < buf_pool->old_size) {
+			ulint	withdraw_target = 0;
+
+			const buf_chunk_t*	chunk
+				= buf_pool->chunks + buf_pool->n_chunks_new;
+			const buf_chunk_t*	echunk
+				= buf_pool->chunks + buf_pool->n_chunks;
+
+			while (chunk < echunk) {
+				withdraw_target += chunk->size;
+				++chunk;
+			}
+
+			ut_ad(buf_pool->withdraw_target == 0);
+			buf_pool->withdraw_target = withdraw_target;
+		}
+	}
+
+	buf_resize_status("Withdrawing blocks to be shrunken.");
+
+withdraw_retry:
+	bool	should_retry_withdraw = false;
+
+	/* wait for the number of blocks fit to the new size (if needed)*/
+	for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+		buf_pool = buf_pool_from_array(i);
+		if (buf_pool->curr_size < buf_pool->old_size) {
+
+			should_retry_withdraw |=
+			  buf_pool_withdraw_blocks(buf_pool,
+						   should_giveup_resizing);
+
+			if (should_giveup_resizing) {
+				const char* message = "Resizing buffer pool was failed:"
+					" Could not withdraw enough number of pages."
+					" Please retry later.";
+				warning_message = message;
+				break;
+			}
+		}
+	}
+
+	if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+		/* abort to resize for shutdown. */
+		return(!warning);
+	}
+
+	/* abort buffer pool load */
+	buf_load_abort();
+
+	/* request for all user threads paused. */
+	/* FIXME: Avoiding cache coherency problem,
+	os_event_reset() is called twice.
+	The second call can be replaced with write-sync instruction. */
+	os_event_reset(buf_pool_resized_event);
+	buf_pool_resizing = true;
+	os_event_reset(buf_pool_resized_event);
+	buf_resize_status("Pausing all user threads using buffer pool.");
+
+	gettimeofday(&start_resizing, NULL);
+
+	ib_time_t	original_pause_started = ut_time();
+	ib_time_t	pause_started = original_pause_started;
+	ulint		message_interval = 1;
+	ulint		interval_count = 0;
+
+	/* Wait for all user threads paused. */
+wait_user_trx:
+	if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+		buf_pool_resizing = false;
+		os_event_set(buf_pool_resized_event);
+		return(!warning);
+	}
+
+	if (ut_difftime(ut_time(), pause_started) >= 5) {
+		pause_started = ut_time();
+
+		bool	mdl_waiters = false;
+
+		lock_mutex_enter();
+		mutex_enter(&trx_sys->mutex);
+		for (trx_t* trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
+		     trx != NULL;
+		     trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+			if (trx->state != TRX_STATE_NOT_STARTED
+			    && trx->mysql_thd != NULL
+			    && thd_is_waiting_table_mdl(
+				trx->mysql_thd)) {
+
+				mdl_waiters = true;
+				break;
+			}
+		}
+		mutex_exit(&trx_sys->mutex);
+		lock_mutex_exit();
+
+		++interval_count;
+
+		if (mdl_waiters || interval_count >= message_interval) {
+			interval_count = 0;
+			message_interval *= 2;
+
+			if (message_interval > 60) {
+				message_interval = 60; /* max 10 min. */
+			}
+
+			ib_logf(IB_LOG_LEVEL_WARN,
+				"The following trx might hold"
+				" the blocks in buffer pool.");
+			ib_logf(IB_LOG_LEVEL_WARN,
+				"Buffer pool resizing can complete only after"
+				" all the transactions below are finished.");
+
+			lock_mutex_enter();
+			mutex_enter(&trx_sys->mutex);
+			for (trx_t* trx = UT_LIST_GET_FIRST(
+				trx_sys->mysql_trx_list);
+			     trx != NULL;
+			     trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+				if (trx->state != TRX_STATE_NOT_STARTED) {
+					lock_trx_print_wait_and_mvcc_state(
+						stderr, trx);
+				}
+			}
+			mutex_exit(&trx_sys->mutex);
+			lock_mutex_exit();
+		}
+
+		if (mdl_waiters) {
+			/* InnoDB cannot arbitrate MDL.
+			So, treated as fail, and user needs retry. */
+			should_giveup_resizing = true;
+
+			const char* message = "Resizing buffer pool was failed:"
+				" Long waiting for table metadata lock was detected."
+				" InnoDB doesn't arbitrate them."
+				" Please retry without concurrent DDL.";
+			warning_message = message;
+		}
+	}
+
+	/* Abort resizing due to tiemout. */
+	if (ut_difftime(ut_time(), original_pause_started) >=
+			innobase_buffer_pool_resizing_timeout) {
+
+		should_giveup_resizing = true;
+
+		if (!warning_message) {
+			const char* message = "Resizing buffer pool was failed:"
+				" Long waiting for open transactions."
+				" Please retry later.";
+			warning_message = message;
+		}
+	}
+
+	if (should_giveup_resizing) {
+		/* Give up buffer pool resizing, return all the blocks
+		in withdraw list to free list */
+		ut_ad(warning_message);
+
+		buf_pool_giveup_resizing(warning_message);
+
+		warning = true;
+
+		goto skip_resize;
+	}
+
+	mutex_enter(&trx_sys->mutex);
+	for (trx_t* trx = UT_LIST_GET_FIRST(trx_sys->rw_trx_list);
+	     trx != NULL;
+	     trx = UT_LIST_GET_NEXT(trx_list, trx)) {
+		if (trx->state != TRX_STATE_NOT_STARTED) {
+			/* found active transaction */
+			mutex_exit(&trx_sys->mutex);
+			os_thread_sleep(100000); /* 0.1 sec */
+			goto wait_user_trx;
+		}
+	}
+	for (trx_t* trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
+	     trx != NULL;
+	     trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+		if (trx->state != TRX_STATE_NOT_STARTED) {
+			/* found active transaction */
+			mutex_exit(&trx_sys->mutex);
+			os_thread_sleep(100000); /* 0.1 sec */
+			goto wait_user_trx;
+		}
+	}
+	mutex_exit(&trx_sys->mutex);
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"All user transactions were finished.");
+
+	if (should_retry_withdraw) {
+		/* retry after all user threads paused. */
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"retry to withdraw with pausing user transactions.");
+		buf_resize_status(
+			"Withdrawing blocks to be shrunken."
+			" (retry with no transactions)");
+		goto withdraw_retry;
+	}
+
+	buf_resize_status("Pausing background threads.");
+
+	/* Wait for all bg threads related to buffer pool paused. */
+	buf_pool_resizing_bg = true;
+	os_event_reset(buf_pool_resized_event); /* FIXME: for cache coherent */
+
+	/* wake-up is needed for some threads */
+
+	if (!srv_read_only_mode) {
+		os_event_set(buf_lru_event);
+		fts_optimize_wakeup();
+	}
+
+	while (!buf_pool_resizable_master
+	       || !buf_pool_resizable_purge
+	       || !buf_pool_resizable_page_cleaner
+	       || !buf_pool_resizable_dump
+	       || !buf_pool_resizable_stats
+	       || !buf_pool_resizable_fts_optimize
+	       || !buf_pool_resizable_recover
+	       || !buf_pool_resizable_btr_defragment
+	       || buf_pool_referenced > 0) {
+
+		if (!srv_read_only_mode
+		    && !buf_pool_resizable_fts_optimize) {
+			fts_optimize_wakeup();
+		}
+
+		os_thread_sleep(100000); /* 0.1 sec */
+
+		if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+abort_resize:
+			buf_pool_resizing = false;
+			buf_pool_resizing_bg = false;
+			os_event_set(buf_pool_resized_event);
+			return(!warning);
+		}
+	}
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Background threads were paused.");
+
+	/* confirm user transactions again. */
+	mutex_enter(&trx_sys->mutex);
+	for (trx_t* trx = UT_LIST_GET_FIRST(trx_sys->rw_trx_list);
+	     trx != NULL;
+	     trx = UT_LIST_GET_NEXT(trx_list, trx)) {
+		if (trx->state != TRX_STATE_NOT_STARTED) {
+			/* found active transaction */
+			mutex_exit(&trx_sys->mutex);
+			goto wait_user_trx;
+		}
+	}
+	for (trx_t* trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
+	     trx != NULL;
+	     trx = UT_LIST_GET_NEXT(mysql_trx_list, trx)) {
+		if (trx->state != TRX_STATE_NOT_STARTED) {
+			/* found active transaction */
+			mutex_exit(&trx_sys->mutex);
+			goto wait_user_trx;
+		}
+	}
+	mutex_exit(&trx_sys->mutex);
+
+	buf_resize_status("Waiting for lock_sys empty.");
+
+	/* confirm lock_sys->rec_hash is empty */
+wait_lock_empty:
+	if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+		goto abort_resize;
+	}
+
+	lock_mutex_enter();
+	for (ulint i = 0; i < hash_get_n_cells(lock_sys->rec_hash); i++) {
+		if (HASH_GET_FIRST(lock_sys->rec_hash, i) != NULL) {
+			lock_mutex_exit();
+			os_thread_sleep(100000); /* 0.1 sec */
+			goto wait_lock_empty;
+		}
+	}
+	lock_mutex_exit();
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Confirmed lock_sys is empty.");
+
+	buf_resize_status("Waiting for no IO requests.");
+
+	/* confirm no pending IO && no active IO threads*/
+	while (os_file_n_pending_preads > 0
+	       || os_file_n_pending_pwrites > 0
+	       || os_aio_requested()) {
+		os_thread_sleep(100000); /* 0.1 sec */
+
+		if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+			goto abort_resize;
+		}
+	}
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Confirmed no IO requests.");
+
+	ut_d(buf_pool_forbidden = true);
+
+	buf_resize_status("Latching whole of buffer pool.");
+
+#ifndef DBUG_OFF
+	{
+		bool has_been_sleeping = false;
+		bool	should_wait = true;
+
+		while (should_wait) {
+			should_wait = false;
+			DBUG_EXECUTE_IF(
+			  "ib_buf_pool_resize_wait_before_resize", {
+
+				ib_logf(IB_LOG_LEVEL_INFO,
+					"DBUG_EXECUTE_IF ib_buf_pool_resize_wait_before_resize: "
+					"sleep 10 seconds while holding all buf mutex.");
+
+				has_been_sleeping = true;
+				should_wait = true;
+				os_thread_sleep(10000);
+			});
+		}
+		if (has_been_sleeping) {
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"DBUG_EXECUTE_IF ib_buf_pool_resize_wait_before_resize: "
+				"debug injection is off, wake up and continue resizing....");
+		}
+	}
+#endif /* !DBUG_OFF */
+
+	if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+		ut_d(buf_pool_forbidden = false);
+		goto abort_resize;
+	}
+
+	/* Acquire all buf_pool_mutex/hash_lock */
+	for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+		buf_pool_t*	buf_pool = buf_pool_from_array(i);
+
+		buf_pool_mutex_enter(buf_pool);
+	}
+	for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+		buf_pool_t*	buf_pool = buf_pool_from_array(i);
+
+		hash_lock_x_all(buf_pool->page_hash);
+	}
+
+
+	for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+		buf_pool_t*	buf_pool = buf_pool_from_array(i);
+		buf_chunk_t*	chunk;
+		buf_chunk_t*	echunk;
+
+		buf_resize_status("buffer pool %lu :"
+			" resizing with chunks %lu to %lu.",
+			i, buf_pool->n_chunks, buf_pool->n_chunks_new);
+
+		if (buf_pool->n_chunks_new < buf_pool->n_chunks) {
+			/* delete chunks */
+			chunk = buf_pool->chunks + buf_pool->n_chunks_new;
+			echunk = buf_pool->chunks + buf_pool->n_chunks;
+
+			ulint	sum_freed = 0;
+
+			while (chunk < echunk) {
+				buf_block_t*	block = chunk->blocks;
+
+				for (ulint j = chunk->size; j--; block++) {
+					mutex_free(&block->mutex);
+					rw_lock_free(&block->lock);
+#ifdef UNIV_SYNC_DEBUG
+					rw_lock_free(&block->debug_latch);
+#endif /* UNIV_SYNC_DEBUG */
+				}
+
+				os_mem_free_large(chunk->mem, chunk->mem_size);
+
+				sum_freed += chunk->size;
+
+				++chunk;
+			}
+
+			/* discard withdraw list */
+			UT_LIST_INIT(buf_pool->withdraw);
+			buf_pool->withdraw_target = 0;
+
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"buffer pool %lu : %lu chunks"
+				" (%lu blocks) was freed.", i,
+				buf_pool->n_chunks - buf_pool->n_chunks_new,
+				sum_freed);
+
+			buf_pool->n_chunks = buf_pool->n_chunks_new;
+		}
+
+		/* reallocate buf_pool->chunks */
+		buf_chunk_t*	new_chunks;
+		new_chunks = (buf_chunk_t*) mem_zalloc(
+			buf_pool->n_chunks_new * sizeof(*chunk));
+
+		memcpy(new_chunks, buf_pool->chunks,
+		       ut_min(buf_pool->n_chunks_new, buf_pool->n_chunks)
+		       * sizeof(*chunk));
+
+		mem_free(buf_pool->chunks);
+		buf_pool->chunks = new_chunks;
+
+		if (buf_pool->n_chunks_new > buf_pool->n_chunks) {
+			/* add chunks */
+			chunk = buf_pool->chunks + buf_pool->n_chunks;
+			echunk = buf_pool->chunks + buf_pool->n_chunks_new;
+
+			ulint	sum_added = 0;
+			ulint	n_chunks = buf_pool->n_chunks;
+
+			while (chunk < echunk) {
+				if (!buf_chunk_init(buf_pool, chunk,
+					srv_buf_pool_chunk_unit, srv_buf_pool_populate)) {
+
+					const char* message = "Resizing buffer pool was failed:"
+						" Failed to allocate new memory."
+						" Please retry later.";
+					warning_message = message;
+
+					ib_logf(IB_LOG_LEVEL_ERROR,
+						"buffer pool %lu :"
+						" failed to allocate"
+						" new memory.", i);
+					warning = true;
+
+					buf_pool->n_chunks_new = n_chunks;
+
+					break;
+				}
+
+				sum_added += chunk->size;
+
+				++n_chunks;
+				++chunk;
+			}
+
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"buffer pool %lu : %lu chunks"
+				" (%lu blocks) was added.", i,
+				buf_pool->n_chunks_new - buf_pool->n_chunks,
+				sum_added);
+
+			buf_pool->n_chunks = n_chunks;
+		}
+
+		/* recalc buf_pool->curr_size */
+		ulint	new_size = 0;
+
+		chunk = buf_pool->chunks;
+		do {
+			new_size += chunk->size;
+		} while (++chunk < buf_pool->chunks + buf_pool->n_chunks);
+
+		buf_pool->curr_size = new_size;
+	}
+
+
+	/* set instance sizes */
+	{
+		ulint	curr_size = 0;
+
+		for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+			buf_pool = buf_pool_from_array(i);
+
+			ut_ad(UT_LIST_GET_LEN(buf_pool->withdraw) == 0);
+
+			buf_pool->curr_pool_size = buf_pool->curr_size * UNIV_PAGE_SIZE;
+			curr_size += buf_pool->curr_pool_size;
+			buf_pool->old_size = buf_pool->curr_size;
+		}
+		srv_buf_pool_curr_size = curr_size;
+	}
+
+
+	/* Normalize page_hash and zip_hash, if the new size is too different */
+	if (srv_buf_pool_base_size > srv_buf_pool_size * 2
+	    || srv_buf_pool_base_size * 2 < srv_buf_pool_size) {
+
+		buf_resize_status("Resizing hash tables.");
+
+		for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+			buf_pool_t*	buf_pool = buf_pool_from_array(i);
+
+			buf_pool_resize_hash(buf_pool);
+
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"buffer pool %lu :"
+				" hash tables were recreated.", i);
+		}
+	}
+
+
+	/* Release all buf_pool_mutex/page_hash */
+	for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+		buf_pool_t*	buf_pool = buf_pool_from_array(i);
+
+		hash_unlock_x_all(buf_pool->page_hash);
+		buf_pool_mutex_exit(buf_pool);
+	}
+
+	/* Normalize other components, if the new size is too different */
+	if (srv_buf_pool_base_size > srv_buf_pool_size * 2
+	    || srv_buf_pool_base_size * 2 < srv_buf_pool_size) {
+		srv_buf_pool_base_size = srv_buf_pool_size;
+
+		buf_resize_status("Resizing also other hash tables.");
+
+		/* normalize lock_sys */
+		srv_lock_table_size = 5 * (srv_buf_pool_size / UNIV_PAGE_SIZE);
+		lock_sys_resize(srv_lock_table_size);
+
+		/* need to update block->lock_hash_val */
+		for (ulint i = 0; i < srv_buf_pool_instances; ++i) {
+			buf_pool_t*	buf_pool = buf_pool_from_array(i);
+
+			buf_pool_mutex_enter(buf_pool);
+			buf_page_t*	bpage;
+			bpage = UT_LIST_GET_FIRST(buf_pool->LRU);
+
+			while (bpage != NULL) {
+				if (buf_page_get_state(bpage)
+				    == BUF_BLOCK_FILE_PAGE) {
+					buf_block_t*	block;
+					block = (buf_block_t*) bpage;
+
+					block->lock_hash_val
+						= lock_rec_hash(
+							bpage->space,
+							bpage->offset);
+				}
+				bpage = UT_LIST_GET_NEXT(LRU, bpage);
+			}
+			buf_pool_mutex_exit(buf_pool);
+		}
+
+		/* normalize btr_search_sys */
+		btr_search_sys_resize(
+			buf_pool_get_curr_size() / sizeof(void*) / 64);
+
+		/* normalize dict_sys */
+		dict_resize();
+
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Resized hash tables at lock_sys,"
+			" adaptive hash index, dictionary.");
+	}
+
+	/* normalize ibuf->max_size */
+	ibuf_max_size_update(srv_change_buffer_max_size);
+
+skip_resize:
+	/* wake all other threads up */
+	buf_pool_resizing_bg = false;
+	buf_pool_resizing = false;
+	ut_d(buf_pool_forbidden = false);
+	os_event_set(buf_pool_resized_event);
+
+	gettimeofday(&end_resizing, NULL);
+	ulint buf_resizing_duration =
+		((end_resizing.tv_sec - start_resizing.tv_sec) * 1000) +
+		((end_resizing.tv_usec - start_resizing.tv_usec) / 1000);
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Woke the paused transactions/threads up.");
+
+	if (srv_buf_pool_old_size != srv_buf_pool_size) {
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"completed to resize buffer pool from %lu to %lu.",
+			srv_buf_pool_old_size, srv_buf_pool_size);
+		srv_buf_pool_old_size = srv_buf_pool_size;
+	}
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"buffer pool resizing stalled user transactions/threads "
+		"for %lu milliseconds.",
+		buf_resizing_duration);
+
+	/* enable AHI if needed */
+	if (btr_search_disabled) {
+		btr_search_enable();
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"re-enabled adaptive hash index.");
+	}
+
+	char	now[32];
+
+	ut_sprintf_timestamp(now);
+	if (!warning) {
+		buf_resize_status("Completed resizing buffer pool at %s.",
+			now);
+	} else {
+		const char* message = "Resizing buffer pool was failed:";
+		if (!warning_message)
+			warning_message = message;
+		buf_resize_status("%s finished resizing at %s.",
+			warning_message, now);
+	}
+
+#if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
+	ut_a(buf_validate());
+#endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
+
+	return(!warning);
+}
+
+/********************************************************************//**
+This is the thread for resizing buffer pool. It waits for an event and
+when waked up either performs a resizing and sleeps again.
+@return this function does not return, it calls os_thread_exit() */
+extern "C"
+os_thread_ret_t
+DECLARE_THREAD(buf_resize_thread)(
+/*==============================*/
+	void*	arg __attribute__((unused)))	/*!< in: a dummy parameter
+						required by os_thread_create */
+{
+	my_thread_init();
+
+	srv_buf_resize_thread_active = true;
+
+	buf_resize_status("not started");
+
+	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+		os_event_wait(srv_buf_resize_event);
+		os_event_reset(srv_buf_resize_event);
+
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Thread buf_resize_thread woke up");
+
+		if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+			break;
+		}
+
+		buf_pool_mutex_enter_all();
+		if (srv_buf_pool_old_size == srv_buf_pool_size) {
+			buf_pool_mutex_exit_all();
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"Thread buf_resize_thread has nothing to do");
+			/* nothing to do */
+			continue;
+		}
+		buf_pool_mutex_exit_all();
+
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Thread buf_resize_thread will resize"
+			" buffer pool from %lu to %lu",
+			srv_buf_pool_old_size, srv_buf_pool_size);
+
+		buf_pool_resize();
+	}
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Thread buf_resize_thread is exiting");
+
+	srv_buf_resize_thread_active = false;
+
+	my_thread_end();
+	os_thread_exit(NULL);
+
+	OS_THREAD_DUMMY_RETURN;
+}
+
 /********************************************************************//**
 Clears the adaptive hash index on all pages in the buffer pool. */
 UNIV_INTERN
@@ -1574,6 +3074,7 @@ buf_pool_clear_hash_index(void)
 #ifdef UNIV_SYNC_DEBUG
 	ut_ad(rw_lock_own(&btr_search_latch, RW_LOCK_EX));
 #endif /* UNIV_SYNC_DEBUG */
+	ut_ad(!buf_pool_forbidden);
 	ut_ad(!btr_search_enabled);
 
 	for (p = 0; p < srv_buf_pool_instances; p++) {
@@ -2455,6 +3956,8 @@ buf_block_align_instance(
 	buf_chunk_t*	chunk;
 	ulint		i;
 
+	ut_ad(!buf_pool_forbidden);
+
 	/* TODO: protect buf_pool->chunks with a mutex (it will
 	currently remain constant after buf_pool_init()) */
 	for (chunk = buf_pool->chunks, i = buf_pool->n_chunks; i--; chunk++) {
@@ -2571,6 +4074,8 @@ buf_pointer_is_block_field_instance(
 {
 	const buf_chunk_t*		chunk	= buf_pool->chunks;
 	const buf_chunk_t* const	echunk	= chunk + buf_pool->n_chunks;
+
+	ut_ad(!buf_pool_forbidden);
 
 	/* TODO: protect buf_pool->chunks with a mutex (it will
 	currently remain constant after buf_pool_init()) */
@@ -4967,7 +6472,8 @@ assert_s_latched:
 
 	mutex_exit(&buf_pool->zip_mutex);
 
-	if (n_lru + n_free > buf_pool->curr_size + n_zip) {
+	if (buf_pool->curr_size == buf_pool->old_size
+	    && n_lru + n_free > buf_pool->curr_size + n_zip) {
 		fprintf(stderr, "n LRU %lu, n free %lu, pool %lu zip %lu\n",
 			(ulong) n_lru, (ulong) n_free,
 			(ulong) buf_pool->curr_size, (ulong) n_zip);
@@ -4975,7 +6481,8 @@ assert_s_latched:
 	}
 
 	ut_a(UT_LIST_GET_LEN(buf_pool->LRU) == n_lru);
-	if (UT_LIST_GET_LEN(buf_pool->free) != n_free) {
+	if (buf_pool->curr_size == buf_pool->old_size
+	    && UT_LIST_GET_LEN(buf_pool->free) != n_free) {
 		fprintf(stderr, "Free list len %lu, free blocks %lu\n",
 			(ulong) UT_LIST_GET_LEN(buf_pool->free),
 			(ulong) n_free);

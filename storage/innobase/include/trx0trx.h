@@ -895,6 +895,15 @@ struct trx_t{
 					also be set to 1. This is used in the
 					XA code */
 	/*------------------------------*/
+
+	bool		is_primary;	/*!< This flag is set to true if not
+					recursive transaction. The primary
+					transaction should wait for resizing
+					buffer pool. */
+	ulint		buf_pool_reference;
+					/*!< intentions to access buffer pool
+					which blocks resizing buffer pool */
+
 	ulint		check_unique_secondary;
 					/*!< normally TRUE, but if the user
 					wants to speed up inserts by

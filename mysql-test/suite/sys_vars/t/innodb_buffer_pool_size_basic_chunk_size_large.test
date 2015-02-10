@@ -1,0 +1,13 @@
+--source include/have_innodb.inc
+
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
+
+### InnoDB buffer pool size cannot be shrunk smaller than one chunk unit
+### i.e. each buffer pool instance contains at lease one chunk unit
+SET @@GLOBAL.innodb_buffer_pool_size=8388608;
+
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;

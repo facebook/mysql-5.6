@@ -1851,6 +1851,19 @@ innobase_start_or_create_for_mysql(void)
 		srv_buf_pool_instances = 1;
 	}
 
+	/* each buffer pool instance contains at least one chunk unit */
+	if (srv_buf_pool_chunk_unit > 0) {
+		srv_buf_pool_size
+			/= (srv_buf_pool_instances * srv_buf_pool_chunk_unit);
+		while (srv_buf_pool_size
+		       * srv_buf_pool_instances
+		       * srv_buf_pool_chunk_unit < 5*1024*1024L) {
+			++srv_buf_pool_size;
+		}
+		srv_buf_pool_size
+			*= (srv_buf_pool_instances * srv_buf_pool_chunk_unit);
+	}
+
 	srv_boot();
 
 	/* Initialize online defragmentation mutex only. */
@@ -1979,6 +1992,32 @@ innobase_start_or_create_for_mysql(void)
 	/* Print time to initialize the buffer pool */
 	ib_logf(IB_LOG_LEVEL_INFO,
 		"Initializing buffer pool, size = %.1f%c", size, unit);
+
+	if (srv_buf_pool_chunk_unit > 0) {
+		double	chunk_size;
+		char	chunk_unit;
+
+		if (srv_buf_pool_chunk_unit >= 1024 * 1024 * 1024) {
+			chunk_size = ((double) srv_buf_pool_chunk_unit)
+				     / (1024 * 1024 * 1024);
+			chunk_unit = 'G';
+		} else {
+			chunk_size = ((double) srv_buf_pool_chunk_unit)
+				     / (1024 * 1024);
+			chunk_unit = 'M';
+		}
+
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Initializing buffer pool, total size = %.1f%c,"
+			" instances = %lu, chunk size = %.1f%c",
+			size, unit, srv_buf_pool_instances,
+			chunk_size, chunk_unit);
+	} else {
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Initializing buffer pool, total size = %.1f%c,"
+			" instances = %lu",
+			size, unit, srv_buf_pool_instances);
+	}
 
 	err = buf_pool_init(srv_buf_pool_size, srv_buf_pool_populate,
 			    srv_buf_pool_instances);
@@ -2912,9 +2951,13 @@ files_checked:
 	/* Initialize online defragmentation thread. */
 	btr_defragment_init_thread();
 
+	/* Create the buffer pool resize thread */
+	os_thread_create(buf_resize_thread, NULL, NULL);
+
 #ifdef XTRABACKUP
 skip_processes:
 #endif /* XTRABACKUP */
+
 	srv_was_started = TRUE;
 
 	return(DB_SUCCESS);
@@ -3081,6 +3124,8 @@ innobase_shutdown_for_mysql(void)
 	if (!srv_read_only_mode) {
 		dict_stats_thread_deinit();
 	}
+
+	buf_pool_free_resized_event();
 
 	/* This must be disabled before closing the buffer pool
 	and closing the data dictionary.  */

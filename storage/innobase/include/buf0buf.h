@@ -84,6 +84,33 @@ Created 11/5/1995 Heikki Tuuri
 
 extern	buf_pool_t*	buf_pool_ptr;	/*!< The buffer pools
 					of the database */
+
+
+extern	bool		buf_pool_resizing; /*!< true when resizing buffer pool
+					size and needed to pause all other user
+					threads. */
+extern	bool		buf_pool_resizing_bg; /*!< true when resizing buffer
+					pool size and needed to pause all
+					background threads. */
+#ifdef UNIV_DEBUG
+extern	bool		buf_pool_forbidden; /*!< true when resizing is in the
+					critical path. */
+#endif /* UNIV_DEBUG */
+
+extern	os_event_t	buf_pool_resized_event; /*!< Event to pause threads */
+
+/** Indicates by background threads to be ready for resize. */
+extern	volatile bool	buf_pool_resizable_master;
+extern	volatile bool	buf_pool_resizable_purge;
+extern	volatile bool	buf_pool_resizable_page_cleaner;
+extern	volatile bool	buf_pool_resizable_dump;
+extern	volatile bool	buf_pool_resizable_stats;
+extern	volatile bool	buf_pool_resizable_fts_optimize;
+extern	volatile bool	buf_pool_resizable_recover;
+extern	volatile bool	buf_pool_resizable_btr_defragment;
+extern	volatile ulint	buf_pool_referenced;
+
+
 #ifdef UNIV_DEBUG
 extern ibool		buf_debug_prints;/*!< If this is set TRUE, the program
 					prints info whenever read or flush
@@ -249,6 +276,67 @@ void
 buf_pool_free(
 /*==========*/
 	ulint	n_instances);	/*!< in: numbere of instances to free */
+
+UNIV_INTERN
+void
+buf_pool_free_resized_event();
+
+/**
+Show intention to access buffer pool pages without transaction.
+@param	[in]	trx	transaction */
+
+void
+buf_pool_reference_start(
+	trx_t*	trx);
+
+/**
+Drop intention to access buffer pool pages without transaction.
+@param	[in]	trx	transaction */
+
+void
+buf_pool_reference_end(
+	trx_t*	trx);
+
+/**
+Determines if a block is intended to be withdrawn.
+@param	[in]	buf_pool	buffer pool instance
+@param	[in]	block		pointer to control block
+@retval		true if will be withdrawn */
+
+bool
+buf_block_will_withdrawn(
+	buf_pool_t*		buf_pool,
+	const buf_block_t*	block);
+
+/**
+Determines if a frame is intended to be withdrawn.
+@param	[in]	buf_pool	buffer pool instance
+@param	[in]	ptr		pointer to a frame
+@retval		true if will be withdrawn */
+
+bool
+buf_frame_will_withdrawn(
+	buf_pool_t*	buf_pool,
+	const byte*	ptr);
+
+/**
+Resize the buffer pool based on srv_buf_pool_size from
+srv_buf_pool_old_size.
+@retval		true if success. false if something warn */
+
+bool
+buf_pool_resize();
+
+/********************************************************************//**
+This is the thread for resizing buffer pool. It waits for an event and
+when waked up either performs a resizing and sleeps again.
+@return this function does not return, it calls os_thread_exit() */
+extern "C"
+os_thread_ret_t
+DECLARE_THREAD(buf_resize_thread)(
+/*==============================*/
+	void*	arg);				/*!< in: a dummy parameter
+						required by os_thread_create */
 
 /********************************************************************//**
 Clears the adaptive hash index on all pages in the buffer pool. */
@@ -1552,7 +1640,7 @@ struct buf_page_t{
 					in one of the following lists in
 					buf_pool:
 
-					- BUF_BLOCK_NOT_USED:	free
+					- BUF_BLOCK_NOT_USED:	free, withdraw
 					- BUF_BLOCK_FILE_PAGE:	flush_list
 					- BUF_BLOCK_ZIP_DIRTY:	flush_list
 					- BUF_BLOCK_ZIP_PAGE:	zip_clean
@@ -1695,6 +1783,7 @@ struct buf_block_t{
 	ibool		in_unzip_LRU_list;/*!< TRUE if the page is in the
 					decompressed LRU list;
 					used in debugging */
+	ibool		in_withdraw_list;
 #endif /* UNIV_DEBUG */
 	ib_mutex_t	mutex;		/*!< mutex protecting this block:
 					state (also protected by the buffer
@@ -1809,9 +1898,13 @@ struct buf_block_t{
 /**********************************************************************//**
 Compute the hash fold value for blocks in buf_pool->zip_hash. */
 /* @{ */
-#define BUF_POOL_ZIP_FOLD_PTR(ptr) ((ulint) (ptr) / UNIV_PAGE_SIZE)
-#define BUF_POOL_ZIP_FOLD(b) BUF_POOL_ZIP_FOLD_PTR((b)->frame)
-#define BUF_POOL_ZIP_FOLD_BPAGE(b) BUF_POOL_ZIP_FOLD((buf_block_t*) (b))
+#define BUF_POOL_ZIP_FOLD_PTR(bpool, ptr)			\
+(((ulint) (ptr) - (ulint) ((bpool)->chunks->blocks->frame))	\
+ / UNIV_PAGE_SIZE)
+#define BUF_POOL_ZIP_FOLD(bpool, b)				\
+BUF_POOL_ZIP_FOLD_PTR(bpool, (b)->frame)
+#define BUF_POOL_ZIP_FOLD_BPAGE(bpool, b)			\
+BUF_POOL_ZIP_FOLD(bpool, (buf_block_t*) (b))
 /* @} */
 
 /** A "Hazard Pointer" class used to iterate over page lists
@@ -2086,8 +2179,10 @@ struct buf_pool_t{
 	ulint		mutex_exit_forbidden; /*!< Forbid release mutex */
 #endif
 	ulint		n_chunks;	/*!< number of buffer pool chunks */
+	ulint		n_chunks_new;	/*!< new number of buffer pool chunks */
 	buf_chunk_t*	chunks;		/*!< buffer pool chunks */
 	ulint		curr_size;	/*!< current pool size in pages */
+	ulint		old_size;	/*!< previous pool size in pages */
 	hash_table_t*	page_hash;	/*!< hash table of buf_page_t or
 					buf_block_t file pages,
 					buf_page_in_file() == TRUE,
@@ -2196,6 +2291,15 @@ struct buf_pool_t{
 	UT_LIST_BASE_NODE_T(buf_page_t) free;
 					/*!< base node of the free
 					block list */
+
+	UT_LIST_BASE_NODE_T(buf_page_t) withdraw;
+					/*!< base node of the withdraw
+					block list. It is only used during
+					shrinking buffer pool size, not to
+					reuse the blocks will be removed */
+
+	ulint		withdraw_target;/*!< target length of withdraw
+					block list, when withdrawing */
 
 	/** "hazard pointer" used during scan of LRU while doing
 	LRU list batch.  Protected by buf_pool::mutex */

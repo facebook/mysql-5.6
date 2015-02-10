@@ -141,18 +141,18 @@ static ulong innobase_read_io_threads;
 static ulong innobase_write_io_threads;
 static long innobase_buffer_pool_instances = 1;
 
-static long long innobase_buffer_pool_size, innobase_log_file_size;
+long long innobase_buffer_pool_size;
+static long long innobase_log_file_size;
 static unsigned long innobase_sync_pool_size;
 
 ulong innobase_evicted_pages_sampling_ratio = 0;
 
+/** Buffer pool resizing timeout in seconds */
+ulong innobase_buffer_pool_resizing_timeout = 0;
+
 /** Percentage of the buffer pool to reserve for 'old' blocks.
 Connected to buf_LRU_old_ratio. */
 static uint innobase_old_blocks_pct;
-
-/** Maximum on-disk size of change buffer in terms of percentage
-of the buffer pool. */
-static uint innobase_change_buffer_max_size = CHANGE_BUFFER_DEFAULT_SIZE;
 
 /* The default values for the following char* start-up parameters
 are determined in innobase_init below: */
@@ -607,6 +607,8 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_buffer_pool_dump_status,	  SHOW_CHAR},
   {"buffer_pool_load_status",
   (char*) &export_vars.innodb_buffer_pool_load_status,	  SHOW_CHAR},
+  {"buffer_pool_resize_status",
+  (char*) &export_vars.innodb_buffer_pool_resize_status,  SHOW_CHAR},
   {"buffer_pool_pages_data",
   (char*) &export_vars.innodb_buffer_pool_pages_data,	  SHOW_LONG},
   {"buffer_pool_bytes_data",
@@ -2001,6 +2003,38 @@ thd_to_trx(
 	return(*(trx_t**) thd_ha_data(thd, innodb_hton_ptr));
 }
 
+
+/**
+Obtain the InnoDB transaction of a MySQL thread.
+@param	[in]	MySQL thread
+@retval		reference to transaction pointer */
+
+trx_t*&
+thd_to_trx_func(
+	THD*	thd)
+{
+	return(*(trx_t**) thd_ha_data(thd, innodb_hton_ptr));
+}
+
+/**
+Check MySQL thread is waiting for table metadata lock.
+@param	[in]	MySQL thread
+@retval		true if the MySQL thread is waiting for table metadata lock */
+
+bool
+thd_is_waiting_table_mdl(
+	THD*	thd)
+{
+	char	buffer[256];
+
+	if (strstr(thd_security_context(thd, buffer, sizeof buffer, 1),
+		   "Waiting for table metadata lock") != NULL) {
+		return(true);
+	}
+
+	return(false);
+}
+
 /********************************************************************//**
 Call this function when mysqld passes control to the client. That is to
 avoid deadlocks on the adaptive hash S-latch possibly held by thd. For more
@@ -2855,6 +2889,7 @@ trx_register_for_2pc(
 	trx_t*	trx)	/* in: transaction */
 {
 	trx->is_registered = 1;
+	trx->is_primary = true;
 	ut_ad(trx->owns_prepare_mutex == 0);
 }
 
@@ -2867,6 +2902,7 @@ trx_deregister_from_2pc(
 	trx_t*	trx)	/* in: transaction */
 {
 	trx->is_registered = 0;
+	trx->is_primary = false;
 	trx->owns_prepare_mutex = 0;
 }
 
@@ -3489,7 +3525,7 @@ ha_innobase::init_table_handle_for_HANDLER(void)
 	innobase_srv_conc_force_exit_innodb(prebuilt->trx);
 
 	/* If the transaction is not started yet, start it */
-
+	prebuilt->trx->is_primary = true;
 	trx_start_if_not_started_xa(prebuilt->trx);
 
 	/* Assign a read view if the transaction does not have it yet */
@@ -4032,7 +4068,7 @@ innobase_change_buffering_inited_ok:
 	innobase_old_blocks_pct = static_cast<uint>(
 		buf_LRU_old_ratio_update(innobase_old_blocks_pct, TRUE));
 
-	ibuf_max_size_update(innobase_change_buffer_max_size);
+	ibuf_max_size_update(srv_change_buffer_max_size);
 
 	innobase_open_tables = hash_create(200);
 	mysql_mutex_init(innobase_share_mutex_key,
@@ -4227,7 +4263,7 @@ innobase_start_trx_and_assign_read_view(
 	innobase_srv_conc_force_exit_innodb(trx);
 
 	/* If the transaction is not started yet, start it */
-
+	trx->is_primary = true;
 	trx_start_if_not_started_xa(trx);
 
 	if (binlog_file) {
@@ -4316,7 +4352,7 @@ innobase_commit(
 
 	if (!trx_is_registered_for_2pc(trx) && trx_is_started(trx)) {
 
-		sql_print_error("Transaction not registered for MySQL 2PC, "
+		sql_print_information("Transaction not registered for MySQL 2PC, "
 				"but transaction is active");
 	}
 
@@ -4674,12 +4710,21 @@ innobase_close_connection(
 	ut_a(trx);
 
 	if (!trx_is_registered_for_2pc(trx) && trx_is_started(trx)) {
-
-		sql_print_error("Transaction not registered for MySQL 2PC, "
+		sql_print_information("Transaction not registered for MySQL 2PC, "
 				"but transaction is active");
 	}
 
-	if (trx_is_started(trx) && log_warnings) {
+	if (trx->buf_pool_reference > 0) {
+		sql_print_information(
+			"MySQL is closing a connection that has an active"
+			" intention for buffer pool reference.");
+
+		/* adjust to the last reference and release */
+		trx->buf_pool_reference = 1;
+		buf_pool_reference_end(trx);
+	}
+
+	if (trx_is_started(trx)) {
 
 		sql_print_warning(
 			"MySQL is closing a connection that has an active "
@@ -5581,6 +5626,8 @@ ha_innobase::open(
 	ibool			par_case_name_set = FALSE;
 	char			par_case_name[FN_REFLEN];
 	dict_err_ignore_t	ignore_err = DICT_ERR_IGNORE_NONE;
+	trx_t*			trx = NULL;
+	bool			no_trx = false;
 
 	DBUG_ENTER("ha_innobase::open");
 
@@ -5594,13 +5641,26 @@ ha_innobase::open(
 	we acquire dict_sys->mutex below and leads to a deadlock. */
 	if (thd != NULL) {
 		innobase_release_temporary_latches(ht, thd);
+
+		trx = thd_to_trx(thd);
 	}
+
+	if (trx == NULL || !trx_is_started(trx)) {
+		no_trx = true;
+		buf_pool_reference_start(trx);
+	}
+
+	ut_ad(no_trx || trx->is_primary);
 
 	normalize_table_name(norm_name, name);
 
 	user_thd = NULL;
 
 	if (!(share=get_share(name))) {
+
+		if (no_trx) {
+			buf_pool_reference_end(trx);
+		}
 
 		DBUG_RETURN(1);
 	}
@@ -5733,6 +5793,10 @@ ha_innobase::open(
 
 		free_share(share);
 		my_errno = ENOENT;
+
+		if (no_trx) {
+			buf_pool_reference_end(trx);
+		}
 
 		DBUG_RETURN(HA_ERR_NO_SUCH_TABLE);
 	}
@@ -5944,7 +6008,17 @@ table_opened:
 		dict_table_autoinc_unlock(prebuilt->table);
 	}
 
-	info(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST);
+	/* We do not know if MySQL can call this function before calling
+	external_lock(). To be safe, update the thd of the current table
+	handle. */
+	update_thd(ha_thd());
+
+	info_low(HA_STATUS_NO_LOCK | HA_STATUS_VARIABLE | HA_STATUS_CONST,
+		 false /* not ANALYZE */);
+
+	if (no_trx) {
+		buf_pool_reference_end(trx);
+	}
 
 	DBUG_RETURN(0);
 }
@@ -9040,6 +9114,7 @@ ha_innobase::ft_init()
 	them as regular read only transactions for now. */
 
 	if (!trx_is_started(trx)) {
+		ut_ad(trx->buf_pool_reference > 0);
 		++trx->will_lock;
 	}
 
@@ -9107,6 +9182,8 @@ ha_innobase::ft_init_ext(
 	if (!trx_is_started(trx)) {
 		++trx->will_lock;
 	}
+
+	buf_pool_reference_start(trx);
 
 	ft_table = prebuilt->table;
 
@@ -10574,6 +10651,7 @@ ha_innobase::create(
 
 	const char*	stmt;
 	size_t		stmt_len;
+	bool		no_trx = false;
 
 	DBUG_ENTER("ha_innobase::create");
 
@@ -10650,6 +10728,13 @@ ha_innobase::create(
 	possible adaptive hash latch to avoid deadlocks of threads */
 
 	trx_search_latch_release_if_reserved(parent_trx);
+
+	if (!trx_is_started(parent_trx)) {
+		no_trx = true;
+		buf_pool_reference_start(parent_trx);
+	}
+
+	ut_ad(no_trx || parent_trx->is_primary);
 
 	trx = innobase_trx_allocate(thd);
 
@@ -10839,6 +10924,11 @@ ha_innobase::create(
 			dict_table_close(innobase_table, FALSE, FALSE);
 			srv_active_wake_master_thread();
 			trx_free_for_mysql(trx);
+
+			if (no_trx) {
+				buf_pool_reference_end(parent_trx);
+			}
+
 			DBUG_RETURN(-1);
 		}
 	}
@@ -10882,6 +10972,10 @@ ha_innobase::create(
 
 	trx_free_for_mysql(trx);
 
+	if (no_trx) {
+		buf_pool_reference_end(parent_trx);
+	}
+
 	DBUG_RETURN(0);
 
 cleanup:
@@ -10890,6 +10984,10 @@ cleanup:
 	row_mysql_unlock_data_dictionary(trx);
 
 	trx_free_for_mysql(trx);
+
+	if (no_trx) {
+		buf_pool_reference_end(parent_trx);
+	}
 
 	DBUG_RETURN(error);
 }
@@ -11064,6 +11162,7 @@ ha_innobase::delete_table(
 	trx_t*	trx;
 	THD*	thd = ha_thd();
 	char	norm_name[FN_REFLEN];
+	bool	no_trx = false;
 
 	DBUG_ENTER("ha_innobase::delete_table");
 
@@ -11093,6 +11192,13 @@ ha_innobase::delete_table(
 	possible adaptive hash latch to avoid deadlocks of threads */
 
 	trx_search_latch_release_if_reserved(parent_trx);
+
+	if (!trx_is_started(parent_trx)) {
+		no_trx = true;
+		buf_pool_reference_start(parent_trx);
+	}
+
+	ut_ad(no_trx || parent_trx->is_primary);
 
 	trx = innobase_trx_allocate(thd);
 
@@ -11155,6 +11261,10 @@ ha_innobase::delete_table(
 	innobase_commit_low(trx);
 
 	trx_free_for_mysql(trx);
+
+	if (no_trx) {
+		buf_pool_reference_end(parent_trx);
+	}
 
 	DBUG_RETURN(convert_error_code_to_mysql(err, 0, NULL));
 }
@@ -11237,6 +11347,8 @@ innobase_drop_database(
 	char*	ptr;
 	char*	namebuf;
 	THD*	thd		= current_thd;
+	trx_t*	parent_trx	= NULL;
+	bool	no_trx		= false;
 
 	/* Get the transaction associated with the current thd, or create one
 	if not yet created */
@@ -11257,6 +11369,13 @@ innobase_drop_database(
 
 		trx_search_latch_release_if_reserved(parent_trx);
 	}
+
+	if (parent_trx == NULL || !trx_is_started(parent_trx)) {
+		no_trx = true;
+		buf_pool_reference_start(parent_trx);
+	}
+
+	ut_ad(no_trx || parent_trx->is_primary);
 
 	ptr = strend(path) - 2;
 
@@ -11296,6 +11415,10 @@ innobase_drop_database(
 
 	innobase_commit_low(trx);
 	trx_free_for_mysql(trx);
+
+	if (no_trx) {
+		buf_pool_reference_end(parent_trx);
+	}
 }
 
 /*********************************************************************//**
@@ -11415,6 +11538,7 @@ ha_innobase::rename_table(
 	dberr_t	error;
 	trx_t*	parent_trx;
 	THD*	thd		= ha_thd();
+	bool	no_trx		= false;
 
 	DBUG_ENTER("ha_innobase::rename_table");
 
@@ -11432,6 +11556,15 @@ ha_innobase::rename_table(
 	possible adaptive hash latch to avoid deadlocks of threads */
 
 	trx_search_latch_release_if_reserved(parent_trx);
+
+	if (!trx_is_started(parent_trx)) {
+		DEBUG_SYNC_C("ib_rename_table_before_bp_reference");
+
+		no_trx = true;
+		buf_pool_reference_start(parent_trx);
+	}
+
+	ut_ad(no_trx || parent_trx->is_primary);
 
 	trx = innobase_trx_allocate(thd);
 
@@ -11485,6 +11618,10 @@ ha_innobase::rename_table(
 		error = DB_ERROR;
 	}
 
+	if (no_trx) {
+		buf_pool_reference_end(parent_trx);
+	}
+
 	DBUG_RETURN(convert_error_code_to_mysql(error, 0, NULL));
 }
 
@@ -11510,6 +11647,7 @@ ha_innobase::records_in_range(
 	ulint		mode2;
 	mem_heap_t*	heap;
 	ulonglong	start_time;
+	bool		no_trx = false;
 
 	DBUG_ENTER("records_in_range");
 
@@ -11523,6 +11661,13 @@ ha_innobase::records_in_range(
 	possible adaptive hash latch to avoid deadlocks of threads */
 
 	trx_search_latch_release_if_reserved(prebuilt->trx);
+
+	if (!trx_is_started(prebuilt->trx)) {
+		no_trx = true;
+		buf_pool_reference_start(prebuilt->trx);
+	}
+
+	ut_ad(no_trx || prebuilt->trx->is_primary);
 
 	last_active_index = active_index = keynr;
 
@@ -11614,6 +11759,10 @@ func_exit:
 
 	if (n_rows == 0) {
 		n_rows = 1;
+	}
+
+	if (no_trx) {
+		buf_pool_reference_end(prebuilt->trx);
 	}
 
 	innodb_records_in_range_time += my_timer_since(start_time);
@@ -11943,16 +12092,6 @@ ha_innobase::info_low(
 	os_file_stat_t	stat_info;
 
 	DBUG_ENTER("info");
-
-	/* If we are forcing recovery at a high level, we will suppress
-	statistics calculation on tables, because that may crash the
-	server if an index is badly corrupted. */
-
-	/* We do not know if MySQL can call this function before calling
-	external_lock(). To be safe, update the thd of the current table
-	handle. */
-
-	update_thd(ha_thd());
 
 	/* In case MySQL calls this in the middle of a SELECT query, release
 	possible adaptive hash latch to avoid deadlocks of threads */
@@ -12312,7 +12451,28 @@ ha_innobase::info(
 /*==============*/
 	uint	flag)	/*!< in: what information is requested */
 {
-	return(this->info_low(flag, false /* not ANALYZE */));
+	int	ret;
+	bool	no_trx = false;
+
+	/* We do not know if MySQL can call this function before calling
+	external_lock(). To be safe, update the thd of the current table
+	handle. */
+	update_thd(ha_thd());
+
+	if (!trx_is_started(prebuilt->trx)) {
+		no_trx = true;
+		buf_pool_reference_start(prebuilt->trx);
+	}
+
+	ut_ad(no_trx || prebuilt->trx->is_primary);
+
+	ret = this->info_low(flag, false /* not ANALYZE */);
+
+	if (no_trx) {
+		buf_pool_reference_end(prebuilt->trx);
+	}
+
+	return(ret);
 }
 
 /**********************************************************************//**
@@ -12327,12 +12487,29 @@ ha_innobase::analyze(
 	HA_CHECK_OPT*	check_opt)	/*!< in: currently ignored */
 {
 	int	ret;
+	bool	no_trx = false;
+
+	/* We do not know if MySQL can call this function before calling
+	external_lock(). To be safe, update the thd of the current table
+	handle. */
+	update_thd(ha_thd());
+
+	if (!trx_is_started(prebuilt->trx)) {
+		no_trx = true;
+		buf_pool_reference_start(prebuilt->trx);
+	}
+
+	ut_ad(no_trx || prebuilt->trx->is_primary);
 
 	/* Simply call this->info_low() with all the flags
 	and request recalculation of the statistics */
 	ret = this->info_low(
 		HA_STATUS_TIME | HA_STATUS_CONST | HA_STATUS_VARIABLE,
 		true /* this is ANALYZE */);
+
+	if (no_trx) {
+		buf_pool_reference_end(prebuilt->trx);
+	}
 
 	if (ret != 0) {
 		return(HA_ADMIN_FAILED);
@@ -12435,6 +12612,8 @@ ha_innobase::check(
 	REPEATABLE READ here */
 
 	prebuilt->trx->isolation_level = TRX_ISO_REPEATABLE_READ;
+
+	trx_start_if_not_started(prebuilt->trx);
 
 	/* Check whether the table is already marked as corrupted
 	before running the check table */
@@ -13323,6 +13502,14 @@ ha_innobase::external_lock(
 		if (!srv_read_only_mode
 		    && thd_sql_command(thd) == SQLCOM_FLUSH
 		    && lock_type == F_RDLCK) {
+			bool	no_trx = false;
+
+			if (!trx_is_started(trx)) {
+				no_trx = true;
+				buf_pool_reference_start(trx);
+			}
+
+			ut_ad(no_trx || trx->is_primary);
 
 			row_quiesce_table_start(prebuilt->table, trx);
 
@@ -13331,6 +13518,10 @@ ha_innobase::external_lock(
 			implicitly. */
 
 			++trx->flush_tables;
+
+			if (no_trx) {
+				buf_pool_reference_end(trx);
+			}
 		}
 		break;
 
@@ -14773,8 +14964,7 @@ innobase_xa_prepare(
 	innobase_srv_conc_force_exit_innodb(trx);
 
 	if (!trx_is_registered_for_2pc(trx) && trx_is_started(trx)) {
-
-		sql_print_error("Transaction not registered for MySQL 2PC, "
+		sql_print_information("Transaction not registered for MySQL 2PC, "
 				"but transaction is active");
 	}
 
@@ -15493,6 +15683,118 @@ innodb_stopword_table_validate(
 	return(ret);
 }
 
+/**
+Update the system variable innodb_buffer_pool_size using the "saved"
+value. This function is registered as a callback with MySQL.
+@param	[in]	thd	thread handle
+@param	[in]	var	pointer to system variable
+@param	[out]	var_ptr	where the formal string goes
+@param	[in]	save	immediate result from check function */
+static
+void
+innodb_buffer_pool_size_update(
+	THD*				thd,
+	struct st_mysql_sys_var*	var,
+	void*				var_ptr,
+	const void*			save)
+{
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Entering innodb_buffer_pool_size_update()");
+
+	long long	in_val = *static_cast<const long long*>(save);
+
+#ifdef UNIV_LOG_DEBUG
+	/* UNIV_LOG_DEBUG might not release blocks from the buffer pool,
+	even after recv_recovery_from_checkpoint_finish().
+	Cannot resize the buffer pool. */
+	return;
+#endif /* UNIV_LOG_DEBUG */
+
+	if (!srv_was_started) {
+		push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+				    ER_WRONG_ARGUMENTS,
+				    "Cannot update innodb_buffer_pool_size,"
+				    " because InnoDB is not started.");
+		return;
+	}
+
+	buf_pool_mutex_enter_all();
+	if (srv_buf_pool_old_size != srv_buf_pool_size) {
+		buf_pool_mutex_exit_all();
+
+		push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+				    ER_WRONG_ARGUMENTS,
+				    "Cannot update innodb_buffer_pool_size,"
+				    " another resize is already in progress.");
+		return;
+	}
+
+	if (srv_buf_pool_instances > 1 && in_val < 1024 * 1024 * 1024) {
+		buf_pool_mutex_exit_all();
+
+		push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+				    ER_WRONG_ARGUMENTS,
+				    "Cannot update innodb_buffer_pool_size"
+				    " to less than 1GB if"
+				    " innodb_buffer_pool_instances > 1.");
+		return;
+	}
+
+	if (srv_buf_pool_chunk_unit == 0) {
+		buf_pool_mutex_exit_all();
+
+		push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+				    ER_WRONG_ARGUMENTS,
+				    "Cannot update innodb_buffer_pool_size"
+				    " if innodb_buffer_pool_chunk_size = 0.");
+		return;
+	}
+	ut_ad(srv_buf_pool_chunk_unit > 0);
+
+	/* set !=srv_buf_pool_old_size value. each buffer pool instance
+	contains at least one chunk unit. this is the same algorithm
+	that determines buffer pool size based on chunk unit size when
+	server starts */
+	srv_buf_pool_size = static_cast<ulint>(in_val);
+	srv_buf_pool_size
+		/= (srv_buf_pool_instances * srv_buf_pool_chunk_unit);
+	while (srv_buf_pool_size
+	       * srv_buf_pool_instances
+	       * srv_buf_pool_chunk_unit < 5*1024*1024L) {
+		++srv_buf_pool_size;
+	}
+	srv_buf_pool_size
+		*= (srv_buf_pool_instances * srv_buf_pool_chunk_unit);
+
+	innobase_buffer_pool_size = static_cast<long long>(srv_buf_pool_size);
+
+	if (srv_buf_pool_old_size == srv_buf_pool_size) {
+		buf_pool_mutex_exit_all();
+		/* nothing to do */
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Retruning from innodb_buffer_pool_size_update()"
+			" since there are nothing to do.");
+		return;
+	}
+
+	buf_pool_mutex_exit_all();
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"In innodb_buffer_pool_size_update()"
+		" will resize buffer pool from %lu to %lu",
+		srv_buf_pool_old_size, srv_buf_pool_size);
+
+	ut_snprintf(export_vars.innodb_buffer_pool_resize_status,
+		    sizeof(export_vars.innodb_buffer_pool_resize_status),
+		    "Requested to resize buffer pool.");
+
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"In innodb_buffer_pool_size_update()"
+		" set os event to wake up buf_resize_thread");
+
+	os_event_set(srv_buf_resize_event);
+}
+
 /*************************************************************//**
 Check whether valid argument given to "innodb_fts_internal_tbl_name"
 This function is registered as a callback with MySQL.
@@ -15705,9 +16007,9 @@ innodb_change_buffer_max_size_update(
 	const void*			save)	/*!< in: immediate result
 						from check function */
 {
-	innobase_change_buffer_max_size =
+	srv_change_buffer_max_size =
 			(*static_cast<const uint*>(save));
-	ibuf_max_size_update(innobase_change_buffer_max_size);
+	ibuf_max_size_update(srv_change_buffer_max_size);
 }
 
 #ifdef UNIV_DEBUG
@@ -16741,6 +17043,10 @@ innobase_fts_close_ranking(
 {
 	fts_result_t*	result;
 
+	trx_t*		trx;
+
+	trx = ((NEW_FT_INFO*) fts_hdl)->ft_prebuilt->trx;
+
 	((NEW_FT_INFO*) fts_hdl)->ft_prebuilt->in_fts_query = false;
 
 	result = ((NEW_FT_INFO*) fts_hdl)->ft_result;
@@ -16749,6 +17055,7 @@ innobase_fts_close_ranking(
 
 	my_free((uchar*) fts_hdl);
 
+	buf_pool_reference_end(trx);
 
 	return;
 }
@@ -17433,9 +17740,18 @@ static MYSQL_SYSVAR_ULONG(autoextend_increment, srv_auto_extend_increment,
   NULL, NULL, 64L, 1L, 1000L, 0);
 
 static MYSQL_SYSVAR_LONGLONG(buffer_pool_size, innobase_buffer_pool_size,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  PLUGIN_VAR_RQCMDARG,
   "The size of the memory buffer InnoDB uses to cache data and indexes of its tables.",
-  NULL, NULL, 128*1024*1024L, 5*1024*1024L, LONGLONG_MAX, 1024*1024L);
+  NULL, innodb_buffer_pool_size_update,
+  128*1024*1024L, 5*1024*1024L, LONGLONG_MAX, 1024*1024L);
+
+static MYSQL_SYSVAR_ULONG(buffer_pool_chunk_size, srv_buf_pool_chunk_unit,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Unit size for memory allocation for buffer pool."
+  " 0 means not to use chunk allocation and buffer pool resize will be disabled."
+  " This is used to avoid memory copying when resizing buffer pool.",
+  NULL, NULL,
+  0, 0, LONG_MAX, 1024*1024L);
 
 static MYSQL_SYSVAR_STR(histogram_step_size_async_read,
   innobase_histogram_step_size_async_read,
@@ -17956,7 +18272,7 @@ static MYSQL_SYSVAR_STR(change_buffering, innobase_change_buffering,
   innodb_change_buffering_update, "all");
 
 static MYSQL_SYSVAR_UINT(change_buffer_max_size,
-  innobase_change_buffer_max_size,
+  srv_change_buffer_max_size,
   PLUGIN_VAR_RQCMDARG,
   "Maximum on-disk size of change buffer in terms of percentage"
   " of the buffer pool.",
@@ -18186,6 +18502,12 @@ static MYSQL_SYSVAR_ULONG(evicted_pages_sampling_ratio,
   "Sampling ratio of reporting ages of evicted pages. ",
   NULL, NULL, 0, 0, 1000000, 0);
 
+static MYSQL_SYSVAR_ULONG(buffer_pool_resizing_timeout,
+  innobase_buffer_pool_resizing_timeout,
+  PLUGIN_VAR_RQCMDARG,
+  "Buffer pool resizing timeout in seconds. ",
+  NULL, NULL, 10, 10, 60 * 60 * 24, 0);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(additional_mem_pool_size),
   MYSQL_SYSVAR(api_trx_level),
@@ -18193,12 +18515,14 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(autoextend_increment),
   MYSQL_SYSVAR(buffer_pool_size),
   MYSQL_SYSVAR(buffer_pool_populate),
+  MYSQL_SYSVAR(buffer_pool_chunk_size),
   MYSQL_SYSVAR(sync_pool_size),
   MYSQL_SYSVAR(buffer_pool_instances),
   MYSQL_SYSVAR(buffer_pool_filename),
   MYSQL_SYSVAR(buffer_pool_dump_now),
   MYSQL_SYSVAR(buffer_pool_dump_at_shutdown),
   MYSQL_SYSVAR(evicted_pages_sampling_ratio),
+  MYSQL_SYSVAR(buffer_pool_resizing_timeout),
   MYSQL_SYSVAR(histogram_step_size_async_read),
   MYSQL_SYSVAR(histogram_step_size_async_write),
   MYSQL_SYSVAR(histogram_step_size_sync_read),

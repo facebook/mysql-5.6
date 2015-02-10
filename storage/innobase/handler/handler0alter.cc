@@ -5757,8 +5757,11 @@ foreign_fail:
 		DBUG_RETURN(true);
 	}
 
-	/* Release the table locks. */
-	trx_commit_for_mysql(prebuilt->trx);
+	/* FIXME: We should not finish the parent trx here.
+	Because the sub trx should not active during the parent trx inactive,
+	to exclude from resizing buffer pool correctly. */
+	///* Release the table locks. */
+	//trx_commit_for_mysql(prebuilt->trx);
 
 	DBUG_EXECUTE_IF("ib_ddl_crash_after_user_trx_commit", DBUG_SUICIDE(););
 

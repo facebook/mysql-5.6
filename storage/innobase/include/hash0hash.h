@@ -360,6 +360,40 @@ do {\
 	}\
 } while (0)
 
+/****************************************************************//**
+Adjust addresses with moved offsets for the specified area. */
+#define HASH_OFFSET(TABLE, NODE_TYPE, PTR_NAME, OFFSET, AREA_START, AREA_END) \
+do {\
+	ulint		i3333;\
+	ulint		cell_count3333;\
+\
+	cell_count3333 = hash_get_n_cells(TABLE);\
+\
+	for (i3333 = 0; i3333 < cell_count3333; i3333++) {\
+		NODE_TYPE*	node3333;\
+\
+		if ((TABLE)->array[i3333].node \
+		    && (TABLE)->array[i3333].node >= (void*)AREA_START \
+		    && (TABLE)->array[i3333].node < (void*)AREA_END) {\
+			(TABLE)->array[i3333].node = \
+				reinterpret_cast<NODE_TYPE*> \
+				((byte*)(TABLE)->array[i3333].node + OFFSET);\
+		}\
+		node3333 = (NODE_TYPE*) HASH_GET_FIRST((TABLE), i3333);\
+\
+		while (node3333) {\
+			if (node3333->PTR_NAME \
+			    && node3333->PTR_NAME >= (void*)AREA_START \
+			    && node3333->PTR_NAME < (void*)AREA_END) {\
+				node3333->PTR_NAME = \
+					reinterpret_cast<NODE_TYPE*> \
+					((byte*)(node3333->PTR_NAME) + OFFSET);\
+			}\
+			node3333 = node3333->PTR_NAME;\
+		}\
+	}\
+} while (0)
+
 /************************************************************//**
 Gets the sync object index for a fold value in a hash table.
 @return	index */
