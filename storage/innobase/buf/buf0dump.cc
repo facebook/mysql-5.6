@@ -581,6 +581,7 @@ DECLARE_THREAD(buf_dump_thread)(
 	ut_ad(!srv_read_only_mode);
 
 	srv_buf_dump_thread_active = TRUE;
+	buf_pool_resizable_dump = false;
 
 	buf_dump_status(STATUS_INFO, "not started");
 	buf_load_status(STATUS_INFO, "not started");
@@ -590,8 +591,15 @@ DECLARE_THREAD(buf_dump_thread)(
 	}
 
 	while (!SHUTTING_DOWN()) {
+		buf_pool_resizable_dump = true;
 
 		os_event_wait(srv_buf_dump_event);
+
+		if (buf_pool_resizing) {
+			os_event_wait(buf_pool_resized_event);
+		}
+
+		buf_pool_resizable_dump = false;
 
 		if (buf_dump_should_start) {
 			buf_dump_should_start = FALSE;
@@ -611,6 +619,7 @@ DECLARE_THREAD(buf_dump_thread)(
 		keep going even if we are in a shutdown state */);
 	}
 
+	buf_pool_resizable_dump = true;
 	srv_buf_dump_thread_active = FALSE;
 
 	/* We count the number of threads in os_thread_exit(). A created
