@@ -1,0 +1,20 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+include/gtid_utils.inc
+include/rpl_reset.inc
+create table t1(a int);
+insert into t1 values(1);
+insert into t1 values(2);
+FLUSH LOGS;
+include/assert.inc [gtid set on master.]
+include/rpl_restart_server.inc [server_number=1 gtids=on parameters: --debug=d,skip_writing_previous_gtids_log_event]
+include/rpl_restart_server.inc [server_number=1 gtids=on]
+include/assert.inc [gtid set on master after restart with skip_writing_previous_gtids_log_event.]
+include/start_slave.inc
+include/assert.inc [gtid set on slave.]
+drop table t1;
+include/gtid_utils_end.inc
+include/rpl_end.inc
