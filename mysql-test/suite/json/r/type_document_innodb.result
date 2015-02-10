@@ -1,4 +1,4 @@
-drop table if exists t, t1, t2;
+drop table if exists t, t1, t2, t3;
 SET @start_allow_document_type = @@global.allow_document_type;
 SELECT @start_allow_document_type;
 @start_allow_document_type
@@ -39,6 +39,9 @@ ERROR HY000: A DOCUMENT field is not allowed in partition function
 insert into t values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
 Warnings:
 Warning	1898	Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous' for column 'a' at row 1
+SELECT count(*) FROM t;
+count(*)
+1
 insert into t values (2, ' ', 'a2');
 Warnings:
 Warning	1898	Invalid document value: ' ' for column 'a' at row 1
@@ -122,25 +125,53 @@ a	b	c	d
 1010	bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb	cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc	{"id":201,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"street":"1st","zipcode":98761}}
 SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'document) FROM t1 WHERE a >= 1000 and a <= 1010' at line 1
+create table t2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
+show create table t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `i` int(8) NOT NULL DEFAULT '0',
+  `a` document NOT NULL,
+  `s` tinytext,
+  PRIMARY KEY (`i`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
+ERROR HY000: Invalid document value: { "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }
+insert into t2 values (2, ' ', 'a2');
+ERROR HY000: Invalid document value:  
+insert into t2 values (3, 123, 'a3');
+ERROR HY000: Invalid document value: 123
+insert into t2 values (4, 123.456, 'a4');
+ERROR HY000: Invalid document value: 123.456
+SELECT count(*) FROM t2;
+count(*)
+0
+insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
+update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }' where i = 1;
+ERROR HY000: Invalid document value: { "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }
+SELECT * from t2;
+i	a	s
+1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
+update t2 set a=DEFAULT;
+ERROR HY000: Invalid document value.
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 0
-create table t2 (i int(8), a document, s text(255)) engine=innodb;
+create table t3 (i int(8), a document, s text(255)) engine=innodb;
 ERROR HY000: DOCUMENT fields are not allowed
-create table t2 (i int(8), s text(255)) engine=innodb;
-alter table t2 add column a document;
+create table t3 (i int(8), s text(255)) engine=innodb;
+alter table t3 add column a document;
 ERROR HY000: DOCUMENT fields are not allowed
-alter table t2 modify column s document;
+alter table t3 modify column s document;
 ERROR HY000: DOCUMENT fields are not allowed
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
-alter table t2 add column a document;
-alter table t2 modify column s document;
+alter table t3 add column a document;
+alter table t3 modify column s document;
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
-drop table t, t1, t2;
+drop table t, t1, t2, t3;
