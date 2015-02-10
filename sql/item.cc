@@ -8087,8 +8087,16 @@ Item_default_value::save_in_field(Field *field_arg, bool no_conversions)
     {
       if (field_arg->reset())
       {
-        my_message(ER_CANT_CREATE_GEOMETRY_OBJECT,
-                   ER(ER_CANT_CREATE_GEOMETRY_OBJECT), MYF(0));
+        if (field_arg->type() == MYSQL_TYPE_GEOMETRY)
+        {
+          my_message(ER_CANT_CREATE_GEOMETRY_OBJECT,
+                     ER(ER_CANT_CREATE_GEOMETRY_OBJECT), MYF(0));
+        }
+        else if (field_arg->type() == MYSQL_TYPE_DOCUMENT)
+        {
+          my_message(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
+                     "Invalid document value.", MYF(0));
+        }
         return TYPE_ERR_BAD_VALUE;
       }
 
