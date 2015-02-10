@@ -364,6 +364,7 @@ extern bool reset_seconds_behind_master;
 
 extern const char *relay_log_index;
 extern const char *relay_log_basename;
+extern uint rpl_receive_buffer_size;
 
 /// @brief Helper class used to initialize the replica (includes init_replica())
 /// @details init_replica is called once during the mysqld start-up

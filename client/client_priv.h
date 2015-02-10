@@ -189,6 +189,7 @@ enum options_client {
   OPT_LRA_SLEEP,
   OPT_LRA_PAGES_BEFORE_SLEEP,
   OPT_TIMEOUT,
+  OPT_RECEIVE_BUFFER_SIZE,
   /* Add new option above this */
   OPT_MAX_CLIENT_OPTION
 };
