@@ -871,6 +871,9 @@ The following options may be given as the first argument:
  connections that avoids calls to malloc & free for events
  smaller than this.
  --rpl-read-size=#   The size for reads done from the binlog and relay log.
+ --rpl-receive-buffer-size=# 
+ The size of input buffer for the socket used during
+ receving events from a master.
  --rpl-stop-slave-timeout=# 
  Timeout in seconds to wait for slave to stop before
  returning a warning.
@@ -1328,6 +1331,7 @@ report-user (No default value)
 reset-seconds-behind-master TRUE
 rpl-event-buffer-size 1048576
 rpl-read-size 8192
+rpl-receive-buffer-size 2097152
 rpl-stop-slave-timeout 604800
 safe-user-create FALSE
 secure-auth TRUE
