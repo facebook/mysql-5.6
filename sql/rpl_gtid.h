@@ -1425,6 +1425,11 @@ public:
 public:
 
   /**
+     Returns this Gtid_set as a binary string and stores the length
+     of the binary string in encoded_length.
+  */
+  uchar* encode(uint *encoded_length) const;
+  /**
     Encodes this Gtid_set as a binary string.
   */
   void encode(uchar *buf) const;

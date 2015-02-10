@@ -1,0 +1,91 @@
+-- source include/master-slave.inc
+-- source include/have_gtid.inc
+-- source include/have_binlog_format_mixed_or_statement.inc
+
+connection master;
+show binary logs;
+create table t1 (a int);
+
+insert into t1 values(1);
+insert into t1 values(2);
+
+FLUSH LOGS;
+
+sync_slave_with_master;
+-- source include/stop_slave.inc
+
+connection master;
+insert into t1 values(3);
+insert into t1 values(4);
+
+FLUSH LOGS;
+
+connection slave;
+change master to master_auto_position=1;
+-- source include/start_slave.inc
+
+connection master;
+
+-- echo "GTID sets on master"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+sync_slave_with_master;
+
+-- echo "GTID sets on slave"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+--source include/stop_slave.inc
+
+connection master;
+
+show binary logs;
+
+-- let $rpl_server_number= 1
+-- let $rpl_start_with_gtids= 1
+-- source include/rpl_restart_server.inc
+
+-- echo "GTID sets on master after first restart"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+purge binary logs to 'master-bin.000002';
+show binary logs;
+
+-- echo "GTID sets on master after purge"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+-- let $rpl_server_number= 1
+-- let $rpl_start_with_gtids= 1
+-- source include/rpl_restart_server.inc
+
+-- echo "GTID sets on master after second restart"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+connection slave;
+change master to master_auto_position=0;
+--source include/start_slave.inc
+
+connection master;
+drop table t1;
+create table t1 (a int);
+insert into t1 values(5);
+insert into t1 values(6);
+FLUSH LOGS;
+
+drop table t1;
+
+-- echo "GTID sets on master finally"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+sync_slave_with_master;
+
+-- echo "GTID sets on slave finally"
+-- replace_regex /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/UUID/
+select @@global.gtid_executed , @@global.gtid_purged;
+
+connection master;
+--source include/rpl_end.inc

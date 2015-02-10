@@ -30,7 +30,6 @@
 #include "sql_parse.h"
 #include "rpl_mi.h"
 #include <list>
-#include <string>
 #include <my_stacktrace.h>
 
 using std::max;
@@ -2859,118 +2858,67 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
                                                    Gtid *first_gtid,
                                                    const char **errmsg)
 {
-  DBUG_ENTER("MYSQL_BIN_LOG::gtid_read_start_binlog");
-  /*
-    Gather the set of files to be accessed.
-  */
-  list<string> filename_list;
-  LOG_INFO linfo;
-  int error;
+  DBUG_ENTER("MYSQL_BIN_LOG::find_first_log_not_in_gtid_set");
 
-  list<string>::reverse_iterator rit;
   Gtid_set previous_gtid_set(gtid_set->get_sid_map());
 
   mysql_mutex_lock(&LOCK_index);
-  for (error= find_log_pos(&linfo, NULL, false/*need_lock_index=false*/);
-       !error; error= find_next_log(&linfo, false/*need_lock_index=false*/))
+  std::map<std::string, std::string>::reverse_iterator rit;
+  for (rit = previous_gtid_set_map.rbegin();
+       rit != previous_gtid_set_map.rend(); ++rit)
   {
-    DBUG_PRINT("info", ("read log filename '%s'", linfo.log_file_name));
-    filename_list.push_back(string(linfo.log_file_name));
-  }
-  mysql_mutex_unlock(&LOCK_index);
-  if (error != LOG_INFO_EOF)
-  {
-    *errmsg= "Failed to read the binary log index file while "
-      "looking for the oldest binary log that contains any GTID "
-      "that is not in the given gtid set";
-    error= -1;
-    goto end;
-  }
 
-  if (filename_list.empty())
-  {
-    *errmsg= "Could not find first log file name in binary log index file "
-      "while looking for the oldest binary log that contains any GTID "
-      "that is not in the given gtid set";
-    error= -2;
-    goto end;
-  }
+    previous_gtid_set.add_gtid_encoding((const uchar*)rit->second.c_str(),
+                                        rit->second.length());
 
-  /*
-    Iterate over all the binary logs in reverse order, and read only
-    the Previous_gtids_log_event, to find the first one, that is the
-    subset of the given gtid set. Since every binary log begins with
-    a Previous_gtids_log_event, that contains all GTIDs in all
-    previous binary logs.
-    We also ask for the first GTID in the binary log to know if we
-    should send the FD event with the "created" field cleared or not.
-  */
-  DBUG_PRINT("info", ("Iterating backwards through binary logs, and reading "
-                      "only the Previous_gtids_log_event, to find the first "
-                      "one, that is the subset of the given gtid set."));
-  rit= filename_list.rbegin();
-  error= 0;
-  while (rit != filename_list.rend())
-  {
-    const char *filename= rit->c_str();
-    DBUG_PRINT("info", ("Read Previous_gtids_log_event from filename='%s'",
-                        filename));
-    switch (read_gtids_from_binlog(filename, NULL, &previous_gtid_set,
-                                   first_gtid, NULL/* last_gtid */,
-                                   previous_gtid_set.get_sid_map(),
-                                   opt_master_verify_checksum))
+    if (previous_gtid_set.is_subset(gtid_set))
     {
-    case ERROR:
-      *errmsg= "Error reading header of binary log while looking for "
-        "the oldest binary log that contains any GTID that is not in "
-        "the given gtid set";
-      error= -3;
-      goto end;
-    case NO_GTIDS:
-      *errmsg= "Found old binary log without GTIDs while looking for "
-        "the oldest binary log that contains any GTID that is not in "
-        "the given gtid set";
-      error= -4;
-      goto end;
-    case GOT_GTIDS:
-    case GOT_PREVIOUS_GTIDS:
-      if (previous_gtid_set.is_subset(gtid_set))
+      strcpy(binlog_file_name, rit->first.c_str());
+      enum_read_gtids_from_binlog_status ret =
+        read_gtids_from_binlog(binlog_file_name, NULL, NULL, first_gtid,
+                               NULL, gtid_set->get_sid_map(),
+                               opt_master_verify_checksum);
+      // some rpl tests injects the error skip_writing_previous_gtids_log_event
+      // intentionally. Don't pass this error to dump thread which causes
+      // slave io_thread error failing the tests.
+      if (ret != GOT_GTIDS && ret != GOT_PREVIOUS_GTIDS &&
+          DBUG_EVALUATE_IF("skip_writing_previous_gtids_log_event", 0, 1))
       {
-        strcpy(binlog_file_name, filename);
-        /*
-          Verify that the selected binlog is not the first binlog,
-        */
-        DBUG_EXECUTE_IF("slave_reconnect_with_gtid_set_executed",
-                        DBUG_ASSERT(strcmp(filename_list.begin()->c_str(),
-                                           binlog_file_name) != 0););
-        goto end;
+        *errmsg = "Error finding first GTID in the log file";
+        mysql_mutex_unlock(&LOCK_index);
+        DBUG_RETURN(true);
       }
-    case TRUNCATED:
-      break;
+      mysql_mutex_unlock(&LOCK_index);
+      DBUG_RETURN(false);
     }
     previous_gtid_set.clear();
-
-    rit++;
   }
 
-  if (rit == filename_list.rend())
-  {
-    *errmsg= ER(ER_MASTER_HAS_PURGED_REQUIRED_GTIDS);
-    error= -5;
-  }
-
-end:
-  if (error)
-    DBUG_PRINT("error", ("'%s'", *errmsg));
-  filename_list.clear();
-  DBUG_PRINT("info", ("returning %d", error));
-  DBUG_RETURN(error != 0 ? true : false);
+  *errmsg= ER(ER_MASTER_HAS_PURGED_REQUIRED_GTIDS);
+  DBUG_PRINT("error", ("'%s'", *errmsg));
+  mysql_mutex_unlock(&LOCK_index);
+  DBUG_RETURN(true);
 }
 
 bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    Gtid *last_gtid, bool verify_checksum,
-                                   bool need_lock, bool is_server_starting)
+                                   bool need_lock)
 {
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
+  uchar *previous_gtid_set_in_file = NULL;
+  bool found_lost_gtids = false;
+  uint last_previous_gtid_encoded_length = 0;
+  int error = 0, length;
+  std::pair<std::map<string, string>::iterator, bool> iterator, save_iterator;
+  previous_gtid_set_map.clear();
+
+  /* Initialize the sid_map to be used in read_gtids_from_binlog */
+  Sid_map *sid_map= NULL;
+  if (all_gtids)
+    sid_map= all_gtids->get_sid_map();
+  else if(lost_gtids)
+    sid_map= lost_gtids->get_sid_map();
+
   DBUG_ENTER("MYSQL_BIN_LOG::init_gtid_sets");
   DBUG_PRINT("info", ("lost_gtids=%p; so we are recovering a %s log",
                       lost_gtids, lost_gtids == NULL ? "relay" : "binary"));
@@ -2996,145 +2944,88 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
     global_sid_lock->assert_some_wrlock();
   }
 
-  // Gather the set of files to be accessed.
-  list<string> filename_list;
-  LOG_INFO linfo;
-  int error;
-
-  list<string>::iterator it;
-  list<string>::reverse_iterator rit;
-  bool reached_first_file= false;
-
-  /* Initialize the sid_map to be used in read_gtids_from_binlog */
-  Sid_map *sid_map= NULL;
-  if (all_gtids)
-    sid_map= all_gtids->get_sid_map();
-  else if (lost_gtids)
-    sid_map= lost_gtids->get_sid_map();
-
-  for (error= find_log_pos(&linfo, NULL, false/*need_lock_index=false*/); !error;
-       error= find_next_log(&linfo, false/*need_lock_index=false*/))
+  my_b_seek(&index_file, 0);
+  while ((length=my_b_gets(&index_file, file_name_and_gtid_set_length,
+                           sizeof(file_name_and_gtid_set_length))) >= 1)
   {
-    DBUG_PRINT("info", ("read log filename '%s'", linfo.log_file_name));
-    filename_list.push_back(string(linfo.log_file_name));
-  }
-  if (error != LOG_INFO_EOF)
-  {
-    DBUG_PRINT("error", ("Error reading binlog index"));
-    goto end;
-  }
-  /*
-    On server starting, one new empty binlog file is created and
-    its file name is put into index file before initializing
-    GLOBAL.GTID_EXECUTED AND GLOBAL.GTID_PURGED, it is not the
-    last binlog file before the server restarts, so we remove
-    its file name from filename_list.
-  */
-  if (is_server_starting && !is_relay_log && !filename_list.empty())
-    filename_list.pop_back();
-
-  error= 0;
-
-  if (all_gtids != NULL)
-  {
-    DBUG_PRINT("info", ("Iterating backwards through binary logs, looking for the last binary log that contains a Previous_gtids_log_event."));
-    // Iterate over all files in reverse order until we find one that
-    // contains a Previous_gtids_log_event.
-    rit= filename_list.rbegin();
-    bool got_gtids= false;
-    reached_first_file= (rit == filename_list.rend());
-    DBUG_PRINT("info", ("filename='%s' reached_first_file=%d",
-                        rit->c_str(), reached_first_file));
-    while ((!got_gtids || (last_gtid && last_gtid->empty()))
-           && !reached_first_file)
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_string_length =
+      split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0)
     {
-      const char *filename= rit->c_str();
-      rit++;
-      reached_first_file= (rit == filename_list.rend());
-      DBUG_PRINT("info", ("filename='%s' got_gtids=%d reached_first_file=%d",
-                          filename, got_gtids, reached_first_file));
-      switch (read_gtids_from_binlog(filename, got_gtids ? NULL : all_gtids,
-                                     reached_first_file ? lost_gtids : NULL,
-                                     NULL/* first_gtid */, last_gtid,
-                                     sid_map, verify_checksum))
+      // Allocate gtid_string_length + 1 to include the '\n' also.
+      previous_gtid_set_in_file =
+        (uchar *) my_malloc(gtid_string_length + 1, MYF(MY_WME));
+      if (previous_gtid_set_in_file == NULL)
       {
-        case ERROR:
-        {
-          error= 1;
-          goto end;
-        }
-        case GOT_GTIDS:
-        case GOT_PREVIOUS_GTIDS:
-        {
-          got_gtids= true;
-          break;
-        }
-        case NO_GTIDS:
-        {
-          /*
-            If the binlog_gtid_simple_recovery is enabled, and the
-            last binary log does not contain any GTID event, do not
-            read any more binary logs, GLOBAL.GTID_EXECUTED and
-            GLOBAL.GTID_PURGED should be empty in the case. Otherwise,
-            initialize GTID_EXECUTED as usual.
-          */
-          if (binlog_gtid_simple_recovery && !is_relay_log)
-          {
-            DBUG_ASSERT(all_gtids->is_empty() && lost_gtids->is_empty());
-            goto end;
-          }
-          /*FALLTHROUGH*/
-        }
-        case TRUNCATED:
-        {
-          break;
-        }
+        sql_print_error("MYSQL_BIN_LOG::init_gtid_sets failed allocating "
+                        "%u bytes", gtid_string_length + 1);
+        error = 2;
+        goto end;
+      }
+      if (my_b_read(&index_file, previous_gtid_set_in_file,
+                    gtid_string_length + 1))
+      {
+        sql_print_error("MYSQL_BINLOG::init_gtid_sets failed because "
+                        "previous gtid set of binlog %s is corrupted in "
+                        "the index file", file_name_and_gtid_set_length);
+        error= !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
+        my_free(previous_gtid_set_in_file);
+        goto end;
+      }
+
+      if (lost_gtids != NULL && !found_lost_gtids)
+      {
+        DBUG_PRINT("info", ("first binlog with gtids %s\n",
+                            file_name_and_gtid_set_length));
+        lost_gtids->add_gtid_encoding(previous_gtid_set_in_file,
+                                      gtid_string_length);
+        found_lost_gtids = true;
       }
     }
-  }
-  if (lost_gtids != NULL && !reached_first_file)
-  {
-    DBUG_PRINT("info", ("Iterating forwards through binary logs, looking for the first binary log that contains a Previous_gtids_log_event."));
-    for (it= filename_list.begin(); it != filename_list.end(); it++)
+    iterator = previous_gtid_set_map.insert(
+      std::pair<string, string>(string(file_name_and_gtid_set_length),
+                                string((char*)previous_gtid_set_in_file,
+                                       gtid_string_length)));
+
+    if (all_gtids != NULL && gtid_string_length > 0)
     {
-      const char *filename= it->c_str();
-      DBUG_PRINT("info", ("filename='%s'", filename));
-      switch (read_gtids_from_binlog(filename, NULL, lost_gtids,
-                                     NULL/* first_gtid */, NULL/* last_gtid */,
-                                     sid_map, verify_checksum))
-      {
-        case ERROR:
-        {
-          error= 1;
-          /*FALLTHROUGH*/
-        }
-        case GOT_GTIDS:
-        {
-          goto end;
-        }
-        case NO_GTIDS:
-        {
-          /*
-            If the binlog_gtid_simple_recovery is enabled, and the
-            first binary log does not contain any GTID event, do not
-            read any more binary logs, GLOBAL.GTID_PURGED should be
-            empty in the case.
-          */
-          if (binlog_gtid_simple_recovery && !is_relay_log)
-          {
-            DBUG_ASSERT(lost_gtids->is_empty());
-            goto end;
-          }
-          /*FALLTHROUGH*/
-        }
-        case GOT_PREVIOUS_GTIDS:
-        case TRUNCATED:
-        {
-          break;
-        }
-      }
+      last_previous_gtid_encoded_length = gtid_string_length;
+      save_iterator = iterator;
+    }
+    my_free(previous_gtid_set_in_file);
+    previous_gtid_set_in_file = NULL;
+  }
+
+  if (all_gtids != NULL && last_previous_gtid_encoded_length)
+  {
+    const char *last_binlog_file_with_gtids =
+      save_iterator.first->first.c_str();
+    DBUG_PRINT("info", ("last binlog with gtids %s\n",
+                        last_binlog_file_with_gtids));
+    switch (read_gtids_from_binlog(last_binlog_file_with_gtids, all_gtids, NULL,
+                                   NULL, last_gtid, sid_map, verify_checksum))
+    {
+      case ERROR:
+        error= 1;
+        goto end;
+      default:
+        break;
+    }
+    /*
+      Even though the previous gtid encoding is not null in index file, it may
+      happen that the binlog is corrupted and doesn't contain previous gtid log
+      event. In these cases, the encoding in the index file is considered as
+      true and used to initialize the all_gtids(GLOBAL.GTID_EXECUTED).
+    */
+    if (all_gtids->is_empty())
+    {
+      all_gtids->add_gtid_encoding(
+        (const uchar*)save_iterator.first->second.c_str(),
+        last_previous_gtid_encoded_length);
     }
   }
+
 end:
   if (all_gtids)
     all_gtids->dbug_print("all_gtids");
@@ -3147,7 +3038,6 @@ end:
     if (all_gtids != NULL)
       mysql_mutex_unlock(&LOCK_log);
   }
-  filename_list.clear();
   DBUG_PRINT("info", ("returning %d", error));
   DBUG_RETURN(error != 0 ? true : false);
 }
@@ -3290,7 +3180,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     See further comments in the mysqld.
     /Alfranio
   */
-  if (current_thd && gtid_mode > 0)
+  if (gtid_mode > 0)
   {
     if (need_sid_lock)
       global_sid_lock->wrlock();
@@ -3363,7 +3253,7 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
                     {DBUG_SET("+d,simulate_no_free_space_error");});
     if (DBUG_EVALUATE_IF("fault_injection_updating_index", 1, 0) ||
         add_log_to_index((uchar*) log_file_name, strlen(log_file_name),
-                         need_lock_index))
+                         need_lock_index, need_sid_lock))
     {
       DBUG_EXECUTE_IF("simulate_disk_full_on_open_binlog",
                       {
@@ -3503,8 +3393,12 @@ err:
     -1   error
 */
 int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
-                                    int log_name_len, bool need_lock_index)
+                                    int log_name_len, bool need_lock_index,
+                                    bool need_sid_lock)
 {
+  char gtid_set_length_buffer[11];
+  uchar *previous_gtid_set_buffer = NULL;
+  uint gtid_set_length = 0;
   DBUG_ENTER("MYSQL_BIN_LOG::add_log_to_index");
 
   if (open_crash_safe_index_file())
@@ -3521,14 +3415,63 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
     goto err;
   }
 
-  if (my_b_write(&crash_safe_index_file, log_name, log_name_len) ||
-      my_b_write(&crash_safe_index_file, (uchar*) "\n", 1) ||
-      flush_io_cache(&crash_safe_index_file) ||
-      mysql_file_sync(crash_safe_index_file.file, MYF(MY_WME)))
+  if (need_sid_lock)
+    global_sid_lock->wrlock();
+
+  global_sid_lock->assert_some_wrlock();
+
+  if (gtid_mode > 0)
+  {
+    previous_gtid_set_buffer = previous_gtid_set->encode(&gtid_set_length);
+    int10_to_str(gtid_set_length, gtid_set_length_buffer, 10);
+  }
+  if (need_sid_lock)
+     global_sid_lock->unlock();
+
+  DBUG_PRINT("info", ("file_name and gtid_set %s\n %s\n", log_name,
+                      previous_gtid_set_buffer));
+  if (my_b_write(&crash_safe_index_file, log_name, log_name_len))
   {
     sql_print_error("MYSQL_BIN_LOG::add_log_to_index failed to "
                     "append log file name: %s, to crash "
                     "safe index file.", log_name);
+    goto err;
+  }
+
+  if (gtid_set_length > 0)
+  {
+    if (my_b_write(&crash_safe_index_file, (uchar*) " ", 1) ||
+        my_b_write(&crash_safe_index_file, (uchar*)gtid_set_length_buffer,
+                   strlen(gtid_set_length_buffer)) ||
+        my_b_write(&crash_safe_index_file, (uchar*) "\n", 1) ||
+        my_b_write(&crash_safe_index_file,
+                   (const uchar*)previous_gtid_set_buffer,
+                   gtid_set_length))
+    {
+      sql_print_error("MYSQL_BIN_LOG::add_log_to_index failed to "
+                      "append previous_gtid_set: %s, to crash "
+                      "safe index file.", previous_gtid_set_buffer);
+      goto err;
+    }
+  }
+
+  if (my_b_write(&crash_safe_index_file, (uchar*) "\n", 1))
+  {
+    sql_print_error("MYSQL_BIN_LOG::add_log_to_index failed "
+                    "append new_line");
+  }
+
+  previous_gtid_set_map.insert(
+      std::pair<string, string>(string((char*)log_name, log_name_len),
+                                string((char*)previous_gtid_set_buffer,
+                                       gtid_set_length)));
+
+  if (flush_io_cache(&crash_safe_index_file) ||
+      mysql_file_sync(crash_safe_index_file.file, MYF(MY_WME)))
+  {
+    sql_print_error("MYSQL_BIN_LOG::add_log_to_index failed to "
+                    "sync crash safe index file while appending "
+                    "log file name: %s.", log_name);
     goto err;
   }
 
@@ -3546,9 +3489,11 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
     goto err;
   }
 
+  my_free(previous_gtid_set_buffer);
   DBUG_RETURN(0);
 
 err:
+  my_free(previous_gtid_set_buffer);
   DBUG_RETURN(-1);
 }
 
@@ -3627,6 +3572,19 @@ void MYSQL_BIN_LOG::set_write_error(THD *thd, bool is_transactional)
   DBUG_VOID_RETURN;
 }
 
+uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length)
+{
+  char *save_ptr = NULL;
+  save_ptr = strchr(file_name_and_gtid_set_length, ' ');
+  if (save_ptr != NULL)
+  {
+    *save_ptr = 0; // replace ' ' with '\0'
+    save_ptr++;
+    return atol(save_ptr);
+  }
+  return 0;
+}
+
 /**
   Find the position in the log-index-file for the given log name.
 
@@ -3654,7 +3612,9 @@ int MYSQL_BIN_LOG::find_log_pos(LOG_INFO *linfo, const char *log_name,
 {
   int error= 0;
   char *full_fname= linfo->log_file_name;
-  char full_log_name[FN_REFLEN], fname[FN_REFLEN];
+  char full_log_name[FN_REFLEN];
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
+
   uint log_name_len= 0, fname_len= 0;
   DBUG_ENTER("find_log_pos");
   full_log_name[0]= full_fname[0]= 0;
@@ -3693,15 +3653,25 @@ int MYSQL_BIN_LOG::find_log_pos(LOG_INFO *linfo, const char *log_name,
     DBUG_EXECUTE_IF("simulate_find_log_pos_error",
                     error=  LOG_INFO_EOF; break;);
     /* If we get 0 or 1 characters, this is the end of the file */
-    if ((length= my_b_gets(&index_file, fname, FN_REFLEN)) <= 1)
+    if ((length = my_b_gets(&index_file, file_name_and_gtid_set_length,
+                            FILE_AND_GTID_SET_LENGTH)) <= 1)
     {
       /* Did not find the given entry; Return not found or error */
       error= !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
       break;
     }
 
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_string_length =
+      split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0)
+    {
+      my_b_seek(&index_file, my_b_tell(&index_file) + gtid_string_length + 1);
+    }
+
     // extend relative paths and match against full path
-    if (normalize_binlog_name(full_fname, fname, is_relay_log))
+    if (normalize_binlog_name(full_fname, file_name_and_gtid_set_length,
+                              is_relay_log))
     {
       error= LOG_INFO_EOF;
       break;
@@ -3710,11 +3680,10 @@ int MYSQL_BIN_LOG::find_log_pos(LOG_INFO *linfo, const char *log_name,
 
     // if the log entry matches, null string matching anything
     if (!log_name ||
-       (log_name_len == fname_len-1 && full_fname[log_name_len] == '\n' &&
+       (log_name_len == fname_len &&
         !memcmp(full_fname, full_log_name, log_name_len)))
     {
       DBUG_PRINT("info", ("Found log file entry"));
-      full_fname[fname_len-1]= 0;                      // remove last \n
       linfo->index_file_start_offset= offset;
       linfo->index_file_offset = my_b_tell(&index_file);
       break;
@@ -3751,42 +3720,53 @@ end:
 int MYSQL_BIN_LOG::find_next_log(LOG_INFO* linfo, bool need_lock_index)
 {
   int error= 0;
-  uint length;
-  char fname[FN_REFLEN];
+  uint length, gtid_string_length;
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
   char *full_fname= linfo->log_file_name;
+  DBUG_ENTER("find_next_log");
 
   if (need_lock_index)
     mysql_mutex_lock(&LOCK_index);
   else
     mysql_mutex_assert_owner(&LOCK_index);
 
+  DBUG_PRINT("enter", ("index_file_offset: %llu", linfo->index_file_offset));
   /* As the file is flushed, we can't get an error here */
   my_b_seek(&index_file, linfo->index_file_offset);
 
   linfo->index_file_start_offset= linfo->index_file_offset;
-  if ((length=my_b_gets(&index_file, fname, FN_REFLEN)) <= 1)
+  if ((length = my_b_gets(&index_file,
+                          file_name_and_gtid_set_length,
+                          FILE_AND_GTID_SET_LENGTH)) <= 1)
   {
     error = !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
     goto err;
   }
 
-  if (fname[0] != 0)
+  if (file_name_and_gtid_set_length[0] != 0)
   {
-    if(normalize_binlog_name(full_fname, fname, is_relay_log))
+    file_name_and_gtid_set_length[length - 1] = 0;
+    gtid_string_length =
+      split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0)
+    {
+      my_b_seek(&index_file, my_b_tell(&index_file)+ gtid_string_length + 1);
+    }
+
+    if(normalize_binlog_name(full_fname, file_name_and_gtid_set_length,
+                             is_relay_log))
     {
       error= LOG_INFO_EOF;
       goto err;
     }
-    length= strlen(full_fname);
   }
 
-  full_fname[length-1]= 0;                     // kill \n
   linfo->index_file_offset= my_b_tell(&index_file);
 
 err:
   if (need_lock_index)
     mysql_mutex_unlock(&LOCK_index);
-  return error;
+  DBUG_RETURN(error);
 }
 
 
@@ -3856,6 +3836,7 @@ bool MYSQL_BIN_LOG::reset_logs(THD* thd)
     in order to make the operation safe.
   */
 
+  previous_gtid_set_map.clear();
   if ((err= find_log_pos(&linfo, NullS, false/*need_lock_index=false*/)) != 0)
   {
     uint errcode= purge_log_get_error_code(err);
