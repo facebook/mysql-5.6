@@ -630,6 +630,33 @@ lock_sys_create(
 }
 
 /*********************************************************************//**
+Resize the lock hash table. */
+
+void
+lock_sys_resize(
+/*============*/
+	ulint	n_cells)	/*!< in: number of slots in lock hash table */
+{
+	lock_mutex_enter();
+
+	for (ulint i = 0; i < hash_get_n_cells(lock_sys->rec_hash); i++) {
+		if (HASH_GET_FIRST(lock_sys->rec_hash, i) != NULL) {
+			lock_mutex_exit();
+			ib_logf(IB_LOG_LEVEL_ERROR,
+				"lock_sys_resize is failed because"
+				" lock hash table is not empty.");
+			ut_ad(0);
+			return;
+		}
+	}
+
+	hash_table_free(lock_sys->rec_hash);
+	lock_sys->rec_hash = hash_create(n_cells);
+
+	lock_mutex_exit();
+}
+
+/*********************************************************************//**
 Closes the lock system at database shutdown. */
 UNIV_INTERN
 void
@@ -7211,3 +7238,34 @@ lock_trx_has_rec_x_lock(
 	return(true);
 }
 #endif /* UNIV_DEBUG */
+
+/*********************************************************************//**
+Prints transaction lock wait and MVCC state. */
+
+void
+lock_trx_print_wait_and_mvcc_state(
+/*===============================*/
+	FILE*		file,	/*!< in/out: file where to print */
+	const trx_t*	trx)	/*!< in: transaction */
+{
+	fprintf(file, "---");
+
+	trx_print_latched(file, trx, 600);
+
+	if (trx->lock.que_state == TRX_QUE_LOCK_WAIT) {
+
+		fprintf(file,
+			"------- TRX HAS BEEN WAITING %lu SEC"
+			" FOR THIS LOCK TO BE GRANTED:\n",
+			(ulong) difftime(ut_time(), trx->lock.wait_started));
+
+		if (lock_get_type_low(trx->lock.wait_lock) == LOCK_REC) {
+			lock_rec_print(file, trx->lock.wait_lock);
+		} else {
+			lock_table_print(file, trx->lock.wait_lock);
+		}
+
+		fprintf(file, "------------------\n");
+	}
+}
+

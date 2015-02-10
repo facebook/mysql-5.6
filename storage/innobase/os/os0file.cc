@@ -6124,6 +6124,24 @@ recommended_sleep:
 	goto restart;
 }
 
+/**
+Confirm pending IO requests for the the aio system.
+@retval		true if pending requests exist */
+
+bool
+os_aio_requested()
+{
+	return(os_aio_read_array->n_reserved > 0
+	       || (os_aio_write_array != 0
+		   && os_aio_write_array->n_reserved > 0)
+	       || (os_aio_ibuf_array != 0
+		   && os_aio_ibuf_array->n_reserved > 0)
+	       || (os_aio_log_array != 0
+		   && os_aio_log_array->n_reserved > 0)
+	       || (os_aio_sync_array != 0
+		   && os_aio_sync_array->n_reserved > 0));
+}
+
 /**********************************************************************//**
 Validates the consistency of an aio array.
 @return	true if ok */

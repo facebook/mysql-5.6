@@ -146,7 +146,8 @@ btr_search_check_free_space_in_heap(void)
 
 		rw_lock_x_lock(&btr_search_latch);
 
-		if (heap->free_block == NULL) {
+		if (btr_search_enabled
+		    && heap->free_block == NULL) {
 			heap->free_block = block;
 		} else {
 			buf_block_free(block);
@@ -181,6 +182,34 @@ btr_search_sys_create(
 	btr_search_sys->hash_index->adaptive = TRUE;
 #endif /* UNIV_AHI_DEBUG || UNIV_DEBUG */
 
+}
+
+/**
+Resize hash index hash table.
+@param	[in]	hash_size	hash index hash table size */
+
+void
+btr_search_sys_resize(
+	ulint	hash_size)
+{
+	rw_lock_x_lock(&btr_search_latch);
+
+	if (btr_search_enabled) {
+		rw_lock_x_unlock(&btr_search_latch);
+		ib_logf(IB_LOG_LEVEL_ERROR,
+			"btr_search_sys_resize is failed because"
+			" hash index hash table is not empty.");
+		ut_ad(0);
+		return;
+	}
+
+	mem_heap_free(btr_search_sys->hash_index->heap);
+	hash_table_free(btr_search_sys->hash_index);
+
+	btr_search_sys->hash_index = ha_create(
+		hash_size, 0, MEM_HEAP_FOR_BTR_SEARCH, 0);
+
+	rw_lock_x_unlock(&btr_search_latch);
 }
 
 /*****************************************************************//**
@@ -233,6 +262,12 @@ btr_search_disable(void)
 	mutex_enter(&dict_sys->mutex);
 	rw_lock_x_lock(&btr_search_latch);
 
+	if (!btr_search_enabled) {
+		mutex_exit(&dict_sys->mutex);
+		rw_lock_x_unlock(&btr_search_latch);
+		return;
+	}
+
 	btr_search_enabled = FALSE;
 
 	/* Clear the index->search_info->ref_count of every index in
@@ -268,6 +303,13 @@ void
 btr_search_enable(void)
 /*====================*/
 {
+	buf_pool_mutex_enter_all();
+	if (srv_buf_pool_old_size != srv_buf_pool_size) {
+		buf_pool_mutex_exit_all();
+		return;
+	}
+	buf_pool_mutex_exit_all();
+
 	rw_lock_x_lock(&btr_search_latch);
 
 	btr_search_enabled = TRUE;

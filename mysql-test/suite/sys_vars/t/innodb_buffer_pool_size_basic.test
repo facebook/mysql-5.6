@@ -1,5 +1,3 @@
-
-
 ################## mysql-test\t\innodb_buffer_pool_size_basic.test ############
 #                                                                             #
 # Variable Name: innodb_buffer_pool_size                                      #
@@ -24,6 +22,14 @@
 
 --source include/have_innodb.inc
 
+let $wait_condition =
+  SELECT SUBSTR(variable_value, 1, 34) = 'Completed resizing buffer pool at '
+  FROM information_schema.global_status
+  WHERE LOWER(variable_name) = 'innodb_buffer_pool_resize_status';
+
+SET @start_buffer_pool_size = @@GLOBAL.innodb_buffer_pool_size;
+
+
 --echo '#---------------------BS_STVARS_022_01----------------------#'
 ####################################################################
 #   Displaying default value                                       #
@@ -37,14 +43,12 @@ SELECT COUNT(@@GLOBAL.innodb_buffer_pool_size);
 #   Check if Value can set                                         #
 ####################################################################
 
---error ER_INCORRECT_GLOBAL_LOCAL_VAR
-SET @@GLOBAL.innodb_buffer_pool_size=1;
---echo Expected error 'Read only variable'
+SET @@GLOBAL.innodb_buffer_pool_size=16777216;
+--echo Expected succeeded
+--source include/wait_condition.inc
 
 SELECT COUNT(@@GLOBAL.innodb_buffer_pool_size);
 --echo 1 Expected
-
-
 
 
 --echo '#---------------------BS_STVARS_022_03----------------------#'
@@ -61,10 +65,9 @@ SELECT COUNT(@@GLOBAL.innodb_buffer_pool_size);
 --echo 1 Expected
 
 SELECT COUNT(VARIABLE_VALUE)
-FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
 WHERE VARIABLE_NAME='innodb_buffer_pool_size';
 --echo 1 Expected
-
 
 
 --echo '#---------------------BS_STVARS_022_04----------------------#'
@@ -73,7 +76,6 @@ WHERE VARIABLE_NAME='innodb_buffer_pool_size';
 ################################################################################
 SELECT @@innodb_buffer_pool_size = @@GLOBAL.innodb_buffer_pool_size;
 --echo 1 Expected
-
 
 
 --echo '#---------------------BS_STVARS_022_05----------------------#'
@@ -99,4 +101,5 @@ SELECT COUNT(@@GLOBAL.innodb_buffer_pool_size);
 SELECT innodb_buffer_pool_size = @@SESSION.innodb_buffer_pool_size;
 --echo Expected error 'Readonly variable'
 
-
+SET @@GLOBAL.innodb_buffer_pool_size = @start_buffer_pool_size;
+--source include/wait_condition.inc

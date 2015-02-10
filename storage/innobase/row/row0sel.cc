@@ -5608,6 +5608,14 @@ row_search_check_if_query_cache_permitted(
 	dict_table_t*	table;
 	ibool		ret	= FALSE;
 
+	if (srv_buf_pool_size != srv_buf_pool_old_size) {
+		/* Buffer pool is in resizing.
+		We have Query_cache lock here,
+		and cannot block trx_start() here.
+		Disable query cache to avoid deadlock. */
+		return(FALSE);
+	}
+
 	/* Disable query cache altogether for all tables if recovered XA
 	transactions in prepared state exist. This is because we do not
 	restore the table locks for those transactions and we may wrongly
