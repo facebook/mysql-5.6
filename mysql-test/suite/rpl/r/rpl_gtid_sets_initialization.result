@@ -1,0 +1,69 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+show binary logs;
+Log_name	File_size
+master-bin.000001	147
+create table t1 (a int);
+insert into t1 values(1);
+insert into t1 values(2);
+FLUSH LOGS;
+include/stop_slave.inc
+insert into t1 values(3);
+insert into t1 values(4);
+FLUSH LOGS;
+change master to master_auto_position=1;
+include/start_slave.inc
+"GTID sets on master"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	
+"GTID sets on slave"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	
+include/stop_slave.inc
+show binary logs;
+Log_name	File_size
+master-bin.000001	906
+master-bin.000002	809
+master-bin.000003	187
+include/rpl_restart_server.inc [server_number=1 gtids=on]
+"GTID sets on master after first restart"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	
+purge binary logs to 'master-bin.000002';
+show binary logs;
+Log_name	File_size
+master-bin.000002	809
+master-bin.000003	206
+master-bin.000004	187
+"GTID sets on master after purge"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	UUID:1-3
+include/rpl_restart_server.inc [server_number=1 gtids=on]
+"GTID sets on master after second restart"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-5	UUID:1-3
+change master to master_auto_position=0;
+include/start_slave.inc
+drop table t1;
+create table t1 (a int);
+insert into t1 values(5);
+insert into t1 values(6);
+FLUSH LOGS;
+drop table t1;
+"GTID sets on master finally"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-10	UUID:1-3
+"GTID sets on slave finally"
+select @@global.gtid_executed , @@global.gtid_purged;
+@@global.gtid_executed	@@global.gtid_purged
+UUID:1-10	
+include/rpl_end.inc
