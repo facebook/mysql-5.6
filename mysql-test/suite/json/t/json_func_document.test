@@ -7,11 +7,7 @@ create table test_json(json document) engine=innodb;
 
 --source suite/json/include/json_func_common_2_document.inc
 
-# testing larger document
-
-INSERT INTO test_json VALUES ('{\"name\":\"Bob Thompson\",\"age\":45,\"age_string\":\"45\",\"big_age\":1234567890123,\"amount\":1.23456789,\"amount_string\":\"1.23456789\",\"true_value\":true,\"true_string\":\"true\",\"true_json\":\"true\",\"false_value\":false,\"false_string\":\"false\",\"false_json\":\"false\",\"null_value\":null,\"null_string\":\"null\",\"null_json\":\"null\",\"empty_string\":\"\",\"zero\":0,\"json_vector1\":\"[]\",\"json_vector2\":\"[1,2,3]\",\"json_vector3\":\"\\\"[]\\\"\",\"json_vector4\":\"\\\"[1,2,3]\\\"\",\"json_vector5\":\"\'[]\'\",\"json_vector6\":\"\'[1,2,3]\'\",\"json_vector7\":\"[]\",\"json_vector8\":\"[1,2,3]\",\"json_map1\":\"{}\",\"json_map2\":\"{\\\\\\\"a\\\\\\\":1,\\\\\\\"b\\\\\\\":2,\\\\\\\"c\\\\\\\":3}\",\"json_map3\":\"\\\"{}\\\"\",\"json_map4\":\"\\\"{\\\\\\\"a\\\\\\\":1,\\\\\\\"b\\\\\\\":2,\\\\\\\"c\\\\\\\":3}\\\"\",\"json_map5\":\"\'{}\'\",\"json_map6\":\"\'{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}\'\",\"json_map7\":\"{}\",\"json_map8\":\"{\\\"a\\\":1,\\\"b\\\":2,\\\"c\\\":3}\",\"address\":{\"street\":\"8008 Left Ln.\",\"state\":\"CA\",\"zipcode\":90210},\"jobs\":[\"CEO\",\"Director\",\"Engineer\"],\"map_of_vectors\":{\"one\":[10,20,30],\"two\":[\"x\",\"y\"],\"three\":[],\"four\":[true,false,null,1.2345]},\"vector_of_maps\":[{\"xx\":10,\"yy\":20,\"zz\":30},{\"100\":\"x\",\"324\":\"y\"},{},{\"x1\":true,\"x2\":false,\"x3\":null,\"x4\":1.2345}]}');
-
-select * from test_json;
+--source suite/json/include/fbson_output_format.inc
 
 #
 # cleanup

@@ -37,6 +37,7 @@ public:
   const char *func_name() const { return "json_extract"; }
   String *val_str(String *);
   void fix_length_and_dec();
+  virtual enum Functype functype() const   { return DOC_EXTRACT_FUNC; }
 
 protected:
   String *intern_val_str(String *str, bool val_only);
