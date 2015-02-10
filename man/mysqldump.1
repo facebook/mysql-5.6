@@ -141,24 +141,6 @@ MyISAM
 and other storage engines; and it provides a number of convenient options to accommodate different backup scenarios\&. See
 Section\ \&25.2, \(lqMySQL Enterprise Backup Overview\(rq\&.
 .RE
-.sp
-.RS 4
-.ie n \{\
-\h'-04'\(bu\h'+03'\c
-.\}
-.el \{\
-.sp -1
-.IP \(bu 2.3
-.\}
-If your tables are primarily
-MyISAM
-tables, consider using the
-\fBmysqlhotcopy\fR
-instead, for better performance than
-\fBmysqldump\fR
-of backup and restore operations\&. See
-\fBmysqlhotcopy\fR(1)\&.
-.RE
 .PP
 \fBmysqldump\fR
 can retrieve and dump table contents row by row, or it can retrieve the entire content from a table and buffer it in memory before dumping it\&. Buffering in memory can be a problem if you are dumping large tables\&. To dump tables row by row, use the
@@ -1976,10 +1958,7 @@ INSERT
 statements in the dump file) is the most time\-consuming part\&. When it is urgent to restore data quickly, plan and test the performance of this stage in advance\&. For restore times measured in hours, you might prefer an alternative backup and restore solution, such as
 MySQL Enterprise Backup
 for
-InnoDB\-only and mixed\-use databases, or
-\fBmysqlhotcopy\fR
-for
-MyISAM\-only databases\&.
+InnoDB\-only and mixed\-use databases\&.
 .PP
 Performance is also affected by the
 transactional options, primarily for the dump operation\&.
