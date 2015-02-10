@@ -1,0 +1,15 @@
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+@@GLOBAL.innodb_buffer_pool_size
+33554432
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
+@@GLOBAL.innodb_buffer_pool_chunk_size
+0
+SET @@GLOBAL.innodb_buffer_pool_size=16777216;
+Warnings:
+Warning	1210	Cannot update innodb_buffer_pool_size if innodb_buffer_pool_chunk_size = 0.
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+@@GLOBAL.innodb_buffer_pool_size
+33554432
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
+@@GLOBAL.innodb_buffer_pool_chunk_size
+0
