@@ -5670,6 +5670,13 @@ static Sys_var_uint Sys_rpl_send_buffer_size(
     GLOBAL_VAR(rpl_send_buffer_size), CMD_LINE(REQUIRED_ARG),
     VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024), BLOCK_SIZE(1024));
 
+static Sys_var_uint Sys_rpl_receive_buffer_size(
+    "rpl_receive_buffer_size",
+    "The size of input buffer for the socket used during receving "
+    "events from a master.",
+    GLOBAL_VAR(rpl_receive_buffer_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024), BLOCK_SIZE(1024));
+
 static Sys_var_bool Sys_slave_allow_batching(
     "slave_allow_batching", "Allow slave to batch requests",
     GLOBAL_VAR(opt_slave_allow_batching), CMD_LINE(OPT_ARG), DEFAULT(false));

@@ -881,6 +881,7 @@ typedef struct NET {
     to maintain the server internal instrumentation for the connection.
   */
   void *extension;
+  unsigned int receive_buffer_size;
 } NET;
 
 #define packet_error (~(unsigned long)0)

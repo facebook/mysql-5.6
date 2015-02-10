@@ -3209,6 +3209,8 @@ MYSQL *STDCALL mysql_init(MYSQL *mysql) {
 
   mysql->resultset_metadata = RESULTSET_METADATA_FULL;
   ASYNC_DATA(mysql)->async_op_status = ASYNC_OP_UNSET;
+  mysql->net.receive_buffer_size = 0;
+
   return mysql;
 }
 
@@ -6107,6 +6109,13 @@ static mysql_state_machine_status csm_begin_connect(mysql_async_connect *ctx) {
       if (ctx->non_blocking)
         vio_set_blocking_flag(net->vio, !ctx->non_blocking);
 
+      if (net->receive_buffer_size &&
+          setsockopt(net->vio->mysql_socket.fd, SOL_SOCKET, SO_RCVBUF,
+                     &net->receive_buffer_size,
+                     sizeof(net->receive_buffer_size)) == -1)
+        DBUG_PRINT("error", ("Failed to set SO_RCVBUF with (error: %s).",
+                             strerror(errno)));
+
       DBUG_PRINT("info", ("Connect socket"));
 
       if (mysql->options.extension && mysql->options.extension->retry_count)
@@ -7979,6 +7988,10 @@ int STDCALL mysql_options(MYSQL *mysql, enum mysql_option option,
     case MYSQL_OPT_SSL_CONTEXT:
       ENSURE_EXTENSIONS_PRESENT(&mysql->options);
       mysql->options.extension->ssl_context = const_cast<void *>(arg);
+      break;
+
+    case MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE:
+      mysql->net.receive_buffer_size = *static_cast<const uint *>(arg);
       break;
 
     default:

@@ -177,6 +177,7 @@ char slave_skip_error_names[SHOW_VAR_FUNC_BUFF_SIZE];
 char *slave_load_tmpdir = nullptr;
 bool replicate_same_server_id;
 ulonglong relay_log_space_limit = 0;
+uint rpl_receive_buffer_size = 0;
 bool reset_seconds_behind_master = true;
 
 const char *relay_log_index = nullptr;
@@ -8106,6 +8107,9 @@ static int connect_to_master(THD *thd, MYSQL *mysql, Master_info *mi,
                  "binary_log_listener");
   mysql_options4(mysql, MYSQL_OPT_CONNECT_ATTR_ADD,
                  "_client_replication_channel_name", mi->get_channel());
+  mysql_options(mysql, MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+                &rpl_receive_buffer_size);
+
   while (!(slave_was_killed = io_slave_killed(thd, mi)) &&
          (reconnect ? mysql_reconnect(mysql) != 0
                     : mysql_real_connect(mysql, mi->host, user, password,

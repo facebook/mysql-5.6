@@ -1151,6 +1151,9 @@ The following options may be given as the first argument:
  must be a multiple of 4kb. Making it larger might help
  with IO stalls while reading these files when they are
  not in the OS buffer cache
+ --rpl-receive-buffer-size=# 
+ The size of input buffer for the socket used during
+ receving events from a master.
  --rpl-send-buffer-size=# 
  The size of output buffer for the socket used during
  sending events to a slave.
@@ -1731,6 +1734,7 @@ report-user (No default value)
 require-secure-transport FALSE
 reset-seconds-behind-master TRUE
 rpl-read-size 8192
+rpl-receive-buffer-size 2097152
 rpl-send-buffer-size 2097152
 rpl-stop-slave-timeout 31536000
 safe-user-create FALSE

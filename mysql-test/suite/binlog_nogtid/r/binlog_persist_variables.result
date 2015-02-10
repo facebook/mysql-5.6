@@ -99,6 +99,7 @@ ERROR HY000: Variable 'relay_log_recovery' is a read only variable
 SET PERSIST relay_log_space_limit = @@GLOBAL.relay_log_space_limit;
 ERROR HY000: Variable 'relay_log_space_limit' is a read only variable
 SET PERSIST rpl_read_size = @@GLOBAL.rpl_read_size;
+SET PERSIST rpl_receive_buffer_size = @@GLOBAL.rpl_receive_buffer_size;
 SET PERSIST rpl_semi_sync_master_enabled = @@GLOBAL.rpl_semi_sync_master_enabled;
 SET PERSIST rpl_semi_sync_master_timeout = @@GLOBAL.rpl_semi_sync_master_timeout;
 SET PERSIST rpl_semi_sync_master_trace_level = @@GLOBAL.rpl_semi_sync_master_trace_level;
@@ -237,6 +238,7 @@ RESET PERSIST IF EXISTS relay_log_space_limit;
 Warnings:
 Warning	3615	Variable relay_log_space_limit does not exist in persisted config file
 RESET PERSIST IF EXISTS rpl_read_size;
+RESET PERSIST IF EXISTS rpl_receive_buffer_size;
 RESET PERSIST IF EXISTS rpl_semi_sync_master_enabled;
 RESET PERSIST IF EXISTS rpl_semi_sync_master_timeout;
 RESET PERSIST IF EXISTS rpl_semi_sync_master_trace_level;
