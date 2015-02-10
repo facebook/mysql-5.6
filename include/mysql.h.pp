@@ -112,6 +112,7 @@ typedef struct st_net {
   unsigned long async_multipacket_read_saved_whereb;
   unsigned long async_multipacket_read_total_len;
   my_bool async_multipacket_read_started;
+  unsigned int receive_buffer_size;
 } NET;
 enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
    MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG,
@@ -355,6 +356,7 @@ enum mysql_option
   MYSQL_SERVER_PUBLIC_KEY,
   MYSQL_ENABLE_CLEARTEXT_PLUGIN,
   MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
   MYSQL_OPT_CONNECT_TIMEOUT_MS,
   MYSQL_OPT_READ_TIMEOUT_MS,
   MYSQL_OPT_WRITE_TIMEOUT_MS
