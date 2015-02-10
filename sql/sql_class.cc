@@ -1069,6 +1069,7 @@ THD::THD(bool enable_plugins)
   protocol_binary.init(this);
 
   tablespace_op=FALSE;
+  should_write_gtid = TRUE;
   tmp= sql_rnd_with_mutex();
   randominit(&rand, tmp + (ulong) &rand, tmp + (ulong) ::global_query_id);
   substitute_null_with_insert_id = FALSE;

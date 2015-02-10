@@ -569,6 +569,7 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
       }
     }
   }
+  worker_last_gtid[0] = 0;
   reset_dynamic(&worker_gtid_infos);
 
   DBUG_RETURN(flush_info(force));

@@ -951,7 +951,7 @@ int binlog_cache_data::write_event(THD *thd, Log_event *ev)
 {
   DBUG_ENTER("binlog_cache_data::write_event");
 
-  if (gtid_mode > 0 && should_write_gtids(thd))
+  if (gtid_mode > 0 && thd->should_write_gtid)
   {
     Group_cache::enum_add_group_status status= 
       group_cache.add_logged_group(thd, get_byte_position());
@@ -1083,7 +1083,7 @@ gtid_before_write_cache(THD* thd, binlog_cache_data* cache_data)
 
   DBUG_ASSERT(thd->variables.gtid_next.type != UNDEFINED_GROUP);
 
-  if (gtid_mode == 0 || !should_write_gtids(thd))
+  if (gtid_mode == 0 || !thd->should_write_gtid)
   {
     DBUG_RETURN(0);
   }
@@ -2779,11 +2779,6 @@ MYSQL_BIN_LOG::read_gtids_from_binlog(const char *filename, Gtid_set *all_gtids,
       break;
     case PREVIOUS_GTIDS_LOG_EVENT:
     {
-      if (gtid_mode == 0)
-      {
-        my_error(ER_FOUND_GTID_EVENT_WHEN_GTID_MODE_IS_OFF, MYF(0));
-        ret= ERROR;
-      }
       ret= GOT_PREVIOUS_GTIDS;
       // add events to sets
       Previous_gtids_log_event *prev_gtids_ev=
@@ -3241,22 +3236,28 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
     See further comments in the mysqld.
     /Alfranio
   */
-  if (gtid_mode > 0)
+  if (need_sid_lock)
+    global_sid_lock->wrlock();
+  else
+    global_sid_lock->assert_some_wrlock();
+
+  if (gtid_mode > 0 || !previous_gtid_set->is_empty())
   {
-    if (need_sid_lock)
-      global_sid_lock->wrlock();
-    else
-      global_sid_lock->assert_some_wrlock();
     Previous_gtids_log_event prev_gtids_ev(previous_gtid_set);
     if (is_relay_log)
       prev_gtids_ev.set_relay_log_event();
-    if (need_sid_lock)
-      global_sid_lock->unlock();
     prev_gtids_ev.checksum_alg= s.checksum_alg;
     if (prev_gtids_ev.write(&log_file))
+    {
+      if (need_sid_lock)
+        global_sid_lock->unlock();
       goto err;
+    }
     bytes_written+= prev_gtids_ev.data_written;
   }
+  if (need_sid_lock)
+    global_sid_lock->unlock();
+
   if (extra_description_event &&
       extra_description_event->binlog_version>=4)
   {
@@ -3481,7 +3482,7 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
 
   global_sid_lock->assert_some_wrlock();
 
-  if (gtid_mode > 0)
+  if (gtid_mode > 0 || !previous_gtid_set->is_empty())
   {
     previous_gtid_set_buffer = previous_gtid_set->encode(&gtid_set_length);
     int10_to_str(gtid_set_length, gtid_set_length_buffer, 10);
@@ -7643,7 +7644,10 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event)
     further down and set savepoint and register callbacks.
   */ 
   if (start_event->is_using_immediate_logging())
+  {
+    thd->should_write_gtid = should_write_gtids(thd);
     DBUG_RETURN(0);
+  }
 
   register_binlog_handler(thd, thd->in_multi_stmt_transaction_mode());
 
@@ -7654,6 +7658,13 @@ static int binlog_start_trans_and_stmt(THD *thd, Log_event *start_event)
   */
   if (cache_data->is_binlog_empty())
   {
+    /*
+      save the value of should_write_gtids() during binlog cache initialization
+      since read_only may get changed in the middle of transaction which gives
+      different results from should_write_gtids() causing inconsistent binlog
+      data.
+    */
+    thd->should_write_gtid = should_write_gtids(thd);
     Query_log_event qinfo(thd, STRING_WITH_LEN("BEGIN"),
                           is_transactional, FALSE, TRUE, 0, TRUE);
     if (cache_data->write_event(thd, &qinfo))
