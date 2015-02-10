@@ -1557,12 +1557,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
         /* do nothing */
         break;
       case GTID_LOG_EVENT:
-        if (gtid_mode == 0)
-        {
-          my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
-          errmsg= ER(ER_FOUND_GTID_EVENT_WHEN_GTID_MODE_IS_OFF);
-          GOTO_ERR;
-        }
         if (using_gtid_protocol)
         {
           /*
@@ -1602,12 +1596,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
       case PREVIOUS_GTIDS_LOG_EVENT:
         binlog_has_previous_gtids_log_event= true;
-        if (gtid_mode == 0)
-        {
-          my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
-          errmsg= ER(ER_FOUND_GTID_EVENT_WHEN_GTID_MODE_IS_OFF);
-          GOTO_ERR;
-        }
         /* FALLTHROUGH */
       case ROTATE_EVENT:
         skip_group= false;
@@ -2002,12 +1990,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
             /* do nothing */
             break;
           case GTID_LOG_EVENT:
-            if (gtid_mode == 0)
-            {
-              my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
-              errmsg= ER(ER_FOUND_GTID_EVENT_WHEN_GTID_MODE_IS_OFF);
-              GOTO_ERR;
-            }
             if (using_gtid_protocol)
             {
               ulonglong checksum_size=
@@ -2036,12 +2018,6 @@ void mysql_binlog_send(THD* thd, char* log_ident, my_off_t pos,
 
           case PREVIOUS_GTIDS_LOG_EVENT:
             binlog_has_previous_gtids_log_event= true;
-            if (gtid_mode == 0)
-            {
-              my_errno= ER_MASTER_FATAL_ERROR_READING_BINLOG;
-              errmsg= ER(ER_FOUND_GTID_EVENT_WHEN_GTID_MODE_IS_OFF);
-              GOTO_ERR;
-            }
             /* FALLTHROUGH */
           case ROTATE_EVENT:
             skip_group= false;
