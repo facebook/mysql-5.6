@@ -2556,6 +2556,10 @@ int Relay_log_info::flush_gtid_infos(bool force)
         break;
     }
   }
+  /* Reset last_gtid to make sure we don't skip the next transaction
+     which doesn't have GTID.
+  */
+  last_gtid[0] = 0;
   reset_dynamic(&gtid_infos);
   DBUG_RETURN(error);
 }

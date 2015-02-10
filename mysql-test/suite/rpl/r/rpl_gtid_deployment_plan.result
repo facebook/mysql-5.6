@@ -128,6 +128,15 @@ id1
 400
 700
 800
+include/stop_slave.inc
+set @@global.read_only=1;
+insert into t1 values(900);
+insert into t1 values(1000);
+change master to master_auto_position=0;
+include/start_slave.inc
+select count(*) from t1;
+count(*)
+8
 select @@global.gtid_executed;
 @@global.gtid_executed
 master_uuid:1-5
