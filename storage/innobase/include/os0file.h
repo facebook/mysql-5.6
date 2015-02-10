@@ -1337,6 +1337,12 @@ os_aio_simulated_handle(
 				restart the operation, for example */
 	void**	message2,
 	ulint*	type);		/*!< out: OS_FILE_WRITE or ..._READ */
+/**
+Confirm pending IO requests for the the aio system.
+@retval		true if pending requests exist */
+
+bool
+os_aio_requested();
 /**********************************************************************//**
 Validates the consistency of the aio system.
 @return	TRUE if ok */

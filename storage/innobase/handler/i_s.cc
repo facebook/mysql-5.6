@@ -5765,6 +5765,9 @@ i_s_innodb_buffer_page_fill_table(
 		DBUG_RETURN(0);
 	}
 
+	trx_t*	trx = thd_to_trx_func(thd);
+	buf_pool_reference_start(trx);
+
 	/* Walk through each buffer pool */
 	for (ulint i = 0; i < srv_buf_pool_instances; i++) {
 		buf_pool_t*	buf_pool;
@@ -5780,6 +5783,8 @@ i_s_innodb_buffer_page_fill_table(
 			break;
 		}
 	}
+
+	buf_pool_reference_end(trx);
 
 	DBUG_RETURN(status);
 }

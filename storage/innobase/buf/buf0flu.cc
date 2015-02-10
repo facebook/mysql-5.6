@@ -73,7 +73,7 @@ UNIV_INTERN mysql_pfs_key_t buf_lru_manager_thread_key;
 should not happen. This is because when we do LRU flushing we also put
 the blocks on free list. If LRU list is very small then we can end up
 in thrashing. */
-#define BUF_LRU_MIN_LEN		256
+#define BUF_LRU_MIN_LEN		128
 
 /* @} */
 
@@ -1454,12 +1454,26 @@ buf_flush_LRU_list_batch(
 	ulint		flush_count = 0;
 	ulint		free_len = UT_LIST_GET_LEN(buf_pool->free);
 	ulint		lru_len = UT_LIST_GET_LEN(buf_pool->LRU);
+	ulint		withdraw_depth = 0;
 
 	ut_ad(buf_pool_mutex_own(buf_pool));
 
+	if (buf_pool->curr_size < buf_pool->old_size
+	    && buf_pool->withdraw_target > 0) {
+		withdraw_depth = buf_pool->withdraw_target
+				 - UT_LIST_GET_LEN(buf_pool->withdraw);
+
+		if (lru_len <= BUF_LRU_MIN_LEN) {
+			ib_logf(IB_LOG_LEVEL_INFO,
+				"Failed to flush LRU since the length of LRU "
+				"%lu is not longer than BUF_LRU_MIN_LEN %d",
+				lru_len, BUF_LRU_MIN_LEN);
+		}
+	}
+
 	for (bpage = UT_LIST_GET_LAST(buf_pool->LRU);
 	     bpage != NULL && (flush_count + evict_count) < max
-	     && free_len < srv_LRU_scan_depth
+	     && free_len < srv_LRU_scan_depth + withdraw_depth
 	     && lru_len > BUF_LRU_MIN_LEN;
 	     ++scanned,
 	     bpage = buf_pool->lru_hp.get()) {
@@ -1744,6 +1758,8 @@ buf_flush_start(
 
 	buf_pool->init_flush[flush_type] = TRUE;
 
+	os_event_reset(buf_pool->no_flush[flush_type]);
+
 	buf_pool_mutex_exit(buf_pool);
 
 	return(TRUE);
@@ -1773,6 +1789,10 @@ buf_flush_end(
 	}
 
 	buf_pool_mutex_exit(buf_pool);
+
+	if (!srv_read_only_mode) {
+		buf_dblwr_flush_buffered_writes();
+	}
 }
 
 /******************************************************************//**
@@ -1804,6 +1824,53 @@ buf_flush_wait_batch_end(
 		os_event_wait(buf_pool->no_flush[type]);
 		thd_wait_end(NULL);
 	}
+}
+
+/*******************************************************************//**
+Do flushing batch of a given type.
+NOTE: The calling thread is not allowed to own any latches on pages!
+@return true if a batch was queued successfully. false if another batch
+of same type was already running. */
+
+bool
+buf_flush_do_batch(
+/*===============*/
+	buf_pool_t*	buf_pool,	/*!< in/out: buffer pool instance */
+	buf_flush_t	type,		/*!< in: flush type */
+	ulint		min_n,		/*!< in: wished minimum mumber of blocks
+					flushed (it is not guaranteed that the
+					actual number is that big, though) */
+	lsn_t		lsn_limit,	/*!< in the case BUF_FLUSH_LIST all
+					blocks whose oldest_modification is
+					smaller than this should be flushed
+					(if their number does not exceed
+					min_n), otherwise ignored */
+	ulint*		n_processed)	/*!< out: the number of pages
+					which were processed is passed
+					back to caller. Ignored if NULL */
+{
+	ulint		page_count;
+
+	ut_ad(type == BUF_FLUSH_LRU || type == BUF_FLUSH_LIST);
+
+	if (n_processed) {
+		*n_processed = 0;
+	}
+
+	if (!buf_flush_start(buf_pool, type)) {
+		return(false);
+	}
+
+	std::pair<ulint, ulint> res = buf_flush_batch(buf_pool, type, min_n, lsn_limit);
+	page_count = res.first;
+
+	buf_flush_end(buf_pool, type);
+
+	if (n_processed) {
+		*n_processed = page_count;
+	}
+
+	return(true);
 }
 
 /*******************************************************************//**
@@ -1971,6 +2038,75 @@ buf_flush_single_page_from_LRU(
 
 	ut_ad(!buf_pool_mutex_own(buf_pool));
 	return(freed);
+}
+
+/**
+Clears up tail of the LRU list of a given buffer pool instance:
+* Put replaceable pages at the tail of LRU to the free list
+* Flush dirty pages at the tail of LRU to the disk
+The depth to which we scan each buffer pool is controlled by dynamic
+config parameter innodb_LRU_scan_depth.
+@param buf_pool buffer pool instance
+@return total pages flushed */
+static
+ulint
+buf_flush_LRU_list(
+	buf_pool_t*	buf_pool)
+{
+	ulint	scan_depth, withdraw_depth;
+	ulint	n_flushed = 0;
+
+	ut_ad(buf_pool);
+
+	/* srv_LRU_scan_depth can be arbitrarily large value.
+	We cap it with current LRU size. */
+	buf_pool_mutex_enter(buf_pool);
+	scan_depth = UT_LIST_GET_LEN(buf_pool->LRU);
+	if (buf_pool->curr_size < buf_pool->old_size
+	    && buf_pool->withdraw_target > 0) {
+		withdraw_depth = buf_pool->withdraw_target
+				 - UT_LIST_GET_LEN(buf_pool->withdraw);
+	} else {
+		withdraw_depth = 0;
+	}
+	buf_pool_mutex_exit(buf_pool);
+
+	if (withdraw_depth > srv_LRU_scan_depth) {
+		scan_depth = ut_min(withdraw_depth, scan_depth);
+	} else {
+		scan_depth = ut_min(srv_LRU_scan_depth, scan_depth);
+	}
+
+	/* Currently one of page_cleaners is the only thread
+	that can trigger an LRU flush at the same time.
+	So, it is not possible that a batch triggered during
+	last iteration is still running, */
+	buf_flush_do_batch(buf_pool, BUF_FLUSH_LRU, scan_depth,
+			   0, &n_flushed);
+
+	return(n_flushed);
+}
+
+/*********************************************************************//**
+Clears up tail of the LRU lists:
+* Put replaceable pages at the tail of LRU to the free list
+* Flush dirty pages at the tail of LRU to the disk
+The depth to which we scan each buffer pool is controlled by dynamic
+config parameter innodb_LRU_scan_depth.
+@return total pages flushed */
+
+ulint
+buf_flush_LRU_lists(void)
+/*=====================*/
+{
+	ulint	n_flushed = 0;
+
+	for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+
+		n_flushed += buf_flush_LRU_list(buf_pool_from_array(i));
+	}
+
+	return(n_flushed);
 }
 
 /*********************************************************************//**
@@ -2427,8 +2563,14 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 #endif /* UNIV_DEBUG_THREAD_CREATION */
 
 	buf_page_cleaner_is_active = TRUE;
+	buf_pool_resizable_page_cleaner = false;
 
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+		if (buf_pool_resizing_bg) {
+			buf_pool_resizable_page_cleaner = true;
+			os_event_wait(buf_pool_resized_event);
+			buf_pool_resizable_page_cleaner = false;
+		}
 
 		page_cleaner_sleep_if_needed(next_loop_time);
 
@@ -2518,6 +2660,7 @@ DECLARE_THREAD(buf_flush_page_cleaner_thread)(
 	/* We have lived our life. Time to die. */
 
 thread_exit:
+	buf_pool_resizable_page_cleaner = true;
 	buf_page_cleaner_is_active = FALSE;
 
 

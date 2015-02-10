@@ -1,0 +1,8 @@
+# InnoDB: cannot create a COMPRESSED table when innodb_page_size > 16k
+--source include/have_innodb_16k.inc
+
+--source innodb-buffer-pool-resize-multiple-instances-setup.inc
+
+create table t1 (id int not null, val int not null default '0', primary key (id)) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
+
+--source innodb-buffer-pool-resize-multiple-instances-test.inc

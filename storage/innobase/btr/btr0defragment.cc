@@ -839,8 +839,17 @@ DECLARE_THREAD(btr_defragment_thread)(
 	mtr_t		mtr;
 	buf_block_t*	first_block;
 	buf_block_t*	last_block;
+	buf_pool_resizable_btr_defragment = false;
   RuntimeInfo runtime_info;
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+		/* If buffer pool resizing has started, suspend
+		this thread until the resizing is done. */
+		if (buf_pool_resizing_bg) {
+			buf_pool_resizable_btr_defragment = true;
+			os_event_wait(buf_pool_resized_event);
+			buf_pool_resizable_btr_defragment = false;
+		}
+
 		/* If defragmentation is paused, sleep before
 		checking whether we should resume. srv_defragment_pause
 		will always be false if defragment is disabled, allowing
@@ -939,6 +948,7 @@ DECLARE_THREAD(btr_defragment_thread)(
       runtime_info.update_stats();
     }
 	}
+	buf_pool_resizable_btr_defragment = false;
 	btr_defragment_shutdown();
 	os_thread_exit(NULL);
 	OS_THREAD_DUMMY_RETURN;

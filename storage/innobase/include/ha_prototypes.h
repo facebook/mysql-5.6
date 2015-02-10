@@ -149,6 +149,24 @@ thd_has_edited_nontrans_tables(
 /*===========================*/
 	THD*	thd);	/*!< in: thread handle */
 
+/**
+Obtain the InnoDB transaction of a MySQL thread.
+@param	[in]	MySQL thread
+@retval		reference to transaction pointer */
+
+trx_t*&
+thd_to_trx_func(
+	THD*	thd);
+
+/**
+Check MySQL thread is waiting for table metadata lock.
+@param	[in]	MySQL thread
+@retval		true if the MySQL thread is waiting for table metadata lock */
+
+bool
+thd_is_waiting_table_mdl(
+	THD*	thd);
+
 /*************************************************************//**
 Prints info of a THD object (== user session thread) to the given file. */
 UNIV_INTERN

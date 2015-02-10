@@ -1,0 +1,12 @@
+--source include/have_innodb.inc
+
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
+
+### InnoDB buffer pool size cannot be changed if chunk size is 0
+SET @@GLOBAL.innodb_buffer_pool_size=16777216;
+
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
