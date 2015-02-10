@@ -16,9 +16,13 @@ if ($rpl_channel_name)
 }
 --source include/begin_include_file.inc
 
+--let $gen_binlog_index_file= `SELECT @@GLOBAL.RELAY_LOG_INDEX`
+--let $gen_binlog_output_file= $MYSQLTEST_VARDIR/tmp/relay_index.txt
+--source include/rpl_gen_binlog_index_file.inc
+
 --let _RGEORL_CHANNEL_NAME= $rpl_channel_name
 --let _RGEORL_OUTPUT_FILE= `SELECT CONCAT('$MYSQLTEST_VARDIR/tmp/_end_of_relay_log-', UUID(), '.txt')`
---let _RGEORL_INDEX_FILE= `SELECT @@GLOBAL.RELAY_LOG_INDEX`
+--let _RGEORL_INDEX_FILE= $gen_binlog_output_file
 --let _RGEORL_DATADIR= `SELECT @@GLOBAL.DATADIR`
 if ($rpl_debug)
 {
@@ -41,7 +45,12 @@ perl;
   open FILE, "$index_file" or die "Error $? opening $index_file: $!";
   my $relay_log_file= '';
   while (<FILE>) {
-    $relay_log_file= $_;
+    # Index file may contain gtid sets that need to be skipped
+    @arr= split(/ /, $_);
+    $relay_log_file= $arr[0];
+    if ($#arr > 0) {
+      seek(FILE, $arr[1] + 1, 1);
+    }
   }
   chomp($relay_log_file);
   $relay_log_file =~ s{^\.[/\\]}{};
@@ -75,6 +84,8 @@ if ($rpl_debug)
 {
   --echo relay_log_file=$relay_log_file relay_log_size=$relay_log_size
 }
+
+--remove_file $gen_binlog_output_file
 
 --let $include_filename= include/rpl_get_end_of_relay_log.inc
 --source include/end_include_file.inc

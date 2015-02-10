@@ -112,9 +112,14 @@ purge binary logs TO 'binlog.000002';
 file_exists $MYSQLD_DATADIR/binlog.000001;
 file_exists $MYSQLD_DATADIR/binlog.000002;
 file_exists $MYSQLD_DATADIR/binlog.000003;
+
+-- let $gen_binlog_index_file= $INDEX
+-- let $gen_binlog_output_file= $MYSQLTEST_VARDIR/tmp/binlog_index.txt
+-- source include/rpl_gen_binlog_index_file.inc
+
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -135,9 +140,10 @@ file_exists $MYSQLD_DATADIR/binlog.000001;
 file_exists $MYSQLD_DATADIR/binlog.000002;
 --error 1
 file_exists $MYSQLD_DATADIR/binlog.000003;
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -160,9 +166,10 @@ file_exists $MYSQLD_DATADIR/binlog.000006;
 file_exists $MYSQLD_DATADIR/binlog.000007;
 --error 1
 file_exists $MYSQLD_DATADIR/binlog.000008;
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -178,9 +185,10 @@ flush logs;
 file_exists $MYSQLD_DATADIR/binlog.000008;
 --error 1
 file_exists $MYSQLD_DATADIR/binlog.000009;
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -198,9 +206,10 @@ file_exists $MYSQLD_DATADIR/binlog.000009;
 file_exists $MYSQLD_DATADIR/binlog.000010;
 --error 1
 file_exists $MYSQLD_DATADIR/binlog.000011;
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -215,9 +224,10 @@ flush logs;
 
 file_exists $MYSQLD_DATADIR/binlog.000010;
 file_exists $MYSQLD_DATADIR/binlog.000011;
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -227,9 +237,10 @@ SELECT @index;
 --echo # point and continue the execution the server crashes.
 --echo #
 
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -241,17 +252,19 @@ SET GLOBAL binlog_error_action= IGNORE_ERROR;
 -- error ER_CANT_OPEN_FILE
 flush logs;
 
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
 --source include/restart_mysqld.inc
 
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -263,17 +276,19 @@ SET GLOBAL binlog_error_action= IGNORE_ERROR;
 -- error ER_CANT_OPEN_FILE
 flush logs;
 
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
 --source include/restart_mysqld.inc
 
+-- source include/rpl_gen_binlog_index_file.inc
 --chmod 0644 $INDEX
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -524,5 +539,7 @@ eval SET GLOBAL binlog_error_action= $saved_binlog_error_action;
 # Reset Master deletes all binary log files listed in the index file, resets
 # the binary log index file to be empty and creates a new binary log file.
 RESET MASTER;
+
+--remove_file $gen_binlog_output_file
 
 --echo End of tests

@@ -61,6 +61,7 @@
 #include "client/mysqlbinlog.h"
 #endif
 
+PSI_memory_key key_memory_Gtid_set_encode;
 PSI_memory_key key_memory_Gtid_set_to_string;
 PSI_memory_key key_memory_Gtid_set_Interval_chunk;
 
@@ -1231,6 +1232,25 @@ bool Gtid_set::is_size_greater_than_or_equal(ulonglong num) const {
     if (count >= num) return true;
   }
   return false;
+}
+
+/*
+  Allocates memory and returns the pointer to the memory which
+  contains binary string format of Gtid_set. Stores encoded_length
+  in the argument encoded_size. One must deallocate the memory after
+  calling this funciton.
+*/
+uchar *Gtid_set::encode(uint *encoded_size) const {
+  DBUG_ENTER("Gtid_set::encode(uint *)");
+  if (sid_lock != NULL) sid_lock->assert_some_wrlock();
+  uint encoded_length = get_encoded_length();
+  uchar *str = (uchar *)my_malloc(key_memory_Gtid_set_encode, encoded_length,
+                                  MYF(MY_WME));
+  if (str != nullptr) {
+    encode(str);
+  }
+  *encoded_size = encoded_length;
+  DBUG_RETURN(str);
 }
 
 void Gtid_set::encode(uchar *buf) const {
