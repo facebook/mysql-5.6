@@ -25,7 +25,9 @@
 
 #include <atomic>
 #include <list>
+#include <map>
 #include <mutex>  // std::adopt_lock_t
+#include <string>
 
 #include "libbinlogevents/include/compression/base.h"
 #include "libbinlogevents/include/uuid.h"
@@ -2072,6 +2074,11 @@ class Gtid_set {
 
  public:
   /**
+     Returns this Gtid_set as a binary string and stores the length
+     of the binary string in encoded_length.
+  */
+  uchar *encode(uint *encoded_length) const;
+  /**
     Encodes this Gtid_set as a binary string.
   */
   void encode(uchar *buf) const;
@@ -4003,5 +4010,20 @@ inline void gtid_state_commit_or_rollback(THD *thd, bool needs_to,
 }
 
 #endif  // ifdef MYSQL_SERVER
+
+/*
+  When binlog filenames rollover from binlog.999999 to binlog.1000000, the
+  default straight comparison causes the iterators to return the binlog files
+  in the wrong order. Since using the gtid_set_map requires iterating the files
+  in reverse chronological order, a custom comparator is needed.
+*/
+class binlog_cmp {
+ public:
+  bool operator()(std::string s1, std::string s2) {
+    return (s1.length() != s2.length()) ? (s1.length() < s2.length())
+                                        : (s1 < s2);
+  }
+};
+typedef std::map<std::string, std::string, binlog_cmp> Gtid_set_map;
 
 #endif /* RPL_GTID_H_INCLUDED */
