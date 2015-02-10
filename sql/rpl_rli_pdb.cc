@@ -2367,7 +2367,11 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
 
   // While retrying a transaction statistics related to pending events
   // should not be updated.
-  if (worker->current_event_index > worker->last_current_event_index)
+  // In case of temporary error, current_event_index is reset to 0 on
+  // encountering a terminal event, so add a check for end_event and
+  // temporary error.
+  if ((worker->current_event_index > worker->last_current_event_index) ||
+      (end_event && worker->trans_retries == 1 && temporary_error))
     slave_worker_update_pending_events(rli, ev);
 err:
   if (error)
