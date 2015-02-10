@@ -6191,6 +6191,13 @@ static Sys_var_bool Sys_replica_allow_batching(
     "using the NDB storage engine.",
     GLOBAL_VAR(opt_replica_allow_batching), CMD_LINE(OPT_ARG), DEFAULT(false));
 
+static Sys_var_uint Sys_rpl_receive_buffer_size(
+    "rpl_receive_buffer_size",
+    "The size of input buffer for the socket used during receving "
+    "events from a master.",
+    GLOBAL_VAR(rpl_receive_buffer_size), CMD_LINE(REQUIRED_ARG),
+    VALID_RANGE(1024, UINT_MAX), DEFAULT(2 * 1024 * 1024), BLOCK_SIZE(1024));
+
 static Sys_var_deprecated_alias Sys_slave_allow_batching(
     "slave_allow_batching", Sys_replica_allow_batching);
 
