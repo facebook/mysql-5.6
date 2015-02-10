@@ -1,0 +1,13 @@
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+@@GLOBAL.innodb_buffer_pool_size
+16777216
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
+@@GLOBAL.innodb_buffer_pool_chunk_size
+16777216
+SET @@GLOBAL.innodb_buffer_pool_size=8388608;
+SELECT @@GLOBAL.innodb_buffer_pool_size;
+@@GLOBAL.innodb_buffer_pool_size
+16777216
+SELECT @@GLOBAL.innodb_buffer_pool_chunk_size;
+@@GLOBAL.innodb_buffer_pool_chunk_size
+16777216

@@ -199,6 +199,9 @@ extern os_event_t	srv_error_event;
 /** The buffer pool dump/load thread waits on this event. */
 extern os_event_t	srv_buf_dump_event;
 
+/** The buffer pool resize thread waits on this event. */
+extern os_event_t	srv_buf_resize_event;
+
 /** The buffer pool dump/load file name */
 #define SRV_BUF_DUMP_FILENAME_DEFAULT	"ib_buffer_pool"
 extern char*		srv_buf_dump_filename;
@@ -338,6 +341,9 @@ extern my_bool	srv_use_sys_malloc;
 extern ibool	srv_use_sys_malloc;
 #endif /* UNIV_HOTBACKUP */
 extern ulint	srv_buf_pool_size;	/*!< requested size in bytes */
+
+extern ulong	srv_buf_pool_chunk_unit;/*!< requested unit size of chunks in bytes */
+
 extern my_bool	srv_buf_pool_populate;	/*!< virtual page preallocation */
 extern ulint    srv_buf_pool_instances; /*!< requested number of buffer pool instances */
 extern ulong	srv_n_page_hash_locks;	/*!< number of locks to
@@ -347,6 +353,10 @@ extern ulong	srv_LRU_scan_depth;	/*!< Scan depth for LRU
 extern ulong	srv_flush_neighbors;	/*!< whether or not to flush
 					neighbors of a block */
 extern ulint	srv_buf_pool_old_size;	/*!< previously requested size */
+
+extern ulint	srv_buf_pool_base_size;	/*!< current size as scaling factor
+					for the other components */
+
 extern ulint	srv_buf_pool_curr_size;	/*!< current size in bytes */
 extern ulint	srv_sync_pool_size;	/*!< requested size (number) */
 extern ulint	srv_mem_pool_size;
@@ -373,6 +383,8 @@ extern ulint	srv_idle_flush_pct;
 
 /*!< page_cleaner_thread should run once per this many milliseconds */
 extern ulint	srv_page_cleaner_interval_millis;
+
+extern uint	srv_change_buffer_max_size;
 
 /* Number of IO operations per second the server can do */
 extern ulong    srv_io_capacity;
@@ -460,6 +472,9 @@ extern ibool	srv_error_monitor_active;
 
 /* TRUE during the lifetime of the buffer pool dump/load thread */
 extern ibool	srv_buf_dump_thread_active;
+
+/* true during the lifetime of the buffer pool resize thread */
+extern bool	srv_buf_resize_thread_active;
 
 /* TRUE during the lifetime of the stats thread */
 extern ibool	srv_dict_stats_thread_active;
@@ -1014,6 +1029,7 @@ struct export_var_t{
 	ulint innodb_data_double_write_slow_ios;/*!< # with slow svc time */
 	char  innodb_buffer_pool_dump_status[512];/*!< Buf pool dump status */
 	char  innodb_buffer_pool_load_status[512];/*!< Buf pool load status */
+	char  innodb_buffer_pool_resize_status[512];/*!< Buf pool resize status */
 	ulint innodb_buffer_pool_flushed_lru;	/*!< #pages flushed from LRU */
 	ulint innodb_buffer_pool_flushed_list;	/*!< #pages flushed from flush list */
 	ulint innodb_buffer_pool_flushed_page;	/*!< #pages flushed from other */

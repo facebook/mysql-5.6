@@ -414,7 +414,7 @@ my_bool innobase_fast_checksum = FALSE;
 my_bool	innobase_extra_undoslots = FALSE;
 char*	innobase_doublewrite_file = NULL;
 
-longlong innobase_buffer_pool_size = 8*1024*1024L;
+static longlong innobase_buffer_pool_size = 8*1024*1024L;
 longlong innobase_log_file_size = DEFAULT_LOG_FILE_SIZE;
 longlong innobase_log_file_size_backup;
 
