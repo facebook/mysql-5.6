@@ -2279,6 +2279,9 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
       row_ev->m_binlog_only = TRUE;
   }
 
+  thd->print_proc_info("Executing %s event at position %lu",
+                       ev->get_type_str(), ev->log_pos);
+
   // Table map events are required for row log events even if
   // the current transaction needs to be skipped in storage engine.
   // Table map events don't modify any data, so this event is safe to apply
