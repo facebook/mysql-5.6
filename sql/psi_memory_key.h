@@ -42,6 +42,7 @@ typedef unsigned int PSI_memory_key;
  for tools like mysqlbinlog.cc and for unit tests.
 */
 extern PSI_memory_key key_memory_Filesort_buffer_sort_keys;
+extern PSI_memory_key key_memory_Gtid_set_encode;
 extern PSI_memory_key key_memory_Gtid_set_Interval_chunk;
 extern PSI_memory_key key_memory_Gtid_set_to_string;
 extern PSI_memory_key key_memory_Sid_map_Node;
@@ -121,6 +122,7 @@ extern PSI_memory_key key_memory_acl_cache;
 extern PSI_memory_key key_memory_acl_map_cache;
 extern PSI_memory_key key_memory_binlog_cache_mngr;
 extern PSI_memory_key key_memory_binlog_pos;
+extern PSI_memory_key key_memory_binlog_previous_gtid_set;
 extern PSI_memory_key key_memory_binlog_recover_exec;
 extern PSI_memory_key key_memory_binlog_statement_buffer;
 extern PSI_memory_key key_memory_bison_stack;

@@ -45,9 +45,13 @@ RESET MASTER;
 # action: issue one command so that binlog gets some event
 CREATE TABLE t1 (a int);
 
+-- let $gen_binlog_index_file= $index
+-- let $gen_binlog_output_file= $MYSQLTEST_VARDIR/tmp/binlog_index.txt
+-- source include/rpl_gen_binlog_index_file.inc
+
 -- echo ### assertion: index file contains regular entries
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -78,9 +82,10 @@ FLUSH LOGS;
 -- remove_file $datadir/binlog.000001
 
 -- echo ### assertion: index file contains renamed binlog and the new one
+-- source include/rpl_gen_binlog_index_file.inc
 -- chmod 0644 $index
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
@@ -108,10 +113,13 @@ DROP TABLE t1;
 -- file_exists $datadir/$current_binlog
 
 -- echo ### assertion: show index file contents and these should match show binary logs issued above
+-- source include/rpl_gen_binlog_index_file.inc
 -- chmod 0644 $index
 -- replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
--- eval SET @index=LOAD_FILE('$index')
+-- eval SET @index=LOAD_FILE('$gen_binlog_output_file')
 -- replace_regex /\.[\\\/]binlog/binlog/
 SELECT @index;
 
 RESET MASTER;
+
+--remove_file $gen_binlog_output_file

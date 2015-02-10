@@ -96,6 +96,7 @@ PSI_memory_key key_memory_acl_cache;
 PSI_memory_key key_memory_acl_map_cache;
 PSI_memory_key key_memory_binlog_cache_mngr;
 PSI_memory_key key_memory_binlog_pos;
+PSI_memory_key key_memory_binlog_previous_gtid_set;
 PSI_memory_key key_memory_binlog_recover_exec;
 PSI_memory_key key_memory_binlog_statement_buffer;
 PSI_memory_key key_memory_bison_stack;
@@ -211,9 +212,12 @@ static PSI_memory_info all_server_memory[] = {
     {&key_memory_Replica_job_group_group_relay_log_name,
      "Replica_job_group::group_relay_log_name", 0, 0, PSI_DOCUMENT_ME},
     {&key_memory_binlog_cache_mngr, "binlog_cache_mngr", 0, 0, PSI_DOCUMENT_ME},
+    {&key_memory_binlog_previous_gtid_set, "binlog_previous_gtid_set", 0, 0,
+     PSI_DOCUMENT_ME},
     {&key_memory_Row_data_memory_memory, "Row_data_memory::memory", 0, 0,
      PSI_DOCUMENT_ME},
 
+    {&key_memory_Gtid_set_encode, "Gtid_set::to_string", 0, 0, PSI_DOCUMENT_ME},
     {&key_memory_Gtid_set_to_string, "Gtid_set::to_string", 0, 0,
      PSI_DOCUMENT_ME},
     {&key_memory_Gtid_state_to_string, "Gtid_state::to_string", 0, 0,
