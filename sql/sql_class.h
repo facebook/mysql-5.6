@@ -578,6 +578,8 @@ typedef struct system_variables
   ulong allow_noncurrent_db_rw;
 
   my_bool expand_fast_index_creation;
+
+  my_bool use_fbson_output_format;
 } SV;
 
 

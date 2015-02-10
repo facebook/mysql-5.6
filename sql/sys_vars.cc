@@ -541,6 +541,12 @@ static Sys_var_mybool Sys_allow_document_type(
        GLOBAL_VAR(allow_document_type),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_use_fbson_output_format(
+       "use_fbson_output_format",
+       "Uses FBSON format as document type output.",
+       SESSION_ONLY(use_fbson_output_format),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_block_create_myisam(
        "block_create_myisam",
        "Blocks creation of non-temporary MyISAM tables outside of mysql "

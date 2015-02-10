@@ -8482,6 +8482,10 @@ Field_document::store_internal(const char *from, uint length,
 String *Field_document::val_str(String *val_buffer,
                                 String *val_ptr __attribute__((unused)))
 {
+  // check if we will output fbson directly then use blob's val_str
+  if (current_thd->variables.use_fbson_output_format)
+    return Field_blob::val_str(val_buffer, val_ptr);
+
   ASSERT_COLUMN_MARKED_FOR_READ;
   char *blob;
   memcpy(&blob, ptr+packlength, sizeof(char*));
