@@ -23,6 +23,11 @@
 
 --disable_query_log
 
+# Convert the index file to a format that can be used by LOAD DATA INFILE
+--let $gen_binlog_index_file= $index_file
+--let $gen_binlog_output_file= $MYSQLTEST_VARDIR/tmp/binlog_index.txt
+--source include/rpl_gen_binlog_index_file.inc
+
 # Disable escape character since otherwise to avoid that the path
 # separator under windows is treated as an escape.
 #
@@ -31,7 +36,7 @@
 # mtr does weird things with backslash escapes so we spell backslash
 # as CHAR(92) instead.
 
-eval LOAD DATA INFILE '$index_file'
+eval LOAD DATA INFILE '$gen_binlog_output_file'
   INTO TABLE $table
   FIELDS ESCAPED BY ''
   (@binlog_filename)
@@ -39,6 +44,9 @@ eval LOAD DATA INFILE '$index_file'
     REPLACE(REPLACE(@binlog_filename, './', ''),
             CONCAT('.', CHAR(92)),
             '');
+
+
+--remove_file $gen_binlog_output_file
 
 --let $include_filename= rpl_read_binlog_index_into_table.inc
 --source include/end_include_file.inc

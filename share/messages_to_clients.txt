@@ -9586,6 +9586,12 @@ start-error-number 50100
 ER_LOG_GLOBAL_VAR_CHANGE
   eng "Global variable @@%s has been changed from %s to %s by user %s from host %s"
 
+ER_BINLOG_INDEX_PREV_GTID_OUTOFMEMORY
+  eng "MYSQL_BIN_LOG::init_gtid_sets failed allocating "%u bytes"
+
+ER_BINLOG_INDEX_PREV_GTID_CORRUPT
+  eng "MYSQL_BINLOG::init_gtid_sets failed because previous gtid set of binlog %s is corrupted in the index file"
+
 #
 # End of 8.0 FB MySQL error messages.
 # (Please read comments from the header of this section before adding error

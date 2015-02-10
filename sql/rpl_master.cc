@@ -30,6 +30,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "binlog.h"
 #include "m_ctype.h"
 #include "m_string.h"  // strmake
 #include "map_helpers.h"
@@ -1327,7 +1328,7 @@ bool show_binlogs(THD *thd) {
   IO_CACHE *index_file;
   LOG_INFO cur;
   File file;
-  char fname[FN_REFLEN];
+  char file_name_and_gtid_set_length[FN_REFLEN + 22];
   List<Item> field_list;
   size_t length;
   size_t cur_dir_len;
@@ -1360,12 +1361,20 @@ bool show_binlogs(THD *thd) {
   reinit_io_cache(index_file, READ_CACHE, (my_off_t)0, false, false);
 
   /* The file ends with EOF or empty line */
-  while ((length = my_b_gets(index_file, fname, sizeof(fname))) > 1) {
+  while ((length = my_b_gets(index_file, file_name_and_gtid_set_length,
+                             FN_REFLEN + 22)) > 1) {
     size_t dir_len;
     int encrypted_header_size = 0;
     ulonglong file_length = 0;  // Length if open fails
-    fname[--length] = '\0';     // remove the newline
 
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_set_length =
+        split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_set_length) {
+      my_b_seek(index_file, my_b_tell(index_file) + gtid_set_length + 1);
+    }
+    char *fname = file_name_and_gtid_set_length;
+    length = strlen(fname);
     protocol->start_row();
     dir_len = dirname_length(fname);
     length -= dir_len;

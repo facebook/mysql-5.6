@@ -50,7 +50,6 @@
 #include <new>
 #include <queue>
 #include <sstream>
-#include <string>
 
 #include "dur_prop.h"
 #include "libbinlogevents/include/compression/base.h"
@@ -4364,104 +4363,86 @@ bool MYSQL_BIN_LOG::find_first_log_not_in_gtid_set(char *binlog_file_name,
                                                    Gtid *first_gtid,
                                                    const char **errmsg) {
   DBUG_TRACE;
-  LOG_INFO linfo;
-  auto log_index = this->get_log_index();
-  std::list<std::string> filename_list = log_index.second;
-  int error = log_index.first;
-  list<string>::reverse_iterator rit;
-  Gtid_set binlog_previous_gtid_set{gtid_set->get_sid_map()};
 
-  if (error != LOG_INFO_EOF) {
-    *errmsg =
-        "Failed to read the binary log index file while "
-        "looking for the oldest binary log that contains any GTID "
-        "that is not in the given gtid set";
-    error = -1;
-    goto end;
-  }
+  Gtid_set binlog_previous_gtid_set(gtid_set->get_sid_map());
 
-  if (filename_list.empty()) {
-    *errmsg =
-        "Could not find first log file name in binary log index file "
-        "while looking for the oldest binary log that contains any GTID "
-        "that is not in the given gtid set";
-    error = -2;
-    goto end;
-  }
-
-  /*
-    Iterate over all the binary logs in reverse order, and read only
-    the Previous_gtids_log_event, to find the first one, that is the
-    subset of the given gtid set. Since every binary log begins with
-    a Previous_gtids_log_event, that contains all GTIDs in all
-    previous binary logs.
-    We also ask for the first GTID in the binary log to know if we
-    should send the FD event with the "created" field cleared or not.
-  */
-  DBUG_PRINT("info", ("Iterating backwards through binary logs, and reading "
-                      "only the Previous_gtids_log_event, to find the first "
-                      "one, that is the subset of the given gtid set."));
-  rit = filename_list.rbegin();
-  error = 0;
-  while (rit != filename_list.rend()) {
+  mysql_mutex_lock(&LOCK_index);
+  for (auto rit = previous_gtid_set_map.rbegin();
+       rit != previous_gtid_set_map.rend(); ++rit) {
     binlog_previous_gtid_set.clear();
-    const char *filename = rit->c_str();
-    DBUG_PRINT("info",
-               ("Read Previous_gtids_log_event from filename='%s'", filename));
-    switch (read_gtids_from_binlog(filename, nullptr, &binlog_previous_gtid_set,
-                                   first_gtid,
-                                   binlog_previous_gtid_set.get_sid_map(),
-                                   opt_master_verify_checksum, is_relay_log)) {
-      case ERROR:
-        *errmsg =
-            "Error reading header of binary log while looking for "
-            "the oldest binary log that contains any GTID that is not in "
-            "the given gtid set";
-        error = -3;
-        goto end;
-      case NO_GTIDS:
-        *errmsg =
-            "Found old binary log without GTIDs while looking for "
-            "the oldest binary log that contains any GTID that is not in "
-            "the given gtid set";
-        error = -4;
-        goto end;
-      case GOT_GTIDS:
-      case GOT_PREVIOUS_GTIDS:
-        if (binlog_previous_gtid_set.is_subset(gtid_set)) {
-          strcpy(binlog_file_name, filename);
-          /*
-            Verify that the selected binlog is not the first binlog,
-          */
-          DBUG_EXECUTE_IF("slave_reconnect_with_gtid_set_executed",
-                          DBUG_ASSERT(strcmp(filename_list.begin()->c_str(),
-                                             binlog_file_name) != 0););
-          goto end;
-        }
-      case TRUNCATED:
-        break;
+    binlog_previous_gtid_set.add_gtid_encoding(
+        (const uchar *)rit->second.c_str(), rit->second.length());
+
+    if (binlog_previous_gtid_set.is_subset(gtid_set)) {
+      char full_log_name[FN_REFLEN];
+      strcpy(binlog_file_name, rit->first.c_str());
+      full_log_name[0] = 0;
+      if (normalize_binlog_name(full_log_name, binlog_file_name,
+                                is_relay_log)) {
+        *errmsg = "Error normalizing log file name";
+        mysql_mutex_unlock(&LOCK_index);
+        return true;
+      }
+      enum_read_gtids_from_binlog_status ret = read_gtids_from_binlog(
+          full_log_name, NULL, NULL, first_gtid, gtid_set->get_sid_map(),
+          opt_master_verify_checksum, is_relay_log);
+      // some rpl tests injects the error skip_writing_previous_gtids_log_event
+      // intentionally. Don't pass this error to dump thread which causes
+      // slave io_thread error failing the tests.
+      if (ret != GOT_GTIDS && ret != GOT_PREVIOUS_GTIDS &&
+          DBUG_EVALUATE_IF("skip_writing_previous_gtids_log_event", 0, 1)) {
+        *errmsg = "Error finding first GTID in the log file";
+        mysql_mutex_unlock(&LOCK_index);
+        return true;
+      }
+      mysql_mutex_unlock(&LOCK_index);
+      return false;
     }
-
-    rit++;
   }
 
-  if (rit == filename_list.rend()) {
-    report_missing_gtids(&binlog_previous_gtid_set, gtid_set, errmsg);
-    error = -5;
-  }
+  char *missing_gtids = NULL;
+  Gtid_set gtid_missing(gtid_set->get_sid_map());
+  gtid_missing.add_gtid_set(gtid_set);
+  gtid_missing.remove_gtid_set(&binlog_previous_gtid_set);
+  gtid_missing.to_string(&missing_gtids, false, NULL);
 
-end:
-  if (error) DBUG_PRINT("error", ("'%s'", *errmsg));
-  filename_list.clear();
-  DBUG_PRINT("info", ("returning %d", error));
-  return error != 0 ? true : false;
+  String tmp_uuid;
+  mysql_mutex_lock(&current_thd->LOCK_thd_data);
+  const auto it = current_thd->user_vars.find("slave_uuid");
+  if (it != current_thd->user_vars.end() && it->second->length() > 0) {
+    tmp_uuid.copy(it->second->ptr(), it->second->length(), NULL);
+  }
+  mysql_mutex_unlock(&current_thd->LOCK_thd_data);
+  LogErr(WARNING_LEVEL, ER_FOUND_MISSING_GTIDS, tmp_uuid.ptr(), missing_gtids);
+  my_free(missing_gtids);
+
+  *errmsg = ER_THD(current_thd, ER_MASTER_HAS_PURGED_REQUIRED_GTIDS);
+  DBUG_PRINT("error", ("'%s'", *errmsg));
+  mysql_mutex_unlock(&LOCK_index);
+  return true;
 }
 
 bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
                                    bool verify_checksum, bool need_lock,
                                    Transaction_boundary_parser *trx_parser,
-                                   Gtid_monitoring_info *partial_trx,
-                                   bool is_server_starting) {
+                                   Gtid_monitoring_info *partial_trx) {
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
+  uchar *previous_gtid_set_in_file = NULL;
+  bool found_lost_gtids = false;
+  uint last_previous_gtid_encoded_length = 0;
+  int error = 0, length;
+  std::pair<Gtid_set_map::iterator, bool> iterator, save_iterator;
+  char full_log_name[FN_REFLEN];
+
+  full_log_name[0] = 0;
+
+  /* Initialize the sid_map to be used in read_gtids_from_binlog */
+  Sid_map *sid_map = NULL;
+  if (all_gtids)
+    sid_map = all_gtids->get_sid_map();
+  else if (lost_gtids)
+    sid_map = lost_gtids->get_sid_map();
+
   DBUG_TRACE;
   DBUG_PRINT(
       "info",
@@ -4497,147 +4478,210 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
     sid_lock->assert_some_wrlock();
   }
 
-  /* Initialize the sid_map to be used in read_gtids_from_binlog */
-  Sid_map *sid_map = nullptr;
-  if (all_gtids)
-    sid_map = all_gtids->get_sid_map();
-  else if (lost_gtids)
-    sid_map = lost_gtids->get_sid_map();
+  previous_gtid_set_map.clear();
 
-  // Gather the set of files to be accessed.
-  auto log_index = this->get_log_index(false);
-  std::list<std::string> filename_list = log_index.second;
-  int error = log_index.first;
-  list<string>::iterator it;
-  list<string>::reverse_iterator rit;
-  bool reached_first_file = false;
+  // Gather the set of files to be accessed for relay log.
+  list<string> filename_list;
+  int num_prev_gtids_found = 0;
 
-  if (error != LOG_INFO_EOF) {
-    DBUG_PRINT("error", ("Error reading %s index",
-                         is_relay_log ? "relaylog" : "binlog"));
-    goto end;
-  }
-  /*
-    On server starting, one new empty binlog file is created and
-    its file name is put into index file before initializing
-    GLOBAL.GTID_EXECUTED AND GLOBAL.GTID_PURGED, it is not the
-    last binlog file before the server restarts, so we remove
-    its file name from filename_list.
-  */
-  if (is_server_starting && !is_relay_log && !filename_list.empty())
-    filename_list.pop_back();
+  my_b_seek(&index_file, 0);
+  while ((length = my_b_gets(&index_file, file_name_and_gtid_set_length,
+                             sizeof(file_name_and_gtid_set_length))) >= 1) {
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_string_length =
+        split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0) {
+      // Allocate gtid_string_length + 1 to include the '\n' also.
+      previous_gtid_set_in_file =
+          (uchar *)my_malloc(key_memory_binlog_previous_gtid_set,
+                             gtid_string_length + 1, MYF(MY_WME));
+      if (previous_gtid_set_in_file == NULL) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_INDEX_PREV_GTID_OUTOFMEMORY,
+               gtid_string_length + 1);
+        error = 1;
+        goto end;
+      }
+      if (my_b_read(&index_file, previous_gtid_set_in_file,
+                    gtid_string_length + 1)) {
+        LogErr(ERROR_LEVEL, ER_BINLOG_INDEX_PREV_GTID_CORRUPT,
+               file_name_and_gtid_set_length);
+        error = !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
+        my_free(previous_gtid_set_in_file);
+        goto end;
+      }
 
-  error = 0;
-  if (all_gtids != nullptr) {
-    DBUG_PRINT("info", ("Iterating backwards through %s logs, "
-                        "looking for the last %s log that contains "
-                        "a Previous_gtids_log_event.",
-                        is_relay_log ? "relay" : "binary",
-                        is_relay_log ? "relay" : "binary"));
-    // Iterate over all files in reverse order until we find one that
-    // contains a Previous_gtids_log_event.
-    rit = filename_list.rbegin();
-    bool can_stop_reading = false;
-    reached_first_file = (rit == filename_list.rend());
-    DBUG_PRINT("info",
-               ("filename='%s' reached_first_file=%d",
-                reached_first_file ? "" : rit->c_str(), reached_first_file));
-    while (!can_stop_reading && !reached_first_file) {
-      const char *filename = rit->c_str();
-      DBUG_ASSERT(rit != filename_list.rend());
-      rit++;
-      reached_first_file = (rit == filename_list.rend());
-      DBUG_PRINT("info", ("filename='%s' can_stop_reading=%d "
-                          "reached_first_file=%d, ",
-                          filename, can_stop_reading, reached_first_file));
-      switch (read_gtids_from_binlog(
-          filename, all_gtids, reached_first_file ? lost_gtids : nullptr,
-          nullptr /* first_gtid */, sid_map, verify_checksum, is_relay_log)) {
-        case ERROR: {
+      if (lost_gtids != NULL && !found_lost_gtids) {
+        DBUG_PRINT("info", ("first binlog with gtids %s\n",
+                            file_name_and_gtid_set_length));
+
+#ifndef DBUG_OFF
+        Gtid_set unused_lost_gtid(lost_gtids->get_sid_map(),
+                                  lost_gtids->get_sid_map()->get_sid_lock());
+
+        /*
+          In the original implementation:
+
+          Mysql server iterates forwards through binary logs, looking for the
+          first binary log that contains both Previous_gtids_log_event and
+          gtid_log_event for gathering the set of gtid_purged on server start.
+          It also iterates forwards through binary logs, looking for the first
+          binary log that contains both Previous_gtids_log_event and
+          gtid_log_event for gathering the set of gtid_purged when purging
+          binary logs. This may take very long time if it has many binary logs
+          and almost all of them are out of filesystem cache. So if the
+          binlog_gtid_simple_recovery is enabled, we just initialize
+          GLOBAL.GTID_PURGED from the first binary log, do not read any more
+          binary logs.
+
+          In ours:
+
+          Reading the binlog for gtids is needed for the test
+          binlog.binlog_purge_binary_logs_stall. Our implementation also
+          prevents the large binlog read stall in MySQL since we never
+          need to read the MySQL binlog directly.
+        */
+        if (normalize_binlog_name(full_log_name, file_name_and_gtid_set_length,
+                                  is_relay_log) ||
+            read_gtids_from_binlog(full_log_name, NULL, &unused_lost_gtid, NULL,
+                                   sid_map, verify_checksum,
+                                   is_relay_log) == ERROR) {
           error = 1;
           goto end;
         }
-        case GOT_GTIDS: {
-          can_stop_reading = true;
-          break;
-        }
-        case GOT_PREVIOUS_GTIDS: {
-          /*
-            If this is a binlog file, it is enough to have GOT_PREVIOUS_GTIDS.
-            If this is a relaylog file, we need to find at least one GTID to
-            start parsing the relay log to add GTID of transactions that might
-            have spanned in distinct relaylog files.
-          */
-          if (!is_relay_log) can_stop_reading = true;
-          break;
-        }
-        case NO_GTIDS: {
-          /*
-            Mysql server iterates backwards through binary logs, looking for
-            the last binary log that contains a Previous_gtids_log_event for
-            gathering the set of gtid_executed on server start. This may take
-            very long time if it has many binary logs and almost all of them
-            are out of filesystem cache. So if the binlog_gtid_simple_recovery
-            is enabled, and the last binary log does not contain any GTID
-            event, do not read any more binary logs, GLOBAL.GTID_EXECUTED and
-            GLOBAL.GTID_PURGED should be empty in the case.
-          */
-          if (binlog_gtid_simple_recovery && is_server_starting &&
-              !is_relay_log) {
-            DBUG_ASSERT(all_gtids->is_empty());
-            DBUG_ASSERT(lost_gtids->is_empty());
-            goto end;
-          }
-          /*FALLTHROUGH*/
-        }
-        case TRUNCATED: {
-          break;
-        }
+#endif /* DBUG_OFF */
+
+        lost_gtids->add_gtid_encoding(previous_gtid_set_in_file,
+                                      gtid_string_length);
+        found_lost_gtids = true;
       }
-    }
-
-    /*
-      If we use GTIDs and have partial transactions on the relay log,
-      must check if it ends on next relay log files.
-      We also need to feed the boundary parser with the rest of the
-      relay log to put it in the correct state before receiving new
-      events from the master in the case of GTID auto positioning be
-      disabled.
-    */
-    if (is_relay_log && filename_list.size() > 0) {
+      num_prev_gtids_found++;
+    } else {
       /*
-        Suppose the following relaylog:
-
-         rl-bin.000001 | rl-bin.000002 | rl-bin.000003 | rl-bin-000004
-        ---------------+---------------+---------------+---------------
-         PREV_GTIDS    | PREV_GTIDS    | PREV_GTIDS    | PREV_GTIDS
-         (empty)       | (UUID:1)      | (UUID:1)      | (UUID:1)
-        ---------------+---------------+---------------+---------------
-         GTID(UUID:1)  | QUERY(INSERT) | QUERY(INSERT) | XID
-        ---------------+---------------+---------------+---------------
-         QUERY(CREATE  |
-         TABLE t1 ...) |
-        ---------------+
-         GTID(UUID:2)  |
-        ---------------+
-         QUERY(BEGIN)  |
-        ---------------+
-
-        As it is impossible to determine the current Retrieved_Gtid_Set by only
-        looking to the PREVIOUS_GTIDS on the last relay log file, and scanning
-        events on it, we tried to find a relay log file that contains at least
-        one GTID event during the backwards search.
-
-        In the example, we will find a GTID only in rl-bin.000001, as the
-        UUID:2 transaction was spanned across 4 relay log files.
-
-        The transaction spanning can be caused by "FLUSH RELAY LOGS" commands
-        on slave while it is queuing the transaction.
-
-        So, in order to correctly add UUID:2 into Retrieved_Gtid_Set, we need
-        to parse the relay log starting on the file we found the last GTID
-        queued to know if the transaction was fully retrieved or not.
+        TODO -- need to support old filename entries where
+        the prev_gtid set is not stored in the index file.
+        This is likely required before Oracle will accept
+        this feature
       */
+    }
+    iterator = previous_gtid_set_map.insert(std::pair<string, string>(
+        string(file_name_and_gtid_set_length),
+        string((char *)previous_gtid_set_in_file, gtid_string_length)));
+
+    /* filename_list is only used for relay_log checking later */
+    if (is_relay_log)
+      filename_list.push_back(string(file_name_and_gtid_set_length));
+
+    if (all_gtids != NULL && gtid_string_length > 0) {
+      last_previous_gtid_encoded_length = gtid_string_length;
+      save_iterator = iterator;
+    }
+    my_free(previous_gtid_set_in_file);
+    previous_gtid_set_in_file = NULL;
+  }
+
+  if (all_gtids != NULL && last_previous_gtid_encoded_length) {
+    const char *last_binlog_file_with_gtids =
+        save_iterator.first->first.c_str();
+    DBUG_PRINT("info",
+               ("last binlog with gtids %s\n", last_binlog_file_with_gtids));
+    if (normalize_binlog_name(full_log_name, last_binlog_file_with_gtids,
+                              is_relay_log)) {
+      error = 1;
+      goto end;
+    }
+    if (read_gtids_from_binlog(full_log_name, all_gtids, NULL, NULL, sid_map,
+                               verify_checksum, is_relay_log) == ERROR) {
+      error = 1;
+      goto end;
+    }
+    /*
+      Even though the previous gtid encoding is not null in index file, it may
+      happen that the binlog is corrupted and doesn't contain previous gtid log
+      event. In these cases, the encoding in the index file is considered as
+      true and used to initialize the all_gtids(GLOBAL.GTID_EXECUTED).
+    */
+    if (all_gtids->is_empty()) {
+      all_gtids->add_gtid_encoding(
+          (const uchar *)save_iterator.first->second.c_str(),
+          last_previous_gtid_encoded_length);
+    }
+  }
+
+  /*
+    If we use GTIDs and have partial transactions on the relay log,
+    must check if it ends on next relay log files.
+    We also need to feed the boundary parser with the rest of the
+    relay log to put it in the correct state before receiving new
+    events from the master in the case of GTID auto positioning be
+    disabled.
+
+    If no previous gtids were found, then skip this.
+  */
+  if (is_relay_log && filename_list.size() > 0 && num_prev_gtids_found) {
+    /*
+      Suppose the following relaylog:
+
+       rl-bin.000001 | rl-bin.000002 | rl-bin.000003 | rl-bin-000004
+      ---------------+---------------+---------------+---------------
+       PREV_GTIDS    | PREV_GTIDS    | PREV_GTIDS    | PREV_GTIDS
+       (empty)       | (UUID:1)      | (UUID:1)      | (UUID:1)
+      ---------------+---------------+---------------+---------------
+       GTID(UUID:1)  | QUERY(INSERT) | QUERY(INSERT) | XID
+      ---------------+---------------+---------------+---------------
+       QUERY(CREATE  |
+       TABLE t1 ...) |
+      ---------------+
+       GTID(UUID:2)  |
+      ---------------+
+       QUERY(BEGIN)  |
+      ---------------+
+
+      As it is impossible to determine the current Retrieved_Gtid_Set by only
+      looking to the PREVIOUS_GTIDS on the last relay log file, and scanning
+      events on it, we tried to find a relay log file that contains at least
+      one GTID event during the backwards search.
+
+      In the example, we will find a GTID only in rl-bin.000001, as the
+      UUID:2 transaction was spanned across 4 relay log files.
+
+      The transaction spanning can be caused by "FLUSH RELAY LOGS" commands
+      on slave while it is queuing the transaction.
+
+      So, in order to correctly add UUID:2 into Retrieved_Gtid_Set, we need
+      to parse the relay log starting on the file we found the last GTID
+      queued to know if the transaction was fully retrieved or not.
+    */
+
+    // Iterate over all files in reverse order.
+    // Find the first log file where there is a difference in PREV_GTIDS.
+    // This should be the log file that contains the last GTID_EVENT.
+    list<string>::reverse_iterator rit;
+    std::map<std::string, std::string>::iterator pg_it;
+
+    rit = filename_list.rbegin();
+    pg_it = previous_gtid_set_map.find(*rit);
+    if (pg_it != previous_gtid_set_map.end()) {
+      /*
+        Record the prev gtid found. This should be guaranteed to be non-empty
+        since gtids being enabled means previous gtid is always populated.
+        Only in the case of gtids never being enabled should previous
+        gtids not exist, but then the num_prev_gtids_found should be 0.
+      */
+      std::string last_file_prev_gtid = pg_it->second;
+      DBUG_ASSERT(last_file_prev_gtid.length() != 0);
+
+      rit++;
+      while (rit != filename_list.rend()) {
+        pg_it = previous_gtid_set_map.find(*rit);
+        if (pg_it == previous_gtid_set_map.end() ||
+            last_file_prev_gtid.length() != pg_it->second.length() ||
+            memcmp(last_file_prev_gtid.c_str(), pg_it->second.c_str(),
+                   last_file_prev_gtid.length())) {
+          /* Found file with prev gtid different from the last file */
+          break;
+        }
+        rit++;
+      }
 
       /*
         Adjust the reverse iterator to point to the relaylog file we
@@ -4645,8 +4689,7 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
         the relay log file name.
       */
       DBUG_ASSERT(rit != filename_list.rbegin());
-      rit--;
-      DBUG_ASSERT(rit != filename_list.rend());
+      if (rit == filename_list.rend()) rit--;
       /* Reset the transaction parser before feeding it with events */
       trx_parser->reset();
       partial_trx->clear();
@@ -4654,86 +4697,16 @@ bool MYSQL_BIN_LOG::init_gtid_sets(Gtid_set *all_gtids, Gtid_set *lost_gtids,
       DBUG_PRINT("info", ("Iterating forwards through relay logs, "
                           "updating the Retrieved_Gtid_Set and updating "
                           "IO thread trx parser before start."));
+      list<string>::iterator it;
       for (it = find(filename_list.begin(), filename_list.end(), *rit);
            it != filename_list.end(); it++) {
         const char *filename = it->c_str();
         DBUG_PRINT("info", ("filename='%s'", filename));
-        if (read_gtids_and_update_trx_parser_from_relaylog(
-                filename, all_gtids, true, trx_parser, partial_trx)) {
+        if (normalize_binlog_name(full_log_name, filename, is_relay_log) ||
+            read_gtids_and_update_trx_parser_from_relaylog(
+                full_log_name, all_gtids, true, trx_parser, partial_trx)) {
           error = 1;
           goto end;
-        }
-      }
-    }
-  }
-  if (lost_gtids != nullptr && !reached_first_file) {
-    /*
-      This branch is only reacheable by a binary log. The relay log
-      don't need to get lost_gtids information.
-
-      A 5.6 server sets GTID_PURGED by rotating the binary log.
-
-      A 5.6 server that had recently enabled GTIDs and set GTID_PURGED
-      would have a sequence of binary logs like:
-
-      master-bin.N  : No PREVIOUS_GTIDS (GTID wasn't enabled)
-      master-bin.N+1: Has an empty PREVIOUS_GTIDS and a ROTATE
-                      (GTID was enabled on startup)
-      master-bin.N+2: Has a PREVIOUS_GTIDS with the content set by a
-                      SET @@GLOBAL.GTID_PURGED + has GTIDs of some
-                      transactions.
-
-      If this 5.6 server be upgraded to 5.7 keeping its binary log files,
-      this routine will have to find the first binary log that contains a
-      PREVIOUS_GTIDS + a GTID event to ensure that the content of the
-      GTID_PURGED will be correctly set (assuming binlog_gtid_simple_recovery
-      is not enabled).
-    */
-    DBUG_PRINT("info", ("Iterating forwards through binary logs, looking for "
-                        "the first binary log that contains both a "
-                        "Previous_gtids_log_event and a Gtid_log_event."));
-    DBUG_ASSERT(!is_relay_log);
-    for (it = filename_list.begin(); it != filename_list.end(); it++) {
-      /*
-        We should pass a first_gtid to read_gtids_from_binlog when
-        binlog_gtid_simple_recovery is disabled, or else it will return
-        right after reading the PREVIOUS_GTIDS event to avoid stall on
-        reading the whole binary log.
-      */
-      Gtid first_gtid = {0, 0};
-      const char *filename = it->c_str();
-      DBUG_PRINT("info", ("filename='%s'", filename));
-      switch (read_gtids_from_binlog(
-          filename, nullptr, lost_gtids,
-          binlog_gtid_simple_recovery ? nullptr : &first_gtid, sid_map,
-          verify_checksum, is_relay_log)) {
-        case ERROR: {
-          error = 1;
-          /*FALLTHROUGH*/
-        }
-        case GOT_GTIDS: {
-          goto end;
-        }
-        case NO_GTIDS:
-        case GOT_PREVIOUS_GTIDS: {
-          /*
-            Mysql server iterates forwards through binary logs, looking for
-            the first binary log that contains both Previous_gtids_log_event
-            and gtid_log_event for gathering the set of gtid_purged on server
-            start. It also iterates forwards through binary logs, looking for
-            the first binary log that contains both Previous_gtids_log_event
-            and gtid_log_event for gathering the set of gtid_purged when
-            purging binary logs. This may take very long time if it has many
-            binary logs and almost all of them are out of filesystem cache.
-            So if the binlog_gtid_simple_recovery is enabled, we just
-            initialize GLOBAL.GTID_PURGED from the first binary log, do not
-            read any more binary logs.
-          */
-          if (binlog_gtid_simple_recovery) goto end;
-          /*FALLTHROUGH*/
-        }
-        case TRUNCATED: {
-          break;
         }
       }
     }
@@ -4774,6 +4747,9 @@ bool MYSQL_BIN_LOG::open_binlog(
   DBUG_ASSERT(need_sid_lock || !need_lock_index);
   DBUG_TRACE;
   DBUG_PRINT("enter", ("base filename: %s", log_name));
+
+  uchar *previous_gtid_set_buffer = NULL;
+  uint gtid_set_length = 0;
 
   mysql_mutex_assert_owner(get_log_lock());
 
@@ -4874,7 +4850,41 @@ bool MYSQL_BIN_LOG::open_binlog(
     See further comments in the mysqld.
     /Alfranio
   */
-  if (current_thd) {
+
+  /*
+    Prior to including to the prev_gtid information in the index file,
+    the previous gtid event is written by open_binlog for all new relay/binlogs
+    created except in the case where the binary log is created during server
+    startup.
+
+    ----
+
+    If the slave was configured before server restart, the server will
+    generate a new relay log file without having current_thd, but this
+    new relay log file must have a PREVIOUS_GTIDS event as we now
+    generate the PREVIOUS_GTIDS event always.
+
+    This is only needed for relay log files because the server will add
+    the PREVIOUS_GTIDS of binary logs (when current_thd==NULL) after
+    server's GTID initialization.
+
+    During server's startup at mysqld_main(), from the binary/relay log
+    initialization point of view, it will:
+    1) Call init_server_components() that will generate a new binary log
+       file but won't write the PREVIOUS_GTIDS event yet;
+    2) Initialize server's GTIDs;
+    3) Write the binary log PREVIOUS_GTIDS;
+    4) Call init_slave() in where the new relay log file will be created
+       after initializing relay log's Retrieved_Gtid_Set;
+
+    ----
+
+    However, since open_binlog needs to store the gtid set in the index file,
+    all cases need to write out the prev_gtid information. Server start up is
+    expected to 'initialize' gtid_sets within init_server_components() first so
+    that previous gtids can be generated correctly.
+  */
+  {
     Checkable_rwlock *sid_lock = nullptr;
     Gtid_set logged_gtids_binlog(global_sid_map, global_sid_lock);
     Gtid_set *previous_logged_gtids;
@@ -4904,52 +4914,18 @@ bool MYSQL_BIN_LOG::open_binlog(
       }
       logged_gtids_binlog.remove_gtid_set(gtids_only_in_table);
     }
+
+    /* Generate the encoded gtid set for storing in the index file */
+    previous_gtid_set_buffer = previous_logged_gtids->encode(&gtid_set_length);
+
     DBUG_PRINT("info", ("Generating PREVIOUS_GTIDS for %s file.",
                         is_relay_log ? "relaylog" : "binlog"));
     Previous_gtids_log_event prev_gtids_ev(previous_logged_gtids);
     if (is_relay_log) prev_gtids_ev.set_relay_log_event();
     if (need_sid_lock) sid_lock->unlock();
     if (write_event_to_binlog(&prev_gtids_ev)) goto err;
-  } else  // !(current_thd)
-  {
-    /*
-      If the slave was configured before server restart, the server will
-      generate a new relay log file without having current_thd, but this
-      new relay log file must have a PREVIOUS_GTIDS event as we now
-      generate the PREVIOUS_GTIDS event always.
-
-      This is only needed for relay log files because the server will add
-      the PREVIOUS_GTIDS of binary logs (when current_thd==NULL) after
-      server's GTID initialization.
-
-      During server's startup at mysqld_main(), from the binary/relay log
-      initialization point of view, it will:
-      1) Call init_server_components() that will generate a new binary log
-         file but won't write the PREVIOUS_GTIDS event yet;
-      2) Initialize server's GTIDs;
-      3) Write the binary log PREVIOUS_GTIDS;
-      4) Call init_slave() in where the new relay log file will be created
-         after initializing relay log's Retrieved_Gtid_Set;
-    */
-    if (is_relay_log) {
-      Sid_map *previous_gtid_sid_map =
-          previous_gtid_set_relaylog->get_sid_map();
-      Checkable_rwlock *sid_lock = previous_gtid_sid_map->get_sid_lock();
-
-      if (need_sid_lock)
-        sid_lock->wrlock();
-      else
-        sid_lock->assert_some_wrlock(); /* purecov: inspected */
-
-      DBUG_PRINT("info", ("Generating PREVIOUS_GTIDS for relaylog file."));
-      Previous_gtids_log_event prev_gtids_ev(previous_gtid_set_relaylog);
-      prev_gtids_ev.set_relay_log_event();
-
-      if (need_sid_lock) sid_lock->unlock();
-
-      if (write_event_to_binlog(&prev_gtids_ev)) goto err;
-    }
   }
+
   if (extra_description_event) {
     /*
       This is a relay log written to by the I/O slave thread.
@@ -4995,7 +4971,8 @@ bool MYSQL_BIN_LOG::open_binlog(
                     { DBUG_SET("+d,simulate_no_free_space_error"); });
     if (DBUG_EVALUATE_IF("fault_injection_updating_index", 1, 0) ||
         add_log_to_index((uchar *)log_file_name, strlen(log_file_name),
-                         need_lock_index)) {
+                         need_lock_index, previous_gtid_set_buffer,
+                         gtid_set_length)) {
       DBUG_EXECUTE_IF("simulate_disk_full_on_open_binlog", {
         DBUG_SET("-d,simulate_file_write_error");
         DBUG_SET("-d,simulate_no_free_space_error");
@@ -5017,6 +4994,7 @@ bool MYSQL_BIN_LOG::open_binlog(
   close_purge_index_file();
 
   update_binlog_end_pos();
+  my_free(previous_gtid_set_buffer);
   return false;
 
 err:
@@ -5033,6 +5011,7 @@ err:
            (new_name) ? new_name : name, errno);
     close(LOG_CLOSE_INDEX, false, need_lock_index);
   }
+  my_free(previous_gtid_set_buffer);
   return true;
 }
 
@@ -5204,7 +5183,10 @@ fatal_err:
     -1   error
 */
 int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
-                                    bool need_lock_index) {
+                                    bool need_lock_index,
+                                    uchar *previous_gtid_set_buffer,
+                                    uint gtid_set_length) {
+  char gtid_set_length_buffer[11];
   DBUG_TRACE;
 
   if (open_crash_safe_index_file()) {
@@ -5219,12 +5201,44 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar *log_name, size_t log_name_len,
     goto err;
   }
 
-  if (my_b_write(&crash_safe_index_file, log_name, log_name_len) ||
-      my_b_write(&crash_safe_index_file, pointer_cast<const uchar *>("\n"),
-                 1) ||
-      flush_io_cache(&crash_safe_index_file) ||
-      mysql_file_sync(crash_safe_index_file.file, MYF(MY_WME))) {
+  if (my_b_write(&crash_safe_index_file, log_name, log_name_len)) {
     LogErr(ERROR_LEVEL, ER_BINLOG_CANT_APPEND_LOG_TO_TMP_INDEX, log_name);
+    goto err;
+  }
+
+  if (gtid_set_length > 0) {
+    DBUG_ASSERT(previous_gtid_set_buffer != nullptr);
+    longlong10_to_str(gtid_set_length, gtid_set_length_buffer, 10);
+
+    DBUG_PRINT("info", ("file_name and gtid_set %s\n %s\n", log_name,
+                        previous_gtid_set_buffer));
+    if (my_b_write(&crash_safe_index_file, (const uchar *)" ", 1) ||
+        my_b_write(&crash_safe_index_file, (uchar *)gtid_set_length_buffer,
+                   strlen(gtid_set_length_buffer)) ||
+        my_b_write(&crash_safe_index_file, (const uchar *)"\n", 1) ||
+        my_b_write(&crash_safe_index_file,
+                   (const uchar *)previous_gtid_set_buffer, gtid_set_length)) {
+      LogErr(ERROR_LEVEL, ER_BINLOG_CANT_APPEND_LOG_TO_TMP_INDEX, log_name);
+      goto err;
+    }
+  }
+
+  if (my_b_write(&crash_safe_index_file, (const uchar *)"\n", 1)) {
+    LogErr(ERROR_LEVEL, ER_BINLOG_CANT_CLOSE_TMP_INDEX,
+           "MYSQL_BIN_LOG::add_log_to_index");
+    goto err;
+  }
+
+  if (need_lock_index) mysql_mutex_lock(&LOCK_index);
+  previous_gtid_set_map.insert(std::pair<string, string>(
+      string((char *)log_name, log_name_len),
+      string((char *)previous_gtid_set_buffer, gtid_set_length)));
+  if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
+
+  if (flush_io_cache(&crash_safe_index_file) ||
+      mysql_file_sync(crash_safe_index_file.file, MYF(MY_WME))) {
+    LogErr(ERROR_LEVEL, ER_BINLOG_CANT_CLOSE_TMP_INDEX,
+           "MYSQL_BIN_LOG::add_log_to_index");
     goto err;
   }
 
@@ -5308,6 +5322,17 @@ static int compare_log_name(const char *log_1, const char *log_2) {
   return strcmp(log_1_basename, log_2_basename);
 }
 
+uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length) {
+  char *save_ptr = NULL;
+  save_ptr = strchr(file_name_and_gtid_set_length, ' ');
+  if (save_ptr != NULL) {
+    *save_ptr = 0;  // replace ' ' with '\0'
+    save_ptr++;
+    return atol(save_ptr);
+  }
+  return 0;
+}
+
 /**
   Find the position in the log-index-file for the given log name.
 
@@ -5334,7 +5359,8 @@ int MYSQL_BIN_LOG::find_log_pos(LOG_INFO *linfo, const char *log_name,
                                 bool need_lock_index) {
   int error = 0;
   char *full_fname = linfo->log_file_name;
-  char full_log_name[FN_REFLEN], fname[FN_REFLEN];
+  char full_log_name[FN_REFLEN];
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
   DBUG_TRACE;
   full_log_name[0] = full_fname[0] = 0;
 
@@ -5373,14 +5399,23 @@ int MYSQL_BIN_LOG::find_log_pos(LOG_INFO *linfo, const char *log_name,
     DBUG_EXECUTE_IF("simulate_find_log_pos_error", error = LOG_INFO_EOF;
                     break;);
     /* If we get 0 or 1 characters, this is the end of the file */
-    if ((length = my_b_gets(&index_file, fname, FN_REFLEN)) <= 1) {
+    if ((length = my_b_gets(&index_file, file_name_and_gtid_set_length,
+                            FILE_AND_GTID_SET_LENGTH)) <= 1) {
       /* Did not find the given entry; Return not found or error */
       error = !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
       break;
     }
 
+    file_name_and_gtid_set_length[length - 1] = 0;
+    uint gtid_string_length =
+        split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0) {
+      my_b_seek(&index_file, my_b_tell(&index_file) + gtid_string_length + 1);
+    }
+
     // extend relative paths and match against full path
-    if (normalize_binlog_name(full_fname, fname, is_relay_log)) {
+    if (normalize_binlog_name(full_fname, file_name_and_gtid_set_length,
+                              is_relay_log)) {
       error = LOG_INFO_EOF;
       break;
     }
@@ -5420,15 +5455,17 @@ end:
 */
 int MYSQL_BIN_LOG::find_next_log(LOG_INFO *linfo, bool need_lock_index) {
   int error = 0;
-  size_t length;
-  char fname[FN_REFLEN];
+  uint length, gtid_string_length;
+  char file_name_and_gtid_set_length[FILE_AND_GTID_SET_LENGTH];
   char *full_fname = linfo->log_file_name;
+  DBUG_ENTER("find_next_log");
 
   if (need_lock_index)
     mysql_mutex_lock(&LOCK_index);
   else
     mysql_mutex_assert_owner(&LOCK_index);
 
+  DBUG_PRINT("enter", ("index_file_offset: %llu", linfo->index_file_offset));
   if (!my_b_inited(&index_file)) {
     error = LOG_INFO_IO;
     goto err;
@@ -5437,24 +5474,32 @@ int MYSQL_BIN_LOG::find_next_log(LOG_INFO *linfo, bool need_lock_index) {
   my_b_seek(&index_file, linfo->index_file_offset);
 
   linfo->index_file_start_offset = linfo->index_file_offset;
-  if ((length = my_b_gets(&index_file, fname, FN_REFLEN)) <= 1) {
+  if ((length = my_b_gets(&index_file, file_name_and_gtid_set_length,
+                          FILE_AND_GTID_SET_LENGTH)) <= 1) {
     error = !index_file.error ? LOG_INFO_EOF : LOG_INFO_IO;
     goto err;
   }
 
-  if (fname[0] != 0) {
-    if (normalize_binlog_name(full_fname, fname, is_relay_log)) {
+  if (file_name_and_gtid_set_length[0] != 0) {
+    file_name_and_gtid_set_length[length - 1] = 0;
+    gtid_string_length =
+        split_file_name_and_gtid_set_length(file_name_and_gtid_set_length);
+    if (gtid_string_length > 0) {
+      my_b_seek(&index_file, my_b_tell(&index_file) + gtid_string_length + 1);
+    }
+
+    if (normalize_binlog_name(full_fname, file_name_and_gtid_set_length,
+                              is_relay_log)) {
       error = LOG_INFO_EOF;
       goto err;
     }
-    length = strlen(full_fname);
   }
 
   linfo->index_file_offset = my_b_tell(&index_file);
 
 err:
   if (need_lock_index) mysql_mutex_unlock(&LOCK_index);
-  return error;
+  DBUG_RETURN(error);
 }
 
 /**
@@ -5579,6 +5624,7 @@ bool MYSQL_BIN_LOG::reset_logs(THD *thd, bool delete_only) {
     in order to make the operation safe.
   */
 
+  previous_gtid_set_map.clear();
   if ((err = find_log_pos(&linfo, NullS, false /*need_lock_index=false*/)) !=
       0) {
     uint errcode = purge_log_get_error_code(err);

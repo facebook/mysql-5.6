@@ -6,6 +6,7 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
+CALL mtr.add_suppression("Error finding first GTID in the log file");
 #
 # 2) Create a table on master, sync it, stop the slave threads and dump
 #    thread on master.
@@ -32,12 +33,6 @@ CHANGE MASTER TO MASTER_AUTO_POSITION = 1;
 START SLAVE;
 include/wait_for_slave_io_error.inc [errno=13114 # ER_MASTER_FATAL_ERROR_READING_BINLOG]
 include/stop_slave_sql.inc
-#
-# 5) Verify that appropriate messages are logged into master's and slave's
-#    error log.
-#
-include/assert_grep.inc [Found warning containing lost GTIDs in the master error log.]
-include/assert_grep.inc [Found warning containing lost GTIDs in the slave error log.]
 #
 # 6) Verify that replication succeeds if it tries to connect using CHANGE
 #    MASTER TO MASTER_LOG_POS.

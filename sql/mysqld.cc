@@ -6045,6 +6045,18 @@ static int init_server_components() {
   }
 
   if (opt_bin_log) {
+    /* Initialize executed gtids with all gtids logged so that
+     * open binlog can generate the correct previous gtid information.
+     *
+     * This state will be cleared later in the initialization process.
+     */
+    Gtid_set *executed_gtids =
+        const_cast<Gtid_set *>(gtid_state->get_executed_gtids());
+    if (mysql_bin_log.init_gtid_sets(
+            executed_gtids, NULL /* lost_gtid */, opt_master_verify_checksum,
+            true /*true=need lock*/, NULL /*trx_parser*/, NULL /*partial_trx*/))
+      unireg_abort(1);
+
     /*
       Configures what object is used by the current log to store processed
       gtid(s). This is necessary in the MYSQL_BIN_LOG::MYSQL_BIN_LOG to
@@ -6061,6 +6073,9 @@ static int init_server_components() {
       unireg_abort(MYSQLD_ABORT_EXIT);
     }
     mysql_mutex_unlock(log_lock);
+    global_sid_lock->wrlock();
+    executed_gtids->clear();
+    global_sid_lock->unlock();
   }
 
   if (opt_bin_log) {
@@ -6876,8 +6891,7 @@ int mysqld_main(int argc, char **argv)
     if (mysql_bin_log.init_gtid_sets(
             &gtids_in_binlog, &purged_gtids_from_binlog,
             opt_master_verify_checksum, true /*true=need lock*/,
-            nullptr /*trx_parser*/, nullptr /*partial_trx*/,
-            true /*is_server_starting*/))
+            nullptr /*trx_parser*/, nullptr /*partial_trx*/))
       unireg_abort(MYSQLD_ABORT_EXIT);
 
     global_sid_lock->wrlock();
@@ -6937,23 +6951,7 @@ int mysqld_main(int argc, char **argv)
       unireg_abort(MYSQLD_ABORT_EXIT);
     }
 
-    /*
-      Write the previous set of gtids at this point because during
-      the creation of the binary log this is not done as we cannot
-      move the init_gtid_sets() to a place before openning the binary
-      log. This requires some investigation.
-
-      /Alfranio
-    */
-    Previous_gtids_log_event prev_gtids_ev(&gtids_in_binlog);
-
     global_sid_lock->unlock();
-
-    (prev_gtids_ev.common_footer)->checksum_alg =
-        static_cast<enum_binlog_checksum_alg>(binlog_checksum_options);
-
-    if (mysql_bin_log.write_event_to_binlog_and_sync(&prev_gtids_ev))
-      unireg_abort(MYSQLD_ABORT_EXIT);
 
     (void)RUN_HOOK(server_state, after_engine_recovery, (nullptr));
   }
