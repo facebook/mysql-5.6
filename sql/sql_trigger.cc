@@ -33,6 +33,7 @@
 #include "sql_handler.h"                        // mysql_ha_rm_tables
 #include "sp_cache.h"                     // sp_invalidate_cache
 #include <mysys_err.h>
+#include "sql_readonly.h"                 // check_ro
 
 /*************************************************************************/
 
@@ -444,9 +445,6 @@ bool mysql_create_or_drop_trigger(THD *thd, TABLE_LIST *tables, bool create)
   if (!create)
   {
     bool if_exists= thd->lex->drop_if_exists;
-    bool enforce_ro= true;
-    if (!opt_super_readonly)
-      enforce_ro= !(thd->security_ctx->master_access & SUPER_ACL);
 
     /*
       Protect the query table list from the temporary and potentially
@@ -461,7 +459,7 @@ bool mysql_create_or_drop_trigger(THD *thd, TABLE_LIST *tables, bool create)
     */
     thd->lex->sql_command= backup.sql_command;
 
-    if (opt_readonly && enforce_ro && !thd->slave_thread)
+    if (check_ro(thd))
     {
         my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
                  opt_super_readonly ? "--read-only (super)" : "--read-only");
