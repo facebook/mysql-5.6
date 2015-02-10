@@ -104,6 +104,7 @@
 #include "sql_timer.h"   // thd_timer_set, thd_timer_reset
 #include "sp_rcontext.h"
  
+#include "sql_readonly.h" // check_ro
 
 #include "sql_digest.h"
 
@@ -3864,12 +3865,7 @@ end_with_restore_list:
 #endif /* HAVE_REPLICATION */
       if (res)
         break;
-      bool enforce_ro = true;
-      if (!opt_super_readonly)
-        enforce_ro = !(thd->security_ctx->master_access & SUPER_ACL);
-      if (opt_readonly &&
-	  enforce_ro &&
-	  some_non_temp_table_to_be_updated(thd, all_tables))
+      if (check_ro(thd) && some_non_temp_table_to_be_updated(thd, all_tables))
       {
         if (opt_super_readonly)
         {

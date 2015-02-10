@@ -40,6 +40,7 @@
 #include "debug_sync.h"         // DEBUG_SYNC
 #include <my_bit.h>
 #include <list>
+#include "sql_readonly.h"       // check_ro
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 #include "ha_partition.h"
@@ -1473,18 +1474,10 @@ int ha_commit_trans(THD *thd, bool all, bool async,
       DEBUG_SYNC(thd, "ha_commit_trans_after_acquire_commit_lock");
     }
 
-    bool enforce_ro = true;
-    if (!opt_super_readonly)
-      enforce_ro = !(thd->security_ctx->master_access & SUPER_ACL);
     // Ignore super_read_only when ignore_global_read_lock is set.
     // ignore_global_read_lock is set for transactions on replication
     // repository tables.
-    if (ignore_global_read_lock)
-      enforce_ro = false;
-    if (rw_trans &&
-        opt_readonly &&
-        enforce_ro &&
-        !thd->slave_thread)
+    if (rw_trans && check_ro(thd) && !ignore_global_read_lock)
     {
       if (opt_super_readonly)
       {

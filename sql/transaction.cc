@@ -20,6 +20,7 @@
 #include "rpl_master.h"
 #include "debug_sync.h"         // DEBUG_SYNC
 #include "sql_acl.h"            // SUPER_ACL
+#include "sql_readonly.h"       // check_ro
 
 /**
   Check if we have a condition where the transaction state must
@@ -172,10 +173,7 @@ bool trans_begin(THD *thd, uint flags, bool* need_ok)
       Implicitly starting a RW transaction is allowed for backward
       compatibility.
     */
-    bool enforce_ro = true;
-    if (!opt_super_readonly)
-      enforce_ro = !(thd->security_ctx->master_access & SUPER_ACL);
-    if (opt_readonly && enforce_ro)
+    if (check_ro(thd))
     {
       my_error(ER_OPTION_PREVENTS_STATEMENT, MYF(0),
                opt_super_readonly ? "--read-only (super)" : "--read-only");
