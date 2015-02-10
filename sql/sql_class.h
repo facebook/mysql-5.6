@@ -3931,6 +3931,7 @@ public:
     are owned by this thread.
   */
   Gtid_set owned_gtid_set;
+  my_bool should_write_gtid;
 
   /* Store lsn for engine when preparing finished. */
   engine_lsn_map* prepared_engine;
