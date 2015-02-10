@@ -2953,12 +2953,27 @@ fts_optimize_thread(
 	ut_ad(!srv_read_only_mode);
 	my_thread_init();
 
+	buf_pool_resizable_fts_optimize = false;
+
 	heap = mem_heap_create(sizeof(dict_table_t*) * 64);
 	heap_alloc = ib_heap_allocator_create(heap);
 
 	tables = ib_vector_create(heap_alloc, sizeof(fts_slot_t), 4);
 
 	while(!done && srv_shutdown_state == SRV_SHUTDOWN_NONE) {
+
+		/* If buf_pool_referenced > 0, it might be the producer
+		which is waiting for the request has been done.
+		And some background threads also might be the producer. */
+		if (buf_pool_resizing_bg
+		    && buf_pool_resizable_master
+		    && buf_pool_resizable_purge
+		    && buf_pool_resizable_stats
+		    && buf_pool_referenced == 0) {
+			buf_pool_resizable_fts_optimize = true;
+			os_event_wait(buf_pool_resized_event);
+			buf_pool_resizable_fts_optimize = false;
+		}
 
 		/* If there is no message in the queue and we have tables
 		to optimize then optimize the tables. */
@@ -3106,6 +3121,8 @@ fts_optimize_thread(
 
 	ib_logf(IB_LOG_LEVEL_INFO, "FTS optimize thread exiting.");
 
+	buf_pool_resizable_fts_optimize = true;
+
 	os_event_set(exit_event);
 	my_thread_end();
 
@@ -3144,6 +3161,15 @@ fts_optimize_is_init(void)
 /*======================*/
 {
 	return(fts_optimize_wq != NULL);
+}
+
+/**
+Signal the optimize thread. */
+
+void
+fts_optimize_wakeup()
+{
+	ib_wqueue_signal(fts_optimize_wq);
 }
 
 /**********************************************************************//**

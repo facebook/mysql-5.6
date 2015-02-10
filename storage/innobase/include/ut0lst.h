@@ -26,8 +26,6 @@ Created 9/10/1995 Heikki Tuuri
 #ifndef ut0lst_h
 #define ut0lst_h
 
-#include "univ.i"
-
 /*******************************************************************//**
 Return offset of F in POD T.
 @param T	- POD pointer
@@ -49,10 +47,9 @@ the base node from the count).
 template <typename TYPE>
 struct ut_list_base {
 	typedef TYPE elem_type;
-
 	ulint	count;	/*!< count of nodes in list */
-	TYPE*	start;	/*!< pointer to list start, NULL if empty */
-	TYPE*	end;	/*!< pointer to list end, NULL if empty */
+	elem_type*	start;	/*!< pointer to list start, NULL if empty */
+	elem_type*	end;	/*!< pointer to list end, NULL if empty */
 };
 
 #define UT_LIST_BASE_NODE_T(TYPE)	ut_list_base<TYPE>
@@ -404,5 +401,50 @@ Checks the consistency of a two-way list.
 
 #define UT_LIST_CHECK(NAME, TYPE, LIST)					\
 	ut_list_validate(LIST, &TYPE::NAME, NullValidate())
+
+/********************************************************************//**
+Adjust addresses with moved offsets for the specified area.
+@param list base node (not a pointer to it)
+@param offset offset moved
+@param area_start start address of the moved source area
+@param area_end end address of the moved source area */
+template <typename List>
+void
+ut_list_offset(
+	List&		list,
+	ut_list_node<typename List::elem_type> List::elem_type::*node,
+	lint		offset,
+	void*		area_start,
+	void*		area_end)
+{
+	typename List::elem_type* elem = list.start;
+	if (elem && elem >= area_start && elem < area_end) {
+		list.start = reinterpret_cast<typename List::elem_type*>
+			((byte*)elem + offset);
+	}
+
+	elem = list.end;
+	if (elem && elem >= area_start && elem < area_end) {
+		list.end = reinterpret_cast<typename List::elem_type*>
+			((byte*)elem + offset);
+	}
+
+	elem = list.start;
+	while (elem) {
+		typename List::elem_type* next = (elem->*node).next;
+		if (next && next >= area_start && next < area_end) {
+			(elem->*node).next =
+				reinterpret_cast<typename List::elem_type*>
+					((byte*)next + offset);
+		}
+		typename List::elem_type* prev = (elem->*node).prev;
+		if (prev && prev >= area_start && prev < area_end) {
+			(elem->*node).prev =
+				reinterpret_cast<typename List::elem_type*>
+					((byte*)prev + offset);
+		}
+		elem = (elem->*node).next;
+	}
+}
 
 #endif /* ut0lst.h */

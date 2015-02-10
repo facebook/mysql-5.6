@@ -1,0 +1,5 @@
+--source innodb-buffer-pool-resize-multiple-instances-setup.inc
+
+create table t1 (id int not null, val int not null default '0', primary key (id)) ENGINE=InnoDB;
+
+--source innodb-buffer-pool-resize-multiple-instances-test.inc
