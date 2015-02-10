@@ -432,7 +432,11 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   SSL_SESSION_set_timeout(SSL_get_session(ssl), timeout);
   SSL_set_fd(ssl, sd);
 #ifndef HAVE_YASSL
-  SSL_set_options(ssl, SSL_OP_NO_COMPRESSION);
+  SSL_set_options(ssl,
+                  SSL_OP_NO_COMPRESSION |
+                  SSL_OP_NO_SSLv2 |
+                  SSL_OP_NO_SSLv3
+                  );
 #endif
 
   /*
@@ -451,6 +455,9 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 
   if ((r= ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)) < 1)
   {
+#ifndef DBUG_OFF  /* Debug build */
+    report_errors(ssl);
+#endif
     DBUG_PRINT("error", ("SSL_connect/accept failure"));
     SSL_free(ssl);
     DBUG_RETURN(1);
