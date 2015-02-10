@@ -584,5 +584,14 @@ RESET MASTER;
 #
 --remove_files_wildcard $MYSQLTEST_VARDIR/tmp/ SQL_LOAD_MB*
 
+--echo #
+--echo # Check option --receive-buffer-size
+--echo #
+--let $ofile= $MYSQLTEST_VARDIR/tmp/mysqlbinlog.receive_buffer
+--exec $MYSQL_BINLOG -h 127.0.0.1 -P $MASTER_MYPORT --hexdump --receive-buffer-size=10485760 --read-from-remote-server --user=root binlog.000001 >/dev/null 2> $ofile
+--cat_file $ofile
+--remove_file $ofile
+--let $ofile=
+
 --echo
 --echo End of tests

@@ -1306,5 +1306,8 @@ WARNING: --short-form is deprecated and will be removed in a future version
 RESET MASTER;
 WARNING: --stop-never-slave-server-id is deprecated and will be removed in a future version. Use --connection-server-id instead.
 
+#
+# Check option --receive-buffer-size
+#
 
 End of tests
