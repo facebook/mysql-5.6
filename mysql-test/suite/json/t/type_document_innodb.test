@@ -1,7 +1,7 @@
 --source include/have_innodb.inc
 
 --disable_warnings
-drop table if exists t, t1, t2;
+drop table if exists t, t1, t2, t3;
 --enable_warnings
 
 SET @start_allow_document_type = @@global.allow_document_type;
@@ -31,7 +31,7 @@ create table t (i int(8), a document, s text(255))
   partition by range columns(i)
   (partition p0 values less than (0) engine=myisam);
 
-# Create table with document column
+# Create table with a document column that can be NULL
 create table t (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t;
 
@@ -52,19 +52,20 @@ create index doc_idx on t (i, a);
 --error ER_DOCUMENT_FIELD_IN_PART_FUNC_ERROR
 alter table t partition by hash(a) partitions 8;
 
-# Insert invalid JSON, expecting warnings and the field will remain NULL in the new inserted row
+# Insert invalid JSON, insertion will succeed, the document filed will be NULL, expecting warnings
 insert into t values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
 
+# Expecting the number of rows to be 1
+SELECT count(*) FROM t;
+
+# Insert invalid values, insertion will succeed, the document filed will be NULL, expecting warnings
 insert into t values (2, ' ', 'a2');
-
 insert into t values (3, 123, 'a3');
-
 insert into t values (4, 123.456, 'a4');
 
+# Update with invalid values, it will fail, expecting warnings
 update t set a='{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }' where i = 1;
-
 update t set a=111222333444555666777888999 where i = 2;
-
 update t set a=123456789.123456789;
 
 # Default is NULL
@@ -106,31 +107,65 @@ SELECT * FROM t1 WHERE a >= 1000 and a <= 1010;
 --error 1064
 SELECT CAST(c as document) FROM t1 WHERE a >= 1000 and a <= 1010;
 
+# Create table with a document column that cannot be NULL
+create table t2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
+show create table t2;
+
+# Insert invalid JSON, since the document field cannot be NULL so the insertion will fail, expecting errors
+
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
+
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (2, ' ', 'a2');
+
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (3, 123, 'a3');
+
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (4, 123.456, 'a4');
+
+# Expecting the number of rows to be 0
+SELECT count(*) FROM t2;
+
+#Insert valid JSON, trying to update with invalid JSON, expecting warnings
+insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
+
+# Update with invalid JSON, since the document field cannot be NULL so the update will fail, expecting errors
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }' where i = 1;
+# Expecting the row unchanged
+SELECT * from t2;
+
+# Default is not defined and the document field cannot be NULL, so it will fail, expecting errors
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+update t2 set a=DEFAULT;
+
 # Disable document type when @@global.allow_document_type is false.
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 
 --error ER_DOCUMENT_FIELD_NOT_ALLOWED
-create table t2 (i int(8), a document, s text(255)) engine=innodb;
+create table t3 (i int(8), a document, s text(255)) engine=innodb;
 
-create table t2 (i int(8), s text(255)) engine=innodb;
-
---error ER_DOCUMENT_FIELD_NOT_ALLOWED
-alter table t2 add column a document;
+create table t3 (i int(8), s text(255)) engine=innodb;
 
 --error ER_DOCUMENT_FIELD_NOT_ALLOWED
-alter table t2 modify column s document;
+alter table t3 add column a document;
+
+--error ER_DOCUMENT_FIELD_NOT_ALLOWED
+alter table t3 modify column s document;
 
 # Enable document type
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 
-alter table t2 add column a document;
+alter table t3 add column a document;
 
-alter table t2 modify column s document;
+alter table t3 modify column s document;
 
 # Restore the original value
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
-drop table t, t1, t2;
+drop table t, t1, t2, t3;
