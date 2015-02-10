@@ -122,6 +122,7 @@ typedef struct NET {
   char last_error[512];
   char sqlstate[5 + 1];
   void *extension;
+  unsigned int receive_buffer_size;
 } NET;
 enum mysql_enum_shutdown_level {
   SHUTDOWN_DEFAULT = 0,
@@ -416,7 +417,8 @@ enum mysql_option {
   MYSQL_OPT_SSL_FIPS_MODE,
   MYSQL_OPT_TLS_CIPHERSUITES,
   MYSQL_OPT_SSL_SESSION,
-  MYSQL_OPT_SSL_CONTEXT
+  MYSQL_OPT_SSL_CONTEXT,
+  MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE
 };
 struct st_mysql_options_extention;
 struct st_mysql_options {

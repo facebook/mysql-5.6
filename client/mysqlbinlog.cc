@@ -379,6 +379,8 @@ static bool in_transaction = false;
 /* It is set to true when GTID is found, and false when the transaction ends. */
 static bool seen_gtid = false;
 
+static uint opt_receive_buffer_size = 0;
+
 static Exit_status dump_local_log_entries(PRINT_EVENT_INFO *print_event_info,
                                           const char *logname);
 static Exit_status dump_remote_log_entries(PRINT_EVENT_INFO *print_event_info,
@@ -1585,6 +1587,13 @@ static struct my_option my_long_options[] = {
      &opt_print_table_metadata, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
     {"compress", 'C', "Use compression in server/client protocol.",
      &opt_compress, &opt_compress, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+    {"receive-buffer-size", OPT_RECEIVE_BUFFER_SIZE,
+     "The size of input buffer for the socket used while "
+     "receving events from the server",
+     &opt_receive_buffer_size, &opt_receive_buffer_size, 0, GET_UINT,
+     REQUIRED_ARG,
+     /* def_val */ 1024 * 1024, /* min_value */ 1024, /* max_value */ UINT_MAX,
+     0, /* block_size */ 1024, 0},
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
 /**
@@ -1865,6 +1874,9 @@ static Exit_status safe_connect() {
                  "binary_log_listener");
   set_server_public_key(mysql);
   set_get_server_public_key_option(mysql);
+
+  mysql_options(mysql, MYSQL_OPT_NET_RECEIVE_BUFFER_SIZE,
+                &opt_receive_buffer_size);
 
   if (!mysql_real_connect(mysql, host, user, pass, 0, port, sock, 0)) {
     error("Failed on connect: %s", mysql_error(mysql));
