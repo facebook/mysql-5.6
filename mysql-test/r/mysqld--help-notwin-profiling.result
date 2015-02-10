@@ -1142,6 +1142,8 @@ The following options may be given as the first argument:
  Prohibit update of a VIEW, which does not contain a key
  of the underlying table and the query uses a LIMIT clause
  (usually get from GUI tools)
+ --use-fbson-output-format 
+ Uses FBSON format as document type output.
  -u, --user=name     Run mysqld daemon as user.
  --validate-user-plugins 
  Turns on additional validation of authentication plugins
@@ -1488,6 +1490,7 @@ transaction-isolation REPEATABLE-READ
 transaction-prealloc-size 4096
 transaction-read-only FALSE
 updatable-views-with-limit YES
+use-fbson-output-format FALSE
 validate-user-plugins TRUE
 verbose TRUE
 wait-timeout 28800
