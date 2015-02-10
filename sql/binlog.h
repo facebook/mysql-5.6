@@ -19,6 +19,8 @@
 #include "mysqld.h"                             /* opt_relay_logname */
 #include "log_event.h"
 #include "log.h"
+#include <map>
+#include <string>
 
 extern ulong rpl_read_size;
 extern char *histogram_step_size_binlog_fsync;
@@ -294,6 +296,14 @@ class MYSQL_BIN_LOG: public TC_LOG, private MYSQL_LOG
   IO_CACHE index_file;
   char index_file_name[FN_REFLEN];
   /*
+     Mapping from binlog file name to the previous gtid set in
+     encoded form which is found at the top of the binlog as
+     Previous_gtids_log_event. This structure is protected by LOCK_index
+     mutex. A new mapping is added in add_log_to_index() function,
+     and this is totally rebuilt in init_gtid_sets() function.
+  */
+  std::map<std::string, std::string> previous_gtid_set_map;
+  /*
     crash_safe_index_file is temp file used for guaranteeing
     index file crash safe when master server restarts.
   */
@@ -500,7 +510,8 @@ public:
 #endif
   /**
     Find the oldest binary log that contains any GTID that
-    is not in the given gtid set.
+    is not in the given gtid set. This is done by scanning the map
+    structure previous_gtid_set_map in reverse order.
 
     @param[out] binlog_file_name, the file name of oldest binary log found
     @param[in]  gtid_set, the given gtid set
@@ -516,9 +527,12 @@ public:
                                       const char **errmsg);
 
   /**
-    Reads the set of all GTIDs in the binary log, and the set of all
+    Builds the set of all GTIDs in the binary log, and the set of all
     lost GTIDs in the binary log, and stores each set in respective
-    argument.
+    argument. This scans the index file from the beginning and builds
+    previous_gtid_set_map. Since index file contains the previous gtid
+    set in binary string format, this function doesn't open every
+    binary log file.
 
     @param gtid_set Will be filled with all GTIDs in this binary log.
     @param lost_groups Will be filled with all GTIDs in the
@@ -535,7 +549,7 @@ public:
   */
   bool init_gtid_sets(Gtid_set *gtid_set, Gtid_set *lost_groups,
                       Gtid *last_gtid, bool verify_checksum,
-                      bool need_lock, bool is_server_starting= false);
+                      bool need_lock);
 
   void set_previous_gtid_set(Gtid_set *previous_gtid_set_param)
   {
@@ -686,7 +700,7 @@ public:
   int open_crash_safe_index_file();
   int close_crash_safe_index_file();
   int add_log_to_index(uchar* log_file_name, int name_len,
-                       bool need_lock_index);
+                       bool need_lock_index, bool need_sid_lock);
   int move_crash_safe_index_file_to_index_file(bool need_lock_index);
   int set_purge_index_file_name(const char *base_file_name);
   int open_purge_index_file(bool destroy);
@@ -732,6 +746,10 @@ public:
   inline void lock_index() { mysql_mutex_lock(&LOCK_index);}
   inline void unlock_index() { mysql_mutex_unlock(&LOCK_index);}
   inline IO_CACHE *get_index_file() { return &index_file;}
+  inline std::map<std::string, std::string> *get_previous_gtid_set_map()
+  {
+    return &previous_gtid_set_map;
+  }
   inline uint32 get_open_count() { return open_count; }
   /*
     It is called by the threads(e.g. dump thread) which want to read
@@ -854,4 +872,17 @@ inline bool normalize_binlog_name(char *to, const char *from, bool is_relay_log)
 end:
   DBUG_RETURN(error);
 }
+
+/*
+  Splits the first argument into two parts using the delimiter ' '.
+  The second part is converted into an integer and the space is
+  modified to '\0' in the first argument.
+
+  @param file_name_and_gtid_set_length  binlog file_name and gtid_set length
+                                        in binary form separated by ' '.
+
+  @return previous gtid_set length by converting the second string in to an
+                            integer.
+*/
+uint split_file_name_and_gtid_set_length(char *file_name_and_gtid_set_length);
 #endif /* BINLOG_H_INCLUDED */
