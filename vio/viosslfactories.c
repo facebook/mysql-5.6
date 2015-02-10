@@ -193,8 +193,8 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
   ssl_fd->owned = TRUE;
 
   if (!(ssl_fd->ssl_context= SSL_CTX_new(is_client ?
-                                         TLSv1_client_method() :
-                                         TLSv1_server_method())))
+                                         SSLv23_client_method() :
+                                         SSLv23_server_method())))
   {
     *error= SSL_INITERR_MEMFAIL;
     DBUG_PRINT("error", ("%s", sslGetErrString(*error)));
@@ -289,6 +289,17 @@ new_VioSSLFd(const char *key_file, const char *cert_file,
   dh=get_dh512();
   SSL_CTX_set_tmp_dh(ssl_fd->ssl_context, dh);
   DH_free(dh);
+
+#ifndef OPENSSL_NO_ECDH
+  {
+    /* Elliptic Curve */
+    EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+    if (ecdh) {
+      SSL_CTX_set_tmp_ecdh(ssl_fd->ssl_context, ecdh);
+      EC_KEY_free(ecdh);
+    }
+  }
+#endif
 
   DBUG_PRINT("exit", ("OK 1"));
 
