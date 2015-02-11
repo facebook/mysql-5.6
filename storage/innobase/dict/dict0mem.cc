@@ -662,9 +662,12 @@ dict_mem_index_add_field(
 /*=====================*/
 	dict_index_t*	index,		/*!< in: index */
 	const char*	name,		/*!< in: column name */
-	ulint		prefix_len)	/*!< in: 0 or the column prefix length
+	ulint		prefix_len,	/*!< in: 0 or the column prefix length
 					in a MySQL index like
 					INDEX (textcol(25)) */
+	char** doc_path_list,	/*!< in: column name */
+	uint document_path_list_len,
+	unsigned doc_path_type)
 {
 	dict_field_t*	field;
 
@@ -677,7 +680,86 @@ dict_mem_index_add_field(
 
 	field->name = name;
 	field->prefix_len = (unsigned int) prefix_len;
+
+	if (doc_path_list)
+	{
+	  DBUG_ASSERT(document_path_list_len >= 2);
+	  field->is_document_path = true;
+	  field->document_path_type = doc_path_type;
+	  field->document_path_list_size =
+	    document_path_list_len;
+	  field->document_path_list = (char**)
+	    my_malloc(sizeof(char**) * field->document_path_list_size,
+		      MYF(0));
+	  for (uint i = 0; i < field->document_path_list_size; i++)
+	  {
+	    field->document_path_list[i] =
+	      (char*)my_strdup(doc_path_list[i], MYF(0));
+	  }
+	}
+	else
+	{
+	  field->is_document_path = false;
+	  field->document_path_type = 0;
+	  field->document_path_list = NULL;
+	  field->document_path_list_size = 0;
+	}
 }
+
+
+UNIV_INTERN
+void
+dict_mem_index_add_field(
+/*=====================*/
+	dict_index_t*	index,		/*!< in: index */
+	const char*	name,		/*!< in: column name */
+	ulint		prefix_len)	/*!< in: 0 or the column prefix length
+					in a MySQL index like
+					INDEX (textcol(25)) */
+{
+  dict_mem_index_add_field(index, name, prefix_len, 0, NULL, 0);
+}
+
+#ifndef NAMES_SEP_CHAR
+#define NAMES_SEP_CHAR    '\377'
+#endif
+
+UNIV_INTERN
+void
+dict_mem_index_add_document_path(
+/*=====================*/
+	dict_index_t*	index,		/*!< in: index */
+	ulint		prefix_len,	/*!< in: 0 or the column prefix length
+					in a MySQL index like
+					INDEX (textcol(25)) */
+	unsigned document_path_type,	/*!< in: column type */
+	char** document_path_list,	/*!< in: column names */
+	uint document_path_list_len)	/*!< in: column names count */
+{
+  /* concatenate all the document paths as the name */
+  uint total_len = 0;
+  for (uint i = 0; i < document_path_list_len; i++)
+    total_len += strlen(document_path_list[i]) + 1;
+  total_len++;
+
+  /* ownership transfers to callee */
+  char *buf = (char*) my_malloc((uint)total_len, MYF(0));
+  char *p = buf;
+  for (uint i = 0; i < document_path_list_len; i++)
+  {
+     uint len = strlen(document_path_list[i]);
+     memcpy(p, document_path_list[i], len);
+     p += len;
+     *p++ = NAMES_SEP_CHAR;
+  }
+  *p++ = '\0';
+
+  dict_mem_index_add_field(index, buf, prefix_len,
+			   document_path_list,
+			   document_path_list_len,
+			   document_path_type);
+}
+
 
 /**********************************************************************//**
 Frees an index memory object. */
@@ -695,6 +777,21 @@ dict_mem_index_free(
 		rbt_free(index->blobs);
 	}
 #endif /* UNIV_BLOB_DEBUG */
+
+	for (uint i = 0; i < index->n_def; ++i)
+	{
+	  dict_field_t *field = dict_index_get_nth_field(index, i);
+	  if (field->is_document_path)
+	  {
+	    my_free((char *)field->name);
+	    field->name = NULL;
+	    for (uint j = 0; j < field->document_path_list_size; j++)
+	    {
+	      my_free(field->document_path_list[j]);
+	    }
+	    my_free(field->document_path_list);
+	  }
+	}
 
 	dict_index_zip_pad_mutex_destroy(index);
 

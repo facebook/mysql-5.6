@@ -475,6 +475,7 @@ void lex_start(THD *thd)
   lex->expr_allows_subselect= TRUE;
   lex->use_only_table_context= FALSE;
   lex->contains_plaintext_password= false;
+  lex->dot_separated_ident_list.empty();
 
   lex->name.str= 0;
   lex->name.length= 0;

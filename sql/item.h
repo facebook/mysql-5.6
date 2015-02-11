@@ -24,6 +24,7 @@
 #include "thr_malloc.h"                         /* sql_calloc */
 #include "field.h"                              /* Derivation */
 #include "sql_array.h"
+#include "field.h"
 
 class Protocol;
 struct TABLE_LIST;
@@ -2104,6 +2105,7 @@ public:
   */
   TABLE_LIST *cached_table;
   st_select_lex *depended_from;
+  Item_ident(Name_resolution_context *context_arg);
   Item_ident(Name_resolution_context *context_arg,
              const char *db_name_arg, const char *table_name_arg,
              const char *field_name_arg);
@@ -2154,6 +2156,70 @@ public:
 };
 
 
+/* One item in the dot separated identifiers */
+class One_ident :public Sql_alloc
+{
+public:
+  One_ident(const LEX_STRING& str)
+    : s(str)
+  {}
+
+  LEX_STRING s;
+
+private:
+  One_ident();
+};
+
+
+/* The parsing information for dot separated exprssion */
+class Ident_parsing_info
+{
+public:
+  Ident_parsing_info();
+
+  Ident_parsing_info(bool db_name_not_allowed,
+                     bool tab_name_not_allowed);
+
+  Ident_parsing_info(THD *thd,
+                     List<One_ident>* list,
+                     bool db_name_not_allowed,
+                     bool tab_name_not_allowed,
+                     uint number_unresolved_idents);
+
+  Ident_parsing_info(THD *thd,
+                     Ident_parsing_info& p);
+
+  /*
+    parse the original dot-separated key tokens and
+    set the document path keys
+  */
+  void Parse_and_set_document_path_keys(THD *thd,
+                                        List<Document_key>& list);
+  /*
+    if database name is not allowed
+  */
+  bool database_name_not_allowed;
+  /*
+    if table name is not allowed
+  */
+  bool table_name_not_allowed;
+  /*
+     number of unresolved identifiers.
+  */
+  uint num_unresolved_idents;
+  /*
+     dot separated identifiers.
+  */
+  List<One_ident> dot_separated_ident_list;
+
+private:
+  void Copy_ident_list(THD *thd,
+                       List<One_ident>* list);
+
+  Ident_parsing_info(const Ident_parsing_info& p);
+  Ident_parsing_info& operator= (const Ident_parsing_info& p);
+};
+
 class Item_equal;
 class COND_EQUAL;
 
@@ -2172,9 +2238,31 @@ public:
   uint have_privileges;
   /* field need any privileges (for VIEW creation) */
   bool any_privileges;
+  /*
+     if this field is a document path.
+  */
+  bool document_path;
+  /*
+     the key list that points to the document path
+  */
+  List<Document_key> document_path_keys;
+  /*
+     Identifier parsing information.
+  */
+  Ident_parsing_info parsing_info;
+
+  Item_field(THD *thd,
+             Name_resolution_context *context_arg,
+             const char *db_arg,const char *table_name_arg,
+             const char *field_name_arg,
+             List<One_ident>* ident_list,
+             bool database_name_not_allowed,
+             bool table_name_not_allowed,
+             uint num_unresolved_idents);
+
   Item_field(Name_resolution_context *context_arg,
              const char *db_arg,const char *table_name_arg,
-	     const char *field_name_arg);
+             const char *field_name_arg);
   /*
     Constructor needed to process subquery with temporary tables (see Item).
     Notice that it will have no name resolution context.
@@ -2312,6 +2400,13 @@ public:
 
   /// Pushes the item to select_lex.non_agg_fields() and updates its marker.
   bool push_to_non_agg_fields(st_select_lex *select_lex);
+
+private:
+  /// This function does the real job for fixing fields.
+  bool fix_fields_do(THD *, Item **);
+
+  /// Right shift one identifer for fixing a possible document field.
+  bool right_shift_for_possible_document_path(THD *);
 
   friend class Item_default_value;
   friend class Item_insert_value;

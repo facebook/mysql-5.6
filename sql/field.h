@@ -453,6 +453,26 @@ void copy_integer(uchar *to, int to_length,
 }
 
 
+/* A document key in the dot separated document path */
+class Document_key :public Sql_alloc
+{
+public:
+  Document_key(const LEX_STRING& s, int idx)
+    : string(s), index(idx)
+  {}
+
+  /*
+     when the string is pure number then it can be an array index,
+     index will be the converted value, otherwise, index will be -1
+  */
+  LEX_STRING string;
+  int index;
+
+private:
+  Document_key();
+};
+
+
 class Field
 {
   Field(const Item &);				/* Prevent use of these */
@@ -527,7 +547,7 @@ public:
   };
   enum document_type
   {
-    DOC_DOCUMENT = 0
+    DOC_NONE = 0, DOC_DOCUMENT
   };
   enum imagetype { itRAW, itMBR};
 
@@ -655,6 +675,60 @@ public:
   virtual String *val_str(String*,String *)=0;
   virtual String *val_doc(String*,String *) { return nullptr; }
   String *val_int_as_str(String *val_buffer, my_bool unsigned_flag);
+  /*
+   virtual functions for Field_document use only.
+  */
+  virtual bool document_path_val_doc(
+    List<Document_key>& key_path,
+    uchar *buff, uint length, uint& val_len, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return true; /* false: success; true: failure */
+  }
+  virtual String *document_path_val_str(
+    List<Document_key>& list,
+    String *val_buffer, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return nullptr;
+  }
+  virtual longlong document_path_val_int(
+    List<Document_key>& key_path, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return INT_MAX;
+  }
+  virtual double document_path_val_real(
+    List<Document_key>& key_path, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return DBL_MAX;
+  }
+  virtual my_decimal *document_path_val_decimal(
+    List<Document_key>& key_path,
+    my_decimal *d, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return NULL;
+  }
+  virtual bool document_path_make_sort_key(
+    List<Document_key>& key_path,
+    uchar *buff, uint length, uint& key_len, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return true; /* false: success; true: failure */
+  }
+
+  /* return false: success, true: failure */
+  virtual bool document_path_get_date(
+    List<Document_key>& key_path,
+    MYSQL_TIME *ltime,uint fuzzydate, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return true;
+  }
+
+  virtual bool document_path_get_time(
+    List<Document_key>& key_path,
+    MYSQL_TIME *ltime, my_bool& is_null)
+  {
+    DBUG_ASSERT(0); return true;
+  }
+
+
   /*
    str_needs_quotes() returns TRUE if the value returned by val_str() needs
    to be quoted when used in constructing an SQL query.
@@ -1202,7 +1276,7 @@ public:
   {
     /* shouldn't get here. */
     DBUG_ASSERT(0);
-    return DOC_DOCUMENT;
+    return DOC_NONE;
   }
 #ifndef DBUG_OFF
   /* Print field value into debug trace, in NULL-aware way. */
@@ -3551,8 +3625,63 @@ public:
   type_conversion_status store(double nr);
   type_conversion_status store(longlong nr, bool unsigned_val);
   type_conversion_status store_decimal(const my_decimal *nr);
+
+  double val_real(void);
+  longlong val_int(void);
+  my_decimal *val_decimal(my_decimal *);
   String *val_str(String*,String *);
   String *val_doc(String*, String*);
+
+  /*
+   helper functions for Field_document use only.
+  */
+  template<typename T>
+  T document_path_val_numeric(List<Document_key>& key_path,
+                                       bool &valid_result,
+                                       my_bool& is_null);
+
+  bool document_path_get_date_or_time(
+                                       List<Document_key>& key_path,
+                                       MYSQL_TIME *ltime,
+                                       uint fuzzydate,
+                                       bool is_date,
+                                       my_bool& is_null);
+
+  bool document_path_val_binary(List<Document_key>& key_path,
+                                         uchar *buff, uint length,
+                                         uint& val_len, my_bool& is_null);
+
+  /*
+   virtual functions for Field_document use only.
+  */
+  bool document_path_val_doc(List<Document_key>& key_path,
+                                      uchar *buff, uint length,
+                                      uint& val_len, my_bool& is_null);
+
+  String *document_path_val_str(List<Document_key>& key_path,
+                                         String *val_buffer, my_bool& is_null);
+
+  longlong document_path_val_int(List<Document_key>& key_path,
+                                          my_bool& is_null);
+
+  double document_path_val_real(List<Document_key>& key_path,
+                                         my_bool& is_null);
+
+  my_decimal *document_path_val_decimal(List<Document_key>& key_path,
+                                                 my_decimal *decimal_value,
+                                                 my_bool& is_null);
+
+  bool document_path_get_date(List<Document_key>& key_path,
+                                       MYSQL_TIME *ltime,uint fuzzydate,
+                                       my_bool& is_null);
+
+  bool document_path_get_time(List<Document_key>& key_path,
+                                       MYSQL_TIME *ltime,
+                                       my_bool& is_null);
+
+  bool document_path_make_sort_key(List<Document_key>& key_path,
+                                            uchar *buff, uint length,
+                                            uint& val_len, my_bool& is_null);
 
   type_conversion_status reset(void)
   {
@@ -3562,13 +3691,19 @@ public:
     return maybe_null() ? TYPE_OK : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
   }
 
-  document_type get_document_type() { return doc_type; };
-  Field_document *clone(MEM_ROOT *mem_root) const {
-    DBUG_ASSERT(type() == MYSQL_TYPE_DOCUMENT);
+  document_type get_document_type()
+  {
+    DBUG_ASSERT(doc_type == DOC_DOCUMENT);
+    return doc_type;
+  }
+
+  Field_document *clone(MEM_ROOT *mem_root) const
+  {
     return new (mem_root) Field_document(*this);
   }
-  Field_document *clone() const {
-    DBUG_ASSERT(type() == MYSQL_TYPE_DOCUMENT);
+
+  Field_document *clone() const
+  {
     return new Field_document(*this);
   }
 };
@@ -3993,7 +4128,7 @@ type_conversion_status set_field_to_null_with_conversions(Field *field,
 
 #define FIELDFLAG_TREAT_BIT_AS_CHAR     4096    /* use Field_bit_as_char */
 
-#define FIELDFLAG_DOCUMENT		8192    // mangled with decimals!
+#define FIELDFLAG_DOCUMENT		8192	// mangled with decimals!
 
 #define FIELDFLAG_RIGHT_FULLSCREEN	16384
 #define FIELDFLAG_FORMAT_NUMBER		16384	// predit: ###,,## in output

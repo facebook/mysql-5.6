@@ -64,10 +64,23 @@ typedef struct st_keyfile_info {	/* used with ha_info() */
   ulong mean_rec_length;		/* physical reclength */
 } KEYFILE_INFO;
 
+class DOCUMENT_PATH_KEY_PART_INFO {	/* Info about a document
+                                           path key part */
+public:
+  /* name string list */
+  char **names;
+  /* number of names */
+  uint number_of_names;
+  /* type of this document path key */
+  enum_field_types type;
+  /* length of this document path key */
+  uint length;
+};
 
 class KEY_PART_INFO {	/* Info about a key part */
 public:
   Field *field;
+  DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part;
   uint	offset;				/* offset in record (from 0) */
   uint	null_offset;			/* Offset to null_bit in record */
   /* Length of key part in bytes, excluding NULL flag and length bytes */

@@ -801,6 +801,10 @@ Item* Item::transform(Item_transformer transformer, uchar *arg)
   return (this->*transformer)(arg);
 }
 
+Item_ident::Item_ident(Name_resolution_context *context_arg)
+  :context(context_arg)
+{
+}
 
 Item_ident::Item_ident(Name_resolution_context *context_arg,
                        const char *db_name_arg,const char *table_name_arg,
@@ -2417,10 +2421,110 @@ void Item_ident_for_show::make_field(Send_field *tmp_field)
 
 /**********************************************/
 
+void Ident_parsing_info::Copy_ident_list(THD *thd,
+                                         List<One_ident>* list)
+{
+  if (thd && list)
+  {
+    List_iterator_fast<One_ident> it(*list);
+    for (One_ident *s = NULL; (s= it++);)
+    {
+      One_ident *q = new (thd->mem_root) One_ident(s->s);
+      dot_separated_ident_list.push_back(q);
+    }
+  }
+}
+
+Ident_parsing_info::Ident_parsing_info()
+  : database_name_not_allowed(false),
+    table_name_not_allowed(false),
+    num_unresolved_idents(0)
+{
+}
+
+Ident_parsing_info::Ident_parsing_info(bool db_name_not_allowed,
+                                       bool tab_name_not_allowed)
+  : database_name_not_allowed(db_name_not_allowed),
+    table_name_not_allowed(tab_name_not_allowed),
+    num_unresolved_idents(0)
+{
+}
+
+Ident_parsing_info::Ident_parsing_info(THD *thd,
+                                       List<One_ident>* list,
+                                       bool db_name_not_allowed,
+                                       bool tab_name_not_allowed,
+                                       uint number_unresolved_idents)
+  : database_name_not_allowed(db_name_not_allowed),
+    table_name_not_allowed(tab_name_not_allowed),
+    num_unresolved_idents(number_unresolved_idents)
+{
+  Copy_ident_list(thd, list);
+}
+
+Ident_parsing_info::Ident_parsing_info(THD *thd,
+                                       Ident_parsing_info& p)
+  : database_name_not_allowed(p.database_name_not_allowed),
+    table_name_not_allowed(p.table_name_not_allowed),
+    num_unresolved_idents(p.num_unresolved_idents)
+{
+  Copy_ident_list(thd, &p.dot_separated_ident_list);
+}
+
+void Ident_parsing_info::Parse_and_set_document_path_keys(
+                               THD *thd, List<Document_key>& list)
+{
+  List_iterator_fast<One_ident> it(dot_separated_ident_list);
+  DBUG_ASSERT(num_unresolved_idents < dot_separated_ident_list.elements);
+  uint skip_num = dot_separated_ident_list.elements - num_unresolved_idents;
+  for (One_ident *s = NULL; (s= it++);)
+  {
+    if (skip_num > 0)
+    {
+      --skip_num;
+      continue;
+    }
+
+    /* If a key is pure number then it can be an array index */
+    char *p = NULL;
+    int index = strtol(s->s.str, &p, 10);
+    if (*p)
+      index = -1;
+
+    Document_key *k = new (thd->mem_root) Document_key(s->s, index);
+    list.push_back(k);
+  }
+}
+
+
+/**********************************************/
+
+Item_field::Item_field(THD *thd,
+                       Name_resolution_context *context_arg,
+                       const char *db_arg,const char *table_name_arg,
+                       const char *field_name_arg,
+                       List<One_ident>* ident_list,
+                       bool database_name_not_allowed,
+                       bool table_name_not_allowed,
+                       uint num_unresolved_idents)
+  :Item_ident(context_arg, db_arg,table_name_arg,field_name_arg),
+   field(0), result_field(0), item_equal(0), no_const_subst(0),
+   have_privileges(0), any_privileges(0),
+   document_path(false),
+   parsing_info(thd, ident_list, database_name_not_allowed,
+                table_name_not_allowed, num_unresolved_idents)
+{
+  SELECT_LEX *select= current_thd->lex->current_select;
+  collation.set(DERIVATION_IMPLICIT);
+  if (select && select->parsing_place != IN_HAVING)
+      select->select_n_where_fields++;
+}
+
 Item_field::Item_field(Field *f)
   :Item_ident(0, NullS, *f->table_name, f->field_name),
    item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0)
+   have_privileges(0), any_privileges(0),
+   document_path(false)
 {
   set_field(f);
   /*
@@ -2442,7 +2546,8 @@ Item_field::Item_field(THD *thd, Name_resolution_context *context_arg,
                        Field *f)
   :Item_ident(context_arg, f->table->s->db.str, *f->table_name, f->field_name),
    item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0)
+   have_privileges(0), any_privileges(0),
+   document_path(false)
 {
   /*
     We always need to provide Item_field with a fully qualified field
@@ -2484,7 +2589,8 @@ Item_field::Item_field(Name_resolution_context *context_arg,
                        const char *field_name_arg)
   :Item_ident(context_arg, db_arg,table_name_arg,field_name_arg),
    field(0), result_field(0), item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0)
+   have_privileges(0), any_privileges(0),
+   document_path(false)
 {
   SELECT_LEX *select= current_thd->lex->current_select;
   collation.set(DERIVATION_IMPLICIT);
@@ -2503,9 +2609,23 @@ Item_field::Item_field(THD *thd, Item_field *item)
    item_equal(item->item_equal),
    no_const_subst(item->no_const_subst),
    have_privileges(item->have_privileges),
-   any_privileges(item->any_privileges)
+   any_privileges(item->any_privileges),
+   document_path(item->document_path),
+   parsing_info(thd, item->parsing_info)
 {
   collation.set(DERIVATION_IMPLICIT);
+
+  if (document_path)
+  {
+    DBUG_ASSERT(item->document_path_keys.elements > 0);
+    List_iterator<Document_key> it(item->document_path_keys);
+    for(Document_key *p; (p=it++);)
+    {
+      Document_key *k = new Document_key(p->string, p->index);
+      document_path_keys.push_back(k);
+    }
+  }
+  /* parsing_info doesn't need to be copied since it won't be used */
 }
 
 
@@ -2688,7 +2808,22 @@ String *Item_field::val_str(String *str)
   DBUG_ASSERT(fixed == 1);
   if ((null_value=field->is_null()))
     return 0;
+
   str->set_charset(str_value.charset());
+  if (document_path)
+  {
+    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                document_path_keys.elements > 0);
+    my_bool is_null = false;
+    String *tmp = field->document_path_val_str(
+                                  document_path_keys, str, is_null);
+    if (!tmp)
+    {
+      DBUG_ASSERT(is_null);
+      null_value = true;
+    }
+    return tmp;
+  }
   return field->val_str(str,&str_value);
 }
 
@@ -2707,6 +2842,14 @@ double Item_field::val_real()
   DBUG_ASSERT(fixed == 1);
   if ((null_value=field->is_null()))
     return 0.0;
+
+  if (document_path)
+  {
+    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                document_path_keys.elements > 0);
+    return field->document_path_val_real(
+                           document_path_keys, null_value);
+  }
   return field->val_real();
 }
 
@@ -2716,6 +2859,13 @@ longlong Item_field::val_int()
   DBUG_ASSERT(fixed == 1);
   if ((null_value=field->is_null()))
     return 0;
+
+  if (document_path)
+  {
+    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                document_path_keys.elements > 0);
+    return field->document_path_val_int(document_path_keys, null_value);
+  }
   return field->val_int();
 }
 
@@ -2742,6 +2892,14 @@ my_decimal *Item_field::val_decimal(my_decimal *decimal_value)
 {
   if ((null_value= field->is_null()))
     return 0;
+
+  if (document_path)
+  {
+    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                document_path_keys.elements > 0);
+    return field->document_path_val_decimal(document_path_keys,
+                                            decimal_value, null_value);
+  }
   return field->val_decimal(decimal_value);
 }
 
@@ -2756,12 +2914,22 @@ String *Item_field::str_result(String *str)
 
 bool Item_field::get_date(MYSQL_TIME *ltime,uint fuzzydate)
 {
-  if ((null_value=field->is_null()) || field->get_date(ltime,fuzzydate))
+  if (!(null_value=field->is_null()))
   {
-    memset(ltime, 0, sizeof(*ltime));
-    return 1;
+    if (document_path)
+    {
+      DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                  document_path_keys.elements > 0);
+      if (!field->document_path_get_date(document_path_keys,
+                                         ltime, fuzzydate, null_value))
+        return 0;
+    }
+    else if (!field->get_date(ltime,fuzzydate))
+      return 0;
   }
-  return 0;
+
+  memset(ltime, 0, sizeof(*ltime));
+  return 1;
 }
 
 bool Item_field::get_date_result(MYSQL_TIME *ltime,uint fuzzydate)
@@ -2777,12 +2945,22 @@ bool Item_field::get_date_result(MYSQL_TIME *ltime,uint fuzzydate)
 
 bool Item_field::get_time(MYSQL_TIME *ltime)
 {
-  if ((null_value= field->is_null()) || field->get_time(ltime))
+  if (!(null_value=field->is_null()))
   {
-    memset(ltime, 0, sizeof(*ltime));
-    return 1;
+    if (document_path)
+    {
+      DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                  document_path_keys.elements > 0);
+      if (!field->document_path_get_time(document_path_keys,
+                                         ltime, null_value))
+        return 0;
+    }
+    else if (!field->get_time(ltime))
+      return 0;
   }
-  return 0;
+
+  memset(ltime, 0, sizeof(*ltime));
+  return 1;
 }
 
 bool Item_field::get_timeval(struct timeval *tm, int *warnings)
@@ -5315,6 +5493,29 @@ bool Item_field::push_to_non_agg_fields(SELECT_LEX *select_lex)
     select_lex->non_agg_fields.push_back(this);
 }
 
+bool Item_field::right_shift_for_possible_document_path(THD *thd)
+{
+  /*
+     won't shift if document type is not allowed for this session,
+     or both datbase name and table name are empty so nothing to shift
+  */
+  if (!allow_document_type ||
+      (!orig_db_name && !orig_table_name))
+    return false;
+
+  DBUG_ASSERT(orig_field_name && orig_table_name);
+
+  /* right shift one identifier */
+  orig_field_name = field_name = orig_table_name;
+  orig_table_name = table_name = orig_db_name;
+  orig_db_name = db_name = NULL;
+
+  item_name.set(orig_field_name);
+
+  parsing_info.num_unresolved_idents++;
+
+  return true;
+}
 
 /**
   Resolve the name of a column reference.
@@ -5363,7 +5564,81 @@ bool Item_field::push_to_non_agg_fields(SELECT_LEX *select_lex)
 
 bool Item_field::fix_fields(THD *thd, Item **reference)
 {
+  /*
+    When parser sees field name is in the form of A.B.C or B.C, it always
+    interpret A as databass name if database name is allowed and B as table
+    name if table name is allowed. If there are more dot-separated
+    identifiers, they will be saved into a list and treated as unresolved.
+
+    If C is not a valid field name and document type is allowed, then we
+    will try to interpret the expression in different ways by shifting
+    identifer right by one:
+      -- For database.table.field, we will try the following in order
+        -- database as table name and table as document field name
+      -- For table.field, we will try
+        -- table name as document field name
+
+    We will stop right-shifting if:
+      -- No more identifers to shift so this is an syntax error
+      -- Found a valid document field
+      -- Found a valid non-document field and there are no more
+         unresolved identifiers
+
+    How to deal with the ambiguity that user intends to use A as a document
+    field in A.B.C but parser interpret it as database.table.field and it is
+    actually valid? This always can be fixed by adding database name and table
+    name to the expression as A.B.A.B.C
+  */
+
   DBUG_ASSERT(fixed == 0);
+  bool ret = true;
+  for (;;)
+  {
+    if(!(ret= fix_fields_do(thd, reference)))
+      /* successfully resolved */
+      break;
+
+    /* if no valid field was found or a valid non-document field was found
+       but there are still unresolved identifiers, we will have to re-try
+       by right-shifting
+    */
+    if (!right_shift_for_possible_document_path(thd))
+    {
+      /* no more room to right-shift, failed as syntax error */
+      return true;
+    }
+
+    /* clear the last error before retry */
+    thd->clear_warning();
+    thd->clear_error();
+  }
+
+  DBUG_ASSERT(!ret);
+
+  if (field)
+  {
+    DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT ||
+                parsing_info.num_unresolved_idents == 0);
+  }
+
+  if (field && field->type() == MYSQL_TYPE_DOCUMENT &&
+      parsing_info.num_unresolved_idents > 0)
+  {
+    /* If the type of the field is document and there are still unresolved
+       dot separated identifiers then this whole expression will be treated
+       as a document virutal field.
+    */
+    document_path = true;
+    parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys);
+    DBUG_ASSERT(document_path_keys.elements > 0);
+  }
+
+  /* succeeded */
+  return false;
+}
+
+bool Item_field::fix_fields_do(THD *thd, Item **reference)
+{
   Field *from_field= (Field *)not_found_field;
   bool outer_fixed= false;
 
@@ -7040,6 +7315,13 @@ Item* Item_field::item_field_by_name_transformer(uchar *arg)
 
 bool Item_field::send(Protocol *protocol, String *buffer)
 {
+  if (document_path)
+  {
+    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
+                document_path_keys.elements > 0);
+    return protocol->store_document_path(result_field,
+                                         document_path_keys);
+  }
   return protocol->store(result_field);
 }
 
