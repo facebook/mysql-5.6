@@ -2088,6 +2088,8 @@ private:
   enum enum_table_ref_type m_table_ref_type;
   /** See comments for TABLE_SHARE::get_table_ref_version() */
   ulonglong m_table_ref_version;
+public:
+  my_bool disable_sql_log_bin_triggers;
 };
 
 

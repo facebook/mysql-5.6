@@ -1,0 +1,61 @@
+# This test verifies the functionality of sql_log_bin_triggers configuration
+# option using the following steps:
+# 1. Create master side triggers and table, don't propogate them to slave by turning off sql_log_bin
+# 2. Execute SQL statements on master which run the triggers
+# 3. Sync slave with master and verify slave is not broken
+
+source include/master-slave.inc;
+source include/have_binlog_format_row.inc;
+
+connection master;
+set @@session.sql_log_bin_triggers = OFF;
+
+create table t1 (c1 char(1) primary key, c2 char(1));
+set @@session.sql_log_bin=0;
+create table t2 (id char(2) primary key, cnt int, o char(1), n char(1));
+create trigger t1_cnt_b before update on t1 for each row
+  update t2 set cnt=cnt+1, o=old.C1, n=new.C1 where id = 'u0';
+create trigger t1_cnt_db before delete on t1 for each row
+  update t2 set cnt=cnt+1, o=old.C1, n=' ' where id = 'd0';
+create trigger t1_cnt_ib before insert on t1 for each row
+  update t2 set cnt=cnt+1, n=new.C1, o=' ' where id = 'i0';
+create trigger t1_cnt_a after update on t1 for each row
+  update t2 set cnt=cnt+1, o=old.C1, n=new.C1 where id = 'u1';
+create trigger t1_cnt_da after delete on t1 for each row
+  update t2 set cnt=cnt+1, o=old.C1, n=' ' where id = 'd1';
+create trigger t1_cnt_ia after insert on t1 for each row
+  update t2 set cnt=cnt+1, n=new.C1, o=' ' where id = 'i1';
+insert into t2 values
+      ('u0', 0, ' ', ' '),('u1', 0, ' ', ' '),
+      ('d0', 0, ' ', ' '),('d1', 0, ' ', ' '),
+      ('i0', 0, ' ', ' '),('i1', 0, ' ', ' ');
+
+set @@session.sql_log_bin=1;
+sync_slave_with_master;
+
+connection master;
+--echo # INSERT triggers test
+insert into t1 values ('a','b');
+sync_slave_with_master;
+select * from t1;
+
+connection master;
+--echo # UPDATE triggers test
+update t1 set C1= 'd';
+sync_slave_with_master;
+select * from t1;
+
+connection master;
+--echo # DELETE triggers test
+delete from t1 where C1='d';
+sync_slave_with_master;
+select * from t1;
+
+connection master;
+set @@session.sql_log_bin=0;
+drop table t2;
+set @@session.sql_log_bin=1;
+
+drop table t1;
+
+source include/rpl_end.inc;
