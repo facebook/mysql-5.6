@@ -2228,6 +2228,37 @@ mysql_get_ssl_session(MYSQL* mysql __attribute__((unused)),
   DBUG_VOID_RETURN;
 }
 
+my_bool STDCALL
+mysql_get_ssl_server_cerfificate_info(MYSQL *mysql __attribute__((unused)),
+                                      char* subject_buf __attribute__((unused)),
+                                      size_t subject_buflen __attribute__((unused)),
+                                      char* issuer_buf __attribute__((unused)),
+                                      size_t issuer_buflen __attribute__((unused)))
+{
+  DBUG_ENTER("mysql_get_ssl_server_cerfificate_info");
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  SSL* ssl = (SSL*)mysql->net.vio->ssl_arg;
+  X509 *cert = NULL;
+
+  subject_buf[0] = '\0';
+  issuer_buf[0] = '\0';
+
+  if (!mysql->net.vio || !ssl)
+    DBUG_RETURN(FALSE);
+
+  cert = SSL_get_peer_certificate(ssl);
+  if (!cert)
+    DBUG_RETURN(FALSE);
+
+  X509_NAME_oneline(X509_get_subject_name(cert), subject_buf, subject_buflen);
+  X509_NAME_oneline(X509_get_issuer_name(cert), issuer_buf, issuer_buflen);
+  X509_free(cert);
+  DBUG_RETURN(TRUE);
+
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
+  DBUG_RETURN(FALSE);
+}
+
 /*
   Compare DNS name against pattern with a wildcard.
 
