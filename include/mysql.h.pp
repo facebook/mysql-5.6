@@ -563,6 +563,11 @@ const char * mysql_get_ssl_cipher(MYSQL *mysql);
 void mysql_get_ssl_session(MYSQL *mysql,
                                               unsigned char* buffer,
                                               long *buffer_len);
+my_bool mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
+             char* subject_buf,
+             size_t subject_buflen,
+             char* issuer_buf,
+             size_t issuer_buflen);
 my_bool mysql_change_user(MYSQL *mysql, const char *user,
        const char *passwd, const char *db);
 MYSQL * mysql_real_connect(MYSQL *mysql, const char *host,
