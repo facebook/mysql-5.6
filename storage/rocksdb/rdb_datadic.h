@@ -389,7 +389,7 @@ public:
     {
       for (uint i= 0; i < n_keys; i++)
         delete key_descr[i];
-      my_free(key_descr);
+      delete[] key_descr;
     }
   }
   /* Stores 'dbname.tablename' */
