@@ -537,7 +537,8 @@ static Sys_var_long Sys_pfs_connect_attrs_size(
 
 static Sys_var_mybool Sys_allow_document_type(
        "allow_document_type",
-       "Allows document type when creating or altering tables.",
+       "Allows document type when parsing queries, "
+       "creating and altering tables.",
        GLOBAL_VAR(allow_document_type),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
