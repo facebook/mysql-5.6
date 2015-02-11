@@ -977,10 +977,10 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict)
       return true;
     }
     tdef->n_keys= val.size() / RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
-    if (!(tdef->key_descr= (RDBSE_KEYDEF**)my_malloc(sizeof(RDBSE_KEYDEF*) *
-                                                     tdef->n_keys,
-                                                     MYF(MY_ZEROFILL))))
+    if (!(tdef->key_descr= new RDBSE_KEYDEF*[tdef->n_keys]))
       return true;
+
+    memset(tdef->key_descr, 0, sizeof(RDBSE_KEYDEF*) * tdef->n_keys);
 
     ptr= (char*)val.data();
     ptr_end= ptr + val.size();
