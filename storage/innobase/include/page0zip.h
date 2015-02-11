@@ -172,8 +172,7 @@ page_zip_compress(
 
 #define page_zip_decompress(page_zip, page, all, space_id, fsp_flags) \
 		page_zip_decompress_low((page_zip), (page), (all), \
-					(space_id), (fsp_flags), NULL, NULL, \
-					NULL)
+		                        (space_id), (fsp_flags), NULL, NULL)
 
 /**********************************************************************//**
 Decompress a page.  This function should tolerate errors on the compressed
@@ -192,23 +191,16 @@ page_zip_decompress_low(
 				page header fields that should not change
 				after page creation */
 #ifndef UNIV_INNOCHECKSUM
-	ulint		space_id,/*!< in: id of the space this page belongs */
-	ulint		fsp_flags,/*!< in: used to compute compression type and
-				flags. If this is ULINT_UNDEFINED then fsp_flags
-				is determined by other means. */
-	mem_heap_t**	heap_ptr,/*!< out: if heap_ptr is not NULL, then
-				*heap_ptr is set to the heap that's allocated
-				by this function. The caller is responsible
-				for freeing the heap. */
-	dict_index_t**	index_ptr,/*!< out: if index_ptr is not NULL, then
-				*index_ptr is set to the index object
-				that's created by this function. The caller
-				is responsible for calling
-				dict_index_mem_free(). */
-	ulint* trx_id_col_ptr)	/*!< out: *trx_id_col_ptr will be set to the
-				 column number for the transaction id column
-				 if this is a leaf primary key page. Otherwise
-				 it will be set to ULINT_UNDEFINED */
+	ulint space_id,
+	ulint fsp_flags, /* used to compute compression type and flags.
+	If this is ULINT_UNDEFINED then fsp_flags is determined by other
+	means. */
+	mem_heap_t** heap_ptr, /*!< out: if index_ptr is not NULL then
+	*heap_ptr is set to the heap that is allocated by this function. The
+	caller is responsible for freeing the heap. */
+	dict_index_t** index_ptr) /*!< out: if index_ptr is not NULL then
+	*index_ptr is set to the index object that's created by this function.
+	The caller is responsible for calling dict_index_mem_free(). */
 #else
 	ulint space_id)
 #endif
@@ -273,13 +265,8 @@ page_zip_available(
 	const page_zip_des_t*	page_zip,/*!< in: compressed page */
 	ibool			is_clust,/*!< in: TRUE if clustered index */
 	ulint			length,	/*!< in: combined size of the record */
-	ulint			create,	/*!< in: nonzero=add the record to
+	ulint			create)	/*!< in: nonzero=add the record to
 					the heap */
-	ulint			heap_no)/*!< in: when compact metadata is used,
-					this value is needed to determine if
-					the record metadata can be stored on
-					the trailer without making the
-					trailer size grow */
 	__attribute__((nonnull, pure));
 
 /**********************************************************************//**
