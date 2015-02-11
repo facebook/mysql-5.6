@@ -1095,7 +1095,8 @@ bool Protocol_text::store(double from, uint32 decimals, String *buffer)
 }
 
 
-bool Protocol_text::store(Field *field)
+bool Protocol_text::store_internal(Field *field,
+                                   List<Document_key>& key_path)
 {
   if (field->is_null())
     return store_null();
@@ -1112,13 +1113,37 @@ bool Protocol_text::store(Field *field)
     old_map= dbug_tmp_use_all_columns(table, table->read_set);
 #endif
 
-  field->val_str(&str);
+  if (key_path.elements == 0)
+    field->val_str(&str);
+  else
+  {
+    /* If the return value is NULL str will be set with empty string */
+    my_bool is_null = false;
+    field->document_path_val_str(key_path, &str, is_null);
+    if (is_null)
+      store_null();
+  }
+
 #ifndef DBUG_OFF
   if (old_map)
     dbug_tmp_restore_column_map(table->read_set, old_map);
 #endif
 
   return store_string_aux(str.ptr(), str.length(), str.charset(), tocs);
+}
+
+
+bool Protocol_text::store(Field *field)
+{
+  List<Document_key> empty_key_path;
+  return store_internal(field, empty_key_path);
+}
+
+
+bool Protocol_text::store_document_path(Field *field,
+                                        List<Document_key>& key_path)
+{
+  return store_internal(field, key_path);
 }
 
 

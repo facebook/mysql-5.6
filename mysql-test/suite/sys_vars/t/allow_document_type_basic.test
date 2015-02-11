@@ -12,6 +12,7 @@ SELECT @@global.allow_document_type = false;
 
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
+
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 

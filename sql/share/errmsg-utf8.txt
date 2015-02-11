@@ -7173,6 +7173,12 @@ ER_SHOW_DENIED_ERROR
 ER_BLOCK_NO_PRIMARY_KEY
   eng "Table without primary key cannot be created outside mysql schema."
 
+ER_INVALID_FIELD_OR_REFERENCE
+  eng "Invalid field or reference."
+
+ER_DOCUMENT_PATH_KEY_ONLY_CAN_BE_UNIQUE_OR_MULTIPLE
+  eng "A document path key only can be unique or multiple."
+
 #
 #  End of 5.6 error messages.
 #

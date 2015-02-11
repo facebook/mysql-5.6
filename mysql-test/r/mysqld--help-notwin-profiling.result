@@ -13,7 +13,8 @@ The following options may be given as the first argument:
  replication.
  --admin-port=#      Port number to use for connections from admin.
  --allow-document-type 
- Allows document type when creating or altering tables.
+ Allows document type when parsing queries, creating and
+ altering tables.
  --allow-noncurrent-db-rw=name 
  Switch to allow/deny reads and writes to a table not in
  the current database.
