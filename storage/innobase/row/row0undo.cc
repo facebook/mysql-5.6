@@ -172,7 +172,6 @@ row_undo_search_clust_to_pcur(
 	mem_heap_t*	heap		= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets		= offsets_;
-	roll_ptr_t	rec_roll_ptr;
 	rec_offs_init(offsets_);
 
 	mtr_start(&mtr);
@@ -186,40 +185,20 @@ row_undo_search_clust_to_pcur(
 
 	offsets = rec_get_offsets(rec, clust_index, offsets,
 				  ULINT_UNDEFINED, &heap);
-	rec_roll_ptr = row_get_rec_roll_ptr(rec, clust_index, offsets);
 
-	if (!found) {
+	if (!found || node->roll_ptr
+	    != row_get_rec_roll_ptr(rec, clust_index, offsets)) {
+
+		/* We must remove the reservation on the undo log record
+		BEFORE releasing the latch on the clustered index page: this
+		is to make sure that some thread will eventually undo the
+		modification corresponding to node->roll_ptr. */
+
+		/* fputs("--------------------undoing a previous version\n",
+		stderr); */
+
 		ret = FALSE;
-	} else if (rec_roll_ptr != node->roll_ptr) {
-		if (DICT_TF_GET_COMPACT(node->table->flags)
-		    && DICT_TF_GET_ZIP_SSIZE(node->table->flags)
-		    && DICT_TF_GET_COMPACT_METADATA(node->table->flags)
-		    && trx_undo_roll_ptr_is_insert(node->roll_ptr)
-		    && trx_undo_roll_ptr_is_insert(rec_roll_ptr)
-		    && node->trx->id == row_get_rec_trx_id(rec,
-							   clust_index,
-							   offsets)) {
-
-			/* This is a very special case where we are undoing
-			a fresh insert on a compressed table with
-			METADATA_FORMAT=COMPACT. In this case the roll
-			pointer of the record (rec_roll_ptr) may not match
-			the roll pointer in the undo log (node->roll_ptr). */
-			ret = TRUE;
-		} else {
-			/* We must remove the reservation on the undo log record
-			BEFORE releasing the latch on the clustered index page:
-			this is to make sure that some thread will eventually
-			undo the modification corresponding to node->roll_ptr.
-			*/
-
-			ret = FALSE;
-		}
 	} else {
-		ret = TRUE;
-	}
-
-	if (ret) {
 		row_ext_t**	ext;
 
 		if (dict_table_get_format(node->table) >= UNIV_FORMAT_B) {
@@ -249,6 +228,8 @@ row_undo_search_clust_to_pcur(
 		}
 
 		btr_pcur_store_position(&(node->pcur), &mtr);
+
+		ret = TRUE;
 	}
 
 	btr_pcur_commit_specify_mtr(&(node->pcur), &mtr);

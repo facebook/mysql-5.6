@@ -2022,28 +2022,6 @@ row_upd_clust_rec_by_insert(
 		err = btr_cur_del_mark_set_clust_rec(
 			btr_cur_get_block(btr_cur), rec, index, offsets,
 			thr, mtr);
-		if (err == DB_ZIP_OVERFLOW
-		    && thr) {
-			/* We now have to do pessimistic descent down the
-			B-tree */
-			mtr_commit(mtr);
-			mtr_start_trx(mtr, mtr->trx);
-			/* NOTE: this transaction has an s-lock or x-lock on
-			the record and therefore other transactions cannot
-			modify the record when we have no latch on the page.
-			In addition, we assume that other query threads of
-			the same transaction do not modify the record in the
-			meantime. Therefore we can assert that the
-			restoration of the cursor succeeds. */
-			ut_a(btr_pcur_restore_position(
-				BTR_MODIFY_TREE, pcur, mtr));
-			ut_ad(!rec_get_deleted_flag(
-					btr_pcur_get_rec(pcur),
-					dict_table_is_comp(index->table)));
-			btr_cur = btr_pcur_get_btr_cur(pcur);
-			err = btr_cur_del_mark_set_clust_rec_pessimistic(
-				btr_cur, &heap, thr, mtr);
-		}
 		if (err != DB_SUCCESS) {
 err_exit:
 			mtr_commit(mtr);
@@ -2279,7 +2257,6 @@ row_upd_del_mark_clust_rec(
 	btr_pcur_t*	pcur;
 	btr_cur_t*	btr_cur;
 	dberr_t		err;
-	mem_heap_t*	heap = NULL;
 
 	ut_ad(node);
 	ut_ad(dict_index_is_clust(index));
@@ -2299,30 +2276,6 @@ row_upd_del_mark_clust_rec(
 	err = btr_cur_del_mark_set_clust_rec(
 		btr_cur_get_block(btr_cur), btr_cur_get_rec(btr_cur),
 		index, offsets, thr, mtr);
-
-	if (err == DB_ZIP_OVERFLOW
-	    && thr) {
-		/* We now have to do pessimistic descent down the B-tree */
-		mtr_commit(mtr);
-		mtr_start_trx(mtr, mtr->trx);
-		/* NOTE: this transaction has an s-lock or x-lock on the record
-		and therefore other transactions cannot modify the record
-		when we have no latch on the page. In addition, we assume
-		that other query threads of the same transaction do not
-		modify the record in the meantime. Therefore we can assert
-		that the restoration of the cursor succeeds. */
-		ut_a(btr_pcur_restore_position(BTR_MODIFY_TREE, pcur, mtr));
-		ut_ad(!rec_get_deleted_flag(btr_pcur_get_rec(pcur),
-		dict_table_is_comp(index->table)));
-		btr_cur = btr_pcur_get_btr_cur(pcur);
-		err = btr_cur_del_mark_set_clust_rec_pessimistic(btr_cur,
-								 &heap,
-								 thr,
-								 mtr);
-		if (heap)
-			mem_heap_free(heap);
-	}
-
 	if (err == DB_SUCCESS && referenced) {
 		/* NOTE that the following call loses the position of pcur ! */
 

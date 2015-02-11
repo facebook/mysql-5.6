@@ -92,20 +92,11 @@ The cell number for the next cell, the key_no for the current cell and the
 value for the key_no. */
 #define PMH_CELL_LEN \
 	(UT_BITS_IN_BYTES(PMH_NEXT_CELL_LEN + PMH_KEY_LEN) + PMH_VALUE_LEN)
-/* We use 2 bytes to store the number of cells in the minihashmap. */
-#define PMH_NUM_CELL_LEN 2
-/* The header of the minihash bitmap consists of the number of bytes used for
-the bitmap */
-#define PMH_BITMAP_HEADER_LEN 1
-/* Unit of space bitmap will be incremented with. */
-#define PMH_BITMAP_INCREMENT 8
-/* The header includes number of cells, trx_id and rbp for first insert,
-bitmap header */
-#define PMH_HEADER_LEN \
-	(PMH_NUM_CELL_LEN + DATA_TRX_RBP_LEN + PMH_BITMAP_HEADER_LEN)
+/* The header of the minihash consists of the number of cells which is stored
+using two bytes */
+#define PMH_HEADER_LEN 2
 /* The length of the hash table with only one key-value pair */
-#define PMH_MIN_LEN (PMH_HEADER_LEN + PMH_BITMAP_INCREMENT \
-		     + PMH_BUCKET_HEADERS_LEN + PMH_CELL_LEN)
+#define PMH_MIN_LEN (PMH_HEADER_LEN + PMH_BUCKET_HEADERS_LEN + PMH_CELL_LEN)
 
 /**************************************************//**
 Initialize the hash table for transaction ids and rollback
@@ -113,11 +104,10 @@ pointers. */
 UNIV_INLINE
 void
 pmh_init(
-	byte*	storage,	/*!< in: Pointer to the start of the data for
+	byte*	storage);	/*!< in: Pointer to the start of the data for
 				the hash table in a compressed page's trailer.
 				The data is stored starting from higher memory
 				addresses going to lower memory addresses. */
-	ulint	n_dense);	/* number of user records on the page */
 
 /**************************************************//**
 Return the current size in bytes of the hash table.
@@ -148,22 +138,28 @@ pmh_put(
 				and rbp */
 
 /***********************************************************************//**
-Return a pointer to the trx id and rbp stored in the hash table for rec_no.
-@return a pointer to a buffer that has trx_id and rbp back to back or NULL */
+This function provides a way to iterate over the key-value pairs in the hash
+table and restore the transaction id and rollback pointers efficiently. The
+recs parameter must have the records ordered in heap_no order such that
+recs[rec_no] == rec,
+where rec's record number is rec_no. */
 UNIV_INLINE
-const byte*
-pmh_get(
-	const byte*	storage,	/*!< in: Pointer to the start of the
-					data for the hash table in a compressed
-					page's trailer. The data is stored
-					starting from higher memory addresses
-					going to lower memory addresses. */
-	ulint		rec_no,		/*!< in: rec_no for to search for.
-					rec_no = heap_no
-						 - PAGE_HEAP_NO_USER_LOW */
-	ulint*		space_needed);	/*!< out: Size by which the minihashmap
-					would grow if an entry with rec_no
-					added to the trailer. */
+void
+pmh_restore_trx_rbp(
+	const byte*	storage,/*!< in: Pointer to the start of the
+				data for the hash table in a compressed
+				page's trailer. The data is stored
+				starting from higher memory addresses
+				going to lower memory addresses. */
+	rec_t**		recs,	/*!< in: records sorted by record number */
+	ulint**		offsets,/*!< out: pointer to memory allocated for record
+				offsets */
+	const dict_index_t*	index,	/*!< in: index needed to compute
+					offsets */
+	ulint		trx_id_col,	/*!< in: the column number for
+					transaction id */
+	mem_heap_t**	heap);	/*!< in: temporary memeory heap */
+
 #ifdef UNIV_MATERIALIZE
 # undef UNIV_INLINE
 # define UNIV_INLINE	UNIV_INLINE_ORIGINAL

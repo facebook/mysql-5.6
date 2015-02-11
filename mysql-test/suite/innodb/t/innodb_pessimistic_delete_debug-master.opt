@@ -1,6 +1,0 @@
---innodb_file_format='Barracuda'
---innodb-file-per-table
---innodb-log-compressed-pages=0
---innodb_flush_log_at_trx_commit=1
---innodb-zip-debug=1
---innodb-stats-persistent=OFF

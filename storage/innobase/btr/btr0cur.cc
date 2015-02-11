@@ -101,8 +101,6 @@ srv_printf_innodb_monitor(). */
 UNIV_INTERN ulint	btr_cur_n_sea_old	= 0;
 
 #ifdef UNIV_DEBUG
-/* Number of btr_cur_del_mark_set_clust_rec_pessimistic() calls. */
-UNIV_INTERN ulint	btr_cur_pessimistic_del_mark_count = 0;
 /* Flag to limit optimistic insert records */
 UNIV_INTERN uint	btr_cur_limit_optimistic_insert_debug = 0;
 #endif /* UNIV_DEBUG */
@@ -1906,10 +1904,6 @@ btr_cur_update_alloc_zip_func(
 	ulint		length,	/*!< in: size needed */
 	bool		create,	/*!< in: true=delete-and-insert,
 				false=update-in-place */
-	ulint		heap_no,/*!< in: when compact metadata is used, this
-				value is needed to determine if the record
-				metadata can be stored on the trailer without
-				making the trailer size grow */
 	mtr_t*		mtr)	/*!< in/out: mini-transaction */
 {
 	const page_t*	page = page_cur_get_page(cursor);
@@ -1920,7 +1914,7 @@ btr_cur_update_alloc_zip_func(
 	ut_ad(rec_offs_validate(page_cur_get_rec(cursor), index, offsets));
 
 	if (page_zip_available(page_zip, dict_index_is_clust(index),
-			       length, create, heap_no)) {
+			       length, create)) {
 		return(true);
 	}
 
@@ -1953,7 +1947,7 @@ btr_cur_update_alloc_zip_func(
 	the free space available on the page. */
 
 	if (page_zip_available(page_zip, dict_index_is_clust(index),
-			       length, create, heap_no)) {
+			       length, create)) {
 		return(true);
 	}
 
@@ -2033,7 +2027,7 @@ btr_cur_update_in_place(
 		if (!btr_cur_update_alloc_zip(
 			    page_zip, btr_cur_get_page_cur(cursor),
 			    index, offsets, rec_offs_size(offsets),
-			    false, rec_get_heap_no_new(rec), mtr)) {
+			    false, mtr)) {
 			return(DB_ZIP_OVERFLOW);
 		}
 
@@ -2257,7 +2251,7 @@ any_extern:
 
 		if (!btr_cur_update_alloc_zip(
 			    page_zip, page_cursor, index, *offsets,
-			    new_rec_size, true, ULINT_UNDEFINED, mtr)) {
+			    new_rec_size, true, mtr)) {
 			return(DB_ZIP_OVERFLOW);
 		}
 
@@ -2968,174 +2962,6 @@ btr_cur_parse_del_mark_set_clust_rec(
 	return(ptr);
 }
 
-/***********************************************************//**
-Marks a clustered index record deleted. Writes an undo log record to
-undo log on this delete marking. Writes in the trx id field the id
-of the deleting transaction, and in the roll ptr field pointer to the
-undo log record created.
-@return	DB_SUCCESS, DB_LOCK_WAIT, or error number */
-UNIV_INTERN
-dberr_t
-btr_cur_del_mark_set_clust_rec_pessimistic(
-	btr_cur_t*	cursor,	/*!< in: cursor */
-	mem_heap_t**	heap,	/*!< in/out: pointer to memory heap */
-	que_thr_t*	thr,	/*!< in: query thread */
-	mtr_t*		mtr)	/*!< in/out: mini-transaction */
-{
-	buf_block_t*	block;
-	page_t*	page;
-	page_zip_des_t*	page_zip;
-	rec_t*	rec;
-	dict_index_t*	index;
-	ulint*	offsets = NULL;
-	my_bool	zip_debug = page_zip_debug;
-	dberr_t	optim_err;
-	dberr_t	err;
-	roll_ptr_t	roll_ptr;
-	trx_t*	trx;
-	dtuple_t*	new_entry;
-	ulint	n_ext;
-	page_cur_t*	page_cursor;
-	ibool	need_restore_supremum = FALSE;
-	big_rec_t*	dummy_big_rec = NULL;
-	mem_heap_t*	heap_tmp = NULL;
-
-	block = btr_cur_get_block(cursor);
-	page = buf_block_get_frame(block);
-	page_zip = buf_block_get_page_zip(block);
-	ut_a(page_zip);
-	ut_a(page_zip->compact_metadata);
-	ut_a(thr);
-	ut_ad(cursor->tree_height != ULINT_UNDEFINED);
-	rec = btr_cur_get_rec(cursor);
-
-	index = cursor->index;
-	ut_a(dict_index_is_clust(index));
-	ut_ad(mtr_memo_contains(mtr,
-				dict_index_get_lock(index),
-				MTR_MEMO_X_LOCK));
-	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
-	offsets = rec_get_offsets(rec, index, NULL, ULINT_UNDEFINED, heap);
-	optim_err = btr_cur_del_mark_set_clust_rec(block,
-						   rec,
-						   index,
-						   offsets,
-						   thr,
-						   mtr);
-	if (optim_err != DB_ZIP_OVERFLOW)
-		return optim_err;
-	/* we do not check for locking because we assume it's already done */
-	/* undo logging */
-	err = trx_undo_report_row_operation(BTR_NO_LOCKING_FLAG,
-					    TRX_UNDO_MODIFY_OP, thr, index,
-					    NULL, NULL, 0, rec, offsets,
-					    &roll_ptr);
-	if (err != DB_SUCCESS) {
-		return(err);
-	}
-
-	trx = thr_get_trx(thr);
-
-	new_entry = row_rec_to_index_entry(rec,
-					   index,
-					   offsets,
-					   &n_ext,
-					   *heap);
-	/* The call to row_rec_to_index_entry(ROW_COPY_DATA, ...) above
-	invokes rec_offs_make_valid() to point to the copied record that
-	the fields of new_entry point to.  We have to undo it here. */
-	ut_ad(rec_offs_validate(NULL, index, offsets));
-	rec_offs_make_valid(rec, index, offsets);
-	row_upd_index_entry_sys_field(new_entry, index, DATA_ROLL_PTR,
-				      roll_ptr);
-	row_upd_index_entry_sys_field(new_entry, index, DATA_TRX_ID, trx->id);
-	ut_ad(rec_offs_validate(rec, index, offsets));
-	/* Store state of explicit locks on rec on the page infimum record,
-	before deleting rec. The page infimum acts as a dummy carrier of the
-	locks, taking care also of lock releases, before we can move the locks
-	back on the actual record. There is a special case: if we are
-	inserting on the root page and the insert causes a call of
-	btr_root_raise_and_insert. Therefore we cannot in the lock system
-	delete the lock structs set on the root page even if the root
-	page carries just node pointers. */
-
-	lock_rec_store_on_page_infimum(block, rec);
-
-	btr_search_update_hash_on_delete(cursor);
-
-	if (UNIV_UNLIKELY(zip_debug))
-		ut_a(page_zip_validate(page_zip, page, index));
-
-	page_cursor = btr_cur_get_page_cur(cursor);
-
-	page_cur_delete_rec(page_cursor, index, offsets, mtr);
-
-	page_cur_move_to_prev(page_cursor);
-
-	rec = btr_cur_insert_if_possible(cursor, new_entry, &offsets, heap,
-					 n_ext, mtr);
-
-	if (!rec) {
-		/* Was the record to be updated positioned as the first user
-		record on its page? */
-		need_restore_supremum = !page_cur_is_before_first(page_cursor);
-
-		/* We do not try btr_cur_optimistic_insert() because
-		btr_cur_insert_if_possible() already failed above. */
-		err = btr_cur_pessimistic_insert(BTR_NO_UNDO_LOG_FLAG
-						 | BTR_NO_LOCKING_FLAG
-						 | BTR_KEEP_SYS_FLAG,
-						 cursor, &offsets, &heap_tmp,
-						 new_entry, &rec,
-						 &dummy_big_rec, n_ext, NULL,
-						 mtr);
-	}
-
-	ut_a(rec);
-	ut_a(err == DB_SUCCESS);
-	ut_a(dummy_big_rec == NULL);
-	rec_offs_make_valid(rec, index, offsets);
-	page_cursor->rec = rec;
-	lock_rec_restore_from_page_infimum(btr_cur_get_block(cursor),
-					   rec, block);
-	if (UNIV_UNLIKELY(zip_debug)) {
-		ut_a(page_zip_validate(page_zip, page, index));
-		page = buf_block_get_frame(btr_cur_get_block(cursor));
-	}
-	page_zip = buf_block_get_page_zip(btr_cur_get_block(cursor));
-#ifdef UNIV_BLOB_DEBUG
-	offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED, heap);
-#endif
-	btr_blob_dbg_set_deleted_flag(rec, index, offsets, TRUE);
-	btr_rec_set_deleted_flag(rec, page_zip, TRUE);
-	row_upd_rec_sys_fields(rec, page_zip,
-			       index, offsets, trx, roll_ptr);
-	btr_cur_del_mark_set_clust_rec_log(rec, index, trx->id,
-					   roll_ptr, mtr);
-
-	/* If necessary, restore also the correct lock state for a new,
-	preceding supremum record created in a page split. While the old
-	record was nonexistent, the supremum might have inherited its locks
-	from a wrong record. */
-
-	if (need_restore_supremum) {
-		btr_cur_pess_upd_restore_supremum(btr_cur_get_block(cursor),
-						  rec, mtr);
-	}
-
-	if (UNIV_UNLIKELY(zip_debug))
-		ut_a(page_zip_validate(page_zip, page, index));
-
-	if (heap_tmp)
-		mem_heap_free(heap_tmp);
-
-#ifdef UNIV_DEBUG
-	btr_cur_pessimistic_del_mark_count ++;
-#endif
-
-	return(err);
-}
-
 #ifndef UNIV_HOTBACKUP
 /***********************************************************//**
 Marks a clustered index record deleted. Writes an undo log record to
@@ -3175,22 +3001,6 @@ btr_cur_del_mark_set_clust_rec(
 	ut_ad(dict_index_is_clust(index));
 	ut_ad(!rec_get_deleted_flag(rec, rec_offs_comp(offsets)));
 
-	page_zip = buf_block_get_page_zip(block);
-	trx = thr ? thr_get_trx(thr) : NULL;
-
-	/* Check that enough space is available on the compressed page.
-	Here we pass 0 as the record length because the record won't be recorded
-	in the modification log but its metadata may need more space in the
-	compressed page. */
-	if (page_zip
-	    && dict_index_is_clust(index)
-	    && page_is_leaf(page_zip->data)
-	    && page_zip->compact_metadata
-	    && !page_zip_available(page_zip, TRUE, 0, 0,
-				   rec_get_heap_no_new(rec))) {
-		return(DB_ZIP_OVERFLOW);
-	}
-
 	err = lock_clust_rec_modify_check_and_lock(BTR_NO_LOCKING_FLAG, block,
 						   rec, index, offsets, thr);
 
@@ -3211,8 +3021,12 @@ btr_cur_del_mark_set_clust_rec(
 	the adaptive hash index does not depend on the delete-mark
 	and the delete-mark is being updated in place. */
 
+	page_zip = buf_block_get_page_zip(block);
+
 	btr_blob_dbg_set_deleted_flag(rec, index, offsets, TRUE);
 	btr_rec_set_deleted_flag(rec, page_zip, TRUE);
+
+	trx = thr_get_trx(thr);
 
 	if (dict_index_is_online_ddl(index)) {
 		row_log_table_delete(rec, index, offsets, NULL);
