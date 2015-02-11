@@ -1,0 +1,46 @@
+source include/load_sysvars.inc;
+
+SET @start_sql_log_bin_triggers = @@global.sql_log_bin_triggers;
+SELECT @start_sql_log_bin_triggers;
+
+SET @@global.sql_log_bin_triggers = false;
+SET @@global.sql_log_bin_triggers = DEFAULT;
+SELECT @@global.sql_log_bin_triggers;
+
+SET @@global.sql_log_bin_triggers = @start_sql_log_bin_triggers;
+SELECT @@global.sql_log_bin_triggers = true;
+
+SET @@global.sql_log_bin_triggers = false;
+SELECT @@global.sql_log_bin_triggers;
+SET @@global.sql_log_bin_triggers = true;
+SELECT @@global.sql_log_bin_triggers;
+
+SET @@global.sql_log_bin_triggers = 1;
+SELECT @@global.sql_log_bin_triggers;
+SET @@global.sql_log_bin_triggers = 0;
+SELECT @@global.sql_log_bin_triggers;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_log_bin_triggers = -1;
+SELECT @@global.sql_log_bin_triggers;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.sql_log_bin_triggers = 100;
+SELECT @@global.sql_log_bin_triggers;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.sql_log_bin_triggers = 1000.01;
+SELECT @@global.sql_log_bin_triggers;
+
+SET @@session.sql_log_bin_triggers = FALSE;
+SELECT @@session.sql_log_bin_triggers;
+
+SELECT @@global.sql_log_bin_triggers = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='sql_log_bin_triggers';
+
+SELECT @@sql_log_bin_triggers = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='sql_log_bin_triggers';
+
+
+SET @@global.sql_log_bin_triggers = @start_sql_log_bin_triggers;
+SELECT @@global.sql_log_bin_triggers;

@@ -1939,7 +1939,8 @@ bool sp_head::add_used_tables_to_table_list(THD *thd,
                               table->lock_type >= TL_WRITE_ALLOW_WRITE ?
                               MDL_SHARED_WRITE : MDL_SHARED_READ,
                               MDL_TRANSACTION);
-
+      table->disable_sql_log_bin_triggers =
+        !thd->variables.sql_log_bin_triggers;
       /* Everyting else should be zeroed */
 
       **query_tables_last_ptr= table;
