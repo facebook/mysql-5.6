@@ -1997,8 +1997,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 */
 
   /* Create table/key descriptions and put them into the data dictionary */
-  if (!(key_descr= (RDBSE_KEYDEF**)my_malloc(sizeof(RDBSE_KEYDEF*) * n_keys,
-                                             MYF(MY_ZEROFILL))))
+  if (!(key_descr= new RDBSE_KEYDEF*[n_keys]))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   memset(key_descr, 0, sizeof(RDBSE_KEYDEF*) * n_keys);
