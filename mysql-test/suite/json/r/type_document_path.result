@@ -1,0 +1,385 @@
+drop table if exists t1, t2, t3, t4;
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
+1
+CREATE TABLE t1 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.333333, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":107, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+CREATE TABLE t2 (
+a2 int not null,
+b2 char (10) not null,
+doc2 document not null) engine=innodb;
+insert into t2 values (10,'@3','{ "id":105, "name":"Alex II", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" } }');
+insert into t2 values (8,'@1','{ "id":108, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
+insert into t2 values (3,'@3','{ "id":104, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
+insert into t2 values (5,'@2','{ "id":106, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+CREATE TABLE t3 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+insert into t3 values (3,'@3','{ "id":"3333", "name":"Charlie" }');
+insert into t3 values (1,'@1','{ "id":"1", "name":"Alex" }');
+insert into t3 values (4,'@4','{ "id":"44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444", "name":"Don" }');
+insert into t3 values (2,'@2','{ "id":"22", "name":"Bob" }');
+CREATE TABLE t4 (
+`~!@#$%^&*()_+-=:;'"<>?,./\t` document not null) engine=innodb;
+insert into t4 values ('{"k1":"v1"}');
+insert into t4 values ('{"~!@#$%^&*()_+-=:;\'<>?,./":{"~!@#$%^&*()_+-=:;\'<>?,./":"v2"}}');
+insert into t4 values ('{"k3":"v3"}');
+insert into t4 values ('{"k4":"v4"}');
+select `~!@#$%^&*()_+-=:;'"<>?,./\t`
+from t4;
+~!@#$%^&*()_+-=:;'"<>?,./\t
+{"k1":"v1"}
+{"~!@#$%^&*()_+-=:;'<>?,./":{"~!@#$%^&*()_+-=:;'<>?,./":"v2"}}
+{"k3":"v3"}
+{"k4":"v4"}
+select `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./`
+from t4
+where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
+~!@#$%^&*()_+-=:;'"<>?,./\t
+v2
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+select test.t1.b from test.t1 where test.t1.a = 1;
+b
+@1
+select t1.doc from test.t1 where t1.a = 2;
+doc
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+select .t1.doc from test.t1 where .t1.a = 4;
+doc
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
+ERROR HY000: Invalid field or reference.
+select a from t1 where test.t1.doc.id = 102;
+ERROR HY000: Invalid field or reference.
+select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
+ERROR HY000: Invalid field or reference.
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+select test.t1.b from test.t1 where test.t1.a = 1;
+b
+@1
+select t1.doc from test.t1 where t1.a = 2;
+doc
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+select .t1.doc from test.t1 where .t1.a = 4;
+doc
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+select test.t1.doc.NonExistent from t1 where t1.a = 4;
+doc
+NULL
+select test.t1.doc from t1 where t1.a = 3;
+doc
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.333333,"dt":"2014-11-01"}
+select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
+doc
+1003
+select test.t1.doc.int64 from t1 where t1.a = 2;
+doc
+2222222220123456789
+select test.t1.doc.double from t1 where t1.a = 3;
+doc
+3.333333
+select test.t1.doc.name from t1 where t1.a = 3;
+doc
+Charlie
+select test.t1.doc.Children.0 from t1 where t1.a = 4;
+doc
+Alex
+select test.t1.doc.Children.1 from t1 where t1.a = 4;
+doc
+Bob
+select test.t1.doc.Children.2 from t1 where t1.a = 4;
+doc
+Charlei
+select abs(test.t1.doc.double), abs(test.t1.doc.double - 3.333333) from t1 where a = 3;
+abs(test.t1.doc.double)	abs(test.t1.doc.double - 3.333333)
+3.3333329999999997	4.440892098500626e-16
+select test.t1.doc.address from t1 where t1.a = 3;
+doc
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+select test.t1.doc.Children from t1 where t1.a = 4;
+doc
+["Alex","Bob","Charlei"]
+select t1.doc.address.houseNumber from t1 where t1.a = 4;
+doc
+1004
+select doc.address.houseNumber from t1 where t1.a = 4;
+doc
+1004
+select a from t1 where test.t1.doc.NonExistent = 102;
+a
+select a from t1 where test.t1.doc.id = 102;
+a
+2
+select a from t1 where test.t1.doc.int64 = 2222222220123456789;
+a
+2
+select a from t1 where abs(test.t1.doc.double - 3.333333) < 0.001;
+a
+3
+select t1.doc.id from t1 where t1.doc.id > 101 and t1.doc.id < 104;
+doc
+102
+103
+select a from t1 where test.t1.doc.name like "Bob";
+a
+2
+select a from t1 where substring(test.t1.doc.name, 1, 2) like "Bo";
+a
+2
+select a from t1 where cast(test.t1.doc.id as unsigned) = 102;
+a
+2
+select a from t1 where cast(test.t1.doc.intstr as unsigned) = 1002;
+a
+2
+select a from t1 where cast(test.t1.doc.id as char) like "102";
+a
+2
+select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as date) = cast('2014-11-01' as date);
+doc
+2014-11-01
+Warnings:
+Warning	1292	Incorrect datetime value: '1001'
+Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRST'
+select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as datetime) = cast('2014-11-11 11:59:59' as datetime);
+doc
+2014-11-11 11:59:59
+Warnings:
+Warning	1292	Incorrect datetime value: '1001'
+Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRST'
+select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as time) = cast('2014-11-11 11:59:59' as time);
+doc
+2014-11-11 11:59:59
+Warnings:
+Warning	1292	Truncated incorrect time value: '0123456789ABCDEFGHIGKLMNOPQRST'
+Warning	1292	Truncated incorrect time value: '2014-11-01'
+select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
+doc
+1002
+select a from t1 order by test.t1.doc.NonExistent;
+a
+1
+2
+3
+4
+5
+8
+7
+6
+select a from t1 order by cast(t1.doc.NonExistent as unsigned);
+a
+1
+2
+3
+4
+5
+8
+7
+6
+select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
+doc	a
+101	1
+102	2
+103	3
+104	4
+105	5
+106	6
+107	7
+108	8
+select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned) desc;
+doc	a
+108	8
+107	7
+106	6
+105	5
+104	4
+103	3
+102	2
+101	1
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed);
+doc	a
+98761	1
+98762	2
+98763	3
+98764	4
+98765	5
+98766	6
+98767	7
+98768	8
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc;
+doc	a
+98768	8
+98767	7
+98766	6
+98765	5
+98764	4
+98763	3
+98762	2
+98761	1
+select test.t1.doc.id, a from t1 order by test.t1.doc.id;
+doc	a
+101	1
+102	2
+103	3
+104	4
+105	5
+106	6
+107	7
+108	8
+select test.t1.doc.id, a from t1 order by t1.doc.id desc;
+doc	a
+108	8
+107	7
+106	6
+105	5
+104	4
+103	3
+102	2
+101	1
+select doc.id, a from t3 order by test.t3.doc.id;
+doc	a
+1	1
+22	2
+3333	3
+44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
+Warnings:
+Warning	1265	Data truncated for column 'doc' at row 1
+show warnings;
+Level	Code	Message
+Warning	1265	Data truncated for column 'doc' at row 1
+select test.t3.doc.id, a from t3 order by t3.doc.id desc;
+doc	a
+44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
+3333	3
+22	2
+1	1
+Warnings:
+Warning	1265	Data truncated for column 'doc' at row 1
+show warnings;
+Level	Code	Message
+Warning	1265	Data truncated for column 'doc' at row 1
+select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode;
+doc	a
+98761	1
+98762	2
+98763	3
+98764	4
+98765	5
+98766	6
+98767	7
+98768	8
+select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc;
+doc	a
+98768	8
+98767	7
+98766	6
+98765	5
+98764	4
+98763	3
+98762	2
+98761	1
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char);
+count(*)	cast(test.t1.doc.address.state as char)
+1	AZ
+1	CA
+3	NY
+3	WA
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by cast(test.t1.doc.address.state as char)
+having total > 1;
+total	doc
+3	NY
+3	WA
+select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
+from t2 left join t1
+on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned);
+a	doc	a2	doc2
+1	98761	10	98761
+2	98762	8	98762
+3	98763	3	98763
+4	98764	5	98764
+select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
+from t1, t2
+where t1.doc.address.zipcode like t2.doc2.address.zipcode;
+a	doc	a2	doc2
+1	98761	10	98761
+2	98762	8	98762
+3	98763	3	98763
+4	98764	5	98764
+select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
+from t2 right join t1
+on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
+order by cast(t1.doc.address.zipcode as unsigned) asc;
+a	doc	a2	doc2
+1	98761	10	98761
+2	98762	8	98762
+3	98763	3	98763
+4	98764	5	98764
+5	98765	NULL	NULL
+6	98766	NULL	NULL
+7	98767	NULL	NULL
+8	98768	NULL	NULL
+select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
+from t2 right join t1
+on t1.doc.address.zipcode like t2.doc2.address.zipcode
+order by t1.doc.address.zipcode desc;
+a	doc	a2	doc2
+8	98768	NULL	NULL
+7	98767	NULL	NULL
+6	98766	NULL	NULL
+5	98765	NULL	NULL
+4	98764	5	98764
+3	98763	3	98763
+2	98762	8	98762
+1	98761	10	98761
+select t1_name, t1_zipcode, t2_name, t2_zipcode
+from (
+select cast(t1.doc.name as char) as t1_name, cast(t1.doc.address.zipcode as unsigned) as t1_zipcode,
+cast(t2.doc2.name as char) as t2_name, cast(t2.doc2.address.zipcode as unsigned) as t2_zipcode
+from t1, t2
+where cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
+) as tmp
+where t1_zipcode = 98761 or t2_zipcode = 98762;
+t1_name	t1_zipcode	t2_name	t2_zipcode
+Alex	98761	Alex II	98761
+Bob	98762	Bob II	98762
+select doc.name, doc.address.zipcode, doc2.name, doc2.address.zipcode
+from (
+select t1.doc.address.zipcode as t1_zipcode, t2.doc2.address.zipcode as t2_zipcode
+from t1, t2
+where t1.doc.address.zipcode like t2.doc2.address.zipcode
+) as tmp
+where doc.address.zipcode like "98761" or doc2.address.zipcode like "98762";
+doc	doc	doc2	doc2
+Alex	98761	Alex II	98761
+Bob	98762	Bob II	98762
+insert into t1 values (100,'@100','{ "id":10100, "double": 4.94065645841246 }');
+select t1.doc.double from t1 where a = 100;
+doc
+4.94065645841246
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+drop table t1, t2, t3, t4;

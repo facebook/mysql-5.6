@@ -2752,9 +2752,16 @@ dict_index_find_cols(
 		ulint		j;
 		dict_field_t*	field = dict_index_get_nth_field(index, i);
 
+		const char *field_name = field->name;
+		if (field->is_document_path)
+		{
+		  ut_ad(field->document_path_type != 0 &&
+			field->document_path_list_size >= 2);
+		  field_name = field->document_path_list[0];
+		}
 		for (j = 0; j < table->n_cols; j++) {
 			if (!strcmp(dict_table_get_col_name(table, j),
-				    field->name)) {
+				    field_name)) {
 				field->col = dict_table_get_nth_col(table, j);
 
 				goto found;
