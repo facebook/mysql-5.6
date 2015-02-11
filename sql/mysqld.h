@@ -134,7 +134,6 @@ extern ulong slave_exec_mode_options;
 extern ulong slave_run_triggers_for_rbr;
 extern ulonglong slave_type_conversions_options;
 extern my_bool read_only, opt_readonly, super_read_only, opt_super_readonly;
-extern my_bool allow_document_type;
 extern my_bool block_create_myisam;
 extern my_bool block_create_no_primary_key;
 extern my_bool block_ftwrl;

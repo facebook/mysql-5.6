@@ -7176,6 +7176,12 @@ ER_BLOCK_NO_PRIMARY_KEY
 ER_TOO_BIG_DOCUMENT_FIELDLENGTH
   eng "Document column length too big for column '%-.192s' (max = %lu)"
 
+ER_INVALID_FIELD_OR_REFERENCE
+  eng "Invalid field or reference."
+
+ER_DOCUMENT_PATH_KEY_ONLY_CAN_BE_UNIQUE_OR_MULTIPLE
+  eng "A document path key only can be unique or multiple."
+
 #
 #  End of 5.6 error messages.
 #

@@ -1,17 +1,21 @@
 --source include/load_sysvars.inc
 
-SET @start_allow_document_type = @@global.allow_document_type;
-SELECT @start_allow_document_type;
+SET @start_global_allow_document_type = @@global.allow_document_type;
+SELECT @start_global_allow_document_type;
+
+SET @start_session_allow_document_type = @@session.allow_document_type;
+SELECT @start_session_allow_document_type;
 
 SET @@global.allow_document_type = true;
 SET @@global.allow_document_type = DEFAULT;
 SELECT @@global.allow_document_type;
 
-SET @@global.allow_document_type = @start_allow_document_type;
+SET @@global.allow_document_type = @start_global_allow_document_type;
 SELECT @@global.allow_document_type = false;
 
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
+
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 
@@ -31,9 +35,20 @@ SELECT @@global.allow_document_type;
 SET @@global.allow_document_type = 1000.01;
 SELECT @@global.allow_document_type;
 
---ERROR ER_GLOBAL_VARIABLE
-SET @@session.allow_document_type = 10;
---ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SET @@session.allow_document_type = true;
+SELECT @@session.allow_document_type;
+
+SET @@session.allow_document_type = false;
+SELECT @@session.allow_document_type;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.allow_document_type = -1;
+SELECT @@session.allow_document_type;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.allow_document_type = 100;
+SELECT @@session.allow_document_type;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@session.allow_document_type = 1000.01;
 SELECT @@session.allow_document_type;
 
 SELECT @@global.allow_document_type = VARIABLE_VALUE
@@ -44,5 +59,8 @@ SELECT @@allow_document_type = VARIABLE_VALUE
 FROM INFORMATION_SCHEMA.SESSION_VARIABLES
 WHERE VARIABLE_NAME='allow_document_type';
 
-SET @@global.allow_document_type = @start_allow_document_type;
+SET @@global.allow_document_type = @start_global_allow_document_type;
 SELECT @@global.allow_document_type;
+
+SET @@session.allow_document_type = @start_session_allow_document_type;
+SELECT @@session.allow_document_type;
