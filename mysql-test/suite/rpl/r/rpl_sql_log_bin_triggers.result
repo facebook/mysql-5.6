@@ -1,0 +1,45 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+set @@session.sql_log_bin_triggers = OFF;
+create table t1 (c1 char(1) primary key, c2 char(1));
+set @@session.sql_log_bin=0;
+create table t2 (id char(2) primary key, cnt int, o char(1), n char(1));
+create trigger t1_cnt_b before update on t1 for each row
+update t2 set cnt=cnt+1, o=old.C1, n=new.C1 where id = 'u0';
+create trigger t1_cnt_db before delete on t1 for each row
+update t2 set cnt=cnt+1, o=old.C1, n=' ' where id = 'd0';
+create trigger t1_cnt_ib before insert on t1 for each row
+update t2 set cnt=cnt+1, n=new.C1, o=' ' where id = 'i0';
+create trigger t1_cnt_a after update on t1 for each row
+update t2 set cnt=cnt+1, o=old.C1, n=new.C1 where id = 'u1';
+create trigger t1_cnt_da after delete on t1 for each row
+update t2 set cnt=cnt+1, o=old.C1, n=' ' where id = 'd1';
+create trigger t1_cnt_ia after insert on t1 for each row
+update t2 set cnt=cnt+1, n=new.C1, o=' ' where id = 'i1';
+insert into t2 values
+('u0', 0, ' ', ' '),('u1', 0, ' ', ' '),
+('d0', 0, ' ', ' '),('d1', 0, ' ', ' '),
+('i0', 0, ' ', ' '),('i1', 0, ' ', ' ');
+set @@session.sql_log_bin=1;
+# INSERT triggers test
+insert into t1 values ('a','b');
+select * from t1;
+c1	c2
+a	b
+# UPDATE triggers test
+update t1 set C1= 'd';
+select * from t1;
+c1	c2
+d	b
+# DELETE triggers test
+delete from t1 where C1='d';
+select * from t1;
+c1	c2
+set @@session.sql_log_bin=0;
+drop table t2;
+set @@session.sql_log_bin=1;
+drop table t1;
+include/rpl_end.inc
