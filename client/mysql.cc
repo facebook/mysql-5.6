@@ -4959,9 +4959,22 @@ com_status(String *buffer __attribute__((unused)),
   }
 
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-  if ((status_str= mysql_get_ssl_cipher(&mysql)))
+  if ((status_str= mysql_get_ssl_cipher(&mysql))) {
+    char subject_buf[512];
+    char issuer_buf[512];
+
     tee_fprintf(stdout, "SSL:\t\t\tCipher in use is %s\n",
                 status_str);
+    if (mysql_get_ssl_server_cerfificate_info(&mysql,
+                                              subject_buf, sizeof(subject_buf),
+                                              issuer_buf, sizeof(issuer_buf))) {
+      tee_fprintf(stdout, "Server SSL Subject:\t%s\n", subject_buf);
+      tee_fprintf(stdout, "Server SSL Issuer:\t%s\n", issuer_buf);
+    } else {
+      tee_fprintf(stdout, "Server SSL Subject:\t%s\n", "unknown");
+      tee_fprintf(stdout, "Server SSL Issuer:\t%s\n", "unknown");
+    }
+  }
   else
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
     tee_puts("SSL:\t\t\tNot in use", stdout);
