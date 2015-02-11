@@ -20,12 +20,11 @@ private:
   char database_name[65];
   // Last gtid seen in the replication stream of the database_name.
   char last_gtid_string[Gtid::MAX_TEXT_LENGTH + 1];
-public:
   // Used to store the sidno and gno of the last_gtid_string.
   Gtid last_gtid;
   // Local sid_map of this class to compare Uuid strings.
   Sid_map *sid_map;
-
+public:
   inline void set_database_name(const char* db_arg)
   {
     strmake(database_name, db_arg, sizeof(database_name) -1);
@@ -34,7 +33,6 @@ public:
   inline void set_last_gtid(const char* gtid_string)
   {
     strmake(last_gtid_string, gtid_string, sizeof(last_gtid_string) - 1);
-    last_gtid.parse(sid_map, last_gtid_string);
   }
 
   inline const char *get_database_name()

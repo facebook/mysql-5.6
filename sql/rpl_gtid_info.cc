@@ -71,7 +71,8 @@ bool Gtid_info::flush_info(bool force)
   DBUG_RETURN(false);
 
 err:
-  sql_print_error("Error writing Gtid info configuration.");
+  sql_print_information("Error writing Gtid %s into "
+                        "mysql.slave_gtid_info table", last_gtid_string);
   DBUG_RETURN(true);
 }
 
