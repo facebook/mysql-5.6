@@ -2319,6 +2319,11 @@ struct LEX: public Query_tables_list
   */
   LEX_USER *definer;
 
+  /*
+    A list of dot-separated identifiers.
+  */
+  List<One_ident> dot_separated_ident_list;
+
   List<Key_part_spec> col_list;
   List<Key_part_spec> ref_list;
   /*
@@ -2610,6 +2615,7 @@ public:
 
   virtual ~LEX()
   {
+    dot_separated_ident_list.empty();
     destroy_query_tables_list();
     plugin_unlock_list(NULL, (plugin_ref *)plugins.buffer, plugins.elements);
     delete_dynamic(&plugins);

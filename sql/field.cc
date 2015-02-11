@@ -8482,7 +8482,10 @@ Field_document::store_internal(const char *from, uint length,
   }
 }
 
-// document's val_str will convert FBSON binary stored in the field to JSON
+
+/*
+ * Convert FBSON binary to JSON
+ */
 String *Field_document::val_str(String *val_buffer,
                                 String *val_ptr __attribute__((unused)))
 {
@@ -8506,10 +8509,468 @@ String *Field_document::val_str(String *val_buffer,
   return val_buffer;
 }
 
-// val_doc returns the FBSON binary directly (like Blob's val_str)
+
+/*
+ * Return the FBSON binary directly
+ */
 String *Field_document::val_doc(String *val_buffer, String *val_ptr)
 {
   return Field_blob::val_str(val_buffer, val_ptr);
+}
+
+
+double Field_document::val_real(void)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  return DBL_MAX;
+}
+
+
+longlong Field_document::val_int(void)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  return INT_MAX;
+}
+
+
+my_decimal *Field_document::val_decimal(my_decimal *decimal_value)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  return decimal_value;
+}
+
+
+/*
+ * Extracts fbson value from key path
+ * Input: key_path - the key path
+ * Output: FbsonValue object, NULL if path is invalid
+ */
+static fbson::FbsonValue*
+json_extract_fbsonvalue(List<Document_key>& key_path, /* in: the key path */
+                        fbson::FbsonValue *pval) /* in: fbson value object */
+{
+  DBUG_ASSERT(key_path.elements > 0);
+  List_iterator_fast<Document_key> it(key_path);
+  for (Document_key *key = NULL; (key= it++) && pval;)
+  {
+    DBUG_ASSERT(key->string.str != NULL);
+    if (pval->isObject())
+    {
+      /* If pavl is an object, this string will be treated as a key,
+         even it is a number */
+      if (key->string.str)
+        pval = ((fbson::ObjectVal*)pval)->find(key->string.str);
+      else
+        pval = nullptr;
+    }
+    else if (pval->isArray())
+    {
+      /* If pavl is an array, the key must be an index,
+         so it will be valid only if it is a number */
+      if (key->string.str && key->index >= 0)
+          pval = ((fbson::ArrayVal*)pval)->get(key->index);
+      else
+          pval = nullptr;
+    }
+    else
+      pval = nullptr;
+  }
+  return pval;
+}
+
+/*
+ * key_path : (in) the document path key path
+ * buff     : (in/out) the output buffer
+ * length   : (in) the length of buff
+ * val_len  : (out) the actual length of the output vlaue
+ * is_null  : (out) if the value is null
+ *
+ * return value : false: success; true: failure
+ */
+bool Field_document::document_path_val_binary(
+                                List<Document_key>& key_path,
+                                uchar *buff, uint length,
+                                uint& val_len, my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  DBUG_ASSERT(length > 0);
+
+  is_null = true;
+
+  char *blob = NULL;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return true; /* failure */
+
+  fbson::FbsonValue *val =
+      fbson::FbsonDocument::createValue(blob, get_length(ptr));
+
+  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+
+  if (!p || p->isNull())
+    return true; /* failure */
+
+  const char *payload = NULL;
+  is_null = false;
+  switch (p->type())
+  {
+  case fbson::FbsonType::T_Null:
+    val_len = 0;
+    break;
+
+  case fbson::FbsonType::T_True:
+    val_len = 1;
+    buff[0] = 1; /* return 1 as fbson true */
+    break;
+
+  case fbson::FbsonType::T_False:
+    val_len = 1;
+    buff[0] = 0; /* return 0 as fbson false */
+    break;
+
+  default:
+    val_len = p->size();
+    payload = p->getValuePtr();
+    if (payload && val_len > 0)
+    {
+      if (val_len > length)
+      {
+        val_len = length;
+
+        /* set warnings */
+        THD *thd= table ? table->in_use : current_thd;
+        if (thd->count_cuted_fields)
+          thd->cuted_fields++;
+        push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+                            WARN_DATA_TRUNCATED, ER(WARN_DATA_TRUNCATED),
+                            field_name,
+                            thd->get_stmt_da()->current_row_for_warning());
+      }
+      /* copy the binary image into the buffer */
+      memcpy(buff, payload, val_len);
+    }
+    else
+      is_null = true;
+  }
+  return false; /* success */
+}
+
+
+template<typename T>
+T Field_document::document_path_val_numeric(
+                                  List<Document_key>& key_path,
+                                  bool &valid_result, my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+
+  is_null = true;
+
+  valid_result = false;
+  char *blob = NULL;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return (T)0;
+
+  fbson::FbsonValue *val =
+    fbson::FbsonDocument::createValue(blob, get_length(ptr));
+
+  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+
+  if (!p || p->isNull())
+    return (T)0;
+
+  is_null = false;
+  valid_result = true;
+  switch (p->type())
+  {
+  case fbson::FbsonType::T_Int8:
+    return (T)((fbson::Int8Val*)p)->val();
+
+  case fbson::FbsonType::T_Int16:
+    return (T)((fbson::Int16Val*)p)->val();
+
+  case fbson::FbsonType::T_Int32:
+    return (T)((fbson::Int32Val*)p)->val();
+
+  case fbson::FbsonType::T_Int64:
+    return (T)((fbson::Int64Val*)p)->val();
+
+  case fbson::FbsonType::T_Double:
+    return (T)((fbson::DoubleVal*)p)->val();
+
+  default:
+    is_null = true;
+    valid_result = false;
+    break;
+  }
+  return 0;
+}
+
+
+/*
+ * Get date or time
+ * Return value:
+ *   false: success
+ *   true: failure
+ */
+bool Field_document::document_path_get_date_or_time(
+                                 List<Document_key>& key_path,
+                                 MYSQL_TIME *ltime, uint fuzzydate,
+                                 bool is_date, my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+
+  is_null = true;
+
+  char *blob = NULL;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return true;
+
+  fbson::FbsonValue *val =
+      fbson::FbsonDocument::createValue(blob, get_length(ptr));
+
+  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+
+  if (!p || p->isNull())
+    return true;
+
+  is_null = false;
+  longlong ll;
+  switch (p->type())
+  {
+  case fbson::FbsonType::T_Int8:
+    ll = (longlong)((fbson::Int8Val*)p)->val();
+    if (is_date)
+      return my_longlong_to_datetime_with_warn(ll, ltime, fuzzydate);
+    else
+      return my_longlong_to_time_with_warn(ll, ltime);
+
+  case fbson::FbsonType::T_Int16:
+    ll = (longlong)((fbson::Int16Val*)p)->val();
+    if (is_date)
+      return my_longlong_to_datetime_with_warn(ll, ltime, fuzzydate);
+    else
+      return my_longlong_to_time_with_warn(ll, ltime);
+
+  case fbson::FbsonType::T_Int32:
+    ll = (longlong)((fbson::Int32Val*)p)->val();
+    if (is_date)
+      return my_longlong_to_datetime_with_warn(ll, ltime, fuzzydate);
+    else
+      return my_longlong_to_time_with_warn(ll, ltime);
+
+  case fbson::FbsonType::T_Int64:
+    ll = (longlong)((fbson::Int64Val*)p)->val();
+    if (is_date)
+      return my_longlong_to_datetime_with_warn(ll, ltime, fuzzydate);
+    else
+      return my_longlong_to_time_with_warn(ll, ltime);
+
+  case fbson::FbsonType::T_Double:
+    ll = (longlong)((fbson::DoubleVal*)p)->val();
+    if (is_date)
+      return my_longlong_to_datetime_with_warn(ll, ltime, fuzzydate);
+    else
+      return my_longlong_to_time_with_warn(ll, ltime);
+
+  case fbson::FbsonType::T_String:
+  case fbson::FbsonType::T_Binary:
+    {
+      char buff[MAX_DATE_STRING_REP_LENGTH];
+      String str(buff,sizeof(buff),&my_charset_bin);
+
+      uint len = MAX_DATE_STRING_REP_LENGTH;
+      if (((fbson::StringVal*)p)->getBlobLen() < len)
+        len = ((fbson::StringVal*)p)->getBlobLen();
+
+      str.copy(((fbson::StringVal*)p)->getBlob(), len, charset());
+
+      if (is_date)
+        return str_to_datetime_with_warn(&str, ltime, fuzzydate);
+      else
+        return str_to_time_with_warn(&str, ltime);
+    }
+
+  default:
+    break;
+  }
+
+  is_null = true;
+  return true; /* failed */
+}
+
+
+/*
+ * Virtual functions for Field_document use only.
+ */
+String *Field_document::document_path_val_str(
+                                List<Document_key>& key_path,
+                                String *val_buffer, my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+
+  is_null = true;
+
+  /* Initially the output buffer is set to empty string,
+     but this function may return NULL.
+   */
+  val_buffer->copy("", 0, charset());
+
+  char *blob = NULL;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return NULL;
+
+  fbson::FbsonValue *val =
+      fbson::FbsonDocument::createValue(blob, get_length(ptr));
+
+  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+
+  if (!p || p->isNull())
+    return NULL;
+
+  char buf[128];
+  switch (p->type())
+  {
+  case fbson::FbsonType::T_Null:
+    return NULL;
+
+  case fbson::FbsonType::T_True:
+    sprintf(buf, "%s", "true");
+    break;
+
+  case fbson::FbsonType::T_False:
+    sprintf(buf, "%s", "false");
+    break;
+
+  case fbson::FbsonType::T_Int8:
+    sprintf(buf, "%d", (int)((fbson::Int8Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Int16:
+    sprintf(buf, "%d", (int)((fbson::Int16Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Int32:
+    sprintf(buf, "%d", (int32)((fbson::Int32Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Int64:
+    sprintf(buf, "%lld", (int64)((fbson::Int64Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Double:
+    sprintf(buf, "%.15g", (double)((fbson::DoubleVal*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_String:
+    val_buffer->copy(((fbson::StringVal*)p)->getBlob(),
+                     ((fbson::StringVal*)p)->getBlobLen(),
+                     charset());
+    is_null = false;
+    return val_buffer;
+
+  case fbson::FbsonType::T_Binary:
+  case fbson::FbsonType::T_Object:
+  case fbson::FbsonType::T_Array:
+    {
+      fbson::FbsonToJson to_json;
+      const char *ptr = to_json.json(p);
+      val_buffer->copy(ptr, strlen(ptr), charset());
+      is_null = false;
+      return val_buffer;
+    }
+
+  default:
+    /* should never reach here */
+    DBUG_ASSERT(0);
+    return NULL;
+  }
+
+  val_buffer->copy(buf, strlen(buf), charset());
+  is_null = false;
+  return val_buffer;
+}
+
+
+bool Field_document::document_path_val_doc(
+                                List<Document_key>& key_path,
+                                uchar *buff, uint length,
+                                uint& val_len, my_bool& is_null)
+{
+  return this->document_path_val_binary(
+                                key_path, buff, length, val_len, is_null);
+}
+
+
+longlong Field_document::document_path_val_int(
+                                 List<Document_key>& key_path,
+                                 my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  bool valid_result;
+  longlong ret = document_path_val_numeric<longlong>(
+                                 key_path, valid_result, is_null);
+  if (valid_result)
+    return ret;
+
+  return INT_MAX;
+}
+
+
+double Field_document::document_path_val_real(
+                                 List<Document_key>& key_path,
+                                 my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  bool valid_result;
+  double ret = document_path_val_numeric<double>(
+                                 key_path, valid_result, is_null);
+  if (valid_result)
+    return ret;
+
+  return DBL_MAX;
+}
+
+
+my_decimal *Field_document::document_path_val_decimal(
+                                 List<Document_key>& key_path,
+                                 my_decimal *decimal_value,
+                                 my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  double ret = document_path_val_real(key_path, is_null);
+  double2my_decimal(E_DEC_FATAL_ERROR, ret, decimal_value);
+  return decimal_value;
+}
+
+
+bool Field_document::document_path_get_date(
+                                 List<Document_key>& key_path,
+                                 MYSQL_TIME *ltime, uint fuzzydate,
+                                 my_bool& is_null)
+{
+  return document_path_get_date_or_time(key_path, ltime,
+                                        fuzzydate, true, is_null);
+}
+
+
+bool Field_document::document_path_get_time(
+                                 List<Document_key>& key_path,
+                                 MYSQL_TIME *ltime, my_bool& is_null)
+{
+  return document_path_get_date_or_time(key_path, ltime,
+                                        0, false, is_null);
+}
+
+bool Field_document::document_path_make_sort_key(
+                                 List<Document_key>& key_path,
+                                 uchar *buff, uint length,
+                                 uint& val_len, my_bool& is_null)
+{
+  return this->document_path_val_binary(key_path, buff, length,
+                                        val_len, is_null);
 }
 
 
@@ -10066,6 +10527,9 @@ bool Create_field::init(THD *thd, const char *fld_name,
     max_field_charlength= MAX_FIELD_VARCHARLENGTH;
     break;
   case MYSQL_TYPE_STRING:
+    break;
+  case MYSQL_TYPE_DOCUMENT_PATH:
+    DBUG_ASSERT(0);
     break;
   case MYSQL_TYPE_DOCUMENT:
     flags|= DOCUMENT_FLAG;
