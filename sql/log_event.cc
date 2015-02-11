@@ -12318,7 +12318,9 @@ Table_map_log_event::Table_map_log_event(THD *thd, TABLE *tbl,
               (tbl->s->db.str[tbl->s->db.length] == 0));
   DBUG_ASSERT(tbl->s->table_name.str[tbl->s->table_name.length] == 0);
 
-  if (tbl->triggers)
+  // Trigger changes are not logged if sql_log_bin_triggers is FALSE.
+  // In this case, slaves should execute triggers while applying row events.
+  if (tbl->triggers && thd->variables.sql_log_bin_triggers)
     m_flags |= TM_BIT_HAS_TRIGGERS_F;
 
   m_data_size=  TABLE_MAP_HEADER_LEN;
