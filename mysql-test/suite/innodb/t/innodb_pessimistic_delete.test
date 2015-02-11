@@ -1,2 +1,0 @@
---source include/have_nodebug.inc
---source suite/innodb/include/innodb_pessimistic_delete.inc
