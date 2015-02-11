@@ -51,6 +51,14 @@ dict_mem_fill_index_struct(
 		index->name = mem_heap_strdup(heap, index_name);
 		index->fields = (dict_field_t*) mem_heap_alloc(
 			heap, 1 + n_fields * sizeof(dict_field_t));
+
+		/* Initialize document path related data */
+		for (ulint i = 0; i < n_fields; i++) {
+			index->fields[i].is_document_path = false;
+			index->fields[i].document_path_type = 0;
+			index->fields[i].document_path_list = NULL;
+			index->fields[i].document_path_list_size = 0;
+		}
 	} else {
 		index->name = index_name;
 		index->heap = NULL;
