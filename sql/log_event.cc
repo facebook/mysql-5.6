@@ -7776,13 +7776,6 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                       rli_ptr->get_event_relay_log_name(),
                       rli_ptr->get_event_relay_log_pos()));
 
-  if ((error = rli_ptr->flush_gtid_infos(true)))
-    goto err;
-
-  DBUG_EXECUTE_IF("crash_after_update_pos_before_apply",
-                  sql_print_information("Crashing crash_after_update_pos_before_apply.");
-                  DBUG_SUICIDE(););
-
   /**
     Commit operation expects the global transaction state variable 'xa_state'to
     be set to 'XA_NOTR'. In order to simulate commit failure we set
@@ -7820,6 +7813,13 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                       rli_ptr->get_group_master_log_pos(),
                       rli_ptr->get_group_relay_log_name(),
                       rli_ptr->get_group_relay_log_pos()));
+
+  if ((error = rli_ptr->flush_gtid_infos(true)))
+    goto err;
+
+  DBUG_EXECUTE_IF("crash_after_update_pos_before_apply",
+                  sql_print_information("Crashing crash_after_update_pos_before_apply.");
+                  DBUG_SUICIDE(););
   mysql_mutex_unlock(&rli_ptr->data_lock);
   error= do_commit(thd);
   mysql_mutex_lock(&rli_ptr->data_lock);
