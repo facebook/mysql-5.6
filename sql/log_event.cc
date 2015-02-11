@@ -7762,31 +7762,36 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
     rli->report(ERROR_LEVEL, thd->get_stmt_da()->sql_errno(),
                 "Error in Xid_log_event: Commit could not be completed, '%s'",
                 thd->get_stmt_da()->message());
-
-    rli_ptr->set_group_master_log_name(saved_group_master_log_name);
-    rli_ptr->notify_group_master_log_name_update();
-    rli_ptr->set_group_master_log_pos(saved_group_master_log_pos);
-    rli_ptr->set_group_relay_log_name(saved_group_relay_log_name);
-    rli_ptr->notify_group_relay_log_name_update();
-    rli_ptr->set_group_relay_log_pos(saved_group_relay_log_pos);
-
-    DBUG_PRINT("info", ("Rolling back to group master %s %llu  group relay %s"
-                        " %llu\n", rli_ptr->get_group_master_log_name(),
-                        rli_ptr->get_group_master_log_pos(),
-                        rli_ptr->get_group_relay_log_name(),
-                        rli_ptr->get_group_relay_log_pos()));
-
-    /*
-      If relay log repository is TABLE, we do not have to revert back to
-      original positions in TABLE, since the new position changes will not be
-      persisted in TABLE with failed commit; In case of FILE, we need to
-      revert back the new positions, hence we need to flush original positions
-      into FILE.
-    */
-    if (!rli_ptr->is_transactional())
-      rli_ptr->flush_info(false);
+    goto err;
   }
+
+  goto end;
+
 err:
+  rli_ptr->set_group_master_log_name(saved_group_master_log_name);
+  rli_ptr->notify_group_master_log_name_update();
+  rli_ptr->set_group_master_log_pos(saved_group_master_log_pos);
+  rli_ptr->set_group_relay_log_name(saved_group_relay_log_name);
+  rli_ptr->notify_group_relay_log_name_update();
+  rli_ptr->set_group_relay_log_pos(saved_group_relay_log_pos);
+
+  DBUG_PRINT("info", ("Rolling back to group master %s %llu  group relay %s"
+                      " %llu\n", rli_ptr->get_group_master_log_name(),
+                      rli_ptr->get_group_master_log_pos(),
+                      rli_ptr->get_group_relay_log_name(),
+                      rli_ptr->get_group_relay_log_pos()));
+
+  /*
+    If relay log repository is TABLE, we do not have to revert back to
+    original positions in TABLE, since the new position changes will not be
+    persisted in TABLE with failed commit; In case of FILE, we need to
+    revert back the new positions, hence we need to flush original positions
+    into FILE.
+  */
+  if (!rli_ptr->is_transactional())
+    rli_ptr->flush_info(false);
+
+end:
   mysql_cond_broadcast(&rli_ptr->data_cond);
   mysql_mutex_unlock(&rli_ptr->data_lock);
 
