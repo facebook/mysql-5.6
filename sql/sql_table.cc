@@ -4040,13 +4040,61 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	  }
 	}
 
-	/*
-	  Indexes on a column with document type is not supported yet.
-	*/
 	if (sql_field->sql_type == MYSQL_TYPE_DOCUMENT)
 	{
-          my_error(ER_DOCUMENT_KEY_NOT_SUPPORTED, MYF(0), column->field_name.str);
-          DBUG_RETURN(TRUE);
+          if (!column->is_document_path_key())
+          {
+            /* Indexing on a document field directly is not allowed */
+            my_error(ER_DOCUMENT_KEY_NOT_SUPPORTED,
+                     MYF(0), column->field_name.str);
+            DBUG_RETURN(TRUE);
+          }
+
+          /* A document virutal key only can be unique or multiple */
+          if (key->type == Key::UNIQUE)
+            key->type = Key::VIRTUAL_UNIQUE;
+          else if (key->type == Key::MULTIPLE)
+            key->type = Key::VIRTUAL_MULTIPLE;
+          else
+          {
+            my_error(ER_DOCUMENT_PATH_KEY_ONLY_CAN_BE_UNIQUE_OR_MULTIPLE,
+                     MYF(0), column->field_name.str);
+            DBUG_RETURN(TRUE);
+          }
+
+          /* the DOCUMENT_PATH_KEY_PART_INFO */
+          DBUG_ASSERT(column->document_path_size() >= 2);
+          key_part_info->document_path_key_part =
+            (DOCUMENT_PATH_KEY_PART_INFO*)sql_calloc(
+                                  sizeof(DOCUMENT_PATH_KEY_PART_INFO));
+
+          if (!key_part_info->document_path_key_part)
+            DBUG_RETURN(TRUE); // Out of memory
+
+          /* save the document path type and length */
+          key_part_info->document_path_key_part->type =
+            column->document_path_key_spec.type.type;
+
+          key_part_info->document_path_key_part->length =
+            column->document_path_key_spec.type.length;
+
+          /* the document path names */
+          key_part_info->document_path_key_part->names = (char**)
+            sql_calloc(sizeof(char*)*column->document_path_size());
+
+          if (!key_part_info->document_path_key_part->names)
+            DBUG_RETURN(TRUE); // Out of memory
+
+          /* the number of document path key names */
+          key_part_info->document_path_key_part->number_of_names =
+            column->document_path_size();
+
+          /* save the document path key names */
+          char **s = key_part_info->document_path_key_part->names;
+          List_iterator<LEX_STRING>
+            it(column->document_path_key_spec.list);
+          for (LEX_STRING *p = NULL; (p = it++);)
+            *s++ = p->str;
 	}
 
 #ifdef HAVE_SPATIAL
@@ -4143,6 +4191,7 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
 	}
         // Catch invalid use of partial keys 
 	else if (!f_is_geom(sql_field->pack_flag) &&
+                 !f_is_document(sql_field->pack_flag) &&
                  // is the key partial? 
                  column->length != key_part_length &&
                  // is prefix length bigger than field length? 
@@ -4164,8 +4213,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
       }
       else if (key_part_length == 0)
       {
-	my_error(ER_WRONG_KEY_COLUMN, MYF(0), column->field_name.str);
-	  DBUG_RETURN(TRUE);
+        my_error(ER_WRONG_KEY_COLUMN, MYF(0), column->field_name.str);
+        DBUG_RETURN(TRUE);
       }
       if (key_part_length > file->max_key_part_length() &&
           key->type != Key::FULLTEXT)
@@ -7358,9 +7407,50 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
 	  key_part_length= 0;			// Use whole field
       }
       key_part_length /= key_part->field->charset()->mbmaxlen;
-      key_parts.push_back(new Key_part_spec(cfield->field_name,
-                                            strlen(cfield->field_name),
-					    key_part_length));
+
+      /* it is a document path key part  */
+      if (key_part->document_path_key_part)
+      {
+        uint number_of_names =
+          key_part->document_path_key_part->number_of_names;
+
+        LEX_STRING *names = (LEX_STRING *)
+          sql_calloc(sizeof(LEX_STRING) * number_of_names);
+
+        List<LEX_STRING> name_list;
+        for (uint i = 0; i < number_of_names; i++)
+        {
+          names[i].str = key_part->document_path_key_part->names[i];
+          names[i].length = strlen(names[i].str);
+          name_list.push_back(&names[i]);
+        }
+
+        enum_field_types type = key_part->document_path_key_part->type;
+        uint len = key_part->document_path_key_part->length;
+
+        DBUG_ASSERT((type == MYSQL_TYPE_LONGLONG && len == 8) ||
+                    (type == MYSQL_TYPE_DOUBLE && len == 8) ||
+                    (type == MYSQL_TYPE_TINY && len == 1) ||
+                    (type == MYSQL_TYPE_STRING) ||
+                    (type == MYSQL_TYPE_BLOB));
+
+        Document_path_key_spec_type dp_spec_type(type, len);
+
+        Document_path_key_spec *dp_spec =
+          new Document_path_key_spec(name_list, dp_spec_type);
+
+        LEX_STRING field_name;
+        field_name.str = (char*)cfield->field_name;
+        field_name.length = strlen(cfield->field_name);
+
+        key_parts.push_back(new Key_part_spec(field_name, *dp_spec));
+      }
+      else
+      {
+        key_parts.push_back(new Key_part_spec(cfield->field_name,
+                                              strlen(cfield->field_name),
+                                              key_part_length));
+      }
     }
     if (key_parts.elements)
     {

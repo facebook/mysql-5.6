@@ -9898,8 +9898,22 @@ found:
 
 		field_lengths[i] = key_part->length;
 
-		dict_mem_index_add_field(
-			index, key_part->field->field_name, prefix_len);
+		if (key_part->document_path_key_part)
+		{
+		  DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
+
+		  dict_mem_index_add_document_path(
+		    index,
+		    prefix_len,
+		    key_part->document_path_key_part->type,
+		    key_part->document_path_key_part->names,
+		    key_part->document_path_key_part->number_of_names);
+		}
+		else
+		{
+		  dict_mem_index_add_field(
+		    index, key_part->field->field_name, prefix_len);
+		}
 	}
 
 	ut_ad(key->flags & HA_FULLTEXT || !(index->type & DICT_FTS));

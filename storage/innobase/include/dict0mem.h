@@ -395,6 +395,21 @@ dict_mem_index_add_field(
 	ulint		prefix_len);	/*!< in: 0 or the column prefix length
 					in a MySQL index like
 					INDEX (textcol(25)) */
+
+/**********************************************************************//**
+									*/
+UNIV_INTERN
+void
+dict_mem_index_add_document_path(
+/*=====================*/
+	dict_index_t*	index,		/*!< in: index */
+	ulint		prefix_len,	/*!< in: 0 or the column prefix length
+					in a MySQL index like
+					INDEX (textcol(25)) */
+	unsigned document_path_type,	/*!< in: column type */
+	char** document_path_list,	/*!< in: column names */
+	uint document_path_list_len);	/*!< in: column names count */
+
 /**********************************************************************//**
 Frees an index memory object. */
 UNIV_INTERN
@@ -549,6 +564,16 @@ struct dict_field_t{
 	unsigned	fixed_len:10;	/*!< 0 or the fixed length of the
 					column if smaller than
 					DICT_ANTELOPE_MAX_INDEX_COL_LEN */
+	bool		is_document_path;
+					/*!< if this field is a document
+					path */
+	unsigned	document_path_type;
+					/*!< the data type of this document
+					path */
+	char**		document_path_list;
+					/*!< document path list */
+	unsigned	document_path_list_size;
+					/*!< document path list size */
 };
 
 /**********************************************************************//**

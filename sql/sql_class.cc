@@ -100,11 +100,13 @@ extern "C" void free_user_var(user_var_entry *entry)
   entry->destroy();
 }
 
-bool Key_part_spec::operator==(const Key_part_spec& other) const
+
+bool Key_part_spec::operator==(Key_part_spec& other)
 {
   return length == other.length &&
          !my_strcasecmp(system_charset_info, field_name.str,
-                        other.field_name.str);
+                        other.field_name.str) &&
+          document_path_key_spec == other.document_path_key_spec;
 }
 
 /**
@@ -179,7 +181,7 @@ bool foreign_key_prefix(Key *a, Key *b)
 
   List_iterator<Key_part_spec> col_it1(a->columns);
   List_iterator<Key_part_spec> col_it2(b->columns);
-  const Key_part_spec *col1, *col2;
+  Key_part_spec *col1, *col2;
 
 #ifdef ENABLE_WHEN_INNODB_CAN_HANDLE_SWAPED_FOREIGN_KEY_COLUMNS
   while ((col1= col_it1++))

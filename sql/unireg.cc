@@ -623,6 +623,7 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
   uchar *pos, *keyname_pos;
   KEY *key,*end;
   KEY_PART_INFO *key_part,*key_part_end;
+  bool document_path_keys_exist = false;
   DBUG_ENTER("pack_keys");
 
   pos=keybuff+6;
@@ -645,9 +646,16 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
 	 key_part++)
 
     {
+      /* there are document path keys */
+      if (key_part->document_path_key_part)
+      {
+        document_path_keys_exist = true;
+        DBUG_ASSERT(f_is_document(key_part->key_type));
+      }
+
       uint offset;
       DBUG_PRINT("loop",("field: %d  startpos: %lu  length: %d",
-			 key_part->fieldnr, key_part->offset + data_offset,
+                         key_part->fieldnr, key_part->offset + data_offset,
                          key_part->length));
       int2store(pos,key_part->fieldnr+1+FIELD_NAME_USED);
       offset= (uint) (key_part->offset+data_offset+1);
@@ -669,6 +677,77 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
     pos=tmp;
   }
   *(pos++)=0;
+
+  /* Save document path keys */
+  if (document_path_keys_exist)
+  {
+    for (key=keyinfo,end=keyinfo+key_count; key != end; key++)
+    {
+      for (key_part=key->key_part,
+             key_part_end= key_part + key->user_defined_key_parts;
+           key_part != key_part_end;
+           key_part++)
+      {
+        if (!key_part->document_path_key_part)
+          continue;
+
+        /* all the document paths of a document path key are grouped together,
+           it starts with a letter of type, followed by document path
+           names separated with '\377', end with '\377''\377''\0'
+        */
+
+        *pos++=(uchar) NAMES_SEP_CHAR;
+
+        /* the type of the document path key part */
+        char c[2];
+        c[1] = '\0';
+        switch (key_part->document_path_key_part->type)
+        {
+        case MYSQL_TYPE_LONGLONG:
+          c[0] = 'L'; break;
+        case MYSQL_TYPE_DOUBLE:
+          c[0] = 'D'; break;
+        case MYSQL_TYPE_TINY:
+          c[0] = 'T'; break;
+        case MYSQL_TYPE_STRING:
+          c[0] = 'S'; break;
+        case MYSQL_TYPE_BLOB:
+          c[0] = 'B'; break;
+        default:
+          DBUG_ASSERT(0);
+        }
+        pos=(uchar*) strmov((char*)pos, c);
+        *pos++= (uchar) NAMES_SEP_CHAR;
+
+        /* the original key part length */
+        int2store(pos,key_part->document_path_key_part->length);
+        pos += 2;
+        *pos++= (uchar) NAMES_SEP_CHAR;
+
+        /* the number of document paths for this document path key part */
+        DBUG_ASSERT(key_part->document_path_key_part->number_of_names >= 2);
+        int2store(pos,key_part->document_path_key_part->number_of_names);
+        pos += 2;
+        *pos++= (uchar) NAMES_SEP_CHAR;
+
+        /* all the document path key names for this key part */
+        DBUG_ASSERT(key_part->document_path_key_part->number_of_names >= 2);
+        for (uint i = 0;
+             i < key_part->document_path_key_part->number_of_names; i++)
+        {
+          pos=(uchar*) strmov((char*)pos,
+                              key_part->document_path_key_part->names[i]);
+          *pos++= (uchar) NAMES_SEP_CHAR;
+        }
+
+        /* two consecutive NAMES_SET_CHAR as the delimiter
+           for two virutal key parts */
+        *pos++= (uchar) NAMES_SEP_CHAR;
+      }
+    }
+    *(pos++)=0;
+  }
+
   for (key=keyinfo,end=keyinfo+key_count ; key != end ; key++)
   {
     if (key->flags & HA_USES_COMMENT)

@@ -209,17 +209,113 @@ typedef struct st_user_var_events
 } BINLOG_USER_VAR_EVENT;
 
 
+class Document_path_key_spec_type :public Sql_alloc {
+public:
+  Document_path_key_spec_type()
+    : type(MYSQL_TYPE_NULL),
+      length(0)
+  {}
+
+  Document_path_key_spec_type(enum_field_types t, uint len)
+    : type(t),
+      length(len)
+  {}
+
+  bool operator==(Document_path_key_spec_type& other)
+  {
+    return (type == other.type && length == other.length);
+  }
+
+  /*
+    the key types and key lengths are:
+      MYSQL_TYPE_LONGLONG : 8
+      MYSQL_TYPE_DOUBLE : 8
+      MYSQL_TYPE_TINY : 1
+      MYSQL_TYPE_STRING : 64 (default)
+      MYSQL_TYPE_BLOB : 64 (default)
+  */
+  enum_field_types type;
+
+  /*
+    the length of the key, can be set for STRING and BOLB,
+    default is 64
+  */
+  uint length;
+};
+
+class Document_path_key_spec :public Sql_alloc {
+public:
+  Document_path_key_spec() {}
+
+  Document_path_key_spec(List<LEX_STRING>& l,
+                         Document_path_key_spec_type& t)
+    : type(t)
+  {
+    DBUG_ASSERT(l.elements >= 2);
+    List_iterator_fast<LEX_STRING> it(l);
+    for (LEX_STRING *str= NULL; (str= it++);)
+      list.push_back(str);
+  }
+
+  bool operator==(Document_path_key_spec& other)
+  {
+    if (type == other.type && list.elements == other.list.elements)
+    {
+      if (list.elements == 0)
+        return true;
+
+      List_iterator_fast<LEX_STRING> it1(list);
+      List_iterator_fast<LEX_STRING> it2(other.list);
+      LEX_STRING *s1 = NULL, *s2 = NULL;
+      for (;(s1 = it1++) && (s2 = it2++);)
+      {
+        if (my_strcasecmp(system_charset_info, s1->str, s2->str))
+        {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  List<LEX_STRING> list;
+
+  Document_path_key_spec_type type;
+};
+
+
 class Key_part_spec :public Sql_alloc {
 public:
   LEX_STRING field_name;
   uint length;
+  Document_path_key_spec document_path_key_spec;
   Key_part_spec(const LEX_STRING &name, uint len)
     : field_name(name), length(len)
   {}
   Key_part_spec(const char *name, const size_t name_len, uint len)
     : length(len)
   { field_name.str= (char *)name; field_name.length= name_len; }
-  bool operator==(const Key_part_spec& other) const;
+
+  Key_part_spec(const LEX_STRING& name,
+                Document_path_key_spec& spec)
+    : field_name(name),
+      document_path_key_spec(spec.list, spec.type)
+  {
+    length = document_path_key_spec.type.length;
+  }
+
+  uint document_path_size()
+  {
+    return (document_path_key_spec.list.elements);
+  }
+
+  bool is_document_path_key()
+  {
+    return (document_path_size() >= 2);
+  }
+
+  bool operator==(Key_part_spec& other);
   /**
     Construct a copy of this Key_part_spec. field_name is copied
     by-pointer as it is known to never change. At the same time
@@ -270,7 +366,8 @@ public:
 
 class Key :public Sql_alloc {
 public:
-  enum Keytype { PRIMARY, UNIQUE, MULTIPLE, FULLTEXT, SPATIAL, FOREIGN_KEY};
+  enum Keytype { PRIMARY, UNIQUE, MULTIPLE, FULLTEXT, SPATIAL, FOREIGN_KEY,
+                 VIRTUAL_UNIQUE, VIRTUAL_MULTIPLE};
   enum Keytype type;
   KEY_CREATE_INFO key_create_info;
   List<Key_part_spec> columns;
@@ -586,6 +683,7 @@ typedef struct system_variables
 
   my_bool use_fbson_output_format;
   my_bool sql_log_bin_triggers;
+
 } SV;
 
 
@@ -3683,6 +3781,15 @@ public:
     is_slave_error= 0;
     DBUG_VOID_RETURN;
   }
+  /**
+    Clear the current warning info.
+  */
+  inline void clear_warning()
+  {
+    DBUG_ENTER("clear_warning");
+    get_stmt_da()->clear_warning_info();
+    DBUG_VOID_RETURN;
+  }
 #ifndef EMBEDDED_LIBRARY
   inline bool vio_ok() const { return net.vio != 0; }
   /** Return FALSE if connection to client is broken. */
@@ -5102,6 +5209,8 @@ typedef struct st_sort_field {
   Item_result result_type;		/* Type of item */
   bool reverse;				/* if descending sort */
   bool need_strxnfrm;			/* If we have to use strxnfrm() */
+  bool document_path;                  /* If it is a documen path */
+  List<Document_key> *document_path_keys;/* The keys for a document path*/
 } SORT_FIELD;
 
 

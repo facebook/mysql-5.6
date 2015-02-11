@@ -1015,6 +1015,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   uchar *extra_segment_buff= 0;
   const uint format_section_header_size= 8;
   uchar *format_section_fields= 0;
+  uint document_path_key_parts = 0;
   DBUG_ENTER("open_binary_frm");
 
   new_field_pack_flag= head[27];
@@ -1175,6 +1176,10 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
 	key_part->key_part_flag= *(strpos+4);
 	key_part->length=	(uint) uint2korr(strpos+7);
 	strpos+=9;
+
+        /* Document path key part */
+        if (f_is_document(key_part->key_type))
+          document_path_key_parts++;
       }
       else
       {
@@ -1210,6 +1215,136 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   }
   keynames=(char*) key_part;
   strpos+= (strmov(keynames, (char *) strpos) - keynames)+1;
+
+  /* read and parse document path fields for virutal key parts */
+  if (document_path_key_parts > 0 && new_frm_ver >= 3)
+  {
+    keyinfo = share->key_info;
+    for (i=0; i < keys; i++, keyinfo++)
+    {
+      key_part = keyinfo->key_part;
+      for (j=0; j < keyinfo->user_defined_key_parts; j++, key_part++)
+      {
+        if (!f_is_document(key_part->key_type))
+          continue;
+
+        /* the document path key part structure */
+        key_part->document_path_key_part = (DOCUMENT_PATH_KEY_PART_INFO *)
+          alloc_root(&share->mem_root, sizeof(DOCUMENT_PATH_KEY_PART_INFO));
+
+        if (!key_part->document_path_key_part)
+          goto err;
+
+        memset(key_part->document_path_key_part,
+               0, sizeof(DOCUMENT_PATH_KEY_PART_INFO));
+
+        DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
+        strpos++;
+
+        /* the type of the document path key part */
+        enum_field_types type;
+        switch (*strpos++)
+        {
+        case 'L':
+          type = MYSQL_TYPE_LONGLONG;
+          break;
+        case 'D':
+          type = MYSQL_TYPE_DOUBLE;
+          break;
+        case 'T':
+          type = MYSQL_TYPE_TINY;
+          break;
+        case 'S':
+          type = MYSQL_TYPE_STRING;
+          break;
+        case 'B':
+          type = MYSQL_TYPE_BLOB;
+          break;
+        default:
+          type = MYSQL_TYPE_NULL;
+          DBUG_ASSERT(0);
+        }
+        key_part->document_path_key_part->type = type;
+
+        DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
+        strpos++;
+
+        /* the original key part length */
+        key_part->document_path_key_part->length=
+          (uint) uint2korr(strpos);
+        DBUG_ASSERT(key_part->document_path_key_part->length > 0);
+        strpos+=2;
+
+        DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
+        strpos++;
+
+        /* the number of document paths for this document path key part */
+        key_part->document_path_key_part->number_of_names=
+          (uint) uint2korr(strpos);
+        DBUG_ASSERT(key_part->document_path_key_part->number_of_names >= 2);
+        strpos+=2;
+
+        uint names_size =
+          sizeof(char *) * key_part->document_path_key_part->number_of_names;
+
+        key_part->document_path_key_part->names =
+          (char **)alloc_root(&share->mem_root, names_size);
+
+        if (!key_part->document_path_key_part->names)
+          goto err;
+
+        memset(key_part->document_path_key_part->names, 0, names_size);
+
+        DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
+        strpos++;
+
+        uint idx = 0;
+        for (;idx < key_part->document_path_key_part->number_of_names;idx++)
+        {
+          char *name_start = (char *)strpos;
+          while (*((uchar *)strpos) != (uchar) NAMES_SEP_CHAR)
+            strpos++;
+
+          uint name_len = ((char *)strpos - name_start);
+          key_part->document_path_key_part->names[idx]=
+            (char *)alloc_root(&share->mem_root, name_len + 1);
+
+          if (!key_part->document_path_key_part->names[idx])
+            goto err;
+
+          memcpy(key_part->document_path_key_part->names[idx],
+                 name_start, name_len);
+          *(key_part->document_path_key_part->names[idx] + name_len)= '\0';
+
+          /* the NAMES_SEP_CHAR for this document path */
+          DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
+          strpos++;
+
+          /* the next char is still NAES_SEP_CHAR so we have seen two
+             consecutive NAMES_SEP_CHAR so the virutal key for this
+             document path key part is ended
+          */
+          if (*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR)
+          {
+            strpos++;
+            break;
+          }
+        }
+        DBUG_ASSERT(idx ==
+                    key_part->document_path_key_part->number_of_names - 1);
+
+        /* we have extracted all the document paths of the document path key
+           parts for this key so now we can restore the original key_type */
+        DBUG_ASSERT(f_is_document(key_part->key_type));
+
+        document_path_key_parts--;
+
+      } /* completed iterating all the key parts for a given key*/
+
+    } /* completed iterating all the keys */
+
+    DBUG_ASSERT(document_path_key_parts == 0);
+  }
 
   //reading index comments
   for (keyinfo= share->key_info, i=0; i < keys; i++, keyinfo++)
@@ -1873,6 +2008,19 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         }
         field= key_part->field= share->field[key_part->fieldnr-1];
         key_part->type= field->key_type();
+
+        /* sanity check for document path key part */
+        if (field->type() == MYSQL_TYPE_DOCUMENT)
+        {
+          /* since a field with document type cannot be a key part
+             so this must a document path key part */
+          DBUG_ASSERT(key_part->document_path_key_part &&
+            key_part->document_path_key_part->number_of_names >= 2 &&
+            strcmp(key_part->document_path_key_part->names[0],
+                   field->field_name) == 0);
+          /* the document path flag has been removed */
+          DBUG_ASSERT(f_is_document(key_part->key_type));
+        }
         if (field->real_maybe_null())
         {
           key_part->null_offset=field->null_offset(share->default_values);
@@ -1881,6 +2029,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           keyinfo->flags|=HA_NULL_PART_KEY;
           keyinfo->key_length+= HA_KEY_NULL_LENGTH;
         }
+        /* DO NOT check MYSQL_TYPE_DOCUMENT below
+           for document path key parts */
         if (field->type() == MYSQL_TYPE_BLOB ||
             field->real_type() == MYSQL_TYPE_VARCHAR ||
             field->type() == MYSQL_TYPE_GEOMETRY)
@@ -2249,6 +2399,17 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
            key_part < key_part_end ;
            key_part++)
       {
+        /* sanity check for document path key part */
+        if (f_is_document(key_part->key_type))
+        {
+          DBUG_ASSERT(key_part->fieldnr > 0 &&
+               key_part->field->type() == MYSQL_TYPE_DOCUMENT &&
+               key_part->document_path_key_part &&
+               key_part->document_path_key_part->number_of_names >= 2 &&
+               strcmp(key_part->document_path_key_part->names[0],
+                      key_part->field->field_name) == 0);
+        }
+
         Field *field= key_part->field= outparam->field[key_part->fieldnr-1];
 
         if (field->key_length() != key_part->length &&

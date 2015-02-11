@@ -312,6 +312,11 @@ private:
   void clear(ulonglong new_id);
 
   /**
+    Reset the warning information without changing id.
+  */
+  void clear();
+
+  /**
     Only clear warning info if haven't yet done that already
     for the current query. Allows to be issued at any time
     during the query, without risk of clearing some warnings
@@ -714,6 +719,9 @@ public:
 
   void clear_warning_info(ulonglong id)
   { get_warning_info()->clear(id); }
+
+  void clear_warning_info()
+  { get_warning_info()->clear(); }
 
   void opt_clear_warning_info(ulonglong query_id)
   { get_warning_info()->opt_clear(query_id); }

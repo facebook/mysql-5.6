@@ -603,6 +603,12 @@ bool Warning_info::has_sql_condition(const char *message_str,
 void Warning_info::clear(ulonglong new_id)
 {
   id(new_id);
+  clear();
+}
+
+
+void Warning_info::clear()
+{
   m_warn_list.empty();
   m_marked_sql_conditions.empty();
   free_root(&m_warn_root, MYF(0));
