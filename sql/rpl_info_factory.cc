@@ -567,6 +567,8 @@ bool Rpl_info_factory::init_gtid_info_repository(Relay_log_info *rli)
 {
   DBUG_ENTER("Rpl_info_factory::init_gtid_info_repository");
 
+  my_hash_reset(&rli->map_db_to_gtid_info);
+  rli->gtid_info_next_id = 0;
   if (gtid_mode > 0)
   {
     uint i = 0;
@@ -577,14 +579,22 @@ bool Rpl_info_factory::init_gtid_info_repository(Relay_log_info *rli)
       {
         DBUG_RETURN(true);
       }
-      else if (*gtid_info->get_database_name() == 0)
+      enum enum_return_check check_info;
+      check_info = gtid_info->check_info();
+      if (check_info == REPOSITORY_DOES_NOT_EXIST)
       {
         gtid_info->end_info();
         delete gtid_info;
         break;
       }
+      else if (check_info == ERROR_CHECKING_REPOSITORY)
+      {
+        sql_print_information("Error checking slave_gtid_info repository");
+        DBUG_RETURN(true);
+      }
       else
       {
+        rli->gtid_info_next_id = gtid_info->internal_id;
         rli->gtid_info_hash_wrlock();
         my_hash_insert(&rli->map_db_to_gtid_info, (uchar *) gtid_info);
         rli->gtid_info_hash_unlock();
