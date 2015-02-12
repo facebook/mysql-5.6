@@ -3185,7 +3185,8 @@ int Log_event::apply_event(Relay_log_info *rli)
   // OVER_MAX_DBS_IN_EVENT_MTS is used for special queries like 'flush tables'
   // which don't need to be crash safe.
   if ((rli->part_event = contains_partition_info(false)) && gtid_mode > 0 &&
-      get_mts_dbs(&mts_dbs) != OVER_MAX_DBS_IN_EVENT_MTS)
+      get_mts_dbs(&mts_dbs) != OVER_MAX_DBS_IN_EVENT_MTS &&
+      rli != thd->rli_fake)
   {
     for (int i = 0; i < mts_dbs.num; ++i)
     {
@@ -3203,13 +3204,17 @@ int Log_event::apply_event(Relay_log_info *rli)
            db_name. Create a new repository for this database.
         */
         if (!(gtid_info = Rpl_info_factory::create_gtid_info(
-                            rli->map_db_to_gtid_info.records)))
+                            rli->gtid_info_next_id)))
         {
           sql_print_error("Error creating gtid_info\n");
           break;
         }
+        rli->gtid_info_next_id++;
         // Set the gtid_info database and insert into the global hash.
         gtid_info->set_database_name(db_name);
+        // Avoids slave workers writing to empty slave_gtid_info table
+        // causing timeout errors.
+        gtid_info->flush_info(true);
         rli->gtid_info_hash_wrlock();
         my_hash_insert(&rli->map_db_to_gtid_info, (uchar*) gtid_info);
         rli->gtid_info_hash_unlock();
@@ -3266,7 +3271,7 @@ int Log_event::apply_event(Relay_log_info *rli)
     }
   }
 
-  if (is_row_log_event())
+  if (is_row_log_event() && rli != thd->rli_fake)
   {
     Rows_log_event *row_ev = (Rows_log_event *) this;
     if (seq_execution && !rli->gtid_infos.elements &&

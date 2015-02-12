@@ -182,6 +182,8 @@ public:
   bool gtid_info_hash_inited;
   bool part_event;  // true if the current event contains partition event.
   bool ends_group;
+  // next available id for new gtid info
+  uint gtid_info_next_id;
 
   /* The following variables are safe to read any time */
 

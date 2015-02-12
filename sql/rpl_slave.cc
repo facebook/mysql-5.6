@@ -432,13 +432,6 @@ int init_slave()
     goto err;
   }
 
-  if ((error = Rpl_info_factory::init_gtid_info_repository(rli) ))
-  {
-    sql_print_error("Error creating gtid_info\n");
-    error = 1;
-    goto err;
-  }
-
   /*
     This is the startup routine and as such we try to
     configure both the SLAVE_SQL and SLAVE_IO.
@@ -5847,6 +5840,14 @@ pthread_handler_t handle_slave_sql(void *arg)
     mysql_mutex_unlock(&rli->run_lock);
     rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR, 
                 "Failed during slave workers initialization");
+    goto err;
+  }
+  if (Rpl_info_factory::init_gtid_info_repository(rli))
+  {
+    mysql_cond_broadcast(&rli->start_cond);
+    mysql_mutex_unlock(&rli->run_lock);
+    rli->report(ERROR_LEVEL, ER_SLAVE_FATAL_ERROR,
+                "Error creating gtid_info");
     goto err;
   }
   /*

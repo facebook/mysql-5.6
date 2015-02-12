@@ -5,9 +5,15 @@ Note	####	Storing MySQL user name or password information in the master info rep
 [connection master]
 create table t1 (a int) engine=innodb;
 insert into t1 values(1);
+create database test2;
+create table test2.t2 (b int);
+create database test3;
+create table test3.t3 (b int);
 select * from mysql.slave_gtid_info;
 Id	Database_name	Last_gtid
 1	test	uuid:2
+2	test2	uuid:4
+3	test3	uuid:6
 begin;
 delete from mysql.slave_gtid_info;
 insert into t1 values(2);
@@ -41,9 +47,22 @@ a
 5
 select * from mysql.slave_gtid_info;
 Id	Database_name	Last_gtid
-1	test	uuid:6
+1	test	uuid:10
+insert into test2.t2 values(1);
+insert into test3.t3 values(1);
+include/stop_slave.inc
+delete from mysql.slave_gtid_info where Id=2;
+include/start_slave.inc
+insert into test2.t2 values(1);
+select * from mysql.slave_gtid_info;
+Id	Database_name	Last_gtid
+1	test	uuid:10
+3	test3	uuid:12
+4	test2	uuid:13
 include/stop_slave.inc
 set @@global.slave_parallel_workers=0;
 include/start_slave.inc
+drop database test2;
+drop database test3;
 drop table t1;
 include/rpl_end.inc
