@@ -94,7 +94,7 @@ my $option_defaults_group = 'mysqld';
 my $option_no_timestamp = '';
 my $option_slave_info = '';
 my $option_galera_info = '';
-my $option_no_lock = '';
+my $option_no_lock = 1;
 my $option_ibbackup_binary = 'autodetect';
 
 my $option_defaults_file = '';
@@ -245,7 +245,7 @@ if ($option_copy_back || $option_move_back) {
     $option_ibbackup_binary = 'xtrabackup' if ($option_ibbackup_binary eq 'autodetect');
 } elsif ($option_apply_log) {
 	# Read XtraBackup version from backup dir
-	if (-e "$backup_dir/$xtrabackup_binary_file") {
+	if ($option_ibbackup_binary eq 'autodetect' and -e "$backup_dir/$xtrabackup_binary_file") {
 		# Read XtraBackup version from file
 		open XTRABACKUP_BINARY, "$backup_dir/$xtrabackup_binary_file"
 			or die "Cannot open file $backup_dir/$xtrabackup_binary_file: $!\n";
@@ -410,15 +410,6 @@ sub backup {
       wait_for_safe_slave();
     }
 
-    # flush tables with read lock
-    if (!$option_no_lock) {
-        # make a prep copy before locking tables, if using rsync
-        backup_files(1);
-
-        # flush tables with read lock
-        mysql_lockall();
-    }
-
     if ($option_slave_info) {
         write_slave_info();
     }
@@ -430,9 +421,6 @@ sub backup {
 
     # resume ibbackup and wait till log copying is finished
     resume_ibbackup();
-
-    # release read locks on all tables
-    mysql_unlockall() if !$option_no_lock;
 
     my $ibbackup_exit_code = wait_for_ibbackup_finish();
 
@@ -1439,19 +1427,26 @@ sub write_slave_info {
     my @info_lines;
     my $position = '';
     my $filename = '';
-    my $master= '';
-	
+    my $repository = '';
+
     # get slave status. Use single quotes here, otherwise
     # \G is evaluated as a control character.
-    mysql_send 'SHOW SLAVE STATUS\G';
+    mysql_send 'SELECT @@global.relay_log_info_repository\G';
+    file_to_array($mysql_stdout, \@lines);
+    for (@lines) {
+        $repository = $1 if /relay_log_info_repository:\s*(\S*)\s*$/;
+    }
+    if ($repository ne 'TABLE') {
+        Die "relay_log_info_repository is not TABLE";
+    }
+    mysql_send 'SELECT * FROM mysql.slave_relay_log_info\G';
 
     # get output of the "show slave status" command from mysql output
     # and extract binlog position of the master server
     file_to_array($mysql_stdout, \@lines);
     for (@lines) {
-        $master = $1 if /Master_Host:\s*(\S*)\s*$/;
-        $filename = $1 if /Master_Log_File:\s*(\S*)\s*$/;
-        $position = $1 if /Master_Log_Pos:\s*(\S*)\s*$/;
+        $filename = $1 if /Master_log_name:\s*(\S*)\s*$/;
+        $position = $1 if /Master_log_pos:\s*(\S*)\s*$/;
     }
 
     # print slave status to a file
@@ -1471,7 +1466,7 @@ sub write_slave_info {
         unlink $slave_info || Die "Failed to delete '$slave_info': $!";
     }
 
-    $mysql_slave_position = "master host '$master', filename '$filename', position $position";
+    $mysql_slave_position = "filename '$filename', position $position";
 }
 
 
@@ -1947,6 +1942,9 @@ sub check_args {
       $stream_cmd = 'tar chf -';
     } elsif ($option_stream eq 'xbstream') {
       $stream_cmd = 'xbstream -c'
+    } elsif ($option_stream ne '') {
+      $stream_cmd = "$option_stream -c";
+      $option_stream = 'xbstream';
     }
 
     if (@ARGV < 1) {
@@ -1977,13 +1975,6 @@ sub check_args {
         # get backup directory
         $backup_dir = File::Spec->rel2abs($ARGV[0]);
     }        
-
-    if ($option_slave_info) {
-        if ($option_no_lock and !$option_safe_slave_backup) {
-	  print STDERR "--slave-info is used with --no-lock but without --safe-slave-backup. The binlog position cannot be consistent with the backup data.\n";
-	    exit(1);
-	}
-    }
 
     if ($option_rsync && ($option_remote_host || $option_stream)) {
         print STDERR "--rsync doesn't work with --remote-host or --stream\n";

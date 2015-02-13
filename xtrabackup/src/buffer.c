@@ -25,6 +25,7 @@ exception for the last write for a file. */
 
 #include <mysql_version.h>
 #include <my_base.h>
+#include "buffer.h"
 #include "common.h"
 #include "datasink.h"
 
