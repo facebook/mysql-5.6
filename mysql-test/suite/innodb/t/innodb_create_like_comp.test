@@ -1,4 +1,5 @@
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 --disable_query_log
 --disable_warnings
 DROP TABLE IF EXISTS t1, t2;
