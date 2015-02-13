@@ -6,6 +6,8 @@
 DROP TABLE if exists t1;
 --enable_warnings
 
+let $page_size = query_get_value(SELECT @@innodb_page_size, @@innodb_page_size, 1);
+
 # Create table.
 CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
 
@@ -51,11 +53,24 @@ select t1.variable_value=t2.variable_value prefetched_equals_submitted from info
 show global status like "innodb_logical_read_ahead_misses";
 # the total number of pages prefetched must be close to the number
 # of leaf pages of the table.
-select variable_value > 1000 from information_schema.global_status where variable_name="innodb_logical_read_ahead_prefetched";
+
+let $expected = 1000;
+if ($page_size == 32768)
+{
+  let $expected = 500;
+}
+--replace_result $expected expected
+eval select variable_value > $expected from information_schema.global_status where variable_name="innodb_logical_read_ahead_prefetched";
 # innodb_logical_read_ahead_in_buf_pool is the number of pages
 # of the table that were already in the buffer pool while doing the scan.
 # This should be small.
-select variable_value < 100 from information_schema.global_status where variable_name="innodb_logical_read_ahead_in_buf_pool";
+let $expected = 100;
+if ($page_size == 32768)
+{
+  let $expected = 50;
+}
+--replace_result $expected expected
+eval select variable_value < $expected from information_schema.global_status where variable_name="innodb_logical_read_ahead_in_buf_pool";
 
 select @@global.innodb_aio_outstanding_requests;
 
