@@ -43,6 +43,10 @@ Created 10/25/1995 Heikki Tuuri
 #include "dict0dict.h"
 #include "page0page.h"
 #include "page0zip.h"
+#ifdef XTRABACKUP
+#include "pars0pars.h"
+#include "que0que.h"
+#endif /* XTRABACKUP */
 #include "trx0sys.h"
 #include "row0mysql.h"
 #ifndef UNIV_HOTBACKUP
@@ -616,6 +620,20 @@ fil_node_open_file(
 		os_file_close(node->handle);
 
 		if (UNIV_UNLIKELY(space_id != space->id)) {
+#ifdef XTRABACKUP
+			fprintf(stderr,
+				"InnoDB: Warning: tablespace id is %lu"
+				" in the data dictionary\n"
+				"InnoDB: but in file %s it is %lu!\n"
+				"InnoDB: this can happen if the table "
+				"metadata was modified during an xtrabackup "
+				"run\n"
+				"InnoDB: and is not dangerous.\n",
+
+				space->id, node->name, space_id);
+
+			return(false);
+#else /* XTRABACKUP */
 			fprintf(stderr,
 				"InnoDB: Error: tablespace id is %lu"
 				" in the data dictionary\n"
@@ -623,6 +641,7 @@ fil_node_open_file(
 				space->id, node->name, space_id);
 
 			ut_error;
+#endif /* XTRABACKUP */
 		}
 
 		if (UNIV_UNLIKELY(space_id == ULINT_UNDEFINED
@@ -659,9 +678,12 @@ fil_node_open_file(
 		}
 
 		if (size_bytes >= UNIV_PAGE_SIZE * FSP_EXTENT_SIZE) {
+/* In xtrabackup, the size should be exact for after applying .delta */
+#ifndef XTRABACKUP
 			/* Truncate the size to a multiple of extent size. */
 			size_bytes = ut_2pow_round(
 				size_bytes, UNIV_PAGE_SIZE * FSP_EXTENT_SIZE);
+#endif /* !XTRABACKUP */
 		}
 
 		if (!fsp_flags_is_compressed(flags)) {
@@ -2031,7 +2053,7 @@ fil_create_directory_for_tablename(
 	mem_free(path);
 }
 
-#ifndef UNIV_HOTBACKUP
+#ifndef XTRABACKUP
 /********************************************************//**
 Writes a log record about an .ibd file create/rename/delete. */
 static
@@ -2096,7 +2118,7 @@ fil_op_write_log(
 		mlog_catenate_string(mtr, (byte*) new_name, len);
 	}
 }
-#endif
+#endif /* !XTRABACKUP */
 
 /*******************************************************************//**
 Parses the body of a log record written about an .ibd file operation. That is,
@@ -2259,7 +2281,9 @@ fil_op_log_parse_or_replay(
 				    space_id, name, path, flags,
 				    DICT_TF2_USE_TABLESPACE,
 				    FIL_IBD_FILE_INITIAL_SIZE) != DB_SUCCESS) {
+#ifndef XTRABACKUP
 				ut_error;
+#endif /* !XTRABACKUP */
 			}
 		}
 
@@ -2618,7 +2642,7 @@ fil_delete_tablespace(
 	}
 
 	if (err == DB_SUCCESS) {
-#ifndef UNIV_HOTBACKUP
+#ifndef XTRABACKUP
 		/* Write a log record about the deletion of the .ibd
 		file, so that mysqlbackup can replay it in the
 		--apply-log phase. We use a dummy mtr and the familiar
@@ -2631,7 +2655,7 @@ fil_delete_tablespace(
 
 		fil_op_write_log(MLOG_FILE_DELETE, id, 0, 0, path, NULL, &mtr);
 		mtr_commit(&mtr);
-#endif
+#endif /* !XTRABACKUP */
 		err = DB_SUCCESS;
 	}
 
@@ -2973,7 +2997,7 @@ skip_second_rename:
 
 	mutex_exit(&fil_system->mutex);
 
-#ifndef UNIV_HOTBACKUP
+#ifndef XTRABACKUP
 	if (success && !recv_recovery_on) {
 		mtr_t		mtr;
 
@@ -2983,7 +3007,7 @@ skip_second_rename:
 				 &mtr);
 		mtr_commit(&mtr);
 	}
-#endif /* !UNIV_HOTBACKUP */
+#endif /* !XTRABACKUP */
 
 	mem_free(new_path);
 	mem_free(old_path);
@@ -3357,7 +3381,7 @@ fil_create_new_single_table_tablespace(
 		goto error_exit_1;
 	}
 
-#ifndef UNIV_HOTBACKUP
+#ifndef XTRABACKUP
 	{
 		mtr_t		mtr;
 		ulint		mlog_file_flag = 0;
@@ -3376,7 +3400,7 @@ fil_create_new_single_table_tablespace(
 
 		mtr_commit(&mtr);
 	}
-#endif
+#endif /* !XTRABACKUP */
 	err = DB_SUCCESS;
 
 	/* Error code is set.  Cleanup the various variables used.
@@ -3434,6 +3458,99 @@ fil_report_bad_tablespace(
 		filepath, (ulong) found_id, (ulong) found_flags,
 		(ulong) expected_id, (ulong) expected_flags);
 }
+
+#ifdef XTRABACKUP
+static
+void
+fil_remove_invalid_table_from_data_dict(const char *name)
+{
+	trx_t*		trx;
+	pars_info_t*	info = NULL;
+
+	trx = trx_allocate_for_mysql();
+	trx_start_for_ddl(trx, TRX_DICT_OP_TABLE);
+
+	ut_ad(mutex_own(&dict_sys->mutex));
+
+	trx->op_info = "removing invalid table from data dictionary";
+
+	info = pars_info_create();
+
+	pars_info_add_str_literal(info, "table_name", name);
+
+	que_eval_sql(info,
+		     "PROCEDURE DROP_TABLE_PROC () IS\n"
+		     "sys_foreign_id CHAR;\n"
+		     "table_id CHAR;\n"
+		     "index_id CHAR;\n"
+		     "foreign_id CHAR;\n"
+		     "found INT;\n"
+		     "BEGIN\n"
+		     "SELECT ID INTO table_id\n"
+		     "FROM SYS_TABLES\n"
+		     "WHERE NAME = :table_name\n"
+		     "LOCK IN SHARE MODE;\n"
+		     "IF (SQL % NOTFOUND) THEN\n"
+		     "       RETURN;\n"
+		     "END IF;\n"
+		     "found := 1;\n"
+		     "SELECT ID INTO sys_foreign_id\n"
+		     "FROM SYS_TABLES\n"
+		     "WHERE NAME = 'SYS_FOREIGN'\n"
+		     "LOCK IN SHARE MODE;\n"
+		     "IF (SQL % NOTFOUND) THEN\n"
+		     "       found := 0;\n"
+		     "END IF;\n"
+		     "IF (:table_name = 'SYS_FOREIGN') THEN\n"
+		     "       found := 0;\n"
+		     "END IF;\n"
+		     "IF (:table_name = 'SYS_FOREIGN_COLS') THEN\n"
+		     "       found := 0;\n"
+		     "END IF;\n"
+		     "WHILE found = 1 LOOP\n"
+		     "       SELECT ID INTO foreign_id\n"
+		     "       FROM SYS_FOREIGN\n"
+		     "       WHERE FOR_NAME = :table_name\n"
+		     "               AND TO_BINARY(FOR_NAME)\n"
+		     "                 = TO_BINARY(:table_name)\n"
+		     "               LOCK IN SHARE MODE;\n"
+		     "       IF (SQL % NOTFOUND) THEN\n"
+		     "               found := 0;\n"
+		     "       ELSE\n"
+		     "               DELETE FROM SYS_FOREIGN_COLS\n"
+		     "               WHERE ID = foreign_id;\n"
+		     "               DELETE FROM SYS_FOREIGN\n"
+		     "               WHERE ID = foreign_id;\n"
+		     "       END IF;\n"
+		     "END LOOP;\n"
+		     "found := 1;\n"
+		     "WHILE found = 1 LOOP\n"
+		     "       SELECT ID INTO index_id\n"
+		     "       FROM SYS_INDEXES\n"
+		     "       WHERE TABLE_ID = table_id\n"
+		     "       LOCK IN SHARE MODE;\n"
+		     "       IF (SQL % NOTFOUND) THEN\n"
+		     "               found := 0;\n"
+		     "       ELSE\n"
+		     "               DELETE FROM SYS_FIELDS\n"
+		     "               WHERE INDEX_ID = index_id;\n"
+		     "               DELETE FROM SYS_INDEXES\n"
+		     "               WHERE ID = index_id\n"
+		     "               AND TABLE_ID = table_id;\n"
+		     "       END IF;\n"
+		     "END LOOP;\n"
+		     "DELETE FROM SYS_COLUMNS\n"
+		     "WHERE TABLE_ID = table_id;\n"
+		     "DELETE FROM SYS_TABLES\n"
+		     "WHERE ID = table_id;\n"
+		     "END;\n"
+		     , FALSE, trx);
+
+	trx_commit_for_mysql(trx);
+
+	trx_free_for_mysql(trx);
+}
+#endif /* XTRABACKUP */
 
 /********************************************************************//**
 Tries to open a single-table tablespace and optionally checks that the
@@ -3646,11 +3763,21 @@ fil_open_single_table_tablespace(
 		/* The following call prints an error message */
 		os_file_get_last_error(true);
 
+#ifdef XTRABACKUP
+		ib_logf(IB_LOG_LEVEL_WARN,
+#else /* XTRABACKUP */
 		ib_logf(IB_LOG_LEVEL_ERROR,
+#endif /* XTRABACKUP */
 			"Could not find a valid tablespace file for '%s'. "
 			"See " REFMAN "innodb-troubleshooting-datadict.html "
 			"for how to resolve the issue.",
 			tablename);
+#ifdef XTRABACKUP
+		ib_logf(IB_LOG_LEVEL_WARN,
+			"It will be removed from the data dictionary.");
+
+		fil_remove_invalid_table_from_data_dict(tablename);
+#endif /* XTRABACKUP */
 
 		err = DB_CORRUPTION;
 
@@ -4289,17 +4416,17 @@ will_not_choose:
 	cannot be ok. */
 	ulong minimum_size = FIL_IBD_FILE_INITIAL_SIZE * UNIV_PAGE_SIZE;
 	if (size < minimum_size) {
-#ifndef UNIV_HOTBACKUP
+#ifndef XTRABACKUP
 		ib_logf(IB_LOG_LEVEL_ERROR,
 			"The size of single-table tablespace file %s "
 			"is only " UINT64PF ", should be at least %lu!",
 			fsp->filepath, size, minimum_size);
 		os_file_close(fsp->file);
 		goto no_good_file;
-#else
+#else /* !XTRABACKUP */
 		fsp->id = ULINT_UNDEFINED;
 		fsp->flags = 0;
-#endif /* !UNIV_HOTBACKUP */
+#endif /* !XTRABACKUP */
 	}
 
 #ifdef UNIV_HOTBACKUP
@@ -4417,7 +4544,7 @@ directory. We retry 100 times if os_file_readdir_next_file() returns -1. The
 idea is to read as much good data as we can and jump over bad data.
 @return 0 if ok, -1 if error even after the retries, 1 if at the end
 of the directory */
-static
+UNIV_INTERN
 int
 fil_file_readdir_next_file(
 /*=======================*/
@@ -4692,6 +4819,9 @@ fil_space_for_table_exists_in_mem(
 {
 	fil_space_t*	fnamespace;
 	fil_space_t*	space;
+#ifdef XTRABACKUP
+	ibool		remove_from_data_dict = FALSE;
+#endif /* XTRABACKUP */
 
 	ut_ad(fil_system);
 
@@ -4769,6 +4899,12 @@ fil_space_for_table_exists_in_mem(
 		if (fnamespace == NULL) {
 			if (print_error_if_does_not_exist) {
 				fil_report_missing_tablespace(name, id);
+#ifdef XTRABACKUP
+				ib_logf(IB_LOG_LEVEL_WARN,
+					"It will be removed from "
+					"the data dictionary.");
+				remove_from_data_dict = TRUE;
+#endif /* XTRABACKUP */
 			}
 		} else {
 			ut_print_timestamp(stderr);
@@ -4791,6 +4927,12 @@ error_exit:
 		      "InnoDB: for how to resolve the issue.\n", stderr);
 
 		mutex_exit(&fil_system->mutex);
+
+#ifdef XTRABACKUP
+		if (remove_from_data_dict) {
+			fil_remove_invalid_table_from_data_dict(name);
+		}
+#endif /* XTRABACKUP */
 
 		return(FALSE);
 	}
@@ -5429,6 +5571,18 @@ _fil_io(
 	}
 
 	ut_ad(mode != OS_AIO_IBUF || space->purpose == FIL_TABLESPACE);
+
+#ifdef XTRABACKUP
+	if (space->size > 0 && space->size <= block_offset) {
+		ulint	actual_size;
+
+		mutex_exit(&fil_system->mutex);
+		fil_extend_space_to_desired_size(&actual_size, space->id,
+						 block_offset + 1);
+		mutex_enter(&fil_system->mutex);
+		/* should retry? but it may safe for xtrabackup for now. */
+	}
+#endif /* XTRABACKUP */
 
 	node = UT_LIST_GET_FIRST(space->chain);
 
@@ -6360,6 +6514,7 @@ fil_get_space_names(
 	return(err);
 }
 
+#ifndef XTRABACKUP
 /****************************************************************//**
 Generate redo logs for swapping two .ibd files */
 UNIV_INTERN
@@ -6386,3 +6541,4 @@ fil_mtr_rename_log(
 				 0, 0, new_name, old_name, mtr);
 	}
 }
+#endif /* !XTRABACKUP */
