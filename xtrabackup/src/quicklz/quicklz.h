@@ -131,6 +131,7 @@ extern "C" {
 // Public functions of QuickLZ
 size_t qlz_size_decompressed(const char *source);
 size_t qlz_size_compressed(const char *source);
+size_t qlz_size_header(const char *source);
 size_t qlz_compress(const void *source, char *destination, size_t size, qlz_state_compress *state);
 size_t qlz_decompress(const char *source, void *destination, qlz_state_decompress *state);
 int qlz_get_setting(int setting);

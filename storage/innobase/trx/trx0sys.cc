@@ -1191,12 +1191,18 @@ trx_sys_close(void)
 
 	ut_a(UT_LIST_GET_LEN(trx_sys->ro_trx_list) == 0);
 
+#ifdef XTRABACKUP
+	if (!srv_apply_log_only) {
+#endif /* XTRABACKUP */
 	/* Only prepared transactions may be left in the system. Free them. */
 	ut_a(UT_LIST_GET_LEN(trx_sys->rw_trx_list) == trx_sys->n_prepared_trx);
 
 	while ((trx = UT_LIST_GET_FIRST(trx_sys->rw_trx_list)) != NULL) {
 		trx_free_prepared(trx);
 	}
+#ifdef XTRABACKUP
+	}
+#endif /* XTRABACKUP */
 
 	/* There can't be any active transactions. */
 	for (i = 0; i < TRX_SYS_N_RSEGS; ++i) {
@@ -1223,10 +1229,16 @@ trx_sys_close(void)
 		UT_LIST_REMOVE(view_list, trx_sys->view_list, prev_view);
 	}
 
+#ifdef XTRABACKUP
+	if (!srv_apply_log_only) {
+#endif /* XTRABACKUP */
 	ut_a(UT_LIST_GET_LEN(trx_sys->view_list) == 0);
 	ut_a(UT_LIST_GET_LEN(trx_sys->ro_trx_list) == 0);
 	ut_a(UT_LIST_GET_LEN(trx_sys->rw_trx_list) == 0);
 	ut_a(UT_LIST_GET_LEN(trx_sys->mysql_trx_list) == 0);
+#ifdef XTRABACKUP
+	}
+#endif /* XTRABACKUP */
 
 	mutex_exit(&trx_sys->mutex);
 
@@ -1246,6 +1258,12 @@ trx_sys_any_active_transactions(void)
 /*=================================*/
 {
 	ulint	total_trx = 0;
+
+#ifdef XTRABACKUP
+	if (srv_apply_log_only) {
+		return(0);
+	}
+#endif /* XTRABACKUP */
 
 	mutex_enter(&trx_sys->mutex);
 

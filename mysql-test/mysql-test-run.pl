@@ -2549,6 +2549,33 @@ sub environment_setup {
   $ENV{'INNOCHECKSUM'}= native_path($exe_innochecksum);
 
   # ----------------------------------------------------
+  # xtrabackup
+  # ----------------------------------------------------
+  my $exe_xtrabackup=
+    mtr_exe_maybe_exists(vs_config_dirs('xtrabackup/src', 'xtrabackup_innodb56'),
+           "$path_client_bindir/xtrabackup_innodb56",
+           "$basedir/xtrabackup/src/xtrabackup_innodb56");
+  $ENV{'MYSQL_XTRABACKUP'}= native_path($exe_xtrabackup);
+
+  # ----------------------------------------------------
+  # xbstream
+  # ----------------------------------------------------
+  my $exe_xbstream=
+    mtr_exe_maybe_exists(vs_config_dirs('xtrabackup/src', 'xbstream'),
+           "$path_client_bindir/xbstream",
+           "$basedir/xtrabackup/src/xbstream");
+  $ENV{'MYSQL_XBSTREAM'}= native_path($exe_xbstream);
+
+  # ----------------------------------------------------
+  # innobackupex
+  # ----------------------------------------------------
+  my $exe_innobackupex=
+    mtr_exe_maybe_exists(vs_config_dirs('xtrabackup', 'innobackupex'),
+           "$path_client_bindir/innobackupex",
+           "$basedir/xtrabackup/innobackupex");
+  $ENV{'MYSQL_INNOBACKUPEX'}= native_path($exe_innobackupex);
+
+  # ----------------------------------------------------
   # Setup env so childs can execute myisampack and myisamchk
   # ----------------------------------------------------
   $ENV{'MYISAMCHK'}= native_path(mtr_exe_exists(

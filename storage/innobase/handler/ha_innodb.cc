@@ -1671,7 +1671,11 @@ innobase_get_cset_width(
 		ut_ad(*mbminlen < DATA_MBMAX);
 		ut_ad(*mbmaxlen < DATA_MBMAX);
 	} else {
+#ifdef XTRABACKUP
+		THD*	thd = NULL;
+#else /* XTRABACKUP */
 		THD*	thd = current_thd;
+#endif /* XTRABACKUP */
 
 		if (thd && thd_sql_command(thd) == SQLCOM_DROP_TABLE) {
 
