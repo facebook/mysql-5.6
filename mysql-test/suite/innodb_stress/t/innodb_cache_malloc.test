@@ -2,6 +2,7 @@
 # Test caching of the allocated memory chunks in page_zip_compress() and page_zip_decompress()
 #
 -- source include/have_innodb.inc
+-- source include/have_innodb_max_16k.inc
 
 --disable_query_log
 --let $file_format_save = `SELECT @@innodb_file_format`

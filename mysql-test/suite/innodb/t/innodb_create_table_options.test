@@ -1,4 +1,5 @@
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 let $file_format_save = `SELECT @@innodb_file_format`;
 let $file_per_table_save = `SELECT @@innodb_file_per_table`;
 SET GLOBAL innodb_file_format='Barracuda';
