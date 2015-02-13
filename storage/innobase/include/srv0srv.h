@@ -381,6 +381,11 @@ extern ulong	srv_max_purge_lag;
 extern ulong	srv_max_purge_lag_delay;
 
 extern ulong	srv_replication_delay;
+
+#ifdef XTRABACKUP
+extern ibool	srv_apply_log_only;
+#endif /* XTRABACKUP */
+
 /*-------------------------------------------*/
 
 extern my_bool	srv_print_innodb_monitor;

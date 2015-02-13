@@ -5545,6 +5545,7 @@ ha_innobase::commit_inplace_alter_table(
 		mtr_t	mtr;
 		mtr_start(&mtr);
 
+#ifndef XTRABACKUP
 		for (inplace_alter_handler_ctx** pctx = ctx_array;
 		     *pctx; pctx++) {
 			ha_innobase_inplace_ctx*	ctx
@@ -5562,6 +5563,7 @@ ha_innobase::commit_inplace_alter_table(
 			DBUG_INJECT_CRASH("ib_commit_inplace_crash",
 					  crash_inject_count++);
 		}
+#endif /* !XTRABACKUP */
 
 		/* Test what happens on crash if the redo logs
 		are flushed to disk here. The log records

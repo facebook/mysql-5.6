@@ -377,6 +377,10 @@ UNIV_INTERN ulong	srv_doublewrite_batch_size	= 120;
 
 UNIV_INTERN ulong	srv_replication_delay		= 0;
 
+#ifdef XTRABACKUP
+UNIV_INTERN ibool	srv_apply_log_only	= FALSE;
+#endif /* XTRABACKUP */
+
 /*-------------------------------------------*/
 UNIV_INTERN ulong	srv_n_spin_wait_rounds	= 30;
 UNIV_INTERN ulong	srv_spin_wait_delay	= 6;
@@ -1889,6 +1893,9 @@ srv_get_active_thread_type(void)
 	if (ret == SRV_NONE
 	    && srv_shutdown_state != SRV_SHUTDOWN_NONE
 	    && trx_purge_state() != PURGE_STATE_DISABLED
+#ifdef XTRABACKUP
+	    && trx_purge_state() != PURGE_STATE_INIT
+#endif /* XTRABACKUP */
 	    && trx_purge_state() != PURGE_STATE_EXIT) {
 
 		ret = SRV_PURGE;
