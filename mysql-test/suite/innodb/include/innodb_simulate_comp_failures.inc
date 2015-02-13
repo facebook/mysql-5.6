@@ -3,6 +3,7 @@
 --echo #
 --source include/not_embedded.inc
 --source include/have_innodb.inc
+--source include/have_innodb_max_16k.inc
 --disable_query_log
 # record the file format in order to restore in the end.
 --let $file_format_save = `SELECT @@innodb_file_format`
@@ -17,11 +18,21 @@ SET GLOBAL INNODB_FILE_FORMAT='Barracuda';
 # since this test generates lot of errors in log, suppress checking errors
 call mtr.add_suppression(".*");
 --enable_query_log
-# create the table with compressed pages of size 8K.
-CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255), KEY msg_i(msg))
+# create the table with compressed pages.
+--let $page_size = `select @@global.innodb_page_size`
+if ($page_size == 16384) {
+  let $key_block_size = 8;
+  let $compressed_page_size = 8192;
+}
+if ($page_size == 32768) {
+  let $key_block_size = 16;
+  let $compressed_page_size = 16384;
+}
+--replace_result $key_block_size key_block_size
+eval CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY, msg VARCHAR(255), KEY msg_i(msg))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
-KEY_BLOCK_SIZE=8;
+KEY_BLOCK_SIZE=$key_block_size;
 
 # percentage of compressions that will be forced to fail
 SET GLOBAL innodb_simulate_comp_failures = 25;
@@ -48,7 +59,7 @@ let $num_ops_ind = $num_ops;
 while($num_ops_ind)
 {
   let $idx = `select floor(rand()*$num_inserts)`;
-	let $insert_or_update = `select floor(rand()*3)`;
+  let $insert_or_update = `select floor(rand()*3)`;
   let $repeat = `select floor(rand() * 9) + 1`;
   let $msg = query_get_value(`select repeat('abcdefghijklmnopqrstuvwxyz', $repeat) as x`, x, 1);
   let $single_or_multi = `select floor(rand()*10)`;
@@ -115,7 +126,7 @@ while($num_ops_ind)
 
 --enable_result_log
 # success rate must be approx 75%, we require it to be between 70% and 90%.
-SELECT compress_ops_ok/compress_ops > .7, compress_ops_ok/compress_ops < .9 from information_schema.innodb_cmp where page_size=8192;
+eval SELECT compress_ops_ok/compress_ops > .7, compress_ops_ok/compress_ops < .9 from information_schema.innodb_cmp where page_size=$compressed_page_size;
 --disable_query_log
 # final cleanup
 DROP TABLE t1;
