@@ -1,5 +1,7 @@
 # Run xtrabackup while the source database is being modified
 
+--source include/have_innodb_max_16k.inc
+
 source suite/xtrabackup/include/xb_setup.inc;
 
 connection server_1;
