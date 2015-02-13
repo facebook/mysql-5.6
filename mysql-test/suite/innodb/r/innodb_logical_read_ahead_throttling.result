@@ -41,11 +41,11 @@ prefetched_equals_submitted
 show global status like "innodb_logical_read_ahead_misses";
 Variable_name	Value
 Innodb_logical_read_ahead_misses	0
-select variable_value > 1000 from information_schema.global_status where variable_name="innodb_logical_read_ahead_prefetched";
-variable_value > 1000
+select variable_value > expected from information_schema.global_status where variable_name="innodb_logical_read_ahead_prefetched";
+variable_value > expected
 1
-select variable_value < 100 from information_schema.global_status where variable_name="innodb_logical_read_ahead_in_buf_pool";
-variable_value < 100
+select variable_value < expected from information_schema.global_status where variable_name="innodb_logical_read_ahead_in_buf_pool";
+variable_value < expected
 1
 select @@global.innodb_aio_outstanding_requests;
 @@global.innodb_aio_outstanding_requests
