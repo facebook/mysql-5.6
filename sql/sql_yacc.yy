@@ -7430,6 +7430,7 @@ key_part_type:
             }
             $$ = new Document_path_key_spec_type(MYSQL_TYPE_BLOB, len);
           }
+          /* Make sure to handle new types in store_create_info */
         ;
 
 key_part:

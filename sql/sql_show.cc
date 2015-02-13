@@ -1581,16 +1581,55 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       if (j)
         packet->append(',');
 
-      if (key_part->field)
-        append_identifier(thd,packet,key_part->field->field_name,
-			  strlen(key_part->field->field_name));
-      if (key_part->field &&
-          (key_part->length !=
-           table->field[key_part->fieldnr-1]->key_length() &&
-           !(key_info->flags & (HA_FULLTEXT | HA_SPATIAL))))
+      if (key_part->document_path_key_part)
       {
-        packet->append_parenthesized((long) key_part->length /
-                                      key_part->field->charset()->mbmaxlen);
+        DBUG_ASSERT(key_part->document_path_key_part->number_of_names);
+        for (uint k=0; k<key_part->document_path_key_part->number_of_names; ++k)
+        {
+          append_identifier(thd, packet,
+                            key_part->document_path_key_part->names[k],
+                            strlen(key_part->document_path_key_part->names[k]));
+          if (k != key_part->document_path_key_part->number_of_names - 1)
+          {
+            packet->append(".");
+          }
+        }
+        enum_field_types type = key_part->document_path_key_part->type;
+        packet->append(" AS ");
+        if (type == MYSQL_TYPE_LONGLONG)
+          packet->append("INT");
+        else if (type == MYSQL_TYPE_DOUBLE)
+          packet->append("DOUBLE");
+        else if (type == MYSQL_TYPE_TINY)
+          packet->append("BOOL");
+        else if (type == MYSQL_TYPE_STRING)
+        {
+          packet->append("STRING");
+          packet->append_parenthesized(
+            (long) key_part->document_path_key_part->length);
+        }
+        else if (type == MYSQL_TYPE_BLOB)
+        {
+          packet->append("BINARY");
+          packet->append_parenthesized(
+            (long) key_part->document_path_key_part->length);
+        }
+        else
+          DBUG_ASSERT(0);
+      }
+      else
+      {
+        if (key_part->field)
+          append_identifier(thd,packet,key_part->field->field_name,
+                            strlen(key_part->field->field_name));
+        if (key_part->field &&
+            (key_part->length !=
+             table->field[key_part->fieldnr-1]->key_length() &&
+             !(key_info->flags & (HA_FULLTEXT | HA_SPATIAL))))
+        {
+          packet->append_parenthesized((long) key_part->length /
+                                       key_part->field->charset()->mbmaxlen);
+        }
       }
     }
     packet->append(')');
