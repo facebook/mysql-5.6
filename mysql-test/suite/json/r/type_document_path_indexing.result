@@ -35,6 +35,17 @@ primary key (a),
 UNIQUE key b_a (b, a),
 UNIQUE key c_doc (c, doc.address.zipcode as int)
 ) engine=innodb;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `a` int(11) NOT NULL,
+  `b` int(11) DEFAULT NULL,
+  `c` char(10) DEFAULT NULL,
+  `doc` document NOT NULL,
+  PRIMARY KEY (`a`),
+  UNIQUE KEY `b_a` (`b`,`a`),
+  UNIQUE KEY `c_doc` (`c`,`doc`.`address`.`zipcode` AS INT)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
 SHOW INDEXES IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
@@ -97,6 +108,21 @@ Warnings:
 Note	1831	Duplicate index 'doc_2' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
 Note	1831	Duplicate index 'doc_binary' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
 Note	1831	Duplicate index 'doc_4' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
+SHOW CREATE TABLE t2;
+Table	Create Table
+t2	CREATE TABLE `t2` (
+  `a` int(11) NOT NULL,
+  `b` char(10) NOT NULL,
+  `doc` document NOT NULL,
+  PRIMARY KEY (`a`),
+  KEY `doc` (`doc`.`id` AS INT),
+  KEY `doc_2` (`doc`.`double` AS DOUBLE),
+  KEY `doc_bool` (`doc`.`bool` AS BOOL),
+  KEY `doc_3` (`doc`.`name` AS STRING(64)),
+  KEY `doc_name_100` (`doc`.`name` AS STRING(100)),
+  KEY `doc_binary` (`doc`.`address` AS BINARY(64)),
+  KEY `doc_4` (`doc`.`address` AS BINARY(100))
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
@@ -156,6 +182,16 @@ doc document not null,
 primary key (a),
 UNIQUE key b_a (b, a)
 ) engine=innodb;
+SHOW CREATE TABLE t3;
+Table	Create Table
+t3	CREATE TABLE `t3` (
+  `a` int(11) NOT NULL,
+  `b` int(11) DEFAULT NULL,
+  `c` char(10) DEFAULT NULL,
+  `doc` document NOT NULL,
+  PRIMARY KEY (`a`),
+  UNIQUE KEY `b_a` (`b`,`a`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
 SHOW INDEXES IN t3;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
