@@ -58,6 +58,8 @@ CREATE TABLE t1 (
        UNIQUE key c_doc (c, doc.address.zipcode as int)
 ) engine=innodb;
 
+SHOW CREATE TABLE t1;
+
 
 --replace_column 7 -
 SHOW INDEXES IN t1;
@@ -106,6 +108,7 @@ CREATE TABLE t2 (
        key doc_binary (doc.address as binary(64)),
        key (doc.address as binary(100))) engine=innodb;
 
+SHOW CREATE TABLE t2;
 --replace_column 7 -
 SHOW INDEXES IN t2;
 
@@ -147,6 +150,7 @@ CREATE TABLE t3 (
        primary key (a),
        UNIQUE key b_a (b, a)
 ) engine=innodb;
+SHOW CREATE TABLE t3;
 
 --replace_column 7 -
 SHOW INDEXES IN t3;
