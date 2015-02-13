@@ -166,6 +166,49 @@ buf_read_page_low(
 	bpage = buf_page_init_for_read(err, mode, space, zip_size, unzip,
 				       tablespace_version, offset);
 	if (bpage == NULL) {
+#ifdef XTRABACKUP
+		if (recv_recovery_is_on() && *err == DB_TABLESPACE_DELETED) {
+			/* hashed log recs must be treated here */
+			recv_addr_t*    recv_addr;
+
+			mutex_enter(&(recv_sys->mutex));
+
+			if (recv_sys->apply_log_recs == FALSE) {
+				mutex_exit(&(recv_sys->mutex));
+				goto not_to_recover;
+			}
+
+			/* recv_get_fil_addr_struct() */
+			recv_addr = static_cast<recv_addr_t*>
+					(HASH_GET_FIRST(recv_sys->addr_hash,
+					hash_calc_hash(ut_fold_ulint_pair(space, offset),
+					recv_sys->addr_hash)));
+			while (recv_addr) {
+				if ((recv_addr->space == space)
+					&& (recv_addr->page_no == offset)) {
+					break;
+				}
+				recv_addr = static_cast<recv_addr_t*>
+						(HASH_GET_NEXT(addr_hash, recv_addr));
+			}
+
+			if ((recv_addr == NULL)
+			    || (recv_addr->state == RECV_BEING_PROCESSED)
+			    || (recv_addr->state == RECV_PROCESSED)) {
+				mutex_exit(&(recv_sys->mutex));
+				goto not_to_recover;
+			}
+
+			fprintf(stderr, " (cannot find space: %lu)", space);
+			recv_addr->state = RECV_PROCESSED;
+
+			ut_a(recv_sys->n_addrs);
+			recv_sys->n_addrs--;
+
+			mutex_exit(&(recv_sys->mutex));
+		}
+not_to_recover:
+#endif /* XTRABACKUP */
 
 		return(0);
 	}
@@ -870,6 +913,54 @@ buf_read_recv_pages(
 	if (UNIV_UNLIKELY(zip_size == ULINT_UNDEFINED)) {
 		/* It is a single table tablespace and the .ibd file is
 		missing: do nothing */
+
+#ifdef XTRABACKUP
+		/* the log records should be treated here same reason
+		for http://bugs.mysql.com/bug.php?id=43948 */
+
+		if (recv_recovery_is_on()) {
+			recv_addr_t*    recv_addr;
+
+			mutex_enter(&(recv_sys->mutex));
+
+			if (recv_sys->apply_log_recs == FALSE) {
+				mutex_exit(&(recv_sys->mutex));
+				goto not_to_recover;
+			}
+
+			for (i = 0; i < n_stored; i++) {
+				/* recv_get_fil_addr_struct() */
+				recv_addr = static_cast<recv_addr_t*>
+						(HASH_GET_FIRST(recv_sys->addr_hash,
+						hash_calc_hash(ut_fold_ulint_pair(space, page_nos[i]),
+						recv_sys->addr_hash)));
+				while (recv_addr) {
+					if ((recv_addr->space == space)
+						&& (recv_addr->page_no == page_nos[i])) {
+						break;
+					}
+					recv_addr = static_cast<recv_addr_t*>
+							(HASH_GET_NEXT(addr_hash, recv_addr));
+				}
+
+				if ((recv_addr == NULL)
+				    || (recv_addr->state == RECV_BEING_PROCESSED)
+				    || (recv_addr->state == RECV_PROCESSED)) {
+					continue;
+				}
+
+				recv_addr->state = RECV_PROCESSED;
+
+				ut_a(recv_sys->n_addrs);
+				recv_sys->n_addrs--;
+			}
+
+			mutex_exit(&(recv_sys->mutex));
+
+			fprintf(stderr, " (cannot find space: %lu)", space);
+		}
+not_to_recover:
+#endif /* XTRABACKUP */
 
 		return;
 	}

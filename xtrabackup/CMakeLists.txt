@@ -23,8 +23,8 @@ LINK_DIRECTORIES (
 
 PROJECT(XtraBackup)
 ADD_EXECUTABLE(xtrabackup
-  xtrabackup.c
-  xb_regex.h
+  src/xtrabackup.cc
+  src/xb_regex.h
 )
 
 if(COMMAND cmake_policy)

@@ -47,6 +47,10 @@ typedef struct st_ha_create_information HA_CREATE_INFO;
 
 #define CURRENT_THD_ERRMSGS current_thd->variables.lc_messages->errmsgs->errmsgs
 #define DEFAULT_ERRMSGS     my_default_lc_messages->errmsgs->errmsgs
+#ifdef XTRABACKUP
+#undef CURRENT_THD_ERRMSGS
+#define CURRENT_THD_ERRMSGS DEFAULT_ERRMSGS
+#endif
 
 #define ER(X)         CURRENT_THD_ERRMSGS[(X) - ER_ERROR_FIRST]
 #define ER_DEFAULT(X) DEFAULT_ERRMSGS[(X) - ER_ERROR_FIRST]

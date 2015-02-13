@@ -124,7 +124,7 @@ SRV_SHUTDOWN_CLEANUP and then to SRV_SHUTDOWN_LAST_PHASE, and so on */
 UNIV_INTERN enum srv_shutdown_state	srv_shutdown_state = SRV_SHUTDOWN_NONE;
 
 /** Files comprising the system tablespace */
-static os_file_t	files[1000];
+os_file_t	files[1000];
 
 /** io_handler_thread parameters for thread identification */
 static ulint		n[SRV_MAX_N_IO_THREADS + 6];
@@ -761,7 +761,7 @@ open_log_file(
 /*********************************************************************//**
 Creates or opens database data files and closes them.
 @return	DB_SUCCESS or error code */
-static MY_ATTRIBUTE((nonnull, warn_unused_result))
+UNIV_INTERN MY_ATTRIBUTE((nonnull, warn_unused_result))
 dberr_t
 open_or_create_data_files(
 /*======================*/
@@ -1017,6 +1017,7 @@ size_check:
 			}
 skip_size_check:
 
+#ifndef XTRABACKUP
 			/* This is the earliest location where we can load
 			the double write buffer. */
 			if (i == 0) {
@@ -1026,6 +1027,7 @@ skip_size_check:
 
 			bool retry = true;
 check_first_page:
+#endif /* !XTRABACKUP */
 			check_msg = fil_read_first_page(
 				files[i], one_opened, &flags, &space,
 #ifdef UNIV_LOG_ARCHIVE
@@ -1035,6 +1037,7 @@ check_first_page:
 
 			if (check_msg) {
 
+#ifndef XTRABACKUP
 				if (retry) {
 					fsp_open_info	fsp;
 					const ulint	page_no = 0;
@@ -1049,6 +1052,7 @@ check_first_page:
 						goto check_first_page;
 					}
 				}
+#endif /* !XTRABACKUP */
 
 				ib_logf(IB_LOG_LEVEL_ERROR,
 						"%s in data file %s",
@@ -2215,11 +2219,13 @@ innobase_start_or_create_for_mysql(void)
 					max_flushed_lsn = min_flushed_lsn
 						= log_get_lsn();
 					goto files_checked;
+#ifndef XTRABACKUP
 				} else if (i < 2) {
 					/* must have at least 2 log files */
 					ib_logf(IB_LOG_LEVEL_ERROR,
 						"Only one log file found.");
 					return(err);
+#endif /* !XTRABACKUP */
 				}
 
 				/* opened all files */
@@ -2478,6 +2484,12 @@ files_checked:
 		are initialized in trx_sys_init_at_db_start(). */
 
 		recv_recovery_from_checkpoint_finish();
+
+#ifdef XTRABACKUP
+		if (srv_apply_log_only) {
+			goto skip_processes;
+		}
+#endif /* XTRABACKUP */
 
 		if (srv_force_recovery < SRV_FORCE_NO_IBUF_MERGE) {
 			/* The following call is necessary for the insert
@@ -2810,6 +2822,7 @@ files_checked:
 	    && srv_auto_extend_last_data_file
 	    && sum_of_data_file_sizes < tablespace_size_in_header) {
 
+#ifndef XTRABACKUP
 		ut_print_timestamp(stderr);
 		fprintf(stderr,
 			" InnoDB: Error: tablespace size stored in header"
@@ -2846,6 +2859,7 @@ files_checked:
 
 			return(DB_ERROR);
 		}
+#endif /* !XTRABACKUP */
 	}
 
 	/* Check that os_fast_mutexes work as expected */
@@ -2902,6 +2916,9 @@ files_checked:
 		fts_optimize_init();
 	}
 
+#ifdef XTRABACKUP
+skip_processes:
+#endif /* XTRABACKUP */
 	srv_was_started = TRUE;
 
 	return(DB_SUCCESS);
@@ -2957,7 +2974,11 @@ innobase_shutdown_for_mysql(void)
 		return(DB_SUCCESS);
 	}
 
+#ifdef XTRABACKUP
+	if (!srv_read_only_mode && !srv_apply_log_only) {
+#else /* XTRABACKUP */
 	if (!srv_read_only_mode) {
+#endif /* XTRABACKUP */
 		/* Shutdown the FTS optimize sub system. */
 		fts_optimize_start_shutdown();
 

@@ -711,12 +711,12 @@ os_file_handle_error_no_exit(
 
 #undef USE_FILE_LOCK
 #define USE_FILE_LOCK
-#if defined(UNIV_HOTBACKUP) || defined(__WIN__)
+#if defined(XTRABACKUP) || defined(__WIN__)
 /* InnoDB Hot Backup does not lock the data files.
  * On Windows, mandatory locking is used.
  */
 # undef USE_FILE_LOCK
-#endif
+#endif /* XTRABACKUP || __WIN__ */
 #ifdef USE_FILE_LOCK
 /****************************************************************//**
 Obtain an exclusive lock on a file.
