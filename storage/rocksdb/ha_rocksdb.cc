@@ -56,6 +56,8 @@ void* background_thread(void*);
 bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
                           const bool use_all_keys);
+static int rocksdb_normalize_tablename(const char *tablename,
+                                       StringBuffer<256> *strbuf);
 
 ///////////////////////////////////////////////////////////
 // Parameters and settings
@@ -1760,15 +1762,6 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
 }
 
 
-static void make_dbname_tablename(StringBuffer<64> *str, TABLE *table_arg)
-{
-  str->append(table_arg->s->db.str, table_arg->s->db.length);
-  str->append('.');
-  str->append(table_arg->s->table_name.str, table_arg->s->table_name.length);
-  str->c_ptr_safe();
-}
-
-
 /*
   Setup data needed to convert table->record[] to and from record storage format.
 */
@@ -1846,8 +1839,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
     note: pk_descr may be non-NULL here, when using partitions. It seems,
     it's ok to discard it
   */
-  StringBuffer<64> fullname;
-  make_dbname_tablename(&fullname, table);
+  StringBuffer<256> fullname;
+  rocksdb_normalize_tablename(name, &fullname);
   if (!(tbl_def= ddl_manager.find((uchar*)fullname.c_ptr(), fullname.length())))
   {
     my_error(ER_INTERNAL_ERROR, MYF(0),
