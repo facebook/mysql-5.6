@@ -1676,8 +1676,8 @@ void ha_rocksdb::convert_record_to_storage_format(rocksdb::Slice *packed_rec)
 
   for (uint i=0; i < table->s->fields; i++)
   {
-    /* Don't pack decode-able PK key parts */
-    if (field_enc[i].skip)
+    /* Don't pack decodable PK key parts */
+    if (field_enc[i].dont_store)
       continue;
 
     Field *field= table->field[i];
@@ -1782,7 +1782,7 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
 
   for (uint i=0; i < table->s->fields; i++)
   {
-    if (field_enc[i].skip)
+    if (field_enc[i].dont_store)
       continue;
 
     Field *field= table->field[i];
@@ -1882,6 +1882,10 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
 
 /*
   Setup data needed to convert table->record[] to and from record storage format.
+
+  @seealso
+     ha_rocksdb::convert_record_to_storage_format,
+     ha_rocksdb::convert_record_from_storage_format
 */
 
 void ha_rocksdb::setup_field_converters()
@@ -1896,7 +1900,7 @@ void ha_rocksdb::setup_field_converters()
   for (i= 0; i < table->s->fields; i++)
   {
     Field *field= table->field[i];
-    field_enc[i].skip= false;
+    field_enc[i].dont_store= false;
 
     /*
       Check if this field is
@@ -1910,10 +1914,11 @@ void ha_rocksdb::setup_field_converters()
       KEY *pk_info= &table->key_info[table->s->primary_key];
       for (uint kp= 0; kp < pk_info->user_defined_key_parts; kp++)
       {
+        /* key_part->fieldnr is counted from 1 */
         if (field->field_index + 1 == pk_info->key_part[kp].fieldnr)
         {
           if (pk_descr->can_unpack(kp))
-            field_enc[i].skip= true; /* Don't store */
+            field_enc[i].dont_store= true;
           break;
         }
       }
