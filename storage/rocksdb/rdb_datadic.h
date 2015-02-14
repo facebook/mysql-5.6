@@ -50,7 +50,15 @@ public:
     if (len)
       ptr= &str.at(0);
     else
+    {
+      /*
+        One can a create a Stream_reader for reading from an empty string
+        (although attempts to read anything will fail).
+        We must not access str.at(0), since len==0, we can set ptr to any
+        value.
+      */
       ptr= NULL;
+    }
   }
 
   Stream_reader(const rocksdb::Slice *slice)
