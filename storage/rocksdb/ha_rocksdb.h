@@ -197,8 +197,13 @@ class ha_rocksdb: public handler
   */
   typedef struct st_field_encoder
   {
-    /* skip=true means this is decodeable part of PK and so not stored */
-    bool skip;
+    /*
+      This is set to true for columns of Primary Key that can be decoded from
+      their mem-comparable form.
+      Since we can get them from the key part of RocksDB key->value pair, we
+      don't need to store them in the value part.
+    */
+    bool dont_store;
 
     uint null_offset;
     uchar null_mask;  // 0 means the field cannot be null
