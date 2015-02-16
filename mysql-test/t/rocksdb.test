@@ -1325,6 +1325,39 @@ create table t1 (id int primary key, value int) engine=rocksdb;
 insert into t1 values (1,1),(2,2),(3,3);
 --echo # The following must not use 'Using filesort':
 explain select * from t1 ORDER BY id;
+drop table t1;
+--echo #
+--echo # Issue #1: Don't update indexes if index values have not changed
+--echo #
+create table t1 (
+  pk int primary key,
+  a int,
+  b int,
+  key(a)
+) engine=rocksdb;
 
+insert into t1 values
+(1,1,1), (2,2,2), (3,3,3), (4,4,4);
+
+set @var1=(select variable_value 
+           from information_schema.global_status 
+           where variable_name='rocksdb_number_keys_written');
+
+--echo # Do an update that doesn't change the key 'a'.
+update t1 set b=3334341 where a=2;
+
+set @var2=(select variable_value 
+           from information_schema.global_status 
+           where variable_name='rocksdb_number_keys_written');
+--echo # The following should produce 1
+select @var2 - @var1;
+
+--echo # Do an update that sets the key to the same value
+update t1 set a=pk where a=3;
+set @var3=(select variable_value 
+           from information_schema.global_status 
+           where variable_name='rocksdb_number_keys_written');
+--echo # We have 'updated' column to the same value, so the following must return 0:
+select @var3 - @var2;
 drop table t1;
 
