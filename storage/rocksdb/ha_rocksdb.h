@@ -136,8 +136,25 @@ class ha_rocksdb: public handler
   uchar *pk_packed_tuple; /* Buffer for storing PK in StorageFormat */
   // ^^ todo: change it to 'char*'? TODO: ^ can we join this with last_rowkey?
 
+  /*
+    Temporary buffers for storing the key part of the Key/Value pair
+    for secondary indexes.
+  */
   uchar *sec_key_packed_tuple;
+
+  /*
+    Same as above, but it stores the value part. It holds unpack info which
+    is currently not used (always empty).
+
+    TODO: why does ha_rocksdb::open() assume that an upper bound of the size of
+    this buffer is max_packed_sec_key_len? This is technically true currently,
+    but doesn't look meaningful.
+  */
   uchar *sec_key_tails;
+
+  /* Second buffers, used by UPDATE. */
+  uchar *sec_key_packed_tuple_old;
+  uchar *sec_key_tails_old;
 
   /*
     Temporary space for packing VARCHARs (we provide it to
@@ -170,6 +187,16 @@ class ha_rocksdb: public handler
   bool keyread_only;
 
   bool skip_scan_it_next_call;
+
+  /*
+    Valid inside UPDATE statements, when updated_indexes_is_valid=true:
+
+    This is a bitmap of indexes whose keys (in future, values) may be changed
+    by this statement. Indexes that are not in the bitmap do not need to be
+    updated.
+  */
+  key_map updated_indexes;
+  bool updated_indexes_is_valid;
 
   int create_key_defs(TABLE *table_arg, const char *db_table, uint len);
   int secondary_index_read(int keyno, uchar *buf);
@@ -356,6 +383,8 @@ public:
 private:
   int index_first_intern(uchar *buf);
   int index_last_intern(uchar *buf);
+
+  void calc_updated_indexes();
 public:
   int index_end();
 
