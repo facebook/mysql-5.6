@@ -1643,6 +1643,7 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pk_can_be_decoded(false),
     pk_tuple(NULL), pk_packed_tuple(NULL),
     sec_key_packed_tuple(NULL), sec_key_tails(NULL),
+    sec_key_packed_tuple_old(NULL), sec_key_tails_old(NULL),
     pack_buffer(NULL),
     lock_rows(FALSE),
     keyread_only(FALSE),
@@ -2029,7 +2030,10 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   if (!(sec_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
                                                 MYF(0))) ||
+      !(sec_key_packed_tuple_old= (uchar*)my_malloc(max_packed_sec_key_len,
+                                                 MYF(0))) ||
       !((sec_key_tails= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))) ||
+      !((sec_key_tails_old= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))) ||
       !((pack_buffer=(uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
@@ -2062,9 +2066,17 @@ int ha_rocksdb::close(void)
     my_free(sec_key_packed_tuple);
   sec_key_packed_tuple= NULL;
 
+  if (sec_key_packed_tuple_old)
+    my_free(sec_key_packed_tuple_old);
+  sec_key_packed_tuple_old= NULL;
+
   if (sec_key_tails)
     my_free(sec_key_tails);
   sec_key_tails= NULL;
+
+  if (sec_key_tails_old)
+    my_free(sec_key_tails_old);
+  sec_key_tails_old= NULL;
 
   if (pack_buffer)
     my_free(pack_buffer);
@@ -3688,6 +3700,41 @@ int ha_rocksdb::return_lock_failure(bool timed_out)
 }
 
 
+/*
+  @brief
+    Calculate (if needed) the bitmap of indexes that are modified by the
+    current query
+
+  @detail
+    The calculation done by checking index definitions against the table->write_set
+    column bitmap.
+*/
+
+void ha_rocksdb::calc_updated_indexes()
+{
+  if (!updated_indexes_is_valid)
+  {
+    updated_indexes_is_valid= true;
+    updated_indexes.clear_all();
+
+    for (uint keynr= 0; keynr < table->s->keys; keynr++)
+    {
+      KEY_PART_INFO *parts_info= table->key_info[keynr].key_part;
+      /* Walk over all key parts, including the "extended key" suffix */
+      uint key_parts= table->key_info[keynr].actual_key_parts;
+      for (uint kp= 0; kp < key_parts; kp++)
+      {
+        if (bitmap_is_set(table->write_set, parts_info[kp].field->field_index))
+        {
+          updated_indexes.set_bit(keynr);
+          break;
+        }
+      }
+    }
+  }
+}
+
+
 int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 {
   DBUG_ENTER("ha_rocksdb::update_row");
@@ -3748,34 +3795,57 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
   trx->prepare_for_write();
 
-  /* Update every index */
+  /* Update every affected index */
+  calc_updated_indexes();
+
   for (uint i= 0; i < table->s->keys; i++)
   {
-    if (i != table->s->primary_key)
+    if (i != table->s->primary_key && updated_indexes.is_set(i))
     {
-      int packed_size;
-      int tail_size;
-      // TODO: compare old/new fields, and update only when actually necessary.
+      int old_key_size, new_key_size;
+      int old_value_size, new_value_size;
 
-      // First, a Delete()
-      {
-        packed_size= key_descr[i]->pack_record(table, pack_buffer, old_data,
-                                               sec_key_packed_tuple,
-                                               NULL, NULL);
-        rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
-                                           packed_size);
-        trx->changes.Delete(key_descr[i], secondary_key_slice);
-      }
+      // The old value (just used for delete)
+      old_key_size= key_descr[i]->pack_record(table, pack_buffer, old_data,
+                                             sec_key_packed_tuple_old,
+                                             sec_key_tails_old,
+                                             &old_value_size);
 
-      // Then, Put().
+      // The new value will be written to the database.
+      new_key_size= key_descr[i]->pack_record(table, pack_buffer, new_data,
+                                              sec_key_packed_tuple,
+                                              sec_key_tails, &new_value_size);
+
+      /*
+        Check if we are going to write the same value. This can happen when one
+        does
+          UPDATE tbl SET col='foo'
+        and we are looking at the row that already has col='foo'.
+
+        We also need to compare the unpack info. Suppose, the collation is
+        case-insensitive, and unpack info contains information about whether
+        the letters were uppercase and lowercase.  Then, both 'foo' and 'FOO'
+        will have the same key value, but different data in unpack_info.
+
+        (note: anyone changing bytewise_compare should take this code into
+        account)
+      */
+
+      if (old_key_size != new_key_size ||
+          memcmp(sec_key_packed_tuple_old, sec_key_packed_tuple,
+                 old_key_size) ||
+          old_value_size != new_value_size ||
+          memcmp(sec_key_tails_old, sec_key_tails, old_value_size))
       {
-        packed_size= key_descr[i]->pack_record(table, pack_buffer, new_data,
-                                               sec_key_packed_tuple,
-                                               sec_key_tails, &tail_size);
-        rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
-                                           packed_size);
-        rocksdb::Slice value_slice((const char*)sec_key_tails, tail_size);
-        trx->changes.Put(key_descr[i], secondary_key_slice, value_slice);
+        // Delete the old value
+        rocksdb::Slice old_key_slice((char*)sec_key_packed_tuple_old,
+                                     old_key_size);
+        trx->changes.Delete(key_descr[i], old_key_slice);
+
+        // Put the new value
+        rocksdb::Slice new_key_slice((char*)sec_key_packed_tuple, new_key_size);
+        rocksdb::Slice new_value_slice((const char*)sec_key_tails, new_value_size);
+        trx->changes.Put(key_descr[i], new_key_slice, new_value_slice);
       }
     }
   }
@@ -3864,6 +3934,8 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     Rdb_transaction* trx= get_or_create_trx(thd);
     trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
                     THDVAR(table->in_use, max_row_locks));
+
+    updated_indexes_is_valid= false;
 
     if (lock_type == F_WRLCK)
     {
