@@ -171,10 +171,11 @@ class ha_rocksdb: public handler
   int secondary_index_read(int keyno, uchar *buf);
   void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
   {
-    setup_index_scan(keydef, slice, false);
+    setup_index_scan(keydef, slice, false, false);
   }
+  bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag);
   void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
-                        bool use_all_keys);
+                        bool use_all_keys, bool is_ascending);
   int get_row_by_rowid(uchar *buf, const char *pk_tuple, uint pk_tuple_size);
 
   void update_auto_incr_val();
