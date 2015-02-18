@@ -29,6 +29,29 @@ select variable_value into @u from information_schema.global_status where variab
 select case when variable_value-@c > 30 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 select case when variable_value-@u > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 
+
+# BUG: Prev() with prefix lookup should not use prefix bloom filter
+create table r1 (id1 bigint, id2 bigint, id3 bigint, v1 int, v2 text, primary key (id1, id2, id3)) engine=rocksdb DEFAULT CHARSET=latin1 collate latin1_bin;
+--disable_query_log
+let $max = 100000;
+let $i = 1;
+while ($i <= $max) {
+ let $insert = INSERT INTO r1 VALUES ($i,$i,$i,$i,$i);
+ inc $i;
+ eval $insert;
+}
+--enable_query_log
+select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+select * from r1 where id1=1 and id2 in (1) order by id3 asc;
+select case when variable_value-@c > 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u > 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+select * from r1 where id1=1 and id2 in (1) order by id3 desc;
+select case when variable_value-@c = 0 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u = 0 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+
 # cleanup
 truncate table t1;
 optimize table t1;
@@ -36,4 +59,5 @@ truncate table t2;
 optimize table t2;
 drop table if exists t1;
 drop table if exists t2;
+drop table if exists r1;
 --remove_file $ddl
