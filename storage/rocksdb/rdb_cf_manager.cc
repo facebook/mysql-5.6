@@ -41,11 +41,14 @@ bool is_cf_name_reverse(const char *name)
     return false;
 }
 
+#ifdef HAVE_PSI_INTERFACE
+static PSI_mutex_key ex_key_cfm;
+#endif
 
 void Column_family_manager::init(std::vector<std::string> *names,
                                  std::vector<rocksdb::ColumnFamilyHandle*> *handles)
 {
-  mysql_mutex_init(NULL, &cfm_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(ex_key_cfm, &cfm_mutex, MY_MUTEX_INIT_FAST);
   DBUG_ASSERT(names->size() == handles->size());
   DBUG_ASSERT(names->size() > 0);
 
