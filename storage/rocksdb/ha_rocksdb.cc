@@ -672,8 +672,8 @@ static void init_rocksdb_psi_keys()
   count= array_elements(all_rocksdb_stages);
   mysql_stage_register(category, all_rocksdb_stages, count);
 
-  count= array_elements(all_server_threads);
-  mysql_thread_register(category, all_server_threads, count);
+  count= array_elements(all_rocksdb_threads);
+  mysql_thread_register(category, all_rocksdb_threads, count);
 }
 #endif
 
