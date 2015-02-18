@@ -55,7 +55,8 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
 void* background_thread(void*);
 bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
-                          const bool use_all_keys);
+                          const bool use_all_keys,
+                          bool is_ascending);
 static int rocksdb_normalize_tablename(const char *tablename,
                                        StringBuffer<256> *strbuf);
 
@@ -2314,7 +2315,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
-  setup_index_scan(kd, &slice, use_all_keys);
+  setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag));
   bool move_forward= true;
 
 
@@ -3115,7 +3116,8 @@ int ha_rocksdb::write_row(uchar *buf)
 
 void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
                                   rocksdb::Slice *slice,
-                                  bool use_all_keys)
+                                  bool use_all_keys,
+                                  bool is_ascending)
 {
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
@@ -3128,7 +3130,7 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
     rocksdb::ReadOptions options;
     if (!lock_rows)
       options.snapshot= trx->snapshot;
-    if (!can_use_bloom_filter(keydef, *slice, use_all_keys))
+    if (!can_use_bloom_filter(keydef, *slice, use_all_keys, is_ascending))
       options.total_order_seek= true;
     rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, keydef->get_cf());
     scan_it= new Apply_changes_iter;
@@ -3910,6 +3912,54 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
   mysql_mutex_unlock(&tbl_def->mutex);
 }
 
+/**
+  Checking if an index is used for ascending scan or not
+
+  @detail
+  Currently RocksDB does not support bloom filter for
+  prefix lookup + descending scan, but supports bloom filter for
+  prefix lookup + ascending scan. This function returns true if
+  the scan pattern is absolutely ascending.
+  @param keydef
+  @param find_flag
+*/
+bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag)
+{
+  bool is_ascending= false;
+  switch (find_flag) {
+  case HA_READ_KEY_EXACT:
+  case HA_READ_PREFIX:
+  {
+    is_ascending= true;
+    break;
+  }
+  case HA_READ_KEY_OR_NEXT:
+  case HA_READ_AFTER_KEY:
+  {
+    if (keydef->is_reverse_cf)
+      is_ascending= false;
+    else
+      is_ascending= true;
+    break;
+  }
+  case HA_READ_KEY_OR_PREV:
+  case HA_READ_BEFORE_KEY:
+  case HA_READ_PREFIX_LAST:
+  case HA_READ_PREFIX_LAST_OR_PREV:
+  {
+    if (keydef->is_reverse_cf)
+      is_ascending= true;
+    else
+      is_ascending= false;
+    break;
+  }
+  default:
+    is_ascending= false;
+  }
+  return is_ascending;
+}
+
+
 #define SHOW_FNAME(name) rocksdb_show_##name
 
 #define DEF_SHOW_FUNC(name, key) \
@@ -4186,7 +4236,8 @@ void* background_thread(void*)
 */
 bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
-                          const bool use_all_keys)
+                          const bool use_all_keys,
+                          bool is_ascending)
 {
   bool can_use= false;
   rocksdb::Options opt = rdb->GetOptions(keydef->get_cf());
@@ -4194,10 +4245,15 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
   {
     /*
       This is an optimized use case for CappedPrefixTransform.
-      If eq_cond length >= prefix extractor length, it is
-      always possible to use bloom filter. Keys longer than the
-      capped prefix length will be truncated down to the capped length
-      and the resulting key is added to the bloom filter.
+      If eq_cond length >= prefix extractor length and if
+      all keys are used for equal lookup, it is
+      always possible to use bloom filter.
+
+      Prefix bloom filter can't be used on descending scan with
+      prefix lookup (i.e. WHERE id1=1 ORDER BY id2 DESC), because of
+      RocksDB's limitation. On ascending (or not sorting) scan,
+      keys longer than the capped prefix length will be truncated down
+      to the capped length and the resulting key is added to the bloom filter.
 
       Keys shorter than the capped prefix length will be added to
       the bloom filter. When keys are looked up, key conditionals
@@ -4205,9 +4261,11 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
       shorter require all parts of the key to be available
       for the short key match.
     */
-    if (opt.prefix_extractor->SameResultWhenAppended(eq_cond))
+    if (use_all_keys && opt.prefix_extractor->InRange(eq_cond))
       can_use= true;
-    else if (use_all_keys && opt.prefix_extractor->InRange(eq_cond))
+    else if (!is_ascending)
+      can_use= false;
+    else if (opt.prefix_extractor->SameResultWhenAppended(eq_cond))
       can_use= true;
     else
       can_use= false;
