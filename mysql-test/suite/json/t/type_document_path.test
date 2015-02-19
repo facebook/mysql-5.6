@@ -1,3 +1,6 @@
+--source include/master-slave.inc
+connection master;
+
 ################################################################################
 ###
 ### Test of document path of document type
@@ -382,3 +385,5 @@ where doc.address.zipcode like "98761" or doc2.address.zipcode like "98762";
 ###
 
 drop table t1, t2, t3, t4;
+
+--source include/rpl_end.inc

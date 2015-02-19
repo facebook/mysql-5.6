@@ -1,3 +1,8 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
 drop table if exists t1, t2, t3, t4;
 CREATE TABLE t1 (
 a int not null,
@@ -205,3 +210,4 @@ key id_a_double_b_bool (doc.id as int, a, doc.double as double, b, doc.bool as b
 key a_name_b_name100_address_a_address100_b (a, doc.name as string(64), b, doc.name as string(100), doc.address as binary(64), a, doc.address as binary(100), b)) engine=innodb;
 ERROR 42S21: Duplicate column name 'doc'
 drop table t1, t2, t3;
+include/rpl_end.inc
