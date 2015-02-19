@@ -1,3 +1,8 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
 drop table if exists t1, t2, t3, t4;
 CREATE TABLE t1 (
 a int not null,
@@ -365,3 +370,4 @@ doc	doc	doc2	doc2
 Alex	98761	Alex II	98761
 Bob	98762	Bob II	98762
 drop table t1, t2, t3, t4;
+include/rpl_end.inc
