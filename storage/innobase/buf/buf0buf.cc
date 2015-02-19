@@ -4269,6 +4269,11 @@ loop:
 
 	if (block != NULL) {
 
+		/* Suppress Valgrind warnings about conditional jump
+		on uninitialized value. */
+		UNIV_MEM_VALID(&block->page.space, sizeof(block->page.space));
+		UNIV_MEM_VALID(&block->page.offset, sizeof(block->page.offset));
+
 		/* If the guess is a compressed page descriptor that
 		has been allocated by buf_page_alloc_descriptor(),
 		it may have been freed by buf_relocate(). */
