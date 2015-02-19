@@ -1,3 +1,6 @@
+--source include/master-slave.inc
+connection master;
+
 --disable_warnings
 drop table if exists test_json;
 --enable_warnings
@@ -13,3 +16,5 @@ create table test_json(json document) engine=innodb;
 # cleanup
 #
 drop table test_json;
+
+--source include/rpl_end.inc

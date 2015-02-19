@@ -1,3 +1,8 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
 drop table if exists test_json;
 create table test_json(json document) engine=innodb;
 insert into test_json values
@@ -676,3 +681,4 @@ json
 truncate test_json;
 set use_fbson_output_format = DEFAULT;
 drop table test_json;
+include/rpl_end.inc
