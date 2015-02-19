@@ -1,4 +1,6 @@
 --source include/have_innodb.inc
+--source include/master-slave.inc
+connection master;
 
 --disable_warnings
 drop table if exists t, t1, t2, t3;
@@ -97,7 +99,7 @@ insert into t1 (b, c, d) values (repeat('B', 64), repeat('C', 256), '{ "id":202,
 let $i=12;
 while ($i) {
   --eval INSERT INTO t1 (b, c, d) VALUES ($i, $i * $i, '{ "id":202, "name":"David", "phone":6507770002, "address":{ "houseNumber":1004, "street":"2nd", "zipcode":98762 }, "children":["Alex", "Bob", "Charlie"] }');
-  INSERT INTO t1 (b, c, d) SELECT b, c, d FROM t1;
+  INSERT INTO t1 (b, c, d) SELECT b, c, d FROM t1 order by a;
   dec $i;
 }
 --enable_query_log
@@ -169,3 +171,5 @@ SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
 drop table t, t1, t2, t3;
+
+--source include/rpl_end.inc

@@ -1,3 +1,6 @@
+--source include/master-slave.inc
+connection master;
+
 ################################################################################
 ###
 ### Test of document path of document type
@@ -393,3 +396,5 @@ SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
 drop table t1, t2, t3, t4;
+
+--source include/rpl_end.inc

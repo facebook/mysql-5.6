@@ -1,3 +1,6 @@
+--source include/master-slave.inc
+connection master;
+
 # Description
 # -----------
 # Testing json functions on literal strings
@@ -209,3 +212,5 @@ select json_array_length('');
 #
 
 select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'));
+
+--source include/rpl_end.inc
