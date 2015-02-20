@@ -1,0 +1,56 @@
+--disable_warnings
+drop table if exists t1, t2;
+--enable_warnings
+
+# original table
+create table t1 (a int, b document, c varchar(20), primary key (a)) engine = innodb;
+# audit table
+create table t2 (i int auto_increment, dml char(10), a int, b document, c varchar(20), primary key (i)) engine = innodb;
+
+# insert trigger
+create trigger ins_trig after insert on t1 for each row
+  insert into t2 (dml, a, b, c)
+  values ('INSERT', NEW.a, NEW.b, NEW.c);
+
+# delete trigger
+create trigger del_trig after delete on t1 for each row
+  insert into t2 (dml, a, b, c)
+  values ('DELETE', OLD.a, OLD.b, OLD.c);
+
+# update trigger
+delimiter //;
+create trigger upd_trig
+after update on t1 for each row
+begin
+  if (NEW.a = OLD.a) then
+    insert into t2 (dml, a, b, c)
+    values ('UPDATE', NEW.a, NEW.b, NEW.c);
+  else
+    insert into t2 (dml, a, b, c)
+    values ('DELETE', OLD.a, OLD.b, OLD.c),
+           ('INSERT', NEW.a, NEW.b, NEW.c);
+  end if;
+end;
+//
+delimiter ;//
+
+insert into t1 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
+insert into t1 values (2, '{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 } }', 'a6');
+insert into t1 values (3, '{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "hoa":39.99 } }', 'a7');
+insert into t1 values (4, '{ "id":104, "name":"David", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "children":["Alex", "Bob", "Charlie"] }', 'a8');
+
+delete from t1 where json_extract_value(b, 'name') like 'Alex';
+delete from t1 where json_extract_value(b, 'name') like 'David';
+
+update t1 set c = 'test';
+update t1 set a = a + 10;
+update t1 set b = '{"id":105, "name":"Frank", "phone":1234567890}' where json_extract_value(b, 'id') = 102;
+
+select * from t1 order by a;
+select * from t2 order by i;
+
+drop trigger ins_trig;
+drop trigger del_trig;
+drop trigger upd_trig;
+drop table t1;
+drop table t2;
