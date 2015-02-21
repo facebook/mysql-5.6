@@ -28,7 +28,7 @@ std::vector<std::string> id_str_dict;
 const int dict_max_size = 5;
 
 // a simple dictionary insert function
-int dictInsert(const char *key, unsigned len) {
+int dictInsert(const char* key, unsigned len) {
   std::string kstr(key, len);
   auto iter = str_id_dict.find(kstr);
   if (iter != str_id_dict.end()) {
@@ -45,7 +45,7 @@ int dictInsert(const char *key, unsigned len) {
 }
 
 // a simple dictionary find function
-int dictFind(const char *key, unsigned len) {
+int dictFind(const char* key, unsigned len) {
   std::string kstr(key, len);
   auto iter = str_id_dict.find(kstr);
   if (iter != str_id_dict.end()) {
@@ -57,8 +57,8 @@ int dictFind(const char *key, unsigned len) {
 
 TEST(FBSON_DICT, parser_dict) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonDocument *pdoc;
-  fbson::FbsonValue *pval;
+  fbson::FbsonDocument* pdoc;
+  fbson::FbsonValue* pval;
   std::ostringstream ss;
 
   str_id_dict.clear();
@@ -73,9 +73,9 @@ TEST(FBSON_DICT, parser_dict) {
   EXPECT_TRUE(parser.parse(str.c_str(), funcInsert));
   pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
   EXPECT_EQ(dict_max_size, str_id_dict.size());
   EXPECT_EQ(dict_max_size, id_str_dict.size());
 
@@ -84,31 +84,31 @@ TEST(FBSON_DICT, parser_dict) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(11, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(11, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(2);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(22, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(22, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(3);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(33, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(33, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(4);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(44, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(44, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(5);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(55, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(55, ((fbson::Int8Val*)pval)->val());
 
   // fail since k6 is not mapped
   pval = doc->find(6);
@@ -123,7 +123,7 @@ TEST(FBSON_DICT, parser_dict) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(11, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(11, ((fbson::Int8Val*)pval)->val());
 
   // searching with mapped key string without dict will fail
   pval = doc->find("k1");
@@ -133,45 +133,45 @@ TEST(FBSON_DICT, parser_dict) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(22, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(22, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k3", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(33, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(33, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k4", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(44, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(44, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k5", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(55, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(55, ((fbson::Int8Val*)pval)->val());
 
   // searching with unmapped key string is ok
   pval = doc->find("k6", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(66, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(66, ((fbson::Int8Val*)pval)->val());
 
   // OK without dictionary
   pval = doc->find("k6");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(66, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(66, ((fbson::Int8Val*)pval)->val());
 }
 
 TEST(FBSON_DICT, writer_dict) {
   fbson::FbsonWriter writer;
-  fbson::FbsonDocument *pdoc;
-  fbson::FbsonValue *pval;
+  fbson::FbsonDocument* pdoc;
+  fbson::FbsonValue* pval;
   std::ostringstream ss;
 
   str_id_dict.clear();
@@ -204,9 +204,9 @@ TEST(FBSON_DICT, writer_dict) {
 
   EXPECT_TRUE(writer.writeEndObject());
 
-  pdoc = fbson::FbsonDocument::createDocument(writer.getOutput()->getBuffer(),
-                                              writer.getOutput()->getSize());
-  fbson::FbsonDocument &doc = *pdoc;
+  pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
+  fbson::FbsonDocument& doc = *pdoc;
   EXPECT_TRUE(pdoc);
   EXPECT_EQ(dict_max_size, str_id_dict.size());
   EXPECT_EQ(dict_max_size, id_str_dict.size());
@@ -216,31 +216,31 @@ TEST(FBSON_DICT, writer_dict) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(11, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(11, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(2);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(22, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(22, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(3);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(33, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(33, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(4);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(44, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(44, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find(5);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(55, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(55, ((fbson::Int8Val*)pval)->val());
 
   // fail since k6 is not mapped
   pval = doc->find(6);
@@ -255,7 +255,7 @@ TEST(FBSON_DICT, writer_dict) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(11, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(11, ((fbson::Int8Val*)pval)->val());
 
   // searching with mapped key string without dict will fail
   pval = doc->find("k1");
@@ -265,42 +265,42 @@ TEST(FBSON_DICT, writer_dict) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(22, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(22, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k3", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(33, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(33, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k4", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(44, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(44, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k5", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(55, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(55, ((fbson::Int8Val*)pval)->val());
 
   // searching with unmapped key string is ok
   pval = doc->find("k6", funcFind);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(66, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(66, ((fbson::Int8Val*)pval)->val());
 
   // OK without dictionary
   pval = doc->find("k6");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(66, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(66, ((fbson::Int8Val*)pval)->val());
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   google::ParseCommandLineFlags(&argc, &argv, true);
   return RUN_ALL_TESTS();

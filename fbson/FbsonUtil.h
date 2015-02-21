@@ -32,7 +32,7 @@ class FbsonToJson {
   FbsonToJson() : os_(buffer_, OUT_BUF_SIZE) {}
 
   // get json string
-  const char *json(const FbsonValue *pval) {
+  const char* json(const FbsonValue* pval) {
     os_.clear();
     os_.seekp(0);
 
@@ -46,7 +46,7 @@ class FbsonToJson {
 
  private:
   // recursively convert FbsonValue
-  void intern_json(const FbsonValue *val) {
+  void intern_json(const FbsonValue* val) {
     switch (val->type()) {
     case FbsonType::T_Null: {
       os_.write("null", 4);
@@ -61,45 +61,43 @@ class FbsonToJson {
       break;
     }
     case FbsonType::T_Int8: {
-      os_.write(((Int8Val *)val)->val());
+      os_.write(((Int8Val*)val)->val());
       break;
     }
     case FbsonType::T_Int16: {
-      os_.write(((Int16Val *)val)->val());
+      os_.write(((Int16Val*)val)->val());
       break;
     }
     case FbsonType::T_Int32: {
-      os_.write(((Int32Val *)val)->val());
+      os_.write(((Int32Val*)val)->val());
       break;
     }
     case FbsonType::T_Int64: {
-      os_.write(((Int64Val *)val)->val());
+      os_.write(((Int64Val*)val)->val());
       break;
     }
     case FbsonType::T_Double: {
-      os_.write(((DoubleVal *)val)->val());
+      os_.write(((DoubleVal*)val)->val());
       break;
     }
     case FbsonType::T_String: {
       os_.put('"');
-      os_.write(((StringVal *)val)->getBlob(),
-                ((StringVal *)val)->getBlobLen());
+      os_.write(((StringVal*)val)->getBlob(), ((StringVal*)val)->getBlobLen());
       os_.put('"');
       break;
     }
     case FbsonType::T_Binary: {
       os_.write("\"<BINARY>", 9);
-      os_.write(((BinaryVal *)val)->getBlob(),
-                ((BinaryVal *)val)->getBlobLen());
+      os_.write(((BinaryVal*)val)->getBlob(), ((BinaryVal*)val)->getBlobLen());
       os_.write("<BINARY>\"", 9);
       break;
     }
     case FbsonType::T_Object: {
-      object_to_json((ObjectVal *)val);
+      object_to_json((ObjectVal*)val);
       break;
     }
     case FbsonType::T_Array: {
-      array_to_json((ArrayVal *)val);
+      array_to_json((ArrayVal*)val);
       break;
     }
     default:
@@ -108,7 +106,7 @@ class FbsonToJson {
   }
 
   // convert object
-  void object_to_json(const ObjectVal *val) {
+  void object_to_json(const ObjectVal* val) {
     os_.put('{');
 
     auto iter = val->begin();
@@ -140,7 +138,7 @@ class FbsonToJson {
   }
 
   // convert array to json
-  void array_to_json(const ArrayVal *val) {
+  void array_to_json(const ArrayVal* val) {
     os_.put('[');
 
     auto iter = val->begin();
@@ -148,7 +146,7 @@ class FbsonToJson {
 
     while (iter != iter_fence) {
       // convert value
-      intern_json((const FbsonValue *)iter);
+      intern_json((const FbsonValue*)iter);
       ++iter;
       if (iter != iter_fence) {
         os_.put(',');
