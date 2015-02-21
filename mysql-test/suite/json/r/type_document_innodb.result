@@ -4,13 +4,9 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 drop table if exists t, t1, t2, t3;
-SET @start_global_allow_document_type = @@global.allow_document_type;
-SELECT @start_global_allow_document_type;
-@start_global_allow_document_type
-1
-SET @start_session_allow_document_type = @@session.allow_document_type;
-SELECT @start_session_allow_document_type;
-@start_session_allow_document_type
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
 1
 create table t (i int(8), a document, s text(255)) engine=myisam;
 ERROR HY000: A DOCUMENT field is not allowed in non-innodb table
@@ -186,9 +182,9 @@ i	a	s
 1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
 update t2 set a=DEFAULT;
 ERROR HY000: Invalid document value.
-SET @@session.allow_document_type = false;
-SELECT @@session.allow_document_type;
-@@session.allow_document_type
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
 0
 create table t3 (i int(8), a document, s text(255)) engine=innodb;
 ERROR HY000: DOCUMENT fields are not allowed
@@ -197,19 +193,15 @@ alter table t3 add column a document;
 ERROR HY000: DOCUMENT fields are not allowed
 alter table t3 modify column s document;
 ERROR HY000: DOCUMENT fields are not allowed
-SET @@session.allow_document_type = true;
-SELECT @@session.allow_document_type;
-@@session.allow_document_type
-1
-alter table t3 add column a document;
-alter table t3 modify column s document;
-SET @@global.allow_document_type = @start_global_allow_document_type;
+SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
-SET @@session.allow_document_type = @start_session_allow_document_type;
-SELECT @@session.allow_document_type;
-@@session.allow_document_type
+alter table t3 add column a document;
+alter table t3 modify column s document;
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
 1
 drop table t, t1, t2, t3;
 include/rpl_end.inc

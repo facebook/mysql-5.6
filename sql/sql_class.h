@@ -673,7 +673,6 @@ typedef struct system_variables
   my_bool use_fbson_output_format;
   my_bool sql_log_bin_triggers;
 
-  my_bool allow_document_type;
 } SV;
 
 
