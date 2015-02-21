@@ -22,7 +22,7 @@
 
 TEST(FBSON_PARSER, basic) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
   fbson::FbsonToJson tojson;
 
   // keywords (null, true, false) are case insensitive
@@ -34,11 +34,11 @@ TEST(FBSON_PARSER, basic) {
 
   // calling parse method 1
   EXPECT_TRUE(parser.parse(str));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // null value
   pval = doc->find("kn1");
@@ -117,7 +117,7 @@ TEST(FBSON_PARSER, basic) {
 
 TEST(FBSON_PARSER, number_decimal) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   std::string str(
       "{\"k8\":123,\"k16\":-12345,\"k32\":1234567,\
@@ -126,75 +126,75 @@ TEST(FBSON_PARSER, number_decimal) {
         \"kdbl4\":1.234567890123456789}");
 
   // calling parse method 3
-  EXPECT_TRUE(parser.parse(str.c_str(), str.size()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  EXPECT_TRUE(parser.parse(str.c_str(), (unsigned)str.size()));
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // int8 value
   pval = doc->find("k8");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(123, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(123, ((fbson::Int8Val*)pval)->val());
   EXPECT_EQ(1, pval->size());
-  EXPECT_EQ(123, *(int8_t *)(pval->getValuePtr()));
+  EXPECT_EQ(123, *(int8_t*)(pval->getValuePtr()));
 
   // int16 value
   pval = doc->find("k16");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
   EXPECT_EQ(3, pval->numPackedBytes());
-  EXPECT_EQ(-12345, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ(-12345, ((fbson::Int16Val*)pval)->val());
   EXPECT_EQ(2, pval->size());
-  EXPECT_EQ(-12345, *(int16_t *)(pval->getValuePtr()));
+  EXPECT_EQ(-12345, *(int16_t*)(pval->getValuePtr()));
 
   // int32 value
   pval = doc->find("k32");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
   EXPECT_EQ(5, pval->numPackedBytes());
-  EXPECT_EQ(1234567, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ(1234567, ((fbson::Int32Val*)pval)->val());
   EXPECT_EQ(4, pval->size());
-  EXPECT_EQ(1234567, *(int32_t *)(pval->getValuePtr()));
+  EXPECT_EQ(1234567, *(int32_t*)(pval->getValuePtr()));
 
   // int64 value
   pval = doc->find("k64");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_EQ(-1234567890123456789, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ(-1234567890123456789, ((fbson::Int64Val*)pval)->val());
   EXPECT_EQ(8, pval->size());
-  EXPECT_EQ(-1234567890123456789, *(int64_t *)(pval->getValuePtr()));
+  EXPECT_EQ(-1234567890123456789, *(int64_t*)(pval->getValuePtr()));
 
   // double value case 1
   pval = doc->find("kdbl1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_DOUBLE_EQ(123.4567, ((fbson::DoubleVal *)pval)->val());
+  EXPECT_DOUBLE_EQ(123.4567, ((fbson::DoubleVal*)pval)->val());
   EXPECT_EQ(8, pval->size());
-  EXPECT_DOUBLE_EQ(123.4567, *(double *)(pval->getValuePtr()));
+  EXPECT_DOUBLE_EQ(123.4567, *(double*)(pval->getValuePtr()));
 
   // double value case 2
   pval = doc->find("kdbl2");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_DOUBLE_EQ(1.234e308, ((fbson::DoubleVal *)pval)->val());
+  EXPECT_DOUBLE_EQ(1.234e308, ((fbson::DoubleVal*)pval)->val());
   EXPECT_EQ(8, pval->size());
-  EXPECT_DOUBLE_EQ(1.234e308, *(double *)(pval->getValuePtr()));
+  EXPECT_DOUBLE_EQ(1.234e308, *(double*)(pval->getValuePtr()));
 
   // double value case 3
   pval = doc->find("kdbl3");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_NEAR(1.234e-308, ((fbson::DoubleVal *)pval)->val(), 0.0001e-308);
+  EXPECT_NEAR(1.234e-308, ((fbson::DoubleVal*)pval)->val(), 0.0001e-308);
   EXPECT_EQ(8, pval->size());
-  EXPECT_NEAR(1.234e-308, *(double *)(pval->getValuePtr()), 0.0001e-308);
+  EXPECT_NEAR(1.234e-308, *(double*)(pval->getValuePtr()), 0.0001e-308);
 
   // double value case 4
   pval = doc->find("kdbl4");
@@ -202,9 +202,9 @@ TEST(FBSON_PARSER, number_decimal) {
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
   // this double value will be saved with 15 significant digits
-  EXPECT_NEAR(1.23456789012345, ((fbson::DoubleVal *)pval)->val(), 0.0001e-308);
+  EXPECT_NEAR(1.23456789012345, ((fbson::DoubleVal*)pval)->val(), 0.0001e-308);
   EXPECT_EQ(8, pval->size());
-  EXPECT_NEAR(1.23456789012345, *(double *)(pval->getValuePtr()), 0.0001e-308);
+  EXPECT_NEAR(1.23456789012345, *(double*)(pval->getValuePtr()), 0.0001e-308);
 
   // negative test cases
 
@@ -248,7 +248,7 @@ TEST(FBSON_PARSER, number_decimal) {
 
 TEST(FBSON_PARSER, number_hex) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   std::string str(
       "{\"khex0\":0x0,\"khex1\":0xAB,\"khex2\":0xABCD,\
@@ -257,70 +257,70 @@ TEST(FBSON_PARSER, number_hex) {
         \"khex7\":0x000000000000000A}");
 
   // calling parse method 4
-  fbson::FbsonInBuffer sb(str.c_str(), str.size());
+  fbson::FbsonInBuffer sb(str.c_str(), (unsigned)str.size());
   std::istream is(&sb);
   EXPECT_TRUE(parser.parse(is));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // hex value - int8
   pval = doc->find("khex0");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ((int8_t)0x0, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ((int8_t)0x0, ((fbson::Int8Val*)pval)->val());
 
   // hex value - int8
   pval = doc->find("khex1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ((int8_t)0xAB, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ((int8_t)0xAB, ((fbson::Int8Val*)pval)->val());
 
   // hex value - int16
   pval = doc->find("khex2");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
   EXPECT_EQ(3, pval->numPackedBytes());
-  EXPECT_EQ((int16_t)0xABCD, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ((int16_t)0xABCD, ((fbson::Int16Val*)pval)->val());
 
   // hex value - int32
   pval = doc->find("khex3");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
   EXPECT_EQ(5, pval->numPackedBytes());
-  EXPECT_EQ((int32_t)0xABCDEFAB, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ((int32_t)0xABCDEFAB, ((fbson::Int32Val*)pval)->val());
 
   // hex value - int64
   pval = doc->find("khex4");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_EQ((int64_t)0xABCDEFABCDEFABCD, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ((int64_t)0xABCDEFABCDEFABCD, ((fbson::Int64Val*)pval)->val());
 
   // hex value - forcing int16
   pval = doc->find("khex5");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
   EXPECT_EQ(3, pval->numPackedBytes());
-  EXPECT_EQ((int16_t)0xA, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ((int16_t)0xA, ((fbson::Int16Val*)pval)->val());
 
   // hex value - forcing int32
   pval = doc->find("khex6");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
   EXPECT_EQ(5, pval->numPackedBytes());
-  EXPECT_EQ((int32_t)0xA, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ((int32_t)0xA, ((fbson::Int32Val*)pval)->val());
 
   // hex value - forcing int64
   pval = doc->find("khex7");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_EQ((int64_t)0xA, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ((int64_t)0xA, ((fbson::Int64Val*)pval)->val());
 
   // negative cases
 
@@ -342,7 +342,7 @@ TEST(FBSON_PARSER, number_hex) {
 
 TEST(FBSON_PARSER, number_octal) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   std::string str(
       "{\"koct1\":0123,\"koct2\":012345,\
@@ -350,39 +350,39 @@ TEST(FBSON_PARSER, number_octal) {
         \"koct4\":012345670123456701234}");
 
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // octal value - int8
   pval = doc->find("koct1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ((int8_t)0123, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ((int8_t)0123, ((fbson::Int8Val*)pval)->val());
 
   // octal value - int16
   pval = doc->find("koct2");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
   EXPECT_EQ(3, pval->numPackedBytes());
-  EXPECT_EQ((int16_t)012345, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ((int16_t)012345, ((fbson::Int16Val*)pval)->val());
 
   // octal value - int32
   pval = doc->find("koct3");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
   EXPECT_EQ(5, pval->numPackedBytes());
-  EXPECT_EQ((int32_t)01234567012, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ((int32_t)01234567012, ((fbson::Int32Val*)pval)->val());
 
   // octal value - int64
   pval = doc->find("koct4");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_EQ((int64_t)012345670123456701234, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ((int64_t)012345670123456701234, ((fbson::Int64Val*)pval)->val());
 
   // negative cases
 
@@ -401,7 +401,7 @@ TEST(FBSON_PARSER, string) {
   // use small outstream size, so it will grow automatically
   fbson::FbsonOutStream os(1);
   fbson::FbsonJsonParser parser(os);
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   std::string str(
       "{\"k1\":\"this is a test!\",\
@@ -410,10 +410,10 @@ TEST(FBSON_PARSER, string) {
                     \"k4\":\"this is an escape char \\!\",\
                     \"k5\":\"this is a new line \\n!\"}");
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc =
-      fbson::FbsonDocument::createDocument(os.getBuffer(), os.getSize());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      os.getBuffer(), (unsigned)os.getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // string value
   pval = doc->find("k1");
@@ -462,7 +462,8 @@ TEST(FBSON_PARSER, string) {
         \"kkk\":  \"3\", \
         \"kkkk\": \"4\"}");
   EXPECT_TRUE(parser.parse(str.c_str()));
-  pdoc = fbson::FbsonDocument::createDocument(os.getBuffer(), os.getSize());
+  pdoc = fbson::FbsonDocument::createDocument(os.getBuffer(),
+                                              (unsigned)os.getSize());
   EXPECT_TRUE(pdoc);
   doc = *pdoc;
 
@@ -496,7 +497,7 @@ TEST(FBSON_PARSER, string) {
 
 TEST(FBSON_PARSER, object) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
   fbson::FbsonToJson tojson;
 
   std::string str(
@@ -504,11 +505,11 @@ TEST(FBSON_PARSER, object) {
         \"k3\":[{\"k3_1\":\"v3_1\"}]}");
 
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // object value
   pval = doc->find("k2");
@@ -519,7 +520,7 @@ TEST(FBSON_PARSER, object) {
   EXPECT_STREQ("{\"k2_1\":\"v2_1\"}", tojson.json(pval));
 
   // query into object value (level 2)
-  pval = ((fbson::ObjectVal *)pval)->find("k2_1");
+  pval = ((fbson::ObjectVal*)pval)->find("k2_1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v2_1")
@@ -537,7 +538,7 @@ TEST(FBSON_PARSER, object) {
   EXPECT_STREQ("[{\"k3_1\":\"v3_1\"}]", tojson.json(pval));
 
   // query into array (level 2)
-  pval = ((fbson::ArrayVal *)pval)->get(0);
+  pval = ((fbson::ArrayVal*)pval)->get(0);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isObject());
   // packed bytes size: 1+4+(1+strlen("k3_1"))+(1+4+strlen("v3_1"))
@@ -546,7 +547,7 @@ TEST(FBSON_PARSER, object) {
   EXPECT_STREQ("{\"k3_1\":\"v3_1\"}", tojson.json(pval));
 
   // further query into object value (level 3)
-  pval = ((fbson::ObjectVal *)pval)->find("k3_1");
+  pval = ((fbson::ObjectVal*)pval)->find("k3_1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v3_1")
@@ -597,7 +598,7 @@ TEST(FBSON_PARSER, object) {
   EXPECT_EQ("v3_1", std::string(pval->getValuePtr(), pval->size()));
 
   // find a value by key path with NULL delimiter
-  pval = doc.getValue()->findPath("k2\0k2_1", 7, ""/* NULL delim */);
+  pval = doc.getValue()->findPath("k2\0k2_1", 7, "" /* NULL delim */);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v2_1")
@@ -606,7 +607,7 @@ TEST(FBSON_PARSER, object) {
   EXPECT_EQ("v2_1", std::string(pval->getValuePtr(), pval->size()));
 
   // find a value by key path with NULL delimiter
-  pval = doc.getValue()->findPath("k3\0000\0k3_1", 9, ""/* NULL delim */);
+  pval = doc.getValue()->findPath("k3\0000\0k3_1", 9, "" /* NULL delim */);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v3_1")
@@ -647,7 +648,7 @@ TEST(FBSON_PARSER, object) {
   EXPECT_TRUE(parser.parse(str.c_str()));
   pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
   doc = *pdoc;
 
@@ -702,8 +703,8 @@ TEST(FBSON_PARSER, object) {
 
 TEST(FBSON_PARSER, array) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
-  fbson::ArrayVal *parr;
+  fbson::FbsonValue* pval;
+  fbson::ArrayVal* parr;
   std::ostringstream ss;
 
   std::string str(
@@ -711,16 +712,16 @@ TEST(FBSON_PARSER, array) {
                    \"string\", {\"k1\":\"v1\"}, [9,9,8,8]]}");
 
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   pval = doc->find("array");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isArray());
-  parr = (fbson::ArrayVal *)pval;
+  parr = (fbson::ArrayVal*)pval;
 
   pval = parr->get(0);
   EXPECT_TRUE(pval != nullptr);
@@ -737,22 +738,22 @@ TEST(FBSON_PARSER, array) {
   pval = parr->get(3);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
-  EXPECT_EQ(1, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(1, ((fbson::Int8Val*)pval)->val());
 
   pval = parr->get(4);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
-  EXPECT_EQ(300, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ(300, ((fbson::Int16Val*)pval)->val());
 
   pval = parr->get(5);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
-  EXPECT_EQ(-40000, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ(-40000, ((fbson::Int32Val*)pval)->val());
 
   pval = parr->get(6);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
-  EXPECT_EQ(3000000000, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ(3000000000, ((fbson::Int64Val*)pval)->val());
 
   pval = parr->get(7);
   EXPECT_TRUE(pval != nullptr);
@@ -763,7 +764,7 @@ TEST(FBSON_PARSER, array) {
   pval = parr->get(8);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isObject());
-  pval = ((fbson::ObjectVal *)pval)->find("k1");
+  pval = ((fbson::ObjectVal*)pval)->find("k1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   EXPECT_EQ(strlen("v1"), pval->size());
@@ -772,7 +773,7 @@ TEST(FBSON_PARSER, array) {
   pval = parr->get(9);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isArray());
-  EXPECT_EQ(4, ((fbson::ArrayVal *)pval)->numElem());
+  EXPECT_EQ(4, ((fbson::ArrayVal*)pval)->numElem());
 
   // fail, negative index
   pval = parr->get(-1);
@@ -783,7 +784,7 @@ TEST(FBSON_PARSER, array) {
   EXPECT_TRUE(parser.parse(str.c_str()));
   pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
   doc = *pdoc;
 
@@ -812,9 +813,9 @@ TEST(FBSON_PARSER, array) {
 // convert FBSON to JSON
 TEST(FBSON_PARSER, Fbson_to_Json) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
   fbson::FbsonToJson tojson;
-  const char *json;
+  const char* json;
 
   std::string str(
       "{\"k0\" : \"This is a long long long long long long JSON text\",\
@@ -841,7 +842,7 @@ TEST(FBSON_PARSER, Fbson_to_Json) {
   EXPECT_TRUE(parser.parse(str));
   pval = fbson::FbsonDocument::createValue(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pval);
 
   json = tojson.json(pval);
@@ -857,11 +858,11 @@ TEST(FBSON_PARSER, Fbson_to_Json) {
         \"k5\":-1.234567890123456e+123}");
 
   EXPECT_TRUE(parser.parse(str));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   pval = doc->find("k1");
   json = tojson.json(pval);
@@ -890,7 +891,7 @@ TEST(FBSON_PARSER, Fbson_to_Json) {
   EXPECT_STREQ(json, "-1.23456789012345e+123");
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   google::ParseCommandLineFlags(&argc, &argv, true);
   return RUN_ALL_TESTS();
