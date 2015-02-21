@@ -27,11 +27,11 @@ TEST(FBSON_ITERATOR, basic_obj) {
   std::string str("{\"k1\":\"v1\",\"k2\":null,\"k3\":true,\"k4\":2}");
 
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   auto iter = doc->begin();
   auto iter_fence = doc->end();
@@ -103,23 +103,23 @@ TEST(FBSON_ITERATOR, basic_obj) {
 
 TEST(FBSON_ITERATOR, basic_arr) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
-  fbson::ArrayVal *parr;
+  fbson::FbsonValue* pval;
+  fbson::ArrayVal* parr;
 
   std::string str("{\"array\":[\"v1\",null,true,2]}");
 
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   pval = doc->find("array");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isArray());
 
-  parr = (fbson::ArrayVal *)pval;
+  parr = (fbson::ArrayVal*)pval;
   auto iter = parr->begin();
   auto iter_fence = parr->end();
   EXPECT_TRUE(iter != iter_fence);
@@ -128,7 +128,7 @@ TEST(FBSON_ITERATOR, basic_arr) {
   EXPECT_TRUE(iter->isString());
   // size: (1+4+strlen("v1"))
   EXPECT_EQ(7, iter->numPackedBytes());
-  auto str_val = (fbson::StringVal *)((fbson::FbsonValue *)iter);
+  auto str_val = (fbson::StringVal*)((fbson::FbsonValue*)iter);
   EXPECT_EQ("v1", std::string(str_val->getBlob(), str_val->getBlobLen()));
 
   ++iter;
@@ -148,7 +148,7 @@ TEST(FBSON_ITERATOR, basic_arr) {
   // fourth key-value pair
   EXPECT_TRUE(iter->isInt8());
   EXPECT_EQ(2, iter->numPackedBytes());
-  EXPECT_EQ(2, ((fbson::Int8Val *)((fbson::FbsonValue *)iter))->val());
+  EXPECT_EQ(2, ((fbson::Int8Val*)((fbson::FbsonValue*)iter))->val());
 
   ++iter;
 
@@ -179,7 +179,7 @@ TEST(FBSON_ITERATOR, basic_arr) {
 
 TEST(FBSON_ITERATOR, nested_iter) {
   fbson::FbsonJsonParser parser;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
   fbson::FbsonToJson tojson;
 
   std::string str(
@@ -187,11 +187,11 @@ TEST(FBSON_ITERATOR, nested_iter) {
         \"k3\":[1,2]}");
 
   EXPECT_TRUE(parser.parse(str.c_str()));
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       parser.getWriter().getOutput()->getBuffer(),
-      parser.getWriter().getOutput()->getSize());
+      (unsigned)parser.getWriter().getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   auto iter = doc->begin();
   auto iter_fence = doc->end();
@@ -214,7 +214,7 @@ TEST(FBSON_ITERATOR, nested_iter) {
   EXPECT_STREQ("{\"k2_1\":\"v2_1\"}", tojson.json(iter->value()));
 
   // query into second pair's object value (level 2)
-  fbson::ObjectVal *pobj = (fbson::ObjectVal *)(iter->value());
+  fbson::ObjectVal* pobj = (fbson::ObjectVal*)(iter->value());
   auto iter2 = pobj->begin();
   auto iter2_fence = pobj->end();
 
@@ -236,18 +236,18 @@ TEST(FBSON_ITERATOR, nested_iter) {
   EXPECT_STREQ("[1,2]", tojson.json(iter->value()));
 
   // query into third pair's array value (level 2)
-  auto arr = (fbson::ArrayVal *)(iter->value());
+  auto arr = (fbson::ArrayVal*)(iter->value());
   auto iter3 = arr->begin();
   auto iter3_fence = arr->end();
 
   EXPECT_TRUE(iter3->isInt8());
   EXPECT_EQ(2, iter3->numPackedBytes());
-  EXPECT_EQ(1, ((fbson::Int8Val *)((fbson::FbsonValue *)iter3))->val());
+  EXPECT_EQ(1, ((fbson::Int8Val*)((fbson::FbsonValue*)iter3))->val());
   ++iter3;
 
   EXPECT_TRUE(iter3->isInt8());
   EXPECT_EQ(2, iter3->numPackedBytes());
-  EXPECT_EQ(2, ((fbson::Int8Val *)((fbson::FbsonValue *)iter3))->val());
+  EXPECT_EQ(2, ((fbson::Int8Val*)((fbson::FbsonValue*)iter3))->val());
   ++iter3;
   EXPECT_EQ(iter3, iter3_fence);
 
@@ -256,7 +256,7 @@ TEST(FBSON_ITERATOR, nested_iter) {
   EXPECT_EQ(iter, iter_fence);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   google::ParseCommandLineFlags(&argc, &argv, true);
   return RUN_ALL_TESTS();
