@@ -47,7 +47,7 @@ class FbsonWriterT {
     os_ = new OS_TYPE();
   }
 
-  explicit FbsonWriterT(OS_TYPE &os)
+  explicit FbsonWriterT(OS_TYPE& os)
       : os_(&os),
         alloc_(false),
         hasHdr_(false),
@@ -70,7 +70,7 @@ class FbsonWriterT {
   }
 
   // write a key string (or key id if an external dict is provided)
-  uint32_t writeKey(const char *key,
+  uint32_t writeKey(const char* key,
                     uint8_t len,
                     hDictInsert handler = nullptr) {
     if (len && !stack_.empty() && verifyKeyState()) {
@@ -87,7 +87,7 @@ class FbsonWriterT {
       } else if (key_id <= FbsonKeyValue::sMaxKeyId) {
         FbsonKeyValue::keyid_type idx = key_id;
         os_->put(0);
-        os_->write((char *)&idx, sizeof(FbsonKeyValue::keyid_type));
+        os_->write((char*)&idx, sizeof(FbsonKeyValue::keyid_type));
         size += sizeof(FbsonKeyValue::keyid_type);
       } else { // key id overflow
         assert(0);
@@ -105,7 +105,7 @@ class FbsonWriterT {
   uint32_t writeKey(FbsonKeyValue::keyid_type idx) {
     if (!stack_.empty() && verifyKeyState()) {
       os_->put(0);
-      os_->write((char *)&idx, sizeof(FbsonKeyValue::keyid_type));
+      os_->write((char*)&idx, sizeof(FbsonKeyValue::keyid_type));
       kvState_ = WS_Key;
       return sizeof(uint8_t) + sizeof(FbsonKeyValue::keyid_type);
     }
@@ -152,7 +152,7 @@ class FbsonWriterT {
   uint32_t writeInt16(int16_t v) {
     if (!stack_.empty() && verifyValueState()) {
       os_->put((FbsonTypeUnder)FbsonType::T_Int16);
-      os_->write((char *)&v, sizeof(int16_t));
+      os_->write((char*)&v, sizeof(int16_t));
       kvState_ = WS_Value;
       return sizeof(Int16Val);
     }
@@ -163,7 +163,7 @@ class FbsonWriterT {
   uint32_t writeInt32(int32_t v) {
     if (!stack_.empty() && verifyValueState()) {
       os_->put((FbsonTypeUnder)FbsonType::T_Int32);
-      os_->write((char *)&v, sizeof(int32_t));
+      os_->write((char*)&v, sizeof(int32_t));
       kvState_ = WS_Value;
       return sizeof(Int32Val);
     }
@@ -174,7 +174,7 @@ class FbsonWriterT {
   uint32_t writeInt64(int64_t v) {
     if (!stack_.empty() && verifyValueState()) {
       os_->put((FbsonTypeUnder)FbsonType::T_Int64);
-      os_->write((char *)&v, sizeof(int64_t));
+      os_->write((char*)&v, sizeof(int64_t));
       kvState_ = WS_Value;
       return sizeof(Int64Val);
     }
@@ -185,7 +185,7 @@ class FbsonWriterT {
   uint32_t writeDouble(double v) {
     if (!stack_.empty() && verifyValueState()) {
       os_->put((FbsonTypeUnder)FbsonType::T_Double);
-      os_->write((char *)&v, sizeof(double));
+      os_->write((char*)&v, sizeof(double));
       kvState_ = WS_Value;
       return sizeof(DoubleVal);
     }
@@ -201,7 +201,7 @@ class FbsonWriterT {
 
       // fill the size bytes with 0 for now
       uint32_t size = 0;
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
 
       kvState_ = WS_String;
       return true;
@@ -214,11 +214,11 @@ class FbsonWriterT {
   bool writeEndString() {
     if (kvState_ == WS_String) {
       std::streampos cur_pos = os_->tellp();
-      int32_t size = cur_pos - str_pos_ - sizeof(uint32_t);
+      int32_t size = (int32_t)(cur_pos - str_pos_ - sizeof(uint32_t));
       assert(size >= 0);
 
       os_->seekp(str_pos_);
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
       os_->seekp(cur_pos);
 
       kvState_ = WS_Value;
@@ -228,7 +228,7 @@ class FbsonWriterT {
     return false;
   }
 
-  uint32_t writeString(const char *str, uint32_t len) {
+  uint32_t writeString(const char* str, uint32_t len) {
     if (kvState_ == WS_String) {
       os_->write(str, len);
       return len;
@@ -254,7 +254,7 @@ class FbsonWriterT {
 
       // fill the size bytes with 0 for now
       uint32_t size = 0;
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
 
       kvState_ = WS_Binary;
       return true;
@@ -267,11 +267,11 @@ class FbsonWriterT {
   bool writeEndBinary() {
     if (kvState_ == WS_Binary) {
       std::streampos cur_pos = os_->tellp();
-      int32_t size = cur_pos - str_pos_ - sizeof(uint32_t);
+      int32_t size = (int32_t)(cur_pos - str_pos_ - sizeof(uint32_t));
       assert(size >= 0);
 
       os_->seekp(str_pos_);
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
       os_->seekp(cur_pos);
 
       kvState_ = WS_Value;
@@ -281,7 +281,7 @@ class FbsonWriterT {
     return false;
   }
 
-  uint32_t writeBinary(const char *bin, uint32_t len) {
+  uint32_t writeBinary(const char* bin, uint32_t len) {
     if (kvState_ == WS_Binary) {
       os_->write(bin, len);
       return len;
@@ -307,7 +307,7 @@ class FbsonWriterT {
 
       // fill the size bytes with 0 for now
       uint32_t size = 0;
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
 
       kvState_ = WS_Value;
       return true;
@@ -320,13 +320,13 @@ class FbsonWriterT {
   bool writeEndObject() {
     if (!stack_.empty() && stack_.top().state == WS_Object &&
         kvState_ == WS_Value) {
-      WriteInfo &ci = stack_.top();
+      WriteInfo& ci = stack_.top();
       std::streampos cur_pos = os_->tellp();
-      int32_t size = cur_pos - ci.sz_pos - sizeof(uint32_t);
+      int32_t size = (int32_t)(cur_pos - ci.sz_pos - sizeof(uint32_t));
       assert(size >= 0);
 
       os_->seekp(ci.sz_pos);
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
       os_->seekp(cur_pos);
       stack_.pop();
 
@@ -353,7 +353,7 @@ class FbsonWriterT {
 
       // fill the size bytes with 0 for now
       uint32_t size = 0;
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
 
       kvState_ = WS_Value;
       return true;
@@ -366,13 +366,13 @@ class FbsonWriterT {
   bool writeEndArray() {
     if (!stack_.empty() && stack_.top().state == WS_Array &&
         kvState_ == WS_Value) {
-      WriteInfo &ci = stack_.top();
+      WriteInfo& ci = stack_.top();
       std::streampos cur_pos = os_->tellp();
-      int32_t size = cur_pos - ci.sz_pos - sizeof(uint32_t);
+      int32_t size = (int32_t)(cur_pos - ci.sz_pos - sizeof(uint32_t));
       assert(size >= 0);
 
       os_->seekp(ci.sz_pos);
-      os_->write((char *)&size, sizeof(uint32_t));
+      os_->write((char*)&size, sizeof(uint32_t));
       os_->seekp(cur_pos);
       stack_.pop();
 
@@ -382,7 +382,7 @@ class FbsonWriterT {
     return false;
   }
 
-  OS_TYPE *getOutput() { return os_; }
+  OS_TYPE* getOutput() { return os_; }
 
  private:
   // verify we are in the right state before writing a value
@@ -420,7 +420,7 @@ class FbsonWriterT {
   };
 
  private:
-  OS_TYPE *os_;
+  OS_TYPE* os_;
   bool alloc_;
   bool hasHdr_;
   WriteState kvState_; // key or value state
