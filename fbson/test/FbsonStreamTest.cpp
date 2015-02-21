@@ -24,7 +24,7 @@ TEST(FBSON_STREAM, parser_std_stream) {
   std::stringbuf sb;
   std::ostream os(&sb);
   fbson::FbsonJsonParserT<std::ostream> parser(os);
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   std::string str("{\"k1\":\"v1\",\"k2\":123,\"k3\":null,\"k4\":true}");
 
@@ -33,28 +33,28 @@ TEST(FBSON_STREAM, parser_std_stream) {
   EXPECT_TRUE(parser.parse(iss));
   EXPECT_TRUE(sb.in_avail() > 0);
 
-  int len = sb.in_avail();
+  unsigned len = (unsigned)sb.in_avail();
   char buf[len];
   sb.sgetn(buf, len);
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(buf, len);
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(buf, len);
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   pval = doc->find("k1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v1")
   EXPECT_EQ(7, pval->numPackedBytes());
-  EXPECT_EQ(strlen("v1"), ((fbson::StringVal *)pval)->getBlobLen());
+  EXPECT_EQ(strlen("v1"), ((fbson::StringVal*)pval)->getBlobLen());
   EXPECT_EQ("v1",
-            std::string(((fbson::StringVal *)pval)->getBlob(),
-                        ((fbson::StringVal *)pval)->getBlobLen()));
+            std::string(((fbson::StringVal*)pval)->getBlob(),
+                        ((fbson::StringVal*)pval)->getBlobLen()));
 
   pval = doc->find("k2");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(123, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(123, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k3");
   EXPECT_TRUE(pval != nullptr);
@@ -72,7 +72,7 @@ TEST(FBSON_STREAM, writer_std_stream) {
   std::stringbuf sb;
   std::ostream os(&sb);
   fbson::FbsonWriterT<std::ostream> writer(os);
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   EXPECT_TRUE(writer.writeStartObject());
 
@@ -90,18 +90,18 @@ TEST(FBSON_STREAM, writer_std_stream) {
   EXPECT_TRUE(writer.writeEndObject());
   EXPECT_TRUE(sb.in_avail() > 0);
 
-  int len = sb.in_avail();
+  unsigned len = (unsigned)sb.in_avail();
   char buf[len];
   sb.sgetn(buf, len);
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(buf, len);
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(buf, len);
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   pval = doc->find("k2");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(123, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(123, ((fbson::Int8Val*)pval)->val());
 
   pval = doc->find("k4");
   EXPECT_TRUE(pval != nullptr);
@@ -117,7 +117,7 @@ TEST(FBSON_STREAM, writer_std_stream) {
   EXPECT_TRUE(writer.writeEndObject());
   EXPECT_EQ(6, sb.in_avail());
 
-  len = sb.in_avail();
+  len = (unsigned)sb.in_avail();
   sb.sgetn(buf, len);
   pdoc = fbson::FbsonDocument::createDocument(buf, len);
   EXPECT_TRUE(pdoc);
@@ -130,7 +130,7 @@ TEST(FBSON_STREAM, writer_std_stream) {
   EXPECT_TRUE(pval == nullptr);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   google::ParseCommandLineFlags(&argc, &argv, true);
   return RUN_ALL_TESTS();

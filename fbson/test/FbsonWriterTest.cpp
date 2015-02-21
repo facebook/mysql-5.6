@@ -22,7 +22,7 @@
 
 TEST(FBSON_WRITER, basic) {
   fbson::FbsonWriter writer;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   EXPECT_TRUE(writer.writeStartObject());
   EXPECT_TRUE(writer.writeKey("k1", strlen("k1")));
@@ -33,10 +33,10 @@ TEST(FBSON_WRITER, basic) {
   EXPECT_TRUE(writer.writeBool(false));
   EXPECT_TRUE(writer.writeEndObject());
 
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
-      writer.getOutput()->getBuffer(), writer.getOutput()->getSize());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // null value
   pval = doc->find("k1");
@@ -61,8 +61,8 @@ TEST(FBSON_WRITER, basic) {
   // empty object
   EXPECT_TRUE(writer.writeStartObject());
   EXPECT_TRUE(writer.writeEndObject());
-  pdoc = fbson::FbsonDocument::createDocument(writer.getOutput()->getBuffer(),
-                                              writer.getOutput()->getSize());
+  pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
   doc = *pdoc;
 
@@ -81,8 +81,8 @@ TEST(FBSON_WRITER, basic) {
   EXPECT_TRUE(writer.writeEndArray());
   EXPECT_TRUE(writer.writeEndObject());
 
-  pdoc = fbson::FbsonDocument::createDocument(writer.getOutput()->getBuffer(),
-                                              writer.getOutput()->getSize());
+  pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
   doc = *pdoc;
 
@@ -92,7 +92,7 @@ TEST(FBSON_WRITER, basic) {
   // packed bytes size: 1(type)+4(size)
   EXPECT_EQ(5, pval->numPackedBytes());
   // no elements
-  pval = ((fbson::ArrayVal *)pval)->get(0);
+  pval = ((fbson::ArrayVal*)pval)->get(0);
   EXPECT_TRUE(pval == nullptr);
 
   // negative test cases
@@ -132,14 +132,14 @@ TEST(FBSON_WRITER, basic) {
   EXPECT_FALSE(writer.writeKey("k3", 2));
 
   // incomplete object will not load
-  pdoc = fbson::FbsonDocument::createDocument(writer.getOutput()->getBuffer(),
-                                              writer.getOutput()->getSize());
+  pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_FALSE(pdoc);
 }
 
 TEST(FBSON_WRITER, number_decimal) {
   fbson::FbsonWriter writer;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
 
   EXPECT_TRUE(writer.writeStartObject());
   EXPECT_TRUE(writer.writeKey("k8", strlen("k8")));
@@ -158,66 +158,66 @@ TEST(FBSON_WRITER, number_decimal) {
   EXPECT_TRUE(writer.writeDouble(1.234e-308));
   EXPECT_TRUE(writer.writeEndObject());
 
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
-      writer.getOutput()->getBuffer(), writer.getOutput()->getSize());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // int8 value
   pval = doc->find("k8");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
   EXPECT_EQ(2, pval->numPackedBytes());
-  EXPECT_EQ(123, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(123, ((fbson::Int8Val*)pval)->val());
 
   // int16 value
   pval = doc->find("k16");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
   EXPECT_EQ(3, pval->numPackedBytes());
-  EXPECT_EQ(-12345, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ(-12345, ((fbson::Int16Val*)pval)->val());
 
   // int32 value
   pval = doc->find("k32");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
   EXPECT_EQ(5, pval->numPackedBytes());
-  EXPECT_EQ(1234567, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ(1234567, ((fbson::Int32Val*)pval)->val());
 
   // int64 value
   pval = doc->find("k64");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_EQ(-1234567890123456789, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ(-1234567890123456789, ((fbson::Int64Val*)pval)->val());
 
   // double value case 1
   pval = doc->find("kdbl1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_DOUBLE_EQ(123.4567, ((fbson::DoubleVal *)pval)->val());
+  EXPECT_DOUBLE_EQ(123.4567, ((fbson::DoubleVal*)pval)->val());
 
   // double value case 2
   pval = doc->find("kdbl2");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_DOUBLE_EQ(1.234e308, ((fbson::DoubleVal *)pval)->val());
+  EXPECT_DOUBLE_EQ(1.234e308, ((fbson::DoubleVal*)pval)->val());
 
   // double value case 3
   pval = doc->find("kdbl3");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_NEAR(1.234e-308, ((fbson::DoubleVal *)pval)->val(), 0.0001e-308);
+  EXPECT_NEAR(1.234e-308, ((fbson::DoubleVal*)pval)->val(), 0.0001e-308);
 }
 
 TEST(FBSON_WRITER, string) {
   // use small outstream size, so it will grow automatically
   fbson::FbsonOutStream os(1);
   fbson::FbsonWriter writer(os);
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
   std::string str("this is a test!");
 
   EXPECT_TRUE(writer.writeStartObject());
@@ -225,7 +225,7 @@ TEST(FBSON_WRITER, string) {
   // string
   EXPECT_TRUE(writer.writeKey("k1", strlen("k1")));
   EXPECT_TRUE(writer.writeStartString());
-  EXPECT_TRUE(writer.writeString(str.c_str(), str.size()));
+  EXPECT_TRUE(writer.writeString(str.c_str(), (unsigned)str.size()));
   EXPECT_TRUE(writer.writeEndString());
   // empty string
   EXPECT_TRUE(writer.writeKey("k2", strlen("k2")));
@@ -235,7 +235,7 @@ TEST(FBSON_WRITER, string) {
   // binary
   EXPECT_TRUE(writer.writeKey("k3", strlen("k3")));
   EXPECT_TRUE(writer.writeStartBinary());
-  EXPECT_TRUE(writer.writeBinary(str.c_str(), str.size()));
+  EXPECT_TRUE(writer.writeBinary(str.c_str(), (unsigned)str.size()));
   EXPECT_TRUE(writer.writeEndBinary());
   // empty binary
   EXPECT_TRUE(writer.writeKey("k4", strlen("k4")));
@@ -244,10 +244,10 @@ TEST(FBSON_WRITER, string) {
 
   EXPECT_TRUE(writer.writeEndObject());
 
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
-      writer.getOutput()->getBuffer(), writer.getOutput()->getSize());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // string value
   pval = doc->find("k1");
@@ -263,7 +263,7 @@ TEST(FBSON_WRITER, string) {
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4
   EXPECT_EQ(5, pval->numPackedBytes());
-  EXPECT_EQ(0, ((fbson::BlobVal *)pval)->getBlobLen());
+  EXPECT_EQ(0, ((fbson::BlobVal*)pval)->getBlobLen());
 
   // binary
   pval = doc->find("k3");
@@ -284,7 +284,7 @@ TEST(FBSON_WRITER, string) {
 
 TEST(FBSON_WRITER, object) {
   fbson::FbsonWriter writer;
-  fbson::FbsonValue *pval;
+  fbson::FbsonValue* pval;
   fbson::FbsonToJson tojson;
 
   EXPECT_TRUE(writer.writeStartObject());
@@ -314,10 +314,10 @@ TEST(FBSON_WRITER, object) {
 
   EXPECT_TRUE(writer.writeEndObject());
 
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
-      writer.getOutput()->getBuffer(), writer.getOutput()->getSize());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   // object value
   pval = doc->find("k2");
@@ -328,7 +328,7 @@ TEST(FBSON_WRITER, object) {
   EXPECT_STREQ("{\"k2_1\":\"v2_1\"}", tojson.json(pval));
 
   // query into object value (level 2)
-  pval = ((fbson::ObjectVal *)pval)->find("k2_1");
+  pval = ((fbson::ObjectVal*)pval)->find("k2_1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v2_1")
@@ -345,7 +345,7 @@ TEST(FBSON_WRITER, object) {
   EXPECT_STREQ("[{\"k3_1\":\"v3_1\"}]", tojson.json(pval));
 
   // query into array (level 2)
-  pval = ((fbson::ArrayVal *)pval)->get(0);
+  pval = ((fbson::ArrayVal*)pval)->get(0);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isObject());
   // packed bytes size: 1+4+(1+strlen("k3_1"))+(1+4+strlen("v3_1"))
@@ -353,7 +353,7 @@ TEST(FBSON_WRITER, object) {
   EXPECT_STREQ("{\"k3_1\":\"v3_1\"}", tojson.json(pval));
 
   // further query into object value (level 3)
-  pval = ((fbson::ObjectVal *)pval)->find("k3_1");
+  pval = ((fbson::ObjectVal*)pval)->find("k3_1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   // packed bytes size: 1+4+strlen("v3_1")
@@ -364,8 +364,8 @@ TEST(FBSON_WRITER, object) {
 
 TEST(FBSON_WRITER, array) {
   fbson::FbsonWriter writer;
-  fbson::FbsonValue *pval;
-  fbson::ArrayVal *parr;
+  fbson::FbsonValue* pval;
+  fbson::ArrayVal* parr;
 
   EXPECT_TRUE(writer.writeStartObject());
   EXPECT_TRUE(writer.writeKey("array", strlen("array")));
@@ -400,15 +400,15 @@ TEST(FBSON_WRITER, array) {
   EXPECT_TRUE(writer.writeEndArray());
   EXPECT_TRUE(writer.writeEndObject());
 
-  fbson::FbsonDocument *pdoc = fbson::FbsonDocument::createDocument(
-      writer.getOutput()->getBuffer(), writer.getOutput()->getSize());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
-  fbson::FbsonDocument &doc = *pdoc;
+  fbson::FbsonDocument& doc = *pdoc;
 
   pval = doc->find("array");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isArray());
-  parr = (fbson::ArrayVal *)pval;
+  parr = (fbson::ArrayVal*)pval;
 
   pval = parr->get(0);
   EXPECT_TRUE(pval != nullptr);
@@ -425,22 +425,22 @@ TEST(FBSON_WRITER, array) {
   pval = parr->get(3);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt8());
-  EXPECT_EQ(1, ((fbson::Int8Val *)pval)->val());
+  EXPECT_EQ(1, ((fbson::Int8Val*)pval)->val());
 
   pval = parr->get(4);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt16());
-  EXPECT_EQ(300, ((fbson::Int16Val *)pval)->val());
+  EXPECT_EQ(300, ((fbson::Int16Val*)pval)->val());
 
   pval = parr->get(5);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt32());
-  EXPECT_EQ(-40000, ((fbson::Int32Val *)pval)->val());
+  EXPECT_EQ(-40000, ((fbson::Int32Val*)pval)->val());
 
   pval = parr->get(6);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isInt64());
-  EXPECT_EQ(3000000000, ((fbson::Int64Val *)pval)->val());
+  EXPECT_EQ(3000000000, ((fbson::Int64Val*)pval)->val());
 
   pval = parr->get(7);
   EXPECT_TRUE(pval != nullptr);
@@ -451,7 +451,7 @@ TEST(FBSON_WRITER, array) {
   pval = parr->get(8);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isObject());
-  pval = ((fbson::ObjectVal *)pval)->find("k1");
+  pval = ((fbson::ObjectVal*)pval)->find("k1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
   EXPECT_EQ(strlen("v1"), pval->size());
@@ -460,14 +460,14 @@ TEST(FBSON_WRITER, array) {
   pval = parr->get(9);
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isArray());
-  EXPECT_EQ(4, ((fbson::ArrayVal *)pval)->numElem());
+  EXPECT_EQ(4, ((fbson::ArrayVal*)pval)->numElem());
 
   // fail, negative index
   pval = parr->get(-1);
   EXPECT_TRUE(pval == nullptr);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   google::ParseCommandLineFlags(&argc, &argv, true);
   return RUN_ALL_TESTS();
