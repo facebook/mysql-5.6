@@ -40,10 +40,10 @@ namespace fbson {
  */
 class FbsonInBuffer : public std::streambuf {
  public:
-  FbsonInBuffer(const char *str, uint32_t len) {
+  FbsonInBuffer(const char* str, uint32_t len) {
     // this is read buffer and the str will not be changed
     // so we use const_cast (ugly!) to remove constness
-    char *pch(const_cast<char *>(str));
+    char* pch(const_cast<char*>(str));
     setg(pch, pch, pch + len);
   }
 };
@@ -62,10 +62,10 @@ class FbsonOutStream : public std::ostream {
       capacity_ = 1024;
     }
 
-    head_ = (char *)malloc(capacity_);
+    head_ = (char*)malloc(capacity_);
   }
 
-  FbsonOutStream(char *buffer, uint32_t capacity)
+  FbsonOutStream(char* buffer, uint32_t capacity)
       : head_(buffer), size_(0), capacity_(capacity), alloc_(false) {
     assert(buffer && capacity_ > 0);
   }
@@ -78,9 +78,9 @@ class FbsonOutStream : public std::ostream {
 
   void put(char c) { write(&c, 1); }
 
-  void write(const char *c_str) { write(c_str, strlen(c_str)); }
+  void write(const char* c_str) { write(c_str, (uint32_t)strlen(c_str)); }
 
-  void write(const char *bytes, uint32_t len) {
+  void write(const char* bytes, uint32_t len) {
     if (len == 0)
       return;
 
@@ -130,9 +130,9 @@ class FbsonOutStream : public std::ostream {
 
   pos_type tellp() const { return size_; }
 
-  void seekp(pos_type pos) { size_ = pos; }
+  void seekp(pos_type pos) { size_ = (uint32_t)pos; }
 
-  const char *getBuffer() const { return head_; }
+  const char* getBuffer() const { return head_; }
 
   pos_type getSize() const { return tellp(); }
 
@@ -146,11 +146,11 @@ class FbsonOutStream : public std::ostream {
     }
 
     if (alloc_) {
-      char *new_buf = (char *)::realloc(head_, capacity_);
+      char* new_buf = (char*)::realloc(head_, capacity_);
       assert(new_buf);
       head_ = new_buf;
     } else {
-      char *new_buf = (char *)::malloc(capacity_);
+      char* new_buf = (char*)::malloc(capacity_);
       assert(new_buf);
       memcpy(new_buf, head_, size_);
       head_ = new_buf;
@@ -159,7 +159,7 @@ class FbsonOutStream : public std::ostream {
   }
 
  private:
-  char *head_;
+  char* head_;
   uint32_t size_;
   uint32_t capacity_;
   bool alloc_;
