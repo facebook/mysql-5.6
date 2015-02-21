@@ -62,8 +62,8 @@
 
 namespace fbson {
 
-const char *const kJsonDelim = " ,]}\t\r\n";
-const char *const kWhiteSpace = " \t\n\r";
+const char* const kJsonDelim = " ,]}\t\r\n";
+const char* const kWhiteSpace = " \t\n\r";
 
 /*
  * Error codes
@@ -98,21 +98,21 @@ class FbsonJsonParserT {
  public:
   FbsonJsonParserT() : err_(FbsonErrType::E_NONE) {}
 
-  explicit FbsonJsonParserT(OS_TYPE &os)
+  explicit FbsonJsonParserT(OS_TYPE& os)
       : writer_(os), err_(FbsonErrType::E_NONE) {}
 
   // parse a UTF-8 JSON string
-  bool parse(const std::string &str, hDictInsert handler = nullptr) {
-    return parse(str.c_str(), str.size(), handler);
+  bool parse(const std::string& str, hDictInsert handler = nullptr) {
+    return parse(str.c_str(), (unsigned int)str.size(), handler);
   }
 
   // parse a UTF-8 JSON c-style string (NULL terminated)
-  bool parse(const char *c_str, hDictInsert handler = nullptr) {
-    return parse(c_str, strlen(c_str), handler);
+  bool parse(const char* c_str, hDictInsert handler = nullptr) {
+    return parse(c_str, (unsigned int)strlen(c_str), handler);
   }
 
   // parse a UTF-8 JSON string with length
-  bool parse(const char *pch, uint32_t len, hDictInsert handler = nullptr) {
+  bool parse(const char* pch, unsigned int len, hDictInsert handler = nullptr) {
     if (!pch || len == 0) {
       err_ = FbsonErrType::E_EMPTY_STR;
       return false;
@@ -124,7 +124,7 @@ class FbsonJsonParserT {
   }
 
   // parse UTF-8 JSON text from an input stream
-  bool parse(std::istream &in, hDictInsert handler = nullptr) {
+  bool parse(std::istream& in, hDictInsert handler = nullptr) {
     bool res = false;
 
     // reset output stream
@@ -151,7 +151,7 @@ class FbsonJsonParserT {
     return res;
   }
 
-  FbsonWriterT<OS_TYPE> &getWriter() { return writer_; }
+  FbsonWriterT<OS_TYPE>& getWriter() { return writer_; }
 
   FbsonErrType getErrorCode() { return err_; }
 
@@ -160,7 +160,7 @@ class FbsonJsonParserT {
 
  private:
   // parse a JSON object (comma-separated list of key-value pairs)
-  bool parseObject(std::istream &in, hDictInsert handler) {
+  bool parseObject(std::istream& in, hDictInsert handler) {
     if (!writer_.writeStartObject()) {
       err_ = FbsonErrType::E_OUTPUT_FAIL;
       return false;
@@ -211,7 +211,7 @@ class FbsonJsonParserT {
   }
 
   // parse a JSON array (comma-separated list of values)
-  bool parseArray(std::istream &in, hDictInsert handler) {
+  bool parseArray(std::istream& in, hDictInsert handler) {
     if (!writer_.writeStartArray()) {
       err_ = FbsonErrType::E_OUTPUT_FAIL;
       return false;
@@ -257,7 +257,7 @@ class FbsonJsonParserT {
   }
 
   // parse a key-value pair, separated by ":"
-  bool parseKVPair(std::istream &in, hDictInsert handler) {
+  bool parseKVPair(std::istream& in, hDictInsert handler) {
     if (parseKey(in, handler) && parseValue(in, handler)) {
       return true;
     }
@@ -266,7 +266,7 @@ class FbsonJsonParserT {
   }
 
   // parse a key (must be string)
-  bool parseKey(std::istream &in, hDictInsert handler) {
+  bool parseKey(std::istream& in, hDictInsert handler) {
     char key[FbsonKeyValue::sMaxKeyLen];
     int i = 0;
     while (in.good() && in.peek() != '"' && i < FbsonKeyValue::sMaxKeyLen) {
@@ -302,7 +302,7 @@ class FbsonJsonParserT {
   }
 
   // parse a value
-  bool parseValue(std::istream &in, hDictInsert handler) {
+  bool parseValue(std::istream& in, hDictInsert handler) {
     bool res = false;
 
     trim(in);
@@ -351,7 +351,7 @@ class FbsonJsonParserT {
   }
 
   // parse NULL value
-  bool parseNull(std::istream &in) {
+  bool parseNull(std::istream& in) {
     if (tolower(in.get()) == 'u' && tolower(in.get()) == 'l' &&
         tolower(in.get()) == 'l') {
       writer_.writeNull();
@@ -363,7 +363,7 @@ class FbsonJsonParserT {
   }
 
   // parse TRUE value
-  bool parseTrue(std::istream &in) {
+  bool parseTrue(std::istream& in) {
     if (tolower(in.get()) == 'r' && tolower(in.get()) == 'u' &&
         tolower(in.get()) == 'e') {
       writer_.writeBool(true);
@@ -375,7 +375,7 @@ class FbsonJsonParserT {
   }
 
   // parse FALSE value
-  bool parseFalse(std::istream &in) {
+  bool parseFalse(std::istream& in) {
     if (tolower(in.get()) == 'a' && tolower(in.get()) == 'l' &&
         tolower(in.get()) == 's' && tolower(in.get()) == 'e') {
       writer_.writeBool(false);
@@ -387,7 +387,7 @@ class FbsonJsonParserT {
   }
 
   // parse a string
-  bool parseString(std::istream &in) {
+  bool parseString(std::istream& in) {
     if (!writer_.writeStartString()) {
       err_ = FbsonErrType::E_OUTPUT_FAIL;
       return false;
@@ -436,7 +436,7 @@ class FbsonJsonParserT {
   // parse a number
   // Number format can be hex, octal, or decimal (including float).
   // Only decimal can have (+/-) sign prefix.
-  bool parseNumber(std::istream &in) {
+  bool parseNumber(std::istream& in) {
     bool ret = false;
     switch (in.peek()) {
     case '0': {
@@ -471,7 +471,7 @@ class FbsonJsonParserT {
   }
 
   // parse a number in hex format
-  bool parseHex(std::istream &in) {
+  bool parseHex(std::istream& in) {
     uint64_t val = 0;
     int num_digits = 0;
     char ch = tolower(in.peek());
@@ -491,11 +491,11 @@ class FbsonJsonParserT {
 
     int size = 0;
     if (num_digits <= 2) {
-      size = writer_.writeInt8(val);
+      size = writer_.writeInt8((int8_t)val);
     } else if (num_digits <= 4) {
-      size = writer_.writeInt16(val);
+      size = writer_.writeInt16((int16_t)val);
     } else if (num_digits <= 8) {
-      size = writer_.writeInt32(val);
+      size = writer_.writeInt32((int32_t)val);
     } else if (num_digits <= 16) {
       size = writer_.writeInt64(val);
     } else {
@@ -512,7 +512,7 @@ class FbsonJsonParserT {
   }
 
   // parse a number in octal format
-  bool parseOctal(std::istream &in) {
+  bool parseOctal(std::istream& in) {
     int64_t val = 0;
     char ch = in.peek();
     while (in.good() && !strchr(kJsonDelim, ch)) {
@@ -535,11 +535,11 @@ class FbsonJsonParserT {
 
     int size = 0;
     if (val <= std::numeric_limits<int8_t>::max()) {
-      size = writer_.writeInt8(val);
+      size = writer_.writeInt8((int8_t)val);
     } else if (val <= std::numeric_limits<int16_t>::max()) {
-      size = writer_.writeInt16(val);
+      size = writer_.writeInt16((int16_t)val);
     } else if (val <= std::numeric_limits<int32_t>::max()) {
-      size = writer_.writeInt32(val);
+      size = writer_.writeInt32((int32_t)val);
     } else { // val <= INT64_MAX
       size = writer_.writeInt64(val);
     }
@@ -553,7 +553,7 @@ class FbsonJsonParserT {
   }
 
   // parse a number in decimal (including float)
-  bool parseDecimal(std::istream &in, int sign) {
+  bool parseDecimal(std::istream& in, int sign) {
     int64_t val = 0;
     int precision = 0;
 
@@ -591,13 +591,13 @@ class FbsonJsonParserT {
     int size = 0;
     if (val >= std::numeric_limits<int8_t>::min() &&
         val <= std::numeric_limits<int8_t>::max()) {
-      size = writer_.writeInt8(val);
+      size = writer_.writeInt8((int8_t)val);
     } else if (val >= std::numeric_limits<int16_t>::min() &&
                val <= std::numeric_limits<int16_t>::max()) {
-      size = writer_.writeInt16(val);
+      size = writer_.writeInt16((int16_t)val);
     } else if (val >= std::numeric_limits<int32_t>::min() &&
                val <= std::numeric_limits<int32_t>::max()) {
-      size = writer_.writeInt32(val);
+      size = writer_.writeInt32((int32_t)val);
     } else { // val <= INT64_MAX
       size = writer_.writeInt64(val);
     }
@@ -618,7 +618,7 @@ class FbsonJsonParserT {
   // IEEE 754 double precision representation and then converted back to a
   // string with the same number of significant digits, then the final string
   // should match the original"
-  bool parseDouble(std::istream &in, double val, int precision, int sign) {
+  bool parseDouble(std::istream& in, double val, int precision, int sign) {
     int integ = precision;
     int frac = 0;
     bool is_frac = false;
@@ -690,7 +690,7 @@ class FbsonJsonParserT {
   }
 
   // parse the exponent part of a double number
-  bool parseExponent(std::istream &in, int &exp) {
+  bool parseExponent(std::istream& in, int& exp) {
     bool neg = false;
 
     char ch = in.peek();
@@ -728,7 +728,7 @@ class FbsonJsonParserT {
     return true;
   }
 
-  void trim(std::istream &in) {
+  void trim(std::istream& in) {
     while (in.good() && strchr(kWhiteSpace, in.peek())) {
       in.ignore();
     }
