@@ -5499,7 +5499,7 @@ bool Item_field::right_shift_for_possible_document_path(THD *thd)
      won't shift if document type is not allowed for this session,
      or both datbase name and table name are empty so nothing to shift
   */
-  if (!thd->variables.allow_document_type ||
+  if (!allow_document_type ||
       (!orig_db_name && !orig_table_name))
     return false;
 

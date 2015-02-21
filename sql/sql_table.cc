@@ -5009,7 +5009,7 @@ bool create_table_impl(THD *thd,
   */
   if ((create_info->db_type->db_type != DB_TYPE_INNODB &&
        create_info->db_type->db_type != DB_TYPE_PARTITION_DB) ||
-      !thd->variables.allow_document_type)
+      !allow_document_type)
   {
     Create_field *field = NULL;
     List_iterator<Create_field> it(alter_info->create_list);
@@ -5017,7 +5017,7 @@ bool create_table_impl(THD *thd,
     {
       if (f_is_document(field->pack_flag))
       {
-        if (!thd->variables.allow_document_type)
+        if (!allow_document_type)
         {
           my_error(ER_DOCUMENT_FIELD_NOT_ALLOWED, MYF(0));
         }

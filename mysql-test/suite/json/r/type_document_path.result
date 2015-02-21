@@ -4,6 +4,10 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 drop table if exists t1, t2, t3, t4;
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
+1
 CREATE TABLE t1 (
 a int not null,
 b char (10) not null,
@@ -50,7 +54,10 @@ from t4
 where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
 ~!@#$%^&*()_+-=:;'"<>?,./\t
 v2
-set @@session.allow_document_type = false;
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
 select test.t1.b from test.t1 where test.t1.a = 1;
 b
 @1
@@ -66,7 +73,10 @@ select a from t1 where test.t1.doc.id = 102;
 ERROR HY000: Invalid field or reference.
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
 ERROR HY000: Invalid field or reference.
-set @@session.allow_document_type = true;
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
 select test.t1.b from test.t1 where test.t1.a = 1;
 b
 @1
@@ -401,5 +411,9 @@ insert into t1 values (100,'@100','{ "id":10100, "double": 4.94065645841246 }');
 select t1.doc.double from t1 where a = 100;
 doc
 4.94065645841246
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
 drop table t1, t2, t3, t4;
 include/rpl_end.inc

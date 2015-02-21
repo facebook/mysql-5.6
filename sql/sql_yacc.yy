@@ -14128,14 +14128,14 @@ simple_ident_q:
               bool client_no_schema = (thd->client_capabilities & CLIENT_NO_SCHEMA);
               bool field = ((sel->parsing_place != IN_HAVING) || (sel->get_in_sum_expr() > 0));
 
-              if (sel->no_table_names_allowed && !thd->variables.allow_document_type)
+              if (sel->no_table_names_allowed && !allow_document_type)
               {
                 const char* table_name= (list_size == 2 ? s1->s.str : s2->s.str);
                 my_error(ER_TABLENAME_NOT_ALLOWED_HERE,
                          MYF(0), table_name, thd->where);
               }
 
-              if (list_size > 3 && (!field || !thd->variables.allow_document_type))
+              if (list_size > 3 && (!field || !allow_document_type))
                 my_error(ER_INVALID_FIELD_OR_REFERENCE, MYF(0), thd->where);
 
               uint num_unresolved_idents = 0;

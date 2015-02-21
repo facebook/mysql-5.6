@@ -7,13 +7,9 @@ call mtr.add_suppression("Resizing redo log from");
 call mtr.add_suppression("Starting to delete and rewrite log files");
 call mtr.add_suppression("New log files created");
 drop table if exists t, t1, t2, t3, t_big, t_big2;
-SET @start_global_allow_document_type = @@global.allow_document_type;
-SELECT @start_global_allow_document_type;
-@start_global_allow_document_type
-1
-SET @start_session_allow_document_type = @@session.allow_document_type;
-SELECT @start_session_allow_document_type;
-@start_session_allow_document_type
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
 1
 create table t (i int(8), a document, s text(255)) engine=myisam;
 ERROR HY000: A DOCUMENT field is not allowed in non-innodb table
@@ -212,7 +208,7 @@ select @@session.sql_mode;
 NO_ENGINE_SUBSTITUTION
 insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
 Warnings:
-Warning	1907	Document column length too big for column 'a' (max = 16777215)
+Warning	1909	Document column length too big for column 'a' (max = 16777215)
 select count(*) from t_big;
 count(*)
 2
@@ -238,9 +234,9 @@ count(*)
 select i, s from t_big2;
 i	s
 1	aaa
-SET @@session.allow_document_type = false;
-SELECT @@session.allow_document_type;
-@@session.allow_document_type
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
 0
 create table t3 (i int(8), a document, s text(255)) engine=innodb;
 ERROR HY000: DOCUMENT fields are not allowed
@@ -249,19 +245,15 @@ alter table t3 add column a document;
 ERROR HY000: DOCUMENT fields are not allowed
 alter table t3 modify column s document;
 ERROR HY000: DOCUMENT fields are not allowed
-SET @@session.allow_document_type = true;
-SELECT @@session.allow_document_type;
-@@session.allow_document_type
-1
-alter table t3 add column a document;
-alter table t3 modify column s document;
-SET @@global.allow_document_type = @start_global_allow_document_type;
+SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
-SET @@session.allow_document_type = @start_session_allow_document_type;
-SELECT @@session.allow_document_type;
-@@session.allow_document_type
+alter table t3 add column a document;
+alter table t3 modify column s document;
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
 1
 checksum table t_big;
 Table	Checksum

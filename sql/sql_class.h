@@ -677,7 +677,6 @@ typedef struct system_variables
   my_bool sql_log_bin_triggers;
   char *track_sysvars_ptr;
   my_bool session_track_schema;
-  my_bool allow_document_type;
 } SV;
 
 

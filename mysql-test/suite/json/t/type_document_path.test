@@ -10,6 +10,8 @@ connection master;
 drop table if exists t1, t2, t3, t4;
 --enable_warnings
 
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
 
 ################################################################################
 ###
@@ -91,7 +93,8 @@ where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:
 ###
 
 ### Disable document type to make parser work as before
-set @@session.allow_document_type = false;
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
 
 ### The original cases 1: database.table.field
 select test.t1.b from test.t1 where test.t1.a = 1;
@@ -105,8 +108,7 @@ select .t1.doc from test.t1 where .t1.a = 4;
 
 ################################################################################
 ###
-### When document type is disabled for this session,
-### all the new syntax will be treated as errors
+### When document type is disabled, all the new syntax will be treated as errors
 ###
 
 --error ER_INVALID_FIELD_OR_REFERENCE
@@ -118,8 +120,9 @@ select a from t1 where test.t1.doc.id = 102;
 --error ER_INVALID_FIELD_OR_REFERENCE
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
 
-### Enable document type to make parser work as before
-set @@session.allow_document_type = true;
+### Enable document type
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
 
 ### All the three original cases work as before
 select test.t1.b from test.t1 where test.t1.a = 1;
@@ -429,6 +432,10 @@ select t1.doc.double from t1 where a = 100;
 ###
 ### Clean up
 ###
+
+# Restore the original value
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
 
 drop table t1, t2, t3, t4;
 

@@ -539,7 +539,7 @@ static Sys_var_mybool Sys_allow_document_type(
        "allow_document_type",
        "Allows document type when parsing queries, "
        "creating and altering tables.",
-       SESSION_VAR(allow_document_type),
+       GLOBAL_VAR(allow_document_type),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
 static Sys_var_mybool Sys_use_fbson_output_format(
