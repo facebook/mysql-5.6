@@ -1,0 +1,72 @@
+select * from information_schema.engines where engine = 'rocksdb';
+ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+ROCKSDB	YES	RocksDB storage engine	YES	YES	NO
+drop table if exists t0,t1;
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table t1(a int);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+create table t2 (
+pk int not null,
+a  int not null,
+b  int not null,
+primary key(pk),
+key(a) comment 'rev:cf1'
+) engine=rocksdb;
+insert into t2 select A.a, FLOOR(A.a/10), A.a from t1 A;
+#
+# HA_READ_KEY_EXACT tests
+#
+# Original failure was here:
+explain
+select * from t2 force index (a) where a=0;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	ref	a	a	4	const	10	NULL
+select * from t2 force index (a) where a=0;
+pk	a	b
+0	0	0
+1	0	1
+2	0	2
+3	0	3
+4	0	4
+5	0	5
+6	0	6
+7	0	7
+8	0	8
+9	0	9
+# The rest are for code coverage:
+explain
+select * from t2 force index (a) where a=2;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	ref	a	a	4	const	10	NULL
+select * from t2 force index (a) where a=2;
+pk	a	b
+20	2	20
+21	2	21
+22	2	22
+23	2	23
+24	2	24
+25	2	25
+26	2	26
+27	2	27
+28	2	28
+29	2	29
+explain 
+select * from t2 force index (a) where a=3 and pk=33;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	const	a	a	8	const,const	10	NULL
+select * from t2 force index (a) where a=3 and pk=33;
+pk	a	b
+33	3	33
+select * from t2 force index (a) where a=99 and pk=99;
+pk	a	b
+select * from t2 force index (a) where a=0 and pk=0;
+pk	a	b
+0	0	0
+select * from t2 force index (a) where a=-1;
+pk	a	b
+select * from t2 force index (a) where a=-1 and pk in (101,102);
+pk	a	b
+select * from t2 force index (a) where a=100 and pk in (101,102);
+pk	a	b
+drop table t0,t1,t2;
