@@ -1,0 +1,75 @@
+
+This file describes how MySQL index navigation commands are translated into
+RocksDB index navigation commands.
+
+Index tuples are shown as
+
+  ( kv )-aaa-pkN
+
+here
+ * '(kv)' is the 4-byte index number.
+ * '-' is just for readability
+ * everything that follows the '-' is mem-comparable form of the key.
+   In ascii encoding,  aaa < bbb < ccc < xxx.
+
+Tuples that start with '#' do not exist in the database. They are only shown
+to demonstrate where Seek() calls end up with.
+
+== HA_READ_KEY_EXACT, forward CF ==
+
+  (kv-1)-xxx-pk
+# ( kv )-aaa      <-- "kv-aaa" doesn't exist in the database, but it would be
+                       here.
+  ( kv )-aaa-pk   <--- Seek("kv-aaa") will put us here on the next record.
+  ( kv )-aaa-pk2
+  ( kv )-bbb-...
+
+RocksDB calls:
+
+  it->Seek(kv);
+  if (it->Valid() && kd->covers_key(..) && kd->cmp_full_keys(...))
+    return record.
+
+== HA_READ_KEY_EXACT, backward CF ==
+
+When we need to seek to a tuple that is a prefix of a full key:
+
+  (kv+1)-xxx-pk
+  ( kv )-ccc-pk
+  ( kv )-bbb-pk3
+  ( kv )-bbb-pk2
+  ( kv )-bbb-pk1 < -- We need to be here
+# ( kv )-bbb         <---we call Seek(kv-bbb)
+  ( kv )-aaa-pk      ... and end up here.  Should call it->Prev().
+
+There is a special case when (kv)-bbb-pk1 is the last record in the CF, and
+we get invalid iterator. Then, we need to call SeekToLast().
+
+Another kind of special case is when we need to seek to the full value.
+Suppose, the lookup tuple is kv-bbb-pk1:
+
+  (kv+1)-xxx-pk
+  ( kv )-ccc-pk
+  ( kv )-bbb-pk3
+  ( kv )-bbb-pk2
+  ( kv )-bbb-pk1 < -- Seek(kv-bbb-pk1)
+  ( kv )-bbb-pk0
+
+Then, Seek(kv-bbb-pk1) will position us exactly the tuple we need, and we
+won't need to call it->Prev().  If we get an invalid iterator, there is no
+need to call SeekToLast().
+
+RocksDB calls:
+
+  it->Seek(tuple);
+
+  if (!using_full_key)
+  {
+    if (!it->Valid())
+      it->SeekToLast();
+    else
+      it->Prev();
+  }
+
+  if (it->Valid() && kd->covers_key(..) && kd->cmp_full_keys(...))
+    return record.
