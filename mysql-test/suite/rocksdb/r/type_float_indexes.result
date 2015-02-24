@@ -83,7 +83,7 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (4644,1422.22,466664.999,0.5,5);
 EXPLAIN SELECT DISTINCT d FROM t1 ORDER BY d;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1000	Using temporary; Using filesort
+1	SIMPLE	t1	index	NULL	d	9	NULL	1000	NULL
 SELECT DISTINCT d FROM t1 ORDER BY d;
 d
 -1
@@ -112,7 +112,7 @@ INSERT INTO t1 (f,r,d,dp,pk) VALUES
 (4644,1422.22,466664.999,0.5,5);
 EXPLAIN SELECT DISTINCT d FROM t1 ORDER BY d;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1000	Using temporary; Using filesort
+1	SIMPLE	t1	index	NULL	d	9	NULL	1000	NULL
 SELECT DISTINCT d FROM t1 ORDER BY d;
 d
 -1

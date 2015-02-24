@@ -123,6 +123,8 @@ t1	CREATE TABLE `t1` (
   PRIMARY KEY (`pk`)
 ) ENGINE=ROCKSDB DEFAULT CHARSET=latin1
 ALTER TABLE t1 ORDER BY b ASC, a DESC, pk DESC;
+Warnings:
+Warning	1105	ORDER BY ignored as there is a user-defined clustered index in the table 't1'
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
