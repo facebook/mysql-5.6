@@ -860,6 +860,7 @@ rocksdb_max_row_locks	1073741824
 rocksdb_max_total_wal_size	0
 rocksdb_no_block_cache	OFF
 rocksdb_paranoid_checks	ON
+rocksdb_perf_context_level	1
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_stats_dump_period_sec	3600
@@ -1666,3 +1667,13 @@ select (@var2 - @var1) < 12;
 (@var2 - @var1) < 12
 1
 drop table t0,t1;
+#
+# Issue #33: SELECT ... FROM rocksdb_table ORDER BY primary_key uses sorting
+#
+create table t1 (id int primary key, value int) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3);
+# The following must not use 'Using filesort':
+explain select * from t1 ORDER BY id;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1000	Using filesort
+drop table t1;
