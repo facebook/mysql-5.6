@@ -289,6 +289,15 @@ public:
   */
   ulong index_flags(uint inx, uint part, bool all_parts) const;
 
+  const key_map * keys_to_use_for_scanning()
+  {
+    return &key_map_full;
+  }
+  bool primary_key_is_clustered()
+  {
+    return true;
+  }
+
   int rename_table(const char *from, const char *to);
 
   int convert_record_from_storage_format(rocksdb::Slice *slice, uchar *buf);
