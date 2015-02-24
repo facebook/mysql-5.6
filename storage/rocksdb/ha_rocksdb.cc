@@ -2454,7 +2454,10 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
 }
 
 
-//void store_key_image_to_rec(Field *field, uchar *ptr, uint len);
+/*
+   See storage/rocksdb/rocksdb-range-access.txt for description of how MySQL
+   index navigation commands are converted into RocksDB lookup commands.
+*/
 
 int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
@@ -2463,16 +2466,17 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   int rc= 0;
   DBUG_ENTER("ha_rocksdb::index_read_map");
 
-  uint key_parts= table->key_info[active_index].user_defined_key_parts;
   RDBSE_KEYDEF *kd= key_descr[active_index];
+  uint actual_key_parts= table->key_info[active_index].actual_key_parts;
+  bool using_full_key= (keypart_map == HA_WHOLE_KEY) ||
+                       (keypart_map == ((key_part_map(1) << actual_key_parts)
+                                         - 1));
 
   stats.rows_requested++;
   io_perf_start();
 
   if (active_index == table->s->primary_key &&
-      find_flag == HA_READ_KEY_EXACT &&
-      ((keypart_map == ((key_part_map(1) << key_parts) - 1) ||
-        keypart_map == HA_WHOLE_KEY)))
+      find_flag == HA_READ_KEY_EXACT && using_full_key)
   {
     /*
       Equality lookup over primary key, using full tuple.
@@ -2524,6 +2528,22 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
   {
+    /*
+      We are looking for the first record such that
+        index_tuple= lookup_tuple.
+      lookup_tuple may be a prefix of the index.
+    */
+    if (key_descr[active_index]->is_reverse_cf)
+    {
+      if (!using_full_key)
+      {
+        if (!scan_it->Valid())
+          scan_it->SeekToLast();
+        else
+          scan_it->Prev();
+      }
+    }
+
     if (!scan_it->Valid())
       rc= HA_ERR_KEY_NOT_FOUND;
     else
@@ -2534,8 +2554,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                              slice.data(), slice.size(), n_used_parts))
       {
         /*
-          The record we've got is not from this index, or is not equal to the
-          lookup table
+          Got a record that is not equal to the lookup value, or even a record
+          from another table.index.
         */
         rc= HA_ERR_KEY_NOT_FOUND;
       }
@@ -4228,6 +4248,13 @@ bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_f
   bool is_ascending= false;
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
+  {
+    if (keydef->is_reverse_cf)
+      is_ascending= false;
+    else
+      is_ascending= true;
+    break;
+  }
   case HA_READ_PREFIX:
   {
     is_ascending= true;
