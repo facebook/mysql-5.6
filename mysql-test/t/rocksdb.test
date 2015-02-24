@@ -1317,3 +1317,14 @@ set @var2=(select variable_value
 select (@var2 - @var1) < 12;
 
 drop table t0,t1;
+
+--echo #
+--echo # Issue #33: SELECT ... FROM rocksdb_table ORDER BY primary_key uses sorting
+--echo #
+create table t1 (id int primary key, value int) engine=rocksdb;
+insert into t1 values (1,1),(2,2),(3,3);
+--echo # The following must not use 'Using filesort':
+explain select * from t1 ORDER BY id;
+
+drop table t1;
+
