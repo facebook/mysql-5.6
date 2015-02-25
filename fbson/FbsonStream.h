@@ -26,6 +26,11 @@
 #ifndef FBSON_FBSONSTREAM_H
 #define FBSON_FBSONSTREAM_H
 
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+
+#include <inttypes.h>
 #include <iostream>
 
 namespace fbson {
@@ -111,7 +116,7 @@ class FbsonOutStream : public std::ostream {
       realloc(MAX_INT64_DIGITS + 1);
     }
 
-    int len = snprintf(head_ + size_, MAX_INT64_DIGITS + 1, "%ld", l);
+    int len = snprintf(head_ + size_, MAX_INT64_DIGITS + 1, "%" PRIi64, l);
     assert(len > 0);
     size_ += len;
   }
