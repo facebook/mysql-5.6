@@ -1,3 +1,5 @@
+SET @save_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
+SET GLOBAL innodb_lock_wait_timeout=600;
 #
 #Bug#11759688 52020: InnoDB can still deadlock
 #on just INSERT...ON DUPLICATE KEY
@@ -75,3 +77,4 @@ a	b
 5	6
 SET DEBUG_SYNC='RESET';
 DROP TABLE t1;
+SET GLOBAL innodb_lock_wait_timeout=@save_lock_wait_timeout;
