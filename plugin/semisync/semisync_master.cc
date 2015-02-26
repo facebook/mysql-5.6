@@ -850,7 +850,8 @@ int ReplSemiSyncMaster::commitTrx(const char* trx_wait_binlog_name,
           rpl_semi_sync_master_trx_wait_num++;
           rpl_semi_sync_master_trx_wait_time += wait_time;
           if (histogram_trx_wait_step_size)
-            latency_histogram_increment(&histogram_trx_wait, wait_time, 1);
+            latency_histogram_increment(&histogram_trx_wait,
+              microseconds_to_my_timer((double)wait_time), 1);
         }
       }
     }
