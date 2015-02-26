@@ -1,6 +1,11 @@
 --source include/have_innodb.inc
 --source include/have_debug_sync.inc
 
+# Make sure the locks keep waiting until they are released,
+# or deadlock is detected, even on a busy system.
+SET @save_lock_wait_timeout = @@global.innodb_lock_wait_timeout;
+SET GLOBAL innodb_lock_wait_timeout=600;
+
 --echo #
 --echo #Bug#11759688 52020: InnoDB can still deadlock
 --echo #on just INSERT...ON DUPLICATE KEY
@@ -184,3 +189,5 @@ disconnect con2;
 connection default;
 SET DEBUG_SYNC='RESET';
 DROP TABLE t1;
+
+SET GLOBAL innodb_lock_wait_timeout=@save_lock_wait_timeout;
