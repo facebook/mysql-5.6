@@ -1,8 +1,8 @@
 select "no timeout, should work";
 no timeout, should work
 no timeout, should work
-select "short timeout, should work", sleep(0.90);
-short timeout, should work	sleep(0.90)
+select "short timeout, should work", sleep(0.70);
+short timeout, should work	sleep(0.70)
 short timeout, should work	0
 select "long timeout, should fail 1s accuracy", sleep(1.01);
 ERROR HY000: Read timeout is reached
@@ -12,8 +12,8 @@ no timeout, should work
 select "short timeout, should work", sleep(0.5);
 short timeout, should work	sleep(0.5)
 short timeout, should work	0
-select "short timeout, over one second, should also work", sleep(1.49);
-short timeout, over one second, should also work	sleep(1.49)
+select "short timeout, over one second, should also work", sleep(1.2);
+short timeout, over one second, should also work	sleep(1.2)
 short timeout, over one second, should also work	0
 select "long timeout, should 1500ms accuracy", sleep(1.51);
 ERROR HY000: Read timeout is reached
