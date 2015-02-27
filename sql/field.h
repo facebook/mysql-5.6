@@ -3589,8 +3589,10 @@ public:
 
 class Field_document :public Field_blob {
   bool validate(const char *from, uint length, const CHARSET_INFO *cs);
-  void push_warning(const char *from);
-  void push_error(const char *from);
+  void push_warning_invalid(const char *from);
+  void push_warning_too_big();
+  void push_error_invalid(const char *from);
+  void push_error_too_big();
   virtual type_conversion_status store_internal(const char *from, uint length,
                                                 const CHARSET_INFO *cs);
 public:
