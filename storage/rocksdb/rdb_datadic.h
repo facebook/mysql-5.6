@@ -18,19 +18,39 @@ class RDBSE_KEYDEF;
 class Field_pack_info;
 class Column_family_manager;
 
-inline void store_index_number(uchar *dst, uint32 number)
+
+inline void store_big_uint4(uchar *dst, uint32_t n)
 {
-#ifdef WORDS_BIGENDIAN
-    memcpy(dst, &number, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
-#else
-    const uchar *src= (uchar*)&number;
-    dst[0]= src[3];
-    dst[1]= src[2];
-    dst[2]= src[1];
-    dst[3]= src[0];
-#endif
+  uint32_t src= htonl(n);
+  memcpy(dst, &src, 4);
 }
 
+inline void store_big_uint2(uchar *dst, uint16_t n)
+{
+  uint16_t src= htons(n);
+  memcpy(dst, &src, 2);
+}
+
+inline uint32_t read_big_uint4(const uchar* b)
+{
+  return(((uint32_t)(b[0]) << 24)
+    | ((uint32_t)(b[1]) << 16)
+    | ((uint32_t)(b[2]) << 8)
+    | (uint32_t)(b[3])
+    );
+}
+
+inline uint16_t read_big_uint2(const uchar* b)
+{
+  return(((uint16_t)(b[0]) << 8)
+    | (uint16_t)(b[1])
+    );
+}
+
+inline void store_index_number(uchar *dst, uint32 number)
+{
+  store_big_uint4(dst, number);
+}
 
 /*
   A simple string reader.
@@ -517,10 +537,11 @@ private:
   rocksdb::DB *rdb;
   uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice;
-  rocksdb::Slice pack_value(char* buf,
+  rocksdb::Slice pack_value(uchar* buf,
                             const char* binlog_name,
                             const my_off_t binlog_pos,
                             const char* binlog_gtid);
-  void unpack_value(const char* value, char* binlog_name,
+  void unpack_value(const uchar* value, char* binlog_name,
                     my_off_t& binlog_pos, char* binlog_gtid);
 };
+
