@@ -1,1 +1,3 @@
 --allow_document_type=true
+--max_allowed_packet=32M
+--innodb_log_file_size=128M

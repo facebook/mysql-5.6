@@ -3,7 +3,10 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-drop table if exists t, t1, t2, t3;
+call mtr.add_suppression("Resizing redo log from");
+call mtr.add_suppression("Starting to delete and rewrite log files");
+call mtr.add_suppression("New log files created");
+drop table if exists t, t1, t2, t3, t_big, t_big2;
 SET @start_allow_document_type = @@global.allow_document_type;
 SELECT @start_allow_document_type;
 @start_allow_document_type
@@ -182,6 +185,55 @@ i	a	s
 1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
 update t2 set a=DEFAULT;
 ERROR HY000: Invalid document value.
+create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
+show create table t_big;
+Table	Create Table
+t_big	CREATE TABLE `t_big` (
+  `i` int(8) NOT NULL DEFAULT '0',
+  `a` document DEFAULT NULL,
+  `s` tinytext,
+  PRIMARY KEY (`i`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+insert into t_big values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
+set @original_session_sql_mode = @@session.sql_mode;
+set @@session.sql_mode = strict_trans_tables;
+select @@session.sql_mode;
+@@session.sql_mode
+STRICT_TRANS_TABLES
+insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
+ERROR HY000: Document column length too big for column 'a' (max = 16777215)
+set @@session.sql_mode = @original_session_sql_mode;
+select @@session.sql_mode;
+@@session.sql_mode
+NO_ENGINE_SUBSTITUTION
+insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
+Warnings:
+Warning	1909	Document column length too big for column 'a' (max = 16777215)
+select count(*) from t_big;
+count(*)
+2
+select i, s from t_big;
+i	s
+1	aaa
+2	bbb
+create table t_big2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
+show create table t_big2;
+Table	Create Table
+t_big2	CREATE TABLE `t_big2` (
+  `i` int(8) NOT NULL DEFAULT '0',
+  `a` document NOT NULL,
+  `s` tinytext,
+  PRIMARY KEY (`i`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+insert into t_big2 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
+insert into t_big2 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
+ERROR HY000: Document column length too big for column 'a' (max = 16777215)
+select count(*) from t_big2;
+count(*)
+1
+select i, s from t_big2;
+i	s
+1	aaa
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
@@ -203,5 +255,5 @@ SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
-drop table t, t1, t2, t3;
+drop table t, t1, t2, t3, t_big, t_big2;
 include/rpl_end.inc
