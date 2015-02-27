@@ -2,8 +2,13 @@
 --source include/master-slave.inc
 connection master;
 
+# Add suppression for expected warning(s) in error log
+call mtr.add_suppression("Resizing redo log from");
+call mtr.add_suppression("Starting to delete and rewrite log files");
+call mtr.add_suppression("New log files created");
+
 --disable_warnings
-drop table if exists t, t1, t2, t3;
+drop table if exists t, t1, t2, t3, t_big, t_big2;
 --enable_warnings
 
 SET @start_allow_document_type = @@global.allow_document_type;
@@ -143,6 +148,52 @@ SELECT * from t2;
 --error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 update t2 set a=DEFAULT;
 
+# Create table with a document column that can be NULL
+create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
+show create table t_big;
+
+# Insert a document whose FBSON size is a little bit less than 16MB (the max size of document type)
+# This insertion will succeed
+insert into t_big values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
+
+# Set sql_mode to strict_trans_tables
+set @original_session_sql_mode = @@session.sql_mode;
+set @@session.sql_mode = strict_trans_tables;
+select @@session.sql_mode;
+
+# Insert a document whose FBSON size is a little bit greater than 16MB (the max size of document type)
+# The document column will be set to NULL with warnings, but since sql_mode has been set to strict_trans_tables,
+# the warning will be treated as an error and the insertion will fail eventually
+--error ER_TOO_BIG_DOCUMENT_FIELDLENGTH
+insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
+
+# Restore the value of sql_mode
+set @@session.sql_mode = @original_session_sql_mode;
+select @@session.sql_mode;
+
+# Insert a document whose FBSON size is a little bit greater than 16MB (the max size of document type)
+# This insertion will succeed but with warnings, the document column will be NULL
+insert into t_big values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
+
+select count(*) from t_big;
+select i, s from t_big;
+
+# Create table with a document column that cannot be NULL
+create table t_big2 (i int(8), a document not null, s text(255), primary key (i)) engine=innodb;
+show create table t_big2;
+
+# Insert a document whose FBSON size is a little bit less than 16MB (the max size of document type)
+# This insertion will succeed
+insert into t_big2 values (1, concat("{", repeat("\"json-key\":\"json-value\",", 670000), "\"last\":100}"), 'aaa');
+
+# Insert a document whose FBSON size is a little bit greater than 16MB (the max size of document type)
+# This insertion will fail
+--error ER_TOO_BIG_DOCUMENT_FIELDLENGTH
+insert into t_big2 values (2, concat("{", repeat("\"json-key\":\"json-value\",", 700000), "\"last\":100}"), 'bbb');
+
+select count(*) from t_big2;
+select i, s from t_big2;
+
 # Disable document type when @@global.allow_document_type is false.
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
@@ -170,6 +221,6 @@ alter table t3 modify column s document;
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
-drop table t, t1, t2, t3;
+drop table t, t1, t2, t3, t_big, t_big2;
 
 --source include/rpl_end.inc
