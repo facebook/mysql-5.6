@@ -7179,6 +7179,9 @@ ER_INVALID_FIELD_OR_REFERENCE
 ER_DOCUMENT_PATH_KEY_ONLY_CAN_BE_UNIQUE_OR_MULTIPLE
   eng "A document path key only can be unique or multiple."
 
+ER_TOO_BIG_DOCUMENT_FIELDLENGTH
+  eng "Document column length too big for column '%-.192s' (max = %lu)"
+
 #
 #  End of 5.6 error messages.
 #
