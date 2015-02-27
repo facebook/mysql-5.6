@@ -8350,7 +8350,7 @@ Field_document::sql_type(String &res) const
 
 
 void
-Field_document::push_warning(const char *from)
+Field_document::push_warning_invalid(const char *from)
 {
   push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
                       ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
@@ -8362,11 +8362,30 @@ Field_document::push_warning(const char *from)
 
 
 void
-Field_document::push_error(const char *from)
+Field_document::push_warning_too_big()
+{
+  push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
+                      ER_TOO_BIG_DOCUMENT_FIELDLENGTH,
+                      ER(ER_TOO_BIG_DOCUMENT_FIELDLENGTH),
+                      field_name, max_data_length());
+}
+
+
+void
+Field_document::push_error_invalid(const char *from)
 {
   char buffer[256];
   sprintf(buffer, "Invalid document value: %.128s", from);
   my_message(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD, buffer, MYF(0));
+}
+
+
+void
+Field_document::push_error_too_big()
+{
+  my_printf_error(ER_TOO_BIG_DOCUMENT_FIELDLENGTH,
+                  ER(ER_TOO_BIG_DOCUMENT_FIELDLENGTH),
+                  MYF(0), field_name, max_data_length());
 }
 
 
@@ -8388,11 +8407,11 @@ Field_document::store(double nr)
   {
     set_null();
     memset(ptr, 0, Field_blob::pack_length());
-    push_warning(buf);
+    push_warning_invalid(buf);
   }
   else
   {
-    push_error(buf);
+    push_error_invalid(buf);
   }
   return TYPE_ERR_BAD_VALUE;
 }
@@ -8410,11 +8429,11 @@ Field_document::store(longlong nr, bool unsigned_val)
   {
     set_null();
     memset(ptr, 0, Field_blob::pack_length());
-    push_warning(buf);
+    push_warning_invalid(buf);
   }
   else
   {
-    push_error(buf);
+    push_error_invalid(buf);
   }
   return TYPE_ERR_BAD_VALUE;
 }
@@ -8431,11 +8450,11 @@ Field_document::store_decimal(const my_decimal *nr)
   {
     set_null();
     memset(ptr, 0, Field_blob::pack_length());
-    push_warning(str.c_ptr_safe());
+    push_warning_invalid(str.c_ptr_safe());
   }
   else
   {
-    push_error(str.c_ptr_safe());
+    push_error_invalid(str.c_ptr_safe());
   }
   return TYPE_ERR_BAD_VALUE;
 }
@@ -8449,37 +8468,46 @@ Field_document::store_internal(const char *from, uint length,
   {
     if (real_maybe_null())
       set_null();
-    push_warning("");
+    push_warning_invalid("");
     return TYPE_ERR_BAD_VALUE;
   }
 
   fbson::FbsonOutStream os;
   fbson::FbsonJsonParser parser(os);
+  bool valid = false;
   if (parser.parse(from, length))
   {
-    return Field_blob::store_internal(os.getBuffer(), os.getSize(), cs);
+    valid = true;
+    if (os.getSize() <= max_data_length())
+    {
+      return Field_blob::store_internal(os.getBuffer(), os.getSize(), cs);
+    }
+  }
+
+  /*
+     When a document value to be inserted is not valid or too big, if the field
+     cannot be NULL then the whole insertion will fail and errors will be
+     returned, if the field can be NULL then the insertion will succeed but the
+     field will be NULL and warnings will be returned.
+     Updates will fail anyway if the document value is not valid.
+  */
+  if (real_maybe_null())
+  {
+    set_null();
+    memset(ptr, 0, Field_blob::pack_length());
+    if (valid)
+      push_warning_too_big();
+    else
+      push_warning_invalid(from);
   }
   else
   {
-    /*
-       When a document value to be inserted is not valid, if the field cannot
-       be NULL then the whole insertion will fail and errors will be returned,
-       if the field can be NULL then the insertion will succeed but the field
-       will be NULL and warnings will be returned.
-       Updates will fail anyway if the document value is not valid.
-    */
-    if (real_maybe_null())
-    {
-      set_null();
-      memset(ptr, 0, Field_blob::pack_length());
-      push_warning(from);
-    }
+    if (valid)
+      push_error_too_big();
     else
-    {
-      push_error(from);
-    }
-    return TYPE_ERR_BAD_VALUE;
+      push_error_invalid(from);
   }
+  return TYPE_ERR_BAD_VALUE;
 }
 
 
