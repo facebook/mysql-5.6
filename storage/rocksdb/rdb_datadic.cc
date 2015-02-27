@@ -1213,7 +1213,7 @@ void Binlog_info_manager::update(const char* binlog_name,
   if (binlog_name && binlog_pos)
   {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
-    char  value_buf[1024];
+    uchar  value_buf[1024];
     batch.Put(key_slice,
               pack_value(value_buf, binlog_name, binlog_pos, binlog_gtid));
   }
@@ -1239,7 +1239,8 @@ bool Binlog_info_manager::read(char* binlog_name, my_off_t& binlog_pos,
     rocksdb::Status status = rdb->Get(options, key_slice, &value);
     if(status.ok())
     {
-      unpack_value(value.c_str(), binlog_name, binlog_pos, binlog_gtid);
+      unpack_value((const uchar*)value.c_str(),
+                   binlog_name, binlog_pos, binlog_gtid);
       ret= true;
     }
   }
@@ -1255,7 +1256,7 @@ bool Binlog_info_manager::read(char* binlog_name, my_off_t& binlog_pos,
   @param binlog_gtid   Binlog GTID
   @return              rocksdb::Slice converted from buf and its length
 */
-rocksdb::Slice Binlog_info_manager::pack_value(char *buf,
+rocksdb::Slice Binlog_info_manager::pack_value(uchar *buf,
                                                const char* binlog_name,
                                                const my_off_t binlog_pos,
                                                const char* binlog_gtid)
@@ -1263,8 +1264,9 @@ rocksdb::Slice Binlog_info_manager::pack_value(char *buf,
   uint pack_len= 0;
 
   // store binlog file name length
-  uint binlog_name_len = strlen(binlog_name);
-  int2store(buf, binlog_name_len);
+  DBUG_ASSERT(strlen(binlog_name) <= 65535);
+  uint16_t binlog_name_len = strlen(binlog_name);
+  store_big_uint2(buf, binlog_name_len);
   pack_len += 2;
 
   // store binlog file name
@@ -1272,13 +1274,13 @@ rocksdb::Slice Binlog_info_manager::pack_value(char *buf,
   pack_len += binlog_name_len;
 
   // store binlog pos
-  int4store(buf+pack_len, binlog_pos);
+  store_big_uint4(buf+pack_len, binlog_pos);
   pack_len += 4;
 
   // store binlog gtid length.
   // If gtid was not set, store 0 instead
-  uint binlog_gtid_len = binlog_gtid? strlen(binlog_gtid) : 0;
-  int2store(buf+pack_len, binlog_gtid_len);
+  uint16_t binlog_gtid_len = binlog_gtid? strlen(binlog_gtid) : 0;
+  store_big_uint2(buf+pack_len, binlog_gtid_len);
   pack_len += 2;
 
   if (binlog_gtid_len > 0)
@@ -1288,7 +1290,7 @@ rocksdb::Slice Binlog_info_manager::pack_value(char *buf,
     pack_len += binlog_gtid_len;
   }
 
-  return rocksdb::Slice(buf, pack_len);
+  return rocksdb::Slice((char*)buf, pack_len);
 }
 
 /**
@@ -1298,14 +1300,14 @@ rocksdb::Slice Binlog_info_manager::pack_value(char *buf,
   @param[OUT] binlog_pos   Binlog pos
   @param[OUT] binlog_gtid  Binlog GTID
 */
-void Binlog_info_manager::unpack_value(const char* value, char* binlog_name,
+void Binlog_info_manager::unpack_value(const uchar* value, char* binlog_name,
                                        my_off_t& binlog_pos,
                                        char* binlog_gtid)
 {
   uint pack_len= 0;
 
   // read binlog file name length
-  uint binlog_name_len= uint2korr(value);
+  uint16_t binlog_name_len= read_big_uint2(value);
   pack_len= 2;
   if (binlog_name_len)
   {
@@ -1315,11 +1317,11 @@ void Binlog_info_manager::unpack_value(const char* value, char* binlog_name,
     pack_len += binlog_name_len;
 
     // read and set binlog pos
-    binlog_pos= uint4korr(value+pack_len);
+    binlog_pos= read_big_uint4(value+pack_len);
     pack_len += 4;
 
     // read gtid length
-    uint binlog_gtid_len= uint2korr(value+pack_len);
+    uint16_t binlog_gtid_len= read_big_uint2(value+pack_len);
     pack_len += 2;
     if (binlog_gtid && binlog_gtid_len > 0)
     {
