@@ -671,7 +671,7 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_dropped_indices_manager, "dropped indices manager", PSI_FLAG_GLOBAL},
 };
 
-PSI_cond_key key_cond_stop;
+PSI_cond_key key_cond_stop, key_drop_index_interrupt_cond;
 
 static PSI_cond_info all_rocksdb_conds[]=
 {
