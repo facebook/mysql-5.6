@@ -59,6 +59,7 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
               uint key_length);
 void* background_thread(void*);
 void* drop_index_thread(void*);
+void signal_drop_index_thread(bool stop_thread = false);
 bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
                           const bool use_all_keys,
@@ -154,6 +155,20 @@ rocksdb_compact_column_family(THD* thd,
   }
 }
 
+#ifndef DBUG_OFF
+static void
+rocksdb_drop_index_wakeup_thread(THD* thd,
+                                 struct st_mysql_sys_var* var,
+                                 void* var_ptr,
+                                 const void* save)
+{
+  if (static_cast<bool>(save)) {
+    signal_drop_index_thread();
+  }
+}
+#endif
+
+
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -167,6 +182,9 @@ static uint32_t rocksdb_debug_optimizer_records_in_range;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static uint32_t rocksdb_perf_context_level;
 static char * compact_cf_name;
+#ifndef DBUG_OFF
+static my_bool rocksdb_signal_drop_index_thread;
+#endif
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -566,6 +584,14 @@ static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   "Compact column family",
   NULL, rocksdb_compact_column_family, "");
 
+#ifndef DBUG_OFF
+static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
+  rocksdb_signal_drop_index_thread,
+  PLUGIN_VAR_RQCMDARG,
+  "Wake up drop index thread",
+  NULL, rocksdb_drop_index_wakeup_thread, FALSE);
+#endif
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -634,6 +660,9 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(debug_optimizer_n_rows),
 
   MYSQL_SYSVAR(compact_cf),
+#ifndef DBUG_OFF
+  MYSQL_SYSVAR(signal_drop_index_thread),
+#endif
 
   NULL
 };
@@ -822,7 +851,14 @@ public:
                       std::vector<bool>* values_changed) const override {
 
     // check if this batch of keys is from a dropped index
-    bool deleted = dropped_indices_manager.has_index(keys[0]);
+
+    DBUG_ASSERT(keys[0].size() >= sizeof(uint32));
+    uint32 index = ntohl(*reinterpret_cast<const uint32*>(keys[0].data()));
+    bool deleted = dropped_indices_manager.has_index(index);
+
+    if (deleted) {
+      sql_print_information("RocksDB: Compacting away elements from dropped index %d: %d", (int)index, (int)keys.size());
+    }
 
     return std::vector<bool>(keys.size(), deleted);
   }
@@ -1569,10 +1605,7 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_unlock(&stop_cond_mutex);
 
   // signal the drop index thread to stop
-  mysql_mutex_lock(&drop_index_interrupt_mutex);
-  stop_drop_index_thread = true;
-  mysql_cond_signal(&drop_index_interrupt_cond);
-  mysql_mutex_unlock(&drop_index_interrupt_mutex);
+  signal_drop_index_thread(true);
 
   // wait for the background thread to finish
   mysql_mutex_lock(&background_mutex);
@@ -4147,6 +4180,15 @@ rocksdb::Range ha_rocksdb::get_range(
     return ::get_range(keydef, buf, 0, 1);
 }
 
+void signal_drop_index_thread(bool stop_thread)
+{
+  mysql_mutex_lock(&drop_index_interrupt_mutex);
+  if (stop_thread) {
+    stop_drop_index_thread = true;
+  }
+  mysql_cond_signal(&drop_index_interrupt_cond);
+  mysql_mutex_unlock(&drop_index_interrupt_mutex);
+}
 
 void* drop_index_thread(void*)
 {
@@ -4179,11 +4221,27 @@ void* drop_index_thread(void*)
           rdb->NewIterator(read_opts, d.second->get_cf()));
 
         rocksdb::Range r = get_range(d.second, buf,
-                                     0, d.second->is_reverse_cf ? 1 : 0);
+                                     d.second->is_reverse_cf ? 1 : 0, 0);
 
         // look for entry with index's prefix
         // if none exists, we're finished with this index
         it->Seek(r.start);
+        if (!it->Valid()) {
+
+          // for reverse column families, results are actually before the index,
+          // so we seek to index+1, then try to find index.
+          if (d.second->is_reverse_cf
+              && rocksdb::Slice(it->key()).starts_with(r.start)) {
+            // if 4 byte key with r.start does exist, then we need to seek next.
+            // if it doesn't exist, then the iterator should already be pointing
+            // to the first key in r.limit.
+            it->Next();
+          }
+
+          // at this point, the iterator will point to an entry for the index,
+          // if one exists.
+        }
+
         if (!it->Valid() || !rocksdb::Slice(it->key()).starts_with(r.limit)) {
           finished.insert(d.first);
         }
@@ -4226,11 +4284,7 @@ int ha_rocksdb::delete_table(const char *tablename)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   dropped_indices_manager.add_indices(tbl->key_descr, tbl->n_keys);
-
-  // signal thread
-  mysql_mutex_lock(&drop_index_interrupt_mutex);
-  mysql_cond_signal(&drop_index_interrupt_cond);
-  mysql_mutex_unlock(&drop_index_interrupt_mutex);
+  signal_drop_index_thread();
 
   /*
     Remove the table entry in data dictionary (this will also remove it from
