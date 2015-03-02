@@ -3,7 +3,15 @@ DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 DROP TABLE IF EXISTS t3;
 DROP TABLE IF EXISTS t4;
+DROP TABLE IF EXISTS t5;
 --enable_warnings
+
+# Start from clean slate
+set global rocksdb_compact_cf = 'cf1';
+set global rocksdb_compact_cf = 'rev:cf2';
+set global rocksdb_signal_drop_index_thread = 1;
+--source include/restart_mysqld.inc
+--exec truncate --size=0 $MYSQLTEST_VARDIR/log/mysqld.1.err
 
 CREATE TABLE t1 (
   a int not null,
@@ -76,6 +84,7 @@ CREATE TABLE t5 (
   key (b) comment 'rev:cf2'
 ) ENGINE=RocksDB;
 
+let $max = 1000;
 let $table = t5;
 --source drop_table_repopulate_table.inc
 
@@ -85,8 +94,18 @@ drop table t5;
 set global rocksdb_compact_cf = 'cf1';
 set global rocksdb_compact_cf = 'rev:cf2';
 
-# Check log for dropped index statements
---exec grep "dropped index" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | sort
+# Signal thread to check for dropped indices
+set global rocksdb_signal_drop_index_thread = 1;
+--sleep 1
+
+# Get list of all indices needing to be dropped
+--exec grep "Begin filtering dropped index" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | sort
+
+# Check total compacted-away rows for all indices
+--exec perl suite/rocksdb/t/drop_table_compactions.pl $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+# Check that all indices have been successfully dropped
+--exec grep "Finished filtering dropped index" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | sort
 
 # Cleanup
 drop table t1;
