@@ -104,14 +104,12 @@ bool Dropped_indices_manager::empty() const
 }
 
 // check if a uint32 (encoded as a Slice) is in the map
-bool Dropped_indices_manager::has_index(const rocksdb::Slice& key) const
+bool Dropped_indices_manager::has_index(uint32 index) const
 {
   bool match = false;
   if (initialized()) {
     mysql_mutex_lock(&dim_mutex);
     if (!di_map.empty()) {
-      DBUG_ASSERT(key.size() >= sizeof(uint32));
-      uint32 index = ntohl(*reinterpret_cast<const uint32*>(key.data()));
       match = di_map.find(index) != di_map.end();
     }
     mysql_mutex_unlock(&dim_mutex);

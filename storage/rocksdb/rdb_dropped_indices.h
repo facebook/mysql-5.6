@@ -40,8 +40,8 @@ public:
   // check if we have anything to filter
   bool empty() const;
 
-  // check if key's prefix is in the map
-  bool has_index(const rocksdb::Slice& key) const;
+  // check if index is in the map
+  bool has_index(uint32 index) const;
 
   // get entire list of indices to check if they're finished
   Dropped_Index_Map get_indices() const;
