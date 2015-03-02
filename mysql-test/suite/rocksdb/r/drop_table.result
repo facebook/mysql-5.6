@@ -2,6 +2,10 @@ DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 DROP TABLE IF EXISTS t3;
 DROP TABLE IF EXISTS t4;
+DROP TABLE IF EXISTS t5;
+set global rocksdb_compact_cf = 'cf1';
+set global rocksdb_compact_cf = 'rev:cf2';
+set global rocksdb_signal_drop_index_thread = 1;
 CREATE TABLE t1 (
 a int not null,
 b int not null,
@@ -47,20 +51,29 @@ DELETE FROM t5;
 drop table t5;
 set global rocksdb_compact_cf = 'cf1';
 set global rocksdb_compact_cf = 'rev:cf2';
+set global rocksdb_signal_drop_index_thread = 1;
  RocksDB: Begin filtering dropped index 10
  RocksDB: Begin filtering dropped index 11
  RocksDB: Begin filtering dropped index 12
  RocksDB: Begin filtering dropped index 13
  RocksDB: Begin filtering dropped index 14
- RocksDB: Begin filtering dropped index 14
  RocksDB: Begin filtering dropped index 15
+ RocksDB: Begin filtering dropped index 16
  RocksDB: Begin filtering dropped index 9
+Compacted 10: 1000
+Compacted 11: 1000
+Compacted 12: 1000
+Compacted 13: 50000
+Compacted 14: 50000
+Compacted 15: 1000
+Compacted 16: 1000
+Compacted 9: 1000
  RocksDB: Finished filtering dropped index 10
  RocksDB: Finished filtering dropped index 11
  RocksDB: Finished filtering dropped index 12
+ RocksDB: Finished filtering dropped index 13
  RocksDB: Finished filtering dropped index 14
  RocksDB: Finished filtering dropped index 15
+ RocksDB: Finished filtering dropped index 16
  RocksDB: Finished filtering dropped index 9
- RocksDB: Resume filtering dropped index 13
- RocksDB: Resume filtering dropped index 9
 drop table t1;
