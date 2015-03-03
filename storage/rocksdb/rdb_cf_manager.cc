@@ -50,7 +50,6 @@ void Column_family_manager::init(std::vector<rocksdb::ColumnFamilyHandle*> *hand
   mysql_mutex_init(ex_key_cfm, &cfm_mutex, MY_MUTEX_INIT_FAST);
   DBUG_ASSERT(handles->size() > 0);
 
-  default_cf= (*handles)[0];
   for (auto cfh : *handles) {
     cf_name_map[cfh->GetName()] = cfh;
     cf_id_map[cfh->GetID()] = cfh;
@@ -100,41 +99,37 @@ Column_family_manager::get_or_create_cf(rocksdb::DB *rdb, const char *cf_name,
   mysql_mutex_lock(&cfm_mutex);
   *is_automatic= false;
   if (cf_name == NULL)
+    cf_name= DEFAULT_CF_NAME;
+
+  std::string per_index_name;
+  if (!strcmp(cf_name, PER_INDEX_CF_NAME))
   {
-    cf_handle= default_cf;
+    get_per_index_cf_name(db_table_name, index_name, &per_index_name);
+    cf_name= per_index_name.c_str();
+    *is_automatic= true;
   }
+
+  auto it = cf_name_map.find(cf_name);
+  if (it != cf_name_map.end())
+    cf_handle= it->second;
   else
   {
-    std::string per_index_name;
-    if (!strcmp(cf_name, PER_INDEX_CF_NAME))
-    {
-      get_per_index_cf_name(db_table_name, index_name, &per_index_name);
-      cf_name= per_index_name.c_str();
-      *is_automatic= true;
-    }
+    /* Create a Column Family. */
+    std::string cf_name_str(cf_name);
+    rocksdb::ColumnFamilyOptions opts;
+    get_cf_options(cf_name_str, &opts);
 
-    auto it = cf_name_map.find(cf_name);
-    if (it != cf_name_map.end())
-      cf_handle= it->second;
-    else
-    {
-      /* Create a Column Family. */
-      std::string cf_name_str(cf_name);
-      rocksdb::ColumnFamilyOptions opts;
-      get_cf_options(cf_name_str, &opts);
+    sql_print_information("RocksDB: creating column family %s", cf_name_str.c_str());
+    sql_print_information("    write_buffer_size=%ld",    opts.write_buffer_size);
+    sql_print_information("    target_file_size_base=%" PRIu64,
+                          opts.target_file_size_base);
 
-      sql_print_information("RocksDB: creating column family %s", cf_name_str.c_str());
-      sql_print_information("    write_buffer_size=%ld",    opts.write_buffer_size);
-      sql_print_information("    target_file_size_base=%" PRIu64,
-                            opts.target_file_size_base);
-
-      rocksdb::Status s= rdb->CreateColumnFamily(opts, cf_name_str, &cf_handle);
-      if (s.ok()) {
-        cf_name_map[cf_handle->GetName()] = cf_handle;
-        cf_id_map[cf_handle->GetID()] = cf_handle;
-      } else {
-        cf_handle= NULL;
-      }
+    rocksdb::Status s= rdb->CreateColumnFamily(opts, cf_name_str, &cf_handle);
+    if (s.ok()) {
+      cf_name_map[cf_handle->GetName()] = cf_handle;
+      cf_id_map[cf_handle->GetID()] = cf_handle;
+    } else {
+      cf_handle= NULL;
     }
   }
   mysql_mutex_unlock(&cfm_mutex);
@@ -166,20 +161,19 @@ Column_family_manager::get_cf(const char *cf_name,
   *is_automatic= false;
   mysql_mutex_lock(&cfm_mutex);
   if (cf_name == NULL)
-    cf_handle= default_cf;
-  else
-  {
-    std::string per_index_name;
-    if (!strcmp(cf_name, PER_INDEX_CF_NAME))
-    {
-      get_per_index_cf_name(db_table_name, index_name, &per_index_name);
-      cf_name= per_index_name.c_str();
-      *is_automatic= true;
-    }
+    cf_name= DEFAULT_CF_NAME;
 
-    auto it = cf_name_map.find(cf_name);
-    cf_handle = (it != cf_name_map.end()) ? it->second : nullptr;
+  std::string per_index_name;
+  if (!strcmp(cf_name, PER_INDEX_CF_NAME))
+  {
+    get_per_index_cf_name(db_table_name, index_name, &per_index_name);
+    cf_name= per_index_name.c_str();
+    *is_automatic= true;
   }
+
+  auto it = cf_name_map.find(cf_name);
+  cf_handle = (it != cf_name_map.end()) ? it->second : nullptr;
+
   mysql_mutex_unlock(&cfm_mutex);
 
   return cf_handle;
