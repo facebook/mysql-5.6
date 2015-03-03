@@ -37,12 +37,17 @@
 
 /*
   This is
-  - the name of the default Column Family (the CF which stores indexes which didn't
-    explicity specify which CF they are in)
+  - the name of the default Column Family (the CF which stores indexes which
+    didn't explicitly specify which CF they are in)
   - the name used to set the default column family parameter for per-cf
     arguments.
 */
 const char * const DEFAULT_CF_NAME= "default";
+
+/*
+  This is the name of the Column Family used for storing the data dictionary.
+*/
+const char * const DEFAULT_SYSTEM_CF_NAME= "_system_";
 
 /*
   Column family name which means "put this index into its own column family".

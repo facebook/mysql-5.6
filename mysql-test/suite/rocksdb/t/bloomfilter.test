@@ -7,8 +7,8 @@ select variable_value into @u from information_schema.global_status where variab
 --exec sed s/##CF##//g $tmpl_ddl > $ddl
 --source $ddl
 --source suite/rocksdb/t/bloomfilter_load_select.inc
-select case when variable_value-@c > 70 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
-select case when variable_value-@u > 50 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+select case when variable_value-@c > 50 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 
 #BF is always invoked but not useful at all
 select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
@@ -26,9 +26,8 @@ select variable_value into @u from information_schema.global_status where variab
 --exec sed s/##CF##/" COMMENT 'cf_long_prefix'"/g $tmpl_ddl > $ddl
 --source $ddl
 --source suite/rocksdb/t/bloomfilter_load_select.inc
-select case when variable_value-@c > 30 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
-select case when variable_value-@u > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
-
+select case when variable_value-@c > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u > 10 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 
 # BUG: Prev() with prefix lookup should not use prefix bloom filter
 create table r1 (id1 bigint, id2 bigint, id3 bigint, v1 int, v2 text, primary key (id1, id2, id3)) engine=rocksdb DEFAULT CHARSET=latin1 collate latin1_bin;
