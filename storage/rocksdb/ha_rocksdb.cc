@@ -1496,7 +1496,7 @@ static int rocksdb_init_func(void *p)
   }
   cf_manager.init(&cf_handles);
 
-  if (binlog_manager.init(rdb))
+  if (binlog_manager.init(rdb, &cf_manager))
     DBUG_RETURN(1);
 
   if (ddl_manager.init(rdb, &cf_manager))
@@ -2248,6 +2248,13 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
     {
       my_error(ER_NOT_SUPPORTED_YET, MYF(0),
                "column family name looks like a typo of $per_index_cf");
+      goto error;
+    }
+    /* Prevent create from using the system column family */
+    if (comment && strcmp(DEFAULT_SYSTEM_CF_NAME, comment) == 0)
+    {
+      my_error(ER_WRONG_ARGUMENTS, MYF(0),
+               "column family not valid for storing index data");
       goto error;
     }
     bool is_auto_cf;
