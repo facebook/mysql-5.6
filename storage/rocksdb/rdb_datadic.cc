@@ -904,7 +904,9 @@ void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
     ( index_nr, column_family_id, flags )
 */
 
-void RDBSE_TABLE_DEF::write_to(rocksdb::DB *rdb_dict, uchar *key, size_t keylen)
+void RDBSE_TABLE_DEF::write_to(rocksdb::DB *rdb_dict,
+                               rocksdb::ColumnFamilyHandle* cf,
+                               uchar *key, size_t keylen)
 {
   StringBuffer<8 * RDBSE_KEYDEF::PACKED_SIZE> indexes;
   indexes.alloc(n_keys * RDBSE_KEYDEF::PACKED_SIZE);
@@ -926,7 +928,7 @@ void RDBSE_TABLE_DEF::write_to(rocksdb::DB *rdb_dict, uchar *key, size_t keylen)
 
   rocksdb::WriteOptions options;
   options.sync= true;
-  rdb_dict->Put(options, skey, svalue);
+  rdb_dict->Put(options, cf, skey, svalue);
 }
 
 
@@ -952,6 +954,11 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_ma
                       (my_hash_get_key) Table_ddl_manager::get_hash_key,
                       Table_ddl_manager::free_hash_elem, 0);
 
+  /* Use the system column family for storing the data dictionary */
+  bool is_automatic;
+  system_cfh= cf_manager->get_or_create_cf(rdb_dict, DEFAULT_SYSTEM_CF_NAME,
+                                           NULL, NULL, &is_automatic);
+
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   store_index_number(ddl_entry, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
@@ -961,7 +968,7 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_ma
   rocksdb::ReadOptions read_options;
   read_options.total_order_seek = true;
   rocksdb::Iterator* it;
-  it= rdb_dict->NewIterator(read_options);
+  it= rdb_dict->NewIterator(read_options, system_cfh);
   int i= 0;
   int max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next())
@@ -1077,7 +1084,7 @@ int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict
   if ((res= put(tbl)))
     return res;
 
-  tbl->write_to(rdb_dict, buf, pos);
+  tbl->write_to(rdb_dict, system_cfh, buf, pos);
   return 0;
 }
 
@@ -1121,7 +1128,7 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict, bool
   pos += tbl->dbname_tablename.length();
 
   rocksdb::Slice tkey((char*)buf, pos);
-  rdb_dict->Delete(rocksdb::WriteOptions(), tkey);
+  rdb_dict->Delete(rocksdb::WriteOptions(), system_cfh, tkey);
 
   /* The following will also delete the object: */
   my_hash_delete(&ddl_hash, (uchar*) tbl);
@@ -1163,7 +1170,7 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
   new_pos += new_rec->dbname_tablename.length();
 
   // Create a key to add
-  new_rec->write_to(rdb_dict, new_buf, new_pos);
+  new_rec->write_to(rdb_dict, system_cfh, new_buf, new_pos);
   remove(rec, rdb_dict, false);
   put(new_rec, false);
   res= false; // ok
@@ -1181,9 +1188,15 @@ void Table_ddl_manager::cleanup()
 }
 
 
-bool Binlog_info_manager::init(rocksdb::DB *rdb_dict)
+bool Binlog_info_manager::init(rocksdb::DB *rdb_dict,
+                               Column_family_manager *cf_manager)
 {
   rdb= rdb_dict;
+
+  /* Use the system column family for storing the data dictionary */
+  bool is_automatic;
+  system_cfh= cf_manager->get_or_create_cf(rdb_dict, DEFAULT_SYSTEM_CF_NAME,
+                                           NULL, NULL, &is_automatic);
   store_index_number(key_buf, RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER);
   key_slice = rocksdb::Slice((char*)key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
   return false;
@@ -1214,7 +1227,7 @@ void Binlog_info_manager::update(const char* binlog_name,
   {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
     uchar  value_buf[1024];
-    batch.Put(key_slice,
+    batch.Put(system_cfh, key_slice,
               pack_value(value_buf, binlog_name, binlog_pos, binlog_gtid));
   }
 }
@@ -1236,7 +1249,7 @@ bool Binlog_info_manager::read(char* binlog_name, my_off_t& binlog_pos,
   {
     std::string value;
     rocksdb::ReadOptions options;
-    rocksdb::Status status = rdb->Get(options, key_slice, &value);
+    rocksdb::Status status = rdb->Get(options, system_cfh, key_slice, &value);
     if(status.ok())
     {
       unpack_value((const uchar*)value.c_str(),

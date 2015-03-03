@@ -449,7 +449,8 @@ public:
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
 
-  void write_to(rocksdb::DB *rdb_dict, uchar *key, size_t keylen);
+  void write_to(rocksdb::DB *rdb_dict, rocksdb::ColumnFamilyHandle* cf,
+                uchar *key, size_t keylen);
 };
 
 
@@ -522,6 +523,7 @@ private:
   static uchar* get_hash_key(RDBSE_TABLE_DEF *rec, size_t *length,
                              my_bool not_used __attribute__((unused)));
   static void free_hash_elem(void* data);
+  rocksdb::ColumnFamilyHandle* system_cfh;
 };
 
 
@@ -543,7 +545,7 @@ private:
 class Binlog_info_manager
 {
 public:
-  bool init(rocksdb::DB *rdb_dict);
+  bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
               const char* binlog_gtid, rocksdb::WriteBatch& batch);
@@ -551,6 +553,7 @@ public:
 
 private:
   rocksdb::DB *rdb;
+  rocksdb::ColumnFamilyHandle *system_cfh;
   uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice;
   rocksdb::Slice pack_value(uchar* buf,
