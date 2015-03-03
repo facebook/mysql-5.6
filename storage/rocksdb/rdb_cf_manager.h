@@ -44,8 +44,6 @@ class Column_family_manager
   std::map<std::string, rocksdb::ColumnFamilyHandle*> cf_name_map;
   std::map<uint32_t, rocksdb::ColumnFamilyHandle*> cf_id_map;
 
-  rocksdb::ColumnFamilyHandle *default_cf;
-
   mysql_mutex_t cfm_mutex;
 public:
   /*

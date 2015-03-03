@@ -194,11 +194,11 @@ count(*)
 select count(*) from t2 force index (id3_id5) where id3='240' and id5=1200;
 count(*)
 1
-select case when variable_value-@c > 70 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
-case when variable_value-@c > 70 then 'true' else 'false' end
+select case when variable_value-@c > 50 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+case when variable_value-@c > 50 then 'true' else 'false' end
 true
-select case when variable_value-@u > 50 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
-case when variable_value-@u > 50 then 'true' else 'false' end
+select case when variable_value-@u > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+case when variable_value-@u > 20 then 'true' else 'false' end
 true
 select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
@@ -590,11 +590,11 @@ count(*)
 select count(*) from t2 force index (id3_id5) where id3='240' and id5=1200;
 count(*)
 1
-select case when variable_value-@c > 30 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
-case when variable_value-@c > 30 then 'true' else 'false' end
+select case when variable_value-@c > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+case when variable_value-@c > 20 then 'true' else 'false' end
 true
-select case when variable_value-@u > 20 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
-case when variable_value-@u > 20 then 'true' else 'false' end
+select case when variable_value-@u > 10 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+case when variable_value-@u > 10 then 'true' else 'false' end
 true
 create table r1 (id1 bigint, id2 bigint, id3 bigint, v1 int, v2 text, primary key (id1, id2, id3)) engine=rocksdb DEFAULT CHARSET=latin1 collate latin1_bin;
 select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
