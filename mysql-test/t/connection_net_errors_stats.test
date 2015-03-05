@@ -1,46 +1,37 @@
-# prep the environment for testing
-let $select_errors_networking = select errors_networking from information_schema.user_statistics where user_name="root";
---let $base_errors_networking_count = query_get_value($select_errors_networking, errors_networking, 1)
-flush status;
+create user mysqltest_1@localhost;
 
-# Test ER_NET_READ_ERROR
-connect (conn1,127.0.0.1,root);
-select "disconnect the connection";
-dirty_close conn1;
+# Hack: Create a connection so user statistics will be initialized
+connect(conn_mysqltest_1, 127.0.0.1, mysqltest_1);
+select "Init stats for user mysqltest_1";
+disconnect conn_mysqltest_1;
 
---source include/wait_until_disconnected.inc
+#
+# Run the test to simulate all network errors with root user
+#
+--let $ER_NET_READ_ERROR= 1
+--let $ER_NET_READ_INTERRUPTED= 1
+--let $user= root
+--source include/connection_net_errors_stats_test.inc
 
-# Test ER_NET_READ_INTERRUPTED
-connect (conn2,127.0.0.1,root);
-set session wait_timeout = 1;
---real_sleep 2
---error 2006, 2013
-# Why do we check for two error codes ?
-# The client fails with very related error codes in different builds. The
-# intention of this test is to test that the server stats reflect correctly.
-# This is a known client side behavior and other tests like kill.test
-# and wait_until_connected already does the same.
-select "connection should have been closed by server";
+#
+# Run the test to simulate all network errors for mysqltest_1 user
+#
+--let $ER_NET_READ_ERROR= 1
+--let $ER_NET_READ_INTERRUPTED= 1
+--let $user=mysqltest_1
+--source include/connection_net_errors_stats_test.inc
 
-# We don't have a mechanism to trigger the following errors
-# ER_NET_WRITE_INTERRUPTED
-# ER_NET_ERROR_ON_WRITE
-# ER_NET_PACKET_TOO_LARGE
-# ER_NET_UNCOMPRESS_ERROR
-# ER_NET_PACKETS_OUT_OF_ORDER
+#
+# Run the test to simulate only subset of network errors on mysqltest_1
+# user
+#
+--let $ER_NET_READ_ERROR= 1
+--let $ER_NET_READ_INTERRUPTED= 0
+--let $user=mysqltest_1
+--source include/connection_net_errors_stats_test.inc
 
-# Verify the counters
-connect (conn3,127.0.0.1,root);
-show status like "Connection_errors_net_%";
-
---disable_query_log
---let $errors_networking_count = query_get_value($select_errors_networking, errors_networking, 1)
-eval select $errors_networking_count - $base_errors_networking_count into @errors_networking;
---enable_query_log
-select @errors_networking;
-
-# Run flush status
-flush status;
-show status like "Connection_errors_net_%";
-
-disconnect conn3;
+#
+# Cleanup
+#
+--connection default
+drop user mysqltest_1@localhost;
