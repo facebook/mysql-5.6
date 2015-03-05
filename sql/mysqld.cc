@@ -770,6 +770,20 @@ ulong connection_errors_internal= 0;
 ulong connection_errors_max_connection= 0;
 /** Number of errors when reading the peer address. */
 ulong connection_errors_peer_addr= 0;
+/** Number of connection errors while writing to client */
+ulong connection_errors_net_ER_NET_ERROR_ON_WRITE= 0;
+/** Number of connection errors because of packet ordering issues */
+ulong connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER= 0;
+/** Number of connection errors because the packet was too larger */
+ulong connection_errors_net_ER_NET_PACKET_TOO_LARGE= 0;
+/** Number of connection errors while reading data from client */
+ulong connection_errors_net_ER_NET_READ_ERROR= 0;
+/** Number of connection errors due to read timeout */
+ulong connection_errors_net_ER_NET_READ_INTERRUPTED= 0;
+/** Number of connection errors due to compression errors */
+ulong connection_errors_net_ER_NET_UNCOMPRESS_ERROR= 0;
+/** Number of connection errors due to write timeout */
+ulong connection_errors_net_ER_NET_WRITE_INTERRUPTED= 0;
 
 /* classes for comparation parsing/processing */
 Eq_creator eq_creator;
@@ -4305,6 +4319,14 @@ int init_common_variables(my_bool logging)
   connection_errors_internal= 0;
   connection_errors_max_connection= 0;
   connection_errors_peer_addr= 0;
+  connection_errors_net_ER_NET_ERROR_ON_WRITE= 0;
+  connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER= 0;
+  connection_errors_net_ER_NET_PACKET_TOO_LARGE= 0;
+  connection_errors_net_ER_NET_READ_ERROR= 0;
+  connection_errors_net_ER_NET_READ_INTERRUPTED= 0;
+  connection_errors_net_ER_NET_UNCOMPRESS_ERROR= 0;
+  connection_errors_net_ER_NET_WRITE_INTERRUPTED= 0;
+
   my_decimal_set_zero(&decimal_zero); // set decimal_zero constant;
   tzset();      // Set tzname
 
@@ -8867,6 +8889,13 @@ SHOW_VAR status_vars[]= {
   {"Connection_errors_accept", (char*) &connection_errors_accept, SHOW_LONG},
   {"Connection_errors_internal", (char*) &connection_errors_internal, SHOW_LONG},
   {"Connection_errors_max_connections", (char*) &connection_errors_max_connection, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_ERROR_ON_WRITE", (char*) &connection_errors_net_ER_NET_ERROR_ON_WRITE, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER", (char*) &connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_PACKET_TOO_LARGE", (char*) &connection_errors_net_ER_NET_PACKET_TOO_LARGE, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_READ_ERROR", (char*) &connection_errors_net_ER_NET_READ_ERROR, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_READ_INTERRUPTED", (char*) &connection_errors_net_ER_NET_READ_INTERRUPTED, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_UNCOMPRESS_ERROR", (char*) &connection_errors_net_ER_NET_UNCOMPRESS_ERROR, SHOW_LONG},
+  {"Connection_errors_net_ER_NET_WRITE_INTERRUPTED", (char*) &connection_errors_net_ER_NET_WRITE_INTERRUPTED, SHOW_LONG},
   {"Connection_errors_peer_address", (char*) &connection_errors_peer_addr, SHOW_LONG},
   {"Connection_errors_select", (char*) &connection_errors_select, SHOW_LONG},
   {"Connection_errors_tcpwrap", (char*) &connection_errors_tcpwrap, SHOW_LONG},

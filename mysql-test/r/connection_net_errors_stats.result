@@ -1,0 +1,29 @@
+flush status;
+select "disconnect the connection";
+disconnect the connection
+disconnect the connection
+set session wait_timeout = 1;
+select "connection should have been closed by server";
+Got one of the listed errors
+show status like "Connection_errors_net_%";
+Variable_name	Value
+Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
+Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
+Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
+Connection_errors_net_ER_NET_READ_ERROR	1
+Connection_errors_net_ER_NET_READ_INTERRUPTED	1
+Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
+Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+select @errors_networking;
+@errors_networking
+2
+flush status;
+show status like "Connection_errors_net_%";
+Variable_name	Value
+Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
+Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
+Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
+Connection_errors_net_ER_NET_READ_ERROR	0
+Connection_errors_net_ER_NET_READ_INTERRUPTED	0
+Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
+Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
