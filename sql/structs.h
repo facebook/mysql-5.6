@@ -253,6 +253,7 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> connections_total;             // total conns created
   atomic_stat<ulonglong> connections_ssl_total;         // total ssl conns created
   atomic_stat<ulonglong> errors_access_denied;          // ..to table or db
+  atomic_stat<ulonglong> errors_networking;             // client networking errors
   atomic_stat<ulonglong> errors_total;
   atomic_stat<ulonglong> microseconds_wall;
   atomic_stat<ulonglong> microseconds_ddl;
