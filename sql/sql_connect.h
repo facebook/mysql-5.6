@@ -38,6 +38,7 @@ bool thd_init_client_charset(THD *thd, uint cs_number);
 bool setup_connection_thread_globals(THD *thd);
 bool thd_prepare_connection(THD *thd);
 bool thd_is_connection_alive(THD *thd);
+void thd_update_net_stats(THD* thd);
 
 int check_user(THD *thd, enum enum_server_command command,
 	       const char *passwd, uint passwd_len, const char *db,
