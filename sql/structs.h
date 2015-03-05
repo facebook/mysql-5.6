@@ -253,7 +253,17 @@ typedef struct st_user_stats {
   atomic_stat<ulonglong> connections_total;             // total conns created
   atomic_stat<ulonglong> connections_ssl_total;         // total ssl conns created
   atomic_stat<ulonglong> errors_access_denied;          // ..to table or db
-  atomic_stat<ulonglong> errors_networking;             // client networking errors
+
+  /* networking errors */
+  atomic_stat<ulonglong> errors_net_total;
+  atomic_stat<ulonglong> errors_net_ER_NET_ERROR_ON_WRITE;
+  atomic_stat<ulonglong> errors_net_ER_NET_PACKETS_OUT_OF_ORDER;
+  atomic_stat<ulonglong> errors_net_ER_NET_PACKET_TOO_LARGE;
+  atomic_stat<ulonglong> errors_net_ER_NET_READ_ERROR;
+  atomic_stat<ulonglong> errors_net_ER_NET_READ_INTERRUPTED;
+  atomic_stat<ulonglong> errors_net_ER_NET_UNCOMPRESS_ERROR;
+  atomic_stat<ulonglong> errors_net_ER_NET_WRITE_INTERRUPTED;
+
   atomic_stat<ulonglong> errors_total;
   atomic_stat<ulonglong> microseconds_wall;
   atomic_stat<ulonglong> microseconds_ddl;

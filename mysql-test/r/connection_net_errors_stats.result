@@ -1,3 +1,8 @@
+create user mysqltest_1@localhost;
+select "Init stats for user mysqltest_1";
+Init stats for user mysqltest_1
+Init stats for user mysqltest_1
+connection_net_errors_stats_test (user= root, ER_NET_READ_ERROR= 1, ER_NET_READ_INTERRUPTED= 1)
 flush status;
 select "disconnect the connection";
 disconnect the connection
@@ -14,9 +19,30 @@ Connection_errors_net_ER_NET_READ_ERROR	1
 Connection_errors_net_ER_NET_READ_INTERRUPTED	1
 Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
 Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
-select @errors_networking;
-@errors_networking
+select @errors_net_total;
+@errors_net_total
 2
+select @errors_net_ER_NET_ERROR_ON_WRITE;
+@errors_net_ER_NET_ERROR_ON_WRITE
+0
+select @errors_net_ER_NET_PACKETS_OUT_OF_ORDER;
+@errors_net_ER_NET_PACKETS_OUT_OF_ORDER
+0
+select @errors_net_ER_NET_PACKET_TOO_LARGE;
+@errors_net_ER_NET_PACKET_TOO_LARGE
+0
+select @errors_net_ER_NET_READ_ERROR;
+@errors_net_ER_NET_READ_ERROR
+1
+select @errors_net_ER_NET_READ_INTERRUPTED;
+@errors_net_ER_NET_READ_INTERRUPTED
+1
+select @errors_net_ER_NET_UNCOMPRESS_ERROR;
+@errors_net_ER_NET_UNCOMPRESS_ERROR
+0
+select @errors_net_ER_NET_WRITE_INTERRUPTED;
+@errors_net_ER_NET_WRITE_INTERRUPTED
+0
 flush status;
 show status like "Connection_errors_net_%";
 Variable_name	Value
@@ -27,3 +53,103 @@ Connection_errors_net_ER_NET_READ_ERROR	0
 Connection_errors_net_ER_NET_READ_INTERRUPTED	0
 Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
 Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+connection_net_errors_stats_test (user= mysqltest_1, ER_NET_READ_ERROR= 1, ER_NET_READ_INTERRUPTED= 1)
+flush status;
+select "disconnect the connection";
+disconnect the connection
+disconnect the connection
+set session wait_timeout = 1;
+select "connection should have been closed by server";
+Got one of the listed errors
+show status like "Connection_errors_net_%";
+Variable_name	Value
+Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
+Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
+Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
+Connection_errors_net_ER_NET_READ_ERROR	1
+Connection_errors_net_ER_NET_READ_INTERRUPTED	1
+Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
+Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+select @errors_net_total;
+@errors_net_total
+2
+select @errors_net_ER_NET_ERROR_ON_WRITE;
+@errors_net_ER_NET_ERROR_ON_WRITE
+0
+select @errors_net_ER_NET_PACKETS_OUT_OF_ORDER;
+@errors_net_ER_NET_PACKETS_OUT_OF_ORDER
+0
+select @errors_net_ER_NET_PACKET_TOO_LARGE;
+@errors_net_ER_NET_PACKET_TOO_LARGE
+0
+select @errors_net_ER_NET_READ_ERROR;
+@errors_net_ER_NET_READ_ERROR
+1
+select @errors_net_ER_NET_READ_INTERRUPTED;
+@errors_net_ER_NET_READ_INTERRUPTED
+1
+select @errors_net_ER_NET_UNCOMPRESS_ERROR;
+@errors_net_ER_NET_UNCOMPRESS_ERROR
+0
+select @errors_net_ER_NET_WRITE_INTERRUPTED;
+@errors_net_ER_NET_WRITE_INTERRUPTED
+0
+flush status;
+show status like "Connection_errors_net_%";
+Variable_name	Value
+Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
+Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
+Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
+Connection_errors_net_ER_NET_READ_ERROR	0
+Connection_errors_net_ER_NET_READ_INTERRUPTED	0
+Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
+Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+connection_net_errors_stats_test (user= mysqltest_1, ER_NET_READ_ERROR= 1, ER_NET_READ_INTERRUPTED= 0)
+flush status;
+select "disconnect the connection";
+disconnect the connection
+disconnect the connection
+show status like "Connection_errors_net_%";
+Variable_name	Value
+Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
+Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
+Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
+Connection_errors_net_ER_NET_READ_ERROR	1
+Connection_errors_net_ER_NET_READ_INTERRUPTED	0
+Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
+Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+select @errors_net_total;
+@errors_net_total
+1
+select @errors_net_ER_NET_ERROR_ON_WRITE;
+@errors_net_ER_NET_ERROR_ON_WRITE
+0
+select @errors_net_ER_NET_PACKETS_OUT_OF_ORDER;
+@errors_net_ER_NET_PACKETS_OUT_OF_ORDER
+0
+select @errors_net_ER_NET_PACKET_TOO_LARGE;
+@errors_net_ER_NET_PACKET_TOO_LARGE
+0
+select @errors_net_ER_NET_READ_ERROR;
+@errors_net_ER_NET_READ_ERROR
+1
+select @errors_net_ER_NET_READ_INTERRUPTED;
+@errors_net_ER_NET_READ_INTERRUPTED
+0
+select @errors_net_ER_NET_UNCOMPRESS_ERROR;
+@errors_net_ER_NET_UNCOMPRESS_ERROR
+0
+select @errors_net_ER_NET_WRITE_INTERRUPTED;
+@errors_net_ER_NET_WRITE_INTERRUPTED
+0
+flush status;
+show status like "Connection_errors_net_%";
+Variable_name	Value
+Connection_errors_net_ER_NET_ERROR_ON_WRITE	0
+Connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER	0
+Connection_errors_net_ER_NET_PACKET_TOO_LARGE	0
+Connection_errors_net_ER_NET_READ_ERROR	0
+Connection_errors_net_ER_NET_READ_INTERRUPTED	0
+Connection_errors_net_ER_NET_UNCOMPRESS_ERROR	0
+Connection_errors_net_ER_NET_WRITE_INTERRUPTED	0
+drop user mysqltest_1@localhost;
