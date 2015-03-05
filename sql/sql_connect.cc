@@ -939,36 +939,43 @@ void thd_update_net_stats(THD *thd)
   }
 
   USER_STATS *us= thd_get_user_stats(thd);
-  us->errors_networking.inc();
+  us->errors_net_total.inc();
 
   switch (net->last_errno) {
     case ER_NET_ERROR_ON_WRITE:
       statistic_increment(connection_errors_net_ER_NET_ERROR_ON_WRITE,
                           &LOCK_status);
+      us->errors_net_ER_NET_ERROR_ON_WRITE.inc();
       break;
     case ER_NET_PACKETS_OUT_OF_ORDER:
       statistic_increment(connection_errors_net_ER_NET_PACKETS_OUT_OF_ORDER,
                           &LOCK_status);
+      us->errors_net_ER_NET_PACKETS_OUT_OF_ORDER.inc();
       break;
     case ER_NET_PACKET_TOO_LARGE:
       statistic_increment(connection_errors_net_ER_NET_PACKET_TOO_LARGE,
                           &LOCK_status);
+      us->errors_net_ER_NET_PACKET_TOO_LARGE.inc();
       break;
     case ER_NET_READ_ERROR:
       statistic_increment(connection_errors_net_ER_NET_READ_ERROR,
                           &LOCK_status);
+      us->errors_net_ER_NET_READ_ERROR.inc();
       break;
     case ER_NET_READ_INTERRUPTED:
       statistic_increment(connection_errors_net_ER_NET_READ_INTERRUPTED,
                           &LOCK_status);
+      us->errors_net_ER_NET_READ_INTERRUPTED.inc();
       break;
     case ER_NET_UNCOMPRESS_ERROR:
       statistic_increment(connection_errors_net_ER_NET_UNCOMPRESS_ERROR,
                           &LOCK_status);
+      us->errors_net_ER_NET_UNCOMPRESS_ERROR.inc();
       break;
     case ER_NET_WRITE_INTERRUPTED:
       statistic_increment(connection_errors_net_ER_NET_WRITE_INTERRUPTED,
                           &LOCK_status);
+      us->errors_net_ER_NET_WRITE_INTERRUPTED.inc();
       break;
   }
 }
@@ -1163,7 +1170,14 @@ void init_user_stats(USER_STATS *user_stats)
   user_stats->connections_total.clear();
   user_stats->connections_ssl_total.clear();
   user_stats->errors_access_denied.clear();
-  user_stats->errors_networking.clear();
+  user_stats->errors_net_total.clear();
+  user_stats->errors_net_ER_NET_ERROR_ON_WRITE.clear();
+  user_stats->errors_net_ER_NET_PACKETS_OUT_OF_ORDER.clear();
+  user_stats->errors_net_ER_NET_PACKET_TOO_LARGE.clear();
+  user_stats->errors_net_ER_NET_READ_ERROR.clear();
+  user_stats->errors_net_ER_NET_READ_INTERRUPTED.clear();
+  user_stats->errors_net_ER_NET_UNCOMPRESS_ERROR.clear();
+  user_stats->errors_net_ER_NET_WRITE_INTERRUPTED.clear();
   user_stats->errors_total.clear();
   user_stats->microseconds_wall.clear();
   user_stats->microseconds_ddl.clear();
@@ -1458,7 +1472,16 @@ fill_one_user_stats(TABLE *table, USER_CONN *uc, USER_STATS* us,
                              us->io_perf_read_secondary.wait_time.load()),
                            TRUE);
   table->field[f++]->store(us->errors_access_denied.load(), TRUE);
-  table->field[f++]->store(us->errors_networking.load(), TRUE);
+  table->field[f++]->store(us->errors_net_total.load(), TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_ERROR_ON_WRITE.load(), TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_PACKETS_OUT_OF_ORDER.load(),
+                           TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_PACKET_TOO_LARGE.load(), TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_READ_ERROR.load(), TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_READ_INTERRUPTED.load(), TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_UNCOMPRESS_ERROR.load(), TRUE);
+  table->field[f++]->store(us->errors_net_ER_NET_WRITE_INTERRUPTED.load(),
+                           TRUE);
   table->field[f++]->store(us->errors_total.load(), TRUE);
   table->field[f++]->store(us->microseconds_wall.load(), TRUE);
   table->field[f++]->store(us->microseconds_ddl.load(), TRUE);
