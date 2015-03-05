@@ -4018,6 +4018,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
   DBUG_ENTER("ha_rocksdb::external_lock");
   if (lock_type == F_UNLCK)
   {
+    Rdb_transaction* trx= get_or_create_trx(thd);
     if (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
     {
       /*
@@ -4028,10 +4029,17 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
         for each of them, but that's ok because non-first trx->commit() calls
         will be no-ops.
       */
-      Rdb_transaction* trx= get_or_create_trx(thd);
       res= trx->commit(thd);
       delete scan_it;
       scan_it= NULL;
+    }
+    else if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      if (trx->snapshot)
+      {
+        rdb->ReleaseSnapshot(trx->snapshot);
+        trx->snapshot= NULL;
+      }
     }
     lock_rows= FALSE;
   }
