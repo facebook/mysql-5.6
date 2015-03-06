@@ -37,12 +37,11 @@ const char* DROP_INDEX_TABLE_NAME = "__drop_index__";
 PSI_mutex_key key_mutex_dropped_indices_manager;
 #endif
 
-void Dropped_indices_manager::init(rocksdb::DB *rdb_,
-                                   Table_ddl_manager* ddl_manager_)
+void Dropped_indices_manager::init(Table_ddl_manager* ddl_manager_,
+                                   Dict_manager *dict)
 {
   mysql_mutex_init(key_mutex_dropped_indices_manager, &dim_mutex,
                    MY_MUTEX_INIT_FAST);
-  rdb = rdb_;
   ddl_manager = ddl_manager_;
 
   RDBSE_TABLE_DEF* tbl = ddl_manager->find((uchar*)DROP_INDEX_TABLE_NAME,
@@ -56,7 +55,10 @@ void Dropped_indices_manager::init(rocksdb::DB *rdb_,
     tbl->dbname_tablename.append(DROP_INDEX_TABLE_NAME,
                                  strlen(DROP_INDEX_TABLE_NAME));
 
-    ddl_manager->put_and_write(tbl, rdb);
+    std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
+    rocksdb::WriteBatch *batch= wb.get();
+    ddl_manager->put_and_write(tbl, batch);
+    dict->commit(batch);
     return;
   }
 
@@ -87,7 +89,6 @@ void Dropped_indices_manager::cleanup()
     delete i.second;
   }
   di_map.clear();
-  rdb = nullptr;
   ddl_manager = nullptr;
   DBUG_ASSERT(!initialized());
 }
@@ -129,7 +130,8 @@ Dropped_Index_Map Dropped_indices_manager::get_indices() const
 
 // add new indices to the map
 void Dropped_indices_manager::add_indices(RDBSE_KEYDEF** key_descr,
-                                          uint32 n_keys)
+                                          uint32 n_keys,
+                                          rocksdb::WriteBatch *batch)
 {
   DBUG_ASSERT(initialized());
   mysql_mutex_lock(&dim_mutex);
@@ -159,17 +161,20 @@ void Dropped_indices_manager::add_indices(RDBSE_KEYDEF** key_descr,
   tbl->dbname_tablename.append(DROP_INDEX_TABLE_NAME,
                                strlen(DROP_INDEX_TABLE_NAME));
   mysql_mutex_unlock(&old_tbl->mutex);
-  ddl_manager->put_and_write(tbl, rdb);
+  ddl_manager->put_and_write(tbl, batch);
 
   mysql_mutex_unlock(&dim_mutex);
 }
 
 // remove indices from the map
 void Dropped_indices_manager::remove_indices(
-    const std::unordered_set<uint32> & indices)
+    const std::unordered_set<uint32> & indices,
+    Dict_manager *dict)
 {
   DBUG_ASSERT(initialized());
   mysql_mutex_lock(&dim_mutex);
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
+  rocksdb::WriteBatch *batch= wb.get();
 
   RDBSE_TABLE_DEF* old_tbl = ddl_manager->find(
     (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), false);
@@ -194,7 +199,7 @@ void Dropped_indices_manager::remove_indices(
   tbl->dbname_tablename.append(DROP_INDEX_TABLE_NAME,
                                strlen(DROP_INDEX_TABLE_NAME));
   mysql_mutex_unlock(&old_tbl->mutex);
-  ddl_manager->put_and_write(tbl, rdb);
+  ddl_manager->put_and_write(tbl, batch);
 
   for (auto index : indices) {
     auto it = di_map.find(index);
@@ -205,6 +210,7 @@ void Dropped_indices_manager::remove_indices(
       di_map.erase(it);
     }
   }
+  dict->commit(batch);
 
   mysql_mutex_unlock(&dim_mutex);
 }
