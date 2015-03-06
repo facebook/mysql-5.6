@@ -94,6 +94,7 @@ static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 rocksdb::ColumnFamilyOptions default_cf_opts;
 
 
+Dict_manager dict_manager;
 Column_family_manager cf_manager;
 Table_ddl_manager ddl_manager;
 Binlog_info_manager binlog_manager;
@@ -796,7 +797,7 @@ public:
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
   static ulong get_hashnr(const char *key, size_t key_len);
-  const char* Name() const { return "RocksDB_SE_v3.3"; }
+  const char* Name() const { return "RocksDB_SE_v3.4"; }
 
   //TODO: advanced funcs:
   // - FindShortestSeparator
@@ -813,7 +814,7 @@ class Reverse_comparator : public rocksdb::Comparator
   {
     return -bytewise_compare(a,b);
   }
-  const char* Name() const { return "rev:RocksDB_SE_v3.3"; }
+  const char* Name() const { return "rev:RocksDB_SE_v3.4"; }
   void FindShortestSeparator(std::string* start, const rocksdb::Slice& limit) const {}
   void FindShortSuccessor(std::string* key) const {}
 };
@@ -1582,13 +1583,19 @@ static int rocksdb_init_func(void *p)
   }
   cf_manager.init(&cf_handles);
 
-  if (binlog_manager.init(rdb, &cf_manager))
+  if (dict_manager.init(rdb, &cf_manager))
+  {
+    sql_print_error("RocksDB: Failed to initialize data dictionary.");
+    DBUG_RETURN(1);
+  }
+
+  if (binlog_manager.init(&dict_manager))
     DBUG_RETURN(1);
 
-  if (ddl_manager.init(rdb, &cf_manager))
+  if (ddl_manager.init(&dict_manager, &cf_manager))
     DBUG_RETURN(1);
 
-  dropped_indices_manager.init(rdb, &ddl_manager);
+  dropped_indices_manager.init(&ddl_manager, &dict_manager);
 
   stop_background_thread = false;
   pthread_t thread_handle;
@@ -1650,6 +1657,7 @@ static int rocksdb_done_func(void *p)
   ddl_manager.cleanup();
   binlog_manager.cleanup();
   dropped_indices_manager.cleanup();
+  dict_manager.cleanup();
   cf_manager.cleanup();
 
   delete rdb;
@@ -2300,6 +2308,10 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   DBUG_ENTER("ha_rocksdb::create_key_defs");
   uint n_keys= table_arg->s->keys;
 
+  bool write_err= false;
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
+  rocksdb::WriteBatch *batch= wb.get();
+
   /* Don't allow to create unique indexes */
 /* TODO mdcallag: disable this for now to pretend to support UNIQUE indexes
   for (i= 0; i < table_arg->s->keys; i++)
@@ -2359,7 +2371,11 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   pk_descr= key_descr[table_arg->s->primary_key];
 
   tbl_def->dbname_tablename.append(db_table, len);
-  if (ddl_manager.put_and_write(tbl_def, rdb))
+  dict_manager.lock();
+  write_err= ddl_manager.put_and_write(tbl_def, batch) || dict_manager.commit(batch);
+  dict_manager.unlock();
+
+  if (write_err)
     goto error;
 
   DBUG_RETURN(0);
@@ -4292,7 +4308,7 @@ void* drop_index_thread(void*)
       }
 
       if (!finished.empty()) {
-        dropped_indices_manager.remove_indices(finished);
+        dropped_indices_manager.remove_indices(finished, &dict_manager);
       }
     }
   }
@@ -4314,6 +4330,8 @@ int ha_rocksdb::delete_table(const char *tablename)
 {
   StringBuffer<256> strbuf;
   DBUG_ENTER("ha_rocksdb::delete_table");
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
+  rocksdb::WriteBatch *batch= wb.get();
 
   if (rocksdb_normalize_tablename(tablename, &strbuf))
   {
@@ -4326,15 +4344,17 @@ int ha_rocksdb::delete_table(const char *tablename)
   RDBSE_TABLE_DEF *tbl;
   if (!(tbl= ddl_manager.find((uchar*)strbuf.c_ptr(), strbuf.length())))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  dropped_indices_manager.add_indices(tbl->key_descr, tbl->n_keys, batch);
 
-  dropped_indices_manager.add_indices(tbl->key_descr, tbl->n_keys);
   signal_drop_index_thread();
 
   /*
     Remove the table entry in data dictionary (this will also remove it from
     the persistent data dictionary).
   */
-  ddl_manager.remove(tbl, rdb, true);
+  ddl_manager.remove(tbl, batch, true);
+  if (dict_manager.commit(batch))
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
   DBUG_RETURN(0);
 }
@@ -4376,6 +4396,7 @@ void ha_rocksdb::remove_rows(RDBSE_TABLE_DEF *tbl)
 
 int ha_rocksdb::rename_table(const char *from, const char *to)
 {
+  bool write_err= false;
   StringBuffer<256> from_str;
   StringBuffer<256> to_str;
 
@@ -4411,11 +4432,15 @@ int ha_rocksdb::rename_table(const char *from, const char *to)
     }
   }
 
-  if (ddl_manager.rename((uchar*)from_str.ptr(), from_str.length(),
-                         (uchar*)to_str.ptr(), to_str.length(), rdb))
-    return HA_ERR_INTERNAL_ERROR;
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
+  rocksdb::WriteBatch *batch= wb.get();
+  dict_manager.lock();
+  write_err= ddl_manager.rename((uchar*)from_str.ptr(), from_str.length(),
+                         (uchar*)to_str.ptr(), to_str.length(), batch)
+             || dict_manager.commit(batch);
+  dict_manager.unlock();
 
-  return 0;
+  return write_err ? HA_ERR_INTERNAL_ERROR : 0;
 }
 
 /**
