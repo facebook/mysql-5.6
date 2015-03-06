@@ -1619,6 +1619,21 @@ key1 int,
 PRIMARY KEY (id),
 index (key1) comment '$per_index_cf'
 ) engine=rocksdb;
+#Same CF ids with different CF flags
+create table t1_err (
+id int not null,
+key1 int,
+PRIMARY KEY (id),
+index (key1) comment 'test.t1.key1'
+) engine=rocksdb;
+ERROR HY000: Column Family Flag is different from existing flag. Assign a new CF flag, or do not change existing CF flag.
+create table t1_err (
+id int not null,
+key1 int,
+PRIMARY KEY (id),
+index (key1) comment 'test.t1.key2'
+) engine=rocksdb;
+drop table t1_err;
 # Unfortunately there is no way to check which column family everything goes to
 insert into t1 values (1,1);
 select * from t1;
