@@ -602,11 +602,11 @@ select variable_value into @u from information_schema.global_status where variab
 select * from r1 where id1=1 and id2 in (1) order by id3 asc;
 id1	id2	id3	v1	v2
 1	1	1	1	1
-select case when variable_value-@c > 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
-case when variable_value-@c > 1 then 'true' else 'false' end
+select case when variable_value-@c >= 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+case when variable_value-@c >= 1 then 'true' else 'false' end
 true
-select case when variable_value-@u > 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
-case when variable_value-@u > 1 then 'true' else 'false' end
+select case when variable_value-@u >= 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+case when variable_value-@u >= 1 then 'true' else 'false' end
 true
 select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';

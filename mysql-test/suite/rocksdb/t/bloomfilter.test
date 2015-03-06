@@ -43,8 +43,8 @@ while ($i <= $max) {
 select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 select * from r1 where id1=1 and id2 in (1) order by id3 asc;
-select case when variable_value-@c > 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
-select case when variable_value-@u > 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
+select case when variable_value-@c >= 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
+select case when variable_value-@u >= 1 then 'true' else 'false' end from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 select variable_value into @c from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_checked';
 select variable_value into @u from information_schema.global_status where variable_name='rocksdb_bloom_filter_prefix_useful';
 select * from r1 where id1=1 and id2 in (1) order by id3 desc;
