@@ -14,6 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+class Dict_manager;
 class RDBSE_KEYDEF;
 class Field_pack_info;
 class Column_family_manager;
@@ -293,7 +294,10 @@ public:
 
   enum {
     INDEX_NUMBER_SIZE= 4,
-    PACKED_SIZE = 9, // two ints + 1 uchar
+    VERSION_SIZE= 2,
+    CF_NUMBER_SIZE= 4,
+    CF_FLAG_SIZE= 4,
+    PACKED_SIZE= 4, // one int
   };
 
   // bit flags for combining bools when writing to disk
@@ -303,9 +307,23 @@ public:
   };
 
   enum {
-    DDL_ENTRY_INDEX_START_NUMBER=1,
-    // TODO: set max limit for DDL_ENTRY_INDEX_NUMBER
-    BINLOG_INFO_INDEX_NUMBER=0xfffffff0,
+    DDL_ENTRY_INDEX_START_NUMBER= 1,
+    INDEX_CF_MAPPING= 2,
+    CF_DEFINITION= 3,
+    BINLOG_INFO_INDEX_NUMBER= 4,
+    DDL_DROP_INDEX_ONGOING= 5,
+    TABLE_STATISTICS= 6,
+    INDEX_STATISTICS= 7,
+  };
+
+  enum {
+    DDL_ENTRY_INDEX_VERSION= 1,
+    INDEX_CF_MAPPING_VERSION= 1,
+    CF_DEFINITION_VERSION= 1,
+    BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
+    DDL_DROP_INDEX_ONGOING_VERSION= 1,
+    TABLE_STATISTICS_VERSION= 1,
+    INDEX_STATISTICS_VERSION= 1,
   };
 
   void setup(TABLE *table);
@@ -469,7 +487,7 @@ public:
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
 
-  void write_to(rocksdb::DB *rdb_dict, rocksdb::ColumnFamilyHandle* cf,
+  bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
 };
 
@@ -516,6 +534,7 @@ public:
 
 class Table_ddl_manager
 {
+  Dict_manager *dict;
   HASH ddl_hash; // Contains RDBSE_TABLE_DEF elements
   mysql_rwlock_t rwlock;
 
@@ -523,17 +542,17 @@ class Table_ddl_manager
 
 public:
   /* Load the data dictionary from on-disk storage */
-  bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
+  bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager);
 
   void cleanup();
 
   RDBSE_TABLE_DEF *find(uchar *table_name, uint len, bool lock=true);
 
   /* Modify the mapping and write it to on-disk storage */
-  int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::DB *rdb_dict);
-  void remove(RDBSE_TABLE_DEF *rec, rocksdb::DB *rdb_dict, bool lock=true);
+  int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::WriteBatch *batch);
+  void remove(RDBSE_TABLE_DEF *rec, rocksdb::WriteBatch *batch, bool lock=true);
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
-              rocksdb::DB *rdb_dict);
+              rocksdb::WriteBatch *batch);
 
   int get_next_number() { return sequence.get_next_number(); }
 private:
@@ -565,22 +584,110 @@ private:
 class Binlog_info_manager
 {
 public:
-  bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
+  bool init(Dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
               const char* binlog_gtid, rocksdb::WriteBatch& batch);
   bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
 
 private:
-  rocksdb::DB *rdb;
-  rocksdb::ColumnFamilyHandle *system_cfh;
+  Dict_manager *dict;
   uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice;
-  rocksdb::Slice pack_value(uchar* buf,
-                            const char* binlog_name,
+  rocksdb::Slice pack_value(uchar *buf,
+                            const char *binlog_name,
                             const my_off_t binlog_pos,
-                            const char* binlog_gtid);
-  void unpack_value(const uchar* value, char* binlog_name,
-                    my_off_t& binlog_pos, char* binlog_gtid);
+                            const char *binlog_gtid);
+  bool unpack_value(const uchar *value, char *binlog_name,
+                    my_off_t &binlog_pos, char *binlog_gtid);
 };
 
+
+/*
+   Dict_manager manages how MySQL on RocksDB (MyRocks) stores its
+  internal data dictionary.
+   MyRocks stores data dictionary on dedicated system column family
+  named __system__. The system column family is used by MyRocks
+  internally only, and not used by applications.
+
+   Currently MyRocks has the following data dictionary data models.
+
+  1. Table Name => internal index id mappings
+  key: RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER(0x1) + dbname.tablename
+  value: version, {index_id}*n_indexes_of_the_table
+  version is 2 bytes. index_id is 4 bytes.
+
+  2. Internal index id => CF id
+  key: RDBSE_KEYDEF::INDEX_CF_MAPPING(0x2) + index_id
+  value: version, cf_id
+  cf_id is 4 bytes.
+
+  3. CF id => CF flags
+  key: RDBSE_KEYDEF::CF_DEFINITION(0x3) + cf_id
+  value: version, {is_reverse_cf, is_auto_cf}
+  cf_flags is 4 bytes in total.
+
+  4. Binlog entry (updated at commit)
+  key: RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER (0x4)
+  value: version, {binlog_name,binlog_pos,binlog_gtid}
+
+  5. Ongoing drop index entry (not implemented yet)
+  key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + index_id
+  value: version
+
+  6. table_stats (same as innodb, not implemented yet)
+  key: RDBSE_KEYDEF::TABLE_STATISTICS(0x6) + db_name.tablename
+  value: version, {n_rows, clustered_index_size, sum_of_other_index_sizes, last_update}
+
+  7. index stats (same as innodb, not implemented yet)
+  key: RDBSE_KEYDEF::INDEX_STATISTICS(0x7) + index_id
+  value: version, {stat_value, sample_size, last_update, stat_description}
+
+   Data dictionary operations are atomic inside RocksDB. For example,
+  when creating a table with two indexes, it is necessary to call Put
+  three times. They have to be atomic. Dict_manager has a wrapper function
+  begin() and commit() to make it easier to do atomic operations.
+
+*/
+class Dict_manager
+{
+private:
+  mysql_mutex_t mutex;
+  rocksdb::DB *rdb;
+  rocksdb::ColumnFamilyHandle *system_cfh;
+  /* Utility to put INDEX_CF_MAPPING and CF_DEFINITION */
+  void put_util(rocksdb::WriteBatch *batch,
+                const uint32_t index_id,
+                const uint32_t index_id_or_cf_id,
+                const uint16_t version,
+                const uint32_t value_id);
+  bool get_util(const uint32_t index_id,
+                const uint32_t index_id_or_cf_id,
+                const uint16_t supported_version,
+                uint32_t *value_id);
+public:
+  bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
+  void cleanup();
+  void lock();
+  void unlock();
+  /* Raw RocksDB operations */
+  std::unique_ptr<rocksdb::WriteBatch> begin();
+  int commit(rocksdb::WriteBatch *batch);
+  rocksdb::Status Get(const rocksdb::Slice& key, std::string *value);
+  void Put(rocksdb::WriteBatch *batch, const rocksdb::Slice &key,
+           const rocksdb::Slice &value);
+  void Delete(rocksdb::WriteBatch *batch, const rocksdb::Slice &key);
+  rocksdb::Iterator *NewIterator();
+
+  /* Internal Index id => CF */
+  void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
+                                      const uint index_id,
+                                      const uint cf_id);
+  bool get_cf_id(const uint index_id, uint *cf_id);
+
+  /* CF id => CF flags */
+  void add_cf_flags(rocksdb::WriteBatch *batch,
+                    const uint cf_id,
+                    const uint cf_flags);
+  bool get_cf_flags(const uint cf_id, uint *cf_flags);
+};
