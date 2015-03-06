@@ -19,6 +19,7 @@
 
 #include "rocksdb/db.h"
 
+class Dict_manager;
 class Table_ddl_manager;
 class RDBSE_KEYDEF;
 
@@ -27,14 +28,13 @@ typedef std::unordered_map<uint32, RDBSE_KEYDEF*> Dropped_Index_Map;
 class Dropped_indices_manager
 {
   Dropped_Index_Map di_map;
-  rocksdb::DB* rdb;
   Table_ddl_manager* ddl_manager;
   mutable mysql_mutex_t dim_mutex;
 
 public:
   Dropped_indices_manager()
-    : rdb(nullptr), ddl_manager(nullptr) {}
-  void init(rocksdb::DB* rdb_, Table_ddl_manager* ddl_manager_);
+    : ddl_manager(nullptr) {}
+  void init(Table_ddl_manager* ddl_manager_, Dict_manager *dict);
   void cleanup();
 
   // check if we have anything to filter
@@ -47,13 +47,15 @@ public:
   Dropped_Index_Map get_indices() const;
 
   // add new indices to the drop index manager
-  void add_indices(RDBSE_KEYDEF** key_descr, uint32 n_keys);
+  void add_indices(RDBSE_KEYDEF** key_descr, uint32 n_keys,
+                   rocksdb::WriteBatch *batch);
 
   // remove indices once all their data is gone
-  void remove_indices(const std::unordered_set<uint32> & indices);
+  void remove_indices(const std::unordered_set<uint32> & indices,
+                      Dict_manager *dict);
 
 private:
-  bool initialized() const { return rdb != nullptr; }
+  bool initialized() const { return ddl_manager != nullptr; }
 
   // internal thread-unsafe function for populating map
   void map_insert(RDBSE_KEYDEF** key_descr, uint32 n_keys,
