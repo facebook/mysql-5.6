@@ -1261,6 +1261,23 @@ create table t1 (
   index (key1) comment '$per_index_cf'
 ) engine=rocksdb;
 
+--echo #Same CF ids with different CF flags
+--error ER_UNKNOWN_ERROR
+create table t1_err (
+  id int not null,
+  key1 int,
+  PRIMARY KEY (id),
+  index (key1) comment 'test.t1.key1'
+) engine=rocksdb;
+
+create table t1_err (
+  id int not null,
+  key1 int,
+  PRIMARY KEY (id),
+  index (key1) comment 'test.t1.key2'
+) engine=rocksdb;
+drop table t1_err;
+
 --echo # Unfortunately there is no way to check which column family everything goes to
 insert into t1 values (1,1);
 select * from t1;
