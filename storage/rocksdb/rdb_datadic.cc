@@ -37,6 +37,12 @@ void write_int(String *out, uint32 val)
   out->append((char*)&buf, 4);
 }
 
+void write_short(String *out, uint16 val)
+{
+  uint16 buf= htons(val);
+  out->append((char*)&buf, 2);
+}
+
 void write_byte(String *out, uchar val)
 {
   out->append((char*)&val, 1);
@@ -48,6 +54,14 @@ uint32 read_int(char **data)
   memcpy(&buf, *data, sizeof(uint32));
   *data += sizeof(uint32);
   return ntohl(buf);
+}
+
+uint16 read_short(char **data)
+{
+  uint16 buf;
+  memcpy(&buf, *data, sizeof(uint16));
+  *data += sizeof(uint16);
+  return ntohs(buf);
 }
 
 uchar read_byte(char **data)
@@ -895,21 +909,21 @@ void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 /*
-  Write table definition DDL entry.
+  Put table definition DDL entry. Actual write is done at Dict_manager::commit
 
   We write
-    dbname.tablename -> {key_entry, key_entry, key_entry, ... }
+    dbname.tablename -> version + {key_entry, key_entry, key_entry, ... }
 
   Where key entries are a tuple of
-    ( index_nr, column_family_id, flags )
+    ( index_nr )
 */
 
-void RDBSE_TABLE_DEF::write_to(rocksdb::DB *rdb_dict,
-                               rocksdb::ColumnFamilyHandle* cf,
+bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
                                uchar *key, size_t keylen)
 {
   StringBuffer<8 * RDBSE_KEYDEF::PACKED_SIZE> indexes;
-  indexes.alloc(n_keys * RDBSE_KEYDEF::PACKED_SIZE);
+  indexes.alloc(RDBSE_KEYDEF::VERSION_SIZE + n_keys*RDBSE_KEYDEF::PACKED_SIZE);
+  write_short(&indexes, RDBSE_KEYDEF::DDL_ENTRY_INDEX_VERSION);
 
   for (uint i=0; i < n_keys; i++)
   {
@@ -919,16 +933,41 @@ void RDBSE_TABLE_DEF::write_to(rocksdb::DB *rdb_dict,
       (kd->is_reverse_cf ? RDBSE_KEYDEF::REVERSE_CF_FLAG : 0) |
       (kd->is_auto_cf ? RDBSE_KEYDEF::AUTO_CF_FLAG : 0);
 
+    uint cf_id= kd->get_cf()->GetID();
+    /*
+      If cf_id already exists, cf_flags must be the same.
+      To prevent race condition, reading/modifying/committing CF flags
+      need to be protexted by mutex (dict_manager->lock()).
+      When RocksDB supports transaction with pessimistic concurrency
+      control, we can switch to use it and removing mutex.
+    */
+    uint existing_cf_flags;
+    if (dict->get_cf_flags(cf_id, &existing_cf_flags))
+    {
+      if (existing_cf_flags != flags)
+      {
+        my_printf_error(ER_UNKNOWN_ERROR,
+                        "Column Family Flag is different from existing flag. "
+                        "Assign a new CF flag, or do not change existing "
+                        "CF flag.", MYF(0));
+        return true;
+      }
+    }
+    else
+    {
+      dict->add_cf_flags(batch, cf_id, flags);
+    }
+
     write_int(&indexes, kd->index_number);
-    write_int(&indexes, kd->get_cf()->GetID());
-    write_byte(&indexes, flags);
+    dict->add_or_update_index_cf_mapping(batch, kd->index_number,
+                                         cf_id);
   }
+
   rocksdb::Slice skey((char*)key, keylen);
   rocksdb::Slice svalue(indexes.c_ptr(), indexes.length());
 
-  rocksdb::WriteOptions options;
-  options.sync= true;
-  rdb_dict->Put(options, cf, skey, svalue);
+  dict->Put(batch, skey, svalue);
+  return false;
 }
 
 
@@ -947,30 +986,25 @@ void Table_ddl_manager::free_hash_elem(void* data)
 }
 
 
-bool Table_ddl_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager)
+bool Table_ddl_manager::init(Dict_manager *dict_arg,
+                             Column_family_manager *cf_manager)
 {
+  dict= dict_arg;
   mysql_rwlock_init(0, &rwlock);
   (void) my_hash_init(&ddl_hash, /*system_charset_info*/&my_charset_bin, 32,0,0,
                       (my_hash_get_key) Table_ddl_manager::get_hash_key,
                       Table_ddl_manager::free_hash_elem, 0);
 
-  /* Use the system column family for storing the data dictionary */
-  bool is_automatic;
-  system_cfh= cf_manager->get_or_create_cf(rdb_dict, DEFAULT_SYSTEM_CF_NAME,
-                                           NULL, NULL, &is_automatic);
-
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   store_index_number(ddl_entry, RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER);
-  rocksdb::Slice ddl_entry_slice((char*)ddl_entry, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  rocksdb::Slice ddl_entry_slice((char*)ddl_entry,
+                                 RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
   /* Reading data dictionary should always skip bloom filter */
-  rocksdb::ReadOptions read_options;
-  read_options.total_order_seek = true;
-  rocksdb::Iterator* it;
-  it= rdb_dict->NewIterator(read_options, system_cfh);
+  rocksdb::Iterator* it= dict->NewIterator();
   int i= 0;
-  int max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
+  uint max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next())
   {
     char *ptr;
@@ -994,26 +1028,48 @@ bool Table_ddl_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_ma
                                   key.size() - RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
     // Now, read the DDLs.
-
-    if (val.size() % RDBSE_KEYDEF::PACKED_SIZE)
+    int real_val_size= val.size() - RDBSE_KEYDEF::VERSION_SIZE;
+    if (real_val_size % RDBSE_KEYDEF::PACKED_SIZE)
     {
       sql_print_error("RocksDB: Table_store: invalid keylist for table %s",
                       tdef->dbname_tablename.c_ptr_safe());
       return true;
     }
-    tdef->n_keys= val.size() / RDBSE_KEYDEF::PACKED_SIZE;
+    tdef->n_keys= real_val_size / RDBSE_KEYDEF::PACKED_SIZE;
     if (!(tdef->key_descr= new RDBSE_KEYDEF*[tdef->n_keys]))
       return true;
 
     memset(tdef->key_descr, 0, sizeof(RDBSE_KEYDEF*) * tdef->n_keys);
 
     ptr= (char*)val.data();
-    ptr_end= ptr + val.size();
+    int version= read_short(&ptr);
+    if (version != RDBSE_KEYDEF::DDL_ENTRY_INDEX_VERSION)
+    {
+      sql_print_error("RocksDB: DDL ENTRY Version was not expected."
+                      "Expected: %d, Actual: %d",
+                      RDBSE_KEYDEF::DDL_ENTRY_INDEX_VERSION, version);
+      return true;
+    }
+    ptr_end= ptr + real_val_size;
     for (uint keyno=0; ptr < ptr_end; keyno++)
     {
-      int index_number= read_int(&ptr);
-      int cf_id= read_int(&ptr);
-      uchar flags = read_byte(&ptr);
+      uint index_number= read_int(&ptr);
+      uint cf_id= 0;
+      uint flags= 0;
+      if (!dict->get_cf_id(index_number, &cf_id))
+      {
+        sql_print_error("RocksDB: Could not get Column Family ID"
+                        "for Index Number %d, table %s",
+                        index_number, tdef->dbname_tablename.c_ptr_safe());
+        return true;
+      }
+      if (!dict->get_cf_flags(cf_id, &flags))
+      {
+        sql_print_error("RocksDB: Could not get Column Family Flags"
+                        "for CF Number %d, table %s",
+                        cf_id, tdef->dbname_tablename.c_ptr_safe());
+        return true;
+      }
 
       rocksdb::ColumnFamilyHandle* cfh = cf_manager->get_cf(cf_id);
       DBUG_ASSERT(cfh != nullptr);
@@ -1069,7 +1125,8 @@ RDBSE_TABLE_DEF* Table_ddl_manager::find(uchar *table_name,
   on-disk data dictionary.
 */
 
-int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict)
+int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl,
+                                     rocksdb::WriteBatch *batch)
 {
   uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
@@ -1081,10 +1138,11 @@ int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict
   pos += tbl->dbname_tablename.length();
 
   int res;
-  if ((res= put(tbl)))
+  if ((res= tbl->put_dict(dict, batch, buf, pos)))
     return res;
 
-  tbl->write_to(rdb_dict, system_cfh, buf, pos);
+  if ((res= put(tbl)))
+    return res;
   return 0;
 }
 
@@ -1113,7 +1171,8 @@ int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
 }
 
 
-void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict, bool lock)
+void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl,
+                               rocksdb::WriteBatch *batch, bool lock)
 {
   if (lock)
     mysql_rwlock_wrlock(&rwlock);
@@ -1128,7 +1187,7 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict, bool
   pos += tbl->dbname_tablename.length();
 
   rocksdb::Slice tkey((char*)buf, pos);
-  rdb_dict->Delete(rocksdb::WriteOptions(), system_cfh, tkey);
+  dict->Delete(batch, tkey);
 
   /* The following will also delete the object: */
   my_hash_delete(&ddl_hash, (uchar*) tbl);
@@ -1140,7 +1199,7 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl, rocksdb::DB *rdb_dict, bool
 
 bool Table_ddl_manager::rename(uchar *from, uint from_len,
                                uchar *to, uint to_len,
-                               rocksdb::DB *rdb_dict)
+                               rocksdb::WriteBatch *batch)
 {
   RDBSE_TABLE_DEF *rec;
   RDBSE_TABLE_DEF *new_rec;
@@ -1170,8 +1229,9 @@ bool Table_ddl_manager::rename(uchar *from, uint from_len,
   new_pos += new_rec->dbname_tablename.length();
 
   // Create a key to add
-  new_rec->write_to(rdb_dict, system_cfh, new_buf, new_pos);
-  remove(rec, rdb_dict, false);
+  if (new_rec->put_dict(dict, batch, new_buf, new_pos))
+    goto err;
+  remove(rec, batch, false);
   put(new_rec, false);
   res= false; // ok
 err:
@@ -1188,15 +1248,10 @@ void Table_ddl_manager::cleanup()
 }
 
 
-bool Binlog_info_manager::init(rocksdb::DB *rdb_dict,
-                               Column_family_manager *cf_manager)
+bool Binlog_info_manager::init(Dict_manager *dict_arg)
 {
-  rdb= rdb_dict;
+  dict= dict_arg;
 
-  /* Use the system column family for storing the data dictionary */
-  bool is_automatic;
-  system_cfh= cf_manager->get_or_create_cf(rdb_dict, DEFAULT_SYSTEM_CF_NAME,
-                                           NULL, NULL, &is_automatic);
   store_index_number(key_buf, RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER);
   key_slice = rocksdb::Slice((char*)key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
   return false;
@@ -1227,7 +1282,7 @@ void Binlog_info_manager::update(const char* binlog_name,
   {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
     uchar  value_buf[1024];
-    batch.Put(system_cfh, key_slice,
+    dict->Put(&batch, key_slice,
               pack_value(value_buf, binlog_name, binlog_pos, binlog_gtid));
   }
 }
@@ -1238,23 +1293,22 @@ void Binlog_info_manager::update(const char* binlog_name,
   @param[OUT] binlog_pos   Binlog pos
   @param[OUT] binlog_gtid  Binlog GTID
   @return
-    true is binlog info was found
+    true is binlog info was found (valid behavior)
     false otherwise
 */
-bool Binlog_info_manager::read(char* binlog_name, my_off_t& binlog_pos,
-                               char* binlog_gtid)
+bool Binlog_info_manager::read(char *binlog_name, my_off_t &binlog_pos,
+                               char *binlog_gtid)
 {
   bool ret= false;
   if (binlog_name)
   {
     std::string value;
-    rocksdb::ReadOptions options;
-    rocksdb::Status status = rdb->Get(options, system_cfh, key_slice, &value);
+    rocksdb::Status status= dict->Get(key_slice, &value);
     if(status.ok())
     {
-      unpack_value((const uchar*)value.c_str(),
-                   binlog_name, binlog_pos, binlog_gtid);
-      ret= true;
+      if (!unpack_value((const uchar*)value.c_str(),
+                        binlog_name, binlog_pos, binlog_gtid))
+        ret= true;
     }
   }
   return ret;
@@ -1276,10 +1330,14 @@ rocksdb::Slice Binlog_info_manager::pack_value(uchar *buf,
 {
   uint pack_len= 0;
 
+  // store version
+  store_big_uint2(buf, RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER_VERSION);
+  pack_len += RDBSE_KEYDEF::VERSION_SIZE;
+
   // store binlog file name length
   DBUG_ASSERT(strlen(binlog_name) <= 65535);
   uint16_t binlog_name_len = strlen(binlog_name);
-  store_big_uint2(buf, binlog_name_len);
+  store_big_uint2(buf+pack_len, binlog_name_len);
   pack_len += 2;
 
   // store binlog file name
@@ -1312,16 +1370,23 @@ rocksdb::Slice Binlog_info_manager::pack_value(uchar *buf,
   @param[OUT] binlog_name  Binlog name
   @param[OUT] binlog_pos   Binlog pos
   @param[OUT] binlog_gtid  Binlog GTID
+  @return     true on error
 */
-void Binlog_info_manager::unpack_value(const uchar* value, char* binlog_name,
-                                       my_off_t& binlog_pos,
-                                       char* binlog_gtid)
+bool Binlog_info_manager::unpack_value(const uchar *value, char *binlog_name,
+                                       my_off_t &binlog_pos,
+                                       char *binlog_gtid)
 {
   uint pack_len= 0;
 
+  // read version
+  uint16_t version= read_big_uint2(value);
+  pack_len += RDBSE_KEYDEF::VERSION_SIZE;
+  if (version != RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER_VERSION)
+    return true;
+
   // read binlog file name length
-  uint16_t binlog_name_len= read_big_uint2(value);
-  pack_len= 2;
+  uint16_t binlog_name_len= read_big_uint2(value+pack_len);
+  pack_len += 2;
   if (binlog_name_len)
   {
     // read and set binlog name
@@ -1344,4 +1409,150 @@ void Binlog_info_manager::unpack_value(const uchar* value, char* binlog_name,
       pack_len += binlog_gtid_len;
     }
   }
+  return false;
+}
+
+bool Dict_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager)
+{
+  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
+  rdb= rdb_dict;
+  bool is_automatic;
+  system_cfh= cf_manager->get_or_create_cf(rdb, DEFAULT_SYSTEM_CF_NAME,
+                                           NULL, NULL, &is_automatic);
+  return (system_cfh == NULL);
+}
+
+void Dict_manager::cleanup()
+{
+  mysql_mutex_destroy(&mutex);
+}
+
+void Dict_manager::lock()
+{
+  mysql_mutex_lock(&mutex);
+}
+
+void Dict_manager::unlock()
+{
+  mysql_mutex_unlock(&mutex);
+}
+
+std::unique_ptr<rocksdb::WriteBatch> Dict_manager::begin()
+{
+  return std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
+}
+
+void Dict_manager::Put(rocksdb::WriteBatch *batch, const rocksdb::Slice &key,
+                       const rocksdb::Slice &value)
+{
+  batch->Put(system_cfh, key, value);
+}
+
+rocksdb::Status Dict_manager::Get(const rocksdb::Slice &key, std::string *value)
+{
+  rocksdb::ReadOptions options;
+  options.total_order_seek= true;
+  return rdb->Get(options, system_cfh, key, value);
+}
+
+void Dict_manager::Delete(rocksdb::WriteBatch *batch, const rocksdb::Slice &key)
+{
+  batch->Delete(system_cfh, key);
+}
+
+rocksdb::Iterator* Dict_manager::NewIterator()
+{
+  /* Reading data dictionary should always skip bloom filter */
+  rocksdb::ReadOptions read_options;
+  read_options.total_order_seek= true;
+  return rdb->NewIterator(read_options, system_cfh);
+}
+
+int Dict_manager::commit(rocksdb::WriteBatch *batch)
+{
+  if (!batch)
+    return 1;
+  int res= 0;
+  rocksdb::WriteOptions options;
+  options.sync= true;
+  rocksdb::Status s= rdb->Write(options, batch);
+  res= !s.ok(); // we return true when something failed
+  batch->Clear();
+  return res;
+}
+
+/* This is a utility function to put with key {index_id + 4byte key} and
+   value {version + 4byte value}. Typical usage is storing index_cf mapping
+   and cf definition.
+*/
+void Dict_manager::put_util(rocksdb::WriteBatch* batch,
+                            const uint32_t index_id,
+                            const uint32_t index_id_or_cf_id,
+                            const uint16_t version,
+                            const uint32_t value_id)
+{
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE+RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
+  store_big_uint4(key_buf, index_id);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id_or_cf_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  store_big_uint2(value_buf, version);
+  store_big_uint4(value_buf+RDBSE_KEYDEF::VERSION_SIZE, value_id);
+  rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
+  batch->Put(system_cfh, key, value);
+}
+
+bool Dict_manager::get_util(const uint32_t index_id,
+                            const uint32_t index_id_or_cf_id,
+                            const uint16_t supported_version,
+                            uint32_t *value_id)
+{
+  bool found= false;
+  std::string value;
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, index_id);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id_or_cf_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  rocksdb::Status status= Get(key, &value);
+  if (status.ok())
+  {
+    const uchar* val= (const uchar*)value.c_str();
+    uint16_t version= read_big_uint2(val);
+    if (version == supported_version)
+    {
+      *value_id= read_big_uint4(val+RDBSE_KEYDEF::VERSION_SIZE);
+      found= true;
+    }
+  }
+  return found;
+}
+
+void Dict_manager::add_or_update_index_cf_mapping(rocksdb::WriteBatch* batch,
+                                                  const uint32_t index_id,
+                                                  const uint32_t cf_id)
+{
+  put_util(batch, RDBSE_KEYDEF::INDEX_CF_MAPPING, index_id,
+           RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION, cf_id);
+}
+
+void Dict_manager::add_cf_flags(rocksdb::WriteBatch* batch,
+                                const uint32_t cf_id,
+                                const uint32_t cf_flags)
+{
+  put_util(batch, RDBSE_KEYDEF::CF_DEFINITION, cf_id,
+           RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
+}
+
+bool Dict_manager::get_cf_id(const uint32_t index_id, uint32_t *cf_id)
+{
+  return get_util(RDBSE_KEYDEF::INDEX_CF_MAPPING, index_id,
+                  RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION, cf_id);
+}
+
+bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
+{
+  return get_util(RDBSE_KEYDEF::CF_DEFINITION, cf_id,
+                  RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
 }
