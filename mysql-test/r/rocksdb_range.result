@@ -69,4 +69,41 @@ select * from t2 force index (a) where a=-1 and pk in (101,102);
 pk	a	b
 select * from t2 force index (a) where a=100 and pk in (101,102);
 pk	a	b
-drop table t0,t1,t2;
+#
+# #36: Range in form tbl.key >= const doesn't work in reverse column family
+#
+explain
+select count(*) from t2 force index (a) where a>=0 and a <=1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	a	a	4	NULL	10	Using where; Using index
+select count(*) from t2 force index (a) where a>=0 and a <=1;
+count(*)
+20
+explain
+select count(*) from t2 force index (a) where a>=-1 and a <=1;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	a	a	4	NULL	10	Using where; Using index
+select count(*) from t2 force index (a) where a>=-1 and a <=1;
+count(*)
+20
+explain
+select * from t2 force index (a) where a=0 and pk>=3;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	a	a	8	NULL	10	Using where
+select * from t2 force index (a) where a=0 and pk>=3;
+pk	a	b
+3	0	3
+4	0	4
+5	0	5
+6	0	6
+7	0	7
+8	0	8
+9	0	9
+# Try edge cases where we fall over the end of the table
+create table t3 like t2;
+insert into t3 select * from t2;
+select * from t3 where pk>=1000000;
+pk	a	b
+select * from t2 where pk>=1000000;
+pk	a	b
+drop table t0,t1,t2,t3;
