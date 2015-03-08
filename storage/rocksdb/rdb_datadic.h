@@ -195,11 +195,13 @@ public:
   /*
     This can be used to compare prefixes.
     if  X is a prefix of Y, then we consider that X = Y.
+
+    @detail
+      n_parts parameter is not used anymore. TODO: remove it.
   */
-  // psergey-todo: this seems to work for variable-length keys, does it?
   // {pb, b_len} describe the lookup key, which can be a prefix of pa/a_len.
   int cmp_full_keys(const char *pa, uint a_len, const char *pb, uint b_len,
-                    uint n_parts)
+                    uint n_parts=0) const
   {
     DBUG_ASSERT(covers_key(pa, a_len));
     DBUG_ASSERT(covers_key(pb, b_len));
@@ -210,7 +212,7 @@ public:
   }
 
   /* Check if given mem-comparable key belongs to this index */
-  bool covers_key(const char *key, uint keylen)
+  bool covers_key(const char *key, uint keylen) const
   {
     if (keylen < INDEX_NUMBER_SIZE)
       return false;
@@ -218,6 +220,20 @@ public:
       return false;
     else
       return true;
+  }
+
+  /*
+    Return true if the passed mem-comparable key
+    - is from this index, and
+    - it matches the passed key prefix (the prefix is also in mem-comparable
+      form)
+  */
+  bool value_matches_prefix(const rocksdb::Slice &value,
+                            const rocksdb::Slice &prefix) const
+  {
+    return covers_key(value.data(), value.size()) &&
+           !cmp_full_keys(value.data(), value.size(),
+                          prefix.data(), prefix.size());
   }
 
   uint32 get_index_number()
