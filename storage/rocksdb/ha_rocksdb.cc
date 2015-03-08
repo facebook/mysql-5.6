@@ -2704,9 +2704,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     else
     {
       rkey= scan_it->key();
-      if (!kd->covers_key(rkey.data(), rkey.size()) ||
-           kd->cmp_full_keys(rkey.data(), rkey.size(),
-                             slice.data(), slice.size(), n_used_parts))
+      if (!kd->value_matches_prefix(rkey, slice))
       {
         /*
           Got a record that is not equal to the lookup value, or even a record
@@ -2719,8 +2717,34 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   case HA_READ_KEY_OR_NEXT:
   {
+    /*
+      We are looking for the first record such that
+        index_tuple >= lookup_tuple.
+    */
+    if (key_descr[active_index]->is_reverse_cf)
+    {
+      if (!scan_it->Valid())
+      {
+        scan_it->SeekToLast();
+      }
+      else
+      {
+        /*
+          When using a full extended key tuple: we should not step back if
+          we've found an exact match.
+        */
+        rkey= scan_it->key();
+        if (!using_full_key || !kd->value_matches_prefix(rkey, slice))
+        {
+          scan_it->Prev();
+        }
+      }
+    }
+
     if (!scan_it->Valid())
+    {
       rc= HA_ERR_KEY_NOT_FOUND;
+    }
     else
     {
       rkey= scan_it->key();
