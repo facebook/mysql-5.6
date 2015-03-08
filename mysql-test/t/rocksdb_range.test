@@ -47,5 +47,28 @@ select * from t2 force index (a) where a=-1;
 select * from t2 force index (a) where a=-1 and pk in (101,102);
 select * from t2 force index (a) where a=100 and pk in (101,102);
 
-drop table t0,t1,t2;
+
+--echo #
+--echo # #36: Range in form tbl.key >= const doesn't work in reverse column family
+--echo #
+explain
+select count(*) from t2 force index (a) where a>=0 and a <=1;
+select count(*) from t2 force index (a) where a>=0 and a <=1;
+
+explain
+select count(*) from t2 force index (a) where a>=-1 and a <=1;
+select count(*) from t2 force index (a) where a>=-1 and a <=1;
+
+explain
+select * from t2 force index (a) where a=0 and pk>=3;
+select * from t2 force index (a) where a=0 and pk>=3;
+
+--echo # Try edge cases where we fall over the end of the table
+create table t3 like t2;
+insert into t3 select * from t2;
+
+select * from t3 where pk>=1000000;
+select * from t2 where pk>=1000000;
+
+drop table t0,t1,t2,t3;
 
