@@ -9062,6 +9062,7 @@ select_item:
                 MYSQL_YYABORT;
               }
               $2->item_name.copy($4.str, $4.length, system_charset_info, false);
+              $2->alias_was_set = true;
             }
             else if (!$2->item_name.is_set())
             {
@@ -14110,7 +14111,7 @@ simple_ident_q:
                          MYF(0), table_name, thd->where);
               }
 
-              if (list_size > 3 && (!field || !allow_document_type))
+              if (list_size > 3 && !allow_document_type)
                 my_error(ER_INVALID_FIELD_OR_REFERENCE, MYF(0), thd->where);
 
               uint num_unresolved_idents = 0;
@@ -14144,8 +14145,14 @@ simple_ident_q:
                                                    sel->no_table_names_allowed,
                                                    num_unresolved_idents);
               else
-                $$= new (thd->mem_root) Item_ref(Lex->current_context(),
-                                                 database_name, table_name, field_name);
+                // Item_ref will be created when a document path is used
+                // in the HAVING clause of a GROUP BY
+                $$= new (thd->mem_root) Item_ref(thd, Lex->current_context(),
+                                                 database_name, table_name, field_name,
+                                                 &Lex->dot_separated_ident_list,
+                                                 client_no_schema,
+                                                 sel->no_table_names_allowed,
+                                                 num_unresolved_idents);
 
               if ($$ == NULL)
                 MYSQL_YYABORT;
