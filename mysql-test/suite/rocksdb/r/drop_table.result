@@ -45,6 +45,8 @@ key (b) comment 'rev:cf2'
 ) ENGINE=RocksDB;
 DELETE FROM t5;
 drop table t5;
+set global rocksdb_compact_cf = 'cf1';
+set global rocksdb_compact_cf = 'rev:cf2';
  RocksDB: Begin filtering dropped index 10
  RocksDB: Begin filtering dropped index 11
  RocksDB: Begin filtering dropped index 12
@@ -57,6 +59,7 @@ drop table t5;
  RocksDB: Finished filtering dropped index 11
  RocksDB: Finished filtering dropped index 12
  RocksDB: Finished filtering dropped index 14
+ RocksDB: Finished filtering dropped index 15
  RocksDB: Finished filtering dropped index 9
  RocksDB: Resume filtering dropped index 13
  RocksDB: Resume filtering dropped index 9
