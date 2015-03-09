@@ -7476,6 +7476,15 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
             (!db_name || (item_field->db_name &&
                           !strcmp(item_field->db_name, db_name))))
         {
+          /* If it is a document path then full path comparison needed */
+          if (item_field->document_path &&
+              is_ref_by_name &&
+              !item_field->compare_document_path((Item_ident *)find))
+          {
+            /* Different document path */
+            continue;
+          }
+
           if (found_unaliased)
           {
             if ((*found_unaliased)->eq(item, 0))
@@ -7504,6 +7513,18 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
                                      field_name);
         if (item_field->item_name.eq_safe(field_name))
         {
+          /* If item_field is a document path and find has unresolved idents
+             then full path comparison is needed.
+          */
+          if (item_field->document_path &&
+              is_ref_by_name &&
+               ((Item_ident *)find)->parsing_info.num_unresolved_idents > 0 &&
+              !item_field->compare_document_path( ((Item_ident *)find)))
+          {
+            /* Different document path */
+            continue;
+          }
+
           /*
             If table name was not given we should scan through aliases
             and non-aliased fields first. We are also checking unaliased

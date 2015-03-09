@@ -689,6 +689,8 @@ public:
   Item_name_string item_name;  /* Name from select */
   Item_name_string orig_name;  /* Original item name (if it was renamed)*/
 
+  bool alias_was_set; /* For document path: if alias was set in select */
+
   /**
      Intrusive list pointer for free list. If not null, points to the next
      Item on some Query_arena's free list. For instance, stored procedures
@@ -2072,6 +2074,83 @@ public:
   bool check_partition_func_processor(uchar *int_arg) { return FALSE;}
 };
 
+
+/* One item in the dot separated identifiers */
+class One_ident :public Sql_alloc
+{
+public:
+  One_ident(const LEX_STRING& str)
+    : s(str)
+  {}
+
+  LEX_STRING s;
+
+private:
+  One_ident();
+};
+
+
+/* The parsing information for dot separated exprssion */
+class Ident_parsing_info
+{
+public:
+  Ident_parsing_info();
+
+  Ident_parsing_info(bool db_name_not_allowed,
+                     bool tab_name_not_allowed);
+
+  Ident_parsing_info(THD *thd,
+                     List<One_ident>* list,
+                     bool db_name_not_allowed,
+                     bool tab_name_not_allowed,
+                     uint number_unresolved_idents);
+
+  Ident_parsing_info(THD *thd,
+                     Ident_parsing_info& p);
+
+  void Set(THD *thd, Ident_parsing_info& p);
+
+  /*
+    generate the string of the dot separated expression
+  */
+  const char* full_name(THD *thd);
+
+  /*
+    parse the original dot-separated key tokens and
+    set the document path keys
+  */
+  void Parse_and_set_document_path_keys(THD *thd,
+                                        List<Document_key>& list);
+  /*
+    Compare if two dot-separated ident list have the identical unresolved idents
+  */
+  bool Compare_unresolved_idents_in_ident_list(Ident_parsing_info& info);
+  /*
+    if database name is not allowed
+  */
+  bool database_name_not_allowed;
+  /*
+    if table name is not allowed
+  */
+  bool table_name_not_allowed;
+  /*
+     number of unresolved identifiers.
+  */
+  uint num_unresolved_idents;
+  /*
+     dot separated identifiers.
+  */
+  List<One_ident> dot_separated_ident_list;
+
+private:
+  void Copy_ident_list(THD *thd,
+                       List<One_ident>* list);
+
+  Ident_parsing_info(const Ident_parsing_info& p);
+  Ident_parsing_info& operator= (const Ident_parsing_info& p);
+};
+
+
 #define NO_CACHED_FIELD_INDEX ((uint)(-1))
 
 class st_select_lex;
@@ -2087,6 +2166,9 @@ protected:
   const char *orig_db_name;
   const char *orig_table_name;
   const char *orig_field_name;
+
+  /* Right shift one identifer for fixing a possible document field. */
+  bool right_shift_for_possible_document_path(THD *);
 
 public:
   Name_resolution_context *context;
@@ -2107,16 +2189,55 @@ public:
   */
   TABLE_LIST *cached_table;
   st_select_lex *depended_from;
+  /*
+     if this field is a document path.
+  */
+  bool document_path;
+  /*
+     the key list that points to the document path
+  */
+  List<Document_key> document_path_keys;
+  /*
+     the document path full name, e.g. `col`.`k1`.`k2`.`k3`
+     the first part is the column name whose type is document,
+     followed by json keys, each part is quoted by backtick
+  */
+  String document_path_full_name;
+  /*
+     Identifier parsing information.
+  */
+  Ident_parsing_info parsing_info;
+
   Item_ident(Name_resolution_context *context_arg);
   Item_ident(Name_resolution_context *context_arg,
              const char *db_name_arg, const char *table_name_arg,
              const char *field_name_arg);
   Item_ident(THD *thd, Item_ident *item);
+
+  Item_ident(THD *thd,
+             Name_resolution_context *context_arg,
+             const char *db_name_arg,const char *table_name_arg,
+             const char *field_name_arg,
+             List<One_ident>* ident_list,
+             bool database_name_not_allowed,
+             bool table_name_not_allowed,
+             uint num_unresolved_idents);
+
   const char *full_name() const;
   virtual void fix_after_pullout(st_select_lex *parent_select,
                                  st_select_lex *removed_select);
   void cleanup();
+
+  /* Fix fields for the only two sub-classes Item_field and Item_ref */
+  bool fix_fields(THD *, Item **);
+  virtual Field *get_field() { return NULL; }
+  virtual bool fix_fields_do(THD *, Item **) = 0;
+  virtual bool should_fix_document_path() = 0;
+
   bool remove_dependence_processor(uchar * arg);
+  void set_document_path(THD *thd, Item_ident *ident);
+  bool compare_document_path(Item_ident *ident);
+  void generate_document_path_full_name();
   virtual void print(String *str, enum_query_type query_type)
   {
     print(str, query_type, db_name, table_name);
@@ -2188,75 +2309,6 @@ public:
 };
 
 
-/* One item in the dot separated identifiers */
-class One_ident :public Sql_alloc
-{
-public:
-  One_ident(const LEX_STRING& str)
-    : s(str)
-  {}
-
-  LEX_STRING s;
-
-private:
-  One_ident();
-};
-
-
-/* The parsing information for dot separated exprssion */
-class Ident_parsing_info
-{
-public:
-  Ident_parsing_info();
-
-  Ident_parsing_info(bool db_name_not_allowed,
-                     bool tab_name_not_allowed);
-
-  Ident_parsing_info(THD *thd,
-                     List<One_ident>* list,
-                     bool db_name_not_allowed,
-                     bool tab_name_not_allowed,
-                     uint number_unresolved_idents);
-
-  Ident_parsing_info(THD *thd,
-                     Ident_parsing_info& p);
-
-  /*
-    generate the string of the dot separated expression
-  */
-  const char* full_name(THD *thd);
-
-  /*
-    parse the original dot-separated key tokens and
-    set the document path keys
-  */
-  void Parse_and_set_document_path_keys(THD *thd,
-                                        List<Document_key>& list);
-  /*
-    if database name is not allowed
-  */
-  bool database_name_not_allowed;
-  /*
-    if table name is not allowed
-  */
-  bool table_name_not_allowed;
-  /*
-     number of unresolved identifiers.
-  */
-  uint num_unresolved_idents;
-  /*
-     dot separated identifiers.
-  */
-  List<One_ident> dot_separated_ident_list;
-
-private:
-  void Copy_ident_list(THD *thd,
-                       List<One_ident>* list);
-
-  Ident_parsing_info(const Ident_parsing_info& p);
-  Ident_parsing_info& operator= (const Ident_parsing_info& p);
-};
-
 class Item_equal;
 class COND_EQUAL;
 
@@ -2275,18 +2327,6 @@ public:
   uint have_privileges;
   /* field need any privileges (for VIEW creation) */
   bool any_privileges;
-  /*
-     if this field is a document path.
-  */
-  bool document_path;
-  /*
-     the key list that points to the document path
-  */
-  List<Document_key> document_path_keys;
-  /*
-     Identifier parsing information.
-  */
-  Ident_parsing_info parsing_info;
 
   Item_field(THD *thd,
              Name_resolution_context *context_arg,
@@ -2335,8 +2375,17 @@ public:
   bool is_null_result();
   bool send(Protocol *protocol, String *str_arg);
   void reset_field(Field *f);
-  bool fix_fields(THD *, Item **);
+
+  /* Helper functions for Item_ident::fix_fields() */
+  bool fix_fields_do(THD *, Item **);
+  Field *get_field() { return field; }
+  bool should_fix_document_path()
+  {
+    return (field && parsing_info.num_unresolved_idents > 0);
+  }
+
   void make_field(Send_field *tmp_field);
+  Field *make_string_field_for_document_path_item(TABLE *table);
   type_conversion_status save_in_field(Field *field,bool no_conversions);
   void save_org_in_field(Field *field);
   table_map used_tables() const;
@@ -2437,13 +2486,6 @@ public:
 
   /// Pushes the item to select_lex.non_agg_fields() and updates its marker.
   bool push_to_non_agg_fields(st_select_lex *select_lex);
-
-private:
-  /// This function does the real job for fixing fields.
-  bool fix_fields_do(THD *, Item **);
-
-  /// Right shift one identifer for fixing a possible document field.
-  bool right_shift_for_possible_document_path(THD *);
 
   friend class Item_default_value;
   friend class Item_insert_value;
@@ -3290,6 +3332,16 @@ public:
            const char *field_name_arg)
     :Item_ident(context_arg, db_arg, table_name_arg, field_name_arg),
      result_field(0), ref(0) {}
+
+  Item_ref(THD *thd,
+           Name_resolution_context *context_arg,
+           const char *db_arg,const char *table_name_arg,
+           const char *field_name_arg,
+           List<One_ident>* ident_list,
+           bool database_name_not_allowed,
+           bool table_name_not_allowed,
+           uint num_unresolved_idents);
+
   /*
     This constructor is used in two scenarios:
     A) *item = NULL
@@ -3334,7 +3386,15 @@ public:
   bool is_null_result();
   bool send(Protocol *prot, String *tmp);
   void make_field(Send_field *field);
-  bool fix_fields(THD *, Item **);
+
+  /* Helper functions for Item_ident::fix_fields() */
+  bool fix_fields_do(THD *, Item **);
+  Field *get_field() { return NULL; }
+  bool should_fix_document_path()
+  {
+    return (parsing_info.num_unresolved_idents > 0);
+  }
+
   void fix_after_pullout(st_select_lex *parent_select,
                          st_select_lex *removed_select);
   type_conversion_status save_in_field(Field *field, bool no_conversions);

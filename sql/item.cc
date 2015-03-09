@@ -549,7 +549,7 @@ Item::save_str_value_in_field(Field *field, String *result)
 
 
 Item::Item():
-  is_expensive_cache(-1), rsize(0),
+  is_expensive_cache(-1), rsize(0), alias_was_set(false),
   marker(0), fixed(0),
   collation(&my_charset_bin, DERIVATION_COERCIBLE),
   runtime_item(false), with_subselect(false),
@@ -591,6 +591,7 @@ Item::Item(THD *thd, Item *item):
   str_value(item->str_value),
   item_name(item->item_name),
   orig_name(item->orig_name),
+  alias_was_set(item->alias_was_set),
   max_length(item->max_length),
   marker(item->marker),
   decimals(item->decimals),
@@ -802,7 +803,7 @@ Item* Item::transform(Item_transformer transformer, uchar *arg)
 }
 
 Item_ident::Item_ident(Name_resolution_context *context_arg)
-  :context(context_arg)
+  :context(context_arg), document_path(false)
 {
 }
 
@@ -814,7 +815,29 @@ Item_ident::Item_ident(Name_resolution_context *context_arg,
    db_name(db_name_arg), table_name(table_name_arg),
    field_name(field_name_arg),
    alias_name_used(FALSE), cached_field_index(NO_CACHED_FIELD_INDEX),
-   cached_table(0), depended_from(0)
+   cached_table(0), depended_from(0), document_path(false)
+{
+  item_name.set(field_name_arg);
+}
+
+
+Item_ident::Item_ident(THD *thd,
+                       Name_resolution_context *context_arg,
+                       const char *db_name_arg,const char *table_name_arg,
+                       const char *field_name_arg,
+                       List<One_ident>* ident_list,
+                       bool database_name_not_allowed,
+                       bool table_name_not_allowed,
+                       uint num_unresolved_idents)
+  :orig_db_name(db_name_arg), orig_table_name(table_name_arg),
+   orig_field_name(field_name_arg), context(context_arg),
+   db_name(db_name_arg), table_name(table_name_arg),
+   field_name(field_name_arg),
+   alias_name_used(FALSE), cached_field_index(NO_CACHED_FIELD_INDEX),
+   cached_table(0), depended_from(0),
+   document_path(false),
+   parsing_info(thd, ident_list, database_name_not_allowed,
+                table_name_not_allowed, num_unresolved_idents)
 {
   item_name.set(field_name_arg);
 }
@@ -836,8 +859,14 @@ Item_ident::Item_ident(THD *thd, Item_ident *item)
    alias_name_used(item->alias_name_used),
    cached_field_index(item->cached_field_index),
    cached_table(item->cached_table),
-   depended_from(item->depended_from)
-{}
+   depended_from(item->depended_from),
+   document_path(item->document_path)
+{
+  if (item->document_path)
+  {
+    set_document_path(thd, item);
+  }
+}
 
 void Item_ident::cleanup()
 {
@@ -866,6 +895,154 @@ bool Item_ident::remove_dependence_processor(uchar * arg)
   DBUG_RETURN(0);
 }
 
+void Item_ident::set_document_path(THD *thd,
+                                   Item_ident *ident)
+{
+  DBUG_ASSERT(ident->document_path &&
+              ident->document_path_keys.elements > 0);
+
+  document_path = ident->document_path;
+  List_iterator<Document_key> it(ident->document_path_keys);
+  for(Document_key *p; (p=it++);)
+  {
+    Document_key *k = new Document_key(p->string, p->index);
+    document_path_keys.push_back(k);
+  }
+  document_path_full_name.copy(ident->document_path_full_name);
+  parsing_info.Set(thd, ident->parsing_info);
+}
+
+/**
+   Compare if two Item_ident have the identical document path.
+*/
+bool Item_ident::compare_document_path(Item_ident *ident)
+{
+  return (document_path &&
+          parsing_info.Compare_unresolved_idents_in_ident_list(
+                       ident->parsing_info));
+}
+
+/* Generate document path full name */
+void Item_ident::generate_document_path_full_name()
+{
+  gen_document_path_full_name(document_path_full_name,
+                              field_name,
+                              document_path_keys);
+}
+
+bool Item_ident::right_shift_for_possible_document_path(THD *thd)
+{
+  /*
+     won't shift if document type is not allowed for this session,
+     or both datbase name and table name are empty so nothing to shift
+  */
+  if (!allow_document_type ||
+      (!orig_db_name && !orig_table_name))
+    return false;
+
+  DBUG_ASSERT(orig_field_name && orig_table_name);
+
+  /* right shift one identifier */
+  orig_field_name = field_name = orig_table_name;
+  orig_table_name = table_name = orig_db_name;
+  orig_db_name = db_name = NULL;
+
+  /* if alias was set then always use the alias,
+     otherwise use the columne name */
+  if (!alias_was_set)
+    item_name.set(orig_field_name);
+
+  parsing_info.num_unresolved_idents++;
+
+  return true;
+}
+
+/*
+  Fix fields for the only two sub-classes Item_field and Item_ref. The only
+  difference is that Item_field has member 'field' but Item_ref doesn't. This
+  is handled by virtual function get_field() and should_fix_document_path().
+  The actual work of fixing fields are done by virtual fix_fields_do().
+ */
+bool Item_ident::fix_fields(THD *thd, Item **reference)
+{
+  /*
+    When parser sees field name is in the form of A.B.C or B.C, it always
+    interpret A as databass name if database name is allowed and B as table
+    name if table name is allowed. If there are more dot-separated
+    identifiers, they will be saved into a list and treated as unresolved.
+
+    If C is not a valid field name and document type is allowed, then we
+    will try to interpret the expression in different ways by shifting
+    identifer right by one:
+      -- For database.table.field, we will try the following in order
+        -- database as table name and table as document field name
+      -- For table.field, we will try
+        -- table name as document field name
+
+    We will stop right-shifting if:
+      -- No more identifers to shift so this is an syntax error
+      -- Found a valid document field
+      -- Found a valid non-document field and there are no more
+         unresolved identifiers
+
+    How to deal with the ambiguity that user intends to use A as a document
+    field in A.B.C but parser interpret it as database.table.field and it is
+    actually valid? This always can be fixed by adding database name and table
+    name to the expression as A.B.A.B.C
+  */
+
+  DBUG_ASSERT(fixed == 0);
+  bool ret = true;
+  for (;;)
+  {
+    if(!(ret= fix_fields_do(thd, reference)))
+      /* successfully resolved */
+      break;
+
+    /* if no valid field was found or a valid non-document field was found
+       but there are still unresolved identifiers, we will have to re-try
+       by right-shifting
+    */
+    if (!right_shift_for_possible_document_path(thd))
+    {
+      /* no more room to right-shift, failed as syntax error */
+      return true;
+    }
+
+    /* clear the last error before retry */
+    thd->clear_warning();
+    thd->clear_error();
+  }
+
+  DBUG_ASSERT(!ret);
+
+  if (should_fix_document_path())
+  {
+    // For Item_field only
+    Field *field = get_field();
+    if (field && field->type() != MYSQL_TYPE_DOCUMENT)
+    {
+      /* syntax error when using document path on a non-document column */
+      my_error(ER_BAD_FIELD_ERROR, MYF(0),
+               parsing_info.full_name(thd), thd->where);
+      return true;
+    }
+
+    /* If the type of the field is document and there are still unresolved
+       dot separated identifiers then this whole expression will be treated
+       as a document virutal field.
+    */
+    document_path = true;
+    parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys);
+    DBUG_ASSERT(document_path_keys.elements > 0);
+
+    /* Generate document path full name */
+    generate_document_path_full_name();
+  }
+
+  /* succeeded */
+  return false;
+}
 
 /**
   Store the pointer to this item field into a list if not already there.
@@ -2419,6 +2596,7 @@ void Item_ident_for_show::make_field(Send_field *tmp_field)
   tmp_field->decimals= field->decimals();
 }
 
+
 /**********************************************/
 
 void Ident_parsing_info::Copy_ident_list(THD *thd,
@@ -2464,12 +2642,62 @@ Ident_parsing_info::Ident_parsing_info(THD *thd,
 
 Ident_parsing_info::Ident_parsing_info(THD *thd,
                                        Ident_parsing_info& p)
-  : database_name_not_allowed(p.database_name_not_allowed),
-    table_name_not_allowed(p.table_name_not_allowed),
-    num_unresolved_idents(p.num_unresolved_idents)
 {
+  Set(thd, p);
+}
+
+void Ident_parsing_info::Set(THD *thd,
+                             Ident_parsing_info& p)
+{
+  database_name_not_allowed = p.database_name_not_allowed;
+  table_name_not_allowed = p.table_name_not_allowed;
+  num_unresolved_idents = p.num_unresolved_idents;
+
   Copy_ident_list(thd, &p.dot_separated_ident_list);
 }
+
+bool Ident_parsing_info::Compare_unresolved_idents_in_ident_list(
+                                            Ident_parsing_info& info)
+{
+  if (num_unresolved_idents == info.num_unresolved_idents)
+  {
+    if (num_unresolved_idents == 0)
+      return true;
+
+    DBUG_ASSERT(dot_separated_ident_list.elements > num_unresolved_idents &&
+         info.dot_separated_ident_list.elements > info.num_unresolved_idents);
+
+    int skip1 = dot_separated_ident_list.elements - num_unresolved_idents;
+    int skip2 = info.dot_separated_ident_list.elements -
+                 info.num_unresolved_idents;
+
+    List_iterator_fast<One_ident> it1(dot_separated_ident_list);
+    List_iterator_fast<One_ident> it2(info.dot_separated_ident_list);
+
+    for (int i = 0; i < skip1; ++i)
+      it1++;
+
+    for (int i = 0; i < skip2; ++i)
+      it2++;
+
+    One_ident *p1 = NULL, *p2 = NULL;
+    for (;;)
+    {
+      p1 = it1++;
+      p2 = it2++;
+
+      if (!p1 && !p2)
+        return true;
+
+      DBUG_ASSERT(p1 && p2);
+
+      if (!p1 || !p2 || strcmp(p1->s.str, p2->s.str))
+        break;
+    }
+  }
+  return false;
+}
+
 
 const char* Ident_parsing_info::full_name(THD *thd)
 {
@@ -2500,6 +2728,9 @@ void Ident_parsing_info::Parse_and_set_document_path_keys(
   List_iterator_fast<One_ident> it(dot_separated_ident_list);
   DBUG_ASSERT(num_unresolved_idents < dot_separated_ident_list.elements);
   uint skip_num = dot_separated_ident_list.elements - num_unresolved_idents;
+  /* Clean up the list if there are elements. This happens when the document
+     path information has been set by Item_ident::set_document_path() */
+  list.delete_elements();
   for (One_ident *s = NULL; (s= it++);)
   {
     if (skip_num > 0)
@@ -2530,12 +2761,11 @@ Item_field::Item_field(THD *thd,
                        bool database_name_not_allowed,
                        bool table_name_not_allowed,
                        uint num_unresolved_idents)
-  :Item_ident(context_arg, db_arg,table_name_arg,field_name_arg),
+  :Item_ident(thd,context_arg,db_arg,table_name_arg,field_name_arg,
+              ident_list,database_name_not_allowed,
+              table_name_not_allowed,num_unresolved_idents),
    field(0), result_field(0), item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0),
-   document_path(false),
-   parsing_info(thd, ident_list, database_name_not_allowed,
-                table_name_not_allowed, num_unresolved_idents)
+   have_privileges(0), any_privileges(0)
 {
   SELECT_LEX *select= current_thd->lex->current_select;
   collation.set(DERIVATION_IMPLICIT);
@@ -2546,8 +2776,7 @@ Item_field::Item_field(THD *thd,
 Item_field::Item_field(Field *f)
   :Item_ident(0, NullS, *f->table_name, f->field_name),
    item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0),
-   document_path(false)
+   have_privileges(0), any_privileges(0)
 {
   set_field(f);
   /*
@@ -2569,8 +2798,7 @@ Item_field::Item_field(THD *thd, Name_resolution_context *context_arg,
                        Field *f)
   :Item_ident(context_arg, f->table->s->db.str, *f->table_name, f->field_name),
    item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0),
-   document_path(false)
+   have_privileges(0), any_privileges(0)
 {
   /*
     We always need to provide Item_field with a fully qualified field
@@ -2612,8 +2840,7 @@ Item_field::Item_field(Name_resolution_context *context_arg,
                        const char *field_name_arg)
   :Item_ident(context_arg, db_arg,table_name_arg,field_name_arg),
    field(0), result_field(0), item_equal(0), no_const_subst(0),
-   have_privileges(0), any_privileges(0),
-   document_path(false)
+   have_privileges(0), any_privileges(0)
 {
   SELECT_LEX *select= current_thd->lex->current_select;
   collation.set(DERIVATION_IMPLICIT);
@@ -2632,23 +2859,9 @@ Item_field::Item_field(THD *thd, Item_field *item)
    item_equal(item->item_equal),
    no_const_subst(item->no_const_subst),
    have_privileges(item->have_privileges),
-   any_privileges(item->any_privileges),
-   document_path(item->document_path),
-   parsing_info(thd, item->parsing_info)
+   any_privileges(item->any_privileges)
 {
   collation.set(DERIVATION_IMPLICIT);
-
-  if (document_path)
-  {
-    DBUG_ASSERT(item->document_path_keys.elements > 0);
-    List_iterator<Document_key> it(item->document_path_keys);
-    for(Document_key *p; (p=it++);)
-    {
-      Document_key *k = new Document_key(p->string, p->index);
-      document_path_keys.push_back(k);
-    }
-  }
-  /* parsing_info doesn't need to be copied since it won't be used */
 }
 
 
@@ -5034,6 +5247,21 @@ static Item** find_field_in_group_list(Item *find_item, ORDER *group_list)
         }
       }
 
+      /* If the cur_field is a document path */
+      if (cur_field->document_path)
+      {
+        /*
+          Only full document paths, e.g. db.table.col.k1.k2, are supported
+          in HAVING caluse for now. But the document paths in GROUP BY and
+          SELECT don't have to be full name.
+        */
+        if (!cur_field->compare_document_path((Item_ident *)find_item))
+        {
+            /* Different document path */
+            return NULL;
+        }
+      }
+
       if (cur_match_degree > found_match_degree)
       {
         found_match_degree= cur_match_degree;
@@ -5519,30 +5747,6 @@ bool Item_field::push_to_non_agg_fields(SELECT_LEX *select_lex)
     select_lex->non_agg_fields.push_back(this);
 }
 
-bool Item_field::right_shift_for_possible_document_path(THD *thd)
-{
-  /*
-     won't shift if document type is not allowed for this session,
-     or both datbase name and table name are empty so nothing to shift
-  */
-  if (!allow_document_type ||
-      (!orig_db_name && !orig_table_name))
-    return false;
-
-  DBUG_ASSERT(orig_field_name && orig_table_name);
-
-  /* right shift one identifier */
-  orig_field_name = field_name = orig_table_name;
-  orig_table_name = table_name = orig_db_name;
-  orig_db_name = db_name = NULL;
-
-  item_name.set(orig_field_name);
-
-  parsing_info.num_unresolved_idents++;
-
-  return true;
-}
-
 /**
   Resolve the name of a column reference.
 
@@ -5587,82 +5791,6 @@ bool Item_field::right_shift_for_possible_document_path(THD *thd)
   @retval
     FALSE on success
 */
-
-bool Item_field::fix_fields(THD *thd, Item **reference)
-{
-  /*
-    When parser sees field name is in the form of A.B.C or B.C, it always
-    interpret A as databass name if database name is allowed and B as table
-    name if table name is allowed. If there are more dot-separated
-    identifiers, they will be saved into a list and treated as unresolved.
-
-    If C is not a valid field name and document type is allowed, then we
-    will try to interpret the expression in different ways by shifting
-    identifer right by one:
-      -- For database.table.field, we will try the following in order
-        -- database as table name and table as document field name
-      -- For table.field, we will try
-        -- table name as document field name
-
-    We will stop right-shifting if:
-      -- No more identifers to shift so this is an syntax error
-      -- Found a valid document field
-      -- Found a valid non-document field and there are no more
-         unresolved identifiers
-
-    How to deal with the ambiguity that user intends to use A as a document
-    field in A.B.C but parser interpret it as database.table.field and it is
-    actually valid? This always can be fixed by adding database name and table
-    name to the expression as A.B.A.B.C
-  */
-
-  DBUG_ASSERT(fixed == 0);
-  bool ret = true;
-  for (;;)
-  {
-    if(!(ret= fix_fields_do(thd, reference)))
-      /* successfully resolved */
-      break;
-
-    /* if no valid field was found or a valid non-document field was found
-       but there are still unresolved identifiers, we will have to re-try
-       by right-shifting
-    */
-    if (!right_shift_for_possible_document_path(thd))
-    {
-      /* no more room to right-shift, failed as syntax error */
-      return true;
-    }
-
-    /* clear the last error before retry */
-    thd->clear_warning();
-    thd->clear_error();
-  }
-
-  DBUG_ASSERT(!ret);
-
-  if (field && parsing_info.num_unresolved_idents > 0)
-  {
-    if (field->type() != MYSQL_TYPE_DOCUMENT)
-    {
-      /* syntax error when using document path on a non-document column */
-      my_error(ER_BAD_FIELD_ERROR, MYF(0),
-               parsing_info.full_name(thd), thd->where);
-      return true;
-    }
-
-    /* If the type of the field is document and there are still unresolved
-       dot separated identifiers then this whole expression will be treated
-       as a document virutal field.
-    */
-    document_path = true;
-    parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys);
-    DBUG_ASSERT(document_path_keys.elements > 0);
-  }
-
-  /* succeeded */
-  return false;
-}
 
 bool Item_field::fix_fields_do(THD *thd, Item **reference)
 {
@@ -5712,9 +5840,8 @@ bool Item_field::fix_fields_do(THD *thd, Item **reference)
               the Item_field instance in place.
             */
 
-            Field *new_field= (*((Item_field**)res))->field;
-
-            if (new_field == NULL)
+            Item_field *item_field = *((Item_field**)res);
+            if (item_field->field == NULL)
             {
               /* The column to which we link isn't valid. */
               my_error(ER_BAD_FIELD_ERROR, MYF(0), (*res)->item_name.ptr(),
@@ -5722,7 +5849,18 @@ bool Item_field::fix_fields_do(THD *thd, Item **reference)
               return(1);
             }
 
-            set_field(new_field);
+            set_field(item_field->field);
+
+            /* If the item_field is a document path */
+            if (item_field->document_path)
+            {
+              DBUG_ASSERT(item_field->field->type() == MYSQL_TYPE_DOCUMENT);
+
+              /* Copy the document path information */
+              set_document_path(thd, item_field);
+
+              DBUG_ASSERT(document_path && document_path_keys.elements > 0);
+            }
             return 0;
           }
           else
@@ -6502,12 +6640,47 @@ void Item_field::make_field(Send_field *tmp_field)
 {
   field->make_field(tmp_field);
   DBUG_ASSERT(tmp_field->table_name != 0);
-  if (item_name.is_set())
+  /* If it is a document path and alias was not set in select then
+     use the document path full name as the column name */
+  if (document_path && !alias_was_set)
+  {
+    DBUG_ASSERT(!document_path_full_name.is_empty());
+    tmp_field->col_name= document_path_full_name.ptr();
+  }
+  else if (item_name.is_set())
     tmp_field->col_name= item_name.ptr();  // Use user supplied name
   if (table_name)
     tmp_field->table_name= table_name;
   if (db_name)
     tmp_field->db_name= db_name;
+}
+
+/**
+  Make a string field for temp table for a document path item.
+  See Item::make_string_field()
+*/
+Field *Item_field::make_string_field_for_document_path_item(TABLE *table)
+{
+  DBUG_ASSERT(field && field->type() == MYSQL_TYPE_DOCUMENT &&
+              document_path_keys.elements > 0 && collation.collation);
+  /*
+     FIXME: the maximum size of the varchar column is set to 4096, this number
+     is not set greater becasue the maximum row size is 65535, and there can be
+     more than one varchar columns for document pathes. This may cause document
+     path values get truncated since the maximum size of a document column is
+     16M - 1. This will need to be fixed by using other types, e.g. text, with
+     maximum size of 16M - 1.
+  */
+  Field *fld= new Field_varstring(4096, true, item_name.ptr(),
+                                  table->s, collation.collation);
+  if (fld)
+  {
+    DBUG_ASSERT(!((Field_varstring*)fld)->document_path_keys);
+    ((Field_varstring*)fld)->document_path_keys = &document_path_keys;
+
+    fld->init(table);
+  }
+  return fld;
 }
 
 
@@ -6517,15 +6690,34 @@ void Item_field::make_field(Send_field *tmp_field)
 
 void Item_field::save_org_in_field(Field *to)
 {
-  if (field->is_null())
+  my_bool is_null = false;
+  if (document_path)
+  {
+    DBUG_ASSERT(document_path_keys.elements > 0 &&
+                field->type() == MYSQL_TYPE_DOCUMENT);
+
+    /* A document path always may be null */
+    maybe_null = true;
+    ((Field_document*)field)->field_conv_document_path(document_path_keys,
+                                                       to, is_null);
+  }
+  else
+  {
+    is_null = field->is_null();
+  }
+
+  if (is_null)
   {
     null_value=1;
     set_field_to_null_with_conversions(to, true);
   }
   else
   {
-    to->set_notnull();
-    field_conv(to,field);
+    if (!document_path)
+    {
+      to->set_notnull();
+      field_conv(to,field);
+    }
     null_value=0;
   }
 }
@@ -7352,10 +7544,16 @@ Item* Item_field::item_field_by_name_transformer(uchar *arg)
 
 bool Item_field::send(Protocol *protocol, String *buffer)
 {
-  if (document_path)
+  /* When it is a document path, the field type can be either
+     MYSQL_TYPE_DOCUMENT or MYSQL_TYPE_VARCHAR for temp table
+  */
+  DBUG_ASSERT(!document_path ||
+              (document_path && (field->type() == MYSQL_TYPE_DOCUMENT ||
+                                 field->type() == MYSQL_TYPE_VARCHAR)));
+
+  if (document_path && field->type() == MYSQL_TYPE_DOCUMENT)
   {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
+    DBUG_ASSERT(document_path_keys.elements > 0);
     return protocol->store_document_path(result_field,
                                          document_path_keys);
   }
@@ -7449,6 +7647,22 @@ void Item_field::print(String *str, enum_query_type query_type)
 }
 
 
+Item_ref::Item_ref(THD *thd,
+                   Name_resolution_context *context_arg,
+                   const char *db_arg,const char *table_name_arg,
+                   const char *field_name_arg,
+                   List<One_ident>* ident_list,
+                   bool database_name_not_allowed,
+                   bool table_name_not_allowed,
+                   uint num_unresolved_idents)
+  :Item_ident(thd,context_arg,db_arg,table_name_arg,field_name_arg,
+              ident_list,database_name_not_allowed,
+              table_name_not_allowed,num_unresolved_idents),
+   result_field(0), ref(0)
+{
+}
+
+
 Item_ref::Item_ref(Name_resolution_context *context_arg,
                    Item **item, const char *table_name_arg,
                    const char *field_name_arg,
@@ -7529,7 +7743,8 @@ Item_ref::Item_ref(Name_resolution_context *context_arg,
     FALSE on success
 */
 
-bool Item_ref::fix_fields(THD *thd, Item **reference)
+
+bool Item_ref::fix_fields_do(THD *thd, Item **reference)
 {
   enum_parsing_place place= NO_MATTER;
   DBUG_ASSERT(fixed == 0);

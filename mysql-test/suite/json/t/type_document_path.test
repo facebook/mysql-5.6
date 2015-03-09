@@ -18,6 +18,8 @@ SELECT @start_allow_document_type;
 ### t1 and t2 : populate data
 ###
 
+--echo ##### Create tables t1 and t2 and populate data
+
 CREATE TABLE t1 (
        a int not null,
        b char (10) not null,
@@ -25,12 +27,13 @@ CREATE TABLE t1 (
 
 insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
 insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
-insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.333333, "dt":"2014-11-01" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
 insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
 insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
 insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
 insert into t1 values (7,'@3','{ "id":107, "address":{ "zipcode":98767, "state":"NY" } }');
 insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+insert into t1 values (9,'@1','{ "id":109, "name":"Linda", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" } }');
 
 
 CREATE TABLE t2 (
@@ -51,6 +54,7 @@ insert into t2 values (5,'@2','{ "id":106, "name":"Don II", "phone":6507770004, 
 ### so it will be truncated when it is the sorting key in order by clause
 ###
 
+--echo ##### Create tables t3 with big values
 
 CREATE TABLE t3 (
        a int not null,
@@ -69,6 +73,8 @@ insert into t3 values (2,'@2','{ "id":"22", "name":"Bob" }');
 ###
 ### TODO: \t
 ###
+
+--echo ##### Create tables t4 with backtick quoted column name with special characters
 
 CREATE TABLE t4 (
        `~!@#$%^&*()_+-=:;'"<>?,./\t` document not null) engine=innodb;
@@ -92,6 +98,8 @@ where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:
 ### The original cases: database.table.field, table.field and .table.field
 ###
 
+--echo ##### When document type is disabled, the original cases of database.table.field, table.field and .table.field
+
 ### Disable document type to make parser work as before
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
@@ -110,6 +118,8 @@ select .t1.doc from test.t1 where .t1.a = 4;
 ###
 ### When document type is disabled, all the new syntax will be treated as errors
 ###
+
+--echo ##### When document type is disabled, all the new syntax will be treated as errors
 
 --error ER_INVALID_FIELD_OR_REFERENCE
 select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
@@ -134,6 +144,8 @@ select .t1.doc from test.t1 where .t1.a = 4;
 ###
 ### Invalid document path: using document path on a non-document column
 ###
+
+--echo ##### Invalid document path when using document path on a non-document column
 
 ### Disable document type to make parser work as before
 SET @@global.allow_document_type = false;
@@ -187,7 +199,7 @@ select count(*), a from t1 group by b.k1.k2.k3;
 select count(*), a from t1 group by a having b.k1 = 100;
 --error ER_BAD_FIELD_ERROR
 select count(*), a from t1 group by a having b.k1.k2 = 100;
---error ER_INVALID_FIELD_OR_REFERENCE
+--error ER_BAD_FIELD_ERROR
 select count(*), a from t1 group by a having b.k1.k2.k3 = 100;
 
 ## In HAVING without GROUP BY then HAVING clause behaves like WHERE clause
@@ -195,7 +207,7 @@ select count(*), a from t1 group by a having b.k1.k2.k3 = 100;
 select a from t1 having b.k1 = 100;
 --error ER_BAD_FIELD_ERROR
 select a from t1 having b.k1.k2 = 100;
---error ER_INVALID_FIELD_OR_REFERENCE
+--error ER_BAD_FIELD_ERROR
 select a from t1 having b.k1.k2.k3 = 100;
 
 ## In Functions
@@ -218,6 +230,8 @@ select sum(b.k1.k2.k3) from t1 where a = 100;
 ###
 ### Document partial update by document path is not supported yet
 ###
+
+--echo ##### Document partial update by document path is not supported yet
 
 ### When document type is disabled
 SET @@global.allow_document_type = false;
@@ -258,54 +272,72 @@ drop procedure sp2;
 
 ################################################################################
 ###
-### Document path with different types in SELECT clause
+### Document path with different types in SELECT clause (with and without aliases)
 ###
+
+--echo ##### Document path with different types in SELECT clause
 
 ### Document path in SELECT clause: database.table.field.key1, in which key1 does not exist
 ### Expecting empty string
 select test.t1.doc.NonExistent from t1 where t1.a = 4;
+select test.t1.doc.NonExistent as NonExistent from t1 where t1.a = 4;
 
 ### Regular document field in SELECT clause: database.table.field
 select test.t1.doc from t1 where t1.a = 3;
+select test.t1.doc as doc from t1 where t1.a = 3;
 
 ### Document path in SELECT clause: database.table.field.key1.key2 that points to an int16
 select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
+select test.t1.doc.address.houseNumber as houseNumber from t1 where t1.a = 3;
 
 ### Document paths in SELECT clause: database.table.field.key1 that points to an int64
 select test.t1.doc.int64 from t1 where t1.a = 2;
+select test.t1.doc.int64 as int64 from t1 where t1.a = 2;
 
 ### Document paths in SELECT clause: database.table.field.key1 that points to an double
 select test.t1.doc.double from t1 where t1.a = 3;
+select test.t1.doc.double as dble from t1 where t1.a = 3;
 
 ### Document paths in SELECT clause: database.table.field.key1 that points to an string
 select test.t1.doc.name from t1 where t1.a = 3;
+select test.t1.doc.name as name from t1 where t1.a = 3;
 
 ### Document paths in SELECT clause: database.table.field.key1.array_index that points to an string
 ### FBSon array index is 0-based
 select test.t1.doc.Children.0 from t1 where t1.a = 4;
 select test.t1.doc.Children.1 from t1 where t1.a = 4;
 select test.t1.doc.Children.2 from t1 where t1.a = 4;
+select test.t1.doc.Children.0 as Children0 from t1 where t1.a = 4;
 
 ### Document paths in function in SELECT clause
-select abs(test.t1.doc.double), abs(test.t1.doc.double - 3.333333) from t1 where a = 3;
+select abs(test.t1.doc.double), abs(test.t1.doc.double - 3.94065645841245) from t1 where a = 3;
+select abs(test.t1.doc.double) as abs1, abs(test.t1.doc.double - 3.94065645841245) as abs2
+from t1
+where a = 3;
 
 ### Document paths in SELECT clause: database.table.field.key1 that points to an JSON object
 select test.t1.doc.address from t1 where t1.a = 3;
+select test.t1.doc.address as address from t1 where t1.a = 3;
 
 ### Document paths in SELECT clause: database.table.field.key1 that points to an JSON array
 select test.t1.doc.Children from t1 where t1.a = 4;
+select test.t1.doc.Children as Children from t1 where t1.a = 4;
 
 ### Document paths in SELECT clause: table.field.key1 that needs right shift for one during fixing
 select t1.doc.address.houseNumber from t1 where t1.a = 4;
+select t1.doc.address.houseNumber as houseNumber from t1 where t1.a = 4;
 
 ### Document paths in SELECT clause: field.key1.key2 that needs right shift for two during fixing
 select doc.address.houseNumber from t1 where t1.a = 4;
+select doc.address.houseNumber as houseNumber from t1 where t1.a = 4;
 
 
 ################################################################################
 ###
 ### Document paths with different types in WHERE clause
 ###
+
+--echo ##### Document paths with different types in WHERE clause
 
 ### Document paths in WHERE clause: database.table.field.key1, in which key1 does not exist
 ### Expecting empty result
@@ -320,7 +352,7 @@ select a from t1 where test.t1.doc.int64 = 2222222220123456789;
 
 ### Use document paths in function in WHERE clause
 ### Use threshold to deal with the precision issue when comparing two doubles
-select a from t1 where abs(test.t1.doc.double - 3.333333) < 0.001;
+select a from t1 where abs(test.t1.doc.double - 3.94065645841246) < 0.0000001;
 
 ### Same document paths appears in both SELECT and WHERE clause
 select t1.doc.id from t1 where t1.doc.id > 101 and t1.doc.id < 104;
@@ -360,95 +392,586 @@ select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 
 ################################################################################
 ###
-### Document paths with different types in ORDER BY clause
+### Document paths with different types in ORDER BY clause (with aliases and positions)
 ###
+
+--echo ##### Document paths with different types in ORDER BY clause (with and without aliases)
 
 ### Document paths in ORDER BY clause: database.table.field.key1, in which key1 does not exist
 ### the results won't be sorted
-select a from t1 order by test.t1.doc.NonExistent;
-select a from t1 order by cast(t1.doc.NonExistent as unsigned);
+select a from t1 order by test.t1.doc.NonExistent, a;
+select a from t1 order by cast(t1.doc.NonExistent as unsigned), a;
 
 ### use cast to make it sorted as unsigned
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned) desc;
+select test.t1.doc.id, a from t1 order by 1 desc;
 
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed);
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc;
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed), 2;
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc, 2;
 
-### without cast to make it sorted as binary
-select test.t1.doc.id, a from t1 order by test.t1.doc.id;
-select test.t1.doc.id, a from t1 order by t1.doc.id desc;
+### use alias for the whole cast function
+select cast(test.t1.doc.address.zipcode as signed), a
+from t1
+order by cast(test.t1.doc.address.zipcode as signed), a;
 
-### without cast to make it sorted as binary and big binary values will be truncated with warnings
-select doc.id, a from t3 order by test.t3.doc.id;
-show warnings;
-select test.t3.doc.id, a from t3 order by t3.doc.id desc;
-show warnings;
+select cast(test.t1.doc.address.zipcode as signed) as zipcode, a
+from t1
+order by zipcode, a;
 
-select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode;
-select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc;
+select cast(test.t1.doc.address.zipcode as char), a
+from t1
+order by cast(test.t1.doc.address.zipcode as char) desc, a;
+
+select cast(test.t1.doc.address.zipcode as char), a
+from t1
+order by 1 desc, a;
+
+select cast(test.t1.doc.address.zipcode as char) as zipcode, a
+from t1
+order by zipcode desc, a;
+
+select a, cast(test.t1.doc.address.zipcode as char) as zipcode
+from t1
+order by 2 desc, a;
+
+### use alias of document path within cast function
+select a, test.t1.doc.address.state as state
+from t1
+order by cast(state as char), a;
+
+select a, test.t1.doc.address.state as state
+from t1
+order by cast(state as char) desc, a;
+
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as char), a;
+
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as char) desc, a;
+
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as unsigned), a;
+
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as unsigned) desc, a;
+
+### without cast to make it sorted as string
+select test.t1.doc.id, a from t1 order by test.t1.doc.id, a;
+select test.t1.doc.id, a from t1 order by t1.doc.id desc, a;
+
+select test.t1.doc.id as id, a from t1 order by id, a;
+select test.t1.doc.id as id, a from t1 order by id desc, a;
+
+### big string with length of 1110 won't be truncated
+select doc.id, a from t3 order by test.t3.doc.id, a;
+select test.t3.doc.id, a from t3 order by t3.doc.id desc, a;
+select test.t3.doc.id, a from t3 where a = 4;
+
+### without NULL values
+
+### document path is the only SELECT time
+select test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode;
+select test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc;
+
+select test.t1.doc.address.zipcode as zipcode from t1 order by zipcode;
+select test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc;
+
+### document path is the last SELECT time
+select a, test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode, a;
+select a, test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc, a;
+
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode, a;
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc, a;
+
+### document path is not the last SELECT time
+select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode, a;
+select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc, a;
+
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode, a;
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode desc, a;
+
+### with NULL values
+
+### document path is the only SELECT time
+select test.t1.doc.address.state from t1 order by test.t1.doc.address.state;
+select test.t1.doc.address.state from t1 order by t1.doc.address.state desc;
+select test.t1.doc.address.state from t1 order by 1 desc;
+
+select test.t1.doc.address.state as state from t1 order by state;
+select test.t1.doc.address.state as state from t1 order by state desc;
+
+### document path is the last SELECT time
+select a, test.t1.doc.address.state from t1 order by test.t1.doc.address.state, a;
+select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc, a;
+
+select a, test.t1.doc.address.state as state from t1 order by state, a;
+select a, test.t1.doc.address.state as state from t1 order by state desc, a;
+
+### document path is not the last SELECT time
+select test.t1.doc.address.state, a from t1 order by test.t1.doc.address.state, a;
+select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc, a;
+
+select test.t1.doc.address.state as state, a from t1 order by state, a;
+select test.t1.doc.address.state as state, a from t1 order by state desc, a;
+
+### multiple non-duplicate document paths
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by state, zipcode, a;
+
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by zipcode desc, state desc, a asc;
+
+select doc.address.state as state, doc.address.zipcode as zipcode, doc.name as name, a
+from t1
+order by zipcode desc, state desc, name desc, a asc;
+
+select a, doc.address.state as state, doc.address.zipcode as zipcode
+from t1
+order by a desc, state asc, zipcode desc;
+
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by test.t1.doc.address.zipcode desc, t1.doc.address.state asc, a desc;
+
+select a, doc.address.state, doc.address.zipcode, doc.name
+from t1
+order by test.t1.doc.address.zipcode desc, t1.doc.address.state asc, doc.name desc, a desc;
+
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.zipcode, doc.address.state, a;
+
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.zipcode, doc.address.state, doc.name, a;
+
+### document field and document paths in ORDER BY without document path in SELECT
+select a
+from t1
+order by doc;
+
+select a
+from t1
+order by doc desc;
+
+select a
+from t1
+order by doc, doc.address.state desc, doc.address.zipcode;
+
+### multiple duplicate document paths
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by state, state, a;
+
+select doc.address.zipcode as zipcode, a
+from t1
+order by test.t1.doc.address.zipcode, t1.doc.address.zipcode, a asc;
+
+select doc.address.state as state, a
+from t1
+order by state, test.t1.doc.address.state, a desc;
+
+### FIXME:
+### the document field in ORDER BY will be deduped if both document field and document paths
+### from this field in ORDER BY and in the meantime the document paths exist in SELECT
+#select a, doc.id
+#from t1
+#order by doc, doc.id;
+
+### FIXME:
+### Incorrect order when both document field and document paths in ORDER BY while other
+### document paths exist in SELECT too
+#select a, doc.address.zipcode
+#from t1
+#order by doc.address.state, doc;
 
 
 ################################################################################
 ###
-### Document paths with different types in GROUP BY clause
-###
-### TODO:
-###
-###   In GROUP BY clause
-###     -- When using CAST, it always good
-###     -- When using virutla field directly, it works but the results are not grouped
-###
-###   In HAVING clause
-###     -- With or without CAST, it is always syntax errors
+### Document paths with different types in GROUP BY without HAVING clause (with aliases and positions)
 ###
 
+--echo ##### Document paths with different types in GROUP BY without HAVING clause (with and without aliases)
 
-### cast to string : correct
+### cast to string
 select count(*), cast(test.t1.doc.address.state as char)
 from t1
 group by cast(test.t1.doc.address.state as char);
 
-### use document paths directly : it works, but not grouped
-#select count(*), test.t1.doc.address.state
-#from t1
-#group by test.t1.doc.address.state;
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by 2;
 
-### cast to string : correct
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state;
+
+select cast(test.t1.doc.address.state as char) as state, count(*)
+from t1
+group by 1;
+
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char) desc;
+
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by 2 desc;
+
+### Alias of the whole cast function
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state desc;
+
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char)
+order by cast(test.t1.doc.address.state as char) desc;
+
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by 2
+order by 2 desc;
+
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state
+order by state desc;
+
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by 2
+order by 2 desc;
+
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char)
+order by cast(test.t1.doc.address.state as char) desc;
+
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state
+order by state desc;
+
+# use alias of document path within cast function
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char);
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char) desc;
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char)
+order by cast(state as char);
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char)
+order by cast(state as char) desc;
+
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as char);
+
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as char) desc;
+
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as unsigned)
+order by cast(zipcode as unsigned);
+
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as unsigned)
+order by cast(zipcode as unsigned) desc;
+
+### use document paths directly with default string type
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state;
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state;
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state desc;
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state desc;
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+order by test.t1.doc.address.state desc;
+
+select count(*), test.t1.doc.address.state
+from t1
+group by 2
+order by 2 desc;
+
+select test.t1.doc.address.state, count(*)
+from t1
+group by 1
+order by 1 desc;
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state
+order by state desc;
+
+### cast to string
 select count(*) as total, test.t1.doc.address.state
 from t1
 group by cast(test.t1.doc.address.state as char)
 having total > 1;
 
-### use document paths directly : it works, but not grouped
-#select count(*) as total, test.t1.doc.address.state
-#from t1
-#group by test.t1.doc.address.state
-#having total > 1;
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by cast(test.t1.doc.address.state as char) desc
+having total >= 2;
 
-### syntax error: 1904: Invalid field or reference
-#select count(*) as total, test.t1.doc.address.state
-#from t1
-#group by cast(test.t1.doc.address.state as char)
-#having cast(test.t1.doc.address.state as char) like "NY";
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by cast(test.t1.doc.address.state as char)
+having total > 1
+order by cast(test.t1.doc.address.state as char) desc;
 
-### syntax error: 1904: Invalid field or reference
-#select count(*) as total, test.t1.doc.address.state
-#from t1
-#group by test.t1.doc.address.state
-#having test.t1.doc.address.state like "NY";
+### use document paths directly with default string type
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+having total >= 2;
 
-### correct
-#select count(*) as total, b
-#from t1
-#group by b
-#having b like "@2";
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by 2
+having total >= 2;
 
-### correct
-#select count(*) as total, b
-#from t1
-#group by b
-#having total > 2;
+select count(*) as total, test.t1.doc.address.state as state
+from t1
+group by state
+having total >= 2;
+
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state desc
+having total > 1;
+
+select test.t1.doc.address.state, count(*) as total
+from t1
+group by 1 desc
+having total > 1;
+
+select count(*) as total, test.t1.doc.address.state as state
+from t1
+group by state desc
+having total > 1;
+
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+having total >= 2
+order by test.t1.doc.address.state desc;
+
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by 2
+having total >= 2
+order by 2 desc;
+
+select count(*) as total, test.t1.doc.address.state as state
+from t1
+group by state
+having total >= 2
+order by state desc;
+
+select test.t1.doc.address.state as state, count(*) as total
+from t1
+group by 1
+having total >= 2
+order by 1 desc;
+
+### Sorted as string and big values will be truncated with warnings
+select doc.id, a from t3 group by doc.id;
+show warnings;
+
+
+################################################################################
+###
+### Document paths with different types in GROUP BY with HAVING clause (with aliases and positions)
+###
+###
+
+--echo ##### Document paths with different types in GROUP BY with HAVING clause (with and without aliases)
+
+# The fields or document paths in HAVING must be in GROUP BY but don't have to be in SELECT
+select count(*), test.t1.doc.address.state
+from t1
+group by t1.doc.address.zipcode
+having doc.address.zipcode = 98761;
+
+### the returned type will be string
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+having test.t1.doc.address.state like "NY";
+
+select count(*), test.t1.doc.address.state
+from t1
+group by 2
+having test.t1.doc.address.state like "NY";
+
+select count(*), doc.address.state
+from t1
+group by doc.address.state
+having test.t1.doc.address.state like "NY";
+
+select count(*), doc.address.state
+from t1
+group by doc.address.state
+having doc.address.state like "NY";
+
+select count(*), t1.doc.address.state
+from t1
+group by doc.address.state
+having test.t1.doc.address.state like "NY";
+
+select count(*), doc.address.state
+from t1
+group by t1.doc.address.state
+having test.t1.doc.address.state like "NY";
+
+select count(*), doc.address.state
+from t1
+group by t1.doc.address.state
+having doc.address.state like "NY";
+
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state
+having state like "NY";
+
+### the returned type will be number
+select count(*), test.t1.doc.address.zipcode
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+
+select test.t1.doc.address.zipcode, count(*)
+from t1
+group by 1
+having test.t1.doc.address.zipcode = 98761;
+
+select test.t1.doc.address.zipcode, count(*)
+from t1
+group by 1
+having doc.address.zipcode = 98761;
+
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by zipcode
+having zipcode = 98761;
+
+select count(*), doc.address.zipcode
+from t1
+group by doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+
+select count(*), t1.doc.address.state
+from t1
+group by doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98768;
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having t1.doc.address.zipcode = 98768;
+
+### two document pathes with aliases
+select count(*), test.t1.doc.address.state, test.t1.doc.address.zipcode
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+
+select count(*), test.t1.doc.address.state, test.t1.doc.address.zipcode
+from t1
+group by 3
+having test.t1.doc.address.zipcode = 98761;
+
+select count(*), test.t1.doc.address.state, test.t1.doc.address.zipcode
+from t1
+group by 3
+having doc.address.zipcode = 98761;
+
+select count(*), doc.address.state, doc.address.zipcode
+from t1
+group by doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+
+select count(*), test.t1.doc.address.state as state, test.t1.doc.address.zipcode as zipcode
+from t1
+group by state
+having state like "NY";
+
+select count(*), test.t1.doc.address.state as state, test.t1.doc.address.zipcode as zipcode
+from t1
+group by zipcode
+having zipcode = 98761;
+
+select count(*), test.t1.doc.address.state as state, test.t1.doc.address.zipcode as zipcode
+from t1
+group by 3
+having zipcode = 98761;
+
+### cast from number to string
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(test.t1.doc.address.zipcode as char) like '98761';
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(test.t1.doc.address.zipcode as char) like '98768';
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(t1.doc.address.zipcode as char) like '98761';
+
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(doc.address.zipcode as char) like '98761';
+
+### Big value in HAVING will be truncated to 1024 due to the max length of string temp field
+select doc.id, a from t3 group by doc.id having doc.id > 4444444444444444;
+show warnings;
 
 
 ################################################################################
@@ -456,6 +979,7 @@ having total > 1;
 ### General cases with JOIN, ORDER BY, SUB QUERY, etc.
 ###
 
+--echo ##### General cases with JOIN, ORDER BY, SUB QUERY, etc.
 
 ### left join with CAST on document path
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
@@ -472,28 +996,30 @@ where t1.doc.address.zipcode like t2.doc2.address.zipcode;
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
-order by cast(t1.doc.address.zipcode as unsigned) asc;
+order by cast(t1.doc.address.zipcode as unsigned) asc, t1.a;
 
 
 ### left join without CAST on document path with ORDER BY without CAST
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on t1.doc.address.zipcode like t2.doc2.address.zipcode
-order by t1.doc.address.zipcode desc;
+order by t1.doc.address.zipcode desc, t1.a, t2.a2;
 
 
 ################################################################################
 ###
 ### General cases with JOIN, ORDER BY, SUB QUERY, etc.
 ###
-### TODO:
+### FIXME:
 ###
 ###   SUB QUERY: without CAST, identical document field name in two tables will cause
-###              conflicts on virutal fields from these tables, and alias doesn't work
-###              properly, use the document field name directly
+###              conflicts on document paths from these tables, and alias doesn't work
+###              properly.
 ###
 
-### works well with CAST
+--echo ##### General cases with JOIN, ORDER BY, SUB QUERY, etc.
+
+### Aliases work well with CAST
 select t1_name, t1_zipcode, t2_name, t2_zipcode
 from (
   select cast(t1.doc.name as char) as t1_name, cast(t1.doc.address.zipcode as unsigned) as t1_zipcode,
@@ -503,26 +1029,22 @@ from (
 ) as tmp
 where t1_zipcode = 98761 or t2_zipcode = 98762;
 
-
-### without CAST, alias doesn't work properly, identical document field name will cause conflicts,
-### have to use the distinct document field name directly
-select doc.name, doc.address.zipcode, doc2.name, doc2.address.zipcode
+### FIXME: Aliases don't work properly without CAST
+select tmp.t1_zipcode, t2_zipcode
 from (
   select t1.doc.address.zipcode as t1_zipcode, t2.doc2.address.zipcode as t2_zipcode
   from t1, t2
   where t1.doc.address.zipcode like t2.doc2.address.zipcode
 ) as tmp
-where doc.address.zipcode like "98761" or doc2.address.zipcode like "98762";
+where t1_zipcode like "98761" or tmp.t2_zipcode like "98762";
 
-
-### Verify double value
-insert into t1 values (100,'@100','{ "id":10100, "double": 4.94065645841246 }');
-select t1.doc.double from t1 where a = 100;
 
 ################################################################################
 ###
 ### Clean up
 ###
+
+--echo ##### Clean up
 
 # Restore the original value
 SET @@global.allow_document_type = @start_allow_document_type;

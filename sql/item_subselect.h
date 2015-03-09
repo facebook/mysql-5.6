@@ -175,9 +175,8 @@ public:
 
   friend class select_result_interceptor;
   friend class Item_in_optimizer;
-  friend bool Item_field::fix_fields(THD *, Item **);
   friend int  Item_field::fix_outer_field(THD *, Field **, Item **);
-  friend bool Item_ref::fix_fields(THD *, Item **);
+  friend bool Item_ref::fix_fields_do(THD *, Item **);
   friend void Item_ident::fix_after_pullout(st_select_lex *parent_select,
                                             st_select_lex *removed_selec);
   friend void mark_select_range_as_dependent(THD*,

@@ -541,14 +541,30 @@ uint Filesort::make_sortorder()
     pos->field= 0; pos->item= 0;
     if (real_item->type() == Item::FIELD_ITEM)
     {
+      pos->document_path = false;
+      pos->document_path_keys = NULL;
+
+      Item_field *item_field = static_cast<Item_field*>(real_item);
+      pos->field= item_field->field;
+
       // Could be a field, or Item_direct_view_ref wrapping a field
       DBUG_ASSERT(item->type() == Item::FIELD_ITEM ||
                   (item->type() == Item::REF_ITEM &&
                    static_cast<Item_ref*>(item)->ref_type() ==
                    Item_ref::VIEW_REF));
+      /* If the item_field is a document path then the type
+         of its field is either MYSQL_TYPE_DOCUMENT or
+         MYSQL_TYPE_VARCHAR if temp table field was created.
+         sort file document path info only needs to be set
+         for MYSQL_TYPE_DOCUMENT.
+      */
+      DBUG_ASSERT(!item_field->document_path ||
+                  (item_field->document_path &&
+                   (item_field->field->type() == MYSQL_TYPE_DOCUMENT ||
+                    item_field->field->type() == MYSQL_TYPE_VARCHAR)));
 
-      Item_field *item_field = static_cast<Item_field*>(real_item);
-      if (item_field->document_path)
+      if (item_field->document_path &&
+          item_field->field->type() == MYSQL_TYPE_DOCUMENT)
       {
         DBUG_ASSERT(item_field->document_path_keys.elements > 0);
         pos->document_path = true;
@@ -559,13 +575,6 @@ uint Filesort::make_sortorder()
           pos->document_path_keys->push_back(p);
         }
       }
-      else
-      {
-        pos->document_path = false;
-        pos->document_path_keys = NULL;
-      }
-
-      pos->field= item_field->field;
     }
     else if (real_item->type() == Item::SUM_FUNC_ITEM &&
              !real_item->const_item())
@@ -1022,12 +1031,21 @@ void make_sortkey(Sort_param *param, uchar *to, uchar *ref_pos)
 	  *to++=1;
       }
 
+      /*
+        Only retrieve data from document path for MYSQL_TYPE_DOCUMENT
+      */
       if (sort_field->document_path)
       {
         DBUG_ASSERT(sort_field->field->type() == MYSQL_TYPE_DOCUMENT &&
                     sort_field->document_path_keys &&
                     sort_field->document_path_keys->elements > 0);
-
+        /*
+          A document path always can be NULL, e.g., it doesn't exist
+          for a given document, no matter the document column can be
+          NULL or not. So when a document path is NULL its sortkey
+          will be filled with all 0. This processing is different
+          from sortkeys for non-document columns.
+        */
         my_bool is_null;
         uint key_len = 0;
         memset(to, 0, sort_field->length);

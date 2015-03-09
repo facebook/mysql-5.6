@@ -8,18 +8,20 @@ SET @start_allow_document_type = @@global.allow_document_type;
 SELECT @start_allow_document_type;
 @start_allow_document_type
 1
+##### Create tables t1 and t2 and populate data
 CREATE TABLE t1 (
 a int not null,
 b char (10) not null,
 doc document not null) engine=innodb;
 insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
 insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
-insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.333333, "dt":"2014-11-01" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
 insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
 insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
 insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
 insert into t1 values (7,'@3','{ "id":107, "address":{ "zipcode":98767, "state":"NY" } }');
 insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+insert into t1 values (9,'@1','{ "id":109, "name":"Linda", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" } }');
 CREATE TABLE t2 (
 a2 int not null,
 b2 char (10) not null,
@@ -28,6 +30,7 @@ insert into t2 values (10,'@3','{ "id":105, "name":"Alex II", "phone":6507770001
 insert into t2 values (8,'@1','{ "id":108, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
 insert into t2 values (3,'@3','{ "id":104, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
 insert into t2 values (5,'@2','{ "id":106, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+##### Create tables t3 with big values
 CREATE TABLE t3 (
 a int not null,
 b char (10) not null,
@@ -36,6 +39,7 @@ insert into t3 values (3,'@3','{ "id":"3333", "name":"Charlie" }');
 insert into t3 values (1,'@1','{ "id":"1", "name":"Alex" }');
 insert into t3 values (4,'@4','{ "id":"44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444", "name":"Don" }');
 insert into t3 values (2,'@2','{ "id":"22", "name":"Bob" }');
+##### Create tables t4 with backtick quoted column name with special characters
 CREATE TABLE t4 (
 `~!@#$%^&*()_+-=:;'"<>?,./\t` document not null) engine=innodb;
 insert into t4 values ('{"k1":"v1"}');
@@ -52,8 +56,9 @@ from t4;
 select `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./`
 from t4
 where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
-~!@#$%^&*()_+-=:;'"<>?,./\t
+`~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./`
 v2
+##### When document type is disabled, the original cases of database.table.field, table.field and .table.field
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
@@ -67,6 +72,7 @@ doc
 select .t1.doc from test.t1 where .t1.a = 4;
 doc
 {"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+##### When document type is disabled, all the new syntax will be treated as errors
 select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
 ERROR HY000: Invalid field or reference.
 select a from t1 where test.t1.doc.id = 102;
@@ -86,6 +92,7 @@ doc
 select .t1.doc from test.t1 where .t1.a = 4;
 doc
 {"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+##### Invalid document path when using document path on a non-document column
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
@@ -125,17 +132,17 @@ ERROR 42S22: Unknown column 'b.k1.k2' in 'group statement'
 select count(*), a from t1 group by b.k1.k2.k3;
 ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'group statement'
 select count(*), a from t1 group by a having b.k1 = 100;
-ERROR 42S22: Unknown column 'b.k1' in 'having clause'
+ERROR 42S22: Unknown column 'b' in 'having clause'
 select count(*), a from t1 group by a having b.k1.k2 = 100;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'having clause'
+ERROR 42S22: Unknown column 'b' in 'having clause'
 select count(*), a from t1 group by a having b.k1.k2.k3 = 100;
-ERROR HY000: Invalid field or reference.
+ERROR 42S22: Unknown column 'b' in 'having clause'
 select a from t1 having b.k1 = 100;
-ERROR 42S22: Unknown column 'b.k1' in 'having clause'
+ERROR 42S22: Unknown column 'b' in 'having clause'
 select a from t1 having b.k1.k2 = 100;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'having clause'
+ERROR 42S22: Unknown column 'b' in 'having clause'
 select a from t1 having b.k1.k2.k3 = 100;
-ERROR HY000: Invalid field or reference.
+ERROR 42S22: Unknown column 'b' in 'having clause'
 select a from t1 where substr(b.k1, 1, 10) like 'abc';
 ERROR 42S22: Unknown column 'b.k1' in 'where clause'
 select a from t1 where substr(b.k1.k2, 1, 10) like 'abc';
@@ -148,6 +155,7 @@ select sum(b.k1.k2) from t1 where a = 100;
 ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
 select sum(b.k1.k2.k3) from t1 where a = 100;
 ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'field list'
+##### Document partial update by document path is not supported yet
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
@@ -176,48 +184,88 @@ insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
 call sp2();
 ERROR HY000: Document partial update not supported yet.
 drop procedure sp2;
+##### Document path with different types in SELECT clause
 select test.t1.doc.NonExistent from t1 where t1.a = 4;
-doc
+`doc`.`NonExistent`
+NULL
+select test.t1.doc.NonExistent as NonExistent from t1 where t1.a = 4;
+NonExistent
 NULL
 select test.t1.doc from t1 where t1.a = 3;
 doc
-{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.333333,"dt":"2014-11-01"}
-select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+select test.t1.doc as doc from t1 where t1.a = 3;
 doc
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+select test.t1.doc.address.houseNumber from t1 where t1.a = 3;
+`doc`.`address`.`houseNumber`
+1003
+select test.t1.doc.address.houseNumber as houseNumber from t1 where t1.a = 3;
+houseNumber
 1003
 select test.t1.doc.int64 from t1 where t1.a = 2;
-doc
+`doc`.`int64`
+2222222220123456789
+select test.t1.doc.int64 as int64 from t1 where t1.a = 2;
+int64
 2222222220123456789
 select test.t1.doc.double from t1 where t1.a = 3;
-doc
-3.333333
+`doc`.`double`
+3.94065645841246
+select test.t1.doc.double as dble from t1 where t1.a = 3;
+dble
+3.94065645841246
 select test.t1.doc.name from t1 where t1.a = 3;
-doc
+`doc`.`name`
+Charlie
+select test.t1.doc.name as name from t1 where t1.a = 3;
+name
 Charlie
 select test.t1.doc.Children.0 from t1 where t1.a = 4;
-doc
+`doc`.`Children`.`0`
 Alex
 select test.t1.doc.Children.1 from t1 where t1.a = 4;
-doc
+`doc`.`Children`.`1`
 Bob
 select test.t1.doc.Children.2 from t1 where t1.a = 4;
-doc
+`doc`.`Children`.`2`
 Charlei
-select abs(test.t1.doc.double), abs(test.t1.doc.double - 3.333333) from t1 where a = 3;
-abs(test.t1.doc.double)	abs(test.t1.doc.double - 3.333333)
-3.333333	0
+select test.t1.doc.Children.0 as Children0 from t1 where t1.a = 4;
+Children0
+Alex
+select abs(test.t1.doc.double), abs(test.t1.doc.double - 3.94065645841245) from t1 where a = 3;
+abs(test.t1.doc.double)	abs(test.t1.doc.double - 3.94065645841245)
+3.94065645841246	0.00000000000001021405182655144
+select abs(test.t1.doc.double) as abs1, abs(test.t1.doc.double - 3.94065645841245) as abs2
+from t1
+where a = 3;
+abs1	abs2
+3.94065645841246	0.00000000000001021405182655144
 select test.t1.doc.address from t1 where t1.a = 3;
-doc
+`doc`.`address`
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+select test.t1.doc.address as address from t1 where t1.a = 3;
+address
 {"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
 select test.t1.doc.Children from t1 where t1.a = 4;
-doc
+`doc`.`Children`
+["Alex","Bob","Charlei"]
+select test.t1.doc.Children as Children from t1 where t1.a = 4;
+Children
 ["Alex","Bob","Charlei"]
 select t1.doc.address.houseNumber from t1 where t1.a = 4;
-doc
+`doc`.`address`.`houseNumber`
+1004
+select t1.doc.address.houseNumber as houseNumber from t1 where t1.a = 4;
+houseNumber
 1004
 select doc.address.houseNumber from t1 where t1.a = 4;
-doc
+`doc`.`address`.`houseNumber`
 1004
+select doc.address.houseNumber as houseNumber from t1 where t1.a = 4;
+houseNumber
+1004
+##### Document paths with different types in WHERE clause
 select a from t1 where test.t1.doc.NonExistent = 102;
 a
 select a from t1 where test.t1.doc.id = 102;
@@ -226,11 +274,11 @@ a
 select a from t1 where test.t1.doc.int64 = 2222222220123456789;
 a
 2
-select a from t1 where abs(test.t1.doc.double - 3.333333) < 0.001;
+select a from t1 where abs(test.t1.doc.double - 3.94065645841246) < 0.0000001;
 a
 3
 select t1.doc.id from t1 where t1.doc.id > 101 and t1.doc.id < 104;
-doc
+`doc`.`id`
 102
 103
 select a from t1 where test.t1.doc.name like "Bob";
@@ -249,25 +297,25 @@ select a from t1 where cast(test.t1.doc.id as char) like "102";
 a
 2
 select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as date) = cast('2014-11-01' as date);
-doc
+`doc`.`dt`
 2014-11-01
 Warnings:
 Warning	1292	Incorrect datetime value: '1001'
 Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRST'
 select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as datetime) = cast('2014-11-11 11:59:59' as datetime);
-doc
+`doc`.`dt`
 2014-11-11 11:59:59
 Warnings:
 Warning	1292	Incorrect datetime value: '1001'
 Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRST'
 select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as time) = cast('2014-11-11 11:59:59' as time);
-doc
+`doc`.`dt`
 2014-11-11 11:59:59
 Warnings:
 Warning	1292	Truncated incorrect time value: '0123456789ABCDEFGHIGKLMNOPQRST'
 Warning	1292	Truncated incorrect time value: '2014-11-01'
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
-doc
+`doc`.`address`.`houseNumber`
 1002
 select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 a	b
@@ -280,28 +328,31 @@ update t1 set t1.a = 1, t1.b = '@1' where doc.address.zipcode = 98761;
 select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 a	b
 1	@1
-select a from t1 order by test.t1.doc.NonExistent;
+##### Document paths with different types in ORDER BY clause (with and without aliases)
+select a from t1 order by test.t1.doc.NonExistent, a;
 a
 1
 2
 3
 4
 5
-8
-7
 6
-select a from t1 order by cast(t1.doc.NonExistent as unsigned);
+7
+8
+9
+select a from t1 order by cast(t1.doc.NonExistent as unsigned), a;
 a
 1
 2
 3
 4
 5
-8
-7
 6
+7
+8
+9
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
-doc	a
+`doc`.`id`	a
 101	1
 102	2
 103	3
@@ -310,8 +361,10 @@ doc	a
 106	6
 107	7
 108	8
+109	9
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned) desc;
-doc	a
+`doc`.`id`	a
+109	9
 108	8
 107	7
 106	6
@@ -320,28 +373,197 @@ doc	a
 103	3
 102	2
 101	1
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed);
-doc	a
+select test.t1.doc.id, a from t1 order by 1 desc;
+`doc`.`id`	a
+109	9
+108	8
+107	7
+106	6
+105	5
+104	4
+103	3
+102	2
+101	1
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed), 2;
+`doc`.`address`.`zipcode`	a
 98761	1
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
 98768	8
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc;
-doc	a
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc, 2;
+`doc`.`address`.`zipcode`	a
 98768	8
 98767	7
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
-select test.t1.doc.id, a from t1 order by test.t1.doc.id;
-doc	a
+select cast(test.t1.doc.address.zipcode as signed), a
+from t1
+order by cast(test.t1.doc.address.zipcode as signed), a;
+cast(test.t1.doc.address.zipcode as signed)	a
+98761	1
+98762	2
+98763	3
+98764	4
+98764	9
+98765	5
+98766	6
+98767	7
+98768	8
+select cast(test.t1.doc.address.zipcode as signed) as zipcode, a
+from t1
+order by zipcode, a;
+zipcode	a
+98761	1
+98762	2
+98763	3
+98764	4
+98764	9
+98765	5
+98766	6
+98767	7
+98768	8
+select cast(test.t1.doc.address.zipcode as char), a
+from t1
+order by cast(test.t1.doc.address.zipcode as char) desc, a;
+cast(test.t1.doc.address.zipcode as char)	a
+98768	8
+98767	7
+98766	6
+98765	5
+98764	4
+98764	9
+98763	3
+98762	2
+98761	1
+select cast(test.t1.doc.address.zipcode as char), a
+from t1
+order by 1 desc, a;
+cast(test.t1.doc.address.zipcode as char)	a
+98768	8
+98767	7
+98766	6
+98765	5
+98764	4
+98764	9
+98763	3
+98762	2
+98761	1
+select cast(test.t1.doc.address.zipcode as char) as zipcode, a
+from t1
+order by zipcode desc, a;
+zipcode	a
+98768	8
+98767	7
+98766	6
+98765	5
+98764	4
+98764	9
+98763	3
+98762	2
+98761	1
+select a, cast(test.t1.doc.address.zipcode as char) as zipcode
+from t1
+order by 2 desc, a;
+a	zipcode
+8	98768
+7	98767
+6	98766
+5	98765
+4	98764
+9	98764
+3	98763
+2	98762
+1	98761
+select a, test.t1.doc.address.state as state
+from t1
+order by cast(state as char), a;
+a	state
+6	NULL
+8	NULL
+2	AZ
+1	CA
+3	NY
+7	NY
+4	WA
+5	WA
+9	WA
+select a, test.t1.doc.address.state as state
+from t1
+order by cast(state as char) desc, a;
+a	state
+4	WA
+5	WA
+9	WA
+3	NY
+7	NY
+1	CA
+2	AZ
+6	NULL
+8	NULL
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as char), a;
+a	zipcode
+1	98761
+2	98762
+3	98763
+4	98764
+9	98764
+5	98765
+6	98766
+7	98767
+8	98768
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as char) desc, a;
+a	zipcode
+8	98768
+7	98767
+6	98766
+5	98765
+4	98764
+9	98764
+3	98763
+2	98762
+1	98761
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as unsigned), a;
+a	zipcode
+1	98761
+2	98762
+3	98763
+4	98764
+9	98764
+5	98765
+6	98766
+7	98767
+8	98768
+select a, test.t1.doc.address.zipcode as zipcode
+from t1
+order by cast(zipcode as unsigned) desc, a;
+a	zipcode
+8	98768
+7	98767
+6	98766
+5	98765
+4	98764
+9	98764
+3	98763
+2	98762
+1	98761
+select test.t1.doc.id, a from t1 order by test.t1.doc.id, a;
+`doc`.`id`	a
 101	1
 102	2
 103	3
@@ -350,8 +572,10 @@ doc	a
 106	6
 107	7
 108	8
-select test.t1.doc.id, a from t1 order by t1.doc.id desc;
-doc	a
+109	9
+select test.t1.doc.id, a from t1 order by t1.doc.id desc, a;
+`doc`.`id`	a
+109	9
 108	8
 107	7
 106	6
@@ -360,88 +584,1121 @@ doc	a
 103	3
 102	2
 101	1
-select doc.id, a from t3 order by test.t3.doc.id;
-doc	a
+select test.t1.doc.id as id, a from t1 order by id, a;
+id	a
+101	1
+102	2
+103	3
+104	4
+105	5
+106	6
+107	7
+108	8
+109	9
+select test.t1.doc.id as id, a from t1 order by id desc, a;
+id	a
+109	9
+108	8
+107	7
+106	6
+105	5
+104	4
+103	3
+102	2
+101	1
+select doc.id, a from t3 order by test.t3.doc.id, a;
+`doc`.`id`	a
 1	1
 22	2
 3333	3
 44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
 Warnings:
 Warning	1265	Data truncated for column 'doc' at row 1
-show warnings;
-Level	Code	Message
-Warning	1265	Data truncated for column 'doc' at row 1
-select test.t3.doc.id, a from t3 order by t3.doc.id desc;
-doc	a
+select test.t3.doc.id, a from t3 order by t3.doc.id desc, a;
+`doc`.`id`	a
 44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
 3333	3
 22	2
 1	1
 Warnings:
 Warning	1265	Data truncated for column 'doc' at row 1
-show warnings;
-Level	Code	Message
-Warning	1265	Data truncated for column 'doc' at row 1
-select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode;
-doc	a
+select test.t3.doc.id, a from t3 where a = 4;
+`doc`.`id`	a
+44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
+select test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode;
+`doc`.`address`.`zipcode`
+98761
+98762
+98763
+98764
+98764
+98765
+98766
+98767
+98768
+select test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc;
+`doc`.`address`.`zipcode`
+98768
+98767
+98766
+98765
+98764
+98764
+98763
+98762
+98761
+select test.t1.doc.address.zipcode as zipcode from t1 order by zipcode;
+zipcode
+98761
+98762
+98763
+98764
+98764
+98765
+98766
+98767
+98768
+select test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc;
+zipcode
+98768
+98767
+98766
+98765
+98764
+98764
+98763
+98762
+98761
+select a, test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode, a;
+a	`doc`.`address`.`zipcode`
+1	98761
+2	98762
+3	98763
+4	98764
+9	98764
+5	98765
+6	98766
+7	98767
+8	98768
+select a, test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc, a;
+a	`doc`.`address`.`zipcode`
+8	98768
+7	98767
+6	98766
+5	98765
+4	98764
+9	98764
+3	98763
+2	98762
+1	98761
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode, a;
+a	zipcode
+1	98761
+2	98762
+3	98763
+4	98764
+9	98764
+5	98765
+6	98766
+7	98767
+8	98768
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc, a;
+a	zipcode
+8	98768
+7	98767
+6	98766
+5	98765
+4	98764
+9	98764
+3	98763
+2	98762
+1	98761
+select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode, a;
+`doc`.`address`.`zipcode`	a
 98761	1
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
 98768	8
-select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc;
-doc	a
+select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc, a;
+`doc`.`address`.`zipcode`	a
 98768	8
 98767	7
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode, a;
+zipcode	a
+98761	1
+98762	2
+98763	3
+98764	4
+98764	9
+98765	5
+98766	6
+98767	7
+98768	8
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode desc, a;
+zipcode	a
+98768	8
+98767	7
+98766	6
+98765	5
+98764	4
+98764	9
+98763	3
+98762	2
+98761	1
+select test.t1.doc.address.state from t1 order by test.t1.doc.address.state;
+`doc`.`address`.`state`
+NULL
+NULL
+AZ
+CA
+NY
+NY
+WA
+WA
+WA
+select test.t1.doc.address.state from t1 order by t1.doc.address.state desc;
+`doc`.`address`.`state`
+WA
+WA
+WA
+NY
+NY
+CA
+AZ
+NULL
+NULL
+select test.t1.doc.address.state from t1 order by 1 desc;
+`doc`.`address`.`state`
+WA
+WA
+WA
+NY
+NY
+CA
+AZ
+NULL
+NULL
+select test.t1.doc.address.state as state from t1 order by state;
+state
+NULL
+NULL
+AZ
+CA
+NY
+NY
+WA
+WA
+WA
+select test.t1.doc.address.state as state from t1 order by state desc;
+state
+WA
+WA
+WA
+NY
+NY
+CA
+AZ
+NULL
+NULL
+select a, test.t1.doc.address.state from t1 order by test.t1.doc.address.state, a;
+a	`doc`.`address`.`state`
+6	NULL
+8	NULL
+2	AZ
+1	CA
+3	NY
+7	NY
+4	WA
+5	WA
+9	WA
+select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc, a;
+a	`doc`.`address`.`state`
+4	WA
+5	WA
+9	WA
+3	NY
+7	NY
+1	CA
+2	AZ
+6	NULL
+8	NULL
+select a, test.t1.doc.address.state as state from t1 order by state, a;
+a	state
+6	NULL
+8	NULL
+2	AZ
+1	CA
+3	NY
+7	NY
+4	WA
+5	WA
+9	WA
+select a, test.t1.doc.address.state as state from t1 order by state desc, a;
+a	state
+4	WA
+5	WA
+9	WA
+3	NY
+7	NY
+1	CA
+2	AZ
+6	NULL
+8	NULL
+select test.t1.doc.address.state, a from t1 order by test.t1.doc.address.state, a;
+`doc`.`address`.`state`	a
+NULL	6
+NULL	8
+AZ	2
+CA	1
+NY	3
+NY	7
+WA	4
+WA	5
+WA	9
+select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc, a;
+`doc`.`address`.`state`	a
+WA	4
+WA	5
+WA	9
+NY	3
+NY	7
+CA	1
+AZ	2
+NULL	6
+NULL	8
+select test.t1.doc.address.state as state, a from t1 order by state, a;
+state	a
+NULL	6
+NULL	8
+AZ	2
+CA	1
+NY	3
+NY	7
+WA	4
+WA	5
+WA	9
+select test.t1.doc.address.state as state, a from t1 order by state desc, a;
+state	a
+WA	4
+WA	5
+WA	9
+NY	3
+NY	7
+CA	1
+AZ	2
+NULL	6
+NULL	8
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by state, zipcode, a;
+state	zipcode	a
+NULL	98766	6
+NULL	98768	8
+AZ	98762	2
+CA	98761	1
+NY	98763	3
+NY	98767	7
+WA	98764	4
+WA	98764	9
+WA	98765	5
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by zipcode desc, state desc, a asc;
+state	zipcode	a
+NULL	98768	8
+NY	98767	7
+NULL	98766	6
+WA	98765	5
+WA	98764	4
+WA	98764	9
+NY	98763	3
+AZ	98762	2
+CA	98761	1
+select doc.address.state as state, doc.address.zipcode as zipcode, doc.name as name, a
+from t1
+order by zipcode desc, state desc, name desc, a asc;
+state	zipcode	name	a
+NULL	98768	NULL	8
+NY	98767	NULL	7
+NULL	98766	NULL	6
+WA	98765	Evan	5
+WA	98764	Linda	9
+WA	98764	Don	4
+NY	98763	Charlie	3
+AZ	98762	Bob	2
+CA	98761	Alex	1
+select a, doc.address.state as state, doc.address.zipcode as zipcode
+from t1
+order by a desc, state asc, zipcode desc;
+a	state	zipcode
+9	WA	98764
+8	NULL	98768
+7	NY	98767
+6	NULL	98766
+5	WA	98765
+4	WA	98764
+3	NY	98763
+2	AZ	98762
+1	CA	98761
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by test.t1.doc.address.zipcode desc, t1.doc.address.state asc, a desc;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+8	NULL	98768
+7	NY	98767
+6	NULL	98766
+5	WA	98765
+9	WA	98764
+4	WA	98764
+3	NY	98763
+2	AZ	98762
+1	CA	98761
+select a, doc.address.state, doc.address.zipcode, doc.name
+from t1
+order by test.t1.doc.address.zipcode desc, t1.doc.address.state asc, doc.name desc, a desc;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`	`doc`.`name`
+8	NULL	98768	NULL
+7	NY	98767	NULL
+6	NULL	98766	NULL
+5	WA	98765	Evan
+9	WA	98764	Linda
+4	WA	98764	Don
+3	NY	98763	Charlie
+2	AZ	98762	Bob
+1	CA	98761	Alex
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.zipcode, doc.address.state, a;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+2	AZ	98762
+3	NY	98763
+4	WA	98764
+9	WA	98764
+5	WA	98765
+6	NULL	98766
+7	NY	98767
+8	NULL	98768
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.zipcode, doc.address.state, doc.name, a;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+2	AZ	98762
+3	NY	98763
+4	WA	98764
+9	WA	98764
+5	WA	98765
+6	NULL	98766
+7	NY	98767
+8	NULL	98768
+select a
+from t1
+order by doc;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+select a
+from t1
+order by doc desc;
+a
+9
+8
+7
+6
+5
+4
+3
+2
+1
+select a
+from t1
+order by doc, doc.address.state desc, doc.address.zipcode;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by state, state, a;
+state	zipcode	a
+NULL	98766	6
+NULL	98768	8
+AZ	98762	2
+CA	98761	1
+NY	98763	3
+NY	98767	7
+WA	98764	4
+WA	98765	5
+WA	98764	9
+select doc.address.zipcode as zipcode, a
+from t1
+order by test.t1.doc.address.zipcode, t1.doc.address.zipcode, a asc;
+zipcode	a
+98761	1
+98762	2
+98763	3
+98764	4
+98764	9
+98765	5
+98766	6
+98767	7
+98768	8
+select doc.address.state as state, a
+from t1
+order by state, test.t1.doc.address.state, a desc;
+state	a
+NULL	8
+NULL	6
+AZ	2
+CA	1
+NY	7
+NY	3
+WA	9
+WA	5
+WA	4
+##### Document paths with different types in GROUP BY without HAVING clause (with and without aliases)
 select count(*), cast(test.t1.doc.address.state as char)
 from t1
 group by cast(test.t1.doc.address.state as char);
 count(*)	cast(test.t1.doc.address.state as char)
+2	NULL
 1	AZ
 1	CA
-3	NY
+2	NY
 3	WA
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by 2;
+count(*)	cast(test.t1.doc.address.state as char)
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state;
+count(*)	state
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+select cast(test.t1.doc.address.state as char) as state, count(*)
+from t1
+group by 1;
+state	count(*)
+NULL	2
+AZ	1
+CA	1
+NY	2
+WA	3
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char) desc;
+count(*)	cast(test.t1.doc.address.state as char)
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by 2 desc;
+count(*)	cast(test.t1.doc.address.state as char)
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char)
+order by cast(test.t1.doc.address.state as char) desc;
+count(*)	cast(test.t1.doc.address.state as char)
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by 2
+order by 2 desc;
+count(*)	cast(test.t1.doc.address.state as char)
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state
+order by state desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by 2
+order by 2 desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char)
+order by cast(test.t1.doc.address.state as char) desc;
+count(*)	cast(test.t1.doc.address.state as char)
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), cast(test.t1.doc.address.state as char) as state
+from t1
+group by state
+order by state desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char);
+count(*)	state
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char) desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char)
+order by cast(state as char);
+count(*)	state
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+select count(*), test.t1.doc.address.state as state
+from t1
+group by cast(state as char)
+order by cast(state as char) desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as char);
+count(*)	zipcode
+1	98761
+1	98762
+1	98763
+2	98764
+1	98765
+1	98766
+1	98767
+1	98768
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as char) desc;
+count(*)	zipcode
+1	98768
+1	98767
+1	98766
+1	98765
+2	98764
+1	98763
+1	98762
+1	98761
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as unsigned)
+order by cast(zipcode as unsigned);
+count(*)	zipcode
+1	98761
+1	98762
+1	98763
+2	98764
+1	98765
+1	98766
+1	98767
+1	98768
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by cast(zipcode as unsigned)
+order by cast(zipcode as unsigned) desc;
+count(*)	zipcode
+1	98768
+1	98767
+1	98766
+1	98765
+2	98764
+1	98763
+1	98762
+1	98761
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state;
+count(*)	`doc`.`address`.`state`
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state;
+count(*)	state
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state desc;
+count(*)	`doc`.`address`.`state`
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+order by test.t1.doc.address.state desc;
+count(*)	`doc`.`address`.`state`
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select count(*), test.t1.doc.address.state
+from t1
+group by 2
+order by 2 desc;
+count(*)	`doc`.`address`.`state`
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
+select test.t1.doc.address.state, count(*)
+from t1
+group by 1
+order by 1 desc;
+`doc`.`address`.`state`	count(*)
+WA	3
+NY	2
+CA	1
+AZ	1
+NULL	2
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state
+order by state desc;
+count(*)	state
+3	WA
+2	NY
+1	CA
+1	AZ
+2	NULL
 select count(*) as total, test.t1.doc.address.state
 from t1
 group by cast(test.t1.doc.address.state as char)
 having total > 1;
-total	doc
-3	NY
+total	`doc`.`address`.`state`
+2	NULL
+2	NY
 3	WA
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by cast(test.t1.doc.address.state as char) desc
+having total >= 2;
+total	`doc`.`address`.`state`
+3	WA
+2	NY
+2	NULL
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by cast(test.t1.doc.address.state as char)
+having total > 1
+order by cast(test.t1.doc.address.state as char) desc;
+total	`doc`.`address`.`state`
+3	WA
+2	NY
+2	NULL
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+having total >= 2;
+total	`doc`.`address`.`state`
+2	NULL
+2	NY
+3	WA
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by 2
+having total >= 2;
+total	`doc`.`address`.`state`
+2	NULL
+2	NY
+3	WA
+select count(*) as total, test.t1.doc.address.state as state
+from t1
+group by state
+having total >= 2;
+total	state
+2	NULL
+2	NY
+3	WA
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state desc
+having total > 1;
+total	`doc`.`address`.`state`
+3	WA
+2	NY
+2	NULL
+select test.t1.doc.address.state, count(*) as total
+from t1
+group by 1 desc
+having total > 1;
+`doc`.`address`.`state`	total
+WA	3
+NY	2
+NULL	2
+select count(*) as total, test.t1.doc.address.state as state
+from t1
+group by state desc
+having total > 1;
+total	state
+3	WA
+2	NY
+2	NULL
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+having total >= 2
+order by test.t1.doc.address.state desc;
+total	`doc`.`address`.`state`
+3	WA
+2	NY
+2	NULL
+select count(*) as total, test.t1.doc.address.state
+from t1
+group by 2
+having total >= 2
+order by 2 desc;
+total	`doc`.`address`.`state`
+3	WA
+2	NY
+2	NULL
+select count(*) as total, test.t1.doc.address.state as state
+from t1
+group by state
+having total >= 2
+order by state desc;
+total	state
+3	WA
+2	NY
+2	NULL
+select test.t1.doc.address.state as state, count(*) as total
+from t1
+group by 1
+having total >= 2
+order by 1 desc;
+state	total
+WA	3
+NY	2
+NULL	2
+select doc.id, a from t3 group by doc.id;
+`doc`.`id`	a
+1	1
+22	2
+3333	3
+44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
+show warnings;
+Level	Code	Message
+##### Document paths with different types in GROUP BY with HAVING clause (with and without aliases)
+select count(*), test.t1.doc.address.state
+from t1
+group by t1.doc.address.zipcode
+having doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`
+1	CA
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.state
+having test.t1.doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), test.t1.doc.address.state
+from t1
+group by 2
+having test.t1.doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), doc.address.state
+from t1
+group by doc.address.state
+having test.t1.doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), doc.address.state
+from t1
+group by doc.address.state
+having doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), t1.doc.address.state
+from t1
+group by doc.address.state
+having test.t1.doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), doc.address.state
+from t1
+group by t1.doc.address.state
+having test.t1.doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), doc.address.state
+from t1
+group by t1.doc.address.state
+having doc.address.state like "NY";
+count(*)	`doc`.`address`.`state`
+2	NY
+select count(*), test.t1.doc.address.state as state
+from t1
+group by state
+having state like "NY";
+count(*)	state
+2	NY
+select count(*), test.t1.doc.address.zipcode
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`zipcode`
+1	98761
+select test.t1.doc.address.zipcode, count(*)
+from t1
+group by 1
+having test.t1.doc.address.zipcode = 98761;
+`doc`.`address`.`zipcode`	count(*)
+98761	1
+select test.t1.doc.address.zipcode, count(*)
+from t1
+group by 1
+having doc.address.zipcode = 98761;
+`doc`.`address`.`zipcode`	count(*)
+98761	1
+select count(*), test.t1.doc.address.zipcode as zipcode
+from t1
+group by zipcode
+having zipcode = 98761;
+count(*)	zipcode
+1	98761
+select count(*), doc.address.zipcode
+from t1
+group by doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`zipcode`
+1	98761
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`
+1	CA
+select count(*), t1.doc.address.state
+from t1
+group by doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`
+1	CA
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98768;
+count(*)	`doc`.`address`.`state`
+1	NULL
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having t1.doc.address.zipcode = 98768;
+count(*)	`doc`.`address`.`state`
+1	NULL
+select count(*), test.t1.doc.address.state, test.t1.doc.address.zipcode
+from t1
+group by test.t1.doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+select count(*), test.t1.doc.address.state, test.t1.doc.address.zipcode
+from t1
+group by 3
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+select count(*), test.t1.doc.address.state, test.t1.doc.address.zipcode
+from t1
+group by 3
+having doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+select count(*), doc.address.state, doc.address.zipcode
+from t1
+group by doc.address.zipcode
+having test.t1.doc.address.zipcode = 98761;
+count(*)	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+select count(*), test.t1.doc.address.state as state, test.t1.doc.address.zipcode as zipcode
+from t1
+group by state
+having state like "NY";
+count(*)	state	zipcode
+2	NY	98763
+select count(*), test.t1.doc.address.state as state, test.t1.doc.address.zipcode as zipcode
+from t1
+group by zipcode
+having zipcode = 98761;
+count(*)	state	zipcode
+1	CA	98761
+select count(*), test.t1.doc.address.state as state, test.t1.doc.address.zipcode as zipcode
+from t1
+group by 3
+having zipcode = 98761;
+count(*)	state	zipcode
+1	CA	98761
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(test.t1.doc.address.zipcode as char) like '98761';
+count(*)	`doc`.`address`.`state`
+1	CA
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(test.t1.doc.address.zipcode as char) like '98768';
+count(*)	`doc`.`address`.`state`
+1	NULL
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(t1.doc.address.zipcode as char) like '98761';
+count(*)	`doc`.`address`.`state`
+1	CA
+select count(*), test.t1.doc.address.state
+from t1
+group by test.t1.doc.address.zipcode
+having cast(doc.address.zipcode as char) like '98761';
+count(*)	`doc`.`address`.`state`
+1	CA
+select doc.id, a from t3 group by doc.id having doc.id > 4444444444444444;
+`doc`.`id`	a
+44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
+Warnings:
+Warning	1292	Truncated incorrect DOUBLE value: '44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444'
+show warnings;
+Level	Code	Message
+Warning	1292	Truncated incorrect DOUBLE value: '44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444'
+##### General cases with JOIN, ORDER BY, SUB QUERY, etc.
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 left join t1
 on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned);
-a	doc	a2	doc2
+a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 1	98761	10	98761
 2	98762	8	98762
 3	98763	3	98763
 4	98764	5	98764
+9	98764	5	98764
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t1, t2
 where t1.doc.address.zipcode like t2.doc2.address.zipcode;
-a	doc	a2	doc2
+a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 1	98761	10	98761
 2	98762	8	98762
 3	98763	3	98763
 4	98764	5	98764
+9	98764	5	98764
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
-order by cast(t1.doc.address.zipcode as unsigned) asc;
-a	doc	a2	doc2
+order by cast(t1.doc.address.zipcode as unsigned) asc, t1.a;
+a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 1	98761	10	98761
 2	98762	8	98762
 3	98763	3	98763
 4	98764	5	98764
+9	98764	5	98764
 5	98765	NULL	NULL
 6	98766	NULL	NULL
 7	98767	NULL	NULL
@@ -449,16 +1706,18 @@ a	doc	a2	doc2
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on t1.doc.address.zipcode like t2.doc2.address.zipcode
-order by t1.doc.address.zipcode desc;
-a	doc	a2	doc2
+order by t1.doc.address.zipcode desc, t1.a, t2.a2;
+a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 8	98768	NULL	NULL
 7	98767	NULL	NULL
 6	98766	NULL	NULL
 5	98765	NULL	NULL
 4	98764	5	98764
+9	98764	5	98764
 3	98763	3	98763
 2	98762	8	98762
 1	98761	10	98761
+##### General cases with JOIN, ORDER BY, SUB QUERY, etc.
 select t1_name, t1_zipcode, t2_name, t2_zipcode
 from (
 select cast(t1.doc.name as char) as t1_name, cast(t1.doc.address.zipcode as unsigned) as t1_zipcode,
@@ -470,20 +1729,15 @@ where t1_zipcode = 98761 or t2_zipcode = 98762;
 t1_name	t1_zipcode	t2_name	t2_zipcode
 Alex	98761	Alex II	98761
 Bob	98762	Bob II	98762
-select doc.name, doc.address.zipcode, doc2.name, doc2.address.zipcode
+select tmp.t1_zipcode, t2_zipcode
 from (
 select t1.doc.address.zipcode as t1_zipcode, t2.doc2.address.zipcode as t2_zipcode
 from t1, t2
 where t1.doc.address.zipcode like t2.doc2.address.zipcode
 ) as tmp
-where doc.address.zipcode like "98761" or doc2.address.zipcode like "98762";
-doc	doc	doc2	doc2
-Alex	98761	Alex II	98761
-Bob	98762	Bob II	98762
-insert into t1 values (100,'@100','{ "id":10100, "double": 4.94065645841246 }');
-select t1.doc.double from t1 where a = 100;
-doc
-4.94065645841246
+where t1_zipcode like "98761" or tmp.t2_zipcode like "98762";
+t1_zipcode	t2_zipcode
+##### Clean up
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
