@@ -3700,9 +3700,10 @@ bool Query_log_event::write(IO_CACHE* file)
       *start++= Q_INVOKER;
 
       /*
-        Store user length and user. The max length of user is 32, so 1 byte is
+        Store user length and user. The max length of user is 80, so 1 byte is
         enough to store the user's length.
        */
+      assert(user.length < UINT_MAX8);
       *start++= (uchar)user.length;
       memcpy(start, user.str, user.length);
       start+= user.length;
