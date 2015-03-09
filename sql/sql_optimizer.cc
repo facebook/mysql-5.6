@@ -8230,7 +8230,15 @@ static bool duplicate_order(const ORDER *first_order,
           (static_cast<const Item_field*>(it1)->field ==
            static_cast<const Item_field*>(it2)->field))
       {
-        return true;
+        /* If both of the items are document paths then the whole paths
+           need to be compared */
+        if (((Item_field*)it1)->document_path &&
+            ((Item_field*)it2)->document_path)
+        {
+          return ((Item_ident*)it1)->compare_document_path((Item_ident*)it2);
+        }
+        return (!((Item_field*)it1)->document_path &&
+                !((Item_field*)it2)->document_path);
       }
     }
   }

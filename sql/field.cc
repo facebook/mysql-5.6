@@ -8587,6 +8587,34 @@ my_decimal *Field_document::val_decimal(my_decimal *decimal_value)
 
 
 /*
+  Called by make_sortkey() in filesort.cc when the sort field
+  is a document field. The document field will be retrieved as
+  a string for the sort key.
+*/
+void Field_document::make_sort_key(uchar *to, uint length)
+{
+  DBUG_ASSERT(to && length > 0);
+  memset(to, 0, length);
+  if (get_length())
+  {
+    char *blob;
+    memcpy(&blob, ptr+packlength, sizeof(char*));
+    if (blob)
+    {
+      fbson::FbsonValue *pval =
+        fbson::FbsonDocument::createValue(blob, get_length(ptr));
+      DBUG_ASSERT(pval);
+      fbson::FbsonToJson tojson;
+      const char *json = tojson.json(pval);
+      uint len = std::min(length-1, (uint)strlen(json));
+      memcpy(to, json, len);
+      to[len] = '\0';
+    }
+  }
+}
+
+
+/*
  * Extracts fbson value from key path
  * Input: key_path - the key path
  * Output: FbsonValue object, NULL if path is invalid
@@ -8681,15 +8709,18 @@ bool Field_document::document_path_val_binary(
     {
       if (val_len > length)
       {
+        /* data will be truncated if the passed-in buff is not big enough. */
         val_len = length;
 
         /* set warnings */
         THD *thd= table ? table->in_use : current_thd;
         if (thd->count_cuted_fields)
           thd->cuted_fields++;
+        String full_name;
+        gen_document_path_full_name(full_name, field_name, key_path);
         push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                             WARN_DATA_TRUNCATED, ER(WARN_DATA_TRUNCATED),
-                            field_name,
+                            full_name.c_ptr_safe(),
                             thd->get_stmt_da()->current_row_for_warning());
       }
       /* copy the binary image into the buffer */
@@ -8699,6 +8730,139 @@ bool Field_document::document_path_val_binary(
       is_null = true;
   }
   return false; /* success */
+}
+
+
+/**
+ * if string is not NULL then use it as output buffer, memory within string
+ * will be automatically dynamically allocated no matter how large the data
+ * is, and buff/length/val_len will be all ignored.
+ * Otherwise, buff will be used as output buffer, and the data can be
+ * truncated when data is larger than length.
+ *
+ * key_path : (in) the document path key path
+ * string   : (in/out) the output string buffer
+ * buff     : (in/out) the output buffer
+ * length   : (in) the length of buff
+ * val_len  : (out) the actual length of the output vlaue
+ * is_null  : (out) if the value is null
+ *
+ * return value : false: success; true: failure
+ */
+void Field_document::document_path_val_string(
+                                  List<Document_key>& key_path,
+                                  String *string,
+                                  uchar *buff, uint length,
+                                  uint& val_len, my_bool& is_null)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+
+  is_null = true;
+  char *blob = NULL;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return;
+
+  fbson::FbsonValue *val =
+      fbson::FbsonDocument::createValue(blob, get_length(ptr));
+
+  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+
+  if (!p || p->isNull())
+    return;
+
+  fbson::FbsonToJson to_json;
+  const char *ptr = NULL;
+  uint len = 0;
+  char buf[128];
+  switch (p->type())
+  {
+  case fbson::FbsonType::T_Null:
+    return;
+
+  case fbson::FbsonType::T_True:
+    sprintf(buf, "%s", "true");
+    break;
+
+  case fbson::FbsonType::T_False:
+    sprintf(buf, "%s", "false");
+    break;
+
+  case fbson::FbsonType::T_Int8:
+    sprintf(buf, "%d", (int)((fbson::Int8Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Int16:
+    sprintf(buf, "%d", (int)((fbson::Int16Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Int32:
+    sprintf(buf, "%d", (int32)((fbson::Int32Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Int64:
+    sprintf(buf, "%lld", (int64)((fbson::Int64Val*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_Double:
+    sprintf(buf, "%.15g", (double)((fbson::DoubleVal*)p)->val());
+    break;
+
+  case fbson::FbsonType::T_String:
+    ptr = ((fbson::StringVal*)p)->getBlob();
+    len = ((fbson::StringVal*)p)->getBlobLen();
+    break;
+
+  case fbson::FbsonType::T_Binary:
+  case fbson::FbsonType::T_Object:
+  case fbson::FbsonType::T_Array:
+    ptr = to_json.json(p);
+    len = strlen(ptr);
+    break;
+
+  default:
+    /* should never reach here */
+    DBUG_ASSERT(0);
+    return;
+  }
+
+  if (!ptr)
+  {
+    ptr = buf;
+    len = strlen(ptr);
+  }
+
+  if (string)
+  {
+    /* use the passed-in string as the output buffer. memory will be
+       allocated within the string. data won't be truncated.
+    */
+    string->copy(ptr, len, charset());
+  }
+  else
+  {
+    /* use passed-in buff as the output buffer. data can be truncated */
+    DBUG_ASSERT(buff && length > 0);
+    if (len > length - 1)
+    {
+      /* data will be truncated if the passed-in buff is not big enough. */
+      len = length - 1;
+
+      /* set warnings */
+      THD *thd= table ? table->in_use : current_thd;
+      if (thd->count_cuted_fields)
+        thd->cuted_fields++;
+      push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+                          WARN_DATA_TRUNCATED, ER(WARN_DATA_TRUNCATED),
+                          field_name,
+                          thd->get_stmt_da()->current_row_for_warning());
+    }
+    /* copy the binary image into the buffer */
+    memcpy(buff, ptr, len);
+    buff[len] = '\0';
+  }
+  val_len = len;
+  is_null = false;
 }
 
 
@@ -8854,99 +9018,20 @@ String *Field_document::document_path_val_str(
                                 List<Document_key>& key_path,
                                 String *val_buffer, my_bool& is_null)
 {
-  ASSERT_COLUMN_MARKED_FOR_READ;
-
-  is_null = true;
-
-  /* Initially the output buffer is set to empty string,
-     but this function may return NULL.
-   */
-  val_buffer->copy("", 0, charset());
-
-  char *blob = NULL;
-  memcpy(&blob, ptr+packlength, sizeof(char*));
-  if (!blob)
-    return NULL;
-
-  fbson::FbsonValue *val =
-      fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
-
-  if (!p || p->isNull())
-    return NULL;
-
-  char buf[128];
-  switch (p->type())
-  {
-  case fbson::FbsonType::T_Null:
-    return NULL;
-
-  case fbson::FbsonType::T_True:
-    sprintf(buf, "%s", "true");
-    break;
-
-  case fbson::FbsonType::T_False:
-    sprintf(buf, "%s", "false");
-    break;
-
-  case fbson::FbsonType::T_Int8:
-    sprintf(buf, "%d", (int)((fbson::Int8Val*)p)->val());
-    break;
-
-  case fbson::FbsonType::T_Int16:
-    sprintf(buf, "%d", (int)((fbson::Int16Val*)p)->val());
-    break;
-
-  case fbson::FbsonType::T_Int32:
-    sprintf(buf, "%d", (int32)((fbson::Int32Val*)p)->val());
-    break;
-
-  case fbson::FbsonType::T_Int64:
-    sprintf(buf, "%lld", (int64)((fbson::Int64Val*)p)->val());
-    break;
-
-  case fbson::FbsonType::T_Double:
-    sprintf(buf, "%.15g", (double)((fbson::DoubleVal*)p)->val());
-    break;
-
-  case fbson::FbsonType::T_String:
-    val_buffer->copy(((fbson::StringVal*)p)->getBlob(),
-                     ((fbson::StringVal*)p)->getBlobLen(),
-                     charset());
-    is_null = false;
-    return val_buffer;
-
-  case fbson::FbsonType::T_Binary:
-  case fbson::FbsonType::T_Object:
-  case fbson::FbsonType::T_Array:
-    {
-      fbson::FbsonToJson to_json;
-      const char *ptr = to_json.json(p);
-      val_buffer->copy(ptr, strlen(ptr), charset());
-      is_null = false;
-      return val_buffer;
-    }
-
-  default:
-    /* should never reach here */
-    DBUG_ASSERT(0);
-    return NULL;
-  }
-
-  val_buffer->copy(buf, strlen(buf), charset());
-  is_null = false;
-  return val_buffer;
+  uint tmp;
+  document_path_val_string(key_path, val_buffer,
+                           NULL, 0, tmp, is_null);
+  return (is_null ? NULL : val_buffer);
 }
-
 
 bool Field_document::document_path_val_doc(
                                 List<Document_key>& key_path,
                                 uchar *buff, uint length,
                                 uint& val_len, my_bool& is_null)
 {
-  return this->document_path_val_binary(
-                                key_path, buff, length, val_len, is_null);
+  this->document_path_val_string(key_path, NULL,
+                                 buff, length, val_len, is_null);
+  return true;
 }
 
 
@@ -9010,13 +9095,46 @@ bool Field_document::document_path_get_time(
                                         0, false, is_null);
 }
 
+
+/*
+  Called by make_sortkey() in filesort.cc when the sort field
+  is a document path. The document path will be retrieved as
+  a string for the sort key.
+*/
 bool Field_document::document_path_make_sort_key(
                                  List<Document_key>& key_path,
                                  uchar *buff, uint length,
                                  uint& val_len, my_bool& is_null)
 {
-  return this->document_path_val_binary(key_path, buff, length,
-                                        val_len, is_null);
+  this->document_path_val_string(key_path, NULL,
+                                 buff, length, val_len, is_null);
+  return true;
+}
+
+
+/**
+ It is called by Item_field::save_org_in_field() when setting a temp table's
+ string field's value from an item that is a document path. It happens when
+ using a document path in GROUP BY. Also see field_conv() in field_conv.cc.
+*/
+type_conversion_status Field_document::field_conv_document_path(
+                                 List<Document_key>& key_path,
+                                 Field *to, my_bool is_null)
+{
+  DBUG_ASSERT(key_path.elements > 0);
+
+  is_null = true;
+  if (to->type() == MYSQL_TYPE_VARCHAR)
+  {
+    char buff[MAX_FIELD_WIDTH];
+    String result(buff, sizeof(buff), this->charset());
+    if (this->document_path_val_str(key_path, &result, is_null))
+    {
+      return to->store(result.c_ptr_quick(),
+                       result.length(), this->charset());
+    }
+  }
+  return TYPE_OK;
 }
 
 

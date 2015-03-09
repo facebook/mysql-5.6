@@ -206,6 +206,37 @@ static Field *create_tmp_field_for_schema(THD *thd, Item *item, TABLE *table)
 
 
 /**
+  Create a string field for a document path item.
+
+  @param thd		Thread handler
+  @param table		Temporary table
+  @param item_field	Item to create a field for
+
+  @retval
+    0			on error
+  @retval
+    new_created field
+*/
+
+Field *create_tmp_field_from_document_path(THD *thd, Item_field *item_field,
+                                           TABLE *table)
+{
+  DBUG_ASSERT(item_field->field &&
+              item_field->field->type() == MYSQL_TYPE_DOCUMENT &&
+              item_field->document_path_keys.elements > 0);
+
+  Field *new_field= item_field->make_string_field_for_document_path_item(table);
+  if (new_field)
+  {
+    new_field->set_derivation(item_field->collation.derivation);
+    new_field->init(table);
+    item_field->set_result_field(new_field);
+  }
+  return new_field;
+}
+
+
+/**
   Create field for temporary table.
 
   @param thd		Thread handler
@@ -268,11 +299,25 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
     bool orig_modify= modify_item;
     if (orig_type == Item::REF_ITEM)
       modify_item= 0;
+
+    /* Item is a document path */
+    if (field->document_path)
+    {
+      DBUG_ASSERT(field->field &&
+                  field->field->type() == MYSQL_TYPE_DOCUMENT &&
+                  field->document_path_keys.elements > 0);
+      result= create_tmp_field_from_document_path(thd, field, table);
+      if (!result)
+        break;
+      *from_field= field->field;
+      if (modify_item)
+        field->result_field= result;
+    }
     /*
       If item have to be able to store NULLs but underlaid field can't do it,
       create_tmp_field_from_field() can't be used for tmp field creation.
     */
-    if (field->maybe_null && !field->field->maybe_null())
+    else if (field->maybe_null && !field->field->maybe_null())
     {
       result= create_tmp_field_from_item(thd, item, table, NULL,
                                          modify_item);
@@ -580,6 +625,12 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
         (*tmp->item)->max_length / (*tmp->item)->collation.collation->mbmaxlen;
       if (char_len > CONVERT_IF_BIGGER_TO_BLOB)
         using_unique_constraint= true;
+      /* GROUP BY document path */
+      if ((*tmp->item)->type() == Item::FIELD_ITEM &&
+          ((Item_field*)(*tmp->item))->document_path)
+      {
+        using_unique_constraint= false;
+      }
     }
     if (param->group_length >= MAX_BLOB_WIDTH)
       using_unique_constraint= true;
@@ -1090,6 +1141,19 @@ update_hidden:
       Field *field=(*cur_group->item)->get_tmp_table_field();
       DBUG_ASSERT(field->table == table);
       bool maybe_null=(*cur_group->item)->maybe_null;
+      /*
+        This is a Field_varstring field that was created for a document path
+        in GROUP BY.
+      */
+      if (field->type() == MYSQL_TYPE_VARCHAR &&
+          ((Field_varstring*)field)->document_path_keys)
+      {
+        /*
+          This Field_varstring field always can be NULL no matter if the
+          original document column can be NULL or not.
+        */
+        maybe_null = true;
+      }
       key_part_info->init_from_field(field);
       if (!using_unique_constraint)
       {
