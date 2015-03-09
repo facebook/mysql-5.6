@@ -298,8 +298,36 @@ static void do_field_string(Copy_field *copy)
   String res(buff, sizeof(buff), copy->from_field->charset());
   res.length(0U);
 
-  copy->from_field->val_str(&res);
-  copy->to_field->store(res.c_ptr_quick(), res.length(), res.charset());
+  /* if the 'to' field is a var-string field of a temp table that corresponds
+     to a document path, then the 'from' field is the document field
+  */
+  if (copy->to_field_is_document_path)
+  {
+    DBUG_ASSERT(copy->from_field->type() == MYSQL_TYPE_DOCUMENT &&
+                copy->to_field->type() == MYSQL_TYPE_VARCHAR &&
+                ((Field_varstring*)copy->to_field)->document_path_keys);
+
+    List<Document_key> *document_path_keys =
+      (((Field_varstring*)copy->to_field)->document_path_keys);
+    DBUG_ASSERT(document_path_keys->elements > 0);
+
+    /* retrieve the document path data as a string  */
+    Field_document *fd = (Field_document*)(copy->from_field);
+    my_bool is_null = false;
+    fd->document_path_val_str(*document_path_keys, &res, is_null);
+    if (is_null)
+    {
+      *copy->to_null_ptr|=copy->to_bit;
+      copy->to_field->reset();
+    }
+    else
+      copy->to_field->store(res.c_ptr_quick(), res.length(), res.charset());
+  }
+  else
+  {
+    copy->from_field->val_str(&res);
+    copy->to_field->store(res.c_ptr_quick(), res.length(), res.charset());
+  }
 }
 
 
@@ -584,6 +612,12 @@ void Copy_field::set(uchar *to,Field *from)
  */
 void Copy_field::set(Field *to,Field *from,bool save)
 {
+  /* if the 'to' field is a var-string field of a temp table that corresponds
+     to a document path, then the 'from' field is the document field
+  */
+  to_field_is_document_path = (to->type() == MYSQL_TYPE_VARCHAR &&
+                               ((Field_varstring*)to)->document_path_keys);
+
   if (to->type() == MYSQL_TYPE_NULL)
   {
     to_null_ptr=0;				// For easy debugging
@@ -591,6 +625,7 @@ void Copy_field::set(Field *to,Field *from,bool save)
     do_copy=do_skip;
     return;
   }
+
   from_field=from;
   to_field=to;
   from_ptr=from->ptr;
