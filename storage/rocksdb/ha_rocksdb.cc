@@ -138,6 +138,22 @@ rocksdb_cf_options_file_update(THD* thd,
   DBUG_ASSERT(0);
 }
 
+static void
+rocksdb_compact_column_family(THD* thd,
+                              struct st_mysql_sys_var* var,
+                              void* var_ptr,
+                              const void* save)
+{
+  if (const char* cf = *static_cast<const char*const*>(save)) {
+    bool is_automatic;
+    auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
+    if (cfh != nullptr && rdb != nullptr) {
+      sql_print_information("RocksDB: Manual compaction of column family: %s\n", cf);
+      rdb->CompactRange(cfh, nullptr, nullptr);
+    }
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -150,6 +166,7 @@ static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_records_in_range;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static uint32_t rocksdb_perf_context_level;
+static char * compact_cf_name;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -544,6 +561,11 @@ static MYSQL_SYSVAR_UINT(debug_optimizer_n_rows,
   NULL, NULL, 1000,
   /* min */ 0, /* max */ INT_MAX, 0);
 
+static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
+  PLUGIN_VAR_RQCMDARG,
+  "Compact column family",
+  NULL, rocksdb_compact_column_family, "");
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -610,6 +632,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(debug_optimizer_records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
+
+  MYSQL_SYSVAR(compact_cf),
 
   NULL
 };
