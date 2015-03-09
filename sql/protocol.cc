@@ -1100,29 +1100,34 @@ bool Protocol_text::store_internal(Field *field,
 {
   if (field->is_null())
     return store_null();
-#ifndef DBUG_OFF
-  field_pos++;
-#endif
+
   char buff[MAX_FIELD_WIDTH];
   String str(buff,sizeof(buff), &my_charset_bin);
   const CHARSET_INFO *tocs= this->thd->variables.character_set_results;
+
+  if (key_path.elements > 0)
+  {
+    /* If the return value is NULL str will be set with empty string */
+    my_bool is_null = false;
+    field->document_path_val_str(key_path, &str, is_null);
+    if (is_null)
+      return store_null();
+  }
+  else
+  {
+    field->val_str(&str);
+  }
+
+#ifndef DBUG_OFF
+  field_pos++;
+#endif
+
 #ifndef DBUG_OFF
   TABLE *table= field->table;
   my_bitmap_map *old_map= 0;
   if (table->file)
     old_map= dbug_tmp_use_all_columns(table, table->read_set);
 #endif
-
-  if (key_path.elements == 0)
-    field->val_str(&str);
-  else
-  {
-    /* If the return value is NULL str will be set with empty string */
-    my_bool is_null = false;
-    field->document_path_val_str(key_path, &str, is_null);
-    if (is_null)
-      store_null();
-  }
 
 #ifndef DBUG_OFF
   if (old_map)
