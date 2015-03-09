@@ -16,6 +16,11 @@ Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
 Options.max_bytes_for_level_multiplier: 10
+Options for column family [_system_]:
+Options.db_write_buffer_size: 0
+Options.write_buffer_size: 12582912
+Options.target_file_size_base: 1048576
+Options.max_bytes_for_level_multiplier: 10
 Options for column family [cf1]:
 Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
@@ -36,6 +41,11 @@ Individualized options for column families:
 
 Options.db_write_buffer_size: 0
 Options for column family [default]:
+Options.db_write_buffer_size: 0
+Options.write_buffer_size: 12582912
+Options.target_file_size_base: 1048576
+Options.max_bytes_for_level_multiplier: 10
+Options for column family [_system_]:
 Options.db_write_buffer_size: 0
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
