@@ -81,6 +81,10 @@ let $table = t5;
 
 drop table t5;
 
+# Manually compact column families, cleaning up all lingering data
+set global rocksdb_compact_cf = 'cf1';
+set global rocksdb_compact_cf = 'rev:cf2';
+
 # Check log for dropped index statements
 --exec grep "dropped index" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 | sort
 
