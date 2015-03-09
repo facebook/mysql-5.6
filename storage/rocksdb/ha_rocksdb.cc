@@ -2815,6 +2815,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   if (rc)
   {
     table->status= STATUS_NOT_FOUND; /* Only not found error is possible */
+    io_perf_end_and_record();
     DBUG_RETURN(rc);
   }
 
