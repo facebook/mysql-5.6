@@ -472,6 +472,23 @@ private:
   Document_key();
 };
 
+/* Generate document path full name */
+void inline gen_document_path_full_name(String& document_path_full_name,
+                                        const char* field_name,
+                                        List<Document_key>& document_path_keys)
+{
+  document_path_full_name.set("`", 1, &my_charset_bin);
+  document_path_full_name.append(field_name);
+  document_path_full_name.append("`");
+  List_iterator<Document_key> it(document_path_keys);
+  for(Document_key *p; (p=it++);)
+  {
+    document_path_full_name.append(".`");
+    document_path_full_name.append(p->string.str, p->string.length);
+    document_path_full_name.append("`");
+  }
+  document_path_full_name.append('\0');
+}
 
 class Field
 {
@@ -3267,6 +3284,18 @@ public:
   static const uint MAX_SIZE;
   /* Store number of bytes used to store length (1 or 2) */
   uint32 length_bytes;
+
+  /*
+     When a document path is used in GROUP BY and a temp table
+     needs to be created, a column with type of Field_varstring
+     will be created in the temp table for this document path,
+     in this case, the pointer to the key list of the document
+     path will be stored here. Please note that the Field_varstring
+     instance is owned by this temp table. For non-temp table case
+     this member variable will always be NULL.
+  */
+  List<Document_key> *document_path_keys;
+
   Field_varstring(uchar *ptr_arg,
                   uint32 len_arg, uint length_bytes_arg,
                   uchar *null_ptr_arg, uchar null_bit_arg,
@@ -3277,6 +3306,7 @@ public:
      length_bytes(length_bytes_arg)
   {
     share->varchar_fields++;
+    document_path_keys = NULL;
   }
   Field_varstring(uint32 len_arg,bool maybe_null_arg,
                   const char *field_name_arg,
@@ -3286,6 +3316,7 @@ public:
      length_bytes(len_arg < 256 ? 1 :2)
   {
     share->varchar_fields++;
+    document_path_keys = NULL;
   }
 
   enum_field_types type() const { return MYSQL_TYPE_VARCHAR; }
@@ -3611,6 +3642,29 @@ class Field_document :public Field_blob {
   void push_error_too_big();
   virtual type_conversion_status store_internal(const char *from, uint length,
                                                 const CHARSET_INFO *cs);
+  /*
+   helper functions for Field_document use only.
+  */
+  template<typename T>
+  T document_path_val_numeric(List<Document_key>& key_path,
+                              bool &valid_result,
+                              my_bool& is_null);
+
+  bool document_path_get_date_or_time(List<Document_key>& key_path,
+                                      MYSQL_TIME *ltime,
+                                      uint fuzzydate,
+                                      bool is_date,
+                                      my_bool& is_null);
+
+  bool document_path_val_binary(List<Document_key>& key_path,
+                                uchar *buff, uint length,
+                                uint& val_len, my_bool& is_null);
+
+  void document_path_val_string(List<Document_key>& key_path,
+                                String *string,
+                                uchar *buff, uint length,
+                                uint& val_len, my_bool& is_null);
+
 public:
   enum document_type doc_type;
 
@@ -3649,57 +3703,42 @@ public:
   my_decimal *val_decimal(my_decimal *);
   String *val_str(String*,String *);
   String *val_doc(String*, String*);
-
-  /*
-   helper functions for Field_document use only.
-  */
-  template<typename T>
-  T document_path_val_numeric(List<Document_key>& key_path,
-                                       bool &valid_result,
-                                       my_bool& is_null);
-
-  bool document_path_get_date_or_time(
-                                       List<Document_key>& key_path,
-                                       MYSQL_TIME *ltime,
-                                       uint fuzzydate,
-                                       bool is_date,
-                                       my_bool& is_null);
-
-  bool document_path_val_binary(List<Document_key>& key_path,
-                                         uchar *buff, uint length,
-                                         uint& val_len, my_bool& is_null);
+  void make_sort_key(uchar *buff, uint length);
 
   /*
    virtual functions for Field_document use only.
   */
   bool document_path_val_doc(List<Document_key>& key_path,
-                                      uchar *buff, uint length,
-                                      uint& val_len, my_bool& is_null);
+                             uchar *buff, uint length,
+                             uint& val_len, my_bool& is_null);
 
   String *document_path_val_str(List<Document_key>& key_path,
-                                         String *val_buffer, my_bool& is_null);
+                                String *val_buffer, my_bool& is_null);
 
   longlong document_path_val_int(List<Document_key>& key_path,
-                                          my_bool& is_null);
+                                 my_bool& is_null);
 
   double document_path_val_real(List<Document_key>& key_path,
-                                         my_bool& is_null);
+                                my_bool& is_null);
 
   my_decimal *document_path_val_decimal(List<Document_key>& key_path,
-                                                 my_decimal *decimal_value,
-                                                 my_bool& is_null);
+                                        my_decimal *decimal_value,
+                                        my_bool& is_null);
 
   bool document_path_get_date(List<Document_key>& key_path,
-                                       MYSQL_TIME *ltime,uint fuzzydate,
-                                       my_bool& is_null);
+                              MYSQL_TIME *ltime,uint fuzzydate,
+                              my_bool& is_null);
 
   bool document_path_get_time(List<Document_key>& key_path,
-                                       MYSQL_TIME *ltime,
-                                       my_bool& is_null);
+                              MYSQL_TIME *ltime,
+                              my_bool& is_null);
 
   bool document_path_make_sort_key(List<Document_key>& key_path,
-                                            uchar *buff, uint length,
-                                            uint& val_len, my_bool& is_null);
+                                   uchar *buff, uint length,
+                                   uint& val_len, my_bool& is_null);
+
+  type_conversion_status field_conv_document_path(List<Document_key>& key_path,
+                                                  Field *to, my_bool is_null);
 
   type_conversion_status reset(void)
   {
@@ -4112,6 +4151,7 @@ public:
   uint from_length,to_length;
   Field *from_field,*to_field;
   String tmp;					// For items
+  bool to_field_is_document_path;
 
   Copy_field() {}
   ~Copy_field() {}

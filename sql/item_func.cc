@@ -217,7 +217,10 @@ Item_func::fix_fields(THD *thd, Item **ref)
         DBUG_ASSERT(allowed_arg_cols); // Can't be 0 any more
       }
 
-      if (item->maybe_null)
+      /* A document path always can be NULL no matter the document column
+         can be NULL or not */
+      if (item->maybe_null ||
+          (item->type() == FIELD_ITEM && ((Item_field *)item)->document_path))
 	maybe_null=1;
 
       with_sum_func= with_sum_func || item->with_sum_func;
