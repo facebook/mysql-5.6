@@ -20,6 +20,7 @@
 
 #include <mysql/plugin.h>
 #include "ha_rocksdb.h"
+#include "ha_rocksdb_proto.h"
 #include "sql_class.h"
 #include "sql_array.h"
 
@@ -34,6 +35,7 @@
 #include "rdb_cf_options.h"
 #include "rdb_cf_manager.h"
 #include "rdb_dropped_indices.h"
+#include "rdb_i_s.h"
 
 #include "rocksdb/compaction_filter.h"
 #include "rocksdb/rate_limiter.h"
@@ -374,13 +376,6 @@ static MYSQL_SYSVAR_INT(table_cache_numshardbits,
   NULL, NULL, db_options.table_cache_numshardbits,
   /* min */ 0, /* max */ INT_MAX, 0);
 
-static MYSQL_SYSVAR_INT(table_cache_remove_scan_count_limit,
-  db_options.table_cache_remove_scan_count_limit,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "DBOptions::table_cache_remove_scan_count_limit for RocksDB",
-  NULL, NULL, db_options.table_cache_remove_scan_count_limit,
-  /* min */ 0, /* max */ INT_MAX, 0);
-
 static MYSQL_SYSVAR_ULONG(WAL_ttl_seconds,
   db_options.WAL_ttl_seconds,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -621,7 +616,6 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(keep_log_file_num),
   MYSQL_SYSVAR(max_manifest_file_size),
   MYSQL_SYSVAR(table_cache_numshardbits),
-  MYSQL_SYSVAR(table_cache_remove_scan_count_limit),
   MYSQL_SYSVAR(WAL_ttl_seconds),
   MYSQL_SYSVAR(WAL_size_limit_MB),
   MYSQL_SYSVAR(manifest_preallocation_size),
@@ -1231,39 +1225,35 @@ static bool rocksdb_show_status(handlerton*		hton,
   bool res= false;
   if (stat_type == HA_ENGINE_STATUS)
   {
-    std::vector<std::string> cf_names;
-    std::vector<std::string>::iterator it;
-    rocksdb::ColumnFamilyHandle* cfh;
-    rocksdb::ColumnFamilyMetaData metadata;
     std::string str;
 
+    /* Per DB stats */
     if (rdb->GetProperty("rocksdb.dbstats", &str)) {
-      res= stat_print(thd, STRING_WITH_LEN("DB"),
-                      STRING_WITH_LEN("db"),
-                      str.c_str(), str.size());
+      res |= stat_print(thd, STRING_WITH_LEN("DBSTATS"),
+                        STRING_WITH_LEN("rocksdb"),
+                        str.c_str(), str.size());
     }
 
-    cf_names= cf_manager.get_cf_names();
-    for (it= cf_names.begin(); it != cf_names.end(); it++) {
+    /* Per column family stats */
+    for (auto cf_name : cf_manager.get_cf_names())
+    {
+      rocksdb::ColumnFamilyHandle* cfh;
       bool is_automatic;
-      std::ostringstream buf;
 
       /*
         Only the cf name is important. Whether it was generated automatically
         does not matter, so is_automatic is ignored.
       */
-      cfh= cf_manager.get_cf(it->c_str(), nullptr, nullptr, &is_automatic);
-      if (cfh == nullptr) {
+      cfh= cf_manager.get_cf(cf_name.c_str(), nullptr, nullptr, &is_automatic);
+      if (cfh == nullptr)
         continue;
-      }
 
-      if (!rdb->GetProperty(cfh, "rocksdb.cfstats", &str)) {
+      if (!rdb->GetProperty(cfh, "rocksdb.cfstats", &str))
         continue;
-      }
 
-      res= stat_print(thd, STRING_WITH_LEN("COMPACTION"),
-                      it->c_str(), it->size(),
-                      str.c_str(), str.size());
+      res |= stat_print(thd, STRING_WITH_LEN("CF_COMPACTION"),
+                        cf_name.c_str(), cf_name.size(),
+                        str.c_str(), str.size());
     }
   }
   return res;
@@ -4829,7 +4819,8 @@ mysql_declare_plugin(rocksdb_se)
   rocksdb_system_variables,                     /* system variables */
   NULL,                                         /* config options */
   0,                                            /* flags */
-}
+},
+i_s_rocksdb_cfstats
 mysql_declare_plugin_end;
 
 
@@ -4948,4 +4939,15 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
   }
 
   return can_use;
+}
+
+/* For modules that need access to the global data structures */
+rocksdb::DB *rocksdb_get_rdb()
+{
+  return rdb;
+}
+
+Column_family_manager& rocksdb_get_cf_manager()
+{
+  return cf_manager;
 }
