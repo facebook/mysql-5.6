@@ -17,6 +17,11 @@ CREATE TABLE t3 (k INT, PRIMARY KEY (k) COMMENT 'cf_t1') ENGINE = ROCKSDB;
 CREATE TABLE t4 (l INT, PRIMARY KEY (l) COMMENT 'cf_t4') ENGINE = ROCKSDB;
 --replace_column 3 #
 SHOW ENGINE rocksdb STATUS;
+
+# Fetch data from information schema as well
+--replace_column 3 #
+SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_CFSTATS;
+
 DROP TABLE t1;
 DROP TABLE t2;
 DROP TABLE t3;
