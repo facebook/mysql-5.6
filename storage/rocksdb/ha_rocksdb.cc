@@ -479,7 +479,7 @@ static MYSQL_SYSVAR_BOOL(cache_index_and_filter_blocks,
   *reinterpret_cast<my_bool*>(&table_options.cache_index_and_filter_blocks),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "BlockBasedTableOptions::cache_index_and_filter_blocks for RocksDB",
-  NULL, NULL, table_options.cache_index_and_filter_blocks);
+  NULL, NULL, true);
 
 static MYSQL_SYSVAR_ENUM(index_type,
   rocksdb_index_type,
