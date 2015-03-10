@@ -47,7 +47,7 @@ const char * const DEFAULT_CF_NAME= "default";
 /*
   This is the name of the Column Family used for storing the data dictionary.
 */
-const char * const DEFAULT_SYSTEM_CF_NAME= "_system_";
+const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
 
 /*
   Column family name which means "put this index into its own column family".

@@ -9,7 +9,7 @@ CREATE TABLE t4 (l INT, PRIMARY KEY (l) COMMENT 'cf_t4') ENGINE = ROCKSDB;
 SHOW ENGINE rocksdb STATUS;
 Type	Name	Status
 DB	db	#
-COMPACTION	_system_	#
+COMPACTION	__system__	#
 COMPACTION	cf_t1	#
 COMPACTION	cf_t2	#
 COMPACTION	cf_t4	#
