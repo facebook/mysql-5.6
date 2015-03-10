@@ -42,7 +42,7 @@ int main() { return 0; }
 
 IF(ROCKSDB_OK)
   SET(ROCKSDB_SOURCES
-      ha_rocksdb.cc ha_rocksdb.h
+      ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
       rdb_datadic.cc rdb_datadic.h
       rdb_locks.cc rdb_locks.h
       rdb_rowmods.cc rdb_rowmods.h
@@ -51,7 +51,8 @@ IF(ROCKSDB_OK)
       rdb_cf_manager.cc rdb_cf_manager.h
       rdb_dropped_indices.cc rdb_dropped_indices.h
       properties_collector.cc properties_collector.h
-)
+      rdb_i_s.cc rdb_i_s.h
+      )
 
 
   # Link correct versions of libraries
