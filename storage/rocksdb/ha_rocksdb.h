@@ -458,4 +458,5 @@ public:
                           ulonglong *nb_reserved_values);
   void update_create_info(HA_CREATE_INFO *create_info);
   int optimize(THD *thd, HA_CHECK_OPT *check_opt);
+  int analyze(THD* thd, HA_CHECK_OPT* check_opt);
 };
