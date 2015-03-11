@@ -3602,6 +3602,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
       In this case, we should return EOF.
     */
     table->status= STATUS_NOT_FOUND;
+    io_perf_end_and_record();
     DBUG_RETURN(HA_ERR_END_OF_FILE);
   }
 
@@ -3640,7 +3641,10 @@ retry:
         Row_lock *lock;
         bool timed_out;
         if (!(lock= trx->get_lock((const uchar*)key.data(), key.size(), &timed_out)))
+        {
+          io_perf_end_and_record();
           DBUG_RETURN(return_lock_failure(timed_out));
+        }
 
         rocksdb::ReadOptions options;
         /* lock_rows==TRUE, so not setting options.snapshot */
