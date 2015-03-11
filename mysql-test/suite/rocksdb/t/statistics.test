@@ -26,6 +26,14 @@ create index t1_1 on t1(b);
 create index t3_1 on t3(b) comment 'cf_t3';
 create index t4_1 on t4(b) comment 'rev:cf_t4';
 
+# Manually compact column families, cleaning up all lingering data
+optimize table t1, t2, t3, t4;
+analyze table t1, t2, t3, t4;
+SELECT table_name, data_length, index_length FROM information_schema.tables WHERE table_schema = DATABASE();
+
+create index t4_2 on t4(a);
+optimize table t4;
+analyze table t4;
 SELECT table_name, data_length, index_length FROM information_schema.tables WHERE table_schema = DATABASE();
 
 drop table t1;

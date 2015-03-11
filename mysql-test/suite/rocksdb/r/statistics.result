@@ -10,12 +10,37 @@ insert t4(a, b) select a, b from t1;
 create index t1_1 on t1(b);
 create index t3_1 on t3(b) comment 'cf_t3';
 create index t4_1 on t4(b) comment 'rev:cf_t4';
+optimize table t1, t2, t3, t4;
+Table	Op	Msg_type	Msg_text
+test.t1	optimize	status	OK
+test.t2	optimize	status	OK
+test.t3	optimize	status	OK
+test.t4	optimize	status	OK
+analyze table t1, t2, t3, t4;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
 SELECT table_name, data_length, index_length FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length
-t1	1881813	881184
-t2	1861370	0
-t3	1900513	1095359
-t4	2083385	1094522
+t1	1861370	910713
+t2	1887518	0
+t3	1879282	893160
+t4	1879268	892422
+create index t4_2 on t4(a);
+optimize table t4;
+Table	Op	Msg_type	Msg_text
+test.t4	optimize	status	OK
+analyze table t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
+SELECT table_name, data_length, index_length FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	data_length	index_length
+t1	1861370	910713
+t2	1887518	0
+t3	1879282	893160
+t4	1861356	2652673
 drop table t1;
 drop table t2;
 drop table t3;
