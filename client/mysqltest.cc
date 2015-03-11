@@ -118,7 +118,8 @@ static my_bool json_explain_protocol= 0, json_explain_protocol_enabled= 0;
 static my_bool cursor_protocol= 0, cursor_protocol_enabled= 0;
 static my_bool parsing_disabled= 0;
 static my_bool display_result_vertically= FALSE, display_result_lower= FALSE,
-  display_metadata= FALSE, display_result_sorted= FALSE;
+  display_metadata= FALSE, display_result_sorted= FALSE,
+  display_session_track_info= FALSE;
 static my_bool disable_query_log= 0, disable_result_log= 0;
 static my_bool disable_connect_log= 1;
 static my_bool disable_warnings= 0;
@@ -148,6 +149,7 @@ static struct property prop_list[] = {
   { &abort_on_error, 0, 1, 0, "$ENABLED_ABORT_ON_ERROR" },
   { &disable_connect_log, 0, 1, 1, "$ENABLED_CONNECT_LOG" },
   { &disable_info, 0, 1, 1, "$ENABLED_INFO" },
+  { &display_session_track_info, 0, 1, 1, "$ENABLED_STATE_CHANGE_INFO" },
   { &display_metadata, 0, 0, 0, "$ENABLED_METADATA" },
   { &ps_protocol_enabled, 0, 0, 0, "$ENABLED_PS_PROTOCOL" },
   { &disable_query_log, 0, 0, 1, "$ENABLED_QUERY_LOG" },
@@ -161,6 +163,7 @@ enum enum_prop {
   P_ABORT= 0,
   P_CONNECT,
   P_INFO,
+  P_SESSION_TRACK,
   P_META,
   P_PS,
   P_QUERY,
@@ -711,6 +714,7 @@ enum enum_commands {
   Q_WAIT_FOR_SLAVE_TO_STOP,
   Q_ENABLE_WARNINGS, Q_DISABLE_WARNINGS,
   Q_ENABLE_INFO, Q_DISABLE_INFO,
+  Q_ENABLE_SESSION_TRACK_INFO, Q_DISABLE_SESSION_TRACK_INFO,
   Q_ENABLE_METADATA, Q_DISABLE_METADATA,
   Q_EXEC, Q_EXECW, Q_DELIMITER,
   Q_DISABLE_ABORT_ON_ERROR, Q_ENABLE_ABORT_ON_ERROR,
@@ -782,6 +786,8 @@ const char *command_names[]=
   "disable_warnings",
   "enable_info",
   "disable_info",
+  "enable_session_track_info",
+  "disable_session_track_info",
   "enable_metadata",
   "disable_metadata",
   "exec",
@@ -812,7 +818,7 @@ const char *command_names[]=
   "copy_file",
   "perl",
   "die",
-               
+
   /* Don't execute any more commands, compare result */
   "exit",
   "skip",
@@ -1571,7 +1577,7 @@ void check_command_args(struct st_command *command,
       /* Find real end of arg, terminated by "delimiter_arg" */
       /* This will do nothing if arg was not closed by quotes */
       while (*ptr && *ptr != delimiter_arg)
-        ptr++;      
+        ptr++;
 
       command->last_argument= (char*)ptr;
 
@@ -1816,7 +1822,7 @@ void die(const char *fmt, ...)
             cur_file->file_name);
     print_file_stack();
   }
-  
+
   if (start_lineno > 0)
     fprintf(stderr, "At line %u: ", start_lineno);
   if (fmt)
@@ -2168,7 +2174,7 @@ void show_diff(DYNAMIC_STRING* ds,
 	    }
       }
     }
-  }  
+  }
 
   if (! diff_name)
   {
@@ -2210,7 +2216,7 @@ void show_diff(DYNAMIC_STRING* ds,
     /* Print diff directly to stdout */
     fprintf(stderr, "%s\n", ds_tmp.str);
   }
- 
+
   dynstr_free(&ds_tmp);
 
 }
@@ -2514,13 +2520,13 @@ void var_check_int(VAR *v)
 {
   char *endptr;
   char *str= v->str_val;
-  
+
   /* Initially assume not a number */
   v->int_val= 0;
   v->is_int= false;
   v->int_dirty= false;
   if (!str) return;
-  
+
   v->int_val = (int) strtol(str, &endptr, 10);
   /* It is an int if strtol consumed something up to end/space/tab */
   if (endptr > str && (!*endptr || *endptr == ' ' || *endptr == '\t'))
@@ -2739,7 +2745,7 @@ void set_once_property(enum_prop prop, my_bool val)
 void set_property(st_command *command, enum_prop prop, my_bool val)
 {
   char* p= command->first_argument;
-  if (p && !strcmp (p, "ONCE")) 
+  if (p && !strcmp (p, "ONCE"))
   {
     command->last_argument= p + 4;
     set_once_property(prop, val);
@@ -2755,10 +2761,10 @@ void revert_properties()
 {
   if (! once_property)
     return;
-  for (int i= 0; i < (int) P_MAX; i++) 
+  for (int i= 0; i < (int) P_MAX; i++)
   {
     property &pr= prop_list[i];
-    if (pr.set) 
+    if (pr.set)
     {
       *pr.var= pr.old;
       pr.set= 0;
@@ -2828,7 +2834,7 @@ void var_query_set(VAR *var, const char *query, const char** query_end)
     eval_expr(var, "", 0);
     DBUG_VOID_RETURN;
   }
-  
+
   if (!(res= mysql_store_result_wrapper(mysql)))
     die("Query '%s' didn't return a result set", ds_query.str);
   dynstr_free(&ds_query);
@@ -2852,7 +2858,7 @@ void var_query_set(VAR *var, const char *query, const char** query_end)
         /* Add column to tab separated string */
 	char *val= row[i];
 	int len= lengths[i];
-	
+
 	if (glob_replace_regex)
 	{
 	  /* Regex replace */
@@ -2862,7 +2868,7 @@ void var_query_set(VAR *var, const char *query, const char** query_end)
 	    len= strlen(val);
 	  }
 	}
-	
+
 	if (glob_replace)
 	  replace_strings_append(glob_replace, &result, val, len);
 	else
@@ -2961,9 +2967,9 @@ uint get_errcode_from_name(char *, char *);
   var_set_convert_error(struct st_command *command,VAR *var)
 
   DESCRIPTION
-  let $var=convert_error(ER_UNKNOWN_ERROR); 
-  let $var=convert_error(1234); 
-  
+  let $var=convert_error(ER_UNKNOWN_ERROR);
+  let $var=convert_error(1234);
+
   The variable var will be populated with error number if the argument is string.
   The variable var will be populated with error string if the argument is number.
 
@@ -2973,12 +2979,12 @@ void var_set_convert_error(struct st_command *command,VAR *var)
   char *last;
   char *first=command->query;
   const char *err_name;
-    
+
   DBUG_ENTER("var_set_query_get_value");
 
   DBUG_PRINT("info", ("query: %s", command->query));
 
-  /* the command->query contains the statement convert_error(1234) */ 
+  /* the command->query contains the statement convert_error(1234) */
   first=strchr(command->query,'(') + 1;
   last=strchr(command->query,')');
 
@@ -2988,10 +2994,10 @@ void var_set_convert_error(struct st_command *command,VAR *var)
     eval_expr(var,"0",0);
     DBUG_VOID_RETURN;
   }
-  
+
 
   /* if the string is an error string , it starts with 'E' as is the norm*/
-  if ( *first == 'E')    
+  if ( *first == 'E')
   {
     char str[100];
     uint num;
@@ -3178,7 +3184,7 @@ void eval_expr(VAR *v, const char *p, const char **p_end,
   /* Skip to treat as pure string if no evaluation */
   if (! do_eval)
     goto NO_EVAL;
-  
+
   if (*p == '$')
   {
     VAR *vp;
@@ -3544,7 +3550,7 @@ void do_exec(struct st_command *command)
   /* exec command is interpreted externally and will not take newlines */
   while(replace(&ds_cmd, "\n", 1, " ", 1) == 0)
     ;
-  
+
   DBUG_PRINT("info", ("Executing '%s' as '%s'",
                       command->first_argument, ds_cmd.str));
 
@@ -3678,7 +3684,7 @@ void set_wild_chars (my_bool set)
 {
   static char old_many= 0, old_one, old_prefix;
 
-  if (set) 
+  if (set)
   {
     if (wild_many == '*') return; // No need
     old_many= wild_many;
@@ -3688,7 +3694,7 @@ void set_wild_chars (my_bool set)
     wild_one= '?';
     wild_prefix= 0;
   }
-  else 
+  else
   {
     if (! old_many) return;	// Was not set
     wild_many= old_many;
@@ -3750,7 +3756,7 @@ void do_remove_files_wildcard(struct st_command *command)
   static DYNAMIC_STRING ds_wild;
   static DYNAMIC_STRING ds_file_to_remove;
   char dirname[FN_REFLEN];
-  
+
   const struct command_arg rm_args[] = {
     { "directory", ARG_STRING, TRUE, &ds_directory,
       "Directory containing files to delete" },
@@ -3774,10 +3780,10 @@ void do_remove_files_wildcard(struct st_command *command)
   dir_separator[0]= FN_LIBCHAR;
   dir_separator[1]= 0;
   dynstr_append(&ds_file_to_remove, dir_separator);
-  
+
   /* Set default wild chars for wild_compare, is changed in embedded mode */
   set_wild_chars(1);
-  
+
   uint length;
   /* Storing the length of the path to the file, so it can be reused */
   length= ds_file_to_remove.length;
@@ -3908,7 +3914,7 @@ void do_chmod_file(struct st_command *command)
   static DYNAMIC_STRING ds_mode;
   static DYNAMIC_STRING ds_file;
   const struct command_arg chmod_file_args[] = {
-    { "mode", ARG_STRING, TRUE, &ds_mode, "Mode of file(octal) ex. 0660"}, 
+    { "mode", ARG_STRING, TRUE, &ds_mode, "Mode of file(octal) ex. 0660"},
     { "filename", ARG_STRING, TRUE, &ds_file, "Filename of file to modify" }
   };
   DBUG_ENTER("do_chmod_file");
@@ -4092,7 +4098,7 @@ static void do_list_files(struct st_command *command)
   };
   DBUG_ENTER("do_list_files");
   command->used_replace= 1;
-  
+
   check_command_args(command, command->first_argument,
                      list_files_args,
                      sizeof(list_files_args)/sizeof(struct command_arg), ' ');
@@ -5279,7 +5285,7 @@ const char *get_errname_from_code (uint error_code)
    }
    /* Apparently, errors without known names may occur */
    DBUG_RETURN("<Unknown>");
-} 
+}
 
 void do_get_errcodes(struct st_command *command)
 {
@@ -5611,7 +5617,7 @@ void do_close_connection(struct st_command *command)
     mysql_close(con->util_mysql);
   con->util_mysql= 0;
   con->pending= FALSE;
-  
+
   my_free(con->name);
 
   /*
@@ -5677,7 +5683,7 @@ void safe_connect(MYSQL* mysql, const char *name, const char *host,
   DBUG_ENTER("safe_connect");
 
   verbose_msg("Connecting to server %s:%d (socket %s) as '%s'"
-              ", connection '%s', attempt %d ...", 
+              ", connection '%s', attempt %d ...",
               host, port, sock, user, name, failed_attempts);
 
   mysql_options(mysql, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
@@ -5785,7 +5791,7 @@ int connect_n_handle_errors(struct st_command *command,
     replace_dynstr_append(ds, command->query);
     dynstr_append_mem(ds, ";\n", 2);
   }
-  
+
   mysql_options(con, MYSQL_OPT_CONNECT_ATTR_RESET, 0);
   mysql_options4(con, MYSQL_OPT_CONNECT_ATTR_ADD, "program_name", "mysqltest");
   mysql_options(con, MYSQL_OPT_CAN_HANDLE_EXPIRED_PASSWORDS,
@@ -5976,7 +5982,7 @@ void do_connect(struct st_command *command)
     else if (!strncmp(con_options, "SKIPSECUREAUTH",14))
       con_secure_auth= 0;
     else
-      die("Illegal option to connect: %.*s", 
+      die("Illegal option to connect: %.*s",
           (int) (end - con_options), con_options);
     /* Process next option */
     con_options= end;
@@ -5984,7 +5990,7 @@ void do_connect(struct st_command *command)
 
   if (find_connection_by_name(ds_connection_name.str))
     die("Connection %s already exists", ds_connection_name.str);
-    
+
   if (next_con != connections_end)
     con_slot= next_con;
   else
@@ -6095,7 +6101,7 @@ void do_connect(struct st_command *command)
     mysql_options(&con_slot->mysql, MYSQL_SERVER_PUBLIC_KEY,
                   opt_server_public_key);
 #endif
-  
+
   if (con_cleartext_enable)
     mysql_options(&con_slot->mysql, MYSQL_ENABLE_CLEARTEXT_PLUGIN,
                   (char*) &con_cleartext_enable);
@@ -6159,7 +6165,7 @@ int do_done(struct st_command *command)
   }
   else
   {
-    if (*cur_block->delim) 
+    if (*cur_block->delim)
     {
       /* Restore "old" delimiter after false if block */
       strcpy (delimiter, cur_block->delim);
@@ -6189,7 +6195,7 @@ enum block_op find_operand(const char *start)
 {
  char first= *start;
  char next= *(start+1);
- 
+
  if (first == '=' && next == '=')
    return EQ_OP;
  if (first == '!' && next == '=')
@@ -6202,7 +6208,7 @@ enum block_op find_operand(const char *start)
    return LE_OP;
  if (first == '<')
    return LT_OP;
- 
+
  return ILLEG_OP;
 }
 
@@ -6275,7 +6281,7 @@ void do_block(enum block_cmd cmd, struct st_command* command)
 
   while (my_isspace(charset_info, *expr_start))
     expr_start++;
-  
+
   /* Check for !<expr> */
   if (*expr_start == '!')
   {
@@ -6317,7 +6323,7 @@ void do_block(enum block_cmd cmd, struct st_command* command)
     /* We could silently allow this, but may be confusing */
     if (not_expr)
       die("Negation and comparison should not be combined, please rewrite");
-    
+
     /* Skip the 1 or 2 chars of the operand, then white space */
     if (operand == LT_OP || operand == GT_OP)
     {
@@ -6360,7 +6366,7 @@ void do_block(enum block_cmd cmd, struct st_command* command)
       else
         v.int_val= !strcmp (v.str_val, v2.str_val);
       break;
-      
+
     case NE_OP:
       if (v.is_int)
         v.int_val= ! (v2.is_int && v2.int_val == v.int_val);
@@ -6410,11 +6416,11 @@ void do_block(enum block_cmd cmd, struct st_command* command)
 
     cur_block->ok= (*p && *p != '0') ? TRUE : FALSE;
   }
-  
+
   if (not_expr)
     cur_block->ok = !cur_block->ok;
 
-  if (cur_block->ok) 
+  if (cur_block->ok)
   {
     cur_block->delim[0]= '\0';
   } else
@@ -6422,7 +6428,7 @@ void do_block(enum block_cmd cmd, struct st_command* command)
     /* Remember "old" delimiter if entering a false if block */
     strcpy (cur_block->delim, delimiter);
   }
-  
+
   DBUG_PRINT("info", ("OK: %d", cur_block->ok));
 
   var_free(&v);
@@ -6511,7 +6517,7 @@ int read_line(char *buf, int size)
   char *p= buf, *buf_end= buf + size - 1;
   int skip_char= 0;
   my_bool have_slash= FALSE;
-  
+
   enum {R_NORMAL, R_Q, R_SLASH_IN_Q,
         R_COMMENT, R_LINE_START} state= R_LINE_START;
   DBUG_ENTER("read_line");
@@ -6583,7 +6589,7 @@ int read_line(char *buf, int size)
       }
       else if (c == '\'' || c == '"' || c == '`')
       {
-        if (! have_slash) 
+        if (! have_slash)
         {
 	  last_quote= c;
 	  state= R_Q;
@@ -6986,7 +6992,7 @@ static struct my_option my_long_options[] =
 #endif
    "built-in default (" STRINGIFY_ARG(MYSQL_PORT) ").",
    &opt_port, &opt_port, 0, GET_INT, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
-  {"ps-protocol", OPT_PS_PROTOCOL, 
+  {"ps-protocol", OPT_PS_PROTOCOL,
    "Use prepared-statement protocol for communication.",
    &ps_protocol, &ps_protocol, 0,
    GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
@@ -7007,8 +7013,8 @@ static struct my_option my_long_options[] =
   {"server-file", 'F', "Read embedded server arguments from file.",
    0, 0, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"shared-memory-base-name", OPT_SHARED_MEMORY_BASE_NAME,
-   "Base name of shared memory.", &shared_memory_base_name, 
-   &shared_memory_base_name, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 
+   "Base name of shared memory.", &shared_memory_base_name,
+   &shared_memory_base_name, 0, GET_STR, REQUIRED_ARG, 0, 0, 0,
    0, 0, 0},
   {"silent", 's', "Suppress all normal output. Synonym for --quiet.",
    &silent, &silent, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
@@ -7060,7 +7066,7 @@ static struct my_option my_long_options[] =
   {"plugin_dir", OPT_PLUGIN_DIR, "Directory for client-side plugins.",
     &opt_plugin_dir, &opt_plugin_dir, 0,
    GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
-#if !defined(HAVE_YASSL) 
+#if !defined(HAVE_YASSL)
   {"server-public-key-path", OPT_SERVER_PUBLIC_KEY,
    "File path to the server public RSA key in PEM format.",
    &opt_server_public_key, &opt_server_public_key, 0,
@@ -7686,6 +7692,41 @@ void append_info(DYNAMIC_STRING *ds, ulonglong affected_rows,
   }
 }
 
+/**
+  @brief Append state change information (received through Ok packet) to their
+  output.
+
+  @param ds    [INOUT]      Dynamic string to hold the content to be printed.
+  @param mysql [IN]         Connection handle.
+*/
+
+void append_session_track_info(DYNAMIC_STRING *ds, MYSQL *mysql)
+{
+  for (unsigned int type= SESSION_TRACK_BEGIN;
+      type <= SESSION_TRACK_END; type++)
+  {
+    const char *data;
+    size_t data_length;
+
+    if (!mysql_session_track_get_first(mysql,
+                                       (enum_session_state_type) type,
+                                       &data, &data_length))
+    {
+      dynstr_append(ds, "-- ");
+      dynstr_append_mem(ds, data, data_length);
+    }
+    else
+      continue;
+    while (!mysql_session_track_get_next(mysql,
+                                        (enum_session_state_type) type,
+                                        &data, &data_length))
+    {
+      dynstr_append(ds, "\n-- ");
+      dynstr_append_mem(ds, data, data_length);
+    }
+    dynstr_append(ds, "\n\n");
+  }
+}
 
 /*
   Display the table headings with the names tab separated
@@ -7793,7 +7834,7 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
     cn->pending= TRUE;
     DBUG_VOID_RETURN;
   }
-  
+
   do
   {
     /*
@@ -7877,6 +7918,9 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
       */
       if (!disable_info)
 	append_info(ds, mysql_affected_rows(mysql), mysql_info(mysql));
+
+      if (display_session_track_info)
+         append_session_track_info(ds, mysql);
 
       /*
         Add all warnings to the result. We can't do this if we are in
@@ -8279,6 +8323,9 @@ void run_query_stmt(MYSQL *mysql, struct st_command *command,
     if (!disable_info)
       append_info(ds, mysql_stmt_affected_rows(stmt), mysql_info(mysql));
 
+    if (display_session_track_info)
+      append_session_track_info(ds, mysql);
+
     if (!disable_warnings)
     {
       /* Get the warnings from execute */
@@ -8402,10 +8449,10 @@ void run_query(struct st_connection *cn, struct st_command *command, int flags)
 
   if (!(flags & QUERY_SEND_FLAG) && !cn->pending)
     die ("Cannot reap on a connection without pending send");
-  
+
   init_dynamic_string(&ds_warnings, NULL, 0, 256);
   ds_warn= &ds_warnings;
-  
+
   /*
     Evaluate query if this is an eval command
   */
@@ -8662,7 +8709,7 @@ void run_explain(struct st_connection *cn, struct st_command *command,
                                          : "EXPLAIN EXTENDED ", 256, 256);
     dynstr_append_mem(&query_str, command->query,
                       command->end - command->query);
-    
+
     command->query= query_str.str;
     command->query_len= query_str.length;
     command->end= strend(command->query);
@@ -8769,7 +8816,7 @@ int match_re(my_regex_t *re, char *str)
       die("Statement is unterminated comment");
     str= comm_end + 2;
   }
-  
+
   int err= my_regexec(re, str, (size_t)0, NULL, 0);
 
   if (err == 0)
@@ -9108,7 +9155,7 @@ int main(int argc, char **argv)
               MYF(MY_WME | MY_ZEROFILL));
   connections_end= connections + opt_max_connections +1;
   next_con= connections + 1;
-  
+
   var_set_int("$PS_PROTOCOL", ps_protocol);
   var_set_int("$SP_PROTOCOL", sp_protocol);
   var_set_int("$VIEW_PROTOCOL", view_protocol);
@@ -9127,7 +9174,7 @@ int main(int argc, char **argv)
 
   DBUG_PRINT("info",("result_file: '%s'",
                      result_file_name ? result_file_name : ""));
-  verbose_msg("Results saved in '%s'.", 
+  verbose_msg("Results saved in '%s'.",
               result_file_name ? result_file_name : "");
   if (mysql_server_init(embedded_server_arg_count,
 			embedded_server_args,
@@ -9242,12 +9289,12 @@ int main(int argc, char **argv)
     /* (Re-)set abort_on_error for this command */
     command->abort_on_error= (command->expected_errors.count == 0 &&
                               abort_on_error);
-    
+
     /* delimiter needs to be executed so we can continue to parse */
     my_bool ok_to_do= cur_block->ok || command->type == Q_DELIMITER;
     /*
       Some commands need to be "done" the first time if they may get
-      re-iterated over in a true context. This can only happen if there's 
+      re-iterated over in a true context. This can only happen if there's
       a while loop at some level above the current block.
     */
     if (!ok_to_do)
@@ -9318,6 +9365,12 @@ int main(int argc, char **argv)
         break;
       case Q_DISABLE_INFO:
         set_property(command, P_INFO, 1);
+        break;
+      case Q_ENABLE_SESSION_TRACK_INFO:
+        set_property(command, P_SESSION_TRACK, 1);
+        break;
+      case Q_DISABLE_SESSION_TRACK_INFO:
+        set_property(command, P_SESSION_TRACK, 0);
         break;
       case Q_ENABLE_METADATA:
         set_property(command, P_META, 1);
@@ -9674,7 +9727,7 @@ int main(int argc, char **argv)
     die("Test ended with parsing disabled");
 
   my_bool empty_result= FALSE;
-  
+
   /*
     The whole test has been executed _sucessfully_.
     Time to compare result or save it to record file.
@@ -9711,7 +9764,7 @@ int main(int argc, char **argv)
     {
       die("The test didn't produce any output");
     }
-    else 
+    else
     {
       empty_result= TRUE;  /* Meaning empty was expected */
     }
@@ -10186,7 +10239,7 @@ void do_get_replace_regex(struct st_command *command)
   char *expr= command->first_argument;
   free_replace_regex();
   /* Allow variable for the *entire* list of replacements */
-  if (*expr == '$') 
+  if (*expr == '$')
   {
     VAR *val= var_get(expr, NULL, 0, 1);
     expr= val ? val->str_val : NULL;
@@ -11022,7 +11075,7 @@ void replace_dynstr_append_mem(DYNAMIC_STRING *ds,
   fix_win_paths(val, len);
 #endif
 
-  if (display_result_lower) 
+  if (display_result_lower)
   {
     /* Convert to lower case, and do this first */
     char *c= lower;
@@ -11032,7 +11085,7 @@ void replace_dynstr_append_mem(DYNAMIC_STRING *ds,
     /* Copy from this buffer instead */
     val= lower;
   }
-  
+
   if (glob_replace_regex)
   {
     /* Regex replace */

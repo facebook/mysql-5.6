@@ -158,7 +158,7 @@ typedef struct st_mysql_data {
   void *extension;
 } MYSQL_DATA;
 
-enum mysql_option 
+enum mysql_option
 {
   MYSQL_OPT_CONNECT_TIMEOUT, MYSQL_OPT_COMPRESS, MYSQL_OPT_NAMED_PIPE,
   MYSQL_INIT_COMMAND, MYSQL_READ_DEFAULT_FILE, MYSQL_READ_DEFAULT_GROUP,
@@ -170,7 +170,7 @@ enum mysql_option
   MYSQL_REPORT_DATA_TRUNCATION, MYSQL_OPT_RECONNECT,
   MYSQL_OPT_SSL_VERIFY_SERVER_CERT, MYSQL_PLUGIN_DIR, MYSQL_DEFAULT_AUTH,
   MYSQL_OPT_BIND,
-  MYSQL_OPT_SSL_KEY, MYSQL_OPT_SSL_CERT, 
+  MYSQL_OPT_SSL_KEY, MYSQL_OPT_SSL_CERT,
   MYSQL_OPT_SSL_CA, MYSQL_OPT_SSL_CAPATH, MYSQL_OPT_SSL_CIPHER,
   MYSQL_OPT_SSL_CRL, MYSQL_OPT_SSL_CRLPATH,
   MYSQL_OPT_CONNECT_ATTR_RESET, MYSQL_OPT_CONNECT_ATTR_ADD,
@@ -190,7 +190,7 @@ enum mysql_option
   @todo remove the "extension", move st_mysql_options completely
   out of mysql.h
 */
-struct st_mysql_options_extention; 
+struct st_mysql_options_extention;
 
 struct st_mysql_options {
   timeout_t connect_timeout, read_timeout, write_timeout;
@@ -340,7 +340,7 @@ typedef struct st_mysql
   const struct st_mysql_methods *methods;
   void *thd;
   /*
-    Points to boolean flag in MYSQL_RES  or MYSQL_STMT. We set this flag 
+    Points to boolean flag in MYSQL_RES  or MYSQL_STMT. We set this flag
     from mysql_stmt_close if close had to cancel result set of this object.
   */
   my_bool *unbuffered_fetch_owner;
@@ -387,7 +387,7 @@ typedef struct st_mysql_res {
   unsigned int	field_count, current_field;
   my_bool	eof;			/* Used by mysql_fetch_row */
   /* mysql_stmt_close() had to cancel this result */
-  my_bool       unbuffered_fetch_cancelled;  
+  my_bool       unbuffered_fetch_cancelled;
   void *extension;
 } MYSQL_RES;
 
@@ -533,7 +533,7 @@ my_bool		STDCALL mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
  * this file.
  */
 void *          STDCALL mysql_take_ssl_context_ownership(MYSQL *mysql);
-my_bool		STDCALL mysql_change_user(MYSQL *mysql, const char *user, 
+my_bool		STDCALL mysql_change_user(MYSQL *mysql, const char *user,
 					  const char *passwd, const char *db);
 MYSQL *		STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
 					   const char *user,
@@ -577,6 +577,15 @@ mysql_get_file_descriptor(MYSQL *mysql);
 
 void        STDCALL mysql_get_character_set_info(MYSQL *mysql,
                            MY_CHARSET_INFO *charset);
+
+int STDCALL mysql_session_track_get_first(MYSQL *mysql,
+                                          enum enum_session_state_type type,
+                                          const char **data,
+                                          size_t *length);
+int STDCALL mysql_session_track_get_next(MYSQL *mysql,
+                                         enum enum_session_state_type type,
+                                         const char **data,
+                                         size_t *length);
 
 /* local infile support */
 
@@ -651,7 +660,7 @@ my_bool         STDCALL mysql_read_query_result(MYSQL *mysql);
 
 
 /*
-  The following definitions are added for the enhanced 
+  The following definitions are added for the enhanced
   client-server protocol
 */
 
@@ -771,7 +780,7 @@ typedef struct st_mysql_stmt
     mysql_stmt_fetch() calls this function to fetch one row (it's different
     for buffered, unbuffered and cursor fetch).
   */
-  int            (*read_row_func)(struct st_mysql_stmt *stmt, 
+  int            (*read_row_func)(struct st_mysql_stmt *stmt,
                                   unsigned char **row);
   /* copy of mysql->affected_rows after statement execution */
   my_ulonglong   affected_rows;
@@ -795,12 +804,12 @@ typedef struct st_mysql_stmt
   my_bool        bind_param_done;      /* input buffers were supplied */
   unsigned char  bind_result_done;     /* output buffers were supplied */
   /* mysql_stmt_close() had to cancel this result */
-  my_bool       unbuffered_fetch_cancelled;  
+  my_bool       unbuffered_fetch_cancelled;
   /*
-    Is set to true if we need to calculate field->max_length for 
+    Is set to true if we need to calculate field->max_length for
     metadata fields when doing mysql_stmt_store_result.
   */
-  my_bool       update_max_length;     
+  my_bool       update_max_length;
   struct st_mysql_stmt_extension *extension;
 } MYSQL_STMT;
 
@@ -808,7 +817,7 @@ enum enum_stmt_attr_type
 {
   /*
     When doing mysql_stmt_store_result calculate max_length attribute
-    of statement metadata. This is to be consistent with the old API, 
+    of statement metadata. This is to be consistent with the old API,
     where this was done automatically.
     In the new API we do that only by request because it slows down
     mysql_stmt_store_result sufficiently.
@@ -832,7 +841,7 @@ int STDCALL mysql_stmt_prepare(MYSQL_STMT *stmt, const char *query,
                                unsigned long length);
 int STDCALL mysql_stmt_execute(MYSQL_STMT *stmt);
 int STDCALL mysql_stmt_fetch(MYSQL_STMT *stmt);
-int STDCALL mysql_stmt_fetch_column(MYSQL_STMT *stmt, MYSQL_BIND *bind_arg, 
+int STDCALL mysql_stmt_fetch_column(MYSQL_STMT *stmt, MYSQL_BIND *bind_arg,
                                     unsigned int column,
                                     unsigned long offset);
 int STDCALL mysql_stmt_store_result(MYSQL_STMT *stmt);
@@ -848,16 +857,16 @@ my_bool STDCALL mysql_stmt_bind_result(MYSQL_STMT * stmt, MYSQL_BIND * bnd);
 my_bool STDCALL mysql_stmt_close(MYSQL_STMT * stmt);
 my_bool STDCALL mysql_stmt_reset(MYSQL_STMT * stmt);
 my_bool STDCALL mysql_stmt_free_result(MYSQL_STMT *stmt);
-my_bool STDCALL mysql_stmt_send_long_data(MYSQL_STMT *stmt, 
+my_bool STDCALL mysql_stmt_send_long_data(MYSQL_STMT *stmt,
                                           unsigned int param_number,
-                                          const char *data, 
+                                          const char *data,
                                           unsigned long length);
 MYSQL_RES *STDCALL mysql_stmt_result_metadata(MYSQL_STMT *stmt);
 MYSQL_RES *STDCALL mysql_stmt_param_metadata(MYSQL_STMT *stmt);
 unsigned int STDCALL mysql_stmt_errno(MYSQL_STMT * stmt);
 const char *STDCALL mysql_stmt_error(MYSQL_STMT * stmt);
 const char *STDCALL mysql_stmt_sqlstate(MYSQL_STMT * stmt);
-MYSQL_ROW_OFFSET STDCALL mysql_stmt_row_seek(MYSQL_STMT *stmt, 
+MYSQL_ROW_OFFSET STDCALL mysql_stmt_row_seek(MYSQL_STMT *stmt,
                                              MYSQL_ROW_OFFSET offset);
 MYSQL_ROW_OFFSET STDCALL mysql_stmt_row_tell(MYSQL_STMT *stmt);
 void STDCALL mysql_stmt_data_seek(MYSQL_STMT *stmt, my_ulonglong offset);

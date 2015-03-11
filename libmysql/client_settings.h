@@ -1,14 +1,14 @@
 /* Copyright (c) 2003, 2011, Oracle and/or its affiliates. All rights reserved.
-   
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; version 2 of the License.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
@@ -36,7 +36,8 @@ extern char *	mysql_unix_port;
                              CLIENT_PS_MULTI_RESULTS | \
                              CLIENT_PLUGIN_AUTH | \
                              CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA | \
-                             CLIENT_CONNECT_ATTRS)
+                             CLIENT_CONNECT_ATTRS | \
+                             CLIENT_SESSION_TRACK)
 
 sig_handler my_pipe_sig_handler(int sig);
 void read_user_name(char *name);

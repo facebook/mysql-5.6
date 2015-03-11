@@ -188,6 +188,12 @@ enum enum_server_command
 /* Don't close the connection for a connection with expired password. */
 #define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS (1UL << 22)
 
+/**
+  Capable of handling server state change information. Its a hint to the
+  server to include the state change information in Ok packet.
+*/
+#define CLIENT_SESSION_TRACK (1UL << 23)
+
 #define CLIENT_FB_PROXIED       (1UL << 25) /* Client passes through a proxy */
 #define CLIENT_FB_CLI_TOOL      (1UL << 26) /* Standard MySQL CLI tool */
 #define CLIENT_FB_INTERNAL      (1UL << 27) /* Internal tool */
@@ -226,6 +232,7 @@ enum enum_server_command
                            | CLIENT_CONNECT_ATTRS \
                            | CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA \
                            | CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS \
+                           | CLIENT_SESSION_TRACK \
 )
 
 /*
@@ -264,7 +271,7 @@ enum enum_server_command
 #define SERVER_STATUS_NO_BACKSLASH_ESCAPES 512
 /**
   Sent to the client if after a prepared statement reprepare
-  we discovered that the new statement returns a different 
+  we discovered that the new statement returns a different
   number of result set columns.
 */
 #define SERVER_STATUS_METADATA_CHANGED 1024
@@ -284,13 +291,18 @@ enum enum_server_command
 */
 #define SERVER_STATUS_IN_TRANS_READONLY 8192
 
+/**
+  This status flag, when on, implies that one of the state information has
+  changed on the server because of the execution of the last statement.
+*/
+#define SERVER_SESSION_STATE_CHANGED (1UL << 14)
 
 /**
   Server status flags that must be cleared when starting
   execution of a new SQL statement.
   Flags from this set are only added to the
-  current server status by the execution engine, but 
-  never removed -- the execution engine expects them 
+  current server status by the execution engine, but
+  never removed -- the execution engine expects them
   to disappear automagically by the next command.
 */
 #define SERVER_STATUS_CLEAR_SET (SERVER_QUERY_NO_GOOD_INDEX_USED| \
@@ -300,7 +312,8 @@ enum enum_server_command
                                  SERVER_QUERY_WAS_SLOW |\
                                  SERVER_STATUS_DB_DROPPED |\
                                  SERVER_STATUS_CURSOR_EXISTS|\
-                                 SERVER_STATUS_LAST_ROW_SENT)
+                                 SERVER_STATUS_LAST_ROW_SENT|\
+                                 SERVER_SESSION_STATE_CHANGED)
 
 #define MYSQL_ERRMSG_SIZE	512
 #define NET_READ_TIMEOUT	30		/* Timeout on read */
@@ -441,7 +454,7 @@ typedef struct st_net {
   */
   unsigned char *unused;
   unsigned int last_errno;
-  unsigned char error; 
+  unsigned char error;
   my_bool unused4; /* Please remove with the next incompatible ABI change. */
   my_bool unused5; /* Please remove with the next incompatible ABI change. */
   /** Client library error message buffer. Actually belongs to struct MYSQL. */
@@ -533,7 +546,7 @@ enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
 };
 
 /* For backward compatibility */
-#define CLIENT_MULTI_QUERIES    CLIENT_MULTI_STATEMENTS    
+#define CLIENT_MULTI_QUERIES    CLIENT_MULTI_STATEMENTS
 #define FIELD_TYPE_DECIMAL     MYSQL_TYPE_DECIMAL
 #define FIELD_TYPE_NEWDECIMAL  MYSQL_TYPE_NEWDECIMAL
 #define FIELD_TYPE_TINY        MYSQL_TYPE_TINY
@@ -565,7 +578,7 @@ enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
 #define FIELD_TYPE_DOCUMENT    MYSQL_TYPE_DOCUMENT
 
 
-/* Shutdown/kill enums and constants */ 
+/* Shutdown/kill enums and constants */
 
 /* Bits for THD::killable. */
 #define MYSQL_SHUTDOWN_KILLABLE_CONNECT    (unsigned char)(1 << 0)
@@ -613,6 +626,23 @@ enum enum_mysql_set_option
   MYSQL_OPTION_MULTI_STATEMENTS_ON,
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
+
+/*
+  Type of state change information that the server can include in the Ok
+  packet.
+  Note : 1) session_state_type shouldn't go past 255 (i.e. 1-byte boundary).
+         2) Modify the definition of SESSION_TRACK_END when a new member is
+	    added.
+*/
+enum enum_session_state_type
+{
+  SESSION_TRACK_SYSTEM_VARIABLES,               /* Session system variables */
+  SESSION_TRACK_SCHEMA                          /* Current schema */
+};
+
+#define SESSION_TRACK_BEGIN SESSION_TRACK_SYSTEM_VARIABLES
+
+#define SESSION_TRACK_END SESSION_TRACK_SCHEMA
 
 #define net_new_transaction(net) ((net)->pkt_nr=0)
 
@@ -686,8 +716,8 @@ typedef struct st_udf_init
   my_bool const_item;          /* 1 if function always returns the same value */
   void *extension;
 } UDF_INIT;
-/* 
-  TODO: add a notion for determinism of the UDF. 
+/*
+  TODO: add a notion for determinism of the UDF.
   See Item_udf_func::update_used_tables ()
 */
 
@@ -737,6 +767,7 @@ void my_thread_end(void);
 ulong STDCALL net_field_length(unsigned char **packet);
 my_ulonglong net_field_length_ll(unsigned char **packet);
 unsigned char *net_store_length(unsigned char *pkg, ulonglong length);
+unsigned int net_length_size(ulonglong num);
 #endif
 
 #ifdef __cplusplus

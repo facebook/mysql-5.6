@@ -2,16 +2,16 @@
 #define SQL_COMMON_INCLUDED
 
 /* Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
-   
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; version 2 of the License.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
@@ -28,6 +28,55 @@ extern "C" {
 extern const char	*unknown_sqlstate;
 extern const char	*cant_connect_sqlstate;
 extern const char	*not_error_sqlstate;
+
+/**
+  The structure is used to hold the state change information
+  received from the server. LIST functions are used for manipulation
+  of the members of the structure.
+*/
+typedef struct st_session_track_info_node {
+  /** head_node->data is a LEX_STRING which contains the variable name. */
+  LIST *head_node;
+  LIST *current_node;
+} STATE_INFO_NODE;
+
+/**
+  Store the change info received from the server in an array of linked lists
+  with STATE_INFO_NODE elements (one per state type).
+*/
+typedef struct st_session_track_info {
+  /** Array of STATE_NODE_INFO elements (one per state type). */
+  struct st_session_track_info_node info_list[SESSION_TRACK_END + 1];
+} STATE_INFO;
+
+/*
+   Access to MYSQL::extension member.
+
+   Note: functions mysql_extension_{init,free}() are defined
+   in client.c.
+*/
+/**
+   TODO: Refactor async (non_blocking) machine states into this extension
+   struct.
+ */
+typedef struct st_mysql_extension {
+  struct st_session_track_info state_change;
+} MYSQL_EXTENSION;
+
+struct st_mysql_extension* mysql_extension_init(struct st_mysql*);
+void mysql_extension_free(struct st_mysql_extension*);
+
+/*
+
+*/
+#define MYSQL_EXTENSION_PTR(H)                                     \
+(                                                                  \
+  (struct st_mysql_extension*)                                     \
+  ( (H)->extension ?                                               \
+    (H)->extension : ((H)->extension= mysql_extension_init(H))     \
+ )                                                                 \
+)                                                                  \
+
 
 struct st_mysql_options_extention {
   char *plugin_dir;
@@ -57,7 +106,7 @@ typedef struct st_mysql_methods
   MYSQL_DATA *(*read_rows)(MYSQL *mysql,MYSQL_FIELD *mysql_fields,
 			   unsigned int fields);
   MYSQL_RES * (*use_result)(MYSQL *mysql);
-  void (*fetch_lengths)(unsigned long *to, 
+  void (*fetch_lengths)(unsigned long *to,
 			MYSQL_ROW column, unsigned int field_count);
   void (*flush_use_result)(MYSQL *mysql, my_bool flush_all_results);
   int (*read_change_user_result)(MYSQL *mysql);
@@ -103,7 +152,7 @@ typedef struct st_mysql_methods
 
 extern CHARSET_INFO *default_client_charset_info;
 MYSQL_FIELD *unpack_fields(MYSQL *mysql, MYSQL_DATA *data,MEM_ROOT *alloc,
-                           uint fields, my_bool default_value, 
+                           uint fields, my_bool default_value,
                            uint server_capabilities);
 void free_rows(MYSQL_DATA *cur);
 void free_old_query(MYSQL *mysql);

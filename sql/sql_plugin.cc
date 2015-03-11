@@ -147,7 +147,7 @@ static int cur_plugin_info_interface_version[MYSQL_MAX_PLUGIN_TYPE_NUM]=
 
 /*
   A mutex LOCK_plugin_delete must be acquired before calling plugin_del
-  function. 
+  function.
 */
 mysql_mutex_t LOCK_plugin_delete;
 
@@ -2480,15 +2480,31 @@ static void update_func_double(THD *thd, struct st_mysql_sys_var *var,
   System Variables support
 ****************************************************************************/
 
+/*
+  This function is not thread safe as the pointer returned at the end of
+  the function is outside mutex.
+*/
 
-sys_var *find_sys_var(THD *thd, const char *str, uint length)
+void lock_plugin_mutex()
+{
+  mysql_mutex_lock(&LOCK_plugin);
+}
+
+void unlock_plugin_mutex()
+{
+  mysql_mutex_unlock(&LOCK_plugin);
+}
+
+sys_var *find_sys_var_ex(THD *thd, const char *str, uint length,
+                         bool throw_error, bool locked)
 {
   sys_var *var;
   sys_var_pluginvar *pi= NULL;
   plugin_ref plugin;
-  DBUG_ENTER("find_sys_var");
+  DBUG_ENTER("find_sys_var_ex");
 
-  mysql_mutex_lock(&LOCK_plugin);
+  if (!locked)
+    mysql_mutex_lock(&LOCK_plugin);
   mysql_rwlock_rdlock(&LOCK_system_variables_hash);
   if ((var= intern_find_sys_var(str, length)) &&
       (pi= var->cast_pluginvar()))
@@ -2507,13 +2523,18 @@ sys_var *find_sys_var(THD *thd, const char *str, uint length)
   }
   else
     mysql_rwlock_unlock(&LOCK_system_variables_hash);
-  mysql_mutex_unlock(&LOCK_plugin);
+  if (!locked)
+    mysql_mutex_unlock(&LOCK_plugin);
 
-  if (!var)
+  if (!throw_error && !var)
     my_error(ER_UNKNOWN_SYSTEM_VARIABLE, MYF(0), (char*) str);
   DBUG_RETURN(var);
 }
 
+sys_var *find_sys_var(THD *thd, const char *str, uint length)
+{
+  return find_sys_var_ex(thd, str, length, false, false);
+}
 
 /*
   called by register_var, construct_options and test_plugin_options.
@@ -2634,7 +2655,7 @@ static st_bookmark *register_var(const char *plugin, const char *name,
         string.
       */
       memset(global_system_variables.dynamic_variables_ptr +
-             global_variables_dynamic_size, 0, 
+             global_variables_dynamic_size, 0,
              new_size - global_variables_dynamic_size);
       memset(max_system_variables.dynamic_variables_ptr +
              global_variables_dynamic_size, 0,
@@ -2813,11 +2834,11 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins)
   plugin_ref old_table_plugin= thd->variables.table_plugin;
   plugin_ref old_temp_table_plugin= thd->variables.temp_table_plugin;
   DBUG_ENTER("plugin_thdvar_init");
-  
+
   thd->variables.table_plugin= NULL;
   thd->variables.temp_table_plugin= NULL;
   cleanup_variables(thd, &thd->variables);
-  
+
   thd->variables= global_system_variables;
   thd->variables.table_plugin= NULL;
   thd->variables.temp_table_plugin= NULL;
@@ -2838,6 +2859,12 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins)
     intern_plugin_unlock(NULL, old_temp_table_plugin);
     mysql_mutex_unlock(&LOCK_plugin);
   }
+  /* Initialize all Sys_var_charptr variables here. */
+
+  // @@session.session_track_system_variables
+  thd->session_sysvar_res_mgr
+    .init(&thd->variables.track_sysvars_ptr, thd->charset());
+
   DBUG_VOID_RETURN;
 }
 
@@ -2862,9 +2889,10 @@ static void unlock_variables(THD *thd, struct system_variables *vars)
 */
 static void cleanup_variables(THD *thd, struct system_variables *vars)
 {
-  if (thd)
+  if (thd) {
     plugin_var_memalloc_free(&thd->variables);
-
+    thd->session_sysvar_res_mgr.deinit();
+  }
   DBUG_ASSERT(vars->table_plugin == NULL);
   DBUG_ASSERT(vars->temp_table_plugin == NULL);
 
@@ -3192,7 +3220,7 @@ bool sys_var_pluginvar::session_update(THD *thd, set_var *var)
       plugin_var->flags & PLUGIN_VAR_MEMALLOC)
     rc= plugin_var_memalloc_session_update(thd, plugin_var, (char **) tgt,
                                            *(const char **) src);
-  else 
+  else
     plugin_var->update(thd, plugin_var, tgt, src);
 
   return rc;
@@ -3267,7 +3295,7 @@ bool sys_var_pluginvar::global_update(THD *thd, set_var *var)
       plugin_var->flags & PLUGIN_VAR_MEMALLOC)
     rc= plugin_var_memalloc_global_update(thd, plugin_var, (char **) tgt,
                                           *(const char **) src);
-  else 
+  else
     plugin_var->update(thd, plugin_var, tgt, src);
 
   return rc;
@@ -3637,7 +3665,7 @@ static int construct_options(MEM_ROOT *mem_root, struct st_plugin_int *tmp,
       if (opt->flags & PLUGIN_VAR_NOCMDOPT)
         continue;
 
-      optname= (char*) memdup_root(mem_root, v->key + 1, 
+      optname= (char*) memdup_root(mem_root, v->key + 1,
                                    (optnamelen= v->name_len) + 1);
     }
 
@@ -3883,7 +3911,7 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
     tmp->system_vars= chain.first;
   }
   DBUG_RETURN(0);
-  
+
 err:
   if (opts)
     my_cleanup_options(opts);
@@ -3918,7 +3946,7 @@ void add_plugin_options(std::vector<my_option> *options, MEM_ROOT *mem_root)
   }
 }
 
-/** 
+/**
   Searches for a correctly loaded plugin of a particular type by name
 
   @param plugin   the name of the plugin we're looking for
@@ -3935,7 +3963,7 @@ struct st_plugin_int *plugin_find_by_type(LEX_STRING *plugin, int type)
 }
 
 
-/** 
+/**
   Locks the plugin strucutres so calls to plugin_find_inner can be issued.
 
   Must be followed by unlock_plugin_data.
@@ -3947,7 +3975,7 @@ int lock_plugin_data()
 }
 
 
-/** 
+/**
   Unlocks the plugin strucutres as locked by lock_plugin_data()
 */
 int unlock_plugin_data()

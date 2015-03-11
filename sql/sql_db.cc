@@ -107,7 +107,7 @@ static inline int write_to_binlog(THD *thd, char *query, uint q_len,
   qinfo.db= db;
   qinfo.db_len= db_len;
   return mysql_bin_log.write_event(&qinfo);
-}  
+}
 
 
 /*
@@ -202,11 +202,11 @@ void my_dbopt_cleanup(void)
 
 /*
   Find database options in the hash.
-  
+
   DESCRIPTION
     Search a database options in the hash, usings its path.
     Fills "create" on success.
-  
+
   RETURN VALUES
     0 on success.
     1 on error.
@@ -217,9 +217,9 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
   my_dbopt_t *opt;
   uint length;
   my_bool error= 1;
-  
+
   length= (uint) strlen(dbname);
-  
+
   mysql_rwlock_rdlock(&LOCK_dboptions);
   if ((opt= (my_dbopt_t*) my_hash_search(&dboptions, (uchar*) dbname, length)))
   {
@@ -233,11 +233,11 @@ static my_bool get_dbopt(const char *dbname, HA_CREATE_INFO *create)
 
 /*
   Writes database options into the hash.
-  
+
   DESCRIPTION
     Inserts database options into the hash, or updates
     options if they are already in the hash.
-  
+
   RETURN VALUES
     0 on success.
     1 on error.
@@ -251,11 +251,11 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
   DBUG_ENTER("put_dbopt");
 
   length= (uint) strlen(dbname);
-  
+
   mysql_rwlock_wrlock(&LOCK_dboptions);
   if (!(opt= (my_dbopt_t*) my_hash_search(&dboptions, (uchar*) dbname,
                                           length)))
-  { 
+  {
     /* Options are not in the hash, insert them */
     char *tmp_name;
     if (!my_multi_malloc(MYF(MY_WME | MY_ZEROFILL),
@@ -265,11 +265,11 @@ static my_bool put_dbopt(const char *dbname, HA_CREATE_INFO *create)
       error= 1;
       goto end;
     }
-    
+
     opt->name= tmp_name;
     strmov(opt->name, dbname);
     opt->name_length= length;
-    
+
     if ((error= my_hash_insert(&dboptions, (uchar*) opt)))
     {
       my_free(opt);
@@ -664,10 +664,10 @@ not_silent:
         default. If we do not change the "current database" to the
         database being created, the CREATE statement will not be
         replicated when using --binlog-do-db to select databases to be
-        replicated. 
+        replicated.
 
 	An example (--binlog-do-db=sisyfos):
-       
+
           CREATE DATABASE bob;        # Not replicated
           USE bob;                    # 'bob' is the current database
           CREATE DATABASE sisyfos;    # Not replicated since 'bob' is
@@ -708,7 +708,7 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info)
   if (lock_schema_name(thd, db))
     DBUG_RETURN(TRUE);
 
-  /* 
+  /*
      Recreate db options file: /dbpath/.db.opt
      We pass MY_DB_OPT_FILE as "extension" to avoid
      "table name to file name" encoding.
@@ -733,7 +733,7 @@ bool mysql_alter_db(THD *thd, const char *db, HA_CREATE_INFO *create_info)
 
   if (mysql_bin_log.is_open())
   {
-    int errcode= query_error_code(thd, TRUE); 
+    int errcode= query_error_code(thd, TRUE);
     Query_log_event qinfo(thd, thd->query(), thd->query_length(), FALSE, TRUE,
 			  /* suppress_use */ TRUE, errcode);
     /*
@@ -1014,7 +1014,20 @@ exit:
     it to 0.
   */
   if (thd->db && !strcmp(thd->db, db) && !error)
+  {
     mysql_change_db_impl(thd, NULL, 0, thd->variables.collation_server);
+    /*
+      Check if current database tracker is enabled. If so, set the 'changed'
+      flag.
+    */
+    if (thd->session_tracker.get_tracker(CURRENT_SCHEMA_TRACKER)->is_enabled())
+    {
+      LEX_CSTRING dummy= { C_STRING_WITH_LEN("") };
+      dummy.length= dummy.length*1;
+      thd->session_tracker
+        .get_tracker(CURRENT_SCHEMA_TRACKER)->mark_as_changed(&dummy);
+    }
+  }
   my_dirend(dirp);
   DBUG_RETURN(error);
 }
@@ -1083,9 +1096,9 @@ static bool find_db_tables_and_rm_known_files(THD *thd, MY_DIR *dirp,
       /* Drop the table nicely */
       *extension= 0;			// Remove extension
       TABLE_LIST *table_list=(TABLE_LIST*)
-                              thd->calloc(sizeof(*table_list) + 
+                              thd->calloc(sizeof(*table_list) +
                                           strlen(db) + 1 +
-                                          MYSQL50_TABLE_NAME_PREFIX_LENGTH + 
+                                          MYSQL50_TABLE_NAME_PREFIX_LENGTH +
                                           strlen(file->name) + 1);
 
       if (!table_list)
@@ -1584,7 +1597,7 @@ bool mysql_change_db(THD *thd, const LEX_STRING *new_db_name, bool force_switch)
 
       /* The operation succeed. */
 
-      DBUG_RETURN(FALSE);
+      goto done;
     }
     else
     {
@@ -1607,6 +1620,18 @@ bool mysql_change_db(THD *thd, const LEX_STRING *new_db_name, bool force_switch)
   db_default_cl= get_default_db_collation(thd, new_db_file_name.str);
 
   mysql_change_db_impl(thd, &new_db_file_name, db_access, db_default_cl);
+
+done:
+  /*
+    Check if current database tracker is enabled. If so, set the 'changed' flag.
+  */
+  if (thd->session_tracker.get_tracker(CURRENT_SCHEMA_TRACKER)->is_enabled())
+  {
+    LEX_CSTRING dummy= { C_STRING_WITH_LEN("") };
+    dummy.length= dummy.length*1;
+    thd->session_tracker
+      .get_tracker(CURRENT_SCHEMA_TRACKER)->mark_as_changed(&dummy);
+  }
 
   DBUG_RETURN(FALSE);
 }
@@ -1756,7 +1781,7 @@ bool mysql_upgrade_db(THD *thd, LEX_STRING *old_db)
         goto exit;
       }
     }
-    my_dirend(dirp);  
+    my_dirend(dirp);
   }
 
   if ((table_list= thd->lex->query_tables) &&
@@ -1791,7 +1816,7 @@ bool mysql_upgrade_db(THD *thd, LEX_STRING *old_db)
     Trigger TRN and TRG files are be moved as regular files at the moment,
     without any special treatment.
 
-    Triggers without explicit database qualifiers in table names work fine: 
+    Triggers without explicit database qualifiers in table names work fine:
       use d1;
       create trigger trg1 before insert on t2 for each row set @a:=1
       rename database d1 to d2;
