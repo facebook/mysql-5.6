@@ -379,7 +379,7 @@ bool Slave_worker::write_info(Rpl_info_handler *to)
 
   if (to->prepare_info_for_write())
     DBUG_RETURN(TRUE);
-  if (strcmp(to->get_rpl_info_type_str(), "FILE"))
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE)
   {
     if (to->set_info((int) internal_id) ||
         to->set_info(group_relay_log_name) ||

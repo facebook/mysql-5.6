@@ -2305,7 +2305,7 @@ bool Relay_log_info::write_info(Rpl_info_handler *to)
   if (to->prepare_info_for_write())
     DBUG_RETURN(TRUE);
 
-  if (strcmp(to->get_rpl_info_type_str(), "FILE"))
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE)
   {
     if (to->set_info((int) LINES_IN_RELAY_LOG_INFO_WITH_ID) ||
         to->set_info(group_relay_log_name) ||

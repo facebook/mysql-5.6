@@ -214,7 +214,7 @@ public:
   */
   bool set_info(int n, const char *format, ...)
   {
-    DBUG_ASSERT(!strcmp(get_rpl_info_type_str(), "FILE"));
+    DBUG_ASSERT(get_rpl_info_type() == INFO_REPOSITORY_FILE);
     va_list args;
     va_start(args, format);
     if (cursor >= ninfo || prv_error)

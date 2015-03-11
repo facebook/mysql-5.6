@@ -529,7 +529,7 @@ bool Master_info::write_info(Rpl_info_handler *to)
   */
   if (to->prepare_info_for_write())
     DBUG_RETURN(TRUE);
-  if (strcmp(to->get_rpl_info_type_str(), "FILE"))
+  if (to->get_rpl_info_type() != INFO_REPOSITORY_FILE)
   {
     if (to->set_info((int) LINES_IN_MASTER_INFO) ||
         to->set_info(master_log_name) ||
