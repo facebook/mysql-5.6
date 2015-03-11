@@ -8889,7 +8889,7 @@ String *Field_document::document_path_val_str(
     break;
 
   case fbson::FbsonType::T_Double:
-    sprintf(buf, "%f", (double)((fbson::DoubleVal*)p)->val());
+    sprintf(buf, "%.15g", (double)((fbson::DoubleVal*)p)->val());
     break;
 
   case fbson::FbsonType::T_String:

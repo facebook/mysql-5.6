@@ -379,6 +379,10 @@ from (
 where doc.address.zipcode like "98761" or doc2.address.zipcode like "98762";
 
 
+### Verify double value
+insert into t1 values (100,'@100','{ "id":10100, "double": 4.94065645841246 }');
+select t1.doc.double from t1 where a = 100;
+
 ################################################################################
 ###
 ### Clean up
