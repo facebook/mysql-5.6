@@ -831,8 +831,9 @@ rocksdb_block_size_deviation	10
 rocksdb_bulk_load	OFF
 rocksdb_bulk_load_size	1000
 rocksdb_bytes_per_sync	0
-rocksdb_cache_index_and_filter_blocks	OFF
+rocksdb_cache_index_and_filter_blocks	ON
 rocksdb_cf_options_file	
+rocksdb_compact_cf	
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
 rocksdb_db_write_buffer_size	0
@@ -862,6 +863,7 @@ rocksdb_no_block_cache	OFF
 rocksdb_paranoid_checks	ON
 rocksdb_perf_context_level	1
 rocksdb_rate_limiter_bytes_per_sec	0
+rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_stats_dump_period_sec	3600
 rocksdb_table_cache_numshardbits	4
