@@ -3801,22 +3801,16 @@ int ha_rocksdb::info(uint flag)
   if (flag & HA_STATUS_VARIABLE)
   {
     stats.records= rocksdb_debug_optimizer_n_rows;
-    stats.index_file_length= 0;
-
+    stats.index_file_length= 0ul;
     for (uint i=0; i < table->s->keys; i++)
     {
-      uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-      auto range = get_range(i, buf);
-      uint64_t size;
-      rdb->GetApproximateSizes(key_descr[i]->get_cf(),
-                             &range, 1, &size);
       if (i == table->s->primary_key)
       {
-        stats.data_file_length = size;
+        stats.data_file_length= key_descr[i]->file_length;
       }
       else
       {
-        stats.index_file_length += size;
+        stats.index_file_length+= key_descr[i]->file_length;
       }
     }
   }
@@ -4487,6 +4481,26 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
     }
   }
   return rc;
+}
+
+int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
+{
+  DBUG_ENTER("ha_rocksdb::analyze");
+
+  if (!table)
+    DBUG_RETURN(1);
+
+  for (uint i=0; i < table->s->keys; i++)
+  {
+    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+    auto range = get_range(i, buf);
+    uint64_t size;
+    rdb->GetApproximateSizes(key_descr[i]->get_cf(),
+                             &range, 1, &size);
+    key_descr[i]->file_length= size;
+  }
+
+  DBUG_RETURN(0);
 }
 
 
