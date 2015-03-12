@@ -2290,8 +2290,13 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   if (!(key_descr= new RDBSE_KEYDEF*[n_keys]))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
+  if (!(tbl_def= new RDBSE_TABLE_DEF))
+  {
+    delete key_descr;
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   memset(key_descr, 0, sizeof(RDBSE_KEYDEF*) * n_keys);
-  tbl_def= NULL;
 
   for (i= 0; i < table_arg->s->keys; i++)
   {
@@ -2329,9 +2334,6 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   }
   pk_descr= key_descr[table_arg->s->primary_key];
 
-  if (!(tbl_def= new RDBSE_TABLE_DEF))
-    goto error;
-
   tbl_def->n_keys= n_keys;
   tbl_def->key_descr= key_descr;
   tbl_def->dbname_tablename.append(db_table, len);
@@ -2342,8 +2344,10 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 
 error:
   /* Delete what we have allocated so far */
-  for (i= 0; i < table_arg->s->keys;i++)
-    delete key_descr[i];
+  for (uint j= 0; j < i; j++)
+    delete key_descr[j];
+  delete[] key_descr;
+  tbl_def->key_descr= NULL;
   delete tbl_def;
 
   DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
