@@ -2287,16 +2287,14 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 */
 
   /* Create table/key descriptions and put them into the data dictionary */
-  if (!(key_descr= new RDBSE_KEYDEF*[n_keys]))
-    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-
   if (!(tbl_def= new RDBSE_TABLE_DEF))
-  {
-    delete key_descr;
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
+  if (!(key_descr= new RDBSE_KEYDEF*[n_keys]))
+    goto error;
 
   memset(key_descr, 0, sizeof(RDBSE_KEYDEF*) * n_keys);
+  tbl_def->n_keys= n_keys;
+  tbl_def->key_descr= key_descr;
 
   for (i= 0; i < table_arg->s->keys; i++)
   {
@@ -2334,8 +2332,6 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   }
   pk_descr= key_descr[table_arg->s->primary_key];
 
-  tbl_def->n_keys= n_keys;
-  tbl_def->key_descr= key_descr;
   tbl_def->dbname_tablename.append(db_table, len);
   if (ddl_manager.put_and_write(tbl_def, rdb))
     goto error;
@@ -2344,10 +2340,6 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 
 error:
   /* Delete what we have allocated so far */
-  for (uint j= 0; j < i; j++)
-    delete key_descr[j];
-  delete[] key_descr;
-  tbl_def->key_descr= NULL;
   delete tbl_def;
 
   DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
