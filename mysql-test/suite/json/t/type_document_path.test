@@ -132,6 +132,48 @@ select .t1.doc from test.t1 where .t1.a = 4;
 
 ################################################################################
 ###
+### Document partial update by document path is not supported yet
+###
+
+### When document type is disabled
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+
+--error ER_BAD_FIELD_ERROR
+update t1 set t1.doc.id = 200 where a = 1;
+
+### When document type is enabled
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+
+--error ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
+update t1 set t1.doc.id = 200 where a = 1;
+
+--error ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
+update t1 set t1.doc.name = "Raymond" where a = 1;
+
+--error ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
+insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
+
+--disable_warnings ONCE
+drop procedure if exists sp1;
+create procedure sp1()
+  update t1 set t1.doc.id = 200 where a = 1;
+--error ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
+call sp1();
+drop procedure sp1;
+
+--disable_warnings ONCE
+drop procedure if exists sp2;
+create procedure sp2()
+  insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
+--error ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
+call sp2();
+drop procedure sp2;
+
+
+################################################################################
+###
 ### Document path with different types in SELECT clause
 ###
 

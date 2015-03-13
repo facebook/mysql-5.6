@@ -7182,6 +7182,9 @@ ER_DOCUMENT_PATH_KEY_ONLY_CAN_BE_UNIQUE_OR_MULTIPLE
 ER_TOO_BIG_DOCUMENT_FIELDLENGTH
   eng "Document column length too big for column '%-.192s' (max = %lu)"
 
+ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
+  eng "Document partial update not supported yet."
+
 #
 #  End of 5.6 error messages.
 #
