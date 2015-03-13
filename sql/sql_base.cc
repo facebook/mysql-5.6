@@ -9041,6 +9041,14 @@ fill_record(THD * thd, List<Item> &fields, List<Item> &values,
     table= rfield->table;
     if (rfield == table->next_number_field)
       table->auto_increment_field_not_null= TRUE;
+
+    /* Document partial update by document path is not supported yet. */
+    if (field->document_path)
+    {
+      my_error(ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET, MYF(0));
+      goto err;
+    }
+
     if ((value->save_in_field(rfield, 0) < 0) && !ignore_errors)
     {
       my_message(ER_UNKNOWN_ERROR, ER(ER_UNKNOWN_ERROR), MYF(0));
