@@ -51,6 +51,10 @@ if (!$no_defrag)
 {
   --let $no_defrag = 0
 }
+if (!$document_table)
+{
+  --let $document_table = 0
+}
 
 if ($do_checksum)
 {
@@ -58,7 +62,7 @@ if ($do_checksum)
     let $exec =
 python suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records 0 0 $user $master_host $MASTER_MYPORT
-$table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 0 0 $no_defrag;
+$table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 0 0 $no_defrag $document_table;
     exec $exec;
     let $checksum=query_get_value(CHECKSUM TABLE t1, Checksum, 1);
     # Master needs to be restarted to start with an empty buffer pool so
@@ -87,14 +91,14 @@ while ($num_crashes_tmp)
     let $exec =
 python suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records  $num_workers $num_transactions $user $master_host $MASTER_MYPORT
-$table 1 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_checks $no_defrag;
+$table 1 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_checks $no_defrag $document_table;
   }
   if (!$use_blob)
   {
     let $exec =
 python suite/innodb_stress/t/load_generator.py $pid_file $kill_db_after
 $num_records  $num_workers $num_transactions $user $master_host $MASTER_MYPORT
-$table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_checks $no_defrag;
+$table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_checks $no_defrag $document_table;
   }
 
   exec $exec;
@@ -125,7 +129,7 @@ $table 0 $max_rows $MYSQL_TMP_DIR/load_generator 0 $checksum $secondary_index_ch
     let $slave_exec =
 python suite/innodb_stress/t/load_generator.py $slave_pid_file $kill_db_after
 0  $num_workers $num_transactions $user $master_host $SLAVE_MYPORT
-$table 0 $max_rows $MYSQL_TMP_DIR/load_generator_slave 1 $checksum $secondary_index_checks $no_defrag;
+$table 0 $max_rows $MYSQL_TMP_DIR/load_generator_slave 1 $checksum $secondary_index_checks $no_defrag $document_table;
     exec $slave_exec;
   }
   --echo Checksum slave
