@@ -58,13 +58,14 @@ class WorkerThread(threading.Thread):
       self.finish()
 
 class PopulateWorker(WorkerThread):
-  def __init__(self, con, start_id, end_id, i):
+  def __init__(self, con, start_id, end_id, i, document_table):
     WorkerThread.__init__(self, 'populate-%d' % i)
     self.con = con
     con.autocommit(False)
     self.num = i
     self.start_id = start_id
     self.end_id = end_id
+    self.document_table = document_table
     self.start_time = time.time()
     self.start()
 
@@ -80,14 +81,12 @@ class PopulateWorker(WorkerThread):
     stmt = None
     for i in xrange(self.start_id, self.end_id):
       msg = get_msg(do_blob, i)
-      stmt = """
-INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%d,'%s')
-""" % (i+1, msg[0:255], msg, len(msg), sha1(msg))
+      stmt = get_insert(msg, i+1, self.document_table)
       cur.execute(stmt)
       if i % 100 == 0:
         self.con.commit()
 
-def populate_table(con, num_records_before, do_blob, log):
+def populate_table(con, num_records_before, do_blob, log, document_table):
   con.autocommit(False)
   cur = con.cursor()
   stmt = None
@@ -96,16 +95,14 @@ def populate_table(con, num_records_before, do_blob, log):
   start_id = 0
   for i in xrange(10):
      w = PopulateWorker(MySQLdb.connect(user=user, host=host, port=port, db=db),
-                        start_id, start_id + N, i)
+                        start_id, start_id + N, i, document_table)
      start_id += N
      workers.append(w)
 
   for i in xrange(start_id, num_records_before):
       msg = get_msg(do_blob, i)
       # print >> log, "length is %d, complen is %d" % (len(msg), len(zlib.compress(msg, 6)))
-      stmt = """
-INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%d,'%s')
-""" % (i+1, msg[0:255], msg, len(msg), sha1(msg))
+      stmt = get_insert(msg, i+1, document_table)
       cur.execute(stmt)
 
   con.commit()
@@ -116,31 +113,62 @@ INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum) VALUES (%d,'%s','%s',%
       return False
   return True
 
-def get_update(msg, idx):
-  return """
-UPDATE t1 SET msg_prefix='%s',msg='%s',msg_length=%d,msg_checksum='%s' WHERE id=%d""" % (
-msg[0:255], msg, len(msg), sha1(msg), idx)
+def get_update(msg, idx, document_table):
+    if document_table:
+        return """
+               UPDATE t1 SET doc = '{"msg_prefix" : "%s", "msg" : "%s", "msg_length" : %d,
+               "msg_checksum" : "%s"}' WHERE id=%d""" % (msg[0:255], msg, len(msg), sha1(msg), idx)
+    else:
+        return """
+            UPDATE t1 SET msg_prefix='%s',msg='%s',msg_length=%d,
+            msg_checksum='%s' WHERE id=%d """ % (msg[0:255], msg, len(msg), sha1(msg), idx)
 
-def get_insert_on_dup(msg, idx):
-  return """
-INSERT INTO t1 (msg_prefix,msg,msg_length,msg_checksum,id) VALUES ('%s','%s',%d,'%s',%d)
-ON DUPLICATE KEY UPDATE
-msg_prefix=VALUES(msg_prefix),
-msg=VALUES(msg),
-msg_length=VALUES(msg_length),
-msg_checksum=VALUES(msg_checksum),
-id=VALUES(id)""" % (
-msg[0:255], msg, len(msg), sha1(msg), idx)
+def get_insert_on_dup(msg, idx, document_table):
+    if document_table:
+        return """
+              INSERT INTO t1 (id, doc) VALUES
+              (%d, '{"msg_prefix" : "%s", "msg": "%s", "msg_length" : %d,
+                     "msg_checksum" : "%s"}')
+              ON DUPLICATE KEY UPDATE
+              id=VALUES(id),
+              doc=VALUES(doc)
+              """ % (idx, msg[0:255], msg, len(msg), sha1(msg))
+    else:
+        return """
+            INSERT INTO t1 (msg_prefix,msg,msg_length,msg_checksum,id)
+            VALUES ('%s','%s',%d,'%s',%d)
+            ON DUPLICATE KEY UPDATE
+            msg_prefix=VALUES(msg_prefix),
+            msg=VALUES(msg),
+            msg_length=VALUES(msg_length),
+            msg_checksum=VALUES(msg_checksum),
+            id=VALUES(id)""" % (msg[0:255], msg, len(msg), sha1(msg), idx)
 
-def get_insert(msg, idx):
-  return """
-INSERT INTO t1 (msg_prefix,msg,msg_length,msg_checksum,id) VALUES ('%s','%s',%d,'%s',%d)""" % (
-msg[0:255], msg, len(msg), sha1(msg), idx)
+def get_insert(msg, idx, document_table):
+      if document_table:
+          return """
+              INSERT INTO t1 (id, doc) VALUES
+              (%d, '{"msg_prefix" : "%s", "msg": "%s", "msg_length" : %d,
+              "msg_checksum" : "%s"}')
+              """ % (idx, msg[0:255], msg, len(msg), sha1(msg))
+      else:
+          return """
+              INSERT INTO t1(id,msg_prefix,msg,msg_length,msg_checksum)
+              VALUES (%d,'%s','%s',%d,'%s')
+              """ % (idx, msg[0:255], msg, len(msg), sha1(msg))
 
-def get_insert_null(msg):
-  return """
-INSERT INTO t1 (msg_prefix,msg,msg_length,msg_checksum,id) VALUES ('%s','%s',%d,'%s',NULL)""" % (
-msg[0:255], msg, len(msg), sha1(msg))
+def get_insert_null(msg, document_table):
+    if document_table:
+        return """
+            INSERT INTO t1 (id, doc) VALUES
+            (NULL, '{"msg_prefix" : "%s", "msg": "%s", "msg_length" : %d,
+            "msg_checksum" : "%s"}')
+            """ % (msg[0:255], msg, len(msg), sha1(msg))
+    else:
+        return """
+            INSERT INTO t1 (msg_prefix,msg,msg_length,msg_checksum,id) VALUES
+            ('%s','%s',%d,'%s',NULL)
+            """ % (msg[0:255], msg, len(msg), sha1(msg))
 
 class ChecksumWorker(WorkerThread):
   def __init__(self, con, checksum):
@@ -174,7 +202,7 @@ class ChecksumWorker(WorkerThread):
 
 class Worker(WorkerThread):
   def __init__(self, num_xactions, xid, con, server_pid, do_blob, max_id,
-               secondary_checks):
+               secondary_checks, document_table):
     WorkerThread.__init__(self, 'worker%02d' % xid)
     self.do_blob = do_blob
     self.xid = xid
@@ -195,6 +223,7 @@ class Worker(WorkerThread):
     self.num_updates = 0
     self.time_spent = 0
     self.secondary_checks = secondary_checks
+    self.document_table = document_table
     self.start()
 
   def finish(self):
@@ -262,16 +291,30 @@ class Worker(WorkerThread):
         # Query primary key 70%, secondary key lookup 20%, secondary key only 10%
         r = self.rand.randint(1, 10)
         if r <= 7:
-          cur.execute("SELECT msg_prefix,msg,msg_length,msg_checksum FROM t1 WHERE id=%d" % idx)
+          if self.document_table:
+            cur.execute("SELECT doc.msg_prefix,doc.msg,doc.msg_length, "
+                        "doc.msg_checksum FROM t1 WHERE id=%d" % idx)
+          else:
+            cur.execute("SELECT msg_prefix,msg,msg_length,msg_checksum FROM t1 WHERE id=%d" % idx)
           res = cur.fetchone()
           self.num_primary_select += 1
         elif r <= 9:
-          cur.execute("SELECT msg_prefix,msg,msg_length,msg_checksum FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
+          if self.document_table:
+            cur.execute("SELECT doc.msg_prefix,doc.msg,doc.msg_length, "
+                        "doc.msg_checksum FROM t1 use document keys WHERE doc.msg_prefix='%s'"
+                        % msg[0:255])
+          else:
+            cur.execute("SELECT msg_prefix,msg,msg_length,msg_checksum FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
           res = cur.fetchone()
           self.num_secondary_select += 1
         # Query only the secondary index
         else:
-          cur.execute("SELECT id, msg_prefix FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
+          if self.document_table:
+            cur.execute("SELECT id, doc.msg_prefix FROM t1 use document keys "
+                        "WHERE doc.msg_prefix='%s'" % msg[0:255])
+          else:
+            cur.execute("SELECT id, msg_prefix FROM t1 WHERE "
+                        "msg_prefix='%s'" % msg[0:255])
           res = cur.fetchall()
           self.num_secondary_only_select += 1
         # Don't validate if r > 9 because we don't have sufficient columns.
@@ -282,21 +325,21 @@ class Worker(WorkerThread):
         if insert_or_update:
           if res:
             if self.rand.randint(0, 1):
-              stmt = get_update(msg, idx)
+              stmt = get_update(msg, idx, self.document_table)
             else:
-              stmt = get_insert_on_dup(msg, idx)
+              stmt = get_insert_on_dup(msg, idx, self.document_table)
               insert_with_index = True
             self.num_updates += 1
           else:
             r = self.rand.randint(0, 2)
             if r == 0:
-              stmt = get_insert(msg, idx)
+              stmt = get_insert(msg, idx, self.document_table)
               insert_with_index = True
             elif r == 1:
-              stmt = get_insert_on_dup(msg, idx)
+              stmt = get_insert_on_dup(msg, idx, self.document_table)
               insert_with_index = True
             else:
-              stmt = get_insert_null(msg)
+              stmt = get_insert_null(msg, self.document_table)
             self.num_inserts += 1
         else:
           stmt = "DELETE FROM t1 WHERE id=%d" % idx
@@ -306,7 +349,11 @@ class Worker(WorkerThread):
 
         # 10% probability of checking to see the key exists in secondary index
         if self.secondary_checks and self.rand.randint(1, 10) == 1:
-          cur.execute("SELECT id, msg_prefix FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
+          if self.document_table:
+            cur.execute("SELECT id, doc.msg_prefix FROM t1 use document keys WHERE "
+                        "doc.msg_prefix='%s'" % msg[0:255])
+          else:
+            cur.execute("SELECT id, msg_prefix FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
           res_array = cur.fetchall()
           if insert_or_update:
             if insert_with_index:
@@ -400,6 +447,7 @@ if  __name__ == '__main__':
   checksum = int(sys.argv[13])
   secondary_checks = int(sys.argv[14])
   no_defrag = int(sys.argv[15])
+  document_table = int(sys.argv[16])
 
   checksum_worker = None
   defrag_worker = None
@@ -422,7 +470,8 @@ if  __name__ == '__main__':
     if not con:
         print >> log, "Cannot connect to MySQL after 3 attempts."
         sys.exit(1)
-    if not populate_table(con, num_records_before, do_blob, log):
+    if not populate_table(con, num_records_before, do_blob, log,
+                          document_table):
       sys.exit(1)
     con.close()
 
@@ -440,7 +489,8 @@ if  __name__ == '__main__':
   for i in xrange(num_workers):
     worker = Worker(num_xactions_per_worker, i,
                     MySQLdb.connect(user=user, host=host, port=port, db=db),
-                    server_pid, do_blob, max_id, secondary_checks)
+                    server_pid, do_blob, max_id, secondary_checks,
+                    document_table)
     workers.append(worker)
 
   if no_defrag == 0:
