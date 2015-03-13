@@ -4,6 +4,8 @@
 source include/have_debug.inc;
 source include/have_innodb.inc;
 source include/big_test.inc;
+# memory leaks will occur with valgrind
+source include/not_valgrind.inc;
 
 call mtr.add_suppression("Resizing redo log from");
 call mtr.add_suppression("Starting to delete and rewrite log files");
