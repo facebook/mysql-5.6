@@ -44,6 +44,7 @@
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/perf_context.h"
+#include "properties_collector.h"
 
 /* This is here to get PRIu64, PRId64 */
 #ifndef __STDC_FORMAT_MACROS
@@ -1537,6 +1538,9 @@ static int rocksdb_init_func(void *p)
     table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
   }
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
+  default_cf_opts.table_properties_collector_factories.push_back(
+    std::make_shared<MyRocksTablePropertiesCollectorFactory>()
+  );
 
   if (!rocksdb_cf_options_map.SetDefault(
         std::string(rocksdb_default_cf_options)) ||
@@ -3825,11 +3829,14 @@ int ha_rocksdb::info(uint flag)
   {
     stats.records= rocksdb_debug_optimizer_n_rows;
     stats.index_file_length= 0ul;
+    stats.data_file_length= 0ul;
     for (uint i=0; i < table->s->keys; i++)
     {
       if (i == table->s->primary_key)
       {
         stats.data_file_length= key_descr[i]->file_length;
+        stats.records = key_descr[i]->rows
+          ? key_descr[i]->rows : rocksdb_debug_optimizer_n_rows;
       }
       else
       {
@@ -4215,7 +4222,7 @@ rocksdb::Range ha_rocksdb::get_range(
 {
   RDBSE_KEYDEF* keydef = key_descr[i];
 
-  if (key_descr[i]->is_reverse_cf)
+  if (keydef->is_reverse_cf)
     return ::get_range(keydef, buf, 1, 0);
   else
     return ::get_range(keydef, buf, 0, 1);
@@ -4531,6 +4538,19 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
                              &range, 1, &size);
     key_descr[i]->file_length= size;
   }
+
+  rocksdb::TablePropertiesCollection props;
+  // TODO: move to background thread. It is
+  // expensive to call this for each table
+  auto s = rdb->GetPropertiesOfAllTables(
+    key_descr[table->s->primary_key]->get_cf(),
+    &props
+  );
+  key_descr[table->s->primary_key]->rows=
+    MyRocksTablePropertiesCollector::GetRows(
+      key_descr[table->s->primary_key]->get_index_number(),
+      props
+    );
 
   DBUG_RETURN(0);
 }

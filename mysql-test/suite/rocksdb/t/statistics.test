@@ -1,6 +1,9 @@
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+DROP TABLE IF EXISTS t4;
+DROP TABLE IF EXISTS t5;
 --enable_warnings
 
 create table t1(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
@@ -22,24 +25,35 @@ insert t3(a, b) select a, b from t1;
 create table t4(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
 insert t4(a, b) select a, b from t1;
 
+# smaller table to test number of rows stats
+create table t5(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
+insert t5(a, b) select a, b from t1 where id < 50000;
+
 create index t1_1 on t1(b);
 create index t3_1 on t3(b) comment 'cf_t3';
 create index t4_1 on t4(b) comment 'rev:cf_t4';
 
 # Manually compact column families, cleaning up all lingering data
-optimize table t1, t2, t3, t4;
-analyze table t1, t2, t3, t4;
-SELECT table_name, data_length, index_length FROM information_schema.tables WHERE table_schema = DATABASE();
+optimize table t1, t2, t3, t4, t5;
+analyze table t1, t2, t3, t4, t5;
+SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 create index t4_2 on t4(a);
 optimize table t4;
 analyze table t4;
-SELECT table_name, data_length, index_length FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+
+# restart the server, check the stats before and after analyze
+--source include/restart_mysqld.inc
+SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+analyze table t1, t2, t3, t4, t5;
+SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 drop table t1;
 drop table t2;
 drop table t3;
 drop table t4;
+drop table t5;
 
 
 
