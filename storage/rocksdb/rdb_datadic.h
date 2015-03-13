@@ -265,6 +265,7 @@ public:
     is_reverse_cf(is_reverse_cf_arg),
     is_auto_cf(is_auto_cf_arg),
     file_length(0ul),
+    rows(0ul),
     pk_part_no(NULL),
     pack_info(NULL),
     keyno(keyno_arg),
@@ -280,6 +281,8 @@ public:
     cf_handle(k->cf_handle),
     is_reverse_cf(k->is_reverse_cf),
     is_auto_cf(k->is_auto_cf),
+    file_length(0ul),
+    rows(0ul),
     pk_part_no(NULL),
     pack_info(NULL),
     keyno(keyno_arg),
@@ -354,7 +357,7 @@ public:
   bool is_auto_cf;
 
   // stats
-  uint64_t file_length;
+  uint64_t file_length, rows;
 private:
 
   friend class RDBSE_TABLE_DEF; // for index_number above
