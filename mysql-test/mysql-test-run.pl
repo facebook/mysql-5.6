@@ -143,7 +143,7 @@ END {
     {
       # Remove the tempdir this process has created
       mtr_verbose("Removing tmpdir $opt_tmpdir");
-      rmtree($opt_tmpdir);
+      rmtree(dirname($opt_tmpdir));
     }
     else
     {
@@ -1492,6 +1492,12 @@ sub command_line_setup {
 
       # Create temporary directory in standard location for temporary files
       $opt_tmpdir= tempdir( TMPDIR => 1, CLEANUP => 0 );
+      if ( ! symlink("$opt_vardir/tmp", "$opt_tmpdir/tmp") )
+      {
+        mtr_error("Error creating shortened tmp symlink.");
+      }
+      $opt_tmpdir= "$opt_tmpdir/tmp";
+
       mtr_report(" - using tmpdir: '$opt_tmpdir'\n");
 
       # Remember pid that created dir so it's removed by correct process
