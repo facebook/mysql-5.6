@@ -818,6 +818,7 @@ void KEY_PART_INFO::init_flags()
 void KEY_PART_INFO::init_from_field(Field *fld)
 {
   field= fld;
+  document_path_key_part= NULL;
   fieldnr= field->field_index + 1;
   null_bit= field->null_bit;
   null_offset= field->null_offset();
