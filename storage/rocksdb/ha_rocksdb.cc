@@ -839,53 +839,79 @@ static mysql_mutex_t drop_index_interrupt_mutex;
 static mysql_cond_t drop_index_interrupt_cond;
 static bool stop_drop_index_thread;
 
-class Rdb_CompactionFilter : public rocksdb::CompactionFilterV2
+class Rdb_CompactionFilter : public rocksdb::CompactionFilter
 {
 public:
   Rdb_CompactionFilter() {}
+  ~Rdb_CompactionFilter()
+  {
+    print_compaction_status();
+  }
 
-  virtual std::vector<bool> Filter(int level,
-                      const SliceVector& keys,
-                      const SliceVector& existing_values,
-                      std::vector<std::string>* new_values,
-                      std::vector<bool>* values_changed) const override {
+  // keys are passed in sorted order within the same sst.
+  // V1 Filter is thread safe on our usage (creating from Factory).
+  // Make sure to protect instance variables when switching to thread
+  // unsafe in the future.
+  virtual bool Filter(int level,
+                      const rocksdb::Slice& key,
+                      const rocksdb::Slice& existing_value,
+                      std::string* new_value,
+                      bool* value_changed) const override {
 
-    // check if this batch of keys is from a dropped index
+    DBUG_ASSERT(key.size() >= sizeof(uint32));
+    uint32 index= read_big_uint4((const uchar*)key.data());
+    DBUG_ASSERT(index >= 1);
 
-    DBUG_ASSERT(keys[0].size() >= sizeof(uint32));
-    uint32 index = ntohl(*reinterpret_cast<const uint32*>(keys[0].data()));
-    bool deleted = dropped_indices_manager.has_index(index);
-
-    if (deleted) {
-      sql_print_information("RocksDB: Compacting away elements from dropped index %d: %d", (int)index, (int)keys.size());
+    if (index != prev_index) // processing new index id
+    {
+      if (num_deleted > 0)
+      {
+        print_compaction_status();
+        num_deleted= 0;
+      }
+      should_delete= dropped_indices_manager.has_index(index);
+      prev_index= index;
     }
 
-    return std::vector<bool>(keys.size(), deleted);
+    if (should_delete)
+      num_deleted++;
+
+    return should_delete;
   }
 
   virtual const char* Name() const override {
     return "Rdb_CompactionFilter";
   }
+private:
+  void print_compaction_status() const
+  {
+    if (num_deleted > 0)
+      sql_print_information("RocksDB: Compacting away elements from dropped "
+                            "index %u: %llu", prev_index, num_deleted);
+  }
+
+  // Index id of the previous record
+  mutable uint32 prev_index= 0;
+  // Number of rows deleted for the same index id
+  mutable uint64 num_deleted= 0;
+  // Current index id should be deleted or not (should be deleted if true)
+  mutable bool should_delete= false;
 };
 
-class Rdb_CompactionFilterFactory : public rocksdb::CompactionFilterFactoryV2
+class Rdb_CompactionFilterFactory : public rocksdb::CompactionFilterFactory
 {
 public:
-  Rdb_CompactionFilterFactory()
-    : CompactionFilterFactoryV2(
-        rocksdb::NewFixedPrefixTransform(RDBSE_KEYDEF::INDEX_NUMBER_SIZE)) {}
+  Rdb_CompactionFilterFactory() {}
 
-  ~Rdb_CompactionFilterFactory() {
-    delete GetPrefixExtractor();
-  }
+  ~Rdb_CompactionFilterFactory() {}
 
   const char* Name() const override {
     return "Rdb_CompactionFilterFactory";
   }
 
-  std::unique_ptr<rocksdb::CompactionFilterV2> CreateCompactionFilterV2(
-      const rocksdb::CompactionFilterContext& context) {
-    return std::unique_ptr<rocksdb::CompactionFilterV2>(
+  std::unique_ptr<rocksdb::CompactionFilter> CreateCompactionFilter(
+      const rocksdb::CompactionFilter::Context& context) {
+    return std::unique_ptr<rocksdb::CompactionFilter>(
       new Rdb_CompactionFilter);
   }
 };
@@ -1499,7 +1525,7 @@ static int rocksdb_init_func(void *p)
   std::vector<rocksdb::ColumnFamilyHandle*> cf_handles;
 
   default_cf_opts.comparator= &rocksdb_pk_comparator;
-  default_cf_opts.compaction_filter_factory_v2.reset(new Rdb_CompactionFilterFactory);
+  default_cf_opts.compaction_filter_factory.reset(new Rdb_CompactionFilterFactory);
 
   default_cf_opts.write_buffer_size = ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
