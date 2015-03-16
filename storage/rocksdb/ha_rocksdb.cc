@@ -2696,7 +2696,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                     keypart_map);
 
   if (find_flag == HA_READ_PREFIX_LAST_OR_PREV ||
-      find_flag == HA_READ_PREFIX_LAST)
+      find_flag == HA_READ_PREFIX_LAST ||
+      find_flag == HA_READ_AFTER_KEY)
   {
     /* See below */
     kd->successor(sec_key_packed_tuple, packed_size);
@@ -2715,7 +2716,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     greater than the lookup tuple.
   */
   setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag));
-  bool move_forward= true;
+  //bool move_forward= true;
 
 
   switch (find_flag) {
@@ -2753,50 +2754,9 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     }
     break;
   }
-  case HA_READ_KEY_OR_NEXT:
-  {
-    /*
-      We are looking for the first record such that
-        index_tuple >= lookup_tuple.
-    */
-    if (key_descr[active_index]->is_reverse_cf)
-    {
-      if (!scan_it->Valid())
-      {
-        scan_it->SeekToLast();
-      }
-      else
-      {
-        /*
-          When using a full extended key tuple: we should not step back if
-          we've found an exact match.
-        */
-        rkey= scan_it->key();
-        if (!using_full_key || !kd->value_matches_prefix(rkey, slice))
-        {
-          scan_it->Prev();
-        }
-      }
-    }
-
-    if (!scan_it->Valid())
-    {
-      rc= HA_ERR_KEY_NOT_FOUND;
-    }
-    else
-    {
-      rkey= scan_it->key();
-      if (!kd->covers_key(rkey.data(), rkey.size()))
-      {
-        /* The record we've got is not from this index */
-        rc= HA_ERR_KEY_NOT_FOUND;
-      }
-    }
-    break;
-  }
   case HA_READ_BEFORE_KEY:
   {
-    move_forward= false;
+    //move_forward= false;
     /* We want to read the record that's right *before* the given key.  */
     if (!scan_it->Valid())
     {
@@ -2824,29 +2784,50 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     /* fall through */
   }
   case HA_READ_AFTER_KEY:
+  case HA_READ_KEY_OR_NEXT:
   {
-    bool in_key;
-    bool have_row;
     /*
-      Walk forward until we've found a record that is not equal to the lookup
-      tuple, but still belongs to this index.
+      We are looking for the first record such that
+
+        index_tuple $GT lookup_tuple
+
+      with HA_READ_AFTER_KEY, $GT = '>',
+      with HA_READ_KEY_OR_NEXT, $GT = '>='
     */
-    while ((have_row= scan_it->Valid()))
+    if (key_descr[active_index]->is_reverse_cf)
+    {
+      if (!scan_it->Valid())
+      {
+        scan_it->SeekToLast();
+      }
+      else
+      {
+        /*
+          We should step back
+           - when not using full extended key
+           - when using full extended key and when we've got an exact match
+        */
+        rkey= scan_it->key();
+        if (!using_full_key || !kd->value_matches_prefix(rkey, slice))
+        {
+          scan_it->Prev();
+        }
+      }
+    }
+
+    if (!scan_it->Valid())
+    {
+      rc= HA_ERR_KEY_NOT_FOUND;
+    }
+    else
     {
       rkey= scan_it->key();
-      if (!(in_key= kd->covers_key(rkey.data(), rkey.size())) ||
-          kd->cmp_full_keys(rkey.data(), rkey.size(),
-                            slice.data(), slice.size(),
-                            n_used_parts))
-        break;
-
-      if (move_forward)
-        scan_it->Next();
-      else
-        scan_it->Prev();
+      if (!kd->covers_key(rkey.data(), rkey.size()))
+      {
+        /* The record we've got is not from this index */
+        rc= HA_ERR_KEY_NOT_FOUND;
+      }
     }
-    if (!have_row || !in_key)
-      rc= HA_ERR_END_OF_FILE;
     break;
   }
   case HA_READ_KEY_OR_PREV:
