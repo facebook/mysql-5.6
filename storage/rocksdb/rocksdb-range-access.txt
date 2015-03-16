@@ -139,3 +139,78 @@ RocksDB calls:
 
   if (it->Valid() && kd->covers_key(..))
     return record.
+
+== HA_READ_AFTER_KEY, forward CF ==
+
+This is finding min(key) such that key > lookup_key.
+
+Suppose lookup_key = kv-bbb
+
+  ( kv )-aaa-pk
+# ( kv )-bbb
+  ( kv )-bbb-pk1  <--- Seek("kv-bbb") will put us here. We need to
+  ( kv )-bbb-pk2       get to the value that is next after 'bbb'.
+  ( kv )-bbb-pk3
+  ( kv )-bbb-pk4
+  ( kv )-bbb-pk5
+  ( kv )-ccc-pkN  <-- That is, we need to be here.
+
+However, we don't know that the next value is kv-ccc. Instead, we seek to the
+first value that strictly greater than 'kv-bbb'. It is Successor(kv-bbb).
+
+It doesn't matter if we're using a full extended key or not.
+
+RocksDB calls:
+
+  Seek(Successor(kv-bbb));
+  if (it->Valid() && kd->covers_key(it.key()))
+    return record;
+
+Note that the code is the same as with HA_READ_KEY_OR_NEXT, except that
+we seek to Successor($lookup_key) instead of $lookup_key itself.
+
+== HA_READ_AFTER_KEY, backward CF ==
+
+Suppose, the lookup key is 'kv-bbb':
+
+  (kv+1)-xxx-pk
+  ( kv )-ccc-pk7
+  ( kv )-ccc-pk6      <-- We need to be here.
+# Successor(kv-bbb)   <-- We get here when we call Seek(Successor(kv-bbb))
+  ( kv )-bbb-pk5          and we will need to call Prev() (*)
+  ( kv )-bbb-pk4
+  ( kv )-bbb-pk3
+  ( kv )-bbb-pk2
+  ( kv )-bbb-pk1
+# ( kv )-bbb          <-- We would get here if we called Seek(kv-bbb).
+  ( kv )-aaa-pk
+
+(*) - unless Successor(kv-bbb)=(kv-ccc), and Seek(kv-ccc) hits the row. In
+that case, we won't need to call Prev().
+
+RocksDB calls:
+
+  Seek(Successor(kv-bbb));
+  if (!it->Valid())
+  {
+    /*
+      We may get EOF if rows with 'kv-bbb' (below the Successor... line in the
+      diagram) do not exist. This doesn't mean that rows with values kv-ccc
+      do not exist.
+    */
+    it->SeekToLast();
+  }
+  else
+  {
+    if (!using_full_key ||
+        !kd->value_matches_prefix(...))
+    {
+      it->Prev();
+    }
+  }
+
+  if (it->Valid() && kd->covers_key(...))
+    return record.
+
+Note that the code is the same as with HA_READ_KEY_OR_NEXT, except that
+we seek to Successor($lookup_key) instead of $lookup_key itself.
