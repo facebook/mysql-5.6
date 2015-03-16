@@ -5154,7 +5154,11 @@ int MYSQL_BIN_LOG::new_file_impl(bool need_lock_log, Format_description_log_even
     new file name in the current binary log file.
   */
   if ((error= generate_new_name(new_name, name)))
+  {
+    if (binlog_error_action == ABORT_SERVER)
+      close_on_error = TRUE;
     goto end;
+  }
   else
   {
     new_name_ptr=new_name;
@@ -5275,6 +5279,9 @@ end:
         to the client side.
        */
       thd->clear_error();
+      // Log the error for easily identifying what caused the server shutdown.
+      sql_print_error("Either disk is full or file system is read only while "
+                       "rotating the binlog. Aborting the server");
       my_error(ER_BINLOG_LOGGING_IMPOSSIBLE, MYF(0), "Either disk is full or "
                "file system is read only while rotating the binlog. Aborting "
                "the server");
