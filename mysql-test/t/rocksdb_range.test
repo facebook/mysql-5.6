@@ -70,5 +70,27 @@ insert into t3 select * from t2;
 select * from t3 where pk>=1000000;
 select * from t2 where pk>=1000000;
 
+--echo #
+--echo # #42: Range in form tbl.key > const doesn't work in reverse column family
+--echo #
+explain
+select count(*) from t2 force index (a) where a>0;
+select count(*) from t2 force index (a) where a>0;
+
+explain
+select count(*) from t2 force index (a) where a>99;
+select count(*) from t2 force index (a) where a>99;
+
+select * from t2 where pk>1000000;
+select * from t3 where pk>1000000;
+
+explain
+select count(*) from t2 force index (a) where a=2 and pk>25;
+select count(*) from t2 force index (a) where a=2 and pk>25;
+
+
+select * from t2 force index (a) where a>-10 and a < 1;
+select * from t3 force index (a) where a>-10 and a < 1;
+
 drop table t0,t1,t2,t3;
 
