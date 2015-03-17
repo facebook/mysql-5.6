@@ -127,6 +127,8 @@ public:
 };
 
 
+const uint INVALID_LEN= uint(-1);
+
 /*
   An object of this class represents information about an index in an SQL
   table. It provides services to encode and decode index tuples.
