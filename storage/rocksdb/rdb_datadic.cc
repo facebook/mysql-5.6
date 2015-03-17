@@ -273,7 +273,7 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
 
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE)))
-    return (uint)-1;
+    return INVALID_LEN;
 
   for (i= 0; i < m_key_parts; i++)
   {
@@ -288,7 +288,7 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
     {
       const char* nullp;
       if (!(nullp= reader.read(1)))
-        return (uint)-1;
+        return INVALID_LEN;
       if (*nullp == 0)
       {
         /* This is a NULL value */
@@ -298,14 +298,14 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
       {
         /* If NULL marker is not '0', it can be only '1'  */
         if (*nullp != 1)
-          return (uint)-1;
+          return INVALID_LEN;
       }
     }
 
     if (have_value)
     {
       if (pack_info[i].skip_func(&pack_info[i], &reader))
-        return (uint)-1;
+        return INVALID_LEN;
     }
 
     if (pk_key_part != -1)
