@@ -1,0 +1,5 @@
+
+let $cf_name=rev:cf1;
+
+--source suite/rocksdb/t/rocksdb_icp.inc
+
