@@ -2624,13 +2624,24 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const
   if (check_keyread_allowed(inx, part, all_parts))
     base_flags |= HA_KEYREAD_ONLY;
 
-  /*
-    Index-only reads on primary key are the same as table scan for us. Still,
-    we need to explicitly "allow" them, otherwise SQL layer will miss some
-    plans.
-  */
   if (inx == table_share->primary_key)
+  {
+    /*
+      Index-only reads on primary key are the same as table scan for us. Still,
+      we need to explicitly "allow" them, otherwise SQL layer will miss some
+      plans.
+    */
     base_flags |= HA_KEYREAD_ONLY;
+  }
+  else
+  {
+    /*
+      We can Index Condition Pushdown any key except the primary. With primary
+      key, we get (pk, record) pair immediately, there is no place to put the
+      ICP check.
+    */
+    base_flags |= HA_DO_INDEX_COND_PUSHDOWN;
+  }
 
   return base_flags;
 }
@@ -2638,6 +2649,10 @@ ulong ha_rocksdb::index_flags(uint inx, uint part, bool all_parts) const
 
 /*
   Read next index tuple through the secondary index.
+
+  @detail
+    scan_it points at the index key-value pair that we should read the (pk,row)
+    pair for.
 */
 
 int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
@@ -2752,6 +2767,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     greater than the lookup tuple.
   */
   setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag));
+  bool move_forward= true;
 
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
@@ -2790,6 +2806,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   case HA_READ_BEFORE_KEY:
   {
+    move_forward= false;
     /*
       We are looking for record with the biggest t.key such that
       t.key < lookup_tuple.
@@ -2882,6 +2899,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   case HA_READ_PREFIX_LAST:
   case HA_READ_PREFIX_LAST_OR_PREV:
   {
+    move_forward= false;
     /*
       Find the last record with the specified index prefix lookup_tuple.
       - HA_READ_PREFIX_LAST requires that the record has the
@@ -2958,11 +2976,10 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
 
   skip_scan_it_next_call= FALSE;
-  uint pk_size;
 
   if (active_index == table->s->primary_key)
   {
-    pk_size= rkey.size();
+    uint pk_size= rkey.size();
     memcpy(pk_packed_tuple, rkey.data(), pk_size);
     last_rowkey.copy(rkey.data(), pk_size, &my_charset_bin);
     if (lock_rows)
@@ -2980,26 +2997,41 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   else
   {
-    pk_size= kd->get_primary_key_tuple(pk_descr, &rkey,
-                                       (char*) pk_packed_tuple);
-    if (pk_size != (uint)-1)
+    uint pk_size;
+    if (keyread_only && !lock_rows)
     {
-      last_rowkey.copy((const char*)pk_packed_tuple, pk_size, &my_charset_bin);
-
-      if (keyread_only && !lock_rows)
+      /* Get the key columns and primary key value */
+      pk_size= kd->get_primary_key_tuple(pk_descr, &rkey,
+                                         (char*)pk_packed_tuple);
+      rocksdb::Slice value= scan_it->value();
+      if (pk_size == INVALID_LEN ||
+          kd->unpack_record(table, buf, &rkey, &value))
       {
-        /* Get the key columns and primary key value */
-        rocksdb::Slice value= scan_it->value();
-        if (kd->unpack_record(table, buf, &rkey, &value))
-          rc= HA_ERR_INTERNAL_ERROR;
-        else
-          rc= 0;
+        rc= HA_ERR_INTERNAL_ERROR;
       }
       else
-        rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, pk_size);
+        rc= 0;
     }
     else
-      rc= HA_ERR_INTERNAL_ERROR;
+    {
+      if (key_descr[active_index]->is_reverse_cf)
+        move_forward= !move_forward;
+
+      rc= find_icp_matching_index_rec(move_forward, buf);
+      if (!rc)
+      {
+        rocksdb::Slice cur_key= scan_it->key();
+        pk_size= kd->get_primary_key_tuple(pk_descr, &cur_key,
+                                           (char*) pk_packed_tuple);
+        if (pk_size == INVALID_LEN)
+          rc= HA_ERR_INTERNAL_ERROR;
+        else
+          rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, pk_size);
+      }
+    }
+
+    if (!rc)
+      last_rowkey.copy((const char*)pk_packed_tuple, pk_size, &my_charset_bin);
   }
 
   if (rc)
@@ -3015,6 +3047,86 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   io_perf_end_and_record();
   DBUG_RETURN(rc);
+}
+
+
+/*
+  @brief
+  Scan the secondary index until we find an index record that satisfies ICP
+
+  @param move_forward   TRUE  <=> move scan_it forward
+                        FALSE <=> move scan_it backward
+  @param buf            Record buffer (must be the same buffer that
+                        pushed index condition points to, in practice
+                        it is table->record[0])
+
+  @detail
+  Move the current iterator scan_it until we get an index tuple that
+  satisfies the pushed Index Condition.
+  (if there is no pushed index condition, return right away)
+
+  @return
+    0     - Index tuple satisfies ICP, can do index read.
+    other - error code
+*/
+
+int ha_rocksdb::find_icp_matching_index_rec(bool move_forward, uchar *buf)
+{
+  if (pushed_idx_cond && pushed_idx_cond_keyno == active_index)
+  {
+    RDBSE_KEYDEF *kd= key_descr[active_index];
+    while (1)
+    {
+      if (!scan_it->Valid())
+      {
+        table->status= STATUS_NOT_FOUND;
+        return HA_ERR_END_OF_FILE;
+      }
+      rocksdb::Slice rkey= scan_it->key();
+
+      if (!kd->covers_key(rkey.data(), rkey.size()))
+      {
+        table->status= STATUS_NOT_FOUND;
+        return HA_ERR_END_OF_FILE;
+      }
+
+      rocksdb::Slice value= scan_it->value();
+      if (kd->unpack_record(table, buf, &rkey, &value))
+      {
+        return HA_ERR_INTERNAL_ERROR;
+      }
+
+      enum icp_result icp_status= check_index_cond();
+      if (icp_status == ICP_NO_MATCH)
+      {
+        if (move_forward)
+          scan_it->Next();
+        else
+          scan_it->Prev();
+        continue; /* Get the next (or prev) index tuple */
+      }
+      else if (icp_status == ICP_OUT_OF_RANGE)
+      {
+        /* We have walked out of range we are scanning */
+        table->status= STATUS_NOT_FOUND;
+        return HA_ERR_END_OF_FILE;
+      }
+      else /* icp_status == ICP_MATCH */
+      {
+        /* Index Condition is satisfied. We have rc==0, proceed to fetch the row. */
+        break;
+      }
+      /*
+        TODO: should we have this here, or RockDB handles this internally?
+        if (thd_killed(current_thd))
+        {
+          rc= HA_ERR_INTERNAL_ERROR; // doesn't matter
+          break;
+        }
+      */
+    }
+  }
+  return 0;
 }
 
 
@@ -3202,6 +3314,14 @@ void dbug_dump_database(rocksdb::DB *db)
 }
 
 
+/*
+  Given a rowid (i.e. packed PK) as a parameter, get the record.
+
+  @return
+    0      - Ok
+    other  - HA_ERR error code.
+*/
+
 int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
 {
   int rc;
@@ -3296,8 +3416,9 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
       else
         scan_it->Prev();
     }
-
-    rc= secondary_index_read(active_index, buf);
+    rc= find_icp_matching_index_rec(move_forward, buf);
+    if (!rc)
+      rc= secondary_index_read(active_index, buf);
   }
 
   DBUG_RETURN(rc);
@@ -3375,7 +3496,8 @@ int ha_rocksdb::index_first_intern(uchar *buf)
   setup_index_scan(key_descr[active_index], &index_key);
   skip_scan_it_next_call= TRUE;
 
-  rc= index_next(buf);
+  rc= index_next_with_direction(buf, true);
+
   if (!rc)
   {
     /*
@@ -3469,7 +3591,11 @@ int ha_rocksdb::index_last_intern(uchar *buf)
     rc= rnd_next_with_direction(buf, false);
   }
   else
-    rc= secondary_index_read(active_index, buf);
+  {
+    rc= find_icp_matching_index_rec(false /*move_forward*/, buf);
+    if (!rc)
+      rc= secondary_index_read(active_index, buf);
+  }
 
   if (!rc)
   {
@@ -3818,6 +3944,7 @@ int ha_rocksdb::index_end()
   }
 
   active_index= MAX_KEY;
+  in_range_check_pushed_down= FALSE;
   return 0;
 }
 
@@ -4638,6 +4765,98 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
   tbl_def->auto_incr_val += nb_desired_values;
   mysql_mutex_unlock(&tbl_def->mutex);
 }
+
+
+#ifndef DBUG_OFF
+
+/* Debugger help function */
+static char dbug_item_print_buf[512];
+
+const char *dbug_print_item(Item *item)
+{
+  char *buf= dbug_item_print_buf;
+  String str(buf, sizeof(dbug_item_print_buf), &my_charset_bin);
+  str.length(0);
+  if (!item)
+    return "(Item*)NULL";
+  item->print(&str ,QT_ORDINARY);
+  if (str.c_ptr() == buf)
+    return buf;
+  else
+    return "Couldn't fit into buffer";
+}
+
+#endif /*DBUG_OFF*/
+
+/*
+  SQL layer calls this function to push an index condition.
+
+  @detail
+    The condition is for index keyno (only one condition can be pushed at a
+    time).
+    The caller guarantees that condition refers only to index fields; besides
+    that, fields must have
+
+      $field->part_of_key.set_bit(keyno)
+
+    which means that
+
+       (handler->index_flags(keyno, $keypart, 0) & HA_KEYREAD_ONLY) == 1
+
+    which means that field value can be restored from the index tuple.
+
+  @return
+    Part of condition we couldn't check (always NULL).
+*/
+
+class Item* ha_rocksdb::idx_cond_push(uint keyno, class Item* idx_cond)
+{
+  DBUG_ASSERT(keyno != MAX_KEY);
+  DBUG_ASSERT(idx_cond != NULL);
+
+  pushed_idx_cond = idx_cond;
+  pushed_idx_cond_keyno = keyno;
+  in_range_check_pushed_down = TRUE;
+
+  /* We will check the whole condition */
+  return NULL;
+}
+
+
+/*
+  @brief
+  Check the index condition.
+
+  @detail
+  Check the index condition. (The caller has unpacked all needed index
+  columns into table->record[0])
+
+  @return
+    ICP_NO_MATCH - Condition not satisfied (caller should continue
+                   scanning)
+    OUT_OF_RANGE - We've left the range we're scanning (caller should
+                   stop scanning and return HA_ERR_END_OF_FILE)
+
+    ICP_MATCH    - Condition is satisfied (caller should fetch the record
+                   and return it)
+*/
+
+enum icp_result ha_rocksdb::check_index_cond()
+{
+  DBUG_ASSERT(pushed_idx_cond);
+  DBUG_ASSERT(pushed_idx_cond_keyno != MAX_KEY);
+
+  if (end_range && compare_key_icp(end_range) > 0)
+  {
+    /* caller should return HA_ERR_END_OF_FILE already */
+    return ICP_OUT_OF_RANGE;
+  }
+
+  return pushed_idx_cond->val_int() ? ICP_MATCH : ICP_NO_MATCH;
+}
+
+
+/////////////////////////////////////////////////////////////////////////
 
 /**
   Checking if an index is used for ascending scan or not
