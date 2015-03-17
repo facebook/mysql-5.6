@@ -396,9 +396,17 @@ public:
 
   int index_first(uchar *buf);
   int index_last(uchar *buf);
+
+  class Item* idx_cond_push(uint keyno, class Item* idx_cond);
+  /*
+    Default implementation from cancel_pushed_idx_cond() suits us
+  */
 private:
   int index_first_intern(uchar *buf);
   int index_last_intern(uchar *buf);
+
+  enum icp_result check_index_cond();
+  int find_icp_matching_index_rec(bool move_forward, uchar *buf);
 
   void calc_updated_indexes();
 public:
