@@ -1,3 +1,5 @@
+set -e
+
 # Initially loads a chunk of data.
 # Then start loading another chunk of data,
 # while simultaneously running a backup
