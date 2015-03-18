@@ -1,3 +1,5 @@
+set -e
+
 # Takes a full backup from server_1 to server_2
 
 ibbackup_opt="--ibbackup=${MYSQL_XTRABACKUP}"

@@ -1,3 +1,5 @@
+set -e
+
 NUMTABLES=100
 socket=$1
 for ((i=0; i<$NUMTABLES; i++));
