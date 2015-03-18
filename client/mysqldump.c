@@ -99,6 +99,7 @@ static ulong find_set(TYPELIB *lib, const char *x, size_t length,
                       char **err_pos, uint *err_len);
 static char *alloc_query_str(ulong size);
 
+static my_bool default_engine_rocksdb(MYSQL *mysql_con);
 static void field_escape(DYNAMIC_STRING* in, const char *from);
 static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 quick= 1, extended_insert= 1,
@@ -5517,6 +5518,7 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
     if (!ignore_errors)
       exit(EX_MYSQLERR);
   }
+  my_bool use_rocksdb= opt_rocksdb || default_engine_rocksdb(mysql_con);
 
   if (mysql_query_with_error_report(mysql_con, 0,
                                     "SET SESSION TRANSACTION ISOLATION "
@@ -5530,7 +5532,7 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
 
     if (mysql_query_with_error_report(
         mysql_con, &res,
-        opt_rocksdb? command_rocksdb : command_innodb) || !res)
+        use_rocksdb? command_rocksdb : command_innodb) || !res)
       return 1;
 
     {
@@ -5952,6 +5954,28 @@ static my_bool add_set_gtid_purged(MYSQL *mysql_con)
   return FALSE;  /*success */
 }
 
+static my_bool default_engine_rocksdb(MYSQL *mysql_con)
+{
+  MYSQL_RES  *res;
+  MYSQL_ROW  row;
+  char       *val= 0;
+  char buf[32], query[64];
+  my_bool rocksdb= FALSE;
+
+  my_snprintf(query, sizeof(query), "SHOW VARIABLES LIKE %s",
+              quote_for_like("default_storage_engine", buf));
+  if (mysql_query_with_error_report(mysql_con, &res, query))
+    return FALSE;
+
+  row = mysql_fetch_row(res);
+  val = row ? (char*)row[1] : NULL;
+  if (val && !strcmp(val, "ROCKSDB"))
+  {
+    rocksdb= TRUE;
+  }
+  mysql_free_result(res);
+  return rocksdb;
+}
 
 /**
   This function processes the opt_set_gtid_purged option.
