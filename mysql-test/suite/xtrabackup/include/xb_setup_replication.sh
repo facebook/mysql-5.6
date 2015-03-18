@@ -1,3 +1,5 @@
+set -e
+
 slave_socket=$1; shift
 master_port=$1; shift
 binlog_line=($(grep -m 1 -o "Last MySQL binlog file position 0 [0-9]*, file name .*\.[0-9]*" ${MYSQL_TMP_DIR}/xtrabackup_restore_log))

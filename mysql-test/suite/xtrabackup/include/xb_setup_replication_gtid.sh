@@ -1,3 +1,5 @@
+set -e
+
 slave_socket=$1; shift
 master_port=$1; shift
 master_socket=$1; shift

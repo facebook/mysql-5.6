@@ -1,3 +1,5 @@
+set -e
+
 # Initially creates a lot of tables.
 # Then start modifying and dropping those tables
 # while simultaneously running a backup

@@ -1,3 +1,5 @@
+set -e
+
 # Insert 100 batches of 100 records each to a table with following schema:
 # create table db1.t1 (
 #   `id` int(10) not null auto_increment,
