@@ -2842,29 +2842,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   case HA_READ_KEY_OR_PREV:
   {
-    if (!scan_it->Valid())
-    {
-      /*
-        We're after the last value in the database. It could be we needed the
-        last one.
-      */
-      scan_it->SeekToLast();
-    }
-    /* We should see a key that is less-or-equal than specified */
-    bool in_key;
-    bool have_row;
-    while ((have_row= scan_it->Valid()))
-    {
-      rkey= scan_it->key();
-      if (!(in_key= kd->covers_key(rkey.data(), rkey.size())) ||
-           kd->cmp_full_keys(rkey.data(), rkey.size(),
-                             slice.data(), slice.size(),
-                             n_used_parts) <= 0)
-        break;
-      scan_it->Prev();
-    }
-    if (!have_row || !in_key)
-      rc= HA_ERR_END_OF_FILE;
+    /* This flag is not used by the SQL layer, so we don't support it yet. */
+    rc= HA_ERR_UNSUPPORTED;
     break;
   }
   case HA_READ_PREFIX_LAST:
