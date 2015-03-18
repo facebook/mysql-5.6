@@ -1,0 +1,115 @@
+#
+# Range access test for RocksDB storage engine
+#
+select * from information_schema.engines where engine = 'rocksdb';
+
+--disable_warnings
+drop table if exists t0,t1;
+--enable_warnings
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+
+create table t1(a int);
+insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
+
+create table t2 (
+  pk int not null,
+  a  int not null,
+  b  int not null,
+  primary key(pk),
+  key(a) comment 'rev:cf1'
+) engine=rocksdb;
+
+# 10 pk values for each value of a...
+insert into t2 select A.a, FLOOR(A.a/10), A.a from t1 A;
+
+--echo #
+--echo # HA_READ_KEY_EXACT tests
+--echo #
+
+--echo # Original failure was here:
+explain
+select * from t2 force index (a) where a=0;
+select * from t2 force index (a) where a=0;
+
+--echo # The rest are for code coverage:
+explain
+select * from t2 force index (a) where a=2;
+select * from t2 force index (a) where a=2;
+
+explain 
+select * from t2 force index (a) where a=3 and pk=33;
+select * from t2 force index (a) where a=3 and pk=33;
+
+select * from t2 force index (a) where a=99 and pk=99;
+select * from t2 force index (a) where a=0 and pk=0;
+select * from t2 force index (a) where a=-1;
+select * from t2 force index (a) where a=-1 and pk in (101,102);
+select * from t2 force index (a) where a=100 and pk in (101,102);
+
+
+--echo #
+--echo # #36: Range in form tbl.key >= const doesn't work in reverse column family
+--echo #
+explain
+select count(*) from t2 force index (a) where a>=0 and a <=1;
+select count(*) from t2 force index (a) where a>=0 and a <=1;
+
+explain
+select count(*) from t2 force index (a) where a>=-1 and a <=1;
+select count(*) from t2 force index (a) where a>=-1 and a <=1;
+
+explain
+select * from t2 force index (a) where a=0 and pk>=3;
+select * from t2 force index (a) where a=0 and pk>=3;
+
+--echo # Try edge cases where we fall over the end of the table
+create table t3 like t2;
+insert into t3 select * from t2;
+
+select * from t3 where pk>=1000000;
+select * from t2 where pk>=1000000;
+
+--echo #
+--echo # #42: Range in form tbl.key > const doesn't work in reverse column family
+--echo #
+explain
+select count(*) from t2 force index (a) where a>0;
+select count(*) from t2 force index (a) where a>0;
+
+explain
+select count(*) from t2 force index (a) where a>99;
+select count(*) from t2 force index (a) where a>99;
+
+select * from t2 where pk>1000000;
+select * from t3 where pk>1000000;
+
+explain
+select count(*) from t2 force index (a) where a=2 and pk>25;
+select count(*) from t2 force index (a) where a=2 and pk>25;
+
+
+select * from t2 force index (a) where a>-10 and a < 1;
+select * from t3 force index (a) where a>-10 and a < 1;
+
+
+--echo # 
+--echo # #46: index_read_map(HA_READ_BEFORE_KEY) does not work in reverse column family
+--echo #
+select max(a) from t2 where a < 2;
+select max(a) from t2 where a < -1;
+
+select max(pk) from t2 where a=3 and pk < 6;
+
+select max(pk) from t2 where pk < 200000;
+select max(pk) from t2 where pk < 20;
+
+select max(a) from t3 where a < 2;
+select max(a) from t3 where a < -1;
+select max(pk) from t3 where pk < 200000;
+select max(pk) from t3 where pk < 20;
+
+select max(pk) from t2 where a=3 and pk < 33;
+select max(pk) from t3 where a=3 and pk < 33;
+
+drop table t0,t1,t2,t3;
