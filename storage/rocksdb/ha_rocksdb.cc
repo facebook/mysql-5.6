@@ -2720,8 +2720,6 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     greater than the lookup tuple.
   */
   setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag));
-  //bool move_forward= true;
-
 
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
@@ -2760,32 +2758,40 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   }
   case HA_READ_BEFORE_KEY:
   {
-    //move_forward= false;
-    /* We want to read the record that's right *before* the given key.  */
-    if (!scan_it->Valid())
+    /*
+      We are looking for record with the biggest t.key such that
+      t.key < lookup_tuple.
+    */
+    if (key_descr[active_index]->is_reverse_cf)
     {
-      /*
-        All the values in the database are smaller than our key. Two cases
-         - our index is the last in db. Its last value is a match
-         - our index has no records (in that case we will get a record from
-           our index and detect it below)
-      */
-      scan_it->SeekToLast();
+      rkey= scan_it->key();
+      if (scan_it->Valid() && using_full_key &&
+          kd->value_matches_prefix(rkey, slice))
+      {
+        /* We are using full key and we've hit an exact match */
+        scan_it->Next();
+      }
     }
     else
     {
-      /*
-        RocksDB iterator is positioned at "the first key in the source that
-        at or past target".
-        We need to step one key back, so that we're at the last key that is
-        before the target.
-        If the passed key is greater than the max. value that is found in the
-        table, then iterator is pointing at the *first* record in subsequent
-        table/index.
-      */
-      scan_it->Prev();
+      if (scan_it->Valid())
+        scan_it->Prev();
+      else
+        scan_it->SeekToLast();
     }
-    /* fall through */
+
+    if (!scan_it->Valid())
+      rc= HA_ERR_KEY_NOT_FOUND;
+    else
+    {
+      rkey= scan_it->key();
+      if (!kd->covers_key(rkey.data(), rkey.size()))
+      {
+        /* The record we've got is not from this index */
+        rc= HA_ERR_KEY_NOT_FOUND;
+      }
+    }
+    break;
   }
   case HA_READ_AFTER_KEY:
   case HA_READ_KEY_OR_NEXT:
