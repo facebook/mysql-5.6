@@ -120,6 +120,7 @@ static void add_load_option(DYNAMIC_STRING *str, const char *option,
                             const char *option_value);
 static char *alloc_query_str(size_t size);
 
+static bool default_engine_rocksdb(MYSQL *mysql_con);
 static void field_escape(DYNAMIC_STRING *in, const char *from);
 static bool verbose = 0, opt_no_create_info = 0, opt_no_data = 0, quick = 1,
             extended_insert = 1, lock_tables = 1, opt_force = 0, flush_logs = 0,
@@ -5082,6 +5083,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
                       : "Aborting.");
     if (!opt_force) exit(EX_MYSQLERR);
   }
+  bool use_rocksdb = opt_rocksdb || default_engine_rocksdb(mysql_con);
 
   if (mysql_query_with_error_report(
           mysql_con, 0,
@@ -5096,7 +5098,7 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
         "START TRANSACTION WITH CONSISTENT ROCKSDB SNAPSHOT";
 
     if (mysql_query_with_error_report(
-            mysql_con, &res, opt_rocksdb ? command_rocksdb : command_innodb) ||
+            mysql_con, &res, use_rocksdb ? command_rocksdb : command_innodb) ||
         !res)
       return 1;
 
@@ -5116,6 +5118,23 @@ static int start_transaction(MYSQL *mysql_con, char *filename_out,
     }
   }
   return 0;
+}
+
+static bool default_engine_rocksdb(MYSQL *mysql_con) {
+  MYSQL_RES *res;
+  MYSQL_ROW row;
+  char *val = 0;
+  char buf[32], query[64];
+  bool rocksdb = false;
+
+  snprintf(query, sizeof(query), "SHOW VARIABLES LIKE %s",
+           quote_for_like("default_storage_engine", buf));
+  if (mysql_query_with_error_report(mysql_con, &res, query)) return false;
+  row = mysql_fetch_row(res);
+  val = row ? (char *)row[1] : NULL;
+  if (val && !strcmp(val, "ROCKSDB")) rocksdb = true;
+  mysql_free_result(res);
+  return rocksdb;
 }
 
 /* Print a value with a prefix on file */
