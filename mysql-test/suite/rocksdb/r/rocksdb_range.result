@@ -158,4 +158,40 @@ pk	a	b
 7	0	7
 8	0	8
 9	0	9
+# 
+# #46: index_read_map(HA_READ_BEFORE_KEY) does not work in reverse column family
+#
+select max(a) from t2 where a < 2;
+max(a)
+1
+select max(a) from t2 where a < -1;
+max(a)
+NULL
+select max(pk) from t2 where a=3 and pk < 6;
+max(pk)
+NULL
+select max(pk) from t2 where pk < 200000;
+max(pk)
+999
+select max(pk) from t2 where pk < 20;
+max(pk)
+19
+select max(a) from t3 where a < 2;
+max(a)
+1
+select max(a) from t3 where a < -1;
+max(a)
+NULL
+select max(pk) from t3 where pk < 200000;
+max(pk)
+999
+select max(pk) from t3 where pk < 20;
+max(pk)
+19
+select max(pk) from t2 where a=3 and pk < 33;
+max(pk)
+32
+select max(pk) from t3 where a=3 and pk < 33;
+max(pk)
+32
 drop table t0,t1,t2,t3;
