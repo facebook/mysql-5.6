@@ -214,3 +214,68 @@ RocksDB calls:
 
 Note that the code is the same as with HA_READ_KEY_OR_NEXT, except that
 we seek to Successor($lookup_key) instead of $lookup_key itself.
+
+
+== HA_READ_BEFORE_KEY, forward CF ==
+
+This is finding max(key) such that key < lookup_tuple.
+
+Suppose, lookup_tuple=kv-bbb.
+
+  ( kv )-aaa-pk1
+  ( kv )-aaa-pk2
+  ( kv )-aaa-pk3  <-- Need to be here.
+# ( kv )-bbb
+  ( kv )-bbb-pk4  <-- Seek("kv-bbb") will put us here.
+  ( kv )-bbb-pk5
+  ( kv )-bbb-pk6
+
+1. Seek(kv-bbb) will put us at kv-bbb-pk4 (or return an invalid iterator
+   if kv-bbb-pk4 and subsequent rows do not exist in the db).
+2. We will need to call Prev() to get to the record before.
+   (if there is no record before kv-bbb, then we can't find a record).
+
+It doesn't matter if we're using a full extended key or not.
+
+RocksDB calls:
+
+  it->Seek(kv-bbb);
+  if (it->Valid())
+    it->Prev();
+  else
+    it->SeekToLast();
+
+  if (it->Valid() && kd->covers_key(...))
+    return record;
+
+
+== HA_READ_BEFORE_KEY, backward CF ==
+
+This is finding max(key) such that key < lookup_tuple.
+Suppose, lookup_tuple=kv-bbb, a prefix of the full key.
+
+  ( kv )-bbb-pk6
+  ( kv )-bbb-pk5
+  ( kv )-bbb-pk4
+# ( kv )-bbb
+  ( kv )-aaa-pk3 <-- Need to be here, and Seek("kv-bbb") will put us here
+  ( kv )-aaa-pk2
+  ( kv )-aaa-pk1
+
+If the lookup tuple is a full key (e.g. kv-bbb-pk4), and the key is present in
+the database, the iterator will be positioned on the key. We will need to call
+Next() to get the next key.
+
+RocksDB calls:
+
+  it->Seek(kv-bbb);
+
+  if (it->Valid() && using_full_key &&
+      kd->value_matches_prefix(...))
+  {
+    /* We are using full key and we've hit an exact match */
+    it->Next();
+  }
+
+  if (it->Valid() && kd->covers_key(...))
+    return record;
