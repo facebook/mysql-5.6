@@ -92,5 +92,24 @@ select count(*) from t2 force index (a) where a=2 and pk>25;
 select * from t2 force index (a) where a>-10 and a < 1;
 select * from t3 force index (a) where a>-10 and a < 1;
 
-drop table t0,t1,t2,t3;
 
+--echo # 
+--echo # #46: index_read_map(HA_READ_BEFORE_KEY) does not work in reverse column family
+--echo #
+select max(a) from t2 where a < 2;
+select max(a) from t2 where a < -1;
+
+select max(pk) from t2 where a=3 and pk < 6;
+
+select max(pk) from t2 where pk < 200000;
+select max(pk) from t2 where pk < 20;
+
+select max(a) from t3 where a < 2;
+select max(a) from t3 where a < -1;
+select max(pk) from t3 where pk < 200000;
+select max(pk) from t3 where pk < 20;
+
+select max(pk) from t2 where a=3 and pk < 33;
+select max(pk) from t3 where a=3 and pk < 33;
+
+drop table t0,t1,t2,t3;
