@@ -1,3 +1,5 @@
+set -e
+
 page_size_cnf="innodb_page_size=$1"
 cnf_file="${MYSQLTEST_VARDIR}/my.cnf"
 tmp_file="${MYSQL_TMP_DIR}/tmp.cnf"
