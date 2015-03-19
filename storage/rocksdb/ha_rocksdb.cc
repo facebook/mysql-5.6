@@ -2691,8 +2691,6 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     DBUG_RETURN(rc);
   }
 
-  uint n_used_parts= my_count_bits(keypart_map);
-
   uint packed_size;
 
   packed_size= kd->pack_index_tuple(table, pack_buffer,
@@ -2850,22 +2848,32 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   case HA_READ_PREFIX_LAST_OR_PREV:
   {
     /*
-      Given a prefix of (VAL1,VAL2), get the last record that has
-      (kp1,kp2)=(VAL1,VAL2).  This cannot be translated directly to RocksDB
-      Iterator command.
-
-      We navigate to (VAL1,VAL2+1) and then step one record back.
+      Find the last record with the specified index prefix lookup_tuple.
+      - HA_READ_PREFIX_LAST requires that the record has the
+        prefix=lookup_tuple (if there are no such records,
+        HA_ERR_KEY_NOT_FOUND should be returned).
+      - HA_READ_PREFIX_LAST_OR_PREV has no such requirement. If there are no
+        records with prefix=lookup_tuple, we should return the last record
+        before that.
     */
-    if (!scan_it->Valid())
+    if (key_descr[active_index]->is_reverse_cf)
     {
-      /*
-        We're after the last value in the database. It could be we needed the
-        last one.
-      */
-      scan_it->SeekToLast();
+      if (using_full_key && scan_it->Valid())
+      {
+        rkey= scan_it->key();
+        if (kd->value_matches_prefix(rkey, slice))
+        {
+          scan_it->Next();
+        }
+      }
     }
     else
-      scan_it->Prev();
+    {
+      if (!scan_it->Valid())
+        scan_it->SeekToLast();
+      else
+        scan_it->Prev();
+    }
 
     if (scan_it->Valid())
     {
@@ -2875,20 +2883,26 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
       {
         /* The record we've got is not from this index */
         rc= HA_ERR_KEY_NOT_FOUND;
+        break;
       }
-      else
+
       if (find_flag == HA_READ_PREFIX_LAST)
       {
-        packed_size= kd->pack_index_tuple(table, pack_buffer,
-                                          sec_key_packed_tuple, key,
-                                          keypart_map);
         /*
-          Check if the record has the same search prefix.
+          We need to compare the key we've got (rkey) with the original
+          search prefix.
+          We don't have the original search prefix, because we've called
+          kd->successor() on it.  We'll need to prepare packed lookup tuple
+          again.
         */
-        if (kd->cmp_full_keys(rkey.data(), rkey.size(),
-                              (const char*)sec_key_packed_tuple, packed_size,
-                              n_used_parts))
-          rc= HA_ERR_END_OF_FILE;
+        uint size = kd->pack_index_tuple(table, pack_buffer,
+                                         sec_key_packed_tuple, key,
+                                         keypart_map);
+        rocksdb::Slice lookup_tuple((char*)sec_key_packed_tuple, size);
+        if (!kd->value_matches_prefix(rkey, lookup_tuple))
+        {
+          rc= HA_ERR_KEY_NOT_FOUND;
+        }
       }
     }
     else
