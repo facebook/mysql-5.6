@@ -279,3 +279,75 @@ RocksDB calls:
 
   if (it->Valid() && kd->covers_key(...))
     return record;
+
+== HA_READ_PREFIX_LAST, forward CF ==
+
+Find the last record with the specified index prefix lookup_tuple.
+
+Suppose, lookup_tuple='kv-bbb'
+
+  ( kv )-aaa-pk2
+  ( kv )-aaa-pk3
+# ( kv )-bbb
+  ( kv )-bbb-pk4
+  ( kv )-bbb-pk5
+  ( kv )-bbb-pk6
+  ( kv )-bbb-pk7 <--- Need to be here.
+# ( kv )-ccc
+  ( kv )-ccc-pk8 <-- Seek(Successor(kv-bbb)) will get us here. will need
+  ( kv )-ccc-pk9                               to call Prev().
+
+RocksDB calls:
+
+  Seek(Successor(kv-bbb));
+  if (!it->Valid())
+    it->SeekToLast();
+  else
+    it->Prev();
+
+  if (it->Valid() && kd->covers_key(...))
+  {
+    if (!cmp_full_keys(lookup_tuple))  // not needed in _OR_PREV
+    {
+      // the record's prefix matches lookup_tuple.
+      return record;
+    }
+  }
+
+== HA_READ_PREFIX_LAST, backward CF ==
+
+Suppose, lookup_tuple='kv-bbb'
+
+  ( kv )-ccc-pk9
+  ( kv )-ccc-pk8
+# ( kv )-ccc     <--  2. Seek(Successor(kv-bbb)) will point here
+                         and it will fall down to the next row.
+  ( kv )-bbb-pk7 <--- 1. Need to be here.
+  ( kv )-bbb-pk6
+  ( kv )-bbb-pk5
+  ( kv )-bbb-pk4
+# ( kv )-bbb
+  ( kv )-aaa-pk3
+  ( kv )-aaa-pk2
+
+
+RocksDB calls:
+
+  it->Seek(Successor(kv-bbb));
+
+  if (using_full_key && it->Valid() && !cmp_full_keys(Sucessor(lookup_key)))
+    it->Next();
+
+  if (it->Valid() && kd->covers_key(..))
+  {
+    if (!cmp_full_keys(...)) // not needed in _OR_PREV
+    {
+      // the record's prefix matches lookup_tuple.
+      return record;
+    }
+  }
+
+== HA_READ_PREFIX_LAST_OR_PREV, forward or backward CF ==
+
+This is just like HA_READ_PREFIX_LAST but we don't need to check that the key
+we've got is in the search prefix. (search for "not needed in _OR_PREV" above)
