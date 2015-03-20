@@ -3708,6 +3708,12 @@ public:
   {
     return new Field_document(*this);
   }
+  // Usually this value is get from max_data_length(). This is used to
+  // get the max data length of Field_document when using the SQL function
+  // fbson().
+  uint32 static max_data_length_static() {
+    return (1 << 24) - 1;
+  }
 };
 
 class Field_enum :public Field_str {
