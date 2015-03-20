@@ -1622,7 +1622,8 @@ dfield_set_document_path_data(
 			if (doc_type == MYSQL_TYPE_LONGLONG) {
 				/* store in big-endian */
 				void* buf = mem_heap_alloc(heap, 8);
-				mach_write_to_8(buf, val);
+				/* fbson integers are always signed */
+				mach_write_ulonglong((byte*)buf, val, 8, false);
 				dfield_set_data(field, buf, 8);
 			} else if (doc_type == MYSQL_TYPE_DOUBLE) {
 				void* buf = mem_heap_alloc(heap, 8);
