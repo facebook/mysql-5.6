@@ -90,6 +90,68 @@ SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 0
+select b.k1 from t1;
+ERROR 42S22: Unknown column 'b.k1' in 'field list'
+select b.k1.k2 from t1;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
+select b.k1.k2.k3 from t1;
+ERROR HY000: Invalid field or reference.
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+select b.k1 from t1;
+ERROR 42S22: Unknown column 'b.k1' in 'field list'
+select b.k1.k2 from t1;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
+select b.k1.k2.k3 from t1;
+ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'field list'
+select a from t1 where b.k1 = 100;
+ERROR 42S22: Unknown column 'b.k1' in 'where clause'
+select a from t1 where b.k1.k2 = 100;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'where clause'
+select a from t1 where b.k1.k2.k3 = 100;
+ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'where clause'
+select a from t1 order by b.k1;
+ERROR 42S22: Unknown column 'b.k1' in 'order clause'
+select a from t1 order by b.k1.k2 ;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'order clause'
+select a from t1 order by b.k1.k2.k3;
+ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'order clause'
+select count(*), a from t1 group by b.k1;
+ERROR 42S22: Unknown column 'b.k1' in 'group statement'
+select count(*), a from t1 group by b.k1.k2;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'group statement'
+select count(*), a from t1 group by b.k1.k2.k3;
+ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'group statement'
+select count(*), a from t1 group by a having b.k1 = 100;
+ERROR 42S22: Unknown column 'b.k1' in 'having clause'
+select count(*), a from t1 group by a having b.k1.k2 = 100;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'having clause'
+select count(*), a from t1 group by a having b.k1.k2.k3 = 100;
+ERROR HY000: Invalid field or reference.
+select a from t1 having b.k1 = 100;
+ERROR 42S22: Unknown column 'b.k1' in 'having clause'
+select a from t1 having b.k1.k2 = 100;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'having clause'
+select a from t1 having b.k1.k2.k3 = 100;
+ERROR HY000: Invalid field or reference.
+select a from t1 where substr(b.k1, 1, 10) like 'abc';
+ERROR 42S22: Unknown column 'b.k1' in 'where clause'
+select a from t1 where substr(b.k1.k2, 1, 10) like 'abc';
+ERROR 42S22: Unknown column 'b.k1.k2' in 'where clause'
+select a from t1 where substr(b.k1.k2.k3, 1, 10) like 'abc';
+ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'where clause'
+select sum(b.k1) from t1 where a = 100;
+ERROR 42S22: Unknown column 'b.k1' in 'field list'
+select sum(b.k1.k2) from t1 where a = 100;
+ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
+select sum(b.k1.k2.k3) from t1 where a = 100;
+ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'field list'
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
 update t1 set t1.doc.id = 200 where a = 1;
 ERROR 42S22: Unknown column 't1.doc.id' in 'field list'
 SET @@global.allow_document_type = true;
@@ -207,6 +269,17 @@ Warning	1292	Truncated incorrect time value: '2014-11-01'
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
 doc
 1002
+select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
+a	b
+1	@1
+update t1 set t1.a = 101, t1.b = '@101' where doc.address.zipcode = 98761;
+select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
+a	b
+101	@101
+update t1 set t1.a = 1, t1.b = '@1' where doc.address.zipcode = 98761;
+select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
+a	b
+1	@1
 select a from t1 order by test.t1.doc.NonExistent;
 a
 1
