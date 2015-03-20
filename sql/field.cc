@@ -8203,8 +8203,15 @@ const uchar *Field_blob::unpack(uchar *to,
   uint32 const length= get_length(from, master_packlength, low_byte_first);
   DBUG_DUMP("packed", from, length + master_packlength);
   bitmap_set_bit(table->write_set, field_index);
+  my_bool tmp = current_thd->variables.use_fbson_input_format;
+  /* When using RBR, master send raw row values (fbson) which are inserted
+     into the storage engine. Turn this flag ON so document fields have
+     correct values. This is used in Field_document::store_internal()
+  */
+  current_thd->variables.use_fbson_input_format = TRUE;
   store(reinterpret_cast<const char*>(from) + master_packlength,
         length, field_charset);
+  current_thd->variables.use_fbson_input_format = tmp;
 #ifndef DBUG_OFF  
   uchar *vptr;
   get_ptr(&vptr);
@@ -8472,15 +8479,26 @@ Field_document::store_internal(const char *from, uint length,
     return TYPE_ERR_BAD_VALUE;
   }
 
-  fbson::FbsonOutStream os;
-  fbson::FbsonJsonParser parser(os);
   bool valid = false;
-  if (parser.parse(from, length))
+  if (current_thd->variables.use_fbson_input_format)
   {
     valid = true;
-    if (os.getSize() <= max_data_length())
+    if (length <= max_data_length())
     {
-      return Field_blob::store_internal(os.getBuffer(), os.getSize(), cs);
+      return Field_blob::store_internal(from, length, cs);
+    }
+  }
+  else
+  {
+    fbson::FbsonOutStream os;
+    fbson::FbsonJsonParser parser(os);
+    if (parser.parse(from, length))
+    {
+      valid = true;
+      if (os.getSize() <= max_data_length())
+      {
+        return Field_blob::store_internal(os.getBuffer(), os.getSize(), cs);
+      }
     }
   }
 
