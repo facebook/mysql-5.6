@@ -2839,6 +2839,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     break;
   }
   case HA_READ_KEY_OR_PREV:
+  case HA_READ_PREFIX:
   {
     /* This flag is not used by the SQL layer, so we don't support it yet. */
     rc= HA_ERR_UNSUPPORTED;
