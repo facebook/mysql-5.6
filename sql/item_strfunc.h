@@ -19,6 +19,8 @@
 
 /* This file defines all string functions */
 #include "crypt_genhash_impl.h"
+#include "../fbson/FbsonJsonParser.h"
+#include "../fbson/FbsonUtil.h"
 
 class MY_LOCALE;
 
@@ -1023,6 +1025,16 @@ public:
   void fix_length_and_dec(){ maybe_null= 1; max_length= MAX_BLOB_WIDTH; }
   const char *func_name() const{return "uncompress";}
   String *val_str(String *) ZLIB_DEPENDED_FUNCTION
+};
+
+class Item_func_fbson :public Item_str_func
+{
+  String buffer;
+public:
+  Item_func_fbson(Item *a) :Item_str_func(a) {}
+  const char *func_name() const { return "fbson"; }
+  void fix_length_and_dec() { maybe_null = 1; max_length = MAX_BLOB_WIDTH; }
+  String *val_str(String *);
 };
 
 class Item_func_uuid: public Item_str_func
