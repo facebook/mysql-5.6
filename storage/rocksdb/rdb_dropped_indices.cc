@@ -75,7 +75,8 @@ void Dropped_indices_manager::map_insert(RDBSE_KEYDEF** key_descr,
   for (uint32 i = 0; i < n_keys; i++) {
     uint32 index = key_descr[i]->get_index_number();
     DBUG_ASSERT(key_descr[i]->get_cf() != nullptr);
-    di_map[index] = new RDBSE_KEYDEF(key_descr[i], i);
+    di_map[index] = new RDBSE_KEYDEF(*key_descr[i]);
+    di_map[index]->set_keyno(i);
 
     sql_print_information("RocksDB: %s filtering dropped index %d",
                           log_action, index);
@@ -153,7 +154,8 @@ void Dropped_indices_manager::add_indices(RDBSE_KEYDEF** key_descr,
 
   for (uint32 i = 0; i < n_keys; i++)
   {
-    tbl->key_descr[k] = new RDBSE_KEYDEF(key_descr[i], k);
+    tbl->key_descr[k] = new RDBSE_KEYDEF(*key_descr[i]);
+    tbl->key_descr[k]->set_keyno(k);
     ++k;
   }
 
@@ -188,7 +190,9 @@ void Dropped_indices_manager::remove_indices(
   for (size_t i = 0; i < old_tbl->n_keys; i++) {
     RDBSE_KEYDEF* keydef = old_tbl->key_descr[i];
     if (indices.find(keydef->get_index_number()) == indices.end()) {
-      key_descr.push_back(new RDBSE_KEYDEF(keydef, key_descr.size()));
+      auto kd = new RDBSE_KEYDEF(*keydef);
+      kd->set_keyno(key_descr.size());
+      key_descr.push_back(kd);
     }
   }
 
