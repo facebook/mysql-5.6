@@ -185,6 +185,7 @@ static char * compact_cf_name;
 #ifndef DBUG_OFF
 static my_bool rocksdb_signal_drop_index_thread;
 #endif
+static my_bool rocksdb_collect_sst_properties = 1;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -585,6 +586,13 @@ static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
   NULL, rocksdb_drop_index_wakeup_thread, FALSE);
 #endif
 
+static MYSQL_SYSVAR_BOOL(collect_sst_properties,
+  rocksdb_collect_sst_properties,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Enables collecting SST file properties on each flush",
+  NULL, NULL, rocksdb_collect_sst_properties);
+
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -655,6 +663,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 #ifndef DBUG_OFF
   MYSQL_SYSVAR(signal_drop_index_thread),
 #endif
+  MYSQL_SYSVAR(collect_sst_properties),
 
   NULL
 };
@@ -1515,9 +1524,11 @@ static int rocksdb_init_func(void *p)
     table_options.block_cache = rocksdb::NewLRUCache(rocksdb_block_cache_size);
   }
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
-  default_cf_opts.table_properties_collector_factories.push_back(
-    std::make_shared<MyRocksTablePropertiesCollectorFactory>()
-  );
+  if (rocksdb_collect_sst_properties) {
+    default_cf_opts.table_properties_collector_factories.push_back(
+      std::make_shared<MyRocksTablePropertiesCollectorFactory>(&ddl_manager)
+    );
+  }
 
   if (!rocksdb_cf_options_map.SetDefault(
         std::string(rocksdb_default_cf_options)) ||
@@ -2378,7 +2389,9 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
     if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i,
                                          cf_handle,
                                          is_cf_name_reverse(comment),
-                                         is_auto_cf)))
+                                         is_auto_cf,
+                                         table_arg->key_info[i].name
+                                        )))
       goto error;
   }
   pk_descr= key_descr[table_arg->s->primary_key];
@@ -3875,7 +3888,7 @@ int ha_rocksdb::info(uint flag)
 
   if (flag & HA_STATUS_VARIABLE)
   {
-    stats.records= rocksdb_debug_optimizer_n_rows;
+    stats.records= 0;
     stats.index_file_length= 0ul;
     stats.data_file_length= 0ul;
     for (uint i=0; i < table->s->keys; i++)
@@ -3883,14 +3896,15 @@ int ha_rocksdb::info(uint flag)
       if (i == table->s->primary_key)
       {
         stats.data_file_length= key_descr[i]->file_length;
-        stats.records = key_descr[i]->rows
-          ? key_descr[i]->rows : rocksdb_debug_optimizer_n_rows;
+        stats.records = key_descr[i]->stats.rows;
       }
       else
       {
         stats.index_file_length+= key_descr[i]->file_length;
       }
     }
+    if (stats.records == 0)
+      stats.records = rocksdb_debug_optimizer_n_rows;
   }
   if (flag & HA_STATUS_CONST)
   {
@@ -3905,12 +3919,15 @@ int ha_rocksdb::info(uint flag)
     // n suffix columns of the index are not used.
     for (uint i= 0; i < table->s->keys; i++)
     {
-      uint j= 0;
-      for (j = 0; j < table->key_info[i].actual_key_parts; j++)
+      for (uint j = 0; j < table->key_info[i].actual_key_parts; j++)
       {
-        uint x = 1 << (table->key_info[i].actual_key_parts-j-1);
+        uint x = key_descr[i]->stats.distinct_keys_per_prefix.size() > j && key_descr[i]->stats.distinct_keys_per_prefix[j] > 0 ?
+          key_descr[i]->stats.rows / key_descr[i]->stats.distinct_keys_per_prefix[j] :
+          0;
         if (x > stats.records)
           x = stats.records;
+        if (x == 0)
+          x = 1 << (table->key_info[i].actual_key_parts-j-1);
         table->key_info[i].rec_per_key[j]= x;
       }
     }
@@ -4601,15 +4618,11 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
     key_descr[table->s->primary_key]->get_cf(),
     &props
   );
-  key_descr[table->s->primary_key]->rows=
-    MyRocksTablePropertiesCollector::GetRows(
-      key_descr[table->s->primary_key]->get_index_number(),
-      props
-    );
+  auto stats = MyRocksTablePropertiesCollector::GetStats(props);
+  ddl_manager.set_stats(stats);
 
   DBUG_RETURN(0);
 }
-
 
 void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
                                     ulonglong nb_desired_values,
