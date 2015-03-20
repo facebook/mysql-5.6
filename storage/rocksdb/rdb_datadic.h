@@ -18,7 +18,18 @@ class Dict_manager;
 class RDBSE_KEYDEF;
 class Field_pack_info;
 class Column_family_manager;
+class Table_ddl_manager;
 
+#include "properties_collector.h"
+
+void write_int64(String *out, uint64 val);
+void write_int(String *out, uint32 val);
+void write_short(String *out, uint16 val);
+void write_byte(String *out, uchar val);
+uint32 read_int(const char **data);
+uint64 read_int64(const char **data);
+uint16 read_short(const char **data);
+uchar read_byte(const char **data);
 
 inline void store_big_uint4(uchar *dst, uint32_t n)
 {
@@ -175,6 +186,8 @@ public:
                    uint n_key_parts=0);
   int unpack_record(TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
+  int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
+                   std::size_t* column_index);
 
   /* Get the key that is the "infimum" for this index */
   inline void get_infimum_key(uchar *key, uint *size)
@@ -257,42 +270,15 @@ public:
     return m_key_parts;
   }
 
+  const std::string& get_name() const {
+    return name;
+  }
+
+  RDBSE_KEYDEF(const RDBSE_KEYDEF& k);
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
                rocksdb::ColumnFamilyHandle* cf_handle_arg,
-               bool is_reverse_cf_arg, bool is_auto_cf_arg) :
-    index_number(indexnr_arg),
-    cf_handle(cf_handle_arg),
-    is_reverse_cf(is_reverse_cf_arg),
-    is_auto_cf(is_auto_cf_arg),
-    file_length(0ul),
-    rows(0ul),
-    pk_part_no(NULL),
-    pack_info(NULL),
-    keyno(keyno_arg),
-    m_key_parts(0),
-    maxlength(0) // means 'not intialized'
-  {
-    store_index_number(index_number_storage_form, index_number);
-    DBUG_ASSERT(cf_handle != nullptr);
-  }
-
-  RDBSE_KEYDEF(const RDBSE_KEYDEF* k, uint keyno_arg) :
-    index_number(k->index_number),
-    cf_handle(k->cf_handle),
-    is_reverse_cf(k->is_reverse_cf),
-    is_auto_cf(k->is_auto_cf),
-    file_length(0ul),
-    rows(0ul),
-    pk_part_no(NULL),
-    pack_info(NULL),
-    keyno(keyno_arg),
-    m_key_parts(0),
-    maxlength(0) // means 'not intialized'
-  {
-    store_index_number(index_number_storage_form, index_number);
-    DBUG_ASSERT(cf_handle != nullptr);
-  }
-
+               bool is_reverse_cf_arg, bool is_auto_cf_arg,
+               const char* _name);
   ~RDBSE_KEYDEF();
 
   enum {
@@ -351,13 +337,15 @@ private:
   rocksdb::ColumnFamilyHandle* cf_handle;
 
 public:
+  void set_keyno(uint _keyno) { keyno = _keyno; }
   /* If true, the column family stores data in the reverse order */
   bool is_reverse_cf;
 
   bool is_auto_cf;
-
+  std::string name;
   // stats
-  uint64_t file_length, rows;
+  uint64_t file_length;
+  MyRocksTablePropertiesCollector::IndexStats stats;
 private:
 
   friend class RDBSE_TABLE_DEF; // for index_number above
@@ -539,6 +527,7 @@ class Table_ddl_manager
 {
   Dict_manager *dict;
   HASH ddl_hash; // Contains RDBSE_TABLE_DEF elements
+  std::map<uint32_t, RDBSE_KEYDEF*> index_num_to_keydef;
   mysql_rwlock_t rwlock;
 
   Sequence_generator sequence;
@@ -550,6 +539,10 @@ public:
   void cleanup();
 
   RDBSE_TABLE_DEF *find(uchar *table_name, uint len, bool lock=true);
+  std::unique_ptr<RDBSE_KEYDEF> find(uint32_t index_number);
+  void set_stats(
+    const std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& stats
+  );
 
   /* Modify the mapping and write it to on-disk storage */
   int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::WriteBatch *batch);
