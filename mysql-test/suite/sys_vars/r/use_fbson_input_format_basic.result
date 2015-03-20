@@ -1,0 +1,91 @@
+SET @session_start_value = @@session.use_fbson_input_format;
+SELECT @session_start_value;
+@session_start_value
+0
+SET @@session.use_fbson_input_format = 0;
+SET @@session.use_fbson_input_format = DEFAULT;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0
+SET @@session.use_fbson_input_format = 1;
+SET @@session.use_fbson_input_format = DEFAULT;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0
+SET use_fbson_input_format = 1;
+SELECT @@use_fbson_input_format;
+@@use_fbson_input_format
+1
+SELECT session.use_fbson_input_format;
+ERROR 42S02: Unknown table 'session' in field list
+SELECT local.use_fbson_input_format;
+ERROR 42S02: Unknown table 'local' in field list
+SET session use_fbson_input_format = 0;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0
+SET @@session.use_fbson_input_format = 0;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0
+SET @@session.use_fbson_input_format = 1;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+1
+SET @@session.use_fbson_input_format = -1;
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of '-1'
+SET @@session.use_fbson_input_format = 2;
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of '2'
+SET @@session.use_fbson_input_format = "T";
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of 'T'
+SET @@session.use_fbson_input_format = "Y";
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of 'Y'
+SET @@session.use_fbson_input_format = TRÜE;
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of 'TRÜE'
+SET @@session.use_fbson_input_format = OF;
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of 'OF'
+SET @@session.use_fbson_input_format = '¹';
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of '¹'
+SET @@session.use_fbson_input_format = NO;
+ERROR 42000: Variable 'use_fbson_input_format' can't be set to the value of 'NO'
+SET @@global.use_fbson_input_format = 0;
+ERROR HY000: Variable 'use_fbson_input_format' is a SESSION variable and can't be used with SET GLOBAL
+SELECT @@global.use_fbson_input_format;
+ERROR HY000: Variable 'use_fbson_input_format' is a SESSION variable
+SELECT count(VARIABLE_VALUE) FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='use_fbson_input_format';
+count(VARIABLE_VALUE)
+1
+SELECT IF(@@session.use_fbson_input_format, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='use_fbson_input_format';
+IF(@@session.use_fbson_input_format, "ON", "OFF") = VARIABLE_VALUE
+1
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+1
+SELECT VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='use_fbson_input_format';
+VARIABLE_VALUE
+ON
+SET @@session.use_fbson_input_format = OFF;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0
+SET @@session.use_fbson_input_format = ON;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+1
+SET @@session.use_fbson_input_format = TRUE;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+1
+SET @@session.use_fbson_input_format = FALSE;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0
+SET @@session.use_fbson_input_format = @session_start_value;
+SELECT @@session.use_fbson_input_format;
+@@session.use_fbson_input_format
+0

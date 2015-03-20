@@ -1,0 +1,1 @@
+--binlog_format=ROW --allow_document_type=ON

@@ -1,0 +1,156 @@
+##################### use_fbson_input_format_basic.test #######################
+#                                                                             #
+# Variable Name: use_fbson_input_format                                       #
+# Scope: SESSION                                                              #
+# Access Type: Dynamic                                                        #
+# Data Type: boolean                                                          #
+# Default Value: 0                                                            #
+# Valid Values: 0,1                                                           #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2015-09-11                                                   #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable use_fbson_input_format   #
+#              that checks the behavior of this variable in the following ways#
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+# Reference: http://dev.mysql.com/doc/refman/5.6/en/                          #
+#  server-system-variables.html                                               #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+######################################################################## 
+#               START OF use_fbson_input_format TESTS                  #
+######################################################################## 
+
+
+############################################################################## 
+#   Saving initial value of use_fbson_input_format in a temporary variable   #
+##############################################################################
+
+SET @session_start_value = @@session.use_fbson_input_format;
+SELECT @session_start_value;
+
+######################################################################## 
+#           Display the DEFAULT value of use_fbson_input_format        #
+######################################################################## 
+
+SET @@session.use_fbson_input_format = 0;
+SET @@session.use_fbson_input_format = DEFAULT;
+SELECT @@session.use_fbson_input_format;
+
+SET @@session.use_fbson_input_format = 1;
+SET @@session.use_fbson_input_format = DEFAULT;
+SELECT @@session.use_fbson_input_format;
+
+
+############################################################################# 
+# Check if use_fbson_input_format can be accessed with and without @@ sign  #
+############################################################################# 
+
+SET use_fbson_input_format = 1;
+SELECT @@use_fbson_input_format;
+
+--Error ER_UNKNOWN_TABLE
+SELECT session.use_fbson_input_format;
+
+--Error ER_UNKNOWN_TABLE
+SELECT local.use_fbson_input_format;
+
+SET session use_fbson_input_format = 0;
+SELECT @@session.use_fbson_input_format;
+
+
+######################################################################## 
+#      change the value of use_fbson_input_format to a valid value     #
+######################################################################## 
+
+SET @@session.use_fbson_input_format = 0;
+SELECT @@session.use_fbson_input_format;
+SET @@session.use_fbson_input_format = 1;
+SELECT @@session.use_fbson_input_format;
+
+
+########################################################################### 
+#       Change the value of use_fbson_input_format to invalid value       #
+########################################################################### 
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = "T";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = "Y";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = TRÜE;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = OF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = '¹';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@session.use_fbson_input_format = NO;
+
+
+########################################################################### 
+#     Test if accessing global use_fbson_input_format gives error         #
+########################################################################### 
+
+--error ER_LOCAL_VARIABLE
+SET @@global.use_fbson_input_format = 0;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@global.use_fbson_input_format;
+
+######################################################################### 
+#     Check if the value in SESSION Table contains variable value       #
+#########################################################################
+
+SELECT count(VARIABLE_VALUE) FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='use_fbson_input_format';
+
+######################################################################### 
+#     Check if the value in SESSION Table matches value in variable     #
+#########################################################################
+
+SELECT IF(@@session.use_fbson_input_format, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='use_fbson_input_format';
+SELECT @@session.use_fbson_input_format;
+SELECT VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES 
+WHERE VARIABLE_NAME='use_fbson_input_format';
+
+################################################################### 
+#        Check if ON and OFF values can be used on variable       #
+################################################################### 
+
+SET @@session.use_fbson_input_format = OFF;
+SELECT @@session.use_fbson_input_format;
+SET @@session.use_fbson_input_format = ON;
+SELECT @@session.use_fbson_input_format;
+
+################################################################### 
+#      Check if TRUE and FALSE values can be used on variable     #
+################################################################### 
+
+SET @@session.use_fbson_input_format = TRUE;
+SELECT @@session.use_fbson_input_format;
+SET @@session.use_fbson_input_format = FALSE;
+SELECT @@session.use_fbson_input_format;
+
+##############################  
+#   Restore initial value    #
+##############################
+
+SET @@session.use_fbson_input_format = @session_start_value;
+SELECT @@session.use_fbson_input_format;
+
+###############################################################
+#             END OF use_fbson_input_format TESTS             #
+############################################################### 

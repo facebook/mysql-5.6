@@ -1,0 +1,18 @@
+source include/master-slave.inc;
+connection master;
+
+CREATE TABLE t1 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+
+sync_slave_with_master;
+
+select * from t1;
+
+connection master;
+drop table t1;
+source include/rpl_end.inc;

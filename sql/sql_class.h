@@ -683,6 +683,7 @@ typedef struct system_variables
   my_bool expand_fast_index_creation;
 
   my_bool use_fbson_output_format;
+  my_bool use_fbson_input_format;
   my_bool sql_log_bin_triggers;
 
 } SV;

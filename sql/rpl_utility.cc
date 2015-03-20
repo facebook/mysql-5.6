@@ -316,6 +316,7 @@ uint32 table_def::calc_field_size(uint col, uchar *master_data) const
   case MYSQL_TYPE_LONG_BLOB:
   case MYSQL_TYPE_BLOB:
   case MYSQL_TYPE_GEOMETRY:
+  case MYSQL_TYPE_DOCUMENT:
   {
     /*
       Compute the length of the data. We cannot use get_length() here
@@ -1141,6 +1142,7 @@ table_def::table_def(unsigned char *types, ulong size,
       case MYSQL_TYPE_DOUBLE:
       case MYSQL_TYPE_FLOAT:
       case MYSQL_TYPE_GEOMETRY:
+      case MYSQL_TYPE_DOCUMENT:
       {
         /*
           These types store a single byte.
