@@ -4659,3 +4659,36 @@ String *Item_func_gtid_subtract::val_str_ascii(String *str)
   null_value= true;
   DBUG_RETURN(NULL);
 }
+
+String *Item_func_fbson::val_str(String *str) {
+  fbson::FbsonOutStream os;
+  fbson::FbsonJsonParser parser(os);
+  String *res= args[0]->val_str(str);
+  if (!res) {
+    goto err;
+  }
+  if (parser.parse(res->ptr(), res->length()))
+  {
+    uint32 document_field_max_length = Field_document::max_data_length_static();
+    if (os.getSize() > document_field_max_length)
+    {
+      push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN,
+                          ER_TOO_BIG_DOCUMENT_FIELDLENGTH,
+                          ER(ER_TOO_BIG_DOCUMENT_FIELDLENGTH),
+                          "json", document_field_max_length);
+      goto err;
+    }
+    null_value = 0;
+    buffer.copy(os.getBuffer(), os.getSize(), &my_charset_bin);
+    return &buffer;
+  }
+  push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN,
+                      ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
+                      ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
+                      res->ptr(), "json",
+                      (ulong) current_thd->get_stmt_da()->
+                      current_row_for_warning());
+err:
+  null_value = 1;
+  return NULL;
+}
