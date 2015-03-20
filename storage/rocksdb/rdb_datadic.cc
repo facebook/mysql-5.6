@@ -30,6 +30,11 @@
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
 
+void write_int64(String *out, uint64 val)
+{
+  write_int(out, uint32(val >> 32));
+  write_int(out, uint32(val & 0xffffffff));
+}
 
 void write_int(String *out, uint32 val)
 {
@@ -48,7 +53,7 @@ void write_byte(String *out, uchar val)
   out->append((char*)&val, 1);
 }
 
-uint32 read_int(char **data)
+uint32 read_int(const char **data)
 {
   uint buf;
   memcpy(&buf, *data, sizeof(uint32));
@@ -56,7 +61,14 @@ uint32 read_int(char **data)
   return ntohl(buf);
 }
 
-uint16 read_short(char **data)
+uint64 read_int64(const char **data)
+{
+  uint64 n1 = read_int(data);
+  uint32 n2 = read_int(data);
+  return (n1 << 32) + n2;
+}
+
+uint16 read_short(const char **data)
 {
   uint16 buf;
   memcpy(&buf, *data, sizeof(uint16));
@@ -64,12 +76,63 @@ uint16 read_short(char **data)
   return ntohs(buf);
 }
 
-uchar read_byte(char **data)
+uchar read_byte(const char **data)
 {
   uchar buf;
   memcpy(&buf, *data, sizeof(uchar));
   *data += sizeof(uchar);
   return buf;
+}
+
+RDBSE_KEYDEF::RDBSE_KEYDEF(
+  uint indexnr_arg, uint keyno_arg,
+  rocksdb::ColumnFamilyHandle* cf_handle_arg,
+  bool is_reverse_cf_arg, bool is_auto_cf_arg,
+  const char* _name
+) :
+    index_number(indexnr_arg),
+    cf_handle(cf_handle_arg),
+    is_reverse_cf(is_reverse_cf_arg),
+    is_auto_cf(is_auto_cf_arg),
+    name(_name),
+    file_length(0ul),
+    pk_part_no(NULL),
+    pack_info(NULL),
+    keyno(keyno_arg),
+    m_key_parts(0),
+    maxlength(0) // means 'not intialized'
+{
+  store_index_number(index_number_storage_form, index_number);
+  DBUG_ASSERT(cf_handle != nullptr);
+}
+
+RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
+    index_number(k.index_number),
+    cf_handle(k.cf_handle),
+    is_reverse_cf(k.is_reverse_cf),
+    is_auto_cf(k.is_auto_cf),
+    name(k.name),
+    file_length(k.file_length),
+    pk_part_no(k.pk_part_no),
+    pack_info(k.pack_info),
+    keyno(k.keyno),
+    m_key_parts(k.m_key_parts),
+    maxlength(k.maxlength)
+{
+  store_index_number(index_number_storage_form, index_number);
+  if (k.pack_info)
+  {
+    size_t size= sizeof(Field_pack_info) * k.m_key_parts;
+    pack_info= (Field_pack_info*)my_malloc(size, MYF(0));
+    memcpy(pack_info, k.pack_info, size);
+  }
+
+  if (k.pk_part_no)
+  {
+    size_t size = sizeof(uint)*m_key_parts;
+    pk_part_no= (uint*)my_malloc(size, MYF(0));
+    memcpy(pk_part_no, k.pk_part_no, size);
+  }
 }
 
 RDBSE_KEYDEF::~RDBSE_KEYDEF()
@@ -79,7 +142,6 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
   if (pack_info)
     my_free(pack_info);
 }
-
 
 void RDBSE_KEYDEF::setup(TABLE *tbl)
 {
@@ -420,6 +482,83 @@ void pack_with_make_sort_key(Field_pack_info *fpi, Field *field,
   *dst += max_len;
 }
 
+/*
+  Compares two keys without unpacking
+
+  @detail
+  @return
+    0 - Ok. column_index is the index of the first column which is different.
+          -1 if two kes are equal
+    1 - Data format error.
+*/
+int RDBSE_KEYDEF::compare_keys(
+  const rocksdb::Slice *key1,
+  const rocksdb::Slice *key2,
+  std::size_t* column_index
+)
+{
+  // the caller should check the return value and
+  // not rely on column_index being valid
+  *column_index = 0xbadf00d;
+
+  Stream_reader reader1(key1);
+  Stream_reader reader2(key2);
+
+  // Skip the index number
+  if ((!reader1.read(INDEX_NUMBER_SIZE)))
+    return 1;
+
+  if ((!reader2.read(INDEX_NUMBER_SIZE)))
+    return 1;
+
+  for (uint i= 0; i < m_key_parts ; i++)
+  {
+    Field_pack_info *fpi= &pack_info[i];
+    if (fpi->maybe_null)
+    {
+      auto nullp1= reader1.read(1);
+      auto nullp2= reader2.read(1);
+      if (nullp1 == NULL || nullp2 == NULL)
+        return 1; //error
+
+      if (*nullp1 != *nullp2)
+      {
+        *column_index = i;
+        return 0;
+      }
+
+      if (*nullp1 == 0)
+      {
+        /* This is a NULL value */
+        continue;
+      }
+    }
+
+    auto before_skip1 = reader1.get_current_ptr();
+    auto before_skip2 = reader2.get_current_ptr();
+    assert(fpi->skip_func);
+    if (fpi->skip_func(fpi, &reader1))
+      return 1;
+    if (fpi->skip_func(fpi, &reader2))
+      return 1;
+    auto size1 = reader1.get_current_ptr() - before_skip1;
+    auto size2 = reader2.get_current_ptr() - before_skip2;
+    if (size1 != size2)
+    {
+      *column_index = i;
+      return 0;
+    }
+
+    if (memcmp(before_skip1, before_skip2, size1) != 0) {
+      *column_index = i;
+      return 0;
+    }
+  }
+
+  *column_index = m_key_parts;
+  return 0;
+
+}
 
 /*
   Take mem-comparable form and unpack_info and unpack it to Table->record
@@ -937,7 +1076,7 @@ bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
     /*
       If cf_id already exists, cf_flags must be the same.
       To prevent race condition, reading/modifying/committing CF flags
-      need to be protexted by mutex (dict_manager->lock()).
+      need to be protected by mutex (dict_manager->lock()).
       When RocksDB supports transaction with pessimistic concurrency
       control, we can switch to use it and removing mutex.
     */
@@ -1007,8 +1146,8 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
   uint max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next())
   {
-    char *ptr;
-    char *ptr_end;
+    const char *ptr;
+    const char *ptr_end;
     RDBSE_TABLE_DEF *tdef= new RDBSE_TABLE_DEF;
     rocksdb::Slice key= it->key();
     rocksdb::Slice val= it->value();
@@ -1081,7 +1220,8 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       */
       tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, cfh,
                                                flags & RDBSE_KEYDEF::REVERSE_CF_FLAG,
-                                               flags & RDBSE_KEYDEF::AUTO_CF_FLAG);
+                                               flags & RDBSE_KEYDEF::AUTO_CF_FLAG,
+                                               "");
 
       /* Keep track of what was the last index number we saw */
       if (max_number < index_number)
@@ -1119,6 +1259,40 @@ RDBSE_TABLE_DEF* Table_ddl_manager::find(uchar *table_name,
   return rec;
 }
 
+std::unique_ptr<RDBSE_KEYDEF>
+Table_ddl_manager::find(uint32_t index_number)
+{
+  std::unique_ptr<RDBSE_KEYDEF> ret;
+
+  // Lock the manager
+  mysql_rwlock_rdlock(&rwlock);
+  auto it= index_num_to_keydef.find(index_number);
+  if (it != index_num_to_keydef.end()) {
+    ret = std::unique_ptr<RDBSE_KEYDEF>(new RDBSE_KEYDEF(*it->second));
+  }
+  mysql_rwlock_unlock(&rwlock);
+  return ret;
+}
+
+void Table_ddl_manager::set_stats(
+  const std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& stats
+) {
+  mysql_rwlock_wrlock(&rwlock);
+  auto it1= stats.begin();
+  auto it2= index_num_to_keydef.begin();
+  while (it1 != stats.end() && it2 != index_num_to_keydef.end()) {
+    if (it1->first == it2->first) {
+      it2->second->stats = it1->second;
+      it1++;
+      it2++;
+    } else if (it1->first < it2->first) {
+      it1++;
+    } else if (it2->first < it1->first) {
+      it2++;
+    }
+  }
+  mysql_rwlock_unlock(&rwlock);
+}
 
 /*
   Put table definition of `tbl` into the mapping, and also write it to the
@@ -1148,7 +1322,12 @@ int Table_ddl_manager::put_and_write(RDBSE_TABLE_DEF *tbl,
 
 
 /* Return 0 - ok, other value - error */
-
+/* TODO:
+  This function modifies ddl_hash and index_num_to_keydef.
+  However, these changes need to be reversed if dict_manager.commit fails
+  See the discussion here: https://reviews.facebook.net/D35925#inline-259167
+  Tracked by https://github.com/MySQLOnRocksDB/mysql-5.6/issues/50
+*/
 int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
 {
   RDBSE_TABLE_DEF *rec;
@@ -1165,6 +1344,11 @@ int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
   }
   result= my_hash_insert(&ddl_hash, (uchar*)tbl);
 
+  for (uint keyno = 0; keyno < tbl->n_keys; keyno++) {
+    index_num_to_keydef[tbl->key_descr[keyno]->get_index_number()]=
+      tbl->key_descr[keyno];
+  }
+
   if (lock)
     mysql_rwlock_unlock(&rwlock);
   return result;
@@ -1176,6 +1360,10 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl,
 {
   if (lock)
     mysql_rwlock_wrlock(&rwlock);
+
+  if (tbl->key_descr) // rename function sets this to null
+    for (uint keyno = 0; keyno < tbl->n_keys; keyno++)
+      index_num_to_keydef.erase(tbl->key_descr[keyno]->get_index_number());
 
   uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
