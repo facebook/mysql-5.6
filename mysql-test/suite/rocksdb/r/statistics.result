@@ -31,10 +31,10 @@ test.t4	analyze	status	OK
 test.t5	analyze	status	OK
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	1881663	899972	100000
-t2	2085297	0	100000
-t3	2076155	893205	100000
-t4	2075613	892467	100000
+t1	1881689	900006	100000
+t2	2085406	0	100000
+t3	2075960	893227	100000
+t4	2075761	892489	100000
 t5	927368	0	49999
 create index t4_2 on t4(a);
 optimize table t4;
@@ -45,10 +45,10 @@ Table	Op	Msg_type	Msg_text
 test.t4	analyze	status	OK
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	1881663	899972	100000
-t2	2085297	0	100000
-t3	2076155	893205	100000
-t4	1861049	2652830	100000
+t1	1881689	900006	100000
+t2	2085406	0	100000
+t3	2075960	893227	100000
+t4	1861049	2652908	100000
 t5	927368	0	49999
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
@@ -66,10 +66,10 @@ test.t4	analyze	status	OK
 test.t5	analyze	status	OK
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	1881663	899972	100000
-t2	2085297	0	100000
-t3	2076155	893205	100000
-t4	1861049	2652830	100000
+t1	1881689	900006	100000
+t2	2085406	0	100000
+t3	2075960	893227	100000
+t4	1861049	2652908	100000
 t5	927368	0	49999
 drop table t1;
 drop table t2;
