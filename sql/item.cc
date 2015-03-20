@@ -2471,6 +2471,29 @@ Ident_parsing_info::Ident_parsing_info(THD *thd,
   Copy_ident_list(thd, &p.dot_separated_ident_list);
 }
 
+const char* Ident_parsing_info::full_name(THD *thd)
+{
+  List_iterator_fast<One_ident> it(dot_separated_ident_list);
+  uint sz = 0;
+  for (One_ident *s = NULL; (s= it++);)
+  {
+    sz += s->s.length;
+    ++sz; /* for the '.' and the '\0' in the end */
+  }
+  char* buf = (char *)thd->alloc(sz);
+
+  it.rewind();
+  char *p = buf;
+  for (One_ident *s = NULL; (s= it++);)
+  {
+    memcpy(p, s->s.str, s->s.length);
+    p += s->s.length;
+    *p++ = '.';
+  }
+  buf[sz-1] = '\0';
+  return buf;
+}
+
 void Ident_parsing_info::Parse_and_set_document_path_keys(
                                THD *thd, List<Document_key>& list)
 {
@@ -5615,15 +5638,16 @@ bool Item_field::fix_fields(THD *thd, Item **reference)
 
   DBUG_ASSERT(!ret);
 
-  if (field)
+  if (field && parsing_info.num_unresolved_idents > 0)
   {
-    DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT ||
-                parsing_info.num_unresolved_idents == 0);
-  }
+    if (field->type() != MYSQL_TYPE_DOCUMENT)
+    {
+      /* syntax error when using document path on a non-document column */
+      my_error(ER_BAD_FIELD_ERROR, MYF(0),
+               parsing_info.full_name(thd), thd->where);
+      return true;
+    }
 
-  if (field && field->type() == MYSQL_TYPE_DOCUMENT &&
-      parsing_info.num_unresolved_idents > 0)
-  {
     /* If the type of the field is document and there are still unresolved
        dot separated identifiers then this whole expression will be treated
        as a document virutal field.
