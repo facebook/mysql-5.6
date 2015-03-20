@@ -2190,6 +2190,11 @@ public:
                      Ident_parsing_info& p);
 
   /*
+    generate the string of the dot separated expression
+  */
+  const char* full_name(THD *thd);
+
+  /*
     parse the original dot-separated key tokens and
     set the document path keys
   */
