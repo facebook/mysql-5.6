@@ -120,7 +120,7 @@ select a from t1 where test.t1.doc.id = 102;
 --error ER_INVALID_FIELD_OR_REFERENCE
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
 
-### Enable document type
+### Enable document type with the new parsing logic
 SET @@global.allow_document_type = true;
 SELECT @@global.allow_document_type;
 
@@ -128,6 +128,90 @@ SELECT @@global.allow_document_type;
 select test.t1.b from test.t1 where test.t1.a = 1;
 select t1.doc from test.t1 where t1.a = 2;
 select .t1.doc from test.t1 where .t1.a = 4;
+
+
+################################################################################
+###
+### Invalid document path: using document path on a non-document column
+###
+
+### Disable document type to make parser work as before
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+
+--error ER_BAD_FIELD_ERROR
+select b.k1 from t1;
+--error ER_BAD_FIELD_ERROR
+select b.k1.k2 from t1;
+--error ER_INVALID_FIELD_OR_REFERENCE
+select b.k1.k2.k3 from t1;
+
+### Enable document type with the new parsing logic
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+
+## In SELECT
+--error ER_BAD_FIELD_ERROR
+select b.k1 from t1;
+--error ER_BAD_FIELD_ERROR
+select b.k1.k2 from t1;
+--error ER_BAD_FIELD_ERROR
+select b.k1.k2.k3 from t1;
+
+## In WHERE
+--error ER_BAD_FIELD_ERROR
+select a from t1 where b.k1 = 100;
+--error ER_BAD_FIELD_ERROR
+select a from t1 where b.k1.k2 = 100;
+--error ER_BAD_FIELD_ERROR
+select a from t1 where b.k1.k2.k3 = 100;
+
+## In ORDER BY
+--error ER_BAD_FIELD_ERROR
+select a from t1 order by b.k1;
+--error ER_BAD_FIELD_ERROR
+select a from t1 order by b.k1.k2 ;
+--error ER_BAD_FIELD_ERROR
+select a from t1 order by b.k1.k2.k3;
+
+## In GROUP BY
+--error ER_BAD_FIELD_ERROR
+select count(*), a from t1 group by b.k1;
+--error ER_BAD_FIELD_ERROR
+select count(*), a from t1 group by b.k1.k2;
+--error ER_BAD_FIELD_ERROR
+select count(*), a from t1 group by b.k1.k2.k3;
+
+## In HAVING
+--error ER_BAD_FIELD_ERROR
+select count(*), a from t1 group by a having b.k1 = 100;
+--error ER_BAD_FIELD_ERROR
+select count(*), a from t1 group by a having b.k1.k2 = 100;
+--error ER_INVALID_FIELD_OR_REFERENCE
+select count(*), a from t1 group by a having b.k1.k2.k3 = 100;
+
+## In HAVING without GROUP BY then HAVING clause behaves like WHERE clause
+--error ER_BAD_FIELD_ERROR
+select a from t1 having b.k1 = 100;
+--error ER_BAD_FIELD_ERROR
+select a from t1 having b.k1.k2 = 100;
+--error ER_INVALID_FIELD_OR_REFERENCE
+select a from t1 having b.k1.k2.k3 = 100;
+
+## In Functions
+--error ER_BAD_FIELD_ERROR
+select a from t1 where substr(b.k1, 1, 10) like 'abc';
+--error ER_BAD_FIELD_ERROR
+select a from t1 where substr(b.k1.k2, 1, 10) like 'abc';
+--error ER_BAD_FIELD_ERROR
+select a from t1 where substr(b.k1.k2.k3, 1, 10) like 'abc';
+
+--error ER_BAD_FIELD_ERROR
+select sum(b.k1) from t1 where a = 100;
+--error ER_BAD_FIELD_ERROR
+select sum(b.k1.k2) from t1 where a = 100;
+--error ER_BAD_FIELD_ERROR
+select sum(b.k1.k2.k3) from t1 where a = 100;
 
 
 ################################################################################
@@ -265,6 +349,13 @@ select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as time) = cast('2014-11
 
 ### Document path in both SELECT and WHERE clause: database.table.field.key1.key2
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
+
+### Document paths in WHERE clause for UPDATE statements
+select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
+update t1 set t1.a = 101, t1.b = '@101' where doc.address.zipcode = 98761;
+select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
+update t1 set t1.a = 1, t1.b = '@1' where doc.address.zipcode = 98761;
+select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 
 
 ################################################################################
