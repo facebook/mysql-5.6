@@ -1031,6 +1031,17 @@ protected:
 };
 #endif
 
+class Create_func_fbson : public Create_func_arg1
+{
+public:
+  virtual Item *create(THD *thd, Item *arg1);
+
+  static Create_func_fbson s_singleton;
+
+protected:
+  Create_func_fbson() {}
+  virtual ~Create_func_fbson() {}
+};
 
 class Create_func_field : public Create_native_func
 {
@@ -3782,6 +3793,13 @@ Create_func_exteriorring::create(THD *thd, Item *arg1)
 }
 #endif
 
+Create_func_fbson Create_func_fbson::s_singleton;
+
+Item*
+Create_func_fbson::create(THD *thd, Item *arg1)
+{
+  return new (thd->mem_root) Item_func_fbson(arg1);
+}
 
 Create_func_field Create_func_field::s_singleton;
 
@@ -5657,6 +5675,7 @@ static Native_func_registry func_array[] =
   { { C_STRING_WITH_LEN("EXPORT_SET") }, BUILDER(Create_func_export_set)},
   { { C_STRING_WITH_LEN("EXTERIORRING") }, GEOM_BUILDER(Create_func_exteriorring)},
   { { C_STRING_WITH_LEN("EXTRACTVALUE") }, BUILDER(Create_func_xml_extractvalue)},
+  { { C_STRING_WITH_LEN("FBSON") }, BUILDER(Create_func_fbson)},
   { { C_STRING_WITH_LEN("FIELD") }, BUILDER(Create_func_field)},
   { { C_STRING_WITH_LEN("FIND_IN_SET") }, BUILDER(Create_func_find_in_set)},
   { { C_STRING_WITH_LEN("FLOOR") }, BUILDER(Create_func_floor)},

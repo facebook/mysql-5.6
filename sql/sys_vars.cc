@@ -548,6 +548,14 @@ static Sys_var_mybool Sys_use_fbson_output_format(
        SESSION_ONLY(use_fbson_output_format),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_use_fbson_input_format(
+       "use_fbson_input_format",
+       "Uses FBSON format as document type input. This session value "
+       "is set to true for SQL threads when inserting document fields received "
+       "through row based replication.",
+       SESSION_ONLY(use_fbson_input_format),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_block_create_myisam(
        "block_create_myisam",
        "Blocks creation of non-temporary MyISAM tables outside of mysql "
