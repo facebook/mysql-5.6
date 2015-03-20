@@ -12,6 +12,8 @@ create table test_json(json document) engine=innodb;
 
 --source suite/json/include/fbson_output_format.inc
 
+--source suite/json/include/fbson_input_format.inc
+
 #
 # cleanup
 #

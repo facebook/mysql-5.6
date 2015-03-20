@@ -2327,6 +2327,7 @@ log_event_print_value(IO_CACHE *file, const uchar *ptr,
     my_snprintf(typestr, typestr_length, "SET(%d bytes)", meta & 0xFF);
     return meta & 0xFF;
   
+  case MYSQL_TYPE_DOCUMENT:
   case MYSQL_TYPE_BLOB:
     switch (meta) {
     case 1:
