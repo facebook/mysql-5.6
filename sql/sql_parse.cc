@@ -8473,7 +8473,7 @@ bool block_myisam_tables(HA_CREATE_INFO *create_info,
       strcmp(table_list->db, "mtr") &&
       create_info->db_type &&
       create_info->db_type->db_type == DB_TYPE_MYISAM &&
-      !create_info->options & HA_LEX_CREATE_TMP_TABLE)
+      !(create_info->options & HA_LEX_CREATE_TMP_TABLE))
     return true;
   return false;
 }
