@@ -117,6 +117,84 @@ static int i_s_rocksdb_cfstats_init(void *p)
   DBUG_RETURN(0);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_DBSTATS dynamic table
+ */
+static int i_s_rocksdb_dbstats_fill_table(THD *thd,
+                                          TABLE_LIST *tables,
+                                          Item *cond)
+{
+  bool ret;
+  uint64_t val;
+
+  DBUG_ENTER("i_s_rocksdb_dbstats_fill_table");
+
+  std::vector<std::pair<std::string, std::string>> db_properties = {
+    {rocksdb::DB::Properties::kBackgroundErrors, "DB_BACKGROUND_ERRORS"},
+    {rocksdb::DB::Properties::kNumSnapshots, "DB_NUM_SNAPSHOTS"},
+    {rocksdb::DB::Properties::kOldestSnapshotTime, "DB_OLDEST_SNAPSHOT_TIME"}
+  };
+
+  rocksdb::DB *rdb= rocksdb_get_rdb();
+  rocksdb::BlockBasedTableOptions table_options= rocksdb_get_table_options();
+
+  for (auto property : db_properties)
+  {
+    if (!rdb->GetIntProperty(property.first, &val))
+      continue;
+
+    tables->table->field[0]->store(property.second.c_str(),
+                                   property.second.size(),
+                                   system_charset_info);
+    tables->table->field[1]->store(val, true);
+
+    ret= schema_table_store_record(thd, tables->table);
+
+    if (ret)
+      DBUG_RETURN(ret);
+  }
+
+  /*
+    Currently, this can only show the usage of a block cache allocated
+    directly by the handlerton. If the column family config specifies a block
+    cache (i.e. the column family option has a parameter such as
+    block_based_table_factory={block_cache=1G}), then the block cache is
+    allocated within the rocksdb::GetColumnFamilyOptionsFromString().
+
+    There is no interface to retrieve this block cache, nor fetch the usage
+    information from the column family.
+   */
+  val= (table_options.block_cache ? table_options.block_cache->GetUsage() : 0);
+  tables->table->field[0]->store(STRING_WITH_LEN("DB_BLOCK_CACHE_USAGE"),
+                                 system_charset_info);
+  tables->table->field[1]->store(val, true);
+
+  ret= schema_table_store_record(thd, tables->table);
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_dbstats_fields_info[]=
+{
+  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG),
+  ROCKSDB_FIELD_INFO_END
+};
+
+static int i_s_rocksdb_dbstats_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_dbstats_init");
+
+  schema= (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info= i_s_rocksdb_dbstats_fields_info;
+  schema->fill_table= i_s_rocksdb_dbstats_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int i_s_rocksdb_deinit(void *p)
 {
   DBUG_ENTER("i_s_rocksdb_deinit");
@@ -135,6 +213,23 @@ struct st_mysql_plugin i_s_rocksdb_cfstats=
   "RocksDB column family stats",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_cfstats_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  NULL,                               /* status variables */
+  NULL,                               /* system variables */
+  NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_dbstats=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_DBSTATS",
+  "Monty Program Ab",
+  "RocksDB database stats",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_dbstats_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */
