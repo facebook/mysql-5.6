@@ -21,6 +21,7 @@
 #include <mysql/plugin.h>
 #include "ha_rocksdb.h"
 #include "ha_rocksdb_proto.h"
+
 #include "sql_class.h"
 #include "sql_array.h"
 
@@ -4820,7 +4821,8 @@ mysql_declare_plugin(rocksdb_se)
   NULL,                                         /* config options */
   0,                                            /* flags */
 },
-i_s_rocksdb_cfstats
+i_s_rocksdb_cfstats,
+i_s_rocksdb_dbstats
 mysql_declare_plugin_end;
 
 
@@ -4950,4 +4952,9 @@ rocksdb::DB *rocksdb_get_rdb()
 Column_family_manager& rocksdb_get_cf_manager()
 {
   return cf_manager;
+}
+
+rocksdb::BlockBasedTableOptions& rocksdb_get_table_options()
+{
+  return table_options;
 }
