@@ -17,9 +17,13 @@
 #ifndef _ha_rocksdb_proto_h_
 #define _ha_rocksdb_proto_h_
 
+#include "rocksdb/table.h"
+
 class Column_family_manager;
 
 rocksdb::DB *rocksdb_get_rdb();
 Column_family_manager& rocksdb_get_cf_manager();
+rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
 
 #endif /* _ha_rocksdb_proto_h_ */
+
