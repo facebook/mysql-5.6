@@ -255,5 +255,11 @@ SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
+checksum table t_big;
+Table	Checksum
+test.t_big	3679544945
+checksum table t_big;
+Table	Checksum
+test.t_big	3679544945
 drop table t, t1, t2, t3, t_big, t_big2;
 include/rpl_end.inc
