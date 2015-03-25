@@ -9696,7 +9696,7 @@ bool mysql_checksum_table(THD *thd, TABLE_LIST *tables,
 
              /*
                BLOB and VARCHAR have pointers in their field, we must convert
-               to string; GEOMETRY is implemented on top of BLOB.
+               to string; GEOMETRY and DOCUMENT are implemented on top of BLOB.
                BIT may store its data among NULL bits, convert as well.
              */
               switch (f->type()) {
@@ -9704,6 +9704,7 @@ bool mysql_checksum_table(THD *thd, TABLE_LIST *tables,
                 case MYSQL_TYPE_VARCHAR:
                 case MYSQL_TYPE_GEOMETRY:
                 case MYSQL_TYPE_BIT:
+                case MYSQL_TYPE_DOCUMENT:
                 {
                   String tmp;
                   f->val_str(&tmp);
