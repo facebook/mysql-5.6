@@ -221,6 +221,12 @@ alter table t3 modify column s document;
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
+checksum table t_big;
+connection slave;
+# Should be same as that on master
+checksum table t_big;
+
+connection master;
 drop table t, t1, t2, t3, t_big, t_big2;
 
 --source include/rpl_end.inc
