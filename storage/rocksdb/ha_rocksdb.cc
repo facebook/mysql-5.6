@@ -68,13 +68,8 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
                           const bool use_all_keys,
                           bool is_ascending);
-static int rocksdb_normalize_tablename(const char *tablename,
-                                       StringBuffer<256> *strbuf);
-static bool rocksdb_strip_tablename_partition(const char *tablename,
-                                              StringBuffer<256> *strbuf);
 
 static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table);
-static std::vector<std::string> get_share_names(void);
 static int free_share(ROCKSDB_SHARE *share);
 
 ///////////////////////////////////////////////////////////
@@ -1361,25 +1356,16 @@ static void rocksdb_update_table_stats(
   for (auto it : tablenames)
   {
     ROCKSDB_SHARE *share;
-    StringBuffer<256> buf, fullname, dbname, tablename;
+    StringBuffer<256> buf, dbname, tablename, partname;
     bool is_partition;
-    int pos;
 
     rocksdb_normalize_tablename(it.c_str(), &buf);
-    is_partition= rocksdb_strip_tablename_partition(buf.c_ptr(), &fullname);
-
-    /* Normalize returns dbname.tablename */
-    pos= fullname.strstr(String(".", &my_charset_bin));
-
-    /* Invalid table name? */
-    if (pos < 0)
+    if (rocksdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
+                                           &partname))
       continue;
 
-    dbname.append(fullname.c_ptr(), pos);
-    tablename.append(fullname.c_ptr() + pos + 1,
-                     fullname.length() - pos - 1);
+    is_partition= (partname.length() != 0);
 
-    /* It doesn't look like TABLE is needed here in get_share */
     share= get_share(it.c_str(), nullptr);
     if (!share)
       continue;
@@ -1718,7 +1704,7 @@ error:
 }
 
 
-static std::vector<std::string> get_share_names(void)
+std::vector<std::string> get_share_names(void)
 {
   int i;
   ROCKSDB_SHARE *share;
@@ -2131,26 +2117,51 @@ void ha_rocksdb::io_perf_start(void)
 {
   rocksdb::SetPerfLevel(
     static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level));
-  my_io_perf_init(&io_perf);
-  io_perf.bytes= rocksdb::perf_context.block_read_byte;
-  io_perf.requests= rocksdb::perf_context.block_read_count;
-  io_perf.svc_time= rocksdb::perf_context.block_read_time;
+
+#define IO_PERF_INIT(_field_) io_perf._field_= rocksdb::perf_context._field_
+  IO_PERF_INIT(block_read_byte);
+  IO_PERF_INIT(block_read_count);
+  IO_PERF_INIT(block_read_time);
+  IO_PERF_INIT(internal_key_skipped_count);
+  IO_PERF_INIT(internal_delete_skipped_count);
+#undef IO_PERF_INIT
 }
 
 void ha_rocksdb::io_perf_end_and_record(void)
 {
-  io_perf.bytes= rocksdb::perf_context.block_read_byte - io_perf.bytes;
-  io_perf.requests= rocksdb::perf_context.block_read_count - io_perf.requests;
+#define IO_PERF_DIFF(_field_) io_perf._field_= rocksdb::perf_context._field_ - \
+                                               io_perf._field_
+  IO_PERF_DIFF(block_read_byte);
+  IO_PERF_DIFF(block_read_count);
+  IO_PERF_DIFF(block_read_time);
+  IO_PERF_DIFF(internal_key_skipped_count);
+  IO_PERF_DIFF(internal_delete_skipped_count);
+#undef IO_PERF_DIFF
 
-  /*
-    Rocksdb does not distinguish between I/O service and wait time, so just use
-    svc time.
-   */
-  io_perf.svc_time= rocksdb::perf_context.block_read_time - io_perf.svc_time;
-  io_perf.svc_time_max= io_perf.svc_time;
+  if (io_perf.block_read_byte + io_perf.block_read_count +
+      io_perf.block_read_time != 0)
+  {
+    my_io_perf_t io_perf_read;
 
-  if (io_perf.bytes != 0 || io_perf.requests != 0 || io_perf.svc_time != 0)
-    my_io_perf_sum_atomic_helper(&share->io_perf_read, &io_perf);
+    my_io_perf_init(&io_perf_read);
+    io_perf_read.bytes= io_perf.block_read_byte;
+    io_perf_read.requests= io_perf.block_read_count;
+
+    /*
+      Rocksdb does not distinguish between I/O service and wait time, so just
+      use svc time.
+     */
+    io_perf_read.svc_time_max= io_perf_read.svc_time= io_perf.block_read_time;
+
+    my_io_perf_sum_atomic_helper(&share->io_perf_read, &io_perf_read);
+  }
+
+  if (io_perf.internal_key_skipped_count)
+    share->internal_key_skipped_count += io_perf.internal_key_skipped_count;
+
+  if (io_perf.internal_delete_skipped_count)
+    share->internal_delete_skipped_count +=
+        io_perf.internal_delete_skipped_count;
 }
 
 int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
@@ -2383,8 +2394,8 @@ error:
 }
 
 
-static int rocksdb_normalize_tablename(const char *tablename,
-                                       StringBuffer<256> *strbuf)
+int rocksdb_normalize_tablename(const char *tablename,
+                                StringBuffer<256> *strbuf)
 {
   DBUG_ASSERT(tablename[0] == '.' && tablename[1] == '/');
   tablename += 2;
@@ -2407,20 +2418,42 @@ static int rocksdb_normalize_tablename(const char *tablename,
 
 /**
   @brief
-  strips the partition suffix "#P#" from the tablename
+  splits the normalized table name of <dbname>.<tablename>#P#<part_no> into
+  the <dbname>, <tablename> and <part_no> components.
 
-  @param strbuf returns tablename with suffix removed
-  @return true if partition suffix was removed
+  @param dbbuf returns database name/table_schema
+  @param tablebuf returns tablename
+  @param partitionbuf returns partition suffix if there is one
+  @return 0 on success, non-zero on failure to split
 */
-static bool rocksdb_strip_tablename_partition(const char *tablename,
-                                              StringBuffer<256> *strbuf)
+int rocksdb_split_normalized_tablename(const char *fullname,
+                                       StringBuffer<256> *dbbuf,
+                                       StringBuffer<256> *tablebuf,
+                                       StringBuffer<256> *partitionbuf)
 {
-  const char *s= strstr(tablename, "#P#");
-  if (s)
-    strbuf->append(tablename, s - tablename);
+#define PARTITION_STR "#P#"
+
+  /* Normalize returns dbname.tablename */
+  const char *tb= strstr(fullname, ".");
+
+  /* Invalid table name? */
+  if (tb == NULL)
+    return HA_ERR_INTERNAL_ERROR;
+
+  dbbuf->append(fullname, tb - fullname);
+  tb++;
+
+  const char *pt= strstr(tb, PARTITION_STR);
+
+  if (pt)
+  {
+    tablebuf->append(tb, pt - tb);
+    pt += sizeof(PARTITION_STR);
+    partitionbuf->append(pt);
+  }
   else
-    strbuf->append(tablename);
-  return s != NULL;
+    tablebuf->append(tb);
+  return 0;
 }
 
 
@@ -4822,7 +4855,8 @@ mysql_declare_plugin(rocksdb_se)
   0,                                            /* flags */
 },
 i_s_rocksdb_cfstats,
-i_s_rocksdb_dbstats
+i_s_rocksdb_dbstats,
+i_s_rocksdb_perf_context
 mysql_declare_plugin_end;
 
 
@@ -4957,4 +4991,20 @@ Column_family_manager& rocksdb_get_cf_manager()
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options()
 {
   return table_options;
+}
+
+int rocksdb_get_share_perf_counters(const char *tablename,
+                                    SHARE_PERF_COUNTERS *counters)
+{
+  ROCKSDB_SHARE *share;
+  share= get_share(tablename, nullptr);
+  if (!share)
+    return HA_ERR_INTERNAL_ERROR;
+
+  counters->value[PC_KEY_SKIPPED_IDX]=
+      share->internal_key_skipped_count.load(std::memory_order_relaxed),
+  counters->value[PC_DELETE_SKIPPED_IDX]=
+      share->internal_delete_skipped_count.load(std::memory_order_relaxed),
+  free_share(share);
+  return 0;
 }

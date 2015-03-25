@@ -97,6 +97,8 @@ typedef struct st_rocksdb_share {
 
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t io_perf_read;
+  std::atomic_ullong internal_key_skipped_count;
+  std::atomic_ullong internal_delete_skipped_count;
 } ROCKSDB_SHARE;
 
 class RDBSE_KEYDEF;
@@ -268,7 +270,13 @@ class ha_rocksdb: public handler
   /*
     Perf timers for data reads
    */
-  my_io_perf_t io_perf;
+  struct {
+    uint64_t block_read_byte;
+    uint64_t block_read_count;
+    uint64_t block_read_time;
+    uint64_t internal_key_skipped_count;
+    uint64_t internal_delete_skipped_count;
+  } io_perf;
   void io_perf_start(void);
   void io_perf_end_and_record(void);
 
