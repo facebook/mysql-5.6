@@ -24,6 +24,26 @@ class Column_family_manager;
 rocksdb::DB *rocksdb_get_rdb();
 Column_family_manager& rocksdb_get_cf_manager();
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
+int rocksdb_normalize_tablename(const char *tablename,
+                                StringBuffer<256> *strbuf);
+int rocksdb_split_normalized_tablename(const char *fullname,
+                                       StringBuffer<256> *dbbuf,
+                                       StringBuffer<256> *tablebuf,
+                                       StringBuffer<256> *partitionbuf);
+std::vector<std::string> get_share_names(void);
 
+/* Interface for retrieving performance counters */
+enum {
+  PC_KEY_SKIPPED_IDX= 0,
+  PC_DELETE_SKIPPED_IDX,
+  PC_MAX_IDX
+};
+
+typedef struct share_perf_counters {
+  uint64_t value[PC_MAX_IDX];
+} SHARE_PERF_COUNTERS;
+
+int rocksdb_get_share_perf_counters(const char *tablename,
+                                    SHARE_PERF_COUNTERS *counters);
 #endif /* _ha_rocksdb_proto_h_ */
 
