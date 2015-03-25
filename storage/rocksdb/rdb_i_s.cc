@@ -24,10 +24,10 @@
 #include "rdb_cf_manager.h"
 #include "rdb_i_s.h"
 
-#define ROCKSDB_FIELD_INFO(_name_, _len_, _type_) \
-        { _name_, _len_, _type_, 0, 0, NULL, 0 }
+#define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
+        { _name_, _len_, _type_, 0, _flag_, NULL, 0 }
 
-#define ROCKSDB_FIELD_INFO_END ROCKSDB_FIELD_INFO(NULL, 0, MYSQL_TYPE_NULL)
+#define ROCKSDB_FIELD_INFO_END ROCKSDB_FIELD_INFO(NULL, 0, MYSQL_TYPE_NULL, 0)
 
 /*
   Support for INFORMATION_SCHEMA.ROCKSDB_CFSTATS dynamic table
@@ -97,9 +97,9 @@ static int i_s_rocksdb_cfstats_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_cfstats_fields_info[]=
 {
-  ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING),
-  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG),
+  ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
@@ -176,8 +176,8 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
 
 static ST_FIELD_INFO i_s_rocksdb_dbstats_fields_info[]=
 {
-  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG),
+  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
@@ -191,6 +191,91 @@ static int i_s_rocksdb_dbstats_init(void *p)
 
   schema->fields_info= i_s_rocksdb_dbstats_fields_info;
   schema->fill_table= i_s_rocksdb_dbstats_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_PERF_CONTEXT dynamic table
+ */
+static const std::string pc_stat_types[]=
+{
+  /* These should be in the same order as the PC enum */
+  "INTERNAL_KEY_SKIPPED_COUNT",
+  "INTERNAL_DELETE_SKIPPED_COUNT"
+};
+
+static int i_s_rocksdb_perf_context_fill_table(THD *thd,
+                                               TABLE_LIST *tables,
+                                               Item *cond)
+{
+  int ret= 0;
+
+  DBUG_ENTER("i_s_rocksdb_perf_context_fill_table");
+
+  std::vector<std::string> tablenames= get_share_names();
+  for (auto it : tablenames)
+  {
+    StringBuffer<256> buf, dbname, tablename, partname;
+    SHARE_PERF_COUNTERS counters;
+
+    rocksdb_normalize_tablename(it.c_str(), &buf);
+    if (rocksdb_split_normalized_tablename(buf.c_ptr(), &dbname, &tablename,
+                                           &partname))
+      continue;
+
+    if (rocksdb_get_share_perf_counters(it.c_str(), &counters))
+      continue;
+
+    for (int i= 0; i < PC_MAX_IDX; i++) {
+      tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
+                                     system_charset_info);
+      tables->table->field[1]->store(tablename.c_ptr(), tablename.length(),
+                                     system_charset_info);
+      if (partname.length() == 0)
+        tables->table->field[2]->set_null();
+      else
+      {
+        tables->table->field[2]->set_notnull();
+        tables->table->field[2]->store(partname.c_ptr(), partname.length(),
+                                       system_charset_info);
+      }
+      tables->table->field[3]->store(pc_stat_types[i].c_str(),
+                                     pc_stat_types[i].size(),
+                                     system_charset_info);
+      tables->table->field[4]->store(counters.value[i], true);
+
+      ret= schema_table_store_record(thd, tables->table);
+      if (ret)
+        DBUG_RETURN(ret);
+    }
+  }
+
+  DBUG_RETURN(0);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_perf_context_fields_info[]=
+{
+  ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
+                     MY_I_S_MAYBE_NULL),
+  ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG,
+                     0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+static int i_s_rocksdb_perf_context_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_dbstats_init");
+
+  schema= (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info= i_s_rocksdb_perf_context_fields_info;
+  schema->fill_table= i_s_rocksdb_perf_context_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -230,6 +315,23 @@ struct st_mysql_plugin i_s_rocksdb_dbstats=
   "RocksDB database stats",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_dbstats_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  NULL,                               /* status variables */
+  NULL,                               /* system variables */
+  NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_perf_context=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_PERF_CONTEXT",
+  "Monty Program Ab",
+  "RocksDB perf context stats",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_perf_context_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */
