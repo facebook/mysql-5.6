@@ -7229,8 +7229,7 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli)
                         (ulong) rli->get_group_master_log_pos()));
     mysql_mutex_unlock(&rli->data_lock);
     if (rli->is_parallel_exec())
-      rli->reset_notified_checkpoint(0,
-                                     server_id ? when.tv_sec + (time_t) exec_time : 0,
+      rli->reset_notified_checkpoint(0, 0,
                                      true/*need_data_lock=true*/);
 
     /*
