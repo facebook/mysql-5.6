@@ -4322,8 +4322,11 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
     if (!(rli->is_parallel_exec() ||
           ev->is_artificial_event() || ev->is_relay_log_event() ||
           ev->when.tv_sec == 0 || ev->get_type_code() == FORMAT_DESCRIPTION_EVENT ||
-          ev->server_id == 0))
+          ev->server_id == 0 || ev->get_type_code() == ROTATE_EVENT ||
+          ev->get_type_code() == PREVIOUS_GTIDS_LOG_EVENT))
     {
+      DBUG_ASSERT(ev->get_type_code() != ROTATE_EVENT && ev->get_type_code() !=
+                  PREVIOUS_GTIDS_LOG_EVENT);
       rli->last_master_timestamp= ev->when.tv_sec + (time_t) ev->exec_time;
       DBUG_ASSERT(rli->last_master_timestamp >= 0);
     }
