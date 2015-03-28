@@ -94,6 +94,9 @@ USER_PRIVILEGES
 USER_STATISTICS
 VIEWS
 AUTHINFO
+ROCKSDB_DBSTATS
+ROCKSDB_CFSTATS
+ROCKSDB_PERF_CONTEXT
 columns_priv
 db
 event
@@ -902,6 +905,7 @@ INNODB_CMP_PER_INDEX_RESET	table_name	select
 KEY_COLUMN_USAGE	TABLE_NAME	select
 PARTITIONS	TABLE_NAME	select
 REFERENTIAL_CONSTRAINTS	TABLE_NAME	select
+ROCKSDB_PERF_CONTEXT	TABLE_NAME	select
 STATISTICS	TABLE_NAME	select
 TABLES	TABLE_NAME	select
 TABLE_CONSTRAINTS	TABLE_NAME	select
@@ -916,7 +920,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	38
+information_schema	41
 mysql	26
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1377,6 +1381,9 @@ PLUGINS	information_schema.PLUGINS	1
 PROCESSLIST	information_schema.PROCESSLIST	1
 PROFILING	information_schema.PROFILING	1
 REFERENTIAL_CONSTRAINTS	information_schema.REFERENTIAL_CONSTRAINTS	1
+ROCKSDB_CFSTATS	information_schema.ROCKSDB_CFSTATS	1
+ROCKSDB_DBSTATS	information_schema.ROCKSDB_DBSTATS	1
+ROCKSDB_PERF_CONTEXT	information_schema.ROCKSDB_PERF_CONTEXT	1
 ROUTINES	information_schema.ROUTINES	1
 SCHEMATA	information_schema.SCHEMATA	1
 SCHEMA_PRIVILEGES	information_schema.SCHEMA_PRIVILEGES	1
