@@ -1569,11 +1569,13 @@ err_len:
 	}
 
 	if (index) {
+		/* memory allocated by my_strndup is freed
+		in dict_mem_index_free() */
 		dict_mem_index_add_field(
 			index, mem_heap_strdupl(heap, (const char*) field, len),
 			prefix_len, doc_path_type,
-			document_path ? mem_heap_strdupl(heap, document_path,
-			ut_strlen(document_path)) : 0);
+			document_path ? my_strndup(document_path,
+			ut_strlen(document_path), MYF(0)) : 0);
 	} else {
 		ut_a(sys_field);
 		ut_a(pos);
@@ -1583,9 +1585,11 @@ err_len:
 		sys_field->prefix_len = prefix_len;
 		*pos = position;
 		sys_field->document_path_type = doc_path_type;
+		/* memory allocated by my_strndup is freed
+		in dict_mem_index_free() */
 		sys_field->document_path = document_path ?
-			mem_heap_strdupl(heap, document_path,
-					 ut_strlen(document_path)) : 0;
+			my_strndup(document_path,
+				   ut_strlen(document_path), MYF(0)) : 0;
 	}
 
 	return(NULL);

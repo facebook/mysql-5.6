@@ -202,7 +202,13 @@ dict_col_get_clust_pos(
 	for (i = 0; i < clust_index->n_def; i++) {
 		const dict_field_t*	field = &clust_index->fields[i];
 
-		if (!field->prefix_len && dict_field_get_col(field) == col) {
+		/* Need to compare position of columns in the table since
+		dict_field_get_col() returns doc_path_col for document path
+		indexes.
+		*/
+		if (!field->prefix_len &&
+		    dict_col_get_no(dict_field_get_col(field)) ==
+			dict_col_get_no(col)) {
 			return(i);
 		}
 	}
@@ -1870,6 +1876,12 @@ dfield_set_document_path_data(
 	dfield_t*		field,		/*< in/out: extracted fbson data is stored here */
 	mem_heap_t*		heap)		/*< in: memory heap */
 {
+	/* copy document path type to field */
+        dfield_copy_type(field, ind_field->doc_path_col);
+	if (dfield_is_null(row_field)) {
+		dfield_set_null(field);
+		return;
+	}
 	char delim[1];
 	delim[0] = NAMES_SEP_CHAR;
 	ut_ad(ind_field->document_path_type);
@@ -1903,6 +1915,4 @@ dfield_set_document_path_data(
 		/* document path doesn't exist in the input document field*/
 		dfield_set_null(field);
 	}
-	/* copy document path type to field */
-	dfield_copy_type(field, ind_field->doc_path_col);
 }

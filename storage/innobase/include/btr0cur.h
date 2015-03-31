@@ -951,4 +951,9 @@ btr_cur_assert_page_no(
 #include "btr0cur.ic"
 #endif
 
+ulint
+btr_rec_get_field_ref_offs(
+/*=======================*/
+	const ulint*	offsets,/*!< in: array returned by rec_get_offsets() */
+	ulint		n);	/*!< in: index of the external field */
 #endif
