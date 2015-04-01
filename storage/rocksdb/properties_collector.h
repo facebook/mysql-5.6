@@ -11,14 +11,18 @@ class MyRocksTablePropertiesCollector
       INDEX_STATS_VERSION= 1,
     };
     uint32_t index_number;
-    int64_t data_size, rows;
+    int64_t data_size, rows, approximate_size;
     std::vector<int64_t> distinct_keys_per_prefix;
     std::string name; // name is not persisted
 
     static std::string materialize(std::vector<IndexStats>);
     static int unmaterialize(const std::string& s, std::vector<IndexStats>&);
-    IndexStats() : index_number(0), data_size(0), rows(0) {}
-    IndexStats(uint32_t _index_number) : index_number(_index_number), data_size(0), rows(0) {}
+    IndexStats() : IndexStats(0) {}
+    IndexStats(uint32_t _index_number) :
+        index_number(_index_number),
+        data_size(0),
+        rows(0),
+        approximate_size(0) {}
     void merge(const IndexStats& s);
   };
 
@@ -26,13 +30,18 @@ class MyRocksTablePropertiesCollector
       ddl_manager_(ddl_manager) {
   }
 
-  virtual rocksdb::Status Add(const rocksdb::Slice& key, const rocksdb::Slice& value) override;
+  virtual rocksdb::Status AddUserKey(
+    const rocksdb::Slice& key, const rocksdb::Slice& value,
+    rocksdb::EntryType type, rocksdb::SequenceNumber seq,
+    uint64_t file_size);
   virtual rocksdb::Status Finish(rocksdb::UserCollectedProperties* properties) override;
 
   virtual const char* Name() const override {
     return "MyRocksTablePropertiesCollector";
   }
 
+  static std::string
+  GetReadableStats(const MyRocksTablePropertiesCollector::IndexStats& it);
   rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
   static std::map<uint32_t, IndexStats> GetStats(

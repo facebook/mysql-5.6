@@ -88,14 +88,15 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(
   uint indexnr_arg, uint keyno_arg,
   rocksdb::ColumnFamilyHandle* cf_handle_arg,
   bool is_reverse_cf_arg, bool is_auto_cf_arg,
-  const char* _name
+  const char* _name,
+  MyRocksTablePropertiesCollector::IndexStats _stats
 ) :
     index_number(indexnr_arg),
     cf_handle(cf_handle_arg),
     is_reverse_cf(is_reverse_cf_arg),
     is_auto_cf(is_auto_cf_arg),
     name(_name),
-    file_length(0ul),
+    stats(_stats),
     pk_part_no(NULL),
     pack_info(NULL),
     keyno(keyno_arg),
@@ -112,7 +113,7 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
     is_reverse_cf(k.is_reverse_cf),
     is_auto_cf(k.is_auto_cf),
     name(k.name),
-    file_length(k.file_length),
+    stats(k.stats),
     pk_part_no(k.pk_part_no),
     pack_info(k.pack_info),
     keyno(k.keyno),
@@ -344,7 +345,7 @@ uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
 {
   /* We were given a record in KeyTupleFormat. First, save it to record */
   uint key_len= calculate_key_len(tbl, keyno, key_tuple, keypart_map);
-  key_restore(tbl->record[0], (uchar*)key_tuple, &tbl->key_info[keyno],
+ key_restore(tbl->record[0], (uchar*)key_tuple, &tbl->key_info[keyno],
               key_len);
 
   uint n_used_parts= my_count_bits(keypart_map);
@@ -1221,7 +1222,8 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, cfh,
                                                flags & RDBSE_KEYDEF::REVERSE_CF_FLAG,
                                                flags & RDBSE_KEYDEF::AUTO_CF_FLAG,
-                                               "");
+                                               "",
+                                               dict->get_stats(index_number));
 
       /* Keep track of what was the last index number we saw */
       if (max_number < index_number)
@@ -1275,20 +1277,13 @@ Table_ddl_manager::find(uint32_t index_number)
 }
 
 void Table_ddl_manager::set_stats(
-  const std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& stats
+  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
 ) {
   mysql_rwlock_wrlock(&rwlock);
-  auto it1= stats.begin();
-  auto it2= index_num_to_keydef.begin();
-  while (it1 != stats.end() && it2 != index_num_to_keydef.end()) {
-    if (it1->first == it2->first) {
-      it2->second->stats = it1->second;
-      it1++;
-      it2++;
-    } else if (it1->first < it2->first) {
-      it1++;
-    } else if (it2->first < it1->first) {
-      it2++;
+  for (const auto& src : stats) {
+    auto dst= index_num_to_keydef.find(src.index_number);
+    if (dst != index_num_to_keydef.end()) {
+      dst->second->stats = src;
     }
   }
   mysql_rwlock_unlock(&rwlock);
@@ -1656,13 +1651,13 @@ rocksdb::Iterator* Dict_manager::NewIterator()
   return rdb->NewIterator(read_options, system_cfh);
 }
 
-int Dict_manager::commit(rocksdb::WriteBatch *batch)
+int Dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
 {
   if (!batch)
     return 1;
   int res= 0;
   rocksdb::WriteOptions options;
-  options.sync= true;
+  options.sync= sync;
   rocksdb::Status s= rdb->Write(options, batch);
   res= !s.ok(); // we return true when something failed
   batch->Clear();
@@ -1743,4 +1738,54 @@ bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
 {
   return get_util(RDBSE_KEYDEF::CF_DEFINITION, cf_id,
                   RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
+}
+
+void Dict_manager::add_stats(
+  rocksdb::WriteBatch* batch,
+  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
+)
+{
+  for (const auto& it : stats) {
+    uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+    store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_STATISTICS);
+    store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+                    it.index_number);
+
+    // IndexStats::materialize takes complete care of serialization including
+    // storing the version
+    auto value = MyRocksTablePropertiesCollector::IndexStats::materialize(
+      std::vector<MyRocksTablePropertiesCollector::IndexStats>{it});
+
+    batch->Put(
+      system_cfh,
+      rocksdb::Slice((char*)key_buf, sizeof(key_buf)),
+      value
+    );
+  }
+}
+
+MyRocksTablePropertiesCollector::IndexStats
+Dict_manager::get_stats(
+  const uint index_id
+) {
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_STATISTICS);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id);
+
+  std::string value;
+  rocksdb::Status status= Get(
+    rocksdb::Slice((char*)key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2),
+    &value
+  );
+  if (status.ok())
+  {
+    std::vector<MyRocksTablePropertiesCollector::IndexStats> v;
+    // unmaterialize checks if the version matches
+    if (MyRocksTablePropertiesCollector::IndexStats::unmaterialize(value, v)
+        == 0 && v.size() == 1) {
+      return v[0];
+    }
+  }
+
+  return MyRocksTablePropertiesCollector::IndexStats();
 }
