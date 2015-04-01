@@ -280,7 +280,10 @@ public:
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
                rocksdb::ColumnFamilyHandle* cf_handle_arg,
                bool is_reverse_cf_arg, bool is_auto_cf_arg,
-               const char* _name);
+               const char* _name,
+               MyRocksTablePropertiesCollector::IndexStats _stats
+                 =MyRocksTablePropertiesCollector::IndexStats()
+              );
   ~RDBSE_KEYDEF();
 
   enum {
@@ -303,8 +306,7 @@ public:
     CF_DEFINITION= 3,
     BINLOG_INFO_INDEX_NUMBER= 4,
     DDL_DROP_INDEX_ONGOING= 5,
-    TABLE_STATISTICS= 6,
-    INDEX_STATISTICS= 7,
+    INDEX_STATISTICS= 6,
   };
 
   enum {
@@ -313,8 +315,7 @@ public:
     CF_DEFINITION_VERSION= 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
     DDL_DROP_INDEX_ONGOING_VERSION= 1,
-    TABLE_STATISTICS_VERSION= 1,
-    INDEX_STATISTICS_VERSION= 1,
+    // Version for index stats is stored in IndexStats struct
   };
 
   void setup(TABLE *table);
@@ -345,8 +346,6 @@ public:
 
   bool is_auto_cf;
   std::string name;
-  // stats
-  uint64_t file_length;
   MyRocksTablePropertiesCollector::IndexStats stats;
 private:
 
@@ -543,7 +542,7 @@ public:
   RDBSE_TABLE_DEF *find(uchar *table_name, uint len, bool lock=true);
   std::unique_ptr<RDBSE_KEYDEF> find(uint32_t index_number);
   void set_stats(
-    const std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& stats
+    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
   );
 
   /* Modify the mapping and write it to on-disk storage */
@@ -633,13 +632,9 @@ private:
   key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + index_id
   value: version
 
-  6. table_stats (same as innodb, not implemented yet)
-  key: RDBSE_KEYDEF::TABLE_STATISTICS(0x6) + db_name.tablename
-  value: version, {n_rows, clustered_index_size, sum_of_other_index_sizes, last_update}
-
-  7. index stats (same as innodb, not implemented yet)
+  6. index stats
   key: RDBSE_KEYDEF::INDEX_STATISTICS(0x7) + index_id
-  value: version, {stat_value, sample_size, last_update, stat_description}
+  value: version, {materialized PropertiesCollector::IndexStats}
 
    Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
@@ -670,7 +665,7 @@ public:
   void unlock();
   /* Raw RocksDB operations */
   std::unique_ptr<rocksdb::WriteBatch> begin();
-  int commit(rocksdb::WriteBatch *batch);
+  int commit(rocksdb::WriteBatch *batch, bool sync = true);
   rocksdb::Status Get(const rocksdb::Slice& key, std::string *value);
   void Put(rocksdb::WriteBatch *batch, const rocksdb::Slice &key,
            const rocksdb::Slice &value);
@@ -688,4 +683,12 @@ public:
                     const uint cf_id,
                     const uint cf_flags);
   bool get_cf_flags(const uint cf_id, uint *cf_flags);
+
+  void add_stats(
+    rocksdb::WriteBatch* batch,
+    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
+  );
+  MyRocksTablePropertiesCollector::IndexStats get_stats(
+    const uint index_id
+  );
 };
