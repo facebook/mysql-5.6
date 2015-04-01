@@ -14,8 +14,10 @@
   This function is called by RocksDB for every key in the SST file
 */
 rocksdb::Status
-MyRocksTablePropertiesCollector::Add(
-  const rocksdb::Slice& key, const rocksdb::Slice& value
+MyRocksTablePropertiesCollector::AddUserKey(
+    const rocksdb::Slice& key, const rocksdb::Slice& value,
+    rocksdb::EntryType type, rocksdb::SequenceNumber seq,
+    uint64_t file_size
 ) {
   if (key.size() >= 4) {
     uint32_t index_number = read_big_uint4((const uchar*)key.data());
@@ -93,24 +95,33 @@ MyRocksTablePropertiesCollector::GetReadableProperties() const {
     } else {
       s.append(",");
     }
-    s.append(std::to_string(it.index_number));
-    s.append(":{name:");
-    s.append(it.name);
-    s.append(", number:");
-    s.append(std::to_string(it.index_number));
-    s.append(", size:");
-    s.append(std::to_string(it.data_size));
-    s.append(", rows:");
-    s.append(std::to_string(it.rows));
-    s.append(", distincts per prefix: [");
-    for (auto num : it.distinct_keys_per_prefix) {
-      s.append(std::to_string(num));
-      s.append(" ");
-    }
-    s.append("]}");
+    s.append(GetReadableStats(it));
   }
  #endif
   return rocksdb::UserCollectedProperties{{INDEXSTATS_KEY, s}};
+}
+
+std::string
+MyRocksTablePropertiesCollector::GetReadableStats(
+  const MyRocksTablePropertiesCollector::IndexStats& it
+) {
+  std::string s;
+  s.append(std::to_string(it.index_number));
+  s.append(":{name:");
+  s.append(it.name);
+  s.append(", number:");
+  s.append(std::to_string(it.index_number));
+  s.append(", size:");
+  s.append(std::to_string(it.data_size));
+  s.append(", rows:");
+  s.append(std::to_string(it.rows));
+  s.append(", distincts per prefix: [");
+  for (auto num : it.distinct_keys_per_prefix) {
+    s.append(std::to_string(num));
+    s.append(" ");
+  }
+  s.append("]}");
+  return s;
 }
 
 /*
@@ -150,6 +161,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
     assert(sizeof i.data_size <= 8);
     write_int64(&ret, i.data_size);
     write_int64(&ret, i.rows);
+    write_int64(&ret, i.approximate_size);
     write_int64(&ret, i.distinct_keys_per_prefix.size());
     for (auto num_keys : i.distinct_keys_per_prefix) {
       write_int64(&ret, num_keys);
@@ -178,6 +190,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
        sizeof(stats.index_number)+
        sizeof(stats.data_size)+
        sizeof(stats.rows)+
+       sizeof(stats.approximate_size)+
        sizeof(uint64) > p2)
     {
       return 1;
@@ -185,6 +198,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     stats.index_number = read_int(&p);
     stats.data_size = read_int64(&p);
     stats.rows = read_int64(&p);
+    stats.approximate_size = read_int64(&p);
     stats.distinct_keys_per_prefix.resize(read_int64(&p));
     if (p+stats.distinct_keys_per_prefix.size()
         *sizeof(stats.distinct_keys_per_prefix[0]) > p2)
