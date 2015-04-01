@@ -18,11 +18,11 @@ while ($i<100000)
 }
 --enable_query_log
 
-create unique index t1_1 on t1 (id, i1);
-create unique index t1_2 on t1 (i1, i2);
-create unique index t1_3 on t1 (i2, i1);
-create unique index t1_4 on t1 (c1, c2);
-create unique index t1_5 on t1 (c2, c1);
+create index t1_1 on t1 (id, i1);
+create index t1_2 on t1 (i1, i2);
+create index t1_3 on t1 (i2, i1);
+create index t1_4 on t1 (c1, c2);
+create index t1_5 on t1 (c2, c1);
 
 optimize table t1;
 analyze table t1;
@@ -32,12 +32,14 @@ SELECT table_name, data_length, index_length, table_rows FROM information_schema
 
 # Do a bunch of updates
 update t1 set i1=i1+1;
+set global rocksdb_force_flush_memtable_now = true;
 analyze table t1;
 show index in t1;
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # Do a bunch of deletes
 delete from t1 where i1%2 =0;
+set global rocksdb_force_flush_memtable_now = true;
 analyze table t1;
 show index in t1;
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
@@ -47,20 +49,9 @@ analyze table t1;
 show index in t1;
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
-# Do a bunch of updates
-update t1 set i1=i1+1;
-analyze table t1;
-show index in t1;
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+--echo restarting...
+--source include/restart_mysqld.inc
 
-# Do a bunch of deletes
-delete from t1 where i1%2 =0;
-analyze table t1;
-show index in t1;
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-
-optimize table t1;
-analyze table t1;
 show index in t1;
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
