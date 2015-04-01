@@ -1,5 +1,6 @@
 --source include/not_embedded.inc
 --source include/have_ssl.inc
+--disable_async_client
 
 connect (ssl_con,localhost,root,,,,,SSL);
 SHOW STATUS LIKE 'Ssl_cipher';

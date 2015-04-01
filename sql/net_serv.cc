@@ -92,6 +92,8 @@ extern void query_cache_insert(const char *packet, ulong length,
 #endif
 
 #define VIO_SOCKET_ERROR  ((size_t) -1)
+#define VIO_SOCKET_WANT_READ  ((size_t) -2)
+#define VIO_SOCKET_WANT_WRITE ((size_t) -3)
 #define MAX_PACKET_LENGTH (256L*256L*256L-1)
 
 static my_bool net_write_buff(NET *, const uchar *, ulong);
@@ -503,6 +505,49 @@ static net_async_status net_write_vector_nonblocking(NET* net, ssize_t *res) {
     vio_set_blocking(net->vio, FALSE);
   }
 
+#ifdef HAVE_OPENSSL
+  // If OpenSSL is being used, vio_write will end up calling SSL_write. Since
+  // there is no SSL writev() equivalent, call vio_write multiple times to
+  // consume the io vector.
+  if (net->vio->ssl_arg != NULL) {
+    while (net->async_write_vector_current != net->async_write_vector_size) {
+      *res = vio_write(net->vio, (uchar*)vec->iov_base, vec->iov_len);
+
+      if (*res < 0) {
+        if (errno == SOCKET_EAGAIN ||
+            errno == SOCKET_EWOULDBLOCK) {
+          // In the unlikely event that there is a renegotiation and
+          // SSL_ERROR_WANT_READ is returned, set blocking state to read.
+          if (unlikely(static_cast<size_t>(*res) == VIO_SOCKET_WANT_READ)) {
+            net->async_blocking_state = NET_NONBLOCKING_READ;
+          } else {
+            net->async_blocking_state = NET_NONBLOCKING_WRITE;
+          }
+          DBUG_RETURN(NET_ASYNC_NOT_READY);
+        }
+        DBUG_RETURN(NET_ASYNC_COMPLETE);
+      }
+
+      size_t bytes_written = static_cast<size_t>(*res);
+      vec->iov_len -= bytes_written;
+      vec->iov_base = (char*)vec->iov_base + bytes_written;
+
+      if (vec->iov_len != 0)
+        break;
+
+      ++net->async_write_vector_current;
+      vec++;
+    }
+
+    if (net->async_write_vector_current == net->async_write_vector_size) {
+      DBUG_RETURN(NET_ASYNC_COMPLETE);
+    }
+
+    net->async_blocking_state = NET_NONBLOCKING_WRITE;
+    DBUG_RETURN(NET_ASYNC_NOT_READY);
+  }
+#endif
+
   *res = writev(net->fd, vec,
     net->async_write_vector_size - net->async_write_vector_current);
 
@@ -573,7 +618,6 @@ net_write_command_nonblocking(NET *net, uchar command,
         goto done;
       }
 
-      net->async_blocking_state = NET_NONBLOCKING_WRITE;
       DBUG_RETURN(NET_ASYNC_NOT_READY);
 
     case NET_ASYNC_OP_COMPLETE:
@@ -989,6 +1033,10 @@ static my_bool net_read_raw_loop(NET *net, size_t count)
    Returns packet_error (-1) on EOF or other errors, 0 if the read
    would block, and otherwise the number of bytes read (which may be
    less than the requested amount).
+
+   When 0 is returned the async_blocking_state is set inside this function.
+   With SSL, the async blocking state can also become NET_NONBLOCKING_WRITE
+   (when renegotiation occurs).
 */
 static ulong net_read_available(NET *net,
                                 size_t count)
@@ -1004,10 +1052,29 @@ static ulong net_read_available(NET *net,
 
   recvcnt= vio_read(net->vio, net->cur_pos, count);
 
+#ifdef HAVE_OPENSSL
+  // When OpenSSL is used in non-blocking mode, it is possible that an
+  // SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE error is returned after a
+  // SSL_read() operation (if a renegotiation takes place).
+  // We are treating this case here and signaling correctly the next expected
+  // operation in the async_blocking_state.
+
+  if (socket_errno == SOCKET_EWOULDBLOCK) {
+    if (recvcnt == VIO_SOCKET_WANT_READ) {
+      net->async_blocking_state = NET_NONBLOCKING_READ;
+      DBUG_RETURN(0);
+    } else if (recvcnt == VIO_SOCKET_WANT_WRITE) {
+      net->async_blocking_state = NET_NONBLOCKING_WRITE;
+      DBUG_RETURN(0);
+    }
+  }
+#endif
+
   /* Call would block, just return with socket_errno set */
   if (recvcnt == VIO_SOCKET_ERROR &&
       (socket_errno == SOCKET_EAGAIN ||
        socket_errno == SOCKET_EWOULDBLOCK)) {
+    net->async_blocking_state = NET_NONBLOCKING_READ;
     DBUG_RETURN(0);
   }
 
@@ -1125,11 +1192,16 @@ static net_async_status net_read_data_nonblocking(NET *net,
       /* fallthrough */
     case NET_ASYNC_OP_READING:
       rc = net_read_available(net, net->async_bytes_wanted);
+
       if (rc == packet_error) {
         *err_ptr = rc;
         net->async_operation = NET_ASYNC_OP_IDLE;
         DBUG_RETURN(NET_ASYNC_COMPLETE);
       }
+
+      if (rc == 0)
+        DBUG_RETURN(NET_ASYNC_NOT_READY);
+
       bytes_read = (size_t) rc;
       net->async_bytes_wanted -= bytes_read;
       if (net->async_bytes_wanted != 0) {
@@ -1162,7 +1234,6 @@ static net_async_status net_read_packet_header_nonblock(NET *net,
   uchar pkt_nr;
   if (net_read_data_nonblocking(net, NET_HEADER_SIZE, err_ptr) ==
       NET_ASYNC_NOT_READY) {
-    net->async_blocking_state = NET_NONBLOCKING_READ;
     DBUG_RETURN(NET_ASYNC_NOT_READY);
   }
   if (*err_ptr) {
@@ -1221,7 +1292,6 @@ static net_async_status net_read_packet_nonblocking(NET *net,
     case NET_ASYNC_PACKET_READ_HEADER:
       if (net_read_packet_header_nonblock(net, &err) ==
           NET_ASYNC_NOT_READY) {
-        net->async_blocking_state = NET_NONBLOCKING_READ;
         DBUG_RETURN(NET_ASYNC_NOT_READY);
       }
       /* Retrieve packet length and number. */
@@ -1251,7 +1321,6 @@ static net_async_status net_read_packet_nonblocking(NET *net,
       if (net_read_data_nonblocking(
             net, net->async_packet_length, &err) ==
           NET_ASYNC_NOT_READY) {
-        net->async_blocking_state = NET_NONBLOCKING_READ;
         DBUG_RETURN(NET_ASYNC_NOT_READY);
       }
 
@@ -1360,7 +1429,6 @@ my_net_read_nonblocking(NET *net, ulong* len_ptr, ulong* complen_ptr)
 {
   if (net_read_packet_nonblocking(net, len_ptr, complen_ptr) ==
       NET_ASYNC_NOT_READY) {
-    net->async_blocking_state = NET_NONBLOCKING_READ;
     return NET_ASYNC_NOT_READY;
   }
 

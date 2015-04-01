@@ -297,5 +297,6 @@ struct st_vio
   my_bool (*is_blocking)(Vio* vio);
   int     (*set_blocking)(Vio * vio, my_bool val);
   my_bool is_blocking_flag;
+  my_bool ssl_is_nonblocking;
 };
 #endif /* vio_violite_h_ */
