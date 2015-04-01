@@ -133,7 +133,7 @@ static void vio_init(Vio *vio, enum enum_vio_type type,
     vio->has_data       =vio_ssl_has_data;
     vio->timeout        =vio_socket_timeout;
     vio->is_blocking    =vio_is_blocking;
-    vio->set_blocking   =vio_set_blocking;
+    vio->set_blocking   =vio_ssl_set_blocking;
     DBUG_VOID_RETURN;
   }
 #endif /* HAVE_OPENSSL */
