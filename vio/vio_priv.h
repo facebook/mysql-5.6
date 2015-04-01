@@ -54,6 +54,7 @@ size_t	vio_ssl_write(Vio *vio,const uchar* buf, size_t size);
 int vio_ssl_shutdown(Vio *vio);
 void vio_ssl_delete(Vio *vio);
 my_bool vio_ssl_has_data(Vio *vio);
+int     vio_ssl_set_blocking(Vio * vio, my_bool set_blocking_mode);
 
 #endif /* HAVE_OPENSSL */
 #endif /* VIO_PRIV_INCLUDED */
