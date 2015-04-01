@@ -6,11 +6,11 @@ i2 bigint, #repeating
 c1 varchar(20), #unique
 c2 varchar(20) #repeating
 ) engine=rocksdb;
-create unique index t1_1 on t1 (id, i1);
-create unique index t1_2 on t1 (i1, i2);
-create unique index t1_3 on t1 (i2, i1);
-create unique index t1_4 on t1 (c1, c2);
-create unique index t1_5 on t1 (c2, c1);
+create index t1_1 on t1 (id, i1);
+create index t1_2 on t1 (i1, i2);
+create index t1_3 on t1 (i2, i1);
+create index t1_4 on t1 (c1, c2);
+create index t1_5 on t1 (c2, c1);
 optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
@@ -20,59 +20,61 @@ test.t1	analyze	status	OK
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	id	A	100000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	100000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	11111	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	11111	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_1	1	id	A	100000	NULL	NULL		BTREE		
+t1	1	t1_1	2	i1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	1	i1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	2	i2	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_3	1	i2	A	11111	NULL	NULL	YES	BTREE		
+t1	1	t1_3	2	i1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	1	c1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	2	c2	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_5	1	c2	A	11111	NULL	NULL	YES	BTREE		
+t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	BTREE		
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	1470575	5427529	100000
+t1	1470575	5014269	100000
 update t1 set i1=i1+1;
+set global rocksdb_force_flush_memtable_now = true;
 analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	100000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	100000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	11111	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	11111	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	100000	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	id	A	200000	NULL	NULL		BTREE		
+t1	1	t1_1	1	id	A	200000	NULL	NULL		BTREE		
+t1	1	t1_1	2	i1	A	200000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	1	i1	A	200000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	2	i2	A	200000	NULL	NULL	YES	BTREE		
+t1	1	t1_3	1	i2	A	14285	NULL	NULL	YES	BTREE		
+t1	1	t1_3	2	i1	A	200000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	1	c1	A	200000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	2	c2	A	200000	NULL	NULL	YES	BTREE		
+t1	1	t1_5	1	c2	A	22222	NULL	NULL	YES	BTREE		
+t1	1	t1_5	2	c1	A	200000	NULL	NULL	YES	BTREE		
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	1470575	5427529	100000
+t1	3138930	12210178	200000
 delete from t1 where i1%2 =0;
+set global rocksdb_force_flush_memtable_now = true;
 analyze table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	analyze	status	OK
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	100000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	100000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	11111	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	100000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	11111	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	100000	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	id	A	150000	NULL	NULL		BTREE		
+t1	1	t1_1	1	id	A	150000	NULL	NULL		BTREE		
+t1	1	t1_1	2	i1	A	150000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	1	i1	A	150000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	2	i2	A	150000	NULL	NULL	YES	BTREE		
+t1	1	t1_3	1	i2	A	21428	NULL	NULL	YES	BTREE		
+t1	1	t1_3	2	i1	A	150000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	1	c1	A	150000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	2	c2	A	150000	NULL	NULL	YES	BTREE		
+t1	1	t1_5	1	c2	A	21428	NULL	NULL	YES	BTREE		
+t1	1	t1_5	2	c1	A	150000	NULL	NULL	YES	BTREE		
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	1470575	5427529	100000
+t1	1803786	8147390	150000
 optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
@@ -82,79 +84,34 @@ test.t1	analyze	status	OK
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_1	1	id	A	50000	NULL	NULL		BTREE		
+t1	1	t1_1	2	i1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	1	i1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	2	i2	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_3	1	i2	A	12500	NULL	NULL	YES	BTREE		
+t1	1	t1_3	2	i1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	1	c1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	2	c2	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_5	1	c2	A	12500	NULL	NULL	YES	BTREE		
+t1	1	t1_5	2	c1	A	50000	NULL	NULL	YES	BTREE		
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	763250	2788897	50000
-update t1 set i1=i1+1;
-analyze table t1;
-Table	Op	Msg_type	Msg_text
-test.t1	analyze	status	OK
+t1	763250	2543739	50000
+restarting...
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_1	1	id	A	50000	NULL	NULL		BTREE		
+t1	1	t1_1	2	i1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	1	i1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	2	i2	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_3	1	i2	A	12500	NULL	NULL	YES	BTREE		
+t1	1	t1_3	2	i1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	1	c1	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	2	c2	A	50000	NULL	NULL	YES	BTREE		
+t1	1	t1_5	1	c2	A	12500	NULL	NULL	YES	BTREE		
+t1	1	t1_5	2	c1	A	50000	NULL	NULL	YES	BTREE		
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	data_length	index_length	table_rows
-t1	763250	2788897	50000
-delete from t1 where i1%2 =0;
-analyze table t1;
-Table	Op	Msg_type	Msg_text
-test.t1	analyze	status	OK
-show index in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	50000	NULL	NULL	YES	BTREE		
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	data_length	index_length	table_rows
-t1	763250	2788897	50000
-optimize table t1;
-Table	Op	Msg_type	Msg_text
-test.t1	optimize	status	OK
-analyze table t1;
-Table	Op	Msg_type	Msg_text
-test.t1	analyze	status	OK
-show index in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	1	id	A	50000	NULL	NULL		BTREE		
-t1	0	t1_1	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	1	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_2	2	i2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_3	1	i2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_3	2	i1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	1	c1	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_4	2	c2	A	50000	NULL	NULL	YES	BTREE		
-t1	0	t1_5	1	c2	A	12500	NULL	NULL	YES	BTREE		
-t1	0	t1_5	2	c1	A	50000	NULL	NULL	YES	BTREE		
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	data_length	index_length	table_rows
-t1	0	0	50000
+t1	763250	2543739	50000
 drop table t1;
