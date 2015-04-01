@@ -4419,12 +4419,6 @@ mysql_real_connect_nonblocking_init(MYSQL *mysql,const char *host,
   mysql_csm_context *ctx;
   DBUG_ENTER(__func__);
 
-  if (mysql->options.use_ssl) {
-    set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                             ER(CR_SSL_CONNECTION_ERROR),
-                             "async client does not support ssl");
-    DBUG_RETURN(FALSE);
-  }
   ctx = my_malloc(sizeof(*ctx), MYF(MY_WME | MY_ZEROFILL));
   if (!ctx) {
     DBUG_RETURN(FALSE);

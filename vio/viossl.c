@@ -22,6 +22,10 @@
 
 #include "vio_priv.h"
 
+#define VIO_SOCKET_ERROR      ((size_t) -1)
+#define VIO_SOCKET_WANT_READ  ((size_t) -2)
+#define VIO_SOCKET_WANT_WRITE ((size_t) -3)
+
 #ifdef HAVE_OPENSSL
 
 #ifndef DBUG_OFF
@@ -180,9 +184,6 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size)
   {
     enum enum_vio_io_event event;
 
-    // Verify the socket is non blocking.
-    DBUG_ASSERT(!vio_is_blocking(vio));
-
 #ifndef HAVE_YASSL
     /*
       OpenSSL: check that the SSL thread's error queue is cleared. Otherwise
@@ -200,6 +201,15 @@ size_t vio_ssl_read(Vio *vio, uchar *buf, size_t size)
     /* Process the SSL I/O error. */
     if (!ssl_should_retry(vio, ret, &event, &ssl_errno_not_used))
       break;
+
+    if (vio->ssl_is_nonblocking) {
+      socket_errno = SOCKET_EWOULDBLOCK;
+      switch (event) {
+        case VIO_IO_EVENT_READ:  DBUG_RETURN(VIO_SOCKET_WANT_READ);
+        case VIO_IO_EVENT_WRITE: DBUG_RETURN(VIO_SOCKET_WANT_WRITE);
+        default:                 DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
 
     /* Attempt to wait for an I/O event. */
     if (vio_socket_io_wait(vio, event))
@@ -222,9 +232,6 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size)
   {
     enum enum_vio_io_event event;
 
-    // Verify the socket is non blocking.
-    DBUG_ASSERT(!vio_is_blocking(vio));
-
 #ifndef HAVE_YASSL
     /*
       OpenSSL: check that the SSL thread's error queue is cleared. Otherwise
@@ -242,6 +249,15 @@ size_t vio_ssl_write(Vio *vio, const uchar *buf, size_t size)
     /* Process the SSL I/O error. */
     if (!ssl_should_retry(vio, ret, &event, &ssl_errno_not_used))
       break;
+
+    if (vio->ssl_is_nonblocking) {
+      socket_errno = SOCKET_EWOULDBLOCK;
+      switch (event) {
+        case VIO_IO_EVENT_READ:  DBUG_RETURN(VIO_SOCKET_WANT_READ);
+        case VIO_IO_EVENT_WRITE: DBUG_RETURN(VIO_SOCKET_WANT_WRITE);
+        default:                 DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
+    }
 
     /* Attempt to wait for an I/O event. */
     if (vio_socket_io_wait(vio, event))
@@ -345,6 +361,7 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
                               unsigned long *ssl_errno_holder)
 {
   int ret;
+  DBUG_ENTER(__func__);
 
   vio->ssl_arg= ssl;
 
@@ -371,6 +388,11 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
     if (!ssl_should_retry(vio, ret, &event, ssl_errno_holder))
       break;
 
+    if (vio->ssl_is_nonblocking) {
+      socket_errno = SOCKET_EWOULDBLOCK;
+      DBUG_RETURN(-1);
+    }
+
     /* Wait for I/O so that the handshake can proceed. */
     if (vio_socket_io_wait(vio, event))
       break;
@@ -378,7 +400,7 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
 
   vio->ssl_arg= NULL;
 
-  return ret;
+  DBUG_RETURN(ret);
 }
 
 
@@ -529,6 +551,14 @@ int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
 my_bool vio_ssl_has_data(Vio *vio)
 {
   return SSL_pending(vio->ssl_arg) > 0 ? TRUE : FALSE;
+}
+
+int vio_ssl_set_blocking(Vio *vio, my_bool status)
+{
+  int ret;
+  ret = vio_set_blocking(vio, FALSE);
+  vio->ssl_is_nonblocking = !status;
+  return ret;
 }
 
 #endif /* HAVE_OPENSSL */
