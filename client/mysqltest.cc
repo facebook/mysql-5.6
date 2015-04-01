@@ -5959,7 +5959,6 @@ void do_connect(struct st_command *command)
     if (!strncmp(con_options, "SSL", 3))
     {
       con_ssl= 1;
-      enable_async_client = FALSE;
     }
     else if (!strncmp(con_options, "COMPRESS", 8))
     {
@@ -6032,7 +6031,6 @@ void do_connect(struct st_command *command)
   if (opt_use_ssl)
   {
     con_ssl= 1;
-    enable_async_client = FALSE;
   }
 #endif
 
