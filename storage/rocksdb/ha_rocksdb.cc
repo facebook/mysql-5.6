@@ -201,6 +201,7 @@ static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_records_in_range;
 static uint32_t rocksdb_debug_optimizer_n_rows;
+static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
 static char * compact_cf_name;
 #ifndef DBUG_OFF
@@ -595,6 +596,12 @@ static MYSQL_SYSVAR_UINT(debug_optimizer_n_rows,
   NULL, NULL, 1000,
   /* min */ 0, /* max */ INT_MAX, 0);
 
+static MYSQL_SYSVAR_BOOL(debug_optimizer_no_zero_cardinality,
+  rocksdb_debug_optimizer_no_zero_cardinality,
+  PLUGIN_VAR_RQCMDARG,
+  "In case if cardinality is zero, overrides it with some value",
+  NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   PLUGIN_VAR_RQCMDARG,
   "Compact column family",
@@ -686,6 +693,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(debug_optimizer_records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
+  MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
   MYSQL_SYSVAR(compact_cf),
 #ifndef DBUG_OFF
@@ -4076,12 +4084,12 @@ int ha_rocksdb::info(uint flag)
     {
       if (i == table->s->primary_key)
       {
-        stats.data_file_length= key_descr[i]->file_length;
+        stats.data_file_length= key_descr[i]->stats.approximate_size;
         stats.records = key_descr[i]->stats.rows;
       }
       else
       {
-        stats.index_file_length+= key_descr[i]->file_length;
+        stats.index_file_length+= key_descr[i]->stats.approximate_size;
       }
     }
     if (stats.records == 0)
@@ -4094,10 +4102,6 @@ int ha_rocksdb::info(uint flag)
     ref_length= pk_descr->max_storage_fmt_length();
 
     // TODO: Needs to reimplement after having real index statistics
-    // Fake cardinality implementation. For example, (idx1, idx2, idx3) index
-    // will have rec_per_key for (idx1)=4, (idx1,2)=2, and (idx1,2,3)=1.
-    // rec_per_key for the whole index is 1, and multiplied by 2^n if
-    // n suffix columns of the index are not used.
     for (uint i= 0; i < table->s->keys; i++)
     {
       for (uint j = 0; j < table->key_info[i].actual_key_parts; j++)
@@ -4107,8 +4111,14 @@ int ha_rocksdb::info(uint flag)
           0;
         if (x > stats.records)
           x = stats.records;
-        if (x == 0)
+        if (x == 0 && rocksdb_debug_optimizer_no_zero_cardinality)
+        {
+          // Fake cardinality implementation. For example, (idx1, idx2, idx3) index
+          // will have rec_per_key for (idx1)=4, (idx1,2)=2, and (idx1,2,3)=1.
+          // rec_per_key for the whole index is 1, and multiplied by 2^n if
+          // n suffix columns of the index are not used.
           x = 1 << (table->key_info[i].actual_key_parts-j-1);
+        }
         table->key_info[i].rec_per_key[j]= x;
       }
     }
@@ -4782,16 +4792,6 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   if (!table)
     DBUG_RETURN(1);
 
-  for (uint i=0; i < table->s->keys; i++)
-  {
-    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    auto range = get_range(i, buf);
-    uint64_t size;
-    rdb->GetApproximateSizes(key_descr[i]->get_cf(),
-                             &range, 1, &size);
-    key_descr[i]->file_length= size;
-  }
-
   rocksdb::TablePropertiesCollection props;
   // TODO: move to background thread. It is
   // expensive to call this for each table
@@ -4799,8 +4799,34 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
     key_descr[table->s->primary_key]->get_cf(),
     &props
   );
-  auto stats = MyRocksTablePropertiesCollector::GetStats(props);
+  auto statsFromProps = MyRocksTablePropertiesCollector::GetStats(props);
+  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
+  for (uint i=0; i < table->s->keys; i++)
+  {
+    auto it = statsFromProps.find(key_descr[i]->get_index_number());
+    if (it != statsFromProps.end()) {
+      stats.push_back(it->second);
+    } else {
+      // This index didn't have any associated stats in SST properties.
+      // It might be an empty table, for example.
+      stats.emplace_back(key_descr[i]->get_index_number());
+    }
+
+    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+    auto range = get_range(i, buf);
+    uint64_t size;
+    rdb->GetApproximateSizes(key_descr[i]->get_cf(),
+                             &range, 1, &size);
+
+    stats.back().approximate_size= size;
+  }
+
   ddl_manager.set_stats(stats);
+
+  // Persist stats
+  std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
+  dict_manager.add_stats(wb.get(), stats);
+  dict_manager.commit(wb.get(), false);
 
   DBUG_RETURN(0);
 }
