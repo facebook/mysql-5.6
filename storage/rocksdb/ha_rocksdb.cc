@@ -2129,6 +2129,13 @@ void ha_rocksdb::io_perf_start(void)
 
 void ha_rocksdb::io_perf_end_and_record(void)
 {
+  /*
+    This seems to be needed to prevent gdb from crashing if it breaks
+    or enters this function.
+   */
+  rocksdb::SetPerfLevel(
+    static_cast<rocksdb::PerfLevel>(rocksdb_perf_context_level));
+
 #define IO_PERF_DIFF(_field_) io_perf._field_= rocksdb::perf_context._field_ - \
                                                io_perf._field_
   IO_PERF_DIFF(block_read_byte);
@@ -2633,16 +2640,11 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
     {
       int rc;
 
-      io_perf_start();
-
       //TODO: We could here check if we have ran out of range we're scanning
       uint size= key_descr[keyno]->get_primary_key_tuple(pk_descr, &key,
                                                          (char*) pk_packed_tuple);
       if (size == (uint)-1)
-      {
-        io_perf_end_and_record();
         return HA_ERR_INTERNAL_ERROR;
-      }
 
       last_rowkey.copy((const char*)pk_packed_tuple, size, &my_charset_bin);
 
@@ -2650,16 +2652,11 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
       {
         rocksdb::Slice value= scan_it->value();
         if (key_descr[keyno]->unpack_record(table, buf, &key, &value))
-        {
-          io_perf_end_and_record();
           return HA_ERR_INTERNAL_ERROR;
-        }
         rc= 0;
       }
       else
         rc= get_row_by_rowid(buf, (const char*)pk_packed_tuple, size);
-
-      io_perf_end_and_record();
 
       if (!rc)
       {
@@ -3246,7 +3243,11 @@ int ha_rocksdb::index_next(uchar *buf)
   if (key_descr[active_index]->is_reverse_cf)
     moves_forward= false;
 
-  return index_next_with_direction(buf, moves_forward);
+  io_perf_start();
+  int rc= index_next_with_direction(buf, moves_forward);
+  io_perf_end_and_record();
+
+  return rc;
 }
 
 
@@ -3256,7 +3257,11 @@ int ha_rocksdb::index_prev(uchar *buf)
   if (key_descr[active_index]->is_reverse_cf)
     moves_forward= true;
 
-  return index_next_with_direction(buf, moves_forward);
+  io_perf_start();
+  int rc= index_next_with_direction(buf, moves_forward);
+  io_perf_end_and_record();
+
+  return rc;
 }
 
 
@@ -3288,15 +3293,21 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
 
 int ha_rocksdb::index_first(uchar *buf)
 {
-  return key_descr[active_index]->is_reverse_cf ? index_last_intern(buf):
-                                                  index_first_intern(buf);
+  io_perf_start();
+  int rc= key_descr[active_index]->is_reverse_cf ? index_last_intern(buf):
+                                                   index_first_intern(buf);
+  io_perf_end_and_record();
+  return rc;
 }
 
 
 int ha_rocksdb::index_last(uchar *buf)
 {
-  return key_descr[active_index]->is_reverse_cf ? index_first_intern(buf):
-                                                  index_last_intern(buf);
+  io_perf_start();
+  int rc= key_descr[active_index]->is_reverse_cf ? index_first_intern(buf):
+                                                   index_last_intern(buf);
+  io_perf_end_and_record();
+  return rc;
 }
 
 
@@ -3476,6 +3487,8 @@ int ha_rocksdb::write_row(uchar *buf)
   DBUG_ASSERT(buf == table->record[0]);
   DBUG_ASSERT(lock_rows);
 
+  io_perf_start();
+
   /* Update AUTO_INCREMENT column */
   //bool using_auto_incr_value= false;
 
@@ -3488,6 +3501,7 @@ int ha_rocksdb::write_row(uchar *buf)
     int err;
     if ((err= update_auto_increment()))
     {
+      io_perf_end_and_record();
       DBUG_RETURN(err);
     }
     //using_auto_incr_value= true;
@@ -3510,6 +3524,7 @@ int ha_rocksdb::write_row(uchar *buf)
     bool timed_out;
     if (!(lock= trx->get_lock(pk_packed_tuple, packed_size, &timed_out)))
     {
+      io_perf_end_and_record();
       DBUG_RETURN(return_lock_failure(timed_out));
     }
 
@@ -3531,6 +3546,7 @@ int ha_rocksdb::write_row(uchar *buf)
     {
       /* There is a row with this rowid already */
       row_locks.release_lock(trx->pins, lock);
+      io_perf_end_and_record();
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
   }
@@ -3575,10 +3591,12 @@ int ha_rocksdb::write_row(uchar *buf)
   {
     /* Bulk insert mode: flush the write batch if it became too big */
     if (trx->flush_batch(table->in_use, false))
+      io_perf_end_and_record();
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
   stats.rows_inserted++;
+  io_perf_end_and_record();
 
   DBUG_RETURN(0);
 }
@@ -3623,6 +3641,7 @@ int ha_rocksdb::rnd_init(bool scan)
 {
   DBUG_ENTER("ha_rocksdb::rnd_init");
 
+  io_perf_start();
   if (scan)
   {
     uint key_size;
@@ -3640,6 +3659,7 @@ int ha_rocksdb::rnd_init(bool scan)
   {
     /* We don't need any preparations for rnd_pos() calls. */
   }
+  io_perf_end_and_record();
 
   DBUG_RETURN(0);
 }
@@ -3647,7 +3667,10 @@ int ha_rocksdb::rnd_init(bool scan)
 
 int ha_rocksdb::rnd_next(uchar *buf)
 {
-  return rnd_next_with_direction(buf, true);
+  io_perf_start();
+  int rc= rnd_next_with_direction(buf, true);
+  io_perf_end_and_record();
+  return rc;
 }
 
 
@@ -3660,7 +3683,6 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
   DBUG_ENTER("ha_rocksdb::rnd_next");
 
   stats.rows_requested++;
-  io_perf_start();
 
   if (!scan_it)
   {
@@ -3755,7 +3777,6 @@ retry:
     stats.rows_read++;
     stats.rows_index_next++;
   }
-  io_perf_end_and_record();
 
   DBUG_RETURN(rc);
 }
@@ -3815,6 +3836,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::delete_row");
 
+  io_perf_start();
+
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
   trx->prepare_for_write();
@@ -3837,6 +3860,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
   }
 
   stats.rows_deleted++;
+  io_perf_end_and_record();
 
   DBUG_RETURN(0);
 }
@@ -3994,6 +4018,8 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   */
   DBUG_ASSERT(new_data == table->record[0]);
 
+  io_perf_start();
+
   //psergey-todo: how come we don't get locks for the 'old_data'?  because
   // we've already taken them when reading??
 
@@ -4018,7 +4044,10 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
     Row_lock *lock;
     bool timed_out;
     if (!(lock= trx->get_lock(pk_packed_tuple, packed_size, &timed_out)))
+    {
+      io_perf_end_and_record();
       DBUG_RETURN(return_lock_failure(timed_out));
+    }
 
     bool found;
     if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
@@ -4033,6 +4062,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
     if (found)
     {
       row_locks.release_lock(trx->pins, lock);
+      io_perf_end_and_record();
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
 
@@ -4107,6 +4137,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
   stats.rows_updated++;
 
+  io_perf_end_and_record();
   DBUG_RETURN(0);
 }
 
