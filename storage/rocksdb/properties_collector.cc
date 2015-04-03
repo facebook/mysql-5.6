@@ -73,6 +73,14 @@ rocksdb::Status
 MyRocksTablePropertiesCollector::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
+  std::vector<uint32_t> changed_indexes;
+  changed_indexes.resize(stats_.size());
+  std::transform(
+    stats_.begin(), stats_.end(),
+    changed_indexes.begin(),
+    [](const IndexStats& s) {return s.index_number;}
+  );
+  ddl_manager_->add_changed_indexes(changed_indexes);
   properties->insert({INDEXSTATS_KEY, IndexStats::materialize(stats_)});
   return rocksdb::Status::OK();
 }
@@ -128,11 +136,11 @@ MyRocksTablePropertiesCollector::GetReadableStats(
   Given properties stored on a bunch of SST files, reads the stats from them
   and returns one IndexStats struct per index
 */
-std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>
-MyRocksTablePropertiesCollector::GetStats(
-  const rocksdb::TablePropertiesCollection& collection
+void MyRocksTablePropertiesCollector::GetStats(
+  const rocksdb::TablePropertiesCollection& collection,
+  const std::unordered_set<uint32_t>& index_numbers,
+  std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& ret
 ) {
-  std::map<uint32_t, IndexStats> ret;
   for (auto it : collection) {
     const auto& user_properties = it.second->user_collected_properties;
     auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
@@ -140,12 +148,13 @@ MyRocksTablePropertiesCollector::GetStats(
       std::vector<IndexStats> stats;
       if (IndexStats::unmaterialize(it2->second, stats) == 0) {
         for (auto it3 : stats) {
-          ret[it3.index_number].merge(it3);
+          if (index_numbers.count(it3.index_number) != 0) {
+            ret[it3.index_number].merge(it3);
+          }
         }
       }
     }
   }
-  return ret;
 }
 
 /*

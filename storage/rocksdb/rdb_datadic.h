@@ -20,6 +20,9 @@ class Field_pack_info;
 class Column_family_manager;
 class Table_ddl_manager;
 
+#include <unordered_set>
+#include <mutex>
+
 #include "properties_collector.h"
 
 void write_int64(String *out, uint64 val);
@@ -533,6 +536,9 @@ class Table_ddl_manager
 
   Sequence_generator sequence;
 
+  std::unordered_set<uint32_t> changed_indexes;
+  std::mutex changed_indexes_mutex;
+
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager);
@@ -552,6 +558,8 @@ public:
               rocksdb::WriteBatch *batch);
 
   int get_next_number() { return sequence.get_next_number(); }
+  void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
+  std::unordered_set<uint32_t> get_changed_indexes();
 private:
   /* Put the data into in-memory table (only) */
   int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);

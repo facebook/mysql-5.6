@@ -1,3 +1,6 @@
+let $save_rocksdb_seconds_between_stat_computes = `SELECT @@rocksdb_seconds_between_stat_computes`;
+SET GLOBAL rocksdb_seconds_between_stat_computes=2;
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
@@ -35,18 +38,19 @@ create index t4_1 on t4(b) comment 'rev:cf_t4';
 
 # Manually compact column families, cleaning up all lingering data
 optimize table t1, t2, t3, t4, t5;
-analyze table t1, t2, t3, t4, t5;
+--source wait_stat_compute.inc
+
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 create index t4_2 on t4(a);
 optimize table t4;
-analyze table t4;
+--source wait_stat_compute.inc
+
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
-# restart the server, check the stats before and after analyze
+# restart the server, check the stats
 --source include/restart_mysqld.inc
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-analyze table t1, t2, t3, t4, t5;
+
 SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 drop table t1;
@@ -55,6 +59,4 @@ drop table t3;
 drop table t4;
 drop table t5;
 
-
-
-
+eval SET GLOBAL rocksdb_seconds_between_stat_computes = $save_rocksdb_seconds_between_stat_computes;
