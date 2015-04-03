@@ -223,6 +223,10 @@ at a time */
 extern ib_mutex_t	srv_monitor_file_mutex;
 /* Temporary file for innodb monitor output */
 extern FILE*	srv_monitor_file;
+/* Mutex for locking srv_monitor_gaplock_query_filename */
+extern ib_mutex_t	srv_monitor_gaplock_query_mutex;
+/* File for innodb gap query output */
+extern FILE*	srv_monitor_gaplock_query_file;
 /* Mutex for locking srv_dict_tmpfile. Only created if !srv_read_only_mode.
 This mutex has a very high rank; threads reserving it should not
 be holding any InnoDB latches. */
@@ -434,7 +438,9 @@ extern ulint	srv_fast_shutdown;	/*!< If this is 1, do not do a
 					InnoDB (but lose no committed
 					transactions). */
 extern ibool	srv_innodb_status;
-
+extern my_bool srv_monitor_gaplock_query;
+extern my_bool srv_monitor_gaplock_query_print_verbose;
+extern char* srv_monitor_gaplock_query_filename;
 extern unsigned long long	srv_stats_transient_sample_pages;
 extern my_bool			srv_stats_persistent;
 extern unsigned long long	srv_stats_persistent_sample_pages;

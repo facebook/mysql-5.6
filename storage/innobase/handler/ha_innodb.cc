@@ -337,6 +337,8 @@ static PSI_mutex_info all_innodb_mutexes[] = {
 	{&srv_innodb_monitor_mutex_key, "srv_innodb_monitor_mutex", 0},
 	{&srv_misc_tmpfile_mutex_key, "srv_misc_tmpfile_mutex", 0},
 	{&srv_monitor_file_mutex_key, "srv_monitor_file_mutex", 0},
+	{&srv_monitor_gaplock_query_mutex_key,
+		"srv_monitor_gaplock_query_mutex_key", 0},
 #  ifdef UNIV_SYNC_DEBUG
 	{&sync_thread_mutex_key, "sync_thread_mutex", 0},
 #  endif /* UNIV_SYNC_DEBUG */
@@ -2525,6 +2527,18 @@ innobase_get_stmt(
 	stmt = thd_query_string(thd);
 	*length = stmt->length;
 	return(stmt->str);
+}
+
+/**********************************************************************//**
+Determines the current connection identifier.
+@return	connection identifier */
+UNIV_INTERN
+ulong
+innobase_get_connection_id(
+/*=======================*/
+	THD*	thd)	/*!< in: MySQL thread handle */
+{
+	return(thd_thread_id(thd));
 }
 
 /**********************************************************************//**
@@ -15560,6 +15574,96 @@ innodb_file_format_name_update(
 }
 
 /*************************************************************//**
+Helper functions for innodb_monitor_gaplock_query_filename_validate */
+static
+void
+reset_gaplock_query_logger()
+{
+	if (srv_monitor_gaplock_query_file) {
+		fclose(srv_monitor_gaplock_query_file);
+	}
+
+	if (srv_monitor_gaplock_query_filename) {
+		free(srv_monitor_gaplock_query_filename);
+	}
+
+	srv_monitor_gaplock_query_file = NULL;
+	srv_monitor_gaplock_query_filename = NULL;
+	srv_monitor_gaplock_query = false;
+}
+
+static
+void
+set_gaplock_query_logger(
+	FILE* f,
+	const char* fname)
+{
+	reset_gaplock_query_logger();
+
+	srv_monitor_gaplock_query_file = f;
+	srv_monitor_gaplock_query_filename =  my_strdup(fname, MYF(0));
+}
+
+/*************************************************************//**
+Plugin to validate query filename. We consider the validation successful
+if we can open the file and reassign it to the log file handler
+@return	(1) on success */
+static
+int
+innodb_monitor_gaplock_query_filename_validate(
+/*=======================================*/
+	THD* thd, /*!< in: thread handle */
+	struct st_mysql_sys_var* var, /*!< in: pointer to system variable */
+	void*	save, /*!< out: immediate result for update function */
+	struct st_mysql_value* value) /*!< in: incoming string */
+{
+	char buff[STRING_BUFFER_USUAL_SIZE];
+	int len = sizeof(buff);
+
+	ut_a(save != NULL);
+	ut_a(value != NULL);
+
+	const char* fname = value->val_str(value, buff, &len);
+
+	int status = 0;
+
+	mutex_enter(&srv_monitor_gaplock_query_mutex);
+
+	if (!fname || !strlen(fname)) {
+		// reset the logger
+		reset_gaplock_query_logger();
+		status = 0;
+	} else {
+		// set the new logger
+		FILE * f = fopen(fname, "w+");
+		if (f) {
+			set_gaplock_query_logger(f, fname);
+			status = 0;
+		} else {
+			status = 1;
+		}
+	}
+
+	mutex_exit(&srv_monitor_gaplock_query_mutex);
+
+	return(status);
+}
+
+/*************************************************************//**
+No-op. We already handle the functionality in validation. We have the function
+for compliance. Otherwise mysql considers the field as read-only.
+*/
+static
+void
+innodb_monitor_gaplock_query_filename_update(
+/*===========================*/
+	THD*,
+	struct st_mysql_sys_var*,
+	void*,
+	const void*)
+{}
+
+/*************************************************************//**
 Check if valid argument to innodb_file_format_max. This function
 is registered as a callback with MySQL.
 @return	0 for valid file format */
@@ -17445,6 +17549,24 @@ static MYSQL_SYSVAR_ULONG(io_capacity_max, srv_max_io_capacity,
   SRV_MAX_IO_CAPACITY_DUMMY_DEFAULT, 100,
   SRV_MAX_IO_CAPACITY_LIMIT, 0);
 
+static MYSQL_SYSVAR_BOOL(monitor_gaplock_query, srv_monitor_gaplock_query,
+  PLUGIN_VAR_OPCMDARG,
+  "Write queries that use gap lock for debugging to log file",
+  NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_BOOL(monitor_gaplock_query_print_verbose,
+  srv_monitor_gaplock_query_print_verbose,
+  PLUGIN_VAR_OPCMDARG,
+  "Print gap lock information along with query",
+  NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_STR(monitor_gaplock_query_filename,
+  srv_monitor_gaplock_query_filename,
+  PLUGIN_VAR_RQCMDARG,
+  "File to write out the SQL queries that use gap lock",
+  innodb_monitor_gaplock_query_filename_validate,
+  innodb_monitor_gaplock_query_filename_update, NULL);
+
 static MYSQL_SYSVAR_BOOL(recv_ibuf_operations,
   srv_recv_ibuf_operations,
   PLUGIN_VAR_NOCMDARG,
@@ -18650,6 +18772,9 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(stats_method),
   MYSQL_SYSVAR(replication_delay),
   MYSQL_SYSVAR(status_file),
+  MYSQL_SYSVAR(monitor_gaplock_query),
+  MYSQL_SYSVAR(monitor_gaplock_query_print_verbose),
+  MYSQL_SYSVAR(monitor_gaplock_query_filename),
   MYSQL_SYSVAR(recv_ibuf_operations),
   MYSQL_SYSVAR(strict_mode),
   MYSQL_SYSVAR(support_xa),

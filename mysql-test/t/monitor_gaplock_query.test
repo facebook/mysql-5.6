@@ -1,0 +1,83 @@
+connect(conn,127.0.0.1,root);
+
+#
+# Setup
+#
+create table gaplocktest
+(
+  id int not null,
+  value varchar(255),
+  primary key (id)
+) engine=innodb;
+
+insert into gaplocktest values (0, '0');
+insert into gaplocktest values (25, '25');
+insert into gaplocktest values (50, '50');
+insert into gaplocktest values (75, '75');
+insert into gaplocktest values (100, '100');
+
+--let $gaplockquerylog= '/tmp/gapquery.log'
+--let $verbosegaplockquerylog= '/tmp/verbosegapquery.log'
+
+#
+# Run the test with the log enabled
+#
+--let $verbose= 0
+--let $logfilename= $gaplockquerylog
+--let $set= 1
+--let $enable= 1
+--source include/set_gaplock_query_monitor.inc
+--source include/monitor_gaplock_query_test.inc
+
+--connection conn
+
+#
+# Run the test with the log disabled
+#
+--let $verbose= 0
+--let $logfilename= $gaplockqueryname
+--let $set= 0
+--let $enable= 0
+--source include/set_gaplock_query_monitor.inc
+--source include/monitor_gaplock_query_test.inc
+
+--connection conn
+
+#
+# Run the test with the log enabled
+#
+--let $verbose= 1
+--let $logfilename= $verbosegaplockquerylog
+--let $set= 1
+--let $enable= 1
+--source include/set_gaplock_query_monitor.inc
+--source include/monitor_gaplock_query_test.inc
+
+--connection conn
+
+#
+# Reset logger
+#
+--let $verbose= 0
+--let $logfilename= ''
+--let $set= 1
+--let $enable= 0
+--source include/set_gaplock_query_monitor.inc
+
+#
+# Print the result
+#
+--echo "$gaplockquerylog contents"
+--exec cat $gaplockquerylog | cut -d' ' --complement -f1
+--echo "$verbosegaplockquerylog contents excluding query"
+--exec cat $verbosegaplockquerylog | egrep -v "select|delete|insert into|update" | wc -l
+
+#
+# Cleanup
+#
+--exec rm -f $gaplockquerylog
+--exec rm -f $verbosegaplockquerylog
+
+drop table gaplocktest;
+
+disconnect conn;

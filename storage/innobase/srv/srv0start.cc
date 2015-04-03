@@ -1873,6 +1873,9 @@ innobase_start_or_create_for_mysql(void)
 		"%s CPU crc32 instructions",
 		ut_crc32_sse2_enabled ? "Using" : "Not using");
 
+	mutex_create(srv_monitor_gaplock_query_mutex_key,
+		&srv_monitor_gaplock_query_mutex, SYNC_NO_ORDER_CHECK);
+
 	if (!srv_read_only_mode) {
 
 		mutex_create(srv_monitor_file_mutex_key,
@@ -3102,6 +3105,15 @@ innobase_shutdown_for_mysql(void)
 			(ulong) os_thread_count);
 	}
 
+	if (srv_monitor_gaplock_query_file) {
+		fclose(srv_monitor_gaplock_query_file);
+		srv_monitor_gaplock_query_file = NULL;
+		if (srv_monitor_gaplock_query_filename) {
+			mem_free(srv_monitor_gaplock_query_filename);
+			srv_monitor_gaplock_query_filename = NULL;
+		}
+	}
+
 	if (srv_monitor_file) {
 		fclose(srv_monitor_file);
 		srv_monitor_file = 0;
@@ -3144,6 +3156,8 @@ innobase_shutdown_for_mysql(void)
 		mutex_free(&srv_dict_tmpfile_mutex);
 		mutex_free(&srv_misc_tmpfile_mutex);
 	}
+
+	mutex_free(&srv_monitor_gaplock_query_mutex);
 
 	dict_close();
 	btr_search_sys_free();

@@ -160,6 +160,7 @@ extern MYSQL_PLUGIN_IMPORT const char **errmesg;
 extern bool volatile shutdown_in_progress;
 
 extern "C" LEX_STRING * thd_query_string (MYSQL_THD thd);
+extern "C" ulong thd_thread_id(MYSQL_THD thd);
 extern "C" char **thd_query(MYSQL_THD thd);
 
 /**

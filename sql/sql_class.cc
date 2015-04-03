@@ -4364,6 +4364,18 @@ extern "C" LEX_STRING * thd_query_string (MYSQL_THD thd)
   return(&thd->query_string.string);
 }
 
+/**
+ Get the current thread id.
+
+ @param The MySQL internal thread pointer
+ @return thread identifier
+*/
+extern "C" ulong thd_thread_id(MYSQL_THD thd)
+{
+  return(thd->thread_id);
+}
+
+
 extern "C" int thd_slave_thread(const MYSQL_THD thd)
 {
   return(thd->slave_thread);

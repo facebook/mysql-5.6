@@ -433,6 +433,17 @@ UNIV_INTERN ulint	srv_fast_shutdown	= 0;
 /* Generate a innodb_status.<pid> file */
 UNIV_INTERN ibool	srv_innodb_status	= FALSE;
 
+/* Log query that use gap lock if this flag is set */
+UNIV_INTERN my_bool srv_monitor_gaplock_query = FALSE;
+/* Log verbose information along with the gaplock query */
+UNIV_INTERN my_bool srv_monitor_gaplock_query_print_verbose = FALSE;
+/* Filename to log the query that use gap locking */
+UNIV_INTERN char* srv_monitor_gaplock_query_filename = NULL;
+/* Mutex to synchronize co-ordination for logging gap queries */
+UNIV_INTERN ib_mutex_t srv_monitor_gaplock_query_mutex;
+/* File handle to log the query that use gap lock */
+UNIV_INTERN FILE* srv_monitor_gaplock_query_file = NULL;
+
 UNIV_INTERN my_bool srv_recv_ibuf_operations = FALSE;
 
 /* Optimize prefix index queries to skip cluster index lookup when possible */
@@ -521,6 +532,8 @@ UNIV_INTERN mysql_pfs_key_t	server_mutex_key;
 UNIV_INTERN mysql_pfs_key_t	srv_innodb_monitor_mutex_key;
 /** Key to register srv_monitor_file_mutex with performance schema */
 UNIV_INTERN mysql_pfs_key_t	srv_monitor_file_mutex_key;
+/** Key to register srv_monitor_gaplock_query_mutex with performance schema */
+UNIV_INTERN mysql_pfs_key_t	srv_monitor_gaplock_query_mutex_key;
 /** Key to register longest_buf_resizing_trx_stall_time_mutex */
 UNIV_INTERN mysql_pfs_key_t	longest_buf_resizing_trx_stall_time_mutex_key;
 /** Key to register srv_dict_tmpfile_mutex with performance schema */

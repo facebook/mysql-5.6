@@ -1,0 +1,76 @@
+########## mysql-test\t\innodb_monitor_gaplock_query_filename_basic.test #######
+#                                                                              #
+# Variable Name: innodb_monitor_gaplock_query_filename                         #
+# Scope: GLOBAL                                                                #
+# Access Type: Dynamic                                                         #
+# Data Type: Filename                                                          #
+# Default Value: host_name-gaplock.log                                         #
+# Valid Values:                                                                #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2015-4-1                                                      #
+# Author:  Karthikeyan Radhakrishnan                                           #
+#                                                                              #
+# Description: Test Cases of Dynamic System Variable                           #
+#              "innodb_monitor_gaplock_query_filename" that checks behavior    #
+#              of this                                                         #
+#              variable in the following ways                                  #
+#              * Default Value                                                 #
+#              * Valid & Invalid values                                        #
+#              * Scope & Access method                                         #
+#              * Data Integrity                                                #
+#                                                                              #
+# Reference:                                                                   #
+# http://dev.mysql.com/doc/refman/5.1/en/server-system-variables.html          #
+#                                                                              #
+################################################################################
+
+--source include/load_sysvars.inc
+
+###########################################################
+# START OF innodb_monitor_gaplock_query_filename TESTS    #
+###########################################################
+
+
+###########################################################################
+# Saving initial value of innodb_monitor_gaplock_query_filename in a      #
+# temporary variable                                                      #
+###########################################################################
+
+SET @start_value = @@global.innodb_monitor_gaplock_query_filename;
+
+--echo '#---------------------FN_DYNVARS_004_01-------------------------#'
+###############################################
+#  Verify default value of variable           #
+###############################################
+
+SET @@global.innodb_monitor_gaplock_query_filename = DEFAULT;
+SET @a=concat(left(@@hostname, instr(concat(@@hostname, '.'), '.')-1), '-gaplock.log');
+SELECT RIGHT(@@global.innodb_monitor_gaplock_query_filename, length(@a)) = @a;
+
+
+--echo '#--------------------FN_DYNVARS_004_02------------------------#'
+#######################################################################
+# Change the value of innodb_monitor_gaplock_query_filename to a      #
+# invalid value                                                       #
+#######################################################################
+
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_monitor_gaplock_query_filename = mytest.log;
+--error ER_WRONG_TYPE_FOR_VAR
+SET @@global.innodb_monitor_gaplock_query_filename = 12;
+
+--echo '#----------------------FN_DYNVARS_004_03------------------------#'
+############################################################################## 
+# Check if the value in GLOBAL Tables matches values in variable             #
+##############################################################################
+
+SELECT @@global.innodb_monitor_gaplock_query_filename = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='innodb_monitor_gaplock_query_filename';
+
+SET @@global.innodb_monitor_gaplock_query_filename= @start_value;
+#########################################################
+# END OF innodb_monitor_gaplock_query_filename TESTS    #
+#########################################################
+
