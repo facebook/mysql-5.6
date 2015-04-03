@@ -1,0 +1,19 @@
+SET @start_value = @@global.innodb_monitor_gaplock_query_filename;
+'#---------------------FN_DYNVARS_004_01-------------------------#'
+SET @@global.innodb_monitor_gaplock_query_filename = DEFAULT;
+SET @a=concat(left(@@hostname, instr(concat(@@hostname, '.'), '.')-1), '-gaplock.log');
+SELECT RIGHT(@@global.innodb_monitor_gaplock_query_filename, length(@a)) = @a;
+RIGHT(@@global.innodb_monitor_gaplock_query_filename, length(@a)) = @a
+NULL
+'#--------------------FN_DYNVARS_004_02------------------------#'
+SET @@global.innodb_monitor_gaplock_query_filename = mytest.log;
+ERROR 42000: Incorrect argument type to variable 'innodb_monitor_gaplock_query_filename'
+SET @@global.innodb_monitor_gaplock_query_filename = 12;
+ERROR 42000: Incorrect argument type to variable 'innodb_monitor_gaplock_query_filename'
+'#----------------------FN_DYNVARS_004_03------------------------#'
+SELECT @@global.innodb_monitor_gaplock_query_filename = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='innodb_monitor_gaplock_query_filename';
+@@global.innodb_monitor_gaplock_query_filename = VARIABLE_VALUE
+NULL
+SET @@global.innodb_monitor_gaplock_query_filename= @start_value;
