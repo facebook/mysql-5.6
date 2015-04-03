@@ -265,7 +265,7 @@ class ha_rocksdb: public handler
   void setup_field_converters();
 
   // the buffer size should be at least 2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE
-  rocksdb::Range get_range(uint i, uchar buf[]) const;
+  rocksdb::Range get_range(int i, uchar buf[]) const;
 
   /*
     Perf timers for data reads
@@ -474,5 +474,4 @@ public:
                           ulonglong *nb_reserved_values);
   void update_create_info(HA_CREATE_INFO *create_info);
   int optimize(THD *thd, HA_CHECK_OPT *check_opt);
-  int analyze(THD* thd, HA_CHECK_OPT* check_opt);
 };

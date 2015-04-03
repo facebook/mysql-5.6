@@ -1430,6 +1430,20 @@ void Table_ddl_manager::cleanup()
   sequence.cleanup();
 }
 
+void Table_ddl_manager::add_changed_indexes(
+  const std::vector<uint32_t>& v)
+{
+  std::lock_guard<std::mutex> lock(changed_indexes_mutex);
+  changed_indexes.insert(v.begin(), v.end());
+}
+
+std::unordered_set<uint32_t> Table_ddl_manager::get_changed_indexes()
+{
+  std::lock_guard<std::mutex> lock(changed_indexes_mutex);
+  auto ret = std::move(changed_indexes);
+  changed_indexes.clear();
+  return ret;
+}
 
 bool Binlog_info_manager::init(Dict_manager *dict_arg)
 {
