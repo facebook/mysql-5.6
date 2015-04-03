@@ -1,0 +1,59 @@
+#
+# exists as a global only
+#
+# 2015-04-01 Added by Karthikeyan Radhakrishnan
+#
+#
+source include/not_embedded.inc;
+source include/have_semisync.inc;
+select @@global.innodb_monitor_gaplock_query;
+SET @start_global_value = @@global.innodb_monitor_gaplock_query;
+
+select @@global.innodb_monitor_gaplock_query in (0,1);
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_monitor_gaplock_query;
+show global variables like 'innodb_monitor_gaplock_query';
+show session variables like 'innodb_monitor_gaplock_query';
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query';
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query';
+
+#
+# show that it's writable
+#
+set global innodb_monitor_gaplock_query=0;
+--error ER_GLOBAL_VARIABLE
+set session innodb_monitor_gaplock_query=0;
+select @@global.innodb_monitor_gaplock_query;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_monitor_gaplock_query;
+show global variables like 'innodb_monitor_gaplock_query';
+show session variables like 'innodb_monitor_gaplock_query';
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query';
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query';
+set global innodb_monitor_gaplock_query=1;
+--error ER_GLOBAL_VARIABLE
+set session innodb_monitor_gaplock_query=1;
+select @@global.innodb_monitor_gaplock_query;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_monitor_gaplock_query;
+show global variables like 'innodb_monitor_gaplock_query';
+show session variables like 'innodb_monitor_gaplock_query';
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query';
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query';
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_monitor_gaplock_query=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_monitor_gaplock_query=1e1;
+--error ER_WRONG_VALUE_FOR_VAR
+set global innodb_monitor_gaplock_query="some text";
+
+#
+# Cleanup
+#
+SET @@global.innodb_monitor_gaplock_query = @start_global_value;
+select @@global.innodb_monitor_gaplock_query;
+
