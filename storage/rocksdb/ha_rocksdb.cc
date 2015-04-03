@@ -209,6 +209,8 @@ static my_bool rocksdb_signal_drop_index_thread;
 #endif
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
+static uint64_t rocksdb_number_stat_computes = 0;
+static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -628,6 +630,14 @@ static MYSQL_SYSVAR_BOOL(
   "Forces memstore flush which may block all write requests so be careful",
   NULL, rocksdb_force_flush_memtable_now, FALSE);
 
+static MYSQL_SYSVAR_UINT(seconds_between_stat_computes,
+  rocksdb_seconds_between_stat_computes,
+  PLUGIN_VAR_RQCMDARG,
+  "Sets a number of seconds to wait between optimizer stats recomputation. "
+  "Only changed indexes will be refreshed.",
+  NULL, NULL, rocksdb_seconds_between_stat_computes,
+  /* min */ 0L, /* max */ UINT_MAX, 0);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -701,6 +711,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 #endif
   MYSQL_SYSVAR(collect_sst_properties),
   MYSQL_SYSVAR(force_flush_memtable_now),
+  MYSQL_SYSVAR(seconds_between_stat_computes),
   NULL
 };
 
@@ -4480,15 +4491,19 @@ static rocksdb::Range get_range(
     rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
 }
 
-rocksdb::Range ha_rocksdb::get_range(
-  uint i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
+rocksdb::Range get_range(
+  RDBSE_KEYDEF* keydef, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2])
 {
-  RDBSE_KEYDEF* keydef = key_descr[i];
-
   if (keydef->is_reverse_cf)
     return ::get_range(keydef, buf, 1, 0);
   else
     return ::get_range(keydef, buf, 0, 1);
+}
+
+rocksdb::Range ha_rocksdb::get_range(
+  int i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
+{
+  return ::get_range(key_descr[i], buf);
 }
 
 void signal_drop_index_thread(bool stop_thread)
@@ -4785,37 +4800,53 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
   return rc;
 }
 
-int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
+void compute_optimizer_stats()
 {
-  DBUG_ENTER("ha_rocksdb::analyze");
+  auto changed_indexes = ddl_manager.get_changed_indexes();
+  if (changed_indexes.empty())
+    return;
 
-  if (!table)
-    DBUG_RETURN(1);
-
-  rocksdb::TablePropertiesCollection props;
-  // TODO: move to background thread. It is
-  // expensive to call this for each table
-  auto s = rdb->GetPropertiesOfAllTables(
-    key_descr[table->s->primary_key]->get_cf(),
-    &props
-  );
-  auto statsFromProps = MyRocksTablePropertiesCollector::GetStats(props);
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
-  for (uint i=0; i < table->s->keys; i++)
+  // Find keydefs for all changed indexes
+  // Collect all column families which contain updated tables
+  std::vector<std::unique_ptr<RDBSE_KEYDEF>> keydefs;
+  std::unordered_set<rocksdb::ColumnFamilyHandle*> cfs;
+  for (auto index_number : changed_indexes)
   {
-    auto it = statsFromProps.find(key_descr[i]->get_index_number());
+    auto keydef = ddl_manager.find(index_number);
+    if (keydef) {
+      cfs.insert(keydef->get_cf());
+      keydefs.push_back(std::move(keydef));
+    }
+  }
+
+  std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>
+    statsFromProps;
+  for (auto cf : cfs) {
+    rocksdb::TablePropertiesCollection props;
+    auto s = rdb->GetPropertiesOfAllTables(
+      cf,
+      &props
+    );
+    MyRocksTablePropertiesCollector::GetStats(
+      props, changed_indexes, statsFromProps);
+  }
+
+  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
+  for (auto& keydef : keydefs)
+  {
+    auto it = statsFromProps.find(keydef->get_index_number());
     if (it != statsFromProps.end()) {
       stats.push_back(it->second);
     } else {
       // This index didn't have any associated stats in SST properties.
       // It might be an empty table, for example.
-      stats.emplace_back(key_descr[i]->get_index_number());
+      stats.emplace_back(keydef->get_index_number());
     }
 
     uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    auto range = get_range(i, buf);
+    auto range = get_range(keydef.get(), buf);
     uint64_t size;
-    rdb->GetApproximateSizes(key_descr[i]->get_cf(),
+    rdb->GetApproximateSizes(keydef->get_cf(),
                              &range, 1, &size);
 
     stats.back().approximate_size= size;
@@ -4827,8 +4858,6 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
   std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
   dict_manager.add_stats(wb.get(), stats);
   dict_manager.commit(wb.get(), false);
-
-  DBUG_RETURN(0);
 }
 
 void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
@@ -5008,6 +5037,9 @@ bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_f
 #define DEF_STATUS_VAR(name) \
   {"rocksdb_" #name, (char*) &SHOW_FNAME(name), SHOW_FUNC}
 
+#define DEF_STATUS_VAR_PTR(name, ptr, option) \
+  {"rocksdb_" name, (char*) ptr, option}
+
 struct rocksdb_status_counters_t {
   uint64_t block_cache_miss;
   uint64_t block_cache_hit;
@@ -5174,6 +5206,7 @@ static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(number_superversion_releases),
   DEF_STATUS_VAR(number_superversion_cleanups),
   DEF_STATUS_VAR(number_block_not_compressed),
+  DEF_STATUS_VAR_PTR("number_stat_computes", &rocksdb_number_stat_computes, SHOW_LONGLONG),
   {NullS, NullS, SHOW_LONG}
 };
 
@@ -5227,7 +5260,9 @@ void* background_thread(void*)
   mysql_mutex_lock(&stop_cond_mutex);
 
   rocksdb::WriteBatch wb;
-  for (;;) {
+  time_t last_stat_recompute = 0;
+  for (;;)
+  {
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     ts.tv_sec++;
@@ -5242,6 +5277,13 @@ void* background_thread(void*)
       auto wo = rocksdb::WriteOptions();
       wo.sync = true;
       rdb->Write(wo, &wb);
+    }
+
+    if (ts.tv_sec - last_stat_recompute > rocksdb_seconds_between_stat_computes)
+    {
+      compute_optimizer_stats();
+      rocksdb_number_stat_computes++;
+      last_stat_recompute = ts.tv_sec;
     }
   }
 
