@@ -50,6 +50,9 @@ Created 5/7/1996 Heikki Tuuri
 #include "dict0boot.h"
 #include <set>
 
+extern my_bool srv_monitor_gaplock_query_print_verbose;
+extern my_bool srv_monitor_gaplock_query;
+
 /* Restricts the length of search we will do in the waits-for
 graph of transactions */
 #define LOCK_MAX_N_STEPS_IN_DEADLOCK_CHECK 1000000
@@ -1807,6 +1810,34 @@ lock_number_of_rows_locked(
 /*============== RECORD LOCK CREATION AND QUEUE MANAGEMENT =============*/
 
 /*********************************************************************//**
+Dump the query corresponding to the explicit lock with no gap not set
+*/
+static
+void
+log_lock_info_and_query(
+/*====================*/
+	trx_t* trx, /*!< in: transaction */
+	lock_t* lock) /*!< in: lock handle */
+{
+	mutex_enter(&srv_monitor_gaplock_query_mutex);
+
+	if (srv_monitor_gaplock_query_file) {
+		size_t stmt_len;
+		const char * stmt = innobase_get_stmt(trx->mysql_thd, &stmt_len);
+		const ulong conn_id = innobase_get_connection_id(trx->mysql_thd);
+		if (stmt && stmt_len) {
+			fprintf(srv_monitor_gaplock_query_file, "%lu %.*s \n", conn_id,
+							(int) stmt_len, stmt);
+			if (srv_monitor_gaplock_query_print_verbose) {
+				lock_rec_print(srv_monitor_gaplock_query_file, lock);
+			}
+		}
+	}
+
+	mutex_exit(&srv_monitor_gaplock_query_mutex);
+}
+
+/*********************************************************************//**
 Creates a new record lock and inserts it to the lock queue. Does NOT check
 for deadlocks or lock compatibility!
 @return	created lock */
@@ -1899,6 +1930,12 @@ lock_rec_create(
 	}
 
 	UT_LIST_ADD_LAST(trx_locks, trx->lock.trx_locks, lock);
+
+	if (UNIV_UNLIKELY(srv_monitor_gaplock_query)) {
+		if (trx && trx->mysql_thd && !lock_rec_get_rec_not_gap(lock)) {
+			log_lock_info_and_query(trx, lock);
+		}
+	}
 
 	if (!caller_owns_trx_mutex) {
 		trx_mutex_exit(trx);

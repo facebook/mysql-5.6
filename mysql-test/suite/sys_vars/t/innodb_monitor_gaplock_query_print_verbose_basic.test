@@ -1,0 +1,59 @@
+#
+# exists as a global only
+#
+# 2015-04-01 Added by Karthikeyan Radhakrishnan
+#
+#
+source include/not_embedded.inc;
+source include/have_semisync.inc;
+select @@global.innodb_monitor_gaplock_query_print_verbose;
+SET @start_global_value = @@global.innodb_monitor_gaplock_query_print_verbose;
+
+select @@global.innodb_monitor_gaplock_query_print_verbose in (0,1);
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_monitor_gaplock_query_print_verbose;
+show global variables like 'innodb_monitor_gaplock_query_print_verbose';
+show session variables like 'innodb_monitor_gaplock_query_print_verbose';
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query_print_verbose';
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query_print_verbose';
+
+#
+# show that it's writable
+#
+set global innodb_monitor_gaplock_query_print_verbose=0;
+--error ER_GLOBAL_VARIABLE
+set session innodb_monitor_gaplock_query_print_verbose=0;
+select @@global.innodb_monitor_gaplock_query_print_verbose;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_monitor_gaplock_query_print_verbose;
+show global variables like 'innodb_monitor_gaplock_query_print_verbose';
+show session variables like 'innodb_monitor_gaplock_query_print_verbose';
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query_print_verbose';
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query_print_verbose';
+set global innodb_monitor_gaplock_query_print_verbose=1;
+--error ER_GLOBAL_VARIABLE
+set session innodb_monitor_gaplock_query_print_verbose=1;
+select @@global.innodb_monitor_gaplock_query_print_verbose;
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_monitor_gaplock_query_print_verbose;
+show global variables like 'innodb_monitor_gaplock_query_print_verbose';
+show session variables like 'innodb_monitor_gaplock_query_print_verbose';
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query_print_verbose';
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query_print_verbose';
+
+#
+# incorrect types
+#
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_monitor_gaplock_query_print_verbose=1.1;
+--error ER_WRONG_TYPE_FOR_VAR
+set global innodb_monitor_gaplock_query_print_verbose=1e1;
+--error ER_WRONG_VALUE_FOR_VAR
+set global innodb_monitor_gaplock_query_print_verbose="some text";
+
+#
+# Cleanup
+#
+SET @@global.innodb_monitor_gaplock_query_print_verbose = @start_global_value;
+select @@global.innodb_monitor_gaplock_query_print_verbose;
+

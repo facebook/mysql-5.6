@@ -325,6 +325,16 @@ innobase_get_stmt(
 	THD*	thd,		/*!< in: MySQL thread handle */
 	size_t*	length)		/*!< out: length of the SQL statement */
 	__attribute__((nonnull));
+
+/**********************************************************************//**
+Determines the current connection identifier.
+@return	connection identifier */
+UNIV_INTERN
+ulong
+innobase_get_connection_id(
+/*=======================*/
+	THD*	thd);	/*!< in: MySQL thread handle */
+
 /******************************************************************//**
 This function is used to find the storage length in bytes of the first n
 characters for prefix indexes using a multibyte character set. The function
