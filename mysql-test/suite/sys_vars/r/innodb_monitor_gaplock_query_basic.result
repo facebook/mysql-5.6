@@ -1,0 +1,71 @@
+select @@global.innodb_monitor_gaplock_query;
+@@global.innodb_monitor_gaplock_query
+0
+SET @start_global_value = @@global.innodb_monitor_gaplock_query;
+select @@global.innodb_monitor_gaplock_query in (0,1);
+@@global.innodb_monitor_gaplock_query in (0,1)
+1
+select @@session.innodb_monitor_gaplock_query;
+ERROR HY000: Variable 'innodb_monitor_gaplock_query' is a GLOBAL variable
+show global variables like 'innodb_monitor_gaplock_query';
+Variable_name	Value
+innodb_monitor_gaplock_query	OFF
+show session variables like 'innodb_monitor_gaplock_query';
+Variable_name	Value
+innodb_monitor_gaplock_query	OFF
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_MONITOR_GAPLOCK_QUERY	OFF
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_MONITOR_GAPLOCK_QUERY	OFF
+set global innodb_monitor_gaplock_query=0;
+set session innodb_monitor_gaplock_query=0;
+ERROR HY000: Variable 'innodb_monitor_gaplock_query' is a GLOBAL variable and should be set with SET GLOBAL
+select @@global.innodb_monitor_gaplock_query;
+@@global.innodb_monitor_gaplock_query
+0
+select @@session.innodb_monitor_gaplock_query;
+ERROR HY000: Variable 'innodb_monitor_gaplock_query' is a GLOBAL variable
+show global variables like 'innodb_monitor_gaplock_query';
+Variable_name	Value
+innodb_monitor_gaplock_query	OFF
+show session variables like 'innodb_monitor_gaplock_query';
+Variable_name	Value
+innodb_monitor_gaplock_query	OFF
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_MONITOR_GAPLOCK_QUERY	OFF
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_MONITOR_GAPLOCK_QUERY	OFF
+set global innodb_monitor_gaplock_query=1;
+set session innodb_monitor_gaplock_query=1;
+ERROR HY000: Variable 'innodb_monitor_gaplock_query' is a GLOBAL variable and should be set with SET GLOBAL
+select @@global.innodb_monitor_gaplock_query;
+@@global.innodb_monitor_gaplock_query
+1
+select @@session.innodb_monitor_gaplock_query;
+ERROR HY000: Variable 'innodb_monitor_gaplock_query' is a GLOBAL variable
+show global variables like 'innodb_monitor_gaplock_query';
+Variable_name	Value
+innodb_monitor_gaplock_query	ON
+show session variables like 'innodb_monitor_gaplock_query';
+Variable_name	Value
+innodb_monitor_gaplock_query	ON
+select * from information_schema.global_variables where variable_name='innodb_monitor_gaplock_query';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_MONITOR_GAPLOCK_QUERY	ON
+select * from information_schema.session_variables where variable_name='innodb_monitor_gaplock_query';
+VARIABLE_NAME	VARIABLE_VALUE
+INNODB_MONITOR_GAPLOCK_QUERY	ON
+set global innodb_monitor_gaplock_query=1.1;
+ERROR 42000: Incorrect argument type to variable 'innodb_monitor_gaplock_query'
+set global innodb_monitor_gaplock_query=1e1;
+ERROR 42000: Incorrect argument type to variable 'innodb_monitor_gaplock_query'
+set global innodb_monitor_gaplock_query="some text";
+ERROR 42000: Variable 'innodb_monitor_gaplock_query' can't be set to the value of 'some text'
+SET @@global.innodb_monitor_gaplock_query = @start_global_value;
+select @@global.innodb_monitor_gaplock_query;
+@@global.innodb_monitor_gaplock_query
+0
