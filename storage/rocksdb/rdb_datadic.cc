@@ -703,6 +703,28 @@ int unpack_integer(Field_pack_info *fpi, Field *field,
 
 
 /*
+  Unpack by doing the reverse action to Field_newdate::make_sort_key.
+*/
+
+static
+int unpack_newdate(Field_pack_info *fpi, Field *field,
+                   Stream_reader *reader, const uchar *unpack_info)
+{
+  const char* from;
+  DBUG_ASSERT(fpi->max_image_len == 3);
+  DBUG_ASSERT(fpi->field_data_offset == 0);
+
+  if (!(from= reader->read(3)))
+    return 1; /* Mem-comparable image doesn't have enough bytes */
+
+  field->ptr[0]= from[2];
+  field->ptr[1]= from[1];
+  field->ptr[2]= from[0];
+  return 0;
+}
+
+
+/*
   Unpack the string by copying it over.
   This is for BINARY(n) where the value occupies the whole length.
 */
@@ -971,6 +993,38 @@ bool Field_pack_info::setup(Field *field)
   make_unpack_info_func= NULL;
   unpack_data_len= 0;
 
+  switch (type) {
+    case MYSQL_TYPE_LONGLONG:
+    case MYSQL_TYPE_LONG:
+    case MYSQL_TYPE_INT24:
+    case MYSQL_TYPE_SHORT:
+    case MYSQL_TYPE_TINY:
+      unpack_func= unpack_integer;
+      return true;
+
+    case MYSQL_TYPE_DATETIME2:
+    case MYSQL_TYPE_TIMESTAMP2:
+      /* These are packed with Field_temporal_with_date_and_timef::make_sort_key */
+    case MYSQL_TYPE_TIME2: /* TIME is packed with Field_timef::make_sort_key */
+    case MYSQL_TYPE_YEAR: /* YEAR is packed with  Field_tiny::make_sort_key */
+      /* Everything that comes here is packed with just a memcpy(). */
+      unpack_func= unpack_binary_str;
+      return true;
+
+    case MYSQL_TYPE_NEWDATE:
+      /*
+        This is packed by Field_newdate::make_sort_key. It assumes the data is
+        3 bytes, and packing is done by swapping the byte order (for both big-
+        and little-endian)
+      */
+      unpack_func= unpack_newdate;
+      return true;
+    default:
+      break;
+  }
+
+  /* Handle [VAR](CHAR|BINARY) */
+
   if (type == MYSQL_TYPE_VARCHAR || type == MYSQL_TYPE_STRING)
   {
     /*
@@ -980,19 +1034,7 @@ bool Field_pack_info::setup(Field *field)
     const CHARSET_INFO *cs= field->charset();
     max_image_len= cs->coll->strnxfrmlen(cs, field->field_length);
   }
-
-  if (type == MYSQL_TYPE_LONGLONG ||
-      type == MYSQL_TYPE_LONG ||
-      type == MYSQL_TYPE_INT24 ||
-      type == MYSQL_TYPE_SHORT ||
-      type == MYSQL_TYPE_TINY)
-  {
-    unpack_func= unpack_integer;
-    return true;
-  }
-
   const bool is_varchar= (type == MYSQL_TYPE_VARCHAR);
-
   const CHARSET_INFO *cs= field->charset();
   if (is_varchar)
   {
