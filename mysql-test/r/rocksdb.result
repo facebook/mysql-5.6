@@ -1728,3 +1728,314 @@ select @var3 - @var2;
 @var3 - @var2
 0
 drop table t1;
+#
+# Issue #26: Index-only scans for DATETIME and TIMESTAMP
+#
+create table t0 (a int);
+insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+# Try a DATETIME column:
+create table t1 (
+pk int auto_increment primary key,
+kp1 datetime,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t1 (kp1,kp2) 
+select date_add('2015-01-01 12:34:56', interval a day), a from t0;
+select * from t1;
+pk	kp1	kp2	col1
+1	2015-01-01 12:34:56	0	NULL
+2	2015-01-02 12:34:56	1	NULL
+3	2015-01-03 12:34:56	2	NULL
+4	2015-01-04 12:34:56	3	NULL
+5	2015-01-05 12:34:56	4	NULL
+6	2015-01-06 12:34:56	5	NULL
+7	2015-01-07 12:34:56	6	NULL
+8	2015-01-08 12:34:56	7	NULL
+9	2015-01-09 12:34:56	8	NULL
+10	2015-01-10 12:34:56	9	NULL
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	kp1	kp1	6	NULL	10	Using where; Using index
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+kp1	kp2
+2015-01-01 12:34:56	0
+2015-01-02 12:34:56	1
+2015-01-03 12:34:56	2
+2015-01-04 12:34:56	3
+2015-01-05 12:34:56	4
+# Now, the same with NOT NULL column
+create table t2 (
+pk int auto_increment primary key,
+kp1 datetime not null,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t2 select * from t1;
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	kp1	kp1	5	NULL	10	Using where; Using index
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+kp1	kp2
+2015-01-01 12:34:56	0
+2015-01-02 12:34:56	1
+2015-01-03 12:34:56	2
+2015-01-04 12:34:56	3
+2015-01-05 12:34:56	4
+drop table t1,t2;
+# Try a DATE column:
+create table t1 (
+pk int auto_increment primary key,
+kp1 date,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t1 (kp1,kp2) 
+select date_add('2015-01-01', interval a day), a from t0;
+select * from t1;
+pk	kp1	kp2	col1
+1	2015-01-01	0	NULL
+2	2015-01-02	1	NULL
+3	2015-01-03	2	NULL
+4	2015-01-04	3	NULL
+5	2015-01-05	4	NULL
+6	2015-01-06	5	NULL
+7	2015-01-07	6	NULL
+8	2015-01-08	7	NULL
+9	2015-01-09	8	NULL
+10	2015-01-10	9	NULL
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2015-01-01' and '2015-01-05';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	kp1	kp1	4	NULL	10	Using where; Using index
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2015-01-01' and '2015-01-05';
+kp1	kp2
+2015-01-01	0
+2015-01-02	1
+2015-01-03	2
+2015-01-04	3
+2015-01-05	4
+# Now, the same with NOT NULL column
+create table t2 (
+pk int auto_increment primary key,
+kp1 date not null,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t2 select * from t1;
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	kp1	kp1	3	NULL	10	Using where; Using index
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+kp1	kp2
+2015-01-01	0
+2015-01-02	1
+2015-01-03	2
+2015-01-04	3
+2015-01-05	4
+drop table t1,t2;
+#
+# Try a TIMESTAMP column:
+#
+create table t1 (
+pk int auto_increment primary key,
+kp1 timestamp,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t1 (kp1,kp2) 
+select date_add('2015-01-01 12:34:56', interval a day), a from t0;
+select * from t1;
+pk	kp1	kp2	col1
+1	2015-01-01 12:34:56	0	NULL
+2	2015-01-02 12:34:56	1	NULL
+3	2015-01-03 12:34:56	2	NULL
+4	2015-01-04 12:34:56	3	NULL
+5	2015-01-05 12:34:56	4	NULL
+6	2015-01-06 12:34:56	5	NULL
+7	2015-01-07 12:34:56	6	NULL
+8	2015-01-08 12:34:56	7	NULL
+9	2015-01-09 12:34:56	8	NULL
+10	2015-01-10 12:34:56	9	NULL
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	kp1	kp1	4	NULL	10	Using where; Using index
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+kp1	kp2
+2015-01-01 12:34:56	0
+2015-01-02 12:34:56	1
+2015-01-03 12:34:56	2
+2015-01-04 12:34:56	3
+2015-01-05 12:34:56	4
+# Now, the same with NOT NULL column
+create table t2 (
+pk int auto_increment primary key,
+kp1 timestamp not null,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t2 select * from t1;
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	kp1	kp1	4	NULL	10	Using where; Using index
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
+kp1	kp2
+2015-01-01 12:34:56	0
+2015-01-02 12:34:56	1
+2015-01-03 12:34:56	2
+2015-01-04 12:34:56	3
+2015-01-05 12:34:56	4
+drop table t1,t2;
+#
+# Try a TIME column:
+#
+create table t1 (
+pk int auto_increment primary key,
+kp1 time,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t1 (kp1,kp2) 
+select date_add('2015-01-01 09:00:00', interval a minute), a from t0;
+select * from t1;
+pk	kp1	kp2	col1
+1	09:00:00	0	NULL
+2	09:01:00	1	NULL
+3	09:02:00	2	NULL
+4	09:03:00	3	NULL
+5	09:04:00	4	NULL
+6	09:05:00	5	NULL
+7	09:06:00	6	NULL
+8	09:07:00	7	NULL
+9	09:08:00	8	NULL
+10	09:09:00	9	NULL
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '09:01:00' and '09:05:00';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	kp1	kp1	4	NULL	10	Using where; Using index
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '09:01:00' and '09:05:00';
+kp1	kp2
+09:01:00	1
+09:02:00	2
+09:03:00	3
+09:04:00	4
+09:05:00	5
+# Now, the same with NOT NULL column
+create table t2 (
+pk int auto_increment primary key,
+kp1 time not null,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t2 select * from t1;
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '09:01:00' and '09:05:00';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	kp1	kp1	3	NULL	10	Using where; Using index
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '09:01:00' and '09:05:00';
+kp1	kp2
+09:01:00	1
+09:02:00	2
+09:03:00	3
+09:04:00	4
+09:05:00	5
+drop table t1,t2;
+#
+# Try a YEAR column:
+#
+create table t1 (
+pk int auto_increment primary key,
+kp1 year,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t1 (kp1,kp2) select 2015+a, a from t0;
+select * from t1;
+pk	kp1	kp2	col1
+1	2015	0	NULL
+2	2016	1	NULL
+3	2017	2	NULL
+4	2018	3	NULL
+5	2019	4	NULL
+6	2020	5	NULL
+7	2021	6	NULL
+8	2022	7	NULL
+9	2023	8	NULL
+10	2024	9	NULL
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2016' and '2020';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	kp1	kp1	2	NULL	10	Using where; Using index
+select kp1,kp2 from t1 force index (kp1) 
+where kp1 between '2016' and '2020';
+kp1	kp2
+2016	1
+2017	2
+2018	3
+2019	4
+2020	5
+# Now, the same with NOT NULL column
+create table t2 (
+pk int auto_increment primary key,
+kp1 year not null,
+kp2 int,
+col1 int,
+key(kp1, kp2)
+) engine=rocksdb;
+insert into t2 select * from t1;
+# This must show 'Using index'
+explain 
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2016' and '2020';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t2	range	kp1	kp1	1	NULL	10	Using where; Using index
+select kp1,kp2 from t2 force index (kp1) 
+where kp1 between '2016' and '2020';
+kp1	kp2
+2016	1
+2017	2
+2018	3
+2019	4
+2020	5
+drop table t1,t2;
+drop table t0;
