@@ -867,7 +867,6 @@ rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_stats_dump_period_sec	3600
 rocksdb_table_cache_numshardbits	4
-rocksdb_table_cache_remove_scan_count_limit	16
 rocksdb_use_adaptive_mutex	OFF
 rocksdb_use_fsync	OFF
 rocksdb_wal_dir	
