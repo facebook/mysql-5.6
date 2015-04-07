@@ -39,12 +39,14 @@
 #include "rdb_i_s.h"
 
 #include "rocksdb/compaction_filter.h"
+#include "rocksdb/env.h"
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/utilities/convenience.h"
+#include "rocksdb/utilities/flashcache.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/perf_context.h"
 #include "properties_collector.h"
@@ -54,6 +56,13 @@
 #define __STDC_FORMAT_MACROS
 #endif
 #include <inttypes.h>
+
+#ifdef TARGET_OS_LINUX
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include "flashcache_ioctl.h"
+extern my_bool cachedev_enabled;
+#endif /* TARGET_OS_LINUX */
 
 void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(handlerton *hton,
@@ -89,6 +98,7 @@ handlerton *rocksdb_hton;
 rocksdb::DB *rdb= NULL;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
+static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 
 rocksdb::ColumnFamilyOptions default_cf_opts;
 
@@ -1559,6 +1569,32 @@ static int rocksdb_init_func(void *p)
   }
 
   rocksdb::Options main_opts(db_options, default_cf_opts);
+
+  /*
+    Flashcache configuration:
+    When running on Flashcache, mysqld opens Flashcache device before
+    initializing storage engines, and setting file descriptor at
+    cachedev_fd global variable.
+    RocksDB has Flashcache-aware configuration. When this is enabled,
+    RocksDB adds background threads into Flashcache blacklists, which
+    makes sense for Flashcache use cases.
+  */
+  if (cachedev_enabled)
+  {
+    flashcache_aware_env=
+      rocksdb::NewFlashcacheAwareEnv(rocksdb::Env::Default(),
+                                     cachedev_fd);
+    if (flashcache_aware_env.get() == nullptr)
+    {
+      sql_print_error("RocksDB: Failed to open flashcahce device at fd %d",
+                      cachedev_fd);
+      DBUG_RETURN(1);
+    }
+    sql_print_information("RocksDB: Disabling flashcache on background "
+                          "writer threads, fd %d", cachedev_fd);
+    main_opts.env= flashcache_aware_env.get();
+  }
+
   main_opts.env->SetBackgroundThreads(main_opts.max_background_flushes,
                                       rocksdb::Env::Priority::HIGH);
   main_opts.env->SetBackgroundThreads(main_opts.max_background_compactions,
