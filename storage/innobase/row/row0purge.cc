@@ -229,6 +229,10 @@ func_exit:
   return (success);
 }
 
+#ifdef UNIV_DEBUG
+extern bool row_lra_debug;
+#endif
+
 /** Removes a clustered index record if it has not been modified after the
  delete marking.
  @retval true if the row was not found, or it was successfully removed
@@ -241,6 +245,11 @@ static MY_ATTRIBUTE((warn_unused_result)) bool row_purge_remove_clust_if_poss(
     return (true);
   }
 
+#ifdef UNIV_DEBUG
+  while (row_lra_debug) {
+    os_thread_sleep(300000);
+  }
+#endif
   for (ulint n_tries = 0; n_tries < BTR_CUR_RETRY_DELETE_N_TIMES; n_tries++) {
     if (row_purge_remove_clust_if_poss_low(
             node, BTR_MODIFY_TREE | BTR_LATCH_FOR_DELETE)) {

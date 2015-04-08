@@ -153,6 +153,11 @@ savepoint. */
 @return true if the mtr is dirtying a clean page. */
 #define mtr_block_dirtied(b) mtr_t::is_block_dirtied((b))
 
+/** Set and get the logical read ahead state */
+#define mtr_get_lra(m) (m)->get_lra()
+
+#define mtr_set_lra(m, lra) (m)->set_lra(lra)
+
 /** Forward declaration of a tablespace object */
 struct fil_space_t;
 
@@ -346,6 +351,7 @@ struct mtr_t {
     m_impl.m_state = MTR_STATE_INIT;
     m_impl.m_marked_nolog = false;
     m_impl.m_shard_index = 0;
+    m_lra = NULL;
   }
 
   ~mtr_t() {
@@ -635,6 +641,13 @@ struct mtr_t {
   static Logging s_logging;
 #endif /* !UNIV_HOTBACKUP */
 
+  /** Sets the state for logical read ahead
+  @param lra logical read ahead state */
+  void set_lra(lra_t *lra) { m_lra = lra; }
+
+  /** @return the logical read ahead state */
+  lra_t *get_lra() const MY_ATTRIBUTE((warn_unused_result)) { return (m_lra); }
+
  private:
   Impl m_impl;
 
@@ -643,6 +656,8 @@ struct mtr_t {
 
   /** true if it is synchronous mini-transaction */
   bool m_sync;
+  /** state for logical read ahead */
+  lra_t *m_lra;
 
   class Command;
 
