@@ -428,6 +428,8 @@ void mtr_t::start(bool sync, bool read_only) {
 
   m_commit_lsn = 0;
 
+  m_lra = 0;
+
   new (&m_impl.m_log) mtr_buf_t();
   new (&m_impl.m_memo) mtr_buf_t();
 
