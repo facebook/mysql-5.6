@@ -660,6 +660,7 @@ bool Persisted_variables_cache::set_persist_options(bool plugin_options) {
     thd->real_id = my_thread_self();
     new_thd = 1;
   }
+  thd->set_persist_variables_init(true);
   /*
    locking is not needed as this function is executed only during server
    bootstrap, but we take the lock to be on safer side.
@@ -788,6 +789,7 @@ err:
     delete thd;
   } else {
     thd->lex = sav_lex;
+    thd->set_persist_variables_init(false);
   }
   unlock();
   return result;

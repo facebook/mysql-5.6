@@ -3732,9 +3732,10 @@ got_block:
 
   mtr_memo_push(mtr, fix_block, fix_type);
 
-  if (mode != BUF_PEEK_IF_IN_POOL && !access_time) {
-    /* In the case of a first access, try to apply linear
-    read-ahead */
+  if (mode != BUF_PEEK_IF_IN_POOL && !access_time &&
+      (!mtr_get_lra(mtr) || !mtr_get_lra(mtr)->lra_size)) {
+    /* In the case of a first access, and logical read ahead
+    is not set, try to apply linear read-ahead */
 
     buf_read_ahead_linear(page_id, page_size, ibuf_inside(mtr));
   }
@@ -3843,11 +3844,11 @@ ibool buf_page_optimistic_get(
   ut_ad(!block->page.file_page_was_freed);
   ut_d(buf_page_mutex_exit(block));
 
-  if (!access_time) {
-    /* In the case of a first access, try to apply linear
-    read-ahead */
+  if (!access_time && (!mtr_get_lra(mtr) || !mtr_get_lra(mtr)->lra_size)) {
+    /* In the case of a first access, and logical read ahead
+    is not set, try to apply linear read-ahead */
     buf_read_ahead_linear(block->page.id, block->page.size, ibuf_inside(mtr));
-  }
+	}
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
   ut_a(ibuf_count_get(block->page.id) == 0);

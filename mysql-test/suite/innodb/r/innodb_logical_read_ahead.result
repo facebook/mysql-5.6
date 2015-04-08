@@ -1,0 +1,47 @@
+DROP TABLE if exists t1;
+CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
+INSERT INTO t1 VALUES (0, REPEAT('a',256));
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+INSERT INTO t1 SELECT 0, b FROM t1;
+# restart
+show global status like "innodb_logical_read_ahead_misses";
+Variable_name	Value
+Innodb_logical_read_ahead_misses	0
+show global status like "innodb_logical_read_ahead_prefetched";
+Variable_name	Value
+Innodb_logical_read_ahead_prefetched	0
+show global status like "innodb_logical_read_ahead_in_buf_pool";
+Variable_name	Value
+Innodb_logical_read_ahead_in_buf_pool	0
+SET SESSION innodb_lra_size=1024;
+SET SESSION innodb_lra_pages_before_sleep=128;
+SET SESSION innodb_lra_sleep=100;
+checksum table t1;
+Table	Checksum
+test.t1	2920207201
+prefetched_equals_submitted
+1
+show global status like "innodb_logical_read_ahead_misses";
+Variable_name	Value
+Innodb_logical_read_ahead_misses	0
+select variable_value > expected_pages from performance_schema.global_status where variable_name="innodb_logical_read_ahead_prefetched";
+variable_value > expected_pages
+1
+select variable_value < expected from performance_schema.global_status where variable_name="innodb_logical_read_ahead_in_buf_pool";
+variable_value < expected
+1
+DROP TABLE t1;

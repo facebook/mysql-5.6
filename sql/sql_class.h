@@ -3968,6 +3968,17 @@ class THD : public MDL_context_owner,
   bool is_waiting_for_disk_space() const { return waiting_for_disk_space; }
 
   bool sql_parser();
+
+ public:
+  /**
+    Whether the context is running during persist variables initialization
+  */
+  void set_persist_variables_init(bool is_init) {
+    m_persist_variables_init = is_init;
+  }
+  bool is_persist_variables_init() { return m_persist_variables_init; }
+ private:
+  bool m_persist_variables_init = false;
 };
 
 inline void THD::vsyntax_error_at(const YYLTYPE &location, const char *format,

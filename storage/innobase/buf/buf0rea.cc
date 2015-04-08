@@ -82,10 +82,9 @@ flag is cleared and the x-lock released by an i/o-handler thread.
 buf_pool, or if the page is in the doublewrite buffer blocks in which case it
 is never read into the pool, or if the tablespace does not exist or is being
 dropped */
-static ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
-                               const page_id_t &page_id,
-                               const page_size_t &page_size, bool unzip,
-                               bool should_buffer) {
+ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
+                        const page_id_t &page_id, const page_size_t &page_size,
+                        bool unzip, bool should_buffer) {
   buf_page_t *bpage;
 
   *err = DB_SUCCESS;
