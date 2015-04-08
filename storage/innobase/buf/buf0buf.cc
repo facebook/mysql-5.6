@@ -4213,9 +4213,10 @@ buf_block_t *Buf_fetch<T>::single_page() {
   mtr_add_page(block);
 
   if (m_mode != Page_fetch::PEEK_IF_IN_POOL && m_mode != Page_fetch::SCAN &&
-      access_time == std::chrono::steady_clock::time_point{}) {
-    /* In the case of a first access, try to apply linear read-ahead */
-
+      access_time == std::chrono::steady_clock::time_point{} &&
+      (!mtr_get_lra(m_mtr) || !mtr_get_lra(m_mtr)->lra_size)) {
+    /* In the case of a first access, and logical read ahead
+    is not set, try to apply linear read-ahead */
     buf_read_ahead_linear(m_page_id, m_page_size, ibuf_inside(m_mtr));
   }
 
@@ -4376,8 +4377,10 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
   ut_ad(!block->page.file_page_was_freed);
   ut_d(buf_page_mutex_exit(block));
 
-  if (access_time == std::chrono::steady_clock::time_point{}) {
-    /* In the case of a first access, try to apply linear read-ahead */
+  if (access_time == std::chrono::steady_clock::time_point{} &&
+      (!mtr_get_lra(mtr) || !mtr_get_lra(mtr)->lra_size)) {
+    /* In the case of a first access, and logical read ahead
+    is not set, try to apply linear read-ahead */
     buf_read_ahead_linear(block->page.id, block->page.size, ibuf_inside(mtr));
   }
 

@@ -422,7 +422,7 @@ if  __name__ == '__main__':
     # We use raw data as long strings of digits were interpretted by connector as
     # a float and cast to float value of "inf".
     checksum_worker = ChecksumWorker(mysql.connector.connect(user=user, host=host, port=port, db=db,
-                                                             ssl_disabled=True), checksum, raw=True)
+                                                             ssl_disabled=True, raw=True), checksum)
     workers.append(checksum_worker)
 
   print("start %d threads" % num_workers, file=log)

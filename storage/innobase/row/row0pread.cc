@@ -228,7 +228,7 @@ class PCursor {
   void restore_position() noexcept {
     constexpr auto MODE = BTR_SEARCH_LEAF;
     const auto relative = m_pcur->m_rel_pos;
-    auto equal = m_pcur->restore_position(MODE, m_mtr, __FILE__, __LINE__);
+    auto equal = m_pcur->restore_position(MODE, m_mtr, 0, __FILE__, __LINE__);
 
 #ifdef UNIV_DEBUG
     if (m_pcur->m_pos_state == BTR_PCUR_IS_POSITIONED_OPTIMISTIC) {
