@@ -165,6 +165,17 @@ rocksdb_compact_column_family(THD* thd,
   }
 }
 
+static void
+rocksdb_force_flush_memtable_now(THD* thd,
+                                 struct st_mysql_sys_var* var,
+                                 void* var_ptr,
+                                 const void* save)
+{
+  sql_print_information("RocksDB: Manual memtable flush\n");
+  if (rdb)
+    rdb->Flush(rocksdb::FlushOptions());
+}
+
 #ifndef DBUG_OFF
 static void
 rocksdb_drop_index_wakeup_thread(THD* thd,
@@ -196,6 +207,7 @@ static char * compact_cf_name;
 static my_bool rocksdb_signal_drop_index_thread;
 #endif
 static my_bool rocksdb_collect_sst_properties = 1;
+static my_bool rocksdb_force_flush_memtable_now_var = 0;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -602,6 +614,12 @@ static MYSQL_SYSVAR_BOOL(collect_sst_properties,
   "Enables collecting SST file properties on each flush",
   NULL, NULL, rocksdb_collect_sst_properties);
 
+static MYSQL_SYSVAR_BOOL(
+  force_flush_memtable_now,
+  rocksdb_force_flush_memtable_now_var,
+  PLUGIN_VAR_RQCMDARG,
+  "Forces memstore flush which may block all write requests so be careful",
+  NULL, rocksdb_force_flush_memtable_now, FALSE);
 
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
@@ -674,7 +692,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(signal_drop_index_thread),
 #endif
   MYSQL_SYSVAR(collect_sst_properties),
-
+  MYSQL_SYSVAR(force_flush_memtable_now),
   NULL
 };
 
