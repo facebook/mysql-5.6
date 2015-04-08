@@ -11621,11 +11621,8 @@ int Rows_log_event::do_apply_event(Relay_log_info const *rli)
         TABLE_LIST (RPL_TABLE_LIST) but row event uses only TABLE so I need to
         find somehow the corresponding TABLE_LIST.
       */
-      if (m_table_id == ptr->table_id)
-      {
-        ptr->table->master_had_triggers =
-          ((RPL_TABLE_LIST*)ptr)->master_had_triggers;
-      }
+      ptr->table->master_had_triggers =
+        ((RPL_TABLE_LIST*)ptr)->master_had_triggers;
     }
 
 #ifdef HAVE_QUERY_CACHE

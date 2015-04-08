@@ -238,6 +238,21 @@ a	b
 1	10
 2	20
 3	30
+#
+# Verify slave skips running triggers if master ran and logged the row events for triggers
+#
+create table t4(a int, b int);
+delete from tlog;
+create trigger tr4 before insert on t4 for each row insert into tlog values (1);
+insert into t4 values (1, 10),(2, 20);
+select * from t4;
+a	b
+1	10
+2	20
+select * from tlog;
+a
+1
+1
 set global slave_run_triggers_for_rbr = @slave_run_triggers_for_rbr.saved;
-drop table t1, tlog;
+drop table t1, tlog, t4;
 include/rpl_end.inc
