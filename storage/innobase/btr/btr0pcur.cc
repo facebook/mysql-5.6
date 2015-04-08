@@ -35,7 +35,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <stddef.h>
 
 #include "rem0cmp.h"
-#include "trx0trx.h"
 #include "ut0byte.h"
 
 void btr_pcur_t::store_position(mtr_t *mtr) {
@@ -132,7 +131,7 @@ void btr_pcur_t::copy_stored_position(btr_pcur_t *dst, const btr_pcur_t *src) {
   dst->m_old_n_fields = src->m_old_n_fields;
 }
 
-bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
+bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr, ulint level,
                                   const char *file, ulint line) {
   dtuple_t *tuple;
   page_cur_mode_t mode;
@@ -149,8 +148,8 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
     but always do a search */
 
     btr_cur_open_at_index_side(m_rel_pos == BTR_PCUR_BEFORE_FIRST_IN_TREE,
-                               index, latch_mode, get_btr_cur(), m_read_level,
-                               mtr);
+                               index, latch_mode, get_btr_cur(),
+                               level ? level : m_read_level, mtr);
 
     m_latch_mode = BTR_LATCH_MODE_WITHOUT_INTENTION(latch_mode);
 
@@ -166,7 +165,11 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
 
   /* Optimistic latching involves S/X latch not required for
   intrinsic table instead we would prefer to search fresh. */
-  if ((latch_mode == BTR_SEARCH_LEAF || latch_mode == BTR_MODIFY_LEAF ||
+  if (
+#ifdef UNIV_DEBUG
+      !level &&
+#endif
+      (latch_mode == BTR_SEARCH_LEAF || latch_mode == BTR_MODIFY_LEAF ||
        latch_mode == BTR_SEARCH_PREV || latch_mode == BTR_MODIFY_PREV) &&
       !m_btr_cur.index->table->is_intrinsic()) {
     /* Try optimistic restoration. */
@@ -225,21 +228,25 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
   /* Save the old search mode of the cursor */
   auto old_mode = m_search_mode;
 
-  switch (m_rel_pos) {
-    case BTR_PCUR_ON:
-      mode = PAGE_CUR_LE;
-      break;
-    case BTR_PCUR_AFTER:
-      mode = PAGE_CUR_G;
-      break;
-    case BTR_PCUR_BEFORE:
-      mode = PAGE_CUR_L;
-      break;
-    default:
-      ut_error;
+  if (level > 0) {
+    mode = PAGE_CUR_LE;
+  } else {
+    switch (m_rel_pos) {
+      case BTR_PCUR_ON:
+        mode = PAGE_CUR_LE;
+        break;
+      case BTR_PCUR_AFTER:
+        mode = PAGE_CUR_G;
+        break;
+      case BTR_PCUR_BEFORE:
+        mode = PAGE_CUR_L;
+        break;
+      default:
+        ut_error;
+    }
   }
 
-  open_no_init(index, tuple, mode, latch_mode, 0, mtr, file, line);
+  open_no_init_low(index, tuple, mode, latch_mode, level, 0, mtr, file, line);
 
   /* Restore the old search mode */
   m_search_mode = old_mode;
@@ -363,7 +370,7 @@ void btr_pcur_t::move_backward_from_page(mtr_t *mtr) {
 
   mtr_start(mtr);
 
-  restore_position(latch_mode2, mtr, __FILE__, __LINE__);
+  restore_position(latch_mode2, mtr, 0, __FILE__, __LINE__);
 
   auto page = get_page();
   auto prev_page_no = btr_page_get_prev(page, mtr);

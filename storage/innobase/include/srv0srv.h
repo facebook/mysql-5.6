@@ -160,6 +160,22 @@ struct srv_stats_t {
 
   /** Number of buffered aio requests submitted */
   ulint_ctr_64_t n_aio_submitted;
+
+  /** total number of pages that logical-read-ahead missed while doing
+  a table scan. The number is the total for all transactions that used a
+  non-zero innodb_lra_size. */
+  ulint_ctr_64_t n_logical_read_ahead_misses;
+
+  /** total number of pages that logical-read-ahead prefetched. The
+  number is the total for all transactions that used a non-zero
+  innodb_lra_size. */
+  ulint_ctr_64_t n_logical_read_ahead_prefetched;
+
+  /** total number of pages that logical-read-ahead did not need to
+  prefetch because these pages were already in the buffer pool. The
+  number is the total for all transactions that used a non-zero
+  innodb_lra_size. */
+  ulint_ctr_64_t n_logical_read_ahead_in_buf_pool;
 };
 
 /** Structure which keeps shared future objects for InnoDB background
@@ -1178,6 +1194,26 @@ struct export_var_t {
                                       file pages */
 #endif                                /* UNIV_DEBUG */
   ulint innodb_buffered_aio_submitted;
+  ulint innodb_logical_read_ahead_misses;      /*!< total number of pages that
+                                               logical-read-ahead missed
+                                               during a table scan.  The
+                                               number is the total for all
+                                               the transactions that used a
+                                               non-zero innodb_lra_size. */
+  ulint innodb_logical_read_ahead_prefetched;  /*!< total number of pages
+                                               that logical-read-ahead
+                                               prefetched.  The number is
+                                               the total for all the
+                                               transactions that used a
+                                               non-zero innodb_lra_size. */
+  ulint innodb_logical_read_ahead_in_buf_pool; /*!< total number of pages
+                                               that logical-read-ahead did not
+                                               need to prefetch because these
+                                               pages were already in the
+                                               buffer pool. The number is the
+                                               total for all transactions that
+                                               used a non-zero
+                                               innodb_lra_size. */
 };
 
 #ifndef UNIV_HOTBACKUP

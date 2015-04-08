@@ -216,7 +216,7 @@ class PCursor {
     auto relative = m_pcur->m_rel_pos;
 
     auto equal =
-        m_pcur->restore_position(BTR_SEARCH_LEAF, m_mtr, __FILE__, __LINE__);
+        m_pcur->restore_position(BTR_SEARCH_LEAF, m_mtr, 0, __FILE__, __LINE__);
 
     if (relative == BTR_PCUR_ON) {
       if (!equal) {

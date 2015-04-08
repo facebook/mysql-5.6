@@ -899,6 +899,31 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
                           "100000000 disable the timeout.",
                           nullptr, nullptr, 50, 1, 1024 * 1024 * 1024, 0);
 
+static MYSQL_THDVAR_ULONG(
+    lra_size, PLUGIN_VAR_OPCMDARG,
+    "The size (in MBs) of the total size of the pages that innodb will "
+    "prefetch "
+    "while scanning a table during this session. This is meant to be used only "
+    "for table scans. The upper limit of this variable is 16384 which "
+    "corresponds to prefetching 16GB of data. When set to max, this algorithm "
+    "may use 100M memory.",
+    NULL, NULL, 0, 0, 16384, 0);
+
+static MYSQL_THDVAR_ULONG(
+    lra_pages_before_sleep, PLUGIN_VAR_OPCMDARG,
+    "This variable defines the number of node pointer records traversed while "
+    "holding the index lock before releasing the index lock and sleeping for a "
+    "short period of time so that the other threads get a chance to x-latch "
+    "the "
+    "index lock.",
+    NULL, NULL, 1024, 128, ULINT_MAX, 0);
+
+static MYSQL_THDVAR_ULONG(
+    lra_sleep, PLUGIN_VAR_OPCMDARG,
+    "The time LRA sleeps milliseconds before processing the next batch of "
+    "lra_pages_before_sleep node pointer records.",
+    NULL, NULL, 50, 0, 1000, 0);
+
 static MYSQL_THDVAR_STR(
     ft_user_stopword_table, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
     "User supplied stopword table name, effective in the session level.",
@@ -1093,6 +1118,15 @@ static SHOW_VAR innodb_status_variables[] = {
 #endif /* UNIV_DEBUG */
     {"buffered_aio_submitted",
      (char *)&export_vars.innodb_buffered_aio_submitted, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"logical_read_ahead_misses",
+     (char *)&export_vars.innodb_logical_read_ahead_misses, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"logical_read_ahead_prefetched",
+     (char *)&export_vars.innodb_logical_read_ahead_prefetched, SHOW_LONG,
+     SHOW_SCOPE_GLOBAL},
+    {"logical_read_ahead_in_buf_pool",
+     (char *)&export_vars.innodb_logical_read_ahead_in_buf_pool, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
@@ -2509,6 +2543,9 @@ static void innobase_trx_init(
 
   trx->check_unique_secondary =
       !thd_test_options(thd, OPTION_RELAXED_UNIQUE_CHECKS);
+
+  trx_lra_reset(trx, THDVAR(thd, lra_size), THDVAR(thd, lra_pages_before_sleep),
+                THDVAR(thd, lra_sleep));
 }
 
 /** Allocates an InnoDB transaction for a MySQL handler object for DML.
@@ -2524,6 +2561,8 @@ trx_t *innobase_trx_allocate(THD *thd) /*!< in: user thread handle */
   trx = trx_allocate_for_mysql();
 
   trx->mysql_thd = thd;
+  trx_lra_reset(trx, THDVAR(thd, lra_size), THDVAR(thd, lra_pages_before_sleep),
+                THDVAR(thd, lra_sleep));
 
   innobase_trx_init(thd, trx);
 
@@ -5174,6 +5213,7 @@ static bool innobase_flush_logs(handlerton *hton, bool binlog_group_flush) {
 /** Commits a transaction in an InnoDB database. */
 void innobase_commit_low(trx_t *trx) /*!< in: transaction handle */
 {
+  trx_lra_free(&(trx->lra));
   if (trx_is_started(trx)) {
     const dberr_t error MY_ATTRIBUTE((unused)) = trx_commit_for_mysql(trx);
     // This is ut_ad not ut_a, because previously we did not have an assert
@@ -21939,6 +21979,15 @@ static MYSQL_SYSVAR_BOOL(ddl_log_crash_reset_debug,
                          innodb_ddl_log_crash_reset_debug, PLUGIN_VAR_OPCMDARG,
                          "Reset all crash injection counters to 1", nullptr,
                          ddl_log_crash_reset, FALSE);
+
+extern bool row_lra_debug;
+
+static MYSQL_SYSVAR_BOOL(
+    lra_debug, row_lra_debug, PLUGIN_VAR_NOCMDARG,
+    "When set to true, the purge thread stops until the logical read ahead "
+    "sets this variable to TRUE. Used for testing edge cases regarding the "
+    "purge thread and logical read ahead.",
+    NULL, NULL, FALSE);
 #endif /* UNIV_DEBUG */
 
 static MYSQL_SYSVAR_STR(directories, srv_innodb_directories,
@@ -22158,8 +22207,12 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(sync_debug),
     MYSQL_SYSVAR(buffer_pool_debug),
     MYSQL_SYSVAR(ddl_log_crash_reset_debug),
+    MYSQL_SYSVAR(lra_debug),
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
+    MYSQL_SYSVAR(lra_size),
+    MYSQL_SYSVAR(lra_pages_before_sleep),
+    MYSQL_SYSVAR(lra_sleep),
     nullptr};
 
 mysql_declare_plugin(innobase){

@@ -91,7 +91,7 @@ enum btr_pcur_pos_t {
   (p)->open_no_init((i), (t), (md), (l), (has), (m), __FILE__, __LINE__)
 
 #define btr_pcur_restore_position(l, p, mtr) \
-  (p)->restore_position(l, mtr, __FILE__, __LINE__)
+  (p)->restore_position(l, mtr, 0, __FILE__, __LINE__)
 
 #define btr_pcur_store_position(p, m) (p)->store_position(m)
 
@@ -229,6 +229,32 @@ struct btr_pcur_t {
                               we maybe do not acquire a latch on the cursor
                               page, but assume that the caller uses his
                               btr search latch to protect the record!
+  @param[in]	    level	      Level of the btree
+  @param[in]	    has_search_latch	latch mode the caller
+                              currently has on search system: RW_S_LATCH, or 0
+  @param[in]	    mtr	        Mtr
+  @param[in]	    file	      File name.
+  @param[in]	    line	      Line where called */
+  void open_no_init_low(dict_index_t *index, const dtuple_t *tuple,
+                        page_cur_mode_t mode, ulint latch_mode, ulint level,
+                        ulint has_search_latch, mtr_t *mtr, const char *file,
+                        ulint line);
+
+  /** Opens an persistent cursor to an index tree without initializing
+  the cursor.
+  @param[in]	    index	      Index.
+  @param[in]	    tuple	      Tuple on which search done.
+  @param[in]	    mode	      PAGE_CUR_L, ...;
+                              NOTE that if the search is made using a unique
+                              prefix of a record, mode should be
+                              PAGE_CUR_LE, not PAGE_CUR_GE, as the latter
+                              may end up on the previous page of the
+                              record!
+  @param[in]	    latch_mode	BTR_SEARCH_LEAF, ...;
+                              NOTE that if has_search_latch != 0 then
+                              we maybe do not acquire a latch on the cursor
+                              page, but assume that the caller uses his
+                              btr search latch to protect the record!
   @param[in]	    has_search_latch	latch mode the caller
                               currently has on search system: RW_S_LATCH, or 0
   @param[in]	    mtr	        Mtr
@@ -298,13 +324,14 @@ struct btr_pcur_t {
   empty tree: restores to before first or after the last in the tree.
   @param[in]	    latch_mode	BTR_SEARCH_LEAF, ...
   @param[in,out]  mtr		      Mini transaction
+  @param[in]	    level		    Level in the btree
   @param[in]	    file		    File name.
   @param[in]	    line		    Line where called.
   @return true if the cursor position was stored when it was on a user
           record and it can be restored on a user record whose ordering
           fields are identical to the ones of the original user record */
-  bool restore_position(ulint latch_mode, mtr_t *mtr, const char *file,
-                        ulint line);
+  bool restore_position(ulint latch_mode, mtr_t *mtr, ulint level,
+                        const char *file, ulint line);
 
   /** Frees the possible memory heap of a persistent cursor and
   sets the latch mode of the persistent cursor to BTR_NO_LATCHES.
@@ -700,10 +727,12 @@ inline bool btr_pcur_t::set_random_position(dict_index_t *index,
   return (positioned);
 }
 
-inline void btr_pcur_t::open_no_init(dict_index_t *index, const dtuple_t *tuple,
-                                     page_cur_mode_t mode, ulint latch_mode,
-                                     ulint has_search_latch, mtr_t *mtr,
-                                     const char *file, ulint line) {
+inline void btr_pcur_t::open_no_init_low(dict_index_t *index,
+                                         const dtuple_t *tuple,
+                                         page_cur_mode_t mode, ulint latch_mode,
+                                         ulint level, ulint has_search_latch,
+                                         mtr_t *mtr, const char *file,
+                                         ulint line) {
   m_latch_mode = BTR_LATCH_MODE_WITHOUT_INTENTION(latch_mode);
 
   m_search_mode = mode;
@@ -716,11 +745,12 @@ inline void btr_pcur_t::open_no_init(dict_index_t *index, const dtuple_t *tuple,
     ut_ad((latch_mode & BTR_MODIFY_LEAF) || (latch_mode & BTR_SEARCH_LEAF));
 
     btr_cur_search_to_nth_level_with_no_latch(
-        index, m_read_level, tuple, mode, cur, file, line, mtr,
+        index, level ? level : m_read_level, tuple, mode, cur, file, line, mtr,
         ((latch_mode & BTR_MODIFY_LEAF) ? true : false));
   } else {
-    btr_cur_search_to_nth_level(index, m_read_level, tuple, mode, latch_mode,
-                                cur, has_search_latch, file, line, mtr);
+    btr_cur_search_to_nth_level(index, level ? level : m_read_level, tuple,
+                                mode, latch_mode, cur, has_search_latch, file,
+                                line, mtr);
   }
 
   m_pos_state = BTR_PCUR_IS_POSITIONED;
@@ -728,6 +758,14 @@ inline void btr_pcur_t::open_no_init(dict_index_t *index, const dtuple_t *tuple,
   m_old_stored = false;
 
   m_trx_if_known = nullptr;
+}
+
+inline void btr_pcur_t::open_no_init(dict_index_t *index, const dtuple_t *tuple,
+                                     page_cur_mode_t mode, ulint latch_mode,
+                                     ulint has_search_latch, mtr_t *mtr,
+                                     const char *file, ulint line) {
+  open_no_init_low(index, tuple, mode, latch_mode, 0, has_search_latch, mtr,
+                   file, line);
 }
 
 inline const btr_cur_t *btr_pcur_t::get_btr_cur() const { return (&m_btr_cur); }

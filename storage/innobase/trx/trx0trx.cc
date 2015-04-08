@@ -37,6 +37,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <sql_thd_internal_api.h>
 
+#include "btr0pcur.h"
 #include "btr0sea.h"
 #include "clone0clone.h"
 #include "current_thd.h"
@@ -134,6 +135,131 @@ void trx_set_detailed_error_from_file(
     FILE *file) /*!< in: file to read message from */
 {
   os_file_read_string(file, trx->detailed_error, MAX_DETAILED_ERROR_LEN);
+}
+
+/** Initialize data structures related to logical-read-ahead. */
+void trx_lra_init(lra_t *lra) /*!< in: lra structure */
+{
+  lra->lra_size = 0;
+  lra->lra_space_id = 0;
+  lra->lra_n_pages = 0;
+  lra->lra_n_pages_since = 0;
+  lra->lra_page_no = 0;
+  lra->lra_pages_before_sleep = 0;
+  lra->lra_sleep = 0;
+  lra->lra_tree_height = 0;
+  lra->lra_sort_arr = NULL;
+  lra->lra_ht = NULL;
+  lra->lra_ht1 = NULL;
+  lra->lra_ht2 = NULL;
+  lra->lra_arr1 = NULL;
+  lra->lra_arr2 = NULL;
+  lra->lra_cur = NULL;
+}
+
+/** Frees data structures related to logical-read-ahead. */
+void trx_lra_free(lra_t *lra) /*!< in: lra structure */
+{
+  if (lra->lra_ht) {
+    ut_a(lra->lra_ht1);
+    ut_a(lra->lra_ht2);
+    ut_a(lra->lra_sort_arr);
+    hash_table_free(lra->lra_ht1);
+    hash_table_free(lra->lra_ht2);
+    btr_pcur_close(lra->lra_cur);
+    ut_free(lra->lra_sort_arr);
+  } else {
+    ut_a(!lra->lra_ht1);
+    ut_a(!lra->lra_ht2);
+    ut_a(!lra->lra_sort_arr);
+    ut_a(!lra->lra_cur);
+    ut_a(!lra->lra_arr1);
+    ut_a(!lra->lra_arr2);
+  }
+  trx_lra_init(lra);
+}
+
+/** Creates or frees data structures related to logical-read-ahead.
+ based on the value of lra_size. */
+void trx_lra_reset(
+    trx_t *trx,                   /*!< in: transaction */
+    ulint lra_size,               /*!< in: lra_size in MB. If 0, the fields
+                                  that are related to logical-read-ahead will
+                                  be freed if they were initialized. */
+    ulint lra_pages_before_sleep, /*!< in: The number of node pointer records
+                                  traversed while holding the index lock
+                                  before releasing the index lock and
+                                  sleeping for a short period of time so that
+                                  the other threads get a chance to x-latch
+                                  the index lock. */
+    ulint lra_sleep)              /*!< in: Sleep time in milliseconds. */
+{
+#ifndef UNIV_LINUX
+  if (lra_size) {
+    ib::warn() << "Logical read ahead is supported only on linux.";
+    lra_size = 0;
+  }
+#else  /* UNIV_LINUX */
+  if (!srv_use_native_aio && lra_size) {
+    ib::warn() << "In order to use logical read ahead please "
+                  "enable native aio by setting innodb_use_native_aio=1 "
+                  "in my.cnf and restarting the server.";
+    lra_size = 0;
+  }
+#endif /* UNIV_LINUX */
+  lra_t *lra = &(trx->lra);
+  if (lra_size == 0) {
+    trx_lra_free(lra);
+    return;
+  }
+  ulint n_pages_max = (lra_size << 20L) / UNIV_ZIP_SIZE_MIN;
+  ulint mem = n_pages_max * (2 * sizeof(ulint) + 2 * sizeof(page_no_holder_t)) +
+              sizeof(btr_pcur_t);
+  lra->lra_size = lra_size;
+  lra->lra_space_id = 0;
+  lra->lra_n_pages = 0;
+  lra->lra_n_pages_since = 0;
+  lra->lra_page_no = 0;
+  lra->lra_pages_before_sleep = lra_pages_before_sleep;
+  lra->lra_sleep = lra_sleep;
+  lra->lra_tree_height = 0;
+  if (lra->lra_ht) {
+    ut_a(lra->lra_ht1);
+    ut_a(lra->lra_ht2);
+    ut_a(lra->lra_sort_arr);
+    ut_a(lra->lra_cur);
+    hash_table_clear(lra->lra_ht1);
+    hash_table_clear(lra->lra_ht2);
+    btr_pcur_reset(lra->lra_cur);
+    lra->lra_ht = lra->lra_ht1;
+#ifdef UNIV_DEBUG
+    /* following resets lra_sort_arr, lra_arr1, lra_arr2,
+    and lra_cursor. */
+    memset(lra->lra_sort_arr, 0, mem);
+#endif
+    btr_pcur_init(lra->lra_cur);
+  } else {
+    byte *alloc;
+    ut_a(!lra->lra_ht1);
+    ut_a(!lra->lra_ht2);
+    ut_a(!lra->lra_sort_arr);
+    ut_a(!lra->lra_cur);
+    lra->lra_ht1 = hash_create(16384);
+    lra->lra_ht2 = hash_create(16384);
+    lra->lra_ht = lra->lra_ht1;
+    alloc = (byte *)ut_malloc_nokey(mem);
+#ifdef UNIV_DEBUG
+    memset(alloc, 0, mem);
+#endif
+    lra->lra_sort_arr = (ulint *)alloc;
+    alloc += 2 * sizeof(ulint) * n_pages_max;
+    lra->lra_arr1 = (page_no_holder_t *)alloc;
+    alloc += sizeof(page_no_holder_t) * n_pages_max;
+    lra->lra_arr2 = (page_no_holder_t *)alloc;
+    alloc += sizeof(page_no_holder_t) * n_pages_max;
+    lra->lra_cur = (btr_pcur_t *)alloc;
+    btr_pcur_init(lra->lra_cur);
+  }
 }
 
 /** Initialize transaction object.
@@ -476,6 +602,8 @@ static trx_t *trx_create_low() {
   trx_free(). */
   ut_a(trx->mod_tables.size() == 0);
 
+  trx_lra_init(&(trx->lra));
+
   return (trx);
 }
 
@@ -504,6 +632,7 @@ static void trx_free(trx_t *&trx) {
   to pool */
   ut_ad(trx->will_lock == 0);
 
+  trx_lra_free(&(trx->lra));
   trx_pools->mem_free(trx);
 
   trx = nullptr;

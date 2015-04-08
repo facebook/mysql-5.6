@@ -798,7 +798,7 @@ void btr_cur_search_to_nth_level(
       /* If !has_search_latch, we do a dirty read of
       btr_search_enabled below, and btr_search_guess_on_hash()
       will have to check it again. */
-      && UNIV_LIKELY(btr_search_enabled) && !modify_external &&
+      && UNIV_LIKELY(btr_search_enabled) && !modify_external && !level &&
       btr_search_guess_on_hash(index, info, tuple, mode, latch_mode, cursor,
                                has_search_latch, mtr)) {
 

@@ -136,6 +136,8 @@ struct roll_node_t;
 struct commit_node_t;
 /** SAVEPOINT command node in a query graph */
 struct trx_named_savept_t;
+/** Logical read ahead state */
+struct lra_t;
 /* @} */
 
 /** Row identifier (DB_ROW_ID, DATA_ROW_ID) */
