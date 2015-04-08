@@ -12,7 +12,9 @@ select variable_name as `There should be *no* long test name listed below:` from
 where length(variable_name) > 50;
 There should be *no* long test name listed below:
 select variable_name as `There should be *no* variables listed below:` from t2
-left join t1 on variable_name=test_name where test_name is null ORDER BY variable_name;
+left join t1 on variable_name=test_name
+where test_name is null and variable_name not in ('innodb_lra_debug')
+ORDER BY variable_name;
 There should be *no* variables listed below:
 activate_all_roles_on_login
 activate_all_roles_on_login
@@ -40,6 +42,8 @@ init_replica
 init_replica
 init_slave
 init_slave
+innodb_aio_outstanding_requests
+innodb_aio_outstanding_requests
 innodb_dedicated_server
 innodb_dedicated_server
 innodb_log_checkpoint_every
@@ -84,6 +88,14 @@ innodb_log_writer_spin_delay
 innodb_log_writer_spin_delay
 innodb_log_writer_timeout
 innodb_log_writer_timeout
+innodb_lra_n_spaces
+innodb_lra_n_spaces
+innodb_lra_pages_before_sleep
+innodb_lra_pages_before_sleep
+innodb_lra_size
+innodb_lra_size
+innodb_lra_sleep
+innodb_lra_sleep
 keyring_operations
 keyring_operations
 log_replica_updates

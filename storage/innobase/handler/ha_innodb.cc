@@ -1093,6 +1093,40 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
                           "100000000 disable the timeout.",
                           nullptr, nullptr, 50, 1, 1024 * 1024 * 1024, 0);
 
+static MYSQL_THDVAR_ULONG(
+    lra_size, PLUGIN_VAR_OPCMDARG,
+    "The size (in MBs) of the total size of the pages that innodb will "
+    "prefetch "
+    "while scanning a table during this session. This is meant to be used only "
+    "for table scans. The upper limit of this variable is 16384 which "
+    "corresponds to prefetching 16GB of data. When set to max, this algorithm "
+    "may use 100M memory.",
+    NULL, NULL, 0, 0, 16384, 0);
+
+static MYSQL_THDVAR_ULONG(
+    lra_pages_before_sleep, PLUGIN_VAR_OPCMDARG,
+    "This variable defines the number of node pointer records traversed while "
+    "holding the index lock before releasing the index lock and sleeping for a "
+    "short period of time so that the other threads get a chance to x-latch "
+    "the "
+    "index lock.",
+    NULL, NULL, 1024, 128, ULINT_MAX, 0);
+
+static MYSQL_THDVAR_ULONG(
+    lra_sleep, PLUGIN_VAR_OPCMDARG,
+    "The time LRA sleeps milliseconds before processing the next batch of "
+    "lra_pages_before_sleep node pointer records.",
+    NULL, NULL, 50, 0, 1000, 0);
+
+static MYSQL_THDVAR_ULONG(
+    lra_n_spaces, PLUGIN_VAR_OPCMDARG,
+    "Number of spaces a transaction can access before turning off LRA. "
+    "Every time a transaction switch to a new space (or switching back "
+    "to a previously accessed one), LRA will start prefetching from beginning "
+    "of the index from scratch. Switching off LRA if too many spaces are "
+    "scanned to avoid a possible performance hit.",
+    NULL, NULL, 3, 1, 16, 0);
+
 static MYSQL_THDVAR_STR(
     ft_user_stopword_table, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
     "User supplied stopword table name, effective in the session level.",
@@ -23100,6 +23134,14 @@ static MYSQL_SYSVAR_BOOL(ddl_log_crash_reset_debug,
                          innodb_ddl_log_crash_reset_debug, PLUGIN_VAR_OPCMDARG,
                          "Reset all crash injection counters to 1", nullptr,
                          ddl_log_crash_reset, false);
+
+bool row_lra_debug = false;
+static MYSQL_SYSVAR_BOOL(
+    lra_debug, row_lra_debug, PLUGIN_VAR_NOCMDARG,
+    "When set to true, the purge thread stops until the logical read ahead "
+    "sets this variable to TRUE. Used for testing edge cases regarding the "
+    "purge thread and logical read ahead.",
+    nullptr, nullptr, false);
 #endif /* UNIV_DEBUG */
 
 static MYSQL_SYSVAR_STR(directories, srv_innodb_directories,
@@ -23109,6 +23151,14 @@ static MYSQL_SYSVAR_STR(directories, srv_innodb_directories,
                         "tablespace files. Default is to scan "
                         "'innodb-data-home-dir;innodb-undo-directory;datadir'",
                         nullptr, nullptr, nullptr);
+
+ulong srv_io_outstanding_requests = 0;
+static MYSQL_SYSVAR_ULONG(aio_outstanding_requests, srv_io_outstanding_requests,
+                          PLUGIN_VAR_RQCMDARG,
+                          "Maximum number of outstanding AIO requests. Stall "
+                          "aio requests submission if"
+                          "this is reached.",
+                          NULL, NULL, 256, 0, 1024, 0);
 
 #ifdef UNIV_DEBUG
 /** Use this variable innodb_interpreter to execute debug code within InnoDB.
@@ -23355,9 +23405,15 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(ddl_log_crash_reset_debug),
     MYSQL_SYSVAR(interpreter),
     MYSQL_SYSVAR(interpreter_output),
+    MYSQL_SYSVAR(lra_debug),
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
     MYSQL_SYSVAR(segment_reserve_factor),
+    MYSQL_SYSVAR(aio_outstanding_requests),
+    MYSQL_SYSVAR(lra_size),
+    MYSQL_SYSVAR(lra_pages_before_sleep),
+    MYSQL_SYSVAR(lra_sleep),
+    MYSQL_SYSVAR(lra_n_spaces),
     nullptr};
 
 mysql_declare_plugin(innobase){
