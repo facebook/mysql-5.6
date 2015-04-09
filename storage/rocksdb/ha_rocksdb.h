@@ -418,6 +418,7 @@ private:
   int find_icp_matching_index_rec(bool move_forward, uchar *buf);
 
   void calc_updated_indexes();
+  int update_write_row(const uchar *old_data, uchar *new_data, bool do_locking);
 public:
   int index_end();
 
