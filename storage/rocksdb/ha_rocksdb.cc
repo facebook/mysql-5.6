@@ -2419,18 +2419,6 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
   rocksdb::WriteBatch *batch= wb.get();
 
-  /* Don't allow to create unique indexes */
-/* TODO mdcallag: disable this for now to pretend to support UNIQUE indexes
-  for (i= 0; i < table_arg->s->keys; i++)
-  {
-    if (table_arg->key_info[i].flags & HA_NOSAME &&
-        i != table_arg->s->primary_key)
-    {
-      DBUG_RETURN(HA_ERR_ROCKSDB_UNIQUE_NOT_SUPPORTED);
-    }
-  }
-*/
-
   /* Create table/key descriptions and put them into the data dictionary */
   if (!(tbl_def= new RDBSE_TABLE_DEF))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -3711,9 +3699,6 @@ int ha_rocksdb::write_row(uchar *buf)
 
   io_perf_start();
 
-  /* Update AUTO_INCREMENT column */
-  //bool using_auto_incr_value= false;
-
   /*
     Note: "buf == table->record[0]" is copied from innodb. I am not aware of
     any use cases where this condition is not true.
@@ -3726,101 +3711,287 @@ int ha_rocksdb::write_row(uchar *buf)
       io_perf_end_and_record();
       DBUG_RETURN(err);
     }
-    //using_auto_incr_value= true;
   }
 
-  /* Get a packed primary key value */
-  uint packed_size= pk_descr->pack_record(table, pack_buffer, buf,
-                                          pk_packed_tuple, NULL, NULL);
-  rocksdb::Slice key_slice((const char*)pk_packed_tuple, packed_size);
+  bool do_locking= !THDVAR(table->in_use, bulk_load);
+  int rv= update_write_row(NULL, buf, do_locking);
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+
+  if (rv == 0 && !do_locking &&
+      trx->n_writes > THDVAR(table->in_use, bulk_load_size))
+  {
+    /* Bulk insert mode: flush the write batch if it became too big */
+    if (trx->flush_batch(table->in_use, false))
+      rv= HA_ERR_INTERNAL_ERROR;
+  }
+
+  if (rv == 0)
+    stats.rows_inserted++;
+  io_perf_end_and_record();
+  DBUG_RETURN(rv);
+}
+
+int ha_rocksdb::update_write_row(const uchar *old_data,
+                                 uchar *new_data,
+                                 bool do_locking)
+{
+  int locks_added= 0;
+
+  int pk_packed_size;
+  bool pk_key_changed= false;
+
+  int new_packed_size;
+  uchar *new_key_packed_tuple;
+  int new_key_tail_size;
+
+  int old_packed_size;
+  int old_key_tail_size;
+
+  rocksdb::Slice old_pk_key_slice;
+  rocksdb::Slice new_key_slice;
+  rocksdb::Slice new_value_slice;
+  rocksdb::Slice old_key_slice;
+
+  DBUG_ENTER("ha_rocksdb::write_row_common");
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
-  bool do_locking= !THDVAR(table->in_use, bulk_load);
-  Row_lock *lock= NULL; // init to shut up the compiler
 
-  if (do_locking)
+  trx->prepare_for_write();
+
+  /* Get a rowkey for the new record */
+  pk_packed_size= pk_descr->pack_record(table, pack_buffer, new_data,
+                                        pk_packed_tuple, NULL, NULL);
+  if (old_data)
   {
+    old_pk_key_slice= rocksdb::Slice(last_rowkey.ptr(), last_rowkey.length());
+
+    /* Determine which indexes need updating. */
+    calc_updated_indexes();
+  }
+
+  /*
+    Go through each index and determine if the index has uniqueness
+    requirements. If it does, then try to obtain a row lock on the new values.
+    Once all locks have been obtained, then perform the changes needed to
+    update/insert the row.
+  */
+  for (uint i= 0; i < table->s->keys; i++)
+  {
+    uint n_null_fields= 0;
+    uint user_defined_key_parts= table->key_info[i].user_defined_key_parts;
+
     /*
-      Get a record lock to make sure we do not overwrite somebody's changes
+      If there are no uniqueness requirements, there's no need to obtain a
+      lock for this key. The primary key should have this flag set.
     */
-    bool timed_out;
-    if (!(lock= trx->get_lock(pk_packed_tuple, packed_size, &timed_out)))
+    if (!do_locking || !(table->key_info[i].flags & HA_NOSAME))
+      continue;
+
+    /*
+      For UPDATEs, if the key has changed, we need to obtain a lock. INSERTs
+      are always require locking.
+    */
+    if (old_data)
     {
-      io_perf_end_and_record();
-      DBUG_RETURN(return_lock_failure(timed_out));
+      if (i == table->s->primary_key)
+        old_key_slice= old_pk_key_slice;
+      else
+      {
+        if (!updated_indexes.is_set(i))
+          continue;
+
+        old_packed_size= key_descr[i]->pack_record(table, pack_buffer,
+                                                   old_data,
+                                                   sec_key_packed_tuple_old,
+                                                   NULL,
+                                                   NULL,
+                                                   user_defined_key_parts);
+        old_key_slice= rocksdb::Slice((const char*)sec_key_packed_tuple_old,
+                                      old_packed_size);
+      }
     }
 
     /*
+      Calculate the new key for obtaining the lock
+    */
+    if (i == table->s->primary_key)
+    {
+      new_key_packed_tuple= pk_packed_tuple;
+      new_packed_size= pk_packed_size;
+    }
+    else
+    {
+      /*
+        For unique secondary indexes, the key used for locking does not
+        include the extended fields.
+      */
+      new_packed_size= key_descr[i]->pack_record(table, pack_buffer, new_data,
+                                                 sec_key_packed_tuple,
+                                                 NULL, NULL,
+                                                 user_defined_key_parts,
+                                                 &n_null_fields);
+      new_key_packed_tuple = sec_key_packed_tuple;
+    }
+    new_key_slice= rocksdb::Slice((const char*)new_key_packed_tuple,
+                                   new_packed_size);
+
+    /*
+      For updates, if the keys are the same, then no lock is needed
+      For inserts, the old_key_slice is "", so this check should always fail.
+
+      Also check to see if the key has any fields set to NULL. If it does, then
+      this key is unique since NULL is not equal to each other, so no lock is
+      needed. Primary keys never have NULLable fields.
+    */
+    if (!rocksdb_pk_comparator.Compare(new_key_slice, old_key_slice) ||
+        n_null_fields > 0)
+      continue;
+
+    /*
+      Get a record lock to make sure we do not overwrite somebody's changes.
+    */
+    bool timed_out;
+    Row_lock *lock= NULL; // init to shut up the compiler
+    if (!(lock= trx->get_lock(new_key_packed_tuple, new_packed_size,
+                              &timed_out)))
+    {
+      /*
+        On failure, need to unlock all locks obtained during this process.
+      */
+      while (--locks_added >= 0)
+        trx->release_last_lock();
+      DBUG_RETURN(return_lock_failure(timed_out));
+    }
+
+    trx->add_lock(lock);
+    locks_added++;
+
+    /*
+      Perform a read to determine if a duplicate entry exists. For primary
+      keys, a point lookup will be sufficient. For secondary indexes, a
+      range scan is needed.
+
       note: we intentionally don't set options.snapshot here. We want to read
       the latest committed data.
     */
     rocksdb::ReadOptions options;
 
     bool found;
-    if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
+    if (i == table->s->primary_key)
     {
-      rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
-                                  &retrieved_record);
-      found= !s.IsNotFound();
+      /*
+        Primary key has changed, it should be deleted later.
+      */
+      if (old_data)
+        pk_key_changed= true;
+
+      if (!trx->changes.Get(pk_descr, new_key_slice, &retrieved_record, &found))
+      {
+        rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), new_key_slice,
+                                    &retrieved_record);
+        found= !s.IsNotFound();
+      }
+    }
+    else
+    {
+      // TODO: Add in the range scan support.
+      found= false;
     }
 
     if (found)
     {
-      /* There is a row with this rowid already */
-      row_locks.release_lock(trx->pins, lock);
-      io_perf_end_and_record();
+      /*
+        There is a row with this rowid already, so error out.
+        Need to unlock all locks obtained during this process.
+      */
+      while (--locks_added >= 0)
+        trx->release_last_lock();
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
   }
 
-  /* Ok, we keep a lock. This will prevent concurrent writes with this rowid */
-  trx->prepare_for_write();
-
-  if (do_locking)
-    trx->add_lock(lock); /* the lock will be released when trx commits */
-
-  /* Write every secondary index */
+  /*
+    At this point, all locks have been obtained, and all checks for duplicate
+    keys have been performed. No further errors can be allowed to occur from
+    here because updates to the transaction will be made and those updates
+    cannot be easily removed without rolling back the entire transaction.
+  */
   for (uint i= 0; i < table->s->keys; i++)
   {
-    if (i != table->s->primary_key)
+    /*
+      Determine if the old key needs to be deleted.
+    */
+    if (i == table->s->primary_key)
     {
-      int packed_size;
-      int tail_size;
-
-      packed_size= key_descr[i]->pack_record(table, pack_buffer, buf,
-                                             sec_key_packed_tuple,
-                                             sec_key_tails, &tail_size);
-
-      rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
-                                         packed_size);
-      rocksdb::Slice value_slice((const char*)sec_key_tails, tail_size);
-      trx->changes.Put(key_descr[i], secondary_key_slice, value_slice);
-      trx->n_writes++;
+      if (pk_key_changed)
+        trx->changes.Delete(key_descr[i], old_pk_key_slice);
+      continue;
     }
+
+    /*
+      Can skip updating this key if none of the key fields have changed.
+    */
+    if (old_data && !updated_indexes.is_set(i))
+      continue;
+
+    new_packed_size= key_descr[i]->pack_record(table, pack_buffer,
+                                               new_data,
+                                               sec_key_packed_tuple,
+                                               sec_key_tails,
+                                               &new_key_tail_size);
+    new_key_slice= rocksdb::Slice((const char*)sec_key_packed_tuple,
+                                   new_packed_size);
+    new_value_slice= rocksdb::Slice((const char*)sec_key_tails,
+                                    new_key_tail_size);
+
+    if (old_data)
+    {
+      // The old value (just used for delete)
+      old_packed_size= key_descr[i]->pack_record(table, pack_buffer,
+                                                 old_data,
+                                                 sec_key_packed_tuple_old,
+                                                 sec_key_tails_old,
+                                                 &old_key_tail_size);
+      old_key_slice= rocksdb::Slice((const char*)sec_key_packed_tuple_old,
+                                    old_packed_size);
+
+      /*
+        Check if we are going to write the same value. This can happen when
+        one does
+          UPDATE tbl SET col='foo'
+        and we are looking at the row that already has col='foo'.
+
+        We also need to compare the unpack info. Suppose, the collation is
+        case-insensitive, and unpack info contains information about whether
+        the letters were uppercase and lowercase.  Then, both 'foo' and 'FOO'
+        will have the same key value, but different data in unpack_info.
+
+        (note: anyone changing bytewise_compare should take this code into
+        account)
+      */
+      if (old_packed_size == new_packed_size &&
+          memcmp(sec_key_packed_tuple_old, sec_key_packed_tuple,
+                 old_packed_size) == 0 &&
+          old_key_tail_size == new_key_tail_size &&
+          memcmp(sec_key_tails_old, sec_key_tails, old_key_tail_size) == 0)
+        continue;
+
+      trx->changes.Delete(key_descr[i], old_key_slice);
+    }
+
+    trx->changes.Put(key_descr[i], new_key_slice, new_value_slice);
+    trx->n_writes++;
   }
 
-  /* Write primary_key -> record */
-  if (/*!using_auto_incr_value &&*/ table->next_number_field)
+  if (table->next_number_field)
     update_auto_incr_val();
 
+  /* Write primary_key -> record */
+  new_key_slice= rocksdb::Slice((const char*)pk_packed_tuple, pk_packed_size);
   rocksdb::Slice value_slice;
   convert_record_to_storage_format(&value_slice);
-
-  trx->changes.Put(pk_descr, key_slice, value_slice);
+  trx->changes.Put(pk_descr, new_key_slice, value_slice);
   trx->n_writes++;
-
-  if (!do_locking && trx->n_writes > THDVAR(table->in_use, bulk_load_size))
-  {
-    /* Bulk insert mode: flush the write batch if it became too big */
-    if (trx->flush_batch(table->in_use, false))
-    {
-      io_perf_end_and_record();
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-    }
-  }
-
-  stats.rows_inserted++;
-  io_perf_end_and_record();
 
   DBUG_RETURN(0);
 }
@@ -4254,122 +4425,12 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   //psergey-todo: how come we don't get locks for the 'old_data'?  because
   // we've already taken them when reading??
 
-  /* Get a rowkey fo the new record */
-  uint packed_size= pk_descr->pack_record(table, pack_buffer, new_data,
-                                          pk_packed_tuple,
-                                          NULL, NULL);
-
-  rocksdb::Slice key_slice((const char*)pk_packed_tuple, packed_size);
-  Rdb_transaction *trx= get_or_create_trx(table->in_use);
-
-  /* Compare rowkey for the new record with rowkey for the old one */
-  rocksdb::Slice old_key_slice(last_rowkey.ptr(), last_rowkey.length());
-  if (rocksdb_pk_comparator.Compare(key_slice, old_key_slice))
-  {
-    /* Ok, they are different. We're doing DELETE+PUT */
-
-    /*
-      We need to make sure that PUT will not overwrite some existing record.
-      Get a lock. on what we're going to write.
-    */
-    Row_lock *lock;
-    bool timed_out;
-    if (!(lock= trx->get_lock(pk_packed_tuple, packed_size, &timed_out)))
-    {
-      io_perf_end_and_record();
-      DBUG_RETURN(return_lock_failure(timed_out));
-    }
-
-    bool found;
-    if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
-    {
-      rocksdb::ReadOptions options;
-      /* Not setting options.snapshot, we need to check the real contents */
-      rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
-                                  &retrieved_record);
-      found= !s.IsNotFound();
-    }
-
-    if (found)
-    {
-      row_locks.release_lock(trx->pins, lock);
-      io_perf_end_and_record();
-      DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
-    }
-
-    trx->prepare_for_write();
-    trx->add_lock(lock);
-    trx->changes.Delete(pk_descr, old_key_slice);
-  }
-
-  trx->prepare_for_write();
-
-  /* Update every affected index */
-  calc_updated_indexes();
-
-  for (uint i= 0; i < table->s->keys; i++)
-  {
-    if (i != table->s->primary_key && updated_indexes.is_set(i))
-    {
-      int old_key_size, new_key_size;
-      int old_value_size, new_value_size;
-
-      // The old value (just used for delete)
-      old_key_size= key_descr[i]->pack_record(table, pack_buffer, old_data,
-                                             sec_key_packed_tuple_old,
-                                             sec_key_tails_old,
-                                             &old_value_size);
-
-      // The new value will be written to the database.
-      new_key_size= key_descr[i]->pack_record(table, pack_buffer, new_data,
-                                              sec_key_packed_tuple,
-                                              sec_key_tails, &new_value_size);
-
-      /*
-        Check if we are going to write the same value. This can happen when one
-        does
-          UPDATE tbl SET col='foo'
-        and we are looking at the row that already has col='foo'.
-
-        We also need to compare the unpack info. Suppose, the collation is
-        case-insensitive, and unpack info contains information about whether
-        the letters were uppercase and lowercase.  Then, both 'foo' and 'FOO'
-        will have the same key value, but different data in unpack_info.
-
-        (note: anyone changing bytewise_compare should take this code into
-        account)
-      */
-
-      if (old_key_size != new_key_size ||
-          memcmp(sec_key_packed_tuple_old, sec_key_packed_tuple,
-                 old_key_size) ||
-          old_value_size != new_value_size ||
-          memcmp(sec_key_tails_old, sec_key_tails, old_value_size))
-      {
-        // Delete the old value
-        rocksdb::Slice old_key_slice((char*)sec_key_packed_tuple_old,
-                                     old_key_size);
-        trx->changes.Delete(key_descr[i], old_key_slice);
-
-        // Put the new value
-        rocksdb::Slice new_key_slice((char*)sec_key_packed_tuple, new_key_size);
-        rocksdb::Slice new_value_slice((const char*)sec_key_tails, new_value_size);
-        trx->changes.Put(key_descr[i], new_key_slice, new_value_slice);
-      }
-    }
-  }
-
-  if (table->next_number_field)
-    update_auto_incr_val();
-  /* Write the table record */
-  rocksdb::Slice value_slice;
-  convert_record_to_storage_format(&value_slice);
-  trx->changes.Put(pk_descr, key_slice, value_slice);
-
-  stats.rows_updated++;
-
+  int rv= update_write_row(old_data, new_data, true);
   io_perf_end_and_record();
-  DBUG_RETURN(0);
+
+  if (rv == 0)
+    stats.rows_updated++;
+  DBUG_RETURN(rv);
 }
 
 
