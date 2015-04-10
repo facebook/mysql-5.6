@@ -1,7 +1,5 @@
 import sys, glob, random, os, threading, subprocess, re, time
 
-page_gen_history = ""
-
 def get_doublewrite(f):
   f.seek(TRX_SYS_PAGE_NO * UNIV_PAGE_SIZE)
   page = f.read(UNIV_PAGE_SIZE)
@@ -21,30 +19,22 @@ def fil_page_get_type(page):
        return mach_read_from_2(page[FIL_PAGE_TYPE:])
 
 def get_dblwr_page_nos(page, block1, block2):
-  global page_gen_history
   if fil_page_get_type(page) == FIL_PAGE_TYPE_DBLWR_HEADER:
-    page_gen_history += "STEP: Scanning Header\n"
     ptr = page[FIL_PAGE_DATA:]
     num_pages = mach_read_from_2(ptr)
-    page_gen_history += "NUM_PAGES: {0}\n".format(num_pages)
     ptr = ptr[2:]
     for i in xrange(num_pages):
       space_id = mach_read_from_4(ptr)
       ptr = ptr[4:]
       page_no = mach_read_from_4(ptr)
       ptr = ptr[4:]
-      page_gen_history += "GOT: {0}:{1}\n".format(space_id, page_no)
       if space_id:
-        page_gen_history += "ADDING: {0}:{1}\n".format(space_id, page_no)
         yield space_id, page_no
   else:
-    page_gen_history += "STEP: Scanning Classic Buffer\n"
     for i in xrange(TRX_SYS_DOUBLEWRITE_BLOCK_SIZE * 2):
       page_no = mach_read_from_4(page[FIL_PAGE_OFFSET:])
       space_id = mach_read_from_4(page[FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID:])
-      page_gen_history += "GOT: {0}:{1}\n".format(space_id, page_no)
       if space_id:
-        page_gen_history += "ADDING: {0}:{1}\n".format(space_id, page_no)
         yield space_id, page_no
       page = page[UNIV_PAGE_SIZE:]
 
@@ -58,13 +48,7 @@ def get_ibd_map(data_dir):
   return m
 
 def corrupt_random_page(pages_in_dblwr, ibd_map):
-  try:
-    space_id, page_no = random.choice([p for p in pages_in_dblwr])
-  except IndexError:
-    global page_gen_history
-    print("ERROR: No Pages In: {0}\n".format(pages_in_dblwr))
-    print("HISTORY:\n{0}".format(page_gen_history))
-    raise
+  space_id, page_no = random.choice([p for p in pages_in_dblwr])
   #print "corrupting space_id=%d, page_no=%d" % (space_id, page_no)
   table_file = ibd_map[space_id]
   f = open(table_file, 'r+b')
