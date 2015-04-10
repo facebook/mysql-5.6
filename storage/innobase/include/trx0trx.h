@@ -640,6 +640,11 @@ struct lra_t {
                       every time. This is computed using
                       lra_size and the currently scanned
                       table's block size */
+  ulint lra_n_spaces; /* Number of times space id can change
+                      before lra is disabled during
+                      transaction execution. */
+  ulint lra_count_n_spaces; /* Number of times space id changes during
+                            transaction execution. */
   ulint lra_space_id; /* The last space id that the scanning
                       transaction accessed. If the scanning
                       trx accesses multiple tables, we need
@@ -704,8 +709,12 @@ void trx_lra_reset(
                                   index lock and sleeping for a short period
                                   of time so that the other threads get a
                                   chance to x-latch the index lock. */
-    ulint lra_sleep);             /* lra_sleep is the sleep time in
+    ulint lra_sleep,              /* lra_sleep is the sleep time in
                                   milliseconds. */
+    ulint lra_n_spaces,           /*!< in: Number of space switches before lra
+                                  is disabled. */
+    bool reset_lra_count_n_spaces); /*!< in: whether to reset
+                                    lra_count_n_spaces. */
 
 /** The transaction handle
 
