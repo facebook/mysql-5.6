@@ -924,6 +924,15 @@ static MYSQL_THDVAR_ULONG(
     "lra_pages_before_sleep node pointer records.",
     NULL, NULL, 50, 0, 1000, 0);
 
+static MYSQL_THDVAR_ULONG(
+    lra_n_spaces, PLUGIN_VAR_OPCMDARG,
+    "Number of spaces a transaction can access before turning off LRA. "
+    "Every time a transaction switch to a new space (or switching back "
+    "to a previously accessed one), LRA will start prefetching from beginning "
+    "of the index from scratch. Switching off LRA if too many spaces are "
+    "scanned to avoid a possible performance hit.",
+    NULL, NULL, 3, 1, 16, 0);
+
 static MYSQL_THDVAR_STR(
     ft_user_stopword_table, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
     "User supplied stopword table name, effective in the session level.",
@@ -2545,7 +2554,7 @@ static void innobase_trx_init(
       !thd_test_options(thd, OPTION_RELAXED_UNIQUE_CHECKS);
 
   trx_lra_reset(trx, THDVAR(thd, lra_size), THDVAR(thd, lra_pages_before_sleep),
-                THDVAR(thd, lra_sleep));
+                THDVAR(thd, lra_sleep), THDVAR(thd, lra_n_spaces), true);
 }
 
 /** Allocates an InnoDB transaction for a MySQL handler object for DML.
@@ -2562,7 +2571,7 @@ trx_t *innobase_trx_allocate(THD *thd) /*!< in: user thread handle */
 
   trx->mysql_thd = thd;
   trx_lra_reset(trx, THDVAR(thd, lra_size), THDVAR(thd, lra_pages_before_sleep),
-                THDVAR(thd, lra_sleep));
+                THDVAR(thd, lra_sleep), THDVAR(thd, lra_n_spaces), true);
 
   innobase_trx_init(thd, trx);
 
@@ -22213,6 +22222,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(lra_size),
     MYSQL_SYSVAR(lra_pages_before_sleep),
     MYSQL_SYSVAR(lra_sleep),
+    MYSQL_SYSVAR(lra_n_spaces),
     nullptr};
 
 mysql_declare_plugin(innobase){
