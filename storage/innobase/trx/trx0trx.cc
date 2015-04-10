@@ -142,6 +142,8 @@ void trx_lra_init(lra_t *lra) /*!< in: lra structure */
 {
   lra->lra_size = 0;
   lra->lra_space_id = 0;
+  lra->lra_n_spaces = 0;
+  lra->lra_count_n_spaces = 0;
   lra->lra_n_pages = 0;
   lra->lra_n_pages_since = 0;
   lra->lra_page_no = 0;
@@ -182,17 +184,21 @@ void trx_lra_free(lra_t *lra) /*!< in: lra structure */
 /** Creates or frees data structures related to logical-read-ahead.
  based on the value of lra_size. */
 void trx_lra_reset(
-    trx_t *trx,                   /*!< in: transaction */
-    ulint lra_size,               /*!< in: lra_size in MB. If 0, the fields
-                                  that are related to logical-read-ahead will
-                                  be freed if they were initialized. */
-    ulint lra_pages_before_sleep, /*!< in: The number of node pointer records
-                                  traversed while holding the index lock
-                                  before releasing the index lock and
-                                  sleeping for a short period of time so that
-                                  the other threads get a chance to x-latch
-                                  the index lock. */
-    ulint lra_sleep)              /*!< in: Sleep time in milliseconds. */
+    trx_t *trx,                    /*!< in: transaction */
+    ulint lra_size,                /*!< in: lra_size in MB. If 0, the fields
+                                   that are related to logical-read-ahead will
+                                   be freed if they were initialized. */
+    ulint lra_pages_before_sleep,  /*!< in: The number of node pointer records
+                                   traversed while holding the index lock
+                                   before releasing the index lock and
+                                   sleeping for a short period of time so that
+                                   the other threads get a chance to x-latch
+                                   the index lock. */
+    ulint lra_sleep,               /*!< in: Sleep time in milliseconds. */
+    ulint lra_n_spaces,            /*!< in: Number of space switches before
+                                   lra is disabled. */
+    bool reset_lra_count_n_spaces) /*!< in: whether to reset
+                                   lra_count_n_spaces.  */
 {
 #ifndef UNIV_LINUX
   if (lra_size) {
@@ -217,12 +223,16 @@ void trx_lra_reset(
               sizeof(btr_pcur_t);
   lra->lra_size = lra_size;
   lra->lra_space_id = 0;
+  lra->lra_n_spaces = lra_n_spaces;
   lra->lra_n_pages = 0;
   lra->lra_n_pages_since = 0;
   lra->lra_page_no = 0;
   lra->lra_pages_before_sleep = lra_pages_before_sleep;
   lra->lra_sleep = lra_sleep;
   lra->lra_tree_height = 0;
+  if (reset_lra_count_n_spaces) {
+    lra->lra_count_n_spaces = 0;
+  }
   if (lra->lra_ht) {
     ut_a(lra->lra_ht1);
     ut_a(lra->lra_ht2);
