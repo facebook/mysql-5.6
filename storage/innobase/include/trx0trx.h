@@ -756,23 +756,28 @@ struct page_no_holder_struct {
 };
 
 struct lra_t {
-  ulint lra_size;     /* Total size (in MBs) of the
-                      pages that will be prefetched by
-                      logical read ahead. */
-  ulint lra_n_pages;  /* Number of pages that lra prefetches
-                      every time. This is computed using
-                      lra_size and the currently scanned
-                      table's block size */
-  ulint lra_space_id; /* The last space id that the scanning
-                      transaction accessed. If the scanning
-                      trx accesses multiple tables, we need
-                      to reset the data structures that lra
-                      uses. */
-  ulint lra_page_no;  /* The last page that was visited
-                      by the trx. Used by the
-                      logical-read-ahead algorithm to
-                      determine if a new prefetch should be
-                      performed. */
+  ulint lra_size;           /* Total size (in MBs) of the
+                            pages that will be prefetched by
+                            logical read ahead. */
+  ulint lra_n_pages;        /* Number of pages that lra prefetches
+                            every time. This is computed using
+                            lra_size and the currently scanned
+                            table's block size */
+  ulint lra_n_spaces;       /* Number of times space id can change
+                            before lra is disabled during
+                            transaction execution. */
+  ulint lra_count_n_spaces; /* Number of times space id changes during
+                            transaction execution. */
+  ulint lra_space_id;       /* The last space id that the scanning
+                            transaction accessed. If the scanning
+                            trx accesses multiple tables, we need
+                            to reset the data structures that lra
+                            uses. */
+  ulint lra_page_no;        /* The last page that was visited
+                            by the trx. Used by the
+                            logical-read-ahead algorithm to
+                            determine if a new prefetch should be
+                            performed. */
   hash_table_t *lra_ht1;
   hash_table_t *lra_ht2;        /* Hash tables store the leaf page
                                 numbers for the already prefetched
@@ -827,8 +832,12 @@ void trx_lra_reset(
                                   index lock and sleeping for a short period
                                   of time so that the other threads get a
                                   chance to x-latch the index lock. */
-    ulint lra_sleep);             /* lra_sleep is the sleep time in
+    ulint lra_sleep,              /* lra_sleep is the sleep time in
                                   milliseconds. */
+    ulint lra_n_spaces,           /*!< in: Number of space switches before lra
+                                  is disabled. */
+    bool reset_lra_count_n_spaces); /*!< in: whether to reset
+                                    lra_count_n_spaces. */
 
 /** The transaction handle
 
