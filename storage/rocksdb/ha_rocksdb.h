@@ -217,6 +217,11 @@ class ha_rocksdb: public handler
   key_map updated_indexes;
   bool updated_indexes_is_valid;
 
+  /*
+    MySQL index number for duplicate key error
+  */
+  int dupp_errkey;
+
   int create_key_defs(TABLE *table_arg, const char *db_table, uint len);
   int secondary_index_read(int keyno, uchar *buf);
   void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
