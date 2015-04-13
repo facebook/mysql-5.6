@@ -188,7 +188,8 @@ public:
                    uchar *packed_tuple,
                    uchar *unpack_info,
                    int *unpack_info_len,
-                   uint n_key_parts=0);
+                   uint n_key_parts=0,
+                   uint *n_null_fields=NULL);
   int unpack_record(TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
