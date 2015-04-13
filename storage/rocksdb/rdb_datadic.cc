@@ -399,6 +399,7 @@ static Field *get_field_by_keynr(TABLE *tbl, KEY *key_info, uint part)
     unpack_info      OUT  Unpack data
     unpack_info_len  OUT  Unpack data length
     n_key_parts           Number of keyparts to process. 0 means all of them.
+    n_null_fields    OUT  Number of key fields with NULL value.
 
   @detail
     Some callers do not need the unpack information, they can pass
@@ -413,7 +414,8 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
                                const uchar *record,
                                uchar *packed_tuple,
                                uchar *unpack_info, int *unpack_info_len,
-                               uint n_key_parts)
+                               uint n_key_parts,
+                               uint *n_null_fields)
 {
   uchar *tuple= packed_tuple;
   uchar *unpack_end= unpack_info;
@@ -428,6 +430,9 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
   // non-unique indexes
   if (n_key_parts == 0 || n_key_parts == MAX_REF_PARTS)
     n_key_parts= m_key_parts;
+
+  if (n_null_fields)
+    *n_null_fields = 0;
 
   for (uint i=0; i < n_key_parts; i++)
   {
@@ -445,6 +450,8 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
         /* NULL value. store '\0' so that it sorts before non-NULL values */
         *tuple++ = 0;
         /* That's it, don't store anything else */
+        if (n_null_fields)
+          (*n_null_fields)++;
         continue;
       }
       else
