@@ -3894,8 +3894,48 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     }
     else
     {
-      // TODO: Add in the range scan support.
+      Apply_changes_iter iter;
+
+      /*
+        This iterator seems expensive since we need to allocate and free
+        memory for each unique index.
+
+        If this needs to be optimized, for keys without NULL fields, the
+        extended primary key fields can be migrated to the value portion of the
+        key. This enables using Get() instead of Seek() as in the primary key
+        case.
+
+        The bloom filter may need to be disabled for this lookup.
+      */
+      if (!can_use_bloom_filter(key_descr[i], new_key_slice,
+                                user_defined_key_parts ==
+                                    key_descr[i]->get_m_key_parts(),
+                                is_ascending(key_descr[i], HA_READ_KEY_EXACT)))
+        options.total_order_seek= true;
+      iter.init(key_descr[i]->is_reverse_cf,
+                &trx->changes,
+                rdb->NewIterator(options, key_descr[i]->get_cf()));
+
+      /*
+        Need to scan the transaction to see if there is a duplicate key.
+        Also need to scan RocksDB and verify the key has not been deleted
+        in the transaction.
+      */
       found= false;
+      iter.Seek(new_key_slice);
+      if (key_descr[i]->is_reverse_cf)
+      {
+        if (user_defined_key_parts != key_descr[i]->get_m_key_parts())
+        {
+          if (!iter.Valid())
+            iter.SeekToLast();
+          else
+            iter.Prev();
+        }
+      }
+
+      if (iter.Valid())
+        found= key_descr[i]->value_matches_prefix(iter.key(), new_key_slice);
     }
 
     if (found)
@@ -3906,6 +3946,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       */
       while (--locks_added >= 0)
         trx->release_last_lock();
+      dupp_errkey= i;
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
   }
@@ -4324,7 +4365,7 @@ int ha_rocksdb::info(uint flag)
       Currently we support only primary keys so we know which key had a
       uniqueness violation.
     */
-    errkey= 0;
+    errkey= dupp_errkey;
     dup_ref= pk_tuple; //TODO: this should store packed PK.
   }
 
