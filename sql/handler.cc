@@ -1958,7 +1958,7 @@ int ha_recover(HASH *commit_list, char *binlog_file, my_off_t *binlog_pos)
     for now, only InnoDB and RocksDB support 2pc. It means we can always safely
     rollback all pending transactions, without risking inconsistent data
   */
-  DBUG_ASSERT(total_ha_2pc == (ulong) opt_bin_log+2); // only InnoDB, RocksDB and binlog
+  DBUG_ASSERT(total_ha_2pc <= (ulong) opt_bin_log+2); // only InnoDB [optional], RocksDB and binlog
   tc_heuristic_recover= TC_HEURISTIC_RECOVER_ROLLBACK; // forcing ROLLBACK
   info.dry_run=FALSE;
 #endif
