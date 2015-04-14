@@ -833,6 +833,7 @@ rocksdb_bulk_load_size	1000
 rocksdb_bytes_per_sync	0
 rocksdb_cache_index_and_filter_blocks	ON
 rocksdb_cf_options_file	
+rocksdb_collect_sst_properties	ON
 rocksdb_compact_cf	
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
@@ -844,6 +845,7 @@ rocksdb_delete_obsolete_files_period_micros	21600000000
 rocksdb_disabledatasync	OFF
 rocksdb_enable_thread_tracking	OFF
 rocksdb_error_if_exists	OFF
+rocksdb_force_flush_memtable_now	OFF
 rocksdb_hash_index_allow_collision	ON
 rocksdb_index_type	kBinarySearch
 rocksdb_info_log_level	info_level
