@@ -1,6 +1,6 @@
 call mtr.add_suppression("Info table is not ready to be used.");
 START TRANSACTION;
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
-ERROR HY000: InnoDB disabled
+ERROR HY000: Engine disabled
 START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
 ERROR 42000: Unknown storage engine 'INNODB'
