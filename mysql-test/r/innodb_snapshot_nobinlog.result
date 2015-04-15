@@ -3,4 +3,4 @@ File	Position	Binlog_Do_DB	Binlog_Ignore_DB	Executed_Gtid_Set
 START TRANSACTION;
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
 START TRANSACTION WITH CONSISTENT INNODB SNAPSHOT;
-ERROR HY000: Cannot start InnoDB transaction or binlog disabled
+ERROR HY000: Cannot start transaction or binlog disabled
