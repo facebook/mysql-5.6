@@ -5241,7 +5241,8 @@ mysql_declare_plugin(rocksdb_se)
 },
 i_s_rocksdb_cfstats,
 i_s_rocksdb_dbstats,
-i_s_rocksdb_perf_context
+i_s_rocksdb_perf_context,
+i_s_rocksdb_cfoptions
 mysql_declare_plugin_end;
 
 
