@@ -117,9 +117,7 @@ Database: information_schema
 | USER_STATISTICS                       |
 | VIEWS                                 |
 | AUTHINFO                              |
-| INNODB_LOCKS                          |
-| INNODB_TRX                            |
-| ROCKSDB_DBSTATS                       |
+| INNODB_SYS_TABLESPACES                |
 | INNODB_TRX                            |
 | ROCKSDB_PERF_CONTEXT                  |
 | INNODB_SYS_INDEXES                    |
@@ -142,7 +140,7 @@ Database: information_schema
 | INNODB_CMPMEM                         |
 | INNODB_FT_INDEX_TABLE                 |
 | INNODB_FT_BEING_DELETED               |
-| INNODB_SYS_TABLESPACES                |
+| ROCKSDB_CF_OPTIONS                    |
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_SYS_FOREIGN_COLS               |
 | INNODB_SYS_TABLES                     |
@@ -152,6 +150,7 @@ Database: information_schema
 | INNODB_SYS_FIELDS                     |
 | INNODB_FT_DEFAULT_STOPWORD            |
 | INNODB_SYS_DATAFILES                  |
+| ROCKSDB_DBSTATS                       |
 +---------------------------------------+
 Database: INFORMATION_SCHEMA
 +---------------------------------------+
@@ -195,9 +194,7 @@ Database: INFORMATION_SCHEMA
 | USER_STATISTICS                       |
 | VIEWS                                 |
 | AUTHINFO                              |
-| INNODB_LOCKS                          |
-| INNODB_TRX                            |
-| ROCKSDB_DBSTATS                       |
+| INNODB_SYS_TABLESPACES                |
 | INNODB_TRX                            |
 | ROCKSDB_PERF_CONTEXT                  |
 | INNODB_SYS_INDEXES                    |
@@ -220,7 +217,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_CMPMEM                         |
 | INNODB_FT_INDEX_TABLE                 |
 | INNODB_FT_BEING_DELETED               |
-| INNODB_SYS_TABLESPACES                |
+| ROCKSDB_CF_OPTIONS                    |
 | INNODB_FT_INDEX_CACHE                 |
 | INNODB_SYS_FOREIGN_COLS               |
 | INNODB_SYS_TABLES                     |
@@ -230,6 +227,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_SYS_FIELDS                     |
 | INNODB_FT_DEFAULT_STOPWORD            |
 | INNODB_SYS_DATAFILES                  |
+| ROCKSDB_DBSTATS                       |
 +---------------------------------------+
 Wildcard: inf_rmation_schema
 +--------------------+
