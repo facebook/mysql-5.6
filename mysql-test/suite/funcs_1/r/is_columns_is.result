@@ -233,6 +233,9 @@ def	information_schema	REFERENTIAL_CONSTRAINTS	UPDATE_RULE	8		NO	varchar	64	192	
 def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_CFSTATS	VALUE	3	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(8)			select	
+def	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
+def	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
+def	information_schema	ROCKSDB_CF_OPTIONS	VALUE	3		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_DBSTATS	VALUE	2	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(8)			select	
 def	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	3	NULL	YES	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
@@ -828,6 +831,9 @@ NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int(7)
 3.0000	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 NULL	information_schema	ROCKSDB_CFSTATS	VALUE	int	NULL	NULL	NULL	NULL	int(8)
+3.0000	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
+3.0000	information_schema	ROCKSDB_CF_OPTIONS	VALUE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 NULL	information_schema	ROCKSDB_DBSTATS	VALUE	int	NULL	NULL	NULL	NULL	int(8)
 3.0000	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	varchar	193	579	utf8	utf8_general_ci	varchar(193)
