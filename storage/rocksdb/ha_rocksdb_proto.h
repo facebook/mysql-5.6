@@ -24,6 +24,7 @@ class Column_family_manager;
 rocksdb::DB *rocksdb_get_rdb();
 Column_family_manager& rocksdb_get_cf_manager();
 rocksdb::BlockBasedTableOptions& rocksdb_get_table_options();
+void get_cf_options(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 int rocksdb_normalize_tablename(const char *tablename,
                                 StringBuffer<256> *strbuf);
 int rocksdb_split_normalized_tablename(const char *fullname,
