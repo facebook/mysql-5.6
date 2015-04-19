@@ -23,6 +23,11 @@
 #include "ha_rocksdb_proto.h"
 #include "rdb_cf_manager.h"
 #include "rdb_i_s.h"
+#include "rocksdb/filter_policy.h"
+#include "rocksdb/slice_transform.h"
+#include "rocksdb/merge_operator.h"
+#include "rocksdb/compaction_filter.h"
+#include "rocksdb/memtablerep.h"
 
 #define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
         { _name_, _len_, _type_, 0, _flag_, NULL, 0 }
@@ -280,6 +285,300 @@ static int i_s_rocksdb_perf_context_init(void *p)
   DBUG_RETURN(0);
 }
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_CFOPTIONS dynamic table
+ */
+static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
+                                            TABLE_LIST *tables,
+                                            Item *cond)
+{
+  bool ret;
+
+  DBUG_ENTER("i_s_rocksdb_cfoptions_fill_table");
+
+  Column_family_manager cf_manager = rocksdb_get_cf_manager();
+
+  for (auto cf_name : cf_manager.get_cf_names())
+  {
+    std::string val;
+    rocksdb::ColumnFamilyOptions opts;
+    get_cf_options(cf_name, &opts);
+
+    std::vector<std::pair<std::string, std::string>> cf_option_types = {
+      {"COMPARATOR", opts.comparator == nullptr ? "NULL" :
+          std::string(opts.comparator->Name())},
+      {"MERGE_OPERATOR", opts.merge_operator == nullptr ? "NULL" :
+          std::string(opts.merge_operator->Name())},
+      {"COMPACTION_FILTER", opts.compaction_filter == nullptr ? "NULL" :
+          std::string(opts.compaction_filter->Name())},
+      {"COMPACTION_FILTER_FACTORY",
+          opts.compaction_filter_factory == nullptr ? "NULL" :
+          std::string(opts.compaction_filter_factory->Name())},
+      {"COMPACTION_FILTER_FACTORY_V2",
+          opts.compaction_filter_factory_v2 == nullptr ? "NULL" :
+          std::string(opts.compaction_filter_factory_v2->Name())},
+      {"WRITE_BUFFER_SIZE", std::to_string(opts.write_buffer_size)},
+      {"MAX_WRITE_BUFFER_NUMBER", std::to_string(opts.max_write_buffer_number)},
+      {"MIN_WRITE_BUFFER_NUMBER_TO_MERGE",
+          std::to_string(opts.min_write_buffer_number_to_merge)},
+      {"NUM_LEVELS", std::to_string(opts.num_levels)},
+      {"LEVEL0_FILE_NUM_COMPACTION_TRIGGER",
+          std::to_string(opts.level0_file_num_compaction_trigger)},
+      {"LEVEL0_SLOWDOWN_WRITES_TRIGGER",
+          std::to_string(opts.level0_slowdown_writes_trigger)},
+      {"LEVEL0_STOP_WRITES_TRIGGER",
+          std::to_string(opts.level0_stop_writes_trigger)},
+      {"MAX_MEM_COMPACTION_LEVEL", std::to_string(opts.max_mem_compaction_level)},
+      {"TARGET_FILE_SIZE_BASE", std::to_string(opts.target_file_size_base)},
+      {"TARGET_FILE_SIZE_MULTIPLIER", std::to_string(opts.target_file_size_multiplier)},
+      {"MAX_BYTES_FOR_LEVEL_BASE", std::to_string(opts.max_bytes_for_level_base)},
+      {"LEVEL_COMPACTION_DYNAMIC_LEVEL_BYTES",
+          opts.level_compaction_dynamic_level_bytes ? "ON" : "OFF"},
+      {"MAX_BYTES_FOR_LEVEL_MULTIPLIER",
+          std::to_string(opts.max_bytes_for_level_multiplier)},
+      {"EXPANDED_COMPACTION_FACTOR",
+          std::to_string(opts.expanded_compaction_factor)},
+      {"SOURCE_COMPACTION_FACTOR",
+          std::to_string(opts.source_compaction_factor)},
+      {"MAX_GRANDPARENT_OVERLAP_FACTOR",
+          std::to_string(opts.max_grandparent_overlap_factor)},
+      {"SOFT_RATE_LIMIT", std::to_string(opts.soft_rate_limit)},
+      {"HARD_RATE_LIMIT", std::to_string(opts.hard_rate_limit)},
+      {"RATE_LIMIT_DELAY_MAX_MILLISECONDS",
+          std::to_string(opts.rate_limit_delay_max_milliseconds)},
+      {"ARENA_BLOCK_SIZE", std::to_string(opts.arena_block_size)},
+      {"DISABLE_AUTO_COMPACTIONS",
+          opts.disable_auto_compactions ? "ON" : "OFF"},
+      {"PURGE_REDUNDANT_KVS_WHILE_FLUSH",
+          opts.purge_redundant_kvs_while_flush ? "ON" : "OFF"},
+      {"VERIFY_CHECKSUM_IN_COMPACTION",
+          opts.verify_checksums_in_compaction ? "ON" : "OFF"},
+      {"FILTER_DELETES",
+          opts.filter_deletes ? "ON" : "OFF"},
+      {"MAX_SEQUENTIAL_SKIP_IN_ITERATIONS",
+          std::to_string(opts.max_sequential_skip_in_iterations)},
+      {"MEMTABLE_FACTORY",
+          opts.memtable_factory == nullptr ? "NULL" :
+            opts.memtable_factory->Name()},
+      {"INPLACE_UPDATE_SUPPORT",
+          opts.inplace_update_support ? "ON" : "OFF"},
+      {"INPLACE_UPDATE_NUM_LOCKS",
+          opts.inplace_update_num_locks ? "ON" : "OFF"},
+      {"MEMTABLE_PREFIX_BLOOM_BITS",
+          std::to_string(opts.memtable_prefix_bloom_bits)},
+      {"MEMTABLE_PREFIX_BLOOM_PROBES",
+          std::to_string(opts.memtable_prefix_bloom_probes)},
+      {"MEMTABLE_PREFIX_BLOOM_HUGE_PAGE_TLB_SIZE",
+          std::to_string(opts.memtable_prefix_bloom_huge_page_tlb_size)},
+      {"BLOOM_LOCALITY", std::to_string(opts.bloom_locality)},
+      {"MAX_SUCCESSIVE_MERGES",
+          std::to_string(opts.max_successive_merges)},
+      {"MIN_PARTIAL_MERGE_OPERANDS",
+          std::to_string(opts.min_partial_merge_operands)},
+      {"OPTIMIZE_FILTERS_FOR_HITS",
+          (opts.optimize_filters_for_hits ? "ON" : "OFF")},
+    };
+
+    // get MAX_BYTES_FOR_LEVEL_MULTIPLIER_ADDITIONAL option value
+    val = opts.max_bytes_for_level_multiplier_additional.empty() ? "NULL" : "";
+    for (auto level : opts.max_bytes_for_level_multiplier_additional)
+    {
+      val.append(std::to_string(level) + ":");
+    }
+    val.pop_back();
+    cf_option_types.push_back({"MAX_BYTES_FOR_LEVEL_MULTIPLIER_ADDITIONAL", val});
+
+    // get COMPRESSION_TYPE option value
+    switch (opts.compression)
+    {
+      case rocksdb::kNoCompression: val = "kNoCompression"; break;
+      case rocksdb::kSnappyCompression: val = "kSnappyCompression"; break;
+      case rocksdb::kZlibCompression: val = "kZlibCompression"; break;
+      case rocksdb::kBZip2Compression: val = "kBZip2Compression"; break;
+      case rocksdb::kLZ4Compression: val = "kLZ4Compression"; break;
+      case rocksdb::kLZ4HCCompression: val = "kLZ4HCCompression"; break;
+      default: val = "NULL";
+    }
+    cf_option_types.push_back({"COMPRESSION_TYPE", val});
+
+    // get COMPRESSION_PER_LEVEL option value
+    val = opts.compression_per_level.empty() ? "NULL" : "";
+    for (auto compression_type : opts.compression_per_level)
+    {
+      switch (compression_type)
+      {
+        case rocksdb::kNoCompression: val.append("kNoCompression:"); break;
+        case rocksdb::kSnappyCompression: val.append("kSnappyCompression:"); break;
+        case rocksdb::kZlibCompression: val.append("kZlibCompression:"); break;
+        case rocksdb::kBZip2Compression: val.append("kBZip2Compression:"); break;
+        case rocksdb::kLZ4Compression: val.append("kLZ4Compression:"); break;
+        case rocksdb::kLZ4HCCompression: val.append("kLZ4HCCompression:"); break;
+      }
+    }
+    val.pop_back();
+    cf_option_types.push_back({"COMPRESSION_PER_LEVEL", val});
+
+    // get compression_opts value
+    val = std::to_string(opts.compression_opts.window_bits) + ":";
+    val.append(std::to_string(opts.compression_opts.level) + ":");
+    val.append(std::to_string(opts.compression_opts.strategy));
+    cf_option_types.push_back({"COMPRESSION_OPTS", val});
+
+    // get PREFIX_EXTRACTOR option
+    cf_option_types.push_back({"PREFIX_EXTRACTOR",
+        opts.prefix_extractor == nullptr ? "NULL" :
+        std::string(opts.prefix_extractor->Name())});
+
+    // get COMPACTION_STYLE option
+    switch (opts.compaction_style)
+    {
+      case rocksdb::kCompactionStyleLevel: val = "kCompactionStyleLevel"; break;
+      case rocksdb::kCompactionStyleUniversal: val = "kCompactionStyleUniversal"; break;
+      case rocksdb:: kCompactionStyleFIFO: val = "kCompactionStyleFIFO"; break;
+      case rocksdb:: kCompactionStyleNone: val = "kCompactionStyleNone"; break;
+      default: val = "NULL";
+    }
+    cf_option_types.push_back({"COMPACTION_STYLE", val});
+
+    // get COMPACTION_OPTIONS_UNIVERSAL related options
+    rocksdb::CompactionOptionsUniversal compac_opts = opts.compaction_options_universal;
+    val = "{SIZE_RATIO=";
+    val.append(std::to_string(compac_opts.size_ratio));
+    val.append("; MIN_MERGE_WIDTH=");
+    val.append(std::to_string(compac_opts.min_merge_width));
+    val.append("; MAX_MERGE_WIDTH=");
+    val.append(std::to_string(compac_opts.max_merge_width));
+    val.append("; MAX_SIZE_AMPLIFICATION_PERCENT=");
+    val.append(std::to_string(compac_opts.max_size_amplification_percent));
+    val.append("; COMPRESSION_SIZE_PERCENT=");
+    val.append(std::to_string(compac_opts.compression_size_percent));
+    val.append("; STOP_STYLE=");
+    switch (compac_opts.stop_style)
+    {
+      case rocksdb::kCompactionStopStyleSimilarSize:
+        val.append("kCompactionStopStyleSimilarSize}"); break;
+      case rocksdb::kCompactionStopStyleTotalSize:
+        val.append("kCompactionStopStyleTotalSize}"); break;
+      default: val.append("}");
+    }
+    cf_option_types.push_back({"COMPACTION_OPTIONS_UNIVERSAL", val});
+
+    // get COMPACTION_OPTION_FIFO option
+    cf_option_types.push_back({"COMPACTION_OPTION_FIFO::MAX_TABLE_FILES_SIZE",
+        std::to_string(opts.compaction_options_fifo.max_table_files_size)});
+
+    // get block-based table related options
+    rocksdb::BlockBasedTableOptions& table_options = rocksdb_get_table_options();
+
+    // get BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS option
+    cf_option_types.push_back(
+        {"BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS",
+        table_options.cache_index_and_filter_blocks ? "1" : "0"});
+
+    // get BLOCK_BASED_TABLE_FACTORY::INDEX_TYPE option value
+    switch (table_options.index_type)
+    {
+      case rocksdb::BlockBasedTableOptions::kBinarySearch: val = "kBinarySearch"; break;
+      case rocksdb::BlockBasedTableOptions::kHashSearch: val = "kHashSearch"; break;
+      default: val = "NULL";
+    }
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::INDEX_TYPE", val});
+
+    // get BLOCK_BASED_TABLE_FACTORY::HASH_INDEX_ALLOW_COLLISION option value
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::HASH_INDEX_ALLOW_COLLISION",
+        table_options.hash_index_allow_collision ? "ON" : "OFF"});
+
+    // get BLOCK_BASED_TABLE_FACTORY::CHECKSUM option value
+    switch (table_options.checksum)
+    {
+      case rocksdb::kNoChecksum: val = "kNoChecksum"; break;
+      case rocksdb::kCRC32c: val = "kCRC32c"; break;
+      case rocksdb::kxxHash: val = "kxxHash"; break;
+      default: val = "NULL";
+    }
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::CHECKSUM", val});
+
+    // get BLOCK_BASED_TABLE_FACTORY::NO_BLOCK_CACHE option value
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::NO_BLOCK_CACHE",
+        table_options.no_block_cache ? "ON" : "OFF"});
+
+    // get BLOCK_BASED_TABLE_FACTORY::FILTER_POLICY option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::FILTER_POLICY",
+        table_options.filter_policy == nullptr ? "NULL" :
+          std::string(table_options.filter_policy->Name())});
+
+    // get BLOCK_BASED_TABLE_FACTORY::WHOLE_KEY_FILTERING option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::WHOLE_KEY_FILTERING",
+        table_options.whole_key_filtering ? "1" : "0"});
+
+    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE",
+        table_options.block_cache == nullptr ? "NULL" :
+          std::to_string(table_options.block_cache->GetUsage())});
+
+    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE_COMPRESSED option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE_COMPRESSED",
+        table_options.block_cache_compressed == nullptr ? "NULL" :
+          std::to_string(table_options.block_cache_compressed->GetUsage())});
+
+    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE",
+        std::to_string(table_options.block_size)});
+
+    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE_DEVIATION option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE_DEVIATION",
+        std::to_string(table_options.block_size_deviation)});
+
+    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_RESTART_INTERVAL option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_RESTART_INTERVAL",
+        std::to_string(table_options.block_restart_interval)});
+
+    // get BLOCK_BASED_TABLE_FACTORY::FORMAT_VERSION option
+    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::FORMAT_VERSION",
+        std::to_string(table_options.format_version)});
+
+    for (auto cf_option_type : cf_option_types)
+    {
+      tables->table->field[0]->store(cf_name.c_str(), cf_name.size(),
+                                     system_charset_info);
+      tables->table->field[1]->store(cf_option_type.first.c_str(),
+                                     cf_option_type.first.size(),
+                                     system_charset_info);
+      tables->table->field[2]->store(cf_option_type.second.c_str(),
+                                     cf_option_type.second.size(),
+                                     system_charset_info);
+
+      ret = schema_table_store_record(thd, tables->table);
+
+      if (ret)
+        DBUG_RETURN(ret);
+    }
+  }
+  DBUG_RETURN(0);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("OPTION_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("VALUE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+static int i_s_rocksdb_cfoptions_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_cfoptions_init");
+
+  schema= (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info= i_s_rocksdb_cfoptions_fields_info;
+  schema->fill_table= i_s_rocksdb_cfoptions_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int i_s_rocksdb_deinit(void *p)
 {
   DBUG_ENTER("i_s_rocksdb_deinit");
@@ -332,6 +631,23 @@ struct st_mysql_plugin i_s_rocksdb_perf_context=
   "RocksDB perf context stats",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_perf_context_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  NULL,                               /* status variables */
+  NULL,                               /* system variables */
+  NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_cfoptions=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_CF_OPTIONS",
+  "Monty Program Ab",
+  "RocksDB column family options",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_cfoptions_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */
