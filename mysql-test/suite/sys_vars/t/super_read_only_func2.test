@@ -1,0 +1,22 @@
+--source include/not_embedded.inc
+
+--echo #
+--echo # Setup
+--echo #
+
+--echo # startup argument: ro, sro => 0, 1
+--echo # actual: ro, sro => 1, 1
+select @@global.read_only;
+select @@global.super_read_only;
+--echo # should not be able to create table as super user
+--Error ER_OPTION_PREVENTS_STATEMENT
+create table t1(a int);
+
+--echo #
+--echo # Cleanup
+--echo #
+
+--echo # do not restore to original values in startup params
+# because if super_read_only = 1 in the end, check-warnings.test will fail
+set global read_only= 0;
+set global super_read_only= 0;
