@@ -1,0 +1,20 @@
+#
+# Setup
+#
+# startup argument: ro, sro => 0, 1
+# actual: ro, sro => 1, 1
+select @@global.read_only;
+@@global.read_only
+1
+select @@global.super_read_only;
+@@global.super_read_only
+1
+# should not be able to create table as super user
+create table t1(a int);
+ERROR HY000: The MySQL server is running with the --read-only (super) option so it cannot execute this statement
+#
+# Cleanup
+#
+# do not restore to original values in startup params
+set global read_only= 0;
+set global super_read_only= 0;
