@@ -30,5 +30,6 @@ SET DEBUG_SYNC='now signal done';
 connection default;
 --reap
 set global read_only=0;
-set global super_read_only=0;
+disconnect con;
+flush table t1;
 drop table t1;

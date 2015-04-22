@@ -224,6 +224,7 @@ select info from information_schema.processlist where info like 'alter%';
 set @@global.innodb_defragment_pause = false;
 connection con1;
 reap;
+flush table t1;
 connection default;
 
 --echo ## Test-7 Defragment when feature disabled should return error
@@ -232,6 +233,9 @@ set @@global.innodb_defragment = false;
 alter table t1 defragment index PRIMARY;
 set @@global.innodb_defragment = true;
 
+#
+# clean up
+#
 disconnect con1;
 DROP PROCEDURE defragment;
 DROP TABLE t1;

@@ -83,6 +83,7 @@ select info from information_schema.processlist where info like 'alter%';
 info
 alter table t1 defragment
 set @@global.innodb_defragment_pause = false;
+flush table t1;
 ## Test-7 Defragment when feature disabled should return error
 set @@global.innodb_defragment = false;
 alter table t1 defragment index PRIMARY;
