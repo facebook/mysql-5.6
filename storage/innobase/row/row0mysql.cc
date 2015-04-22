@@ -4087,6 +4087,10 @@ row_drop_table_for_mysql(
 			      "InnoDB: Adding the table to the"
 			      " background drop queue.\n",
 			      stderr);
+			fprintf(stderr,
+					"InnoDB: n_ref_count %lu,"
+					" n_rec_locks %lu\n",
+					table->n_ref_count, table->n_rec_locks);
 
 			/* We return DB_SUCCESS to MySQL though the drop will
 			happen lazily later */
