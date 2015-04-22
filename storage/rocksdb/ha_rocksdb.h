@@ -424,6 +424,9 @@ private:
 
   void calc_updated_indexes();
   int update_write_row(const uchar *old_data, uchar *new_data, bool do_locking);
+
+  int read_key_exact(RDBSE_KEYDEF *kd, Apply_changes_iter *iter,
+                     bool using_full_key, rocksdb::Slice& key_slice);
 public:
   int index_end();
 

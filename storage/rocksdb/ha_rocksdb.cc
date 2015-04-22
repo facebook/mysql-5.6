@@ -2663,6 +2663,37 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
   return res;
 }
 
+int ha_rocksdb::read_key_exact(RDBSE_KEYDEF *kd,
+                               Apply_changes_iter *iter,
+                               bool full_key_match,
+                               rocksdb::Slice& key_slice)
+{
+  /*
+    We are looking for the first record such that
+      index_tuple= lookup_tuple.
+    lookup_tuple may be a prefix of the index.
+  */
+  if (kd->is_reverse_cf)
+  {
+    if (!full_key_match)
+    {
+      if (!iter->Valid())
+        iter->SeekToLast();
+      else
+        iter->Prev();
+    }
+  }
+
+  if (!iter->Valid() || !kd->value_matches_prefix(iter->key(), key_slice))
+  {
+    /*
+      Got a record that is not equal to the lookup value, or even a record
+      from another table.index.
+    */
+    return HA_ERR_KEY_NOT_FOUND;
+  }
+  return 0;
+}
 
 /*
   @note
@@ -2843,36 +2874,10 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
   {
-    /*
-      We are looking for the first record such that
-        index_tuple= lookup_tuple.
-      lookup_tuple may be a prefix of the index.
-    */
-    if (key_descr[active_index]->is_reverse_cf)
-    {
-      if (!using_full_key)
-      {
-        if (!scan_it->Valid())
-          scan_it->SeekToLast();
-        else
-          scan_it->Prev();
-      }
-    }
-
-    if (!scan_it->Valid())
-      rc= HA_ERR_KEY_NOT_FOUND;
-    else
-    {
+    rc = read_key_exact(key_descr[active_index], scan_it, using_full_key,
+                        slice);
+    if (rc == 0)
       rkey= scan_it->key();
-      if (!kd->value_matches_prefix(rkey, slice))
-      {
-        /*
-          Got a record that is not equal to the lookup value, or even a record
-          from another table.index.
-        */
-        rc= HA_ERR_KEY_NOT_FOUND;
-      }
-    }
     break;
   }
   case HA_READ_BEFORE_KEY:
@@ -3895,6 +3900,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     else
     {
       Apply_changes_iter iter;
+      bool all_parts_used= (user_defined_key_parts ==
+                            key_descr[i]->get_m_key_parts());
 
       /*
         This iterator seems expensive since we need to allocate and free
@@ -3908,8 +3915,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         The bloom filter may need to be disabled for this lookup.
       */
       if (!can_use_bloom_filter(key_descr[i], new_key_slice,
-                                user_defined_key_parts ==
-                                    key_descr[i]->get_m_key_parts(),
+                                all_parts_used,
                                 is_ascending(key_descr[i], HA_READ_KEY_EXACT)))
         options.total_order_seek= true;
       iter.init(key_descr[i]->is_reverse_cf,
@@ -3921,21 +3927,9 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         Also need to scan RocksDB and verify the key has not been deleted
         in the transaction.
       */
-      found= false;
       iter.Seek(new_key_slice);
-      if (key_descr[i]->is_reverse_cf)
-      {
-        if (user_defined_key_parts != key_descr[i]->get_m_key_parts())
-        {
-          if (!iter.Valid())
-            iter.SeekToLast();
-          else
-            iter.Prev();
-        }
-      }
-
-      if (iter.Valid())
-        found= key_descr[i]->value_matches_prefix(iter.key(), new_key_slice);
+      found= !read_key_exact(key_descr[i], &iter, all_parts_used,
+                             new_key_slice);
     }
 
     if (found)
