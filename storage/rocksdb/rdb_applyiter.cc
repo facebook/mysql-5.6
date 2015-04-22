@@ -52,28 +52,109 @@ void Apply_changes_iter::init(bool is_reverse_arg, Row_table *trx_arg,
   valid= false;
 }
 
+void Apply_changes_iter::adjust_keys(int direction)
+{
+  if (direction == latest_direction)
+    return;
+
+  /*
+    If we are moving forward after a Prev() or SeekToLast() call, we need to move the
+    key in the other storage area forward.
+  */
+  if (latest_direction != 1)
+  {
+    /* The current key resides in trx, so adjust the rdb key */
+    if (cur_is_trx)
+    {
+      if (rdb->Valid())
+        rdb->Next();
+      else
+        rdb->SeekToFirst();
+
+      /*
+        If after adjusting the rdb key, we find it is the same as the trx one, then
+        it needs to move again. The end state of the key pointers should be the same
+        as that in advance()
+      */
+      if (rdb->Valid() && trx->Valid())
+      {
+        rocksdb::Slice rdb_key= rdb->key();
+        rocksdb::Slice trx_key= trx->key();
+
+        if (compare_mem_comparable_keys((const uchar*)trx_key.data(), trx_key.size(),
+                                        (const uchar*)rdb_key.data(), rdb_key.size()) == 0)
+          rdb->Next();
+      }
+    }
+    else if (trx->Valid())
+      trx->Next();
+    else
+      trx->SeekToFirst();
+  }
+
+  /*
+    If we are moving backward after a Next() or Seek() call, we need to move the key
+    in the other storage area backward.
+  */
+  else
+  {
+    /* The current key resides in trx, so adjust the rdb key */
+    if (cur_is_trx)
+    {
+      if (rdb->Valid())
+        rdb->Prev();
+      else
+        rdb->SeekToLast();
+
+      /*
+        If after adjusting the rdb key, we find it is the same as the trx one, then
+        it needs to move again. The end state of the key pointers should be the same
+        as that in advance()
+      */
+      if (rdb->Valid() && trx->Valid())
+      {
+        rocksdb::Slice rdb_key= rdb->key();
+        rocksdb::Slice trx_key= trx->key();
+
+        if (compare_mem_comparable_keys((const uchar*)trx_key.data(), trx_key.size(),
+                                        (const uchar*)rdb_key.data(), rdb_key.size()) == 0)
+          rdb->Prev();
+      }
+    }
+    else if (trx->Valid())
+      trx->Prev();
+    else
+      trx->SeekToLast();
+  }
+}
 
 void Apply_changes_iter::Next()
 {
+  int direction= 1;
+
   DBUG_ASSERT(valid);
+  adjust_keys(direction);
   if (cur_is_trx)
     trx->Next();
   else
     rdb->Next();
 
-  advance(1);
+  advance(direction);
 }
 
 
 void Apply_changes_iter::Prev()
 {
+  int direction= -1;
+
   DBUG_ASSERT(valid);
+  adjust_keys(direction);
   if (cur_is_trx)
     trx->Prev();
   else
     rdb->Prev();
 
-  advance(-1);
+  advance(direction);
 }
 
 
@@ -100,6 +181,7 @@ void Apply_changes_iter::SeekToLast()
 void Apply_changes_iter::advance(int direction)
 {
   valid= true;
+  latest_direction= direction;
   while (1)
   {
     if (!trx->Valid() && !rdb->Valid())
