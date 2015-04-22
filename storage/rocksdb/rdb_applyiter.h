@@ -55,4 +55,9 @@ public:
   rocksdb::Slice value();
 private:
   void advance(int direction);
+
+  /* Stored the direction requested of the latest advance call */
+  int latest_direction;
+  void adjust_keys(int direction);
 };
+
