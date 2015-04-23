@@ -58,6 +58,9 @@ while ($j < $m)
   while ($i < $n)
   {
     --connection con$i
+    # No error is also expected here, since simulate_binlog_flush_error injects
+    # faults with 1/3 probability
+    --error 0, ER_ERROR_ON_WRITE
     --reap
     --inc $i
   }
