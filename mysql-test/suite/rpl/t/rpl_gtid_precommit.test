@@ -22,11 +22,13 @@ INSERT INTO t1 VALUES (6,7);
 SET GLOBAL gtid_precommit = 0;
 --echo #Lost record(7,8) on both master and slave if failed to write binlog file.
 SET SESSION DEBUG = 'd,simulate_do_write_cache_failure';
+--error ER_ERROR_ON_WRITE
 INSERT INTO t1 VALUES (7,8);
 
 --echo #Lost record(8,9) on both master and slave if failed to write binlog file.
 SET GLOBAL gtid_precommit = 1;
 SET SESSION DEBUG = 'd,simulate_do_write_cache_failure';
+--error ER_ERROR_ON_WRITE
 INSERT INTO t1 VALUES (8,9);
 
 SET SESSION DEBUG = '';

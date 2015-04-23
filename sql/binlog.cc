@@ -6344,6 +6344,7 @@ err:
                     errno, my_strerror(errbuf, sizeof(errbuf), errno));
   }
   thd->commit_error= THD::CE_FLUSH_ERROR;
+  set_write_error(thd, cache_data->is_trx_cache());
 
   /* Remove gtid from logged_gtid set if error happened. */
   if (write_error && thd->gtid_precommit)
