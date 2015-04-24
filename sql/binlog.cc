@@ -7365,6 +7365,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
   int flush_error= 0;
   my_off_t total_bytes= 0;
   bool do_rotate= false;
+  int binlog_flush_error = 0;
 
   /*
     These values are used while flushing a transaction, so clear
@@ -7426,7 +7427,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
 
   my_off_t flush_end_pos= 0;
   if (flush_error == 0 && total_bytes > 0)
-    flush_error= flush_cache_to_file(&flush_end_pos);
+    binlog_flush_error = flush_error = flush_cache_to_file(&flush_end_pos);
 
   /*
     If the flush finished successfully, we can call the after_flush
@@ -7452,7 +7453,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
     {
       DEBUG_SYNC(thd, "before_sync_binlog_file");
       std::pair<bool, bool> result = sync_binlog_file(false, async);
-      flush_error = result.first;
+      binlog_flush_error = flush_error = result.first;
     }
 
     /*
@@ -7467,9 +7468,21 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
       that haven't made it to the disk on master because of a os
       crash or power failure just before binlog fsync.
     */
-    update_binlog_end_pos();
+    if (!binlog_flush_error)
+      update_binlog_end_pos();
 
     DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
+  }
+
+  if (binlog_flush_error)
+  {
+    sql_print_error("Binlog flush or sync failed");
+    if (binlog_error_action == ABORT_SERVER)
+    {
+      sql_print_error("Aborting the server to avoid inconsistencies between "
+                      "binlog and innodb");
+      _exit(EXIT_FAILURE);
+    }
   }
 
   if (change_stage(thd, Stage_manager::SEMISYNC_STAGE, final_queue,
