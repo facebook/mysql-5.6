@@ -6402,6 +6402,10 @@ err:
                     errno, my_strerror(errbuf, sizeof(errbuf), errno));
   }
   thd->commit_error= THD::CE_FLUSH_ERROR;
+  if (binlog_error_action != IGNORE_ERROR)
+  {
+    set_write_error(thd, cache_data->is_trx_cache());
+  }
 
   /* Remove gtid from logged_gtid set if error happened. */
   if (write_error && thd->gtid_precommit)
@@ -7605,7 +7609,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
                                          &final_queue, async);
 
   if (flush_error == 0 && total_bytes > 0)
-    flush_error= flush_cache_to_file(&flush_end_pos);
+    flush_error = flush_cache_to_file(&flush_end_pos);
 
   DBUG_EXECUTE_IF("crash_after_flush_binlog", DBUG_SUICIDE(););
   /*
