@@ -77,7 +77,6 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const rocksdb::Slice &eq_cond,
                           const bool use_all_keys,
                           bool is_ascending);
-
 static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table);
 static int free_share(ROCKSDB_SHARE *share);
 
@@ -1047,7 +1046,7 @@ public:
     bool res= false;
     thd_binlog_pos(thd, &mysql_log_file_name, &mysql_log_offset,
                    &mysql_gtid);
-    flush_batch(thd, true);
+    res= flush_batch(thd, true);
     /* rollback() will delete snapshot, batch and locks */
     rollback();
     return res;
@@ -1088,7 +1087,10 @@ private:
       }
     }
     rocksdb::Status s= rdb->Write(get_write_options(thd), &batch);
-    res= !s.ok(); // we return true when something failed
+    res= !s.ok();
+    if (res)
+      rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TRX_COMMIT);
+
     return res;
   }
 
@@ -1225,11 +1227,12 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
 
 static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 {
+  DBUG_ENTER("rocksdb_commit");
   if (commit_trx)
   {
     Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx)
-      trx->commit(thd); // todo: return error code.
+    if (trx && trx->commit(thd))
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
   else
   {
@@ -1239,7 +1242,7 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
       statement has started.
     */
   }
-  return 0;
+  DBUG_RETURN(0);
 }
 
 
@@ -5286,7 +5289,9 @@ void* background_thread(void*)
     if (rdb && rocksdb_background_sync) {
       auto wo = rocksdb::WriteOptions();
       wo.sync = true;
-      rdb->Write(wo, &wb);
+      rocksdb::Status s= rdb->Write(wo, &wb);
+      if (!s.ok())
+        rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
     }
 
     if (ts.tv_sec - last_stat_recompute > rocksdb_seconds_between_stat_computes)
@@ -5402,4 +5407,31 @@ int rocksdb_get_share_perf_counters(const char *tablename,
       share->internal_delete_skipped_count.load(std::memory_order_relaxed),
   free_share(share);
   return 0;
+}
+
+void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
+{
+  if (status.IsIOError())
+  {
+    switch (type) {
+    case ROCKSDB_IO_ERROR_TRX_COMMIT:
+    case ROCKSDB_IO_ERROR_DICT_COMMIT:
+    {
+      sql_print_error("RocksDB: Failed to write to WAL - status %d",
+                      status.code());
+      sql_print_error("RocksDB: Aborting on WAL write error.");
+      exit(EXIT_FAILURE);
+      break;
+    }
+    case ROCKSDB_IO_ERROR_BG_THREAD:
+    {
+      sql_print_warning("RocksDB: BG Thread failed to write to RocksDB "
+                        "- status %d", status.code());
+      break;
+    }
+    default:
+      DBUG_ASSERT(0);
+      break;
+    }
+  }
 }
