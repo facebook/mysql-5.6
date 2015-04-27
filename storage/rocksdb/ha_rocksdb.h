@@ -80,6 +80,7 @@ void thd_exit_cond(MYSQL_THD thd, const PSI_stage_info *stage);
 extern "C"
 void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all);
 
+
 //#endif
 
 /** @brief
@@ -100,6 +101,14 @@ typedef struct st_rocksdb_share {
   std::atomic_ullong internal_key_skipped_count;
   std::atomic_ullong internal_delete_skipped_count;
 } ROCKSDB_SHARE;
+
+typedef enum io_error_type {
+  ROCKSDB_IO_ERROR_TRX_COMMIT,
+  ROCKSDB_IO_ERROR_DICT_COMMIT,
+  ROCKSDB_IO_ERROR_BG_THREAD
+} ROCKSDB_IO_ERROR_TYPES;
+
+void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type);
 
 class RDBSE_KEYDEF;
 class RDBSE_TABLE_DEF;
