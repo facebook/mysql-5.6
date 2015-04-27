@@ -1723,6 +1723,8 @@ int Dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
   options.sync= sync;
   rocksdb::Status s= rdb->Write(options, batch);
   res= !s.ok(); // we return true when something failed
+  if (res)
+    rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_DICT_COMMIT);
   batch->Clear();
   return res;
 }
