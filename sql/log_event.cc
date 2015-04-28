@@ -12608,6 +12608,10 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
       if ((ptr_after_colcnt - (uchar *)buf) < event_len)
       {
         m_primary_key_fields_size = net_field_length(&ptr_after_colcnt);
+        bytes_read= (uint) (ptr_after_colcnt - (uchar *)buf);
+        // Check for possible old format event
+        if (bytes_read + m_primary_key_fields_size > event_len)
+          goto func_exit;
         if (m_primary_key_fields_size)
         {
           m_primary_key_fields =  (uchar*) my_malloc(m_primary_key_fields_size,
@@ -12616,19 +12620,23 @@ Table_map_log_event::Table_map_log_event(const char *buf, uint event_len,
                  m_primary_key_fields_size);
           ptr_after_colcnt = (uchar*)ptr_after_colcnt +
                              m_primary_key_fields_size;
+          bytes_read += m_primary_key_fields_size;
         }
+        if (bytes_read + num_null_bytes > event_len)
+          goto func_exit;
         memcpy(m_sign_bits, ptr_after_colcnt, num_null_bytes);
         ptr_after_colcnt= (uchar*)ptr_after_colcnt + num_null_bytes;
-        m_column_names_size = event_len - (ptr_after_colcnt - (uchar *)buf);
-        if (m_column_names_size)
+        bytes_read += num_null_bytes;
+        if (bytes_read < event_len)
         {
+          m_column_names_size = event_len - bytes_read;
           m_column_names = (uchar*) my_malloc(m_column_names_size, MYF(MY_WME));
           memcpy(m_column_names, ptr_after_colcnt, m_column_names_size);
         }
       }
     }
   }
-
+func_exit:
   DBUG_VOID_RETURN;
 }
 #endif
