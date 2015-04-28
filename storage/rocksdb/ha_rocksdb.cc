@@ -2842,11 +2842,26 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     DBUG_RETURN(rc);
   }
 
+  /*
+    Unique secondary index performs lookups without the extended key fields
+  */
   uint packed_size;
-
-  packed_size= kd->pack_index_tuple(table, pack_buffer,
-                                    sec_key_packed_tuple, key,
-                                    keypart_map);
+  if (active_index != table->s->primary_key &&
+      table->key_info[active_index].flags & HA_NOSAME &&
+      find_flag == HA_READ_KEY_EXACT && using_full_key)
+  {
+    key_part_map tmp_map= (key_part_map(1) <<
+                           table->key_info[active_index].user_defined_key_parts) - 1;
+    packed_size= kd->pack_index_tuple(table, pack_buffer, sec_key_packed_tuple,
+                                      key, tmp_map);
+    if (table->key_info[active_index].user_defined_key_parts !=
+        kd->get_m_key_parts())
+      using_full_key= false;
+  }
+  else
+    packed_size= kd->pack_index_tuple(table, pack_buffer,
+                                      sec_key_packed_tuple, key,
+                                      keypart_map);
 
   if (find_flag == HA_READ_PREFIX_LAST_OR_PREV ||
       find_flag == HA_READ_PREFIX_LAST ||
