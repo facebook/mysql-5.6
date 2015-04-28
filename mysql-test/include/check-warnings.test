@@ -20,6 +20,9 @@ use mtr;
 # Allow this session to read-write even if server is started
 # with --transaction-read-only
 set session transaction read write;
+# Allow super to write
+set @original_super_read_only = @@global.super_read_only;
+set global super_read_only = 0;
 
 create temporary table error_log (
   row int auto_increment primary key,
@@ -56,6 +59,10 @@ if ($mysql_errno)
 # Call check_warnings to filter out any warning in
 # the error_log table
 call mtr.check_warnings(@result);
+
+# Restore the original value
+set @@global.super_read_only = @original_super_read_only;
+
 if (`select @result = 0`){
   skip OK;
 }
