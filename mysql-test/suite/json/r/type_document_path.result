@@ -205,7 +205,7 @@ doc
 Charlei
 select abs(test.t1.doc.double), abs(test.t1.doc.double - 3.333333) from t1 where a = 3;
 abs(test.t1.doc.double)	abs(test.t1.doc.double - 3.333333)
-3.3333329999999997	4.440892098500626e-16
+3.333333	0
 select test.t1.doc.address from t1 where t1.a = 3;
 doc
 {"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
