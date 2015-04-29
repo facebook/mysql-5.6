@@ -458,8 +458,6 @@ void key_unpack(String *to, TABLE *table, KEY *key)
       }
       else
       {
-        if (tmp.length() > key_part->length)
-          tmp.length(key_part->length);
         ErrConvString err(&tmp);
         to->append(err.ptr());
       }

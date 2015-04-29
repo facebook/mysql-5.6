@@ -1463,25 +1463,302 @@ dfield_copy_type(
 }
 
 /**********************************************************************//**
-Extracts the data from the document field BLOB using the path name and stores
-the field in InnoDB format. A NULL is set in the following cases
+The following set of functions extracts the data from the document field
+BLOB using the path name and stores the field in InnoDB format. 
 
-* Data type of input document path field and the data type of the index
-are not compatible and conversion is not possible without loosing precision.
+The following implicit conversions are supported:
+(extracted value type -> index type)
+
+	int -> bool
+	double -> bool
+	string -> bool
+
+	bool -> int
+	double -> int
+	string -> int
+
+	bool -> double
+	int -> double
+	string -> double
+
+	int -> string
+	double -> string
+
+	string/blob -> binary
+	array -> binary
+	object -> binary
+
+For other cases, conversion is not possible and a NULL will be set.
+
+A NULL value will also be set in the following cases
 
 * Document path value is not found in the input document field
-
-* Document path type is FbsonType::T_Null
+* Document path type is fbson::FbsonType::T_Null
 
 */
+UNIV_INLINE
+void
+dfield_set_document_path_data_bool(
+/*=====================*/
+	fbson::FbsonValue *pval, /*< in: extracted fbson object */
+	dfield_t*	field,	/*< in/out: extracted fbson data is stored here */
+	mem_heap_t*	heap)	/*< in: memory heap */
+{
+	ut_ad(pval);
+
+	void *buf = mem_heap_alloc(heap, 1);
+	bool is_valid = true;
+	switch (pval->type())
+	{
+	case fbson::FbsonType::T_True:
+		mach_write_to_1((unsigned char*)buf, 1);
+		break;
+	case fbson::FbsonType::T_False:
+		mach_write_to_1((unsigned char*)buf, 0);
+		break;
+	case fbson::FbsonType::T_Int8:
+		mach_write_to_1((unsigned char*)buf,
+			((fbson::Int8Val *)pval)->val() != 0);
+		break;
+	case fbson::FbsonType::T_Int16:
+		mach_write_to_1((unsigned char*)buf,
+			((fbson::Int16Val *)pval)->val() != 0);
+		break;
+	case fbson::FbsonType::T_Int32:
+		mach_write_to_1((unsigned char*)buf,
+			((fbson::Int32Val *)pval)->val() != 0);
+		break;
+	case fbson::FbsonType::T_Int64:
+		mach_write_to_1((unsigned char*)buf,
+			((fbson::Int64Val *)pval)->val() != 0);
+		break;
+	case fbson::FbsonType::T_Double:
+		mach_write_to_1((unsigned char*)buf,
+			((fbson::DoubleVal *)pval)->val() != 0);
+		break;
+	case fbson::FbsonType::T_String:
+		{
+			int8_t retval = ((fbson::StringVal *)pval)->getBoolVal();
+			if (retval < 0)
+				is_valid = false;
+			else
+				mach_write_to_1((unsigned char*)buf, retval);
+		}
+		break;
+
+	default:
+		is_valid = false;
+	}
+
+	if (is_valid)
+		dfield_set_data(field, buf, 1);
+	else
+		dfield_set_null(field);
+}
+
+UNIV_INLINE
+void
+dfield_set_document_path_data_int(
+/*=====================*/
+	fbson::FbsonValue *pval, /*< in: extracted fbson object */
+	dfield_t*	field,	/*< in/out: extracted fbson data is stored here */
+	mem_heap_t*	heap)	/*< in: memory heap */
+{
+	ut_ad(pval);
+
+	void *buf = mem_heap_alloc(heap, 8);
+	int64_t val = 0;
+	bool is_valid = true;
+	switch (pval->type())
+	{
+	case fbson::FbsonType::T_True:
+		val = 1;
+		break;
+	case fbson::FbsonType::T_False:
+		val = 0;
+		break;
+	case fbson::FbsonType::T_Int8:
+		val = ((fbson::Int8Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Int16:
+		val = ((fbson::Int16Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Int32:
+		val = ((fbson::Int32Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Int64:
+		val = ((fbson::Int64Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Double:
+		val = (int64_t)((fbson::DoubleVal *)pval)->val();
+		break;
+	case fbson::FbsonType::T_String:
+		{
+			const char* start = pval->getValuePtr();
+			char* end = (char*)start + pval->size();
+			int error;
+			val = my_strtoll10(start, &end, &error);
+			if (error == ERANGE || error == EDOM)
+				is_valid = false;
+		}
+		break;
+
+	default:
+		is_valid = false;
+	}
+
+
+	if (is_valid) {
+		mach_write_ulonglong((byte*)buf, val, 8, false);
+		dfield_set_data(field, buf, 8);
+	}
+	else
+		dfield_set_null(field);
+}
+
+UNIV_INLINE
+void
+dfield_set_document_path_data_double(
+/*=====================*/
+	fbson::FbsonValue *pval, /*< in: extracted fbson object */
+	dfield_t*	field,	/*< in/out: extracted fbson data is stored here */
+	mem_heap_t*	heap)	/*< in: memory heap */
+{
+	ut_ad(pval);
+
+	void *buf = mem_heap_alloc(heap, 8);
+	double val = 0;
+	bool is_valid = true;
+	switch (pval->type())
+	{
+	case fbson::FbsonType::T_True:
+		val = 1;
+		break;
+	case fbson::FbsonType::T_False:
+		val = 0;
+		break;
+	case fbson::FbsonType::T_Int8:
+		val = ((fbson::Int8Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Int16:
+		val = ((fbson::Int16Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Int32:
+		val = ((fbson::Int32Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Int64:
+		val = ((fbson::Int64Val *)pval)->val();
+		break;
+	case fbson::FbsonType::T_Double:
+		val = ((fbson::DoubleVal *)pval)->val();
+		break;
+	case fbson::FbsonType::T_String:
+		{
+			const char* start = pval->getValuePtr();
+			char* end = (char*)start + pval->size();
+			int error;
+			val = my_strtod(start, &end, &error);
+			if (error == EOVERFLOW)
+				is_valid = false;
+		}
+		break;
+
+	default:
+		is_valid = false;
+	}
+
+	if (is_valid) {
+		mach_double_write((byte*)buf, val);
+		dfield_set_data(field, buf, 8);
+	}
+	else
+		dfield_set_null(field);
+}
+
+UNIV_INLINE
+void
+dfield_set_document_path_data_string(
+/*=====================*/
+	fbson::FbsonValue *pval, /*< in: extracted fbson object */
+	dfield_t*	field,	/*< in/out: extracted fbson data is stored here */
+	uint prefix_len,	/*< in: string/binary prefix len */
+	mem_heap_t*	heap)	/*< in: memory heap */
+{
+	ut_ad(pval);
+
+	char* buf = NULL;
+	switch (pval->type())
+	{
+	case fbson::FbsonType::T_Int8:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		longlong2str(((fbson::Int8Val *)pval)->val(), buf, -10);
+		break;
+	case fbson::FbsonType::T_Int16:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		longlong2str(((fbson::Int16Val *)pval)->val(), buf, -10);
+		break;
+	case fbson::FbsonType::T_Int32:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		longlong2str(((fbson::Int32Val *)pval)->val(), buf, -10);
+		break;
+	case fbson::FbsonType::T_Int64:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		longlong2str(((fbson::Int64Val *)pval)->val(), buf, -10);
+		break;
+	case fbson::FbsonType::T_Double:
+		buf = (char*)mem_heap_alloc(heap, 30);
+		sprintf(buf, "%.16g", ((fbson::DoubleVal *)pval)->val());
+		break;
+	case fbson::FbsonType::T_String:
+		dfield_set_data(field, pval->getValuePtr(),
+			prefix_len < pval->size() ? prefix_len : pval->size());
+		break;
+
+	case fbson::FbsonType::T_True:
+	case fbson::FbsonType::T_False:
+	default:
+		dfield_set_null(field);
+	}
+
+	if (buf)
+		dfield_set_data(field, buf,
+			prefix_len < strlen(buf) ? prefix_len : strlen(buf));
+}
+
+UNIV_INLINE
+void
+dfield_set_document_path_data_binary(
+/*=====================*/
+	fbson::FbsonValue *pval, /*< in: extracted fbson object */
+	dfield_t*	field,	/*< in/out: extracted fbson data is stored here */
+	uint prefix_len,	/*< in: string/binary prefix len */
+	mem_heap_t*	heap)	/*< in: memory heap */
+{
+	ut_ad(pval);
+
+	/* TODO: In future we may want to handle objects and arrays differently. */
+	switch (pval->type())
+	{
+	case fbson::FbsonType::T_String:
+	case fbson::FbsonType::T_Binary:
+	case fbson::FbsonType::T_Object:
+	case fbson::FbsonType::T_Array:
+		dfield_set_data(field, pval->getValuePtr(),
+			prefix_len < pval->size() ? prefix_len : pval->size());
+		break;
+
+	default:
+		dfield_set_null(field);
+	}
+}
+
 UNIV_INLINE
 void
 dfield_set_document_path_data(
 /*=====================*/
 	const dict_field_t*	ind_field,	/*!< in: index field */
 	const dfield_t*		row_field,	/*!< in: row field */
-	dfield_t*		field,		/*< in/out: extracted fbson data
-						is stored here */
+	dfield_t*		field,		/*< in/out: extracted fbson data is stored here */
 	mem_heap_t*		heap)		/*< in: memory heap */
 {
 	/* copy document path type to field */
@@ -1497,69 +1774,27 @@ dfield_set_document_path_data(
 		(const char*)dfield_get_data(row_field), dfield_get_len(row_field));
 	fbson::FbsonValue *pval = doc->findPath(ind_field->document_path, delim);
 	if (pval) {
-		unsigned doc_type = ind_field->document_path_type;
-		if ((pval->isTrue() || pval->isFalse()) &&
-		    doc_type == MYSQL_TYPE_TINY) {
-			void* buf = mem_heap_alloc(heap, 1);
-			mach_write_to_1((unsigned char*)buf,
-					pval->isTrue() ? 1 : 0);
-			dfield_set_data(field, buf, 1);
-		} else if ((pval->isInt8() || pval->isInt16() ||
-			   pval->isInt32() || pval->isInt64())) {
-                        ib_uint64_t val = 0;
-                        if (pval->isInt8()) {
-                                val = ((fbson::Int8Val *)pval)->val();
-                        } else if (pval->isInt16()) {
-                                val = ((fbson::Int16Val *)pval)->val();
-                        } else if (pval->isInt32()) {
-                                val = ((fbson::Int32Val *)pval)->val();
-                        } else if (pval->isInt64()) {
-                                val = ((fbson::Int64Val *)pval)->val();
-                        }
-			if (doc_type == MYSQL_TYPE_LONGLONG) {
-				/* store in big-endian */
-				void* buf = mem_heap_alloc(heap, 8);
-				/* fbson integers are always signed */
-				mach_write_ulonglong((byte*)buf, val, 8, false);
-				dfield_set_data(field, buf, 8);
-			} else if (doc_type == MYSQL_TYPE_DOUBLE) {
-				void* buf = mem_heap_alloc(heap, 8);
-				mach_double_write((unsigned char*)buf, (double)val);
-				dfield_set_data(field, buf, 8);
-			} else if (doc_type == MYSQL_TYPE_STRING ||
-				   doc_type == MYSQL_TYPE_BLOB) {
-				char* buf = (char*)mem_heap_alloc(heap, 30);
-				longlong2str(val, buf, -10);
-                                dfield_set_data(field, buf,
-						ind_field->prefix_len < strlen(buf) ?
-						ind_field->prefix_len : strlen(buf));
-			}
-		} else if (pval->isDouble()) {
-			double val = ((fbson::DoubleVal *)pval)->val();
-			if (doc_type == MYSQL_TYPE_DOUBLE) {
-				void* buf = mem_heap_alloc(heap, 8);
-				mach_double_write((unsigned char*)buf, val);
-				dfield_set_data(field, buf, 8);
-			} else if (doc_type == MYSQL_TYPE_STRING ||
-				   doc_type == MYSQL_TYPE_BLOB) {
-				char* buf = (char*)mem_heap_alloc(heap, 30);
-				sprintf(buf, "%.15g", val);
-				dfield_set_data(field, buf,
-						ind_field->prefix_len < strlen(buf) ?
-						ind_field->prefix_len : strlen(buf));
-			}
-		} else if (pval->isString() && doc_type == MYSQL_TYPE_STRING) {
-			dfield_set_data(field, pval->getValuePtr(),
-					ind_field->prefix_len < pval->size() ?
-					ind_field->prefix_len : pval->size());
-		} else if ((pval->isBinary() || pval->isString() || pval->isObject()
-			   || pval->isArray()) && doc_type == MYSQL_TYPE_BLOB) {
-			/* TODO: In future we may want to handle objects and arrays differently. */
-			dfield_set_data(field, pval->getValuePtr(),
-					ind_field->prefix_len < pval->size() ?
-					ind_field->prefix_len : pval->size());
-		} else {
-			dfield_set_null(field);
+		switch (ind_field->document_path_type)
+		{
+		case MYSQL_TYPE_TINY:
+			dfield_set_document_path_data_bool(pval, field, heap);
+			break;
+		case MYSQL_TYPE_LONGLONG:
+			dfield_set_document_path_data_int(pval, field, heap);
+			break;
+		case MYSQL_TYPE_DOUBLE:
+			dfield_set_document_path_data_double(pval, field, heap);
+			break;
+		case MYSQL_TYPE_STRING:
+			dfield_set_document_path_data_string(pval, field,
+				ind_field->prefix_len, heap);
+			break;
+		case MYSQL_TYPE_BLOB:
+			dfield_set_document_path_data_binary(pval, field,
+				ind_field->prefix_len, heap);
+			break;
+		default:
+			ut_ad(0);
 		}
 	} else {
 		/* document path doesn't exist in the input document field*/
