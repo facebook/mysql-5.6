@@ -87,7 +87,6 @@ enum class FbsonErrType {
   E_OCTAL_OVERFLOW,
   E_DECIMAL_OVERFLOW,
   E_DOUBLE_OVERFLOW,
-  E_EXPONENT_OVERFLOW,
 };
 
 /*
@@ -446,8 +445,9 @@ class FbsonJsonParserT {
         in.ignore();
         ret = parseHex(in);
       } else if (in.peek() == '.') {
-        in.ignore();
-        ret = parseDouble(in, 0, 0, 1);
+        in.ignore(); // remove '.'
+        num_buf_[0] = '.';
+        ret = parseDouble(in, num_buf_ + 1);
       } else {
         ret = parseOctal(in);
       }
@@ -456,14 +456,14 @@ class FbsonJsonParserT {
     }
     case '-': {
       in.ignore();
-      ret = parseDecimal(in, -1);
+      ret = parseDecimal(in, true);
       break;
     }
     case '+':
       in.ignore();
     // fall through
     default:
-      ret = parseDecimal(in, 1);
+      ret = parseDecimal(in);
       break;
     }
 
@@ -490,7 +490,10 @@ class FbsonJsonParserT {
     }
 
     int size = 0;
-    if (num_digits <= 2) {
+    if (!num_digits) {
+      err_ = FbsonErrType::E_INVALID_HEX; // empty input
+      return false;
+    } else if (num_digits <= 2) {
       size = writer_.writeInt8((int8_t)val);
     } else if (num_digits <= 4) {
       size = writer_.writeInt16((int16_t)val);
@@ -553,39 +556,47 @@ class FbsonJsonParserT {
   }
 
   // parse a number in decimal (including float)
-  bool parseDecimal(std::istream& in, int sign) {
-    int64_t val = 0;
-    int precision = 0;
-
+  bool parseDecimal(std::istream& in, bool neg = false) {
     char ch = 0;
     while (in.good() && (ch = in.peek()) == '0')
       in.ignore();
 
+    char *pbuf = num_buf_;
+    if (neg)
+      *(pbuf++) = '-';
+
+    char *save_pos = pbuf;
     while (in.good() && !strchr(kJsonDelim, ch)) {
-      if (ch >= '0' && ch <= '9') {
-        val = val * 10 + (ch - '0');
-        ++precision;
-      } else if (ch == '.') {
-        // note we don't pop out '.'
-        return parseDouble(in, val, precision, sign);
-      } else {
+      *(pbuf++) = ch;
+      if (pbuf == end_buf_) {
+        err_ = FbsonErrType::E_DECIMAL_OVERFLOW;
+        return false;
+      }
+
+      if (ch == '.') {
+        in.ignore(); // remove '.'
+        return parseDouble(in, pbuf);
+      } else if (ch == 'E' || ch == 'e') {
+        in.ignore(); // remove 'E'
+        return parseExponent(in, pbuf);
+      } else if (ch < '0' || ch > '9') {
         err_ = FbsonErrType::E_INVALID_DECIMAL;
         return false;
       }
 
       in.ignore();
-
-      // if the number overflows int64_t, first parse it as double iff we see a
-      // decimal point later. Otherwise, will treat it as overflow
-      if (val < 0 && val > std::numeric_limits<int64_t>::min()) {
-        return parseDouble(in, (uint64_t)val, precision, sign);
-      }
-
       ch = in.peek();
     }
+    if (save_pos == pbuf) {
+      err_ = FbsonErrType::E_INVALID_DECIMAL; // empty input
+      return false;
+    }
 
-    if (sign < 0) {
-      val = -val;
+    *pbuf = 0; // set null-terminator
+    int64_t val = strtol(num_buf_, NULL, 10);
+    if (errno == ERANGE) {
+      err_ = FbsonErrType::E_DECIMAL_OVERFLOW;
+      return false;
     }
 
     int size = 0;
@@ -610,119 +621,90 @@ class FbsonJsonParserT {
     return true;
   }
 
-  // parse IEEE745 double precision:
-  // Significand precision length - 15
-  // Maximum exponent value - 308
-  //
-  // "If a decimal string with at most 15 significant digits is converted to
-  // IEEE 754 double precision representation and then converted back to a
-  // string with the same number of significant digits, then the final string
-  // should match the original"
-  bool parseDouble(std::istream& in, double val, int precision, int sign) {
-    int integ = precision;
-    int frac = 0;
-    bool is_frac = false;
-
+  // parse IEEE745 double precision
+  bool parseDouble(std::istream& in, char *pbuf) {
+    char *save_pos = pbuf;
     char ch = in.peek();
-    if (ch == '.') {
-      is_frac = true;
-      in.ignore();
-      ch = in.peek();
-    }
-
-    int exp = 0;
     while (in.good() && !strchr(kJsonDelim, ch)) {
-      if (ch >= '0' && ch <= '9') {
-        if (precision < 15) {
-          val = val * 10 + (ch - '0');
-          if (is_frac) {
-            ++frac;
-          } else {
-            ++integ;
-          }
-          ++precision;
-        } else if (!is_frac) {
-          ++exp;
-        }
-      } else if (ch == 'e' || ch == 'E') {
-        in.ignore();
-        int exp2;
-        if (!parseExponent(in, exp2)) {
-          return false;
-        }
+      *(pbuf++) = ch;
+      if (pbuf == end_buf_) {
+        err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
+        return false;
+      }
 
-        exp += exp2;
-        // check if exponent overflows
-        if (exp > 308 || exp < -308) {
-          err_ = FbsonErrType::E_EXPONENT_OVERFLOW;
-          return false;
-        }
-
-        is_frac = true;
-        break;
+      if (ch == 'e' || ch == 'E') {
+        in.ignore(); // remove 'E'
+        return parseExponent(in, pbuf);
+      }
+      else if (ch < '0' || ch > '9') {
+        err_ = FbsonErrType::E_INVALID_DECIMAL;
+        return false;
       }
 
       in.ignore();
       ch = in.peek();
     }
-
-    if (!is_frac) {
-      err_ = FbsonErrType::E_DECIMAL_OVERFLOW;
+    if (save_pos == pbuf) {
+      err_ = FbsonErrType::E_INVALID_DECIMAL; // empty input
       return false;
     }
 
-    val *= std::pow(10, exp - frac);
-    if (std::isnan(val) || std::isinf(val)) {
+    *pbuf = 0; // set null-terminator
+    return internConvertBufferToDouble();
+  }
+
+  // parse the exponent part of a double number
+  bool parseExponent(std::istream& in, char *pbuf) {
+    char ch = in.peek();
+    if (in.good()) {
+      if (ch == '+' || ch == '-') {
+        *(pbuf++) = ch;
+        if (pbuf == end_buf_) {
+          err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
+          return false;
+        }
+        in.ignore();
+        ch = in.peek();
+      }
+    }
+
+    char *save_pos = pbuf;
+    while (in.good() && !strchr(kJsonDelim, ch)) {
+      *(pbuf++) = ch;
+      if (pbuf == end_buf_) {
+        err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
+        return false;
+      }
+
+      if (ch < '0' || ch > '9') {
+        err_ = FbsonErrType::E_INVALID_EXPONENT;
+        return false;
+      }
+
+      in.ignore();
+      ch = in.peek();
+    }
+    if (save_pos == pbuf) {
+      err_ = FbsonErrType::E_INVALID_EXPONENT; // empty input
+      return false;
+    }
+
+    *pbuf = 0; // set null-terminator
+    return internConvertBufferToDouble();
+  }
+
+  // call system function to parse double to string
+  bool internConvertBufferToDouble() {
+    double val = strtod(num_buf_, NULL);
+
+    if (errno == ERANGE) {
       err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
       return false;
-    }
-
-    if (sign < 0) {
-      val = -val;
     }
 
     if (writer_.writeDouble(val) == 0) {
       err_ = FbsonErrType::E_OUTPUT_FAIL;
       return false;
-    }
-
-    return true;
-  }
-
-  // parse the exponent part of a double number
-  bool parseExponent(std::istream& in, int& exp) {
-    bool neg = false;
-
-    char ch = in.peek();
-    if (ch == '+') {
-      in.ignore();
-      ch = in.peek();
-    } else if (ch == '-') {
-      neg = true;
-      in.ignore();
-      ch = in.peek();
-    }
-
-    exp = 0;
-    while (in.good() && !strchr(kJsonDelim, ch)) {
-      if (ch >= '0' && ch <= '9') {
-        exp = exp * 10 + (ch - '0');
-      } else {
-        err_ = FbsonErrType::E_INVALID_EXPONENT;
-        return false;
-      }
-
-      if (exp > 308) {
-        err_ = FbsonErrType::E_EXPONENT_OVERFLOW;
-        return false;
-      }
-
-      in.ignore();
-      ch = in.peek();
-    }
-
-    if (neg) {
-      exp = -exp;
     }
 
     return true;
@@ -737,6 +719,8 @@ class FbsonJsonParserT {
  private:
   FbsonWriterT<OS_TYPE> writer_;
   FbsonErrType err_;
+  char num_buf_[512]; // buffer to hold number string
+  const char *end_buf_ = num_buf_ + sizeof(num_buf_) - 1;
 };
 
 typedef FbsonJsonParserT<FbsonOutStream> FbsonJsonParser;
