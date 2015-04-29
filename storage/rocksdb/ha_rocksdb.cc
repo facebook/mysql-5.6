@@ -4535,13 +4535,13 @@ void* drop_index_thread(void*)
     ts.tv_sec += dropped_indices_manager.empty()
       ? 24*60*60 // no filtering
       : 60; // filtering
-    uint32 ret = mysql_cond_timedwait(&drop_index_interrupt_cond,
-                                      &drop_index_interrupt_mutex, &ts);
-
+    auto ret = mysql_cond_timedwait(&drop_index_interrupt_cond,
+                                    &drop_index_interrupt_mutex, &ts);
     if (stop_drop_index_thread) {
-      assert(ret == 0);
       break;
     }
+    // make sure, no program error is returned
+    assert(ret == 0 || ret == ETIMEDOUT);
 
     Dropped_Index_Map indices = dropped_indices_manager.get_indices();
     if (!indices.empty()) {
@@ -5274,12 +5274,13 @@ void* background_thread(void*)
     timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     ts.tv_sec++;
-    // wait for 1 second
+    // wait for 1 second or until we received a condition to stop the thread
     auto ret = mysql_cond_timedwait(&stop_cond, &stop_cond_mutex, &ts);
-    if (ret != ETIMEDOUT && stop_background_thread) {
-      assert(ret == 0);
+    if (stop_background_thread) {
       break;
     }
+    // make sure, no program error is returned
+    assert(ret == 0 || ret == ETIMEDOUT);
 
     if (rdb && rocksdb_background_sync) {
       auto wo = rocksdb::WriteOptions();
