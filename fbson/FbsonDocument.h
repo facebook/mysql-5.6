@@ -501,6 +501,28 @@ class StringVal : public BlobVal {
     return internalSetVal(str, blobSize);
   }
 
+  // convert the string (case insensitive) to a boolean value
+  // "false": 0
+  // "true": 1
+  // all other strings: -1
+  int getBoolVal() {
+    if (size_ == 4 &&
+        tolower(payload_[0]) == 't' &&
+        tolower(payload_[1]) == 'r' &&
+        tolower(payload_[2]) == 'u' &&
+        tolower(payload_[3]) == 'e')
+      return 1;
+    else if (size_ == 5 &&
+        tolower(payload_[0]) == 'f' &&
+        tolower(payload_[1]) == 'a' &&
+        tolower(payload_[2]) == 'l' &&
+        tolower(payload_[3]) == 's' &&
+        tolower(payload_[4]) == 'e')
+      return 0;
+    else
+      return -1;
+  }
+
  private:
   StringVal();
 };
