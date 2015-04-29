@@ -58,10 +58,14 @@ insert into t1 values (2,20,'@2','{ "id":102, "name":"Bob", "phone":6507770002, 
 insert into t1 values (3,30,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333, "a.b.c.":3 }');
 insert into t1 values (4,40,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
 insert into t1 values (5,50,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
-insert into t1 values (6,60,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":98765 } }');
+ERROR 23000: Duplicate entry '@5-98765' for key 'c_doc'
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":"98765" } }');
+ERROR 23000: Duplicate entry '@5-98765' for key 'c_doc'
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":98765.0 } }');
 ERROR 23000: Duplicate entry '@5-98765' for key 'c_doc'
 update t1 set doc='{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
-insert into t1 values (6,60,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":98766 } }');
 ERROR 23000: Duplicate entry '@5-98766' for key 'c_doc'
 delete from t1 where a = 5;
 SHOW INDEXES IN t1;
@@ -106,7 +110,7 @@ doc document not null,
 primary key (a),
 key (doc.id as int),
 UNIQUE key doc_double (doc.double as double),
-key doc_bool (doc.bool as bool),
+UNIQUE key doc_bool (doc.bool as bool),
 UNIQUE key doc_name (doc.name as string(64)),
 key doc_name_100 (doc.name as string(100)),
 UNIQUE key doc_address (doc.address as binary(64)),
@@ -122,10 +126,10 @@ t2	CREATE TABLE `t2` (
   `doc` document NOT NULL,
   PRIMARY KEY (`a`),
   UNIQUE KEY `doc_double` (`doc`.`double` AS DOUBLE),
+  UNIQUE KEY `doc_bool` (`doc`.`bool` AS BOOL),
   UNIQUE KEY `doc_name` (`doc`.`name` AS STRING(64)),
   UNIQUE KEY `doc_address` (`doc`.`address` AS BINARY(64)),
   KEY `doc` (`doc`.`id` AS INT),
-  KEY `doc_bool` (`doc`.`bool` AS BOOL),
   KEY `doc_name_100` (`doc`.`name` AS STRING(100)),
   KEY `doc_2` (`doc`.`address` AS BINARY(100))
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1
@@ -133,10 +137,10 @@ SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
+t2	0	doc_bool	1	doc	A	-	1	NULL		BTREE		
 t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
 t2	0	doc_address	1	doc	A	-	64	NULL		BTREE		
 t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_bool	1	doc	A	-	1	NULL		BTREE		
 t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
 t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
 insert into t2 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 }, "bool":"True" }');
@@ -144,14 +148,21 @@ insert into t2 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "ad
 insert into t2 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333 }');
 insert into t2 values (4,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"] }');
 insert into t2 values (5,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
-insert into t2 values (6,'@6','{ "id":106, "name":"Charlie_106", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "double":3.333333 }');
+insert into t2 values (6,'@6','{ "double":3.333333 }');
 ERROR 23000: Duplicate entry '3.333333' for key 'doc_double'
-insert into t2 values (6,'@6','{ "id":106, "name":"Eddard", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+insert into t2 values (6,'@6','{ "double":"3.333333" }');
+ERROR 23000: Duplicate entry '3.333333' for key 'doc_double'
+insert into t2 values (6,'@6','{ "double":"1.2345678901234567456" }');
+insert into t2 values (7,'@7','{ "double":"1.234567890123456" }');
+insert into t2 values (8,'@8','{ "double":"1.2345678901234567123" }');
+ERROR 23000: Duplicate entry '1.2345678901234567123' for key 'doc_double'
+delete from t2 where a = 6 or a = 7;
+insert into t2 values (6,'@6','{ "name":"Eddard" }');
 ERROR 23000: Duplicate entry 'Eddard' for key 'doc_name'
-insert into t2 values (6,'@6','{ "id":106, "name":"Ned", "phone":6507770006, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 } }');
 ERROR 23000: Duplicate entry '{"houseNumber":1005,"streetName":"5th","zipcode":98765}' for key 'doc_address'
 update t2 set doc='{ "id":105, "name":"Ned", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
-insert into t2 values (6,'@6','{ "id":106, "name":"Ned Stark", "phone":6507770006, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 } }');
 ERROR 23000: Duplicate entry '{"houseNumber":1005,"streetName":"Winterfell","zipcode":98766}' for key 'doc_address'
 insert into t2 values(7,'@7','{ "double" : 123}');
 insert into t2 values(8, '@8','{ "double" : 123.0}');
@@ -162,15 +173,36 @@ ERROR 23000: Duplicate entry '123' for key 'doc_name'
 insert into t2 values(9,'@9','{ "name" : 123.1231131232}');
 insert into t2 values(10, '@10','{ "name" : "123.1231131232"}');
 ERROR 23000: Duplicate entry '123.1231131232' for key 'doc_name'
+insert into t2 values (10,'@10','{ "name":1.234567890123456 }');
+insert into t2 values (11,'@11','{ "name":1.234567890123455 }');
+insert into t2 values (12,'@12','{ "name":1.234567890123456123 }');
+ERROR 23000: Duplicate entry '1.23456789012346' for key 'doc_name'
+insert into t2 values (12,'@12','{ "name":1.234567890123456999 }');
+delete from t2 where a = 10 or a = 11 or a = 12;
+insert into t2 values(10,'@10','{ "bool" : true}');
+ERROR 23000: Duplicate entry 'true' for key 'doc_bool'
+insert into t2 values(10,'@10','{ "bool" : 1}');
+ERROR 23000: Duplicate entry '1' for key 'doc_bool'
+insert into t2 values(10,'@10','{ "bool" : 1.0}');
+ERROR 23000: Duplicate entry '1' for key 'doc_bool'
+insert into t2 values(10,'@10','{ "bool" : 123}');
+ERROR 23000: Duplicate entry '123' for key 'doc_bool'
+insert into t2 values(10,'@10','{ "bool" : 123.4}');
+ERROR 23000: Duplicate entry '123.4' for key 'doc_bool'
+insert into t2 values(10,'@10','{ "bool" : false}');
+insert into t2 values(10,'@10','{ "bool" : "false"}');
+ERROR 23000: Duplicate entry '10' for key 'PRIMARY'
+insert into t2 values(10,'@10','{ "bool" : 0}');
+ERROR 23000: Duplicate entry '10' for key 'PRIMARY'
 delete from t2 where a = 5;
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
+t2	0	doc_bool	1	doc	A	-	1	NULL		BTREE		
 t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
 t2	0	doc_address	1	doc	A	-	64	NULL		BTREE		
 t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_bool	1	doc	A	-	1	NULL		BTREE		
 t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
 t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
 ALTER TABLE t2 DROP KEY doc_bool;
@@ -234,7 +266,7 @@ a	b	c	doc
 3	30	@3	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763},"double":3.333333,"a.b.c.":3}
 4	40	@4	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764},"Children":["Alex","Bob","Charlei"],"a.b.c.":4}
 ALTER TABLE t3 ADD UNIQUE INDEX c_doc (c, doc.address.zipcode as int);
-insert into t3 values (5,50,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
+insert into t3 values (5,50,'@4','{ "address":{ "zipcode":98764 } }');
 ERROR 23000: Duplicate entry '@4-98764' for key 'c_doc'
 SHOW INDEXES IN t3;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
