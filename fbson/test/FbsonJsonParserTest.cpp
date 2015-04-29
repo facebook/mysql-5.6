@@ -122,7 +122,7 @@ TEST(FBSON_PARSER, number_decimal) {
   std::string str(
       "{\"k8\":123,\"k16\":-12345,\"k32\":1234567,\
         \"k64\":-1234567890123456789,\"kdbl1\":123.4567,\
-        \"kdbl2\":1.234E308,\"kdbl3\":1.234e-308,\
+        \"kdbl2\":1.234E308,\"kdbl3\":1.234e-307,\
         \"kdbl4\":1.234567890123456789}");
 
   // calling parse method 3
@@ -192,9 +192,9 @@ TEST(FBSON_PARSER, number_decimal) {
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
-  EXPECT_NEAR(1.234e-308, ((fbson::DoubleVal*)pval)->val(), 0.0001e-308);
+  EXPECT_DOUBLE_EQ(1.234e-307, ((fbson::DoubleVal*)pval)->val());
   EXPECT_EQ(8, pval->size());
-  EXPECT_NEAR(1.234e-308, *(double*)(pval->getValuePtr()), 0.0001e-308);
+  EXPECT_DOUBLE_EQ(1.234e-307, *(double*)(pval->getValuePtr()));
 
   // double value case 4
   pval = doc->find("kdbl4");
@@ -202,11 +202,61 @@ TEST(FBSON_PARSER, number_decimal) {
   EXPECT_TRUE(pval->isDouble());
   EXPECT_EQ(9, pval->numPackedBytes());
   // this double value will be saved with 15 significant digits
-  EXPECT_NEAR(1.23456789012345, ((fbson::DoubleVal*)pval)->val(), 0.0001e-308);
+  EXPECT_DOUBLE_EQ(1.2345678901234567, ((fbson::DoubleVal*)pval)->val());
   EXPECT_EQ(8, pval->size());
-  EXPECT_NEAR(1.23456789012345, *(double*)(pval->getValuePtr()), 0.0001e-308);
+  EXPECT_DOUBLE_EQ(1.2345678901234567, *(double*)(pval->getValuePtr()));
 
   // negative test cases
+
+  // invalid number
+  str.assign("{\"k1\":}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_DECIMAL, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":-}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_DECIMAL, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":+}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_DECIMAL, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":.}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_DECIMAL, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":123.}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_DECIMAL, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":123.56E}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_EXPONENT, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":123.56E-}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_EXPONENT, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":123.56E+}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_EXPONENT, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":123.56E+123.}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_EXPONENT, parser.getErrorCode());
+
+  // invalid number
+  str.assign("{\"k1\":123.56E+123.45}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_EXPONENT, parser.getErrorCode());
 
   // invalid number
   str.assign("{\"k1\":12r45}");
@@ -234,11 +284,11 @@ TEST(FBSON_PARSER, number_decimal) {
   // exponent overflow
   str.assign("{\"k1\":1.2e309}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_EXPONENT_OVERFLOW, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_DOUBLE_OVERFLOW, parser.getErrorCode());
 
   str.assign("{\"k1\":1.2e-309}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_EXPONENT_OVERFLOW, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_DOUBLE_OVERFLOW, parser.getErrorCode());
 
   // invalid exponent
   str.assign("{\"k1\":1.2e1a}");
@@ -326,6 +376,16 @@ TEST(FBSON_PARSER, number_hex) {
 
   // invalid hex
   str.assign("{\"k1\":0xABCH}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_HEX, parser.getErrorCode());
+
+  // invalid hex
+  str.assign("{\"k1\":0x}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_HEX, parser.getErrorCode());
+
+  // invalid hex
+  str.assign("{\"k1\":0x.}");
   EXPECT_FALSE(parser.parse(str.c_str()));
   EXPECT_EQ(fbson::FbsonErrType::E_INVALID_HEX, parser.getErrorCode());
 
@@ -888,7 +948,7 @@ TEST(FBSON_PARSER, Fbson_to_Json) {
   json = tojson.json(pval);
   EXPECT_TRUE(json);
   // should cap at 15 significant digits
-  EXPECT_STREQ(json, "-1.23456789012345e+123");
+  EXPECT_STREQ(json, "-1.23456789012346e+123");
 }
 
 int main(int argc, char** argv) {
