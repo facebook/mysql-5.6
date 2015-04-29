@@ -73,12 +73,18 @@ insert into t1 values (5,50,'@5','{ "id":105, "name":"Eddard", "phone":650777000
 
 # Duplicate entry for c_doc.address.zipcode
 --error ER_DUP_ENTRY
-insert into t1 values (6,60,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":98765 } }');
+# Duplicate c_doc.address.zipcode due to string conversion
+--error ER_DUP_ENTRY
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":"98765" } }');
+# Duplicate c_doc.address.zipcode due to double conversion
+--error ER_DUP_ENTRY
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":98765.0 } }');
 
 update t1 set doc='{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
 # Duplicate entry for c_doc.address.zipcode becuase of the previous update
 --error ER_DUP_ENTRY
-insert into t1 values (6,60,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }');
+insert into t1 values (6,60,'@5','{ "address":{ "zipcode":98766 } }');
 delete from t1 where a = 5;
 
 --replace_column 7 -
@@ -114,7 +120,7 @@ CREATE TABLE t2 (
        primary key (a),
        key (doc.id as int),
        UNIQUE key doc_double (doc.double as double),
-       key doc_bool (doc.bool as bool),
+       UNIQUE key doc_bool (doc.bool as bool),
        UNIQUE key doc_name (doc.name as string(64)),
        key doc_name_100 (doc.name as string(100)),
        UNIQUE key doc_address (doc.address as binary(64)),
@@ -133,20 +139,32 @@ insert into t2 values (5,'@5','{ "id":105, "name":"Eddard", "phone":6507770005, 
 
 # Duplicate entry for doc.double
 --error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "id":106, "name":"Charlie_106", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "double":3.333333 }');
+insert into t2 values (6,'@6','{ "double":3.333333 }');
+# implicit string to double conversion
+--error ER_DUP_ENTRY
+insert into t2 values (6,'@6','{ "double":"3.333333" }');
+# string will be truncated due to max precision
+insert into t2 values (6,'@6','{ "double":"1.2345678901234567456" }');
+# the conversion is within max precision
+insert into t2 values (7,'@7','{ "double":"1.234567890123456" }');
+--error ER_DUP_ENTRY
+# now this will cause duplicate index insertion due to truncation
+# although the strings values are different
+insert into t2 values (8,'@8','{ "double":"1.2345678901234567123" }');
+delete from t2 where a = 6 or a = 7;
 
 # Duplicate entry for doc.name
 --error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "id":106, "name":"Eddard", "phone":6507770006, "address":{ "houseNumber":1006, "streetName":"6th", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+insert into t2 values (6,'@6','{ "name":"Eddard" }');
 
 # Duplicate entry for doc.address
 --error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "id":106, "name":"Ned", "phone":6507770006, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 } }');
 
 update t2 set doc='{ "id":105, "name":"Ned", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
 # Duplicate entry for doc.address because of previous update
 --error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "id":106, "name":"Ned Stark", "phone":6507770006, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":6 }');
+insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 } }');
 
 # int value for a double type index
 insert into t2 values(7,'@7','{ "double" : 123}');
@@ -162,6 +180,34 @@ insert into t2 values(9, '@9','{ "name" : "123"}');
 insert into t2 values(9,'@9','{ "name" : 123.1231131232}');
 --error ER_DUP_ENTRY
 insert into t2 values(10, '@10','{ "name" : "123.1231131232"}');
+
+# doubles are converted into a string with 16 significant digits
+insert into t2 values (10,'@10','{ "name":1.234567890123456 }');
+insert into t2 values (11,'@11','{ "name":1.234567890123455 }');
+--error ER_DUP_ENTRY
+# double will be truncated when converting to string
+insert into t2 values (12,'@12','{ "name":1.234567890123456123 }');
+# Another case of trunction (carry over), so this is a success.
+insert into t2 values (12,'@12','{ "name":1.234567890123456999 }');
+delete from t2 where a = 10 or a = 11 or a = 12;
+
+# Duplicate entry for doc_bool
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : true}');
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : 1}');
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : 1.0}');
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : 123}');
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : 123.4}');
+
+insert into t2 values(10,'@10','{ "bool" : false}');
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : "false"}');
+--error ER_DUP_ENTRY
+insert into t2 values(10,'@10','{ "bool" : 0}');
 
 delete from t2 where a = 5;
 
@@ -215,7 +261,7 @@ ALTER TABLE t3 ADD UNIQUE INDEX c_doc (c, doc.address.zipcode as int);
 
 # Duplicate entry for c_doc.address.zipcode
 --error ER_DUP_ENTRY
-insert into t3 values (5,50,'@4','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "Children":["Alex", "Bob", "Charlei"], "a.b.c.":4 }');
+insert into t3 values (5,50,'@4','{ "address":{ "zipcode":98764 } }');
 
 --replace_column 7 -
 SHOW INDEXES IN t3;
