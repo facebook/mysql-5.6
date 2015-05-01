@@ -839,6 +839,7 @@ rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
 rocksdb_db_write_buffer_size	0
 rocksdb_debug_optimizer_n_rows	1000
+rocksdb_debug_optimizer_no_zero_cardinality	ON
 rocksdb_debug_optimizer_records_in_range	10
 rocksdb_default_cf_options	
 rocksdb_delete_obsolete_files_period_micros	21600000000
@@ -865,6 +866,7 @@ rocksdb_no_block_cache	OFF
 rocksdb_paranoid_checks	ON
 rocksdb_perf_context_level	1
 rocksdb_rate_limiter_bytes_per_sec	0
+rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_stats_dump_period_sec	3600
@@ -1389,6 +1391,7 @@ rocksdb_number_multiget_bytes_read	#
 rocksdb_number_multiget_get	#
 rocksdb_number_multiget_keys_read	#
 rocksdb_number_reseeks_iteration	#
+rocksdb_number_stat_computes	#
 rocksdb_number_superversion_acquires	#
 rocksdb_number_superversion_cleanups	#
 rocksdb_number_superversion_releases	#
@@ -1444,6 +1447,7 @@ ROCKSDB_NUMBER_MULTIGET_BYTES_READ
 ROCKSDB_NUMBER_MULTIGET_GET
 ROCKSDB_NUMBER_MULTIGET_KEYS_READ
 ROCKSDB_NUMBER_RESEEKS_ITERATION
+ROCKSDB_NUMBER_STAT_COMPUTES
 ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
 ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
 ROCKSDB_NUMBER_SUPERVERSION_RELEASES
@@ -1501,6 +1505,7 @@ ROCKSDB_NUMBER_MULTIGET_BYTES_READ
 ROCKSDB_NUMBER_MULTIGET_GET
 ROCKSDB_NUMBER_MULTIGET_KEYS_READ
 ROCKSDB_NUMBER_RESEEKS_ITERATION
+ROCKSDB_NUMBER_STAT_COMPUTES
 ROCKSDB_NUMBER_SUPERVERSION_ACQUIRES
 ROCKSDB_NUMBER_SUPERVERSION_CLEANUPS
 ROCKSDB_NUMBER_SUPERVERSION_RELEASES
