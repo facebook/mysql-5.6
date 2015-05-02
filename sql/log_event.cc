@@ -3200,16 +3200,29 @@ int Log_event::apply_event(Relay_log_info *rli)
      Check if the current event changes any databases. Last gtid executed per
      database are stored in slave_gtid_info table for crash safe slave.
   */
-  Mts_db_names mts_dbs;
-  // OVER_MAX_DBS_IN_EVENT_MTS is used for special queries like 'flush tables'
-  // which don't need to be crash safe.
   if ((rli->part_event = contains_partition_info(false)) && gtid_mode > 0 &&
-      get_mts_dbs(&mts_dbs) != OVER_MAX_DBS_IN_EVENT_MTS &&
       rli != thd->rli_fake)
   {
+    Mts_db_names mts_dbs;
+    // OVER_MAX_DBS_IN_EVENT_MTS is used for special queries like 'flush tables'
+    // and also used to mark queries involving FK-dependencies.
+    // This is used to schedule sequential execution in MTS.
+    // In these cases, we simply use get_db() to fetch database information
+    if (get_mts_dbs(&mts_dbs) == OVER_MAX_DBS_IN_EVENT_MTS)
+    {
+      mts_dbs.num = 1;
+      // Note for Query_log_event, this is the default database which may be
+      // different than the databases this query is operating upon. This is
+      // fine since this event will be scheduled for sequential execution and
+      // the contents of slave_gtid_info table will be consistent.
+      mts_dbs.name[0] = get_db();
+    }
+
     for (int i = 0; i < mts_dbs.num; ++i)
     {
       const char *db_name = mts_dbs.name[i];
+      if (!strcmp(db_name, ""))
+        continue;
       Gtid_info *gtid_info = NULL;
       rli->gtid_info_hash_rdlock();
       gtid_info = (Gtid_info *)my_hash_search(&rli->map_db_to_gtid_info,

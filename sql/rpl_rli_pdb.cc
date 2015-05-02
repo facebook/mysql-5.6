@@ -2347,17 +2347,22 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
   worker->set_master_log_pos(ev->log_pos);
   worker->set_gaq_index(ev->mts_group_idx);
 
-  if (gtid_mode > 0 && ev->contains_partition_info(false) &&
-      ev->mts_number_dbs() != OVER_MAX_DBS_IN_EVENT_MTS)
+  if (gtid_mode > 0 && ev->contains_partition_info(false))
   {
-    for (uint i = 0; i < worker->curr_group_exec_parts.elements; i++)
+    Mts_db_names mts_dbs;
+    // Comments on handling of OVER_MAX_DBS_IN_EVENT_MTS is in
+    // Log_event::apply_event
+    if (ev->mts_dbs(&mts_dbs) == OVER_MAX_DBS_IN_EVENT_MTS)
+    {
+      mts_dbs.num = 1;
+      mts_dbs.name[0] = ev->get_db();
+    }
+    for (int i = 0; i < mts_dbs.num; ++i)
     {
       Gtid_info *gtid_info = NULL;
-      db_worker_hash_entry *assigned_partition = NULL;
-      get_dynamic(&worker->curr_group_exec_parts,
-                  (uchar *) &assigned_partition, i);
-      DBUG_ASSERT(assigned_partition);
-      const char *db_name = assigned_partition->db;
+      const char *db_name = mts_dbs.name[i];
+      if (!strcmp(db_name, ""))
+        continue;
       worker->c_rli->gtid_info_hash_rdlock();
       gtid_info = (Gtid_info *)my_hash_search(&rli->map_db_to_gtid_info,
                                               (uchar*) db_name,

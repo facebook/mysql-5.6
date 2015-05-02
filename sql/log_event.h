@@ -1719,6 +1719,10 @@ public:
     // This ensures log_pos is calculated relative to slave's binlog.
     log_pos = 0;
   }
+  uint8 mts_dbs(Mts_db_names *arg)
+  {
+    return get_mts_dbs(arg);
+  }
 #endif
 };
 
