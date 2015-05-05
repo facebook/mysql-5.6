@@ -175,7 +175,6 @@ rocksdb_force_flush_memtable_now(THD* thd,
     rdb->Flush(rocksdb::FlushOptions());
 }
 
-#ifndef DBUG_OFF
 static void
 rocksdb_drop_index_wakeup_thread(THD* thd,
                                  struct st_mysql_sys_var* var,
@@ -186,7 +185,6 @@ rocksdb_drop_index_wakeup_thread(THD* thd,
     signal_drop_index_thread();
   }
 }
-#endif
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -203,9 +201,7 @@ static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
 static char * compact_cf_name;
-#ifndef DBUG_OFF
 static my_bool rocksdb_signal_drop_index_thread;
-#endif
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static uint64_t rocksdb_number_stat_computes = 0;
@@ -608,13 +604,11 @@ static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   "Compact column family",
   NULL, rocksdb_compact_column_family, "");
 
-#ifndef DBUG_OFF
 static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
   rocksdb_signal_drop_index_thread,
   PLUGIN_VAR_RQCMDARG,
   "Wake up drop index thread",
   NULL, rocksdb_drop_index_wakeup_thread, FALSE);
-#endif
 
 static MYSQL_SYSVAR_BOOL(collect_sst_properties,
   rocksdb_collect_sst_properties,
@@ -705,9 +699,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
   MYSQL_SYSVAR(compact_cf),
-#ifndef DBUG_OFF
   MYSQL_SYSVAR(signal_drop_index_thread),
-#endif
   MYSQL_SYSVAR(collect_sst_properties),
   MYSQL_SYSVAR(force_flush_memtable_now),
   MYSQL_SYSVAR(seconds_between_stat_computes),
