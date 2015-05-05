@@ -1,3 +1,10 @@
+# Arcanist cache
+/arcanist/.phutil_module_cache
+
+# Internal Facebook build puts generate files in directories like:
+/_build-5.6*
+
+# Ignores for files resulting from building in place:
 *-t
 *.a
 *.so
@@ -13,8 +20,6 @@ Makefile
 TAGS
 VERSION.dep
 cmake_install.cmake
-/arcanist/.phutil_module_cache
-/_build-5.6*
 client/mysql
 client/mysql_config_editor
 client/mysql_plugin
