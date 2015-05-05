@@ -17,5 +17,5 @@ SET DEBUG_SYNC='now WAIT_FOR opened';
 set global super_read_only=1;
 SET DEBUG_SYNC='now signal done';
 set global read_only=0;
-set global super_read_only=0;
+flush table t1;
 drop table t1;
