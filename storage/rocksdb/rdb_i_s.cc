@@ -104,7 +104,7 @@ static ST_FIELD_INFO i_s_rocksdb_cfstats_fields_info[]=
 {
   ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
@@ -182,7 +182,7 @@ static int i_s_rocksdb_dbstats_fill_table(THD *thd,
 static ST_FIELD_INFO i_s_rocksdb_dbstats_fields_info[]=
 {
   ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
@@ -266,7 +266,7 @@ static ST_FIELD_INFO i_s_rocksdb_perf_context_fields_info[]=
   ROCKSDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
                      MY_I_S_MAYBE_NULL),
   ROCKSDB_FIELD_INFO("STAT_TYPE", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONG,
+  ROCKSDB_FIELD_INFO("VALUE", sizeof(uint64_t), MYSQL_TYPE_LONGLONG,
                      0),
   ROCKSDB_FIELD_INFO_END
 };
@@ -275,7 +275,7 @@ static int i_s_rocksdb_perf_context_init(void *p)
 {
   ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_dbstats_init");
+  DBUG_ENTER("i_s_rocksdb_perf_context_init");
 
   schema= (ST_SCHEMA_TABLE*) p;
 
