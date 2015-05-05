@@ -1523,7 +1523,7 @@ static int rocksdb_init_func(void *p)
   rocksdb_stats= rocksdb::CreateDBStatistics();
   db_options.statistics = rocksdb_stats;
 
-  std::string rocksdb_db_name=  "./rocksdb";
+  std::string rocksdb_db_name=  "./.rocksdb";
 
   std::vector<std::string> cf_names;
 
