@@ -1,0 +1,122 @@
+CREATE TABLE test_row_rec
+(a INT, b INT, c INT, primary key (a), key (b))
+ENGINE=INNODB;
+flush status;
+insert into test_row_rec values (10,10,10),(20,20,20),(30,30,30),(40,40,40),(50,50,50);
+# Establish connection conn1
+# Establish connection conn1 (user = root)
+begin;
+select * from test_row_rec;
+a	b	c
+10	10	10
+20	20	20
+30	30	30
+40	40	40
+50	50	50
+update test_row_rec set c = c+1 where a=30;
+update test_row_rec set c = c+1 where a=40;
+update test_row_rec set c = c+1 where a=30;
+update test_row_rec set c = c+1 where a=40;
+# do some tests on retrieving row from PK
+select * from test_row_rec where a = 10;
+a	b	c
+10	10	10
+# status should show 0 for both counters
+innodb_row_recreations
+0
+innodb_row_recreation_steps
+0
+select * from test_row_rec where a = 30;
+a	b	c
+30	30	30
+# status should show 1 row recreation and 2 steps
+innodb_row_recreations
+1
+innodb_row_recreation_steps
+2
+select * from test_row_rec where a >= 30;
+a	b	c
+30	30	30
+40	40	40
+50	50	50
+# status should show 3 row recreations and 6 steps (for two row)
+innodb_row_recreations
+3
+innodb_row_recreation_steps
+6
+select * from test_row_rec where a >= 30 order by a desc;
+a	b	c
+50	50	50
+40	40	40
+30	30	30
+# status should show 5 row recreations and 10 steps (for two row)
+innodb_row_recreations
+5
+innodb_row_recreation_steps
+10
+select * from test_row_rec where a > 25 and a < 29;
+a	b	c
+# status should still have 6 row recreation and 12 steps for examining a row
+innodb_row_recreations
+6
+innodb_row_recreation_steps
+12
+# do some tests on retrieving row by SK
+select * from test_row_rec force index (b) where b = 10;
+a	b	c
+10	10	10
+# status should still have 6 row recreation and 12 steps
+innodb_row_recreations
+6
+innodb_row_recreation_steps
+12
+select * from test_row_rec force index (b) where b = 30;
+a	b	c
+30	30	30
+# status should still have 7 row recreation and 14 steps for examining a row
+innodb_row_recreations
+7
+innodb_row_recreation_steps
+14
+select * from test_row_rec force index (b) where b >= 30;
+a	b	c
+30	30	30
+40	40	40
+50	50	50
+# status should show 9 row recreations and 18 steps (for two row)
+innodb_row_recreations
+9
+innodb_row_recreation_steps
+18
+select * from test_row_rec force index (b) where b >= 30 order by b desc;
+a	b	c
+50	50	50
+40	40	40
+30	30	30
+# status should show 11 row recreations and 22 steps (for two row)
+innodb_row_recreations
+11
+innodb_row_recreation_steps
+22
+select * from test_row_rec where b > 25 and b < 29;
+a	b	c
+# status should not increase, because the secondary index will tell us no
+# such row exist. Row recreations only happen when quering the pk.
+innodb_row_recreations
+11
+innodb_row_recreation_steps
+22
+# verify that the statistics are working on a global
+# basis, by printing stats from conn1 and conn2. Verify
+# that these stats are the same
+#connection 1
+innodb_row_recreations
+11
+innodb_row_recreation_steps
+22
+#connection 2
+innodb_row_recreations
+11
+innodb_row_recreation_steps
+22
+DROP TABLE test_row_rec;
