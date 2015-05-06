@@ -45,15 +45,19 @@ delete from t4 where id <= 9900;
 delete from t5 where id <= 9900;
 delete from t6 where id <= 9900;
 
---let $size_cmd = du -ks $datadir/rocksdb/*.sst | awk '{t=t+\$1} END{print t}' >> $MYSQL_TMP_DIR/sst_size.dat
+--let $size_cmd = du -ks $datadir/.rocksdb/*.sst | awk '{t=t+\$1} END{print t}' >> $MYSQL_TMP_DIR/sst_size.dat
 --exec $size_cmd
 optimize table t1;
+--sleep 5
 --exec $size_cmd
 optimize table t3;
+--sleep 5
 --exec $size_cmd
 optimize table t4;
+--sleep 5
 --exec $size_cmd
 optimize table t6;
+--sleep 5
 --exec $size_cmd
 
 select count(*) from t1;
