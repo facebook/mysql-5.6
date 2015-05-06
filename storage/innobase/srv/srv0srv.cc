@@ -1641,6 +1641,9 @@ void srv_export_innodb_status(void) {
 
   export_vars.innodb_row_lock_time_max = lock_sys->n_lock_max_wait_time / 1000;
 
+  export_vars.innodb_row_recreations = srv_stats.row_recreations;
+  export_vars.innodb_row_recreation_steps = srv_stats.row_recreation_steps;
+
   export_vars.innodb_rows_read = srv_stats.n_rows_read;
 
   export_vars.innodb_rows_inserted = srv_stats.n_rows_inserted;

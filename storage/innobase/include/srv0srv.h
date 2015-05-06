@@ -77,6 +77,12 @@ struct srv_stats_t {
   /** Count the amount of data written in total (in bytes) */
   ulint_ctr_1_t data_written;
 
+  /** Count the amount of row recreated */
+  ulint_ctr_1_t row_recreations;
+
+  /** Count the amount of step in row recreations */
+  ulint_ctr_1_t row_recreation_steps;
+
   /** Number of the log write requests done */
   ulint_ctr_1_t log_write_requests;
 
@@ -1171,6 +1177,8 @@ struct export_var_t {
                                        / srv_n_lock_wait_count */
   ulint innodb_row_lock_time_max;      /*!< srv_n_lock_max_wait_time
                                        / 1000 */
+  ulint innodb_row_recreations;        /*!< srv_stats.row_recreations */
+  ulint innodb_row_recreation_steps;   /*!< srv_stats.row_recreation_steps */
   ulint innodb_rows_read;              /*!< srv_n_rows_read */
   ulint innodb_rows_inserted;          /*!< srv_n_rows_inserted */
   ulint innodb_rows_updated;           /*!< srv_n_rows_updated */
