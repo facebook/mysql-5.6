@@ -148,7 +148,6 @@ information_schema
 mtr
 mysql
 performance_schema
-rocksdb
 test
 show databases like "test%";
 Catalog	Database	Table	Table_alias	Column	Column_alias	Type	Length	Max length	Is_null	Flags	Decimals	Charsetnr

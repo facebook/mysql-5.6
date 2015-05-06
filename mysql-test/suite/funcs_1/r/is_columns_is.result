@@ -232,17 +232,17 @@ def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_SCHEMA	5		NO	va
 def	information_schema	REFERENTIAL_CONSTRAINTS	UPDATE_RULE	8		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_CFSTATS	VALUE	3	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(8)			select	
+def	information_schema	ROCKSDB_CFSTATS	VALUE	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(8)			select	
 def	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_CF_OPTIONS	VALUE	3		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_DBSTATS	VALUE	2	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(8)			select	
+def	information_schema	ROCKSDB_DBSTATS	VALUE	2	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(8)			select	
 def	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	3	NULL	YES	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_PERF_CONTEXT	STAT_TYPE	4		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_NAME	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
 def	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	5	0	NO	int	NULL	NULL	10	0	NULL	NULL	NULL	int(8)			select	
+def	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	5	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(8)			select	
 def	information_schema	ROUTINES	CHARACTER_MAXIMUM_LENGTH	7	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(21)			select	
 def	information_schema	ROUTINES	CHARACTER_OCTET_LENGTH	8	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(21)			select	
 def	information_schema	ROUTINES	CHARACTER_SET_CLIENT	29		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
@@ -830,17 +830,17 @@ NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int(7)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	REFERENCED_TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-NULL	information_schema	ROCKSDB_CFSTATS	VALUE	int	NULL	NULL	NULL	NULL	int(8)
+NULL	information_schema	ROCKSDB_CFSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
 3.0000	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_CF_OPTIONS	VALUE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-NULL	information_schema	ROCKSDB_DBSTATS	VALUE	int	NULL	NULL	NULL	NULL	int(8)
+NULL	information_schema	ROCKSDB_DBSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
 3.0000	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
 3.0000	information_schema	ROCKSDB_PERF_CONTEXT	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-NULL	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	int	NULL	NULL	NULL	NULL	int(8)
+NULL	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
 3.0000	information_schema	ROUTINES	SPECIFIC_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	ROUTINES	ROUTINE_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	ROUTINES	ROUTINE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
