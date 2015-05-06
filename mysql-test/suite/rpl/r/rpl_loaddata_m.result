@@ -25,7 +25,6 @@ mtr
 mysql
 mysqltest
 performance_schema
-rocksdb
 test
 USE test;
 SHOW TABLES;
