@@ -1,0 +1,163 @@
+#
+# Test row recreation stats work correctly (from reading older MVCC entries).
+#
+
+CREATE TABLE test_row_rec
+(a INT, b INT, c INT, primary key (a), key (b))
+ENGINE=INNODB;
+
+flush status;
+let $innodb_row_recreations_ori = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_ori = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+insert into test_row_rec values (10,10,10),(20,20,20),(30,30,30),(40,40,40),(50,50,50);
+
+--echo # Establish connection conn1
+connect (conn1,localhost,root);
+#connect (conn1,localhost,root,,)
+--echo # Establish connection conn1 (user = root)
+connect (conn2,localhost,root);
+
+
+# create a MVCC snapshot that sees this original version
+# of the table and keep the transaction open
+connection default;
+begin;
+select * from test_row_rec;
+
+# make a new version of a couple of row with conn1
+connection conn1;
+update test_row_rec set c = c+1 where a=30;
+update test_row_rec set c = c+1 where a=40;
+
+# make a second version of a couple of row
+connection conn2;
+update test_row_rec set c = c+1 where a=30;
+update test_row_rec set c = c+1 where a=40;
+
+# at this point, two row, where a is 3 and 4,
+# should have three versions, one created by each connection
+# Now let's query on default and see that the status
+# variables are properly increased
+
+connection default;
+--echo # do some tests on retrieving row from PK
+select * from test_row_rec where a = 10;
+--echo # status should show 0 for both counters
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec where a = 30;
+--echo # status should show 1 row recreation and 2 steps
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec where a >= 30;
+--echo # status should show 3 row recreations and 6 steps (for two row)
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec where a >= 30 order by a desc;
+--echo # status should show 5 row recreations and 10 steps (for two row)
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec where a > 25 and a < 29;
+--echo # status should still have 6 row recreation and 12 steps for examining a row
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+--echo # do some tests on retrieving row by SK
+
+select * from test_row_rec force index (b) where b = 10;
+--echo # status should still have 6 row recreation and 12 steps
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec force index (b) where b = 30;
+--echo # status should still have 7 row recreation and 14 steps for examining a row
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec force index (b) where b >= 30;
+--echo # status should show 9 row recreations and 18 steps (for two row)
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec force index (b) where b >= 30 order by b desc;
+--echo # status should show 11 row recreations and 22 steps (for two row)
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+select * from test_row_rec where b > 25 and b < 29;
+--echo # status should not increase, because the secondary index will tell us no
+--echo # such row exist. Row recreations only happen when quering the pk.
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+--echo # verify that the statistics are working on a global
+--echo # basis, by printing stats from conn1 and conn2. Verify
+--echo # that these stats are the same
+
+connection conn1;
+--echo #connection 1
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+connection conn2;
+--echo #connection 2
+let $innodb_row_recreations_cur = query_get_value(show status like "innodb_row_recreations", Value, 1);
+let $innodb_row_recreation_steps_cur = query_get_value(show status like "innodb_row_recreation_steps", Value, 1);
+--disable_query_log
+eval select $innodb_row_recreations_cur - $innodb_row_recreations_ori as innodb_row_recreations;
+eval select $innodb_row_recreation_steps_cur - $innodb_row_recreation_steps_ori as innodb_row_recreation_steps;
+--enable_query_log
+
+connection default;
+disconnect conn1;
+disconnect conn2;
+
+DROP TABLE test_row_rec;

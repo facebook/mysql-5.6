@@ -45,6 +45,8 @@ buffer_pages_written	disabled
 buffer_pages_read	disabled
 buffer_data_reads	disabled
 buffer_data_written	disabled
+buffer_row_recreations	disabled
+buffer_row_recreation_steps	disabled
 buffer_flush_batch_scanned	disabled
 buffer_flush_batch_num_scan	disabled
 buffer_flush_batch_scanned_per_call	disabled
