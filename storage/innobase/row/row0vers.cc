@@ -45,6 +45,7 @@ Created 2/6/1997 Heikki Tuuri
 #include "rem0cmp.h"
 #include "read0read.h"
 #include "lock0lock.h"
+#include "srv0srv.h"
 
 #ifdef UNIV_DEBUG
 uint		row_build_prev_version_sleep = 0;
@@ -554,6 +555,7 @@ row_vers_build_for_consistent_read(
 #endif
 
 	for (;;) {
+    srv_stats.row_recreation_steps.inc();
 		mem_heap_t*	heap2	= heap;
 		trx_undo_rec_t* undo_rec;
 		roll_ptr_t	roll_ptr;
