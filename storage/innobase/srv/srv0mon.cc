@@ -325,6 +325,16 @@ static monitor_info_t innodb_counter_info[] = {
      static_cast<monitor_type_t>(MONITOR_EXISTING | MONITOR_DEFAULT_ON),
      MONITOR_DEFAULT_START, MONITOR_OVLD_BYTE_WRITTEN},
 
+    {"buffer_row_recreations", "buffer",
+     "Amount of row recreations (innodb_row_recreations)",
+     static_cast<monitor_type_t>(MONITOR_EXISTING | MONITOR_DEFAULT_ON),
+     MONITOR_DEFAULT_START, MONITOR_OVLD_ROW_RECREATIONS},
+
+    {"buffer_row_recreation_steps", "buffer",
+     "Amount of row recreation in steps (innodb_row_recreation_steps)",
+     static_cast<monitor_type_t>(MONITOR_EXISTING | MONITOR_DEFAULT_ON),
+     MONITOR_DEFAULT_START, MONITOR_OVLD_ROW_RECREATION_STEPS},
+
     /* Cumulative counter for scanning in flush batches */
     {"buffer_flush_batch_scanned", "buffer",
      "Total pages scanned as part of flush batch", MONITOR_SET_OWNER,
@@ -1727,6 +1737,17 @@ void srv_mon_process_existing_counter(
     /* innodb_data_writes, the total number of data writes. */
     case MONITOR_OVLD_BYTE_WRITTEN:
       value = srv_stats.data_written;
+      break;
+
+    /* innodb_row_recreations, the total number of row recreations. */
+    case MONITOR_OVLD_ROW_RECREATIONS:
+      value = srv_stats.row_recreations;
+      break;
+
+    /* innodb_row_recreation_steps, the total number of row recreation
+    steps. */
+    case MONITOR_OVLD_ROW_RECREATION_STEPS:
+      value = srv_stats.row_recreation_steps;
       break;
 
     /* innodb_data_reads, the total number of data reads. */

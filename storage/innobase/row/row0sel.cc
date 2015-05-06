@@ -3053,6 +3053,7 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
     prebuilt->old_vers_heap = mem_heap_create(200, UT_LOCATION_HERE);
   }
 
+  srv_stats.row_recreations.inc();
   err = row_vers_build_for_consistent_read(
       rec, mtr, clust_index, offsets, read_view, offset_heap,
       prebuilt->old_vers_heap, old_vers, vrow, lob_undo);

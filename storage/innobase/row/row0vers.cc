@@ -47,6 +47,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "row0row.h"
 #include "row0upd.h"
 #include "row0vers.h"
+#include "srv0srv.h"
 #include "trx0purge.h"
 #include "trx0rec.h"
 #include "trx0roll.h"
@@ -1279,6 +1280,7 @@ dberr_t row_vers_build_for_consistent_read(
   version = rec;
 
   for (;;) {
+    srv_stats.row_recreation_steps.inc();
     mem_heap_t *prev_heap = heap;
 
     heap = mem_heap_create(1024, UT_LOCATION_HERE);
