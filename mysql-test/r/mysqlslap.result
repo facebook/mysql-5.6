@@ -236,7 +236,6 @@ information_schema
 mtr
 mysql
 performance_schema
-rocksdb
 test
 # 'bug58090' database should be present.
 SHOW DATABASES;
@@ -246,7 +245,6 @@ bug58090
 mtr
 mysql
 performance_schema
-rocksdb
 test
 DROP DATABASE bug58090;
 #
