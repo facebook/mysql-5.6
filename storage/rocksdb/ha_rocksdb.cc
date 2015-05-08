@@ -1712,6 +1712,9 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_lock(&drop_index_mutex);
   mysql_mutex_unlock(&drop_index_mutex);
 
+  // Stop all rocksdb background work
+  rocksdb::CancelAllBackgroundWork(rdb, true);
+
   if (rocksdb_open_tables.records)
     error= 1;
   my_hash_free(&rocksdb_open_tables);
