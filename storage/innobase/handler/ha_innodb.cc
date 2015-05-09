@@ -7035,6 +7035,16 @@ build_template_field(
 			templ->rec_field_is_prefix = (field->prefix_len != 0);
 		}
 	}
+	else if (!dict_index_is_clust(index) &&
+			field->type() == MYSQL_TYPE_DOCUMENT &&
+			!table->key_read) {
+		/* if this is a document field and we don't have
+		 * any covering index (i.e. key_read is false),
+		 * we will need to access the cluster index
+		 * regardlessly to retrieve the whole document. */
+		prebuilt->need_to_access_clustered = TRUE;
+	}
+
 
 	if (prebuilt->mysql_prefix_len < templ->mysql_col_offset
 	    + templ->mysql_col_len) {

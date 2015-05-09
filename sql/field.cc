@@ -8407,42 +8407,100 @@ Field_document::store(const char *from, uint length, const CHARSET_INFO *cs)
 type_conversion_status
 Field_document::store(double nr)
 {
-  char buf[128];
-  sprintf(buf, "%.32f", nr);
-
-  if (real_maybe_null())
+  // We will suppot storing double values directly into document column.
+  // However we don't down-cast double values (i.e. losing precision)
+  if (doc_type != DOC_DOCUMENT)
   {
+    switch (doc_type)
+    {
+    case DOC_PATH_DOUBLE:
+      *((double*)ptr) = nr;
+      return TYPE_OK;
+
+    case DOC_PATH_INT:
+      // only if the double is an integer value
+      if (nr - std::floor(nr) == 0)
+      {
+        *((longlong*)ptr) = (longlong)nr;
+        return TYPE_OK;
+      }
+      break;
+
+    default:
+      ;
+    }
+
     set_null();
     memset(ptr, 0, Field_blob::pack_length());
-    push_warning_invalid(buf);
+    return TYPE_ERR_BAD_VALUE;
   }
   else
   {
-    push_error_invalid(buf);
+    char buf[128];
+    sprintf(buf, "%.32f", nr);
+
+    if (real_maybe_null())
+    {
+      set_null();
+      memset(ptr, 0, Field_blob::pack_length());
+      push_warning_invalid(buf);
+    }
+    else
+    {
+      push_error_invalid(buf);
+    }
+    return TYPE_ERR_BAD_VALUE;
   }
-  return TYPE_ERR_BAD_VALUE;
 }
+
 
 
 type_conversion_status
 Field_document::store(longlong nr, bool unsigned_val)
 {
-  char buf[128], format[16];
-  unsigned_val ? sprintf(format, "%s", "%llu")
-               : sprintf(format, "%s", "%lld");
-  sprintf(buf, format, nr);
-
-  if (real_maybe_null())
+  // Integer values can be stored into double, int or bool documents
+  if (doc_type != DOC_DOCUMENT)
   {
+    switch (doc_type)
+    {
+    case DOC_PATH_DOUBLE:
+      *((double*)ptr) = (double)nr;
+      return TYPE_OK;
+
+    case DOC_PATH_INT:
+      *((longlong*)ptr) = nr;
+      return TYPE_OK;
+
+    case DOC_PATH_TINY:
+      *((char*)ptr) = (nr == 0) ? 0 : 1;
+      return TYPE_OK;
+
+    default:
+      ;
+    }
+
     set_null();
     memset(ptr, 0, Field_blob::pack_length());
-    push_warning_invalid(buf);
+    return TYPE_ERR_BAD_VALUE;
   }
   else
   {
-    push_error_invalid(buf);
+    char buf[128], format[16];
+    unsigned_val ? sprintf(format, "%s", "%llu")
+                 : sprintf(format, "%s", "%lld");
+    sprintf(buf, format, nr);
+
+    if (real_maybe_null())
+    {
+      set_null();
+      memset(ptr, 0, Field_blob::pack_length());
+      push_warning_invalid(buf);
+    }
+    else
+      push_error_invalid(buf);
+
+    return TYPE_ERR_BAD_VALUE;
   }
-  return TYPE_ERR_BAD_VALUE;
 }
 
 
@@ -8487,6 +8545,68 @@ Field_document::store_internal(const char *from, uint length,
     {
       return Field_blob::store_internal(from, length, cs);
     }
+  }
+  else if (doc_type != DOC_DOCUMENT)
+  {
+    // Here we handle storing raw values directly into document field.
+    // For number type documents, we need to parse the string
+    switch (doc_type)
+    {
+    case DOC_PATH_INT:
+      {
+        char* end = (char*)from + length;
+        int error;
+        longlong val = my_strtoll10(from, &end, &error);
+        if (end == from + length)
+        {
+          *((longlong*)ptr) = val;
+          return TYPE_OK;
+        }
+      }
+      break;
+
+    case DOC_PATH_DOUBLE:
+      {
+        char* end = (char*)from + length;
+        int error;
+        double val = my_strtod(from, &end, &error);
+        if (end == from + length)
+        {
+          *((double*)ptr) = val;
+          return TYPE_OK;
+        }
+      }
+      break;
+
+    case DOC_PATH_STRING:
+      {
+        // TODO: this is an old style of padding a varchar.
+        // we should use and handle the new varchar data layout
+        // where the first two bytes store the actual length
+        uint copy_len = std::min(length, doc_key_prefix_len);
+        if (copy_len <= max_data_length())
+        {
+          memcpy(ptr, from, copy_len);
+          // old style: padding the prefix with space (0x20)
+          memset(ptr+copy_len, 0x20, doc_key_prefix_len-copy_len);
+          return TYPE_OK;
+        }
+      }
+      break;
+    case DOC_PATH_BLOB:
+      if (length <= max_data_length())
+      {
+        return Field_blob::store_internal(from, length, cs);
+      }
+      break;
+
+    default:
+      ;
+    }
+
+    set_null();
+    memset(ptr, 0, Field_blob::pack_length());
+    return TYPE_ERR_BAD_VALUE;
   }
   else
   {
@@ -8652,87 +8772,6 @@ json_extract_fbsonvalue(List<Document_key>& key_path, /* in: the key path */
   return pval;
 }
 
-/*
- * key_path : (in) the document path key path
- * buff     : (in/out) the output buffer
- * length   : (in) the length of buff
- * val_len  : (out) the actual length of the output vlaue
- * is_null  : (out) if the value is null
- *
- * return value : false: success; true: failure
- */
-bool Field_document::document_path_val_binary(
-                                List<Document_key>& key_path,
-                                uchar *buff, uint length,
-                                uint& val_len, my_bool& is_null)
-{
-  ASSERT_COLUMN_MARKED_FOR_READ;
-  DBUG_ASSERT(length > 0);
-
-  is_null = true;
-
-  char *blob = NULL;
-  memcpy(&blob, ptr+packlength, sizeof(char*));
-  if (!blob)
-    return true; /* failure */
-
-  fbson::FbsonValue *val =
-      fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
-
-  if (!p || p->isNull())
-    return true; /* failure */
-
-  const char *payload = NULL;
-  is_null = false;
-  switch (p->type())
-  {
-  case fbson::FbsonType::T_Null:
-    val_len = 0;
-    break;
-
-  case fbson::FbsonType::T_True:
-    val_len = 1;
-    buff[0] = 1; /* return 1 as fbson true */
-    break;
-
-  case fbson::FbsonType::T_False:
-    val_len = 1;
-    buff[0] = 0; /* return 0 as fbson false */
-    break;
-
-  default:
-    val_len = p->size();
-    payload = p->getValuePtr();
-    if (payload && val_len > 0)
-    {
-      if (val_len > length)
-      {
-        /* data will be truncated if the passed-in buff is not big enough. */
-        val_len = length;
-
-        /* set warnings */
-        THD *thd= table ? table->in_use : current_thd;
-        if (thd->count_cuted_fields)
-          thd->cuted_fields++;
-        String full_name;
-        gen_document_path_full_name(full_name, field_name, key_path);
-        push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
-                            WARN_DATA_TRUNCATED, ER(WARN_DATA_TRUNCATED),
-                            full_name.c_ptr_safe(),
-                            thd->get_stmt_da()->current_row_for_warning());
-      }
-      /* copy the binary image into the buffer */
-      memcpy(buff, payload, val_len);
-    }
-    else
-      is_null = true;
-  }
-  return false; /* success */
-}
-
-
 /**
  * if string is not NULL then use it as output buffer, memory within string
  * will be automatically dynamically allocated no matter how large the data
@@ -8750,7 +8789,8 @@ bool Field_document::document_path_val_binary(
  * return value : false: success; true: failure
  */
 void Field_document::document_path_val_string(
-                                  List<Document_key>& key_path,
+                                  List<Document_key>* key_path_ptr,
+                                  enum_field_types doc_path_type,
                                   String *string,
                                   uchar *buff, uint length,
                                   uint& val_len, my_bool& is_null)
@@ -8763,73 +8803,116 @@ void Field_document::document_path_val_string(
   if (!blob)
     return;
 
-  fbson::FbsonValue *val =
-      fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
-
-  if (!p || p->isNull())
-    return;
-
-  fbson::FbsonToJson to_json;
-  const char *ptr = NULL;
+  const char *res_ptr = NULL;
   uint len = 0;
   char buf[128];
-  switch (p->type())
+
+  // Check if we are reading from a document blob. Note if the optimizer
+  // decides not to use index scan only on the table, field will contain
+  // document blob regardless of the doc_path_type value we have set.
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
   {
-  case fbson::FbsonType::T_Null:
-    return;
+    DBUG_ASSERT(key_path_ptr);
+    List<Document_key>& key_path = *key_path_ptr;
 
-  case fbson::FbsonType::T_True:
-    sprintf(buf, "%s", "true");
-    break;
+    fbson::FbsonValue *val =
+        fbson::FbsonDocument::createValue(blob, get_length(ptr));
 
-  case fbson::FbsonType::T_False:
-    sprintf(buf, "%s", "false");
-    break;
+    fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
 
-  case fbson::FbsonType::T_Int8:
-    sprintf(buf, "%d", (int)((fbson::Int8Val*)p)->val());
-    break;
+    if (!p || p->isNull())
+      return;
 
-  case fbson::FbsonType::T_Int16:
-    sprintf(buf, "%d", (int)((fbson::Int16Val*)p)->val());
-    break;
+    fbson::FbsonToJson to_json;
+    switch (p->type())
+    {
+    case fbson::FbsonType::T_Null:
+      return;
 
-  case fbson::FbsonType::T_Int32:
-    sprintf(buf, "%d", (int32)((fbson::Int32Val*)p)->val());
-    break;
+    case fbson::FbsonType::T_True:
+      sprintf(buf, "%s", "true");
+      break;
 
-  case fbson::FbsonType::T_Int64:
-    sprintf(buf, "%lld", (int64)((fbson::Int64Val*)p)->val());
-    break;
+    case fbson::FbsonType::T_False:
+      sprintf(buf, "%s", "false");
+      break;
 
-  case fbson::FbsonType::T_Double:
-    sprintf(buf, "%.15g", (double)((fbson::DoubleVal*)p)->val());
-    break;
+    case fbson::FbsonType::T_Int8:
+      sprintf(buf, "%d", (int)((fbson::Int8Val*)p)->val());
+      break;
 
-  case fbson::FbsonType::T_String:
-    ptr = ((fbson::StringVal*)p)->getBlob();
-    len = ((fbson::StringVal*)p)->getBlobLen();
-    break;
+    case fbson::FbsonType::T_Int16:
+      sprintf(buf, "%d", (int)((fbson::Int16Val*)p)->val());
+      break;
 
-  case fbson::FbsonType::T_Binary:
-  case fbson::FbsonType::T_Object:
-  case fbson::FbsonType::T_Array:
-    ptr = to_json.json(p);
-    len = strlen(ptr);
-    break;
+    case fbson::FbsonType::T_Int32:
+      sprintf(buf, "%d", (int32)((fbson::Int32Val*)p)->val());
+      break;
 
-  default:
-    /* should never reach here */
-    DBUG_ASSERT(0);
-    return;
+    case fbson::FbsonType::T_Int64:
+      sprintf(buf, "%lld", (int64)((fbson::Int64Val*)p)->val());
+      break;
+
+    case fbson::FbsonType::T_Double:
+      sprintf(buf, "%.15g", (double)((fbson::DoubleVal*)p)->val());
+      break;
+
+    case fbson::FbsonType::T_String:
+      res_ptr = ((fbson::StringVal*)p)->getBlob();
+      len = ((fbson::StringVal*)p)->getBlobLen();
+      break;
+
+    case fbson::FbsonType::T_Binary:
+    case fbson::FbsonType::T_Object:
+    case fbson::FbsonType::T_Array:
+      res_ptr = to_json.json(p);
+      len = strlen(res_ptr);
+      break;
+
+    default:
+      /* should never reach here */
+      DBUG_ASSERT(0);
+      return;
+    }
+  }
+  else
+  {
+    // Here we reading raw values from the key path directly
+    // The values will be stringified.
+    switch (doc_path_type)
+    {
+    case MYSQL_TYPE_LONGLONG:
+      if (table->s->db_type()->db_type == DB_TYPE_INNODB)
+        sprintf(buf, "%lld", read_bigendian(blob, sizeof(int64)));
+      else
+        sprintf(buf, "%lld", *((int64*)blob));
+      break;
+
+    case MYSQL_TYPE_DOUBLE:
+      sprintf(buf, "%.15g", *((double*)blob));
+      break;
+
+    case MYSQL_TYPE_TINY:
+      sprintf(buf, "%d", *blob);
+      break;
+
+    case MYSQL_TYPE_STRING:
+    case MYSQL_TYPE_BLOB:
+      res_ptr = (char*)ptr;
+      len = get_length(ptr);
+      break;
+
+    default:
+      /* should never reach here */
+      DBUG_ASSERT(0);
+      return;
+    }
   }
 
-  if (!ptr)
+  if (!res_ptr)
   {
-    ptr = buf;
-    len = strlen(ptr);
+    res_ptr = buf;
+    len = strlen(res_ptr);
   }
 
   if (string)
@@ -8837,7 +8920,7 @@ void Field_document::document_path_val_string(
     /* use the passed-in string as the output buffer. memory will be
        allocated within the string. data won't be truncated.
     */
-    string->copy(ptr, len, charset());
+    string->copy(res_ptr, len, charset());
   }
   else
   {
@@ -8853,12 +8936,11 @@ void Field_document::document_path_val_string(
       if (thd->count_cuted_fields)
         thd->cuted_fields++;
       push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
-                          WARN_DATA_TRUNCATED, ER(WARN_DATA_TRUNCATED),
-                          field_name,
-                          thd->get_stmt_da()->current_row_for_warning());
+                          WARN_DOCUMENT_PATH_KEY_TRUNCATED,
+                          ER(WARN_DOCUMENT_PATH_KEY_TRUNCATED), field_name);
     }
     /* copy the binary image into the buffer */
-    memcpy(buff, ptr, len);
+    memcpy(buff, res_ptr, len);
     buff[len] = '\0';
   }
   val_len = len;
@@ -8868,10 +8950,13 @@ void Field_document::document_path_val_string(
 
 template<typename T>
 T Field_document::document_path_val_numeric(
-                                  List<Document_key>& key_path,
+                                  List<Document_key>* key_path_ptr,
                                   bool &valid_result, my_bool& is_null)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
+
+  DBUG_ASSERT(key_path_ptr);
+  List<Document_key>& key_path = *key_path_ptr;
 
   is_null = true;
 
@@ -8893,6 +8978,12 @@ T Field_document::document_path_val_numeric(
   valid_result = true;
   switch (p->type())
   {
+  case fbson::FbsonType::T_True:
+    return (T)(1);
+
+  case fbson::FbsonType::T_False:
+    return (T)(0);
+
   case fbson::FbsonType::T_Int8:
     return (T)((fbson::Int8Val*)p)->val();
 
@@ -8924,11 +9015,14 @@ T Field_document::document_path_val_numeric(
  *   true: failure
  */
 bool Field_document::document_path_get_date_or_time(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
                                  MYSQL_TIME *ltime, uint fuzzydate,
                                  bool is_date, my_bool& is_null)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
+
+  DBUG_ASSERT(key_path_ptr);
+  List<Document_key>& key_path = *key_path_ptr;
 
   is_null = true;
 
@@ -9012,86 +9106,226 @@ bool Field_document::document_path_get_date_or_time(
 
 
 /*
+ * This helper function reads bigendian integers (sent back from innodb)
+ * Note the integers are assumed signed.
+ */
+int64 Field_document::read_bigendian(char *src, unsigned len)
+{
+  DBUG_ASSERT(len > 0 && len <= 8);
+
+  int64 data = 0;
+  char *ptr = ((char*)&data) + len - 1;
+  for (; ptr >= (char*)&data; ptr--) {
+    *ptr = *src++;
+  }
+
+  // reverse sign bit (c.f. mach_write_ulonglong)
+  ((char*)&data)[len - 1] = (char) (((char*)&data)[len - 1] ^ 128);
+
+  return data;
+}
+
+
+bool Field_document::document_path_is_null(
+    List<Document_key>* key_path_ptr, enum_field_types doc_path_type)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+
+  DBUG_ASSERT(key_path_ptr);
+  List<Document_key>& key_path = *key_path_ptr;
+
+  char *blob = NULL;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return true;
+
+  // Check if we are reading from a document blob. Note if the optimizer
+  // decides not to use index scan only on the table, field will contain
+  // document blob regardless of the doc_path_type value we have set.
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  {
+    fbson::FbsonValue *val =
+        fbson::FbsonDocument::createValue(blob, get_length(ptr));
+
+    fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+
+    if (!p || p->isNull())
+      return true;
+  }
+  else
+  {
+    // the field contains a key value
+    switch (doc_path_type)
+    {
+    /* supported path types */
+    case MYSQL_TYPE_LONGLONG:
+    case MYSQL_TYPE_DOUBLE:
+    case MYSQL_TYPE_TINY:
+    case MYSQL_TYPE_STRING:
+    case MYSQL_TYPE_BLOB:
+      /* Values are not null */
+      break;
+
+    default:
+      /* should never reach here */
+      DBUG_ASSERT(0);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+/*
  * Virtual functions for Field_document use only.
  */
 String *Field_document::document_path_val_str(
-                                List<Document_key>& key_path,
+                                List<Document_key>* key_path_ptr,
+                                enum_field_types doc_path_type,
                                 String *val_buffer, my_bool& is_null)
 {
   uint tmp;
-  document_path_val_string(key_path, val_buffer,
+  document_path_val_string(key_path_ptr, doc_path_type, val_buffer,
                            NULL, 0, tmp, is_null);
   return (is_null ? NULL : val_buffer);
 }
 
-bool Field_document::document_path_val_doc(
-                                List<Document_key>& key_path,
-                                uchar *buff, uint length,
-                                uint& val_len, my_bool& is_null)
-{
-  this->document_path_val_string(key_path, NULL,
-                                 buff, length, val_len, is_null);
-  return true;
-}
-
 
 longlong Field_document::document_path_val_int(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
+                                 enum_field_types doc_path_type,
                                  my_bool& is_null)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  bool valid_result;
-  longlong ret = document_path_val_numeric<longlong>(
-                                 key_path, valid_result, is_null);
-  if (valid_result)
-    return ret;
 
-  return INT_MAX;
+  // Check if we are reading from a document blob. Note if the optimizer
+  // decides not to use index scan only on the table, field will contain
+  // document blob regardless of the doc_path_type value we have set.
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  {
+    bool valid_result;
+    longlong ret = document_path_val_numeric<longlong>(
+                                   key_path_ptr, valid_result, is_null);
+    if (valid_result)
+      return ret;
+
+    return INT_MAX;
+  }
+  else
+  {
+    char *blob = NULL;
+    memcpy(&blob, ptr+packlength, sizeof(char*));
+    if (!blob)
+    {
+      is_null = true;
+      return INT_MAX;
+    }
+
+    // Here we reading raw values from the key path directly
+    // Only compatible values will be returned.
+    switch (doc_path_type)
+    {
+    case MYSQL_TYPE_LONGLONG:
+      if (table->s->db_type()->db_type == DB_TYPE_INNODB)
+        return read_bigendian(blob, sizeof(int64));
+      else
+        return *((int64*)blob);
+
+    case MYSQL_TYPE_TINY:
+      return *blob;
+
+    default:
+      is_null = true;
+      return INT_MAX;
+    }
+  }
 }
 
 
 double Field_document::document_path_val_real(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
+                                 enum_field_types doc_path_type,
                                  my_bool& is_null)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  bool valid_result;
-  double ret = document_path_val_numeric<double>(
-                                 key_path, valid_result, is_null);
-  if (valid_result)
-    return ret;
 
-  return DBL_MAX;
+  // Check if we are reading from a document blob. Note if the optimizer
+  // decides not to use index scan only on the table, field will contain
+  // document blob regardless of the doc_path_type value we have set.
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  {
+    bool valid_result;
+    double ret = document_path_val_numeric<double>(
+                                   key_path_ptr, valid_result, is_null);
+    if (valid_result)
+      return ret;
+
+    return DBL_MAX;
+  }
+  else
+  {
+    char *blob = NULL;
+    memcpy(&blob, ptr+packlength, sizeof(char*));
+    if (!blob)
+    {
+      is_null = true;
+      return DBL_MAX;
+    }
+
+    // Here we reading raw values from the key path directly
+    // Only compatible values will be returned.
+    switch (doc_path_type)
+    {
+    case MYSQL_TYPE_LONGLONG:
+      if (table->s->db_type()->db_type == DB_TYPE_INNODB)
+        return read_bigendian(blob, sizeof(int64));
+      else
+        return *((int64*)blob);
+
+    case MYSQL_TYPE_DOUBLE:
+      return *((double*)blob);
+
+    case MYSQL_TYPE_TINY:
+      return *blob;
+
+    default:
+      is_null = true;
+      return DBL_MAX;
+    }
+  }
 }
 
 
 my_decimal *Field_document::document_path_val_decimal(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
                                  my_decimal *decimal_value,
                                  my_bool& is_null)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  double ret = document_path_val_real(key_path, is_null);
+  double ret = document_path_val_real(key_path_ptr,
+                                      MYSQL_TYPE_DOCUMENT,
+                                      is_null);
   double2my_decimal(E_DEC_FATAL_ERROR, ret, decimal_value);
   return decimal_value;
 }
 
 
 bool Field_document::document_path_get_date(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
                                  MYSQL_TIME *ltime, uint fuzzydate,
                                  my_bool& is_null)
 {
-  return document_path_get_date_or_time(key_path, ltime,
+  return document_path_get_date_or_time(key_path_ptr, ltime,
                                         fuzzydate, true, is_null);
 }
 
 
 bool Field_document::document_path_get_time(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
                                  MYSQL_TIME *ltime, my_bool& is_null)
 {
-  return document_path_get_date_or_time(key_path, ltime,
+  return document_path_get_date_or_time(key_path_ptr, ltime,
                                         0, false, is_null);
 }
 
@@ -9102,11 +9336,11 @@ bool Field_document::document_path_get_time(
   a string for the sort key.
 */
 bool Field_document::document_path_make_sort_key(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
                                  uchar *buff, uint length,
                                  uint& val_len, my_bool& is_null)
 {
-  this->document_path_val_string(key_path, NULL,
+  this->document_path_val_string(key_path_ptr, MYSQL_TYPE_DOCUMENT, NULL,
                                  buff, length, val_len, is_null);
   return true;
 }
@@ -9118,21 +9352,18 @@ bool Field_document::document_path_make_sort_key(
  using a document path in GROUP BY. Also see field_conv() in field_conv.cc.
 */
 type_conversion_status Field_document::field_conv_document_path(
-                                 List<Document_key>& key_path,
+                                 List<Document_key>* key_path_ptr,
                                  Field *to, my_bool is_null)
 {
-  DBUG_ASSERT(key_path.elements > 0);
-
   is_null = true;
   if (to->type() == MYSQL_TYPE_VARCHAR)
   {
+    Field_varstring *to_varstr_fld = (Field_varstring *)to;
+    enum_field_types doc_path_type = to_varstr_fld->document_path_type;
     char buff[MAX_FIELD_WIDTH];
     String result(buff, sizeof(buff), this->charset());
-    if (this->document_path_val_str(key_path, &result, is_null))
-    {
-      return to->store(result.c_ptr_quick(),
-                       result.length(), this->charset());
-    }
+    if (document_path_val_str(key_path_ptr, doc_path_type, &result, is_null))
+      return to->store(result.c_ptr_quick(), result.length(), this->charset());
   }
   return TYPE_OK;
 }
@@ -10545,6 +10776,7 @@ bool Create_field::init(THD *thd, const char *fld_name,
   field_name= fld_name;
   flags= fld_type_modifier;
   charset= fld_charset;
+  nullable_document = false;
 
   const bool on_update_is_function=
     (fld_on_update_value != NULL &&
@@ -10601,6 +10833,16 @@ bool Create_field::init(THD *thd, const char *fld_name,
   interval_list.empty();
 
   comment= *fld_comment;
+
+  /* Set document field nullable, and save real nullability */
+  if (fld_type == MYSQL_TYPE_DOCUMENT)
+  {
+    // document path is always nullable internally and we save the field
+    // nullability definition in nullable_document
+    nullable_document = !(fld_type_modifier & NOT_NULL_FLAG);
+    flags &= ~NOT_NULL_FLAG;
+  }
+
   /*
     Set NO_DEFAULT_VALUE_FLAG if this field doesn't have a default value and
     it is NOT NULL and not an AUTO_INCREMENT field.
@@ -10992,7 +11234,8 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
 		  Field::geometry_type geom_type,
 		  Field::utype unireg_check,
 		  TYPELIB *interval,
-		  const char *field_name)
+		  const char *field_name,
+      bool nullable_document)
 {
   uchar *UNINIT_VAR(bit_ptr);
   uchar UNINIT_VAR(bit_offset);
@@ -11063,7 +11306,8 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
     if (f_is_document(pack_flag))
       return new Field_document(ptr,null_pos,null_bit,
                                 unireg_check, field_name, share,
-                                pack_length, Field::DOC_DOCUMENT);
+                                pack_length, Field::DOC_DOCUMENT,
+                                nullable_document);
 
     if (f_is_blob(pack_flag))
       return new Field_blob(ptr,null_pos,null_bit,
@@ -11244,6 +11488,7 @@ Create_field::Create_field(Field *old_field,Field *orig_field) :
 #endif
   case MYSQL_TYPE_DOCUMENT:
     document_type= ((Field_document*)old_field)->doc_type;
+    nullable_document = ((Field_document*)old_field)->nullable_document;
     break;
   case MYSQL_TYPE_YEAR:
     if (length != 4)
