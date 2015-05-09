@@ -7188,6 +7188,9 @@ ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
 ER_BLOCK_MEMORY_TABLES
   eng "Non-temporary MEMORY tables cannot be created outside mysql schema."
 
+WARN_DOCUMENT_PATH_KEY_TRUNCATED
+  eng "Data truncated for document path key '%s'"
+
 #
 #  End of 5.6 error messages.
 #
