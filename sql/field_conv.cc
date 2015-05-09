@@ -303,18 +303,19 @@ static void do_field_string(Copy_field *copy)
   */
   if (copy->to_field_is_document_path)
   {
-    DBUG_ASSERT(copy->from_field->type() == MYSQL_TYPE_DOCUMENT &&
-                copy->to_field->type() == MYSQL_TYPE_VARCHAR &&
-                ((Field_varstring*)copy->to_field)->document_path_keys);
+    DBUG_ASSERT(copy->from_field->type() == MYSQL_TYPE_DOCUMENT);
+    DBUG_ASSERT(copy->to_field->type() == MYSQL_TYPE_VARCHAR);
 
-    List<Document_key> *document_path_keys =
-      (((Field_varstring*)copy->to_field)->document_path_keys);
+    Field_varstring *to_varstr_fld = (Field_varstring *)copy->to_field;
+    enum_field_types doc_path_type = to_varstr_fld->document_path_type;
+    List<Document_key> *document_path_keys = to_varstr_fld->document_path_keys;
     DBUG_ASSERT(document_path_keys->elements > 0);
 
     /* retrieve the document path data as a string  */
-    Field_document *fd = (Field_document*)(copy->from_field);
+    Field_document *from_fld = (Field_document*)(copy->from_field);
     my_bool is_null = false;
-    fd->document_path_val_str(*document_path_keys, &res, is_null);
+    from_fld->document_path_val_str(document_path_keys,
+        doc_path_type, &res, is_null);
     if (is_null)
     {
       *copy->to_null_ptr|=copy->to_bit;

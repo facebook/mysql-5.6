@@ -4063,6 +4063,8 @@ mysql_prepare_create_table(THD *thd, HA_CREATE_INFO *create_info,
             DBUG_RETURN(TRUE);
           }
 
+          key_info->contains_document_key_part = true;
+
           /* the DOCUMENT_PATH_KEY_PART_INFO */
           DBUG_ASSERT(column->document_path_size() >= 2);
           key_part_info->document_path_key_part =

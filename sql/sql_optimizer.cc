@@ -4641,6 +4641,12 @@ struct Key_field {
   bool          null_rejecting;
   bool          *cond_guard;                    ///< @sa Key_use::cond_guard
   uint          sj_pred_no;                     ///< @sa Key_use::sj_pred_no
+  key_map possible_document_keys; // used for document keys
+
+  void set_possible_document_keys(key_map &possible_keys)
+  {
+    possible_document_keys = possible_keys;
+  }
 };
 
 /* Values in optimize */
@@ -4866,6 +4872,7 @@ warn_index_not_applicable(THD *thd, const Field *field,
     @param num_values      Number of elements in the array of values
     @param usable_tables   Tables which can be used for key optimization
     @param sargables       IN/OUT Array of found sargable candidates
+    @param doc_path        Document path names if this is a document field
 
   @note
     If we are doing a NOT NULL comparison on a NOT NULL field in a outer join
@@ -4878,10 +4885,13 @@ warn_index_not_applicable(THD *thd, const Field *field,
 static void
 add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
               Field *field, bool eq_func, Item **value, uint num_values,
-              table_map usable_tables, SARGABLE_PARAM **sargables)
+              table_map usable_tables, SARGABLE_PARAM **sargables,
+              List<Document_key> *doc_path = nullptr)
 {
   DBUG_PRINT("info",("add_key_field for field %s",field->field_name));
   uint exists_optimize= 0;
+  key_map possible_keys;
+  Item_result doc_path_result_type = STRING_RESULT;
   TABLE_LIST *table= field->table->pos_in_table_list;
   if (!table->derived_keys_ready && table->uses_materialization() &&
       !field->table->is_created() &&
@@ -4918,7 +4928,67 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
     else
     {
       JOIN_TAB *stat=field->table->reginfo.join_tab;
-      key_map possible_keys=field->key_start;
+      /* To decide if a possible document key can be used,
+       * the field's document_path_key_start is used
+       * (instead of the key_start map) to match the doc_path (in-param)
+       * with the key part saved in the document_path_key_start array.
+       */
+      if (field->type() == MYSQL_TYPE_DOCUMENT && doc_path)
+      {
+        Field_document *field_doc = (Field_document*) field;
+        /* initialize the index type */
+        enum_field_types index_type = MYSQL_TYPE_DOCUMENT;
+        /* searching through the key array */
+        for (unsigned i = 0; i < MAX_KEY; ++i)
+        {
+          if (!field_doc->document_path_key_start[i] ||
+              field_doc->document_path_key_start[i]->number_of_names
+                != doc_path->elements + 1)
+            continue;
+
+          List_iterator_fast<Document_key> it(*doc_path);
+          Document_key *key= it++;
+          for (unsigned j = 1; j <= doc_path->elements && key; key = it++, ++j)
+          {
+            /* matching the list of names in the path */
+            LEX_STRING &str = key->string;
+            if (strncmp(str.str,
+                        field_doc->document_path_key_start[i]->names[j],
+                        str.length) != 0)
+              break;
+          }
+          if (!key)
+          {
+            if (index_type == MYSQL_TYPE_DOCUMENT)
+            {
+              /* set the index type when we see a matching key
+               * on the first time
+               */
+              index_type = field_doc->document_path_key_start[i]->type;
+              possible_keys.set_bit(i);
+            }
+            else if (index_type != field_doc->document_path_key_start[i]->type)
+            {
+              /* TODO: we don't support different types defined on the same
+               * document path. So all matched keys needs to be the same type.
+               * Otherwise, there is an ambiguity on which key type to choose
+               */
+              warn_index_not_applicable(stat->join->thd, field, possible_keys);
+              return;
+            }
+          }
+        }
+        /* set the document path return type if it is different
+         * from the document field (string type).
+         */
+        if (index_type == MYSQL_TYPE_LONGLONG ||
+            index_type == MYSQL_TYPE_TINY)
+          doc_path_result_type = INT_RESULT;
+        else if (index_type == MYSQL_TYPE_DOUBLE)
+          doc_path_result_type = REAL_RESULT;
+      }
+      else
+        possible_keys = field->key_start;
       possible_keys.intersect(field->table->keys_in_use_for_query);
       stat[0].keys.merge(possible_keys);             // Add possible keys
 
@@ -4963,7 +5033,13 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
        */
       if (!eq_func)
         return;
-      if (field->result_type() == STRING_RESULT)
+
+      /* for document field, check against the actual return type
+       */
+      if ((field->type() != MYSQL_TYPE_DOCUMENT &&
+           field->result_type() == STRING_RESULT) ||
+          (field->type() == MYSQL_TYPE_DOCUMENT &&
+           doc_path_result_type == STRING_RESULT))
       {
         if ((*value)->result_type() != STRING_RESULT)
         {
@@ -5032,6 +5108,11 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
   new (*key_fields)
     Key_field(field, *value, and_level, exists_optimize, eq_func,
               null_rejecting, NULL, get_semi_join_select_list_index(field));
+
+  /* save the possible document keys */
+  if (field->type() == MYSQL_TYPE_DOCUMENT && doc_path)
+    (*key_fields)->set_possible_document_keys(possible_keys);
+
   (*key_fields)++;
 }
 
@@ -5065,8 +5146,10 @@ add_key_equal_fields(Key_field **key_fields, uint and_level,
                      SARGABLE_PARAM **sargables)
 {
   Field *field= field_item->field;
-  add_key_field(key_fields, and_level, cond, field,
-                eq_func, val, num_values, usable_tables, sargables);
+  add_key_field(key_fields, and_level, cond, field, eq_func, val, num_values,
+                usable_tables, sargables,
+                field_item->document_path ? &field_item->document_path_keys
+                                          : nullptr);
   Item_equal *item_equal= field_item->item_equal;
   if (item_equal)
   { 
@@ -5080,9 +5163,11 @@ add_key_equal_fields(Key_field **key_fields, uint and_level,
     {
       if (!field->eq(item->field))
       {
-        add_key_field(key_fields, and_level, cond, item->field,
-                      eq_func, val, num_values, usable_tables,
-                      sargables);
+        add_key_field(key_fields, and_level, cond, item->field, eq_func, val,
+                      num_values, usable_tables, sargables,
+                      field_item->document_path
+                          ? &field_item->document_path_keys
+                          : nullptr);
       }
     }
   }
@@ -5310,8 +5395,10 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
       */   
       while ((item= it++))
       {
-        add_key_field(key_fields, *and_level, cond_func, item->field,
-                      TRUE, &const_item, 1, usable_tables, sargables);
+        add_key_field(key_fields, *and_level, cond_func, item->field, TRUE,
+                      &const_item, 1, usable_tables, sargables,
+                      item->document_path ? &item->document_path_keys
+                                          : nullptr);
       }
     }
     else 
@@ -5330,9 +5417,10 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
         {
           if (!field->eq(item->field))
           {
-            add_key_field(key_fields, *and_level, cond_func, field,
-                          TRUE, (Item **) &item, 1, usable_tables,
-                          sargables);
+            add_key_field(key_fields, *and_level, cond_func, field, TRUE,
+                          (Item **)&item, 1, usable_tables, sargables,
+                          item->document_path ? &item->document_path_keys
+                                              : nullptr);
           }
         }
         it.rewind();
@@ -5363,15 +5451,20 @@ add_key_part(Key_use_array *keyuse_array, Key_field *key_field)
     for (uint key=0 ; key < form->s->keys ; key++)
     {
       if (!(form->keys_in_use_for_query.is_set(key)))
-	continue;
+        continue;
       if (form->key_info[key].flags & (HA_FULLTEXT | HA_SPATIAL))
-	continue;    // ToDo: ft-keys in non-ft queries.   SerG
+        continue;    // ToDo: ft-keys in non-ft queries.   SerG
 
       uint key_parts= actual_key_parts(&form->key_info[key]);
       for (uint part=0 ; part <  key_parts ; part++)
       {
-	if (field->eq(form->key_info[key].key_part[part].field))
-	{
+        /* Note, for document fields, matching the original fields isn't enough
+         * We need to check possible_document_keys.
+         */
+        if (field->eq(form->key_info[key].key_part[part].field) &&
+            (field->type() != MYSQL_TYPE_DOCUMENT ||
+             key_field->possible_document_keys.is_set(key)))
+        {
           const Key_use keyuse(field->table,
                                key_field->val,
                                key_field->val->used_tables(),
@@ -5385,7 +5478,7 @@ add_key_part(Key_use_array *keyuse_array, Key_field *key_field)
                                key_field->sj_pred_no);
           if (keyuse_array->push_back(keyuse))
             return TRUE;
-	}
+        }
       }
     }
   }
@@ -9042,10 +9135,11 @@ static Item_cond_and *create_cond_for_const_ref(THD *thd, JOIN_TAB *join_tab)
 
   for (uint i=0 ; i < join_tab->ref.key_parts ; i++)
   {
-    Field *field= table->field[table->key_info[join_tab->ref.key].key_part[i].
-                               fieldnr-1];
+    KEY_PART_INFO &key_part = table->key_info[join_tab->ref.key].key_part[i];
+    Field *field= table->field[key_part.fieldnr-1];
     Item *value= join_tab->ref.items[i];
-    Item *item= new Item_field(field);
+    // if the key part is a doc path, we save the path info in the item field
+    Item *item= new Item_field(thd, field, key_part.document_path_key_part);
     if (!item)
       DBUG_RETURN(NULL);
     item= join_tab->ref.null_rejecting & ((key_part_map)1 << i) ?

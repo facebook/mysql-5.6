@@ -51,8 +51,8 @@ Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_par
 t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t1	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
 t1	0	b_a	2	a	A	-	NULL	NULL		BTREE		
-t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
-t1	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE	disabled	
+t1	0	c_doc	2	doc	A	-	8	NULL	YES	BTREE	disabled	
 insert into t1 values (1,10,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 }, "bool":"True", "a.b.c.":1 }');
 insert into t1 values (2,20,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 }, "int64":2222222220123456789, "a.b.c.":2 }');
 insert into t1 values (3,30,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333, "a.b.c.":3 }');
@@ -73,8 +73,8 @@ Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_par
 t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t1	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
 t1	0	b_a	2	a	A	-	NULL	NULL		BTREE		
-t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
-t1	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE	disabled	
+t1	0	c_doc	2	doc	A	-	8	NULL	YES	BTREE	disabled	
 SELECT * FROM t1;
 a	b	c	doc
 1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
@@ -85,8 +85,8 @@ ALTER TABLE t1 DROP KEY b_a;
 SHOW INDEXES IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
-t1	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+t1	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE	disabled	
+t1	0	c_doc	2	doc	A	-	8	NULL	YES	BTREE	disabled	
 SELECT * FROM t1;
 a	b	c	doc
 1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
@@ -136,13 +136,13 @@ t2	CREATE TABLE `t2` (
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
-t2	0	doc_bool	1	doc	A	-	1	NULL		BTREE		
-t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
-t2	0	doc_address	1	doc	A	-	64	NULL		BTREE		
-t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
-t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
+t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	0	doc_bool	1	doc	A	-	1	NULL	YES	BTREE	disabled	
+t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	1	doc_name_100	1	doc	A	-	100	NULL	YES	BTREE	disabled	
+t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 insert into t2 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 }, "bool":"True" }');
 insert into t2 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 }, "int64":2222222220123456789 }');
 insert into t2 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763 }, "double":3.333333 }');
@@ -198,40 +198,40 @@ delete from t2 where a = 5;
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
-t2	0	doc_bool	1	doc	A	-	1	NULL		BTREE		
-t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
-t2	0	doc_address	1	doc	A	-	64	NULL		BTREE		
-t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
-t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
+t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	0	doc_bool	1	doc	A	-	1	NULL	YES	BTREE	disabled	
+t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	1	doc_name_100	1	doc	A	-	100	NULL	YES	BTREE	disabled	
+t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 ALTER TABLE t2 DROP KEY doc_bool;
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
-t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
-t2	0	doc_address	1	doc	A	-	64	NULL		BTREE		
-t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_name_100	1	doc	A	-	100	NULL		BTREE		
-t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
+t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	1	doc_name_100	1	doc	A	-	100	NULL	YES	BTREE	disabled	
+t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 ALTER TABLE t2 DROP KEY doc_name_100;
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
-t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
-t2	0	doc_address	1	doc	A	-	64	NULL		BTREE		
-t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
+t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 ALTER TABLE t2 DROP KEY doc_address;
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t2	0	doc_double	1	doc	A	-	8	NULL		BTREE		
-t2	0	doc_name	1	doc	A	-	64	NULL		BTREE		
-t2	1	doc	1	doc	A	-	8	NULL		BTREE		
-t2	1	doc_2	1	doc	A	-	100	NULL		BTREE		
+t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
+t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
+t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 CREATE TABLE t3 (
 a int not null,
 b int,
@@ -273,8 +273,8 @@ Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_par
 t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t3	0	b_a	1	b	A	-	NULL	NULL	YES	BTREE		
 t3	0	b_a	2	a	A	-	NULL	NULL		BTREE		
-t3	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
-t3	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+t3	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE	disabled	
+t3	0	c_doc	2	doc	A	-	8	NULL	YES	BTREE	disabled	
 SELECT * FROM t3;
 a	b	c	doc
 1	10	@1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761},"bool":"True","a.b.c.":1}
@@ -285,8 +285,8 @@ ALTER TABLE t3 DROP KEY b_a;
 SHOW INDEXES IN t3;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t3	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
-t3	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE		
-t3	0	c_doc	2	doc	A	-	8	NULL		BTREE		
+t3	0	c_doc	1	c	A	-	NULL	NULL	YES	BTREE	disabled	
+t3	0	c_doc	2	doc	A	-	8	NULL	YES	BTREE	disabled	
 ALTER TABLE t3 DROP KEY c_doc;
 SHOW INDEXES IN t3;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment

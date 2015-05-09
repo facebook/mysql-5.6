@@ -429,14 +429,8 @@ void key_unpack(String *to, TABLE *table, KEY *key)
   {
     if (to->length())
       to->append('-');
-    if (key_part->null_bit)
-    {
-      if (table->record[0][key_part->null_offset] & key_part->null_bit)
-      {
-        to->append(STRING_WITH_LEN("NULL"));
-        continue;
-      }
-    }
+
+		// for document path keys part, we will extract the value
     if (key_part->document_path_key_part)
     {
       // Extract the actual value from json using document path
@@ -451,7 +445,8 @@ void key_unpack(String *to, TABLE *table, KEY *key)
       }
       my_bool is_null = false;
       String tmp;
-      key_part->field->document_path_val_str(document_path_keys, &tmp, is_null);
+      key_part->field->document_path_val_str(
+          &document_path_keys, MYSQL_TYPE_DOCUMENT, &tmp, is_null);
       if (is_null)
       {
         to->append(STRING_WITH_LEN("NULL"));
@@ -465,6 +460,15 @@ void key_unpack(String *to, TABLE *table, KEY *key)
     }
     else
     {
+      if (key_part->null_bit)
+      {
+        if (table->record[0][key_part->null_offset] & key_part->null_bit)
+        {
+          to->append(STRING_WITH_LEN("NULL"));
+          continue;
+        }
+      }
+
       field_unpack(to, key_part->field, table->record[0], key_part->length,
                    MY_TEST(key_part->key_part_flag & HA_PART_KEY_SEG));
     }

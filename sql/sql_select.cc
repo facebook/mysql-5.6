@@ -1839,7 +1839,8 @@ get_store_key(THD *thd, Key_use *keyuse, table_map used_tables,
 				    key_buff + maybe_null,
 				    maybe_null ? key_buff : 0,
 				    key_part->length,
-				    keyuse->val);
+				    keyuse->val,
+				    key_part->document_path_key_part);
   }
 
   Item_field *field_item= NULL;
@@ -2097,6 +2098,10 @@ static void push_index_cond(JOIN_TAB *tab, uint keyno, bool other_tbls_ok,
                             Opt_trace_object *trace_obj)
 {
   DBUG_ENTER("push_index_cond");
+
+  /* TODO enable ICP for document path keys */
+  if (tab->table->s->document_keys.is_set(keyno))
+    DBUG_VOID_RETURN;
 
   /*
     We will only attempt to push down an index condition when the

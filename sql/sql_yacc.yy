@@ -11346,6 +11346,16 @@ index_hint_definition:
             Select->set_index_hint_type(INDEX_HINT_USE, $3);
           }
           '(' opt_key_usage_list ')'
+        | USE_SYM DOCUMENT_SYM keys_or_index
+          {
+             Select->set_index_hint_type(INDEX_HINT_USE_DOC_KEYS, INDEX_HINT_MASK_ALL);
+             Select->add_index_hint(YYTHD, NULL, 0);
+          }
+        | IGNORE_SYM DOCUMENT_SYM keys_or_index
+          {
+             Select->set_index_hint_type(INDEX_HINT_IGNORE_DOC_KEYS, INDEX_HINT_MASK_ALL);
+             Select->add_index_hint(YYTHD, NULL, 0);
+          }
        ;
 
 index_hints_list:

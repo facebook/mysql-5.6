@@ -1,0 +1,678 @@
+--source include/master-slave.inc
+connection master;
+
+###
+### Test of query optimization on document path indexes
+###
+
+--disable_warnings
+drop table if exists t1, t2, t3, t4;
+--enable_warnings
+
+create table t1 (
+  a int primary key, 
+  b int,
+  c double,
+  d char(100),
+  doc1 document not null,
+  doc2 document,
+
+  # regular keys
+  key b_a         (b, a),
+
+  # single column keys
+  key doc1_bool   (doc1.bool as bool),
+  key doc1_int    (doc1.int as int),
+  key doc1_double (doc1.double as double),
+  key doc1_string (doc1.string as string(100)),
+  key doc1_binary (doc1.binary as binary(100)),
+  key doc1_nested (doc1.k1.k2.k3.int as int),
+  key doc2_int    (doc2.int as int),
+  key doc2_double (doc2.double as double),
+
+  # multi-column keys
+  key doc1_b (doc1.int as int, b),
+  key doc1_c (doc1.double as double, c),
+  key doc1_d (doc1.int as int, d),
+  key b_doc1 (b, doc1.int as int)
+) engine = innodb;
+# FIXME: incorrect warnings. 
+# Duplicate index 'doc1_double' defined on the table 'test.t1'...
+
+insert into t1 values
+(1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "binary":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'), 
+(2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "binary":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'), 
+(3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "binary":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'), 
+(4, 4, 4.4, 'ddd', '{"bool":true,  "int":4, "double":4.4, "string":"ddd", "binary":"ddd", "k1":{"k2":{"k3":{"int":4}}}, "id":4}', '{"int":4, "double":4.4}'), 
+(5, 5, 5.5, 'eee', '{"bool":true,  "int":5, "double":5.5, "string":"eee", "binary":"eee", "k1":{"k2":{"k3":{"int":5}}}, "id":5}', '{"int":5, "double":5.5}'), 
+(6, 6, 6.6, 'fff', '{"bool":false, "int":6, "double":6.6, "string":"fff", "binary":"fff", "k1":{"k2":{"k3":{"int":6}}}, "id":6}', '{"int":6, "double":6.6}'), 
+(7, 7, 7.7, 'ggg', '{"bool":false, "int":7, "double":7.7, "string":"ggg", "binary":"ggg", "k1":{"k2":{"k3":{"int":7}}}, "id":7}', '{"int":7, "double":7.7}'), 
+(8, 8, 8.8, 'hhh', '{"bool":false, "int":8, "double":8.8, "string":"hhh", "binary":"hhh", "k1":{"k2":{"k3":{"int":8}}}, "id":8}', '{"int":8, "double":8.8}'), 
+(9, 9, 9.9, 'iii', '{"bool":false, "int":9, "double":9.9, "string":"iii", "binary":"iii", "k1":{"k2":{"k3":{"int":9}}}, "id":9}', '{"int":9, "double":9.9}');
+
+analyze table t1;
+
+#
+# ACCESS METHODS EXPLAINED
+#
+
+# "select *" on a document table should always be full table scan
+explain extended select * from t1 use document keys;
+select * from t1 use document keys;
+
+# "select doc" should always be full table scan as well
+# (i.e. no covering index on the whole document)
+explain extended select doc1 from t1 use document keys;
+select doc1 from t1 use document keys;
+explain extended select doc2 from t1 use document keys;
+select doc2 from t1 use document keys;
+
+##
+## bool index type
+##
+
+#
+# covering index
+#
+
+explain extended select a from t1 where doc1.bool is true;
+select a from t1 where doc1.bool is true;
+explain extended select a from t1 use document keys where doc1.bool is true;
+select a from t1 use document keys where doc1.bool is true;
+# group by
+explain extended select count(a) from t1 use document keys group by doc1.bool;
+select count(a) from t1 use document keys group by doc1.bool;
+explain extended select sum(a) from t1 use document keys group by doc1.bool;
+select sum(a) from t1 use document keys group by doc1.bool;
+explain extended select avg(a) from t1 use document keys group by doc1.bool;
+select avg(a) from t1 use document keys group by doc1.bool;
+
+explain extended select doc1.bool from t1 where doc1.bool is true;
+select doc1.bool from t1 where doc1.bool is true;
+explain extended select doc1.bool from t1 use document keys where doc1.bool is true;
+select doc1.bool from t1 use document keys where doc1.bool is true;
+# group by
+explain extended select count(doc1.bool) from t1 use document keys group by doc1.bool;
+select count(doc1.bool) from t1 use document keys group by doc1.bool;
+explain extended select sum(doc1.bool) from t1 use document keys group by doc1.bool;
+select sum(doc1.bool) from t1 use document keys group by doc1.bool;
+explain extended select avg(doc1.bool) from t1 use document keys group by doc1.bool;
+select avg(doc1.bool) from t1 use document keys group by doc1.bool;
+
+# doc_bool is the smallest secondary index to cover primary key
+explain extended select a from t1;
+select a from t1;
+explain extended select a from t1 use document keys;
+select a from t1 use document keys;
+
+#
+# non-covering
+#
+
+explain extended select * from t1 where doc1.bool is true;
+select * from t1 where doc1.bool is true;
+explain extended select * from t1 use document keys where doc1.bool is true;
+select * from t1 use document keys where doc1.bool is true;
+# group by (count-star will do index scan)
+explain extended select count(*) from t1 use document keys group by doc1.bool;
+select count(*) from t1 use document keys group by doc1.bool;
+
+explain extended select doc1 from t1 where doc1.bool is true;
+select doc1 from t1 where doc1.bool is true;
+explain extended select doc1 from t1 use document keys where doc1.bool is true;
+select doc1 from t1 use document keys where doc1.bool is true;
+# group by
+explain extended select count(doc1) from t1 use document keys group by doc1.bool;
+select count(doc1) from t1 use document keys group by doc1.bool;
+
+explain extended select doc1.int from t1 where doc1.bool is true;
+select doc1.int from t1 where doc1.bool is true;
+explain extended select doc1.int from t1 use document keys where doc1.bool is true;
+select doc1.int from t1 use document keys where doc1.bool is true;
+# group by
+explain extended select count(doc1.int) from t1 use document keys group by doc1.bool;
+select count(doc1.int) from t1 use document keys group by doc1.bool;
+
+##
+## integer index type
+##
+
+#
+# covering index
+#
+
+# on not-nullable document column
+explain extended select a from t1 where doc1.int > 5;
+select a from t1 where doc1.int > 5;
+explain extended select a from t1 use document keys where doc1.int > 5;
+select a from t1 use document keys where doc1.int > 5;
+# group by
+explain extended select count(a) from t1 use document keys group by doc1.int having doc1.int > 5;
+select count(a) from t1 use document keys group by doc1.int having doc1.int > 5;
+# order by (FIXME: index scan but temp table field is string)
+explain extended select a from t1 use document keys order by doc1.int;
+select a from t1 use document keys order by doc1.int;
+
+explain extended select doc1.int from t1 where doc1.int > 5;
+select doc1.int from t1 where doc1.int > 5;
+explain extended select doc1.int from t1 use document keys where doc1.int > 5;
+select doc1.int from t1 use document keys where doc1.int > 5;
+# group by
+explain extended select count(doc1.int) from t1 use document keys group by doc1.int having doc1.int > 5 ;
+select count(doc1.int) from t1 use document keys group by doc1.int having doc1.int > 5 ;
+# group by with where clause
+explain extended select count(doc1.int) from t1 use document keys where doc1.int > 5 group by doc1.int;
+select count(doc1.int) from t1 use document keys where doc1.int > 5 group by doc1.int;
+explain extended select count(a) from t1 use document keys where doc1.int = 5 group by doc1.int;
+select count(a) from t1 use document keys where doc1.int = 5 group by doc1.int;
+
+# on nullable document column
+explain extended select a from t1 where doc2.int > 5;
+select a from t1 where doc2.int > 5;
+explain extended select a from t1 use document keys where doc2.int > 5;
+select a from t1 use document keys where doc2.int > 5;
+# group by
+explain extended select count(a) from t1 use document keys group by doc2.int having doc2.int > 5;
+select count(a) from t1 use document keys group by doc2.int having doc2.int > 5;
+
+explain extended select doc2.int from t1 where doc2.int > 5;
+select doc2.int from t1 where doc2.int > 5;
+explain extended select doc2.int from t1 use document keys where doc2.int > 5;
+select doc2.int from t1 use document keys where doc2.int > 5;
+# group by
+explain extended select count(doc2.int) from t1 use document keys group by doc2.int having doc2.int > 5;
+select count(doc2.int) from t1 use document keys group by doc2.int having doc2.int > 5;
+
+#
+# non-covering
+#
+
+# on not-nullable document column
+explain extended select * from t1 where doc1.int > 5;
+select * from t1 where doc1.int > 5;
+explain extended select * from t1 use document keys where doc1.int > 5;
+select * from t1 use document keys where doc1.int > 5;
+# group by
+explain extended select count(*) from t1 use document keys group by doc1.int having doc1.int > 5;
+select count(*) from t1 use document keys group by doc1.int having doc1.int > 5;
+
+explain extended select doc1 from t1 where doc1.int > 5;
+select doc1 from t1 where doc1.int > 5;
+explain extended select doc1 from t1 use document keys where doc1.int > 5;
+select doc1 from t1 use document keys where doc1.int > 5;
+# group by
+explain extended select count(doc1) from t1 use document keys group by doc1.int having doc1.int > 5;
+select count(doc1) from t1 use document keys group by doc1.int having doc1.int > 5;
+
+explain extended select doc1.double from t1 where doc1.int > 5;
+select doc1.double from t1 where doc1.int > 5;
+explain extended select doc1.double from t1 use document keys where doc1.int > 5;
+select doc1.double from t1 use document keys where doc1.int > 5;
+# group by
+explain extended select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
+select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
+
+# on nullable document column
+explain extended select * from t1 where doc2.int > 5;
+select * from t1 where doc2.int > 5;
+explain extended select * from t1 use document keys where doc2.int > 5;
+select * from t1 use document keys where doc2.int > 5;
+# group by
+explain extended select count(*) from t1 use document keys group by doc2.int having doc2.int > 5;
+select count(*) from t1 use document keys group by doc2.int having doc2.int > 5;
+
+explain extended select doc2 from t1 where doc2.int > 5;
+select doc2 from t1 where doc2.int > 5;
+explain extended select doc2 from t1 use document keys where doc2.int > 5;
+select doc2 from t1 use document keys where doc2.int > 5;
+# group by
+explain extended select count(doc2) from t1 use document keys group by doc2.int having doc2.int > 5;
+select count(doc2) from t1 use document keys group by doc2.int having doc2.int > 5;
+
+explain extended select doc2.double from t1 where doc2.int > 5;
+select doc2.double from t1 where doc2.int > 5;
+explain extended select doc2.double from t1 use document keys where doc2.int > 5;
+select doc2.double from t1 use document keys where doc2.int > 5;
+# group by
+explain extended select sum(doc2.double) from t1 use document keys group by doc2.int having doc2.int > 5;
+select sum(doc2.double) from t1 use document keys group by doc2.int having doc2.int > 5;
+
+##
+## double index type
+##
+
+#
+# covering index
+#
+
+# on not-nullable document column
+explain extended select a from t1 where doc1.double > 5.5;
+select a from t1 where doc1.double > 5.5;
+explain extended select a from t1 use document keys where doc1.double > 5.5;
+select a from t1 use document keys where doc1.double > 5.5;
+# group by
+explain extended select sum(a) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+select sum(a) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+
+explain extended select doc1.double from t1 where doc1.double > 5.5;
+select doc1.double from t1 where doc1.double > 5.5;
+explain extended select doc1.double from t1 use document keys where doc1.double > 5.5;
+select doc1.double from t1 use document keys where doc1.double > 5.5;
+# group by
+explain extended select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+
+# on nullable document column
+explain extended select a from t1 where doc2.double > 5.5;
+select a from t1 where doc2.double > 5.5;
+explain extended select a from t1 use document keys where doc2.double > 5.5;
+select a from t1 use document keys where doc2.double > 5.5;
+# group by
+explain extended select count(a) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+select count(a) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+
+explain extended select doc2.double from t1 where doc2.double > 5.5;
+select doc2.double from t1 where doc2.double > 5.5;
+explain extended select doc2.double from t1 use document keys where doc2.double > 5.5;
+select doc2.double from t1 use document keys where doc2.double > 5.5;
+# group by
+explain extended select count(doc2.double) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+select count(doc2.double) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+
+#
+# non-covering
+#
+
+# on not-nullable document column
+explain extended select * from t1 where doc1.double > 5.5;
+select * from t1 where doc1.double > 5.5;
+explain extended select * from t1 use document keys where doc1.double > 5.5;
+select * from t1 use document keys where doc1.double > 5.5;
+# group by
+explain extended select count(*) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+select count(*) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+
+explain extended select doc1 from t1 where doc1.double > 5.5;
+select doc1 from t1 where doc1.double > 5.5;
+explain extended select doc1 from t1 use document keys where doc1.double > 5.5;
+select doc1 from t1 use document keys where doc1.double > 5.5;
+# group by
+explain extended select count(doc1) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+select count(doc1) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+
+explain extended select doc1.string from t1 where doc1.double > 5.5;
+select doc1.string from t1 where doc1.double > 5.5;
+explain extended select doc1.string from t1 use document keys where doc1.double > 5.5;
+select doc1.string from t1 use document keys where doc1.double > 5.5;
+# group by
+explain extended select count(doc1.string) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+select count(doc1.string) from t1 use document keys group by doc1.double having doc1.double > 5.5;
+
+# on nullable document column
+explain extended select * from t1 where doc2.double > 5.5;
+select * from t1 where doc2.double > 5.5;
+explain extended select * from t1 use document keys where doc2.double > 5.5;
+select * from t1 use document keys where doc2.double > 5.5;
+# group by
+explain extended select count(*) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+select count(*) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+
+explain extended select doc2 from t1 where doc2.double > 5.5;
+select doc2 from t1 where doc2.double > 5.5;
+explain extended select doc2 from t1 use document keys where doc2.double > 5.5;
+select doc2 from t1 use document keys where doc2.double > 5.5;
+# group by
+explain extended select count(doc2) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+select count(doc2) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+
+explain extended select doc2.int from t1 where doc2.double > 5.5;
+select doc2.int from t1 where doc2.double > 5.5;
+explain extended select doc2.int from t1 use document keys where doc2.double > 5.5;
+select doc2.int from t1 use document keys where doc2.double > 5.5;
+# group by
+explain extended select count(doc2.int) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+select count(doc2.int) from t1 use document keys group by doc2.double having doc2.double > 5.5;
+
+##
+## string index type
+##
+
+#
+# covering index
+#
+
+explain extended select a from t1 where doc1.string = 'eee';
+select a from t1 where doc1.string = 'eee';
+explain extended select a from t1 use document keys where doc1.string = 'eee';
+select a from t1 use document keys where doc1.string = 'eee';
+# group by string will not be covered by prefix indexes
+explain extended select count(a) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+select count(a) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+
+explain extended select doc1.string from t1 where doc1.string = 'eee';
+select doc1.string from t1 where doc1.string = 'eee';
+explain extended select doc1.string from t1 use document keys where doc1.string = 'eee';
+select doc1.string from t1 use document keys where doc1.string = 'eee';
+# group by string will not be covered by prefix indexes
+explain extended select count(doc1.string) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+select count(doc1.string) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+
+#
+# non-covering
+#
+
+explain extended select * from t1 where doc1.string = 'eee';
+select * from t1 where doc1.string = 'eee';
+explain extended select * from t1 use document keys where doc1.string = 'eee';
+select * from t1 use document keys where doc1.string = 'eee';
+# group by
+explain extended select count(*) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+select count(*) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+
+explain extended select doc1 from t1 where doc1.string = 'eee';
+select doc1 from t1 where doc1.string = 'eee';
+explain extended select doc1 from t1 use document keys where doc1.string = 'eee';
+select doc1 from t1 use document keys where doc1.string = 'eee';
+# group by
+explain extended select count(doc1) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+select count(doc1) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+
+explain extended select doc1.int from t1 where doc1.string = 'eee';
+select doc1.int from t1 where doc1.string = 'eee';
+explain extended select doc1.int from t1 use document keys where doc1.string = 'eee';
+select doc1.int from t1 use document keys where doc1.string = 'eee';
+# group by
+explain extended select sum(doc1.int) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+select sum(doc1.int) from t1 use document keys group by doc1.string having doc1.string = 'eee';
+
+#
+# TODO: pattern matching is not supported on prefix index scan
+#
+
+explain extended select a from t1 where doc1.string like 'e%';
+select a from t1 where doc1.string like 'e%';
+explain extended select a from t1 use document keys where doc1.string like 'e%';
+select a from t1 use document keys where doc1.string like 'e%';
+
+explain extended select doc1.string from t1 where doc1.string like 'e%';
+select doc1.string from t1 where doc1.string like 'e%';
+explain extended select doc1.string from t1 use document keys where doc1.string like 'e%';
+select doc1.string from t1 use document keys where doc1.string like 'e%';
+
+explain extended select * from t1 where doc1.string like 'e%';
+select * from t1 where doc1.string like 'e%';
+explain extended select * from t1 use document keys where doc1.string like 'e%';
+select * from t1 use document keys where doc1.string like 'e%';
+
+explain extended select doc1 from t1 where doc1.string like 'e%';
+select doc1 from t1 where doc1.string like 'e%';
+explain extended select doc1 from t1 use document keys where doc1.string like 'e%';
+select doc1 from t1 use document keys where doc1.string like 'e%';
+
+explain extended select doc1.int from t1 where doc1.string like 'e%';
+select doc1.int from t1 where doc1.string like 'e%';
+explain extended select doc1.int from t1 use document keys where doc1.string like 'e%';
+select doc1.int from t1 use document keys where doc1.string like 'e%';
+
+##
+## binary index type
+##
+
+#
+# TODO: using index scan for covering binary index
+#
+
+explain extended select a from t1 where doc1.binary = 'eee';
+select a from t1 where doc1.binary = 'eee';
+explain extended select a from t1 use document keys where doc1.binary = 'eee';
+select a from t1 use document keys where doc1.binary = 'eee';
+
+explain extended select doc1.binary from t1 where doc1.binary = 'eee';
+select doc1.binary from t1 where doc1.binary = 'eee';
+explain extended select doc1.binary from t1 use document keys where doc1.binary = 'eee';
+select doc1.binary from t1 use document keys where doc1.binary = 'eee';
+
+#
+# non-covering
+#
+
+explain extended select * from t1 where doc1.binary = 'eee';
+select * from t1 where doc1.binary = 'eee';
+explain extended select * from t1 use document keys where doc1.binary = 'eee';
+select * from t1 use document keys where doc1.binary = 'eee';
+
+explain extended select doc1 from t1 where doc1.binary = 'eee';
+select doc1 from t1 where doc1.binary = 'eee';
+explain extended select doc1 from t1 use document keys where doc1.binary = 'eee';
+select doc1 from t1 use document keys where doc1.binary = 'eee';
+
+explain extended select doc1.int from t1 where doc1.binary = 'eee';
+select doc1.int from t1 where doc1.binary = 'eee';
+explain extended select doc1.int from t1 use document keys where doc1.binary = 'eee';
+select doc1.int from t1 use document keys where doc1.binary = 'eee';
+
+#
+# TODO: pattern matching is not supported on prefix index scan
+#
+
+explain extended select a from t1 where doc1.binary like 'e%';
+select a from t1 where doc1.binary like 'e%';
+explain extended select a from t1 use document keys where doc1.binary like 'e%';
+select a from t1 use document keys where doc1.binary like 'e%';
+
+explain extended select doc1.binary from t1 where doc1.binary like 'e%';
+select doc1.binary from t1 where doc1.binary like 'e%';
+explain extended select doc1.binary from t1 use document keys where doc1.binary like 'e%';
+select doc1.binary from t1 use document keys where doc1.binary like 'e%';
+
+explain extended select * from t1 where doc1.binary like 'e%';
+select * from t1 where doc1.binary like 'e%';
+explain extended select * from t1 use document keys where doc1.binary like 'e%';
+select * from t1 use document keys where doc1.binary like 'e%';
+
+explain extended select doc1 from t1 where doc1.binary like 'e%';
+select doc1 from t1 where doc1.binary like 'e%';
+explain extended select doc1 from t1 use document keys where doc1.binary like 'e%';
+select doc1 from t1 use document keys where doc1.binary like 'e%';
+
+explain extended select doc1.int from t1 where doc1.binary like 'e%';
+select doc1.int from t1 where doc1.binary like 'e%';
+explain extended select doc1.int from t1 use document keys where doc1.binary like 'e%';
+select doc1.int from t1 use document keys where doc1.binary like 'e%';
+
+##
+## composite index
+##
+
+#
+# index scan
+#
+
+# doc1_b and b_doc1
+explain extended select doc1.int from t1 where b = 5;
+select doc1.int from t1 where b = 5;
+explain extended select doc1.int from t1 use document keys where b = 5;
+select doc1.int from t1 use document keys where b = 5;
+
+explain extended select b from t1 where doc1.int = 5;
+select b from t1 where doc1.int = 5;
+explain extended select b from t1 use document keys where doc1.int = 5;
+select b from t1 use document keys where doc1.int = 5;
+# group by
+explain extended select count(b) from t1 use document keys group by doc1.int having doc1.int = 5;
+select count(b) from t1 use document keys group by doc1.int having doc1.int = 5;
+
+explain extended select b from t1 where doc1.int > 5;
+select b from t1 where doc1.int > 5;
+explain extended select d from t1 use document keys where doc1.int > 5;
+select b from t1 use document keys where doc1.int > 5;
+# group by
+explain extended select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
+select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
+
+# doc1_c
+explain extended select doc1.double from t1 where c = 5.5;
+select doc1.double from t1 where c = 5.5;
+explain extended select doc1.double from t1 use document keys where c = 5.5;
+select doc1.double from t1 use document keys where c = 5.5;
+
+explain extended select c from t1 where doc1.double = 5.5;
+select c from t1 where doc1.double = 5.5;
+#
+# FIXME: 5.5 is stored as decimal and not handled by document field
+explain extended select c from t1 use document keys where doc1.double = 5.5;
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+select c from t1 use document keys where doc1.double = 5.5;
+#
+# work-around
+explain extended select c from t1 use document keys where doc1.double = '5.5';
+select c from t1 use document keys where doc1.double = '5.5';
+
+explain extended select c from t1 where doc1.double > 5.5;
+select c from t1 where doc1.double > 5.5;
+explain extended select c from t1 use document keys where doc1.double > 5.5;
+select c from t1 use document keys where doc1.double > 5.5;
+
+# doc1_d
+explain extended select doc1.int from t1 where d = 'eee';
+select doc1.int from t1 where d = 'eee';
+explain extended select doc1.int from t1 use document keys where d = 'eee';
+select doc1.int from t1 use document keys where d = 'eee';
+
+explain extended select d from t1 where doc1.int = 5;
+select d from t1 where doc1.int = 5;
+explain extended select d from t1 use document keys where doc1.int = 5;
+select d from t1 use document keys where doc1.int = 5;
+
+explain extended select d from t1 where doc1.int > 5;
+select d from t1 where doc1.int > 5;
+explain extended select d from t1 use document keys where doc1.int > 5;
+select d from t1 use document keys where doc1.int > 5;
+
+explain extended select d from t1 where doc1.int = '5';
+select d from t1 where doc1.int = '5';
+explain extended select d from t1 use document keys where doc1.int = '5';
+select d from t1 use document keys where doc1.int = '5';
+
+explain extended select d from t1 where doc1.int < '5';
+select d from t1 where doc1.int < '5';
+explain extended select d from t1 use document keys where doc1.int < '5';
+select d from t1 use document keys where doc1.int < '5';
+
+explain extended select a from t1 where doc1.int = 5;
+select a from t1 where doc1.int = 5;
+explain extended select a from t1 use document keys where doc1.int = 5;
+select a from t1 use document keys where doc1.int = 5;
+
+explain extended select a from t1 where doc1.int >= 5;
+select a from t1 where doc1.int >= 5;
+explain extended select a from t1 use document keys where doc1.int >= 5;
+select a from t1 use document keys where doc1.int >= 5;
+
+explain extended select a from t1 where d like 'eee' and doc1.int = 5;
+select a from t1 where d like 'eee' and doc1.int = 5;
+explain extended select a from t1 use document keys where d like 'eee' and doc1.int = 5;
+select a from t1 use document keys where d like 'eee' and doc1.int = 5;
+
+explain extended select a from t1 where d like 'e%' and doc1.int > 4;
+select a from t1 where d like 'e%' and doc1.int > 4;
+explain extended select a from t1 use document keys where d like 'e%' and doc1.int > 4;
+select a from t1 use document keys where d like 'e%' and doc1.int > 4;
+
+explain extended select a, d, doc1.int from t1 where d like 'eee' and doc1.int = 5;
+select a, d, doc1.int from t1 where d like 'eee' and doc1.int = 5;
+explain extended select a, d, doc1.int from t1 use document keys where d like 'eee' and doc1.int = 5;
+select a, d, doc1.int from t1 use document keys where d like 'eee' and doc1.int = 5;
+
+explain extended select a, d, doc1.int from t1 where d like 'e%' and doc1.int < 6;
+select a, d, doc1.int from t1 where d like 'e%' and doc1.int < 6;
+explain extended select a, d, doc1.int from t1 use document keys where d like 'e%' and doc1.int < 6;
+select a, d, doc1.int from t1 use document keys where d like 'e%' and doc1.int < 6;
+
+#
+# index access but no covering index
+#
+explain extended select b from t1 where doc1.int = 5;
+select b from t1 where doc1.int = 5;
+explain extended select b from t1 use document keys where doc1.int = 5;
+select b from t1 use document keys where doc1.int = 5;
+
+explain extended select * from t1 where doc1.int = 5;
+select * from t1 where doc1.int = 5;
+explain extended select * from t1 use document keys where doc1.int = 5;
+select * from t1 use document keys where doc1.int = 5;
+
+explain extended select doc1.double from t1 where doc1.int = 5;
+select doc1.double from t1 where doc1.int = 5;
+
+explain extended select doc1.double from t1 use document keys where doc1.int = 5;
+select doc1.double from t1 use document keys where doc1.int = 5;
+
+explain extended select doc1 from t1 where doc1.int = 5;
+select doc1 from t1 where doc1.int = 5;
+
+explain extended select doc1 from t1 use document keys where doc1.int = 5;
+select doc1 from t1 use document keys where doc1.int = 5;
+
+# range query works fine if select list is a different document path
+explain extended select doc1.double from t1 where doc1.int < 5;
+select doc1.double from t1 where doc1.int < 5;
+explain extended select doc1.double from t1 use document keys where doc1.int < 5;
+select doc1.double from t1 use document keys where doc1.int < 5;
+
+# range query works fine if select list is a document column
+explain extended select doc1 from t1 where doc1.int > 5;
+select doc1 from t1 where doc1.int > 5;
+explain extended select doc1 from t1 use document keys where doc1.int > 5;
+select doc1 from t1 use document keys where doc1.int > 5;
+
+# if the select list is not covered by index, query works fine as well
+explain extended select b, doc1.double from t1 where doc1.int = 5;
+select b, doc1.double from t1 where doc1.int = 5;
+explain extended select b, doc1.double from t1 use document keys where doc1.int = 5;
+select b, doc1.double from t1 use document keys where doc1.int = 5;
+
+explain extended select b, doc1 from t1 where doc1.int = 5;
+select b, doc1 from t1 where doc1.int = 5;
+explain extended select b, doc1 from t1 use document keys where doc1.int = 5;
+select b, doc1 from t1 use document keys where doc1.int = 5;
+
+#
+# not all conditions are covered by index
+#
+explain extended select b from t1 where doc1.int = 5 and d = 5.5;
+select b from t1 where doc1.int = 5 and d = 5.5;
+explain extended select b from t1 use document keys where doc1.int = 5 and d = 5.5;
+select b from t1 use document keys where doc1.int = 5 and d = 5.5;
+
+explain extended select b from t1 where doc1.int = 5 and d > 5;
+select b from t1 where doc1.int = 5 and d > 5;
+explain extended select b from t1 use document keys where doc1.int = 5 and d > 5;
+select b from t1 use document keys where doc1.int = 5 and d > 5;
+
+#
+# doc1 key is considered but the smaller b_a key is picked
+#
+explain extended select c from t1 where doc1.int = 5 and b = 5;
+select c from t1 where doc1.int = 5 and b = 5;
+explain extended select c from t1 use document keys where doc1.int = 5 and b = 5;
+select c from t1 use document keys where doc1.int = 5 and b = 5;
+
+#
+# full table scan: where-condition is not part of any indexes
+#
+explain extended select doc1.int from t1 where doc1.id = 5;
+select doc1.int from t1 where doc1.id = 5;
+explain extended select doc1.int from t1 use document keys where doc1.id = 5;
+select doc1.int from t1 use document keys where doc1.id = 5;
+
+explain extended select a, b from t1 where doc1.id = 5;
+select a, b from t1 where doc1.id = 5;
+explain extended select a, b from t1 use document keys where doc1.id = 5;
+select a, b from t1 use document keys where doc1.id = 5;
+
+#
+# clean up
+#
+drop table t1;
+--source include/rpl_end.inc

@@ -1134,7 +1134,8 @@ class store_key :public Sql_alloc
 public:
   bool null_key; /* TRUE <=> the value of the key has a null part */
   enum store_key_result { STORE_KEY_OK, STORE_KEY_FATAL, STORE_KEY_CONV };
-  store_key(THD *thd, Field *field_arg, uchar *ptr, uchar *null, uint length)
+  store_key(THD *thd, Field *field_arg, uchar *ptr, uchar *null, uint length,
+            DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part = nullptr)
     :null_key(0), null_ptr(null), err(0)
   {
     if (field_arg->type() == MYSQL_TYPE_BLOB
@@ -1150,8 +1151,20 @@ public:
       to_field->init(field_arg->table);
     }
     else
+    {
       to_field=field_arg->new_key_field(thd->mem_root, field_arg->table,
                                         ptr, null, 1);
+      /* save document path key information in the key field */
+      if (field_arg->type() == MYSQL_TYPE_DOCUMENT &&
+          document_path_key_part)
+      {
+        ((Field_document *)to_field)
+            ->set_document_type(document_path_key_part->type);
+        if (document_path_key_part->type == MYSQL_TYPE_STRING)
+          ((Field_document*)to_field)->doc_key_prefix_len =
+            document_path_key_part->length;
+      }
+    }
   }
   virtual ~store_key() {}			/** Not actually needed */
   virtual const char *name() const=0;
@@ -1251,10 +1264,12 @@ class store_key_item :public store_key
   Item *item;
 public:
   store_key_item(THD *thd, Field *to_field_arg, uchar *ptr,
-                 uchar *null_ptr_arg, uint length, Item *item_arg)
+                 uchar *null_ptr_arg, uint length, Item *item_arg,
+                 DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part = nullptr)
     :store_key(thd, to_field_arg, ptr,
 	       null_ptr_arg ? null_ptr_arg : item_arg->maybe_null ?
-	       &err : (uchar*) 0, length), item(item_arg)
+	       &err : (uchar*) 0, length, document_path_key_part),
+	       item(item_arg)
   {}
   const char *name() const { return "func"; }
 
@@ -1287,9 +1302,11 @@ class store_key_const_item :public store_key_item
 public:
   store_key_const_item(THD *thd, Field *to_field_arg, uchar *ptr,
 		       uchar *null_ptr_arg, uint length,
-		       Item *item_arg)
+		       Item *item_arg,
+           DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part = nullptr)
     :store_key_item(thd, to_field_arg, ptr,
-                    null_ptr_arg, length, item_arg), inited(0)
+                    null_ptr_arg, length, item_arg,
+                    document_path_key_part), inited(0)
   {
   }
   const char *name() const { return "const"; }

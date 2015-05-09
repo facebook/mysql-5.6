@@ -564,7 +564,16 @@ public:
   };
   enum document_type
   {
-    DOC_NONE = 0, DOC_DOCUMENT
+    DOC_NONE = 0,
+    DOC_DOCUMENT = 1, // this is a regular document
+
+    // the following type values are used for index ref keys
+    // where we store raw values in document field for index scan
+    DOC_PATH_TINY,
+    DOC_PATH_INT,
+    DOC_PATH_DOUBLE,
+    DOC_PATH_STRING,
+    DOC_PATH_BLOB,
   };
   enum imagetype { itRAW, itMBR};
 
@@ -695,36 +704,43 @@ public:
   /*
    virtual functions for Field_document use only.
   */
-  virtual bool document_path_val_doc(
-    List<Document_key>& key_path,
-    uchar *buff, uint length, uint& val_len, my_bool& is_null)
+  virtual bool document_path_is_null(
+    List<Document_key>* key_path_ptr, enum_field_types key_type)
   {
-    DBUG_ASSERT(0); return true; /* false: success; true: failure */
+    DBUG_ASSERT(0); return true;
   }
   virtual String *document_path_val_str(
-    List<Document_key>& list,
+    List<Document_key>* key_path_ptr,
+    enum_field_types key_type, // if not a regular document,
+                               // type of the key path to read
     String *val_buffer, my_bool& is_null)
   {
     DBUG_ASSERT(0); return nullptr;
   }
   virtual longlong document_path_val_int(
-    List<Document_key>& key_path, my_bool& is_null)
+    List<Document_key>* key_path_ptr,
+    enum_field_types key_type, // if not a regular document,
+                               // type of the key path to read
+    my_bool& is_null)
   {
     DBUG_ASSERT(0); return INT_MAX;
   }
   virtual double document_path_val_real(
-    List<Document_key>& key_path, my_bool& is_null)
+    List<Document_key>* key_path_ptr,
+    enum_field_types key_type,// if not a regular document,
+                               // type of the key path to read
+    my_bool& is_null)
   {
     DBUG_ASSERT(0); return DBL_MAX;
   }
   virtual my_decimal *document_path_val_decimal(
-    List<Document_key>& key_path,
+    List<Document_key>* key_path_ptr,
     my_decimal *d, my_bool& is_null)
   {
     DBUG_ASSERT(0); return NULL;
   }
   virtual bool document_path_make_sort_key(
-    List<Document_key>& key_path,
+    List<Document_key>* key_path_ptr,
     uchar *buff, uint length, uint& key_len, my_bool& is_null)
   {
     DBUG_ASSERT(0); return true; /* false: success; true: failure */
@@ -732,14 +748,14 @@ public:
 
   /* return false: success, true: failure */
   virtual bool document_path_get_date(
-    List<Document_key>& key_path,
+    List<Document_key>* key_path_ptr,
     MYSQL_TIME *ltime,uint fuzzydate, my_bool& is_null)
   {
     DBUG_ASSERT(0); return true;
   }
 
   virtual bool document_path_get_time(
-    List<Document_key>& key_path,
+    List<Document_key>* key_path_ptr,
     MYSQL_TIME *ltime, my_bool& is_null)
   {
     DBUG_ASSERT(0); return true;
@@ -3295,6 +3311,7 @@ public:
      this member variable will always be NULL.
   */
   List<Document_key> *document_path_keys;
+  enum_field_types document_path_type;
 
   Field_varstring(uchar *ptr_arg,
                   uint32 len_arg, uint length_bytes_arg,
@@ -3646,47 +3663,54 @@ class Field_document :public Field_blob {
    helper functions for Field_document use only.
   */
   template<typename T>
-  T document_path_val_numeric(List<Document_key>& key_path,
+  T document_path_val_numeric(List<Document_key>* key_path_ptr,
                               bool &valid_result,
                               my_bool& is_null);
 
-  bool document_path_get_date_or_time(List<Document_key>& key_path,
+  bool document_path_get_date_or_time(List<Document_key>* key_path_ptr,
                                       MYSQL_TIME *ltime,
                                       uint fuzzydate,
                                       bool is_date,
                                       my_bool& is_null);
 
-  bool document_path_val_binary(List<Document_key>& key_path,
-                                uchar *buff, uint length,
-                                uint& val_len, my_bool& is_null);
-
-  void document_path_val_string(List<Document_key>& key_path,
+  void document_path_val_string(List<Document_key>* key_path_ptr,
+                                enum_field_types key_type,
                                 String *string,
                                 uchar *buff, uint length,
                                 uint& val_len, my_bool& is_null);
 
 public:
   enum document_type doc_type;
+  bool nullable_document; // stores the user defined nullability in DDL
+  uint doc_key_prefix_len;// stores the length of prefix index
+
+  /* array to hold pointers to document path keys.
+   * The purpose is similar to the key_start map, but for document keys
+   * we need to specifically look at the key part, as there could be
+   * document path key part could be different.
+   */
+  DOCUMENT_PATH_KEY_PART_INFO* document_path_key_start[MAX_KEY];
 
   Field_document(uchar *ptr_arg, uchar *null_ptr_arg, uint null_bit_arg,
-	     enum utype unireg_check_arg, const char *field_name_arg,
-	     TABLE_SHARE *share, uint blob_pack_length,
-	     enum document_type doc_type_arg)
-     :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
-                 field_name_arg, share, blob_pack_length, &my_charset_bin)
+      enum utype unireg_check_arg, const char *field_name_arg,
+      TABLE_SHARE *share, uint blob_pack_length,
+      enum document_type doc_type_arg, bool nullable_arg)
+    :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
+        field_name_arg, share, blob_pack_length, &my_charset_bin),
+    doc_type(doc_type_arg), nullable_document(nullable_arg),
+    doc_key_prefix_len(0)
   {
-    doc_type= doc_type_arg;
-    flags|= DOCUMENT_FLAG;
-    packlength = 3;
+    init();
   }
   Field_document(uint32 len_arg,bool maybe_null_arg, const char *field_name_arg,
-	     TABLE_SHARE *share, enum document_type doc_type_arg)
-    :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin)
+      TABLE_SHARE *share, enum document_type doc_type_arg, bool nullable_arg)
+    :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin),
+    doc_type(doc_type_arg), nullable_document(nullable_arg),
+    doc_key_prefix_len(0)
   {
-    doc_type= doc_type_arg;
-    flags|= DOCUMENT_FLAG;
-    packlength = 3;
+    init();
   }
+
   enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
@@ -3708,51 +3732,77 @@ public:
   /*
    virtual functions for Field_document use only.
   */
-  bool document_path_val_doc(List<Document_key>& key_path,
-                             uchar *buff, uint length,
-                             uint& val_len, my_bool& is_null);
+  bool document_path_is_null(
+    List<Document_key>* key_path_ptr, enum_field_types key_type);
 
-  String *document_path_val_str(List<Document_key>& key_path,
-                                String *val_buffer, my_bool& is_null);
-
-  longlong document_path_val_int(List<Document_key>& key_path,
-                                 my_bool& is_null);
-
-  double document_path_val_real(List<Document_key>& key_path,
+  // If not a regular document, key_type is the type of value to read
+  String *document_path_val_str(List<Document_key>* key_path_ptr,
+                                enum_field_types key_type,
+                                String *val_buffer,
                                 my_bool& is_null);
 
-  my_decimal *document_path_val_decimal(List<Document_key>& key_path,
+  // If not a regular document, key_type is the type of value to read
+  longlong document_path_val_int(List<Document_key>* key_path_ptr,
+                                enum_field_types key_type,
+                                my_bool& is_null);
+
+  // If not a regular document, key_type is the type of value to read
+  double document_path_val_real(List<Document_key>* key_path_ptr,
+                                enum_field_types key_type,
+                                my_bool& is_null);
+
+  my_decimal *document_path_val_decimal(List<Document_key>* key_path_ptr,
                                         my_decimal *decimal_value,
                                         my_bool& is_null);
 
-  bool document_path_get_date(List<Document_key>& key_path,
+  bool document_path_get_date(List<Document_key>* key_path_ptr,
                               MYSQL_TIME *ltime,uint fuzzydate,
                               my_bool& is_null);
 
-  bool document_path_get_time(List<Document_key>& key_path,
+  bool document_path_get_time(List<Document_key>* key_path_ptr,
                               MYSQL_TIME *ltime,
                               my_bool& is_null);
 
-  bool document_path_make_sort_key(List<Document_key>& key_path,
+  bool document_path_make_sort_key(List<Document_key>* key_path_ptr,
                                    uchar *buff, uint length,
                                    uint& val_len, my_bool& is_null);
 
-  type_conversion_status field_conv_document_path(List<Document_key>& key_path,
-                                                  Field *to, my_bool is_null);
+  type_conversion_status field_conv_document_path(
+      List<Document_key>* key_path_ptr,
+      Field *to, my_bool is_null);
 
   type_conversion_status reset(void)
   {
     type_conversion_status res= Field_blob::reset();
     if (res != TYPE_OK)
       return res;
-    return maybe_null() ? TYPE_OK : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+    return maybe_null() && nullable_document
+               ? TYPE_OK
+               : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
   }
 
   document_type get_document_type()
   {
-    DBUG_ASSERT(doc_type == DOC_DOCUMENT);
+    DBUG_ASSERT(doc_type >= DOC_DOCUMENT);
     return doc_type;
   }
+
+  void set_document_type(enum_field_types type)
+  {
+    switch (type)
+    {
+      case MYSQL_TYPE_TINY: doc_type = DOC_PATH_TINY; break;
+      case MYSQL_TYPE_LONGLONG: doc_type = DOC_PATH_INT; break;
+      case MYSQL_TYPE_DOUBLE: doc_type = DOC_PATH_DOUBLE; break;
+      case MYSQL_TYPE_STRING: doc_type = DOC_PATH_STRING; break;
+      case MYSQL_TYPE_BLOB: doc_type = DOC_PATH_BLOB; break;
+      default: DBUG_ASSERT(false); //not supported
+    }
+  }
+
+  /// this overwrites the base version
+  bool real_maybe_null(void) const
+  { return Field_blob::real_maybe_null() && nullable_document; }
 
   Field_document *clone(MEM_ROOT *mem_root) const
   {
@@ -3763,12 +3813,24 @@ public:
   {
     return new Field_document(*this);
   }
+
   // Usually this value is get from max_data_length(). This is used to
   // get the max data length of Field_document when using the SQL function
   // fbson().
   uint32 static max_data_length_static() {
     return (1 << 24) - 1;
   }
+
+private:
+  void init()
+  {
+    flags|= DOCUMENT_FLAG;
+    packlength = 3;
+    memset(document_path_key_start, 0,
+           sizeof(DOCUMENT_PATH_KEY_PART_INFO*)*MAX_KEY);
+  }
+
+  int64 read_bigendian(char *src, unsigned len);
 };
 
 class Field_enum :public Field_str {
@@ -4063,6 +4125,7 @@ public:
   Field::geometry_type geom_type;
   Field::document_type document_type;	// Sub-type of DOCUMENT
   Field *field;				// For alter table
+  bool nullable_document; // for document column
 
   uint8 row,col,sc_length,interval_id;	// For rea_create_table
   uint	offset,pack_flag;
@@ -4168,7 +4231,8 @@ Field *make_field(TABLE_SHARE *share, uchar *ptr, uint32 field_length,
 		  const CHARSET_INFO *cs,
 		  Field::geometry_type geom_type,
 		  Field::utype unireg_check,
-		  TYPELIB *interval, const char *field_name);
+		  TYPELIB *interval, const char *field_name,
+		  bool nullable_document);
 uint pack_length_to_packflag(uint type);
 enum_field_types get_blob_type_from_length(ulong length);
 uint32 calc_pack_length(enum_field_types type,uint32 length);

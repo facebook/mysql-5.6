@@ -1050,7 +1050,7 @@ void make_sortkey(Sort_param *param, uchar *to, uchar *ref_pos)
         uint key_len = 0;
         memset(to, 0, sort_field->length);
         field->document_path_make_sort_key(
-                    *sort_field->document_path_keys, to, sort_field->length,
+                    sort_field->document_path_keys, to, sort_field->length,
                     key_len, is_null);
       }
       else

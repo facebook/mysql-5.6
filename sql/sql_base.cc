@@ -6425,13 +6425,23 @@ static void update_field_dependencies(THD *thd, Field *field, TABLE *table)
   {
     MY_BITMAP *bitmap;
 
-    /*
-      We always want to register the used keys, as the column bitmap may have
-      been set for all fields (for example for view).
-    */
-      
-    table->covering_keys.intersect(field->part_of_key);
-    table->merge_keys.merge(field->part_of_key);
+    /* For document fields, we cannot use field's part_of_key
+     * (which is always empty) to set/intersect table's covering keys,
+     * since the part_of_key is dependent on a path, not the field itself.
+     * Also at this function, we don't have any information of
+     * document keys. Therefore, we will skip document fields here,
+     * and set covering keys after a document key is found
+     * later in the parser.
+     */
+    if (field->type() != MYSQL_TYPE_DOCUMENT)
+    {
+      /*
+        We always want to register the used keys, as the column bitmap may have
+        been set for all fields (for example for view).
+      */
+      table->covering_keys.intersect(field->part_of_key);
+      table->merge_keys.merge(field->part_of_key);
+    }
 
     if (thd->mark_used_columns == MARK_COLUMNS_READ)
       bitmap= table->read_set;

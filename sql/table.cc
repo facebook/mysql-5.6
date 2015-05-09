@@ -877,7 +877,18 @@ static void setup_key_part_field(TABLE_SHARE *share, handler *handler_file,
                       (keyinfo->user_defined_key_parts == 1)) ?
                      UNIQUE_KEY_FLAG : MULTIPLE_KEY_FLAG);
   if (key_part_n == 0)
+  {
     field->key_start.set_bit(key_n);
+    if (field->type() == MYSQL_TYPE_DOCUMENT)
+    {
+      DBUG_ASSERT(key_part->document_path_key_part);
+      /* save the key part's document path information
+       * in the document_path_key_start array
+       */
+      ((Field_document *)field)->document_path_key_start[key_n] =
+        key_part->document_path_key_part;
+    }
+  }
   if (field->key_length() == key_part->length &&
       !(field->flags & BLOB_FLAG))
   {
@@ -889,6 +900,41 @@ static void setup_key_part_field(TABLE_SHARE *share, handler *handler_file,
     }
     if (handler_file->index_flags(key_n, key_part_n, 1) & HA_READ_ORDER)
       field->part_of_sortkey.set_bit(key_n);
+  }
+  else if (field->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    /* this is a document field, so we don't set the field's part_of_key.
+     * Instead, find the correpsonding document key trie object,
+     * and set the part_of_key map (used to decide covering index
+     */
+    DBUG_ASSERT(key_part->document_path_key_part);
+    DBUG_ASSERT(share->document_key_trie);
+    DOCUMENT_PATH_KEY_PART_INFO* path = key_part->document_path_key_part;
+    if (path->type == MYSQL_TYPE_TINY ||
+        path->type == MYSQL_TYPE_LONGLONG ||
+        path->type == MYSQL_TYPE_DOUBLE)
+    {
+      Document_key_trie* trie = share->document_key_trie->get(path->names[0]);
+      for (unsigned i = 1; trie && i < path->number_of_names; ++i)
+        trie = trie->get(path->names[i]);
+
+      if (trie)
+      {
+        if (handler_file->index_flags(key_n, key_part_n, 0) & HA_KEYREAD_ONLY)
+        {
+          share->keys_for_keyread.set_bit(key_n);
+          trie->part_of_key.set_bit(key_n);
+          trie->part_of_key_not_clustered.set_bit(key_n);
+        }
+        if (handler_file->index_flags(key_n, key_part_n, 1) & HA_READ_ORDER)
+          trie->part_of_sortkey.set_bit(key_n);
+      }
+      else
+        /* we should always find the trie object, as it has been already
+         * constructed during parsing.
+         */
+        DBUG_ASSERT(false);
+    }
   }
 
   if (!(key_part->key_part_flag & HA_REVERSE_SORT) &&
@@ -1117,6 +1163,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   }
   share->keys_for_keyread.init(0);
   share->keys_in_use.init(keys);
+  share->document_keys.init(0);
 
   strpos=disk_buff+6;  
 
@@ -1224,6 +1271,11 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   /* read and parse document path fields for virutal key parts */
   if (document_path_key_parts > 0 && new_frm_ver >= 3)
   {
+    /* preparing the key trie since we have some document path keys */
+    share->document_key_trie = (Document_key_trie*)
+      alloc_root(&share->mem_root, sizeof(Document_key_trie));
+    memset(share->document_key_trie, 0, sizeof(Document_key_trie));
+
     keyinfo = share->key_info;
     for (i=0; i < keys; i++, keyinfo++)
     {
@@ -1232,6 +1284,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       {
         if (!f_is_document(key_part->key_type))
           continue;
+
+        keyinfo->contains_document_key_part = true;
 
         /* the document path key part structure */
         key_part->document_path_key_part = (DOCUMENT_PATH_KEY_PART_INFO *)
@@ -1303,6 +1357,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
         strpos++;
 
+        Document_key_trie* trie = share->document_key_trie;
         uint idx = 0;
         for (;idx < key_part->document_path_key_part->number_of_names;idx++)
         {
@@ -1321,6 +1376,11 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
                  name_start, name_len);
           *(key_part->document_path_key_part->names[idx] + name_len)= '\0';
 
+          /* recursively insert the key part names into the trie */
+          trie = trie->insert(key_part->document_path_key_part->names[idx],
+              &share->mem_root);
+          DBUG_ASSERT(trie);
+
           /* the NAMES_SEP_CHAR for this document path */
           DBUG_ASSERT(*((uchar *)strpos) == (uchar) NAMES_SEP_CHAR);
           strpos++;
@@ -1338,6 +1398,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         DBUG_ASSERT(idx ==
                     key_part->document_path_key_part->number_of_names - 1);
 
+        trie->key_type = key_part->document_path_key_part->type;
+
         /* we have extracted all the document paths of the document path key
            parts for this key so now we can restore the original key_type */
         DBUG_ASSERT(f_is_document(key_part->key_type));
@@ -1346,10 +1408,15 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
 
       } /* completed iterating all the key parts for a given key*/
 
+      if (keyinfo->contains_document_key_part)
+        share->document_keys.set_bit(i);
+
     } /* completed iterating all the keys */
 
     DBUG_ASSERT(document_path_key_parts == 0);
   }
+  else
+    share->document_key_trie = nullptr;
 
   //reading index comments
   for (keyinfo= share->key_info, i=0; i < keys; i++, keyinfo++)
@@ -1756,6 +1823,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
     const CHARSET_INFO *charset=NULL;
     Field::geometry_type geom_type= Field::GEOM_GEOMETRY;
     LEX_STRING comment;
+    bool nullable_document = false;
 
     if (new_frm_ver >= 3)
     {
@@ -1765,7 +1833,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       pack_flag=    uint2korr(strpos+8);
       unireg_type=  (uint) strpos[10];
       interval_nr=  (uint) strpos[12];
-      uint comment_length=uint2korr(strpos+15);
+      uint comment_length=uint2korr(strpos+15);;
       field_type=(enum_field_types) (uint) strpos[13];
 
       /* charset and geometry_type share the same byte in frm */
@@ -1791,16 +1859,26 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           goto err;
         }
       }
+      /* if this is a document column, we will save the actual nullability in
+       * the nullable_document flag, and set the pack_flag to be nullable. The
+       * document field in memory is always nullable.
+       */
+      if (field_type == MYSQL_TYPE_DOCUMENT)
+      {
+        nullable_document = f_maybe_null(pack_flag);
+        pack_flag |= FIELDFLAG_MAYBE_NULL;
+      }
+
       if (!comment_length)
       {
-	comment.str= (char*) "";
-	comment.length=0;
+        comment.str= (char*) "";
+        comment.length=0;
       }
       else
       {
-	comment.str=    (char*) comment_pos;
-	comment.length= comment_length;
-	comment_pos+=   comment_length;
+        comment.str=    (char*) comment_pos;
+        comment.length= comment_length;
+        comment_pos+=   comment_length;
       }
     }
     else
@@ -1883,7 +1961,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
 		 (interval_nr ?
 		  share->intervals+interval_nr-1 :
 		  (TYPELIB*) 0),
-		 share->fieldnames.type_names[i]);
+		 share->fieldnames.type_names[i],
+		 nullable_document);
     if (!reg_field)				// Not supported field type
     {
       error= 4;
@@ -2034,11 +2113,14 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           keyinfo->flags|=HA_NULL_PART_KEY;
           keyinfo->key_length+= HA_KEY_NULL_LENGTH;
         }
-        /* DO NOT check MYSQL_TYPE_DOCUMENT below
-           for document path key parts */
+        /* We need to check the document path key type,
+         * if it is blob key type, the key part's store_length
+         * needs to be modified. */
         if (field->type() == MYSQL_TYPE_BLOB ||
             field->real_type() == MYSQL_TYPE_VARCHAR ||
-            field->type() == MYSQL_TYPE_GEOMETRY)
+            field->type() == MYSQL_TYPE_GEOMETRY ||
+            (field->type() == MYSQL_TYPE_DOCUMENT &&
+             key_part->document_path_key_part->type == MYSQL_TYPE_BLOB))
         {
           key_part->store_length+=HA_KEY_BLOB_LENGTH;
           if (i + 1 <= keyinfo->user_defined_key_parts)
@@ -2147,6 +2229,11 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   }
   else
     share->primary_key= MAX_KEY;
+
+  /* TODO: for now, by default indexes containing document path are not in use
+   */
+  share->keys_in_use.subtract(share->document_keys);
+
   my_free(disk_buff);
   disk_buff=0;
   if (new_field_pack_flag <= 1)
@@ -6080,11 +6167,25 @@ bool TABLE_LIST::process_index_hints(TABLE *tbl)
     bool have_empty_use_join= FALSE, have_empty_use_order= FALSE, 
          have_empty_use_group= FALSE;
     List_iterator <Index_hint> iter(*index_hints);
+    bool use_document_keys = false;
+    bool ignore_document_keys = false;
 
     /* iterate over the hints list */
     while ((hint= iter++))
     {
       uint pos;
+
+      if (hint->type == INDEX_HINT_USE_DOC_KEYS)
+      {
+        use_document_keys = true;
+        continue;
+      }
+
+      if (hint->type == INDEX_HINT_IGNORE_DOC_KEYS)
+      {
+        ignore_document_keys = true;
+        continue;
+      }
 
       /* process empty USE INDEX () */
       if (hint->type == INDEX_HINT_USE && !hint->key_name.str)
@@ -6141,6 +6242,30 @@ bool TABLE_LIST::process_index_hints(TABLE *tbl)
       my_error(ER_WRONG_USAGE, MYF(0), index_hint_type_name[INDEX_HINT_USE],
                index_hint_type_name[INDEX_HINT_FORCE]);
       return 1;
+    }
+
+    /* cannot mix USE DOCUMENT and IGNORE DOCUMENT */
+    if (use_document_keys && ignore_document_keys)
+    {
+      my_error(ER_WRONG_USAGE, MYF(0),
+               index_hint_type_name[INDEX_HINT_USE_DOC_KEYS],
+               index_hint_type_name[INDEX_HINT_IGNORE_DOC_KEYS]);
+      return 1;
+    }
+    else if (use_document_keys)
+    {
+      // apply USE DOCUMENT KEYS.
+      // note we merge document keys into the allowed key maps
+      tbl->keys_in_use_for_query.merge (tbl->s->document_keys);
+      tbl->keys_in_use_for_order_by.merge (tbl->s->document_keys);
+      tbl->keys_in_use_for_group_by.merge (tbl->s->document_keys);
+    }
+    else if (ignore_document_keys)
+    {
+      // apply IGNORE DOCUMENT KEYS.
+      tbl->keys_in_use_for_query.subtract (tbl->s->document_keys);
+      tbl->keys_in_use_for_order_by.subtract (tbl->s->document_keys);
+      tbl->keys_in_use_for_group_by.subtract (tbl->s->document_keys);
     }
 
     /* process FORCE INDEX as USE INDEX with a flag */

@@ -1493,7 +1493,14 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       }
     }
 
-    if (flags & NOT_NULL_FLAG)
+    if (field->type() == MYSQL_TYPE_DOCUMENT)
+    {
+      // for document column, show needs to check the actual defined
+      // nullability in the nullable_document flag
+      if (!((Field_document*)field)->nullable_document)
+        packet->append(STRING_WITH_LEN(" NOT NULL"));
+    }
+    else if (flags & NOT_NULL_FLAG)
       packet->append(STRING_WITH_LEN(" NOT NULL"));
     else if (field->type() == MYSQL_TYPE_TIMESTAMP)
     {
@@ -5280,7 +5287,8 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
                         (uchar*) "", 0, field_def->pack_flag,
                         field_def->sql_type, field_def->charset,
                         field_def->geom_type, Field::NONE,
-                        field_def->interval, "");
+                        field_def->interval, "",
+                        field_def->nullable_document);
 
       field->table= &tbl;
       tbl.in_use= thd;
@@ -5340,7 +5348,8 @@ bool store_schema_params(THD *thd, TABLE *table, TABLE *proc_table,
                         (uchar*) "", 0, field_def->pack_flag,
                         field_def->sql_type, field_def->charset,
                         field_def->geom_type, Field::NONE,
-                        field_def->interval, spvar->name.str);
+                        field_def->interval, spvar->name.str,
+                        field_def->nullable_document);
 
       field->table= &tbl;
       tbl.in_use= thd;
@@ -5440,7 +5449,8 @@ bool store_schema_proc(THD *thd, TABLE *table, TABLE *proc_table,
                             (uchar*) "", 0, field_def->pack_flag,
                             field_def->sql_type, field_def->charset,
                             field_def->geom_type, Field::NONE,
-                            field_def->interval, "");
+                            field_def->interval, "",
+                            field_def->nullable_document);
 
           field->table= &tbl;
           tbl.in_use= thd;
