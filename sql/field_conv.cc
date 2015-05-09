@@ -314,7 +314,8 @@ static void do_field_string(Copy_field *copy)
     /* retrieve the document path data as a string  */
     Field_document *fd = (Field_document*)(copy->from_field);
     my_bool is_null = false;
-    fd->document_path_val_str(*document_path_keys, &res, is_null);
+    fd->document_path_val_str(*document_path_keys, (enum_field_types)0, &res,
+                              is_null);
     if (is_null)
     {
       *copy->to_null_ptr|=copy->to_bit;
