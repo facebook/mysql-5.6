@@ -2109,6 +2109,7 @@ public:
                      Ident_parsing_info& p);
 
   void Set(THD *thd, Ident_parsing_info& p);
+  void Set(THD *thd, DOCUMENT_PATH_KEY_PART_INFO *document_key_part);
 
   /*
     generate the string of the dot separated expression
@@ -2197,6 +2198,9 @@ public:
      the key list that points to the document path
   */
   List<Document_key> document_path_keys;
+  /* type of this document path key. Each document path can only
+   * be one type when it is defined in a secondary index. */
+  enum_field_types document_path_type;
   /*
      the document path full name, e.g. `col`.`k1`.`k2`.`k3`
      the first part is the column name whose type is document,
@@ -2236,6 +2240,8 @@ public:
 
   bool remove_dependence_processor(uchar * arg);
   void set_document_path(THD *thd, Item_ident *ident);
+  void set_document_path(THD *thd,
+                         DOCUMENT_PATH_KEY_PART_INFO *document_key_part);
   bool compare_document_path(Item_ident *ident);
   void generate_document_path_full_name();
   virtual void print(String *str, enum_query_type query_type)
@@ -2328,6 +2334,8 @@ public:
   /* field need any privileges (for VIEW creation) */
   bool any_privileges;
 
+  virtual bool is_expensive_processor(uchar *arg) { return document_path; }
+
   Item_field(THD *thd,
              Name_resolution_context *context_arg,
              const char *db_arg,const char *table_name_arg,
@@ -2356,6 +2364,8 @@ public:
     reset_field() before fix_fields() for all fields created this way.
   */
   Item_field(Field *field);
+  Item_field(THD *thd, Field *field,
+             DOCUMENT_PATH_KEY_PART_INFO *document_path_key_part);
   enum Type type() const { return FIELD_ITEM; }
   bool eq(const Item *item, bool binary_cmp) const;
   double val_real();
@@ -2417,7 +2427,7 @@ public:
   bool get_date_result(MYSQL_TIME *ltime,uint fuzzydate);
   bool get_time(MYSQL_TIME *ltime);
   bool get_timeval(struct timeval *tm, int *warnings);
-  bool is_null() { return field->is_null(); }
+  bool is_null();
   void update_null_value();
   Item *get_tmp_table_item(THD *thd);
   bool collect_item_field_processor(uchar * arg);

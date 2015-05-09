@@ -134,6 +134,8 @@ typedef struct st_key {
     LEX_STRING *parser_name;
   };
   KEY_PART_INFO *key_part;
+  /* to indicate if the key contains any document key part */
+  bool contains_document_key_part;
   /** Name of key */
   char	*name;
   /**
