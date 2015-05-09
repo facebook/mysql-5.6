@@ -572,6 +572,101 @@ typedef I_P_List <Wait_for_flush,
                                    &Wait_for_flush::prev_in_share> >
                  Wait_for_flush_list;
 
+/*
+ * This is a simple trie like structure to store various key map information
+ * for document keys.
+ *
+ * The root level key_name is empty, and the first level names represents
+ * document field names. Since the special memory allocations in the parser,
+ * linked-lists is used to implement the prefix nodes instead of stl maps or
+ * similar structures. Suppose we have document fields "doc1" and "doc2", the
+ * document keys "doc1.k1.k11", "doc1.k2.k21", "doc2.k3.k31", "doc2.k4.k41",
+ * that are stored in the trie will look like below:
+ *
+ * (NULL)
+ *  |
+ * (doc1)     ->     (doc2)
+ *  |                  |
+ * (k1)  ->  (k2)    (k3)  ->  (k4)
+ *  |         |       |         |
+ * (k11)     (k21)   (k31)     (k41)
+ *
+ * And any path sharing the same prefix will store the key maps in the
+ * corresponding node.
+ *
+ * The nodes are allocated on mem_root during insertion, if it is not found.
+ *
+ * The trie object is created once in the TABLE_SHARE struecture, and shared
+ * among different table objects.
+ */
+struct Document_key_trie
+{
+  const char *key_name;
+  enum_field_types key_type; /* type of this document path key */
+
+  key_map part_of_key;               /* All keys that includes this field */
+  key_map part_of_key_not_clustered; /* ^ but only for non-clustered keys */
+  key_map part_of_sortkey;           /* ^ but only keys usable for sorting */
+
+  Document_key_trie* sib;   /* Sibling nodes of the trie */
+  Document_key_trie* child; /* Child nodes of the trie */
+
+  /* Insert a node with "name" into its children list,
+   * and return the new node.
+   */
+  Document_key_trie* insert(const char* name, MEM_ROOT *mem_root)
+  {
+    if (!name)
+      return nullptr;
+
+    if (!child)
+    {
+      child = (Document_key_trie*)
+        alloc_root(mem_root, sizeof(Document_key_trie));
+      memset(child, 0, sizeof(Document_key_trie));
+      child->key_name = name;
+      return child;
+    }
+
+    Document_key_trie* prev = nullptr;
+    Document_key_trie* cur = child;
+    while (cur && strcmp(cur->key_name, name) != 0)
+    {
+      prev = cur;
+      cur = cur->sib;
+    }
+
+    if (!cur)
+    {
+      cur = (Document_key_trie*)
+        alloc_root(mem_root, sizeof(Document_key_trie));
+      memset(cur, 0, sizeof(Document_key_trie));
+      cur->key_name = name;
+      prev->sib = cur;
+    }
+
+    return cur;
+  }
+
+  Document_key_trie* get(const char* name)
+  {
+    return name? get(name, strlen(name)) : nullptr;
+  }
+
+  /* Find a child node with "name" and return the node
+   */
+  Document_key_trie* get(const char* name, size_t len)
+  {
+    if (!name || !child)
+      return nullptr;
+
+    Document_key_trie* cur = child;
+    while (cur && strncmp(cur->key_name, name, len) != 0)
+      cur = cur->sib;
+
+    return cur;
+  }
+};
 
 /**
   This structure is shared between different table objects. There is one
@@ -608,6 +703,8 @@ struct TABLE_SHARE
   Field **found_next_number_field;
   KEY  *key_info;			/* data of keys defined for the table */
   uint	*blob_field;			/* Index to blobs in Field arrray*/
+  /* A trie structure to hold key maps of all document keys */
+  Document_key_trie* document_key_trie;
 
   uchar	*default_values;		/* row with default values */
   LEX_STRING comment;			/* Comment about table */
@@ -637,6 +734,7 @@ struct TABLE_SHARE
   */
   key_map keys_in_use;
   key_map keys_for_keyread;
+  key_map document_keys;
   ha_rows min_rows, max_rows;		/* create information */
   ulong   avg_row_length;		/* create information */
   /**
@@ -970,7 +1068,9 @@ enum index_hint_type
 {
   INDEX_HINT_IGNORE,
   INDEX_HINT_USE,
-  INDEX_HINT_FORCE
+  INDEX_HINT_FORCE,
+  INDEX_HINT_USE_DOC_KEYS,    /* for document keys */
+  INDEX_HINT_IGNORE_DOC_KEYS, /* for document keys */
 };
 
 /* Bitmap of table's fields */

@@ -787,6 +787,12 @@ row_create_prebuilt(
 				temp_len +=
 					temp_index->fields[i].fixed_len;
 			}
+			else if (temp_index->fields[i].doc_path_col &&
+				 temp_index->fields[i].doc_path_col->mtype ==
+					DATA_INT) {
+				temp_len +=
+					temp_index->fields[i].doc_path_col->len;
+			}
 		}
 		srch_key_len = max(srch_key_len,temp_len);
 	}
