@@ -1014,7 +1014,8 @@ public:
     max_row_locks= max_row_locks_arg;
   }
 
-  Row_lock *get_lock(const uchar* key, size_t keylen, bool *timed_out)
+  Row_lock *get_lock(const uchar* key, size_t keylen, bool is_write_lock,
+                     bool *timed_out)
   {
     Row_lock *lock;
     if (trx_locks.elements() > max_row_locks)
@@ -1022,7 +1023,8 @@ public:
       *timed_out= false;
       return NULL;
     }
-    if (!(lock= row_locks.get_lock(pins, key, keylen, timeout_sec)))
+    if (!(lock= row_locks.get_lock(pins, key, keylen, timeout_sec,
+                                   is_write_lock)))
     {
       *timed_out= true;
       return NULL;
@@ -2380,6 +2382,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
              "Attempt to open a table that is not present in RocksDB-SE data dictionary");
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
+  lock_rows= false;
+  lock_for_write= false;
 
   key_descr= tbl_def->key_descr;
   pk_descr= key_descr[table->s->primary_key];
@@ -3556,8 +3560,11 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   bool timed_out;
   if (lock_rows)
   {
-    if (!(lock= trx->get_lock((const uchar*)rowid, rowid_size, &timed_out)))
+    if (!(lock= trx->get_lock((const uchar*)rowid, rowid_size, lock_for_write,
+                              &timed_out)))
+    {
       DBUG_RETURN(return_lock_failure(timed_out));
+    }
   }
 
   rocksdb::ReadOptions options;
@@ -3848,7 +3855,7 @@ int ha_rocksdb::write_row(uchar *buf)
 {
   DBUG_ENTER("ha_rocksdb::write_row");
   DBUG_ASSERT(buf == table->record[0]);
-  DBUG_ASSERT(lock_rows);
+  DBUG_ASSERT(lock_rows && lock_for_write);
 
   io_perf_start();
 
@@ -4005,7 +4012,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     */
     bool timed_out;
     Row_lock *lock= NULL; // init to shut up the compiler
-    if (!(lock= trx->get_lock(new_key_packed_tuple, new_packed_size,
+    if (!(lock= trx->get_lock(new_key_packed_tuple, new_packed_size, true,
                               &timed_out)))
     {
       /*
@@ -4313,7 +4320,8 @@ retry:
         */
         Row_lock *lock;
         bool timed_out;
-        if (!(lock= trx->get_lock((const uchar*)key.data(), key.size(), &timed_out)))
+        if (!(lock= trx->get_lock((const uchar*)key.data(), key.size(),
+                                  lock_for_write, &timed_out)))
         {
           io_perf_end_and_record();
           DBUG_RETURN(return_lock_failure(timed_out));
@@ -4597,7 +4605,7 @@ void ha_rocksdb::calc_updated_indexes()
 int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 {
   DBUG_ENTER("ha_rocksdb::update_row");
-  DBUG_ASSERT(lock_rows);
+  DBUG_ASSERT(lock_rows && lock_for_write);
   /*
     old_data points to record we're updating. It is the same as the record
     we've just read (for multi-table UPDATE, too, because SQL layer will make
@@ -4625,6 +4633,26 @@ THR_LOCK_DATA **ha_rocksdb::store_lock(THD *thd,
                                          enum thr_lock_type lock_type)
 {
   DBUG_ENTER("ha_rocksdb::store_lock");
+
+  /* First, make a decision about MyRocks's internal locking */
+  if (lock_type >= TL_WRITE_ALLOW_WRITE)
+  {
+    lock_rows= true;
+    lock_for_write=true;
+  }
+  else if (lock_type == TL_READ_WITH_SHARED_LOCKS)
+  {
+    lock_rows= true;
+    lock_for_write= false;
+  }
+  else
+  {
+    lock_rows= false;
+    lock_for_write= false;
+  }
+
+  /* Then, tell the SQL layer what kind of locking it should use: */
+
   if (lock_type != TL_IGNORE && lock.type == TL_UNLOCK)
   {
     /*
@@ -4686,7 +4714,6 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
         trx->snapshot= NULL;
       }
     }
-    lock_rows= FALSE;
   }
   else
   {
@@ -4708,8 +4735,12 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       /*
         SQL layer signals us to take a write lock. It does so when starting DML
         statement. We should put locks on the rows we're reading.
+
+        Note: sometimes, external_lock() can be called without a prior
+        ::store_lock call.  That's why we need to set lock_* members here, too.
       */
-      lock_rows= TRUE;
+      lock_rows= true;
+      lock_for_write= true;
     }
 
     trans_register_ha(thd, FALSE, rocksdb_hton);
