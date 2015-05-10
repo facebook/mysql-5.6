@@ -1,0 +1,20 @@
+create table t1 (pk int not null primary key) engine=rocksdb;
+insert into t1 values (1),(2),(3);
+set autocommit=0;
+begin;
+select * from t1 where pk=1 for update;
+pk
+1
+### Connection con1
+set @@rocksdb_lock_wait_timeout=500;
+set autocommit=0;
+begin;
+set session debug= "+d,myrocks_simulate_lock_timeout1";
+select * from t1 where pk=1 for update;;
+### Connection default
+rollback;
+### Connection con1
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+set session debug= "-d,myrocks_simulate_lock_timeout1";
+set autocommit=1;
+drop table t1;

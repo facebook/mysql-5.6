@@ -1,0 +1,48 @@
+#
+# MyRocks-specific tests for locking
+#
+--source include/have_debug.inc
+
+create table t1 (pk int not null primary key) engine=rocksdb;
+
+insert into t1 values (1),(2),(3);
+
+set autocommit=0; 
+begin;
+select * from t1 where pk=1 for update;
+
+--connect (con1,localhost,root,,)
+--connection con1
+--echo ### Connection con1
+let $ID= `select connection_id()`;
+set @@rocksdb_lock_wait_timeout=500;
+set autocommit=0;
+begin;
+set session debug= "+d,myrocks_simulate_lock_timeout1";
+--send select * from t1 where pk=1 for update;
+
+--connection default
+--echo ### Connection default
+
+let $wait_condition= select 1 from INFORMATION_SCHEMA.PROCESSLIST
+                     where ID = $ID and STATE = "Waiting for row lock";
+--source include/wait_condition.inc
+## Waiting for row lock
+## select connection_id();
+## select state='Waiting for row lock' from information_schema.processlist where id=2;
+
+rollback;
+
+--connection con1
+--echo ### Connection con1
+
+--error ER_LOCK_WAIT_TIMEOUT
+--reap
+set session debug= "-d,myrocks_simulate_lock_timeout1";
+
+--disconnect con1
+--connection default
+
+set autocommit=1;
+drop table t1;
+
