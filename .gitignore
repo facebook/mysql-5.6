@@ -125,6 +125,8 @@ storage/myisam/myisamchk
 storage/myisam/myisamlog
 storage/myisam/myisampack
 storage/perfschema/gen_pfs_lex_token
+storage/rocksdb/unittest/test_rowlocks
+storage/rocksdb/unittest/test_rwlocks
 support-files/MySQL-shared-compat.spec
 support-files/binary-configure
 support-files/my-default.cnf
