@@ -6,7 +6,11 @@
 #include "../rdb_locks.h"
 
 #include "thr_template.cc"
-
+/*****************************************************************************
+ *
+ * This is a basic test for row locks. It only uses Write locks.
+ *
+ *****************************************************************************/
 
 /* This will hold one lock table that we're testing */
 LockTable *lock_table;
@@ -52,7 +56,7 @@ ulong int_hashfunc(const char *key, size_t key_len)
 pthread_handler_t locktable_test1(void *arg)
 {
   LF_PINS *pins;
-  pins= lf_hash_get_pins(&lock_table->lf_hash);
+  pins= lock_table->get_pins();
 
   /* In a loop, get a couple of locks */
   int loop;
@@ -78,9 +82,11 @@ pthread_handler_t locktable_test1(void *arg)
     Row_lock *lock1;
     Row_lock *lock2;
 
-    lock1= lock_table->get_lock(pins, (uchar*)&val1, sizeof(int), timeout_sec);
+    lock1= lock_table->get_lock(pins, (uchar*)&val1, sizeof(int), timeout_sec,
+                                true);
     DBUG_ASSERT(lock1);
-    lock2= lock_table->get_lock(pins, (uchar*)&val2, sizeof(int), timeout_sec);
+    lock2= lock_table->get_lock(pins, (uchar*)&val2, sizeof(int), timeout_sec,
+                                true);
 
     if (!prevent_deadlocks && !lock2)
     {
