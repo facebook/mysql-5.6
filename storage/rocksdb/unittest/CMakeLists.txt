@@ -7,4 +7,9 @@ ADD_DEFINITIONS(-DSTANDALONE_UNITTEST)
 
 ADD_EXECUTABLE(test_rowlocks
         test_rowlocks.cc ../rdb_locks.cc ../rdb_locks.h)
+
+ADD_EXECUTABLE(test_rwlocks
+        test_rwlocks.cc ../rdb_locks.cc ../rdb_locks.h)
+
 #MY_ADD_TEST(test_rowlocks)
+
