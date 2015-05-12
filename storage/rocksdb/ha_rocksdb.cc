@@ -989,6 +989,9 @@ public:
   /* Row locks taken by this transaction */
   Dynamic_array<Row_lock*> trx_locks;
 
+  /* Number of elements in trx_locks array when the current statement started */
+  int trx_locks_at_stmt_start;
+
   int timeout_sec; /* Cached value of @@rocksdb_lock_wait_timeout */
   int max_row_locks;
 
@@ -1101,12 +1104,32 @@ public:
   }
 
   /*
+    Start a statement inside a multi-statement transaction.
+
+    For hooking to start of statement that is its own transaction, see
+    ha_rocksdb::external_lock().
+  */
+  void start_stmt()
+  {
+    changes.start_stmt();
+    trx_locks_at_stmt_start= trx_locks.elements();
+  }
+
+  /*
     This must be called when last statement is rolled back, but the transaction
     continues
   */
-  void rollback_stmt() { changes.rollback_stmt(); }
+  void rollback_stmt()
+  {
+    changes.rollback_stmt();
 
-  void start_stmt() { changes.start_stmt(); }
+    /* Release the locks taken by the last statement */
+    int size= trx_locks.elements();
+    DBUG_ASSERT(trx_locks_at_stmt_start <= size);
+    for (int i= trx_locks_at_stmt_start; i < size; i++)
+      row_locks.release_lock(pins, trx_locks.at(i));
+    trx_locks.elements(trx_locks_at_stmt_start);
+  }
   void rollback()
   {
     if (snapshot)
@@ -1121,7 +1144,7 @@ public:
   }
 
   Rdb_transaction() :
-    snapshot(NULL), n_writes(0), pins(NULL)
+    snapshot(NULL), n_writes(0), pins(NULL), trx_locks_at_stmt_start(0)
   {
     changes.init();
   }
@@ -4561,6 +4584,8 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       So, we put this code here.
     */
     Rdb_transaction* trx= get_or_create_trx(thd);
+    trx->trx_locks_at_stmt_start= trx->trx_locks.elements();
+
     trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
                     THDVAR(table->in_use, max_row_locks));
 
@@ -4586,6 +4611,16 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
   DBUG_RETURN(res);
 }
 
+
+/*
+  @note
+  A quote from ha_innobase::start_stmt():
+  <quote>
+  MySQL calls this function at the start of each SQL statement inside LOCK
+  TABLES. Inside LOCK TABLES the ::external_lock method does not work to
+  mark SQL statement borders.
+  </quote>
+*/
 
 int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
 {
