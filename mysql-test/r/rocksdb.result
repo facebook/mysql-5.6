@@ -2043,4 +2043,32 @@ kp1	kp2
 2019	4
 2020	5
 drop table t1,t2;
+#Index on blob column
+SET @old_mode = @@sql_mode;
+SET sql_mode = 'strict_all_tables';
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
+drop table t1;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
+select * from t1;
+a	b	c
+1	1abcde	1abcde
+2	2abcde	2abcde
+3	3abcde	3abcde
+explain select * from t1 where b like '1%';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	b	b	1258	NULL	10	Using where
+explain select b, a from t1 where b like '1%';
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	range	b	b	1258	NULL	10	Using where
+update t1 set b= '12345' where b = '2abcde';
+select * from t1;
+a	b	c
+1	1abcde	1abcde
+2	12345	2abcde
+3	3abcde	3abcde
+drop table t1;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
+ERROR 42000: Specified key was too long; max key length is 2048 bytes
+SET sql_mode = @old_mode;
 drop table t0;
