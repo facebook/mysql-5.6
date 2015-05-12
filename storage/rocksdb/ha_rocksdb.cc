@@ -196,7 +196,6 @@ static uint64_t rocksdb_info_log_level;
 static char * rocksdb_wal_dir;
 static uint64_t rocksdb_index_type;
 static char rocksdb_background_sync;
-static uint32_t rocksdb_debug_optimizer_records_in_range;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
@@ -586,18 +585,15 @@ static MYSQL_THDVAR_BOOL(write_ignore_missing_column_families,
   "WriteOptions::ignore_missing_column_families for RocksDB",
   NULL, NULL, rocksdb::WriteOptions().ignore_missing_column_families);
 
-
 static MYSQL_THDVAR_BOOL(skip_fill_cache,
   PLUGIN_VAR_RQCMDARG,
   "Skip filling block cache on read requests",
   NULL, NULL, FALSE);
 
-/* debugging purpose and will be deprected once implemented. */
-static MYSQL_SYSVAR_UINT(debug_optimizer_records_in_range,
-  rocksdb_debug_optimizer_records_in_range,
+static MYSQL_THDVAR_UINT(records_in_range,
   PLUGIN_VAR_RQCMDARG,
-  "Used for records_in_range(). Testing purpose only and will be deprecated",
-  NULL, NULL, 10,
+  "Used to override the result of records_in_range(). Set to a positive number to override",
+  NULL, NULL, 0,
   /* min */ 0, /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_UINT(debug_optimizer_n_rows,
@@ -711,7 +707,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(skip_fill_cache),
 
-  MYSQL_SYSVAR(debug_optimizer_records_in_range),
+  MYSQL_SYSVAR(records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
   MYSQL_SYSVAR(debug_optimizer_no_zero_cardinality),
 
@@ -5036,7 +5032,66 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
                                      key_range *max_key)
 {
   DBUG_ENTER("ha_rocksdb::records_in_range");
-  DBUG_RETURN(rocksdb_debug_optimizer_records_in_range);   // low number to force index usage
+  ha_rows ret = THDVAR(ha_thd(), records_in_range);
+  if (ret) {
+    DBUG_RETURN(ret);
+  }
+
+  RDBSE_KEYDEF *kd= key_descr[inx];
+  assert(kd);
+
+  uint size1=0;
+  if (min_key) {
+    size1 = kd->pack_index_tuple(
+      table,
+      pack_buffer,
+      sec_key_packed_tuple,
+      min_key->key,
+      min_key->keypart_map
+    );
+  } else {
+    kd->get_infimum_key(pk_packed_tuple, &size1);
+  }
+
+  uint size2=0;
+  if (max_key) {
+    size2 = kd->pack_index_tuple(
+      table,
+      pack_buffer,
+      sec_key_packed_tuple_old,
+      max_key->key,
+      max_key->keypart_map
+    );
+    // pad the upper key with FFFFs to make sure it is more than the lower
+    if (size1 > size2) {
+      memset(sec_key_packed_tuple_old+size2, size1-size2, 0xff);
+      size2 = size1;
+    }
+  } else {
+    kd->get_supremum_key(sec_key_packed_tuple_old, &size2);
+  }
+
+  rocksdb::Slice slice1((const char*) sec_key_packed_tuple, size1);
+  rocksdb::Slice slice2((const char*) sec_key_packed_tuple_old, size2);
+
+  rocksdb::Range r(
+    kd->is_reverse_cf ? slice2 : slice1,
+    kd->is_reverse_cf ? slice1 : slice2
+  );
+
+  uint64_t sz=0;
+  rdb->GetApproximateSizes(
+    kd->get_cf(),
+    &r, 1,
+    &sz);
+  ret = kd->stats.approximate_size != 0 ?
+    kd->stats.rows*sz/kd->stats.approximate_size :
+    0;
+  if (ret == 0) {
+    ret = 1;
+  }
+
+  DBUG_RETURN(ret);
 }
 
 
