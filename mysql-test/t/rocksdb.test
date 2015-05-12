@@ -1605,5 +1605,29 @@ drop table t1;
 --error ER_TOO_LONG_KEY
 create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
 SET sql_mode = @old_mode;
+--echo #
+--echo # Issue #57: Release row locks on statement errors
+--echo #
+create table t1 (id int primary key) engine=rocksdb;
+insert into t1 values (1), (2), (3);
+begin;
+insert into t1 values (4), (5), (6);
+--error ER_DUP_ENTRY
+insert into t1 values (7), (8), (2), (9);
+select * from t1;
+
+-- connect(con1,localhost,root,,)
+--connection con1
+begin;
+--error ER_LOCK_WAIT_TIMEOUT
+select * from t1 where id=4 for update;
+
+select * from t1 where id=7 for update;
+
+select * from t1 where id=9 for update;
+
+--connection default
+-- disconnect con1
+drop table t1;
 
 drop table t0;
