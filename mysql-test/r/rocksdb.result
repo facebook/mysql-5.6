@@ -2071,4 +2071,29 @@ drop table t1;
 create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
 ERROR 42000: Specified key was too long; max key length is 2048 bytes
 SET sql_mode = @old_mode;
+#
+# Issue #57: Release row locks on statement errors
+#
+create table t1 (id int primary key) engine=rocksdb;
+insert into t1 values (1), (2), (3);
+begin;
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (2), (9);
+ERROR 23000: Duplicate entry '2' for key 'PRIMARY'
+select * from t1;
+id
+1
+2
+3
+4
+5
+6
+begin;
+select * from t1 where id=4 for update;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction
+select * from t1 where id=7 for update;
+id
+select * from t1 where id=9 for update;
+id
+drop table t1;
 drop table t0;
