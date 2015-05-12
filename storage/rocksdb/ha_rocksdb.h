@@ -322,7 +322,7 @@ public:
         1..8 byte numbers
     */
     return HA_BINLOG_ROW_CAPABLE | HA_BINLOG_STMT_CAPABLE |
-           HA_REC_NOT_IN_SEQ |
+           HA_REC_NOT_IN_SEQ | HA_CAN_INDEX_BLOBS |
            HA_REQUIRE_PRIMARY_KEY |
            (pk_can_be_decoded? HA_PRIMARY_KEY_IN_READ_INDEX:0) |
            HA_PRIMARY_KEY_REQUIRED_FOR_POSITION |
@@ -368,7 +368,7 @@ public:
 
   uint max_supported_keys()          const { return MAX_INDEXES; }
   uint max_supported_key_parts()     const { return MAX_REF_PARTS; }
-
+  uint max_supported_key_part_length() const { return 2048; }
   /** @brief
     unireg.cc will call this to make sure that the storage engine can handle
     the data it is about to send. Return *real* limits of your storage engine
