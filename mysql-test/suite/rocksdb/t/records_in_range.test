@@ -1,0 +1,63 @@
+let $save_rocksdb_seconds_between_stat_computes = `SELECT @@rocksdb_seconds_between_stat_computes`;
+SET GLOBAL rocksdb_seconds_between_stat_computes=2;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+# Create the table and insert some keys
+CREATE TABLE t1 (
+       i INT, 
+       a INT, 
+       b INT,
+       PRIMARY KEY (i),
+       KEY ka(a),
+       KEY kb(b) comment 'rev:cf1'
+) ENGINE = rocksdb;
+
+--disable_query_log
+let $max = 1000;
+let $i = 1;
+while ($i <= $max) {
+  let $insert = INSERT INTO t1 VALUES ($i, $i, $i);
+  inc $i;
+  eval $insert;
+}
+--enable_query_log
+
+optimize table t1;
+--source wait_stat_compute.inc
+
+# normal CF
+explain extended select * from t1 where a> 500 and a< 750;
+explain extended select * from t1 where a< 750;
+explain extended select * from t1 where a> 500;
+explain extended select * from t1 where a>=0 and a<=1000;
+
+#reverse CF
+explain extended select * from t1 where b> 500 and b< 750;
+explain extended select * from t1 where b< 750;
+explain extended select * from t1 where b> 500;
+explain extended select * from t1 where b>=0 and b<=1000;
+
+# a set of 1
+explain extended select * from t1 where a>= 500 and a<= 500;
+explain extended select * from t1 where b>= 500 and b<= 500;
+
+# two indexes
+explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+
+# composite index
+drop index ka on t1;
+drop index kb on t1;
+create index kab on t1(a,b);
+explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+
+# override records in range
+set rocksdb_records_in_range=444;
+explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+
+#cleanup
+DROP TABLE t1;
+
+eval SET GLOBAL rocksdb_seconds_between_stat_computes = $save_rocksdb_seconds_between_stat_computes;
