@@ -1589,4 +1589,21 @@ where kp1 between '2016' and '2020';
 
 drop table t1,t2;
 
+--echo #Index on blob column
+SET @old_mode = @@sql_mode;
+SET sql_mode = 'strict_all_tables';
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(c, b(255))) engine=rocksdb;
+drop table t1;
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(1255))) engine=rocksdb;
+insert into t1 values (1, '1abcde', '1abcde'), (2, '2abcde', '2abcde'), (3, '3abcde', '3abcde');
+select * from t1;
+explain select * from t1 where b like '1%';
+explain select b, a from t1 where b like '1%';
+update t1 set b= '12345' where b = '2abcde';
+select * from t1;
+drop table t1;
+--error ER_TOO_LONG_KEY
+create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
+SET sql_mode = @old_mode;
+
 drop table t0;
