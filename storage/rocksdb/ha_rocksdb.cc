@@ -3813,8 +3813,10 @@ int ha_rocksdb::write_row(uchar *buf)
   {
     /* Bulk insert mode: flush the write batch if it became too big */
     if (trx->flush_batch(table->in_use, false))
+    {
       io_perf_end_and_record();
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
   }
 
   stats.rows_inserted++;
