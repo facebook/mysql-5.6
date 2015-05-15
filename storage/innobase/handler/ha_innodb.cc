@@ -18175,9 +18175,17 @@ static MYSQL_SYSVAR_ULONG(spin_wait_delay, srv_spin_wait_delay,
 static MYSQL_SYSVAR_ULONGLONG(fsync_freq, os_fsync_freq,
   PLUGIN_VAR_RQCMDARG,
   "The value of this variable determines how often InnoDB calls fsync when "
-  "creating a new file. Default is to call fsync after every 128M written. "
-  "Setting this value to zero would make InnoDB flush the file before closing "
-  "it.", NULL, NULL, 1ULL << 27, 0, ULONG_MAX, UNIV_PAGE_SIZE);
+  "creating a new file. Default is to call fsync after every time the buffer "
+  "(1MB) is written. Setting this value to zero would make InnoDB flush the "
+  "file before closing it.",
+  NULL, NULL, OS_FILE_WRITE_BUF_SIZE, 0, ULONG_MAX, OS_FILE_WRITE_BUF_SIZE);
+
+static MYSQL_SYSVAR_ULONGLONG(txlog_init_rate, os_txlog_init_rate,
+  PLUGIN_VAR_OPCMDARG,
+  "The value of this variable determines how fast (in bytes/s) InnoDB "
+  "initializes the transaction log when creating a new file"
+  "Setting this value to 0 means no limit. Default is 128MB",
+  NULL, NULL, 1ULL << 27, 0ULL, ULONG_MAX, 1ULL << 20);
 
 static MYSQL_SYSVAR_UINT(load_table_thread_num, innobase_load_table_thread_num,
   PLUGIN_VAR_RQCMDARG,
@@ -18688,6 +18696,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(sync_spin_loops),
   MYSQL_SYSVAR(spin_wait_delay),
   MYSQL_SYSVAR(fsync_freq),
+  MYSQL_SYSVAR(txlog_init_rate),
   MYSQL_SYSVAR(load_table_thread_num),
   MYSQL_SYSVAR(table_locks),
   MYSQL_SYSVAR(thread_concurrency),
