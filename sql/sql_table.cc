@@ -8231,6 +8231,12 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
     DBUG_RETURN(true);
   }
 
+  if (block_memory_tables(create_info, table_list))
+  {
+    my_error(ER_BLOCK_MEMORY_TABLES, MYF(0), NULL);
+    DBUG_RETURN(true);
+  }
+
   /*
     Check if we attempt to alter mysql.slow_log or
     mysql.general_log table and return an error if

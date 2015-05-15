@@ -1,0 +1,23 @@
+create temporary table temp_table (a int) ENGINE=HEAP;
+use mysql;
+create table mysql_table (a int) ENGINE=HEAP;
+-- error ER_BLOCK_MEMORY_TABLES
+create table test.memory_table (a int) ENGINE=HEAP;
+use test;
+-- error ER_BLOCK_MEMORY_TABLES
+create table memory_table (a int) ENGINE=HEAP;
+create table mysql.memory_table (a int) ENGINE=HEAP;
+create table innodb_table (a int) ENGINE=INNODB;
+
+-- error ER_BLOCK_MEMORY_TABLES
+alter table innodb_table ENGINE=HEAP;
+alter table mysql.mysql_table ENGINE=HEAP;
+alter table mysql.memory_table ENGINE=INNODB;
+
+drop table temp_table;
+drop table innodb_table;
+use mysql;
+-- error ER_BLOCK_MEMORY_TABLES
+alter table test.innodb_table ENGINE=HEAP;
+drop table mysql_table;
+drop table memory_table;

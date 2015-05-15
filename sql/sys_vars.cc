@@ -571,6 +571,13 @@ static Sys_var_mybool Sys_block_create_myisam(
        GLOBAL_VAR(block_create_myisam),
        CMD_LINE(OPT_ARG), DEFAULT(FALSE));
 
+static Sys_var_mybool Sys_block_create_memory(
+       "block_create_memory",
+       "Blocks creation of non-temporary Memory tables outside of mysql "
+       "schema.",
+       GLOBAL_VAR(block_create_memory),
+       CMD_LINE(OPT_ARG), DEFAULT(FALSE));
+
 static Sys_var_mybool Sys_block_create_no_primary_key(
        "block_create_no_primary_key",
        "Block creation of non-temp tables without primary key outside of mysql"
