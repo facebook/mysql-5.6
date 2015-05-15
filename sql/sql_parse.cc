@@ -8611,6 +8611,30 @@ bool block_myisam_tables(HA_CREATE_INFO *create_info,
 }
 
 /**
+   Block non-temporary memory table creation outside of mysql
+   and mtr schemas. This is controlled by the cnf option
+   block_create_memory which by default is false.
+
+   @param create_info info of table to be created or altered.
+          table_list  table which will be created or altered.
+
+   @return true  Block the current sql query
+           false otherwise
+*/
+bool block_memory_tables(HA_CREATE_INFO *create_info,
+                         TABLE_LIST *table_list)
+{
+  if (block_create_memory &&
+      strcmp(table_list->db, "mysql") &&
+      strcmp(table_list->db, "mtr") &&
+      create_info->db_type &&
+      create_info->db_type->db_type == DB_TYPE_HEAP &&
+      !create_info->options & HA_LEX_CREATE_TMP_TABLE)
+    return true;
+  return false;
+}
+
+/**
    Check if the current change should be checked for a primary key.
    Changes within mysql and mtr shouldn't be checked.
    This is controlled by the cnf option block_create_no_primary_key.
@@ -8659,6 +8683,12 @@ bool create_table_precheck(THD *thd, TABLE_LIST *tables,
   if (block_myisam_tables(&lex->create_info, create_table))
   {
     my_error(ER_BLOCK_MYISAM_TABLES, MYF(0), NULL);
+    goto err;
+  }
+
+  if (block_memory_tables(&lex->create_info, create_table))
+  {
+    my_error(ER_BLOCK_MEMORY_TABLES, MYF(0), NULL);
     goto err;
   }
 
