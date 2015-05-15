@@ -95,7 +95,8 @@ UNIV_INTERN ulint	os_innodb_umask = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
 UNIV_INTERN ulint	os_innodb_umask	= 0;
 #endif /* __WIN__ */
 
-UNIV_INTERN ullint os_fsync_freq = 1ULL << 27;
+UNIV_INTERN ullint os_fsync_freq = OS_FILE_WRITE_BUF_SIZE;
+UNIV_INTERN ullint os_txlog_init_rate = 1ULL << 27;
 
 #ifndef UNIV_HOTBACKUP
 /* We use these mutexes to protect lseek + file i/o operation, if the
@@ -2322,9 +2323,8 @@ os_file_set_size(
 
 	current_size = 0;
 
-	/* Write up to 1 megabyte at a time. */
-	buf_size = ut_min(64, (ulint) (size / UNIV_PAGE_SIZE))
-		* UNIV_PAGE_SIZE;
+	/* Write 1 megabyte at a time. */
+	buf_size = OS_FILE_WRITE_BUF_SIZE;
 	buf2 = static_cast<byte*>(ut_malloc(buf_size + UNIV_PAGE_SIZE));
 
 	/* Align the buffer for possible raw i/o */
@@ -2333,11 +2333,17 @@ os_file_set_size(
 	/* Write buffer full of zeros */
 	memset(buf, 0, buf_size);
 
+	if (os_txlog_init_rate > 0) {
+		fprintf(stderr, "InnoDB: log file write is throttled at %lluMB/s\n",
+				os_txlog_init_rate/(1ULL<<20));
+	}
+
 	if (size >= (os_offset_t) 100 << 20) {
 
 		fprintf(stderr, "InnoDB: Progress in MB:");
 	}
 
+	ulonglong start_time = my_timer_now();
 	while (current_size < size) {
 		ulint	n_bytes;
 
@@ -2351,6 +2357,14 @@ os_file_set_size(
 		if (!ret) {
 			ut_free(buf2);
 			goto error_handling;
+		}
+
+		if (os_txlog_init_rate > 0) {
+			/* check write rate on every chunk (1MB) we write */
+			while ((double)(current_size + n_bytes) > os_txlog_init_rate *
+					my_timer_to_seconds(my_timer_since(start_time))) {
+				os_thread_sleep(1000); /* sleep for 1000 usecs */
+			}
 		}
 
 		/* Print about progress for each 100 MB written */
