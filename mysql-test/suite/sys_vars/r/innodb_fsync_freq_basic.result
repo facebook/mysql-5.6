@@ -1,7 +1,7 @@
 SET @orig_fsync_freq = @@global.innodb_fsync_freq;
 SELECT @orig_fsync_freq;
 @orig_fsync_freq
-134217728
+1048576
 SET GLOBAL innodb_fsync_freq = 1024*1024*1024;
 SELECT @@global.innodb_fsync_freq;
 @@global.innodb_fsync_freq
