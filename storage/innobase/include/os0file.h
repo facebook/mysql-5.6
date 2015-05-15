@@ -142,6 +142,8 @@ enum os_file_create_t {
 					ON_ERROR_NO_EXIT is set */
 };
 
+#define OS_FILE_WRITE_BUF_SIZE 1ULL<<20
+
 #define OS_FILE_READ_ONLY		333
 #define	OS_FILE_READ_WRITE		444
 #define	OS_FILE_READ_ALLOW_DELETE	555	/* for mysqlbackup */
@@ -227,6 +229,7 @@ extern ulint	os_n_file_reads;
 extern ulint	os_n_file_writes;
 extern ulint	os_n_fsyncs;
 extern ullint	os_fsync_freq;
+extern ullint	os_txlog_init_rate;
 
 /** Seconds waiting for file flushes to finish */
 extern ulonglong	os_file_flush_time;
