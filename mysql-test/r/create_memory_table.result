@@ -1,0 +1,21 @@
+create temporary table temp_table (a int) ENGINE=HEAP;
+use mysql;
+create table mysql_table (a int) ENGINE=HEAP;
+create table test.memory_table (a int) ENGINE=HEAP;
+ERROR HY000: Non-temporary MEMORY tables cannot be created outside mysql schema.
+use test;
+create table memory_table (a int) ENGINE=HEAP;
+ERROR HY000: Non-temporary MEMORY tables cannot be created outside mysql schema.
+create table mysql.memory_table (a int) ENGINE=HEAP;
+create table innodb_table (a int) ENGINE=INNODB;
+alter table innodb_table ENGINE=HEAP;
+ERROR HY000: Non-temporary MEMORY tables cannot be created outside mysql schema.
+alter table mysql.mysql_table ENGINE=HEAP;
+alter table mysql.memory_table ENGINE=INNODB;
+drop table temp_table;
+drop table innodb_table;
+use mysql;
+alter table test.innodb_table ENGINE=HEAP;
+ERROR HY000: Non-temporary MEMORY tables cannot be created outside mysql schema.
+drop table mysql_table;
+drop table memory_table;

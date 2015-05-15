@@ -7185,6 +7185,9 @@ ER_TOO_BIG_DOCUMENT_FIELDLENGTH
 ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET
   eng "Document partial update not supported yet."
 
+ER_BLOCK_MEMORY_TABLES
+  eng "Non-temporary MEMORY tables cannot be created outside mysql schema."
+
 #
 #  End of 5.6 error messages.
 #

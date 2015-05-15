@@ -1,0 +1,48 @@
+-- source include/load_sysvars.inc
+
+SET @start_block_create_memory = @@global.block_create_memory;
+SELECT @start_block_create_memory;
+
+SET @@global.block_create_memory = DEFAULT;
+SELECT @@global.block_create_memory;
+
+SET @@global.block_create_memory = @start_block_create_memory;
+SELECT @@global.block_create_memory = false;
+
+SET @@global.block_create_memory = false;
+SELECT @@global.block_create_memory;
+SET @@global.block_create_memory = true;
+SELECT @@global.block_create_memory;
+
+SET @@global.block_create_memory = 1;
+SELECT @@global.block_create_memory;
+SET @@global.block_create_memory = 0;
+
+SELECT @@global.block_create_memory;
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.block_create_memory = -1;
+SELECT @@global.block_create_memory;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.block_create_memory = 100;
+SELECT @@global.block_create_memory;
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.block_create_memory = 1000.01;
+SELECT @@global.block_create_memory;
+
+--ERROR ER_GLOBAL_VARIABLE
+SET @@session.block_create_memory = 10;
+--ERROR ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.block_create_memory;
+
+SELECT @@global.block_create_memory = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='block_create_memory';
+
+SELECT @@block_create_memory = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.SESSION_VARIABLES
+WHERE VARIABLE_NAME='block_create_memory';
+
+
+SET @@global.block_create_memory = @start_block_create_memory;
+SELECT @@global.block_create_memory;
