@@ -17,6 +17,7 @@
 -- The system tables of MySQL Server
 --
 
+set @default_engine=(SELECT engine FROM information_schema.engines WHERE Support='DEFAULT');
 set sql_mode='';
 set storage_engine=myisam;
 
@@ -128,6 +129,8 @@ SET @create_innodb_index_stats="CREATE TABLE IF NOT EXISTS innodb_index_stats (
 
 set @have_innodb= (select count(engine) from information_schema.engines where engine='INNODB' and support != 'NO');
 set @have_rocksdb= (select count(engine) from information_schema.engines where engine='ROCKSDB' and support != 'NO');
+SET @default_engine= IF(@default_engine='innodb' OR @default_engine='rocksdb', @default_engine, IF(@have_innodb, 'innodb', 'myisam'));
+SET @engine_clause = CONCAT(' ENGINE= ', @default_engine, ';');
 
 SET @str=IF(@have_innodb <> 0, @create_innodb_table_stats, "SET @dummy = 0");
 PREPARE stmt FROM @str;
@@ -152,7 +155,7 @@ SET @cmd="CREATE TABLE IF NOT EXISTS slave_relay_log_info (
   Id INTEGER UNSIGNED NOT NULL COMMENT 'Internal Id that uniquely identifies this record.',  
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Relay Log Information'";
 
-SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=CONCAT(@cmd, @engine_clause);
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -183,7 +186,7 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_master_info (
   Enabled_auto_position BOOLEAN NOT NULL COMMENT 'Indicates whether GTIDs will be used to retrieve events from the master.', 
   PRIMARY KEY(Host, Port)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Master Information'";
 
-SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=CONCAT(@cmd, @engine_clause);
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -203,7 +206,7 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_worker_info (
   Checkpoint_group_bitmap BLOB NOT NULL, 
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Worker Information'";
 
-SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=CONCAT(@cmd, @engine_clause);
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
@@ -214,7 +217,7 @@ SET @cmd= "CREATE TABLE IF NOT EXISTS slave_gtid_info (
   Last_gtid VARCHAR(56) CHARACTER SET utf8 COLLATE utf8_bin,
   PRIMARY KEY(Id)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT 'Gtid Information'";
 
-SET @str=IF(@have_rocksdb <> 0, CONCAT(@cmd, ' ENGINE= ROCKSDB;'), CONCAT(@cmd, ' ENGINE= MYISAM;'));
+SET @str=CONCAT(@cmd, @engine_clause);
 PREPARE stmt FROM @str;
 EXECUTE stmt;
 DROP PREPARE stmt;
