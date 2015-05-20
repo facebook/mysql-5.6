@@ -472,6 +472,23 @@ private:
   Document_key();
 };
 
+/* Generate document path full name */
+void inline gen_document_path_full_name(String& document_path_full_name,
+                                        const char* field_name,
+                                        List<Document_key>& document_path_keys)
+{
+  document_path_full_name.set("`", 1, &my_charset_bin);
+  document_path_full_name.append(field_name);
+  document_path_full_name.append("`");
+  List_iterator<Document_key> it(document_path_keys);
+  for(Document_key *p; (p=it++);)
+  {
+    document_path_full_name.append(".`");
+    document_path_full_name.append(p->string.str, p->string.length);
+    document_path_full_name.append("`");
+  }
+  document_path_full_name.append('\0');
+}
 
 class Field
 {
@@ -702,13 +719,6 @@ public:
     List<Document_key>& list,
     enum_field_types key_type, // if not a regular document,
                                // type of the key path to read
-    String *val_buffer, my_bool& is_null)
-  {
-    DBUG_ASSERT(0); return nullptr;
-  }
-  virtual String *document_path_val_str_fixed_buf(
-    List<Document_key>& list,
-    enum_field_types key_type,
     String *val_buffer, my_bool& is_null)
   {
     DBUG_ASSERT(0); return nullptr;
@@ -3661,6 +3671,7 @@ class Field_document :public Field_blob {
                                 String *string,
                                 uchar *buff, uint length,
                                 uint& val_len, my_bool& is_null);
+
 public:
   enum document_type doc_type;
   bool nullable_document; // stores the user defined nullability in DDL
@@ -3722,12 +3733,6 @@ public:
 
   // If not a regular document, key_type is the type of value to read
   String *document_path_val_str(List<Document_key>& key_path,
-                                enum_field_types key_type,
-                                String *val_buffer,
-                                my_bool& is_null);
-
-  // If not a regular document, key_type is the type of value to read
-  String *document_path_val_str_fixed_buf(List<Document_key>& key_path,
                                 enum_field_types key_type,
                                 String *val_buffer,
                                 my_bool& is_null);

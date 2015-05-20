@@ -467,11 +467,10 @@ select test.t1.doc.id, a from t1 order by t1.doc.id desc, a;
 select test.t1.doc.id as id, a from t1 order by id, a;
 select test.t1.doc.id as id, a from t1 order by id desc, a;
 
-### without cast to make it sorted as string and big binary values will be truncated with warnings
+### big string with length of 1110 won't be truncated
 select doc.id, a from t3 order by test.t3.doc.id, a;
-show warnings;
 select test.t3.doc.id, a from t3 order by t3.doc.id desc, a;
-show warnings;
+select test.t3.doc.id, a from t3 where a = 4;
 
 ### without NULL values
 

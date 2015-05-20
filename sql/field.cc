@@ -8808,9 +8808,12 @@ bool Field_document::document_path_val_binary(
         THD *thd= table ? table->in_use : current_thd;
         if (thd->count_cuted_fields)
           thd->cuted_fields++;
+        String full_name;
+        gen_document_path_full_name(full_name, field_name, key_path);
         push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                             WARN_DOCUMENT_PATH_KEY_TRUNCATED,
-                            ER(WARN_DOCUMENT_PATH_KEY_TRUNCATED), field_name);
+                            ER(WARN_DOCUMENT_PATH_KEY_TRUNCATED),
+                            full_name.c_ptr_safe());
       }
       /* copy the binary image into the buffer */
       memcpy(buff, payload, val_len);
@@ -8820,6 +8823,7 @@ bool Field_document::document_path_val_binary(
   }
   return false; /* success */
 }
+
 
 /**
  * if string is not NULL then use it as output buffer, memory within string
@@ -9213,6 +9217,7 @@ bool Field_document::document_path_is_null(
   return false;
 }
 
+
 /*
  * Virtual functions for Field_document use only.
  */
@@ -9222,27 +9227,8 @@ String *Field_document::document_path_val_str(
                                 String *val_buffer, my_bool& is_null)
 {
   uint tmp;
-  document_path_val_string(key_path, doc_path_type, val_buffer, NULL, 0, tmp,
-                           is_null);
-  return (is_null ? NULL : val_buffer);
-}
-
-String *Field_document::document_path_val_str_fixed_buf(
-                                List<Document_key>& key_path,
-                                enum_field_types doc_path_type,
-                                String *val_buffer, my_bool& is_null)
-{
-  DBUG_ASSERT(val_buffer->alloced_length() > 0);
-
-  uint val_len = 0;
-  document_path_val_string(key_path, doc_path_type, NULL,
-                           (uchar *)val_buffer->c_ptr_quick(),
-                           val_buffer->length(), val_len, is_null);
-  /* the returned string is always ended with '\0' so the maximum val_len
-     is alloced_length - 1
-  */
-  DBUG_ASSERT(val_len < val_buffer->alloced_length());
-  val_buffer->length(val_len);
+  document_path_val_string(key_path, doc_path_type, val_buffer,
+                           NULL, 0, tmp, is_null);
   return (is_null ? NULL : val_buffer);
 }
 

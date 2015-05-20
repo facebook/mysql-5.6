@@ -925,17 +925,9 @@ bool Item_ident::compare_document_path(Item_ident *ident)
 /* Generate document path full name */
 void Item_ident::generate_document_path_full_name()
 {
-  document_path_full_name.set("`", 1, &my_charset_bin);
-  document_path_full_name.append(field_name);
-  document_path_full_name.append("`");
-  List_iterator<Document_key> it(document_path_keys);
-  for(Document_key *p; (p=it++);)
-  {
-    document_path_full_name.append(".`");
-    document_path_full_name.append(p->string.str, p->string.length);
-    document_path_full_name.append("`");
-  }
-  document_path_full_name.append('\0');
+  gen_document_path_full_name(document_path_full_name,
+                              field_name,
+                              document_path_keys);
 }
 
 bool Item_ident::right_shift_for_possible_document_path(THD *thd)
@@ -6716,10 +6708,14 @@ Field *Item_field::make_string_field_for_document_path_item(TABLE *table)
   DBUG_ASSERT(field && field->type() == MYSQL_TYPE_DOCUMENT &&
               document_path_keys.elements > 0 && collation.collation);
   /*
-     Max length is 1024 based on the max sort buffer is 1024 byte,
-     it may be null (&my_charset_latin1).
+     FIXME: the maximum size of the varchar column is set to 4096, this number
+     is not set greater becasue the maximum row size is 65535, and there can be
+     more than one varchar columns for document pathes. This may cause document
+     path values get truncated since the maximum size of a document column is
+     16M - 1. This will need to be fixed by using other types, e.g. text, with
+     maximum size of 16M - 1.
   */
-  Field *fld= new Field_varstring(1024, true, item_name.ptr(),
+  Field *fld= new Field_varstring(4096, true, item_name.ptr(),
                                   table->s, collation.collation);
   if (fld)
   {

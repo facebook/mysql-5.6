@@ -4928,7 +4928,7 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
     else
     {
       JOIN_TAB *stat=field->table->reginfo.join_tab;
-      /* To decide if a possible documebnt key can be used,
+      /* To decide if a possible document key can be used,
        * the field's document_path_key_start is used
        * (instead of the key_start map) to match the doc_path (in-param)
        * with the key part saved in the document_path_key_start array.

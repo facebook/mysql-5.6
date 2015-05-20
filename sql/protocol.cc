@@ -1186,7 +1186,7 @@ bool Protocol_text::store_internal(Field *field,
   {
     /* If the return value is NULL str will be set with empty string */
     my_bool is_null = false;
-    field->document_path_val_str_fixed_buf(key_path, key_type, &str, is_null);
+    field->document_path_val_str(key_path, key_type, &str, is_null);
     if (is_null)
       return store_null();
   }
