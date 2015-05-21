@@ -1923,6 +1923,7 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pk_can_be_decoded(false),
     pk_tuple(NULL), pk_packed_tuple(NULL),
     sec_key_packed_tuple(NULL), sec_key_tails(NULL),
+    sec_key_match_prefix(NULL), sec_key_match_prefix_buf(NULL),
     sec_key_packed_tuple_old(NULL), sec_key_tails_old(NULL),
     pack_buffer(NULL),
     lock_rows(FALSE),
@@ -2342,6 +2343,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   if (!(sec_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
                                                 MYF(0))) ||
+      !(sec_key_match_prefix_buf= (uchar*)my_malloc(max_packed_sec_key_len,
+                                                    MYF(0))) ||
       !(sec_key_packed_tuple_old= (uchar*)my_malloc(max_packed_sec_key_len,
                                                  MYF(0))) ||
       !((sec_key_tails= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))) ||
@@ -2377,6 +2380,10 @@ int ha_rocksdb::close(void)
   if (sec_key_packed_tuple)
     my_free(sec_key_packed_tuple);
   sec_key_packed_tuple= NULL;
+
+  if (sec_key_match_prefix_buf)
+    my_free(sec_key_match_prefix_buf);
+  sec_key_match_prefix_buf= NULL;
 
   if (sec_key_packed_tuple_old)
     my_free(sec_key_packed_tuple_old);
@@ -2843,6 +2850,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                        (keypart_map == ((key_part_map(1) << actual_key_parts)
                                          - 1));
 
+  /* By default, we don't need the retrieved records to match the prefix */
+  sec_key_match_prefix= NULL;
   stats.rows_requested++;
   io_perf_start();
 
@@ -2868,8 +2877,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
   /*
     Unique secondary index performs lookups without the extended key fields
   */
-  uint packed_size;
-  if (active_index != table->s->primary_key &&
+  uint packed_size; if (active_index != table->s->primary_key &&
       table->key_info[active_index].flags & HA_NOSAME &&
       find_flag == HA_READ_KEY_EXACT && using_full_key)
   {
@@ -2885,6 +2893,25 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     packed_size= kd->pack_index_tuple(table, pack_buffer,
                                       sec_key_packed_tuple, key,
                                       keypart_map);
+  if ((pushed_idx_cond && pushed_idx_cond_keyno == active_index) &&
+      (find_flag == HA_READ_KEY_EXACT || find_flag == HA_READ_PREFIX_LAST))
+  {
+    /*
+      We are doing a point index lookup, and ICP is enabled. It is possible
+      that this call will be followed by ha_rocksdb->index_next_same() call.
+
+      Do what InnoDB does: save the lookup tuple now. We will need it in
+      index_next_same/find_icp_matching_index_rec in order to stop scanning
+      as soon as index record doesn't match the lookup tuple.
+
+      When not using ICP, handler::index_next_same() will make sure that rows
+      that don't match the lookup prefix are not returned.
+      row matches the lookup prefix.
+    */
+    sec_key_match_prefix= sec_key_match_prefix_buf;
+    sec_key_match_length= packed_size;
+    memcpy(sec_key_match_prefix, sec_key_packed_tuple, packed_size);
+  }
 
   if (find_flag == HA_READ_PREFIX_LAST_OR_PREV ||
       find_flag == HA_READ_PREFIX_LAST ||
@@ -3202,6 +3229,16 @@ int ha_rocksdb::find_icp_matching_index_rec(bool move_forward, uchar *buf)
       {
         table->status= STATUS_NOT_FOUND;
         return HA_ERR_END_OF_FILE;
+      }
+
+      if (sec_key_match_prefix)
+      {
+        rocksdb::Slice prefix((const char*)sec_key_match_prefix, sec_key_match_length);
+        if (!kd->value_matches_prefix(rkey, prefix))
+        {
+          table->status= STATUS_NOT_FOUND;
+          return HA_ERR_END_OF_FILE;
+        }
       }
 
       rocksdb::Slice value= scan_it->value();
@@ -3542,6 +3579,7 @@ int ha_rocksdb::index_next_with_direction(uchar *buf, bool move_forward)
 int ha_rocksdb::index_first(uchar *buf)
 {
   io_perf_start();
+  sec_key_match_prefix= NULL;
   int rc= key_descr[active_index]->is_reverse_cf ? index_last_intern(buf):
                                                    index_first_intern(buf);
   io_perf_end_and_record();
@@ -3552,6 +3590,7 @@ int ha_rocksdb::index_first(uchar *buf)
 int ha_rocksdb::index_last(uchar *buf)
 {
   io_perf_start();
+  sec_key_match_prefix= NULL;
   int rc= key_descr[active_index]->is_reverse_cf ? index_first_intern(buf):
                                                    index_last_intern(buf);
   io_perf_end_and_record();
