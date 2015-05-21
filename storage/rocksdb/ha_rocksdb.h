@@ -171,6 +171,16 @@ class ha_rocksdb: public handler
   */
   uchar *sec_key_tails;
 
+  /*
+    ha_rockdb->index_read_map(.. HA_READ_KEY_EXACT or similar) will save here
+    mem-comparable form of the index lookup tuple.
+  */
+  uchar *sec_key_match_prefix;
+  uint sec_key_match_length;
+
+  /* Buffer space for the above */
+  uchar *sec_key_match_prefix_buf;
+
   /* Second buffers, used by UPDATE. */
   uchar *sec_key_packed_tuple_old;
   uchar *sec_key_tails_old;
