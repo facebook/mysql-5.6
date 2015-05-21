@@ -398,8 +398,8 @@ select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 
 ### Document paths in ORDER BY clause: database.table.field.key1, in which key1 does not exist
 ### the results won't be sorted
-select a from t1 order by test.t1.doc.NonExistent;
-select a from t1 order by cast(t1.doc.NonExistent as unsigned);
+select a from t1 order by test.t1.doc.NonExistent limit 50;
+select a from t1 order by cast(t1.doc.NonExistent as unsigned) limit 50;
 
 ### use cast to make it sorted as unsigned
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
@@ -412,64 +412,64 @@ select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.
 ### use alias for the whole cast function
 select cast(test.t1.doc.address.zipcode as signed), a
 from t1
-order by cast(test.t1.doc.address.zipcode as signed);
+order by cast(test.t1.doc.address.zipcode as signed), a;
 
 select cast(test.t1.doc.address.zipcode as signed) as zipcode, a
 from t1
-order by zipcode;
+order by zipcode, a;
 
 select cast(test.t1.doc.address.zipcode as char), a
 from t1
-order by cast(test.t1.doc.address.zipcode as char) desc;
+order by cast(test.t1.doc.address.zipcode as char) desc, a;
 
 select cast(test.t1.doc.address.zipcode as char), a
 from t1
-order by 1 desc;
+order by 1 desc, a;
 
 select cast(test.t1.doc.address.zipcode as char) as zipcode, a
 from t1
-order by zipcode desc;
+order by zipcode desc, a;
 
 select a, cast(test.t1.doc.address.zipcode as char) as zipcode
 from t1
-order by 2 desc;
+order by 2 desc, a;
 
 ### use alias of document path within cast function
 select a, test.t1.doc.address.state as state
 from t1
-order by cast(state as char);
+order by cast(state as char), a;
 
 select a, test.t1.doc.address.state as state
 from t1
-order by cast(state as char) desc;
+order by cast(state as char) desc, a;
 
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as char);
+order by cast(zipcode as char), a;
 
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as char) desc;
+order by cast(zipcode as char) desc, a;
 
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as unsigned);
+order by cast(zipcode as unsigned), a;
 
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as unsigned) desc;
+order by cast(zipcode as unsigned) desc, a;
 
 ### without cast to make it sorted as string
-select test.t1.doc.id, a from t1 order by test.t1.doc.id;
-select test.t1.doc.id, a from t1 order by t1.doc.id desc;
+select test.t1.doc.id, a from t1 order by test.t1.doc.id, a;
+select test.t1.doc.id, a from t1 order by t1.doc.id desc, a;
 
-select test.t1.doc.id as id, a from t1 order by id;
-select test.t1.doc.id as id, a from t1 order by id desc;
+select test.t1.doc.id as id, a from t1 order by id, a;
+select test.t1.doc.id as id, a from t1 order by id desc, a;
 
 ### without cast to make it sorted as string and big binary values will be truncated with warnings
-select doc.id, a from t3 order by test.t3.doc.id;
+select doc.id, a from t3 order by test.t3.doc.id, a;
 show warnings;
-select test.t3.doc.id, a from t3 order by t3.doc.id desc;
+select test.t3.doc.id, a from t3 order by t3.doc.id desc, a;
 show warnings;
 
 ### without NULL values
@@ -482,18 +482,18 @@ select test.t1.doc.address.zipcode as zipcode from t1 order by zipcode;
 select test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc;
 
 ### document path is the last SELECT time
-select a, test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode;
-select a, test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc;
+select a, test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode, a;
+select a, test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc, a;
 
-select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode;
-select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc;
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode, a;
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc, a;
 
 ### document path is not the last SELECT time
-select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode;
-select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc;
+select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode, a;
+select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc, a;
 
-select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode;
-select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode desc;
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode, a;
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode desc, a;
 
 ### with NULL values
 
@@ -506,18 +506,18 @@ select test.t1.doc.address.state as state from t1 order by state;
 select test.t1.doc.address.state as state from t1 order by state desc;
 
 ### document path is the last SELECT time
-select a, test.t1.doc.address.state from t1 order by test.t1.doc.address.state;
-select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc;
+select a, test.t1.doc.address.state from t1 order by test.t1.doc.address.state, a;
+select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc, a;
 
-select a, test.t1.doc.address.state as state from t1 order by state;
-select a, test.t1.doc.address.state as state from t1 order by state desc;
+select a, test.t1.doc.address.state as state from t1 order by state, a;
+select a, test.t1.doc.address.state as state from t1 order by state desc, a;
 
 ### document path is not the last SELECT time
-select test.t1.doc.address.state, a from t1 order by test.t1.doc.address.state;
-select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc;
+select test.t1.doc.address.state, a from t1 order by test.t1.doc.address.state, a;
+select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc, a;
 
-select test.t1.doc.address.state as state, a from t1 order by state;
-select test.t1.doc.address.state as state, a from t1 order by state desc;
+select test.t1.doc.address.state as state, a from t1 order by state, a;
+select test.t1.doc.address.state as state, a from t1 order by state desc, a;
 
 
 ################################################################################

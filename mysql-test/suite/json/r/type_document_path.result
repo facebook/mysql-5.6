@@ -328,7 +328,7 @@ select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 a	b
 1	@1
 ##### Document paths with different types in ORDER BY clause (with and without aliases)
-select a from t1 order by test.t1.doc.NonExistent;
+select a from t1 order by test.t1.doc.NonExistent limit 50;
 a
 1
 2
@@ -338,7 +338,7 @@ a
 8
 7
 6
-select a from t1 order by cast(t1.doc.NonExistent as unsigned);
+select a from t1 order by cast(t1.doc.NonExistent as unsigned) limit 50;
 a
 1
 2
@@ -400,7 +400,7 @@ select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.
 98761	1
 select cast(test.t1.doc.address.zipcode as signed), a
 from t1
-order by cast(test.t1.doc.address.zipcode as signed);
+order by cast(test.t1.doc.address.zipcode as signed), a;
 cast(test.t1.doc.address.zipcode as signed)	a
 98761	1
 98762	2
@@ -412,7 +412,7 @@ cast(test.t1.doc.address.zipcode as signed)	a
 98768	8
 select cast(test.t1.doc.address.zipcode as signed) as zipcode, a
 from t1
-order by zipcode;
+order by zipcode, a;
 zipcode	a
 98761	1
 98762	2
@@ -424,7 +424,7 @@ zipcode	a
 98768	8
 select cast(test.t1.doc.address.zipcode as char), a
 from t1
-order by cast(test.t1.doc.address.zipcode as char) desc;
+order by cast(test.t1.doc.address.zipcode as char) desc, a;
 cast(test.t1.doc.address.zipcode as char)	a
 98768	8
 98767	7
@@ -436,7 +436,7 @@ cast(test.t1.doc.address.zipcode as char)	a
 98761	1
 select cast(test.t1.doc.address.zipcode as char), a
 from t1
-order by 1 desc;
+order by 1 desc, a;
 cast(test.t1.doc.address.zipcode as char)	a
 98768	8
 98767	7
@@ -448,7 +448,7 @@ cast(test.t1.doc.address.zipcode as char)	a
 98761	1
 select cast(test.t1.doc.address.zipcode as char) as zipcode, a
 from t1
-order by zipcode desc;
+order by zipcode desc, a;
 zipcode	a
 98768	8
 98767	7
@@ -460,7 +460,7 @@ zipcode	a
 98761	1
 select a, cast(test.t1.doc.address.zipcode as char) as zipcode
 from t1
-order by 2 desc;
+order by 2 desc, a;
 a	zipcode
 8	98768
 7	98767
@@ -472,10 +472,10 @@ a	zipcode
 1	98761
 select a, test.t1.doc.address.state as state
 from t1
-order by cast(state as char);
+order by cast(state as char), a;
 a	state
-8	NULL
 6	NULL
+8	NULL
 2	AZ
 1	CA
 3	NY
@@ -484,7 +484,7 @@ a	state
 5	WA
 select a, test.t1.doc.address.state as state
 from t1
-order by cast(state as char) desc;
+order by cast(state as char) desc, a;
 a	state
 4	WA
 5	WA
@@ -492,11 +492,11 @@ a	state
 7	NY
 1	CA
 2	AZ
-8	NULL
 6	NULL
+8	NULL
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as char);
+order by cast(zipcode as char), a;
 a	zipcode
 1	98761
 2	98762
@@ -508,7 +508,7 @@ a	zipcode
 8	98768
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as char) desc;
+order by cast(zipcode as char) desc, a;
 a	zipcode
 8	98768
 7	98767
@@ -520,7 +520,7 @@ a	zipcode
 1	98761
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as unsigned);
+order by cast(zipcode as unsigned), a;
 a	zipcode
 1	98761
 2	98762
@@ -532,7 +532,7 @@ a	zipcode
 8	98768
 select a, test.t1.doc.address.zipcode as zipcode
 from t1
-order by cast(zipcode as unsigned) desc;
+order by cast(zipcode as unsigned) desc, a;
 a	zipcode
 8	98768
 7	98767
@@ -542,7 +542,7 @@ a	zipcode
 3	98763
 2	98762
 1	98761
-select test.t1.doc.id, a from t1 order by test.t1.doc.id;
+select test.t1.doc.id, a from t1 order by test.t1.doc.id, a;
 `doc`.`id`	a
 101	1
 102	2
@@ -552,7 +552,7 @@ select test.t1.doc.id, a from t1 order by test.t1.doc.id;
 106	6
 107	7
 108	8
-select test.t1.doc.id, a from t1 order by t1.doc.id desc;
+select test.t1.doc.id, a from t1 order by t1.doc.id desc, a;
 `doc`.`id`	a
 108	8
 107	7
@@ -562,7 +562,7 @@ select test.t1.doc.id, a from t1 order by t1.doc.id desc;
 103	3
 102	2
 101	1
-select test.t1.doc.id as id, a from t1 order by id;
+select test.t1.doc.id as id, a from t1 order by id, a;
 id	a
 101	1
 102	2
@@ -572,7 +572,7 @@ id	a
 106	6
 107	7
 108	8
-select test.t1.doc.id as id, a from t1 order by id desc;
+select test.t1.doc.id as id, a from t1 order by id desc, a;
 id	a
 108	8
 107	7
@@ -582,7 +582,7 @@ id	a
 103	3
 102	2
 101	1
-select doc.id, a from t3 order by test.t3.doc.id;
+select doc.id, a from t3 order by test.t3.doc.id, a;
 `doc`.`id`	a
 1	1
 22	2
@@ -590,7 +590,7 @@ select doc.id, a from t3 order by test.t3.doc.id;
 4444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
 show warnings;
 Level	Code	Message
-select test.t3.doc.id, a from t3 order by t3.doc.id desc;
+select test.t3.doc.id, a from t3 order by t3.doc.id desc, a;
 `doc`.`id`	a
 4444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444	4
 3333	3
@@ -638,7 +638,7 @@ zipcode
 98763
 98762
 98761
-select a, test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode;
+select a, test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode, a;
 a	`doc`.`address`.`zipcode`
 1	98761
 2	98762
@@ -648,7 +648,7 @@ a	`doc`.`address`.`zipcode`
 6	98766
 7	98767
 8	98768
-select a, test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc;
+select a, test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc, a;
 a	`doc`.`address`.`zipcode`
 8	98768
 7	98767
@@ -658,7 +658,7 @@ a	`doc`.`address`.`zipcode`
 3	98763
 2	98762
 1	98761
-select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode;
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode, a;
 a	zipcode
 1	98761
 2	98762
@@ -668,7 +668,7 @@ a	zipcode
 6	98766
 7	98767
 8	98768
-select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc;
+select a, test.t1.doc.address.zipcode as zipcode from t1 order by zipcode desc, a;
 a	zipcode
 8	98768
 7	98767
@@ -678,7 +678,7 @@ a	zipcode
 3	98763
 2	98762
 1	98761
-select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode;
+select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipcode, a;
 `doc`.`address`.`zipcode`	a
 98761	1
 98762	2
@@ -688,7 +688,7 @@ select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipco
 98766	6
 98767	7
 98768	8
-select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc;
+select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode desc, a;
 `doc`.`address`.`zipcode`	a
 98768	8
 98767	7
@@ -698,7 +698,7 @@ select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode de
 98763	3
 98762	2
 98761	1
-select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode;
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode, a;
 zipcode	a
 98761	1
 98762	2
@@ -708,7 +708,7 @@ zipcode	a
 98766	6
 98767	7
 98768	8
-select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode desc;
+select test.t1.doc.address.zipcode as zipcode, a from t1 order by zipcode desc, a;
 zipcode	a
 98768	8
 98767	7
@@ -768,17 +768,17 @@ CA
 AZ
 NULL
 NULL
-select a, test.t1.doc.address.state from t1 order by test.t1.doc.address.state;
+select a, test.t1.doc.address.state from t1 order by test.t1.doc.address.state, a;
 a	`doc`.`address`.`state`
-8	NULL
 6	NULL
+8	NULL
 2	AZ
 1	CA
 3	NY
 7	NY
 4	WA
 5	WA
-select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc;
+select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc, a;
 a	`doc`.`address`.`state`
 4	WA
 5	WA
@@ -786,19 +786,19 @@ a	`doc`.`address`.`state`
 7	NY
 1	CA
 2	AZ
-8	NULL
 6	NULL
-select a, test.t1.doc.address.state as state from t1 order by state;
+8	NULL
+select a, test.t1.doc.address.state as state from t1 order by state, a;
 a	state
-8	NULL
 6	NULL
+8	NULL
 2	AZ
 1	CA
 3	NY
 7	NY
 4	WA
 5	WA
-select a, test.t1.doc.address.state as state from t1 order by state desc;
+select a, test.t1.doc.address.state as state from t1 order by state desc, a;
 a	state
 4	WA
 5	WA
@@ -806,19 +806,19 @@ a	state
 7	NY
 1	CA
 2	AZ
-8	NULL
 6	NULL
-select test.t1.doc.address.state, a from t1 order by test.t1.doc.address.state;
+8	NULL
+select test.t1.doc.address.state, a from t1 order by test.t1.doc.address.state, a;
 `doc`.`address`.`state`	a
-NULL	8
 NULL	6
+NULL	8
 AZ	2
 CA	1
 NY	3
 NY	7
 WA	4
 WA	5
-select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc;
+select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc, a;
 `doc`.`address`.`state`	a
 WA	4
 WA	5
@@ -826,19 +826,19 @@ NY	3
 NY	7
 CA	1
 AZ	2
-NULL	8
 NULL	6
-select test.t1.doc.address.state as state, a from t1 order by state;
+NULL	8
+select test.t1.doc.address.state as state, a from t1 order by state, a;
 state	a
-NULL	8
 NULL	6
+NULL	8
 AZ	2
 CA	1
 NY	3
 NY	7
 WA	4
 WA	5
-select test.t1.doc.address.state as state, a from t1 order by state desc;
+select test.t1.doc.address.state as state, a from t1 order by state desc, a;
 state	a
 WA	4
 WA	5
@@ -846,8 +846,8 @@ NY	3
 NY	7
 CA	1
 AZ	2
-NULL	8
 NULL	6
+NULL	8
 ##### Document paths with different types in GROUP BY without HAVING clause (with and without aliases)
 select count(*), cast(test.t1.doc.address.state as char)
 from t1
