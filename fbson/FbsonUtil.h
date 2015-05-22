@@ -81,9 +81,8 @@ class FbsonToJson {
       break;
     }
     case FbsonType::T_String: {
-      os_.put('"');
-      os_.write(((StringVal*)val)->getBlob(), ((StringVal*)val)->getBlobLen());
-      os_.put('"');
+      string_to_json(((StringVal*)val)->getBlob(),
+                     ((StringVal*)val)->getBlobLen());
       break;
     }
     case FbsonType::T_Binary: {
@@ -105,6 +104,55 @@ class FbsonToJson {
     }
   }
 
+  void string_to_json(const char *str, int len){
+    os_.put('"');
+    if(nullptr == str){
+      os_.put('"');
+      return;
+    }
+    char char_buffer[16];
+    for(const char *ptr = str; ptr != str + len; ++ptr){
+      if ((unsigned char)*ptr > 31 && *ptr != '\"' && *ptr != '\\')
+        os_.put(*ptr);
+      else {
+        os_.put('\\');
+        unsigned char token;
+        switch (token = *ptr) {
+          case '\\':
+            os_.put('\\');
+            break;
+          case '\"':
+            os_.put('\"');
+            break;
+          case '\b':
+            os_.put('b');
+            break;
+          case '\f':
+            os_.put('f');
+            break;
+          case '\n':
+            os_.put('n');
+            break;
+          case '\r':
+            os_.put('r');
+            break;
+          case '\t':
+            os_.put('t');
+            break;
+          default: {
+            int char_num = snprintf(char_buffer,
+                                    sizeof(char_buffer),
+                                    "u%04x",
+                                    token);
+            os_.write(char_buffer, char_num);
+            break;
+          }
+        }
+      }
+    }
+    os_.put('"');
+  }
+
   // convert object
   void object_to_json(const ObjectVal* val) {
     os_.put('{');
@@ -115,9 +163,7 @@ class FbsonToJson {
     while (iter < iter_fence) {
       // write key
       if (iter->klen()) {
-        os_.put('"');
-        os_.write(iter->getKeyStr(), iter->klen());
-        os_.put('"');
+        string_to_json(iter->getKeyStr(), iter->klen());
       } else {
         os_.write(iter->getKeyId());
       }
