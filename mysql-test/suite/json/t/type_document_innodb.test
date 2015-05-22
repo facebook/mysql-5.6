@@ -229,4 +229,27 @@ checksum table t_big;
 connection master;
 drop table t, t1, t2, t3, t_big, t_big2;
 
+--disable_warnings
+drop table if exists t4, t5;
+--enable_warnings
+create table t4 (i int(8), a document, s text(255)) engine = innodb;
+# Test FBSon with escape
+insert into t4 values(1, "{\"Name\":\"Json\\tXia\"}", "escape in value");
+insert into t4 values(2, "{\"Mobile\\tPhone\":123456}", "escape in key");
+insert into t4 values(3, "{\"\\b\\f\\n\\r\\t\":\"123\\t\\r\\n\\f\\bABC\"}", "escape chars");
+insert into t4 values(4, "{\"Status\":\"\\u675f\\u5e26\\u7ed3\\u53d1\\u523b\\u5f55\\u673a\\u5076\\u5c14\\u4e94\\u798f\\u805a\\u54e6\"}", "escape of Unicode");
+insert into t4 values(5, "{\"\\u0009\":\"\\u000d\\u000a\"}", "escape of Unicode for control char");
+insert into t4 values(6, "{\"Control\":\"\\u0002\"}", "escape of Unicode for control char");
+insert into t4 values(7, "{\"UTF16\": \"\\uD834\\uDD1E\"}", "escape of UTF16");
+select * from t4;
+
+# Test FBSon with wrong escape
+create table t5 (i int(8), a document, s text(255)) engine = innodb;
+insert into t5 values(1, "{\"BAD\":\"123\\u0xDFFE\"}", "Bad Unicode");
+insert into t5 values(2, "{\"BAD\":\"\\u0x0000\"}", "Bad Unicode");
+insert into t5 values(3, "{\"BAD\":\"\\u0x0000010\"}", "Bad Unicode");
+insert into t5 values(4, "{\"BAD\":\"\\u0xD801\"}", "Bad UTF16");
+select * from t5;
+
+drop table t4, t5;
 --source include/rpl_end.inc
