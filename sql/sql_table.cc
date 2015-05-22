@@ -3353,9 +3353,7 @@ static void check_duplicate_key(THD *thd, const char *error_schema_name,
 
       DBUG_ASSERT(c1 && c2);
 
-      if (my_strcasecmp(system_charset_info,
-                        c1->field_name.str, c2->field_name.str) ||
-          (c1->length != c2->length))
+      if (*c1 != *c2)
       {
         all_columns_are_identical= false;
         break;
