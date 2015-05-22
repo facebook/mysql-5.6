@@ -115,9 +115,6 @@ UNIQUE key doc_name (doc.name as string(64)),
 key doc_name_100 (doc.name as string(100)),
 UNIQUE key doc_address (doc.address as binary(64)),
 key (doc.address as binary(100))) engine=innodb;
-Warnings:
-Note	1831	Duplicate index 'doc_address' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
-Note	1831	Duplicate index 'doc_2' defined on the table 'test.t2'. This is deprecated and will be disallowed in a future release.
 SHOW CREATE TABLE t2;
 Table	Create Table
 t2	CREATE TABLE `t2` (

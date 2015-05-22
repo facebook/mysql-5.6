@@ -318,6 +318,10 @@ public:
   }
 
   bool operator==(Key_part_spec& other);
+  bool operator!=(Key_part_spec& other)
+  {
+    return !(*this == other);
+  }
   /**
     Construct a copy of this Key_part_spec. field_name is copied
     by-pointer as it is known to never change. At the same time

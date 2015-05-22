@@ -28,11 +28,6 @@ key doc1_c (doc1.double as double, c),
 key doc1_d (doc1.int as int, d),
 key b_doc1 (b, doc1.int as int)
 ) engine = innodb;
-Warnings:
-Note	1831	Duplicate index 'doc1_double' defined on the table 'test.t1'. This is deprecated and will be disallowed in a future release.
-Note	1831	Duplicate index 'doc1_binary' defined on the table 'test.t1'. This is deprecated and will be disallowed in a future release.
-Note	1831	Duplicate index 'doc1_nested' defined on the table 'test.t1'. This is deprecated and will be disallowed in a future release.
-Note	1831	Duplicate index 'doc2_double' defined on the table 'test.t1'. This is deprecated and will be disallowed in a future release.
 insert into t1 values
 (1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "binary":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'), 
 (2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "binary":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'), 
