@@ -118,7 +118,6 @@ TEST(FBSON_PARSER, basic) {
 TEST(FBSON_PARSER, number_decimal) {
   fbson::FbsonJsonParser parser;
   fbson::FbsonValue* pval;
-
   std::string str(
       "{\"k8\":123,\"k16\":-12345,\"k32\":1234567,\
         \"k64\":-1234567890123456789,\"kdbl1\":123.4567,\
@@ -462,13 +461,19 @@ TEST(FBSON_PARSER, string) {
   fbson::FbsonOutStream os(1);
   fbson::FbsonJsonParser parser(os);
   fbson::FbsonValue* pval;
+  const char *raw_json;
+  fbson::FbsonToJson tojson;
 
   std::string str(
-      "{\"k1\":\"this is a test!\",\
+    "{\"k1\":\"this is a test!\",\
                     \"k2\":\"\",\
                     \"k3\":\"this is an escaped quote \\\"!\",\
-                    \"k4\":\"this is an escape char \\!\",\
-                    \"k5\":\"this is a new line \\n!\"}");
+                    \"k4\":\"this is an escape char \\t!\",\
+                    \"k5\":\"this is a new line \\n!\",\
+                    \"k6\\tk6\":\"\\b\\f\\n\\r\\t\",\
+                    \"k7\\u52a0\":\"\\u52a0\\u5dde\",\
+                    \"k8\":\"\\u0002\",\
+                    \"k9\":\"\\uD834\\uDD1E\"}");
   EXPECT_TRUE(parser.parse(str.c_str()));
   fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
       os.getBuffer(), (unsigned)os.getSize());
@@ -479,10 +484,13 @@ TEST(FBSON_PARSER, string) {
   pval = doc->find("k1");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
-  // packed bytes size: 1+4+strlen("this is a test!")
+// packed bytes size: 1+4+strlen("this is a test!")
   EXPECT_EQ(20, pval->numPackedBytes());
   EXPECT_EQ(strlen("this is a test!"), pval->size());
   EXPECT_EQ("this is a test!", std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"this is a test!\""), strlen(raw_json));
+  EXPECT_EQ("\"this is a test!\"", std::string(raw_json));
 
   // empty string
   pval = doc->find("k2");
@@ -491,30 +499,86 @@ TEST(FBSON_PARSER, string) {
   // packed bytes size: 1+4
   EXPECT_EQ(5, pval->numPackedBytes());
   EXPECT_EQ(0, pval->size());
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"\""), strlen(raw_json));
+  EXPECT_EQ("\"\"", std::string(raw_json));
 
   // string with escape characters
   pval = doc->find("k3");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
-  EXPECT_EQ(strlen("this is an escaped quote \\\"!"), pval->size());
-  EXPECT_EQ("this is an escaped quote \\\"!",
+  EXPECT_EQ(strlen("this is an escaped quote \"!"), pval->size());
+  EXPECT_EQ("this is an escaped quote \"!",
             std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"this is an escaped quote \\\"!\""), strlen(raw_json));
+  EXPECT_EQ("\"this is an escaped quote \\\"!\"", std::string(raw_json));
 
   // string with escape characters
   pval = doc->find("k4");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
-  EXPECT_EQ(strlen("this is an escape char \\!"), pval->size());
-  EXPECT_EQ("this is an escape char \\!",
+  EXPECT_EQ(strlen("this is an escape char \t!"), pval->size());
+  EXPECT_EQ("this is an escape char \t!",
             std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"this is an escape char \\t!\""), strlen(raw_json));
+  EXPECT_EQ("\"this is an escape char \\t!\"", std::string(raw_json));
 
   // string with escape characters
   pval = doc->find("k5");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
-  EXPECT_EQ(strlen("this is a new line \\n!"), pval->size());
-  EXPECT_EQ("this is a new line \\n!",
+  EXPECT_EQ(strlen("this is a new line \n!"), pval->size());
+  EXPECT_EQ("this is a new line \n!",
             std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"this is a new line \\n!\""), strlen(raw_json));
+  EXPECT_EQ("\"this is a new line \\n!\"", std::string(raw_json));
+
+  // string with escape characters in key and value
+  pval = doc->find("k6\tk6");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  EXPECT_EQ(strlen("\b\f\n\r\t"), pval->size());
+  EXPECT_EQ("\b\f\n\r\t",
+            std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"\\b\\f\\n\\r\\t\""), strlen(raw_json));
+  EXPECT_EQ("\"\\b\\f\\n\\r\\t\"", std::string(raw_json));
+
+  // string with escape Unicode characters
+  pval = doc->find("k7\u52A0");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  EXPECT_EQ(strlen("\u52A0\u5DDE"), pval->size());
+  EXPECT_EQ("\u52A0\u5DDE",
+            std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"\u52A0\u5DDE\""), strlen(raw_json));
+  EXPECT_EQ("\"\u52A0\u5DDE\"", std::string(raw_json));
+
+  // string with control characters
+  pval = doc->find("k8");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  EXPECT_EQ(strlen("\u0002"), pval->size());
+  EXPECT_EQ("\u0002",
+            std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"\\u0002\""), strlen(raw_json));
+  EXPECT_EQ("\"\\u0002\"", std::string(raw_json));
+
+  // string with UTF16
+  pval = doc->find("k9");
+  EXPECT_TRUE(pval != nullptr);
+  EXPECT_TRUE(pval->isString());
+  EXPECT_EQ(strlen("\U0001D11E"), pval->size());
+  EXPECT_EQ("\U0001D11E",
+            std::string(pval->getValuePtr(), pval->size()));
+  raw_json = tojson.json(pval);
+  EXPECT_EQ(strlen("\"\U0001D11E\""), strlen(raw_json));
+  EXPECT_EQ("\"\U0001D11E\"", std::string(raw_json));
 
   str.assign(
       "{\"k\" :   \"1\", \
@@ -551,6 +615,21 @@ TEST(FBSON_PARSER, string) {
 
   // invalid string (missing closing double-quote)
   str.assign("{\"k1\":\"incomplete}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_STR, parser.getErrorCode());
+
+  // invalid UTF-8
+  str.assign("{\"k1\":\"\\uD800\"}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_STR, parser.getErrorCode());
+
+  // invalid UTF-16
+  str.assign("{\"k1\":\"\\uD800\\uABCD\"}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_STR, parser.getErrorCode());
+
+  // invalid escape: \a is not a valid escape char
+  str.assign("{\"k1\":\"\\a\"}");
   EXPECT_FALSE(parser.parse(str.c_str()));
   EXPECT_EQ(fbson::FbsonErrType::E_INVALID_STR, parser.getErrorCode());
 }

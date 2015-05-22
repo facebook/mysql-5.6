@@ -267,12 +267,29 @@ class FbsonJsonParserT {
   // parse a key (must be string)
   bool parseKey(std::istream& in, hDictInsert handler) {
     char key[FbsonKeyValue::sMaxKeyLen];
-    int i = 0;
-    while (in.good() && in.peek() != '"' && i < FbsonKeyValue::sMaxKeyLen) {
-      key[i++] = in.get();
+    int key_len = 0;
+    while (in.good() && in.peek() != '"' &&
+           key_len < FbsonKeyValue::sMaxKeyLen) {
+      char ch = in.get();
+      if(ch == '\\'){
+        char escape_buffer[5]; // buffer for escape
+        int len;
+        if(!parseEscape(in, escape_buffer, len)){
+          err_ = FbsonErrType::E_INVALID_KEY;
+          return false;
+        }
+        if(key_len + len >= FbsonKeyValue::sMaxKeyLen){
+          err_ = FbsonErrType::E_INVALID_KEY;
+          return false;
+        }
+        memcpy(key + key_len, escape_buffer, len);
+        key_len += len;
+      }else{
+        key[key_len++] = ch;
+      }
     }
 
-    if (!in.good() || in.peek() != '"' || i == 0) {
+    if (!in.good() || in.peek() != '"' || key_len == 0) {
       err_ = FbsonErrType::E_INVALID_KEY;
       return false;
     }
@@ -281,11 +298,11 @@ class FbsonJsonParserT {
 
     int key_id = -1;
     if (handler) {
-      key_id = handler(key, i);
+      key_id = handler(key, key_len);
     }
 
     if (key_id < 0) {
-      writer_.writeKey(key, i);
+      writer_.writeKey(key, key_len);
     } else {
       writer_.writeKey(key_id);
     }
@@ -385,33 +402,204 @@ class FbsonJsonParserT {
     return false;
   }
 
+  /*
+    This is a helper function to parse the hex value. hex_num means the
+    number of digits needed to be parsed. If less than zero, then it will
+    consider all the characters between current and any character in JsonDelim.
+  */
+  unsigned parseHexHelper(std::istream &in,
+                          uint64_t &val,
+                          unsigned hex_num = 17){
+  // We can't read more than 17 digits, so when read 17 digits, it's overflow
+    val = 0;
+    unsigned num_digits = 0;
+    char ch = tolower(in.peek());
+    while (in.good() &&
+           !strchr(kJsonDelim, ch) &&
+           num_digits != hex_num) {
+      if (ch >= '0' && ch <= '9') {
+        val = (val << 4) + (ch - '0');
+      } else if (ch >= 'a' && ch <= 'f') {
+        val = (val << 4) + (ch - 'a' + 10);
+      } else {
+        // unrecognized hex digit
+        return 0;
+      }
+      in.ignore();
+      ch = tolower(in.peek());
+      ++num_digits;
+    }
+    return num_digits;
+  }
+
+  // parse HEX value
+  bool parseHex4(std::istream &in, unsigned &h) {
+    uint64_t val;
+    if(4 == parseHexHelper(in, val, 4)){
+      h = (unsigned)val;
+      return true;
+    }
+    return false;
+  }
+
+  /*
+     parse Escape char.
+  */
+  bool parseEscape(std::istream &in, char* out, int &len) {
+    /*
+      This is extracted from cJSON implementation.
+      This is about the mask of the first byte in UTF-8.
+      The mask is defined in:
+      http://en.wikipedia.org/wiki/UTF-8#Description
+    */
+    const unsigned char firstByteMark[6] = { 0x00, 0xC0, 0xE0,
+                                             0xF0, 0xF8, 0xFC };
+    if(!in.good()){
+      return false;
+    }
+    char c = in.get();
+    len = 1;
+    switch (c) {
+      // \" \\ \/  \b \f \n \r \t
+      case '"':
+        *out = '"';
+        return true;
+      case '\\':
+        *out = '\\';
+        return true;
+      case '/':
+        *out = '/';
+        return true;
+      case 'b':
+        *out ='\b';
+        return true;
+      case 'f':
+        *out ='\f';
+        return true;
+      case 'n':
+        *out ='\n';
+        return true;
+      case 'r':
+        *out ='\r';
+        return true;
+      case 't':
+        *out ='\t';
+        return true;
+      case 'u':{
+        unsigned uc;
+        if(!parseHex4(in, uc)){
+          return false;
+        }
+        /*
+          For DC00 to DFFF, it should be low surrogates for UTF16.
+          So if it display in the high bits, it's invalid.
+        */
+        if ((uc >= 0xDC00 && uc <= 0xDFFF) || uc==0){
+          return false;
+        }
+
+        /*
+          For D800 to DBFF, it's the high surrogates for UTF16.
+          So it's utf-16, there must be another one between 0xDC00
+          and 0xDFFF.
+        */
+        if (uc >= 0xD800 && uc <= 0xDBFF) {
+          unsigned uc2;
+
+          if(!in.good()){
+            return false;
+          }
+          c = in.get();
+          if(c != '\\'){
+            return false;
+          }
+
+          if(!in.good()){
+            return false;
+          }
+          c = in.get();
+          if(c != 'u'){
+            return false;
+          }
+
+          if(!parseHex4(in, uc2)){
+            return false;
+          }
+          /*
+            Now we need the low surrogates for UTF16. It should be
+            within 0xDC00 and 0xDFFF.
+          */
+          if (uc2 < 0xDC00 || uc2 > 0xDFFF)
+            return false;
+          /*
+            For the character that not in the Basic Multilingual Plan,
+            it's represented as twelve-character, encoding the UTF-16
+            surrogate pair.
+            UTF16 is between 0x10000 and 0x10FFFF. The high surrogate
+            present the high bits and the low surrogate present the
+            lower 10 bits.
+            For detailed explanation, please refer to:
+            http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
+            Then it will be converted to UTF8.
+          */
+          uc = 0x10000 + (((uc & 0x3FF)<<10) | (uc2 & 0x3FF));
+        }
+
+        /*
+          Get the length of the unicode.
+          Please refer to http://en.wikipedia.org/wiki/UTF-8#Description.
+        */
+        if (uc < 0x80)
+          len = 1;
+        else if (uc < 0x800)
+          len = 2;
+        else if (uc < 0x10000)
+          len = 3;
+        else
+          len = 4;
+        out += len;
+        /*
+          Encode it.
+          Please refer to http://en.wikipedia.org/wiki/UTF-8#Description.
+          This part of code has a reference to cJSON.
+        */
+        switch (len) {
+          case 4:
+            *--out = ((uc | 0x80) & 0xBF);
+            uc >>= 6;
+          case 3:
+            *--out = ((uc | 0x80) & 0xBF);
+            uc >>= 6;
+          case 2:
+            *--out = ((uc | 0x80) & 0xBF);
+            uc >>= 6;
+          case 1:
+            // Mask the first byte according to the standard.
+            *--out = (uc | firstByteMark[len - 1]);
+        }
+        return true;
+        break;
+      }
+      default:
+        return false;
+        break;
+    }
+  }
+
   // parse a string
   bool parseString(std::istream& in) {
+    const int BUFFER_LEN = 4096;
     if (!writer_.writeStartString()) {
       err_ = FbsonErrType::E_OUTPUT_FAIL;
       return false;
     }
 
-    bool escaped = false;
-    char buffer[4096]; // write 4KB at a time
+    // write 4KB at a time
+    char buffer[BUFFER_LEN];
     int nread = 0;
     while (in.good()) {
       char ch = in.get();
-      if (ch != '"' || escaped) {
-        buffer[nread++] = ch;
-        if (nread == 4096) {
-          // flush buffer
-          if (!writer_.writeString(buffer, nread)) {
-            err_ = FbsonErrType::E_OUTPUT_FAIL;
-            return false;
-          }
-          nread = 0;
-        }
-        // set/reset escape
-        if (ch == '\\' || escaped) {
-          escaped = !escaped;
-        }
-      } else {
+      if(ch == '"'){
         // write all remaining bytes in the buffer
         if (nread > 0) {
           if (!writer_.writeString(buffer, nread)) {
@@ -425,6 +613,37 @@ class FbsonJsonParserT {
           return false;
         }
         return true;
+      } else if(ch == '\\') {
+        // this is a escape char
+        char escape_buffer[5]; // buffer for escape
+        int len;
+        if(!parseEscape(in, escape_buffer, len)){
+          err_ = FbsonErrType::E_INVALID_STR;
+          return false;
+        }
+
+        // Write each char to the buffer
+        for(int i = 0; i != len; ++i) {
+          buffer[nread++] = escape_buffer[i];
+          if(nread == BUFFER_LEN) {
+            if(!writer_.writeString(buffer, nread)) {
+              err_ = FbsonErrType::E_OUTPUT_FAIL;
+              return false;
+            }
+            nread = 0;
+          }
+        }
+      } else {
+        // just a char
+        buffer[nread++] = ch;
+        if (nread == BUFFER_LEN) {
+          // flush buffer
+          if (!writer_.writeString(buffer, nread)) {
+            err_ = FbsonErrType::E_OUTPUT_FAIL;
+            return false;
+          }
+          nread = 0;
+        }
       }
     }
 
@@ -473,27 +692,14 @@ class FbsonJsonParserT {
   // parse a number in hex format
   bool parseHex(std::istream& in) {
     uint64_t val = 0;
-    int num_digits = 0;
-    char ch = tolower(in.peek());
-    while (in.good() && !strchr(kJsonDelim, ch) && (++num_digits) <= 16) {
-      if (ch >= '0' && ch <= '9') {
-        val = (val << 4) + (ch - '0');
-      } else if (ch >= 'a' && ch <= 'f') {
-        val = (val << 4) + (ch - 'a' + 10);
-      } else { // unrecognized hex digit
-        err_ = FbsonErrType::E_INVALID_HEX;
-        return false;
-      }
-
-      in.ignore();
-      ch = tolower(in.peek());
+    int num_digits;
+    if(0 == (num_digits = parseHexHelper(in, val))){
+      err_ = FbsonErrType::E_INVALID_HEX;
+      return false;
     }
 
     int size = 0;
-    if (!num_digits) {
-      err_ = FbsonErrType::E_INVALID_HEX; // empty input
-      return false;
-    } else if (num_digits <= 2) {
+    if (num_digits <= 2) {
       size = writer_.writeInt8((int8_t)val);
     } else if (num_digits <= 4) {
       size = writer_.writeInt16((int16_t)val);
