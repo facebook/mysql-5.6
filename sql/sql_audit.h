@@ -81,6 +81,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     const char *user= user_buff;
     uint userlen= make_user_name(thd, user_buff);
     time_t time= (time_t) thd->start_time.tv_sec;
+    size_t databaselen;
+    const char *database;
 
     if (thd)
     {
@@ -108,6 +110,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       external_user.length= thd->security_ctx->get_external_user()->length();
       sql_command.str= (char *) sql_statement_names[thd->lex->sql_command].str;
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
+      database= thd->db;
+      databaselen= thd->db_length;
     }
     else
     {
@@ -115,6 +119,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       host= empty;
       external_user= empty;
       sql_command= empty;
+      database= 0;
+      databaselen= 0;
     }
     const CHARSET_INFO *clientcs= thd ? thd->variables.character_set_client
       : global_system_variables.character_set_client;
@@ -122,7 +128,7 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
     mysql_audit_notify(thd, MYSQL_AUDIT_GENERAL_CLASS, MYSQL_AUDIT_GENERAL_LOG,
                        error_code, time, user, userlen, cmd, cmdlen, query.str,
                        query.length, clientcs, rows, sql_command, host,
-                       external_user, ip);
+                       external_user, ip, database, databaselen);
   }
 #endif
 }
@@ -149,13 +155,14 @@ void mysql_audit_general(THD *thd, uint event_subtype,
   {
     time_t time= my_time(0);
     uint msglen= msg ? strlen(msg) : 0;
-    uint userlen;
-    const char *user;
+    uint userlen, databaselen;
+    const char *user, *database;
     char user_buff[MAX_USER_HOST_SIZE];
     CSET_STRING query;
     MYSQL_LEX_STRING ip, host, external_user, sql_command;
     ha_rows rows;
     static MYSQL_LEX_STRING empty= { C_STRING_WITH_LEN("") };
+
 
     if (thd)
     {
@@ -178,6 +185,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       external_user.length= thd->security_ctx->get_external_user()->length();
       sql_command.str= (char *) sql_statement_names[thd->lex->sql_command].str;
       sql_command.length= sql_statement_names[thd->lex->sql_command].length;
+      database= thd->db;
+      databaselen= thd->db_length;
     }
     else
     {
@@ -188,12 +197,15 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       external_user= empty;
       sql_command= empty;
       rows= 0;
+      database= 0;
+      databaselen= 0;
     }
 
     mysql_audit_notify(thd, MYSQL_AUDIT_GENERAL_CLASS, event_subtype,
                        error_code, time, user, userlen, msg, msglen,
                        query.str(), query.length(), query.charset(), rows,
-                       sql_command, host, external_user, ip);
+                       sql_command, host, external_user, ip, database,
+                       databaselen);
   }
 #endif
 }

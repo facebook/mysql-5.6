@@ -25,7 +25,7 @@
 
 #define MYSQL_AUDIT_CLASS_MASK_SIZE 1
 
-#define MYSQL_AUDIT_INTERFACE_VERSION 0x0301
+#define MYSQL_AUDIT_INTERFACE_VERSION 0x0302
 
 
 /*************************************************************************
@@ -63,6 +63,10 @@ struct mysql_event_general
   MYSQL_LEX_STRING general_sql_command;
   MYSQL_LEX_STRING general_external_user;
   MYSQL_LEX_STRING general_ip;
+  /* Added in version 0x302 */
+  long long query_id;
+  const char *database;
+  unsigned int database_length;
 };
 
 
