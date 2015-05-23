@@ -276,6 +276,9 @@ struct mysql_event_general
   MYSQL_LEX_STRING general_sql_command;
   MYSQL_LEX_STRING general_external_user;
   MYSQL_LEX_STRING general_ip;
+  long long query_id;
+  const char *database;
+  unsigned int database_length;
 };
 struct mysql_event_connection
 {
