@@ -87,6 +87,9 @@ static void general_class_handler(THD *thd, uint event_subtype, va_list ap)
   event.general_host= va_arg(ap, MYSQL_LEX_STRING);
   event.general_external_user= va_arg(ap, MYSQL_LEX_STRING);
   event.general_ip= va_arg(ap, MYSQL_LEX_STRING);
+  event.database= va_arg(ap, const char *);
+  event.database_length= va_arg(ap, unsigned int);
+  event.query_id= (unsigned long long) thd->query_id;
   event_class_dispatch(thd, MYSQL_AUDIT_GENERAL_CLASS, &event);
 }
 
