@@ -328,26 +328,26 @@ select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 a	b
 1	@1
 ##### Document paths with different types in ORDER BY clause (with and without aliases)
-select a from t1 order by test.t1.doc.NonExistent limit 50;
+select a from t1 order by test.t1.doc.NonExistent, a;
 a
 1
 2
 3
 4
 5
-8
-7
 6
-select a from t1 order by cast(t1.doc.NonExistent as unsigned) limit 50;
+7
+8
+select a from t1 order by cast(t1.doc.NonExistent as unsigned), a;
 a
 1
 2
 3
 4
 5
-8
-7
 6
+7
+8
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
 `doc`.`id`	a
 101	1

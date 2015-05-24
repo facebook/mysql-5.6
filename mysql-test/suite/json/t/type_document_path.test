@@ -398,8 +398,8 @@ select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 
 ### Document paths in ORDER BY clause: database.table.field.key1, in which key1 does not exist
 ### the results won't be sorted
-select a from t1 order by test.t1.doc.NonExistent limit 50;
-select a from t1 order by cast(t1.doc.NonExistent as unsigned) limit 50;
+select a from t1 order by test.t1.doc.NonExistent, a;
+select a from t1 order by cast(t1.doc.NonExistent as unsigned), a;
 
 ### use cast to make it sorted as unsigned
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
