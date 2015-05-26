@@ -2044,6 +2044,44 @@ int ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
   return convert_record_from_storage_format(buf);
 }
 
+#ifndef NDEBUG
+void dbug_append_garbage_at_end(std::string &on_disk_rec)
+{
+  on_disk_rec.append("abc");
+}
+
+void dbug_truncate_record(std::string &on_disk_rec)
+{
+  on_disk_rec.resize(0);
+}
+
+void dbug_modify_rec_varchar12(std::string &on_disk_rec)
+{
+  std::string res;
+  // The record is NULL-byte followed by VARCHAR(10).
+  // Put the NULL-byte
+  res.append("\0", 1);
+  // Then, add a valid VARCHAR(12) value.
+  res.append("\xC", 1);
+  res.append("123456789ab", 12);
+
+  on_disk_rec.assign(res);
+}
+
+
+void dbug_modify_key_varchar8(String &on_disk_rec)
+{
+  std::string res;
+  // The key starts with index number
+  res.append(on_disk_rec.ptr(), RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+
+  // Then, a mem-comparable form of a varchar(8) value.
+  res.append("ABCDE\0\0\0\xFC", 9);
+  on_disk_rec.length(0);
+  on_disk_rec.append(res.data(), res.size());
+}
+
+#endif
 
 /*
   Unpack the record in this->retrieved_record from storage format into
@@ -2061,13 +2099,23 @@ int ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
 
 int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
 {
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read1",
+                  dbug_append_garbage_at_end(retrieved_record););
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read2",
+                  dbug_truncate_record(retrieved_record););
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read3",
+                  dbug_modify_rec_varchar12(retrieved_record););
+
   Stream_reader reader(retrieved_record);
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
   /*
     Decode PK fields from the key
   */
+  DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_read1",
+                  dbug_modify_key_varchar8(last_rowkey););
   rocksdb::Slice rowkey_slice(last_rowkey.ptr(), last_rowkey.length());
+
 
   DBUG_ASSERT(pk_descr->get_unpack_data_len() == 0);
   rocksdb::Slice pk_unpack_info_slice;
@@ -2153,6 +2201,11 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
         DBUG_ASSERT(field_var->length_bytes==2);
         data_len= uint2korr(data_len_str);
       }
+      if (data_len > field->field_length)
+      {
+        /* The data on disk is longer than table DDL allows? */
+        return HA_ERR_INTERNAL_ERROR;
+      }
       if (!(reader.read(data_len)))
         return HA_ERR_INTERNAL_ERROR;
       field_var->move_field_offset(ptr_diff);
@@ -2173,7 +2226,9 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
       field->move_field_offset(-ptr_diff);
     }
   }
-  DBUG_ASSERT(reader.remaining_bytes() == 0);
+
+  if (reader.remaining_bytes())
+    return HA_ERR_INTERNAL_ERROR;
 
   return 0;
 }
@@ -2825,7 +2880,7 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
       int rc;
 
       //TODO: We could here check if we have ran out of range we're scanning
-      uint size= key_descr[keyno]->get_primary_key_tuple(pk_descr, &key,
+      uint size= key_descr[keyno]->get_primary_key_tuple(table, pk_descr, &key,
                                                          (char*) pk_packed_tuple);
       if (size == (uint)-1)
         return HA_ERR_INTERNAL_ERROR;
@@ -3166,7 +3221,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     if (keyread_only && !lock_rows)
     {
       /* Get the key columns and primary key value */
-      pk_size= kd->get_primary_key_tuple(pk_descr, &rkey,
+      pk_size= kd->get_primary_key_tuple(table, pk_descr, &rkey,
                                          (char*)pk_packed_tuple);
       rocksdb::Slice value= scan_it->value();
       if (pk_size == INVALID_LEN ||
@@ -3186,7 +3241,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
       if (!rc)
       {
         rocksdb::Slice cur_key= scan_it->key();
-        pk_size= kd->get_primary_key_tuple(pk_descr, &cur_key,
+        pk_size= kd->get_primary_key_tuple(table, pk_descr, &cur_key,
                                            (char*) pk_packed_tuple);
         if (pk_size == INVALID_LEN)
           rc= HA_ERR_INTERNAL_ERROR;
