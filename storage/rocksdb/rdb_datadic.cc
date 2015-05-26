@@ -285,7 +285,8 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     Because of the above, we copy each primary key column.
 */
 
-uint RDBSE_KEYDEF::get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
+uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
+                                         RDBSE_KEYDEF *pk_descr,
                                          const rocksdb::Slice *key,
                                          char *pk_buffer)
 {
@@ -337,7 +338,8 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
 
     if (have_value)
     {
-      if (pack_info[i].skip_func(&pack_info[i], &reader))
+      Field *field= table->field[pack_info[i].fieldnr];
+      if (pack_info[i].skip_func(&pack_info[i], field, &reader))
         return INVALID_LEN;
     }
 
@@ -562,9 +564,9 @@ int RDBSE_KEYDEF::compare_keys(
     auto before_skip1 = reader1.get_current_ptr();
     auto before_skip2 = reader2.get_current_ptr();
     assert(fpi->skip_func);
-    if (fpi->skip_func(fpi, &reader1))
+    if (fpi->skip_func(fpi, NULL, &reader1))
       return 1;
-    if (fpi->skip_func(fpi, &reader2))
+    if (fpi->skip_func(fpi, NULL, &reader2))
       return 1;
     auto size1 = reader1.get_current_ptr() - before_skip1;
     auto size2 = reader2.get_current_ptr() - before_skip2;
@@ -666,7 +668,7 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
         if (*nullp != 1)
           return 1;
       }
-      if (fpi->skip_func(fpi, &reader))
+      if (fpi->skip_func(fpi, field, &reader))
         return 1;
     }
   }
@@ -683,7 +685,7 @@ bool RDBSE_KEYDEF::can_unpack(uint kp) const
 // Field_pack_info
 ///////////////////////////////////////////////////////////////////////////////////////////
 
-int skip_max_length(Field_pack_info *fpi, Stream_reader *reader)
+int skip_max_length(Field_pack_info *fpi, Field *field, Stream_reader *reader)
 {
   if (!reader->read(fpi->max_image_len))
     return 1;
@@ -950,10 +952,19 @@ int unpack_binary_or_utf8_varchar(Field_pack_info *fpi, Field *field,
 }
 
 
-int skip_variable_length(Field_pack_info *fpi, Stream_reader *reader)
+int skip_variable_length(Field_pack_info *fpi, Field *field, Stream_reader *reader)
 {
   const uchar *ptr;
   bool finished= false;
+
+  size_t dst_len; /* How much data can be there */
+  if (field)
+  {
+    Field_varstring* field_var= (Field_varstring*)field;
+    dst_len= field_var->pack_length() - field_var->length_bytes;
+  }
+  else
+    dst_len= SIZE_MAX;
 
   /* Decode the length-emitted encoding here */
   while ((ptr= (const uchar*)reader->read(ESCAPE_LENGTH)))
@@ -967,7 +978,7 @@ int skip_variable_length(Field_pack_info *fpi, Stream_reader *reader)
     uchar pad= 255 - ptr[ESCAPE_LENGTH - 1]; //number of padding bytes
     uchar used_bytes= ESCAPE_LENGTH - 1 - pad;
 
-    if (used_bytes > ESCAPE_LENGTH - 1)
+    if (used_bytes > ESCAPE_LENGTH - 1 || used_bytes > dst_len)
       return 1; /* cannot store that much, invalid data */
 
     if (used_bytes < ESCAPE_LENGTH - 1)
@@ -975,6 +986,7 @@ int skip_variable_length(Field_pack_info *fpi, Stream_reader *reader)
       finished= true;
       break;
     }
+    dst_len -= used_bytes;
   }
 
   if (!finished)
