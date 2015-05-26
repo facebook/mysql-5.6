@@ -464,6 +464,7 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
 
     if (field->real_maybe_null())
     {
+      DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >= 1);
       if (field->is_real_null(ptr_diff))
       {
         /* NULL value. store '\0' so that it sorts before non-NULL values */
@@ -481,6 +482,8 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
     }
 
     // Set the offset for methods which do not take an offset as an argument
+    DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >=
+                 int(pack_info[i].max_image_len));
     field->move_field_offset(ptr_diff);
     pack_info[i].pack_func(&pack_info[i], field, pack_buffer, &tuple);
 
@@ -496,6 +499,7 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
   if (unpack_info_len)
     *unpack_info_len= unpack_end - unpack_info;
 
+  DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >= 0);
   return tuple - packed_tuple;
 }
 
