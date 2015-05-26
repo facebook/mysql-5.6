@@ -262,7 +262,7 @@ public:
   }
 
   /* Must only be called for secondary keys: */
-  uint get_primary_key_tuple(RDBSE_KEYDEF *pk_descr,
+  uint get_primary_key_tuple(TABLE *tbl, RDBSE_KEYDEF *pk_descr,
                              const rocksdb::Slice *key, char *pk_buffer);
 
   /* Return max length of mem-comparable form */
@@ -388,7 +388,7 @@ typedef int (*index_field_unpack_t)(Field_pack_info *fpi, Field *field,
                                     Stream_reader *reader,
                                     const uchar *unpack_info);
 
-typedef int (*index_field_skip_t)(Field_pack_info *fpi, Stream_reader *reader);
+typedef int (*index_field_skip_t)(Field_pack_info *fpi, Field *field, Stream_reader *reader);
 
 typedef void (*index_field_pack_t)(Field_pack_info *fpi, Field *field, uchar* buf, uchar **dst);
 
