@@ -21,6 +21,7 @@ insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "a
 insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
 insert into t1 values (7,'@3','{ "id":107, "address":{ "zipcode":98767, "state":"NY" } }');
 insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+insert into t1 values (9,'@1','{ "id":109, "name":"Linda", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" } }');
 CREATE TABLE t2 (
 a2 int not null,
 b2 char (10) not null,
@@ -338,6 +339,7 @@ a
 6
 7
 8
+9
 select a from t1 order by cast(t1.doc.NonExistent as unsigned), a;
 a
 1
@@ -348,6 +350,7 @@ a
 6
 7
 8
+9
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
 `doc`.`id`	a
 101	1
@@ -358,8 +361,10 @@ select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
 106	6
 107	7
 108	8
+109	9
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned) desc;
 `doc`.`id`	a
+109	9
 108	8
 107	7
 106	6
@@ -370,6 +375,7 @@ select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned) desc;
 101	1
 select test.t1.doc.id, a from t1 order by 1 desc;
 `doc`.`id`	a
+109	9
 108	8
 107	7
 106	6
@@ -384,6 +390,7 @@ select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
@@ -395,6 +402,7 @@ select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
@@ -406,6 +414,7 @@ cast(test.t1.doc.address.zipcode as signed)	a
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
@@ -418,6 +427,7 @@ zipcode	a
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
@@ -431,6 +441,7 @@ cast(test.t1.doc.address.zipcode as char)	a
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
@@ -443,6 +454,7 @@ cast(test.t1.doc.address.zipcode as char)	a
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
@@ -455,6 +467,7 @@ zipcode	a
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
@@ -467,6 +480,7 @@ a	zipcode
 6	98766
 5	98765
 4	98764
+9	98764
 3	98763
 2	98762
 1	98761
@@ -482,12 +496,14 @@ a	state
 7	NY
 4	WA
 5	WA
+9	WA
 select a, test.t1.doc.address.state as state
 from t1
 order by cast(state as char) desc, a;
 a	state
 4	WA
 5	WA
+9	WA
 3	NY
 7	NY
 1	CA
@@ -502,6 +518,7 @@ a	zipcode
 2	98762
 3	98763
 4	98764
+9	98764
 5	98765
 6	98766
 7	98767
@@ -515,6 +532,7 @@ a	zipcode
 6	98766
 5	98765
 4	98764
+9	98764
 3	98763
 2	98762
 1	98761
@@ -526,6 +544,7 @@ a	zipcode
 2	98762
 3	98763
 4	98764
+9	98764
 5	98765
 6	98766
 7	98767
@@ -539,6 +558,7 @@ a	zipcode
 6	98766
 5	98765
 4	98764
+9	98764
 3	98763
 2	98762
 1	98761
@@ -552,8 +572,10 @@ select test.t1.doc.id, a from t1 order by test.t1.doc.id, a;
 106	6
 107	7
 108	8
+109	9
 select test.t1.doc.id, a from t1 order by t1.doc.id desc, a;
 `doc`.`id`	a
+109	9
 108	8
 107	7
 106	6
@@ -572,8 +594,10 @@ id	a
 106	6
 107	7
 108	8
+109	9
 select test.t1.doc.id as id, a from t1 order by id desc, a;
 id	a
+109	9
 108	8
 107	7
 106	6
@@ -604,6 +628,7 @@ select test.t1.doc.address.zipcode from t1 order by test.t1.doc.address.zipcode;
 98762
 98763
 98764
+98764
 98765
 98766
 98767
@@ -615,6 +640,7 @@ select test.t1.doc.address.zipcode from t1 order by t1.doc.address.zipcode desc;
 98766
 98765
 98764
+98764
 98763
 98762
 98761
@@ -623,6 +649,7 @@ zipcode
 98761
 98762
 98763
+98764
 98764
 98765
 98766
@@ -635,6 +662,7 @@ zipcode
 98766
 98765
 98764
+98764
 98763
 98762
 98761
@@ -644,6 +672,7 @@ a	`doc`.`address`.`zipcode`
 2	98762
 3	98763
 4	98764
+9	98764
 5	98765
 6	98766
 7	98767
@@ -655,6 +684,7 @@ a	`doc`.`address`.`zipcode`
 6	98766
 5	98765
 4	98764
+9	98764
 3	98763
 2	98762
 1	98761
@@ -664,6 +694,7 @@ a	zipcode
 2	98762
 3	98763
 4	98764
+9	98764
 5	98765
 6	98766
 7	98767
@@ -675,6 +706,7 @@ a	zipcode
 6	98766
 5	98765
 4	98764
+9	98764
 3	98763
 2	98762
 1	98761
@@ -684,6 +716,7 @@ select test.t1.doc.address.zipcode, a from t1 order by test.t1.doc.address.zipco
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
@@ -695,6 +728,7 @@ select test.t1.doc.address.zipcode, a from t1 order by t1.doc.address.zipcode de
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
@@ -704,6 +738,7 @@ zipcode	a
 98762	2
 98763	3
 98764	4
+98764	9
 98765	5
 98766	6
 98767	7
@@ -715,6 +750,7 @@ zipcode	a
 98766	6
 98765	5
 98764	4
+98764	9
 98763	3
 98762	2
 98761	1
@@ -728,8 +764,10 @@ NY
 NY
 WA
 WA
+WA
 select test.t1.doc.address.state from t1 order by t1.doc.address.state desc;
 `doc`.`address`.`state`
+WA
 WA
 WA
 NY
@@ -740,6 +778,7 @@ NULL
 NULL
 select test.t1.doc.address.state from t1 order by 1 desc;
 `doc`.`address`.`state`
+WA
 WA
 WA
 NY
@@ -758,8 +797,10 @@ NY
 NY
 WA
 WA
+WA
 select test.t1.doc.address.state as state from t1 order by state desc;
 state
+WA
 WA
 WA
 NY
@@ -778,10 +819,12 @@ a	`doc`.`address`.`state`
 7	NY
 4	WA
 5	WA
+9	WA
 select a, test.t1.doc.address.state from t1 order by t1.doc.address.state desc, a;
 a	`doc`.`address`.`state`
 4	WA
 5	WA
+9	WA
 3	NY
 7	NY
 1	CA
@@ -798,10 +841,12 @@ a	state
 7	NY
 4	WA
 5	WA
+9	WA
 select a, test.t1.doc.address.state as state from t1 order by state desc, a;
 a	state
 4	WA
 5	WA
+9	WA
 3	NY
 7	NY
 1	CA
@@ -818,10 +863,12 @@ NY	3
 NY	7
 WA	4
 WA	5
+WA	9
 select test.t1.doc.address.state, a from t1 order by t1.doc.address.state desc, a;
 `doc`.`address`.`state`	a
 WA	4
 WA	5
+WA	9
 NY	3
 NY	7
 CA	1
@@ -838,16 +885,187 @@ NY	3
 NY	7
 WA	4
 WA	5
+WA	9
 select test.t1.doc.address.state as state, a from t1 order by state desc, a;
 state	a
 WA	4
 WA	5
+WA	9
 NY	3
 NY	7
 CA	1
 AZ	2
 NULL	6
 NULL	8
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by state, zipcode, a;
+state	zipcode	a
+NULL	98766	6
+NULL	98768	8
+AZ	98762	2
+CA	98761	1
+NY	98763	3
+NY	98767	7
+WA	98764	4
+WA	98764	9
+WA	98765	5
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by zipcode desc, state desc, a asc;
+state	zipcode	a
+NULL	98768	8
+NY	98767	7
+NULL	98766	6
+WA	98765	5
+WA	98764	4
+WA	98764	9
+NY	98763	3
+AZ	98762	2
+CA	98761	1
+select doc.address.state as state, doc.address.zipcode as zipcode, doc.name as name, a
+from t1
+order by zipcode desc, state desc, name desc, a asc;
+state	zipcode	name	a
+NULL	98768	NULL	8
+NY	98767	NULL	7
+NULL	98766	NULL	6
+WA	98765	Evan	5
+WA	98764	Linda	9
+WA	98764	Don	4
+NY	98763	Charlie	3
+AZ	98762	Bob	2
+CA	98761	Alex	1
+select a, doc.address.state as state, doc.address.zipcode as zipcode
+from t1
+order by a desc, state asc, zipcode desc;
+a	state	zipcode
+9	WA	98764
+8	NULL	98768
+7	NY	98767
+6	NULL	98766
+5	WA	98765
+4	WA	98764
+3	NY	98763
+2	AZ	98762
+1	CA	98761
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by test.t1.doc.address.zipcode desc, t1.doc.address.state asc, a desc;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+8	NULL	98768
+7	NY	98767
+6	NULL	98766
+5	WA	98765
+9	WA	98764
+4	WA	98764
+3	NY	98763
+2	AZ	98762
+1	CA	98761
+select a, doc.address.state, doc.address.zipcode, doc.name
+from t1
+order by test.t1.doc.address.zipcode desc, t1.doc.address.state asc, doc.name desc, a desc;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`	`doc`.`name`
+8	NULL	98768	NULL
+7	NY	98767	NULL
+6	NULL	98766	NULL
+5	WA	98765	Evan
+9	WA	98764	Linda
+4	WA	98764	Don
+3	NY	98763	Charlie
+2	AZ	98762	Bob
+1	CA	98761	Alex
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.zipcode, doc.address.state, a;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+2	AZ	98762
+3	NY	98763
+4	WA	98764
+9	WA	98764
+5	WA	98765
+6	NULL	98766
+7	NY	98767
+8	NULL	98768
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.zipcode, doc.address.state, doc.name, a;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+1	CA	98761
+2	AZ	98762
+3	NY	98763
+4	WA	98764
+9	WA	98764
+5	WA	98765
+6	NULL	98766
+7	NY	98767
+8	NULL	98768
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc, a;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+6	NULL	98766
+8	NULL	98768
+2	AZ	98762
+1	CA	98761
+3	NY	98763
+7	NY	98767
+4	WA	98764
+5	WA	98765
+9	WA	98764
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc.address.state, doc;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+8	NULL	98768
+6	NULL	98766
+2	AZ	98762
+1	CA	98761
+3	NY	98763
+7	NY	98767
+4	WA	98764
+5	WA	98765
+9	WA	98764
+select doc.address.state as state, doc.address.zipcode as zipcode, a
+from t1
+order by state, state, a;
+state	zipcode	a
+NULL	98766	6
+NULL	98768	8
+AZ	98762	2
+CA	98761	1
+NY	98763	3
+NY	98767	7
+WA	98764	4
+WA	98765	5
+WA	98764	9
+select doc.address.zipcode as zipcode, a
+from t1
+order by test.t1.doc.address.zipcode, t1.doc.address.zipcode, a asc;
+zipcode	a
+98761	1
+98762	2
+98763	3
+98764	4
+98764	9
+98765	5
+98766	6
+98767	7
+98768	8
+select doc.address.state as state, a
+from t1
+order by state, test.t1.doc.address.state, a desc;
+state	a
+NULL	8
+NULL	6
+AZ	2
+CA	1
+NY	7
+NY	3
+WA	9
+WA	5
+WA	4
 ##### Document paths with different types in GROUP BY without HAVING clause (with and without aliases)
 select count(*), cast(test.t1.doc.address.state as char)
 from t1
@@ -857,7 +1075,7 @@ count(*)	cast(test.t1.doc.address.state as char)
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select count(*), cast(test.t1.doc.address.state as char)
 from t1
 group by 2;
@@ -866,7 +1084,7 @@ count(*)	cast(test.t1.doc.address.state as char)
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select count(*), cast(test.t1.doc.address.state as char) as state
 from t1
 group by state;
@@ -875,7 +1093,7 @@ count(*)	state
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select cast(test.t1.doc.address.state as char) as state, count(*)
 from t1
 group by 1;
@@ -884,12 +1102,12 @@ NULL	2
 AZ	1
 CA	1
 NY	2
-WA	2
+WA	3
 select count(*), cast(test.t1.doc.address.state as char)
 from t1
 group by cast(test.t1.doc.address.state as char) desc;
 count(*)	cast(test.t1.doc.address.state as char)
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -898,7 +1116,7 @@ select count(*), cast(test.t1.doc.address.state as char)
 from t1
 group by 2 desc;
 count(*)	cast(test.t1.doc.address.state as char)
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -907,7 +1125,7 @@ select count(*), cast(test.t1.doc.address.state as char) as state
 from t1
 group by state desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -917,7 +1135,7 @@ from t1
 group by cast(test.t1.doc.address.state as char)
 order by cast(test.t1.doc.address.state as char) desc;
 count(*)	cast(test.t1.doc.address.state as char)
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -927,7 +1145,7 @@ from t1
 group by 2
 order by 2 desc;
 count(*)	cast(test.t1.doc.address.state as char)
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -937,7 +1155,7 @@ from t1
 group by state
 order by state desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -947,7 +1165,7 @@ from t1
 group by 2
 order by 2 desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -957,7 +1175,7 @@ from t1
 group by cast(test.t1.doc.address.state as char)
 order by cast(test.t1.doc.address.state as char) desc;
 count(*)	cast(test.t1.doc.address.state as char)
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -967,7 +1185,7 @@ from t1
 group by state
 order by state desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -980,12 +1198,12 @@ count(*)	state
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select count(*), test.t1.doc.address.state as state
 from t1
 group by cast(state as char) desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -999,13 +1217,13 @@ count(*)	state
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select count(*), test.t1.doc.address.state as state
 from t1
 group by cast(state as char)
 order by cast(state as char) desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -1017,7 +1235,7 @@ count(*)	zipcode
 1	98761
 1	98762
 1	98763
-1	98764
+2	98764
 1	98765
 1	98766
 1	98767
@@ -1030,7 +1248,7 @@ count(*)	zipcode
 1	98767
 1	98766
 1	98765
-1	98764
+2	98764
 1	98763
 1	98762
 1	98761
@@ -1042,7 +1260,7 @@ count(*)	zipcode
 1	98761
 1	98762
 1	98763
-1	98764
+2	98764
 1	98765
 1	98766
 1	98767
@@ -1056,7 +1274,7 @@ count(*)	zipcode
 1	98767
 1	98766
 1	98765
-1	98764
+2	98764
 1	98763
 1	98762
 1	98761
@@ -1068,7 +1286,7 @@ count(*)	`doc`.`address`.`state`
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select count(*), test.t1.doc.address.state as state
 from t1
 group by state;
@@ -1077,12 +1295,12 @@ count(*)	state
 1	AZ
 1	CA
 2	NY
-2	WA
+3	WA
 select count(*), test.t1.doc.address.state
 from t1
 group by test.t1.doc.address.state desc;
 count(*)	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -1091,7 +1309,7 @@ select count(*), test.t1.doc.address.state as state
 from t1
 group by state desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -1101,7 +1319,7 @@ from t1
 group by test.t1.doc.address.state
 order by test.t1.doc.address.state desc;
 count(*)	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -1111,7 +1329,7 @@ from t1
 group by 2
 order by 2 desc;
 count(*)	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -1121,7 +1339,7 @@ from t1
 group by 1
 order by 1 desc;
 `doc`.`address`.`state`	count(*)
-WA	2
+WA	3
 NY	2
 CA	1
 AZ	1
@@ -1131,7 +1349,7 @@ from t1
 group by state
 order by state desc;
 count(*)	state
-2	WA
+3	WA
 2	NY
 1	CA
 1	AZ
@@ -1143,13 +1361,13 @@ having total > 1;
 total	`doc`.`address`.`state`
 2	NULL
 2	NY
-2	WA
+3	WA
 select count(*) as total, test.t1.doc.address.state
 from t1
 group by cast(test.t1.doc.address.state as char) desc
 having total >= 2;
 total	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 2	NULL
 select count(*) as total, test.t1.doc.address.state
@@ -1158,7 +1376,7 @@ group by cast(test.t1.doc.address.state as char)
 having total > 1
 order by cast(test.t1.doc.address.state as char) desc;
 total	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 2	NULL
 select count(*) as total, test.t1.doc.address.state
@@ -1168,7 +1386,7 @@ having total >= 2;
 total	`doc`.`address`.`state`
 2	NULL
 2	NY
-2	WA
+3	WA
 select count(*) as total, test.t1.doc.address.state
 from t1
 group by 2
@@ -1176,7 +1394,7 @@ having total >= 2;
 total	`doc`.`address`.`state`
 2	NULL
 2	NY
-2	WA
+3	WA
 select count(*) as total, test.t1.doc.address.state as state
 from t1
 group by state
@@ -1184,13 +1402,13 @@ having total >= 2;
 total	state
 2	NULL
 2	NY
-2	WA
+3	WA
 select count(*) as total, test.t1.doc.address.state
 from t1
 group by test.t1.doc.address.state desc
 having total > 1;
 total	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 2	NULL
 select test.t1.doc.address.state, count(*) as total
@@ -1198,7 +1416,7 @@ from t1
 group by 1 desc
 having total > 1;
 `doc`.`address`.`state`	total
-WA	2
+WA	3
 NY	2
 NULL	2
 select count(*) as total, test.t1.doc.address.state as state
@@ -1206,7 +1424,7 @@ from t1
 group by state desc
 having total > 1;
 total	state
-2	WA
+3	WA
 2	NY
 2	NULL
 select count(*) as total, test.t1.doc.address.state
@@ -1215,7 +1433,7 @@ group by test.t1.doc.address.state
 having total >= 2
 order by test.t1.doc.address.state desc;
 total	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 2	NULL
 select count(*) as total, test.t1.doc.address.state
@@ -1224,7 +1442,7 @@ group by 2
 having total >= 2
 order by 2 desc;
 total	`doc`.`address`.`state`
-2	WA
+3	WA
 2	NY
 2	NULL
 select count(*) as total, test.t1.doc.address.state as state
@@ -1233,7 +1451,7 @@ group by state
 having total >= 2
 order by state desc;
 total	state
-2	WA
+3	WA
 2	NY
 2	NULL
 select test.t1.doc.address.state as state, count(*) as total
@@ -1242,7 +1460,7 @@ group by 1
 having total >= 2
 order by 1 desc;
 state	total
-WA	2
+WA	3
 NY	2
 NULL	2
 select doc.id, a from t3 group by doc.id;
@@ -1445,6 +1663,7 @@ a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 2	98762	8	98762
 3	98763	3	98763
 4	98764	5	98764
+9	98764	5	98764
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t1, t2
 where t1.doc.address.zipcode like t2.doc2.address.zipcode;
@@ -1453,6 +1672,7 @@ a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 2	98762	8	98762
 3	98763	3	98763
 4	98764	5	98764
+9	98764	5	98764
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
@@ -1462,6 +1682,7 @@ a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 2	98762	8	98762
 3	98763	3	98763
 4	98764	5	98764
+9	98764	5	98764
 5	98765	NULL	NULL
 6	98766	NULL	NULL
 7	98767	NULL	NULL
@@ -1476,6 +1697,7 @@ a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 6	98766	NULL	NULL
 5	98765	NULL	NULL
 4	98764	5	98764
+9	98764	5	98764
 3	98763	3	98763
 2	98762	8	98762
 1	98761	10	98761
