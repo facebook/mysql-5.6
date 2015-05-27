@@ -718,6 +718,8 @@ typedef struct system_status_var
   ulonglong ha_read_prev_count;
   ulonglong ha_read_rnd_count;
   ulonglong ha_read_rnd_next_count;
+  ulonglong ha_key_skipped_count;
+  ulonglong ha_delete_skipped_count;
   /*
     This number doesn't include calls to the default implementation and
     calls made by range access. The intent is to count only calls made by
