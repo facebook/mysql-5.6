@@ -1954,6 +1954,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
       thd->status_var.ha_read_prev_count >= query_start->ha_read_prev_count &&
       thd->status_var.ha_read_rnd_count >= query_start->ha_read_rnd_count &&
       thd->status_var.ha_read_rnd_next_count >= query_start->ha_read_rnd_next_count &&
+      thd->status_var.ha_key_skipped_count >= query_start->ha_key_skipped_count &&
+      thd->status_var.ha_delete_skipped_count >= query_start->ha_delete_skipped_count &&
       thd->status_var.filesort_merge_passes >= query_start->filesort_merge_passes &&
       thd->status_var.filesort_range_count >= query_start->filesort_range_count &&
       thd->status_var.filesort_rows >= query_start->filesort_rows &&
@@ -2045,6 +2047,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Read_first: %lu Read_last: %lu Read_key: %lu"
                       " Read_next: %lu Read_prev: %lu"
                       " Read_rnd: %lu Read_rnd_next: %lu"
+                      " RocksDB_key_skipped: %lu RocksDB_del_skipped: %lu"
                       " Sort_merge_passes: %lu Sort_range_count: %lu"
                       " Sort_rows: %lu Sort_scan_count: %lu"
                       " Created_tmp_disk_tables: %lu"
@@ -2075,6 +2078,10 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                           query_start->ha_read_rnd_count),
                       (ulong) (thd->status_var.ha_read_rnd_next_count -
                           query_start->ha_read_rnd_next_count),
+                      (ulong) (thd->status_var.ha_key_skipped_count -
+                          query_start->ha_key_skipped_count),
+                      (ulong) (thd->status_var.ha_delete_skipped_count -
+                          query_start->ha_delete_skipped_count),
                       (ulong) (thd->status_var.filesort_merge_passes -
                           query_start->filesort_merge_passes),
                       (ulong) (thd->status_var.filesort_range_count -
@@ -2103,6 +2110,7 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       " Read_first: %lu Read_last: %lu Read_key: %lu"
                       " Read_next: %lu Read_prev: %lu"
                       " Read_rnd: %lu Read_rnd_next: %lu"
+                      " RocksDB_key_skipped: %lu RocksDB_del_skipped: %lu"
                       " Sort_merge_passes: %lu Sort_range_count: %lu"
                       " Sort_rows: %lu Sort_scan_count: %lu"
                       " Created_tmp_disk_tables: %lu"
@@ -2124,6 +2132,8 @@ bool MYSQL_QUERY_LOG::write(THD *thd, time_t current_time,
                       (ulong) thd->status_var.ha_read_prev_count,
                       (ulong) thd->status_var.ha_read_rnd_count,
                       (ulong) thd->status_var.ha_read_rnd_next_count,
+                      (ulong) thd->status_var.ha_key_skipped_count,
+                      (ulong) thd->status_var.ha_delete_skipped_count,
                       (ulong) thd->status_var.filesort_merge_passes,
                       (ulong) thd->status_var.filesort_range_count,
                       (ulong) thd->status_var.filesort_rows,

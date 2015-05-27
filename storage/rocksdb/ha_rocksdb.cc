@@ -2283,11 +2283,17 @@ void ha_rocksdb::io_perf_end_and_record(void)
   }
 
   if (io_perf.internal_key_skipped_count)
+  {
     share->internal_key_skipped_count += io_perf.internal_key_skipped_count;
+    stats.key_skipped += io_perf.internal_key_skipped_count;
+  }
 
   if (io_perf.internal_delete_skipped_count)
+  {
     share->internal_delete_skipped_count +=
         io_perf.internal_delete_skipped_count;
+    stats.delete_skipped += io_perf.internal_delete_skipped_count;
+  }
 }
 
 int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
