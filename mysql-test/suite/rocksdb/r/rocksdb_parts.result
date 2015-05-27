@@ -1,0 +1,14 @@
+drop table if exists t1,t2;
+# Tests for MyRocks + partitioning
+#
+# MyRocks Issue #70: Server crashes in RDBSE_KEYDEF::get_primary_key_tuple
+#
+CREATE TABLE t1 (pk INT PRIMARY KEY, f1 INT, f2 INT, KEY(f2)) ENGINE=RocksDB 
+PARTITION BY HASH(pk) PARTITIONS 2;
+INSERT INTO t1 VALUES (1, 6, NULL), (2, NULL, 1);
+CREATE TABLE t2 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB;
+INSERT INTO t2 VALUES (1, 1), (2, 1);
+SELECT f1 FROM t1 WHERE f2 = ( SELECT f1 FROM t2 WHERE pk = 2 );
+f1
+NULL
+drop table t1,t2;
