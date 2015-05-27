@@ -3720,6 +3720,7 @@ public:
   my_decimal *val_decimal(my_decimal *);
   String *val_str(String*,String *);
   String *val_doc(String*, String*);
+  void make_sort_key(uchar *buff, uint length);
 
   /*
    virtual functions for Field_document use only.

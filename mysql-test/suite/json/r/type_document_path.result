@@ -384,7 +384,7 @@ select test.t1.doc.id, a from t1 order by 1 desc;
 103	3
 102	2
 101	1
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed);
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed), 2;
 `doc`.`address`.`zipcode`	a
 98761	1
 98762	2
@@ -395,7 +395,7 @@ select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.
 98766	6
 98767	7
 98768	8
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc;
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc, 2;
 `doc`.`address`.`zipcode`	a
 98768	8
 98767	7
@@ -1026,6 +1026,19 @@ a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
 4	WA	98764
 5	WA	98765
 9	WA	98764
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc desc, doc.address.state;
+a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
+4	WA	98764
+5	WA	98765
+9	WA	98764
+3	NY	98763
+7	NY	98767
+1	CA	98761
+2	AZ	98762
+8	NULL	98768
+6	NULL	98766
 select doc.address.state as state, doc.address.zipcode as zipcode, a
 from t1
 order by state, state, a;
@@ -1675,7 +1688,7 @@ a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
-order by cast(t1.doc.address.zipcode as unsigned) asc;
+order by cast(t1.doc.address.zipcode as unsigned) asc, t1.a;
 a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 1	98761	10	98761
 2	98762	8	98762

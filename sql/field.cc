@@ -8707,6 +8707,34 @@ my_decimal *Field_document::val_decimal(my_decimal *decimal_value)
 
 
 /*
+  Called by make_sortkey() in filesort.cc when the sort field
+  is a document field. The document field will be retrieved as
+  a string for the sort key.
+*/
+void Field_document::make_sort_key(uchar *to, uint length)
+{
+  DBUG_ASSERT(to && length > 0);
+  memset(to, 0, length);
+  if (get_length())
+  {
+    char *blob;
+    memcpy(&blob, ptr+packlength, sizeof(char*));
+    if (blob)
+    {
+      fbson::FbsonValue *pval =
+        fbson::FbsonDocument::createValue(blob, get_length(ptr));
+      DBUG_ASSERT(pval);
+      fbson::FbsonToJson tojson;
+      const char *json = tojson.json(pval);
+      uint len = std::min(length, (uint)strlen(json));
+      memcpy(to, json, len);
+      to[len-1] = '\0';
+    }
+  }
+}
+
+
+/*
  * Extracts fbson value from key path
  * Input: key_path - the key path
  * Output: FbsonValue object, NULL if path is invalid

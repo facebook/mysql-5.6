@@ -407,8 +407,8 @@ select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned);
 select test.t1.doc.id, a from t1 order by cast(test.t1.doc.id as unsigned) desc;
 select test.t1.doc.id, a from t1 order by 1 desc;
 
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed);
-select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc;
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as signed), 2;
+select test.t1.doc.address.zipcode, a from t1 order by cast(test.t1.doc.address.zipcode as char) desc, 2;
 
 ### use alias for the whole cast function
 select cast(test.t1.doc.address.zipcode as signed), a
@@ -552,6 +552,7 @@ select a, doc.address.state, doc.address.zipcode
 from t1
 order by doc.address.zipcode, doc.address.state, doc.name, a;
 
+### use both document field and document paths
 select a, doc.address.state, doc.address.zipcode
 from t1
 order by doc, a;
@@ -559,6 +560,10 @@ order by doc, a;
 select a, doc.address.state, doc.address.zipcode
 from t1
 order by doc.address.state, doc;
+
+select a, doc.address.state, doc.address.zipcode
+from t1
+order by doc desc, doc.address.state;
 
 ### multiple duplicate document paths
 select doc.address.state as state, doc.address.zipcode as zipcode, a
@@ -976,7 +981,7 @@ where t1.doc.address.zipcode like t2.doc2.address.zipcode;
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on cast(t1.doc.address.zipcode as unsigned) = cast(t2.doc2.address.zipcode as unsigned)
-order by cast(t1.doc.address.zipcode as unsigned) asc;
+order by cast(t1.doc.address.zipcode as unsigned) asc, t1.a;
 
 
 ### left join without CAST on document path with ORDER BY without CAST
