@@ -2279,6 +2279,7 @@ void ha_rocksdb::io_perf_end_and_record(void)
     io_perf_read.svc_time_max= io_perf_read.svc_time= io_perf.block_read_time;
 
     my_io_perf_sum_atomic_helper(&share->io_perf_read, &io_perf_read);
+    my_io_perf_sum(&stats.table_io_perf_read, &io_perf_read);
   }
 
   if (io_perf.internal_key_skipped_count)
