@@ -153,12 +153,13 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     ^^ TODO: is this still true? concurrent setup() calls are not safe
     anymore...
   */
+  const bool secondary_key= (keyno != tbl->s->primary_key);
   if (!maxlength)
   {
     KEY *key_info= &tbl->key_info[keyno];
     KEY *pk_info=  &tbl->key_info[tbl->s->primary_key];
 
-    if (keyno != tbl->s->primary_key)
+    if (secondary_key)
     {
       n_pk_key_parts= pk_info->actual_key_parts;
     }
@@ -169,20 +170,24 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     }
 
     // "unique" secondary keys support:
-    bool unique_secondary_index= false;
     m_key_parts= key_info->actual_key_parts;
-    if (keyno != tbl->s->primary_key && (key_info->flags & HA_NOSAME))
+    if (secondary_key)
     {
       /*
-        From SQL layer's point of view, Unique secondary indexes do not
-        have primary key columns at the end. Internally, they do.
+        In most cases, SQL layer puts PK columns as invisible suffix at the
+        end of secondary key. There are cases where this doesn't happen:
+        - unique secondary indexes.
+        - partitioned tables.
 
-        The loop below will attempt to attach all of the PK columns at the end
-        of the key, skipping those that are already present in the explicit FK
-        definition.
+        Internally, we always need PK columns as suffix (and InnoDB does,
+        too, if you were wondering).
+
+        The loop below will attempt to put all PK columns at the end of key
+        definition.  Columns that are already included in the index (either
+        by the user or by "extended keys" feature) are not included for the
+        second time.
       */
       m_key_parts += n_pk_key_parts;
-      unique_secondary_index= true;
     }
 
     if (keyno != tbl->s->primary_key)
@@ -197,14 +202,14 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     int unpack_len= 0;
     KEY_PART_INFO *key_part= key_info->key_part;
     int max_part_len= 0;
-    bool simulating_extkey_for_unique= false;
+    bool simulating_extkey= false;
     uint dst_i= 0;
     /* this loop also loops over the 'extended key' tail */
     for (uint src_i= 0; src_i < m_key_parts; src_i++)
     {
       Field *field= key_part->field;
 
-      if (simulating_extkey_for_unique)
+      if (simulating_extkey)
       {
         /* Check if this field is already present in the key definition */
         bool found= false;
@@ -250,9 +255,9 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
 
       key_part++;
       /* For "unique" secondary indexes, pretend they have "index extensions" */
-      if (unique_secondary_index && src_i+1 == key_info->actual_key_parts)
+      if (secondary_key && src_i+1 == key_info->actual_key_parts)
       {
-        simulating_extkey_for_unique= true;
+        simulating_extkey= true;
         key_part= pk_info->key_part;
       }
 
