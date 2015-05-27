@@ -848,7 +848,7 @@ public:
 
   /* The following is not needed by RocksDB, but conceptually should be here: */
   static ulong get_hashnr(const char *key, size_t key_len);
-  const char* Name() const { return "RocksDB_SE_v3.6"; }
+  const char* Name() const { return "RocksDB_SE_v3.7"; }
 
   //TODO: advanced funcs:
   // - FindShortestSeparator
@@ -865,7 +865,7 @@ class Reverse_comparator : public rocksdb::Comparator
   {
     return -bytewise_compare(a,b);
   }
-  const char* Name() const { return "rev:RocksDB_SE_v3.6"; }
+  const char* Name() const { return "rev:RocksDB_SE_v3.7"; }
   void FindShortestSeparator(std::string* start, const rocksdb::Slice& limit) const {}
   void FindShortSuccessor(std::string* key) const {}
 };
