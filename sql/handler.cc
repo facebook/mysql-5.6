@@ -2720,6 +2720,7 @@ void ha_statistics::reset_table_stats()
   rows_inserted = rows_updated = rows_deleted = 0;
   rows_read = rows_requested = index_inserts = 0;
   rows_index_first = rows_index_next = 0;
+  key_skipped = delete_skipped = 0;
   my_io_perf_init(&table_io_perf_read);
   my_io_perf_init(&table_io_perf_write);
   my_io_perf_init(&table_io_perf_read_blob);
@@ -2732,6 +2733,7 @@ bool ha_statistics::has_table_stats()
 {
   return (rows_read || rows_requested || index_inserts ||
           rows_inserted || rows_updated || rows_deleted ||
+          key_skipped || delete_skipped ||
           table_io_perf_read.requests ||
           table_io_perf_write.requests ||
           table_io_perf_read_blob.requests ||
@@ -7259,6 +7261,9 @@ void handler::update_global_table_stats(THD *thd)
     thd->rows_read += stats.rows_read;
     thd->rows_index_first += stats.rows_index_first;
     thd->rows_index_next += stats.rows_index_next;
+
+    thd->status_var.ha_key_skipped_count += stats.key_skipped;
+    thd->status_var.ha_delete_skipped_count += stats.delete_skipped;
   }
 
   stats.reset_table_stats();
