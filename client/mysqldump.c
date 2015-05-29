@@ -5507,6 +5507,11 @@ static int start_transaction(MYSQL *mysql_con, char* filename_out,
   }
   my_bool use_rocksdb= opt_rocksdb || default_engine_rocksdb(mysql_con);
 
+  if (use_rocksdb &&
+      mysql_query_with_error_report(mysql_con, 0,
+                                    "SET SESSION rocksdb_skip_fill_cache=1"))
+    return 1;
+
   if (mysql_query_with_error_report(mysql_con, 0,
                                     "SET SESSION TRANSACTION ISOLATION "
                                     "LEVEL REPEATABLE READ"))

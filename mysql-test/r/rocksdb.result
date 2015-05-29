@@ -868,6 +868,7 @@ rocksdb_perf_context_level	1
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
+rocksdb_skip_fill_cache	OFF
 rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_stats_dump_period_sec	3600
 rocksdb_table_cache_numshardbits	4
