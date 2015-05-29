@@ -586,6 +586,12 @@ static MYSQL_THDVAR_BOOL(write_ignore_missing_column_families,
   "WriteOptions::ignore_missing_column_families for RocksDB",
   NULL, NULL, rocksdb::WriteOptions().ignore_missing_column_families);
 
+
+static MYSQL_THDVAR_BOOL(skip_fill_cache,
+  PLUGIN_VAR_RQCMDARG,
+  "Skip filling block cache on read requests",
+  NULL, NULL, FALSE);
+
 /* debugging purpose and will be deprected once implemented. */
 static MYSQL_SYSVAR_UINT(debug_optimizer_records_in_range,
   rocksdb_debug_optimizer_records_in_range,
@@ -702,6 +708,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(write_disable_wal),
   MYSQL_SYSVAR(write_timeout_hint_us),
   MYSQL_SYSVAR(write_ignore_missing_column_families),
+
+  MYSQL_SYSVAR(skip_fill_cache),
 
   MYSQL_SYSVAR(debug_optimizer_records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
@@ -4143,6 +4151,8 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
   if (!scan_it)
   {
     rocksdb::ReadOptions options;
+    if (THDVAR(ha_thd(), skip_fill_cache))
+      options.fill_cache= false;
     if (!lock_rows)
       options.snapshot= trx->snapshot;
     if (!can_use_bloom_filter(keydef, *slice, use_all_keys, is_ascending))
