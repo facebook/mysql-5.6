@@ -477,6 +477,14 @@ static MYSQL_SYSVAR_ULONG(bytes_per_sync,
   NULL, NULL, db_options.bytes_per_sync,
   /* min */ 0L, /* max */ LONG_MAX, 0);
 
+static MYSQL_SYSVAR_ULONG(wal_bytes_per_sync,
+  db_options.wal_bytes_per_sync,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "DBOptions::wal_bytes_per_sync for RocksDB",
+  NULL, NULL, db_options.wal_bytes_per_sync,
+  /* min */ 0L, /* max */ LONG_MAX, 0);
+
+
 static MYSQL_SYSVAR_BOOL(enable_thread_tracking,
   *reinterpret_cast<my_bool*>(&db_options.enable_thread_tracking),
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -671,6 +679,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(db_write_buffer_size),
   MYSQL_SYSVAR(use_adaptive_mutex),
   MYSQL_SYSVAR(bytes_per_sync),
+  MYSQL_SYSVAR(wal_bytes_per_sync),
   MYSQL_SYSVAR(enable_thread_tracking),
   MYSQL_SYSVAR(perf_context_level),
 
