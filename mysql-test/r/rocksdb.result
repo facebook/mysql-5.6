@@ -873,6 +873,7 @@ rocksdb_stats_dump_period_sec	3600
 rocksdb_table_cache_numshardbits	4
 rocksdb_use_adaptive_mutex	OFF
 rocksdb_use_fsync	OFF
+rocksdb_wal_bytes_per_sync	0
 rocksdb_wal_dir	
 rocksdb_wal_size_limit_mb	0
 rocksdb_wal_ttl_seconds	0
