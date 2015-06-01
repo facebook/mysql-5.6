@@ -20,7 +20,6 @@ CATALOG_NAME	SCHEMA_NAME	DEFAULT_CHARACTER_SET_NAME	DEFAULT_COLLATION_NAME	SQL_P
 def	mtr	latin1	latin1_swedish_ci	NULL
 def	mysql	latin1	latin1_swedish_ci	NULL
 def	performance_schema	utf8	utf8_general_ci	NULL
-def	rocksdb	latin1	latin1_swedish_ci	NULL
 def	test	latin1	latin1_swedish_ci	NULL
 select schema_name from information_schema.schemata;
 schema_name
@@ -28,7 +27,6 @@ information_schema
 mtr
 mysql
 performance_schema
-rocksdb
 test
 show databases like 't%';
 Database (t%)
@@ -39,7 +37,6 @@ information_schema
 mtr
 mysql
 performance_schema
-rocksdb
 test
 show databases where `database` = 't%';
 Database
@@ -94,10 +91,9 @@ USER_PRIVILEGES
 USER_STATISTICS
 VIEWS
 AUTHINFO
-ROCKSDB_DBSTATS
+ROCKSDB_CF_OPTIONS
 ROCKSDB_PERF_CONTEXT
 ROCKSDB_CFSTATS
-ROCKSDB_CF_OPTIONS
 ROCKSDB_DBSTATS
 columns_priv
 db
@@ -399,7 +395,6 @@ information_schema
 mtr
 mysql
 performance_schema
-rocksdb
 test
 explain select * from v0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
