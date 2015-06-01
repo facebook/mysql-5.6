@@ -40,4 +40,4 @@ i
 set global slow_log_if_rows_examined_exceed=0;
 drop table rows_examined_exceed;
 set global slow_query_log_file = @my_slow_logname;
-Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 143 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 8 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
+Rows_sent: 8  Rows_examined: 8 Errno: 0 Killed: 0 Bytes_received: 0 Bytes_sent: 143 Read_first: 1 Read_last: 0 Read_key: 1 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 8 RocksDB_key_skipped: 0 RocksDB_del_skipped: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0
