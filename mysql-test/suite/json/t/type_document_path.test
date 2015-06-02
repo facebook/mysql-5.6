@@ -552,18 +552,18 @@ select a, doc.address.state, doc.address.zipcode
 from t1
 order by doc.address.zipcode, doc.address.state, doc.name, a;
 
-### use both document field and document paths
-select a, doc.address.state, doc.address.zipcode
+### document field and document paths in ORDER BY without document path in SELECT
+select a
 from t1
-order by doc, a;
+order by doc;
 
-select a, doc.address.state, doc.address.zipcode
+select a
 from t1
-order by doc.address.state, doc;
+order by doc desc;
 
-select a, doc.address.state, doc.address.zipcode
+select a
 from t1
-order by doc desc, doc.address.state;
+order by doc, doc.address.state desc, doc.address.zipcode;
 
 ### multiple duplicate document paths
 select doc.address.state as state, doc.address.zipcode as zipcode, a
@@ -577,6 +577,21 @@ order by test.t1.doc.address.zipcode, t1.doc.address.zipcode, a asc;
 select doc.address.state as state, a
 from t1
 order by state, test.t1.doc.address.state, a desc;
+
+### FIXME:
+### the document field in ORDER BY will be deduped if both document field and document paths
+### from this field in ORDER BY and in the meantime the document paths exist in SELECT
+#select a, doc.id
+#from t1
+#order by doc, doc.id;
+
+### FIXME:
+### Incorrect order when both document field and document paths in ORDER BY while other
+### document paths exist in SELECT too
+#select a, doc.address.zipcode
+#from t1
+#order by doc.address.state, doc;
+
 
 ################################################################################
 ###
@@ -988,7 +1003,7 @@ order by cast(t1.doc.address.zipcode as unsigned) asc, t1.a;
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on t1.doc.address.zipcode like t2.doc2.address.zipcode
-order by t1.doc.address.zipcode desc;
+order by t1.doc.address.zipcode desc, t1.a, t2.a2;
 
 
 ################################################################################

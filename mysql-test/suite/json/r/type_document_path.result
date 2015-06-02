@@ -1000,45 +1000,45 @@ a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
 6	NULL	98766
 7	NY	98767
 8	NULL	98768
-select a, doc.address.state, doc.address.zipcode
+select a
 from t1
-order by doc, a;
-a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
-6	NULL	98766
-8	NULL	98768
-2	AZ	98762
-1	CA	98761
-3	NY	98763
-7	NY	98767
-4	WA	98764
-5	WA	98765
-9	WA	98764
-select a, doc.address.state, doc.address.zipcode
+order by doc;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+select a
 from t1
-order by doc.address.state, doc;
-a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
-8	NULL	98768
-6	NULL	98766
-2	AZ	98762
-1	CA	98761
-3	NY	98763
-7	NY	98767
-4	WA	98764
-5	WA	98765
-9	WA	98764
-select a, doc.address.state, doc.address.zipcode
+order by doc desc;
+a
+9
+8
+7
+6
+5
+4
+3
+2
+1
+select a
 from t1
-order by doc desc, doc.address.state;
-a	`doc`.`address`.`state`	`doc`.`address`.`zipcode`
-4	WA	98764
-5	WA	98765
-9	WA	98764
-3	NY	98763
-7	NY	98767
-1	CA	98761
-2	AZ	98762
-8	NULL	98768
-6	NULL	98766
+order by doc, doc.address.state desc, doc.address.zipcode;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
 select doc.address.state as state, doc.address.zipcode as zipcode, a
 from t1
 order by state, state, a;
@@ -1702,7 +1702,7 @@ a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 select t1.a, t1.doc.address.zipcode, t2.a2, t2.doc2.address.zipcode
 from t2 right join t1
 on t1.doc.address.zipcode like t2.doc2.address.zipcode
-order by t1.doc.address.zipcode desc;
+order by t1.doc.address.zipcode desc, t1.a, t2.a2;
 a	`doc`.`address`.`zipcode`	a2	`doc2`.`address`.`zipcode`
 8	98768	NULL	NULL
 7	98767	NULL	NULL

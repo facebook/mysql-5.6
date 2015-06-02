@@ -8726,9 +8726,9 @@ void Field_document::make_sort_key(uchar *to, uint length)
       DBUG_ASSERT(pval);
       fbson::FbsonToJson tojson;
       const char *json = tojson.json(pval);
-      uint len = std::min(length, (uint)strlen(json));
+      uint len = std::min(length-1, (uint)strlen(json));
       memcpy(to, json, len);
-      to[len-1] = '\0';
+      to[len] = '\0';
     }
   }
 }
