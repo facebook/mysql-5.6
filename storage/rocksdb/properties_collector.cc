@@ -26,7 +26,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
       // starting a new table
       // add the new element into stats_
       stats_.push_back(IndexStats(index_number));
-      keydef_ = ddl_manager_->find(index_number);
+      keydef_ = ddl_manager_->get_copy_of_keydef(index_number);
       if (keydef_) {
         // resize the array to the number of columns.
         // It will be initialized with zeroes
