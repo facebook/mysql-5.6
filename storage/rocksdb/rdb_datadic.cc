@@ -973,7 +973,7 @@ int skip_variable_length(Field_pack_info *fpi, Field *field, Stream_reader *read
     dst_len= field_var->pack_length() - field_var->length_bytes;
   }
   else
-    dst_len= SIZE_MAX;
+    dst_len= UINT_MAX;
 
   /* Decode the length-emitted encoding here */
   while ((ptr= (const uchar*)reader->read(ESCAPE_LENGTH)))
@@ -1284,14 +1284,14 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       uint flags= 0;
       if (!dict->get_cf_id(index_number, &cf_id))
       {
-        sql_print_error("RocksDB: Could not get Column Family ID"
+        sql_print_error("RocksDB: Could not get Column Family ID "
                         "for Index Number %d, table %s",
                         index_number, tdef->dbname_tablename.c_ptr_safe());
         return true;
       }
       if (!dict->get_cf_flags(cf_id, &flags))
       {
-        sql_print_error("RocksDB: Could not get Column Family Flags"
+        sql_print_error("RocksDB: Could not get Column Family Flags "
                         "for CF Number %d, table %s",
                         cf_id, tdef->dbname_tablename.c_ptr_safe());
         return true;
@@ -1814,6 +1814,19 @@ bool Dict_manager::get_util(const uint32_t index_id,
   return found;
 }
 
+void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
+                               const uint32_t index_id,
+                               const uint32_t index_id_or_cf_id)
+{
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, index_id);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id_or_cf_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  Delete(batch, key);
+}
+
+
 void Dict_manager::add_or_update_index_cf_mapping(rocksdb::WriteBatch* batch,
                                                   const uint32_t index_id,
                                                   const uint32_t cf_id)
@@ -1828,6 +1841,12 @@ void Dict_manager::add_cf_flags(rocksdb::WriteBatch* batch,
 {
   put_util(batch, RDBSE_KEYDEF::CF_DEFINITION, cf_id,
            RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
+}
+
+void Dict_manager::delete_index_cf_mapping(rocksdb::WriteBatch* batch,
+                                           const uint32_t index_id)
+{
+  delete_util(batch, RDBSE_KEYDEF::INDEX_CF_MAPPING, index_id);
 }
 
 bool Dict_manager::get_cf_id(const uint32_t index_id, uint32_t *cf_id)
