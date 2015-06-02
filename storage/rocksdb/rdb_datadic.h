@@ -487,17 +487,8 @@ public:
   {
     mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   }
-  ~RDBSE_TABLE_DEF()
-  {
-    mysql_mutex_destroy(&mutex);
-    /* Don't free key definitions */
-    if (key_descr)
-    {
-      for (uint i= 0; i < n_keys; i++)
-        delete key_descr[i];
-      delete[] key_descr;
-    }
-  }
+  ~RDBSE_TABLE_DEF();
+
   /* Stores 'dbname.tablename' */
   StringBuffer<64> dbname_tablename;
 
@@ -576,7 +567,7 @@ public:
   void cleanup();
 
   RDBSE_TABLE_DEF *find(const uchar *table_name, uint len, bool lock=true);
-  RDBSE_KEYDEF* find(uint32_t index_number, bool lock = true);
+  RDBSE_KEYDEF* find(uint32_t index_number);
   std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(uint32_t index_number);
   void set_stats(
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
@@ -595,6 +586,7 @@ public:
   /* Walk the data dictionary */
   int scan(void* cb_arg, int (*callback)(void* cb_arg, RDBSE_TABLE_DEF*));
 
+  void erase_index_num(uint32_t index);
 private:
   /* Put the data into in-memory table (only) */
   int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);
