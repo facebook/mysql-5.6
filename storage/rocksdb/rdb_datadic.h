@@ -670,6 +670,9 @@ private:
                 const uint32_t index_id_or_cf_id,
                 const uint16_t supported_version,
                 uint32_t *value_id);
+  void delete_util(rocksdb::WriteBatch* batch,
+                   const uint32_t index_id,
+                   const uint32_t index_id_or_cf_id);
 public:
   bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
   void cleanup();
@@ -688,6 +691,8 @@ public:
   void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
                                       const uint index_id,
                                       const uint cf_id);
+  void delete_index_cf_mapping(rocksdb::WriteBatch* batch,
+                               const uint32_t index_id);
   bool get_cf_id(const uint index_id, uint *cf_id);
 
   /* CF id => CF flags */
