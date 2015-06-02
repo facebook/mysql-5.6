@@ -559,7 +559,9 @@ class Table_ddl_manager
 {
   Dict_manager *dict;
   HASH ddl_hash; // Contains RDBSE_TABLE_DEF elements
-  std::map<uint32_t, RDBSE_KEYDEF*> index_num_to_keydef;
+  // maps index id to <table_name, index number>
+  std::map<uint32_t, std::pair<std::basic_string<uchar>, uint>>
+    index_num_to_keydef;
   mysql_rwlock_t rwlock;
 
   Sequence_generator sequence;
@@ -573,8 +575,9 @@ public:
 
   void cleanup();
 
-  RDBSE_TABLE_DEF *find(uchar *table_name, uint len, bool lock=true);
-  std::unique_ptr<RDBSE_KEYDEF> find(uint32_t index_number);
+  RDBSE_TABLE_DEF *find(const uchar *table_name, uint len, bool lock=true);
+  RDBSE_KEYDEF* find(uint32_t index_number, bool lock = true);
+  std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(uint32_t index_number);
   void set_stats(
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
   );

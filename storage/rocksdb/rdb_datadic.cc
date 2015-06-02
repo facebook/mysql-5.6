@@ -1346,7 +1346,7 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
 }
 
 
-RDBSE_TABLE_DEF* Table_ddl_manager::find(uchar *table_name,
+RDBSE_TABLE_DEF* Table_ddl_manager::find(const uchar *table_name,
                                          uint table_name_len,
                                          bool lock)
 {
@@ -1361,17 +1361,41 @@ RDBSE_TABLE_DEF* Table_ddl_manager::find(uchar *table_name,
 }
 
 std::unique_ptr<RDBSE_KEYDEF>
-Table_ddl_manager::find(uint32_t index_number)
+Table_ddl_manager::get_copy_of_keydef(uint32_t index_number)
 {
   std::unique_ptr<RDBSE_KEYDEF> ret;
-
-  // Lock the manager
   mysql_rwlock_rdlock(&rwlock);
-  auto it= index_num_to_keydef.find(index_number);
-  if (it != index_num_to_keydef.end()) {
-    ret = std::unique_ptr<RDBSE_KEYDEF>(new RDBSE_KEYDEF(*it->second));
+  auto key_def = find(index_number, false);
+  if (key_def) {
+    ret = std::unique_ptr<RDBSE_KEYDEF>(new RDBSE_KEYDEF(*key_def));
   }
   mysql_rwlock_unlock(&rwlock);
+  return ret;
+}
+
+RDBSE_KEYDEF* Table_ddl_manager::find(uint32_t index_number, bool lock)
+{
+  RDBSE_KEYDEF* ret = NULL;
+
+  // Lock the manager
+  if (lock) {
+    mysql_rwlock_rdlock(&rwlock);
+  }
+  auto it= index_num_to_keydef.find(index_number);
+  if (it != index_num_to_keydef.end()) {
+    auto table_def = find(it->second.first.data(), it->second.first.size(),
+                          false);
+    if (table_def) {
+      if (it->second.second < table_def->n_keys) {
+        ret = table_def->key_descr[it->second.second];
+      }
+    }
+    // TODO: if ret is NULL, erase the "it" from index_num_to_keydef
+    // this requires holding a read-write lock though
+  }
+  if (lock) {
+    mysql_rwlock_unlock(&rwlock);
+  }
   return ret;
 }
 
@@ -1380,9 +1404,9 @@ void Table_ddl_manager::set_stats(
 ) {
   mysql_rwlock_wrlock(&rwlock);
   for (const auto& src : stats) {
-    auto dst= index_num_to_keydef.find(src.index_number);
-    if (dst != index_num_to_keydef.end()) {
-      dst->second->stats = src;
+    auto keydef = find(src.index_number, false);
+    if (keydef) {
+      keydef->stats = src;
     }
   }
   mysql_rwlock_unlock(&rwlock);
@@ -1440,7 +1464,13 @@ int Table_ddl_manager::put(RDBSE_TABLE_DEF *tbl, bool lock)
 
   for (uint keyno = 0; keyno < tbl->n_keys; keyno++) {
     index_num_to_keydef[tbl->key_descr[keyno]->get_index_number()]=
-      tbl->key_descr[keyno];
+      std::make_pair(
+        std::basic_string<uchar>(
+          (uchar*) tbl->dbname_tablename.c_ptr(),
+          tbl->dbname_tablename.length()
+        ),
+        keyno
+      );
   }
 
   if (lock)
