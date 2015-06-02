@@ -5184,7 +5184,7 @@ void compute_optimizer_stats()
   std::unordered_set<rocksdb::ColumnFamilyHandle*> cfs;
   for (auto index_number : changed_indexes)
   {
-    auto keydef = ddl_manager.find(index_number);
+    auto keydef = ddl_manager.get_copy_of_keydef(index_number);
     if (keydef) {
       cfs.insert(keydef->get_cf());
       keydefs.push_back(std::move(keydef));
