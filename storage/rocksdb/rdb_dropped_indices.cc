@@ -210,6 +210,7 @@ void Dropped_indices_manager::remove_indices(
     if (it != di_map.end()) {
       sql_print_information("RocksDB: Finished filtering dropped index %d",
                             index);
+      dict->delete_index_cf_mapping(batch, index);
       delete it->second;
       di_map.erase(it);
     }
