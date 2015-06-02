@@ -25,7 +25,7 @@
 
 #include "rdb_datadic.h"
 #include "rdb_cf_manager.h"
-
+#include "ha_rocksdb_proto.h"
 
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
@@ -1146,6 +1146,22 @@ void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Table_ddl_manager
 ///////////////////////////////////////////////////////////////////////////////////////////
+RDBSE_TABLE_DEF::~RDBSE_TABLE_DEF()
+{
+  auto ddl_manager= get_ddl_manager();
+  mysql_mutex_destroy(&mutex);
+  /* Don't free key definitions */
+  if (key_descr)
+  {
+    for (uint i= 0; i < n_keys; i++) {
+      if (ddl_manager && key_descr[i]) {
+        ddl_manager->erase_index_num(key_descr[i]->get_index_number());
+      }
+      delete key_descr[i];
+    }
+    delete[] key_descr;
+  }
+}
 
 /*
   Put table definition DDL entry. Actual write is done at Dict_manager::commit
@@ -1224,6 +1240,10 @@ void Table_ddl_manager::free_hash_elem(void* data)
   delete elem;
 }
 
+void Table_ddl_manager::erase_index_num(uint32_t index)
+{
+  index_num_to_keydef.erase(index);
+}
 
 bool Table_ddl_manager::init(Dict_manager *dict_arg,
                              Column_family_manager *cf_manager)
@@ -1232,7 +1252,8 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
   mysql_rwlock_init(0, &rwlock);
   (void) my_hash_init(&ddl_hash, /*system_charset_info*/&my_charset_bin, 32,0,0,
                       (my_hash_get_key) Table_ddl_manager::get_hash_key,
-                      Table_ddl_manager::free_hash_elem, 0);
+                      Table_ddl_manager::free_hash_elem,
+                      0);
 
   /* Read the data dictionary and populate the hash */
   uchar ddl_entry[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
@@ -1365,7 +1386,7 @@ Table_ddl_manager::get_copy_of_keydef(uint32_t index_number)
 {
   std::unique_ptr<RDBSE_KEYDEF> ret;
   mysql_rwlock_rdlock(&rwlock);
-  auto key_def = find(index_number, false);
+  auto key_def = find(index_number);
   if (key_def) {
     ret = std::unique_ptr<RDBSE_KEYDEF>(new RDBSE_KEYDEF(*key_def));
   }
@@ -1373,14 +1394,11 @@ Table_ddl_manager::get_copy_of_keydef(uint32_t index_number)
   return ret;
 }
 
-RDBSE_KEYDEF* Table_ddl_manager::find(uint32_t index_number, bool lock)
+// this method assumes at least read-only lock on rwlock
+RDBSE_KEYDEF* Table_ddl_manager::find(uint32_t index_number)
 {
   RDBSE_KEYDEF* ret = NULL;
 
-  // Lock the manager
-  if (lock) {
-    mysql_rwlock_rdlock(&rwlock);
-  }
   auto it= index_num_to_keydef.find(index_number);
   if (it != index_num_to_keydef.end()) {
     auto table_def = find(it->second.first.data(), it->second.first.size(),
@@ -1390,11 +1408,6 @@ RDBSE_KEYDEF* Table_ddl_manager::find(uint32_t index_number, bool lock)
         ret = table_def->key_descr[it->second.second];
       }
     }
-    // TODO: if ret is NULL, erase the "it" from index_num_to_keydef
-    // this requires holding a read-write lock though
-  }
-  if (lock) {
-    mysql_rwlock_unlock(&rwlock);
   }
   return ret;
 }
@@ -1404,7 +1417,7 @@ void Table_ddl_manager::set_stats(
 ) {
   mysql_rwlock_wrlock(&rwlock);
   for (const auto& src : stats) {
-    auto keydef = find(src.index_number, false);
+    auto keydef = find(src.index_number);
     if (keydef) {
       keydef->stats = src;
     }
@@ -1484,10 +1497,6 @@ void Table_ddl_manager::remove(RDBSE_TABLE_DEF *tbl,
 {
   if (lock)
     mysql_rwlock_wrlock(&rwlock);
-
-  if (tbl->key_descr) // rename function sets this to null
-    for (uint keyno = 0; keyno < tbl->n_keys; keyno++)
-      index_num_to_keydef.erase(tbl->key_descr[keyno]->get_index_number());
 
   uchar buf[NAME_LEN * 2 + RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   uint pos= 0;
