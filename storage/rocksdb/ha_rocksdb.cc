@@ -5064,7 +5064,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
     );
     // pad the upper key with FFFFs to make sure it is more than the lower
     if (size1 > size2) {
-      memset(sec_key_packed_tuple_old+size2, size1-size2, 0xff);
+      memset(sec_key_packed_tuple_old+size2, 0xff, size1-size2);
       size2 = size1;
     }
   } else {
