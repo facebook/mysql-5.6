@@ -42,7 +42,7 @@ INSERT INTO t1 (b,b20,v16,v128,pk) VALUES ('a','char1','varchar1a','varchar1b',1
 INSERT INTO t1 (b,b20,v16,v128,pk) SELECT b,b20,v16,v128,pk+100 FROM t1;
 EXPLAIN SELECT HEX(SUBSTRING(v16,0,3)) FROM t1 WHERE v16 LIKE 'varchar%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	v16	v16	13	NULL	10	Using where
+1	SIMPLE	t1	range	v16	v16	13	NULL	1	Using where
 SELECT HEX(SUBSTRING(v16,7,3)) FROM t1 WHERE v16 LIKE 'varchar%';
 HEX(SUBSTRING(v16,7,3))
 723161
@@ -59,7 +59,7 @@ HEX(SUBSTRING(v16,7,3))
 723461
 EXPLAIN SELECT HEX(SUBSTRING(v16,0,3)) FROM t1 FORCE INDEX (v16) WHERE v16 LIKE 'varchar%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	v16	v16	13	NULL	10	Using where
+1	SIMPLE	t1	range	v16	v16	13	NULL	1	Using where
 SELECT HEX(SUBSTRING(v16,7,3)) FROM t1 FORCE INDEX (v16) WHERE v16 LIKE 'varchar%';
 HEX(SUBSTRING(v16,7,3))
 723161
