@@ -440,10 +440,34 @@ public:
   */
   index_field_skip_t skip_func;
 
-  /* Number of field in the table */
-  int fieldnr;
+private:
+  /*
+    Location of the field in the table (key number and key part number).
 
-  bool setup(Field *field);
+    Note that this describes not the field, but rather a position of field in
+    the index. Consider an example:
+
+      col1 VARCHAR (100),
+      INDEX idx1 (col1)),
+      INDEX idx2 (col1(10)),
+
+    Here, idx2 has a special Field object that is set to describe a 10-char
+    prefix of col1.
+
+    We must also store the keynr. It is needed for implicit "extended keys".
+    Every key in MyRocks needs to include PK columns.  Generally, SQL layer
+    includes PK columns as part of its "Extended Keys" feature, but sometimes
+    it does not (known examples are unique secondary indexes and partitioned
+    tables).
+    In that case, MyRocks's index descriptor has invisible suffix of PK
+    columns (and the point is that these columns are parts of PK, not parts
+    of the current index).
+  */
+  uint keynr;
+  uint key_part;
+public:
+  bool setup(Field *field, uint keynr_arg, uint key_part_arg);
+  Field *get_field_in_table(TABLE *tbl);
 };
 
 

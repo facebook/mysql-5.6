@@ -1631,3 +1631,18 @@ select * from t1 where id=9 for update;
 drop table t1;
 
 drop table t0;
+
+--echo #
+--echo # Fix assertion failure (attempt to overrun the key buffer) for prefix indexes
+--echo #
+
+create table t1 (
+  pk int primary key,
+  col1 varchar(100),
+  key (col1(10))
+) engine=rocksdb;
+
+insert into t1 values (1, repeat('0123456789', 9));
+
+drop table t1;
+
