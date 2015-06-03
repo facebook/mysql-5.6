@@ -5593,7 +5593,8 @@ mysql_declare_plugin(rocksdb_se)
 i_s_rocksdb_cfstats,
 i_s_rocksdb_dbstats,
 i_s_rocksdb_perf_context,
-i_s_rocksdb_cfoptions
+i_s_rocksdb_cfoptions,
+i_s_rocksdb_ddl
 mysql_declare_plugin_end;
 
 
@@ -5783,4 +5784,9 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
       break;
     }
   }
+}
+
+Table_ddl_manager *get_ddl_manager(void)
+{
+  return &ddl_manager;
 }
