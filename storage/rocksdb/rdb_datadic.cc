@@ -1544,6 +1544,28 @@ std::unordered_set<uint32_t> Table_ddl_manager::get_changed_indexes()
   return ret;
 }
 
+int Table_ddl_manager::scan(void* cb_arg,
+                            int (*callback)(void*, RDBSE_TABLE_DEF*))
+{
+  int i, ret;
+  RDBSE_TABLE_DEF *rec;
+
+  mysql_rwlock_rdlock(&rwlock);
+
+  ret= 0;
+  i= 0;
+
+  while ((rec = (RDBSE_TABLE_DEF*)my_hash_element(&ddl_hash, i))) {
+    ret = (*callback)(cb_arg, rec);
+    if (ret)
+      break;
+    i++;
+  }
+
+  mysql_rwlock_unlock(&rwlock);
+  return ret;
+}
+
 bool Binlog_info_manager::init(Dict_manager *dict_arg)
 {
   dict= dict_arg;
