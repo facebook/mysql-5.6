@@ -588,6 +588,10 @@ public:
   int get_next_number() { return sequence.get_next_number(); }
   void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
   std::unordered_set<uint32_t> get_changed_indexes();
+
+  /* Walk the data dictionary */
+  int scan(void* cb_arg, int (*callback)(void* cb_arg, RDBSE_TABLE_DEF*));
+
 private:
   /* Put the data into in-memory table (only) */
   int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);
