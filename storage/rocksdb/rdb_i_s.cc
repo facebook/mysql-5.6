@@ -19,9 +19,12 @@
 #include <field.h>
 #include <sql_show.h>
 
+#include <netinet/in.h>
+
 #include "ha_rocksdb.h"
 #include "ha_rocksdb_proto.h"
 #include "rdb_cf_manager.h"
+#include "rdb_datadic.h"
 #include "rdb_i_s.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/slice_transform.h"
@@ -565,6 +568,98 @@ static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
+struct i_s_rocksdb_ddl {
+  THD *thd;
+  TABLE_LIST *tables;
+  Item *cond;
+};
+
+static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
+{
+  struct i_s_rocksdb_ddl *ddl_arg= (struct i_s_rocksdb_ddl*)cb_arg;
+  int ret= 0;
+  THD *thd= ddl_arg->thd;
+  TABLE_LIST *tables= ddl_arg->tables;
+
+  StringBuffer<256> dbname, tablename, partname;
+
+  /* Some special tables such as drop_index have different names, ignore them */
+  if (rocksdb_split_normalized_tablename(rec->dbname_tablename.c_ptr(),
+                                         &dbname, &tablename, &partname))
+    return 0;
+
+  for (uint i= 0; i < rec->n_keys; i++) {
+    RDBSE_KEYDEF* key_descr= rec->key_descr[i];
+
+    tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
+                                   system_charset_info);
+    tables->table->field[1]->store(tablename.c_ptr(), tablename.length(),
+                                   system_charset_info);
+    if (partname.length() == 0)
+      tables->table->field[2]->set_null();
+    else
+    {
+      tables->table->field[2]->set_notnull();
+      tables->table->field[2]->store(partname.c_ptr(), partname.length(),
+                                     system_charset_info);
+    }
+
+    tables->table->field[3]->store(key_descr->name.c_str(),
+                                   key_descr->name.size(),
+                                   system_charset_info);
+
+    tables->table->field[4]->store(key_descr->get_index_number(), true);
+
+    std::string cf_name= key_descr->get_cf()->GetName();
+    tables->table->field[5]->store(cf_name.c_str(), cf_name.size(),
+                                   system_charset_info);
+
+    ret= schema_table_store_record(thd, tables->table);
+    if (ret)
+      return ret;
+  }
+  return 0;
+}
+
+static int i_s_rocksdb_ddl_fill_table(THD *thd, TABLE_LIST *tables, Item *cond)
+{
+  int ret;
+  Table_ddl_manager *ddl_manager= get_ddl_manager();
+  struct i_s_rocksdb_ddl ddl_arg= { thd, tables, cond };
+
+  DBUG_ENTER("i_s_rocksdb_ddl_fill_table");
+
+  ret= ddl_manager->scan((void*)&ddl_arg, i_s_rocksdb_ddl_callback);
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("TABLE_SCHEMA", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
+                     MY_I_S_MAYBE_NULL),
+  ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("CF", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+static int i_s_rocksdb_ddl_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_ddl_init");
+
+  schema= (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info= i_s_rocksdb_ddl_fields_info;
+  schema->fill_table= i_s_rocksdb_ddl_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int i_s_rocksdb_cfoptions_init(void *p)
 {
   ST_SCHEMA_TABLE *schema;
@@ -593,7 +688,7 @@ struct st_mysql_plugin i_s_rocksdb_cfstats=
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
   &i_s_rocksdb_info,
   "ROCKSDB_CFSTATS",
-  "Monty Program Ab",
+  "Facebook",
   "RocksDB column family stats",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_cfstats_init,
@@ -610,7 +705,7 @@ struct st_mysql_plugin i_s_rocksdb_dbstats=
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
   &i_s_rocksdb_info,
   "ROCKSDB_DBSTATS",
-  "Monty Program Ab",
+  "Facebook",
   "RocksDB database stats",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_dbstats_init,
@@ -627,7 +722,7 @@ struct st_mysql_plugin i_s_rocksdb_perf_context=
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
   &i_s_rocksdb_info,
   "ROCKSDB_PERF_CONTEXT",
-  "Monty Program Ab",
+  "Facebook",
   "RocksDB perf context stats",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_perf_context_init,
@@ -644,10 +739,27 @@ struct st_mysql_plugin i_s_rocksdb_cfoptions=
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
   &i_s_rocksdb_info,
   "ROCKSDB_CF_OPTIONS",
-  "Monty Program Ab",
+  "Facebook",
   "RocksDB column family options",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_cfoptions_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  NULL,                               /* status variables */
+  NULL,                               /* system variables */
+  NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_ddl=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_DDL",
+  "Facebook",
+  "RocksDB Data Dictionary",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_ddl_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */
