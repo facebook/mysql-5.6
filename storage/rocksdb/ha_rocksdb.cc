@@ -1529,13 +1529,9 @@ static int rocksdb_init_func(void *p)
     rocksdb_start_trx_and_assign_read_view;
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats;
 
-  /*
-    Don't specify HTON_CAN_RECREATE in flags. re-create is used by TRUNCATE
-    TABLE to create an empty table from scratch. RocksDB cannot efficiently
-    re-create a table.
-  */
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
-                       HTON_SUPPORTS_EXTENDED_KEYS;
+                       HTON_SUPPORTS_EXTENDED_KEYS |
+                       HTON_CAN_RECREATE;
 
   mysql_mutex_init(key_mutex_drop_index, &drop_index_mutex, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_drop_index_interrupt_mutex, &drop_index_interrupt_mutex,
