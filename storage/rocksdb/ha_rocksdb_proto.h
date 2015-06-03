@@ -46,5 +46,8 @@ typedef struct share_perf_counters {
 
 int rocksdb_get_share_perf_counters(const char *tablename,
                                     SHARE_PERF_COUNTERS *counters);
+
+class Table_ddl_manager;
+Table_ddl_manager *get_ddl_manager(void);
 #endif /* _ha_rocksdb_proto_h_ */
 
