@@ -21,5 +21,6 @@ extern struct st_mysql_plugin i_s_rocksdb_cfstats;
 extern struct st_mysql_plugin i_s_rocksdb_dbstats;
 extern struct st_mysql_plugin i_s_rocksdb_perf_context;
 extern struct st_mysql_plugin i_s_rocksdb_cfoptions;
+extern struct st_mysql_plugin i_s_rocksdb_ddl;
 
 #endif /* _rdb_i_s_h_ */
