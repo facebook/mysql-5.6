@@ -204,8 +204,11 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     int max_part_len= 0;
     bool simulating_extkey= false;
     uint dst_i= 0;
+
+    uint keyno_to_set= keyno;
+    uint keypart_to_set= 0;
     /* this loop also loops over the 'extended key' tail */
-    for (uint src_i= 0; src_i < m_key_parts; src_i++)
+    for (uint src_i= 0; src_i < m_key_parts; src_i++, keypart_to_set++)
     {
       Field *field= key_part->field;
 
@@ -232,7 +235,7 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       if (field->real_maybe_null())
         max_len +=1; // NULL-byte
 
-      pack_info[dst_i].setup(field);
+      pack_info[dst_i].setup(field, keyno_to_set, keypart_to_set);
       pack_info[dst_i].unpack_data_offset= unpack_len;
 
       if (pk_info)
@@ -258,6 +261,8 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
       if (secondary_key && src_i+1 == key_info->actual_key_parts)
       {
         simulating_extkey= true;
+        keyno_to_set= tbl->s->primary_key;
+        keypart_to_set= (uint)-1;
         key_part= pk_info->key_part;
       }
 
@@ -343,8 +348,9 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
 
     if (have_value)
     {
-      Field *field= table->field[pack_info[i].fieldnr];
-      if (pack_info[i].skip_func(&pack_info[i], field, &reader))
+      Field_pack_info *fpi= &pack_info[i];
+      Field *field= fpi->get_field_in_table(table);
+      if (fpi->skip_func(fpi, field, &reader))
         return INVALID_LEN;
     }
 
@@ -460,7 +466,7 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
 
   for (uint i=0; i < n_key_parts; i++)
   {
-    Field *field= tbl->field[pack_info[i].fieldnr];
+    Field *field= pack_info[i].get_field_in_table(tbl);
 
     // Old Field methods expected the record pointer to be at tbl->record[0].
     // The quick and easy way to fix this was to pass along the offset
@@ -629,7 +635,7 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
   for (uint i= 0; i < m_key_parts ; i++)
   {
     Field_pack_info *fpi= &pack_info[i];
-    Field *field= table->field[pack_info[i].fieldnr];
+    Field *field= fpi->get_field_in_table(table);
 
     if (fpi->unpack_func)
     {
@@ -1016,12 +1022,14 @@ int skip_variable_length(Field_pack_info *fpi, Field *field, Stream_reader *read
     FALSE -  Otherwise
 */
 
-bool Field_pack_info::setup(Field *field)
+bool Field_pack_info::setup(Field *field, uint keynr_arg, uint key_part_arg)
 {
   int res= false;
   enum_field_types type= field->real_type();
 
-  fieldnr= field->field_index;
+  keynr= keynr_arg;
+  key_part= key_part_arg;
+
   maybe_null= field->real_maybe_null();
   make_unpack_info_func= NULL;
   unpack_func= NULL;
@@ -1106,6 +1114,11 @@ bool Field_pack_info::setup(Field *field)
   return res;
 }
 
+
+Field *Field_pack_info::get_field_in_table(TABLE *tbl)
+{
+  return tbl->key_info[keynr].key_part[key_part].field;
+}
 
 #if 0
 void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
