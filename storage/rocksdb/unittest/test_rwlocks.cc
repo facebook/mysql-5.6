@@ -18,6 +18,9 @@
 // Utility data structures
 /////////////////////////////////////////////////////////////////////////////
 /* This will hold one lock table that we're testing */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 LockTable *lock_table;
 
 const int N_ACCTS= 100;
@@ -393,3 +396,5 @@ void do_tests()
 
   fprintf(stderr, "# tests end\n");
 }
+#pragma GCC diagnostic pop
+
