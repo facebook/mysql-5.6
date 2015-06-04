@@ -106,7 +106,7 @@ class FbsonToJson {
 
   void string_to_json(const char *str, int len){
     os_.put('"');
-    if(NULL == str){
+    if(nullptr == str){
       os_.put('"');
       return;
     }
@@ -117,7 +117,7 @@ class FbsonToJson {
       else {
         os_.put('\\');
         unsigned char token;
-        switch (token = *ptr)	{
+        switch (token = *ptr) {
           case '\\':
             os_.put('\\');
             break;
@@ -140,9 +140,12 @@ class FbsonToJson {
             os_.put('t');
             break;
           default: {
-            int char_num = sprintf(char_buffer, "u%04x", token);
+            int char_num = snprintf(char_buffer,
+                                    sizeof(char_buffer),
+                                    "u%04x",
+                                    token);
             os_.write(char_buffer, char_num);
-            break;	/* escape and print */
+            break;
           }
         }
       }

@@ -548,27 +548,15 @@ TEST(FBSON_PARSER, string) {
   EXPECT_EQ("\"\\b\\f\\n\\r\\t\"", std::string(raw_json));
 
   // string with escape Unicode characters
-  pval = doc->find("k7加");
+  pval = doc->find("k7\u52A0");
   EXPECT_TRUE(pval != nullptr);
   EXPECT_TRUE(pval->isString());
-  EXPECT_EQ(strlen("加州"), pval->size());
-  EXPECT_EQ("加州",
+  EXPECT_EQ(strlen("\u52A0\u5DDE"), pval->size());
+  EXPECT_EQ("\u52A0\u5DDE",
             std::string(pval->getValuePtr(), pval->size()));
   raw_json = tojson.json(pval);
-  EXPECT_EQ(strlen("\"加州\""), strlen(raw_json));
-  EXPECT_EQ("\"加州\"", std::string(raw_json));
-
-  // the same test as above, but use literal unicode instead
-  pval = doc->find("k7\u52a0");
-  EXPECT_TRUE(pval != nullptr);
-  EXPECT_TRUE(pval->isString());
-  EXPECT_EQ(strlen("\u52a0\u5dde"), pval->size());
-  EXPECT_EQ("\u52a0\u5dde",
-            std::string(pval->getValuePtr(), pval->size()));
-  raw_json = tojson.json(pval);
-  EXPECT_EQ(strlen("\"\u52a0\u5dde\""), strlen(raw_json));
-  EXPECT_EQ("\"\u52a0\u5dde\"", std::string(raw_json));
-
+  EXPECT_EQ(strlen("\"\u52A0\u5DDE\""), strlen(raw_json));
+  EXPECT_EQ("\"\u52A0\u5DDE\"", std::string(raw_json));
 
   // string with control characters
   pval = doc->find("k8");

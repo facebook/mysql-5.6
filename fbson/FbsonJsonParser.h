@@ -282,7 +282,7 @@ class FbsonJsonParserT {
           err_ = FbsonErrType::E_INVALID_KEY;
           return false;
         }
-        strncpy(key + key_len, escape_buffer, len);
+        memcpy(key + key_len, escape_buffer, len);
         key_len += len;
       }else{
         key[key_len++] = ch;
@@ -409,27 +409,25 @@ class FbsonJsonParserT {
   */
   unsigned parseHexHelper(std::istream &in,
                           uint64_t &val,
-                          unsigned hex_num = 16){
+                          unsigned hex_num = 17){
+  // We can't read more than 17 digits, so when read 17 digits, it's overflow
     val = 0;
     unsigned num_digits = 0;
     char ch = tolower(in.peek());
-    while (in.good() && !strchr(kJsonDelim, ch) &&
-           hex_num != num_digits) {
+    while (in.good() &&
+           !strchr(kJsonDelim, ch) &&
+           num_digits != hex_num) {
       if (ch >= '0' && ch <= '9') {
         val = (val << 4) + (ch - '0');
       } else if (ch >= 'a' && ch <= 'f') {
         val = (val << 4) + (ch - 'a' + 10);
-      } else { // unrecognized hex digit
+      } else {
+        // unrecognized hex digit
         return 0;
       }
       in.ignore();
       ch = tolower(in.peek());
       ++num_digits;
-    }
-    if(num_digits == 0)
-      return 0;
-    if(hex_num > 0 && num_digits != hex_num){
-      return 0;
     }
     return num_digits;
   }
