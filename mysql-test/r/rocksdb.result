@@ -835,6 +835,8 @@ rocksdb_cache_index_and_filter_blocks	ON
 rocksdb_cf_options_file	
 rocksdb_collect_sst_properties	ON
 rocksdb_compact_cf	
+rocksdb_compaction_sequential_deletes	0
+rocksdb_compaction_sequential_deletes_file_size	0
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
 rocksdb_db_write_buffer_size	0
