@@ -1,0 +1,120 @@
+--disable_warnings
+DROP TABLE IF EXISTS r1;
+--enable_warnings
+
+create table r1 (
+ id1 int,
+ id2 int,
+ type int,
+ value varchar(100),
+ value2 int,
+ value3 int,
+ primary key (type, id1, id2),
+ index id1_type (id1, type, value2, value, id2)
+) engine=rocksdb collate latin1_bin;
+
+select 'loading data';
+
+--disable_query_log
+let $i=0;
+while ($i<1000)
+{
+  inc $i;
+  eval insert r1(id1, id2, type, value, value2, value3) 
+  values($i,$i,$i, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',$i,$i);
+}
+--enable_query_log
+
+set global rocksdb_force_flush_memtable_now=1;
+optimize table r1;
+#show engine rocksdb status;
+
+#
+# Test 1: Do a bunch of updates without setting the compaction sysvar
+# Expect: no compaction
+#
+let $save_rocksdb_compaction_sequential_deletes = `SELECT @@rocksdb_compaction_sequential_deletes`;
+set global rocksdb_compaction_sequential_deletes=0;
+let $save_rocksdb_compaction_sequential_deletes_file_size = `SELECT @@rocksdb_compaction_sequential_deletes_file_size`;
+set global rocksdb_compaction_sequential_deletes_file_size=0;
+--disable_query_log
+let $i=0;
+while ($i<1000)
+{
+  inc $i;
+  eval update r1 set value2=value2+1 where id1=500;
+}
+--enable_query_log
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+--exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR
+eval SET GLOBAL rocksdb_compaction_sequential_deletes= $save_rocksdb_compaction_sequential_deletes;
+eval SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= $save_rocksdb_compaction_sequential_deletes_file_size;
+
+#
+# Test 2: Do a bunch of updates and set the compaction sysvar
+# Expect: compaction
+#
+let $save_rocksdb_compaction_sequential_deletes = `SELECT @@rocksdb_compaction_sequential_deletes`;
+set global rocksdb_compaction_sequential_deletes=999;
+let $save_rocksdb_compaction_sequential_deletes_file_size = `SELECT @@rocksdb_compaction_sequential_deletes_file_size`;
+set global rocksdb_compaction_sequential_deletes_file_size=0;
+--disable_query_log
+let $i=0;
+while ($i<1000)
+{
+  inc $i;
+  eval update r1 set value2=value2+1 where id1=500;
+}
+--enable_query_log
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+--exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR
+eval SET GLOBAL rocksdb_compaction_sequential_deletes= $save_rocksdb_compaction_sequential_deletes;
+eval SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= $save_rocksdb_compaction_sequential_deletes_file_size;
+
+#
+# Test 3: Do a bunch of updates and set the compaction sysvar and a file size to something large
+# Expect: no compaction
+#
+let $save_rocksdb_compaction_sequential_deletes = `SELECT @@rocksdb_compaction_sequential_deletes`;
+set global rocksdb_compaction_sequential_deletes=999;
+let $save_rocksdb_compaction_sequential_deletes_file_size = `SELECT @@rocksdb_compaction_sequential_deletes_file_size`;
+set global rocksdb_compaction_sequential_deletes_file_size=100000;
+--disable_query_log
+let $i=0;
+while ($i<1000)
+{
+  inc $i;
+  eval update r1 set value2=value2+1 where id1=500;
+}
+--enable_query_log
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+--exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR
+eval SET GLOBAL rocksdb_compaction_sequential_deletes= $save_rocksdb_compaction_sequential_deletes;
+eval SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= $save_rocksdb_compaction_sequential_deletes_file_size;
+
+#
+# Test 4: Do a bunch of updates and set the compaction sysvar and a file size to something small
+# Expect: compaction
+#
+let $save_rocksdb_compaction_sequential_deletes = `SELECT @@rocksdb_compaction_sequential_deletes`;
+set global rocksdb_compaction_sequential_deletes=999;
+let $save_rocksdb_compaction_sequential_deletes_file_size = `SELECT @@rocksdb_compaction_sequential_deletes_file_size`;
+set global rocksdb_compaction_sequential_deletes_file_size=1000;
+--disable_query_log
+let $i=0;
+while ($i<1000)
+{
+  inc $i;
+  eval update r1 set value2=value2+1 where id1=500;
+}
+--enable_query_log
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+--exec bash suite/rocksdb/t/sst_count_rows.sh $MYSQLTEST_VARDIR
+eval SET GLOBAL rocksdb_compaction_sequential_deletes= $save_rocksdb_compaction_sequential_deletes;
+eval SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= $save_rocksdb_compaction_sequential_deletes_file_size;
+
+drop table r1;

@@ -1,0 +1,61 @@
+DROP TABLE IF EXISTS r1;
+create table r1 (
+id1 int,
+id2 int,
+type int,
+value varchar(100),
+value2 int,
+value3 int,
+primary key (type, id1, id2),
+index id1_type (id1, type, value2, value, id2)
+) engine=rocksdb collate latin1_bin;
+select 'loading data';
+loading data
+loading data
+set global rocksdb_force_flush_memtable_now=1;
+optimize table r1;
+Table	Op	Msg_type	Msg_text
+test.r1	optimize	status	OK
+set global rocksdb_compaction_sequential_deletes=0;
+set global rocksdb_compaction_sequential_deletes_file_size=0;
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+sleep(1)
+0
+000007.sst 0 10
+000012.sst 0 2000
+000014.sst 1000 2
+SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
+set global rocksdb_compaction_sequential_deletes=999;
+set global rocksdb_compaction_sequential_deletes_file_size=0;
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+sleep(1)
+0
+000007.sst 0 10
+000017.sst 0 2000
+SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
+set global rocksdb_compaction_sequential_deletes=999;
+set global rocksdb_compaction_sequential_deletes_file_size=100000;
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+sleep(1)
+0
+000007.sst 0 10
+000017.sst 0 2000
+000019.sst 1000 2
+SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
+set global rocksdb_compaction_sequential_deletes=999;
+set global rocksdb_compaction_sequential_deletes_file_size=1000;
+set global rocksdb_force_flush_memtable_now=1;
+select sleep(1);
+sleep(1)
+0
+000007.sst 0 10
+000022.sst 0 2000
+SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
+drop table r1;
