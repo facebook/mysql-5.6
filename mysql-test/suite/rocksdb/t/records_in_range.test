@@ -56,6 +56,57 @@ explain extended select * from t1 where a< 750 and b> 500 and b< 750;
 # override records in range
 set rocksdb_records_in_range=444;
 explain extended select * from t1 where a< 750 and b> 500 and b< 750;
+set rocksdb_records_in_range=0;
+
+# issue 82
+## forward cf
+CREATE TABLE `linktable` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(3) NOT NULL DEFAULT '0',
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `version` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link_pk',
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`version`,`data`) COMMENT 'cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+
+insert into linktable values (1,1,1,1,1,1,1,1,1);
+insert into linktable values (1,1,2,1,1,1,1,1,1);
+insert into linktable values (1,1,3,1,1,1,1,1,1);
+insert into linktable values (1,1,4,1,1,1,1,1,1);
+optimize table linktable;
+select sleep(3); #long enough for stats to be persisted
+explain select id1, id2, link_type, visibility, data, time,  version from linktable where id1 = 1 and link_type = 1 and id2 in (1, 2);
+drop table linktable;
+
+## rev cf
+CREATE TABLE `linktable` (
+  `id1` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id1_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `id2` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `id2_type` int(10) unsigned NOT NULL DEFAULT '0',
+  `link_type` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `visibility` tinyint(3) NOT NULL DEFAULT '0',
+  `data` varchar(255) COLLATE latin1_bin NOT NULL DEFAULT '',
+  `time` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `version` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`link_type`,`id1`,`id2`) COMMENT 'cf_link_pk',
+  KEY `id1_type` (`id1`,`link_type`,`visibility`,`time`,`version`,`data`) COMMENT 'rev:cf_link_id1_type'
+) ENGINE=ROCKSDB DEFAULT CHARSET=latin1 COLLATE=latin1_bin;
+
+insert into linktable values (1,1,1,1,1,1,1,1,1);
+insert into linktable values (1,1,2,1,1,1,1,1,1);
+insert into linktable values (1,1,3,1,1,1,1,1,1);
+insert into linktable values (1,1,4,1,1,1,1,1,1);
+optimize table linktable;
+select sleep(3); #long enough for stats to be persisted
+explain select id1, id2, link_type, visibility, data, time,  version from linktable where id1 = 1 and link_type = 1 and id2 in (1, 2);
+drop table linktable;
+
 
 #cleanup
 DROP TABLE t1;
