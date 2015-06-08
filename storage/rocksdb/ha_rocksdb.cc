@@ -5076,6 +5076,12 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
       min_key->key,
       min_key->keypart_map
     );
+    if (min_key->flag == HA_READ_PREFIX_LAST_OR_PREV ||
+        min_key->flag == HA_READ_PREFIX_LAST ||
+        min_key->flag == HA_READ_AFTER_KEY)
+    {
+      kd->successor(sec_key_packed_tuple, size1);
+    }
   } else {
     kd->get_infimum_key(pk_packed_tuple, &size1);
   }
@@ -5089,6 +5095,12 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
       max_key->key,
       max_key->keypart_map
     );
+    if (max_key->flag == HA_READ_PREFIX_LAST_OR_PREV ||
+        max_key->flag == HA_READ_PREFIX_LAST ||
+        max_key->flag == HA_READ_AFTER_KEY)
+    {
+      kd->successor(sec_key_packed_tuple_old, size2);
+    }
     // pad the upper key with FFFFs to make sure it is more than the lower
     if (size1 > size2) {
       memset(sec_key_packed_tuple_old+size2, 0xff, size1-size2);
