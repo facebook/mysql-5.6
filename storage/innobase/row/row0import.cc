@@ -2068,12 +2068,16 @@ PageConverter::validate(
 		return(IMPORT_PAGE_STATUS_CORRUPTED);
 
 	} else if (offset > 0 && page_get_page_no(page) == 0) {
-		const byte*	b = page;
-		const byte*	e = b + m_page_size;
+		const byte*	b = page + FIL_PAGE_OFFSET;
+		const byte*	e = b + m_page_size
+				    - FIL_PAGE_OFFSET
+				    - FIL_PAGE_END_LSN_OLD_CHKSUM;
 
 		/* If the page number is zero and offset > 0 then
 		the entire page MUST consist of zeroes. If not then
-		we flag it as corrupt. */
+		we flag it as corrupt. Leave the checksum bytes out of this
+		check as an empty page doesn't mean empty checksum. Note
+		the checksum was validated above in buf_page_is_corrupted() */
 
 		while (b != e) {
 
