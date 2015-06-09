@@ -2085,7 +2085,9 @@ PageConverter::validate(
 
 		/* If the page number is zero and offset > 0 then
 		the entire page MUST consist of zeroes. If not then
-		we flag it as corrupt. */
+		we flag it as corrupt. Leave the checksum bytes out of this
+		check as an empty page doesn't mean empty checksum. Note
+		the checksum was validated above in buf_page_is_corrupted() */
 
 		while (b != e) {
 
