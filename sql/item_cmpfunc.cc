@@ -38,9 +38,9 @@ static bool convert_constant_item(THD *, Item_field *, Item **);
 static longlong
 get_year_value(THD *thd, Item ***item_arg, Item **cache_arg,
                Item *warn_item, bool *is_null);
-static bool compare_document_object(fbson::FbsonValue*, fbson::FbsonValue*);
-static bool compare_document_array(fbson::FbsonValue*, fbson::FbsonValue*);
-static bool compare_fbson_value(fbson::FbsonValue*, fbson::FbsonValue*);
+bool compare_document_object(fbson::FbsonValue*, fbson::FbsonValue*);
+bool compare_document_array(fbson::FbsonValue*, fbson::FbsonValue*);
+bool compare_fbson_value(fbson::FbsonValue*, fbson::FbsonValue*);
 static bool is_document_type_or_value(Item *a);
 
 static Item_result item_store_type(Item_result a, Item *item,
@@ -5506,7 +5506,7 @@ void Item_func_like::cleanup()
 
 /* Helper function to perform key by key comparison on document object.
  * Order of key-value pairs does NOT matter */
-static bool compare_document_object(fbson::FbsonValue *a, fbson::FbsonValue *b)
+bool compare_document_object(fbson::FbsonValue *a, fbson::FbsonValue *b)
 {
   /* Verify they're both non-null JSON objects of same size */
   DBUG_ASSERT(a && b);
@@ -5557,7 +5557,7 @@ static bool compare_document_object(fbson::FbsonValue *a, fbson::FbsonValue *b)
 
 /* Helper function to perform key by key comparison on document array.
  * Order of elements in array MATTERS */
-static bool compare_document_array(fbson::FbsonValue *a, fbson::FbsonValue *b)
+bool compare_document_array(fbson::FbsonValue *a, fbson::FbsonValue *b)
 {
   /* Verify they're both non-null JSON arrays */
   DBUG_ASSERT(a && b);
@@ -5584,7 +5584,7 @@ static bool compare_document_array(fbson::FbsonValue *a, fbson::FbsonValue *b)
 /* Compare two fbson values, if they are objects, order of keys do not matter
  * If the values are both strings, the right value can include wildcards
  * but the left value CANNOT (this is not a commutative comparison) */
-static bool compare_fbson_value(fbson::FbsonValue *a, fbson::FbsonValue *b)
+bool compare_fbson_value(fbson::FbsonValue *a, fbson::FbsonValue *b)
 {
   /* Check non-null pointers and that they are same type */
   DBUG_ASSERT(a && b);

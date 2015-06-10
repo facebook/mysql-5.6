@@ -61,6 +61,7 @@ select HEX(json) from test_json;
 
 select HEX(json_extract(json_extract(json_extract(json_extract(json, 'k1'), 1), 'k2'), 0)) from test_json;
 select json_contains_key(json_extract(json, 'k1', 1), 'k2') from test_json;
+select json_contains(json_extract(json, 'k1'), 'k2', DOCUMENT('["v1",2,true]')) from test_json;
 select json_array_length(json_extract(json, 'k1')) from test_json;
 # invalid key
 select HEX(json_extract(json_extract(json, 'foo'), 'k2')) from test_json;
@@ -71,6 +72,7 @@ truncate test_json;
 
 select HEX(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2'));
 select json_contains_key(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1', 1), 'k2');
+select json_contains(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'), 'k2', DOCUMENT('["v1",2,true]'));
 
 # testing large document
 
