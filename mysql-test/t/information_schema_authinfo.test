@@ -1,0 +1,10 @@
+--source include/have_ssl_communication.inc
+
+# Repeat connect/disconnect
+
+connect (test_con1,localhost,root,,,,,SSL);
+
+--replace_column 1 <Id> 3 <Host> 4 <SSL> 5 <Info>
+select * from information_schema.authinfo;
+
+disconnect test_con1;
