@@ -21,3 +21,13 @@ insert into test_json values ('');
 select json_array_length(json) from test_json;
 
 truncate test_json;
+
+insert into test_json values ('');
+
+# invalid json object (expecting error)
+--error ER_INVALID_JSON
+select json_contains(json, 'k1') from test_json;
+--error	ER_INVALID_JSON
+select json_contains(json, 'k1', 'v1') from test_json;
+
+truncate test_json;
