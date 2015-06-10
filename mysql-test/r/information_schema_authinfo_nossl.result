@@ -1,0 +1,4 @@
+select * from information_schema.authinfo;
+ID	USER	HOST	SSL	INFO
+<Id>	root	<Host>	0	NULL
+<Id>	root	<Host>	0	NULL
