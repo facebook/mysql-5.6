@@ -213,4 +213,95 @@ select json_array_length('');
 
 select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'));
 
+
+#
+# json_contains
+#
+
+# valid false key searches
+select json_contains('{}', 'k');
+select json_contains('{}', 'k', 'v');
+select json_contains('{}', 'k', 2);
+select json_contains('{}', 'k', null);
+select json_contains('{}', 'k', true);
+select json_contains('{}', 'k', false);
+select json_contains('{"k":"v"}', 'k1');
+select json_contains('{"k":"v"}', 'k', 'v1');
+select json_contains('{"k":"2"}', 'k', 2);
+select json_contains('{"k":2}', 'k', 3);
+select json_contains('{"k":true}', 'k', false);
+select json_contains('{"k":false}', 'k', true);
+select json_contains('{"k":null}', 'k', 0);
+select json_contains('{"k":{"k1":"v"}}', 'k', 'v');
+select json_contains('["k","v"]', 'k', 'v');
+select json_contains('["k","v"]', 'k');
+select json_contains('{"k":{"k1":"v"}}', 'k', '{"k1":"v"}');
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v"}'));
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v1_"}'));
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v2%"}'));
+
+# valid true key searches on first level
+select json_contains('{"k":"v"}', 'k');
+select json_contains('{"k":"v"}', 'k', 'v');
+select json_contains('{"k":"2"}', 'k', '2');
+select json_contains('{"k":2}', 'k', 2);
+select json_contains('{"k":true}', 'k', true);
+select json_contains('{"k":false}', 'k', false);
+select json_contains('{"k":null}', 'k', null);
+select json_contains('{"k":{"k1":"v"}}', 'k', DOCUMENT('{"k1":"v"}'));
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"_1"}'));
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"%"}'));
+
+# valid true key searches not on first level
+select json_contains('{"k1":{"k":"v"}}', 'k');
+select json_contains('{"k1":{"k":"v"}}', 'k', 'v');
+select json_contains('[{"k":"v"}]', 'k');
+select json_contains('[{"k":"v"}]', 'k', 'v');
+select json_contains('{"k":{"k":"2"}}', 'k', '2');
+select json_contains('[{"k":"2"}]', 'k', '2');
+select json_contains('{"k":{"k":true}}', 'k', true);
+select json_contains('[{"k":true}]', 'k', true);
+select json_contains('{"k":{"k":false}}', 'k', false);
+select json_contains('[{"k":false}]', 'k', false);
+select json_contains('{"k":{"k":null}}', 'k', null);
+select json_contains('[{"k":null}]', 'k', null);
+select json_contains('{"k1":{"k2":{"k3":"v3", "k4":"v4"}}}', 'k2', DOCUMENT('{"k4":"v4", "k3":"v3"}'));
+select json_contains('{"k1":{"k2":{"k3":"v3", "k4":"v4"}}}', 'k2', DOCUMENT('{"k4":"v_", "k3":"%"}'));
+
+# utf-8 multi-byte character
+select json_contains('[{"MySQL":"开源数据库"},"MySQL"]', 'MySQL');
+select json_contains('[{"MySQL":"开源数据库"},"MySQL"]', 'MySQL', '开源数据库');
+select json_contains('[{"开源数据库":"MySQL"},"开源数据库"]', '开源数据库');
+select json_contains('[{"开源数据库":"MySQL"},"开源数据库"]', '开源数据库', 'MySQL');
+
+# invalid arguments (expecting error)
+--error ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT
+select json_contains('{}');
+--error ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT
+select json_contains(null);
+--error ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT
+select json_contains(2);
+--error ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT
+select json_contains('{}', 'k', 'k', 'k');
+--error ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT
+select json_contains('{}', 'k1', 'k2', 'k3');
+--error ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT
+select json_contains('{}', 'k1', 'k2', 'k3', 'k4');
+--error ER_WRONG_ARGUMENTS
+select json_contains('{}', 2);
+--error ER_WRONG_ARGUMENTS
+select json_contains('{}', null);
+--error ER_WRONG_ARGUMENTS
+select json_contains('{}', true);
+--error ER_WRONG_ARGUMENTS
+select json_contains('{}', false);
+--error ER_INVALID_JSON
+select json_contains('foo', 'k');
+--error ER_INVALID_JSON
+select json_contains(2, 'k');
+--error ER_INVALID_JSON
+select json_contains(true, 'k');
+--error ER_INVALID_JSON
+select json_contains(null, 'k');
+
 --source include/rpl_end.inc
