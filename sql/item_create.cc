@@ -5592,6 +5592,39 @@ Create_func_json_array_length::create(THD *thd, Item *arg1)
 }
 
 
+class Create_func_json_contains : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_json_contains s_singleton;
+
+protected:
+  Create_func_json_contains() {}
+  virtual ~Create_func_json_contains() {}
+};
+
+Create_func_json_contains Create_func_json_contains::s_singleton;
+
+Item*
+Create_func_json_contains::create_native(THD *thd, LEX_STRING name,
+                                        List<Item> *item_list)
+{
+  int arg_count= 0;
+
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count < 2 || arg_count > 3)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+    return NULL;
+  }
+
+  return new (thd->mem_root) Item_func_json_contains(*item_list);
+}
+
+
 struct Native_func_registry
 {
   LEX_STRING name;
@@ -5903,6 +5936,7 @@ static Native_func_registry func_array[] =
   { { C_STRING_WITH_LEN("JSON_EXTRACT_VALUE") }, BUILDER(Create_func_json_extract_value)},
   { { C_STRING_WITH_LEN("JSON_CONTAINS_KEY") }, BUILDER(Create_func_json_contains_key)},
   { { C_STRING_WITH_LEN("JSON_ARRAY_LENGTH") }, BUILDER(Create_func_json_array_length)},
+  { { C_STRING_WITH_LEN("JSON_CONTAINS") }, BUILDER(Create_func_json_contains)},
 
   { {0, 0}, NULL}
 };
