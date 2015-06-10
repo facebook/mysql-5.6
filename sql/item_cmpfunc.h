@@ -24,6 +24,7 @@
 #include "my_regex.h"
 
 extern Item_result item_cmp_type(Item_result a,Item_result b);
+bool compare_fbson_value(fbson::FbsonValue*, fbson::FbsonValue*);
 class Item_bool_func2;
 class Arg_comparator;
 

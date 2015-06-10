@@ -387,4 +387,176 @@ ERROR HY000: Invalid JSON object: ''
 select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'));
 json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'))
 4
+select json_contains('{}', 'k');
+json_contains('{}', 'k')
+0
+select json_contains('{}', 'k', 'v');
+json_contains('{}', 'k', 'v')
+0
+select json_contains('{}', 'k', 2);
+json_contains('{}', 'k', 2)
+0
+select json_contains('{}', 'k', null);
+json_contains('{}', 'k', null)
+0
+select json_contains('{}', 'k', true);
+json_contains('{}', 'k', true)
+0
+select json_contains('{}', 'k', false);
+json_contains('{}', 'k', false)
+0
+select json_contains('{"k":"v"}', 'k1');
+json_contains('{"k":"v"}', 'k1')
+0
+select json_contains('{"k":"v"}', 'k', 'v1');
+json_contains('{"k":"v"}', 'k', 'v1')
+0
+select json_contains('{"k":"2"}', 'k', 2);
+json_contains('{"k":"2"}', 'k', 2)
+0
+select json_contains('{"k":2}', 'k', 3);
+json_contains('{"k":2}', 'k', 3)
+0
+select json_contains('{"k":true}', 'k', false);
+json_contains('{"k":true}', 'k', false)
+0
+select json_contains('{"k":false}', 'k', true);
+json_contains('{"k":false}', 'k', true)
+0
+select json_contains('{"k":null}', 'k', 0);
+json_contains('{"k":null}', 'k', 0)
+0
+select json_contains('{"k":{"k1":"v"}}', 'k', 'v');
+json_contains('{"k":{"k1":"v"}}', 'k', 'v')
+0
+select json_contains('["k","v"]', 'k', 'v');
+json_contains('["k","v"]', 'k', 'v')
+0
+select json_contains('["k","v"]', 'k');
+json_contains('["k","v"]', 'k')
+0
+select json_contains('{"k":{"k1":"v"}}', 'k', '{"k1":"v"}');
+json_contains('{"k":{"k1":"v"}}', 'k', '{"k1":"v"}')
+0
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v"}'));
+json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v"}'))
+0
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v1_"}'));
+json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v1_"}'))
+0
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v2%"}'));
+json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"v2%"}'))
+0
+select json_contains('{"k":"v"}', 'k');
+json_contains('{"k":"v"}', 'k')
+1
+select json_contains('{"k":"v"}', 'k', 'v');
+json_contains('{"k":"v"}', 'k', 'v')
+1
+select json_contains('{"k":"2"}', 'k', '2');
+json_contains('{"k":"2"}', 'k', '2')
+1
+select json_contains('{"k":2}', 'k', 2);
+json_contains('{"k":2}', 'k', 2)
+1
+select json_contains('{"k":true}', 'k', true);
+json_contains('{"k":true}', 'k', true)
+1
+select json_contains('{"k":false}', 'k', false);
+json_contains('{"k":false}', 'k', false)
+1
+select json_contains('{"k":null}', 'k', null);
+json_contains('{"k":null}', 'k', null)
+1
+select json_contains('{"k":{"k1":"v"}}', 'k', DOCUMENT('{"k1":"v"}'));
+json_contains('{"k":{"k1":"v"}}', 'k', DOCUMENT('{"k1":"v"}'))
+1
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"_1"}'));
+json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"_1"}'))
+1
+select json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"%"}'));
+json_contains('{"k":{"k1":"v1"}}', 'k', DOCUMENT('{"k1":"%"}'))
+1
+select json_contains('{"k1":{"k":"v"}}', 'k');
+json_contains('{"k1":{"k":"v"}}', 'k')
+1
+select json_contains('{"k1":{"k":"v"}}', 'k', 'v');
+json_contains('{"k1":{"k":"v"}}', 'k', 'v')
+1
+select json_contains('[{"k":"v"}]', 'k');
+json_contains('[{"k":"v"}]', 'k')
+1
+select json_contains('[{"k":"v"}]', 'k', 'v');
+json_contains('[{"k":"v"}]', 'k', 'v')
+1
+select json_contains('{"k":{"k":"2"}}', 'k', '2');
+json_contains('{"k":{"k":"2"}}', 'k', '2')
+1
+select json_contains('[{"k":"2"}]', 'k', '2');
+json_contains('[{"k":"2"}]', 'k', '2')
+1
+select json_contains('{"k":{"k":true}}', 'k', true);
+json_contains('{"k":{"k":true}}', 'k', true)
+1
+select json_contains('[{"k":true}]', 'k', true);
+json_contains('[{"k":true}]', 'k', true)
+1
+select json_contains('{"k":{"k":false}}', 'k', false);
+json_contains('{"k":{"k":false}}', 'k', false)
+1
+select json_contains('[{"k":false}]', 'k', false);
+json_contains('[{"k":false}]', 'k', false)
+1
+select json_contains('{"k":{"k":null}}', 'k', null);
+json_contains('{"k":{"k":null}}', 'k', null)
+1
+select json_contains('[{"k":null}]', 'k', null);
+json_contains('[{"k":null}]', 'k', null)
+1
+select json_contains('{"k1":{"k2":{"k3":"v3", "k4":"v4"}}}', 'k2', DOCUMENT('{"k4":"v4", "k3":"v3"}'));
+json_contains('{"k1":{"k2":{"k3":"v3", "k4":"v4"}}}', 'k2', DOCUMENT('{"k4":"v4", "k3":"v3"}'))
+1
+select json_contains('{"k1":{"k2":{"k3":"v3", "k4":"v4"}}}', 'k2', DOCUMENT('{"k4":"v_", "k3":"%"}'));
+json_contains('{"k1":{"k2":{"k3":"v3", "k4":"v4"}}}', 'k2', DOCUMENT('{"k4":"v_", "k3":"%"}'))
+1
+select json_contains('[{"MySQL":"开源数据库"},"MySQL"]', 'MySQL');
+json_contains('[{"MySQL":"开源数据库"},"MySQL"]', 'MySQL')
+1
+select json_contains('[{"MySQL":"开源数据库"},"MySQL"]', 'MySQL', '开源数据库');
+json_contains('[{"MySQL":"开源数据库"},"MySQL"]', 'MySQL', '开源数据库')
+1
+select json_contains('[{"开源数据库":"MySQL"},"开源数据库"]', '开源数据库');
+json_contains('[{"开源数据库":"MySQL"},"开源数据库"]', '开源数据库')
+1
+select json_contains('[{"开源数据库":"MySQL"},"开源数据库"]', '开源数据库', 'MySQL');
+json_contains('[{"开源数据库":"MySQL"},"开源数据库"]', '开源数据库', 'MySQL')
+1
+select json_contains('{}');
+ERROR 42000: Incorrect parameter count in the call to native function 'json_contains'
+select json_contains(null);
+ERROR 42000: Incorrect parameter count in the call to native function 'json_contains'
+select json_contains(2);
+ERROR 42000: Incorrect parameter count in the call to native function 'json_contains'
+select json_contains('{}', 'k', 'k', 'k');
+ERROR 42000: Incorrect parameter count in the call to native function 'json_contains'
+select json_contains('{}', 'k1', 'k2', 'k3');
+ERROR 42000: Incorrect parameter count in the call to native function 'json_contains'
+select json_contains('{}', 'k1', 'k2', 'k3', 'k4');
+ERROR 42000: Incorrect parameter count in the call to native function 'json_contains'
+select json_contains('{}', 2);
+ERROR HY000: Incorrect arguments to KEY MUST BE STRING
+select json_contains('{}', null);
+ERROR HY000: Incorrect arguments to KEY MUST BE STRING
+select json_contains('{}', true);
+ERROR HY000: Incorrect arguments to KEY MUST BE STRING
+select json_contains('{}', false);
+ERROR HY000: Incorrect arguments to KEY MUST BE STRING
+select json_contains('foo', 'k');
+ERROR HY000: Invalid JSON object: 'foo'
+select json_contains(2, 'k');
+ERROR HY000: Invalid JSON object: '2'
+select json_contains(true, 'k');
+ERROR HY000: Invalid JSON object: '1'
+select json_contains(null, 'k');
+ERROR HY000: Invalid JSON object: '(null)'
 include/rpl_end.inc

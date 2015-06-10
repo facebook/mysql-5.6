@@ -30,6 +30,7 @@
 #include "sql_class.h"
 #include "set_var.h"
 #include "mysqld.h"
+#include "item_cmpfunc.h"
 
 /*
  * Note we assume the system charset is UTF8,
@@ -460,4 +461,187 @@ longlong Item_func_json_array_length::val_int()
 
   null_value = 1;
   return 0;
+}
+
+/* Returns true if the item value matches that of the FbsonValue.
+ *
+ * For example, if the FbsonValue is Int8, check the val_int() of the item.
+ * If the FbsonValue is a String, check the val_str() of the item. */
+static bool compare_fbson_value_with_item(Item *item, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+  String str;
+
+  switch (pval->type())
+  {
+  case fbson::FbsonType::T_Null:
+    {
+      return (item->type() == Item::NULL_ITEM);
+    }
+  case fbson::FbsonType::T_False:
+    {
+      return (item->type() == Item::INT_ITEM && item->val_int() == 0);
+    }
+  case fbson::FbsonType::T_True:
+    {
+      return (item->type() == Item::INT_ITEM && item->val_int() == 1);
+    }
+  case fbson::FbsonType::T_String:
+    {
+      if (item->type() != Item::STRING_ITEM)
+        return false;
+
+      /* Compare strings character by character */
+      String *item_str = item->val_str(&str);
+      fbson::StringVal *str_val = (fbson::StringVal *)pval;
+
+      if (item_str->length() != str_val->getBlobLen())
+        return false;
+      return !memcmp(item_str->c_ptr(), str_val->getBlob(), item_str->length());
+    }
+  case fbson::FbsonType::T_Object:
+  case fbson::FbsonType::T_Array:
+    {
+      /* Perform SIMILAR comparison where all kvp's must match */
+      if (item->type() == Item::DOCUMENT_ITEM)
+      {
+        fbson::FbsonValue *pval2 = (fbson::FbsonValue*) item->val_fbson_blob();
+        if (pval2)
+          return compare_fbson_value(pval, pval2);
+      }
+      return false;
+    }
+  case fbson::FbsonType::T_Int8:
+    {
+      return (item->type() == Item::INT_ITEM &&
+          item->val_int() == ((fbson::Int8Val*)pval)->val());
+    }
+  case fbson::FbsonType::T_Int16:
+    {
+      return (item->type() == Item::INT_ITEM &&
+          item->val_int() == ((fbson::Int16Val*)pval)->val());
+    }
+  case fbson::FbsonType::T_Int32:
+    {
+      return (item->type() == Item::INT_ITEM &&
+          item->val_int() == ((fbson::Int32Val*)pval)->val());
+    }
+  case fbson::FbsonType::T_Int64:
+    {
+      return (item->type() == Item::INT_ITEM &&
+          item->val_int() == ((fbson::Int64Val*)pval)->val());
+    }
+  case fbson::FbsonType::T_Double:
+    {
+      return ((item->type() == Item::DECIMAL_ITEM ||
+          item->type() == Item::REAL_ITEM) &&
+          item->val_real() == ((fbson::DoubleVal*)pval)->val());
+    }
+  default:
+      DBUG_ASSERT(0);
+      return false;
+  }
+}
+
+/*
+ * Gets whether or not a key or key-value pair is contained in a document
+ * Input: pval      - FbsonValue object
+ *        key       - The key name to search for
+ *        val       - The value to search for (null is only search for key)
+ *
+ * Output: true if a key or key-value is contained in the document
+ *         false if the key or key-value could not be found anywhere in document
+ */
+static bool json_contains_helper(Item *key, Item *val, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  /* Check key is a string */
+  if (key->type() != Item::STRING_ITEM)
+  {
+    my_error(ER_WRONG_ARGUMENTS, MYF(0), "KEY MUST BE STRING");
+    return false;
+  }
+
+  String buffer;
+
+  if (pval->isObject())
+  {
+    String *key_str = key->val_str(&buffer);
+    fbson::FbsonValue *find = ((fbson::ObjectVal*)pval)->find(key_str->c_ptr());
+
+    /* Find the key or find the key-value pair */
+    if ((find && !val) ||
+        (find && val && compare_fbson_value_with_item(val, find)))
+      return true;
+
+    /* Continue searching recursively at the next level */
+    fbson::ObjectVal::iterator it = ((fbson::ObjectVal*) pval)->begin();
+    fbson::ObjectVal::iterator it_end = ((fbson::ObjectVal*) pval)->end();
+    for (; it != it_end; ++it)
+    {
+      if (json_contains_helper(key, val, it->value()))
+        return true;
+    }
+    return false;
+  }
+
+  /* Recursively search all key-value pairs in the array */
+  if (pval->isArray())
+  {
+    for (uint i = 0; i < ((fbson::ArrayVal*)pval)->numElem(); i++)
+    {
+      if (json_contains_helper(key, val, ((fbson::ArrayVal*)pval)->get(i)))
+        return true;
+    }
+  }
+
+  return false;
+}
+
+/*
+ * Item_func_json_contains will return true if the key-value pair can be found
+ * on any level of the document. If the value is omitted, it will search for
+ * just the key.
+ *
+ * First argument is the column name
+ * Second argument is the key
+ * Third argument (optional) is the value
+ */
+bool Item_func_json_contains::val_bool()
+{
+  DBUG_ASSERT(fixed);
+
+  null_value = 0;
+  String buffer;
+  String *pstr = nullptr;
+
+  /* "pstr" is set to the binary or string value of the item
+   * If "pstr" is the FBSON binary, "pval" will be the associated FbsonValue.
+   * If "pstr" is the JSON literal string, "pval" will be NULL */
+  fbson::FbsonValue *pval = get_fbson_val(args[0], pstr, &buffer);
+  if (pstr)
+  {
+    fbson::FbsonOutStream os;
+    if (!pval)
+      pval = get_fbson_val(pstr->c_ptr_safe(), os);
+
+    if (pval)
+    {
+      /* Search only for existence of key */
+      if (arg_count == 2)
+        return json_contains_helper(args[1], nullptr, pval);
+
+      /* Search for existence of key-value pair */
+      return json_contains_helper(args[1], args[2], pval);
+    }
+  }
+
+  my_error(ER_INVALID_JSON, MYF(0), args[0]->val_str(&buffer));
+  return false;
+}
+
+longlong Item_func_json_contains::val_int()
+{
+  return (val_bool() ? 1 : 0);
 }

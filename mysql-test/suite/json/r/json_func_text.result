@@ -438,6 +438,201 @@ from test_json where json_valid(json) is true order by 1,2;
 json_array_length(json_extract(json, 'k1'))	json
 4	{"k1":[1,{"k2":["v1",2,true]},3,false]}
 truncate test_json;
+insert into test_json values
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":1}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}'),
+('{"1":"2"}'),
+('{"1":2}'),
+('[{"开源数据库":"MySQL"},"开源数据库"]'),
+('{"k1":true, "k2":false, "k3":null}');
+select json_contains(json,'k1','v1'),json from test_json order by 1,2;
+json_contains(json,'k1','v1')	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":"v1","k1":{"k2":"v2"}}
+1	{"k1":"v1"}
+select json_contains(json,'k2','v2'),json from test_json order by 1,2;
+json_contains(json,'k2','v2')	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":"v1","k1":{"k2":"v2"}}
+select json_contains(json,'k1',1),json from test_json order by 1,2;
+json_contains(json,'k1',1)	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":1}
+1	{"k1":true, "k2":false, "k3":null}
+select json_contains(json,'1',2),json from test_json order by 1,2;
+json_contains(json,'1',2)	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"1":2}
+select json_contains(json,'k2'),json from test_json order by 1,2;
+json_contains(json,'k2')	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{}
+1	{"k1":"v1","k1":{"k2":"v2"}}
+1	{"k1":true, "k2":false, "k3":null}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+1	{"k1":{"k2":{"k3":12.345}}}
+select json_contains(json,'1'),json from test_json order by 1,2;
+json_contains(json,'1')	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"1":"2"}
+1	{"1":2}
+select json_contains(json,'1','2'),json from test_json order by 1,2;
+json_contains(json,'1','2')	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"1":"2"}
+select json_contains(json,'开源数据库', 'MySQL'),json from test_json order by 1,2;
+json_contains(json,'开源数据库', 'MySQL')	json
+0	[1,2,3,4]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	[{"开源数据库":"MySQL"},"开源数据库"]
+select json_contains(json,'k1',true),json from test_json order by 1,2;
+json_contains(json,'k1',true)	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":1}
+1	{"k1":true, "k2":false, "k3":null}
+select json_contains(json,'k2',false),json from test_json order by 1,2;
+json_contains(json,'k2',false)	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":true, "k2":false, "k3":null}
+select json_contains(json,'k3',null),json from test_json order by 1,2;
+json_contains(json,'k3',null)	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":true, "k2":false, "k3":null}
+select json_contains(json,'k2',DOCUMENT('{"k3":12.345}')),json from test_json order by 1,2;
+json_contains(json,'k2',DOCUMENT('{"k3":12.345}'))	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+0	{}
+1	{"k1":{"k2":{"k3":12.345}}}
+select json_contains(json,'k2',DOCUMENT('["v_",2,true]')),json from test_json order by 1,2;
+json_contains(json,'k2',DOCUMENT('["v_",2,true]'))	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+select json_contains(json,'k2',DOCUMENT('["%",2,true]')),json from test_json order by 1,2;
+json_contains(json,'k2',DOCUMENT('["%",2,true]'))	json
+0	[1,2,3,4]
+0	[{"开源数据库":"MySQL"},"开源数据库"]
+0	{"1":"2"}
+0	{"1":2}
+0	{"k1":"v1","k1":{"k2":"v2"}}
+0	{"k1":"v1"}
+0	{"k1":1}
+0	{"k1":true, "k2":false, "k3":null}
+0	{"k1":{"k2":{"k3":12.345}}}
+0	{}
+1	{"k1":[1,{"k2":["v1",2,true]},3,false]}
+truncate test_json;
 insert into test_json values ('');
 select json_extract(json, 'k1') from test_json;
 ERROR HY000: Invalid JSON object: ''
@@ -448,6 +643,12 @@ ERROR HY000: Invalid JSON object: ''
 truncate test_json;
 insert into test_json values ('');
 select json_array_length(json) from test_json;
+ERROR HY000: Invalid JSON object: ''
+truncate test_json;
+insert into test_json values ('');
+select json_contains(json, 'k1') from test_json;
+ERROR HY000: Invalid JSON object: ''
+select json_contains(json, 'k1', 'v1') from test_json;
 ERROR HY000: Invalid JSON object: ''
 truncate test_json;
 drop table test_json;

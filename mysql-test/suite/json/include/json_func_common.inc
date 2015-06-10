@@ -199,3 +199,38 @@ select json_array_length(json_extract(json, 'k1')),json
 from test_json where json_valid(json) is true order by 1,2;
 
 truncate test_json;
+
+#
+# json_contains
+#
+
+# test on table
+insert into test_json values
+('{}'),
+('{"k1":"v1"}'),
+('{"k1":1}'),
+('[1,2,3,4]'),
+('{"k1":{"k2":{"k3":12.345}}}'),
+('{"k1":"v1","k1":{"k2":"v2"}}'),
+('{"k1":[1,{"k2":["v1",2,true]},3,false]}'),
+('{"1":"2"}'),
+('{"1":2}'),
+('[{"开源数据库":"MySQL"},"开源数据库"]'),
+('{"k1":true, "k2":false, "k3":null}');
+
+select json_contains(json,'k1','v1'),json from test_json order by 1,2;
+select json_contains(json,'k2','v2'),json from test_json order by 1,2;
+select json_contains(json,'k1',1),json from test_json order by 1,2;
+select json_contains(json,'1',2),json from test_json order by 1,2;
+select json_contains(json,'k2'),json from test_json order by 1,2;
+select json_contains(json,'1'),json from test_json order by 1,2;
+select json_contains(json,'1','2'),json from test_json order by 1,2;
+select json_contains(json,'开源数据库', 'MySQL'),json from test_json order by 1,2;
+select json_contains(json,'k1',true),json from test_json order by 1,2;
+select json_contains(json,'k2',false),json from test_json order by 1,2;
+select json_contains(json,'k3',null),json from test_json order by 1,2;
+select json_contains(json,'k2',DOCUMENT('{"k3":12.345}')),json from test_json order by 1,2;
+select json_contains(json,'k2',DOCUMENT('["v_",2,true]')),json from test_json order by 1,2;
+select json_contains(json,'k2',DOCUMENT('["%",2,true]')),json from test_json order by 1,2;
+
+truncate test_json;
