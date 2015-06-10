@@ -2115,6 +2115,59 @@ static const char *thread_state_info(THD *tmp)
   }
 }
 
+#ifdef HAVE_OPENSSL
+BUF_MEM *get_peer_cert_info(THD *thd)
+{
+  assert(thd);
+
+  if(!thd->vio_ok() || !thd->net.vio->ssl_arg) {
+    return NULL;
+  }
+
+  assert(thd->vio_ok() && thd->net.vio->ssl_arg);
+
+  SSL *ssl= (SSL*) thd->net.vio->ssl_arg;
+
+  // extract user cert ref from the thread
+  X509 *cert= SSL_get_peer_certificate(ssl);
+  if (!cert) {
+    return NULL;
+  }
+
+  // Create new X509 buffer abstraction
+  BIO *bio = BIO_new(BIO_s_mem());
+  if (!bio) {
+    return NULL;
+  }
+
+  // Print the certificate to the buffer
+  int status = X509_print(bio, cert);
+  if (status != 1) {
+    BIO_free(bio);
+    return NULL;
+  }
+
+  // decouple buffer and close bio object
+  BUF_MEM *bufmem;
+  BIO_get_mem_ptr(bio, &bufmem);
+  (void) BIO_set_close(bio, BIO_NOCLOSE);
+  BIO_free(bio);
+
+  assert(bufmem->length <= bufmem->max);
+  if (bufmem->length) {
+    // the buffer is not null terminated, fix that
+    const size_t n = bufmem->length < bufmem->max ? bufmem->length
+                                                 : bufmem->max - 1;
+    bufmem->data[n] = 0;
+    return bufmem;
+  }
+
+  assert(!bufmem->length);
+  BUF_MEM_free(bufmem);
+  return NULL;
+}
+#endif
+
 void mysqld_list_processes(THD *thd,const char *user, bool verbose)
 {
   Item *field;
@@ -2373,6 +2426,100 @@ int fill_schema_processlist(THD* thd, TABLE_LIST* tables, Item* cond)
     mysql_mutex_unlock(&LOCK_thd_remove);
   }
 
+  DBUG_RETURN(0);
+}
+
+int fill_schema_authinfo(THD* thd, TABLE_LIST* tables, Item* cond)
+{
+  DBUG_ENTER("fill_schema_authinfo");
+
+  TABLE *table= tables->table;
+  CHARSET_INFO *cs= system_charset_info;
+
+  char *const user= thd->security_ctx->master_access & PROCESS_ACL ?
+                    NullS : thd->security_ctx->priv_user;
+
+  if (thd->killed) {
+    DBUG_RETURN(0);
+  }
+
+  assert(!thd->killed);
+
+  /* take copy of global_thread_list */
+  std::set<THD*> global_thread_list_copy;
+
+  /*
+    Allow inserts to global_thread_list. Newly added thd
+    will not be accounted for `fill schema processlist` and
+    removal from global_thread_list is blocked as LOCK_thd_remove
+    mutex is not released yet
+  */
+  mysql_mutex_lock(&LOCK_thd_remove);
+  copy_global_thread_list(&global_thread_list_copy);
+
+  Thread_iterator it= global_thread_list_copy.begin();
+  Thread_iterator end= global_thread_list_copy.end();
+  for (; it != end; ++it) {
+    THD* tmp= *it;
+    Security_context *tmp_sctx= tmp->security_ctx;
+
+    if ((!tmp->vio_ok() && !tmp->system_thread) ||
+        (user && (!tmp_sctx->user || strcmp(tmp_sctx->user, user))))
+        continue;
+
+    restore_record(table, s->default_values);
+
+    /* ID */
+    table->field[0]->store((ulonglong) tmp->thread_id, TRUE);
+
+    /* USER */
+    const char *val= tmp_sctx->user ? tmp_sctx->user :
+          (tmp->system_thread ? "system user" : "unauthenticated user");
+    table->field[1]->store(val, strlen(val), cs);
+
+    /* HOST */
+    if (tmp->peer_port && (tmp_sctx->get_host()->length() ||
+        tmp_sctx->get_ip()->length()) && thd->security_ctx->host_or_ip[0]) {
+      char host[LIST_PROCESS_HOST_LEN + 1];
+      my_snprintf(host, LIST_PROCESS_HOST_LEN, "%s:%u", tmp_sctx->host_or_ip,
+                  tmp->peer_port);
+      table->field[2]->store(host, strlen(host), cs);
+    } else {
+      table->field[2]->store(tmp_sctx->host_or_ip, strlen(tmp_sctx->host_or_ip),
+                             cs);
+    }
+
+    /* SSL */
+    bool ssl = false;
+#ifdef HAVE_OPENSSL
+    ssl = (tmp->vio_ok() && tmp->net.vio->ssl_arg);
+#endif
+    table->field[3]->store(ssl, /*unsigned=*/ TRUE);
+
+    /* Info */
+    char* cert = NULL;
+#ifdef HAVE_OPENSSL
+    BUF_MEM *bufmem = get_peer_cert_info(tmp);
+    cert = bufmem ? bufmem->data : NULL;
+#endif
+    if (cert) {
+      const size_t certlen = cert ? strlen(cert) : 0;
+      const size_t width = min<size_t>(PROCESS_LIST_INFO_WIDTH, certlen);
+      table->field[4]->store(cert, width, cs);
+      table->field[4]->set_notnull();
+    }
+
+#ifdef HAVE_OPENSSL
+    BUF_MEM_free(bufmem);
+#endif
+
+    if (schema_table_store_record(thd, table)) {
+      mysql_mutex_unlock(&LOCK_thd_remove);
+      DBUG_RETURN(1);
+    }
+  }
+
+  mysql_mutex_unlock(&LOCK_thd_remove);
   DBUG_RETURN(0);
 }
 
@@ -8199,6 +8346,18 @@ ST_FIELD_INFO processlist_fields_info[]=
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 
+ST_FIELD_INFO authinfo_fields_info[]=
+{
+  {"ID", 21, MYSQL_TYPE_LONGLONG, 0, MY_I_S_UNSIGNED, "Id", SKIP_OPEN_TABLE},
+  {"USER", USERNAME_CHAR_LENGTH, MYSQL_TYPE_STRING, 0, 0, "User",
+   SKIP_OPEN_TABLE},
+  {"HOST", LIST_PROCESS_HOST_LEN,  MYSQL_TYPE_STRING, 0, 0, "Host",
+   SKIP_OPEN_TABLE},
+  {"SSL", 7,  MYSQL_TYPE_LONG, 0, 0, "Host", SKIP_OPEN_TABLE},
+  {"INFO", PROCESS_LIST_INFO_WIDTH, MYSQL_TYPE_STRING, 0, 1, "Info",
+   SKIP_OPEN_TABLE},
+  {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
+};
 
 ST_FIELD_INFO plugin_fields_info[]=
 {
@@ -8473,6 +8632,8 @@ ST_SCHEMA_TABLE schema_tables[]=
   {"VIEWS", view_fields_info, create_schema_table, 
    get_all_tables, 0, get_schema_views_record, 1, 2, 0,
    OPEN_VIEW_ONLY|OPTIMIZE_I_S_TABLE},
+  {"AUTHINFO", authinfo_fields_info, create_schema_table,
+   fill_schema_authinfo, make_old_format, 0, -1, -1, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 

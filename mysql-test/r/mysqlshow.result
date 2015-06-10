@@ -116,6 +116,7 @@ Database: information_schema
 | USER_PRIVILEGES                       |
 | USER_STATISTICS                       |
 | VIEWS                                 |
+| AUTHINFO                              |
 | INNODB_LOCKS                          |
 | INNODB_TRX                            |
 | INNODB_SYS_DATAFILES                  |
@@ -187,6 +188,7 @@ Database: INFORMATION_SCHEMA
 | USER_PRIVILEGES                       |
 | USER_STATISTICS                       |
 | VIEWS                                 |
+| AUTHINFO                              |
 | INNODB_LOCKS                          |
 | INNODB_TRX                            |
 | INNODB_SYS_DATAFILES                  |

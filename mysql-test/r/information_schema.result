@@ -90,6 +90,7 @@ USER_LATENCY_HISTOGRAMS
 USER_PRIVILEGES
 USER_STATISTICS
 VIEWS
+AUTHINFO
 columns_priv
 db
 event
@@ -822,6 +823,7 @@ information_schema	ROUTINES	ROUTINE_COMMENT
 information_schema	TRIGGERS	ACTION_CONDITION
 information_schema	TRIGGERS	ACTION_STATEMENT
 information_schema	VIEWS	VIEW_DEFINITION
+information_schema	AUTHINFO	INFO
 select table_name, column_name, data_type from information_schema.columns
 where table_schema not like 'performance_schema'
   and data_type = 'datetime'
@@ -910,7 +912,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	37
+information_schema	38
 mysql	26
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1332,7 +1334,6 @@ select 1 as f1 from information_schema.tables  where "CHARACTER_SETS"=
 where table_schema != 'performance_schema'
  order by table_name limit 1) limit 1;
 f1
-1
 select t.table_name, group_concat(t.table_schema, '.', t.table_name),
 count(*) as num1
 from information_schema.tables t
@@ -1350,6 +1351,7 @@ group by c2.column_type order by num limit 1)
 and t.table_name not like 'innodb_%'
 group by t.table_name order by num1, t.table_name;
 table_name	group_concat(t.table_schema, '.', t.table_name)	num1
+AUTHINFO	information_schema.AUTHINFO	1
 CHARACTER_SETS	information_schema.CHARACTER_SETS	1
 COLLATIONS	information_schema.COLLATIONS	1
 COLLATION_CHARACTER_SET_APPLICABILITY	information_schema.COLLATION_CHARACTER_SET_APPLICABILITY	1
