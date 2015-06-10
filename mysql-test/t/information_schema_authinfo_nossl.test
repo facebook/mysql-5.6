@@ -1,0 +1,8 @@
+# Repeat connect/disconnect
+
+connect(test_con1,localhost,root,,,);
+
+--replace_column 1 <Id> 3 <Host>
+select * from information_schema.authinfo;
+
+disconnect test_con1;
