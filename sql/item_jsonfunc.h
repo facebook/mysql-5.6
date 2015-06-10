@@ -71,4 +71,13 @@ public:
   void fix_length_and_dec() { max_length=21; }
 };
 
+class Item_func_json_contains :public Item_bool_func
+{
+public:
+  Item_func_json_contains(List<Item> &list) :Item_bool_func(list) {}
+  const char *func_name() const { return "json_contains"; }
+  bool val_bool();
+  longlong val_int();
+};
+
 #endif /* ITEM_JSONFUNC_INCLUDED */
