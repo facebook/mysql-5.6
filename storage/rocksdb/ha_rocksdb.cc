@@ -26,6 +26,7 @@
 #include "sql_array.h"
 
 #include "my_bit.h"
+#include "my_stacktrace.h"
 
 #include <sstream>
 
@@ -5806,7 +5807,7 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
       sql_print_error("RocksDB: Failed to write to WAL - status %d",
                       status.code());
       sql_print_error("RocksDB: Aborting on WAL write error.");
-      exit(EXIT_FAILURE);
+      abort_with_stack_traces();
       break;
     }
     case ROCKSDB_IO_ERROR_BG_THREAD:
@@ -5819,6 +5820,13 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
       DBUG_ASSERT(0);
       break;
     }
+  }
+  else if (status.IsCorruption())
+  {
+      sql_print_error("RocksDB: Data Corruption detected! %d",
+                      status.code());
+      sql_print_error("RocksDB: Aborting because of data corruption.");
+      abort_with_stack_traces();
   }
 }
 
