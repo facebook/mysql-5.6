@@ -40,18 +40,18 @@ create index t4_1 on t4(b) comment 'rev:cf_t4';
 optimize table t1, t2, t3, t4, t5;
 --source wait_stat_compute.inc
 
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 create index t4_2 on t4(a);
 optimize table t4;
 --source wait_stat_compute.inc
 
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # restart the server, check the stats
 --source include/restart_mysqld.inc
 
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 drop table t1;
 drop table t2;
