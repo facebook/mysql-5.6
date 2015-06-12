@@ -8,10 +8,10 @@ select * from information_schema.engines where engine = 'rocksdb';
 --disable_warnings
 drop table if exists t0,t1,t2,t3;
 --enable_warnings
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
-create table t1(a int);
+create table t1(a int) engine=myisam;
 insert into t1 select A.a + B.a* 10 + C.a * 100 from t0 A, t0 B, t0 C;
 
 eval 
