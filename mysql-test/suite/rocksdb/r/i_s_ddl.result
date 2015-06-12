@@ -6,12 +6,12 @@ ENGINE = ROCKSDB;
 CREATE TABLE is_ddl_t2 (x INT, y INT, z INT,
 PRIMARY KEY (z, y) COMMENT 'zy_cf',
 KEY (x)) ENGINE = ROCKSDB;
-SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME like 'is_ddl_t%';
-TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	INDEX_NUMBER	CF
-test	is_ddl_t2	NULL	PRIMARY	10	zy_cf
-test	is_ddl_t2	NULL	x	11	default
-test	is_ddl_t1	NULL	PRIMARY	7	default
-test	is_ddl_t1	NULL	j	8	default
-test	is_ddl_t1	NULL	k	9	kl_cf
+SELECT TABLE_SCHEMA,TABLE_NAME,PARTITION_NAME,INDEX_NAME,CF FROM INFORMATION_SCHEMA.ROCKSDB_DDL WHERE TABLE_NAME like 'is_ddl_t%';
+TABLE_SCHEMA	TABLE_NAME	PARTITION_NAME	INDEX_NAME	CF
+test	is_ddl_t2	NULL	PRIMARY	zy_cf
+test	is_ddl_t2	NULL	x	default
+test	is_ddl_t1	NULL	PRIMARY	default
+test	is_ddl_t1	NULL	j	default
+test	is_ddl_t1	NULL	k	kl_cf
 DROP TABLE is_ddl_t1;
 DROP TABLE is_ddl_t2;
