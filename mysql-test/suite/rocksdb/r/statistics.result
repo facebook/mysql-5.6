@@ -25,33 +25,33 @@ test.t4	optimize	status	OK
 test.t5	optimize	status	OK
 set global rocksdb_force_flush_memtable_now = true;
 select variable_value into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	data_length	index_length	table_rows
-t1	1881705	900022	100000
-t2	2085309	0	100000
-t3	2076121	893235	100000
-t4	2075552	892497	100000
-t5	927368	0	49999
+SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	round(data_length/10000)	round(index_length/10000)	table_rows
+t1	188	90	100000
+t2	209	0	100000
+t3	208	89	100000
+t4	208	89	100000
+t5	93	0	49999
 create index t4_2 on t4(a);
 optimize table t4;
 Table	Op	Msg_type	Msg_text
 test.t4	optimize	status	OK
 set global rocksdb_force_flush_memtable_now = true;
 select variable_value into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	data_length	index_length	table_rows
-t1	1881705	900022	100000
-t2	2085309	0	100000
-t3	2076121	893235	100000
-t4	1861049	2652946	100000
-t5	927368	0	49999
-SELECT table_name, data_length, index_length, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	data_length	index_length	table_rows
-t1	1881705	900022	100000
-t2	2085309	0	100000
-t3	2076121	893235	100000
-t4	1861049	2652946	100000
-t5	927368	0	49999
+SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	round(data_length/10000)	round(index_length/10000)	table_rows
+t1	188	90	100000
+t2	209	0	100000
+t3	208	89	100000
+t4	186	265	100000
+t5	93	0	49999
+SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	round(data_length/10000)	round(index_length/10000)	table_rows
+t1	188	90	100000
+t2	209	0	100000
+t3	208	89	100000
+t4	186	265	100000
+t5	93	0	49999
 drop table t1;
 drop table t2;
 drop table t3;
