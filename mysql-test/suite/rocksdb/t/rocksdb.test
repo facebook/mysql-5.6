@@ -1,7 +1,7 @@
 #
 # RocksDB Storage Engine tests
 #
-select * from information_schema.engines where engine = 'rocksdb';
+select ENGINE,COMMENT,TRANSACTIONS,XA,SAVEPOINTS from information_schema.engines where engine = 'rocksdb';
 
 --disable_warnings
 drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10;
@@ -1122,7 +1122,7 @@ DROP TABLE t1;
 --echo #
 --echo # Fix issue #5: Transaction rollback doesn't undo all changes.
 --echo #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
 create table t1 (id int auto_increment primary key, value int) engine=rocksdb;
@@ -1154,7 +1154,7 @@ select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME 
 --echo #
 --echo # Fix issue #9: HA_ERR_INTERNAL_ERROR when running linkbench
 --echo #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
 create table t1 (
@@ -1169,7 +1169,7 @@ drop table t0, t1;
 --echo #
 --echo # Fix issue #10: Segfault in RDBSE_KEYDEF::get_primary_key_tuple
 --echo #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
 CREATE TABLE t1 (
@@ -1304,7 +1304,7 @@ create table t1 (
 --echo #
 --echo # Issue #22: SELECT ... FOR UPDATE takes a long time
 --echo #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
 create table t1 (
@@ -1381,7 +1381,7 @@ drop table t1;
 --echo #
 --echo # Issue #26: Index-only scans for DATETIME and TIMESTAMP
 --echo #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
 --echo # Try a DATETIME column:
