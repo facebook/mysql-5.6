@@ -1,6 +1,6 @@
-select * from information_schema.engines where engine = 'rocksdb';
-ENGINE	SUPPORT	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
-ROCKSDB	YES	RocksDB storage engine	YES	YES	NO
+select ENGINE,COMMENT,TRANSACTIONS,XA,SAVEPOINTS from information_schema.engines where engine = 'rocksdb';
+ENGINE	COMMENT	TRANSACTIONS	XA	SAVEPOINTS
+ROCKSDB	RocksDB storage engine	YES	YES	NO
 drop table if exists t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10;
 drop table if exists t11,t12,t13,t14,t15,t16,t17,t18,t19,t20;
 drop table if exists t21,t22,t23,t24,t25,t26,t27,t28,t29;
@@ -1333,7 +1333,7 @@ DROP TABLE t1;
 #
 # Fix issue #5: Transaction rollback doesn't undo all changes.
 #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t1 (id int auto_increment primary key, value int) engine=rocksdb;
 set autocommit=0;
@@ -1524,7 +1524,7 @@ ROCKSDB_WRITE_WAL
 #
 # Fix issue #9: HA_ERR_INTERNAL_ERROR when running linkbench
 #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t1 (
 pk int primary key, 
@@ -1539,7 +1539,7 @@ drop table t0, t1;
 #
 # Fix issue #10: Segfault in RDBSE_KEYDEF::get_primary_key_tuple
 #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 CREATE TABLE t1 (
 id1 bigint(20) unsigned NOT NULL DEFAULT '0',
@@ -1666,7 +1666,7 @@ ERROR 42000: This version of MySQL doesn't yet support 'column family name looks
 #
 # Issue #22: SELECT ... FOR UPDATE takes a long time
 #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 create table t1 (
 id1 int,
@@ -1740,7 +1740,7 @@ drop table t1;
 #
 # Issue #26: Index-only scans for DATETIME and TIMESTAMP
 #
-create table t0 (a int);
+create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 # Try a DATETIME column:
 create table t1 (
@@ -1891,7 +1891,7 @@ explain
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	kp1	kp1	4	NULL	1	Using where; Using index
+1	SIMPLE	t1	range	kp1	kp1	5	NULL	1	Using where; Using index
 select kp1,kp2 from t1 force index (kp1) 
 where kp1 between '2015-01-01 00:00:00' and '2015-01-05 23:59:59';
 kp1	kp2
