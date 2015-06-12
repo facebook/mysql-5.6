@@ -1,2 +1,3 @@
 --skip-rocksdb_debug_optimizer_no_zero_cardinality
-
+--rocksdb_seconds_between_stat_computes=2
+--rocksdb_compaction_sequential_deletes=0
