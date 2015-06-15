@@ -4,12 +4,11 @@ source suite/xtrabackup/include/xb_setup.inc;
 
 connection server_1;
 create database db1;
-let $socket = `select @@socket`;
 
 --let $rpl_server_number= 2
 --source include/rpl_stop_server.inc
 
---exec suite/xtrabackup/include/xb_drop_tables_and_run.sh $socket 2>&1
+--exec suite/xtrabackup/include/xb_drop_tables_and_run.sh 2>&1
 
 --let $rpl_server_number= 2
 --source include/rpl_start_server.inc

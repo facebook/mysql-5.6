@@ -16,8 +16,7 @@ CREATE TABLE db1.t1 (
   KEY (`k`)
 ) key_block_size=8 engine=innodb;
 
-let $socket = `select @@socket`;
---exec suite/xtrabackup/include/xb_load_data.sh $socket 2>&1
+--exec suite/xtrabackup/include/xb_load_data.sh 2>&1
 
 --let $rpl_server_number= 2
 --source include/rpl_stop_server.inc

@@ -9,7 +9,6 @@ set -e
 #   key (`k`)
 # ) engine=innodb;
 
-socket=$1
 MAX_INSERTS=100
 MAX_ROWS_PER_INSERT=100
 for ((i=1; i<=$MAX_INSERTS; i++));
@@ -25,5 +24,5 @@ do
         fi
     done
     stmt=$stmt';'
-    mysql --user=root --socket=$socket -e "$stmt"
+    $MYSQL --defaults-group-suffix=.1 -e "$stmt"
 done
