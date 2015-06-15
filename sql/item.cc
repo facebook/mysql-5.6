@@ -1016,11 +1016,10 @@ bool Item_ident::fix_fields(THD *thd, Item **reference)
 
   DBUG_ASSERT(!ret);
 
-  bool found_doc_idx = false;
-  // For Item_field only
-  Field *field = get_field();
   if (should_fix_document_path())
   {
+    // For Item_field only
+    Field *field = get_field();
     if (field && field->type() != MYSQL_TYPE_DOCUMENT)
     {
       /* syntax error when using document path on a non-document column */
@@ -1033,52 +1032,12 @@ bool Item_ident::fix_fields(THD *thd, Item **reference)
        dot separated identifiers then this whole expression will be treated
        as a document virutal field.
     */
-    if (field)
-    {
-      document_path = true;
-      parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys);
-      DBUG_ASSERT(document_path_keys.elements > 0);
+    document_path = true;
+    parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys);
+    DBUG_ASSERT(document_path_keys.elements > 0);
 
-      /* Generate document path full name */
-      generate_document_path_full_name();
-
-      /* if we have any document key defined in the table,
-       * we will check if any key matches the path expression,
-       * and set the field's "part_of_key" key map correctly.
-       */
-      if (field->table->s->document_key_trie)
-      {
-        Document_key_trie* trie = field->table->s->document_key_trie;
-        trie = trie->get(field->field_name);
-
-        /* find the document key in the trie that matches the path
-         */
-        List_iterator<Document_key> it(document_path_keys);
-        for(Document_key *p; (p=it++) && trie;)
-          trie = trie->get(p->string.str, p->string.length);
-
-        if (trie && thd->mark_used_columns != MARK_COLUMNS_NONE)
-        {
-          /* we found the key. Merge the key's part_of_key map
-           * with the field
-           */
-          field->table->covering_keys.intersect(trie->part_of_key);
-          field->table->merge_keys.merge(trie->part_of_key);
-          document_path_type = trie->key_type;
-          found_doc_idx = true;
-        }
-      }
-    }
-  }
-
-  if (field && field->type() == MYSQL_TYPE_DOCUMENT && !found_doc_idx)
-  {
-    /* otherwise, we will unset covering_keys.
-     * (since document field's part_of_key is always empty)
-     */
-    field->table->covering_keys.intersect(field->part_of_key);
-    field->table->merge_keys.merge(field->part_of_key);
-    document_path_type = MYSQL_TYPE_DOCUMENT;
+    /* Generate document path full name */
+    generate_document_path_full_name();
   }
 
   /* succeeded */
@@ -3079,21 +3038,6 @@ void Item_ident::print(String *str, enum_query_type query_type)
   }
 }
 
-/*
- * is_null() has to check for the value of document path
- */
-bool Item_field::is_null()
-{
-  if (document_path)
-  {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
-    return field->document_path_is_null(document_path_keys, document_path_type);
-  }
-  else
-    return field->is_null();
-}
-
 /* ARGSUSED */
 String *Item_field::val_str(String *str)
 {
@@ -3108,7 +3052,7 @@ String *Item_field::val_str(String *str)
                 document_path_keys.elements > 0);
     my_bool is_null = false;
     String *tmp = field->document_path_val_str(
-        document_path_keys, document_path_type, str, is_null);
+                                  document_path_keys, str, is_null);
     if (!tmp)
     {
       DBUG_ASSERT(is_null);
@@ -3140,7 +3084,7 @@ double Item_field::val_real()
     DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
                 document_path_keys.elements > 0);
     return field->document_path_val_real(
-                           document_path_keys, document_path_type, null_value);
+                           document_path_keys, null_value);
   }
   return field->val_real();
 }
@@ -3156,8 +3100,7 @@ longlong Item_field::val_int()
   {
     DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
                 document_path_keys.elements > 0);
-    return field->document_path_val_int(document_path_keys, document_path_type,
-                                        null_value);
+    return field->document_path_val_int(document_path_keys, null_value);
   }
   return field->val_int();
 }
@@ -7599,8 +7542,7 @@ bool Item_field::send(Protocol *protocol, String *buffer)
   {
     DBUG_ASSERT(document_path_keys.elements > 0);
     return protocol->store_document_path(result_field,
-                                         document_path_keys,
-                                         document_path_type);
+                                         document_path_keys);
   }
   return protocol->store(result_field);
 }

@@ -2196,9 +2196,6 @@ public:
      the key list that points to the document path
   */
   List<Document_key> document_path_keys;
-  /* type of this document path key. Each document path can only
-   * be one type when it is defined in a secondary index. */
-  enum_field_types document_path_type;
   /*
      the document path full name, e.g. `col`.`k1`.`k2`.`k3`
      the first part is the column name whose type is document,
@@ -2300,8 +2297,6 @@ public:
   /* field need any privileges (for VIEW creation) */
   bool any_privileges;
 
-  virtual bool is_expensive_processor(uchar *arg) { return document_path; }
-
   Item_field(THD *thd,
              Name_resolution_context *context_arg,
              const char *db_arg,const char *table_name_arg,
@@ -2391,7 +2386,7 @@ public:
   bool get_date_result(MYSQL_TIME *ltime,uint fuzzydate);
   bool get_time(MYSQL_TIME *ltime);
   bool get_timeval(struct timeval *tm, int *warnings);
-  bool is_null();
+  bool is_null() { return field->is_null(); }
   void update_null_value();
   Item *get_tmp_table_item(THD *thd);
   bool collect_item_field_processor(uchar * arg);

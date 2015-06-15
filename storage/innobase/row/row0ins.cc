@@ -3098,8 +3098,7 @@ row_ins_index_entry_set_vals(
 /*=========================*/
 	dict_index_t*	index,	/*!< in: index */
 	dtuple_t*	entry,	/*!< in: index entry to make */
-	const dtuple_t*	row,	/*!< in: row */
-	mem_heap_t*	heap)	/*!< in: heap */
+	const dtuple_t*	row)	/*!< in: row */
 {
 	ulint	n_fields;
 	ulint	i;
@@ -3116,12 +3115,6 @@ row_ins_index_entry_set_vals(
 		ind_field = dict_index_get_nth_field(index, i);
 		row_field = dtuple_get_nth_field(row, ind_field->col->ind);
 		len = dfield_get_len(row_field);
-
-                if (ind_field->document_path) {
-			dfield_set_document_path_data(ind_field,
-				row_field, field, heap);
-			continue;
-                }
 
 		/* Check column prefix indexes */
 		if (ind_field->prefix_len > 0
@@ -3163,8 +3156,7 @@ row_ins_index_entry_step(
 
 	ut_ad(dtuple_check_typed(node->row));
 
-	row_ins_index_entry_set_vals(node->index, node->entry, node->row,
-				     node->entry_sys_heap);
+	row_ins_index_entry_set_vals(node->index, node->entry, node->row);
 
 	ut_ad(dtuple_check_typed(node->entry));
 

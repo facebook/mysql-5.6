@@ -116,9 +116,7 @@ const char * index_hint_type_name[] =
 {
   "IGNORE INDEX", 
   "USE INDEX", 
-  "FORCE INDEX",
-  "USE DOCUMENT INDEXES",
-  "IGNORE DOCUMENT INDEXES",
+  "FORCE INDEX"
 };
 
 
@@ -2522,20 +2520,11 @@ void st_select_lex::print_limit(THD *thd,
 void 
 Index_hint::print(THD *thd, String *str)
 {
-  bool append_brackets = true;
   switch (type)
   {
     case INDEX_HINT_IGNORE: str->append(STRING_WITH_LEN("IGNORE INDEX")); break;
     case INDEX_HINT_USE:    str->append(STRING_WITH_LEN("USE INDEX")); break;
     case INDEX_HINT_FORCE:  str->append(STRING_WITH_LEN("FORCE INDEX")); break;
-    case INDEX_HINT_USE_DOC_KEYS:
-      str->append(STRING_WITH_LEN("USE DOCUMENT INDEXES"));
-      append_brackets = false;
-      break;
-    case INDEX_HINT_IGNORE_DOC_KEYS:
-      str->append(STRING_WITH_LEN("IGNORE DOCUMENT INDEXES"));
-      append_brackets = false;
-      break;
   }
   switch (clause)
   {
@@ -2552,9 +2541,7 @@ Index_hint::print(THD *thd, String *str)
       break;
   }
 
-  // use/ignore document keys doesn't have index list
-  if (append_brackets)
-    str->append (STRING_WITH_LEN(" ("));
+  str->append (STRING_WITH_LEN(" ("));
   if (key_name.length)
   {
     if (thd && !my_strnncoll(system_charset_info,
@@ -2565,8 +2552,7 @@ Index_hint::print(THD *thd, String *str)
     else
       append_identifier(thd, str, key_name.str, key_name.length);
   }
-  if (append_brackets)
-    str->append(')');
+  str->append(')');
 }
 
 

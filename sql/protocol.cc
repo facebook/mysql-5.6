@@ -1172,8 +1172,7 @@ bool Protocol_text::store(double from, uint32 decimals, String *buffer)
 
 
 bool Protocol_text::store_internal(Field *field,
-                                   List<Document_key>& key_path,
-                                   enum_field_types key_type)
+                                   List<Document_key>& key_path)
 {
   if (field->is_null())
     return store_null();
@@ -1186,7 +1185,7 @@ bool Protocol_text::store_internal(Field *field,
   {
     /* If the return value is NULL str will be set with empty string */
     my_bool is_null = false;
-    field->document_path_val_str(key_path, key_type, &str, is_null);
+    field->document_path_val_str_fixed_buf(key_path, &str, is_null);
     if (is_null)
       return store_null();
   }
@@ -1218,15 +1217,14 @@ bool Protocol_text::store_internal(Field *field,
 bool Protocol_text::store(Field *field)
 {
   List<Document_key> empty_key_path;
-  return store_internal(field, empty_key_path, (enum_field_types)0);
+  return store_internal(field, empty_key_path);
 }
 
 
 bool Protocol_text::store_document_path(Field *field,
-                                        List<Document_key>& key_path,
-                                        enum_field_types key_type)
+                                        List<Document_key>& key_path)
 {
-  return store_internal(field, key_path, key_type);
+  return store_internal(field, key_path);
 }
 
 

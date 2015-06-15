@@ -2525,10 +2525,6 @@ undo_size_ok:
 		if (field->prefix_len > field->col->max_prefix) {
 			field->col->max_prefix = field->prefix_len;
 		}
-                if (field->doc_path_col) {
-			field->doc_path_col->ord_part = 1;
-			field->doc_path_col->max_prefix = field->prefix_len;
-                }
 	}
 
 	if (!dict_index_is_univ(new_index)) {
@@ -2681,51 +2677,6 @@ dict_index_remove_from_cache(
 	dict_index_remove_from_cache_low(table, index, FALSE);
 }
 
-/**********************************************************************//**
-Construct document path column information in field->doc_path_col. field->col
-is used for normal columns where as doc_path_col needs to be used for document
-path columns. */
-static
-void
-set_doc_path_col(
-/*=========================*/
-	dict_field_t* field)	/*!< in: field */
-{
-	*field->doc_path_col = *field->col;
-	if (field->document_path_type == MYSQL_TYPE_TINY) {
-		field->doc_path_col->mtype = DATA_INT;
-		field->doc_path_col->len = sizeof(char);
-	}
-	if (field->document_path_type == MYSQL_TYPE_LONGLONG) {
-		field->doc_path_col->mtype = DATA_INT;
-		field->doc_path_col->len = sizeof(ib_uint64_t);
-	} else if (field->document_path_type == MYSQL_TYPE_DOUBLE) {
-		field->doc_path_col->mtype = DATA_DOUBLE;
-		field->doc_path_col->len = sizeof(double);
-	} else if (field->document_path_type == MYSQL_TYPE_STRING) {
-		field->doc_path_col->mtype = DATA_BINARY;
-		field->doc_path_col->len = field->prefix_len;
-	} else if (field->document_path_type == MYSQL_TYPE_BLOB) {
-		field->doc_path_col->mtype = DATA_BLOB;
-		field->doc_path_col->len = field->prefix_len;
-	} else {
-		DBUG_ASSERT("Unsupported document index type");
-	}
-	/* Build precision type for this document path column */
-	ulint charset = dtype_is_string_type(field->doc_path_col->mtype) ?
-					     DATA_MYSQL_BINARY_CHARSET_COLL : 0;
-	field->doc_path_col->prtype =
-		dtype_form_prtype(DATA_BINARY_TYPE, charset);
-#ifndef UNIV_HOTBACKUP
-	ulint mbminlen, mbmaxlen;
-	/* picked from dict_mem_fill_column_struct() */
-	dtype_get_mblen(field->doc_path_col->mtype,
-			field->doc_path_col->prtype,
-			&mbminlen, &mbmaxlen);
-	dict_col_set_mbminmaxlen(field->doc_path_col, mbminlen, mbmaxlen);
-#endif /* !UNIV_HOTBACKUP */
-}
-
 /*******************************************************************//**
 Tries to find column names for the index and sets the col field of the
 index.
@@ -2747,17 +2698,17 @@ dict_index_find_cols(
 		ulint		j;
 		dict_field_t*	field = dict_index_get_nth_field(index, i);
 
+		const char *field_name = field->name;
+		if (field->is_document_path)
+		{
+		  ut_ad(field->document_path_type != 0 &&
+			field->document_path_list_size >= 2);
+		  field_name = field->document_path_list[0];
+		}
 		for (j = 0; j < table->n_cols; j++) {
 			if (!strcmp(dict_table_get_col_name(table, j),
-				    field->name)) {
+				    field_name)) {
 				field->col = dict_table_get_nth_col(table, j);
-				if (field->document_path) {
-					/* This is a document path which has
-					it's own type. Initialize the
-					document path type information in
-					doc_path_col*/
-					set_doc_path_col(field);
-				}
 
 				goto found;
 			}
@@ -2790,23 +2741,14 @@ dict_index_add_col(
 	dict_index_t*		index,		/*!< in/out: index */
 	const dict_table_t*	table,		/*!< in: table */
 	dict_col_t*		col,		/*!< in: column */
-	ulint			prefix_len,	/*!< in: column prefix length */
-	unsigned		doc_path_tpye,	/*!< in: document path type */
-	const char*		document_path,	/*!< in: document path */
-	const dict_col_t*	doc_path_col)	/*!< in: document column info */
+	ulint			prefix_len)	/*!< in: column prefix length */
 {
 	dict_field_t*	field;
 	const char*	col_name;
-	char* buf = 0;
 
 	col_name = dict_table_get_col_name(table, dict_col_get_no(col));
 
-	if (document_path) {
-		buf = my_strdup(document_path, MYF(0));
-	}
-	dict_mem_index_add_field(index, col_name,
-		prefix_len, doc_path_tpye, buf,
-				 doc_path_col);
+	dict_mem_index_add_field(index, col_name, prefix_len);
 
 	field = dict_index_get_nth_field(index, index->n_def - 1);
 
@@ -2832,8 +2774,7 @@ dict_index_add_col(
 # error "DICT_MAX_FIXED_COL_LEN != 768"
 #endif
 
-	/* NULL values are always allowed for document paths */
-	if (!(col->prtype & DATA_NOT_NULL) || document_path) {
+	if (!(col->prtype & DATA_NOT_NULL)) {
 		index->n_nullable++;
 	}
 }
@@ -2860,8 +2801,7 @@ dict_index_copy(
 
 		field = dict_index_get_nth_field(index2, i);
 		dict_index_add_col(index1, table, field->col,
-				   field->prefix_len, field->document_path_type,
-				   field->document_path, field->doc_path_col);
+				   field->prefix_len);
 	}
 }
 

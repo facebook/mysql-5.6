@@ -113,8 +113,7 @@ public:
   virtual bool store_time(MYSQL_TIME *time, uint precision)=0;
   virtual bool store(Field *field)=0;
   virtual bool store_document_path(Field *field,
-                                   List<Document_key>& key_path,
-                                   enum_field_types key_type)
+                                   List<Document_key>& key_path)
   { DBUG_ASSERT(0); return false; }
 
   virtual bool send_out_parameters(List<Item_param> *sp_params)=0;
@@ -143,8 +142,7 @@ public:
 class Protocol_text :public Protocol
 {
 protected:
-  bool store_internal(Field *field, List<Document_key> &key_path,
-                      enum_field_types key_type);
+  bool store_internal(Field *field, List<Document_key>& key_path);
 
 public:
   Protocol_text() {}
@@ -167,8 +165,7 @@ public:
   virtual bool store(double from, uint32 decimals, String *buffer);
   virtual bool store(Field *field);
   virtual bool store_document_path(Field *field,
-                                   List<Document_key>& key_path,
-                                   enum_field_types key_type);
+                                   List<Document_key>& key_path);
 
   virtual bool send_out_parameters(List<Item_param> *sp_params);
 #ifdef EMBEDDED_LIBRARY
