@@ -1478,7 +1478,8 @@ dict_load_field_low(
 		return(dict_load_field_del);
 	}
 
-	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS) {
+	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS &&
+	    rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS + 2) {
 		return("wrong number of columns in SYS_FIELDS record");
 	}
 
