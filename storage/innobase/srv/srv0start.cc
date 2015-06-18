@@ -1509,6 +1509,103 @@ srv_start_wait_for_purge_to_start()
 	}
 }
 
+struct sys_fields_rec {
+	index_id_t	index_id;
+	const char*	name;
+	ulint		pos;
+};
+
+/* Two extra columns are added to SYS_FIELDS table as part of docstore indexing
+functionality. To make it backward compatible for older versions, scan
+SYS_FIELDS table and modify records which have extra columns. */
+void
+handle_sys_fields_format()
+{
+	btr_pcur_t	pcur;
+	const byte*	rec;
+	mem_heap_t*	heap;
+	mem_heap_t*	field_name_heap;
+	mtr_t		mtr;
+	index_id_t	last_id = 0;
+	heap = mem_heap_create(1000);
+	field_name_heap = mem_heap_create(1000);
+	vector<sys_fields_rec> new_format_recs;
+
+	mutex_enter(&dict_sys->mutex);
+	mtr_start(&mtr);
+	rec = dict_startscan_system(&pcur, &mtr, SYS_FIELDS);
+	while (rec) {
+		ulint		pos;
+		index_id_t	index_id;
+		dict_field_t	field_rec;
+		dict_process_sys_fields_rec(heap, rec, &field_rec,
+					    &pos, &index_id, last_id);
+		last_id = index_id;
+		mtr_commit(&mtr);
+		mutex_exit(&dict_sys->mutex);
+		if (rec_get_n_fields_old(rec) > DICT_NUM_FIELDS__SYS_FIELDS) {
+			const char* name =
+				mem_heap_strdupl(field_name_heap,
+						field_rec.name,
+						strlen(field_rec.name));
+			new_format_recs.push_back(
+                                sys_fields_rec{index_id,
+					       name,
+					       pos});
+			mtr_start(&mtr);
+			if (!btr_cur_optimistic_delete(
+				btr_pcur_get_btr_cur(&pcur), 0, &mtr)) {
+				dberr_t err;
+				btr_cur_pessimistic_delete(
+					&err, FALSE,
+					btr_pcur_get_btr_cur(&pcur),
+					0, RB_NONE, &mtr);
+				if (err != DB_SUCCESS)
+					ut_error;
+			}
+			mtr_commit(&mtr);
+		}
+		mutex_enter(&dict_sys->mutex);
+		mtr_start(&mtr);
+		rec = dict_getnext_system(&pcur, &mtr);
+		mem_heap_empty(heap);
+	}
+	mtr_commit(&mtr);
+	mutex_exit(&dict_sys->mutex);
+	for (auto &it: new_format_recs) {
+		/* If there is a crash here, the SYS_FIELDS table will get
+		corrupted. Innodb will find this corruption when loading
+		table indexes on restart. Since this part of the code is run
+		very rarely once during downgrade, this is fine. */
+		trx_t*  trx = trx_allocate_for_mysql();
+		trx_start_if_not_started(trx);
+
+		pars_info_t* info = pars_info_create();
+
+		pars_info_add_ull_literal(info, "indexid", it.index_id);
+		pars_info_add_str_literal(info, "colname", it.name);
+		pars_info_add_int4_literal(info, "pos", it.pos);
+
+		dberr_t error =
+			que_eval_sql(info,
+			"PROCEDURE RENAME_SYS_FIELDS_PROC() IS\n"
+			"BEGIN\n"
+
+			"INSERT INTO SYS_FIELDS VALUES\n"
+			"(:indexid, :pos, :colname);\n"
+
+			"END;\n",
+			true, trx);
+		if (error != DB_SUCCESS) {
+			ut_error;
+		}
+		trx_commit_for_mysql(trx);
+		trx_free_for_mysql(trx);
+	}
+	mem_heap_free(heap);
+	mem_heap_free(field_name_heap);
+}
+
 /********************************************************************
 Starts InnoDB and creates a new database if database files
 are not found and the user wants.
@@ -2433,6 +2530,7 @@ files_checked:
 			return(err);
 		}
 
+		handle_sys_fields_format();
 		ib_bh = trx_sys_init_at_db_start();
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
 
@@ -2497,6 +2595,7 @@ files_checked:
 			return(err);
 		}
 
+		handle_sys_fields_format();
 		ib_bh = trx_sys_init_at_db_start();
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
 
