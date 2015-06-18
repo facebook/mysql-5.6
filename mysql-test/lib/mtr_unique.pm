@@ -33,7 +33,14 @@ my $dir;
 
 if(!IS_WINDOWS)
 {
-  $dir= "/tmp/mysql-unique-ids";
+  if (exists $ENV{'MTR_UNIQUE_IDS_DIR'} && -w $ENV{'MTR_UNIQUE_IDS_DIR'})
+  {
+    $dir = $ENV{'MTR_UNIQUE_IDS_DIR'}."/mysql-unique-ids";
+  }
+  else
+  {
+    $dir= "/tmp/mysql-unique-ids";
+  }
 }
 else
 {
