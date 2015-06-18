@@ -3633,6 +3633,7 @@ handle_sys_fields_format()
 	field_name_heap = mem_heap_create(1000);
 	vector<sys_fields_rec> new_format_recs;
 
+	mutex_enter(&dict_sys->mutex);
 	mtr_start(&mtr);
 	rec = dict_startscan_system(&pcur, &mtr, SYS_FIELDS);
 	while (rec) {
@@ -3643,6 +3644,7 @@ handle_sys_fields_format()
 					    &pos, &index_id, last_id);
 		last_id = index_id;
 		mtr_commit(&mtr);
+		mutex_exit(&dict_sys->mutex);
 		if (rec_get_n_fields_old(rec) > DICT_NUM_FIELDS__SYS_FIELDS) {
 			const char* name =
 				mem_heap_strdupl(field_name_heap,
@@ -3665,11 +3667,13 @@ handle_sys_fields_format()
 			}
 			mtr_commit(&mtr);
 		}
+		mutex_enter(&dict_sys->mutex);
 		mtr_start(&mtr);
 		rec = dict_getnext_system(&pcur, &mtr);
 		mem_heap_empty(heap);
 	}
 	mtr_commit(&mtr);
+	mutex_exit(&dict_sys->mutex);
 
 	for (auto &it: new_format_recs) {
 		/* If there is a crash here, the SYS_FIELDS table will get
