@@ -671,7 +671,7 @@ public:
              SUBSELECT_ITEM, ROW_ITEM, CACHE_ITEM, TYPE_HOLDER,
              PARAM_ITEM, TRIGGER_FIELD_ITEM, DECIMAL_ITEM,
              XPATH_NODESET, XPATH_NODESET_CMP,
-             VIEW_FIXER_ITEM};
+             VIEW_FIXER_ITEM, DOCUMENT_ITEM};
 
   enum cond_result { COND_UNDEF,COND_OK,COND_TRUE,COND_FALSE };
 
@@ -1071,6 +1071,7 @@ public:
   virtual bool val_bool();
   virtual String *val_nodeset(String*) { return 0; }
   virtual String *val_doc(String *str) { return 0; }
+  virtual const char *val_fbson_blob() const { return 0; }
 
 protected:
   /* Helper functions, see item_sum.cc */
@@ -2375,6 +2376,7 @@ public:
   my_decimal *val_decimal(my_decimal *);
   String *val_str(String*);
   String *val_doc(String*);
+  const char *val_fbson_blob() const;
   double val_result();
   longlong val_int_result();
   longlong val_time_temporal_result();
@@ -3850,6 +3852,7 @@ public:
 #include "item_xmlfunc.h"
 #include "item_create.h"
 #include "item_jsonfunc.h"
+#include "item_document.h"
 #endif
 
 /**
@@ -4528,6 +4531,7 @@ class Item_cache_str: public Item_cache
 {
   char buffer[STRING_BUFFER_USUAL_SIZE];
   String *value, value_buff;
+  const char *fbson_blob;
   bool is_varbinary;
   
 public:
@@ -4537,11 +4541,16 @@ public:
                  cached_field_type == MYSQL_TYPE_VARCHAR &&
                  !((const Item_field *) item)->field->has_charset())
   {
+    if (item->field_type() == MYSQL_TYPE_DOCUMENT_VALUE)
+      fbson_blob = item->val_fbson_blob();
     collation.set(const_cast<DTCollation&>(item->collation));
   }
   double val_real();
   longlong val_int();
   String* val_str(String *);
+  const char *val_fbson_blob() const {
+    return fbson_blob;
+  }
   my_decimal *val_decimal(my_decimal *);
   bool get_date(MYSQL_TIME *ltime, uint fuzzydate)
   {
