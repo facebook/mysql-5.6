@@ -22,13 +22,11 @@
 Item_func_document::Item_func_document(Item *a) :Item_func(a)
 {
   /* Check for valid JSON */
-  fbson::FbsonJsonParser parser;
   if (a->type() != STRING_ITEM || !parser.parse(a->str_value.c_ptr()))
     my_error(ER_INVALID_JSON, MYF(0), a->str_value.c_ptr());
 
   length = parser.getWriter().getOutput()->getSize();
-  fbson_blob = new char[length];
-  memcpy(fbson_blob, parser.getWriter().getOutput()->getBuffer(), length);
+  fbson_blob = parser.getWriter().getOutput()->getBuffer();
 }
 
 Item::Type Item_func_document::type() const
@@ -53,10 +51,7 @@ String *Item_func_document::val_str(String *str)
       fbson_blob, length);
 
   const char *output = tojson.json(val);
-  char *buffer = new char[strlen(output) + 1];
-  strcpy(buffer, output);
-  str->set(buffer, strlen(output), str->charset());
-
+  str->copy(output, strlen(output), str->charset());
   return str;
 }
 
