@@ -803,7 +803,8 @@ Item* Item::transform(Item_transformer transformer, uchar *arg)
 }
 
 Item_ident::Item_ident(Name_resolution_context *context_arg)
-  :context(context_arg), document_path(false)
+  :context(context_arg), document_path(false),
+  document_path_with_underscore(false)
 {
 }
 
@@ -815,7 +816,8 @@ Item_ident::Item_ident(Name_resolution_context *context_arg,
    db_name(db_name_arg), table_name(table_name_arg),
    field_name(field_name_arg),
    alias_name_used(FALSE), cached_field_index(NO_CACHED_FIELD_INDEX),
-   cached_table(0), depended_from(0), document_path(false)
+   cached_table(0), depended_from(0), document_path(false),
+   document_path_with_underscore(false)
 {
   item_name.set(field_name_arg);
 }
@@ -835,7 +837,7 @@ Item_ident::Item_ident(THD *thd,
    field_name(field_name_arg),
    alias_name_used(FALSE), cached_field_index(NO_CACHED_FIELD_INDEX),
    cached_table(0), depended_from(0),
-   document_path(false),
+   document_path(false), document_path_with_underscore(false),
    parsing_info(thd, ident_list, database_name_not_allowed,
                 table_name_not_allowed, num_unresolved_idents)
 {
@@ -860,7 +862,8 @@ Item_ident::Item_ident(THD *thd, Item_ident *item)
    cached_field_index(item->cached_field_index),
    cached_table(item->cached_table),
    depended_from(item->depended_from),
-   document_path(item->document_path)
+   document_path(item->document_path),
+   document_path_with_underscore(item->document_path_with_underscore)
 {
   if (item->document_path)
   {
@@ -902,6 +905,7 @@ void Item_ident::set_document_path(THD *thd,
               ident->document_path_keys.elements > 0);
 
   document_path = ident->document_path;
+  document_path_with_underscore = ident->document_path_with_underscore;
   List_iterator<Document_key> it(ident->document_path_keys);
   for(Document_key *p; (p=it++);)
   {
@@ -1065,7 +1069,8 @@ bool Item_ident::fix_fields(THD *thd, Item **reference)
     if (field)
     {
       document_path = true;
-      parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys);
+      parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys,
+          document_path_with_underscore);
       DBUG_ASSERT(document_path_keys.elements > 0);
 
       /* Generate document path full name */
@@ -2810,7 +2815,8 @@ const char* Ident_parsing_info::full_name(THD *thd)
 }
 
 void Ident_parsing_info::Parse_and_set_document_path_keys(
-                               THD *thd, List<Document_key>& list)
+                               THD *thd, List<Document_key>& list,
+                               bool& document_path_with_underscore)
 {
   List_iterator_fast<One_ident> it(dot_separated_ident_list);
   DBUG_ASSERT(num_unresolved_idents < dot_separated_ident_list.elements);
@@ -2831,6 +2837,9 @@ void Ident_parsing_info::Parse_and_set_document_path_keys(
     int index = strtol(s->s.str, &p, 10);
     if (*p)
       index = -1;
+
+    if (!strcmp(s->s.str, "_"))
+      document_path_with_underscore = true;
 
     Document_key *k = new (thd->mem_root) Document_key(s->s, index);
     list.push_back(k);

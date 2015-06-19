@@ -1,0 +1,562 @@
+DROP TABLE IF EXISTS t1, t2, t3, t4;
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+@start_allow_document_type
+1
+CREATE TABLE t1 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+INSERT INTO t1 VALUES (1,'@1','{ "id":101, "zipcode":98761, "num": [1, 2, 2.5, 3, 4, 5, 6, 7, 8, 9]}');
+INSERT INTO t1 VALUES (2,'@2','{ "id":102, "zipcode":98765, "num": [1.5, 2.5, 5.5, 6]}');
+INSERT INTO t1 VALUES (3,'@3','{ "id":103, "zipcode":98764, "num": [7, 8, 9.1]}');
+INSERT INTO t1 VALUES (4,'@4','{ "id":104, "zipcode":98763, "num": [9]}');
+INSERT INTO t1 VALUES (5,'@5','{ "id":105, "zipcode":98762, "num": [9.00000000001]}');
+INSERT INTO t1 VALUES (6,'@6','{ "id":106, "zipcode":98766, "num": [10.31415926]}');
+INSERT INTO t1 VALUES (7,'@7','{ "id":107, "zipcode":98760, "num": []}');
+INSERT INTO t1 VALUES (8,'@8','{ "id":108, "zipcode":98767}');
+SELECT doc.id FROM t1 WHERE doc.num._ = 2;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE 2 = doc.num._;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE doc.num._ LIKE 2;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE 2 LIKE doc.num._;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE doc.num._ < 7;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE 7 > doc.num._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE doc.num._ <= 7;
+`doc`.`id`
+101
+102
+103
+SELECT doc.id FROM t1 WHERE 7 >= doc.num._;
+`doc`.`id`
+101
+102
+103
+SELECT doc.id FROM t1 WHERE doc.num._ > 6;
+`doc`.`id`
+101
+103
+104
+105
+106
+SELECT doc.id FROM t1 WHERE 6 < doc.num._;
+`doc`.`id`
+101
+103
+104
+105
+106
+SELECT doc.id FROM t1 WHERE doc.num._ >= 6;
+`doc`.`id`
+101
+102
+103
+104
+105
+106
+SELECT doc.id FROM t1 WHERE 6 <= doc.num._;
+`doc`.`id`
+101
+102
+103
+104
+105
+106
+SELECT doc.id FROM t1 WHERE doc.num._ <> 9;
+`doc`.`id`
+101
+102
+103
+105
+106
+SELECT doc.id FROM t1 WHERE 9 <> doc.num._;
+`doc`.`id`
+101
+102
+103
+105
+106
+SELECT doc.id FROM t1 WHERE doc.num._ = 2.5;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE 2.5 = doc.num._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE doc.num._ LIKE 2.5;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE 2.5 LIKE doc.num._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE doc.num._ < 1.5;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE 1.5 > doc.num._;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE doc.num._ <= 1.5;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE 1.5 >= doc.num._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t1 WHERE doc.num._ > 9.1;
+`doc`.`id`
+106
+SELECT doc.id FROM t1 WHERE 9.1 < doc.num._;
+`doc`.`id`
+106
+SELECT doc.id FROM t1 WHERE doc.num._ >= 9.1;
+`doc`.`id`
+103
+106
+SELECT doc.id FROM t1 WHERE 9.1 <= doc.num._;
+`doc`.`id`
+103
+106
+SELECT doc.id FROM t1 WHERE doc.num._ <> 10.31415926;
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM t1 WHERE 10.31415926 <> doc.num._;
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM t1 WHERE doc.num._ = '2';
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE '2' = doc.num._;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE doc.num._ LIKE '2';
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE '2' LIKE doc.num._;
+`doc`.`id`
+101
+SELECT doc.id FROM t1 WHERE doc.num._ < '7';
+`doc`.`id`
+101
+102
+106
+SELECT doc.id FROM t1 WHERE '7' > doc.num._;
+`doc`.`id`
+101
+102
+106
+SELECT doc.id FROM t1 WHERE doc.num._ <= '7';
+`doc`.`id`
+101
+102
+103
+106
+SELECT doc.id FROM t1 WHERE '7' >= doc.num._;
+`doc`.`id`
+101
+102
+103
+106
+SELECT doc.id FROM t1 WHERE doc.num._ > '6';
+`doc`.`id`
+101
+103
+104
+105
+SELECT doc.id FROM t1 WHERE '6' < doc.num._;
+`doc`.`id`
+101
+103
+104
+105
+SELECT doc.id FROM t1 WHERE doc.num._ >= '6';
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM t1 WHERE '6' <= doc.num._;
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM t1 WHERE doc.num._ <> '9';
+`doc`.`id`
+101
+102
+103
+105
+106
+SELECT doc.id FROM t1 WHERE '9' <> doc.num._;
+`doc`.`id`
+101
+102
+103
+105
+106
+CREATE TABLE t2 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+INSERT INTO t2 VALUES (1,'@1','{ "id":101, "Children": ["Adam", "Bob", 42, "Jason", 0.123456789]}');
+INSERT INTO t2 VALUES (2,'@2','{ "id":102, "Children": ["Daniel", "Jason"]}');
+INSERT INTO t2 VALUES (3,'@3','{ "id":103, "Children": ["Frank"]}');
+INSERT INTO t2 VALUES (4,'@4','{ "id":104, "Children": ["Paul123", "PAUL123", {"K":"V"}, {"k1":"v1", "k2":"v2"}]}');
+INSERT INTO t2 VALUES (5,'@5','{ "id":105, "Children": ["Xavier", "开源数据库"]}');
+INSERT INTO t2 VALUES (6,'@6','{ "id":106, "Children": ["开源数据库"]}');
+SELECT doc.id FROM t2 WHERE doc.Children._ = "Jason";
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE "Jason" = doc.Children._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE "J%n";
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE "J%n" LIKE doc.Children._;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.Children._ < "Daniel";
+`doc`.`id`
+101
+SELECT doc.id FROM t2 WHERE "Daniel" > doc.Children._;
+`doc`.`id`
+101
+SELECT doc.id FROM t2 WHERE doc.Children._ <= "Daniel";
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE "Daniel" >= doc.Children._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE doc.Children._ > "Paul123";
+`doc`.`id`
+105
+106
+SELECT doc.id FROM t2 WHERE "Paul123" < doc.Children._;
+`doc`.`id`
+105
+106
+SELECT doc.id FROM t2 WHERE doc.Children._ >= "Paul123";
+`doc`.`id`
+104
+105
+106
+SELECT doc.id FROM t2 WHERE "Paul123" <= doc.Children;
+`doc`.`id`
+101
+102
+103
+104
+105
+106
+SELECT doc.id FROM t2 WHERE doc.Children._ <> "开源数据库";
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM t2 WHERE "开源数据库" <> doc.Children._;
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM t2 WHERE doc.children._ = "Daniel";
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.children._ LIKE "Daniel";
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.children._ LIKE "Da%el";
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE "Daniel" > doc.children._;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc._ < '{"id":101}';
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE '{"id":101}' >= doc._;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc._._ <= "Xavier";
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE "Xavier" <> doc._._;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.Children._._ = "Daniel";
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE "Daniel" > doc.Children._._;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE "Jason";
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE "Jason" LIKE doc.Children._;
+`doc`.`id`
+101
+102
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 'D%';
+`doc`.`id`
+102
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 'D%e%';
+`doc`.`id`
+102
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 'E%';
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 42;
+`doc`.`id`
+101
+SELECT doc.id FROM t2 WHERE 42 LIKE doc.Children._;
+`doc`.`id`
+101
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 0.123456789;
+`doc`.`id`
+101
+SELECT doc.id FROM t2 WHERE 0.123456789 LIKE doc.Children._;
+`doc`.`id`
+101
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"K":"V"}');
+`doc`.`id`
+104
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"K":"V"}') LIKE doc.Children._;
+`doc`.`id`
+104
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}');
+`doc`.`id`
+104
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k2":"v2", "k1":"v1"}') LIKE doc.Children._;
+`doc`.`id`
+104
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"k1":"v_", "k2":"_2"}');
+`doc`.`id`
+104
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k1":"v_", "k2":"_2"}') LIKE doc.Children._;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"k2":"%", "k1":"%"}');
+`doc`.`id`
+104
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k2":"%", "k1":"%"}') LIKE doc.Children._;
+`doc`.`id`
+CREATE TABLE t3 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+INSERT INTO t3 VALUES (1,'@1','{ "id":101, "Children": [[1, 2], [3, 4], []]}');
+INSERT INTO t3 VALUES (2,'@2','{ "id":102, "Children": [[1, 2], [3]]}');
+INSERT INTO t3 VALUES (3,'@3','{ "id":103, "Children": ["xavier", ["Jason", "Bob"]]}');
+INSERT INTO t3 VALUES (4,'@4','{ "id":104, "Children": [[ 2, 3, 1]]}');
+INSERT INTO t3 VALUES (5,'@5','{ "id":105, "Children": ["Foo", [1.5, 2.5, {"k":"v", "key": ["value1", 2, {"bar":"value3"}]}], 3.14]}');
+INSERT INTO t3 VALUES (6,'@6','{ "id":106, "Children": ["开源数据库"]}');
+INSERT INTO t3 VALUES (7,'@7','{ "id":107, "Children": {"_": "z"}}');
+SELECT doc.id FROM t3 WHERE doc.Children._._ = 4;
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE 4 = doc.Children._._;
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.Children._._ <= 4;
+`doc`.`id`
+101
+102
+104
+105
+SELECT doc.id FROM t3 WHERE 4 >= doc.Children._._;
+`doc`.`id`
+101
+102
+104
+105
+SELECT doc.id FROM t3 WHERE doc.Children._._ = "Jason";
+`doc`.`id`
+103
+SELECT doc.id FROM t3 WHERE "Jason" = doc.Children._._;
+`doc`.`id`
+103
+SELECT doc.id FROM t3 WHERE doc.Children.0._ = 1;
+`doc`.`id`
+101
+102
+104
+SELECT doc.id FROM t3 WHERE 1 = doc.Children.0._;
+`doc`.`id`
+101
+102
+104
+SELECT doc.id FROM t3 WHERE doc.Children._._.key._.bar <= "value3";
+`doc`.`id`
+105
+SELECT doc.id FROM t3 WHERE "value3" >= doc.Children._._.key._.bar;
+`doc`.`id`
+105
+SELECT doc.id FROM t3 WHERE doc.Children._._ LIKE 2;
+`doc`.`id`
+101
+102
+104
+SELECT doc.id FROM t3 WHERE doc.Children._._ LIKE '%aso_';
+`doc`.`id`
+103
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t1.doc.num._ = t3.doc.Children.0._;
+`doc`.`id`	`doc`.`id`
+101	101
+101	102
+101	104
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t3.doc.Children.0._ = t1.doc.num._;
+`doc`.`id`	`doc`.`id`
+101	101
+101	102
+101	104
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t1.doc.num._ = t3.doc.Children._.0;
+`doc`.`id`	`doc`.`id`
+101	101
+101	102
+101	104
+102	105
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t3.doc.Children._.0 = t1.doc.num._;
+`doc`.`id`	`doc`.`id`
+101	101
+101	102
+101	104
+102	105
+SELECT a.doc.id, b.doc.id FROM t3 a, t3 b WHERE a.doc.Children._._.key._.bar < b.doc.Children._;
+`doc`.`id`	`doc`.`id`
+105	103
+105	106
+105	107
+SELECT a.doc.id, b.doc.id FROM t3 a, t3 b WHERE b.doc.Children._ > a.doc.Children._._.key._.bar ;
+`doc`.`id`	`doc`.`id`
+105	103
+105	106
+105	107
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t3.doc.Children.0._ LIKE t1.doc.num._;
+`doc`.`id`	`doc`.`id`
+101	101
+101	102
+101	104
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._.1 = 4) t;
+`doc`.`id`
+101
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._ < 'z') t;
+`doc`.`id`
+103
+105
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._ > 'z') t;
+`doc`.`id`
+106
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._._ >= 3) t;
+`doc`.`id`
+101
+102
+103
+104
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._._ <= "Bob") t;
+`doc`.`id`
+101
+102
+103
+104
+105
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._ <> "Jason") t;
+`doc`.`id`
+103
+105
+106
+107
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._._ LIKE '%aso_') t;
+`doc`.`id`
+103
+CREATE TABLE t4 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+INSERT INTO t4 VALUES (1,'@1','{ "id":101, "Children": {"name": "Bob"}}');
+INSERT INTO t4 VALUES (2,'@2','{ "id":102, "Children": {"_": "Steve"}}');
+INSERT INTO t4 VALUES (5,'@5','{ "id":105, "Children": {"foo_": "Steve"}}');
+INSERT INTO t4 VALUES (6,'@6','{ "id":106, "Children": {"_bar": "Steve"}}');
+INSERT INTO t4 VALUES (7,'@7','{ "id":107, "Children": {"foo_bar": "Steve"}}');
+INSERT INTO t4 VALUES (3,'@3','{ "id":103, "Children": {"__": "Steve"}}');
+INSERT INTO t4 VALUES (4,'@4','{ "id":104, "Children": {"_._": "Steve"}}');
+SELECT doc.id FROM t4 WHERE doc.Children._ = "Steve";
+`doc`.`id`
+102
+SELECT doc.id FROM t4 WHERE doc.Children.foo_ = "Steve";
+`doc`.`id`
+105
+SELECT doc.id FROM t4 WHERE doc.Children._bar = "Steve";
+`doc`.`id`
+106
+SELECT doc.id FROM t4 WHERE doc.Children.foo_bar = "Steve";
+`doc`.`id`
+107
+SELECT doc.id FROM t4 WHERE doc.Children.__ = "Steve";
+`doc`.`id`
+103
+SELECT doc.id FROM t4 WHERE doc.Children.`_._` = "Steve";
+`doc`.`id`
+104
+SELECT doc.id FROM t4 WHERE doc.Children.`_._` LIKE "Steve";
+`doc`.`id`
+104
+SELECT doc.id FROM t4 WHERE doc.Children.`_._` LIKE "St_%";
+`doc`.`id`
+104
+SELECT doc.Children._ FROM t4;
+`doc`.`Children`.`_`
+NULL
+Steve
+NULL
+NULL
+NULL
+NULL
+NULL
+SELECT CAST(doc.Children._ AS CHAR) FROM t4;
+CAST(doc.Children._ AS CHAR)
+NULL
+Steve
+NULL
+NULL
+NULL
+NULL
+NULL
+SELECT doc.id FROM t4 WHERE doc.Children._ = "Bob";
+`doc`.`id`
+SELECT doc.id FROM t4 WHERE doc.Children._ LIKE "Bob";
+`doc`.`id`
+SELECT doc.id FROM t4 WHERE doc._._ = "Bob";
+`doc`.`id`
+SELECT doc.id FROM t4 WHERE doc.Children.name._ = "Bob";
+`doc`.`id`
+SELECT doc.id FROM t4 WHERE doc.Children._._ = "Steve";
+`doc`.`id`
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+DROP TABLE t1, t2, t3, t4;
