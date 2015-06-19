@@ -1,0 +1,186 @@
+# Test of operator SIMILAR with document type
+
+--disable_warnings
+drop table if exists t1, t2;
+drop view if exists v1;
+--enable_warnings
+
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
+
+# Populate t1 with data
+CREATE TABLE t1 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
+
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlie"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98764, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":104, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+
+# True comparisons
+SELECT DOCUMENT('{}') SIMILAR DOCUMENT('{ }');
+SELECT DOCUMENT('[]') SIMILAR DOCUMENT('[ ]');
+SELECT DOCUMENT('[[[]]]') SIMILAR DOCUMENT('[[[]]]');
+SELECT DOCUMENT('[[[{}]]]') SIMILAR DOCUMENT('[[[{}]]]');
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') SIMILAR DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{"k1"    :"v1", "k2":"v2"}') SIMILAR DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') SIMILAR DOCUMENT('{"k3":3, "k2":true, "k1":"v1"}');
+SELECT DOCUMENT('[1, 2, "foo"]') SIMILAR DOCUMENT('[1, 2, "foo"]');
+SELECT DOCUMENT('{"foo": {"k1": 1, "k2": 2}, "foo2": {"k1": 1, "k2": 2}}') SIMILAR DOCUMENT('{"foo2": {"k2": 2, "k1": 1}, "foo": {"k2": 2, "k1": 1}}');
+SELECT DOCUMENT('{"k1": [1, "bar", {"k11": "v11", "k12": "v12"}, [{"foo": "bar"}]], "k2": "v2"}') SIMILAR DOCUMENT('{"k2" : "v2", "k1": [1, "bar", {"k12": "v12", "k11": "v11"}, [{"foo": "bar"}]]}');
+SELECT DOCUMENT('{}') NOT SIMILAR DOCUMENT('[]');
+SELECT DOCUMENT('{"k1": "v1", "k2": "v2"}') NOT SIMILAR DOCUMENT('{"k1":"v2", "k2":"v2"}');
+SELECT DOCUMENT('[1, 2, 3]') NOT SIMILAR DOCUMENT('[1, 3, 2]');
+SELECT DOCUMENT('[1, 2, 3]') NOT SIMILAR DOCUMENT('[1, 2, 3, 4]');
+SELECT DOCUMENT('[1, 2, 3, 4]') NOT SIMILAR DOCUMENT('[1, 2, 3]');
+SELECT DOCUMENT('{"k1": "v1", "k2": "v2"}') NOT SIMILAR DOCUMENT('{"k1":"v2"}');
+SELECT DOCUMENT('{"k1": "v1"}') NOT SIMILAR DOCUMENT('{"k1":"v1", "k2":"v2"}');
+
+# False comparisons
+SELECT DOCUMENT('{}') SIMILAR DOCUMENT('[]');
+SELECT DOCUMENT('{"k1": "v1", "k2": "v2"}') SIMILAR DOCUMENT('{"k1":"v2", "k2":"v2"}');
+SELECT DOCUMENT('[1, 2, 3]') SIMILAR DOCUMENT('[1, 3, 2]');
+SELECT DOCUMENT('[1, 2, 3]') SIMILAR DOCUMENT('[1, 2, 3, 4]');
+SELECT DOCUMENT('[1, 2, 3, 4]') SIMILAR DOCUMENT('[1, 2, 3]');
+SELECT DOCUMENT('{"k1": "v1", "k2": "v2"}') SIMILAR DOCUMENT('{"k1":"v2"}');
+SELECT DOCUMENT('{"k1": "v1"}') SIMILAR DOCUMENT('{"k1":"v1", "k2":"v2"}');
+SELECT DOCUMENT('{}') NOT SIMILAR DOCUMENT('{}');
+SELECT DOCUMENT('[]') NOT SIMILAR DOCUMENT('[]');
+SELECT DOCUMENT('[[[]]]') NOT SIMILAR DOCUMENT('[[[]]]');
+SELECT DOCUMENT('[[[{}]]]') NOT SIMILAR DOCUMENT('[[[{}]]]');
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT SIMILAR DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{"k1"    :"v1", "k2":"v2"}') NOT SIMILAR DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT SIMILAR DOCUMENT('{"k3":3, "k2":true, "k1":"v1"}');
+SELECT DOCUMENT('[1, 2, "foo"]') NOT SIMILAR DOCUMENT('[1, 2, "foo"]');
+SELECT DOCUMENT('{"foo": {"k1": 1, "k2": 2}, "foo2": {"k1": 1, "k2": 2}}') NOT SIMILAR DOCUMENT('{"foo2": {"k2": 2, "k1": 1}, "foo": {"k2": 2, "k1": 1}}');
+SELECT DOCUMENT('{"k1": [1, "bar", {"k11": "v11", "k12": "v12"}, [{"foo": "bar"}]], "k2": "v2"}') NOT SIMILAR DOCUMENT('{"k2" : "v2", "k1": [1, "bar", {"k12": "v12", "k11": "v11"}, [{"foo": "bar"}]]}');
+
+# Invalid comparisons with non DOCUMENT types
+--error ER_WRONG_ARGUMENTS
+SELECT DOCUMENT('{"1":"1"}') SIMILAR '{"1":"1"}';
+--error ER_WRONG_ARGUMENTS
+SELECT DOCUMENT('[1]') SIMILAR 1;
+--error ER_WRONG_ARGUMENTS
+SELECT '[1]' SIMILAR DOCUMENT('[1]');
+--error ER_WRONG_ARGUMENTS
+SELECT 1 SIMILAR DOCUMENT('[1]');
+--error ER_WRONG_ARGUMENTS
+SELECT 1 SIMILAR 1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc SIMILAR '' FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc.address SIMILAR '' FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc SIMILAR 2 FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT doc.address SIMILAR 2 FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT '' SIMILAR doc FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT '' SIMILAR doc.address FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT 2 SIMILAR doc FROM t1;
+--error ER_WRONG_ARGUMENTS
+SELECT 2 SIMILAR doc.address FROM t1;
+
+# Populate t2 with data
+CREATE TABLE t2 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
+insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761}, "addr":{"zipcode":98761}}');
+insert into t2 values (10,'@10','{"zipcode":98761}');
+insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
+insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
+insert into t2 values (6,'@2','{ "id":110, "address":{"zipcode":98767, "state":"NY"}}');
+
+# Test all combinations of doc column/doc path/DOCUMENT()
+SELECT DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}');
+SELECT DOCUMENT('{ "zipcode":98767, "state":"NY" }') SIMILAR doc.address FROM t2;
+SELECT DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') SIMILAR doc FROM t2;
+SELECT doc.address SIMILAR DOCUMENT('{ "zipcode":98767, "state":"NY" }') FROM t2;
+SELECT doc.address SIMILAR doc.addr FROM t2;
+SELECT doc.address SIMILAR doc FROM t2;
+SELECT doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}') FROM t2;
+SELECT doc SIMILAR doc.addr FROM t2;
+SELECT doc SIMILAR doc FROM t2;
+
+# Test doc column/doc path/DOCUMENT() with SIMILAR in WHERE clause
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{ "zipcode":98767, "state":"NY" }') SIMILAR doc.address;
+SELECT doc.id FROM t2 WHERE DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') SIMILAR doc;
+SELECT doc.id FROM t2 WHERE doc.address SIMILAR DOCUMENT('{ "zipcode":98767, "state":"NY" }');
+SELECT doc.id FROM t2 WHERE doc.address SIMILAR doc.addr;
+SELECT doc.id FROM t2 WHERE doc.address SIMILAR doc;
+SELECT doc.id FROM t2 WHERE doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}');
+SELECT doc.id FROM t2 WHERE doc SIMILAR doc.addr;
+SELECT doc.id FROM t2 WHERE doc SIMILAR doc;
+
+# Test SIMILAR with JOIN
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+  ON DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}');
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON DOCUMENT('{ "zipcode":98767, "state":"NY" }') SIMILAR t2.doc.address;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+  ON DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') SIMILAR t2.doc;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+  ON t2.doc.address SIMILAR DOCUMENT('{ "zipcode":98767, "state":"NY" }');
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address SIMILAR t2.doc.addr;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address SIMILAR t2.doc;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+  ON t2.doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}');
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc SIMILAR t2.doc.addr;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc SIMILAR t2.doc;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address SIMILAR t2.doc.address;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address NOT SIMILAR t2.doc.address;
+
+# Test SIMILAR with subqueries
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{ "zipcode":98767, "state":"NY" }') SIMILAR doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') SIMILAR doc) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address SIMILAR DOCUMENT('{ "zipcode":98767, "state":"NY" }')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address SIMILAR doc.addr) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address SIMILAR doc) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SIMILAR doc.addr) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SIMILAR doc) temp;
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}')) temp;
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address NOT SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}')) temp;
+
+
+# FIXME: Test SIMILAR with views: fix bug with views first
+#CREATE VIEW v1 AS
+#(SELECT * FROM t2 WHERE doc.address SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}'));
+#SELECT * FROM v1;
+#DROP VIEW v1;
+
+#CREATE VIEW v1 AS
+#(SELECT * FROM t2 WHERE doc.address NOT SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}'));
+#SELECT * FROM v1;
+#DROP VIEW v1;
+
+drop table t1, t2;
+exit;

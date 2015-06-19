@@ -1614,6 +1614,17 @@ public:
 };
 
 
+class Item_func_similar :public Item_bool_func2
+{
+public:
+  Item_func_similar(Item *a,Item *b) :Item_bool_func2(a,b) {}
+  longlong val_int();
+  enum Functype functype() const { return SIMILAR_FUNC; }
+  cond_result eq_cmp_result() const { return COND_TRUE; }
+  const char *func_name() const { return "similar"; }
+};
+
+
 class Item_func_subdoc :public Item_bool_func2
 {
 public:
