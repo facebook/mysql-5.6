@@ -530,6 +530,7 @@ static SYMBOL symbols[] = {
   { "SHUTDOWN",		SYM(SHUTDOWN)},
   { "SIGNAL",           SYM(SIGNAL_SYM)},
   { "SIGNED",		SYM(SIGNED_SYM)},
+  { "SIMILAR",		SYM(SIMILAR)},
   { "SIMPLE",		SYM(SIMPLE_SYM)},
   { "SLAVE",            SYM(SLAVE)},
   { "SLOW",             SYM(SLOW)},

@@ -1070,10 +1070,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %lex-param { class THD *YYTHD }
 %pure-parser                                    /* We have threads */
 /*
-  Currently there are 170 shift/reduce conflicts.
+  Currently there are 176 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 170
+%expect 175
 
 /*
    Comments for TOKENS.
@@ -1590,6 +1590,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SHUTDOWN
 %token  SIGNAL_SYM                    /* SQL-2003-R */
 %token  SIGNED_SYM
+%token  SIMILAR                       /* WebScaleSQL-2015 */
 %token  SIMPLE_SYM                    /* SQL-2003-N */
 %token  SLAVE
 %token  SLOW
@@ -9361,6 +9362,35 @@ predicate:
           {
             Item *item= new (YYTHD->mem_root) Item_func_like($1,$4,$5,
                                                              Lex->escape_used);
+            if (item == NULL)
+              MYSQL_YYABORT;
+            $$= new (YYTHD->mem_root) Item_func_not(item);
+            if ($$ == NULL)
+              MYSQL_YYABORT;
+          }
+        | bit_expr SIMILAR simple_expr 
+          {
+            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
+                ($3->type() != Item::DOCUMENT_ITEM && $3->type() != Item::FIELD_ITEM))
+            {
+              my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
+              MYSQL_YYABORT;
+            }
+
+            $$= new (YYTHD->mem_root) Item_func_similar($1,$3);
+            if ($$ == NULL)
+              MYSQL_YYABORT;
+          }
+        | bit_expr not SIMILAR simple_expr
+          {
+            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
+                ($4->type() != Item::DOCUMENT_ITEM && $4->type() != Item::FIELD_ITEM))
+            {
+              my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
+              MYSQL_YYABORT;
+            }
+
+            Item *item= new (YYTHD->mem_root) Item_func_similar($1,$4);
             if (item == NULL)
               MYSQL_YYABORT;
             $$= new (YYTHD->mem_root) Item_func_not(item);
