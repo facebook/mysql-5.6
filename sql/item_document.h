@@ -21,7 +21,8 @@
 class Item_func_document :public Item_func
 {
 private:
-  char *fbson_blob;
+  fbson::FbsonJsonParser parser;
+  const char *fbson_blob;
   int length;
 
 public:
