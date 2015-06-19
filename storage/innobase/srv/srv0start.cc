@@ -2530,10 +2530,10 @@ files_checked:
 			return(err);
 		}
 
-		handle_sys_fields_format();
 		ib_bh = trx_sys_init_at_db_start();
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
 
+		handle_sys_fields_format();
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
 
@@ -2595,10 +2595,10 @@ files_checked:
 			return(err);
 		}
 
-		handle_sys_fields_format();
 		ib_bh = trx_sys_init_at_db_start();
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
 
+		handle_sys_fields_format();
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
 
