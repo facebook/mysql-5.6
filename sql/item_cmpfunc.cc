@@ -573,8 +573,9 @@ void Item_bool_func2::fix_length_and_dec()
     item_cmp_type(args[0]->result_type(), args[1]->result_type());
   // Make a special case of compare with fields to get nicer DATE comparisons
 
-  // Disable conversion in case of LIKE, SUBDOC function.
-  if (functype() == LIKE_FUNC || functype() == SUBDOC_FUNC)
+  // Disable conversion in case of LIKE, SIMILAR, SUBDOC function.
+  if (functype() == LIKE_FUNC || functype() == SIMILAR_FUNC ||
+      functype() == SUBDOC_FUNC)
   {
     set_cmp_func();
     DBUG_VOID_RETURN;
@@ -3459,9 +3460,9 @@ void Item_func_case::agg_num_lengths(Item *arg)
 {
   uint len= my_decimal_length_to_precision(arg->max_length, arg->decimals,
                                            arg->unsigned_flag) - arg->decimals;
-  set_if_bigger(max_length, len); 
+  set_if_bigger(max_length, len);
   set_if_bigger(decimals, arg->decimals);
-  unsigned_flag= unsigned_flag && arg->unsigned_flag; 
+  unsigned_flag= unsigned_flag && arg->unsigned_flag;
 }
 
 
@@ -3472,7 +3473,7 @@ void Item_func_case::agg_num_lengths(Item *arg)
   This function is a workaround for implementation deficiency in
   Item_func_case. The problem there is that the 'args' attribute contains
   Items from different expressions.
- 
+
   The function must not be used elsewhere and will be remove eventually.
 */
 
@@ -3567,7 +3568,7 @@ void Item_func_case::fix_length_and_dec()
     /*
       As the first expression and WHEN expressions
       are intermixed in args[] array THEN and ELSE items,
-      extract the first expression and all WHEN expressions into 
+      extract the first expression and all WHEN expressions into
       a temporary array, to process them easier.
     */
     for (nagg= 0; nagg < ncases/2 ; nagg++)
@@ -3644,7 +3645,7 @@ uint Item_func_case::decimal_precision() const
   for (uint i=0 ; i < ncases ; i+=2)
     set_if_bigger(max_int_part, args[i+1]->decimal_int_part());
 
-  if (else_expr_num != -1) 
+  if (else_expr_num != -1)
     set_if_bigger(max_int_part, args[else_expr_num]->decimal_int_part());
   return min<uint>(max_int_part + decimals, DECIMAL_MAX_PRECISION);
 }
@@ -3860,7 +3861,7 @@ static inline int cmp_ulongs (ulonglong a_val, ulonglong b_val)
 
 
 /*
-  Compare two integers in IN value list format (packed_longlong) 
+  Compare two integers in IN value list format (packed_longlong)
 
   SYNOPSIS
     cmp_longlong()
@@ -3882,23 +3883,23 @@ static inline int cmp_ulongs (ulonglong a_val, ulonglong b_val)
     0           left argument is equal to the right argument.
     1           left argument is greater than the right argument.
 */
-int cmp_longlong(void *cmp_arg, 
+int cmp_longlong(void *cmp_arg,
                  in_longlong::packed_longlong *a,
                  in_longlong::packed_longlong *b)
 {
   if (a->unsigned_flag != b->unsigned_flag)
-  { 
-    /* 
-      One of the args is unsigned and is too big to fit into the 
+  {
+    /*
+      One of the args is unsigned and is too big to fit into the
       positive signed range. Report no match.
-    */  
+    */
     if ((a->unsigned_flag && ((ulonglong) a->val) > (ulonglong) LONGLONG_MAX) ||
         (b->unsigned_flag && ((ulonglong) b->val) > (ulonglong) LONGLONG_MAX))
       return a->unsigned_flag ? 1 : -1;
     /*
-      Although the signedness differs both args can fit into the signed 
+      Although the signedness differs both args can fit into the signed
       positive range. Make them signed and compare as usual.
-    */  
+    */
     return cmp_longs (a->val, b->val);
   }
   if (a->unsigned_flag)
@@ -4038,7 +4039,7 @@ in_longlong::in_longlong(uint elements)
 void in_longlong::set(uint pos,Item *item)
 {
   struct packed_longlong *buff= &((packed_longlong*) base)[pos];
-  
+
   buff->val= item->val_int();
   buff->unsigned_flag= item->unsigned_flag;
 }
@@ -4142,7 +4143,7 @@ void in_decimal::set(uint pos, Item *item)
   dec->len= DECIMAL_BUFF_LENGTH;
   dec->fix_buffer_pointer();
   my_decimal *res= item->val_decimal(dec);
-  /* if item->val_decimal() is evaluated to NULL then res == 0 */ 
+  /* if item->val_decimal() is evaluated to NULL then res == 0 */
   if (!item->null_value && res != dec)
     my_decimal2decimal(res, dec);
 }
@@ -4231,7 +4232,7 @@ void cmp_item_row::alloc_comparators(Item *item)
       if (!(comparators[i]=
             cmp_item::get_comparator(item_i->result_type(),
                                      item_i->collation.collation)))
-        break;                                  // new failed
+	break;                                  // new failed
       if (item_i->result_type() == ROW_RESULT)
         static_cast<cmp_item_row*>(comparators[i])->alloc_comparators(item_i);
     }
@@ -4275,7 +4276,7 @@ void cmp_item_row::store_value_by_template(cmp_item *t, Item *item)
       if (!(comparators[i]= tmpl->comparators[i]->make_same()))
 	break;					// new failed
       comparators[i]->store_value_by_template(tmpl->comparators[i],
-					      item->element_index(i));
+                item->element_index(i));
       item->null_value|= item->element_index(i)->null_value;
     }
   }
@@ -4480,7 +4481,7 @@ void Item_func_in::fix_length_and_dec()
   left_result_type= args[0]->result_type();
   if (!(found_types= collect_cmp_types(args, arg_count, true)))
     return;
-  
+
   for (arg= args + 1, arg_end= args + arg_count; arg != arg_end ; arg++)
   {
     if (!arg[0]->const_item())
@@ -4500,7 +4501,7 @@ void Item_func_in::fix_length_and_dec()
 
   if (type_cnt == 1)
   {
-    if (cmp_type == STRING_RESULT && 
+    if (cmp_type == STRING_RESULT &&
         agg_arg_charsets_for_comparison(cmp_collation, args, arg_count))
       return;
     arg_types_compatible= TRUE;
@@ -4602,8 +4603,8 @@ void Item_func_in::fix_length_and_dec()
       /*
         IN must compare INT columns and constants as int values (the same
         way as equality does).
-        So we must check here if the column on the left and all the constant 
-        values on the right can be compared as integers and adjust the 
+        So we must check here if the column on the left and all the constant
+        values on the right can be compared as integers and adjust the
         comparison type accordingly.
       */
       bool datetime_as_longlong= false;
@@ -5331,6 +5332,22 @@ void Item_func_isnotnull::print(String *str, enum_query_type query_type)
 longlong Item_func_like::val_int()
 {
   DBUG_ASSERT(fixed == 1);
+
+  /* If both items are document type, compare their FBson objects */
+  if (is_document_type_or_value(args[0]) &&
+      is_document_type_or_value(args[1]))
+  {
+    /* Perform same comparison as SIMILAR (order doesn't matter but
+     * all key-value pairs must match) */
+    fbson::FbsonValue *val1 = (fbson::FbsonValue*) args[0]->val_fbson_blob();
+    fbson::FbsonValue *val2 = (fbson::FbsonValue*) args[1]->val_fbson_blob();
+
+    if (val1 && val2)
+      return compare_fbson_value(val1, val2);
+    else
+      return 0;
+  }
+
   String* res = args[0]->val_str(&cmp.value1);
   if (args[0]->null_value)
   {
@@ -5599,6 +5616,30 @@ static bool compare_fbson_value(fbson::FbsonValue *a, fbson::FbsonValue *b)
 }
 
 /**
+  Compares two documents for similarity. Key value pairs must match but
+  order doesn't matter. (return 1 for similar, otherwise 0)
+ */
+longlong Item_func_similar::val_int()
+{
+  DBUG_ASSERT(fixed == 1);
+
+  /* Check that arguments are documents */
+  if (!is_document_type_or_value(args[0]) ||
+      !is_document_type_or_value(args[1]))
+    my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
+
+  /* Get the fbson values of the items  */
+  fbson::FbsonValue *val1 = (fbson::FbsonValue*) args[0]->val_fbson_blob();
+  fbson::FbsonValue *val2 = (fbson::FbsonValue*) args[1]->val_fbson_blob();
+
+  if (val1 && val2)
+    return compare_fbson_value(val1, val2);
+  else
+    return 0;
+}
+
+
+/**
   Compares two documents for subset (subdoc) relation. Key value pairs in first
   JSON object MUST be contained in the second JSON object match but
   order doesn't matter. The level of nesting does matter. It will return true
@@ -5613,8 +5654,8 @@ longlong Item_func_subdoc::val_int()
   DBUG_ASSERT(fixed == 1);
 
   /* Check that arguments are documents */
-  if (is_document_type_or_value(args[0]) &&
-      is_document_type_or_value(args[1]))
+  if (!is_document_type_or_value(args[0]) ||
+      !is_document_type_or_value(args[1]))
     my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
 
   /* Compare their fbson objects (DFS search) */

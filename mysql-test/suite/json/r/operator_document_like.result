@@ -1,0 +1,453 @@
+drop table if exists t1, t2;
+drop view if exists v1;
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
+@start_allow_DOCUMENT_type
+1
+CREATE TABLE t1 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlie"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98764, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":104, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+SELECT DOCUMENT('{"k":"v"}') LIKE '{"k":"v"}';
+DOCUMENT('{"k":"v"}') LIKE '{"k":"v"}'
+1
+SELECT DOCUMENT('{"k":"v"}') LIKE '{"k%';
+DOCUMENT('{"k":"v"}') LIKE '{"k%'
+1
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') LIKE '{"MySQL%据库"}';
+DOCUMENT('{"MySQL":"开源数据库"}') LIKE '{"MySQL%据库"}'
+1
+SELECT DOCUMENT('{"key":[1,2,3]}') LIKE '{"key":[1,2,3]}';
+DOCUMENT('{"key":[1,2,3]}') LIKE '{"key":[1,2,3]}'
+1
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') LIKE '%","k2":true,"k3":3}';
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}') LIKE '%","k2":true,"k3":3}'
+1
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE '{"k" :"v"}';
+DOCUMENT('{"k":"v"}') NOT LIKE '{"k" :"v"}'
+1
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE '{"k%123';
+DOCUMENT('{"k":"v"}') NOT LIKE '{"k%123'
+1
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') NOT LIKE '{"ySQL%据库"}';
+DOCUMENT('{"MySQL":"开源数据库"}') NOT LIKE '{"ySQL%据库"}'
+1
+SELECT DOCUMENT('{"key":[1,2,3]}') NOT LIKE '{"key":[1,2]}';
+DOCUMENT('{"key":[1,2,3]}') NOT LIKE '{"key":[1,2]}'
+1
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT LIKE '{%2%","k2":true,"k3":3}';
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT LIKE '{%2%","k2":true,"k3":3}'
+1
+SELECT DOCUMENT('{}') NOT LIKE 2;
+DOCUMENT('{}') NOT LIKE 2
+1
+SELECT DOCUMENT('{"k":"v"}') LIKE '{"k" :"v"}';
+DOCUMENT('{"k":"v"}') LIKE '{"k" :"v"}'
+0
+SELECT DOCUMENT('{"k":"v"}') LIKE '{"k%123';
+DOCUMENT('{"k":"v"}') LIKE '{"k%123'
+0
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') LIKE '{"ySQL%据库"}';
+DOCUMENT('{"MySQL":"开源数据库"}') LIKE '{"ySQL%据库"}'
+0
+SELECT DOCUMENT('{"key":[1,2,3]}') LIKE '{"key":[1,2]}';
+DOCUMENT('{"key":[1,2,3]}') LIKE '{"key":[1,2]}'
+0
+SELECT DOCUMENT('{}') LIKE 2;
+DOCUMENT('{}') LIKE 2
+0
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') LIKE '{%2%","k2":true,"k3":3}';
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}') LIKE '{%2%","k2":true,"k3":3}'
+0
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE '{"k":"v"}';
+DOCUMENT('{"k":"v"}') NOT LIKE '{"k":"v"}'
+0
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE '{"k%';
+DOCUMENT('{"k":"v"}') NOT LIKE '{"k%'
+0
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') NOT LIKE '{"MySQL%据库"}';
+DOCUMENT('{"MySQL":"开源数据库"}') NOT LIKE '{"MySQL%据库"}'
+0
+SELECT DOCUMENT('{"key":[1,2,3]}') NOT LIKE '{"key":[1,2,3]}';
+DOCUMENT('{"key":[1,2,3]}') NOT LIKE '{"key":[1,2,3]}'
+0
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT LIKE '%","k2":true,"k3":3}';
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT LIKE '%","k2":true,"k3":3}'
+0
+SELECT DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"k"   :    "v"}');
+DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"k"   :    "v"}')
+1
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}')
+1
+SELECT DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1,           2, 3]');
+DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1,           2, 3]')
+1
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"v":"k"}');
+DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"v":"k"}')
+1
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"k":"v "}');
+DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"k":"v "}')
+1
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT LIKE DOCUMENT('{"k3":3, "k2":false, "k1":"v1"}');
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}') NOT LIKE DOCUMENT('{"k3":3, "k2":false, "k1":"v1"}')
+1
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k1":"v2", "k1":"v1"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k1":"v2", "k1":"v1"}')
+1
+SELECT DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1, 3, 2]');
+DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1, 3, 2]')
+1
+SELECT DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"v":"k"}');
+DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"v":"k"}')
+0
+SELECT DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"k":"v "}');
+DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"k":"v "}')
+0
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') LIKE DOCUMENT('{"k3":3, "k2":false, "k1":"v1"}');
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}') LIKE DOCUMENT('{"k3":3, "k2":false, "k1":"v1"}')
+0
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') LIKE DOCUMENT('{"k1":"v2", "k1":"v1"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') LIKE DOCUMENT('{"k1":"v2", "k1":"v1"}')
+0
+SELECT DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1, 3, 2]');
+DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1, 3, 2]')
+0
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}')
+0
+SELECT DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"k"   :    "v"}');
+DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"k"   :    "v"}')
+0
+SELECT DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1,           2, 3]');
+DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1,           2, 3]')
+0
+CREATE TABLE t2 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761}, "addr":{"zipcode":98761}}');
+insert into t2 values (10,'@10','{"zipcode":98761}');
+insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
+insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
+insert into t2 values (6,'@2','{ "id":110, "address":{"zipcode":98767, "state":"NY"}}');
+SELECT DOCUMENT('{"1": "1", "2": "2"}') LIKE DOCUMENT('{"2": "2", "1":"1"}');
+DOCUMENT('{"1": "1", "2": "2"}') LIKE DOCUMENT('{"2": "2", "1":"1"}')
+1
+SELECT DOCUMENT('{ "zipcode":98767, "state":"NY" }') LIKE doc.address FROM t2;
+DOCUMENT('{ "zipcode":98767, "state":"NY" }') LIKE doc.address
+0
+0
+1
+0
+1
+SELECT DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') LIKE doc FROM t2;
+DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') LIKE doc
+1
+0
+0
+0
+0
+SELECT doc.address LIKE DOCUMENT('{ "zipcode":98767, "state":"NY" }') FROM t2;
+doc.address LIKE DOCUMENT('{ "zipcode":98767, "state":"NY" }')
+0
+0
+1
+0
+1
+SELECT doc.address LIKE doc.addr FROM t2;
+doc.address LIKE doc.addr
+1
+0
+0
+0
+0
+SELECT doc.address LIKE doc FROM t2;
+doc.address LIKE doc
+0
+0
+0
+0
+0
+SELECT doc LIKE DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}') FROM t2;
+doc LIKE DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}')
+1
+0
+0
+0
+0
+SELECT doc LIKE doc.addr FROM t2;
+doc LIKE doc.addr
+0
+0
+0
+0
+0
+SELECT doc LIKE doc FROM t2;
+doc LIKE doc
+1
+1
+1
+1
+1
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"1": "1", "2": "2"}') LIKE DOCUMENT('{"2": "2", "1":"1"}');
+`doc`.`id`
+108
+NULL
+104
+106
+110
+SELECT doc.id FROM t2 WHERE DOCUMENT('{ "zipcode":98767, "state":"NY" }') LIKE doc.address;
+`doc`.`id`
+104
+110
+SELECT doc.id FROM t2 WHERE DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') LIKE doc;
+`doc`.`id`
+108
+SELECT doc.id FROM t2 WHERE doc.address LIKE DOCUMENT('{ "zipcode":98767, "state":"NY" }');
+`doc`.`id`
+104
+110
+SELECT doc.id FROM t2 WHERE doc.address LIKE doc.addr;
+`doc`.`id`
+108
+SELECT doc.id FROM t2 WHERE doc.address LIKE doc;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc LIKE DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}');
+`doc`.`id`
+108
+SELECT doc.id FROM t2 WHERE doc LIKE doc.addr;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc LIKE doc;
+`doc`.`id`
+108
+NULL
+104
+106
+110
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+ON DOCUMENT('{"1": "1", "2": "2"}') LIKE DOCUMENT('{"2": "2", "1":"1"}');
+`doc`.`id`	`doc`.`id`
+101	108
+101	NULL
+101	104
+101	106
+101	110
+102	108
+102	NULL
+102	104
+102	106
+102	110
+103	108
+103	NULL
+103	104
+103	106
+103	110
+104	108
+104	NULL
+104	104
+104	106
+104	110
+105	108
+105	NULL
+105	104
+105	106
+105	110
+108	108
+108	NULL
+108	104
+108	106
+108	110
+104	108
+104	NULL
+104	104
+104	106
+104	110
+106	108
+106	NULL
+106	104
+106	106
+106	110
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+ON DOCUMENT('{ "zipcode":98767, "state":"NY" }') LIKE t2.doc.address;
+`doc`.`id`	`doc`.`id`
+101	104
+101	110
+102	104
+102	110
+103	104
+103	110
+104	104
+104	110
+105	104
+105	110
+108	104
+108	110
+104	104
+104	110
+106	104
+106	110
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+ON DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') LIKE t2.doc;
+`doc`.`id`	`doc`.`id`
+101	108
+102	108
+103	108
+104	108
+105	108
+108	108
+104	108
+106	108
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+ON t2.doc.address LIKE DOCUMENT('{ "zipcode":98767, "state":"NY" }');
+`doc`.`id`	`doc`.`id`
+101	104
+101	110
+102	104
+102	110
+103	104
+103	110
+104	104
+104	110
+105	104
+105	110
+108	104
+108	110
+104	104
+104	110
+106	104
+106	110
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+ON t1.doc.address LIKE t2.doc.addr;
+`doc`.`id`	`doc`.`id`
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+ON t1.doc.address LIKE t2.doc;
+`doc`.`id`	`doc`.`id`
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+ON t2.doc LIKE DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}');
+`doc`.`id`	`doc`.`id`
+101	108
+102	108
+103	108
+104	108
+105	108
+108	108
+104	108
+106	108
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+ON t1.doc LIKE t2.doc.addr;
+`doc`.`id`	`doc`.`id`
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+ON t1.doc LIKE t2.doc;
+`doc`.`id`	`doc`.`id`
+104	104
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+ON t1.doc.address LIKE t2.doc.address;
+`doc`.`id`	`doc`.`id`
+104	104
+104	110
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+ON t1.doc.address NOT LIKE t2.doc.address;
+`doc`.`id`	`doc`.`id`
+101	108
+101	NULL
+101	104
+101	106
+101	110
+102	108
+102	NULL
+102	104
+102	106
+102	110
+103	108
+103	NULL
+103	104
+103	106
+103	110
+104	108
+104	NULL
+104	104
+104	106
+104	110
+105	108
+105	NULL
+105	104
+105	106
+105	110
+108	108
+108	NULL
+108	104
+108	106
+108	110
+104	108
+104	NULL
+104	106
+106	108
+106	NULL
+106	104
+106	106
+106	110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"1": "1", "2": "2"}') LIKE DOCUMENT('{"2": "2", "1":"1"}')) temp;
+`doc`.`id`
+108
+NULL
+104
+106
+110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{ "zipcode":98767, "state":"NY" }') LIKE doc.address) temp;
+`doc`.`id`
+104
+110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') LIKE doc) temp;
+`doc`.`id`
+108
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address LIKE DOCUMENT('{ "zipcode":98767, "state":"NY" }')) temp;
+`doc`.`id`
+104
+110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address LIKE doc.addr) temp;
+`doc`.`id`
+108
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address LIKE doc) temp;
+`doc`.`id`
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc LIKE DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}')) temp;
+`doc`.`id`
+108
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc LIKE doc.addr) temp;
+`doc`.`id`
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc LIKE doc) temp;
+`doc`.`id`
+108
+NULL
+104
+106
+110
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address LIKE DOCUMENT('{"state":"NY", "zipcode":98767}')) temp;
+`doc`.`id`
+104
+110
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address NOT LIKE DOCUMENT('{"state":"NY", "zipcode":98767}')) temp;
+`doc`.`id`
+108
+NULL
+106
+drop table t1, t2;
