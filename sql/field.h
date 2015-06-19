@@ -704,6 +704,7 @@ public:
   /*
    virtual functions for Field_document use only.
   */
+  virtual char *val_fbson_blob(int*) { return nullptr; }
   virtual bool document_path_is_null(
     List<Document_key>* key_path_ptr, enum_field_types key_type)
   {
@@ -3678,6 +3679,8 @@ class Field_document :public Field_blob {
                                 String *string,
                                 uchar *buff, uint length,
                                 uint& val_len, my_bool& is_null);
+
+  char *val_fbson_blob(int *length);
 
 public:
   enum document_type doc_type;
