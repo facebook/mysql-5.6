@@ -29,13 +29,18 @@
 #include "sql_time.h"                  // make_truncated_value_warning
 
 #include <algorithm>
+#include <unordered_map>
 using std::min;
 using std::max;
+using std::unordered_map;
 
 static bool convert_constant_item(THD *, Item_field *, Item **);
 static longlong
 get_year_value(THD *thd, Item ***item_arg, Item **cache_arg,
                Item *warn_item, bool *is_null);
+static bool compare_document_object(fbson::FbsonValue*, fbson::FbsonValue*);
+static bool compare_document_array(fbson::FbsonValue*, fbson::FbsonValue*);
+static bool compare_fbson_value(fbson::FbsonValue*, fbson::FbsonValue*);
 static bool is_document_type_or_value(Item *a);
 
 static Item_result item_store_type(Item_result a, Item *item,
@@ -568,7 +573,8 @@ void Item_bool_func2::fix_length_and_dec()
     item_cmp_type(args[0]->result_type(), args[1]->result_type());
   // Make a special case of compare with fields to get nicer DATE comparisons
 
-  if (functype() == LIKE_FUNC)  // Disable conversion in case of LIKE function.
+  // Disable conversion in case of LIKE, SUBDOC function.
+  if (functype() == LIKE_FUNC || functype() == SUBDOC_FUNC)
   {
     set_cmp_func();
     DBUG_VOID_RETURN;
@@ -5479,6 +5485,166 @@ void Item_func_like::cleanup()
   canDoTurboBM= FALSE;
   Item_bool_func2::cleanup();
 }
+
+
+/* Helper function to perform key by key comparison on document object.
+ * Order of key-value pairs does NOT matter */
+static bool compare_document_object(fbson::FbsonValue *a, fbson::FbsonValue *b)
+{
+  /* Verify they're both non-null JSON objects of same size */
+  DBUG_ASSERT(a && b);
+
+  /* FBson objects with same keys in a different order should be of same size */
+  if (!a->isObject() || !b->isObject() || a->size() != b->size())
+    return false;
+
+  /* Store a mapping from key to FbsonValue of each object then compare  */
+  unordered_map<std::string, fbson::FbsonValue*> left;
+  unordered_map<std::string, fbson::FbsonValue*> right;
+
+  /* Iterate through all keys */
+  fbson::ObjectVal::iterator iter = ((fbson::ObjectVal*) a)->begin();
+  fbson::ObjectVal::iterator iter_end = ((fbson::ObjectVal*) a)->end();
+  fbson::ObjectVal::iterator iter2 = ((fbson::ObjectVal*) b)->begin();
+  fbson::ObjectVal::iterator iter2_end = ((fbson::ObjectVal*) b)->end();
+
+  for (; iter != iter_end && iter2 != iter2_end; ++iter, ++iter2)
+  {
+    std::string key = std::string(iter->getKeyStr(), iter->klen());
+    std::string key2 = std::string(iter2->getKeyStr(), iter2->klen());
+
+    /* Only insert if key doesn't already exist. Duplicates are allowed but
+     * first key is used to be consistent with JSON_EXTRACT_VALUE */
+    if (left.find(key) == left.end())
+      left[key] = iter->value();
+    if (right.find(key2) == right.end())
+      right[key2] = iter2->value();
+  }
+
+  if (iter != iter_end || iter2 != iter2_end || left.size() != right.size())
+    return false;
+
+  /* Iterate through maps and compare each value */
+  for (auto it = left.begin(); it != left.end(); ++it)
+  {
+    /* Key doesn't even exist or value are not equal */
+    if (right.find(it->first) == right.end() ||
+        !compare_fbson_value(it->second, right[it->first]))
+      return false;
+  }
+
+  /* Everything matched perfectly */
+  return true;
+}
+
+
+/* Helper function to perform key by key comparison on document array.
+ * Order of elements in array MATTERS */
+static bool compare_document_array(fbson::FbsonValue *a, fbson::FbsonValue *b)
+{
+  /* Verify they're both non-null JSON arrays */
+  DBUG_ASSERT(a && b);
+  if (!a->isArray() || !b->isArray() || a->size() != b->size())
+    return false;
+
+  fbson::ArrayVal *left = (fbson::ArrayVal*) a;
+  fbson::ArrayVal *right = (fbson::ArrayVal*) b;
+
+  if (left->numElem() != right->numElem())
+    return false;
+
+  for (unsigned int i = 0; i < left->numElem(); i++)
+  {
+    if (!compare_fbson_value(left->get(i), right->get(i)))
+      return false;
+  }
+
+  /* Every element in array matched */
+  return true;
+}
+
+
+/* Compare two fbson values, if they are objects, order of keys do not matter */
+static bool compare_fbson_value(fbson::FbsonValue *a, fbson::FbsonValue *b)
+{
+  /* Check non-null pointers and that they are same type */
+  DBUG_ASSERT(a && b);
+  if (a->type() != b->type())
+    return false;
+
+  /* Call the appropriate comparison function */
+  if (a->isObject())
+    return compare_document_object(a, b);
+  else if (a->isArray())
+    return compare_document_array(a, b);
+  else
+  {
+    /* Type is: Null, True, false, Int, Double, String or Binary
+     * so it's safe to just compare the binary values */
+    if (a->size() != b->size())
+      return false;
+
+    const char *left_bytes = a->getValuePtr();
+    const char *right_bytes = b->getValuePtr();
+
+    return memcmp(left_bytes, right_bytes, a->size()) ? false : true;
+  }
+}
+
+/**
+  Compares two documents for subset (subdoc) relation. Key value pairs in first
+  JSON object MUST be contained in the second JSON object match but
+  order doesn't matter. The level of nesting does matter. It will return true
+  only if the left document is contained inside the FIRST level of the right
+  JSON object.
+
+  For example, {"k2":"v2"} SUBDOC {"k1": {"k2":"v2"}} is FALSE as it is
+  found in 2nd level not 1st.
+ */
+longlong Item_func_subdoc::val_int()
+{
+  DBUG_ASSERT(fixed == 1);
+
+  /* Check that arguments are documents */
+  if (is_document_type_or_value(args[0]) &&
+      is_document_type_or_value(args[1]))
+    my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
+
+  /* Compare their fbson objects (DFS search) */
+  fbson::FbsonValue *val1 = (fbson::FbsonValue*) args[0]->val_fbson_blob();
+  fbson::FbsonValue *val2 = (fbson::FbsonValue*) args[1]->val_fbson_blob();
+
+  /* Verify they're both non-null JSON objects */
+  if (!val1 || !val2 || !val1->isObject() || !val2->isObject())
+    return 0;
+
+  /* Hash the key value pairs of the right object */
+  unordered_map<std::string, fbson::FbsonValue*> right;
+  fbson::ObjectVal::iterator iter = ((fbson::ObjectVal*) val2)->begin();
+  for (; iter != ((fbson::ObjectVal*) val2)->end(); ++iter)
+  {
+    /* Store only the first occurrence of every key */
+    std::string key = std::string(iter->getKeyStr(), iter->klen());
+    if (right.find(key) == right.end())
+      right[key] = iter->value();
+  }
+
+  /* Iterate through all keys of left object and compare */
+  iter = ((fbson::ObjectVal*) val1)->begin();
+  for (; iter != ((fbson::ObjectVal*) val1)->end(); ++iter)
+  {
+    std::string key = std::string(iter->getKeyStr(), iter->klen());
+
+    /* Return false if key doesn't exist or values don't match */
+    if (right.find(key) == right.end() ||
+        !compare_fbson_value(iter->value(), right[key]))
+      return 0;
+  }
+
+  /* Every key value pair in first object is contained */
+  return 1;
+}
+
 
 /**
   @brief Compile regular expression.

@@ -1614,6 +1614,17 @@ public:
 };
 
 
+class Item_func_subdoc :public Item_bool_func2
+{
+public:
+  Item_func_subdoc(Item *a,Item *b) :Item_bool_func2(a,b) {}
+  longlong val_int();
+  enum Functype functype() const { return SUBDOC_FUNC; }
+  cond_result eq_cmp_result() const { return COND_TRUE; }
+  const char *func_name() const { return "subdoc"; }
+};
+
+
 class Item_func_regex :public Item_bool_func
 {
   my_regex_t preg;
