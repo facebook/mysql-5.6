@@ -9942,6 +9942,13 @@ function_call_nonkeyword:
             if ($$ == NULL)
               MYSQL_YYABORT;
           }
+        | 
+          DOCUMENT_SYM '(' expr ')'
+          {
+            $$= new (YYTHD->mem_root) Item_func_document($3);
+            if ($$ == NULL)
+              MYSQL_YYABORT;
+          }
         | EXTRACT_SYM '(' interval FROM expr ')'
           {
             $$=new (YYTHD->mem_root) Item_extract( $3, $5);

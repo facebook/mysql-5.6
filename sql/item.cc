@@ -3181,6 +3181,34 @@ String *Item_field::val_str(String *str)
   return field->val_str(str,&str_value);
 }
 
+/* Returns the binary of FbsonValue that represents the doc path */
+const char *Item_field::val_fbson_blob() const
+{
+  DBUG_ASSERT(fixed == 1 && this->field_type() == MYSQL_TYPE_DOCUMENT);
+  int len;
+  char *blob = field->val_fbson_blob(&len);
+  if (!blob)
+    return 0;
+
+  List<Document_key> list(document_path_keys);
+  List_iterator<Document_key> it(list);
+  fbson::FbsonValue *pval = fbson::FbsonDocument::createValue(blob, len);
+
+  for (Document_key *key = NULL; (key= it++) && pval;)
+  {
+    DBUG_ASSERT(key->string.str != NULL);
+
+    fbson::FbsonValue *curr_val = nullptr;
+    if (pval->isObject() && key->string.str)
+      curr_val = ((fbson::ObjectVal*)pval)->find(key->string.str);
+    else if (pval->isArray() && key->string.str && key->index >= 0)
+      curr_val = ((fbson::ArrayVal*)pval)->get(key->index);
+    pval = curr_val;
+  }
+
+  return (const char*) pval;
+}
+
 String *Item_field::val_doc(String *str)
 {
   DBUG_ASSERT(fixed == 1);

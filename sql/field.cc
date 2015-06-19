@@ -8675,6 +8675,19 @@ String *Field_document::val_str(String *val_buffer,
   return val_buffer;
 }
 
+/*
+ * Return the FBSON binary blob
+ */
+char *Field_document::val_fbson_blob(int *length)
+{
+  char *blob;
+  memcpy(&blob, ptr+packlength, sizeof(char*));
+  if (!blob)
+    return nullptr;
+
+  *length = get_length(ptr);
+  return blob;
+}
 
 /*
  * Return the FBSON binary directly
@@ -8750,7 +8763,7 @@ json_extract_fbsonvalue(List<Document_key>& key_path, /* in: the key path */
     DBUG_ASSERT(key->string.str != NULL);
     if (pval->isObject())
     {
-      /* If pavl is an object, this string will be treated as a key,
+      /* If pval is an object, this string will be treated as a key,
          even it is a number */
       if (key->string.str)
         pval = ((fbson::ObjectVal*)pval)->find(key->string.str);
@@ -8759,7 +8772,7 @@ json_extract_fbsonvalue(List<Document_key>& key_path, /* in: the key path */
     }
     else if (pval->isArray())
     {
-      /* If pavl is an array, the key must be an index,
+      /* If pval is an array, the key must be an index,
          so it will be valid only if it is a number */
       if (key->string.str && key->index >= 0)
           pval = ((fbson::ArrayVal*)pval)->get(key->index);
@@ -10937,6 +10950,7 @@ bool Create_field::init(THD *thd, const char *fld_name,
   case MYSQL_TYPE_DOCUMENT_PATH:
     DBUG_ASSERT(0);
     break;
+  case MYSQL_TYPE_DOCUMENT_VALUE:
   case MYSQL_TYPE_DOCUMENT:
     flags|= DOCUMENT_FLAG;
     /* Fall through blob types */
