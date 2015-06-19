@@ -6922,7 +6922,7 @@ get_mm_leaf(RANGE_OPT_PARAM *param, Item *conf_func, Field *field,
   else
     optimize_range= TRUE;
 
-  if (type == Item_func::LIKE_FUNC)
+  if (type == Item_func::LIKE_FUNC || type == Item_func::SUBDOC_FUNC)
   {
     bool like_error;
     char buff1[MAX_FIELD_WIDTH];
