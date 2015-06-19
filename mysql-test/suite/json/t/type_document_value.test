@@ -1,0 +1,61 @@
+# Test of the document type using the DOCUMENT() function 
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
+
+# Valid json strings
+SELECT DOCUMENT('{"k":"v"}');
+SELECT DOCUMENT('{}');
+SELECT DOCUMENT('{"k":{}}');
+SELECT DOCUMENT('{"k":[]}');
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}');
+SELECT DOCUMENT('{"k1":{"k2":"v2"}}');
+SELECT DOCUMENT('{"key":[1,2,3]}');
+SELECT DOCUMENT('{"~!@#$%^&*()_+-=:;\'<>?,./":{"~!@#$%^&*()_+-=:;\'<>?,./":"v2"}}');
+SELECT DOCUMENT('{"name":"Jack Walters",
+"address":{"house number":"100", "street name":"main", "zipcode":94403, "state":"CA"},
+"children":["Alex", "Ben", "Gary", "Jennifer"]}');
+
+SELECT DOCUMENT('[]');
+SELECT DOCUMENT('[[[[[]]]]]');
+SELECT DOCUMENT('[{}]');
+SELECT DOCUMENT('[1,2,3]');
+SELECT DOCUMENT('[1,false,"str",1.2]');
+SELECT DOCUMENT('[{"k1":"v1"},2,3]');
+SELECT DOCUMENT('[[1,2,3],2,3]');
+
+SELECT DOCUMENT('{"MySQL":"开源数据库"}');
+SELECT DOCUMENT('{"开源数据库":"MySQL"}');
+
+# Invalid json strings
+--error ER_INVALID_JSON
+SELECT DOCUMENT('');
+--error ER_INVALID_JSON
+SELECT DOCUMENT(123);
+--error ER_INVALID_JSON
+SELECT DOCUMENT(1.23);
+--error ER_INVALID_JSON
+SELECT DOCUMENT('abc');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('"abc"');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('{"key"}');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('{1:value}');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('{"key":"value"');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('[1,2,3');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('{}}');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('[[]');
+--error ER_INVALID_JSON
+SELECT DOCUMENT('{[]}');
+
+# Invalid number of arguments
+--error 1064 
+SELECT DOCUMENT('{[]}', 'foo');
+--error 1064 
+SELECT DOCUMENT();
+
+exit;

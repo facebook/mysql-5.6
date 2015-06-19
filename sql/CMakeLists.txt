@@ -75,6 +75,7 @@ SET(SQL_SHARED_SOURCES
   item_buff.cc
   item_cmpfunc.cc 
   item_create.cc
+  item_document.cc
   item_func.cc
   item_geofunc.cc
   item_row.cc 
