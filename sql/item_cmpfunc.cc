@@ -36,6 +36,7 @@ static bool convert_constant_item(THD *, Item_field *, Item **);
 static longlong
 get_year_value(THD *thd, Item ***item_arg, Item **cache_arg,
                Item *warn_item, bool *is_null);
+static bool is_document_type_or_value(Item *a);
 
 static Item_result item_store_type(Item_result a, Item *item,
                                    my_bool unsigned_flag)
@@ -2191,10 +2192,49 @@ Item *Item_in_optimizer::transform(Item_transformer transformer, uchar *argument
   return (this->*transformer)(argument);
 }
 
+/* Checks if item is a document column, doc path or DOCUMENT() literal */
+static bool is_document_type_or_value(Item *a)
+{
+  if (a->type() == Item::DOCUMENT_ITEM || a->type() == Item::FIELD_ITEM ||
+      a->type() == Item::CACHE_ITEM)
+    return (a->field_type() == MYSQL_TYPE_DOCUMENT ||
+        a->field_type() == MYSQL_TYPE_DOCUMENT_VALUE);
+  return false;
+}
+
+/**
+  Compares two documents for identicalness (return 1 for identical, otherwise 0)
+  Order MATTERS (key-value pairs must match perfectly in same order)
+ */
+static bool compare_document_identical(Item *a, Item *b)
+{
+  DBUG_ASSERT(is_document_type_or_value(a) &&
+      is_document_type_or_value(b));
+
+  /* Get the fbson values of the items  */
+  fbson::FbsonValue *val1 = (fbson::FbsonValue*) a->val_fbson_blob();
+  fbson::FbsonValue *val2 = (fbson::FbsonValue*) b->val_fbson_blob();
+
+  /* check they must be same type and size */
+  if (!val1 || !val2 || val1->type() != val2->type() ||
+      val1->size() != val2->size())
+    return false;
+
+  /* compare strings byte by byte */
+  if (!memcmp(val1->getValuePtr(), val2->getValuePtr(), val1->size()))
+    return true;
+  return false;
+}
 
 longlong Item_func_eq::val_int()
 {
   DBUG_ASSERT(fixed == 1);
+
+  /* Check if arguments are documents */
+  if (is_document_type_or_value(args[0]) &&
+      is_document_type_or_value(args[1]))
+    return compare_document_identical(args[0], args[1]) ? 1 : 0;
+
   int value= cmp.compare();
   return value == 0 ? 1 : 0;
 }
@@ -2217,6 +2257,12 @@ longlong Item_func_equal::val_int()
 longlong Item_func_ne::val_int()
 {
   DBUG_ASSERT(fixed == 1);
+
+  /* Check if arguments are documents */
+  if (is_document_type_or_value(args[0]) &&
+      is_document_type_or_value(args[1]))
+    return compare_document_identical(args[0], args[1]) ? 0 : 1;
+
   int value= cmp.compare();
   return value != 0 && !null_value ? 1 : 0;
 }
