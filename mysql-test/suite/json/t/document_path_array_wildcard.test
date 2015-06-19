@@ -1,0 +1,215 @@
+# Test of array wildcards in document paths 
+
+--disable_warnings
+DROP TABLE IF EXISTS t1, t2, t3, t4;
+--enable_warnings
+
+SET @start_allow_document_type = @@global.allow_document_type;
+SELECT @start_allow_document_type;
+
+# Populate t1 with data
+CREATE TABLE t1 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+INSERT INTO t1 VALUES (1,'@1','{ "id":101, "zipcode":98761, "num": [1, 2, 2.5, 3, 4, 5, 6, 7, 8, 9]}');
+INSERT INTO t1 VALUES (2,'@2','{ "id":102, "zipcode":98765, "num": [1.5, 2.5, 5.5, 6]}');
+INSERT INTO t1 VALUES (3,'@3','{ "id":103, "zipcode":98764, "num": [7, 8, 9.1]}');
+INSERT INTO t1 VALUES (4,'@4','{ "id":104, "zipcode":98763, "num": [9]}');
+INSERT INTO t1 VALUES (5,'@5','{ "id":105, "zipcode":98762, "num": [9.00000000001]}');
+INSERT INTO t1 VALUES (6,'@6','{ "id":106, "zipcode":98766, "num": [10.31415926]}');
+INSERT INTO t1 VALUES (7,'@7','{ "id":107, "zipcode":98760, "num": []}');
+INSERT INTO t1 VALUES (8,'@8','{ "id":108, "zipcode":98767}');
+
+# Test comparison operators with integers
+SELECT doc.id FROM t1 WHERE doc.num._ = 2;
+SELECT doc.id FROM t1 WHERE 2 = doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ LIKE 2;
+SELECT doc.id FROM t1 WHERE 2 LIKE doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ < 7;
+SELECT doc.id FROM t1 WHERE 7 > doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ <= 7;
+SELECT doc.id FROM t1 WHERE 7 >= doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ > 6;
+SELECT doc.id FROM t1 WHERE 6 < doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ >= 6;
+SELECT doc.id FROM t1 WHERE 6 <= doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ <> 9;
+SELECT doc.id FROM t1 WHERE 9 <> doc.num._;
+
+# Test comparison operators with doubles
+SELECT doc.id FROM t1 WHERE doc.num._ = 2.5;
+SELECT doc.id FROM t1 WHERE 2.5 = doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ LIKE 2.5;
+SELECT doc.id FROM t1 WHERE 2.5 LIKE doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ < 1.5;
+SELECT doc.id FROM t1 WHERE 1.5 > doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ <= 1.5;
+SELECT doc.id FROM t1 WHERE 1.5 >= doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ > 9.1;
+SELECT doc.id FROM t1 WHERE 9.1 < doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ >= 9.1;
+SELECT doc.id FROM t1 WHERE 9.1 <= doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ <> 10.31415926;
+SELECT doc.id FROM t1 WHERE 10.31415926 <> doc.num._;
+
+# Test string casting of numbers when compared with string literal
+SELECT doc.id FROM t1 WHERE doc.num._ = '2';
+SELECT doc.id FROM t1 WHERE '2' = doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ LIKE '2';
+SELECT doc.id FROM t1 WHERE '2' LIKE doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ < '7';
+SELECT doc.id FROM t1 WHERE '7' > doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ <= '7';
+SELECT doc.id FROM t1 WHERE '7' >= doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ > '6';
+SELECT doc.id FROM t1 WHERE '6' < doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ >= '6';
+SELECT doc.id FROM t1 WHERE '6' <= doc.num._;
+SELECT doc.id FROM t1 WHERE doc.num._ <> '9';
+SELECT doc.id FROM t1 WHERE '9' <> doc.num._;
+
+# Populate t2 with data
+CREATE TABLE t2 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+INSERT INTO t2 VALUES (1,'@1','{ "id":101, "Children": ["Adam", "Bob", 42, "Jason", 0.123456789]}');
+INSERT INTO t2 VALUES (2,'@2','{ "id":102, "Children": ["Daniel", "Jason"]}');
+INSERT INTO t2 VALUES (3,'@3','{ "id":103, "Children": ["Frank"]}');
+INSERT INTO t2 VALUES (4,'@4','{ "id":104, "Children": ["Paul123", "PAUL123", {"K":"V"}, {"k1":"v1", "k2":"v2"}]}');
+INSERT INTO t2 VALUES (5,'@5','{ "id":105, "Children": ["Xavier", "开源数据库"]}');
+INSERT INTO t2 VALUES (6,'@6','{ "id":106, "Children": ["开源数据库"]}');
+
+# Test comparison operators with string
+SELECT doc.id FROM t2 WHERE doc.Children._ = "Jason";
+SELECT doc.id FROM t2 WHERE "Jason" = doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE "J%n";
+SELECT doc.id FROM t2 WHERE "J%n" LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ < "Daniel";
+SELECT doc.id FROM t2 WHERE "Daniel" > doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ <= "Daniel";
+SELECT doc.id FROM t2 WHERE "Daniel" >= doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ > "Paul123";
+SELECT doc.id FROM t2 WHERE "Paul123" < doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ >= "Paul123";
+SELECT doc.id FROM t2 WHERE "Paul123" <= doc.Children;
+SELECT doc.id FROM t2 WHERE doc.Children._ <> "开源数据库";
+SELECT doc.id FROM t2 WHERE "开源数据库" <> doc.Children._;
+
+# Test comparisons with no results
+SELECT doc.id FROM t2 WHERE doc.children._ = "Daniel";
+SELECT doc.id FROM t2 WHERE doc.children._ LIKE "Daniel";
+SELECT doc.id FROM t2 WHERE doc.children._ LIKE "Da%el";
+SELECT doc.id FROM t2 WHERE "Daniel" > doc.children._;
+SELECT doc.id FROM t2 WHERE doc._ < '{"id":101}';
+SELECT doc.id FROM t2 WHERE '{"id":101}' >= doc._;
+SELECT doc.id FROM t2 WHERE doc._._ <= "Xavier";
+SELECT doc.id FROM t2 WHERE "Xavier" <> doc._._;
+SELECT doc.id FROM t2 WHERE doc.Children._._ = "Daniel";
+SELECT doc.id FROM t2 WHERE "Daniel" > doc.Children._._;
+
+# Test LIKE with strings, strings with wildcard, numbers, documents, and documents with wildcards
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE "Jason";
+SELECT doc.id FROM t2 WHERE "Jason" LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 'D%';
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 'D%e%';
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 'E%';
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 42;
+SELECT doc.id FROM t2 WHERE 42 LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE 0.123456789;
+SELECT doc.id FROM t2 WHERE 0.123456789 LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"K":"V"}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"K":"V"}') LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k2":"v2", "k1":"v1"}') LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"k1":"v_", "k2":"_2"}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k1":"v_", "k2":"_2"}') LIKE doc.Children._;
+SELECT doc.id FROM t2 WHERE doc.Children._ LIKE DOCUMENT('{"k2":"%", "k1":"%"}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k2":"%", "k1":"%"}') LIKE doc.Children._;
+
+# Populate t3 with data
+CREATE TABLE t3 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+INSERT INTO t3 VALUES (1,'@1','{ "id":101, "Children": [[1, 2], [3, 4], []]}');
+INSERT INTO t3 VALUES (2,'@2','{ "id":102, "Children": [[1, 2], [3]]}');
+INSERT INTO t3 VALUES (3,'@3','{ "id":103, "Children": ["xavier", ["Jason", "Bob"]]}');
+INSERT INTO t3 VALUES (4,'@4','{ "id":104, "Children": [[ 2, 3, 1]]}');
+INSERT INTO t3 VALUES (5,'@5','{ "id":105, "Children": ["Foo", [1.5, 2.5, {"k":"v", "key": ["value1", 2, {"bar":"value3"}]}], 3.14]}');
+INSERT INTO t3 VALUES (6,'@6','{ "id":106, "Children": ["开源数据库"]}');
+INSERT INTO t3 VALUES (7,'@7','{ "id":107, "Children": {"_": "z"}}');
+
+# Test nested levels of wildcards
+SELECT doc.id FROM t3 WHERE doc.Children._._ = 4;
+SELECT doc.id FROM t3 WHERE 4 = doc.Children._._;
+SELECT doc.id FROM t3 WHERE doc.Children._._ <= 4;
+SELECT doc.id FROM t3 WHERE 4 >= doc.Children._._;
+SELECT doc.id FROM t3 WHERE doc.Children._._ = "Jason";
+SELECT doc.id FROM t3 WHERE "Jason" = doc.Children._._;
+SELECT doc.id FROM t3 WHERE doc.Children.0._ = 1;
+SELECT doc.id FROM t3 WHERE 1 = doc.Children.0._;
+SELECT doc.id FROM t3 WHERE doc.Children._._.key._.bar <= "value3";
+SELECT doc.id FROM t3 WHERE "value3" >= doc.Children._._.key._.bar;
+SELECT doc.id FROM t3 WHERE doc.Children._._ LIKE 2;
+SELECT doc.id FROM t3 WHERE doc.Children._._ LIKE '%aso_';
+
+# Test wildcards on both sides of comparison operator (joins)
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t1.doc.num._ = t3.doc.Children.0._;
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t3.doc.Children.0._ = t1.doc.num._;
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t1.doc.num._ = t3.doc.Children._.0;
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t3.doc.Children._.0 = t1.doc.num._;
+SELECT a.doc.id, b.doc.id FROM t3 a, t3 b WHERE a.doc.Children._._.key._.bar < b.doc.Children._;
+SELECT a.doc.id, b.doc.id FROM t3 a, t3 b WHERE b.doc.Children._ > a.doc.Children._._.key._.bar ;
+SELECT t1.doc.id, t3.doc.id FROM t1, t3 WHERE t3.doc.Children.0._ LIKE t1.doc.num._;
+
+# Test subqueries
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._.1 = 4) t;
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._ < 'z') t;
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._ > 'z') t;
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._._ >= 3) t;
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._._ <= "Bob") t;
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._ <> "Jason") t;
+SELECT doc.id FROM (SELECT * FROM t3 WHERE doc.Children._._ LIKE '%aso_') t;
+
+# Populate t4 with data
+CREATE TABLE t4 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+INSERT INTO t4 VALUES (1,'@1','{ "id":101, "Children": {"name": "Bob"}}');
+INSERT INTO t4 VALUES (2,'@2','{ "id":102, "Children": {"_": "Steve"}}');
+INSERT INTO t4 VALUES (5,'@5','{ "id":105, "Children": {"foo_": "Steve"}}');
+INSERT INTO t4 VALUES (6,'@6','{ "id":106, "Children": {"_bar": "Steve"}}');
+INSERT INTO t4 VALUES (7,'@7','{ "id":107, "Children": {"foo_bar": "Steve"}}');
+INSERT INTO t4 VALUES (3,'@3','{ "id":103, "Children": {"__": "Steve"}}');
+INSERT INTO t4 VALUES (4,'@4','{ "id":104, "Children": {"_._": "Steve"}}');
+
+
+# Check compatibility with array wildcard symbol as key value ("_")
+SELECT doc.id FROM t4 WHERE doc.Children._ = "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children.foo_ = "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children._bar = "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children.foo_bar = "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children.__ = "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children.`_._` = "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children.`_._` LIKE "Steve";
+SELECT doc.id FROM t4 WHERE doc.Children.`_._` LIKE "St_%";
+
+# Check array wildcard being disabled in SELECT statements
+SELECT doc.Children._ FROM t4;
+SELECT CAST(doc.Children._ AS CHAR) FROM t4;
+
+# Check that array wildcard does NOT work as a key (NULL results)
+SELECT doc.id FROM t4 WHERE doc.Children._ = "Bob";
+SELECT doc.id FROM t4 WHERE doc.Children._ LIKE "Bob";
+SELECT doc.id FROM t4 WHERE doc._._ = "Bob";
+SELECT doc.id FROM t4 WHERE doc.Children.name._ = "Bob";
+SELECT doc.id FROM t4 WHERE doc.Children._._ = "Steve";
+
+# Cleanup 
+SET @@global.allow_document_type = @start_allow_document_type;
+SELECT @@global.allow_document_type;
+
+DROP TABLE t1, t2, t3, t4;
