@@ -1,0 +1,90 @@
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
+@start_allow_DOCUMENT_type
+1
+SELECT DOCUMENT('{"k":"v"}');
+DOCUMENT('{"k":"v"}')
+{"k":"v"}
+SELECT DOCUMENT('{}');
+DOCUMENT('{}')
+{}
+SELECT DOCUMENT('{"k":{}}');
+DOCUMENT('{"k":{}}')
+{"k":{}}
+SELECT DOCUMENT('{"k":[]}');
+DOCUMENT('{"k":[]}')
+{"k":[]}
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}');
+DOCUMENT('{"k1":"v1","k2":true,"k3":3}')
+{"k1":"v1","k2":true,"k3":3}
+SELECT DOCUMENT('{"k1":{"k2":"v2"}}');
+DOCUMENT('{"k1":{"k2":"v2"}}')
+{"k1":{"k2":"v2"}}
+SELECT DOCUMENT('{"key":[1,2,3]}');
+DOCUMENT('{"key":[1,2,3]}')
+{"key":[1,2,3]}
+SELECT DOCUMENT('{"~!@#$%^&*()_+-=:;\'<>?,./":{"~!@#$%^&*()_+-=:;\'<>?,./":"v2"}}');
+DOCUMENT('{"~!@#$%^&*()_+-=:;\'<>?,./":{"~!@#$%^&*()_+-=:;\'<>?,./":"v2"}}')
+{"~!@#$%^&*()_+-=:;'<>?,./":{"~!@#$%^&*()_+-=:;'<>?,./":"v2"}}
+SELECT DOCUMENT('{"name":"Jack Walters",
+"address":{"house number":"100", "street name":"main", "zipcode":94403, "state":"CA"},
+"children":["Alex", "Ben", "Gary", "Jennifer"]}');
+DOCUMENT('{"name":"Jack Walters",
+"address":{"house number":"100", "street name":"main", "zipcode":94403, "state":"CA"},
+"children":["Alex", "Ben", "Gary", "Jennifer"]}')
+{"name":"Jack Walters","address":{"house number":"100","street name":"main","zipcode":94403,"state":"CA"},"children":["Alex","Ben","Gary","Jennifer"]}
+SELECT DOCUMENT('[]');
+DOCUMENT('[]')
+[]
+SELECT DOCUMENT('[[[[[]]]]]');
+DOCUMENT('[[[[[]]]]]')
+[[[[[]]]]]
+SELECT DOCUMENT('[{}]');
+DOCUMENT('[{}]')
+[{}]
+SELECT DOCUMENT('[1,2,3]');
+DOCUMENT('[1,2,3]')
+[1,2,3]
+SELECT DOCUMENT('[1,false,"str",1.2]');
+DOCUMENT('[1,false,"str",1.2]')
+[1,false,"str",1.2]
+SELECT DOCUMENT('[{"k1":"v1"},2,3]');
+DOCUMENT('[{"k1":"v1"},2,3]')
+[{"k1":"v1"},2,3]
+SELECT DOCUMENT('[[1,2,3],2,3]');
+DOCUMENT('[[1,2,3],2,3]')
+[[1,2,3],2,3]
+SELECT DOCUMENT('{"MySQL":"开源数据库"}');
+DOCUMENT('{"MySQL":"开源数据库"}')
+{"MySQL":"开源数据库"}
+SELECT DOCUMENT('{"开源数据库":"MySQL"}');
+DOCUMENT('{"开源数据库":"MySQL"}')
+{"开源数据库":"MySQL"}
+SELECT DOCUMENT('');
+ERROR HY000: Invalid JSON object: ''
+SELECT DOCUMENT(123);
+ERROR HY000: Invalid JSON object: ''
+SELECT DOCUMENT(1.23);
+ERROR HY000: Invalid JSON object: ''
+SELECT DOCUMENT('abc');
+ERROR HY000: Invalid JSON object: 'abc'
+SELECT DOCUMENT('"abc"');
+ERROR HY000: Invalid JSON object: '"abc"'
+SELECT DOCUMENT('{"key"}');
+ERROR HY000: Invalid JSON object: '{"key"}'
+SELECT DOCUMENT('{1:value}');
+ERROR HY000: Invalid JSON object: '{1:value}'
+SELECT DOCUMENT('{"key":"value"');
+ERROR HY000: Invalid JSON object: '{"key":"value"'
+SELECT DOCUMENT('[1,2,3');
+ERROR HY000: Invalid JSON object: '[1,2,3'
+SELECT DOCUMENT('{}}');
+ERROR HY000: Invalid JSON object: '{}}'
+SELECT DOCUMENT('[[]');
+ERROR HY000: Invalid JSON object: '[[]'
+SELECT DOCUMENT('{[]}');
+ERROR HY000: Invalid JSON object: '{[]}'
+SELECT DOCUMENT('{[]}', 'foo');
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ' 'foo')' at line 1
+SELECT DOCUMENT();
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')' at line 1
