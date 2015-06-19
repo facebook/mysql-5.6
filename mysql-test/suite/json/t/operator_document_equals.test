@@ -1,0 +1,180 @@
+# Test of operator = for document types
+
+--disable_warnings
+drop table if exists t1, t2;
+drop view if exists v1;
+--enable_warnings
+
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
+
+# Populate t1 with data
+CREATE TABLE t1 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
+
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlie"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98764, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98761 } }');
+insert into t1 values (7,'@3','{ "id":104, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+
+# True comparisons
+SELECT DOCUMENT('{"k":"v"}') = DOCUMENT('{"k":"v"}');
+SELECT DOCUMENT('{}') = DOCUMENT('{}');
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') = DOCUMENT('{"k1":"v1","k2":true,"k3":3}');
+SELECT DOCUMENT('{"key":[1,2,3]}') = DOCUMENT('{"key":[1,2,3]}');
+SELECT DOCUMENT('[[[[[]]]]]') = DOCUMENT('[[[[[]]]]]') ;
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') = DOCUMENT('{"MySQL":"开源数据库"}');
+SELECT DOCUMENT('{}') = DOCUMENT('{ }');
+SELECT DOCUMENT('{"k":"v"}') = DOCUMENT('{"k" :"v"}');
+SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') != DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') <> DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{}') != DOCUMENT('[]');
+SELECT DOCUMENT('{}') <> DOCUMENT('[]');
+SELECT DOCUMENT('{"k":"v"}') != DOCUMENT('{"k":" v"}');
+SELECT DOCUMENT('{"k":"v"}') <> DOCUMENT('{"k":" v"}');
+
+# False comparisons
+SELECT DOCUMENT('{}') = DOCUMENT('[]');
+SELECT DOCUMENT('{"k":"v"}') = DOCUMENT('{"k":" v"}');
+SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') = DOCUMENT('{"k2":"v2", "k1":"v1"}');
+SELECT DOCUMENT('{"k":"v"}') != DOCUMENT('{"k":"v"}');
+SELECT DOCUMENT('{"k":"v"}') <> DOCUMENT('{"k":"v"}');
+SELECT DOCUMENT('{}') != DOCUMENT('{}');
+SELECT DOCUMENT('{}') <> DOCUMENT('{}');
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') != DOCUMENT('{"k1":"v1","k2":true,"k3":3}');
+SELECT DOCUMENT('{"k1":"v1","k2":true,"k3":3}') <> DOCUMENT('{"k1":"v1","k2":true,"k3":3}');
+SELECT DOCUMENT('{"key":[1,2,3]}') != DOCUMENT('{"key":[1,2,3]}');
+SELECT DOCUMENT('{"key":[1,2,3]}') <> DOCUMENT('{"key":[1,2,3]}');
+SELECT DOCUMENT('[[[[[]]]]]') != DOCUMENT('[[[[[]]]]]') ;
+SELECT DOCUMENT('[[[[[]]]]]') <> DOCUMENT('[[[[[]]]]]') ;
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') != DOCUMENT('{"MySQL":"开源数据库"}');
+SELECT DOCUMENT('{"MySQL":"开源数据库"}') <> DOCUMENT('{"MySQL":"开源数据库"}');
+SELECT DOCUMENT('{}') != DOCUMENT('{ }');
+SELECT DOCUMENT('{}') <> DOCUMENT('{ }');
+SELECT DOCUMENT('{"k":"v"}') != DOCUMENT('{"k" :"v"}');
+SELECT DOCUMENT('{"k":"v"}') <> DOCUMENT('{"k" :"v"}');
+
+# Test implicit casting of DOCUMENT to a string
+SELECT DOCUMENT('{}') != 42;
+SELECT DOCUMENT('{}') <> 42;
+SELECT DOCUMENT('{}') = 42;
+SELECT '{}' = DOCUMENT('{}');
+SELECT doc = '' FROM t1;
+SELECT doc.address = '' FROM t1;
+SELECT doc = 2 FROM t1;
+SELECT doc.address = 2 FROM t1;
+SELECT '' = doc FROM t1;
+SELECT '{"zipcode":98766}' = doc.address FROM t1;
+SELECT 2 = doc FROM t1;
+SELECT 2 = doc.address FROM t1;
+
+
+CREATE TABLE t2 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
+insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761} }');
+insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
+insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
+insert into t2 values (6,'@2','{ "id":110, "address":{"zipcode":98767, "state":"NY"}}');
+insert into t2 values (10,'@10','{"temp": { "id":110, "address":{"zipcode":98767, "state":"NY"}}}');
+
+# Test doc columns, doc paths, DOCUMENT() as left/right operand of comparison
+SELECT DOCUMENT('{"foo": "bar"}') = DOCUMENT('{"foo": "bar"}');
+SELECT DOCUMENT('{"zipcode":98761}') = doc.address FROM t2;
+SELECT DOCUMENT('{"id":108,"address":{"zipcode":98761}}') = doc FROM t2;
+SELECT doc.address = DOCUMENT('{"zipcode": 98761}') FROM t2;
+SELECT doc.temp = doc FROM t2;
+SELECT doc.address = doc.address FROM t2;
+SELECT doc = DOCUMENT('{ "id":104, "address":{ "state":"NY", "zipcode":98767 }}') FROM t2;
+SELECT doc = doc.address FROM t2;
+SELECT doc = doc FROM t2;
+
+# Test combinations of doc column, doc paths, DOCUMENT() in WHERE clause
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"foo": "bar"}') = DOCUMENT('{"foo": "bar"}');
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"zipcode":98761}') = doc.address;
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"id":108,"address":{"zipcode":98761}}') = doc;
+SELECT doc.id FROM t2 WHERE doc.address = DOCUMENT('{"zipcode": 98761}');
+SELECT doc.id FROM t2 WHERE doc.temp = doc;
+SELECT doc.id FROM t2 WHERE doc.address = doc.address;
+SELECT doc.id FROM t2 WHERE doc = DOCUMENT('{ "id":104, "address":{ "state":"NY", "zipcode":98767 }}');
+SELECT doc.id FROM t2 WHERE doc = doc.address;
+SELECT doc.id FROM t2 WHERE doc = doc;
+
+# Test = with JOIN
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON DOCUMENT('{"foo": "bar"}') = DOCUMENT('{"foo": "bar"}');
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON DOCUMENT('{"zipcode":98761}') = t2.doc.address;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON DOCUMENT('{"id":108,"address":{"zipcode":98761}}') = t2.doc;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON t2.doc.address = DOCUMENT('{"zipcode": 98761}');
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON t2.doc.temp = t1.doc;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2
+  ON t1.doc.address = t2.doc.address;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON t2.doc = DOCUMENT('{ "id":104, "address":{ "state":"NY", "zipcode":98767 }}');
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON t2.doc = t1.doc.address;
+SELECT t1.doc.id, t2.doc.id 
+FROM t1 JOIN t2 
+  ON t2.doc = t1.doc;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address = t2.doc.address;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address != t2.doc.address;
+SELECT t1.doc.id, t2.doc.id
+FROM t1 JOIN t2
+  ON t1.doc.address <> t2.doc.address;
+
+# Test = with subqueries
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"foo": "bar"}') = DOCUMENT('{"foo": "bar"}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761}') = doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"id":108,"address":{"zipcode":98761}}') = doc) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address = DOCUMENT('{"zipcode": 98761}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.temp = doc) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address = doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc = DOCUMENT('{ "id":104, "address":{ "state":"NY", "zipcode":98767 }}')) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc = doc.address) temp;
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc = doc) temp;
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address = DOCUMENT('{"zipcode":98761}')) temp;
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address != DOCUMENT('{"zipcode":98761}')) temp;
+SELECT temp.doc.id
+FROM (SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}')) temp;
+
+# FIXME: Test = with views: fix bug with views first
+#CREATE VIEW v1 AS
+#(SELECT * FROM t2 WHERE doc.address = DOCUMENT('{"zipcode":98761}'));
+#SELECT * FROM v1;
+#DROP VIEW v1;
+
+#CREATE VIEW v1 AS
+#(SELECT * FROM t2 WHERE doc.address != DOCUMENT('{"zipcode":98761}'));
+#SELECT * FROM v1;
+#DROP VIEW v1;
+
+#CREATE VIEW v1 AS
+#(SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}'));
+#SELECT * FROM v1;
+#DROP VIEW v1;
+
+drop table t1, t2;
+exit;
