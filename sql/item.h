@@ -2120,7 +2120,8 @@ public:
     set the document path keys
   */
   void Parse_and_set_document_path_keys(THD *thd,
-                                        List<Document_key>& list);
+                                        List<Document_key>& list,
+                                        bool& document_path_with_underscore);
   /*
     Compare if two dot-separated ident list have the identical unresolved idents
   */
@@ -2193,6 +2194,10 @@ public:
      if this field is a document path.
   */
   bool document_path;
+  /*
+     if this doc path contains a wildcard
+  */
+  bool document_path_with_underscore;
   /*
      the key list that points to the document path
   */
