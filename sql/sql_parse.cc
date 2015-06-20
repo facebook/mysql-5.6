@@ -113,7 +113,7 @@
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
-#include "jemalloc/jemalloc.h"
+#include <jemalloc/jemalloc.h>
 #endif
 #endif
 
