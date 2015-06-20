@@ -50,7 +50,7 @@ insert into t5 values (10);
 create view v1 (c) as
 SELECT table_name FROM information_schema.TABLES
 WHERE table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest') AND
-table_name not like 'ndb_%' AND table_name not like 'innodb_%';
+table_name not like 'ndb_%' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%';
 select * from v1;
 c
 CHARACTER_SETS
@@ -91,11 +91,6 @@ USER_PRIVILEGES
 USER_STATISTICS
 VIEWS
 AUTHINFO
-ROCKSDB_PERF_CONTEXT
-ROCKSDB_CFSTATS
-ROCKSDB_CF_OPTIONS
-ROCKSDB_DDL
-ROCKSDB_DBSTATS
 columns_priv
 db
 event
@@ -832,7 +827,7 @@ information_schema	AUTHINFO	INFO
 select table_name, column_name, data_type from information_schema.columns
 where table_schema not like 'performance_schema'
   and data_type = 'datetime'
-  and table_name not like 'innodb_%';
+  and table_name not like 'innodb_%' AND table_name not like 'rocksdb_%';
 table_name	column_name	data_type
 EVENTS	EXECUTE_AT	datetime
 EVENTS	STARTS	datetime
@@ -916,10 +911,10 @@ delete from mysql.db where user='mysqltest_4';
 flush privileges;
 SELECT table_schema, count(*) FROM information_schema.TABLES WHERE
 table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
-AND table_name not like 'ndb%' AND table_name not like 'innodb_%'
+AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	42
+information_schema	37
 mysql	26
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
@@ -1356,6 +1351,7 @@ c2.table_schema='information_schema' and
 (c2.column_type = 'varchar(7)' or c2.column_type = 'varchar(20)')
 group by c2.column_type order by num limit 1)
 and t.table_name not like 'innodb_%'
+        and t.table_name not like 'rocksdb_%'
 group by t.table_name order by num1, t.table_name;
 table_name	group_concat(t.table_schema, '.', t.table_name)	num1
 AUTHINFO	information_schema.AUTHINFO	1
@@ -1380,11 +1376,6 @@ PLUGINS	information_schema.PLUGINS	1
 PROCESSLIST	information_schema.PROCESSLIST	1
 PROFILING	information_schema.PROFILING	1
 REFERENTIAL_CONSTRAINTS	information_schema.REFERENTIAL_CONSTRAINTS	1
-ROCKSDB_CFSTATS	information_schema.ROCKSDB_CFSTATS	1
-ROCKSDB_CF_OPTIONS	information_schema.ROCKSDB_CF_OPTIONS	1
-ROCKSDB_DBSTATS	information_schema.ROCKSDB_DBSTATS	1
-ROCKSDB_DDL	information_schema.ROCKSDB_DDL	1
-ROCKSDB_PERF_CONTEXT	information_schema.ROCKSDB_PERF_CONTEXT	1
 ROUTINES	information_schema.ROUTINES	1
 SCHEMATA	information_schema.SCHEMATA	1
 SCHEMA_PRIVILEGES	information_schema.SCHEMA_PRIVILEGES	1

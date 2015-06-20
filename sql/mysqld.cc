@@ -127,7 +127,15 @@
 
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
-#include <jemalloc/jemalloc.h>
+// TODO: uncomment below once https://github.com/jemalloc/jemalloc/issues/237
+// is fixed
+//#include <jemalloc/jemalloc.h>
+extern "C" {
+int	mallctl(const char *name, const void *oldp,
+    size_t *oldlenp, void *newp, size_t newlen);
+void malloc_stats_print(void (*write_cb)(void *,
+    const char *), void *je_cbopaque, const char *opts);
+}
 #endif
 #endif
 
