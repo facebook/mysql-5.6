@@ -3054,9 +3054,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     */
     if (key_descr[active_index]->is_reverse_cf)
     {
-      rkey= scan_it->key();
       if (scan_it->Valid() && using_full_key &&
-          kd->value_matches_prefix(rkey, slice))
+          kd->value_matches_prefix(scan_it->key(), slice))
       {
         /* We are using full key and we've hit an exact match */
         scan_it->Next();
@@ -5108,7 +5107,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
       kd->successor(sec_key_packed_tuple, size1);
     }
   } else {
-    kd->get_infimum_key(pk_packed_tuple, &size1);
+    kd->get_infimum_key(sec_key_packed_tuple, &size1);
   }
 
   uint size2=0;
