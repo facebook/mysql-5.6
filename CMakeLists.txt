@@ -168,7 +168,6 @@ INCLUDE(character_sets)
 INCLUDE(cpu_info)
 INCLUDE(zlib)
 INCLUDE(libevent)
-INCLUDE(rocksdb)
 INCLUDE(ssl)
 INCLUDE(readline)
 INCLUDE(mysql_version)
@@ -398,8 +397,6 @@ MYSQL_CHECK_SSL()
 MYSQL_CHECK_READLINE()
 # Add libevent
 MYSQL_CHECK_LIBEVENT()
-# Add rocksdb
-MYSQL_CHECK_ROCKSDB()
 
 #
 # Setup maintainer mode options by the end. Platform checks are

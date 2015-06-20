@@ -42,7 +42,7 @@ export RANLIB="$RANLIB"
 export CC="$CC"
 export CXX="$CXX"
 export CFLAGS="$CFLAGS -DXTRABACKUP"
-export CXXFLAGS="$CXXFLAGS -DXTRABACKUP -fno-rtti -fno-exceptions"
+export CXXFLAGS="$CXXFLAGS -DXTRABACKUP"
 export LDFLAGS="$LDFLAGS"
 export MYSQLD_LDFLAGS="$MYSQLD_LDFLAGS"
 export SRC_DIR="$SRC_DIR"
@@ -186,6 +186,7 @@ case "$type" in
                 -DWITH_FAST_MUTEXES=1 \
                 -DWITH_EXTRA_CHARSETS=all \
                 -DWITH_EMBEDDED_SERVER=1 \
+                -DWITHOUT_ROCKSDB_SE_STORAGE_ENGINE=1 \
                 -DMYSQL_MAINTAINER_MODE=1 \
                 -DMYSQL_ROOT_DIR=$server_dir \
                 -DCMAKE_AR=$AR \

@@ -3,7 +3,7 @@ drop view if exists v1,v2;
 drop function if exists f1;
 drop function if exists f2;
 use INFORMATION_SCHEMA;
-show tables where Tables_in_information_schema NOT LIKE 'Innodb%';
+show tables where Tables_in_information_schema NOT LIKE 'Innodb%' and Tables_in_information_schema NOT LIKE 'rocksdb%';
 Tables_in_information_schema
 CHARACTER_SETS
 COLLATIONS
@@ -43,11 +43,6 @@ USER_PRIVILEGES
 USER_STATISTICS
 VIEWS
 AUTHINFO
-ROCKSDB_PERF_CONTEXT
-ROCKSDB_CFSTATS
-ROCKSDB_CF_OPTIONS
-ROCKSDB_DDL
-ROCKSDB_DBSTATS
 show tables from INFORMATION_SCHEMA like 'T%';
 Tables_in_information_schema (T%)
 TABLES
