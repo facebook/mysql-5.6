@@ -9,7 +9,9 @@ dest_data_dir="${MYSQLTEST_VARDIR}/mysqld.2/data/"
 
 mkdir -p $backup_dir
 rm -rf $backup_dir/*
-rm -rf $dest_data_dir/*
+# delete and recreate the dest dir to make sure all hidden files and directories (such as .rocksdb) are blown away
+rm -rf $dest_data_dir/
+mkdir $dest_data_dir
 
 mysql_dir=$(echo $MYSQL | awk '{print $1}' | xargs dirname)
 PATH=$mysql_dir:$PATH
