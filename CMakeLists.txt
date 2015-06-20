@@ -398,8 +398,6 @@ MYSQL_CHECK_SSL()
 MYSQL_CHECK_READLINE()
 # Add libevent
 MYSQL_CHECK_LIBEVENT()
-# Add rocksdb
-MYSQL_CHECK_ROCKSDB()
 
 #
 # Setup maintainer mode options by the end. Platform checks are
