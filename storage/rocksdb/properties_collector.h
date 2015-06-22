@@ -1,7 +1,13 @@
 #ifndef PROPERTIES_COLLECTOR_H
 #define PROPERTIES_COLLECTOR_H
 
+#include <vector>
 #include "rocksdb/table_properties.h"
+#include "rdb_datadic.h"
+
+struct CompactionParams {
+  uint64_t deletes_, window_, file_size_;
+};
 
 class MyRocksTablePropertiesCollector
     : public rocksdb::TablePropertiesCollector {
@@ -26,13 +32,9 @@ class MyRocksTablePropertiesCollector
     void merge(const IndexStats& s);
   };
 
-  typedef std::function<
-    bool (int64_t file_size, int64_t chunk_deleted_rows)
-    > CompactionCallback;
-
   MyRocksTablePropertiesCollector(
     Table_ddl_manager* ddl_manager,
-    CompactionCallback ccallback
+    CompactionParams params
   );
 
   virtual rocksdb::Status AddUserKey(
@@ -56,7 +58,9 @@ class MyRocksTablePropertiesCollector
   );
 
   bool NeedCompact() const;
-
+  uint64_t GetMaxDeletedRows() const {
+    return max_deleted_rows_;
+  }
 
  private:
   std::unique_ptr<RDBSE_KEYDEF> keydef_;
@@ -64,12 +68,15 @@ class MyRocksTablePropertiesCollector
   std::vector<IndexStats> stats_;
   static const char* INDEXSTATS_KEY;
 
-  // last added
+  // last added key
   std::string last_key_;
-  int64_t chunk_deleted_rows_;
-  int64_t max_chunk_deleted_rows_;
+
+  // floating window to count deleted rows
+  std::vector<bool> deleted_rows_window_;
+  uint64_t rows_, deleted_rows_, max_deleted_rows_;
   uint64_t file_size_;
-  CompactionCallback compaction_callback_;
+
+  CompactionParams params_;
 };
 
 
@@ -77,22 +84,24 @@ class MyRocksTablePropertiesCollectorFactory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
   MyRocksTablePropertiesCollectorFactory(
-    Table_ddl_manager* ddl_manager,
-    MyRocksTablePropertiesCollector::CompactionCallback callback) :
-      ddl_manager_(ddl_manager), compaction_callback_(callback) {
+    Table_ddl_manager* ddl_manager
+  ) : ddl_manager_(ddl_manager) {
   }
 
   virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector() override {
     return new MyRocksTablePropertiesCollector(
-      ddl_manager_, compaction_callback_);
+      ddl_manager_, params_);
   }
 
   virtual const char* Name() const override {
     return "MyRocksTablePropertiesCollectorFactory";
   }
+  void SetCompactionParams(const CompactionParams& params) {
+    params_ = params;
+  }
  private:
   Table_ddl_manager* ddl_manager_;
-  MyRocksTablePropertiesCollector::CompactionCallback compaction_callback_;
+  CompactionParams params_;
 };
 
 #endif
