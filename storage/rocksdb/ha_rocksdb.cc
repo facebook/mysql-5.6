@@ -82,7 +82,6 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           bool is_ascending);
 static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table);
 static int free_share(ROCKSDB_SHARE *share);
-static bool CompactionCallback(int64_t file_size, int64_t chunk_deleted_rows);
 
 ///////////////////////////////////////////////////////////
 // Parameters and settings
@@ -102,7 +101,8 @@ rocksdb::DB *rdb= NULL;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
-
+static std::shared_ptr<MyRocksTablePropertiesCollectorFactory>
+  properties_collector_factory;
 rocksdb::ColumnFamilyOptions default_cf_opts;
 
 
@@ -213,6 +213,11 @@ rocksdb_drop_index_wakeup_thread(THD* thd,
   }
 }
 
+static void
+set_compaction_options(THD* thd,
+                       struct st_mysql_sys_var* var,
+                       void* var_ptr,
+                       const void* save);
 
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
@@ -234,6 +239,7 @@ static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static uint64_t rocksdb_number_stat_computes = 0;
 static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes= 0l;
+static long long rocksdb_compaction_sequential_deletes_window= 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
 
 static rocksdb::DBOptions init_db_options() {
@@ -680,8 +686,16 @@ static MYSQL_SYSVAR_LONGLONG(
   compaction_sequential_deletes,
   rocksdb_compaction_sequential_deletes,
   PLUGIN_VAR_RQCMDARG,
-  "RocksDB will trigger compaction for the file if it has more than this number sequential deletes (tombstones)",
-  NULL, NULL, 2000L,
+  "RocksDB will trigger compaction for the file if it has more than this number sequential deletes per window",
+  NULL, set_compaction_options, 1900L,
+  /* min */ -1L, /* max */ LONGLONG_MAX, 0);
+
+static MYSQL_SYSVAR_LONGLONG(
+  compaction_sequential_deletes_window,
+  rocksdb_compaction_sequential_deletes_window,
+  PLUGIN_VAR_RQCMDARG,
+  "Size of the window for counting rocksdb_compaction_sequential_deletes",
+  NULL, set_compaction_options, 2000L,
   /* min */ -1L, /* max */ LONGLONG_MAX, 0);
 
 static MYSQL_SYSVAR_LONGLONG(
@@ -689,7 +703,7 @@ static MYSQL_SYSVAR_LONGLONG(
   rocksdb_compaction_sequential_deletes_file_size,
   PLUGIN_VAR_RQCMDARG,
   "Minimum file size required for compaction_sequential_deletes",
-  NULL, NULL, 0L,
+  NULL, set_compaction_options, 0L,
   /* min */ -1L, /* max */ LONGLONG_MAX, 0);
 
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
@@ -769,6 +783,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(seconds_between_stat_computes),
 
   MYSQL_SYSVAR(compaction_sequential_deletes),
+  MYSQL_SYSVAR(compaction_sequential_deletes_window),
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
 
   MYSQL_SYSVAR(snapshot_dir),
@@ -1662,9 +1677,13 @@ static int rocksdb_init_func(void *p)
   table_options.format_version= 2;
   default_cf_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(table_options));
   if (rocksdb_collect_sst_properties) {
+    properties_collector_factory = std::make_shared
+      <MyRocksTablePropertiesCollectorFactory>(
+        &ddl_manager
+      );
+    set_compaction_options(NULL, NULL, NULL, NULL);
     default_cf_opts.table_properties_collector_factories.push_back(
-      std::make_shared<MyRocksTablePropertiesCollectorFactory>(
-        &ddl_manager, CompactionCallback)
+      properties_collector_factory
     );
   }
 
@@ -5871,9 +5890,21 @@ Table_ddl_manager *get_ddl_manager(void)
   return &ddl_manager;
 }
 
-bool CompactionCallback(int64_t file_size, int64_t chunk_deleted_rows)
+void
+set_compaction_options(THD* thd,
+                       struct st_mysql_sys_var* var,
+                       void* var_ptr,
+                       const void* save)
 {
-  return file_size > rocksdb_compaction_sequential_deletes_file_size &&
-    chunk_deleted_rows > rocksdb_compaction_sequential_deletes &&
-    rocksdb_compaction_sequential_deletes;
+  if (var_ptr && save) {
+    *(uint64_t*)var_ptr = *(const uint64_t*) save;
+  }
+  CompactionParams params = {
+    (uint64_t)rocksdb_compaction_sequential_deletes,
+    (uint64_t)rocksdb_compaction_sequential_deletes_window,
+    (uint64_t)rocksdb_compaction_sequential_deletes_file_size
+  };
+  if (properties_collector_factory) {
+    properties_collector_factory->SetCompactionParams(params);
+  }
 }
