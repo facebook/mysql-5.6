@@ -16,46 +16,43 @@ set global rocksdb_force_flush_memtable_now=1;
 optimize table r1;
 Table	Op	Msg_type	Msg_text
 test.r1	optimize	status	OK
-set global rocksdb_compaction_sequential_deletes=0;
+Test 1: Do a bunch of updates without setting the compaction sysvar
+Expect: no compaction
+set global rocksdb_compaction_sequential_deletes_window=0;
+set global rocksdb_compaction_sequential_deletes= 0;
 set global rocksdb_compaction_sequential_deletes_file_size=0;
 set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
-000007.sst 0 10
-000012.sst 0 2000
-000014.sst 1000 2
-SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+There are deletes left
+SET GLOBAL rocksdb_compaction_sequential_deletes= 1500;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-set global rocksdb_compaction_sequential_deletes=999;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
+Test 2: Do a bunch of updates and set the compaction sysvar
+Expect: compaction
+set global rocksdb_compaction_sequential_deletes_window=1000;
+set global rocksdb_compaction_sequential_deletes= 990;
 set global rocksdb_compaction_sequential_deletes_file_size=0;
 set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
-000007.sst 0 10
-000017.sst 0 2000
-SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+No more deletes left
+SET GLOBAL rocksdb_compaction_sequential_deletes= 1500;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-set global rocksdb_compaction_sequential_deletes=999;
-set global rocksdb_compaction_sequential_deletes_file_size=100000;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
+Test 3: Do a bunch of updates and set the compaction sysvar and a file size to something large
+Expect: no compaction
+set global rocksdb_compaction_sequential_deletes_window=1000;
+set global rocksdb_compaction_sequential_deletes= 1000;
+set global rocksdb_compaction_sequential_deletes_file_size=1000000;
 set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
-000007.sst 0 10
-000017.sst 0 2000
-000019.sst 1000 2
-SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
+There are deletes left
+SET GLOBAL rocksdb_compaction_sequential_deletes= 1500;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
-set global rocksdb_compaction_sequential_deletes=999;
-set global rocksdb_compaction_sequential_deletes_file_size=1000;
-set global rocksdb_force_flush_memtable_now=1;
-select sleep(1);
-sleep(1)
-0
-000007.sst 0 10
-000022.sst 0 2000
-SET GLOBAL rocksdb_compaction_sequential_deletes= 2000;
-SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
+SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
 drop table r1;
