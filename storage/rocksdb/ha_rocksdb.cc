@@ -44,9 +44,11 @@
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/slice.h"
 #include "rocksdb/slice_transform.h"
+#include "rocksdb/status.h"
 #include "rocksdb/table.h"
 #include "rocksdb/metadata.h"
 #include "rocksdb/utilities/convenience.h"
+#include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/flashcache.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/perf_context.h"
@@ -167,6 +169,29 @@ rocksdb_compact_column_family(THD* thd,
 }
 
 static void
+rocksdb_create_checkpoint(THD* thd,
+                        struct st_mysql_sys_var* var,
+                        void* var_ptr,
+                        const void* save)
+{
+  if (const char* snapshotdir = *static_cast<const char*const*>(save)) {
+    rocksdb::Checkpoint* checkpoint;
+    if (rdb != nullptr) {
+      sql_print_information("RocksDB: creating checkpoint in directory : %s\n",
+          snapshotdir);
+      if ((rocksdb::Checkpoint::Create(rdb, &checkpoint)).ok()){
+        if ((checkpoint->CreateCheckpoint(snapshotdir)).ok()) {
+          sql_print_information(
+              "RocksDB: created checkpoint in directory : %s\n",
+              snapshotdir);
+        }
+        delete checkpoint;
+      }
+     }
+   }
+}
+
+static void
 rocksdb_force_flush_memtable_now(THD* thd,
                                  struct st_mysql_sys_var* var,
                                  void* var_ptr,
@@ -202,6 +227,7 @@ static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
 static char * compact_cf_name;
+static char * snapshot_dir_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
@@ -618,6 +644,11 @@ static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   "Compact column family",
   NULL, rocksdb_compact_column_family, "");
 
+static MYSQL_SYSVAR_STR(snapshot_dir, snapshot_dir_name,
+  PLUGIN_VAR_RQCMDARG,
+  "Checkpoint directory",
+  NULL, rocksdb_create_checkpoint, "");
+
 static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
   rocksdb_signal_drop_index_thread,
   PLUGIN_VAR_RQCMDARG,
@@ -739,6 +770,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(compaction_sequential_deletes),
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
+
+  MYSQL_SYSVAR(snapshot_dir),
 
   NULL
 };
