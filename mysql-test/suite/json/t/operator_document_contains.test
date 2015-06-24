@@ -1,0 +1,69 @@
+--disable_abort_on_error ONCE
+--remove_file $MYSQLTEST_VARDIR/tmp/operator_document_contains.test
+
+# Create a test file for CONTAINS. Switching of the operands is needed and replace SUBDOC with CONTAINS
+perl;
+  use strict;
+  my $in = "suite/json/include/operator_document_subdoc.inc";
+  open(my $ifh => $in) or die "Could not open file '$in' $!";
+
+  my $out = "$ENV{MYSQLTEST_VARDIR}/tmp/operator_document_contains.test";
+  open(my $ofh, ">", $out) or die "Could not open file '$out' $!";
+  
+  while(my $line = <$ifh>) {
+    if (substr($line, 0, 1) eq "#" || index($line, "SUBDOC") == -1) {
+      print $ofh $line;
+      next;
+    }
+
+    # Change operator to CONTAINS and remove newline
+    $line =~ s/SUBDOC/CONTAINS/g;
+    $line =~ s/;\n//g;
+    my @list = split / /, $line;
+    my @new_list = ();
+    my $seen_document = 0;
+
+    foreach (@list) {
+      if (index($_, "DOCUMENT") != -1) {
+        $seen_document = 1;
+        push (@new_list, $_);
+      } elsif ($seen_document) {
+        @new_list[-1] = join " ", @new_list[-1], $_;  
+      } else {
+        push (@new_list, $_);
+      }
+
+      if (index($_, ")") != -1) {
+        $seen_document = 0;
+      }
+    }
+
+    # Set offset of operands from operator depending on position of NOT
+    my ($op_index) = grep { @new_list[$_] ~~ "CONTAINS" } 0..$#new_list;
+    my $offset = 1;
+    if (@new_list[$op_index - 1] eq "NOT") {
+      $offset = 2;
+    }
+
+    # Swap operands
+    (@new_list[$op_index - $offset], @new_list[$op_index + 1]) = 
+      (@new_list[$op_index + 1], @new_list[$op_index - $offset]);
+
+    # Account for subqueries by adding parantheses and alias
+    if (@new_list[$op_index - $offset] =~ /\)\)$/ || (@new_list[$op_index - $offset] =~ /\)$/ &&
+      index(@new_list[$op_index - $offset], "DOCUMENT") == -1)) 
+    {
+      chop(@new_list[$op_index - $offset]);
+      @new_list[$op_index + 1] = @new_list[$op_index + 1].")";
+    }
+
+    print $ofh join(" ", @new_list).";\n";
+  }
+
+  close($ofh);
+  close($ifh);
+EOF
+
+--source $MYSQLTEST_VARDIR/tmp/operator_document_contains.test
+--disable_abort_on_error ONCE
+--remove_file $MYSQLTEST_VARDIR/tmp/operator_document_contains.test
