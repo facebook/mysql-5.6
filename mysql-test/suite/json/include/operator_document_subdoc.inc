@@ -1,12 +1,34 @@
+# README: This test file is shared between the test for the SUBDOC operator and
+# the CONTAINS operator. For the CONTAINS test, it will read this file and 
+# first replace every occurrence of SUBDOC with CONTAINS. Then, it will swap the
+# left and right operands based on these parsing rules/assumptions:
+#
+# - An operand is either a DOCUMENT(), doc path, or doc column
+# - Only lines with the word SUBDOC will be considered for the operand swap (except comments) 
+#   so queries should be written in one line
+# - Spaces in operands only exist inside the DOCUMENT() function
+# - NOT, DOCUMENT, SUBDOC are capitalized
+# 
+# Debugging tip: If the contains test is failing, comment out the "--remove_file" 
+#                commands in operator_document_contains.test to see the 
+#                auto-generated test file for CONTAINS in the tmp folder.
+
+
+# Test of SUBDOC on document types
+
+--disable_warnings
 drop table if exists t1, t2;
 drop view if exists v1;
+--enable_warnings
+
 SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
 SELECT @start_allow_DOCUMENT_type;
-@start_allow_DOCUMENT_type
-1
+
+# Populate t1 with data
 CREATE TABLE t1 ( a int NOT null,
-b char (10) NOT null,
-doc DOCUMENT NOT null) engine=innodb;
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
+
 insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
 insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
 insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
@@ -15,365 +37,126 @@ insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "a
 insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
 insert into t1 values (7,'@3','{ "id":104, "address":{ "zipcode":98767, "state":"NY" } }');
 insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+
+# Populate t2 with data
 CREATE TABLE t2 ( a int NOT null,
-b char (10) NOT null,
-doc DOCUMENT NOT null) engine=innodb;
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
 insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761} }');
 insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
 insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
 insert into t2 values (6,'@2','{ "id":110, "address":{"zipcode":98767, "state":"NY"}, "addr":{"zipcode":98767, "state":"NY"}}');
+
+# True comparisons
 SELECT DOCUMENT('{}') SUBDOC DOCUMENT('{}');
-DOCUMENT('{}') SUBDOC DOCUMENT('{}')
-1
 SELECT DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
-DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}')
-1
 SELECT DOCUMENT('{"k1": "v1"}') SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
-DOCUMENT('{"k1": "v1"}') SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}')
-1
 SELECT DOCUMENT('{"k2": "v2"}') SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
-DOCUMENT('{"k2": "v2"}') SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}')
-1
 SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') SUBDOC DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}');
-DOCUMENT('{"k1": "v1", "k2":"v2"}') SUBDOC DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}')
-1
 SELECT DOCUMENT('{"k1": {"foo":"bar"}}') SUBDOC DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}');
-DOCUMENT('{"k1": {"foo":"bar"}}') SUBDOC DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}')
-1
 SELECT DOCUMENT('{"k":"v"}') NOT SUBDOC DOCUMENT('{}');
-DOCUMENT('{"k":"v"}') NOT SUBDOC DOCUMENT('{}')
-1
 SELECT DOCUMENT('{}') NOT SUBDOC DOCUMENT('[]');
-DOCUMENT('{}') NOT SUBDOC DOCUMENT('[]')
-1
 SELECT DOCUMENT('[]') NOT SUBDOC DOCUMENT('[]');
-DOCUMENT('[]') NOT SUBDOC DOCUMENT('[]')
-1
 SELECT DOCUMENT('[1, 2, 3]') NOT SUBDOC DOCUMENT('{"k": [1, 2, 3]}');
-DOCUMENT('[1, 2, 3]') NOT SUBDOC DOCUMENT('{"k": [1, 2, 3]}')
-1
 SELECT DOCUMENT('{"k":{"k1":"v1"}}') NOT SUBDOC DOCUMENT('{"k":{}}');
-DOCUMENT('{"k":{"k1":"v1"}}') NOT SUBDOC DOCUMENT('{"k":{}}')
-1
+
+# False comparisons
 SELECT DOCUMENT('{"k":"v"}') SUBDOC DOCUMENT('{}');
-DOCUMENT('{"k":"v"}') SUBDOC DOCUMENT('{}')
-0
 SELECT DOCUMENT('{}') SUBDOC DOCUMENT('[]');
-DOCUMENT('{}') SUBDOC DOCUMENT('[]')
-0
 SELECT DOCUMENT('[]') SUBDOC DOCUMENT('[]');
-DOCUMENT('[]') SUBDOC DOCUMENT('[]')
-0
 SELECT DOCUMENT('[1, 2, 3]') SUBDOC DOCUMENT('{"k": [1, 2, 3]}');
-DOCUMENT('[1, 2, 3]') SUBDOC DOCUMENT('{"k": [1, 2, 3]}')
-0
 SELECT DOCUMENT('{"k":{"k1":"v1"}}') SUBDOC DOCUMENT('{"k":{}}');
-DOCUMENT('{"k":{"k1":"v1"}}') SUBDOC DOCUMENT('{"k":{}}')
-0
 SELECT DOCUMENT('{}') NOT SUBDOC DOCUMENT('{}');
-DOCUMENT('{}') NOT SUBDOC DOCUMENT('{}')
-0
 SELECT DOCUMENT('{}') NOT SUBDOC DOCUMENT('{"k":"v"}');
-DOCUMENT('{}') NOT SUBDOC DOCUMENT('{"k":"v"}')
-0
 SELECT DOCUMENT('{"k1": "v1"}') NOT SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
-DOCUMENT('{"k1": "v1"}') NOT SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}')
-0
 SELECT DOCUMENT('{"k2": "v2"}') NOT SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
-DOCUMENT('{"k2": "v2"}') NOT SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}')
-0
 SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') NOT SUBDOC DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}');
-DOCUMENT('{"k1": "v1", "k2":"v2"}') NOT SUBDOC DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}')
-0
 SELECT DOCUMENT('{"k1": {"foo":"bar"}}') NOT SUBDOC DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}');
-DOCUMENT('{"k1": {"foo":"bar"}}') NOT SUBDOC DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}')
-0
+
+# Invalid comparisons (NOT DOCUMENT types)
+--error ER_WRONG_ARGUMENTS
 SELECT DOCUMENT('{}') SUBDOC '{}';
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT '{}' SUBDOC DOCUMENT('{}');
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT DOCUMENT('{}') SUBDOC 1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT 1 SUBDOC DOCUMENT('{}');
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT doc SUBDOC '{}' FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT '{}' SUBDOC doc FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT doc SUBDOC 1 FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT 1 SUBDOC doc FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT doc.address SUBDOC '{}' FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT '{}' SUBDOC doc.address FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT doc.address SUBDOC 1 FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+--error ER_WRONG_ARGUMENTS
 SELECT 1 SUBDOC doc.address FROM t1;
-ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+
+# Test doc columns, doc paths, DOCUMENT() as left/right operand of comparison
 SELECT DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
-DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}')
-1
 SELECT DOCUMENT('{"state":"NY"}') SUBDOC doc.address FROM t2;
-DOCUMENT('{"state":"NY"}') SUBDOC doc.address
-0
-1
-0
-1
 SELECT DOCUMENT('{"id":108}') SUBDOC doc FROM t2;
-DOCUMENT('{"id":108}') SUBDOC doc
-1
-0
-0
-0
 SELECT doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}') FROM t2;
-doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}')
-1
-0
-0
-0
 SELECT doc.address SUBDOC doc.addr FROM t2;
-doc.address SUBDOC doc.addr
-0
-0
-0
-1
 SELECT doc.address SUBDOC doc FROM t2;
-doc.address SUBDOC doc
-0
-0
-0
-0
 SELECT doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') FROM t2;
-doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}')
-1
-0
-0
-0
 SELECT doc SUBDOC doc.address FROM t2;
-doc SUBDOC doc.address
-0
-0
-0
-0
 SELECT doc SUBDOC doc FROM t2;
-doc SUBDOC doc
-1
-1
-1
-1
+
+# Test combinations of doc column, doc paths, DOCUMENT() in WHERE clause
 SELECT doc.id FROM t2 WHERE DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
-`doc`.`id`
-108
-104
-106
-110
 SELECT doc.id FROM t2 WHERE DOCUMENT('{"state":"NY"}') SUBDOC doc.address;
-`doc`.`id`
-104
-110
 SELECT doc.id FROM t2 WHERE DOCUMENT('{"id":108}') SUBDOC doc;
-`doc`.`id`
-108
 SELECT doc.id FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}');
-`doc`.`id`
-108
 SELECT doc.id FROM t2 WHERE doc.address SUBDOC doc.addr;
-`doc`.`id`
-110
 SELECT doc.id FROM t2 WHERE doc.address SUBDOC doc;
-`doc`.`id`
 SELECT doc.id FROM t2 WHERE doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}');
-`doc`.`id`
-108
 SELECT doc.id FROM t2 WHERE doc SUBDOC doc.address;
-`doc`.`id`
 SELECT doc.id FROM t2 WHERE doc SUBDOC doc;
-`doc`.`id`
-108
-104
-106
-110
 SELECT b FROM t1 WHERE DOCUMENT('{"state": "WA"}') SUBDOC doc.address;
-b
-@1
-@2
 SELECT doc.name FROM t1 WHERE DOCUMENT('{"name": "Evan"}') NOT SUBDOC doc;
-`doc`.`name`
-Alex
-Bob
-Charlie
-Don
-NULL
-NULL
-NULL
+
+# Test SUBDOC with JOIN
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
-`doc`.`id`	`doc`.`id`
-101	108
-101	104
-101	106
-101	110
-102	108
-102	104
-102	106
-102	110
-103	108
-103	104
-103	106
-103	110
-104	108
-104	104
-104	106
-104	110
-105	108
-105	104
-105	106
-105	110
-108	108
-108	104
-108	106
-108	110
-104	108
-104	104
-104	106
-104	110
-106	108
-106	104
-106	106
-106	110
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"state":"NY"}') SUBDOC t2.doc.address;
-`doc`.`id`	`doc`.`id`
-101	104
-101	110
-102	104
-102	110
-103	104
-103	110
-104	104
-104	110
-105	104
-105	110
-108	104
-108	110
-104	104
-104	110
-106	104
-106	110
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"id":108}') SUBDOC t2.doc;
-`doc`.`id`	`doc`.`id`
-101	108
-102	108
-103	108
-104	108
-105	108
-108	108
-104	108
-106	108
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}');
-`doc`.`id`	`doc`.`id`
-101	108
-102	108
-103	108
-104	108
-105	108
-108	108
-104	108
-106	108
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc.address SUBDOC t2.doc.addr;
-`doc`.`id`	`doc`.`id`
-104	110
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc.address SUBDOC t2.doc;
-`doc`.`id`	`doc`.`id`
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}');
-`doc`.`id`	`doc`.`id`
-101	108
-102	108
-103	108
-104	108
-105	108
-108	108
-104	108
-106	108
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc SUBDOC t2.doc.address;
-`doc`.`id`	`doc`.`id`
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc SUBDOC t2.doc;
-`doc`.`id`	`doc`.`id`
-104	104
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address SUBDOC t1.doc.address;
-`doc`.`id`	`doc`.`id`
-101	108
-104	104
-104	110
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address NOT SUBDOC t1.doc.address;
-`doc`.`id`	`doc`.`id`
-101	104
-101	106
-101	110
-102	108
-102	104
-102	106
-102	110
-103	108
-103	104
-103	106
-103	110
-104	108
-104	104
-104	106
-104	110
-105	108
-105	104
-105	106
-105	110
-108	108
-108	104
-108	106
-108	110
-104	108
-104	106
-106	108
-106	104
-106	106
-106	110
+
+# Test SUBDOC with subqueries
 SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}')) temp;
-`doc`.`id`
-108
-104
-106
-110
 SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"state":"NY"}') SUBDOC doc.address) temp;
-`doc`.`id`
-104
-110
 SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"id":108}') SUBDOC doc) temp;
-`doc`.`id`
-108
 SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}')) temp;
-`doc`.`id`
-108
 SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address SUBDOC doc.addr) temp;
-`doc`.`id`
-110
 SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address SUBDOC doc) temp;
-`doc`.`id`
 SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}')) temp;
-`doc`.`id`
-108
 SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SUBDOC doc.address) temp;
-`doc`.`id`
 SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SUBDOC doc) temp;
-`doc`.`id`
-108
-104
-106
-110
 SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}')) temp;
-`doc`.`id`
-108
 SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}')) temp;
-`doc`.`id`
-104
-106
-110
+
+# FIXME: Test SUBDOC with views: fix bug with views first
+#CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
+#SELECT * from v1;
+#DROP VIEW v1;
+
+#CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
+#SELECT * from v1;
+#DROP VIEW v1;
+
 drop table t1, t2;
+exit;
