@@ -1070,10 +1070,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %lex-param { class THD *YYTHD }
 %pure-parser                                    /* We have threads */
 /*
-  Currently there are 176 shift/reduce conflicts.
+  Currently there are 180 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 175
+%expect 180
 
 /*
    Comments for TOKENS.
@@ -9420,6 +9420,36 @@ predicate:
             }
 
             Item *item= new (YYTHD->mem_root) Item_func_subdoc($1,$4);
+            if (item == NULL)
+              MYSQL_YYABORT;
+            $$= new (YYTHD->mem_root) Item_func_not(item);
+            if ($$ == NULL)
+              MYSQL_YYABORT;
+          }
+         /* CONTAINS is simply SUBDOC with the operands inverted */
+        | bit_expr CONTAINS_SYM simple_expr 
+          {
+            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
+                ($3->type() != Item::DOCUMENT_ITEM && $3->type() != Item::FIELD_ITEM))
+            {
+              my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
+              MYSQL_YYABORT;
+            }
+
+            $$= new (YYTHD->mem_root) Item_func_subdoc($3,$1);
+            if ($$ == NULL)
+              MYSQL_YYABORT;
+          }
+        | bit_expr not CONTAINS_SYM simple_expr
+          {
+            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
+                ($4->type() != Item::DOCUMENT_ITEM && $4->type() != Item::FIELD_ITEM))
+            {
+              my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
+              MYSQL_YYABORT;
+            }
+
+            Item *item= new (YYTHD->mem_root) Item_func_subdoc($4,$1);
             if (item == NULL)
               MYSQL_YYABORT;
             $$= new (YYTHD->mem_root) Item_func_not(item);
