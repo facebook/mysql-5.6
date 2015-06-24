@@ -1,0 +1,379 @@
+drop table if exists t1, t2;
+drop view if exists v1;
+SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
+SELECT @start_allow_DOCUMENT_type;
+@start_allow_DOCUMENT_type
+1
+CREATE TABLE t1 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlie"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98764, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":104, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+CREATE TABLE t2 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t2 values (8,'@1','{ "id":108, "address":{ "zipcode":98761} }');
+insert into t2 values (7,'@3','{ "id":104, "address":{ "state":"NY", "zipcode":98767 } }');
+insert into t2 values (6,'@2','{ "id":106, "address":{"zipcode":98766, "state":"CA"} }');
+insert into t2 values (6,'@2','{ "id":110, "address":{"zipcode":98767, "state":"NY"}, "addr":{"zipcode":98767, "state":"NY"}}');
+SELECT DOCUMENT('{}') CONTAINS DOCUMENT('{}');
+DOCUMENT('{}') CONTAINS DOCUMENT('{}')
+1
+SELECT DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}')
+1
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') CONTAINS DOCUMENT('{"k1": "v1"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') CONTAINS DOCUMENT('{"k1": "v1"}')
+1
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') CONTAINS DOCUMENT('{"k2": "v2"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') CONTAINS DOCUMENT('{"k2": "v2"}')
+1
+SELECT DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') CONTAINS DOCUMENT('{"k1": "v1", "k2":"v2"}');
+DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') CONTAINS DOCUMENT('{"k1": "v1", "k2":"v2"}')
+1
+SELECT DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}');
+DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}')
+1
+SELECT DOCUMENT('{}') NOT CONTAINS DOCUMENT('{"k":"v"}');
+DOCUMENT('{}') NOT CONTAINS DOCUMENT('{"k":"v"}')
+1
+SELECT DOCUMENT('[]') NOT CONTAINS DOCUMENT('{}');
+DOCUMENT('[]') NOT CONTAINS DOCUMENT('{}')
+1
+SELECT DOCUMENT('[]') NOT CONTAINS DOCUMENT('[]');
+DOCUMENT('[]') NOT CONTAINS DOCUMENT('[]')
+1
+SELECT DOCUMENT('{"k": [1, 2, 3]}') NOT CONTAINS DOCUMENT('[1, 2, 3]');
+DOCUMENT('{"k": [1, 2, 3]}') NOT CONTAINS DOCUMENT('[1, 2, 3]')
+1
+SELECT DOCUMENT('{"k":{}}') NOT CONTAINS DOCUMENT('{"k":{"k1":"v1"}}');
+DOCUMENT('{"k":{}}') NOT CONTAINS DOCUMENT('{"k":{"k1":"v1"}}')
+1
+SELECT DOCUMENT('{}') CONTAINS DOCUMENT('{"k":"v"}');
+DOCUMENT('{}') CONTAINS DOCUMENT('{"k":"v"}')
+0
+SELECT DOCUMENT('[]') CONTAINS DOCUMENT('{}');
+DOCUMENT('[]') CONTAINS DOCUMENT('{}')
+0
+SELECT DOCUMENT('[]') CONTAINS DOCUMENT('[]');
+DOCUMENT('[]') CONTAINS DOCUMENT('[]')
+0
+SELECT DOCUMENT('{"k": [1, 2, 3]}') CONTAINS DOCUMENT('[1, 2, 3]');
+DOCUMENT('{"k": [1, 2, 3]}') CONTAINS DOCUMENT('[1, 2, 3]')
+0
+SELECT DOCUMENT('{"k":{}}') CONTAINS DOCUMENT('{"k":{"k1":"v1"}}');
+DOCUMENT('{"k":{}}') CONTAINS DOCUMENT('{"k":{"k1":"v1"}}')
+0
+SELECT DOCUMENT('{}') NOT CONTAINS DOCUMENT('{}');
+DOCUMENT('{}') NOT CONTAINS DOCUMENT('{}')
+0
+SELECT DOCUMENT('{"k":"v"}') NOT CONTAINS DOCUMENT('{}');
+DOCUMENT('{"k":"v"}') NOT CONTAINS DOCUMENT('{}')
+0
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1": "v1"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1": "v1"}')
+0
+SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k2": "v2"}');
+DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k2": "v2"}')
+0
+SELECT DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') NOT CONTAINS DOCUMENT('{"k1": "v1", "k2":"v2"}');
+DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') NOT CONTAINS DOCUMENT('{"k1": "v1", "k2":"v2"}')
+0
+SELECT DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') NOT CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}');
+DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') NOT CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}')
+0
+SELECT '{}' CONTAINS DOCUMENT('{}');
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT DOCUMENT('{}') CONTAINS '{}';
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT 1 CONTAINS DOCUMENT('{}');
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT DOCUMENT('{}') CONTAINS 1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT '{}' CONTAINS doc FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT doc CONTAINS '{}' FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT 1 CONTAINS doc FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT doc CONTAINS 1 FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT '{}' CONTAINS doc.address FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT doc.address CONTAINS '{}' FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT 1 CONTAINS doc.address FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT doc.address CONTAINS 1 FROM t1;
+ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
+SELECT DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}')
+1
+SELECT doc.address CONTAINS DOCUMENT('{"state":"NY"}') FROM t2;
+doc.address CONTAINS DOCUMENT('{"state":"NY"}')
+0
+1
+0
+1
+SELECT doc CONTAINS DOCUMENT('{"id":108}') FROM t2;
+doc CONTAINS DOCUMENT('{"id":108}')
+1
+0
+0
+0
+SELECT DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address FROM t2;
+DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address
+1
+0
+0
+0
+SELECT doc.addr CONTAINS doc.address FROM t2;
+doc.addr CONTAINS doc.address
+0
+0
+0
+1
+SELECT doc CONTAINS doc.address FROM t2;
+doc CONTAINS doc.address
+0
+0
+0
+0
+SELECT DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc FROM t2;
+DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc
+1
+0
+0
+0
+SELECT doc.address CONTAINS doc FROM t2;
+doc.address CONTAINS doc
+0
+0
+0
+0
+SELECT doc CONTAINS doc FROM t2;
+doc CONTAINS doc
+1
+1
+1
+1
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+`doc`.`id`
+108
+104
+106
+110
+SELECT doc.id FROM t2 WHERE doc.address CONTAINS DOCUMENT('{"state":"NY"}');
+`doc`.`id`
+104
+110
+SELECT doc.id FROM t2 WHERE doc CONTAINS DOCUMENT('{"id":108}');
+`doc`.`id`
+108
+SELECT doc.id FROM t2 WHERE DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address;
+`doc`.`id`
+108
+SELECT doc.id FROM t2 WHERE doc.addr CONTAINS doc.address;
+`doc`.`id`
+110
+SELECT doc.id FROM t2 WHERE doc CONTAINS doc.address;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc;
+`doc`.`id`
+108
+SELECT doc.id FROM t2 WHERE doc.address CONTAINS doc;
+`doc`.`id`
+SELECT doc.id FROM t2 WHERE doc CONTAINS doc;
+`doc`.`id`
+108
+104
+106
+110
+SELECT b FROM t1 WHERE doc.address CONTAINS DOCUMENT('{"state": "WA"}');
+b
+@1
+@2
+SELECT doc.name FROM t1 WHERE doc NOT CONTAINS DOCUMENT('{"name": "Evan"}');
+`doc`.`name`
+Alex
+Bob
+Charlie
+Don
+NULL
+NULL
+NULL
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}');
+`doc`.`id`	`doc`.`id`
+101	108
+101	104
+101	106
+101	110
+102	108
+102	104
+102	106
+102	110
+103	108
+103	104
+103	106
+103	110
+104	108
+104	104
+104	106
+104	110
+105	108
+105	104
+105	106
+105	110
+108	108
+108	104
+108	106
+108	110
+104	108
+104	104
+104	106
+104	110
+106	108
+106	104
+106	106
+106	110
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address CONTAINS DOCUMENT('{"state":"NY"}');
+`doc`.`id`	`doc`.`id`
+101	104
+101	110
+102	104
+102	110
+103	104
+103	110
+104	104
+104	110
+105	104
+105	110
+108	104
+108	110
+104	104
+104	110
+106	104
+106	110
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc CONTAINS DOCUMENT('{"id":108}');
+`doc`.`id`	`doc`.`id`
+101	108
+102	108
+103	108
+104	108
+105	108
+108	108
+104	108
+106	108
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS t2.doc.address;
+`doc`.`id`	`doc`.`id`
+101	108
+102	108
+103	108
+104	108
+105	108
+108	108
+104	108
+106	108
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.addr CONTAINS t1.doc.address;
+`doc`.`id`	`doc`.`id`
+104	110
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc CONTAINS t1.doc.address;
+`doc`.`id`	`doc`.`id`
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS t2.doc;
+`doc`.`id`	`doc`.`id`
+101	108
+102	108
+103	108
+104	108
+105	108
+108	108
+104	108
+106	108
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc.address CONTAINS t1.doc;
+`doc`.`id`	`doc`.`id`
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t2.doc CONTAINS t1.doc;
+`doc`.`id`	`doc`.`id`
+104	104
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc.address CONTAINS t2.doc.address;
+`doc`.`id`	`doc`.`id`
+101	108
+104	104
+104	110
+SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON t1.doc.address NOT CONTAINS t2.doc.address;
+`doc`.`id`	`doc`.`id`
+101	104
+101	106
+101	110
+102	108
+102	104
+102	106
+102	110
+103	108
+103	104
+103	106
+103	110
+104	108
+104	104
+104	106
+104	110
+105	108
+105	104
+105	106
+105	110
+108	108
+108	104
+108	106
+108	110
+104	108
+104	106
+106	108
+106	104
+106	106
+106	110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"k":"v"}') CONTAINS DOCUMENT('{}')) temp;
+`doc`.`id`
+108
+104
+106
+110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address CONTAINS DOCUMENT('{"state":"NY"}')) temp;
+`doc`.`id`
+104
+110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc CONTAINS DOCUMENT('{"id":108}')) temp;
+`doc`.`id`
+108
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "k":"v"}') CONTAINS doc.address) temp;
+`doc`.`id`
+108
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.addr CONTAINS doc.address) temp;
+`doc`.`id`
+110
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc CONTAINS doc.address) temp;
+`doc`.`id`
+SELECT doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}') CONTAINS doc) temp;
+`doc`.`id`
+108
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc.address CONTAINS doc) temp;
+`doc`.`id`
+SELECT doc.id FROM (SELECT * FROM t2 WHERE doc CONTAINS doc) temp;
+`doc`.`id`
+108
+104
+106
+110
+SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo":"bar"}') CONTAINS doc.address) temp;
+`doc`.`id`
+108
+SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo":"bar"}') NOT CONTAINS doc.address) temp;
+`doc`.`id`
+104
+106
+110
+drop table t1, t2;
