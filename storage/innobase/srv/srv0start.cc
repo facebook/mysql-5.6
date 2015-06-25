@@ -2532,8 +2532,9 @@ files_checked:
 
 		ib_bh = trx_sys_init_at_db_start();
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
-
+#ifndef XTRABACKUP
 		handle_sys_fields_format();
+#endif
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
 
@@ -2597,8 +2598,9 @@ files_checked:
 
 		ib_bh = trx_sys_init_at_db_start();
 		n_recovered_trx = UT_LIST_GET_LEN(trx_sys->rw_trx_list);
-
+#ifndef XTRABACKUP
 		handle_sys_fields_format();
+#endif
 		/* The purge system needs to create the purge view and
 		therefore requires that the trx_sys is inited. */
 
