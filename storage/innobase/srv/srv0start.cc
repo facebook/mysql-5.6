@@ -1555,6 +1555,10 @@ handle_sys_fields_format()
 			mtr_start(&mtr);
 			if (!btr_cur_optimistic_delete(
 				btr_pcur_get_btr_cur(&pcur), 0, &mtr)) {
+				btr_pcur_commit_specify_mtr(&pcur, &mtr);
+				mtr_start(&mtr);
+				btr_pcur_restore_position(BTR_MODIFY_TREE,
+							  &pcur, &mtr);
 				dberr_t err;
 				btr_cur_pessimistic_delete(
 					&err, FALSE,
@@ -1563,7 +1567,7 @@ handle_sys_fields_format()
 				if (err != DB_SUCCESS)
 					ut_error;
 			}
-			mtr_commit(&mtr);
+			btr_pcur_commit_specify_mtr(&pcur, &mtr);
 		}
 		mutex_enter(&dict_sys->mutex);
 		mtr_start(&mtr);
