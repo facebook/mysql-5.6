@@ -163,7 +163,7 @@ rocksdb_compact_column_family(THD* thd,
     auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
     if (cfh != nullptr && rdb != nullptr) {
       sql_print_information("RocksDB: Manual compaction of column family: %s\n", cf);
-      rdb->CompactRange(cfh, nullptr, nullptr);
+      rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh, nullptr, nullptr);
     }
   }
 }
@@ -5222,7 +5222,8 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
   {
     uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
     auto range = get_range(i, buf);
-    if (!rdb->CompactRange(key_descr[i]->get_cf(),
+    if (!rdb->CompactRange(rocksdb::CompactRangeOptions(),
+                           key_descr[i]->get_cf(),
                            &range.start, &range.limit).ok())
     {
       rc= 1;
