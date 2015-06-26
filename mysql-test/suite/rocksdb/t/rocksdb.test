@@ -1672,3 +1672,18 @@ insert into t1 values (1, repeat('0123456789', 9));
 
 drop table t1;
 
+--echo #
+--echo # Issue #76: Assertion `buf == table->record[0]' fails in virtual int ha_rocksdb::delete_row(const uchar*)
+--echo #
+
+CREATE TABLE t1 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB;
+CREATE TABLE t2 (pk INT PRIMARY KEY, f1 INT) ENGINE=RocksDB;
+
+CREATE TRIGGER tr AFTER DELETE ON t1 FOR EACH ROW DELETE FROM t2 WHERE pk = old.pk; 
+
+INSERT INTO t1 VALUES (1,1);
+REPLACE INTO t1 VALUES (1,2); 
+
+SELECT * FROM t1;
+DROP TABLE t1, t2;
+
