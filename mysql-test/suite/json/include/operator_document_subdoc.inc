@@ -17,7 +17,7 @@
 # Test of SUBDOC on document types
 
 --disable_warnings
-drop table if exists t1, t2;
+drop table if exists t1, t2, t3;
 drop view if exists v1;
 --enable_warnings
 
@@ -54,11 +54,17 @@ SELECT DOCUMENT('{"k1": "v1"}') SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
 SELECT DOCUMENT('{"k2": "v2"}') SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
 SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') SUBDOC DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}');
 SELECT DOCUMENT('{"k1": {"foo":"bar"}}') SUBDOC DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}');
+SELECT DOCUMENT('{"k1":"v%23"}') SUBDOC DOCUMENT('{"k1":"value123", "k2":"v2"}');
+SELECT DOCUMENT('{"k1":"va_ue123"}') SUBDOC DOCUMENT('{"k2":"v2", "k1":"value123"}');
+SELECT DOCUMENT('{"k":"\\\\%"}') SUBDOC DOCUMENT('{"k":"%"}');
+SELECT DOCUMENT('{"k":"\\\\_"}') SUBDOC DOCUMENT('{"k":"_"}');
 SELECT DOCUMENT('{"k":"v"}') NOT SUBDOC DOCUMENT('{}');
 SELECT DOCUMENT('{}') NOT SUBDOC DOCUMENT('[]');
 SELECT DOCUMENT('[]') NOT SUBDOC DOCUMENT('[]');
 SELECT DOCUMENT('[1, 2, 3]') NOT SUBDOC DOCUMENT('{"k": [1, 2, 3]}');
 SELECT DOCUMENT('{"k":{"k1":"v1"}}') NOT SUBDOC DOCUMENT('{"k":{}}');
+SELECT DOCUMENT('{"k1":"value123"}') NOT SUBDOC DOCUMENT('{"k1":"v%23", "k2":"v2"}');
+SELECT DOCUMENT('{"k1":"value123"}') NOT SUBDOC DOCUMENT('{"k1":"va_ue123", "k2":"v2"}');
 
 # False comparisons
 SELECT DOCUMENT('{"k":"v"}') SUBDOC DOCUMENT('{}');
@@ -66,12 +72,18 @@ SELECT DOCUMENT('{}') SUBDOC DOCUMENT('[]');
 SELECT DOCUMENT('[]') SUBDOC DOCUMENT('[]');
 SELECT DOCUMENT('[1, 2, 3]') SUBDOC DOCUMENT('{"k": [1, 2, 3]}');
 SELECT DOCUMENT('{"k":{"k1":"v1"}}') SUBDOC DOCUMENT('{"k":{}}');
+SELECT DOCUMENT('{"k1":"value123"}') SUBDOC DOCUMENT('{"k1":"v%23", "k2":"v2"}');
+SELECT DOCUMENT('{"k1":"value123"}') SUBDOC DOCUMENT('{"k1":"va_ue123", "k2":"v2"}');
 SELECT DOCUMENT('{}') NOT SUBDOC DOCUMENT('{}');
 SELECT DOCUMENT('{}') NOT SUBDOC DOCUMENT('{"k":"v"}');
 SELECT DOCUMENT('{"k1": "v1"}') NOT SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
 SELECT DOCUMENT('{"k2": "v2"}') NOT SUBDOC DOCUMENT('{"k1":"v1", "k2":"v2"}');
 SELECT DOCUMENT('{"k1": "v1", "k2":"v2"}') NOT SUBDOC DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}');
 SELECT DOCUMENT('{"k1": {"foo":"bar"}}') NOT SUBDOC DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}');
+SELECT DOCUMENT('{"k1":"v%23"}') NOT SUBDOC DOCUMENT('{"k1":"value123", "k2":"v2"}');
+SELECT DOCUMENT('{"k1":"va_ue123"}') NOT SUBDOC DOCUMENT('{"k2":"v2", "k1":"value123"}');
+SELECT DOCUMENT('{"k":"\\\\%"}') NOT SUBDOC DOCUMENT('{"k":"%"}');
+SELECT DOCUMENT('{"k":"\\\\_"}') NOT SUBDOC DOCUMENT('{"k":"_"}');
 
 # Invalid comparisons (NOT DOCUMENT types)
 --error ER_WRONG_ARGUMENTS
@@ -158,5 +170,25 @@ SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT(
 #SELECT * from v1;
 #DROP VIEW v1;
 
-drop table t1, t2;
+# Populate t3 with data
+CREATE TABLE t3 ( a int NOT null,
+       b char (10) NOT null,
+       doc DOCUMENT NOT null) engine=innodb;
+insert into t3 values (1,'@1','{ "id":101, "addr":{"state":"California", "zipcode":94306}}');
+insert into t3 values (2,'@2','{ "id":102, "addr":{"symbol":"%", "k":"v"}}');
+insert into t3 values (3,'@3','{ "id":103, "addr":{"symbol":"_", "k":"v"}}');
+insert into t3 values (4,'@4','{ "id":104, "k1":{"k3":"v3", "k2": ["wildcard", "array"]}}');
+
+# Test SUBDOC with regex wildcards
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"addr":{"state":"Ca%a", "zipcode":94306}}') SUBDOC doc;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"id":101, "addr":{"state":"Ca%ni_", "zipcode":94306}}') SUBDOC doc;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"state":"C%nia"}') SUBDOC doc.addr;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"state":"C_lifornia"}') SUBDOC doc.addr;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"k2": ["wi%rd", "arr_y"] }') SUBDOC doc.k1;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"symbol":"\\\\%"}') SUBDOC doc.addr;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"symbol":"\\\\_"}') SUBDOC doc.addr;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"i_":101, "addr":{"state":"Ca%ni_"}}') SUBDOC doc;
+SELECT doc.id FROM t3 WHERE DOCUMENT('{"s%te":"C_lifornia"}') SUBDOC doc.addr;
+
+drop table t1, t2, t3;
 exit;
