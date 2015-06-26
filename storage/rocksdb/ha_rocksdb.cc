@@ -4475,8 +4475,12 @@ int ha_rocksdb::truncate()
 }
 
 /*
-  Delete the row we've last read. Ignore the parameter.
-  (Check out InnoDB: row_update_for_mysql() has "UT_NOT_USED(mysql_rec)")
+  Delete the row we've last read. The row is also passed as parameter.
+
+  @detail
+    The caller guarantees table buf points to the row that was just read.
+    The row is either table->record[0] or table->record[1].
+    (Check out InnoDB: row_update_for_mysql() has "UT_NOT_USED(mysql_rec)"
 */
 int ha_rocksdb::delete_row(const uchar *buf)
 {
@@ -4488,7 +4492,6 @@ int ha_rocksdb::delete_row(const uchar *buf)
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
   trx->prepare_for_write();
   trx->changes.Delete(pk_descr, key_slice);
-  DBUG_ASSERT(buf == table->record[0]);
 
   // Delete the record for every secondary index
   for (uint i= 0; i < table->s->keys; i++)
