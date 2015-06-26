@@ -5512,7 +5512,7 @@ static bool compare_document_object(fbson::FbsonValue *a, fbson::FbsonValue *b)
   DBUG_ASSERT(a && b);
 
   /* FBson objects with same keys in a different order should be of same size */
-  if (!a->isObject() || !b->isObject() || a->size() != b->size())
+  if (!a->isObject() || !b->isObject())
     return false;
 
   /* Store a mapping from key to FbsonValue of each object then compare  */
@@ -5561,7 +5561,7 @@ static bool compare_document_array(fbson::FbsonValue *a, fbson::FbsonValue *b)
 {
   /* Verify they're both non-null JSON arrays */
   DBUG_ASSERT(a && b);
-  if (!a->isArray() || !b->isArray() || a->size() != b->size())
+  if (!a->isArray() || !b->isArray())
     return false;
 
   fbson::ArrayVal *left = (fbson::ArrayVal*) a;
@@ -5581,7 +5581,9 @@ static bool compare_document_array(fbson::FbsonValue *a, fbson::FbsonValue *b)
 }
 
 
-/* Compare two fbson values, if they are objects, order of keys do not matter */
+/* Compare two fbson values, if they are objects, order of keys do not matter
+ * If the values are both strings, the right value can include wildcards
+ * but the left value CANNOT (this is not a commutative comparison) */
 static bool compare_fbson_value(fbson::FbsonValue *a, fbson::FbsonValue *b)
 {
   /* Check non-null pointers and that they are same type */
@@ -5598,11 +5600,25 @@ static bool compare_fbson_value(fbson::FbsonValue *a, fbson::FbsonValue *b)
   {
     /* Type is: Null, True, false, Int, Double, String or Binary
      * so it's safe to just compare the binary values */
-    if (a->size() != b->size())
-      return false;
-
     const char *left_bytes = a->getValuePtr();
     const char *right_bytes = b->getValuePtr();
+
+    /* If both are string, do regex comparison (with '\' as escape)
+     * - "wild_one" is the single character wildcard symbol '_'
+     * - "wild_many" is the multiple character wildcard symbol '%' */
+    if (a->isString())
+    {
+      DTCollation cmp_collation;
+
+      /* Only the symbols in 'right_bytes' will be treated as wildcards */
+      return my_wildcmp(cmp_collation.collation,
+            left_bytes, left_bytes + a->size(),
+            right_bytes, right_bytes + b->size(),
+            '\\', wild_one, wild_many) ? false : true;
+    }
+
+    if (a->size() != b->size())
+      return false;
 
     return memcmp(left_bytes, right_bytes, a->size()) ? false : true;
   }
@@ -5678,7 +5694,7 @@ longlong Item_func_subdoc::val_int()
 
     /* Return false if key doesn't exist or values don't match */
     if (right.find(key) == right.end() ||
-        !compare_fbson_value(iter->value(), right[key]))
+        !compare_fbson_value(right[key], iter->value()))
       return 0;
   }
 

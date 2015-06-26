@@ -1,4 +1,4 @@
-drop table if exists t1, t2;
+drop table if exists t1, t2, t3;
 drop view if exists v1;
 SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
 SELECT @start_allow_DOCUMENT_type;
@@ -45,6 +45,18 @@ DOCUMENT('{"foo": {"k1": 1, "k2": 2}, "foo2": {"k1": 1, "k2": 2}}') SIMILAR DOCU
 SELECT DOCUMENT('{"k1": [1, "bar", {"k11": "v11", "k12": "v12"}, [{"foo": "bar"}]], "k2": "v2"}') SIMILAR DOCUMENT('{"k2" : "v2", "k1": [1, "bar", {"k12": "v12", "k11": "v11"}, [{"foo": "bar"}]]}');
 DOCUMENT('{"k1": [1, "bar", {"k11": "v11", "k12": "v12"}, [{"foo": "bar"}]], "k2": "v2"}') SIMILAR DOCUMENT('{"k2" : "v2", "k1": [1, "bar", {"k12": "v12", "k11": "v11"}, [{"foo": "bar"}]]}')
 1
+SELECT DOCUMENT('{"k1":"value123"}') SIMILAR DOCUMENT('{"k1":"v%23"}');
+DOCUMENT('{"k1":"value123"}') SIMILAR DOCUMENT('{"k1":"v%23"}')
+1
+SELECT DOCUMENT('{"k1":"value123"}') SIMILAR DOCUMENT('{"k1":"va_ue123"}');
+DOCUMENT('{"k1":"value123"}') SIMILAR DOCUMENT('{"k1":"va_ue123"}')
+1
+SELECT DOCUMENT('{"k":"%"}') SIMILAR DOCUMENT('{"k":"\\\\%"}');
+DOCUMENT('{"k":"%"}') SIMILAR DOCUMENT('{"k":"\\\\%"}')
+1
+SELECT DOCUMENT('{"k":"_"}') SIMILAR DOCUMENT('{"k":"\\\\_"}');
+DOCUMENT('{"k":"_"}') SIMILAR DOCUMENT('{"k":"\\\\_"}')
+1
 SELECT DOCUMENT('{}') NOT SIMILAR DOCUMENT('[]');
 DOCUMENT('{}') NOT SIMILAR DOCUMENT('[]')
 1
@@ -66,6 +78,12 @@ DOCUMENT('{"k1": "v1", "k2": "v2"}') NOT SIMILAR DOCUMENT('{"k1":"v2"}')
 SELECT DOCUMENT('{"k1": "v1"}') NOT SIMILAR DOCUMENT('{"k1":"v1", "k2":"v2"}');
 DOCUMENT('{"k1": "v1"}') NOT SIMILAR DOCUMENT('{"k1":"v1", "k2":"v2"}')
 1
+SELECT DOCUMENT('{"k1":"v%23"}') NOT SIMILAR DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"v%23"}') NOT SIMILAR DOCUMENT('{"k1":"value123"}')
+1
+SELECT DOCUMENT('{"k1":"va_ue123"}') NOT SIMILAR DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"va_ue123"}') NOT SIMILAR DOCUMENT('{"k1":"value123"}')
+1
 SELECT DOCUMENT('{}') SIMILAR DOCUMENT('[]');
 DOCUMENT('{}') SIMILAR DOCUMENT('[]')
 0
@@ -86,6 +104,12 @@ DOCUMENT('{"k1": "v1", "k2": "v2"}') SIMILAR DOCUMENT('{"k1":"v2"}')
 0
 SELECT DOCUMENT('{"k1": "v1"}') SIMILAR DOCUMENT('{"k1":"v1", "k2":"v2"}');
 DOCUMENT('{"k1": "v1"}') SIMILAR DOCUMENT('{"k1":"v1", "k2":"v2"}')
+0
+SELECT DOCUMENT('{"k1":"v%23"}') SIMILAR DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"v%23"}') SIMILAR DOCUMENT('{"k1":"value123"}')
+0
+SELECT DOCUMENT('{"k1":"va_ue123"}') SIMILAR DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"va_ue123"}') SIMILAR DOCUMENT('{"k1":"value123"}')
 0
 SELECT DOCUMENT('{}') NOT SIMILAR DOCUMENT('{}');
 DOCUMENT('{}') NOT SIMILAR DOCUMENT('{}')
@@ -116,6 +140,18 @@ DOCUMENT('{"foo": {"k1": 1, "k2": 2}, "foo2": {"k1": 1, "k2": 2}}') NOT SIMILAR 
 0
 SELECT DOCUMENT('{"k1": [1, "bar", {"k11": "v11", "k12": "v12"}, [{"foo": "bar"}]], "k2": "v2"}') NOT SIMILAR DOCUMENT('{"k2" : "v2", "k1": [1, "bar", {"k12": "v12", "k11": "v11"}, [{"foo": "bar"}]]}');
 DOCUMENT('{"k1": [1, "bar", {"k11": "v11", "k12": "v12"}, [{"foo": "bar"}]], "k2": "v2"}') NOT SIMILAR DOCUMENT('{"k2" : "v2", "k1": [1, "bar", {"k12": "v12", "k11": "v11"}, [{"foo": "bar"}]]}')
+0
+SELECT DOCUMENT('{"k1":"value123"}') NOT SIMILAR DOCUMENT('{"k1":"v%23"}');
+DOCUMENT('{"k1":"value123"}') NOT SIMILAR DOCUMENT('{"k1":"v%23"}')
+0
+SELECT DOCUMENT('{"k1":"value123"}') NOT SIMILAR DOCUMENT('{"k1":"va_ue123"}');
+DOCUMENT('{"k1":"value123"}') NOT SIMILAR DOCUMENT('{"k1":"va_ue123"}')
+0
+SELECT DOCUMENT('{"k":"%"}') NOT SIMILAR DOCUMENT('{"k":"\\\\%"}');
+DOCUMENT('{"k":"%"}') NOT SIMILAR DOCUMENT('{"k":"\\\\%"}')
+0
+SELECT DOCUMENT('{"k":"_"}') NOT SIMILAR DOCUMENT('{"k":"\\\\_"}');
+DOCUMENT('{"k":"_"}') NOT SIMILAR DOCUMENT('{"k":"\\\\_"}')
 0
 SELECT DOCUMENT('{"1":"1"}') SIMILAR '{"1":"1"}';
 ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
@@ -464,4 +500,39 @@ FROM (SELECT * FROM t2 WHERE doc.address NOT SIMILAR DOCUMENT('{"state":"NY", "z
 108
 NULL
 106
-drop table t1, t2;
+CREATE TABLE t3 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t3 values (1,'@1','{ "id":101, "addr":{"state":"California"}}');
+insert into t3 values (2,'@2','{ "id":102, "addr":{"symbol":"%"}}');
+insert into t3 values (3,'@3','{ "id":103, "addr":{"symbol":"_"}}');
+insert into t3 values (4,'@4','{ "id":104, "k1":{"k2": ["wildcard", "array"]}}');
+SELECT doc.id FROM t3 WHERE doc SIMILAR DOCUMENT('{"id":101, "addr":{"state":"Ca%a"}}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc SIMILAR DOCUMENT('{"id":101, "addr":{"state":"Ca%ni_"}}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.addr SIMILAR DOCUMENT('{"state":"C%nia"}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.addr SIMILAR DOCUMENT('{"state":"C_lifornia"}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.k1 SIMILAR DOCUMENT('{"k2": ["wi%rd", "arr_y"] }');
+`doc`.`id`
+104
+SELECT doc.id FROM t3 WHERE doc.k1.k2 SIMILAR DOCUMENT('["wi%rd", "arr_y"]');
+`doc`.`id`
+104
+SELECT doc.id FROM t3 WHERE doc.addr SIMILAR DOCUMENT('{"symbol":"\\\\%"}');
+`doc`.`id`
+102
+SELECT doc.id FROM t3 WHERE doc.addr SIMILAR DOCUMENT('{"symbol":"\\\\_"}');
+`doc`.`id`
+103
+SELECT doc.id FROM t3 WHERE doc SIMILAR DOCUMENT('{"i_":101, "addr":{"state":"Ca%ni_"}}');
+`doc`.`id`
+SELECT doc.id FROM t3 WHERE doc.addr SIMILAR DOCUMENT('{"s%te":"C_lifornia"}');
+`doc`.`id`
+drop table t1, t2, t3;
