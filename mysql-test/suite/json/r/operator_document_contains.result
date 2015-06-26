@@ -1,4 +1,4 @@
-drop table if exists t1, t2;
+drop table if exists t1, t2, t3;
 drop view if exists v1;
 SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
 SELECT @start_allow_DOCUMENT_type;
@@ -40,6 +40,18 @@ DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') CONTAINS DOCUMENT('{"k1": "v1",
 SELECT DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}');
 DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}')
 1
+SELECT DOCUMENT('{"k1":"value123", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"v%23"}');
+DOCUMENT('{"k1":"value123", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"v%23"}')
+1
+SELECT DOCUMENT('{"k2":"v2", "k1":"value123"}') CONTAINS DOCUMENT('{"k1":"va_ue123"}');
+DOCUMENT('{"k2":"v2", "k1":"value123"}') CONTAINS DOCUMENT('{"k1":"va_ue123"}')
+1
+SELECT DOCUMENT('{"k":"%"}') CONTAINS DOCUMENT('{"k":"\\\\%"}');
+DOCUMENT('{"k":"%"}') CONTAINS DOCUMENT('{"k":"\\\\%"}')
+1
+SELECT DOCUMENT('{"k":"_"}') CONTAINS DOCUMENT('{"k":"\\\\_"}');
+DOCUMENT('{"k":"_"}') CONTAINS DOCUMENT('{"k":"\\\\_"}')
+1
 SELECT DOCUMENT('{}') NOT CONTAINS DOCUMENT('{"k":"v"}');
 DOCUMENT('{}') NOT CONTAINS DOCUMENT('{"k":"v"}')
 1
@@ -55,6 +67,12 @@ DOCUMENT('{"k": [1, 2, 3]}') NOT CONTAINS DOCUMENT('[1, 2, 3]')
 SELECT DOCUMENT('{"k":{}}') NOT CONTAINS DOCUMENT('{"k":{"k1":"v1"}}');
 DOCUMENT('{"k":{}}') NOT CONTAINS DOCUMENT('{"k":{"k1":"v1"}}')
 1
+SELECT DOCUMENT('{"k1":"v%23", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"v%23", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"value123"}')
+1
+SELECT DOCUMENT('{"k1":"va_ue123", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"va_ue123", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"value123"}')
+1
 SELECT DOCUMENT('{}') CONTAINS DOCUMENT('{"k":"v"}');
 DOCUMENT('{}') CONTAINS DOCUMENT('{"k":"v"}')
 0
@@ -69,6 +87,12 @@ DOCUMENT('{"k": [1, 2, 3]}') CONTAINS DOCUMENT('[1, 2, 3]')
 0
 SELECT DOCUMENT('{"k":{}}') CONTAINS DOCUMENT('{"k":{"k1":"v1"}}');
 DOCUMENT('{"k":{}}') CONTAINS DOCUMENT('{"k":{"k1":"v1"}}')
+0
+SELECT DOCUMENT('{"k1":"v%23", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"v%23", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"value123"}')
+0
+SELECT DOCUMENT('{"k1":"va_ue123", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"va_ue123", "k2":"v2"}') CONTAINS DOCUMENT('{"k1":"value123"}')
 0
 SELECT DOCUMENT('{}') NOT CONTAINS DOCUMENT('{}');
 DOCUMENT('{}') NOT CONTAINS DOCUMENT('{}')
@@ -87,6 +111,18 @@ DOCUMENT('{"k3": [1, 2], "k2":"v2", "k1":"v1"}') NOT CONTAINS DOCUMENT('{"k1": "
 0
 SELECT DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') NOT CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}');
 DOCUMENT('{"k2": 1, "k1":{"foo":"bar"}}') NOT CONTAINS DOCUMENT('{"k1": {"foo":"bar"}}')
+0
+SELECT DOCUMENT('{"k1":"value123", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"v%23"}');
+DOCUMENT('{"k1":"value123", "k2":"v2"}') NOT CONTAINS DOCUMENT('{"k1":"v%23"}')
+0
+SELECT DOCUMENT('{"k2":"v2", "k1":"value123"}') NOT CONTAINS DOCUMENT('{"k1":"va_ue123"}');
+DOCUMENT('{"k2":"v2", "k1":"value123"}') NOT CONTAINS DOCUMENT('{"k1":"va_ue123"}')
+0
+SELECT DOCUMENT('{"k":"%"}') NOT CONTAINS DOCUMENT('{"k":"\\\\%"}');
+DOCUMENT('{"k":"%"}') NOT CONTAINS DOCUMENT('{"k":"\\\\%"}')
+0
+SELECT DOCUMENT('{"k":"_"}') NOT CONTAINS DOCUMENT('{"k":"\\\\_"}');
+DOCUMENT('{"k":"_"}') NOT CONTAINS DOCUMENT('{"k":"\\\\_"}')
 0
 SELECT '{}' CONTAINS DOCUMENT('{}');
 ERROR HY000: Incorrect arguments to COMPARE DOCUMENT TYPES
@@ -376,4 +412,36 @@ SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE DOCUMENT('{"zipcode":98761, "foo
 104
 106
 110
-drop table t1, t2;
+CREATE TABLE t3 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t3 values (1,'@1','{ "id":101, "addr":{"state":"California", "zipcode":94306}}');
+insert into t3 values (2,'@2','{ "id":102, "addr":{"symbol":"%", "k":"v"}}');
+insert into t3 values (3,'@3','{ "id":103, "addr":{"symbol":"_", "k":"v"}}');
+insert into t3 values (4,'@4','{ "id":104, "k1":{"k3":"v3", "k2": ["wildcard", "array"]}}');
+SELECT doc.id FROM t3 WHERE doc CONTAINS DOCUMENT('{"addr":{"state":"Ca%a", "zipcode":94306}}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc CONTAINS DOCUMENT('{"id":101, "addr":{"state":"Ca%ni_", "zipcode":94306}}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"state":"C%nia"}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"state":"C_lifornia"}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.k1 CONTAINS DOCUMENT('{"k2": ["wi%rd", "arr_y"] }');
+`doc`.`id`
+104
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"symbol":"\\\\%"}');
+`doc`.`id`
+102
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"symbol":"\\\\_"}');
+`doc`.`id`
+103
+SELECT doc.id FROM t3 WHERE doc CONTAINS DOCUMENT('{"i_":101, "addr":{"state":"Ca%ni_"}}');
+`doc`.`id`
+SELECT doc.id FROM t3 WHERE doc.addr CONTAINS DOCUMENT('{"s%te":"C_lifornia"}');
+`doc`.`id`
+drop table t1, t2, t3;

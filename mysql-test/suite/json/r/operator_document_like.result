@@ -1,4 +1,4 @@
-drop table if exists t1, t2;
+drop table if exists t1, t2, t3;
 drop view if exists v1;
 SET @start_allow_DOCUMENT_type = @@global.allow_DOCUMENT_type;
 SELECT @start_allow_DOCUMENT_type;
@@ -90,6 +90,18 @@ DOCUMENT('{"k1":"v1", "k2":"v2"}') LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}')
 SELECT DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1,           2, 3]');
 DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1,           2, 3]')
 1
+SELECT DOCUMENT('{"k1":"value123"}') LIKE DOCUMENT('{"k1":"v%23"}');
+DOCUMENT('{"k1":"value123"}') LIKE DOCUMENT('{"k1":"v%23"}')
+1
+SELECT DOCUMENT('{"k1":"value123"}') LIKE DOCUMENT('{"k1":"va_ue123"}');
+DOCUMENT('{"k1":"value123"}') LIKE DOCUMENT('{"k1":"va_ue123"}')
+1
+SELECT DOCUMENT('{"k":"%"}') LIKE DOCUMENT('{"k":"\\\\%"}');
+DOCUMENT('{"k":"%"}') LIKE DOCUMENT('{"k":"\\\\%"}')
+1
+SELECT DOCUMENT('{"k":"_"}') LIKE DOCUMENT('{"k":"\\\\_"}');
+DOCUMENT('{"k":"_"}') LIKE DOCUMENT('{"k":"\\\\_"}')
+1
 SELECT DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"v":"k"}');
 DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"v":"k"}')
 1
@@ -104,6 +116,12 @@ DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k1":"v2", "k1":"v1"}')
 1
 SELECT DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1, 3, 2]');
 DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1, 3, 2]')
+1
+SELECT DOCUMENT('{"k1":"v%23"}') NOT LIKE DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"v%23"}') NOT LIKE DOCUMENT('{"k1":"value123"}')
+1
+SELECT DOCUMENT('{"k1":"va_ue123"}') NOT LIKE DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"va_ue123"}') NOT LIKE DOCUMENT('{"k1":"value123"}')
 1
 SELECT DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"v":"k"}');
 DOCUMENT('{"k":"v"}') LIKE DOCUMENT('{"v":"k"}')
@@ -120,6 +138,12 @@ DOCUMENT('{"k1":"v1", "k2":"v2"}') LIKE DOCUMENT('{"k1":"v2", "k1":"v1"}')
 SELECT DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1, 3, 2]');
 DOCUMENT('[1, 2, 3]') LIKE DOCUMENT('[1, 3, 2]')
 0
+SELECT DOCUMENT('{"k1":"v%23"}') LIKE DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"v%23"}') LIKE DOCUMENT('{"k1":"value123"}')
+0
+SELECT DOCUMENT('{"k1":"va_ue123"}') LIKE DOCUMENT('{"k1":"value123"}');
+DOCUMENT('{"k1":"va_ue123"}') LIKE DOCUMENT('{"k1":"value123"}')
+0
 SELECT DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}');
 DOCUMENT('{"k1":"v1", "k2":"v2"}') NOT LIKE DOCUMENT('{"k2":"v2", "k1":"v1"}')
 0
@@ -128,6 +152,18 @@ DOCUMENT('{"k":"v"}') NOT LIKE DOCUMENT('{"k"   :    "v"}')
 0
 SELECT DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1,           2, 3]');
 DOCUMENT('[1, 2, 3]') NOT LIKE DOCUMENT('[1,           2, 3]')
+0
+SELECT DOCUMENT('{"k1":"value123"}') NOT LIKE DOCUMENT('{"k1":"v%23"}');
+DOCUMENT('{"k1":"value123"}') NOT LIKE DOCUMENT('{"k1":"v%23"}')
+0
+SELECT DOCUMENT('{"k1":"value123"}') NOT LIKE DOCUMENT('{"k1":"va_ue123"}');
+DOCUMENT('{"k1":"value123"}') NOT LIKE DOCUMENT('{"k1":"va_ue123"}')
+0
+SELECT DOCUMENT('{"k":"%"}') NOT LIKE DOCUMENT('{"k":"\\\\%"}');
+DOCUMENT('{"k":"%"}') NOT LIKE DOCUMENT('{"k":"\\\\%"}')
+0
+SELECT DOCUMENT('{"k":"_"}') NOT LIKE DOCUMENT('{"k":"\\\\_"}');
+DOCUMENT('{"k":"_"}') NOT LIKE DOCUMENT('{"k":"\\\\_"}')
 0
 CREATE TABLE t2 ( a int NOT null,
 b char (10) NOT null,
@@ -450,4 +486,39 @@ FROM (SELECT * FROM t2 WHERE doc.address NOT LIKE DOCUMENT('{"state":"NY", "zipc
 108
 NULL
 106
-drop table t1, t2;
+CREATE TABLE t3 ( a int NOT null,
+b char (10) NOT null,
+doc DOCUMENT NOT null) engine=innodb;
+insert into t3 values (1,'@1','{ "id":101, "addr":{"state":"California"}}');
+insert into t3 values (2,'@2','{ "id":102, "addr":{"symbol":"%"}}');
+insert into t3 values (3,'@3','{ "id":103, "addr":{"symbol":"_"}}');
+insert into t3 values (4,'@4','{ "id":104, "k1":{"k2": ["wildcard", "array"]}}');
+SELECT doc.id FROM t3 WHERE doc LIKE DOCUMENT('{"id":101, "addr":{"state":"Ca%a"}}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc LIKE DOCUMENT('{"id":101, "addr":{"state":"Ca%ni_"}}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.addr LIKE DOCUMENT('{"state":"C%nia"}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.addr LIKE DOCUMENT('{"state":"C_lifornia"}');
+`doc`.`id`
+101
+SELECT doc.id FROM t3 WHERE doc.k1 LIKE DOCUMENT('{"k2": ["wi%rd", "arr_y"] }');
+`doc`.`id`
+104
+SELECT doc.id FROM t3 WHERE doc.k1.k2 LIKE DOCUMENT('["wi%rd", "arr_y"]');
+`doc`.`id`
+104
+SELECT doc.id FROM t3 WHERE doc.addr LIKE DOCUMENT('{"symbol":"\\\\%"}');
+`doc`.`id`
+102
+SELECT doc.id FROM t3 WHERE doc.addr LIKE DOCUMENT('{"symbol":"\\\\_"}');
+`doc`.`id`
+103
+SELECT doc.id FROM t3 WHERE doc LIKE DOCUMENT('{"i_":101, "addr":{"state":"Ca%ni_"}}');
+`doc`.`id`
+SELECT doc.id FROM t3 WHERE doc.addr LIKE DOCUMENT('{"s%te":"C_lifornia"}');
+`doc`.`id`
+drop table t1, t2, t3;
