@@ -1512,7 +1512,7 @@ srv_start_wait_for_purge_to_start()
 struct sys_fields_rec {
 	index_id_t	index_id;
 	const char*	name;
-	ulint		pos;
+	ulint		pos_and_prefix;
 };
 
 /* Two extra columns are added to SYS_FIELDS table as part of docstore indexing
@@ -1538,8 +1538,10 @@ handle_sys_fields_format()
 		ulint		pos;
 		index_id_t	index_id;
 		dict_field_t	field_rec;
+		ulint		pos_and_prefix;
 		dict_process_sys_fields_rec(heap, rec, &field_rec,
-					    &pos, &index_id, last_id);
+					    &pos, &index_id, last_id,
+					    &pos_and_prefix);
 		last_id = index_id;
 		mtr_commit(&mtr);
 		mutex_exit(&dict_sys->mutex);
@@ -1551,7 +1553,7 @@ handle_sys_fields_format()
 			new_format_recs.push_back(
                                 sys_fields_rec{index_id,
 					       name,
-					       pos});
+					       pos_and_prefix});
 			mtr_start(&mtr);
 			if (!btr_cur_optimistic_delete(
 				btr_pcur_get_btr_cur(&pcur), 0, &mtr)) {
@@ -1588,7 +1590,7 @@ handle_sys_fields_format()
 
 		pars_info_add_ull_literal(info, "indexid", it.index_id);
 		pars_info_add_str_literal(info, "colname", it.name);
-		pars_info_add_int4_literal(info, "pos", it.pos);
+		pars_info_add_int4_literal(info, "pos", it.pos_and_prefix);
 
 		dberr_t error =
 			que_eval_sql(info,

@@ -164,7 +164,9 @@ dict_load_field_low(
 	byte*		last_index_id,	/*!< in: last index id */
 	mem_heap_t*	heap,		/*!< in/out: memory heap
 					for temporary storage */
-	const rec_t*	rec);		/*!< in: SYS_FIELDS record */
+	const rec_t*	rec,		/*!< in: SYS_FIELDS record */
+	ulint*		pos_and_prefix = NULL);
+					/*!< out: position and prefix */
 /********************************************************************//**
 Using the table->heap, copy the null-terminated filepath into
 table->data_dir_path and put a null byte before the extension.
@@ -332,7 +334,9 @@ dict_process_sys_fields_rec(
 					filled */
 	ulint*		pos,		/*!< out: Field position */
 	index_id_t*	index_id,	/*!< out: current index id */
-	index_id_t	last_id);	/*!< in: previous index id */
+	index_id_t	last_id,	/*!< in: previous index id */
+	ulint*		pos_and_prefix = NULL);
+					/*!< out: position and prefix */
 /********************************************************************//**
 This function parses a SYS_FOREIGN record and populate a dict_foreign_t
 structure with the information from the record. For detail information

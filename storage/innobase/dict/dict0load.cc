@@ -435,7 +435,8 @@ dict_process_sys_fields_rec(
 					filled */
 	ulint*		pos,		/*!< out: Field position */
 	index_id_t*	index_id,	/*!< out: current index id */
-	index_id_t	last_id)	/*!< in: previous index id */
+	index_id_t	last_id,	/*!< in: previous index id */
+	ulint*		pos_and_prefix) /*!< out: position and prefix */
 {
 	byte*		buf;
 	byte*		last_index_id;
@@ -447,7 +448,8 @@ dict_process_sys_fields_rec(
 	mach_write_to_8(last_index_id, last_id);
 
 	err_msg = dict_load_field_low(buf, NULL, sys_field,
-				      pos, last_index_id, heap, rec);
+				      pos, last_index_id, heap, rec,
+				      pos_and_prefix);
 
 	*index_id = mach_read_from_8(buf);
 
@@ -1462,7 +1464,9 @@ dict_load_field_low(
 	byte*		last_index_id,	/*!< in: last index id */
 	mem_heap_t*	heap,		/*!< in/out: memory heap
 					for temporary storage */
-	const rec_t*	rec)		/*!< in: SYS_FIELDS record */
+	const rec_t*	rec,		/*!< in: SYS_FIELDS record */
+	ulint*		pos_and_prefix)
+					/*!< in: position and prefix len */
 {
 	const byte*	field;
 	ulint		len;
@@ -1516,6 +1520,9 @@ err_len:
 	}
 
 	pos_and_prefix_len = mach_read_from_4(field);
+	if (pos_and_prefix) {
+		*pos_and_prefix = pos_and_prefix_len;
+	}
 
 	if (index && UNIV_UNLIKELY
 	    ((pos_and_prefix_len & 0xFFFFUL) != index->n_def
