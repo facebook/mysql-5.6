@@ -21,6 +21,7 @@
 #include <mysql/plugin.h>
 #include "ha_rocksdb.h"
 #include "ha_rocksdb_proto.h"
+#include "rdb_perf_context.h"
 
 #include "sql_class.h"
 #include "sql_array.h"
@@ -103,6 +104,8 @@ static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
 static std::unique_ptr<rocksdb::Env> flashcache_aware_env;
 static std::shared_ptr<MyRocksTablePropertiesCollectorFactory>
   properties_collector_factory;
+static rdb_perf_context_shared global_perf_context;
+
 rocksdb::ColumnFamilyOptions default_cf_opts;
 
 
@@ -1330,6 +1333,10 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
 static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 {
   DBUG_ENTER("rocksdb_commit");
+
+  rdb_perf_context_local local_perf_context;
+  RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
+
   if (commit_trx)
   {
     Rdb_transaction*& trx= get_trx_from_thd(thd);
@@ -1350,6 +1357,9 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 
 static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
 {
+  rdb_perf_context_local local_perf_context;
+  RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
+
   if (rollback_trx)
   {
     /* Discard the changes made by the transaction */
@@ -1447,6 +1457,9 @@ static int rocksdb_start_trx_and_assign_read_view(
         char**  gtid_executed,  /* out: Gtids logged until last commit */
         int*    gtid_executed_length)   /*out: Length of gtid_executed string */
 {
+  rdb_perf_context_local local_perf_context;
+  RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
+
   ulong const tx_isolation = thd_tx_isolation(thd);
 
   if (tx_isolation != ISO_REPEATABLE_READ)
@@ -2383,8 +2396,7 @@ void ha_rocksdb::io_perf_start(void)
   IO_PERF_INIT(block_read_byte);
   IO_PERF_INIT(block_read_count);
   IO_PERF_INIT(block_read_time);
-  IO_PERF_INIT(internal_key_skipped_count);
-  IO_PERF_INIT(internal_delete_skipped_count);
+  rdb_perf_context_start(local_perf_context);
 #undef IO_PERF_INIT
 }
 
@@ -2402,8 +2414,9 @@ void ha_rocksdb::io_perf_end_and_record(void)
   IO_PERF_DIFF(block_read_byte);
   IO_PERF_DIFF(block_read_count);
   IO_PERF_DIFF(block_read_time);
-  IO_PERF_DIFF(internal_key_skipped_count);
-  IO_PERF_DIFF(internal_delete_skipped_count);
+  rdb_perf_context_stop(local_perf_context,
+                        &share->table_perf_context,
+                        global_perf_context);
 #undef IO_PERF_DIFF
 
   if (io_perf.block_read_byte + io_perf.block_read_count +
@@ -2425,17 +2438,14 @@ void ha_rocksdb::io_perf_end_and_record(void)
     my_io_perf_sum(&stats.table_io_perf_read, &io_perf_read);
   }
 
-  if (io_perf.internal_key_skipped_count)
+  if (local_perf_context.value[PC_KEY_SKIPPED])
   {
-    share->internal_key_skipped_count += io_perf.internal_key_skipped_count;
-    stats.key_skipped += io_perf.internal_key_skipped_count;
+    stats.key_skipped += local_perf_context.value[PC_KEY_SKIPPED];
   }
 
-  if (io_perf.internal_delete_skipped_count)
+  if (local_perf_context.value[PC_DELETE_SKIPPED])
   {
-    share->internal_delete_skipped_count +=
-        io_perf.internal_delete_skipped_count;
-    stats.delete_skipped += io_perf.internal_delete_skipped_count;
+    stats.delete_skipped += local_perf_context.value[PC_DELETE_SKIPPED];
   }
 }
 
@@ -4768,6 +4778,8 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
 {
   int res= 0;
   DBUG_ENTER("ha_rocksdb::external_lock");
+  io_perf_start();
+
   if (lock_type == F_UNLCK)
   {
     Rdb_transaction* trx= get_or_create_trx(thd);
@@ -4830,6 +4842,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     }
   }
 
+  io_perf_end_and_record();
   DBUG_RETURN(res);
 }
 
@@ -5685,6 +5698,7 @@ mysql_declare_plugin(rocksdb_se)
 i_s_rocksdb_cfstats,
 i_s_rocksdb_dbstats,
 i_s_rocksdb_perf_context,
+i_s_rocksdb_perf_context_global,
 i_s_rocksdb_cfoptions,
 i_s_rocksdb_ddl
 mysql_declare_plugin_end;
@@ -5838,15 +5852,17 @@ rocksdb::BlockBasedTableOptions& rocksdb_get_table_options()
 int rocksdb_get_share_perf_counters(const char *tablename,
                                     SHARE_PERF_COUNTERS *counters)
 {
+  if (!tablename) {
+    rdb_perf_context_collect(global_perf_context, counters);
+    return 0;
+  }
+
   ROCKSDB_SHARE *share;
   share= get_share(tablename, nullptr);
   if (!share)
     return HA_ERR_INTERNAL_ERROR;
 
-  counters->value[PC_KEY_SKIPPED_IDX]=
-      share->internal_key_skipped_count.load(std::memory_order_relaxed),
-  counters->value[PC_DELETE_SKIPPED_IDX]=
-      share->internal_delete_skipped_count.load(std::memory_order_relaxed),
+  rdb_perf_context_collect(share->table_perf_context, counters);
   free_share(share);
   return 0;
 }
