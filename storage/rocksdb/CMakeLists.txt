@@ -33,6 +33,7 @@ SET(ROCKSDB_SOURCES
   rdb_dropped_indices.cc rdb_dropped_indices.h
   properties_collector.cc properties_collector.h
   rdb_i_s.cc rdb_i_s.h
+  rdb_perf_context.cc rdb_perf_context.h
   ${ROCKSDB_LIB_SOURCES}
 )
 
