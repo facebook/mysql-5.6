@@ -29,11 +29,12 @@
 #include "rocksdb/write_batch.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/perf_context.h"
+#include "rocksdb/iostats_context.h"
 
 #include "sql_string.h"
 
 #include "rdb_applyiter.h"
-
+#include "rdb_perf_context.h"
 
 /*
   This is
@@ -98,8 +99,7 @@ typedef struct st_rocksdb_share {
 
   /* Stores cumulative table statistics */
   my_io_perf_atomic_t io_perf_read;
-  std::atomic_ullong internal_key_skipped_count;
-  std::atomic_ullong internal_delete_skipped_count;
+  rdb_perf_context_shared table_perf_context;
 } ROCKSDB_SHARE;
 
 typedef enum io_error_type {
@@ -304,9 +304,8 @@ class ha_rocksdb: public handler
     uint64_t block_read_byte;
     uint64_t block_read_count;
     uint64_t block_read_time;
-    uint64_t internal_key_skipped_count;
-    uint64_t internal_delete_skipped_count;
   } io_perf;
+  rdb_perf_context_local local_perf_context;
   void io_perf_start(void);
   void io_perf_end_and_record(void);
 
