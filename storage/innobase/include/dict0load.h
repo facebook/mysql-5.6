@@ -44,6 +44,7 @@ enum dict_system_id_t {
 	SYS_FOREIGN_COLS,
 	SYS_TABLESPACES,
 	SYS_DATAFILES,
+	SYS_DOCSTORE_FIELDS,
 
 	/* This must be last item. Defines the number of system tables. */
 	SYS_NUM_SYSTEM_TABLES
@@ -421,6 +422,16 @@ dict_insert_tablespace_and_filepath(
 	const char*	filepath,	/*!< in: filepath */
 	ulint		fsp_flags);	/*!< in: tablespace flags */
 
+UNIV_INTERN
+const char*
+dict_load_docstore_field_low(
+/*===================*/
+	byte*		index_id,
+	dict_index_t*	index,
+	dict_field_t*	sys_field,
+	ulint*		pos,
+	mem_heap_t*	heap,
+	const rec_t*	rec);
 #ifndef UNIV_NONINL
 #include "dict0load.ic"
 #endif

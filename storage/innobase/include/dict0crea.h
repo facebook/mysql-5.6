@@ -200,6 +200,15 @@ struct tab_node_t{
 	mem_heap_t*	heap;	/*!< memory heap used as auxiliary storage */
 };
 
+/****************************************************************//**
+Creates the docstore system tables inside InnoDB
+at server bootstrap or server start if they are not found or are
+not of the right form.
+@return DB_SUCCESS or error code */
+UNIV_INTERN
+dberr_t
+dict_create_or_check_sys_docstore_fields(void);
+
 /* Table create node states */
 #define	TABLE_BUILD_TABLE_DEF	1
 #define	TABLE_BUILD_COL_DEF	2
@@ -219,6 +228,10 @@ struct ind_node_t{
 	ins_node_t*	field_def; /* child node which does the inserts of
 				the field definitions; the row to be inserted
 				is built by the parent node  */
+	ins_node_t*	docstore_def;
+				/* child node which does the inserts into
+				SYS_DOCSTORE_FIELDS table; the row to
+				be inserted is built by the parent node */
 	commit_node_t*	commit_node;
 				/* child node which performs a commit after
 				a successful index creation */
@@ -238,6 +251,7 @@ struct ind_node_t{
 #define	INDEX_CREATE_INDEX_TREE	3
 #define	INDEX_COMMIT_WORK	4
 #define	INDEX_ADD_TO_CACHE	5
+#define INDEX_BUILD_DOCSTORE	6
 
 #ifndef UNIV_NONINL
 #include "dict0crea.ic"
