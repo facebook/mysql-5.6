@@ -96,6 +96,7 @@ Created 2/16/1996 Heikki Tuuri
 # include "os0sync.h"
 # include "zlib.h"
 # include "ut0crc32.h"
+#include "dict0priv.h"
 
 /** Log sequence number immediately after startup */
 UNIV_INTERN lsn_t	srv_start_lsn;
@@ -1509,6 +1510,31 @@ srv_start_wait_for_purge_to_start()
 	}
 }
 
+/*
+ * Creates sys_docstore table if necessary. Loads the table into
+ * dict_sys->sys_docstore
+ */
+static
+dberr_t
+create_or_check_sys_docstore_fields()
+{
+	/* No need to create SYS_DOCSTORE_FIELDS during xtrabackup copy.
+	If SYS_DOCSTORE_FIELDS is present on the source, it will initialized
+	below. If SYS_DOCSTORE_FIELDS is not present on the source then there
+	is no need for this anyway. */
+#ifndef XTRABACKUP
+	dberr_t err = dict_create_or_check_sys_docstore_fields();
+        if (err != DB_SUCCESS) {
+		return(err);
+	}
+#endif
+	mutex_enter(&dict_sys->mutex);
+	dict_sys->sys_docstore_fields =
+		dict_table_get_low("SYS_DOCSTORE_FIELDS");
+	mutex_exit(&dict_sys->mutex);
+	return(DB_SUCCESS);
+}
+
 /********************************************************************
 Starts InnoDB and creates a new database if database files
 are not found and the user wants.
@@ -2754,6 +2780,11 @@ files_checked:
 
 	/* Create the SYS_TABLESPACES system table */
 	err = dict_create_or_check_sys_tablespace();
+	if (err != DB_SUCCESS) {
+		return(err);
+	}
+	/* Create the SYS_DOCSTORE_FIELDS system table */
+	err = create_or_check_sys_docstore_fields();
 	if (err != DB_SUCCESS) {
 		return(err);
 	}

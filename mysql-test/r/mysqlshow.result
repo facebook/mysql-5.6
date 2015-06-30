@@ -131,7 +131,7 @@ Database: information_schema
 | INNODB_BUFFER_PAGE_LRU                |
 | INNODB_LOCK_WAITS                     |
 | INNODB_SYS_COLUMNS                    |
-| INNODB_FILE_STATUS                    |
+| INNODB_SYS_DOCSTORE_FIELDS            |
 | INNODB_FT_DEFAULT_STOPWORD            |
 | INNODB_SYS_FIELDS                     |
 | INNODB_CMP_PER_INDEX_RESET            |
@@ -146,6 +146,7 @@ Database: information_schema
 | INNODB_BUFFER_POOL_STATS              |
 | INNODB_FT_CONFIG                      |
 | INNODB_SYS_FOREIGN                    |
+| INNODB_FILE_STATUS                    |
 +---------------------------------------+
 Database: INFORMATION_SCHEMA
 +---------------------------------------+
@@ -203,7 +204,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_BUFFER_PAGE_LRU                |
 | INNODB_LOCK_WAITS                     |
 | INNODB_SYS_COLUMNS                    |
-| INNODB_FILE_STATUS                    |
+| INNODB_SYS_DOCSTORE_FIELDS            |
 | INNODB_FT_DEFAULT_STOPWORD            |
 | INNODB_SYS_FIELDS                     |
 | INNODB_CMP_PER_INDEX_RESET            |
@@ -218,6 +219,7 @@ Database: INFORMATION_SCHEMA
 | INNODB_BUFFER_POOL_STATS              |
 | INNODB_FT_CONFIG                      |
 | INNODB_SYS_FOREIGN                    |
+| INNODB_FILE_STATUS                    |
 +---------------------------------------+
 Wildcard: inf_rmation_schema
 +--------------------+

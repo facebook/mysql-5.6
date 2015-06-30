@@ -4157,6 +4157,7 @@ row_drop_table_for_mysql(
 
 	pars_info_add_str_literal(info, "table_name", name);
 
+	ut_ad(dict_sys->sys_docstore_fields);
 	err = que_eval_sql(info,
 			   "PROCEDURE DROP_TABLE_PROC () IS\n"
 			   "sys_foreign_id CHAR;\n"
@@ -4227,6 +4228,8 @@ row_drop_table_for_mysql(
 			   "               found := 0;\n"
 			   "       ELSE\n"
 			   "               DELETE FROM SYS_FIELDS\n"
+			   "               WHERE INDEX_ID = index_id;\n"
+			   "               DELETE FROM SYS_DOCSTORE_FIELDS\n"
 			   "               WHERE INDEX_ID = index_id;\n"
 			   "               DELETE FROM SYS_INDEXES\n"
 			   "               WHERE ID = index_id\n"

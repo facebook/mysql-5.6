@@ -241,9 +241,7 @@ enum dict_col_sys_fields_enum {
 	DICT_COL__SYS_FIELDS__INDEX_ID		= 0,
 	DICT_COL__SYS_FIELDS__POS		= 1,
 	DICT_COL__SYS_FIELDS__COL_NAME		= 2,
-	DICT_COL__SYS_FIELDS__DOC_PATH_NAME	= 3,
-	DICT_COL__SYS_FIELDS__DOC_PATH_TYPE	= 4,
-	DICT_NUM_COLS__SYS_FIELDS		= 5
+	DICT_NUM_COLS__SYS_FIELDS		= 3
 };
 /* The field numbers in the SYS_FIELDS clustered index */
 enum dict_fld_sys_fields_enum {
@@ -252,10 +250,7 @@ enum dict_fld_sys_fields_enum {
 	DICT_FLD__SYS_FIELDS__DB_TRX_ID		= 2,
 	DICT_FLD__SYS_FIELDS__DB_ROLL_PTR	= 3,
 	DICT_FLD__SYS_FIELDS__COL_NAME		= 4,
-	DICT_FLD__SYS_FIELDS__DOC_PATH_NAME	= 5,
-	DICT_NUM_FIELDS_OLD__SYS_FIELDS		= 5,
-	DICT_FLD__SYS_FIELDS__DOC_PATH_TYPE	= 6,
-	DICT_NUM_FIELDS__SYS_FIELDS		= 7
+	DICT_NUM_FIELDS__SYS_FIELDS		= 5
 };
 /* The columns in SYS_FOREIGN */
 enum dict_col_sys_foreign_enum {
@@ -328,6 +323,24 @@ enum dict_fld_sys_datafiles_enum {
 	DICT_FLD__SYS_DATAFILES__DB_ROLL_PTR		= 2,
 	DICT_FLD__SYS_DATAFILES__PATH			= 3,
 	DICT_NUM_FIELDS__SYS_DATAFILES			= 4
+};
+
+enum dict_fld_sys_docstore_enum {
+	DICT_FLD__SYS_DOCSTORE_FIELDS__INDEX_ID		= 0,
+	DICT_FLD__SYS_DOCSTORE_FIELDS__POS		= 1,
+	DICT_FLD__SYS_DOCSTORE_FIELDS__DB_TRX_ID	= 2,
+	DICT_FLD__SYS_DOCSTORE_FIELDS__DB_ROLL_PTR	= 3,
+	DICT_FLD__SYS_DOCSTORE_FIELDS__DOC_PATH		= 4,
+	DICT_FLD__SYS_DOCSTORE_FIELDS__TYPE		= 5,
+	DICT_NUM_FIELDS__SYS_DOCSTORE_FIELDS		= 6
+};
+
+enum dict_col_sys_docstore_enum {
+	DICT_COL__SYS_DOCSTORE_FIELDS__INDEX_ID		= 0,
+	DICT_COL__SYS_DOCSTORE_FIELDS__POS		= 1,
+	DICT_COL__SYS_DOCSTORE_FIELDS__DOC_PATH		= 2,
+	DICT_COL__SYS_DOCSTORE_FIELDS__TYPE		= 3,
+	DICT_NUM_COLS__SYS_DOCSTORE_FIELDS		= 4,
 };
 
 /* A number of the columns above occur in multiple tables.  These are the

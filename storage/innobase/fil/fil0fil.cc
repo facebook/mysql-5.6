@@ -3941,6 +3941,79 @@ fil_report_bad_tablespace(
 }
 
 #ifdef XTRABACKUP
+#define DROP_TABLE_PART1\
+	"PROCEDURE DROP_TABLE_PROC () IS\n"\
+	"sys_foreign_id CHAR;\n"\
+	"table_id CHAR;\n"\
+	"index_id CHAR;\n"\
+	"foreign_id CHAR;\n"\
+	"found INT;\n"\
+	"BEGIN\n"\
+	"SELECT ID INTO table_id\n"\
+	"FROM SYS_TABLES\n"\
+	"WHERE NAME = :table_name\n"\
+	"LOCK IN SHARE MODE;\n"\
+	"IF (SQL % NOTFOUND) THEN\n"\
+	"	RETURN;\n"\
+	"END IF;\n"\
+	"found := 1;\n"\
+	"SELECT ID INTO sys_foreign_id\n"\
+	"FROM SYS_TABLES\n"\
+	"WHERE NAME = 'SYS_FOREIGN'\n"\
+	"LOCK IN SHARE MODE;\n"\
+	"IF (SQL % NOTFOUND) THEN\n"\
+	"	found := 0;\n"\
+	"END IF;\n"\
+	"IF (:table_name = 'SYS_FOREIGN') THEN\n"\
+	"	found := 0;\n"\
+	"END IF;\n"\
+	"IF (:table_name = 'SYS_FOREIGN_COLS') THEN\n"\
+	"	found := 0;\n"\
+	"END IF;\n"\
+	"WHILE found = 1 LOOP\n"\
+	"	SELECT ID INTO foreign_id\n"\
+	"	FROM SYS_FOREIGN\n"\
+	"	WHERE FOR_NAME = :table_name\n"\
+	"		AND TO_BINARY(FOR_NAME)\n"\
+	"		  = TO_BINARY(:table_name)\n"\
+	"		LOCK IN SHARE MODE;\n"\
+	"	IF (SQL % NOTFOUND) THEN\n"\
+	"	found := 0;\n"\
+	"	ELSE\n"\
+	" 		DELETE FROM SYS_FOREIGN_COLS\n"\
+	"		WHERE ID = foreign_id;\n"\
+	"		DELETE FROM SYS_FOREIGN\n"\
+	"		WHERE ID = foreign_id;\n"\
+	"	END IF;\n"\
+	"END LOOP;\n"\
+	"found := 1;\n"\
+	"WHILE found = 1 LOOP\n"\
+        "	SELECT ID INTO index_id\n"\
+	"	FROM SYS_INDEXES\n"\
+	"	WHERE TABLE_ID = table_id\n"\
+	"	LOCK IN SHARE MODE;\n"\
+	"	IF (SQL % NOTFOUND) THEN\n"\
+	"		found := 0;\n"\
+	"	ELSE\n"\
+	"		DELETE FROM SYS_FIELDS\n"\
+	"		WHERE INDEX_ID = index_id;\n"
+
+#define SYS_DOCSTORE_FIELDS_DELETE\
+	"		DELETE FROM SYS_DOCSTORE_FIELDS\n"\
+	"		WHERE INDEX_ID = index_id;\n"
+
+#define DROP_TABLE_PART2\
+	"		DELETE FROM SYS_INDEXES\n"\
+	"		WHERE ID = index_id\n"\
+	"		AND TABLE_ID = table_id;\n"\
+	"	END IF;\n"\
+	"END LOOP;\n"\
+	"DELETE FROM SYS_COLUMNS\n"\
+	"WHERE TABLE_ID = table_id;\n"\
+	"DELETE FROM SYS_TABLES\n"\
+	"WHERE ID = table_id;\n"\
+	"END;\n"
+
 static
 void
 fil_remove_invalid_table_from_data_dict(const char *name)
@@ -3959,73 +4032,17 @@ fil_remove_invalid_table_from_data_dict(const char *name)
 
 	pars_info_add_str_literal(info, "table_name", name);
 
+	const char* sql;
+	if (dict_sys->sys_docstore_fields) {
+		sql = DROP_TABLE_PART1
+		      SYS_DOCSTORE_FIELDS_DELETE
+		      DROP_TABLE_PART2;
+	} else {
+		sql = DROP_TABLE_PART1
+		      DROP_TABLE_PART2;
+	}
 	que_eval_sql(info,
-		     "PROCEDURE DROP_TABLE_PROC () IS\n"
-		     "sys_foreign_id CHAR;\n"
-		     "table_id CHAR;\n"
-		     "index_id CHAR;\n"
-		     "foreign_id CHAR;\n"
-		     "found INT;\n"
-		     "BEGIN\n"
-		     "SELECT ID INTO table_id\n"
-		     "FROM SYS_TABLES\n"
-		     "WHERE NAME = :table_name\n"
-		     "LOCK IN SHARE MODE;\n"
-		     "IF (SQL % NOTFOUND) THEN\n"
-		     "       RETURN;\n"
-		     "END IF;\n"
-		     "found := 1;\n"
-		     "SELECT ID INTO sys_foreign_id\n"
-		     "FROM SYS_TABLES\n"
-		     "WHERE NAME = 'SYS_FOREIGN'\n"
-		     "LOCK IN SHARE MODE;\n"
-		     "IF (SQL % NOTFOUND) THEN\n"
-		     "       found := 0;\n"
-		     "END IF;\n"
-		     "IF (:table_name = 'SYS_FOREIGN') THEN\n"
-		     "       found := 0;\n"
-		     "END IF;\n"
-		     "IF (:table_name = 'SYS_FOREIGN_COLS') THEN\n"
-		     "       found := 0;\n"
-		     "END IF;\n"
-		     "WHILE found = 1 LOOP\n"
-		     "       SELECT ID INTO foreign_id\n"
-		     "       FROM SYS_FOREIGN\n"
-		     "       WHERE FOR_NAME = :table_name\n"
-		     "               AND TO_BINARY(FOR_NAME)\n"
-		     "                 = TO_BINARY(:table_name)\n"
-		     "               LOCK IN SHARE MODE;\n"
-		     "       IF (SQL % NOTFOUND) THEN\n"
-		     "               found := 0;\n"
-		     "       ELSE\n"
-		     "               DELETE FROM SYS_FOREIGN_COLS\n"
-		     "               WHERE ID = foreign_id;\n"
-		     "               DELETE FROM SYS_FOREIGN\n"
-		     "               WHERE ID = foreign_id;\n"
-		     "       END IF;\n"
-		     "END LOOP;\n"
-		     "found := 1;\n"
-		     "WHILE found = 1 LOOP\n"
-		     "       SELECT ID INTO index_id\n"
-		     "       FROM SYS_INDEXES\n"
-		     "       WHERE TABLE_ID = table_id\n"
-		     "       LOCK IN SHARE MODE;\n"
-		     "       IF (SQL % NOTFOUND) THEN\n"
-		     "               found := 0;\n"
-		     "       ELSE\n"
-		     "               DELETE FROM SYS_FIELDS\n"
-		     "               WHERE INDEX_ID = index_id;\n"
-		     "               DELETE FROM SYS_INDEXES\n"
-		     "               WHERE ID = index_id\n"
-		     "               AND TABLE_ID = table_id;\n"
-		     "       END IF;\n"
-		     "END LOOP;\n"
-		     "DELETE FROM SYS_COLUMNS\n"
-		     "WHERE TABLE_ID = table_id;\n"
-		     "DELETE FROM SYS_TABLES\n"
-		     "WHERE ID = table_id;\n"
-		     "END;\n"
-		     , FALSE, trx);
+		     sql, FALSE, trx);
 
 	trx_commit_for_mysql(trx);
 

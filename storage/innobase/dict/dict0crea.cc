@@ -531,10 +531,54 @@ dict_create_sys_fields_tuple(
 	dfield_set_data(dfield, field->name,
 			ut_strlen(field->name));
 
-	/* 5: DOCUMENT_PATH_NAME */
-	dfield = dtuple_get_nth_field(entry,
-				      DICT_COL__SYS_FIELDS__DOC_PATH_NAME);
+	/*---------------------------------*/
 
+	return(entry);
+}
+
+/*
+ * Returns row tuple that will be inserted into the SYS_DOCSTORE_FIELDS table.
+*/
+static
+dtuple_t*
+dict_create_sys_docstore_fields_tuple(
+/*=========================*/
+	const dict_index_t*	index,	/*!< in: index */
+	ulint			fld_no, /*!< in: field number */
+	mem_heap_t*		heap)	/*!< in: memory heap */
+{
+	dict_table_t*	sys_docstore_fields;
+	dtuple_t*	entry;
+	dict_field_t*	field;
+	dfield_t*	dfield;
+	byte*		ptr;
+
+	ut_ad(index);
+	ut_ad(heap);
+
+	field = dict_index_get_nth_field(index, fld_no);
+	sys_docstore_fields = dict_sys->sys_docstore_fields;
+	entry = dtuple_create(heap,
+			      DICT_NUM_COLS__SYS_DOCSTORE_FIELDS
+			      + DATA_N_SYS_COLS);
+	dict_table_copy_types(entry, sys_docstore_fields);
+	/* 0: INDEX_ID -----------------------*/
+	dfield = dtuple_get_nth_field(entry,
+				      DICT_COL__SYS_DOCSTORE_FIELDS__INDEX_ID);
+	ptr = static_cast<byte*>(mem_heap_alloc(heap, 8));
+	mach_write_to_8(ptr, index->id);
+	dfield_set_data(dfield, ptr, 8);
+
+	/* 1: POS; FIELD NUMBER */
+	dfield = dtuple_get_nth_field(entry,
+				      DICT_COL__SYS_DOCSTORE_FIELDS__POS);
+	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
+	mach_write_to_4(ptr, fld_no);
+	dfield_set_data(dfield, ptr, 4);
+
+	/* 4: DOCUMENT_PATH_NAME */
+	dfield = dtuple_get_nth_field(entry,
+				      DICT_COL__SYS_DOCSTORE_FIELDS__DOC_PATH);
 	if (field->document_path) {
 		dfield_set_data(dfield, field->document_path,
 				ut_strlen(field->document_path));
@@ -542,15 +586,12 @@ dict_create_sys_fields_tuple(
 		dfield_set_null(dfield);
 	}
 
-	/* 6: DOCUMENT_PATH_TYPE */
+	/* 5: DOCUMENT_PATH_TYPE */
 	dfield = dtuple_get_nth_field(entry,
-				      DICT_COL__SYS_FIELDS__DOC_PATH_TYPE);
-
+				      DICT_COL__SYS_DOCSTORE_FIELDS__TYPE);
 	ptr = static_cast<byte*>(mem_heap_alloc(heap, 4));
 	mach_write_to_4(ptr, field->document_path_type);
 	dfield_set_data(dfield, ptr, 4);
-
-	/*---------------------------------*/
 
 	return(entry);
 }
@@ -664,6 +705,23 @@ dict_build_field_def_step(
 	row = dict_create_sys_fields_tuple(index, node->field_no, node->heap);
 
 	ins_node_set_new_row(node->field_def, row);
+}
+
+/***************************************************************//**
+Builds a row to insert in SYS_DOCSTORE_FIELDS */
+static
+void
+dict_build_docstore_fields_step(
+/*======================*/
+	ind_node_t*	node) /*!< in: index create node */
+{
+	dict_index_t*	index;
+	dtuple_t*	row;
+	index = node->index;
+
+	row = dict_create_sys_docstore_fields_tuple(index,
+						    node->field_no, node->heap);
+	ins_node_set_new_row(node->docstore_def, row);
 }
 
 /***************************************************************//**
@@ -1022,6 +1080,11 @@ ind_create_graph_create(
 					  dict_sys->sys_fields, heap);
 	node->field_def->common.parent = node;
 
+	node->docstore_def = ins_node_create(INS_DIRECT,
+					     dict_sys->sys_docstore_fields,
+					     heap);
+	node->docstore_def->common.parent = node;
+
 	if (commit) {
 		node->commit_node = trx_commit_node_create(heap);
 		node->commit_node->common.parent = node;
@@ -1189,6 +1252,34 @@ dict_create_index_step(
 
 			return(thr);
 		} else {
+			/* Find if there is a document path in the index */
+			ibool document_path = false;
+			for (uint i = 0; i < node->field_no; ++i) {
+				dict_field_t* field =
+					dict_index_get_nth_field(node->index,
+								 i);
+				if (field->document_path) {
+					document_path = true;
+					break;
+				}
+			}
+			if (document_path) {
+				ut_ad(dict_sys->sys_docstore_fields);
+				node->field_no = 0;
+				node->state = INDEX_BUILD_DOCSTORE;
+			} else {
+				node->state = INDEX_ADD_TO_CACHE;
+			}
+		}
+	}
+
+	if (node->state == INDEX_BUILD_DOCSTORE) {
+		if (node->field_no < (node->index)->n_fields) {
+			dict_build_docstore_fields_step(node);
+			node->field_no++;
+			thr->run_node = node->docstore_def;
+			return(thr);
+		} else {
 			node->state = INDEX_ADD_TO_CACHE;
 		}
 	}
@@ -1301,8 +1392,8 @@ function_exit:
 Check whether a system table exists.  Additionally, if it exists,
 move it to the non-LRU end of the table LRU list.  This is oly used
 for system tables that can be upgraded or added to an older database,
-which include SYS_FOREIGN, SYS_FOREIGN_COLS, SYS_TABLESPACES and
-SYS_DATAFILES.
+which include SYS_DOCSTORE_FIELDS, SYS_FOREIGN, SYS_FOREIGN_COLS,
+SYS_TABLESPACES and SYS_DATAFILES.
 @return DB_SUCCESS if the sys table exists, DB_CORRUPTION if it exists
 but is not current, DB_TABLE_NOT_FOUND if it does not exist*/
 static
@@ -1863,4 +1954,70 @@ dict_create_add_tablespace_to_dictionary(
 	trx->op_info = "";
 
 	return(error);
+}
+
+/****************************************************************//**
+Creates the docstore system tables inside InnoDB at server bootstrap
+or server start if they are not found or are not of the right form.
+The logic here is picked from dict_create_or_check_sys_tablespace().
+@return DB_SUCCESS or error code */
+UNIV_INTERN
+dberr_t
+dict_create_or_check_sys_docstore_fields(void)
+/*=====================================*/
+{
+	trx_t*		trx;
+	my_bool		srv_file_per_table_backup;
+	dberr_t		err;
+	dberr_t		sys_docstore_err;
+
+	ut_a(srv_get_active_thread_type() == SRV_NONE);
+
+	sys_docstore_err = dict_check_if_system_table_exists(
+		"SYS_DOCSTORE_FIELDS",
+		DICT_NUM_FIELDS__SYS_DOCSTORE_FIELDS + 1, 1);
+
+       if (sys_docstore_err == DB_SUCCESS) {
+		return(DB_SUCCESS);
+       }
+
+	trx = trx_allocate_for_mysql();
+	trx_set_dict_operation(trx, TRX_DICT_OP_TABLE);
+	trx->op_info = "creating docstore sys table";
+	row_mysql_lock_data_dictionary(trx);
+
+	if (sys_docstore_err == DB_CORRUPTION) {
+		ib_logf(IB_LOG_LEVEL_WARN,
+			"Dropping incompletely created "
+			"SYS_DOCSTORE_FIELDS table.");
+		row_drop_table_for_mysql("SYS_DOCSTORE_FIELDS", trx, TRUE);
+	}
+	ib_logf(IB_LOG_LEVEL_INFO,
+		"Creating docstore system table.");
+
+	srv_file_per_table_backup = srv_file_per_table;
+	srv_file_per_table = 0;
+
+	err = que_eval_sql(
+		NULL,
+		"PROCEDURE CREATE_SYS_DOCSTORE_FIELDS () IS\n"
+		"BEGIN\n"
+		"CREATE TABLE SYS_DOCSTORE_FIELDS(\n"
+		" INDEX_ID BIGINT, POS INT, DOC_PATH CHAR, DOC_TYPE INT);\n"
+		"CREATE UNIQUE CLUSTERED INDEX SYS_DOCSTORE_FIELDS_IND"
+		" ON SYS_DOCSTORE_FIELDS (INDEX_ID, POS);\n"
+                "END;\n",
+		FALSE, trx);
+	trx_commit_for_mysql(trx);
+	row_mysql_unlock_data_dictionary(trx);
+	trx_free_for_mysql(trx);
+	srv_file_per_table = srv_file_per_table_backup;
+	if (err == DB_SUCCESS) {
+		ib_logf(IB_LOG_LEVEL_INFO,
+			"Docstore system table created.");
+	}
+	ut_a(DB_SUCCESS == dict_check_if_system_table_exists(
+		"SYS_DOCSTORE_FIELDS",
+		DICT_NUM_FIELDS__SYS_DOCSTORE_FIELDS + 1, 1));
+	return(err);
 }
