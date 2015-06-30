@@ -710,6 +710,16 @@ static MYSQL_SYSVAR_LONGLONG(
   NULL, set_compaction_options, 0L,
   /* min */ -1L, /* max */ LONGLONG_MAX, 0);
 
+static MYSQL_THDVAR_BOOL(store_checksums,
+  PLUGIN_VAR_RQCMDARG,
+  "Include checksums when writing index/table records",
+  NULL, NULL, false /* default value */);
+
+static MYSQL_THDVAR_BOOL(verify_checksums,
+  PLUGIN_VAR_RQCMDARG,
+  "Verify checksums when reading index/table records",
+  NULL, NULL, false /* default value */);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -792,6 +802,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(snapshot_dir),
 
+  MYSQL_SYSVAR(store_checksums),
+  MYSQL_SYSVAR(verify_checksums),
   NULL
 };
 
@@ -1988,7 +2000,8 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pack_buffer(NULL),
     lock_rows(FALSE),
     keyread_only(FALSE),
-    field_enc(NULL)
+    field_enc(NULL),
+    row_checksums_checked(0)
 {}
 
 
@@ -2007,10 +2020,15 @@ const char **ha_rocksdb::bas_ext() const
   Convert record from table->record[0] form into a form that can be written
   into rocksdb.
 
-  @param packed_rec OUT Data slice with record data.
+  @param pk_packed_tuple      Packed PK tuple. We need it in order to compute
+                              and store its CRC.
+  @param pk_packed_size       Length of the above
+  @param packed_rec      OUT  Data slice with record data.
 */
 
-void ha_rocksdb::convert_record_to_storage_format(rocksdb::Slice *packed_rec)
+void ha_rocksdb::convert_record_to_storage_format(const char *pk_packed_tuple,
+                                                  size_t pk_packed_size,
+                                                  rocksdb::Slice *packed_rec)
 {
   storage_record.length(0);
   /* All NULL bits are initially 0 */
@@ -2072,19 +2090,36 @@ void ha_rocksdb::convert_record_to_storage_format(rocksdb::Slice *packed_rec)
       storage_record.append((char*)field->ptr, len);
     }
   }
+
+  if (store_checksums)
+  {
+    uint32_t key_crc32= crc32(0, (uchar*)pk_packed_tuple, pk_packed_size);
+    uint32_t val_crc32= crc32(0, (uchar*)storage_record.ptr(),
+                              storage_record.length());
+    uchar key_crc_buf[CHECKSUM_SIZE];
+    uchar val_crc_buf[CHECKSUM_SIZE];
+    store_big_uint4(key_crc_buf, key_crc32);
+    store_big_uint4(val_crc_buf, val_crc32);
+    storage_record.append((const char*)&CHECKSUM_DATA_TAG, 1);
+    storage_record.append((const char*)key_crc_buf, CHECKSUM_SIZE);
+    storage_record.append((const char*)val_crc_buf, CHECKSUM_SIZE);
+  }
+
   *packed_rec= rocksdb::Slice(storage_record.ptr(), storage_record.length());
 }
 
 
 /*
-  @param  slice Record in storage format
+  @param  key   Table record's Key in storage format
+  @param  value Table record in storage format
   @param  buf   Store record in table->record[0] form here
 */
-int ha_rocksdb::convert_record_from_storage_format(rocksdb::Slice *slice,
-                                                    uchar *buf)
+int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
+                                                   const rocksdb::Slice *value,
+                                                   uchar *buf)
 {
-  retrieved_record.assign(slice->data(), slice->size());
-  return convert_record_from_storage_format(buf);
+  retrieved_record.assign(value->data(), value->size());
+  return convert_record_from_storage_format(key, buf);
 }
 
 #ifndef NDEBUG
@@ -2127,20 +2162,27 @@ void dbug_modify_key_varchar8(String &on_disk_rec)
 #endif
 
 /*
-  Unpack the record in this->retrieved_record from storage format into
-  buf (which can be table->record[0] or table->record[1]).
+  @brief
+  Unpack the record in this->retrieved_record and this->last_rowkey from
+  storage format into buf (which can be table->record[0] or table->record[1]).
 
-  psergey-todo: this->last_rowkey has a part of the data.
+  @param  key   Table record's key in mem-comparable form.
+  @param  buf   Store record in table->record[0] format here
 
-  If the table has blobs, the unpacked data in buf may keep pointers to the
-  data in this->retrieved_record.
+  @detail
+    If the table has blobs, the unpacked data in buf may keep pointers to the
+    data in this->retrieved_record.
+
+    The key is only needed to check its checksum value (the checksum is in
+    retrieved_record).
 
   @return
     0      OK
     other  Error inpacking the data
 */
 
-int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
+int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
+                                                   uchar * buf)
 {
   DBUG_EXECUTE_IF("myrocks_simulate_bad_row_read1",
                   dbug_append_garbage_at_end(retrieved_record););
@@ -2267,6 +2309,52 @@ int ha_rocksdb::convert_record_from_storage_format(uchar * buf)
       field->move_field_offset(ptr_diff);
       memcpy((char*)field->ptr, data_bytes, len);
       field->move_field_offset(-ptr_diff);
+    }
+  }
+
+  if (reader.remaining_bytes() == CHECKSUM_CHUNK_SIZE)
+  {
+    if (reader.read(1)[0] == CHECKSUM_DATA_TAG)
+    {
+      if (verify_checksums)
+      {
+        uint32_t stored_key_chksum;
+        uint32_t stored_val_chksum;
+
+        stored_key_chksum= read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
+        stored_val_chksum= read_big_uint4((const uchar*)reader.read(CHECKSUM_SIZE));
+
+        uint32_t computed_key_chksum= crc32(0, (const uchar*)key->data(),
+                                            key->size());
+        uint32_t computed_val_chksum=
+          crc32(0, (const uchar*) retrieved_record.data(),
+                retrieved_record.size()-CHECKSUM_CHUNK_SIZE);
+
+        DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum1",
+                        stored_key_chksum++;);
+
+        if (stored_key_chksum != computed_key_chksum)
+        {
+          report_checksum_mismatch(pk_descr, true, key->data(), key->size());
+          return HA_ERR_INTERNAL_ERROR;
+        }
+
+        DBUG_EXECUTE_IF("myrocks_simulate_bad_pk_checksum2",
+                        stored_val_chksum++;);
+        if (stored_val_chksum != computed_val_chksum)
+        {
+          report_checksum_mismatch(pk_descr, false, retrieved_record.data(),
+                                   retrieved_record.size());
+          return HA_ERR_INTERNAL_ERROR;
+        }
+
+        row_checksums_checked++;
+      }
+      else
+      {
+        /* Not checking the checksums */
+        reader.read(CHECKSUM_CHUNK_SIZE-1);
+      }
     }
   }
 
@@ -2462,14 +2550,16 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
 
   setup_field_converters();
 
+  size_t tails_size= max_packed_sec_key_len + CHECKSUM_CHUNK_SIZE;
+
   if (!(sec_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
                                                 MYF(0))) ||
       !(sec_key_match_prefix_buf= (uchar*)my_malloc(max_packed_sec_key_len,
                                                     MYF(0))) ||
       !(sec_key_packed_tuple_old= (uchar*)my_malloc(max_packed_sec_key_len,
                                                  MYF(0))) ||
-      !((sec_key_tails= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))) ||
-      !((sec_key_tails_old= (uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))) ||
+      !((sec_key_tails= (uchar*)my_malloc(tails_size, MYF(0)))) ||
+      !((sec_key_tails_old= (uchar*)my_malloc(tails_size, MYF(0)))) ||
       !((pack_buffer=(uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
@@ -3253,7 +3343,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     {
       /* Unpack from the row we've read */
       rocksdb::Slice value= scan_it->value();
-      rc= convert_record_from_storage_format(&value, buf);
+      rc= convert_record_from_storage_format(&rkey, &value, buf);
     }
   }
   else
@@ -3445,8 +3535,15 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
   // Rdb_transaction *trx= get_or_create_trx(table->in_use);
   // trx->snapshot= NULL;
 
+  bool save_verify_checksums= verify_checksums;
+  verify_checksums= true;
+
   /* For each secondary index, check that we can get a PK value from it */
   sql_print_information("Checking table %s", table->s->table_name.str);
+  ha_rows UNINIT_VAR(row_checksums_at_start); // set/used iff first_index==true
+  ha_rows row_checksums= ha_rows(-1);
+  bool first_index= true;
+
   for (uint keyno= 0; keyno < table->s->keys; keyno++)
   {
     if (keyno != pk)
@@ -3454,6 +3551,9 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
       extra(HA_EXTRA_KEYREAD);
       ha_index_init(keyno, true);
       ha_rows rows= 0;
+      ha_rows checksums= 0;
+      if (first_index)
+        row_checksums_at_start= row_checksums_checked;
       int res;
       sql_print_information("  Checking index %s", table->key_info[keyno].name);
       while (1)
@@ -3475,6 +3575,12 @@ int ha_rocksdb::check(THD* thd, HA_CHECK_OPT* check_opt)
         sec_key_copy.copy(key.data(), key.size(), &my_charset_bin);
         rowkey_copy.copy(last_rowkey.ptr(), last_rowkey.length(),
                          &my_charset_bin);
+
+        if (key_descr[keyno]->unpack_info_has_checksum(scan_it->value()))
+        {
+          checksums++;
+        }
+
         if ((res= get_row_by_rowid(table->record[0], rowkey_copy.ptr(),
                                    rowkey_copy.length())))
         {
@@ -3524,12 +3630,22 @@ print_and_error:
           goto error;
         }
       }
-      sql_print_information("  ... %lld records found", rows);
+      sql_print_information("  ... %lld index entries checked (%lld had checksums)",
+                            rows, checksums);
+
+      if (first_index)
+      {
+        row_checksums= row_checksums_checked - row_checksums_at_start;
+        first_index= false;
+      }
       ha_index_end();
     }
   }
+  if (row_checksums != ha_rows(-1))
+    sql_print_information("  %lld table records had checksums", row_checksums);
   extra(HA_EXTRA_NO_KEYREAD);
 
+  verify_checksums= save_verify_checksums;
   /*
     TODO: we should check also for PK records that are missing in the secondary
     indexes.
@@ -3538,6 +3654,7 @@ print_and_error:
   */
   return HA_ADMIN_OK;
 error:
+  verify_checksums= save_verify_checksums;
   ha_index_or_rnd_end();
   extra(HA_EXTRA_NO_KEYREAD);
   return HA_ADMIN_CORRUPT;
@@ -3629,7 +3746,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
     if (lock_rows)
       trx->add_lock(lock);
     last_rowkey.copy((const char*)rowid, rowid_size, &my_charset_bin);
-    rc= convert_record_from_storage_format(buf);
+    rc= convert_record_from_storage_format(&key_slice, buf);
     table->status= 0;
   }
   else
@@ -4224,7 +4341,10 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   /* Write primary_key -> record */
   new_key_slice= rocksdb::Slice((const char*)pk_packed_tuple, pk_packed_size);
   rocksdb::Slice value_slice;
-  convert_record_to_storage_format(&value_slice);
+
+  convert_record_to_storage_format((const char*)pk_packed_tuple,
+                                   pk_packed_size, &value_slice);
+
   trx->changes.Put(pk_descr, new_key_slice, value_slice);
   trx->n_writes++;
 
@@ -4391,14 +4511,14 @@ retry:
         trx->add_lock(lock);
 
         last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rc= convert_record_from_storage_format(buf);
+        rc= convert_record_from_storage_format(&key, buf);
         table->status= 0;
       }
       else
       {
         last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
         rocksdb::Slice value= scan_it->value();
-        rc= convert_record_from_storage_format(&value, buf);
+        rc= convert_record_from_storage_format(&key, &value, buf);
         table->status= 0;
       }
     }
@@ -4775,8 +4895,12 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     Rdb_transaction* trx= get_or_create_trx(thd);
     trx->trx_locks_at_stmt_start= trx->trx_locks.elements();
 
-    trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
-                    THDVAR(table->in_use, max_row_locks));
+    THD *thd= table->in_use;
+    trx->set_params(THDVAR(thd, lock_wait_timeout),
+                    THDVAR(thd, max_row_locks));
+
+    store_checksums= THDVAR(thd, store_checksums);
+    verify_checksums= THDVAR(thd, verify_checksums);
 
     updated_indexes_is_valid= false;
 
@@ -4823,6 +4947,9 @@ int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
     Rdb_transaction* trx= get_or_create_trx(thd);
     trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
                     THDVAR(table->in_use, max_row_locks));
+    store_checksums= THDVAR(thd, store_checksums);
+    verify_checksums= THDVAR(thd, verify_checksums);
+
     trx->start_stmt();
   }
   return 0;
