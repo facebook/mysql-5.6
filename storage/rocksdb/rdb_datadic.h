@@ -134,6 +134,29 @@ public:
 
 const uint INVALID_LEN= uint(-1);
 
+/* How much one checksum occupies when stored in the record */
+const size_t CHECKSUM_SIZE= sizeof(uint32_t);
+
+/*
+  How much the checksum data occupies in record, in total.
+  It is storing two checksums plus 1 tag-byte.
+*/
+const size_t CHECKSUM_CHUNK_SIZE= 2 * CHECKSUM_SIZE + 1;
+
+/*
+  Checksum data starts from CHECKSUM_DATA_TAG which is followed by two CRC32
+  checksums.
+*/
+const char CHECKSUM_DATA_TAG=0x01;
+
+
+
+void report_checksum_mismatch(RDBSE_KEYDEF *kd, bool is_key,
+                              const char *data, size_t data_size);
+
+void hexdump_value(char *strbuf, size_t strbuf_size,
+                   const rocksdb::Slice &val);
+
 /*
   An object of this class represents information about an index in an SQL
   table. It provides services to encode and decode index tuples.
@@ -194,6 +217,8 @@ public:
                    uint *n_null_fields=NULL);
   int unpack_record(TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
+
+  bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
                    std::size_t* column_index);
 

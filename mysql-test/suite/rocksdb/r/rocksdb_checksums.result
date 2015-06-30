@@ -1,0 +1,104 @@
+drop table if exists t1,t2,t3;
+show variables like 'rocksdb_%checksum%';
+Variable_name	Value
+rocksdb_store_checksums	OFF
+rocksdb_verify_checksums	OFF
+create table t1 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
+insert into t1 values (1,1,1),(2,2,2),(3,3,3);
+check table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+ Checking table t1
+   Checking index a
+   ... 3 index entries checked (0 had checksums)
+   Checking index b
+   ... 3 index entries checked (0 had checksums)
+   0 table records had checksums
+drop table t1;
+set session rocksdb_store_checksums=on;
+create table t2 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
+insert into t2 values (1,1,1),(2,2,2),(3,3,3);
+check table t2;
+Table	Op	Msg_type	Msg_text
+test.t2	check	status	OK
+ Checking table t2
+   Checking index a
+   ... 3 index entries checked (3 had checksums)
+   Checking index b
+   ... 3 index entries checked (3 had checksums)
+   3 table records had checksums
+# Now, make a table that has both rows with checksums and without
+create table t3 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
+insert into t3 values (1,1,1),(2,2,2),(3,3,3);
+set session rocksdb_store_checksums=off;
+update t3 set b=3 where a=2;
+set session rocksdb_store_checksums=on;
+check table t3;
+Table	Op	Msg_type	Msg_text
+test.t3	check	status	OK
+ Checking table t3
+   Checking index a
+   ... 3 index entries checked (3 had checksums)
+   Checking index b
+   ... 3 index entries checked (2 had checksums)
+   2 table records had checksums
+#
+# Ok, table t2 has all rows with checksums. Simulate a few checksum mismatches.
+#
+insert into mtr.test_suppressions values 
+('Checksum mismatch in key of key-value pair for index'),
+('Checksum mismatch in value of key-value pair for index'),
+('Data with incorrect checksum');
+# 1. Start with mismatch in key checksum of the PK.
+set session debug= "+d,myrocks_simulate_bad_pk_checksum1";
+set session rocksdb_verify_checksums=off;
+select * from t3;
+pk	a	b
+1	1	1
+2	2	3
+3	3	3
+set session rocksdb_verify_checksums=on;
+select * from t3;
+ERROR HY000: Internal error: Record checksum mismatch
+set session debug= "-d,myrocks_simulate_bad_pk_checksum1";
+# 2. Continue with mismatch in pk value checksum.
+set session debug= "+d,myrocks_simulate_bad_pk_checksum2";
+set session rocksdb_verify_checksums=off;
+select * from t3;
+pk	a	b
+1	1	1
+2	2	3
+3	3	3
+set session rocksdb_verify_checksums=on;
+select * from t3;
+ERROR HY000: Internal error: Record checksum mismatch
+set session debug= "-d,myrocks_simulate_bad_pk_checksum2";
+# 3. Check if we catch checksum mismatches for secondary indexes
+explain
+select * from t3 force index(a) where a<4;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	a	a	5	NULL	1	Using index condition
+select * from t3 force index(a) where a<4;
+pk	a	b
+1	1	1
+2	2	3
+3	3	3
+set session debug= "+d,myrocks_simulate_bad_key_checksum1";
+select * from t3 force index(a) where a<4;
+ERROR HY000: Internal error: Record checksum mismatch
+set session debug= "-d,myrocks_simulate_bad_key_checksum1";
+# 4. The same for index-only reads?
+explain 
+select a from t3 force index(a) where a<4;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t3	range	a	a	5	NULL	1	Using where; Using index
+select a from t3 force index(a) where a<4;
+a
+1
+2
+3
+set session debug= "+d,myrocks_simulate_bad_key_checksum1";
+select a from t3 force index(a) where a<4;
+ERROR HY000: Internal error: Record checksum mismatch
+set session debug= "-d,myrocks_simulate_bad_key_checksum1";
+drop table t2,t3;
