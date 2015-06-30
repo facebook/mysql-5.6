@@ -60,6 +60,7 @@ CREATE TABLE t1 (
 
 SHOW CREATE TABLE t1;
 
+select substr(document_path from 1 for 7), substr(document_path from 9), document_type from information_schema.innodb_sys_docstore_fields;
 
 --replace_column 7 -
 SHOW INDEXES IN t1;
@@ -306,5 +307,7 @@ CREATE TABLE t4 (
 
 
 drop table t1, t2, t3;
+
+select document_path, document_type from information_schema.innodb_sys_docstore_fields;
 
 --source include/rpl_end.inc

@@ -20,5 +20,8 @@ update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"i
 set global debug = '';
 set global debug="+d,crash_freeing_external_pages";
 update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"id\":300}") where a=2;
+select * from information_schema.innodb_sys_docstore_fields;
+INDEX_ID	POS	DOCUMENT_PATH	DOCUMENT_TYPE
+25	0	id	8
 set global debug="";
 drop table t1;

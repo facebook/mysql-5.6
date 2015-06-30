@@ -97,6 +97,6 @@ source include/wait_until_disconnected.inc;
 enable_reconnect;
 source include/wait_until_connected_again.inc;
 disable_reconnect;
-
+select * from information_schema.innodb_sys_docstore_fields;
 eval set global debug="$old_debug";
 drop table t1;
