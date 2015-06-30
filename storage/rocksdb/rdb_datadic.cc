@@ -293,6 +293,11 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     these columns are not present at the end of the key.
 
     Because of the above, we copy each primary key column.
+
+  @todo
+    If we checked crc32 checksums in this function, we would catch some CRC
+    violations that we currently don't. On the other hand, there is a broader
+    set of queries for which we would check the checksum twice.
 */
 
 uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
@@ -403,6 +408,22 @@ uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
 }
 
 
+/*
+  @brief
+    Check if "unpack info" data includes checksum.
+
+  @detail
+    This is used only by CHECK TABLE to count the number of rows that have
+    checksums. I guess this is a hackish approach.
+*/
+
+bool RDBSE_KEYDEF::unpack_info_has_checksum(const rocksdb::Slice &unpack_info)
+{
+  return (unpack_info.size() == CHECKSUM_CHUNK_SIZE &&
+          unpack_info.data()[0]== CHECKSUM_DATA_TAG);
+}
+
+
 void RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
 {
   uchar *p= packed_tuple + len - 1;
@@ -508,7 +529,22 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
   }
 
   if (unpack_info_len)
+  {
+    if (((ha_rocksdb*)tbl->file)->store_checksums)
+    {
+      uint32_t key_crc32= crc32(0, packed_tuple, tuple - packed_tuple);
+      uint32_t val_crc32= crc32(0, unpack_info, unpack_end - unpack_info);
+
+      *unpack_end++ = CHECKSUM_DATA_TAG;
+
+      store_big_uint4(unpack_end, key_crc32);
+      unpack_end += CHECKSUM_SIZE;
+
+      store_big_uint4(unpack_end, val_crc32);
+      unpack_end += CHECKSUM_SIZE;
+    }
     *unpack_info_len= unpack_end - unpack_info;
+  }
 
   DBUG_ASSERT((int(max_storage_fmt_length())-(tuple - packed_tuple)) >= 0);
   return tuple - packed_tuple;
@@ -625,8 +661,11 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
   // for the pointer.
   my_ptrdiff_t ptr_diff= buf - table->record[0];
 
-  if (unpack_info->size() != unpack_data_len)
+  if (unpack_info->size() != unpack_data_len &&
+      unpack_info->size() != unpack_data_len + CHECKSUM_CHUNK_SIZE)
+  {
     return 1;
+  }
 
   // Skip the index number
   if ((!reader.read(INDEX_NUMBER_SIZE)))
@@ -687,6 +726,56 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
         return 1;
     }
   }
+
+  /*
+    Check checksum values if present
+  */
+  if (unpack_info->size() == CHECKSUM_CHUNK_SIZE)
+  {
+    Stream_reader unp_reader(unpack_info);
+    if (unp_reader.read(1)[0] == CHECKSUM_DATA_TAG)
+    {
+      if (((ha_rocksdb*)table->file)->verify_checksums)
+      {
+        uint32_t stored_key_chksum;
+        uint32_t stored_val_chksum;
+        stored_key_chksum= read_big_uint4((const uchar*)unp_reader.read(CHECKSUM_SIZE));
+        stored_val_chksum= read_big_uint4((const uchar*)unp_reader.read(CHECKSUM_SIZE));
+
+        uint32_t computed_key_chksum=
+          crc32(0, (const uchar*)packed_key->data(), packed_key->size());
+        uint32_t computed_val_chksum=
+          crc32(0, (const uchar*) unpack_info->data(),
+                unpack_info->size() - CHECKSUM_CHUNK_SIZE);
+
+        DBUG_EXECUTE_IF("myrocks_simulate_bad_key_checksum1",
+                        stored_key_chksum++;);
+
+        if (stored_key_chksum != computed_key_chksum)
+        {
+          report_checksum_mismatch(this, true, packed_key->data(),
+                                   packed_key->size());
+          return HA_ERR_INTERNAL_ERROR;
+        }
+
+        if (stored_val_chksum != computed_val_chksum)
+        {
+          report_checksum_mismatch(this, false, unpack_info->data(),
+                                   unpack_info->size() - CHECKSUM_CHUNK_SIZE);
+          return HA_ERR_INTERNAL_ERROR;
+        }
+
+      }
+      else
+      {
+        /* The checksums are present but we are not checking checksums */
+      }
+    }
+  }
+
+  if (reader.remaining_bytes())
+    return HA_ERR_INTERNAL_ERROR;
+
   return 0;
 }
 
@@ -1119,6 +1208,22 @@ Field *Field_pack_info::get_field_in_table(TABLE *tbl)
 {
   return tbl->key_info[keynr].key_part[key_part].field;
 }
+
+
+void report_checksum_mismatch(RDBSE_KEYDEF *kd, bool is_key,
+                              const char *data, size_t data_size)
+{
+  char buf[1024];
+  sql_print_error("Checksum mismatch in %s of key-value pair for index 0x%x",
+                   is_key? "key" : "value",
+                   kd->get_index_number());
+  hexdump_value(buf, sizeof(buf), rocksdb::Slice(data, data_size));
+  sql_print_error("Data with incorrect checksum (%ld bytes): %s",
+                  (long)data_size, buf);
+
+  my_error(ER_INTERNAL_ERROR, MYF(0), "Record checksum mismatch");
+}
+
 
 #if 0
 void _rdbse_store_blob_length(uchar *pos,uint pack_length,uint length)
