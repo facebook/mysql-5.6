@@ -1,0 +1,20 @@
+create table t1(a int, b int, key(a, b)) engine=innodb;
+insert into t1 values(1, 2);
+select * from information_schema.innodb_sys_docstore_fields;
+INDEX_ID	POS	DOCUMENT_PATH	DOCUMENT_TYPE
+create table t2(a int, b blob, c document, key(a, b(10))) engine=innodb;
+insert into t2 values(1, "bbbbb", '{"k1" : 1, "k2": "bbbbb"}');
+select * from information_schema.innodb_sys_docstore_fields;
+INDEX_ID	POS	DOCUMENT_PATH	DOCUMENT_TYPE
+create table t3(a int primary key, b blob, doc document, key(doc.k1 as int, b(10))) engine=innodb;
+select * from information_schema.innodb_sys_docstore_fields;
+INDEX_ID	POS	DOCUMENT_PATH	DOCUMENT_TYPE
+29	0	k1	8
+29	1	NULL	0
+create table t4(a int primary key, b blob, doc document, key(doc.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a.a as string(100))) engine=innodb;
+select length(document_path) from information_schema.innodb_sys_docstore_fields;
+length(document_path)
+2
+NULL
+499
+drop table t1, t2, t3, t4;
