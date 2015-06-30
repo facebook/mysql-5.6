@@ -309,7 +309,22 @@ class ha_rocksdb: public handler
   void io_perf_start(void);
   void io_perf_end_and_record(void);
 
+  /*
+    A counter of how many row checksums were checked for this table. Note that
+    this does not include checksums for secondary index entries.
+  */
+  ha_rows row_checksums_checked;
+
 public:
+  /*
+    Controls whether writes include checksums. This is updated from the session variable
+    at the start of each query.
+  */
+  bool store_checksums;
+
+  /* Same as above but for verifying checksums when reading */
+  bool verify_checksums;
+
   ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}
 
@@ -372,10 +387,16 @@ public:
 
   int rename_table(const char *from, const char *to);
 
-  int convert_record_from_storage_format(rocksdb::Slice *slice, uchar *buf);
-  int convert_record_from_storage_format(uchar *buf);
+  int convert_record_from_storage_format(const rocksdb::Slice *key,
+                                         const rocksdb::Slice *value,
+                                         uchar *buf);
 
-  void convert_record_to_storage_format(rocksdb::Slice *packed_rec);
+  int convert_record_from_storage_format(const rocksdb::Slice *key,
+                                         uchar *buf);
+
+  void convert_record_to_storage_format(const char *pk_packed_tuple,
+                                        size_t pk_packed_size,
+                                        rocksdb::Slice *packed_rec);
 
   /** @brief
     unireg.cc will call max_supported_record_length(), max_supported_keys(),
