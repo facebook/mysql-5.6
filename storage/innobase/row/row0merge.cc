@@ -2681,6 +2681,7 @@ row_merge_drop_index_dict(
 		"PROCEDURE DROP_INDEX_PROC () IS\n"
 		"BEGIN\n"
 		"DELETE FROM SYS_FIELDS WHERE INDEX_ID=:indexid;\n"
+		"DELETE FROM SYS_DOCSTORE_FIELDS WHERE INDEX_ID=:indexid;\n"
 		"DELETE FROM SYS_INDEXES WHERE ID=:indexid;\n"
 		"END;\n";
 	dberr_t		error;
@@ -2744,6 +2745,7 @@ row_merge_drop_indexes_dict(
 		"    found := 0;\n"
 		"  ELSE\n"
 		"    DELETE FROM SYS_FIELDS WHERE INDEX_ID=ixid;\n"
+		"    DELETE FROM SYS_DOCSTORE_FIELDS WHERE INDEX_ID=ixid;\n"
 		"    DELETE FROM SYS_INDEXES WHERE CURRENT OF index_cur;\n"
 		"  END IF;\n"
 		"END LOOP;\n"
@@ -2975,6 +2977,33 @@ row_merge_drop_indexes(
 	ut_d(dict_table_check_for_dup_indexes(table, CHECK_ALL_COMPLETE));
 }
 
+#define DROP_TEMP_INDEXES_PART1\
+	"PROCEDURE DROP_TEMP_INDEXES_PROC () IS\n"\
+	"ixid CHAR;\n"\
+	"found INT;\n"\
+	"DECLARE CURSOR index_cur IS\n"\
+	" SELECT ID FROM SYS_INDEXES\n"\
+	" WHERE SUBSTR(NAME,0,1)='" TEMP_INDEX_PREFIX_STR "'\n"\
+	"FOR UPDATE;\n"\
+	"BEGIN\n"\
+	"found := 1;\n"\
+	"OPEN index_cur;\n"\
+	"WHILE found = 1 LOOP\n"\
+	"  FETCH index_cur INTO ixid;\n"\
+	"  IF (SQL % NOTFOUND) THEN\n"\
+	"    found := 0;\n"\
+	"  ELSE\n"\
+	"    DELETE FROM SYS_FIELDS WHERE INDEX_ID=ixid;\n"
+
+#define DROP_TEMP_INDEXES_PART2 \
+	"    DELETE FROM SYS_INDEXES WHERE CURRENT OF index_cur;\n"\
+	"  END IF;\n"\
+	"END LOOP;\n"\
+	"CLOSE index_cur;\n"\
+	"END;\n"
+
+#define SYS_DOCSTORE_FIELDS_DELETE \
+	"    DELETE FROM SYS_DOCSTORE_FIELDS WHERE INDEX_ID=ixid;\n"
 /*********************************************************************//**
 Drop all partially created indexes during crash recovery. */
 UNIV_INTERN
@@ -2982,30 +3011,17 @@ void
 row_merge_drop_temp_indexes(void)
 /*=============================*/
 {
-	static const char sql[] =
-		"PROCEDURE DROP_TEMP_INDEXES_PROC () IS\n"
-		"ixid CHAR;\n"
-		"found INT;\n"
-
-		"DECLARE CURSOR index_cur IS\n"
-		" SELECT ID FROM SYS_INDEXES\n"
-		" WHERE SUBSTR(NAME,0,1)='" TEMP_INDEX_PREFIX_STR "'\n"
-		"FOR UPDATE;\n"
-
-		"BEGIN\n"
-		"found := 1;\n"
-		"OPEN index_cur;\n"
-		"WHILE found = 1 LOOP\n"
-		"  FETCH index_cur INTO ixid;\n"
-		"  IF (SQL % NOTFOUND) THEN\n"
-		"    found := 0;\n"
-		"  ELSE\n"
-		"    DELETE FROM SYS_FIELDS WHERE INDEX_ID=ixid;\n"
-		"    DELETE FROM SYS_INDEXES WHERE CURRENT OF index_cur;\n"
-		"  END IF;\n"
-		"END LOOP;\n"
-		"CLOSE index_cur;\n"
-		"END;\n";
+	static const char *sql;
+	/* Since this is executed during crash recovery, SYS_DOCSTORE_FIELDS
+	might not have got created before the crash */
+	if (dict_sys->sys_docstore_fields) {
+		sql = DROP_TEMP_INDEXES_PART1
+		      SYS_DOCSTORE_FIELDS_DELETE
+		      DROP_TEMP_INDEXES_PART2;
+	} else {
+		sql = DROP_TEMP_INDEXES_PART1
+		      DROP_TEMP_INDEXES_PART2;
+	}
 	trx_t*	trx;
 	dberr_t	error;
 
