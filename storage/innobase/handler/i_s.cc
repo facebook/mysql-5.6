@@ -56,6 +56,7 @@ Created July 18, 2007 Vasil Dimov
 #include "fts0priv.h"
 #include "btr0btr.h"
 #include "page0zip.h"
+#include "dict0load.h"
 
 /** structure associates a name string with a file page type and/or buffer
 page state. */
@@ -75,6 +76,8 @@ unknown. */
 /** We also define I_S_PAGE_TYPE_INDEX as the Index Page's position
 in i_s_page_type[] array */
 #define I_S_PAGE_TYPE_INDEX		1
+
+#define MAX_DOCUMENT_PATH_LEN		1024
 
 /** Name string for File Page Types */
 static buf_page_desc_t	i_s_page_type[] = {
@@ -8573,6 +8576,220 @@ UNIV_INTERN struct st_mysql_plugin	i_s_innodb_sys_datafiles =
 	STRUCT_FLD(init, innodb_sys_datafiles_init),
 
 	/* the function to invoke when plugin is unloaded */
+	/* int (*)(void*); */
+	STRUCT_FLD(deinit, i_s_common_deinit),
+
+	/* plugin version (for SHOW PLUGINS) */
+	/* unsigned int */
+	STRUCT_FLD(version, INNODB_VERSION_SHORT),
+
+	/* struct st_mysql_show_var* */
+	STRUCT_FLD(status_vars, NULL),
+
+	/* struct st_mysql_sys_var** */
+	STRUCT_FLD(system_vars, NULL),
+
+	/* reserved for dependency checking */
+	/* void* */
+	STRUCT_FLD(__reserved1, NULL),
+
+	/* Plugin flags */
+	/* unsigned long */
+	STRUCT_FLD(flags, 0UL),
+};
+
+/**  SYS_DOCSTORE_FIELDS  ****************************************************/
+/* Fields of the dynamic table INFORMATION_SCHEMA.INNODB_SYS_DOCSTORE_FIELDS */
+static ST_FIELD_INFO    innodb_sys_docstore_fields_info[] =
+{
+#define SYS_DOCSTORE_FIELDS_INDEX_ID	0
+	{STRUCT_FLD(field_name,         "INDEX_ID"),
+	 STRUCT_FLD(field_length,       MY_INT64_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,         MYSQL_TYPE_LONGLONG),
+	 STRUCT_FLD(value,              0),
+	 STRUCT_FLD(field_flags,        MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,           ""),
+	 STRUCT_FLD(open_method,        SKIP_OPEN_TABLE)},
+
+#define SYS_DOCSTORE_FIELDS_POS		1
+	{STRUCT_FLD(field_name,         "POS"),
+	 STRUCT_FLD(field_length,       MY_INT32_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,         MYSQL_TYPE_LONG),
+	 STRUCT_FLD(value,              0),
+	 STRUCT_FLD(field_flags,        MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,           ""),
+	 STRUCT_FLD(open_method,        SKIP_OPEN_TABLE)},
+
+#define SYS_DOCSTORE_FIELDS_PATH	2
+	{STRUCT_FLD(field_name,         "DOCUMENT_PATH"),
+	/* limit document path size to 1024 when displaying in
+	information_schema.SYS_DOCSTORE_FIELDS */
+	 STRUCT_FLD(field_length,       MAX_DOCUMENT_PATH_LEN),
+	 STRUCT_FLD(field_type,         MYSQL_TYPE_BLOB),
+	 STRUCT_FLD(value,              0),
+	 STRUCT_FLD(field_flags,        MY_I_S_MAYBE_NULL),
+	 STRUCT_FLD(old_name,           ""),
+	 STRUCT_FLD(open_method,        SKIP_OPEN_TABLE)},
+
+#define SYS_DOCSTORE_FIELDS_TYPE	3
+	{STRUCT_FLD(field_name,         "DOCUMENT_TYPE"),
+	 STRUCT_FLD(field_length,       MY_INT32_NUM_DECIMAL_DIGITS),
+	 STRUCT_FLD(field_type,         MYSQL_TYPE_LONG),
+	 STRUCT_FLD(value,              0),
+	 STRUCT_FLD(field_flags,        MY_I_S_UNSIGNED),
+	 STRUCT_FLD(old_name,           ""),
+	 STRUCT_FLD(open_method,        SKIP_OPEN_TABLE)},
+
+	END_OF_ST_FIELD_INFO
+};
+
+/**********************************************************************//**
+Function to fill information_schema.innodb_sys_fields with information
+collected by scanning SYS_FIELDS table.
+@return 0 on success */
+static
+int
+i_s_dict_fill_sys_docstore(
+/*=======================*/
+	THD*		thd,		/*!< in: thread */
+	index_id_t	index_id,	/*!< in: index id for the field */
+	dict_field_t*	field,		/*!< in: table */
+	ulint		pos,		/*!< in: Field position */
+	TABLE*		table_to_fill)	/*!< in/out: fill this table */
+{
+	Field**	fields;
+	DBUG_ENTER("i_s_dict_fill_sys_docstore");
+	fields = table_to_fill->field;
+
+	OK(fields[SYS_DOCSTORE_FIELDS_INDEX_ID]->store(longlong(index_id),
+						       TRUE));
+	OK(fields[SYS_DOCSTORE_FIELDS_POS]->store(static_cast<double>(pos)));
+	OK(field_store_string(fields[SYS_DOCSTORE_FIELDS_PATH],
+			      field->document_path));
+	OK(fields[SYS_DOCSTORE_FIELDS_TYPE]->store(
+		static_cast<double>(field->document_path_type)));
+	OK(schema_table_store_record(thd, table_to_fill));
+
+	DBUG_RETURN(0);
+}
+
+/*******************************************************************//**
+Function to populate INFORMATION_SCHEMA.INNODB_SYS_DOCSTORE table.
+@return 0 on success */
+static
+int
+i_s_sys_docstore_fill_table(
+/*========================*/
+	THD*		thd,	/*!< in: thread */
+	TABLE_LIST*	tables, /*!< in/out: tables to fill */
+	Item*		)	/*!< in: condition (not used) */
+{
+	btr_pcur_t	pcur;
+	const rec_t*	rec;
+	mem_heap_t*	heap;
+	mtr_t		mtr;
+
+	DBUG_ENTER("i_s_sys_docstore_fill_table");
+	RETURN_IF_INNODB_NOT_STARTED(tables->schema_table_name);
+
+	/* deny access to user without PROCESS_ACL privilege */
+	if (check_global_access(thd, PROCESS_ACL)) {
+		DBUG_RETURN(0);
+	}
+
+	heap = mem_heap_create(1000);
+	mutex_enter(&dict_sys->mutex);
+	mtr_start(&mtr);
+
+	rec = dict_startscan_system(&pcur, &mtr, SYS_DOCSTORE_FIELDS);
+
+	while (rec) {
+		const char*	err_msg;
+		ulint		pos;
+		index_id_t	index_id;
+		dict_field_t	field_rec;
+
+		byte* buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+		/* Extract necessary information from a SYS_DOCSTORE_FIELDS */
+		err_msg = dict_load_docstore_field_low(
+			  buf, NULL, &field_rec, &pos, heap, rec);
+		index_id = mach_read_from_8(buf);
+		mtr_commit(&mtr);
+		mutex_exit(&dict_sys->mutex);
+
+		if (!err_msg) {
+			i_s_dict_fill_sys_docstore(
+				thd, index_id, &field_rec, pos, tables->table);
+		} else {
+			push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+					    ER_CANT_FIND_SYSTEM_REC, "%s",
+					    err_msg);
+		}
+
+		mem_heap_empty(heap);
+
+		/* Get the next record */
+		mutex_enter(&dict_sys->mutex);
+		mtr_start(&mtr);
+		rec = dict_getnext_system(&pcur, &mtr);
+	}
+
+	mtr_commit(&mtr);
+	mutex_exit(&dict_sys->mutex);
+	mem_heap_free(heap);
+
+	DBUG_RETURN(0);
+}
+
+/*******************************************************************//**
+Bind the dynamic table INFORMATION_SCHEMA.INNODB_SYS_DOCSTORE_FIELDS
+@return 0 on sucess */
+static
+int
+innodb_sys_docstore_init(
+/*=====================*/
+	void *p)	/*!< in/out: table schema object */
+{
+	ST_SCHEMA_TABLE*	schema;
+	DBUG_ENTER("innodb_sys_docstore_init");
+	schema = (ST_SCHEMA_TABLE*) p;
+	schema->fields_info = innodb_sys_docstore_fields_info;
+	schema->fill_table = i_s_sys_docstore_fill_table;
+
+	DBUG_RETURN(0);
+}
+
+UNIV_INTERN struct st_mysql_plugin	i_s_innodb_sys_docstore =
+{
+	/* the plugin type (a MYSQL_XXX_PLUGIN value) */
+	/* int */
+	STRUCT_FLD(type, MYSQL_INFORMATION_SCHEMA_PLUGIN),
+
+	/* pointer to type-specific plugin descriptor */
+	/* void */
+	STRUCT_FLD(info, &i_s_info),
+
+	/* plugin name */
+	/* const char* */
+	STRUCT_FLD(name, "INNODB_SYS_DOCSTORE_FIELDS"),
+
+	/* plugin author (for SHOW PLUGINS) */
+	/* const char* */
+	STRUCT_FLD(author, plugin_author),
+
+	/* general descriptive text (for SHOW PLUGINS) */
+	/* const char */
+	STRUCT_FLD(descr, "INNODB SYS_DOCSTORE_FIELDS"),
+
+	/* the plugin license (PLUGIN_LICENSE_XXX) */
+	/* int */
+	STRUCT_FLD(license, PLUGIN_LICENSE_GPL),
+
+	/* the function to invoke when plugin is loaded */
+	/* int (*)(void*); */
+	STRUCT_FLD(init, innodb_sys_docstore_init),
+
+	/*  function to invoke when plugin is loaded */
 	/* int (*)(void*); */
 	STRUCT_FLD(deinit, i_s_common_deinit),
 
