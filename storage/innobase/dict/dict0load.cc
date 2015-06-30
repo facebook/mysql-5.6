@@ -56,7 +56,8 @@ static const char* SYSTEM_TABLE_NAME[] = {
 	"SYS_FOREIGN",
 	"SYS_FOREIGN_COLS",
 	"SYS_TABLESPACES",
-	"SYS_DATAFILES"
+	"SYS_DATAFILES",
+	"SYS_DOCSTORE_FIELDS"
 };
 
 /* If this flag is TRUE, then we will load the cluster index's (and tables')
@@ -1440,6 +1441,8 @@ dict_load_columns(
 
 /** Error message for a delete-marked record in dict_load_field_low() */
 static const char* dict_load_field_del = "delete-marked record in SYS_FIELDS";
+static const char* docstore_dict_load_field_not_present =
+	"record not present in SYS_DOCSTORE_FIELDS";
 
 /********************************************************************//**
 Loads an index field definition from a SYS_FIELDS record to
@@ -1470,8 +1473,6 @@ dict_load_field_low(
 	ulint		prefix_len;
 	ibool		first_field;
 	ulint		position;
-	const char*	document_path = 0;
-	unsigned	doc_path_type = 0;
 
 	/* Either index or sys_field is supplied, not both */
 	ut_a((!index) || (!sys_field));
@@ -1480,8 +1481,7 @@ dict_load_field_low(
 		return(dict_load_field_del);
 	}
 
-	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS &&
-	    rec_get_n_fields_old(rec) != DICT_NUM_FIELDS_OLD__SYS_FIELDS) {
+	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_FIELDS) {
 		return("wrong number of columns in SYS_FIELDS record");
 	}
 
@@ -1544,24 +1544,6 @@ err_len:
 		goto err_len;
 	}
 
-	/* Check number of fields before reading new metdata related to
-	document paths */
-	if (rec_get_n_fields_old(rec) == DICT_NUM_FIELDS__SYS_FIELDS) {
-		field = rec_get_nth_field_old(
-			rec, DICT_FLD__SYS_FIELDS__DOC_PATH_NAME, &len);
-		if (len != UNIV_SQL_NULL) {
-			ut_ad(len > 0);
-			document_path = (const char*) field;
-		}
-
-		field = rec_get_nth_field_old(
-			rec, DICT_FLD__SYS_FIELDS__DOC_PATH_TYPE, &len);
-		if (len != 4) {
-			goto err_len;
-		}
-		doc_path_type = mach_read_from_4(field);
-	}
-
 	field = rec_get_nth_field_old(
 		rec, DICT_FLD__SYS_FIELDS__COL_NAME, &len);
 	if (len == 0 || len == UNIV_SQL_NULL) {
@@ -1573,9 +1555,7 @@ err_len:
 		in dict_mem_index_free() */
 		dict_mem_index_add_field(
 			index, mem_heap_strdupl(heap, (const char*) field, len),
-			prefix_len, doc_path_type,
-			document_path ? my_strndup(document_path,
-			ut_strlen(document_path), MYF(0)) : 0);
+			prefix_len);
 	} else {
 		ut_a(sys_field);
 		ut_a(pos);
@@ -1584,12 +1564,114 @@ err_len:
 			heap, (const char*) field, len);
 		sys_field->prefix_len = prefix_len;
 		*pos = position;
-		sys_field->document_path_type = doc_path_type;
-		/* memory allocated by my_strndup is freed
+	}
+
+	return(NULL);
+}
+
+/********************************************************************//**
+Loads an index field definition from a SYS_DOCSTORE_FIELDS record to
+dict_index_t
+@return error message, or NULL on success */
+UNIV_INTERN
+const char*
+dict_load_docstore_field_low(
+/*===================*/
+	byte*		index_id,	/*!< in/out : index id (8 bytes)
+					"in" if index != NULL, otherwise
+					out" */
+	dict_index_t*	index,		/*!< in/out: index definition */
+	dict_field_t*	sys_field,	/*!< out: dict_field_t to be filled */
+	ulint*		pos,		/*!< out: Field position */
+	mem_heap_t*	heap,		/*!< in/out: memory heap
+					for temporary storage */
+	const rec_t*	rec)		/*!< in: SYS_DOCSTORE_FIELDS record */
+{
+	const byte*	field;
+	ulint		len;
+	ulint		position;
+	const char*	document_path = 0;
+	unsigned	doc_path_type = 0;
+
+	/* Either index or sys_field is supplied, not both */
+	ut_a((!index) || (!sys_field));
+
+	if (rec_get_deleted_flag(rec, 0)) {
+		return(dict_load_field_del);
+	}
+
+	if (rec_get_n_fields_old(rec) != DICT_NUM_FIELDS__SYS_DOCSTORE_FIELDS) {
+		return("wrong number of columns in SYS_DOCSTORE_FIELDS record");
+	}
+
+	field = rec_get_nth_field_old(
+		rec, DICT_FLD__SYS_DOCSTORE_FIELDS__INDEX_ID, &len);
+	if (len != 8) {
+err_len:
+		return("incorrect column length in SYS_DOCSTORE");
+	}
+
+	if (!index) {
+		memcpy(index_id, (const char*) field, 8);
+	} else {
+		if (memcmp(field, index_id, 8)) {
+			return(docstore_dict_load_field_not_present);
+		}
+	}
+
+	field = rec_get_nth_field_old(
+		rec, DICT_FLD__SYS_DOCSTORE_FIELDS__POS, &len);
+	if (len != 4) {
+		goto err_len;
+	}
+
+	position = mach_read_from_4(field);
+
+	rec_get_nth_field_offs_old(
+		rec, DICT_FLD__SYS_DOCSTORE_FIELDS__DB_TRX_ID, &len);
+	if (len != DATA_TRX_ID_LEN && len != UNIV_SQL_NULL) {
+		goto err_len;
+	}
+	rec_get_nth_field_offs_old(
+		rec, DICT_FLD__SYS_DOCSTORE_FIELDS__DB_ROLL_PTR, &len);
+	if (len != DATA_ROLL_PTR_LEN && len != UNIV_SQL_NULL) {
+		goto err_len;
+	}
+
+	field = rec_get_nth_field_old(
+		rec, DICT_FLD__SYS_DOCSTORE_FIELDS__DOC_PATH, &len);
+	if (len != UNIV_SQL_NULL) {
+		ut_ad(len > 0);
+		document_path = (const char*) field;
+	}
+
+	field = rec_get_nth_field_old(
+		rec, DICT_FLD__SYS_DOCSTORE_FIELDS__TYPE, &len);
+	if (len != 4) {
+		goto err_len;
+	}
+	doc_path_type = mach_read_from_4(field);
+
+	if (index) {
+                /* memory allocated by my_strndup and my_malloc is freed
 		in dict_mem_index_free() */
-		sys_field->document_path = document_path ?
+		dict_field_t* doc_field =
+			dict_index_get_nth_field(index, position);
+		doc_field->document_path_type = doc_path_type;
+		doc_field->document_path = document_path ?
 			my_strndup(document_path,
 				   ut_strlen(document_path), MYF(0)) : 0;
+		doc_field->doc_path_col =
+			(dict_col_t*) my_malloc(sizeof(dict_col_t), MYF(0));
+
+	} else {
+		ut_a(sys_field);
+		ut_a(pos);
+		*pos = position;
+		sys_field->document_path_type = doc_path_type;
+		sys_field->document_path = document_path ?
+			mem_heap_strdupl(heap, document_path,
+					 ut_strlen(document_path)) : 0;
 	}
 
 	return(NULL);
@@ -1653,6 +1735,76 @@ dict_load_fields(
 			updated by ALTER TABLE ADD INDEX. */
 
 			goto next_rec;
+		} else if (err_msg) {
+			fprintf(stderr, "InnoDB: %s\n", err_msg);
+			error = DB_CORRUPTION;
+			goto func_exit;
+		}
+next_rec:
+		btr_pcur_move_to_next_user_rec(&pcur, &mtr);
+	}
+
+	error = DB_SUCCESS;
+func_exit:
+	btr_pcur_close(&pcur);
+	mtr_commit(&mtr);
+	return(error);
+}
+
+/********************************************************************//**
+Loads definition from SYS_DOCSTORE_FIELDS table
+@return DB_SUCESS if ok, DB_CORRUPTION if corruption */
+static
+ulint
+dict_load_docstore_fields(
+/*=======================*/
+	dict_index_t*	index,	/*!< in/out: index whose fields to load */
+	mem_heap_t*	heap)	/*!< in: memory heap for temporary storage */
+{
+	dict_table_t*	sys_docstore_fields;
+	dict_index_t*	sys_index;
+	btr_pcur_t	pcur;
+	dtuple_t*	tuple;
+	dfield_t*	dfield;
+	const rec_t*	rec;
+	byte*		buf;
+	ulint		i;
+	mtr_t		mtr;
+	dberr_t		error;
+
+	ut_ad(mutex_own(&(dict_sys->mutex)));
+	mtr_start(&mtr);
+	sys_docstore_fields = dict_table_get_low("SYS_DOCSTORE_FIELDS");
+	ut_a(sys_docstore_fields);
+	sys_index = UT_LIST_GET_FIRST(sys_docstore_fields->indexes);
+	ut_ad(!dict_table_is_comp(sys_docstore_fields));
+
+	tuple = dtuple_create(heap, 1);
+	dfield = dtuple_get_nth_field(tuple, 0);
+
+	buf = static_cast<byte*>(mem_heap_alloc(heap, 8));
+        mach_write_to_8(buf, index->id);
+
+	dfield_set_data(dfield, buf, 8);
+	dict_index_copy_types(tuple, sys_index, 1);
+
+	btr_pcur_open_on_user_rec(sys_index, tuple, PAGE_CUR_GE,
+				  BTR_SEARCH_LEAF, &pcur, &mtr);
+
+	for (i = 0; i < index->n_fields; i++) {
+		const char*  err_msg;
+
+		rec = btr_pcur_get_rec(&pcur);
+		if (!btr_pcur_is_on_user_rec(&pcur)) {
+			/* Not a document path index */
+			break;
+		}
+		err_msg = dict_load_docstore_field_low(buf, index, NULL, NULL,
+							heap, rec);
+		if (err_msg == dict_load_field_del) {
+			goto next_rec;
+		} else if (err_msg == docstore_dict_load_field_not_present) {
+			break;
 		} else if (err_msg) {
 			fprintf(stderr, "InnoDB: %s\n", err_msg);
 			error = DB_CORRUPTION;
@@ -2036,6 +2188,17 @@ corrupted:
 			dict_mem_index_free(index);
 		} else {
 			dict_load_fields(index, heap);
+
+			/* sys_docstore_fields will be NULL when loading indexes
+			for system tables (sys*) but before creating
+			SYS_DOCSTORE_FIELDS table.
+
+			sys_docstore_fields is also NULL during Xtrabackup copy
+			which is ran from older version of mysqld to newer
+			version of mysqld. */
+			if (dict_sys->sys_docstore_fields) {
+				dict_load_docstore_fields(index, heap);
+			}
 
 			error = dict_index_add_to_cache(
 				table, index, index->page, FALSE);
