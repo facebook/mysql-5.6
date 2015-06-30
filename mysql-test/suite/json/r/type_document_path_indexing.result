@@ -46,6 +46,10 @@ t1	CREATE TABLE `t1` (
   UNIQUE KEY `b_a` (`b`,`a`),
   UNIQUE KEY `c_doc` (`c`,`doc`.`address`.`zipcode` AS INT)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+select substr(document_path from 1 for 7), substr(document_path from 9), document_type from information_schema.innodb_sys_docstore_fields;
+substr(document_path from 1 for 7)	substr(document_path from 9)	document_type
+NULL	NULL	0
+address	zipcode	8
 SHOW INDEXES IN t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
@@ -303,4 +307,6 @@ key id_a_double_b_bool (doc.id as int, a, doc.double as double, b, doc.bool as b
 key a_name_b_name100_address_a_address100_b (a, doc.name as string(64), b, doc.name as string(100), doc.address as binary(64), a, doc.address as binary(100), b)) engine=innodb;
 ERROR 42S21: Duplicate column name 'doc'
 drop table t1, t2, t3;
+select document_path, document_type from information_schema.innodb_sys_docstore_fields;
+document_path	document_type
 include/rpl_end.inc

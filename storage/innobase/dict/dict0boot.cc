@@ -38,6 +38,7 @@ Created 4/18/1996 Heikki Tuuri
 #include "buf0flu.h"
 #include "log0recv.h"
 #include "os0file.h"
+#include "dict0priv.h"
 
 /**********************************************************************//**
 Gets a pointer to the dictionary header and x-latches its page.
@@ -264,8 +265,8 @@ dict_boot(void)
 	ut_ad(DICT_NUM_FIELDS__SYS_COLUMNS == 9);
 	ut_ad(DICT_NUM_COLS__SYS_INDEXES == 7);
 	ut_ad(DICT_NUM_FIELDS__SYS_INDEXES == 9);
-	ut_ad(DICT_NUM_COLS__SYS_FIELDS == 5);
-	ut_ad(DICT_NUM_FIELDS__SYS_FIELDS == 7);
+	ut_ad(DICT_NUM_COLS__SYS_FIELDS == 3);
+	ut_ad(DICT_NUM_FIELDS__SYS_FIELDS == 5);
 	ut_ad(DICT_NUM_COLS__SYS_FOREIGN == 4);
 	ut_ad(DICT_NUM_FIELDS__SYS_FOREIGN == 6);
 	ut_ad(DICT_NUM_FIELDS__SYS_FOREIGN_FOR_NAME == 2);
@@ -423,8 +424,6 @@ dict_boot(void)
 	dict_mem_table_add_col(table, heap, "INDEX_ID", DATA_BINARY, 0, 0);
 	dict_mem_table_add_col(table, heap, "POS", DATA_INT, 0, 4);
 	dict_mem_table_add_col(table, heap, "COL_NAME", DATA_BINARY, 0, 0);
-	dict_mem_table_add_col(table, heap, "DOC_PATH_NAME", DATA_BINARY, 0, 0);
-	dict_mem_table_add_col(table, heap, "DOC_PATH_TYPE", DATA_INT, 0, 0);
 
 	table->id = DICT_FIELDS_ID;
 
@@ -448,6 +447,9 @@ dict_boot(void)
 	ut_a(error == DB_SUCCESS);
 
 	mtr_commit(&mtr);
+
+	dict_sys->sys_docstore_fields =
+		dict_table_get_low("SYS_DOCSTORE_FIELDS");
 
 	/*-------------------------*/
 
