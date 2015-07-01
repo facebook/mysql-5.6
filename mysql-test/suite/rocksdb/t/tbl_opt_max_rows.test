@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Check whether MAX_ROWS option
 # is supported in CREATE and ALTER TABLE

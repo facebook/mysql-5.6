@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Standard options in CREATE and ALTER TABLE 
 #
