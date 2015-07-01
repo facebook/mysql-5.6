@@ -23,19 +23,16 @@ ERROR: Failed to read binary log master-bin.100001, error 1236
 SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 COUNT(*)
 1
-KILL CONNECTION @id;
 
 --- mysqlbinlog exit on failing to retry connection ---
 set @@global.max_connections=@save_max_connections;
 SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 COUNT(*)
 1
-KILL CONNECTION @id;
 
 --- Binlog Dump should not exist after killing mysqlbinlog and reaching heartbeat_period ---
 
 --- Auto-reconnecting mysqlbinlog ---
-KILL CONNECTION @id;
 CREATE TABLE t1 (a INT) ENGINE=InnoDB;
 SET TIMESTAMP= UNIX_TIMESTAMP("2031-01-01 12:00:00");
 INSERT INTO t1 VALUES(1);
@@ -52,7 +49,6 @@ FLUSH LOGS;
 INSERT INTO t1 VALUES (101);
 INSERT INTO t1 VALUES (102);
 INSERT INTO t1 VALUES (103);
-KILL CONNECTION @id;
 INSERT INTO t1 VALUES (104);
 INSERT INTO t1 VALUES (105);
 #
