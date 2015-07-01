@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 let $save_rocksdb_seconds_between_stat_computes = `SELECT @@rocksdb_seconds_between_stat_computes`;
 SET GLOBAL rocksdb_seconds_between_stat_computes=2;
 

@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # CHECKSUM TABLE statements for live CHECKSUM.
 #

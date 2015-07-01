@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # This test checks some very basic capabilities
 # which will be used in almost every other test,
