@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # KEY_BLOCK_SIZE index option.
 #
