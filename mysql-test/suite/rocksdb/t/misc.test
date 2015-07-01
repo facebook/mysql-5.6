@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # Different statements not related to an engine,
 # but added to provide function coverage for handler.cc and handler.h.

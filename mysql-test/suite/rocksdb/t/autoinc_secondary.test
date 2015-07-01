@@ -1,2 +1,4 @@
+--source include/have_rocksdb.inc
+
 --echo # The test checks AUTO_INCREMENT capabilities that are not supported by RocksDB-SE.
 

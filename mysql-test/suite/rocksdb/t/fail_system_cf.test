@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # Any create table using the system column family should fail
 

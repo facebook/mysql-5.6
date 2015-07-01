@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # CHECKSUM TABLE statements for standard CHECKSUM properties.
 # Live checksums are covered in checksum_table_live.test
