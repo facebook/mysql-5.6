@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # SHOW ENGINE STATUS command
 # Checking that the command doesn't produce an error.

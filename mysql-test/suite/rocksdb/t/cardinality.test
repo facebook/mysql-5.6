@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
@@ -28,33 +30,27 @@ optimize table t1;
 --source wait_stat_compute.inc
 
 show index in t1;
-SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # Do a bunch of updates
 update t1 set i1=i1+1;
 --source wait_stat_compute.inc 
 
 show index in t1;
-SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # Do a bunch of deletes
 delete from t1 where i1%2 =0;
 --source wait_stat_compute.inc
 
 show index in t1;
-SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-
-optimize table t1;
---source wait_stat_compute.inc
-
-show index in t1;
-SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 --echo restarting...
 --source include/restart_mysqld.inc
 
 show index in t1;
-SELECT table_name, round(data_length/10000), round(index_length/10000), table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 drop table t1;
 
