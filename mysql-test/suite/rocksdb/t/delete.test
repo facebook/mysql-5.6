@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Basic DELETE statements.
 # DELETE LOW_PRIORITY is covered in delete_low_prio test

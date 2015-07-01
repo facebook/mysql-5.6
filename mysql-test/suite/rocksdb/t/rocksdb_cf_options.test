@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 let MYSQLD_DATADIR= `SELECT @@datadir`;
 let file= $MYSQL_TMP_DIR/cf_configs.cnf;
 
