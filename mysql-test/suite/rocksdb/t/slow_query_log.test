@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # Test the slow query log feature
 
 --disable_warnings

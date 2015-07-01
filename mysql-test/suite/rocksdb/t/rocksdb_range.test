@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # Range access test for RocksDB storage engine
 #
