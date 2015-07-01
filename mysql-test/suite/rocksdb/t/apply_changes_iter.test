@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # Tests the Apply_changes_iter class for walking forward and backwards
 # with data in both the transaction class and in the rocksdb storage layer
 

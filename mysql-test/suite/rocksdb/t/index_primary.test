@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Basic syntax related to primary keys 
 #
