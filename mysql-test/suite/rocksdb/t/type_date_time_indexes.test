@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # Date and time columns with indexes
 # (DATE, DATETIME, TIMESTAMP, TIME, YEAR)

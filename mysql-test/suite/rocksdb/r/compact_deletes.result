@@ -26,7 +26,7 @@ select sleep(1);
 sleep(1)
 0
 There are deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 1500;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 1900;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
 Test 2: Do a bunch of updates and set the compaction sysvar
@@ -39,7 +39,7 @@ select sleep(1);
 sleep(1)
 0
 No more deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 1500;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 1900;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
 Test 3: Do a bunch of updates and set the compaction sysvar and a file size to something large
@@ -52,7 +52,7 @@ select sleep(1);
 sleep(1)
 0
 There are deletes left
-SET GLOBAL rocksdb_compaction_sequential_deletes= 1500;
+SET GLOBAL rocksdb_compaction_sequential_deletes= 1900;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
 drop table r1;
