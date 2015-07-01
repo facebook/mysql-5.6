@@ -38,6 +38,7 @@ enum Trans_flags {
 */
 typedef struct Trans_param {
   uint32 server_id;
+  const char* host_or_ip;
   uint32 flags;
 
   /*
@@ -122,6 +123,7 @@ enum Binlog_storage_flags {
  */
 typedef struct Binlog_storage_param {
   uint32 server_id;
+  const char* host_or_ip;
 } Binlog_storage_param;
 
 /**
@@ -152,6 +154,7 @@ typedef struct Binlog_storage_observer {
 */
 typedef struct Binlog_transmit_param {
   uint32 server_id;
+  const char *host_or_ip;
   uint32 flags;
   /* Let us keep 1-16 as output flags and 17-32 as input flags */
   static const uint32 F_OBSERVE= 1;
@@ -290,6 +293,7 @@ enum Binlog_relay_IO_flags {
 */
 typedef struct Binlog_relay_IO_param {
   uint32 server_id;
+  const char* host_or_ip;
 
   /* Master host, user and port */
   char *host;
