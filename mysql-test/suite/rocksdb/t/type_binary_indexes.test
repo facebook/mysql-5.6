@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # BINARY and VARBINARY columns with indexes
 #
