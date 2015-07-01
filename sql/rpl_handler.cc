@@ -167,6 +167,7 @@ void delegates_destroy()
  */
 #define FOREACH_OBSERVER(r, f, thd, args)                               \
   param.server_id= thd->server_id;                                      \
+  param.host_or_ip= thd->security_ctx->host_or_ip;                      \
   /*
      Use a struct to make sure that they are allocated adjacent, check
      delete_dynamic().
@@ -219,7 +220,7 @@ void delegates_destroy()
 int Trans_delegate::before_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::before_commit");
-  Trans_param param = { 0, 0, 0, 0 };
+  Trans_param param = { 0, 0, 0, 0, 0 };
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
@@ -238,7 +239,7 @@ int Trans_delegate::before_commit(THD *thd, bool all)
 int Trans_delegate::after_commit(THD *thd, bool all)
 {
   DBUG_ENTER("Trans_delegate::after_commit");
-  Trans_param param = { 0, 0, 0, 0 };
+  Trans_param param = { 0, 0, 0, 0, 0 };
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)
@@ -255,7 +256,7 @@ int Trans_delegate::after_commit(THD *thd, bool all)
 
 int Trans_delegate::after_rollback(THD *thd, bool all)
 {
-  Trans_param param = { 0, 0, 0, 0 };
+  Trans_param param = { 0, 0, 0, 0, 0 };
   bool is_real_trans= (all || thd->transaction.all.ha_list == 0);
 
   if (is_real_trans)

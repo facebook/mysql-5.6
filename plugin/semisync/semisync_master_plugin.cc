@@ -88,9 +88,9 @@ int repl_semi_binlog_dump_start(Binlog_transmit_param *param,
   */
   repl_semisync.reportReplyBinlog(param->server_id, log_file, log_pos);
 
-  sql_print_information("Start %s binlog_dump to slave (server_id: %d), pos(%s, %lu)",
-			"semi-sync",
-			param->server_id, log_file, (unsigned long)log_pos);
+  sql_print_information("Start semi-sync binlog_dump to slave (server_id: %d), "
+                        "pos(%s, %lu), (host: %s)", param->server_id,
+                        log_file, (unsigned long)log_pos, param->host_or_ip);
   
   return 0;
 }
@@ -99,9 +99,8 @@ int repl_semi_binlog_dump_end(Binlog_transmit_param *param)
 {
   DBUG_ASSERT(repl_semisync.is_semi_sync_slave());
   
-  sql_print_information("Stop %s binlog_dump to slave (server_id: %d)",
-                        "semi-sync",
-                        param->server_id);
+  sql_print_information("Stop semi-sync binlog_dump to slave (server_id: %d), "
+                        "(host: %s)", param->server_id, param->host_or_ip);
   /* One less semi-sync slave */
   repl_semisync.remove_slave();
   return 0;
