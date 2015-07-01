@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 let $trx_isolation = REPEATABLE READ;
 
 --source consistent_snapshot.inc
