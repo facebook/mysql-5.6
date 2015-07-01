@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Basic SELECT statements
 #

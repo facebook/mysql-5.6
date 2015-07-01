@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # CHAR and VARCHAR columns with indexes
 #

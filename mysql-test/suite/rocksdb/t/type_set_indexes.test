@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # SET columns with indexes
 #
