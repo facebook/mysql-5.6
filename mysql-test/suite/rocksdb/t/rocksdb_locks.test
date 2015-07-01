@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 #
 # MyRocks-specific tests for locking
 #

@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Basic UPDATE statements.
 # UPDATE LOW_PRIORITY is covered in update_low_prio test
