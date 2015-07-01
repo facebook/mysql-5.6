@@ -70,8 +70,12 @@ EOF
 # zombie binlog dump keeps running because no heartbeat/update is running
 SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
-let $ignore= `SELECT @id := $ID`;
-KILL CONNECTION @id;
+--disable_query_log
+if ($ID) {
+  let $ignore= `SELECT @id := $ID`;
+  KILL CONNECTION @id;
+}
+--enable_query_log
 let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 --source include/wait_condition.inc
 
@@ -109,8 +113,12 @@ set @@global.max_connections=@save_max_connections;
 # zombie binlog dump keeps running because no heartbeat/update is running
 SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
-let $ignore= `SELECT @id := $ID`;
-KILL CONNECTION @id;
+--disable_query_log
+if ($ID) {
+  let $ignore= `SELECT @id := $ID`;
+  KILL CONNECTION @id;
+}
+--enable_query_log
 let $wait_condition= SELECT COUNT(*) = 0 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 --source include/wait_condition.inc
 
@@ -185,8 +193,12 @@ select "--- Auto-reconnecting mysqlbinlog ---" as "";
 
 # killing binlog dump thread. mysqlbinlog should automatically reconnect.
 let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
-let $ignore= `SELECT @id := $ID`;
-KILL CONNECTION @id;
+--disable_query_log
+if ($ID) {
+  let $ignore= `SELECT @id := $ID`;
+  KILL CONNECTION @id;
+}
+--enable_query_log
 # binlog dump thread terminated after heartbeat_period_ms, then mysqlbinlog should automatically reconnect after reconnect_interval_ms
 let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 --source include/wait_condition.inc
@@ -200,8 +212,12 @@ INSERT INTO t1 VALUES (103);
 let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 --source include/wait_condition.inc
 let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
-let $ignore= `SELECT @id := $ID`;
-KILL CONNECTION @id;
+--disable_query_log
+if ($ID) {
+  let $ignore= `SELECT @id := $ID`;
+  KILL CONNECTION @id;
+}
+--enable_query_log
 # binlog dump thread terminated after heartbeat_period_ms, then mysqlbinlog should automatically reconnect after reconnect_interval_ms
 let $wait_condition= SELECT COUNT(*) = 1 FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 --source include/wait_condition.inc
