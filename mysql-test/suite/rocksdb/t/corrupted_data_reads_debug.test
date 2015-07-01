@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --echo #
 --echo #  Test how MyRocks handles reading corrupted data from disk.
 --echo #  Data corruption is simulated at source-code level.
