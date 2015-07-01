@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Check whether INSERT_METHOD option 
 # is supported in CREATE and ALTER TABLE

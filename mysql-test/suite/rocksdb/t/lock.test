@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # Standard table locking:
 #   LOCK TABLE .. READ 
 #   LOCK TABLE .. [LOW_PRIORITY] WRITE 

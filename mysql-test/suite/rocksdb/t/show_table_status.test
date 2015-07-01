@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # SHOW TABLE STATUS statement
 #

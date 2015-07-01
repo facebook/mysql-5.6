@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 # 
 # Check whether DEFAULT column attribute 
 # is supported in CREATE and ALTER TABLE.
