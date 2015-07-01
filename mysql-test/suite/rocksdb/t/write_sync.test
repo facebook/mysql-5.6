@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 SET GLOBAL rocksdb_write_disable_wal=false;
 SET GLOBAL rocksdb_write_timeout_hint_us=555;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=true;
