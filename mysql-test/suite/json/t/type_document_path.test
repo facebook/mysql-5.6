@@ -7,7 +7,7 @@ connection master;
 ###
 
 --disable_warnings
-drop table if exists t1, t2, t3, t4;
+drop table if exists t1, t2, t3, t4, t5;
 --enable_warnings
 
 SET @start_allow_document_type = @@global.allow_document_type;
@@ -84,6 +84,16 @@ insert into t4 values ('{"k1":"v1"}');
 insert into t4 values ('{"~!@#$%^&*()_+-=:;\'<>?,./":{"~!@#$%^&*()_+-=:;\'<>?,./":"v2"}}');
 insert into t4 values ('{"k3":"v3"}');
 insert into t4 values ('{"k4":"v4"}');
+
+CREATE TABLE t5 (
+       a int not null,
+       b char (10) not null,
+       doc document not null,
+       doc2 document not null) engine=innodb;
+insert into t5 values (1,'@1','{ "id":101, "name":"Alex II", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" } }','{ "id":204, "name":"Alex II", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" } }');
+insert into t5 values (2,'@2','{ "id":102, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }','{ "id":203, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
+insert into t5 values (3,'@3','{ "id":103, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }','{ "id":202, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
+insert into t5 values (4,'@4','{ "id":104, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }','{ "id":201, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
 
 select `~!@#$%^&*()_+-=:;'"<>?,./\t`
 from t4;
@@ -578,20 +588,220 @@ select doc.address.state as state, a
 from t1
 order by state, test.t1.doc.address.state, a desc;
 
-### FIXME:
-### the document field in ORDER BY will be deduped if both document field and document paths
-### from this field in ORDER BY and in the meantime the document paths exist in SELECT
-#select a, doc.id
-#from t1
-#order by doc, doc.id;
+### test selecting and ordering by different doc paths
+select doc.address.zipcode
+from t1
+order by doc.address.state, a;
 
-### FIXME:
-### Incorrect order when both document field and document paths in ORDER BY while other
-### document paths exist in SELECT too
-#select a, doc.address.zipcode
-#from t1
-#order by doc.address.state, doc;
+select t1.doc.address.zipcode
+from t1
+order by doc.address.state, a;
 
+select doc.address.state
+from t1
+order by doc.address.zipcode, a;
+
+select t1.doc.address.state
+from t1
+order by doc.address.zipcode, a;
+
+### test single doc path in select and order by doc column (and vice-versa)
+select doc.address.state
+from t1
+order by doc;
+
+select doc
+from t1
+order by doc.address.state, a;
+
+select t1.doc.address.state
+from t1
+order by doc;
+
+select t1.doc
+from t1
+order by doc.address.state, a;
+
+### test selecting both doc path and doc column being after single order by
+select doc, doc.address.state
+from t1
+order by doc;
+
+select doc.address.state, doc
+from t1
+order by doc;
+
+select doc, doc.address.state
+from t1
+order by doc.address.state, a;
+
+select doc.address.state, doc
+from t1
+order by doc.address.state, a;
+
+select t1.doc, t1.doc.address.state
+from t1
+order by doc;
+
+select t1.doc.address.state, t1.doc
+from t1
+order by doc;
+
+select t1.doc, t1.doc.address.state
+from t1
+order by doc.address.state, a;
+
+select t1.doc.address.state, t1.doc
+from t1
+order by doc.address.state, a;
+
+### test selecting one field but order by doc column and doc path
+select doc.address.state
+from t1
+order by doc, doc.address.state;
+
+select doc.address.state
+from t1
+order by doc.address.state, doc;
+
+select doc
+from t1
+order by doc, doc.address.state;
+
+select doc
+from t1
+order by doc.address.state, doc;
+
+select t1.doc.address.state
+from t1
+order by doc, doc.address.state;
+
+select t1.doc.address.state
+from t1
+order by doc.address.state, doc;
+
+select t1.doc
+from t1
+order by doc, doc.address.state;
+
+select t1.doc
+from t1
+order by doc.address.state, doc;
+
+### test selecting doc path, doc column and order by same doc path, doc column
+select doc, doc.address.state
+from t1
+order by doc, doc.address.state;
+
+select doc.address.state, doc
+from t1
+order by doc, doc.address.state;
+
+select doc, doc.address.state
+from t1
+order by doc.address.state, doc;
+
+select doc.address.state, doc
+from t1
+order by doc.address.state, doc;
+
+select t1.doc, t1.doc.address.state
+from t1
+order by doc, doc.address.state;
+
+select t1.doc.address.state, t1.doc
+from t1
+order by doc, doc.address.state;
+
+select t1.doc, t1.doc.address.state
+from t1
+order by doc.address.state, doc;
+
+select t1.doc.address.state, t1.doc
+from t1
+order by doc.address.state, doc;
+
+### test selecting a doc path/doc columns and ordering by doc columns and aliases
+select doc.address.state as state
+from t1
+order by doc;
+
+select doc.address.state as state
+from t1
+order by state, a;
+
+select doc.address.state as state
+from t1
+order by doc.address.state, a;
+
+select doc as doc2 
+from t1
+order by doc.address.state, a;
+
+select doc as doc2 
+from t1
+order by doc2;
+
+select doc as doc2 
+from t1
+order by doc;
+
+select t1.doc.address.state as state
+from t1
+order by doc;
+
+select t1.doc.address.state as state
+from t1
+order by state, a;
+
+select t1.doc.address.state as state
+from t1
+order by doc.address.state, a;
+
+select t1.doc as doc2 
+from t1
+order by doc.address.state, a;
+
+select t1.doc as doc2 
+from t1
+order by doc2;
+
+select t1.doc as doc2 
+from t1
+order by doc;
+
+### test selecting/ordering different doc paths from different columns of same table
+select doc.id
+from t5
+order by doc2.id;
+
+select t5.doc.id
+from t5
+order by doc2.id;
+
+select doc2.id
+from t5
+order by doc.id;
+
+select t5.doc2.id
+from t5
+order by doc.id;
+
+select doc.id
+from t5
+order by doc.id;
+
+select doc2.id
+from t5
+order by doc2.id;
+
+select t5.doc.id
+from t5
+order by doc.id;
+
+select t5.doc2.id
+from t5
+order by doc2.id;
 
 ################################################################################
 ###
@@ -1050,6 +1260,6 @@ where t1_zipcode like "98761" or tmp.t2_zipcode like "98762";
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
-drop table t1, t2, t3, t4;
+drop table t1, t2, t3, t4, t5;
 
 --source include/rpl_end.inc
