@@ -621,6 +621,7 @@ bool thread_cache_size_specified= false;
 bool host_cache_size_specified= false;
 bool table_definition_cache_specified= false;
 ulong sql_slave_skip_counter_usage = 0;
+ulonglong rbr_unsafe_queries = 0;
 
 /** Related to query throttling logic. */
 uint opt_general_query_throttling_limit= 0;
@@ -8970,6 +8971,7 @@ SHOW_VAR status_vars[]= {
 #endif /*HAVE_QUERY_CACHE*/
   {"Queries",                  (char*) &show_queries,            SHOW_FUNC},
   {"Questions",                (char*) offsetof(STATUS_VAR, questions), SHOW_LONGLONG_STATUS},
+  {"Rbr_unsafe_queries",       (char*) &rbr_unsafe_queries, SHOW_LONGLONG},
   {"Read_queries",             (char*) &read_queries,        SHOW_LONG},
   {"Read_requests",            (char*) offsetof(STATUS_VAR, read_requests), SHOW_LONG_STATUS},
   {"Read_seconds",             (char*) offsetof(STATUS_VAR, read_time), SHOW_TIMER_STATUS},

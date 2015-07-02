@@ -2960,7 +2960,7 @@ static Sys_var_uint Sys_write_query_throttling_limit(
 
 #ifdef HAVE_REPLICATION
 static const char *slave_exec_mode_names[]=
-       {"STRICT", "IDEMPOTENT", 0};
+       {"STRICT", "IDEMPOTENT", "SEMI_STRICT", 0};
 static Sys_var_enum Slave_exec_mode(
        "slave_exec_mode",
        "Modes for how replication events should be executed. Legal values "
