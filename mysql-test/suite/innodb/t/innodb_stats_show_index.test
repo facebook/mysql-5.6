@@ -1,0 +1,90 @@
+#
+# When innodb_stats_on_metadata is set, SHOW INDEX will update both 'variable'
+# part (HA_STATUS_VARIABLE) and 'constant' part (HA_STATUS_CONST) of stats
+# info saved in MySQL
+#
+
+-- source include/have_innodb.inc
+
+create table t(c1 int auto_increment primary key, c2 int, key(c2)) engine=InnoDB;
+insert into t(c2) values (1);
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+insert into t(c2) select c2 from t;
+
+select count(distinct c2) from t;
+
+#
+# innodb_stats_on_metadata is turned off
+#
+
+set innodb_stats_on_metadata=0;
+show variables like 'innodb_stats_on_metadata';
+
+analyze table t;
+
+# all stats (MySQL and innodb) are up to date after analyze table
+show index from t;
+-- replace_column 4 LAST_UPDATE
+select * from mysql.innodb_index_stats where database_name='test' and table_name='t';
+
+# update the rows
+update t set c2 = c1;
+
+select count(distinct c2) from t;
+
+# stats stored in MySQL become stale
+show index from t;
+
+# SHOW INDEX will not update innodb_index_stats since innodb_stats_on_metadata=0
+-- replace_column 4 LAST_UPDATE
+select * from mysql.innodb_index_stats where database_name='test' and table_name='t';
+
+analyze table t;
+
+# all stats (MySQL and innodb) are to date again after analyze table
+show index from t;
+-- replace_column 4 LAST_UPDATE
+select * from mysql.innodb_index_stats where database_name='test' and table_name='t';
+
+#
+# innodb_stats_on_metadata is turned on
+#
+
+set innodb_stats_on_metadata=1;
+show variables like 'innodb_stats_on_metadata';
+
+# update the rows
+update t set c2 = 1;
+
+select count(distinct c2) from t;
+
+# MySQL stats are up to date
+show index from t;
+
+# innodb_index_stats is updated because of SHOW INDEX
+-- replace_column 4 LAST_UPDATE
+select * from mysql.innodb_index_stats where database_name='test' and table_name='t';
+
+# update the rows again
+update t set c2 = c1;
+
+select count(distinct c2) from t;
+
+# MySQL stats are up to date
+show index from t;
+
+# innodb_index_stats is updated because of SHOW INDEX
+-- replace_column 4 LAST_UPDATE
+select * from mysql.innodb_index_stats where database_name='test' and table_name='t';
+
+#
+# clean up
+#
+
+drop table t;
