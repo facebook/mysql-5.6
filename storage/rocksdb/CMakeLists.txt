@@ -19,7 +19,7 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/rocksdb/third-party/gtest-1.7.0/fused-src
 )
 
-ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DOS_LINUX -DSNAPPY -DLZ4 -DBZIP2 -DZLIB)
+ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DOS_LINUX -DZLIB)
 
 SET(ROCKSDB_SOURCES
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
@@ -38,18 +38,21 @@ SET(ROCKSDB_SOURCES
 SET(rocksdb_static_libs )
 IF (NOT "$ENV{WITH_SNAPPY}" STREQUAL "")
   SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_SNAPPY}/lib/libsnappy.a)
+  ADD_DEFINITIONS(-DSNAPPY)
 ELSE()
   SET(rocksdb_static_libs ${rocksdb_static_libs} snappy)
 ENDIF()
 
 IF (NOT "$ENV{WITH_LZ4}" STREQUAL "")
   SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_LZ4}/lib/liblz4.a)
+  ADD_DEFINITIONS(-DLZ4)
 ELSE()
   SET(rocksdb_static_libs ${rocksdb_static_libs} lz4)
 ENDIF()
 
 IF (NOT "$ENV{WITH_BZ2}" STREQUAL "")
   SET(rocksdb_static_libs ${rocksdb_static_libs} $ENV{WITH_BZ2}/lib/libbz2.a)
+  ADD_DEFINITIONS(-DBZIP2)
 ELSE()
   SET(rocksdb_static_libs ${rocksdb_static_libs} bz2)
 ENDIF()
