@@ -10596,10 +10596,18 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(Relay_log_info const *r
     int actual_error= convert_handler_error(error, thd, m_table);
     bool idempotent_error= (idempotent_error_code(error) &&
                            (slave_exec_mode == SLAVE_EXEC_MODE_IDEMPOTENT));
-    bool ignored_error= (idempotent_error == 0 ?
+    bool ignore_delete_error =
+      (slave_exec_mode == SLAVE_EXEC_MODE_SEMI_STRICT &&
+       (error == HA_ERR_RECORD_CHANGED || error == HA_ERR_KEY_NOT_FOUND));
+
+    if (ignore_delete_error) {
+      ++rbr_unsafe_queries;
+    }
+
+    bool ignored_error= ((idempotent_error == 0 && !ignore_delete_error) ?
                          ignored_error_code(actual_error) : 0);
 
-    if (idempotent_error || ignored_error)
+    if (idempotent_error || ignored_error || ignore_delete_error)
     {
       if ( (idempotent_error && log_warnings) || 
 		(ignored_error && log_warnings > 1) )
@@ -10610,7 +10618,7 @@ int Rows_log_event::handle_idempotent_and_ignored_errors(Relay_log_info const *r
       thd->get_stmt_da()->clear_warning_info(thd->query_id);
       clear_all_errors(thd, const_cast<Relay_log_info*>(rli));
       *err= 0;
-      if (idempotent_error == 0)
+      if (idempotent_error == 0 && !ignore_delete_error)
         return ignored_error;
     }
   }

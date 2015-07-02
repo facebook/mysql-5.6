@@ -617,6 +617,7 @@ extern char *mysqld_socket_umask;
 extern my_bool is_slave;
 extern my_bool read_only_slave;
 extern ulong sql_slave_skip_counter_usage;
+extern ulonglong rbr_unsafe_queries;
 
 enum enum_gtid_mode
 {
