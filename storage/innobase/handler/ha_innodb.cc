@@ -12419,6 +12419,14 @@ ha_innobase::info(
 
 	ut_ad(no_trx || prebuilt->trx->is_primary);
 
+	/* If innodb_stats_on_metadata is turned on, make sure to update
+	 * both the 'variable' part and the 'constatnt' part of the
+	 * info, so MySQL doesn't get staled index cardinality due to
+	 * rec_per_key not being updated. */
+	bool stats_on_metadata = THDVAR(ha_thd(), stats_on_metadata);
+	if (stats_on_metadata && (flag & HA_STATUS_VARIABLE))
+		flag |= HA_STATUS_CONST;
+
 	ret = this->info_low(flag, false /* not ANALYZE */);
 
 	if (no_trx) {
