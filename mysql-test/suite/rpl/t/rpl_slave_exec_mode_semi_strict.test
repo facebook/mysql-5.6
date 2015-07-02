@@ -1,0 +1,19 @@
+source include/have_binlog_format_row.inc;
+source include/master-slave.inc;
+connection master;
+
+create table t1 (a int primary key, b int) engine=Innodb;
+insert into t1 values(1, 2);
+
+sync_slave_with_master;
+delete from t1 where a=1;
+
+connection master;
+delete from t1 where a=1;
+sync_slave_with_master;
+show global status like 'Rbr_unsafe_queries';
+
+connection master;
+drop table t1;
+source include/rpl_end.inc;
+
