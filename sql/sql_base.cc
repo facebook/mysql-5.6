@@ -7518,23 +7518,61 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
       }
       else
       {
+        /* - If item_field is doc path with alias and find matches the alias,
+         *   we DO NOT "continue" searching as this is a match
+         *
+         *   Example:
+         *   SELECT doc.address.state as X
+         *   FROM t
+         *   ORDER BY X;
+         *
+         *   In this case, we would NOT want to continue because the alias
+         *   matches a doc path in SELECT list. This is caught because
+         *   "alias_was_set" is true and the field names match. This case
+         *   would not have been caught by the "document_path" flag as
+         *   the "X" in the select list has "document_path" = true but
+         *   for the "X" in the order by list, "document_path" = false
+         *
+         * - If item_field is a document path and find is document path
+         *   then full path comparison is needed.
+         *
+         *   Example:
+         *   SELECT doc.address.state
+         *   FROM t
+         *   ORDER BY doc.address.zipcode;
+         *
+         *   In this case, both "item_field" and "find" has the document_path
+         *   flag set to true, but the "compare_document_path()" would fail
+         *   allowing the search to continue.
+         *
+         * - If item_field is a doc path and find is NOT a doc path, then we
+         *   "continue" searching for the item
+         *
+         *   Example:
+         *   SELECT doc.address.state
+         *   FROM t
+         *   ORDER BY doc;
+         *
+         *   In this case, the "document_path" flag for item_field is true
+         *   but would be false for "find". Therefore, we continue searching
+         *   for the item
+         */
+        if (item_field->document_path &&
+            is_ref_by_name &&
+            !(item_field->alias_was_set &&
+              item_field->item_name.eq_safe(field_name)) &&
+            !(((Item_ident *)find)->document_path &&
+              item_field->compare_document_path(((Item_ident *)find))))
+        {
+          /* Different document paths or "find" is not even a doc path */
+          continue;
+        }
+
         int fname_cmp= my_strcasecmp(system_charset_info,
                                      item_field->field_name,
                                      field_name);
         if (item_field->item_name.eq_safe(field_name))
         {
-          /* If item_field is a document path and find has unresolved idents
-             then full path comparison is needed.
-          */
-          if (item_field->document_path &&
-              is_ref_by_name &&
-               ((Item_ident *)find)->parsing_info.num_unresolved_idents > 0 &&
-              !item_field->compare_document_path( ((Item_ident *)find)))
-          {
-            /* Different document path */
-            continue;
-          }
-
           /*
             If table name was not given we should scan through aliases
             and non-aliased fields first. We are also checking unaliased
