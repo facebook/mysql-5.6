@@ -1,6 +1,6 @@
 SELECT * FROM information_schema.columns
 WHERE table_schema = 'information_schema'
-AND table_name <> 'profiling' AND table_name not like 'innodb_%'
+AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 ORDER BY table_schema, table_name, column_name;
 TABLE_CATALOG	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	ORDINAL_POSITION	COLUMN_DEFAULT	IS_NULLABLE	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	NUMERIC_PRECISION	NUMERIC_SCALE	DATETIME_PRECISION	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE	COLUMN_KEY	EXTRA	PRIVILEGES	COLUMN_COMMENT
 def	information_schema	AUTHINFO	HOST	3		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
@@ -230,19 +230,6 @@ def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_CATALOG	4		NO	v
 def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_NAME	6	NULL	YES	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	UNIQUE_CONSTRAINT_SCHEMA	5		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
 def	information_schema	REFERENTIAL_CONSTRAINTS	UPDATE_RULE	8		NO	varchar	64	192	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(64)			select	
-def	information_schema	ROCKSDB_CFSTATS	CF_NAME	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_CFSTATS	VALUE	3	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(8)			select	
-def	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_CF_OPTIONS	VALUE	3		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_DBSTATS	VALUE	2	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(8)			select	
-def	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	3	NULL	YES	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_PERF_CONTEXT	STAT_TYPE	4		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_NAME	2		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	1		NO	varchar	193	579	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(193)			select	
-def	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	5	0	NO	bigint	NULL	NULL	19	0	NULL	NULL	NULL	bigint(8)			select	
 def	information_schema	ROUTINES	CHARACTER_MAXIMUM_LENGTH	7	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(21)			select	
 def	information_schema	ROUTINES	CHARACTER_OCTET_LENGTH	8	NULL	YES	int	NULL	NULL	10	0	NULL	NULL	NULL	int(21)			select	
 def	information_schema	ROUTINES	CHARACTER_SET_CLIENT	29		NO	varchar	32	96	NULL	NULL	NULL	utf8	utf8_general_ci	varchar(32)			select	
@@ -552,7 +539,7 @@ CHARACTER_SET_NAME,
 COLLATION_NAME
 FROM information_schema.columns
 WHERE table_schema = 'information_schema'
-AND table_name <> 'profiling' AND table_name not like 'innodb_%'
+AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 AND CHARACTER_OCTET_LENGTH / CHARACTER_MAXIMUM_LENGTH = 1
 ORDER BY CHARACTER_SET_NAME, COLLATION_NAME, COL_CML;
 COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
@@ -564,7 +551,7 @@ CHARACTER_SET_NAME,
 COLLATION_NAME
 FROM information_schema.columns
 WHERE table_schema = 'information_schema'
-AND table_name <> 'profiling' AND table_name not like 'innodb_%'
+AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 AND CHARACTER_OCTET_LENGTH / CHARACTER_MAXIMUM_LENGTH <> 1
 ORDER BY CHARACTER_SET_NAME, COLLATION_NAME, COL_CML;
 COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
@@ -576,7 +563,7 @@ CHARACTER_SET_NAME,
 COLLATION_NAME
 FROM information_schema.columns
 WHERE table_schema = 'information_schema'
-AND table_name <> 'profiling' AND table_name not like 'innodb_%'
+AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 AND CHARACTER_OCTET_LENGTH / CHARACTER_MAXIMUM_LENGTH IS NULL
 ORDER BY CHARACTER_SET_NAME, COLLATION_NAME, COL_CML;
 COL_CML	DATA_TYPE	CHARACTER_SET_NAME	COLLATION_NAME
@@ -598,7 +585,7 @@ COLLATION_NAME,
 COLUMN_TYPE
 FROM information_schema.columns
 WHERE table_schema = 'information_schema'
-AND table_name <> 'profiling' AND table_name not like 'innodb_%'
+AND table_name <> 'profiling' AND table_name not like 'innodb_%' AND table_name not like 'rocksdb_%'
 ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION;
 COL_CML	TABLE_SCHEMA	TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHARACTER_MAXIMUM_LENGTH	CHARACTER_OCTET_LENGTH	CHARACTER_SET_NAME	COLLATION_NAME	COLUMN_TYPE
 NULL	information_schema	AUTHINFO	ID	bigint	NULL	NULL	NULL	NULL	bigint(21) unsigned
@@ -828,19 +815,6 @@ NULL	information_schema	PROCESSLIST	TIME	int	NULL	NULL	NULL	NULL	int(7)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	DELETE_RULE	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	REFERENTIAL_CONSTRAINTS	REFERENCED_TABLE_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
-3.0000	information_schema	ROCKSDB_CFSTATS	CF_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_CFSTATS	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-NULL	information_schema	ROCKSDB_CFSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
-3.0000	information_schema	ROCKSDB_CF_OPTIONS	CF_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_CF_OPTIONS	OPTION_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_CF_OPTIONS	VALUE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_DBSTATS	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-NULL	information_schema	ROCKSDB_DBSTATS	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
-3.0000	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_SCHEMA	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_PERF_CONTEXT	TABLE_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_PERF_CONTEXT	PARTITION_NAME	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-3.0000	information_schema	ROCKSDB_PERF_CONTEXT	STAT_TYPE	varchar	193	579	utf8	utf8_general_ci	varchar(193)
-NULL	information_schema	ROCKSDB_PERF_CONTEXT	VALUE	bigint	NULL	NULL	NULL	NULL	bigint(8)
 3.0000	information_schema	ROUTINES	SPECIFIC_NAME	varchar	64	192	utf8	utf8_general_ci	varchar(64)
 3.0000	information_schema	ROUTINES	ROUTINE_CATALOG	varchar	512	1536	utf8	utf8_general_ci	varchar(512)
 3.0000	information_schema	ROUTINES	ROUTINE_SCHEMA	varchar	64	192	utf8	utf8_general_ci	varchar(64)
