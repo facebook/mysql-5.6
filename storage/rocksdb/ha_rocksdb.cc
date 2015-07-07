@@ -1300,6 +1300,20 @@ static int rocksdb_prepare(handlerton* hton, THD* thd, bool all, bool async)
 }
 
 /**
+ do nothing for prepare/commit by xid
+ this is needed to avoid crashes in XA scenarios
+*/
+static int rocksdb_commit_by_xid(handlerton* hton,	XID* xid)
+{
+  return 0;
+}
+
+static int rocksdb_rollback_by_xid(handlerton* hton,	XID* xid)
+{
+  return 0;
+}
+
+/**
   Reading last committed binary log info from RocksDB system row.
   The info is needed for crash safe slave/master to work.
 */
@@ -1607,6 +1621,8 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->create=   rocksdb_create_handler;
   rocksdb_hton->close_connection= rocksdb_close_connection;
   rocksdb_hton->prepare=   rocksdb_prepare;
+  rocksdb_hton->commit_by_xid=   rocksdb_commit_by_xid;
+  rocksdb_hton->rollback_by_xid=   rocksdb_rollback_by_xid;
   rocksdb_hton->recover=   rocksdb_recover;
   rocksdb_hton->commit=   rocksdb_commit;
   rocksdb_hton->rollback= rocksdb_rollback;

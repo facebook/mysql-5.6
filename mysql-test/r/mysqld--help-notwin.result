@@ -989,6 +989,15 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
  --rocksdb-compact-cf=name 
  Compact column family
+ --rocksdb-compaction-sequential-deletes=# 
+ RocksDB will trigger compaction for the file if it has
+ more than this number sequential deletes per window
+ --rocksdb-compaction-sequential-deletes-file-size=# 
+ Minimum file size required for
+ compaction_sequential_deletes
+ --rocksdb-compaction-sequential-deletes-window=# 
+ Size of the window for counting
+ rocksdb_compaction_sequential_deletes
  --rocksdb-create-if-missing 
  DBOptions::create_if_missing for RocksDB
  (Defaults to on; use --skip-rocksdb-create-if-missing to disable.)
@@ -1000,6 +1009,9 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_DBSTATS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
  load).
+ --rocksdb-ddl[=name] 
+ Enable or disable ROCKSDB_DDL plugin. Possible values are
+ ON, OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-debug-optimizer-n-rows=# 
  Used for info(). Testing purpose only and will be
  deprecated
@@ -1007,9 +1019,6 @@ The following options may be given as the first argument:
  In case if cardinality is zero, overrides it with some
  value
  (Defaults to on; use --skip-rocksdb-debug-optimizer-no-zero-cardinality to disable.)
- --rocksdb-debug-optimizer-records-in-range=# 
- Used for records_in_range(). Testing purpose only and
- will be deprecated
  --rocksdb-default-cf-options=name 
  default cf options for RocksDB
  --rocksdb-delete-obsolete-files-period-micros=# 
@@ -1071,13 +1080,20 @@ The following options may be given as the first argument:
  collection
  --rocksdb-rate-limiter-bytes-per-sec=# 
  DBOptions::rate_limiter bytes_per_sec for RocksDB
+ --rocksdb-records-in-range=# 
+ Used to override the result of records_in_range(). Set to
+ a positive number to override
  --rocksdb-seconds-between-stat-computes=# 
  Sets a number of seconds to wait between optimizer stats
  recomputation. Only changed indexes will be refreshed.
  --rocksdb-signal-drop-index-thread 
  Wake up drop index thread
+ --rocksdb-skip-fill-cache 
+ Skip filling block cache on read requests
  --rocksdb-skip-log-error-on-recovery 
  DBOptions::skip_log_error_on_recovery for RocksDB
+ --rocksdb-snapshot-dir=name 
+ Checkpoint directory
  --rocksdb-stats-dump-period-sec=# 
  DBOptions::stats_dump_period_sec for RocksDB
  --rocksdb-table-cache-numshardbits=# 
@@ -1085,6 +1101,8 @@ The following options may be given as the first argument:
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
+ --rocksdb-wal-bytes-per-sync=# 
+ DBOptions::wal_bytes_per_sync for RocksDB
  --rocksdb-wal-dir=name 
  DBOptions::wal_dir for RocksDB
  --rocksdb-whole-key-filtering 
@@ -1645,13 +1663,16 @@ rocksdb-cf-options-file
 rocksdb-cfstats ON
 rocksdb-collect-sst-properties TRUE
 rocksdb-compact-cf 
+rocksdb-compaction-sequential-deletes 1900
+rocksdb-compaction-sequential-deletes-file-size 0
+rocksdb-compaction-sequential-deletes-window 2000
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
 rocksdb-db-write-buffer-size 0
 rocksdb-dbstats ON
+rocksdb-ddl ON
 rocksdb-debug-optimizer-n-rows 1000
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
-rocksdb-debug-optimizer-records-in-range 10
 rocksdb-default-cf-options 
 rocksdb-delete-obsolete-files-period-micros 21600000000
 rocksdb-disableDataSync FALSE
@@ -1660,7 +1681,7 @@ rocksdb-error-if-exists FALSE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-hash-index-allow-collision TRUE
 rocksdb-index-type kBinarySearch
-rocksdb-info-log-level info_level
+rocksdb-info-log-level debug_level
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
 rocksdb-lock-wait-timeout 1
@@ -1678,13 +1699,17 @@ rocksdb-paranoid-checks TRUE
 rocksdb-perf-context ON
 rocksdb-perf-context-level 1
 rocksdb-rate-limiter-bytes-per-sec 0
+rocksdb-records-in-range 0
 rocksdb-seconds-between-stat-computes 3600
 rocksdb-signal-drop-index-thread FALSE
+rocksdb-skip-fill-cache FALSE
 rocksdb-skip-log-error-on-recovery FALSE
-rocksdb-stats-dump-period-sec 3600
+rocksdb-snapshot-dir 
+rocksdb-stats-dump-period-sec 600
 rocksdb-table-cache-numshardbits 4
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
+rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 
 rocksdb-whole-key-filtering TRUE
 rocksdb-write-disable-wal FALSE
