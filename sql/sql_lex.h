@@ -213,10 +213,11 @@ enum enum_drop_mode
 };
 
 /* Options to add_table_to_list() */
-#define TL_OPTION_UPDATING	1
-#define TL_OPTION_FORCE_INDEX	2
-#define TL_OPTION_IGNORE_LEAVES 4
-#define TL_OPTION_ALIAS         8
+#define TL_OPTION_UPDATING        1
+#define TL_OPTION_FORCE_INDEX     2
+#define TL_OPTION_IGNORE_LEAVES   4
+#define TL_OPTION_ALIAS           8
+#define TL_OPTION_OPEN_IF_EXISTS 16
 
 typedef List<Item> List_item;
 typedef Mem_root_array<ORDER*, true> Group_list_ptrs;
