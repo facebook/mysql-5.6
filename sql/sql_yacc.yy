@@ -7608,7 +7608,7 @@ string_list:
 */
 
 alter:
-          ALTER opt_ignore TABLE_SYM table_ident
+          ALTER opt_ignore TABLE_SYM if_exists table_ident
           {
             THD *thd= YYTHD;
             LEX *lex= thd->lex;
@@ -7616,8 +7616,12 @@ alter:
             lex->name.length= 0;
             lex->sql_command= SQLCOM_ALTER_TABLE;
             lex->duplicates= DUP_ERROR;
-            if (!lex->select_lex.add_table_to_list(thd, $4, NULL,
-                                                   TL_OPTION_UPDATING,
+            ulong table_options = TL_OPTION_UPDATING;
+            if ($4 != 0)
+              table_options |= TL_OPTION_OPEN_IF_EXISTS;
+
+            if (!lex->select_lex.add_table_to_list(thd, $5, NULL,
+                                                   table_options,
                                                    TL_READ_NO_INSERT,
                                                    MDL_SHARED_UPGRADABLE))
               MYSQL_YYABORT;

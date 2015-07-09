@@ -8296,6 +8296,26 @@ bool mysql_alter_table(THD *thd,char *new_db, char *new_name,
     DBUG_RETURN(true);
 
   TABLE *table= table_list->table;
+
+  if (table == NULL && table_list->open_strategy == TABLE_LIST::OPEN_IF_EXISTS)
+  {
+    /*
+      This should only happen if the user requested an ALTER IF EXISTS and
+      the table did not exist.  Generate a warning.
+    */
+    String tbl_name;
+    tbl_name.append(String(table_list->db, system_charset_info));
+    tbl_name.append('.');
+    tbl_name.append(String(table_list->table_name, system_charset_info));
+
+    push_warning_printf(thd, Sql_condition::WARN_LEVEL_NOTE,
+                        ER_BAD_TABLE_ERROR, ER(ER_BAD_TABLE_ERROR),
+                        tbl_name.c_ptr());
+
+    my_ok(thd);
+    DBUG_RETURN(false);
+  }
+
   table->use_all_columns();
   MDL_ticket *mdl_ticket= table->mdl_ticket;
 

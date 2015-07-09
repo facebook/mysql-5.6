@@ -7489,6 +7489,8 @@ TABLE_LIST *st_select_lex::add_table_to_list(THD *thd,
   /* TODO: remove TL_OPTION_FORCE_INDEX as it looks like it's not used */
   ptr->force_index= MY_TEST(table_options & TL_OPTION_FORCE_INDEX);
   ptr->ignore_leaves= MY_TEST(table_options & TL_OPTION_IGNORE_LEAVES);
+  if (MY_TEST(table_options & TL_OPTION_OPEN_IF_EXISTS))
+    ptr->open_strategy= TABLE_LIST::OPEN_IF_EXISTS;
   ptr->derived=	    table->sel;
   if (!ptr->derived && is_infoschema_db(ptr->db, ptr->db_length))
   {
