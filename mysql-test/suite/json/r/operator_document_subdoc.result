@@ -412,6 +412,18 @@ SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT(
 104
 106
 110
+CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
+SELECT * from v1;
+a	b	doc
+8	@1	{"id":108,"address":{"zipcode":98761}}
+DROP VIEW v1;
+CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
+SELECT * from v1;
+a	b	doc
+7	@3	{"id":104,"address":{"state":"NY","zipcode":98767}}
+6	@2	{"id":106,"address":{"zipcode":98766,"state":"CA"}}
+6	@2	{"id":110,"address":{"zipcode":98767,"state":"NY"},"addr":{"zipcode":98767,"state":"NY"}}
+DROP VIEW v1;
 CREATE TABLE t3 ( a int NOT null,
 b char (10) NOT null,
 doc DOCUMENT NOT null) engine=innodb;

@@ -7293,6 +7293,25 @@ find_field_in_tables(THD *thd, Item_ident *item,
                                               &(item->cached_field_index),
                                               register_tree_change,
                                               &actual_table);
+
+    /* Document paths are not allowed to be referenced from views. This applies
+     * for both full doc path references from views AND partial doc paths on
+     * top of a view alias.
+     *
+     * Neither of the following examples are supported:
+     *
+     * CREATE ALGORITHM = MERGE VIEW v AS SELECT doc.address FROM t;
+     * SELECT doc.address.id FROM v;
+     *
+     * CREATE ALGORITHM = MERGE VIEW v (addr) AS SELECT doc.address FROM t;
+     * SELECT addr.id FROM v;
+     *
+     * For those examples, the condition below would be true and therefore
+     * skip the attempt to find the item, resulting in an UNKNOWN COLUMN error.
+     */
+    if (item->parsing_info.num_unresolved_idents > 0 && cur_table->view)
+      continue;
+
     if (cur_field)
     {
       if (cur_field == WRONG_GRANT)
