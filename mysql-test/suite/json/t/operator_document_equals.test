@@ -160,21 +160,21 @@ FROM (SELECT * FROM t2 WHERE doc.address != DOCUMENT('{"zipcode":98761}')) temp;
 SELECT temp.doc.id
 FROM (SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}')) temp;
 
-# FIXME: Test = with views: fix bug with views first
-#CREATE VIEW v1 AS
-#(SELECT * FROM t2 WHERE doc.address = DOCUMENT('{"zipcode":98761}'));
-#SELECT * FROM v1;
-#DROP VIEW v1;
+# Test = with views:
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address = DOCUMENT('{"zipcode":98761}'));
+SELECT * FROM v1;
+DROP VIEW v1;
 
-#CREATE VIEW v1 AS
-#(SELECT * FROM t2 WHERE doc.address != DOCUMENT('{"zipcode":98761}'));
-#SELECT * FROM v1;
-#DROP VIEW v1;
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address != DOCUMENT('{"zipcode":98761}'));
+SELECT * FROM v1;
+DROP VIEW v1;
 
-#CREATE VIEW v1 AS
-#(SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}'));
-#SELECT * FROM v1;
-#DROP VIEW v1;
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}'));
+SELECT * FROM v1;
+DROP VIEW v1;
 
 drop table t1, t2;
 exit;

@@ -7,6 +7,7 @@ connection master;
 ###
 
 --disable_warnings
+drop view if exists v1;
 drop table if exists t1, t2, t3, t4, t5;
 --enable_warnings
 
@@ -354,6 +355,201 @@ select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 update t1 set t1.a = 1, t1.b = '@1' where doc.address.zipcode = 98761;
 select t1.a, t1.b from t1 where doc.address.zipcode = 98761;
 
+################################################################################
+###
+### Document paths with different types in views using MERGE algorithm
+###
+
+--echo ##### Document path with different types in views using MERGE algorithm
+
+### Test expected errors/failures from views with doc paths
+--error ER_DUP_FIELDNAME
+create algorithm = merge view v1 as
+select doc.id, doc.id from t1;
+
+--error ER_DUP_FIELDNAME
+create algorithm = merge view v1 as
+select doc, doc from t1;
+
+--error ER_DUP_FIELDNAME
+create algorithm = merge view v1 as
+select doc.id, doc, doc.id from t1;
+
+--error ER_DUP_FIELDNAME
+create algorithm = merge view v1 as
+select doc, doc.id, doc from t1;
+
+--error ER_BAD_FIELD_ERROR
+create algorithm = merge view v1 as
+select doc123.id from t1;
+
+create algorithm = merge view v1 as
+select doc.address from t1;
+--error ER_BAD_FIELD_ERROR
+select doc.address.id from v1;
+drop view v1;
+
+create algorithm = merge view v1 (addr) as
+select doc.address from t1;
+--error ER_BAD_FIELD_ERROR
+select addr.zipcode from v1;
+drop view v1;
+
+create algorithm = merge view v1 as
+select doc from t1;
+--error ER_BAD_FIELD_ERROR
+select doc.addr.zipcode from v1;
+drop view v1;
+
+### Test view with int as doc path
+create algorithm = merge view v1 as
+select doc.id from t1;
+select * from v1;
+drop view v1;
+
+### Test view with int as doc path and use alias
+create algorithm = merge view v1 (row1) as
+select doc.id from t1;
+select row1 from v1;
+drop view v1;
+
+### Test view with char as doc path
+create algorithm = merge view v1 as
+select doc.address.state from t1;
+select * from v1;
+drop view v1;
+
+### Test view with char as doc path and use alias
+create algorithm = merge view v1 (row1) as
+select doc.address.state from t1;
+select row1 from v1;
+drop view v1;
+
+### Test view with JSON object converted to string
+create algorithm = merge view v1 as
+select doc.address from t1;
+select * from v1;
+drop view v1;
+
+### Test view with JSON object converted to string and use alias
+create algorithm = merge view v1 (row1) as
+select doc.address from t1;
+select row1 from v1;
+drop view v1;
+
+### Test view with doc column
+create algorithm = merge view v1 as
+select doc from t1;
+select * from v1;
+drop view v1;
+
+### Test view with doc column and use alias
+create algorithm = merge view v1 (row1) as
+select doc from t1;
+select row1 from v1;
+drop view v1;
+
+### Test view with multiple doc paths/doc columns in definition
+create algorithm = merge view v1 as
+select doc.address.state, doc.id, doc from t1;
+select * from v1;
+drop view v1;
+
+create algorithm = merge view v1 as
+select doc, doc.address.state, doc.id from t1;
+select * from v1;
+drop view v1;
+
+create algorithm = merge view v1 as
+select doc.address.state, doc, doc.id from t1;
+select * from v1;
+drop view v1;
+
+### Test view with multiple doc paths/doc columns and use aliases
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc.id, doc from t1;
+select row1 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc.id, doc from t1;
+select row1, row3 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc.id, doc from t1;
+select row1, row2, row3 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc, doc.address.state, doc.id from t1;
+select row1 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc, doc.address.state, doc.id from t1;
+select row1, row3 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc, doc.address.state, doc.id from t1;
+select row1, row2, row3 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select row1 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select row1, row3 from v1;
+drop view v1;
+
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select row1, row2, row3 from v1;
+drop view v1;
+
+### Test order by/group by inside views
+create algorithm = merge view v1 as
+select doc.address.state, doc.id from t1 order by doc.address.state, a;
+select * from v1;
+drop view v1;
+
+create algorithm = merge view v1 as
+select doc.address.state, doc.id from t1 order by doc.id;
+select * from v1;
+drop view v1;
+
+create algorithm = merge view v1 as
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char);
+select * from v1;
+drop view v1;
+
+create algorithm = merge view v1 as
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char);
+select * from v1;
+drop view v1;
+
+### Test view prefixes on selects
+create algorithm = merge view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select v1.row1 from v1;
+select v1.row2 from v1;
+select v1.row3 from v1;
+drop view v1;
+
+### FIXME: Test views with temptable algorithm
+### This returns the entire doc column instead of the doc path
+create algorithm = temptable view v1 as
+select doc.id from t1;
+select * from v1;
+drop view v1;
 
 ################################################################################
 ###

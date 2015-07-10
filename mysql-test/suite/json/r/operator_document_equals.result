@@ -564,4 +564,28 @@ FROM (SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}')) temp;
 106
 110
 NULL
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address = DOCUMENT('{"zipcode":98761}'));
+SELECT * FROM v1;
+a	b	doc
+8	@1	{"id":108,"address":{"zipcode":98761}}
+DROP VIEW v1;
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address != DOCUMENT('{"zipcode":98761}'));
+SELECT * FROM v1;
+a	b	doc
+7	@3	{"id":104,"address":{"state":"NY","zipcode":98767}}
+6	@2	{"id":106,"address":{"zipcode":98766,"state":"CA"}}
+6	@2	{"id":110,"address":{"zipcode":98767,"state":"NY"}}
+10	@10	{"temp":{"id":110,"address":{"zipcode":98767,"state":"NY"}}}
+DROP VIEW v1;
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address <> DOCUMENT('{"zipcode":98761}'));
+SELECT * FROM v1;
+a	b	doc
+7	@3	{"id":104,"address":{"state":"NY","zipcode":98767}}
+6	@2	{"id":106,"address":{"zipcode":98766,"state":"CA"}}
+6	@2	{"id":110,"address":{"zipcode":98767,"state":"NY"}}
+10	@10	{"temp":{"id":110,"address":{"zipcode":98767,"state":"NY"}}}
+DROP VIEW v1;
 drop table t1, t2;

@@ -183,16 +183,16 @@ SELECT temp.doc.id
 FROM (SELECT * FROM t2 WHERE doc.address NOT SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}')) temp;
 
 
-# FIXME: Test SIMILAR with views: fix bug with views first
-#CREATE VIEW v1 AS
-#(SELECT * FROM t2 WHERE doc.address SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}'));
-#SELECT * FROM v1;
-#DROP VIEW v1;
+# Test SIMILAR with views:
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}'));
+SELECT * FROM v1;
+DROP VIEW v1;
 
-#CREATE VIEW v1 AS
-#(SELECT * FROM t2 WHERE doc.address NOT SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}'));
-#SELECT * FROM v1;
-#DROP VIEW v1;
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address NOT SIMILAR DOCUMENT('{"state":"NY", "zipcode":98767}'));
+SELECT * FROM v1;
+DROP VIEW v1;
 
 # Populate t3 with data
 CREATE TABLE t3 ( a int NOT null,
