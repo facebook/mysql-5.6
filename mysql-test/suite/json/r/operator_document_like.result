@@ -486,6 +486,21 @@ FROM (SELECT * FROM t2 WHERE doc.address NOT LIKE DOCUMENT('{"state":"NY", "zipc
 108
 NULL
 106
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address LIKE DOCUMENT('{   "zipcode" :98761}'));
+SELECT * FROM v1;
+a	b	doc
+8	@1	{"id":108,"address":{"zipcode":98761},"addr":{"zipcode":98761}}
+DROP VIEW v1;
+CREATE VIEW v1 AS
+(SELECT * FROM t2 WHERE doc.address NOT LIKE DOCUMENT('{   "zipcode" :98761}'));
+SELECT * FROM v1;
+a	b	doc
+10	@10	{"zipcode":98761}
+7	@3	{"id":104,"address":{"state":"NY","zipcode":98767}}
+6	@2	{"id":106,"address":{"zipcode":98766,"state":"CA"}}
+6	@2	{"id":110,"address":{"zipcode":98767,"state":"NY"}}
+DROP VIEW v1;
 CREATE TABLE t3 ( a int NOT null,
 b char (10) NOT null,
 doc DOCUMENT NOT null) engine=innodb;
