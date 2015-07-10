@@ -1077,6 +1077,10 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_PERF_CONTEXT plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
+ --rocksdb-perf-context-global[=name] 
+ Enable or disable ROCKSDB_PERF_CONTEXT_GLOBAL plugin.
+ Possible values are ON, OFF, FORCE (don't start if the
+ plugin fails to load).
  --rocksdb-perf-context-level=# 
  Perf Context Level for rocksdb internal timer stat
  collection
@@ -1700,6 +1704,7 @@ rocksdb-max-total-wal-size 0
 rocksdb-no-block-cache FALSE
 rocksdb-paranoid-checks TRUE
 rocksdb-perf-context ON
+rocksdb-perf-context-global ON
 rocksdb-perf-context-level 1
 rocksdb-rate-limiter-bytes-per-sec 0
 rocksdb-records-in-range 0
