@@ -4,7 +4,7 @@
 -- source include/have_debug.inc
 -- source include/not_valgrind.inc
 
--- let $engine = innodb
+-- let $engine = INNODB
 
 call mtr.add_suppression("Recovery from master pos");
 
