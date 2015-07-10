@@ -33,8 +33,9 @@ DROP TABLE t1, t2;
 #
 # Bug #19147: mysqlshow INFORMATION_SCHEMA does not work
 #
---exec $MYSQL_SHOW information_schema
---exec $MYSQL_SHOW INFORMATION_SCHEMA
+# piping through sort since the order depends on plugin linking order
+--exec $MYSQL_SHOW information_schema | head -n -1 | tail -n +5 | sort
+--exec $MYSQL_SHOW INFORMATION_SCHEMA | head -n -1 | tail -n +5 | sort
 --exec $MYSQL_SHOW inf_rmation_schema
 
 #
