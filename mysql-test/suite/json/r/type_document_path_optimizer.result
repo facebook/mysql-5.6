@@ -93,7 +93,7 @@ explain extended select a from t1 where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select a from t1 where doc1.bool is true;
 a
 1
@@ -105,7 +105,7 @@ explain extended select a from t1 use document keys where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select a from t1 use document keys where doc1.bool is true;
 a
 1
@@ -117,7 +117,7 @@ explain extended select count(a) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select count(a) from t1 use document keys group by doc1.bool;
 count(a)
 4
@@ -126,7 +126,7 @@ explain extended select sum(a) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select sum(a) from t1 use document keys group by doc1.bool;
 sum(a)
 30
@@ -135,7 +135,7 @@ explain extended select avg(a) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select avg(`test`.`t1`.`a`) AS `avg(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select avg(`test`.`t1`.`a`) AS `avg(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select avg(a) from t1 use document keys group by doc1.bool;
 avg(a)
 7.5000
@@ -144,7 +144,7 @@ explain extended select doc1.bool from t1 where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`bool` AS "`doc1`.`bool`" from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1.bool from t1 where doc1.bool is true;
 `doc1`.`bool`
 true
@@ -156,7 +156,7 @@ explain extended select doc1.bool from t1 use document keys where doc1.bool is t
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`bool` AS "`doc1`.`bool`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1.bool from t1 use document keys where doc1.bool is true;
 `doc1`.`bool`
 1
@@ -168,7 +168,7 @@ explain extended select count(doc1.bool) from t1 use document keys group by doc1
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1.bool)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`.`bool`) AS `count(doc1.bool)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select count(doc1.bool) from t1 use document keys group by doc1.bool;
 count(doc1.bool)
 4
@@ -177,7 +177,7 @@ explain extended select sum(doc1.bool) from t1 use document keys group by doc1.b
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`) AS `sum(doc1.bool)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`.`bool`) AS `sum(doc1.bool)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select sum(doc1.bool) from t1 use document keys group by doc1.bool;
 sum(doc1.bool)
 0
@@ -186,7 +186,7 @@ explain extended select avg(doc1.bool) from t1 use document keys group by doc1.b
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select avg(`test`.`t1`.`doc1`) AS `avg(doc1.bool)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select avg(`test`.`t1`.`doc1`.`bool`) AS `avg(doc1.bool)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select avg(doc1.bool) from t1 use document keys group by doc1.bool;
 avg(doc1.bool)
 0
@@ -227,7 +227,7 @@ explain extended select * from t1 where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select * from t1 where doc1.bool is true;
 a	b	c	d	doc1	doc2
 1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
@@ -239,7 +239,7 @@ explain extended select * from t1 use document keys where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select * from t1 use document keys where doc1.bool is true;
 a	b	c	d	doc1	doc2
 1	1	1.1	aaa	{"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}	{"int":1,"double":1.1}
@@ -251,7 +251,7 @@ explain extended select count(*) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select count(*) from t1 use document keys group by doc1.bool;
 count(*)
 4
@@ -260,7 +260,7 @@ explain extended select doc1 from t1 where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1 from t1 where doc1.bool is true;
 doc1
 {"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
@@ -272,7 +272,7 @@ explain extended select doc1 from t1 use document keys where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1 from t1 use document keys where doc1.bool is true;
 doc1
 {"bool":true,"int":1,"double":1.1,"string":"aaa","binary":"aaa","k1":{"k2":{"k3":{"int":1}}},"id":1}
@@ -284,7 +284,7 @@ explain extended select count(doc1) from t1 use document keys group by doc1.bool
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select count(doc1) from t1 use document keys group by doc1.bool;
 count(doc1)
 4
@@ -293,7 +293,7 @@ explain extended select doc1.int from t1 where doc1.bool is true;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1.int from t1 where doc1.bool is true;
 `doc1`.`int`
 1
@@ -305,7 +305,7 @@ explain extended select doc1.int from t1 use document keys where doc1.bool is tr
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` is true)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1.int from t1 use document keys where doc1.bool is true;
 `doc1`.`int`
 1
@@ -317,7 +317,7 @@ explain extended select count(doc1.int) from t1 use document keys group by doc1.
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`.`int`) AS `count(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`bool`
 select count(doc1.int) from t1 use document keys group by doc1.bool;
 count(doc1.int)
 4
@@ -326,7 +326,7 @@ explain extended select a from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select a from t1 where doc1.int > 5;
 a
 6
@@ -337,7 +337,7 @@ explain extended select a from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_int	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select a from t1 use document keys where doc1.int > 5;
 a
 6
@@ -348,7 +348,7 @@ explain extended select count(a) from t1 use document keys group by doc1.int hav
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select count(a) from t1 use document keys group by doc1.int having doc1.int > 5;
 count(a)
 1
@@ -359,7 +359,7 @@ explain extended select a from t1 use document keys order by doc1.int;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES order by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES order by `test`.`t1`.`doc1`.`int`
 select a from t1 use document keys order by doc1.int;
 a
 1
@@ -375,7 +375,7 @@ explain extended select doc1.int from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1.int from t1 where doc1.int > 5;
 `doc1`.`int`
 6
@@ -386,7 +386,7 @@ explain extended select doc1.int from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_int	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1.int from t1 use document keys where doc1.int > 5;
 `doc1`.`int`
 6
@@ -397,7 +397,7 @@ explain extended select count(doc1.int) from t1 use document keys group by doc1.
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`.`int`) AS `count(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select count(doc1.int) from t1 use document keys group by doc1.int having doc1.int > 5 ;
 count(doc1.int)
 1
@@ -408,7 +408,7 @@ explain extended select count(doc1.int) from t1 use document keys where doc1.int
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_int	9	NULL	9	100.00	Using where; Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5) group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`.`int`) AS `count(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5) group by `test`.`t1`.`doc1`.`int`
 select count(doc1.int) from t1 use document keys where doc1.int > 5 group by doc1.int;
 count(doc1.int)
 1
@@ -419,7 +419,7 @@ explain extended select count(a) from t1 use document keys where doc1.int = 5 gr
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where; Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5) group by `test`.`t1`.`doc1`
+Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5) group by `test`.`t1`.`doc1`.`int`
 select count(a) from t1 use document keys where doc1.int = 5 group by doc1.int;
 count(a)
 1
@@ -427,7 +427,7 @@ explain extended select a from t1 where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc2`.`int` > 5)
 select a from t1 where doc2.int > 5;
 a
 6
@@ -438,7 +438,7 @@ explain extended select a from t1 use document keys where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc2_int	doc2_int	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`int` > 5)
 select a from t1 use document keys where doc2.int > 5;
 a
 6
@@ -449,7 +449,7 @@ explain extended select count(a) from t1 use document keys group by doc2.int hav
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`int` having (`test`.`t1`.`doc2`.`int` > 5)
 select count(a) from t1 use document keys group by doc2.int having doc2.int > 5;
 count(a)
 1
@@ -460,7 +460,7 @@ explain extended select doc2.int from t1 where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`int` AS "`doc2`.`int`" from `test`.`t1` where (`test`.`t1`.`doc2`.`int` > 5)
 select doc2.int from t1 where doc2.int > 5;
 `doc2`.`int`
 6
@@ -471,7 +471,7 @@ explain extended select doc2.int from t1 use document keys where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc2_int	doc2_int	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`int` AS "`doc2`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`int` > 5)
 select doc2.int from t1 use document keys where doc2.int > 5;
 `doc2`.`int`
 6
@@ -482,7 +482,7 @@ explain extended select count(doc2.int) from t1 use document keys group by doc2.
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`.`int`) AS `count(doc2.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`int` having (`test`.`t1`.`doc2`.`int` > 5)
 select count(doc2.int) from t1 use document keys group by doc2.int having doc2.int > 5;
 count(doc2.int)
 1
@@ -493,7 +493,7 @@ explain extended select * from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select * from t1 where doc1.int > 5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -504,7 +504,7 @@ explain extended select * from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select * from t1 use document keys where doc1.int > 5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -515,7 +515,7 @@ explain extended select count(*) from t1 use document keys group by doc1.int hav
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select count(*) from t1 use document keys group by doc1.int having doc1.int > 5;
 count(*)
 1
@@ -526,7 +526,7 @@ explain extended select doc1 from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 where doc1.int > 5;
 doc1
 {"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
@@ -537,7 +537,7 @@ explain extended select doc1 from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 use document keys where doc1.int > 5;
 doc1
 {"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
@@ -548,7 +548,7 @@ explain extended select count(doc1) from t1 use document keys group by doc1.int 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select count(doc1) from t1 use document keys group by doc1.int having doc1.int > 5;
 count(doc1)
 1
@@ -559,7 +559,7 @@ explain extended select doc1.double from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1.double from t1 where doc1.int > 5;
 `doc1`.`double`
 6.6
@@ -570,7 +570,7 @@ explain extended select doc1.double from t1 use document keys where doc1.int > 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1.double from t1 use document keys where doc1.int > 5;
 `doc1`.`double`
 6.6
@@ -581,7 +581,7 @@ explain extended select sum(doc1.double) from t1 use document keys group by doc1
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`) AS `sum(doc1.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`.`double`) AS `sum(doc1.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
 sum(doc1.double)
 6.6
@@ -592,7 +592,7 @@ explain extended select * from t1 where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2`.`int` > 5)
 select * from t1 where doc2.int > 5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -603,7 +603,7 @@ explain extended select * from t1 use document keys where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`int` > 5)
 select * from t1 use document keys where doc2.int > 5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -614,7 +614,7 @@ explain extended select count(*) from t1 use document keys group by doc2.int hav
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_int	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`int` having (`test`.`t1`.`doc2`.`int` > 5)
 select count(*) from t1 use document keys group by doc2.int having doc2.int > 5;
 count(*)
 1
@@ -625,7 +625,7 @@ explain extended select doc2 from t1 where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2`.`int` > 5)
 select doc2 from t1 where doc2.int > 5;
 doc2
 {"int":6,"double":6.6}
@@ -636,7 +636,7 @@ explain extended select doc2 from t1 use document keys where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`int` > 5)
 select doc2 from t1 use document keys where doc2.int > 5;
 doc2
 {"int":6,"double":6.6}
@@ -647,7 +647,7 @@ explain extended select count(doc2) from t1 use document keys group by doc2.int 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`int` having (`test`.`t1`.`doc2`.`int` > 5)
 select count(doc2) from t1 use document keys group by doc2.int having doc2.int > 5;
 count(doc2)
 1
@@ -658,7 +658,7 @@ explain extended select doc2.double from t1 where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`double` AS "`doc2`.`double`" from `test`.`t1` where (`test`.`t1`.`doc2`.`int` > 5)
 select doc2.double from t1 where doc2.int > 5;
 `doc2`.`double`
 6.6
@@ -669,7 +669,7 @@ explain extended select doc2.double from t1 use document keys where doc2.int > 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`double` AS "`doc2`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`int` > 5)
 select doc2.double from t1 use document keys where doc2.int > 5;
 `doc2`.`double`
 6.6
@@ -680,7 +680,7 @@ explain extended select sum(doc2.double) from t1 use document keys group by doc2
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc2`) AS `sum(doc2.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5)
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc2`.`double`) AS `sum(doc2.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`int` having (`test`.`t1`.`doc2`.`int` > 5)
 select sum(doc2.double) from t1 use document keys group by doc2.int having doc2.int > 5;
 sum(doc2.double)
 6.6
@@ -691,7 +691,7 @@ explain extended select a from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select a from t1 where doc1.double > 5.5;
 a
 6
@@ -702,7 +702,7 @@ explain extended select a from t1 use document keys where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_double	doc1_double	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select a from t1 use document keys where doc1.double > 5.5;
 a
 6
@@ -713,7 +713,7 @@ explain extended select sum(a) from t1 use document keys group by doc1.double ha
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_double	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select sum(a) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 sum(a)
 6
@@ -724,7 +724,7 @@ explain extended select doc1.double from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1.double from t1 where doc1.double > 5.5;
 `doc1`.`double`
 6.6
@@ -735,7 +735,7 @@ explain extended select doc1.double from t1 use document keys where doc1.double 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_double	doc1_double	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1.double from t1 use document keys where doc1.double > 5.5;
 `doc1`.`double`
 6.6
@@ -746,7 +746,7 @@ explain extended select sum(doc1.double) from t1 use document keys group by doc1
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_double	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`) AS `sum(doc1.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`.`double`) AS `sum(doc1.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 sum(doc1.double)
 6.6
@@ -757,7 +757,7 @@ explain extended select a from t1 where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc2`.`double` > 5.5)
 select a from t1 where doc2.double > 5.5;
 a
 6
@@ -768,7 +768,7 @@ explain extended select a from t1 use document keys where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc2_double	doc2_double	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`double` > 5.5)
 select a from t1 use document keys where doc2.double > 5.5;
 a
 6
@@ -779,7 +779,7 @@ explain extended select count(a) from t1 use document keys group by doc2.double 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_double	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`double` having (`test`.`t1`.`doc2`.`double` > 5.5)
 select count(a) from t1 use document keys group by doc2.double having doc2.double > 5.5;
 count(a)
 1
@@ -790,7 +790,7 @@ explain extended select doc2.double from t1 where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`double` AS "`doc2`.`double`" from `test`.`t1` where (`test`.`t1`.`doc2`.`double` > 5.5)
 select doc2.double from t1 where doc2.double > 5.5;
 `doc2`.`double`
 6.6
@@ -801,7 +801,7 @@ explain extended select doc2.double from t1 use document keys where doc2.double 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc2_double	doc2_double	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`double` AS "`doc2`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`double` > 5.5)
 select doc2.double from t1 use document keys where doc2.double > 5.5;
 `doc2`.`double`
 6.6
@@ -812,7 +812,7 @@ explain extended select count(doc2.double) from t1 use document keys group by do
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_double	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`.`double`) AS `count(doc2.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`double` having (`test`.`t1`.`doc2`.`double` > 5.5)
 select count(doc2.double) from t1 use document keys group by doc2.double having doc2.double > 5.5;
 count(doc2.double)
 1
@@ -823,7 +823,7 @@ explain extended select * from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select * from t1 where doc1.double > 5.5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -834,7 +834,7 @@ explain extended select * from t1 use document keys where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_double	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select * from t1 use document keys where doc1.double > 5.5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -845,7 +845,7 @@ explain extended select count(*) from t1 use document keys group by doc1.double 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_double	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select count(*) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 count(*)
 1
@@ -856,7 +856,7 @@ explain extended select doc1 from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1 from t1 where doc1.double > 5.5;
 doc1
 {"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
@@ -867,7 +867,7 @@ explain extended select doc1 from t1 use document keys where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_double	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1 from t1 use document keys where doc1.double > 5.5;
 doc1
 {"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
@@ -878,7 +878,7 @@ explain extended select count(doc1) from t1 use document keys group by doc1.doub
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select count(doc1) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 count(doc1)
 1
@@ -889,7 +889,7 @@ explain extended select doc1.string from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`string` AS "`doc1`.`string`" from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1.string from t1 where doc1.double > 5.5;
 `doc1`.`string`
 fff
@@ -900,7 +900,7 @@ explain extended select doc1.string from t1 use document keys where doc1.double 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_double	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`string` AS "`doc1`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select doc1.string from t1 use document keys where doc1.double > 5.5;
 `doc1`.`string`
 fff
@@ -911,7 +911,7 @@ explain extended select count(doc1.string) from t1 use document keys group by do
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1.string)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`.`string`) AS `count(doc1.string)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select count(doc1.string) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 count(doc1.string)
 1
@@ -922,7 +922,7 @@ explain extended select * from t1 where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2`.`double` > 5.5)
 select * from t1 where doc2.double > 5.5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -933,7 +933,7 @@ explain extended select * from t1 use document keys where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_double	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`double` > 5.5)
 select * from t1 use document keys where doc2.double > 5.5;
 a	b	c	d	doc1	doc2
 6	6	6.6	fff	{"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}	{"int":6,"double":6.6}
@@ -944,7 +944,7 @@ explain extended select count(*) from t1 use document keys group by doc2.double 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc2_double	9	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`double` having (`test`.`t1`.`doc2`.`double` > 5.5)
 select count(*) from t1 use document keys group by doc2.double having doc2.double > 5.5;
 count(*)
 1
@@ -955,7 +955,7 @@ explain extended select doc2 from t1 where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2`.`double` > 5.5)
 select doc2 from t1 where doc2.double > 5.5;
 doc2
 {"int":6,"double":6.6}
@@ -966,7 +966,7 @@ explain extended select doc2 from t1 use document keys where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_double	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`double` > 5.5)
 select doc2 from t1 use document keys where doc2.double > 5.5;
 doc2
 {"int":6,"double":6.6}
@@ -977,7 +977,7 @@ explain extended select count(doc2) from t1 use document keys group by doc2.doub
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`double` having (`test`.`t1`.`doc2`.`double` > 5.5)
 select count(doc2) from t1 use document keys group by doc2.double having doc2.double > 5.5;
 count(doc2)
 1
@@ -988,7 +988,7 @@ explain extended select doc2.int from t1 where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`int` AS "`doc2`.`int`" from `test`.`t1` where (`test`.`t1`.`doc2`.`double` > 5.5)
 select doc2.int from t1 where doc2.double > 5.5;
 `doc2`.`int`
 6
@@ -999,7 +999,7 @@ explain extended select doc2.int from t1 use document keys where doc2.double > 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc2_double	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc2`.`int` AS "`doc2`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc2`.`double` > 5.5)
 select doc2.int from t1 use document keys where doc2.double > 5.5;
 `doc2`.`int`
 6
@@ -1010,7 +1010,7 @@ explain extended select count(doc2.int) from t1 use document keys group by doc2.
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`) AS `count(doc2.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2` having (`test`.`t1`.`doc2` > 5.5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc2`.`int`) AS `count(doc2.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`double` having (`test`.`t1`.`doc2`.`double` > 5.5)
 select count(doc2.int) from t1 use document keys group by doc2.double having doc2.double > 5.5;
 count(doc2.int)
 1
@@ -1021,7 +1021,7 @@ explain extended select a from t1 where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select a from t1 where doc1.string = 'eee';
 a
 5
@@ -1029,7 +1029,7 @@ explain extended select a from t1 use document keys where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select a from t1 use document keys where doc1.string = 'eee';
 a
 5
@@ -1037,7 +1037,7 @@ explain extended select count(a) from t1 use document keys group by doc1.string 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select count(`test`.`t1`.`a`) AS `count(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`string` having (`test`.`t1`.`doc1`.`string` = 'eee')
 select count(a) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 count(a)
 1
@@ -1045,7 +1045,7 @@ explain extended select doc1.string from t1 where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`string` AS "`doc1`.`string`" from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1.string from t1 where doc1.string = 'eee';
 `doc1`.`string`
 eee
@@ -1053,7 +1053,7 @@ explain extended select doc1.string from t1 use document keys where doc1.string 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`string` AS "`doc1`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1.string from t1 use document keys where doc1.string = 'eee';
 `doc1`.`string`
 eee
@@ -1061,7 +1061,7 @@ explain extended select count(doc1.string) from t1 use document keys group by do
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1.string)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`.`string`) AS `count(doc1.string)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`string` having (`test`.`t1`.`doc1`.`string` = 'eee')
 select count(doc1.string) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 count(doc1.string)
 1
@@ -1069,7 +1069,7 @@ explain extended select * from t1 where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select * from t1 where doc1.string = 'eee';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1077,7 +1077,7 @@ explain extended select * from t1 use document keys where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select * from t1 use document keys where doc1.string = 'eee';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1085,7 +1085,7 @@ explain extended select count(*) from t1 use document keys group by doc1.string 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select count(0) AS `count(*)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`string` having (`test`.`t1`.`doc1`.`string` = 'eee')
 select count(*) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 count(*)
 1
@@ -1093,7 +1093,7 @@ explain extended select doc1 from t1 where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1 from t1 where doc1.string = 'eee';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1101,7 +1101,7 @@ explain extended select doc1 from t1 use document keys where doc1.string = 'eee'
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1 from t1 use document keys where doc1.string = 'eee';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1109,7 +1109,7 @@ explain extended select count(doc1) from t1 use document keys group by doc1.stri
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select count(`test`.`t1`.`doc1`) AS `count(doc1)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`string` having (`test`.`t1`.`doc1`.`string` = 'eee')
 select count(doc1) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 count(doc1)
 1
@@ -1117,7 +1117,7 @@ explain extended select doc1.int from t1 where doc1.string = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1.int from t1 where doc1.string = 'eee';
 `doc1`.`int`
 5
@@ -1125,7 +1125,7 @@ explain extended select doc1.int from t1 use document keys where doc1.string = '
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_string	doc1_string	101	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` = 'eee')
 select doc1.int from t1 use document keys where doc1.string = 'eee';
 `doc1`.`int`
 5
@@ -1133,7 +1133,7 @@ explain extended select sum(doc1.int) from t1 use document keys group by doc1.st
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`) AS `sum(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`.`int`) AS `sum(doc1.int)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`string` having (`test`.`t1`.`doc1`.`string` = 'eee')
 select sum(doc1.int) from t1 use document keys group by doc1.string having doc1.string = 'eee';
 sum(doc1.int)
 5
@@ -1141,7 +1141,7 @@ explain extended select a from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select a from t1 where doc1.string like 'e%';
 a
 5
@@ -1149,7 +1149,7 @@ explain extended select a from t1 use document keys where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select a from t1 use document keys where doc1.string like 'e%';
 a
 5
@@ -1157,7 +1157,7 @@ explain extended select doc1.string from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`string` AS "`doc1`.`string`" from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1.string from t1 where doc1.string like 'e%';
 `doc1`.`string`
 eee
@@ -1165,7 +1165,7 @@ explain extended select doc1.string from t1 use document keys where doc1.string 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`string` AS "`doc1`.`string`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1.string from t1 use document keys where doc1.string like 'e%';
 `doc1`.`string`
 eee
@@ -1173,7 +1173,7 @@ explain extended select * from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select * from t1 where doc1.string like 'e%';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1181,7 +1181,7 @@ explain extended select * from t1 use document keys where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select * from t1 use document keys where doc1.string like 'e%';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1189,7 +1189,7 @@ explain extended select doc1 from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1 from t1 where doc1.string like 'e%';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1197,7 +1197,7 @@ explain extended select doc1 from t1 use document keys where doc1.string like 'e
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1 from t1 use document keys where doc1.string like 'e%';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1205,7 +1205,7 @@ explain extended select doc1.int from t1 where doc1.string like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1.int from t1 where doc1.string like 'e%';
 `doc1`.`int`
 5
@@ -1213,7 +1213,7 @@ explain extended select doc1.int from t1 use document keys where doc1.string lik
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_string	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`string` like 'e%')
 select doc1.int from t1 use document keys where doc1.string like 'e%';
 `doc1`.`int`
 5
@@ -1221,7 +1221,7 @@ explain extended select a from t1 where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select a from t1 where doc1.binary = 'eee';
 a
 5
@@ -1229,14 +1229,14 @@ explain extended select a from t1 use document keys where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select a from t1 use document keys where doc1.binary = 'eee';
 a
 explain extended select doc1.binary from t1 where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select doc1.binary from t1 where doc1.binary = 'eee';
 `doc1`.`binary`
 eee
@@ -1244,14 +1244,14 @@ explain extended select doc1.binary from t1 use document keys where doc1.binary 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select doc1.binary from t1 use document keys where doc1.binary = 'eee';
 `doc1`.`binary`
 explain extended select * from t1 where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select * from t1 where doc1.binary = 'eee';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1259,14 +1259,14 @@ explain extended select * from t1 use document keys where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select * from t1 use document keys where doc1.binary = 'eee';
 a	b	c	d	doc1	doc2
 explain extended select doc1 from t1 where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select doc1 from t1 where doc1.binary = 'eee';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1274,14 +1274,14 @@ explain extended select doc1 from t1 use document keys where doc1.binary = 'eee'
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select doc1 from t1 use document keys where doc1.binary = 'eee';
 doc1
 explain extended select doc1.int from t1 where doc1.binary = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select doc1.int from t1 where doc1.binary = 'eee';
 `doc1`.`int`
 5
@@ -1289,14 +1289,14 @@ explain extended select doc1.int from t1 use document keys where doc1.binary = '
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_binary	doc1_binary	103	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` = 'eee')
 select doc1.int from t1 use document keys where doc1.binary = 'eee';
 `doc1`.`int`
 explain extended select a from t1 where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select a from t1 where doc1.binary like 'e%';
 a
 5
@@ -1304,7 +1304,7 @@ explain extended select a from t1 use document keys where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select a from t1 use document keys where doc1.binary like 'e%';
 a
 5
@@ -1312,7 +1312,7 @@ explain extended select doc1.binary from t1 where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select doc1.binary from t1 where doc1.binary like 'e%';
 `doc1`.`binary`
 eee
@@ -1320,7 +1320,7 @@ explain extended select doc1.binary from t1 use document keys where doc1.binary 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`binary` AS "`doc1`.`binary`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select doc1.binary from t1 use document keys where doc1.binary like 'e%';
 `doc1`.`binary`
 eee
@@ -1328,7 +1328,7 @@ explain extended select * from t1 where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select * from t1 where doc1.binary like 'e%';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1336,7 +1336,7 @@ explain extended select * from t1 use document keys where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select * from t1 use document keys where doc1.binary like 'e%';
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1344,7 +1344,7 @@ explain extended select doc1 from t1 where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select doc1 from t1 where doc1.binary like 'e%';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1352,7 +1352,7 @@ explain extended select doc1 from t1 use document keys where doc1.binary like 'e
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select doc1 from t1 use document keys where doc1.binary like 'e%';
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1360,7 +1360,7 @@ explain extended select doc1.int from t1 where doc1.binary like 'e%';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select doc1.int from t1 where doc1.binary like 'e%';
 `doc1`.`int`
 5
@@ -1368,7 +1368,7 @@ explain extended select doc1.int from t1 use document keys where doc1.binary lik
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_binary	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` like 'e%')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`binary` like 'e%')
 select doc1.int from t1 use document keys where doc1.binary like 'e%';
 `doc1`.`int`
 5
@@ -1376,7 +1376,7 @@ explain extended select doc1.int from t1 where b = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	b_a	b_a	5	const	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`b` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`b` = 5)
 select doc1.int from t1 where b = 5;
 `doc1`.`int`
 5
@@ -1384,7 +1384,7 @@ explain extended select doc1.int from t1 use document keys where b = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	b_a,b_doc1	b_a	5	const	1	100.00	NULL
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`b` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`b` = 5)
 select doc1.int from t1 use document keys where b = 5;
 `doc1`.`int`
 5
@@ -1392,7 +1392,7 @@ explain extended select b from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select b from t1 where doc1.int = 5;
 b
 5
@@ -1400,7 +1400,7 @@ explain extended select b from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select b from t1 use document keys where doc1.int = 5;
 b
 5
@@ -1408,7 +1408,7 @@ explain extended select count(b) from t1 use document keys group by doc1.int hav
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_b	14	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select count(`test`.`t1`.`b`) AS `count(b)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select count(`test`.`t1`.`b`) AS `count(b)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` = 5)
 select count(b) from t1 use document keys group by doc1.int having doc1.int = 5;
 count(b)
 1
@@ -1416,7 +1416,7 @@ explain extended select b from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select b from t1 where doc1.int > 5;
 b
 6
@@ -1427,7 +1427,7 @@ explain extended select d from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_d	110	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select b from t1 use document keys where doc1.int > 5;
 b
 6
@@ -1438,7 +1438,7 @@ explain extended select sum(b) from t1 use document keys group by doc1.int havin
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_b	14	NULL	9	100.00	Using index; Using temporary; Using filesort
 Warnings:
-Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `sum(b)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1` having (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `sum(b)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
 sum(b)
 6
@@ -1449,7 +1449,7 @@ explain extended select doc1.double from t1 where c = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`c` = 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` where (`test`.`t1`.`c` = 5.5)
 select doc1.double from t1 where c = 5.5;
 `doc1`.`double`
 5.5
@@ -1457,7 +1457,7 @@ explain extended select doc1.double from t1 use document keys where c = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_c	18	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`c` = 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`c` = 5.5)
 select doc1.double from t1 use document keys where c = 5.5;
 `doc1`.`double`
 5.5
@@ -1465,7 +1465,7 @@ explain extended select c from t1 where doc1.double = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`doc1` = 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` = 5.5)
 select c from t1 where doc1.double = 5.5;
 c
 5.5
@@ -1473,14 +1473,14 @@ explain extended select c from t1 use document keys where doc1.double = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_double	doc1_double	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` = 5.5)
 select c from t1 use document keys where doc1.double = 5.5;
 ERROR HY000: Invalid document value: 5.5
 explain extended select c from t1 use document keys where doc1.double = '5.5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_double	doc1_double	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = '5.5')
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` = '5.5')
 select c from t1 use document keys where doc1.double = '5.5';
 c
 5.5
@@ -1488,7 +1488,7 @@ explain extended select c from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` where (`test`.`t1`.`doc1`.`double` > 5.5)
 select c from t1 where doc1.double > 5.5;
 c
 6.6
@@ -1499,7 +1499,7 @@ explain extended select c from t1 use document keys where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_double	doc1_c	18	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5.5)
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` > 5.5)
 select c from t1 use document keys where doc1.double > 5.5;
 c
 6.6
@@ -1510,7 +1510,7 @@ explain extended select doc1.int from t1 where d = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`d` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`d` = 'eee')
 select doc1.int from t1 where d = 'eee';
 `doc1`.`int`
 5
@@ -1518,7 +1518,7 @@ explain extended select doc1.int from t1 use document keys where d = 'eee';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_d	110	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`d` = 'eee')
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`d` = 'eee')
 select doc1.int from t1 use document keys where d = 'eee';
 `doc1`.`int`
 5
@@ -1526,7 +1526,7 @@ explain extended select d from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select d from t1 where doc1.int = 5;
 d
 eee
@@ -1534,7 +1534,7 @@ explain extended select d from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select d from t1 use document keys where doc1.int = 5;
 d
 eee
@@ -1542,7 +1542,7 @@ explain extended select d from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select d from t1 where doc1.int > 5;
 d
 fff
@@ -1553,7 +1553,7 @@ explain extended select d from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_d	110	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select d from t1 use document keys where doc1.int > 5;
 d
 fff
@@ -1564,7 +1564,7 @@ explain extended select d from t1 where doc1.int = '5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1` = '5')
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = '5')
 select d from t1 where doc1.int = '5';
 d
 eee
@@ -1572,7 +1572,7 @@ explain extended select d from t1 use document keys where doc1.int = '5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = '5')
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = '5')
 select d from t1 use document keys where doc1.int = '5';
 d
 eee
@@ -1580,7 +1580,7 @@ explain extended select d from t1 where doc1.int < '5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1` < '5')
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` < '5')
 select d from t1 where doc1.int < '5';
 d
 aaa
@@ -1591,7 +1591,7 @@ explain extended select d from t1 use document keys where doc1.int < '5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_d	110	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` < '5')
+Note	1003	/* select#1 */ select `test`.`t1`.`d` AS `d` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` < '5')
 select d from t1 use document keys where doc1.int < '5';
 d
 aaa
@@ -1602,7 +1602,7 @@ explain extended select a from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select a from t1 where doc1.int = 5;
 a
 5
@@ -1610,7 +1610,7 @@ explain extended select a from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select a from t1 use document keys where doc1.int = 5;
 a
 5
@@ -1618,7 +1618,7 @@ explain extended select a from t1 where doc1.int >= 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1` >= 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` >= 5)
 select a from t1 where doc1.int >= 5;
 a
 5
@@ -1630,7 +1630,7 @@ explain extended select a from t1 use document keys where doc1.int >= 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_int	9	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` >= 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` >= 5)
 select a from t1 use document keys where doc1.int >= 5;
 a
 5
@@ -1642,7 +1642,7 @@ explain extended select a from t1 where d like 'eee' and doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1` = 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1`.`int` = 5))
 select a from t1 where d like 'eee' and doc1.int = 5;
 a
 5
@@ -1650,7 +1650,7 @@ explain extended select a from t1 use document keys where d like 'eee' and doc1.
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1` = 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1`.`int` = 5))
 select a from t1 use document keys where d like 'eee' and doc1.int = 5;
 a
 5
@@ -1658,7 +1658,7 @@ explain extended select a from t1 where d like 'e%' and doc1.int > 4;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1` > 4))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1`.`int` > 4))
 select a from t1 where d like 'e%' and doc1.int > 4;
 a
 5
@@ -1666,7 +1666,7 @@ explain extended select a from t1 use document keys where d like 'e%' and doc1.i
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_d	110	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1` > 4))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1`.`int` > 4))
 select a from t1 use document keys where d like 'e%' and doc1.int > 4;
 a
 5
@@ -1674,7 +1674,7 @@ explain extended select a, d, doc1.int from t1 where d like 'eee' and doc1.int =
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1` = 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1`.`int` = 5))
 select a, d, doc1.int from t1 where d like 'eee' and doc1.int = 5;
 a	d	`doc1`.`int`
 5	eee	5
@@ -1682,7 +1682,7 @@ explain extended select a, d, doc1.int from t1 use document keys where d like 'e
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1` = 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'eee') and (`test`.`t1`.`doc1`.`int` = 5))
 select a, d, doc1.int from t1 use document keys where d like 'eee' and doc1.int = 5;
 a	d	`doc1`.`int`
 5	eee	5
@@ -1690,7 +1690,7 @@ explain extended select a, d, doc1.int from t1 where d like 'e%' and doc1.int < 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1` < 6))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1`.`int` < 6))
 select a, d, doc1.int from t1 where d like 'e%' and doc1.int < 6;
 a	d	`doc1`.`int`
 5	eee	5
@@ -1698,7 +1698,7 @@ explain extended select a, d, doc1.int from t1 use document keys where d like 'e
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	doc1_int	doc1_d	110	NULL	9	100.00	Using where; Using index
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1` < 6))
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`d` like 'e%') and (`test`.`t1`.`doc1`.`int` < 6))
 select a, d, doc1.int from t1 use document keys where d like 'e%' and doc1.int < 6;
 a	d	`doc1`.`int`
 5	eee	5
@@ -1706,7 +1706,7 @@ explain extended select b from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select b from t1 where doc1.int = 5;
 b
 5
@@ -1714,7 +1714,7 @@ explain extended select b from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select b from t1 use document keys where doc1.int = 5;
 b
 5
@@ -1722,7 +1722,7 @@ explain extended select * from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select * from t1 where doc1.int = 5;
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1730,7 +1730,7 @@ explain extended select * from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b`,`test`.`t1`.`c` AS `c`,`test`.`t1`.`d` AS `d`,`test`.`t1`.`doc1` AS `doc1`,`test`.`t1`.`doc2` AS `doc2` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select * from t1 use document keys where doc1.int = 5;
 a	b	c	d	doc1	doc2
 5	5	5.5	eee	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}	{"int":5,"double":5.5}
@@ -1738,7 +1738,7 @@ explain extended select doc1.double from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select doc1.double from t1 where doc1.int = 5;
 `doc1`.`double`
 5.5
@@ -1746,7 +1746,7 @@ explain extended select doc1.double from t1 use document keys where doc1.int = 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select doc1.double from t1 use document keys where doc1.int = 5;
 `doc1`.`double`
 5.5
@@ -1754,7 +1754,7 @@ explain extended select doc1 from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select doc1 from t1 where doc1.int = 5;
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1762,7 +1762,7 @@ explain extended select doc1 from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select doc1 from t1 use document keys where doc1.int = 5;
 doc1
 {"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1770,7 +1770,7 @@ explain extended select doc1.double from t1 where doc1.int < 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` < 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` where (`test`.`t1`.`doc1`.`int` < 5)
 select doc1.double from t1 where doc1.int < 5;
 `doc1`.`double`
 1.1
@@ -1781,7 +1781,7 @@ explain extended select doc1.double from t1 use document keys where doc1.int < 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` < 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` < 5)
 select doc1.double from t1 use document keys where doc1.int < 5;
 `doc1`.`double`
 1.1
@@ -1792,7 +1792,7 @@ explain extended select doc1 from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 where doc1.int > 5;
 doc1
 {"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
@@ -1803,7 +1803,7 @@ explain extended select doc1 from t1 use document keys where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	doc1_int	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` > 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` > 5)
 select doc1 from t1 use document keys where doc1.int > 5;
 doc1
 {"bool":false,"int":6,"double":6.6,"string":"fff","binary":"fff","k1":{"k2":{"k3":{"int":6}}},"id":6}
@@ -1814,7 +1814,7 @@ explain extended select b, doc1.double from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select b, doc1.double from t1 where doc1.int = 5;
 b	`doc1`.`double`
 5	5.5
@@ -1822,7 +1822,7 @@ explain extended select b, doc1.double from t1 use document keys where doc1.int 
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1`.`double` AS "`doc1`.`double`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select b, doc1.double from t1 use document keys where doc1.int = 5;
 b	`doc1`.`double`
 5	5.5
@@ -1830,7 +1830,7 @@ explain extended select b, doc1 from t1 where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1`.`int` = 5)
 select b, doc1 from t1 where doc1.int = 5;
 b	doc1
 5	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1838,7 +1838,7 @@ explain extended select b, doc1 from t1 use document keys where doc1.int = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b`,`test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`int` = 5)
 select b, doc1 from t1 use document keys where doc1.int = 5;
 b	doc1
 5	{"bool":true,"int":5,"double":5.5,"string":"eee","binary":"eee","k1":{"k2":{"k3":{"int":5}}},"id":5}
@@ -1846,7 +1846,7 @@ explain extended select b from t1 where doc1.int = 5 and d = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`doc1` = 5) and (`test`.`t1`.`d` = 5.5))
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`doc1`.`int` = 5) and (`test`.`t1`.`d` = 5.5))
 select b from t1 where doc1.int = 5 and d = 5.5;
 b
 Warnings:
@@ -1855,7 +1855,7 @@ explain extended select b from t1 use document keys where doc1.int = 5 and d = 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`doc1` = 5) and (`test`.`t1`.`d` = 5.5))
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`doc1`.`int` = 5) and (`test`.`t1`.`d` = 5.5))
 select b from t1 use document keys where doc1.int = 5 and d = 5.5;
 b
 Warnings:
@@ -1864,7 +1864,7 @@ explain extended select b from t1 where doc1.int = 5 and d > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`doc1` = 5) and (`test`.`t1`.`d` > 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`doc1`.`int` = 5) and (`test`.`t1`.`d` > 5))
 select b from t1 where doc1.int = 5 and d > 5;
 b
 Warnings:
@@ -1873,7 +1873,7 @@ explain extended select b from t1 use document keys where doc1.int = 5 and d > 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_int	doc1_int	9	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`doc1` = 5) and (`test`.`t1`.`d` > 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`doc1`.`int` = 5) and (`test`.`t1`.`d` > 5))
 select b from t1 use document keys where doc1.int = 5 and d > 5;
 b
 Warnings:
@@ -1882,7 +1882,7 @@ explain extended select c from t1 where doc1.int = 5 and b = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	b_a	b_a	5	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` where ((`test`.`t1`.`b` = 5) and (`test`.`t1`.`doc1` = 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` where ((`test`.`t1`.`b` = 5) and (`test`.`t1`.`doc1`.`int` = 5))
 select c from t1 where doc1.int = 5 and b = 5;
 c
 5.5
@@ -1890,7 +1890,7 @@ explain extended select c from t1 use document keys where doc1.int = 5 and b = 5
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	b_a,doc1_int,b_doc1	b_a	5	const	1	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`b` = 5) and (`test`.`t1`.`doc1` = 5))
+Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where ((`test`.`t1`.`b` = 5) and (`test`.`t1`.`doc1`.`int` = 5))
 select c from t1 use document keys where doc1.int = 5 and b = 5;
 c
 5.5
@@ -1898,7 +1898,7 @@ explain extended select doc1.int from t1 where doc1.id = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` where (`test`.`t1`.`doc1`.`id` = 5)
 select doc1.int from t1 where doc1.id = 5;
 `doc1`.`int`
 5
@@ -1906,7 +1906,7 @@ explain extended select doc1.int from t1 use document keys where doc1.id = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`doc1` AS `doc1` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`int` AS "`doc1`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`id` = 5)
 select doc1.int from t1 use document keys where doc1.id = 5;
 `doc1`.`int`
 5
@@ -1914,7 +1914,7 @@ explain extended select a, b from t1 where doc1.id = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`doc1`.`id` = 5)
 select a, b from t1 where doc1.id = 5;
 a	b
 5	5
@@ -1922,7 +1922,7 @@ explain extended select a, b from t1 use document keys where doc1.id = 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	9	100.00	Using where
 Warnings:
-Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1` = 5)
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`id` = 5)
 select a, b from t1 use document keys where doc1.id = 5;
 a	b
 5	5

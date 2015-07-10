@@ -161,14 +161,14 @@ SELECT doc.id FROM (SELECT * FROM t2 WHERE doc SUBDOC doc) temp;
 SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}')) temp;
 SELECT temp.doc.id FROM (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}')) temp;
 
-# FIXME: Test SUBDOC with views: fix bug with views first
-#CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
-#SELECT * from v1;
-#DROP VIEW v1;
+# Test SUBDOC with views
+CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
+SELECT * from v1;
+DROP VIEW v1;
 
-#CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
-#SELECT * from v1;
-#DROP VIEW v1;
+CREATE VIEW v1 AS (SELECT * FROM t2 WHERE doc.address NOT SUBDOC DOCUMENT('{"zipcode":98761, "foo":"bar"}'));
+SELECT * from v1;
+DROP VIEW v1;
 
 # Populate t3 with data
 CREATE TABLE t3 ( a int NOT null,
