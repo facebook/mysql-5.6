@@ -764,6 +764,36 @@ void Item::print_item_w_name(String *str, enum_query_type query_type)
   {
     THD *thd= current_thd;
     str->append(STRING_WITH_LEN(" AS "));
+
+    /* If item is a document path, then add the full doc path name as part of
+     * the alias.
+     *
+     * For example, let's say this is the view creation/select:
+     * CREATE VIEW v1 AS
+     * SELECT doc.id FROM t1;
+     *
+     * SELECT * FROM v1;
+     *
+     * The above query will be rewritten with the doc path alias:
+     * SELECT ... AS "`doc`.`id`" FROM t1;
+     */
+    if (type() == FIELD_ITEM)
+    {
+      Item_ident *item = ((Item_ident*) this);
+      if (item->document_path && item_name.eq(item->field_name))
+      {
+        str->append('\"');
+        append_identifier(thd, str, item_name);
+        List_iterator_fast<Document_key> it(item->document_path_keys);
+        for (Document_key *key = NULL; (key= it++); )
+        {
+          str->append('.');
+          append_identifier(thd, str, key->string);
+        }
+        str->append('\"');
+        return;
+      }
+    }
     append_identifier(thd, str, item_name);
   }
 }
@@ -1028,11 +1058,16 @@ void Item_ident::set_document_path(THD *thd,
 }
 
 /**
-   Compare if two Item_ident have the identical document path.
+   Compare if two Item_ident have the same column names AND
+   identical document paths.
+
+   For example, "doc.a.b" compared with "doc.a.b" is TRUE
+                "doc.a.b" compared with "doc.a.c" is FALSE
+                "doc.a.b" compared with "foo.a.b" is FALSE
 */
 bool Item_ident::compare_document_path(Item_ident *ident)
 {
-  return (document_path &&
+  return (document_path && item_name.eq_safe(ident->item_name) &&
           parsing_info.Compare_unresolved_idents_in_ident_list(
                        ident->parsing_info));
 }
@@ -3172,7 +3207,7 @@ const char *Item_ident::full_name() const
 
 void Item_ident::print(String *str, enum_query_type query_type,
                        const char *db_name_arg,
-                       const char *table_name_arg) const
+                       const char *table_name_arg)
 {
   THD *thd= current_thd;
   char d_name_buff[MAX_ALIAS_NAME], t_name_buff[MAX_ALIAS_NAME];
@@ -3216,18 +3251,34 @@ void Item_ident::print(String *str, enum_query_type query_type,
     }
     append_identifier(thd, str, t_name, (uint)strlen(t_name));
     str->append('.');
-    append_identifier(thd, str, field_name, (uint)strlen(field_name));
   }
-  else
+  else if (table_name_arg[0])
   {
-    if (table_name_arg[0])
+    append_identifier(thd, str, t_name, (uint) strlen(t_name));
+    str->append('.');
+  }
+  append_identifier(thd, str, field_name, (uint) strlen(field_name));
+
+  /* If item is a document path, add the rest of the doc path keys to the name
+   * For views with merge algorithm, this is necessary to rewrite the correct
+   * query. For example, if we have the following CREATE and SELECT:
+   *
+   * CREATE VIEW v1 (row1) AS
+   * SELECT doc.id FROM t1;
+   *
+   * SELECT row1 FROM v1;
+   *
+   * We want the MERGE algorithm to convert the SELECT into
+   * SELECT doc.id FROM t1;
+   */
+  if (document_path)
+  {
+    List_iterator_fast<Document_key> it(document_path_keys);
+    for (Document_key *key = NULL; (key= it++); )
     {
-      append_identifier(thd, str, t_name, (uint) strlen(t_name));
       str->append('.');
-      append_identifier(thd, str, field_name, (uint) strlen(field_name));
+      append_identifier(thd, str, key->string);
     }
-    else
-      append_identifier(thd, str, field_name, (uint) strlen(field_name));
   }
 }
 
