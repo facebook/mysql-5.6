@@ -2329,7 +2329,7 @@ protected:
   */
   void print(String *str, enum_query_type query_type,
              const char *db_name_arg,
-             const char *table_name_arg) const;
+             const char *table_name_arg);
 public:
   virtual bool change_context_processor(uchar *cntx)
     { context= (Name_resolution_context *)cntx; return FALSE; }
