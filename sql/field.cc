@@ -39,8 +39,7 @@
 #include <m_ctype.h>
 #include <errno.h>
 #include "sql_join_buffer.h"             // CACHE_FIELD
-
-
+#include "../fbson/FbsonUpdater.h"
 using std::max;
 using std::min;
 
@@ -974,6 +973,9 @@ static Item_result field_types_result_type [FIELDTYPE_NUM]=
   STRING_RESULT,            STRING_RESULT
 };
 
+static fbson::FbsonValue*
+json_extract_fbsonvalue(List<Document_key>& key_path,
+                        fbson::FbsonValue *pval);
 
 /*
   Test if the given string contains important data:
@@ -2487,7 +2489,7 @@ int Field_decimal::cmp(const uchar *a_ptr,const uchar *b_ptr)
   {
     if (*a_ptr++ != *b_ptr++)
       return swap ^ (a_ptr[-1] < b_ptr[-1] ? -1 : 1); // compare digits
-  }
+ }
   return 0;
 }
 
@@ -8347,6 +8349,268 @@ uint Field_geom::is_equal(Create_field *new_field)
 /****************************************************************************
 ** document type.
 ****************************************************************************/
+// Walk through the document path. last argument is to store the last
+// key in the document path that has been visited before return.
+// It's usefule, because the last elements some times we want to deal
+// it specially. And in this function, the document path will be
+// pushed into the updater to get the actual FbsonValue in the buffer
+// which can be used to do update.
+fbson::FbsonErrType pushPathKeys(List_iterator<Document_key> &iter,
+                                 fbson::FbsonUpdater &updater,
+                                 Document_key **last)
+
+{
+  if(nullptr != last)
+    *last = nullptr;
+  Document_key *key = iter++;
+  fbson::FbsonErrType ret = fbson::FbsonErrType::E_NONE;
+  while(nullptr != key ){
+    if(nullptr != last)
+      *last = key;
+    // It's object?
+    if(updater.getCurrent()->isObject()){
+      if(key->string.str){
+        ret = updater.pushPathKey(key->string.str, key->string.length);
+      }else{
+        ret = fbson::FbsonErrType::E_NOTOBJ;
+      }
+    }else if(updater.getCurrent()->isArray()){
+      // Array?
+      if(key->string.str && key->index >= 0){
+        ret = updater.pushPathKey(key->index);
+      } else {
+        ret = fbson::FbsonErrType::E_NOTARRAY;
+      }
+    }else{
+      // It's basic FbsonValue, we can't index it.
+      ret = fbson::FbsonErrType::E_NOTOBJ;
+    }
+    // If something wrong happen, just return
+    if(ret != fbson::FbsonErrType::E_NONE)
+      break;
+    key = iter++;
+  }
+  return ret;
+}
+
+// For deleting a node
+inline fbson::FbsonErrType delete_node(fbson::FbsonUpdater &updater,
+                                       List<Document_key> &keys)
+{
+  List_iterator<Document_key> iter(keys);
+  fbson::FbsonErrType ret = pushPathKeys(iter, updater, nullptr);
+  // If the node has not been found, then just return
+  if(fbson::FbsonErrType::E_NONE != ret)
+    return ret;
+  // Delete it
+  ret = updater.remove();
+  if(fbson::FbsonErrType::E_NONE != ret)
+    return ret;
+
+  return fbson::FbsonErrType::E_NONE;
+}
+inline const fbson::FbsonValue *build_path(List_iterator<Document_key>& iter,
+                                     fbson::FbsonWriter &writer,
+                                     const fbson::FbsonValue *val,
+                                     fbson::FbsonType parent_type){
+  // If the value is inside of an Object, we need write the key first
+  Document_key *key = *iter.ref();
+  if(parent_type == fbson::FbsonType::T_Object){
+    writer.writeStartObject();
+    writer.writeKey(key->string.str, key->string.length);
+  }
+
+  int key_num = 0;
+  while(true){
+    Document_key *key = iter++;
+    if(nullptr == key)
+      break;
+    // Every key will be treated as the key for Object instead of
+    // index for array.
+    writer.writeStartObject();
+    writer.writeKey(key->string.str, key->string.length);
+    ++key_num;
+  }
+  /* If the parent is an array and no extra path for this object, we just
+   * return the original value.
+   */
+  if(key_num == 0 && parent_type == fbson::FbsonType::T_Array)
+    return val;
+
+  writer.writeValue(val);
+  if(!writer.writeEnd()){
+    return nullptr;
+  }
+  return writer.getValue();
+}
+
+// For updating a node.
+fbson::FbsonErrType Field_document::update_node(
+  fbson::FbsonUpdater &updater,
+  List<Document_key> &keys,
+  const fbson::FbsonValue *val)
+{
+  List_iterator<Document_key> iter(keys);
+  Document_key *last_pointer;
+  // Firstly, go to the deepest through the document path. It's ok if
+  // some fields don't exist.
+  fbson::FbsonErrType ret =
+    pushPathKeys(iter, updater, &last_pointer);
+
+  // For array, since we don't want to allow the user to access the
+  // data that exceeds the boundary, even for update, just return
+  // E_OUTOFBOUNDARY for it
+  if(ret == fbson::FbsonErrType::E_OUTOFBOUNDARY &&
+     update_args->func_type != Save_in_field_args::FuncType::FUNC_INSERTAT)
+    return ret;
+
+  // exist_opt == 1 means that we need to make sure the path exist
+  if(update_args->exist_type == Save_in_field_args::CheckType::CHECK_EXISTS &&
+     (ret == fbson::FbsonErrType::E_OUTOFBOUNDARY ||
+      ret == fbson::FbsonErrType::E_KEYNOTEXIST)){
+    return ret;
+  }else if(
+    update_args->exist_type == Save_in_field_args::CheckType::CHECK_NOTEXISTS &&
+    (ret != fbson::FbsonErrType::E_OUTOFBOUNDARY &&
+     ret != fbson::FbsonErrType::E_KEYNOTEXIST)){
+    // exist_type == CHECK_NOTEXISTS means that we need to make sure the path
+    // doesn't exist
+    return fbson::FbsonErrType::E_INVALID_OPER;
+  }
+
+  // Make sure no other errors. Such as accessing an array by making
+  // use of key.
+  if(ret != fbson::FbsonErrType::E_OUTOFBOUNDARY &&
+     ret != fbson::FbsonErrType::E_KEYNOTEXIST &&
+     ret != fbson::FbsonErrType::E_NONE){
+    // It's an error, can't handle it
+    return ret;
+  }
+
+  fbson::FbsonWriter writer;
+  // For insert operation.
+  // Insert is only different, when we insert a value to an array at
+  // the index, which is in the array.
+  if(update_args->func_type == Save_in_field_args::FuncType::FUNC_INSERTAT){
+    Document_key *key = *iter.ref();
+    // When doing inserting, the last elements of the document path in
+    // fact should be the index of the value.
+    if(nullptr == key){
+      updater.popPathKey();
+      key = last_pointer;
+    }
+    if(updater.getCurrent()->isArray() &&
+       key->string.str && key->index >= 0){
+      if(Save_in_field_args::ArgType::ARG_ALL == update_args->arg_type &&
+         val->isArray()){
+        // It's insertAtAll for array
+        return updater.insertValue(key->index,
+                                   ((fbson::ArrayVal*)val)->begin(),
+                                   ((fbson::ArrayVal*)val)->end());
+      }else{
+        // It's insertAt for array
+        return updater.insertValue(key->index, val);
+      }
+    }
+    // Insert can only work for array with index
+    return fbson::FbsonErrType::E_INVALID_OPER;
+  }
+  // Get the key in the document path where we can't go deeper.
+  Document_key *key = *iter.ref();
+  if(nullptr != key){
+    // Not the last node, need to create a new one
+    val = build_path(iter, writer, val, updater.getCurrent()->type());
+  }
+
+  if(nullptr == val){
+    return fbson::FbsonErrType::E_INVALID_OPER;
+  }
+
+  if(nullptr == key){
+    // When the path exist
+    ret = updater.updateValue(val);
+  } else{
+    // When the path doesn't exist, there are two situations: insert
+    // to an object or an array.
+    if(updater.getCurrent()->isObject()){
+      // It's an Object, we need to make a FbsonKeyValue and insert it.
+      fbson::FbsonKeyValue *fkv = (fbson::FbsonKeyValue*)
+        ((fbson::ObjectVal*)val)->getValuePtr();
+      return updater.insertValue(fkv);
+    }else if(updater.getCurrent()->isArray()){
+      if(key->string.str && key->index >= -1){
+        // It's an array, we insert it to the wanted index
+        return updater.insertValue(key->index, val);
+      }else
+        return fbson::FbsonErrType::E_NOTOBJ;
+    }else {
+      return fbson::FbsonErrType::E_INVALID_OPER;
+    }
+  }
+  return ret;
+}
+
+// Doing partial updating. If val == nullptr, then it's a delete
+// operation.
+type_conversion_status
+Field_document::update_json(const fbson::FbsonValue *val)
+{
+
+  // Do the preparation first
+  char *blob = nullptr;
+  type_conversion_status pre_ret = TYPE_OK;
+  if(TYPE_OK != (pre_ret = prepare_update(update_args->cs, &blob))){
+    return pre_ret;
+  }
+
+  fbson::FbsonErrType ret = fbson::FbsonErrType::E_NONE;
+  while(true)
+  {
+    uint buffer_len = value.alloced_length() - (blob - value.ptr());
+    List<Document_key> &path = *update_args->key_path;
+    fbson::FbsonDocument *doc =
+      fbson::FbsonDocument::createDocument(blob, value.length());
+
+    DBUG_ASSERT(doc);
+
+    fbson::FbsonUpdater updater(doc, buffer_len);
+
+    // Different update type
+    if(nullptr == val){
+      ret = delete_node(updater, path);
+    }else{
+      ret = update_node(updater,
+                        path,
+                        val);
+    }
+    // If updated successfully, then store it
+    if(fbson::FbsonErrType::E_NONE == ret){
+      value.length(updater.getDocument()->numPackedBytes());
+      return Field_blob::store_internal(value.ptr(),
+                                        value.length(),
+                                        update_args->cs);
+    }
+    else if(fbson::FbsonErrType::E_OUTOFMEMORY == ret){
+      // Sometimes, it will fail because that the buffer is not large
+      // enough. If that happens, we will double the buffer and do all the
+      // things again. If the buffer size has been the largest
+      // allowed, then this update will fail.
+      if(buffer_len > max_data_length()){
+        return TYPE_ERR_OOM;
+      }
+      // Double the buffer
+      int new_allocated_len = min(value.alloced_length() * 2,
+                                  max_data_length());
+
+      value.realloc(new_allocated_len);
+      blob = value.c_ptr();
+    }else{
+      // Other errors
+      return TYPE_ERR_BAD_VALUE;
+    }
+  }
+  return TYPE_ERR_BAD_VALUE;
+}
 
 void
 Field_document::sql_type(String &res) const
@@ -8395,135 +8659,203 @@ Field_document::push_error_too_big()
                   MYF(0), field_name, max_data_length());
 }
 
+type_conversion_status
+Field_document::store_document(fbson::FbsonDocument *document,
+                               const CHARSET_INFO *cs)
+{
+  if(nullptr == update_args){
+    return Field_blob::store_internal((char*)document,
+                                      document->numPackedBytes(),
+                                      cs);
+  }else{
+    return update_json(document->getValue());
+  }
+}
 
 type_conversion_status
 Field_document::store(const char *from, uint length, const CHARSET_INFO *cs)
 {
-  ASSERT_COLUMN_MARKED_FOR_WRITE;
-  return store_internal(from, length, cs);
+  if(nullptr == update_args){
+    ASSERT_COLUMN_MARKED_FOR_WRITE;
+    return store_internal(from, length, cs);
+  }else{
+    fbson::FbsonValueCreater creater;
+    update_args->cs = cs;
+    return update_json(creater(from, length));
+  }
+  return TYPE_ERR_BAD_VALUE;
 }
-
 
 type_conversion_status
 Field_document::store(double nr)
 {
+  if(nullptr == update_args){
   // We will suppot storing double values directly into document column.
   // However we don't down-cast double values (i.e. losing precision)
-  if (doc_type != DOC_DOCUMENT)
-  {
-    switch (doc_type)
+    if (doc_type != DOC_DOCUMENT)
     {
-    case DOC_PATH_DOUBLE:
-      *((double*)ptr) = nr;
-      return TYPE_OK;
-
-    case DOC_PATH_INT:
-      // only if the double is an integer value
-      if (nr - std::floor(nr) == 0)
+      switch (doc_type)
       {
-        *((longlong*)ptr) = (longlong)nr;
-        return TYPE_OK;
+        case DOC_PATH_DOUBLE:
+          *((double*)ptr) = nr;
+          return TYPE_OK;
+
+        case DOC_PATH_INT:
+          // only if the double is an integer value
+          if (nr - std::floor(nr) == 0)
+          {
+            *((longlong*)ptr) = (longlong)nr;
+            return TYPE_OK;
+          }
+          break;
+
+        default:
+          ;
       }
-      break;
 
-    default:
-      ;
-    }
-
-    set_null();
-    memset(ptr, 0, Field_blob::pack_length());
-    return TYPE_ERR_BAD_VALUE;
-  }
-  else
-  {
-    char buf[128];
-    sprintf(buf, "%.32f", nr);
-
-    if (real_maybe_null())
-    {
       set_null();
       memset(ptr, 0, Field_blob::pack_length());
-      push_warning_invalid(buf);
+      return TYPE_ERR_BAD_VALUE;
     }
     else
     {
-      push_error_invalid(buf);
+      char buf[128];
+      sprintf(buf, "%.32f", nr);
+
+      if (real_maybe_null())
+      {
+        set_null();
+        memset(ptr, 0, Field_blob::pack_length());
+        push_warning_invalid(buf);
+      }
+      else
+      {
+        push_error_invalid(buf);
+      }
+      return TYPE_ERR_BAD_VALUE;
     }
+  }else{
+    // It's a document path
+    fbson::FbsonValueCreater creater;
+    return update_json(creater(nr));
+  }
+  return TYPE_ERR_BAD_VALUE;
+}
+// prepare the buffer in value
+type_conversion_status
+Field_document::prepare_update(const CHARSET_INFO *cs, char **buff){
+  char *blob = nullptr;
+  memcpy(&blob, ptr + packlength, sizeof(char*));
+
+  // Null column can't use partial update
+  if(nullptr == blob || is_null()){
+    set_null();
     return TYPE_ERR_BAD_VALUE;
   }
+
+  // If the buffer has been allocated, then it's fine.
+  if(blob >= value.ptr() && blob <= value.ptr() + value.length()){
+    *buff = blob;
+    return TYPE_OK;
+  }
+  int len = get_length(ptr);
+  if(value.realloc(len * 2)){
+    *buff = nullptr;
+    return TYPE_ERR_OOM;
+  }
+  value.copy(blob, len, cs);
+  *buff = value.c_ptr();
+  return TYPE_OK;
 }
 
-
+type_conversion_status
+Field_document::set_delete()
+{
+  if(nullptr == update_args){
+    return TYPE_ERR_BAD_VALUE;
+  }
+  return update_json(nullptr);
+}
 
 type_conversion_status
 Field_document::store(longlong nr, bool unsigned_val)
 {
-  // Integer values can be stored into double, int or bool documents
-  if (doc_type != DOC_DOCUMENT)
-  {
-    switch (doc_type)
+  if(nullptr == update_args){
+    // Integer values can be stored into double, int or bool documents
+    if (doc_type != DOC_DOCUMENT)
     {
-    case DOC_PATH_DOUBLE:
-      *((double*)ptr) = (double)nr;
-      return TYPE_OK;
+      switch (doc_type)
+      {
+        case DOC_PATH_DOUBLE:
+          *((double*)ptr) = (double)nr;
+          return TYPE_OK;
 
-    case DOC_PATH_INT:
-      *((longlong*)ptr) = nr;
-      return TYPE_OK;
+        case DOC_PATH_INT:
+          *((longlong*)ptr) = nr;
+          return TYPE_OK;
 
-    case DOC_PATH_TINY:
-      *((char*)ptr) = (nr == 0) ? 0 : 1;
-      return TYPE_OK;
+        case DOC_PATH_TINY:
+          *((char*)ptr) = (nr == 0) ? 0 : 1;
+          return TYPE_OK;
 
-    default:
-      ;
-    }
+        default:
+          ;
+      }
 
-    set_null();
-    memset(ptr, 0, Field_blob::pack_length());
-    return TYPE_ERR_BAD_VALUE;
-  }
-  else
-  {
-    char buf[128], format[16];
-    unsigned_val ? sprintf(format, "%s", "%llu")
-                 : sprintf(format, "%s", "%lld");
-    sprintf(buf, format, nr);
-
-    if (real_maybe_null())
-    {
       set_null();
       memset(ptr, 0, Field_blob::pack_length());
-      push_warning_invalid(buf);
+      return TYPE_ERR_BAD_VALUE;
     }
     else
-      push_error_invalid(buf);
+    {
+      char buf[128], format[16];
+      unsigned_val ? sprintf(format, "%s", "%llu")
+        : sprintf(format, "%s", "%lld");
+      sprintf(buf, format, nr);
 
-    return TYPE_ERR_BAD_VALUE;
+      if (real_maybe_null())
+      {
+        set_null();
+        memset(ptr, 0, Field_blob::pack_length());
+        push_warning_invalid(buf);
+      }
+      else
+        push_error_invalid(buf);
+      return TYPE_ERR_BAD_VALUE;
+    }
+  }else{
+    fbson::FbsonValueCreater creater;
+    return update_json(creater((int64_t)nr));
   }
+  return TYPE_ERR_BAD_VALUE;
 }
 
 
 type_conversion_status
 Field_document::store_decimal(const my_decimal *nr)
-{
-  char buf[DECIMAL_MAX_STR_LENGTH];
-  String str(buf, sizeof (buf), &my_charset_bin);
-  my_decimal2string(E_DEC_FATAL_ERROR, nr, 0, 0, 0, &str);
+{if(nullptr == update_args){
+    char buf[DECIMAL_MAX_STR_LENGTH];
+    String str(buf, sizeof (buf), &my_charset_bin);
+    my_decimal2string(E_DEC_FATAL_ERROR, nr, 0, 0, 0, &str);
 
-  if (real_maybe_null())
+    if (real_maybe_null())
+    {
+      set_null();
+      memset(ptr, 0, Field_blob::pack_length());
+      push_warning_invalid(str.c_ptr_safe());
+    }
+    else
+    {
+      push_error_invalid(str.c_ptr_safe());
+    }
+  }else
   {
-    set_null();
-    memset(ptr, 0, Field_blob::pack_length());
-    push_warning_invalid(str.c_ptr_safe());
-  }
-  else
-  {
-    push_error_invalid(str.c_ptr_safe());
+    double dbl;
+    my_decimal2double(E_DEC_FATAL_ERROR, nr, &dbl);
+    return this->store(dbl);
   }
   return TYPE_ERR_BAD_VALUE;
 }
-
 
 type_conversion_status
 Field_document::store_internal(const char *from, uint length,
@@ -9262,7 +9594,6 @@ double Field_document::document_path_val_real(
                                  my_bool& is_null)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-
   // Check if we are reading from a document blob. Note if the optimizer
   // decides not to use index scan only on the table, field will contain
   // document blob regardless of the doc_path_type value we have set.
