@@ -24,6 +24,20 @@ TEST(FBSON_WRITER, basic) {
   fbson::FbsonWriter writer;
   fbson::FbsonValue* pval;
 
+  EXPECT_TRUE(writer.writeStartArray());
+  EXPECT_TRUE(writer.writeStartArray());
+  EXPECT_TRUE(writer.writeStartObject());
+  EXPECT_TRUE(writer.writeKey("k1", strlen("k1")));
+  EXPECT_TRUE(writer.writeBool(true));
+  EXPECT_TRUE(writer.writeEnd());
+  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+      writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
+  EXPECT_TRUE(pdoc);
+  fbson::FbsonToJson tojson;
+  EXPECT_STREQ("[[{\"k1\":true}]]",
+               tojson.json(pdoc->getValue()));
+  writer.reset();
+
   EXPECT_TRUE(writer.writeStartObject());
   EXPECT_TRUE(writer.writeKey("k1", strlen("k1")));
   EXPECT_TRUE(writer.writeNull());
@@ -33,7 +47,7 @@ TEST(FBSON_WRITER, basic) {
   EXPECT_TRUE(writer.writeBool(false));
   EXPECT_TRUE(writer.writeEndObject());
 
-  fbson::FbsonDocument* pdoc = fbson::FbsonDocument::createDocument(
+  pdoc = fbson::FbsonDocument::createDocument(
       writer.getOutput()->getBuffer(), (unsigned)writer.getOutput()->getSize());
   EXPECT_TRUE(pdoc);
   fbson::FbsonDocument& doc = *pdoc;
