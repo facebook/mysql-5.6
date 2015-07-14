@@ -24,6 +24,7 @@
 #include "mysql_version.h"                      /* FRM_VER */
 #include "../fbson/FbsonJsonParser.h"
 #include "../fbson/FbsonUtil.h"
+#include "../fbson/FbsonUpdater.h"
 
 /*
 
@@ -82,7 +83,7 @@ class Protocol;
 class Create_field;
 class Relay_log_info;
 class Field;
-
+class Save_in_field_args;
 enum enum_check_fields
 {
   CHECK_FIELD_IGNORE,
@@ -598,11 +599,17 @@ public:
         const char *field_name_arg);
   virtual ~Field() {}
 
+  virtual type_conversion_status store_document(
+    fbson::FbsonDocument *document,
+    const CHARSET_INFO *cs){
+    return TYPE_ERR_BAD_VALUE;
+  }
   /* Store functions returns 1 on overflow and -1 on fatal error */
   virtual type_conversion_status store(const char *to, uint length,
                                        const CHARSET_INFO *cs)=0;
   virtual type_conversion_status store(double nr)=0;
   virtual type_conversion_status store(longlong nr, bool unsigned_val)=0;
+  virtual type_conversion_status set_delete(){ return TYPE_ERR_BAD_VALUE; }
   /**
     Store a temporal value in packed longlong format into a field.
     The packed value is compatible with TIME_to_longlong_time_packed(),
@@ -3681,11 +3688,13 @@ class Field_document :public Field_blob {
                                 uint& val_len, my_bool& is_null);
 
   char *val_fbson_blob(int *length);
-
+  type_conversion_status update_json(const fbson::FbsonValue *val);
+  type_conversion_status prepare_update(const CHARSET_INFO *cs, char **buff);
 public:
   enum document_type doc_type;
   bool nullable_document; // stores the user defined nullability in DDL
   uint doc_key_prefix_len;// stores the length of prefix index
+  Save_in_field_args *update_args; // store the partial update arguments
 
   /* array to hold pointers to document path keys.
    * The purpose is similar to the key_start map, but for document keys
@@ -3695,36 +3704,41 @@ public:
   DOCUMENT_PATH_KEY_PART_INFO* document_path_key_start[MAX_KEY];
 
   Field_document(uchar *ptr_arg, uchar *null_ptr_arg, uint null_bit_arg,
-      enum utype unireg_check_arg, const char *field_name_arg,
-      TABLE_SHARE *share, uint blob_pack_length,
-      enum document_type doc_type_arg, bool nullable_arg)
-    :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
-        field_name_arg, share, blob_pack_length, &my_charset_bin),
-    doc_type(doc_type_arg), nullable_document(nullable_arg),
-    doc_key_prefix_len(0)
-  {
-    init();
-  }
+                 enum utype unireg_check_arg, const char *field_name_arg,
+                 TABLE_SHARE *share, uint blob_pack_length,
+                 enum document_type doc_type_arg, bool nullable_arg)
+      :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
+                  field_name_arg, share, blob_pack_length, &my_charset_bin),
+       doc_type(doc_type_arg), nullable_document(nullable_arg),
+       doc_key_prefix_len(0), update_args(nullptr)
+    {
+      init();
+    }
   Field_document(uint32 len_arg,bool maybe_null_arg, const char *field_name_arg,
-      TABLE_SHARE *share, enum document_type doc_type_arg, bool nullable_arg)
-    :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin),
-    doc_type(doc_type_arg), nullable_document(nullable_arg),
-    doc_key_prefix_len(0)
-  {
-    init();
-  }
+                 TABLE_SHARE *share, enum document_type doc_type_arg,
+                 bool nullable_arg)
+      :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin),
+       doc_type(doc_type_arg), nullable_document(nullable_arg),
+       doc_key_prefix_len(0), update_args(nullptr)
+    {
+      init();
+    }
 
   enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
   void sql_type(String &str) const;
   using Field_blob::store;
+  type_conversion_status store_document(fbson::FbsonDocument *document,
+                                        const CHARSET_INFO *cs);
   type_conversion_status store(const char *to, uint length,
                                const CHARSET_INFO *charset);
   type_conversion_status store(double nr);
   type_conversion_status store(longlong nr, bool unsigned_val);
   type_conversion_status store_decimal(const my_decimal *nr);
+  type_conversion_status set_delete(); // Delete the node in the partial update
 
+  // Store for the doc_path
   double val_real(void);
   longlong val_int(void);
   my_decimal *val_decimal(my_decimal *);
@@ -3776,12 +3790,20 @@ public:
 
   type_conversion_status reset(void)
   {
-    type_conversion_status res= Field_blob::reset();
-    if (res != TYPE_OK)
-      return res;
-    return maybe_null() && nullable_document
-               ? TYPE_OK
-               : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+    if(nullptr != update_args){
+      // When it's a document path, it means that we want to set an
+      // element in this document to null.
+      set_notnull();
+      fbson::FbsonValueCreater creater;
+      return update_json(creater());
+    }else{
+      type_conversion_status res= Field_blob::reset();
+      if (res != TYPE_OK)
+        return res;
+      return maybe_null() && nullable_document
+        ? TYPE_OK
+        : TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+    }
   }
 
   document_type get_document_type()
@@ -3832,7 +3854,9 @@ private:
     memset(document_path_key_start, 0,
            sizeof(DOCUMENT_PATH_KEY_PART_INFO*)*MAX_KEY);
   }
-
+  fbson::FbsonErrType update_node(fbson::FbsonUpdater &updater,
+                                  List<Document_key> &keys,
+                                  const fbson::FbsonValue *val);
   int64 read_bigendian(char *src, unsigned len);
 };
 

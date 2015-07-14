@@ -994,12 +994,152 @@ bool match_authorized_user(Security_context *ctx, LEX_USER *user)
   }
   return false;
 }
+One_ident *pop_back_dot_separated_ident_list(List<One_ident> *ident_list){
+  if(0 == ident_list->elements)
+    return nullptr;
+  List_iterator<One_ident> iter(*ident_list);
+  One_ident *last_one = iter++;
+  for(uint i = 0; i != ident_list->elements - 1; ++i){
+    last_one = iter++;
+  }
 
-void push_front_dot_separated_ident_list(THD *thd,
-                                         const LEX_STRING& s)
-{
+  iter.remove();
+  return last_one;
+}
+
+Item *create_dot_separated_ident(THD *thd, List<One_ident> *ident_list){
   LEX *lex= thd->lex;
-  lex->dot_separated_ident_list.push_front(new (thd->mem_root) One_ident(s));
+
+  uint list_size = ident_list->elements;
+  DBUG_ASSERT(list_size >= 1);
+
+  List_iterator_fast<One_ident> it(*ident_list);
+  One_ident *s1 = it++;
+  One_ident *s2 = (list_size >= 2) ? it++ : NULL;
+  One_ident *s3 = (list_size >= 3) ? it++ : NULL;
+  /*
+    FIXME This will work ok in simple_ident_nospvar case because
+    we can't meet simple_ident_nospvar in trigger now. But it
+    should be changed in future.
+  */
+  Item *ret = nullptr;
+  sp_head *sp= lex->sphead;
+  if (list_size == 2 &&
+      sp && sp->m_type == SP_TYPE_TRIGGER &&
+      (!my_strcasecmp(system_charset_info, s1->s.str, "NEW") ||
+       !my_strcasecmp(system_charset_info, s1->s.str, "OLD")))
+  {
+    Item_trigger_field *trg_fld;
+    bool new_row= (s1->s.str[0]=='N' || s1->s.str[0]=='n');
+
+    if (sp->m_trg_chistics.event == TRG_EVENT_INSERT &&
+        !new_row)
+    {
+      my_error(ER_TRG_NO_SUCH_ROW_IN_TRG, MYF(0), "OLD", "on INSERT");
+      return nullptr;
+    }
+
+    if (sp->m_trg_chistics.event == TRG_EVENT_DELETE &&
+        new_row)
+    {
+      my_error(ER_TRG_NO_SUCH_ROW_IN_TRG, MYF(0), "NEW", "on DELETE");
+      return nullptr;
+    }
+    DBUG_ASSERT(!new_row ||
+                (sp->m_trg_chistics.event == TRG_EVENT_INSERT ||
+                 sp->m_trg_chistics.event == TRG_EVENT_UPDATE));
+    const bool read_only=
+      !(new_row && sp->m_trg_chistics.action_time == TRG_ACTION_BEFORE);
+    trg_fld= new (thd->mem_root)
+      Item_trigger_field(lex->current_context(),
+                         new_row ?
+                         Item_trigger_field::NEW_ROW:
+                         Item_trigger_field::OLD_ROW,
+                         s2->s.str,
+                         SELECT_ACL,
+                         read_only);
+    if (trg_fld == NULL)
+      return nullptr;
+
+    /*
+      Let us add this item to list of all Item_trigger_field objects
+      in trigger.
+    */
+    lex->sphead->m_cur_instr_trig_field_items.link_in_list(
+      trg_fld, &trg_fld->next_trg_field);
+
+    ret= trg_fld;
+  }
+
+  if (ret == NULL)
+  {
+    /*
+      When parser sees a field name is in the form of A.B.C or B.C, it always
+      interpret A as database name if database name is allowed and B as table
+      name if table name is allowed. If there are more dot-separated identifiers,
+      they will be saved into a list and treated as unresolved.
+    */
+
+    SELECT_LEX *sel= lex->current_select;
+    bool client_no_schema = (thd->client_capabilities & CLIENT_NO_SCHEMA);
+    bool field = ((sel->parsing_place != IN_HAVING) || (sel->get_in_sum_expr() > 0));
+
+    if (list_size > 1 && sel->no_table_names_allowed && !allow_document_type)
+    {
+      const char* table_name= (list_size == 2 ? s1->s.str : s2->s.str);
+      my_error(ER_TABLENAME_NOT_ALLOWED_HERE,
+               MYF(0), table_name, thd->where);
+    }
+
+    if (list_size > 3 && !allow_document_type)
+      my_error(ER_INVALID_FIELD_OR_REFERENCE, MYF(0), thd->where);
+
+    uint num_unresolved_idents = 0;
+    char *database_name= NULL, *table_name= NULL, *field_name= NULL;
+    if (list_size == 1)
+      field_name = s1->s.str;
+    else if (!sel->no_table_names_allowed && (client_no_schema || list_size == 2))
+    {
+      table_name = s1->s.str;
+      field_name = s2->s.str;
+      num_unresolved_idents = list_size - 2;
+    }
+    else if (sel->no_table_names_allowed)
+    {
+      //DBUG_ASSERT(thd->variables.allow_document_type);
+      field_name = s1->s.str;
+      num_unresolved_idents = list_size - 1;
+    }
+    else
+    {
+      DBUG_ASSERT(!client_no_schema && list_size >= 3);
+      database_name = s1->s.str;
+      table_name = s2->s.str;
+      field_name = s3->s.str;
+      num_unresolved_idents = list_size - 3;
+    }
+
+    if (field)
+      ret= new (thd->mem_root) Item_field(thd, lex->current_context(),
+                                          database_name, table_name, field_name,
+                                          ident_list,
+                                          client_no_schema,
+                                          sel->no_table_names_allowed,
+                                          num_unresolved_idents);
+    else
+      // Item_ref will be created when a document path is used
+      // in the HAVING clause of a GROUP BY
+      ret= new (thd->mem_root) Item_ref(thd, lex->current_context(),
+                                        database_name, table_name, field_name,
+                                        ident_list,
+                                        client_no_schema,
+                                        sel->no_table_names_allowed,
+                                        num_unresolved_idents);
+
+    if (ret == NULL)
+      return nullptr;
+  }
+  return ret;
 }
 
 %}
@@ -1060,6 +1200,10 @@ void push_front_dot_separated_ident_list(THD *thd,
   Condition_information_item::Name cond_info_item_name;
   List<Condition_information_item> *cond_info_list;
   bool is_not_empty;
+  Save_in_field_args *update_args;
+  List<One_ident> *dot_ident_list;
+  enum Save_in_field_args::FuncType func_type;
+  enum Save_in_field_args::CheckType check_type;
 }
 
 %{
@@ -1784,6 +1928,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         opt_ev_status opt_ev_on_completion ev_on_completion opt_ev_comment
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
         trg_action_time trg_event handler_step
+%type <check_type> update_exist_arg
 
 /*
   Bit field of MYSQL_START_TRANS_OPT_* flags.
@@ -1906,6 +2051,9 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 
 %type <boolfunc2creator> comp_op
 
+%type <update_args> update_arg
+%type <dot_ident_list> dot_separated_ident dot_separated_ident_2
+
 %type <NONE>
         query verb_clause create change select do drop insert replace insert2
         insert_values update delete truncate rename
@@ -1961,7 +2109,6 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         server_def server_options_list server_option
         definer_opt no_definer definer get_diagnostics
         alter_user_list find
-        dot_separated_ident dot_separated_ident_2
 END_OF_INPUT
 
 %type <NONE> call sp_proc_stmts sp_proc_stmts1 sp_proc_stmt
@@ -7424,7 +7571,7 @@ key_part:
         | dot_separated_ident AS key_part_type
           {
             List<LEX_STRING> list;
-            List_iterator_fast<One_ident> it(Lex->dot_separated_ident_list);
+            List_iterator_fast<One_ident> it(*$1);
             LEX_STRING field_name;
             uint idx = 0;
             for (One_ident *ident = NULL; (ident= it++); idx++)
@@ -7437,8 +7584,8 @@ key_part:
             $$= new Key_part_spec(field_name, spec);
             if ($$ == NULL)
               MYSQL_YYABORT;
-
-            Lex->dot_separated_ident_list.empty();
+            $1->empty();
+            delete $1;
           }
         ;
 
@@ -12537,8 +12684,14 @@ expr_or_default:
             if ($$ == NULL)
               MYSQL_YYABORT;
           }
+/*
+        If we want the syntax like "SET aaa = DELETE", we uncomment this.
+        | DELETE_SYM
+          {
+            $$ = new (YYTHD->mem_root) Item_delete();
+          }
+*/
         ;
-
 opt_insert_update:
           /* empty */
         | ON DUPLICATE_SYM { Lex->duplicates= DUP_UPDATE; }
@@ -12583,9 +12736,132 @@ update_list:
         | update_elem
         ;
 
-update_elem:
-          simple_ident_nospvar equal expr_or_default
+update_exist_arg:
+           IF EXISTS
+           {
+             $$ = Save_in_field_args::CheckType::CHECK_EXISTS;
+           }
+         | IF not EXISTS
+           {
+             $$ = Save_in_field_args::CheckType::CHECK_NOTEXISTS;
+           }
+update_arg:
+          /* empty */
           {
+            $$ = nullptr;
+          }
+        | INSERT
+          {
+            $$ = new (YYTHD->mem_root) Save_in_field_args();
+            $$->func_type = Save_in_field_args::FuncType::FUNC_INSERTAT;
+          }
+        | update_exist_arg
+          {
+            $$ = new (YYTHD->mem_root) Save_in_field_args();
+            $$->func_type = Save_in_field_args::FuncType::FUNC_SET;
+            $$->exist_type = $1;
+          }
+        | INSERT update_exist_arg
+          {
+            $$ = new (YYTHD->mem_root) Save_in_field_args();
+            $$->func_type = Save_in_field_args::FuncType::FUNC_INSERTAT;
+            $$->exist_type = $2;
+          }
+
+update_elem:
+          dot_separated_ident '(' opt_expr_list ')'
+          {
+            THD *thd = YYTHD;
+            One_ident *fun_ident = pop_back_dot_separated_ident_list($1);
+            if(nullptr == fun_ident){
+                MYSQL_YYABORT;
+            }
+            // Init the basic fields in the extra args
+            Save_in_field_args *args =
+              new (thd->mem_root) Save_in_field_args();
+            int ret = args->init(thd, system_charset_info, fun_ident->s);
+            if(ret != 0){
+              my_error(ret,
+                       MYF(0),
+                       fun_ident->s.str);
+              MYSQL_YYABORT;
+            }
+            List<Item> *fun_args = $3;
+            int args_num = fun_args == nullptr ? 0 : (int)fun_args->elements;
+            if(args->args_num() != args_num){
+              my_error(ER_WRONG_PARAMCOUNT_TO_PROCEDURE,
+                       MYF(0),
+                       fun_ident->s.str);
+              MYSQL_YYABORT;
+            }
+
+            // Make the new_value and new item
+            List_iterator<Item> fun_args_iter(*fun_args);
+            Item *new_value = nullptr;
+            switch(args->func_type){
+              case Save_in_field_args::FuncType::FUNC_SET:{
+                new_value = fun_args_iter++;
+                break;
+              }
+              case Save_in_field_args::FuncType::FUNC_UNSET:{
+                new_value = new (YYTHD->mem_root) Item_delete();
+                break;
+              }
+              case Save_in_field_args::FuncType::FUNC_APPEND:{
+                new_value = fun_args_iter++;
+                LEX_STRING const idx = { C_STRING_WITH_LEN("-1") };
+                $1->push_back(new (YYTHD->mem_root) One_ident(idx));
+                break;
+              }
+              case Save_in_field_args::FuncType::FUNC_INSERTAT:{
+                Item *idx_item = fun_args_iter++;
+                new_value = fun_args_iter++;
+                String *strp;
+                if(nullptr == (strp = idx_item->val_str(&idx_item->str_value))){
+                  my_error(ER_WRONG_PARAMETERS_TO_PROCEDURE,
+                           MYF(0),
+                           fun_ident->s.str);
+                  MYSQL_YYABORT;
+                }
+                LEX_STRING lex_string = { strp->c_ptr_safe(),
+                                          strp->length() };
+
+                $1->push_back(new (YYTHD->mem_root) One_ident(lex_string));
+
+                break;
+              }
+              case Save_in_field_args::FuncType::FUNC_INC:{
+                Item *val = fun_args_iter++;
+                Item *left = create_dot_separated_ident(thd, $1);
+                new_value = new (YYTHD->mem_root) Item_func_plus(left, val);
+                break;
+              }
+              default:{
+                my_error(ER_UNKNOWN_PROCEDURE,
+                         MYF(0),
+                         fun_ident->s.str);
+                MYSQL_YYABORT;
+                break;
+              }
+            }
+            Item *dot_item = create_dot_separated_ident(thd, $1);
+            if(nullptr == new_value || nullptr == dot_item){
+              my_error(ER_WRONG_PARAMETERS_TO_PROCEDURE,
+                       MYF(0),
+                       fun_ident->s.str);
+              MYSQL_YYABORT;
+            }
+            $1->empty();
+            delete $1;
+            new_value->extra_args = args;
+            if (add_item_to_list(YYTHD, dot_item) ||
+                add_value_to_list(YYTHD, new_value))
+              MYSQL_YYABORT;
+          }
+        | simple_ident_nospvar equal expr_or_default update_arg
+          {
+            // Construct
+            $3->extra_args = $4;
             if (add_item_to_list(YYTHD, $1) || add_value_to_list(YYTHD, $3))
               MYSQL_YYABORT;
           }
@@ -14114,19 +14390,22 @@ simple_ident_nospvar:
 dot_separated_ident_2:
           ident '.' dot_separated_ident_2
           {
-            push_front_dot_separated_ident_list(YYTHD, $1);
+            $$ = $3;
+            $$->push_front(new (YYTHD->mem_root) One_ident($1));
           }
         |
           ident
           {
-            push_front_dot_separated_ident_list(YYTHD, $1);
+            $$ = new (YYTHD->mem_root) List<One_ident>();
+            $$->push_front(new (YYTHD->mem_root) One_ident($1));
           }
         ;
 
 dot_separated_ident:
           ident '.' dot_separated_ident_2
           {
-            push_front_dot_separated_ident_list(YYTHD, $1);
+            $$ = $3;
+            $$->push_front(new (YYTHD->mem_root) One_ident($1));
           }
         ;
 
@@ -14134,137 +14413,12 @@ simple_ident_q:
           dot_separated_ident
           {
             THD *thd= YYTHD;
-            LEX *lex= thd->lex;
-
-            uint list_size = Lex->dot_separated_ident_list.elements;
-            DBUG_ASSERT(list_size >= 2);
-
-            List_iterator_fast<One_ident> it(lex->dot_separated_ident_list);
-            One_ident *s1 = it++;
-            One_ident *s2 = it++;
-            One_ident *s3 = (list_size >= 3) ? it++ : NULL;
-
-            /*
-              FIXME This will work ok in simple_ident_nospvar case because
-              we can't meet simple_ident_nospvar in trigger now. But it
-              should be changed in future.
-            */
-            $$= NULL;
-            sp_head *sp= lex->sphead;
-            if (list_size == 2 &&
-                sp && sp->m_type == SP_TYPE_TRIGGER &&
-                (!my_strcasecmp(system_charset_info, s1->s.str, "NEW") ||
-                 !my_strcasecmp(system_charset_info, s1->s.str, "OLD")))
-            {
-              Item_trigger_field *trg_fld;
-              bool new_row= (s1->s.str[0]=='N' || s1->s.str[0]=='n');
-
-              if (sp->m_trg_chistics.event == TRG_EVENT_INSERT &&
-                  !new_row)
-              {
-                my_error(ER_TRG_NO_SUCH_ROW_IN_TRG, MYF(0), "OLD", "on INSERT");
-                MYSQL_YYABORT;
-              }
-
-              if (sp->m_trg_chistics.event == TRG_EVENT_DELETE &&
-                  new_row)
-              {
-                my_error(ER_TRG_NO_SUCH_ROW_IN_TRG, MYF(0), "NEW", "on DELETE");
-                MYSQL_YYABORT;
-              }
-              DBUG_ASSERT(!new_row ||
-                          (sp->m_trg_chistics.event == TRG_EVENT_INSERT ||
-                           sp->m_trg_chistics.event == TRG_EVENT_UPDATE));
-              const bool read_only=
-                  !(new_row && sp->m_trg_chistics.action_time == TRG_ACTION_BEFORE);
-              trg_fld= new (thd->mem_root)
-                           Item_trigger_field(Lex->current_context(),
-                                              new_row ?
-                                              Item_trigger_field::NEW_ROW:
-                                              Item_trigger_field::OLD_ROW,
-                                              s2->s.str,
-                                              SELECT_ACL,
-                                              read_only);
-              if (trg_fld == NULL)
-                MYSQL_YYABORT;
-
-              /*
-                Let us add this item to list of all Item_trigger_field objects
-                in trigger.
-              */
-              lex->sphead->m_cur_instr_trig_field_items.link_in_list(
-                trg_fld, &trg_fld->next_trg_field);
-
-              $$= trg_fld;
-            }
-
-            if ($$ == NULL)
-            {
-              /*
-                When parser sees a field name is in the form of A.B.C or B.C, it always
-                interpret A as databass name if database name is allowed and B as table
-                name if table name is allowed. If there are more dot-separated identifiers,
-                they will be saved into a list and treated as unresolved.
-              */
-
-              SELECT_LEX *sel= lex->current_select;
-              bool client_no_schema = (thd->client_capabilities & CLIENT_NO_SCHEMA);
-              bool field = ((sel->parsing_place != IN_HAVING) || (sel->get_in_sum_expr() > 0));
-
-              if (sel->no_table_names_allowed && !allow_document_type)
-              {
-                const char* table_name= (list_size == 2 ? s1->s.str : s2->s.str);
-                my_error(ER_TABLENAME_NOT_ALLOWED_HERE,
-                         MYF(0), table_name, thd->where);
-              }
-
-              if (list_size > 3 && !allow_document_type)
-                my_error(ER_INVALID_FIELD_OR_REFERENCE, MYF(0), thd->where);
-
-              uint num_unresolved_idents = 0;
-              char *database_name= NULL, *table_name= NULL, *field_name= NULL;
-              if (!sel->no_table_names_allowed && (client_no_schema || list_size == 2))
-              {
-                table_name = s1->s.str;
-                field_name = s2->s.str;
-                num_unresolved_idents = list_size - 2;
-              }
-              else if (sel->no_table_names_allowed)
-              {
-                //DBUG_ASSERT(thd->variables.allow_document_type);
-                field_name = s1->s.str;
-                num_unresolved_idents = list_size - 1;
-              }
-              else
-              {
-                DBUG_ASSERT(!client_no_schema && list_size >= 3);
-                database_name = s1->s.str;
-                table_name = s2->s.str;
-                field_name = s3->s.str;
-                num_unresolved_idents = list_size - 3;
-              }
-
-              if (field)
-                $$= new (thd->mem_root) Item_field(thd, Lex->current_context(),
-                                                   database_name, table_name, field_name,
-                                                   &Lex->dot_separated_ident_list,
-                                                   client_no_schema,
-                                                   sel->no_table_names_allowed,
-                                                   num_unresolved_idents);
-              else
-                // Item_ref will be created when a document path is used
-                // in the HAVING clause of a GROUP BY
-                $$= new (thd->mem_root) Item_ref(thd, Lex->current_context(),
-                                                 database_name, table_name, field_name,
-                                                 &Lex->dot_separated_ident_list,
-                                                 client_no_schema,
-                                                 sel->no_table_names_allowed,
-                                                 num_unresolved_idents);
-
-              if ($$ == NULL)
-                MYSQL_YYABORT;
-            }
-            Lex->dot_separated_ident_list.empty();
+            Item *ret = create_dot_separated_ident(thd, $1);
+            if(nullptr == ret)
+              MYSQL_YYABORT;
+            $1->empty();
+            delete $1;
+            $$ = ret;
           }
         | '.' ident '.' ident
           {

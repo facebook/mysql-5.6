@@ -646,6 +646,49 @@ typedef bool (Item::*Item_analyzer) (uchar **argp);
 typedef Item* (Item::*Item_transformer) (uchar *arg);
 typedef void (*Cond_traverser) (const Item *item, void *arg);
 
+// This class is the arguments for the partial update
+class Save_in_field_args : public Sql_alloc {
+ public:
+  enum class FuncType : char {
+    FUNC_UNKNOWN = -1,
+    FUNC_SET,
+    FUNC_UNSET,
+    FUNC_APPEND,
+    FUNC_INC,
+    FUNC_INSERTAT
+  };
+
+  enum class CheckType : char {
+    CHECK_NONE = 0,
+    CHECK_EXISTS,
+    CHECK_NOTEXISTS
+  };
+
+  enum class ArgType : char {
+    ARG_SINGLE = 0,
+    ARG_ALL
+  };
+
+ public:
+  Save_in_field_args():cs(nullptr),
+                       key_path(nullptr),
+                       func_type(FuncType::FUNC_UNKNOWN),
+                       exist_type(CheckType::CHECK_NONE),
+                       arg_type(ArgType::ARG_SINGLE){}
+  int init(THD *thd,
+           const CHARSET_INFO *charset,
+           const LEX_STRING &str);
+
+  const CHARSET_INFO *cs; // The charset
+  List<Document_key> *key_path; // The document path
+  FuncType func_type;
+  CheckType exist_type;
+  ArgType arg_type;
+  int args_num();
+ private:
+  int parse_funname(const LEX_STRING &str);
+  int parse_extra_args(const LEX_STRING &str);
+};
 
 class Item
 {
@@ -676,7 +719,7 @@ public:
   enum cond_result { COND_UNDEF,COND_OK,COND_TRUE,COND_FALSE };
 
   enum traverse_order { POSTFIX, PREFIX };
-  
+
   /* Reuse size, only used by SP local variable assignment, otherwize 0 */
   uint rsize;
 
@@ -731,6 +774,8 @@ public:
     substitution in subquery transformation process
    */
   bool runtime_item;
+  Save_in_field_args *extra_args;
+
  protected:
   my_bool with_subselect;               /* If this item is a subselect or some
                                            of its arguments is or contains a
@@ -768,6 +813,11 @@ public:
 #ifdef EXTRA_DEBUG
     item_name.set(0);
 #endif
+    if(nullptr != extra_args){
+      delete extra_args;
+      extra_args = nullptr;
+    }
+
   }		/*lint -e1509 */
   void rename(char *new_name);
   void init_make_field(Send_field *tmp_field,enum enum_field_types type);
@@ -2563,6 +2613,13 @@ public:
   bool check_partition_func_processor(uchar *int_arg) {return FALSE;}
 };
 
+class Item_delete :public Item_null
+{
+ public:
+  Item_delete():
+      Item_null(){}
+  type_conversion_status save_in_field(Field *field_arg, bool no_conversions);
+};
 /**
   An item representing NULL values for use with ROLLUP.
 

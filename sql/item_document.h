@@ -42,6 +42,9 @@ public:
   bool get_time(MYSQL_TIME*);
   Item_result result_type() const { return STRING_RESULT; }
   enum_field_types field_type() const { return MYSQL_TYPE_DOCUMENT_VALUE; }
+  type_conversion_status save_in_field(Field *field,
+                                       bool no_conversions);
+
 };
 
 #endif /* ITEM_DOCUMENT_INCLUDED */
