@@ -9179,15 +9179,27 @@ fill_record(THD * thd, List<Item> &fields, List<Item> &values,
     table= rfield->table;
     if (rfield == table->next_number_field)
       table->auto_increment_field_not_null= TRUE;
-
-    /* Document partial update by document path is not supported yet. */
+    // It's a document path, do some preparation.
     if (field->document_path)
     {
-      my_error(ER_DOCUMENT_PARTIAL_UPDATE_NOT_SUPPORTED_YET, MYF(0));
-      goto err;
+      // Even no arguments is passed by the syntax, we need create one
+      // to denote that it's a partial update
+      if(nullptr == value->extra_args){
+        value->extra_args = new (thd->mem_root) Save_in_field_args();
+        value->extra_args->func_type = Save_in_field_args::FuncType::FUNC_SET;
+      }
+      // Store the document path
+      value->extra_args->key_path = &field->document_path_keys;
+      ((Field_document*)rfield)->update_args = value->extra_args;
     }
 
-    if ((value->save_in_field(rfield, 0) < 0) && !ignore_errors)
+    type_conversion_status ret = value->save_in_field(rfield, 0);
+    // Clean up operation for the field.
+    if(field->document_path)
+    {
+      ((Field_document*)rfield)->update_args = nullptr;
+    }
+    if(ret < 0 && !ignore_errors)
     {
       my_message(ER_UNKNOWN_ERROR, ER(ER_UNKNOWN_ERROR), MYF(0));
       goto err;
