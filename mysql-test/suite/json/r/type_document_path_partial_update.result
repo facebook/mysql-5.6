@@ -1,0 +1,251 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+drop table if exists t1, t2, t3;
+SET @start_allow_document_type = @@global.allow_document_type;
+SET @@global.allow_document_type = true;
+##### Create table
+CREATE TABLE t1 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":107, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+insert into t1 values (9,'@1','{ "id":109, "name":"Linda", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" } }');
+insert into t1 values (10,'@10','{ "id":110, "name":"Snoopy"}');
+create table t2 like t1;
+insert t2 select * from t1;
+##### Document partial update test
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+0
+update t1 set t1.doc.id = 200 where a = 1;
+ERROR 42S22: Unknown column 't1.doc.id' in 'field list'
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+@@global.allow_document_type
+1
+##### Document partial update test - SQL Syntax
+update t1 set t1.doc.id = 200, t1.doc.address.houseNumber = 2580, t1.doc.address.streetName = "El Camino Real", t1.doc.address.city = "Redwood City" where a = 1;
+update t1 set t1.doc.id = t1.doc.id + 1000 where a <= 5;
+update t1 set t1.doc.height = 170.00 where a = 9;
+update t1 set t1.doc.age = 50 where a = 4;
+update t1 set t1.doc.age = 20 where a = 6;
+update t1 set t1.doc.age = 21 where a = 8;
+select * from t1;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+3	@3	{"id":1103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170}
+10	@10	{"id":110,"name":"Snoopy"}
+update t1 set t1.doc.family = DOCUMENT('["father", "mother"]') where a = 2;
+select * from t1;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"]}
+3	@3	{"id":1103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170}
+10	@10	{"id":110,"name":"Snoopy"}
+update t1 set t1.doc.Children.5 = "Jenny" where a = 8;
+update t1 set t1.doc.Children.1 = "Penny" INSERT where a = 4;
+select * from t1 where a = 8 or a = 4;
+a	b	doc
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Bob","Charlei"],"age":50}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21,"Children":{"5":"Jenny"}}
+update t1 set t1.doc.Children = "Unknown" IF NOT EXISTS;
+select * from t1;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Bob","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{"id":110,"name":"Snoopy","Children":"Unknown"}
+update t1 set t1.doc.age = t1.doc.age + 1 IF EXISTS;
+select * from t1;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Bob","Charlei"],"age":51}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":22,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":21,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{"id":110,"name":"Snoopy","Children":"Unknown"}
+update t1 set t1.doc.Children.0 = DOCUMENT('["Tonny",19]') INSERT IF EXISTS;
+update t1 set t1.doc.Children.5 = DOCUMENT('{"name":"Jonny","age":123}') INSERT IF NOT EXISTS;
+select * from t1;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":[["Tonny",19],"Alex","Penny","Bob","Charlei",{"name":"Jonny","age":123}],"age":51}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":22,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":21,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{"id":110,"name":"Snoopy","Children":"Unknown"}
+insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
+insert into t1 set a = 111, b = '@10', t1.doc = '{"id":200,"name":"Alex Smola"}';
+select * from t1 where a = 10 or a = 111;
+a	b	doc
+10	@10	{"id":110,"name":"Snoopy","Children":"Unknown"}
+10	@9	NULL
+111	@10	{"id":200,"name":"Alex Smola"}
+update t1 set doc.id = null where a = 111;
+select * from t1 where a = 111;
+a	b	doc
+111	@10	{"id":null,"name":"Alex Smola"}
+update t1 set doc.extra = repeat("E", 1024) where a = 111;
+select * from t1 where a = 111;
+a	b	doc
+111	@10	{"id":null,"name":"Alex Smola","extra":"EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"}
+##### Document partial update test - Function Call Syntax
+update t2 set t2.doc.id = 200, t2.doc.address.houseNumber.set(2580), t2.doc.address.streetName.set("El Camino Real"), t2.doc.address.city.set("Redwood City") where a = 1;
+update t2 set t2.doc.id.inc(1000) where a <= 5;
+update t2 set t2.doc.height.set(170.00) where a = 9;
+update t2 set t2.doc.age.set(50) where a = 4;
+update t2 set t2.doc.age.set(20) where a = 6;
+update t2 set t2.doc.age.set(21) where a = 8;
+update t2 set doc.set(DOCUMENT('{}')) where a = 10;
+select * from t2;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+3	@3	{"id":1103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170}
+10	@10	{}
+update t2 set doc.set(DOCUMENT('["son", "daughter"]')) where a = 10;
+update t2 set t2.doc.family.set(DOCUMENT('["father", "mother"]')) where a = 2;
+update t2 set t2.doc.phone.unset() where a = 3;
+update t2 set t2.doc.Children.1.unset() where a = 4;
+update t2 set t2.doc.address.houseNumber.unset() where a = 5;
+select * from t2;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"]}
+3	@3	{"id":1103,"name":"Charlie","address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170}
+10	@10	["son","daughter"]
+update t2 set t2.doc.Children.5.set("Jenny") where a = 8;
+update t2 set t2.doc.Children.insertAt(1,"Penny") where a = 4;
+select * from t2 where a = 8 or a = 4;
+a	b	doc
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Charlei"],"age":50}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21,"Children":{"5":"Jenny"}}
+update t2 set t2.doc.Children.setNotExists("Unknown");
+update t2 set doc.setExists(DOCUMENT('{}')) where a = 10;
+select * from t2;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{}
+update t2 set t2.doc.Children.4.unset();
+select * from t2;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Charlei"],"age":50}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":21,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":20,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{}
+update t2 set t2.doc.age.setExists(t2.doc.age + 1);
+select * from t2;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Penny","Charlei"],"age":51}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":22,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":21,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{}
+update t2 set t2.doc.Children.insertAtExists(0, DOCUMENT('["Tonny",19]'));
+update t2 set t2.doc.Children.insertAtNotExists(4, DOCUMENT('{"name":"Jonny","age":123}'));
+update t2 set t2.doc.Children.insertAtAllExists(0, DOCUMENT('["Anny","Sunny","Ponny"]'));
+select * from t2;
+a	b	doc
+1	@1	{"id":1200,"name":"Alex","phone":6507770001,"address":{"houseNumber":2580,"streetName":"El Camino Real","zipcode":98761,"state":"CA","city":"Redwood City"},"intstr":"1001","dt":"1001","Children":"Unknown"}
+2	@2	{"id":1102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789","family":["father","mother"],"Children":"Unknown"}
+3	@3	{"id":1103,"name":"Charlie","address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01","Children":"Unknown"}
+4	@1	{"id":1104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Anny","Sunny","Ponny",["Tonny",19],"Alex","Penny","Charlei",{"name":"Jonny","age":123}],"age":51}
+5	@2	{"id":1105,"name":"Evan","phone":6507770005,"address":{"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59","Children":"Unknown"}
+8	@1	{"id":108,"address":{"zipcode":98768},"age":22,"Children":{"5":"Jenny"}}
+7	@3	{"id":107,"address":{"zipcode":98767,"state":"NY"},"Children":"Unknown"}
+6	@2	{"id":106,"address":{"zipcode":98766},"age":21,"Children":"Unknown"}
+9	@1	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"height":170,"Children":"Unknown"}
+10	@10	{}
+create table t3 (a int, b char (10), doc document) engine = innodb;
+insert into t3 value(123,null,"{}");
+update t3 set t3.doc.a = t3.a, t3.doc.b = t3.b;
+select * from t3;
+a	b	doc
+123	NULL	{"a":123,"b":null}
+insert into t3 value(123, null, null);
+update t3 set t3.a = 456, t3.doc.c = 789;
+select * from t3;
+a	b	doc
+456	NULL	{"a":123,"b":null,"c":789}
+456	NULL	NULL
+update t2 set t2.doc.Children.noSuchFunction(1,2,3);
+ERROR 42000: Unknown procedure 'noSuchFunction'
+update t2 set t2.doc.Children.insertAt("ABC");
+ERROR 42000: Incorrect parameter count to procedure 'insertAt'
+update t2 set t2.doc.Children.set();
+ERROR 42000: Incorrect parameter count to procedure 'set'
+update t2 set t2.doc.Children.unset("ABC");
+ERROR 42000: Incorrect parameter count to procedure 'unset'
+##### Clean up
+drop table t1, t2, t3;
+SET @@global.allow_document_type = @start_allow_document_type;
+include/rpl_end.inc

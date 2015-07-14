@@ -33,6 +33,16 @@ Item::Type Item_func_document::type() const
 {
   return DOCUMENT_ITEM;
 }
+type_conversion_status Item_func_document::save_in_field(Field *field,
+                                                         bool no_conversions){
+  fbson::FbsonDocument *doc =
+    fbson::FbsonDocument::createDocument(fbson_blob, length);
+  if(TYPE_OK !=
+     field->store_document(doc,collation.collation)){
+    return Item::save_in_field(field, no_conversions);
+  }
+  return TYPE_OK;
+}
 
 double Item_func_document::val_real()
 {

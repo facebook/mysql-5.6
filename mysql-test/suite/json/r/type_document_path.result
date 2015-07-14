@@ -164,35 +164,6 @@ select sum(b.k1.k2) from t1 where a = 100;
 ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
 select sum(b.k1.k2.k3) from t1 where a = 100;
 ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'field list'
-##### Document partial update by document path is not supported yet
-SET @@global.allow_document_type = false;
-SELECT @@global.allow_document_type;
-@@global.allow_document_type
-0
-update t1 set t1.doc.id = 200 where a = 1;
-ERROR 42S22: Unknown column 't1.doc.id' in 'field list'
-SET @@global.allow_document_type = true;
-SELECT @@global.allow_document_type;
-@@global.allow_document_type
-1
-update t1 set t1.doc.id = 200 where a = 1;
-ERROR HY000: Document partial update not supported yet.
-update t1 set t1.doc.name = "Raymond" where a = 1;
-ERROR HY000: Document partial update not supported yet.
-insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
-ERROR HY000: Document partial update not supported yet.
-drop procedure if exists sp1;
-create procedure sp1()
-update t1 set t1.doc.id = 200 where a = 1;
-call sp1();
-ERROR HY000: Document partial update not supported yet.
-drop procedure sp1;
-drop procedure if exists sp2;
-create procedure sp2()
-insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
-call sp2();
-ERROR HY000: Document partial update not supported yet.
-drop procedure sp2;
 ##### Document path with different types in SELECT clause
 select test.t1.doc.NonExistent from t1 where t1.a = 4;
 `doc`.`NonExistent`
