@@ -19,7 +19,7 @@
 
 #include <sstream>
 #include "FbsonDocument.h"
-
+#include "FbsonStream.h"
 namespace fbson {
 
 #define OUT_BUF_SIZE 1024
@@ -111,7 +111,7 @@ class FbsonToJson {
       return;
     }
     char char_buffer[16];
-    for(const char *ptr = str; ptr != str + len; ++ptr){
+    for(const char *ptr = str; ptr != str + len && *ptr; ++ptr){
       if ((unsigned char)*ptr > 31 && *ptr != '\"' && *ptr != '\\')
         os_.put(*ptr);
       else {
@@ -209,6 +209,64 @@ class FbsonToJson {
   char buffer_[OUT_BUF_SIZE];
 };
 
+// This class is a utility to create a FbsonValue.
+template<class OS_TYPE>
+class FbsonValueCreaterT {
+ public:
+  FbsonValue *operator()(int32_t val){
+    return operator()((int64_t)val);
+  }
+
+  FbsonValue *operator()(int64_t val){
+    writer_.reset();
+    writer_.writeStartArray();
+    writer_.writeInt(val);
+    writer_.writeEndArray();
+    return extractValue();
+  }
+  FbsonValue *operator()(double val){
+    writer_.reset();
+    writer_.writeStartArray();
+    writer_.writeDouble(val);
+    writer_.writeEndArray();
+    return extractValue();
+  }
+  FbsonValue *operator()(const char* str){
+    return operator()(str, (unsigned int)strlen(str));
+  }
+  FbsonValue *operator()(const char* str, unsigned int str_len){
+    writer_.reset();
+    writer_.writeStartArray();
+    writer_.writeStartString();
+    writer_.writeString(str, str_len);
+    writer_.writeEndString();
+    writer_.writeEndArray();
+    return extractValue();
+  }
+  FbsonValue *operator()(bool val){
+    writer_.reset();
+    writer_.writeStartArray();
+    writer_.writeBool(val);
+    writer_.writeEndArray();
+    return extractValue();
+  }
+  FbsonValue *operator()(){
+    writer_.reset();
+    writer_.writeStartArray();
+    writer_.writeNull();
+    writer_.writeEndArray();
+    return extractValue();
+  }
+
+ private:
+  FbsonValue *extractValue(){
+    return static_cast<ArrayVal*>(
+      FbsonDocument::createValue(writer_.getOutput()->getBuffer(),
+                                 (int)writer_.getOutput()->getSize()))->get(0);
+  }
+  FbsonWriterT<OS_TYPE> writer_;
+};
+typedef FbsonValueCreaterT<FbsonOutStream> FbsonValueCreater;
 } // namespace fbson
 
 #endif // FBSON_FBSONUTIL_H
