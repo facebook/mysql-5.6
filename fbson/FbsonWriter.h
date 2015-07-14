@@ -34,6 +34,7 @@
 #define FBSON_FBSONWRITER_H
 
 #include <stack>
+#include <string>
 #include "FbsonDocument.h"
 #include "FbsonStream.h"
 
@@ -69,6 +70,11 @@ class FbsonWriterT {
       ;
   }
 
+  uint32_t writeKey(const char* key,
+                    hDictInsert handler = nullptr) {
+    return writeKey(key, strlen(key), handler);
+  }
+
   // write a key string (or key id if an external dict is provided)
   uint32_t writeKey(const char* key,
                     uint8_t len,
@@ -98,6 +104,15 @@ class FbsonWriterT {
       return size;
     }
 
+    return 0;
+  }
+
+  uint32_t writeValue(const FbsonValue *value){
+    if(!stack_.empty() && verifyValueState()){
+      os_->write((char*)value, value->numPackedBytes());
+      kvState_ = WS_Value;
+      return value->size();
+    }
     return 0;
   }
 
@@ -136,6 +151,23 @@ class FbsonWriterT {
     }
 
     return 0;
+  }
+
+  // This function is a helper. It will make use of smallest space to
+  // write an int
+  uint32_t writeInt(int64_t val){
+    if (val >= std::numeric_limits<int8_t>::min() &&
+        val <= std::numeric_limits<int8_t>::max()) {
+      return writeInt8((int8_t)val);
+    } else if (val >= std::numeric_limits<int16_t>::min() &&
+               val <= std::numeric_limits<int16_t>::max()) {
+      return writeInt16((int16_t)val);
+    } else if (val >= std::numeric_limits<int32_t>::min() &&
+               val <= std::numeric_limits<int32_t>::max()) {
+      return writeInt32((int32_t)val);
+    } else {
+      return writeInt64(val);
+    }
   }
 
   uint32_t writeInt8(int8_t v) {
@@ -237,6 +269,9 @@ class FbsonWriterT {
     return 0;
   }
 
+  uint32_t writeString(const std::string &str) {
+    return writeString(str.c_str(), (uint32_t)str.size());
+  }
   uint32_t writeString(char ch) {
     if (kvState_ == WS_String) {
       os_->put(ch);
@@ -383,11 +418,48 @@ class FbsonWriterT {
   }
 
   OS_TYPE* getOutput() { return os_; }
+  FbsonDocument *getDocument(){
+    return FbsonDocument::createDocument(getOutput()->getBuffer(),
+                                         getOutput()->getSize());
+  }
+
+  FbsonValue *getValue(){
+    return FbsonDocument::createValue(getOutput()->getBuffer(),
+                                      (uint32_t)getOutput()->getSize());
+  }
+
+  bool writeEnd(){
+    while(!stack_.empty()){
+      bool ok = false;
+      switch(stack_.top().state){
+        case WS_Array:
+          ok = writeEndArray();
+          break;
+        case WS_Object:
+          ok = writeEndObject();
+          break;
+        case WS_String:
+          ok = writeEndString();
+          break;
+        case WS_Binary:
+          ok = writeEndBinary();
+          break;
+        default:
+          ok = false;
+          break;
+      }
+      if(ok == false)
+        return false;
+    }
+    return true;
+  }
 
  private:
   // verify we are in the right state before writing a value
   bool verifyValueState() {
     assert(!stack_.empty());
+    // The document can only be an Object or an Array which follows
+    // the standard.
     return (stack_.top().state == WS_Object && kvState_ == WS_Key) ||
            (stack_.top().state == WS_Array && kvState_ == WS_Value);
   }
