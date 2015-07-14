@@ -1,0 +1,152 @@
+--source include/master-slave.inc
+connection master;
+
+################################################################################
+###
+### Test of document path partial update of document type
+###
+
+--disable_warnings
+drop table if exists t1, t2, t3;
+--enable_warnings
+SET @start_allow_document_type = @@global.allow_document_type;
+SET @@global.allow_document_type = true;
+
+--echo ##### Create table
+CREATE TABLE t1 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+
+insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
+insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
+insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
+insert into t1 values (4,'@1','{ "id":104, "name":"Don", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+insert into t1 values (5,'@2','{ "id":105, "name":"Evan", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765, "state":"WA" }, "dt":"2014-11-11 11:59:59" }');
+insert into t1 values (8,'@1','{ "id":108, "address":{ "zipcode":98768 } }');
+insert into t1 values (7,'@3','{ "id":107, "address":{ "zipcode":98767, "state":"NY" } }');
+insert into t1 values (6,'@2','{ "id":106, "address":{ "zipcode":98766 } }');
+insert into t1 values (9,'@1','{ "id":109, "name":"Linda", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" } }');
+insert into t1 values (10,'@10','{ "id":110, "name":"Snoopy"}');
+
+create table t2 like t1;
+insert t2 select * from t1;
+################################################################################
+###
+### Document partial update by document path
+###
+
+--echo ##### Document partial update test
+### When document type is disabled
+SET @@global.allow_document_type = false;
+SELECT @@global.allow_document_type;
+
+# Create a duplicate table
+--error ER_BAD_FIELD_ERROR
+update t1 set t1.doc.id = 200 where a = 1;
+
+### When document type is enabled
+SET @@global.allow_document_type = true;
+SELECT @@global.allow_document_type;
+
+--echo ##### Document partial update test - SQL Syntax
+# Test basic partial update
+update t1 set t1.doc.id = 200, t1.doc.address.houseNumber = 2580, t1.doc.address.streetName = "El Camino Real", t1.doc.address.city = "Redwood City" where a = 1;
+update t1 set t1.doc.id = t1.doc.id + 1000 where a <= 5;
+update t1 set t1.doc.height = 170.00 where a = 9;
+update t1 set t1.doc.age = 50 where a = 4;
+update t1 set t1.doc.age = 20 where a = 6;
+update t1 set t1.doc.age = 21 where a = 8;
+select * from t1;
+
+# Test adding for array and delete
+update t1 set t1.doc.family = DOCUMENT('["father", "mother"]') where a = 2;
+select * from t1;
+update t1 set t1.doc.Children.5 = "Jenny" where a = 8;
+update t1 set t1.doc.Children.1 = "Penny" INSERT where a = 4;
+select * from t1 where a = 8 or a = 4;
+
+# Test conditional partial update
+update t1 set t1.doc.Children = "Unknown" IF NOT EXISTS;
+select * from t1;
+
+update t1 set t1.doc.age = t1.doc.age + 1 IF EXISTS;
+select * from t1;
+
+update t1 set t1.doc.Children.0 = DOCUMENT('["Tonny",19]') INSERT IF EXISTS;
+update t1 set t1.doc.Children.5 = DOCUMENT('{"name":"Jonny","age":123}') INSERT IF NOT EXISTS;
+select * from t1;
+
+insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
+insert into t1 set a = 111, b = '@10', t1.doc = '{"id":200,"name":"Alex Smola"}';
+select * from t1 where a = 10 or a = 111;
+
+update t1 set doc.id = null where a = 111;
+select * from t1 where a = 111;
+
+update t1 set doc.extra = repeat("E", 1024) where a = 111;
+select * from t1 where a = 111;
+
+--echo ##### Document partial update test - Function Call Syntax
+# Test basic partial update
+update t2 set t2.doc.id = 200, t2.doc.address.houseNumber.set(2580), t2.doc.address.streetName.set("El Camino Real"), t2.doc.address.city.set("Redwood City") where a = 1;
+update t2 set t2.doc.id.inc(1000) where a <= 5;
+update t2 set t2.doc.height.set(170.00) where a = 9;
+update t2 set t2.doc.age.set(50) where a = 4;
+update t2 set t2.doc.age.set(20) where a = 6;
+update t2 set t2.doc.age.set(21) where a = 8;
+update t2 set doc.set(DOCUMENT('{}')) where a = 10;
+select * from t2;
+
+# Test adding for array and delete
+update t2 set doc.set(DOCUMENT('["son", "daughter"]')) where a = 10;
+update t2 set t2.doc.family.set(DOCUMENT('["father", "mother"]')) where a = 2;
+update t2 set t2.doc.phone.unset() where a = 3;
+update t2 set t2.doc.Children.1.unset() where a = 4;
+update t2 set t2.doc.address.houseNumber.unset() where a = 5;
+select * from t2;
+update t2 set t2.doc.Children.5.set("Jenny") where a = 8;
+update t2 set t2.doc.Children.insertAt(1,"Penny") where a = 4;
+select * from t2 where a = 8 or a = 4;
+
+# Test conditional partial update
+update t2 set t2.doc.Children.setNotExists("Unknown");
+update t2 set doc.setExists(DOCUMENT('{}')) where a = 10;
+select * from t2;
+update t2 set t2.doc.Children.4.unset();
+select * from t2;
+update t2 set t2.doc.age.setExists(t2.doc.age + 1);
+select * from t2;
+
+update t2 set t2.doc.Children.insertAtExists(0, DOCUMENT('["Tonny",19]'));
+update t2 set t2.doc.Children.insertAtNotExists(4, DOCUMENT('{"name":"Jonny","age":123}'));
+update t2 set t2.doc.Children.insertAtAllExists(0, DOCUMENT('["Anny","Sunny","Ponny"]'));
+select * from t2;
+
+create table t3 (a int, b char (10), doc document) engine = innodb;
+insert into t3 value(123,null,"{}");
+# This is for testing reset, because t3.b is null
+update t3 set t3.doc.a = t3.a, t3.doc.b = t3.b;
+select * from t3;
+
+insert into t3 value(123, null, null);
+update t3 set t3.a = 456, t3.doc.c = 789;
+select * from t3;
+
+--error ER_UNKNOWN_PROCEDURE
+update t2 set t2.doc.Children.noSuchFunction(1,2,3);
+--error ER_WRONG_PARAMCOUNT_TO_PROCEDURE
+update t2 set t2.doc.Children.insertAt("ABC");
+--error ER_WRONG_PARAMCOUNT_TO_PROCEDURE
+update t2 set t2.doc.Children.set();
+--error ER_WRONG_PARAMCOUNT_TO_PROCEDURE
+update t2 set t2.doc.Children.unset("ABC");
+
+
+# Restore the original value
+# SELECT @@global.allow_document_type;
+--echo ##### Clean up
+drop table t1, t2, t3;
+SET @@global.allow_document_type = @start_allow_document_type;
+
+--source include/rpl_end.inc
