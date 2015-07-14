@@ -49,6 +49,87 @@ const String my_null_string("NULL", 4, default_charset_info);
 
 /****************************************************************************/
 
+// Parse the function names
+int Save_in_field_args::parse_funname(const LEX_STRING &str){
+  if(0 == my_strcasecmp(cs, str.str, "set") ||
+     0 == my_strcasecmp(cs, str.str, "setExists") ||
+     0 == my_strcasecmp(cs, str.str, "setNotExists")){
+    func_type = Save_in_field_args::FuncType::FUNC_SET;
+  }else if(0 == my_strcasecmp(cs, str.str, "unset")){
+    func_type = Save_in_field_args::FuncType::FUNC_UNSET;
+  }else if(0 == my_strcasecmp(cs, str.str, "append")){
+    func_type = Save_in_field_args::FuncType::FUNC_APPEND;
+  }else if(0 == my_strcasecmp(cs, str.str, "inc")){
+    func_type = Save_in_field_args::FuncType::FUNC_INC;
+  }else if(0 == my_strcasecmp(cs, str.str, "insertAt") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtExists") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtNotExists") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtAll") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtAllExists") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtAllNotExists")){
+    func_type = Save_in_field_args::FuncType::FUNC_INSERTAT;
+  }else{
+    func_type = Save_in_field_args::FuncType::FUNC_UNKNOWN;
+  }
+  if(func_type == Save_in_field_args::FuncType::FUNC_UNKNOWN){
+    return ER_UNKNOWN_PROCEDURE;
+  }
+  return 0;
+}
+
+int Save_in_field_args::parse_extra_args(const LEX_STRING &str){
+  if(0 == my_strcasecmp(cs, str.str, "setExists") ||
+     0 == my_strcasecmp(cs, str.str, "insertAtExists") ||
+     0 == my_strcasecmp(cs, str.str, "insertAtAllExists")){
+    exist_type = Save_in_field_args::CheckType::CHECK_EXISTS;
+  }else if(0 == my_strcasecmp(cs, str.str, "setNotExists") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtNotExists") ||
+           0 == my_strcasecmp(cs, str.str, "insertAtAllNotExists")){
+    exist_type = Save_in_field_args::CheckType::CHECK_NOTEXISTS;
+  }
+
+  if(0 == my_strcasecmp(cs, str.str, "insertAtAllNotExists") ||
+     0 == my_strcasecmp(cs, str.str, "insertAtAllExists")){
+    arg_type = Save_in_field_args::ArgType::ARG_ALL;
+  }
+  return 0;
+}
+
+int Save_in_field_args::init(THD *thd,
+                             const CHARSET_INFO *charset,
+                             const LEX_STRING &str){
+  this->cs = charset;
+  int ret = parse_funname(str);
+  if(0 != ret)
+    return ret;
+  ret = parse_extra_args(str);
+  return ret;
+}
+
+struct update_fun_definition {
+  enum Save_in_field_args::FuncType func_type;
+  int args_num;
+};
+
+const static update_fun_definition update_funs[] = {
+  {Save_in_field_args::FuncType::FUNC_SET, 1},
+  {Save_in_field_args::FuncType::FUNC_UNSET, 0},
+  {Save_in_field_args::FuncType::FUNC_APPEND, 1},
+  {Save_in_field_args::FuncType::FUNC_INC, 1},
+  {Save_in_field_args::FuncType::FUNC_INSERTAT, 2}
+};
+
+int Save_in_field_args::args_num(){
+  for(int i = 0; i != sizeof(update_funs) / sizeof(update_fun_definition); ++i){
+    if(update_funs[i].func_type == func_type){
+      return update_funs[i].args_num;
+    }
+  }
+  return -1;
+}
+
+/****************************************************************************/
+
 /* Hybrid_type_traits {_real} */
 
 void Hybrid_type_traits::fix_length_and_dec(Item *item, Item *arg) const
@@ -552,7 +633,7 @@ Item::Item():
   is_expensive_cache(-1), rsize(0), alias_was_set(false),
   marker(0), fixed(0),
   collation(&my_charset_bin, DERIVATION_COERCIBLE),
-  runtime_item(false), with_subselect(false),
+  runtime_item(false), extra_args(nullptr), with_subselect(false),
   with_stored_program(false), tables_locked_cache(false)
 {
   maybe_null=null_value=with_sum_func=unsigned_flag=0;
@@ -603,6 +684,7 @@ Item::Item(THD *thd, Item *item):
   collation(item->collation),
   cmp_context(item->cmp_context),
   runtime_item(false),
+  extra_args(nullptr),
   with_subselect(item->has_subquery()),
   with_stored_program(item->with_stored_program),
   tables_locked_cache(item->tables_locked_cache)
@@ -2835,7 +2917,7 @@ void Ident_parsing_info::Parse_and_set_document_path_keys(
     /* If a key is pure number then it can be an array index */
     char *p = NULL;
     int index = strtol(s->s.str, &p, 10);
-    if (*p)
+    if (p != s->s.str + s->s.length)
       index = -1;
 
     if (!strcmp(s->s.str, "_"))
@@ -3917,8 +3999,11 @@ my_decimal *Item_string::val_decimal(my_decimal *decimal_value)
 {
   return val_decimal_from_string(decimal_value);
 }
-
-
+type_conversion_status Item_delete::save_in_field(Field *field_arg,
+                                                  bool no_conversions)
+{
+  return field_arg->set_delete();
+}
 bool Item_null::eq(const Item *item, bool binary_cmp) const
 { return item->type() == type(); }
 
