@@ -24,6 +24,7 @@ ADD_DEFINITIONS(-DROCKSDB_PLATFORM_POSIX -DOS_LINUX -DZLIB)
 
 SET(ROCKSDB_SOURCES
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
+  rdb_comparator.h
   rdb_datadic.cc rdb_datadic.h
   rdb_locks.cc rdb_locks.h
   rdb_rowmods.cc rdb_rowmods.h
@@ -73,3 +74,5 @@ TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
 MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc)
 TARGET_LINK_LIBRARIES(ldb rocksdb_se)
 
+MYSQL_ADD_EXECUTABLE(mysql_ldb ${CMAKE_SOURCE_DIR}/storage/rocksdb/tools/mysql_ldb.cc)
+TARGET_LINK_LIBRARIES(mysql_ldb rocksdb_se)
