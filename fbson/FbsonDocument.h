@@ -555,7 +555,23 @@ class StringVal : public BlobVal {
 
     return internalSetVal(str, blobSize);
   }
-
+  /*
+    This function return the actual size of a string. Since for
+    a string, it can be null-terminated with null paddings or it
+    can take all the space in the payload_ without null in the end.
+    So we need to check it to get the true actual length of a string.
+  */
+  size_t length() {
+    // It's an empty string
+    if(0 == size_)
+      return size_;
+    // The string stored takes all the spaces in payload_
+    if(payload_[size_] != 0){
+      return size_;
+    }
+    // It's shorter than the size of payload_
+    return strnlen(payload_, size_);
+  }
   // convert the string (case insensitive) to a boolean value
   // "false": 0
   // "true": 1
