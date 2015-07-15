@@ -1018,6 +1018,8 @@ void Item_ident::set_document_path(THD *thd,
 
   document_path = ident->document_path;
   document_path_with_underscore = ident->document_path_with_underscore;
+  document_path_type = ident->document_path_type;
+
   List_iterator<Document_key> it(ident->document_path_keys);
   for(Document_key *p; (p=it++);)
   {
@@ -2977,7 +2979,7 @@ Item_field::Item_field(THD *thd,
   :Item_ident(thd,context_arg,db_arg,table_name_arg,field_name_arg,
               ident_list,database_name_not_allowed,
               table_name_not_allowed,num_unresolved_idents),
-   field(0), result_field(0), item_equal(0), no_const_subst(0),
+  field(0), result_field(0), item_equal(0), no_const_subst(0),
    have_privileges(0), any_privileges(0)
 {
   SELECT_LEX *select= current_thd->lex->current_select;
@@ -6944,10 +6946,6 @@ void Item_field::make_field(Send_field *tmp_field)
     tmp_field->db_name= db_name;
 }
 
-/**
-  Make a string field for temp table for a document path item.
-  See Item::make_string_field()
-*/
 Field *Item_field::make_string_field_for_document_path_item(TABLE *table)
 {
   DBUG_ASSERT(field && field->type() == MYSQL_TYPE_DOCUMENT &&
@@ -6987,7 +6985,7 @@ Field *Item_field::make_string_field_for_document_path_item(TABLE *table)
       /* should never reach here */
       DBUG_ASSERT(0);
   }
-
+  fld->init(table);
   return fld;
 }
 
