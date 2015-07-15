@@ -539,24 +539,41 @@ public:
 
 class Sequence_generator
 {
-  int next_number;
+  uint next_number;
 
   mysql_mutex_t mutex;
 public:
-  void init(int initial_number)
+  void init(uint initial_number)
   {
     mysql_mutex_init(0 , &mutex, MY_MUTEX_INIT_FAST);
     next_number= initial_number;
   }
 
-  int get_next_number()
+  uint get_next_number()
   {
-    int res;
+    uint res;
     mysql_mutex_lock(&mutex);
     res= next_number++;
     mysql_mutex_unlock(&mutex);
     return res;
   }
+
+  uint get_current_number()
+  {
+    uint res;
+    mysql_mutex_lock(&mutex);
+    res= next_number;
+    mysql_mutex_unlock(&mutex);
+    return res;
+  }
+
+  void set_next_number(uint next)
+  {
+    mysql_mutex_lock(&mutex);
+    next_number= next;
+    mysql_mutex_unlock(&mutex);
+  }
+
 
   void cleanup()
   {
@@ -606,7 +623,9 @@ public:
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
               rocksdb::WriteBatch *batch);
 
-  int get_next_number() { return sequence.get_next_number(); }
+  uint get_next_number() { return sequence.get_next_number(); }
+  uint get_current_number() { return sequence.get_current_number(); }
+  void set_next_number(uint next) { sequence.set_next_number(next); }
   void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
   std::unordered_set<uint32_t> get_changed_indexes();
 
@@ -750,6 +769,12 @@ public:
                     const uint cf_id,
                     const uint cf_flags);
   bool get_cf_flags(const uint cf_id, uint *cf_flags);
+
+  void get_drop_indexes_ongoing(std::vector<uint32_t> &index_ids);
+  void start_drop_index_ongoing(rocksdb::WriteBatch* batch,
+                                const uint32_t index_id);
+  void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
+                              const uint32_t index_id);
 
   void add_stats(
     rocksdb::WriteBatch* batch,
