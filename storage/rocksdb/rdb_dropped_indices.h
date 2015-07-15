@@ -23,18 +23,18 @@ class Dict_manager;
 class Table_ddl_manager;
 class RDBSE_KEYDEF;
 
-typedef std::unordered_map<uint32, RDBSE_KEYDEF*> Dropped_Index_Map;
+typedef std::unordered_set<uint32> Dropped_Index_Set;
 
 class Dropped_indices_manager
 {
-  Dropped_Index_Map di_map;
-  Table_ddl_manager* ddl_manager;
+  Dropped_Index_Set di_set;
+  Dict_manager* dict;
   mutable mysql_mutex_t dim_mutex;
 
 public:
   Dropped_indices_manager()
-    : ddl_manager(nullptr) {}
-  void init(Table_ddl_manager* ddl_manager_, Dict_manager *dict);
+    : dict(nullptr) {}
+  void init(Table_ddl_manager* ddl_manager, Dict_manager *dict_);
   void cleanup();
 
   // check if we have anything to filter
@@ -44,20 +44,21 @@ public:
   bool has_index(uint32 index) const;
 
   // get entire list of indices to check if they're finished
-  Dropped_Index_Map get_indices() const;
+  Dropped_Index_Set get_indices() const;
 
   // add new indices to the drop index manager
   void add_indices(RDBSE_KEYDEF** key_descr, uint32 n_keys,
                    rocksdb::WriteBatch *batch);
 
   // remove indices once all their data is gone
-  void remove_indices(const std::unordered_set<uint32> & indices,
-                      Dict_manager *dict);
+  void remove_indices(const std::unordered_set<uint32> & indices);
 
 private:
-  bool initialized() const { return ddl_manager != nullptr; }
+  bool initialized() const { return dict != nullptr; }
 
   // internal thread-unsafe function for populating map
-  void map_insert(RDBSE_KEYDEF** key_descr, uint32 n_keys,
+  void set_insert_table(RDBSE_KEYDEF** key_descr, uint32 n_keys,
+                        const char* log_action);
+  void set_insert(uint32 index_id,
                   const char* log_action);
 };
