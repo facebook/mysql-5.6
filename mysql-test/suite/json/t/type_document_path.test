@@ -8,7 +8,7 @@ connection master;
 
 --disable_warnings
 drop view if exists v1;
-drop table if exists t1, t2, t3, t4, t5;
+drop table if exists t1, t2, t3, t4, t5, t6;
 --enable_warnings
 
 SET @start_allow_document_type = @@global.allow_document_type;
@@ -235,6 +235,7 @@ select sum(b.k1) from t1 where a = 100;
 select sum(b.k1.k2) from t1 where a = 100;
 --error ER_BAD_FIELD_ERROR
 select sum(b.k1.k2.k3) from t1 where a = 100;
+
 
 ################################################################################
 ###
@@ -544,8 +545,6 @@ select v1.row2 from v1;
 select v1.row3 from v1;
 drop view v1;
 
-### FIXME: Test views with temptable algorithm
-### This returns the entire doc column instead of the doc path
 create algorithm = temptable view v1 as
 select doc.id from t1;
 select * from v1;
@@ -954,6 +953,35 @@ select t5.doc2.id
 from t5
 order by doc2.id;
 
+
+################################################################################
+###
+### Document column in GROUP BY
+###
+
+CREATE TABLE t6 (
+       a int not null,
+       b char (10) not null,
+       doc document) engine=innodb;
+
+insert t6 select * from t1;
+insert t6 values(0, '@0', null);
+insert t6 values(10, '@10', '{ "id":108, "address":{ "zipcode":98768 } }');
+insert t6 values(11, '@11', '{ "id":108, "address":{ "zipcode":98768 } }');
+insert t6 values(12, '@12', '{ "id":108, "address":{ "zipcode":98768 } }');
+
+select count(*), doc from t6 group by doc;
+select count(*), doc.NotExists from t6 group by doc.NotExists;
+select count(*), doc.address from t6 group by doc.address;
+select count(*), doc.address.state from t6 group by doc.address.state;
+
+select count(doc), doc from t6 group by doc;
+select count(doc.NotExists), doc.NotExists from t6 group by doc.NotExists;
+select count(doc.address), doc.address from t6 group by doc.address;
+select count(doc.address.state), doc.address.state from t6 group by doc.address.state;
+
+drop table t6;
+
 ################################################################################
 ###
 ### Document paths with different types in GROUP BY without HAVING clause (with aliases and positions)
@@ -1089,6 +1117,19 @@ select test.t1.doc.address.state, count(*)
 from t1
 group by 1
 order by 1 desc;
+
+## FIXME: The inner is a document path, but because that
+## it's in group by, it will be treated as Field_varstring.
+## But the outter is still a Field_document. It will be easier
+## to fix it after introducing Field_documentpath
+
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+select * from (
+select test.t1.doc.address.state, count(*)
+from t1
+group by 1
+order by 1 desc)
+as tmp;
 
 select count(*), test.t1.doc.address.state as state
 from t1
@@ -1390,15 +1431,107 @@ from (
 ) as tmp
 where t1_zipcode = 98761 or t2_zipcode = 98762;
 
-### FIXME: Aliases don't work properly without CAST
-select tmp.t1_zipcode, t2_zipcode
+### Basic subquery with document path
+select tmp.doc.id
 from (
-  select t1.doc.address.zipcode as t1_zipcode, t2.doc2.address.zipcode as t2_zipcode
-  from t1, t2
-  where t1.doc.address.zipcode like t2.doc2.address.zipcode
-) as tmp
-where t1_zipcode like "98761" or tmp.t2_zipcode like "98762";
+  select doc
+  from t1
+  where t1.a >= 4
+) as tmp;
 
+select tmp.doc.id
+from (
+  select doc
+  from t1
+  where t1.a >= 4
+) as tmp
+where tmp.doc.id < 106;
+
+select doc.Children.0
+from (
+  select a, doc.Children
+  from t1
+) as tmp where json_contains_key(doc, "Children", 0);
+
+### Subquery in order by with alias
+select tmp.t1_address.houseNumber, t1_address.zipcode, id
+from (
+  select t1.doc.address as t1_address,
+  t1.doc.id as id
+  from t1
+  order by t1.doc.id desc
+) as tmp
+where t1_address.zipcode < 98764;
+
+### Subquery in order by with join
+select t1_name, tmp.t1_zipcode, t2_name, t2_zipcode
+from (
+  select t1.doc.name as t1_name, t1.doc.address.zipcode as t1_zipcode,
+  t2.doc2.name as t2_name, t2.doc2.address.zipcode as t2_zipcode
+  from t1, t2
+  where t1.doc.address.zipcode = t2.doc2.address.zipcode
+) as tmp
+where t1_zipcode = 98761 or tmp.t2_zipcode = 98762;
+
+### Three layer sub query with order by
+select t1_zipcode
+from (
+  select t1_addr.zipcode as t1_zipcode,
+  t1_id, t1_addr
+  from (
+    select t1.doc.address as t1_addr, t1.doc.id as t1_id
+    from t1 order by t1.doc.id desc
+  ) as tmp1
+) as tmp2;
+
+### Four layer sub query
+insert into t1 values(10,'@10','{"id":110, "k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}');
+select t_k3.k4
+from (
+   select t_k2.k3 as t_k3
+   from (select t_k1.k2 as t_k2
+            from (
+               select doc.k1 as t_k1
+               from t1
+            ) as tmp1
+        ) as tmp2
+     ) as tmp3;
+### Sub query with extreme large column
+insert into t3 values(6, '@6', '{"id":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX","name":"Super Big"}');
+select tmp.doc_id
+from (
+  select t3.doc.id as doc_id
+  from t3
+  where t3.doc.name = "Super Big"
+) as tmp;
+
+create table t6 (
+   a int not null,
+   doc document not null) engine=innodb;
+let $num=10000;
+disable_query_log;
+while($num)
+{
+  eval insert into t6 values($num,'{"id":1}');
+  dec $num;
+}
+enable_query_log;
+select count(*)
+from (
+  select t6.doc.id as id
+  from t6
+  where t6.a > 1000
+  ) as tmp;
+
+### FIXME: This does't work propertly. We need to modify the behavior of document field.
+select t1_zipcode, t1_addr
+from (
+  select t1_addr.zipcode as t1_zipcode, t1_id, t1_addr
+  from (
+    select t1.doc.address as t1_addr, t1.doc.id as t1_id
+    from t1 order by t1.doc.id desc
+  ) as tmp1)
+as tmp2;
 
 ################################################################################
 ###
@@ -1411,6 +1544,6 @@ where t1_zipcode like "98761" or tmp.t2_zipcode like "98762";
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
-drop table t1, t2, t3, t4, t5;
+drop table t1, t2, t3, t4, t5, t6;
 
 --source include/rpl_end.inc

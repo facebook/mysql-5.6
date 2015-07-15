@@ -1118,7 +1118,9 @@ bool Protocol_text::store_internal(Field *field,
   }
   else
   {
-    field->val_str(&str);
+    String *res = field->val_str(&str);
+    if(nullptr == res)
+      return store_null();
   }
 
 #ifndef DBUG_OFF

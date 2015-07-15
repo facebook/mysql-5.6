@@ -831,7 +831,6 @@ void KEY_PART_INFO::init_from_field(Field *fld)
      document field since key part only can be built
      on a document path with a primary type
   */
-  DBUG_ASSERT(field->real_type() != MYSQL_TYPE_DOCUMENT);
 
   if (field->real_maybe_null())
     store_length+= HA_KEY_NULL_LENGTH;

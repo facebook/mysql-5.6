@@ -224,12 +224,11 @@ Field *create_tmp_field_from_document_path(THD *thd, Item_field *item_field,
   DBUG_ASSERT(item_field->field &&
               item_field->field->type() == MYSQL_TYPE_DOCUMENT &&
               item_field->document_path_keys.elements > 0);
-
-  Field *new_field= item_field->make_string_field_for_document_path_item(table);
+  Field *new_field = nullptr;
+  new_field = item_field->make_string_field_for_document_path_item(table);
   if (new_field)
   {
     new_field->set_derivation(item_field->collation.derivation);
-    new_field->init(table);
     item_field->set_result_field(new_field);
   }
   return new_field;
@@ -300,8 +299,17 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
     if (orig_type == Item::REF_ITEM)
       modify_item= 0;
 
-    /* Item is a document path */
-    if (field->document_path)
+    /*
+      Item is a document path and it's group by.
+      Only for group by, the varstring temp field will be created for doc path
+      and string value of the doc path will be stored in it, for anything else,
+      e.g. order by, create_tmp_field_from_field() will be called, so a
+      document temp field will be created for the doc column where the doc path
+      was from, the whole document will be stored in it, in the meantime, the
+      key path of the doc path will be stored in the document temp field so
+      that its value will be retrieved correctly in the future.
+    */
+    if (field->document_path && group)
     {
       DBUG_ASSERT(field->field &&
                   field->field->type() == MYSQL_TYPE_DOCUMENT &&
@@ -348,6 +356,16 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
                                           NULL);
       if (!result)
         break;
+      if(field->document_path){
+        if(field->alias_was_set) {
+          ((Field_document*)result)->
+            add_documentpath(field->document_path_keys);
+          field->document_path_keys.empty();
+          field->document_path = false;
+        }
+        ((Field_document*)result)->
+          set_document_type(field->document_path_type);
+      }
     }
     if (orig_type == Item::REF_ITEM && orig_modify)
       ((Item_ref*)orig_item)->set_result_field(result);
@@ -650,7 +668,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
   */
   if (param->precomputed_group_by)
     copy_func_count+= param->sum_func_count;
-  
+
   init_sql_alloc(&own_root, TABLE_ALLOC_BLOCK_SIZE, 0);
 
   if (!multi_alloc_root(&own_root,
@@ -1145,7 +1163,7 @@ update_hidden:
         This is a Field_varstring field that was created for a document path
         in GROUP BY.
       */
-      if (field->type() == MYSQL_TYPE_VARCHAR &&
+      if (field->type() == MYSQL_TYPE_DOCUMENT_PATH &&
           ((Field_varstring*)field)->document_path_keys)
       {
         /*

@@ -3690,6 +3690,9 @@ class Field_document :public Field_blob {
   char *val_fbson_blob(int *length);
   type_conversion_status update_json(const fbson::FbsonValue *val);
   type_conversion_status prepare_update(const CHARSET_INFO *cs, char **buff);
+  fbson::FbsonValue *get_fbson_value(char *blob,
+                                     int length,
+                                     List<Document_key> *key_path_ptr);
 public:
   enum document_type doc_type;
   bool nullable_document; // stores the user defined nullability in DDL
@@ -3723,7 +3726,7 @@ public:
     {
       init();
     }
-
+  void add_documentpath(List<Document_key>& key_path);
   enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
@@ -3786,7 +3789,7 @@ public:
 
   type_conversion_status field_conv_document_path(
       List<Document_key>* key_path_ptr,
-      Field *to, my_bool is_null);
+      Field *to, my_bool &is_null);
 
   type_conversion_status reset(void)
   {
@@ -3821,6 +3824,7 @@ public:
       case MYSQL_TYPE_DOUBLE: doc_type = DOC_PATH_DOUBLE; break;
       case MYSQL_TYPE_STRING: doc_type = DOC_PATH_STRING; break;
       case MYSQL_TYPE_BLOB: doc_type = DOC_PATH_BLOB; break;
+      case MYSQL_TYPE_DOCUMENT: doc_type = DOC_DOCUMENT; break;
       default: DBUG_ASSERT(false); //not supported
     }
   }
@@ -3846,7 +3850,17 @@ public:
     return (1 << 24) - 1;
   }
 
-private:
+ private:
+  /*
+    This variable in the Field_document makes it a sub-document for the
+    document path. The document path information is stored in this field.
+    When creating alias in sub query, we lose the information about document,
+    so we store it in the Field_document. Whenevery the function like
+    val_xxxx, document_path_val_xxx is called, it will first try to get the
+    sub-document pointed by document_key_path and then do the previous jobs.
+   */
+  List<Document_key> document_key_path;
+
   void init()
   {
     flags|= DOCUMENT_FLAG;

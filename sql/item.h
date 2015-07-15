@@ -2224,6 +2224,10 @@ protected:
   bool right_shift_for_possible_document_path(THD *);
 
 public:
+  /* type of this document path key. Each document path can only
+   * be one type when it is defined in a secondary index. */
+  enum_field_types document_path_type;
+
   Name_resolution_context *context;
   const char *db_name;
   const char *table_name;
@@ -2254,9 +2258,6 @@ public:
      the key list that points to the document path
   */
   List<Document_key> document_path_keys;
-  /* type of this document path key. Each document path can only
-   * be one type when it is defined in a secondary index. */
-  enum_field_types document_path_type;
   /*
      the document path full name, e.g. `col`.`k1`.`k2`.`k3`
      the first part is the column name whose type is document,
@@ -2453,6 +2454,7 @@ public:
 
   void make_field(Send_field *tmp_field);
   Field *make_string_field_for_document_path_item(TABLE *table);
+  Field *make_documentpath_field(TABLE *table);
   type_conversion_status save_in_field(Field *field,bool no_conversions);
   void save_org_in_field(Field *field);
   table_map used_tables() const;
