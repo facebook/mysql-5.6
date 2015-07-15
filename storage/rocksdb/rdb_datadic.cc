@@ -2040,6 +2040,54 @@ bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
                   RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
 }
 
+void Dict_manager::get_drop_indexes_ongoing(std::vector<uint32_t> &index_ids)
+{
+  uchar drop_index_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  store_big_uint4(drop_index_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING);
+  rocksdb::Slice drop_index_slice((char*)drop_index_buf,
+                                  RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+
+  rocksdb::Iterator* it= NewIterator();
+  for (it->Seek(drop_index_slice); it->Valid(); it->Next())
+  {
+    rocksdb::Slice key= it->key();
+    const uchar* ptr= (const uchar*)key.data();
+
+    if (key.size() != RDBSE_KEYDEF::INDEX_NUMBER_SIZE * 2)
+      break;
+
+    if (read_big_uint4(ptr) != RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING)
+      break;
+
+    // We don't check version right now since currently we always store only
+    // RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING_VERSION = 1 as a value.
+    // If increasing version number, we need to add version check logic here.
+    uint32_t index_id= read_big_uint4(ptr+RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    index_ids.push_back(index_id);
+  }
+  delete it;
+}
+
+void Dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
+                                            const uint32_t index_id)
+{
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
+                  index_id);
+  store_big_uint2(value_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING_VERSION);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+  rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
+  batch->Put(system_cfh, key, value);
+}
+
+void Dict_manager::end_drop_index_ongoing(rocksdb::WriteBatch* batch,
+                                          const uint32_t index_id)
+{
+  delete_util(batch, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING, index_id);
+}
+
 void Dict_manager::add_stats(
   rocksdb::WriteBatch* batch,
   const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
