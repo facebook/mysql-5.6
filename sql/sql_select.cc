@@ -4514,6 +4514,13 @@ calc_group_buffer(JOIN *join,ORDER *group)
 	key_length+=MAX_BLOB_WIDTH;		// Can't be used as a key
       else if (type == MYSQL_TYPE_VARCHAR || type == MYSQL_TYPE_VAR_STRING)
         key_length+= field->field_length + HA_KEY_BLOB_LENGTH;
+      else if (type == MYSQL_TYPE_DOCUMENT)
+      {
+        // In group by, when it's a document type, it will be converted
+        // to Field_varstring first and 4096 will be it's size.
+        // It need to be improved.
+        key_length+= 4096 + HA_KEY_BLOB_LENGTH;
+      }
       else if (type == MYSQL_TYPE_BIT)
       {
         /* Bit is usually stored as a longlong key for group fields */
