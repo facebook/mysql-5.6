@@ -21,6 +21,7 @@
 #include <mysql/plugin.h>
 #include "sql_class.h"
 #include "ha_rocksdb.h"
+#include "my_stacktrace.h"
 
 #include "rdb_dropped_indices.h"
 #include "rdb_datadic.h"
@@ -31,67 +32,72 @@
 #endif
 #include <inttypes.h>
 
-const char* DROP_INDEX_TABLE_NAME = "__drop_index__";
-
 #ifdef HAVE_PSI_INTERFACE
 PSI_mutex_key key_mutex_dropped_indices_manager;
 #endif
 
-void Dropped_indices_manager::init(Table_ddl_manager* ddl_manager_,
-                                   Dict_manager *dict)
+void Dropped_indices_manager::init(Table_ddl_manager* ddl_manager,
+                                   Dict_manager *dict_)
 {
   mysql_mutex_init(key_mutex_dropped_indices_manager, &dim_mutex,
                    MY_MUTEX_INIT_FAST);
-  ddl_manager = ddl_manager_;
+  dict = dict_;
 
-  RDBSE_TABLE_DEF* tbl = ddl_manager->find((uchar*)DROP_INDEX_TABLE_NAME,
-                                           strlen(DROP_INDEX_TABLE_NAME),
-                                           false);
+  std::vector<uint32> index_ids;
+  dict->get_drop_indexes_ongoing(index_ids);
 
-  if (tbl == nullptr) {
-    tbl = new RDBSE_TABLE_DEF;
-    tbl->n_keys = 0;
-    tbl->key_descr = nullptr;
-    tbl->dbname_tablename.append(DROP_INDEX_TABLE_NAME,
-                                 strlen(DROP_INDEX_TABLE_NAME));
-
-    std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
-    rocksdb::WriteBatch *batch= wb.get();
-    ddl_manager->put_and_write(tbl, batch);
-    dict->commit(batch);
-    return;
+  /*
+   * ddl_manager remembers maximum MyRocks internal index id and assigns
+   * and increments new index id when new table/index is created.
+   * drop-ongoing index ids do not exist in ddl_manager, but
+   * exist in DDL_DROP_INDEX_ONGOING data dictionary. ddl_manager should
+   * skip these index ids so that it does not allocate conflicting index ids.
+   * (Example: CREATE INDEX 10, 11, 12; DROP INDEX 11, 12; restarting instance.
+   * ddl_manager sees the maximum index id is 10. But next allocation
+   * has to be 13, if dropping index has not completed)
+   */
+  for (auto index_id: index_ids)
+  {
+    set_insert(index_id, "Resume");
+    if (index_id >= ddl_manager->get_current_number())
+    {
+      ddl_manager->set_next_number(index_id+1);
+    }
   }
-
-  map_insert(tbl->key_descr, tbl->n_keys, "Resume");
 
   DBUG_ASSERT(initialized());
 }
 
-// add keys to our internal map
-// NOT thread safe
-void Dropped_indices_manager::map_insert(RDBSE_KEYDEF** key_descr,
-                                         uint32 n_keys, const char* log_action)
+void Dropped_indices_manager::set_insert_table(RDBSE_KEYDEF** key_descr,
+                                               uint32 n_keys,
+                                               const char* log_action)
 {
   for (uint32 i = 0; i < n_keys; i++) {
-    uint32 index = key_descr[i]->get_index_number();
-    DBUG_ASSERT(key_descr[i]->get_cf() != nullptr);
-    di_map[index] = new RDBSE_KEYDEF(*key_descr[i]);
-    di_map[index]->set_keyno(i);
-
-    sql_print_information("RocksDB: %s filtering dropped index %d",
-                          log_action, index);
+    set_insert(key_descr[i]->get_index_number(), log_action);
   }
+}
+
+// Not thread safe
+void Dropped_indices_manager::set_insert(uint32 index_id,
+                                         const char* log_action)
+{
+  uint32 cf_id= -1;
+  if (!dict->get_cf_id(index_id, &cf_id))
+  {
+    sql_print_error("RocksDB: Failed to get column family info "
+                    "from index id %u. MyRocks data dictionary may "
+                    "get corrupted.", index_id);
+    abort_with_stack_traces();
+  }
+  di_set.insert(index_id);
+  sql_print_information("RocksDB: %s filtering dropped index %d",
+                        log_action, index_id);
 }
 
 void Dropped_indices_manager::cleanup()
 {
   mysql_mutex_destroy(&dim_mutex);
-  for (auto i : di_map) {
-    delete i.second;
-  }
-  di_map.clear();
-  ddl_manager = nullptr;
-  DBUG_ASSERT(!initialized());
+  di_set.clear();
 }
 
 bool Dropped_indices_manager::empty() const
@@ -99,7 +105,7 @@ bool Dropped_indices_manager::empty() const
   bool empty = true;
   if (initialized()) {
     mysql_mutex_lock(&dim_mutex);
-    empty = di_map.empty();
+    empty = di_set.empty();
     mysql_mutex_unlock(&dim_mutex);
   }
   return empty;
@@ -111,8 +117,8 @@ bool Dropped_indices_manager::has_index(uint32 index) const
   bool match = false;
   if (initialized()) {
     mysql_mutex_lock(&dim_mutex);
-    if (!di_map.empty()) {
-      match = di_map.find(index) != di_map.end();
+    if (!di_set.empty()) {
+      match = di_set.find(index) != di_set.end();
     }
     mysql_mutex_unlock(&dim_mutex);
   }
@@ -120,11 +126,11 @@ bool Dropped_indices_manager::has_index(uint32 index) const
 }
 
 // get entire list of indices to check if they're finished
-Dropped_Index_Map Dropped_indices_manager::get_indices() const
+Dropped_Index_Set Dropped_indices_manager::get_indices() const
 {
   DBUG_ASSERT(initialized());
   mysql_mutex_lock(&dim_mutex);
-  Dropped_Index_Map indices = di_map;
+  Dropped_Index_Set indices = di_set;
   mysql_mutex_unlock(&dim_mutex);
   return indices;
 }
@@ -137,82 +143,33 @@ void Dropped_indices_manager::add_indices(RDBSE_KEYDEF** key_descr,
   DBUG_ASSERT(initialized());
   mysql_mutex_lock(&dim_mutex);
 
-  map_insert(key_descr, n_keys, "Begin");
-
-  RDBSE_TABLE_DEF* old_tbl = ddl_manager->find(
-    (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), true);
-  DBUG_ASSERT(old_tbl != nullptr);
-  mysql_mutex_lock(&old_tbl->mutex);
-  RDBSE_TABLE_DEF* tbl = new RDBSE_TABLE_DEF;
-  tbl->n_keys = old_tbl->n_keys + n_keys;
-  tbl->key_descr = new RDBSE_KEYDEF*[tbl->n_keys];
-  memcpy(tbl->key_descr, old_tbl->key_descr,
-         sizeof(RDBSE_KEYDEF*) * old_tbl->n_keys);
-  // zero out old pointers so they aren't freed
-  memset(old_tbl->key_descr, 0, sizeof(RDBSE_KEYDEF*) * old_tbl->n_keys);
-  size_t k = old_tbl->n_keys;
+  set_insert_table(key_descr, n_keys, "Begin");
 
   for (uint32 i = 0; i < n_keys; i++)
   {
-    tbl->key_descr[k] = new RDBSE_KEYDEF(*key_descr[i]);
-    tbl->key_descr[k]->set_keyno(k);
-    ++k;
+    dict->start_drop_index_ongoing(batch, key_descr[i]->get_index_number());
   }
-
-  DBUG_ASSERT(k == tbl->n_keys);
-  tbl->dbname_tablename.append(DROP_INDEX_TABLE_NAME,
-                               strlen(DROP_INDEX_TABLE_NAME));
-  mysql_mutex_unlock(&old_tbl->mutex);
-  ddl_manager->put_and_write(tbl, batch);
 
   mysql_mutex_unlock(&dim_mutex);
 }
 
-// remove indices from the map
+// remove indices from the map, and delete from data dictionary
 void Dropped_indices_manager::remove_indices(
-    const std::unordered_set<uint32> & indices,
-    Dict_manager *dict)
+    const std::unordered_set<uint32> & indices)
 {
   DBUG_ASSERT(initialized());
   mysql_mutex_lock(&dim_mutex);
   std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
   rocksdb::WriteBatch *batch= wb.get();
 
-  RDBSE_TABLE_DEF* old_tbl = ddl_manager->find(
-    (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), true);
-  DBUG_ASSERT(old_tbl != nullptr);
-  mysql_mutex_lock(&old_tbl->mutex);
-
-  // We can't just use math to subtract indices.size() from di_map.size(),
-  // since there could be duplicates. So instead we build up a vector and
-  // then convert it to an RDBSE_TABLE_DEF afterward.
-  std::vector<RDBSE_KEYDEF*> key_descr;
-  for (size_t i = 0; i < old_tbl->n_keys; i++) {
-    RDBSE_KEYDEF* keydef = old_tbl->key_descr[i];
-    if (indices.find(keydef->get_index_number()) == indices.end()) {
-      auto kd = new RDBSE_KEYDEF(*keydef);
-      kd->set_keyno(key_descr.size());
-      key_descr.push_back(kd);
-    }
-  }
-
-  RDBSE_TABLE_DEF* tbl = new RDBSE_TABLE_DEF;
-  tbl->n_keys = key_descr.size();
-  tbl->key_descr = new RDBSE_KEYDEF*[tbl->n_keys];
-  memcpy(tbl->key_descr, &key_descr[0], sizeof(RDBSE_KEYDEF*) * tbl->n_keys);
-  tbl->dbname_tablename.append(DROP_INDEX_TABLE_NAME,
-                               strlen(DROP_INDEX_TABLE_NAME));
-  mysql_mutex_unlock(&old_tbl->mutex);
-  ddl_manager->put_and_write(tbl, batch);
-
   for (auto index : indices) {
-    auto it = di_map.find(index);
-    if (it != di_map.end()) {
+    auto it = di_set.find(index);
+    if (it != di_set.end()) {
       sql_print_information("RocksDB: Finished filtering dropped index %d",
                             index);
+      dict->end_drop_index_ongoing(batch, index);
       dict->delete_index_cf_mapping(batch, index);
-      delete it->second;
-      di_map.erase(it);
+      di_set.erase(it);
     }
   }
   dict->commit(batch);
