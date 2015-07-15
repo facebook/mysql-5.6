@@ -2079,8 +2079,8 @@ static void clear_current_group_events(Slave_worker *worker,
    @return NULL failure or
            a-pointer to an item.
 
-   This function increments current_event_index. But if current group cause
-   worker queue overfill, current_event_index will get reset to 1.
+   If current group causes worker queue overfill, current_event_index will
+   get reset to 0.
 */
 struct slave_job_item* pop_jobs_item(Slave_worker *worker,
                                      Slave_job_item *job_item)
@@ -2117,7 +2117,6 @@ struct slave_job_item* pop_jobs_item(Slave_worker *worker,
   mysql_mutex_unlock(&worker->jobs_lock);
 
   thd_proc_info(worker->info_thd, "Executing event");
-  worker->current_event_index++;
   return job_item;
 }
 
@@ -2158,6 +2157,7 @@ int slave_worker_exec_job(Slave_worker *worker, Relay_log_info *rli)
     error= -1;
     goto err;
   }
+  worker->current_event_index++;
   ev= static_cast<Log_event*>(job_item->data);
   thd->server_id = ev->server_id;
   thd->set_time();
