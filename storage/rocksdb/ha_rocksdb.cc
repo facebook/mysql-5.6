@@ -5014,46 +5014,70 @@ void* drop_index_thread(void*)
     // make sure, no program error is returned
     assert(ret == 0 || ret == ETIMEDOUT);
 
-    Dropped_Index_Map indices = dropped_indices_manager.get_indices();
+    Dropped_Index_Set indices = dropped_indices_manager.get_indices();
     if (!indices.empty()) {
       std::unordered_set<uint32> finished;
-      uchar buf[2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
       rocksdb::ReadOptions read_opts;
       read_opts.total_order_seek = true; // disable bloom filter
 
       for (auto d : indices) {
-        std::unique_ptr<rocksdb::Iterator> it(
-          rdb->NewIterator(read_opts, d.second->get_cf()));
-
-        rocksdb::Range r = get_range(d.second, buf,
-                                     d.second->is_reverse_cf ? 1 : 0, 0);
-
-        // look for entry with index's prefix
-        // if none exists, we're finished with this index
-        it->Seek(r.start);
-        if (!it->Valid()) {
-
-          // for reverse column families, results are actually before the index,
-          // so we seek to index+1, then try to find index.
-          if (d.second->is_reverse_cf
-              && rocksdb::Slice(it->key()).starts_with(r.start)) {
-            // if 4 byte key with r.start does exist, then we need to seek next.
-            // if it doesn't exist, then the iterator should already be pointing
-            // to the first key in r.limit.
-            it->Next();
-          }
-
-          // at this point, the iterator will point to an entry for the index,
-          // if one exists.
+        uint32 cf_id= -1;
+        uint32 cf_flags= -1;
+        if (!dict_manager.get_cf_id(d, &cf_id))
+        {
+          sql_print_error("RocksDB: Failed to get column family id "
+                          "from index id %u. MyRocks data dictionary may "
+                          "get corrupted.", d);
+          abort_with_stack_traces();
         }
+        if (!dict_manager.get_cf_flags(cf_id, &cf_flags))
+        {
+          sql_print_error("RocksDB: Failed to get column family flags "
+                          "from cf id %u. MyRocks data dictionary may "
+                          "get corrupted.", cf_id);
+          abort_with_stack_traces();
+        }
+        rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(cf_id);
+        DBUG_ASSERT(cfh);
+        bool is_reverse_cf= cf_flags & RDBSE_KEYDEF::REVERSE_CF_FLAG;
+        std::unique_ptr<rocksdb::Iterator> it(
+          rdb->NewIterator(read_opts, cfh));
 
-        if (!it->Valid() || !rocksdb::Slice(it->key()).starts_with(r.limit)) {
-          finished.insert(d.first);
+        bool index_removed= false;
+        uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
+        store_big_uint4(key_buf, d);
+        rocksdb::Slice key = rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+        it->Seek(key);
+        if (is_reverse_cf)
+        {
+          if (!it->Valid())
+          {
+            it->SeekToLast();
+          }
+          else
+          {
+            it->Prev();
+          }
+        }
+        if (!it->Valid())
+        {
+          index_removed= true;
+        }
+        else
+        {
+          if (memcmp(it->key().data(), key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
+          {
+            index_removed= true;
+          }
+        }
+        if (index_removed)
+        {
+          finished.insert(d);
         }
       }
 
       if (!finished.empty()) {
-        dropped_indices_manager.remove_indices(finished, &dict_manager);
+        dropped_indices_manager.remove_indices(finished);
       }
     }
   }
