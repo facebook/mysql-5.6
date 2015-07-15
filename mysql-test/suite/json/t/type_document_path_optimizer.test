@@ -38,6 +38,9 @@ create table t1 (
 ) engine = innodb;
 
 insert into t1 values
+(10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "binary":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
+(11, 11, 11.11, 'kkk', '{"bool":false, "int":11, "double":11.11, "string":"kkk", "binary":"kkk", "k1":{"k2":{"k3":{"int":11}}}, "id":11}', '{"int":11, "double":11.11}'),
+(12, 12, 12.12, 'lll', '{"bool":false, "int":12, "double":12.12, "string":"lll", "binary":"lll", "k1":{"k2":{"k3":{"int":12}}}, "id":12}', '{"int":12, "double":12.12}'),
 (1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "binary":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'), 
 (2, 2, 2.2, 'bbb', '{"bool":true,  "int":2, "double":2.2, "string":"bbb", "binary":"bbb", "k1":{"k2":{"k3":{"int":2}}}, "id":2}', '{"int":2, "double":2.2}'), 
 (3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "binary":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'), 
@@ -207,6 +210,7 @@ select doc1.double from t1 where doc1.int > 5;
 explain extended select doc1.double from t1 use document keys where doc1.int > 5;
 select doc1.double from t1 use document keys where doc1.int > 5;
 # group by
+# FIXME in group it's always treated as varstring
 explain extended select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
 select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
 
@@ -257,6 +261,7 @@ select doc1.double from t1 where doc1.double > 5.5;
 explain extended select doc1.double from t1 use document keys where doc1.double > 5.5;
 select doc1.double from t1 use document keys where doc1.double > 5.5;
 # group by
+# FIXME: column in group by is treated as varstring
 explain extended select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 
@@ -505,6 +510,7 @@ select b from t1 where doc1.int > 5;
 explain extended select d from t1 use document keys where doc1.int > 5;
 select b from t1 use document keys where doc1.int > 5;
 # group by
+# FIXME: column in group by is treated as varstring
 explain extended select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
 select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
 
@@ -669,6 +675,8 @@ select a, b from t1 where doc1.id = 5;
 explain extended select a, b from t1 use document keys where doc1.id = 5;
 select a, b from t1 use document keys where doc1.id = 5;
 
+# to check whether value of document path in the temporal table can be read correct when using index
+select a, doc1.int from t1 use document keys order by doc1.int;
 #
 # clean up
 #
