@@ -974,7 +974,7 @@ static Item_result field_types_result_type [FIELDTYPE_NUM]=
 };
 
 static fbson::FbsonValue*
-json_extract_fbsonvalue(List<Document_key>& key_path,
+json_extract_fbsonvalue(List<Document_key> *key_path_ptr,
                         fbson::FbsonValue *pval);
 
 /*
@@ -8995,13 +8995,28 @@ String *Field_document::val_str(String *val_buffer,
   char *blob;
   memcpy(&blob, ptr+packlength, sizeof(char*));
   if (!blob)
+  {
     val_buffer->copy("", 0, charset());
+    return nullptr;
+  }
+
+  fbson::FbsonValue *p = get_fbson_value(blob, get_length(ptr), nullptr);
+  if(nullptr == p)
+  {
+    val_buffer->copy("", 0, charset());
+    return nullptr;
+  }
+
+  if(p->type() == fbson::FbsonType::T_String)
+  {
+    const char *str_ptr = p->getValuePtr();
+    int str_len = ((fbson::StringVal*)p)->length();
+    val_buffer->copy(str_ptr, str_len, charset());
+  }
   else
   {
-    fbson::FbsonValue *pval =
-        fbson::FbsonDocument::createValue(blob, get_length(ptr));
     fbson::FbsonToJson tojson;
-    const char *json = tojson.json(pval);
+    const char *json = tojson.json(p);
     val_buffer->copy(json, strlen(json), charset());
   }
   return val_buffer;
@@ -9021,6 +9036,24 @@ char *Field_document::val_fbson_blob(int *length)
   return blob;
 }
 
+fbson::FbsonValue *Field_document::get_fbson_value(
+  char *blob,
+  int length,
+  List<Document_key> *key_path_ptr)
+{
+  if(nullptr == blob)
+    return nullptr;
+  fbson::FbsonValue *val =
+    fbson::FbsonDocument::createValue(blob, length);
+  if(nullptr == val)
+    return nullptr;
+  val = json_extract_fbsonvalue(&document_key_path, val);
+  if(nullptr == val)
+    return nullptr;
+  val = json_extract_fbsonvalue(key_path_ptr, val);
+  return val;
+}
+
 /*
  * Return the FBSON binary directly
  */
@@ -9032,22 +9065,23 @@ String *Field_document::val_doc(String *val_buffer, String *val_ptr)
 
 double Field_document::val_real(void)
 {
-  ASSERT_COLUMN_MARKED_FOR_READ;
-  return DBL_MAX;
+  my_bool is_null = false;
+  return document_path_val_real(nullptr, MYSQL_TYPE_DOCUMENT, is_null);
 }
-
 
 longlong Field_document::val_int(void)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  return INT_MAX;
+  my_bool is_null = false;
+  return document_path_val_int(nullptr, MYSQL_TYPE_DOCUMENT, is_null);
 }
 
 
 my_decimal *Field_document::val_decimal(my_decimal *decimal_value)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  return decimal_value;
+  my_bool is_null = false;
+  return document_path_val_decimal(nullptr, decimal_value, is_null);
 }
 
 
@@ -9062,22 +9096,22 @@ void Field_document::make_sort_key(uchar *to, uint length)
   memset(to, 0, length);
   if (get_length())
   {
-    char *blob;
-    memcpy(&blob, ptr+packlength, sizeof(char*));
-    if (blob)
-    {
-      fbson::FbsonValue *pval =
-        fbson::FbsonDocument::createValue(blob, get_length(ptr));
-      DBUG_ASSERT(pval);
-      fbson::FbsonToJson tojson;
-      const char *json = tojson.json(pval);
-      uint len = std::min(length-1, (uint)strlen(json));
-      memcpy(to, json, len);
-      to[len] = '\0';
-    }
+    uint key_len;
+    my_bool is_null;
+    document_path_make_sort_key(nullptr, to, length, key_len, is_null);
   }
 }
 
+
+void Field_document::add_documentpath(List<Document_key>& key_path)
+{
+  List_iterator<Document_key> it(key_path);
+  for(Document_key *p; (p=it++);)
+  {
+    Document_key *k = new Document_key(p->string, p->index);
+    document_key_path.push_back(k);
+  }
+}
 
 /*
  * Extracts fbson value from key path
@@ -9085,11 +9119,13 @@ void Field_document::make_sort_key(uchar *to, uint length)
  * Output: FbsonValue object, NULL if path is invalid
  */
 static fbson::FbsonValue*
-json_extract_fbsonvalue(List<Document_key>& key_path, /* in: the key path */
+json_extract_fbsonvalue(List<Document_key>* key_path_ptr, /* in: the key path */
                         fbson::FbsonValue *pval) /* in: fbson value object */
 {
-  DBUG_ASSERT(key_path.elements > 0);
-  List_iterator_fast<Document_key> it(key_path);
+  if(nullptr == key_path_ptr || key_path_ptr->elements == 0)
+    return pval;
+
+  List_iterator_fast<Document_key> it(*key_path_ptr);
   for (Document_key *key = NULL; (key= it++) && pval;)
   {
     DBUG_ASSERT(key->string.str != NULL);
@@ -9155,15 +9191,9 @@ void Field_document::document_path_val_string(
   // Check if we are reading from a document blob. Note if the optimizer
   // decides not to use index scan only on the table, field will contain
   // document blob regardless of the doc_path_type value we have set.
-  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !orig_table->key_read)
   {
-    DBUG_ASSERT(key_path_ptr);
-    List<Document_key>& key_path = *key_path_ptr;
-
-    fbson::FbsonValue *val =
-        fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-    fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+    fbson::FbsonValue *p = get_fbson_value(blob, get_length(ptr), key_path_ptr);
 
     if (!p || p->isNull())
       return;
@@ -9227,7 +9257,7 @@ void Field_document::document_path_val_string(
     switch (doc_path_type)
     {
     case MYSQL_TYPE_LONGLONG:
-      if (table->s->db_type()->db_type == DB_TYPE_INNODB)
+      if (orig_table->s->db_type()->db_type == DB_TYPE_INNODB)
         sprintf(buf, "%lld", read_bigendian(blob, sizeof(int64)));
       else
         sprintf(buf, "%lld", *((int64*)blob));
@@ -9269,6 +9299,10 @@ void Field_document::document_path_val_string(
   }
   else
   {
+    if(!(buff && length > 0))
+    {
+      return;
+    }
     /* use passed-in buff as the output buffer. data can be truncated */
     DBUG_ASSERT(buff && length > 0);
     if (len > length - 1)
@@ -9300,22 +9334,13 @@ T Field_document::document_path_val_numeric(
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
 
-  DBUG_ASSERT(key_path_ptr);
-  List<Document_key>& key_path = *key_path_ptr;
-
   is_null = true;
-
   valid_result = false;
   char *blob = NULL;
   memcpy(&blob, ptr+packlength, sizeof(char*));
   if (!blob)
     return (T)0;
-
-  fbson::FbsonValue *val =
-    fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
-
+  fbson::FbsonValue *p = get_fbson_value(blob, get_length(ptr), key_path_ptr);
   if (!p || p->isNull())
     return (T)0;
 
@@ -9366,9 +9391,6 @@ bool Field_document::document_path_get_date_or_time(
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
 
-  DBUG_ASSERT(key_path_ptr);
-  List<Document_key>& key_path = *key_path_ptr;
-
   is_null = true;
 
   char *blob = NULL;
@@ -9376,10 +9398,7 @@ bool Field_document::document_path_get_date_or_time(
   if (!blob)
     return true;
 
-  fbson::FbsonValue *val =
-      fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-  fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+  fbson::FbsonValue *p = get_fbson_value(blob, get_length(ptr), key_path_ptr);
 
   if (!p || p->isNull())
     return true;
@@ -9476,9 +9495,6 @@ bool Field_document::document_path_is_null(
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
 
-  DBUG_ASSERT(key_path_ptr);
-  List<Document_key>& key_path = *key_path_ptr;
-
   char *blob = NULL;
   memcpy(&blob, ptr+packlength, sizeof(char*));
   if (!blob)
@@ -9487,12 +9503,9 @@ bool Field_document::document_path_is_null(
   // Check if we are reading from a document blob. Note if the optimizer
   // decides not to use index scan only on the table, field will contain
   // document blob regardless of the doc_path_type value we have set.
-  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !orig_table->key_read)
   {
-    fbson::FbsonValue *val =
-        fbson::FbsonDocument::createValue(blob, get_length(ptr));
-
-    fbson::FbsonValue *p = json_extract_fbsonvalue(key_path, val);
+    fbson::FbsonValue *p = get_fbson_value(blob, get_length(ptr), key_path_ptr);
 
     if (!p || p->isNull())
       return true;
@@ -9547,7 +9560,7 @@ longlong Field_document::document_path_val_int(
   // Check if we are reading from a document blob. Note if the optimizer
   // decides not to use index scan only on the table, field will contain
   // document blob regardless of the doc_path_type value we have set.
-  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !orig_table->key_read)
   {
     bool valid_result;
     longlong ret = document_path_val_numeric<longlong>(
@@ -9572,7 +9585,7 @@ longlong Field_document::document_path_val_int(
     switch (doc_path_type)
     {
     case MYSQL_TYPE_LONGLONG:
-      if (table->s->db_type()->db_type == DB_TYPE_INNODB)
+      if (orig_table->s->db_type()->db_type == DB_TYPE_INNODB)
         return read_bigendian(blob, sizeof(int64));
       else
         return *((int64*)blob);
@@ -9597,7 +9610,7 @@ double Field_document::document_path_val_real(
   // Check if we are reading from a document blob. Note if the optimizer
   // decides not to use index scan only on the table, field will contain
   // document blob regardless of the doc_path_type value we have set.
-  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !table->key_read)
+  if (doc_path_type == MYSQL_TYPE_DOCUMENT || !orig_table->key_read)
   {
     bool valid_result;
     double ret = document_path_val_numeric<double>(
@@ -9622,7 +9635,7 @@ double Field_document::document_path_val_real(
     switch (doc_path_type)
     {
     case MYSQL_TYPE_LONGLONG:
-      if (table->s->db_type()->db_type == DB_TYPE_INNODB)
+      if (orig_table->s->db_type()->db_type == DB_TYPE_INNODB)
         return read_bigendian(blob, sizeof(int64));
       else
         return *((int64*)blob);
@@ -9684,8 +9697,49 @@ bool Field_document::document_path_make_sort_key(
                                  uchar *buff, uint length,
                                  uint& val_len, my_bool& is_null)
 {
-  this->document_path_val_string(key_path_ptr, MYSQL_TYPE_DOCUMENT, NULL,
-                                 buff, length, val_len, is_null);
+  switch(doc_type){
+    case DOC_DOCUMENT:{
+      char *blob = nullptr;
+      memcpy(&blob, ptr+packlength, sizeof(char*));
+      fbson::FbsonValue *pval = nullptr;
+      if (blob &&
+          (pval = get_fbson_value(blob, get_length(ptr), key_path_ptr)))
+      {
+        fbson::FbsonToJson tojson;
+        const char *json = tojson.json(pval);
+        uint len = std::min(length-1, (uint)strlen(json));
+        memcpy(buff, json, len);
+        buff[len] = '\0';
+        val_len = len;
+        is_null = false;
+      }
+      else
+      {
+        is_null = true;
+      }
+      break;
+    }
+    case DOC_PATH_TINY:{
+      longlong val =
+        document_path_val_int(key_path_ptr, MYSQL_TYPE_TINY, is_null);
+      memcpy(buff, &val, sizeof(val));
+      break;
+    }
+    case DOC_PATH_INT:{
+      longlong val =
+        document_path_val_int(key_path_ptr, MYSQL_TYPE_LONGLONG, is_null);
+      memcpy(buff, &val, sizeof(val));
+      break;
+    }
+    case DOC_PATH_DOUBLE:{
+      double val =
+        document_path_val_real(key_path_ptr, MYSQL_TYPE_DOUBLE, is_null);
+      memcpy(buff, &val, sizeof(val));
+      break;
+    }
+    default:
+      return false;
+  }
   return true;
 }
 
@@ -9697,7 +9751,7 @@ bool Field_document::document_path_make_sort_key(
 */
 type_conversion_status Field_document::field_conv_document_path(
                                  List<Document_key>* key_path_ptr,
-                                 Field *to, my_bool is_null)
+                                 Field *to, my_bool &is_null)
 {
   is_null = true;
   if (to->type() == MYSQL_TYPE_VARCHAR)
