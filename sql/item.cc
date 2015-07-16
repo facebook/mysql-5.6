@@ -10327,6 +10327,8 @@ uint32 Item_type_holder::display_length(Item *item)
   case MYSQL_TYPE_NEWDECIMAL:
   case MYSQL_TYPE_ENUM:
   case MYSQL_TYPE_SET:
+  case MYSQL_TYPE_DOCUMENT:
+  case MYSQL_TYPE_DOCUMENT_VALUE:
   case MYSQL_TYPE_TINY_BLOB:
   case MYSQL_TYPE_MEDIUM_BLOB:
   case MYSQL_TYPE_LONG_BLOB:
