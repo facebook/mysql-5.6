@@ -4744,6 +4744,7 @@ String *Item_func_gtid_subtract::val_str_ascii(String *str)
 String *Item_func_fbson::val_str(String *str) {
   fbson::FbsonOutStream os;
   fbson::FbsonJsonParser parser(os);
+  fbson::FbsonErrInfo err_info;
   String *res= args[0]->val_str(str);
   if (!res) {
     goto err;
@@ -4763,12 +4764,14 @@ String *Item_func_fbson::val_str(String *str) {
     buffer.copy(os.getBuffer(), os.getSize(), &my_charset_bin);
     return &buffer;
   }
+  err_info = parser.getErrorInfo();
   push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN,
                       ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
                       ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
-                      res->ptr(), "json",
-                      (ulong) current_thd->get_stmt_da()->
-                      current_row_for_warning());
+                      "json", (ulong) current_thd->get_stmt_da()->
+                                        current_row_for_warning(),
+                      res->ptr(), err_info.err_pos, err_info.err_msg);
+
 err:
   null_value = 1;
   return NULL;

@@ -61,29 +61,29 @@ SELECT DOCUMENT('{"开源数据库":"MySQL"}');
 DOCUMENT('{"开源数据库":"MySQL"}')
 {"开源数据库":"MySQL"}
 SELECT DOCUMENT('');
-ERROR HY000: Invalid JSON object: ''
+ERROR HY000: Invalid JSON object: '', pos 0, error 'Empty document'.
 SELECT DOCUMENT(123);
-ERROR HY000: Invalid JSON object: ''
+ERROR HY000: Invalid JSON object: '', pos 0, error 'Input is not text type'.
 SELECT DOCUMENT(1.23);
-ERROR HY000: Invalid JSON object: ''
+ERROR HY000: Invalid JSON object: '', pos 0, error 'Input is not text type'.
 SELECT DOCUMENT('abc');
-ERROR HY000: Invalid JSON object: 'abc'
+ERROR HY000: Invalid JSON object: 'abc', pos 0, error 'Invalid document: document must be an object or an array'.
 SELECT DOCUMENT('"abc"');
-ERROR HY000: Invalid JSON object: '"abc"'
+ERROR HY000: Invalid JSON object: '"abc"', pos 0, error 'Invalid document: document must be an object or an array'.
 SELECT DOCUMENT('{"key"}');
-ERROR HY000: Invalid JSON object: '{"key"}'
+ERROR HY000: Invalid JSON object: '{"key"}', pos 7, error 'Invalid JSON object'.
 SELECT DOCUMENT('{1:value}');
-ERROR HY000: Invalid JSON object: '{1:value}'
+ERROR HY000: Invalid JSON object: '{1:value}', pos 2, error 'Invalid JSON object'.
 SELECT DOCUMENT('{"key":"value"');
-ERROR HY000: Invalid JSON object: '{"key":"value"'
+ERROR HY000: Invalid JSON object: '{"key":"value"', pos 15, error 'Invalid JSON object'.
 SELECT DOCUMENT('[1,2,3');
-ERROR HY000: Invalid JSON object: '[1,2,3'
+ERROR HY000: Invalid JSON object: '[1,2,3', pos 7, error 'Invalid JSON array'.
 SELECT DOCUMENT('{}}');
-ERROR HY000: Invalid JSON object: '{}}'
+ERROR HY000: Invalid JSON object: '{}}', pos 2, error 'Invalid document: document must be an object or an array'.
 SELECT DOCUMENT('[[]');
-ERROR HY000: Invalid JSON object: '[[]'
+ERROR HY000: Invalid JSON object: '[[]', pos 4, error 'Invalid JSON array'.
 SELECT DOCUMENT('{[]}');
-ERROR HY000: Invalid JSON object: '{[]}'
+ERROR HY000: Invalid JSON object: '{[]}', pos 2, error 'Invalid JSON object'.
 SELECT DOCUMENT('{[]}', 'foo');
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ' 'foo')' at line 1
 SELECT DOCUMENT();
