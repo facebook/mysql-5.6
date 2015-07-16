@@ -1688,7 +1688,7 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` = 5.5)
 select c from t1 use document keys where doc1.double = 5.5;
-ERROR HY000: Invalid document value: 5.5
+ERROR HY000: Invalid document value: '5.5'
 explain extended select c from t1 use document keys where doc1.double = '5.5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_double	doc1_double	9	const	1	100.00	Using where

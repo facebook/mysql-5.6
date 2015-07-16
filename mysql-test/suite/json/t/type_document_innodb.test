@@ -132,6 +132,9 @@ insert into t2 values (3, 123, 'a3');
 --error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t2 values (4, 123.456, 'a4');
 
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
+
 # Expecting the number of rows to be 0
 SELECT count(*) FROM t2;
 
@@ -240,7 +243,6 @@ insert into t4 values(3, "{\"\\b\\f\\n\\r\\t\":\"123\\t\\r\\n\\f\\bABC\"}", "esc
 insert into t4 values(4, "{\"Status\":\"\\u675f\\u5e26\\u7ed3\\u53d1\\u523b\\u5f55\\u673a\\u5076\\u5c14\\u4e94\\u798f\\u805a\\u54e6\"}", "escape of Unicode");
 insert into t4 values(5, "{\"\\u0009\":\"\\u000d\\u000a\"}", "escape of Unicode for control char");
 insert into t4 values(6, "{\"Control\":\"\\u0002\"}", "escape of Unicode for control char");
-insert into t4 values(7, "{\"UTF16\": \"\\uD834\\uDD1E\"}", "escape of UTF16");
 select * from t4;
 
 # Test FBSon with wrong escape

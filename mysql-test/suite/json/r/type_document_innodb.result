@@ -46,31 +46,31 @@ alter table t partition by hash(a) partitions 8;
 ERROR HY000: A DOCUMENT field is not allowed in partition function
 insert into t values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
 Warnings:
-Warning	1898	Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
 SELECT count(*) FROM t;
 count(*)
 1
 insert into t values (2, ' ', 'a2');
 Warnings:
-Warning	1898	Invalid document value: ' ' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: ' ', pos 1, error 'Invalid document: document must be an object or an array'
 insert into t values (3, 123, 'a3');
 Warnings:
-Warning	1898	Invalid document value: '123' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '123', pos 0, error 'Invalid document'
 insert into t values (4, 123.456, 'a4');
 Warnings:
-Warning	1898	Invalid document value: '123.456' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '123.456', pos 0, error 'Invalid document'
 update t set a='{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }' where i = 1;
 Warnings:
-Warning	1898	Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
 update t set a=111222333444555666777888999 where i = 2;
 Warnings:
-Warning	1898	Invalid document value: '111222333444555666777888999' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '111222333444555666777888999', pos 0, error 'Invalid document'
 update t set a=123456789.123456789;
 Warnings:
-Warning	1898	Invalid document value: '123456789.123456789' for column 'a' at row 1
-Warning	1898	Invalid document value: '123456789.123456789' for column 'a' at row 2
-Warning	1898	Invalid document value: '123456789.123456789' for column 'a' at row 3
-Warning	1898	Invalid document value: '123456789.123456789' for column 'a' at row 4
+Warning	1898	Invalid document value at column 'a' row 1: '123456789.123456789', pos 0, error 'Invalid document'
+Warning	1898	Invalid document value at column 'a' row 2: '123456789.123456789', pos 0, error 'Invalid document'
+Warning	1898	Invalid document value at column 'a' row 3: '123456789.123456789', pos 0, error 'Invalid document'
+Warning	1898	Invalid document value at column 'a' row 4: '123456789.123456789', pos 0, error 'Invalid document'
 update t set a=DEFAULT;
 insert into t values (5, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
 insert into t values (6, '{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762 } }', 'a6');
@@ -78,7 +78,7 @@ insert into t values (7, '{ "id":103, "name":"Charlie", "phone":6507770003, "add
 insert into t values (8, '{ "id":104, "name":"David", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764 }, "children":["Alex", "Bob", "Charlie"] }', 'a8');
 load data infile '../../std_data/type_document_innodb.txt' into table t;
 Warnings:
-Warning	1898	Invalid document value: '{ "id":112, "address":{ "houseNumber":1012, }' for column 'a' at row 8
+Warning	1898	Invalid document value at column 'a' row 8: '{ "id":112, "address":{ "houseNumber":1012, }', pos 45, error 'Invalid JSON object'
 select * from t;
 i	a	s
 1	NULL	a1
@@ -167,24 +167,26 @@ t2	CREATE TABLE `t2` (
   PRIMARY KEY (`i`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1
 insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }', 'a1');
-ERROR HY000: Invalid document value: { "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", }
+ERROR HY000: Invalid document value: '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "hous', pos 100, error 'Invalid JSON object'
 insert into t2 values (2, ' ', 'a2');
-ERROR HY000: Invalid document value:  
+ERROR HY000: Invalid document value: ' ', pos 1, error 'Invalid document: document must be an object or an array'
 insert into t2 values (3, 123, 'a3');
-ERROR HY000: Invalid document value: 123
+ERROR HY000: Invalid document value: '123'
 insert into t2 values (4, 123.456, 'a4');
-ERROR HY000: Invalid document value: 123.456
+ERROR HY000: Invalid document value: '123.456'
+insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
+ERROR HY000: Invalid document value: '{"testing really long key string that exceeds 64 characters but ', pos 66, error 'Key length exceeds maximum size allowed (64 bytes)'
 SELECT count(*) FROM t2;
 count(*)
 0
 insert into t2 values (1, '{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761 } }', 'a5');
 update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }' where i = 1;
-ERROR HY000: Invalid document value: { "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", }
+ERROR HY000: Invalid document value: '{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "house', pos 99, error 'Invalid JSON object'
 SELECT * from t2;
 i	a	s
 1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
 update t2 set a=DEFAULT;
-ERROR HY000: Invalid document value.
+ERROR HY000: Document field does not have default value.
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t_big;
 Table	Create Table
@@ -270,7 +272,6 @@ insert into t4 values(3, "{\"\\b\\f\\n\\r\\t\":\"123\\t\\r\\n\\f\\bABC\"}", "esc
 insert into t4 values(4, "{\"Status\":\"\\u675f\\u5e26\\u7ed3\\u53d1\\u523b\\u5f55\\u673a\\u5076\\u5c14\\u4e94\\u798f\\u805a\\u54e6\"}", "escape of Unicode");
 insert into t4 values(5, "{\"\\u0009\":\"\\u000d\\u000a\"}", "escape of Unicode for control char");
 insert into t4 values(6, "{\"Control\":\"\\u0002\"}", "escape of Unicode for control char");
-insert into t4 values(7, "{\"UTF16\": \"\\uD834\\uDD1E\"}", "escape of UTF16");
 select * from t4;
 i	a	s
 1	{"Name":"Json\tXia"}	escape in value
@@ -279,20 +280,19 @@ i	a	s
 4	{"Status":"束带结发刻录机偶尔五福聚哦"}	escape of Unicode
 5	{"\t":"\r\n"}	escape of Unicode for control char
 6	{"Control":"\u0002"}	escape of Unicode for control char
-7	{"UTF16":"𝄞"}	escape of UTF16
 create table t5 (i int(8), a document, s text(255)) engine = innodb;
 insert into t5 values(1, "{\"BAD\":\"123\\u0xDFFE\"}", "Bad Unicode");
 Warnings:
-Warning	1898	Invalid document value: '{"BAD":"123\u0xDFFE"}' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"123\u0xDFFE"}', pos 14, error 'Invalid string value'
 insert into t5 values(2, "{\"BAD\":\"\\u0x0000\"}", "Bad Unicode");
 Warnings:
-Warning	1898	Invalid document value: '{"BAD":"\u0x0000"}' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"\u0x0000"}', pos 11, error 'Invalid string value'
 insert into t5 values(3, "{\"BAD\":\"\\u0x0000010\"}", "Bad Unicode");
 Warnings:
-Warning	1898	Invalid document value: '{"BAD":"\u0x0000010"}' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"\u0x0000010"}', pos 11, error 'Invalid string value'
 insert into t5 values(4, "{\"BAD\":\"\\u0xD801\"}", "Bad UTF16");
 Warnings:
-Warning	1898	Invalid document value: '{"BAD":"\u0xD801"}' for column 'a' at row 1
+Warning	1898	Invalid document value at column 'a' row 1: '{"BAD":"\u0xD801"}', pos 11, error 'Invalid string value'
 select * from t5;
 i	a	s
 1	NULL	Bad Unicode

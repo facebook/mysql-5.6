@@ -52,11 +52,12 @@
  * @author Tian Xia <tianx@fb.com>
  */
 
-#ifndef FBSON_FBSONPARSER_H
-#define FBSON_FBSONPARSER_H
+#ifndef FBSON_FBSONJSONPARSER_H
+#define FBSON_FBSONJSONPARSER_H
 
 #include <cmath>
 #include <limits>
+#include "FbsonError.h"
 #include "FbsonDocument.h"
 #include "FbsonWriter.h"
 
@@ -66,45 +67,15 @@ const char* const kJsonDelim = " ,]}\t\r\n";
 const char* const kWhiteSpace = " \t\n\r";
 
 /*
- * Error codes
- */
-enum class FbsonErrType {
-  E_NONE = 0,
-  E_INVALID_VER,
-  E_EMPTY_STR,
-  E_OUTPUT_FAIL,
-  E_INVALID_DOCU,
-  E_INVALID_VALUE,
-  E_INVALID_KEY,
-  E_INVALID_STR,
-  E_INVALID_OBJ,
-  E_INVALID_ARR,
-  E_INVALID_HEX,
-  E_INVALID_OCTAL,
-  E_INVALID_DECIMAL,
-  E_INVALID_EXPONENT,
-  E_HEX_OVERFLOW,
-  E_OCTAL_OVERFLOW,
-  E_DECIMAL_OVERFLOW,
-  E_DOUBLE_OVERFLOW,
-  E_OUTOFMEMORY,
-  E_OUTOFBOUNDARY,
-  E_KEYNOTEXIST,
-  E_NOTARRAY,
-  E_NOTOBJ,
-  E_INVALID_OPER
-};
-
-/*
  * Template FbsonJsonParserT
  */
 template <class OS_TYPE>
 class FbsonJsonParserT {
  public:
-  FbsonJsonParserT() : err_(FbsonErrType::E_NONE) {}
+  FbsonJsonParserT() : stream_pos_(0), err_(FbsonErrType::E_NONE) {}
 
   explicit FbsonJsonParserT(OS_TYPE& os)
-      : writer_(os), err_(FbsonErrType::E_NONE) {}
+      : writer_(os), stream_pos_(0), err_(FbsonErrType::E_NONE) {}
 
   // parse a UTF-8 JSON string
   bool parse(const std::string& str, hDictInsert handler = nullptr) {
@@ -119,7 +90,7 @@ class FbsonJsonParserT {
   // parse a UTF-8 JSON string with length
   bool parse(const char* pch, unsigned int len, hDictInsert handler = nullptr) {
     if (!pch || len == 0) {
-      err_ = FbsonErrType::E_EMPTY_STR;
+      err_ = FbsonErrType::E_EMPTY_DOCUMENT;
       return false;
     }
 
@@ -131,6 +102,8 @@ class FbsonJsonParserT {
   // parse UTF-8 JSON text from an input stream
   bool parse(std::istream& in, hDictInsert handler = nullptr) {
     bool res = false;
+    err_ = FbsonErrType::E_NONE;
+    stream_pos_ = 0;
 
     // reset output stream
     writer_.reset();
@@ -138,10 +111,10 @@ class FbsonJsonParserT {
     trim(in);
 
     if (in.peek() == '{') {
-      in.ignore();
+      skipChar(in);
       res = parseObject(in, handler);
     } else if (in.peek() == '[') {
-      in.ignore();
+      skipChar(in);
       res = parseArray(in, handler);
     } else {
       err_ = FbsonErrType::E_INVALID_DOCU;
@@ -160,6 +133,19 @@ class FbsonJsonParserT {
 
   FbsonErrType getErrorCode() { return err_; }
 
+  FbsonErrInfo getErrorInfo() {
+    assert(err_ < FbsonErrType::E_NUM_ERRORS);
+
+    FbsonErrInfo err_info;
+
+    // stream_pos_ always points to the next char, so err_pos is 1-based
+    err_info.err_pos = stream_pos_;
+    err_info.err_msg = FbsonErrMsg::getErrMsg(err_);
+
+    return err_info;
+  }
+
+
   // clear error code
   void clearErr() { err_ = FbsonErrType::E_NONE; }
 
@@ -174,7 +160,7 @@ class FbsonJsonParserT {
     trim(in);
 
     if (in.peek() == '}') {
-      in.ignore();
+      skipChar(in);
       // empty object
       if (!writer_.writeEndObject()) {
         err_ = FbsonErrType::E_OUTPUT_FAIL;
@@ -184,8 +170,8 @@ class FbsonJsonParserT {
     }
 
     while (in.good()) {
-      if (in.get() != '"') {
-        err_ = FbsonErrType::E_INVALID_KEY;
+      if (nextChar(in) != '"') {
+        err_ = FbsonErrType::E_INVALID_OBJ;
         return false;
       }
 
@@ -195,7 +181,7 @@ class FbsonJsonParserT {
 
       trim(in);
 
-      char ch = in.get();
+      char ch = nextChar(in);
       if (ch == '}') {
         // end of the object
         if (!writer_.writeEndObject()) {
@@ -225,7 +211,7 @@ class FbsonJsonParserT {
     trim(in);
 
     if (in.peek() == ']') {
-      in.ignore();
+      skipChar(in);
       // empty array
       if (!writer_.writeEndArray()) {
         err_ = FbsonErrType::E_OUTPUT_FAIL;
@@ -241,7 +227,7 @@ class FbsonJsonParserT {
 
       trim(in);
 
-      char ch = in.get();
+      char ch = nextChar(in);
       if (ch == ']') {
         // end of the array
         if (!writer_.writeEndArray()) {
@@ -276,16 +262,16 @@ class FbsonJsonParserT {
     int key_len = 0;
     while (in.good() && in.peek() != '"' &&
            key_len < FbsonKeyValue::sMaxKeyLen) {
-      char ch = in.get();
+      char ch = nextChar(in);
       if(ch == '\\'){
         char escape_buffer[5]; // buffer for escape
         int len;
         if(!parseEscape(in, escape_buffer, len)){
-          err_ = FbsonErrType::E_INVALID_KEY;
+          err_ = FbsonErrType::E_INVALID_KEY_STRING;
           return false;
         }
         if(key_len + len >= FbsonKeyValue::sMaxKeyLen){
-          err_ = FbsonErrType::E_INVALID_KEY;
+          err_ = FbsonErrType::E_INVALID_KEY_LENGTH;
           return false;
         }
         memcpy(key + key_len, escape_buffer, len);
@@ -296,11 +282,14 @@ class FbsonJsonParserT {
     }
 
     if (!in.good() || in.peek() != '"' || key_len == 0) {
-      err_ = FbsonErrType::E_INVALID_KEY;
+      if (key_len == FbsonKeyValue::sMaxKeyLen)
+        err_ = FbsonErrType::E_INVALID_KEY_LENGTH;
+      else
+        err_ = FbsonErrType::E_INVALID_KEY_STRING;
       return false;
     }
 
-    in.ignore(); // discard '"'
+    skipChar(in); // discard '"'
 
     int key_id = -1;
     if (handler) {
@@ -315,7 +304,7 @@ class FbsonJsonParserT {
 
     trim(in);
 
-    if (in.get() != ':') {
+    if (nextChar(in) != ':') {
       err_ = FbsonErrType::E_INVALID_OBJ;
       return false;
     }
@@ -332,34 +321,34 @@ class FbsonJsonParserT {
     switch (in.peek()) {
     case 'N':
     case 'n': {
-      in.ignore();
+      skipChar(in);
       res = parseNull(in);
       break;
     }
     case 'T':
     case 't': {
-      in.ignore();
+      skipChar(in);
       res = parseTrue(in);
       break;
     }
     case 'F':
     case 'f': {
-      in.ignore();
+      skipChar(in);
       res = parseFalse(in);
       break;
     }
     case '"': {
-      in.ignore();
+      skipChar(in);
       res = parseString(in);
       break;
     }
     case '{': {
-      in.ignore();
+      skipChar(in);
       res = parseObject(in, handler);
       break;
     }
     case '[': {
-      in.ignore();
+      skipChar(in);
       res = parseArray(in, handler);
       break;
     }
@@ -374,37 +363,37 @@ class FbsonJsonParserT {
 
   // parse NULL value
   bool parseNull(std::istream& in) {
-    if (tolower(in.get()) == 'u' && tolower(in.get()) == 'l' &&
-        tolower(in.get()) == 'l') {
+    if (tolower(nextChar(in)) == 'u' && tolower(nextChar(in)) == 'l' &&
+        tolower(nextChar(in)) == 'l') {
       writer_.writeNull();
       return true;
     }
 
-    err_ = FbsonErrType::E_INVALID_VALUE;
+    err_ = FbsonErrType::E_INVALID_SCALAR_VALUE;
     return false;
   }
 
   // parse TRUE value
   bool parseTrue(std::istream& in) {
-    if (tolower(in.get()) == 'r' && tolower(in.get()) == 'u' &&
-        tolower(in.get()) == 'e') {
+    if (tolower(nextChar(in)) == 'r' && tolower(nextChar(in)) == 'u' &&
+        tolower(nextChar(in)) == 'e') {
       writer_.writeBool(true);
       return true;
     }
 
-    err_ = FbsonErrType::E_INVALID_VALUE;
+    err_ = FbsonErrType::E_INVALID_SCALAR_VALUE;
     return false;
   }
 
   // parse FALSE value
   bool parseFalse(std::istream& in) {
-    if (tolower(in.get()) == 'a' && tolower(in.get()) == 'l' &&
-        tolower(in.get()) == 's' && tolower(in.get()) == 'e') {
+    if (tolower(nextChar(in)) == 'a' && tolower(nextChar(in)) == 'l' &&
+        tolower(nextChar(in)) == 's' && tolower(nextChar(in)) == 'e') {
       writer_.writeBool(false);
       return true;
     }
 
-    err_ = FbsonErrType::E_INVALID_VALUE;
+    err_ = FbsonErrType::E_INVALID_SCALAR_VALUE;
     return false;
   }
 
@@ -431,7 +420,7 @@ class FbsonJsonParserT {
         // unrecognized hex digit
         return 0;
       }
-      in.ignore();
+      skipChar(in);
       ch = tolower(in.peek());
       ++num_digits;
     }
@@ -463,7 +452,7 @@ class FbsonJsonParserT {
     if(!in.good()){
       return false;
     }
-    char c = in.get();
+    char c = nextChar(in);
     len = 1;
     switch (c) {
       // \" \\ \/  \b \f \n \r \t
@@ -515,7 +504,7 @@ class FbsonJsonParserT {
           if(!in.good()){
             return false;
           }
-          c = in.get();
+          c = nextChar(in);
           if(c != '\\'){
             return false;
           }
@@ -523,7 +512,7 @@ class FbsonJsonParserT {
           if(!in.good()){
             return false;
           }
-          c = in.get();
+          c = nextChar(in);
           if(c != 'u'){
             return false;
           }
@@ -604,7 +593,7 @@ class FbsonJsonParserT {
     char buffer[BUFFER_LEN];
     int nread = 0;
     while (in.good()) {
-      char ch = in.get();
+      char ch = nextChar(in);
       if(ch == '"'){
         // write all remaining bytes in the buffer
         if (nread > 0) {
@@ -664,13 +653,13 @@ class FbsonJsonParserT {
     bool ret = false;
     switch (in.peek()) {
     case '0': {
-      in.ignore();
+      skipChar(in);
 
       if (in.peek() == 'x' || in.peek() == 'X') {
-        in.ignore();
+        skipChar(in);
         ret = parseHex(in);
       } else if (in.peek() == '.') {
-        in.ignore(); // remove '.'
+        skipChar(in); // remove '.'
         num_buf_[0] = '.';
         ret = parseDouble(in, num_buf_ + 1);
       } else {
@@ -680,12 +669,12 @@ class FbsonJsonParserT {
       break;
     }
     case '-': {
-      in.ignore();
+      skipChar(in);
       ret = parseDecimal(in, true);
       break;
     }
     case '+':
-      in.ignore();
+      skipChar(in);
     // fall through
     default:
       ret = parseDecimal(in);
@@ -744,7 +733,7 @@ class FbsonJsonParserT {
         return false;
       }
 
-      in.ignore();
+      skipChar(in);
       ch = in.peek();
     }
 
@@ -771,7 +760,7 @@ class FbsonJsonParserT {
   bool parseDecimal(std::istream& in, bool neg = false) {
     char ch = 0;
     while (in.good() && (ch = in.peek()) == '0')
-      in.ignore();
+      skipChar(in);
 
     char *pbuf = num_buf_;
     if (neg)
@@ -786,17 +775,17 @@ class FbsonJsonParserT {
       }
 
       if (ch == '.') {
-        in.ignore(); // remove '.'
+        skipChar(in); // remove '.'
         return parseDouble(in, pbuf);
       } else if (ch == 'E' || ch == 'e') {
-        in.ignore(); // remove 'E'
+        skipChar(in); // remove 'E'
         return parseExponent(in, pbuf);
       } else if (ch < '0' || ch > '9') {
         err_ = FbsonErrType::E_INVALID_DECIMAL;
         return false;
       }
 
-      in.ignore();
+      skipChar(in);
       ch = in.peek();
     }
     if (save_pos == pbuf) {
@@ -845,7 +834,7 @@ class FbsonJsonParserT {
       }
 
       if (ch == 'e' || ch == 'E') {
-        in.ignore(); // remove 'E'
+        skipChar(in); // remove 'E'
         return parseExponent(in, pbuf);
       }
       else if (ch < '0' || ch > '9') {
@@ -853,7 +842,7 @@ class FbsonJsonParserT {
         return false;
       }
 
-      in.ignore();
+      skipChar(in);
       ch = in.peek();
     }
     if (save_pos == pbuf) {
@@ -875,7 +864,7 @@ class FbsonJsonParserT {
           err_ = FbsonErrType::E_DOUBLE_OVERFLOW;
           return false;
         }
-        in.ignore();
+        skipChar(in);
         ch = in.peek();
       }
     }
@@ -893,7 +882,7 @@ class FbsonJsonParserT {
         return false;
       }
 
-      in.ignore();
+      skipChar(in);
       ch = in.peek();
     }
     if (save_pos == pbuf) {
@@ -924,12 +913,28 @@ class FbsonJsonParserT {
 
   void trim(std::istream& in) {
     while (in.good() && strchr(kWhiteSpace, in.peek())) {
-      in.ignore();
+      skipChar(in);
     }
+  }
+
+  /*
+   * Helper functions to keep track of characters read.
+   * Do not rely on std::istream's tellg() which may not be implemented.
+   */
+
+  char nextChar(std::istream& in) {
+    ++stream_pos_;
+    return in.get();
+  }
+
+  void skipChar(std::istream& in) {
+    ++stream_pos_;
+    in.ignore();
   }
 
  private:
   FbsonWriterT<OS_TYPE> writer_;
+  uint32_t stream_pos_;
   FbsonErrType err_;
   char num_buf_[512]; // buffer to hold number string
   const char *end_buf_ = num_buf_ + sizeof(num_buf_) - 1;
@@ -939,4 +944,4 @@ typedef FbsonJsonParserT<FbsonOutStream> FbsonJsonParser;
 
 } // namespace fbson
 
-#endif // FBSON_FBSONPARSER_H
+#endif // FBSON_FBSONJSONPARSER_H

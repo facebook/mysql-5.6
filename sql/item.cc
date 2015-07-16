@@ -8940,7 +8940,7 @@ Item_default_value::save_in_field(Field *field_arg, bool no_conversions)
         else if (field_arg->type() == MYSQL_TYPE_DOCUMENT)
         {
           my_message(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
-                     "Invalid document value.", MYF(0));
+                     "Document field does not have default value.", MYF(0));
         }
         return TYPE_ERR_BAD_VALUE;
       }

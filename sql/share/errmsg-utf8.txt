@@ -7141,13 +7141,13 @@ ER_READ_ONLY_SLAVE
   eng "read_only should not be disabled on a slave. Slave with read_only=0 may generate new GTID on its own breaking replication or may cause a split brain. This error can be avoided by turning off the variable read_only_slave. Any session which writes to slaves must set sql_log_bin=0 to avoid GTID generation."
 
 ER_INVALID_JSON
-  eng "Invalid JSON object: '%.64s'"
+  eng "Invalid JSON object: '%.64s', pos %u, error '%s'."
 
 ER_INVALID_JSON_ARRAY
-  eng "Invalid JSON array: '%.64s'"
+  eng "Invalid JSON array: '%.64s', pos %u, error '%s'."
 
 ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
-  eng "Invalid document value: '%.64s' for column '%.192s' at row %ld"
+  eng "Invalid document value at column '%.192s' row %ld: '%.64s', pos %u, error '%s'"
 
 ER_DOCUMENT_FIELD_IN_NON_INNODB_TABLE
   eng "A DOCUMENT field is not allowed in non-innodb table"

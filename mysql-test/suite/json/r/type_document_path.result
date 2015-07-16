@@ -2472,7 +2472,7 @@ from t1
 group by 1
 order by 1 desc)
 as tmp;
-ERROR HY000: Invalid document value: WA
+ERROR HY000: Invalid document value: 'WA', pos 0, error 'Invalid document: document must be an object or an array'
 select count(*), test.t1.doc.address.state as state
 from t1
 group by state
