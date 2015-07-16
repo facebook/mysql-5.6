@@ -878,7 +878,8 @@ static void init_rocksdb_psi_keys()
   PSI_server->register_mutex(category, all_rocksdb_mutexes, count);
 
   count= array_elements(all_rocksdb_conds);
-  PSI_server->register_cond(category, all_rocksdb_conds, count);
+  // TODO Disabling PFS for conditions due to the bug https://github.com/MySQLOnRocksDB/mysql-5.6/issues/92
+  // PSI_server->register_cond(category, all_rocksdb_conds, count);
 
   count= array_elements(all_rocksdb_stages);
   mysql_stage_register(category, all_rocksdb_stages, count);
