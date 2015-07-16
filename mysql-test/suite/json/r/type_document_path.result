@@ -2975,6 +2975,695 @@ NULL	NULL
 98763	98763
 98762	98762
 98761	98761
+drop table t6;
+##### Document paths with different types in UNION, UNION ALL, UNION DISTINCT 
+CREATE TABLE t6 (
+a int not null,
+b char (10) not null,
+doc document not null) engine=innodb;
+insert into t6 values (1,'@1','{ "id":101, "name":"Alex II", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" } }');
+insert into t6 values (2,'@2','{ "id":102, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
+insert into t6 values (3,'@3','{ "id":103, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
+insert into t6 values (4,'@4','{ "id":104, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+(select doc from t1) UNION (select 'foo');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+foo
+(select 'foo') UNION (select doc from t1);
+foo
+foo
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select 'foo');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+foo
+(select 'foo') UNION DISTINCT (select doc from t1);
+foo
+foo
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select 'foo');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+foo
+(select 'foo') UNION ALL (select doc from t1);
+foo
+foo
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION (select '{"id":106,"address":{"zipcode":98766}}');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select '{"id":106,"address":{"zipcode":98766}}') UNION (select doc from t1);
+{"id":106,"address":{"zipcode":98766}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select '{"id":106,"address":{"zipcode":98766}}');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select '{"id":106,"address":{"zipcode":98766}}') UNION DISTINCT (select doc from t1);
+{"id":106,"address":{"zipcode":98766}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select '{"id":106,"address":{"zipcode":98766}}');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+{"id":106,"address":{"zipcode":98766}}
+(select '{"id":106,"address":{"zipcode":98766}}') UNION ALL (select doc from t1);
+{"id":106,"address":{"zipcode":98766}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION (select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}'));
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+{"foo":["bar",1,0.1,[]]}
+(select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')) UNION (select doc from t1);
+DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')
+{"foo":["bar",1,0.1,[]]}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}'));
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+{"foo":["bar",1,0.1,[]]}
+(select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')) UNION DISTINCT (select doc from t1);
+DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')
+{"foo":["bar",1,0.1,[]]}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}'));
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+{"foo":["bar",1,0.1,[]]}
+(select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')) UNION ALL (select doc from t1);
+DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')
+{"foo":["bar",1,0.1,[]]}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION (select DOCUMENT('{"id":106,"address":{"zipcode":98766}}'));
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select DOCUMENT('{"id":106,"address":{"zipcode":98766}}')) UNION (select doc from t1);
+DOCUMENT('{"id":106,"address":{"zipcode":98766}}')
+{"id":106,"address":{"zipcode":98766}}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select DOCUMENT('{"id":106,"address":{"zipcode":98766}}'));
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select DOCUMENT('{"id":106,"address":{"zipcode":98766}}')) UNION DISTINCT (select doc from t1);
+DOCUMENT('{"id":106,"address":{"zipcode":98766}}')
+{"id":106,"address":{"zipcode":98766}}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select DOCUMENT('{"id":106,"address":{"zipcode":98766}}'));
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+{"id":106,"address":{"zipcode":98766}}
+(select DOCUMENT('{"id":106,"address":{"zipcode":98766}}')) UNION ALL (select doc from t1);
+DOCUMENT('{"id":106,"address":{"zipcode":98766}}')
+{"id":106,"address":{"zipcode":98766}}
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION (select 42);
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+42
+(select 42) UNION (select doc from t1);
+42
+42
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select 42);
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+42
+(select 42) UNION DISTINCT (select doc from t1);
+42
+42
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select 42);
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+42
+(select 42) UNION ALL (select doc from t1);
+42
+42
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION (select 3.1415926);
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+3.1415926
+(select 3.1415926) UNION (select doc from t1);
+3.1415926
+3.1415926
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select 3.1415926);
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+3.1415926
+(select 3.1415926) UNION DISTINCT (select doc from t1);
+3.1415926
+3.1415926
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select 3.1415926);
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+3.1415926
+(select 3.1415926) UNION ALL (select doc from t1);
+3.1415926
+3.1415926
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION (select DATE '2015-07-15');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+2015-07-15
+(select DATE '2015-07-15') UNION (select doc from t1);
+DATE '2015-07-15'
+2015-07-15
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION DISTINCT (select DATE '2015-07-15');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+2015-07-15
+(select DATE '2015-07-15') UNION DISTINCT (select doc from t1);
+DATE '2015-07-15'
+2015-07-15
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc from t1) UNION ALL (select DATE '2015-07-15');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+2015-07-15
+(select DATE '2015-07-15') UNION ALL (select doc from t1);
+DATE '2015-07-15'
+2015-07-15
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+(select doc2 from t2) UNION (select a from t5);
+doc2
+{"id":105,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":108,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":106,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+1
+2
+3
+4
+(select a2 from t2) UNION (select doc from t5);
+a2
+10
+8
+3
+5
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+(select doc from t5) UNION (select doc from t6);
+doc
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+(select doc from t5) UNION DISTINCT (select doc from t6);
+doc
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+(select doc from t5) UNION ALL (select doc from t6);
+doc
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+(select doc2 from t2 ORDER BY doc2 LIMIT 3) UNION (select doc from t6 ORDER BY doc LIMIT 3);
+doc2
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":105,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":106,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 from t2 ORDER BY doc2 LIMIT 3) UNION DISTINCT (select doc from t6 ORDER BY doc LIMIT 3);
+doc2
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":105,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":106,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 from t2 ORDER BY doc2 LIMIT 3) UNION ALL (select doc from t6 ORDER BY doc LIMIT 3);
+doc2
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":105,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":106,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 from t2) UNION (select doc from t6) ORDER BY doc2 LIMIT 4;
+doc2
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 from t2) UNION DISTINCT (select doc from t6) ORDER BY doc2 LIMIT 4 ;
+doc2
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 from t2) UNION ALL (select doc from t6) ORDER BY doc2 LIMIT 4;
+doc2
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 as doc3 from t2) UNION (select doc from t6) ORDER BY doc3 LIMIT 4;
+doc3
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 as doc3 from t2) UNION DISTINCT (select doc from t6) ORDER BY doc3 LIMIT 4 ;
+doc3
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc2 as doc3 from t2) UNION ALL (select doc from t6) ORDER BY doc3 LIMIT 4;
+doc3
+{"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
+{"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
+{"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+{"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
+(select doc.id from t1) UNION (select 'foo');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+foo
+(select doc.id from t1) UNION DISTINCT (select 'foo');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+foo
+(select doc.id from t1) UNION ALL (select 'foo');
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+foo
 ##### Clean up
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;

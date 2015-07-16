@@ -58,4 +58,41 @@ SELECT DOCUMENT('{[]}', 'foo');
 --error 1064 
 SELECT DOCUMENT();
 
+# Test document values with UNION on other document values 
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+
+# Test document values with UNION on strings
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT '{"k":[1,"v",0.1,[]]}');
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT '{"k":[1,"v",0.1,[]]}');
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT '{"k":[1,"v",0.1,[]]}');
+(SELECT '{"k":[1,"v",0.1,[]]}') UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT '{"k":[1,"v",0.1,[]]}') UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT '{"k":[1,"v",0.1,[]]}') UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+
+# Test document values with UNION on ints
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT 1);
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT 1);
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT 1);
+(SELECT 1) UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT 1) UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT 1) UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+
+# Test document values with UNION on double
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT 0.1);
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT 0.1);
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT 0.1);
+(SELECT 0.1) UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT 0.1) UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT 0.1) UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+
+# Test document values with UNION on date times
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT DATE '2015-07-15');
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT DATE '2015-07-15');
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT DATE '2015-07-15');
+(SELECT DATE '2015-07-15') UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT DATE '2015-07-15') UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+(SELECT DATE '2015-07-15') UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+
 exit;
