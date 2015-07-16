@@ -404,6 +404,11 @@ inline enum_field_types real_type_to_type(enum_field_types real_type)
     return MYSQL_TYPE_TIMESTAMP;
   case MYSQL_TYPE_NEWDATE:
     return MYSQL_TYPE_DATE;
+  /* When looking up MySQL type merge rules, documents should be
+   * treated as a blob */
+  case MYSQL_TYPE_DOCUMENT:
+  case MYSQL_TYPE_DOCUMENT_VALUE:
+    return MYSQL_TYPE_LONG_BLOB;
   /* Note: NEWDECIMAL is a type, not only a real_type */
   default: return real_type;
   }
