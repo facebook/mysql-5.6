@@ -12,7 +12,7 @@ optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
 set global rocksdb_force_flush_memtable_now = true;
-select variable_value into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
+select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
 explain extended select * from t1 where a> 500 and a< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	range	ka	ka	5	NULL	203	100.00	Using index condition
