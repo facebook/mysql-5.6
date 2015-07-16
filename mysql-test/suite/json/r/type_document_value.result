@@ -88,3 +88,105 @@ SELECT DOCUMENT('{[]}', 'foo');
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ' 'foo')' at line 1
 SELECT DOCUMENT();
 ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ')' at line 1
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT '{"k":[1,"v",0.1,[]]}');
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT '{"k":[1,"v",0.1,[]]}');
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT '{"k":[1,"v",0.1,[]]}');
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+{"k":[1,"v",0.1,[]]}
+(SELECT '{"k":[1,"v",0.1,[]]}') UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+{"k":[1,"v",0.1,[]]}
+{"k":[1,"v",0.1,[]]}
+(SELECT '{"k":[1,"v",0.1,[]]}') UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+{"k":[1,"v",0.1,[]]}
+{"k":[1,"v",0.1,[]]}
+(SELECT '{"k":[1,"v",0.1,[]]}') UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+{"k":[1,"v",0.1,[]]}
+{"k":[1,"v",0.1,[]]}
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT 1);
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+1
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT 1);
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+1
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT 1);
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+1
+(SELECT 1) UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+1
+1
+{"k":[1,"v",0.1,[]]}
+(SELECT 1) UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+1
+1
+{"k":[1,"v",0.1,[]]}
+(SELECT 1) UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+1
+1
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT 0.1);
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+0.1
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT 0.1);
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+0.1
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT 0.1);
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+0.1
+(SELECT 0.1) UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+0.1
+0.1
+{"k":[1,"v",0.1,[]]}
+(SELECT 0.1) UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+0.1
+0.1
+{"k":[1,"v",0.1,[]]}
+(SELECT 0.1) UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+0.1
+0.1
+{"k":[1,"v",0.1,[]]}
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION (SELECT DATE '2015-07-15');
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+2015-07-15
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION DISTINCT (SELECT DATE '2015-07-15');
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+2015-07-15
+(SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}')) UNION ALL (SELECT DATE '2015-07-15');
+DOCUMENT('{"k":[1, "v", 0.1, []]}')
+{"k":[1,"v",0.1,[]]}
+2015-07-15
+(SELECT DATE '2015-07-15') UNION (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+DATE '2015-07-15'
+2015-07-15
+{"k":[1,"v",0.1,[]]}
+(SELECT DATE '2015-07-15') UNION DISTINCT (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+DATE '2015-07-15'
+2015-07-15
+{"k":[1,"v",0.1,[]]}
+(SELECT DATE '2015-07-15') UNION ALL (SELECT DOCUMENT('{"k":[1, "v", 0.1, []]}'));
+DATE '2015-07-15'
+2015-07-15
+{"k":[1,"v",0.1,[]]}
