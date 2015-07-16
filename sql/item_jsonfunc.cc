@@ -32,6 +32,9 @@
 #include "mysqld.h"
 #include "item_cmpfunc.h"
 
+// error messages for JSON parsing errors
+const constexpr char* const fbson::FbsonErrMsg::err_msg_[];
+
 /*
  * Note we assume the system charset is UTF8,
  * which is the encoding of json object in FBSON
@@ -199,7 +202,11 @@ static fbson::FbsonValue *get_fbson_val(const char *c_str,
     DBUG_ASSERT(pval);
   }
   else
-    my_error(ER_INVALID_JSON, MYF(0), c_str);
+  {
+    fbson::FbsonErrInfo err_info = parser.getErrorInfo();
+    my_error(ER_INVALID_JSON, MYF(0), c_str,
+        err_info.err_pos, err_info.err_msg);
+  }
 
   return pval;
 }
@@ -424,7 +431,7 @@ json_array_length_helper(fbson::FbsonValue *pval, const char *json)
   if (pval && pval->isArray())
     return ((fbson::ArrayVal*)pval)->numElem();
   else
-    my_error(ER_INVALID_JSON_ARRAY, MYF(0), json);
+    my_error(ER_INVALID_JSON_ARRAY, MYF(0), json, 0, "Invalid array value");
 
   return 0;
 }
@@ -637,7 +644,8 @@ bool Item_func_json_contains::val_bool()
     }
   }
 
-  my_error(ER_INVALID_JSON, MYF(0), args[0]->val_str(&buffer));
+  my_error(ER_INVALID_JSON, MYF(0), args[0]->val_str(&buffer),
+      0, "Invalid object value");
   return false;
 }
 
