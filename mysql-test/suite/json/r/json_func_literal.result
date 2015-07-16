@@ -211,7 +211,7 @@ select json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2);
 json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2)
 true
 select json_extract('', 'k1');
-ERROR HY000: Invalid JSON object: ''
+ERROR HY000: Invalid JSON object: '', pos 0, error 'Empty document'.
 select json_extract_value('{"k1":"v1"}','k1');
 json_extract_value('{"k1":"v1"}','k1')
 v1
@@ -336,7 +336,7 @@ select json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2
 json_contains_key('{"k1":[1,{"k2":["v1",2,true]},3,false]}','k1',1,'k2',2)
 1
 select json_contains_key('', 'k1');
-ERROR HY000: Invalid JSON object: ''
+ERROR HY000: Invalid JSON object: '', pos 0, error 'Empty document'.
 select json_array_length(null);
 json_array_length(null)
 NULL
@@ -377,13 +377,13 @@ select json_array_length('[{"开源数据库":"MySQL"},"开源数据库"]');
 json_array_length('[{"开源数据库":"MySQL"},"开源数据库"]')
 2
 select json_array_length('{}');
-ERROR HY000: Invalid JSON array: '{}'
+ERROR HY000: Invalid JSON array: '{}', pos 0, error 'Invalid array value'.
 select json_array_length('{"key":"value"}');
-ERROR HY000: Invalid JSON array: '{"key":"value"}'
+ERROR HY000: Invalid JSON array: '{"key":"value"}', pos 0, error 'Invalid array value'.
 select json_array_length('{"key":[]}');
-ERROR HY000: Invalid JSON array: '{"key":[]}'
+ERROR HY000: Invalid JSON array: '{"key":[]}', pos 0, error 'Invalid array value'.
 select json_array_length('');
-ERROR HY000: Invalid JSON object: ''
+ERROR HY000: Invalid JSON object: '', pos 0, error 'Empty document'.
 select json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'));
 json_array_length(json_extract('{"k1":[1,{"k2":["v1",2,true]},3,false]}', 'k1'))
 4
@@ -552,11 +552,11 @@ ERROR HY000: Incorrect arguments to KEY MUST BE STRING
 select json_contains('{}', false);
 ERROR HY000: Incorrect arguments to KEY MUST BE STRING
 select json_contains('foo', 'k');
-ERROR HY000: Invalid JSON object: 'foo'
+ERROR HY000: Invalid JSON object: 'foo', pos 0, error 'Invalid document: document must be an object or an array'.
 select json_contains(2, 'k');
-ERROR HY000: Invalid JSON object: '2'
+ERROR HY000: Invalid JSON object: '2', pos 0, error 'Invalid document: document must be an object or an array'.
 select json_contains(true, 'k');
-ERROR HY000: Invalid JSON object: '1'
+ERROR HY000: Invalid JSON object: '1', pos 0, error 'Invalid document: document must be an object or an array'.
 select json_contains(null, 'k');
-ERROR HY000: Invalid JSON object: '(null)'
+ERROR HY000: Invalid JSON object: '(null)', pos 0, error 'Invalid object value'.
 include/rpl_end.inc

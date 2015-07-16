@@ -8621,14 +8621,16 @@ Field_document::sql_type(String &res) const
 
 
 void
-Field_document::push_warning_invalid(const char *from)
+Field_document::push_warning_invalid(const char *from,
+    const fbson::FbsonErrInfo *err_info = nullptr)
 {
   push_warning_printf(table->in_use, Sql_condition::WARN_LEVEL_WARN,
                       ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
                       ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
-                      from, field_name,
-                      (ulong) table->in_use->get_stmt_da()->
-                      current_row_for_warning());
+                      field_name, (ulong) table->in_use->get_stmt_da()->
+                                            current_row_for_warning(),
+                      from, err_info? err_info->err_pos : 0,
+                      err_info? err_info->err_msg : "Invalid document");
 }
 
 
@@ -8643,10 +8645,15 @@ Field_document::push_warning_too_big()
 
 
 void
-Field_document::push_error_invalid(const char *from)
+Field_document::push_error_invalid(const char *from,
+    const fbson::FbsonErrInfo *err_info = nullptr)
 {
   char buffer[256];
-  sprintf(buffer, "Invalid document value: %.128s", from);
+  if (err_info)
+    sprintf(buffer, "Invalid document value: '%.64s', pos %u, error '%s'",
+        from, err_info->err_pos, err_info->err_msg);
+  else
+    sprintf(buffer, "Invalid document value: '%.64s'", from);
   my_message(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD, buffer, MYF(0));
 }
 
@@ -8869,6 +8876,7 @@ Field_document::store_internal(const char *from, uint length,
     return TYPE_ERR_BAD_VALUE;
   }
 
+  fbson::FbsonErrInfo err_info;
   bool valid = false;
   if (current_thd->variables.use_fbson_input_format)
   {
@@ -8952,6 +8960,8 @@ Field_document::store_internal(const char *from, uint length,
         return Field_blob::store_internal(os.getBuffer(), os.getSize(), cs);
       }
     }
+    else
+      err_info = parser.getErrorInfo();
   }
 
   /*
@@ -8968,14 +8978,14 @@ Field_document::store_internal(const char *from, uint length,
     if (valid)
       push_warning_too_big();
     else
-      push_warning_invalid(from);
+      push_warning_invalid(from, err_info.err_msg ? &err_info : nullptr);
   }
   else
   {
     if (valid)
       push_error_too_big();
     else
-      push_error_invalid(from);
+      push_error_invalid(from, err_info.err_msg ? &err_info : nullptr);
   }
   return TYPE_ERR_BAD_VALUE;
 }

@@ -104,15 +104,15 @@ TEST(FBSON_PARSER, basic) {
 
   str.assign("{\"k1\":nul}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_VALUE, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_SCALAR_VALUE, parser.getErrorCode());
 
   str.assign("{\"k1\":tru}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_VALUE, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_SCALAR_VALUE, parser.getErrorCode());
 
   str.assign("{\"k1\":f}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_VALUE, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_SCALAR_VALUE, parser.getErrorCode());
 }
 
 TEST(FBSON_PARSER, number_decimal) {
@@ -802,7 +802,7 @@ TEST(FBSON_PARSER, object) {
   // invalid document
   str.assign("");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_EMPTY_STR, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_EMPTY_DOCUMENT, parser.getErrorCode());
 
   // invalid object (missing closing '}')
   str.assign("{\"k1\":1");
@@ -817,22 +817,28 @@ TEST(FBSON_PARSER, object) {
   // invalid key
   str.assign("{k1\":1}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_OBJ, parser.getErrorCode());
 
   // invalid key
   str.assign("{\"k1:1}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY_STRING, parser.getErrorCode());
 
   // invalid key
   str.assign("{:1}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_OBJ, parser.getErrorCode());
 
   // invalid key
   str.assign("{\"\":1}");
   EXPECT_FALSE(parser.parse(str.c_str()));
-  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY, parser.getErrorCode());
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY_STRING, parser.getErrorCode());
+
+  // invalid key (over 64 bytes)
+  str.assign("{\"This is a really long key string that exceeds"
+             "64 bytes in total length\":1}");
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_INVALID_KEY_LENGTH, parser.getErrorCode());
 
   // trailing garbage
   str.assign("{}}");

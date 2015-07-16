@@ -14,7 +14,7 @@
 #include <deque>
 #include <limits>
 #include <type_traits>
-#include "FbsonJsonParser.h"
+#include "FbsonError.h"
 #include "FbsonDocument.h"
 
 namespace fbson {
@@ -115,7 +115,7 @@ class FbsonUpdater {
                                             // null-terminated string
                            hDictFind handler = nullptr){
     if(nullptr == key)
-      return FbsonErrType::E_INVALID_KEY;
+      return FbsonErrType::E_INVALID_KEY_STRING;
     return pushPathKey(key, (unsigned int)strlen(key), handler);
   }
   FbsonErrType pushPathKey(const char* key,
@@ -123,7 +123,7 @@ class FbsonUpdater {
                            hDictFind handler = nullptr){
     // Check node validity
     if(nullptr == key){
-      return FbsonErrType::E_INVALID_KEY;
+      return FbsonErrType::E_INVALID_KEY_STRING;
     }
     // Check whether it's an object
     if(nullptr == path_node_.back().fbson_value ||
@@ -194,7 +194,7 @@ class FbsonUpdater {
   // For adding element to dict
   FbsonErrType insertValue(FbsonKeyValue *kvalue){
     if(nullptr == kvalue){
-      return FbsonErrType::E_INVALID_VALUE;
+      return FbsonErrType::E_INVALID_FBSON_OBJ;
     }
     // Check whether it's an object
     if(nullptr == path_node_.back().fbson_value ||
