@@ -22,8 +22,15 @@
 Item_func_document::Item_func_document(Item *a) :Item_func(a)
 {
   /* Check for valid JSON */
-  if (a->type() != STRING_ITEM || !parser.parse(a->str_value.c_ptr()))
-    my_error(ER_INVALID_JSON, MYF(0), a->str_value.c_ptr());
+  if (a->type() != STRING_ITEM)
+    my_error(ER_INVALID_JSON, MYF(0), a->str_value.c_ptr(),
+        0, "Input is not text type");
+  else if (!parser.parse(a->str_value.c_ptr()))
+  {
+    fbson::FbsonErrInfo err_info = parser.getErrorInfo();
+    my_error(ER_INVALID_JSON, MYF(0), a->str_value.c_ptr(),
+        err_info.err_pos, err_info.err_msg);
+  }
 
   length = parser.getWriter().getOutput()->getSize();
   fbson_blob = parser.getWriter().getOutput()->getBuffer();
