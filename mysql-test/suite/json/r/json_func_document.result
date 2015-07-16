@@ -35,17 +35,17 @@ insert into test_json values
 ('{"MySQL":"开源数据库"}'),
 ('{"开源数据库":"MySQL"}');
 Warnings:
-Warning	1898	Invalid document value: '' for column 'json' at row 16
-Warning	1898	Invalid document value: '123' for column 'json' at row 17
-Warning	1898	Invalid document value: '1.23' for column 'json' at row 18
-Warning	1898	Invalid document value: 'abc' for column 'json' at row 19
-Warning	1898	Invalid document value: '{"key"}' for column 'json' at row 20
-Warning	1898	Invalid document value: '{1:value}' for column 'json' at row 21
-Warning	1898	Invalid document value: '{"key":"value"' for column 'json' at row 22
-Warning	1898	Invalid document value: '[1,2,3' for column 'json' at row 23
-Warning	1898	Invalid document value: '{}}' for column 'json' at row 24
-Warning	1898	Invalid document value: '[[]' for column 'json' at row 25
-Warning	1898	Invalid document value: '{[]}' for column 'json' at row 26
+Warning	1898	Invalid document value at column 'json' row 16: '', pos 0, error 'Invalid document'
+Warning	1898	Invalid document value at column 'json' row 17: '123', pos 0, error 'Invalid document'
+Warning	1898	Invalid document value at column 'json' row 18: '1.23', pos 0, error 'Invalid document'
+Warning	1898	Invalid document value at column 'json' row 19: 'abc', pos 0, error 'Invalid document: document must be an object or an array'
+Warning	1898	Invalid document value at column 'json' row 20: '{"key"}', pos 7, error 'Invalid JSON object'
+Warning	1898	Invalid document value at column 'json' row 21: '{1:value}', pos 2, error 'Invalid JSON object'
+Warning	1898	Invalid document value at column 'json' row 22: '{"key":"value"', pos 15, error 'Invalid JSON object'
+Warning	1898	Invalid document value at column 'json' row 23: '[1,2,3', pos 7, error 'Invalid JSON array'
+Warning	1898	Invalid document value at column 'json' row 24: '{}}', pos 2, error 'Invalid document: document must be an object or an array'
+Warning	1898	Invalid document value at column 'json' row 25: '[[]', pos 4, error 'Invalid JSON array'
+Warning	1898	Invalid document value at column 'json' row 26: '{[]}', pos 2, error 'Invalid JSON object'
 select json_valid(json),json from test_json order by 1,2;
 json_valid(json)	json
 NULL	NULL
@@ -647,21 +647,21 @@ json_contains(json,'k2',DOCUMENT('["%",2,true]'))	json
 truncate test_json;
 insert into test_json values ('');
 Warnings:
-Warning	1898	Invalid document value: '' for column 'json' at row 1
+Warning	1898	Invalid document value at column 'json' row 1: '', pos 0, error 'Invalid document'
 select json_extract(json, 'k1') from test_json;
 json_extract(json, 'k1')
 NULL
 truncate test_json;
 insert into test_json values ('');
 Warnings:
-Warning	1898	Invalid document value: '' for column 'json' at row 1
+Warning	1898	Invalid document value at column 'json' row 1: '', pos 0, error 'Invalid document'
 select json_contains_key(json, 'k1') from test_json;
 json_contains_key(json, 'k1')
 NULL
 truncate test_json;
 insert into test_json values ('');
 Warnings:
-Warning	1898	Invalid document value: '' for column 'json' at row 1
+Warning	1898	Invalid document value at column 'json' row 1: '', pos 0, error 'Invalid document'
 select json_array_length(json) from test_json;
 json_array_length(json)
 NULL
