@@ -1533,6 +1533,125 @@ from (
   ) as tmp1)
 as tmp2;
 
+drop table t6;
+
+################################################################################
+###
+### Document paths with different types in UNION, UNION ALL, UNION DISTINCT 
+###
+###
+
+--echo ##### Document paths with different types in UNION, UNION ALL, UNION DISTINCT 
+
+CREATE TABLE t6 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+insert into t6 values (1,'@1','{ "id":101, "name":"Alex II", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" } }');
+insert into t6 values (2,'@2','{ "id":102, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
+insert into t6 values (3,'@3','{ "id":103, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
+insert into t6 values (4,'@4','{ "id":104, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+
+
+# Test union with doc columns and strings
+(select doc from t1) UNION (select 'foo');
+(select 'foo') UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select 'foo');
+(select 'foo') UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select 'foo');
+(select 'foo') UNION ALL (select doc from t1);
+
+# Test union with doc columns and strings with duplicates (expect dedup from UNION [DISTINCT])
+(select doc from t1) UNION (select '{"id":106,"address":{"zipcode":98766}}');
+(select '{"id":106,"address":{"zipcode":98766}}') UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select '{"id":106,"address":{"zipcode":98766}}');
+(select '{"id":106,"address":{"zipcode":98766}}') UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select '{"id":106,"address":{"zipcode":98766}}');
+(select '{"id":106,"address":{"zipcode":98766}}') UNION ALL (select doc from t1);
+
+# Test union with doc columns and DOCUMENT() values 
+(select doc from t1) UNION (select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}'));
+(select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')) UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}'));
+(select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')) UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}'));
+(select DOCUMENT('{"foo": ["bar", 1, 0.1, []]}')) UNION ALL (select doc from t1);
+
+# Test union with doc columns and DOCUMENT() values with duplicates (expect dedup from UNION [DISTINCT])
+(select doc from t1) UNION (select DOCUMENT('{"id":106,"address":{"zipcode":98766}}'));
+(select DOCUMENT('{"id":106,"address":{"zipcode":98766}}')) UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select DOCUMENT('{"id":106,"address":{"zipcode":98766}}'));
+(select DOCUMENT('{"id":106,"address":{"zipcode":98766}}')) UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select DOCUMENT('{"id":106,"address":{"zipcode":98766}}'));
+(select DOCUMENT('{"id":106,"address":{"zipcode":98766}}')) UNION ALL (select doc from t1);
+
+# Test union with doc columns and integer (cast to string is needed)
+(select doc from t1) UNION (select 42);
+(select 42) UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select 42);
+(select 42) UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select 42);
+(select 42) UNION ALL (select doc from t1);
+
+# Test union with doc columns and double (cast to string is needed)
+(select doc from t1) UNION (select 3.1415926);
+(select 3.1415926) UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select 3.1415926);
+(select 3.1415926) UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select 3.1415926);
+(select 3.1415926) UNION ALL (select doc from t1);
+
+# Test union with doc columns and dates (cast to string is needed)
+(select doc from t1) UNION (select DATE '2015-07-15');
+(select DATE '2015-07-15') UNION (select doc from t1);
+
+(select doc from t1) UNION DISTINCT (select DATE '2015-07-15');
+(select DATE '2015-07-15') UNION DISTINCT (select doc from t1);
+
+(select doc from t1) UNION ALL (select DATE '2015-07-15');
+(select DATE '2015-07-15') UNION ALL (select doc from t1);
+
+# Test union with doc columns and other table entries (check dedup)
+(select doc2 from t2) UNION (select a from t5);
+(select a2 from t2) UNION (select doc from t5);
+
+# Test union with two document columns
+(select doc from t5) UNION (select doc from t6);
+(select doc from t5) UNION DISTINCT (select doc from t6);
+(select doc from t5) UNION ALL (select doc from t6);
+
+# Test union with order by inside the individual select clauses
+(select doc2 from t2 ORDER BY doc2 LIMIT 3) UNION (select doc from t6 ORDER BY doc LIMIT 3);
+(select doc2 from t2 ORDER BY doc2 LIMIT 3) UNION DISTINCT (select doc from t6 ORDER BY doc LIMIT 3);
+(select doc2 from t2 ORDER BY doc2 LIMIT 3) UNION ALL (select doc from t6 ORDER BY doc LIMIT 3);
+
+# Test union with order by after the union
+(select doc2 from t2) UNION (select doc from t6) ORDER BY doc2 LIMIT 4;
+(select doc2 from t2) UNION DISTINCT (select doc from t6) ORDER BY doc2 LIMIT 4 ;
+(select doc2 from t2) UNION ALL (select doc from t6) ORDER BY doc2 LIMIT 4;
+
+# Test union with order by after the union with aliases
+(select doc2 as doc3 from t2) UNION (select doc from t6) ORDER BY doc3 LIMIT 4;
+(select doc2 as doc3 from t2) UNION DISTINCT (select doc from t6) ORDER BY doc3 LIMIT 4 ;
+(select doc2 as doc3 from t2) UNION ALL (select doc from t6) ORDER BY doc3 LIMIT 4;
+
+# FIXME: UNION, UNION DISTINCT, UNION ALL do not work with doc paths. Results are instead the full doc column
+(select doc.id from t1) UNION (select 'foo');
+(select doc.id from t1) UNION DISTINCT (select 'foo');
+(select doc.id from t1) UNION ALL (select 'foo');
+
 ################################################################################
 ###
 ### Clean up
