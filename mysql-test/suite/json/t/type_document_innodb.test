@@ -222,7 +222,7 @@ SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;
 
 checksum table t_big;
-connection slave;
+sync_slave_with_master;
 # Should be same as that on master
 checksum table t_big;
 
