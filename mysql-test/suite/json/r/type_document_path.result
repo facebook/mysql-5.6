@@ -56,6 +56,7 @@ insert into t5 values (1,'@1','{ "id":101, "name":"Alex II", "phone":6507770001,
 insert into t5 values (2,'@2','{ "id":102, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }','{ "id":203, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
 insert into t5 values (3,'@3','{ "id":103, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }','{ "id":202, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
 insert into t5 values (4,'@4','{ "id":104, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }','{ "id":201, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+insert into t5 values (5, '@5', '{"x0":[100, 200, 300]}', '{}');
 select `~!@#$%^&*()_+-=:;'"<>?,./\t`
 from t4;
 ~!@#$%^&*()_+-=:;'"<>?,./\t
@@ -68,6 +69,230 @@ from t4
 where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
 `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./`
 v2
+select doc.address.state from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select doc.`address`.state from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select doc.address.`state` from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select doc.`address`.`state` from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select `doc`.address.state from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select `doc`.`address`.state from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select `doc`.address.`state` from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select `doc`.`address`.`state` from t5;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+NULL
+select doc.Children.0 from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select doc.`Children`.0 from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select doc.Children.`0` from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select doc.`Children`.`0` from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select `doc`.Children.0 from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select `doc`.`Children`.0 from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select `doc`.Children.`0` from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select `doc`.`Children`.`0` from t5;
+`doc`.`Children`.`0`
+NULL
+NULL
+NULL
+Alex
+NULL
+select doc.0.foo from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select doc.0.`foo` from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select doc.`0`.foo from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select doc.`0`.`foo` from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select `doc`.0.foo from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select `doc`.0.`foo` from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select `doc`.`0`.foo from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select `doc`.`0`.`foo` from t5;
+`doc`.`0`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+select doc.x0.1 from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select `doc`.x0.1 from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select doc.`x0`.1 from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select doc.x0.`1` from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select `doc`.`x0`.1 from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select `doc`.x0.`1` from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select doc.`x0`.`1` from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
+select `doc`.`x0`.`1` from t5;
+`doc`.`x0`.`1`
+NULL
+NULL
+NULL
+NULL
+200
 ##### When document type is disabled, the original cases of database.table.field, table.field and .table.field
 SET @@global.allow_document_type = false;
 SELECT @@global.allow_document_type;
@@ -2052,6 +2277,7 @@ select doc.id
 from t5
 order by doc2.id;
 `doc`.`id`
+NULL
 104
 103
 102
@@ -2060,6 +2286,7 @@ select t5.doc.id
 from t5
 order by doc2.id;
 `doc`.`id`
+NULL
 104
 103
 102
@@ -2068,6 +2295,7 @@ select doc2.id
 from t5
 order by doc.id;
 `doc2`.`id`
+NULL
 204
 203
 202
@@ -2076,6 +2304,7 @@ select t5.doc2.id
 from t5
 order by doc.id;
 `doc2`.`id`
+NULL
 204
 203
 202
@@ -2084,6 +2313,7 @@ select doc.id
 from t5
 order by doc.id;
 `doc`.`id`
+NULL
 101
 102
 103
@@ -2092,6 +2322,7 @@ select doc2.id
 from t5
 order by doc2.id;
 `doc2`.`id`
+NULL
 201
 202
 203
@@ -2100,6 +2331,7 @@ select t5.doc.id
 from t5
 order by doc.id;
 `doc`.`id`
+NULL
 101
 102
 103
@@ -2108,6 +2340,7 @@ select t5.doc2.id
 from t5
 order by doc2.id;
 `doc2`.`id`
+NULL
 201
 202
 203
@@ -3533,6 +3766,7 @@ doc2
 2
 3
 4
+5
 (select a2 from t2) UNION (select doc from t5);
 a2
 10
@@ -3543,24 +3777,28 @@ a2
 {"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 {"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"x0":[100,200,300]}
 (select doc from t5) UNION (select doc from t6);
 doc
 {"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
 {"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 {"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"x0":[100,200,300]}
 (select doc from t5) UNION DISTINCT (select doc from t6);
 doc
 {"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
 {"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 {"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"x0":[100,200,300]}
 (select doc from t5) UNION ALL (select doc from t6);
 doc
 {"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
 {"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 {"id":104,"name":"Don II","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"x0":[100,200,300]}
 {"id":101,"name":"Alex II","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}}
 {"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}

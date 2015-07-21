@@ -95,6 +95,7 @@ insert into t5 values (1,'@1','{ "id":101, "name":"Alex II", "phone":6507770001,
 insert into t5 values (2,'@2','{ "id":102, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }','{ "id":203, "name":"Bob II", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" } }');
 insert into t5 values (3,'@3','{ "id":103, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }','{ "id":202, "name":"Charlie II", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" } }');
 insert into t5 values (4,'@4','{ "id":104, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }','{ "id":201, "name":"Don II", "phone":6507770004, "address":{ "houseNumber":1004, "streetName":"4th", "zipcode":98764, "state":"WA" }, "Children":["Alex", "Bob", "Charlei"] }');
+insert into t5 values (5, '@5', '{"x0":[100, 200, 300]}', '{}');
 
 select `~!@#$%^&*()_+-=:;'"<>?,./\t`
 from t4;
@@ -103,6 +104,45 @@ select `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=
 from t4
 where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
 
+# Test backticks around document path keys
+select doc.address.state from t5;
+select doc.`address`.state from t5;
+select doc.address.`state` from t5;
+select doc.`address`.`state` from t5;
+select `doc`.address.state from t5;
+select `doc`.`address`.state from t5;
+select `doc`.address.`state` from t5;
+select `doc`.`address`.`state` from t5;
+
+# Test backticks around document path array index at end
+select doc.Children.0 from t5;
+select doc.`Children`.0 from t5;
+select doc.Children.`0` from t5;
+select doc.`Children`.`0` from t5;
+select `doc`.Children.0 from t5;
+select `doc`.`Children`.0 from t5;
+select `doc`.Children.`0` from t5;
+select `doc`.`Children`.`0` from t5;
+
+# Test backticks around document path array index before key
+select doc.0.foo from t5;
+select doc.0.`foo` from t5;
+select doc.`0`.foo from t5;
+select doc.`0`.`foo` from t5;
+select `doc`.0.foo from t5;
+select `doc`.0.`foo` from t5;
+select `doc`.`0`.foo from t5;
+select `doc`.`0`.`foo` from t5;
+
+# Test backticks around document path where key name ends with digit
+select doc.x0.1 from t5;
+select `doc`.x0.1 from t5;
+select doc.`x0`.1 from t5;
+select doc.x0.`1` from t5;
+select `doc`.`x0`.1 from t5;
+select `doc`.x0.`1` from t5;
+select doc.`x0`.`1` from t5;
+select `doc`.`x0`.`1` from t5;
 
 ################################################################################
 ###
