@@ -1656,7 +1656,9 @@ static int lex_one_token(YYSTYPE *yylval, THD *thd)
 
       /* Actually real shouldn't start with . but allow them anyhow */
     case MY_LEX_REAL_OR_POINT:
-      if (my_isdigit(cs,lip->yyPeek()))
+      /* If there is a backtick before the . then it is a document path array
+       * index */
+      if (my_isdigit(cs,lip->yyPeek()) && lip->yyPeekn(-2) != '`')
 	state = MY_LEX_REAL;		// Real
       else
       {
