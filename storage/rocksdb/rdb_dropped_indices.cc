@@ -140,7 +140,7 @@ void Dropped_indices_manager::add_indices(RDBSE_KEYDEF** key_descr,
   map_insert(key_descr, n_keys, "Begin");
 
   RDBSE_TABLE_DEF* old_tbl = ddl_manager->find(
-    (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), false);
+    (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), true);
   DBUG_ASSERT(old_tbl != nullptr);
   mysql_mutex_lock(&old_tbl->mutex);
   RDBSE_TABLE_DEF* tbl = new RDBSE_TABLE_DEF;
@@ -179,7 +179,7 @@ void Dropped_indices_manager::remove_indices(
   rocksdb::WriteBatch *batch= wb.get();
 
   RDBSE_TABLE_DEF* old_tbl = ddl_manager->find(
-    (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), false);
+    (uchar*)DROP_INDEX_TABLE_NAME, strlen(DROP_INDEX_TABLE_NAME), true);
   DBUG_ASSERT(old_tbl != nullptr);
   mysql_mutex_lock(&old_tbl->mutex);
 
