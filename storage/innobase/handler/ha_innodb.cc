@@ -997,6 +997,12 @@ static SHOW_VAR innodb_status_variables[]= {
    (char*) &export_vars.innodb_defragment_failures, SHOW_LONG},
   {"defragment_count",
    (char*) &export_vars.innodb_defragment_count, SHOW_LONG},
+  {"defragment_runtime_pct",
+   (char*) &export_vars.innodb_defragment_runtime_pct, SHOW_LONG},
+  {"defragment_avg_runtime",
+   (char*) &export_vars.innodb_defragment_avg_runtime, SHOW_LONG},
+  {"defragment_avg_idletime",
+   (char*) &export_vars.innodb_defragment_avg_idletime, SHOW_LONG},
   {"buffered_aio_submitted",
    (char*) &export_vars.innodb_buffered_aio_submitted,    SHOW_LONG},
   {"outstanding_aio_requests",
@@ -17157,6 +17163,19 @@ innodb_defragment_frequency_update(
 		1000000.0 / srv_defragment_frequency);
 }
 
+static
+void
+innodb_defragment_max_runtime_pct_update(
+/*===============================*/
+  THD* thd,  /*!< in: thread handle */
+  struct st_mysql_sys_var* var,  /*!< in: pointer to system variable */
+  void* var_ptr,/*!< out: where the formal string goes */
+  const void* save) /*!< in: immediate result from check function */
+{
+  const uint pct = (*static_cast<const uint*>(save));
+  srv_defragment_max_runtime_pct = pct > 100 ? 100 : pct;
+}
+
 /****************************************************************//**
 Parse and enable InnoDB monitor counters during server startup.
 User can list the monitor counters/groups to be enable by specifying
@@ -18231,7 +18250,17 @@ static MYSQL_SYSVAR_UINT(defragment_frequency, srv_defragment_frequency,
   "time, and put the index back to the queue if not enough time has passed. "
   "The actual frequency can only be lower than this given number.",
   NULL, innodb_defragment_frequency_update,
-  SRV_DEFRAGMENT_FREQUENCY_DEFAULT, 1, 1000, 0);
+  SRV_DEFRAGMENT_FREQUENCY_DEFAULT, 1, 1000000, 0);
+
+static MYSQL_SYSVAR_UINT(defragment_max_runtime_pct,
+  srv_defragment_max_runtime_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "Do not defragment a single index more than this pct of clock time. "
+  "This controls the amount of clock time defrag will consume while starving "
+  "IO to the index under processing. This is achieved by leaving enough gap "
+  "between scheduling of defrag to maintain the runtime percentage",
+  NULL, innodb_defragment_max_runtime_pct_update,
+  SRV_DEFRAGMENT_MAX_RUNTIME_PCT_DEFAULT, 0, 100, 0);
 
 static MYSQL_SYSVAR_UINT(defragment_fill_factor_n_recs,
   srv_defragment_fill_factor_n_recs,
@@ -18866,6 +18895,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(defragment_n_pages),
   MYSQL_SYSVAR(defragment_stats_accuracy),
   MYSQL_SYSVAR(defragment_frequency),
+  MYSQL_SYSVAR(defragment_max_runtime_pct),
   MYSQL_SYSVAR(defragment_fill_factor),
   MYSQL_SYSVAR(defragment_fill_factor_n_recs),
   MYSQL_SYSVAR(lru_scan_depth),

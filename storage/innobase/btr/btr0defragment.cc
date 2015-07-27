@@ -66,6 +66,13 @@ ulint btr_defragment_failures = 0;
 The difference between btr_defragment_count and btr_defragment_failures shows
 the amount of effort wasted. */
 ulint btr_defragment_count = 0;
+/* Average defragment runtime as %. It only is calculated for duration of an
+ * iteration */
+ulint btr_defragment_runtime_pct = 0;
+/* Average thread runtime in an iteration in microseconds */
+ulint btr_defragment_avg_runtime = 0;
+/* Average thread sleep time in an iteration in microseconds */
+ulint btr_defragment_avg_idletime = 0;
 
 /******************************************************************//**
 Constructor for btr_defragment_item_t. */
@@ -680,6 +687,145 @@ btr_defragment_n_pages(
 }
 
 /******************************************************************//**
+ Helper class to compute runtime statistics for defragment */
+class RuntimeInfo
+{
+public:
+
+  RuntimeInfo()
+    : m_runtime(0), m_idletime(0), m_runtime_marker(0), m_idletime_marker(0)
+  {}
+
+  /* update status variables */
+  void update_stats()
+  {
+    btr_defragment_runtime_pct = m_avg_runtime_pct.get_avg();
+    btr_defragment_avg_runtime = m_avg_runtime.get_avg();
+    btr_defragment_avg_idletime = m_avg_idletime.get_avg();
+  }
+
+  /* Calculate the time required to sleep.
+   * sleeptime = (sleep time based on runtime) - idletime
+   */
+  ulonglong calc_sleep_time()
+  {
+    assert(!m_runtime_marker);
+    assert(!m_idletime_marker);
+
+    ulonglong sleeptime = calc_sleep_time(m_runtime);
+    if (m_idletime > sleeptime) {
+      /* the code already slept more than it should */
+      sleeptime = 0;
+    } else {
+      /* discount the timer already spent sleeping */
+      sleeptime -= m_idletime;
+    }
+
+    m_idletime += sleeptime;
+    m_avg_runtime.add(my_timer_to_microseconds(m_runtime));
+    m_avg_idletime.add(my_timer_to_microseconds(m_idletime));
+    m_avg_runtime_pct.add(calc_runtime_pct());
+    m_runtime = m_idletime = 0;
+
+    return sleeptime;
+  }
+
+  /* Calculate runtime % */
+  uint calc_runtime_pct()
+  {
+    assert(!m_runtime_marker);
+    return calc_runtime_pct(m_runtime, m_idletime);
+  }
+
+  /* Start timer for runtime */
+  void runtime_start(const ulonglong now)
+  {
+    assert(!m_runtime_marker);
+    m_runtime_marker = now;
+  }
+
+  /* Stop timer for runtime */
+  void runtime_stop(const ulonglong now)
+  {
+    assert(m_runtime_marker);
+    m_runtime = now - m_runtime_marker;
+    m_runtime_marker = 0;
+  }
+
+  /* Reset idle time timer */
+  void idletime_reset(const ulonglong now)
+  {
+    m_idletime_marker = now;
+  }
+
+  /* Stop idle time timer */
+  void idletime_stop(const ulonglong now)
+  {
+    assert(m_idletime_marker);
+    m_idletime += my_timer_now() - m_idletime_marker;
+    m_idletime_marker = 0;
+  }
+
+private:
+
+  /* General purpose abstraction for tracking average */
+  struct Avg
+  {
+    Avg() : m_total(0), m_count(0) {}
+
+    uint get_avg()
+    {
+      return m_count ? m_total / (double) m_count : 0;
+    }
+
+    void add(ulonglong val)
+    {
+      m_total += val;
+      ++m_count;
+    }
+
+    ulonglong m_total;
+    ulonglong m_count;
+  };
+
+  /* Compute runtime% from runtime and idletime */
+  uint calc_runtime_pct(
+    const ulonglong runtime,    /*!< in: runtime in timer unit */
+    const ulonglong idletime)   /*!< in: idle time in timer unit */
+  {
+    /* math:
+    * total = runtime + idletime
+    * runtime% = runtime / totaltime * 100 */
+    const ulonglong total = runtime + idletime;
+    return total ? (runtime / (double) total) * 100 : 0;
+  }
+
+  /* Compute the time to sleep so we can meet the max_runtime_pct */
+  ulonglong calc_sleep_time(
+    const ulonglong runtime)   /*!< in: runtime time in timer unit */
+  {
+    /* math:
+     * rutime% = (runtime / totaltime) * 100
+     * For a given runtime and max-runtime%
+     * totaltime = runtime * 100 / max-runtime%
+     * sleeptime = totaltime - runtime */
+    const auto & r_max_pct = srv_defragment_max_runtime_pct;
+    const auto totaltime = r_max_pct ? runtime * 100 / (double) r_max_pct : 0;
+    assert(totaltime >= runtime);
+    const ulonglong idletime = totaltime > runtime ? totaltime - runtime : 0;
+    return idletime;
+  }
+
+  ulonglong m_runtime;            // current runtime
+  ulonglong m_idletime;           // current idle time
+  ulonglong m_runtime_marker;     // logical runtime timer
+  ulonglong m_idletime_marker;    // logical idle time timer
+  Avg m_avg_runtime_pct;          // average runtime %
+  Avg m_avg_idletime;             // average idle time in microseconds
+  Avg m_avg_runtime;              // average run time in microseconds
+};
+
+/******************************************************************//**
 Thread that merges consecutive b-tree pages into fewer pages to defragment
 the index. */
 extern "C" UNIV_INTERN
@@ -695,6 +841,7 @@ DECLARE_THREAD(btr_defragment_thread)(
 	buf_block_t*	first_block;
 	buf_block_t*	last_block;
 	buf_pool_resizable_btr_defragment = false;
+  RuntimeInfo runtime_info;
 	while (srv_shutdown_state == SRV_SHUTDOWN_NONE) {
 		/* If buffer pool resizing has started, suspend
 		this thread until the resizing is done. */
@@ -708,7 +855,7 @@ DECLARE_THREAD(btr_defragment_thread)(
 		checking whether we should resume. srv_defragment_pause
 		will always be false if defragment is disabled, allowing
 		existing defragmentations to finish. */
-		if (srv_defragment_pause) {
+		if (srv_defragment_pause || !srv_defragment_max_runtime_pct) {
 			os_thread_sleep(BTR_DEFRAGMENT_SLEEP_IN_USECS);
 			continue;
 		}
@@ -725,6 +872,10 @@ DECLARE_THREAD(btr_defragment_thread)(
 			continue;
 		}
 		ulonglong now = my_timer_now();
+
+    /* start clocking idle time */
+    runtime_info.idletime_reset(now);
+
 		ulonglong elapsed = now - item->last_processed;
 		if (elapsed < srv_defragment_interval) {
 			/* If we see an index again before the interval
@@ -736,6 +887,7 @@ DECLARE_THREAD(btr_defragment_thread)(
 			os_thread_sleep((ulint)my_timer_to_microseconds(
 				srv_defragment_interval - elapsed));
 		}
+
 		/* If an index is marked as removed, we remove it from the work
 		queue. No other thread could be using this item at this point so
 		it's safe to remove now. */
@@ -743,7 +895,12 @@ DECLARE_THREAD(btr_defragment_thread)(
 			btr_defragment_remove_item(item);
 			continue;
 		}
+
+    /* Stop clocking ideltime and start clocking runtime */
 		now = my_timer_now();
+    runtime_info.idletime_stop(now);
+    runtime_info.runtime_start(now);
+
 		pcur = item->pcur;
 		mtr_start(&mtr);
 		btr_pcur_restore_position(BTR_MODIFY_TREE, pcur, &mtr);
@@ -774,6 +931,23 @@ DECLARE_THREAD(btr_defragment_thread)(
 			dict_stats_defrag_pool_add(index, true);
 			btr_defragment_remove_item(item);
 		}
+
+    /* Stop clocking runtime */
+		now = my_timer_now();
+    runtime_info.runtime_stop(now);
+
+    /* We do not want defrag logic to starve out the user queries. So, we run
+     * the defrag only upto the maximum clock runtime specified. We compute the
+     * sleep interval required to maintain the % for a given runtime and sleep
+     * for the duration
+     */
+    if (last_block) {
+      const auto sleeptime = runtime_info.calc_sleep_time();
+      os_thread_sleep(my_timer_to_microseconds(sleeptime));
+
+      /* Update stat */
+      runtime_info.update_stats();
+    }
 	}
 	buf_pool_resizable_btr_defragment = false;
 	btr_defragment_shutdown();
