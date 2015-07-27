@@ -32,6 +32,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 extern ulint btr_defragment_compression_failures;
 extern ulint btr_defragment_failures;
 extern ulint btr_defragment_count;
+extern ulint btr_defragment_runtime_pct;
+extern ulint btr_defragment_avg_runtime;
+extern ulint btr_defragment_avg_idletime;
 
 /** Item in the work queue for btr_degrament_thread. */
 struct btr_defragment_item_t
