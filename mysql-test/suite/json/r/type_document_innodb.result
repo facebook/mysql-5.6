@@ -186,7 +186,11 @@ SELECT * from t2;
 i	a	s
 1	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761}}	a5
 update t2 set a=DEFAULT;
-ERROR HY000: Document field does not have default value.
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+SELECT * from t2;
+i	a	s
+1	{}	a5
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
 show create table t_big;
 Table	Create Table
