@@ -147,9 +147,9 @@ update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "hous
 # Expecting the row unchanged
 SELECT * from t2;
 
-# Default is not defined and the document field cannot be NULL, so it will fail, expecting errors
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+# Default is not defined and the document field cannot be NULL, so it will default to {} 
 update t2 set a=DEFAULT;
+SELECT * from t2;
 
 # Create table with a document column that can be NULL
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;

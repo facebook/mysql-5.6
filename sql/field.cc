@@ -8887,6 +8887,13 @@ type_conversion_status Field_document::reset(void)
 {
     if(!is_derived_document_field())
     {
+      /* When not nullable, set document field to {} */
+      if (!real_maybe_null()) {
+        set_notnull();
+        store(NON_NULL_DEFAULT_DOCUMENT, 2, &my_charset_bin);
+        return TYPE_OK;
+      }
+
       type_conversion_status res= Field_blob::reset();
       if (res != TYPE_OK)
         return res;
