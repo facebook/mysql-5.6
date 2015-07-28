@@ -205,7 +205,7 @@ set_field_to_null_with_conversions(Field *field, bool no_conversions)
     Item_func_now_local::store_in(field);
     return TYPE_OK;			// Ok to set time to NULL
   }
-  
+
   // Note: we ignore any potential failure of reset() here.
   field->reset();
 
