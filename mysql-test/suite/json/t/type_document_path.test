@@ -104,6 +104,76 @@ select `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=
 from t4
 where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
 
+# FIXME: Cannot specify document default value in CREATE TABLE yet
+--error ER_BLOB_CANT_HAVE_DEFAULT
+CREATE TABLE t6 (
+       a int not null,
+       doc document,
+       doc2 document not null default '{"foo":"bar"}'
+) engine=innodb;
+
+CREATE TABLE t6 (
+       a int not null,
+       doc document,
+       doc2 document not null
+) engine=innodb;
+
+# Test the non-null property of document column
+--error ER_BAD_NULL_ERROR
+insert into t6 values (1, '{}', NULL);
+# FIXME: Explicit default should be supported
+--error ER_BLOB_CANT_HAVE_DEFAULT
+alter table t6 alter doc2 set default '{"No":"Default allowed"}';
+
+# Insert explicit default for non-null column
+insert into t6 values (1, NULL, '{}');
+insert into t6 (a, doc) values (1, NULL);
+insert into t6 (doc) values ('{"k":"v"}');
+select * from t6;
+
+# FIXME: Test changing default value
+--error ER_BLOB_CANT_HAVE_DEFAULT
+alter table t6 alter doc2 set default '{"a":"b"}';
+insert into t6 (doc) values ('[]');
+select * from t6;
+
+# Inserting implicit null column
+insert into t6 (a) values (100);
+select * from t6;
+
+# FIXME: Drop default value and test implicit {} as default again
+--error ER_BLOB_CANT_HAVE_DEFAULT
+alter table t6 alter doc2 drop default;
+insert into t6 (a) values (200); 
+select * from t6;
+
+# Test UPDATE to null of null/non-null columns
+update t6 set doc = null;
+select * from t6;
+update t6 set doc2 = null;
+select * from t6;
+
+drop table t6;
+
+# FIXME: Allow explicit default values for documents to test indexes
+CREATE TABLE t6 (
+       a int not null,
+       doc2 document not null, #default '{"a":1}',
+       doc3 document not null, #default '{"a":1}',
+       key doc2_a         (doc2.a as int),
+       unique key doc3_a  (doc3.a as int)
+) engine=innodb;
+
+insert into t6 (a) values (100);
+# FIXME: The default value should conflict with the unique index but explicit defaults are not supported
+#--error ER_DUP_ENTRY
+insert into t6 (a) values (100);
+insert into t6 (doc3) values ('{}');
+insert into t6 (doc2, doc3) values ('{}', '{}');
+select * from t6;
+
+drop table t6;
+
 # Test backticks around document path keys
 select doc.address.state from t5;
 select doc.`address`.state from t5;
