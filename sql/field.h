@@ -570,7 +570,7 @@ public:
                                field_name,
                                name));
   }
-  bool has_insert_default_function() const
+  virtual bool has_insert_default_function() const
   {
     return unireg_check == TIMESTAMP_DN_FIELD ||
       unireg_check == TIMESTAMP_DNUN_FIELD;
@@ -959,7 +959,7 @@ public:
      field. If no such function exists for the column, or the function is not
      valid for the column's data type, invoking this function has no effect.
   */
-  void evaluate_insert_default_function();
+  virtual void evaluate_insert_default_function();
 
 
   /**
@@ -1077,7 +1077,7 @@ public:
   { return real_maybe_null() || table->maybe_null; }
 
   /// @return true if this field is NULL-able, false otherwise.
-  bool real_maybe_null(void) const
+  virtual bool real_maybe_null(void) const
   { return null_ptr != 0; }
 
   uint null_offset(const uchar *record) const
@@ -3703,6 +3703,9 @@ public:
 
 class Document_path_iterator;
 
+/* Default value for document column when not nullable */
+#define NON_NULL_DEFAULT_DOCUMENT "{}"
+
 class Field_document :public Field_blob {
   bool validate(const char *from, uint length, const CHARSET_INFO *cs);
   void push_warning_invalid(const char *from,
@@ -4020,9 +4023,16 @@ public:
     }
   }
 
-  /// this overwrites the base version
+  /* This overwrites the base version.
+   * - If the field is document column, it will return false if
+   *   nullable_document is false
+   * - If the field is a document path, it can always be nullable. For example,
+   *   when document path is in the select, prefix_path_num is non-zero. When
+   *   document path used in partial update, update_args is non-null. When
+   *   document path is used in ORDER BY, get_inner_field() is non-null */
   bool real_maybe_null(void) const
-  { return Field_blob::real_maybe_null() && nullable_document; }
+  { return Field_blob::real_maybe_null() && (nullable_document ||
+      prefix_path_num || update_args || get_inner_field()); }
 
   Field_document *clone(MEM_ROOT *mem_root) const
   {
@@ -4089,6 +4099,9 @@ private:
                                   const fbson::FbsonValue *val,
                                   Save_in_field_args *args);
   int64 read_bigendian(char *src, unsigned len);
+
+  bool has_insert_default_function() const { return !real_maybe_null(); };
+  void evaluate_insert_default_function() { reset(); };
 };
 /*
   This class is for iterating of the document key in the

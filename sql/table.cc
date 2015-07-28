@@ -2108,7 +2108,10 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           /* the document path flag has been removed */
           DBUG_ASSERT(f_is_document(key_part->key_type));
         }
-        if (field->real_maybe_null())
+
+        /* When field is a document, a doc path can always be nullable so the
+         * null bit and other flags should still be set */
+        if (field->type() == MYSQL_TYPE_DOCUMENT || field->real_maybe_null())
         {
           key_part->null_offset=field->null_offset(share->default_values);
           key_part->null_bit= field->null_bit;

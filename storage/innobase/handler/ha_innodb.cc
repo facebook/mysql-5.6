@@ -7008,7 +7008,9 @@ build_template_field(
 						&templ->rec_prefix_field_no);
 	}
 
-	if (field->real_maybe_null()) {
+  /* If the field is a document, the stored field might be a document path which
+   * can be nullable */
+	if (field->type() == MYSQL_TYPE_DOCUMENT || field->real_maybe_null()) {
 		templ->mysql_null_byte_offset =
 			field->null_offset();
 
