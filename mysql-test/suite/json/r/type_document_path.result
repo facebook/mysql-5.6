@@ -69,6 +69,124 @@ from t4
 where `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./` like "v2";
 `~!@#$%^&*()_+-=:;'"<>?,./\t`.`~!@#$%^&*()_+-=:;'<>?,./`.`~!@#$%^&*()_+-=:;'<>?,./`
 v2
+CREATE TABLE t6 (
+a int not null,
+doc document,
+doc2 document not null default '{"foo":"bar"}'
+) engine=innodb;
+ERROR 42000: BLOB/TEXT column 'doc2' can't have a default value
+CREATE TABLE t6 (
+a int not null,
+doc document,
+doc2 document not null
+) engine=innodb;
+insert into t6 values (1, '{}', NULL);
+ERROR 23000: Column 'doc2' cannot be null
+alter table t6 alter doc2 set default '{"No":"Default allowed"}';
+ERROR 42000: BLOB/TEXT column 'doc2' can't have a default value
+insert into t6 values (1, NULL, '{}');
+insert into t6 (a, doc) values (1, NULL);
+Warnings:
+Warning	1364	Field 'doc2' doesn't have a default value
+insert into t6 (doc) values ('{"k":"v"}');
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+Warning	1364	Field 'doc2' doesn't have a default value
+select * from t6;
+a	doc	doc2
+1	NULL	{}
+1	NULL	{}
+0	{"k":"v"}	{}
+alter table t6 alter doc2 set default '{"a":"b"}';
+ERROR 42000: BLOB/TEXT column 'doc2' can't have a default value
+insert into t6 (doc) values ('[]');
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+Warning	1364	Field 'doc2' doesn't have a default value
+select * from t6;
+a	doc	doc2
+1	NULL	{}
+1	NULL	{}
+0	{"k":"v"}	{}
+0	[]	{}
+insert into t6 (a) values (100);
+Warnings:
+Warning	1364	Field 'doc2' doesn't have a default value
+select * from t6;
+a	doc	doc2
+1	NULL	{}
+1	NULL	{}
+0	{"k":"v"}	{}
+0	[]	{}
+100	NULL	{}
+alter table t6 alter doc2 drop default;
+ERROR 42000: BLOB/TEXT column 'doc2' can't have a default value
+insert into t6 (a) values (200);
+Warnings:
+Warning	1364	Field 'doc2' doesn't have a default value
+select * from t6;
+a	doc	doc2
+1	NULL	{}
+1	NULL	{}
+0	{"k":"v"}	{}
+0	[]	{}
+100	NULL	{}
+200	NULL	{}
+update t6 set doc = null;
+select * from t6;
+a	doc	doc2
+1	NULL	{}
+1	NULL	{}
+0	NULL	{}
+0	NULL	{}
+100	NULL	{}
+200	NULL	{}
+update t6 set doc2 = null;
+Warnings:
+Warning	1048	Column 'doc2' cannot be null
+Warning	1048	Column 'doc2' cannot be null
+Warning	1048	Column 'doc2' cannot be null
+Warning	1048	Column 'doc2' cannot be null
+Warning	1048	Column 'doc2' cannot be null
+Warning	1048	Column 'doc2' cannot be null
+select * from t6;
+a	doc	doc2
+1	NULL	{}
+1	NULL	{}
+0	NULL	{}
+0	NULL	{}
+100	NULL	{}
+200	NULL	{}
+drop table t6;
+CREATE TABLE t6 (
+a int not null,
+doc2 document not null, #default '{"a":1}',
+doc3 document not null, #default '{"a":1}',
+key doc2_a         (doc2.a as int),
+unique key doc3_a  (doc3.a as int)
+) engine=innodb;
+insert into t6 (a) values (100);
+Warnings:
+Warning	1364	Field 'doc2' doesn't have a default value
+Warning	1364	Field 'doc3' doesn't have a default value
+insert into t6 (a) values (100);
+Warnings:
+Warning	1364	Field 'doc2' doesn't have a default value
+Warning	1364	Field 'doc3' doesn't have a default value
+insert into t6 (doc3) values ('{}');
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+Warning	1364	Field 'doc2' doesn't have a default value
+insert into t6 (doc2, doc3) values ('{}', '{}');
+Warnings:
+Warning	1364	Field 'a' doesn't have a default value
+select * from t6;
+a	doc2	doc3
+100	{}	{}
+100	{}	{}
+0	{}	{}
+0	{}	{}
+drop table t6;
 select doc.address.state from t5;
 `doc`.`address`.`state`
 CA
