@@ -31,6 +31,7 @@ namespace dd {
 class Schema;
 }
 
+enum enum_db_read_only : int;
 struct CHARSET_INFO;
 struct HA_CREATE_INFO;
 
@@ -49,4 +50,6 @@ bool get_default_db_collation(THD *thd, const char *db_name,
                               const CHARSET_INFO **collation);
 bool check_schema_readonly(THD *thd, const char *schema_name,
                            TABLE_SHARE *share = nullptr);
+bool is_thd_db_read_only_by_name(THD *thd, const char *db);
+enum_db_read_only get_db_read_only(const dd::Schema &schema);
 #endif /* SQL_DB_INCLUDED */

@@ -1,0 +1,22 @@
+create database test2;
+use test2;
+create table t (i int);
+select * from t;
+i
+show create database test2;
+Database	Create Database
+test2	CREATE DATABASE `test2` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+use test2;
+SET DEBUG_SYNC='ha_commit_trans_after_check_db_readonly SIGNAL parked WAIT_FOR go';
+insert into t values (1);;
+SET DEBUG_SYNC='now WAIT_FOR parked';
+alter database test2 super_read_only = true;;
+SET DEBUG_SYNC='now SIGNAL go';
+select * from t;
+i
+1
+show create database test2;
+Database	Create Database
+test2	CREATE DATABASE `test2` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci SUPER_READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test2 read_only = false;
+drop database test2;

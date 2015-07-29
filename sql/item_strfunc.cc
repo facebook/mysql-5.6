@@ -4479,9 +4479,9 @@ String *Item_func_get_dd_schema_options::val_str(String *str) {
   ptr = option_buff;
 
   // Print READ ONLY clause if set.
-  if (p->exists("read_only")) {
+  if (p->exists("mysql_db_read_only")) {
     dd::String_type schema_read_only;
-    p->get("read_only", &schema_read_only);
+    p->get("mysql_db_read_only", &schema_read_only);
     assert(schema_read_only == "0" || schema_read_only == "1");
     if (schema_read_only == "1") ptr = my_stpcpy(ptr, " READ ONLY=1");
   }

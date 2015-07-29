@@ -114,6 +114,7 @@
 enum enum_check_fields : int;
 enum enum_tx_isolation : int;
 enum ha_notification_type : int;
+enum enum_db_read_only : int;
 class Item;
 class Parser_state;
 class PROFILING;
@@ -1205,6 +1206,11 @@ class THD : public MDL_context_owner,
     SHOW PROCESSLIST) while COM_CHANGE_USER changes the context.
   */
   mysql_mutex_t LOCK_thd_security_ctx;
+
+  /**
+    Protects THD::db_read_only_hash.
+  */
+  mysql_mutex_t LOCK_thd_db_read_only_hash;
 
   /**
     Protects query plan (SELECT/UPDATE/DELETE's) from being freed/changed
@@ -2331,6 +2337,7 @@ class THD : public MDL_context_owner,
   void set_status_no_index_used();
   void set_status_no_good_index_used();
 
+  std::unordered_map<std::string, enum_db_read_only> m_db_read_only_hash;
   const CHARSET_INFO *db_charset;
 #if defined(ENABLED_PROFILING)
   std::unique_ptr<PROFILING> profiling;

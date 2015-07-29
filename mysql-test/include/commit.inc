@@ -673,7 +673,7 @@ begin
 end|
 delimiter ;|
 --disable_warnings
-call p_verify_status_increment(6, 4, 2, 0);
+call p_verify_status_increment(7, 4, 2, 0);
 --enable_warnings
 
 --echo # 16. A function changes non-trans-table.
@@ -731,14 +731,14 @@ create temporary table t2 (a int);
 let $have_debug = `SELECT VERSION() LIKE '%debug%'`;
 if (!$have_debug)
 {
-  --replace_regex /8/X/
-  call p_verify_status_increment(8, 0, 0, 0);
+  --replace_regex /9/X/
+  call p_verify_status_increment(9, 0, 0, 0);
 }
 
 if ($have_debug)
 {
-  --replace_regex /9/X/
-  call p_verify_status_increment(9, 0, 0, 0);
+  --replace_regex /10/X/
+  call p_verify_status_increment(10, 0, 0, 0);
 }
 --enable_warnings
 set sql_mode=default;
@@ -878,13 +878,13 @@ create table t2 (a int);
 # COM_PREPARE.
 if (`SELECT $PS_PROTOCOL = 0`)
 {
-  --replace_regex /11/<commit_count>/
-  call p_verify_status_increment(11, 4, 6, 0);
+  --replace_regex /12/<commit_count>/
+  call p_verify_status_increment(12, 4, 6, 0);
 }
 if (`SELECT $PS_PROTOCOL > 0`)
 {
-  --replace_regex /12/<commit_count>/
-  call p_verify_status_increment(12, 4, 6, 0);
+  --replace_regex /13/<commit_count>/
+  call p_verify_status_increment(13, 4, 6, 0);
 }
 --echo # One extra transaction to load table 't2' into data-dictionary cache.
 do (select f1() from t1 where a=2);
@@ -938,48 +938,48 @@ create table t3 select a from t2;
 # COM_PREPARE.
 if (`SELECT $PS_PROTOCOL = 0`)
 {
- --replace_regex /12/<commit_count>/
-  call p_verify_status_increment(12, 4, 4, 4);
+ --replace_regex /13/<commit_count>/
+  call p_verify_status_increment(13, 4, 4, 4);
 }
 if (`SELECT $PS_PROTOCOL > 0`)
 {
-  --replace_regex /13/<commit_count>/
-  call p_verify_status_increment(13, 4, 4, 4);
+  --replace_regex /14/<commit_count>/
+  call p_verify_status_increment(14, 4, 4, 4);
 }
 alter table t3 add column (b int);
 
 if (!$have_debug)
 {
-  --replace_regex /20/X/
-  call p_verify_status_increment(20, 4, 2, 0);
-}
-
-if ($have_debug)
-{
   --replace_regex /21/X/
   call p_verify_status_increment(21, 4, 2, 0);
 }
 
+if ($have_debug)
+{
+  --replace_regex /22/X/
+  call p_verify_status_increment(22, 4, 2, 0);
+}
+
 alter table t3 rename t4;
-call p_verify_status_increment(20, 4, 3, 0);
+call p_verify_status_increment(21, 4, 3, 0);
 rename table t4 to t3;
-call p_verify_status_increment(24, 4, 5, 0);
+call p_verify_status_increment(25, 4, 5, 0);
 truncate table t3;
 
 if (!$have_debug)
 {
-  --replace_regex /10/X/
-  call p_verify_status_increment(10, 4, 4, 0);
+  --replace_regex /12/X/
+  call p_verify_status_increment(12, 4, 4, 0);
 }
 
 if ($have_debug)
 {
-  --replace_regex /11/X/
-  call p_verify_status_increment(11, 4, 4, 0);
+  --replace_regex /13/X/
+  call p_verify_status_increment(13, 4, 4, 0);
 }
 
 create view v1 as select * from t2;
-call p_verify_status_increment(7, 4, 3, 0);
+call p_verify_status_increment(8, 4, 3, 0);
 check table t1;
 call p_verify_status_increment(2, 0, 2, 0);
 --echo # Sic: after this bug is fixed, CHECK leaves no pending transaction
@@ -995,14 +995,14 @@ drop view v1;
 --echo # One extra transaction to load v1 into data-dictionary cache.
 if (!$have_debug)
 {
-  --replace_regex /\(6/(X/
-  call p_verify_status_increment(6, 4, 3, 0);
+  --replace_regex /\(7/(X/
+  call p_verify_status_increment(7, 4, 3, 0);
 }
 
 if ($have_debug)
 {
-  --replace_regex /7/X/
-  call p_verify_status_increment(7, 4, 3, 0);
+  --replace_regex /8/X/
+  call p_verify_status_increment(8, 4, 3, 0);
 }
 
 --enable_warnings
