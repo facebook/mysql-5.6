@@ -1022,6 +1022,7 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
     buffer.append(STRING_WITH_LEN("/*!32312 IF NOT EXISTS*/ "));
   append_identifier(thd, &buffer, orig_dbname, strlen(orig_dbname));
 
+  bool enclose_comment = false;
   if (create.default_table_charset)
   {
     buffer.append(STRING_WITH_LEN(" /*!40100"));
@@ -1032,8 +1033,26 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
       buffer.append(STRING_WITH_LEN(" COLLATE "));
       buffer.append(create.default_table_charset->name);
     }
-    buffer.append(STRING_WITH_LEN(" */"));
+    enclose_comment = true;
   }
+
+  if (create.db_read_only)
+  {
+    if (!enclose_comment)
+    {
+      buffer.append(STRING_WITH_LEN(" /*"));
+      enclose_comment = true;
+    }
+
+    if (create.db_read_only > 1)
+      buffer.append(STRING_WITH_LEN(" SUPER_READ_ONLY"));
+    else
+      buffer.append(STRING_WITH_LEN(" READ_ONLY"));
+  }
+
+  if (enclose_comment)
+    buffer.append(STRING_WITH_LEN(" */"));
+
   protocol->store(buffer.ptr(), buffer.length(), buffer.charset());
 
   if (protocol->write())
@@ -4516,11 +4535,73 @@ bool store_schema_shemata(THD* thd, TABLE *table, LEX_STRING *db_name,
   return schema_table_store_record(thd, table);
 }
 
+// This is called by per database read_only code path.  We fetch all database
+// directories and load db options.  This function is similar to
+// fill_schema_schemata() but without storing into schema table.
+int fetch_schema_schemata(THD *thd)
+{
+  /*
+    TODO: fill_schema_schemata() is called when new client is connected.
+    Returning error status in this case leads to client hangup.
+  */
+
+  /*
+   * A temporary class is created to free tmp_mem_root when we return from
+   * this function, since we have 'return' from this function from many
+   * places. This is just to avoid goto.
+   */
+  class free_tmp_mem_root
+  {
+  public:
+    free_tmp_mem_root()
+    {
+      init_sql_alloc(&tmp_mem_root, TABLE_ALLOC_BLOCK_SIZE, 0);
+    }
+    ~free_tmp_mem_root()
+    {
+      free_root(&tmp_mem_root, MYF(0));
+    }
+    MEM_ROOT tmp_mem_root;
+  };
+
+  free_tmp_mem_root dummy_member;
+
+  LOOKUP_FIELD_VALUES lookup_field_vals;
+  List<LEX_STRING> db_names;
+  LEX_STRING *db_name;
+  bool with_i_schema;
+  HA_CREATE_INFO create;
+
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+  Security_context *sctx= thd->security_ctx;
+#endif
+  DBUG_ENTER("fetch_schema_schemata");
+
+  // Set lookup_field_vals to empty since we will fetch all db opts
+  memset(&lookup_field_vals, 0, sizeof(LOOKUP_FIELD_VALUES));
+  if (make_db_list(thd, &db_names, &lookup_field_vals,
+                   &with_i_schema, &dummy_member.tmp_mem_root))
+    DBUG_RETURN(1);
+
+  List_iterator_fast<LEX_STRING> it(db_names);
+  while ((db_name=it++))
+  {
+#ifndef NO_EMBEDDED_ACCESS_CHECKS
+    if (sctx->master_access & (DB_ACLS | SHOW_DB_ACL) ||
+        acl_get(sctx->get_host()->ptr(), sctx->get_ip()->ptr(),
+          sctx->priv_user, db_name->str, 0) ||
+        !check_grant_db(thd, db_name->str))
+#endif
+      load_db_opt_by_name(thd, db_name->str, &create);
+  }
+  DBUG_RETURN(0);
+}
+
 
 int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
 {
   /*
-    TODO: fill_schema_shemata() is called when new client is connected.
+    TODO: fill_schema_schemata() is called when new client is connected.
     Returning error status in this case leads to client hangup.
   */
 
@@ -4554,7 +4635,7 @@ int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond)
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   Security_context *sctx= thd->security_ctx;
 #endif
-  DBUG_ENTER("fill_schema_shemata");
+  DBUG_ENTER("fill_schema_schemata");
 
   if (get_lookup_field_values(thd, cond, tables, &lookup_field_vals))
     DBUG_RETURN(0);

@@ -1,0 +1,767 @@
+drop table if exists t1, t2;
+drop database if exists test2;
+grant CREATE, SELECT, INSERT, UPDATE, DROP on *.* to test@localhost;
+connect (con1,localhost,test,,test);
+connect (root2,localhost,root,,test);
+# turn off autocommit in con1
+connection con1;
+set autocommit = 0;
+select @@autocommit;
+@@autocommit
+0
+# turn off autocommit in root2
+connection root2;
+set autocommit = 0;
+select @@autocommit;
+@@autocommit
+0
+create table t1 (a int) engine = innodb;
+create table t2 (a int) engine = innodb;
+#
+# read_only = false
+# both regular and super users can write
+#
+connection con1;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+connection root2;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+#
+# read_only
+#
+connection default;
+# turn off read_only initially
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+connection con1;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+# simulate long running transactions
+begin;
+insert into t1 values (4), (5), (6);
+insert into t2 values (4), (5), (6);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+t1	4
+t1	5
+t1	6
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+t2	4
+t2	5
+t2	6
+connection default;
+# turn on read_only in the middle of transaction (con1)
+alter database test read_only = true;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+connection con1;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+# continue previous transaction
+# read_only was turned on in the middle of a transaction
+# new update/insert statement will be blocked immediately
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	3
+t1	4
+t1	5
+t1	6
+t1	7
+t1	8
+select 't2', a from t2;
+t2	a
+t2	2
+t2	4
+t2	6
+t2	8
+t2	10
+t2	12
+# write transaction was rolled back at the end
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+# write transaction with 'begin'
+begin;
+insert into t1 values (4), (5), (6);
+update t1 set a = a + 1;
+create table t3 (a int) engine=innodb;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+select a from t1;
+a
+2
+3
+4
+5
+6
+7
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+# read-only transactions are ok
+begin;
+select count(*) from t1;
+count(*)
+3
+select count(*) from t2;
+count(*)
+3
+commit;
+# transaction without 'begin'
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (9);
+select a from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from t1;
+a
+1
+2
+3
+# rolled-back transaction
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (9);
+select a from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+rollback;
+select a from t1;
+a
+1
+2
+3
+set autocommit = 1;
+# multiple table updates (autocommit)
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+set autocommit = 0;
+alter table t1 add key (a);
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+create index a on t1 (a);
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+drop table t1;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+drop database test;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+#
+# OK to create temporary table
+#
+create temporary table temp1 (a int);
+insert into temp1 select * from t1;
+update temp1 set a = a + 1;
+select * from temp1;
+a
+2
+3
+4
+drop temporary table temp1;
+#
+# OK to switch and write another database
+# read_only scope is per database
+#
+create database test2;
+use test2;
+show create database test2;
+Database	Create Database
+test2	CREATE DATABASE `test2` /*!40100 DEFAULT CHARACTER SET latin1 */
+create table t1 (a int) engine = innodb;
+insert into t1 values (0), (1), (2);
+update t1 set a = a + 1;
+select a from t1;
+a
+1
+2
+3
+#
+# cross-db/noncurrent-db transaction
+# Transaction writing to test db from session of test2 db
+#
+begin;
+insert into test.t1 values (4), (5), (6);
+update test.t1 set a = a + 1;
+select a from test.t1;
+a
+2
+3
+4
+5
+6
+7
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from test.t1;
+a
+1
+2
+3
+select a from test2.t1;
+a
+1
+2
+3
+begin;
+insert into test.t1 values (4), (5), (6);
+update test.t1 set a = a + 1;
+select a from test.t1;
+a
+2
+3
+4
+5
+6
+7
+update test2.t1 set a = a + 1;
+select a from test2.t1;
+a
+2
+3
+4
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from test.t1;
+a
+1
+2
+3
+select a from test2.t1;
+a
+1
+2
+3
+use test;
+drop database test2;
+# super user can still write in read_only mode
+connection root2;
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+#
+# super_read_only
+#
+connection default;
+# turn off read_only initially
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+connection root2;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+# simulate long running transactions
+begin;
+insert into t1 values (4), (5), (6);
+insert into t2 values (4), (5), (6);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+t1	4
+t1	5
+t1	6
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+t2	4
+t2	5
+t2	6
+connection default;
+# now turn on super read_only in the middle of transaction (root2)
+alter database test super_read_only = true;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 SUPER_READ_ONLY */
+connection root2;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 SUPER_READ_ONLY */
+# continue previous transaction
+# read_only was turned on in the middle of a transaction
+# new update/insert statement will be blocked immediately
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	3
+t1	4
+t1	5
+t1	6
+t1	7
+t1	8
+select 't2', a from t2;
+t2	a
+t2	2
+t2	4
+t2	6
+t2	8
+t2	10
+t2	12
+# write transaction was rolled back at the end
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+# write transaction with 'begin'
+begin;
+insert into t1 values (4), (5), (6);
+update t1 set a = a + 1;
+create table t3 (a int) engine=innodb;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+select a from t1;
+a
+2
+3
+4
+5
+6
+7
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+# read-only transactions are ok
+begin;
+select count(*) from t1;
+count(*)
+3
+select count(*) from t2;
+count(*)
+3
+commit;
+# transaction without 'begin'
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (9);
+select a from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from t1;
+a
+1
+2
+3
+# rolled-back transaction
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (9);
+select a from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+rollback;
+select a from t1;
+a
+1
+2
+3
+set autocommit = 1;
+# multiple table updates (autocommit)
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+set autocommit = 0;
+alter table t1 add key (a);
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+create index a on t1 (a);
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+drop table t1;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+drop database test;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+#
+# OK to create temporary table
+#
+create temporary table temp1 (a int);
+insert into temp1 select * from t1;
+update temp1 set a = a + 1;
+select * from temp1;
+a
+2
+3
+4
+drop temporary table temp1;
+#
+# OK to switch and write another database
+# read_only scope is per database
+#
+create database test2;
+use test2;
+show create database test2;
+Database	Create Database
+test2	CREATE DATABASE `test2` /*!40100 DEFAULT CHARACTER SET latin1 */
+create table t1 (a int) engine = innodb;
+insert into t1 values (0), (1), (2);
+update t1 set a = a + 1;
+select a from t1;
+a
+1
+2
+3
+#
+# cross-db/noncurrent-db transaction
+# Transaction writing to test db from session of test2 db
+#
+begin;
+insert into test.t1 values (4), (5), (6);
+update test.t1 set a = a + 1;
+select a from test.t1;
+a
+2
+3
+4
+5
+6
+7
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from test.t1;
+a
+1
+2
+3
+select a from test2.t1;
+a
+1
+2
+3
+begin;
+insert into test.t1 values (4), (5), (6);
+update test.t1 set a = a + 1;
+select a from test.t1;
+a
+2
+3
+4
+5
+6
+7
+update test2.t1 set a = a + 1;
+select a from test2.t1;
+a
+2
+3
+4
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from test.t1;
+a
+1
+2
+3
+select a from test2.t1;
+a
+1
+2
+3
+use test;
+drop database test2;
+#
+# changing db_read_only in root2 session
+#
+alter database test super_read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+# super_read_only turned into read_only
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int(11)	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+alter database test super_read_only = true;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 SUPER_READ_ONLY */
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+alter database test read_only = true;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+connection default;
+#
+# on non-user databases
+#
+alter database mysql read_only = true;
+show create database mysql;
+Database	Create Database
+mysql	CREATE DATABASE `mysql` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+alter database mysql read_only = false;
+alter database information_schema read_only = true;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+show create database information_schema;
+Database	Create Database
+information_schema	CREATE DATABASE `information_schema` /*!40100 DEFAULT CHARACTER SET utf8 */
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+# restarting mysqld
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */
+connection default;
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET latin1 */
+drop table t1, t2;
+drop user test@localhost;

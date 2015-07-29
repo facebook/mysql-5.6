@@ -44,6 +44,8 @@ bool load_db_opt_by_name(THD *thd, const char *db_name,
 const CHARSET_INFO *get_default_db_collation(THD *thd, const char *db_name);
 bool my_dbopt_init(void);
 void my_dbopt_cleanup(void);
+void init_thd_db_read_only(THD *thd);
+bool is_thd_db_read_only_by_name(THD *thd, const char *db);
 
 #define MY_DB_OPT_FILE "db.opt"
 
