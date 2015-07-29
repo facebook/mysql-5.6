@@ -144,6 +144,7 @@ bool set_default_charset(HA_CREATE_INFO *create_info,
 // TODO: remove after refactoring of ALTER DATABASE:
 bool set_default_collation(HA_CREATE_INFO *create_info,
                            const CHARSET_INFO *value);
+bool set_db_read_only(HA_CREATE_INFO *create_info, int super_read_only, int on);
 
 /* Bits in sql_command_flags */
 
