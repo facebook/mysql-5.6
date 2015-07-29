@@ -450,7 +450,7 @@ void warn_about_deprecated_national(THD *thd)
   1. We do not accept any reduce/reduce conflicts
   2. We should not introduce new shift/reduce conflicts any more.
 */
-%expect 106
+%expect 108
 
 /*
    MAINTAINER:
@@ -1235,6 +1235,8 @@ void warn_about_deprecated_national(THD *thd)
 %token  FIND
 %token<keyword> GTID_SYM
 %token<keyword> GTID_EXECUTED                 /* MYSQL */
+%token<keyword> SUPER_READ_ONLY_SYM           /* MYSQL */
+
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -1888,6 +1890,7 @@ void warn_about_deprecated_national(THD *thd)
 
 %type <sql_cmd_srs_attributes> srs_attributes
 
+%type <num> read_only_opt boolean_val
 %%
 
 /*
@@ -5844,6 +5847,9 @@ create_database_option:
             if (set_default_charset(Lex->create_info, $1))
               MYSQL_YYABORT;
           }
+        | db_read_only
+          {
+          }
         ;
 
 opt_if_not_exists:
@@ -6050,6 +6056,24 @@ default_charset:
 
 default_collation:
           opt_default COLLATE_SYM opt_equal collation_name { $$ = $4;}
+        ;
+
+db_read_only:
+          read_only_opt { /* Ignored */ }
+        | read_only_opt opt_equal boolean_val
+          {
+            if (set_db_read_only(Lex->create_info, $1, $3))
+              MYSQL_YYABORT;
+          }
+        ;
+
+read_only_opt:
+          READ_ONLY_SYM { $$ = 0; }
+        | SUPER_READ_ONLY_SYM { $$ = 1; }
+
+boolean_val:
+          FALSE_SYM { $$ = 0; }
+        | TRUE_SYM { $$ = 1; }
         ;
 
 row_types:
@@ -14164,6 +14188,7 @@ role_or_label_keyword:
         | SUBJECT_SYM
         | SUBPARTITIONS_SYM
         | SUBPARTITION_SYM
+        | SUPER_READ_ONLY_SYM
         | SUSPEND_SYM
         | SWAPS_SYM
         | SWITCHES_SYM

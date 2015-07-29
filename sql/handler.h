@@ -2103,10 +2103,18 @@ enum enum_stats_auto_recalc : int {
   HA_STATS_AUTO_RECALC_OFF
 };
 
+enum enum_db_read_only : int {
+  DB_READ_ONLY_NULL = 0,
+  DB_READ_ONLY_NO = 1,
+  DB_READ_ONLY_YES = 2,
+  DB_READ_ONLY_SUPER = 3
+};
+
 /* struct to hold information about the table that should be created */
 struct HA_CREATE_INFO {
   HA_CREATE_INFO() { memset(this, 0, sizeof(*this)); }
   const CHARSET_INFO *table_charset, *default_table_charset;
+  enum enum_db_read_only db_read_only;
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;

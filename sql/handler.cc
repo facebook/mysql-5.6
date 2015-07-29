@@ -110,6 +110,7 @@
 #include "sql/sql_base.h"  // free_io_cache
 #include "sql/sql_bitmap.h"
 #include "sql/sql_class.h"
+#include "sql/sql_db.h"  // is_thd_db_read_only_by_name
 #include "sql/sql_error.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_parse.h"   // check_stack_overrun
@@ -1503,6 +1504,28 @@ int commit_owned_gtid_by_partial_command(THD *thd) {
   DBUG_RETURN(ret);
 }
 
+static bool check_db_readonly(THD *thd) {
+  // This is a write transaction and we have db_read_only on some database.
+  // Since this transaction may be an explicit "commit" which doesn't have any
+  // "current" table in the statement, we need to check the list of MDL lock
+  // object to get the list of databases we obtained metadata locks on. There
+  // may be false positive cases that the read-only DB in the list is not
+  // actually modified in the transaction.  We do not differentiate such false
+  // positives.
+  //
+  MDL_DB_Name_List db_names;
+  thd->mdl_context.get_locked_object_db_names(db_names);
+  for (auto db_name : db_names) {
+    if (is_thd_db_read_only_by_name(thd, db_name.c_str())) {
+      my_error(ER_DB_READ_ONLY, MYF(0), db_name.c_str(),
+               "Transaction was rolled back.");
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
   @param[in] thd                       Thread handle.
   @param[in] all                       Session transaction if true, statement
@@ -1666,8 +1689,9 @@ int ha_commit_trans(THD *thd, bool all, bool ignore_global_read_lock) {
       DEBUG_SYNC(thd, "ha_commit_trans_after_acquire_commit_lock");
     }
 
-    if (rw_trans && stmt_has_updated_trans_table(ha_info) &&
-        check_readonly(thd, true)) {
+    if (rw_trans &&
+        ((stmt_has_updated_trans_table(ha_info) && check_readonly(thd, true)) ||
+         check_db_readonly(thd))) {
       ha_rollback_trans(thd, all);
       error = 1;
       goto end;

@@ -25,6 +25,7 @@
 
 #include "my_inttypes.h"
 #include "sql/dd/impl/raw/object_keys.h"  // IWYU pragma: keep
+#include "sql/dd/properties.h"
 #include "sql/dd/sdi_fwd.h"               // RJ_Document
 #include "sql/dd/types/entity_object.h"   // dd::Entity_object
 
@@ -98,6 +99,16 @@ class Schema : virtual public Entity_object {
 
   virtual ulonglong last_altered(bool convert_time) const = 0;
   virtual void set_last_altered(ulonglong last_altered) = 0;
+
+  /////////////////////////////////////////////////////////////////////////
+  // options
+  /////////////////////////////////////////////////////////////////////////
+
+  virtual const Properties &options() const = 0;
+
+  virtual Properties &options() = 0;
+
+  virtual bool set_options_raw(const String_type &options_raw) = 0;
 
  public:
   virtual Event *create_event(THD *thd) const = 0;
