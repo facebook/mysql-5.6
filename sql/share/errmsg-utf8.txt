@@ -7197,6 +7197,8 @@ ER_ORDERBY_AS_TYPE_NOT_SUPPORTED
 ER_TOO_LONG_DOCUMENT_PATH_INDEX
   eng "Specified document path key was too long; max path length is %d bytes"
 
+ER_DB_READ_ONLY
+  eng "Database '%s' is in read-only mode. %s"
 #
 #  End of 5.6 error messages.
 #

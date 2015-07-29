@@ -2708,6 +2708,29 @@ void MDL_context::find_deadlock()
   }
 }
 
+/*
+ * Get the list of database names of all lock objects in a transaction.
+ * This is used to check per-database read-only.
+ */
+void MDL_context::get_locked_object_db_names(MDL_DB_Name_List &list)
+{
+  MDL_ticket *ticket;
+  Ticket_iterator it(m_tickets[MDL_TRANSACTION]);
+  DBUG_ENTER("MDL_context::get_locked_object_db_names");
+
+  if (m_tickets[MDL_TRANSACTION].is_empty())
+    DBUG_VOID_RETURN;
+
+  while ((ticket= it++) && ticket)
+  {
+    MDL_lock *lock= ticket->m_lock;
+    DBUG_PRINT("enter", ("db=%s name=%s", lock->key.db_name(),
+                                          lock->key.name()));
+    list.insert(std::string(lock->key.db_name()));
+  }
+
+  DBUG_VOID_RETURN;
+}
 
 /**
   Release lock.
