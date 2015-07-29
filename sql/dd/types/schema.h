@@ -112,6 +112,8 @@ class Schema : virtual public Entity_object {
   /////////////////////////////////////////////////////////////////////////
   virtual bool read_only() const = 0;
   virtual void set_read_only(bool state) = 0;
+  virtual void set_db_read_only(int state) = 0;
+  virtual int get_db_read_only() const = 0;
 
   /////////////////////////////////////////////////////////////////////////
   // created

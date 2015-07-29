@@ -1,0 +1,551 @@
+drop table if exists t1, t2;
+drop database if exists test2;
+CREATE USER test@localhost;
+grant CREATE, SELECT, INSERT, UPDATE, DROP on *.* to test@localhost;
+connect (con1,localhost,test,,test);
+connect (root2,localhost,root,,test);
+# turn off autocommit in con1
+connection con1;
+set autocommit = 0;
+select @@autocommit;
+@@autocommit
+0
+# turn off autocommit in root2
+connection root2;
+set autocommit = 0;
+select @@autocommit;
+@@autocommit
+0
+create table t1 (a int) engine = innodb;
+create table t2 (a int) engine = innodb;
+#
+# read_only = false
+# both regular and super users can write
+#
+connection con1;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+connection root2;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+#
+# read_only
+#
+connection default;
+# turn off read_only initially
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+connection con1;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+# simulate long running transactions
+begin;
+insert into t1 values (4), (5), (6);
+insert into t2 values (4), (5), (6);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+t1	4
+t1	5
+t1	6
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+t2	4
+t2	5
+t2	6
+connection default;
+# turn on read_only in the middle of transaction (con1)
+set lock_wait_timeout = 1;
+alter database test read_only = true;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+connection con1;
+rollback;
+#
+# super_read_only
+#
+connection default;
+# turn off read_only initially
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+connection root2;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+# simulate long running transactions
+begin;
+insert into t1 values (4), (5), (6);
+insert into t2 values (4), (5), (6);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+t1	4
+t1	5
+t1	6
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+t2	4
+t2	5
+t2	6
+connection default;
+# now turn on super read_only in the middle of transaction (root2)
+set lock_wait_timeout = 1;
+alter database test super_read_only = true;
+ERROR HY000: Lock wait timeout exceeded; try restarting transaction: Timeout on table metadata: test.t1
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+connection root2;
+rollback;
+alter database test super_read_only = true;
+connection root2;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci SUPER_READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+# continue previous transaction
+# read_only was turned on in the middle of a transaction
+# new update/insert statement will be blocked immediately
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	3
+t1	4
+t1	5
+select 't2', a from t2;
+t2	a
+t2	2
+t2	4
+t2	6
+# write transaction was rolled back at the end
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+# write transaction with 'begin'
+begin;
+insert into t1 values (4), (5), (6);
+update t1 set a = a + 1;
+create table t3 (a int) engine=innodb;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+select a from t1;
+a
+2
+3
+4
+5
+6
+7
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+# read-only transactions are ok
+begin;
+select count(*) from t1;
+count(*)
+3
+select count(*) from t2;
+count(*)
+3
+commit;
+# transaction without 'begin'
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (9);
+select a from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from t1;
+a
+1
+2
+3
+# rolled-back transaction
+insert into t1 values (4), (5), (6);
+insert into t1 values (7), (8), (9);
+select a from t1;
+a
+1
+2
+3
+4
+5
+6
+7
+8
+9
+rollback;
+select a from t1;
+a
+1
+2
+3
+set autocommit = 1;
+# multiple table updates (autocommit)
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+set autocommit = 0;
+alter table t1 add key (a);
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+create index a on t1 (a);
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+drop table t1;
+ERROR HY000: Database 'test' is in read-only mode. Implicit commit failed.
+drop database test;
+ERROR HY000: Database 'test' is in read-only mode. Cannot drop read only DB.
+#
+# OK to create temporary table
+#
+create temporary table temp1 (a int);
+insert into temp1 select * from t1;
+update temp1 set a = a + 1;
+select * from temp1;
+a
+2
+3
+4
+drop temporary table temp1;
+#
+# OK to switch and write another database
+# read_only scope is per database
+#
+create database test2;
+use test2;
+show create database test2;
+Database	Create Database
+test2	CREATE DATABASE `test2` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+create table t1 (a int) engine = innodb;
+insert into t1 values (0), (1), (2);
+update t1 set a = a + 1;
+select a from t1;
+a
+1
+2
+3
+#
+# cross-db/noncurrent-db transaction
+# Transaction writing to test db from session of test2 db
+#
+begin;
+insert into test.t1 values (4), (5), (6);
+update test.t1 set a = a + 1;
+select a from test.t1;
+a
+2
+3
+4
+5
+6
+7
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from test.t1;
+a
+1
+2
+3
+select a from test2.t1;
+a
+1
+2
+3
+begin;
+insert into test.t1 values (4), (5), (6);
+update test.t1 set a = a + 1;
+select a from test.t1;
+a
+2
+3
+4
+5
+6
+7
+update test2.t1 set a = a + 1;
+select a from test2.t1;
+a
+2
+3
+4
+commit;
+ERROR HY000: Database 'test' is in read-only mode. Transaction was rolled back.
+select a from test.t1;
+a
+1
+2
+3
+select a from test2.t1;
+a
+1
+2
+3
+use test;
+drop database test2;
+#
+# changing db_read_only in root2 session
+#
+alter database test super_read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+# super_read_only turned into read_only
+truncate t1;
+truncate t2;
+begin;
+insert into t1 values (0), (1), (2);
+insert into t2 values (0), (1), (2);
+update t1 set a = a + 1;
+update t1, t2 set t1.a=t1.a+1, t2.a=t2.a*2;
+select 't1', a from t1;
+t1	a
+t1	2
+t1	3
+t1	4
+select 't2', a from t2;
+t2	a
+t2	0
+t2	2
+t2	4
+commit;
+alter table t1 add key (a);
+describe t1;
+Field	Type	Null	Key	Default	Extra
+a	int	YES	MUL	NULL	
+drop index a on t1;
+alter table t2 add key (a);
+describe t2;
+Field	Type	Null	Key	Default	Extra
+a	int	YES	MUL	NULL	
+drop index a on t2;
+truncate t1;
+truncate t2;
+# populate some data
+begin;
+insert into t1 values (1), (2), (3);
+insert into t2 values (1), (2), (3);
+select 't1', a from t1;
+t1	a
+t1	1
+t1	2
+t1	3
+select 't2', a from t2;
+t2	a
+t2	1
+t2	2
+t2	3
+commit;
+alter database test super_read_only = true;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci SUPER_READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test read_only = true;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+connection default;
+#
+# on non-user databases
+#
+alter database mysql read_only = true;
+ERROR HY000: Access to system schema 'mysql' is rejected.
+alter database information_schema read_only = true;
+ERROR 42000: Access denied for user 'root'@'localhost' to database 'information_schema'
+show create database information_schema;
+Database	Create Database
+information_schema	CREATE DATABASE `information_schema` /*!40100 DEFAULT CHARACTER SET utf8mb3 */ /*!80016 DEFAULT ENCRYPTION='N' */
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+# restarting mysqld
+# restart
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+create database test_db_opt;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt read_only = true;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt default charset = latin1;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt default collate = latin1_bin;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_bin READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt super_read_only  = true;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_bin SUPER_READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt super_read_only  = false;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 COLLATE latin1_bin READ_ONLY */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test_db_opt;
+create database test_db_opt /*!40100 DEFAULT CHARACTER SET latin1 READ_ONLY*/;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt read_only;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test_db_opt;
+create database test_db_opt /*!40100 DEFAULT CHARACTER SET latin1 SUPER_READ_ONLY*/;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */ /*!80016 DEFAULT ENCRYPTION='N' */
+alter database test_db_opt super_read_only;
+show create database test_db_opt;
+Database	Create Database
+test_db_opt	CREATE DATABASE `test_db_opt` /*!40100 DEFAULT CHARACTER SET latin1 */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop database test_db_opt;
+connection default;
+alter database test read_only = false;
+show create database test;
+Database	Create Database
+test	CREATE DATABASE `test` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */
+drop table t1, t2;
+drop user test@localhost;

@@ -27,7 +27,9 @@
 #include <sys/types.h>
 #include <algorithm>
 #include <new>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "m_string.h"
 #include "my_alloc.h"
@@ -1411,6 +1413,8 @@ typedef I_P_List<MDL_request,
                  I_P_List_counter>
     MDL_request_list;
 
+typedef std::unordered_set<std::string> MDL_DB_Name_List;
+
 /**
   Context of the owner of metadata locks. I.e. each server
   connection has such a context.
@@ -1525,6 +1529,8 @@ class MDL_context {
     }
   }
   bool get_needs_thr_lock_abort() const { return m_needs_thr_lock_abort; }
+
+  void get_locked_object_db_names(MDL_DB_Name_List &list);
 
   void set_force_dml_deadlock_weight(bool force_dml_deadlock_weight) {
     m_force_dml_deadlock_weight = force_dml_deadlock_weight;
