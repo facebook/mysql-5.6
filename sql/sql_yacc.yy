@@ -1221,10 +1221,10 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %lex-param { class THD *YYTHD }
 %pure-parser                                    /* We have threads */
 /*
-  Currently there are 180 shift/reduce conflicts.
+  Currently there are 182 shift/reduce conflicts.
   We should not introduce new conflicts any more.
 */
-%expect 180
+%expect 182
 
 /*
    Comments for TOKENS.
@@ -1792,6 +1792,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
 %token  SUBSTRING                     /* SQL-2003-N */
 %token  SUM_SYM                       /* SQL-2003-N */
 %token  SUPER_SYM
+%token  SUPER_READ_ONLY_SYM
 %token  SUSPEND_SYM
 %token  SWAPS_SYM
 %token  SWITCHES_SYM
@@ -2162,6 +2163,7 @@ END_OF_INPUT
 
 %type <is_not_empty> opt_union_order_or_limit
 
+%type <num> read_only_opt boolean_val
 %%
 
 /*
@@ -2722,7 +2724,10 @@ create:
         | CREATE DATABASE opt_if_not_exists ident
           {
             Lex->create_info.default_table_charset= NULL;
+            Lex->create_info.alter_default_table_charset= false;
             Lex->create_info.used_fields= 0;
+            Lex->create_info.db_read_only=
+              enum_db_read_only::DB_READ_ONLY_NULL;
           }
           opt_create_database_options
           {
@@ -6207,6 +6212,7 @@ create_database_options:
 create_database_option:
           default_collation {}
         | default_charset {}
+        | db_read_only {}
         ;
 
 opt_table_options:
@@ -6466,6 +6472,7 @@ default_charset:
                        "CHARACTER SET ", $4->csname);
               MYSQL_YYABORT;
             }
+            Lex->create_info.alter_default_table_charset = true;
             Lex->create_info.default_table_charset= $4;
             Lex->create_info.used_fields|= HA_CREATE_USED_DEFAULT_CHARSET;
           }
@@ -6483,9 +6490,40 @@ default_collation:
               MYSQL_YYABORT;
             }
 
+            Lex->create_info.alter_default_table_charset = true;
             Lex->create_info.default_table_charset= $4;
             Lex->create_info.used_fields|= HA_CREATE_USED_DEFAULT_CHARSET;
           }
+        ;
+
+db_read_only:
+          read_only_opt equal boolean_val
+          {
+            /* read_only = false */
+            Lex->create_info.db_read_only= enum_db_read_only::DB_READ_ONLY_NO;
+            if (($1 == 0 && $3 == 1) || ($1 == 1 && $3 == 0))
+            {
+              /* read_only = true and super_read_only = false */
+              Lex->create_info.db_read_only=
+                enum_db_read_only::DB_READ_ONLY_YES;
+            }
+            else if ($1 == 1 && $3 == 1)
+            {
+              /* super_read_only = true */
+              Lex->create_info.db_read_only=
+                enum_db_read_only::DB_READ_ONLY_SUPER;
+            }
+          }
+        ;
+
+read_only_opt:
+          READ_ONLY_SYM { $$ = 0; }
+        | SUPER_READ_ONLY_SYM { $$ = 1; }
+        ;
+
+boolean_val:
+          FALSE_SYM { $$ = 0; }
+        | TRUE_SYM { $$ = 1; }
         ;
 
 storage_engines:
@@ -7686,7 +7724,10 @@ alter:
         | ALTER DATABASE ident_or_empty
           {
             Lex->create_info.default_table_charset= NULL;
+            Lex->create_info.alter_default_table_charset = false;
             Lex->create_info.used_fields= 0;
+            Lex->create_info.db_read_only=
+              enum_db_read_only::DB_READ_ONLY_NULL;
           }
           create_database_options
           {
@@ -15101,6 +15142,7 @@ keyword_sp:
         | SUBPARTITION_SYM         {}
         | SUBPARTITIONS_SYM        {}
         | SUPER_SYM                {}
+        | SUPER_READ_ONLY_SYM      {}
         | SUSPEND_SYM              {}
         | SWAPS_SYM                {}
         | SWITCHES_SYM             {}
