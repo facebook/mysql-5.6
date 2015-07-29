@@ -2325,6 +2325,7 @@ public:
     Is locked when THD is deleted.
   */
   mysql_mutex_t LOCK_thd_data;
+  mysql_mutex_t LOCK_thd_db_read_only_hash;
 
   /* all prepared statements and cursors of this connection */
   Statement_map stmt_map;
@@ -3089,6 +3090,8 @@ public:
 
   void capture_system_thread_id();
 
+  /* local hash map of db opt */
+  HASH db_read_only_hash;
   const CHARSET_INFO *db_charset;
 #if defined(ENABLED_PROFILING)
   PROFILING  profiling;
