@@ -1014,6 +1014,7 @@ THD::THD(bool enable_plugins)
   query_id= 0;
   query_name_consts= 0;
   db_charset= global_system_variables.collation_database;
+  my_hash_clear(&db_read_only_hash);
   memset(ha_data, 0, sizeof(ha_data));
   mysys_var=0;
   binlog_evt_union.do_union= FALSE;
@@ -1040,6 +1041,8 @@ THD::THD(bool enable_plugins)
   active_vio = 0;
 #endif
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_thd_db_read_only_hash, &LOCK_thd_db_read_only_hash,
+                   MY_MUTEX_INIT_FAST);
 
   /* Variables with default values */
   proc_info="login";
@@ -1686,6 +1689,19 @@ THD::~THD()
   db= NULL;
   free_root(&transaction.mem_root,MYF(0));
   mysql_mutex_destroy(&LOCK_thd_data);
+
+  /* The session may still holding the lock in an ongoing transaction, so we
+   * trylock and then unlock before destroying it. Note: we will not have
+   * another thread holding the lock to update the read_only hash table while
+   * this thread is being deleted.  LOCK_thd_remove is locked before updating
+   * local read_only hash map, which prevents any thread being deleted. See
+   * sql_db.cc:update_thd_db_read_only() for details. */
+  mysql_mutex_trylock(&LOCK_thd_db_read_only_hash);
+  mysql_mutex_unlock(&LOCK_thd_db_read_only_hash);
+
+  my_hash_free(&db_read_only_hash);
+  mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
+
 #ifndef DBUG_OFF
   dbug_sentry= THD_SENTRY_GONE;
 #endif  

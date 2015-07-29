@@ -1,0 +1,202 @@
+# Test per-database read-only attribute
+--source include/have_innodb.inc
+connection default;
+
+--disable_warnings
+drop table if exists t1, t2;
+drop database if exists test2;
+--enable_warnings
+
+--disable_query_log
+let $MYSQLD_DATADIR= `select @@datadir`;
+--enable_query_log
+
+--error 1
+file_exists $MYSQLD_DATADIR/mysql/db.opt;
+--error 1
+file_exists $MYSQLD_DATADIR/test/db.opt;
+
+grant CREATE, SELECT, INSERT, UPDATE, DROP on *.* to test@localhost;
+
+--echo connect (con1,localhost,test,,test);
+connect (con1,localhost,test,,test);
+--echo connect (root2,localhost,root,,test);
+connect (root2,localhost,root,,test);
+
+--echo # turn off autocommit in con1
+--echo connection con1;
+connection con1;
+set autocommit = 0;
+select @@autocommit;
+
+--echo # turn off autocommit in root2
+--echo connection root2;
+connection root2;
+set autocommit = 0;
+select @@autocommit;
+
+create table t1 (a int) engine = innodb;
+create table t2 (a int) engine = innodb;
+
+--echo #
+--echo # read_only = false
+--echo # both regular and super users can write
+--echo #
+--echo connection con1;
+connection con1;
+show create database test;
+
+--source include/db_read_only_off.inc
+
+--echo connection root2;
+connection root2;
+show create database test;
+
+--source include/db_read_only_off.inc
+
+--echo #
+--echo # read_only
+--echo #
+# default
+--echo connection default;
+connection default;
+
+--echo # turn off read_only initially
+alter database test read_only = false;
+show create database test;
+
+# con1
+--echo connection con1;
+connection con1;
+show create database test;
+
+--echo # simulate long running transactions
+begin;
+insert into t1 values (4), (5), (6);
+insert into t2 values (4), (5), (6);
+select 't1', a from t1;
+select 't2', a from t2;
+
+# default
+--echo connection default;
+connection default;
+
+--echo # turn on read_only in the middle of transaction (con1)
+alter database test read_only = true;
+show create database test;
+
+# con1
+--echo connection con1;
+connection con1;
+show create database test;
+
+--source include/db_read_only_on.inc
+
+--echo # super user can still write in read_only mode
+--echo connection root2;
+connection root2;
+
+--source include/db_read_only_off.inc
+
+--echo #
+--echo # super_read_only
+--echo #
+# default
+--echo connection default;
+connection default;
+
+--echo # turn off read_only initially
+alter database test read_only = false;
+show create database test;
+
+# root2
+--echo connection root2;
+connection root2;
+show create database test;
+
+--echo # simulate long running transactions
+begin;
+insert into t1 values (4), (5), (6);
+insert into t2 values (4), (5), (6);
+select 't1', a from t1;
+select 't2', a from t2;
+
+# default
+--echo connection default;
+connection default;
+
+--echo # now turn on super read_only in the middle of transaction (root2)
+alter database test super_read_only = true;
+show create database test;
+
+# root2
+--echo connection root2;
+connection root2;
+show create database test;
+
+--source include/db_read_only_on.inc
+
+--echo #
+--echo # changing db_read_only in root2 session
+--echo #
+alter database test super_read_only = false;
+show create database test;
+
+--echo # super_read_only turned into read_only
+--source include/db_read_only_off.inc
+
+alter database test super_read_only = true;
+show create database test;
+
+alter database test read_only = false;
+show create database test;
+
+alter database test read_only = true;
+show create database test;
+
+--echo connection default;
+connection default;
+
+--echo #
+--echo # on non-user databases
+--echo #
+alter database mysql read_only = true;
+show create database mysql;
+alter database mysql read_only = false;
+
+--error ER_DBACCESS_DENIED_ERROR
+alter database information_schema read_only = true;
+show create database information_schema;
+
+#
+# read_only survives restart mysqld
+#
+show create database test;
+--echo # restarting mysqld
+--source include/restart_mysqld.inc
+show create database test;
+
+#
+# cleanup
+#
+--echo connection default;
+connection default;
+alter database test read_only = false;
+show create database test;
+
+disconnect con1;
+disconnect root2;
+drop table t1, t2;
+drop user test@localhost;
+
+# cleaning up db.opt files
+file_exists $MYSQLD_DATADIR/mysql/db.opt;
+file_exists $MYSQLD_DATADIR/test/db.opt;
+
+remove_file $MYSQLD_DATADIR/mysql/db.opt;
+remove_file $MYSQLD_DATADIR/test/db.opt;
+
+--error 1
+file_exists $MYSQLD_DATADIR/mysql/db.opt;
+--error 1
+file_exists $MYSQLD_DATADIR/test/db.opt;

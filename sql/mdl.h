@@ -30,6 +30,8 @@
 #include <mysql_com.h>
 
 #include <algorithm>
+#include <unordered_set>
+#include <string>
 
 class THD;
 
@@ -719,6 +721,8 @@ typedef I_P_List<MDL_request, I_P_List_adapter<MDL_request,
                  I_P_List_counter>
         MDL_request_list;
 
+typedef std::unordered_set<std::string> MDL_DB_Name_List;
+
 /**
   Context of the owner of metadata locks. I.e. each server
   connection has such a context.
@@ -808,6 +812,8 @@ public:
   {
     return m_needs_thr_lock_abort;
   }
+
+  void get_locked_object_db_names(MDL_DB_Name_List &list);
 public:
   /**
     If our request for a lock is scheduled, or aborted by the deadlock

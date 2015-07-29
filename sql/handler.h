@@ -1081,6 +1081,7 @@ enum enum_stats_auto_recalc { HA_STATS_AUTO_RECALC_DEFAULT= 0,
 typedef struct st_ha_create_information
 {
   const CHARSET_INFO *table_charset, *default_table_charset;
+  uchar db_read_only;
   LEX_STRING connect_string;
   const char *password, *tablespace;
   LEX_STRING comment;
@@ -1122,6 +1123,9 @@ typedef struct st_ha_create_information
   enum ha_storage_media storage_media;  /* DEFAULT, DISK or MEMORY */
   bool rbr_column_names; /* If true, column names for this table are logged
                             in Table_map_log_events */
+
+  /* initialize db_read_only parameter */
+  st_ha_create_information() : db_read_only(0) {}
 } HA_CREATE_INFO;
 
 /**

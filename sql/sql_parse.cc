@@ -108,6 +108,9 @@
 
 #include "sql_digest.h"
 
+#include "sql_db.h"      // init_thd_db_read_only
+                         // is_thd_db_read_only_by_name
+
 #ifdef HAVE_JEMALLOC
 #ifndef EMBEDDED_LIBRARY
 #include "jemalloc/jemalloc.h"
@@ -1113,11 +1116,11 @@ static my_bool deny_updates_if_read_only_option(THD *thd,
   if (lex->sql_command == SQLCOM_UPDATE_MULTI)
     DBUG_RETURN(FALSE);
 
-  const my_bool create_temp_tables= 
+  const my_bool create_temp_tables=
     (lex->sql_command == SQLCOM_CREATE_TABLE) &&
     (lex->create_info.options & HA_LEX_CREATE_TMP_TABLE);
 
-  const my_bool drop_temp_tables= 
+  const my_bool drop_temp_tables=
     (lex->sql_command == SQLCOM_DROP_TABLE) &&
     lex->drop_temporary;
 
@@ -1141,6 +1144,75 @@ static my_bool deny_updates_if_read_only_option(THD *thd,
 
   /* Assuming that only temporary tables are modified. */
   DBUG_RETURN(FALSE);
+}
+
+/**
+ * @brief Determine if an attempt to change a non-temporary table while
+ * the database is read-only.
+ *
+ * Note: similar to deny_updates_if_read_only_option(), the db_read_only
+ * does not block creating/droping/updating temporary tables.
+ *
+ * This is a helper function to mysql_execute_command, and is called
+ * only on DDL statements (CF_AUTO_COMMIT_TRANS).
+ *
+ * @see mysql_execute_command
+ *
+ * @param  thd   Thread (session) context.
+ * @param  all_tables all the tables in the DDL
+ *
+ * @returns Status code
+ *   @retval NULL if updates are OK
+ *   @retval name of the db whose read_only is turned on
+ */
+static const char *
+deny_implicit_commit_if_db_read_only(THD *thd, TABLE_LIST *all_tables)
+{
+  DBUG_ENTER("deny_implicit_commit_if_db_read_only");
+
+  LEX *lex= thd->lex;
+  const char *db_name = nullptr;
+
+  /* If the DDL does not change data, db_read_only doesn't apply eihter */
+  if (!(sql_command_flags[lex->sql_command] & CF_CHANGES_DATA))
+    DBUG_RETURN(nullptr);
+
+  if (!(sql_command_flags[lex->sql_command] & CF_CHANGES_DATA))
+    DBUG_RETURN(nullptr);
+
+  if ((lex->sql_command == SQLCOM_CREATE_TABLE) &&
+      (lex->create_info.options & HA_LEX_CREATE_TMP_TABLE))
+    DBUG_RETURN(nullptr);
+
+  if ((lex->sql_command == SQLCOM_DROP_TABLE) &&
+      lex->drop_temporary)
+    DBUG_RETURN(nullptr);
+
+  if (!my_hash_inited(&thd->db_read_only_hash))
+    init_thd_db_read_only(thd);
+
+  mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
+
+  if (thd->db_read_only_hash.records)
+  {
+    /* Check if the database to be dropped is read_only */
+    if (lex->sql_command == SQLCOM_DROP_DB &&
+        is_thd_db_read_only_by_name(thd, lex->name.str))
+      db_name = lex->name.str;
+
+    for (TABLE_LIST *table = all_tables; !db_name && table;
+         table = table->next_global)
+    {
+      DBUG_ASSERT(table->db && table->table_name);
+      if (table->updating && !find_temporary_table(thd, table) &&
+          is_thd_db_read_only_by_name(thd, table->db))
+        db_name = table->db;
+    }
+  }
+
+  mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
+
+  DBUG_RETURN(db_name);
 }
 
 
@@ -3025,6 +3097,19 @@ mysql_execute_command(THD *thd,
     DBUG_ASSERT(! thd->in_sub_stmt);
     /* Statement transaction still should not be started. */
     DBUG_ASSERT(thd->transaction.stmt.is_empty());
+
+    /*
+     * Implicit commits that change permanent tables (DDLs)
+     * are not allowed if per-db read_only is set.
+     * We simply return here (i.e. abort this DDL)
+     * without rolling back any explicit transaction.
+     */
+    const char *db = deny_implicit_commit_if_db_read_only(thd, all_tables);
+    if (db)
+    {
+      my_error(ER_DB_READ_ONLY, MYF(0), db, "Implicit commit failed.");
+      DBUG_RETURN(-1);
+    }
 
     /*
       Implicit commit is not allowed with an active XA transaction.
