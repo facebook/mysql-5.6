@@ -1689,6 +1689,26 @@ bool set_default_collation(HA_CREATE_INFO *create_info,
   return false;
 }
 
+bool set_db_read_only(HA_CREATE_INFO *create_info, int super_read_only,
+                      int on) {
+  DBUG_ASSERT(super_read_only >= 0 && super_read_only <= 1);
+  DBUG_ASSERT(on >= 0 && on <= 1);
+
+  if (on) {
+    create_info->db_read_only =
+        super_read_only ? DB_READ_ONLY_SUPER : DB_READ_ONLY_YES;
+  } else {
+    /*
+      For SUPER_READ_ONLY = FALSE, we assume user meant to downgrade to
+      READ_ONLY = TRUE.
+    */
+    create_info->db_read_only =
+        super_read_only ? DB_READ_ONLY_YES : DB_READ_ONLY_NO;
+  }
+
+  return false;
+}
+
 bool PT_create_table_default_collation::contextualize(
     Table_ddl_parse_context *pc) {
   return (super::contextualize(pc) ||

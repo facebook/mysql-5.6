@@ -32,6 +32,7 @@
 #include "sql/dd/impl/types/entity_object_impl.h"  // dd::Entity_object_impl
 #include "sql/dd/impl/types/weak_object_impl.h"
 #include "sql/dd/object_id.h"
+#include "sql/dd/properties.h"
 #include "sql/dd/sdi_fwd.h"
 #include "sql/dd/string_type.h"
 #include "sql/dd/types/entity_object_table.h"  // dd::Entity_object_table
@@ -141,6 +142,16 @@ class Schema_impl : public Entity_object_impl, public Schema {
     return m_se_private_data.insert_values(se_private_data);
   }
 
+  /////////////////////////////////////////////////////////////////////////
+  // options.
+  /////////////////////////////////////////////////////////////////////////
+
+  virtual const Properties &options() const { return *m_options; }
+
+  virtual Properties &options() { return *m_options; }
+
+  virtual bool set_options_raw(const String_type &options_raw);
+
   // Fix "inherits ... via dominance" warnings
   virtual Entity_object_impl *impl() { return Entity_object_impl::impl(); }
   virtual const Entity_object_impl *impl() const {
@@ -197,6 +208,10 @@ class Schema_impl : public Entity_object_impl, public Schema {
 
   // References to other objects
   Object_id m_default_collation_id;
+
+  std::unique_ptr<Properties> m_options;
+
+  Schema_impl(const Schema_impl &src);
 
   Schema *clone() const { return new Schema_impl(*this); }
 };

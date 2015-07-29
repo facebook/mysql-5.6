@@ -706,6 +706,8 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
       return true;
     }
 
+    create.db_read_only = get_db_read_only(*schema);
+
     if (create.default_table_charset == nullptr)
       create.default_table_charset = thd->collation();
 
@@ -727,14 +729,21 @@ bool mysqld_show_create_db(THD *thd, char *dbname,
     buffer.append(STRING_WITH_LEN("/*!32312 IF NOT EXISTS*/ "));
   append_identifier(thd, &buffer, orig_dbname, strlen(orig_dbname));
 
-  if (create.default_table_charset) {
+  if (create.default_table_charset || create.db_read_only > DB_READ_ONLY_NO) {
     buffer.append(STRING_WITH_LEN(" /*!40100"));
-    buffer.append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
-    buffer.append(create.default_table_charset->csname);
-    if (!(create.default_table_charset->state & MY_CS_PRIMARY) ||
-        create.default_table_charset == &my_charset_utf8mb4_0900_ai_ci) {
-      buffer.append(STRING_WITH_LEN(" COLLATE "));
-      buffer.append(create.default_table_charset->name);
+    if (create.default_table_charset) {
+      buffer.append(STRING_WITH_LEN(" DEFAULT CHARACTER SET "));
+      buffer.append(create.default_table_charset->csname);
+      if (!(create.default_table_charset->state & MY_CS_PRIMARY) ||
+          create.default_table_charset == &my_charset_utf8mb4_0900_ai_ci) {
+        buffer.append(STRING_WITH_LEN(" COLLATE "));
+        buffer.append(create.default_table_charset->name);
+      }
+    }
+    if (create.db_read_only == DB_READ_ONLY_YES) {
+      buffer.append(STRING_WITH_LEN(" READ_ONLY"));
+    } else if (create.db_read_only == DB_READ_ONLY_SUPER) {
+      buffer.append(STRING_WITH_LEN(" SUPER_READ_ONLY"));
     }
     buffer.append(STRING_WITH_LEN(" */"));
   }

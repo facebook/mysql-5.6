@@ -9425,8 +9425,8 @@ ER_PLACEHOLDER_50025
 ER_PLACEHOLDER_50026
   eng "Placeholder"
 
-ER_PLACEHOLDER_50027
-  eng "Placeholder"
+ER_DB_READ_ONLY
+  eng "Database '%s' is in read-only mode. %s"
 
 ER_PLACEHOLDER_50028
   eng "Placeholder"
@@ -9446,8 +9446,8 @@ ER_PLACEHOLDER_50032
 ER_PLACEHOLDER_50033
   eng "Placeholder"
 
-ER_PLACEHOLDER_50034
-  eng "Placeholder"
+ER_UNKNOWN_DB_READ_ONLY
+  eng "Unknown db read only option: '%-.64s'"
 
 ER_PLACEHOLDER_50035
   eng "Placeholder"

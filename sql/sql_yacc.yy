@@ -443,7 +443,7 @@ void warn_about_deprecated_binary(THD *thd)
   1. We do not accept any reduce/reduce conflicts
   2. We should not introduce new shift/reduce conflicts any more.
 */
-%expect 63
+%expect 65
 
 /*
    MAINTAINER:
@@ -1282,6 +1282,7 @@ void warn_about_deprecated_binary(THD *thd)
 %token  FIND 1200
 %token<lexer.keyword> GTID_SYM 1201
 %token<lexer.keyword> GTID_EXECUTED 1202           /* MYSQL */
+%token<lexer.keyword> SUPER_READ_ONLY_SYM 1203     /* MYSQL */
 
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
@@ -1968,6 +1969,7 @@ void warn_about_deprecated_binary(THD *thd)
 %type <alter_tablespace_type> undo_tablespace_state
 
 
+%type <num> read_only_opt boolean_val
 %%
 
 /*
@@ -6061,6 +6063,9 @@ create_database_option:
             Lex->create_info->encrypt_type= $1;
             Lex->create_info->used_fields |= HA_CREATE_USED_DEFAULT_ENCRYPTION;
           }
+        | db_read_only
+          {
+          }
         ;
 
 opt_if_not_exists:
@@ -6271,6 +6276,25 @@ default_collation:
 
 default_encryption:
           opt_default ENCRYPTION_SYM opt_equal TEXT_STRING_sys { $$ = $4;}
+        ;
+
+db_read_only:
+          read_only_opt { /* Ignored */ }
+        | read_only_opt opt_equal boolean_val
+          {
+            if (set_db_read_only(Lex->create_info, $1, $3))
+              MYSQL_YYABORT;
+          }
+        ;
+
+read_only_opt:
+          READ_ONLY_SYM { $$ = 0; }
+        | SUPER_READ_ONLY_SYM { $$ = 1; }
+        ;
+
+boolean_val:
+          FALSE_SYM { $$ = 0; }
+        | TRUE_SYM { $$ = 1; }
         ;
 
 row_types:
@@ -14728,6 +14752,7 @@ ident_keywords_unambiguous:
         | SUBJECT_SYM
         | SUBPARTITIONS_SYM
         | SUBPARTITION_SYM
+        | SUPER_READ_ONLY_SYM
         | SUSPEND_SYM
         | SWAPS_SYM
         | SWITCHES_SYM

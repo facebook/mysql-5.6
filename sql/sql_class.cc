@@ -515,6 +515,8 @@ THD::THD(bool enable_plugins)
   m_resource_group_ctx.m_switch_resource_group_str[0] = '\0';
   m_resource_group_ctx.m_warn = 0;
 
+  m_db_read_only_hash.clear();
+
   mysql_mutex_init(key_LOCK_thd_data, &LOCK_thd_data, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_query, &LOCK_thd_query, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_thd_sysvar, &LOCK_thd_sysvar, MY_MUTEX_INIT_FAST);
@@ -522,6 +524,8 @@ THD::THD(bool enable_plugins)
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_query_plan, &LOCK_query_plan, MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_LOCK_current_cond, &LOCK_current_cond,
+                   MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_LOCK_thd_db_read_only_hash, &LOCK_thd_db_read_only_hash,
                    MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_COND_thr_lock, &COND_thr_lock);
 
@@ -1108,6 +1112,9 @@ THD::~THD() {
   mysql_mutex_unlock(&LOCK_thd_data);
   mysql_mutex_lock(&LOCK_thd_query);
   mysql_mutex_unlock(&LOCK_thd_query);
+  mysql_mutex_lock(&LOCK_thd_db_read_only_hash);
+  m_db_read_only_hash.clear();
+  mysql_mutex_unlock(&LOCK_thd_db_read_only_hash);
 
   DBUG_ASSERT(!m_attachable_trx);
 
@@ -1120,6 +1127,7 @@ THD::~THD() {
   mysql_mutex_destroy(&LOCK_thd_sysvar);
   mysql_mutex_destroy(&LOCK_thd_protocol);
   mysql_mutex_destroy(&LOCK_current_cond);
+  mysql_mutex_destroy(&LOCK_thd_db_read_only_hash);
   mysql_cond_destroy(&COND_thr_lock);
 #ifndef DBUG_OFF
   dbug_sentry = THD_SENTRY_GONE;

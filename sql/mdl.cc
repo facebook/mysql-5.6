@@ -4560,6 +4560,21 @@ void MDL_context::set_transaction_duration_for_all_locks() {
   m_ticket_store.move_explicit_to_transaction_duration();
 }
 
+void MDL_context::get_locked_object_db_names(MDL_DB_Name_List &list) {
+  DBUG_ENTER("MDL_context::get_locked_object_db_names");
+  MDL_ticket_store::List_iterator it =
+      m_ticket_store.list_iterator(MDL_TRANSACTION);
+
+  for (MDL_ticket *ticket = it++; ticket != nullptr; ticket = it++) {
+    MDL_lock *lock = ticket->m_lock;
+    DBUG_PRINT("enter",
+               ("db=%s name=%s", lock->key.db_name(), lock->key.name()));
+    list.insert(std::string(lock->key.db_name()));
+  }
+
+  DBUG_VOID_RETURN;
+}
+
 size_t MDL_ticket_store::Hash::operator()(const MDL_key *k) const {
   return static_cast<size_t>(murmur3_32(k->ptr(), k->length(), 0));
 }

@@ -39,12 +39,14 @@
 #include "sql/dd/dd.h"                            // create_object
 #include "sql/dd/impl/bootstrap/bootstrap_ctx.h"  // dd::bootstrap::DD_bootstrap_ctx
 #include "sql/dd/impl/dictionary_impl.h"          // Dictionary_impl
+#include "sql/dd/impl/properties_impl.h"          // Properties_impl
 #include "sql/dd/impl/raw/raw_record.h"           // Raw_record
 #include "sql/dd/impl/sdi_impl.h"                 // sdi read/write functions
 #include "sql/dd/impl/tables/schemata.h"          // Schemata
 #include "sql/dd/impl/transaction_impl.h"         // Open_dictionary_tables_ctx
 #include "sql/dd/impl/types/object_table_definition_impl.h"
 #include "sql/dd/impl/utils.h"       // dd::my_time_t_to_ull_datetime()
+#include "sql/dd/properties.h"       // Properties
 #include "sql/dd/types/event.h"      // Event
 #include "sql/dd/types/function.h"   // Function
 #include "sql/dd/types/procedure.h"  // Procedure
@@ -79,7 +81,8 @@ Schema_impl::Schema_impl()
       m_last_altered(0),
       m_default_encryption(enum_encryption_type::ET_NO),
       m_se_private_data(),
-      m_default_collation_id(INVALID_OBJECT_ID) {}
+      m_default_collation_id(INVALID_OBJECT_ID),
+      m_options(new Properties_impl()) {}
 
 bool Schema_impl::validate() const {
   if (m_default_collation_id == INVALID_OBJECT_ID) {
@@ -88,6 +91,31 @@ bool Schema_impl::validate() const {
     return true;
   }
 
+  return false;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+Schema_impl::Schema_impl(const Schema_impl &src)
+    : Weak_object(src),
+      Entity_object_impl(src),
+      m_created(src.m_created),
+      m_last_altered(src.m_last_altered),
+      m_default_encryption(src.m_default_encryption),
+      m_se_private_data(src.m_se_private_data),
+      m_default_collation_id(src.m_default_collation_id),
+      m_options(
+          Properties_impl::parse_properties(src.m_options->raw_string())) {}
+
+///////////////////////////////////////////////////////////////////////////
+
+bool Schema_impl::set_options_raw(const String_type &options_raw) {
+  Properties *properties = Properties_impl::parse_properties(options_raw);
+
+  if (!properties)
+    return true;  // Error status, current values has not changed.
+
+  m_options.reset(properties);
   return false;
 }
 
@@ -119,6 +147,7 @@ bool Schema_impl::restore_attributes(const Raw_record &r) {
     set_se_private_data(r.read_str(Schemata::FIELD_SE_PRIVATE_DATA, ""));
   }
 
+  set_options_raw(r.read_str(Schemata::FIELD_OPTIONS, ""));
   return false;
 }
 
@@ -149,7 +178,8 @@ bool Schema_impl::store_attributes(Raw_record *r) {
          r->store_ref_id(Schemata::FIELD_DEFAULT_COLLATION_ID,
                          m_default_collation_id) ||
          r->store(Schemata::FIELD_CREATED, m_created) ||
-         r->store(Schemata::FIELD_LAST_ALTERED, m_last_altered);
+         r->store(Schemata::FIELD_LAST_ALTERED, m_last_altered) ||
+         r->store(Schemata::FIELD_OPTIONS, *m_options);
 }
 
 ///////////////////////////////////////////////////////////////////////////
