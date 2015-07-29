@@ -105,6 +105,8 @@ class Schema_impl : public Entity_object_impl, public Schema {
   /////////////////////////////////////////////////////////////////////////
   bool read_only() const override;
   void set_read_only(bool state) override;
+  void set_db_read_only(int state) override;
+  int get_db_read_only() const override;
 
   /////////////////////////////////////////////////////////////////////////
   // created

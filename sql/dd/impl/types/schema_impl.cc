@@ -70,7 +70,9 @@ using dd::tables::Tables;
 
 namespace dd {
 
-static const std::set<String_type> default_valid_option_keys = {"read_only"};
+static constexpr auto read_only_options_key = "db_read_only";
+static const std::set<String_type> default_valid_option_keys = {
+    "read_only", read_only_options_key};
 
 ///////////////////////////////////////////////////////////////////////////
 // Schema_impl implementation.
@@ -108,6 +110,28 @@ void Schema_impl::set_read_only(bool state) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
+
+void Schema_impl::set_db_read_only(int state) {
+  options().set(read_only_options_key, state);
+}
+
+int Schema_impl::get_db_read_only() const {
+  DBUG_TRACE;
+  int val = 0;
+
+  if (!options().exists(read_only_options_key)) {
+    // No option set. Assume not read only.
+    return DB_READ_ONLY_NO;
+  }
+
+  if (options().get(read_only_options_key, &val) || val < DB_READ_ONLY_NO ||
+      val > DB_READ_ONLY_SUPER) {
+    my_error(ER_UNKNOWN_DB_READ_ONLY, MYF(0), std::to_string(val).c_str());
+    return DB_READ_ONLY_NO;
+  }
+
+  return val;
+}
 
 bool Schema_impl::restore_attributes(const Raw_record &r) {
   restore_id(r, Schemata::FIELD_ID);
