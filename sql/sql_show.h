@@ -224,4 +224,6 @@ bool ignore_db_dirs_process_additions();
 bool push_ignored_db_dir(char *path);
 extern char *opt_ignore_db_dirs;
 
+int fill_schema_schemata(THD *thd, TABLE_LIST *tables, Item *cond);
+int fetch_schema_schemata(THD *thd);
 #endif /* SQL_SHOW_H */

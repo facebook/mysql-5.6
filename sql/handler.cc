@@ -41,6 +41,8 @@
 #include <my_bit.h>
 #include <list>
 #include "sql_readonly.h"       // check_ro
+#include "sql_db.h"      // init_thd_db_read_only
+                         // is_thd_db_read_only_by_name
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 #include "ha_partition.h"
@@ -1426,10 +1428,10 @@ int ha_commit_trans(THD *thd, bool all, bool async,
   MDL_request mdl_request;
   bool release_mdl= false;
 
+  bool rw_trans = false;
   if (ha_info)
   {
     uint rw_ha_count;
-    bool rw_trans;
 
     DBUG_EXECUTE_IF("crash_commit_before", DBUG_SUICIDE(););
 
@@ -1441,6 +1443,17 @@ int ha_commit_trans(THD *thd, bool all, bool async,
     trans->rw_ha_count= rw_ha_count;
     /* rw_trans is TRUE when we in a transaction changing data */
     rw_trans= is_real_trans && (rw_ha_count > 0);
+
+    // initialize thread's db_read_only_hash on the first time
+    if (rw_trans && !my_hash_inited(&thd->db_read_only_hash))
+      init_thd_db_read_only(thd);
+
+    /* If this is a write transaction, we need to lock the
+     * (local) db_read_only hash map during the whole transaction,
+     * so the read_only option is not changed once a commit starts.
+     */
+    if (rw_trans)
+      mysql_mutex_lock(&thd->LOCK_thd_db_read_only_hash);
 
     DBUG_EXECUTE_IF("dbug.enabled_commit",
                     {
@@ -1492,6 +1505,30 @@ int ha_commit_trans(THD *thd, bool all, bool async,
       goto end;
     }
 
+    if (rw_trans && thd->db_read_only_hash.records)
+    {
+      // This is a write transaction and we have db_read_only on some database.
+      // Since this transaction may be an explicit "commit" which doesn't have
+      // any "current" table in the statement, we need to check the list of MDL
+      // lock object to get the list of databases we obtained metadata locks
+      // on.  There may be false positive cases that the read-only DB in the
+      // list is not actually modified in the transaction.  We do not
+      // differentiate such false positives.
+      MDL_DB_Name_List db_names;
+      thd->mdl_context.get_locked_object_db_names(db_names);
+      for (auto db_name : db_names)
+      {
+        if (is_thd_db_read_only_by_name(thd, db_name.c_str()))
+        {
+          my_error(ER_DB_READ_ONLY, MYF(0), db_name.c_str(),
+                   "Transaction was rolled back.");
+          ha_rollback_trans(thd, all);
+          error= 1;
+          goto end;
+        }
+      }
+    }
+
     if (!trans->no_2pc && (rw_ha_count > 1))
       error= tc_log->prepare(thd, all, async);
   }
@@ -1518,6 +1555,9 @@ end:
   /* Free resources and perform other cleanup even for 'empty' transactions. */
   if (is_real_trans)
     thd->transaction.cleanup();
+  /* Unlock db_read_only hash after a write-transaction */
+  if (rw_trans)
+    mysql_mutex_unlock(&thd->LOCK_thd_db_read_only_hash);
   DBUG_RETURN(error);
 }
 
