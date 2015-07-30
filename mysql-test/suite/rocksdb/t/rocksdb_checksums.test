@@ -8,20 +8,21 @@
 --disable_warnings
 drop table if exists t1,t2,t3;
 --enable_warnings
+-- exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
 
 show variables like 'rocksdb_%checksum%';
 
 create table t1 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
 insert into t1 values (1,1,1),(2,2,2),(3,3,3);
 check table t1;
---exec grep -A6 "Checking table t1" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 
+--exec grep -A6 "Checking table t1" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep -v "filtering dropped index" | cut -d] -f2
 drop table t1;
 
 set session rocksdb_store_checksums=on;
 create table t2 (pk int primary key, a int, b int, key(a), key(b)) engine=rocksdb;
 insert into t2 values (1,1,1),(2,2,2),(3,3,3);
 check table t2;
---exec grep -A6 "Checking table t2" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 
+--exec grep -A6 "Checking table t2" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep -v "filtering dropped index" | cut -d] -f2 
 
 
 --echo # Now, make a table that has both rows with checksums and without
@@ -31,7 +32,7 @@ set session rocksdb_store_checksums=off;
 update t3 set b=3 where a=2;
 set session rocksdb_store_checksums=on;
 check table t3;
---exec grep -A6 "Checking table t3" $MYSQLTEST_VARDIR/log/mysqld.1.err | cut -d] -f2 
+--exec grep -A6 "Checking table t3" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep -v "filtering dropped index" | cut -d] -f2 
 
 
 --echo #
