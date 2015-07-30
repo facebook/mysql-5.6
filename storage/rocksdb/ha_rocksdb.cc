@@ -2655,6 +2655,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   uint i;
   DBUG_ENTER("ha_rocksdb::create_key_defs");
   uint n_keys= table_arg->s->keys;
+  uint index_id= 0;
 
   bool write_err= false;
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
@@ -2698,7 +2699,8 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
     if (!cf_handle)
       goto error;
 
-    if (!(key_descr[i]= new RDBSE_KEYDEF(ddl_manager.get_next_number(), i,
+    index_id= ddl_manager.get_next_number();
+    if (!(key_descr[i]= new RDBSE_KEYDEF(index_id, i,
                                          cf_handle,
                                          is_cf_name_reverse(comment),
                                          is_auto_cf,
@@ -2710,7 +2712,9 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
 
   tbl_def->dbname_tablename.append(db_table, len);
   dict_manager.lock();
-  write_err= ddl_manager.put_and_write(tbl_def, batch) || dict_manager.commit(batch);
+  write_err= ddl_manager.put_and_write(tbl_def, batch)
+             || dict_manager.update_max_index_id(batch, index_id)
+             || dict_manager.commit(batch);
   dict_manager.unlock();
 
   if (write_err)
