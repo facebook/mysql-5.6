@@ -46,22 +46,19 @@ void Dropped_indices_manager::init(Table_ddl_manager* ddl_manager,
   std::vector<uint32> index_ids;
   dict->get_drop_indexes_ongoing(index_ids);
 
-  /*
-   * ddl_manager remembers maximum MyRocks internal index id and assigns
-   * and increments new index id when new table/index is created.
-   * drop-ongoing index ids do not exist in ddl_manager, but
-   * exist in DDL_DROP_INDEX_ONGOING data dictionary. ddl_manager should
-   * skip these index ids so that it does not allocate conflicting index ids.
-   * (Example: CREATE INDEX 10, 11, 12; DROP INDEX 11, 12; restarting instance.
-   * ddl_manager sees the maximum index id is 10. But next allocation
-   * has to be 13, if dropping index has not completed)
-   */
+  uint max_index_id_in_dict= 0;
+  dict->get_max_index_id(&max_index_id_in_dict);
+
   for (auto index_id: index_ids)
   {
     set_insert(index_id, "Resume");
-    if (index_id >= ddl_manager->get_current_number())
+    if (max_index_id_in_dict < index_id)
     {
-      ddl_manager->set_next_number(index_id+1);
+      sql_print_error("RocksDB: Found max index id %u from data dictionary "
+                      "but also found dropped index id %u from drop_index "
+                      "dictionary. This should never happen and possibly a bug.",
+                      max_index_id_in_dict, index_id);
+      abort_with_stack_traces();
     }
   }
 
