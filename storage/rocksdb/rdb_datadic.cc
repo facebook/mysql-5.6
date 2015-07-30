@@ -1369,7 +1369,10 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
   /* Reading data dictionary should always skip bloom filter */
   rocksdb::Iterator* it= dict->NewIterator();
   int i= 0;
-  uint max_number= RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER+1;
+
+  uint max_index_id_in_dict= 0;
+  dict->get_max_index_id(&max_index_id_in_dict);
+
   for (it->Seek(ddl_entry_slice); it->Valid(); it->Next())
   {
     const char *ptr;
@@ -1428,6 +1431,14 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
                         index_number, tdef->dbname_tablename.c_ptr_safe());
         return true;
       }
+      if (max_index_id_in_dict < index_number)
+      {
+        sql_print_error("RocksDB: Found max index id %u from data dictionary "
+                        "but also found larger index id %u from dictionary. "
+                        "This should never happen and possibly a bug.",
+                        max_index_id_in_dict, index_number);
+        return true;
+      }
       if (!dict->get_cf_flags(cf_id, &flags))
       {
         sql_print_error("RocksDB: Could not get Column Family Flags "
@@ -1450,15 +1461,12 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
                                                "",
                                                dict->get_stats(index_number));
 
-      /* Keep track of what was the last index number we saw */
-      if (max_number < index_number)
-        max_number= index_number;
     }
     put(tdef);
     i++;
   }
 
-  sequence.init(max_number+1);
+  sequence.init(max_index_id_in_dict+1);
 
   if (!it->status().ok())
   {
@@ -1881,6 +1889,10 @@ bool Dict_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager
   bool is_automatic;
   system_cfh= cf_manager->get_or_create_cf(rdb, DEFAULT_SYSTEM_CF_NAME,
                                            NULL, NULL, &is_automatic);
+  store_index_number(key_buf_max_index_id,
+                     RDBSE_KEYDEF::MAX_INDEX_ID);
+  key_slice_max_index_id = rocksdb::Slice((char*)key_buf_max_index_id,
+                                          RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
   return (system_cfh == NULL);
 }
 
@@ -2086,6 +2098,49 @@ void Dict_manager::end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                           const uint32_t index_id)
 {
   delete_util(batch, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING, index_id);
+}
+
+bool Dict_manager::get_max_index_id(uint32_t *index_id)
+{
+  bool found= false;
+  std::string value;
+
+  rocksdb::Status status= Get(key_slice_max_index_id, &value);
+  if (status.ok())
+  {
+    const uchar* val= (const uchar*)value.c_str();
+    uint16_t version= read_big_uint2(val);
+    if (version == RDBSE_KEYDEF::MAX_INDEX_ID_VERSION)
+    {
+      *index_id= read_big_uint4(val+RDBSE_KEYDEF::VERSION_SIZE);
+      found= true;
+    }
+  }
+  return found;
+}
+
+bool Dict_manager::update_max_index_id(rocksdb::WriteBatch* batch,
+                                       const uint32_t index_id)
+{
+  uint32_t old_index_id= -1;
+  if (get_max_index_id(&old_index_id))
+  {
+    if (old_index_id > index_id)
+    {
+      sql_print_error("RocksDB: Found max index id %u from data dictionary "
+                      "but trying to update to older value %u. This should "
+                      "never happen and possibly a bug.", old_index_id,
+                      index_id);
+      return true;
+    }
+  }
+
+  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE+RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
+  store_big_uint2(value_buf, RDBSE_KEYDEF::MAX_INDEX_ID_VERSION);
+  store_big_uint4(value_buf+RDBSE_KEYDEF::VERSION_SIZE, index_id);
+  rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
+  batch->Put(system_cfh, key_slice_max_index_id, value);
+  return false;
 }
 
 void Dict_manager::add_stats(

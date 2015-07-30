@@ -52,28 +52,28 @@ drop table t5;
 set global rocksdb_compact_cf = 'cf1';
 set global rocksdb_compact_cf = 'rev:cf2';
 set global rocksdb_signal_drop_index_thread = 1;
- RocksDB: Begin filtering dropped index 10
- RocksDB: Begin filtering dropped index 11
- RocksDB: Begin filtering dropped index 12
- RocksDB: Begin filtering dropped index 13
- RocksDB: Begin filtering dropped index 14
- RocksDB: Begin filtering dropped index 15
- RocksDB: Begin filtering dropped index 16
- RocksDB: Begin filtering dropped index 9
-Compacted 10: 1000
-Compacted 11: 1000
-Compacted 12: 1000
-Compacted 13: 50000
-Compacted 14: 50000
-Compacted 15: 1000
-Compacted 16: 1000
-Compacted 9: 1000
- RocksDB: Finished filtering dropped index 10
- RocksDB: Finished filtering dropped index 11
- RocksDB: Finished filtering dropped index 12
- RocksDB: Finished filtering dropped index 13
- RocksDB: Finished filtering dropped index 14
- RocksDB: Finished filtering dropped index 15
- RocksDB: Finished filtering dropped index 16
- RocksDB: Finished filtering dropped index 9
+Compacted+ 0: 1000
+Compacted+ 1: 1000
+Compacted+ 1: 1000
+Compacted+ 1: 1000
+Compacted+ 1: 50000
+Compacted+ 1: 50000
+Compacted+ 1: 1000
+Compacted+ 1: 1000
+Begin filtering dropped index+ 0
+Begin filtering dropped index+ 1
+Begin filtering dropped index+ 1
+Begin filtering dropped index+ 1
+Begin filtering dropped index+ 1
+Begin filtering dropped index+ 1
+Begin filtering dropped index+ 1
+Begin filtering dropped index+ 1
+Finished filtering dropped index+ 0
+Finished filtering dropped index+ 1
+Finished filtering dropped index+ 1
+Finished filtering dropped index+ 1
+Finished filtering dropped index+ 1
+Finished filtering dropped index+ 1
+Finished filtering dropped index+ 1
+Finished filtering dropped index+ 1
 drop table t1;

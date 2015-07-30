@@ -338,6 +338,7 @@ public:
     BINLOG_INFO_INDEX_NUMBER= 4,
     DDL_DROP_INDEX_ONGOING= 5,
     INDEX_STATISTICS= 6,
+    MAX_INDEX_ID= 7,
   };
 
   enum {
@@ -346,6 +347,7 @@ public:
     CF_DEFINITION_VERSION= 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
     DDL_DROP_INDEX_ONGOING_VERSION= 1,
+    MAX_INDEX_ID_VERSION= 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -558,23 +560,6 @@ public:
     return res;
   }
 
-  uint get_current_number()
-  {
-    uint res;
-    mysql_mutex_lock(&mutex);
-    res= next_number;
-    mysql_mutex_unlock(&mutex);
-    return res;
-  }
-
-  void set_next_number(uint next)
-  {
-    mysql_mutex_lock(&mutex);
-    next_number= next;
-    mysql_mutex_unlock(&mutex);
-  }
-
-
   void cleanup()
   {
     mysql_mutex_destroy(&mutex);
@@ -624,8 +609,6 @@ public:
               rocksdb::WriteBatch *batch);
 
   uint get_next_number() { return sequence.get_next_number(); }
-  uint get_current_number() { return sequence.get_current_number(); }
-  void set_next_number(uint next) { sequence.set_next_number(next); }
   void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
   std::unordered_set<uint32_t> get_changed_indexes();
 
@@ -730,6 +713,9 @@ private:
   rocksdb::DB *rdb;
   rocksdb::ColumnFamilyHandle *system_cfh;
   /* Utility to put INDEX_CF_MAPPING and CF_DEFINITION */
+
+  uchar key_buf_max_index_id[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  rocksdb::Slice key_slice_max_index_id;
   void put_util(rocksdb::WriteBatch *batch,
                 const uint32_t index_id,
                 const uint32_t index_id_or_cf_id,
@@ -775,7 +761,9 @@ public:
                                 const uint32_t index_id);
   void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                               const uint32_t index_id);
-
+  bool get_max_index_id(uint32_t *index_id);
+  bool update_max_index_id(rocksdb::WriteBatch* batch,
+                           const uint32_t index_id);
   void add_stats(
     rocksdb::WriteBatch* batch,
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
