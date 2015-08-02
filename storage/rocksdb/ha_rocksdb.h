@@ -324,6 +324,7 @@ public:
 
   /* Same as above but for verifying checksums when reading */
   bool verify_checksums;
+  int checksums_pct;
 
   ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg);
   ~ha_rocksdb() {}
@@ -383,6 +384,13 @@ public:
   bool primary_key_is_clustered()
   {
     return true;
+  }
+  bool should_store_checksums()
+  {
+    if (store_checksums && (rand() % 100 < checksums_pct))
+      return true;
+    else
+      return false;
   }
 
   int rename_table(const char *from, const char *to);
