@@ -984,6 +984,8 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_CFSTATS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
  load).
+ --rocksdb-checksums-pct=# 
+ How many percentages of rows to be checksummed
  --rocksdb-collect-sst-properties 
  Enables collecting SST file properties on each flush
  (Defaults to on; use --skip-rocksdb-collect-sst-properties to disable.)
@@ -1669,6 +1671,7 @@ rocksdb-cache-index-and-filter-blocks TRUE
 rocksdb-cf-options ON
 rocksdb-cf-options-file 
 rocksdb-cfstats ON
+rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
 rocksdb-compact-cf 
 rocksdb-compaction-sequential-deletes 1900
