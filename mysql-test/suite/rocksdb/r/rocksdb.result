@@ -833,6 +833,7 @@ rocksdb_bulk_load_size	1000
 rocksdb_bytes_per_sync	0
 rocksdb_cache_index_and_filter_blocks	ON
 rocksdb_cf_options_file	
+rocksdb_checksums_pct	100
 rocksdb_collect_sst_properties	ON
 rocksdb_compact_cf	
 rocksdb_compaction_sequential_deletes	1900
