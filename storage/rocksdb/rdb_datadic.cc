@@ -530,7 +530,7 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
 
   if (unpack_info_len)
   {
-    if (((ha_rocksdb*)tbl->file)->store_checksums)
+    if (((ha_rocksdb*)tbl->file)->should_store_checksums())
     {
       uint32_t key_crc32= crc32(0, packed_tuple, tuple - packed_tuple);
       uint32_t val_crc32= crc32(0, unpack_info, unpack_end - unpack_info);
