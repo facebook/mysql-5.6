@@ -710,6 +710,12 @@ static MYSQL_SYSVAR_LONGLONG(
   NULL, set_compaction_options, 0L,
   /* min */ -1L, /* max */ LONGLONG_MAX, 0);
 
+static MYSQL_THDVAR_INT(checksums_pct,
+  PLUGIN_VAR_RQCMDARG,
+  "How many percentages of rows to be checksummed",
+  NULL, NULL, 100,
+  /* min */ 0, /* max */ 100, 0);
+
 static MYSQL_THDVAR_BOOL(store_checksums,
   PLUGIN_VAR_RQCMDARG,
   "Include checksums when writing index/table records",
@@ -802,6 +808,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(snapshot_dir),
 
+  MYSQL_SYSVAR(checksums_pct),
   MYSQL_SYSVAR(store_checksums),
   MYSQL_SYSVAR(verify_checksums),
   NULL
@@ -2091,7 +2098,7 @@ void ha_rocksdb::convert_record_to_storage_format(const char *pk_packed_tuple,
     }
   }
 
-  if (store_checksums)
+  if (should_store_checksums())
   {
     uint32_t key_crc32= crc32(0, (uchar*)pk_packed_tuple, pk_packed_size);
     uint32_t val_crc32= crc32(0, (uchar*)storage_record.ptr(),
@@ -4905,6 +4912,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
 
     store_checksums= THDVAR(thd, store_checksums);
     verify_checksums= THDVAR(thd, verify_checksums);
+    checksums_pct= THDVAR(thd, checksums_pct);
 
     updated_indexes_is_valid= false;
 
