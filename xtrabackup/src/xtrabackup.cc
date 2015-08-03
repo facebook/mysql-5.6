@@ -581,7 +581,6 @@ enum options_xtrabackup
   OPT_INNODB_LOG_ARCH_DIR,
   OPT_INNODB_LOG_ARCHIVE,
   OPT_INNODB_LOG_GROUP_HOME_DIR,
-  OPT_INNODB_MAX_DIRTY_PAGES_PCT,
   OPT_INNODB_MAX_PURGE_LAG,
   OPT_INNODB_ROLLBACK_ON_TIMEOUT,
   OPT_INNODB_STATUS_FILE,
@@ -866,9 +865,6 @@ Disable with --skip-innodb-doublewrite.", (G_PTR*) &innobase_use_doublewrite,
    "Path to InnoDB log files.", (G_PTR*) &INNODB_LOG_DIR,
    (G_PTR*) &INNODB_LOG_DIR, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0,
    0, 0},
-  {"innodb_max_dirty_pages_pct", OPT_INNODB_MAX_DIRTY_PAGES_PCT,
-   "Percentage of dirty pages allowed in bufferpool.", (G_PTR*) &srv_max_buf_pool_modified_pct,
-   (G_PTR*) &srv_max_buf_pool_modified_pct, 0, GET_ULONG, REQUIRED_ARG, 90, 0, 100, 0, 0, 0},
 /*
   {"innodb_max_purge_lag", OPT_INNODB_MAX_PURGE_LAG,
    "Desired maximum length of the purge queue (0 = no limit)",
@@ -1515,6 +1511,10 @@ mem_free_and_error:
 	srv_use_native_aio = FALSE;
 
 #endif
+	msg("InnoDB: srv_max_dirty_pages_pct_lwm = %f\n",
+	    srv_max_dirty_pages_pct_lwm);
+	msg("InnoDB: srv_max_buf_pool_modified_pct = %f\n",
+	    srv_max_buf_pool_modified_pct);
 
 	return(FALSE);
 
