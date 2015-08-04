@@ -6826,9 +6826,21 @@ Item::save_in_field(Field *field, bool no_conversions)
            field->result_type() == STRING_RESULT)
   {
     double nr= val_real();
-    if (null_value)
+
+    /* For documents, we do not use 'null_value' for setting it to NULL */
+    if (null_value && field->type() != MYSQL_TYPE_DOCUMENT)
       return set_field_to_null_with_conversions(field, no_conversions);
+
+    /* If the function is the partial update increment, we perform NOP if the
+     * document path does not exist or if the JSON type is not numeric */
     field->set_notnull();
+    if (extra_args &&
+        extra_args->func_type == Save_in_field_args::FuncType::FUNC_INC) {
+      DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
+      fbson::FbsonValue* pval = ((Field_document*)field)->get_fbson_value();
+      if (!pval || (!pval->isInt() && !pval->isDouble()))
+        return TYPE_OK;
+    }
     error= field->store(nr);
   }
   else if (result_type() == REAL_RESULT)

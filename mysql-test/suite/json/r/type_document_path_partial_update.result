@@ -130,6 +130,9 @@ a	b	doc
 ##### Document partial update test - Function Call Syntax
 update t2 set t2.doc.id = 200, t2.doc.address.houseNumber.set(2580), t2.doc.address.streetName.set("El Camino Real"), t2.doc.address.city.set("Redwood City") where a = 1;
 update t2 set t2.doc.id.inc(1000) where a <= 5;
+update t2 set t2.doc.id.nothing.should.happen.inc(1000);
+update t2 set t2.doc.inc(1000);
+update t2 set t2.doc.address.inc(1000);
 update t2 set t2.doc.height.set(170.00) where a = 9;
 update t2 set t2.doc.age.set(50) where a = 4;
 update t2 set t2.doc.age.set(20) where a = 6;
