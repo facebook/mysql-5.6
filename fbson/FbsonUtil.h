@@ -82,7 +82,7 @@ class FbsonToJson {
     }
     case FbsonType::T_String: {
       string_to_json(((StringVal*)val)->getBlob(),
-                     ((StringVal*)val)->getBlobLen());
+                     ((StringVal*)val)->length());
       break;
     }
     case FbsonType::T_Binary: {
@@ -104,7 +104,7 @@ class FbsonToJson {
     }
   }
 
-  void string_to_json(const char *str, int len){
+  void string_to_json(const char *str, size_t len){
     os_.put('"');
     if(nullptr == str){
       os_.put('"');

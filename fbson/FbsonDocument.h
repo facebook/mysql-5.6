@@ -152,13 +152,15 @@ class FbsonDocument {
 
   FbsonValue* getValue() { return ((FbsonValue*)payload_); }
 
+  void setValue(const FbsonValue *value);
+
   unsigned int numPackedBytes() const;
 
   ObjectVal* operator->() { return ((ObjectVal*)payload_); }
 
   const ObjectVal* operator->() const { return ((const ObjectVal*)payload_); }
 
- private:
+ public:
   /*
    * FbsonHeader class defines FBSON header (internal to FbsonDocument).
    *
@@ -170,7 +172,7 @@ class FbsonDocument {
   } header_;
 
   char payload_[0];
-
+ private:
   FbsonDocument();
 };
 
@@ -501,7 +503,7 @@ class BlobVal : public FbsonValue {
   unsigned int numPackedBytes() const {
     return sizeof(FbsonValue) + sizeof(size_) + size_;
   }
-
+  friend class FbsonDocument;
  protected:
   uint32_t size_;
   char payload_[0];
@@ -566,7 +568,7 @@ class StringVal : public BlobVal {
     if(0 == size_)
       return size_;
     // The string stored takes all the spaces in payload_
-    if(payload_[size_] != 0){
+    if(payload_[size_ - 1] != 0){
       return size_;
     }
     // It's shorter than the size of payload_
@@ -821,11 +823,11 @@ inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
                                                   uint32_t size,
                                                   FbsonType type){
 
-  if (!pb || size < sizeof(FbsonHeader) + sizeof(ContainerVal)) {
+  if (!pb || size < sizeof(FbsonHeader) + sizeof(FbsonValue)) {
     return nullptr;
   }
-  // Document can only be array or object
-  if(FbsonType::T_Object != type && FbsonType::T_Array != type){
+
+  if(type < FbsonType::T_Null || type >= FbsonType::NUM_TYPES){
     return nullptr;
   }
   FbsonDocument* doc = (FbsonDocument*)pb;
@@ -834,8 +836,12 @@ inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
   FbsonValue *value = doc->getValue();
   // Write type
   value->type_ = type;
-  // Write packed size;
-  ((ContainerVal*)value)->size_ = 0;
+
+  // Write packed size for container
+  if(type == FbsonType::T_Object || type == FbsonType::T_Array)
+    ((ContainerVal*)value)->size_ = 0;
+  if(type == FbsonType::T_String || type == FbsonType::T_Binary)
+    ((BlobVal*)value)->size_ = 0;
   return doc;
 }
 
@@ -851,13 +857,17 @@ inline FbsonDocument* FbsonDocument::createDocument(const char* pb,
   }
 
   FbsonValue* val = (FbsonValue*)doc->payload_;
-  if (!(val->isObject() || val->isArray()) ||
-      size != sizeof(FbsonHeader) + val->numPackedBytes()) {
+  if(val->type() < FbsonType::T_Null ||
+     val->type() >= FbsonType::NUM_TYPES ||
+     size != sizeof(FbsonHeader) + val->numPackedBytes()) {
 
     return nullptr;
   }
 
   return doc;
+}
+inline void FbsonDocument::setValue(const FbsonValue *value) {
+  memcpy(payload_, value, value->numPackedBytes());
 }
 
 inline FbsonValue* FbsonDocument::createValue(const char* pb, uint32_t size) {
