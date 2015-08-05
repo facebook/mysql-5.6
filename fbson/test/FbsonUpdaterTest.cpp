@@ -5,6 +5,85 @@
 #include <fbson/FbsonDocument.h>
 #include <fbson/FbsonUpdater.h>
 #include <fbson/FbsonUtil.h>
+TEST(FBSON_UPDATER, document) {
+  using namespace fbson;
+  char buffer[1024];
+  FbsonDocument *doc = nullptr;
+  FbsonToJson to_json;
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Null);
+  EXPECT_STREQ("null", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_True);
+  EXPECT_STREQ("true", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_False);
+  EXPECT_STREQ("false", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Int8);
+  ((Int8Val*)doc->getValue())->setVal(10);
+  EXPECT_STREQ("10", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Int16);
+  ((Int16Val*)doc->getValue())->setVal(1000);
+  EXPECT_STREQ("1000", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Int32);
+  ((Int32Val*)doc->getValue())->setVal(1000000);
+  EXPECT_STREQ("1000000", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Int64);
+  ((Int64Val*)doc->getValue())->setVal(10000000000);
+  EXPECT_STREQ("10000000000", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Double);
+  ((DoubleVal*)doc->getValue())->setVal(123.123);
+  EXPECT_STREQ("123.123", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_String);
+  EXPECT_STREQ("\"\"", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Object);
+  EXPECT_STREQ("{}", to_json.json(doc->getValue()));
+
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_Array);
+  EXPECT_STREQ("[]", to_json.json(doc->getValue()));
+
+  FbsonValueCreater creater;
+  doc = FbsonDocument::makeDocument(buffer,
+                                    sizeof(buffer),
+                                    FbsonType::T_String);
+  doc->setValue(creater("ABCDEFG"));
+  EXPECT_STREQ("\"ABCDEFG\"", to_json.json(doc->getValue()));
+
+  ((StringVal*)doc->getValue())->setVal("A", strlen("A"));
+  EXPECT_EQ(1, ((StringVal*)doc->getValue())->length());
+
+  ((StringVal*)doc->getValue())->setVal("", 0);
+  EXPECT_EQ(0, ((StringVal*)doc->getValue())->length());
+}
 TEST(FBSON_UPDATER, access) {
   std::string str("{\"str\": \"value1\","\
                   "\"dict\": {\"key1\": 123, \"key2\": \"AAADCCCDDFFEFER\"},"\
