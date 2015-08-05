@@ -37,7 +37,7 @@ using std::unordered_map;
 using std::string;
 using std::setprecision;
 
-enum compare_type {LT, GT, LTE, GTE, EQ, NEQ, LIKE};
+enum compare_type {LT, GT, LTE, GTE, EQ, NEQ, LIKE, SIMILAR, SUBDOC};
 
 static bool convert_constant_item(THD *, Item_field *, Item **);
 static longlong
@@ -47,6 +47,7 @@ bool compare_document_object(fbson::FbsonValue*, fbson::FbsonValue*);
 bool compare_document_array(fbson::FbsonValue*, fbson::FbsonValue*);
 bool compare_fbson_value(fbson::FbsonValue*, fbson::FbsonValue*);
 static bool is_document_type_or_value(Item *a);
+bool is_subdoc(fbson::FbsonValue *a, fbson::FbsonValue *b);
 
 static Item_result item_store_type(Item_result a, Item *item,
                                    my_bool unsigned_flag)
@@ -665,6 +666,8 @@ static bool compare_scalar(T left_val, T right_val, compare_type type)
     case GTE:
       return (left_val >= right_val);
     case LIKE:
+    case SIMILAR:
+    case SUBDOC:
     default:
       DBUG_ASSERT(0);
       return false;
@@ -691,9 +694,16 @@ static bool compare_doc_paths_with_array_wildcards_do(fbson::FbsonValue *a,
   /* Recursive base case: Doc path has been fully expanded so compare */
   if (a_keys.elements == 0 && b_keys.elements == 0)
   {
-    /* Perform LIKE comparison */
-    if (type == LIKE)
+    /* Perform LIKE or SIMILAR comparison */
+    if (type == LIKE || type == SIMILAR)
     {
+      /* For SIMILAR, both operands need to be document */
+      if (type == SIMILAR &&
+          ((!a->isObject() && !a->isArray()) ||
+           (!b->isObject() && !b->isArray())))
+      {
+        return false;
+      }
       /* If either operand is a string, cast to string and do REGEX matching */
       if (a->isString() || b->isString())
       {
@@ -708,6 +718,8 @@ static bool compare_doc_paths_with_array_wildcards_do(fbson::FbsonValue *a,
       }
       return compare_fbson_value(a, b);
     }
+    else if (type == SUBDOC)
+      return is_subdoc(a, b);
     /* Compare doubles and ints by casting to double */
     else if (is_fbson_value_numeric(a) && is_fbson_value_numeric(b))
     {
@@ -5895,6 +5907,16 @@ longlong Item_func_similar::val_int()
 {
   DBUG_ASSERT(fixed == 1);
 
+  /* Check for wildcards in operands */
+  if (is_array_wildcard(args[0]) || is_array_wildcard(args[1]))
+  {
+    if ((!is_array_wildcard(args[0]) && !is_document_type_or_value(args[0])) ||
+        (!is_array_wildcard(args[1]) && !is_document_type_or_value(args[1])))
+      return false;
+
+    return compare_doc_paths_with_array_wildcards(args[0], args[1], SIMILAR,
+        cmp.cmp_collation.collation) ? 1 : 0;
+  }
   /* Check that arguments are documents */
   if (!is_document_type_or_value(args[0]) ||
       !is_document_type_or_value(args[1]))
@@ -5926,6 +5948,23 @@ longlong Item_func_subdoc::val_int()
 {
   DBUG_ASSERT(fixed == 1);
 
+  if (is_array_wildcard(args[0]) || is_array_wildcard(args[1]))
+  {
+    for (int i = 0; i < 2; i++)
+    {
+      if (!is_array_wildcard(args[i]))
+      {
+        if (!is_document_type_or_value(args[i]))
+          return false;
+        fbson::FbsonValue *val = (fbson::FbsonValue*) args[i]->val_fbson_blob();
+        if (!val || !val->isObject())
+          return false;
+      }
+    }
+
+    return compare_doc_paths_with_array_wildcards(args[0], args[1], SUBDOC,
+        cmp.cmp_collation.collation) ? 1 : 0;
+  }
   /* Check that arguments are documents */
   if (!is_document_type_or_value(args[0]) ||
       !is_document_type_or_value(args[1]))
@@ -5936,9 +5975,15 @@ longlong Item_func_subdoc::val_int()
   fbson::FbsonValue *val1 = args[0]->val_document_value(&buf1);
   fbson::FbsonValue *val2 = args[1]->val_document_value(&buf2);
 
+  return is_subdoc(val1, val2) ? 1 : 0;
+}
+
+/* check if val1 is subdoc of val2 */
+bool is_subdoc(fbson::FbsonValue *val1, fbson::FbsonValue *val2)
+{
   /* Verify they're both non-null JSON objects */
   if (!val1 || !val2 || !val1->isObject() || !val2->isObject())
-    return 0;
+    return false;
 
   /* Hash the key value pairs of the right object */
   unordered_map<string, fbson::FbsonValue*> right;
@@ -5960,11 +6005,11 @@ longlong Item_func_subdoc::val_int()
     /* Return false if key doesn't exist or values don't match */
     if (right.find(key) == right.end() ||
         !compare_fbson_value(right[key], iter->value()))
-      return 0;
+      return false;
   }
 
   /* Every key value pair in first object is contained */
-  return 1;
+  return true;
 }
 
 
