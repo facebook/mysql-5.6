@@ -2333,11 +2333,6 @@ os_file_set_size(
 	/* Write buffer full of zeros */
 	memset(buf, 0, buf_size);
 
-	if (os_txlog_init_rate > 0) {
-		fprintf(stderr, "InnoDB: log file write is throttled at %lluMB/s\n",
-				os_txlog_init_rate/(1ULL<<20));
-	}
-
 	if (size >= (os_offset_t) 100 << 20) {
 
 		fprintf(stderr, "InnoDB: Progress in MB:");
