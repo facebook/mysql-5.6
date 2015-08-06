@@ -217,11 +217,8 @@ Item_func::fix_fields(THD *thd, Item **ref)
         DBUG_ASSERT(allowed_arg_cols); // Can't be 0 any more
       }
 
-      /* A document path always can be NULL no matter the document column
-         can be NULL or not */
-      if (item->maybe_null ||
-          (item->type() == FIELD_ITEM && ((Item_field *)item)->document_path))
-	maybe_null=1;
+      if (item->maybe_null)
+        maybe_null=1;
 
       with_sum_func= with_sum_func || item->with_sum_func;
       used_tables_cache|=     item->used_tables();
@@ -4691,7 +4688,8 @@ bool Item_func_set_user_var::register_field_in_read_map(uchar *arg)
   {
     TABLE *table= (TABLE *) arg;
     if (result_field->table == table || !table)
-      bitmap_set_bit(result_field->table->read_set, result_field->field_index);
+      bitmap_set_bit(result_field->table->read_set,
+                     result_field->field_index);
   }
   return 0;
 }
