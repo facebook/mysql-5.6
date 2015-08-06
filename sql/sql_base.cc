@@ -6572,7 +6572,8 @@ static Field *
 find_field_in_view(THD *thd, TABLE_LIST *table_list,
                    const char *name, uint length,
                    const char *item_name, Item **ref,
-                   bool register_tree_change)
+                   bool register_tree_change,
+                   bool is_document_path = false)
 {
   DBUG_ENTER("find_field_in_view");
   DBUG_PRINT("enter",
@@ -6585,9 +6586,11 @@ find_field_in_view(THD *thd, TABLE_LIST *table_list,
               (ref != 0 && table_list->view != 0));
   for (; !field_it.end_of_fields(); field_it.next())
   {
-    bool name_match =
-      (*field_it.item_ptr())->type() == Item::FIELD_ITEM &&
-      ((Item_field*)*field_it.item_ptr())->is_document_path() ?
+    /*
+      When the name from from an item which is a document path, we need to use
+      the name resolution for document path instead of the straight forward one.
+    */
+    bool name_match = is_document_path ?
       check_name_match(name, field_it.name()) :
       !my_strcasecmp(system_charset_info, field_it.name(), name);
     if(name_match)
@@ -6897,7 +6900,8 @@ find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
                         const char *table_name, Item **ref,
                         bool check_privileges, bool allow_rowid,
                         uint *cached_field_index_ptr,
-                        bool register_tree_change, TABLE_LIST **actual_table)
+                        bool register_tree_change, TABLE_LIST **actual_table,
+                        bool is_document_path)
 {
   Field *fld;
   DBUG_ENTER("find_field_in_table_ref");
@@ -6947,7 +6951,7 @@ find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
   {
     /* 'table_list' is a view or an information schema table. */
     if ((fld= find_field_in_view(thd, table_list, name, length, item_name, ref,
-                                 register_tree_change)))
+                                 register_tree_change, is_document_path)))
       *actual_table= table_list;
   }
   else if (!table_list->nested_join)
@@ -7175,7 +7179,7 @@ find_field_in_tables(THD *thd, Item_ident *item,
                                      NULL, NULL, ref, check_privileges,
                                      TRUE, &(item->cached_field_index),
                                      register_tree_change,
-                                     &actual_table);
+                                     &actual_table, item->is_document_path());
     if (found)
     {
       if (found == WRONG_GRANT)
@@ -7227,26 +7231,8 @@ find_field_in_tables(THD *thd, Item_ident *item,
                                               allow_rowid,
                                               &(item->cached_field_index),
                                               register_tree_change,
-                                              &actual_table);
-
-    /* Document paths are not allowed to be referenced from views. This applies
-     * for both full doc path references from views AND partial doc paths on
-     * top of a view alias.
-     *
-     * Neither of the following examples are supported:
-     *
-     * CREATE ALGORITHM = MERGE VIEW v AS SELECT doc.address FROM t;
-     * SELECT doc.address.id FROM v;
-     *
-     * CREATE ALGORITHM = MERGE VIEW v (addr) AS SELECT doc.address FROM t;
-     * SELECT addr.id FROM v;
-     *
-     * For those examples, the condition below would be true and therefore
-     * skip the attempt to find the item, resulting in an UNKNOWN COLUMN error.
-     */
-    if (item->document_path_keys.elements > 0 && cur_table->view)
-      continue;
-
+                                              &actual_table,
+                                              item->is_document_path());
     if (cur_field)
     {
       if (cur_field == WRONG_GRANT)

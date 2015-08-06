@@ -207,7 +207,8 @@ find_field_in_table_ref(THD *thd, TABLE_LIST *table_list,
                         const char *table_name, Item **ref,
                         bool check_privileges, bool allow_rowid,
                         uint *cached_field_index_ptr,
-                        bool register_tree_change, TABLE_LIST **actual_table);
+                        bool register_tree_change, TABLE_LIST **actual_table,
+                        bool is_document_path = false);
 Field *
 find_field_in_table(THD *thd, TABLE *table, const char *name, uint length,
                     bool allow_rowid, uint *cached_field_index_ptr);
