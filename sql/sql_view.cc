@@ -141,9 +141,10 @@ bool check_duplicate_names(List<Item> &item_list, bool gen_unique_view_name)
         /* Do not count different doc paths as duplicates */
         if (item->type() == Item::FIELD_ITEM &&
             check->type() == Item::FIELD_ITEM &&
-            (((Item_ident*)item)->document_path ||
-              ((Item_ident*)check)->document_path) &&
-            !((Item_ident*)item)->compare_document_path(((Item_ident*)check)))
+            (((Item_ident*)item)->is_document_path() ||
+             ((Item_ident*)check)->is_document_path()) &&
+            !((Item_ident*)item)->sub_document_path(
+              ((Item_ident*)check)) != 0)
           continue;
 
         if (!gen_unique_view_name)

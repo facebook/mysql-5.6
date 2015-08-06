@@ -68,6 +68,7 @@ SELECT doc = '' FROM t1;
 SELECT doc.address = '' FROM t1;
 SELECT doc = 2 FROM t1;
 SELECT doc.address = 2 FROM t1;
+SELECT doc.notExist = 2 FROM t1;
 SELECT '' = doc FROM t1;
 SELECT '{"zipcode":98766}' = doc.address FROM t1;
 SELECT 2 = doc FROM t1;

@@ -158,6 +158,16 @@ doc = 2
 0
 SELECT doc.address = 2 FROM t1;
 doc.address = 2
+0
+0
+0
+0
+0
+0
+0
+0
+SELECT doc.notExist = 2 FROM t1;
+doc.notExist = 2
 NULL
 NULL
 NULL
@@ -198,14 +208,14 @@ SELECT 2 = doc FROM t1;
 0
 SELECT 2 = doc.address FROM t1;
 2 = doc.address
-NULL
-NULL
-NULL
-NULL
-NULL
-NULL
-NULL
-NULL
+0
+0
+0
+0
+0
+0
+0
+0
 CREATE TABLE t2 ( a int NOT null,
 b char (10) NOT null,
 doc DOCUMENT NOT null) engine=innodb;
