@@ -4951,10 +4951,10 @@ add_key_field(Key_field **key_fields,uint and_level, Item_func *cond,
           for (unsigned j = 1; j <= doc_path->elements && key; key = it++, ++j)
           {
             /* matching the list of names in the path */
-            LEX_STRING &str = key->string;
-            if (strncmp(str.str,
+
+            if (strncmp(key->string,
                         field_doc->document_path_key_start[i]->names[j],
-                        str.length) != 0)
+                        key->length) != 0)
               break;
           }
           if (!key)
@@ -5148,8 +5148,9 @@ add_key_equal_fields(Key_field **key_fields, uint and_level,
   Field *field= field_item->field;
   add_key_field(key_fields, and_level, cond, field, eq_func, val, num_values,
                 usable_tables, sargables,
-                field_item->document_path ? &field_item->document_path_keys
-                                          : nullptr);
+                field_item->document_path_keys.elements > 0 ?
+                &field_item->document_path_keys
+                : nullptr);
   Item_equal *item_equal= field_item->item_equal;
   if (item_equal)
   { 
@@ -5165,7 +5166,7 @@ add_key_equal_fields(Key_field **key_fields, uint and_level,
       {
         add_key_field(key_fields, and_level, cond, item->field, eq_func, val,
                       num_values, usable_tables, sargables,
-                      field_item->document_path
+                      field_item->is_document_path()
                           ? &field_item->document_path_keys
                           : nullptr);
       }
@@ -5397,8 +5398,8 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
       {
         add_key_field(key_fields, *and_level, cond_func, item->field, TRUE,
                       &const_item, 1, usable_tables, sargables,
-                      item->document_path ? &item->document_path_keys
-                                          : nullptr);
+                      item->is_document_path() ? &item->document_path_keys
+                      : nullptr);
       }
     }
     else 
@@ -5419,8 +5420,8 @@ add_key_fields(JOIN *join, Key_field **key_fields, uint *and_level,
           {
             add_key_field(key_fields, *and_level, cond_func, field, TRUE,
                           (Item **)&item, 1, usable_tables, sargables,
-                          item->document_path ? &item->document_path_keys
-                                              : nullptr);
+                          item->is_document_path() ? &item->document_path_keys
+                          : nullptr);
           }
         }
         it.rewind();
@@ -8321,15 +8322,7 @@ static bool duplicate_order(const ORDER *first_order,
           (static_cast<const Item_field*>(it1)->field ==
            static_cast<const Item_field*>(it2)->field))
       {
-        /* If both of the items are document paths then the whole paths
-           need to be compared */
-        if (((Item_field*)it1)->document_path &&
-            ((Item_field*)it2)->document_path)
-        {
-          return ((Item_ident*)it1)->compare_document_path((Item_ident*)it2);
-        }
-        return (!((Item_field*)it1)->document_path &&
-                !((Item_field*)it2)->document_path);
+        return true;
       }
     }
   }
