@@ -2404,6 +2404,7 @@ public:
   void reset_field(THD *thd, Field *f);
   /* Helper functions for Item_ident::fix_fields() */
   bool fix_fields_do(THD *, Item **);
+  void fix_document_fields_do(THD *, Item **);
   Field *get_field() { return field; }
   bool should_fix_document_path()
   {
@@ -3365,8 +3366,8 @@ public:
   enum Ref_Type { REF, DIRECT_REF, VIEW_REF, OUTER_REF, AGGREGATE_REF };
  protected:
   Field *result_field;			 /* Save result here */
-  bool fix_doc_field(THD *thd);
  public:
+  bool fix_doc_field(THD *thd);
   Item **ref, *ref_store;
   Item_ref(Name_resolution_context *context_arg,
            const char *db_arg, const char *table_name_arg,
