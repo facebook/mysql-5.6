@@ -171,11 +171,11 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`bool` AS "`doc1`.`bool`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`bool` is true)
 select doc1.bool from t1 use document keys where doc1.bool is true;
 `doc1`.`bool`
-1
-1
-1
-1
-1
+true
+true
+true
+true
+true
 explain extended select count(doc1.bool) from t1 use document keys group by doc1.bool;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	index	NULL	doc1_bool	2	NULL	12	100.00	Using index; Using temporary; Using filesort
@@ -668,13 +668,13 @@ Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`.`double`) AS `sum(doc1.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
 sum(doc1.double)
-10.1
-11.11
-12.12
 6.6
 7.7
 8.8
 9.9
+10.1
+11.11
+12.12
 explain extended select * from t1 where doc2.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -794,13 +794,13 @@ Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc2`.`double`) AS `sum(doc2.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc2`.`int` having (`test`.`t1`.`doc2`.`int` > 5)
 select sum(doc2.double) from t1 use document keys group by doc2.int having doc2.int > 5;
 sum(doc2.double)
-10.1
-11.11
-12.12
 6.6
 7.7
 8.8
 9.9
+10.1
+11.11
+12.12
 explain extended select a from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -836,13 +836,13 @@ Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`a`) AS `sum(a)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select sum(a) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 sum(a)
-10
-11
-12
 6
 7
 8
 9
+10
+11
+12
 explain extended select doc1.double from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -878,13 +878,13 @@ Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`doc1`.`double`) AS `sum(doc1.double)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`double` having (`test`.`t1`.`doc1`.`double` > 5.5)
 select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 sum(doc1.double)
-10.1
-11.11
-12.12
 6.6
 7.7
 8.8
 9.9
+10.1
+11.11
+12.12
 explain extended select a from t1 where doc2.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -1651,13 +1651,13 @@ Warnings:
 Note	1003	/* select#1 */ select sum(`test`.`t1`.`b`) AS `sum(b)` from `test`.`t1` USE DOCUMENT INDEXES group by `test`.`t1`.`doc1`.`int` having (`test`.`t1`.`doc1`.`int` > 5)
 select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
 sum(b)
-10
-11
-12
 6
 7
 8
 9
+10
+11
+12
 explain extended select doc1.double from t1 where c = 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
@@ -1688,7 +1688,8 @@ id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`c` AS `c` from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`double` = 5.5)
 select c from t1 use document keys where doc1.double = 5.5;
-ERROR HY000: Invalid document value: '5.5'
+c
+5.5
 explain extended select c from t1 use document keys where doc1.double = '5.5';
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ref	doc1_double	doc1_double	9	const	1	100.00	Using where

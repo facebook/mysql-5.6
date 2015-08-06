@@ -1154,16 +1154,6 @@ public:
     {
       to_field=field_arg->new_key_field(thd->mem_root, field_arg->table,
                                         ptr, null, 1);
-      /* save document path key information in the key field */
-      if (field_arg->type() == MYSQL_TYPE_DOCUMENT &&
-          document_path_key_part)
-      {
-        ((Field_document *)to_field)
-            ->set_document_type(document_path_key_part->type);
-        if (document_path_key_part->type == MYSQL_TYPE_STRING)
-          ((Field_document*)to_field)->doc_key_prefix_len =
-            document_path_key_part->length;
-      }
     }
   }
   virtual ~store_key() {}			/** Not actually needed */
