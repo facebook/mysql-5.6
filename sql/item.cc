@@ -1084,9 +1084,9 @@ int prefix_length(List<Document_key> *short_path, List<Document_key> *long_path)
   {
     Document_key *s_ptr = s_iter++;
     Document_key *l_ptr = l_iter++;
-    if(l_ptr == nullptr)
+    if(s_ptr == nullptr)
       return count;
-    if(s_ptr == nullptr || *s_ptr != *l_ptr)
+    if(l_ptr == nullptr || *s_ptr != *l_ptr)
       return -1;
     ++count;
   }
@@ -5983,7 +5983,27 @@ bool Item_field::fix_fields_do(THD *thd, Item **reference)
       Also we suppose that view can't be changed during PS/SP life.
     */
     if (from_field == view_ref_found)
+    {
+      /*
+        The field resolved in view may just be a prefix of the one we want,
+        if it's a document path. Here we need to fix the document path inside
+        it.
+      */
+      Item *item = (Item*)*reference;
+      if(item->type() == Item::REF_ITEM)
+      {
+        Item_ref *ref = (Item_ref*)*reference;
+        ref->document_path_keys.empty();
+
+        if(document_path_keys.elements > 0 &&
+           ref->ref &&
+           (*ref->ref)->type() == Item::FIELD_ITEM)
+        {
+          fix_document_fields_do(thd, reference);
+        }
+      }
       return FALSE;
+    }
     set_field(thd, from_field);
 
     if (thd->lex->in_sum_func &&
@@ -7655,7 +7675,9 @@ Item_ref::Item_ref(Name_resolution_context *context_arg,
  */
 bool Item_ref::fix_doc_field(THD *thd)
 {
-  if(ref != not_found_item && (*ref)->type() == FIELD_ITEM)
+  if(ref &&
+     ref != not_found_item &&
+     (*ref)->type() == FIELD_ITEM)
   {
     Item_field *item_field = (Item_field*)(*ref);
     if(MYSQL_TYPE_DOCUMENT == item_field->field->type())
@@ -7683,6 +7705,57 @@ bool Item_ref::fix_doc_field(THD *thd)
     }
   }
   return TRUE;
+}
+/**
+   fix_document_fields_do.
+   When the field is fixed by view, the item in the view maybe a prefix
+   of the current one, for example:
+
+   create algorithm = merge view v1 as
+   select doc from t1
+
+   select doc.address.zipcode from v1;
+
+   doc in the view is just a prefix of doc.address.zipcode.
+   In this situation, we need to fix the fields for document path.
+*/
+void Item_field::fix_document_fields_do(THD *thd, Item **reference)
+{
+  DBUG_ASSERT((*reference)->type() == Item::REF_ITEM);
+  Item_ref *ref = (Item_ref*)*reference;
+  Item_field *inner_item = (Item_field*)(*ref->ref);
+  /*
+    True alias! It's a little bit tricky here.
+    When the item_name equals with the field_name, we assume here
+    that it comes from view not a true alias.
+    So if it's alias, we need to copy the document path into the
+    reference item.
+  */
+  if(inner_item->alias_was_set &&
+     0 != my_strcasecmp(system_charset_info,
+                        inner_item->item_name.ptr(),
+                        inner_item->field->field_name))
+  {
+    List_iterator_fast<Document_key> li(inner_item->document_path_keys);
+    Document_key *key = nullptr;
+    while((key = li++))
+    {
+      ref->document_path_keys.push_back(key);
+    }
+  }
+
+  // Copy the document_path from current item.
+  List_iterator_fast<Document_key> li(document_path_keys);
+  Document_key *key = nullptr;
+  while((key = li++))
+  {
+    ref->document_path_keys.push_back(key);
+  }
+  if(ref->document_path_keys.elements > 0 && !ref->fix_doc_field(thd))
+  {
+    ref->item_name.set(item_name.ptr());
+    *reference = ref;
+  }
 }
 
 /**
