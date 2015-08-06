@@ -161,9 +161,15 @@ static fbson::FbsonValue *get_fbson_val(Item *item,
   if (item->field_type() == MYSQL_TYPE_DOCUMENT)
   {
     // item is a document field, and json is an fbson binary
-    json = item->val_doc(buffer); // this is an FBSON blob
-    if (json)
-      pval = fbson::FbsonDocument::createValue(json->ptr(), json->length());
+    pval = item->val_document_value(buffer); // this is an FBSON blob
+
+    if(pval != nullptr && buffer->ptr() != (char*)pval)
+    {
+      buffer->copy((char*)pval,
+                   pval->numPackedBytes(),
+                   item->collation.collation);
+      json = buffer;
+    }
   }
   else
   {
@@ -512,7 +518,7 @@ static bool compare_fbson_value_with_item(Item *item, fbson::FbsonValue *pval)
       /* Perform SIMILAR comparison where all kvp's must match */
       if (item->type() == Item::DOCUMENT_ITEM)
       {
-        fbson::FbsonValue *pval2 = (fbson::FbsonValue*) item->val_fbson_blob();
+        fbson::FbsonValue *pval2 = item->val_document_value(&str);
         if (pval2)
           return compare_fbson_value(pval, pval2);
       }

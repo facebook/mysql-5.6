@@ -5226,8 +5226,8 @@ typedef struct st_sort_field {
   Item_result result_type;		/* Type of item */
   bool reverse;				/* if descending sort */
   bool need_strxnfrm;			/* If we have to use strxnfrm() */
-  bool document_path;                  /* If it is a documen path */
-  List<Document_key> *document_path_keys;/* The keys for a document path*/
+  //bool document_path;                  /* If it is a documen path */
+  //List<Document_key> *document_path_keys;/* The keys for a document path*/
 } SORT_FIELD;
 
 

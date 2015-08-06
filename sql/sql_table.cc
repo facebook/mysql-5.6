@@ -7344,7 +7344,12 @@ mysql_prepare_alter_table(THD *thd, TABLE *table,
     {
       if (!key_part->field)
 	continue;				// Wrong field (from UNIREG)
-      const char *key_part_name=key_part->field->field_name;
+      const char *key_part_name= nullptr;
+      if(key_part->field->type() == MYSQL_TYPE_DOCUMENT)
+        key_part_name = ((Field_document*)key_part->field)->
+          real_field()->field_name;
+      else
+        key_part_name = key_part->field->field_name;
       Create_field *cfield;
       field_it.rewind();
       while ((cfield=field_it++))

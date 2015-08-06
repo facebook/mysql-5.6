@@ -40,6 +40,7 @@
 #include "opt_trace.h"           // opt_trace_disable_if_no_security_...
 #include "table_cache.h"         // table_cache_manager
 #include "sql_view.h"
+#include "field.h"
 #include "debug_sync.h"
 
 /* INFORMATION_SCHEMA name */
@@ -1401,7 +1402,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
                     key_part->document_path_key_part->number_of_names - 1);
 
         trie->key_type = key_part->document_path_key_part->type;
-
+        trie->key_length = key_part->length;
         /* we have extracted all the document paths of the document path key
            parts for this key so now we can restore the original key_type */
         DBUG_ASSERT(f_is_document(key_part->key_type));
@@ -1971,7 +1972,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       goto err;			/* purecov: inspected */
     }
 
-    reg_field->field_index= i;
+    reg_field->field_index = i;
     reg_field->comment=comment;
     if (field_type == MYSQL_TYPE_BIT && !f_bit_as_char(pack_flag))
     {
@@ -2493,17 +2494,6 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
            key_part < key_part_end ;
            key_part++)
       {
-        /* sanity check for document path key part */
-        if (f_is_document(key_part->key_type))
-        {
-          DBUG_ASSERT(key_part->fieldnr > 0 &&
-               key_part->field->type() == MYSQL_TYPE_DOCUMENT &&
-               key_part->document_path_key_part &&
-               key_part->document_path_key_part->number_of_names >= 2 &&
-               strcmp(key_part->document_path_key_part->names[0],
-                      key_part->field->field_name) == 0);
-        }
-
         Field *field= key_part->field= outparam->field[key_part->fieldnr-1];
 
         if (field->key_length() != key_part->length &&
@@ -2517,8 +2507,34 @@ int open_table_from_share(THD *thd, TABLE_SHARE *share, const char *alias,
                                                   outparam, 0);
           field->field_length= key_part->length;
         }
+        /* sanity check for document path key part */
+        if (f_is_document(key_part->key_type))
+        {
+          DBUG_ASSERT(key_part->fieldnr > 0 &&
+                      key_part->field->type() == MYSQL_TYPE_DOCUMENT &&
+                      key_part->document_path_key_part &&
+                      key_part->document_path_key_part->number_of_names >= 2 &&
+                      strcmp(key_part->document_path_key_part->names[0],
+                             key_part->field->field_name) == 0);
+          List<Document_key> key_path;
+          for(uint i = 1;
+              i < key_part->document_path_key_part->number_of_names;
+              ++i)
+            key_path.push_back(
+              new (&outparam->mem_root)
+              Document_key(
+                key_part->document_path_key_part->names[i],
+                strlen(key_part->document_path_key_part->names[i])));
+          field= key_part->field = new (&outparam->mem_root)
+            Field_document(&outparam->mem_root,
+                           (Field_document*)key_part->field,
+                           key_path,
+                           key_part->document_path_key_part->type,
+                           key_part->length);
+          key_path.empty();
+        }
+        /* Skip unused key parts if they exist */
       }
-      /* Skip unused key parts if they exist */
       key_part+= key_info->unused_key_parts;
     }
   }
@@ -4048,7 +4064,7 @@ void TABLE::reset_item_list(List<Item> *item_list) const
   {
     Item_field *item_field= (Item_field*) it++;
     DBUG_ASSERT(item_field != 0);
-    item_field->reset_field(*ptr);
+    item_field->reset_field(in_use, *ptr);
   }
 }
 

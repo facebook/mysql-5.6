@@ -31,10 +31,9 @@ public:
   Item::Type type() const;
   double val_real();
   longlong val_int();
+  fbson::FbsonValue *val_document_value(String *);
   String *val_str(String*);
   my_decimal *val_decimal(my_decimal*);
-  const char *val_fbson_blob () const;
-
   void fix_length_and_dec() {}
   const char *func_name() const {return "document";}
 

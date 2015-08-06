@@ -391,7 +391,8 @@ void field_unpack(String *to, Field *field, const uchar *rec, uint max_length,
                                char_length)) < tmp.length())
         tmp.length(charpos);
     }
-    if (max_length < field->pack_length())
+    if (field->type() != MYSQL_TYPE_DOCUMENT &&
+        max_length < field->pack_length())
       tmp.length(min(tmp.length(),max_length));
     ErrConvString err(&tmp);
     to->append(err.ptr());
@@ -430,49 +431,18 @@ void key_unpack(String *to, TABLE *table, KEY *key)
     if (to->length())
       to->append('-');
 
-		// for document path keys part, we will extract the value
-    if (key_part->document_path_key_part)
+    if (key_part->null_bit)
     {
-      // Extract the actual value from json using document path
-      List<Document_key> document_path_keys;
-      for (uint i=1; i < key_part->document_path_key_part->number_of_names; ++i)
-      {
-        LEX_STRING s;
-        s.str = key_part->document_path_key_part->names[i],
-        s.length = strlen(key_part->document_path_key_part->names[i]);
-        Document_key *dk = new Document_key(s, i);
-        document_path_keys.push_back(dk);
-      }
-      my_bool is_null = false;
-      String tmp;
-      key_part->field->document_path_val_str(
-          &document_path_keys, MYSQL_TYPE_DOCUMENT, &tmp, is_null);
-      if (is_null)
+      if (table->record[0][key_part->null_offset] & key_part->null_bit)
       {
         to->append(STRING_WITH_LEN("NULL"));
+        continue;
       }
-      else
-      {
-        ErrConvString err(&tmp);
-        to->append(err.ptr());
-      }
-      document_path_keys.delete_elements();
     }
-    else
-    {
-      if (key_part->null_bit)
-      {
-        if (table->record[0][key_part->null_offset] & key_part->null_bit)
-        {
-          to->append(STRING_WITH_LEN("NULL"));
-          continue;
-        }
-      }
-
-      field_unpack(to, key_part->field, table->record[0], key_part->length,
-                   MY_TEST(key_part->key_part_flag & HA_PART_KEY_SEG));
-    }
+    field_unpack(to, key_part->field, table->record[0], key_part->length,
+                 MY_TEST(key_part->key_part_flag & HA_PART_KEY_SEG));
   }
+
   dbug_tmp_restore_column_map(table->read_set, old_map);
   DBUG_VOID_RETURN;
 }

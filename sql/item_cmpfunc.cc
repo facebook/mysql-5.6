@@ -746,13 +746,13 @@ static bool compare_doc_paths_with_array_wildcards_do(fbson::FbsonValue *a,
   /* Expand 'pval' by one doc path level by dropping the key on the left side of
    * the doc path */
   Document_key *key = keys->pop();
-  DBUG_ASSERT(key && key->string.str != NULL);
+  DBUG_ASSERT(key && key->string != NULL);
 
   /* Expand object */
   bool ret_value = false;
-  if (pval->isObject() && key->string.str)
+  if (pval->isObject() && key->string)
   {
-    if ((pval = ((fbson::ObjectVal*)pval)->find(key->string.str)))
+    if ((pval = ((fbson::ObjectVal*)pval)->find(key->string)))
       ret_value =
         compare_doc_paths_with_array_wildcards_do((expand_left ? pval : a),
             a_keys, (expand_left ? b : pval), b_keys, type, cs, escape);
@@ -760,14 +760,14 @@ static bool compare_doc_paths_with_array_wildcards_do(fbson::FbsonValue *a,
   /* Expand array (try all possibilities for arrays) */
   else if (pval->isArray())
   {
-    if (key->string.str && key->index >= 0)
+    if (key->string && key->index >= 0)
     {
       if ((pval = ((fbson::ArrayVal*)pval)->get(key->index)))
         ret_value =
           compare_doc_paths_with_array_wildcards_do((expand_left ? pval : a),
               a_keys, (expand_left ? b : pval), b_keys, type, cs, escape);
     }
-    else if (!strcmp(key->string.str, "_"))
+    else if (!strcmp(key->string, "_"))
     {
       /* Expand all possible docpaths */
       for (unsigned int i = 0; i < ((fbson::ArrayVal*)pval)->numElem(); ++i)
@@ -789,85 +789,27 @@ static bool compare_doc_paths_with_array_wildcards_do(fbson::FbsonValue *a,
   return ret_value;
 }
 
-/* If the value is a doc path, return the fbsonvalue of the entire document.
- * If the value is a scalar, return a fbsonvalue of just the constant, but
- * since we cannot create a fbsonvalue for scalars directly, we can work
- * around it by creating a 1-element array and then returning first value */
-static fbson::FbsonValue* get_fbson_value_from_item(Item *a,
-    fbson::FbsonOutStream &os)
-{
-  DBUG_ASSERT(a);
-
-  fbson::FbsonValue *pval;
-  String buffer;
-
-  /* Get the binary of the entire document field */
-  if ((a->type() == Item::FIELD_ITEM || a->type() == Item::CACHE_ITEM) &&
-      a->field_type() == MYSQL_TYPE_DOCUMENT)
-  {
-    String *val = ((Item_field*)a)->val_doc(&buffer);
-    pval = fbson::FbsonDocument::createValue(val->c_ptr_safe(), val->length());
-  }
-  /* Convert document value to fbson */
-  else if ((a->type() == Item::DOCUMENT_ITEM || a->type() == Item::CACHE_ITEM)
-      && a->field_type() == MYSQL_TYPE_DOCUMENT_VALUE)
-    pval = (fbson::FbsonValue*) a->val_fbson_blob();
-  else
-  {
-    DBUG_ASSERT(a->type() == Item::INT_ITEM || a->type() == Item::REAL_ITEM ||
-        a->type() == Item::DECIMAL_ITEM || a->type() == Item::STRING_ITEM);
-
-    String *res = NULL;
-
-    /* Create FbsonValue of numeric scalar */
-    fbson::FbsonJsonParser parser(os);
-    if (a->type() == Item::INT_ITEM || a->type() == Item::REAL_ITEM ||
-        a->type() == Item::DECIMAL_ITEM)
-      parser.parse("[" + string(a->val_str(&buffer)->c_ptr_safe()) + "]");
-    else if (a->type() == Item::STRING_ITEM)
-    {
-      /* For strings, create the fbson value with white space before setting
-       * the value so that we can allow double quotes, braces and brackets
-       * in the string without escaping */
-      res = a->val_str(&buffer);
-      parser.parse("[\"" + string(res->length(), ' ') + "\"]");
-    }
-
-    pval = fbson::FbsonDocument::createValue(
-        parser.getWriter().getOutput()->getBuffer(),
-        (unsigned)parser.getWriter().getOutput()->getSize());
-    pval = ((fbson::ArrayVal*)pval)->get(0);
-
-    /* Set string value */
-    if (a->type() == Item::STRING_ITEM)
-    {
-      DBUG_ASSERT(res);
-      ((fbson::StringVal*)pval)->setVal(res->c_ptr(), res->length());
-    }
-  }
-
-  return pval;
-}
-
-
 /* Converts the items to document JSON or scalar value then compares */
 static bool compare_doc_paths_with_array_wildcards(Item *a, Item *b,
     compare_type type, const CHARSET_INFO *cs = NULL, int escape = 0)
 {
   /* Get the fbson values of either a doc path or constant */
   List<Document_key> val1_docpath, val2_docpath;
-  fbson::FbsonOutStream os1, os2;
-  fbson::FbsonValue *val1 = get_fbson_value_from_item(a, os1);
-  fbson::FbsonValue *val2 = get_fbson_value_from_item(b, os2);
+  String buf1, buf2;
 
+  fbson::FbsonValue *val1 = a->val_root_document_value(&buf1);
+  fbson::FbsonValue *val2 = b->val_root_document_value(&buf2);
 
   /* Set doc path keys if the item_field is a doc path */
-  if (a->type() == Item::FIELD_ITEM && ((Item_ident*)a)->document_path)
+  if (a->type() == Item::FIELD_ITEM && ((Item_ident*)a)->is_document_path())
     val1_docpath = ((Item_ident*)a)->document_path_keys;
-  if (b->type() == Item::FIELD_ITEM && ((Item_ident*)b)->document_path)
+  if (b->type() == Item::FIELD_ITEM && ((Item_ident*)b)->is_document_path())
     val2_docpath = ((Item_ident*)b)->document_path_keys;
 
   /* Compare the two FbsonValue based on their doc path wildcard expansion */
+  if(val1 == nullptr || val2 == nullptr){
+    return false;
+  }
   return compare_doc_paths_with_array_wildcards_do(val1, val1_docpath,
       val2, val2_docpath, type, cs, escape);
 }
@@ -2498,8 +2440,9 @@ static bool compare_document_identical(Item *a, Item *b)
       is_document_type_or_value(b));
 
   /* Get the fbson values of the items  */
-  fbson::FbsonValue *val1 = (fbson::FbsonValue*) a->val_fbson_blob();
-  fbson::FbsonValue *val2 = (fbson::FbsonValue*) b->val_fbson_blob();
+  String buf1, buf2;
+  fbson::FbsonValue *val1 = a->val_document_value(&buf1);
+  fbson::FbsonValue *val2 = b->val_document_value(&buf2);
 
   /* check they must be same type and size */
   if (!val1 || !val2 || val1->type() != val2->type() ||
@@ -5648,8 +5591,9 @@ longlong Item_func_like::val_int()
   {
     /* Perform same comparison as SIMILAR (order doesn't matter but
      * all key-value pairs must match) */
-    fbson::FbsonValue *val1 = (fbson::FbsonValue*) args[0]->val_fbson_blob();
-    fbson::FbsonValue *val2 = (fbson::FbsonValue*) args[1]->val_fbson_blob();
+    String buf1,buf2;
+    fbson::FbsonValue *val1 = args[0]->val_document_value(&buf1);
+    fbson::FbsonValue *val2 = args[1]->val_document_value(&buf2);
 
     if (val1 && val2)
       return compare_fbson_value(val1, val2);
@@ -5661,6 +5605,10 @@ longlong Item_func_like::val_int()
   if (args[0]->null_value)
   {
     null_value=1;
+    return 0;
+  }
+  if(nullptr == res){
+    res = args[0]->val_str(&cmp.value1);
     return 0;
   }
   String* res2 = args[1]->val_str(&cmp.value2);
@@ -5953,8 +5901,9 @@ longlong Item_func_similar::val_int()
     my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
 
   /* Get the fbson values of the items  */
-  fbson::FbsonValue *val1 = (fbson::FbsonValue*) args[0]->val_fbson_blob();
-  fbson::FbsonValue *val2 = (fbson::FbsonValue*) args[1]->val_fbson_blob();
+  String buf1, buf2;
+  fbson::FbsonValue *val1 = args[0]->val_document_value(&buf1);
+  fbson::FbsonValue *val2 = args[1]->val_document_value(&buf2);
 
   if (val1 && val2)
     return compare_fbson_value(val1, val2);
@@ -5983,8 +5932,9 @@ longlong Item_func_subdoc::val_int()
     my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
 
   /* Compare their fbson objects (DFS search) */
-  fbson::FbsonValue *val1 = (fbson::FbsonValue*) args[0]->val_fbson_blob();
-  fbson::FbsonValue *val2 = (fbson::FbsonValue*) args[1]->val_fbson_blob();
+  String buf1, buf2;
+  fbson::FbsonValue *val1 = args[0]->val_document_value(&buf1);
+  fbson::FbsonValue *val2 = args[1]->val_document_value(&buf2);
 
   /* Verify they're both non-null JSON objects */
   if (!val1 || !val2 || !val1->isObject() || !val2->isObject())

@@ -4,7 +4,7 @@ Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
 drop view if exists v1;
-drop table if exists t1, t2, t3, t4, t5, t6;
+drop table if exists t1, t2, t3, t4, t5, t6, t7;
 SET @start_allow_document_type = @@global.allow_document_type;
 SELECT @start_allow_document_type;
 @start_allow_document_type
@@ -343,53 +343,53 @@ SELECT @@global.allow_document_type;
 @@global.allow_document_type
 1
 select b.k1 from t1;
-ERROR 42S22: Unknown column 'b.k1' in 'field list'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'field list'
 select b.k1.k2 from t1;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'field list'
 select b.k1.k2.k3 from t1;
-ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'field list'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'field list'
 select a from t1 where b.k1 = 100;
-ERROR 42S22: Unknown column 'b.k1' in 'where clause'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'where clause'
 select a from t1 where b.k1.k2 = 100;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'where clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'where clause'
 select a from t1 where b.k1.k2.k3 = 100;
-ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'where clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'where clause'
 select a from t1 order by b.k1;
-ERROR 42S22: Unknown column 'b.k1' in 'order clause'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'order clause'
 select a from t1 order by b.k1.k2 ;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'order clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'order clause'
 select a from t1 order by b.k1.k2.k3;
-ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'order clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'order clause'
 select count(*), a from t1 group by b.k1;
-ERROR 42S22: Unknown column 'b.k1' in 'group statement'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'group statement'
 select count(*), a from t1 group by b.k1.k2;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'group statement'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'group statement'
 select count(*), a from t1 group by b.k1.k2.k3;
-ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'group statement'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'group statement'
 select count(*), a from t1 group by a having b.k1 = 100;
-ERROR 42S22: Unknown column 'b' in 'having clause'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'having clause'
 select count(*), a from t1 group by a having b.k1.k2 = 100;
-ERROR 42S22: Unknown column 'b' in 'having clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'having clause'
 select count(*), a from t1 group by a having b.k1.k2.k3 = 100;
-ERROR 42S22: Unknown column 'b' in 'having clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'having clause'
 select a from t1 having b.k1 = 100;
-ERROR 42S22: Unknown column 'b' in 'having clause'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'having clause'
 select a from t1 having b.k1.k2 = 100;
-ERROR 42S22: Unknown column 'b' in 'having clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'having clause'
 select a from t1 having b.k1.k2.k3 = 100;
-ERROR 42S22: Unknown column 'b' in 'having clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'having clause'
 select a from t1 where substr(b.k1, 1, 10) like 'abc';
-ERROR 42S22: Unknown column 'b.k1' in 'where clause'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'where clause'
 select a from t1 where substr(b.k1.k2, 1, 10) like 'abc';
-ERROR 42S22: Unknown column 'b.k1.k2' in 'where clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'where clause'
 select a from t1 where substr(b.k1.k2.k3, 1, 10) like 'abc';
-ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'where clause'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'where clause'
 select sum(b.k1) from t1 where a = 100;
-ERROR 42S22: Unknown column 'b.k1' in 'field list'
+ERROR 42S22: Unknown column '`b`.`k1`' in 'field list'
 select sum(b.k1.k2) from t1 where a = 100;
-ERROR 42S22: Unknown column 'b.k1.k2' in 'field list'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`' in 'field list'
 select sum(b.k1.k2.k3) from t1 where a = 100;
-ERROR 42S22: Unknown column 'b.k1.k2.k3' in 'field list'
+ERROR 42S22: Unknown column '`b`.`k1`.`k2`.`k3`' in 'field list'
 ##### Document path with different types in SELECT clause
 select test.t1.doc.NonExistent from t1 where t1.a = 4;
 `doc`.`NonExistent`
@@ -507,18 +507,18 @@ select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as date) = cast('2014-11
 2014-11-01
 Warnings:
 Warning	1292	Incorrect datetime value: '1001'
-Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRST'
+Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789'
 select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as datetime) = cast('2014-11-11 11:59:59' as datetime);
 `doc`.`dt`
 2014-11-11 11:59:59
 Warnings:
 Warning	1292	Incorrect datetime value: '1001'
-Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRST'
+Warning	1292	Incorrect datetime value: '0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789'
 select test.t1.doc.dt from t1 where cast(test.t1.doc.dt as time) = cast('2014-11-11 11:59:59' as time);
 `doc`.`dt`
 2014-11-11 11:59:59
 Warnings:
-Warning	1292	Truncated incorrect time value: '0123456789ABCDEFGHIGKLMNOPQRST'
+Warning	1292	Truncated incorrect time value: '0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789'
 Warning	1292	Truncated incorrect time value: '2014-11-01'
 select test.t1.doc.address.houseNumber from t1 where test.t1.doc.address.zipcode = 98762;
 `doc`.`address`.`houseNumber`
@@ -537,33 +537,33 @@ a	b
 ##### Document path with different types in views using MERGE algorithm
 create algorithm = merge view v1 as
 select doc.id, doc.id from t1;
-ERROR 42S21: Duplicate column name 'doc'
+ERROR 42S21: Duplicate column name '`doc`.`id`'
 create algorithm = merge view v1 as
 select doc, doc from t1;
 ERROR 42S21: Duplicate column name 'doc'
 create algorithm = merge view v1 as
 select doc.id, doc, doc.id from t1;
-ERROR 42S21: Duplicate column name 'doc'
+ERROR 42S21: Duplicate column name '`doc`.`id`'
 create algorithm = merge view v1 as
 select doc, doc.id, doc from t1;
 ERROR 42S21: Duplicate column name 'doc'
 create algorithm = merge view v1 as
 select doc123.id from t1;
-ERROR 42S22: Unknown column 'doc123' in 'field list'
+ERROR 42S22: Unknown column '`doc123`.`id`' in 'field list'
 create algorithm = merge view v1 as
 select doc.address from t1;
 select doc.address.id from v1;
-ERROR 42S22: Unknown column 'doc' in 'field list'
+ERROR 42S22: Unknown column '`doc`.`address`.`id`' in 'field list'
 drop view v1;
 create algorithm = merge view v1 (addr) as
 select doc.address from t1;
 select addr.zipcode from v1;
-ERROR 42S22: Unknown column 'addr' in 'field list'
+ERROR 42S22: Unknown column '`addr`.`zipcode`' in 'field list'
 drop view v1;
 create algorithm = merge view v1 as
 select doc from t1;
 select doc.addr.zipcode from v1;
-ERROR 42S22: Unknown column 'doc' in 'field list'
+ERROR 42S22: Unknown column '`doc`.`addr`.`zipcode`' in 'field list'
 drop view v1;
 create algorithm = merge view v1 as
 select doc.id from t1;
@@ -2705,7 +2705,12 @@ from t1
 group by 1
 order by 1 desc)
 as tmp;
-ERROR HY000: Invalid document value: 'WA', pos 0, error 'Invalid document: document must be an object or an array'
+`doc`.`address`.`state`	count(*)
+WA	3
+NY	2
+CA	1
+AZ	1
+NULL	2
 select count(*), test.t1.doc.address.state as state
 from t1
 group by state
@@ -3102,7 +3107,7 @@ select doc.Children.0
 from (
 select a, doc.Children
 from t1
-) as tmp where json_contains_key(doc, "Children", 0);
+) as tmp where json_contains_key(doc.Children, 0);
 `doc`.`Children`.`0`
 Alex
 select tmp.t1_address.houseNumber, t1_address.zipcode, id
@@ -3169,6 +3174,50 @@ NULL
 NULL
 NULL
 [1,2,3,4]
+select t2.doc2.id, t1.doc.address as addr, t1.doc.name, t2.doc2.name
+from t1 inner join
+t2 on t2.doc2.id = t1.doc.id;
+`doc2`.`id`	addr	`doc`.`name`	`doc2`.`name`
+104	{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}	Don	Charlie II
+105	{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}	Evan	Alex II
+108	{"zipcode":98768}	NULL	Bob II
+106	{"zipcode":98766}	NULL	Don II
+select addr.zipcode from (
+select t2.doc2.id, t1.doc.address as addr, t1.doc.name, t2.doc2.name
+from t1
+inner join t2
+on t2.doc2.id = t1.doc.id
+) as tmp;
+`addr`.`zipcode`
+98764
+98765
+98768
+98766
+CREATE TABLE t7 (doc_id int, a int, name char(100));
+insert into t7 values(101, 1, 'Alex'),
+(102, 2, 'Bob'),
+(103, 3, 'Charlie'),
+(104, 4, 'Evan'),
+(105, 5, 'Linda');
+select t7.a, t1.a, t1.doc.name, t7.name
+from t1
+join t7 on t7.name = t1.doc.name;
+a	a	`doc`.`name`	name
+1	1	Alex	Alex
+2	2	Bob	Bob
+3	3	Charlie	Charlie
+4	5	Evan	Evan
+5	9	Linda	Linda
+select t7.a, t1.a, t1.doc.name, t7.name
+from t1
+join t7 on t7.doc_id = t1.doc.id;
+a	a	`doc`.`name`	name
+1	1	Alex	Alex
+2	2	Bob	Bob
+3	3	Charlie	Charlie
+4	4	Don	Evan
+5	5	Evan	Linda
+drop table t7;
 insert into t3 values(6, '@6', '{"id":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX","name":"Super Big"}');
 select tmp.doc_id
 from (
@@ -3199,15 +3248,53 @@ from t1 order by t1.doc.id desc
 as tmp2;
 t1_zipcode	t1_addr
 NULL	NULL
-98764	98764
-98768	98768
-98767	98767
-98766	98766
-98765	98765
-98764	98764
-98763	98763
-98762	98762
-98761	98761
+98764	{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+98768	{"zipcode":98768}
+98767	{"zipcode":98767,"state":"NY"}
+98766	{"zipcode":98766}
+98765	{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+98764	{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+98763	{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+98762	{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+98761	{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+select doc.address.state, addr.state from (
+select doc.address.state, doc.address as addr
+from t1
+) as tmp1;
+`doc`.`address`.`state`	`addr`.`state`
+CA	CA
+AZ	AZ
+NY	NY
+WA	WA
+WA	WA
+NULL	NULL
+NY	NY
+NULL	NULL
+WA	WA
+NULL	NULL
+select count(doc.address.state) from (
+select doc.address
+from t1
+) as tmp;
+count(doc.address.state)
+7
+select count(*), test.t1.doc.address
+from t1
+group by test.t1.doc.address
+having test.t1.doc.address.state = "NY";
+count(*)	`doc`.`address`
+1	{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+1	{"zipcode":98767,"state":"NY"}
+select `count(*)`, id, addr.state
+from (
+select count(*), test.t1.doc.id as id, test.t1.doc.address as addr
+from t1
+group by test.t1.doc.address
+having test.t1.doc.address.state = "NY" or test.t1.doc.id = 106) as tmp;
+count(*)	id	`addr`.`state`
+1	103	NY
+1	106	NULL
+1	107	NY
 drop table t6;
 ##### Document paths with different types in UNION, UNION ALL, UNION DISTINCT 
 CREATE TABLE t6 (
@@ -3864,44 +3951,87 @@ doc3
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 {"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 (select doc.id from t1) UNION (select 'foo');
-doc
-{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
-{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
-{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
-{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
-{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
-{"id":108,"address":{"zipcode":98768}}
-{"id":107,"address":{"zipcode":98767,"state":"NY"}}
-{"id":106,"address":{"zipcode":98766}}
-{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
-{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+`doc`.`id`
+101
+102
+103
+104
+105
+108
+107
+106
+109
+110
 foo
 (select doc.id from t1) UNION DISTINCT (select 'foo');
-doc
-{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
-{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
-{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
-{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
-{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
-{"id":108,"address":{"zipcode":98768}}
-{"id":107,"address":{"zipcode":98767,"state":"NY"}}
-{"id":106,"address":{"zipcode":98766}}
-{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
-{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+`doc`.`id`
+101
+102
+103
+104
+105
+108
+107
+106
+109
+110
 foo
 (select doc.id from t1) UNION ALL (select 'foo');
-doc
-{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
-{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
-{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
-{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
-{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
-{"id":108,"address":{"zipcode":98768}}
-{"id":107,"address":{"zipcode":98767,"state":"NY"}}
-{"id":106,"address":{"zipcode":98766}}
-{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
-{"id":110,"k1":{"k2":{"k3":{"k4":[1,2,3,4]}}}}
+`doc`.`id`
+101
+102
+103
+104
+105
+108
+107
+106
+109
+110
 foo
+(select doc.address from t1) UNION (select doc.address from t1);
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+(select doc.address from t1) UNION (select '{"zipcode":98767,"state":"NY"}');
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+select doc.address from (
+(select doc.address from t1)
+UNION
+(select doc.address from t1)
+) as tmp;
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+select doc.address.state from (
+(select doc.address from t1)
+UNION
+(select doc.address from t1)
+) as tmp;
+ERROR 42S22: Unknown column '`doc`.`address`.`state`' in 'field list'
 ##### Clean up
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;

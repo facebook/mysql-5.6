@@ -6083,7 +6083,7 @@ get_field_offset(
 	const TABLE*	table,	/*!< in: MySQL table object */
 	const Field*	field)	/*!< in: MySQL field object */
 {
-	return((uint) (field->ptr - table->record[0]));
+  return((uint) (field->ptr - table->record[0]));
 }
 
 /*************************************************************//**
@@ -9827,14 +9827,20 @@ create_index(
 		the length of the key part versus the column. */
 
 		Field*	field = NULL;
+		const char *field_name = key_part->field->field_name;
+		if(key_part->field->type() == MYSQL_TYPE_DOCUMENT)
+		{
+			field_name = ((Field_document*)key_part->field)->
+			real_field()->field_name;
+		}
 
 		for (ulint j = 0; j < form->s->fields; j++) {
 
 			field = form->field[j];
 
 			if (0 == innobase_strcasecmp(
-				    field->field_name,
-				    key_part->field->field_name)) {
+                  field->field_name,
+                  field_name)) {
 				/* Found the corresponding column */
 
 				goto found;
@@ -9844,7 +9850,7 @@ create_index(
 		ut_error;
 found:
 		col_type = get_innobase_type_from_mysql_type(
-			&is_unsigned, key_part->field);
+          &is_unsigned, key_part->field);
 
 		if (DATA_BLOB == col_type
 		    || (key_part->length < field->pack_length()
@@ -14973,7 +14979,7 @@ ha_innobase::cmp_ref(
 			+ table->key_info[table->s->primary_key].user_defined_key_parts;
 
 	for (; key_part != key_part_end; ++key_part) {
-		field = key_part->field;
+      field = key_part->field;
 		mysql_type = field->type();
 
 		if (mysql_type == MYSQL_TYPE_TINY_BLOB
