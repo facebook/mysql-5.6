@@ -1083,7 +1083,7 @@ find_order_in_list(THD *thd, Ref_ptr_array ref_pointer_array, TABLE_LIST *tables
         (from_field != view_ref_found ?
          /* it is field of base table => check that fields are same */
          ((*select_item)->type() == Item::FIELD_ITEM &&
-          ((Item_field*) (*select_item))->field->eq(from_field)) :
+          ((Item_field*) (*select_item))->field->Field::eq(from_field)) :
          /*
            in is field of view table => check that references on translation
            table are same

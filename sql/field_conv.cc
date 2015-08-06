@@ -28,7 +28,27 @@
 #include "sql_class.h"                          // THD
 #include "sql_time.h"
 #include <m_ctype.h>
-
+/*
+  Copy function to copy from a document path to another
+  document path.
+ */
+inline
+type_conversion_status
+copy_doc_field(Field_document *from,
+               Field_document *to){
+  if(from->real_field() == to->real_field()){
+    // The inner is the same, we don't need to do copy
+    return TYPE_OK;
+  }
+  String buffer;
+  fbson::FbsonValue *f_val = from->val_document_value(&buffer, &buffer);
+  if(nullptr == f_val){
+    to->set_null();
+    to->reset();
+    return TYPE_OK;
+  }
+  return to->store_document_value(f_val, from->charset());
+}
 static void do_field_eq(Copy_field *copy)
 {
   memcpy(copy->to_ptr,copy->from_ptr,copy->from_length);
@@ -80,6 +100,21 @@ static void do_field_8(Copy_field *copy)
   copy->to_ptr[5]=copy->from_ptr[5];
   copy->to_ptr[6]=copy->from_ptr[6];
   copy->to_ptr[7]=copy->from_ptr[7];
+}
+
+static void do_save_doc(Copy_field *copy){
+  DBUG_ASSERT(copy->from_field->type() == MYSQL_TYPE_DOCUMENT);
+  DBUG_ASSERT(copy->to_field->type() == MYSQL_TYPE_DOCUMENT);
+  if(copy->from_field->is_null())
+  {
+    *copy->to_null_ptr |= copy->to_bit;
+    copy->to_field->reset();
+  }
+  else
+  {
+    copy_doc_field((Field_document*)copy->from_field,
+                   (Field_document*)copy->to_field);
+  }
 }
 
 static void do_field_to_null_str(Copy_field *copy)
@@ -297,37 +332,12 @@ static void do_field_string(Copy_field *copy)
   char buff[MAX_FIELD_WIDTH];
   String res(buff, sizeof(buff), copy->from_field->charset());
   res.length(0U);
-
-  /* if the 'to' field is a var-string field of a temp table that corresponds
-     to a document path, then the 'from' field is the document field
-  */
-  if (copy->to_field_is_document_path)
-  {
-    DBUG_ASSERT(copy->from_field->type() == MYSQL_TYPE_DOCUMENT);
-    DBUG_ASSERT(copy->to_field->type() == MYSQL_TYPE_VARCHAR);
-
-    Field_varstring *to_varstr_fld = (Field_varstring *)copy->to_field;
-    enum_field_types doc_path_type = to_varstr_fld->document_path_type;
-    List<Document_key> *document_path_keys = to_varstr_fld->document_path_keys;
-    DBUG_ASSERT(document_path_keys->elements > 0);
-
-    /* retrieve the document path data as a string  */
-    Field_document *from_fld = (Field_document*)(copy->from_field);
-    my_bool is_null = false;
-    from_fld->document_path_val_str(document_path_keys,
-        doc_path_type, &res, is_null);
-    if (is_null)
-    {
-      *copy->to_null_ptr|=copy->to_bit;
-      copy->to_field->reset();
-    }
-    else
-      copy->to_field->store(res.c_ptr_quick(), res.length(), res.charset());
-  }
-  else
-  {
-    copy->from_field->val_str(&res);
-    copy->to_field->store(res.c_ptr_quick(), res.length(), res.charset());
+  String *ret = copy->from_field->val_str(&res);
+  if(nullptr == ret){
+    *copy->to_null_ptr|=copy->to_bit;
+    copy->to_field->reset();
+  }else{
+    copy->to_field->store(ret->c_ptr_quick(), ret->length(), ret->charset());
   }
 }
 
@@ -613,12 +623,6 @@ void Copy_field::set(uchar *to,Field *from)
  */
 void Copy_field::set(Field *to,Field *from,bool save)
 {
-  /* if the 'to' field is a var-string field of a temp table that corresponds
-     to a document path, then the 'from' field is the document field
-  */
-  to_field_is_document_path = (to->type() == MYSQL_TYPE_VARCHAR &&
-                               ((Field_varstring*)to)->document_path_keys);
-
   if (to->type() == MYSQL_TYPE_NULL)
   {
     to_null_ptr=0;				// For easy debugging
@@ -665,8 +669,12 @@ void Copy_field::set(Field *to,Field *from,bool save)
   }
   else
    do_copy=0;
-
-  if ((to->flags & BLOB_FLAG) && save)
+  if(to->type() == MYSQL_TYPE_DOCUMENT &&
+     from->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    do_copy2= do_save_doc;
+  }
+  else if ((to->flags & BLOB_FLAG) && save)
     do_copy2= do_save_blob;
   else
     do_copy2= get_copy_func(to,from);
@@ -819,6 +827,12 @@ Copy_field::get_copy_func(Field *to,Field *from)
 
 type_conversion_status field_conv(Field *to,Field *from)
 {
+  if(to->type() == MYSQL_TYPE_DOCUMENT &&
+     from->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    return copy_doc_field((Field_document*)from,
+                          (Field_document*)to);
+  }
   if (to->real_type() == from->real_type() &&
       !(to->type() == MYSQL_TYPE_BLOB && to->table->copy_blobs) &&
       to->charset() == from->charset())

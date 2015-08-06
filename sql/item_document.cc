@@ -45,7 +45,7 @@ type_conversion_status Item_func_document::save_in_field(Field *field,
   fbson::FbsonDocument *doc =
     fbson::FbsonDocument::createDocument(fbson_blob, length);
   if(TYPE_OK !=
-     field->store_document(doc,collation.collation)){
+     field->store_document_value(doc->getValue(),collation.collation)){
     return Item::save_in_field(field, no_conversions);
   }
   return TYPE_OK;
@@ -60,6 +60,14 @@ long long Item_func_document::val_int()
 {
   return 0ll;
 }
+fbson::FbsonValue *Item_func_document::val_document_value(String *)
+{
+  fbson::FbsonDocument *doc =
+    fbson::FbsonDocument::createDocument(fbson_blob, length);
+  if(nullptr == doc)
+    return nullptr;
+  return doc->getValue();
+}
 
 String *Item_func_document::val_str(String *str)
 {
@@ -70,13 +78,6 @@ String *Item_func_document::val_str(String *str)
   const char *output = tojson.json(val);
   str->copy(output, strlen(output), str->charset());
   return str;
-}
-
-const char *Item_func_document::val_fbson_blob() const
-{
-  fbson::FbsonValue *val = fbson::FbsonDocument::createValue(
-      fbson_blob, length);
-  return (const char*) val;
 }
 
 my_decimal *Item_func_document::val_decimal(my_decimal *decimal_buffer)

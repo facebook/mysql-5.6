@@ -74,7 +74,7 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
                         bool make_copy_field);
 Field* create_tmp_field_from_field(THD *thd, Field* org_field,
                                    const char *name, TABLE *table,
-                                   Item_field *item);
+                                   Item_field *item, bool alias_was_set);
 
 
 #endif /* SQL_TMP_TABLE_INCLUDED */

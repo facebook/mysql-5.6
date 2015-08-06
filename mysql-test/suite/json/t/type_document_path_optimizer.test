@@ -150,7 +150,8 @@ select a from t1 use document keys where doc1.int > 5;
 # group by
 explain extended select count(a) from t1 use document keys group by doc1.int having doc1.int > 5;
 select count(a) from t1 use document keys group by doc1.int having doc1.int > 5;
-# order by (FIXME: index scan but temp table field is string)
+
+# order by
 explain extended select a from t1 use document keys order by doc1.int;
 select a from t1 use document keys order by doc1.int;
 
@@ -209,8 +210,8 @@ explain extended select doc1.double from t1 where doc1.int > 5;
 select doc1.double from t1 where doc1.int > 5;
 explain extended select doc1.double from t1 use document keys where doc1.int > 5;
 select doc1.double from t1 use document keys where doc1.int > 5;
+
 # group by
-# FIXME in group it's always treated as varstring
 explain extended select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
 select sum(doc1.double) from t1 use document keys group by doc1.int having doc1.int > 5;
 
@@ -252,6 +253,7 @@ explain extended select a from t1 where doc1.double > 5.5;
 select a from t1 where doc1.double > 5.5;
 explain extended select a from t1 use document keys where doc1.double > 5.5;
 select a from t1 use document keys where doc1.double > 5.5;
+
 # group by
 explain extended select sum(a) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 select sum(a) from t1 use document keys group by doc1.double having doc1.double > 5.5;
@@ -260,8 +262,8 @@ explain extended select doc1.double from t1 where doc1.double > 5.5;
 select doc1.double from t1 where doc1.double > 5.5;
 explain extended select doc1.double from t1 use document keys where doc1.double > 5.5;
 select doc1.double from t1 use document keys where doc1.double > 5.5;
+
 # group by
-# FIXME: column in group by is treated as varstring
 explain extended select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 select sum(doc1.double) from t1 use document keys group by doc1.double having doc1.double > 5.5;
 
@@ -509,8 +511,8 @@ explain extended select b from t1 where doc1.int > 5;
 select b from t1 where doc1.int > 5;
 explain extended select d from t1 use document keys where doc1.int > 5;
 select b from t1 use document keys where doc1.int > 5;
+
 # group by
-# FIXME: column in group by is treated as varstring
 explain extended select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
 select sum(b) from t1 use document keys group by doc1.int having doc1.int > 5;
 
@@ -522,12 +524,10 @@ select doc1.double from t1 use document keys where c = 5.5;
 
 explain extended select c from t1 where doc1.double = 5.5;
 select c from t1 where doc1.double = 5.5;
-#
-# FIXME: 5.5 is stored as decimal and not handled by document field
+
 explain extended select c from t1 use document keys where doc1.double = 5.5;
---error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 select c from t1 use document keys where doc1.double = 5.5;
-#
+
 # work-around
 explain extended select c from t1 use document keys where doc1.double = '5.5';
 select c from t1 use document keys where doc1.double = '5.5';
