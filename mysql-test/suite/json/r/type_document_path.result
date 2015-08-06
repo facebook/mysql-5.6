@@ -553,17 +553,72 @@ ERROR 42S22: Unknown column '`doc123`.`id`' in 'field list'
 create algorithm = merge view v1 as
 select doc.address from t1;
 select doc.address.id from v1;
-ERROR 42S22: Unknown column '`doc`.`address`.`id`' in 'field list'
+`doc`.`address`.`id`
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+drop view v1;
+create algorithm = merge view v1 as
+select doc.address as addr from t1;
+select addr from v1;
+addr
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+drop view v1;
+create algorithm = merge view v1 as
+select doc.address as addr from t1;
+select addr.zipcode from v1;
+`addr`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
+drop view v1;
+create algorithm = merge view v1 as
+select doc from t1;
+select doc.address.zipcode from v1;
+`doc`.`address`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
 drop view v1;
 create algorithm = merge view v1 (addr) as
 select doc.address from t1;
 select addr.zipcode from v1;
-ERROR 42S22: Unknown column '`addr`.`zipcode`' in 'field list'
-drop view v1;
-create algorithm = merge view v1 as
-select doc from t1;
-select doc.addr.zipcode from v1;
-ERROR 42S22: Unknown column '`doc`.`addr`.`zipcode`' in 'field list'
+`addr`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
 drop view v1;
 create algorithm = merge view v1 as
 select doc.id from t1;
@@ -951,6 +1006,484 @@ select * from v1;
 106
 109
 drop view v1;
+create table t8 (
+doc document not null) engine = innodb;
+insert into t8 values('{"k1":{"k2":{"k3":{"k4":123}}}}');
+create algorithm = merge view v1 as
+select doc.k1.k2 from t8;
+create algorithm = merge view v2 as
+select doc.k1.k2.k3.k4 from v1;
+select * from v2;
+`doc`.`k1`.`k2`.`k3`.`k4`
+{"k3":{"k4":123}}
+drop view v1, v2;
+drop table t8;
+##### Document path with different types in views using TEMPTABLE algorithm
+create algorithm = temptable view v1 as
+select doc.id, doc.id from t1;
+ERROR 42S21: Duplicate column name '`doc`.`id`'
+create algorithm = temptable view v1 as
+select doc, doc from t1;
+ERROR 42S21: Duplicate column name 'doc'
+create algorithm = temptable view v1 as
+select doc.id, doc, doc.id from t1;
+ERROR 42S21: Duplicate column name '`doc`.`id`'
+create algorithm = temptable view v1 as
+select doc, doc.id, doc from t1;
+ERROR 42S21: Duplicate column name 'doc'
+create algorithm = temptable view v1 as
+select doc123.id from t1;
+ERROR 42S22: Unknown column '`doc123`.`id`' in 'field list'
+create algorithm = temptable view v1 as
+select doc.address from t1;
+select doc.address.id from v1;
+`doc`.`address`.`id`
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address as addr from t1;
+select addr from v1;
+addr
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address as addr from t1;
+select addr.zipcode from v1;
+`addr`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
+drop view v1;
+create algorithm = temptable view v1 as
+select doc from t1;
+select doc.address.zipcode from v1;
+`doc`.`address`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
+drop view v1;
+create algorithm = temptable view v1 (addr) as
+select doc.address from t1;
+select addr.zipcode from v1;
+`addr`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.id from t1;
+select * from v1;
+`doc`.`id`
+101
+102
+103
+104
+105
+108
+107
+106
+109
+drop view v1;
+create algorithm = temptable view v1 (row1) as
+select doc.id from t1;
+select row1 from v1;
+row1
+101
+102
+103
+104
+105
+108
+107
+106
+109
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address.state from t1;
+select * from v1;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+drop view v1;
+create algorithm = temptable view v1 (row1) as
+select doc.address.state from t1;
+select row1 from v1;
+row1
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address from t1;
+select * from v1;
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+drop view v1;
+create algorithm = temptable view v1 (row1) as
+select doc.address from t1;
+select row1 from v1;
+row1
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+drop view v1;
+create algorithm = temptable view v1 as
+select doc from t1;
+select * from v1;
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+drop view v1;
+create algorithm = temptable view v1 (row1) as
+select doc from t1;
+select row1 from v1;
+row1
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address.state, doc.id, doc from t1;
+select * from v1;
+`doc`.`address`.`state`	`doc`.`id`	doc
+CA	101	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+AZ	102	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+NY	103	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+WA	104	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+WA	105	{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+NULL	108	{"id":108,"address":{"zipcode":98768}}
+NY	107	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+NULL	106	{"id":106,"address":{"zipcode":98766}}
+WA	109	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+drop view v1;
+create algorithm = temptable view v1 as
+select doc, doc.address.state, doc.id from t1;
+select * from v1;
+doc	`doc`.`address`.`state`	`doc`.`id`
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}	CA	101
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}	AZ	102
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}	NY	103
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}	WA	104
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}	WA	105
+{"id":108,"address":{"zipcode":98768}}	NULL	108
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}	NY	107
+{"id":106,"address":{"zipcode":98766}}	NULL	106
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}	WA	109
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address.state, doc, doc.id from t1;
+select * from v1;
+`doc`.`address`.`state`	doc	`doc`.`id`
+CA	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}	101
+AZ	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}	102
+NY	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}	103
+WA	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}	104
+WA	{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}	105
+NULL	{"id":108,"address":{"zipcode":98768}}	108
+NY	{"id":107,"address":{"zipcode":98767,"state":"NY"}}	107
+NULL	{"id":106,"address":{"zipcode":98766}}	106
+WA	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}	109
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc.id, doc from t1;
+select row1 from v1;
+row1
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc.id, doc from t1;
+select row1, row3 from v1;
+row1	row3
+CA	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+AZ	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+NY	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+WA	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+WA	{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+NULL	{"id":108,"address":{"zipcode":98768}}
+NY	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+NULL	{"id":106,"address":{"zipcode":98766}}
+WA	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc.id, doc from t1;
+select row1, row2, row3 from v1;
+row1	row2	row3
+CA	101	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+AZ	102	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+NY	103	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+WA	104	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+WA	105	{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+NULL	108	{"id":108,"address":{"zipcode":98768}}
+NY	107	{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+NULL	106	{"id":106,"address":{"zipcode":98766}}
+WA	109	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc, doc.address.state, doc.id from t1;
+select row1 from v1;
+row1
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc, doc.address.state, doc.id from t1;
+select row1, row3 from v1;
+row1	row3
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}	101
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}	102
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}	103
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}	104
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}	105
+{"id":108,"address":{"zipcode":98768}}	108
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}	107
+{"id":106,"address":{"zipcode":98766}}	106
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}	109
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc, doc.address.state, doc.id from t1;
+select row1, row2, row3 from v1;
+row1	row2	row3
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}	CA	101
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}	AZ	102
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}	NY	103
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}	WA	104
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}	WA	105
+{"id":108,"address":{"zipcode":98768}}	NULL	108
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}	NY	107
+{"id":106,"address":{"zipcode":98766}}	NULL	106
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}	WA	109
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select row1 from v1;
+row1
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select row1, row3 from v1;
+row1	row3
+CA	101
+AZ	102
+NY	103
+WA	104
+WA	105
+NULL	108
+NY	107
+NULL	106
+WA	109
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select row1, row2, row3 from v1;
+row1	row2	row3
+CA	{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}	101
+AZ	{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}	102
+NY	{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}	103
+WA	{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}	104
+WA	{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}	105
+NULL	{"id":108,"address":{"zipcode":98768}}	108
+NY	{"id":107,"address":{"zipcode":98767,"state":"NY"}}	107
+NULL	{"id":106,"address":{"zipcode":98766}}	106
+WA	{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}	109
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address.state, doc.id from t1 order by doc.address.state, a;
+select * from v1;
+`doc`.`address`.`state`	`doc`.`id`
+NULL	106
+NULL	108
+AZ	102
+CA	101
+NY	103
+NY	107
+WA	104
+WA	105
+WA	109
+drop view v1;
+create algorithm = temptable view v1 as
+select doc.address.state, doc.id from t1 order by doc.id;
+select * from v1;
+`doc`.`address`.`state`	`doc`.`id`
+CA	101
+AZ	102
+NY	103
+WA	104
+WA	105
+NULL	106
+NY	107
+NULL	108
+WA	109
+drop view v1;
+create algorithm = temptable view v1 as
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char);
+select * from v1;
+count(*)	cast(test.t1.doc.address.state as char)
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+drop view v1;
+create algorithm = temptable view v1 as
+select count(*), cast(test.t1.doc.address.state as char)
+from t1
+group by cast(test.t1.doc.address.state as char);
+select * from v1;
+count(*)	cast(test.t1.doc.address.state as char)
+2	NULL
+1	AZ
+1	CA
+2	NY
+3	WA
+drop view v1;
+create algorithm = temptable view v1 (row1, row2, row3) as
+select doc.address.state, doc, doc.id from t1;
+select v1.row1 from v1;
+row1
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+select v1.row2 from v1;
+row2
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlei"]}
+{"id":105,"name":"Evan","phone":6507770005,"address":{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"},"dt":"2014-11-11 11:59:59"}
+{"id":108,"address":{"zipcode":98768}}
+{"id":107,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
+{"id":109,"name":"Linda","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}}
+select v1.row3 from v1;
+row3
+101
+102
+103
+104
+105
+108
+107
+106
+109
+drop view v1;
+create table t8 (
+doc document not null) engine = innodb;
+insert into t8 values('{"k1":{"k2":{"k3":{"k4":123}}}}');
+create algorithm = temptable view v1 as
+select doc.k1.k2 from t8;
+create algorithm = temptable view v2 as
+select doc.k1.k2.k3.k4 from v1;
+select * from v1;
+`doc`.`k1`.`k2`
+{"k3":{"k4":123}}
+drop view v1, v2;
+drop table t8;
 ##### Document paths with different types in ORDER BY clause (with and without aliases)
 select a from t1 order by test.t1.doc.NonExistent, a;
 a
