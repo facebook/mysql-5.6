@@ -618,7 +618,7 @@ int Item_sum::set_aggregator(Aggregator::Aggregator_type aggregator)
     In this case, the type may change, so we delete the old aggregator,
     and create a new one.
   */
-  if (aggr && aggregator == aggr->Aggrtype())
+   if (aggr && aggregator == aggr->Aggrtype())
   {
     aggr->clear();
     return FALSE;
@@ -1305,7 +1305,7 @@ Field *Item_sum_hybrid::create_tmp_field(bool group, TABLE *table)
     field= ((Item_field*) args[0])->field;
     
     if ((field= create_tmp_field_from_field(current_thd, field, item_name.ptr(),
-                                            table, NULL)))
+                                            table, NULL, alias_was_set)))
       field->flags&= ~NOT_NULL_FLAG;
     return field;
   }

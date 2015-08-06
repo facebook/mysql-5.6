@@ -1184,20 +1184,9 @@ bool Protocol_text::store_internal(Field *field,
   String str(buff,sizeof(buff), &my_charset_bin);
   const CHARSET_INFO *tocs= this->thd->variables.character_set_results;
 
-  if (key_path_ptr && key_path_ptr->elements > 0)
-  {
-    /* If the return value is NULL str will be set with empty string */
-    my_bool is_null = false;
-    field->document_path_val_str(key_path_ptr, key_type, &str, is_null);
-    if (is_null)
-      return store_null();
-  }
-  else
-  {
-    String *res = field->val_str(&str);
-    if(nullptr == res)
-      return store_null();
-  }
+  String *res = field->val_str(&str);
+  if(nullptr == res)
+    return store_null();
 
 #ifndef DBUG_OFF
   field_pos++;
@@ -1223,15 +1212,6 @@ bool Protocol_text::store(Field *field)
 {
   return store_internal(field, nullptr, MYSQL_TYPE_DOCUMENT);
 }
-
-
-bool Protocol_text::store_document_path(Field *field,
-                                        List<Document_key>& key_path,
-                                        enum_field_types key_type)
-{
-  return store_internal(field, &key_path, key_type);
-}
-
 
 /**
   @todo

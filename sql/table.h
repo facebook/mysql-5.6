@@ -613,6 +613,8 @@ struct Document_key_trie
   Document_key_trie* sib;   /* Sibling nodes of the trie */
   Document_key_trie* child; /* Child nodes of the trie */
 
+  uint key_length; /* The length of the key defined */
+
   /* Insert a node with "name" into its children list,
    * and return the new node.
    */

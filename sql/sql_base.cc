@@ -6585,7 +6585,12 @@ find_field_in_view(THD *thd, TABLE_LIST *table_list,
               (ref != 0 && table_list->view != 0));
   for (; !field_it.end_of_fields(); field_it.next())
   {
-    if (!my_strcasecmp(system_charset_info, field_it.name(), name))
+    bool name_match =
+      (*field_it.item_ptr())->type() == Item::FIELD_ITEM &&
+      ((Item_field*)*field_it.item_ptr())->is_document_path() ?
+      check_name_match(name, field_it.name()) :
+      !my_strcasecmp(system_charset_info, field_it.name(), name);
+    if(name_match)
     {
       Item *item;
 
@@ -6797,8 +6802,7 @@ find_field_in_table(THD *thd, TABLE *table, const char *name, uint length,
 
   /* We assume here that table->field < NO_CACHED_FIELD_INDEX = UINT_MAX */
   if (cached_field_index < table->s->fields &&
-      !my_strcasecmp(system_charset_info,
-                     table->field[cached_field_index]->field_name, name))
+      table->field[cached_field_index]->check_field_name_match(name))
     field_ptr= table->field + cached_field_index;
   else if (table->s->name_hash.records)
   {
@@ -6818,7 +6822,7 @@ find_field_in_table(THD *thd, TABLE *table, const char *name, uint length,
     if (!(field_ptr= table->field))
       DBUG_RETURN((Field *)0);
     for (; *field_ptr; ++field_ptr)
-      if (!my_strcasecmp(system_charset_info, (*field_ptr)->field_name, name))
+      if ((*field_ptr)->check_field_name_match(name))
         break;
   }
 
@@ -7069,7 +7073,7 @@ Field *find_field_in_table_sef(TABLE *table, const char *name)
     if (!(field_ptr= table->field))
       return (Field *)0;
     for (; *field_ptr; ++field_ptr)
-      if (!my_strcasecmp(system_charset_info, (*field_ptr)->field_name, name))
+      if ((*field_ptr)->check_field_name_match(name))
         break;
   }
   if (field_ptr)
@@ -7240,7 +7244,7 @@ find_field_in_tables(THD *thd, Item_ident *item,
      * For those examples, the condition below would be true and therefore
      * skip the attempt to find the item, resulting in an UNKNOWN COLUMN error.
      */
-    if (item->parsing_info.num_unresolved_idents > 0 && cur_table->view)
+    if (item->document_path_keys.elements > 0 && cur_table->view)
       continue;
 
     if (cur_field)
@@ -7429,22 +7433,12 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
 	  item is not fix_field()'ed yet.
         */
         if (item_field->field_name && item_field->table_name &&
-	    !my_strcasecmp(system_charset_info, item_field->field_name,
-                           field_name) &&
+            item_field->check_field_name_match(field_name) &&
             !my_strcasecmp(table_alias_charset, item_field->table_name, 
                            table_name) &&
             (!db_name || (item_field->db_name &&
                           !strcmp(item_field->db_name, db_name))))
         {
-          /* If it is a document path then full path comparison needed */
-          if (item_field->document_path &&
-              is_ref_by_name &&
-              !item_field->compare_document_path((Item_ident *)find))
-          {
-            /* Different document path */
-            continue;
-          }
-
           if (found_unaliased)
           {
             if ((*found_unaliased)->eq(item, 0))
@@ -7468,60 +7462,10 @@ find_item_in_list(Item *find, List<Item> &items, uint *counter,
       }
       else
       {
-        /* - If item_field is doc path with alias and find matches the alias,
-         *   we DO NOT "continue" searching as this is a match
-         *
-         *   Example:
-         *   SELECT doc.address.state as X
-         *   FROM t
-         *   ORDER BY X;
-         *
-         *   In this case, we would NOT want to continue because the alias
-         *   matches a doc path in SELECT list. This is caught because
-         *   "alias_was_set" is true and the field names match. This case
-         *   would not have been caught by the "document_path" flag as
-         *   the "X" in the select list has "document_path" = true but
-         *   for the "X" in the order by list, "document_path" = false
-         *
-         * - If item_field is a document path and find is document path
-         *   then full path comparison is needed.
-         *
-         *   Example:
-         *   SELECT doc.address.state
-         *   FROM t
-         *   ORDER BY doc.address.zipcode;
-         *
-         *   In this case, both "item_field" and "find" has the document_path
-         *   flag set to true, but the "compare_document_path()" would fail
-         *   allowing the search to continue.
-         *
-         * - If item_field is a doc path and find is NOT a doc path, then we
-         *   "continue" searching for the item
-         *
-         *   Example:
-         *   SELECT doc.address.state
-         *   FROM t
-         *   ORDER BY doc;
-         *
-         *   In this case, the "document_path" flag for item_field is true
-         *   but would be false for "find". Therefore, we continue searching
-         *   for the item
-         */
-        if (item_field->document_path &&
-            is_ref_by_name &&
-            !(item_field->alias_was_set &&
-              item_field->item_name.eq_safe(field_name)) &&
-            !(((Item_ident *)find)->document_path &&
-              item_field->compare_document_path(((Item_ident *)find))))
-        {
-          /* Different document paths or "find" is not even a doc path */
-          continue;
-        }
-
         int fname_cmp= my_strcasecmp(system_charset_info,
                                      item_field->field_name,
                                      field_name);
-        if (item_field->item_name.eq_safe(field_name))
+        if (item_field->check_item_name_match(field_name))
         {
           /*
             If table name was not given we should scan through aliases
@@ -9130,7 +9074,7 @@ fill_record(THD * thd, List<Item> &fields, List<Item> &values,
     if (rfield == table->next_number_field)
       table->auto_increment_field_not_null= TRUE;
     // It's a document path, do some preparation.
-    if (field->document_path)
+    if (field->is_document_path())
     {
       // Even no arguments is passed by the syntax, we need create one
       // to denote that it's a partial update
@@ -9139,13 +9083,12 @@ fill_record(THD * thd, List<Item> &fields, List<Item> &values,
         value->extra_args->func_type = Save_in_field_args::FuncType::FUNC_SET;
       }
       // Store the document path
-      value->extra_args->key_path = &field->document_path_keys;
       ((Field_document*)rfield)->update_args = value->extra_args;
     }
 
     type_conversion_status ret = value->save_in_field(rfield, 0);
     // Clean up operation for the field.
-    if(field->document_path)
+    if(field->document_path_keys.elements > 0)
     {
       ((Field_document*)rfield)->update_args = nullptr;
     }
