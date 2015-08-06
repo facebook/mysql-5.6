@@ -671,7 +671,6 @@ class Save_in_field_args : public Sql_alloc {
 
  public:
   Save_in_field_args():cs(nullptr),
-                       key_path(nullptr),
                        func_type(FuncType::FUNC_UNKNOWN),
                        exist_type(CheckType::CHECK_NONE),
                        arg_type(ArgType::ARG_SINGLE){}
@@ -680,7 +679,6 @@ class Save_in_field_args : public Sql_alloc {
            const LEX_STRING &str);
 
   const CHARSET_INFO *cs; // The charset
-  List<Document_key> *key_path; // The document path
   FuncType func_type;
   CheckType exist_type;
   ArgType arg_type;
@@ -714,7 +712,7 @@ public:
              SUBSELECT_ITEM, ROW_ITEM, CACHE_ITEM, TYPE_HOLDER,
              PARAM_ITEM, TRIGGER_FIELD_ITEM, DECIMAL_ITEM,
              XPATH_NODESET, XPATH_NODESET_CMP,
-             VIEW_FIXER_ITEM, DOCUMENT_ITEM};
+             VIEW_FIXER_ITEM, DOCUMENT_ITEM, DOCUMENTPATH_ITEM};
 
   enum cond_result { COND_UNDEF,COND_OK,COND_TRUE,COND_FALSE };
 
@@ -728,7 +726,6 @@ public:
     save_in_field
   */
   String str_value;
-
   Item_name_string item_name;  /* Name from select */
   Item_name_string orig_name;  /* Original item name (if it was renamed)*/
 
@@ -1120,9 +1117,22 @@ public:
   */
   virtual bool val_bool();
   virtual String *val_nodeset(String*) { return 0; }
-  virtual String *val_doc(String *str) { return 0; }
-  virtual const char *val_fbson_blob() const { return 0; }
 
+  /*
+    Return the value in the item in the format of FbsonValue for the field
+    created in the table. The difference for this one and the the one without
+    the root is that this one will not apply document path for it.
+    This function definitely should be removed when the wildcard is implemented
+    in a better way.
+  */
+  virtual fbson::FbsonValue *val_root_document_value(String *);
+  /*
+    Return the value in the item in the format of FbsonValue.
+
+    RETURN
+       FbsonValue pointer or NULL for that it's null.
+   */
+  virtual fbson::FbsonValue *val_document_value(String *buff);
 protected:
   /* Helper functions, see item_sum.cc */
   String *val_string_from_real(String *str);
@@ -2139,69 +2149,6 @@ private:
 };
 
 
-/* The parsing information for dot separated exprssion */
-class Ident_parsing_info
-{
-public:
-  Ident_parsing_info();
-
-  Ident_parsing_info(bool db_name_not_allowed,
-                     bool tab_name_not_allowed);
-
-  Ident_parsing_info(THD *thd,
-                     List<One_ident>* list,
-                     bool db_name_not_allowed,
-                     bool tab_name_not_allowed,
-                     uint number_unresolved_idents);
-
-  Ident_parsing_info(THD *thd,
-                     Ident_parsing_info& p);
-
-  void Set(THD *thd, Ident_parsing_info& p);
-  void Set(THD *thd, DOCUMENT_PATH_KEY_PART_INFO *document_key_part);
-
-  /*
-    generate the string of the dot separated expression
-  */
-  const char* full_name(THD *thd);
-
-  /*
-    parse the original dot-separated key tokens and
-    set the document path keys
-  */
-  void Parse_and_set_document_path_keys(THD *thd,
-                                        List<Document_key>& list,
-                                        bool& document_path_with_underscore);
-  /*
-    Compare if two dot-separated ident list have the identical unresolved idents
-  */
-  bool Compare_unresolved_idents_in_ident_list(Ident_parsing_info& info);
-  /*
-    if database name is not allowed
-  */
-  bool database_name_not_allowed;
-  /*
-    if table name is not allowed
-  */
-  bool table_name_not_allowed;
-  /*
-     number of unresolved identifiers.
-  */
-  uint num_unresolved_idents;
-  /*
-     dot separated identifiers.
-  */
-  List<One_ident> dot_separated_ident_list;
-
-private:
-  void Copy_ident_list(THD *thd,
-                       List<One_ident>* list);
-
-  Ident_parsing_info(const Ident_parsing_info& p);
-  Ident_parsing_info& operator= (const Ident_parsing_info& p);
-};
-
-
 #define NO_CACHED_FIELD_INDEX ((uint)(-1))
 
 class st_select_lex;
@@ -2222,10 +2169,6 @@ protected:
   bool right_shift_for_possible_document_path(THD *);
 
 public:
-  /* type of this document path key. Each document path can only
-   * be one type when it is defined in a secondary index. */
-  enum_field_types document_path_type;
-
   Name_resolution_context *context;
   const char *db_name;
   const char *table_name;
@@ -2244,10 +2187,7 @@ public:
   */
   TABLE_LIST *cached_table;
   st_select_lex *depended_from;
-  /*
-     if this field is a document path.
-  */
-  bool document_path;
+
   /*
      if this doc path contains a wildcard
   */
@@ -2256,16 +2196,6 @@ public:
      the key list that points to the document path
   */
   List<Document_key> document_path_keys;
-  /*
-     the document path full name, e.g. `col`.`k1`.`k2`.`k3`
-     the first part is the column name whose type is document,
-     followed by json keys, each part is quoted by backtick
-  */
-  String document_path_full_name;
-  /*
-     Identifier parsing information.
-  */
-  Ident_parsing_info parsing_info;
 
   Item_ident(Name_resolution_context *context_arg);
   Item_ident(Name_resolution_context *context_arg,
@@ -2281,7 +2211,27 @@ public:
              bool database_name_not_allowed,
              bool table_name_not_allowed,
              uint num_unresolved_idents);
-
+  /*
+    Whether the field_name is a prefix of the give f_name.
+   */
+  bool check_field_name_match(const char *f_name)
+  {
+    if(is_document_path())
+      return check_name_match(f_name,
+                              field_name);
+    return 0 == my_strcasecmp(system_charset_info,
+                              field_name,
+                              f_name);
+  }
+  /*
+    Whether the item_name is a prefix of the given name.
+   */
+  bool check_item_name_match(const char *name) {
+    if(is_document_path())
+      return check_name_match(name,
+                              item_name.ptr());
+    return item_name.eq_safe(name);
+  }
   const char *full_name() const;
   virtual void fix_after_pullout(st_select_lex *parent_select,
                                  st_select_lex *removed_select);
@@ -2292,13 +2242,11 @@ public:
   virtual Field *get_field() { return NULL; }
   virtual bool fix_fields_do(THD *, Item **) = 0;
   virtual bool should_fix_document_path() = 0;
-
+  bool is_document_path();
   bool remove_dependence_processor(uchar * arg);
-  void set_document_path(THD *thd, Item_ident *ident);
-  void set_document_path(THD *thd,
-                         DOCUMENT_PATH_KEY_PART_INFO *document_key_part);
-  bool compare_document_path(Item_ident *ident);
-  void generate_document_path_full_name();
+
+  int sub_document_path(Item_ident *other);
+  void update_field_name(THD *thd);
   virtual void print(String *str, enum_query_type query_type);
   virtual bool change_context_processor(uchar *cntx)
     { context= (Name_resolution_context *)cntx; return FALSE; }
@@ -2306,6 +2254,13 @@ public:
                             const char *db_name,
                             const char *table_name, List_iterator<Item> *it,
                             bool any_privileges, int keyno);
+ protected:
+  /*
+    It defines how many nodes we should ignore in the document path.
+    When the document path is a sub document of the one referencing to,
+    the prefix should be ignored.
+  */
+  int skip_num;
 };
 
 
@@ -2345,9 +2300,11 @@ class COND_EQUAL;
 
 class Item_field :public Item_ident
 {
-protected:
-  void set_field(Field *field);
+private:
+  void do_set_field(Field *field);
 public:
+  void set_field(THD *thd, Field *field);
+  void set_field(THD *thd, Item_field *item);
   Field *field,*result_field;
   Item_equal *item_equal;
   bool no_const_subst;
@@ -2359,7 +2316,9 @@ public:
   /* field need any privileges (for VIEW creation) */
   bool any_privileges;
 
-  virtual bool is_expensive_processor(uchar *arg) { return document_path; }
+  virtual bool is_expensive_processor(uchar *arg) {
+    return document_path_keys.elements > 0;
+  }
 
   Item_field(THD *thd,
              Name_resolution_context *context_arg,
@@ -2399,8 +2358,8 @@ public:
   longlong val_date_temporal();
   my_decimal *val_decimal(my_decimal *);
   String *val_str(String*);
-  String *val_doc(String*);
-  const char *val_fbson_blob() const;
+  fbson::FbsonValue *val_root_document_value(String *);
+  fbson::FbsonValue *val_document_value(String*);
   double val_result();
   longlong val_int_result();
   longlong val_time_temporal_result();
@@ -2410,14 +2369,13 @@ public:
   bool val_bool_result();
   bool is_null_result();
   bool send(Protocol *protocol, String *str_arg);
-  void reset_field(Field *f);
-
+  void reset_field(THD *thd, Field *f);
   /* Helper functions for Item_ident::fix_fields() */
   bool fix_fields_do(THD *, Item **);
   Field *get_field() { return field; }
   bool should_fix_document_path()
   {
-    return (field && parsing_info.num_unresolved_idents > 0);
+    return (field && document_path_keys.elements > 0);
   }
 
   void make_field(Send_field *tmp_field);
@@ -2473,6 +2431,9 @@ public:
   Item_field *field_for_view_update() { return this; }
   Item *safe_charset_converter(const CHARSET_INFO *tocs);
   int fix_outer_field(THD *thd, Field **field, Item **reference);
+  void set_result_field(Field *field){
+    result_field = field;
+  }
   virtual Item *update_value_transformer(uchar *select_arg);
   virtual bool item_field_by_name_analyzer(uchar **arg);
   virtual Item* item_field_by_name_transformer(uchar *arg);
@@ -2556,6 +2517,7 @@ public:
   longlong val_time_temporal() { return val_int(); }
   longlong val_date_temporal() { return val_int(); }
   String *val_str(String *str);
+  fbson::FbsonValue *val_document_value(String *buf);
   my_decimal *val_decimal(my_decimal *);
   bool get_date(MYSQL_TIME *ltime, uint fuzzydate)
   {
@@ -3364,8 +3326,11 @@ protected:
   void set_properties();
 public:
   enum Ref_Type { REF, DIRECT_REF, VIEW_REF, OUTER_REF, AGGREGATE_REF };
+ protected:
   Field *result_field;			 /* Save result here */
-  Item **ref;
+  bool fix_doc_field(THD *thd);
+ public:
+  Item **ref, *ref_store;
   Item_ref(Name_resolution_context *context_arg,
            const char *db_arg, const char *table_name_arg,
            const char *field_name_arg)
@@ -3414,6 +3379,8 @@ public:
   longlong val_date_temporal();
   my_decimal *val_decimal(my_decimal *);
   bool val_bool();
+  fbson::FbsonValue *val_root_document_value(String *buff);
+  fbson::FbsonValue *val_document_value(String *buff);
   String *val_str(String* tmp);
   bool is_null();
   bool get_date(MYSQL_TIME *ltime,uint fuzzydate);
@@ -3431,7 +3398,7 @@ public:
   Field *get_field() { return NULL; }
   bool should_fix_document_path()
   {
-    return (parsing_info.num_unresolved_idents > 0);
+    return (document_path_keys.elements > 0);
   }
 
   void fix_after_pullout(st_select_lex *parent_select,
@@ -4429,6 +4396,8 @@ public:
   };
   enum Type type() const { return CACHE_ITEM; }
   enum_field_types field_type() const { return cached_field_type; }
+  fbson::FbsonValue *val_root_document_value(String *buff);
+  fbson::FbsonValue *val_document_value(String *buff);
   static Item_cache* get_cache(const Item *item);
   static Item_cache* get_cache(const Item* item, const Item_result type);
   table_map used_tables() const { return used_table_map; }
@@ -4558,7 +4527,6 @@ class Item_cache_str: public Item_cache
 {
   char buffer[STRING_BUFFER_USUAL_SIZE];
   String *value, value_buff;
-  const char *fbson_blob;
   bool is_varbinary;
   
 public:
@@ -4568,16 +4536,11 @@ public:
                  cached_field_type == MYSQL_TYPE_VARCHAR &&
                  !((const Item_field *) item)->field->has_charset())
   {
-    if (item->field_type() == MYSQL_TYPE_DOCUMENT_VALUE)
-      fbson_blob = item->val_fbson_blob();
     collation.set(const_cast<DTCollation&>(item->collation));
   }
   double val_real();
   longlong val_int();
   String* val_str(String *);
-  const char *val_fbson_blob() const {
-    return fbson_blob;
-  }
   my_decimal *val_decimal(my_decimal *);
   bool get_date(MYSQL_TIME *ltime, uint fuzzydate)
   {

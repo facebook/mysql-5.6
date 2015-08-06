@@ -384,6 +384,49 @@ String *Item::val_string_from_date(String *str)
   return str;
 }
 
+fbson::FbsonValue *Item::val_root_document_value(String *buff)
+{
+  return val_document_value(buff);
+}
+fbson::FbsonValue *Item::val_document_value(String *buff)
+{
+  DBUG_ASSERT(type() == Item::INT_ITEM || type() == Item::REAL_ITEM ||
+              type() == Item::DECIMAL_ITEM || type() == Item::STRING_ITEM ||
+              type() == Item::CACHE_ITEM);
+
+  fbson::FbsonValueCreater creater;
+  fbson::FbsonValue *pval = nullptr;
+  fbson::FbsonJsonParser parser;
+  switch(type())
+  {
+    case Item::INT_ITEM:
+      pval = creater((int64_t)this->val_int());
+      break;
+    case Item::REAL_ITEM:
+    case Item::DECIMAL_ITEM:
+      pval = creater(this->val_real());
+      break;
+    case Item::STRING_ITEM:
+    {
+      String *s = this->val_str(buff);
+      if(nullptr != s)
+      {
+        if(parser.parse(s->c_ptr(), s->length()))
+          pval = parser.getWriter().getValue();
+        else
+          pval = creater(s->c_ptr(), s->length());
+      }
+      break;
+    }
+    default:
+      pval = nullptr;
+      break;
+  }
+  if(nullptr == pval)
+    return nullptr;
+  buff->copy((char*)pval, pval->numPackedBytes(), collation.collation);
+  return (fbson::FbsonValue*)buff->ptr();
+}
 
 String *Item::val_string_from_time(String *str)
 {
@@ -764,37 +807,21 @@ void Item::print_item_w_name(String *str, enum_query_type query_type)
   {
     THD *thd= current_thd;
     str->append(STRING_WITH_LEN(" AS "));
-
-    /* If item is a document path, then add the full doc path name as part of
-     * the alias.
-     *
-     * For example, let's say this is the view creation/select:
-     * CREATE VIEW v1 AS
-     * SELECT doc.id FROM t1;
-     *
-     * SELECT * FROM v1;
-     *
-     * The above query will be rewritten with the doc path alias:
-     * SELECT ... AS "`doc`.`id`" FROM t1;
-     */
-    if (type() == FIELD_ITEM)
+    if (type() == FIELD_ITEM &&
+        item_name.ptr()[0] == '`' &&
+        ((Item_field*)(this))->field &&
+        ((Item_field*)(this))->field->type() == MYSQL_TYPE_DOCUMENT)
     {
-      Item_ident *item = ((Item_ident*) this);
-      if (item->document_path && item_name.eq(item->field_name))
-      {
-        str->append('\"');
-        append_identifier(thd, str, item_name);
-        List_iterator_fast<Document_key> it(item->document_path_keys);
-        for (Document_key *key = NULL; (key= it++); )
-        {
-          str->append('.');
-          append_identifier(thd, str, key->string);
-        }
-        str->append('\"');
-        return;
-      }
+      /*
+        For document path, it's like
+        AS "`doc`.`a`.`b`.`c`"
+      */
+      str->append('\"');
+      str->append(item_name.ptr(), item_name.length());
+      str->append('\"');
     }
-    append_identifier(thd, str, item_name);
+    else
+      append_identifier(thd, str, item_name);
   }
 }
 
@@ -915,7 +942,7 @@ Item* Item::transform(Item_transformer transformer, uchar *arg)
 }
 
 Item_ident::Item_ident(Name_resolution_context *context_arg)
-  :context(context_arg), document_path(false),
+  :context(context_arg),
   document_path_with_underscore(false)
 {
 }
@@ -924,12 +951,14 @@ Item_ident::Item_ident(Name_resolution_context *context_arg,
                        const char *db_name_arg,const char *table_name_arg,
 		       const char *field_name_arg)
   :orig_db_name(db_name_arg), orig_table_name(table_name_arg),
-   orig_field_name(field_name_arg), context(context_arg),
+   orig_field_name(field_name_arg),
+   context(context_arg),
    db_name(db_name_arg), table_name(table_name_arg),
    field_name(field_name_arg),
    alias_name_used(FALSE), cached_field_index(NO_CACHED_FIELD_INDEX),
-   cached_table(0), depended_from(0), document_path(false),
-   document_path_with_underscore(false)
+   cached_table(0), depended_from(0),
+   document_path_with_underscore(false),
+   skip_num(0)
 {
   item_name.set(field_name_arg);
 }
@@ -944,16 +973,34 @@ Item_ident::Item_ident(THD *thd,
                        bool table_name_not_allowed,
                        uint num_unresolved_idents)
   :orig_db_name(db_name_arg), orig_table_name(table_name_arg),
-   orig_field_name(field_name_arg), context(context_arg),
+   orig_field_name(field_name_arg),
+   context(context_arg),
    db_name(db_name_arg), table_name(table_name_arg),
    field_name(field_name_arg),
    alias_name_used(FALSE), cached_field_index(NO_CACHED_FIELD_INDEX),
    cached_table(0), depended_from(0),
-   document_path(false), document_path_with_underscore(false),
-   parsing_info(thd, ident_list, database_name_not_allowed,
-                table_name_not_allowed, num_unresolved_idents)
+   document_path_with_underscore(false),
+   skip_num(0)
 {
   item_name.set(field_name_arg);
+  if(nullptr != ident_list)
+  {
+    uint idents_num = ident_list->elements;
+    List_iterator<One_ident> it(*ident_list);
+    for(One_ident *key = NULL; (key = it++);)
+    {
+      if(idents_num > num_unresolved_idents)
+      {
+        --idents_num;
+        continue;
+      }
+      document_path_keys.push_back(
+        new (thd->mem_root) Document_key(key->s.str, key->s.length));
+      if (0 == strncmp(key->s.str, "_", key->s.length))
+        document_path_with_underscore = true;
+    }
+  }
+  update_field_name(thd);
 }
 
 
@@ -974,12 +1021,15 @@ Item_ident::Item_ident(THD *thd, Item_ident *item)
    cached_field_index(item->cached_field_index),
    cached_table(item->cached_table),
    depended_from(item->depended_from),
-   document_path(item->document_path),
-   document_path_with_underscore(item->document_path_with_underscore)
+   document_path_with_underscore(item->document_path_with_underscore),
+   skip_num(0)
 {
-  if (item->document_path)
+  document_path_keys.empty();
+  List_iterator<Document_key> it(item->document_path_keys);
+  for(Document_key *p; (p=it++);)
   {
-    set_document_path(thd, item);
+    Document_key *k = new (thd->mem_root) Document_key(*p);
+    document_path_keys.push_back(k);
   }
 }
 
@@ -995,10 +1045,15 @@ void Item_ident::cleanup()
                        orig_field_name ? orig_field_name : "(null)"));
 #endif
   Item::cleanup();
-  db_name= orig_db_name; 
+  db_name= orig_db_name;
   table_name= orig_table_name;
   field_name= orig_field_name;
   DBUG_VOID_RETURN;
+}
+
+bool Item_ident::is_document_path()
+{
+  return document_path_keys.elements > 0;
 }
 
 bool Item_ident::remove_dependence_processor(uchar * arg)
@@ -1010,76 +1065,51 @@ bool Item_ident::remove_dependence_processor(uchar * arg)
   DBUG_RETURN(0);
 }
 
-void Item_ident::set_document_path(THD *thd,
-                                   Item_ident *ident)
-{
-  DBUG_ASSERT(ident->document_path &&
-              ident->document_path_keys.elements > 0);
-
-  document_path = ident->document_path;
-  document_path_with_underscore = ident->document_path_with_underscore;
-  document_path_type = ident->document_path_type;
-
-  List_iterator<Document_key> it(ident->document_path_keys);
-  for(Document_key *p; (p=it++);)
-  {
-    Document_key *k = new Document_key(p->string, p->index);
-    document_path_keys.push_back(k);
-  }
-  document_path_full_name.copy(ident->document_path_full_name);
-  parsing_info.Set(thd, ident->parsing_info);
-}
-
-/* set document path from a key part */
-void Item_ident::set_document_path(THD *thd,
-    DOCUMENT_PATH_KEY_PART_INFO *document_key_part)
-{
-  DBUG_ASSERT(document_key_part &&
-      document_key_part->number_of_names);
-
-  document_path = true;
-  document_path_type = document_key_part->type;
-  for (uint i=1; i < document_key_part->number_of_names; ++i)
-  {
-    LEX_STRING s;
-    s.str = document_key_part->names[i],
-    s.length = strlen(document_key_part->names[i]);
-    char *p = NULL;
-    int index = strtol(s.str, &p, 10);
-    if (*p)
-      index = -1;
-    Document_key *k = new Document_key(s, index);
-    document_path_keys.push_back(k);
-  }
-  generate_document_path_full_name();
-
-  // Note: setting parsing_info is not necessary in this function, because
-  // parsing_info is used during parsing stage, while this function's caller
-  // path is triggered during query optimization. Set it anyway for safety.
-  parsing_info.Set(thd, document_key_part);
-}
-
 /**
-   Compare if two Item_ident have the same column names AND
-   identical document paths.
+   Check whether short_path is a prefix of long_path. If it is, then,
+   the size of short_path will be returned.
 
-   For example, "doc.a.b" compared with "doc.a.b" is TRUE
-                "doc.a.b" compared with "doc.a.c" is FALSE
-                "doc.a.b" compared with "foo.a.b" is FALSE
+   @param short_path   The shorter document path
+   @param long_path    The longer one
+   @retval int -1 for that the short one is not a prefix of the long one.
+                  Otherwise, the length of the short one.
 */
-bool Item_ident::compare_document_path(Item_ident *ident)
+int prefix_length(List<Document_key> *short_path, List<Document_key> *long_path)
 {
-  return (document_path && item_name.eq_safe(ident->item_name) &&
-          parsing_info.Compare_unresolved_idents_in_ident_list(
-                       ident->parsing_info));
+  List_iterator<Document_key> s_iter(*short_path);
+  List_iterator<Document_key> l_iter(*long_path);
+  int count = 0;
+  while(true)
+  {
+    Document_key *s_ptr = s_iter++;
+    Document_key *l_ptr = l_iter++;
+    if(l_ptr == nullptr)
+      return count;
+    if(s_ptr == nullptr || *s_ptr != *l_ptr)
+      return -1;
+    ++count;
+  }
 }
 
-/* Generate document path full name */
-void Item_ident::generate_document_path_full_name()
+int Item_ident::sub_document_path(Item_ident *other){
+  return prefix_length(&document_path_keys, &other->document_path_keys) >= 0;
+}
+
+/* update the field name */
+void Item_ident::update_field_name(THD *thd)
 {
-  gen_document_path_full_name(document_path_full_name,
-                              field_name,
-                              document_path_keys);
+  if(document_path_keys.elements > 0)
+  {
+    field_name = gen_document_path_full_name(thd->mem_root,
+                                             orig_field_name,
+                                             document_path_keys);
+    /*
+      If the field name is updated, and we also need to update the
+      item name.
+    */
+    if(!alias_was_set)
+      item_name.set(field_name);
+  }
 }
 
 bool Item_ident::right_shift_for_possible_document_path(THD *thd)
@@ -1094,17 +1124,16 @@ bool Item_ident::right_shift_for_possible_document_path(THD *thd)
 
   DBUG_ASSERT(orig_field_name && orig_table_name);
 
+  if (0 == strcmp(orig_field_name, "_"))
+    document_path_with_underscore = true;
+  document_path_keys.push_front(
+    new (thd->mem_root) Document_key(orig_field_name, strlen(orig_field_name)));
   /* right shift one identifier */
   orig_field_name = field_name = orig_table_name;
   orig_table_name = table_name = orig_db_name;
   orig_db_name = db_name = NULL;
 
-  /* if alias was set then always use the alias,
-     otherwise use the columne name */
-  if (!alias_was_set)
-    item_name.set(orig_field_name);
-
-  parsing_info.num_unresolved_idents++;
+  update_field_name(thd);
 
   return true;
 }
@@ -1145,11 +1174,14 @@ bool Item_ident::fix_fields(THD *thd, Item **reference)
 
   DBUG_ASSERT(fixed == 0);
   bool ret = true;
+
   for (;;)
   {
     if(!(ret= fix_fields_do(thd, reference)))
+    {
       /* successfully resolved */
       break;
+    }
 
     /* if no valid field was found or a valid non-document field was found
        but there are still unresolved identifiers, we will have to re-try
@@ -1167,73 +1199,6 @@ bool Item_ident::fix_fields(THD *thd, Item **reference)
   }
 
   DBUG_ASSERT(!ret);
-
-  bool found_doc_idx = false;
-  // For Item_field only
-  Field *field = get_field();
-  if (should_fix_document_path())
-  {
-    if (field && field->type() != MYSQL_TYPE_DOCUMENT)
-    {
-      /* syntax error when using document path on a non-document column */
-      my_error(ER_BAD_FIELD_ERROR, MYF(0),
-               parsing_info.full_name(thd), thd->where);
-      return true;
-    }
-
-    /* If the type of the field is document and there are still unresolved
-       dot separated identifiers then this whole expression will be treated
-       as a document virutal field.
-    */
-    if (field)
-    {
-      document_path = true;
-      parsing_info.Parse_and_set_document_path_keys(thd, document_path_keys,
-          document_path_with_underscore);
-      DBUG_ASSERT(document_path_keys.elements > 0);
-
-      /* Generate document path full name */
-      generate_document_path_full_name();
-
-      /* if we have any document key defined in the table,
-       * we will check if any key matches the path expression,
-       * and set the field's "part_of_key" key map correctly.
-       */
-      if (field->table->s->document_key_trie)
-      {
-        Document_key_trie* trie = field->table->s->document_key_trie;
-        trie = trie->get(field->field_name);
-
-        /* find the document key in the trie that matches the path
-         */
-        List_iterator<Document_key> it(document_path_keys);
-        for(Document_key *p; (p=it++) && trie;)
-          trie = trie->get(p->string.str, p->string.length);
-
-        if (trie && thd->mark_used_columns != MARK_COLUMNS_NONE)
-        {
-          /* we found the key. Merge the key's part_of_key map
-           * with the field
-           */
-          field->table->covering_keys.intersect(trie->part_of_key);
-          field->table->merge_keys.merge(trie->part_of_key);
-          document_path_type = trie->key_type;
-          found_doc_idx = true;
-        }
-      }
-    }
-  }
-
-  if (field && field->type() == MYSQL_TYPE_DOCUMENT && !found_doc_idx)
-  {
-    /* otherwise, we will unset covering_keys.
-     * (since document field's part_of_key is always empty)
-     */
-    field->table->covering_keys.intersect(field->part_of_key);
-    field->table->merge_keys.merge(field->part_of_key);
-    document_path_type = MYSQL_TYPE_DOCUMENT;
-  }
-
   /* succeeded */
   return false;
 }
@@ -1271,7 +1236,6 @@ bool Item_field::collect_item_field_processor(uchar *arg)
   item_list->push_back(this);
   DBUG_RETURN(FALSE);
 }
-
 
 bool Item_field::add_field_to_set_processor(uchar *arg)
 {
@@ -2793,181 +2757,6 @@ void Item_ident_for_show::make_field(Send_field *tmp_field)
 
 /**********************************************/
 
-void Ident_parsing_info::Copy_ident_list(THD *thd,
-                                         List<One_ident>* list)
-{
-  if (thd && list)
-  {
-    List_iterator_fast<One_ident> it(*list);
-    for (One_ident *s = NULL; (s= it++);)
-    {
-      One_ident *q = new (thd->mem_root) One_ident(s->s);
-      dot_separated_ident_list.push_back(q);
-    }
-  }
-}
-
-Ident_parsing_info::Ident_parsing_info()
-  : database_name_not_allowed(false),
-    table_name_not_allowed(false),
-    num_unresolved_idents(0)
-{
-}
-
-Ident_parsing_info::Ident_parsing_info(bool db_name_not_allowed,
-                                       bool tab_name_not_allowed)
-  : database_name_not_allowed(db_name_not_allowed),
-    table_name_not_allowed(tab_name_not_allowed),
-    num_unresolved_idents(0)
-{
-}
-
-Ident_parsing_info::Ident_parsing_info(THD *thd,
-                                       List<One_ident>* list,
-                                       bool db_name_not_allowed,
-                                       bool tab_name_not_allowed,
-                                       uint number_unresolved_idents)
-  : database_name_not_allowed(db_name_not_allowed),
-    table_name_not_allowed(tab_name_not_allowed),
-    num_unresolved_idents(number_unresolved_idents)
-{
-  Copy_ident_list(thd, list);
-}
-
-Ident_parsing_info::Ident_parsing_info(THD *thd,
-                                       Ident_parsing_info& p)
-{
-  Set(thd, p);
-}
-
-void Ident_parsing_info::Set(THD *thd,
-                             Ident_parsing_info& p)
-{
-  database_name_not_allowed = p.database_name_not_allowed;
-  table_name_not_allowed = p.table_name_not_allowed;
-  num_unresolved_idents = p.num_unresolved_idents;
-
-  Copy_ident_list(thd, &p.dot_separated_ident_list);
-}
-
-void Ident_parsing_info::Set(THD *thd,
-    DOCUMENT_PATH_KEY_PART_INFO *document_key_part)
-{
-  if (thd && document_key_part)
-  {
-    for (uint i=1; i < document_key_part->number_of_names; ++i)
-    {
-      LEX_STRING s;
-      s.str = document_key_part->names[i],
-      s.length = strlen(document_key_part->names[i]);
-      One_ident *q = new (thd->mem_root) One_ident(s);
-      dot_separated_ident_list.push_back(q);
-    }
-    num_unresolved_idents = document_key_part->number_of_names;
-  }
-}
-
-bool Ident_parsing_info::Compare_unresolved_idents_in_ident_list(
-                                            Ident_parsing_info& info)
-{
-  if (num_unresolved_idents == info.num_unresolved_idents)
-  {
-    if (num_unresolved_idents == 0)
-      return true;
-
-    DBUG_ASSERT(dot_separated_ident_list.elements > num_unresolved_idents &&
-         info.dot_separated_ident_list.elements > info.num_unresolved_idents);
-
-    int skip1 = dot_separated_ident_list.elements - num_unresolved_idents;
-    int skip2 = info.dot_separated_ident_list.elements -
-                 info.num_unresolved_idents;
-
-    List_iterator_fast<One_ident> it1(dot_separated_ident_list);
-    List_iterator_fast<One_ident> it2(info.dot_separated_ident_list);
-
-    for (int i = 0; i < skip1; ++i)
-      it1++;
-
-    for (int i = 0; i < skip2; ++i)
-      it2++;
-
-    One_ident *p1 = NULL, *p2 = NULL;
-    for (;;)
-    {
-      p1 = it1++;
-      p2 = it2++;
-
-      if (!p1 && !p2)
-        return true;
-
-      DBUG_ASSERT(p1 && p2);
-
-      if (!p1 || !p2 || strcmp(p1->s.str, p2->s.str))
-        break;
-    }
-  }
-  return false;
-}
-
-
-const char* Ident_parsing_info::full_name(THD *thd)
-{
-  List_iterator_fast<One_ident> it(dot_separated_ident_list);
-  uint sz = 0;
-  for (One_ident *s = NULL; (s= it++);)
-  {
-    sz += s->s.length;
-    ++sz; /* for the '.' and the '\0' in the end */
-  }
-  char* buf = (char *)thd->alloc(sz);
-
-  it.rewind();
-  char *p = buf;
-  for (One_ident *s = NULL; (s= it++);)
-  {
-    memcpy(p, s->s.str, s->s.length);
-    p += s->s.length;
-    *p++ = '.';
-  }
-  buf[sz-1] = '\0';
-  return buf;
-}
-
-void Ident_parsing_info::Parse_and_set_document_path_keys(
-                               THD *thd, List<Document_key>& list,
-                               bool& document_path_with_underscore)
-{
-  List_iterator_fast<One_ident> it(dot_separated_ident_list);
-  DBUG_ASSERT(num_unresolved_idents < dot_separated_ident_list.elements);
-  uint skip_num = dot_separated_ident_list.elements - num_unresolved_idents;
-  /* Clean up the list if there are elements. This happens when the document
-     path information has been set by Item_ident::set_document_path() */
-  list.delete_elements();
-  for (One_ident *s = NULL; (s= it++);)
-  {
-    if (skip_num > 0)
-    {
-      --skip_num;
-      continue;
-    }
-
-    /* If a key is pure number then it can be an array index */
-    char *p = NULL;
-    int index = strtol(s->s.str, &p, 10);
-    if (p != s->s.str + s->s.length)
-      index = -1;
-
-    if (!strcmp(s->s.str, "_"))
-      document_path_with_underscore = true;
-
-    Document_key *k = new (thd->mem_root) Document_key(s->s, index);
-    list.push_back(k);
-  }
-}
-
-
-/**********************************************/
-
 Item_field::Item_field(THD *thd,
                        Name_resolution_context *context_arg,
                        const char *db_arg,const char *table_name_arg,
@@ -2993,7 +2782,11 @@ Item_field::Item_field(Field *f)
    item_equal(0), no_const_subst(0),
    have_privileges(0), any_privileges(0)
 {
-  set_field(f);
+  if(f->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    ((Field_document*)f)->get_document_path(document_path_keys);
+  }
+  set_field(nullptr, f);
   /*
     field_name and table_name should not point to garbage
     if this item is to be reused
@@ -3010,7 +2803,16 @@ Item_field::Item_field(THD *thd, Field *f,
   :Item_field(f)
 {
   if (f->type() == MYSQL_TYPE_DOCUMENT && document_path_key_part)
-    set_document_path(thd, document_path_key_part);
+  {
+    for (uint i=1; i < document_path_key_part->number_of_names; ++i)
+    {
+      const char *str = document_path_key_part->names[i];
+      uint length = strlen(document_path_key_part->names[i]);
+      Document_key *k = new (thd->mem_root) Document_key(str, length);
+      document_path_keys.push_back(k);
+    }
+    set_field(thd, f);
+  }
 }
 
 
@@ -3023,7 +2825,10 @@ Item_field::Item_field(THD *thd, Field *f,
 
 Item_field::Item_field(THD *thd, Name_resolution_context *context_arg,
                        Field *f)
-  :Item_ident(context_arg, f->table->s->db.str, *f->table_name, f->field_name),
+    :Item_ident(context_arg,
+                f->table->s->db.str,
+                *f->table_name,
+                f->field_name),
    item_equal(0), no_const_subst(0),
    have_privileges(0), any_privileges(0)
 {
@@ -3058,7 +2863,9 @@ Item_field::Item_field(THD *thd, Name_resolution_context *context_arg,
     */
     item_name.set(orig_field_name);
   }
-  set_field(f);
+  if(f->type() == MYSQL_TYPE_DOCUMENT)
+    ((Field_document*)f)->get_document_path(document_path_keys);
+  set_field(thd, f);
 }
 
 
@@ -3145,8 +2952,45 @@ adjust_max_effective_column_length(Field *field_par, uint32 max_length)
   return new_max_length > max_length ? new_max_length : max_length;
 }
 
-
-void Item_field::set_field(Field *field_par)
+void Item_field::set_field(THD *thd, Item_field *item_ptr)
+{
+  Field *new_field = item_ptr->field;
+  if(MYSQL_TYPE_DOCUMENT == new_field->type()){
+    Field_document *doc_field = (Field_document*)new_field;
+    skip_num = 0;
+    if(!item_ptr->alias_was_set)
+    {
+      skip_num = prefix_length(&item_ptr->document_path_keys,
+                              &document_path_keys);
+    }
+    DBUG_ASSERT(skip_num >= 0);
+    if(skip_num < (int)document_path_keys.elements)
+      new_field = new (thd->mem_root) Field_document(thd->mem_root,
+                                                     doc_field,
+                                                     document_path_keys,
+                                                     skip_num);
+  }
+  do_set_field(new_field);
+}
+void Item_field::set_field(THD *thd, Field *field_par)
+{
+  if(MYSQL_TYPE_DOCUMENT == field_par->type())
+  {
+    Field_document *doc_field = static_cast<Field_document*>(field_par);
+    skip_num = doc_field->document_path_prefix(document_path_keys);
+    DBUG_ASSERT(skip_num >= 0);
+    if(skip_num < (int)document_path_keys.elements)
+    {
+      assert(thd->mem_root);
+      field_par = new (thd->mem_root) Field_document(thd->mem_root,
+                                                     doc_field,
+                                                     document_path_keys,
+                                                     skip_num);
+    }
+  }
+  do_set_field(field_par);
+}
+void Item_field::do_set_field(Field *field_par)
 {
   field=result_field=field_par;			// for easy coding with fields
   maybe_null=field->maybe_null();
@@ -3165,6 +3009,20 @@ void Item_field::set_field(Field *field_par)
   fixed= 1;
   if (field->table->s->tmp_table == SYSTEM_TMP_TABLE)
     any_privileges= 0;
+
+  /*
+    It's not so good to unset the index here for the document field.
+    It would be better to do in the optimizer. TO BE REMOVED.
+  */
+  if(field->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    Field_document *doc_field = (Field_document*)field;
+    if(!doc_field->is_derived_document_field())
+    {
+      doc_field->table->covering_keys.intersect(field->part_of_key);
+      doc_field->table->merge_keys.merge(field->part_of_key);
+    }
+  }
 }
 
 
@@ -3174,9 +3032,11 @@ void Item_field::set_field(Field *field_par)
   of prepared statement.
 */
 
-void Item_field::reset_field(Field *f)
+void Item_field::reset_field(THD *thd, Field *f)
 {
-  set_field(f);
+  if(f->type() == MYSQL_TYPE_DOCUMENT)
+    ((Field_document*)f)->get_document_path(document_path_keys);
+  set_field(thd, f);
   /* 'name' is pointing at field->field_name of old field */
   item_name.set(f->field_name);
 }
@@ -3256,29 +3116,13 @@ void Item_ident::print(String *str, enum_query_type query_type)
     append_identifier(thd, str, t_name, (uint) strlen(t_name));
     str->append('.');
   }
-  append_identifier(thd, str, field_name, (uint) strlen(field_name));
-
-  /* If item is a document path, add the rest of the doc path keys to the name
-   * For views with merge algorithm, this is necessary to rewrite the correct
-   * query. For example, if we have the following CREATE and SELECT:
-   *
-   * CREATE VIEW v1 (row1) AS
-   * SELECT doc.id FROM t1;
-   *
-   * SELECT row1 FROM v1;
-   *
-   * We want the MERGE algorithm to convert the SELECT into
-   * SELECT doc.id FROM t1;
-   */
-  if (document_path)
-  {
-    List_iterator_fast<Document_key> it(document_path_keys);
-    for (Document_key *key = NULL; (key= it++); )
-    {
-      str->append('.');
-      append_identifier(thd, str, key->string);
-    }
-  }
+  if(field_name[0] == '`')
+    str->append(field_name);
+  else
+    append_identifier(thd,
+                      str,
+                      field_name,
+                      (uint) strlen(field_name));
 }
 
 /*
@@ -3286,15 +3130,7 @@ void Item_ident::print(String *str, enum_query_type query_type)
  */
 bool Item_field::is_null()
 {
-  if (document_path)
-  {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
-    return field->document_path_is_null(&document_path_keys,
-                                        document_path_type);
-  }
-  else
-    return field->is_null();
+  return field->is_null();
 }
 
 /* ARGSUSED */
@@ -3305,58 +3141,29 @@ String *Item_field::val_str(String *str)
     return 0;
 
   str->set_charset(str_value.charset());
-  if (document_path)
-  {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
-    my_bool is_null = false;
-    String *tmp = field->document_path_val_str(
-        &document_path_keys, document_path_type, str, is_null);
-    if (!tmp)
-    {
-      DBUG_ASSERT(is_null);
-      null_value = true;
-    }
-    return tmp;
-  }
+
   return field->val_str(str,&str_value);
 }
 
-/* Returns the binary of FbsonValue that represents the doc path */
-const char *Item_field::val_fbson_blob() const
+fbson::FbsonValue *Item_field::val_root_document_value(String *str)
 {
-  DBUG_ASSERT(fixed == 1 && this->field_type() == MYSQL_TYPE_DOCUMENT);
-  int len;
-  char *blob = field->val_fbson_blob(&len);
-  if (!blob)
-    return 0;
+  if(field->type() != MYSQL_TYPE_DOCUMENT)
+    return nullptr;
 
-  List<Document_key> list(document_path_keys);
-  List_iterator<Document_key> it(list);
-  fbson::FbsonValue *pval = fbson::FbsonDocument::createValue(blob, len);
-
-  for (Document_key *key = NULL; (key= it++) && pval;)
-  {
-    DBUG_ASSERT(key->string.str != NULL);
-
-    fbson::FbsonValue *curr_val = nullptr;
-    if (pval->isObject() && key->string.str)
-      curr_val = ((fbson::ObjectVal*)pval)->find(key->string.str);
-    else if (pval->isArray() && key->string.str && key->index >= 0)
-      curr_val = ((fbson::ArrayVal*)pval)->get(key->index);
-    pval = curr_val;
-  }
-
-  return (const char*) pval;
+  if ((null_value=((Field_document*)field)->real_field()->is_null()))
+    return nullptr;
+  str->set_charset(str_value.charset());
+  return ((Field_document*)field)->
+    real_field()->val_document_value(str,&str_value);
 }
 
-String *Item_field::val_doc(String *str)
+fbson::FbsonValue *Item_field::val_document_value(String *str)
 {
   DBUG_ASSERT(fixed == 1);
   if ((null_value=field->is_null()))
-    return 0;
+    return nullptr;
   str->set_charset(str_value.charset());
-  return field->val_doc(str,&str_value);
+  return field->val_document_value(str,&str_value);
 }
 
 
@@ -3366,13 +3173,6 @@ double Item_field::val_real()
   if ((null_value=field->is_null()))
     return 0.0;
 
-  if (document_path)
-  {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
-    return field->document_path_val_real(
-                           &document_path_keys, document_path_type, null_value);
-  }
   return field->val_real();
 }
 
@@ -3383,13 +3183,6 @@ longlong Item_field::val_int()
   if ((null_value=field->is_null()))
     return 0;
 
-  if (document_path)
-  {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
-    return field->document_path_val_int(&document_path_keys, document_path_type,
-                                        null_value);
-  }
   return field->val_int();
 }
 
@@ -3417,13 +3210,6 @@ my_decimal *Item_field::val_decimal(my_decimal *decimal_value)
   if ((null_value= field->is_null()))
     return 0;
 
-  if (document_path)
-  {
-    DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                document_path_keys.elements > 0);
-    return field->document_path_val_decimal(&document_path_keys,
-                                            decimal_value, null_value);
-  }
   return field->val_decimal(decimal_value);
 }
 
@@ -3440,15 +3226,7 @@ bool Item_field::get_date(MYSQL_TIME *ltime,uint fuzzydate)
 {
   if (!(null_value=field->is_null()))
   {
-    if (document_path)
-    {
-      DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                  document_path_keys.elements > 0);
-      if (!field->document_path_get_date(&document_path_keys,
-                                         ltime, fuzzydate, null_value))
-        return 0;
-    }
-    else if (!field->get_date(ltime,fuzzydate))
+    if (!field->get_date(ltime,fuzzydate))
       return 0;
   }
 
@@ -3471,15 +3249,7 @@ bool Item_field::get_time(MYSQL_TIME *ltime)
 {
   if (!(null_value=field->is_null()))
   {
-    if (document_path)
-    {
-      DBUG_ASSERT(field->type() ==  MYSQL_TYPE_DOCUMENT &&
-                  document_path_keys.elements > 0);
-      if (!field->document_path_get_time(&document_path_keys,
-                                         ltime, null_value))
-        return 0;
-    }
-    else if (!field->get_time(ltime))
+    if (!field->get_time(ltime))
       return 0;
   }
 
@@ -3572,7 +3342,7 @@ bool Item_field::eq(const Item *item, bool binary_cmp) const
   
   Item_field *item_field= (Item_field*) real_item;
   if (item_field->field && field)
-    return item_field->field == field;
+    return item_field->field->eq(field);
   /*
     We may come here when we are trying to find a function in a GROUP BY
     clause from the select list.
@@ -3714,7 +3484,6 @@ Item_int::Item_int(const char *str_arg, uint length)
   item_name.copy(str_arg, max_length);
   fixed= 1;
 }
-
 
 my_decimal *Item_int::val_decimal(my_decimal *decimal_value)
 {
@@ -3883,7 +3652,6 @@ void Item_decimal::set_decimal_value(my_decimal *value_par)
                                                            decimals,
                                                            unsigned_flag);
 }
-
 
 String *Item_float::val_str(String *str)
 {
@@ -4072,6 +3840,14 @@ longlong Item_null::val_int()
   null_value=1;
   return 0;
 }
+
+fbson::FbsonValue *Item_null::val_document_value(String *str)
+{
+  DBUG_ASSERT(fixed == 1);
+  null_value=1;
+  return 0;
+}
+
 /* ARGSUSED */
 String *Item_null::val_str(String *str)
 {
@@ -5508,11 +5284,9 @@ static Item** find_field_in_group_list(Item *find_item, ORDER *group_list)
     {
       cur_field= (Item_ident*) *cur_group->item;
       cur_match_degree= 0;
-      
-      DBUG_ASSERT(cur_field->field_name != 0);
 
-      if (!my_strcasecmp(system_charset_info,
-                         cur_field->field_name, field_name))
+      DBUG_ASSERT(cur_field->field_name != 0);
+      if (cur_field->check_field_name_match(field_name))
         ++cur_match_degree;
       else
         continue;
@@ -5532,21 +5306,6 @@ static Item** find_field_in_group_list(Item *find_item, ORDER *group_list)
             /* Same field names, different databases. */
             return NULL;
           ++cur_match_degree;
-        }
-      }
-
-      /* If the cur_field is a document path */
-      if (cur_field->document_path)
-      {
-        /*
-          Only full document paths, e.g. db.table.col.k1.k2, are supported
-          in HAVING caluse for now. But the document paths in GROUP BY and
-          SELECT don't have to be full name.
-        */
-        if (!cur_field->compare_document_path((Item_ident *)find_item))
-        {
-            /* Different document path */
-            return NULL;
         }
       }
 
@@ -5831,7 +5590,7 @@ Item_field::fix_outer_field(THD *thd, Field **from_field, Item **reference)
         {
           prev_subselect_item->used_tables_cache|= (*from_field)->table->map;
           prev_subselect_item->const_item_cache= 0;
-          set_field(*from_field);
+          set_field(thd, *from_field);
           if (!last_checked_context->select_lex->having_fix_field &&
               select->group_list.elements &&
               (place == SELECT_LIST || place == IN_HAVING))
@@ -5864,7 +5623,7 @@ Item_field::fix_outer_field(THD *thd, Field **from_field, Item **reference)
             Item::Type ref_type= (*reference)->type();
             set_if_bigger(thd->lex->in_sum_func->max_arg_level,
                           select->nest_level);
-            set_field(*from_field);
+            set_field(thd, *from_field);
             fixed= 1;
             mark_as_dependent(thd, last_checked_context->select_lex,
                               context->select_lex, this,
@@ -6102,6 +5861,7 @@ bool Item_field::fix_fields_do(THD *thd, Item **reference)
                                      !any_privileges, TRUE);
     if (thd->is_error())
       goto error;
+
     if (from_field == not_found_field)
     {
       int ret;
@@ -6137,18 +5897,7 @@ bool Item_field::fix_fields_do(THD *thd, Item **reference)
               return(1);
             }
 
-            set_field(item_field->field);
-
-            /* If the item_field is a document path */
-            if (item_field->document_path)
-            {
-              DBUG_ASSERT(item_field->field->type() == MYSQL_TYPE_DOCUMENT);
-
-              /* Copy the document path information */
-              set_document_path(thd, item_field);
-
-              DBUG_ASSERT(document_path && document_path_keys.elements > 0);
-            }
+            set_field(thd, item_field);
             return 0;
           }
           else
@@ -6229,8 +5978,8 @@ bool Item_field::fix_fields_do(THD *thd, Item **reference)
     */
     if (from_field == view_ref_found)
       return FALSE;
+    set_field(thd, from_field);
 
-    set_field(from_field);
     if (thd->lex->in_sum_func &&
         thd->lex->in_sum_func->nest_level == 
         thd->lex->current_select->nest_level)
@@ -6918,64 +6667,14 @@ void Item_field::make_field(Send_field *tmp_field)
 {
   field->make_field(tmp_field);
   DBUG_ASSERT(tmp_field->table_name != 0);
-  /* If it is a document path and alias was not set in select then
-     use the document path full name as the column name */
-  if (document_path && !alias_was_set)
-  {
-    DBUG_ASSERT(!document_path_full_name.is_empty());
-    tmp_field->col_name= document_path_full_name.ptr();
-  }
-  else if (item_name.is_set())
+
+  if (item_name.is_set())
     tmp_field->col_name= item_name.ptr();  // Use user supplied name
   if (table_name)
     tmp_field->table_name= table_name;
   if (db_name)
     tmp_field->db_name= db_name;
 }
-
-Field *Item_field::make_string_field_for_document_path_item(TABLE *table)
-{
-  DBUG_ASSERT(field && field->type() == MYSQL_TYPE_DOCUMENT &&
-              document_path_keys.elements > 0 && collation.collation);
-
-  Field *fld = nullptr;
-  switch (document_path_type)
-  {
-  case MYSQL_TYPE_DOUBLE:
-  case MYSQL_TYPE_TINY:
-  case MYSQL_TYPE_LONGLONG:
-    /* fall through using varstring field. (TODO) */
-
-  case MYSQL_TYPE_BLOB:
-  case MYSQL_TYPE_STRING:
-  case MYSQL_TYPE_DOCUMENT:
-    /*
-       FIXME: the maximum size of the varchar column is set to 4096, this
-       number is not set greater becasue the maximum row size is 65535, and
-       there can be more than one varchar columns for document pathes. This may
-       cause document path values get truncated since the maximum size of a
-       document column is 16M - 1. This will need to be fixed by using other
-       types, e.g. text, with maximum size of 16M - 1.
-    */
-    fld= new Field_varstring(4096, true, item_name.ptr(),
-                             table->s, collation.collation);
-    if (fld)
-    {
-      // when we create the temp table's string field, we need to save
-      // the doc path type in order to read the select value correctly
-      ((Field_varstring*)fld)->document_path_type = document_path_type;
-      ((Field_varstring*)fld)->document_path_keys = &document_path_keys;
-    }
-    break;
-
-  default:
-      /* should never reach here */
-      DBUG_ASSERT(0);
-  }
-  fld->init(table);
-  return fld;
-}
-
 
 /**
   Set a field's value from a item.
@@ -6984,20 +6683,7 @@ Field *Item_field::make_string_field_for_document_path_item(TABLE *table)
 void Item_field::save_org_in_field(Field *to)
 {
   my_bool is_null = false;
-  if (document_path)
-  {
-    DBUG_ASSERT(document_path_keys.elements > 0 &&
-                field->type() == MYSQL_TYPE_DOCUMENT);
-
-    /* A document path always may be null */
-    maybe_null = true;
-    ((Field_document*)field)->field_conv_document_path(&document_path_keys,
-                                                       to, is_null);
-  }
-  else
-  {
-    is_null = field->is_null();
-  }
+  is_null = field->is_null();
 
   if (is_null)
   {
@@ -7006,11 +6692,8 @@ void Item_field::save_org_in_field(Field *to)
   }
   else
   {
-    if (!document_path)
-    {
-      to->set_notnull();
-      field_conv(to,field);
-    }
+    to->set_notnull();
+    field_conv(to,field);
     null_value=0;
   }
 }
@@ -7837,20 +7520,6 @@ Item* Item_field::item_field_by_name_transformer(uchar *arg)
 
 bool Item_field::send(Protocol *protocol, String *buffer)
 {
-  /* When it is a document path, the field type can be either
-     MYSQL_TYPE_DOCUMENT or MYSQL_TYPE_VARCHAR for temp table
-  */
-  DBUG_ASSERT(!document_path ||
-              (document_path && (field->type() == MYSQL_TYPE_DOCUMENT ||
-                                 field->type() == MYSQL_TYPE_VARCHAR)));
-
-  if (document_path && field->type() == MYSQL_TYPE_DOCUMENT)
-  {
-    DBUG_ASSERT(document_path_keys.elements > 0);
-    return protocol->store_document_path(result_field,
-                                         document_path_keys,
-                                         document_path_type);
-  }
   return protocol->store(result_field);
 }
 
@@ -7948,7 +7617,7 @@ Item_ref::Item_ref(THD *thd,
   :Item_ident(thd,context_arg,db_arg,table_name_arg,field_name_arg,
               ident_list,database_name_not_allowed,
               table_name_not_allowed,num_unresolved_idents),
-   result_field(0), ref(0)
+  result_field(0), ref(0)
 {
 }
 
@@ -7968,6 +7637,47 @@ Item_ref::Item_ref(Name_resolution_context *context_arg,
     set_properties();
 }
 
+/*
+  When the referencing field is a document field and also, the Item_ref is a
+  sub document of it, we need to create a new field called Field_document_ref
+  for it.
+  For example,
+  `select doc.def group by doc.abc having doc.def.abc = 123;`
+  In the having clause, it should be a Item_ref and the referencing item
+  shoule be the one in select clause. But it's not exactly the same as the
+  one in select clause. So we make it a Field_document_ref.
+ */
+bool Item_ref::fix_doc_field(THD *thd)
+{
+  if(ref != not_found_item && (*ref)->type() == FIELD_ITEM)
+  {
+    Item_field *item_field = (Item_field*)(*ref);
+    if(MYSQL_TYPE_DOCUMENT == item_field->field->type())
+    {
+      Field_document *doc_field =
+        static_cast<Field_document*>(item_field->result_field);
+      skip_num = 0;
+      if(!alias_name_used)
+        skip_num = doc_field->document_path_prefix(document_path_keys);
+      DBUG_ASSERT(skip_num >= 0);
+      if(skip_num < (int)document_path_keys.elements)
+      {
+        skip_num = doc_field->document_path_prefix(document_path_keys);
+        doc_field = new (thd->mem_root)
+          Field_document_ref(thd->mem_root,
+                             (Item_field**)ref,
+                             document_path_keys,
+                             skip_num);
+        Item_field *new_item_field = new (thd->mem_root)
+          Item_field(doc_field);
+        ref_store = new_item_field;
+        ref = &ref_store;
+        return FALSE;
+      }
+    }
+  }
+  return TRUE;
+}
 
 /**
   Resolve the name of a reference to a column reference.
@@ -8045,7 +7755,7 @@ bool Item_ref::fix_fields_do(THD *thd, Item **reference)
     if (!(ref= resolve_ref_in_select_and_group(thd, this,
                                                context->select_lex)))
       goto error;             /* Some error occurred (e.g. ambiguous names). */
-
+    fix_doc_field(thd);
     if (ref == not_found_item) /* This reference was not resolved. */
     {
       Name_resolution_context *last_checked_context= context;
@@ -8544,6 +8254,20 @@ bool Item_ref::val_bool()
   return tmp;
 }
 
+fbson::FbsonValue *Item_ref::val_root_document_value(String *tmp)
+{
+  DBUG_ASSERT(fixed);
+  fbson::FbsonValue *pval = (*ref)->val_root_document_value(tmp);
+  null_value=(*ref)->null_value;
+  return pval;
+}
+fbson::FbsonValue *Item_ref::val_document_value(String *tmp)
+{
+  DBUG_ASSERT(fixed);
+  fbson::FbsonValue *pval = (*ref)->val_document_value(tmp);
+  null_value=(*ref)->null_value;
+  return pval;
+}
 
 String *Item_ref::val_str(String* tmp)
 {
@@ -8883,7 +8607,7 @@ bool Item_default_value::fix_fields(THD *thd, Item **items)
   def_field->move_field_offset((my_ptrdiff_t)
                                (def_field->table->s->default_values -
                                 def_field->table->record[0]));
-  set_field(def_field);
+  set_field(thd, def_field);
   return FALSE;
 
 error:
@@ -9029,7 +8753,7 @@ bool Item_insert_value::fix_fields(THD *thd, Item **reference)
     def_field->move_field_offset((my_ptrdiff_t)
                                  (def_field->table->insert_values -
                                   def_field->table->record[0]));
-    set_field(def_field);
+    set_field(thd, def_field);
   }
   else
   {
@@ -9174,7 +8898,7 @@ bool Item_trigger_field::fix_fields(THD *thd, Item **items)
 
     field= (row_version == OLD_ROW) ? triggers->old_field[field_idx] :
                                       triggers->new_field[field_idx];
-    set_field(field);
+    set_field(thd, field);
     fixed= 1;
     return FALSE;
   }
@@ -9417,6 +9141,22 @@ int stored_field_cmp_to_item(THD *thd, Field *field, Item *item)
   return 0;
 }
 
+fbson::FbsonValue *Item_cache::val_root_document_value(String *buff)
+{
+  if(example)
+    return example->val_root_document_value(buff);
+  if(cached_field)
+    return cached_field->val_root_document_value(buff, buff);
+  return nullptr;
+}
+fbson::FbsonValue *Item_cache::val_document_value(String *buff)
+{
+  if(example)
+    return example->val_document_value(buff);
+  if(cached_field)
+    return cached_field->val_document_value(buff, buff);
+  return nullptr;
+}
 Item_cache* Item_cache::get_cache(const Item *item)
 {
   return get_cache(item, item->result_type());

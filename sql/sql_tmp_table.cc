@@ -44,7 +44,7 @@ using std::min;
                       the record in the original table.
                       If item == NULL then fill_record() will update
                       the temporary table
-
+  @param from_alias  Whether it's a field referenced in an item with alias.
   @retval
     NULL		on error
   @retval
@@ -53,20 +53,22 @@ using std::min;
 
 Field *create_tmp_field_from_field(THD *thd, Field *org_field,
                                    const char *name, TABLE *table,
-                                   Item_field *item)
+                                   Item_field *item, bool from_alias)
 {
-  Field *new_field;
-
-  new_field= org_field->new_field(thd->mem_root, table,
-                                  table == org_field->table);
+  Field *new_field= org_field->new_field(thd->mem_root, table,
+                                         table == org_field->table,
+                                         from_alias);
   if (new_field)
   {
     new_field->init(table);
     new_field->orig_table= org_field->orig_table;
-    if (item)
-      item->result_field= new_field;
+    if (item){
+      item->set_result_field(new_field);
+    }
     else
+    {
       new_field->field_name= name;
+    }
     new_field->flags|= (org_field->flags & NO_DEFAULT_VALUE_FLAG);
     if (org_field->maybe_null() || (item && item->maybe_null))
       new_field->flags&= ~NOT_NULL_FLAG;	// Because of outer join
@@ -204,37 +206,6 @@ static Field *create_tmp_field_for_schema(THD *thd, Item *item, TABLE *table)
   return item->tmp_table_field_from_field_type(table, 0);
 }
 
-
-/**
-  Create a string field for a document path item.
-
-  @param thd		Thread handler
-  @param table		Temporary table
-  @param item_field	Item to create a field for
-
-  @retval
-    0			on error
-  @retval
-    new_created field
-*/
-
-Field *create_tmp_field_from_document_path(THD *thd, Item_field *item_field,
-                                           TABLE *table)
-{
-  DBUG_ASSERT(item_field->field &&
-              item_field->field->type() == MYSQL_TYPE_DOCUMENT &&
-              item_field->document_path_keys.elements > 0);
-  Field *new_field = nullptr;
-  new_field = item_field->make_string_field_for_document_path_item(table);
-  if (new_field)
-  {
-    new_field->set_derivation(item_field->collation.derivation);
-    item_field->set_result_field(new_field);
-  }
-  return new_field;
-}
-
-
 /**
   Create field for temporary table.
 
@@ -299,32 +270,10 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
       modify_item= 0;
 
     /*
-      Item is a document path and it's group by.
-      Only for group by, the varstring temp field will be created for doc path
-      and string value of the doc path will be stored in it, for anything else,
-      e.g. order by, create_tmp_field_from_field() will be called, so a
-      document temp field will be created for the doc column where the doc path
-      was from, the whole document will be stored in it, in the meantime, the
-      key path of the doc path will be stored in the document temp field so
-      that its value will be retrieved correctly in the future.
-    */
-    if (field->document_path && group)
-    {
-      DBUG_ASSERT(field->field &&
-                  field->field->type() == MYSQL_TYPE_DOCUMENT &&
-                  field->document_path_keys.elements > 0);
-      result= create_tmp_field_from_document_path(thd, field, table);
-      if (!result)
-        break;
-      *from_field= field->field;
-      if (modify_item)
-        field->result_field= result;
-    }
-    /*
       If item have to be able to store NULLs but underlaid field can't do it,
       create_tmp_field_from_field() can't be used for tmp field creation.
     */
-    else if (field->maybe_null && !field->field->maybe_null())
+    if (field->maybe_null && !field->field->maybe_null())
     {
       result= create_tmp_field_from_item(thd, item, table, NULL,
                                          modify_item);
@@ -347,24 +296,16 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
     }
     else
     {
-      result= create_tmp_field_from_field(thd, (*from_field= field->field),
+      result= create_tmp_field_from_field(thd,
+                                          (*from_field= field->field),
                                           orig_item ? orig_item->item_name.ptr() :
                                           item->item_name.ptr(),
                                           table,
                                           modify_item ? field :
-                                          NULL);
+                                          NULL,
+                                          item->alias_was_set);
       if (!result)
         break;
-      if(field->document_path){
-        if(field->alias_was_set) {
-          ((Field_document*)result)->
-            add_documentpath(field->document_path_keys);
-          field->document_path_keys.empty();
-          field->document_path = false;
-        }
-        ((Field_document*)result)->
-          set_document_type(field->document_path_type);
-      }
     }
     if (orig_type == Item::REF_ITEM && orig_modify)
       ((Item_ref*)orig_item)->set_result_field(result);
@@ -398,7 +339,8 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
                                           sp_result_field,
                                           item_func_sp->item_name.ptr(),
                                           table,
-                                          NULL);
+                                          NULL,
+                                          item_func_sp->alias_was_set);
       if (!result)
         break;
       if (modify_item)
@@ -644,7 +586,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
         using_unique_constraint= true;
       /* GROUP BY document path */
       if ((*tmp->item)->type() == Item::FIELD_ITEM &&
-          ((Item_field*)(*tmp->item))->document_path)
+          ((Item_field*)(*tmp->item))->is_document_path())
       {
         using_unique_constraint= false;
       }
@@ -822,7 +764,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
             */
             arg->maybe_null=1;
           }
-          new_field->field_index= fieldnr++;
+      new_field->field_index = fieldnr++;
 	}
       }
     }
@@ -891,7 +833,7 @@ create_tmp_table(THD *thd,TMP_TABLE_PARAM *param,List<Item> &fields,
 	group_null_items++;
 	new_field->flags|= GROUP_FLAG;
       }
-      new_field->field_index= fieldnr++;
+      new_field->field_index = fieldnr++;
       *(reg_field++)= new_field;
     }
 
@@ -1158,19 +1100,6 @@ update_hidden:
       Field *field=(*cur_group->item)->get_tmp_table_field();
       DBUG_ASSERT(field->table == table);
       bool maybe_null=(*cur_group->item)->maybe_null;
-      /*
-        This is a Field_varstring field that was created for a document path
-        in GROUP BY.
-      */
-      if (field->type() == MYSQL_TYPE_DOCUMENT_PATH &&
-          ((Field_varstring*)field)->document_path_keys)
-      {
-        /*
-          This Field_varstring field always can be NULL no matter if the
-          original document column can be NULL or not.
-        */
-        maybe_null = true;
-      }
       key_part_info->init_from_field(field);
       if (!using_unique_constraint)
       {
@@ -1451,7 +1380,7 @@ TABLE *create_duplicate_weedout_tmp_table(THD *thd,
     field->init(table);
     field->orig_table= NULL;
      
-    field->field_index= 0;
+    field->field_index = 0;
     
     *(reg_field++)= field;
     *blob_field= 0;
