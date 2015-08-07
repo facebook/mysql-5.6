@@ -516,7 +516,9 @@ typedef struct st_net {
 
 #define packet_error (~(unsigned long) 0)
 
-enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
+enum enum_field_types {
+  MYSQL_TYPE_UNKNOWN = -1,
+  MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
 			MYSQL_TYPE_SHORT,  MYSQL_TYPE_LONG,
 			MYSQL_TYPE_FLOAT,  MYSQL_TYPE_DOUBLE,
 			MYSQL_TYPE_NULL,   MYSQL_TYPE_TIMESTAMP,

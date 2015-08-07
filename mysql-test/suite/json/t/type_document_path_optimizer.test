@@ -155,6 +155,14 @@ select count(a) from t1 use document keys group by doc1.int having doc1.int > 5;
 explain extended select a from t1 use document keys order by doc1.int;
 select a from t1 use document keys order by doc1.int;
 
+explain extended select a from t1 use document keys order by doc1.int as string;
+select a from t1 use document keys order by doc1.int as string;
+select a from t1 order by doc1.int as string;
+
+explain extended select b from t1 use document keys order by doc1.double as string;
+select c from t1 use document keys order by doc1.double as string;
+select c from t1 order by doc1.double as string;
+
 explain extended select doc1.int from t1 where doc1.int > 5;
 select doc1.int from t1 where doc1.int > 5;
 explain extended select doc1.int from t1 use document keys where doc1.int > 5;

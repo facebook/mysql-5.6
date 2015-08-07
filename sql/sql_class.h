@@ -5226,8 +5226,11 @@ typedef struct st_sort_field {
   Item_result result_type;		/* Type of item */
   bool reverse;				/* if descending sort */
   bool need_strxnfrm;			/* If we have to use strxnfrm() */
-  //bool document_path;                  /* If it is a documen path */
-  //List<Document_key> *document_path_keys;/* The keys for a document path*/
+  /*
+    The type of sort keys can be specified if they are document paths,
+    e.g. ORDER BY doc.a.b.c AS int, in which doc.a.b.c is a document path.
+  */
+  enum_field_types as_type = MYSQL_TYPE_UNKNOWN;
 } SORT_FIELD;
 
 

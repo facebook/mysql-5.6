@@ -1205,6 +1205,7 @@ Item *create_dot_separated_ident(THD *thd, List<One_ident> *ident_list){
   List<One_ident> *dot_ident_list;
   enum Save_in_field_args::FuncType func_type;
   enum Save_in_field_args::CheckType check_type;
+  enum enum_field_types as_type;
 }
 
 %{
@@ -1940,7 +1941,7 @@ bool my_yyoverflow(short **a, YYSTYPE **b, ulong *yystacksize);
         ev_alter_on_schedule_completion opt_ev_rename_to opt_ev_sql_stmt
         trg_action_time trg_event handler_step
 %type <check_type> update_exist_arg
-
+%type <as_type> order_as_type
 /*
   Bit field of MYSQL_START_TRANS_OPT_* flags.
 */
@@ -11935,12 +11936,27 @@ order_clause:
           }
           order_list
         ;
-
+order_as_type:
+          /* empty */
+          {
+            $$ = MYSQL_TYPE_UNKNOWN;
+          }
+        | AS INT_SYM { $$ = MYSQL_TYPE_LONGLONG; }
+        | AS DOUBLE_SYM { $$ = MYSQL_TYPE_DOUBLE; }
+        | AS STRING_SYM { $$ = MYSQL_TYPE_STRING; }
 order_list:
-          order_list ',' order_ident order_dir
-          { if (add_order_to_list(YYTHD, $3,(bool) $4)) MYSQL_YYABORT; }
-        | order_ident order_dir
-          { if (add_order_to_list(YYTHD, $1,(bool) $2)) MYSQL_YYABORT; }
+          order_list ',' order_ident order_as_type order_dir
+          {
+            if($3)
+              $3->order_by_as_type = $4;
+            if (add_order_to_list(YYTHD, $3,(bool) $5)) MYSQL_YYABORT;
+          }
+        | order_ident order_as_type order_dir
+          {
+            if($1)
+              $1->order_by_as_type = $2;
+            if (add_order_to_list(YYTHD, $1,(bool) $3)) MYSQL_YYABORT;
+          }
         ;
 
 order_dir:
