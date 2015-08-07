@@ -1466,6 +1466,13 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
     i++;
   }
 
+  // index ids used by applications should not conflict with
+  // data dictionary index ids
+  if (max_index_id_in_dict < RDBSE_KEYDEF::END_DICT_INDEX_ID)
+  {
+    max_index_id_in_dict = RDBSE_KEYDEF::END_DICT_INDEX_ID;
+  }
+
   sequence.init(max_index_id_in_dict+1);
 
   if (!it->status().ok())
