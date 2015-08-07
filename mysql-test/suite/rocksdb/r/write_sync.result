@@ -1,5 +1,4 @@
 SET GLOBAL rocksdb_write_disable_wal=false;
-SET GLOBAL rocksdb_write_timeout_hint_us=555;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=true;
 create table aaa (id int primary key, i int) engine rocksdb;
 select variable_value into @a from information_schema.global_status where variable_name='rocksdb_wal_synced';
@@ -43,12 +42,9 @@ insert aaa(id, i) values(9,1);
 select variable_value-@a from information_schema.global_status where variable_name='rocksdb_wal_synced';
 variable_value-@a
 3
-SET LOCAL rocksdb_write_timeout_hint_us=333;
 truncate table aaa;
-SET LOCAL rocksdb_write_timeout_hint_us=444;
 drop table aaa;
 SET GLOBAL rocksdb_write_sync=off;
 SET GLOBAL rocksdb_write_disable_wal=false;
-SET GLOBAL rocksdb_write_timeout_hint_us=0;
 SET GLOBAL rocksdb_write_ignore_missing_column_families=false;
 SET GLOBAL rocksdb_background_sync=off;
