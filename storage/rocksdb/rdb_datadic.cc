@@ -1377,7 +1377,6 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
   {
     const char *ptr;
     const char *ptr_end;
-    RDBSE_TABLE_DEF *tdef= new RDBSE_TABLE_DEF;
     rocksdb::Slice key= it->key();
     rocksdb::Slice val= it->value();
 
@@ -1392,6 +1391,7 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
       return true;
     }
 
+    RDBSE_TABLE_DEF *tdef= new RDBSE_TABLE_DEF;
     tdef->dbname_tablename.append(key.data() + RDBSE_KEYDEF::INDEX_NUMBER_SIZE,
                                   key.size() - RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
