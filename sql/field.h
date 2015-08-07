@@ -1136,6 +1136,16 @@ public:
     @param length Number of bytes to write.
   */
   virtual void make_sort_key(uchar *buff, uint length) = 0;
+
+  /*
+    Make sort key as a given type, this is for document path only, e.g.
+    ORDER BY doc.a.b.c AS int, in which doc.a.b.c is a document path.
+  */
+  virtual void make_sort_key_as_type(uchar *buff, uint length,
+                                     enum_field_types as_type)
+  {
+    DBUG_ASSERT(0);
+  }
   virtual bool optimize_range(uint idx, uint part);
   /*
     This should be true for fields which, when compared with constant
@@ -3979,6 +3989,9 @@ public:
   fbson::FbsonValue *val_root_document_value(String*, String*);
   String *val_doc(String*, String*);
   void make_sort_key(uchar *buff, uint length);
+  void make_sort_key_as_type(uchar *buff,
+                             uint length,
+                             enum_field_types as_type);
   bool eq(Field *field);
   type_conversion_status reset(void);
 
