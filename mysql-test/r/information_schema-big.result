@@ -18,7 +18,8 @@ c2.table_name = t.table_name AND
 c2.column_name LIKE '%SCHEMA%'
         )
 AND t.table_name NOT LIKE 'ndb%'
-  AND t.table_name NOT LIKE 'innodb%';
+  AND t.table_name NOT LIKE 'innodb%'
+  AND t.table_name NOT LIKE 'rocksdb%';
 table_name	column_name
 CHARACTER_SETS	CHARACTER_SET_NAME
 COLLATIONS	COLLATION_NAME
@@ -73,7 +74,8 @@ c2.table_name = t.table_name AND
 c2.column_name LIKE '%SCHEMA%'
         )
 AND t.table_name NOT LIKE 'ndb%'
-  AND t.table_name NOT LIKE 'innodb%';
+  AND t.table_name NOT LIKE 'innodb%'
+  AND t.table_name NOT LIKE 'rocksdb%';
 table_name	column_name
 CHARACTER_SETS	CHARACTER_SET_NAME
 COLLATIONS	COLLATION_NAME
