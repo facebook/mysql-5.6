@@ -712,6 +712,7 @@ Item::Item():
 Item::Item(THD *thd, Item *item):
   is_expensive_cache(-1),
   rsize(0),
+  order_by_as_type(item->order_by_as_type),
   str_value(item->str_value),
   item_name(item->item_name),
   orig_name(item->orig_name),
@@ -2992,6 +2993,11 @@ void Item_field::set_field(THD *thd, Field *field_par)
 }
 void Item_field::do_set_field(Field *field_par)
 {
+  // order by as type is only supported for document type
+  if(field_par->type() != MYSQL_TYPE_DOCUMENT &&
+     MYSQL_TYPE_UNKNOWN != order_by_as_type)
+    my_error(ER_ORDERBY_AS_TYPE_NOT_SUPPORTED, MYF(0));
+
   field=result_field=field_par;			// for easy coding with fields
   maybe_null=field->maybe_null();
   decimals= field->decimals();

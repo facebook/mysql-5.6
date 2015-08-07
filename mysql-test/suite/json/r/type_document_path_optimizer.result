@@ -401,6 +401,72 @@ a
 10
 11
 12
+explain extended select a from t1 use document keys order by doc1.int as string;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	index	NULL	doc1_int	9	NULL	12	100.00	Using index; Using temporary; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`a` AS `a` from `test`.`t1` USE DOCUMENT INDEXES order by `test`.`t1`.`doc1`.`int`
+select a from t1 use document keys order by doc1.int as string;
+a
+1
+10
+11
+12
+2
+3
+4
+5
+6
+7
+8
+9
+select a from t1 order by doc1.int as string;
+a
+1
+10
+11
+12
+2
+3
+4
+5
+6
+7
+8
+9
+explain extended select b from t1 use document keys order by doc1.double as string;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using temporary; Using filesort
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`b` AS `b` from `test`.`t1` USE DOCUMENT INDEXES order by `test`.`t1`.`doc1`.`double`
+select c from t1 use document keys order by doc1.double as string;
+c
+1.1
+10.1
+11.11
+12.12
+2.2
+3.3
+4.4
+5.5
+6.6
+7.7
+8.8
+9.9
+select c from t1 order by doc1.double as string;
+c
+1.1
+10.1
+11.11
+12.12
+2.2
+3.3
+4.4
+5.5
+6.6
+7.7
+8.8
+9.9
 explain extended select doc1.int from t1 where doc1.int > 5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
