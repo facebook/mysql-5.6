@@ -10,7 +10,7 @@ insert into t3 values (2);
 
 Default options for all column families:
 
-Options.db_write_buffer_size: 0
+Options.db_write_buffer_size: 0d
 Options for column family [default]:
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
@@ -34,7 +34,7 @@ Options.max_bytes_for_level_multiplier: 10
 
 Individualized options for column families:
 
-Options.db_write_buffer_size: 0
+Options.db_write_buffer_size: 0d
 Options for column family [default]:
 Options.write_buffer_size: 12582912
 Options.target_file_size_base: 1048576
