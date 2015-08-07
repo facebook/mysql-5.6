@@ -7191,6 +7191,9 @@ ER_BLOCK_MEMORY_TABLES
 WARN_DOCUMENT_PATH_KEY_TRUNCATED
   eng "Data truncated for document path key '%s'"
 
+ER_ORDERBY_AS_TYPE_NOT_SUPPORTED
+  eng "Order by as type is not supported for non-document type."
+
 #
 #  End of 5.6 error messages.
 #
