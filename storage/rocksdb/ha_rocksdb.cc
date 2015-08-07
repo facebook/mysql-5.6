@@ -614,12 +614,6 @@ static MYSQL_THDVAR_BOOL(write_disable_wal,
   "WriteOptions::disableWAL for RocksDB",
   NULL, NULL, rocksdb::WriteOptions().disableWAL);
 
-static MYSQL_THDVAR_ULONG(write_timeout_hint_us,
-  PLUGIN_VAR_RQCMDARG,
-  "WriteOptions::timeout_hint_us for RocksDB",
-  NULL, NULL, rocksdb::WriteOptions().timeout_hint_us,
-  /* min */ 0L, /* max */ LONG_MAX, 0);
-
 static MYSQL_THDVAR_BOOL(write_ignore_missing_column_families,
   PLUGIN_VAR_RQCMDARG,
   "WriteOptions::ignore_missing_column_families for RocksDB",
@@ -787,7 +781,6 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(write_sync),
   MYSQL_SYSVAR(write_disable_wal),
-  MYSQL_SYSVAR(write_timeout_hint_us),
   MYSQL_SYSVAR(write_ignore_missing_column_families),
 
   MYSQL_SYSVAR(skip_fill_cache),
@@ -820,7 +813,6 @@ rocksdb::WriteOptions get_write_options(THD* thd)
 
   opt.sync = THDVAR(thd, write_sync);
   opt.disableWAL = THDVAR(thd, write_disable_wal);
-  opt.timeout_hint_us = THDVAR(thd, write_timeout_hint_us);
   opt.ignore_missing_column_families =
     THDVAR(thd, write_ignore_missing_column_families);
   return opt;
