@@ -555,6 +555,7 @@ uint Filesort::make_sortorder()
     }
     else
       pos->item= item;
+    pos->as_type = item->order_by_as_type;
     pos->reverse= (ord->direction == ORDER::ORDER_DESC);
     DBUG_ASSERT(pos->field != NULL || pos->item != NULL);
   }
@@ -993,8 +994,16 @@ void make_sortkey(Sort_param *param, uchar *to, uchar *ref_pos)
 	else
 	  *to++=1;
       }
-
-      field->make_sort_key(to, sort_field->length);
+      /* The type of sort key only can be specified for document type */
+      if(MYSQL_TYPE_UNKNOWN != sort_field->as_type)
+      {
+        DBUG_ASSERT(field->type() == MYSQL_TYPE_DOCUMENT);
+        field->make_sort_key_as_type(to,
+                                     sort_field->length,
+                                     sort_field->as_type);
+      }
+      else
+        field->make_sort_key(to, sort_field->length);
     }
     else
     {						// Item
