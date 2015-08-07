@@ -1124,8 +1124,6 @@ The following options may be given as the first argument:
  WriteOptions::ignore_missing_column_families for RocksDB
  --rocksdb-write-sync 
  WriteOptions::sync for RocksDB
- --rocksdb-write-timeout-hint-us=# 
- WriteOptions::timeout_hint_us for RocksDB
  --rpl-event-buffer-size=# 
  The size of the preallocated event buffer for slave
  connections that avoids calls to malloc & free for events
@@ -1729,7 +1727,6 @@ rocksdb-whole-key-filtering TRUE
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE
 rocksdb-write-sync FALSE
-rocksdb-write-timeout-hint-us 0
 rpl-event-buffer-size 1048576
 rpl-read-size 8192
 rpl-receive-buffer-size 2097152
