@@ -720,7 +720,7 @@ public:
 
   /* Reuse size, only used by SP local variable assignment, otherwize 0 */
   uint rsize;
-
+  enum enum_field_types order_by_as_type = MYSQL_TYPE_UNKNOWN;
   /*
     str_values's main purpose is to be used to cache the value in
     save_in_field

@@ -9518,27 +9518,50 @@ my_decimal *Field_document::val_decimal(my_decimal *dec){
   return dec;
 }
 
-void Field_document::make_sort_key(uchar *buff, uint length){
+void Field_document::make_sort_key_as_type(uchar *buff,
+                                           uint length,
+                                           enum_field_types as_type)
+{
   DBUG_ASSERT(buff && length > 0);
   memset(buff, 0, length);
-
-  switch(doc_type)
+  enum_field_types to_type = MYSQL_TYPE_DOCUMENT;
+  if(MYSQL_TYPE_UNKNOWN == as_type)
   {
-    case DOC_PATH_TINY:
-    case DOC_PATH_INT:
+    switch(doc_type)
+    {
+      case DOC_PATH_TINY:
+      case DOC_PATH_INT:
+        to_type = MYSQL_TYPE_LONGLONG;
+        break;
+      case DOC_PATH_DOUBLE:
+        to_type = MYSQL_TYPE_DOUBLE;
+        break;
+      case DOC_PATH_STRING:
+        to_type = MYSQL_TYPE_STRING;
+        break;
+      default:
+        to_type = MYSQL_TYPE_DOCUMENT;
+    }
+  }else
+  {
+    to_type = (enum_field_types)as_type;
+  }
+
+  switch(to_type)
+  {
+    case MYSQL_TYPE_LONGLONG:
     {
       longlong val = val_int();
       memcpy(buff, &val, sizeof(val));
       break;
     }
-    case DOC_PATH_DOUBLE:
+    case MYSQL_TYPE_DOUBLE:
     {
       double val = val_real();
       change_double_for_sort(val, buff);
       break;
     }
-    case DOC_DOCUMENT:
-    case DOC_PATH_STRING:
+    default:
     {
       String str_buffer;
       String *res = nullptr;
@@ -9550,9 +9573,12 @@ void Field_document::make_sort_key(uchar *buff, uint length){
       }
       break;
     }
-    default:
-      break;
   }
+}
+
+
+void Field_document::make_sort_key(uchar *buff, uint length){
+  return make_sort_key_as_type(buff, length, MYSQL_TYPE_UNKNOWN);
 }
 
 String *Field_document::val_str(String *val_buffer,
@@ -11339,6 +11365,9 @@ bool Create_field::init(THD *thd, const char *fld_name,
     max_field_charlength= MAX_FIELD_VARCHARLENGTH;
     break;
   case MYSQL_TYPE_STRING:
+    break;
+  case MYSQL_TYPE_UNKNOWN:
+    DBUG_ASSERT(0);
     break;
   case MYSQL_TYPE_DOCUMENT_PATH:
     DBUG_ASSERT(0);
