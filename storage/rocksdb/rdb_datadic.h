@@ -339,6 +339,7 @@ public:
     DDL_DROP_INDEX_ONGOING= 5,
     INDEX_STATISTICS= 6,
     MAX_INDEX_ID= 7,
+    END_DICT_INDEX_ID=255,
   };
 
   enum {
