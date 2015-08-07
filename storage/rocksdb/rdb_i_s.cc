@@ -358,9 +358,6 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
       {"COMPACTION_FILTER_FACTORY",
           opts.compaction_filter_factory == nullptr ? "NULL" :
           std::string(opts.compaction_filter_factory->Name())},
-      {"COMPACTION_FILTER_FACTORY_V2",
-          opts.compaction_filter_factory_v2 == nullptr ? "NULL" :
-          std::string(opts.compaction_filter_factory_v2->Name())},
       {"WRITE_BUFFER_SIZE", std::to_string(opts.write_buffer_size)},
       {"MAX_WRITE_BUFFER_NUMBER", std::to_string(opts.max_write_buffer_number)},
       {"MIN_WRITE_BUFFER_NUMBER_TO_MERGE",
