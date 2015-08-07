@@ -8,7 +8,7 @@ connection master;
 
 --disable_warnings
 drop view if exists v1;
-drop table if exists t1, t2, t3, t4, t5, t6, t7;
+drop table if exists t1, t2, t3, t4, t5, t6, t7, t8;
 --enable_warnings
 
 SET @start_allow_document_type = @@global.allow_document_type;
@@ -672,6 +672,55 @@ select doc.id, a from t3 order by test.t3.doc.id, a;
 select test.t3.doc.id, a from t3 order by t3.doc.id desc, a;
 select test.t3.doc.id, a from t3 where a = 4;
 
+### Using hint
+CREATE TABLE t8 (
+       a int not null,
+       b char (10) not null,
+       doc document not null) engine=innodb;
+
+insert into t8 values(1, '1', '{"int":1, "int_str":"1", "double":1.1, "double_str":"1.1"}');
+insert into t8 values(2, '2', '{"int":2, "int_str":"2", "double":2.2, "double_str":"2.2"}');
+insert into t8 values(3, '3', '{"int":3, "int_str":"3", "double":3.3, "double_str":"3.3"}');
+insert into t8 values(4, '4', '{"int":4, "int_str":"4", "double":4.4, "double_str":"4.4"}');
+insert into t8 values(5, '5', '{"int":5, "int_str":"5", "double":5.5, "double_str":"5.5"}');
+insert into t8 values(6, '6', '{"int":6, "int_str":"6", "double":6.6, "double_str":"6.6"}');
+insert into t8 values(7, '7', '{"int":7, "int_str":"7", "double":7.7, "double_str":"7.7"}');
+insert into t8 values(8, '8', '{"int":8, "int_str":"8", "double":8.8, "double_str":"8.8"}');
+insert into t8 values(9, '9', '{"int":9, "int_str":"9", "double":9.9, "double_str":"9.9"}');
+insert into t8 values(10, '10', '{"int":10, "int_str":"10", "double":10.1, "double_str":"10.1"}');
+insert into t8 values(11, '11', '{"int":11, "int_str":"11", "double":11.11, "double_str":"11.11"}');
+insert into t8 values(12, '12', '{"int":12, "int_str":"12", "double":12.12, "double_str":"12.12"}');
+insert into t8 values(13, '13', '{"int":13, "int_str":"13", "double":13.13, "double_str":"13.13"}');
+
+select * from t8 order by t8.doc.int;
+select * from t8 order by t8.doc.int as string;
+select * from t8 order by t8.doc.int as int;
+select * from t8 order by t8.doc.int as double;
+
+select * from t8 order by t8.doc.int_str;
+select * from t8 order by t8.doc.int_str as string;
+select * from t8 order by t8.doc.int_str as int;
+select * from t8 order by t8.doc.int_str as double;
+
+select * from t8 order by t8.doc.double;
+select * from t8 order by t8.doc.double as string;
+select * from t8 order by t8.doc.double as int;
+select * from t8 order by t8.doc.double as double;
+
+select * from t8 order by t8.doc.double_str;
+select * from t8 order by t8.doc.double_str as string;
+select * from t8 order by t8.doc.double_str as int;
+select * from t8 order by t8.doc.double_str as double;
+
+--error ER_ORDERBY_AS_TYPE_NOT_SUPPORTED
+select * from t8 order by t8.a as string;
+
+truncate table t8;
+insert into t8 values(1, '1', '{"int":3, "int_str":"3", "double":1.1, "double_str":"1.1"}');
+insert into t8 values(2, '2', '{"int":2, "int_str":"2", "double":1.2, "double_str":"2.2"}');
+insert into t8 values(3, '3', '{"int":3, "int_str":"3", "double":3.3, "double_str":"3.3"}');
+select * from t8 order by t8.doc.double as int, t8.doc.int_str as int;
+drop table t8;
 ### without NULL values
 
 ### document path is the only SELECT time
