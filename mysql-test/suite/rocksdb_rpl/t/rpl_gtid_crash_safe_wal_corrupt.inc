@@ -87,10 +87,59 @@ select @@global.gtid_executed;
 -- replace_result $uuid uuid
 select * from mysql.slave_gtid_info;
 
+connection master;
+insert into x values (7,1,1);
+insert into x values (8,1,1);
+insert into x values (9,1,1);
+insert into x values (10,1,1);
+insert into x values (11,1,1);
+insert into x values (12,1,1);
+select * from x;
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+sync_slave_with_master;
+
+connection slave;
+
+# Corrupting WAL. MyRocks does point in time recovery with wal_recovery_mode=2.
+# It loses some data but can resync after restarting slave.
+
+--write_file $MYSQL_TMP_DIR/corrupt_wal.sh
+#!/bin/bash
+
+F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
+SIZE=`stat -c %s $F`
+OFFSET=$(( $SIZE/2 ))
+dd bs=1 if=/dev/zero of=$F count=100 seek=$OFFSET conv=notrunc
+
+kill -9 `head -1 $slave_pid_file`
+
+exit 0
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/corrupt_wal.sh
+--exec $MYSQL_TMP_DIR/corrupt_wal.sh
+
+--let $rpl_skip_start_slave= 1
+--source include/rpl_start_server.inc
+--disable_query_log
+select "--- slave state after crash recovery, slave stop, WAL was corrupted, point in time recovery with wal_recovery_mode=2 ---" as "";
+--enable_query_log
+select * from x;
+--source include/start_slave.inc
+connection master;
+sync_slave_with_master;
+connection slave;
+select * from x;
+-- replace_result $uuid uuid
+select @@global.gtid_executed;
+-- replace_result $uuid uuid
+select * from mysql.slave_gtid_info;
 
 connection master;
 drop table x;
 
+
 --remove_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+--remove_file $MYSQL_TMP_DIR/corrupt_wal.sh
 --source include/rpl_end.inc
 
