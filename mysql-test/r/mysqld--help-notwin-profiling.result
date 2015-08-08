@@ -1117,6 +1117,8 @@ The following options may be given as the first argument:
  DBOptions::wal_bytes_per_sync for RocksDB
  --rocksdb-wal-dir=name 
  DBOptions::wal_dir for RocksDB
+ --rocksdb-wal-recovery-mode=# 
+ DBOptions::wal_recovery_mode for RocksDB
  --rocksdb-whole-key-filtering 
  BlockBasedTableOptions::whole_key_filtering for RocksDB
  (Defaults to on; use --skip-rocksdb-whole-key-filtering to disable.)
@@ -1726,6 +1728,7 @@ rocksdb-use-fsync FALSE
 rocksdb-verify-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 
+rocksdb-wal-recovery-mode 2
 rocksdb-whole-key-filtering TRUE
 rocksdb-write-disable-wal FALSE
 rocksdb-write-ignore-missing-column-families FALSE

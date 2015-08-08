@@ -235,6 +235,7 @@ static char rocksdb_background_sync;
 static uint32_t rocksdb_debug_optimizer_n_rows;
 static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
+static uint32_t rocksdb_wal_recovery_mode;
 static char * compact_cf_name;
 static char * snapshot_dir_name;
 static my_bool rocksdb_signal_drop_index_thread;
@@ -344,6 +345,12 @@ static MYSQL_SYSVAR_UINT(perf_context_level,
   NULL, NULL, rocksdb::kEnableCount,
   /* min */ 0L, /* max */ UINT_MAX, 0);
 
+static MYSQL_SYSVAR_UINT(wal_recovery_mode,
+  rocksdb_wal_recovery_mode,
+  PLUGIN_VAR_RQCMDARG,
+  "DBOptions::wal_recovery_mode for RocksDB",
+  NULL, NULL, 2,
+  /* min */ 0L, /* max */ 3, 0);
 
 static MYSQL_SYSVAR_INT(max_open_files,
   db_options.max_open_files,
@@ -763,6 +770,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(wal_bytes_per_sync),
   MYSQL_SYSVAR(enable_thread_tracking),
   MYSQL_SYSVAR(perf_context_level),
+  MYSQL_SYSVAR(wal_recovery_mode),
 
   MYSQL_SYSVAR(block_cache_size),
   MYSQL_SYSVAR(cache_index_and_filter_blocks),
@@ -1615,6 +1623,9 @@ static int rocksdb_init_func(void *p)
   }
   db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
   db_options.wal_dir = rocksdb_wal_dir;
+
+  db_options.wal_recovery_mode=
+    static_cast<rocksdb::WALRecoveryMode>(rocksdb_wal_recovery_mode);
 
   status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_db_name,
                                           &cf_names);
