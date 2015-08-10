@@ -79,3 +79,4 @@ Id	Database_name	Last_gtid
 1	test	uuid:8
 drop table x;
 include/rpl_end.inc
+Binlog Info Found
