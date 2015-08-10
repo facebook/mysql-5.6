@@ -8,6 +8,9 @@ create table t1 (a int) engine = innodb;
 insert into t1 values (1), (2);
 begin;
 select * from t1 for update;
+a
+1
+2
 
 # connection default
 set session long_query_time = 30;
@@ -22,12 +25,12 @@ select @@long_query_time, @@innodb_lock_wait_timeout;
 # Check the slow log result. We shouldn't find any query
 
 # connection 1
-a
-1
-2
 rollback;
 begin;
 select * from t1 for update;
+a
+1
+2
 
 # connection default
 set session long_query_time = 5;
