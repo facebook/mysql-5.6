@@ -1,3 +1,4 @@
+call mtr.add_suppression("Recovery from master pos");
 include/master-slave.inc
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
@@ -79,3 +80,4 @@ Id	Database_name	Last_gtid
 1	test	uuid:8
 drop table x;
 include/rpl_end.inc
+Binlog Info Found
