@@ -35,7 +35,7 @@ select * from mysql.slave_gtid_info;
 --write_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
 #!/bin/bash
 
-F=`ls -t $slave_data_dir/rocksdb/*.log | head -n 1`
+F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
 SIZE=`stat -c %s $F`
 NEW_SIZE=`expr $SIZE - 10`
 truncate -s $NEW_SIZE $F

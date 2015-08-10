@@ -2,7 +2,7 @@
 --source include/have_binlog_format_row.inc
 
 --connection master
-create table t1(a int);
+create table t1(a int primary key);
 
 FLUSH LOGS;
 
