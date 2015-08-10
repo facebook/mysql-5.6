@@ -5956,7 +5956,9 @@ longlong Item_func_subdoc::val_int()
       {
         if (!is_document_type_or_value(args[i]))
           return false;
-        fbson::FbsonValue *val = (fbson::FbsonValue*) args[i]->val_fbson_blob();
+        String buf;
+        fbson::FbsonValue *val =
+          (fbson::FbsonValue*) args[i]->val_document_value(&buf);
         if (!val || !val->isObject())
           return false;
       }
