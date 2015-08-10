@@ -24,7 +24,7 @@ create table t1 (a int) engine = innodb;
 insert into t1 values (1), (2);
 
 begin;
-send select * from t1 for update;
+select * from t1 for update;
 
 --echo
 --echo # connection default
@@ -33,7 +33,7 @@ set session long_query_time = 30;
 
 --echo
 --echo # Query will timeout but should not be logged in the slow log
---error 1205
+--error ER_LOCK_WAIT_TIMEOUT
 select * from t1 for update;
 
 select @@long_query_time, @@innodb_lock_wait_timeout;
@@ -64,11 +64,10 @@ EOF
 --echo
 --echo # connection 1
 connection conn1;
-reap;
 rollback;
 
 begin;
-send select * from t1 for update;
+select * from t1 for update;
 
 --echo
 --echo # connection default
@@ -77,7 +76,7 @@ set session long_query_time = 5;
 
 --echo
 --echo # Query will timeout and be logged in the slow log
---error 1205
+--error ER_LOCK_WAIT_TIMEOUT
 select * from t1 for update;
 
 select @@long_query_time, @@innodb_lock_wait_timeout;
