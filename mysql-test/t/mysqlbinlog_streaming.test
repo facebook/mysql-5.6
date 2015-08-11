@@ -68,7 +68,6 @@ EOF
 --exec $MYSQL_TMP_DIR/mbl_timeout.sh
 
 # zombie binlog dump keeps running because no heartbeat/update is running
-SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
 --disable_query_log
 if ($ID) {
@@ -111,7 +110,6 @@ EOF
 
 set @@global.max_connections=@save_max_connections;
 # zombie binlog dump keeps running because no heartbeat/update is running
-SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
 let $ID= `select id from information_schema.processlist where command like '%binlog dump%'`;
 --disable_query_log
 if ($ID) {
