@@ -817,7 +817,6 @@ can_convert_field_to(Field *field,
 
   case MYSQL_TYPE_GEOMETRY:
   case MYSQL_TYPE_DOCUMENT:
-  case MYSQL_TYPE_DOCUMENT_PATH:
   case MYSQL_TYPE_DOCUMENT_VALUE:
   case MYSQL_TYPE_TIMESTAMP:
   case MYSQL_TYPE_DATE:
@@ -831,7 +830,7 @@ can_convert_field_to(Field *field,
   case MYSQL_TYPE_TIMESTAMP2:
   case MYSQL_TYPE_DATETIME2:
   case MYSQL_TYPE_TIME2:
-  case MYSQL_TYPE_UNKNOWN:
+  case MYSQL_TYPE_DOCUMENT_UNKNOWN:
     DBUG_RETURN(false);
   }
   DBUG_RETURN(false);                                 // To keep GCC happy

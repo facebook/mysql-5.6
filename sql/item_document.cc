@@ -44,11 +44,13 @@ type_conversion_status Item_func_document::save_in_field(Field *field,
                                                          bool no_conversions){
   fbson::FbsonDocument *doc =
     fbson::FbsonDocument::createDocument(fbson_blob, length);
-  if(TYPE_OK !=
-     field->store_document_value(doc->getValue(),collation.collation)){
-    return Item::save_in_field(field, no_conversions);
+  if (field->type() == MYSQL_TYPE_DOCUMENT) {
+    /* A DOCUMENT() literal is never null */
+    field->set_notnull();
+    return field->store_document_value(doc->getValue(), collation.collation);
   }
-  return TYPE_OK;
+  else
+    return Item::save_in_field(field, no_conversions);
 }
 
 double Item_func_document::val_real()
