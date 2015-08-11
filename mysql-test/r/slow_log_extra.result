@@ -71,6 +71,7 @@ i
 8
 set global long_query_time = @my_long_query_time;
 set global slow_query_log_file = @my_slow_logname;
+flush status;
 #
 # This is a hack to check the log result.
 # We strip off time related fields (non-deterministic) and verify the rest are correct.
