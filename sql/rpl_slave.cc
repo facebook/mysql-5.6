@@ -2994,15 +2994,16 @@ bool show_slave_status(THD* thd, Master_info* mi)
 
     /*
       slave_running can be accessed without run_lock but not other
-      non-volotile members like mi->info_thd, which is guarded by the mutex.
+      non-volotile members like mi->info_thd or rli->info_thd, for
+      them either info_thd_lock or run_lock hold is required.
     */
-    mysql_mutex_lock(&mi->run_lock);
+    mysql_mutex_lock(&mi->info_thd_lock);
     protocol->store(mi->info_thd ? mi->info_thd->get_proc_info() : "", &my_charset_bin);
-    mysql_mutex_unlock(&mi->run_lock);
+    mysql_mutex_unlock(&mi->info_thd_lock);
 
-    mysql_mutex_lock(&mi->rli->run_lock);
+    mysql_mutex_lock(&mi->rli->info_thd_lock);
     slave_sql_running_state= const_cast<char *>(mi->rli->info_thd ? mi->rli->info_thd->get_proc_info() : "");
-    mysql_mutex_unlock(&mi->rli->run_lock);
+    mysql_mutex_unlock(&mi->rli->info_thd_lock);
 
     mysql_mutex_lock(&mi->data_lock);
     mysql_mutex_lock(&mi->rli->data_lock);
@@ -4675,7 +4676,9 @@ pthread_handler_t handle_slave_io(void *arg)
 
   thd= new THD; // note that contructor of THD uses DBUG_ !
   THD_CHECK_SENTRY(thd);
+  mysql_mutex_lock(&mi->info_thd_lock);
   mi->info_thd = thd;
+  mysql_mutex_unlock(&mi->info_thd_lock);
 
   pthread_detach_this_thread();
   thd->thread_stack= (char*) &thd; // remember where our stack is
@@ -5056,7 +5059,9 @@ err:
 
   mi->abort_slave= 0;
   mi->slave_running= 0;
+  mysql_mutex_lock(&mi->info_thd_lock);
   mi->info_thd= 0;
+  mysql_mutex_unlock(&mi->info_thd_lock);
   /*
     Note: the order of the two following calls (first broadcast, then unlock)
     is important. Otherwise a killer_thread can execute between the calls and
@@ -5147,8 +5152,10 @@ pthread_handler_t handle_slave_worker(void *arg)
     sql_print_error("Failed during slave worker initialization");
     goto err;
   }
+  mysql_mutex_lock(&w->info_thd_lock);
   w->info_thd= thd;
   thd->thread_stack = (char*)&thd;
+  mysql_mutex_unlock(&w->info_thd_lock);
   
   pthread_detach_this_thread();
   if (init_slave_thread(thd, SLAVE_THD_WORKER))
@@ -6053,7 +6060,9 @@ pthread_handler_t handle_slave_sql(void *arg)
   thd = new THD_SQL_slave(proc_info_buf, sizeof(proc_info_buf));
 
   thd->thread_stack = (char*)&thd; // remember where our stack is
+  mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd= thd;
+  mysql_mutex_unlock(&rli->info_thd_lock);
 
   /* Inform waiting threads that slave has started */
   rli->slave_run_id++;
@@ -6400,7 +6409,9 @@ llstr(rli->get_group_master_log_pos(), llbuff));
   net_end(&thd->net); // destructor will not free it, because we are weird
   DBUG_ASSERT(rli->info_thd == thd);
   THD_CHECK_SENTRY(thd);
+  mysql_mutex_lock(&rli->info_thd_lock);
   rli->info_thd= 0;
+  mysql_mutex_unlock(&rli->info_thd_lock);
   set_thd_in_use_temporary_tables(rli);  // (re)set info_thd in use for saved temp tables
 
   thd->release_resources();
