@@ -61,6 +61,11 @@ delimiter ;||||
 connection default;
 set global long_query_time = @my_long_query_time;
 set global slow_query_log_file = @my_slow_logname;
+
+connection con;
+flush status;
+
+connection default;
 disconnect con;
 
 --echo #
