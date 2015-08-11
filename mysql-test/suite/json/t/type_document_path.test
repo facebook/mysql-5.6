@@ -2011,34 +2011,138 @@ insert into t6 values (4,'@4','{ "id":104, "name":"Don II", "phone":6507770004, 
 (select doc2 as doc3 from t2) UNION DISTINCT (select doc from t6) ORDER BY doc3 LIMIT 4 ;
 (select doc2 as doc3 from t2) UNION ALL (select doc from t6) ORDER BY doc3 LIMIT 4;
 
-# Test union with doc path
-# Currently, Document path will be converted to STRING type for the type conversion in
-# merge. So just think it in the way of dealing String type.
+# Test union between doc path and string (expect de-duplication)
+# The order union'ed results are in order of left to right, and de-duplication always
+# occurs on the later occurrence of elements so expect 'Alex' to be de-duped in different places.
+(select doc.name from t1) UNION (select 'Alex');
+(select 'Alex') UNION (select doc.name from t1);
 
-(select doc.id from t1) UNION (select 'foo');
-(select doc.id from t1) UNION DISTINCT (select 'foo');
-(select doc.id from t1) UNION ALL (select 'foo');
+(select doc.name from t1) UNION DISTINCT (select 'Alex');
+(select 'Alex') UNION DISTINCT (select doc.name from t1);
 
-# Test union between doc path
+(select doc.name from t1) UNION ALL (select 'Alex');
+(select 'Alex') UNION ALL (select doc.name from t1);
+
+# Test union with doc path and DOCUMENT() values with duplicates (expect dedup from UNION [DISTINCT])
+# Expect '{"zipcode":98766}' to be de-duped at different places depending on order of UNION
+(select doc.address from t1) UNION (select DOCUMENT('{"zipcode":98766}'));
+(select DOCUMENT('{"zipcode":98766}')) UNION (select doc.address from t1);
+
+(select doc.address from t1) UNION DISTINCT (select DOCUMENT('{"zipcode":98766}'));
+(select DOCUMENT('{"zipcode":98766}')) UNION DISTINCT (select doc.address from t1);
+
+(select doc.address from t1) UNION ALL (select DOCUMENT('{"zipcode":98766}'));
+(select DOCUMENT('{"zipcode":98766}')) UNION ALL (select doc.address from t1);
+
+# Test union with doc path and integer (expect dedup)
+# Expect 101 to be de-duped at different places depending on order of UNION
+(select doc.id from t1) UNION (select 101);
+(select 101) UNION (select doc.id from t1);
+
+(select doc.id from t1) UNION DISTINCT (select 101);
+(select 101) UNION DISTINCT (select doc.id from t1);
+
+(select doc.id from t1) UNION ALL (select 101);
+(select 101) UNION ALL (select doc.id from t1);
+
+# Test union with doc path and double (expect dedup)
+# Expect 3.94065645841246 to be de-duped at different place depending on order of UNION
+(select doc.double from t1) UNION (select 3.94065645841246);
+(select 3.94065645841246) UNION (select doc.double from t1);
+
+(select doc.double from t1) UNION DISTINCT (select 3.94065645841246);
+(select 3.94065645841246) UNION DISTINCT (select doc.double from t1);
+
+(select doc.double from t1) UNION ALL (select 3.94065645841246);
+(select 3.94065645841246) UNION ALL (select doc.double from t1);
+
+# Test union with doc paths and dates (expect dedup)
+# Expect 2014-11-11 11:59:59 to be de-duped at different place depending on order of UNION
+(select doc.dt from t1) UNION (select "2014-11-11 11:59:59");
+(select "2014-11-11 11:59:59") UNION (select doc.dt from t1);
+
+(select doc.dt from t1) UNION DISTINCT (select "2014-11-11 11:59:59");
+(select "2014-11-11 11:59:59") UNION DISTINCT (select doc.dt from t1);
+
+(select doc.dt from t1) UNION ALL (select "2014-11-11 11:59:59");
+(select "2014-11-11 11:59:59") UNION ALL (select doc.dt from t1);
+
+# Test union between doc paths
 (select doc.address from t1) UNION (select doc.address from t1);
-(select doc.address from t1) UNION (select '{"zipcode":98767,"state":"NY"}');
+(select doc.address from t1) UNION DISTINCT (select doc.address from t1);
+(select doc.address from t1) UNION ALL (select doc.address from t1);
 
-# Test union in sub query
+# Test simple union with doc in sub query but no doc path extension in outer query
 select doc.address from (
   (select doc.address from t1)
   UNION
   (select doc.address from t1)
 ) as tmp;
 
-# Test union with doc path in sub query
-# FIXME: Here since the type is converted to String for document path
-# it's no longer document path. And we lose the information.
---error ER_BAD_FIELD_ERROR
+# Use UNION as the inner query and include an extended doc path in the outer query
 select doc.address.state from (
   (select doc.address from t1)
   UNION
   (select doc.address from t1)
 ) as tmp;
+
+# Use UNION as the inner query with DOCUMENT() literal and include an extended doc path in the outer query
+select doc.address.zipcode from (
+  (select doc.address from t1)
+  UNION
+  (select DOCUMENT('{"zipcode":98767,"state":"NY"}'))
+) as tmp;
+select alias.zipcode from (
+  (select DOCUMENT('{"zipcode":98767,"state":"NY"}') as alias)
+  UNION ALL
+  (select doc.address from t1)
+) as tmp;
+
+# This should error because the name of the UNION column is that of the first column (so doc path name in second query is ignored)
+--error ER_BAD_FIELD_ERROR
+select doc.address.zipcode from (
+  (select DOCUMENT('{"zipcode":98767,"state":"NY"}'))
+  UNION
+  (select doc.address from t1)
+) as temp;
+
+# This should error as the inner query type is not DOCUMENT so you can't extend doc path in the outer query
+--error ER_BAD_FIELD_ERROR
+select doc.address.zipcode from (
+  (select doc.address from t1)
+  UNION
+  (select '{"zipcode":98767, "state":"NY"}')
+) as tmp;
+
+# Test UNION in two table with document path
+(select doc.address from t1) UNION (select doc2.address from t2);
+(select doc2.address from t2) UNION ALL (select doc.address from t1);
+(select doc.address from t1) UNION DISTINCT (select doc2.address from t2);
+
+# Test doc paths in UNION from different tables as sub query
+select doc.address.state from (
+  (select doc.address from t1)
+  UNION
+  (select doc2.address from t2)
+) as tmp;
+select doc.address.state from (
+  (select doc.address from t1)
+  UNION ALL
+  (select doc2.address from t2)
+) as tmp;
+
+# Test doc paths in UNION from different tables as sub query using alias
+select addr.state from (
+  (select doc.address as addr from t1)
+  UNION
+  (select doc2.address from t2)
+) as tmp;
+select addr.state from (
+  (select doc.address as addr from t1)
+  UNION ALL
+  (select doc2.address from t2)
+) as tmp;
+
 ################################################################################
 ###
 ### Clean up
