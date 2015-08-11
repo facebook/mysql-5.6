@@ -84,10 +84,14 @@ info
 alter table t1 defragment
 set @@global.innodb_defragment_pause = false;
 flush table t1;
+show open tables like 't1';
+Database	Table	In_use	Name_locked
 ## Test-7 Defragment when feature disabled should return error
+set @my_innodb_defragment = @@global.innodb_defragment;
 set @@global.innodb_defragment = false;
 alter table t1 defragment index PRIMARY;
 ERROR HY000: The 'ALTER TABLE DEFRAGMENT' feature is disabled; you need MySQL built with 'innodb_defragment' to have it working
-set @@global.innodb_defragment = true;
 DROP PROCEDURE defragment;
+flush table t1;
 DROP TABLE t1;
+set @@global.innodb_defragment = @my_innodb_defragment;

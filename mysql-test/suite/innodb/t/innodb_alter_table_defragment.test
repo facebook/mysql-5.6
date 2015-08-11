@@ -225,17 +225,20 @@ set @@global.innodb_defragment_pause = false;
 connection con1;
 reap;
 flush table t1;
+show open tables like 't1';
 connection default;
 
 --echo ## Test-7 Defragment when feature disabled should return error
+set @my_innodb_defragment = @@global.innodb_defragment;
 set @@global.innodb_defragment = false;
 --error ER_FEATURE_DISABLED
 alter table t1 defragment index PRIMARY;
-set @@global.innodb_defragment = true;
 
 #
 # clean up
 #
 disconnect con1;
 DROP PROCEDURE defragment;
+flush table t1;
 DROP TABLE t1;
+set @@global.innodb_defragment = @my_innodb_defragment;
