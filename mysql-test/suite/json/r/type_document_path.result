@@ -4752,7 +4752,139 @@ doc3
 {"id":102,"name":"Bob II","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}}
 {"id":103,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
 {"id":104,"name":"Charlie II","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}}
-(select doc.id from t1) UNION (select 'foo');
+(select doc.name from t1) UNION (select 'Alex');
+`doc`.`name`
+Alex
+Bob
+Charlie
+Don
+Evan
+NULL
+Linda
+(select 'Alex') UNION (select doc.name from t1);
+Alex
+Alex
+Bob
+Charlie
+Don
+Evan
+NULL
+Linda
+(select doc.name from t1) UNION DISTINCT (select 'Alex');
+`doc`.`name`
+Alex
+Bob
+Charlie
+Don
+Evan
+NULL
+Linda
+(select 'Alex') UNION DISTINCT (select doc.name from t1);
+Alex
+Alex
+Bob
+Charlie
+Don
+Evan
+NULL
+Linda
+(select doc.name from t1) UNION ALL (select 'Alex');
+`doc`.`name`
+Alex
+Bob
+Charlie
+Don
+Evan
+NULL
+NULL
+NULL
+Linda
+NULL
+Alex
+(select 'Alex') UNION ALL (select doc.name from t1);
+Alex
+Alex
+Alex
+Bob
+Charlie
+Don
+Evan
+NULL
+NULL
+NULL
+Linda
+NULL
+(select doc.address from t1) UNION (select DOCUMENT('{"zipcode":98766}'));
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+(select DOCUMENT('{"zipcode":98766}')) UNION (select doc.address from t1);
+DOCUMENT('{"zipcode":98766}')
+{"zipcode":98766}
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+NULL
+(select doc.address from t1) UNION DISTINCT (select DOCUMENT('{"zipcode":98766}'));
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+(select DOCUMENT('{"zipcode":98766}')) UNION DISTINCT (select doc.address from t1);
+DOCUMENT('{"zipcode":98766}')
+{"zipcode":98766}
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+NULL
+(select doc.address from t1) UNION ALL (select DOCUMENT('{"zipcode":98766}'));
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+NULL
+{"zipcode":98766}
+(select DOCUMENT('{"zipcode":98766}')) UNION ALL (select doc.address from t1);
+DOCUMENT('{"zipcode":98766}')
+{"zipcode":98766}
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+NULL
+(select doc.id from t1) UNION (select 101);
 `doc`.`id`
 101
 102
@@ -4764,8 +4896,19 @@ doc3
 106
 109
 110
-foo
-(select doc.id from t1) UNION DISTINCT (select 'foo');
+(select 101) UNION (select doc.id from t1);
+101
+101
+102
+103
+104
+105
+108
+107
+106
+109
+110
+(select doc.id from t1) UNION DISTINCT (select 101);
 `doc`.`id`
 101
 102
@@ -4777,8 +4920,19 @@ foo
 106
 109
 110
-foo
-(select doc.id from t1) UNION ALL (select 'foo');
+(select 101) UNION DISTINCT (select doc.id from t1);
+101
+101
+102
+103
+104
+105
+108
+107
+106
+109
+110
+(select doc.id from t1) UNION ALL (select 101);
 `doc`.`id`
 101
 102
@@ -4790,7 +4944,116 @@ foo
 106
 109
 110
-foo
+101
+(select 101) UNION ALL (select doc.id from t1);
+101
+101
+101
+102
+103
+104
+105
+108
+107
+106
+109
+110
+(select doc.double from t1) UNION (select 3.94065645841246);
+`doc`.`double`
+NULL
+3.94065645841246
+(select 3.94065645841246) UNION (select doc.double from t1);
+3.94065645841246
+3.94065645841246
+NULL
+(select doc.double from t1) UNION DISTINCT (select 3.94065645841246);
+`doc`.`double`
+NULL
+3.94065645841246
+(select 3.94065645841246) UNION DISTINCT (select doc.double from t1);
+3.94065645841246
+3.94065645841246
+NULL
+(select doc.double from t1) UNION ALL (select 3.94065645841246);
+`doc`.`double`
+NULL
+NULL
+3.94065645841246
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+3.94065645841246
+(select 3.94065645841246) UNION ALL (select doc.double from t1);
+3.94065645841246
+3.94065645841246
+NULL
+NULL
+3.94065645841246
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+(select doc.dt from t1) UNION (select "2014-11-11 11:59:59");
+`doc`.`dt`
+1001
+0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789
+2014-11-01
+NULL
+2014-11-11 11:59:59
+(select "2014-11-11 11:59:59") UNION (select doc.dt from t1);
+2014-11-11 11:59:59
+2014-11-11 11:59:59
+1001
+0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789
+2014-11-01
+NULL
+(select doc.dt from t1) UNION DISTINCT (select "2014-11-11 11:59:59");
+`doc`.`dt`
+1001
+0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789
+2014-11-01
+NULL
+2014-11-11 11:59:59
+(select "2014-11-11 11:59:59") UNION DISTINCT (select doc.dt from t1);
+2014-11-11 11:59:59
+2014-11-11 11:59:59
+1001
+0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789
+2014-11-01
+NULL
+(select doc.dt from t1) UNION ALL (select "2014-11-11 11:59:59");
+`doc`.`dt`
+1001
+0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789
+2014-11-01
+NULL
+2014-11-11 11:59:59
+NULL
+NULL
+NULL
+NULL
+NULL
+2014-11-11 11:59:59
+(select "2014-11-11 11:59:59") UNION ALL (select doc.dt from t1);
+2014-11-11 11:59:59
+2014-11-11 11:59:59
+1001
+0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789
+2014-11-01
+NULL
+2014-11-11 11:59:59
+NULL
+NULL
+NULL
+NULL
+NULL
 (select doc.address from t1) UNION (select doc.address from t1);
 `doc`.`address`
 {"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
@@ -4802,7 +5065,7 @@ foo
 {"zipcode":98767,"state":"NY"}
 {"zipcode":98766}
 NULL
-(select doc.address from t1) UNION (select '{"zipcode":98767,"state":"NY"}');
+(select doc.address from t1) UNION DISTINCT (select doc.address from t1);
 `doc`.`address`
 {"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
 {"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
@@ -4812,6 +5075,28 @@ NULL
 {"zipcode":98768}
 {"zipcode":98767,"state":"NY"}
 {"zipcode":98766}
+NULL
+(select doc.address from t1) UNION ALL (select doc.address from t1);
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+NULL
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
 NULL
 select doc.address from (
 (select doc.address from t1)
@@ -4833,7 +5118,168 @@ select doc.address.state from (
 UNION
 (select doc.address from t1)
 ) as tmp;
-ERROR 42S22: Unknown column '`doc`.`address`.`state`' in 'field list'
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+NULL
+select doc.address.zipcode from (
+(select doc.address from t1)
+UNION
+(select DOCUMENT('{"zipcode":98767,"state":"NY"}'))
+) as tmp;
+`doc`.`address`.`zipcode`
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+NULL
+select alias.zipcode from (
+(select DOCUMENT('{"zipcode":98767,"state":"NY"}') as alias)
+UNION ALL
+(select doc.address from t1)
+) as tmp;
+`alias`.`zipcode`
+98767
+98761
+98762
+98763
+98764
+98765
+98768
+98767
+98766
+98764
+NULL
+select doc.address.zipcode from (
+(select DOCUMENT('{"zipcode":98767,"state":"NY"}'))
+UNION
+(select doc.address from t1)
+) as temp;
+ERROR 42S22: Unknown column '`doc`.`address`.`zipcode`' in 'field list'
+select doc.address.zipcode from (
+(select doc.address from t1)
+UNION
+(select '{"zipcode":98767, "state":"NY"}')
+) as tmp;
+ERROR 42S22: Unknown column '`doc`.`address`.`zipcode`' in 'field list'
+(select doc.address from t1) UNION (select doc2.address from t2);
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+(select doc2.address from t2) UNION ALL (select doc.address from t1);
+`doc2`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+NULL
+(select doc.address from t1) UNION DISTINCT (select doc2.address from t2);
+`doc`.`address`
+{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"}
+{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"}
+{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"}
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98765,"state":"WA"}
+{"zipcode":98768}
+{"zipcode":98767,"state":"NY"}
+{"zipcode":98766}
+NULL
+select doc.address.state from (
+(select doc.address from t1)
+UNION
+(select doc2.address from t2)
+) as tmp;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+NULL
+select doc.address.state from (
+(select doc.address from t1)
+UNION ALL
+(select doc2.address from t2)
+) as tmp;
+`doc`.`address`.`state`
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+NULL
+CA
+AZ
+NY
+WA
+select addr.state from (
+(select doc.address as addr from t1)
+UNION
+(select doc2.address from t2)
+) as tmp;
+`addr`.`state`
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+NULL
+select addr.state from (
+(select doc.address as addr from t1)
+UNION ALL
+(select doc2.address from t2)
+) as tmp;
+`addr`.`state`
+CA
+AZ
+NY
+WA
+WA
+NULL
+NY
+NULL
+WA
+NULL
+CA
+AZ
+NY
+WA
 ##### Clean up
 SET @@global.allow_document_type = @start_allow_document_type;
 SELECT @@global.allow_document_type;

@@ -114,9 +114,7 @@ typedef struct st_net {
   my_bool async_multipacket_read_started;
   unsigned int receive_buffer_size;
 } NET;
-enum enum_field_types {
-   MYSQL_TYPE_UNKNOWN = -1,
-   MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
+enum enum_field_types { MYSQL_TYPE_DECIMAL, MYSQL_TYPE_TINY,
    MYSQL_TYPE_SHORT, MYSQL_TYPE_LONG,
    MYSQL_TYPE_FLOAT, MYSQL_TYPE_DOUBLE,
    MYSQL_TYPE_NULL, MYSQL_TYPE_TIMESTAMP,
@@ -129,8 +127,8 @@ enum enum_field_types {
    MYSQL_TYPE_DATETIME2,
    MYSQL_TYPE_TIME2,
    MYSQL_TYPE_DOCUMENT,
-   MYSQL_TYPE_DOCUMENT_PATH,
    MYSQL_TYPE_DOCUMENT_VALUE,
+   MYSQL_TYPE_DOCUMENT_UNKNOWN,
    MYSQL_TYPE_NEWDECIMAL=246,
    MYSQL_TYPE_ENUM=247,
    MYSQL_TYPE_SET=248,
