@@ -2995,7 +2995,7 @@ void Item_field::do_set_field(Field *field_par)
 {
   // order by as type is only supported for document type
   if(field_par->type() != MYSQL_TYPE_DOCUMENT &&
-     MYSQL_TYPE_UNKNOWN != order_by_as_type)
+     MYSQL_TYPE_DOCUMENT_UNKNOWN != order_by_as_type)
     my_error(ER_ORDERBY_AS_TYPE_NOT_SUPPORTED, MYF(0));
 
   field=result_field=field_par;			// for easy coding with fields
@@ -6661,6 +6661,17 @@ Field *Item::tmp_table_field_from_field_type(TABLE *table, bool fixed_length)
     field= new Field_bit_as_char(NULL, max_length, null_ptr, 0,
                                  Field::NONE, item_name.ptr());
     break;
+  /* Let DOCUMENT() literals fall through to document field behavior */
+  case MYSQL_TYPE_DOCUMENT_VALUE:
+  case MYSQL_TYPE_DOCUMENT:
+  {
+    field= new Field_document(max_length,
+                              maybe_null,
+                              item_name.ptr(),
+                              nullptr,
+                              1);
+    break;
+  }
   default:
     /* This case should never be chosen */
     DBUG_ASSERT(0);
@@ -9926,6 +9937,11 @@ Item_type_holder::Item_type_holder(THD *thd, Item *item)
   if (item->field_type() == MYSQL_TYPE_GEOMETRY)
     geometry_type= item->get_geometry_type();
 #endif /* HAVE_SPATIAL */
+  if(item->type() == Item::FIELD_ITEM &&
+      item->field_type() == MYSQL_TYPE_DOCUMENT)
+  {
+    document_path_keys = ((Item_field*)item)->document_path_keys;
+  }
 }
 
 

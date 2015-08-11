@@ -11901,7 +11901,7 @@ order_clause:
 order_as_type:
           /* empty */
           {
-            $$ = MYSQL_TYPE_UNKNOWN;
+            $$ = MYSQL_TYPE_DOCUMENT_UNKNOWN;
           }
         | AS INT_SYM { $$ = MYSQL_TYPE_LONGLONG; }
         | AS DOUBLE_SYM { $$ = MYSQL_TYPE_DOUBLE; }

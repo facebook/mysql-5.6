@@ -720,7 +720,7 @@ public:
 
   /* Reuse size, only used by SP local variable assignment, otherwize 0 */
   uint rsize;
-  enum enum_field_types order_by_as_type = MYSQL_TYPE_UNKNOWN;
+  enum enum_field_types order_by_as_type = MYSQL_TYPE_DOCUMENT_UNKNOWN;
   /*
     str_values's main purpose is to be used to cache the value in
     save_in_field
@@ -4756,6 +4756,10 @@ public:
   static enum_field_types get_real_type(Item *);
   Field::geometry_type get_geometry_type() const { return geometry_type; };
   Field::document_type get_document_type() const { return document_type; };
+  /* Item_holder stores name and type for UNION items. We store the
+   * document path for the case that an outer query uses a document path on a
+   * UNION of documents */
+  List<Document_key> document_path_keys;
 };
 
 
