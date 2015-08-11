@@ -20,15 +20,9 @@ Rpl_semi_sync_master_status	ON
 ERROR: Failed to read binary log master-bin.100001, error 1236
 
 --- mysqlbinlog getting timeout ---
-SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
-COUNT(*)
-1
 
 --- mysqlbinlog exit on failing to retry connection ---
 set @@global.max_connections=@save_max_connections;
-SELECT COUNT(*) FROM information_schema.processlist WHERE command like '%Binlog Dump%';
-COUNT(*)
-1
 
 --- Binlog Dump should not exist after killing mysqlbinlog and reaching heartbeat_period ---
 
