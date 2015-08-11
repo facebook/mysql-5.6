@@ -376,6 +376,16 @@ Field *create_tmp_field(THD *thd, TABLE *table,Item *item, Item::Type type,
     result= ((Item_type_holder *)item)->make_field_by_type(table);
     if (!result)
       break;
+    /* If an alias is used, we don't store the prefix of the document path
+     * because the user has to use the alias to reference the document. If
+     * alias is NOT set, store the prefix of document for name resolution
+     * if an outer query uses a document path */
+    if(result->type() == MYSQL_TYPE_DOCUMENT && !item->alias_was_set)
+    {
+      ((Field_document*)result)->set_prefix_document_path(
+        ((Item_type_holder*)item)->document_path_keys
+      );
+    }
     result->set_derivation(item->collation.derivation);
     break;
   default:					// Dosen't have to be stored
