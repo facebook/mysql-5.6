@@ -168,8 +168,7 @@ struct st_VioSSLFd
 
 int sslaccept(struct st_VioSSLFd*, Vio *, long timeout, unsigned long *errptr);
 int sslconnect(struct st_VioSSLFd*, Vio *, long timeout,
-               unsigned char* ssl_session_data, long ssl_session_length,
-               unsigned long *errptr);
+               SSL_SESSION* ssl_session, unsigned long *errptr);
 
 struct st_VioSSLFd
 *new_VioSSLConnectorFdFromContext(SSL_CTX* context,

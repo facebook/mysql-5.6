@@ -2443,8 +2443,8 @@ mysql_ssl_free(MYSQL *mysql __attribute__((unused)))
   {
     my_free(mysql->options.extension->ssl_crl);
     my_free(mysql->options.extension->ssl_crlpath);
-    my_free(mysql->options.extension->ssl_session_data);
-    mysql->options.extension->ssl_context = NULL;
+    if (mysql->options.extension->ssl_session)
+      SSL_SESSION_free((SSL_SESSION*)mysql->options.extension->ssl_session);
   }
   if (ssl_fd) {
     free_vio_ssl_fd(ssl_fd);
@@ -2458,8 +2458,8 @@ mysql_ssl_free(MYSQL *mysql __attribute__((unused)))
   {
     mysql->options.extension->ssl_crl = 0;
     mysql->options.extension->ssl_crlpath = 0;
-    mysql->options.extension->ssl_session_data = 0;
-    mysql->options.extension->ssl_session_length = 0;
+    mysql->options.extension->ssl_context = NULL;
+    mysql->options.extension->ssl_session = NULL;
   }
   mysql->options.use_ssl = FALSE;
   mysql->connector_fd = 0;
@@ -2489,32 +2489,25 @@ mysql_get_ssl_cipher(MYSQL *mysql __attribute__((unused)))
   DBUG_RETURN(NULL);
 }
 
-void STDCALL
-mysql_get_ssl_session(MYSQL* mysql __attribute__((unused)),
-                      unsigned char* buffer __attribute__((unused)),
-                      long *buffer_len) {
+void* STDCALL
+mysql_get_ssl_session(MYSQL* mysql __attribute__((unused))) {
   DBUG_ENTER("mysql_get_ssl_session");
-  long available __attribute__((unused)) = *buffer_len;
-  *buffer_len = -1;
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
   if (mysql->net.vio && mysql->net.vio->ssl_arg) {
-    SSL_SESSION* sess = SSL_get_session((SSL*)mysql->net.vio->ssl_arg);
-    long len = i2d_SSL_SESSION(sess, NULL);
-    if (len <= 0) {
-      DBUG_PRINT("error", ("unable to serialize SSL session"));
-      *buffer_len = -1;
-      DBUG_VOID_RETURN;
-    }
-    if (len >= available) {
-      *buffer_len = -2;
-      DBUG_PRINT("error", ("insufficient SSL session buffer space"));
-      DBUG_VOID_RETURN;
-    }
-    *buffer_len = i2d_SSL_SESSION(sess, &buffer);
-    DBUG_VOID_RETURN;
+    DBUG_RETURN(SSL_get1_session((SSL*)mysql->net.vio->ssl_arg));
   }
 #endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
-  DBUG_VOID_RETURN;
+  DBUG_RETURN(NULL);
+}
+
+my_bool mysql_get_ssl_session_reused(MYSQL* mysql __attribute__((unused))) {
+  DBUG_ENTER("mysql_get_ssl_session_reused");
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  if (mysql->net.vio && mysql->net.vio->ssl_arg) {
+    DBUG_RETURN(SSL_session_reused((SSL*)mysql->net.vio->ssl_arg));
+  }
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
+  DBUG_RETURN(FALSE);
 }
 
 void* STDCALL
@@ -3479,12 +3472,14 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
     }
     mysql->connector_fd= (unsigned char *) ssl_fd;
 
+    SSL_SESSION* ssl_session = options->extension ?
+                               options->extension->ssl_session : NULL;
+
     /* Connect to the server */
     DBUG_PRINT("info", ("IO layer change in progress..."));
     if (sslconnect(ssl_fd, net->vio,
                    timeout_to_seconds(mysql->options.connect_timeout),
-                   options->extension ? options->extension->ssl_session_data : NULL,
-                   options->extension ? options->extension->ssl_session_length : 0,
+                   ssl_session,
                    &ssl_error))
     {    
       char buf[512];
@@ -3495,6 +3490,13 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
                                buf);
       goto error;
     }    
+
+    // free the SSL session early
+    if (ssl_session) {
+      SSL_SESSION_free(ssl_session);
+      options->extension->ssl_session = NULL;
+    }
+
     DBUG_PRINT("info", ("IO layer change done!"));
 
     /* Verify server cert */
@@ -6461,21 +6463,28 @@ mysql_options4(MYSQL *mysql,enum mysql_option option,
       break;
     }
   case MYSQL_OPT_SSL_SESSION:
-    {
-      const char* buf = (const char*)arg1;
-      long buflen = (long)arg2;
-      if (!buf || buflen < 1) {
-        set_mysql_error(mysql, CR_UNKNOWN_ERROR, unknown_sqlstate);
-        DBUG_RETURN(1);
-      }
-      ENSURE_EXTENSIONS_PRESENT(&mysql->options);
-      if (mysql->options.extension->ssl_session_data)
-        my_free(mysql->options.extension->ssl_session_data);
-      mysql->options.extension->ssl_session_data =
-        my_malloc(buflen, MYF(MY_FAE));
-      mysql->options.extension->ssl_session_length = buflen;
-      memcpy(mysql->options.extension->ssl_session_data, buf, buflen);
-    }
+  /**
+   * Set the SSL session to be used during sslConn. The client will
+   * hold a reference to the session until the connection is closed.
+   *
+   * @param take_ownership if true, the client will assume the caller's
+   *                       reference count to session.
+   */
+  ENSURE_EXTENSIONS_PRESENT(&mysql->options);
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+    SSL_SESSION* ssl_session = (SSL_SESSION*)arg1;
+    my_bool take_ownership = (long)arg2;
+
+     // Increment the reference count
+    if (!take_ownership && ssl_session != NULL)
+      CRYPTO_add(&ssl_session->references, 1, CRYPTO_LOCK_SSL_SESSION);
+
+    if (mysql->options.extension->ssl_session)
+      SSL_SESSION_free((SSL_SESSION*)mysql->options.extension->ssl_session);
+
+    mysql->options.extension->ssl_session = (void*)ssl_session;
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY */
     break;
   default:
     DBUG_RETURN(1);
