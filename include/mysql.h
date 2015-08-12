@@ -512,9 +512,6 @@ my_bool		STDCALL mysql_ssl_set(MYSQL *mysql, const char *key,
 				      const char *cert, const char *ca,
 				      const char *capath, const char *cipher);
 const char *    STDCALL mysql_get_ssl_cipher(MYSQL *mysql);
-void            STDCALL mysql_get_ssl_session(MYSQL *mysql,
-                                              unsigned char* buffer,
-                                              long *buffer_len);
 my_bool		STDCALL mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
 							      char* subject_buf,
 							      size_t subject_buflen,
@@ -531,7 +528,13 @@ my_bool		STDCALL mysql_get_ssl_server_cerfificate_info(MYSQL *mysql,
  * that this is a void* strictly to avoid including SSL headers in
  * this file.
  */
-void *          STDCALL mysql_take_ssl_context_ownership(MYSQL *mysql);
+void *    STDCALL mysql_take_ssl_context_ownership(MYSQL *mysql);
+/*
+ * Get a handle to the negotiated SSL session. This increments the session
+ * refcount and must be deallocated with SSL_SESSION_free by the caller.
+ */
+void *    STDCALL mysql_get_ssl_session(MYSQL *mysql);
+my_bool   STDCALL mysql_get_ssl_session_reused(MYSQL *mysql);
 my_bool		STDCALL mysql_change_user(MYSQL *mysql, const char *user, 
 					  const char *passwd, const char *db);
 MYSQL *		STDCALL mysql_real_connect(MYSQL *mysql, const char *host,
