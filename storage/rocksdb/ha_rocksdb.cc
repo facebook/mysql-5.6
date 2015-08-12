@@ -6013,6 +6013,23 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
       sql_print_error("RocksDB: Aborting because of data corruption.");
       abort_with_stack_traces();
   }
+  else if (!status.ok())
+  {
+    switch (type) {
+    case ROCKSDB_IO_ERROR_DICT_COMMIT:
+    {
+      sql_print_error("RocksDB: Failed to write to WAL (dictionary) - status %d",
+                      status.code());
+      sql_print_error("RocksDB: Aborting on WAL write error.");
+      abort_with_stack_traces();
+      break;
+    }
+    default:
+      sql_print_warning("RocksDB: Failed to write to RocksDB "
+                        "- status %d", status.code());
+      break;
+    }
+  }
 }
 
 Table_ddl_manager *get_ddl_manager(void)
