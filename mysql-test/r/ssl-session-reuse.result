@@ -7,3 +7,5 @@ Variable_name	Value
 ssl	ON
 Variable_name	Value
 Ssl_sessions_reused	1
+Variable_name	Value
+Ssl_session_cache_hits	2

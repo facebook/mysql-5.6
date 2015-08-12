@@ -87,8 +87,7 @@ struct st_mysql_options_extention {
   char *server_public_key_path;
   size_t connection_attributes_length;
   my_bool enable_cleartext_plugin;
-  unsigned char *ssl_session_data;              /* serialized ssl session */
-  long ssl_session_length;                      /* length of said session */
+  void* ssl_session;
   void* ssl_context;
 };
 

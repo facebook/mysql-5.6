@@ -1407,6 +1407,10 @@ int main(int argc,char *argv[])
 
 /* The SSL context that will be reused across invocations. */
 static void* ssl_context;
+/* A simple session cache for SSL session. We simply try to
+   reuse the most recently seen session; the server will reject it if
+   it is invalid (or, say, it came from another host, etc). */
+static void* ssl_session = nullptr;
 
 sig_handler mysql_end(int sig)
 {
@@ -1467,6 +1471,8 @@ sig_handler mysql_end(int sig)
   my_end(my_end_arg);
 #if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
   SSL_CTX_free((SSL_CTX*)ssl_context);
+  if (ssl_session)
+    SSL_SESSION_free((SSL_SESSION*)ssl_session);
 #endif
   exit(status.exit_status);
 }
@@ -4725,13 +4731,6 @@ get_quote_count(const char *line)
   return quote_count;
 }
 
-/* A simple session buffer for SSL connections.  We simply try to
-   reuse the most recently seen session; the server will reject it if
-   it is invalid (or, say, it came from another host, etc).  16k is
-   well above a reasonable session limit. */
-static unsigned char ssl_session_buffer[16384];
-static long ssl_session_len = 0;
-
 static int
 sql_real_connect(char *host,char *database,char *user,char *password,
 		 uint silent)
@@ -4772,10 +4771,8 @@ sql_real_connect(char *host,char *database,char *user,char *password,
       mysql_options(&mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
       mysql_options(&mysql, MYSQL_OPT_SSL_CRLPATH, opt_ssl_crlpath);
     }
-    if (ssl_session_len > 0) {
-      mysql_options4(&mysql, MYSQL_OPT_SSL_SESSION,
-                     ssl_session_buffer, (void*)ssl_session_len);
-    }
+    if (ssl_session)
+      mysql_options4(&mysql, MYSQL_OPT_SSL_SESSION, ssl_session, FALSE);
   }
   mysql_options(&mysql,MYSQL_OPT_SSL_VERIFY_SERVER_CERT,
                 (char*)&opt_ssl_verify_server_cert);
@@ -4853,13 +4850,18 @@ sql_real_connect(char *host,char *database,char *user,char *password,
     }
     return -1;					// Retryable
   }
-  ssl_session_len = sizeof(ssl_session_buffer);
-  mysql_get_ssl_session(&mysql, ssl_session_buffer, &ssl_session_len);
-  if (ssl_session_len < 0) {
-    DBUG_PRINT("error", ("unable to save SSL session buffer, ret: %ld",
-                         ssl_session_len));
-  }
+
   ssl_context = mysql_take_ssl_context_ownership(&mysql);
+
+  if (!mysql_get_ssl_session_reused(&mysql)) {
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+    if (ssl_session)
+      SSL_SESSION_free((SSL_SESSION*)ssl_session);
+#endif
+    ssl_session = mysql_get_ssl_session(&mysql);
+    if (ssl_session == nullptr)
+      DBUG_PRINT("error", ("unable to save SSL session"));
+  }
 
 #ifdef __WIN__
   /* Convert --execute buffer from UTF8MB4 to connection character set */
