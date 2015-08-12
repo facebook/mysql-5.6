@@ -405,7 +405,7 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
 
 
 static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-                  unsigned char* ssl_session_data, long ssl_session_length,
+                  SSL_SESSION* ssl_session,
                   ssl_handshake_func_t func,
                   unsigned long *ssl_errno_holder)
 {
@@ -413,8 +413,9 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   SSL *ssl;
   my_socket sd= mysql_socket_getfd(vio->mysql_socket);
   DBUG_ENTER("ssl_do");
-  DBUG_PRINT("enter", ("ptr: 0x%lx, sd: %d  ctx: 0x%lx",
-                       (long) ptr, sd, (long) ptr->ssl_context));
+  DBUG_PRINT("enter", ("ptr: 0x%lx, sd: %d  ctx: 0x%lx, session=0x%lx",
+                       (long) ptr, sd, (long) ptr->ssl_context,
+                       (long) ssl_session));
   if (!(ssl= SSL_new(ptr->ssl_context)))
   {
     DBUG_PRINT("error", ("SSL_new failure"));
@@ -422,30 +423,16 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
     ERR_clear_error();
     DBUG_RETURN(1);
   }
-  if (ssl_session_data && ssl_session_length > 0) {
-    const unsigned char* data_copy = ssl_session_data;
-    SSL_SESSION *sess = d2i_SSL_SESSION(NULL,
-                                        &data_copy,
-                                        ssl_session_length);
-    /* Errors below are non-fatal; simply report them and continue on. */
-    if (!sess) {
+  if (ssl_session != NULL) {
+    if (!SSL_set_session(ssl, ssl_session)) {
 #ifndef DBUG_OFF
-      DBUG_PRINT("error", ("d2i_SSL_SESSION failed"));
+      DBUG_PRINT("error", ("SSL_set_session failed"));
       report_errors(ssl);
 #endif
       ERR_clear_error();
     } else {
-      if (!SSL_set_session(ssl, sess)) {
-#ifndef DBUG_OFF
-        DBUG_PRINT("error", ("SSL_set_session failed"));
-        report_errors(ssl);
-#endif
-        ERR_clear_error();
-      } else {
-        DBUG_PRINT("info", ("reused existing session %ld",
-                            (long)sess));
-      }
-      SSL_SESSION_free(sess);
+      DBUG_PRINT("info", ("reused existing session %ld",
+                          (long)ssl_session));
     }
   }
 
@@ -534,16 +521,15 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslaccept");
-  DBUG_RETURN(ssl_do(ptr, vio, timeout, NULL, 0, SSL_accept, ssl_errno_holder));
+  DBUG_RETURN(ssl_do(ptr, vio, timeout, NULL, SSL_accept, ssl_errno_holder));
 }
 
 
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-               unsigned char* ssl_session_data, long ssl_session_length,
-               unsigned long *ssl_errno_holder)
+               SSL_SESSION* ssl_session, unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslconnect");
-  DBUG_RETURN(ssl_do(ptr, vio, timeout, ssl_session_data, ssl_session_length,
+  DBUG_RETURN(ssl_do(ptr, vio, timeout, ssl_session,
                      SSL_connect, ssl_errno_holder));
 }
 
