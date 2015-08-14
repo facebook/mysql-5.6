@@ -90,10 +90,8 @@ a	b	pk
 BEGIN;
 UPDATE t1 SET b = 'update2' WHERE a <= 100;
 SAVEPOINT spt1;
-ERROR 42000: The storage engine for the table doesn't support SAVEPOINT
 UPDATE t1 SET b = '';
 ROLLBACK TO SAVEPOINT spt1;
-ERROR 42000: SAVEPOINT spt1 does not exist
 UPDATE t1 SET b = 'upd' WHERE a = 10050;
 COMMIT;
 SELECT * FROM t1 ORDER BY pk;
