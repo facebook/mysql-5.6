@@ -77,7 +77,6 @@ SELECT a,b FROM t1;
 
 BEGIN;
 DELETE FROM t1 WHERE a <= 4 ORDER BY b DESC LIMIT 1;
---error ER_CHECK_NOT_IMPLEMENTED
 SAVEPOINT spt1;
 
 --disable_parsing
