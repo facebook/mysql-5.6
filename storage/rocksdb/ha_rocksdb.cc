@@ -1402,6 +1402,17 @@ static bool rocksdb_show_status(handlerton*		hton,
   return res;
 }
 
+static inline void rocksdb_register_trx(handlerton *hton, THD *thd,
+                                        Rdb_transaction *trx)
+{
+  trans_register_ha(thd, FALSE, rocksdb_hton);
+  if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
+  {
+    trx->start_stmt();
+    trans_register_ha(thd, TRUE, rocksdb_hton);
+  }
+}
+
 /*
     Supporting START TRANSACTION WITH CONSISTENT [ROCKSDB] SNAPSHOT
 
@@ -1467,12 +1478,35 @@ static int rocksdb_start_trx_and_assign_read_view(
   }
 
   trx->snapshot= rdb->GetSnapshot();
+  rocksdb_register_trx(hton, thd, trx);
 
   if (binlog_file)
     mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
                                  gtid_executed_length);
 
   return 0;
+}
+
+/* Dummy SAVEPOINT support. This is needed for long running transactions
+ * like mysqldump (https://bugs.mysql.com/bug.php?id=71017).
+ * Current SAVEPOINT does not correctly handle ROLLBACK and does not return
+ * errors. This needs to be addressed in future versions (Issue#96).
+ */
+static int rocksdb_savepoint(handlerton *hton, THD *thd, void *savepoint)
+{
+  return 0;
+}
+
+static int rocksdb_rollback_to_savepoint(handlerton *hton, THD *thd,
+                                         void *savepoint)
+{
+  return 0;
+}
+
+static bool rocksdb_rollback_to_savepoint_can_release_mdl(handlerton *hton,
+                                                          THD *thd)
+{
+  return true;
 }
 
 /*
@@ -1592,6 +1626,10 @@ static int rocksdb_init_func(void *p)
   rocksdb_hton->show_status= rocksdb_show_status;
   rocksdb_hton->start_consistent_snapshot=
     rocksdb_start_trx_and_assign_read_view;
+  rocksdb_hton->savepoint_set= rocksdb_savepoint;
+  rocksdb_hton->savepoint_rollback= rocksdb_rollback_to_savepoint;
+  rocksdb_hton->savepoint_rollback_can_release_mdl=
+    rocksdb_rollback_to_savepoint_can_release_mdl;
   rocksdb_hton->update_table_stats = rocksdb_update_table_stats;
 
   rocksdb_hton->flags= HTON_TEMPORARY_NOT_SUPPORTED |
@@ -4931,13 +4969,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       lock_rows= true;
       lock_for_write= true;
     }
-
-    trans_register_ha(thd, FALSE, rocksdb_hton);
-    if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
-    {
-      trx->start_stmt();
-      trans_register_ha(thd, TRUE, rocksdb_hton);
-    }
+    rocksdb_register_trx(rocksdb_hton, thd, trx);
   }
 
   io_perf_end_and_record();
