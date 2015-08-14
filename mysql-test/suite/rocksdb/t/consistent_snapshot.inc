@@ -26,6 +26,19 @@ eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
 
 connection con2;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+
+connection con1;
+COMMIT;
+
+# verifying snapshot is released after finishing transaction
+connection con2;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+
+connection con1;
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+connection con2;
 INSERT INTO t1 (a) VALUES (1);
 
 connection con1;
