@@ -165,10 +165,8 @@ a	b
 BEGIN;
 INSERT INTO t1 (b,a) VALUES ('test',0);
 SAVEPOINT spt1;
-ERROR 42000: The storage engine for the table doesn't support SAVEPOINT
 INSERT INTO t1 (a,b) VALUES (DEFAULT,DEFAULT);
 RELEASE SAVEPOINT spt1;
-Got one of the listed errors
 INSERT INTO t1 (a,b) VALUES (DEFAULT,DEFAULT);
 ROLLBACK;
 SELECT a,b FROM t1;
@@ -184,11 +182,9 @@ a	b
 BEGIN;
 INSERT t1 (a) VALUE (10),(20);
 SAVEPOINT spt1;
-ERROR 42000: The storage engine for the table doesn't support SAVEPOINT
 INSERT INTO t1 SET a = 11, b = 'f';
 INSERT t1 SET b = DEFAULT;
 ROLLBACK TO SAVEPOINT spt1;
-Got one of the listed errors
 INSERT INTO t1 (b,a) VALUES ('test1',10);
 COMMIT;
 SELECT a,b FROM t1;
