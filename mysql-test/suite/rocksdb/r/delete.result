@@ -119,5 +119,4 @@ a	b
 BEGIN;
 DELETE FROM t1 WHERE a <= 4 ORDER BY b DESC LIMIT 1;
 SAVEPOINT spt1;
-ERROR 42000: The storage engine for the table doesn't support SAVEPOINT
 DROP TABLE t1;
