@@ -6,6 +6,18 @@ CREATE TABLE t1 (a INT, pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=ROCKSDB;
 SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
 connection con2;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+STAT_TYPE	VALUE
+DB_NUM_SNAPSHOTS	1
+connection con1;
+COMMIT;
+connection con2;
+select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
+STAT_TYPE	VALUE
+DB_NUM_SNAPSHOTS	0
+connection con1;
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+connection con2;
 INSERT INTO t1 (a) VALUES (1);
 connection con1;
 # If consistent read works on this isolation level (REPEATABLE READ), the following SELECT should not return the value we inserted (1)
