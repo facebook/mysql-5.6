@@ -24,6 +24,7 @@
 #include "sql_load.h"
 #include "sql_cache.h"                          // query_cache_*
 #include "sql_base.h"          // fill_record_n_invoke_before_triggers
+#include "debug_sync.h"
 #include <my_dir.h>
 #include "sql_view.h"                           // check_key_in_view
 #include "sql_insert.h" // check_that_all_fields_are_given_values,
@@ -246,6 +247,16 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
 
   if (open_and_lock_tables(thd, table_list, TRUE, 0))
     DBUG_RETURN(TRUE);
+
+  THD_STAGE_INFO(thd, stage_init);
+  DBUG_EXECUTE_IF("load_data_infile_stage_debug",
+                  {
+                  const size_t stage_init_msg_len= strlen(thd->proc_info) + 1;
+                  char stage_init_msg[stage_init_msg_len];
+                  strncpy(stage_init_msg, thd->proc_info, stage_init_msg_len);
+                  DEBUG_SYNC(thd, stage_init_msg);
+                  });
+
   if (setup_tables_and_check_access(thd, &thd->lex->select_lex.context,
                                     &thd->lex->select_lex.top_join_list,
                                     table_list,
@@ -330,6 +341,17 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
     * LOAD DATA INFILE fff INTO TABLE xxx (columns1) SET columns2=
     may need a default for columns other than columns1 and columns2.
   */
+  THD_STAGE_INFO(thd, stage_update);
+  DBUG_EXECUTE_IF("load_data_infile_stage_debug",
+                  {
+                  const size_t stage_update_msg_len= strlen(thd->proc_info) + 1;
+                  char stage_update_msg[stage_update_msg_len];
+                  strncpy(stage_update_msg,
+                          thd->proc_info,
+                          stage_update_msg_len);
+                  DEBUG_SYNC(thd, stage_update_msg);
+                  });
+
   const bool manage_defaults= fields_vars.elements != 0;
   COPY_INFO info(COPY_INFO::INSERT_OPERATION,
                  &fields_vars, &set_fields,
@@ -678,6 +700,14 @@ int mysql_load(THD *thd,sql_exchange *ex,TABLE_LIST *table_list,
       goto err;
   }
 #endif /*!EMBEDDED_LIBRARY*/
+  THD_STAGE_INFO(thd, stage_end);
+  DBUG_EXECUTE_IF("load_data_infile_stage_debug",
+                  {
+                  const size_t stage_end_msg_len= strlen(thd->proc_info) + 1;
+                  char stage_end_msg[stage_end_msg_len];
+                  strncpy(stage_end_msg, thd->proc_info, stage_end_msg_len);
+                  DEBUG_SYNC(thd, stage_end_msg);
+                  });
 
   /* ok to client sent only after binlog write and engine commit */
   my_ok(thd, info.stats.copied + info.stats.deleted, 0L, name);
