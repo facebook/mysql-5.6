@@ -1,0 +1,54 @@
+###############################################################################
+#Test the updates of the three added stages in thread proc info in the load
+#data infile path through show processlist
+###############################################################################
+--source include/have_debug_sync.inc
+--source include/count_sessions.inc
+--disable_warnings
+drop table if exists tb1;
+--enable_warnings
+--enable_connect_log
+connect(connection1, localhost, root, ,test,);
+
+# Check the init stage
+--connection default
+set session debug= "+d,load_data_infile_stage_debug";
+create table tb1 (num1 INT, num2 INT, num3 INT, num4 INT, num5 INT, num6 INT);
+set DEBUG_SYNC= 'init WAIT_FOR go';
+--send load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';
+--echo "Wait in the stage of init"
+
+--connection connection1
+select STATE from information_schema.processlist where STATE like 'debug sync %';
+set DEBUG_SYNC= 'now SIGNAL go';
+
+# Check the update stage
+--connection default
+--reap
+set DEBUG_SYNC= 'update WAIT_FOR go';
+--send load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';
+--echo "Wait in the stage of update"
+
+--connection connection1
+select STATE from information_schema.processlist where STATE like 'debug sync %';
+set DEBUG_SYNC= 'now SIGNAL go';
+
+# Check the end stage
+--connection default
+--reap
+set DEBUG_SYNC= 'end WAIT_FOR go';
+--send load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';
+--echo "Wait in the stage of end"
+
+--connection connection1
+select STATE from information_schema.processlist where STATE like 'debug sync %';
+set DEBUG_SYNC= 'now SIGNAL go';
+set DEBUG_SYNC='RESET';
+
+--connection default
+--reap
+drop table tb1;
+set DEBUG_SYNC= 'RESET';
+--disconnect connection1
+--disable_connect_log
+--source include/wait_until_count_sessions.inc
