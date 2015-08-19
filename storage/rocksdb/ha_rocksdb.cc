@@ -5053,6 +5053,15 @@ void* drop_index_thread(void*)
     ts.tv_sec += dropped_indices_manager.empty()
       ? 24*60*60 // no filtering
       : 60; // filtering
+
+    // "stop_drop_index_thread = true" might be set by shutdown command
+    // after drop_index_thread releases drop_index_interrupt_mutex
+    // (i.e. while executing expensive Seek()). To prevent drop_index_thread
+    // from entering long cond_timedwait, checking if stop_drop_index_thread
+    // is true or not is needed, with drop_index_interrupt_mutex held.
+    if (stop_drop_index_thread) {
+      break;
+    }
     auto ret = mysql_cond_timedwait(&drop_index_interrupt_cond,
                                     &drop_index_interrupt_mutex, &ts);
     if (stop_drop_index_thread) {
@@ -5060,6 +5069,7 @@ void* drop_index_thread(void*)
     }
     // make sure, no program error is returned
     assert(ret == 0 || ret == ETIMEDOUT);
+    mysql_mutex_unlock(&drop_index_interrupt_mutex);
 
     Dropped_Index_Set indices = dropped_indices_manager.get_indices();
     if (!indices.empty()) {
@@ -5127,6 +5137,7 @@ void* drop_index_thread(void*)
         dropped_indices_manager.remove_indices(finished);
       }
     }
+    mysql_mutex_lock(&drop_index_interrupt_mutex);
   }
 
   mysql_mutex_unlock(&drop_index_interrupt_mutex);
