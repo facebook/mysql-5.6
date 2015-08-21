@@ -1142,6 +1142,12 @@ Item *create_dot_separated_ident(THD *thd, List<One_ident> *ident_list){
   return ret;
 }
 
+/* Return true if item could be a document */
+bool is_document(Item *item) {
+  return (item->type() == Item::DOCUMENT_ITEM || 
+    item->type() == Item::FIELD_ITEM || item->type() == Item::REF_ITEM);
+}
+
 %}
 %union {
   int  num;
@@ -9522,8 +9528,7 @@ predicate:
           }
         | bit_expr SIMILAR simple_expr 
           {
-            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
-                ($3->type() != Item::DOCUMENT_ITEM && $3->type() != Item::FIELD_ITEM))
+            if (!is_document($1) || !is_document($3))
             {
               my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
               MYSQL_YYABORT;
@@ -9535,8 +9540,7 @@ predicate:
           }
         | bit_expr not SIMILAR simple_expr
           {
-            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
-                ($4->type() != Item::DOCUMENT_ITEM && $4->type() != Item::FIELD_ITEM))
+            if (!is_document($1) || !is_document($4))
             {
               my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
               MYSQL_YYABORT;
@@ -9551,8 +9555,7 @@ predicate:
           }
         | bit_expr SUBDOC simple_expr 
           {
-            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
-                ($3->type() != Item::DOCUMENT_ITEM && $3->type() != Item::FIELD_ITEM))
+            if (!is_document($1) || !is_document($3))
             {
               my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
               MYSQL_YYABORT;
@@ -9564,8 +9567,7 @@ predicate:
           }
         | bit_expr not SUBDOC simple_expr
           {
-            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
-                ($4->type() != Item::DOCUMENT_ITEM && $4->type() != Item::FIELD_ITEM))
+            if (!is_document($1) || !is_document($4))
             {
               my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
               MYSQL_YYABORT;
@@ -9581,8 +9583,7 @@ predicate:
          /* CONTAINS is simply SUBDOC with the operands inverted */
         | bit_expr CONTAINS_SYM simple_expr 
           {
-            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
-                ($3->type() != Item::DOCUMENT_ITEM && $3->type() != Item::FIELD_ITEM))
+            if (!is_document($1) || !is_document($3))
             {
               my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
               MYSQL_YYABORT;
@@ -9594,8 +9595,7 @@ predicate:
           }
         | bit_expr not CONTAINS_SYM simple_expr
           {
-            if (($1->type() != Item::DOCUMENT_ITEM && $1->type() != Item::FIELD_ITEM) ||
-                ($4->type() != Item::DOCUMENT_ITEM && $4->type() != Item::FIELD_ITEM))
+            if (!is_document($1) || !is_document($4))
             {
               my_error(ER_WRONG_ARGUMENTS,MYF(0),"COMPARE DOCUMENT TYPES");
               MYSQL_YYABORT;

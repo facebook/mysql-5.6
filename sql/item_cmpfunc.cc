@@ -2436,7 +2436,7 @@ Item *Item_in_optimizer::transform(Item_transformer transformer, uchar *argument
 static bool is_document_type_or_value(Item *a)
 {
   if (a->type() == Item::DOCUMENT_ITEM || a->type() == Item::FIELD_ITEM ||
-      a->type() == Item::CACHE_ITEM)
+      a->type() == Item::CACHE_ITEM || a->type() == Item::REF_ITEM)
     return (a->field_type() == MYSQL_TYPE_DOCUMENT ||
         a->field_type() == MYSQL_TYPE_DOCUMENT_VALUE);
   return false;
