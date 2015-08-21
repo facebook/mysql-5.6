@@ -244,6 +244,51 @@ Don
 NULL
 NULL
 NULL
+SELECT doc.id FROM t2 HAVING DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
+`doc`.`id`
+108
+104
+106
+110
+SELECT doc.address FROM t2 HAVING DOCUMENT('{"state":"NY"}') SUBDOC doc.address;
+`doc`.`address`
+{"state":"NY","zipcode":98767}
+{"zipcode":98767,"state":"NY"}
+SELECT doc FROM t2 HAVING DOCUMENT('{"id":108}') SUBDOC doc;
+doc
+{"id":108,"address":{"zipcode":98761}}
+SELECT doc.address FROM t2 HAVING doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}');
+`doc`.`address`
+{"zipcode":98761}
+SELECT doc.address, doc.addr FROM t2 HAVING doc.address SUBDOC doc.addr;
+`doc`.`address`	`doc`.`addr`
+{"zipcode":98767,"state":"NY"}	{"zipcode":98767,"state":"NY"}
+SELECT doc, doc.address FROM t2 HAVING doc.address SUBDOC doc;
+doc	`doc`.`address`
+SELECT doc FROM t2 HAVING doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}');
+doc
+{"id":108,"address":{"zipcode":98761}}
+SELECT doc, doc.address FROM t2 HAVING doc SUBDOC doc.address;
+doc	`doc`.`address`
+SELECT doc FROM t2 HAVING doc SUBDOC doc;
+doc
+{"id":108,"address":{"zipcode":98761}}
+{"id":104,"address":{"state":"NY","zipcode":98767}}
+{"id":106,"address":{"zipcode":98766,"state":"CA"}}
+{"id":110,"address":{"zipcode":98767,"state":"NY"},"addr":{"zipcode":98767,"state":"NY"}}
+SELECT doc.address FROM t1 HAVING DOCUMENT('{"state": "WA"}') SUBDOC doc.address;
+`doc`.`address`
+{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
+{"houseNumber":1005,"streetName":"5th","zipcode":98764,"state":"WA"}
+SELECT doc FROM t1 HAVING DOCUMENT('{"name": "Evan"}') NOT SUBDOC doc;
+doc
+{"id":101,"name":"Alex","phone":6507770001,"address":{"houseNumber":1001,"streetName":"1st","zipcode":98761,"state":"CA"},"intstr":"1001","dt":"1001"}
+{"id":102,"name":"Bob","phone":6507770002,"address":{"houseNumber":1002,"streetName":"2nd","zipcode":98762,"state":"AZ"},"int64":2222222220123456789,"intstr":"1002","dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789"}
+{"id":103,"name":"Charlie","phone":6507770003,"address":{"houseNumber":1003,"streetName":"3rd","zipcode":98763,"state":"NY"},"double":3.94065645841246,"dt":"2014-11-01"}
+{"id":104,"name":"Don","phone":6507770004,"address":{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"},"Children":["Alex","Bob","Charlie"]}
+{"id":108,"address":{"zipcode":98768}}
+{"id":104,"address":{"zipcode":98767,"state":"NY"}}
+{"id":106,"address":{"zipcode":98766}}
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
 `doc`.`id`	`doc`.`id`
 101	108

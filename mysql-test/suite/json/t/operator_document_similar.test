@@ -132,6 +132,17 @@ SELECT doc.id FROM t2 WHERE doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}
 SELECT doc.id FROM t2 WHERE doc SIMILAR doc.addr;
 SELECT doc.id FROM t2 WHERE doc SIMILAR doc;
 
+# Test doc column/doc path/DOCUMENT() with SIMILAR in HAVING clause
+SELECT doc.id FROM t2 HAVING DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}');
+SELECT doc.address FROM t2 HAVING DOCUMENT('{ "zipcode":98767, "state":"NY" }') SIMILAR doc.address;
+SELECT doc FROM t2 HAVING DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') SIMILAR doc;
+SELECT doc.address FROM t2 HAVING doc.address SIMILAR DOCUMENT('{ "zipcode":98767, "state":"NY" }');
+SELECT doc.address, doc.addr FROM t2 HAVING doc.address SIMILAR doc.addr;
+SELECT doc, doc.address FROM t2 HAVING doc.address SIMILAR doc;
+SELECT doc FROM t2 HAVING doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}');
+SELECT doc, doc.addr FROM t2 HAVING doc SIMILAR doc.addr;
+SELECT doc FROM t2 HAVING doc SIMILAR doc;
+
 # Test SIMILAR with JOIN
 SELECT t1.doc.id, t2.doc.id 
 FROM t1 JOIN t2
