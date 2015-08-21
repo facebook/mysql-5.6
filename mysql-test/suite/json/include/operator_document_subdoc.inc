@@ -135,6 +135,19 @@ SELECT doc.id FROM t2 WHERE doc SUBDOC doc;
 SELECT b FROM t1 WHERE DOCUMENT('{"state": "WA"}') SUBDOC doc.address;
 SELECT doc.name FROM t1 WHERE DOCUMENT('{"name": "Evan"}') NOT SUBDOC doc;
 
+# Test combinations of doc column, doc paths, DOCUMENT() in HAVING clause
+SELECT doc.id FROM t2 HAVING DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
+SELECT doc.address FROM t2 HAVING DOCUMENT('{"state":"NY"}') SUBDOC doc.address;
+SELECT doc FROM t2 HAVING DOCUMENT('{"id":108}') SUBDOC doc;
+SELECT doc.address FROM t2 HAVING doc.address SUBDOC DOCUMENT('{"zipcode":98761, "k":"v"}');
+SELECT doc.address, doc.addr FROM t2 HAVING doc.address SUBDOC doc.addr;
+SELECT doc, doc.address FROM t2 HAVING doc.address SUBDOC doc;
+SELECT doc FROM t2 HAVING doc SUBDOC DOCUMENT('{ "id":108, "address":{ "zipcode":98761}, "k":"v"}');
+SELECT doc, doc.address FROM t2 HAVING doc SUBDOC doc.address;
+SELECT doc FROM t2 HAVING doc SUBDOC doc;
+SELECT doc.address FROM t1 HAVING DOCUMENT('{"state": "WA"}') SUBDOC doc.address;
+SELECT doc FROM t1 HAVING DOCUMENT('{"name": "Evan"}') NOT SUBDOC doc;
+
 # Test SUBDOC with JOIN
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"state":"NY"}') SUBDOC t2.doc.address;
