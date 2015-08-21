@@ -281,6 +281,41 @@ NULL
 104
 106
 110
+SELECT doc.id FROM t2 HAVING DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}');
+`doc`.`id`
+108
+NULL
+104
+106
+110
+SELECT doc.address FROM t2 HAVING DOCUMENT('{ "zipcode":98767, "state":"NY" }') SIMILAR doc.address;
+`doc`.`address`
+{"state":"NY","zipcode":98767}
+{"zipcode":98767,"state":"NY"}
+SELECT doc FROM t2 HAVING DOCUMENT('{ "address":{ "zipcode":98761}, "addr":{"zipcode":98761}, "id":108 }') SIMILAR doc;
+doc
+{"id":108,"address":{"zipcode":98761},"addr":{"zipcode":98761}}
+SELECT doc.address FROM t2 HAVING doc.address SIMILAR DOCUMENT('{ "zipcode":98767, "state":"NY" }');
+`doc`.`address`
+{"state":"NY","zipcode":98767}
+{"zipcode":98767,"state":"NY"}
+SELECT doc.address, doc.addr FROM t2 HAVING doc.address SIMILAR doc.addr;
+`doc`.`address`	`doc`.`addr`
+{"zipcode":98761}	{"zipcode":98761}
+SELECT doc, doc.address FROM t2 HAVING doc.address SIMILAR doc;
+doc	`doc`.`address`
+SELECT doc FROM t2 HAVING doc SIMILAR DOCUMENT('{ "address":{ "zipcode":98761}, "id":108, "addr":{"zipcode":98761}}');
+doc
+{"id":108,"address":{"zipcode":98761},"addr":{"zipcode":98761}}
+SELECT doc, doc.addr FROM t2 HAVING doc SIMILAR doc.addr;
+doc	`doc`.`addr`
+SELECT doc FROM t2 HAVING doc SIMILAR doc;
+doc
+{"id":108,"address":{"zipcode":98761},"addr":{"zipcode":98761}}
+{"zipcode":98761}
+{"id":104,"address":{"state":"NY","zipcode":98767}}
+{"id":106,"address":{"zipcode":98766,"state":"CA"}}
+{"id":110,"address":{"zipcode":98767,"state":"NY"}}
 SELECT t1.doc.id, t2.doc.id 
 FROM t1 JOIN t2
 ON DOCUMENT('{"1": "1", "2": "2"}') SIMILAR DOCUMENT('{"2": "2", "1":"1"}');
