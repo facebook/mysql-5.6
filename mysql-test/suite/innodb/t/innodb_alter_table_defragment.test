@@ -240,5 +240,12 @@ alter table t1 defragment index PRIMARY;
 disconnect con1;
 DROP PROCEDURE defragment;
 flush table t1;
-DROP TABLE t1;
 set @@global.innodb_defragment = @my_innodb_defragment;
+
+#
+# Why do we restart the server ? To drop all references held due to async
+# operations
+#
+--source include/restart_mysqld.inc
+DROP TABLE t1;
+

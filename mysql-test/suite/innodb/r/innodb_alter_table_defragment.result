@@ -93,5 +93,5 @@ alter table t1 defragment index PRIMARY;
 ERROR HY000: The 'ALTER TABLE DEFRAGMENT' feature is disabled; you need MySQL built with 'innodb_defragment' to have it working
 DROP PROCEDURE defragment;
 flush table t1;
-DROP TABLE t1;
 set @@global.innodb_defragment = @my_innodb_defragment;
+DROP TABLE t1;
