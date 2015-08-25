@@ -57,3 +57,19 @@ SHOW ENGINE rocksdb MUTEX;
 SHOW ENGINE ALL MUTEX;
 --enable_result_log
 
+# The output from SHOW ENGINE ROCKSDB TRANSACTION STATUS has some
+# non-deterministic results.  Replace the timestamp with 'TIMESTAMP', the
+# number of seconds active with 'NUM', the thread id with 'TID' and the thread
+# pointer with 'PTR'.  This test may fail in the future if it is being run in
+# parallel with other tests as the number of snapshots would then be greater
+# than expected.  We may need to turn off the result log if that is the case.
+--replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /(ACTIVE) [0-9]+ /\1 NUM / /(thread id) [0-9]+/\1 TID/ /0x[0-9a-f]+/PTR/
+SHOW ENGINE rocksdb TRANSACTION STATUS;
+
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+--replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /(ACTIVE) [0-9]+ /\1 NUM / /(thread id) [0-9]+/\1 TID/ /0x[0-9a-f]+/PTR/
+SHOW ENGINE rocksdb TRANSACTION STATUS;
+
+ROLLBACK;
+
