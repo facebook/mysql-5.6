@@ -138,7 +138,7 @@ static ulong opt_compatible_mode= 0;
 static ulong opt_timeout = 0;
 static ulong opt_lra_size = 0;
 static ulong opt_lra_sleep = 0;
-static ulong opt_lra_n_node_recs_before_sleep = 0;
+static ulong opt_lra_pages_before_sleep = 0;
 #define MYSQL_OPT_MASTER_DATA_EFFECTIVE_SQL 1
 #define MYSQL_OPT_MASTER_DATA_COMMENTED_SQL 2
 #define MYSQL_OPT_SLAVE_DATA_EFFECTIVE_SQL 1
@@ -427,9 +427,9 @@ static struct my_option my_long_options[] =
    "Set innodb_lra_sleep for the session of this dump.",
    &opt_lra_sleep, &opt_lra_sleep, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 1000, 0,
    0, 0},
-  {"lra_n_node_recs_before_sleep", OPT_LRA_N_NODE_RECS_BEFORE_SLEEP,
-   "Set innodb_lra_n_node_recs_before_sleep for the session of this dump.",
-   &opt_lra_n_node_recs_before_sleep, &opt_lra_n_node_recs_before_sleep,
+  {"lra_pages_before_sleep", OPT_LRA_N_NODE_RECS_BEFORE_SLEEP,
+   "Set innodb_lra_pages_before_sleep for the session of this dump.",
+   &opt_lra_pages_before_sleep, &opt_lra_pages_before_sleep,
    0, GET_ULONG, REQUIRED_ARG, 1024, 128, ULONG_MAX, 0, 0, 0},
   {"master-data", OPT_MASTER_DATA,
    "This causes the binary log position and filename to be appended to the "
@@ -1651,11 +1651,11 @@ static int connect_to_db(char *host, char *user,char *passwd)
         if (mysql_query_with_error_report(mysql, 0, buff))
           DBUG_RETURN(1);
       }
-      if (opt_lra_n_node_recs_before_sleep)
+      if (opt_lra_pages_before_sleep)
       {
         my_snprintf(buff, sizeof(buff),
-                    "SET innodb_lra_n_node_recs_before_sleep=%lu",
-                    opt_lra_n_node_recs_before_sleep);
+                    "SET innodb_lra_pages_before_sleep=%lu",
+                    opt_lra_pages_before_sleep);
         if (mysql_query_with_error_report(mysql, 0, buff))
           DBUG_RETURN(1);
       }
