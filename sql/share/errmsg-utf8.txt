@@ -7194,6 +7194,9 @@ WARN_DOCUMENT_PATH_KEY_TRUNCATED
 ER_ORDERBY_AS_TYPE_NOT_SUPPORTED
   eng "Order by as type is not supported for non-document type."
 
+ER_TOO_LONG_DOCUMENT_PATH_INDEX
+  eng "Specified document path key was too long; max path length is %d bytes"
+
 #
 #  End of 5.6 error messages.
 #
