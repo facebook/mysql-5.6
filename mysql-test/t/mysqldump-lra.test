@@ -1,0 +1,14 @@
+# A simple test to verify the interface of mysqldump with
+# logical read ahead options
+
+disable_warnings;
+drop database if exists mysqldump_lra;
+enable_warnings;
+create database mysqldump_lra;
+use mysqldump_lra;
+create table t1 (a int);
+insert into t1 values (1), (2);
+
+--exec $MYSQL_DUMP --databases mysqldump_lra --lra_size=5 --lra_sleep=10 --lra_pages_before_sleep=10 --skip-comments
+
+drop database mysqldump_lra;
