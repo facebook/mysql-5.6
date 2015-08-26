@@ -41,8 +41,8 @@ using std::max;
 
 static uchar * pack_screens(List<Create_field> &create_fields,
 			    uint *info_length, uint *screens, bool small_file);
-static uint pack_keys(uchar *keybuff,uint key_count, KEY *key_info,
-                      ulong data_offset);
+static int64_t pack_keys(uchar *keybuff, uint key_length, uint key_count,
+                         KEY *key_info, ulong data_offset);
 static bool pack_header(uchar *forminfo,enum legacy_db_type table_type,
 			List<Create_field> &create_fields,
 			uint info_length, uint screens, uint table_options,
@@ -117,7 +117,8 @@ bool mysql_create_frm(THD *thd, const char *file_name,
 		      handler *db_file)
 {
   LEX_STRING str_db_type;
-  uint reclength, info_length, screens, key_info_length, maxlength, i;
+  uint reclength, info_length, screens, maxlength, i;
+  int64_t key_info_length;
   ulong key_buff_length;
   File file;
   ulong filepos, data_offset;
@@ -274,7 +275,10 @@ bool mysql_create_frm(THD *thd, const char *file_name,
 
   key_buff_length= uint4korr(fileinfo+47);
   keybuff=(uchar*) my_malloc(key_buff_length, MYF(0));
-  key_info_length= pack_keys(keybuff, keys, key_info, data_offset);
+  key_info_length= pack_keys(keybuff, key_buff_length, keys, key_info,
+                             data_offset);
+  if (key_info_length < 0)
+    goto err;
 
   /*
     Ensure that there are no forms in this newly created form file.
@@ -616,10 +620,11 @@ static uchar *pack_screens(List<Create_field> &create_fields,
 
 	/* Pack keyinfo and keynames to keybuff for save in form-file. */
 
-static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
-                      ulong data_offset)
+static int64_t pack_keys(uchar *keybuff, uint key_length, uint key_count,
+                         KEY *keyinfo, ulong data_offset)
 {
   uint key_parts,length;
+  uint document_key_part_count= 0;
   uchar *pos, *keyname_pos;
   KEY *key,*end;
   KEY_PART_INFO *key_part,*key_part_end;
@@ -650,6 +655,7 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
       if (key_part->document_path_key_part)
       {
         document_path_keys_exist = true;
+        document_key_part_count++;
         DBUG_ASSERT(f_is_document(key_part->key_type));
       }
 
@@ -681,6 +687,14 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
   /* Save document path keys */
   if (document_path_keys_exist)
   {
+    /* 10-byte metadata per document path key name will be filled
+       to buffer. Here we take off these 10-bytes along with the
+       '0' terminator to get the precise length of the reserved
+       space for document path key names
+    */
+    key_length-= ((char *)pos - (char *)keybuff +
+                  document_key_part_count * 10 + 1);
+    uint curr_path_key_length = 0;
     for (key=keyinfo,end=keyinfo+key_count; key != end; key++)
     {
       for (key_part=key->key_part,
@@ -735,6 +749,12 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
         for (uint i = 0;
              i < key_part->document_path_key_part->number_of_names; i++)
         {
+          curr_path_key_length +=
+                (uint)strlen(key_part->document_path_key_part->names[i]) + 1;
+          if (curr_path_key_length > key_length) {
+            my_error(ER_TOO_LONG_DOCUMENT_PATH_INDEX, MYF(0), key_length);
+            DBUG_RETURN(-1);
+          }
           pos=(uchar*) strmov((char*)pos,
                               key_part->document_path_key_part->names[i]);
           *pos++= (uchar) NAMES_SEP_CHAR;
@@ -773,7 +793,7 @@ static uint pack_keys(uchar *keybuff, uint key_count, KEY *keyinfo,
   }
   length=(uint) (pos-keyname_pos);
   int2store(keybuff+4,length);
-  DBUG_RETURN((uint) (pos-keybuff));
+  DBUG_RETURN((int64_t) (pos-keybuff));
 } /* pack_keys */
 
 
