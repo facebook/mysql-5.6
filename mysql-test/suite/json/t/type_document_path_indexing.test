@@ -24,6 +24,15 @@ CREATE TABLE t1 (
        primary key (a),
        key (doc)) engine=innodb;
 
+## Specified key was too long
+let $big_string = `SELECT REPEAT('.a', 2000)`;
+--error ER_TOO_LONG_DOCUMENT_PATH_INDEX
+eval CREATE TABLE t1 (
+       a int primary key,
+       b blob not null,
+       doc document not null,
+       key(doc$big_string as string(100))) engine=innodb;
+
 
 ## The prefix length must be specified when indexing on a document path as string
 --error 1064
