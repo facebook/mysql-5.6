@@ -26,6 +26,7 @@
 #include "rdb_datadic.h"
 #include "rdb_cf_manager.h"
 #include "ha_rocksdb_proto.h"
+#include "my_stacktrace.h"
 
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
@@ -1927,6 +1928,7 @@ bool Dict_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager
                      RDBSE_KEYDEF::MAX_INDEX_ID);
   key_slice_max_index_id = rocksdb::Slice((char*)key_buf_max_index_id,
                                           RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  resume_drop_indexes();
   return (system_cfh == NULL);
 }
 
@@ -2086,6 +2088,10 @@ bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
                   RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
 }
 
+/*
+  Returning index ids that were marked as deleted (via DROP TABLE) but
+  still not removed by drop_index_thread yet
+ */
 void Dict_manager::get_drop_indexes_ongoing(std::vector<uint32_t> &index_ids)
 {
   uchar drop_index_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
@@ -2114,6 +2120,31 @@ void Dict_manager::get_drop_indexes_ongoing(std::vector<uint32_t> &index_ids)
   delete it;
 }
 
+/*
+  Returning true if index_id is delete ongoing (marked as deleted via
+  DROP TABLE but drop_index_thread has not wiped yet) or not.
+ */
+bool Dict_manager::is_drop_index_ongoing(const uint32_t index_id)
+{
+  bool found= false;
+  std::string value;
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  rocksdb::Status status= Get(key, &value);
+  if (status.ok())
+  {
+    found= true;
+  }
+  return found;
+}
+
+/*
+  Adding index_id to data dictionary so that the index id is removed
+  by drop_index_thread
+ */
 void Dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                             const uint32_t index_id)
 {
@@ -2128,10 +2159,116 @@ void Dict_manager::start_drop_index_ongoing(rocksdb::WriteBatch* batch,
   batch->Put(system_cfh, key, value);
 }
 
+/*
+  Removing index_id from data dictionary to confirm drop_index_thread
+  completed dropping entire key/values of the index_id
+ */
 void Dict_manager::end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                           const uint32_t index_id)
 {
   delete_util(batch, RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING, index_id);
+}
+
+/*
+  Returning true if there is no target index ids to be removed
+  by drop_index_thread
+ */
+bool Dict_manager::is_drop_index_empty()
+{
+  std::vector<uint32> index_ids;
+  get_drop_indexes_ongoing(index_ids);
+  return index_ids.empty();
+}
+
+/*
+  This function is supposed to be called by DROP TABLE. Logging messages
+  that dropping indexes started, and adding data dictionary so that
+  all associated indexes to be removed
+ */
+void Dict_manager::add_drop_table(RDBSE_KEYDEF** key_descr,
+                                  uint32 n_keys,
+                                  rocksdb::WriteBatch *batch)
+{
+  log_start_drop_table(key_descr, n_keys, "Begin");
+
+  for (uint32 i = 0; i < n_keys; i++)
+  {
+    start_drop_index_ongoing(batch, key_descr[i]->get_index_number());
+  }
+}
+
+/*
+  This function is supposed to be called by drop_index_thread, when it 
+  finished dropping any index.
+ */
+void Dict_manager::done_drop_indexes(const std::unordered_set<uint32> & indexes)
+{
+  std::unique_ptr<rocksdb::WriteBatch> wb= begin();
+  rocksdb::WriteBatch *batch= wb.get();
+
+  for (auto index : indexes)
+  {
+    if (is_drop_index_ongoing(index))
+    {
+      sql_print_information("RocksDB: Finished filtering dropped index %d",
+                            index);
+      end_drop_index_ongoing(batch, index);
+      delete_index_cf_mapping(batch, index);
+    }
+  }
+  commit(batch);
+}
+
+/*
+  This function is supposed to be called when initializing
+  Dict_manager (at startup). If there is any index ids that are
+  drop ongoing, printing out messages for diagnostics purposes.
+ */
+void Dict_manager::resume_drop_indexes()
+{
+  std::vector<uint32> index_ids;
+  get_drop_indexes_ongoing(index_ids);
+
+  uint max_index_id_in_dict= 0;
+  get_max_index_id(&max_index_id_in_dict);
+
+  for (auto index_id: index_ids)
+  {
+    log_start_drop_index(index_id, "Resume");
+    if (max_index_id_in_dict < index_id)
+    {
+      sql_print_error("RocksDB: Found max index id %u from data dictionary "
+                      "but also found dropped index id %u from drop_index "
+                      "dictionary. This should never happen and possibly a bug.",
+                      max_index_id_in_dict, index_id);
+      abort_with_stack_traces();
+    }
+  }
+}
+
+void Dict_manager::log_start_drop_table(RDBSE_KEYDEF** key_descr,
+                                        uint32 n_keys,
+                                        const char* log_action)
+{
+  for (uint32 i = 0; i < n_keys; i++) {
+    log_start_drop_index(key_descr[i]->get_index_number(), log_action);
+  }
+}
+
+
+void Dict_manager::log_start_drop_index(uint32 index_id,
+                                        const char* log_action)
+{
+  uint32 cf_id= -1;
+  if (!get_cf_id(index_id, &cf_id))
+  {
+    sql_print_error("RocksDB: Failed to get column family info "
+                    "from index id %u. MyRocks data dictionary may "
+                    "get corrupted.", index_id);
+    abort_with_stack_traces();
+  }
+  sql_print_information("RocksDB: %s filtering dropped index %d",
+                        log_action, index_id);
 }
 
 bool Dict_manager::get_max_index_id(uint32_t *index_id)

@@ -38,7 +38,6 @@
 #include "rdb_comparator.h"
 #include "rdb_cf_options.h"
 #include "rdb_cf_manager.h"
-#include "rdb_dropped_indices.h"
 #include "rdb_i_s.h"
 
 #include "rocksdb/compaction_filter.h"
@@ -868,7 +867,6 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_stop_background, "stop background", PSI_FLAG_GLOBAL},
   { &key_mutex_drop_index, "drop index", PSI_FLAG_GLOBAL},
   { &key_drop_index_interrupt_mutex, "drop index interrupt", PSI_FLAG_GLOBAL},
-  { &key_mutex_dropped_indices_manager, "dropped indices manager", PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key key_cond_stop, key_drop_index_interrupt_cond;
@@ -922,7 +920,6 @@ int compare_mem_comparable_keys(const uchar *a, size_t a_len, const uchar *b, si
   return rocksdb_pk_comparator.Compare(a_slice, b_slice);
 }
 
-static Dropped_indices_manager dropped_indices_manager;
 static mysql_mutex_t drop_index_mutex;
 static mysql_mutex_t drop_index_interrupt_mutex;
 static mysql_cond_t drop_index_interrupt_cond;
@@ -958,7 +955,7 @@ public:
         print_compaction_status();
         num_deleted= 0;
       }
-      should_delete= dropped_indices_manager.has_index(index);
+      should_delete= dict_manager.is_drop_index_ongoing(index);
       prev_index= index;
     }
 
@@ -1802,8 +1799,6 @@ static int rocksdb_init_func(void *p)
   if (ddl_manager.init(&dict_manager, &cf_manager))
     DBUG_RETURN(1);
 
-  dropped_indices_manager.init(&ddl_manager, &dict_manager);
-
   stop_background_thread = false;
   pthread_t thread_handle;
   auto err = mysql_thread_create(
@@ -1866,7 +1861,6 @@ static int rocksdb_done_func(void *p)
   row_locks.cleanup();
   ddl_manager.cleanup();
   binlog_manager.cleanup();
-  dropped_indices_manager.cleanup();
   dict_manager.cleanup();
   cf_manager.cleanup();
 
@@ -5077,12 +5071,6 @@ void* drop_index_thread(void*)
   mysql_mutex_lock(&drop_index_interrupt_mutex);
 
   for (;;) {
-    timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += dropped_indices_manager.empty()
-      ? 24*60*60 // no filtering
-      : 60; // filtering
-
     // "stop_drop_index_thread = true" might be set by shutdown command
     // after drop_index_thread releases drop_index_interrupt_mutex
     // (i.e. while executing expensive Seek()). To prevent drop_index_thread
@@ -5091,6 +5079,13 @@ void* drop_index_thread(void*)
     if (stop_drop_index_thread) {
       break;
     }
+
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += dict_manager.is_drop_index_empty()
+      ? 24*60*60 // no filtering
+      : 60; // filtering
+
     auto ret = mysql_cond_timedwait(&drop_index_interrupt_cond,
                                     &drop_index_interrupt_mutex, &ts);
     if (stop_drop_index_thread) {
@@ -5100,7 +5095,8 @@ void* drop_index_thread(void*)
     assert(ret == 0 || ret == ETIMEDOUT);
     mysql_mutex_unlock(&drop_index_interrupt_mutex);
 
-    Dropped_Index_Set indices = dropped_indices_manager.get_indices();
+    std::vector<uint32> indices;
+    dict_manager.get_drop_indexes_ongoing(indices);
     if (!indices.empty()) {
       std::unordered_set<uint32> finished;
       rocksdb::ReadOptions read_opts;
@@ -5163,7 +5159,7 @@ void* drop_index_thread(void*)
       }
 
       if (!finished.empty()) {
-        dropped_indices_manager.remove_indices(finished);
+        dict_manager.done_drop_indexes(finished);
       }
     }
     mysql_mutex_lock(&drop_index_interrupt_mutex);
@@ -5195,14 +5191,11 @@ int ha_rocksdb::delete_table(const char *tablename)
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
-
   /* Find the table in the hash */
   RDBSE_TABLE_DEF *tbl;
   if (!(tbl= ddl_manager.find((uchar*)strbuf.c_ptr(), strbuf.length())))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  dropped_indices_manager.add_indices(tbl->key_descr, tbl->n_keys, batch);
-
-  signal_drop_index_thread();
+  dict_manager.add_drop_table(tbl->key_descr, tbl->n_keys, batch);
 
   /*
     Remove the table entry in data dictionary (this will also remove it from
@@ -5211,6 +5204,7 @@ int ha_rocksdb::delete_table(const char *tablename)
   ddl_manager.remove(tbl, batch, true);
   if (dict_manager.commit(batch))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  signal_drop_index_thread();
 
   DBUG_RETURN(0);
 }
