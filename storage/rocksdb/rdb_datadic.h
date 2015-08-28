@@ -724,6 +724,13 @@ private:
   void delete_util(rocksdb::WriteBatch* batch,
                    const uint32_t index_id,
                    const uint32_t index_id_or_cf_id);
+  /* Functions for fast DROP TABLE/INDEX */
+  void resume_drop_indexes();
+  void log_start_drop_table(RDBSE_KEYDEF** key_descr,
+                            uint32 n_keys,
+                            const char* log_action);
+  void log_start_drop_index(uint32 index_id,
+                            const char* log_action);
 public:
   bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
   void cleanup();
@@ -752,11 +759,19 @@ public:
                     const uint cf_flags);
   bool get_cf_flags(const uint cf_id, uint *cf_flags);
 
+  /* Functions for fast DROP TABLE/INDEX */
   void get_drop_indexes_ongoing(std::vector<uint32_t> &index_ids);
+  bool is_drop_index_ongoing(const uint32_t index_id);
   void start_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                 const uint32_t index_id);
   void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
                               const uint32_t index_id);
+  bool is_drop_index_empty();
+  void add_drop_table(RDBSE_KEYDEF** key_descr,
+                      uint32 n_keys,
+                      rocksdb::WriteBatch *batch);
+  void done_drop_indexes(const std::unordered_set<uint32> & indexes);
+
   bool get_max_index_id(uint32_t *index_id);
   bool update_max_index_id(rocksdb::WriteBatch* batch,
                            const uint32_t index_id);
