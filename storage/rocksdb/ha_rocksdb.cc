@@ -2582,6 +2582,13 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
       !(pk_packed_tuple= (uchar*)my_malloc(packed_key_len, MYF(0))))
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
 
+  /*
+    Full table scan actually uses primary key
+    (UPDATE needs to know this, otherwise it will go into infinite loop on
+    queries like "UPDATE tbl SET pk=pk+100")
+  */
+  key_used_on_scan= table->s->primary_key;
+
   /* Sometimes, we may use sec_key_packed_tuple for storing packed PK */
   uint max_packed_sec_key_len= packed_key_len;
   for (uint i= 0; i < table->s->keys; i++)
