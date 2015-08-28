@@ -17,7 +17,6 @@
 
 #include "../rdb_cf_options.h"
 #include "../rdb_cf_manager.h"
-#include "../rdb_dropped_indices.h"
 #include "../rdb_i_s.h"
 
 #include "rocksdb/compaction_filter.h"
