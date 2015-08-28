@@ -31,7 +31,6 @@ SET(ROCKSDB_SOURCES
   rdb_applyiter.cc rdb_applyiter.h
   rdb_cf_options.cc rdb_cf_options.h
   rdb_cf_manager.cc rdb_cf_manager.h
-  rdb_dropped_indices.cc rdb_dropped_indices.h
   properties_collector.cc properties_collector.h
   rdb_i_s.cc rdb_i_s.h
   rdb_perf_context.cc rdb_perf_context.h
