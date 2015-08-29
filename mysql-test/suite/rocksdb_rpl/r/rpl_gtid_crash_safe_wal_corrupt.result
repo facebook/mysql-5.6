@@ -113,6 +113,8 @@ id	value	value2
 5	1	1
 6	1	1
 7	1	1
+8	1	1
+9	1	1
 include/start_slave.inc
 select * from x;
 id	value	value2
