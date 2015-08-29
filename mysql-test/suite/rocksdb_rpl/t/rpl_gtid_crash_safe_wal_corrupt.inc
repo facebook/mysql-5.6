@@ -107,9 +107,10 @@ connection slave;
 --write_file $MYSQL_TMP_DIR/corrupt_wal.sh
 #!/bin/bash
 
+# expected to be around 950 bytes
 F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
 SIZE=`stat -c %s $F`
-OFFSET=$(( $SIZE/2 ))
+OFFSET=$(( $SIZE-500 ))
 dd bs=1 if=/dev/zero of=$F count=100 seek=$OFFSET conv=notrunc
 
 kill -9 `head -1 $slave_pid_file`
