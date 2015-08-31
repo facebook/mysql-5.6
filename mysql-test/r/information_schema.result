@@ -914,7 +914,7 @@ table_schema IN ('mysql', 'INFORMATION_SCHEMA', 'test', 'mysqltest')
 AND table_name not like 'ndb%' AND table_name not like 'innodb_%'  AND table_name not like 'rocksdb_%'
 GROUP BY TABLE_SCHEMA;
 table_schema	count(*)
-information_schema	37
+information_schema	38
 mysql	26
 create table t1 (i int, j int);
 create trigger trg1 before insert on t1 for each row
