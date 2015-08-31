@@ -27,6 +27,7 @@ class Table_ddl_manager;
 
 #include "properties_collector.h"
 
+bool is_myrocks_collation_supported(Field *field);
 void write_int64(String *out, uint64 val);
 void write_int(String *out, uint32 val);
 void write_short(String *out, uint16 val);
