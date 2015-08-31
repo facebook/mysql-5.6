@@ -877,6 +877,7 @@ rocksdb_skip_log_error_on_recovery	OFF
 rocksdb_snapshot_dir	
 rocksdb_stats_dump_period_sec	600
 rocksdb_store_checksums	OFF
+rocksdb_strict_collation_check	OFF
 rocksdb_table_cache_numshardbits	4
 rocksdb_use_adaptive_mutex	OFF
 rocksdb_use_fsync	OFF
