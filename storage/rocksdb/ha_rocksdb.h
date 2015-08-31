@@ -56,6 +56,10 @@ const char * const DEFAULT_SYSTEM_CF_NAME= "__system__";
 */
 const char * const PER_INDEX_CF_NAME = "$per_index_cf";
 
+/* MyRocks supports only the following collations for indexed columns */
+const std::set<const CHARSET_INFO *> MYROCKS_INDEX_COLLATIONS=
+  {&my_charset_bin, &my_charset_utf8_bin, &my_charset_latin1_bin};
+
 inline bool looks_like_per_index_cf_typo(const char *name)
 {
   return (name && name[0]=='$' && strcmp(name, PER_INDEX_CF_NAME));
