@@ -989,6 +989,20 @@ void pack_with_varchar_encoding(Field_pack_info *fpi, Field *field, uchar *buf,
 }
 
 
+bool is_myrocks_collation_supported(Field *field)
+{
+  enum_field_types type= field->real_type();
+  /* Handle [VAR](CHAR|BINARY) or TEXT|BLOB */
+  if (type == MYSQL_TYPE_VARCHAR || type == MYSQL_TYPE_STRING ||
+      type == MYSQL_TYPE_BLOB)
+  {
+    return MYROCKS_INDEX_COLLATIONS.find(field->charset()) !=
+      MYROCKS_INDEX_COLLATIONS.end();
+  }
+  return true;
+}
+
+
 int unpack_binary_or_utf8_varchar(Field_pack_info *fpi, Field *field,
                                   Stream_reader *reader,
                                   const uchar *unpack_info)
