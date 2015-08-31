@@ -1106,6 +1106,9 @@ The following options may be given as the first argument:
  DBOptions::stats_dump_period_sec for RocksDB
  --rocksdb-store-checksums 
  Include checksums when writing index/table records
+ --rocksdb-strict-collation-check 
+ Enforce case sensitive collation for MyRocks indexes
+ (Defaults to on; use --skip-rocksdb-strict-collation-check to disable.)
  --rocksdb-table-cache-numshardbits=# 
  DBOptions::table_cache_numshardbits for RocksDB
  --rocksdb-use-adaptive-mutex 
@@ -1722,6 +1725,7 @@ rocksdb-skip-log-error-on-recovery FALSE
 rocksdb-snapshot-dir 
 rocksdb-stats-dump-period-sec 600
 rocksdb-store-checksums FALSE
+rocksdb-strict-collation-check TRUE
 rocksdb-table-cache-numshardbits 4
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
