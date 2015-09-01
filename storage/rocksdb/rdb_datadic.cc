@@ -2199,3 +2199,16 @@ Dict_manager::get_stats(
 
   return MyRocksTablePropertiesCollector::IndexStats();
 }
+
+uint Sequence_generator::get_and_update_next_number(Dict_manager *dict)
+{
+  uint res;
+  mysql_mutex_lock(&mutex);
+  res= next_number++;
+  std::unique_ptr<rocksdb::WriteBatch> wb= dict->begin();
+  rocksdb::WriteBatch *batch= wb.get();
+  dict->update_max_index_id(batch, res);
+  dict->commit(batch);
+  mysql_mutex_unlock(&mutex);
+  return res;
+}
