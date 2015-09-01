@@ -1,0 +1,63 @@
+source include/master-slave.inc;
+--source include/have_binlog_format_mixed_or_statement.inc
+
+call mtr.add_suppression("Slave.*Temporary table file is too big.*");
+
+connection master;
+--disable_warnings
+drop table if exists t1;
+drop table if exists t2;
+--enable_warnings
+
+create table t1 (i int, c char(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+
+create table t2 (i int, c char(255), cnt int);
+
+connection slave;
+set @start_value = @@global.tmp_table_rpl_max_file_size;
+SELECT @start_value;
+set global tmp_table_rpl_max_file_size=0;
+show global variables like "tmp_table_rpl_max_file_size";
+
+connection master;
+echo Query is OK when there is no limit;
+insert into t2 select i, c, count(*) from t1 group by i, c having count(*) > 1;
+sync_slave_with_master;
+
+connection slave;
+set global tmp_table_rpl_max_file_size=100;
+show global variables like "tmp_table_rpl_max_file_size";
+
+connection master;
+echo Query fails with a limit;
+insert into t2 select i, c, count(*) from t1 group by i, c having count(*) > 1;
+connection slave;
+--let $slave_sql_errno= convert_error(ER_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED)
+--source include/wait_for_slave_sql_error.inc
+
+set global tmp_table_rpl_max_file_size = @start_value;
+show global variables like "tmp_table_rpl_max_file_size";
+
+--source include/restart_slave_sql.inc
+
+connection master;
+drop table t1;
+drop table t2;
+
+sync_slave_with_master;
+
+--source include/rpl_end.inc
