@@ -1859,7 +1859,10 @@ bool create_myisam_tmp_table(TABLE *table, KEY *keyinfo,
 
   table->in_use->inc_status_created_tmp_disk_tables();
   share->db_record_offset= 1;
-  table->file->set_max_bytes(thd->variables.tmp_table_max_file_size);
+  if (thd->rli_slave)
+    table->file->set_max_bytes(tmp_table_rpl_max_file_size);
+  else
+    table->file->set_max_bytes(thd->variables.tmp_table_max_file_size);
   DBUG_RETURN(0);
  err:
   DBUG_RETURN(1);
