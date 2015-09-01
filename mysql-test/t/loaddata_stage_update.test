@@ -14,7 +14,7 @@ connect(connection1, localhost, root, ,test,);
 --connection default
 set session debug= "+d,load_data_infile_stage_debug";
 create table tb1 (num1 INT, num2 INT, num3 INT, num4 INT, num5 INT, num6 INT);
-set DEBUG_SYNC= 'init WAIT_FOR go';
+set DEBUG_SYNC= 'init WAIT_FOR go TIMEOUT 43200';
 --send load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';
 --echo "Wait in the stage of init"
 
@@ -25,7 +25,7 @@ set DEBUG_SYNC= 'now SIGNAL go';
 # Check the update stage
 --connection default
 --reap
-set DEBUG_SYNC= 'update WAIT_FOR go';
+set DEBUG_SYNC= 'update WAIT_FOR go TIMEOUT 43200';
 --send load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';
 --echo "Wait in the stage of update"
 
@@ -36,7 +36,7 @@ set DEBUG_SYNC= 'now SIGNAL go';
 # Check the end stage
 --connection default
 --reap
-set DEBUG_SYNC= 'end WAIT_FOR go';
+set DEBUG_SYNC= 'end WAIT_FOR go TIMEOUT 43200';
 --send load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';
 --echo "Wait in the stage of end"
 
