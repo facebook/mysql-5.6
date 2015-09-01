@@ -638,6 +638,33 @@ int RDBSE_KEYDEF::compare_keys(
 
 }
 
+
+/*
+  @brief
+    Given a zero-padded key, determine its real key length
+
+  @detail
+    Fixed-size skip functions just read.
+*/
+
+size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
+{
+  Stream_reader reader(&key);
+
+  if ((!reader.read(INDEX_NUMBER_SIZE)))
+    return size_t(-1);
+
+  for (uint i= 0; i < m_key_parts ; i++)
+  {
+    Field_pack_info *fpi= &pack_info[i];
+    Field *field= fpi->get_field_in_table(table);
+    if (fpi->skip_func(fpi, field, &reader))
+      return size_t(-1);
+  }
+  return key.size() - reader.remaining_bytes();
+}
+
+
 /*
   Take mem-comparable form and unpack_info and unpack it to Table->record
 
