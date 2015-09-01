@@ -222,6 +222,7 @@ public:
   int compare_keys(const rocksdb::Slice *key1, const rocksdb::Slice *key2,
                    std::size_t* column_index);
 
+  size_t key_length(TABLE *table, const rocksdb::Slice &key);
   /* Get the key that is the "infimum" for this index */
   inline void get_infimum_key(uchar *key, uint *size)
   {
