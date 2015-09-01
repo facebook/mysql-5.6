@@ -6504,7 +6504,10 @@ bool open_temporary_table(THD *thd, TABLE_LIST *tl)
 
   table->init(thd, tl);
 
-  table->file->set_max_bytes(thd->variables.tmp_table_max_file_size);
+  if (thd->rli_slave)
+    table->file->set_max_bytes(tmp_table_rpl_max_file_size);
+  else
+    table->file->set_max_bytes(thd->variables.tmp_table_max_file_size);
 
   DBUG_PRINT("info", ("Using temporary table"));
   DBUG_RETURN(FALSE);

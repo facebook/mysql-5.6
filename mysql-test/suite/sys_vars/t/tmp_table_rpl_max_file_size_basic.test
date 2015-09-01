@@ -1,0 +1,117 @@
+################### tmp_table_rpl_max_file_size_basic.test #####################
+#                                                                              #
+# Variable Name: tmp_table_rpl_max_file_size                                   #
+# Scope: GLOBAL                                                                #
+# Access Type: Dynamic                                                         #
+# Data Type: numeric                                                           #
+# Default Value: 0                                                             #
+# Range: 0-system depended                                                     #
+#                                                                              #
+#                                                                              #
+# Creation Date: 2015-09-02                                                    #
+# Author:  mung                                                                #
+#                                                                              #
+# Description: Test Cases of Dynamic System Variable                           #
+#              tmp_table_rpl_max_file_size that checks the behavior of this    #
+#              variable in the following ways                                  #
+#              * Default Value                                                 #
+#              * Valid & Invalid values                                        #
+#              * Scope & Access method                                         #
+#              * Data Integrity                                                #
+#                                                                              #
+################################################################################
+
+--source include/load_sysvars.inc
+
+##################################################################
+#          START OF tmp_table_rpl_max_file_size TESTS            #
+##################################################################
+
+################################################################################
+#   Saving initial value of disable_working_set_size in a temporary variable   #
+################################################################################
+
+SET @start_value = @@global.tmp_table_rpl_max_file_size;
+SELECT @start_value;
+
+##################################################################
+#   Display the DEFAULT value of tmp_table_rpl_max_file_size     #
+##################################################################
+
+SET @@global.tmp_table_rpl_max_file_size = 100;
+SET @@global.tmp_table_rpl_max_file_size = DEFAULT;
+
+########################################################################
+#     Check the DEFAULT value of tmp_table_rpl_max_file_size           #
+########################################################################
+SELECT @@global.tmp_table_rpl_max_file_size = 0;
+
+
+#####################################################################################
+# Change the value of tmp_table_rpl_max_file_size to a valid value for GLOBAL Scope #
+#####################################################################################
+
+SET @@global.tmp_table_rpl_max_file_size = 1024;
+SELECT @@global.tmp_table_rpl_max_file_size;
+SET @@global.tmp_table_rpl_max_file_size = 60020;
+SELECT @@global.tmp_table_rpl_max_file_size;
+SET @@global.tmp_table_rpl_max_file_size = 4294967295;
+SELECT @@global.tmp_table_rpl_max_file_size;
+
+#######################################################################
+# Change the value of tmp_table_rpl_max_file_size to an invalid value #
+#######################################################################
+
+SET @@global.tmp_table_rpl_max_file_size = -1024;
+SELECT @@global.tmp_table_rpl_max_file_size;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_rpl_max_file_size = ON;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_rpl_max_file_size = OFF;
+
+SET @@global.tmp_table_rpl_max_file_size = True;
+SELECT @@global.tmp_table_rpl_max_file_size;
+
+SET @@global.tmp_table_rpl_max_file_size = False;
+SELECT @@global.tmp_table_rpl_max_file_size;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_rpl_max_file_size = 65530.34;
+
+--Error ER_WRONG_TYPE_FOR_VAR
+SET @@global.tmp_table_rpl_max_file_size ="Test";
+
+SET @@global.tmp_table_rpl_max_file_size = 12345678901;
+# With a 64 bit mysqld:12345678901,with a 32 bit mysqld: 4294967295
+SELECT @@global.tmp_table_rpl_max_file_size IN (12345678901,4294967295);
+
+####################################################################
+#   Check if the value in GLOBAL Table matches value in variable   #
+####################################################################
+
+SELECT @@global.tmp_table_rpl_max_file_size = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='tmp_table_rpl_max_file_size';
+
+#################################################################################
+# Check if tmp_table_rpl_max_file_size can be accessed with and without @@ sign #
+#################################################################################
+
+SET GLOBAL tmp_table_rpl_max_file_size = 1027;
+SELECT @@tmp_table_rpl_max_file_size;
+
+--Error ER_UNKNOWN_TABLE
+SELECT global.tmp_table_rpl_max_file_size;
+
+####################################
+#     Restore initial value        #
+####################################
+
+SET @@global.tmp_table_rpl_max_file_size = @start_value;
+SELECT @start_value;
+
+#######################################################
+#      END OF tmp_table_rpl_max_file_size TESTS       #
+#######################################################
