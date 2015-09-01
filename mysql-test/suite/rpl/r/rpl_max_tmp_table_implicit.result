@@ -1,0 +1,50 @@
+include/master-slave.inc
+Warnings:
+Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
+Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+[connection master]
+call mtr.add_suppression("Slave.*Temporary table file is too big.*");
+drop table if exists t1;
+drop table if exists t2;
+create table t1 (i int, c char(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+create table t2 (i int, c char(255), cnt int);
+set @start_value = @@global.tmp_table_rpl_max_file_size;
+SELECT @start_value;
+@start_value
+0
+set global tmp_table_rpl_max_file_size=0;
+show global variables like "tmp_table_rpl_max_file_size";
+Variable_name	Value
+tmp_table_rpl_max_file_size	0
+Query is OK when there is no limit
+insert into t2 select i, c, count(*) from t1 group by i, c having count(*) > 1;
+set global tmp_table_rpl_max_file_size=100;
+show global variables like "tmp_table_rpl_max_file_size";
+Variable_name	Value
+tmp_table_rpl_max_file_size	100
+Query fails with a limit
+insert into t2 select i, c, count(*) from t1 group by i, c having count(*) > 1;
+include/wait_for_slave_sql_error.inc [errno=1891]
+set global tmp_table_rpl_max_file_size = @start_value;
+show global variables like "tmp_table_rpl_max_file_size";
+Variable_name	Value
+tmp_table_rpl_max_file_size	0
+include/restart_slave.inc
+Warnings:
+Note	1255	Slave already has been stopped
+drop table t1;
+drop table t2;
+include/rpl_end.inc
