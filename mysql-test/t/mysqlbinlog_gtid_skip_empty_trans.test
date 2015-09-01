@@ -1,0 +1,33 @@
+################################################################################
+# Test the --skip-empty-trans option for mysqlbinlog
+################################################################################
+
+--source include/have_gtid.inc
+--source include/have_binlog_format_statement.inc
+
+reset master;
+set timestamp=1000000000;
+
+# Test statement based replication
+set SESSION binlog_format = 'STATEMENT';
+--source include/mysqlbinlog_gtid_skip_empty_trans_input.inc
+
+# Test row based replication
+set SESSION binlog_format = 'ROW';
+--source include/mysqlbinlog_gtid_skip_empty_trans_input.inc
+
+# Test the command line error
+let $master_binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+let $MYSQLD_DATADIR= `select @@datadir`;
+
+--echo ==== mysqlbinlog with --skip-empty-trans ====
+--error 1
+--exec $MYSQL_BINLOG --skip_empty_trans $MYSQLD_DATADIR/$master_binlog
+
+--echo ==== mysqlbinlog with --skip-empty-trans --database ====
+--error 1
+--exec $MYSQL_BINLOG --skip_empty_trans --database=test $MYSQLD_DATADIR/$master_binlog
+
+--echo ==== mysqlbinlog with --skip-empty-trans --skip-gtids ====
+--error 1
+--exec $MYSQL_BINLOG --skip_empty_trans --skip-gtids $MYSQLD_DATADIR/$master_binlog
