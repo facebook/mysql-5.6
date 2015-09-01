@@ -552,14 +552,7 @@ public:
     next_number= initial_number;
   }
 
-  uint get_next_number()
-  {
-    uint res;
-    mysql_mutex_lock(&mutex);
-    res= next_number++;
-    mysql_mutex_unlock(&mutex);
-    return res;
-  }
+  uint get_and_update_next_number(Dict_manager *dict);
 
   void cleanup()
   {
@@ -609,7 +602,8 @@ public:
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
               rocksdb::WriteBatch *batch);
 
-  uint get_next_number() { return sequence.get_next_number(); }
+  uint get_and_update_next_number(Dict_manager *dict)
+    { return sequence.get_and_update_next_number(dict); }
   void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
   std::unordered_set<uint32_t> get_changed_indexes();
 
