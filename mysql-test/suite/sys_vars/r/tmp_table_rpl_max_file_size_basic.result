@@ -1,0 +1,62 @@
+SET @start_value = @@global.tmp_table_rpl_max_file_size;
+SELECT @start_value;
+@start_value
+0
+SET @@global.tmp_table_rpl_max_file_size = 100;
+SET @@global.tmp_table_rpl_max_file_size = DEFAULT;
+SELECT @@global.tmp_table_rpl_max_file_size = 0;
+@@global.tmp_table_rpl_max_file_size = 0
+1
+SET @@global.tmp_table_rpl_max_file_size = 1024;
+SELECT @@global.tmp_table_rpl_max_file_size;
+@@global.tmp_table_rpl_max_file_size
+1024
+SET @@global.tmp_table_rpl_max_file_size = 60020;
+SELECT @@global.tmp_table_rpl_max_file_size;
+@@global.tmp_table_rpl_max_file_size
+60020
+SET @@global.tmp_table_rpl_max_file_size = 4294967295;
+SELECT @@global.tmp_table_rpl_max_file_size;
+@@global.tmp_table_rpl_max_file_size
+4294967295
+SET @@global.tmp_table_rpl_max_file_size = -1024;
+Warnings:
+Warning	1292	Truncated incorrect tmp_table_rpl_max_file_size value: '-1024'
+SELECT @@global.tmp_table_rpl_max_file_size;
+@@global.tmp_table_rpl_max_file_size
+0
+SET @@global.tmp_table_rpl_max_file_size = ON;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_rpl_max_file_size'
+SET @@global.tmp_table_rpl_max_file_size = OFF;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_rpl_max_file_size'
+SET @@global.tmp_table_rpl_max_file_size = True;
+SELECT @@global.tmp_table_rpl_max_file_size;
+@@global.tmp_table_rpl_max_file_size
+1
+SET @@global.tmp_table_rpl_max_file_size = False;
+SELECT @@global.tmp_table_rpl_max_file_size;
+@@global.tmp_table_rpl_max_file_size
+0
+SET @@global.tmp_table_rpl_max_file_size = 65530.34;
+ERROR 42000: Incorrect argument type to variable 'tmp_table_rpl_max_file_size'
+SET @@global.tmp_table_rpl_max_file_size ="Test";
+ERROR 42000: Incorrect argument type to variable 'tmp_table_rpl_max_file_size'
+SET @@global.tmp_table_rpl_max_file_size = 12345678901;
+SELECT @@global.tmp_table_rpl_max_file_size IN (12345678901,4294967295);
+@@global.tmp_table_rpl_max_file_size IN (12345678901,4294967295)
+1
+SELECT @@global.tmp_table_rpl_max_file_size = VARIABLE_VALUE
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES
+WHERE VARIABLE_NAME='tmp_table_rpl_max_file_size';
+@@global.tmp_table_rpl_max_file_size = VARIABLE_VALUE
+1
+SET GLOBAL tmp_table_rpl_max_file_size = 1027;
+SELECT @@tmp_table_rpl_max_file_size;
+@@tmp_table_rpl_max_file_size
+1027
+SELECT global.tmp_table_rpl_max_file_size;
+ERROR 42S02: Unknown table 'global' in field list
+SET @@global.tmp_table_rpl_max_file_size = @start_value;
+SELECT @start_value;
+@start_value
+0

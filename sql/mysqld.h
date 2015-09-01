@@ -851,6 +851,7 @@ extern ulonglong read_queries, write_queries;
 extern ulonglong total_query_rejected, write_query_rejected;
 extern int32 write_query_running;
 extern my_atomic_rwlock_t write_query_running_lock;
+extern ulonglong tmp_table_rpl_max_file_size;
 
 /** The size of the host_cache. */
 extern uint host_cache_size;
