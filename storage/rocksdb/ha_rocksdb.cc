@@ -2747,7 +2747,7 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
     if (!cf_handle)
       goto error;
 
-    index_id= ddl_manager.get_next_number();
+    index_id= ddl_manager.get_and_update_next_number(&dict_manager);
     if (!(key_descr[i]= new RDBSE_KEYDEF(index_id, i,
                                          cf_handle,
                                          is_cf_name_reverse(comment),
@@ -2761,7 +2761,6 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   tbl_def->dbname_tablename.append(db_table, len);
   dict_manager.lock();
   write_err= ddl_manager.put_and_write(tbl_def, batch)
-             || dict_manager.update_max_index_id(batch, index_id)
              || dict_manager.commit(batch);
   dict_manager.unlock();
 
