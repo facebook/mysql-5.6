@@ -4761,12 +4761,27 @@ void ha_rocksdb::position(const uchar *record)
   DBUG_ENTER("ha_rocksdb::position");
   /*
     Get packed primary key value from the record.
+
     (Note: last_rowkey has the packed PK of last-read-row, which allows to
     handle most cases, but there is an exception to this: when slave applies
     RBR events, it fills the record and then calls position(); rnd_pos())
+    
+    Also note that we *can* rely on PK column values being available. This is
+    because table_flags() includes HA_PRIMARY_KEY_REQUIRED_FOR_POSITION bit.
+    When that is true, table->prepare_for_position() adds PK columns into the 
+    read set (this may potentially disable index-only access when PK column
+    cannot be restored from its mem-comparable form in the secondary indexes).
   */
-  pk_descr->pack_record(table, pack_buffer, record, ref,
-                        NULL, NULL);
+  uint packed_size= pk_descr->pack_record(table, pack_buffer, record, ref,
+                                          NULL, NULL);
+
+  /*
+    It could be that mem-comparable form of PK occupies less than ref_length 
+    bytes. Fill the remainder with zeros.
+  */
+  if (ref_length > packed_size)
+    memset(ref + packed_size, 0, ref_length - packed_size);
+
   DBUG_VOID_RETURN;
 }
 
@@ -4774,9 +4789,17 @@ void ha_rocksdb::position(const uchar *record)
 int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
 {
   int rc;
+  size_t len;
   DBUG_ENTER("ha_rocksdb::rnd_pos");
+  
+  len= pk_descr->key_length(table, rocksdb::Slice((const char*)pos,
+                                                  ref_length));
+  if (len == size_t(-1))
+  {
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR); /* Data corruption? */
+  }
 
-  rc= get_row_by_rowid(buf, (const char*)pos, ref_length);
+  rc= get_row_by_rowid(buf, (const char*)pos, len);
 
   DBUG_RETURN(rc);
 }
