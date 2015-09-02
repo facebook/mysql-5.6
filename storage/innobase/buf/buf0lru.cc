@@ -1962,23 +1962,6 @@ func_exit:
 #endif /* UNIV_SYNC_DEBUG */
 	ut_ad(buf_page_can_relocate(bpage));
 
-	/* Save the age of the latest evicted page in milliseconds
-	into status variable if this page is a chosen sampling page */
-	if (bpage->last_access_time > 0) {
-		ut_ad(bpage->last_access_time >= bpage->access_time);
-		ut_ad(8 == sizeof(last_evicted_page_age));
-
-		/* Debug injection to make sure the ages of evicted pages
-		are always older than 1 millisecond */
-		DBUG_EXECUTE_IF("test-age-of-evicted-pages",
-				{ ut_ad(bpage->last_access_time > 1);
-				  bpage->last_access_time -= 1; });
-
-		my_atomic_store64((int64 *)&last_evicted_page_age,
-			(int64)((unsigned)ut_time_ms() -
-				bpage->last_access_time));
-	}
-
 	*removed = TRUE;
 
 	if (!buf_LRU_block_remove_hashed(bpage, zip)) {
@@ -2235,6 +2218,32 @@ buf_LRU_block_free_non_file_page(
 }
 
 /******************************************************************//**
+Update status variable last_evicted_page_age if this page is
+a chosen sampling page. */
+void
+update_last_evicted_page_age(
+/*===================*/
+	buf_page_t*	bpage)	/*!< in: control block */
+{
+	/* Save the age of the latest evicted page in milliseconds
+	into status variable if this page is a chosen sampling page */
+	if (bpage->last_access_time > 0) {
+		ut_ad(bpage->last_access_time >= bpage->access_time);
+		ut_ad(8 == sizeof(last_evicted_page_age));
+
+		/* Debug injection to make sure the ages of evicted pages
+		are always older than 1 millisecond */
+		DBUG_EXECUTE_IF("test-age-of-evicted-pages",
+				{ ut_ad(bpage->last_access_time > 1);
+				  bpage->last_access_time -= 1; });
+
+		my_atomic_store64((int64 *)&last_evicted_page_age,
+				(int64)((unsigned)ut_time_ms() -
+				bpage->last_access_time));
+	}
+}
+
+/******************************************************************//**
 Takes a block out of the LRU list and page hash table.
 If the block is compressed-only (BUF_BLOCK_ZIP_PAGE),
 the object will be freed.
@@ -2279,6 +2288,9 @@ buf_LRU_block_remove_hashed(
 	buf_LRU_remove_block(bpage);
 
 	buf_pool->freed_page_clock += 1;
+
+	/* Update status variable last_evicted_page_age if needed */
+	update_last_evicted_page_age(bpage);
 
 	switch (buf_page_get_state(bpage)) {
 	case BUF_BLOCK_FILE_PAGE:
