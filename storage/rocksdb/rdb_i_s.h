@@ -23,5 +23,6 @@ extern struct st_mysql_plugin i_s_rocksdb_perf_context;
 extern struct st_mysql_plugin i_s_rocksdb_perf_context_global;
 extern struct st_mysql_plugin i_s_rocksdb_cfoptions;
 extern struct st_mysql_plugin i_s_rocksdb_ddl;
+extern struct st_mysql_plugin i_s_rocksdb_index_file_map;
 
 #endif /* _rdb_i_s_h_ */
