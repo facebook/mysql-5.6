@@ -713,6 +713,109 @@ static int i_s_rocksdb_cfoptions_init(void *p)
   DBUG_RETURN(0);
 }
 
+/* Given a path to a file return just the filename portion. */
+static std::string filename_without_path(
+    const std::string& path)
+{
+  /* Find last slash in path */
+  size_t pos = path.rfind('/');
+
+  /* None found?  Just return the original string */
+  if (pos == std::string::npos) {
+    return std::string(path);
+  }
+
+  /* Return everything after the slash (or backslash) */
+  return path.substr(pos + 1);
+}
+
+/* Fill the information_schema.rocksdb_index_file_map virtual table */
+static int i_s_rocksdb_index_file_map_fill_table(
+    THD        *thd,
+    TABLE_LIST *tables,
+    Item       *cond)
+{
+  int     ret = 0;
+  Field **field = tables->table->field;
+
+  DBUG_ENTER("i_s_rocksdb_index_file_map_fill_table");
+
+  /* Iterate over all the column families */
+  rocksdb::DB *rdb= rocksdb_get_rdb();
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  for (auto cf_handle : cf_manager.get_all_cf()) {
+    /* Grab the the properties of all the tables in the column family */
+    rocksdb::TablePropertiesCollection table_props_collection;
+    rocksdb::Status s = rdb->GetPropertiesOfAllTables(cf_handle,
+        &table_props_collection);
+    if (!s.ok()) {
+      continue;
+    }
+
+    /* Iterate over all the items in the collection, each of which contains a
+     * name and the actual properties */
+    for (auto props : table_props_collection) {
+      /* Add the SST name into the output */
+      std::string sst_name = filename_without_path(props.first);
+      field[1]->store(sst_name.data(), sst_name.size(), system_charset_info);
+
+      /* Get the __indexstats__ data out of the table property */
+      std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
+          MyRocksTablePropertiesCollector::GetStatsFromTableProperties(props.second);
+      if (stats.empty()) {
+        field[0]->store(-1, true);
+        field[2]->store(-1, true);
+        field[3]->store(-1, true);
+      }
+      else {
+        for (auto it : stats) {
+          /* Add the index number, the number of rows, and data size to the output */
+          field[0]->store(it.index_number, true);
+          field[2]->store(it.rows, true);
+          field[3]->store(it.data_size, true);
+
+          /* Tell MySQL about this row in the virtual table */
+          ret= schema_table_store_record(thd, tables->table);
+          if (ret != 0) {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_index_file_map_fields_info[] =
+{
+  /* The information_schema.rocksdb_index_file_map virtual table has four fields:
+   *   INDEX_NUMBER => the index id contained in the SST file
+   *   SST_NAME => the name of the SST file containing some indexes
+   *   NUM_ROWS => the number of entries of this index id in this SST file
+   *   DATA_SIZE => the data size stored in this SST file for this index id */
+  ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("SST_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("NUM_ROWS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO("DATA_SIZE", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+/* Initialize the information_schema.rocksdb_index_file_map virtual table */
+static int i_s_rocksdb_index_file_map_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_index_file_map_init");
+
+  schema= (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info=i_s_rocksdb_index_file_map_fields_info;
+  schema->fill_table=i_s_rocksdb_index_file_map_fill_table;
+
+  DBUG_RETURN(0);
+}
+
 static int i_s_rocksdb_deinit(void *p)
 {
   DBUG_ENTER("i_s_rocksdb_deinit");
@@ -816,6 +919,23 @@ struct st_mysql_plugin i_s_rocksdb_ddl=
   "RocksDB Data Dictionary",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_ddl_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  NULL,                               /* status variables */
+  NULL,                               /* system variables */
+  NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_index_file_map=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_INDEX_FILE_MAP",
+  "Facebook",
+  "RocksDB index file map",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_index_file_map_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */

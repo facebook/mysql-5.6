@@ -51,6 +51,10 @@ class MyRocksTablePropertiesCollector
   GetReadableStats(const MyRocksTablePropertiesCollector::IndexStats& it);
   rocksdb::UserCollectedProperties GetReadableProperties() const override;
 
+  static std::vector<IndexStats> GetStatsFromTableProperties(
+    const std::shared_ptr<const rocksdb::TableProperties>& table_props
+  );
+
   static void GetStats(
     const rocksdb::TablePropertiesCollection& collection,
     const std::unordered_set<uint32_t>& index_numbers,
