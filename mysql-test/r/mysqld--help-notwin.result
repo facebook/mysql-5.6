@@ -857,6 +857,14 @@ The following options may be given as the first argument:
  --range-alloc-block-size=# 
  Allocation block size for storing ranges during
  optimization
+ --range-optimizer-max-mem-size=# 
+ Maximum amount of memory used by the range optimizer to
+ allocate predicates during range analysis. The larger the
+ number, more memory may be consumed during range
+ analysis. If the value is too low to completed range
+ optimization of a query, index range scan will not be
+ considered for this query. A value of 0 means range
+ optimizer does not have any cap on memory. 
  --rbr-idempotent-tables=name 
  slave_exec_mode is set to IDEMPOTENT for these list of
  tables. The table names are assumed to be separated by
@@ -1793,6 +1801,7 @@ query-cache-type OFF
 query-cache-wlock-invalidate FALSE
 query-prealloc-size 8192
 range-alloc-block-size 4096
+range-optimizer-max-mem-size 1536000
 rbr-idempotent-tables (No default value)
 read-buffer-size 131072
 read-only FALSE
