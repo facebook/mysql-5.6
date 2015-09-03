@@ -131,6 +131,7 @@ DROP TABLE t1, t2;
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
+| ROCKSDB_INDEX_FILE_MAP                |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
 | ROUTINES                              |
@@ -205,6 +206,7 @@ DROP TABLE t1, t2;
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
+| ROCKSDB_INDEX_FILE_MAP                |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
 | ROUTINES                              |
