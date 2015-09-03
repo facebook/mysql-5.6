@@ -1041,6 +1041,10 @@ The following options may be given as the first argument:
  BlockBasedTableOptions::hash_index_allow_collision for
  RocksDB
  (Defaults to on; use --skip-rocksdb-hash-index-allow-collision to disable.)
+ --rocksdb-index-file-map[=name] 
+ Enable or disable ROCKSDB_INDEX_FILE_MAP plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
  --rocksdb-index-type=name 
  BlockBasedTableOptions::index_type for RocksDB
  --rocksdb-info-log-level=name 
@@ -1697,6 +1701,7 @@ rocksdb-enable-thread-tracking FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-force-flush-memtable-now FALSE
 rocksdb-hash-index-allow-collision TRUE
+rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
 rocksdb-info-log-level debug_level
 rocksdb-is-fd-close-on-exec TRUE
