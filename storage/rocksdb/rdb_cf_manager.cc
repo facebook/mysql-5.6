@@ -204,3 +204,17 @@ Column_family_manager::get_cf_names(void)
   mysql_mutex_unlock(&cfm_mutex);
   return names;
 }
+
+std::vector<rocksdb::ColumnFamilyHandle*>
+Column_family_manager::get_all_cf(void)
+{
+  std::vector<rocksdb::ColumnFamilyHandle*> list;
+
+  mysql_mutex_lock(&cfm_mutex);
+  for (auto it : cf_id_map) {
+    list.push_back(it.second);
+  }
+  mysql_mutex_unlock(&cfm_mutex);
+
+  return list;
+}

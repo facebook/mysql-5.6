@@ -181,6 +181,23 @@ MyRocksTablePropertiesCollector::GetReadableStats(
 }
 
 /*
+  Given the properties of an SST file, reads the stats from it and returns it.
+*/
+std::vector<MyRocksTablePropertiesCollector::IndexStats>
+MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+  const std::shared_ptr<const rocksdb::TableProperties>& table_props)
+{
+  std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
+  const auto& user_properties = table_props->user_collected_properties;
+  auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
+  if (it2 != user_properties.end()) {
+    IndexStats::unmaterialize(it2->second, ret);
+  }
+
+  return ret;
+}
+
+/*
   Given properties stored on a bunch of SST files, reads the stats from them
   and returns one IndexStats struct per index
 */
