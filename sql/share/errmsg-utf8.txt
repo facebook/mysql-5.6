@@ -7232,6 +7232,13 @@ ER_OPTION_PREVENTS_STATEMENT_EXTRA_INFO
 
 ER_VARIABLE_NOT_SETTABLE_WITHOUT_READ_ONLY
   eng "The system variable %.200s can only be set in read-only (super) status."
+
+ER_CAPACITY_EXCEEDED
+  eng "Memory capacity of %llu bytes for '%s' exceeded. %s"
+
+ER_CAPACITY_EXCEEDED_IN_RANGE_OPTIMIZER
+  eng "Range optimization was not done for this query."
+
 #
 #  End of 5.6 error messages.
 #
