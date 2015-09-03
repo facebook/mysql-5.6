@@ -76,6 +76,9 @@ public:
   /* Used to iterate over column families for show status */
   std::vector<std::string> get_cf_names(void);
 
+  /* Used to iterate over column families */
+  std::vector<rocksdb::ColumnFamilyHandle*> get_all_cf(void);
+
   // void drop_cf(); -- not implemented so far.
 };
 
