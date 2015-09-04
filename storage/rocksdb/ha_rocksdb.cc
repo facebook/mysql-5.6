@@ -880,7 +880,6 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_stop_background, "stop background", PSI_FLAG_GLOBAL},
   { &key_mutex_drop_index, "drop index", PSI_FLAG_GLOBAL},
   { &key_drop_index_interrupt_mutex, "drop index interrupt", PSI_FLAG_GLOBAL},
-  { &key_mutex_dropped_indices_manager, "dropped indices manager", PSI_FLAG_GLOBAL},
   { &key_mutex_snapshot, "snapshot", PSI_FLAG_GLOBAL},
 };
 
