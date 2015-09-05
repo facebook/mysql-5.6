@@ -3965,8 +3965,8 @@ static void dump_table(char *table, char *db)
         DB_error(mysql, "when trying to save the result of EXPLAIN SELECT *.");
         goto err;
       }
-      fprintf(md_result_file, "/* ORDERING KEY %s : %s */;\n",
-              opt_order_by_primary_desc ? "(DESC)" : "", row[5]);
+      fprintf(md_result_file, "/* ORDERING KEY%s : %s */;\n",
+              opt_order_by_primary_desc ? " (DESC)" : "", row[5]);
     }
 
     if (!opt_xml && !opt_compact)
