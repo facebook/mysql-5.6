@@ -512,8 +512,6 @@ buf_flush_or_remove_page(
 		   && buf_flush_page(
 			   buf_pool, bpage, BUF_FLUSH_SINGLE_PAGE, false)) {
 
-		srv_stats.buf_pool_flushed.add(1);
-
 		/* Wake possible simulated aio thread to actually
 		post the writes to the operating system */
 		os_aio_simulated_wake_handler_threads();
