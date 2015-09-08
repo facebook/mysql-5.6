@@ -213,6 +213,7 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
                                                Item *cond)
 {
   int ret= 0;
+  Field** field = tables->table->field;
 
   DBUG_ENTER("i_s_rocksdb_perf_context_fill_table");
 
@@ -230,23 +231,21 @@ static int i_s_rocksdb_perf_context_fill_table(THD *thd,
     if (rocksdb_get_share_perf_counters(it.c_str(), &counters))
       continue;
 
+    field[0]->store(dbname.c_ptr(), dbname.length(), system_charset_info);
+    field[1]->store(tablename.c_ptr(), tablename.length(), system_charset_info);
+    if (partname.length() == 0)
+      field[2]->set_null();
+    else
+    {
+      field[2]->set_notnull();
+      field[2]->store(partname.c_ptr(), partname.length(),
+                                     system_charset_info);
+    }
+
     for (int i= 0; i < PC_MAX_IDX; i++) {
-      tables->table->field[0]->store(dbname.c_ptr(), dbname.length(),
-                                     system_charset_info);
-      tables->table->field[1]->store(tablename.c_ptr(), tablename.length(),
-                                     system_charset_info);
-      if (partname.length() == 0)
-        tables->table->field[2]->set_null();
-      else
-      {
-        tables->table->field[2]->set_notnull();
-        tables->table->field[2]->store(partname.c_ptr(), partname.length(),
-                                       system_charset_info);
-      }
-      tables->table->field[3]->store(pc_stat_types[i].c_str(),
-                                     pc_stat_types[i].size(),
-                                     system_charset_info);
-      tables->table->field[4]->store(counters.value[i], true);
+      field[3]->store(pc_stat_types[i].c_str(), pc_stat_types[i].size(),
+                      system_charset_info);
+      field[4]->store(counters.value[i], true);
 
       ret= schema_table_store_record(thd, tables->table);
       if (ret)
