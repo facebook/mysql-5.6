@@ -2303,7 +2303,7 @@ int mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
   {
     if (!drop_temporary)
     {
-      built_query.set_charset(system_charset_info);
+      built_query.set_charset(thd->charset());
       if (if_exists)
         built_query.append("DROP TABLE IF EXISTS ");
       else
@@ -2313,19 +2313,19 @@ int mysql_rm_table_no_locks(THD *thd, TABLE_LIST *tables, bool if_exists,
     if (thd->is_current_stmt_binlog_format_row() || if_exists)
     {
       is_drop_tmp_if_exists_added= true;
-      built_trans_tmp_query.set_charset(system_charset_info);
+      built_trans_tmp_query.set_charset(thd->charset());
       built_trans_tmp_query.append("DROP TEMPORARY TABLE IF EXISTS ");
-      built_non_trans_tmp_query.set_charset(system_charset_info);
+      built_non_trans_tmp_query.set_charset(thd->charset());
       built_non_trans_tmp_query.append("DROP TEMPORARY TABLE IF EXISTS ");
     }
     else
     {
-      built_trans_tmp_query.set_charset(system_charset_info);
+      built_trans_tmp_query.set_charset(thd->charset());
       built_trans_tmp_query.append("DROP TEMPORARY TABLE ");
-      built_non_trans_tmp_query.set_charset(system_charset_info);
+      built_non_trans_tmp_query.set_charset(thd->charset());
       built_non_trans_tmp_query.append("DROP TEMPORARY TABLE ");
     }
-    nonexistent_tmp_tables.set_charset(system_charset_info);
+    nonexistent_tmp_tables.set_charset(thd->charset());
   }
 
   for (table= tables; table; table= table->next_local)
