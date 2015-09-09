@@ -12,6 +12,49 @@ drop table if exists t21,t22,t23,t24,t25,t26,t27,t28,t29;
 drop table if exists t30,t31,t32,t33,t34,t35,t36,t37,t38,t39;
 drop table if exists t40,t41,t42,t43,t44,t45,t46,t47,t48,t49;
 --enable_warnings
+
+--echo #
+--echo # Issue #1: Don't update indexes if index values have not changed
+--echo #
+# [Jay Edgar] I moved this test first because it uses the
+# rocksdb_number_keys_written value, but this value is affected out of band
+# by drop tables.  There is a background thread that periodically processes
+# through the list of dropped keys and if any are gone from the database it
+# deletes information related to the key - and this delete causes this count
+# to be incorrect.  I moved this test first and made the whole test require
+# a fresh server to hopefully avoid tihs.
+create table t1 (
+  pk int primary key,
+  a int,
+  b int,
+  key(a)
+) engine=rocksdb;
+
+insert into t1 values
+(1,1,1), (2,2,2), (3,3,3), (4,4,4);
+
+set @var1=(select variable_value 
+           from information_schema.global_status 
+           where variable_name='rocksdb_number_keys_written');
+
+--echo # Do an update that doesn't change the key 'a'.
+update t1 set b=3334341 where a=2;
+
+set @var2=(select variable_value 
+           from information_schema.global_status 
+           where variable_name='rocksdb_number_keys_written');
+--echo # The following should produce 1
+select @var2 - @var1;
+
+--echo # Do an update that sets the key to the same value
+update t1 set a=pk where a=3;
+set @var3=(select variable_value 
+           from information_schema.global_status 
+           where variable_name='rocksdb_number_keys_written');
+--echo # We have 'updated' column to the same value, so the following must return 0:
+select @var3 - @var2;
+drop table t1;
+
 create table t0 (a int primary key) engine=rocksdb;
 show create table t0;
 drop table t0;
@@ -1344,40 +1387,6 @@ create table t1 (id int primary key, value int) engine=rocksdb;
 insert into t1 values (1,1),(2,2),(3,3);
 --echo # The following must not use 'Using filesort':
 explain select * from t1 ORDER BY id;
-drop table t1;
---echo #
---echo # Issue #1: Don't update indexes if index values have not changed
---echo #
-create table t1 (
-  pk int primary key,
-  a int,
-  b int,
-  key(a)
-) engine=rocksdb;
-
-insert into t1 values
-(1,1,1), (2,2,2), (3,3,3), (4,4,4);
-
-set @var1=(select variable_value 
-           from information_schema.global_status 
-           where variable_name='rocksdb_number_keys_written');
-
---echo # Do an update that doesn't change the key 'a'.
-update t1 set b=3334341 where a=2;
-
-set @var2=(select variable_value 
-           from information_schema.global_status 
-           where variable_name='rocksdb_number_keys_written');
---echo # The following should produce 1
-select @var2 - @var1;
-
---echo # Do an update that sets the key to the same value
-update t1 set a=pk where a=3;
-set @var3=(select variable_value 
-           from information_schema.global_status 
-           where variable_name='rocksdb_number_keys_written');
---echo # We have 'updated' column to the same value, so the following must return 0:
-select @var3 - @var2;
 drop table t1;
 
 --echo #
