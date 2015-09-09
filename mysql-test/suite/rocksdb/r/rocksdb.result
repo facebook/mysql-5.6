@@ -6,6 +6,39 @@ drop table if exists t11,t12,t13,t14,t15,t16,t17,t18,t19,t20;
 drop table if exists t21,t22,t23,t24,t25,t26,t27,t28,t29;
 drop table if exists t30,t31,t32,t33,t34,t35,t36,t37,t38,t39;
 drop table if exists t40,t41,t42,t43,t44,t45,t46,t47,t48,t49;
+#
+# Issue #1: Don't update indexes if index values have not changed
+#
+create table t1 (
+pk int primary key,
+a int,
+b int,
+key(a)
+) engine=rocksdb;
+insert into t1 values
+(1,1,1), (2,2,2), (3,3,3), (4,4,4);
+set @var1=(select variable_value 
+from information_schema.global_status 
+where variable_name='rocksdb_number_keys_written');
+# Do an update that doesn't change the key 'a'.
+update t1 set b=3334341 where a=2;
+set @var2=(select variable_value 
+from information_schema.global_status 
+where variable_name='rocksdb_number_keys_written');
+# The following should produce 1
+select @var2 - @var1;
+@var2 - @var1
+1
+# Do an update that sets the key to the same value
+update t1 set a=pk where a=3;
+set @var3=(select variable_value 
+from information_schema.global_status 
+where variable_name='rocksdb_number_keys_written');
+# We have 'updated' column to the same value, so the following must return 0:
+select @var3 - @var2;
+@var3 - @var2
+0
+drop table t1;
 create table t0 (a int primary key) engine=rocksdb;
 show create table t0;
 Table	Create Table
@@ -1709,39 +1742,6 @@ insert into t1 values (1,1),(2,2),(3,3);
 explain select * from t1 ORDER BY id;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
 1	SIMPLE	t1	index	NULL	PRIMARY	4	NULL	1000	NULL
-drop table t1;
-#
-# Issue #1: Don't update indexes if index values have not changed
-#
-create table t1 (
-pk int primary key,
-a int,
-b int,
-key(a)
-) engine=rocksdb;
-insert into t1 values
-(1,1,1), (2,2,2), (3,3,3), (4,4,4);
-set @var1=(select variable_value 
-from information_schema.global_status 
-where variable_name='rocksdb_number_keys_written');
-# Do an update that doesn't change the key 'a'.
-update t1 set b=3334341 where a=2;
-set @var2=(select variable_value 
-from information_schema.global_status 
-where variable_name='rocksdb_number_keys_written');
-# The following should produce 1
-select @var2 - @var1;
-@var2 - @var1
-1
-# Do an update that sets the key to the same value
-update t1 set a=pk where a=3;
-set @var3=(select variable_value 
-from information_schema.global_status 
-where variable_name='rocksdb_number_keys_written');
-# We have 'updated' column to the same value, so the following must return 0:
-select @var3 - @var2;
-@var3 - @var2
-0
 drop table t1;
 #
 # Issue #26: Index-only scans for DATETIME and TIMESTAMP
