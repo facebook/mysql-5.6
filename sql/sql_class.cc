@@ -752,11 +752,11 @@ void thd_store_lsn(THD* thd, ulonglong lsn, int engine_type)
   @param max_query_len how many chars of query to copy (0 for all)
 
   @req LOCK_thread_count
-  
+
   @note LOCK_thread_count mutex is not necessary when the function is invoked on
    the currently running thread (current_thd) or if the caller in some other
    way guarantees that access to thd->query is serialized.
- 
+
   @return Pointer to string
 */
 
@@ -1354,9 +1354,9 @@ Sql_condition* THD::raise_condition(uint sql_errno,
 
   query_cache_abort(&query_cache_tls);
 
-  /* 
-     Avoid pushing a condition for fatal out of memory errors as this will 
-     require memory allocation and therefore might fail. Non fatal out of 
+  /*
+     Avoid pushing a condition for fatal out of memory errors as this will
+     require memory allocation and therefore might fail. Non fatal out of
      memory errors can occur if raised by SIGNAL/RESIGNAL statement.
   */
   if (!(is_fatal_error && (sql_errno == EE_OUTOFMEMORY ||
@@ -1485,7 +1485,7 @@ void THD::init(void)
 
 void THD::init_for_queries(Relay_log_info *rli)
 {
-  set_time(); 
+  set_time();
   ha_enable_transaction(this,TRUE);
 
   reset_root_defaults(mem_root, variables.query_alloc_block_size,
@@ -1704,7 +1704,7 @@ THD::~THD()
 
 #ifndef DBUG_OFF
   dbug_sentry= THD_SENTRY_GONE;
-#endif  
+#endif
 #ifndef EMBEDDED_LIBRARY
   if (rli_fake)
   {
@@ -1723,7 +1723,7 @@ THD::~THD()
     DBUG_ASSERT(0);
 #endif
   }
-  
+
   mysql_audit_free_thd(this);
   if (rli_slave)
     rli_slave->cleanup_after_session();
@@ -1781,7 +1781,7 @@ void add_to_status(STATUS_VAR *to_var, STATUS_VAR *from_var)
     to_var       add to this array
     from_var     from this array
     dec_var      minus this array
-  
+
   NOTE
     This function assumes that all variables are longlong/ulonglong.
 */
@@ -2023,7 +2023,7 @@ bool THD::store_globals()
     NULL it doesn't refer to anything, but if it is non-NULL we need to
     ensure that the thread doesn't proceed to assign another thread to
     have the mysys_var reference (which in fact refers to the worker
-    threads local storage with key THR_KEY_mysys. 
+    threads local storage with key THR_KEY_mysys.
   */
   mysys_var=my_thread_var;
   DBUG_PRINT("debug", ("mysys_var: 0x%llx", (ulonglong) mysys_var));
@@ -2057,11 +2057,11 @@ bool THD::restore_globals()
     to track stack overrun.
   */
   DBUG_ASSERT(thread_stack);
-  
+
   /* Undocking the thread specific data. */
   my_pthread_setspecific_ptr(THR_THD, NULL);
   my_pthread_setspecific_ptr(THR_MALLOC, NULL);
-  
+
   return 0;
 }
 
@@ -2085,14 +2085,14 @@ bool THD::restore_globals()
 void THD::cleanup_after_query()
 {
   /*
-    Reset rand_used so that detection of calls to rand() will save random 
+    Reset rand_used so that detection of calls to rand() will save random
     seeds if needed by the slave.
 
-    Do not reset rand_used if inside a stored function or trigger because 
-    only the call to these operations is logged. Thus only the calling 
+    Do not reset rand_used if inside a stored function or trigger because
+    only the call to these operations is logged. Thus only the calling
     statement needs to detect rand() calls made by its substatements. These
     substatements must not set rand_used to 0 because it would remove the
-    detection of rand() by the calling statement. 
+    detection of rand() by the calling statement.
   */
   if (!in_sub_stmt) /* stored functions and triggers are a special case */
   {
@@ -2130,7 +2130,7 @@ void THD::cleanup_after_query()
   if (first_successful_insert_id_in_cur_stmt > 0)
   {
     /* set what LAST_INSERT_ID() will return */
-    first_successful_insert_id_in_prev_stmt= 
+    first_successful_insert_id_in_prev_stmt=
       first_successful_insert_id_in_cur_stmt;
     first_successful_insert_id_in_cur_stmt= 0;
     substitute_null_with_insert_id= TRUE;
@@ -2144,7 +2144,7 @@ void THD::cleanup_after_query()
   table_map_for_update= 0;
   m_binlog_invoker= FALSE;
   /* reset replication info structure */
-  if (lex && lex->mi.repl_ignore_server_ids.buffer) 
+  if (lex && lex->mi.repl_ignore_server_ids.buffer)
   {
     delete_dynamic(&lex->mi.repl_ignore_server_ids);
   }
@@ -2234,7 +2234,7 @@ bool THD::convert_string(LEX_STRING *to, const CHARSET_INFO *to_cs,
     THD::convert_string
 
   DESCRIPTION
-    Convert string using convert_buffer - buffer for character set 
+    Convert string using convert_buffer - buffer for character set
     conversion shared between all protocols.
 
   RETURN
@@ -2271,12 +2271,12 @@ void THD::update_charset()
                               variables.character_set_client,
                               system_charset_info,
                               &not_used);
-  charset_is_collation_connection= 
+  charset_is_collation_connection=
     !String::needs_conversion(0,
                               variables.character_set_client,
                               variables.collation_connection,
                               &not_used);
-  charset_is_character_set_filesystem= 
+  charset_is_character_set_filesystem=
     !String::needs_conversion(0,
                               variables.character_set_client,
                               variables.character_set_filesystem,
@@ -2322,7 +2322,7 @@ void THD::add_changed_table(const char *key, long key_length)
     if (cmp < 0)
     {
       list_include(prev_changed, curr, changed_table_dup(key, key_length));
-      DBUG_PRINT("info", 
+      DBUG_PRINT("info",
 		 ("key_length: %ld  %u", key_length,
                   (*prev_changed)->key_length));
       DBUG_VOID_RETURN;
@@ -2333,7 +2333,7 @@ void THD::add_changed_table(const char *key, long key_length)
       if (cmp < 0)
       {
 	list_include(prev_changed, curr, changed_table_dup(key, key_length));
-	DBUG_PRINT("info", 
+	DBUG_PRINT("info",
 		   ("key_length:  %ld  %u", key_length,
 		    (*prev_changed)->key_length));
 	DBUG_VOID_RETURN;
@@ -2354,7 +2354,7 @@ void THD::add_changed_table(const char *key, long key_length)
 
 CHANGED_TABLE_LIST* THD::changed_table_dup(const char *key, long key_length)
 {
-  CHANGED_TABLE_LIST* new_table = 
+  CHANGED_TABLE_LIST* new_table =
     (CHANGED_TABLE_LIST*) trans_alloc(ALIGN_SIZE(sizeof(CHANGED_TABLE_LIST))+
 				      key_length + 1);
   if (!new_table)
@@ -2587,7 +2587,7 @@ void select_send::abort_result_set()
 }
 
 
-/** 
+/**
   Cleanup an instance of this class for re-use
   at next execution of a prepared statement/
   stored procedure statement.
@@ -2638,14 +2638,14 @@ bool select_send::send_data(List<Item> &items)
 
 bool select_send::send_eof()
 {
-  /* 
+  /*
     We may be passing the control from mysqld to the client: release the
     InnoDB adaptive hash S-latch to avoid thread deadlocks if it was reserved
-    by thd 
+    by thd
   */
   ha_release_temporary_latches(thd);
 
-  /* 
+  /*
     Don't send EOF if we're in error condition (which implies we've already
     sent or are sending an error)
   */
@@ -2963,7 +2963,7 @@ bool select_export::send_data(List<Item> &items)
                             item->item_name.ptr(), static_cast<long>(row_count));
       }
       else if (from_end_pos < res->ptr() + res->length())
-      { 
+      {
         /*
           result is longer than UINT_MAX32 and doesn't fit into String
         */
@@ -3038,26 +3038,26 @@ bool select_export::send_data(List<Item> &items)
             for the clients with character sets big5, cp932, gbk and sjis,
             which can have the escape character (0x5C "\" by default)
             as the second byte of a multi-byte sequence.
-            
+
             If
             - pos[0] is a valid multi-byte head (e.g 0xEE) and
             - pos[1] is 0x00, which will be escaped as "\0",
-            
+
             then we'll get "0xEE + 0x5C + 0x30" in the output file.
-            
+
             If this file is later loaded using this sequence of commands:
-            
+
             mysql> create table t1 (a varchar(128)) character set big5;
             mysql> LOAD DATA INFILE 'dump.txt' INTO TABLE t1;
-            
+
             then 0x5C will be misinterpreted as the second byte
             of a multi-byte character "0xEE + 0x5C", instead of
             escape character for 0x00.
-            
+
             To avoid this confusion, we'll escape the multi-byte
             head character too, so the sequence "0xEE + 0x00" will be
             dumped as "0x5C + 0xEE + 0x5C + 0x30".
-            
+
             Note, in the condition below we only check if
             mbcharlen is equal to 2, because there are no
             character sets with mbmaxlen longer than 2
@@ -3166,7 +3166,7 @@ bool select_dump::send_data(List<Item> &items)
   }
   if (thd->killed == THD::ABORT_QUERY)
     DBUG_RETURN(0);
-  if (row_count++ > 1) 
+  if (row_count++ > 1)
   {
     my_message(ER_TOO_MANY_ROWS, ER(ER_TOO_MANY_ROWS), MYF(0));
     goto err;
@@ -3343,7 +3343,7 @@ bool select_max_min_finder_subselect::cmp_decimal()
   my_decimal mval, *mvalue= maxmin->val_decimal(&mval);
   if (cache->null_value || maxmin->null_value)
     return (ignore_nulls) ? !(cache->null_value) : !(maxmin->null_value);
-  return (fmax) 
+  return (fmax)
     ? (my_decimal_cmp(cvalue,mvalue) > 0)
     : (my_decimal_cmp(cvalue,mvalue) < 0);
 }
@@ -3365,7 +3365,7 @@ bool select_max_min_finder_subselect::cmp_str()
   val2= maxmin->val_str(&buf1);
   if (cache->null_value || maxmin->null_value)
     return (ignore_nulls) ? !(cache->null_value) : !(maxmin->null_value);
-  return (fmax) 
+  return (fmax)
     ? (sortcmp(val1, val2, cache->collation.collation) > 0)
     : (sortcmp(val1, val2, cache->collation.collation) < 0);
 }
@@ -3562,7 +3562,7 @@ static uchar *
 get_statement_id_as_hash_key(const uchar *record, size_t *key_length,
                              my_bool not_used __attribute__((unused)))
 {
-  const Statement *statement= (const Statement *) record; 
+  const Statement *statement= (const Statement *) record;
   *key_length= sizeof(statement->id);
   return (uchar *) &((const Statement *) statement)->id;
 }
@@ -3731,7 +3731,7 @@ bool select_dumpvar::send_data(List<Item> &items)
     unit->offset_limit_cnt--;
     DBUG_RETURN(false);
   }
-  if (row_count++) 
+  if (row_count++)
   {
     my_message(ER_TOO_MANY_ROWS, ER(ER_TOO_MANY_ROWS), MYF(0));
     DBUG_RETURN(true);
@@ -3840,7 +3840,7 @@ void Security_context::init()
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
   db_access= NO_ACCESS;
 #endif
-  password_expired= false; 
+  password_expired= false;
 }
 
 void Security_context::destroy()
@@ -4430,7 +4430,7 @@ extern "C" bool thd_sqlcom_can_generate_row_events(const MYSQL_THD thd)
 extern "C" enum durability_properties thd_get_durability_property(const MYSQL_THD thd)
 {
   enum durability_properties ret= HA_REGULAR_DURABILITY;
-  
+
   if (thd != NULL)
     ret= thd->durability_property;
 
@@ -4469,7 +4469,7 @@ extern "C" void thd_pool_wait_end(MYSQL_THD thd);
 /*
   Interface for MySQL Server, plugins and storage engines to report
   when they are going to sleep/stall.
-  
+
   SYNOPSIS
   thd_wait_begin()
   thd                     Thread object
@@ -4560,7 +4560,7 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
     auto_inc_intervals_forced.swap(&backup->auto_inc_intervals_forced);
   }
 #endif
-  
+
   backup->option_bits=     variables.option_bits;
   backup->count_cuted_fields= count_cuted_fields;
   backup->in_sub_stmt=     in_sub_stmt;
@@ -4571,9 +4571,9 @@ void THD::reset_sub_statement_state(Sub_statement_state *backup,
   backup->cuted_fields=     cuted_fields;
   backup->client_capabilities= client_capabilities;
   backup->savepoints= transaction.savepoints;
-  backup->first_successful_insert_id_in_prev_stmt= 
+  backup->first_successful_insert_id_in_prev_stmt=
     first_successful_insert_id_in_prev_stmt;
-  backup->first_successful_insert_id_in_cur_stmt= 
+  backup->first_successful_insert_id_in_cur_stmt=
     first_successful_insert_id_in_cur_stmt;
 
   if ((!lex->requires_prelocking() || is_update_query(lex->sql_command)) &&
@@ -4632,9 +4632,9 @@ void THD::restore_sub_statement_state(Sub_statement_state *backup)
   variables.option_bits= backup->option_bits;
   in_sub_stmt=      backup->in_sub_stmt;
   enable_slow_log=  backup->enable_slow_log;
-  first_successful_insert_id_in_prev_stmt= 
+  first_successful_insert_id_in_prev_stmt=
     backup->first_successful_insert_id_in_prev_stmt;
-  first_successful_insert_id_in_cur_stmt= 
+  first_successful_insert_id_in_cur_stmt=
     backup->first_successful_insert_id_in_cur_stmt;
   limit_found_rows= backup->limit_found_rows;
   set_sent_row_count(backup->sent_row_count);
@@ -4720,6 +4720,11 @@ void THD::inc_status_created_tmp_tables()
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_created_tmp_tables)(m_statement_psi, 1);
 #endif
+}
+
+void THD::inc_status_tmp_tables_bytes_written(ulonglong bytes_written)
+{
+  status_var.tmp_tables_bytes_written += bytes_written;
 }
 
 void THD::inc_status_select_full_join()
