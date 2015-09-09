@@ -1,9 +1,10 @@
 {
   "project_id" : "mysql",
-  "conduit_uri" : "https://reviews.facebook.net/api/",
-  "phutil_libraries" : {
-    "webscale-arcanist" : "arcanist/"
-   },
-  "unit_engine" : "WebScaleSQLUnitTestEngine",
+  "phabricator.uri" : "https://reviews.facebook.net/api/",
+  "repository.callsign" : "MYSQLFIVESIX",
+  "load" : [ "arcanist/" ],
+  "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
+  "unit.engine" : "FacebookMySQLUnitTestEngine",
+  "events.listeners" : [ "FacebookMySQLDiffCreatedListener" ],
   "git.default-relative-commit" : "HEAD^"
 }
