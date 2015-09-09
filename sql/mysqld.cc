@@ -9161,6 +9161,7 @@ SHOW_VAR status_vars[]= {
   {"Threads_running",          (char*) &num_thread_running,     SHOW_INT},
   {"Timer_in_use",             (char*) &timer_in_use,           SHOW_CHAR_PTR},
   {"Total_queries_rejected",   (char*) &total_query_rejected,   SHOW_LONG},
+  {"Tmp_tables_bytes_written",    (char*) offsetof(STATUS_VAR, tmp_tables_bytes_written), SHOW_LONGLONG_STATUS},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},
 #ifdef ENABLED_PROFILING
   {"Uptime_since_flush_status",(char*) &show_flushstatustime,   SHOW_FUNC},

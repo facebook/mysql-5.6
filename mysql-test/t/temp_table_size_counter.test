@@ -1,0 +1,256 @@
+# Only test in debug mode since DBUG_EXECUTE_IF is used
+--source include/have_debug.inc
+--source include/not_embedded.inc
+--disable_async_client
+
+call mtr.add_suppression(".*Failed to prepare the tmp table.*");
+call mtr.add_suppression(".*Failed to create tmp table from heap.*");
+
+SET @old_debug_val = @@global.debug;
+SET @@debug="";
+
+--disable_warnings
+drop table if exists t1, t2;
+--enable_warnings
+
+--echo ###
+--echo ### [1] Directly creating a temporary table
+--echo ###
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # creating a temp table, temp table size written:
+--echo $writtenSize
+--disable_result_log
+
+CREATE TEMPORARY TABLE tmpT1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # creating table t1, temp table size written:
+--echo $writtenSize
+
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+
+INSERT INTO t1 (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 64));
+INSERT INTO t1 (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 64));
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # inserted two rows into t1, temp table size written:
+--echo $writtenSize
+
+let $i=6;
+while ($i) {
+  --eval INSERT INTO t1 (b, c) VALUES ($i, $i * $i);
+  INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # recursively insert into t1, temp table size written:
+--echo $writtenSize
+
+let $i=2;
+while ($i) {
+  --eval INSERT INTO tmpT1 (b, c) VALUES ($i, $i * $i);
+  INSERT INTO tmpT1 (b, c) SELECT b, c FROM t1;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # read from t1 insert to temp table, temp table size written:
+--echo $writtenSize
+
+drop table t1;
+--enable_result_log
+
+--echo ###
+--echo ### [2] Temporary table creation failure
+--echo ###
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+
+INSERT INTO t1 (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 64));
+INSERT INTO t1 (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 64));
+
+# Enable the debug injection
+set @@debug="d,fail-to-instantiate-tmp-table";
+
+# Since the table has text/blob columns so temp table on disk will be created
+# for the SELECT sub query
+--error ER_FAILED_TO_INSTANTIATE_TMP_TABLE
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # write size after temporary table failure:
+--echo $writtenSize
+
+drop table t1;
+--enable_result_log
+
+--echo ###
+--echo ### [3] Instantiate temp table from SELECT with GROUP BY
+--echo ###
+
+SET @@debug="";
+--disable_result_log
+
+# There are text columns in the table
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+
+INSERT INTO t1 (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 64));
+INSERT INTO t1 (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 64));
+let $i=2;
+while ($i) {
+  --eval INSERT INTO t1 (b, c) VALUES ($i, $i * $i);
+  INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after recursively insert to t1:
+--echo $writtenSize
+
+# There are text columns in the table
+CREATE TABLE t2
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, d TEXT, PRIMARY KEY (a), KEY (b, d(64)));
+
+INSERT INTO t2 (b, c, d) VALUES (REPEAT('b', 64), REPEAT('c', 64), REPEAT('d', 64));
+INSERT INTO t2 (b, c, d) VALUES (REPEAT('B', 64), REPEAT('C', 64), REPEAT('D', 64));
+let $i=2;
+while ($i) {
+  --eval INSERT INTO t2 (b, c, d) VALUES ($i, $i * $i, $i + $i);
+  INSERT INTO t2 (b, c, d) SELECT b, c, d FROM t2;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after recursively insert to t2:
+--echo $writtenSize
+
+# Enable the debug injection
+set @@debug="d,fail-to-instantiate-tmp-table";
+
+# Since the table has text/blob columns so temp table on disk will be created
+# for the GROUP BY sub clause
+--error ER_FAILED_TO_INSTANTIATE_TMP_TABLE
+SELECT t2.a, MIN(t1.c) FROM t1, t2 WHERE t1.a = t2.a GROUP BY t2.a;
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after calling group by on t1 and t1:
+--echo $writtenSize
+
+drop table t1, t2;
+--enable_result_log
+
+--echo ###
+--echo ### [4] Create temp table from heap from INSERT with SELECT
+--echo ###
+
+SET @@debug="";
+--disable_result_log
+
+# There are no text/blob columns in the table
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b BIGINT(64), c DOUBLE, d DOUBLE, e FLOAT, PRIMARY KEY (a), KEY (b, c));
+
+INSERT INTO t1 (b, c, d, e) VALUES (123456789, 12345.6789, 12345.6789, 12345.6789);
+INSERT INTO t1 (b, c, d, e) VALUES (234567891, 1234.56789, 1234.56789, 1234.56789);
+
+let $i=8;
+while ($i > 1) {
+  --eval INSERT INTO t1 (b, c, d, e) VALUES ($i, $i * $i, $i * $i * 0.123, $i * $i * 0.234);
+  INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after insert to t1:
+--echo $writtenSize
+
+# Enable the debug injection
+set @@debug="d,fail-to-create-myisam-from-heap";
+
+# Since the table does not have text/blob columns so temp table on heap will
+# be created for the ORDER BY at beginning and later be spilled on disk after
+# reaching the max size of heap temp tables
+--error ER_FAILED_TO_CREATE_TMP_TABLE_FROM_HEAP
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after temp table creation failure:
+--echo $writtenSize
+
+drop table t1;
+--enable_result_log
+
+--echo # Verifying error log
+
+--echo ###
+--echo ### [5] Create temp table from heap from SELECT with ORDER BY
+--echo ###
+
+SET @@debug="";
+--disable_result_log
+
+# There are no text/blob columns in this table
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b BIGINT(64), c DOUBLE, d DOUBLE, e FLOAT, PRIMARY KEY (a), KEY (b, c));
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after creating t1:
+--echo $writtenSize
+
+INSERT INTO t1 (b, c, d, e) VALUES (123456789, 12345.6789, 12345.6789, 12345.6789);
+INSERT INTO t1 (b, c, d, e) VALUES (234567891, 1234.56789, 1234.56789, 1234.56789);
+let $i=6;
+while ($i) {
+  --eval INSERT INTO t1 (b, c, d, e) VALUES ($i, $i * $i, $i * $i * 0.123, $i * $i * 0.234);
+  INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after recursivly inserted into t1:
+--echo $writtenSize
+
+# There are no text/blob columns in this table
+CREATE TABLE t2
+(a INT AUTO_INCREMENT, b BIGINT(64), c DOUBLE, d DOUBLE, e FLOAT, PRIMARY KEY (a), KEY (b, c));
+
+INSERT INTO t2 (b, c, d, e) VALUES (345678912, 12345.6789, 12345.6789, 12345.6789);
+INSERT INTO t2 (b, c, d, e) VALUES (456789123, 1234.56789, 1234.56789, 1234.56789);
+let $i=6;
+while ($i) {
+  --eval INSERT INTO t2 (b, c, d, e) VALUES ($i, $i * $i, $i * $i * 0.123, $i * $i * 0.234);
+  INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+  dec $i;
+}
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after inserted into t2 by selecting from t1:
+--echo $writtenSize
+
+# Enable the debug injection
+set @@debug="d,fail-to-create-myisam-from-heap";
+
+# Since the table does not have text/blob columns so temp table on heap will
+# be created for the ORDER BY at beginning and later be spilled on disk after
+# reaching the max size of heap temp tables
+--error ER_FAILED_TO_CREATE_TMP_TABLE_FROM_HEAP
+SELECT t1.b, t1.c, t1.d, t2.b, t2.c, t2.d FROM t1, t2 WHERE t1.a = t2.a ORDER BY t2.d;
+
+--let $writtenSize = query_get_value(SHOW STATUS LIKE 'Tmp_tables_bytes_written', Value, 1)
+--echo # temp table writen size after temp table creation failure:
+--echo $writtenSize
+
+drop table t1, t2;
+--enable_result_log
+
+--echo # Verifying error log
+
+# This is the last test case, delete the temp line number file
+let ENV_DEL_TEMP_LINE_NUM_FILE= YES;
+
+SET GLOBAL debug = @old_debug_val;
