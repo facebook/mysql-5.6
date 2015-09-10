@@ -24,6 +24,7 @@
 #include "ha_rocksdb.h"
 #include "ha_rocksdb_proto.h"
 #include "rdb_perf_context.h"
+#include "logger.h"
 
 #include "sql_class.h"
 #include "sql_array.h"
@@ -256,6 +257,7 @@ static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
+  o.info_log = std::make_shared<Logger>();
   return o;
 }
 
