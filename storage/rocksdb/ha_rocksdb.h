@@ -23,6 +23,8 @@
 #include "handler.h"                     /* handler */
 #include "my_base.h"                     /* ha_rows */
 
+#include <string>
+
 #include "rocksdb/db.h"
 #include "rocksdb/utilities/transaction.h"
 #include "rocksdb/utilities/transaction_db.h"
@@ -485,6 +487,7 @@ private:
 
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
+
 public:
   int index_end();
 

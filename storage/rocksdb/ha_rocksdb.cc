@@ -252,6 +252,7 @@ static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes= 0l;
 static long long rocksdb_compaction_sequential_deletes_window= 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
+static uint32_t rocksdb_validate_tables = true;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -739,6 +740,14 @@ static MYSQL_THDVAR_BOOL(verify_checksums,
   "Verify checksums when reading index/table records",
   NULL, NULL, false /* default value */);
 
+static MYSQL_SYSVAR_UINT(validate_tables,
+  rocksdb_validate_tables,
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  "Verify all .frm files match all RocksDB tables (0 means no verification, "
+  "1 means verify and fail on error, and 2 means verify but continue",
+  nullptr, nullptr, 1 /* default value */, 0 /* min value */,
+  2 /* max value */, 0);
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -825,6 +834,9 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(checksums_pct),
   MYSQL_SYSVAR(store_checksums),
   MYSQL_SYSVAR(verify_checksums),
+
+  MYSQL_SYSVAR(validate_tables),
+
   NULL
 };
 
@@ -2033,7 +2045,7 @@ static int rocksdb_init_func(void *p)
   if (binlog_manager.init(&dict_manager))
     DBUG_RETURN(1);
 
-  if (ddl_manager.init(&dict_manager, &cf_manager))
+  if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables))
     DBUG_RETURN(1);
 
   stop_background_thread = false;
@@ -2797,6 +2809,7 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
              "Attempt to open a table that is not present in RocksDB-SE data dictionary");
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
+
   lock_rows= false;
   lock_for_write= false;
 
@@ -3149,8 +3162,10 @@ int rocksdb_split_normalized_tablename(const char *fullname,
   if (pt)
   {
     tablebuf->append(tb, pt - tb);
-    pt += sizeof(PARTITION_STR);
-    partitionbuf->append(pt);
+    if (partitionbuf != nullptr) {
+      pt += sizeof(PARTITION_STR);
+      partitionbuf->append(pt);
+    }
   }
   else
     tablebuf->append(tb);
