@@ -23,6 +23,8 @@
 #include "handler.h"                     /* handler */
 #include "my_base.h"                     /* ha_rows */
 
+#include <string>
+
 #include "rocksdb/db.h"
 #include "rocksdb/cache.h"
 #include "rocksdb/comparator.h"
@@ -484,6 +486,7 @@ private:
 
   int read_key_exact(RDBSE_KEYDEF *kd, Apply_changes_iter *iter,
                      bool using_full_key, rocksdb::Slice& key_slice);
+
 public:
   int index_end();
 

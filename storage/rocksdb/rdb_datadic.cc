@@ -18,6 +18,9 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+#include <map>
+#include <set>
+
 #include <mysql/plugin.h>
 #include "ha_rocksdb.h"
 #include "sql_class.h"
@@ -1399,8 +1402,211 @@ void Table_ddl_manager::erase_index_num(uint32_t index)
   index_num_to_keydef.erase(index);
 }
 
+/* Extract the database name and table name.  The input has the following
+ * format:  {dbname}.{tablename}[#P#{partition_number}] */
+static bool extract_table_name(
+    const char*  dbname_tablename,
+    std::string* dbname,
+    std::string* tablename) {
+
+  const char* tablename_start = strrchr(dbname_tablename, '.');
+
+  if (tablename_start == nullptr) {
+    sql_print_error("RocksDB: invalid table name: %s", dbname_tablename);
+    return false;
+  }
+
+  *dbname = std::string(dbname_tablename, tablename_start - dbname_tablename);
+  tablename_start++;
+
+  /* Now check for the optional partition information */
+  size_t      len;
+  const char* partition_start = strstr(tablename_start, "#P#");
+
+  if (partition_start != nullptr) {
+    len = partition_start - tablename_start;
+  } else {
+    len = strlen(tablename_start);
+  }
+
+  *tablename = std::string(tablename_start, len);
+
+  return true;
+}
+
+/* See if the specified database name is in the ignored database list */
+static bool is_in_ignored_db_list(
+    const char *name) {
+  // The following databases should be skipped when validating that the
+  // RocksDB data dictionary matches the .frm files.
+  static const char *ignored_db_list[] = {
+    "mtr",
+    "mysql",
+    "information_schema",
+    "performance_schema",
+  };
+
+  // For now use a linear search.  If the list grows too long switch to a
+  // binary search.
+  for (uint ii = 0; ii < array_elements(ignored_db_list); ii++) {
+    if (strcmp(name, ignored_db_list[ii]) == 0)
+      return true;
+  }
+
+  return false;
+}
+
+/* Get a list of tables that we expect to have .frm files for.  This will use
+ * the information just read from the RocksDB data dictionary. */
+static bool get_expected_tables(
+    HASH*                                         ddl_hash,
+    const std::string&                            datadir,
+    std::map<std::string, std::set<std::string>>* table_list) {
+
+  std::string dbname;
+  std::string tablename;
+
+  /* Loop through the entries in ddl_hash */
+  for (ulong ii = 0; ii < ddl_hash->records; ++ii) {
+    const RDBSE_TABLE_DEF* tdef;
+
+    /* Get the table definition from the ddl_hash */
+    tdef = (const RDBSE_TABLE_DEF*) my_hash_element(ddl_hash, ii);
+    if (tdef == nullptr) {
+      sql_print_error("RocksDB: corrupt ddl_hash");
+      return false;
+    }
+
+    /* Parse the dbname_tablename for the different elements */
+    if (!extract_table_name(tdef->dbname_tablename.ptr(), &dbname, &tablename))
+      return false;
+
+    if (is_in_ignored_db_list(dbname.c_str()))
+      continue;
+
+    /* Add the database/table into the list */
+    (*table_list)[dbname].insert(tablename);
+  }
+
+  return true;
+}
+
+/* Scan the database subdirectory for .frm files */
+static bool scan_for_frms(
+    const std::string&                            datadir,
+    const char*                                   dbname,
+    std::map<std::string, std::set<std::string>>* table_list,
+    bool*                                         has_errors) {
+
+  std::string       fullpath = datadir + dbname;
+  struct st_my_dir* dir_info = my_dir(fullpath.c_str(), MYF(MY_DONT_SORT));
+  if (dir_info == nullptr) {
+    sql_print_error("RocksDB: Could not open database directory: %s",
+        fullpath.c_str());
+    return false;
+  }
+
+  bool db_exists = (table_list->count(dbname) == 1);
+
+  struct fileinfo* file_info = dir_info->dir_entry;
+  for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
+    const char* ext = strrchr(file_info->name, '.');
+    if (ext != nullptr && strcmp(ext, ".frm") == 0) {
+      std::string tablename = std::string(file_info->name,
+                                         ext - file_info->name);
+
+      // Attempt to remove the table entry from the list of tables.  If this
+      // fails then we know we had a .frm file that wasn't registered in
+      // RocksDB.
+      if (!db_exists || (*table_list)[dbname].erase(tablename) == 0) {
+        sql_print_error("RocksDB: Schema mismatch - "
+                        "A .frm file exists for table %s.%s, "
+                        "but that table is not registered in RocksDB", dbname,
+                        tablename.c_str());
+        *has_errors = true;
+      }
+    }
+  }
+
+  // If all the tables for a database have been removed, remove the database
+  // entry.
+  if (db_exists && (*table_list)[dbname].size() == 0) {
+    table_list->erase(dbname);
+  }
+
+  return true;
+}
+
+/* Scan the datadir for all databases (subdirectories) ignoring certain
+ * ones.  For the others, get a list of .frm files they contain */
+static bool compare_to_actual_tables(
+    const std::string&                            datadir,
+    std::map<std::string, std::set<std::string>>* table_list,
+    bool*                                         has_errors) {
+
+  struct st_my_dir* dir_info;
+  struct fileinfo*  file_info;
+
+  dir_info = my_dir(datadir.c_str(), MYF(MY_DONT_SORT | MY_WANT_STAT));
+  if (dir_info == nullptr) {
+    sql_print_error("RocksDB: could not open datadir: %s", datadir.c_str());
+    return false;
+  }
+
+  file_info = dir_info->dir_entry;
+  for (uint ii = 0; ii < dir_info->number_off_files; ii++, file_info++) {
+    // Ignore files/dirs starting with '.'
+    if (file_info->name[0] == '.')
+      continue;
+
+    // Ignore all non-directory files
+    if (!MY_S_ISDIR(file_info->mystat->st_mode))
+      continue;
+
+    // Ignore certain database ('mysql', 'mtr', etc.)
+    if (is_in_ignored_db_list(file_info->name))
+      continue;
+
+    if (!scan_for_frms(datadir, file_info->name, table_list, has_errors))
+      return false;
+  }
+
+  return true;
+}
+
+/* Validate that all the tables in the RocksDB database dictionary match the
+ * .frm files in the datdir */
+bool Table_ddl_manager::validate_schemas() {
+  bool has_errors = false;
+  std::string datadir = std::string(mysql_real_data_home);
+  std::map<std::string, std::set<std::string>> table_list;
+
+  /* Get the list of tables from the database dictionary */
+  if (!get_expected_tables(&ddl_hash, datadir, &table_list))
+    return false;
+
+  /* Compare that to the list of actual .frm files */
+  if (!compare_to_actual_tables(datadir, &table_list, &has_errors))
+    return false;
+
+  // Any tables left in the tables list are ones that are registered in RocksDB
+  // but don't have .frm files.
+  for (const auto& dbs : table_list) {
+    for (const auto& tables : dbs.second) {
+      sql_print_error("RocksDB: Schema mismatch - "
+                      "Table %s.%s is registered in RocksDB "
+                      "but does not have a .frm file", dbs.first.c_str(),
+                      tables.c_str());
+      has_errors = true;
+    }
+  }
+
+  return !has_errors;
+}
+
 bool Table_ddl_manager::init(Dict_manager *dict_arg,
-                             Column_family_manager *cf_manager)
+                             Column_family_manager *cf_manager,
+                             uint32_t validate_tables)
 {
   dict= dict_arg;
   mysql_rwlock_init(0, &rwlock);
@@ -1517,8 +1723,16 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
                                                dict->get_stats(index_number));
 
     }
+
     put(tdef);
     i++;
+  }
+
+  /* If validate_tables is greater than 0 run the validation.  Only fail the
+   * initialzation if the setting is 1.  If the setting is 2 we continue. */
+  if (validate_tables > 0 && !validate_schemas()) {
+    if (validate_tables == 1)
+      return true;
   }
 
   // index ids used by applications should not conflict with
