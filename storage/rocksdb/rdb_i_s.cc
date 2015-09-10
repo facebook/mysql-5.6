@@ -454,6 +454,7 @@ static int i_s_rocksdb_cfoptions_fill_table(THD *thd,
         case rocksdb::kBZip2Compression: val.append("kBZip2Compression:"); break;
         case rocksdb::kLZ4Compression: val.append("kLZ4Compression:"); break;
         case rocksdb::kLZ4HCCompression: val.append("kLZ4HCCompression:"); break;
+        case rocksdb::kZSTDNotFinalCompression: val.append("kZSTDNotFinalCompression"); break;
       }
     }
     val.pop_back();
