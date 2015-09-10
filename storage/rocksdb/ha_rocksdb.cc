@@ -6258,8 +6258,8 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
     case ROCKSDB_IO_ERROR_TRX_COMMIT:
     case ROCKSDB_IO_ERROR_DICT_COMMIT:
     {
-      sql_print_error("RocksDB: Failed to write to WAL - status %d",
-                      status.code());
+      sql_print_error("RocksDB: Failed to write to WAL - status %d, %s",
+                      status.code(), status.ToString().c_str());
       sql_print_error("RocksDB: Aborting on WAL write error.");
       abort_with_stack_traces();
       break;
@@ -6267,7 +6267,8 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
     case ROCKSDB_IO_ERROR_BG_THREAD:
     {
       sql_print_warning("RocksDB: BG Thread failed to write to RocksDB "
-                        "- status %d", status.code());
+                        "- status %d, %s", status.code(),
+                        status.ToString().c_str());
       break;
     }
     default:
@@ -6277,8 +6278,8 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
   else if (status.IsCorruption())
   {
-      sql_print_error("RocksDB: Data Corruption detected! %d",
-                      status.code());
+      sql_print_error("RocksDB: Data Corruption detected! %d, %s",
+                      status.code(), status.ToString().c_str());
       sql_print_error("RocksDB: Aborting because of data corruption.");
       abort_with_stack_traces();
   }
@@ -6287,15 +6288,17 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
     switch (type) {
     case ROCKSDB_IO_ERROR_DICT_COMMIT:
     {
-      sql_print_error("RocksDB: Failed to write to WAL (dictionary) - status %d",
-                      status.code());
+      sql_print_error("RocksDB: Failed to write to WAL (dictionary) - "
+                      "status %d, %s",
+                      status.code(), status.ToString().c_str());
       sql_print_error("RocksDB: Aborting on WAL write error.");
       abort_with_stack_traces();
       break;
     }
     default:
       sql_print_warning("RocksDB: Failed to write to RocksDB "
-                        "- status %d", status.code());
+                        "- status %d, %s", status.code(),
+                        status.ToString().c_str());
       break;
     }
   }
