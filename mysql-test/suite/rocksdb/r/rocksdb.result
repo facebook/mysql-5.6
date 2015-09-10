@@ -914,6 +914,7 @@ rocksdb_strict_collation_check	OFF
 rocksdb_table_cache_numshardbits	4
 rocksdb_use_adaptive_mutex	OFF
 rocksdb_use_fsync	OFF
+rocksdb_validate_tables	1
 rocksdb_verify_checksums	OFF
 rocksdb_wal_bytes_per_sync	0
 rocksdb_wal_dir	
