@@ -1,6 +1,5 @@
 --source include/have_rocksdb.inc
 
-let MYSQLD_DATADIR= `SELECT @@datadir`;
 let file= $MYSQL_TMP_DIR/cf_configs.cnf;
 
 # create new column families with no configs in cf_configs.cnf file
@@ -18,6 +17,7 @@ insert into t3 values (2);
 
 # restart with new column families in DB
 
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
 --source include/restart_mysqld.inc
 
 # check column family options in log -- should be all default settings
@@ -25,7 +25,7 @@ insert into t3 values (2);
 --echo
 --echo Default options for all column families:
 --echo
---exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
+--exec grep -e "\[Note\] LibRocksDB:" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" | sed 's/^.*Options/Options/'
 
 # create cf configs for cf1 and cf2
 
@@ -43,6 +43,7 @@ cf2 =  write_buffer_size=16m;max_bytes_for_level_multiplier=8    # extra comment
 
 EOF
 
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
 --source include/restart_mysqld.inc
 
 # check column family options in log -- should reflect individual settings
@@ -50,7 +51,7 @@ EOF
 --echo
 --echo Individualized options for column families:
 --echo
---exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
+--exec grep -e "\[Note\] LibRocksDB:" $MYSQLTEST_VARDIR/log/mysqld.1.err | grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" | sed 's/^.*Options/Options/'
 
 # syntax error in file
 
