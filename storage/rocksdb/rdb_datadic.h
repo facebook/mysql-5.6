@@ -628,7 +628,8 @@ class Table_ddl_manager
 
 public:
   /* Load the data dictionary from on-disk storage */
-  bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager);
+  bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager,
+            uint32_t validate_tables);
 
   void cleanup();
 
@@ -662,6 +663,8 @@ private:
                              my_bool not_used __attribute__((unused)));
   static void free_hash_elem(void* data);
   rocksdb::ColumnFamilyHandle* system_cfh;
+
+  bool validate_schemas();
 };
 
 
