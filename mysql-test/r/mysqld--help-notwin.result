@@ -1113,6 +1113,10 @@ The following options may be given as the first argument:
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
+ --rocksdb-validate-tables=# 
+ Verify all .frm files match all RocksDB tables (0 means
+ no verification, 1 means verify and fail on error, and 2
+ means verify but continue
  --rocksdb-verify-checksums 
  Verify checksums when reading index/table records
  --rocksdb-wal-bytes-per-sync=# 
@@ -1727,6 +1731,7 @@ rocksdb-strict-collation-check TRUE
 rocksdb-table-cache-numshardbits 4
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
+rocksdb-validate-tables 1
 rocksdb-verify-checksums FALSE
 rocksdb-wal-bytes-per-sync 0
 rocksdb-wal-dir 
