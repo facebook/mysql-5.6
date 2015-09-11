@@ -202,13 +202,14 @@ class RDBSE_KEYDEF
 {
 public:
   /* Convert a key from KeyTupleFormat to mem-comparable form */
-  uint pack_index_tuple(TABLE *tbl,
+  uint pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
                         uchar *pack_buffer,
                         uchar *packed_tuple,
                         const uchar *key_tuple, key_part_map keypart_map);
 
   /* Convert a key from Table->record format to mem-comparable form */
-  uint pack_record(TABLE *tbl,
+  uint pack_record(const ha_rocksdb *handler,
+                   TABLE *tbl,
                    uchar *pack_buffer,
                    const uchar *record,
                    uchar *packed_tuple,
@@ -216,7 +217,8 @@ public:
                    int *unpack_info_len,
                    uint n_key_parts=0,
                    uint *n_null_fields=NULL);
-  int unpack_record(TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
+  int unpack_record(const ha_rocksdb *handler,
+                    TABLE *table, uchar *buf, const rocksdb::Slice *packed_key,
                     const rocksdb::Slice *unpack_info);
 
   bool unpack_info_has_checksum(const rocksdb::Slice& unpack_info);
