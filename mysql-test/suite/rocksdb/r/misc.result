@@ -47,12 +47,6 @@ help_relation	help_keyword_id	NULL	NULL
 help_relation	help_topic_id	NULL	NULL
 help_topic	help_topic_id	NULL	NULL
 help_topic	name	NULL	NULL
-innodb_index_stats	database_name	NULL	NULL
-innodb_index_stats	index_name	NULL	NULL
-innodb_index_stats	stat_name	NULL	NULL
-innodb_index_stats	table_name	NULL	NULL
-innodb_table_stats	database_name	NULL	NULL
-innodb_table_stats	table_name	NULL	NULL
 ndb_binlog_index	epoch	NULL	NULL
 ndb_binlog_index	orig_epoch	NULL	NULL
 ndb_binlog_index	orig_server_id	NULL	NULL
