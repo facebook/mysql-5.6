@@ -6330,3 +6330,4 @@ set_compaction_options(THD* thd,
     properties_collector_factory->SetCompactionParams(params);
   }
 }
+
