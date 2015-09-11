@@ -392,12 +392,9 @@ public:
   {
     return true;
   }
-  bool should_store_checksums()
+  bool should_store_checksums() const
   {
-    if (store_checksums && (rand() % 100 < checksums_pct))
-      return true;
-    else
-      return false;
+    return store_checksums && (rand() % 100 < checksums_pct);
   }
 
   int rename_table(const char *from, const char *to);
