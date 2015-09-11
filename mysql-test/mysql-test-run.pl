@@ -3628,6 +3628,9 @@ sub mysql_install_db {
     (my $temp_extra_opt=$extra_opt) =~ s/_/-/g;
     if ($temp_extra_opt =~ /--innodb-page-size/ || 
         $temp_extra_opt =~ /--innodb-log-file-size/ || 
+        $temp_extra_opt =~ /--skip-innodb/ ||
+        $temp_extra_opt =~ /--rocksdb/ ||
+        $temp_extra_opt =~ /--default-tmp-storage-engine/ ||
         $temp_extra_opt =~ /--default-storage-engine/) {
       mtr_add_arg($args, $extra_opt);
     }

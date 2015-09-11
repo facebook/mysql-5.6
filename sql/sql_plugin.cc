@@ -3811,11 +3811,12 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
   DBUG_ASSERT(tmp->plugin && tmp->name.str);
 
   /*
-    The 'federated' and 'ndbcluster' storage engines are always disabled by
-    default.
+    The 'federated', 'ndbcluster' and 'rocksdb' storage engines are always
+    disabled by default.
   */
   if (!(my_strcasecmp(&my_charset_latin1, tmp->name.str, "federated") &&
-      my_strcasecmp(&my_charset_latin1, tmp->name.str, "ndbcluster")))
+      my_strcasecmp(&my_charset_latin1, tmp->name.str, "ndbcluster") &&
+      my_strcasecmp(&my_charset_latin1, tmp->name.str, "rocksdb")))
     plugin_load_option= PLUGIN_OFF;
 
   for (opt= tmp->plugin->system_vars; opt && *opt; opt++)
@@ -3838,7 +3839,7 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
 
     /*
       We adjust the default value to account for the hardcoded exceptions
-      we have set for the federated and ndbcluster storage engines.
+      we have set for the federated, ndbcluster and rocksdb  storage engines.
     */
     if (tmp->load_option != PLUGIN_FORCE &&
         tmp->load_option != PLUGIN_FORCE_PLUS_PERMANENT)
