@@ -63,7 +63,7 @@ INSERT INTO t1 (numeropost,icone,contenu,pseudo,date,signature,ip)
 SELECT 1618,icone,contenu,pseudo,date,signature,ip FROM t2
 WHERE numeropost=9 ORDER BY numreponse ASC;
 
-show variables like '%bulk%';
+select @@bulk_insert_buffer_size;
 
 INSERT INTO t1 (numeropost,icone,contenu,pseudo,date,signature,ip)
 SELECT 1718,icone,contenu,pseudo,date,signature,ip FROM t2
