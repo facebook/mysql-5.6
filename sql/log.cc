@@ -2666,7 +2666,7 @@ int TC_LOG_MMAP::open(const char *opt_name)
   bool crashed=FALSE;
   PAGE *pg;
 
-  DBUG_ASSERT(total_ha_2pc > 2);
+  DBUG_ASSERT(total_ha_2pc > 1);
   DBUG_ASSERT(opt_name && opt_name[0]);
 
   tc_log_page_size= my_getpagesize();
