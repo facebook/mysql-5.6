@@ -1,0 +1,5 @@
+This directory contains RocksDB-based Storage Engine
+
+== Running Tests ==
+To run tests from rocksdb, rocksd_rpl or rocksdb_sys_vars packages, use the following parameters:
+--mysqld=--default-storage-engine=rocksdb  --mysqld=--skip-innodb --mysqld=--default-tmp-storage-engine=MyISAM --mysqld=--rocksdb
