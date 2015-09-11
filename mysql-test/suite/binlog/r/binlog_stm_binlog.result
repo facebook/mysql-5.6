@@ -557,11 +557,9 @@ SELECT * FROM t1;
 c1
 1
 # Their values should be ON
-SHOW SESSION VARIABLES LIKE "%_checks";
-Variable_name	Value
-foreign_key_checks	ON
-rocksdb_paranoid_checks	ON
-unique_checks	ON
+SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks;
+@@SESSION.foreign_key_checks	@@SESSION.unique_checks
+1	1
 
 SET @@SESSION.foreign_key_checks= OFF;
 SET @@SESSION.unique_checks= OFF;
@@ -576,11 +574,9 @@ c1
 1
 2
 # Their values should be OFF
-SHOW SESSION VARIABLES LIKE "%_checks";
-Variable_name	Value
-foreign_key_checks	OFF
-rocksdb_paranoid_checks	ON
-unique_checks	OFF
+SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks;
+@@SESSION.foreign_key_checks	@@SESSION.unique_checks
+0	0
 # INSERT INTO t1 VALUES(2)
 # foreign_key_checks=1 and unique_checks=1
 # It should not change current session's variables, even error happens
@@ -595,9 +591,7 @@ c1
 1
 2
 # Their values should be OFF
-SHOW SESSION VARIABLES LIKE "%_checks";
-Variable_name	Value
-foreign_key_checks	OFF
-rocksdb_paranoid_checks	ON
-unique_checks	OFF
+SELECT @@SESSION.foreign_key_checks, @@SESSION.unique_checks;
+@@SESSION.foreign_key_checks	@@SESSION.unique_checks
+0	0
 DROP TABLE t1;
