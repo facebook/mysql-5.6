@@ -389,8 +389,8 @@ uint RDBSE_KEYDEF::get_primary_key_tuple(TABLE *table,
                      size is at least max_storage_fmt_length() bytes.
 */
 
-uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
-                                    uchar *packed_tuple,
+uint RDBSE_KEYDEF::pack_index_tuple(const ha_rocksdb *handler, TABLE *tbl,
+                                    uchar *pack_buffer, uchar *packed_tuple,
                                     const uchar *key_tuple,
                                     key_part_map keypart_map)
 {
@@ -404,8 +404,8 @@ uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
     n_used_parts= 0; // Full key is used
 
   /* Then, convert the record into a mem-comparable form */
-  return pack_record(tbl, pack_buffer, tbl->record[0], packed_tuple, NULL, NULL,
-                     n_used_parts);
+  return pack_record(handler, tbl, pack_buffer, tbl->record[0], packed_tuple,
+                     NULL, NULL, n_used_parts);
 }
 
 
@@ -462,7 +462,7 @@ void RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
     Length of the packed tuple
 */
 
-uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
+uint RDBSE_KEYDEF::pack_record(const ha_rocksdb *handler, TABLE *tbl,
                                uchar *pack_buffer,
                                const uchar *record,
                                uchar *packed_tuple,
@@ -531,7 +531,7 @@ uint RDBSE_KEYDEF::pack_record(TABLE *tbl,
 
   if (unpack_info_len)
   {
-    if (((ha_rocksdb*)tbl->file)->should_store_checksums())
+    if (handler->should_store_checksums())
     {
       uint32_t key_crc32= crc32(0, packed_tuple, tuple - packed_tuple);
       uint32_t val_crc32= crc32(0, unpack_info, unpack_end - unpack_info);
@@ -677,9 +677,9 @@ size_t RDBSE_KEYDEF::key_length(TABLE *table, const rocksdb::Slice &key)
     1 - Data format error.
 */
 
-int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
-                                 const rocksdb::Slice *packed_key,
-                                 const rocksdb::Slice *unpack_info)
+int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
+                                uchar *buf, const rocksdb::Slice *packed_key,
+                                const rocksdb::Slice *unpack_info)
 {
   Stream_reader reader(packed_key);
   const uchar * const unpack_ptr= (const uchar*)unpack_info->data();
@@ -763,7 +763,7 @@ int RDBSE_KEYDEF::unpack_record(TABLE *table, uchar *buf,
     Stream_reader unp_reader(unpack_info);
     if (unp_reader.read(1)[0] == CHECKSUM_DATA_TAG)
     {
-      if (((ha_rocksdb*)table->file)->verify_checksums)
+      if (handler->verify_checksums)
       {
         uint32_t stored_key_chksum;
         uint32_t stored_val_chksum;
