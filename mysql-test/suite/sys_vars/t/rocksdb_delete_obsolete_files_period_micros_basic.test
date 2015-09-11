@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --let $sys_var=ROCKSDB_DELETE_OBSOLETE_FILES_PERIOD_MICROS
 --let $read_only=1
 --let $session=0

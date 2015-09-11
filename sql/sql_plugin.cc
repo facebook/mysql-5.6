@@ -3815,7 +3815,9 @@ static int test_plugin_options(MEM_ROOT *tmp_root, struct st_plugin_int *tmp,
     default.
   */
   if (!(my_strcasecmp(&my_charset_latin1, tmp->name.str, "federated") &&
-      my_strcasecmp(&my_charset_latin1, tmp->name.str, "ndbcluster")))
+      my_strcasecmp(&my_charset_latin1, tmp->name.str, "ndbcluster") &&
+        my_strcasecmp(&my_charset_latin1, tmp->name.str, "rocksdb")
+       ))
     plugin_load_option= PLUGIN_OFF;
 
   for (opt= tmp->plugin->system_vars; opt && *opt; opt++)

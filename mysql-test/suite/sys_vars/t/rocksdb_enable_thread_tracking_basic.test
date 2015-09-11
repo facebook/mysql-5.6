@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --let $sys_var=ROCKSDB_ENABLE_THREAD_TRACKING
 --let $read_only=1
 --let $session=0
