@@ -5877,7 +5877,7 @@ bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_f
   {                                                                      \
     rocksdb_status_counters.name =                                       \
       rocksdb_stats->getTickerCount(rocksdb::key);                       \
-    var->type = SHOW_LONG;                                               \
+    var->type = SHOW_LONGLONG;                                           \
     var->value = (char *)&rocksdb_status_counters.name;                  \
     return 0;                                                            \
   }
