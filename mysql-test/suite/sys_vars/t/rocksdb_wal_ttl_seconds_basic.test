@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --let $sys_var=ROCKSDB_WAL_TTL_SECONDS
 --let $read_only=1
 --let $session=0

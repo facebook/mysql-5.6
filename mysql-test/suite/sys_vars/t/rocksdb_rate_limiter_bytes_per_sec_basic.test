@@ -1,3 +1,5 @@
+--source include/have_rocksdb.inc
+
 --let $sys_var=ROCKSDB_RATE_LIMITER_BYTES_PER_SEC
 --let $read_only=1
 --let $session=0
