@@ -5525,6 +5525,14 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     unireg_abort(1);
   }
   plugins_are_initialized= TRUE;  /* Don't separate from init function */
+  if (total_ha_2pc - opt_bin_log  >= 2)
+  {
+    sql_print_error(
+      "Only one of RocksDB or InnoDB engines is supported at a time. "
+      "Start mysqld with --skip-innodb (requires --default-tmp-storage"
+      "-engine=MyISAM) if you're enabling rocksdb.");
+    unireg_abort(1);
+  }
 
   Session_tracker session_track_system_variables_check;
   LEX_STRING var_list;
@@ -5640,7 +5648,7 @@ a file name for --log-bin-index option", opt_binlog_index_name);
                                 &global_system_variables.temp_table_plugin))
     unireg_abort(1);
 
-  if (total_ha_2pc > 2 || (1 == total_ha_2pc && opt_bin_log))
+  if (total_ha_2pc > 1 || (1 == total_ha_2pc && opt_bin_log))
   {
     if (opt_bin_log)
       tc_log= &mysql_bin_log;
