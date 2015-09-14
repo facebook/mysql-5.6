@@ -162,6 +162,12 @@ class ha_rocksdb: public handler
   uchar *sec_key_packed_tuple;
 
   /*
+    Temporary buffers for storing end key part of the Key/Value pair.
+    This is used for range scan only.
+  */
+  uchar *end_key_packed_tuple;
+
+  /*
     Same as above, but it stores the value part. It holds unpack info which
     is currently not used (always empty).
 
@@ -242,11 +248,12 @@ class ha_rocksdb: public handler
   int secondary_index_read(int keyno, uchar *buf);
   void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
   {
-    setup_index_scan(keydef, slice, false, false);
+    setup_index_scan(keydef, slice, false, false, 0);
   }
   bool is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag);
   void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice,
-                        bool use_all_keys, bool is_ascending);
+                        const bool use_all_keys, const bool is_ascending,
+                        const uint eq_cond_len);
   int get_row_by_rowid(uchar *buf, const char *pk_tuple, uint pk_tuple_size);
 
   void update_auto_incr_val();
@@ -433,9 +440,18 @@ public:
   int index_read_map(uchar * buf, const uchar * key,
                      key_part_map keypart_map,
                      enum ha_rkey_function find_flag);
+  int index_read_map_impl(uchar * buf, const uchar * key,
+                          key_part_map keypart_map,
+                          enum ha_rkey_function find_flag,
+                          const bool is_eq_cond_range_scan,
+                          const key_range *end_key);
 
   int index_read_last_map(uchar * buf, const uchar * key,
                           key_part_map keypart_map);
+
+  int read_range_first(const key_range *start_key,
+                       const key_range *end_key,
+                       bool eq_range, bool sorted);
 
   virtual double scan_time() { return (double) (stats.records+stats.deleted) / 20.0+10; }
   virtual double read_time(uint, uint, ha_rows rows)
