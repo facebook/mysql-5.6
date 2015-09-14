@@ -53,6 +53,7 @@ public:
   bool Valid() { return valid; }
   rocksdb::Slice key();
   rocksdb::Slice value();
+  bool skip_bloom;
 private:
   void advance(int direction);
 
