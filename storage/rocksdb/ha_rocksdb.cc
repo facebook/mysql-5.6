@@ -6111,7 +6111,6 @@ void* background_thread(void*)
   mysql_mutex_lock(&background_mutex);
   mysql_mutex_lock(&stop_cond_mutex);
 
-  rocksdb::WriteBatch wb;
   time_t last_stat_recompute = 0;
   for (;;)
   {
@@ -6127,9 +6126,8 @@ void* background_thread(void*)
     assert(ret == 0 || ret == ETIMEDOUT);
 
     if (rdb && rocksdb_background_sync) {
-      auto wo = rocksdb::WriteOptions();
-      wo.sync = true;
-      rocksdb::Status s= rdb->Write(wo, &wb);
+      assert(!db_options.allow_mmap_writes);
+      rocksdb::Status s= rdb->SyncWAL();
       if (!s.ok())
         rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
     }
