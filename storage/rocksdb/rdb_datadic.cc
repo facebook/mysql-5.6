@@ -396,7 +396,7 @@ uint RDBSE_KEYDEF::pack_index_tuple(TABLE *tbl, uchar *pack_buffer,
 {
   /* We were given a record in KeyTupleFormat. First, save it to record */
   uint key_len= calculate_key_len(tbl, keyno, key_tuple, keypart_map);
- key_restore(tbl->record[0], (uchar*)key_tuple, &tbl->key_info[keyno],
+  key_restore(tbl->record[0], (uchar*)key_tuple, &tbl->key_info[keyno],
               key_len);
 
   uint n_used_parts= my_count_bits(keypart_map);

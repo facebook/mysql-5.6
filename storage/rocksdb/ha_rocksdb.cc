@@ -19,6 +19,8 @@
 #endif
 
 #include <mysql/plugin.h>
+#include <my_global.h>
+#include <mysql/psi/mysql_table.h>
 #include "ha_rocksdb.h"
 #include "ha_rocksdb_proto.h"
 #include "rdb_perf_context.h"
@@ -2772,6 +2774,8 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
                                                     MYF(0))) ||
       !(sec_key_packed_tuple_old= (uchar*)my_malloc(max_packed_sec_key_len,
                                                  MYF(0))) ||
+      !(end_key_packed_tuple= (uchar*)my_malloc(max_packed_sec_key_len,
+                                                MYF(0))) ||
       !((sec_key_tails= (uchar*)my_malloc(tails_size, MYF(0)))) ||
       !((sec_key_tails_old= (uchar*)my_malloc(tails_size, MYF(0)))) ||
       !((pack_buffer=(uchar*)my_malloc(max_packed_sec_key_len, MYF(0)))))
@@ -2813,6 +2817,10 @@ int ha_rocksdb::close(void)
   if (sec_key_packed_tuple_old)
     my_free(sec_key_packed_tuple_old);
   sec_key_packed_tuple_old= NULL;
+  
+  if (end_key_packed_tuple)
+    my_free(end_key_packed_tuple);
+  end_key_packed_tuple= NULL;
 
   if (sec_key_tails)
     my_free(sec_key_tails);
@@ -3288,13 +3296,80 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
 
 
 /*
-   See storage/rocksdb/rocksdb-range-access.txt for description of how MySQL
-   index navigation commands are converted into RocksDB lookup commands.
+  ha_rocksdb::read_range_first overrides handler::read_range_first.
+  The only difference from handler::read_range_first is that
+  ha_rocksdb::read_range_first passes end_key to
+  ha_rocksdb::index_read_map_impl function.
 */
+int ha_rocksdb::read_range_first(const key_range *start_key,
+                                 const key_range *end_key,
+                                 bool eq_range_arg, bool sorted)
+{
+  int result;
+  DBUG_ENTER("ha_rocksdb::read_range_first");
+
+  eq_range= eq_range_arg;
+  set_end_range(end_key, RANGE_SCAN_ASC);
+
+  range_key_part= table->key_info[active_index].key_part;
+
+  if (!start_key)                       // Read first record
+    result= ha_index_first(table->record[0]);
+  else
+  {
+    bool is_eq_cond_range_scan= end_key&&(start_key->flag!=HA_READ_KEY_EXACT);
+    MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
+      { result= index_read_map_impl(table->record[0],
+                                start_key->key,
+                                start_key->keypart_map,
+                                start_key->flag,
+                                is_eq_cond_range_scan, end_key); })
+  }
+  if (result)
+    DBUG_RETURN((result == HA_ERR_KEY_NOT_FOUND)
+                ? HA_ERR_END_OF_FILE
+                : result);
+
+  if (compare_key(end_range) <= 0)
+  {
+    DBUG_RETURN(0);
+  }
+  else
+  {
+    /*
+      The last read row does not fall in the range. So request
+      storage engine to release row lock if possible.
+    */
+    unlock_row();
+    DBUG_RETURN(HA_ERR_END_OF_FILE);
+  }
+}
+
 
 int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag)
+{
+  return index_read_map_impl(buf, key, keypart_map, find_flag, false, NULL);
+}
+
+/*
+   See storage/rocksdb/rocksdb-range-access.txt for description of how MySQL
+   index navigation commands are converted into RocksDB lookup commands.
+
+   This function takes end_key as an argument, and it is set on range scan.
+   MyRocks needs to decide whether prefix bloom filter can be used or not.
+   To decide to use prefix bloom filter or not, calculating equal condition length
+   is needed. On equal lookups (find_flag == HA_READ_KEY_EXACT), equal
+   condition length is the same as rocksdb::Slice.size() of the start key.
+   On range scan, equal condition length is MIN(start_key, end_key) of the
+   rocksdb::Slice expression.
+*/
+int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
+                                    key_part_map keypart_map,
+                                    enum ha_rkey_function find_flag,
+                                    const bool is_eq_cond_range_scan,
+                                    const key_range *end_key)
 {
   int rc= 0;
   DBUG_ENTER("ha_rocksdb::index_read_map");
@@ -3329,10 +3404,19 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     DBUG_RETURN(rc);
   }
 
+  uint end_key_packed_size= 0;
+  if (is_eq_cond_range_scan && end_key)
+  {
+    end_key_packed_size= kd->pack_index_tuple(table, pack_buffer,
+                                              end_key_packed_tuple, end_key->key,
+                                              end_key->keypart_map);
+  }
+
   /*
     Unique secondary index performs lookups without the extended key fields
   */
-  uint packed_size; if (active_index != table->s->primary_key &&
+  uint packed_size;
+  if (active_index != table->s->primary_key &&
       table->key_info[active_index].flags & HA_NOSAME &&
       find_flag == HA_READ_KEY_EXACT && using_full_key)
   {
@@ -3345,9 +3429,11 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
       using_full_key= false;
   }
   else
+  {
     packed_size= kd->pack_index_tuple(table, pack_buffer,
                                       sec_key_packed_tuple, key,
                                       keypart_map);
+  }
   if ((pushed_idx_cond && pushed_idx_cond_keyno == active_index) &&
       (find_flag == HA_READ_KEY_EXACT || find_flag == HA_READ_PREFIX_LAST))
   {
@@ -3378,6 +3464,34 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
 
   rocksdb::Slice slice((char*)sec_key_packed_tuple, packed_size);
 
+  uint eq_cond_len= 0;
+  if (find_flag == HA_READ_KEY_EXACT)
+  {
+    eq_cond_len= slice.size();
+  }
+  else if (is_eq_cond_range_scan && end_key_packed_size > 0)
+  {
+    /*
+      Calculating length of the equal conditions here. 4 byte index id is included.
+      Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
+       WHERE id1=1 AND id2=1 AND id3>=2 => eq_cond_len= 4+8+4= 16
+       WHERE id1=1 AND id2>=1 AND id3>=2 => eq_cond_len= 4+8= 12
+      Example2: id1 VARCHAR(30), id2 INT, PRIMARY KEY (id1, id2)
+       WHERE id1 = 'AAA' and id2 < 3; => eq_cond_len=13 (varchar used 9 bytes)
+    */
+    rocksdb::Slice end_slice((char*)end_key_packed_tuple, end_key_packed_size);
+    eq_cond_len= slice.difference_offset(end_slice);
+  }
+  else
+  {
+    /*
+      On range scan without any end key condition, there is no
+      eq cond, and eq cond length is the same as index_id size (4 bytes).
+      Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
+       WHERE id1>=1 AND id2 >= 2 and id2 <= 5 => eq_cond_len= 4
+    */
+    eq_cond_len= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  }
 
   bool use_all_keys= false;
   if (find_flag == HA_READ_KEY_EXACT &&
@@ -3388,7 +3502,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
     This will open the iterator and position it at a record that's equal or
     greater than the lookup tuple.
   */
-  setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag));
+  setup_index_scan(kd, &slice, use_all_keys, is_ascending(kd, find_flag),
+                   eq_cond_len);
   bool move_forward= true;
 
   switch (find_flag) {
@@ -4602,10 +4717,36 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
 
 void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
                                   rocksdb::Slice *slice,
-                                  bool use_all_keys,
-                                  bool is_ascending)
+                                  const bool use_all_keys,
+                                  const bool is_ascending,
+                                  const uint eq_cond_len)
 {
+  DBUG_ASSERT(slice->size() >= eq_cond_len);
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
+
+  bool skip_bloom= true;
+
+  rocksdb::Slice eq_cond(slice->data(), eq_cond_len);
+  if (can_use_bloom_filter(keydef, eq_cond, use_all_keys, is_ascending))
+    skip_bloom= false;
+
+  /*
+    In some cases, setup_index_scan() is called multiple times from
+    the same query but bloom filter can not always be used.
+    Suppose the following query example. id2 is VARCHAR(30) and PRIMARY KEY (id1, id2).
+     select count(*) from t2 WHERE id1=100 and id2 IN ('00000000000000000000', '100');
+    In this case, setup_index_scan() is called twice, the first time is for
+    (id1, id2)=(100, '00000000000000000000') and the second time is for (100, '100').
+    If prefix bloom filter length is 24 bytes, prefix bloom filter can be used for the
+    first condition but not for the second condition.
+    If bloom filter condition is changed, currently it is necessary to destroy and
+    re-create Iterator.
+  */
+  if (scan_it && scan_it->skip_bloom != skip_bloom)
+  {
+    delete scan_it;
+    scan_it= NULL;
+  }
 
   /*
     SQL layer can call rnd_init() multiple times in a row.
@@ -4618,13 +4759,12 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
       options.fill_cache= false;
     if (!lock_rows)
       options.snapshot= trx->snapshot;
-    if (!can_use_bloom_filter(keydef, *slice, use_all_keys, is_ascending))
-      options.total_order_seek= true;
+    options.total_order_seek= skip_bloom;
     rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, keydef->get_cf());
     scan_it= new Apply_changes_iter;
     scan_it->init(keydef->is_reverse_cf, &trx->changes, rocksdb_it);
+    scan_it->skip_bloom= skip_bloom;
   }
-
   /*
     Seek() will "Position at the first key in the source that at or past target".
     The operation cannot fail.
