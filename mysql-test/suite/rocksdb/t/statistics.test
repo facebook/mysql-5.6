@@ -38,21 +38,48 @@ create index t1_1 on t1(b);
 create index t3_1 on t3(b) comment 'cf_t3';
 create index t4_1 on t4(b) comment 'rev:cf_t4';
 
-# Manually compact column families, cleaning up all lingering data
-optimize table t1, t2, t3, t4, t5;
---source wait_stat_compute.inc
+# should have some statistics before the memtable flush
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
+# flush and get even better statistics
+set global rocksdb_force_flush_memtable_now = true;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 create index t4_2 on t4(a);
-optimize table t4;
---source wait_stat_compute.inc
+set global rocksdb_force_flush_memtable_now = true;
 
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # restart the server, check the stats
+--sleep 1 # to make sure that stats are saved
 --source include/restart_mysqld.inc
 
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+
+# output a bookmark into the log file
+--exec echo rocksdb_statistics_test_bookmark >> $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+analyze table t1,t2,t3,t4,t5;
+
+# make sure that analyze table actually did something
+--perl
+# Read all lines in the log file after the bookmark
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/log/mysqld.1.err" or die;
+while(my $line=<FILE>) {
+  if ($line eq "rocksdb_statistics_test_bookmark\n") {
+    @List = ();
+  }
+  push @List, $line;
+}
+# filter out certain log lines
+foreach $line (@List) {
+  if ($line =~ /Recomputed stats for \d+ indexes across \d+ files/) {
+    print "$&\n";
+  }
+}
+EOF
+
+# make sure that stats do not change after calling analyze table
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 drop table t1;
