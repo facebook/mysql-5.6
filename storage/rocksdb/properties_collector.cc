@@ -99,6 +99,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
     auto& stats = stats_.back();
     stats.data_size += key.size()+value.size();
     stats.rows++;
+    stats.actual_disk_size += file_size-file_size_;
 
     if (params_.window_ > 0) {
       // record the "is deleted" flag into the sliding window
@@ -161,14 +162,6 @@ rocksdb::Status
 MyRocksTablePropertiesCollector::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
-  std::vector<GL_INDEX_ID> changed_indexes;
-  changed_indexes.resize(stats_.size());
-  std::transform(
-    stats_.begin(), stats_.end(),
-    changed_indexes.begin(),
-    [](const IndexStats& s) {return s.gl_index_id;}
-  );
-  ddl_manager_->add_changed_indexes(changed_indexes);
   properties->insert({INDEXSTATS_KEY, IndexStats::materialize(stats_)});
   return rocksdb::Status::OK();
 }
@@ -285,7 +278,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
     assert(sizeof i.data_size <= 8);
     write_int64(&ret, i.data_size);
     write_int64(&ret, i.rows);
-    write_int64(&ret, i.approximate_size);
+    write_int64(&ret, i.actual_disk_size);
     write_int64(&ret, i.distinct_keys_per_prefix.size());
     for (auto num_keys : i.distinct_keys_per_prefix) {
       write_int64(&ret, num_keys);
@@ -315,7 +308,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
        sizeof(stats.gl_index_id.index_id)+
        sizeof(stats.data_size)+
        sizeof(stats.rows)+
-       sizeof(stats.approximate_size)+
+       sizeof(stats.actual_disk_size)+
        sizeof(uint64) > p2)
     {
       return 1;
@@ -324,7 +317,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     stats.gl_index_id.index_id = read_int(&p);
     stats.data_size = read_int64(&p);
     stats.rows = read_int64(&p);
-    stats.approximate_size = read_int64(&p);
+    stats.actual_disk_size = read_int64(&p);
     stats.distinct_keys_per_prefix.resize(read_int64(&p));
     if (p+stats.distinct_keys_per_prefix.size()
         *sizeof(stats.distinct_keys_per_prefix[0]) > p2)
@@ -344,14 +337,18 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   Merges one IndexStats into another. Can be used to come up with the stats
   for the index based on stats for each sst
 */
-void MyRocksTablePropertiesCollector::IndexStats::merge(const IndexStats& s) {
+void MyRocksTablePropertiesCollector::IndexStats::merge(
+  const IndexStats& s, bool increment
+) {
+  auto sign = increment ? 1 : -1;
   gl_index_id = s.gl_index_id;
-  rows += s.rows;
-  data_size += s.data_size;
+  rows += s.rows * sign;
+  data_size += s.data_size * sign;
+  actual_disk_size += s.actual_disk_size * sign;
   if (distinct_keys_per_prefix.size() < s.distinct_keys_per_prefix.size()) {
     distinct_keys_per_prefix.resize(s.distinct_keys_per_prefix.size());
   }
   for (std::size_t i=0; i < s.distinct_keys_per_prefix.size(); i++) {
-    distinct_keys_per_prefix[i] += s.distinct_keys_per_prefix[i];
+    distinct_keys_per_prefix[i] += s.distinct_keys_per_prefix[i] * sign;
   }
 }

@@ -1,0 +1,1 @@
+--rocksdb_default_cf_options=compression_per_level=kNoCompression:kNoCompression:kNoCompression:kNoCompression:kNoCompression
