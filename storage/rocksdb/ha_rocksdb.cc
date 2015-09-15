@@ -55,6 +55,7 @@
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/perf_context.h"
 #include "properties_collector.h"
+#include "event_listener.h"
 
 /* This is here to get PRIu64, PRId64 */
 #ifndef __STDC_FORMAT_MACROS
@@ -208,8 +209,10 @@ rocksdb_force_flush_memtable_now(THD* thd,
                                  const void* save)
 {
   sql_print_information("RocksDB: Manual memtable flush\n");
-  if (rdb)
-    rdb->Flush(rocksdb::FlushOptions());
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  for (auto cf_handle : cf_manager.get_all_cf()) {
+    rdb->Flush(rocksdb::FlushOptions(), cf_handle);
+  }
 }
 
 static void
@@ -258,6 +261,7 @@ static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
   o.info_log = std::make_shared<Logger>();
+  o.listeners.push_back(std::make_shared<MyRocksEventListener>(&ddl_manager));
   return o;
 }
 
@@ -5107,12 +5111,12 @@ int ha_rocksdb::info(uint flag)
     {
       if (i == table->s->primary_key)
       {
-        stats.data_file_length= key_descr[i]->stats.approximate_size;
+        stats.data_file_length= key_descr[i]->stats.data_size;
         stats.records = key_descr[i]->stats.rows;
       }
       else
       {
-        stats.index_file_length+= key_descr[i]->stats.approximate_size;
+        stats.index_file_length+= key_descr[i]->stats.data_size;
       }
     }
     if (stats.records == 0)
@@ -5840,10 +5844,16 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
     kd->get_cf(),
     &r, 1,
     &sz);
-  ret = kd->stats.approximate_size != 0 ?
-    kd->stats.rows*sz/kd->stats.approximate_size :
+  ret = kd->stats.data_size != 0 ?
+    kd->stats.rows*sz/kd->stats.data_size :
     0;
   if (ret == 0) {
+    rdb->GetApproximateSizes(
+      kd->get_cf(),
+      &r, 1,
+      &sz);
+
+
     ret = 1;
   }
 
@@ -5888,66 +5898,6 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
     }
   }
   return rc;
-}
-
-void compute_optimizer_stats()
-{
-  auto changed_indexes = ddl_manager.get_changed_indexes();
-  if (changed_indexes.empty())
-    return;
-
-  // Find keydefs for all changed indexes
-  // Collect all column families which contain updated tables
-  std::vector<std::unique_ptr<RDBSE_KEYDEF>> keydefs;
-  std::unordered_set<rocksdb::ColumnFamilyHandle*> cfs;
-  for (auto index_number : changed_indexes)
-  {
-    auto keydef = ddl_manager.get_copy_of_keydef(index_number);
-    if (keydef) {
-      cfs.insert(keydef->get_cf());
-      keydefs.push_back(std::move(keydef));
-    }
-  }
-
-  std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>
-    statsFromProps;
-  for (auto cf : cfs) {
-    rocksdb::TablePropertiesCollection props;
-    auto s = rdb->GetPropertiesOfAllTables(
-      cf,
-      &props
-    );
-    MyRocksTablePropertiesCollector::GetStats(
-      props, changed_indexes, statsFromProps);
-  }
-
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
-  for (auto& keydef : keydefs)
-  {
-    auto it = statsFromProps.find(keydef->get_index_number());
-    if (it != statsFromProps.end()) {
-      stats.push_back(it->second);
-    } else {
-      // This index didn't have any associated stats in SST properties.
-      // It might be an empty table, for example.
-      stats.emplace_back(keydef->get_index_number());
-    }
-
-    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    auto range = get_range(keydef.get(), buf);
-    uint64_t size;
-    rdb->GetApproximateSizes(keydef->get_cf(),
-                             &range, 1, &size);
-
-    stats.back().approximate_size= size;
-  }
-
-  ddl_manager.set_stats(stats);
-
-  // Persist stats
-  std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
-  dict_manager.add_stats(wb.get(), stats);
-  dict_manager.commit(wb.get(), false);
 }
 
 void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
@@ -6353,7 +6303,6 @@ void* background_thread(void*)
   mysql_mutex_lock(&background_mutex);
   mysql_mutex_lock(&stop_cond_mutex);
 
-  time_t last_stat_recompute = 0;
   for (;;)
   {
     timespec ts;
@@ -6364,7 +6313,7 @@ void* background_thread(void*)
     if (stop_background_thread) {
       break;
     }
-    // make sure, no program error is returned
+    // make sure that no program error is returned
     assert(ret == 0 || ret == ETIMEDOUT);
 
     if (rdb && rocksdb_background_sync) {
@@ -6372,13 +6321,6 @@ void* background_thread(void*)
       rocksdb::Status s= rdb->SyncWAL();
       if (!s.ok())
         rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
-    }
-
-    if (ts.tv_sec - last_stat_recompute > rocksdb_seconds_between_stat_computes)
-    {
-      compute_optimizer_stats();
-      rocksdb_number_stat_computes++;
-      last_stat_recompute = ts.tv_sec;
     }
   }
 

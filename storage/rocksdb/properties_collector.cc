@@ -113,14 +113,6 @@ rocksdb::Status
 MyRocksTablePropertiesCollector::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
-  std::vector<uint32_t> changed_indexes;
-  changed_indexes.resize(stats_.size());
-  std::transform(
-    stats_.begin(), stats_.end(),
-    changed_indexes.begin(),
-    [](const IndexStats& s) {return s.index_number;}
-  );
-  ddl_manager_->add_changed_indexes(changed_indexes);
   properties->insert({INDEXSTATS_KEY, IndexStats::materialize(stats_)});
   return rocksdb::Status::OK();
 }
@@ -292,14 +284,17 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   Merges one IndexStats into another. Can be used to come up with the stats
   for the index based on stats for each sst
 */
-void MyRocksTablePropertiesCollector::IndexStats::merge(const IndexStats& s) {
+void MyRocksTablePropertiesCollector::IndexStats::merge(
+  const IndexStats& s, bool increment
+) {
+  auto sign = increment ? 1 : -1;
   index_number = s.index_number;
-  rows += s.rows;
-  data_size += s.data_size;
+  rows += s.rows * sign;
+  data_size += s.data_size * sign;
   if (distinct_keys_per_prefix.size() < s.distinct_keys_per_prefix.size()) {
     distinct_keys_per_prefix.resize(s.distinct_keys_per_prefix.size());
   }
   for (std::size_t i=0; i < s.distinct_keys_per_prefix.size(); i++) {
-    distinct_keys_per_prefix[i] += s.distinct_keys_per_prefix[i];
+    distinct_keys_per_prefix[i] += s.distinct_keys_per_prefix[i] * sign;
   }
 }
