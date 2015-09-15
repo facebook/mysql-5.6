@@ -37,16 +37,12 @@ insert t5(a, b) select a, b from t1 where id < 50000;
 create index t1_1 on t1(b);
 create index t3_1 on t3(b) comment 'cf_t3';
 create index t4_1 on t4(b) comment 'rev:cf_t4';
-
-# Manually compact column families, cleaning up all lingering data
-optimize table t1, t2, t3, t4, t5;
---source wait_stat_compute.inc
+set global rocksdb_force_flush_memtable_now = true;
 
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 create index t4_2 on t4(a);
-optimize table t4;
---source wait_stat_compute.inc
+set global rocksdb_force_flush_memtable_now = true;
 
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 

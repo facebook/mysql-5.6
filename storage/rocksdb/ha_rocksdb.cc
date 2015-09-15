@@ -38,6 +38,7 @@
 #include "rocksdb/utilities/flashcache.h"
 
 /* MyRocks includes */
+#include "./event_listener.h"
 #include "./ha_rocksdb_proto.h"
 #include "./logger.h"
 #include "./rdb_cf_manager.h"
@@ -114,7 +115,11 @@ mysql_mutex_t background_mutex;
 mysql_mutex_t stop_cond_mutex;
 mysql_mutex_t snapshot_mutex;
 mysql_cond_t stop_cond;
-bool stop_background_thread;
+struct background_thread_control {
+  bool stop = false;
+  bool save_stats = false;
+};
+background_thread_control bg_control;
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -189,8 +194,10 @@ rocksdb_force_flush_memtable_now(THD* thd,
                                  const void* save)
 {
   sql_print_information("RocksDB: Manual memtable flush\n");
-  if (rdb)
-    rdb->Flush(rocksdb::FlushOptions());
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  for (auto cf_handle : cf_manager.get_all_cf()) {
+    rdb->Flush(rocksdb::FlushOptions(), cf_handle);
+  }
 }
 
 static void
@@ -248,6 +255,7 @@ static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
   o.info_log = std::make_shared<Logger>();
+  o.listeners.push_back(std::make_shared<MyRocksEventListener>(&ddl_manager));
   return o;
 }
 
@@ -2049,7 +2057,6 @@ static int rocksdb_init_func(void *p)
   if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables))
     DBUG_RETURN(1);
 
-  stop_background_thread = false;
   pthread_t thread_handle;
   auto err = mysql_thread_create(
     key_thread_background, &thread_handle,
@@ -2085,7 +2092,7 @@ static int rocksdb_done_func(void *p)
 
   // signal the background thread to stop
   mysql_mutex_lock(&stop_cond_mutex);
-  stop_background_thread = true;
+  bg_control.stop = true;
   mysql_cond_signal(&stop_cond);
   mysql_mutex_unlock(&stop_cond_mutex);
 
@@ -5150,12 +5157,12 @@ int ha_rocksdb::info(uint flag)
     {
       if (i == table->s->primary_key)
       {
-        stats.data_file_length= key_descr[i]->stats.approximate_size;
+        stats.data_file_length= key_descr[i]->stats.data_size;
         stats.records = key_descr[i]->stats.rows;
       }
       else
       {
-        stats.index_file_length+= key_descr[i]->stats.approximate_size;
+        stats.index_file_length+= key_descr[i]->stats.data_size;
       }
     }
     if (stats.records == 0)
@@ -5874,9 +5881,10 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
     kd->get_cf(),
     &r, 1,
     &sz);
-  ret = kd->stats.approximate_size != 0 ?
-    kd->stats.rows*sz/kd->stats.approximate_size :
-    0;
+  auto disk_size = kd->stats.actual_disk_size;
+  if (disk_size == 0)
+    disk_size = kd->stats.data_size;
+  ret = disk_size != 0 ? kd->stats.rows*sz/disk_size : 0;
   if (ret == 0) {
     ret = 1;
   }
@@ -5922,66 +5930,6 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
     }
   }
   return rc;
-}
-
-void compute_optimizer_stats()
-{
-  auto changed_indexes = ddl_manager.get_changed_indexes();
-  if (changed_indexes.empty())
-    return;
-
-  // Find keydefs for all changed indexes
-  // Collect all column families which contain updated tables
-  std::vector<std::unique_ptr<RDBSE_KEYDEF>> keydefs;
-  std::unordered_set<rocksdb::ColumnFamilyHandle*> cfs;
-  for (auto index_number : changed_indexes)
-  {
-    auto keydef = ddl_manager.get_copy_of_keydef(index_number);
-    if (keydef) {
-      cfs.insert(keydef->get_cf());
-      keydefs.push_back(std::move(keydef));
-    }
-  }
-
-  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
-    statsFromProps;
-  for (auto cf : cfs) {
-    rocksdb::TablePropertiesCollection props;
-    auto s = rdb->GetPropertiesOfAllTables(
-      cf,
-      &props
-    );
-    MyRocksTablePropertiesCollector::GetStats(
-      props, changed_indexes, statsFromProps);
-  }
-
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
-  for (auto& keydef : keydefs)
-  {
-    auto it = statsFromProps.find(keydef->get_gl_index_id());
-    if (it != statsFromProps.end()) {
-      stats.push_back(it->second);
-    } else {
-      // This index didn't have any associated stats in SST properties.
-      // It might be an empty table, for example.
-      stats.emplace_back(keydef->get_gl_index_id());
-    }
-
-    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    auto range = get_range(keydef.get(), buf);
-    uint64_t size;
-    rdb->GetApproximateSizes(keydef->get_cf(),
-                             &range, 1, &size);
-
-    stats.back().approximate_size= size;
-  }
-
-  ddl_manager.set_stats(stats);
-
-  // Persist stats
-  std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
-  dict_manager.add_stats(wb.get(), stats);
-  dict_manager.commit(wb.get(), false);
 }
 
 void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
@@ -6395,38 +6343,46 @@ ulong Primary_key_comparator::get_hashnr(const char *key, size_t key_len)
 void* background_thread(void*)
 {
   mysql_mutex_lock(&background_mutex);
-  mysql_mutex_lock(&stop_cond_mutex);
 
-  time_t last_stat_recompute = 0;
+  timespec ts_next_sync;
+  clock_gettime(CLOCK_REALTIME, &ts_next_sync);
+  ts_next_sync.tv_sec++;
+
   for (;;)
   {
-    timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec++;
     // wait for 1 second or until we received a condition to stop the thread
-    auto ret = mysql_cond_timedwait(&stop_cond, &stop_cond_mutex, &ts);
-    if (stop_background_thread) {
+    mysql_mutex_lock(&stop_cond_mutex);
+    auto ret = mysql_cond_timedwait(
+      &stop_cond, &stop_cond_mutex, &ts_next_sync);
+    // make sure that no program error is returned
+    assert(ret == 0 || ret == ETIMEDOUT);
+    auto local_bg_control = bg_control;
+    bg_control = background_thread_control();
+    mysql_mutex_unlock(&stop_cond_mutex);
+
+    if (local_bg_control.stop) {
       break;
     }
-    // make sure, no program error is returned
-    assert(ret == 0 || ret == ETIMEDOUT);
 
-    if (rdb && rocksdb_background_sync) {
-      assert(!db_options.allow_mmap_writes);
-      rocksdb::Status s= rdb->SyncWAL();
-      if (!s.ok())
-        rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
+    if (local_bg_control.save_stats) {
+      ddl_manager.persist_stats();
     }
 
-    if (ts.tv_sec - last_stat_recompute > rocksdb_seconds_between_stat_computes)
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    if (ts.tv_sec-ts_next_sync.tv_sec >= 1)
     {
-      compute_optimizer_stats();
-      rocksdb_number_stat_computes++;
-      last_stat_recompute = ts.tv_sec;
+      if (rdb && rocksdb_background_sync)
+      {
+        assert(!db_options.allow_mmap_writes);
+        rocksdb::Status s= rdb->SyncWAL();
+        if (!s.ok())
+          rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
+      }
+      ts_next_sync.tv_sec = ts.tv_sec+1;
     }
   }
 
-  mysql_mutex_unlock(&stop_cond_mutex);
   mysql_mutex_unlock(&background_mutex);
 
   return nullptr;
@@ -6648,4 +6604,11 @@ set_rate_limiter_bytes_per_sec(THD*                     thd,
     rocksdb_rate_limiter_bytes_per_sec = new_val;
     rate_limiter->SetBytesPerSecond(new_val);
   }
+}
+
+void request_save_stats()
+{
+  mysql_mutex_lock(&stop_cond_mutex);
+  bg_control.save_stats= true;
+  mysql_mutex_unlock(&stop_cond_mutex);
 }

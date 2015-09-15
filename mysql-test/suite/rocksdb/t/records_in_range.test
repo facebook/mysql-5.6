@@ -1,16 +1,13 @@
 --source include/have_rocksdb.inc
 
-let $save_rocksdb_seconds_between_stat_computes = `SELECT @@rocksdb_seconds_between_stat_computes`;
-SET GLOBAL rocksdb_seconds_between_stat_computes=2;
-
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
 
 # Create the table and insert some keys
 CREATE TABLE t1 (
-       i INT, 
-       a INT, 
+       i INT,
+       a INT,
        b INT,
        PRIMARY KEY (i),
        KEY ka(a),
@@ -26,9 +23,7 @@ while ($i <= $max) {
   eval $insert;
 }
 --enable_query_log
-
-optimize table t1;
---source wait_stat_compute.inc
+set global rocksdb_force_flush_memtable_now = true;
 
 # normal CF
 explain extended select * from t1 where a> 500 and a< 750;
@@ -53,6 +48,7 @@ explain extended select * from t1 where a< 750 and b> 500 and b< 750;
 drop index ka on t1;
 drop index kb on t1;
 create index kab on t1(a,b);
+set global rocksdb_force_flush_memtable_now = true;
 explain extended select * from t1 where a< 750 and b> 500 and b< 750;
 
 # override records in range
@@ -80,8 +76,7 @@ insert into linktable values (1,1,1,1,1,1,1,1,1);
 insert into linktable values (1,1,2,1,1,1,1,1,1);
 insert into linktable values (1,1,3,1,1,1,1,1,1);
 insert into linktable values (1,1,4,1,1,1,1,1,1);
-optimize table linktable;
-select sleep(3); #long enough for stats to be persisted
+set global rocksdb_force_flush_memtable_now = true;
 explain select id1, id2, link_type, visibility, data, time,  version from linktable where id1 = 1 and link_type = 1 and id2 in (1, 2);
 drop table linktable;
 
@@ -104,13 +99,10 @@ insert into linktable values (1,1,1,1,1,1,1,1,1);
 insert into linktable values (1,1,2,1,1,1,1,1,1);
 insert into linktable values (1,1,3,1,1,1,1,1,1);
 insert into linktable values (1,1,4,1,1,1,1,1,1);
-optimize table linktable;
-select sleep(3); #long enough for stats to be persisted
+set global rocksdb_force_flush_memtable_now = true;
 explain select id1, id2, link_type, visibility, data, time,  version from linktable where id1 = 1 and link_type = 1 and id2 in (1, 2);
 drop table linktable;
-
 
 #cleanup
 DROP TABLE t1;
 
-eval SET GLOBAL rocksdb_seconds_between_stat_computes = $save_rocksdb_seconds_between_stat_computes;
