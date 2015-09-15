@@ -636,10 +636,11 @@ class Table_ddl_manager
   mysql_rwlock_t rwlock;
 
   Sequence_generator sequence;
-
-  std::unordered_set<GL_INDEX_ID> changed_indexes;
-  std::mutex changed_indexes_mutex;
-
+  // A queue of table stats to write into data dictionary
+  // It is produced by event listener (ie compaction and flush threads)
+  // and consumed by the rocksdb background thread
+  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
+    stats2store;
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager,
@@ -651,8 +652,14 @@ public:
   RDBSE_KEYDEF* find(GL_INDEX_ID gl_index_id);
   std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
   void set_stats(
-    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
+    const std::unordered_map<GL_INDEX_ID,
+    MyRocksTablePropertiesCollector::IndexStats>& stats
   );
+  void adjust_stats(
+    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& new_data,
+    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& deleted_data
+     =std::vector<MyRocksTablePropertiesCollector::IndexStats>());
+  void persist_stats();
 
   /* Modify the mapping and write it to on-disk storage */
   int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::WriteBatch *batch);
@@ -662,8 +669,6 @@ public:
 
   uint get_and_update_next_number(Dict_manager *dict)
     { return sequence.get_and_update_next_number(dict); }
-  void add_changed_indexes(const std::vector<GL_INDEX_ID>& changed_indexes);
-  std::unordered_set<GL_INDEX_ID> get_changed_indexes();
 
   /* Walk the data dictionary */
   int scan(void* cb_arg, int (*callback)(void* cb_arg, RDBSE_TABLE_DEF*));

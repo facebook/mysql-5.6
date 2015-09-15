@@ -16,15 +16,7 @@ insert t5(a, b) select a, b from t1 where id < 50000;
 create index t1_1 on t1(b);
 create index t3_1 on t3(b) comment 'cf_t3';
 create index t4_1 on t4(b) comment 'rev:cf_t4';
-optimize table t1, t2, t3, t4, t5;
-Table	Op	Msg_type	Msg_text
-test.t1	optimize	status	OK
-test.t2	optimize	status	OK
-test.t3	optimize	status	OK
-test.t4	optimize	status	OK
-test.t5	optimize	status	OK
 set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
 t1	100000
@@ -33,11 +25,7 @@ t3	100000
 t4	100000
 t5	49999
 create index t4_2 on t4(a);
-optimize table t4;
-Table	Op	Msg_type	Msg_text
-test.t4	optimize	status	OK
 set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
 t1	100000
@@ -45,6 +33,25 @@ t2	100000
 t3	100000
 t4	100000
 t5	49999
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	table_rows
+t1	100000
+t2	100000
+t3	100000
+t4	100000
+t5	49999
+analyze table t1,t2,t3,t4,t5;
+Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	status	OK
+test.t5	analyze	status	OK
+Recomputed stats for 3 indexes across 1 files
+Recomputed stats for 2 indexes across 1 files
+Recomputed stats for 1 indexes across 1 files
+Recomputed stats for 3 indexes across 2 files
+Recomputed stats for 3 indexes across 1 files
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
 t1	100000
