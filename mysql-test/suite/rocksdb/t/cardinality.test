@@ -26,29 +26,31 @@ create index t1_3 on t1 (i2, i1);
 create index t1_4 on t1 (c1, c2);
 create index t1_5 on t1 (c2, c1);
 
-optimize table t1;
---source wait_stat_compute.inc
-
+# Flush memtable out to SST and display index cardinalities
+SET GLOBAL rocksdb_force_flush_memtable_now = 1;
 show index in t1;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # Do a bunch of updates
 update t1 set i1=i1+1;
---source wait_stat_compute.inc 
 
+# Flush memtable out to SST and display index cardinalities
+SET GLOBAL rocksdb_force_flush_memtable_now = 1;
 show index in t1;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 # Do a bunch of deletes
 delete from t1 where i1%2 =0;
---source wait_stat_compute.inc
 
+# Flush memtable out to SST and display index cardinalities
+SET GLOBAL rocksdb_force_flush_memtable_now = 1;
 show index in t1;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 --echo restarting...
 --source include/restart_mysqld.inc
 
+# display index cardinalities after the restart
 show index in t1;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 

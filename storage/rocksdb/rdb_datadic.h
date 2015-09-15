@@ -618,9 +618,6 @@ class Table_ddl_manager
 
   Sequence_generator sequence;
 
-  std::unordered_set<uint32_t> changed_indexes;
-  std::mutex changed_indexes_mutex;
-
 public:
   /* Load the data dictionary from on-disk storage */
   bool init(Dict_manager *dict_arg, Column_family_manager *cf_manager);
@@ -633,6 +630,11 @@ public:
   void set_stats(
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
   );
+  void adjust_stats(
+    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& new_data,
+    const std::vector<MyRocksTablePropertiesCollector::IndexStats>& deleted_data
+     =std::vector<MyRocksTablePropertiesCollector::IndexStats>()
+  );
 
   /* Modify the mapping and write it to on-disk storage */
   int put_and_write(RDBSE_TABLE_DEF *key_descr, rocksdb::WriteBatch *batch);
@@ -642,8 +644,6 @@ public:
 
   uint get_and_update_next_number(Dict_manager *dict)
     { return sequence.get_and_update_next_number(dict); }
-  void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
-  std::unordered_set<uint32_t> get_changed_indexes();
 
   /* Walk the data dictionary */
   int scan(void* cb_arg, int (*callback)(void* cb_arg, RDBSE_TABLE_DEF*));

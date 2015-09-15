@@ -17,7 +17,7 @@ class MyRocksTablePropertiesCollector
       INDEX_STATS_VERSION= 1,
     };
     uint32_t index_number;
-    int64_t data_size, rows, approximate_size;
+    int64_t data_size, rows, actual_disk_size;
     std::vector<int64_t> distinct_keys_per_prefix;
     std::string name; // name is not persisted
 
@@ -28,8 +28,8 @@ class MyRocksTablePropertiesCollector
         index_number(_index_number),
         data_size(0),
         rows(0),
-        approximate_size(0) {}
-    void merge(const IndexStats& s);
+        actual_disk_size(0) {}
+    void merge(const IndexStats& s, bool increment = true);
   };
 
   MyRocksTablePropertiesCollector(
@@ -92,7 +92,9 @@ class MyRocksTablePropertiesCollectorFactory
   ) : ddl_manager_(ddl_manager) {
   }
 
-  virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector() override {
+  virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector(
+    rocksdb::TablePropertiesCollectorFactory::Context
+  ) override {
     return new MyRocksTablePropertiesCollector(
       ddl_manager_, params_);
   }
