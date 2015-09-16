@@ -124,6 +124,7 @@ static enum enum_remote_proto {
 } opt_remote_proto= BINLOG_LOCAL;
 static char *opt_remote_proto_str= 0;
 static char *database= 0;
+static string cur_database= "";
 static char *output_file= 0;
 static my_bool force_opt= 0, short_form= 0;
 static my_bool debug_info_flag, debug_check_flag;
@@ -202,6 +203,7 @@ static char *opt_include_gtids_str= NULL,
 static char *opt_index_file_str = NULL;
 std::map<std::string, std::string> previous_gtid_set_map;
 static my_bool opt_skip_gtids= 0;
+static my_bool opt_skip_empty_trans= 0;
 static bool filter_based_on_gtids= false;
 
 static bool in_transaction= false;
@@ -836,6 +838,34 @@ static bool shall_skip_gtids(Log_event* ev)
 }
 
 /**
+  Checks whether a given event within a transaction has changed the database
+  that the current transaction is operating on. If the event within a
+  transaction has changed the database of the current transaction, an error
+  message will be issued. This check is only valid when --skip-empty-trans
+  is specified.
+
+  @param[in] ev_database the database that the current event is operating on.
+  @retval TRUE if the database of the current transaction has been changed by
+  the current event.
+  @retval FALSE if the database of the current transaction has not been changed
+  by the current event.
+*/
+static bool ev_database_changed(const string &ev_database)
+{
+  const char cur_database_error_msg[]= "The database used for the current "
+                                       "transaction has been changed since "
+                                       "BEGIN. This is not supported!";
+  if (opt_skip_empty_trans //When --skip-empty-trans is enabled
+      && in_transaction //When the event is within a transaction
+      && cur_database != ev_database) //When the event database is changed
+  {
+    error(cur_database_error_msg);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
   Print the given event, and either delete it or delegate the deletion
   to someone else.
 
@@ -930,6 +960,10 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       bool ends_group= ((Query_log_event*) ev)->ends_group();
       bool starts_group= ((Query_log_event*) ev)->starts_group();
 
+      if (!starts_group &&
+          ev_database_changed(string(((Query_log_event*) ev)->db)))
+        goto err;
+
       for (uint i= 0; i < buff_ev.elements; i++) 
       {
         buff_event_info pop_event_array= *dynamic_element(&buff_ev, i, buff_event_info *);
@@ -978,9 +1012,45 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
         print_event_info->skipped_event_in_transaction= false;
         if (print_event_info->is_gtid_next_set)
           print_event_info->is_gtid_next_valid= false;
+        /*
+         * Skip the COMMIT/ROLLBACK event of the extra databases
+         * when the option --skip-empty-trans is enabled. We also clear the
+         * cur_database at the end of currrent transaction
+         */
+        if (opt_skip_empty_trans)
+        {
+          bool skip= shall_skip_database(cur_database.c_str());
+          cur_database= "";
+          if (skip)
+            break;
+        }
       }
       else if (starts_group)
+      {
         in_transaction= true;
+
+        if (opt_skip_empty_trans)
+        {
+          if (cur_database != "")
+          {
+            error("The database used from the previous transaction has not "
+                  "been cleared. This probably means that the previous "
+                  "transaction has not hit COMMIT/ROLLBACK yet.");
+            goto err;
+          }
+          /*
+           * cur_database is always assigned at the BEGIN of a transaction and
+           * cleared at the COMMIT/ROLLBACK of a transaction.
+           */
+          cur_database= string(((Query_log_event*) ev)->db);
+          /*
+           * skip the BEGIN query of the extra databases when the option
+           * --skip-empty-trans is enabled
+           */
+          if (shall_skip_database(cur_database.c_str()))
+            goto end;
+        }
+      }
       else
       {
         /*
@@ -1030,6 +1100,10 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
     case CREATE_FILE_EVENT:
     {
       Create_file_log_event* ce= (Create_file_log_event*)ev;
+
+      if (ev_database_changed(string(ce->db)))
+        goto err;
+
       /*
         We test if this event has to be ignored. If yes, we don't save
         this event; this will have the good side-effect of ignoring all
@@ -1159,6 +1233,9 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       Execute_load_query_log_event *exlq= (Execute_load_query_log_event*)ev;
       char *fname= load_processor.grab_fname(exlq->file_id);
 
+      if (ev_database_changed(string(exlq->db)))
+        goto err;
+
       if (shall_skip_database(exlq->db))
         print_event_info->skipped_event_in_transaction= true;
       else
@@ -1186,6 +1263,10 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
     case TABLE_MAP_EVENT:
     {
       Table_map_log_event *map= ((Table_map_log_event *)ev);
+
+      if (ev_database_changed(string(map->get_db_name())))
+        goto err;
+
       if (shall_skip_database(map->get_db_name()))
       {
         print_event_info->skipped_event_in_transaction= true;
@@ -1343,6 +1424,18 @@ Exit_status process_event(PRINT_EVENT_INFO *print_event_info, Log_event *ev,
       print_event_info->skipped_event_in_transaction= false;
       if (print_event_info->is_gtid_next_set)
         print_event_info->is_gtid_next_valid= false;
+      /*
+       * Skip the extra XID event (COMMIT) from other databases when the
+       * option --skip-empty-trans is enabled. We also clear the
+       * cur_database at the end of currrent transaction
+       */
+      if (opt_skip_empty_trans)
+      {
+        bool skip= shall_skip_database(cur_database.c_str());
+        cur_database= "";
+        if (skip)
+          break;
+      }
       ev->print(result_file, print_event_info);
       if (head->error == -1)
         goto err;
@@ -1447,6 +1540,12 @@ static struct my_option my_long_options[] =
   {"database", 'd', "List entries for just this database (local log only).",
    &database, &database, 0, GET_STR_ALLOC, REQUIRED_ARG,
    0, 0, 0, 0, 0, 0},
+  {"skip-empty-trans", OPT_MYSQLBINLOG_SKIP_EMPTY_TRANS,
+   "Do not print empty transactions from databases other than the "
+   "selected database, requires --database "
+   "and --skip-gtids to be specified.",
+   &opt_skip_empty_trans, &opt_skip_empty_trans, 0,
+   GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 #ifndef DBUG_OFF
   {"debug", '#', "Output debug log.", &default_dbug_option,
    &default_dbug_option, 0, GET_STR, OPT_ARG, 0, 0, 0, 0, 0, 0},
@@ -2092,7 +2191,15 @@ static Exit_status dump_multiple_logs(int argc, char **argv)
   /* Set delimiter back to semicolon */
   if (!raw_mode)
   {
-    if (print_event_info.skipped_event_in_transaction)
+    /*
+     * When --skip-empty-trans is enabled, we want to avoid the automatically
+     * added COMMIT message when an event is skipped and no COMMIT event has
+     * been hit. This is because --skip-empty-trans only supports operating on
+     * a single database within a transaction. In other words, we do not want
+     * to print a COMMIT message at the end if the interrupted transaction
+     * (that has not hit COMMIT event) needs to be skipped anyway.
+     */
+    if (print_event_info.skipped_event_in_transaction && !opt_skip_empty_trans)
       fprintf(result_file, "COMMIT /* added by mysqlbinlog */%s\n", print_event_info.delimiter);
 
     if (!print_event_info.is_gtid_next_valid)
@@ -3223,6 +3330,13 @@ static int args_post_process(void)
       global_sid_lock->unlock();
       DBUG_RETURN(ERROR_STOP);
     }
+  }
+
+  if (opt_skip_empty_trans != 0 && (database == NULL || opt_skip_gtids == 0))
+  {
+    error("--skip_empty_trans requires --database and "
+          "--skip-gtids options to be specified");
+    DBUG_RETURN(ERROR_STOP);
   }
 
   global_sid_lock->unlock();
