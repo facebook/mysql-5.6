@@ -31,6 +31,24 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
     $mysql_linter = new FacebookMySQLLinter();
     $linters[] = $mysql_linter;
 
+    $cpp_linters = array();
+    // Use cpplint.py
+    $cpp_linters[] = $linters[] = new ArcanistCpplintLinter();
+
+    // Currently we can't run flint (FbcodeCppLinter) in commit hook mode,
+    // because it depends on having access to the working directory.
+    if (!$this->getCommitHookMode()) {
+      // For C++ code use both the standard c++ linter and the
+      // fbcode C++ linter
+      $cpp_linters[] = $linters[] = new FbcodeCppLinter();
+    }
+
+    $mysql_whitespace_linter = new FacebookMySQLWhitespaceLinter();
+    $linters[] = $mysql_whitespace_linter;
+
+    $innodb_tab_linter = new FacebookInnoDBTabLinter();
+    $linters[] = $innodb_tab_linter;
+
     // Enforces basic spelling. A blacklisted set of words that
     // are commonly spelled incorrectly are used.
     $spelling_linter = new ArcanistSpellingLinter();
@@ -46,48 +64,80 @@ class FacebookMySQLLintEngine extends ArcanistLintEngine {
 
     $linters[] = $spelling_linter;
 
+    $text_extensions = (
+      '/\.('.
+      'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
+      'txt'.
+      'test'.
+      'py'.
+      'sh'.
+      'cmake'.
+      'css'.
+      'sql'.
+      'inc'.
+      'pl'.
+      'php'.
+      'json'.
+      'java'.
+      'html'.
+      'i|ic'.
+      'yy'.
+      ')$/'
+    );
+
+    $cpp_extensions = ('/\.(cpp|cxx|c|cc|h|hpp|hxx|tcc|i|ic)$/');
+
     foreach ($paths as $path) {
       $is_text = false;
-
-      $text_extensions = (
-        '/\.('.
-        'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
-        'txt'.
-        'test'.
-        'py'.
-        'sh'.
-        'cmake'.
-        'css'.
-        'sql'.
-        'inc'.
-        'pl'.
-        'php'.
-        'json'.
-        'java'.
-        'html'.
-        'ic'.
-        'yy'.
-        ')$/'
-      );
-
-      $cpp_extensions = (
-        '/\.('.
-        'cpp|cxx|c|cc|h|hpp|hxx|tcc'.
-        ')$/'
-      );
 
       if (preg_match($text_extensions, $path)) {
         $is_text = true;
       }
 
       if ($is_text) {
+        $is_myrocks = false;
+        $is_innodb = false;
+
+        if (preg_match('/storage\/rocksdb/', $path)) {
+          $is_myrocks = true;
+        }
+
+        if (preg_match('/storage\/innobase/', $path)) {
+          $is_innodb = true;
+        }
+
         $nolint_linter->addPath($path);
+
         $generated_linter->addPath($path);
         $generated_linter->addData($path, $this->loadData($path));
+
         $mysql_linter->addPath($path);
         $mysql_linter->addData($path, $this->loadData($path));
+
         $spelling_linter->addPath($path);
         $spelling_linter->addData($path, $this->loadData($path));
+
+        if (preg_match($cpp_extensions, $path)) {
+          if ($is_myrocks) {
+            // For MyRocks code (in storage/engine) use strict linters
+            foreach ($cpp_linters as &$linter) {
+              $linter->addPath($path);
+              $linter->addData($path, $this->loadData($path));
+            }
+          } else {
+            // For all other MySQL code check to make sure we aren't
+            // changing just whitespace on a line
+            $mysql_whitespace_linter->addPath($path);
+            $mysql_whitespace_linter->addData($path, $this->loadData($path));
+
+            if ($is_innodb) {
+              // If in InnoDB source code (storage/innobase) check to make
+              // sure are using tabs (not spaces)
+              $innodb_tab_linter->addPath($path);
+              $innodb_tab_linter->addData($path, $this->loadData($path));
+            }
+          }
+        }
       }
     }
 
