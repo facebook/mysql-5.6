@@ -18,11 +18,13 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+#include "./rdb_locks.h"
+
 #include <mysql/plugin.h>
 
-#include "ha_rocksdb.h"  // TODO: this is too much
+#include <string.h>
 
-#include "rdb_locks.h"
+#include "./ha_rocksdb.h"  // TODO(???): this is too much
 
 
 typedef struct

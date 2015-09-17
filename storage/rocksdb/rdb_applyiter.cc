@@ -14,17 +14,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include "my_global.h"                   /* ulonglong */
-#include "my_base.h"                     /* ha_rows */
-#include "my_sys.h"
-#include "my_tree.h"
-
-#include "rocksdb/db.h"
-#include "rocksdb/comparator.h"
-#include "rocksdb/write_batch.h"
-
-#include "rdb_rowmods.h"
-#include "rdb_applyiter.h"
+#include "./rdb_applyiter.h"
+#include "./rdb_rowmods.h"
 
 int compare_mem_comparable_keys(const uchar *a, size_t a_len, const uchar *b, size_t b_len);
 

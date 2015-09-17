@@ -18,10 +18,12 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+#include "./ha_rocksdb.h"
+
 #include <mysql/plugin.h>
 #include <my_global.h>
 #include <mysql/psi/mysql_table.h>
-#include "ha_rocksdb.h"
+
 #include "ha_rocksdb_proto.h"
 #include "rdb_perf_context.h"
 
@@ -53,7 +55,6 @@
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/flashcache.h"
-#include "rocksdb/slice_transform.h"
 #include "rocksdb/perf_context.h"
 #include "properties_collector.h"
 
@@ -932,7 +933,7 @@ private:
   THD* thd_;
 
 public:
-  MyRocksSnapshot(THD* thd) : thd_(thd) {
+  explicit MyRocksSnapshot(THD* thd) : thd_(thd) {
     rdb->GetEnv()->GetCurrentTime(&timestamp_);
   }
 
@@ -1334,17 +1335,16 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
 {
   if (binlog_file && binlog_pos)
   {
-    char file_buf[FN_REFLEN+1]= {0};
+    *binlog_file = '\0';
     my_off_t pos;
     char gtid_buf[FN_REFLEN+1]= {0};
-    if (binlog_manager.read(file_buf, pos, gtid_buf))
+    if (binlog_manager.read(binlog_file, pos, gtid_buf))
     {
-      if (is_binlog_advanced(binlog_file, *binlog_pos, file_buf, pos))
+      if (is_binlog_advanced(binlog_file, *binlog_pos, binlog_file, pos))
       {
-        strcpy(binlog_file, file_buf);
         *binlog_pos= pos;
         fprintf(stderr, "RocksDB: Last binlog file position %llu,"
-                " file name %s\n", pos, file_buf);
+                " file name %s\n", pos, binlog_file);
         if (*gtid_buf)
         {
           fprintf(stderr, "RocksDB: Last MySQL Gtid %s\n", gtid_buf);

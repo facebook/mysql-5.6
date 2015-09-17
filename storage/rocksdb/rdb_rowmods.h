@@ -14,7 +14,12 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include "my_tree.h"
+#pragma once
+
+#include "rocksdb/db.h"
+
+#include "./my_global.h"                   /* ulonglong */
+#include "./my_tree.h"
 
 class RDBSE_KEYDEF;
 
@@ -178,5 +183,3 @@ private:
   static int compare_rows(const void* arg, const void *a,const void *b);
   static int compare_rows_rev(const void* arg, const void *a,const void *b);
 };
-
-

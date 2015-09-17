@@ -14,6 +14,10 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#pragma once
+
+#include "rocksdb/db.h"
+
 class Row_table;
 class Row_table_iter;
 
@@ -61,4 +65,3 @@ private:
   int latest_direction;
   void adjust_keys(int direction);
 };
-

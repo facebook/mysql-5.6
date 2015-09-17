@@ -14,8 +14,13 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#pragma once
+
 #include <map>
 
+#include "./sql_class.h"
+
+#include "rocksdb/db.h"
 
 /*
   Expected from outside: a function that fills CF options for a given name.
@@ -81,4 +86,3 @@ public:
 
   // void drop_cf(); -- not implemented so far.
 };
-

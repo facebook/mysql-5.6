@@ -14,6 +14,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#include "./rdb_i_s.h"
+
 #include <mysql/plugin.h>
 #include <table.h>
 #include <field.h>
@@ -26,7 +28,6 @@
 #include "rdb_perf_context.h"
 #include "rdb_cf_manager.h"
 #include "rdb_datadic.h"
-#include "rdb_i_s.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/merge_operator.h"
