@@ -3,9 +3,12 @@
   "phabricator.uri" : "https://reviews.facebook.net/api/",
   "repository.callsign" : "MYSQLFIVESIX",
   "load" : [ "arcanist/" ],
+  "lint.engine" : "FacebookMyRocksLintEngine",
+  "lint.engine.single.linter" : "FbcodeCppLinter",
   "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
   "lint.engine" : "FacebookMySQLLintEngine",
   "unit.engine" : "FacebookMySQLUnitTestEngine",
   "events.listeners" : [ "FacebookMySQLDiffCreatedListener" ],
-  "git.default-relative-commit" : "HEAD^"
+  "git.default-relative-commit" : "HEAD^",
+  "lint.cpplint.prefix" : "arcanist/cpp_linter/"
 }
