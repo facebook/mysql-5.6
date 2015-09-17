@@ -4,6 +4,7 @@
   "repository.callsign" : "MYSQLFIVESIX",
   "load" : [ "arcanist/" ],
   "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
+  "lint.engine" : "FacebookMySQLLintEngine",
   "unit.engine" : "FacebookMySQLUnitTestEngine",
   "events.listeners" : [ "FacebookMySQLDiffCreatedListener" ],
   "git.default-relative-commit" : "HEAD^"
