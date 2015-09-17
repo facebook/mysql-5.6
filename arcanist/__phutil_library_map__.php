@@ -10,23 +10,31 @@ phutil_register_library_map(array(
   '__library_version__' => 2,
   'class' =>
   array(
+    'BaseDirectoryScopedFormatLinter' => 'cpp_linter/BaseDirectoryScopedFormatLinter.php',
+    'FacebookMyRocksLintEngine' => 'lint_engine/FacebookMyRocksLintEngine.php',
     'FacebookMySQLArcanistConfiguration' => 'arcanist/FacebookMySQLArcanistConfiguration.php',
     'FacebookMySQLCppLinter' => 'lint/linter/FacebookMySQLCppLinter.php',
     'FacebookMySQLDiffCreatedListener' => 'unit/FacebookMySQLDiffCreatedListener.php',
     'FacebookMySQLLintEngine' => 'lint/FacebookMySQLLintEngine.php',
     'FacebookMySQLLinter' => 'lint/linter/FacebookMySQLLinter.php',
     'FacebookMySQLUnitTestEngine' => 'unit/FacebookMySQLUnitTestEngine.php',
+    'FbcodeClangFormatLinter' => 'cpp_linter/FbcodeClangFormatLinter.php',
+    'FbcodeCppLinter' => 'cpp_linter/FbcodeCppLinter.php',
   ),
   'function' =>
   array(
   ),
   'xmap' =>
   array(
+    'BaseDirectoryScopedFormatLinter' => 'ArcanistLinter',
+    'FacebookMyRocksLintEngine' => 'ArcanistLintEngine',
     'FacebookMySQLArcanistConfiguration' => 'ArcanistConfiguration',
     'FacebookMySQLCppLinter' => 'ArcanistLinter',
     'FacebookMySQLDiffCreatedListener' => 'PhutilEventListener',
     'FacebookMySQLLintEngine' => 'ArcanistLintEngine',
     'FacebookMySQLLinter' => 'ArcanistLinter',
     'FacebookMySQLUnitTestEngine' => 'ArcanistBaseUnitTestEngine',
+    'FbcodeClangFormatLinter' => 'BaseDirectoryScopedFormatLinter',
+    'FbcodeCppLinter' => 'ArcanistLinter',
   ),
 ));

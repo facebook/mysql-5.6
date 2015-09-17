@@ -5,6 +5,8 @@
   "load" : [ "arcanist/" ],
   "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
   "lint.engine" : "FacebookMySQLLintEngine",
+  "lint.engine.single.linter" : "FbcodeCppLinter",
+  "lint.cpplint.prefix" : "arcanist/cpp_linter/",
   "unit.engine" : "FacebookMySQLUnitTestEngine",
   "events.listeners" : [ "FacebookMySQLDiffCreatedListener" ],
   "git.default-relative-commit" : "HEAD^"
