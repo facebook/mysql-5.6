@@ -1363,7 +1363,8 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
   rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
 
-  if (commit_trx)
+  if (commit_trx ||
+     (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
   {
     Rdb_transaction*& trx= get_trx_from_thd(thd);
     if (trx && trx->commit(thd))
