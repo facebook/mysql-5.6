@@ -3236,6 +3236,8 @@ retry:
 	return(FALSE);
 #else
 	ssize_t	ret;
+	ulint logical = n;
+	ulint padding = 0;
 
 	if (srv_trx_log_write_block_size && file_pad) {
 		if (((offset + srv_trx_log_write_block_size - 1)
@@ -3247,9 +3249,7 @@ retry:
 						  srv_trx_log_write_block_size);
 			if (pad != os_file_trx_log_write_padding_end) {
 				os_file_trx_log_write_padding_end = pad;
-#ifdef UNIV_DEBUG
-				log_update_padding(pad - offset - n);
-#endif /*UNIV_DEBUG*/
+        padding = pad - offset - n;
 				n = pad - offset;
 			}
 		}
@@ -3258,7 +3258,9 @@ retry:
 	ret = os_file_pwrite(file, buf, n, offset);
 
 	if ((ulint) ret == n) {
-
+		if (log_sys) {
+			log_update_padding_info(padding, n, logical);
+		}
 		return(TRUE);
 	}
 
