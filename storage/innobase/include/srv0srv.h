@@ -1193,7 +1193,10 @@ struct export_var_t{
 	ulint innodb_log_sync_commit_sync;
 	ulint innodb_log_sync_flush_dirty;
 	ulint innodb_log_sync_other;
-	ulint innodb_log_write_padding;		/*!< padding in block size */
+	ulint innodb_log_write_padding;		/*!< padding in bytes */
+	ulint innodb_log_logical_write_bytes;
+	ulint innodb_log_physical_write_bytes;
+
 
 	ib_int64_t innodb_lsn_current;		/*!< log_sys->lsn */
 	ib_int64_t innodb_lsn_diff;		/*!< lsn_current - lsn_oldest */
