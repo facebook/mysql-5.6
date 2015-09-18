@@ -965,10 +965,12 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_log_sync_flush_dirty,	  SHOW_LONG},
   {"log_sync_other",
   (char*) &export_vars.innodb_log_sync_other,		  SHOW_LONG},
-#ifdef UNIV_DEBUG
   {"log_write_padding",
-   (char*) &export_vars.innodb_log_write_padding,	  SHOW_LONG},
-#endif /*UNIV_DEBUG*/
+  (char*) &export_vars.innodb_log_write_padding,	  SHOW_LONG},
+  {"log_physical_write_bytes",
+  (char*) &export_vars.innodb_log_physical_write_bytes,	  SHOW_LONG},
+  {"log_logical_write_bytes",
+  (char*) &export_vars.innodb_log_logical_write_bytes,	  SHOW_LONG},
   {"srv_checkpoint_seconds",
   (char*) &export_vars.innodb_srv_checkpoint_time,	  SHOW_TIMER},
   {"srv_ibuf_contract_seconds",
