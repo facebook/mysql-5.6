@@ -33,5 +33,7 @@ INSERT INTO t1 VALUES (22, REPEAT('a',256));
 INSERT INTO t1 VALUES (23, REPEAT('a',256));
 padding_no_zero
 1
+padding_adds_up
+1
 set @@global.innodb_trx_log_write_block_size = 0;
 DROP TABLE t1;

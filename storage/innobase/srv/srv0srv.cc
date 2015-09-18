@@ -1866,9 +1866,11 @@ srv_export_innodb_status(void)
 		log_sys->log_sync_syncers[LOG_WRITE_FROM_DIRTY_BUFFER];
 	export_vars.innodb_log_sync_other=
 		log_sys->log_sync_syncers[LOG_WRITE_FROM_INTERNAL];
-#ifdef UNIV_DEBUG
 	export_vars.innodb_log_write_padding = log_sys->log_write_padding;
-#endif /*UNIV_DEBUG*/
+	export_vars.innodb_log_physical_write_bytes =
+		log_sys->log_physical_write_bytes;
+	export_vars.innodb_log_logical_write_bytes =
+		log_sys->log_logical_write_bytes;
 
 	export_vars.innodb_os_log_written = srv_stats.os_log_written;
 
