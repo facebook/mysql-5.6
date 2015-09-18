@@ -1,5 +1,4 @@
 --source include/have_innodb.inc
---source include/have_debug.inc
 --source include/restart_mysqld.inc
 
 --disable_warnings
@@ -42,8 +41,11 @@ INSERT INTO t1 VALUES (22, REPEAT('a',256));
 INSERT INTO t1 VALUES (23, REPEAT('a',256));
 
 let $padding = query_get_value(show global status like "innodb_log_write_padding", Value, 1);
+let $physical = query_get_value(show global status like "innodb_log_physical_write_bytes", Value, 1);
+let $logical = query_get_value(show global status like "innodb_log_logical_write_bytes", Value, 1);
 --disable_query_log
 eval select $padding > 0 as "padding_no_zero";
+eval select $logical + $padding = $physical as "padding_adds_up";
 --enable_query_log
 
 set @@global.innodb_trx_log_write_block_size = 0;
