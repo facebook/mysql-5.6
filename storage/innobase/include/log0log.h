@@ -540,15 +540,29 @@ log_block_convert_lsn_to_no(
 /*========================*/
 	lsn_t	lsn);	/*!< in: lsn of a byte within the block */
 
-#ifdef UNIV_DEBUG
 /******************************************************//**
 Update log_write_padding. */
 UNIV_INLINE
 void
 log_update_padding(
 /*========================*/
-	ulint padding);	/*!< in: padding to be added to total. */
-#endif /*UNIV_DEBUG*/
+	ulint bytes);	/*!< in: padding bytes to be added to total. */
+
+/******************************************************//**
+Update log_physical_write_bytes. */
+UNIV_INLINE
+void
+log_update_physical_write_bytes(
+/*========================*/
+	ulint bytes);	/*!< in: physical bytes to be added to total. */
+
+/******************************************************//**
+Update log_logical_write_bytes. */
+UNIV_INLINE
+void
+log_update_logical_write_bytes(
+/*========================*/
+	ulint bytes);	/*!< in: logical bytes to be added to total. */
 
 /******************************************************//**
 Prints info of the log. */
@@ -920,9 +934,10 @@ struct log_t{
 					previous printout */
 	time_t		last_printout_time;/*!< when log_print was last time
 					called */
-#ifdef UNIV_DEBUG
 	ulint		log_write_padding; /*!< Number of padding blocks */
-#endif /*UNIV_DEBUG*/
+	ulint		log_logical_write_bytes;
+	ulint		log_physical_write_bytes;
+
 	/* @} */
 
 	/** Fields involved in checkpoints @{ */

@@ -923,9 +923,9 @@ log_init(void)
 
 	log_sys->n_pending_writes = 0;
 
-#ifdef UNIV_DEBUG
+	log_sys->log_logical_write_bytes = 0;
+	log_sys->log_physical_write_bytes = 0;
 	log_sys->log_write_padding = 0;
-#endif /*UNIV_DEBUG*/
 
 	{
 		int x;
@@ -3705,11 +3705,15 @@ log_print(
 		 / time_elapsed),
 		log_sys->n_syncs, log_sys->n_checkpoints);
 
-#ifdef UNIV_DEBUG
 	fprintf(file,
 		"%lu log write padding blocks\n",
 		log_sys->log_write_padding);
-#endif /* UNIV_DEBUG */
+	fprintf(file,
+		"%lu log write physical bytes\n",
+		log_sys->log_physical_write_bytes);
+	fprintf(file,
+		"%lu log write logical bytes\n",
+		log_sys->log_logical_write_bytes);
 
 	fprintf(file,
 		"log sync callers: %lu buffer pool, "

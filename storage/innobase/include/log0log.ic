@@ -461,15 +461,35 @@ log_free_check(void)
 }
 #endif /* !UNIV_HOTBACKUP */
 
-#ifdef UNIV_DEBUG
 /******************************************************//**
 Update log_write_padding. */
 UNIV_INLINE
 void
 log_update_padding(
 /*========================*/
-	ulint padding)	/*!< in: padding to be added to total. */
+	ulint bytes)	/*!< in: padding bytes to be added to total. */
 {
-	my_atomic_add64((long long*)&log_sys->log_write_padding, padding);
+	my_atomic_add64((long long*)&log_sys->log_write_padding, bytes);
 }
-#endif /*UNIV_DEBUG*/
+
+/******************************************************//**
+Update log_physical_write_bytes. */
+UNIV_INLINE
+void
+log_update_physical_write_bytes(
+/*========================*/
+	ulint bytes)	/*!< in: physical bytes to be added to total. */
+{
+	my_atomic_add64((long long*)&log_sys->log_physical_write_bytes, bytes);
+}
+
+/******************************************************//**
+Update log_logical_write_bytes. */
+UNIV_INLINE
+void
+log_update_logical_write_bytes(
+/*========================*/
+	ulint bytes)	/*!< in: logical bytes to be added to total. */
+{
+	my_atomic_add64((long long*)&log_sys->log_logical_write_bytes, bytes);
+}
