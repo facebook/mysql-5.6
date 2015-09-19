@@ -10,6 +10,9 @@ do
 done
 rm $MKFILE
 
+# create build_version.cc file. Only create one if it doesn't exists or if it is different
+# this is so that we don't rebuild mysqld every time
+bv=rocksdb/util/build_version.cc
 date=$(date +%F)
 git_sha=$(pushd rocksdb >/dev/null && git rev-parse  HEAD 2>/dev/null && popd >/dev/null)
 echo "#include \"build_version.h\"
@@ -17,4 +20,11 @@ const char* rocksdb_build_git_sha =
 \"rocksdb_build_git_sha:$git_sha\";
 const char* rocksdb_build_git_date =
 \"rocksdb_build_git_date:$date\";
-const char* rocksdb_build_compile_date = __DATE__;" > rocksdb/util/build_version.cc
+const char* rocksdb_build_compile_date = __DATE__;" > $bv-t
+
+if test -f $bv
+then
+  cmp -s $bv-tOA $bv && rm -f $bv-t || mv -f $bv-t $bv
+else
+  mv -f $bv-t $bv
+fi
