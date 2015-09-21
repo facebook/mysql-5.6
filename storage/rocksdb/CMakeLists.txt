@@ -67,11 +67,13 @@ MYSQL_ADD_PLUGIN(rocksdb_se ${ROCKSDB_SOURCES} STORAGE_ENGINE DEFAULT STATIC_ONL
 
 ADD_SUBDIRECTORY(unittest)
 
-MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc)
-TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
+IF (WITH_ROCKSDB_SE_STORAGE_ENGINE)
+  MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc)
+  TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
 
-MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc)
-TARGET_LINK_LIBRARIES(ldb rocksdb_se)
+  MYSQL_ADD_EXECUTABLE(ldb ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb.cc)
+  TARGET_LINK_LIBRARIES(ldb rocksdb_se)
 
-MYSQL_ADD_EXECUTABLE(mysql_ldb ${CMAKE_SOURCE_DIR}/storage/rocksdb/tools/mysql_ldb.cc)
-TARGET_LINK_LIBRARIES(mysql_ldb rocksdb_se)
+  MYSQL_ADD_EXECUTABLE(mysql_ldb ${CMAKE_SOURCE_DIR}/storage/rocksdb/tools/mysql_ldb.cc)
+  TARGET_LINK_LIBRARIES(mysql_ldb rocksdb_se)
+ENDIF()
