@@ -647,9 +647,11 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
                                    system_charset_info);
 
     tables->table->field[4]->store(key_descr->get_index_number(), true);
+    tables->table->field[5]->store(key_descr->index_type, true);
+    tables->table->field[6]->store(key_descr->kv_format_version, true);
 
     std::string cf_name= key_descr->get_cf()->GetName();
-    tables->table->field[5]->store(cf_name.c_str(), cf_name.size(),
+    tables->table->field[7]->store(cf_name.c_str(), cf_name.size(),
                                    system_charset_info);
 
     ret= schema_table_store_record(thd, tables->table);
@@ -680,6 +682,9 @@ static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
                      MY_I_S_MAYBE_NULL),
   ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("INDEX_TYPE", sizeof(uint16_t), MYSQL_TYPE_SHORT, 0),
+  ROCKSDB_FIELD_INFO("KV_FORMAT_VERSION", sizeof(uint16_t),
+                     MYSQL_TYPE_SHORT, 0),
   ROCKSDB_FIELD_INFO("CF", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO_END
 };
