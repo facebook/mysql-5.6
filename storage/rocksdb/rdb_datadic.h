@@ -49,6 +49,11 @@ inline void store_big_uint2(uchar *dst, uint16_t n)
   memcpy(dst, &src, 2);
 }
 
+inline void store_big_uint1(uchar *dst, uchar n)
+{
+  *dst= n;
+}
+
 inline uint32_t read_big_uint4(const uchar* b)
 {
   return(((uint32_t)(b[0]) << 24)
@@ -63,6 +68,11 @@ inline uint16_t read_big_uint2(const uchar* b)
   return(((uint16_t)(b[0]) << 8)
     | (uint16_t)(b[1])
     );
+}
+
+inline uchar read_big_uint1(const uchar* b)
+{
+  return(uchar)b[0];
 }
 
 inline void store_index_number(uchar *dst, uint32 number)
@@ -314,6 +324,9 @@ public:
   RDBSE_KEYDEF(const RDBSE_KEYDEF& k);
   RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
                rocksdb::ColumnFamilyHandle* cf_handle_arg,
+               uint16_t index_dict_version_arg,
+               uchar index_type_arg,
+               uint16_t kv_format_version_arg,
                bool is_reverse_cf_arg, bool is_auto_cf_arg,
                const char* _name,
                MyRocksTablePropertiesCollector::IndexStats _stats
@@ -335,6 +348,7 @@ public:
     AUTO_CF_FLAG = 2,
   };
 
+  // Data dictionary types
   enum {
     DDL_ENTRY_INDEX_START_NUMBER= 1,
     INDEX_CF_MAPPING= 2,
@@ -346,14 +360,29 @@ public:
     END_DICT_INDEX_ID=255,
   };
 
+  // Data dictionary schema version. Introduce newer versions
+  // if changing schema layout
   enum {
     DDL_ENTRY_INDEX_VERSION= 1,
-    INDEX_CF_MAPPING_VERSION= 1,
+    INDEX_CF_MAPPING_VERSION_INITIAL= 1,
+    INDEX_CF_MAPPING_VERSION_KV_FORMAT= 2,
     CF_DEFINITION_VERSION= 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
     DDL_DROP_INDEX_ONGOING_VERSION= 1,
     MAX_INDEX_ID_VERSION= 1,
     // Version for index stats is stored in IndexStats struct
+  };
+
+  // MyRocks index types
+  enum {
+    INDEX_TYPE_PRIMARY= 1,
+    INDEX_TYPE_SECONDARY= 2,
+  };
+
+  // Key/Value format version for each index type
+  enum {
+    PRIMARY_FORMAT_VERSION_INITIAL= 10,
+    SECONDARY_FORMAT_VERSION_INITIAL= 10,
   };
 
   void setup(TABLE *table);
@@ -379,6 +408,11 @@ private:
 
 public:
   void set_keyno(uint _keyno) { keyno = _keyno; }
+
+  uint16_t index_dict_version;
+  uchar index_type;
+  /* KV format version for the index id */
+  uint16_t kv_format_version;
   /* If true, the column family stores data in the reverse order */
   bool is_reverse_cf;
 
@@ -679,8 +713,9 @@ private:
 
   2. Internal index id => CF id
   key: RDBSE_KEYDEF::INDEX_CF_MAPPING(0x2) + index_id
-  value: version, cf_id
-  cf_id is 4 bytes.
+  value: version, index_type, kv_format_version, cf_id
+  cf_id is 4 bytes. index_type is 1 byte, version and kv_format_version are
+  2 bytes.
 
   3. CF id => CF flags
   key: RDBSE_KEYDEF::CF_DEFINITION(0x3) + cf_id
@@ -715,15 +750,6 @@ private:
 
   uchar key_buf_max_index_id[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice_max_index_id;
-  void put_util(rocksdb::WriteBatch *batch,
-                const uint32_t index_id,
-                const uint32_t index_id_or_cf_id,
-                const uint16_t version,
-                const uint32_t value_id);
-  bool get_util(const uint32_t index_id,
-                const uint32_t index_id_or_cf_id,
-                const uint16_t supported_version,
-                uint32_t *value_id);
   void delete_util(rocksdb::WriteBatch* batch,
                    const uint32_t index_id,
                    const uint32_t index_id_or_cf_id);
@@ -750,11 +776,14 @@ public:
 
   /* Internal Index id => CF */
   void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
+                                      const uchar index_type,
+                                      const uint16_t kv_version,
                                       const uint index_id,
                                       const uint cf_id);
   void delete_index_cf_mapping(rocksdb::WriteBatch* batch,
                                const uint32_t index_id);
-  bool get_cf_id(const uint index_id, uint *cf_id);
+  bool get_cf_id(const uint index_id, uint16_t *index_dict_version,
+                 uchar *index_type, uint16_t *kv_version, uint *cf_id);
 
   /* CF id => CF flags */
   void add_cf_flags(rocksdb::WriteBatch *batch,

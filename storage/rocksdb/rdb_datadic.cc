@@ -88,12 +88,18 @@ uchar read_byte(const char **data)
 RDBSE_KEYDEF::RDBSE_KEYDEF(
   uint indexnr_arg, uint keyno_arg,
   rocksdb::ColumnFamilyHandle* cf_handle_arg,
+  uint16_t index_dict_version_arg,
+  uchar index_type_arg,
+  uint16_t kv_format_version_arg,
   bool is_reverse_cf_arg, bool is_auto_cf_arg,
   const char* _name,
   MyRocksTablePropertiesCollector::IndexStats _stats
 ) :
     index_number(indexnr_arg),
     cf_handle(cf_handle_arg),
+    index_dict_version(index_dict_version_arg),
+    index_type(index_type_arg),
+    kv_format_version(kv_format_version_arg),
     is_reverse_cf(is_reverse_cf_arg),
     is_auto_cf(is_auto_cf_arg),
     name(_name),
@@ -1361,8 +1367,9 @@ bool RDBSE_TABLE_DEF::put_dict(Dict_manager* dict, rocksdb::WriteBatch *batch,
     }
 
     write_int(&indexes, kd->index_number);
-    dict->add_or_update_index_cf_mapping(batch, kd->index_number,
-                                         cf_id);
+    dict->add_or_update_index_cf_mapping(batch, kd->index_type,
+                                         kd->kv_format_version,
+                                         kd->index_number, cf_id);
   }
 
   rocksdb::Slice skey((char*)key, keylen);
@@ -1464,9 +1471,13 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
     for (uint keyno=0; ptr < ptr_end; keyno++)
     {
       uint index_number= read_int(&ptr);
+      uint16 index_dict_version= 0;
+      uchar index_type= 0;
+      uint16 kv_version= 0;
       uint cf_id= 0;
       uint flags= 0;
-      if (!dict->get_cf_id(index_number, &cf_id))
+      if (!dict->get_cf_id(index_number, &index_dict_version,
+                           &index_type, &kv_version, &cf_id))
       {
         sql_print_error("RocksDB: Could not get Column Family ID "
                         "for Index Number %d, table %s",
@@ -1498,6 +1509,8 @@ bool Table_ddl_manager::init(Dict_manager *dict_arg,
         look at Field* objects and set max_length and other attributes
       */
       tdef->key_descr[keyno]= new RDBSE_KEYDEF(index_number, keyno, cfh,
+                                               index_dict_version,
+                                               index_type, kv_version,
                                                flags & RDBSE_KEYDEF::REVERSE_CF_FLAG,
                                                flags & RDBSE_KEYDEF::AUTO_CF_FLAG,
                                                "",
@@ -2007,53 +2020,6 @@ int Dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
   return res;
 }
 
-/* This is a utility function to put with key {index_id + 4byte key} and
-   value {version + 4byte value}. Typical usage is storing index_cf mapping
-   and cf definition.
-*/
-void Dict_manager::put_util(rocksdb::WriteBatch* batch,
-                            const uint32_t index_id,
-                            const uint32_t index_id_or_cf_id,
-                            const uint16_t version,
-                            const uint32_t value_id)
-{
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
-  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE+RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
-  store_big_uint4(key_buf, index_id);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id_or_cf_id);
-  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
-
-  store_big_uint2(value_buf, version);
-  store_big_uint4(value_buf+RDBSE_KEYDEF::VERSION_SIZE, value_id);
-  rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
-  batch->Put(system_cfh, key, value);
-}
-
-bool Dict_manager::get_util(const uint32_t index_id,
-                            const uint32_t index_id_or_cf_id,
-                            const uint16_t supported_version,
-                            uint32_t *value_id)
-{
-  bool found= false;
-  std::string value;
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
-  store_big_uint4(key_buf, index_id);
-  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id_or_cf_id);
-  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
-
-  rocksdb::Status status= Get(key, &value);
-  if (status.ok())
-  {
-    const uchar* val= (const uchar*)value.c_str();
-    uint16_t version= read_big_uint2(val);
-    if (version == supported_version)
-    {
-      *value_id= read_big_uint4(val+RDBSE_KEYDEF::VERSION_SIZE);
-      found= true;
-    }
-  }
-  return found;
-}
 
 void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
                                const uint32_t index_id,
@@ -2069,19 +2035,46 @@ void Dict_manager::delete_util(rocksdb::WriteBatch* batch,
 
 
 void Dict_manager::add_or_update_index_cf_mapping(rocksdb::WriteBatch* batch,
+                                                  const uchar index_type,
+                                                  const uint16_t kv_version,
                                                   const uint32_t index_id,
                                                   const uint32_t cf_id)
 {
-  put_util(batch, RDBSE_KEYDEF::INDEX_CF_MAPPING, index_id,
-           RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION, cf_id);
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  uchar value_buf[256]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_CF_MAPPING);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  uchar* ptr= value_buf;
+  store_big_uint2(ptr, RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_KV_FORMAT);
+  ptr+= 2;
+  store_big_uint1(ptr, index_type);
+  ptr+= 1;
+  store_big_uint2(ptr, kv_version);
+  ptr+= 2;
+  store_big_uint4(ptr, cf_id);
+  ptr+= 4;
+
+  rocksdb::Slice value= rocksdb::Slice((char*)value_buf, ptr-value_buf);
+  batch->Put(system_cfh, key, value);
 }
 
 void Dict_manager::add_cf_flags(rocksdb::WriteBatch* batch,
                                 const uint32_t cf_id,
                                 const uint32_t cf_flags)
 {
-  put_util(batch, RDBSE_KEYDEF::CF_DEFINITION, cf_id,
-           RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  uchar value_buf[RDBSE_KEYDEF::VERSION_SIZE+
+                  RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::CF_DEFINITION);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, cf_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  store_big_uint2(value_buf, RDBSE_KEYDEF::CF_DEFINITION_VERSION);
+  store_big_uint4(value_buf+RDBSE_KEYDEF::VERSION_SIZE, cf_flags);
+  rocksdb::Slice value= rocksdb::Slice((char*)value_buf, sizeof(value_buf));
+  batch->Put(system_cfh, key, value);
 }
 
 void Dict_manager::delete_index_cf_mapping(rocksdb::WriteBatch* batch,
@@ -2090,16 +2083,74 @@ void Dict_manager::delete_index_cf_mapping(rocksdb::WriteBatch* batch,
   delete_util(batch, RDBSE_KEYDEF::INDEX_CF_MAPPING, index_id);
 }
 
-bool Dict_manager::get_cf_id(const uint32_t index_id, uint32_t *cf_id)
+bool Dict_manager::get_cf_id(const uint32_t index_id,
+                             uint16_t *index_dict_version,
+                             uchar *index_type,
+                             uint16_t *kv_version, uint32_t *cf_id)
 {
-  return get_util(RDBSE_KEYDEF::INDEX_CF_MAPPING, index_id,
-                  RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION, cf_id);
+  bool found= false;
+  std::string value;
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::INDEX_CF_MAPPING);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, index_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  rocksdb::Status status= Get(key, &value);
+  if (status.ok())
+  {
+    const uchar* val= (const uchar*)value.c_str();
+    uchar* ptr= (uchar*)val;
+    *index_dict_version= read_big_uint2(val);
+    ptr+= 2;
+    switch (*index_dict_version) {
+
+    case RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_INITIAL:
+      *cf_id= read_big_uint4(ptr);
+      found= true;
+      break;
+
+    case RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_KV_FORMAT:
+      *index_type= read_big_uint1(ptr);
+      ptr+= 1;
+      *kv_version= read_big_uint2(ptr);
+      ptr+= 2;
+      *cf_id= read_big_uint4(ptr);
+      found= true;
+      break;
+
+    default:
+        sql_print_error("RocksDB: Found invalid version number %u from "
+                        "data dictionary. This should never happen "
+                        "and possibly a bug.",
+                        *index_dict_version);
+        abort_with_stack_traces();
+      break;
+    }
+  }
+  return found;
 }
 
 bool Dict_manager::get_cf_flags(const uint32_t cf_id, uint32_t *cf_flags)
 {
-  return get_util(RDBSE_KEYDEF::CF_DEFINITION, cf_id,
-                  RDBSE_KEYDEF::CF_DEFINITION_VERSION, cf_flags);
+  bool found= false;
+  std::string value;
+  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]= {0};
+  store_big_uint4(key_buf, RDBSE_KEYDEF::CF_DEFINITION);
+  store_big_uint4(key_buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE, cf_id);
+  rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+
+  rocksdb::Status status= Get(key, &value);
+  if (status.ok())
+  {
+    const uchar* val= (const uchar*)value.c_str();
+    uint16_t version= read_big_uint2(val);
+    if (version == RDBSE_KEYDEF::CF_DEFINITION_VERSION)
+    {
+      *cf_flags= read_big_uint4(val+RDBSE_KEYDEF::VERSION_SIZE);
+      found= true;
+    }
+  }
+  return found;
 }
 
 /*
@@ -2273,8 +2324,12 @@ void Dict_manager::log_start_drop_table(RDBSE_KEYDEF** key_descr,
 void Dict_manager::log_start_drop_index(uint32 index_id,
                                         const char* log_action)
 {
-  uint32 cf_id= -1;
-  if (!get_cf_id(index_id, &cf_id))
+  uint16 index_dict_version= 0;
+  uchar index_type= 0;
+  uint16 kv_version= 0;
+  uint32 cf_id= 0;
+  if (!get_cf_id(index_id, &index_dict_version,
+                 &index_type, &kv_version, &cf_id))
   {
     sql_print_error("RocksDB: Failed to get column family info "
                     "from index id %u. MyRocks data dictionary may "
