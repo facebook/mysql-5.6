@@ -2952,8 +2952,28 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
       goto error;
 
     index_id= ddl_manager.get_and_update_next_number(&dict_manager);
+
+    uint16_t index_dict_version;
+    uchar index_type;
+    uint16_t kv_version;
+    if (i == table_arg->s->primary_key)
+    {
+      index_dict_version= RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_KV_FORMAT;
+      index_type= RDBSE_KEYDEF::INDEX_TYPE_PRIMARY;
+      kv_version= RDBSE_KEYDEF::PRIMARY_FORMAT_VERSION_INITIAL;
+    }
+    else
+    {
+      index_dict_version= RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_KV_FORMAT;
+      index_type= RDBSE_KEYDEF::INDEX_TYPE_SECONDARY;
+      kv_version= RDBSE_KEYDEF::SECONDARY_FORMAT_VERSION_INITIAL;
+    }
+
     if (!(key_descr[i]= new RDBSE_KEYDEF(index_id, i,
                                          cf_handle,
+                                         index_dict_version,
+                                         index_type,
+                                         kv_version,
                                          is_cf_name_reverse(comment),
                                          is_auto_cf,
                                          table_arg->key_info[i].name
@@ -5439,9 +5459,13 @@ void* drop_index_thread(void*)
       read_opts.total_order_seek = true; // disable bloom filter
 
       for (auto d : indices) {
-        uint32 cf_id= -1;
-        uint32 cf_flags= -1;
-        if (!dict_manager.get_cf_id(d, &cf_id))
+        uint16 index_dict_version=0;
+        uchar index_type= 0;
+        uint16 kv_version= 0;
+        uint32 cf_id= 0;
+        uint32 cf_flags= 0;
+        if (!dict_manager.get_cf_id(d, &index_dict_version, &index_type,
+                                    &kv_version, &cf_id))
         {
           sql_print_error("RocksDB: Failed to get column family id "
                           "from index id %u. MyRocks data dictionary may "
