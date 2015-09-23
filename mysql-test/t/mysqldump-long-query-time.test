@@ -28,7 +28,24 @@ close FILE
 EOF
 
 --echo
---echo ## TEST 2: mysqldump with custom flag omitted, global set to 0
+--echo ## TEST 1.1: mysqldump without additional flags (by default, a long_query_time of 86400 is set)
+--exec $MYSQL_DUMP mysqldump_long_query_time > /dev/null
+
+--echo
+--echo # Check the slow log result. We shouldn't find any query.
+--perl
+open FILE, "$ENV{'MYSQLD_DATADIR'}/mysqldump_long_query_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    print $line;
+  }
+}
+close FILE
+EOF
+
+--echo
+--echo ## TEST 2: mysqldump with long_query_time=0 means using the server value
 
 # Set to 0 globally, to test with omitted flag.
 SET @my_long_query_time = @@GLOBAL.long_query_time;
@@ -43,8 +60,8 @@ INSERT INTO t1 SELECT i+4,c FROM t1;
 INSERT INTO t1 SELECT i+8,c FROM t1;
 INSERT INTO t1 SELECT i+16,c FROM t1;
 
-# omitting long_query_time flag means using the server value.
---exec $MYSQL_DUMP mysqldump_long_query_time > /dev/null
+# mysqldump with long_query_time=0 means using the server value.
+--exec $MYSQL_DUMP mysqldump_long_query_time --long_query_time=0 > /dev/null
 
 --echo # Check the slow log result. One "select" query should be found.
 --perl

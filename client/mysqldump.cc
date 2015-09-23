@@ -156,6 +156,7 @@ static uint opt_enable_cleartext_plugin = 0;
 static bool using_opt_enable_cleartext_plugin = false;
 static uint opt_mysql_port = 0, opt_master_data;
 static uint opt_slave_data;
+static ulong fb_opt_long_query_time = 0;
 static ulong opt_long_query_time = 0;
 static bool long_query_time_opt_provided = false;
 static ulong opt_lra_size = 0;
@@ -471,6 +472,11 @@ static struct my_option my_long_options[] = {
      "Set innodb_lra_pages_before_sleep for the session of this dump.",
      &opt_lra_pages_before_sleep, &opt_lra_pages_before_sleep, 0, GET_ULONG,
      REQUIRED_ARG, 1024, 128, ULONG_MAX, nullptr, 0, nullptr},
+    {"long_query_time", OPT_LONG_QUERY_TIME,
+     "Set long_query_time for the session of this dump. Setting to 0 means "
+     "using the server value.",
+     &fb_opt_long_query_time, &fb_opt_long_query_time, 0, GET_ULONG,
+     REQUIRED_ARG, 86400, 0, LONG_TIMEOUT, nullptr, 0, nullptr},
     {"mysqld-long-query-time", OPT_LONG_QUERY_TIME,
      "Set long_query_time for the session of this dump. Ommitting flag means "
      "using the server value.",
@@ -1731,13 +1737,14 @@ static int connect_to_db(char *host, char *user) {
     Additionally set long_query_time value for mysqldump session in the same
     query to possibly reduce one RTT.
   */
-  if (opt_network_timeout || long_query_time_opt_provided) {
+  if (opt_network_timeout || long_query_time_opt_provided ||
+      fb_opt_long_query_time) {
     size_t len = snprintf(buff, sizeof(buff), "SET ");
     if (opt_network_timeout) {
       len += snprintf(buff + len, sizeof(buff) - len,
                       "SESSION NET_READ_TIMEOUT= 86400, "
                       "SESSION NET_WRITE_TIMEOUT= 86400");  // 1 day in seconds
-      if (long_query_time_opt_provided) {
+      if (long_query_time_opt_provided || fb_opt_long_query_time) {
         // delimiter needed for appending next variable
         len += snprintf(buff + len, sizeof(buff) - len, ", ");
       }
@@ -1746,6 +1753,9 @@ static int connect_to_db(char *host, char *user) {
       // add snprintf result to len if new option gets added in the same request
       snprintf(buff + len, sizeof(buff) - len, "SESSION long_query_time=%lu",
                opt_long_query_time);
+    } else if (fb_opt_long_query_time) {
+      snprintf(buff + len, sizeof(buff) - len, "SESSION long_query_time=%lu",
+               fb_opt_long_query_time);
     }
     if (mysql_query_with_error_report(mysql, nullptr, buff)) return 1;
   }

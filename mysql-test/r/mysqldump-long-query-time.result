@@ -11,7 +11,11 @@ USE mysqldump_long_query_time;
 ## TEST 1: mysqldump with custom flag set to high value
 # Check the slow log result. We shouldn't find any query.
 
-## TEST 2: mysqldump with custom flag omitted, global set to 0
+## TEST 1.1: mysqldump without additional flags (by default, a long_query_time of 86400 is set)
+
+# Check the slow log result. We shouldn't find any query.
+
+## TEST 2: mysqldump with long_query_time=0 means using the server value
 SET @my_long_query_time = @@GLOBAL.long_query_time;
 SET GLOBAL long_query_time = 0;
 CREATE TABLE t1 (i int, c char(255));
