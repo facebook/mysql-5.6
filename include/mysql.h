@@ -82,6 +82,8 @@ extern char *mysql_unix_port;
 #define CLIENT_NET_READ_TIMEOUT		7*24*3600	/* Timeout on read */
 #define CLIENT_NET_WRITE_TIMEOUT	7*24*3600	/* Timeout on write */
 
+#define LONG_TIMEOUT ((ulong) 3600L*24L*7L)
+
 #define IS_PRI_KEY(n)	((n) & PRI_KEY_FLAG)
 #define IS_NOT_NULL(n)	((n) & NOT_NULL_FLAG)
 #define IS_BLOB(n)	((n) & BLOB_FLAG)
