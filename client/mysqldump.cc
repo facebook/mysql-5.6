@@ -111,6 +111,8 @@
 /* Maximum number of fields per table */
 #define MAX_FIELDS 4000
 
+#define LONG_TIMEOUT ((ulong)3600L * 24L * 365L)
+
 using std::string;
 
 static void add_load_option(DYNAMIC_STRING *str, const char *option,
@@ -166,6 +168,7 @@ static ulong opt_lra_size = 0;
 static ulong opt_lra_sleep = 0;
 static ulong opt_lra_pages_before_sleep = 0;
 static ulong opt_timeout = 0;
+static ulong opt_long_query_time = 0;
 static uint my_end_arg;
 static char *opt_mysql_unix_port = 0;
 static char *opt_bind_addr = NULL;
@@ -415,6 +418,11 @@ static struct my_option my_long_options[] = {
     {"log-error", OPT_ERROR_LOG_FILE,
      "Append warnings and errors to given file.", &log_error_file,
      &log_error_file, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"long_query_time", OPT_LONG_QUERY_TIME,
+     "Set long_query_time for the session of this dump. Setting to 0 means "
+     "using the server value.",
+     &opt_long_query_time, &opt_long_query_time, 0, GET_ULONG, REQUIRED_ARG,
+     86400, 0, LONG_TIMEOUT, 0, 0, 0},
     {"lra_size", OPT_LRA_SIZE,
      "Set innodb_lra_size for the session of this dump.", &opt_lra_size,
      &opt_lra_size, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 16384, 0, 0, 0},
@@ -1628,6 +1636,13 @@ static int connect_to_db(char *host, char *user, char *passwd) {
              "SESSION NET_WRITE_TIMEOUT= 700 ");
     if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
   }
+
+  if (opt_long_query_time) {
+    snprintf(buff, sizeof(buff), "SET session long_query_time=%lu",
+             opt_long_query_time);
+    if (mysql_query_with_error_report(mysql, 0, buff)) DBUG_RETURN(1);
+  }
+
   DBUG_RETURN(0);
 } /* connect_to_db */
 

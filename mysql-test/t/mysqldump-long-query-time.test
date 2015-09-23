@@ -1,0 +1,62 @@
+set @my_slow_query_log_file = @@global.slow_query_log_file;
+set @my_slow_query_log = @@global.slow_query_log;
+set global slow_query_log_file = "mysqldump_long_query_time-slow.log";
+set global slow_query_log = ON;
+
+create database mysqldump_long_query_time;
+use mysqldump_long_query_time;
+
+# By default, a long_query_time of 86400 is set.
+--exec $MYSQL_DUMP mysqldump_long_query_time > /dev/null
+
+let MYSQLD_DATADIR = `select @@datadir`;
+--echo
+--echo # Check the slow log result. We shouldn't find any query.
+--perl
+open FILE, "$ENV{'MYSQLD_DATADIR'}/mysqldump_long_query_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    print $line;
+  }
+}
+close FILE
+EOF
+
+
+# Set to 0 globally, since there is no way to set this on the mysqldump client.
+set @my_long_query_time = @@global.long_query_time;
+set global long_query_time = 0;
+
+create table t1 (i int, c char(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+
+# long_query_time of 0 means using the server value.
+--exec $MYSQL_DUMP mysqldump_long_query_time --long_query_time=0 > /dev/null
+
+--echo
+--echo # Check the slow log result. One "select" query should be found.
+--perl
+open FILE, "$ENV{'MYSQLD_DATADIR'}/mysqldump_long_query_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    print $line;
+  }
+}
+close FILE
+EOF
+
+remove_file $MYSQLD_DATADIR/mysqldump_long_query_time-slow.log;
+
+drop database mysqldump_long_query_time;
+
+set @@global.slow_query_log_file = @my_slow_query_log_file;
+set @@global.slow_query_log = @my_slow_query_log;
+set @@global.long_query_time = @my_long_query_time;
