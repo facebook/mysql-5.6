@@ -1684,6 +1684,11 @@ static int connect_to_db(char *host, char *user,char *passwd)
     if (mysql_query_with_error_report(mysql, 0, buff))
       DBUG_RETURN(1);
   }
+
+  my_snprintf(buff, sizeof(buff), "SET session long_query_time=86400");
+  if (mysql_query_with_error_report(mysql, 0, buff))
+    DBUG_RETURN(1);
+
   DBUG_RETURN(0);
 } /* connect_to_db */
 
