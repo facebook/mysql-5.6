@@ -1,0 +1,22 @@
+set @my_slow_logname = @@global.slow_query_log_file;
+set @my_slow_query_log = @@global.slow_query_log;
+set global slow_query_log_file = "slow_log_wait_time-slow.log";
+set global slow_query_log = ON;
+create database mysqldump_long_query_time;
+use mysqldump_long_query_time;
+
+# Check the slow log result. We shouldn't find any query
+set session long_query_time = 0;
+create table t1 (i int, c char(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+
+# Check the slow log result. One "select" query should be found.
+select @@collation_database;
+drop database mysqldump_long_query_time;
+set @@global.slow_query_log_file = @my_slow_logname;
+set @@global.slow_query_log = @my_slow_query_log;

@@ -1,0 +1,84 @@
+
+
+# Just in case slow_log_wait_time-slow.log already exists, delete it first.
+--perl
+if (-e "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log") {
+   unlink("$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log");
+}
+EOF
+
+set @my_slow_logname = @@global.slow_query_log_file;
+set @my_slow_query_log = @@global.slow_query_log;
+set global slow_query_log_file = "slow_log_wait_time-slow.log";
+set global slow_query_log = ON;
+
+create database mysqldump_long_query_time;
+use mysqldump_long_query_time;
+
+
+--exec $MYSQL_DUMP --databases mysqldump_long_query_time --long_query_time=86400 > /dev/null
+
+--echo
+--echo # Check the slow log result. We shouldn't find any query
+--perl
+my $found = 0;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    $found = 1;
+    print $line
+  }
+}
+# (test failure) print the log if we actually found the query in the log
+if ($found) {
+  print "**Query found in slow log**\n";
+  seek FILE, 0, 0;
+  while (<FILE>) {
+    print $_;
+  }
+}
+close FILE
+EOF
+
+# Set to 0
+set session long_query_time = 0;
+
+create table t1 (i int, c char(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+
+--exec $MYSQL_DUMP --databases mysqldump_long_query_time --long_query_time=0 > /dev/null
+
+--echo
+--echo # Check the slow log result. One "select" query should be found.
+--perl
+my $found = 0;
+open FILE, "$ENV{'MYSQLTEST_VARDIR'}/mysqld.1/data/slow_log_wait_time-slow.log" or die;
+my @lines = <FILE>;
+foreach $line (@lines) {
+  if ($line =~ /^select/) {
+    $found = 1;
+    print $line;
+  }
+}
+# (test failure) print the log if we didn't find the query in the log
+if (!$found) {
+  print "**Query not found in slow log**\n";
+  seek FILE, 0, 0;
+  while (<FILE>) {
+    print $_;
+  }
+}
+close FILE
+EOF
+
+drop database mysqldump_long_query_time;
+
+set @@global.slow_query_log_file = @my_slow_logname;
+set @@global.slow_query_log = @my_slow_query_log;
