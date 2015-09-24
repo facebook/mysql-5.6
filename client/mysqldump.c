@@ -137,6 +137,7 @@ static char compatible_mode_normal_str[255];
 static my_bool server_supports_switching_charsets= TRUE;
 static ulong opt_compatible_mode= 0;
 static ulong opt_timeout = 0;
+static ulong opt_long_query_time = 0;
 static ulong opt_lra_size = 0;
 static ulong opt_lra_sleep = 0;
 static ulong opt_lra_pages_before_sleep = 0;
@@ -565,6 +566,11 @@ static struct my_option my_long_options[] =
    "and .txt files.) NOTE: This only works if mysqldump is run on the same "
    "machine as the mysqld server.",
    &path, &path, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+  {"long_query_time", OPT_LONG_QUERY_TIME,
+   "Set long_query_time for the session of this dump.",
+   &opt_long_query_time, &opt_long_query_time, 0,
+   GET_ULONG, REQUIRED_ARG, 10, 0, ULONG_MAX, 0,
+   0, 0},
   {"timeout", OPT_TIMEOUT,
    "Set data transfer timeouts for server-side session (default server setting, if 0)",
    &opt_timeout, &opt_timeout, 0, GET_ULONG, REQUIRED_ARG, 0, 0, 3600*12, 0,
@@ -1685,7 +1691,8 @@ static int connect_to_db(char *host, char *user,char *passwd)
       DBUG_RETURN(1);
   }
 
-  my_snprintf(buff, sizeof(buff), "SET session long_query_time=86400");
+  my_snprintf(buff, sizeof(buff), "SET session long_query_time=%lu",
+      opt_long_query_time);
   if (mysql_query_with_error_report(mysql, 0, buff))
     DBUG_RETURN(1);
 
