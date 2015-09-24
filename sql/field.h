@@ -3944,6 +3944,15 @@ public:
       get_inner_field()->real_field() :
       this;
   }
+  /*
+    Check if it is null as a blob, during which only flags will be
+    checked.
+  */
+  bool is_null_as_blob(my_ptrdiff_t row_offset= 0) const;
+  /*
+    Check if the document is null, during which both flags and data
+    will be checked.
+  */
   bool is_null(my_ptrdiff_t row_offset= 0) const;
   enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
