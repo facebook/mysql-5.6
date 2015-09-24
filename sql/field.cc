@@ -9805,6 +9805,13 @@ String *Field_document::val_str(String *val_buffer,
   }
 }
 
+bool Field_document::is_null_as_blob(my_ptrdiff_t row_offset) const{
+  Field_document *real = const_cast<Field_document*>(this)->real_field();
+  if(real == this)
+    return Field_blob::is_null(row_offset);
+  return real->is_null_as_blob(row_offset);
+}
+
 bool Field_document::is_null(my_ptrdiff_t row_offset) const{
   Field_document *real = const_cast<Field_document*>(this)->real_field();
   if(real == this && Field_blob::is_null(row_offset))
