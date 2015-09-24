@@ -1460,8 +1460,25 @@ uint JOIN_CACHE::read_record_field(CACHE_FIELD *copy, bool blob_in_rec_buff)
 {
   uint len;
   /* Do not copy the field if its value is null */ 
-  if (copy->field && copy->field->maybe_null() && copy->field->is_null())
-    return 0;           
+  if (copy->field && copy->field->maybe_null())
+  {
+    /* only the flag fields have been populated, the data ptr
+    is still invalid so call Field_document::is_null_as_blob()
+    instead of Field_document::is_null()*/
+    if (copy->field->type() != MYSQL_TYPE_DOCUMENT)
+    {
+      if (copy->field->is_null())
+        return 0;
+    }
+    else
+    {
+      Field_document *field = (Field_document*) copy->field;
+      DBUG_ASSERT(field);
+      if (field->is_null_as_blob())
+        return 0;
+    }
+  }
+
   if (copy->type == CACHE_BLOB)
   {
     Field_blob *blob_field= (Field_blob *) copy->field;
