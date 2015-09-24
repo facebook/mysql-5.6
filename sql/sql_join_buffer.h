@@ -348,6 +348,23 @@ protected:
   /* Shall skip record from the join buffer if its match flag is on */
   virtual bool skip_record_if_match();
 
+  /* Check if a field is null. In some cases for blob in join cache,
+     only the flag fields have been populated, the data ptr is still
+     invalid so call Field_document::is_null_as_blob() instead of
+     Field_document::is_null() for document fields.
+  */
+  bool is_field_null(Field* field)
+  {
+    DBUG_ASSERT(field);
+    if (field->type() == MYSQL_TYPE_DOCUMENT)
+    {
+      Field_document *document_field = (Field_document*)field;
+      DBUG_ASSERT(document_field);
+      return (document_field->is_null_as_blob());
+    }
+    return (field->is_null());
+  }
+
   /* Read some flag and data fields of a record from the join buffer */
   int read_some_record_fields();
 
