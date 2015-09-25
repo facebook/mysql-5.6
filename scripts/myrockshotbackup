@@ -235,7 +235,7 @@ class RocksDBBackup():
     logger.info("Sent %6.2f GB of sst files, %d files in total.",
                 self.total_sent_sst_size/1024/1024/1024,
                 len(self.total_sent_sst))
-    
+
   def has_sent_all_sst(self):
     if self.sent_sst_size == self.target_sst_size:
       return True
@@ -253,7 +253,7 @@ class MySQLUtil:
 
   @staticmethod
   def create_checkpoint(dbh, checkpoint_dir):
-    sql = ("SET GLOBAL rocksdb_snapshot_dir='{0}'"
+    sql = ("SET GLOBAL rocksdb_create_checkpoint='{0}'"
            .format(checkpoint_dir))
     cur= dbh.cursor()
     cur.execute(sql)
@@ -265,7 +265,7 @@ class MySQLUtil:
     cur = dbh.cursor()
     cur.execute(sql)
     row = cur.fetchone()
-    return row[0] 
+    return row[0]
 
 
 class BackupRunner:

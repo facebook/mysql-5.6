@@ -6,7 +6,7 @@ INSERT INTO valid_values VALUES('\'/tmp/def\'');
 
 CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
 
---let $sys_var=ROCKSDB_SNAPSHOT_DIR
+--let $sys_var=ROCKSDB_CREATE_CHECKPOINT
 --let $read_only=0
 --let $session=0
 --let $sticky=1
