@@ -162,21 +162,36 @@ rocksdb_create_checkpoint(THD* thd,
                         void* var_ptr,
                         const void* save)
 {
-  if (const char* snapshotdir = *static_cast<const char*const*>(save)) {
-    rocksdb::Checkpoint* checkpoint;
+  if (const char* checkpoint_dir_raw = *static_cast<const char*const*>(save)) {
     if (rdb != nullptr) {
+      std::string checkpoint_dir(checkpoint_dir_raw);
+      if (checkpoint_dir.size() > 0 &&
+          checkpoint_dir.back() == '/') {
+        checkpoint_dir.resize(checkpoint_dir.size() - 1);
+      }
       sql_print_information("RocksDB: creating checkpoint in directory : %s\n",
-          snapshotdir);
-      if ((rocksdb::Checkpoint::Create(rdb, &checkpoint)).ok()){
-        if ((checkpoint->CreateCheckpoint(snapshotdir)).ok()) {
+          checkpoint_dir.c_str());
+      rocksdb::Checkpoint* checkpoint;
+      auto status = rocksdb::Checkpoint::Create(rdb, &checkpoint);
+      if (status.ok()) {
+        if (checkpoint->CreateCheckpoint(checkpoint_dir.c_str()).ok()) {
           sql_print_information(
               "RocksDB: created checkpoint in directory : %s\n",
-              snapshotdir);
+              checkpoint_dir.c_str());
+        } else {
+          sql_print_error(
+            "RocksDB: failed in creating checkpoint in directory : %s\n",
+            checkpoint_dir.c_str());
         }
         delete checkpoint;
+      } else {
+        std::string err_text(status.ToString());
+        sql_print_error(
+          "RocksDB: failed to initialize checkpoint. status %d %s\n",
+          status.code(), err_text.c_str());
       }
-     }
-   }
+    }
+  }
 }
 
 static void
@@ -221,7 +236,7 @@ static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
 static uint32_t rocksdb_wal_recovery_mode;
 static char * compact_cf_name;
-static char * snapshot_dir_name;
+static char * checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check = 1;
 static my_bool rocksdb_collect_sst_properties = 1;
@@ -641,7 +656,7 @@ static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   "Compact column family",
   NULL, rocksdb_compact_column_family, "");
 
-static MYSQL_SYSVAR_STR(snapshot_dir, snapshot_dir_name,
+static MYSQL_SYSVAR_STR(create_checkpoint, checkpoint_name,
   PLUGIN_VAR_RQCMDARG,
   "Checkpoint directory",
   NULL, rocksdb_create_checkpoint, "");
@@ -800,7 +815,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compaction_sequential_deletes_window),
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
 
-  MYSQL_SYSVAR(snapshot_dir),
+  MYSQL_SYSVAR(create_checkpoint),
 
   MYSQL_SYSVAR(checksums_pct),
   MYSQL_SYSVAR(store_checksums),
@@ -5155,10 +5170,10 @@ void ha_rocksdb::position(const uchar *record)
     (Note: last_rowkey has the packed PK of last-read-row, which allows to
     handle most cases, but there is an exception to this: when slave applies
     RBR events, it fills the record and then calls position(); rnd_pos())
-    
+
     Also note that we *can* rely on PK column values being available. This is
     because table_flags() includes HA_PRIMARY_KEY_REQUIRED_FOR_POSITION bit.
-    When that is true, table->prepare_for_position() adds PK columns into the 
+    When that is true, table->prepare_for_position() adds PK columns into the
     read set (this may potentially disable index-only access when PK column
     cannot be restored from its mem-comparable form in the secondary indexes).
   */
@@ -5166,7 +5181,7 @@ void ha_rocksdb::position(const uchar *record)
                                           ref, NULL, NULL);
 
   /*
-    It could be that mem-comparable form of PK occupies less than ref_length 
+    It could be that mem-comparable form of PK occupies less than ref_length
     bytes. Fill the remainder with zeros.
   */
   if (ref_length > packed_size)
@@ -5181,7 +5196,7 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
   int rc;
   size_t len;
   DBUG_ENTER("ha_rocksdb::rnd_pos");
-  
+
   len= pk_descr->key_length(table, rocksdb::Slice((const char*)pos,
                                                   ref_length));
   if (len == size_t(-1))
