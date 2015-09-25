@@ -96,6 +96,7 @@ static const char *handler_error_messages[]=
   "Operation not allowed when innodb_forced_recovery > 0",
   "Too many words in a FTS phrase or proximity search",
   "tmp_table_max_file_size exceeded",
+  "Record lock timed out; Retry transaction",
 };
 
 extern void my_handler_error_register(void);

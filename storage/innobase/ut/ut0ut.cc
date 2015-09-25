@@ -745,6 +745,8 @@ ut_strerr(
 		return("Index columns size too big");
 	case DB_LOCK_WAIT_TIMEOUT:
 		return("Lock wait timeout");
+	case DB_REC_LOCK_WAIT_TIMEOUT:
+		return("Record lock wait timeout");
 	case DB_NO_REFERENCED_ROW:
 		return("Referenced key value not found");
 	case DB_ROW_IS_REFERENCED:

@@ -539,7 +539,7 @@ replace_record(THD *thd, TABLE *table,
 
   while ((error= table->file->ha_write_row(table->record[0])))
   {
-    if (error == HA_ERR_LOCK_DEADLOCK || error == HA_ERR_LOCK_WAIT_TIMEOUT)
+    if (error == HA_ERR_LOCK_DEADLOCK || error == HA_ERR_LOCK_WAIT_TIMEOUT || error == HA_ERR_REC_LOCK_WAIT_TIMEOUT)
     {
       table->file->print_error(error, MYF(0)); /* to check at exec_relay_log_event */
       DBUG_RETURN(error);
@@ -2028,7 +2028,7 @@ Old_rows_log_event::write_row(const Relay_log_info *const rli,
 
   while ((error= table->file->ha_write_row(table->record[0])))
   {
-    if (error == HA_ERR_LOCK_DEADLOCK || error == HA_ERR_LOCK_WAIT_TIMEOUT)
+    if (error == HA_ERR_LOCK_DEADLOCK || error == HA_ERR_LOCK_WAIT_TIMEOUT || error == HA_ERR_REC_LOCK_WAIT_TIMEOUT)
     {
       table->file->print_error(error, MYF(0)); /* to check at exec_relay_log_event */
       DBUG_RETURN(error);

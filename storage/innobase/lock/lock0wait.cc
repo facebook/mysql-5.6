@@ -372,7 +372,11 @@ lock_wait_suspend_thread(
 	if (lock_wait_timeout < 100000000
 	    && wait_time > (double) lock_wait_timeout) {
 
-		trx->error_state = DB_LOCK_WAIT_TIMEOUT;
+		if (lock_type == LOCK_REC) {
+			trx->error_state = DB_REC_LOCK_WAIT_TIMEOUT;
+		} else {
+			trx->error_state = DB_LOCK_WAIT_TIMEOUT;
+		}
 
 		MONITOR_INC(MONITOR_TIMEOUT);
 

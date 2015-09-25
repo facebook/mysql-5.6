@@ -168,6 +168,7 @@ static const char *HA_ERR(int i)
   case HA_ERR_CRASHED_ON_REPAIR: return "HA_ERR_CRASHED_ON_REPAIR";
   case HA_ERR_CRASHED_ON_USAGE: return "HA_ERR_CRASHED_ON_USAGE";
   case HA_ERR_LOCK_WAIT_TIMEOUT: return "HA_ERR_LOCK_WAIT_TIMEOUT";
+  case HA_ERR_REC_LOCK_WAIT_TIMEOUT: return "HA_ERR_REC_LOCK_WAIT_TIMEOUT";
   case HA_ERR_LOCK_TABLE_FULL: return "HA_ERR_LOCK_TABLE_FULL";
   case HA_ERR_READ_ONLY_TRANSACTION: return "HA_ERR_READ_ONLY_TRANSACTION";
   case HA_ERR_LOCK_DEADLOCK: return "HA_ERR_LOCK_DEADLOCK";
@@ -216,9 +217,7 @@ static void inline slave_rows_error_report(enum loglevel level, int ha_error,
                                            Relay_log_info const *rli, THD *thd,
                                            TABLE *table, const char * type,
                                            const char *log_name, ulong pos)
-{
-  const char *handler_error= (ha_error ? HA_ERR(ha_error) : NULL);
-  char buff[MAX_SLAVE_ERRMSG], *slider;
+{ const char *handler_error= (ha_error ? HA_ERR(ha_error) : NULL); char buff[MAX_SLAVE_ERRMSG], *slider;
   const char *buff_end= buff + sizeof(buff);
   uint len;
   Diagnostics_area::Sql_condition_iterator it=
@@ -13339,6 +13338,7 @@ Write_rows_log_event::write_row(const Relay_log_info *const rli,
   {
     if (error == HA_ERR_LOCK_DEADLOCK ||
         error == HA_ERR_LOCK_WAIT_TIMEOUT ||
+        error == HA_ERR_REC_LOCK_WAIT_TIMEOUT ||
         (keynum= table->file->get_dup_key(error)) < 0 ||
         !overwrite)
     {

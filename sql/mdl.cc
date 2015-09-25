@@ -2274,7 +2274,7 @@ MDL_context::acquire_lock(MDL_request *mdl_request, ulong lock_wait_timeout)
       my_error(ER_LOCK_DEADLOCK, MYF(0));
       break;
     case MDL_wait::TIMEOUT:
-      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0));
+      my_error(ER_LOCK_WAIT_TIMEOUT, MYF(0), "table");
       break;
     case MDL_wait::KILLED:
       if ((get_thd())->killed == THD::KILL_TIMEOUT)

@@ -2167,6 +2167,7 @@ convert_error_code_to_mysql(
 
 		return(HA_ERR_LOCK_DEADLOCK);
 
+	case DB_REC_LOCK_WAIT_TIMEOUT:
 	case DB_LOCK_WAIT_TIMEOUT:
 		/* Starting from 5.0.13, we let MySQL just roll back the
 		latest SQL statement in a lock wait timeout. Previously, we
@@ -2177,7 +2178,11 @@ convert_error_code_to_mysql(
 				thd, (bool) row_rollback_on_timeout);
 		}
 
-		return(HA_ERR_LOCK_WAIT_TIMEOUT);
+		if (error == DB_LOCK_WAIT_TIMEOUT) {
+			return(HA_ERR_LOCK_WAIT_TIMEOUT);
+		} else {
+			return(HA_ERR_REC_LOCK_WAIT_TIMEOUT);
+		}
 
 	case DB_NO_REFERENCED_ROW:
 		return(HA_ERR_NO_REFERENCED_ROW);

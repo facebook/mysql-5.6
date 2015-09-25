@@ -327,7 +327,12 @@ MYSQL_LOCK *mysql_lock_tables(THD *thd, TABLE **tables, uint count, uint flags)
       (void) unlock_external(thd, sql_lock->table, sql_lock->table_count);
     reset_lock_data_and_free(&sql_lock);
     if (! thd->killed)
-      my_error(rc, MYF(0));
+    {
+      if (rc == ER_LOCK_WAIT_TIMEOUT)
+        my_error(rc, MYF(0), "table");
+      else
+        my_error(rc, MYF(0));
+    }
   }
 end:
   if (!(flags & MYSQL_OPEN_IGNORE_KILLED) && thd->killed)
@@ -873,8 +878,11 @@ static void print_lock_error(int error, const char *table)
   DBUG_ENTER("print_lock_error");
 
   switch (error) {
+  case HA_ERR_REC_LOCK_WAIT_TIMEOUT:
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), "record");
+    break;
   case HA_ERR_LOCK_WAIT_TIMEOUT:
-    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), error);
+    my_error(ER_LOCK_WAIT_TIMEOUT, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG), "table");
     break;
   case HA_ERR_READ_ONLY_TRANSACTION:
     my_error(ER_READ_ONLY_TRANSACTION, MYF(ME_BELL+ME_OLDWIN+ME_WAITTANG),

@@ -604,6 +604,7 @@ handle_new_error:
 
 	switch (err) {
 	case DB_LOCK_WAIT_TIMEOUT:
+	case DB_REC_LOCK_WAIT_TIMEOUT:
 		fil_change_lock_wait_timeout_count(table->space, 1);
 		if (row_rollback_on_timeout) {
 			trx_rollback_to_savepoint(trx, NULL);

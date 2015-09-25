@@ -54,6 +54,7 @@ enum dberr_t {
 					on a compressed page, or it would
 					become bigger than 1/2 free space in
 					an uncompressed page frame */
+	DB_REC_LOCK_WAIT_TIMEOUT,		/*!< record lock wait lasted too long */
 	DB_LOCK_WAIT_TIMEOUT,		/*!< lock wait lasted too long */
 	DB_NO_REFERENCED_ROW,		/*!< referenced key value not found
 					for a foreign key in an insert or
