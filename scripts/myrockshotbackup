@@ -1,0 +1,438 @@
+#!/usr/bin/env python
+
+from __future__ import division
+from optparse import OptionParser
+import collections
+import signal
+import os
+import sys
+import re
+import commands
+import subprocess
+import logging
+import logging.handlers
+import time
+import datetime
+import shutil
+import traceback
+
+import MySQLdb
+import MySQLdb.connections
+from MySQLdb import OperationalError, ProgrammingError
+
+logger = None
+opts = None
+rocksdb_files = ['MANIFEST', 'CURRENT']
+rocksdb_data_suffix = '.sst'
+rocksdb_wal_suffix = '.log'
+exclude_files = ['auto.cnf', 'ibdata1', 'ib_logfile0', 'ib_logfile1']
+
+def is_manifest(fname):
+  for m in rocksdb_files:
+    if fname.startswith(m):
+      return True
+  return False
+
+class Writer(object):
+  a = None
+  def __init__(self):
+    a = None
+
+class StreamWriter(Writer):
+  stream_cmd= 'tar chf -'
+
+  def __init__(self):
+    super(StreamWriter, self).__init__()
+
+  def write(self, file_name):
+    rc= os.system(self.stream_cmd + " " + file_name)
+    if (rc != 0):
+      raise Exception("Got error on stream write: " + str(rc) + " " + file_name)
+
+
+class MySQLBackup():
+  datadir = None
+  writer = None
+  wildcard = r'.*\.[frm|MYD|MYI|MAD|MAI|MRG|TRG|TRN|ARM|ARZ|CSM|CSV|opt|par]'
+  regex = None
+
+  def __init__(self, datadir, writer):
+    self.datadir = datadir
+    self.writer = writer
+    self.regex = re.compile(self.wildcard)
+    os.chdir(self.datadir)
+
+  # do not delete file
+  def do_backup_single(self, fname):
+    self.writer.write(fname)
+
+  def do_backup(self):
+    for db in self.get_databases():
+      logger.info("Starting MySQL misc file backups from database %s..", db)
+      for f in self.get_files(db):
+        if self.match(f):
+          # relative path is needed to suppress tar warnings
+          self.do_backup_single(db + "/" + f)
+    logger.info("Taking misc files from data directory..")
+    for f in self.get_files(""):
+      if f not in exclude_files:
+        self.do_backup_single(f)
+
+  def match(self, filename):
+    if self.regex.match(filename):
+      return True
+    else:
+      return False
+
+  def get_databases(self):
+    dbs = []
+    dirs = [ d for d in os.listdir(self.datadir) if not os.path.isfile(os.path.join(self.datadir,d))]
+    for db in dirs:
+      if not db.startswith('.'):
+        dbs.append(db)
+    return dbs
+
+  def get_files(self, db):
+    dbdir = self.datadir + "/" + db
+    return [ f for f in os.listdir(dbdir) if os.path.isfile(os.path.join(dbdir,f))]
+
+
+# RocksDB backup
+class RocksDBBackup():
+  source_dir = None
+  writer = None
+  # sst files sent in this backup round
+  sent_sst = {}
+  # target sst files in this backup round
+  target_sst = {}
+  # sst files sent in all backup rounds
+  total_sent_sst= {}
+  # sum of sst file size sent in this backup round
+  sent_sst_size = 0
+  # sum of target sst file size in this backup round
+  # if sent_sst_size becomes equal to target_sst_size,
+  # it means the backup round finished backing up all sst files
+  target_sst_size = 0
+  # sum of all sst file size sent all backup rounds
+  total_sent_sst_size= 0
+  # sum of all target sst file size from all backup rounds
+  total_target_sst_size = 0
+  show_progress_size_interval= 1073741824 # 1GB
+  wal_files= []
+  manifest_files= []
+  finished= False
+
+  def __init__(self, source_dir, writer, prev):
+    self.source_dir = source_dir
+    self.writer = writer
+    os.chdir(self.source_dir)
+    self.init_target_files(prev)
+
+  def init_target_files(self, prev):
+    sst = {}
+    self.sent_sst = {}
+    self.target_sst= {}
+    self.total_sent_sst = {}
+    self.sent_sst_size = 0
+    self.target_sst_size = 0
+    self.total_sent_sst_size= 0
+    self.total_target_sst_size= 0
+    self.wal_files= []
+    self.manifest_files= []
+
+    for f in os.listdir(self.source_dir):
+      if f.endswith(rocksdb_data_suffix):
+        # exactly the same file (same size) was sent in previous backup rounds
+        if prev is not None and f in prev.total_sent_sst and int(os.stat(f).st_size) == prev.total_sent_sst[f]:
+          continue
+        sst[f]= int(os.stat(f).st_size)
+        self.target_sst_size = self.target_sst_size + os.stat(f).st_size
+      elif is_manifest(f):
+        self.manifest_files.append(f)
+      elif f.endswith(rocksdb_wal_suffix):
+        self.wal_files.append(f)
+    self.target_sst= collections.OrderedDict(sorted(sst.items()))
+
+    if prev is not None:
+      self.total_sent_sst = prev.total_sent_sst
+      self.total_sent_sst_size = prev.total_sent_sst_size
+      self.total_target_sst_size = self.target_sst_size + prev.total_sent_sst_size
+    else:
+      self.total_target_sst_size = self.target_sst_size
+
+  def do_backup_single(self, fname):
+    self.writer.write(fname)
+    os.remove(fname)
+
+  def do_backup_sst(self, fname, size):
+    self.do_backup_single(fname)
+    self.sent_sst[fname]= size
+    self.total_sent_sst[fname]= size
+    self.sent_sst_size = self.sent_sst_size + size
+    self.total_sent_sst_size = self.total_sent_sst_size + size
+
+  def do_backup_manifest(self):
+    for f in self.manifest_files:
+      self.do_backup_single(f)
+
+  def do_backup_wal(self):
+    for f in self.wal_files:
+      self.do_backup_single(f)
+
+  # this is the last snapshot round. backing up all the rest files
+  def do_backup_final(self):
+    logger.info("Backup WAL..")
+    self.do_backup_wal()
+    logger.info("Backup Manifest..")
+    self.do_backup_manifest()
+    self.do_cleanup()
+    self.finished= True
+
+  def do_cleanup(self):
+    shutil.rmtree(self.source_dir)
+    logger.info("Cleaned up checkpoint from %s", self.source_dir)
+
+  def do_backup_until(self, time_limit):
+    logger.info("Starting backup from snapshot: target files %d", len(self.target_sst))
+    start_time= time.time()
+    last_progress_time= start_time
+    progress_size= 0
+    for fname, size in self.target_sst.iteritems():
+      self.do_backup_sst(fname, size)
+      progress_size= progress_size + size
+      elapsed_seconds = time.time() - start_time
+      progress_seconds = time.time() - last_progress_time
+
+      if self.should_show_progress(size):
+        self.show_progress(progress_size, progress_seconds)
+        progress_size=0
+        last_progress_time= time.time()
+
+      if elapsed_seconds > time_limit and self.has_sent_all_sst() is False:
+        logger.info("Snapshot round finished. Elapsed Time: %5.2f.  Remaining sst files: %d",
+                    elapsed_seconds, len(self.target_sst) - len(self.sent_sst))
+        self.do_cleanup()
+        break;
+    if self.has_sent_all_sst():
+      self.do_backup_final()
+
+    return self
+
+  def should_show_progress(self, size):
+    if int(self.total_sent_sst_size/self.show_progress_size_interval) > int((self.total_sent_sst_size-size)/self.show_progress_size_interval):
+      return True
+    else:
+      return False
+
+  def show_progress(self, size, seconds):
+    logger.info("Backup Progress: %5.2f%%   Sent %6.2f GB of %6.2f GB data, Transfer Speed: %6.2f MB/s",
+                self.total_sent_sst_size*100/self.total_target_sst_size,
+                self.total_sent_sst_size/1024/1024/1024,
+                self.total_target_sst_size/1024/1024/1024,
+                size/seconds/1024/1024)
+
+  def print_backup_report(self):
+    logger.info("Sent %6.2f GB of sst files, %d files in total.",
+                self.total_sent_sst_size/1024/1024/1024,
+                len(self.total_sent_sst))
+    
+  def has_sent_all_sst(self):
+    if self.sent_sst_size == self.target_sst_size:
+      return True
+    return False
+
+
+class MySQLUtil:
+  @staticmethod
+  def connect(user, password, port):
+    dbh = MySQLdb.Connect(user=user,
+                          passwd=password,
+                          port=port,
+                          host="127.0.0.1")
+    return dbh
+
+  @staticmethod
+  def create_checkpoint(dbh, checkpoint_dir):
+    sql = ("SET GLOBAL rocksdb_snapshot_dir='{0}'"
+           .format(checkpoint_dir))
+    cur= dbh.cursor()
+    cur.execute(sql)
+    cur.close()
+
+  @staticmethod
+  def get_datadir(dbh):
+    sql = "SELECT @@datadir"
+    cur = dbh.cursor()
+    cur.execute(sql)
+    row = cur.fetchone()
+    return row[0] 
+
+
+class BackupRunner:
+  datadir = None
+
+  def __init__(self, datadir):
+    self.datadir = datadir
+
+  def start_backup_round(self, backup_round, prev_backup):
+    def signal_handler(*args):
+      logger.info("Got signal. Exit")
+      if b is not None:
+        logger.info("Cleaning up snapshot directory..")
+        b.do_cleanup()
+      sys.exit()
+
+    b = None
+    try:
+      signal.signal(signal.SIGINT, signal_handler)
+      snapshot_dir = opts.checkpoint_directory + '/' + str(backup_round)
+      dbh= MySQLUtil.connect(opts.mysql_user, opts.mysql_password, opts.mysql_port)
+      if not self.datadir:
+        self.datadir = MySQLUtil.get_datadir(dbh)
+        logger.info("Set datadir: %s", self.datadir)
+      logger.info("Creating checkpoint at %s", snapshot_dir)
+      MySQLUtil.create_checkpoint(dbh, snapshot_dir)
+      logger.info("Created checkpoint at %s", snapshot_dir)
+      w = None
+      if opts.output_stream:
+        w = StreamWriter()
+      b = RocksDBBackup(snapshot_dir, w, prev_backup)
+      return b.do_backup_until(opts.checkpoint_interval)
+    except Exception as e:
+      logger.error(e)
+      logger.error(traceback.format_exc())
+      if b is not None:
+        logger.info("Cleaning up snapshot directory.")
+        b.do_cleanup()
+      sys.exit()
+
+  def backup_mysql(self):
+    try:
+      w = None
+      if opts.output_stream:
+        w = StreamWriter()
+      b = MySQLBackup(self.datadir, w)
+      logger.info("Taking MySQL misc backups..")
+      b.do_backup()
+      logger.info("MySQL misc backups done.")
+    except Exception as e:
+      logger.error(e)
+      logger.error(traceback.format_exc())
+      sys.exit()
+
+
+def init_logger():
+  global logger
+  logger = logging.getLogger('myrockshotbackup')
+  logger.setLevel(logging.INFO)
+  h1= logging.StreamHandler(sys.stderr)
+  f = logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)s %(message)s",
+                        "%Y-%m-%d %H:%M:%S")
+  h1.setFormatter(f)
+  logger.addHandler(h1)
+
+backup_usage= "Backup: myrockshotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remove_server 'tar -xi -C <directory on remove server where backups will be sent>' . You need to execute backup command on a server where you take backups."
+move_back_usage= "Move-Back: myrockshotbackup --move_back --datadir=<dest mysql datadir> --rocksdb_datadir=<dest rocksdb datadir> --rocksdb_waldir=<dest rocksdb wal dir> --backup_dir=<where backup files are stored> . You need to execute move-back command on a server where backup files are sent."
+
+
+def parse_options():
+  global opts
+  parser = OptionParser(usage = "\n\n" + backup_usage + "\n\n" + move_back_usage)
+  parser.add_option('-i', '--interval', type='int', dest='checkpoint_interval',
+                    default=60,
+                    help='Number of seconds to renew checkpoint')
+  parser.add_option('-c', '--checkpoint_dir', type='string', dest='checkpoint_directory',
+                    default='/data/mysql/backup/snapshot',
+                    help='Local directory name where checkpoints will be created.')
+  parser.add_option('-d', '--datadir', type='string', dest='datadir',
+                    default=None,
+                    help='backup mode: src MySQL datadir. move_back mode: dest MySQL datadir')
+  parser.add_option('-s', '--stream', action='store_true', dest='output_stream',
+                    default=True,
+                    help='streaming backup')
+  parser.add_option('-u', '--user', type='string', dest='mysql_user',
+                    default='root',
+                    help='MySQL user name')
+  parser.add_option('-p', '--password', type='string', dest='mysql_password',
+                    default='',
+                    help='MySQL password name')
+  parser.add_option('-P', '--port', type='int', dest='mysql_port',
+                    default=3306,
+                    help='MySQL port number')
+  parser.add_option('-m', '--move_back', action='store_true', dest='move_back',
+                    default=False,
+                    help='Moving MyRocks backup files to proper locations.')
+  parser.add_option('-r', '--rocksdb_datadir', type='string', dest='rocksdb_datadir',
+                    default=None,
+                    help='RocksDB target data directory where backup data files will be moved. Must be empty.')
+  parser.add_option('-w', '--rocksdb_waldir', type='string', dest='rocksdb_waldir',
+                    default=None,
+                    help='RocksDB target data directory where backup wal files will be moved. Must be empty.')
+  parser.add_option('-b', '--backup_dir', type='string', dest='backupdir',
+                    default=None,
+                    help='Locations where backup files are stored. Must be backed up by streaming mode')
+
+  opts, args = parser.parse_args()
+
+
+def create_moveback_dir(directory):
+  if not os.path.exists(directory):
+    os.makedirs(directory)
+  else:
+    for f in os.listdir(directory):
+      logger.error("Directory %s has file or directory %s!", directory, f)
+      raise
+
+def print_move_back_usage():
+  logger.warning(move_back_usage)
+
+def move_back():
+  if opts.rocksdb_datadir is None or opts.rocksdb_waldir is None or opts.backupdir is None or opts.datadir is None:
+    print_move_back_usage()
+    sys.exit()
+  create_moveback_dir(opts.datadir)
+  create_moveback_dir(opts.rocksdb_datadir)
+  create_moveback_dir(opts.rocksdb_waldir)
+
+  os.chdir(opts.backupdir)
+  for f in os.listdir(opts.backupdir):
+    if os.path.isfile(os.path.join(opts.backupdir,f)):
+      if f.endswith(rocksdb_wal_suffix):
+        shutil.move(f, opts.rocksdb_waldir)
+      elif f.endswith(rocksdb_data_suffix) or is_manifest(f):
+        shutil.move(f, opts.rocksdb_datadir)
+      else:
+        shutil.move(f, opts.datadir)
+    else: #directory
+      if f.endswith('.rocksdb'):
+        continue
+      shutil.move(f, opts.datadir)
+
+def start_backup():
+  logger.info("Starting backup.")
+  runner = BackupRunner(opts.datadir)
+  b = None
+  backup_round= 1
+  while True:
+    b = runner.start_backup_round(backup_round, b)
+    backup_round = backup_round + 1
+    if b.finished is True:
+      b.print_backup_report()
+      logger.info("RocksDB Backup Done.")
+      break
+  runner.backup_mysql()
+  logger.info("All Backups Done.")
+
+
+def main():
+  parse_options()
+  init_logger()
+
+  if opts.move_back is True:
+    move_back()
+  else:
+    start_backup()
+
+if __name__ == "__main__":
+  main()
+
