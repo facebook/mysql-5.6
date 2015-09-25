@@ -337,6 +337,7 @@ ELSE()
     mysqldumpslow
     mysqld_multi
     mysqld_safe
+    myrockshotbackup
   )
   FOREACH(file ${BIN_SCRIPTS})
     IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${file}.sh)
