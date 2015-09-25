@@ -252,6 +252,7 @@ static uint32_t rocksdb_seconds_between_stat_computes = 3600;
 static long long rocksdb_compaction_sequential_deletes= 0l;
 static long long rocksdb_compaction_sequential_deletes_window= 0l;
 static long long rocksdb_compaction_sequential_deletes_file_size= 0l;
+static char * rocksdb_data_dir;
 
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
@@ -739,6 +740,12 @@ static MYSQL_THDVAR_BOOL(verify_checksums,
   "Verify checksums when reading index/table records",
   NULL, NULL, false /* default value */);
 
+static MYSQL_SYSVAR_STR(data_dir,
+  rocksdb_data_dir,
+  PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
+  "RocksDB data directory",
+  NULL, NULL, "./.rocksdb");
+
 const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT=4194304;
 
 static struct st_mysql_sys_var* rocksdb_system_variables[]= {
@@ -821,6 +828,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
 
   MYSQL_SYSVAR(snapshot_dir),
+  MYSQL_SYSVAR(data_dir),
 
   MYSQL_SYSVAR(checksums_pct),
   MYSQL_SYSVAR(store_checksums),
@@ -1813,8 +1821,6 @@ static int rocksdb_init_func(void *p)
   rocksdb_stats= rocksdb::CreateDBStatistics();
   db_options.statistics = rocksdb_stats;
 
-  std::string rocksdb_db_name=  "./.rocksdb";
-
   std::vector<std::string> cf_names;
 
   rocksdb::Status status;
@@ -1829,7 +1835,7 @@ static int rocksdb_init_func(void *p)
   db_options.wal_recovery_mode=
     static_cast<rocksdb::WALRecoveryMode>(rocksdb_wal_recovery_mode);
 
-  status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_db_name,
+  status= rocksdb::DB::ListColumnFamilies(db_options, rocksdb_data_dir,
                                           &cf_names);
   if (!status.ok())
   {
@@ -1942,7 +1948,7 @@ static int rocksdb_init_func(void *p)
                                       rocksdb::Env::Priority::HIGH);
   main_opts.env->SetBackgroundThreads(main_opts.max_background_compactions,
                                       rocksdb::Env::Priority::LOW);
-  status= rocksdb::DB::Open(main_opts, rocksdb_db_name, cf_descr,
+  status= rocksdb::DB::Open(main_opts, rocksdb_data_dir, cf_descr,
                             &cf_handles, &rdb);
 
 
