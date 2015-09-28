@@ -1221,6 +1221,11 @@ exit:
         .get_tracker(CURRENT_SCHEMA_TRACKER)->mark_as_changed(&dummy);
     }
   }
+
+  if (!error) {
+    db_ac->remove(db);
+  }
+
   my_dirend(dirp);
   DBUG_RETURN(error);
 }

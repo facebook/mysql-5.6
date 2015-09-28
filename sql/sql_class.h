@@ -48,6 +48,9 @@
 
 #include "sys_vars_resource_mgr.h"
 #include "session_tracker.h"
+#include <unordered_map>
+#include <string>
+#include <deque>
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
@@ -4439,6 +4442,181 @@ public:
   Session_tracker session_tracker;
   Session_sysvar_resource_manager session_sysvar_res_mgr;
 
+};
+
+/**
+  Per-thread information used in admission control.
+*/
+struct st_ac_node {
+#ifdef HAVE_PSI_INTERFACE
+  PSI_mutex_key key_lock;
+  PSI_cond_key key_cond;
+#endif
+  mysql_mutex_t lock;
+  mysql_cond_t cond;
+  volatile bool abort_waiting;
+  st_ac_node() {
+    mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
+    mysql_cond_init(key_cond, &cond, NULL);
+    abort_waiting = false;
+  }
+
+  ~st_ac_node () {
+    mysql_mutex_destroy(&lock);
+    mysql_cond_destroy(&cond);
+  }
+};
+
+/**
+  Class used in admission control.
+
+  Every entity (database or table or user name) will have this
+  object created and stored in the global map AC::ac_map.
+
+*/
+class Ac_info {
+  friend class AC;
+#ifdef HAVE_PSI_INTERFACE
+  PSI_mutex_key key_lock;
+#endif
+  // Queue to track the running and waiting threads.
+  std::deque<st_ac_node*> queue;
+  std::atomic<unsigned long> waiting_queries;
+  // Protects the queue.
+  mysql_mutex_t lock;
+  Ac_info() {
+    mysql_mutex_init(key_lock, &lock, MY_MUTEX_INIT_FAST);
+    waiting_queries.store(0);
+  }
+  ~Ac_info() {
+    mysql_mutex_destroy(&lock);
+    for (auto it: queue) {
+      delete it;
+    }
+  }
+};
+
+/**
+  Global class used to enforce per admission control limits.
+*/
+class AC {
+  // This map is protected by the rwlock LOCK_ac.
+  std::unordered_map<std::string, Ac_info*> ac_map;
+  // Variables to track global limits
+  ulong max_running_queries, max_waiting_queries;
+  /**
+    Protects ac_map and max_running_queries/max_waiting_queries.
+
+    Locking order followed is LOCK_ac, Ac_info::lock, st_ac_node::lock.
+  */
+  mysql_rwlock_t LOCK_ac;
+#ifdef HAVE_PSI_INTERFACE
+  PSI_rwlock_key key_rwlock_LOCK_ac;
+#endif
+
+public:
+  AC() {
+    mysql_rwlock_init(key_rwlock_LOCK_ac, &LOCK_ac);
+    max_running_queries = 0;
+    max_waiting_queries = 0;
+  }
+
+  ~AC() {
+    mysql_rwlock_destroy(&LOCK_ac);
+    // free memory allocated for each ac_info
+    for (auto it: ac_map) {
+      delete it.second;
+    }
+  }
+
+  /*
+   * Removes a dropped entity info from the global map.
+   */
+  void remove(const char* entity) {
+    // First take a read lock to unblock any waiting queries.
+    mysql_rwlock_rdlock(&LOCK_ac);
+    auto it = ac_map.find(std::string(entity));
+    if (it != ac_map.end()) {
+      auto ac_info  = it->second;
+      mysql_mutex_lock(&ac_info->lock);
+      while (ac_info->waiting_queries.load()) {
+        for (uint i = max_running_queries; i < ac_info->queue.size(); ++i) {
+          auto ac_node = ac_info->queue[i];
+          mysql_mutex_lock(&ac_node->lock);
+          ac_node->abort_waiting = true;
+          mysql_cond_signal(&ac_node->cond);
+          mysql_mutex_unlock(&ac_node->lock);
+        }
+      }
+      mysql_mutex_unlock(&ac_info->lock);
+    }
+    mysql_rwlock_unlock(&LOCK_ac);
+    mysql_rwlock_wrlock(&LOCK_ac);
+    it = ac_map.find(std::string(entity));
+    if (it != ac_map.end()) {
+      delete it->second;
+      ac_map.erase(it);
+    }
+    mysql_rwlock_unlock(&LOCK_ac);
+  }
+
+  void insert(const std::string &entity) {
+    mysql_rwlock_wrlock(&LOCK_ac);
+    if (ac_map.find(entity) == ac_map.end()) {
+      Ac_info *ac_info = new Ac_info();
+      ac_map[entity] = ac_info;
+    }
+    mysql_rwlock_unlock(&LOCK_ac);
+  }
+
+  void update_max_running_queries(ulong val) {
+    // lock to protect against erasing map iterators.
+    mysql_rwlock_wrlock(&LOCK_ac);
+    ulong old_val = max_running_queries;
+    max_running_queries = val;
+    // Signal any waiting threads which are below the new limit. Note 0 is a
+    // special case where every waiting thread needs to be signalled.
+    if (val > old_val || !val) {
+      for (auto it: ac_map) {
+        auto ac_info = it.second;
+        mysql_mutex_lock(&ac_info->lock);
+        for (uint i = old_val;
+             (!val || i < val) && i < ac_info->queue.size(); ++i) {
+          auto ac_node = ac_info->queue[i];
+          mysql_mutex_lock(&ac_node->lock);
+          ac_node->abort_waiting = true;
+          mysql_cond_signal(&ac_node->cond);
+          mysql_mutex_unlock(&ac_node->lock);
+        }
+        mysql_mutex_unlock(&ac_info->lock);
+      }
+    }
+    mysql_rwlock_unlock(&LOCK_ac);
+  }
+
+  void update_max_waiting_queries(ulong val) {
+    mysql_rwlock_wrlock(&LOCK_ac);
+    max_waiting_queries = val;
+    mysql_rwlock_unlock(&LOCK_ac);
+  }
+
+  inline ulong get_max_running_queries() {
+    mysql_rwlock_rdlock(&LOCK_ac);
+    ulong res = max_running_queries;
+    mysql_rwlock_unlock(&LOCK_ac);
+    return res;
+  }
+
+  inline ulong get_max_waiting_queries() {
+    mysql_rwlock_rdlock(&LOCK_ac);
+    ulong res = max_waiting_queries;
+    mysql_rwlock_unlock(&LOCK_ac);
+    return res;
+  }
+
+  bool admission_control_enter(THD*, const std::string&);
+  void admission_control_exit(THD*, const std::string&);
+  void wait_for_signal(THD*, st_ac_node*);
 };
 
 /*

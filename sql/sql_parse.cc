@@ -7069,6 +7069,124 @@ static bool throttle_query_if_needed(THD* thd)
   DBUG_RETURN(false);
 }
 
+/**
+   @param thd THD structure.
+   @param entity current session's entity.
+
+   Applies admission control checks for the entity. Outline of
+   the steps in this function:
+   1. Error out if we crossed the max waiting limit.
+   2. Put the thd in a queue.
+   3. If we crossed the max running limit then wait for signal from threads
+      that completed their query execution.
+
+   @return False Run this query.
+           True  maximum waiting queries limit reached. Error out this query.
+*/
+bool AC::admission_control_enter(THD* thd, const std::string& entity) {
+  bool error = false;
+  const char* prev_proc_info = thd->proc_info;
+  THD_STAGE_INFO(thd, stage_admission_control_enter);
+  // Unlock this before waiting.
+  mysql_rwlock_rdlock(&LOCK_ac);
+  auto it = ac_map.find(entity);
+  if (it == ac_map.end()) {
+    // New DB.
+    mysql_rwlock_unlock(&LOCK_ac);
+    insert(entity);
+    mysql_rwlock_rdlock(&LOCK_ac);
+    it = ac_map.find(entity);
+  }
+
+  if (max_running_queries) {
+    auto ac_info = it->second;
+    // Freed when removed from the queue in admission_control_exit().
+    st_ac_node *ac_node = new st_ac_node();
+    mysql_mutex_lock(&ac_info->lock);
+    if (ac_info->queue.size() >= max_running_queries) {
+      if (max_waiting_queries &&
+          ac_info->queue.size() >= max_running_queries + max_waiting_queries) {
+        // We reached max waiting limit. Error out
+        mysql_mutex_unlock(&ac_info->lock);
+        delete ac_node;
+        error = true;
+      } else {
+        ac_info->queue.push_back(ac_node);
+        ++ac_info->waiting_queries;
+        mysql_mutex_unlock(&ac_info->lock);
+        wait_for_signal(thd, ac_node);
+        --ac_info->waiting_queries;
+      }
+    } else {
+      // We are below the max running limit.
+      ac_info->queue.push_back(ac_node);
+      mysql_mutex_unlock(&ac_info->lock);
+    }
+  }
+  mysql_rwlock_unlock(&LOCK_ac);
+  thd->proc_info = prev_proc_info;
+  return error;
+}
+
+void AC::wait_for_signal(THD* thd, st_ac_node* ac_node) {
+  PSI_stage_info old_stage;
+  mysql_mutex_lock(&ac_node->lock);
+  thd->ENTER_COND(&ac_node->cond, &ac_node->lock,
+                  &stage_waiting_for_admission,
+                  &old_stage);
+  // abort_waiting handles spurious wakeups.
+  while(!thd->killed && !ac_node->abort_waiting)
+  {
+    /**
+      Inserting or deleting in std::map will not invalidate existing
+      iterators except of course if the current iterator is erased. If the db
+      corresponding to this iterator is getting dropped, these waiting queries
+      are given signal to abort using the flag abort_waiting before the iterator
+      is erased. See AC::remove().
+      So, we don't need LOCK_ac here. The motivation to unlock the read lock
+      is that waiting queries here shouldn't block other operations modifying
+      ac_map or max_running_queries/max_waiting_queries.
+    */
+    mysql_rwlock_unlock(&LOCK_ac);
+    mysql_cond_wait(&ac_node->cond, &ac_node->lock);
+    mysql_rwlock_rdlock(&LOCK_ac);
+  }
+  // Releases ac_node->lock.
+  thd->EXIT_COND(&old_stage);
+}
+
+/**
+  @param thd THD structure
+  @param entity current session's entity
+
+  Signals one waiting thread. Pops out the first THD in the queue.
+*/
+void AC::admission_control_exit(THD* thd, const std::string& entity) {
+  const char* prev_proc_info = thd->proc_info;
+  THD_STAGE_INFO(thd, stage_admission_control_exit);
+  mysql_rwlock_rdlock(&LOCK_ac);
+  auto it = ac_map.find(entity);
+  if (it != ac_map.end()) {
+    auto ac_info = it->second;
+    mysql_mutex_lock(&ac_info->lock);
+    if (max_running_queries &&
+        ac_info->queue.size() > max_running_queries) {
+      auto ac_node = ac_info->queue[max_running_queries];
+      mysql_mutex_lock(&ac_node->lock);
+      ac_node->abort_waiting = true;
+      mysql_cond_signal(&ac_node->cond);
+      mysql_mutex_unlock(&ac_node->lock);
+    }
+    DBUG_ASSERT(ac_info->queue.size());
+    auto first_elem = ac_info->queue[0];
+    ac_info->queue.pop_front();
+    delete first_elem;
+    mysql_mutex_unlock(&ac_info->lock);
+  }
+  mysql_rwlock_unlock(&LOCK_ac);
+  thd->proc_info = prev_proc_info;
+}
+
 /*
   When you modify mysql_parse(), you may need to mofify
   mysql_test_parse_for_slave() in this same file.
@@ -7228,9 +7346,38 @@ void mysql_parse(THD *thd, char *rawbuf, uint length,
             my_error(ER_MUST_CHANGE_PASSWORD, MYF(0));
             error= 1;
           }
-          else
+          else {
+            bool admission_check= false;
+            std::string db;
+            /**
+              Admission control checks are skipped in the following
+              scenarios.
+              1. The query is run by super user
+              2. The THD is a replication thread
+              3. No database is set for this session
+              4. Admission control checks are turned off by setting
+                 max_running_queries=0
+            */
+            if (!(thd->security_ctx->master_access & SUPER_ACL) &&
+                !thd->rli_slave &&
+                thd->db && db_ac->get_max_running_queries()) {
+              admission_check= true;
+              // thd->db can be changed. So make a copy here.
+              db = std::string(thd->db);
+            }
+
+            if (admission_check &&
+                db_ac->admission_control_enter(thd, db)) {
+              my_error(ER_DB_ADMISSION_CONTROL, MYF(0),
+                       db_ac->get_max_waiting_queries(), thd->db);
+              error= 1;
+            } else {
             error=
               mysql_execute_command(thd, &statement_start_time, last_timer);
+              if (admission_check)
+                db_ac->admission_control_exit(thd, db);
+            }
+          }
           if (error == 0 &&
               thd->variables.gtid_next.type == GTID_GROUP &&
               thd->owned_gtid.sidno != 0 &&
