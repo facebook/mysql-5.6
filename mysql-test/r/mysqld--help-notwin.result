@@ -513,6 +513,9 @@ The following options may be given as the first argument:
  If non-zero: relay log will be rotated automatically when
  the size exceeds this value; if zero: when the size
  exceeds max_binlog_size
+ --max-running-queries=# 
+ The maximum number of running queries allowed for a
+ database. If this value is 0, no such limits are applied.
  --max-seeks-for-key=# 
  Limit assumed max number of seeks when looking up rows
  based on a key
@@ -526,6 +529,9 @@ The following options may be given as the first argument:
  --max-user-connections=# 
  The maximum number of active connections for a single
  user (0 = no limit)
+ --max-waiting-queries=# 
+ The maximum number of waiting queries allowed for a
+ database.If this value is 0, no such limits are applied.
  --max-write-lock-count=# 
  After this many write locks, allow some read locks to run
  in between
@@ -1557,11 +1563,13 @@ max-join-size 18446744073709551615
 max-length-for-sort-data 1024
 max-prepared-stmt-count 16382
 max-relay-log-size 0
+max-running-queries 0
 max-seeks-for-key 18446744073709551615
 max-sort-length 1024
 max-sp-recursion-depth 0
 max-tmp-tables 32
 max-user-connections 0
+max-waiting-queries 0
 max-write-lock-count 18446744073709551615
 memlock FALSE
 metadata-locks-cache-size 1024
