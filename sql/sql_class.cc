@@ -1743,6 +1743,10 @@ THD::~THD()
   if (prepared_engine)
     delete prepared_engine;
 
+  if (ac_node) {
+    delete ac_node;
+  }
+
   free_root(&main_mem_root, MYF(0));
 
   if (m_token_array != NULL)
