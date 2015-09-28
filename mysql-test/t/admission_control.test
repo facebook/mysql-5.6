@@ -1,0 +1,126 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+grant all on test to test_user@localhost;
+
+connection default;
+use test_db;
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=10;
+set @@global.max_waiting_queries=5;
+create table t1(a int) engine=InnoDB;
+
+# Write lock here ensures the insert queries will block on row lock and be
+# in running queue until unlock tables is executed.
+lock table t1 write;
+
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test_db);
+  dec $i;
+}
+let $i= 10;
+while($i)
+{
+  connection con$i;
+  # These queries will be in running queue
+  send insert into t1 values(1);
+  dec $i;
+}
+let $i= 15;
+while ($i != 10)
+{
+  # These queries will be in waiting queue
+  connection con$i;
+  send insert into t1 values(1);
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+--echo Waiting threads will have appropriate state set in processlist.
+let $wait_condition=
+  select count(*)=5 from information_schema.processlist where state='waiting for admission';
+source include/wait_condition.inc;
+--echo Super user is exempted from admission control checks.
+select * from t1;
+connect (con16, localhost, test_user,,test_db);
+connection con16;
+--echo Maximum waiting queries reached. So this would hit an error.
+error ER_DB_ADMISSION_CONTROL;
+select * from t1;
+
+--echo Filled up queues on one db doesn't affect queries on other db.
+connection default;
+use test;
+
+# Insert queries sent above will be unblocked by this.
+use test_db;
+unlock tables;
+
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+connection default;
+--echo Verify the waiting queries received broadcast signal.
+select count(*) from t1;
+
+--echo Run parallel load and drop the database.
+# Verify the waiting queries will receive the signal from DROP DATABASE
+# and exit with appropriate error ER_NO_SUCH_TABLE. max_waiting_queries=0
+# is used to not have a limit on number of waiting queries.
+set @@global.max_waiting_queries=0; # No limit on waiting queue.
+disable_query_log;
+disable_result_log;
+let $i= 16;
+while($i)
+{
+  connection con$i;
+  # 10 queries (max_running_queries is 10) will be in running queue.
+  # Using sleep(3) in the insert ensures some queries end up in waiting queue.
+  send insert into t1(select sleep(3));
+  dec $i;
+}
+connection default;
+drop database test_db;
+let $i= 16;
+while($i)
+{
+  connection con$i;
+  error 0,ER_NO_SUCH_TABLE;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+--echo Cleanup.
+connection default;
+--echo Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
+disable_query_log;
+disable_result_log;
+let $i= 16;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;

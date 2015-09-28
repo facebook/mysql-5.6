@@ -48,6 +48,8 @@
 
 #include "sys_vars_resource_mgr.h"
 #include "session_tracker.h"
+#include <unordered_map>
+#include <string>
 
 #define FLAGSTR(V,F) ((V)&(F)?#F" ":"")
 
@@ -4439,6 +4441,133 @@ public:
   Session_tracker session_tracker;
   Session_sysvar_resource_manager session_sysvar_res_mgr;
 
+};
+
+/**
+  Struct used in per-database admission control.
+
+  Every database will have this struct created and stored in the global
+  map DB_AC::db_ac_map.
+*/
+struct st_db_ac_info {
+public:
+  std::atomic<unsigned long> running_queries;
+  std::atomic<unsigned long> waiting_queries;
+#ifdef HAVE_PSI_INTERFACE
+  PSI_mutex_key key_db_ac_lock;
+  PSI_cond_key key_db_ac_cond;
+#endif
+  // This mutex is used only for condition db_ac_cond.
+  mysql_mutex_t* db_ac_lock;
+  // Used for signalling waiting threads about decrease in running_queries.
+  // Note admission_control_exit() broadcasts the signal.
+  mysql_cond_t* db_ac_cond;
+  // Used to signal waiting queries about the DROP database.
+  std::atomic<bool> abort_waiting;
+};
+
+class DB_AC {
+  // This map is protected by the rwlock LOCK_db_ac.
+  std::unordered_map<std::string, st_db_ac_info*> db_ac_map;
+  /**
+    Protects db_ac_map.
+  */
+  mysql_rwlock_t LOCK_db_ac;
+#ifdef HAVE_PSI_INTERFACE
+  PSI_rwlock_key key_rwlock_LOCK_db_ac;
+#endif
+
+  /*
+   * Initializes the newly malloced st_db_ac_info struct
+   */
+  void init(st_db_ac_info *db_ac_info) {
+    db_ac_info->running_queries.store(0);
+    db_ac_info->waiting_queries.store(0);
+    db_ac_info->abort_waiting.store(false);
+    // The following memory is freed in deinit()
+    db_ac_info->db_ac_lock =
+      (mysql_mutex_t*)my_malloc(sizeof(mysql_mutex_t), MYF(0));
+    db_ac_info->db_ac_cond =
+      (mysql_cond_t*)my_malloc(sizeof(mysql_cond_t), MYF(0));
+    mysql_mutex_init(db_ac_info->key_db_ac_lock,
+                     db_ac_info->db_ac_lock, MY_MUTEX_INIT_FAST);
+    mysql_cond_init(db_ac_info->key_db_ac_cond, db_ac_info->db_ac_cond, NULL);
+  }
+
+  /*
+   * Frees memory alloced by init() above.
+   */
+  void deinit(st_db_ac_info *db_ac_info) {
+    mysql_mutex_destroy(db_ac_info->db_ac_lock);
+    mysql_cond_destroy(db_ac_info->db_ac_cond);
+    my_free(db_ac_info->db_ac_lock);
+    my_free(db_ac_info->db_ac_cond);
+  }
+
+public:
+  DB_AC() {
+    mysql_rwlock_init(key_rwlock_LOCK_db_ac, &LOCK_db_ac);
+  }
+
+  ~DB_AC() {
+    mysql_rwlock_destroy(&LOCK_db_ac);
+    // free memory allocated for each db_ac_info
+    for (auto it: db_ac_map) {
+      deinit(it.second);
+      my_free(it.second);
+    }
+  }
+
+  /*
+   * Removes a dropped database info.
+   */
+  void remove_db(const char* db) {
+    mysql_rwlock_wrlock(&LOCK_db_ac);
+    auto it = db_ac_map.find(std::string(db));
+    if (it != db_ac_map.end()) {
+      // Ensures the waiting threads are not hanging indefinitely.
+      it->second->abort_waiting.store(true);
+      while (it->second->waiting_queries.load()) {
+        mysql_mutex_lock(it->second->db_ac_lock);
+        mysql_cond_broadcast(it->second->db_ac_cond);
+        mysql_mutex_unlock(it->second->db_ac_lock);
+      }
+      deinit(it->second);
+      my_free(it->second);
+      db_ac_map.erase(it);
+    }
+    mysql_rwlock_unlock(&LOCK_db_ac);
+  }
+
+  void insert_db(const std::string &db) {
+    mysql_rwlock_wrlock(&LOCK_db_ac);
+    if (db_ac_map.find(db) == db_ac_map.end()) {
+      st_db_ac_info *db_ac_info =
+        (st_db_ac_info*) my_malloc(sizeof(st_db_ac_info), MYF(0));
+      init(db_ac_info);
+      db_ac_map[db] = db_ac_info;
+    }
+    mysql_rwlock_unlock(&LOCK_db_ac);
+  }
+
+  void update_max_running_queries(ulong val) {
+    max_running_queries.store(val);
+    // read lock to protect against erasing map iterators.
+    mysql_rwlock_rdlock(&LOCK_db_ac);
+    for (auto it : db_ac_map) {
+      mysql_mutex_lock(it.second->db_ac_lock);
+      mysql_cond_broadcast(it.second->db_ac_cond);
+      mysql_mutex_unlock(it.second->db_ac_lock);
+    }
+    mysql_rwlock_unlock(&LOCK_db_ac);
+  }
+
+  void update_max_waiting_queries(ulong val) {
+    max_waiting_queries.store(val);
+  }
+
+  bool admission_control_enter(THD*, const std::string&);
+  void admission_control_exit(THD*, const std::string&);
 };
 
 /*
