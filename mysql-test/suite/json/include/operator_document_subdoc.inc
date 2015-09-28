@@ -148,6 +148,8 @@ SELECT doc FROM t2 HAVING doc SUBDOC doc;
 SELECT doc.address FROM t1 HAVING DOCUMENT('{"state": "WA"}') SUBDOC doc.address;
 SELECT doc FROM t1 HAVING DOCUMENT('{"name": "Evan"}') NOT SUBDOC doc;
 
+SELECT MIN(doc.id) AS alias1, doc.address AS alias2 FROM t1 WHERE a > 3 HAVING DOCUMENT('{"state": "WA"}') SUBDOC alias2;
+
 # Test SUBDOC with JOIN
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{"state":"NY"}') SUBDOC t2.doc.address;
