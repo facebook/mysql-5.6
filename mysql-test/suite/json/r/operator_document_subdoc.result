@@ -289,6 +289,9 @@ doc
 {"id":108,"address":{"zipcode":98768}}
 {"id":104,"address":{"zipcode":98767,"state":"NY"}}
 {"id":106,"address":{"zipcode":98766}}
+SELECT MIN(doc.id) AS alias1, doc.address AS alias2 FROM t1 WHERE a > 3 HAVING DOCUMENT('{"state": "WA"}') SUBDOC alias2;
+alias1	alias2
+104	{"houseNumber":1004,"streetName":"4th","zipcode":98764,"state":"WA"}
 SELECT t1.doc.id, t2.doc.id FROM t1 JOIN t2 ON DOCUMENT('{}') SUBDOC DOCUMENT('{"k":"v"}');
 `doc`.`id`	`doc`.`id`
 101	108
