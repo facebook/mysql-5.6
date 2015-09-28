@@ -616,6 +616,9 @@ ulong specialflag=0;
 ulong binlog_cache_use= 0, binlog_cache_disk_use= 0;
 ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
+std::atomic<unsigned long>max_running_queries, max_waiting_queries;
+ulong opt_max_running_queries, opt_max_waiting_queries;
+DB_AC *db_ac;
 ulong max_digest_length= 0;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
 my_bool log_bin_use_v1_row_events= 0;
@@ -2011,6 +2014,7 @@ void clean_up(bool print_message)
   if (cleanup_done++)
     return; /* purecov: inspected */
 
+  delete db_ac;
   stop_handle_manager();
   release_ddl_log();
 
@@ -6312,6 +6316,7 @@ int mysqld_main(int argc, char **argv)
   Service.SetSlowStarting(slow_start_timeout);
 #endif
 
+  db_ac = new DB_AC();
   if (init_server_components())
     unireg_abort(1);
 
@@ -10866,6 +10871,9 @@ static PSI_file_info all_server_files[]=
 #endif /* HAVE_PSI_INTERFACE */
 
 PSI_stage_info stage_after_create= { 0, "After create", 0};
+PSI_stage_info stage_admission_control_enter=
+  { 0, "Admission control enter", 0};
+PSI_stage_info stage_admission_control_exit= { 0, "Admission control exit", 0};
 PSI_stage_info stage_allocating_local_table= { 0, "allocating local table", 0};
 PSI_stage_info stage_alter_inplace_prepare= { 0, "preparing for alter table", 0};
 PSI_stage_info stage_alter_inplace= { 0, "altering table", 0};
@@ -10947,6 +10955,7 @@ PSI_stage_info stage_user_lock= { 0, "User lock", 0};
 PSI_stage_info stage_user_sleep= { 0, "User sleep", 0};
 PSI_stage_info stage_verifying_table= { 0, "verifying table", 0};
 PSI_stage_info stage_waiting_for_commit= { 0, "waiting for commit", 0};
+PSI_stage_info stage_waiting_for_admission= { 0, "waiting for admission", 0};
 PSI_stage_info stage_waiting_for_delay_list= { 0, "waiting for delay_list", 0};
 PSI_stage_info stage_waiting_for_gtid_to_be_written_to_binary_log= { 0, "waiting for GTID to be written to binary log", 0};
 PSI_stage_info stage_waiting_for_handler_insert= { 0, "waiting for handler insert", 0};
@@ -10975,6 +10984,8 @@ PSI_stage_info stage_slave_waiting_event_from_coordinator= { 0, "Waiting for an 
 PSI_stage_info *all_server_stages[]=
 {
   & stage_after_create,
+  & stage_admission_control_enter,
+  & stage_admission_control_exit,
   & stage_allocating_local_table,
   & stage_alter_inplace_prepare,
   & stage_alter_inplace,
@@ -11055,6 +11066,7 @@ PSI_stage_info *all_server_stages[]=
   & stage_user_lock,
   & stage_user_sleep,
   & stage_verifying_table,
+  & stage_waiting_for_admission,
   & stage_waiting_for_delay_list,
   & stage_waiting_for_handler_insert,
   & stage_waiting_for_handler_lock,
