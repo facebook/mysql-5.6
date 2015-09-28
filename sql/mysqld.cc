@@ -616,6 +616,9 @@ ulong specialflag=0;
 ulong binlog_cache_use= 0, binlog_cache_disk_use= 0;
 ulong binlog_stmt_cache_use= 0, binlog_stmt_cache_disk_use= 0;
 ulong max_connections, max_connect_errors;
+ulong max_running_queries, max_waiting_queries;
+ulong opt_max_running_queries, opt_max_waiting_queries;
+DB_AC db_ac;
 ulong max_digest_length= 0;
 ulong rpl_stop_slave_timeout= LONG_TIMEOUT;
 my_bool log_bin_use_v1_row_events= 0;
@@ -10947,6 +10950,7 @@ PSI_stage_info stage_user_lock= { 0, "User lock", 0};
 PSI_stage_info stage_user_sleep= { 0, "User sleep", 0};
 PSI_stage_info stage_verifying_table= { 0, "verifying table", 0};
 PSI_stage_info stage_waiting_for_commit= { 0, "waiting for commit", 0};
+PSI_stage_info stage_waiting_for_admission= { 0, "waiting for admission", 0};
 PSI_stage_info stage_waiting_for_delay_list= { 0, "waiting for delay_list", 0};
 PSI_stage_info stage_waiting_for_gtid_to_be_written_to_binary_log= { 0, "waiting for GTID to be written to binary log", 0};
 PSI_stage_info stage_waiting_for_handler_insert= { 0, "waiting for handler insert", 0};
@@ -11055,6 +11059,7 @@ PSI_stage_info *all_server_stages[]=
   & stage_user_lock,
   & stage_user_sleep,
   & stage_verifying_table,
+  & stage_waiting_for_admission,
   & stage_waiting_for_delay_list,
   & stage_waiting_for_handler_insert,
   & stage_waiting_for_handler_lock,

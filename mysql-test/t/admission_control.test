@@ -1,0 +1,112 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+
+connection default;
+use test_db;
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=10;
+set @@global.max_waiting_queries=5;
+create table t1(a int) engine=InnoDB;
+lock table t1 write;
+
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  connect (con$i, localhost, test_user,,test_db);
+  dec $i;
+}
+let $i= 10;
+while($i)
+{
+  connection con$i;
+  # These queries will be in running queue
+  send insert into t1 values(1);
+  dec $i;
+}
+let $i= 15;
+while ($i != 10)
+{
+  # These queries will be in waiting queue
+  connection con$i;
+  send insert into t1 values(1);
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+connection default;
+echo Waiting threads will have appropriate state set in processlist.;
+let $wait_condition=
+  select count(*)=5 from information_schema.processlist where state='waiting for admission';
+source include/wait_condition.inc;
+echo Super user is exempted from admission control checks.;
+select * from t1;
+connect (con16, localhost, test_user,,test_db);
+connection con16;
+echo Maximum waiting queries reached. So this would hit an error.;
+error ER_DB_ADMISSION_CONTROL;
+select * from t1;
+connection default;
+unlock tables;
+
+disable_query_log;
+disable_result_log;
+let $i= 15;
+while ($i)
+{
+  connection con$i;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+connection default;
+echo Verify the waiting queries received broadcast signal.;
+select count(*) from t1;
+
+echo Run parallel load and drop the database.;
+set @@global.max_waiting_queries=0; # No limit on waiting queue.
+disable_query_log;
+disable_result_log;
+let $i= 16;
+while($i)
+{
+  connection con$i;
+  # These queries will be in running queue
+  send insert into t1 values(1);
+  dec $i;
+}
+connection default;
+drop database test_db;
+let $i= 16;
+while($i)
+{
+  connection con$i;
+  error 0,ER_NO_SUCH_TABLE;
+  reap;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;
+
+echo Cleanup.;
+connection default;
+echo Verify there are no waiting threads.;
+select count(*) from information_schema.processlist where state='waiting for admission';
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
+disable_query_log;
+disable_result_log;
+let $i= 16;
+while ($i)
+{
+  disconnect con$i;
+  dec $i;
+}
+enable_query_log;
+enable_result_log;

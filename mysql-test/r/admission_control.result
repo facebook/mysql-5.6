@@ -1,0 +1,32 @@
+create database test_db;
+create user test_user@localhost;
+grant all on test_db to test_user@localhost;
+use test_db;
+set @start_max_running_queries= @@global.max_running_queries;
+set @start_max_waiting_queries= @@global.max_waiting_queries;
+set @@global.max_running_queries=10;
+set @@global.max_waiting_queries=5;
+create table t1(a int) engine=InnoDB;
+lock table t1 write;
+Waiting threads will have appropriate state set in processlist.
+Super user is exempted from admission control checks.
+select * from t1;
+a
+Maximum waiting queries reached. So this would hit an error.
+select * from t1;
+ERROR HY000: Maximum waiting queries 5 reached for database `test_db`
+unlock tables;
+Verify the waiting queries received broadcast signal.
+select count(*) from t1;
+count(*)
+15
+Run parallel load and drop the database.
+set @@global.max_waiting_queries=0;
+Cleanup.
+Verify there are no waiting threads.
+select count(*) from information_schema.processlist where state='waiting for admission';
+count(*)
+0
+set @@global.max_running_queries=@start_max_running_queries;
+set @@global.max_waiting_queries=@start_max_waiting_queries;
+drop user test_user@localhost;
