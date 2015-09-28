@@ -393,6 +393,7 @@ fbson::FbsonValue *Item::val_document_value(String *buff)
 {
   DBUG_ASSERT(type() == Item::INT_ITEM || type() == Item::REAL_ITEM ||
               type() == Item::DECIMAL_ITEM || type() == Item::STRING_ITEM ||
+              type() == Item::COPY_STR_ITEM ||
               type() == Item::CACHE_ITEM);
 
   fbson::FbsonValueCreater creater;
@@ -408,6 +409,7 @@ fbson::FbsonValue *Item::val_document_value(String *buff)
       pval = creater(this->val_real());
       break;
     case Item::STRING_ITEM:
+    case Item::COPY_STR_ITEM:
     {
       String *s = this->val_str(buff);
       if(nullptr != s)
