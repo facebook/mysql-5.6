@@ -739,7 +739,6 @@ my $mysqld_install_cmd_line = quote_options($mysqld_bootstrap,
                                             "--log-warnings=0",
                                             "--loose-skip-ndbcluster",
                                             "--max_allowed_packet=8M",
-                                            "--default-storage-engine=MyISAM",
                                             "--net_buffer_length=16K",
                                             @args,
                                           );
