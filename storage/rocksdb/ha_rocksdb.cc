@@ -34,8 +34,6 @@
 #include <sstream>
 
 #include "rdb_datadic.h"
-#include "rdb_locks.h"
-#include "rdb_rowmods.h"
 
 #include "rdb_comparator.h"
 #include "rdb_cf_options.h"
@@ -70,6 +68,8 @@
 extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
 
+#include "rdb_mutex_wrapper.h"
+
 void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(handlerton *hton,
                                        TABLE_SHARE *table,
@@ -86,6 +86,7 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
 static ROCKSDB_SHARE *get_share(const char *table_name, TABLE *table);
 static int free_share(ROCKSDB_SHARE *share);
 
+int return_status_error(THD *thd, rocksdb::Status &s);
 ///////////////////////////////////////////////////////////
 // Parameters and settings
 ///////////////////////////////////////////////////////////
@@ -100,7 +101,7 @@ Cf_options rocksdb_cf_options_map;
 ///////////////////////////////////////////////////////////
 handlerton *rocksdb_hton;
 
-rocksdb::DB *rdb= NULL;
+rocksdb::TransactionDB *rdb= NULL;
 class MyRocksSnapshot;
 
 static std::shared_ptr<rocksdb::Statistics> rocksdb_stats;
@@ -118,7 +119,6 @@ Dict_manager dict_manager;
 Column_family_manager cf_manager;
 Table_ddl_manager ddl_manager;
 Binlog_info_manager binlog_manager;
-LockTable row_locks;
 
 /*
    Hash used to track the number of open tables; variable for example share
@@ -940,27 +940,31 @@ public:
   THD* GetThread() const { return thd_; }
 };
 
-static const rocksdb::Snapshot* get_snapshot(THD *thd)
-{
-  const rocksdb::Snapshot* snapshot = rdb->GetSnapshot();
+/*
+  Note that given THD has acquired a given snapshot.
 
+  @detail This is used to report diagnostics info
+*/
+static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
+{
   mysql_mutex_lock(&snapshot_mutex);
   auto res = snapshot_map.emplace(snapshot,
       std::make_shared<MyRocksSnapshot>(thd));
   mysql_mutex_unlock(&snapshot_mutex);
-
   assert(res.second);
-  return snapshot;
 }
 
-static void release_snapshot(const rocksdb::Snapshot* snapshot)
+
+/*
+  Note that the snapshot is about to be released.
+*/
+static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
 {
   mysql_mutex_lock(&snapshot_mutex);
   auto count = snapshot_map.erase(snapshot);
   mysql_mutex_unlock(&snapshot_mutex);
 
   assert(count == 1);
-  rdb->ReleaseSnapshot(snapshot);
 }
 
 /*
@@ -1068,154 +1072,216 @@ public:
 
 class Rdb_transaction
 {
+  ulonglong n_writes= 0;
+
+  rocksdb::Transaction *txn;
+
+  bool is_trx_failed;
+
+  rocksdb::ReadOptions read_opts;
 public:
-  /* The snapshot the transaction is used */
-  const rocksdb::Snapshot *snapshot;
-
-  /* The changes made by this transaction (and not yet applied) */
-  Row_table changes;
-
-  uint n_writes;
-
   const char* mysql_log_file_name;
   my_off_t mysql_log_offset;
   const char* mysql_gtid;
 
-  /*
-    These are needed to use LF-Hash. They are allocated per-thread. Logically,
-    they are not part of the transaction but it's convenient to have them here.
-  */
-  LF_PINS *pins;
-
-  /* Row locks taken by this transaction */
-  Dynamic_array<Row_lock*> trx_locks;
-
-  /* Number of elements in trx_locks array when the current statement started */
-  int trx_locks_at_stmt_start;
+  void set_trx_failed(bool failed_arg) { is_trx_failed= failed_arg; }
 
   int timeout_sec; /* Cached value of @@rocksdb_lock_wait_timeout */
-  int max_row_locks;
+
+  /* Maximum number of locks the transaction can have */
+  ulonglong max_row_locks;
 
   void set_params(int timeout_sec_arg, int max_row_locks_arg)
   {
     timeout_sec= timeout_sec_arg;
     max_row_locks= max_row_locks_arg;
+    if (txn)
+      txn->SetLockTimeout(timeout_sec * 1000);
   }
 
-  Row_lock *get_lock(const uchar* key, size_t keylen, bool is_write_lock,
-                     bool *timed_out)
+  ulonglong get_n_writes() { return n_writes; }
+
+  void release_lock(rocksdb::ColumnFamilyHandle* column_family,
+                    const std::string &rowkey)
   {
-    Row_lock *lock;
-    if (trx_locks.elements() > max_row_locks)
+    /*
+      TODO: Need RocksDB's transaction API implement this call:
+      txn->UnLock(column_family->GetID(), rowkey);
+    */
+  }
+
+  bool commit_or_rollback(THD *thd)
+  {
+    bool res;
+    if (is_trx_failed)
     {
-      *timed_out= false;
-      return NULL;
+      rollback();
+      res= false;
     }
-    if (!(lock= row_locks.get_lock(pins, key, keylen, timeout_sec,
-                                   is_write_lock)))
-    {
-      *timed_out= true;
-      return NULL;
-    }
-    return lock;
-  }
-
-  void add_lock(Row_lock* lock)
-  {
-    trx_locks.append(lock);
-  }
-
-  void release_last_lock()
-  {
-    row_locks.release_lock(pins, trx_locks.at(trx_locks.elements() - 1));
-    trx_locks.pop();
-  }
-
-  void release_locks()
-  {
-    int size= trx_locks.elements();
-    for (int i= 0; i < size; i++)
-      row_locks.release_lock(pins, trx_locks.at(i));
-    trx_locks.clear();
+    else
+      res= commit(thd);
+    return res;
   }
 
   bool commit(THD *thd)
   {
-    bool res= false;
-    thd_binlog_pos(thd, &mysql_log_file_name, &mysql_log_offset,
-                   &mysql_gtid);
-    res= flush_batch(thd, true);
-    /* rollback() will delete snapshot, batch and locks */
-    rollback();
-    return res;
-  }
-
-private:
-
-  int flush_batch_intern(THD* thd, bool on_commit)
-  {
-    bool res= false;
-    rocksdb::WriteBatch batch;
-
-    if (changes.is_empty())
-      return false;
-
-    if (on_commit)
+    if (get_n_writes() != 0)
     {
+      thd_binlog_pos(thd, &mysql_log_file_name, &mysql_log_offset,
+                     &mysql_gtid);
       binlog_manager.update(mysql_log_file_name,
                             mysql_log_offset,
-                            mysql_gtid,
-                            batch);
+                            mysql_gtid, txn->GetWriteBatch());
+      return commit_no_binlog(thd);
     }
-
-    for (int reverse=0; reverse <= 1; reverse++)
+    else
     {
-      Row_table_iter iter(&changes, (bool)reverse);
-
-      for (iter.SeekToFirst(); iter.Valid(); iter.Next())
-      {
-        if (iter.is_tombstone())
-        {
-          batch.Delete(iter.keydef()->get_cf(), iter.key());
-        }
-        else
-        {
-          batch.Put(iter.keydef()->get_cf(), iter.key(), iter.value());
-        }
-      }
+      rollback();
+      return 0;
     }
-    rocksdb::Status s= rdb->Write(get_write_options(thd), &batch);
-    res= !s.ok();
-    if (res)
-      rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TRX_COMMIT);
+  }
 
+  bool commit_no_binlog(THD *thd)
+  {
+    bool res= false;
+    register_snapshot_release(read_opts.snapshot);
+    rocksdb::Status s= txn->Commit();
+    if (!s.ok())
+    {
+      rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_TRX_COMMIT);
+      res= true;
+    }
+    delete txn;
+    txn= NULL;
+    n_writes= 0;
     return res;
   }
 
-public:
-  int flush_batch(THD *thd, bool on_commit=false)
+  void rollback()
   {
-    bool bres= flush_batch_intern(thd, on_commit);
-    changes.reinit();
     n_writes= 0;
-    return bres;
+    if (txn)
+    {
+      register_snapshot_release(read_opts.snapshot);
+      /* This will also release all of the locks: */
+      txn->Rollback();
+      delete txn;
+      txn= NULL;
+    }
   }
 
-  void prepare_for_write()
+  /*
+    Flush the data accumulated so far. This assumes we're doing a bulk insert.
+
+    @detail
+      This should work like transaction commit, except that we don't
+      synchronize with the binlog (there is no API that would allow to have
+      binlog flush the changes accumulated so far and return its current
+      position)
+
+    @todo
+      Add test coverage for what happens when somebody attempts to do bulk
+      inserts while inside a multi-statement transaction.
+  */
+  bool flush_batch(THD *thd)
   {
-    /* Currently, we don't do anything here */
+    if (get_n_writes() == 0)
+      return false;
+
+    /* Commit the current transaction */
+    bool res;
+    if ((res= commit_no_binlog(thd)))
+      return res;
+
+    /* Start another one */
+    start_trx(thd);
+    return false;
+  }
+
+  const char *err_too_many_locks=
+    "Number of locks held by the transaction exceeded @@rocksdb_max_row_locks";
+
+  rocksdb::Status Put(rocksdb::ColumnFamilyHandle* column_family,
+                      const rocksdb::Slice& key, const rocksdb::Slice& value)
+  {
+    if (++n_writes > max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return txn->Put(column_family, key, value);
+  }
+
+  rocksdb::Status Delete(rocksdb::ColumnFamilyHandle* column_family,
+                         const rocksdb::Slice& key)
+  {
+    if (++n_writes > max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return txn->Delete(column_family, key);
+  }
+
+  rocksdb::Status Get(rocksdb::ColumnFamilyHandle* column_family,
+                      const rocksdb::Slice& key, std::string* value)
+  {
+    return txn->Get(read_opts, column_family, key, value);
+  }
+
+  rocksdb::Status GetForUpdate(rocksdb::ColumnFamilyHandle* column_family,
+                               const rocksdb::Slice& key, std::string* value)
+  {
+    if (++n_writes > max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return txn->GetForUpdate(read_opts, column_family, key, value);
+  }
+
+  rocksdb::Iterator *GetIterator(rocksdb::ColumnFamilyHandle* column_family,
+                                 bool total_order_seek,
+                                 bool fill_cache,
+                                 bool read_current=false)
+  {
+    rocksdb::ReadOptions options= read_opts;
+
+    options.total_order_seek= total_order_seek;
+    options.fill_cache= fill_cache;
+    if (read_current)
+      options.snapshot= NULL;
+    rocksdb::Iterator* rocksdb_it= txn->GetIterator(options, column_family);
+    return rocksdb_it;
+  }
+
+  bool is_trx_started()
+  {
+    return (txn != NULL);
+  }
+
+  void start_trx(THD *thd)
+  {
+    rocksdb::TransactionOptions txn_opts;
+    rocksdb::WriteOptions write_opts;
+    txn_opts.set_snapshot= true;
+    txn_opts.lock_timeout= timeout_sec * 1000;
+
+    write_opts.sync= THDVAR(thd, write_sync);
+    write_opts.disableWAL= THDVAR(thd, write_disable_wal);
+    write_opts.ignore_missing_column_families=
+      THDVAR(thd, write_ignore_missing_column_families);
+
+    txn= rdb->BeginTransaction(write_opts, txn_opts);
+
+    read_opts= rocksdb::ReadOptions();
+    read_opts.snapshot= txn->GetSnapshot();
+    register_snapshot(read_opts.snapshot, thd);
   }
 
   /*
     Start a statement inside a multi-statement transaction.
+
+    @todo: are we sure this is called once (and not several times) per
+    statement start?
 
     For hooking to start of statement that is its own transaction, see
     ha_rocksdb::external_lock().
   */
   void start_stmt()
   {
-    changes.start_stmt();
-    trx_locks_at_stmt_start= trx_locks.elements();
+    txn->SetSavePoint();
   }
 
   /*
@@ -1224,42 +1290,17 @@ public:
   */
   void rollback_stmt()
   {
-    changes.rollback_stmt();
-
-    /* Release the locks taken by the last statement */
-    int size= trx_locks.elements();
-    DBUG_ASSERT(trx_locks_at_stmt_start <= size);
-    for (int i= trx_locks_at_stmt_start; i < size; i++)
-      row_locks.release_lock(pins, trx_locks.at(i));
-    trx_locks.elements(trx_locks_at_stmt_start);
-  }
-  void rollback()
-  {
-    if (snapshot)
-    {
-      release_snapshot(snapshot);
-      snapshot= NULL;
-    }
-
-    changes.reinit();
-    release_locks();
-    n_writes= 0;
+    /* TODO: here we must release the locks taken since the start_stmt() call */
+    if (txn)
+      txn->RollbackToSavePoint();
   }
 
-  Rdb_transaction() :
-    snapshot(NULL), n_writes(0), pins(NULL), trx_locks_at_stmt_start(0)
-  {
-    changes.init();
-  }
+  Rdb_transaction() : txn(NULL)
+  {}
 
   ~Rdb_transaction()
   {
-    if (snapshot)
-    {
-      release_snapshot(snapshot);
-      snapshot= NULL;
-    }
-    changes.cleanup();
+    rollback();
   }
 };
 
@@ -1276,17 +1317,23 @@ static Rdb_transaction* &get_trx_from_thd(THD *thd)
 static Rdb_transaction *get_or_create_trx(THD *thd)
 {
   Rdb_transaction*& trx= get_trx_from_thd(thd);
+  // TODO: this is called too many times.. O(#rows)
   if (trx == NULL)
   {
     if (!(trx= new Rdb_transaction))
       return NULL;
-    trx->pins= row_locks.get_pins();
-    trx->snapshot= get_snapshot(thd);
+    trx->set_params(THDVAR(thd, lock_wait_timeout),
+                    THDVAR(thd, max_row_locks));
+    trx->start_trx(thd);
   }
   else
   {
-    if (!trx->snapshot)
-      trx->snapshot= get_snapshot(thd);
+    trx->set_params(THDVAR(thd, lock_wait_timeout),
+                    THDVAR(thd, max_row_locks));
+    if (!trx->is_trx_started())
+    {
+      trx->start_trx(thd);
+    }
   }
   return trx;
 }
@@ -1295,8 +1342,6 @@ static Rdb_transaction *get_or_create_trx(THD *thd)
 static int rocksdb_close_connection(handlerton* hton, THD* thd)
 {
   Rdb_transaction*& trx= get_trx_from_thd(thd);
-  if (trx && trx->pins)
-    row_locks.put_pins(trx->pins);
   delete trx;
   trx= NULL;
   return 0;
@@ -1363,9 +1408,16 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
   rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
 
+  /* note: h->external_lock(F_UNLCK) is called after this function is called) */
+
   if (commit_trx ||
      (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
   {
+    /*
+      We get here
+       - For a COMMIT statement that finishes a multi-statement transaction
+       - For a statement that has its own transaction
+    */
     Rdb_transaction*& trx= get_trx_from_thd(thd);
     if (trx && trx->commit(thd))
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
@@ -1373,10 +1425,14 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
   else
   {
     /*
-      Committing a statement within a transaction. We don't need to do anything
-      here. trx->start_stmt() will notify Rdb_transaction that another
-      statement has started.
+      We get here when committing a statement within a transaction.
+
+      We don't need to do anything here. trx->start_stmt() will notify
+      Rdb_transaction that another statement has started.
     */
+   Rdb_transaction*& trx= get_trx_from_thd(thd);
+   if (trx)
+     trx->set_trx_failed(false);
   }
   DBUG_RETURN(0);
 }
@@ -1389,16 +1445,30 @@ static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
 
   if (rollback_trx)
   {
-    /* Discard the changes made by the transaction */
+    /*
+      We get here, when
+      - ROLLBACK statement is issued.
+
+      Discard the changes made by the transaction
+    */
     Rdb_transaction*& trx= get_trx_from_thd(thd);
     if (trx)
       trx->rollback();
   }
   else
   {
+    /*
+      We get here when
+      - a statement with AUTOCOMMIT=1 is being rolled back (because of some
+        error)
+      - a statement inside a transaction is rolled back
+    */
     Rdb_transaction*& trx= get_trx_from_thd(thd);
     if (trx)
+    {
       trx->rollback_stmt();
+      trx->set_trx_failed(true);
+    }
   }
   return 0;
 }
@@ -1626,11 +1696,10 @@ static int rocksdb_start_trx_and_assign_read_view(
   {
     if (!(trx= new Rdb_transaction))
       return 1;
-    trx->pins= row_locks.get_pins();
   }
 
-  if (trx->snapshot)
-    release_snapshot(trx->snapshot);
+
+  trx->start_trx(thd);
 
   if (binlog_file)
   {
@@ -1640,7 +1709,6 @@ static int rocksdb_start_trx_and_assign_read_view(
       return 1;
   }
 
-  trx->snapshot= get_snapshot(thd);
   rocksdb_register_trx(hton, thd, trx);
 
   if (binlog_file)
@@ -1807,9 +1875,6 @@ static int rocksdb_init_func(void *p)
 
   DBUG_ASSERT(!mysqld_embedded);
 
-  row_locks.init(compare_mem_comparable_keys,
-                 Primary_key_comparator::get_hashnr);
-
   rocksdb_stats= rocksdb::CreateDBStatistics();
   db_options.statistics = rocksdb_stats;
 
@@ -1942,9 +2007,14 @@ static int rocksdb_init_func(void *p)
                                       rocksdb::Env::Priority::HIGH);
   main_opts.env->SetBackgroundThreads(main_opts.max_background_compactions,
                                       rocksdb::Env::Priority::LOW);
-  status= rocksdb::DB::Open(main_opts, rocksdb_db_name, cf_descr,
-                            &cf_handles, &rdb);
+  rocksdb::TransactionDBOptions txn_db_options;
+  txn_db_options.transaction_lock_timeout= 2; //*1000*1000; // 2 seconds
+  txn_db_options.custom_mutex_factory=
+  std::make_shared<Wrapped_mysql_mutex_factory>();
 
+  status= rocksdb::TransactionDB::Open(main_opts, txn_db_options,
+                                       rocksdb_db_name, cf_descr,
+                                       &cf_handles, &rdb);
 
   if (!status.ok())
   {
@@ -2018,7 +2088,7 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_unlock(&drop_index_mutex);
 
   // Stop all rocksdb background work
-  rocksdb::CancelAllBackgroundWork(rdb, true);
+  CancelAllBackgroundWork(rdb->GetBaseDB(), true);
 
   if (rocksdb_open_tables.records)
     error= 1;
@@ -2026,7 +2096,6 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_destroy(&snapshot_mutex);
   mysql_mutex_destroy(&rocksdb_mutex);
 
-  row_locks.cleanup();
   ddl_manager.cleanup();
   binlog_manager.cleanup();
   dict_manager.cleanup();
@@ -2753,6 +2822,13 @@ int ha_rocksdb::open(const char *name, int mode, uint test_if_locked)
   */
   key_used_on_scan= table->s->primary_key;
 
+  /*
+    Full table scan actually uses primary key
+    (UPDATE needs to know this, otherwise it will go into infinite loop on
+    queries like "UPDATE tbl SET pk=pk+100")
+  */
+  key_used_on_scan= table->s->primary_key;
+
   /* Sometimes, we may use sec_key_packed_tuple for storing packed PK */
   uint max_packed_sec_key_len= packed_key_len;
   for (uint i= 0; i < table->s->keys; i++)
@@ -2875,12 +2951,15 @@ bool ha_rocksdb::get_error_message(int error, String *buf)
     other  - error, either given table ddl is not supported by rocksdb or OOM.
 */
 
-int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len)
+int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
+                                uint len, HA_CREATE_INFO *create_info)
 {
   uint i;
   DBUG_ENTER("ha_rocksdb::create_key_defs");
   uint n_keys= table_arg->s->keys;
-  uint index_id= 0;
+  rocksdb::ColumnFamilyHandle* cf_handles[MAX_INDEXES];
+  bool is_cf_reverse[MAX_INDEXES];
+  bool is_auto_cf[MAX_INDEXES];
 
   bool write_err= false;
   std::unique_ptr<rocksdb::WriteBatch> wb= dict_manager.begin();
@@ -2896,6 +2975,10 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
   tbl_def->n_keys= n_keys;
   tbl_def->key_descr= key_descr;
 
+  /*
+     The first loop checks the index parameters and creates
+     column families if necessary.
+  */
   for (i= 0; i < table_arg->s->keys; i++)
   {
     rocksdb::ColumnFamilyHandle* cf_handle;
@@ -2944,15 +3027,26 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
                "column family not valid for storing index data");
       goto error;
     }
-    bool is_auto_cf;
+    bool is_auto_cf_flag;
     cf_handle= cf_manager.get_or_create_cf(rdb, comment, db_table,
                                            table_arg->key_info[i].name,
-                                           &is_auto_cf);
+                                           &is_auto_cf_flag);
     if (!cf_handle)
       goto error;
 
-    index_id= ddl_manager.get_and_update_next_number(&dict_manager);
+    cf_handles[i]= cf_handle;
+    is_cf_reverse[i]= is_cf_name_reverse(comment);
+    is_auto_cf[i]= is_auto_cf_flag;
+  }
 
+
+  /*
+    Get the index numbers (this will update the next_index_number)
+    and create RDBSE_KEYDEF structures.
+  */
+  for (i= 0; i < table_arg->s->keys; i++)
+  {
+    uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
     uint16_t index_dict_version;
     uchar index_type;
     uint16_t kv_version;
@@ -2970,12 +3064,12 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table, uint len
     }
 
     if (!(key_descr[i]= new RDBSE_KEYDEF(index_id, i,
-                                         cf_handle,
+                                         cf_handles[i],
                                          index_dict_version,
                                          index_type,
                                          kv_version,
-                                         is_cf_name_reverse(comment),
-                                         is_auto_cf,
+                                         is_cf_reverse[i],
+                                         is_auto_cf[i],
                                          table_arg->key_info[i].name
                                         )))
       goto error;
@@ -3112,7 +3206,8 @@ int ha_rocksdb::create(const char *name, TABLE *table_arg,
     DBUG_RETURN(HA_ERR_ROCKSDB_PK_REQUIRED);
   }
 
-  if ((res= create_key_defs(table_arg, strbuf.ptr(), strbuf.length())))
+  if ((res= create_key_defs(table_arg, strbuf.ptr(), strbuf.length(),
+                            create_info)))
     DBUG_RETURN(res);
 
   if (create_info->auto_increment_value)
@@ -3180,7 +3275,7 @@ bool ha_rocksdb::check_keyread_allowed(uint inx, uint part, bool all_parts) cons
 }
 
 int ha_rocksdb::read_key_exact(RDBSE_KEYDEF *kd,
-                               Apply_changes_iter *iter,
+                               rocksdb::Iterator *iter,
                                bool full_key_match,
                                rocksdb::Slice& key_slice)
 {
@@ -4101,41 +4196,33 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   rocksdb::Slice key_slice(rowid, rowid_size);
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
-  Row_lock *UNINIT_VAR(lock); // protected by 'if (lock_rows)'
-  bool timed_out;
-  if (lock_rows)
-  {
-    if (!(lock= trx->get_lock((const uchar*)rowid, rowid_size, lock_for_write,
-                              &timed_out)))
-    {
-      DBUG_RETURN(return_lock_failure(timed_out));
-    }
-  }
-
-  rocksdb::ReadOptions options;
-  if (!lock_rows)
-    options.snapshot= trx->snapshot;
 
   bool found;
-  if (!trx->changes.Get(pk_descr, key_slice, &retrieved_record, &found))
+  rocksdb::Status s;
+
+  if (!lock_rows)
+    s= trx->Get(pk_descr->get_cf(), key_slice, &retrieved_record);
+  else
+    s= trx->GetForUpdate(pk_descr->get_cf(), key_slice, &retrieved_record);
+
+  if (!s.IsNotFound() && !s.ok())
   {
-    rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key_slice,
-                                &retrieved_record);
-    found= !s.IsNotFound();
+    DBUG_RETURN(return_status_error(table->in_use, s));
   }
+  found= !s.IsNotFound();
 
   if (found)
   {
-    if (lock_rows)
-      trx->add_lock(lock);
     last_rowkey.copy((const char*)rowid, rowid_size, &my_charset_bin);
     rc= convert_record_from_storage_format(&key_slice, buf);
     table->status= 0;
   }
   else
   {
-    if (lock_rows)
-      row_locks.release_lock(trx->pins, lock);
+    /*
+      Note: we don't need to unlock the row. It is intentional that we keep
+      locks on rows that don't exist.
+    */
     table->status= STATUS_NOT_FOUND;
     rc= HA_ERR_KEY_NOT_FOUND;
   }
@@ -4391,7 +4478,8 @@ void ha_rocksdb::unlock_row()
   if (lock_rows)
   {
     Rdb_transaction *trx= get_or_create_trx(table->in_use);
-    trx->release_last_lock();
+    trx->release_lock(pk_descr->get_cf(), std::string(last_rowkey.ptr(),
+                                                      last_rowkey.length()));
   }
 }
 
@@ -4423,10 +4511,10 @@ int ha_rocksdb::write_row(uchar *buf)
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
   if (rv == 0 && !do_locking &&
-      trx->n_writes > THDVAR(table->in_use, bulk_load_size))
+      trx->get_n_writes() > THDVAR(table->in_use, bulk_load_size))
   {
     /* Bulk insert mode: flush the write batch if it became too big */
-    if (trx->flush_batch(table->in_use, false))
+    if (trx->flush_batch(table->in_use))
       rv= HA_ERR_INTERNAL_ERROR;
   }
 
@@ -4436,12 +4524,11 @@ int ha_rocksdb::write_row(uchar *buf)
   DBUG_RETURN(rv);
 }
 
+
 int ha_rocksdb::update_write_row(const uchar *old_data,
                                  uchar *new_data,
                                  bool do_locking)
 {
-  int locks_added= 0;
-
   int pk_packed_size;
   bool pk_key_changed= false;
 
@@ -4460,8 +4547,6 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   DBUG_ENTER("ha_rocksdb::write_row_common");
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
-
-  trx->prepare_for_write();
 
   /* Get a rowkey for the new record */
   pk_packed_size= pk_descr->pack_record(this, table, pack_buffer, new_data,
@@ -4553,25 +4638,6 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       continue;
 
     /*
-      Get a record lock to make sure we do not overwrite somebody's changes.
-    */
-    bool timed_out;
-    Row_lock *lock= NULL; // init to shut up the compiler
-    if (!(lock= trx->get_lock(new_key_packed_tuple, new_packed_size, true,
-                              &timed_out)))
-    {
-      /*
-        On failure, need to unlock all locks obtained during this process.
-      */
-      while (--locks_added >= 0)
-        trx->release_last_lock();
-      DBUG_RETURN(return_lock_failure(timed_out));
-    }
-
-    trx->add_lock(lock);
-    locks_added++;
-
-    /*
       Perform a read to determine if a duplicate entry exists. For primary
       keys, a point lookup will be sufficient. For secondary indexes, a
       range scan is needed.
@@ -4579,30 +4645,22 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       note: we intentionally don't set options.snapshot here. We want to read
       the latest committed data.
     */
-    rocksdb::ReadOptions options;
 
     bool found;
     if (i == table->s->primary_key)
     {
-      /*
-        Primary key has changed, it should be deleted later.
-      */
+      /* Primary key has changed, it should be deleted later. */
       if (old_data)
         pk_key_changed= true;
 
-      if (!trx->changes.Get(pk_descr, new_key_slice, &retrieved_record, &found))
-      {
-        rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), new_key_slice,
-                                    &retrieved_record);
-        found= !s.IsNotFound();
-      }
+      rocksdb::Status s;
+      s= trx->Get(pk_descr->get_cf(), new_key_slice, &retrieved_record);
+      found= !s.IsNotFound();
     }
     else
     {
-      Apply_changes_iter iter;
       bool all_parts_used= (user_defined_key_parts ==
                             key_descr[i]->get_m_key_parts());
-
       /*
         This iterator seems expensive since we need to allocate and free
         memory for each unique index.
@@ -4614,32 +4672,39 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
 
         The bloom filter may need to be disabled for this lookup.
       */
-      if (!can_use_bloom_filter(key_descr[i], new_key_slice,
-                                all_parts_used,
-                                is_ascending(key_descr[i], HA_READ_KEY_EXACT)))
-        options.total_order_seek= true;
-      iter.init(key_descr[i]->is_reverse_cf,
-                &trx->changes,
-                rdb->NewIterator(options, key_descr[i]->get_cf()));
+      bool total_order_seek=
+        !can_use_bloom_filter(key_descr[i], new_key_slice, all_parts_used,
+                              is_ascending(key_descr[i], HA_READ_KEY_EXACT));
+      bool fill_cache= !THDVAR(ha_thd(), skip_fill_cache);
 
+      /*
+        psergey-todo: we just need to take lock, lookups not needed:
+      */
+      std::string dummy_value;
+      rocksdb::Status s= trx->GetForUpdate(key_descr[i]->get_cf(),
+                                           new_key_slice,
+                                           &dummy_value);
+      if (!s.ok() && !s.IsNotFound())
+        DBUG_RETURN(return_status_error(table->in_use, s));
+
+      rocksdb::Iterator *s_iter= trx->GetIterator(key_descr[i]->get_cf(),
+                                                  total_order_seek,
+                                                  fill_cache,
+                                                  true /* read current data */);
       /*
         Need to scan the transaction to see if there is a duplicate key.
         Also need to scan RocksDB and verify the key has not been deleted
         in the transaction.
       */
-      iter.Seek(new_key_slice);
-      found= !read_key_exact(key_descr[i], &iter, all_parts_used,
+      s_iter->Seek(new_key_slice);
+      found= !read_key_exact(key_descr[i], s_iter, all_parts_used,
                              new_key_slice);
+      delete s_iter;
     }
 
     if (found)
     {
-      /*
-        There is a row with this rowid already, so error out.
-        Need to unlock all locks obtained during this process.
-      */
-      while (--locks_added >= 0)
-        trx->release_last_lock();
+      /* There is a row with this rowid already, so error out. */
       dupp_errkey= i;
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
@@ -4659,7 +4724,14 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     if (i == table->s->primary_key)
     {
       if (pk_key_changed)
-        trx->changes.Delete(key_descr[i], old_pk_key_slice);
+      {
+        rocksdb::Status s= trx->Delete(key_descr[i]->get_cf(),
+                                       old_pk_key_slice);
+        if (!s.ok())
+        {
+          DBUG_RETURN(return_status_error(table->in_use, s));
+        }
+      }
       continue;
     }
 
@@ -4711,11 +4783,18 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
           memcmp(sec_key_tails_old, sec_key_tails, old_key_tail_size) == 0)
         continue;
 
-      trx->changes.Delete(key_descr[i], old_key_slice);
+      auto s= trx->Delete(key_descr[i]->get_cf(), old_key_slice);
+      if (!s.ok())
+      {
+        DBUG_RETURN(return_status_error(table->in_use, s));
+      }
     }
 
-    trx->changes.Put(key_descr[i], new_key_slice, new_value_slice);
-    trx->n_writes++;
+    auto s= trx->Put(key_descr[i]->get_cf(), new_key_slice, new_value_slice);
+    if (!s.ok())
+    {
+      DBUG_RETURN(return_status_error(table->in_use, s));
+    }
   }
 
   if (table->next_number_field)
@@ -4728,8 +4807,17 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   convert_record_to_storage_format((const char*)pk_packed_tuple,
                                    pk_packed_size, &value_slice);
 
-  trx->changes.Put(pk_descr, new_key_slice, value_slice);
-  trx->n_writes++;
+  auto s= trx->Put(pk_descr->get_cf(), new_key_slice, value_slice);
+  if (!s.ok())
+  {
+    if (s.IsBusy())
+    {
+      errkey= table->s->primary_key;
+      DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
+    }
+
+    DBUG_RETURN(return_status_error(table->in_use, s));
+  }
 
   DBUG_RETURN(0);
 }
@@ -4766,7 +4854,7 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
     If bloom filter condition is changed, currently it is necessary to destroy and
     re-create Iterator.
   */
-  if (scan_it && scan_it->skip_bloom != skip_bloom)
+  if (scan_it && scan_it_skips_bloom != skip_bloom)
   {
     delete scan_it;
     scan_it= NULL;
@@ -4778,16 +4866,9 @@ void ha_rocksdb::setup_index_scan(RDBSE_KEYDEF *keydef,
   */
   if (!scan_it)
   {
-    rocksdb::ReadOptions options;
-    if (THDVAR(ha_thd(), skip_fill_cache))
-      options.fill_cache= false;
-    if (!lock_rows)
-      options.snapshot= trx->snapshot;
-    options.total_order_seek= skip_bloom;
-    rocksdb::Iterator* rocksdb_it= rdb->NewIterator(options, keydef->get_cf());
-    scan_it= new Apply_changes_iter;
-    scan_it->init(keydef->is_reverse_cf, &trx->changes, rocksdb_it);
-    scan_it->skip_bloom= skip_bloom;
+    bool fill_cache= !THDVAR(ha_thd(), skip_fill_cache);
+    scan_it= trx->GetIterator(keydef->get_cf(), skip_bloom, fill_cache);
+    scan_it_skips_bloom= skip_bloom;
   }
   /*
     Seek() will "Position at the first key in the source that at or past target".
@@ -4859,7 +4940,6 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
     DBUG_RETURN(HA_ERR_END_OF_FILE);
   }
 
-retry:
   if (skip_scan_it_next_call)
     skip_scan_it_next_call= false;
   else
@@ -4883,52 +4963,29 @@ retry:
     {
       if (lock_rows)
       {
-        Rdb_transaction *trx= get_or_create_trx(table->in_use);
         /*
-          Here is a problem. We've read a row without locking it.
-          We could not lock the row before reading it, because we didn't know
-          its rowkey.
+          Lock the row we've just read.
 
-          Current solution is: lock the row and re-read it.
+          We've read the row from the snapshot, now we call GetForUpdate
+          which will 1) Take a lock and 2) Will fail if the row was modified
+          since the snapshot was taken.
+
+          (we could not have locked the row when reading it, because reads are
+           done using an iterator, not with Get() calls)
         */
-        Row_lock *lock;
-        bool timed_out;
-        if (!(lock= trx->get_lock((const uchar*)key.data(), key.size(),
-                                  lock_for_write, &timed_out)))
+        Rdb_transaction *trx= get_or_create_trx(table->in_use);
+        rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
+                                             &retrieved_record);
+        if (!s.ok())
         {
-          io_perf_end_and_record();
-          DBUG_RETURN(return_lock_failure(timed_out));
+          DBUG_RETURN(return_status_error(table->in_use, s));
         }
-
-        rocksdb::ReadOptions options;
-        /* lock_rows==TRUE, so not setting options.snapshot */
-        bool found;
-        if (!trx->changes.Get(pk_descr, key, &retrieved_record, &found))
-        {
-          rocksdb::Status s= rdb->Get(options, pk_descr->get_cf(), key,
-                                      &retrieved_record);
-          found= !s.IsNotFound();
-        }
-
-        if (!found)
-        {
-          /* The row is not there already. Try another one */
-          row_locks.release_lock(trx->pins, lock);
-          goto retry;
-        }
-        trx->add_lock(lock);
-
-        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rc= convert_record_from_storage_format(&key, buf);
-        table->status= 0;
       }
-      else
-      {
-        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-        rocksdb::Slice value= scan_it->value();
-        rc= convert_record_from_storage_format(&key, &value, buf);
-        table->status= 0;
-      }
+
+      last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+      rocksdb::Slice value= scan_it->value();
+      rc= convert_record_from_storage_format(&key, &value, buf);
+      table->status= 0;
     }
   }
   else
@@ -5006,8 +5063,13 @@ int ha_rocksdb::delete_row(const uchar *buf)
 
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
-  trx->prepare_for_write();
-  trx->changes.Delete(pk_descr, key_slice);
+  rocksdb::Status s;
+  s= trx->Delete(pk_descr->get_cf(), key_slice);
+
+  if (!s.ok())
+  {
+    DBUG_RETURN(return_status_error(table->in_use, s));
+  }
 
   // Delete the record for every secondary index
   for (uint i= 0; i < table->s->keys; i++)
@@ -5020,7 +5082,11 @@ int ha_rocksdb::delete_row(const uchar *buf)
                                              NULL, NULL);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
-      trx->changes.Delete(key_descr[i], secondary_key_slice);
+      s= trx->Delete(key_descr[i]->get_cf(), secondary_key_slice);
+      if (!s.ok())
+      {
+        DBUG_RETURN(return_status_error(table->in_use, s));
+      }
     }
   }
 
@@ -5155,14 +5221,31 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
 }
 
 
-int ha_rocksdb::return_lock_failure(bool timed_out)
+int return_status_error(THD *thd, rocksdb::Status &s)
 {
-  THD *thd;
-  if ((thd= table->in_use))
+  DBUG_ASSERT(!s.ok());
+
+  if (s.IsTimedOut())
   {
-    thd_mark_transaction_to_rollback(thd, false);
+    /*
+      SQL layer has weird expectations. If we return an error when
+      doing a read in DELETE IGNORE, it will ignore the error ("because it's
+      an IGNORE command!) but then will fail an assert, because "error code was
+      returned, but no error happened".
+      Do what InnoDB's convert_error_code_to_mysql() does: force a statement
+      rollback before returning HA_ERR_LOCK_WAIT_TIMEOUT:
+    */
+    thd_mark_transaction_to_rollback(thd, false /*just statement*/);
+    return HA_ERR_LOCK_WAIT_TIMEOUT;
   }
-  return timed_out? HA_ERR_LOCK_WAIT_TIMEOUT : HA_ERR_ROCKSDB_TOO_MANY_LOCKS;
+  if (s.IsBusy())
+  {
+    return HA_ERR_LOCK_DEADLOCK;
+  }
+  /* TODO: who returns HA_ERR_ROCKSDB_TOO_MANY_LOCKS now?? */
+
+  my_error(ER_INTERNAL_ERROR, MYF(0), s.ToString().c_str());
+  return HA_ERR_INTERNAL_ERROR;
 }
 
 
@@ -5213,9 +5296,6 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   DBUG_ASSERT(new_data == table->record[0]);
 
   io_perf_start();
-
-  //psergey-todo: how come we don't get locks for the 'old_data'?  because
-  // we've already taken them when reading??
 
   int rv= update_write_row(old_data, new_data, true);
   io_perf_end_and_record();
@@ -5293,6 +5373,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
   if (lock_type == F_UNLCK)
   {
     Rdb_transaction* trx= get_or_create_trx(thd);
+
     if (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
     {
       /*
@@ -5303,17 +5384,14 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
         for each of them, but that's ok because non-first trx->commit() calls
         will be no-ops.
       */
-      res= trx->commit(thd);
-      delete scan_it;
-      scan_it= NULL;
+      res= trx->commit_or_rollback(thd);
     }
     else if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
     {
-      if (trx->snapshot)
-      {
-        release_snapshot(trx->snapshot);
-        trx->snapshot= NULL;
-      }
+      /*
+        TODO: do we support read committed? Our natural isolation level is
+        REPEATABLE READ.
+      */
     }
   }
   else
@@ -5324,11 +5402,11 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       So, we put this code here.
     */
     Rdb_transaction* trx= get_or_create_trx(thd);
-    trx->trx_locks_at_stmt_start= trx->trx_locks.elements();
 
     THD *thd= table->in_use;
     trx->set_params(THDVAR(thd, lock_wait_timeout),
                     THDVAR(thd, max_row_locks));
+    // TODO: get_or_create_trx above does the same
 
     store_checksums= THDVAR(thd, store_checksums);
     verify_checksums= THDVAR(thd, verify_checksums);
@@ -5371,8 +5449,8 @@ int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
   if (thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))
   {
     Rdb_transaction* trx= get_or_create_trx(thd);
-    trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
-                    THDVAR(table->in_use, max_row_locks));
+   /* trx->set_params(THDVAR(table->in_use, lock_wait_timeout),
+                    THDVAR(table->in_use, max_row_locks)); */
     store_checksums= THDVAR(thd, store_checksums);
     verify_checksums= THDVAR(thd, verify_checksums);
 
