@@ -1808,13 +1808,13 @@ void Binlog_info_manager::cleanup()
 void Binlog_info_manager::update(const char* binlog_name,
                                  const my_off_t binlog_pos,
                                  const char* binlog_gtid,
-                                 rocksdb::WriteBatch& batch)
+                                 rocksdb::WriteBatchBase* batch)
 {
   if (binlog_name && binlog_pos)
   {
     // max binlog length (512) + binlog pos (4) + binlog gtid (57) < 1024
     uchar  value_buf[1024];
-    dict->Put(&batch, key_slice,
+    dict->Put(batch, key_slice,
               pack_value(value_buf, binlog_name, binlog_pos, binlog_gtid));
   }
 }
@@ -1979,7 +1979,8 @@ std::unique_ptr<rocksdb::WriteBatch> Dict_manager::begin()
   return std::unique_ptr<rocksdb::WriteBatch>(new rocksdb::WriteBatch);
 }
 
-void Dict_manager::Put(rocksdb::WriteBatch *batch, const rocksdb::Slice &key,
+void Dict_manager::Put(rocksdb::WriteBatchBase *batch,
+                       const rocksdb::Slice &key,
                        const rocksdb::Slice &value)
 {
   batch->Put(system_cfh, key, value);
@@ -1992,7 +1993,8 @@ rocksdb::Status Dict_manager::Get(const rocksdb::Slice &key, std::string *value)
   return rdb->Get(options, system_cfh, key, value);
 }
 
-void Dict_manager::Delete(rocksdb::WriteBatch *batch, const rocksdb::Slice &key)
+void Dict_manager::Delete(rocksdb::WriteBatchBase *batch,
+                          const rocksdb::Slice &key)
 {
   batch->Delete(system_cfh, key);
 }
