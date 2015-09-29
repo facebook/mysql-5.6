@@ -12,8 +12,6 @@
 #include <sstream>
 
 #include "../rdb_datadic.h"
-#include "../rdb_locks.h"
-#include "../rdb_rowmods.h"
 
 #include "../rdb_cf_options.h"
 #include "../rdb_cf_manager.h"

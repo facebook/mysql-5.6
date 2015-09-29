@@ -135,7 +135,7 @@ COUNT(*)
 COMMIT;
 # When transaction is committed, fail on duplicate key
 INSERT INTO t1 VALUES (40, 40, 40, 40, 40, 40, 40, 40);
-ERROR 23000: Duplicate entry '40-40' for key 'PRIMARY'
+Got one of the listed errors
 INSERT INTO t1 VALUES (41, 40, 40, 40, 40, 40, 40, 40);
 ERROR 23000: Duplicate entry '40-40-40' for key 'id2_2'
 ROLLBACK;
