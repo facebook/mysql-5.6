@@ -7,12 +7,6 @@ IF (WITH_ROCKSDB_SE_STORAGE_ENGINE)
 
   ADD_DEFINITIONS(-DSTANDALONE_UNITTEST)
 
-  ADD_EXECUTABLE(test_rowlocks
-          test_rowlocks.cc ../rdb_locks.cc ../rdb_locks.h)
-
-  ADD_EXECUTABLE(test_rwlocks
-          test_rwlocks.cc ../rdb_locks.cc ../rdb_locks.h)
-
   MYSQL_ADD_EXECUTABLE(test_properties_collector
           test_properties_collector.cc
           )

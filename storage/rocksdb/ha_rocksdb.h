@@ -24,6 +24,9 @@
 #include "my_base.h"                     /* ha_rows */
 
 #include "rocksdb/db.h"
+#include "rocksdb/utilities/transaction.h"
+#include "rocksdb/utilities/transaction_db.h"
+#include "rocksdb/utilities/write_batch_with_index.h"
 #include "rocksdb/cache.h"
 #include "rocksdb/comparator.h"
 #include "rocksdb/write_batch.h"
@@ -33,7 +36,6 @@
 
 #include "sql_string.h"
 
-#include "rdb_applyiter.h"
 #include "rdb_perf_context.h"
 
 /*
@@ -127,7 +129,10 @@ class ha_rocksdb: public handler
   ROCKSDB_SHARE *share;    ///< Shared lock info
 
   /* Iterator used for range scans and for full table/index scans */
-  Apply_changes_iter *scan_it;
+  rocksdb::Iterator *scan_it;
+
+  /* Whether scan_it was created with skip_bloom=true */
+  bool scan_it_skips_bloom;
 
   RDBSE_TABLE_DEF *tbl_def;
 
@@ -143,8 +148,6 @@ class ha_rocksdb: public handler
       table->key_info[table->s->primary_key].keyparts
   */
   uint pk_key_parts;
-
-  //Rdb_transaction *cur_trx;
 
   /*
     TRUE <=> Primary Key columns can be decoded from the index
@@ -244,7 +247,8 @@ class ha_rocksdb: public handler
   */
   int dupp_errkey;
 
-  int create_key_defs(TABLE *table_arg, const char *db_table, uint len);
+  int create_key_defs(TABLE *table_arg, const char *db_table, uint len,
+                      HA_CREATE_INFO *create_info);
   int secondary_index_read(int keyno, uchar *buf);
   void setup_index_scan(RDBSE_KEYDEF *keydef, rocksdb::Slice *slice)
   {
@@ -258,9 +262,6 @@ class ha_rocksdb: public handler
 
   void update_auto_incr_val();
   void load_auto_incr_value();
-
-  /* Idea copied from InnoDB's convert_error_code_to_mysql */
-  int return_lock_failure(bool timed_out);
 
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
@@ -482,7 +483,7 @@ private:
   void calc_updated_indexes();
   int update_write_row(const uchar *old_data, uchar *new_data, bool do_locking);
 
-  int read_key_exact(RDBSE_KEYDEF *kd, Apply_changes_iter *iter,
+  int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
 public:
   int index_end();

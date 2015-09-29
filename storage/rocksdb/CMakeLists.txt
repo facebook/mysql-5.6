@@ -26,14 +26,12 @@ SET(ROCKSDB_SOURCES
   ha_rocksdb.cc ha_rocksdb.h ha_rocksdb_proto.h
   rdb_comparator.h
   rdb_datadic.cc rdb_datadic.h
-  rdb_locks.cc rdb_locks.h
-  rdb_rowmods.cc rdb_rowmods.h
-  rdb_applyiter.cc rdb_applyiter.h
   rdb_cf_options.cc rdb_cf_options.h
   rdb_cf_manager.cc rdb_cf_manager.h
   properties_collector.cc properties_collector.h
   rdb_i_s.cc rdb_i_s.h
   rdb_perf_context.cc rdb_perf_context.h
+  rdb_mutex_wrapper.cc rdb_mutex_wrapper.h
   ${ROCKSDB_LIB_SOURCES}
 )
 
