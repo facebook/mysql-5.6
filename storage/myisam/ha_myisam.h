@@ -83,6 +83,8 @@ class ha_myisam: public handler
   int write_row(uchar * buf);
   int update_row(const uchar * old_data, uchar * new_data);
   int delete_row(const uchar * buf);
+  void inc_tmp_table_bytes_written(ulonglong base_size);
+
   int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
                      enum ha_rkey_function find_flag);
   int index_read_idx_map(uchar *buf, uint index, const uchar *key,
@@ -166,12 +168,12 @@ public:
                             uint n_ranges, uint mode, HANDLER_BUFFER *buf);
   int multi_range_read_next(char **range_info);
   ha_rows multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
-                                      void *seq_init_param, 
+                                      void *seq_init_param,
                                       uint n_ranges, uint *bufsz,
                                       uint *flags, Cost_estimate *cost);
   ha_rows multi_range_read_info(uint keyno, uint n_ranges, uint keys,
                                 uint *bufsz, uint *flags, Cost_estimate *cost);
-  
+
   /* Index condition pushdown implementation */
   Item *idx_cond_push(uint keyno, Item* idx_cond);
 private:
