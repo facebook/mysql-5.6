@@ -505,7 +505,6 @@ my_bool opt_large_pages= 0;
 my_bool opt_super_large_pages= 0;
 my_bool opt_myisam_use_mmap= 0;
 uint   opt_large_page_size= 0;
-my_bool recv_skip_ibuf_operations= 1;
 
 /* Number of times the IO thread connected to the master */
 ulong relay_io_connected= 0;

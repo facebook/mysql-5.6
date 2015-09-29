@@ -17747,6 +17747,12 @@ static MYSQL_SYSVAR_STR(monitor_gaplock_query_filename,
   innodb_monitor_gaplock_query_filename_validate,
   innodb_monitor_gaplock_query_filename_update, NULL);
 
+static MYSQL_SYSVAR_BOOL(recv_skip_ibuf_operations,
+  srv_recv_skip_ibuf_operations,
+  PLUGIN_VAR_NOCMDARG,
+  "Skips ibuf record merging during crash recovery",
+  NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_ULONG(idle_flush_pct,
   srv_idle_flush_pct,
   PLUGIN_VAR_RQCMDARG,
@@ -18988,6 +18994,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(monitor_gaplock_query),
   MYSQL_SYSVAR(monitor_gaplock_query_print_verbose),
   MYSQL_SYSVAR(monitor_gaplock_query_filename),
+  MYSQL_SYSVAR(recv_skip_ibuf_operations),
   MYSQL_SYSVAR(strict_mode),
   MYSQL_SYSVAR(support_xa),
   MYSQL_SYSVAR(sort_buffer_size),
