@@ -1,0 +1,18 @@
+--source include/not_embedded.inc
+
+# suite/rpl/t/rpl_checksum.test contains similar testing of
+# all checksum related system variables.
+
+set @save_recv_ibuf_operations = @@global.innodb_recv_ibuf_operations;
+
+select @@global.innodb_recv_ibuf_operations  as 'must be zero because of default';
+--error ER_INCORRECT_GLOBAL_LOCAL_VAR
+select @@session.innodb_recv_ibuf_operations  as 'no session var';
+
+set @@global.innodb_recv_ibuf_operations = 0;
+set @@global.innodb_recv_ibuf_operations = default;
+--error ER_WRONG_VALUE_FOR_VAR
+set @@global.innodb_recv_ibuf_operations = 2; # the var is of bool type
+
+# cleanup
+set @@global.innodb_recv_ibuf_operations = @save_recv_ibuf_operations;

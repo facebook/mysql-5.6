@@ -3442,9 +3442,9 @@ recv_recovery_from_checkpoint_finish(void)
 
 	if (srv_force_recovery < SRV_FORCE_NO_LOG_REDO) {
 
-		/* if the global var recv_skip_ibuf_operations is set, we
+		/* if the global var srv_recv_ibuf_operations is not set, we
 		disallow ibuf operations during the apply log phase. */
-		if (recv_skip_ibuf_operations && !srv_read_only_mode) {
+		if (!srv_recv_ibuf_operations && !srv_read_only_mode) {
 			mutex_enter(&(log_sys->mutex));
 			recv_apply_hashed_log_recs(FALSE);
 			mutex_exit(&(log_sys->mutex));

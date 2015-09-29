@@ -72,14 +72,14 @@ SET @@global.allow_noncurrent_db_rw = @old_val;
 SELECT @@global.allow_noncurrent_db_rw;
 
 --echo ### Sys_var_mybool
-SET @old_val = @@global.recv_skip_ibuf_operations;
+SET @old_val = @@global.process_can_disable_bin_log;
 SELECT @old_val;
 
-SET GLOBAL recv_skip_ibuf_operations = FALSE;
-SELECT @@recv_skip_ibuf_operations;
+SET GLOBAL process_can_disable_bin_log = FALSE;
+SELECT @@process_can_disable_bin_log;
 
-SET @@global.recv_skip_ibuf_operations = @old_val;
-SELECT @@global.recv_skip_ibuf_operations;
+SET @@global.process_can_disable_bin_log = @old_val;
+SELECT @@global.process_can_disable_bin_log;
 
 --echo ### Sys_var_keycache
 SET @old_val = @@global.key_buffer_size;

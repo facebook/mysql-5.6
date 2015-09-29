@@ -5322,9 +5322,3 @@ static Sys_var_mybool Sys_session_track_schema(
        NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(0),
        ON_UPDATE(update_session_track_schema));
-
-static Sys_var_mybool Sys_recv_skip_ibuf_operations(
-       "recv_skip_ibuf_operations",
-       "Skips ibuf record merging during crash recovery",
-       GLOBAL_VAR(recv_skip_ibuf_operations), CMD_LINE(OPT_ARG),
-       DEFAULT(TRUE));
