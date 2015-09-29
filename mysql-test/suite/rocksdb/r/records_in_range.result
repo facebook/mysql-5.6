@@ -45,7 +45,7 @@ Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` < 750)
 explain extended select * from t1 where b> 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	447	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	446	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` > 500)
 explain extended select * from t1 where b>=0 and b<=1000;
