@@ -1093,7 +1093,7 @@ set @a=-1;
 insert into t1 select (@a:=@a+1), 1234 from information_schema.session_variables limit 100;
 set @tmp1= @@rocksdb_max_row_locks;
 set rocksdb_max_row_locks= 20;
---error ER_GET_ERRMSG
+--error ER_INTERNAL_ERROR
 update t1 set a=a+10;
 DROP TABLE t1;
 
@@ -1326,7 +1326,6 @@ drop table t1_err;
 --echo # Unfortunately there is no way to check which column family everything goes to
 insert into t1 values (1,1);
 select * from t1;
-
 --echo # Check that ALTER and RENAME are disallowed
 --error ER_NOT_SUPPORTED_YET
 alter table t1 add col2 int;
@@ -1616,8 +1615,8 @@ select * from t1;
 begin;
 --error ER_LOCK_WAIT_TIMEOUT
 select * from t1 where id=4 for update;
+
 select * from t1 where id=7 for update;
-# ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction
 
 select * from t1 where id=9 for update;
 
@@ -1641,31 +1640,6 @@ drop table t1;
 --error ER_TOO_LONG_KEY
 create table t1 (a int, b text, c varchar(400), Primary Key(a), Key(b(2255))) engine=rocksdb;
 SET sql_mode = @old_mode;
---echo #
---echo # Issue #57: Release row locks on statement errors
---echo #
-create table t1 (id int primary key) engine=rocksdb;
-insert into t1 values (1), (2), (3);
-begin;
-insert into t1 values (4), (5), (6);
---error ER_DUP_ENTRY
-insert into t1 values (7), (8), (2), (9);
-select * from t1;
-
--- connect(con1,localhost,root,,)
---connection con1
-begin;
---error ER_LOCK_WAIT_TIMEOUT
-select * from t1 where id=4 for update;
-
-select * from t1 where id=7 for update;
-
-select * from t1 where id=9 for update;
-
---connection default
--- disconnect con1
-drop table t1;
-
 
 drop table t0;
 
