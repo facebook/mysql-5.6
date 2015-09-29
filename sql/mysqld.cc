@@ -5534,26 +5534,6 @@ a file name for --log-bin-index option", opt_binlog_index_name);
     unireg_abort(1);
   }
 
-  Session_tracker session_track_system_variables_check;
-  LEX_STRING var_list;
-  char *tmp_str;
-  size_t len= strlen(global_system_variables.track_sysvars_ptr);
-  tmp_str= (char *)my_malloc(len*sizeof(char)+2, MYF(MY_WME));
-  strcpy(tmp_str,global_system_variables.track_sysvars_ptr);
-  var_list.length= len;
-  var_list.str= tmp_str;
-  if (session_track_system_variables_check.server_boot_verify(
-        system_charset_info, var_list))
-  {
-    sql_print_error("The variable session_track_system_variables either has "
-	            "duplicate values or invalid values.");
-    if (tmp_str)
-      my_free(tmp_str);
-    unireg_abort(1);
-  }
-  if (tmp_str)
-    my_free(tmp_str);
-
   /* we do want to exit if there are any other unknown options */
   if (remaining_argc > 1)
   {

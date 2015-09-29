@@ -120,25 +120,3 @@ uchar *net_store_length(uchar *packet, ulonglong length)
   return packet+8;
 }
 
-/**
-  The length of space required to store the resulting length-encoded integer
-  for the given number. This function can be used at places where one needs to
-  dynamically allocate the buffer for a given number to be stored as length-
-  encoded integer.
-
-  @param num [IN]   the input number
-
-  @return length of buffer needed to store this number [1, 3, 4, 9].
-*/
-
-uint net_length_size(ulonglong num)
-{
-  if (num < (ulonglong) LL(252))
-    return 1;
-  if (num < (ulonglong) LL(65536))
-    return 3;
-  if (num < (ulonglong) LL(16777216))
-    return 4;
-  return 9;
-}
-
