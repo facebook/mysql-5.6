@@ -445,6 +445,8 @@ UNIV_INTERN ib_mutex_t srv_monitor_gaplock_query_mutex;
 /* File handle to log the query that use gap lock */
 UNIV_INTERN FILE* srv_monitor_gaplock_query_file = NULL;
 
+UNIV_INTERN my_bool srv_recv_skip_ibuf_operations = TRUE;
+
 /* Optimize prefix index queries to skip cluster index lookup when possible */
 /* Enables or disables this prefix optimization.  Disabled by default. */
 UNIV_INTERN my_bool	srv_prefix_index_cluster_optimization = 0;
