@@ -1,0 +1,162 @@
+call mtr.add_suppression(".*Failed to prepare the tmp table.*");
+call mtr.add_suppression(".*Failed to create tmp table from heap.*");
+SET @old_debug_val = @@global.debug;
+SET @@debug="";
+drop table if exists t1, t2;
+###
+### [1] Directly creating a temporary table
+###
+# creating a temp table, temp table size written:
+0
+CREATE TEMPORARY TABLE tmpT1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+# creating table t1, temp table size written:
+0
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+INSERT INTO t1 (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 64));
+INSERT INTO t1 (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 64));
+# inserted two rows into t1, temp table size written:
+0
+INSERT INTO t1 (b, c) VALUES (6, 6 * 6);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+INSERT INTO t1 (b, c) VALUES (5, 5 * 5);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+INSERT INTO t1 (b, c) VALUES (4, 4 * 4);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+INSERT INTO t1 (b, c) VALUES (3, 3 * 3);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+INSERT INTO t1 (b, c) VALUES (2, 2 * 2);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+INSERT INTO t1 (b, c) VALUES (1, 1 * 1);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+# recursively insert into t1, temp table size written:
+19536
+INSERT INTO tmpT1 (b, c) VALUES (2, 2 * 2);;
+INSERT INTO tmpT1 (b, c) SELECT b, c FROM t1;
+INSERT INTO tmpT1 (b, c) VALUES (1, 1 * 1);;
+INSERT INTO tmpT1 (b, c) SELECT b, c FROM t1;
+# read from t1 insert to temp table, temp table size written:
+19536
+drop table t1;
+###
+### [2] Temporary table creation failure
+###
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+INSERT INTO t1 (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 64));
+INSERT INTO t1 (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 64));
+set @@debug="d,fail-to-instantiate-tmp-table";
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+ERROR HY000: Failed to instantiate temporary table.
+# write size after temporary table failure:
+19536
+drop table t1;
+###
+### [3] Instantiate temp table from SELECT with GROUP BY
+###
+SET @@debug="";
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, PRIMARY KEY (a), KEY (b, c(64)));
+INSERT INTO t1 (b, c) VALUES (REPEAT('b', 64), REPEAT('c', 64));
+INSERT INTO t1 (b, c) VALUES (REPEAT('B', 64), REPEAT('C', 64));
+INSERT INTO t1 (b, c) VALUES (2, 2 * 2);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+INSERT INTO t1 (b, c) VALUES (1, 1 * 1);;
+INSERT INTO t1 (b, c) SELECT b, c FROM t1;
+# temp table writen size after recursively insert to t1:
+20432
+CREATE TABLE t2
+(a INT AUTO_INCREMENT, b VARCHAR(64), c TEXT, d TEXT, PRIMARY KEY (a), KEY (b, d(64)));
+INSERT INTO t2 (b, c, d) VALUES (REPEAT('b', 64), REPEAT('c', 64), REPEAT('d', 64));
+INSERT INTO t2 (b, c, d) VALUES (REPEAT('B', 64), REPEAT('C', 64), REPEAT('D', 64));
+INSERT INTO t2 (b, c, d) VALUES (2, 2 * 2, 2 + 2);;
+INSERT INTO t2 (b, c, d) SELECT b, c, d FROM t2;
+INSERT INTO t2 (b, c, d) VALUES (1, 1 * 1, 1 + 1);;
+INSERT INTO t2 (b, c, d) SELECT b, c, d FROM t2;
+# temp table writen size after recursively insert to t2:
+21736
+set @@debug="d,fail-to-instantiate-tmp-table";
+SELECT t2.a, MIN(t1.c) FROM t1, t2 WHERE t1.a = t2.a GROUP BY t2.a;
+# temp table writen size after calling group by on t1 and t1:
+21736
+drop table t1, t2;
+###
+### [4] Create temp table from heap from INSERT with SELECT
+###
+SET @@debug="";
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b BIGINT(64), c DOUBLE, d DOUBLE, e FLOAT, PRIMARY KEY (a), KEY (b, c));
+INSERT INTO t1 (b, c, d, e) VALUES (123456789, 12345.6789, 12345.6789, 12345.6789);
+INSERT INTO t1 (b, c, d, e) VALUES (234567891, 1234.56789, 1234.56789, 1234.56789);
+INSERT INTO t1 (b, c, d, e) VALUES (8, 8 * 8, 8 * 8 * 0.123, 8 * 8 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (7, 7 * 7, 7 * 7 * 0.123, 7 * 7 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (6, 6 * 6, 6 * 6 * 0.123, 6 * 6 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (5, 5 * 5, 5 * 5 * 0.123, 5 * 5 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (4, 4 * 4, 4 * 4 * 0.123, 4 * 4 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (3, 3 * 3, 3 * 3 * 0.123, 3 * 3 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (2, 2 * 2, 2 * 2 * 0.123, 2 * 2 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+# temp table writen size after insert to t1:
+21736
+set @@debug="d,fail-to-create-myisam-from-heap";
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+# temp table writen size after temp table creation failure:
+21736
+drop table t1;
+# Verifying error log
+###
+### [5] Create temp table from heap from SELECT with ORDER BY
+###
+SET @@debug="";
+CREATE TABLE t1
+(a INT AUTO_INCREMENT, b BIGINT(64), c DOUBLE, d DOUBLE, e FLOAT, PRIMARY KEY (a), KEY (b, c));
+# temp table writen size after creating t1:
+21736
+INSERT INTO t1 (b, c, d, e) VALUES (123456789, 12345.6789, 12345.6789, 12345.6789);
+INSERT INTO t1 (b, c, d, e) VALUES (234567891, 1234.56789, 1234.56789, 1234.56789);
+INSERT INTO t1 (b, c, d, e) VALUES (6, 6 * 6, 6 * 6 * 0.123, 6 * 6 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (5, 5 * 5, 5 * 5 * 0.123, 5 * 5 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (4, 4 * 4, 4 * 4 * 0.123, 4 * 4 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (3, 3 * 3, 3 * 3 * 0.123, 3 * 3 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (2, 2 * 2, 2 * 2 * 0.123, 2 * 2 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t1 (b, c, d, e) VALUES (1, 1 * 1, 1 * 1 * 0.123, 1 * 1 * 0.234);;
+INSERT INTO t1 (b, c, d, e) SELECT b, c, d, e FROM t1;
+# temp table writen size after recursivly inserted into t1:
+21736
+CREATE TABLE t2
+(a INT AUTO_INCREMENT, b BIGINT(64), c DOUBLE, d DOUBLE, e FLOAT, PRIMARY KEY (a), KEY (b, c));
+INSERT INTO t2 (b, c, d, e) VALUES (345678912, 12345.6789, 12345.6789, 12345.6789);
+INSERT INTO t2 (b, c, d, e) VALUES (456789123, 1234.56789, 1234.56789, 1234.56789);
+INSERT INTO t2 (b, c, d, e) VALUES (6, 6 * 6, 6 * 6 * 0.123, 6 * 6 * 0.234);;
+INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t2 (b, c, d, e) VALUES (5, 5 * 5, 5 * 5 * 0.123, 5 * 5 * 0.234);;
+INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t2 (b, c, d, e) VALUES (4, 4 * 4, 4 * 4 * 0.123, 4 * 4 * 0.234);;
+INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t2 (b, c, d, e) VALUES (3, 3 * 3, 3 * 3 * 0.123, 3 * 3 * 0.234);;
+INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t2 (b, c, d, e) VALUES (2, 2 * 2, 2 * 2 * 0.123, 2 * 2 * 0.234);;
+INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+INSERT INTO t2 (b, c, d, e) VALUES (1, 1 * 1, 1 * 1 * 0.123, 1 * 1 * 0.234);;
+INSERT INTO t2 (b, c, d, e) SELECT b, c, d, e FROM t1;
+# temp table writen size after inserted into t2 by selecting from t1:
+21736
+set @@debug="d,fail-to-create-myisam-from-heap";
+SELECT t1.b, t1.c, t1.d, t2.b, t2.c, t2.d FROM t1, t2 WHERE t1.a = t2.a ORDER BY t2.d;
+# temp table writen size after temp table creation failure:
+21736
+drop table t1, t2;
+# Verifying error log
+SET GLOBAL debug = @old_debug_val;

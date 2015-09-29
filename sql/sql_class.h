@@ -74,7 +74,7 @@ void set_thd_stage_info(void *thd,
                         const char *calling_func,
                         const char *calling_file,
                         const unsigned int calling_line);
-                        
+
 #define THD_STAGE_INFO(thd, stage) \
   (thd)->enter_stage(& stage, NULL, __func__, __FILE__, __LINE__)
 
@@ -536,19 +536,19 @@ typedef struct system_variables
 {
   /*
     How dynamically allocated system variables are handled:
-    
+
     The global_system_variables and max_system_variables are "authoritative"
     They both should have the same 'version' and 'size'.
     When attempting to access a dynamic variable, if the session version
     is out of date, then the session version is updated and realloced if
     neccessary and bytes copied from global to make up for missing data.
-  */ 
+  */
   ulong dynamic_variables_version;
   char* dynamic_variables_ptr;
   uint dynamic_variables_head;    /* largest valid variable offset */
   uint dynamic_variables_size;    /* how many bytes are in use */
   LIST *dynamic_variables_allocs; /* memory hunks for PLUGIN_VAR_MEMALLOC */
-  
+
   ulonglong max_heap_table_size;
   ulonglong tmp_table_size;
   ulonglong tmp_table_max_file_size;
@@ -612,7 +612,7 @@ typedef struct system_variables
 
   ulong binlog_format; ///< binlog format for this thd (see enum_binlog_format)
   my_bool binlog_direct_non_trans_update;
-  ulong binlog_row_image; 
+  ulong binlog_row_image;
   my_bool sql_log_bin;
   ulong completion_type;
   ulong query_cache_type;
@@ -739,6 +739,7 @@ typedef struct system_status_var
   ulonglong table_open_cache_hits;
   ulonglong table_open_cache_misses;
   ulonglong table_open_cache_overflows;
+  ulonglong tmp_tables_bytes_written;
   ulonglong select_full_join_count;
   ulonglong select_full_range_join_count;
   ulonglong select_range_count;
@@ -939,7 +940,7 @@ class Server_side_cursor;
    - prepared, that is, contain placeholders,
    - opened as cursors. We maintain 1 to 1 relationship between
      statement and cursor - if user wants to create another cursor for his
-     query, we create another statement for it. 
+     query, we create another statement for it.
   To perform some action with statement we reset THD part to the state  of
   that statement, do the action, and then save back modified state from THD
   to the statement. It will be changed in near future, and Statement will
@@ -1123,7 +1124,7 @@ struct THD_TRANS
   Ha_trx_info *ha_list;
 
 private:
-  /* 
+  /*
     The purpose of this member variable (i.e. flag) is to keep track of
     statements which cannot be rolled back safely(completely).
     For example,
@@ -1135,11 +1136,11 @@ private:
     * 'DROP TEMPORARY TABLE' and 'CREATE TEMPORARY TABLE' statements.
     The former sets the value CREATED_TEMP_TABLE is set and the latter
     the value DROPPED_TEMP_TABLE.
-    
+
     The tracked statements are modified in scope of:
 
     * transaction, when the variable is a member of THD::transaction.all
-    
+
     * top-level statement or sub-statement, when the variable is a
     member of THD::transaction.stmt
 
@@ -1149,7 +1150,7 @@ private:
     which cannot be rolled back safely. At the end of the statement, the value
     of stmt.m_unsafe_rollback_flags is merged with all.m_unsafe_rollback_flags
     and gets reset.
-    
+
     * all.cannot_safely_rollback is reset at the end of transaction
 
     * Since we do not have a dedicated context for execution of a sub-statement,
@@ -1434,7 +1435,7 @@ public:
   {
     return (*priv_host ? priv_host : (char *)"%");
   }
-  
+
   bool set_user(char *user_arg);
   String *get_host();
   String *get_ip();
@@ -2395,7 +2396,7 @@ public:
   /*
     One thread can hold up to one named user-level lock. This variable
     points to a lock object if the lock is present. See item_func.cc and
-    chapter 'Miscellaneous functions', for functions GET_LOCK, RELEASE_LOCK. 
+    chapter 'Miscellaneous functions', for functions GET_LOCK, RELEASE_LOCK.
   */
   User_level_lock *ull;
 #ifndef DBUG_OFF
@@ -2465,12 +2466,12 @@ public:
   /* <> 0 if we are inside of trigger or stored function. */
   uint in_sub_stmt;
 
-  /** 
+  /**
     Used by fill_status() to avoid acquiring LOCK_status mutex twice
-    when this function is called recursively (e.g. queries 
-    that contains SELECT on I_S.GLOBAL_STATUS with subquery on the 
+    when this function is called recursively (e.g. queries
+    that contains SELECT on I_S.GLOBAL_STATUS with subquery on the
     same I_S table).
-    Incremented each time fill_status() function is entered and 
+    Incremented each time fill_status() function is entered and
     decremented each time before it returns from the function.
   */
   uint fill_status_recursion_level;
@@ -2532,7 +2533,7 @@ public:
   Rows_log_event* binlog_get_pending_rows_event(bool is_transactional) const;
   inline int binlog_flush_pending_rows_event(bool stmt_end)
   {
-    return (binlog_flush_pending_rows_event(stmt_end, FALSE) || 
+    return (binlog_flush_pending_rows_event(stmt_end, FALSE) ||
             binlog_flush_pending_rows_event(stmt_end, TRUE));
   }
   int binlog_flush_pending_rows_event(bool stmt_end, bool is_transactional);
@@ -3070,6 +3071,7 @@ public:
   void inc_status_created_tmp_disk_tables();
   void inc_status_created_tmp_files();
   void inc_status_created_tmp_tables();
+  void inc_status_tmp_tables_bytes_written(ulonglong size);
   void inc_status_select_full_join();
   void inc_status_select_full_range_join();
   void inc_status_select_range();
@@ -3348,9 +3350,9 @@ public:
 
   /**  is set if some thread specific value(s) used in a statement. */
   bool       thread_specific_used;
-  /**  
+  /**
     is set if a statement accesses a temporary table created through
-    CREATE TEMPORARY TABLE. 
+    CREATE TEMPORARY TABLE.
   */
   bool	     charset_is_system_charset, charset_is_collation_connection;
   bool       charset_is_character_set_filesystem;
@@ -3385,10 +3387,10 @@ public:
     ulonglong ulonglong_value;
     double    double_value;
   } sys_var_tmp;
-  
+
   struct {
-    /* 
-      If true, mysql_bin_log::write(Log_event) call will not write events to 
+    /*
+      If true, mysql_bin_log::write(Log_event) call will not write events to
       binlog, and maintain 2 below variables instead (use
       mysql_bin_log.start_union_events to turn this on)
     */
@@ -3399,13 +3401,13 @@ public:
     */
     bool unioned_events;
     /*
-      If TRUE, at least one mysql_bin_log::write(Log_event e), where 
-      e.cache_stmt == TRUE call has been made after last 
+      If TRUE, at least one mysql_bin_log::write(Log_event e), where
+      e.cache_stmt == TRUE call has been made after last
       mysql_bin_log.start_union_events() call.
     */
     bool unioned_events_trans;
-    
-    /* 
+
+    /*
       'queries' (actually SP statements) that run under inside this binlog
       union have thd->query_id >= first_query_id.
     */
@@ -3481,7 +3483,7 @@ public:
     killing mysqld) where it's vital to not allocate excessive and not used
     memory. Note, that we still don't return error from init_for_queries():
     if preallocation fails, we should notice that at the first call to
-    alloc_root. 
+    alloc_root.
   */
   void init_for_queries(Relay_log_info *rli= NULL);
   void change_user(void);
@@ -3512,13 +3514,13 @@ public:
   enum enum_binlog_query_type {
     /* The query can be logged in row format or in statement format. */
     ROW_QUERY_TYPE,
-    
+
     /* The query has to be logged in statement format. */
     STMT_QUERY_TYPE,
-    
+
     QUERY_TYPE_COUNT
   };
-  
+
   int binlog_query(enum_binlog_query_type qtype,
                    char const *query, ulong query_len, bool is_trans,
                    bool direct, bool suppress_use,
@@ -3662,8 +3664,8 @@ public:
 #endif
   }
   /*TODO: this will be obsolete when we have support for 64 bit my_time_t */
-  inline bool	is_valid_time() 
-  { 
+  inline bool	is_valid_time()
+  {
     return (IS_TIME_T_VALID_FOR_TIMESTAMP(start_time.tv_sec));
   }
   void set_time_after_lock()
@@ -3744,7 +3746,7 @@ public:
     ----------------------
     We need to maintain a (at first glance redundant)
     session flag, rather than looking at thd->transaction.all.ha_list
-    because of explicit start of a transaction with BEGIN. 
+    because of explicit start of a transaction with BEGIN.
 
     I.e. in case of
     BEGIN;
@@ -4925,8 +4927,8 @@ public:
 
 #include <myisam.h>
 
-/* 
-  Param to create temporary tables when doing SELECT:s 
+/*
+  Param to create temporary tables when doing SELECT:s
   NOTE
     This structure is copied using memcpy as a part of JOIN.
 */
@@ -4948,7 +4950,7 @@ public:
 
     @see count_field_types
   */
-  uint	field_count; 
+  uint	field_count;
   /**
     Number of fields in the query that have functions. Includes both
     aggregate functions (e.g., SUM) and non-aggregates (e.g., RAND).
@@ -4957,7 +4959,7 @@ public:
 
     @see count_field_types
   */
-  uint  func_count;  
+  uint  func_count;
   /**
     Number of fields in the query that have aggregate functions. Note
     that the optimizer may choose to optimize away these fields by
@@ -4966,7 +4968,7 @@ public:
 
     @see opt_sum_query, count_field_types
   */
-  uint  sum_func_count;   
+  uint  sum_func_count;
   uint  hidden_field_count;
   uint	group_parts,group_length,group_null_parts;
   uint	quick_group;
@@ -4984,7 +4986,7 @@ public:
     @see create_tmp_table
   */
   bool  using_outer_summary_function;
-  CHARSET_INFO *table_charset; 
+  CHARSET_INFO *table_charset;
   bool schema_table;
   /*
     True if GROUP BY and its aggregate functions are already computed
@@ -5264,7 +5266,7 @@ public:
     else
       db= db_arg;
   }
-  inline Table_ident(LEX_STRING table_arg) 
+  inline Table_ident(LEX_STRING table_arg)
     :table(table_arg), sel((SELECT_LEX_UNIT *)0)
   {
     db.str=0;
@@ -5471,7 +5473,7 @@ public:
 };
 
 /*
-   Unique -- class for unique (removing of duplicates). 
+   Unique -- class for unique (removing of duplicates).
    Puts all values to the TREE. If the tree becomes too big,
    it's dumped to the file. User can request sorted values, or
    just iterate through them. In the last case tree merging is performed in
@@ -5505,11 +5507,11 @@ public:
   }
 
   bool get(TABLE *table);
-  static double get_use_cost(uint *buffer, uint nkeys, uint key_size, 
+  static double get_use_cost(uint *buffer, uint nkeys, uint key_size,
                              ulonglong max_in_memory_size);
 
   // Returns the number of bytes needed in imerge_cost_buf.
-  inline static int get_cost_calc_buff_size(ulong nkeys, uint key_size, 
+  inline static int get_cost_calc_buff_size(ulong nkeys, uint key_size,
                                             ulonglong max_in_memory_size)
   {
     register ulonglong max_elems_in_tree=
@@ -5582,7 +5584,7 @@ class multi_update :public select_result_interceptor
   uint table_count;
   /*
    List of tables referenced in the CHECK OPTION condition of
-   the updated view excluding the updated table. 
+   the updated view excluding the updated table.
   */
   List <TABLE> unupdated_check_opt_tables;
   Copy_field *copy_field;
@@ -5591,7 +5593,7 @@ class multi_update :public select_result_interceptor
   /* True if the update operation has made a change in a transactional table */
   bool transactional_tables;
   bool ignore;
-  /* 
+  /*
      error handling (rollback and binlogging) can happen in send_eof()
      so that afterward send_error() needs to find out that.
   */
@@ -5766,8 +5768,8 @@ public:
 /**
   Skip the increase of the global query id counter. Commonly set for
   commands that are stateless (won't cause any change on the server
-  internal states). This is made obsolete as query id is incremented 
-  for ping and statistics commands as well because of race condition 
+  internal states). This is made obsolete as query id is incremented
+  for ping and statistics commands as well because of race condition
   (Bug#58785).
 */
 #define CF_SKIP_QUERY_ID        (1U << 0)

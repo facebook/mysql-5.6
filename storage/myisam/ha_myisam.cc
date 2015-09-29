@@ -131,7 +131,7 @@ static void debug_wait_for_kill(const char *info)
 *****************************************************************************/
 
 static handler *myisam_create_handler(handlerton *hton,
-                                      TABLE_SHARE *table, 
+                                      TABLE_SHARE *table,
                                       MEM_ROOT *mem_root)
 {
   return new (mem_root) ha_myisam(hton, table);
@@ -709,7 +709,7 @@ static bool myisam_is_supported_system_table(const char *db,
 
 const char *ha_myisam::index_type(uint key_number)
 {
-  return ((table->key_info[key_number].flags & HA_FULLTEXT) ? 
+  return ((table->key_info[key_number].flags & HA_FULLTEXT) ?
 	  "FULLTEXT" :
 	  (table->key_info[key_number].flags & HA_SPATIAL) ?
 	  "SPATIAL" :
@@ -768,7 +768,7 @@ int ha_myisam::open(const char *name, int mode, uint test_if_locked)
       /* purecov: end */
     }
   }
-  
+
   if (test_if_locked & (HA_OPEN_IGNORE_IF_LOCKED | HA_OPEN_TMP_TABLE))
     (void) mi_extra(file, HA_EXTRA_NO_WAIT_LOCK, 0);
 
@@ -779,7 +779,7 @@ int ha_myisam::open(const char *name, int mode, uint test_if_locked)
     int_table_flags|=HA_REC_NOT_IN_SEQ;
   if (file->s->options & (HA_OPTION_CHECKSUM | HA_OPTION_COMPRESS_RECORD))
     int_table_flags|=HA_HAS_CHECKSUM;
-  
+
   for (i= 0; i < table->s->keys; i++)
   {
     plugin_ref parser= table->key_info[i].parser;
@@ -809,6 +809,21 @@ int ha_myisam::close(void)
   return mi_close(tmp);
 }
 
+void ha_myisam::inc_tmp_table_bytes_written(ulonglong base_size)
+{
+  if (TABLE_CATEGORY_TEMPORARY == table->s->table_category)
+  {
+     ulonglong total_size = file->state->key_file_length +
+       file->state->data_file_length;
+     if (total_size > base_size &&
+         table && table->in_use)
+     {
+        total_size -= base_size;
+        table->in_use->inc_status_tmp_tables_bytes_written(total_size);
+     }
+  }
+}
+
 int ha_myisam::write_row(uchar *buf)
 {
   ha_statistic_increment(&SSV::ha_write_count);
@@ -830,9 +845,15 @@ int ha_myisam::write_row(uchar *buf)
     if ((error= update_auto_increment()))
       return error;
   }
+
+  ulonglong original_size = file->state->key_file_length +
+      file->state->data_file_length;
   int e= mi_write(file,buf);
   if (!e)
+  {
     stats.rows_inserted++;
+    inc_tmp_table_bytes_written(original_size);
+  }
   return e;
 }
 
@@ -1215,7 +1236,7 @@ int ha_myisam::assign_to_keycache(THD* thd, HA_CHECK_OPT *check_opt)
     map= table->keys_in_use_for_query.to_ulonglong();
 
   if ((error= mi_assign_to_key_cache(file, map, new_key_cache)))
-  { 
+  {
     char buf[STRING_BUFFER_USUAL_SIZE];
     my_snprintf(buf, sizeof(buf),
 		"Failed to flush to index file (errno: %d)", error);
@@ -1463,7 +1484,7 @@ int ha_myisam::enable_indexes(uint mode)
 
 int ha_myisam::indexes_are_disabled(void)
 {
-  
+
   return mi_indexes_are_disabled(file);
 }
 
@@ -1538,21 +1559,21 @@ int ha_myisam::end_bulk_insert()
   {
     if (can_enable_indexes)
     {
-      /* 
-        Truncate the table when enable index operation is killed. 
-        After truncating the table we don't need to enable the 
-        indexes, because the last repair operation is aborted after 
-        setting the indexes as active and  trying to recreate them. 
+      /*
+        Truncate the table when enable index operation is killed.
+        After truncating the table we don't need to enable the
+        indexes, because the last repair operation is aborted after
+        setting the indexes as active and  trying to recreate them.
      */
-   
-      if (((err= enable_indexes(HA_KEY_SWITCH_NONUNIQ_SAVE)) != 0) && 
+
+      if (((err= enable_indexes(HA_KEY_SWITCH_NONUNIQ_SAVE)) != 0) &&
                                                   current_thd->killed)
       {
         delete_all_rows();
         /* not crashed, despite being killed during repair */
         file->s->state.changed&= ~(STATE_CRASHED|STATE_CRASHED_ON_REPAIR);
       }
-    } 
+    }
   }
   return err;
 }
@@ -1639,11 +1660,11 @@ C_MODE_END
 
 
 int ha_myisam::index_init(uint idx, bool sorted)
-{ 
+{
   active_index=idx;
   if (pushed_idx_cond_keyno == idx)
     mi_set_index_cond_func(file, index_cond_func_myisam, this);
-  return 0; 
+  return 0;
 }
 
 
@@ -1654,7 +1675,7 @@ int ha_myisam::index_end()
   mi_set_index_cond_func(file, NULL, 0);
   in_range_check_pushed_down= FALSE;
   ds_mrr.dsmrr_close();
-  return 0; 
+  return 0;
 }
 
 int ha_myisam::rnd_end()
@@ -2220,7 +2241,7 @@ void ha_myisam::get_auto_increment(ulonglong offset, ulonglong increment,
       HA_READ_KEY_EXACT		Include the key in the range
       HA_READ_AFTER_KEY		Don't include key in range
 
-    max_key.flag can have one of the following values:  
+    max_key.flag can have one of the following values:
       HA_READ_BEFORE_KEY	Don't include key in range
       HA_READ_AFTER_KEY		Include all 'end_key' values in the range
 
@@ -2319,7 +2340,7 @@ static int myisam_init(void *p)
  ***************************************************************************/
 
 int ha_myisam::multi_range_read_init(RANGE_SEQ_IF *seq, void *seq_init_param,
-                                     uint n_ranges, uint mode, 
+                                     uint n_ranges, uint mode,
                                      HANDLER_BUFFER *buf)
 {
   return ds_mrr.dsmrr_init(this, seq, seq_init_param, n_ranges, mode, buf);
@@ -2331,7 +2352,7 @@ int ha_myisam::multi_range_read_next(char **range_info)
 }
 
 ha_rows ha_myisam::multi_range_read_info_const(uint keyno, RANGE_SEQ_IF *seq,
-                                               void *seq_init_param, 
+                                               void *seq_init_param,
                                                uint n_ranges, uint *bufsz,
                                                uint *flags, Cost_estimate *cost)
 {
