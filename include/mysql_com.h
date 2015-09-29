@@ -188,12 +188,6 @@ enum enum_server_command
 /* Don't close the connection for a connection with expired password. */
 #define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS (1UL << 22)
 
-/**
-  Capable of handling server state change information. Its a hint to the
-  server to include the state change information in Ok packet.
-*/
-#define CLIENT_SESSION_TRACK (1UL << 23)
-
 #define CLIENT_SSL_VERIFY_SERVER_CERT (1UL << 30)
 #define CLIENT_REMEMBER_OPTIONS (1UL << 31)
 
@@ -229,7 +223,6 @@ enum enum_server_command
                            | CLIENT_CONNECT_ATTRS \
                            | CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA \
                            | CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS \
-                           | CLIENT_SESSION_TRACK \
 )
 
 /*
@@ -288,11 +281,6 @@ enum enum_server_command
 */
 #define SERVER_STATUS_IN_TRANS_READONLY 8192
 
-/**
-  This status flag, when on, implies that one of the state information has
-  changed on the server because of the execution of the last statement.
-*/
-#define SERVER_SESSION_STATE_CHANGED (1UL << 14)
 
 /**
   Server status flags that must be cleared when starting
@@ -309,8 +297,7 @@ enum enum_server_command
                                  SERVER_QUERY_WAS_SLOW |\
                                  SERVER_STATUS_DB_DROPPED |\
                                  SERVER_STATUS_CURSOR_EXISTS|\
-                                 SERVER_STATUS_LAST_ROW_SENT|\
-                                 SERVER_SESSION_STATE_CHANGED)
+                                 SERVER_STATUS_LAST_ROW_SENT)
 
 #define MYSQL_ERRMSG_SIZE	512
 #define NET_READ_TIMEOUT	30		/* Timeout on read */
@@ -627,23 +614,6 @@ enum enum_mysql_set_option
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
 
-/*
-  Type of state change information that the server can include in the Ok
-  packet.
-  Note : 1) session_state_type shouldn't go past 255 (i.e. 1-byte boundary).
-         2) Modify the definition of SESSION_TRACK_END when a new member is
-	    added.
-*/
-enum enum_session_state_type
-{
-  SESSION_TRACK_SYSTEM_VARIABLES,               /* Session system variables */
-  SESSION_TRACK_SCHEMA                          /* Current schema */
-};
-
-#define SESSION_TRACK_BEGIN SESSION_TRACK_SYSTEM_VARIABLES
-
-#define SESSION_TRACK_END SESSION_TRACK_SCHEMA
-
 #define net_new_transaction(net) ((net)->pkt_nr=0)
 
 #ifdef __cplusplus
@@ -767,7 +737,6 @@ void my_thread_end(void);
 ulong STDCALL net_field_length(unsigned char **packet);
 my_ulonglong net_field_length_ll(unsigned char **packet);
 unsigned char *net_store_length(unsigned char *pkg, ulonglong length);
-unsigned int net_length_size(ulonglong num);
 #endif
 
 #ifdef __cplusplus

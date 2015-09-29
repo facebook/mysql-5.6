@@ -163,11 +163,6 @@ enum enum_mysql_set_option
   MYSQL_OPTION_MULTI_STATEMENTS_ON,
   MYSQL_OPTION_MULTI_STATEMENTS_OFF
 };
-enum enum_session_state_type
-{
-  SESSION_TRACK_SYSTEM_VARIABLES,
-  SESSION_TRACK_SCHEMA
-};
 my_bool my_net_init(NET *net, Vio* vio);
 void my_net_local_init(NET *net);
 void net_end(NET *net);
@@ -617,14 +612,6 @@ int
 mysql_get_file_descriptor(MYSQL *mysql);
 void mysql_get_character_set_info(MYSQL *mysql,
                            MY_CHARSET_INFO *charset);
-int mysql_session_track_get_first(MYSQL *mysql,
-                                  enum enum_session_state_type type,
-                                  const char **data,
-                                  size_t *length);
-int mysql_session_track_get_next(MYSQL *mysql,
-                                 enum enum_session_state_type type,
-                                 const char **data,
-                                 size_t *length);
 void
 mysql_set_local_infile_handler(MYSQL *mysql,
                                int (*local_infile_init)(void **, const char *,
