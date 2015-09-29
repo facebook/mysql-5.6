@@ -681,7 +681,7 @@ public:
   bool init(Dict_manager *dict);
   void cleanup();
   void update(const char* binlog_name, const my_off_t binlog_pos,
-              const char* binlog_gtid, rocksdb::WriteBatch& batch);
+              const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
   bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
 
 private:
@@ -769,9 +769,9 @@ public:
   std::unique_ptr<rocksdb::WriteBatch> begin();
   int commit(rocksdb::WriteBatch *batch, bool sync = true);
   rocksdb::Status Get(const rocksdb::Slice& key, std::string *value);
-  void Put(rocksdb::WriteBatch *batch, const rocksdb::Slice &key,
+  void Put(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key,
            const rocksdb::Slice &value);
-  void Delete(rocksdb::WriteBatch *batch, const rocksdb::Slice &key);
+  void Delete(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key);
   rocksdb::Iterator *NewIterator();
 
   /* Internal Index id => CF */
