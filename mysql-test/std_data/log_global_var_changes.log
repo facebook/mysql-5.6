@@ -10,8 +10,8 @@
 @@optimizer_trace_limit has been changed from 1048576 to 1 by user USER from host HOST
 @@allow_noncurrent_db_rw has been changed from 'ON' to 'LOG_WARN' by user USER from host HOST
 @@allow_noncurrent_db_rw has been changed from 'LOG_WARN' to 'ON' by user USER from host HOST
-@@recv_skip_ibuf_operations has been changed from 1 to 0 by user USER from host HOST
-@@recv_skip_ibuf_operations has been changed from 0 to 1 by user USER from host HOST
+@@process_can_disable_bin_log has been changed from 1 to 0 by user USER from host HOST
+@@process_can_disable_bin_log has been changed from 0 to 1 by user USER from host HOST
 @@key_buffer_size has been changed from 1048576 to 4096 by user USER from host HOST
 @@key_buffer_size has been changed from 4096 to 1048576 by user USER from host HOST
 @@histogram_step_size_delete_command has been changed from '64us' to '9999us' by user USER from host HOST
