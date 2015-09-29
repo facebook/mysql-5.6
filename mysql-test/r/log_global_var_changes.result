@@ -84,17 +84,17 @@ SELECT @@global.allow_noncurrent_db_rw;
 @@global.allow_noncurrent_db_rw
 ON
 ### Sys_var_mybool
-SET @old_val = @@global.recv_skip_ibuf_operations;
+SET @old_val = @@global.process_can_disable_bin_log;
 SELECT @old_val;
 @old_val
 1
-SET GLOBAL recv_skip_ibuf_operations = FALSE;
-SELECT @@recv_skip_ibuf_operations;
-@@recv_skip_ibuf_operations
+SET GLOBAL process_can_disable_bin_log = FALSE;
+SELECT @@process_can_disable_bin_log;
+@@process_can_disable_bin_log
 0
-SET @@global.recv_skip_ibuf_operations = @old_val;
-SELECT @@global.recv_skip_ibuf_operations;
-@@global.recv_skip_ibuf_operations
+SET @@global.process_can_disable_bin_log = @old_val;
+SELECT @@global.process_can_disable_bin_log;
+@@global.process_can_disable_bin_log
 1
 ### Sys_var_keycache
 SET @old_val = @@global.key_buffer_size;
@@ -289,8 +289,8 @@ FULL
 @@optimizer_trace_limit has been changed from 1048576 to 1 by user USER from host HOST
 @@allow_noncurrent_db_rw has been changed from 'ON' to 'LOG_WARN' by user USER from host HOST
 @@allow_noncurrent_db_rw has been changed from 'LOG_WARN' to 'ON' by user USER from host HOST
-@@recv_skip_ibuf_operations has been changed from 1 to 0 by user USER from host HOST
-@@recv_skip_ibuf_operations has been changed from 0 to 1 by user USER from host HOST
+@@process_can_disable_bin_log has been changed from 1 to 0 by user USER from host HOST
+@@process_can_disable_bin_log has been changed from 0 to 1 by user USER from host HOST
 @@key_buffer_size has been changed from 1048576 to 4096 by user USER from host HOST
 @@key_buffer_size has been changed from 4096 to 1048576 by user USER from host HOST
 @@histogram_step_size_delete_command has been changed from '64us' to '9999us' by user USER from host HOST

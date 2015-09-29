@@ -833,9 +833,6 @@ The following options may be given as the first argument:
  --read-rnd-buffer-size=# 
  When reading rows in sorted order after a sort, the rows
  are read through this buffer to avoid a disk seeks
- --recv-skip-ibuf-operations 
- Skips ibuf record merging during crash recovery
- (Defaults to on; use --skip-recv-skip-ibuf-operations to disable.)
  --relay-log=name    The location and name to use for relay logs
  --relay-log-index=name 
  File that holds the names for relay log files.
@@ -1645,7 +1642,6 @@ read-buffer-size 131072
 read-only FALSE
 read-only-slave TRUE
 read-rnd-buffer-size 262144
-recv-skip-ibuf-operations TRUE
 relay-log (No default value)
 relay-log-index (No default value)
 relay-log-info-file relay-log.info
