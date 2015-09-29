@@ -18,15 +18,6 @@ using namespace rocksdb;
 static
 PSI_stage_info stage_waiting_on_row_lock2= { 0, "Waiting for row lock", 0};
 
-#ifdef HAVE_PSI_INTERFACE
-
-static PSI_stage_info *all_rocksdb_stages[]=
-{
-  & stage_waiting_on_row_lock2
-};
-#endif
-
-
 static const int64_t MICROSECS= 1000*1000;
 static const int64_t BIG_TIMEOUT= MICROSECS * 60 * 60 * 24 * 7 * 365;
 
