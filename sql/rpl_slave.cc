@@ -7243,7 +7243,6 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
      direct master (an unsupported, useless setup!).
   */
 
-  mysql_mutex_lock(log_lock);
   s_id= uint4korr(buf + SERVER_ID_OFFSET);
 
   /*
@@ -7284,6 +7283,7 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       IGNORE_SERVER_IDS it increments mi->get_master_log_pos()
       as well as rli->group_relay_log_pos.
     */
+    mysql_mutex_lock(log_lock);
     if (!(s_id == ::server_id && !mi->rli->replicate_same_server_id) ||
         (event_type != FORMAT_DESCRIPTION_EVENT &&
          event_type != ROTATE_EVENT &&
@@ -7295,14 +7295,21 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
       rli->ign_master_log_pos_end= mi->get_master_log_pos();
     }
     rli->relay_log.signal_update(); // the slave SQL thread needs to re-check
+    mysql_mutex_unlock(log_lock);
     DBUG_PRINT("info", ("master_log_pos: %lu, event originating from %u server, ignored",
                         (ulong) mi->get_master_log_pos(), uint4korr(buf + SERVER_ID_OFFSET)));
   }
   else
   {
+    // Release data_lock while writing to relay log. If slave IO thread
+    // waits here for free space, we don't want SHOW SLAVE STATUS to
+    // hang on mi->data_lock. Note LOCK_log mutex is sufficient to block
+    // SQL thread when IO thread is updating relay log here.
+    mysql_mutex_unlock(&mi->data_lock);
     /* write the event to the relay log */
     if (likely(rli->relay_log.append_buffer(buf, event_len, mi) == 0))
     {
+      mysql_mutex_lock(&mi->data_lock);
       mi->set_master_log_pos(mi->get_master_log_pos() + inc_pos);
       DBUG_PRINT("info", ("master_log_pos: %lu", (ulong) mi->get_master_log_pos()));
       rli->relay_log.harvest_bytes_written(&rli->log_space_total);
@@ -7320,13 +7327,15 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
     }
     else
     {
+      mysql_mutex_lock(&mi->data_lock);
       error= ER_SLAVE_RELAY_LOG_WRITE_FAILURE;
     }
+    mysql_mutex_lock(log_lock);
     rli->ign_master_log_name_end[0]= 0; // last event is not ignored
+    mysql_mutex_unlock(log_lock);
     if (save_buf != NULL)
       buf= save_buf;
   }
-  mysql_mutex_unlock(log_lock);
 
 skip_relay_logging:
   
@@ -8209,6 +8218,7 @@ int rotate_relay_log(Master_info* mi)
 
   Relay_log_info* rli= mi->rli;
   int error= 0;
+  Format_description_log_event *fde_copy = NULL;
 
   /*
      We need to test inited because otherwise, new_file() will attempt to lock
@@ -8220,8 +8230,33 @@ int rotate_relay_log(Master_info* mi)
     goto end;
   }
 
+  /*
+   * Older FDE events with version <4 are not used during relay log rotation
+   * see open_binlog()
+   */
+  if (mi->get_mi_description_event() &&
+      mi->get_mi_description_event()->binlog_version>=4) {
+    IO_CACHE tmp_file;
+    if ((error=
+        init_io_cache(&tmp_file, -1, 200, WRITE_CACHE, 0, 0, MYF(MY_WME)))) {
+      goto end;
+    }
+    mi->get_mi_description_event()->write(&tmp_file);
+    if ((error= reinit_io_cache(&tmp_file, READ_CACHE, 0, 0, 0))) {
+      goto end;
+    }
+    fde_copy = (Format_description_log_event*)
+               Log_event::read_log_event(&tmp_file, NULL,
+                                         mi->get_mi_description_event(),
+                                         TRUE, NULL);
+    end_io_cache(&tmp_file);
+  }
+  mysql_mutex_unlock(&mi->data_lock);
   /* If the relay log is closed, new_file() will do nothing. */
-  error= rli->relay_log.new_file(mi->get_mi_description_event());
+  error= rli->relay_log.new_file(fde_copy);
+  mysql_mutex_lock(&mi->data_lock);
+  if (fde_copy)
+    delete fde_copy;
   if (error != 0)
     goto end;
 
