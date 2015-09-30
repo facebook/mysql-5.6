@@ -3418,15 +3418,6 @@ bool MYSQL_BIN_LOG::open_binlog(const char *log_name,
       master, but not the data written to the relay log (*conversion*),
       which is in format 4 (slave's).
     */
-    /*
-      Set 'created' to 0, so that in next relay logs this event does not
-      trigger cleaning actions on the slave in
-      Format_description_log_event::apply_event_impl().
-    */
-    extra_description_event->created= 0;
-    /* Don't set log_pos in event header */
-    extra_description_event->set_artificial_event();
-
     if (extra_description_event->write(&log_file))
       goto err;
     bytes_written+= extra_description_event->data_written;
@@ -5305,7 +5296,6 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
 
   // Check pre-conditions
   mysql_mutex_assert_owner(&LOCK_log);
-  mysql_mutex_assert_owner(&mi->data_lock);
   DBUG_ASSERT(is_relay_log);
   DBUG_ASSERT(current_thd->system_thread == SYSTEM_THREAD_SLAVE_IO);
 
@@ -5319,7 +5309,8 @@ bool MYSQL_BIN_LOG::after_append_to_relay_log(Master_info *mi)
                           DBUG_EVALUATE_IF("slave_skipping_gtid",
                                            870, max_size)))
     {
-      error= new_file_without_locking(mi->get_mi_description_event());
+      error= new_file_without_locking(
+               mi->get_mi_descripion_event_with_no_lock());
     }
   }
 
@@ -5338,6 +5329,7 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
   DBUG_ASSERT(log_file.type == SEQ_READ_APPEND);
   DBUG_ASSERT(is_relay_log);
 
+  mysql_mutex_unlock(&mi->data_lock);
   // acquire locks
   mysql_mutex_lock(&LOCK_log);
 
@@ -5357,6 +5349,7 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
     error= true;
 
   mysql_mutex_unlock(&LOCK_log);
+  mysql_mutex_lock(&mi->data_lock);
   DBUG_RETURN(error);
 }
 
@@ -5364,12 +5357,25 @@ bool MYSQL_BIN_LOG::append_event(Log_event* ev, Master_info *mi)
 bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
 {
   DBUG_ENTER("MYSQL_BIN_LOG::append_buffer");
+  // Release data_lock while writing to relay log. If slave IO thread
+  // waits here for free space, we don't want SHOW SLAVE STATUS to
+  // hang on mi->data_lock. Note LOCK_log mutex is sufficient to block
+  // SQL thread when IO thread is updating relay log here.
+  mysql_mutex_unlock(&mi->data_lock);
+  mysql_mutex_lock(&LOCK_log);
   USER_STATS *us= current_thd ? thd_get_user_stats(current_thd) : NULL;
 
   // check preconditions
   DBUG_ASSERT(log_file.type == SEQ_READ_APPEND);
   DBUG_ASSERT(is_relay_log);
-  mysql_mutex_assert_owner(&LOCK_log);
+
+  DBUG_EXECUTE_IF("simulate_wait_for_relay_log_space",
+                  {
+                    const char act[]=
+                      "now signal io_thread_blocked wait_for space_available";
+                       DBUG_ASSERT(!debug_sync_set_action(current_thd,
+                                      STRING_WITH_LEN(act)));
+                    });
 
   // write data
   bool error= false;
@@ -5386,6 +5392,8 @@ bool MYSQL_BIN_LOG::append_buffer(const char* buf, uint len, Master_info *mi)
   else
     error= true;
 
+  mysql_mutex_unlock(&LOCK_log);
+  mysql_mutex_lock(&mi->data_lock);
   DBUG_RETURN(error);
 }
 #endif // ifdef HAVE_REPLICATION
