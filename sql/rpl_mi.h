@@ -67,6 +67,21 @@ friend class Rpl_info_factory;
 
 public:
   /**
+    Protects modifications in mi's format description event (FDE).
+    Some variables in FDE class are modified when the event is written
+    to the log (see Format_description_event::write()).
+
+    mi_description_event is modified in the following cases:
+    1. Slave IO thread rotating relay logs in new_file_impl().
+    2. FLUSH RELAY LOGS thread making a copy of mi_description_event
+       in rotate_relay_log().
+  */
+  mysql_mutex_t fde_lock;
+#ifdef HAVE_PSI_INTERFACE
+  PSI_mutex_key* key_info_fde_lock;
+#endif
+
+  /**
     Host name or ip address stored in the master.info.
   */
   char host[HOSTNAME_LENGTH + 1];
@@ -362,11 +377,31 @@ public:
     mysql_mutex_assert_owner(&data_lock);
     return mi_description_event;
   }
+  /*
+   * This function should only be used by slave IO thread. IO thread
+   * doesn't require a lock as it is the only writer of mi_description_event.
+   */
+  Format_description_log_event *get_mi_descripion_event_with_no_lock() {
+    return mi_description_event;
+  }
+  /*
+   * This function should only be used from slave IO thread.
+   */
   void set_mi_description_event(Format_description_log_event *fdle)
   {
     mysql_mutex_assert_owner(&data_lock);
     delete mi_description_event;
     mi_description_event= fdle;
+    if (mi_description_event) {
+      /*
+        Set 'created' to 0, so that in next relay logs this event does not
+        trigger cleaning actions on the slave in
+        Format_description_log_event::apply_event_impl().
+      */
+      mi_description_event->created= 0;
+      /* Don't set log_pos in event header */
+      mi_description_event->set_artificial_event();
+    }
   }
 
 private:
@@ -387,6 +422,7 @@ private:
               PSI_mutex_key *param_key_info_start_cond,
               PSI_mutex_key *param_key_info_stop_cond,
               PSI_mutex_key *param_key_info_sleep_cond,
+              PSI_mutex_key *param_key_info_fde_lock,
 #endif
               uint param_id
              );

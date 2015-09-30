@@ -1,0 +1,30 @@
+source include/master-slave.inc;
+source include/have_debug_sync.inc;
+connection master;
+
+create table t1(a int);
+insert into t1 values(1);
+sync_slave_with_master;
+let $old_debug = `select @@global.debug`;
+set global debug = '+d,simulate_wait_for_relay_log_space';
+
+connection slave;
+connection master;
+insert into t1 values(2);
+
+connection slave;
+set debug_sync = 'now wait_for io_thread_blocked';
+disable_result_log;
+# This query should not get blocked
+show slave status;
+enable_result_log;
+eval set global debug = '$old_debug';
+set debug_sync = 'now signal space_available';
+
+connection master;
+sync_slave_with_master;
+set debug_sync = 'reset';
+
+connection master;
+drop table t1;
+source include/rpl_end.inc;

@@ -101,6 +101,7 @@ Master_info::Master_info(
                          PSI_mutex_key *param_key_info_start_cond,
                          PSI_mutex_key *param_key_info_stop_cond,
                          PSI_mutex_key *param_key_info_sleep_cond,
+                         PSI_mutex_key *param_key_info_fde_lock,
 #endif
                          uint param_id
                         )
@@ -113,6 +114,9 @@ Master_info::Master_info(
 #endif
              ,param_id
             ),
+#ifdef HAVE_PSI_INTERFACE
+   key_info_fde_lock(param_key_info_fde_lock),
+#endif
    start_user_configured(false),
    ssl(0), ssl_verify_server_cert(0),
    port(MYSQL_PORT), connect_retry(DEFAULT_CONNECT_RETRY),
@@ -136,12 +140,18 @@ Master_info::Master_info(
   ssl_actual_cipher[0] = 0;
   ssl_master_issuer[0] = 0;
   ssl_master_subject[0] = 0;
+#ifdef HAVE_PSI_INTERFACE
+  mysql_mutex_init(*key_info_fde_lock, &fde_lock, MY_MUTEX_INIT_FAST);
+#else
+  mysql_mutex_init(NULL, &fde_lock, MY_MUTEX_INIT_FAST);
+#endif
 }
 
 Master_info::~Master_info()
 {
   delete ignore_server_ids;
   delete mi_description_event;
+  mysql_mutex_destroy(&fde_lock);
 }
 
 /**
