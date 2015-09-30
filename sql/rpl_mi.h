@@ -362,11 +362,31 @@ public:
     mysql_mutex_assert_owner(&data_lock);
     return mi_description_event;
   }
+  /*
+   * This function should only be used by slave IO thread. IO thread
+   * doesn't require a lock as it is the only writer of mi_description_event.
+   */
+  Format_description_log_event *get_mi_descripion_event_with_no_lock() {
+    return mi_description_event;
+  }
+  /*
+   * This function should only be used from slave IO thread.
+   */
   void set_mi_description_event(Format_description_log_event *fdle)
   {
     mysql_mutex_assert_owner(&data_lock);
     delete mi_description_event;
     mi_description_event= fdle;
+    if (mi_description_event) {
+      /*
+        Set 'created' to 0, so that in next relay logs this event does not
+        trigger cleaning actions on the slave in
+        Format_description_log_event::apply_event_impl().
+      */
+      mi_description_event->created= 0;
+      /* Don't set log_pos in event header */
+      mi_description_event->set_artificial_event();
+    }
   }
 
 private:
