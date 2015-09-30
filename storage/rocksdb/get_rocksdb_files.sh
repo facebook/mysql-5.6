@@ -16,7 +16,7 @@ rm $MKFILE
 bv=rocksdb/util/build_version.cc
 date=$(date +%F)
 git_sha=$(pushd rocksdb >/dev/null && git rev-parse  HEAD 2>/dev/null && popd >/dev/null)
-if [ ! -f $bv ] || [ ! `grep $git_sha $bv` ]
+if [ ! -f $bv ] || [ -z $git_sha ] || [ ! `grep $git_sha $bv` ]
 then
 echo "#include \"build_version.h\"
 const char* rocksdb_build_git_sha =
