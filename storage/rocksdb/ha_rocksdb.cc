@@ -928,8 +928,8 @@ Reverse_comparator     rocksdb_rev_pk_comparator;
 class MyRocksSnapshot
 {
 private:
-  int64_t timestamp_;
-  THD* thd_;
+  int64_t timestamp_= 0;
+  THD* thd_= NULL;
 
 public:
   MyRocksSnapshot(THD* thd) : thd_(thd) {
@@ -1074,9 +1074,9 @@ class Rdb_transaction
 {
   ulonglong n_writes= 0;
 
-  rocksdb::Transaction *txn;
+  rocksdb::Transaction *txn= NULL;
 
-  bool is_trx_failed;
+  bool is_trx_failed= false;
 
   rocksdb::ReadOptions read_opts;
 public:
