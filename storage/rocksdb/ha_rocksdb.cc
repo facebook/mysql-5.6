@@ -18,58 +18,36 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
-#include <mysql/plugin.h>
-#include <my_global.h>
+/* The C++ file's header */
+#include "./ha_rocksdb.h"
+
+/* MySQL includes */
+#include "./my_bit.h"
+#include "./my_stacktrace.h"
 #include <mysql/psi/mysql_table.h>
-#include "ha_rocksdb.h"
-#include "ha_rocksdb_proto.h"
-#include "rdb_perf_context.h"
-#include "logger.h"
 
-#include "sql_class.h"
-#include "sql_array.h"
-
-#include "my_bit.h"
-#include "my_stacktrace.h"
-
-#include <sstream>
-
-#include "rdb_datadic.h"
-
-#include "rdb_comparator.h"
-#include "rdb_cf_options.h"
-#include "rdb_cf_manager.h"
-#include "rdb_i_s.h"
-
+/* RocksDB includes */
 #include "rocksdb/compaction_filter.h"
-#include "rocksdb/env.h"
 #include "rocksdb/rate_limiter.h"
-#include "rocksdb/slice.h"
 #include "rocksdb/slice_transform.h"
-#include "rocksdb/status.h"
-#include "rocksdb/table.h"
-#include "rocksdb/metadata.h"
-#include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/checkpoint.h"
+#include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/flashcache.h"
-#include "rocksdb/slice_transform.h"
-#include "rocksdb/perf_context.h"
-#include "properties_collector.h"
 
-/* This is here to get PRIu64, PRId64 */
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
-#endif
-#include <inttypes.h>
+/* MyRocks includes */
+#include "./ha_rocksdb_proto.h"
+#include "./logger.h"
+#include "./rdb_cf_manager.h"
+#include "./rdb_cf_options.h"
+#include "./rdb_comparator.h"
+#include "./rdb_datadic.h"
+#include "./rdb_i_s.h"
+#include "./rdb_mutex_wrapper.h"
 
 #ifdef TARGET_OS_LINUX
-#include <sys/syscall.h>
-#include <sys/ioctl.h>
-#include "flashcache_ioctl.h"
 extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
 
-#include "rdb_mutex_wrapper.h"
 
 void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(handlerton *hton,
