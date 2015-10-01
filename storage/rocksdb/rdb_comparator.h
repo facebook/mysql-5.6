@@ -17,6 +17,7 @@
 #ifndef _rdb_comparator_h_
 #define _rdb_comparator_h_
 
+/* RocksDB header files */
 #include "rocksdb/comparator.h"
 
 static int bytewise_compare(const rocksdb::Slice& a, const rocksdb::Slice& b)

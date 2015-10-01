@@ -13,29 +13,25 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+#pragma once
+
 #ifdef USE_PRAGMA_INTERFACE
 #pragma interface			/* gcc class implementation */
 #endif
 
+/* MySQL header files */
+#include "./handler.h"                     /* handler */
+#include "./my_global.h"                   /* ulonglong */
+#include "./sql_string.h"
 
-#include "my_global.h"                   /* ulonglong */
-#include "thr_lock.h"                    /* THR_LOCK, THR_LOCK_DATA */
-#include "handler.h"                     /* handler */
-#include "my_base.h"                     /* ha_rows */
-
-#include "rocksdb/db.h"
-#include "rocksdb/utilities/transaction.h"
+/* RocksDB header files */
+#include "rocksdb/cache.h"
+#include "rocksdb/perf_context.h"
+#include "rocksdb/statistics.h"
 #include "rocksdb/utilities/transaction_db.h"
 #include "rocksdb/utilities/write_batch_with_index.h"
-#include "rocksdb/cache.h"
-#include "rocksdb/comparator.h"
-#include "rocksdb/write_batch.h"
-#include "rocksdb/statistics.h"
-#include "rocksdb/perf_context.h"
-#include "rocksdb/iostats_context.h"
 
-#include "sql_string.h"
-
+/* MyRocks header files */
 #include "rdb_perf_context.h"
 
 /*
