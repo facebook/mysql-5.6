@@ -18,7 +18,6 @@
 #define _ha_rocksdb_proto_h_
 
 #include "rocksdb/table.h"
-#include "rdb_perf_context.h"
 
 class Column_family_manager;
 
