@@ -18,15 +18,16 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
-#include <mysql/plugin.h>
-#include "ha_rocksdb.h"
-#include "sql_class.h"
-#include "my_bit.h"
+/* This C++ file's header file */
+#include "./rdb_datadic.h"
 
-#include "rdb_datadic.h"
-#include "rdb_cf_manager.h"
-#include "ha_rocksdb_proto.h"
-#include "my_stacktrace.h"
+/* MySQL header files */
+#include "./my_bit.h"
+
+/* MyRocks header files */
+#include "./ha_rocksdb_proto.h"
+#include "./my_stacktrace.h"
+#include "./rdb_cf_manager.h"
 
 void key_restore(uchar *to_record, uchar *from_key, KEY *key_info,
                  uint key_length);
