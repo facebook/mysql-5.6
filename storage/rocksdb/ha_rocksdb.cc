@@ -1693,15 +1693,7 @@ static int rocksdb_start_trx_and_assign_read_view(
     return 1;
   }
 
-  Rdb_transaction*& trx= get_trx_from_thd(thd);
-  if (trx == NULL)
-  {
-    if (!(trx= new Rdb_transaction))
-      return 1;
-  }
-
-
-  trx->start_trx(thd);
+  Rdb_transaction* trx= get_or_create_trx(thd);
 
   if (binlog_file)
   {
