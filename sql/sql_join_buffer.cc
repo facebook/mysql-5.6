@@ -1027,7 +1027,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
     for ( ; copy_ptr < copy_ptr_end; copy_ptr++)
     {
       Field_blob *blob_field= (Field_blob *) (*copy_ptr)->field;
-      if (!blob_field->is_null())
+      if (!is_field_null(blob_field))
       {
         uint blob_len= blob_field->get_length();
         (*copy_ptr)->blob_length= blob_len;
@@ -1090,7 +1090,7 @@ uint JOIN_CACHE::write_record_data(uchar * link, bool *is_full)
   for ( ; copy < copy_end; copy++)
   {
     Field *field= copy->field;
-    if (field && field->maybe_null() && field->is_null())
+    if (field && field->maybe_null() && is_field_null(field))
     {
       /* Do not copy a field if its value is null */
       if (copy->referenced_field_no)
@@ -1460,24 +1460,8 @@ uint JOIN_CACHE::read_record_field(CACHE_FIELD *copy, bool blob_in_rec_buff)
 {
   uint len;
   /* Do not copy the field if its value is null */ 
-  if (copy->field && copy->field->maybe_null())
-  {
-    /* only the flag fields have been populated, the data ptr
-    is still invalid so call Field_document::is_null_as_blob()
-    instead of Field_document::is_null()*/
-    if (copy->field->type() != MYSQL_TYPE_DOCUMENT)
-    {
-      if (copy->field->is_null())
-        return 0;
-    }
-    else
-    {
-      Field_document *field = (Field_document*) copy->field;
-      DBUG_ASSERT(field);
-      if (field->is_null_as_blob())
-        return 0;
-    }
-  }
+  if (copy->field && copy->field->maybe_null() && is_field_null(copy->field))
+    return 0;
 
   if (copy->type == CACHE_BLOB)
   {
