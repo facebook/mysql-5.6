@@ -1,9 +1,32 @@
+/*
+   Copyright (c) 2015, Facebook, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; version 2 of the License.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+
 #ifndef PROPERTIES_COLLECTOR_H
 #define PROPERTIES_COLLECTOR_H
 
+/* C++ system header files */
+#include <memory>
+#include <unordered_set>
 #include <vector>
-#include "rocksdb/table_properties.h"
-#include "rdb_datadic.h"
+
+/* RocksDB header files */
+#include "rocksdb/db.h"
+
+class Table_ddl_manager;
+class RDBSE_KEYDEF;
 
 struct CompactionParams {
   uint64_t deletes_, window_, file_size_;
@@ -24,7 +47,7 @@ class MyRocksTablePropertiesCollector
     static std::string materialize(std::vector<IndexStats>);
     static int unmaterialize(const std::string& s, std::vector<IndexStats>&);
     IndexStats() : IndexStats(0) {}
-    IndexStats(uint32_t _index_number) :
+    explicit IndexStats(uint32_t _index_number) :
         index_number(_index_number),
         data_size(0),
         rows(0),
@@ -87,7 +110,7 @@ class MyRocksTablePropertiesCollector
 class MyRocksTablePropertiesCollectorFactory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
-  MyRocksTablePropertiesCollectorFactory(
+  explicit MyRocksTablePropertiesCollectorFactory(
     Table_ddl_manager* ddl_manager
   ) : ddl_manager_(ddl_manager) {
   }

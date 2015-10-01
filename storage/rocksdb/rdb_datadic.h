@@ -21,11 +21,16 @@ class Field_pack_info;
 class Column_family_manager;
 class Table_ddl_manager;
 
+/* C++ standard header files */
 #include <unordered_set>
 #include <mutex>
+
+/* C standard header files */
 #include <arpa/inet.h>
 
-#include "properties_collector.h"
+/* MyRocks header files */
+#include "./ha_rocksdb.h"
+#include "./properties_collector.h"
 
 bool is_myrocks_collation_supported(Field *field);
 void write_int64(String *out, uint64 val);
@@ -92,7 +97,7 @@ class Stream_reader
   const char* ptr;
   uint len;
 public:
-  Stream_reader(const std::string &str)
+  explicit Stream_reader(const std::string &str)
   {
     len= str.length();
     if (len)
@@ -109,7 +114,7 @@ public:
     }
   }
 
-  Stream_reader(const rocksdb::Slice *slice)
+  explicit Stream_reader(const rocksdb::Slice *slice)
   {
     ptr= slice->data();
     len= slice->size();
