@@ -1,17 +1,24 @@
-#include <chrono>
-#include <condition_variable>
-#include <functional>
-#include <mutex>
+/*
+   Copyright (c) 2015, Facebook, Inc.
 
-#include "my_sys.h"
-#include "mysql/plugin.h"
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; version 2 of the License.
 
-#include "rocksdb/status.h"
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-#include "ha_rocksdb.h"  /* for thd_enter_cond and thd_exit_cond */
-#include "sql_class.h"
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include "rdb_mutex_wrapper.h"
+/* This C++ file's header file */
+#include "./rdb_mutex_wrapper.h"
+
+/* MyRocks header files */
+#include "./ha_rocksdb.h"  /* for thd_enter_cond and thd_exit_cond */
 
 using namespace rocksdb;
 
