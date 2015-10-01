@@ -18,16 +18,17 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+/* This C++ files header file */
+#include "./rdb_cf_options.h"
+
+/* C++ system header files */
 #include <fstream>
 #include <algorithm>
 #include <functional>
 #include <cctype>
 #include <locale>
 
-#include <mysql/plugin.h>
-
-#include "rdb_cf_options.h"
-
+/* RocksDB header files */
 #include "rocksdb/utilities/convenience.h"
 
 void Cf_options::Get(const std::string &cf_name,
