@@ -1,34 +1,22 @@
-#include <iostream>
-#include <mysql/plugin.h>
+/*
+   Copyright (c) 2015, Facebook, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; version 2 of the License.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+
+/* MyRocks header files */
 #include "../ha_rocksdb.h"
-#include "../ha_rocksdb_proto.h"
-
-//#include "sql_class.h"
-#include "sql_array.h"
-
-#include "my_bit.h"
-#include "my_stacktrace.h"
-
-#include <sstream>
-
 #include "../rdb_datadic.h"
-
-#include "../rdb_cf_options.h"
-#include "../rdb_cf_manager.h"
-#include "../rdb_i_s.h"
-
-#include "rocksdb/compaction_filter.h"
-#include "rocksdb/env.h"
-#include "rocksdb/rate_limiter.h"
-#include "rocksdb/slice.h"
-#include "rocksdb/slice_transform.h"
-#include "rocksdb/table.h"
-#include "rocksdb/metadata.h"
-#include "rocksdb/utilities/convenience.h"
-#include "rocksdb/utilities/flashcache.h"
-#include "rocksdb/slice_transform.h"
-#include "rocksdb/perf_context.h"
-#include "../properties_collector.h"
 
 void putKeys(MyRocksTablePropertiesCollector& coll, int num, bool is_delete,
              uint64_t expected_deleted) {
