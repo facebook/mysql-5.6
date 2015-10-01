@@ -18,18 +18,9 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
-#include <mysql/plugin.h>
-#include "sql_class.h"
-#include "ha_rocksdb.h"
+#include "./rdb_cf_manager.h"
 
-#include "rdb_cf_manager.h"
-
-/* This is here to get PRIu64, PRId64 */
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
-#endif
-#include <inttypes.h>
-
+#include "./ha_rocksdb.h"
 
 /* Check if ColumnFamily name says it's a reverse-ordered CF */
 bool is_cf_name_reverse(const char *name)
