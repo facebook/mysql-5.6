@@ -14,24 +14,21 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#include <mysql/plugin.h>
-#include <table.h>
-#include <field.h>
+/* MySQL header files */
 #include <sql_show.h>
 
-#include <netinet/in.h>
-
-#include "ha_rocksdb.h"
-#include "ha_rocksdb_proto.h"
-#include "rdb_perf_context.h"
-#include "rdb_cf_manager.h"
-#include "rdb_datadic.h"
-#include "rdb_i_s.h"
-#include "rocksdb/filter_policy.h"
-#include "rocksdb/slice_transform.h"
-#include "rocksdb/merge_operator.h"
+/* RocksDB header files */
 #include "rocksdb/compaction_filter.h"
+#include "rocksdb/filter_policy.h"
 #include "rocksdb/memtablerep.h"
+#include "rocksdb/merge_operator.h"
+#include "rocksdb/slice_transform.h"
+
+/* MyRocks header files */
+#include "./ha_rocksdb.h"
+#include "./ha_rocksdb_proto.h"
+#include "./rdb_cf_manager.h"
+#include "./rdb_datadic.h"
 
 #define ROCKSDB_FIELD_INFO(_name_, _len_, _type_, _flag_) \
         { _name_, _len_, _type_, 0, _flag_, NULL, 0 }
