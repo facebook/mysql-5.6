@@ -28,6 +28,12 @@
 class Table_ddl_manager;
 class RDBSE_KEYDEF;
 
+extern uint64_t rocksdb_num_sst_entry_put;
+extern uint64_t rocksdb_num_sst_entry_delete;
+extern uint64_t rocksdb_num_sst_entry_singledelete;
+extern uint64_t rocksdb_num_sst_entry_merge;
+extern uint64_t rocksdb_num_sst_entry_other;
+
 struct CompactionParams {
   uint64_t deletes_, window_, file_size_;
 };
