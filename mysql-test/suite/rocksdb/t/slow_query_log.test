@@ -18,6 +18,7 @@ while ($i < $max) {
 }
 
 DELETE FROM t1 WHERE id < 2500;
+--exec echo "" > $MYSQLTEST_VARDIR/mysqld.1/mysqld-slow.log
 --enable_query_log
 
 SET @cur_long_query_time = @@long_query_time;
