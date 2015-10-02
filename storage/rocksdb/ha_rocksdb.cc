@@ -1219,6 +1219,14 @@ public:
     return txn->Delete(column_family, key);
   }
 
+  rocksdb::Status SingleDelete(rocksdb::ColumnFamilyHandle* column_family,
+                               const rocksdb::Slice& key)
+  {
+    if (++n_writes > max_row_locks)
+      return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
+    return txn->SingleDelete(column_family, key);
+  }
+
   rocksdb::Status Get(rocksdb::ColumnFamilyHandle* column_family,
                       const rocksdb::Slice& key, std::string* value)
   {
@@ -4477,6 +4485,23 @@ void ha_rocksdb::unlock_row()
   }
 }
 
+bool ha_rocksdb::can_use_single_delete(uint index)
+{
+  /*
+    Secondary Indexes can always use SingleDelete.
+  */
+  if (index != table->s->primary_key)
+    return true;
+  /*
+     If the index is PRIMARY KEY, and if all of the columns of the table
+     are covered by the PRIMARY KEY, SingleDelete can be used.
+  */
+  if (index == table->s->primary_key &&
+      table->key_info[index].actual_key_parts == table->s->fields)
+    return true;
+
+  return false;
+}
 
 int ha_rocksdb::write_row(uchar *buf)
 {
@@ -4719,8 +4744,9 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     {
       if (pk_key_changed)
       {
-        rocksdb::Status s= trx->Delete(key_descr[i]->get_cf(),
-                                       old_pk_key_slice);
+        rocksdb::Status s= delete_or_singledelete(i, trx,
+                                                  key_descr[i]->get_cf(),
+                                                  old_pk_key_slice);
         if (!s.ok())
         {
           DBUG_RETURN(return_status_error(table->in_use, s));
@@ -4777,7 +4803,9 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
           memcmp(sec_key_tails_old, sec_key_tails, old_key_tail_size) == 0)
         continue;
 
-      auto s= trx->Delete(key_descr[i]->get_cf(), old_key_slice);
+      rocksdb::Status s= delete_or_singledelete(i, trx,
+                                                key_descr[i]->get_cf(),
+                                                old_key_slice);
       if (!s.ok())
       {
         DBUG_RETURN(return_status_error(table->in_use, s));
@@ -5057,9 +5085,9 @@ int ha_rocksdb::delete_row(const uchar *buf)
 
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
-  rocksdb::Status s;
-  s= trx->Delete(pk_descr->get_cf(), key_slice);
-
+  rocksdb::Status s= delete_or_singledelete(table->s->primary_key, trx,
+                                            pk_descr->get_cf(),
+                                            key_slice);
   if (!s.ok())
   {
     DBUG_RETURN(return_status_error(table->in_use, s));
@@ -5076,7 +5104,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
                                              NULL, NULL);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
-      s= trx->Delete(key_descr[i]->get_cf(), secondary_key_slice);
+      s= trx->SingleDelete(key_descr[i]->get_cf(), secondary_key_slice);
       if (!s.ok())
       {
         DBUG_RETURN(return_status_error(table->in_use, s));
@@ -5088,6 +5116,17 @@ int ha_rocksdb::delete_row(const uchar *buf)
   io_perf_end_and_record();
 
   DBUG_RETURN(0);
+}
+
+rocksdb::Status
+ha_rocksdb::delete_or_singledelete(uint index,
+                                   Rdb_transaction *trx,
+                                   rocksdb::ColumnFamilyHandle* column_family,
+                                   const rocksdb::Slice& key)
+{
+  if (can_use_single_delete(index))
+    return trx->SingleDelete(column_family, key);
+  return trx->Delete(column_family, key);
 }
 
 
@@ -5668,7 +5707,10 @@ void ha_rocksdb::remove_rows(RDBSE_TABLE_DEF *tbl)
       rocksdb::Slice key= it->key();
       if (!tbl->key_descr[i]->covers_key(key.data(), key.size()))
         break;
-      rdb->Delete(wo, key);
+      if (can_use_single_delete(i))
+        rdb->SingleDelete(wo, key);
+      else
+        rdb->Delete(wo, key);
       it->Next();
     }
   }
@@ -6297,6 +6339,16 @@ static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(number_superversion_cleanups),
   DEF_STATUS_VAR(number_block_not_compressed),
   DEF_STATUS_VAR_PTR("number_stat_computes", &rocksdb_number_stat_computes, SHOW_LONGLONG),
+  DEF_STATUS_VAR_PTR("number_sst_entry_put", &rocksdb_num_sst_entry_put,
+                     SHOW_LONGLONG),
+  DEF_STATUS_VAR_PTR("number_sst_entry_delete", &rocksdb_num_sst_entry_delete,
+                     SHOW_LONGLONG),
+  DEF_STATUS_VAR_PTR("number_sst_entry_singledelete",
+                     &rocksdb_num_sst_entry_singledelete, SHOW_LONGLONG),
+  DEF_STATUS_VAR_PTR("number_sst_entry_merge", &rocksdb_num_sst_entry_merge,
+                     SHOW_LONGLONG),
+  DEF_STATUS_VAR_PTR("number_sst_entry_other", &rocksdb_num_sst_entry_other,
+                     SHOW_LONGLONG),
   {NullS, NullS, SHOW_LONG}
 };
 
