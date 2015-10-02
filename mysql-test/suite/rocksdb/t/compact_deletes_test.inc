@@ -16,7 +16,7 @@ let $i=0;
 while ($i<1000)
 {
   inc $i;
-  eval update r1 set value2=value2+1 where id1=500;
+  eval update r1 set id2=id2+10000 where id1=500;
 }
 --enable_query_log
 set global rocksdb_force_flush_memtable_now=1;
