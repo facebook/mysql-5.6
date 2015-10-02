@@ -97,7 +97,7 @@ class Stream_reader
   const char* ptr;
   uint len;
 public:
-  Stream_reader(const std::string &str)
+  explicit Stream_reader(const std::string &str)
   {
     len= str.length();
     if (len)
@@ -114,7 +114,7 @@ public:
     }
   }
 
-  Stream_reader(const rocksdb::Slice *slice)
+  explicit Stream_reader(const rocksdb::Slice *slice)
   {
     ptr= slice->data();
     len= slice->size();
