@@ -87,7 +87,7 @@ class MyRocksTablePropertiesCollector
 class MyRocksTablePropertiesCollectorFactory
     : public rocksdb::TablePropertiesCollectorFactory {
  public:
-  MyRocksTablePropertiesCollectorFactory(
+  explicit MyRocksTablePropertiesCollectorFactory(
     Table_ddl_manager* ddl_manager
   ) : ddl_manager_(ddl_manager) {
   }
