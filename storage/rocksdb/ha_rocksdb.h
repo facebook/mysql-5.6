@@ -258,6 +258,7 @@ class ha_rocksdb: public handler
 
   void update_auto_incr_val();
   void load_auto_incr_value();
+  bool can_use_single_delete(uint index);
 
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
@@ -457,6 +458,10 @@ public:
   int write_row(uchar *buf);
   int update_row(const uchar *old_data, uchar *new_data);
   int delete_row(const uchar *buf);
+  rocksdb::Status delete_or_singledelete(uint index,
+                                         Rdb_transaction *trx,
+                                         rocksdb::ColumnFamilyHandle* cf,
+                                         const rocksdb::Slice& key);
 
   int index_next(uchar *buf);
   int index_next_with_direction(uchar *buf, bool move_forward);
