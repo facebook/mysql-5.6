@@ -10,6 +10,12 @@
 #include "rdb_datadic.h"
 #include "properties_collector.h"
 
+uint64_t rocksdb_num_sst_entry_put = 0;
+uint64_t rocksdb_num_sst_entry_delete = 0;
+uint64_t rocksdb_num_sst_entry_singledelete = 0;
+uint64_t rocksdb_num_sst_entry_merge = 0;
+uint64_t rocksdb_num_sst_entry_other = 0;
+
 MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   Table_ddl_manager* ddl_manager,
   CompactionParams params
@@ -31,6 +37,27 @@ MyRocksTablePropertiesCollector::AddUserKey(
     uint64_t file_size
 ) {
   if (key.size() >= 4) {
+    switch (type) {
+    case rocksdb::kEntryPut:
+      rocksdb_num_sst_entry_put++;
+      break;
+    case rocksdb::kEntryDelete:
+      rocksdb_num_sst_entry_delete++;
+      break;
+    case rocksdb::kEntrySingleDelete:
+      rocksdb_num_sst_entry_singledelete++;
+      break;
+    case rocksdb::kEntryMerge:
+      rocksdb_num_sst_entry_merge++;
+      break;
+    case rocksdb::kEntryOther:
+      rocksdb_num_sst_entry_other++;
+      break;
+    default:
+      break;
+    }
+
+
     uint32_t index_number = read_big_uint4((const uchar*)key.data());
     if (stats_.empty() || index_number != stats_.back().index_number) {
       keydef_ = NULL;
@@ -67,9 +94,11 @@ MyRocksTablePropertiesCollector::AddUserKey(
       }
       // --override the element with the new value
       deleted_rows_window_[rows_ % deleted_rows_window_.size()]
-        = (type == rocksdb::kEntryDelete);
+        = (type == rocksdb::kEntryDelete ||
+           type == rocksdb::kEntrySingleDelete);
       // --update the counter
-      if (type == rocksdb::kEntryDelete) {
+      if (type == rocksdb::kEntryDelete ||
+          type == rocksdb::kEntrySingleDelete) {
         deleted_rows_++;
       }
       // --we are looking for the maximum deleted_rows_

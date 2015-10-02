@@ -262,6 +262,7 @@ class ha_rocksdb: public handler
 
   void update_auto_incr_val();
   void load_auto_incr_value();
+  bool can_use_single_delete(uint index);
 
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
