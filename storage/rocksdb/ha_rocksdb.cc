@@ -1366,7 +1366,7 @@ static int rocksdb_recover(handlerton* hton, XID* xid_list, uint len,
     {
       if (is_binlog_advanced(binlog_file, *binlog_pos, file_buf, pos))
       {
-        strcpy(binlog_file, file_buf);
+        memcpy(binlog_file, file_buf, FN_REFLEN + 1);
         *binlog_pos= pos;
         fprintf(stderr, "RocksDB: Last binlog file position %llu,"
                 " file name %s\n", pos, file_buf);
