@@ -47,7 +47,7 @@ class MyRocksTablePropertiesCollector
     static std::string materialize(std::vector<IndexStats>);
     static int unmaterialize(const std::string& s, std::vector<IndexStats>&);
     IndexStats() : IndexStats(0) {}
-    IndexStats(uint32_t _index_number) :
+    explicit IndexStats(uint32_t _index_number) :
         index_number(_index_number),
         data_size(0),
         rows(0),
