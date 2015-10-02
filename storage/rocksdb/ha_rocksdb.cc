@@ -912,7 +912,7 @@ private:
   THD* thd_= NULL;
 
 public:
-  MyRocksSnapshot(THD* thd) : thd_(thd) {
+  explicit MyRocksSnapshot(THD* thd) : thd_(thd) {
     rdb->GetEnv()->GetCurrentTime(&timestamp_);
   }
 
