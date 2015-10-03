@@ -1671,8 +1671,6 @@ static int rocksdb_start_trx_and_assign_read_view(
     return 1;
   }
 
-  Rdb_transaction* trx= get_or_create_trx(thd);
-
   if (binlog_file)
   {
     if (binlog_pos && mysql_bin_log_is_open())
@@ -1681,6 +1679,7 @@ static int rocksdb_start_trx_and_assign_read_view(
       return 1;
   }
 
+  Rdb_transaction* trx= get_or_create_trx(thd);
   rocksdb_register_trx(hton, thd, trx);
 
   if (binlog_file)
