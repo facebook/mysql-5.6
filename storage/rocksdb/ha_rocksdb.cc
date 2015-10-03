@@ -1182,11 +1182,13 @@ public:
     "Number of locks held by the transaction exceeded @@rocksdb_max_row_locks";
 
   rocksdb::Status Put(rocksdb::ColumnFamilyHandle* column_family,
-                      const rocksdb::Slice& key, const rocksdb::Slice& value)
+                      const rocksdb::Slice& key, const rocksdb::Slice& value,
+                      bool tracked)
   {
     if (++n_writes > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
-    return txn->Put(column_family, key, value);
+    return tracked ? txn->Put(column_family, key, value) :
+                     txn->PutUntracked(column_family, key, value);
   }
 
   rocksdb::Status Delete(rocksdb::ColumnFamilyHandle* column_family,
@@ -4761,7 +4763,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       }
     }
 
-    auto s= trx->Put(key_descr[i]->get_cf(), new_key_slice, new_value_slice);
+    auto s= trx->Put(key_descr[i]->get_cf(), new_key_slice, new_value_slice,
+                     do_locking);
     if (!s.ok())
     {
       DBUG_RETURN(return_status_error(table->in_use, s));
@@ -4778,7 +4781,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
   convert_record_to_storage_format((const char*)pk_packed_tuple,
                                    pk_packed_size, &value_slice);
 
-  auto s= trx->Put(pk_descr->get_cf(), new_key_slice, value_slice);
+  auto s= trx->Put(pk_descr->get_cf(), new_key_slice, value_slice, do_locking);
   if (!s.ok())
   {
     if (s.IsBusy())
