@@ -6,6 +6,8 @@
 ## not a concern and the result set is large so the result log is disabled.
 ##
 
+--source include/not_valgrind.inc
+
 --disable_warnings
 drop table if exists table1_innodb;
 --enable_warnings
