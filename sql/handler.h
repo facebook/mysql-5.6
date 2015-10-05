@@ -2082,9 +2082,11 @@ public:
   int ha_rnd_end();
   int ha_rnd_next(uchar *buf);
   int ha_rnd_pos(uchar * buf, uchar *pos);
-  int ha_index_read_map(uchar *buf, const uchar *key,
+  virtual int ha_index_read_map(uchar *buf, const uchar *key,
                         key_part_map keypart_map,
-                        enum ha_rkey_function find_flag);
+                        enum ha_rkey_function find_flag,
+                        const uchar *end_key= NULL,
+                        key_part_map end_keypart_map= 0);
   int ha_index_read_last_map(uchar * buf, const uchar * key,
                              key_part_map keypart_map);
   int ha_index_read_idx_map(uchar *buf, uint index, const uchar *key,

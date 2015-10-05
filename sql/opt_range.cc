@@ -10968,7 +10968,9 @@ int QUICK_SELECT_DESC::get_next()
                                       last_range->max_keypart_map,
                                       ((last_range->flag & NEAR_MAX) ?
                                        HA_READ_BEFORE_KEY :
-                                       HA_READ_PREFIX_LAST_OR_PREV));
+                                       HA_READ_PREFIX_LAST_OR_PREV),
+                                      last_range->min_key,
+                                      last_range->min_keypart_map);
     }
     if (result)
     {

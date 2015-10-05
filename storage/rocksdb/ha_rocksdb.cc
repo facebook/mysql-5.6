@@ -3383,6 +3383,22 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
   return HA_ERR_END_OF_FILE;
 }
 
+int ha_rocksdb::ha_index_read_map(uchar *buf, const uchar *key,
+                        key_part_map keypart_map,
+                        enum ha_rkey_function find_flag,
+                        const uchar *end_key,
+                        key_part_map end_keypart_map)
+{
+  int result;
+  DBUG_ENTER("ha_rocksdb::ha_index_read_map");
+  bool is_eq_cond_range_scan= end_key && (find_flag != HA_READ_KEY_EXACT);
+  MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
+    { result= index_read_map_impl(buf, key, keypart_map, find_flag,
+                                  is_eq_cond_range_scan, end_key,
+                                  end_keypart_map); })
+  DBUG_RETURN(result);
+}
+
 
 /*
   ha_rocksdb::read_range_first overrides handler::read_range_first.
@@ -3409,10 +3425,12 @@ int ha_rocksdb::read_range_first(const key_range *start_key,
     bool is_eq_cond_range_scan= end_key&&(start_key->flag!=HA_READ_KEY_EXACT);
     MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
       { result= index_read_map_impl(table->record[0],
-                                start_key->key,
-                                start_key->keypart_map,
-                                start_key->flag,
-                                is_eq_cond_range_scan, end_key); })
+                                    start_key->key,
+                                    start_key->keypart_map,
+                                    start_key->flag,
+                                    is_eq_cond_range_scan,
+                                    end_key? end_key->key : nullptr,
+                                    end_key? end_key->keypart_map : 0); })
   }
   if (result)
     DBUG_RETURN((result == HA_ERR_KEY_NOT_FOUND)
@@ -3439,7 +3457,8 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag)
 {
-  return index_read_map_impl(buf, key, keypart_map, find_flag, false, NULL);
+  return index_read_map_impl(buf, key, keypart_map,
+                             find_flag, false, nullptr, 0);
 }
 
 /*
@@ -3458,7 +3477,8 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
                                     key_part_map keypart_map,
                                     enum ha_rkey_function find_flag,
                                     const bool is_eq_cond_range_scan,
-                                    const key_range *end_key)
+                                    const uchar *end_key,
+                                    key_part_map end_keypart_map)
 {
   int rc= 0;
   DBUG_ENTER("ha_rocksdb::index_read_map");
@@ -3497,8 +3517,8 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   if (is_eq_cond_range_scan && end_key)
   {
     end_key_packed_size= kd->pack_index_tuple(this, table, pack_buffer,
-                                              end_key_packed_tuple, end_key->key,
-                                              end_key->keypart_map);
+                                              end_key_packed_tuple, end_key,
+                                              end_keypart_map);
   }
 
   /*
@@ -3556,7 +3576,20 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   uint eq_cond_len= 0;
   if (find_flag == HA_READ_KEY_EXACT)
   {
+    /* No range condition set */
     eq_cond_len= slice.size();
+  }
+  else if (find_flag == HA_READ_PREFIX_LAST)
+  {
+    /* With full eq condition search + kd->successor(), applicable bloom filter
+       length must be subtracted by 1. Consider "WHERE id1=6" (b110) for
+       8 byte bigint primary key as an example. Successor(6) is 7 (b111).
+       Using bloom filter for entire bits (b111) may give a wrong result.
+       It is not necessary to subtract for HA_READ_PREFIX_LAST_OR_PREV and
+       HA_READ_AFTER_KEY because they're used by prefix range scan only --
+       the last bit is always part of range, not of eq conditions.
+    */
+    eq_cond_len= slice.size() - 1 > 0 ? slice.size() - 1 : 0;
   }
   else if (is_eq_cond_range_scan && end_key_packed_size > 0)
   {

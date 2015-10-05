@@ -430,6 +430,12 @@ public:
    */
   uint max_supported_key_length()    const { return 16*1024; /* just to return something*/ }
 
+  int ha_index_read_map(uchar *buf, const uchar *key,
+                        key_part_map keypart_map,
+                        enum ha_rkey_function find_flag,
+                        const uchar *end_key= nullptr,
+                        key_part_map end_keypart_map= 0);
+
   /* At the moment, we're ok with default handler::index_init() implementation. */
   int index_read_map(uchar * buf, const uchar * key,
                      key_part_map keypart_map,
@@ -438,7 +444,8 @@ public:
                           key_part_map keypart_map,
                           enum ha_rkey_function find_flag,
                           const bool is_eq_cond_range_scan,
-                          const key_range *end_key);
+                          const uchar *end_key,
+                          key_part_map end_keypart_map);
 
   int index_read_last_map(uchar * buf, const uchar * key,
                           key_part_map keypart_map);

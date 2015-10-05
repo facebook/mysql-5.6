@@ -2957,7 +2957,9 @@ int handler::ha_rnd_pos(uchar *buf, uchar *pos)
 
 int handler::ha_index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
-                               enum ha_rkey_function find_flag)
+                               enum ha_rkey_function find_flag,
+                               const uchar *end_key,
+                               key_part_map end_keypart_map)
 {
   int result;
   DBUG_ENTER("handler::ha_index_read_map");
