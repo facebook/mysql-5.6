@@ -119,10 +119,25 @@ private:
     return *this;
   }
 
+  /**
+    Initialize Session_tracker objects and enable them based on the
+    tracker_xxx variables' value that the session inherit from global
+    variables at the time of session initialization (see plugin_thdvar_init).
+  */
+  void enable();
+
+  /**
+    If this instance is enabled.
+  */
+  bool enabled;
+
+  THD *thd;
+
 public:
 
   /** Constructor */
   Session_tracker()
+    : enabled(false), thd(NULL)
   {}
 
   /** Destructor */
@@ -130,22 +145,25 @@ public:
   {
   }
   /**
-    Initialize Session_tracker objects and enable them based on the
-    tracker_xxx variables' value that the session inherit from global
-    variables at the time of session initialization (see plugin_thdvar_init).
+    Lightweight initialization.
   */
-  void init(const CHARSET_INFO *char_set);
-  void enable(THD *thd);
-  bool server_boot_verify(const CHARSET_INFO *char_set, LEX_STRING var_list);
+  void init(THD *t)
+  {
+    DBUG_ASSERT(!thd && t);
+    thd = t;
+  }
+
+  static bool server_boot_verify(const CHARSET_INFO *char_set,
+                                 LEX_STRING var_list);
 
   /** Returns the pointer to the tracker object for the specified tracker. */
-  State_tracker *get_tracker(enum_session_tracker tracker) const;
+  State_tracker *get_tracker(enum_session_tracker tracker);
 
   /** Checks if m_enabled flag is set for any of the tracker objects. */
-  bool enabled_any();
+  bool enabled_any() const;
 
   /** Checks if m_changed flag is set for any of the tracker objects. */
-  bool changed_any();
+  bool changed_any() const;
 
   /**
     Stores the session state change information of all changes session state
@@ -154,8 +172,16 @@ public:
   void store(THD *thd, String &main_buf);
   void deinit()
   {
+    if (enabled)
+    {
     for (int i= 0; i <= SESSION_TRACKER_END; i ++)
+      {
       delete m_trackers[i];
+        m_trackers[i] = NULL;
+      }
+      thd = NULL;
+      enabled = false;
+    }
   }
 };
 

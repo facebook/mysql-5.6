@@ -18,6 +18,7 @@
 #include <sql_show.h>
 #include <hash.h>
 #include <session_tracker.h>
+#include <sql_class.h>
 
 
 /**
@@ -710,33 +711,27 @@ void Current_schema_tracker::reset()
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
-  @brief Initialize session tracker objects.
-
-  @param char_set [IN]      The character set info.
+  @brief Initializes and enables the tracker objects.
 
   @return                   void
 */
-
-void Session_tracker::init(const CHARSET_INFO *char_set)
+void Session_tracker::enable()
 {
+  if (!enabled)
+  {
+    DBUG_ASSERT(thd);
   m_trackers[SESSION_SYSVARS_TRACKER]=
-    new (std::nothrow) Session_sysvars_tracker(char_set);
+      new (std::nothrow) Session_sysvars_tracker(thd->charset());
   m_trackers[CURRENT_SCHEMA_TRACKER]=
     new (std::nothrow) Current_schema_tracker;
+
+    for (int i= 0; i <= SESSION_TRACKER_END; i ++)
+      m_trackers[i]->enable(thd);
+
+    enabled = true;
+  }
 }
 
-/**
-  @brief Enables the tracker objects.
-
-  @param thd [IN]    The thread handle.
-
-  @return            void
-*/
-void Session_tracker::enable(THD *thd)
-{
-  for (int i= 0; i <= SESSION_TRACKER_END; i ++)
-    m_trackers[i]->enable(thd);
-}
 
 /**
   @brief Method called during the server startup to verify the contents
@@ -770,8 +765,9 @@ bool Session_tracker::server_boot_verify(const CHARSET_INFO *char_set,
 */
 
 State_tracker *
-Session_tracker::get_tracker(enum_session_tracker tracker) const
+Session_tracker::get_tracker(enum_session_tracker tracker)
 {
+  enable();
   return m_trackers[tracker];
 }
 
@@ -785,12 +781,15 @@ Session_tracker::get_tracker(enum_session_tracker tracker) const
 
 */
 
-bool Session_tracker::enabled_any()
+bool Session_tracker::enabled_any() const
 {
-  for (int i= 0; i <= SESSION_TRACKER_END; i ++)
+  if (enabled)
   {
+    for (int i= 0; i <= SESSION_TRACKER_END; i ++)
+    {
     if (m_trackers[i]->is_enabled())
       return true;
+    }
   }
   return false;
 }
@@ -804,12 +803,15 @@ bool Session_tracker::enabled_any()
     false                   None of the entities being tracked has changed.
 */
 
-bool Session_tracker::changed_any()
+bool Session_tracker::changed_any() const
 {
-  for (int i= 0; i <= SESSION_TRACKER_END; i ++)
+  if (enabled)
   {
+    for (int i= 0; i <= SESSION_TRACKER_END; i ++)
+    {
     if (m_trackers[i]->is_changed())
       return true;
+    }
   }
   return false;
 }
@@ -827,6 +829,8 @@ bool Session_tracker::changed_any()
 
 void Session_tracker::store(THD *thd, String &buf)
 {
+  enable();
+
   /* Temporary buffer to store all the changes. */
   String temp;
   size_t length;

@@ -28,6 +28,7 @@
 
 uchar *Session_sysvar_resource_manager::find(void *key, size_t length)
 {
+  enable();
   return (my_hash_search(&m_sysvar_string_alloc_hash, (const uchar *) key,
 	                 length));
 }
@@ -37,18 +38,21 @@ uchar *Session_sysvar_resource_manager::find(void *key, size_t length)
   Allocates memory for Sys_var_charptr session variable during session
   initialization.
 
-  @param var     [IN]     The variable.
-  @param charset [IN]     Character set information.
-
   @return
   Success - false
   Failure - true
 */
 
-bool Session_sysvar_resource_manager::init(
-    char **var, const CHARSET_INFO * charset)
+bool Session_sysvar_resource_manager::enable()
 {
-  if (*var)
+  if (enabled)
+    return false; /* Success */
+
+  DBUG_ASSERT(thd);
+  char *var = thd->variables.track_sysvars_ptr;
+  const CHARSET_INFO *charset = thd->charset();
+
+  if (var)
   {
     sys_var_ptr *element;
     char *ptr;
@@ -63,14 +67,15 @@ bool Session_sysvar_resource_manager::init(
           // key_memory_THD_Session_sysvar_resource_manager
            (sys_var_ptr *) my_malloc(sizeof(sys_var_ptr), MYF(MY_WME))) ||
          !(ptr=
-           (char *) my_memdup(*var, strlen(*var) + 1, MYF(MY_WME))))
+           (char *) my_memdup(var, strlen(var) + 1, MYF(MY_WME))))
       return true;                            /* Error */
     element->data= (void *) ptr;
     my_hash_insert(&m_sysvar_string_alloc_hash, (uchar *) element);
 
     /* Update the variable to point to the newly alloced copy. */
-    *var= ptr;
+    var= ptr;
   }
+  enabled = true; /* Success */
   return false;
 }
 
@@ -107,6 +112,8 @@ bool Session_sysvar_resource_manager::update(char **var, char *val,
     goto done;
   }
 
+  enable();
+
   if (!(*var && (element= ((sys_var_ptr *)find(*var, strlen(*var))))))
   {
     /* Create a new node & add it to the list. */
@@ -136,6 +143,11 @@ done:
 
 void Session_sysvar_resource_manager::deinit()
 {
+  thd = NULL;
+
+  if (!enabled)
+    return;
+
   /* Release Sys_var_charptr resources here. */
   sys_var_ptr *ptr;
   int i= 0;
@@ -150,6 +162,8 @@ void Session_sysvar_resource_manager::deinit()
   {
     my_hash_free(&m_sysvar_string_alloc_hash);
   }
+
+  enabled = false;
 }
 
 uchar *Session_sysvar_resource_manager::sysvars_mgr_get_key(
