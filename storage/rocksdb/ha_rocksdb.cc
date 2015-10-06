@@ -210,11 +210,19 @@ set_compaction_options(THD* thd,
                        void* var_ptr,
                        const void* save);
 
+static void
+set_rate_limiter_bytes_per_sec(THD*                     thd,
+                               struct st_mysql_sys_var* var,
+                               void*                    var_ptr,
+                               const void*              save);
+
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
 static long long rocksdb_block_cache_size;
-static uint64_t rocksdb_rate_limiter_bytes_per_sec;
+/* Use unsigned long long instead of uint64_t because of MySQL compatibility */
+static unsigned long long  // NOLINT(runtime/int)
+    rocksdb_rate_limiter_bytes_per_sec;
 static uint64_t rocksdb_info_log_level;
 static char * rocksdb_wal_dir;
 static uint64_t rocksdb_index_type;
@@ -245,6 +253,8 @@ static rocksdb::DBOptions init_db_options() {
 
 static rocksdb::DBOptions db_options = init_db_options();
 static rocksdb::BlockBasedTableOptions table_options;
+
+static std::shared_ptr<rocksdb::RateLimiter> rate_limiter;
 
 static const char* info_log_level_names[] = {
   "debug_level",
@@ -315,12 +325,12 @@ static MYSQL_SYSVAR_BOOL(paranoid_checks,
   "DBOptions::paranoid_checks for RocksDB",
   NULL, NULL, db_options.paranoid_checks);
 
-static MYSQL_SYSVAR_ULONG(rate_limiter_bytes_per_sec,
+static MYSQL_SYSVAR_ULONGLONG(rate_limiter_bytes_per_sec,
   rocksdb_rate_limiter_bytes_per_sec,
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+  PLUGIN_VAR_RQCMDARG,
   "DBOptions::rate_limiter bytes_per_sec for RocksDB",
-  NULL, NULL, 0L,
-  /* min */ 0L, /* max */ LONG_MAX, 0);
+  nullptr, set_rate_limiter_bytes_per_sec, /* default */ 0L,
+  /* min */ 0L, /* max */ ULONGLONG_MAX, 0);
 
 static MYSQL_SYSVAR_ENUM(info_log_level,
   rocksdb_info_log_level,
@@ -1887,8 +1897,9 @@ static int rocksdb_init_func(void *p)
   rocksdb::Status status;
 
   if (rocksdb_rate_limiter_bytes_per_sec != 0) {
-    db_options.rate_limiter.reset(
-      rocksdb::NewGenericRateLimiter(rocksdb_rate_limiter_bytes_per_sec));
+    rate_limiter.reset(rocksdb::NewGenericRateLimiter(
+          rocksdb_rate_limiter_bytes_per_sec));
+    db_options.rate_limiter = rate_limiter;
   }
   db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
   db_options.wal_dir = rocksdb_wal_dir;
@@ -6599,5 +6610,42 @@ set_compaction_options(THD* thd,
   };
   if (properties_collector_factory) {
     properties_collector_factory->SetCompactionParams(params);
+  }
+}
+
+/*
+  This function allows setting the rate limiter's bytes per second value
+  but only if the rate limiter is turned on which has to be done at startup.
+  If the rate is already 0 (turned off) or we are changing it to 0 (trying
+  to turn it off) this function will push a warning to the client and do
+  nothing.
+  This is similar to the code in innodb_doublewrite_update (found in
+  storage/innobase/handler/ha_innodb.cc).
+*/
+void
+set_rate_limiter_bytes_per_sec(THD*                     thd,
+                               struct st_mysql_sys_var* var,
+                               void*                    var_ptr,
+                               const void*              save)
+{
+  uint64_t new_val = *static_cast<const uint64_t*>(save);
+  if (new_val == 0 || rocksdb_rate_limiter_bytes_per_sec == 0)
+  {
+    /*
+      If a rate_limiter was not enabled at startup we can't change it nor
+      can we disable it if one was created at startup
+    */
+    push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
+                        ER_WRONG_ARGUMENTS,
+                        "RocksDB: rocksdb_rate_limiter_bytes_per_sec cannot "
+                        "be dynamically changed to or from 0.  Do a clean "
+                        "shutdown if you want to change it from or to 0.");
+  }
+  else if (new_val != rocksdb_rate_limiter_bytes_per_sec)
+  {
+    /* Apply the new value to the rate limiter and store it locally */
+    assert(rate_limiter != nullptr);
+    rocksdb_rate_limiter_bytes_per_sec = new_val;
+    rate_limiter->SetBytesPerSecond(new_val);
   }
 }
