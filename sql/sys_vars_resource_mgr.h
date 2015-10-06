@@ -70,19 +70,35 @@ private:
   */
   uchar *find(void *key, size_t length);
 
+  /**
+    Allocates memory for Sys_var_charptr session variable during session
+    initialization.
+  */
+  bool enable();
+
+  /**
+    If this instance is enabled.
+  */
+  bool enabled;
+
+  THD *thd;
+
+  char *val_ptr;
+
 public:
 
   Session_sysvar_resource_manager()
+    : enabled(false), thd(NULL), val_ptr(NULL)
   {
     (void) memset(
         &m_sysvar_string_alloc_hash, 0, sizeof(m_sysvar_string_alloc_hash));
   }
 
   /**
-    Allocates memory for Sys_var_charptr session variable during session
-    initialization.
+    Lightweight initialization. The actual initialization
+    happens in enable() method.
   */
-  bool init(char **var, const CHARSET_INFO *charset);
+  void init(THD *t);
 
   /**
     Frees the old alloced memory, memdup()'s the given val to a new memory

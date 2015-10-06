@@ -28,8 +28,28 @@
 
 uchar *Session_sysvar_resource_manager::find(void *key, size_t length)
 {
+  if (enable())
+    return NULL; /* Failure */
   return (my_hash_search(&m_sysvar_string_alloc_hash, (const uchar *) key,
 	                 length));
+}
+
+
+/**
+  Lightweight initialization. The actual initialization
+  happens in enable() method.
+*/
+void Session_sysvar_resource_manager::init(THD *t)
+{
+  DBUG_ASSERT(!enabled && !thd && !val_ptr && t);
+  thd = t;
+  char *var = t->variables.track_sysvars_ptr;
+  if (var)
+  {
+    val_ptr = (char *) my_memdup(var, strlen(var) + 1, MYF(MY_WME));
+    /* Update the variable to point to the newly alloced copy. */
+    thd->variables.track_sysvars_ptr= val_ptr;
+  }
 }
 
 
@@ -37,21 +57,22 @@ uchar *Session_sysvar_resource_manager::find(void *key, size_t length)
   Allocates memory for Sys_var_charptr session variable during session
   initialization.
 
-  @param var     [IN]     The variable.
-  @param charset [IN]     Character set information.
-
   @return
   Success - false
   Failure - true
 */
 
-bool Session_sysvar_resource_manager::init(
-    char **var, const CHARSET_INFO * charset)
+bool Session_sysvar_resource_manager::enable()
 {
-  if (*var)
+  if (enabled)
+    return false; /* Success */
+
+  DBUG_ASSERT(thd);
+
+  if (val_ptr)
   {
+    const CHARSET_INFO *charset = thd->charset();
     sys_var_ptr *element;
-    char *ptr;
 
     if (!my_hash_inited(&m_sysvar_string_alloc_hash))
       my_hash_init(&m_sysvar_string_alloc_hash,
@@ -61,17 +82,16 @@ bool Session_sysvar_resource_manager::init(
     /* Create a new node & add it to the hash. */
     if ( !(element=
           // key_memory_THD_Session_sysvar_resource_manager
-           (sys_var_ptr *) my_malloc(sizeof(sys_var_ptr), MYF(MY_WME))) ||
-         !(ptr=
-           (char *) my_memdup(*var, strlen(*var) + 1, MYF(MY_WME))))
+           (sys_var_ptr *) my_malloc(sizeof(sys_var_ptr), MYF(MY_WME))))
       return true;                            /* Error */
-    element->data= (void *) ptr;
+    element->data= (void *) val_ptr;
+    DBUG_ASSERT(thd->variables.track_sysvars_ptr == val_ptr);
+    val_ptr = NULL;
     my_hash_insert(&m_sysvar_string_alloc_hash, (uchar *) element);
-
-    /* Update the variable to point to the newly alloced copy. */
-    *var= ptr;
+    enabled = true; /* Success */
+    return false;
   }
-  return false;
+  return true; /* Error */
 }
 
 
@@ -98,7 +118,7 @@ bool Session_sysvar_resource_manager::update(char **var, char *val,
   {
     if ( !(ptr=
            (char *) my_memdup(val, val_len + 1, MYF(MY_WME))))
-      return true;
+      return true; /* Failure */
     ptr[val_len]= 0;
   }
   else
@@ -106,6 +126,9 @@ bool Session_sysvar_resource_manager::update(char **var, char *val,
     ptr= 0;
     goto done;
   }
+
+  if (enable())
+    return true; /* Failure */
 
   if (!(*var && (element= ((sys_var_ptr *)find(*var, strlen(*var))))))
   {
@@ -136,6 +159,17 @@ done:
 
 void Session_sysvar_resource_manager::deinit()
 {
+  thd = NULL;
+
+  if (val_ptr)
+  {
+    my_free(val_ptr);
+    val_ptr = NULL;
+  }
+
+  if (!enabled)
+    return;
+
   /* Release Sys_var_charptr resources here. */
   sys_var_ptr *ptr;
   int i= 0;
@@ -150,6 +184,8 @@ void Session_sysvar_resource_manager::deinit()
   {
     my_hash_free(&m_sysvar_string_alloc_hash);
   }
+
+  enabled = false;
 }
 
 uchar *Session_sysvar_resource_manager::sysvars_mgr_get_key(
