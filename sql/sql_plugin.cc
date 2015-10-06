@@ -2868,9 +2868,7 @@ void plugin_thdvar_init(THD *thd, bool enable_plugins)
   /* Initialize all Sys_var_charptr variables here. */
 
   // @@session.session_track_system_variables
-  thd->session_sysvar_res_mgr
-    .init(&thd->variables.track_sysvars_ptr, thd->charset());
-
+  thd->session_sysvar_res_mgr.init(thd);
   DBUG_VOID_RETURN;
 }
 
