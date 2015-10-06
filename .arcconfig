@@ -6,7 +6,7 @@
   "arcanist_configuration" : "FacebookMySQLArcanistConfiguration",
   "lint.engine" : "FacebookMySQLLintEngine",
   "lint.cpplint.prefix" : "rocksdb/arcanist_util/cpp_linter/",
-  "lint.cpplint.options" : "--filter=-build/include_order",
+  "lint.cpplint.options" : "--filter=-build/include_order,-whitespace/braces,-whitespace/newline",
   "unit.engine" : "FacebookMySQLUnitTestEngine",
   "events.listeners" : [ "FacebookMySQLDiffCreatedListener" ],
   "git.default-relative-commit" : "HEAD^"
