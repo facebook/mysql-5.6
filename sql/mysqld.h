@@ -240,7 +240,7 @@ void dec_connection_count();
 
 // These are needed for unit testing.
 void set_remaining_args(int argc, char **argv);
-int init_common_variables();
+int init_common_variables(my_bool logging);
 void my_init_signals();
 bool gtid_server_init();
 void gtid_server_cleanup();
