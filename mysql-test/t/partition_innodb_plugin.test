@@ -132,7 +132,7 @@ WHERE ID = $id_1 AND STATE = 'Searching rows for update';
 #--echo # tested wait condition $wait_condition_reps times
 # INNODB_LOCKS only exists in innodb_plugin
 
-sleep 0.11; # make trx cache updatable (see CACHE_MIN_IDLE_TIME_US)
+sleep 1; # make trx cache updatable (see CACHE_MIN_IDLE_TIME_US)
 
 --sorted_result
 SELECT lock_table, COUNT(*) FROM INFORMATION_SCHEMA.INNODB_LOCKS
