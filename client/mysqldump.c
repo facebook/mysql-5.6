@@ -1669,8 +1669,15 @@ static int connect_to_db(char *host, char *user,char *passwd)
         my_snprintf(buff, sizeof(buff),
                     "SET innodb_lra_pages_before_sleep=%lu",
                     opt_lra_pages_before_sleep);
+        if (mysql_query(mysql, buff))
+        {
+          // Older mysql uses innodb_lra_n_node_recs_before_sleep.
+          my_snprintf(buff, sizeof(buff),
+                      "SET innodb_lra_n_node_recs_before_sleep=%lu",
+                      opt_lra_pages_before_sleep);
         if (mysql_query_with_error_report(mysql, 0, buff))
           DBUG_RETURN(1);
+        }
       }
     }
   }
