@@ -21,6 +21,9 @@
 /* The C++ file's header */
 #include "./ha_rocksdb.h"
 
+/* C++ standard header files */
+#include <map>
+
 /* MySQL includes */
 #include "./my_bit.h"
 #include "./my_stacktrace.h"
@@ -978,7 +981,7 @@ static bool stop_drop_index_thread;
 class Rdb_CompactionFilter : public rocksdb::CompactionFilter
 {
 public:
-  Rdb_CompactionFilter() {}
+  explicit Rdb_CompactionFilter(uint32_t _cf_id) : cf_id(_cf_id) {}
   ~Rdb_CompactionFilter()
   {
     print_compaction_status();
@@ -995,18 +998,21 @@ public:
                       bool* value_changed) const override {
 
     DBUG_ASSERT(key.size() >= sizeof(uint32));
-    uint32 index= read_big_uint4((const uchar*)key.data());
-    DBUG_ASSERT(index >= 1);
 
-    if (index != prev_index) // processing new index id
+    GL_INDEX_ID gl_index_id;
+    gl_index_id.cf_id= cf_id;
+    gl_index_id.index_id= read_big_uint4((const uchar*)key.data());
+    DBUG_ASSERT(gl_index_id.index_id >= 1);
+
+    if (gl_index_id != prev_index)  // processing new index id
     {
       if (num_deleted > 0)
       {
         print_compaction_status();
         num_deleted= 0;
       }
-      should_delete= dict_manager.is_drop_index_ongoing(index);
-      prev_index= index;
+      should_delete= dict_manager.is_drop_index_ongoing(gl_index_id);
+      prev_index= gl_index_id;
     }
 
     if (should_delete)
@@ -1023,11 +1029,14 @@ private:
   {
     if (num_deleted > 0)
       sql_print_information("RocksDB: Compacting away elements from dropped "
-                            "index %u: %llu", prev_index, num_deleted);
+                            "index (%u,%u): %llu", prev_index.cf_id,
+                            prev_index.index_id, num_deleted);
   }
 
+  // Column family for this compaction filter
+  const uint32_t cf_id;
   // Index id of the previous record
-  mutable uint32 prev_index= 0;
+  mutable GL_INDEX_ID prev_index= {0, 0};
   // Number of rows deleted for the same index id
   mutable uint64 num_deleted= 0;
   // Current index id should be deleted or not (should be deleted if true)
@@ -1048,7 +1057,7 @@ public:
   std::unique_ptr<rocksdb::CompactionFilter> CreateCompactionFilter(
       const rocksdb::CompactionFilter::Context& context) {
     return std::unique_ptr<rocksdb::CompactionFilter>(
-      new Rdb_CompactionFilter);
+      new Rdb_CompactionFilter(context.column_family_id));
   }
 };
 
@@ -3040,18 +3049,16 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   for (i= 0; i < table_arg->s->keys; i++)
   {
     uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
-    uint16_t index_dict_version;
+    uint16_t index_dict_version= RDBSE_KEYDEF::INDEX_INFO_VERSION_GLOBAL_ID;
     uchar index_type;
     uint16_t kv_version;
     if (i == table_arg->s->primary_key)
     {
-      index_dict_version= RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_KV_FORMAT;
       index_type= RDBSE_KEYDEF::INDEX_TYPE_PRIMARY;
       kv_version= RDBSE_KEYDEF::PRIMARY_FORMAT_VERSION_INITIAL;
     }
     else
     {
-      index_dict_version= RDBSE_KEYDEF::INDEX_CF_MAPPING_VERSION_KV_FORMAT;
       index_type= RDBSE_KEYDEF::INDEX_TYPE_SECONDARY;
       kv_version= RDBSE_KEYDEF::SECONDARY_FORMAT_VERSION_INITIAL;
     }
@@ -5548,35 +5555,23 @@ void* drop_index_thread(void*)
     assert(ret == 0 || ret == ETIMEDOUT);
     mysql_mutex_unlock(&drop_index_interrupt_mutex);
 
-    std::vector<uint32> indices;
-    dict_manager.get_drop_indexes_ongoing(indices);
+    std::vector<GL_INDEX_ID> indices;
+    dict_manager.get_drop_indexes_ongoing(&indices);
     if (!indices.empty()) {
-      std::unordered_set<uint32> finished;
+      std::unordered_set<GL_INDEX_ID> finished;
       rocksdb::ReadOptions read_opts;
       read_opts.total_order_seek = true; // disable bloom filter
 
       for (auto d : indices) {
-        uint16 index_dict_version=0;
-        uchar index_type= 0;
-        uint16 kv_version= 0;
-        uint32 cf_id= 0;
         uint32 cf_flags= 0;
-        if (!dict_manager.get_cf_id(d, &index_dict_version, &index_type,
-                                    &kv_version, &cf_id))
-        {
-          sql_print_error("RocksDB: Failed to get column family id "
-                          "from index id %u. MyRocks data dictionary may "
-                          "get corrupted.", d);
-          abort_with_stack_traces();
-        }
-        if (!dict_manager.get_cf_flags(cf_id, &cf_flags))
+        if (!dict_manager.get_cf_flags(d.cf_id, &cf_flags))
         {
           sql_print_error("RocksDB: Failed to get column family flags "
                           "from cf id %u. MyRocks data dictionary may "
-                          "get corrupted.", cf_id);
+                          "get corrupted.", d.cf_id);
           abort_with_stack_traces();
         }
-        rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(cf_id);
+        rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(d.cf_id);
         DBUG_ASSERT(cfh);
         bool is_reverse_cf= cf_flags & RDBSE_KEYDEF::REVERSE_CF_FLAG;
         std::unique_ptr<rocksdb::Iterator> it(
@@ -5584,7 +5579,7 @@ void* drop_index_thread(void*)
 
         bool index_removed= false;
         uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
-        store_big_uint4(key_buf, d);
+        store_big_uint4(key_buf, d.index_id);
         rocksdb::Slice key = rocksdb::Slice((char*)key_buf, sizeof(key_buf));
         it->Seek(key);
         if (is_reverse_cf)
@@ -5937,7 +5932,7 @@ void compute_optimizer_stats()
     }
   }
 
-  std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>
+  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
     statsFromProps;
   for (auto cf : cfs) {
     rocksdb::TablePropertiesCollection props;
@@ -5952,13 +5947,13 @@ void compute_optimizer_stats()
   std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
   for (auto& keydef : keydefs)
   {
-    auto it = statsFromProps.find(keydef->get_index_number());
+    auto it = statsFromProps.find(keydef->get_gl_index_id());
     if (it != statsFromProps.end()) {
       stats.push_back(it->second);
     } else {
       // This index didn't have any associated stats in SST properties.
       // It might be an empty table, for example.
-      stats.emplace_back(keydef->get_index_number());
+      stats.emplace_back(keydef->get_gl_index_id());
     }
 
     uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
