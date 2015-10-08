@@ -17,6 +17,9 @@
 /* This C++ file's header file */
 #include "./properties_collector.h"
 
+/* Standard C++ header files */
+#include <map>
+
 /* MySQL header files */
 #include "./sql_array.h"
 
@@ -31,8 +34,10 @@ uint64_t rocksdb_num_sst_entry_other = 0;
 
 MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   Table_ddl_manager* ddl_manager,
-  CompactionParams params
+  CompactionParams params,
+  uint32_t cf_id
 ) :
+    cf_id_(cf_id),
     ddl_manager_(ddl_manager),
     rows_(0l), deleted_rows_(0l), max_deleted_rows_(0l),
     params_(params)
@@ -70,15 +75,17 @@ MyRocksTablePropertiesCollector::AddUserKey(
       break;
     }
 
-
-    uint32_t index_number = read_big_uint4((const uchar*)key.data());
-    if (stats_.empty() || index_number != stats_.back().index_number) {
+    GL_INDEX_ID gl_index_id;
+    gl_index_id.cf_id = cf_id_;
+    gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+    if (stats_.empty() || gl_index_id != stats_.back().gl_index_id)
+    {
       keydef_ = NULL;
       // starting a new table
       // add the new element into stats_
-      stats_.push_back(IndexStats(index_number));
+      stats_.push_back(IndexStats(gl_index_id));
       if (ddl_manager_) {
-        keydef_ = ddl_manager_->get_copy_of_keydef(index_number);
+        keydef_ = ddl_manager_->get_copy_of_keydef(gl_index_id);
       }
       if (keydef_) {
         // resize the array to the number of columns.
@@ -154,12 +161,12 @@ rocksdb::Status
 MyRocksTablePropertiesCollector::Finish(
   rocksdb::UserCollectedProperties* properties
 ) {
-  std::vector<uint32_t> changed_indexes;
+  std::vector<GL_INDEX_ID> changed_indexes;
   changed_indexes.resize(stats_.size());
   std::transform(
     stats_.begin(), stats_.end(),
     changed_indexes.begin(),
-    [](const IndexStats& s) {return s.index_number;}
+    [](const IndexStats& s) {return s.gl_index_id;}
   );
   ddl_manager_->add_changed_indexes(changed_indexes);
   properties->insert({INDEXSTATS_KEY, IndexStats::materialize(stats_)});
@@ -203,11 +210,12 @@ MyRocksTablePropertiesCollector::GetReadableStats(
   const MyRocksTablePropertiesCollector::IndexStats& it
 ) {
   std::string s;
-  s.append(std::to_string(it.index_number));
-  s.append(":{name:");
+  s.append("(");
+  s.append(std::to_string(it.gl_index_id.cf_id));
+  s.append(", ");
+  s.append(std::to_string(it.gl_index_id.index_id));
+  s.append("):{name:");
   s.append(it.name);
-  s.append(", number:");
-  s.append(std::to_string(it.index_number));
   s.append(", size:");
   s.append(std::to_string(it.data_size));
   s.append(", rows:");
@@ -244,8 +252,8 @@ MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
 */
 void MyRocksTablePropertiesCollector::GetStats(
   const rocksdb::TablePropertiesCollection& collection,
-  const std::unordered_set<uint32_t>& index_numbers,
-  std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& ret
+  const std::unordered_set<GL_INDEX_ID>& index_numbers,
+  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& ret
 ) {
   for (auto it : collection) {
     const auto& user_properties = it.second->user_collected_properties;
@@ -254,8 +262,8 @@ void MyRocksTablePropertiesCollector::GetStats(
       std::vector<IndexStats> stats;
       if (IndexStats::unmaterialize(it2->second, stats) == 0) {
         for (auto it3 : stats) {
-          if (index_numbers.count(it3.index_number) != 0) {
-            ret[it3.index_number].merge(it3);
+          if (index_numbers.count(it3.gl_index_id) != 0) {
+            ret[it3.gl_index_id].merge(it3);
           }
         }
       }
@@ -272,7 +280,8 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
   String ret;
   write_short(&ret, INDEX_STATS_VERSION);
   for (auto i : stats) {
-    write_int(&ret, i.index_number);
+    write_int(&ret, i.gl_index_id.cf_id);
+    write_int(&ret, i.gl_index_id.index_id);
     assert(sizeof i.data_size <= 8);
     write_int64(&ret, i.data_size);
     write_int64(&ret, i.rows);
@@ -302,7 +311,8 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   while (p < p2) {
     IndexStats stats;
     if (p+
-       sizeof(stats.index_number)+
+       sizeof(stats.gl_index_id.cf_id)+
+       sizeof(stats.gl_index_id.index_id)+
        sizeof(stats.data_size)+
        sizeof(stats.rows)+
        sizeof(stats.approximate_size)+
@@ -310,7 +320,8 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     {
       return 1;
     }
-    stats.index_number = read_int(&p);
+    stats.gl_index_id.cf_id = read_int(&p);
+    stats.gl_index_id.index_id = read_int(&p);
     stats.data_size = read_int64(&p);
     stats.rows = read_int64(&p);
     stats.approximate_size = read_int64(&p);
@@ -334,7 +345,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   for the index based on stats for each sst
 */
 void MyRocksTablePropertiesCollector::IndexStats::merge(const IndexStats& s) {
-  index_number = s.index_number;
+  gl_index_id = s.gl_index_id;
   rows += s.rows;
   data_size += s.data_size;
   if (distinct_keys_per_prefix.size() < s.distinct_keys_per_prefix.size()) {
