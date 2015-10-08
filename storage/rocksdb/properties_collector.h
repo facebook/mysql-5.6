@@ -18,12 +18,16 @@
 #define PROPERTIES_COLLECTOR_H
 
 /* C++ system header files */
+#include <map>
 #include <memory>
 #include <unordered_set>
 #include <vector>
 
 /* RocksDB header files */
 #include "rocksdb/db.h"
+
+/* MyRocks header files */
+#include "./ha_rocksdb.h"
 
 class Table_ddl_manager;
 class RDBSE_KEYDEF;
@@ -45,16 +49,16 @@ class MyRocksTablePropertiesCollector
     enum {
       INDEX_STATS_VERSION= 1,
     };
-    uint32_t index_number;
+    GL_INDEX_ID gl_index_id;
     int64_t data_size, rows, approximate_size;
     std::vector<int64_t> distinct_keys_per_prefix;
     std::string name; // name is not persisted
 
     static std::string materialize(std::vector<IndexStats>);
     static int unmaterialize(const std::string& s, std::vector<IndexStats>&);
-    IndexStats() : IndexStats(0) {}
-    explicit IndexStats(uint32_t _index_number) :
-        index_number(_index_number),
+    IndexStats() : IndexStats({0, 0}) {}
+    explicit IndexStats(GL_INDEX_ID _gl_index_id) :
+        gl_index_id(_gl_index_id),
         data_size(0),
         rows(0),
         approximate_size(0) {}
@@ -63,7 +67,8 @@ class MyRocksTablePropertiesCollector
 
   MyRocksTablePropertiesCollector(
     Table_ddl_manager* ddl_manager,
-    CompactionParams params
+    CompactionParams params,
+    uint32_t cf_id
   );
 
   virtual rocksdb::Status AddUserKey(
@@ -86,8 +91,8 @@ class MyRocksTablePropertiesCollector
 
   static void GetStats(
     const rocksdb::TablePropertiesCollection& collection,
-    const std::unordered_set<uint32_t>& index_numbers,
-    std::map<uint32_t, MyRocksTablePropertiesCollector::IndexStats>& stats
+    const std::unordered_set<GL_INDEX_ID>& index_numbers,
+    std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& stats
   );
 
   bool NeedCompact() const;
@@ -96,6 +101,7 @@ class MyRocksTablePropertiesCollector
   }
 
  private:
+  uint32_t cf_id_;
   std::unique_ptr<RDBSE_KEYDEF> keydef_;
   Table_ddl_manager* ddl_manager_;
   std::vector<IndexStats> stats_;
@@ -121,9 +127,10 @@ class MyRocksTablePropertiesCollectorFactory
   ) : ddl_manager_(ddl_manager) {
   }
 
-  virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector() override {
+  virtual rocksdb::TablePropertiesCollector* CreateTablePropertiesCollector(
+      rocksdb::TablePropertiesCollectorFactory::Context context) override {
     return new MyRocksTablePropertiesCollector(
-      ddl_manager_, params_);
+      ddl_manager_, params_, context.column_family_id);
   }
 
   virtual const char* Name() const override {
