@@ -22,8 +22,10 @@ class Column_family_manager;
 class Table_ddl_manager;
 
 /* C++ standard header files */
-#include <unordered_set>
+#include <map>
 #include <mutex>
+#include <unordered_set>
+#include <utility>
 
 /* C standard header files */
 #include <arpa/inet.h>
@@ -307,6 +309,12 @@ public:
     return index_number;
   }
 
+  GL_INDEX_ID get_gl_index_id()
+  {
+    GL_INDEX_ID gl_index_id = { cf_handle->GetID(), index_number };
+    return gl_index_id;
+  }
+
   /* Must only be called for secondary keys: */
   uint get_primary_key_tuple(TABLE *tbl, RDBSE_KEYDEF *pk_descr,
                              const rocksdb::Slice *key, char *pk_buffer);
@@ -356,7 +364,7 @@ public:
   // Data dictionary types
   enum {
     DDL_ENTRY_INDEX_START_NUMBER= 1,
-    INDEX_CF_MAPPING= 2,
+    INDEX_INFO= 2,
     CF_DEFINITION= 3,
     BINLOG_INFO_INDEX_NUMBER= 4,
     DDL_DROP_INDEX_ONGOING= 5,
@@ -369,13 +377,19 @@ public:
   // if changing schema layout
   enum {
     DDL_ENTRY_INDEX_VERSION= 1,
-    INDEX_CF_MAPPING_VERSION_INITIAL= 1,
-    INDEX_CF_MAPPING_VERSION_KV_FORMAT= 2,
     CF_DEFINITION_VERSION= 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
     DDL_DROP_INDEX_ONGOING_VERSION= 1,
     MAX_INDEX_ID_VERSION= 1,
     // Version for index stats is stored in IndexStats struct
+  };
+
+  // Index info version.  Introduce newer versions when changing the
+  // INDEX_INFO layout
+  enum {
+    INDEX_INFO_VERSION_INITIAL= 1,    // Obsolete
+    INDEX_INFO_VERSION_KV_FORMAT,
+    INDEX_INFO_VERSION_GLOBAL_ID,
   };
 
   // MyRocks index types
@@ -617,13 +631,13 @@ class Table_ddl_manager
   Dict_manager *dict;
   HASH ddl_hash; // Contains RDBSE_TABLE_DEF elements
   // maps index id to <table_name, index number>
-  std::map<uint32_t, std::pair<std::basic_string<uchar>, uint>>
+  std::map<GL_INDEX_ID, std::pair<std::basic_string<uchar>, uint>>
     index_num_to_keydef;
   mysql_rwlock_t rwlock;
 
   Sequence_generator sequence;
 
-  std::unordered_set<uint32_t> changed_indexes;
+  std::unordered_set<GL_INDEX_ID> changed_indexes;
   std::mutex changed_indexes_mutex;
 
 public:
@@ -634,8 +648,8 @@ public:
   void cleanup();
 
   RDBSE_TABLE_DEF *find(const uchar *table_name, uint len, bool lock=true);
-  RDBSE_KEYDEF* find(uint32_t index_number);
-  std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(uint32_t index_number);
+  RDBSE_KEYDEF* find(GL_INDEX_ID gl_index_id);
+  std::unique_ptr<RDBSE_KEYDEF> get_copy_of_keydef(GL_INDEX_ID gl_index_id);
   void set_stats(
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
   );
@@ -648,13 +662,13 @@ public:
 
   uint get_and_update_next_number(Dict_manager *dict)
     { return sequence.get_and_update_next_number(dict); }
-  void add_changed_indexes(const std::vector<uint32_t>& changed_indexes);
-  std::unordered_set<uint32_t> get_changed_indexes();
+  void add_changed_indexes(const std::vector<GL_INDEX_ID>& changed_indexes);
+  std::unordered_set<GL_INDEX_ID> get_changed_indexes();
 
   /* Walk the data dictionary */
   int scan(void* cb_arg, int (*callback)(void* cb_arg, RDBSE_TABLE_DEF*));
 
-  void erase_index_num(uint32_t index);
+  void erase_index_num(GL_INDEX_ID gl_index_id);
 private:
   /* Put the data into in-memory table (only) */
   int put(RDBSE_TABLE_DEF *key_descr, bool lock= true);
@@ -716,14 +730,13 @@ private:
 
   1. Table Name => internal index id mappings
   key: RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER(0x1) + dbname.tablename
-  value: version, {index_id}*n_indexes_of_the_table
-  version is 2 bytes. index_id is 4 bytes.
+  value: version, {cf_id, index_id}*n_indexes_of_the_table
+  version is 2 bytes. cf_id and index_id are 4 bytes.
 
-  2. Internal index id => CF id
-  key: RDBSE_KEYDEF::INDEX_CF_MAPPING(0x2) + index_id
-  value: version, index_type, kv_format_version, cf_id
-  cf_id is 4 bytes. index_type is 1 byte, version and kv_format_version are
-  2 bytes.
+  2. internal cf_id, index id => index information
+  key: RDBSE_KEYDEF::INDEX_INFO(0x2) + cf_id + index_id
+  value: version, index_type, kv_format_version
+  index_type is 1 byte, version and kv_format_version are 2 bytes.
 
   3. CF id => CF flags
   key: RDBSE_KEYDEF::CF_DEFINITION(0x3) + cf_id
@@ -735,12 +748,17 @@ private:
   value: version, {binlog_name,binlog_pos,binlog_gtid}
 
   5. Ongoing drop index entry (not implemented yet)
-  key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + index_id
+  key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + index_id
   value: version
 
   6. index stats
-  key: RDBSE_KEYDEF::INDEX_STATISTICS(0x7) + index_id
+  key: RDBSE_KEYDEF::INDEX_STATISTICS(0x6) + cf_id + index_id
   value: version, {materialized PropertiesCollector::IndexStats}
+
+  7. maximum index id
+  key: RDBSE_KEYDEF::MAX_INDEX_ID(0x7)
+  value: index_id
+  index_id is 4 bytes
 
    Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
@@ -754,19 +772,19 @@ private:
   mysql_mutex_t mutex;
   rocksdb::DB *rdb;
   rocksdb::ColumnFamilyHandle *system_cfh;
-  /* Utility to put INDEX_CF_MAPPING and CF_DEFINITION */
+  /* Utility to put INDEX_INFO and CF_DEFINITION */
 
   uchar key_buf_max_index_id[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice_max_index_id;
   void delete_util(rocksdb::WriteBatch* batch,
-                   const uint32_t index_id,
-                   const uint32_t index_id_or_cf_id);
+                   const uint32_t prefix,
+                   const GL_INDEX_ID gl_index_id);
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes();
   void log_start_drop_table(RDBSE_KEYDEF** key_descr,
                             uint32 n_keys,
                             const char* log_action);
-  void log_start_drop_index(uint32 index_id,
+  void log_start_drop_index(GL_INDEX_ID gl_index_id,
                             const char* log_action);
 public:
   bool init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager);
@@ -788,10 +806,10 @@ public:
                                       const uint16_t kv_version,
                                       const uint index_id,
                                       const uint cf_id);
-  void delete_index_cf_mapping(rocksdb::WriteBatch* batch,
-                               const uint32_t index_id);
-  bool get_cf_id(const uint index_id, uint16_t *index_dict_version,
-                 uchar *index_type, uint16_t *kv_version, uint *cf_id);
+  void delete_index_info(rocksdb::WriteBatch* batch,
+                         const GL_INDEX_ID index_id);
+  bool get_index_info(GL_INDEX_ID gl_index_id, uint16_t *index_dict_version,
+                      uchar *index_type, uint16_t *kv_version);
 
   /* CF id => CF flags */
   void add_cf_flags(rocksdb::WriteBatch *batch,
@@ -800,17 +818,17 @@ public:
   bool get_cf_flags(const uint cf_id, uint *cf_flags);
 
   /* Functions for fast DROP TABLE/INDEX */
-  void get_drop_indexes_ongoing(std::vector<uint32_t> &index_ids);
-  bool is_drop_index_ongoing(const uint32_t index_id);
+  void get_drop_indexes_ongoing(std::vector<GL_INDEX_ID> *gl_index_ids);
+  bool is_drop_index_ongoing(GL_INDEX_ID gl_index_id);
   void start_drop_index_ongoing(rocksdb::WriteBatch* batch,
-                                const uint32_t index_id);
+                                GL_INDEX_ID gl_index_id);
   void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
-                              const uint32_t index_id);
+                              GL_INDEX_ID gl_index_id);
   bool is_drop_index_empty();
   void add_drop_table(RDBSE_KEYDEF** key_descr,
                       uint32 n_keys,
                       rocksdb::WriteBatch *batch);
-  void done_drop_indexes(const std::unordered_set<uint32> & indexes);
+  void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
 
   bool get_max_index_id(uint32_t *index_id);
   bool update_max_index_id(rocksdb::WriteBatch* batch,
@@ -820,6 +838,6 @@ public:
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
   );
   MyRocksTablePropertiesCollector::IndexStats get_stats(
-    const uint index_id
+    GL_INDEX_ID gl_index_id
   );
 };

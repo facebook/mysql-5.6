@@ -14,11 +14,13 @@ sub print_array {
 }
 
 while (<>) {
-  $a{$1} += $2 if /Compacting away elements from dropped index (\d+): (\d+)/;
-  if (/Begin filtering dropped index (\d+)/) {
+  if (/Compacting away elements from dropped index \(\d+,(\d+)\): (\d+)/) {
+    $a{$1} += $2;
+  }
+  if (/Begin filtering dropped index \(\d+,(\d+)\)/) {
     push @b, $1;
   }
-  if (/Finished filtering dropped index (\d+)/) {
+  if (/Finished filtering dropped index \(\d+,(\d+)\)/) {
     push @c, $1;
   }
 }
