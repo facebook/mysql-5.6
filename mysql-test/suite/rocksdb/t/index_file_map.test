@@ -26,21 +26,21 @@ SET GLOBAL rocksdb_force_flush_memtable_now = 1;
 ###############################################################################
 
 # Return the data for the primary key of t1
---replace_column 1 # 2 SSTNAME 4 #
+--replace_column 1 # 2 # 3 SSTNAME 5 #
 SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_INDEX_FILE_MAP
 WHERE INDEX_NUMBER =
     (SELECT INDEX_NUMBER FROM INFORMATION_SCHEMA.ROCKSDB_DDL
      WHERE TABLE_NAME = 't1' AND INDEX_NAME = "PRIMARY");
 
 # Return the data for the secondary index of t1
---replace_column 1 # 2 SSTNAME 4 #
+--replace_column 1 # 2 # 3 SSTNAME 5 #
 SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_INDEX_FILE_MAP
 WHERE INDEX_NUMBER =
     (SELECT INDEX_NUMBER FROM INFORMATION_SCHEMA.ROCKSDB_DDL
      WHERE TABLE_NAME = 't1' AND INDEX_NAME = "j");
 
 # Return the data for the primary index of t2
---replace_column 1 # 2 SSTNAME 4 #
+--replace_column 1 # 2 # 3 SSTNAME 5 #
 SELECT * FROM INFORMATION_SCHEMA.ROCKSDB_INDEX_FILE_MAP
 WHERE INDEX_NUMBER =
     (SELECT INDEX_NUMBER FROM INFORMATION_SCHEMA.ROCKSDB_DDL

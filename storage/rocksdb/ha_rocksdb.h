@@ -115,6 +115,53 @@ class Rdb_transaction;
 
 const char *const rocksdb_hton_name= "ROCKSDB";
 
+typedef struct _gl_index_id_s {
+  uint32_t cf_id;
+  uint32_t index_id;
+  bool operator==(const struct _gl_index_id_s& other) const
+  {
+    return cf_id == other.cf_id && index_id == other.index_id;
+  }
+  bool operator!=(const struct _gl_index_id_s& other) const
+  {
+    return cf_id != other.cf_id || index_id != other.index_id;
+  }
+  bool operator<(const struct _gl_index_id_s& other) const
+  {
+    return cf_id < other.cf_id ||
+        (cf_id == other.cf_id && index_id < other.index_id);
+  }
+  bool operator<=(const struct _gl_index_id_s& other) const
+  {
+    return cf_id < other.cf_id ||
+        (cf_id == other.cf_id && index_id <= other.index_id);
+  }
+  bool operator>(const struct _gl_index_id_s& other) const
+  {
+    return cf_id > other.cf_id ||
+        (cf_id == other.cf_id && index_id > other.index_id);
+  }
+  bool operator>=(const struct _gl_index_id_s& other) const
+  {
+    return cf_id > other.cf_id ||
+        (cf_id == other.cf_id && index_id >= other.index_id);
+  }
+} GL_INDEX_ID;
+
+/* Provide hash function for GL_INDEX_ID so we can include it in sets */
+namespace std {
+  template <>
+  struct hash<GL_INDEX_ID>
+  {
+    std::size_t operator()(const GL_INDEX_ID& gl_index_id) const
+    {
+      uint64_t val = ((uint64_t) gl_index_id.cf_id << 32 |
+                      (uint64_t) gl_index_id.index_id);
+      return std::hash<uint64_t>()(val);
+    }
+  };
+}  // namespace std
+
 /** @brief
   Class definition for the storage engine
 */
