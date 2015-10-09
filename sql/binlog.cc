@@ -1904,7 +1904,7 @@ static int log_in_use(const char* log_name)
       if(!memcmp(log_name, linfo->log_file_name, log_name_len))
       {
         thread_count++;
-        sql_print_warning("file %s was not purged because it was being read"
+        sql_print_warning("file %s was not purged because it was being read "
                           "by thread number %llu", log_name,
                           (ulonglong)(*it)->thread_id);
       }
