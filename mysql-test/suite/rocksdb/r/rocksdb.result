@@ -885,7 +885,7 @@ rocksdb_error_if_exists	OFF
 rocksdb_force_flush_memtable_now	OFF
 rocksdb_hash_index_allow_collision	ON
 rocksdb_index_type	kBinarySearch
-rocksdb_info_log_level	debug_level
+rocksdb_info_log_level	error_level
 rocksdb_is_fd_close_on_exec	ON
 rocksdb_keep_log_file_num	1000
 rocksdb_lock_wait_timeout	1
