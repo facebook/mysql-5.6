@@ -323,7 +323,7 @@ static MYSQL_SYSVAR_ENUM(info_log_level,
   rocksdb_info_log_level,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "DBOptions::info_log_level for RocksDB",
-  NULL, NULL, db_options.info_log_level, &info_log_level_typelib);
+  NULL, NULL, rocksdb::InfoLogLevel::ERROR_LEVEL, &info_log_level_typelib);
 
 static MYSQL_SYSVAR_UINT(perf_context_level,
   rocksdb_perf_context_level,
