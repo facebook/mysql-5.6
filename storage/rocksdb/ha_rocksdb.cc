@@ -77,7 +77,7 @@ int return_status_error(THD *thd, rocksdb::Status &s);
 extern const longlong ROCKSDB_WRITE_BUFFER_SIZE_DEFAULT;
 
 static char * rocksdb_default_cf_options;
-static char * rocksdb_cf_options_file;
+static char * rocksdb_override_cf_options;
 Cf_options rocksdb_cf_options_map;
 
 ///////////////////////////////////////////////////////////
@@ -118,32 +118,6 @@ mysql_mutex_t snapshot_mutex;
 mysql_cond_t stop_cond;
 bool stop_background_thread;
 
-
-//////////////////////////////////////////////////////////////////////////////
-// Options parse support functions
-//////////////////////////////////////////////////////////////////////////////
-
-static int
-rocksdb_cf_options_file_validate(THD* thd,
-                                 struct st_mysql_sys_var* var,
-                                 void* save,
-                                 struct st_mysql_value* value)
-{
-  /* The option is read-only, it should never be updated */
-  DBUG_ASSERT(0);
-  return 1;
-}
-
-
-static void
-rocksdb_cf_options_file_update(THD* thd,
-                               struct st_mysql_sys_var* var,
-                               void* var_ptr,
-                               const void* save)
-{
-  /* The option is read-only, it should never be updated */
-  DBUG_ASSERT(0);
-}
 
 static void
 rocksdb_compact_column_family(THD* thd,
@@ -601,11 +575,10 @@ static MYSQL_SYSVAR_STR(default_cf_options, rocksdb_default_cf_options,
   "default cf options for RocksDB",
   NULL, NULL, "");
 
-static MYSQL_SYSVAR_STR(cf_options_file, rocksdb_cf_options_file,
+static MYSQL_SYSVAR_STR(override_cf_options, rocksdb_override_cf_options,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "path to cnf file with cf options for RocksDB",
-  rocksdb_cf_options_file_validate,
-  rocksdb_cf_options_file_update, "");
+  "option overrides per cf for RocksDB",
+  nullptr, nullptr, "");
 
 static MYSQL_SYSVAR_BOOL(background_sync,
   rocksdb_background_sync,
@@ -799,7 +772,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(whole_key_filtering),
 
   MYSQL_SYSVAR(default_cf_options),
-  MYSQL_SYSVAR(cf_options_file),
+  MYSQL_SYSVAR(override_cf_options),
 
   MYSQL_SYSVAR(background_sync),
 
@@ -1970,8 +1943,8 @@ static int rocksdb_init_func(void *p)
 
   if (!rocksdb_cf_options_map.SetDefault(
         std::string(rocksdb_default_cf_options)) ||
-      !rocksdb_cf_options_map.ParseConfigFile(
-        std::string(rocksdb_cf_options_file))) {
+      !rocksdb_cf_options_map.SetOverride(
+        std::string(rocksdb_override_cf_options))) {
     DBUG_RETURN(1);
   }
 
