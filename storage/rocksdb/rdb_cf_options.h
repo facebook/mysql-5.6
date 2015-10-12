@@ -40,7 +40,7 @@ public:
   void Get(const std::string &cf_name, rocksdb::ColumnFamilyOptions *opts);
 
   bool SetDefault(const std::string &default_config);
-  bool ParseConfigFile(const std::string &path);
+  bool SetOverride(const std::string &overide_config);
 
 private:
   typedef std::unordered_map<std::string, std::string> NameToConfig;
