@@ -975,8 +975,6 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
  fails to load).
- --rocksdb-cf-options-file=name 
- path to cnf file with cf options for RocksDB
  --rocksdb-cfstats[=name] 
  Enable or disable ROCKSDB_CFSTATS plugin. Possible values
  are ON, OFF, FORCE (don't start if the plugin fails to
@@ -1071,6 +1069,8 @@ The following options may be given as the first argument:
  DBOptions::max_total_wal_size for RocksDB
  --rocksdb-no-block-cache 
  BlockBasedTableOptions::no_block_cache for RocksDB
+ --rocksdb-override-cf-options=name 
+ option overrides per cf for RocksDB
  --rocksdb-paranoid-checks 
  DBOptions::paranoid_checks for RocksDB
  (Defaults to on; use --skip-rocksdb-paranoid-checks to disable.)
@@ -1679,7 +1679,6 @@ rocksdb-bulk-load-size 1000
 rocksdb-bytes-per-sync 0
 rocksdb-cache-index-and-filter-blocks TRUE
 rocksdb-cf-options ON
-rocksdb-cf-options-file 
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100
 rocksdb-collect-sst-properties TRUE
@@ -1717,6 +1716,7 @@ rocksdb-max-open-files 5000
 rocksdb-max-row-locks 1073741824
 rocksdb-max-total-wal-size 0
 rocksdb-no-block-cache FALSE
+rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON

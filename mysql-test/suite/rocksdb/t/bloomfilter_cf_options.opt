@@ -1,2 +1,0 @@
-cf_short_prefix=prefix_extractor=capped:4
-cf_long_prefix=prefix_extractor=capped:240
