@@ -1,7 +1,0 @@
-SET @start_global_value = @@global.ROCKSDB_CF_OPTIONS_FILE;
-SELECT @start_global_value;
-@start_global_value
-
-"Trying to set variable @@global.ROCKSDB_CF_OPTIONS_FILE to 444. It should fail because it is readonly."
-SET @@global.ROCKSDB_CF_OPTIONS_FILE   = 444;
-ERROR HY000: Variable 'rocksdb_cf_options_file' is a read only variable
