@@ -436,12 +436,16 @@ bool RDBSE_KEYDEF::unpack_info_has_checksum(const rocksdb::Slice &unpack_info)
           unpack_info.data()[0]== CHECKSUM_DATA_TAG);
 }
 
-
-void RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
+/*
+  @return Number of bytes that were changed
+*/
+int RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
 {
+  int changed= 0;
   uchar *p= packed_tuple + len - 1;
   for (; p > packed_tuple; p--)
   {
+    changed++;
     if (*p != uchar(0xFF))
     {
       *p= *p + 1;
@@ -449,6 +453,7 @@ void RDBSE_KEYDEF::successor(uchar *packed_tuple, uint len)
     }
     *p='\0';
   }
+  return changed;
 }
 
 
