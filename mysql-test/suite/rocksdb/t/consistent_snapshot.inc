@@ -23,7 +23,9 @@ eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
 # no external inserts should be visible to the transaction.
 # But it should only work this way for REPEATABLE-READ and SERIALIZABLE
 
+--error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
+--echo ERROR: $mysql_errno
 
 connection con2;
 select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
@@ -36,7 +38,9 @@ connection con2;
 select * from information_schema.rocksdb_dbstats where stat_type='DB_NUM_SNAPSHOTS';
 
 connection con1;
+--error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
+--echo ERROR: $mysql_errno
 
 connection con2;
 INSERT INTO t1 (a) VALUES (1);
@@ -56,6 +60,7 @@ connect (con2,localhost,root,,);
 
 connection con1;
 CREATE TABLE r1 (id int primary key, value int, value2 int) engine=ROCKSDB;
+eval SET SESSION TRANSACTION ISOLATION LEVEL $trx_isolation;
 insert into r1 values (1,1,1),(2,2,2),(3,3,3),(4,4,4);
 
 BEGIN;
@@ -74,7 +79,9 @@ SELECT * FROM r1; # 5
 COMMIT;
 SELECT * FROM r1; # 6
 
+--error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
+--echo ERROR: $mysql_errno
 
 connection con2;
 INSERT INTO r1 values (7,7,7);
@@ -90,13 +97,17 @@ SELECT * FROM r1; # 6
 COMMIT;
 SELECT * FROM r1; # 8
 
+--error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
+--echo ERROR: $mysql_errno
 
 connection con2;
 INSERT INTO r1 values (9,9,9);
 
 connection con1;
+--error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
+--echo ERROR: $mysql_errno
 
 connection con2;
 INSERT INTO r1 values (10,10,10);
@@ -104,7 +115,9 @@ INSERT INTO r1 values (10,10,10);
 connection con1;
 SELECT * FROM r1; # 9
 
+--error 0,ER_UNKNOWN_ERROR
 START TRANSACTION WITH CONSISTENT SNAPSHOT;
+--echo ERROR: $mysql_errno
 INSERT INTO r1 values (11,11,11);
 SELECT * FROM r1; # self changes should be visible
 
