@@ -258,7 +258,7 @@ public:
   }
 
   /* Make a key that is right after the given key. */
-  void successor(uchar *packed_tuple, uint len);
+  int successor(uchar *packed_tuple, uint len);
 
   /*
     This can be used to compare prefixes.
