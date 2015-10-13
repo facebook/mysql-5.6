@@ -9503,7 +9503,7 @@ bool extract_val_numeric(
 double Field_document::val_real(void)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  double r= DBL_MAX;
+  double r= 0.0;
   switch(real_doc_type())
   {
     case DOC_PATH_TINY:
@@ -9546,7 +9546,7 @@ double Field_document::val_real(void)
       memcpy(&blob, real->ptr + real->packlength, sizeof(char*));
       if(!blob)
       {
-        r = DBL_MAX;
+        r = 0.0;
       }else
       {
         r = *(double*)blob;
@@ -9560,7 +9560,7 @@ double Field_document::val_real(void)
         val_document_value(&val_buffer, &val_buffer);
       if(nullptr == pval ||
          !extract_val_numeric<double>(pval, r, charset(), table))
-        r = DBL_MAX;
+        r = 0.0;
       break;
     }
     default:
@@ -9593,7 +9593,7 @@ int64 Field_document::read_bigendian(char *src, unsigned len)
 longlong Field_document::val_int(void)
 {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  longlong r = INT_MAX;
+  longlong r = 0;
   switch(real_doc_type())
   {
     case DOC_PATH_BLOB:
@@ -9632,7 +9632,7 @@ longlong Field_document::val_int(void)
       memcpy(&blob, real->ptr + real->packlength, sizeof(char*));
       if(!blob)
       {
-        r = INT_MAX;
+        r = 0;
       }else
       {
         if(DOC_PATH_INT == doc_type &&
@@ -9651,7 +9651,7 @@ longlong Field_document::val_int(void)
       fbson::FbsonValue *pval = val_document_value(&val_buffer, &val_buffer);
       if(nullptr == pval ||
          !extract_val_numeric<longlong>(pval, r, charset(), table))
-        r = INT_MAX;
+        r = 0;
       break;
     }
     default:
@@ -9899,7 +9899,8 @@ Field_document::Field_document(MEM_ROOT *mem_root,
       for(Document_key *p; (p=it++) && trie;)
         trie = trie->get(p->string, p->length);
 
-      if (trie && current_thd->mark_used_columns != MARK_COLUMNS_NONE)
+      if (trie && trie->key_type != MYSQL_TYPE_DOCUMENT_UNKNOWN &&
+          current_thd->mark_used_columns != MARK_COLUMNS_NONE)
       {
         /* we found the key. Merge the key's part_of_key map
          * with the field
