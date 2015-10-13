@@ -1181,6 +1181,14 @@ public:
     }
   }
 
+  void acquire_new_snapshot(THD* thd)
+  {
+    register_snapshot_release(read_opts.snapshot);
+    txn->SetSnapshot();
+    read_opts.snapshot = txn->GetSnapshot();
+    register_snapshot(read_opts.snapshot, thd);
+  }
+
   /*
     Flush the data accumulated so far. This assumes we're doing a bulk insert.
 
@@ -5426,8 +5434,8 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     else if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
     {
       /*
-        TODO: do we support read committed? Our natural isolation level is
-        REPEATABLE READ.
+        For READ_COMMITTED do nothing here.  At the beginning of each statement
+        a new snapshot will be generated.
       */
     }
   }
@@ -5464,6 +5472,16 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       lock_for_write= true;
     }
     rocksdb_register_trx(rocksdb_hton, thd, trx);
+
+    if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      /*
+        For READ_COMMITTED, we acquire a new snapshot (which releases the old
+        one) so that we will see any changes that occurred since the last
+        statement.
+      */
+      trx->acquire_new_snapshot(thd);
+    }
   }
 
   io_perf_end_and_record();
