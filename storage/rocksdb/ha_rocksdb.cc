@@ -3453,13 +3453,12 @@ int ha_rocksdb::read_range_first(const key_range *start_key,
     result= ha_index_first(table->record[0]);
   else
   {
-    bool is_eq_cond_range_scan= end_key&&(start_key->flag!=HA_READ_KEY_EXACT);
     MYSQL_TABLE_IO_WAIT(m_psi, PSI_TABLE_FETCH_ROW, active_index, 0,
       { result= index_read_map_impl(table->record[0],
                                 start_key->key,
                                 start_key->keypart_map,
                                 start_key->flag,
-                                is_eq_cond_range_scan, end_key); })
+                                end_key); })
   }
   if (result)
     DBUG_RETURN((result == HA_ERR_KEY_NOT_FOUND)
@@ -3486,7 +3485,7 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
                                key_part_map keypart_map,
                                enum ha_rkey_function find_flag)
 {
-  return index_read_map_impl(buf, key, keypart_map, find_flag, false, NULL);
+  return index_read_map_impl(buf, key, keypart_map, find_flag, nullptr);
 }
 
 /*
@@ -3504,7 +3503,6 @@ int ha_rocksdb::index_read_map(uchar *buf, const uchar *key,
 int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
                                     key_part_map keypart_map,
                                     enum ha_rkey_function find_flag,
-                                    const bool is_eq_cond_range_scan,
                                     const key_range *end_key)
 {
   int rc= 0;
@@ -3515,6 +3513,8 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   bool using_full_key= (keypart_map == HA_WHOLE_KEY) ||
                        (keypart_map == ((key_part_map(1) << actual_key_parts)
                                          - 1));
+  if (!end_key)
+    end_key= end_range;
 
   /* By default, we don't need the retrieved records to match the prefix */
   sec_key_match_prefix= NULL;
@@ -3538,14 +3538,6 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     }
     io_perf_end_and_record();
     DBUG_RETURN(rc);
-  }
-
-  uint end_key_packed_size= 0;
-  if (is_eq_cond_range_scan && end_key)
-  {
-    end_key_packed_size= kd->pack_index_tuple(this, table, pack_buffer,
-                                              end_key_packed_tuple, end_key->key,
-                                              end_key->keypart_map);
   }
 
   /*
@@ -3590,23 +3582,39 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     memcpy(sec_key_match_prefix, sec_key_packed_tuple, packed_size);
   }
 
+  int bytes_changed_by_succ= 0;
   if (find_flag == HA_READ_PREFIX_LAST_OR_PREV ||
       find_flag == HA_READ_PREFIX_LAST ||
       find_flag == HA_READ_AFTER_KEY)
   {
     /* See below */
-    kd->successor(sec_key_packed_tuple, packed_size);
+    bytes_changed_by_succ= kd->successor(sec_key_packed_tuple, packed_size);
   }
 
   rocksdb::Slice slice((char*)sec_key_packed_tuple, packed_size);
+
+  uint end_key_packed_size= 0;
 
   uint eq_cond_len= 0;
   if (find_flag == HA_READ_KEY_EXACT)
   {
     eq_cond_len= slice.size();
   }
-  else if (is_eq_cond_range_scan && end_key_packed_size > 0)
+  else if (find_flag == HA_READ_PREFIX_LAST)
   {
+    /*
+      We have made the kd->successor(sec_key_packed_tuple) call above.
+
+      The slice is at least RDBSE_KEYDEF::INDEX_NUMBER_SIZE bytes long.
+    */
+    eq_cond_len= slice.size() - bytes_changed_by_succ;
+  }
+  else if (end_key)
+  {
+    end_key_packed_size= kd->pack_index_tuple(this, table, pack_buffer,
+                                              end_key_packed_tuple,
+                                              end_key->key,
+                                              end_key->keypart_map);
     /*
       Calculating length of the equal conditions here. 4 byte index id is included.
       Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
