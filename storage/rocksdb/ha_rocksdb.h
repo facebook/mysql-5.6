@@ -485,7 +485,6 @@ public:
   int index_read_map_impl(uchar * buf, const uchar * key,
                           key_part_map keypart_map,
                           enum ha_rkey_function find_flag,
-                          const bool is_eq_cond_range_scan,
                           const key_range *end_key);
 
   int index_read_last_map(uchar * buf, const uchar * key,
