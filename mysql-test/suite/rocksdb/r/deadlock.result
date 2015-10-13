@@ -1,0 +1,20 @@
+#
+# Validate that deadlock errors don't occur with a high level of concurrency
+#
+DROP DATABASE IF EXISTS mysqlslap;
+CREATE DATABASE mysqlslap;
+USE mysqlslap;
+CREATE TABLE t1(id1 BIGINT, id2 BIGINT, count INT, PRIMARY KEY(id1, id2), KEY(id2)) ENGINE=rocksdb;
+SELECT count from t1;
+count
+50000
+SELECT count from t1;
+count
+100000
+SELECT count from t1;
+count
+150000
+SELECT count from t1;
+count
+200000
+DROP DATABASE mysqlslap;
