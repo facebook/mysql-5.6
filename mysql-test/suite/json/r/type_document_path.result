@@ -13,7 +13,11 @@ SELECT @start_allow_document_type;
 CREATE TABLE t1 (
 a int not null,
 b char (10) not null,
-doc document not null) engine=innodb;
+doc document not null,
+key zipcode(doc.address.zipcode as int)
+# index is defined for sanity but will not be used in optimizer
+# query optimization is covered in type_document_path_optimizer.test
+) engine=innodb;
 insert into t1 values (1,'@1','{ "id":101, "name":"Alex", "phone":6507770001, "address":{ "houseNumber":1001, "streetName":"1st", "zipcode":98761, "state":"CA" }, "intstr":"1001", "dt":"1001" }');
 insert into t1 values (2,'@2','{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "houseNumber":1002, "streetName":"2nd", "zipcode":98762, "state":"AZ" }, "int64":2222222220123456789, "intstr":"1002", "dt":"0123456789ABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789" }');
 insert into t1 values (3,'@3','{ "id":103, "name":"Charlie", "phone":6507770003, "address":{ "houseNumber":1003, "streetName":"3rd", "zipcode":98763, "state":"NY" }, "double":3.94065645841246, "dt":"2014-11-01" }');
@@ -4229,6 +4233,17 @@ count(*)	id	`addr`.`state`
 1	103	NY
 1	106	NULL
 1	107	NY
+select addr.zipcode from (
+select t2.a2, t1.doc.address as addr, t1.doc.name as name1, t2.doc2.name as name2
+from t1 join t2
+on t2.doc2.address.zipcode = t1.doc.address.zipcode
+) as tmp;
+`addr`.`zipcode`
+98761
+98762
+98763
+98764
+98764
 drop table t6;
 ##### Document paths with different types in UNION, UNION ALL, UNION DISTINCT 
 CREATE TABLE t6 (
