@@ -974,11 +974,14 @@ static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
 */
 static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
 {
-  mysql_mutex_lock(&snapshot_mutex);
-  auto count = snapshot_map.erase(snapshot);
-  mysql_mutex_unlock(&snapshot_mutex);
+  if (snapshot != nullptr)
+  {
+    mysql_mutex_lock(&snapshot_mutex);
+    auto count = snapshot_map.erase(snapshot);
+    mysql_mutex_unlock(&snapshot_mutex);
 
-  assert(count == 1);
+    assert(count == 1);
+  }
 }
 
 /*
@@ -1190,6 +1193,26 @@ public:
     }
   }
 
+  void acquire_snapshot(THD* thd)
+  {
+    if (read_opts.snapshot == nullptr)
+    {
+      txn->SetSnapshot();
+      read_opts.snapshot = txn->GetSnapshot();
+      register_snapshot(read_opts.snapshot, thd);
+    }
+  }
+
+  void release_snapshot()
+  {
+    if (read_opts.snapshot != nullptr)
+    {
+      register_snapshot_release(read_opts.snapshot);
+      txn->ClearSnapshot();
+      read_opts.snapshot = nullptr;
+    }
+  }
+
   /*
     Flush the data accumulated so far. This assumes we're doing a bulk insert.
 
@@ -1285,7 +1308,7 @@ public:
   {
     rocksdb::TransactionOptions txn_opts;
     rocksdb::WriteOptions write_opts;
-    txn_opts.set_snapshot= true;
+    txn_opts.set_snapshot= false;
     txn_opts.lock_timeout= timeout_sec * 1000;
 
     write_opts.sync= THDVAR(thd, write_sync);
@@ -1296,8 +1319,12 @@ public:
     txn= rdb->BeginTransaction(write_opts, txn_opts);
 
     read_opts= rocksdb::ReadOptions();
-    read_opts.snapshot= txn->GetSnapshot();
-    register_snapshot(read_opts.snapshot, thd);
+
+    if (thd_tx_isolation(thd) > ISO_READ_COMMITTED)
+    {
+      acquire_snapshot(thd);
+    }
+
     if (THDVAR(thd, bulk_load)
         || thd->lex->sql_command == SQLCOM_CREATE_INDEX
         || thd->lex->sql_command == SQLCOM_DROP_INDEX
@@ -5476,9 +5503,9 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
     else if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
     {
       /*
-        TODO: do we support read committed? Our natural isolation level is
-        REPEATABLE READ.
+        For READ_COMMITTED, release the snapshot at the end of each statement.
       */
+      trx->release_snapshot();
     }
   }
   else
@@ -5514,6 +5541,15 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       lock_for_write= true;
     }
     rocksdb_register_trx(rocksdb_hton, thd, trx);
+
+    if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      /*
+        For READ_COMMITTED, we acquire a new snapshot so that we will see any
+        changes that occurred since the last statement.
+      */
+      trx->acquire_snapshot(thd);
+    }
   }
 
   io_perf_end_and_record();
