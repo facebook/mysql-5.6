@@ -248,6 +248,17 @@ select doc2.double from t1 use document keys where doc2.int > 5;
 explain extended select sum(doc2.double) from t1 use document keys group by doc2.int having doc2.int > 5;
 select sum(doc2.double) from t1 use document keys group by doc2.int having doc2.int > 5;
 
+# select path is a prefix of the indexed document path
+explain extended select doc1.k1.k2 from t1 where doc1.k1.k2.k3.int > 5;
+select doc1.k1.k2 from t1 where doc1.k1.k2.k3.int > 5;
+explain extended select doc1.k1.k2 from t1 use document keys where doc1.k1.k2.k3.int > 5;
+select doc1.k1.k2 from t1 use document keys where doc1.k1.k2.k3.int > 5;
+select doc1.k1.k2.k3 from t1 use document keys where doc1.k1.k2.k3.int > 5;
+select doc1.k1.k2.k3.int.foo from t1 use document keys where doc1.k1.k2.k3.int > 5;
+# where condition is a prefix of the indexed document path
+explain extended select doc1.k1.k2.k3.int from t1 use document keys where doc1.k1.k2.k3 > 5;
+select doc1.k1.k2.k3.int from t1 use document keys where doc1.k1.k2.k3 > 5;
+
 ##
 ## double index type
 ##
