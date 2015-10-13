@@ -317,6 +317,9 @@ class ha_rocksdb: public handler
   /* TRUE means we're doing an index-only read. FALSE means otherwise. */
   bool keyread_only;
 
+  /* TRUE means we're doing an INSERT...ON DUPLICATE KEY UPDATE */
+  bool insert_with_update;
+
   bool skip_scan_it_next_call;
 
   /*
@@ -586,6 +589,7 @@ private:
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
 public:
+  int index_init(uint idx, bool sorted);
   int index_end();
 
   void unlock_row();

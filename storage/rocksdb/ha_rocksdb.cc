@@ -1064,11 +1064,14 @@ static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
 */
 static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
 {
-  mysql_mutex_lock(&snapshot_mutex);
-  auto count = snapshot_map.erase(snapshot);
-  mysql_mutex_unlock(&snapshot_mutex);
+  if (snapshot != nullptr)
+  {
+    mysql_mutex_lock(&snapshot_mutex);
+    auto count = snapshot_map.erase(snapshot);
+    mysql_mutex_unlock(&snapshot_mutex);
 
-  assert(count == 1);
+    assert(count == 1);
+  }
 }
 
 /*
@@ -1179,7 +1182,6 @@ public:
   The changes are made to individual tables, which store them here and then
   this object commits them on commit.
 */
-
 class Rdb_transaction
 {
   ulonglong n_writes= 0;
@@ -1187,8 +1189,38 @@ class Rdb_transaction
   rocksdb::Transaction *txn= NULL;
 
   bool is_trx_failed= false;
+  bool is_delayed_snapshot= false;
+
+  THD* thd_= nullptr;
 
   rocksdb::ReadOptions read_opts;
+
+  /*
+    This is a helper class that is passed to RocksDB to get notifications when
+    a snapshot gets created.
+  */
+  class SnapshotNotifier : public rocksdb::TransactionNotifier
+  {
+    Rdb_transaction* rtrans_;
+
+    void SnapshotCreated(const rocksdb::Snapshot *snapshot) override
+    {
+      if (rtrans_ != nullptr)
+        rtrans_->snapshot_created(snapshot);
+    }
+
+   public:
+    explicit SnapshotNotifier(Rdb_transaction* rtrans) : rtrans_(rtrans) {}
+
+    // If the owning Rdb_transaction gets destructed we need to not reference
+    // it anymore.
+    void RemoveTransaction()
+    {
+      rtrans_ = nullptr;
+    }
+  };
+  std::shared_ptr<SnapshotNotifier> notifier;
+
 public:
   const char* mysql_log_file_name;
   my_off_t mysql_log_offset;
@@ -1222,7 +1254,7 @@ public:
     */
   }
 
-  bool commit_or_rollback(THD *thd)
+  bool commit_or_rollback()
   {
     bool res;
     if (is_trx_failed)
@@ -1231,20 +1263,20 @@ public:
       res= false;
     }
     else
-      res= commit(thd);
+      res= commit();
     return res;
   }
 
-  bool commit(THD *thd)
+  bool commit()
   {
     if (get_n_writes() != 0)
     {
-      thd_binlog_pos(thd, &mysql_log_file_name, &mysql_log_offset,
+      thd_binlog_pos(thd_, &mysql_log_file_name, &mysql_log_offset,
                      &mysql_gtid);
       binlog_manager.update(mysql_log_file_name,
                             mysql_log_offset,
                             mysql_gtid, txn->GetWriteBatch());
-      return commit_no_binlog(thd);
+      return commit_no_binlog();
     }
     else
     {
@@ -1253,10 +1285,10 @@ public:
     }
   }
 
-  bool commit_no_binlog(THD *thd)
+  bool commit_no_binlog()
   {
     bool res= false;
-    register_snapshot_release(read_opts.snapshot);
+    release_snapshot();
     rocksdb::Status s= txn->Commit();
     if (!s.ok())
     {
@@ -1275,12 +1307,48 @@ public:
     ddl_transaction= false;
     if (txn)
     {
-      register_snapshot_release(read_opts.snapshot);
+      release_snapshot();
       /* This will also release all of the locks: */
       txn->Rollback();
       delete txn;
       txn= NULL;
     }
+  }
+
+  void snapshot_created(const rocksdb::Snapshot *snapshot)
+  {
+    read_opts.snapshot = snapshot;
+    register_snapshot(read_opts.snapshot, thd_);
+    is_delayed_snapshot = false;
+  }
+
+  void acquire_snapshot(bool acquire_now)
+  {
+    if (read_opts.snapshot == nullptr) {
+      if (acquire_now) {
+        txn->SetSnapshot();
+        snapshot_created(txn->GetSnapshot());
+      }
+      else if (!is_delayed_snapshot) {
+        txn->SetSnapshotOnNextOperation(notifier);
+        is_delayed_snapshot = true;
+      }
+    }
+  }
+
+  void release_snapshot()
+  {
+    bool need_clear = is_delayed_snapshot;
+
+    if (read_opts.snapshot != nullptr)
+    {
+      register_snapshot_release(read_opts.snapshot);
+      read_opts.snapshot = nullptr;
+      need_clear = true;
+    }
+
+    if (need_clear && txn != nullptr)
+      txn->ClearSnapshot();
   }
 
   /*
@@ -1296,18 +1364,18 @@ public:
       Add test coverage for what happens when somebody attempts to do bulk
       inserts while inside a multi-statement transaction.
   */
-  bool flush_batch(THD *thd)
+  bool flush_batch()
   {
     if (get_n_writes() == 0)
       return false;
 
     /* Commit the current transaction */
     bool res;
-    if ((res= commit_no_binlog(thd)))
+    if ((res= commit_no_binlog()))
       return res;
 
     /* Start another one */
-    start_trx(thd);
+    start_trx();
     return false;
   }
 
@@ -1402,23 +1470,21 @@ public:
     return (txn != NULL);
   }
 
-  void start_trx(THD *thd)
+  void start_trx()
   {
     rocksdb::TransactionOptions txn_opts;
     rocksdb::WriteOptions write_opts;
-    txn_opts.set_snapshot= true;
+    txn_opts.set_snapshot= false;
     txn_opts.lock_timeout= timeout_sec * 1000;
 
-    write_opts.sync= THDVAR(thd, write_sync);
-    write_opts.disableWAL= THDVAR(thd, write_disable_wal);
+    write_opts.sync= THDVAR(thd_, write_sync);
+    write_opts.disableWAL= THDVAR(thd_, write_disable_wal);
     write_opts.ignore_missing_column_families=
-      THDVAR(thd, write_ignore_missing_column_families);
+      THDVAR(thd_, write_ignore_missing_column_families);
 
     txn= rdb->BeginTransaction(write_opts, txn_opts);
 
     read_opts= rocksdb::ReadOptions();
-    read_opts.snapshot= txn->GetSnapshot();
-    register_snapshot(read_opts.snapshot, thd);
 
     ddl_transaction= false;
   }
@@ -1434,6 +1500,8 @@ public:
   */
   void start_stmt()
   {
+    // Set the snapshot to delayed acquisition (SetSnapshotOnNextOperation)
+    acquire_snapshot(false);
     txn->SetSavePoint();
   }
 
@@ -1445,18 +1513,40 @@ public:
   {
     /* TODO: here we must release the locks taken since the start_stmt() call */
     if (txn)
+    {
+      const rocksdb::Snapshot *org_snapshot = txn->GetSnapshot();
       txn->RollbackToSavePoint();
+
+      const rocksdb::Snapshot *cur_snapshot = txn->GetSnapshot();
+      if (org_snapshot != cur_snapshot)
+      {
+        if (org_snapshot != nullptr)
+          register_snapshot_release(org_snapshot);
+
+        read_opts.snapshot = cur_snapshot;
+        if (cur_snapshot != nullptr)
+          register_snapshot(cur_snapshot, thd_);
+        else
+          is_delayed_snapshot = true;
+      }
+    }
   }
 
-  Rdb_transaction() : txn(NULL)
-  {}
+  explicit Rdb_transaction(THD *thd) : txn(nullptr), thd_(thd)
+  {
+    // Create a notifier that can be called when a snapshot gets generated.
+    notifier = std::make_shared<SnapshotNotifier>(this);
+  }
 
-  ~Rdb_transaction()
+  virtual ~Rdb_transaction()
   {
     rollback();
+    // Theoretically the notifier could outlive the Rdb_transaction (because
+    // of the shared_ptr), so let it know it can't reference the transaction
+    // anymore.
+    notifier->RemoveTransaction();
   }
 };
-
 
 static Rdb_transaction* &get_trx_from_thd(THD *thd)
 {
@@ -1473,11 +1563,11 @@ static Rdb_transaction *get_or_create_trx(THD *thd)
   // TODO: this is called too many times.. O(#rows)
   if (trx == NULL)
   {
-    if (!(trx= new Rdb_transaction))
+    if (!(trx= new Rdb_transaction(thd)))
       return NULL;
     trx->set_params(THDVAR(thd, lock_wait_timeout),
                     THDVAR(thd, max_row_locks));
-    trx->start_trx(thd);
+    trx->start_trx();
   }
   else
   {
@@ -1485,7 +1575,7 @@ static Rdb_transaction *get_or_create_trx(THD *thd)
                     THDVAR(thd, max_row_locks));
     if (!trx->is_trx_started())
     {
-      trx->start_trx(thd);
+      trx->start_trx();
     }
   }
   return trx;
@@ -1580,29 +1670,37 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
 
-  if (commit_trx ||
-     (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx != nullptr)
   {
-    /*
-      We get here
-       - For a COMMIT statement that finishes a multi-statement transaction
-       - For a statement that has its own transaction
-    */
-    Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx && trx->commit(thd))
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
-  else
-  {
-    /*
-      We get here when committing a statement within a transaction.
+    if (commit_trx ||
+       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
+    {
+      /*
+        We get here
+         - For a COMMIT statement that finishes a multi-statement transaction
+         - For a statement that has its own transaction
+      */
+      if (trx->commit())
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
+    else
+    {
+      /*
+        We get here when committing a statement within a transaction.
 
-      We don't need to do anything here. trx->start_stmt() will notify
-      Rdb_transaction that another statement has started.
-    */
-   Rdb_transaction*& trx= get_trx_from_thd(thd);
-   if (trx)
-     trx->set_trx_failed(false);
+        We don't need to do anything here. trx->start_stmt() will notify
+        Rdb_transaction that another statement has started.
+      */
+      trx->set_trx_failed(false);
+    }
+
+    if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      // For READ_COMMITTED, we release any existing snapshot so that we will
+      // see any changes that occurred since the last statement.
+      trx->release_snapshot();
+    }
   }
   DBUG_RETURN(0);
 }
@@ -1613,31 +1711,37 @@ static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
   rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
 
-  if (rollback_trx)
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx != nullptr)
   {
-    /*
-      We get here, when
-      - ROLLBACK statement is issued.
-
-      Discard the changes made by the transaction
-    */
-    Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx)
-      trx->rollback();
-  }
-  else
-  {
-    /*
-      We get here when
-      - a statement with AUTOCOMMIT=1 is being rolled back (because of some
-        error)
-      - a statement inside a transaction is rolled back
-    */
-    Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx)
+    if (rollback_trx)
     {
+      /*
+        We get here, when
+        - ROLLBACK statement is issued.
+
+        Discard the changes made by the transaction
+      */
+      trx->rollback();
+    }
+    else
+    {
+      /*
+        We get here when
+        - a statement with AUTOCOMMIT=1 is being rolled back (because of some
+          error)
+        - a statement inside a transaction is rolled back
+      */
+
       trx->rollback_stmt();
       trx->set_trx_failed(true);
+    }
+
+    if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      // For READ_COMMITTED, we release any existing snapshot so that we will
+      // see any changes that occurred since the last statement.
+      trx->release_snapshot();
     }
   }
   return 0;
@@ -1871,6 +1975,7 @@ static int rocksdb_start_trx_and_assign_read_view(
 
   Rdb_transaction* trx= get_or_create_trx(thd);
   rocksdb_register_trx(hton, thd, trx);
+  trx->acquire_snapshot(true);
 
   if (binlog_file)
     mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
@@ -2495,6 +2600,7 @@ ha_rocksdb::ha_rocksdb(handlerton *hton, TABLE_SHARE *table_arg)
     pack_buffer(NULL),
     lock_rows(FALSE),
     keyread_only(FALSE),
+    insert_with_update(false),
     field_enc(NULL),
     row_checksums_checked(0)
 {}
@@ -4452,7 +4558,10 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   rocksdb::Status s;
 
   if (!lock_rows)
+  {
+    trx->acquire_snapshot(true);
     s= trx->Get(pk_descr->get_cf(), key_slice, &retrieved_record);
+  }
   else
     s= trx->GetForUpdate(pk_descr->get_cf(), key_slice, &retrieved_record);
 
@@ -4780,7 +4889,7 @@ int ha_rocksdb::write_row(uchar *buf)
       trx->get_n_writes() > THDVAR(table->in_use, bulk_load_size))
   {
     /* Bulk insert mode: flush the write batch if it became too big */
-    if (trx->flush_batch(table->in_use))
+    if (trx->flush_batch())
       rv= HA_ERR_INTERNAL_ERROR;
   }
 
@@ -4923,7 +5032,16 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
         pk_key_changed= true;
 
       rocksdb::Status s;
-      s= trx->Get(pk_descr->get_cf(), new_key_slice, &retrieved_record);
+      if (insert_with_update)
+      {
+        s= trx->GetForUpdate(pk_descr->get_cf(), new_key_slice,
+            &retrieved_record);
+      }
+      else
+      {
+        s= trx->Get(pk_descr->get_cf(), new_key_slice, &retrieved_record);
+      }
+
       found= !s.IsNotFound();
     }
     else
@@ -5210,6 +5328,13 @@ int ha_rocksdb::rnd_init(bool scan)
   }
   io_perf_end_and_record();
 
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+
+  // If lock_rows is on then we will be doing a GetForUpdate when accessing
+  // the index, so don't acquire the snapshot right away.  Otherwise acquire
+  // the snapshot immediately.
+  trx->acquire_snapshot(!lock_rows);
+
   DBUG_RETURN(0);
 }
 
@@ -5274,12 +5399,8 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
         /*
           Lock the row we've just read.
 
-          We've read the row from the snapshot, now we call GetForUpdate
-          which will 1) Take a lock and 2) Will fail if the row was modified
-          since the snapshot was taken.
-
-          (we could not have locked the row when reading it, because reads are
-           done using an iterator, not with Get() calls)
+          Now we call GetForUpdate which will 1) Take a lock and 2) Will fail
+          if the row was deleted since the snapshot was taken.
         */
         Rdb_transaction *trx= get_or_create_trx(table->in_use);
         rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
@@ -5288,11 +5409,21 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
         {
           DBUG_RETURN(return_status_error(table->in_use, s));
         }
+
+        // If we called GetForUpdate() use the value from that call not from
+        // the iterator as it may be stale since we don't have a snapshot
+        // when lock_rows is true.
+        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+        rc= convert_record_from_storage_format(&key, buf);
+      }
+      else
+      {
+        // Use the value from the iterator
+        rocksdb::Slice value= scan_it->value();
+        last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
+        rc= convert_record_from_storage_format(&key, &value, buf);
       }
 
-      last_rowkey.copy(key.data(), key.size(), &my_charset_bin);
-      rocksdb::Slice value= scan_it->value();
-      rc= convert_record_from_storage_format(&key, &value, buf);
       table->status= 0;
     }
   }
@@ -5321,6 +5452,19 @@ int ha_rocksdb::rnd_end()
   DBUG_RETURN(0);
 }
 
+int ha_rocksdb::index_init(uint idx, bool sorted)
+{
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+
+  // If lock_rows is on then we will be doing a GetForUpdate when accessing
+  // the index, so don't acquire the snapshot right away.  Otherwise acquire
+  // the snapshot immediately.
+  trx->acquire_snapshot(!lock_rows);
+
+  active_index= idx;
+
+  return 0;
+}
 
 int ha_rocksdb::index_end()
 {
@@ -5372,6 +5516,7 @@ int ha_rocksdb::delete_row(const uchar *buf)
 
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
+
   rocksdb::Status s= delete_or_singledelete(table->s->primary_key, trx,
                                             pk_descr->get_cf(),
                                             key_slice);
@@ -5738,14 +5883,7 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
         for each of them, but that's ok because non-first trx->commit() calls
         will be no-ops.
       */
-      res= trx->commit_or_rollback(thd);
-    }
-    else if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
-    {
-      /*
-        TODO: do we support read committed? Our natural isolation level is
-        REPEATABLE READ.
-      */
+      res= trx->commit_or_rollback();
     }
   }
   else
@@ -6113,6 +6251,12 @@ int ha_rocksdb::extra(enum ha_extra_function operation)
     break;
   case HA_EXTRA_NO_KEYREAD:
     keyread_only= FALSE;
+    break;
+  case HA_EXTRA_INSERT_WITH_UPDATE:
+    insert_with_update= true;
+    break;
+  case HA_EXTRA_NO_IGNORE_DUP_KEY:
+    insert_with_update= false;
     break;
   case HA_EXTRA_FLUSH:
     /*
