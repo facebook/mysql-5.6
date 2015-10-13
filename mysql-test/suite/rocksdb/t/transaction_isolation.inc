@@ -83,10 +83,35 @@ connection con2;
 --sorted_result
 SELECT a FROM t1; # After both transactions have committed
 
+# Now test with an error in one statement to make sure the snapshots are
+# Held/released when expected
+connection default;
+CREATE TABLE t2 (a INT PRIMARY KEY) ENGINE=rocksdb;
+INSERT INTO t2 (a) VALUES (1);
+COMMIT;
+
+connection con1;
+BEGIN;
+--sorted_result
+SELECT a from t2;
+--error ER_DUP_ENTRY
+INSERT INTO t2 (a) VALUES (1), (3); # failure
+
+connection con2;
+--error 0,ER_LOCK_WAIT_TIMEOUT
+INSERT INTO t2 (a) VALUES (2);
+COMMIT;
+
+connection con1;
+--sorted_result
+SELECT a from t2;
+COMMIT;
+
 connection default;
 disconnect con1;
 disconnect con2;
 DROP TABLE t1;
+DROP TABLE t2;
 
 --source include/wait_until_count_sessions.inc
 

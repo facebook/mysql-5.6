@@ -533,6 +533,7 @@ private:
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
 public:
+  int index_init(uint idx, bool sorted);
   int index_end();
 
   void unlock_row();

@@ -974,11 +974,14 @@ static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
 */
 static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
 {
-  mysql_mutex_lock(&snapshot_mutex);
-  auto count = snapshot_map.erase(snapshot);
-  mysql_mutex_unlock(&snapshot_mutex);
+  if (snapshot != nullptr)
+  {
+    mysql_mutex_lock(&snapshot_mutex);
+    auto count = snapshot_map.erase(snapshot);
+    mysql_mutex_unlock(&snapshot_mutex);
 
-  assert(count == 1);
+    assert(count == 1);
+  }
 }
 
 /*
@@ -1164,7 +1167,7 @@ public:
   bool commit_no_binlog(THD *thd)
   {
     bool res= false;
-    register_snapshot_release(read_opts.snapshot);
+    release_snapshot();
     rocksdb::Status s= txn->Commit();
     if (!s.ok())
     {
@@ -1182,11 +1185,31 @@ public:
     n_writes= 0;
     if (txn)
     {
-      register_snapshot_release(read_opts.snapshot);
+      release_snapshot();
       /* This will also release all of the locks: */
       txn->Rollback();
       delete txn;
       txn= NULL;
+    }
+  }
+
+  void acquire_snapshot(THD* thd)
+  {
+    if (read_opts.snapshot == nullptr)
+    {
+      txn->SetSnapshot();
+      read_opts.snapshot = txn->GetSnapshot();
+      register_snapshot(read_opts.snapshot, thd);
+    }
+  }
+
+  void release_snapshot()
+  {
+    if (read_opts.snapshot != nullptr)
+    {
+      register_snapshot_release(read_opts.snapshot);
+      txn->ClearSnapshot();
+      read_opts.snapshot = nullptr;
     }
   }
 
@@ -1285,7 +1308,7 @@ public:
   {
     rocksdb::TransactionOptions txn_opts;
     rocksdb::WriteOptions write_opts;
-    txn_opts.set_snapshot= true;
+    txn_opts.set_snapshot= false;
     txn_opts.lock_timeout= timeout_sec * 1000;
 
     write_opts.sync= THDVAR(thd, write_sync);
@@ -1296,8 +1319,7 @@ public:
     txn= rdb->BeginTransaction(write_opts, txn_opts);
 
     read_opts= rocksdb::ReadOptions();
-    read_opts.snapshot= txn->GetSnapshot();
-    register_snapshot(read_opts.snapshot, thd);
+
     if (THDVAR(thd, bulk_load)
         || thd->lex->sql_command == SQLCOM_CREATE_INDEX
         || thd->lex->sql_command == SQLCOM_DROP_INDEX
@@ -1445,29 +1467,37 @@ static int rocksdb_commit(handlerton* hton, THD* thd, bool commit_trx, bool)
 
   /* note: h->external_lock(F_UNLCK) is called after this function is called) */
 
-  if (commit_trx ||
-     (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx != nullptr)
   {
-    /*
-      We get here
-       - For a COMMIT statement that finishes a multi-statement transaction
-       - For a statement that has its own transaction
-    */
-    Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx && trx->commit(thd))
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
-  }
-  else
-  {
-    /*
-      We get here when committing a statement within a transaction.
+    if (commit_trx ||
+       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN)))
+    {
+      /*
+        We get here
+         - For a COMMIT statement that finishes a multi-statement transaction
+         - For a statement that has its own transaction
+      */
+      if (trx->commit(thd))
+        DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    }
+    else
+    {
+      /*
+        We get here when committing a statement within a transaction.
 
-      We don't need to do anything here. trx->start_stmt() will notify
-      Rdb_transaction that another statement has started.
-    */
-   Rdb_transaction*& trx= get_trx_from_thd(thd);
-   if (trx)
-     trx->set_trx_failed(false);
+        We don't need to do anything here. trx->start_stmt() will notify
+        Rdb_transaction that another statement has started.
+      */
+      trx->set_trx_failed(false);
+    }
+
+    if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      // For READ_COMMITTED, we release any existing snapshot so that we will
+      // see any changes that occurred since the last statement.
+      trx->release_snapshot();
+    }
   }
   DBUG_RETURN(0);
 }
@@ -1478,31 +1508,37 @@ static int rocksdb_rollback(handlerton* hton, THD* thd, bool rollback_trx)
   rdb_perf_context_local local_perf_context;
   RDB_PERF_CONTEXT_GUARD(local_perf_context, NULL, global_perf_context);
 
-  if (rollback_trx)
+  Rdb_transaction*& trx= get_trx_from_thd(thd);
+  if (trx != nullptr)
   {
-    /*
-      We get here, when
-      - ROLLBACK statement is issued.
-
-      Discard the changes made by the transaction
-    */
-    Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx)
-      trx->rollback();
-  }
-  else
-  {
-    /*
-      We get here when
-      - a statement with AUTOCOMMIT=1 is being rolled back (because of some
-        error)
-      - a statement inside a transaction is rolled back
-    */
-    Rdb_transaction*& trx= get_trx_from_thd(thd);
-    if (trx)
+    if (rollback_trx)
     {
+      /*
+        We get here, when
+        - ROLLBACK statement is issued.
+
+        Discard the changes made by the transaction
+      */
+      trx->rollback();
+    }
+    else
+    {
+      /*
+        We get here when
+        - a statement with AUTOCOMMIT=1 is being rolled back (because of some
+          error)
+        - a statement inside a transaction is rolled back
+      */
+
       trx->rollback_stmt();
       trx->set_trx_failed(true);
+    }
+
+    if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
+    {
+      // For READ_COMMITTED, we release any existing snapshot so that we will
+      // see any changes that occurred since the last statement.
+      trx->release_snapshot();
     }
   }
   return 0;
@@ -1736,6 +1772,7 @@ static int rocksdb_start_trx_and_assign_read_view(
 
   Rdb_transaction* trx= get_or_create_trx(thd);
   rocksdb_register_trx(hton, thd, trx);
+  trx->acquire_snapshot(thd);
 
   if (binlog_file)
     mysql_bin_log_unlock_commits(binlog_file, binlog_pos, gtid_executed,
@@ -4258,6 +4295,7 @@ int ha_rocksdb::get_row_by_rowid(uchar *buf, const char *rowid, uint rowid_size)
   rocksdb::Slice key_slice(rowid, rowid_size);
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  trx->acquire_snapshot(ha_thd());
 
   bool found;
   rocksdb::Status s;
@@ -4621,6 +4659,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
 
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
+  trx->acquire_snapshot(ha_thd());
+
   /* Get a rowkey for the new record */
   pk_packed_size= pk_descr->pack_record(this, table, pack_buffer, new_data,
                                         pk_packed_tuple, NULL, NULL);
@@ -4959,6 +4999,9 @@ int ha_rocksdb::rnd_init(bool scan)
 {
   DBUG_ENTER("ha_rocksdb::rnd_init");
 
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  trx->acquire_snapshot(ha_thd());
+
   io_perf_start();
   if (scan)
   {
@@ -5051,6 +5094,8 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
            done using an iterator, not with Get() calls)
         */
         Rdb_transaction *trx= get_or_create_trx(table->in_use);
+        trx->acquire_snapshot(ha_thd());
+
         rocksdb::Status s= trx->GetForUpdate(pk_descr->get_cf(), key,
                                              &retrieved_record);
         if (!s.ok())
@@ -5089,6 +5134,15 @@ int ha_rocksdb::rnd_end()
   DBUG_RETURN(0);
 }
 
+int ha_rocksdb::index_init(uint idx, bool sorted)
+{
+  Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  trx->acquire_snapshot(ha_thd());
+
+  active_index = idx;
+
+  return 0;
+}
 
 int ha_rocksdb::index_end()
 {
@@ -5140,6 +5194,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
 
   rocksdb::Slice key_slice(last_rowkey.ptr(), last_rowkey.length());
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
+  trx->acquire_snapshot(ha_thd());
+
   rocksdb::Status s= delete_or_singledelete(table->s->primary_key, trx,
                                             pk_descr->get_cf(),
                                             key_slice);
@@ -5473,13 +5529,6 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
         will be no-ops.
       */
       res= trx->commit_or_rollback(thd);
-    }
-    else if (thd_tx_isolation(thd) <= ISO_READ_COMMITTED)
-    {
-      /*
-        TODO: do we support read committed? Our natural isolation level is
-        REPEATABLE READ.
-      */
     }
   }
   else
