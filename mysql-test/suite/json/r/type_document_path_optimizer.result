@@ -867,6 +867,59 @@ sum(doc2.double)
 10.1
 11.11
 12.12
+explain extended select doc1.k1.k2 from t1 where doc1.k1.k2.k3.int > 5;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`k1`.`k2` AS "`doc1`.`k1`.`k2`" from `test`.`t1` where (`test`.`t1`.`doc1`.`k1`.`k2`.`k3`.`int` > 5)
+select doc1.k1.k2 from t1 where doc1.k1.k2.k3.int > 5;
+`doc1`.`k1`.`k2`
+{"k3":{"int":6}}
+{"k3":{"int":7}}
+{"k3":{"int":8}}
+{"k3":{"int":9}}
+{"k3":{"int":10}}
+{"k3":{"int":11}}
+{"k3":{"int":12}}
+explain extended select doc1.k1.k2 from t1 use document keys where doc1.k1.k2.k3.int > 5;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	ALL	doc1_nested	NULL	NULL	NULL	12	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`k1`.`k2` AS "`doc1`.`k1`.`k2`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`k1`.`k2`.`k3`.`int` > 5)
+select doc1.k1.k2 from t1 use document keys where doc1.k1.k2.k3.int > 5;
+`doc1`.`k1`.`k2`
+{"k3":{"int":6}}
+{"k3":{"int":7}}
+{"k3":{"int":8}}
+{"k3":{"int":9}}
+{"k3":{"int":10}}
+{"k3":{"int":11}}
+{"k3":{"int":12}}
+select doc1.k1.k2.k3 from t1 use document keys where doc1.k1.k2.k3.int > 5;
+`doc1`.`k1`.`k2`.`k3`
+{"int":6}
+{"int":7}
+{"int":8}
+{"int":9}
+{"int":10}
+{"int":11}
+{"int":12}
+select doc1.k1.k2.k3.int.foo from t1 use document keys where doc1.k1.k2.k3.int > 5;
+`doc1`.`k1`.`k2`.`k3`.`int`.`foo`
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+explain extended select doc1.k1.k2.k3.int from t1 use document keys where doc1.k1.k2.k3 > 5;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
+Warnings:
+Note	1003	/* select#1 */ select `test`.`t1`.`doc1`.`k1`.`k2`.`k3`.`int` AS "`doc1`.`k1`.`k2`.`k3`.`int`" from `test`.`t1` USE DOCUMENT INDEXES where (`test`.`t1`.`doc1`.`k1`.`k2`.`k3` > 5)
+select doc1.k1.k2.k3.int from t1 use document keys where doc1.k1.k2.k3 > 5;
+`doc1`.`k1`.`k2`.`k3`.`int`
 explain extended select a from t1 where doc1.double > 5.5;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	Using where
