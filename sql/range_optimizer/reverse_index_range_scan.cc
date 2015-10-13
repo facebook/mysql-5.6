@@ -171,8 +171,16 @@ int ReverseIndexRangeScanIterator::Read() {
       will use ha_index_prev() to read data, we need to let the
       handler know where to end the scan in order to avoid that the
       ICP implementation continues to read past the range boundary.
+
+      An addition for MyRocks:
+      MyRocks needs to know both start of the range and end of the range
+      in order to use its bloom filters. This is useful regardless of whether
+      ICP is usable (e.g. it is used for index-only scans which do not use
+      ICP). Because of that, we remove the following:
+
+      // if (table()->file->pushed_idx_cond) {
     */
-    if (table()->file->pushed_idx_cond) {
+    {
       if (!eqrange_all_keyparts) {
         key_range min_range;
         last_range->make_min_endpoint(&min_range);
