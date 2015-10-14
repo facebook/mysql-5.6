@@ -1,0 +1,59 @@
+drop table if exists t1;
+drop table if exists t2;
+create table t1 (i int, c char(255));
+create table t2 (i int, c varchar(255));
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+insert into t2 select * from t1;
+set session tmp_table_size=100000;
+set session max_heap_table_size=100000;
+Warnings:
+Warning	1292	Truncated incorrect max_heap_table_size value: '100000'
+create temporary table tm(i int, c char(255)) engine=myisam;
+no increase
+1
+insert into tm select * from t1;
+increased
+1
+update tm set c = lpad('b', 250, 'a');
+increased
+1
+delete from tm where i < 100;
+increased
+1
+drop temporary table tm;
+create temporary table tm(i int, c varchar(255)) engine=myisam;
+no increase
+1
+insert into tm select * from t2;
+increased
+1
+update tm set c = lpad('b', 250, 'a');
+increased
+1
+delete from tm where i < 100;
+increased
+1
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+i	c	count(*)
+increased
+1
+select i, c, count(*) from t2 group by i, c having count(*) > 1;
+i	c	count(*)
+increased
+1
+drop table t1;
+drop table t2;
+no increase
+1
