@@ -26,6 +26,8 @@ if ($fake_changes)
 --connection master
 
 --disable_query_log
+CREATE TABLE errors (msg TEXT) ENGINE=INNODB;
+
 # some versions of this test use zipdebug, and so generate this warning in non-debug builds
 call mtr.add_suppression("innodb_zip_debug is enabled and this is a non-debug mysqld. Please disable it immediately if the machine is serving production traffic.");
 # Expected during mysql crash recovery due to partial binlog events written to the binary log
@@ -171,6 +173,8 @@ if ($primary != $secondary)
   --die
 }
 
+SELECT * FROM errors limit 10;
+DROP TABLE errors;
 DROP TABLE t1;
 
 # if sync_slave_with_master had a configurable timeout this would not be needed
