@@ -30,20 +30,16 @@ def get_msg(do_blob, idx):
     # blob that can be compressed
     return random.choice(CHARS) * blob_length
 
-class PopulateWorker(threading.Thread):
+# Base class for worker threads
+class WorkerThread(threading.Thread):
   global LG_TMP_DIR
-  def __init__(self, con, start_id, end_id, i, document_table):
+
+  def __init__(self, con, base_log_name):
     threading.Thread.__init__(self)
     self.con = con
-    con.autocommit(False)
-    self.log = open('/%s/populate-%d.log' % (LG_TMP_DIR, i), 'a')
-    self.num = i
-    self.start_id = start_id
-    self.end_id = end_id
-    self.document_table = document_table
+    self.log_name = '/%s/%s.log' % (LG_TMP_DIR, base_log_name)
+    self.log = open(self.log_name, 'a')
     self.exception = None
-    self.start_time = time.time()
-    self.start()
 
   def run(self):
     try:
@@ -55,11 +51,23 @@ class PopulateWorker(threading.Thread):
         cursor = self.con.cursor()
         print >> self.log, traceback.format_exc()
         cursor.execute("INSERT INTO errors VALUES('%s')" % e)
+        self.con.commit()
       except MySQLdb.Error, e2:
         print >> self.log, "caught while inserting error (%s)" % e2
       print >> self.log, "caught (%s)" % e
     finally:
       self.finish()
+
+class PopulateWorker(WorkerThread):
+  def __init__(self, con, start_id, end_id, i, document_table):
+    WorkerThread.__init__(self, con, 'populate-%d' % i)
+    con.autocommit(False)
+    self.num = i
+    self.start_id = start_id
+    self.end_id = end_id
+    self.document_table = document_table
+    self.start_time = time.time()
+    self.start()
 
   def finish(self):
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
@@ -162,33 +170,13 @@ def get_insert_null(msg, document_table):
             ('%s','%s',%d,'%s',NULL)
             """ % (msg[0:255], msg, len(msg), sha1(msg))
 
-class ChecksumWorker(threading.Thread):
-  global LG_TMP_DIR
+class ChecksumWorker(WorkerThread):
   def __init__(self, con, checksum):
-    threading.Thread.__init__(self)
-    self.con = con
+    WorkerThread.__init__(self, con, 'worker-checksum')
     con.autocommit(False)
-    self.log = open('/%s/worker-checksum.log' % LG_TMP_DIR, 'a')
     self.checksum = checksum
     print >> self.log, "given checksum=%d" % checksum
     self.start()
-
-  def run(self):
-    try:
-      self.runme()
-      print >> self.log, "ok"
-    except Exception, e:
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-        con.commit()
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-
-      print >> self.log, "caught (%s)" % e
-    finally:
-      self.finish()
 
   def finish(self):
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
@@ -210,16 +198,13 @@ class ChecksumWorker(threading.Thread):
       print >> self.log, "checksums match! (both are %d)" % checksum
 
 
-class Worker(threading.Thread):
-  global LG_TMP_DIR
-
+class Worker(WorkerThread):
   def __init__(self, num_xactions, xid, con, server_pid, do_blob, max_id,
                fake_changes, secondary_checks, document_table):
-    threading.Thread.__init__(self)
+    WorkerThread.__init__(self, con, 'worker%02d' % xid)
     self.do_blob = do_blob
     self.xid = xid
     con.autocommit(False)
-    self.con = con
     self.num_xactions = num_xactions
     cur = self.con.cursor()
     self.rand = random.Random()
@@ -234,7 +219,6 @@ class Worker(threading.Thread):
     self.num_deletes = 0
     self.num_updates = 0
     self.time_spent = 0
-    self.log = open('/%s/worker%02d.log' % (LG_TMP_DIR, self.xid), 'a')
     if fake_changes:
         cur.execute("SET innodb_fake_changes=1")
     self.secondary_checks = secondary_checks
@@ -280,24 +264,6 @@ class Worker(threading.Thread):
       if res[0] == idx:
         return True
     return False
-
-  def run(self):
-    try:
-      self.runme()
-      print >> self.log, "ok, with do_blob %s" % self.do_blob
-    except Exception, e:
-
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-        cursor.execute("COMMIT")
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-
-      print >> self.log, "caught (%s)" % e
-    finally:
-      self.finish()
 
   def runme(self):
     self.start_time = time.time()
@@ -426,34 +392,15 @@ class Worker(threading.Thread):
       print >> self.log, "commit error %s" % e
 
 
-class DefragmentWorker(threading.Thread):
-  global LG_TMP_DIR
+class DefragmentWorker(WorkerThread):
   def __init__(self, con):
-    threading.Thread.__init__(self)
+    WorkerThread.__init__(self, con, 'worker-defragment')
     self.num_defragment = 0
-    self.con = con
     self.con.autocommit(True)
-    self.log = open('/%s/worker-defragment.log' % LG_TMP_DIR, 'a')
     self.start_time = time.time()
     self.daemon = True
     self.stopped = False
     self.start()
-
-  def run(self):
-    try:
-      self.runme()
-      print >> self.log, "ok"
-    except Exception, e:
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-
-      print >> self.log, "caught (%s)" % e
-    finally:
-      self.finish()
 
   def stop(self):
       self.stopped = True
@@ -547,10 +494,19 @@ if  __name__ == '__main__':
     os.kill(server_pid, signal.SIGKILL)
 
   print >> log, "wait for threads"
+  should_die = False
   for w in workers:
     w.join()
+    if w.exception:
+      print >> log, "Worker hit an exception. See %s." % w.log_name
+      should_die = True
   defrag_worker.stop()
   defrag_worker.join()
+  if defrag_worker.exception:
+    print >> log, "Defrag worker hit an exception. See %s." % w.log_name
+    should_die = True
+  if should_die:
+    sys.exit(1)
 
   if checksum_worker and checksum_worker.checksum != checksum:
     print >> log, "checksums do not match. given checksum=%d, calculated checksum=%d" % (checksum, checksum_worker.checksum)
