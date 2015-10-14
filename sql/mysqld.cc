@@ -642,6 +642,7 @@ my_bool opt_log_slow_extra= FALSE;
 ulonglong binlog_fsync_count = 0;
 ulong opt_peak_lag_time;
 ulong opt_peak_lag_sample_rate;
+ulonglong tmp_table_bytes_written;
 
 my_bool log_datagram= 0;
 ulong log_datagram_usecs= 0;
@@ -9151,6 +9152,7 @@ SHOW_VAR status_vars[]= {
   {"Threads_created",        (char*) &thread_created,   SHOW_LONG_NOFLUSH},
   {"Threads_running",          (char*) &num_thread_running,     SHOW_INT},
   {"Timer_in_use",             (char*) &timer_in_use,           SHOW_CHAR_PTR},
+  {"Tmp_table_bytes_written",  (char*) &tmp_table_bytes_written, SHOW_LONGLONG},
   {"Total_queries_rejected",   (char*) &total_query_rejected,   SHOW_LONG},
   {"Uptime",                   (char*) &show_starttime,         SHOW_FUNC},
 #ifdef ENABLED_PROFILING
