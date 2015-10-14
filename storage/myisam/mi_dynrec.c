@@ -524,6 +524,7 @@ static int update_backward_delete_link(MI_INFO *info, my_off_t delete_block,
       mi_sizestore(buff,filepos);
       if (info->s->file_write(info,buff, 8, delete_block+12, MYF(MY_NABP)))
 	DBUG_RETURN(1);				/* Error on write */
+    info->key_data_file_written+= 8;
     }
     else
     {
@@ -583,6 +584,7 @@ static int delete_dynamic_record(MI_INFO *info, my_off_t filepos,
     if (info->s->file_write(info,(uchar*) block_info.header,20,filepos,
 		  MYF(MY_NABP)))
       DBUG_RETURN(1);
+    info->key_data_file_written+= 20;
     info->s->state.dellink = filepos;
     info->state->del++;
     info->state->empty+=length;
@@ -767,6 +769,7 @@ int _mi_write_part_record(MI_INFO *info,
 		  del_length,filepos,info->s->write_flag))
       goto err;
   }
+  info->key_data_file_written+= length+extra_length+del_length;
   memcpy(record_end,temp,(size_t) (extra_length+del_length));
   *record=record_end;
   *reclength-=(length-head_length);
@@ -921,6 +924,7 @@ static int update_dynamic_record(MI_INFO *info, my_off_t filepos, uchar *record,
 	      if (info->s->file_write(info,(uchar*) del_block.header,20, next_pos,
 			    MYF(MY_NABP)))
 		DBUG_RETURN(1);
+	      info->key_data_file_written+= 20;
 	      info->s->state.dellink= next_pos;
 	      info->s->state.split++;
 	      info->state->del++;
