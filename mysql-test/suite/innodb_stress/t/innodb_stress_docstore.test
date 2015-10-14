@@ -17,7 +17,7 @@ ROW_FORMAT=COMPRESSED
 KEY_BLOCK_SIZE=1;
 
 let $use_blob=1;
-let $do_crash=1;
+let $do_crash=0;
 let $do_compress=1;
 
 --let $num_crashes = 1
