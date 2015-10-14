@@ -830,9 +830,23 @@ int ha_myisam::write_row(uchar *buf)
     if ((error= update_auto_increment()))
       return error;
   }
+
+  /*
+    Reset counter to zero to track how many bytes were written during
+    the call to mi_write.
+  */
+  file->key_data_file_written = 0;
   int e= mi_write(file,buf);
   if (!e)
+  {
     stats.rows_inserted++;
+    if (table->s->tmp_table != NO_TMP_TABLE &&
+        table->s->tmp_table != SYSTEM_TMP_TABLE)
+    {
+      my_atomic_add64((longlong*)&tmp_table_bytes_written,
+          file->key_data_file_written);
+    }
+  }
   return e;
 }
 
@@ -1608,18 +1622,36 @@ int ha_myisam::update_row(const uchar *old_data, uchar *new_data)
     return (my_errno= HA_ERR_TMP_TABLE_MAX_FILE_SIZE_EXCEEDED);
   }
 
+  file->key_data_file_written = 0;
   int error= mi_update(file,old_data,new_data);
   if (!error)
+  {
     stats.rows_updated++;
+    if (table->s->tmp_table != NO_TMP_TABLE &&
+        table->s->tmp_table != SYSTEM_TMP_TABLE)
+    {
+      my_atomic_add64((longlong*)&tmp_table_bytes_written,
+          file->key_data_file_written);
+    }
+  }
   return error;
 }
 
 int ha_myisam::delete_row(const uchar *buf)
 {
   ha_statistic_increment(&SSV::ha_delete_count);
+  file->key_data_file_written = 0;
   int error= mi_delete(file,buf);
   if (!error)
+  {
     stats.rows_deleted++;
+    if (table->s->tmp_table != NO_TMP_TABLE &&
+        table->s->tmp_table != SYSTEM_TMP_TABLE)
+    {
+      my_atomic_add64((longlong*)&tmp_table_bytes_written,
+          file->key_data_file_written);
+    }
+  }
   return error;
 }
 

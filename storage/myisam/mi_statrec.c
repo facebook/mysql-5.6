@@ -37,6 +37,7 @@ int _mi_write_static_record(MI_INFO *info, const uchar *record)
 		  filepos,
 		  MYF(MY_NABP)))
       goto err;
+    info->key_data_file_written += info->s->base.reclength;
   }
   else
   {
@@ -77,6 +78,7 @@ int _mi_write_static_record(MI_INFO *info, const uchar *record)
     goto err;
       }
     }
+    info->key_data_file_written+=info->s->base.pack_reclength;
     info->state->data_file_length+=info->s->base.pack_reclength;
     info->s->state.split++;
   }
@@ -87,17 +89,24 @@ int _mi_write_static_record(MI_INFO *info, const uchar *record)
 
 int _mi_update_static_record(MI_INFO *info, my_off_t pos, const uchar *record)
 {
+  int ret;
   info->rec_cache.seek_not_done=1;		/* We have done a seek */
-  return (info->s->file_write(info,
+  ret=(info->s->file_write(info,
                               record, info->s->base.reclength,
                               pos,
                               MYF(MY_NABP)) != 0);
+  if (!ret)
+  {
+    info->key_data_file_written+=info->s->base.pack_reclength;
+  }
+  return ret;
 }
 
 
 int _mi_delete_static_record(MI_INFO *info)
 {
   uchar temp[9];				/* 1+sizeof(uint32) */
+  int ret;
 
   info->state->del++;
   info->state->empty+=info->s->base.pack_reclength;
@@ -105,8 +114,13 @@ int _mi_delete_static_record(MI_INFO *info)
   _mi_dpointer(info,temp+1,info->s->state.dellink);
   info->s->state.dellink = info->lastpos;
   info->rec_cache.seek_not_done=1;
-  return (info->s->file_write(info,(uchar*) temp, 1+info->s->rec_reflength,
+  ret = (info->s->file_write(info,(uchar*) temp, 1+info->s->rec_reflength,
 		    info->lastpos, MYF(MY_NABP)) != 0);
+  if (!ret)
+  {
+    info->key_data_file_written+= 1+info->s->rec_reflength;
+  }
+  return ret;
 }
 
 
