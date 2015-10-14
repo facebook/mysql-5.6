@@ -10,7 +10,6 @@ KEY msg_i(doc.msg_prefix as string(255)))
 ENGINE=INNODB
 ROW_FORMAT=COMPRESSED
 KEY_BLOCK_SIZE=1;
-Wait for reconnect
 Checksum master
 stop slave;
 start slave;

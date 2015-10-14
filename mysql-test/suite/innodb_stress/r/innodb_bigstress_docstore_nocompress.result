@@ -8,7 +8,6 @@ CREATE TABLE t1(id INT AUTO_INCREMENT PRIMARY KEY,
 doc DOCUMENT,
 KEY msg_i(doc.msg_prefix as string(255)))
 ENGINE=INNODB;
-Wait for reconnect
 Checksum master
 stop slave;
 start slave;
