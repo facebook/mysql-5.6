@@ -18,6 +18,8 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
+#define MYSQL_SERVER 1
+
 /* The C++ file's header */
 #include "./ha_rocksdb.h"
 
@@ -1289,6 +1291,11 @@ public:
     read_opts= rocksdb::ReadOptions();
     read_opts.snapshot= txn->GetSnapshot();
     register_snapshot(read_opts.snapshot, thd);
+    if (THDVAR(thd, bulk_load)
+        || thd->lex->sql_command == SQLCOM_CREATE_INDEX
+        || thd->lex->sql_command == SQLCOM_DROP_INDEX
+        || thd->lex->sql_command == SQLCOM_ALTER_TABLE)
+      txn->DisableIndexing();
   }
 
   /*
