@@ -18,6 +18,9 @@ Checksum master
 stop slave;
 start slave;
 Checksum slave
+SELECT * FROM errors limit 10;
+msg
+DROP TABLE errors;
 DROP TABLE t1;
 stop slave;
 start slave;
