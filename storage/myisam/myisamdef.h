@@ -309,6 +309,7 @@ struct st_myisam_info {
   THR_LOCK_DATA lock;
   uchar  *rtree_recursion_state;	/* For RTREE */
   int     rtree_recursion_depth;
+  uint data_file_written; /* Track bytes written to data file */
 };
 
 typedef struct st_buffpek {
