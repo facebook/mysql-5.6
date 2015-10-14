@@ -522,8 +522,10 @@ static int update_backward_delete_link(MI_INFO *info, my_off_t delete_block,
     {
       uchar buff[8];
       mi_sizestore(buff,filepos);
-      if (info->s->file_write(info,buff, 8, delete_block+12, MYF(MY_NABP)))
+      if (info->s->file_write(info,buff, sizeof(buff),
+                              delete_block+12, MYF(MY_NABP)))
 	DBUG_RETURN(1);				/* Error on write */
+      info->data_file_written+= sizeof(buff);
     }
     else
     {
@@ -580,9 +582,10 @@ static int delete_dynamic_record(MI_INFO *info, my_off_t filepos,
       memset(block_info.header + 12, 255, 8);
     else
       mi_sizestore(block_info.header+12,block_info.next_filepos);
-    if (info->s->file_write(info,(uchar*) block_info.header,20,filepos,
-		  MYF(MY_NABP)))
+    if (info->s->file_write(info, (uchar*) block_info.header,
+                            MI_MAX_DYN_BLOCK_HEADER, filepos, MYF(MY_NABP)))
       DBUG_RETURN(1);
+    info->data_file_written+= MI_MAX_DYN_BLOCK_HEADER;
     info->s->state.dellink = filepos;
     info->state->del++;
     info->state->empty+=length;
@@ -767,6 +770,7 @@ int _mi_write_part_record(MI_INFO *info,
 		  del_length,filepos,info->s->write_flag))
       goto err;
   }
+  info->data_file_written+= length+extra_length+del_length;
   memcpy(record_end,temp,(size_t) (extra_length+del_length));
   *record=record_end;
   *reclength-=(length-head_length);
@@ -918,9 +922,11 @@ static int update_dynamic_record(MI_INFO *info, my_off_t filepos, uchar *record,
 	      mi_int3store(del_block.header+1, rest_length);
 	      mi_sizestore(del_block.header+4,info->s->state.dellink);
 	      memset(del_block.header + 12, 255, 8);
-	      if (info->s->file_write(info,(uchar*) del_block.header,20, next_pos,
-			    MYF(MY_NABP)))
+	      if (info->s->file_write(info, (uchar*) del_block.header,
+                                MI_MAX_DYN_BLOCK_HEADER, next_pos,
+                                MYF(MY_NABP)))
 		DBUG_RETURN(1);
+	      info->data_file_written+= MI_MAX_DYN_BLOCK_HEADER;
 	      info->s->state.dellink= next_pos;
 	      info->s->state.split++;
 	      info->state->del++;

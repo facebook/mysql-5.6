@@ -1,0 +1,133 @@
+--let $prevSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+
+create table t1 (i int, c char(255));
+create table t2 (i int, c varchar(255));
+
+insert into t1 values (0, lpad('a', 250, 'b'));
+insert into t1 select i+1,c from t1;
+insert into t1 select i+2,c from t1;
+insert into t1 select i+4,c from t1;
+insert into t1 select i+8,c from t1;
+insert into t1 select i+16,c from t1;
+insert into t1 select i+32,c from t1;
+insert into t1 select i+64,c from t1;
+insert into t1 select i+128,c from t1;
+insert into t1 select i+256,c from t1;
+insert into t1 select i+512,c from t1;
+insert into t1 select i+1024,c from t1;
+insert into t1 select i+2048,c from t1;
+
+insert into t2 select * from t1;
+
+set session tmp_table_size=16384;
+set session max_heap_table_size=16384;
+
+create temporary table tm(i int, c char(255)) engine=myisam;
+
+--let MYSQLD_TMPDIR = `select @@tmpdir`
+
+--let EXPECTED_FILE_SIZE = 0
+--source include/temp_table_size_counter_perl.inc
+
+# The above statements should not have increased Tmp_table_bytes_written
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize = $prevSize as "no increase"
+--enable_query_log
+
+insert into tm select * from t1;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+--let EXPECTED_FILE_SIZE = `select $nextSize - $prevSize`
+--source include/temp_table_size_counter_perl.inc
+
+update tm set c = lpad('b', 250, 'a');
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+delete from tm where i < 100;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+drop temporary table tm;
+
+# The location where the byte count is increment is different for static and dynamic
+# records. Test with varchar to see if the code path for dynamic records also works. The
+# char version above only tests static records.
+create temporary table tm(i int, c varchar(255)) engine=myisam;
+
+--let EXPECTED_FILE_SIZE = 0
+--source include/temp_table_size_counter_perl.inc
+
+# The above statements should not have increased Tmp_table_bytes_written
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize = $prevSize as "no increase"
+--enable_query_log
+
+insert into tm select * from t2;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+--let EXPECTED_FILE_SIZE = `select $nextSize - $prevSize`
+--source include/temp_table_size_counter_perl.inc
+
+update tm set c = lpad('b', 250, 'a');
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+delete from tm where i < 100;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+# Test implicit tables.
+select i, c, count(*) from t1 group by i, c having count(*) > 1;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+select i, c, count(*) from t2 group by i, c having count(*) > 1;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize > $prevSize as "increased"
+--enable_query_log
+
+drop table t1;
+drop table t2;
+
+--let $prevSize = $nextSize
+--let $nextSize = query_get_value(SHOW STATUS LIKE 'Tmp_table_bytes_written', Value, 1)
+--disable_query_log
+--eval select $nextSize = $prevSize as "no increase"
+--enable_query_log

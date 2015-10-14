@@ -83,6 +83,7 @@ class ha_myisam: public handler
   int write_row(uchar * buf);
   int update_row(const uchar * old_data, uchar * new_data);
   int delete_row(const uchar * buf);
+  void inc_tmp_table_bytes_written();
   int index_read_map(uchar *buf, const uchar *key, key_part_map keypart_map,
                      enum ha_rkey_function find_flag);
   int index_read_idx_map(uchar *buf, uint index, const uchar *key,
