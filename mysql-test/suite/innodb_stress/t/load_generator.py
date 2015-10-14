@@ -82,6 +82,7 @@ class PopulateWorker(WorkerThread):
     for i in xrange(self.start_id, self.end_id):
       msg = get_msg(do_blob, i)
       stmt = get_insert(msg, i+1, self.document_table)
+      print >> self.log, stmt
       cur.execute(stmt)
       if i % 100 == 0:
         self.con.commit()
@@ -188,7 +189,7 @@ class ChecksumWorker(WorkerThread):
     print >> self.log, "checksum thread started"
     self.start_time = time.time()
     cur = self.con.cursor()
-    cur.execute("SET SESSION innodb_lra_size=16")
+    #cur.execute("SET SESSION innodb_lra_size=16")
     cur.execute("CHECKSUM TABLE t1")
     checksum = cur.fetchone()[1]
     self.con.commit()
@@ -222,8 +223,8 @@ class Worker(WorkerThread):
     self.num_deletes = 0
     self.num_updates = 0
     self.time_spent = 0
-    if fake_changes:
-        cur.execute("SET innodb_fake_changes=1")
+    #if fake_changes:
+    #    cur.execute("SET innodb_fake_changes=1")
     self.secondary_checks = secondary_checks
     self.document_table = document_table
     self.start()
@@ -280,13 +281,13 @@ class Worker(WorkerThread):
 
         # Randomly toggle innodb_prefix_index_cluster_optimization 5%
         # of the time
-        if self.rand.randint(0, 20) == 0:
-          cur.execute("SET GLOBAL innodb_prefix_index_cluster_optimization="
-                      "1-@@innodb_prefix_index_cluster_optimization")
+        #if self.rand.randint(0, 20) == 0:
+        #  cur.execute("SET GLOBAL innodb_prefix_index_cluster_optimization="
+        #              "1-@@innodb_prefix_index_cluster_optimization")
 
         # Randomly change the value of innodb_zlib_wrap 2.77% of the time
-        if self.rand.randint(0, 36) == 0:
-          cur.execute("SET GLOBAL innodb_zlib_wrap=1-@@innodb_zlib_wrap");
+        #if self.rand.randint(0, 36) == 0:
+        #  cur.execute("SET GLOBAL innodb_zlib_wrap=1-@@innodb_zlib_wrap");
 
         msg = get_msg(self.do_blob, idx)
 
@@ -347,6 +348,7 @@ class Worker(WorkerThread):
           stmt = "DELETE FROM t1 WHERE id=%d" % idx
           self.num_deletes += 1
 
+        print >> self.log, stmt
         query_result = cur.execute(stmt)
 
         # 10% probability of checking to see the key exists in secondary index
@@ -458,10 +460,10 @@ if  __name__ == '__main__':
   server_pid = int(open(pid_file).read())
   log = open('/%s/main.log' % LG_TMP_DIR, 'a')
 
-#  print  "kill_db_after = ",kill_db_after," num_records_before = ", \
-#num_records_before, " num_workers= ",num_workers, "num_xactions_per_worker =",\
-#num_xactions_per_worker, "user = ",user, "host =", host,"port = ",port,\
-#" db = ", db, " server_pid = ", server_pid
+  print  "kill_db_after = ",kill_db_after," num_records_before = ", \
+num_records_before, " num_workers= ",num_workers, "num_xactions_per_worker =",\
+num_xactions_per_worker, "user = ",user, "host =", host,"port = ",port,\
+" db = ", db, " server_pid = ", server_pid
 
   if num_records_before:
     print >> log, "populate table do_blob is %d" % do_blob
