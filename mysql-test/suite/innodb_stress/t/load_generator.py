@@ -30,36 +30,37 @@ def get_msg(do_blob, idx):
     # blob that can be compressed
     return random.choice(CHARS) * blob_length
 
-class PopulateWorker(threading.Thread):
+# Base class for worker threads
+class WorkerThread(threading.Thread):
   global LG_TMP_DIR
-  def __init__(self, con, start_id, end_id, i, document_table):
+
+  def __init__(self, con, base_log_name):
     threading.Thread.__init__(self)
     self.con = con
-    con.autocommit(False)
-    self.log = open('/%s/populate-%d.log' % (LG_TMP_DIR, i), 'a')
-    self.num = i
-    self.start_id = start_id
-    self.end_id = end_id
-    self.document_table = document_table
+    self.log_name = '/%s/%s.log' % (LG_TMP_DIR, base_log_name)
+    self.log = open(self.log_name, 'a')
     self.exception = None
-    self.start_time = time.time()
-    self.start()
 
   def run(self):
     try:
       self.runme()
       print >> self.log, "ok"
     except Exception, e:
-      self.exception = e
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-      print >> self.log, "caught (%s)" % e
+      self.exception = traceback.format_exc()
+      print >> self.log, "\n%s\n" % self.exception
     finally:
       self.finish()
+
+class PopulateWorker(WorkerThread):
+  def __init__(self, con, start_id, end_id, i, document_table):
+    WorkerThread.__init__(self, con, 'populate-%d' % i)
+    con.autocommit(False)
+    self.num = i
+    self.start_id = start_id
+    self.end_id = end_id
+    self.document_table = document_table
+    self.start_time = time.time()
+    self.start()
 
   def finish(self):
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
@@ -162,33 +163,13 @@ def get_insert_null(msg, document_table):
             ('%s','%s',%d,'%s',NULL)
             """ % (msg[0:255], msg, len(msg), sha1(msg))
 
-class ChecksumWorker(threading.Thread):
-  global LG_TMP_DIR
+class ChecksumWorker(WorkerThread):
   def __init__(self, con, checksum):
-    threading.Thread.__init__(self)
-    self.con = con
+    WorkerThread.__init__(self, con, 'worker-checksum')
     con.autocommit(False)
-    self.log = open('/%s/worker-checksum.log' % LG_TMP_DIR, 'a')
     self.checksum = checksum
     print >> self.log, "given checksum=%d" % checksum
     self.start()
-
-  def run(self):
-    try:
-      self.runme()
-      print >> self.log, "ok"
-    except Exception, e:
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-        con.commit()
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-
-      print >> self.log, "caught (%s)" % e
-    finally:
-      self.finish()
 
   def finish(self):
     print >> self.log, "total time: %.2f s" % (time.time() - self.start_time)
@@ -210,16 +191,13 @@ class ChecksumWorker(threading.Thread):
       print >> self.log, "checksums match! (both are %d)" % checksum
 
 
-class Worker(threading.Thread):
-  global LG_TMP_DIR
-
+class Worker(WorkerThread):
   def __init__(self, num_xactions, xid, con, server_pid, do_blob, max_id,
                fake_changes, secondary_checks, document_table):
-    threading.Thread.__init__(self)
+    WorkerThread.__init__(self, con, 'worker%02d' % xid)
     self.do_blob = do_blob
     self.xid = xid
     con.autocommit(False)
-    self.con = con
     self.num_xactions = num_xactions
     cur = self.con.cursor()
     self.rand = random.Random()
@@ -234,7 +212,6 @@ class Worker(threading.Thread):
     self.num_deletes = 0
     self.num_updates = 0
     self.time_spent = 0
-    self.log = open('/%s/worker%02d.log' % (LG_TMP_DIR, self.xid), 'a')
     if fake_changes:
         cur.execute("SET innodb_fake_changes=1")
     self.secondary_checks = secondary_checks
@@ -281,24 +258,6 @@ class Worker(threading.Thread):
         return True
     return False
 
-  def run(self):
-    try:
-      self.runme()
-      print >> self.log, "ok, with do_blob %s" % self.do_blob
-    except Exception, e:
-
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-        cursor.execute("COMMIT")
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-
-      print >> self.log, "caught (%s)" % e
-    finally:
-      self.finish()
-
   def runme(self):
     self.start_time = time.time()
     cur = self.con.cursor()
@@ -310,23 +269,25 @@ class Worker(threading.Thread):
       insert_or_update = self.rand.randint(0, 3)
       self.loop_num += 1
 
-      # Randomly toggle innodb_prefix_index_cluster_optimization 5% of the time
-      if self.rand.randint(0, 20) == 0:
-        cur.execute("SET GLOBAL innodb_prefix_index_cluster_optimization=1-@@innodb_prefix_index_cluster_optimization")
-
-      # Randomly change the value of innodb_zlib_wrap 2.77% of the time
-      if self.rand.randint(0, 36) == 0:
-        cur.execute("SET GLOBAL innodb_zlib_wrap=1-@@innodb_zlib_wrap");
-
       try:
         stmt = None
+
+        # Randomly toggle innodb_prefix_index_cluster_optimization 5%
+        # of the time
+        if self.rand.randint(0, 20) == 0:
+          cur.execute("SET GLOBAL innodb_prefix_index_cluster_optimization="
+                      "1-@@innodb_prefix_index_cluster_optimization")
+
+        # Randomly change the value of innodb_zlib_wrap 2.77% of the time
+        if self.rand.randint(0, 36) == 0:
+          cur.execute("SET GLOBAL innodb_zlib_wrap=1-@@innodb_zlib_wrap");
 
         msg = get_msg(self.do_blob, idx)
 
         # Query primary key 70%, secondary key lookup 20%, secondary key only 10%
         r = self.rand.randint(1, 10)
         if r <= 7:
-	  if self.document_table:
+          if self.document_table:
             cur.execute("SELECT doc.msg_prefix,doc.msg,doc.msg_length, "
                         "doc.msg_checksum FROM t1 WHERE id=%d" % idx)
           else:
@@ -345,15 +306,15 @@ class Worker(threading.Thread):
         # Query only the secondary index
         else:
           if self.document_table:
-            cur.execute("SELECT doc.msg_prefix,doc.msg,doc.msg_length, "
-                        "doc.msg_checksum FROM t1 use document keys WHERE "
+            cur.execute("SELECT id, msg_prefix FROM t1 use document keys WHERE "
                         "doc.msg_prefix='%s'" % msg[0:255])
           else:
-            cur.execute("SELECT msg_prefix,msg,msg_length,msg_checksum "
-                        "FROM t1 WHERE msg_prefix='%s'" % msg[0:255])
+            cur.execute("SELECT id, msg_prefix FROM t1 WHERE "
+                        "msg_prefix='%s'" % msg[0:255])
           res = cur.fetchall()
           self.num_secondary_only_select += 1
-        if res:
+        # Don't validate if r > 9 because we don't have sufficient columns.
+        if r <= 9 and res:
           self.validate_msg(res[0], res[1], int(res[2]), res[3], idx)
 
         insert_with_index = False
@@ -426,37 +387,18 @@ class Worker(threading.Thread):
       print >> self.log, "commit error %s" % e
 
 
-class DefragmentWorker(threading.Thread):
-  global LG_TMP_DIR
+class DefragmentWorker(WorkerThread):
   def __init__(self, con):
-    threading.Thread.__init__(self)
+    WorkerThread.__init__(self, con, 'worker-defragment')
     self.num_defragment = 0
-    self.con = con
     self.con.autocommit(True)
-    self.log = open('/%s/worker-defragment.log' % LG_TMP_DIR, 'a')
     self.start_time = time.time()
     self.daemon = True
     self.stopped = False
     self.start()
 
-  def run(self):
-    try:
-      self.runme()
-      print >> self.log, "ok"
-    except Exception, e:
-      try:
-        cursor = self.con.cursor()
-        print >> self.log, traceback.format_exc()
-        cursor.execute("INSERT INTO errors VALUES('%s')" % e)
-      except MySQLdb.Error, e2:
-        print >> self.log, "caught while inserting error (%s)" % e2
-
-      print >> self.log, "caught (%s)" % e
-    finally:
-      self.finish()
-
   def stop(self):
-      self.stopped = True
+    self.stopped = True
 
   def finish(self):
     print >> self.log, "defragment ran %d times" % self.num_defragment
@@ -468,10 +410,18 @@ class DefragmentWorker(threading.Thread):
     print >> self.log, "defragmentation thread started"
     cur = self.con.cursor()
     while not self.stopped:
-      print >> self.log, "defrag"
-      cur.execute("ALTER TABLE t1 DEFRAGMENT")
-      time.sleep(random.randint(0, 10))
-      self.num_defragment += 1
+      try:
+        print >> self.log, "Starting defrag."
+        cur.execute("ALTER TABLE t1 DEFRAGMENT")
+        print >> self.log, "Defrag completed successfully."
+        self.num_defragment += 1
+        time.sleep(random.randint(0, 10))
+      except MySQLdb.Error, e:
+        # Handle crash tests that kill the server while defragment runs.
+        if e.args[0] == 2013:
+          print >> self.log, "Server crashed while defrag was running."
+        else:
+          raise e
 
 
 if  __name__ == '__main__':
@@ -547,13 +497,24 @@ if  __name__ == '__main__':
     os.kill(server_pid, signal.SIGKILL)
 
   print >> log, "wait for threads"
+  should_die = False
   for w in workers:
     w.join()
+    if w.exception:
+      print "Worker hit an exception:\n%s\n" % w.exception
+      should_die = True
   defrag_worker.stop()
   defrag_worker.join()
+  if defrag_worker.exception:
+    print ("Defrag worker hit an exception:\n%s\n." %
+           defrag_worker.exception)
+    should_die = True
+  if should_die:
+    sys.exit(1)
 
   if checksum_worker and checksum_worker.checksum != checksum:
-    print >> log, "checksums do not match. given checksum=%d, calculated checksum=%d" % (checksum, checksum_worker.checksum)
+    print ("Checksums do not match. given checksum=%d, "
+           "calculated checksum=%d" % (checksum, checksum_worker.checksum))
     sys.exit(1)
 
   print >> log, "all threads done"
