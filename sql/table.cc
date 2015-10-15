@@ -832,12 +832,22 @@ void KEY_PART_INFO::init_from_field(Field *fld)
      document field since key part only can be built
      on a document path with a primary type
   */
+  bool is_string_type_document_key = false;
+  if (field->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    /* a document field is always nullable */
+    DBUG_ASSERT(field->real_maybe_null());
+
+    is_string_type_document_key =
+      ((Field_document*)field)->is_doc_type_string();
+  }
 
   if (field->real_maybe_null())
     store_length+= HA_KEY_NULL_LENGTH;
   if (field->type() == MYSQL_TYPE_BLOB ||
       field->real_type() == MYSQL_TYPE_VARCHAR ||
-      field->type() == MYSQL_TYPE_GEOMETRY)
+      field->type() == MYSQL_TYPE_GEOMETRY ||
+      is_string_type_document_key)
   {
     store_length+= HA_KEY_BLOB_LENGTH;
   }
@@ -2081,7 +2091,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         field= key_part->field= share->field[key_part->fieldnr-1];
         key_part->type= field->key_type();
 
-        /* sanity check for document path key part */
+        bool is_string_type_document_key = false;
         if (field->type() == MYSQL_TYPE_DOCUMENT)
         {
           /* since a field with document type cannot be a key part
@@ -2092,11 +2102,15 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
                    field->field_name) == 0);
           /* the document path flag has been removed */
           DBUG_ASSERT(f_is_document(key_part->key_type));
+
+          /* a document field is always nullable */
+          DBUG_ASSERT(field->real_maybe_null());
+
+          is_string_type_document_key =
+            (key_part->document_path_key_part->type == MYSQL_TYPE_STRING);
         }
 
-        /* When field is a document, a doc path can always be nullable so the
-         * null bit and other flags should still be set */
-        if (field->type() == MYSQL_TYPE_DOCUMENT || field->real_maybe_null())
+        if (field->real_maybe_null())
         {
           key_part->null_offset=field->null_offset(share->default_values);
           key_part->null_bit= field->null_bit;
@@ -2106,7 +2120,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
         }
         if (field->type() == MYSQL_TYPE_BLOB ||
             field->real_type() == MYSQL_TYPE_VARCHAR ||
-            field->type() == MYSQL_TYPE_GEOMETRY)
+            field->type() == MYSQL_TYPE_GEOMETRY ||
+            is_string_type_document_key)
         {
           key_part->store_length+=HA_KEY_BLOB_LENGTH;
           if (i + 1 <= keyinfo->user_defined_key_parts)
@@ -2127,7 +2142,10 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
             for MyRocks
           */
         }
-        if (field->key_length() != key_part->length)
+
+        /* key_length() of document fields don't provide the length of keys */
+        if (field->key_length() != key_part->length &&
+            field->type() != MYSQL_TYPE_DOCUMENT)
         {
 #ifndef TO_BE_DELETED_ON_PRODUCTION
           if (field->type() == MYSQL_TYPE_NEWDECIMAL)
