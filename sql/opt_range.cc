@@ -6539,12 +6539,6 @@ get_mm_parts(RANGE_OPT_PARAM *param, Item_func *cond_func, Field *field,
           is_spatial_operator(cond_func->functype()))
         continue;
 
-      /* TODO: currently we skip range analysis optimization
-       * for document fields
-       */
-      if (field->type() == MYSQL_TYPE_DOCUMENT)
-        continue;
-
       SEL_ARG *sel_arg=0;
       if (!tree && !(tree=new SEL_TREE()))
 	DBUG_RETURN(0);				// OOM
@@ -6793,6 +6787,8 @@ get_mm_leaf(RANGE_OPT_PARAM *param, Item *conf_func, Field *field,
   MEM_ROOT *alloc= param->mem_root;
   uchar *str;
   const char *impossible_cond_cause= NULL;
+  //bool field_real_null = false;
+  //bool temp = false;
   DBUG_ENTER("get_mm_leaf");
 
   /*
@@ -7019,7 +7015,21 @@ get_mm_leaf(RANGE_OPT_PARAM *param, Item *conf_func, Field *field,
     Any sargable predicate except "<=>" involving NULL as a constant is always
     FALSE
   */
+
+  //if (field->type() == MYSQL_TYPE_DOCUMENT)
+  //{
+  //  temp = field->is_real_null();
+  //  if (temp && type == Item_func::EQ_FUNC)
+  //  {
+  //    DBUG_ASSERT(0);
+  //    goto end;
+  //  }
+  //}
+
   if (type != Item_func::EQUAL_FUNC && field->is_real_null())
+    //if (type != Item_func::EQUAL_FUNC &&
+    //(field->type() == MYSQL_TYPE_DOCUMENT ?
+    //field->is_null() : field->is_real_null()))
   {
     impossible_cond_cause= "comparison_with_null_always_false";
     tree= &null_element;
@@ -7029,8 +7039,13 @@ get_mm_leaf(RANGE_OPT_PARAM *param, Item *conf_func, Field *field,
   str= (uchar*) alloc_root(alloc, key_part->store_length+1);
   if (!str)
     goto end;
+
+  //field_real_null = (field->type() == MYSQL_TYPE_DOCUMENT ?
+  //                   field->is_null() : field->is_real_null());
+
   if (maybe_null)
     *str= (uchar) field->is_real_null();        // Set to 1 if null
+    //*str= (uchar) field_real_null;        // Set to 1 if null
   field->get_key_image(str+maybe_null, key_part->length,
                        key_part->image_type);
   if (!(tree= new (alloc) SEL_ARG(field, str, str)))

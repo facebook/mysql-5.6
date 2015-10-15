@@ -8988,7 +8988,25 @@ Field_document::update_json(const fbson::FbsonValue *val,
     fbson::FbsonDocument *doc =
       fbson::FbsonDocument::createDocument(blob, value.length());
 
-    DBUG_ASSERT(doc);
+    // Build the document path and set the value. This may happen from
+    // call save_value_and_handle_conversion() during range optimizations
+    // for example 'where t.doc.int > 5'
+    if (!doc) {
+      // If update is only allowed with "IF EXISTS" argument.
+      if (from->update_args && from->update_args->exist_type ==
+          Save_in_field_args::CheckType::CHECK_EXISTS)
+      {
+        return TYPE_ERR_BAD_VALUE;
+      }
+
+      fbson::FbsonWriter writer;
+      Document_path_iterator path = key_path;
+      path++;
+      const fbson::FbsonValue *v = build_path(path, writer, val,
+                                              fbson::FbsonType::T_Object);
+      Document_path_iterator p(this);
+      return update_json(v, cs, p, this);
+    }
 
     fbson::FbsonUpdater updater(doc, buffer_len);
     Document_path_iterator path = key_path;
@@ -9182,15 +9200,23 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
   */
   DBUG_ASSERT(this == real_field());
 
-  // Null column can't use partial update.
+  // New document will be created and the document path
+  // will be built for partial update for null column
+  // if argument CHECK_EXISTS is not specified, i.e.,
+  // the argument is CHECK_NONE or CHECK_NOTEXISTS.
   char *blob = nullptr;
   memcpy(&blob,
          ptr + packlength,
          sizeof(char*));
   if(is_null() || nullptr == blob)
   {
-    set_null();
-    return TYPE_ERR_BAD_VALUE;
+    // Allocate memory if it is not allocated yet. It will
+    // be reallocated if it is not big enough later.
+    if(value.realloc(64)){
+      *buff = nullptr;
+      return TYPE_ERR_OOM;
+    }
+    return TYPE_OK;
   }
 
   // If the buffer has been allocated, then it's fine.
@@ -9200,6 +9226,8 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
     *buff = blob;
     return TYPE_OK;
   }
+
+  // Otherwise, allocate the buffer.
   int len = get_length(ptr);
   if(value.realloc(len * 2)){
     *buff = nullptr;
@@ -10160,6 +10188,52 @@ uint Field_document::get_key_image_numT(T &val, fbson::FbsonValue *pval)
 
   return sizeof(T);
 }
+
+
+int Field_document::cmp_max(const uchar *a, const uchar *b,
+                            uint max_length)
+{
+  return Field_blob::cmp_max(a, b, max_length);
+}
+
+int Field_document::cmp_binary(const uchar *a,const uchar *b,
+                               uint32 max_length)
+{
+  return Field_blob::cmp_binary(a, b, max_length);
+}
+
+int Field_document::key_cmp(const uchar *x, const uchar*y)
+{
+  return Field_blob::key_cmp(x, y);
+}
+
+int Field_document::key_cmp(const uchar *key_ptr,
+                            uint max_key_length)
+{
+  // Raw value in MySQL little endian format
+  int64_t x = *(int64_t*)key_ptr;
+
+  // Raw value in InnoDB big endian format
+  // is stored in document blob
+  int64_t v = this->val_int();
+
+  //fbson::FbsonValue *fb_val = get_fbson_value();
+  //if(nullptr == fb_val)
+  //  return -1;
+  //int64_t v = 0;
+  //this->get_key_image_int((uchar*)&v, fb_val);
+
+  if (v < x)
+    return -1;
+  else if (v > x)
+    return 1;
+  return 0;
+}
+
+//uint32 Field_document::key_length() const
+//{
+//  return Field_blob::key_length();
+//}
 
 /****************************************************************************
 ** enum type.
