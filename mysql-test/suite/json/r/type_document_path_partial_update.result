@@ -117,7 +117,7 @@ insert into t1 set a = 111, b = '@10', t1.doc = '{"id":200,"name":"Alex Smola"}'
 select * from t1 where a = 10 or a = 111;
 a	b	doc
 10	@10	{"id":110,"name":"Snoopy","Children":"Unknown"}
-10	@9	NULL
+10	@9	{"id":200}
 111	@10	{"id":200,"name":"Alex Smola"}
 update t1 set doc.id = null where a = 111;
 select * from t1 where a = 111;
@@ -239,7 +239,7 @@ update t3 set t3.a = 456, t3.doc.c = 789;
 select * from t3;
 a	b	doc
 456	NULL	{"a":123,"b":null,"c":789}
-456	NULL	NULL
+456	NULL	{"c":789}
 update t2 set t2.doc.Children.noSuchFunction(1,2,3);
 ERROR 42000: Unknown procedure 'noSuchFunction'
 update t2 set t2.doc.Children.insertAt("ABC");
