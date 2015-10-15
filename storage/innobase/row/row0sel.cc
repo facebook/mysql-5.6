@@ -2865,6 +2865,8 @@ row_sel_store_mysql_field_func(
 			return(TRUE);
 		}
 
+		//if (UNIV_UNLIKELY(templ->type == DATA_BLOB &&
+		//templ->mysql_type != MYSQL_TYPE_DOCUMENT)) {
 		if (UNIV_UNLIKELY(templ->type == DATA_BLOB)) {
 
 			/* It is a BLOB field locally stored in the

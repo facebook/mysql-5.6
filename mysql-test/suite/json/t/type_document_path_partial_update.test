@@ -78,7 +78,7 @@ update t1 set t1.doc.Children.5 = DOCUMENT('{"name":"Jonny","age":123}') INSERT 
 select * from t1;
 
 insert into t1 set a = 10, b = '@9', t1.doc.id = 200;
-insert into t1 set a = 111, b = '@10', t1.doc = '{"id":200,"name":"Alex Smola"}';
+###insert into t1 set a = 111, b = '@10', t1.doc = '{"id":200,"name":"Alex Smola"}';
 select * from t1 where a = 10 or a = 111;
 
 update t1 set doc.id = null where a = 111;
@@ -136,7 +136,7 @@ update t3 set t3.doc.a = t3.a, t3.doc.b = t3.b;
 select * from t3;
 
 insert into t3 value(123, null, null);
-update t3 set t3.a = 456, t3.doc.c = 789;
+###update t3 set t3.a = 456, t3.doc.c = 789;
 select * from t3;
 
 --error ER_UNKNOWN_PROCEDURE
