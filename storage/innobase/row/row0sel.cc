@@ -5102,7 +5102,9 @@ locks_ok:
 						index,
 						secondary_index_field_no);
 				ut_a(field->prefix_len > 0);
-				if (record_size >= field->prefix_len) {
+				if (record_size >= field->prefix_len ||
+					/* Skip for document type */
+					field->document_path) {
 					row_contains_all_values = FALSE;
 					break;
 				}
