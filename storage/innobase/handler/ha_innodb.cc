@@ -18108,7 +18108,7 @@ static MYSQL_SYSVAR_ULONG(buffer_pool_chunk_size, srv_buf_pool_chunk_unit,
   " 0 means not to use chunk allocation and buffer pool resize will be disabled."
   " This is used to avoid memory copying when resizing buffer pool.",
   NULL, NULL,
-  0, 0, LONG_MAX, 1024*1024L);
+  64*1024*1024, 0, LONG_MAX, 1024*1024L);
 
 static MYSQL_SYSVAR_STR(histogram_step_size_async_read,
   innobase_histogram_step_size_async_read,
