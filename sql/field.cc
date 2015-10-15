@@ -8988,7 +8988,23 @@ Field_document::update_json(const fbson::FbsonValue *val,
     fbson::FbsonDocument *doc =
       fbson::FbsonDocument::createDocument(blob, value.length());
 
-    DBUG_ASSERT(doc);
+    // Build the document path and set the value. This may happen from
+    // call save_value_and_handle_conversion() during range optimizations
+    // for example 'where t.doc.int > 5'
+    if (!doc) {
+      fbson::FbsonWriter writer;
+      Document_path_iterator path = key_path;
+      path++;
+      const fbson::FbsonValue *v = build_path(path, writer, val,
+                                              fbson::FbsonType::T_Object);
+      Document_path_iterator p(this);
+      return update_json(v, cs, p, this);
+      //type_conversion_status ret = update_json(v, cs, p, this);
+      //if (ret == TYPE_OK) {
+      //  set_notnull();
+      //}
+      //return ret;
+    }
 
     fbson::FbsonUpdater updater(doc, buffer_len);
     Document_path_iterator path = key_path;
@@ -9182,15 +9198,24 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
   */
   DBUG_ASSERT(this == real_field());
 
-  // Null column can't use partial update.
+  //////// Null column can't use partial update.
   char *blob = nullptr;
   memcpy(&blob,
          ptr + packlength,
          sizeof(char*));
   if(is_null() || nullptr == blob)
   {
-    set_null();
-    return TYPE_ERR_BAD_VALUE;
+    //set_notnull();
+    //bool x = is_null();
+    //if (x && blob != nullptr)
+    //  return TYPE_OK;
+    if(value.realloc(64)){
+      *buff = nullptr;
+      return TYPE_ERR_OOM;
+    }
+    return TYPE_OK;
+    //set_null();
+    //return TYPE_ERR_BAD_VALUE;
   }
 
   // If the buffer has been allocated, then it's fine.
@@ -9200,6 +9225,8 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
     *buff = blob;
     return TYPE_OK;
   }
+
+  // Otherwise, allocate the buffer.
   int len = get_length(ptr);
   if(value.realloc(len * 2)){
     *buff = nullptr;
@@ -10159,6 +10186,26 @@ uint Field_document::get_key_image_numT(T &val, fbson::FbsonValue *pval)
   }
 
   return sizeof(T);
+}
+
+int Field_document::key_cmp(const uchar *x, const uchar*y)
+{
+  return Field_blob::key_cmp(x, y);
+}
+
+int Field_document::key_cmp(const uchar *key_ptr, uint max_key_length)
+{
+    fbson::FbsonValue *fb_val = get_fbson_value();
+    if(nullptr == fb_val)
+      return -1;
+    int64_t v = 0;
+    this->get_key_image_int((uchar*)&v, fb_val);
+    int64_t x = *(int64_t*)key_ptr;
+    if (v < x)
+      return -1;
+    if (v == x)
+      return 0;
+    return 1;
 }
 
 /****************************************************************************
