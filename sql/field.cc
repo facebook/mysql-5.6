@@ -8988,7 +8988,32 @@ Field_document::update_json(const fbson::FbsonValue *val,
     fbson::FbsonDocument *doc =
       fbson::FbsonDocument::createDocument(blob, value.length());
 
-    DBUG_ASSERT(doc);
+    // Build the document path and set the value. This may happen from
+    // call save_value_and_handle_conversion() during range optimizations
+    // for example 'where t.doc.int > 5'
+    if (!doc) {
+      // If val is nullptr, which means deletion,
+      // or if update is only allowed with "IF EXISTS" argument.
+      if ((val == nullptr) ||
+          (from->update_args && from->update_args->exist_type ==
+           Save_in_field_args::CheckType::CHECK_EXISTS))
+      {
+        return TYPE_ERR_BAD_VALUE;
+      }
+
+      fbson::FbsonWriter writer;
+      Document_path_iterator path = key_path;
+      path++;
+      const fbson::FbsonValue *v = build_path(path, writer, val,
+                                              fbson::FbsonType::T_Object);
+      //if (!v)
+      //  return TYPE_ERR_BAD_VALUE;
+      //const char *buf = writer.getOutput()->getBuffer();
+      //int sz = writer.getOutput()->getSize();
+      //return Field_blob::store_internal(buf, sz, charset());
+      Document_path_iterator p(this);
+      return update_json(v, cs, p, this);
+    }
 
     fbson::FbsonUpdater updater(doc, buffer_len);
     Document_path_iterator path = key_path;
@@ -9171,6 +9196,7 @@ Field_document::store(double nr)
   return real_field()->
     update_json(creater(nr), charset(), path, this);
 }
+
 // prepare the buffer in value
 type_conversion_status
 Field_document::prepare_update(const CHARSET_INFO *cs,
@@ -9182,15 +9208,26 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
   */
   DBUG_ASSERT(this == real_field());
 
-  // Null column can't use partial update.
+  // New document will be created and the document path
+  // will be built for partial update for null column
+  // if argument CHECK_EXISTS is not specified, i.e.,
+  // the argument is CHECK_NONE or CHECK_NOTEXISTS.
   char *blob = nullptr;
   memcpy(&blob,
          ptr + packlength,
          sizeof(char*));
-  if(is_null() || nullptr == blob)
+  ///if(is_null() || nullptr == blob)
+  if(nullptr == blob)
   {
-    set_null();
-    return TYPE_ERR_BAD_VALUE;
+    // Allocate memory if it is not allocated yet. It will
+    // be reallocated later if it is not big enough.
+    if(value.alloc(128)) {
+      *buff = nullptr;
+      return TYPE_ERR_OOM;
+    }
+    memset(value.c_ptr(), 0, value.alloced_length());
+    *buff = value.c_ptr();
+    return TYPE_OK;
   }
 
   // If the buffer has been allocated, then it's fine.
@@ -9200,6 +9237,8 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
     *buff = blob;
     return TYPE_OK;
   }
+
+  // Otherwise, allocate the buffer.
   int len = get_length(ptr);
   if(value.realloc(len * 2)){
     *buff = nullptr;
@@ -10160,6 +10199,92 @@ uint Field_document::get_key_image_numT(T &val, fbson::FbsonValue *pval)
 
   return sizeof(T);
 }
+
+int Field_document::key_cmp(const uchar *x, const uchar*y)
+{
+  switch (doc_type) {
+  case DOC_PATH_TINY:
+    {
+      int8_t a = *(char*)x;
+      int8_t b = *(char*)y;
+      return (a < b ? -1 : (a > b ? 1 : 0));
+    }
+  case DOC_PATH_INT:
+    {
+      int64_t a = *(int64_t*)x;
+      int64_t b = *(int64_t*)y;
+      return (a < b ? -1 : (a > b ? 1 : 0));
+    }
+  case DOC_PATH_DOUBLE:
+    {
+      double a = *(double*)x;
+      double b = *(double*)y;
+      return (a < b ? -1 : (a > b ? 1 : 0));
+    }
+  case DOC_PATH_STRING:
+  case DOC_PATH_BLOB:
+    {
+      return strcmp((char*)x, (char*)y);
+    }
+  default:
+    break;
+  }
+  // should never reach here
+  DBUG_ASSERT(0);
+  return Field_blob::key_cmp(x,y);
+}
+
+int Field_document::key_cmp(const uchar *key_ptr,
+                            uint max_key_length)
+{
+    switch (doc_type) {
+    case DOC_PATH_TINY:
+      if (max_key_length >= 1)
+      {
+        // Raw value in MySQL little endian format
+        int8_t k = *(int8_t*)key_ptr;
+        // Raw value in InnoDB big endian format is stored in document blob
+        int64_t x = this->val_int();
+        return (x < k ? -1 : (x > k ? 1 : 0));
+      }
+
+    case DOC_PATH_INT:
+      if (max_key_length >= sizeof(int64_t))
+      {
+        int64_t k = *(int64_t*)key_ptr;
+        int64_t x = this->val_int();
+        return (x < k ? -1 : (x > k ? 1 : 0));
+      }
+
+    case DOC_PATH_DOUBLE:
+      if (max_key_length >= sizeof(int64_t))
+      {
+        double k = *(double*)key_ptr;
+        double x = this->val_real();
+        return (x < k ? -1 : (x > k ? 1 : 0));
+      }
+
+    case DOC_PATH_STRING:
+    case DOC_PATH_BLOB:
+      {
+        String val, ptr;
+        String *x = this->val_str(&val, &ptr);
+        if (x && x->ptr() && key_ptr)
+        {
+          return strncmp(x->ptr(), (const char*)key_ptr, max_key_length);
+        }
+      }
+    default:
+      break;
+    }
+    // should never reach here
+    DBUG_ASSERT(0);
+    return Field_blob::key_cmp(key_ptr, max_key_length);
+}
+
+//uint32 Field_document::key_length() const
+//{
+//}
 
 /****************************************************************************
 ** enum type.
