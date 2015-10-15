@@ -239,11 +239,11 @@ IF (WITH_ASAN)
     # We switch on basic optimization also for debug builds.
     # With optimization we may get some warnings, so we switch off -Werror
     SET(CMAKE_C_FLAGS_DEBUG
-      "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -O1 -Wno-error -fPIC")
+      "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -O0 -Wno-error -fPIC")
     SET(CMAKE_C_FLAGS_RELWITHDEBINFO
       "${CMAKE_C_FLAGS_RELWITHDEBINFO} -fsanitize=address -fPIC")
     SET(CMAKE_CXX_FLAGS_DEBUG
-      "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O1 -Wno-error -fPIC")
+      "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O0 -Wno-error -fPIC")
     SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
       "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fsanitize=address -fPIC")
     SET(WITH_ASAN_OK 1)
@@ -255,11 +255,11 @@ IF (WITH_ASAN)
     IF(HAVE_C_FADDRESS AND HAVE_CXX_FFADDRESS)
       # We switch on basic optimization also for debug builds.
       SET(CMAKE_C_FLAGS_DEBUG
-        "${CMAKE_C_FLAGS_DEBUG} -faddress-sanitizer -O1 -fPIC")
+        "${CMAKE_C_FLAGS_DEBUG} -faddress-sanitizer -O0 -fPIC")
       SET(CMAKE_C_FLAGS_RELWITHDEBINFO
         "${CMAKE_C_FLAGS_RELWITHDEBINFO} -faddress-sanitizer -fPIC")
       SET(CMAKE_CXX_FLAGS_DEBUG
-        "${CMAKE_CXX_FLAGS_DEBUG} -faddress-sanitizer -O1 -fPIC")
+        "${CMAKE_CXX_FLAGS_DEBUG} -faddress-sanitizer -O0 -fPIC")
       SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO
         "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -faddress-sanitizer -fPIC")
       SET(WITH_ASAN_OK 1)
