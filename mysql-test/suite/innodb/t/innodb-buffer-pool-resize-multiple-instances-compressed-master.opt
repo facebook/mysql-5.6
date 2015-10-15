@@ -1,4 +1,3 @@
 --innodb-buffer-pool-size=8G
 --innodb-buffer-pool-instances=2
---innodb-buffer-pool-chunk-size=128M
 --innodb-buffer-pool-resizing-timeout=60
