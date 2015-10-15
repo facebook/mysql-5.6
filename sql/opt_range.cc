@@ -6539,12 +6539,6 @@ get_mm_parts(RANGE_OPT_PARAM *param, Item_func *cond_func, Field *field,
           is_spatial_operator(cond_func->functype()))
         continue;
 
-      /* TODO: currently we skip range analysis optimization
-       * for document fields
-       */
-      if (field->type() == MYSQL_TYPE_DOCUMENT)
-        continue;
-
       SEL_ARG *sel_arg=0;
       if (!tree && !(tree=new SEL_TREE()))
 	DBUG_RETURN(0);				// OOM

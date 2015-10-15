@@ -8989,7 +8989,18 @@ Field_document::update_json(const fbson::FbsonValue *val,
     fbson::FbsonDocument *doc =
       fbson::FbsonDocument::createDocument(blob, value.length());
 
-    DBUG_ASSERT(doc);
+    // Build the document path and set the value. This may happen from
+    // call save_value_and_handle_conversion() during range optimizations
+    // for example 'where t.doc.int > 5'
+    if (!doc) {
+      fbson::FbsonWriter writer;
+      Document_path_iterator path = key_path;
+      path++;
+      const fbson::FbsonValue *v = build_path(path, writer, val,
+                                              fbson::FbsonType::T_Object);
+      Document_path_iterator p(this);
+      return update_json(v, cs, p, this);
+    }
 
     fbson::FbsonUpdater updater(doc, buffer_len);
     Document_path_iterator path = key_path;
@@ -9183,24 +9194,28 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
   */
   DBUG_ASSERT(this == real_field());
 
-  // Null column can't use partial update.
+  //////// Null column can't use partial update.
   char *blob = nullptr;
   memcpy(&blob,
          ptr + packlength,
          sizeof(char*));
-  if(is_null() || nullptr == blob)
-  {
-    set_null();
-    return TYPE_ERR_BAD_VALUE;
-  }
+  //if(is_null() || nullptr == blob)
+  //{
+  //  set_null();
+  //  return TYPE_ERR_BAD_VALUE;
+  //}
 
-  // If the buffer has been allocated, then it's fine.
-  if(blob >= value.ptr() &&
+  // If the column is not NULL and the buffer has been allocated,
+  // then it's fine.
+  if(!is_null() && nullptr != blob &&
+     blob >= value.ptr() &&
      blob <= value.ptr() + value.length())
   {
     *buff = blob;
     return TYPE_OK;
   }
+
+  // Otherwise, allocate the buffer.
   int len = get_length(ptr);
   if(value.realloc(len * 2)){
     *buff = nullptr;
@@ -9939,6 +9954,233 @@ fbson::FbsonValue *Field_document::get_fbson_value()
     return json_extract_fbsonvalue(&document_key_path, pval);
   }
   return nullptr;
+}
+
+uint Field_document::get_key_image(uchar *buff, uint length,
+                                   imagetype type_arg)
+{
+    memset(buff, 0, length);
+
+    fbson::FbsonValue *fb_val = get_fbson_value();
+    if(nullptr == fb_val)
+      return 0;
+
+    switch (doc_type)
+    {
+      case DOC_PATH_TINY:
+        if (length >= 1)
+          return get_key_image_bool(buff, fb_val);
+
+      case DOC_PATH_INT:
+        if (length >= sizeof(int64_t))
+          return get_key_image_int(buff, fb_val);
+
+      case DOC_PATH_DOUBLE:
+        if (length >= sizeof(double))
+          return get_key_image_double(buff, fb_val);
+
+      case DOC_PATH_STRING:
+      case DOC_PATH_BLOB:
+        return get_key_image_text(buff, length, fb_val);
+
+      default:
+        DBUG_ASSERT(0);
+        // we should never have a unsupported key type
+        // fallback to blob's get_key_image
+        return Field_blob::get_key_image(buff, length, type_arg);
+    }
+}
+
+// get key image as int
+uint Field_document::get_key_image_int(uchar *buff, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  int64_t &val = *(int64_t*)buff;
+  if (pval->type() == fbson::FbsonType::T_String)
+  {
+    const char* start = pval->getValuePtr();
+    char* end = (char*)start + pval->size();
+    int error;
+    val = my_strtoll10(start, &end, &error);
+    if (error == ERANGE || error == EDOM)
+    {
+      val = 0;
+      return 0;
+    }
+
+    return sizeof(int64_t);
+  }
+
+  return get_key_image_numT(val, pval);
+}
+
+// get key image as double
+uint Field_document::get_key_image_double(uchar *buff, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  double &val = *(double*)buff;
+  if (pval->type() == fbson::FbsonType::T_String)
+  {
+    const char* start = pval->getValuePtr();
+    char* end = (char*)start + pval->size();
+    int error;
+    val = my_strtod(start, &end, &error);
+    if (error == OVERFLOW)
+    {
+      val = 0;
+      return 0;
+    }
+
+    return sizeof(double);
+  }
+
+  return get_key_image_numT(val, pval);
+}
+
+// get key image as boolean
+uint Field_document::get_key_image_bool(uchar *buff, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+  int8_t &val = *(int8_t*)buff;
+  switch (pval->type())
+  {
+    case fbson::FbsonType::T_True:
+      val = 1;
+      break;
+    case fbson::FbsonType::T_False:
+      val = 0;
+      break;
+    case fbson::FbsonType::T_Int8:
+      val = (((fbson::Int8Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Int16:
+      val = (((fbson::Int16Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Int32:
+      val = (((fbson::Int32Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Int64:
+      val = (((fbson::Int64Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Double:
+      val = (((fbson::DoubleVal *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_String:
+      {
+        int8_t retval = ((fbson::StringVal *)pval)->getBoolVal();
+        if (retval < 0)
+          return 0;
+        else
+          val = retval;
+      }
+      break;
+
+    default:
+      return 0;
+  }
+
+  return 1;
+}
+
+// get key image as string
+uint Field_document::get_key_image_text(uchar *buff, uint length,
+                               fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  char local_buf[64];
+  uint copy_len = 0;
+  switch (pval->type())
+  {
+    case fbson::FbsonType::T_Int8:
+      longlong2str(((fbson::Int8Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Int16:
+      longlong2str(((fbson::Int16Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Int32:
+      longlong2str(((fbson::Int32Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Int64:
+      longlong2str(((fbson::Int64Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Double:
+      sprintf(local_buf, "%.16g", ((fbson::DoubleVal *)pval)->val());
+      break;
+    case fbson::FbsonType::T_String:
+    case fbson::FbsonType::T_Binary:
+      copy_len = min<uint>(length, pval->size());
+      memmove(buff, pval->getValuePtr(), copy_len);
+      return copy_len;
+
+    case fbson::FbsonType::T_True:
+    case fbson::FbsonType::T_False:
+    default:
+      return 0;
+  }
+
+  copy_len = min<uint>(length, strlen(local_buf));
+  memmove(buff, local_buf, copy_len);
+  return copy_len;
+}
+
+template <class T>
+uint Field_document::get_key_image_numT(T &val, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  switch (pval->type())
+  {
+    case fbson::FbsonType::T_True:
+      val = 1;
+      break;
+    case fbson::FbsonType::T_False:
+      val = 0;
+      break;
+    case fbson::FbsonType::T_Int8:
+      val = (T)((fbson::Int8Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Int16:
+      val = (T)((fbson::Int16Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Int32:
+      val = (T)((fbson::Int32Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Int64:
+      val = (T)((fbson::Int64Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Double:
+      val = (T)((fbson::DoubleVal *)pval)->val();
+      break;
+    default:
+      return 0;
+  }
+
+  return sizeof(T);
+}
+
+int Field_document::key_cmp(const uchar *x, const uchar*y)
+{
+  return Field_blob::key_cmp(x, y);
+}
+
+
+
+int Field_document::key_cmp(const uchar *key_ptr, uint max_key_length)
+{
+    fbson::FbsonValue *fb_val = get_fbson_value();
+    if(nullptr == fb_val)
+      return -1;
+    int64_t v = 0;
+    this->get_key_image_int((uchar*)&v, fb_val);
+    int64_t x = *(int64_t*)key_ptr;
+    if (v < x)
+      return -1;
+    if (v == x)
+      return 0;
+    return 1;
 }
 
 /****************************************************************************

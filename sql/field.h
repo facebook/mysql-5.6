@@ -3957,6 +3957,9 @@ public:
   enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
+  uint get_key_image(uchar *buff, uint length, imagetype type);
+  int key_cmp(const uchar *,const uchar*);
+  int key_cmp(const uchar *str, uint length);
   void sql_type(String &str) const;
   using Field_blob::store;
 
@@ -4030,6 +4033,23 @@ public:
       case MYSQL_TYPE_DOCUMENT: doc_type = DOC_DOCUMENT; break;
       default: DBUG_ASSERT(false); //not supported
     }
+  }
+
+  Item_result result_type() const
+  {
+    switch (doc_type)
+    {
+      case DOC_PATH_TINY:
+      case DOC_PATH_INT: return INT_RESULT;
+      case DOC_PATH_DOUBLE: return REAL_RESULT;
+      case DOC_PATH_STRING:
+      case DOC_PATH_BLOB:
+      case DOC_DOCUMENT: return STRING_RESULT;
+      default: break;
+    }
+    // Should never reach here.
+    DBUG_ASSERT(false);
+    return STRING_RESULT;
   }
 
   /* This overwrites the base version.
@@ -4111,6 +4131,13 @@ private:
 
   bool has_insert_default_function() const { return !real_maybe_null(); };
   void evaluate_insert_default_function() { reset(); };
+
+  uint get_key_image_bool(uchar *buff, fbson::FbsonValue *pval);
+  uint get_key_image_int(uchar *buff, fbson::FbsonValue *pval);
+  uint get_key_image_double(uchar *buff, fbson::FbsonValue *pval);
+  uint get_key_image_text(uchar *buff, uint length, fbson::FbsonValue *pval);
+  template<class T>
+  uint get_key_image_numT(T &val, fbson::FbsonValue *pval);
 };
 /*
   This class is for iterating of the document key in the
