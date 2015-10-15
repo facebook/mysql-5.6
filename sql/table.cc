@@ -2160,7 +2160,8 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
               field->part_of_sortkey= share->keys_in_use;
           }
         }
-        if (field->key_length() != key_part->length)
+        if (field->key_length() != key_part->length &&
+            field->type() != MYSQL_TYPE_DOCUMENT)
         {
 #ifndef TO_BE_DELETED_ON_PRODUCTION
           if (field->type() == MYSQL_TYPE_NEWDECIMAL)
