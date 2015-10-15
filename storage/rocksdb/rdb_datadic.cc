@@ -116,6 +116,7 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(
     m_key_parts(0),
     maxlength(0) // means 'not intialized'
 {
+  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   store_index_number(index_number_storage_form, index_number);
   DBUG_ASSERT(cf_handle != nullptr);
 }
@@ -133,6 +134,7 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
     m_key_parts(k.m_key_parts),
     maxlength(k.maxlength)
 {
+  mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
   store_index_number(index_number_storage_form, index_number);
   if (k.pack_info)
   {
@@ -151,6 +153,8 @@ RDBSE_KEYDEF::RDBSE_KEYDEF(const RDBSE_KEYDEF& k) :
 
 RDBSE_KEYDEF::~RDBSE_KEYDEF()
 {
+  mysql_mutex_destroy(&mutex);
+
   if (pk_part_no)
     my_free(pk_part_no);
   if (pack_info)
@@ -160,15 +164,16 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
 void RDBSE_KEYDEF::setup(TABLE *tbl)
 {
   /*
-    set max_length based on the table. If we're unlucky, setup() may be
-    called concurrently from multiple threads but that is ok because result of
-    compuation is assignment of maxlength to the same value.
-    ^^ TODO: is this still true? concurrent setup() calls are not safe
-    anymore...
+    Set max_length based on the table.  This can be called concurrently from
+    multiple threads, so there is a mutex to protect this code.
   */
   const bool secondary_key= (keyno != tbl->s->primary_key);
   if (!maxlength)
   {
+    mysql_mutex_lock(&mutex);
+    if (maxlength != 0)
+      return;
+
     KEY *key_info= &tbl->key_info[keyno];
     KEY *pk_info=  &tbl->key_info[tbl->s->primary_key];
 
@@ -284,6 +289,8 @@ void RDBSE_KEYDEF::setup(TABLE *tbl)
     m_key_parts= dst_i;
     maxlength= max_len;
     unpack_data_len= unpack_len;
+
+    mysql_mutex_unlock(&mutex);
   }
 }
 
