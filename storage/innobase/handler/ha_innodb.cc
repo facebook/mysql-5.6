@@ -7027,6 +7027,15 @@ build_template_field(
 	templ->type = col->mtype;
 	templ->mysql_type = (ulint) field->type();
 
+//	if (templ->mysql_type == MYSQL_TYPE_DOCUMENT && index
+//		&& index->fields[0].document_path_type > 0) {
+//		ut_ad(index->fields[0].document_path_type
+//			== MYSQL_TYPE_LONGLONG);
+//		templ->type = DATA_INT;
+//	} else {
+//		templ->type = col->mtype;
+//	}
+
 	if (templ->mysql_type == DATA_MYSQL_TRUE_VARCHAR) {
 		templ->mysql_length_bytes = (ulint)
 			(((Field_varstring*) field)->length_bytes);

@@ -1055,7 +1055,7 @@ public:
       MY_TEST(null_ptr[row_offset] & null_bit) : table->null_row;
   }
 
-  bool is_real_null(my_ptrdiff_t row_offset= 0) const
+  virtual bool is_real_null(my_ptrdiff_t row_offset= 0) const
   { return real_maybe_null() ? MY_TEST(null_ptr[row_offset] & null_bit) : false; }
 
   bool is_null_in_record(const uchar *record) const
@@ -3841,6 +3841,10 @@ public:
                  List<Document_key> &doc_path,
                  int skip_num);
 
+//  ~Field_document()
+//  {
+//  }
+
   /*
     Check whether this field is created based on the other field, such as
     a document path.
@@ -3958,6 +3962,20 @@ public:
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
   uint get_key_image(uchar *buff, uint length, imagetype type);
+  //int cmp_max(const uchar *a, const uchar *b, uint max_length) {
+  //  return Field_blob::cmp_max(a, b, max_length);
+  //}
+  //int cmp(const uchar *a,const uchar *b) {
+  //  return cmp_max(a, b, ~0L);
+  //}
+  //int cmp_binary(const uchar *a,const uchar *b, uint32 max_length=~0L) {
+  //  return Field_blob::cmp_binary(a, b, max_length);
+  //}
+  int key_cmp(const uchar *,const uchar*);
+  int key_cmp(const uchar *str, uint length);
+  //uint32 key_length() const {
+  //  return Field_blob::key_length();
+  //}
   void sql_type(String &str) const;
   using Field_blob::store;
 
@@ -4033,6 +4051,23 @@ public:
     }
   }
 
+  Item_result result_type() const
+  {
+    switch (doc_type)
+    {
+      case DOC_PATH_TINY:
+      case DOC_PATH_INT: return INT_RESULT;
+      case DOC_PATH_DOUBLE: return REAL_RESULT;
+      case DOC_PATH_STRING:
+      case DOC_PATH_BLOB:
+      case DOC_DOCUMENT: return STRING_RESULT;
+      default: break;
+    }
+    // Should never reach here.
+    DBUG_ASSERT(false);
+    return STRING_RESULT;
+  }
+
   /* This overwrites the base version.
    * - If the field is document column, it will return false if
    *   nullable_document is false
@@ -4040,10 +4075,29 @@ public:
    *   when document path is in the select, prefix_path_num is non-zero. When
    *   document path used in partial update, update_args is non-null. When
    *   document path is used in ORDER BY, get_inner_field() is non-null */
+
+// Fixing this function will fix both Opt for range & Valgrind,
+// but this will fail the existing doc insertion tets case !!!
+///*
   bool real_maybe_null(void) const
   { return Field_blob::real_maybe_null() && (nullable_document ||
-      prefix_path_num || update_args || get_inner_field()); }
+    prefix_path_num || update_args || get_inner_field()); }
+//*/
 
+///*
+  bool is_real_null(my_ptrdiff_t row_offset= 0) const
+  {
+    return Field_blob::real_maybe_null() && is_null();
+  }
+//*/
+///*
+  bool is_real_null_as_blob(my_ptrdiff_t row_offset= 0) const
+  {
+    if (Field_blob::real_maybe_null())
+      return MY_TEST(null_ptr[row_offset] & null_bit);
+    return false;
+  }
+//*/
   Field_document *clone(MEM_ROOT *mem_root) const
   {
     return new (mem_root) Field_document(*this);
@@ -4062,6 +4116,9 @@ public:
   }
   fbson::FbsonValue *get_fbson_value();
   void set_prefix_document_path(List<Document_key> &pre);
+  void reset_blob() {
+    memset(ptr + packlength, 0, sizeof(char *));
+  }
 protected:
   /*
     This variable is the place where document path is stored.

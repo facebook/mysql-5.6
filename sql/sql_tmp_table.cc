@@ -1025,7 +1025,23 @@ update_hidden:
       diff= (my_ptrdiff_t) (orig_field->table->s->default_values-
                             orig_field->table->record[0]);
       orig_field->move_field_offset(diff);      // Points now at default_values
-      if (orig_field->is_real_null())
+/////////////////////////////////////
+///*
+      bool real_null = false;
+      if (orig_field->type() == MYSQL_TYPE_DOCUMENT)
+      {
+        Field_document *doc = (Field_document *)orig_field;
+        DBUG_ASSERT(doc);
+        real_null = doc->is_real_null_as_blob();
+      }
+      else
+      {
+        real_null = orig_field->is_real_null();
+      }
+      if (real_null)
+///*/
+/////////////////////////////////////
+        ///if (orig_field->is_real_null())
         field->set_null();
       else
       {
