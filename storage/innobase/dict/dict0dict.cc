@@ -2758,7 +2758,10 @@ set_doc_path_col(
 		field->doc_path_col->mtype = DATA_DOUBLE;
 		field->doc_path_col->len = sizeof(double);
 	} else if (field->document_path_type == MYSQL_TYPE_STRING) {
-		field->doc_path_col->mtype = DATA_BINARY;
+		/* With type DATA_BLOB, 2-byte of key length will be packed
+		before the key. Also there will always be 1 byte for null value
+		before this length since a document key is always nullable. */
+		field->doc_path_col->mtype = DATA_BLOB;
 		field->doc_path_col->len = field->prefix_len;
 	} else {
 		DBUG_ASSERT("Unsupported document index type");
