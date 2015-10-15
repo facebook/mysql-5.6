@@ -6841,19 +6841,8 @@ Field_string::store(const char *from,uint length,const CHARSET_INFO *cs)
   /* Append spaces if the string was shorter than the field. */
   if (copy_length < field_length)
   {
-    /*
-      Here if it's from the index we use 0x20 as the padding.
-      Now when there is an index on Field_document for type
-      string, 0x20 will be used as the padding. It's not good,
-      because, now we have to get the data from the original
-      data which is not efficient. Actually, if using zero as
-      the paddings, it should be faster because we don't need
-      to get it from the original data. Need to be fixed.
-    */
     field_charset->cset->fill(field_charset,(char*) ptr+copy_length,
                               field_length-copy_length,
-                              document_key_field ?
-                              0x20 :
                               field_charset->pad_char);
   }
 
@@ -8990,7 +8979,28 @@ Field_document::update_json(const fbson::FbsonValue *val,
     fbson::FbsonDocument *doc =
       fbson::FbsonDocument::createDocument(blob, value.length());
 
-    DBUG_ASSERT(doc);
+    // Build the document path and set the value. This may happen from
+    // call save_value_and_handle_conversion() during range optimizations
+    // for example 'where t.doc.int > 5'
+    if (!doc) {
+      DBUG_ASSERT(update_args == nullptr);
+      // If val is nullptr, which means deletion,
+      // or if update is only allowed with "IF EXISTS" argument.
+      if ((val == nullptr) ||
+          (from->update_args && from->update_args->exist_type ==
+           Save_in_field_args::CheckType::CHECK_EXISTS))
+      {
+        return TYPE_ERR_BAD_VALUE;
+      }
+
+      fbson::FbsonWriter writer;
+      Document_path_iterator path = key_path;
+      path++;
+      const fbson::FbsonValue *v = build_path(path, writer, val,
+                                              fbson::FbsonType::T_Object);
+      Document_path_iterator p(this);
+      return update_json(v, cs, p, this);
+    }
 
     fbson::FbsonUpdater updater(doc, buffer_len);
     Document_path_iterator path = key_path;
@@ -9070,6 +9080,7 @@ Field_document *Field_document::new_field(MEM_ROOT *root,
     append_key_path(new_one->prefix_document_key_path,
                     document_key_path);
   new_one->doc_type = doc_type;
+  new_one->key_len = key_len;
   new_one->prefix_path_num = prefix_path_num + document_key_path.elements;
   return new_one;
 }
@@ -9147,6 +9158,7 @@ Field_document::store(double nr)
   return real_field()->
     update_json(creater(nr), charset(), path, this);
 }
+
 // prepare the buffer in value
 type_conversion_status
 Field_document::prepare_update(const CHARSET_INFO *cs,
@@ -9158,15 +9170,25 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
   */
   DBUG_ASSERT(this == real_field());
 
-  // Null column can't use partial update.
+  // New document will be created and the document path
+  // will be built for partial update for null column
+  // if argument CHECK_EXISTS is not specified, i.e.,
+  // the argument is CHECK_NONE or CHECK_NOTEXISTS.
   char *blob = nullptr;
   memcpy(&blob,
          ptr + packlength,
          sizeof(char*));
-  if(is_null() || nullptr == blob)
+  if(nullptr == blob)
   {
-    set_null();
-    return TYPE_ERR_BAD_VALUE;
+    // Allocate memory if it is not allocated yet. It will
+    // be reallocated later if it is not big enough.
+    if(value.alloc(128)) {
+      *buff = nullptr;
+      return TYPE_ERR_OOM;
+    }
+    memset(value.c_ptr(), 0, value.alloced_length());
+    *buff = value.c_ptr();
+    return TYPE_OK;
   }
 
   // If the buffer has been allocated, then it's fine.
@@ -9176,6 +9198,8 @@ Field_document::prepare_update(const CHARSET_INFO *cs,
     *buff = blob;
     return TYPE_OK;
   }
+
+  // Otherwise, allocate the buffer.
   int len = get_length(ptr);
   if(value.realloc(len * 2)){
     *buff = nullptr;
@@ -9767,12 +9791,15 @@ bool Field_document::is_null_as_blob(my_ptrdiff_t row_offset) const{
 }
 
 bool Field_document::is_null(my_ptrdiff_t row_offset) const{
-  Field_document *real = const_cast<Field_document*>(this)->real_field();
-  if(real == this && Field_blob::is_null(row_offset))
+  // Check if the actual blob is null
+  if (is_null_as_blob(row_offset))
     return true;
+
+  // Check the actual data in the blob
   if(is_from_index())
   {
     char *blob = nullptr;
+    Field_document *real = const_cast<Field_document*>(this)->real_field();
     memcpy(&blob, real->ptr+packlength, sizeof(char*));
     if(nullptr == blob)
       return true;
@@ -9791,11 +9818,13 @@ Field_document::Field_document(MEM_ROOT *mem_root,
                                Field_document *document,
                                List<Document_key> &doc_path,
                                enum_field_types type,
-                               uint key_len):
+                               uint key_length):
     Field_document(*document)
 {
   DBUG_ASSERT(doc_path.elements > 0);
-  key_length = key_len;
+  key_len = key_length;
+  set_document_type(type);
+  DBUG_ASSERT(validate_doc_type());
   inner_field = document;
   document_key_path.empty();
   List_iterator<Document_key> it(doc_path);
@@ -9807,7 +9836,6 @@ Field_document::Field_document(MEM_ROOT *mem_root,
   field_name = gen_document_path_full_name(mem_root,
                                            document->field_name,
                                            document_key_path);
-  set_document_type(type);
 }
 Field_document::Field_document(MEM_ROOT *mem_root,
                                Field_document *document,
@@ -9850,7 +9878,7 @@ Field_document::Field_document(MEM_ROOT *mem_root,
         table->merge_keys.merge(trie->part_of_key);
         set_document_type(trie->key_type);
         found_doc_idx = true;
-        key_length = trie->key_length;
+        key_len = trie->key_length;
       }
     }
 
@@ -9861,9 +9889,10 @@ Field_document::Field_document(MEM_ROOT *mem_root,
        */
       table->covering_keys.intersect(part_of_key);
       table->merge_keys.merge(part_of_key);
-      key_length = 0;
+      key_len = 0;
     }
   }
+  DBUG_ASSERT(validate_doc_type());
 }
 
 fbson::FbsonValue *Field_document::get_fbson_value()
@@ -9929,10 +9958,11 @@ uint Field_document::get_key_image(uchar *buff, uint length,
         return get_key_image_text(buff, length, fb_val);
 
       default:
-        DBUG_ASSERT(0);
-        // we should never have a unsupported key type
-        return 0;
+        break;
     }
+    // should never reach here
+    DBUG_ASSERT(0);
+    return 0;
 }
 
 // get key image as int
@@ -9953,10 +9983,8 @@ uint Field_document::get_key_image_int(uchar *buff, fbson::FbsonValue *pval)
       val = 0;
       return 0;
     }
-
     return sizeof(int64_t);
   }
-
   return get_key_image_numT(val, pval);
 }
 
@@ -10027,7 +10055,6 @@ uint Field_document::get_key_image_bool(uchar *buff, fbson::FbsonValue *pval)
     default:
       return 0;
   }
-
   return 1;
 }
 
@@ -10038,8 +10065,9 @@ uint Field_document::get_key_image_text(uchar *buff, uint length,
 {
   DBUG_ASSERT(pval);
 
-  char local_buf[64]; // enough buffer to store number value as string
+  char *p = NULL;
   uint copy_len = 0;
+  char local_buf[64];
   switch (pval->type())
   {
     case fbson::FbsonType::T_Int8:
@@ -10059,19 +10087,46 @@ uint Field_document::get_key_image_text(uchar *buff, uint length,
       break;
     case fbson::FbsonType::T_String:
     case fbson::FbsonType::T_Binary:
+    {
       copy_len = min<uint>(length, pval->size());
-      memmove(buff, pval->getValuePtr(), copy_len);
-      return copy_len;
-
+      p = (char *)pval->getValuePtr();
+      break;
+    }
     case fbson::FbsonType::T_True:
+      longlong2str(1, local_buf, -10);
+      break;
     case fbson::FbsonType::T_False:
+      longlong2str(0, local_buf, -10);
+      break;
+
     default:
+      // should never reach here
+      DBUG_ASSERT(0);
       return 0;
   }
 
-  copy_len = min<uint>(length, strlen(local_buf));
-  memmove(buff, local_buf, copy_len);
-  return copy_len;
+  // It is not from string
+  if (p == NULL)
+  {
+    DBUG_ASSERT(copy_len == 0);
+    copy_len = strlen(local_buf);
+    p = local_buf;
+  }
+
+  uint local_char_len = copy_len / field_charset->mbmaxlen;
+  local_char_len = my_charpos(field_charset, p, p+copy_len, local_char_len);
+  set_if_smaller(copy_len, local_char_len);
+
+  // Key length is always stored with 2 bytes
+  int2store(buff, copy_len);
+  memcpy(buff+HA_KEY_BLOB_LENGTH, p, copy_len);
+  if (copy_len < length)
+  {
+    // Must clear this as we do a memcmp in opt_range.cc
+    // to detect identical keys
+    memset(buff+HA_KEY_BLOB_LENGTH+copy_len, 0, (length-copy_len));
+  }
+  return (HA_KEY_BLOB_LENGTH + copy_len);
 }
 
 // Templated helper for get_key_image_[int, double]
@@ -10105,11 +10160,111 @@ uint Field_document::get_key_image_numT(T &val, fbson::FbsonValue *pval)
       val = (T)((fbson::DoubleVal *)pval)->val();
       break;
     default:
+      // should never reach here
+      DBUG_ASSERT(0);
       return 0;
   }
-
   return sizeof(T);
 }
+
+int Field_document::key_cmp(const uchar *x, const uchar*y)
+{
+  switch (doc_type) {
+  case DOC_PATH_TINY:
+    {
+      int8_t a = *(char*)x;
+      int8_t b = *(char*)y;
+      return (a < b ? -1 : (a > b ? 1 : 0));
+    }
+  case DOC_PATH_INT:
+    {
+      int64_t a = *(int64_t*)x;
+      int64_t b = *(int64_t*)y;
+      return (a < b ? -1 : (a > b ? 1 : 0));
+    }
+  case DOC_PATH_DOUBLE:
+    {
+      double a = *(double*)x;
+      double b = *(double*)y;
+      return (a < b ? -1 : (a > b ? 1 : 0));
+    }
+  case DOC_PATH_STRING:
+    return field_charset->coll->strnncollsp(field_charset,
+                                            x + HA_KEY_BLOB_LENGTH,
+                                            uint2korr(x),
+                                            y + HA_KEY_BLOB_LENGTH,
+                                            uint2korr(y), 0);
+  default:
+    break;
+  }
+  // should never reach here
+  DBUG_ASSERT(0);
+  return 0;
+}
+
+int Field_document::key_cmp(const uchar *key_ptr,
+                            uint max_key_length)
+{
+    switch (doc_type) {
+    case DOC_PATH_TINY:
+      DBUG_ASSERT(max_key_length >= 1);
+      if (max_key_length >= 1)
+      {
+        // Raw value in MySQL little endian format
+        int8_t k = *(int8_t*)key_ptr;
+        // Raw value in InnoDB big endian format is stored in document blob
+        int64_t x = this->val_int();
+        return (x < k ? -1 : (x > k ? 1 : 0));
+      }
+
+    case DOC_PATH_INT:
+      DBUG_ASSERT(max_key_length >= sizeof(int64_t));
+      if (max_key_length >= sizeof(int64_t))
+      {
+        int64_t k = *(int64_t*)key_ptr;
+        int64_t x = this->val_int();
+        return (x < k ? -1 : (x > k ? 1 : 0));
+      }
+
+    case DOC_PATH_DOUBLE:
+      DBUG_ASSERT(max_key_length >= sizeof(double));
+      if (max_key_length >= sizeof(double))
+      {
+        double k = *(double*)key_ptr;
+        double x = this->val_real();
+        return (x < k ? -1 : (x > k ? 1 : 0));
+      }
+
+    case DOC_PATH_STRING:
+      {
+        String val, ptr;
+        String *x = this->val_str(&val, &ptr);
+        if (x && x->ptr() && key_ptr)
+        {
+          const uchar* p = (const uchar*)x->ptr();
+          uint len = x->length();
+          uint local_char_len = max_key_length / field_charset->mbmaxlen;
+          local_char_len = my_charpos(field_charset, p, p+len, local_char_len);
+          set_if_smaller(len, local_char_len);
+          return field_charset->coll->strnncollsp(field_charset, p, len,
+                                                  key_ptr + HA_KEY_BLOB_LENGTH,
+                                                  uint2korr(key_ptr), 0);
+        }
+      }
+    default:
+      break;
+    }
+    // should never reach here
+    DBUG_ASSERT(0);
+    return 0;
+}
+
+uint32 Field_document::key_length() const
+{
+  DBUG_ASSERT(validate_doc_type());
+  return key_len;
+}
+
 
 /****************************************************************************
 ** enum type.
