@@ -1054,7 +1054,7 @@ public:
       MY_TEST(null_ptr[row_offset] & null_bit) : table->null_row;
   }
 
-  bool is_real_null(my_ptrdiff_t row_offset= 0) const
+  virtual bool is_real_null(my_ptrdiff_t row_offset= 0) const
   { return real_maybe_null() ? MY_TEST(null_ptr[row_offset] & null_bit) : false; }
 
   bool is_null_in_record(const uchar *record) const
@@ -3276,13 +3276,6 @@ public:
 
 class Field_string :public Field_longstr {
  public:
-  /*
-    This varaible is used when we do padding and should also be removed
-    once we can use 0 as the padding for index.
-    When true, it's created from an index using old style. Otherwise,
-    it's false.
-  */
-  bool document_key_field = false;
   bool can_alter_field_type;
   Field_string(uchar *ptr_arg, uint32 len_arg,uchar *null_ptr_arg,
 	       uchar null_bit_arg,
@@ -3369,6 +3362,10 @@ private:
 
 class Field_varstring :public Field_longstr {
 public:
+  /*
+    If this field is created for a document path key with string type.
+  */
+  bool document_key_field = false;
   /*
     The maximum space available in a Field_varstring, in bytes. See
     length_bytes.
@@ -3735,7 +3732,7 @@ class Field_document :public Field_blob {
 protected:
   const Field_document *get_inner_field() const {
     return const_cast<Field_document*>(this)->get_inner_field(); }
-  uint key_length; // The length of the key defined in the index
+  uint key_len; // The length of the key defined in the index
 public:
   friend class Document_path_iterator;
   enum document_type doc_type;
@@ -3804,7 +3801,7 @@ public:
                  TABLE_SHARE *share, uint blob_pack_length)
       :Field_blob(ptr_arg, null_ptr_arg, null_bit_arg, unireg_check_arg,
                   field_name_arg, share, blob_pack_length, &my_charset_bin),
-       key_length(0), doc_type(DOC_DOCUMENT), prefix_path_num(0),
+       key_len(0), doc_type(DOC_DOCUMENT), prefix_path_num(0),
        doc_key_prefix_len(0), update_args(nullptr), inner_field(nullptr)
     {
       init();
@@ -3812,7 +3809,7 @@ public:
   Field_document(uint32 len_arg,bool maybe_null_arg, const char *field_name_arg,
                  TABLE_SHARE *share)
       :Field_blob(len_arg, maybe_null_arg, field_name_arg, &my_charset_bin),
-       key_length(0), doc_type(DOC_DOCUMENT), prefix_path_num(0),
+       key_len(0), doc_type(DOC_DOCUMENT), prefix_path_num(0),
        doc_key_prefix_len(0), update_args(nullptr), inner_field(nullptr)
     {
       init();
@@ -3831,7 +3828,7 @@ public:
                  Field_document *document,
                  List<Document_key> &doc_path,
                  enum_field_types type,
-                 uint key_len);
+                 uint key_length);
 
   /*
     Create a Field_document by a document path, but skip the first skip_num
@@ -3849,7 +3846,7 @@ public:
     Check whether this field is created based on the other field, such as
     a document path.
   */
-  bool is_derived_document_field()
+  bool is_derived_document_field() const
   {
     return real_field() != this;
   }
@@ -3865,15 +3862,14 @@ public:
                        uchar *new_ptr, uchar *new_null_ptr,
                        uint new_null_bit)
   {
-    if(DOC_DOCUMENT != doc_type)
-      DBUG_ASSERT(key_length > 0);
+    DBUG_ASSERT(validate_doc_type());
 
     Field *field = nullptr;
     switch(doc_type)
     {
       case DOC_PATH_DOUBLE:
         field = new (root) Field_double(new_ptr,
-                                        key_length,
+                                        key_len,
                                         new_null_ptr,
                                         new_null_bit,
                                         unireg_check,
@@ -3883,18 +3879,24 @@ public:
                                         true);
         break;
       case DOC_PATH_STRING:
-        field= new (root) Field_string(new_ptr,
-                                       key_length,
-                                       new_null_ptr,
-                                       new_null_bit,
-                                       unireg_check,
-                                       field_name,
-                                       charset());
-        ((Field_string*)field)->document_key_field = true;
+      {
+        /* Key segments are always packed with a 2-byte length
+           (HA_KEY_BLOB_LENGTH) prefix. See mi_rkey for details.
+        */
+        field= new (root) Field_varstring(new_ptr, key_len,
+                                          HA_KEY_BLOB_LENGTH,
+                                          new_null_ptr,
+                                          new_null_bit,
+                                          Field::NONE,
+                                          field_name,
+                                          new_table->s,
+                                          charset());
+        ((Field_varstring*)field)->document_key_field = true;
         break;
+      }
       case DOC_PATH_INT:
         field = new (root) Field_longlong(new_ptr,
-                                          key_length,
+                                          key_len,
                                           new_null_ptr,
                                           new_null_bit,
                                           unireg_check,
@@ -3904,7 +3906,7 @@ public:
         break;
       case DOC_PATH_TINY:
         field = new (root) Field_tiny(new_ptr,
-                                      key_length,
+                                      key_len,
                                       new_null_ptr,
                                       new_null_bit,
                                       unireg_check,
@@ -3941,6 +3943,12 @@ public:
       get_inner_field()->real_field() :
       this;
   }
+  const Field_document *real_field() const
+  {
+    return get_inner_field() != nullptr ?
+      get_inner_field()->real_field() :
+      this;
+  }
   /*
     Check if it is null as a blob, during which only flags will be
     checked.
@@ -3955,6 +3963,12 @@ public:
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
   uint get_key_image(uchar *buff, uint length, imagetype type);
+  void set_key_image(const uchar *buff, uint length) {
+    Field_blob::set_key_image(buff, length);
+  }
+  int key_cmp(const uchar *,const uchar*);
+  int key_cmp(const uchar *str, uint length);
+  uint32 key_length() const;
   void sql_type(String &str) const;
   using Field_blob::store;
 
@@ -4016,6 +4030,12 @@ public:
       get_document_type();
   }
 
+  bool is_doc_type_string()
+  {
+    DBUG_ASSERT(validate_doc_type());
+    return (doc_type == DOC_PATH_STRING);
+  }
+
   void set_document_type(enum_field_types type)
   {
     switch (type)
@@ -4029,19 +4049,76 @@ public:
     }
   }
 
+  bool validate_doc_type() const
+  {
+    switch (doc_type)
+    {
+    case DOC_PATH_TINY:
+      return (key_len == 1);
+    case DOC_PATH_INT:
+      return (key_len == sizeof(int64_t));
+    case DOC_PATH_DOUBLE:
+      return (key_len == sizeof(double));
+    case DOC_PATH_STRING:
+      return (key_len > 0);
+    case DOC_DOCUMENT:
+      return (key_len == 0);
+    default:
+      break;
+    }
+    DBUG_ASSERT(false); //not supported
+    return false;
+  }
+
+  Item_result result_type() const
+  {
+    switch (doc_type)
+    {
+      case DOC_PATH_TINY:
+      case DOC_PATH_INT:
+        return INT_RESULT;
+
+      case DOC_PATH_DOUBLE:
+        return REAL_RESULT;
+
+      case DOC_PATH_STRING:
+      case DOC_DOCUMENT:
+        return STRING_RESULT;
+
+      default:
+        break;
+    }
+    // Should never reach here.
+    DBUG_ASSERT(false);
+    return STRING_RESULT;
+  }
+
   /* This overwrites the base version.
    * Note: document column should always nullable.
    * We keep the document path logic below (which is no longer needed) for now
    * - If the field is a document path, it can always be nullable. For example,
    *   when document path is in the select, prefix_path_num is non-zero. When
    *   document path used in partial update, update_args is non-null. When
-   *   document path is used in ORDER BY, get_inner_field() is non-null */
+   *   document path is used in ORDER BY, get_inner_field() is non-null
+   */
   bool real_maybe_null(void) const
   {
     // document column should always be nullable
     DBUG_ASSERT(Field_blob::real_maybe_null());
     return Field_blob::real_maybe_null() ||
            (prefix_path_num || update_args || get_inner_field());
+  }
+
+  bool is_real_null(my_ptrdiff_t row_offset= 0) const
+  {
+    return Field_blob::real_maybe_null() && is_null(row_offset);
+  }
+
+  bool is_real_null_as_blob(my_ptrdiff_t row_offset= 0) const
+  {
+    if (Field_blob::real_maybe_null())
+      return MY_TEST(null_ptr[row_offset] & null_bit);
+    return false;
   }
 
   Field_document *clone(MEM_ROOT *mem_root) const
@@ -4062,6 +4139,10 @@ public:
   }
   fbson::FbsonValue *get_fbson_value();
   void set_prefix_document_path(List<Document_key> &pre);
+  void reset_as_blob()
+  {
+    Field_blob::reset();
+  }
 protected:
   /*
     This variable is the place where document path is stored.
