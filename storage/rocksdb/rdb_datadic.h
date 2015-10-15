@@ -467,6 +467,9 @@ private:
 
   /* Length of the unpack_data */
   uint unpack_data_len;
+
+  /* mutex to protect setup */
+  mysql_mutex_t mutex;
 };
 
 
