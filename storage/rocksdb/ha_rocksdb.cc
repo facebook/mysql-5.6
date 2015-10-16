@@ -25,6 +25,9 @@
 
 /* C++ standard header files */
 #include <map>
+#include <regex>
+#include <string>
+#include <vector>
 
 /* MySQL includes */
 #include "./my_bit.h"
@@ -115,9 +118,13 @@ mysql_mutex_t rocksdb_mutex;
 mysql_mutex_t background_mutex;
 mysql_mutex_t stop_cond_mutex;
 mysql_mutex_t snapshot_mutex;
+mysql_mutex_t collation_exception_list_mutex;
 mysql_cond_t stop_cond;
 bool stop_background_thread;
 
+// List of table names (using regex) that are exceptions to the strict
+// collation check requirement.
+std::vector<std::string> collation_exception_list;
 
 //////////////////////////////////////////////////////////////////////////////
 // Options parse support functions
@@ -218,6 +225,12 @@ set_rate_limiter_bytes_per_sec(THD*                     thd,
                                void*                    var_ptr,
                                const void*              save);
 
+static void
+rocksdb_set_collation_exception_list(THD*                     thd,
+                                     struct st_mysql_sys_var* var,
+                                     void*                    var_ptr,
+                                     const void*              save);
+
 //////////////////////////////////////////////////////////////////////////////
 // Options definitions
 //////////////////////////////////////////////////////////////////////////////
@@ -237,6 +250,7 @@ static char * compact_cf_name;
 static char * snapshot_dir_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check = 1;
+static char * rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties = 1;
 static my_bool rocksdb_force_flush_memtable_now_var = 0;
 static uint64_t rocksdb_number_stat_computes = 0;
@@ -674,6 +688,13 @@ static MYSQL_SYSVAR_BOOL(strict_collation_check,
   "Enforce case sensitive collation for MyRocks indexes",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_STR(strict_collation_exceptions,
+  rocksdb_strict_collation_exceptions,
+  PLUGIN_VAR_RQCMDARG|PLUGIN_VAR_MEMALLOC,
+  "List of tables (using regex) that are excluded "
+  "from the case sensitive collation enforcement",
+  nullptr, rocksdb_set_collation_exception_list, "");
+
 static MYSQL_SYSVAR_BOOL(collect_sst_properties,
   rocksdb_collect_sst_properties,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -816,6 +837,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compact_cf),
   MYSQL_SYSVAR(signal_drop_index_thread),
   MYSQL_SYSVAR(strict_collation_check),
+  MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
   MYSQL_SYSVAR(force_flush_memtable_now),
   MYSQL_SYSVAR(seconds_between_stat_computes),
@@ -1860,6 +1882,8 @@ static int rocksdb_init_func(void *p)
   mysql_mutex_init(key_mutex_stop_background, &stop_cond_mutex,
                    MY_MUTEX_INIT_FAST);
   mysql_mutex_init(key_mutex_snapshot, &snapshot_mutex, MY_MUTEX_INIT_FAST);
+  mysql_mutex_init(key_mutex_collation_exception_list,
+                   &collation_exception_list_mutex, MY_MUTEX_INIT_FAST);
   mysql_cond_init(key_cond_stop, &stop_cond, NULL);
   (void) my_hash_init(&rocksdb_open_tables,system_charset_info,32,0,0,
                       (my_hash_get_key) rocksdb_get_key,0,0);
@@ -2113,6 +2137,7 @@ static int rocksdb_done_func(void *p)
   if (rocksdb_open_tables.records)
     error= 1;
   my_hash_free(&rocksdb_open_tables);
+  mysql_mutex_destroy(&collation_exception_list_mutex);
   mysql_mutex_destroy(&snapshot_mutex);
   mysql_mutex_destroy(&rocksdb_mutex);
 
@@ -2956,6 +2981,30 @@ bool ha_rocksdb::get_error_message(int error, String *buf)
   return FALSE; /* not a temporary error */
 }
 
+static bool is_table_in_collation_exception_list(const std::string& table_name)
+{
+  bool result = false;
+
+  // Make sure no one else changes the list while we are accessing it.
+  mysql_mutex_lock(&collation_exception_list_mutex);
+
+  // See if this table name matches any in the list
+  for (const auto& exception_elem : collation_exception_list)
+  {
+    // Use regular expressions for the match
+    if (std::regex_match(table_name, std::regex(exception_elem)))
+    {
+      // This table name matches
+      result = true;
+      break;
+    }
+  }
+
+  // Release the mutex
+  mysql_mutex_unlock(&collation_exception_list_mutex);
+
+  return result;
+}
 
 /*
   Create structures needed for storing data in rocksdb. This is called when the
@@ -3008,7 +3057,8 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
       for (uint part= 0; part < table_arg->key_info[i].actual_key_parts; part++)
       {
         if (!is_myrocks_collation_supported(
-            table_arg->key_info[i].key_part[part].field))
+            table_arg->key_info[i].key_part[part].field) &&
+            !is_table_in_collation_exception_list(table_arg->s->table_name.str))
         {
           std::string collation_err;
           for (auto coll: MYROCKS_INDEX_COLLATIONS)
@@ -6664,3 +6714,52 @@ set_rate_limiter_bytes_per_sec(THD*                     thd,
     rate_limiter->SetBytesPerSecond(new_val);
   }
 }
+
+// Split a string based on a delimiter.  Two delimiters in a row will not
+// add an empty string in the list.
+static std::vector<std::string> split(const std::string& input,
+                                      char               delimiter)
+{
+  size_t                   pos;
+  size_t                   start = 0;
+  std::vector<std::string> elems;
+
+  // Find next delimiter
+  while ((pos = input.find(delimiter, start)) != std::string::npos)
+  {
+    // If there is any data since the last delimiter add it to the list
+    if (pos > start)
+      elems.push_back(input.substr(start, pos - start));
+
+    // Set our start position to the character after the delimiter
+    start = pos + 1;
+  }
+
+  // Add a possible string since the last delimiter
+  if (input.length() > start)
+    elems.push_back(input.substr(start));
+
+  // Return the resulting list back to the caller
+  return elems;
+}
+
+void
+rocksdb_set_collation_exception_list(THD*                     thd,
+                                     struct st_mysql_sys_var* var,
+                                     void*                    var_ptr,
+                                     const void*              save)
+{
+  const char* val = *static_cast<const char*const*>(save);
+
+  // Make sure we are not updating the list when it is being used elsewhere
+  mysql_mutex_lock(&collation_exception_list_mutex);
+
+  // Split the input string into a list of table names
+  collation_exception_list = split(val, ',');
+
+  // Release the mutex
+  mysql_mutex_unlock(&collation_exception_list_mutex);
+
+  *static_cast<const char**>(var_ptr) = val;
+}
+
