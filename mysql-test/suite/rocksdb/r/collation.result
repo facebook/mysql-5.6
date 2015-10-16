@@ -17,3 +17,26 @@ CREATE TABLE t1 (id varchar(20), value varchar(50), value2 varchar(50), value3 t
 DROP TABLE t1;
 CREATE TABLE t1 (id varchar(20) collate latin1_bin, value varchar(50) collate utf8_bin, value2 varchar(50) collate latin1_bin, value3 text, primary key (id), index(value, value2)) engine=rocksdb;
 DROP TABLE t1;
+SET GLOBAL rocksdb_strict_collation_exceptions=t1;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t1;
+CREATE TABLE t2 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+ERROR HY000: Unsupported collation on string indexed column value. Use binary collation (binary, latin1_bin, utf8_bin).
+SET GLOBAL rocksdb_strict_collation_exceptions="t.*";
+CREATE TABLE t123 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t123;
+CREATE TABLE s123 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+ERROR HY000: Unsupported collation on string indexed column value. Use binary collation (binary, latin1_bin, utf8_bin).
+SET GLOBAL rocksdb_strict_collation_exceptions=".t.*";
+CREATE TABLE xt123 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE xt123;
+CREATE TABLE t123 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+ERROR HY000: Unsupported collation on string indexed column value. Use binary collation (binary, latin1_bin, utf8_bin).
+SET GLOBAL rocksdb_strict_collation_exceptions="s.*,t.*";
+CREATE TABLE s1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE s1;
+CREATE TABLE t1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+DROP TABLE t1;
+CREATE TABLE u1 (id INT primary key, value varchar(50), index(value)) engine=rocksdb charset utf8;
+ERROR HY000: Unsupported collation on string indexed column value. Use binary collation (binary, latin1_bin, utf8_bin).
+SET GLOBAL rocksdb_strict_collation_exceptions="";
