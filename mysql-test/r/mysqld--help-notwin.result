@@ -1700,7 +1700,7 @@ rocksdb-force-flush-memtable-now FALSE
 rocksdb-hash-index-allow-collision TRUE
 rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
-rocksdb-info-log-level debug_level
+rocksdb-info-log-level error_level
 rocksdb-is-fd-close-on-exec TRUE
 rocksdb-keep-log-file-num 1000
 rocksdb-lock-wait-timeout 1
