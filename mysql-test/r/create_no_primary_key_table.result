@@ -6,6 +6,8 @@ ERROR HY000: Table without primary key cannot be created outside mysql schema.
 USE test;
 CREATE TABLE mysql_table (a INT) ENGINE=INNODB;
 ERROR HY000: Table without primary key cannot be created outside mysql schema.
+CREATE TABLE IF NOT EXISTS mysql_table_2 (a INT) ENGINE=INNODB;
+ERROR HY000: Table without primary key cannot be created outside mysql schema.
 CREATE TABLE mysql_table_no_cols ENGINE=INNODB;
 ERROR HY000: Table without primary key cannot be created outside mysql schema.
 CREATE TABLE mysql.mysql_table_2 (a INT) ENGINE=INNODB;
