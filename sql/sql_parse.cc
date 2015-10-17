@@ -8744,7 +8744,7 @@ bool should_check_table_for_primary_key(HA_CREATE_INFO *create_info,
   return (block_create_no_primary_key &&
           create_info->db_type &&
           create_info->db_type->db_type == DB_TYPE_INNODB &&
-          !create_info->options & HA_LEX_CREATE_TMP_TABLE &&
+          !(create_info->options & HA_LEX_CREATE_TMP_TABLE) &&
           strcmp(table_list->db, "mysql") != 0 &&
           strcmp(table_list->db, "mtr") != 0);
 }
