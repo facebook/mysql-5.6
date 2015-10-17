@@ -1,0 +1,1 @@
+--rocksdb_default_cf_options=max_write_buffer_number_to_maintain=10
