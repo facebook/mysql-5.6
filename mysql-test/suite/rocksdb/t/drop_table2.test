@@ -54,7 +54,6 @@ let $table = t3;
 let $table = t4;
 --source drop_table_repopulate_table.inc
 
-drop table t2;
 
 # Restart the server before t2's indices are deleted
 --source include/restart_mysqld.inc
@@ -64,7 +63,6 @@ let $table = t1;
 let $table = t4;
 --source drop_table_repopulate_table.inc
 
-drop table t3;
 
 # Insert enough data to trigger compactions that eliminate t2 and t3
 let $max = 50000;
@@ -73,7 +71,6 @@ let $table = t1;
 let $table = t4;
 --source drop_table_repopulate_table.inc
 
-drop table t4;
 
 # Restart the server before t4's indices are deleted
 --source include/restart_mysqld.inc
@@ -90,26 +87,24 @@ let $max = 1000;
 let $table = t5;
 --source drop_table_repopulate_table.inc
 
+let $output= $MYSQLTEST_VARDIR/tmp/size_output;
+
+--exec du -c $MYSQLTEST_VARDIR/mysqld.1/data/.rocksdb/*.sst |grep total |sed 's/[\t]total/ before/' > $output
+drop table t1;
+drop table t2;
+drop table t3;
+drop table t4;
 drop table t5;
-
-# Manually compact column families, cleaning up all lingering data
-set global rocksdb_compact_cf = 'cf1';
-set global rocksdb_compact_cf = 'rev:cf2';
-
-# Signal thread to check for dropped indices
-set global rocksdb_signal_drop_index_thread = 1;
 
 let $show_rpl_debug_info= 1; # to force post-failure printout
 let $wait_timeout= 300; # Override default 30 seconds with 300.
-let $wait_condition = select count(*) = 0
+let $wait_condition = select count(*) = 0 
                       as c from information_schema.rocksdb_global_info
                       where TYPE = 'DDL_DROP_INDEX_ONGOING';
 --source include/wait_condition.inc
 
-# Get list of all indices needing to be dropped
-# Check total compacted-away rows for all indices
-# Check that all indices have been successfully dropped
---exec perl suite/rocksdb/t/drop_table_compactions.pl $MYSQLTEST_VARDIR/log/mysqld.1.err
+# Check that space is reclaimed
+--exec du -c $MYSQLTEST_VARDIR/mysqld.1/data/.rocksdb/*.sst |grep total |sed 's/[\t]total/ after/' >> $output
+--exec perl suite/rocksdb/t/drop_table2_check.pl $output
 
 # Cleanup
-drop table t1;

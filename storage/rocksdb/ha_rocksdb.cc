@@ -1096,7 +1096,6 @@ public:
   explicit Rdb_CompactionFilter(uint32_t _cf_id) : cf_id(_cf_id) {}
   ~Rdb_CompactionFilter()
   {
-    print_compaction_status();
   }
 
   // keys are passed in sorted order within the same sst.
@@ -1120,7 +1119,6 @@ public:
     {
       if (num_deleted > 0)
       {
-        print_compaction_status();
         num_deleted= 0;
       }
       should_delete= dict_manager.is_drop_index_ongoing(gl_index_id);
@@ -1133,17 +1131,12 @@ public:
     return should_delete;
   }
 
+  virtual bool IgnoreSnapshots() const override { return true; }
+
   virtual const char* Name() const override {
     return "Rdb_CompactionFilter";
   }
 private:
-  void print_compaction_status() const
-  {
-    if (num_deleted > 0)
-      sql_print_information("RocksDB: Compacting away elements from dropped "
-                            "index (%u,%u): %llu", prev_index.cf_id,
-                            prev_index.index_id, num_deleted);
-  }
 
   // Column family for this compaction filter
   const uint32_t cf_id;
@@ -5684,7 +5677,8 @@ int ha_rocksdb::info(uint flag)
           0;
         if (x > stats.records)
           x = stats.records;
-        if (x == 0 && rocksdb_debug_optimizer_no_zero_cardinality)
+        if ((x == 0 && rocksdb_debug_optimizer_no_zero_cardinality) ||
+            rocksdb_debug_optimizer_n_rows > 0)
         {
           // Fake cardinality implementation. For example, (idx1, idx2, idx3) index
           // will have rec_per_key for (idx1)=4, (idx1,2)=2, and (idx1,2,3)=1.
@@ -6031,19 +6025,26 @@ int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
   return 0;
 }
 
+rocksdb::Range get_range(
+  uint32_t i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2], int offset1,
+  int offset2)
+{
+  uchar* buf_begin = buf;
+  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  store_index_number(buf_begin, i + offset1);
+  store_index_number(buf_end, i + offset2);
+
+  return rocksdb::Range(
+    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
+    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
+}
+
 static rocksdb::Range get_range(
   RDBSE_KEYDEF* keydef,
   uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2],
   int offset1, int offset2)
 {
-  uchar* buf_begin = buf;
-  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
-  store_index_number(buf_begin, keydef->get_index_number() + offset1);
-  store_index_number(buf_end, keydef->get_index_number() + offset2);
-
-  return rocksdb::Range(
-    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
-    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
+  return get_range(keydef->get_index_number(), buf, offset1, offset2);
 }
 
 rocksdb::Range get_range(
@@ -6120,13 +6121,30 @@ void* drop_index_thread(void*)
         rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(d.cf_id);
         DBUG_ASSERT(cfh);
         bool is_reverse_cf= cf_flags & RDBSE_KEYDEF::REVERSE_CF_FLAG;
-        std::unique_ptr<rocksdb::Iterator> it(
-          rdb->NewIterator(read_opts, cfh));
 
         bool index_removed= false;
         uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
         store_big_uint4(key_buf, d.index_id);
         rocksdb::Slice key = rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+        uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
+        rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf?1:0,
+            is_reverse_cf?0:1);
+        rocksdb::CompactRangeOptions compact_range_options;
+        compact_range_options.bottommost_level_compaction =
+                  rocksdb::BottommostLevelCompaction::kForce;
+        compact_range_options.exclusive_manual_compaction = false;
+        rocksdb::Status status = rdb->CompactRange(
+            compact_range_options, cfh, &range.start, &range.limit);
+        if (!status.ok())
+        {
+          if (status.IsShutdownInProgress())
+          {
+            break;
+          }
+          rocksdb_handle_io_error(status, ROCKSDB_IO_ERROR_BG_THREAD);
+        }
+        std::unique_ptr<rocksdb::Iterator> it(
+          rdb->NewIterator(read_opts, cfh));
         it->Seek(key);
         if (is_reverse_cf)
         {
@@ -6147,6 +6165,7 @@ void* drop_index_thread(void*)
         {
           if (memcmp(it->key().data(), key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
           {
+            // Key does not have same prefix
             index_removed= true;
           }
         }
