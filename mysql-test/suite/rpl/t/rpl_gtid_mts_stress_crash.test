@@ -2,7 +2,8 @@
 -- source include/master-slave.inc
 -- source include/not_valgrind.inc
 -- source include/have_gtid.inc
--- source include/have_innodb.inc
+-- source include/have_binlog_format_row.inc
+#-- source include/have_innodb.inc
 
 connection master;
 call mtr.add_suppression(".*");
@@ -11,7 +12,7 @@ sync_slave_with_master;
 change master to master_auto_position=1;
 -- source include/start_slave.inc
 
--- let $iter=40
+-- let $iter=400
 -- let $databases=30
 -- let $num_crashes=100
 -- let $include_silent=1

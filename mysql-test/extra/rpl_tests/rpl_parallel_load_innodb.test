@@ -6,7 +6,7 @@
 # load volume parameter
 #
 
-if ($let == '')
+if ($iter == '')
 {
   let $iter=20;
 }
@@ -68,8 +68,8 @@ while($i)
   eval drop database if exists test$i1;
   eval create database test$i1;
   eval use test$i1;
-  create table ti_nk (a int, b int, c text) engine=innodb;
-  create table ti_wk (a int auto_increment primary key, b int, c text) engine=innodb;
+  create table ti_nk (a int, b int, c varchar(36) primary key) engine=rocksdb default charset=latin1 collate=latin1_bin;
+  create table ti_wk (a int auto_increment primary key, b int, c text) engine=rocksdb;
   let $l1= $init_rows;
   while($l1)
   {
@@ -79,7 +79,7 @@ while($i)
 
   # this table is special - just for timing. It's more special on test0 db
   # where it contains master timing of the load as well.
-  create table benchmark (state text) engine=innodb; # timestamp keep on the slave side
+  create table benchmark (state varchar(100) primary key) engine=rocksdb default charset=latin1 collate=latin1_bin; # timestamp keep on the slave side
 
   dec $i;
 }
@@ -278,11 +278,31 @@ let $slave_pid_file=`SELECT @@pid_file;`;
 
 
 let $wait_condition= SELECT count(*)+sleep(1) = 5 FROM test0.benchmark;
+--let slave_data_dir= query_get_value(SELECT @@DATADIR, @@DATADIR, 1)
+
 --disable_query_log
 while ($num_crashes)
 {
   SELECT sleep(2 * rand());
   exec kill -9 `head -1 $slave_pid_file`;
+
+--write_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+#!/bin/bash
+F=`ls -t $slave_data_dir/.rocksdb/*.log | head -n 1`
+SIZE=`stat -c %s $F`
+NEW_SIZE=`expr $SIZE - 100`
+truncate -s $NEW_SIZE $F
+rc=$?
+if [[ $rc != 0 ]]; then
+  exit 1
+fi
+
+exit 0
+EOF
+--chmod 0755 $MYSQL_TMP_DIR/truncate_tail_wal.sh
+--exec $MYSQL_TMP_DIR/truncate_tail_wal.sh
+--remove_file $MYSQL_TMP_DIR/truncate_tail_wal.sh
+
   -- let $rpl_server_number=2
   -- source include/rpl_start_server.inc
   -- source include/start_slave.inc
