@@ -12,6 +12,7 @@ CREATE TABLE t1 (a INT PRIMARY KEY,
   b CHAR(8)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW KEYS IN t1;
 
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
@@ -30,6 +31,7 @@ CREATE TABLE t1 (a INT,
   PRIMARY KEY (a,b)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW INDEX IN t1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(1,'b'),(2,'a'),(2,'b');
 --error ER_DUP_ENTRY
@@ -43,6 +45,7 @@ CREATE TABLE t1 (a INT KEY,
   KEY (b)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW INDEX IN t1;
 DROP TABLE t1;
 
@@ -50,12 +53,14 @@ CREATE TABLE t1 (a INT,
   b CHAR(8) PRIMARY KEY
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW INDEX IN t1;
 
 --error ER_REQUIRES_PRIMARY_KEY
 ALTER TABLE t1 DROP INDEX `PRIMARY`;
 --error ER_MULTIPLE_PRI_KEY
 ALTER TABLE t1 ADD CONSTRAINT PRIMARY KEY pk (a);
+--replace_column 7 #
 SHOW KEYS IN t1;
 --error ER_REQUIRES_PRIMARY_KEY
 ALTER TABLE t1 DROP PRIMARY KEY;
