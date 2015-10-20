@@ -14,7 +14,7 @@ CREATE TABLE t1 (a INT,
   KEY (a) KEY_BLOCK_SIZE=8
 ) ENGINE=rocksdb;
 
-#--replace_column 6 # 7 # 10 # 11 #
+--replace_column 7 #
 SHOW KEYS IN t1;
 DROP TABLE t1;
 
@@ -24,7 +24,7 @@ CREATE TABLE t1 (a INT,
   KEY ind1(b ASC) KEY_BLOCK_SIZE=0
 ) ENGINE=rocksdb;
 
-# --replace_column 6 # 7 # 10 # 11 #
+--replace_column 7 #
 SHOW INDEX IN t1;
 DROP TABLE t1;
 
@@ -33,7 +33,7 @@ CREATE TABLE t1 (a INT,
   PRIMARY KEY ind2(b(1) DESC) KEY_BLOCK_SIZE=32768 COMMENT 'big key_block_size value'
 ) ENGINE=rocksdb;
 
-#--replace_column 6 # 7 # 10 # 11 # 
+--replace_column 7 #
 SHOW INDEX IN t1;
 
 DROP TABLE t1;
@@ -44,10 +44,12 @@ CREATE TABLE t1 (a INT,
   KEY a_b(a,b) KEY_BLOCK_SIZE=8192
 ) ENGINE=rocksdb;
 
-#--replace_column 6 # 7 # 10 # 11 #
+--replace_column 7 #
 SHOW INDEX IN t1;
   
 DROP TABLE t1;
+
+--source drop_table_sync.inc
 
 #
 # ALTER TABLE
@@ -61,6 +63,7 @@ CREATE TABLE t1 (a INT,
 INSERT INTO t1 (a,b) VALUES (100,'z');
 
 ALTER TABLE t1 ADD KEY(a) KEY_BLOCK_SIZE 8192;
+--replace_column 7 #
 SHOW INDEX FROM t1;
 
 DROP TABLE t1;
