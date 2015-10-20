@@ -6616,7 +6616,9 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       error= recover(&log, (Format_description_log_event *)ev, &valid_pos);
     }
     else
-      error=0;
+    {
+      error= recover(&log, &fdle, &valid_pos);
+    }
 
     delete ev;
     end_io_cache(&log);
