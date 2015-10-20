@@ -10,6 +10,9 @@
 # because unique keys are not supported
 #######################################
 
+SET @ORIG_PAUSE_BACKGROUND_WORK = @@ROCKSDB_PAUSE_BACKGROUND_WORK;
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = 1;
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
@@ -93,3 +96,4 @@ SELECT HEX(SUBSTRING(v16,7,3)) FROM t1 FORCE INDEX (v16) WHERE v16 LIKE 'varchar
 
 DROP TABLE t1;
 
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
