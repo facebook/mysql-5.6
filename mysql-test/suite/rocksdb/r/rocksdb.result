@@ -6,6 +6,8 @@ drop table if exists t11,t12,t13,t14,t15,t16,t17,t18,t19,t20;
 drop table if exists t21,t22,t23,t24,t25,t26,t27,t28,t29;
 drop table if exists t30,t31,t32,t33,t34,t35,t36,t37,t38,t39;
 drop table if exists t40,t41,t42,t43,t44,t45,t46,t47,t48,t49;
+SET @ORIG_PAUSE_BACKGROUND_WORK = @@ROCKSDB_PAUSE_BACKGROUND_WORK;
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = 1;
 #
 # Issue #1: Don't update indexes if index values have not changed
 #
@@ -904,7 +906,7 @@ rocksdb_max_total_wal_size	0
 rocksdb_no_block_cache	OFF
 rocksdb_override_cf_options	
 rocksdb_paranoid_checks	ON
-rocksdb_pause_background_work	OFF
+rocksdb_pause_background_work	ON
 rocksdb_perf_context_level	1
 rocksdb_rate_limiter_bytes_per_sec	0
 rocksdb_records_in_range	0
@@ -1314,6 +1316,9 @@ drop table t2;
 create table t1 (i int primary key auto_increment) engine=RocksDB;
 insert into t1 values (null);
 insert into t1 values (null);
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
+SET @ORIG_PAUSE_BACKGROUND_WORK = @@ROCKSDB_PAUSE_BACKGROUND_WORK;
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = 1;
 insert into t1 values (null);
 select * from t1;
 i
@@ -2167,3 +2172,4 @@ insert into t2
 select concat('v-', 100 + A.a*100 + B.a), 12345 from t1 A, t1 B;
 update t2 set a=concat('x-', a) where a between 'v-1002' and 'v-1004';
 drop table t1,t2;
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
