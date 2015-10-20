@@ -32,7 +32,6 @@ foreach (sort {$a <=> $b} keys %a){
     $dummy_idx= 0;
   }
   $prev= $_;
-  print "Compacted+ $dummy_idx: $a{$_}\n";
 }
 print_array("Begin filtering dropped index+", sort {$a <=> $b} @b);
 print_array("Finished filtering dropped index+", sort {$a <=> $b} @c);

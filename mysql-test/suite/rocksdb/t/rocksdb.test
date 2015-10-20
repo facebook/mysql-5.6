@@ -13,6 +13,10 @@ drop table if exists t30,t31,t32,t33,t34,t35,t36,t37,t38,t39;
 drop table if exists t40,t41,t42,t43,t44,t45,t46,t47,t48,t49;
 --enable_warnings
 
+# Disable background compaction to prevent stats from affect explain output
+SET @ORIG_PAUSE_BACKGROUND_WORK = @@ROCKSDB_PAUSE_BACKGROUND_WORK;
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = 1;
+
 --echo #
 --echo # Issue #1: Don't update indexes if index values have not changed
 --echo #
@@ -1157,7 +1161,13 @@ create table t1 (i int primary key auto_increment) engine=RocksDB;
 
 insert into t1 values (null);
 insert into t1 values (null);
+
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;
+
 --source include/restart_mysqld.inc
+
+SET @ORIG_PAUSE_BACKGROUND_WORK = @@ROCKSDB_PAUSE_BACKGROUND_WORK;
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = 1;
 
 insert into t1 values (null);
 select * from t1;
@@ -1734,3 +1744,4 @@ update t2 set a=concat('x-', a) where a between 'v-1002' and 'v-1004';
 
 drop table t1,t2;
 
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK = @ORIG_PAUSE_BACKGROUND_WORK;

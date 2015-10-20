@@ -39,6 +39,7 @@ eval CREATE TABLE t1 (a INT,
   KEY $using_index_type (a)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW KEYS IN t1;
 DROP TABLE t1;
 
@@ -48,6 +49,7 @@ eval CREATE TABLE t1 (a INT,
   KEY a_b $using_index_type (a,b) COMMENT 'a_b index'
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW KEYS IN t1;
 DROP TABLE t1;
 
@@ -58,6 +60,7 @@ eval CREATE TABLE t1 (a INT,
   KEY $using_index_type (b)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW KEYS IN t1;
 DROP TABLE t1;
 
@@ -69,12 +72,15 @@ eval CREATE TABLE t1 (a INT,
   UNIQUE INDEX $using_index_type (a)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW KEYS IN t1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
 --error ER_DUP_ENTRY,ER_DUP_KEY
 INSERT INTO t1 (a,b) VALUES (1,'c');
 
 DROP TABLE t1;
+
+--source drop_table_sync.inc
 
 --enable_parsing
 
@@ -86,6 +92,7 @@ CREATE TABLE t1 (a INT, b CHAR(8), pk INT AUTO_INCREMENT PRIMARY KEY) ENGINE=roc
 INSERT INTO t1 (a,b) VALUES (100,'z');
 
 eval ALTER TABLE t1 ADD KEY (a) $using_index_type COMMENT 'simple index on a';
+--replace_column 7 #
 SHOW INDEX FROM t1;
 ALTER TABLE t1 DROP KEY a;
 DROP TABLE t1;
@@ -98,6 +105,7 @@ eval CREATE TABLE t1 (a INT,
   UNIQUE INDEX $using_index_type (a)
 ) ENGINE=rocksdb;
 
+--replace_column 7 #
 SHOW KEYS IN t1;
 INSERT INTO t1 (a,b) VALUES (1,'a'),(2,'b');
 --error ER_DUP_ENTRY,ER_DUP_KEY
