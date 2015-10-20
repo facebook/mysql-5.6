@@ -6616,7 +6616,20 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
       error= recover(&log, (Format_description_log_event *)ev, &valid_pos);
     }
     else
-      error=0;
+    {
+      /*
+       * If we are here, it implies either mysqld was shutdown cleanly or
+       * it was killed during binlog rotation where old binlog file was
+       * closed cleanly but new binlog file was not created. In the later case,
+       * the storage engine recovery must be triggered so that engine's binlog
+       * coordinates (engin_binlog_file and engine_binlog_pos) are updated
+       * properly.
+       *
+       * Note we don't need binlog recovery here since it was closed cleanly.
+       */
+      HASH xids;
+      error= ha_recover(&xids, engine_binlog_file, &engine_binlog_pos);
+    }
 
     delete ev;
     end_io_cache(&log);
