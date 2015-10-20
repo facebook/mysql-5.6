@@ -2103,12 +2103,12 @@ static int rocksdb_done_func(void *p)
   mysql_mutex_lock(&background_mutex);
   mysql_mutex_unlock(&background_mutex);
 
+  // Stop all rocksdb background work
+  CancelAllBackgroundWork(rdb->GetBaseDB(), true);
+
   // wait for the drop index thread to finish
   mysql_mutex_lock(&drop_index_mutex);
   mysql_mutex_unlock(&drop_index_mutex);
-
-  // Stop all rocksdb background work
-  CancelAllBackgroundWork(rdb->GetBaseDB(), true);
 
   if (rocksdb_open_tables.records)
     error= 1;
@@ -5535,6 +5535,20 @@ rocksdb::Range get_range(
     return ::get_range(keydef, buf, 0, 1);
 }
 
+rocksdb::Range get_range(
+  uint32_t i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2], int offset1,
+  int offset2)
+{
+  uchar* buf_begin = buf;
+  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+  store_index_number(buf_begin, i + offset1);
+  store_index_number(buf_end, i + offset2);
+
+  return rocksdb::Range(
+    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
+    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
+}
+
 rocksdb::Range ha_rocksdb::get_range(
   int i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
 {
@@ -5600,13 +5614,27 @@ void* drop_index_thread(void*)
         rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(d.cf_id);
         DBUG_ASSERT(cfh);
         bool is_reverse_cf= cf_flags & RDBSE_KEYDEF::REVERSE_CF_FLAG;
-        std::unique_ptr<rocksdb::Iterator> it(
-          rdb->NewIterator(read_opts, cfh));
 
         bool index_removed= false;
         uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
         store_big_uint4(key_buf, d.index_id);
         rocksdb::Slice key = rocksdb::Slice((char*)key_buf, sizeof(key_buf));
+        uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
+        rocksdb::Range range = get_range(d.index_id, buf, is_reverse_cf?1:0,
+            is_reverse_cf?0:1);
+        sql_print_information("RocksDB: Compacting Index : %d \n", d.index_id);
+        rocksdb::Status status = rdb->CompactRange(
+            rocksdb::CompactRangeOptions(), cfh, &range.start, &range.limit);
+        if (!status.ok())
+        {
+          if (status.IsShutdownInProgress())
+          {
+            break;
+          }
+          rocksdb_handle_io_error(status, ROCKSDB_IO_ERROR_BG_THREAD);
+        }
+        std::unique_ptr<rocksdb::Iterator> it(
+          rdb->NewIterator(read_opts, cfh));
         it->Seek(key);
         if (is_reverse_cf)
         {
@@ -5627,12 +5655,19 @@ void* drop_index_thread(void*)
         {
           if (memcmp(it->key().data(), key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
           {
+            // Key does not have same prefix
             index_removed= true;
           }
         }
         if (index_removed)
         {
+          sql_print_information("RocksDB: ndex removed : %d \n", d.index_id);
           finished.insert(d);
+        }
+        else
+        {
+          sql_print_information("RocksDB: Index not removed : %d \n",
+              d.index_id);
         }
       }
 
