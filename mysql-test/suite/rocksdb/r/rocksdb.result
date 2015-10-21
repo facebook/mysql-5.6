@@ -873,6 +873,7 @@ rocksdb_compaction_sequential_deletes_file_size	0
 rocksdb_compaction_sequential_deletes_window	2000
 rocksdb_create_if_missing	ON
 rocksdb_create_missing_column_families	OFF
+rocksdb_datadir	./.rocksdb
 rocksdb_db_write_buffer_size	0
 rocksdb_debug_optimizer_n_rows	1000
 rocksdb_debug_optimizer_no_zero_cardinality	ON
