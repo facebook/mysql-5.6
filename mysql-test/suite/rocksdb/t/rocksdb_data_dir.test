@@ -1,0 +1,31 @@
+let $ddir = $MYSQL_TMP_DIR/.rocksdb_data_dir.test.install.db;
+let $rddir = $MYSQL_TMP_DIR/.rocksdb_data_dir.test;
+let $sqlfile = $MYSQL_TMP_DIR/rocksdb_data_dir.sql;
+
+--write_file $sqlfile
+DROP DATABASE IF EXISTS mysqltest;
+CREATE DATABASE mysqltest;
+USE mysqltest;
+CREATE TABLE t1 (a INT PRIMARY KEY);
+INSERT INTO t1 VALUES(42);
+SET GLOBAL rocksdb_force_flush_memtable_now = 1;
+SELECT sleep(1);
+DROP TABLE t1;
+EOF
+
+# Must ensure this directory exists before launching mysqld
+mkdir $ddir;
+
+# Launch mysqld with non-standard rocksdb_data_dir
+exec $MYSQLD_BOOTSTRAP_CMD --datadir=$ddir --rocksdb_data_dir=$rddir --default-storage-engine=rocksdb --skip-innodb --default-tmp-storage-engine=MyISAM --rocksdb < $sqlfile;
+
+# Log whether the 000006.sst file was created in the data directory
+exec basename `ls $rddir/*.sst`;
+
+# Clean up
+remove_files_wildcard $ddir/mysqltest *;
+rmdir $ddir/mysqltest;
+remove_files_wildcard $ddir *;
+rmdir $ddir;
+remove_files_wildcard $rddir *;
+remove_file $sqlfile;
