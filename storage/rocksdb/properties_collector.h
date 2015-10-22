@@ -47,7 +47,7 @@ class MyRocksTablePropertiesCollector
  public:
   struct IndexStats {
     enum {
-      INDEX_STATS_VERSION= 1,
+      INDEX_STATS_VERSION= 2,
     };
     GL_INDEX_ID gl_index_id;
     int64_t data_size, rows, approximate_size;
@@ -101,7 +101,6 @@ class MyRocksTablePropertiesCollector
   }
 
  private:
-  uint32_t cf_id_;
   std::unique_ptr<RDBSE_KEYDEF> keydef_;
   Table_ddl_manager* ddl_manager_;
   std::vector<IndexStats> stats_;

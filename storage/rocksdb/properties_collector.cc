@@ -37,7 +37,6 @@ MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
   CompactionParams params,
   uint32_t cf_id
 ) :
-    cf_id_(cf_id),
     ddl_manager_(ddl_manager),
     rows_(0l), deleted_rows_(0l), max_deleted_rows_(0l),
     params_(params)
@@ -54,7 +53,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
     rocksdb::EntryType type, rocksdb::SequenceNumber seq,
     uint64_t file_size
 ) {
-  if (key.size() >= 4) {
+  if (key.size() >= RDBSE_KEYDEF::INDEX_ID_SIZE) {
     switch (type) {
     case rocksdb::kEntryPut:
       rocksdb_num_sst_entry_put++;
@@ -76,8 +75,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
     }
 
     GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id = cf_id_;
-    gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+    memcpy(gl_index_id.uuid.bytes, key.data(), RDBSE_KEYDEF::INDEX_ID_SIZE);
     if (stats_.empty() || gl_index_id != stats_.back().gl_index_id)
     {
       keydef_ = NULL;
@@ -210,10 +208,10 @@ MyRocksTablePropertiesCollector::GetReadableStats(
   const MyRocksTablePropertiesCollector::IndexStats& it
 ) {
   std::string s;
+  char uuid_str[Uuid::TEXT_LENGTH + 1];
+  it.gl_index_id.uuid.to_string(uuid_str);
   s.append("(");
-  s.append(std::to_string(it.gl_index_id.cf_id));
-  s.append(", ");
-  s.append(std::to_string(it.gl_index_id.index_id));
+  s.append(uuid_str);
   s.append("):{name:");
   s.append(it.name);
   s.append(", size:");
@@ -280,8 +278,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
   String ret;
   write_short(&ret, INDEX_STATS_VERSION);
   for (auto i : stats) {
-    write_int(&ret, i.gl_index_id.cf_id);
-    write_int(&ret, i.gl_index_id.index_id);
+    write_uuid(&ret, i.gl_index_id.uuid);
     assert(sizeof i.data_size <= 8);
     write_int64(&ret, i.data_size);
     write_int64(&ret, i.rows);
@@ -311,8 +308,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
   while (p < p2) {
     IndexStats stats;
     if (p+
-       sizeof(stats.gl_index_id.cf_id)+
-       sizeof(stats.gl_index_id.index_id)+
+       sizeof(Uuid::BYTE_LENGTH)+
        sizeof(stats.data_size)+
        sizeof(stats.rows)+
        sizeof(stats.approximate_size)+
@@ -320,8 +316,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     {
       return 1;
     }
-    stats.gl_index_id.cf_id = read_int(&p);
-    stats.gl_index_id.index_id = read_int(&p);
+    read_uuid(&p, &stats.gl_index_id.uuid);
     stats.data_size = read_int64(&p);
     stats.rows = read_int64(&p);
     stats.approximate_size = read_int64(&p);

@@ -22,6 +22,7 @@
 /* MySQL header files */
 #include "./handler.h"                     /* handler */
 #include "./my_global.h"                   /* ulonglong */
+#include "./rpl_gtid.h"                    /* Uuid */
 #include "./sql_string.h"
 
 /* RocksDB header files */
@@ -116,35 +117,30 @@ class Rdb_transaction;
 const char *const rocksdb_hton_name= "ROCKSDB";
 
 typedef struct _gl_index_id_s {
-  uint32_t cf_id;
-  uint32_t index_id;
+  Uuid uuid;
   bool operator==(const struct _gl_index_id_s& other) const
   {
-    return cf_id == other.cf_id && index_id == other.index_id;
+    return memcmp(uuid.bytes, &other.uuid.bytes, Uuid::BYTE_LENGTH) == 0;
   }
   bool operator!=(const struct _gl_index_id_s& other) const
   {
-    return cf_id != other.cf_id || index_id != other.index_id;
+    return memcmp(uuid.bytes, &other.uuid.bytes, Uuid::BYTE_LENGTH) != 0;
   }
   bool operator<(const struct _gl_index_id_s& other) const
   {
-    return cf_id < other.cf_id ||
-        (cf_id == other.cf_id && index_id < other.index_id);
+    return memcmp(uuid.bytes, &other.uuid.bytes, Uuid::BYTE_LENGTH) < 0;
   }
   bool operator<=(const struct _gl_index_id_s& other) const
   {
-    return cf_id < other.cf_id ||
-        (cf_id == other.cf_id && index_id <= other.index_id);
+    return memcmp(uuid.bytes, &other.uuid.bytes, Uuid::BYTE_LENGTH) <= 0;
   }
   bool operator>(const struct _gl_index_id_s& other) const
   {
-    return cf_id > other.cf_id ||
-        (cf_id == other.cf_id && index_id > other.index_id);
+    return memcmp(uuid.bytes, &other.uuid.bytes, Uuid::BYTE_LENGTH) > 0;
   }
   bool operator>=(const struct _gl_index_id_s& other) const
   {
-    return cf_id > other.cf_id ||
-        (cf_id == other.cf_id && index_id >= other.index_id);
+    return memcmp(uuid.bytes, &other.uuid.bytes, Uuid::BYTE_LENGTH) >= 0;
   }
 } GL_INDEX_ID;
 
@@ -155,9 +151,11 @@ namespace std {
   {
     std::size_t operator()(const GL_INDEX_ID& gl_index_id) const
     {
-      uint64_t val = ((uint64_t) gl_index_id.cf_id << 32 |
-                      (uint64_t) gl_index_id.index_id);
-      return std::hash<uint64_t>()(val);
+      assert(Uuid::BYTE_LENGTH == 2*sizeof(uint64));
+      uint64_t val1, val2;
+      memcpy(&val1, gl_index_id.uuid.bytes, sizeof(val1));
+      memcpy(&val2, gl_index_id.uuid.bytes + sizeof(val1), sizeof(val2));
+      return std::hash<uint64_t>()(val1) ^ std::hash<uint64>()(val2);
     }
   };
 }  // namespace std

@@ -998,7 +998,7 @@ static bool stop_drop_index_thread;
 class Rdb_CompactionFilter : public rocksdb::CompactionFilter
 {
 public:
-  explicit Rdb_CompactionFilter(uint32_t _cf_id) : cf_id(_cf_id) {}
+  explicit Rdb_CompactionFilter(uint32_t _cf_id) {}
   ~Rdb_CompactionFilter()
   {
     print_compaction_status();
@@ -1017,9 +1017,7 @@ public:
     DBUG_ASSERT(key.size() >= sizeof(uint32));
 
     GL_INDEX_ID gl_index_id;
-    gl_index_id.cf_id= cf_id;
-    gl_index_id.index_id= read_big_uint4((const uchar*)key.data());
-    DBUG_ASSERT(gl_index_id.index_id >= 1);
+    read_index_id((const uchar*) key.data(), &gl_index_id.uuid);
 
     if (gl_index_id != prev_index)  // processing new index id
     {
@@ -1045,15 +1043,16 @@ private:
   void print_compaction_status() const
   {
     if (num_deleted > 0)
+    {
+      char uuid_str[Uuid::TEXT_LENGTH+1];
+      prev_index.uuid.to_string(uuid_str);
       sql_print_information("RocksDB: Compacting away elements from dropped "
-                            "index (%u,%u): %llu", prev_index.cf_id,
-                            prev_index.index_id, num_deleted);
+                            "index {%s}: %llu", uuid_str, num_deleted);
+    }
   }
 
-  // Column family for this compaction filter
-  const uint32_t cf_id;
   // Index id of the previous record
-  mutable GL_INDEX_ID prev_index= {0, 0};
+  mutable GL_INDEX_ID prev_index;
   // Number of rows deleted for the same index id
   mutable uint64 num_deleted= 0;
   // Current index id should be deleted or not (should be deleted if true)
@@ -2456,7 +2455,7 @@ void dbug_modify_key_varchar8(String &on_disk_rec)
 {
   std::string res;
   // The key starts with index number
-  res.append(on_disk_rec.ptr(), RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  res.append(on_disk_rec.ptr(), RDBSE_KEYDEF::INDEX_ID_SIZE);
 
   // Then, a mem-comparable form of a varchar(8) value.
   res.append("ABCDE\0\0\0\xFC", 9);
@@ -3097,7 +3096,8 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
   */
   for (i= 0; i < table_arg->s->keys; i++)
   {
-    uint index_id= ddl_manager.get_and_update_next_number(&dict_manager);
+    Uuid index_id;
+    ddl_manager.create_index_id(&index_id);
     uint16_t index_dict_version= RDBSE_KEYDEF::INDEX_INFO_VERSION_GLOBAL_ID;
     uchar index_type;
     uint16_t kv_version;
@@ -3636,7 +3636,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     /*
       We have made the kd->successor(sec_key_packed_tuple) call above.
 
-      The slice is at least RDBSE_KEYDEF::INDEX_NUMBER_SIZE bytes long.
+      The slice is at least RDBSE_KEYDEF::INDEX_ID_SIZE bytes long.
     */
     eq_cond_len= slice.size() - bytes_changed_by_succ;
   }
@@ -3665,7 +3665,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
       Example1: id1 BIGINT, id2 INT, id3 BIGINT, PRIMARY KEY (id1, id2, id3)
        WHERE id1>=1 AND id2 >= 2 and id2 <= 5 => eq_cond_len= 4
     */
-    eq_cond_len= RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+    eq_cond_len= RDBSE_KEYDEF::INDEX_ID_SIZE;
   }
 
   bool use_all_keys= false;
@@ -5542,23 +5542,39 @@ int ha_rocksdb::start_stmt(THD *thd, thr_lock_type lock_type)
   return 0;
 }
 
+static void get_infimum_or_supremum(
+  RDBSE_KEYDEF* keydef,
+  uchar*        buf,
+  bool          infimum)
+{
+  uint32_t size = 0;
+  if (infimum)
+    keydef->get_infimum_key(buf, &size);
+  else
+    keydef->get_supremum_key(buf, &size);
+}
+
 static rocksdb::Range get_range(
   RDBSE_KEYDEF* keydef,
-  uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2],
+  uchar buf[RDBSE_KEYDEF::INDEX_ID_SIZE*2],
   int offset1, int offset2)
 {
   uchar* buf_begin = buf;
-  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
-  store_index_number(buf_begin, keydef->get_index_number() + offset1);
-  store_index_number(buf_end, keydef->get_index_number() + offset2);
+  uchar* buf_end = buf+RDBSE_KEYDEF::INDEX_ID_SIZE;
+
+  assert(offset1 == 0 || offset1 == 1);
+  assert(offset2 == 0 || offset2 == 1);
+
+  ::get_infimum_or_supremum(keydef, buf_begin, offset1 == 0);
+  ::get_infimum_or_supremum(keydef, buf_end, offset2 == 0);
 
   return rocksdb::Range(
-    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_NUMBER_SIZE),
-    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_NUMBER_SIZE));
+    rocksdb::Slice((const char*) buf_begin, RDBSE_KEYDEF::INDEX_ID_SIZE),
+    rocksdb::Slice((const char*) buf_end, RDBSE_KEYDEF::INDEX_ID_SIZE));
 }
 
 rocksdb::Range get_range(
-  RDBSE_KEYDEF* keydef, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2])
+  RDBSE_KEYDEF* keydef, uchar buf[RDBSE_KEYDEF::INDEX_ID_SIZE*2])
 {
   if (keydef->is_reverse_cf)
     return ::get_range(keydef, buf, 1, 0);
@@ -5567,7 +5583,7 @@ rocksdb::Range get_range(
 }
 
 rocksdb::Range ha_rocksdb::get_range(
-  int i, uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2]) const
+  int i, uchar buf[RDBSE_KEYDEF::INDEX_ID_SIZE*2]) const
 {
   return ::get_range(key_descr[i], buf);
 }
@@ -5620,23 +5636,39 @@ void* drop_index_thread(void*)
       read_opts.total_order_seek = true; // disable bloom filter
 
       for (auto d : indices) {
+        uchar    index_type;
+        uint16_t kv_version;
+        uint16_t index_dict_version;
+        uint32_t cf_id;
         uint32 cf_flags= 0;
-        if (!dict_manager.get_cf_flags(d.cf_id, &cf_flags))
+        if (!dict_manager.get_index_info(d, &cf_id, &index_dict_version,
+                                         &index_type, &kv_version))
+        {
+          char uuid_str[Uuid::TEXT_LENGTH+1];
+          d.uuid.to_string(uuid_str);
+          // NO_LINT_DEBUG
+          sql_print_error("RocksDB: Failed to get column family id "
+                          "from index id {%s}. MyRocks data dictionary may "
+                          "get corrupted.", uuid_str);
+          abort_with_stack_traces();
+        }
+
+        if (!dict_manager.get_cf_flags(cf_id, &cf_flags))
         {
           sql_print_error("RocksDB: Failed to get column family flags "
                           "from cf id %u. MyRocks data dictionary may "
-                          "get corrupted.", d.cf_id);
+                          "get corrupted.", cf_id);
           abort_with_stack_traces();
         }
-        rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(d.cf_id);
+        rocksdb::ColumnFamilyHandle* cfh= cf_manager.get_cf(cf_id);
         DBUG_ASSERT(cfh);
         bool is_reverse_cf= cf_flags & RDBSE_KEYDEF::REVERSE_CF_FLAG;
         std::unique_ptr<rocksdb::Iterator> it(
           rdb->NewIterator(read_opts, cfh));
 
         bool index_removed= false;
-        uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE]= {0};
-        store_big_uint4(key_buf, d.index_id);
+        uchar key_buf[RDBSE_KEYDEF::INDEX_ID_SIZE]= {0};
+        store_index_id(key_buf, d.uuid);
         rocksdb::Slice key = rocksdb::Slice((char*)key_buf, sizeof(key_buf));
         it->Seek(key);
         if (is_reverse_cf)
@@ -5656,7 +5688,7 @@ void* drop_index_thread(void*)
         }
         else
         {
-          if (memcmp(it->key().data(), key_buf, RDBSE_KEYDEF::INDEX_NUMBER_SIZE))
+          if (memcmp(it->key().data(), key_buf, RDBSE_KEYDEF::INDEX_ID_SIZE))
           {
             index_removed= true;
           }
@@ -5957,7 +5989,7 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
   int rc= 0;
   for (uint i= 0; i < table->s->keys; i++)
   {
-    uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
+    uchar buf[RDBSE_KEYDEF::INDEX_ID_SIZE*2];
     auto range = get_range(i, buf);
     if (!rdb->CompactRange(rocksdb::CompactRangeOptions(),
                            key_descr[i]->get_cf(),
@@ -6013,7 +6045,7 @@ void compute_optimizer_stats()
       stats.emplace_back(keydef->get_gl_index_id());
     }
 
-    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+    uchar buf[2*RDBSE_KEYDEF::INDEX_ID_SIZE];
     auto range = get_range(keydef.get(), buf);
     uint64_t size;
     rdb->GetApproximateSizes(keydef->get_cf(),

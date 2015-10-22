@@ -644,13 +644,16 @@ static int i_s_rocksdb_ddl_callback(void *cb_arg, RDBSE_TABLE_DEF *rec)
                                    system_charset_info);
 
     GL_INDEX_ID gl_index_id = key_descr->get_gl_index_id();
-    tables->table->field[4]->store(gl_index_id.cf_id, true);
-    tables->table->field[5]->store(gl_index_id.index_id, true);
-    tables->table->field[6]->store(key_descr->index_type, true);
-    tables->table->field[7]->store(key_descr->kv_format_version, true);
+    char uuid_str[Uuid::TEXT_LENGTH+1];
+    gl_index_id.uuid.to_string(uuid_str);
+    tables->table->field[4]->store(uuid_str, Uuid::TEXT_LENGTH,
+                                   system_charset_info);
+
+    tables->table->field[5]->store(key_descr->index_type, true);
+    tables->table->field[6]->store(key_descr->kv_format_version, true);
 
     std::string cf_name= key_descr->get_cf()->GetName();
-    tables->table->field[8]->store(cf_name.c_str(), cf_name.size(),
+    tables->table->field[7]->store(cf_name.c_str(), cf_name.size(),
                                    system_charset_info);
 
     ret= schema_table_store_record(thd, tables->table);
@@ -680,8 +683,7 @@ static ST_FIELD_INFO i_s_rocksdb_ddl_fields_info[] =
   ROCKSDB_FIELD_INFO("PARTITION_NAME", NAME_LEN+1, MYSQL_TYPE_STRING,
                      MY_I_S_MAYBE_NULL),
   ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("INDEX_NUMBER", Uuid::TEXT_LENGTH+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("INDEX_TYPE", sizeof(uint16_t), MYSQL_TYPE_SHORT, 0),
   ROCKSDB_FIELD_INFO("KV_FORMAT_VERSION", sizeof(uint16_t),
                      MYSQL_TYPE_SHORT, 0),
@@ -761,24 +763,24 @@ static int i_s_rocksdb_index_file_map_fill_table(
     for (auto props : table_props_collection) {
       /* Add the SST name into the output */
       std::string sst_name = filename_without_path(props.first);
-      field[2]->store(sst_name.data(), sst_name.size(), system_charset_info);
+      field[1]->store(sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
       std::vector<MyRocksTablePropertiesCollector::IndexStats> stats =
           MyRocksTablePropertiesCollector::GetStatsFromTableProperties(props.second);
       if (stats.empty()) {
-        field[0]->store(-1, true);
-        field[1]->store(-1, true);
+        field[0]->store("", 0, system_charset_info);
+        field[2]->store(-1, true);
         field[3]->store(-1, true);
-        field[4]->store(-1, true);
       }
       else {
         for (auto it : stats) {
+          char uuid_str[Uuid::TEXT_LENGTH+1];
+          it.gl_index_id.uuid.to_string(uuid_str);
           /* Add the index number, the number of rows, and data size to the output */
-          field[0]->store(it.gl_index_id.cf_id, true);
-          field[1]->store(it.gl_index_id.index_id, true);
-          field[3]->store(it.rows, true);
-          field[4]->store(it.data_size, true);
+          field[0]->store(uuid_str, Uuid::TEXT_LENGTH, system_charset_info);
+          field[2]->store(it.rows, true);
+          field[3]->store(it.data_size, true);
 
           /* Tell MySQL about this row in the virtual table */
           ret= schema_table_store_record(thd, tables->table);
@@ -801,8 +803,7 @@ static ST_FIELD_INFO i_s_rocksdb_index_file_map_fields_info[] =
    *   SST_NAME => the name of the SST file containing some indexes
    *   NUM_ROWS => the number of entries of this index id in this SST file
    *   DATA_SIZE => the data size stored in this SST file for this index id */
-  ROCKSDB_FIELD_INFO("COLUMN_FAMILY", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("INDEX_NUMBER", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("INDEX_NUMBER", Uuid::TEXT_LENGTH+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("SST_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("NUM_ROWS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO("DATA_SIZE", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),

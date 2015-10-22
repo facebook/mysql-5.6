@@ -39,10 +39,12 @@ void write_int64(String *out, uint64 val);
 void write_int(String *out, uint32 val);
 void write_short(String *out, uint16 val);
 void write_byte(String *out, uchar val);
+void write_uuid(String *out, const Uuid& val);
 uint32 read_int(const char **data);
 uint64 read_int64(const char **data);
 uint16 read_short(const char **data);
 uchar read_byte(const char **data);
+void read_uuid(const char **data, Uuid* uuid);
 
 inline void store_big_uint4(uchar *dst, uint32_t n)
 {
@@ -82,9 +84,15 @@ inline uchar read_big_uint1(const uchar* b)
   return(uchar)b[0];
 }
 
-inline void store_index_number(uchar *dst, uint32 number)
+inline void store_index_id(uchar *dst, const Uuid& uuid)
 {
-  store_big_uint4(dst, number);
+  // UUIDs are in big-endian order - not need for swapping
+  memcpy(dst, uuid.bytes, Uuid::BYTE_LENGTH);
+}
+
+inline void read_index_id(const uchar* src, Uuid* uuid)
+{
+  memcpy(uuid->bytes, src, Uuid::BYTE_LENGTH);
 }
 
 /*
@@ -246,15 +254,27 @@ public:
   /* Get the key that is the "infimum" for this index */
   inline void get_infimum_key(uchar *key, uint *size)
   {
-    store_index_number(key, index_number);
-    *size= INDEX_NUMBER_SIZE;
+    store_index_id(key, index_id);
+    *size= INDEX_ID_SIZE;
   }
 
   /* Get the key that is a "supremum" for this index */
   inline void get_supremum_key(uchar *key, uint *size)
   {
-    store_index_number(key, index_number+1);
-    *size= INDEX_NUMBER_SIZE;
+    Uuid supremum;
+    memcpy(supremum.bytes, index_id.bytes, INDEX_ID_SIZE);
+
+    // Generate the key that is 'one more' than the current index number.
+    // Note that this may not generate a valid UUID, but we don't really
+    // care as we are only using it to know when to stop a range scan.
+    for (uint32_t ii = 0; ii < INDEX_ID_SIZE; ii++)
+    {
+      if (++supremum.bytes[(INDEX_ID_SIZE - 1) - ii] != 0)
+        break;
+    }
+
+    store_index_id(key, supremum);
+    *size= INDEX_ID_SIZE;
   }
 
   /* Make a key that is right after the given key. */
@@ -282,9 +302,9 @@ public:
   /* Check if given mem-comparable key belongs to this index */
   bool covers_key(const char *key, uint keylen) const
   {
-    if (keylen < INDEX_NUMBER_SIZE)
+    if (keylen < INDEX_ID_SIZE)
       return false;
-    if (memcmp(key, index_number_storage_form, INDEX_NUMBER_SIZE))
+    if (memcmp(key, index_id.bytes, INDEX_ID_SIZE))
       return false;
     else
       return true;
@@ -304,14 +324,14 @@ public:
                           prefix.data(), prefix.size());
   }
 
-  uint32 get_index_number()
+  const Uuid& get_index_id()
   {
-    return index_number;
+    return index_id;
   }
 
   GL_INDEX_ID get_gl_index_id()
   {
-    GL_INDEX_ID gl_index_id = { cf_handle->GetID(), index_number };
+    GL_INDEX_ID gl_index_id = { index_id };
     return gl_index_id;
   }
 
@@ -335,7 +355,7 @@ public:
   }
 
   RDBSE_KEYDEF(const RDBSE_KEYDEF& k);
-  RDBSE_KEYDEF(uint indexnr_arg, uint keyno_arg,
+  RDBSE_KEYDEF(const Uuid& indexnr_arg, uint keyno_arg,
                rocksdb::ColumnFamilyHandle* cf_handle_arg,
                uint16_t index_dict_version_arg,
                uchar index_type_arg,
@@ -348,7 +368,8 @@ public:
   ~RDBSE_KEYDEF();
 
   enum {
-    INDEX_NUMBER_SIZE= 4,
+    INDEX_ID_SIZE= Uuid::BYTE_LENGTH,
+    DATA_DICT_TYPE_SIZE= 4,
     VERSION_SIZE= 2,
     CF_NUMBER_SIZE= 4,
     CF_FLAG_SIZE= 4,
@@ -362,16 +383,29 @@ public:
   };
 
   // Data dictionary types
-  enum {
+  typedef enum {
     DDL_ENTRY_INDEX_START_NUMBER= 1,
     INDEX_INFO= 2,
     CF_DEFINITION= 3,
     BINLOG_INFO_INDEX_NUMBER= 4,
     DDL_DROP_INDEX_ONGOING= 5,
     INDEX_STATISTICS= 6,
-    MAX_INDEX_ID= 7,
+//    MAX_INDEX_ID= 7,
     END_DICT_INDEX_ID=255,
-  };
+  } DATA_DICT_TYPE;
+
+  static const size_t INDEX_INFO_KEY_SIZE =
+      DATA_DICT_TYPE_SIZE + INDEX_ID_SIZE;
+  static const size_t CF_DEFINITION_KEY_SIZE =
+      DATA_DICT_TYPE_SIZE + PACKED_SIZE;
+  static const size_t CF_DEFINITION_VALUE_SIZE =
+      VERSION_SIZE + PACKED_SIZE;
+  static const size_t DDL_DROP_INDEX_ONGOING_KEY_SIZE =
+      DATA_DICT_TYPE_SIZE + INDEX_ID_SIZE;
+  static const size_t DDL_DROP_INDEX_ONGOING_VALUE_SIZE =
+      VERSION_SIZE;
+  static const size_t INDEX_STATISTICS_KEY_SIZE =
+      DATA_DICT_TYPE_SIZE + INDEX_ID_SIZE;
 
   // Data dictionary schema version. Introduce newer versions
   // if changing schema layout
@@ -380,7 +414,7 @@ public:
     CF_DEFINITION_VERSION= 1,
     BINLOG_INFO_INDEX_NUMBER_VERSION= 1,
     DDL_DROP_INDEX_ONGOING_VERSION= 1,
-    MAX_INDEX_ID_VERSION= 1,
+//    MAX_INDEX_ID_VERSION= 1,
     // Version for index stats is stored in IndexStats struct
   };
 
@@ -419,9 +453,7 @@ public:
 private:
 
   /* Global number of this index (used as prefix in StorageFormat) */
-  const uint32 index_number;
-
-  uchar index_number_storage_form[INDEX_NUMBER_SIZE];
+  const Uuid index_id;
 
   rocksdb::ColumnFamilyHandle* cf_handle;
 
@@ -440,7 +472,7 @@ public:
   MyRocksTablePropertiesCollector::IndexStats stats;
 private:
 
-  friend class RDBSE_TABLE_DEF; // for index_number above
+  friend class RDBSE_TABLE_DEF;  // for index_id above
 
   /* Number of key parts in the primary key*/
   uint n_pk_key_parts;
@@ -472,6 +504,15 @@ private:
   mysql_mutex_t mutex;
 };
 
+inline void store_data_dict_type(uchar *dst, RDBSE_KEYDEF::DATA_DICT_TYPE type)
+{
+  store_big_uint4(dst, (uint32_t) type);
+}
+
+inline RDBSE_KEYDEF::DATA_DICT_TYPE read_data_dict_type(const uchar *src)
+{
+  return (RDBSE_KEYDEF::DATA_DICT_TYPE) read_big_uint4(src);
+}
 
 typedef void (*make_unpack_info_t) (Field_pack_info *fpi, Field *field, uchar *dst);
 typedef int (*index_field_unpack_t)(Field_pack_info *fpi, Field *field,
@@ -597,31 +638,6 @@ public:
 
 
 /*
-  A thread-safe sequential number generator. Its performance is not a concern
-*/
-
-class Sequence_generator
-{
-  uint next_number;
-
-  mysql_mutex_t mutex;
-public:
-  void init(uint initial_number)
-  {
-    mysql_mutex_init(0 , &mutex, MY_MUTEX_INIT_FAST);
-    next_number= initial_number;
-  }
-
-  uint get_and_update_next_number(Dict_manager *dict);
-
-  void cleanup()
-  {
-    mysql_mutex_destroy(&mutex);
-  }
-};
-
-
-/*
   This contains a mapping of
 
      dbname.table_name -> array{RDBSE_KEYDEF}.
@@ -638,7 +654,7 @@ class Table_ddl_manager
     index_num_to_keydef;
   mysql_rwlock_t rwlock;
 
-  Sequence_generator sequence;
+//  Sequence_generator sequence;
 
   std::unordered_set<GL_INDEX_ID> changed_indexes;
   std::mutex changed_indexes_mutex;
@@ -663,8 +679,9 @@ public:
   bool rename(uchar *from, uint from_len, uchar *to, uint to_len,
               rocksdb::WriteBatch *batch);
 
-  uint get_and_update_next_number(Dict_manager *dict)
-    { return sequence.get_and_update_next_number(dict); }
+  void create_index_id(Uuid* uuid);
+//  uint get_and_update_next_number(Dict_manager *dict)
+//    { return sequence.get_and_update_next_number(dict); }
   void add_changed_indexes(const std::vector<GL_INDEX_ID>& changed_indexes);
   std::unordered_set<GL_INDEX_ID> get_changed_indexes();
 
@@ -711,7 +728,7 @@ public:
 
 private:
   Dict_manager *dict;
-  uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  uchar key_buf[RDBSE_KEYDEF::INDEX_ID_SIZE];
   rocksdb::Slice key_slice;
   rocksdb::Slice pack_value(uchar *buf,
                             const char *binlog_name,
@@ -733,13 +750,14 @@ private:
 
   1. Table Name => internal index id mappings
   key: RDBSE_KEYDEF::DDL_ENTRY_INDEX_START_NUMBER(0x1) + dbname.tablename
-  value: version, {cf_id, index_id}*n_indexes_of_the_table
-  version is 2 bytes. cf_id and index_id are 4 bytes.
+  value: version, index_id*n_indexes_of_the_table
+  version is 2 bytes. index_id is 16 bytes.
 
   2. internal cf_id, index id => index information
-  key: RDBSE_KEYDEF::INDEX_INFO(0x2) + cf_id + index_id
-  value: version, index_type, kv_format_version
-  index_type is 1 byte, version and kv_format_version are 2 bytes.
+  key: RDBSE_KEYDEF::INDEX_INFO(0x2) + index_id
+  value: version, cf_id, index_type, kv_format_version
+  cf_id is a 4 byte column family id, index_type is 1 byte, version and
+  kv_format_version are 2 bytes.
 
   3. CF id => CF flags
   key: RDBSE_KEYDEF::CF_DEFINITION(0x3) + cf_id
@@ -751,17 +769,12 @@ private:
   value: version, {binlog_name,binlog_pos,binlog_gtid}
 
   5. Ongoing drop index entry (not implemented yet)
-  key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + index_id
+  key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + index_id
   value: version
 
   6. index stats
-  key: RDBSE_KEYDEF::INDEX_STATISTICS(0x6) + cf_id + index_id
+  key: RDBSE_KEYDEF::INDEX_STATISTICS(0x6) + index_id
   value: version, {materialized PropertiesCollector::IndexStats}
-
-  7. maximum index id
-  key: RDBSE_KEYDEF::MAX_INDEX_ID(0x7)
-  value: index_id
-  index_id is 4 bytes
 
    Data dictionary operations are atomic inside RocksDB. For example,
   when creating a table with two indexes, it is necessary to call Put
@@ -777,10 +790,10 @@ private:
   rocksdb::ColumnFamilyHandle *system_cfh;
   /* Utility to put INDEX_INFO and CF_DEFINITION */
 
-  uchar key_buf_max_index_id[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-  rocksdb::Slice key_slice_max_index_id;
+//  uchar key_buf_max_index_id[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+//  rocksdb::Slice key_slice_max_index_id;
   void delete_util(rocksdb::WriteBatch* batch,
-                   const uint32_t prefix,
+                   const RDBSE_KEYDEF::DATA_DICT_TYPE prefix,
                    const GL_INDEX_ID gl_index_id);
   /* Functions for fast DROP TABLE/INDEX */
   void resume_drop_indexes();
@@ -807,12 +820,13 @@ public:
   void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
                                       const uchar index_type,
                                       const uint16_t kv_version,
-                                      const uint index_id,
+                                      const Uuid& index_id,
                                       const uint cf_id);
   void delete_index_info(rocksdb::WriteBatch* batch,
                          const GL_INDEX_ID index_id);
-  bool get_index_info(GL_INDEX_ID gl_index_id, uint16_t *index_dict_version,
-                      uchar *index_type, uint16_t *kv_version);
+  bool get_index_info(GL_INDEX_ID gl_index_id, uint32_t *cf_id,
+                      uint16_t *index_dict_version, uchar *index_type,
+                      uint16_t *kv_version);
 
   /* CF id => CF flags */
   void add_cf_flags(rocksdb::WriteBatch *batch,
@@ -822,7 +836,7 @@ public:
 
   /* Functions for fast DROP TABLE/INDEX */
   void get_drop_indexes_ongoing(std::vector<GL_INDEX_ID> *gl_index_ids);
-  bool is_drop_index_ongoing(GL_INDEX_ID gl_index_id);
+  bool is_drop_index_ongoing(const GL_INDEX_ID& gl_index_id);
   void start_drop_index_ongoing(rocksdb::WriteBatch* batch,
                                 GL_INDEX_ID gl_index_id);
   void end_drop_index_ongoing(rocksdb::WriteBatch* batch,
@@ -833,9 +847,9 @@ public:
                       rocksdb::WriteBatch *batch);
   void done_drop_indexes(const std::unordered_set<GL_INDEX_ID>& gl_index_ids);
 
-  bool get_max_index_id(uint32_t *index_id);
-  bool update_max_index_id(rocksdb::WriteBatch* batch,
-                           const uint32_t index_id);
+//  bool get_max_index_id(uint32_t *index_id);
+//  bool update_max_index_id(rocksdb::WriteBatch* batch,
+//                           const uint32_t index_id);
   void add_stats(
     rocksdb::WriteBatch* batch,
     const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
@@ -844,3 +858,4 @@ public:
     GL_INDEX_ID gl_index_id
   );
 };
+
