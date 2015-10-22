@@ -69,9 +69,9 @@ ADD_SUBDIRECTORY(unittest)
 IF (WITH_ROCKSDB_SE_STORAGE_ENGINE)
   # TODO: read this file list from src.mk:TOOL_SOURCES
   SET(ROCKSDB_TOOL_SOURCES
-    ${CMAKE_SOURCE_DIR}/rocksdb/util/ldb_tool.cc
-    ${CMAKE_SOURCE_DIR}/rocksdb/util/ldb_cmd.cc
-    ${CMAKE_SOURCE_DIR}/rocksdb/util/sst_dump_tool.cc
+    ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_tool.cc
+    ${CMAKE_SOURCE_DIR}/rocksdb/tools/ldb_cmd.cc
+    ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump_tool.cc
   )
   MYSQL_ADD_EXECUTABLE(sst_dump ${CMAKE_SOURCE_DIR}/rocksdb/tools/sst_dump.cc ${ROCKSDB_TOOL_SOURCES})
   TARGET_LINK_LIBRARIES(sst_dump rocksdb_se)
