@@ -111,7 +111,7 @@ is cached. In that case this function would be equivalent to calling
 mem_heap_create(). */
 
 # define mem_heap_create_cached(N, cache) mem_heap_create_func(\
-		(N), __FILE__, __LINE__, MEM_HEAP_DYNAMIC, (cache))
+		(N), __FILE__, __LINE__, MEM_HEAP_DYNAMIC, NULL)
 
 /**************************************************************//**
 Use this macro instead of the corresponding function! Macro for memory
@@ -136,7 +136,7 @@ is cached. In that case this function would be equivalent to calling
 mem_heap_create(). */
 
 # define mem_heap_create_cached(N, cache) mem_heap_create_func(\
-		(N), MEM_HEAP_DYNAMIC, (cache))
+		(N), MEM_HEAP_DYNAMIC, NULL)
 
 /**************************************************************//**
 Use this macro instead of the corresponding function! Macro for memory
