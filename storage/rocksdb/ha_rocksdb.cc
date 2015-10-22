@@ -882,7 +882,7 @@ static PSI_stage_info *all_rocksdb_stages[]=
 static PSI_mutex_key ex_key_mutex_example, ex_key_mutex_ROCKSDB_SHARE_mutex,
   key_mutex_background, key_mutex_stop_background,
   key_mutex_drop_index, key_drop_index_interrupt_mutex,
-  key_mutex_snapshot;
+  key_mutex_snapshot, key_mutex_collation_exception_list;
 
 static PSI_mutex_info all_rocksdb_mutexes[]=
 {
@@ -893,6 +893,8 @@ static PSI_mutex_info all_rocksdb_mutexes[]=
   { &key_mutex_drop_index, "drop index", PSI_FLAG_GLOBAL},
   { &key_drop_index_interrupt_mutex, "drop index interrupt", PSI_FLAG_GLOBAL},
   { &key_mutex_snapshot, "snapshot", PSI_FLAG_GLOBAL},
+  { &key_mutex_collation_exception_list, "collation_exception_list",
+      PSI_FLAG_GLOBAL},
 };
 
 PSI_cond_key key_cond_stop, key_drop_index_interrupt_cond;
