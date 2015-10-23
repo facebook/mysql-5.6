@@ -133,8 +133,9 @@ CREATE TABLE t2 (
        UNIQUE key doc_bool (doc.bool as bool),
        UNIQUE key doc_name (doc.name as string(64)),
        key doc_name_100 (doc.name as string(100)),
-       UNIQUE key doc_address (doc.address as binary(64)),
-       key (doc.address as binary(100))) engine=innodb;
+       # binary index type is an alias of string
+       UNIQUE key doc_address_streetName (doc.address.streetName as binary(64)),
+       key (doc.address.streetName as binary(100))) engine=innodb;
 
 SHOW CREATE TABLE t2;
 --replace_column 7 -
@@ -167,9 +168,9 @@ delete from t2 where a = 6 or a = 7;
 --error ER_DUP_ENTRY
 insert into t2 values (6,'@6','{ "name":"Eddard" }');
 
-# Duplicate entry for doc.address
+# Duplicate entry for doc.address.streetName
 --error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 } }');
+insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"4th", "zipcode":98765 } }');
 
 update t2 set doc='{ "id":105, "name":"Ned", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
 # Duplicate entry for doc.address because of previous update
@@ -234,7 +235,7 @@ ALTER TABLE t2 DROP KEY doc_name_100;
 --replace_column 7 -
 SHOW INDEXES IN t2;
 
-ALTER TABLE t2 DROP KEY doc_address;
+ALTER TABLE t2 DROP KEY doc_address_streetName;
 
 --replace_column 7 -
 SHOW INDEXES IN t2;

@@ -8965,11 +8965,10 @@ Field_document::update_json(const fbson::FbsonValue *val,
     }
     value.length(val->numPackedBytes() +
                  sizeof(fbson::FbsonDocument::FbsonHeader));
-    fbson::FbsonDocument *doc =
-      fbson::FbsonDocument::makeDocument(value.c_ptr(),
-                                         value.length(),
-                                         val->type());
-    doc->setValue(val);
+    if (nullptr ==
+        fbson::FbsonDocument::makeDocument(value.c_ptr(), value.length(), val))
+      DBUG_ASSERT(0);
+
     return Field_blob::store_internal(value.ptr(),
                                       value.length(),
                                       cs);
@@ -9622,9 +9621,13 @@ longlong Field_document::val_int(void)
         r = 0;
       }else
       {
-        if(DOC_PATH_INT == doc_type &&
-           real->orig_table->s->db_type()->db_type == DB_TYPE_INNODB)
-          r = read_bigendian(blob, sizeof(int64));
+        if( real->orig_table->s->db_type()->db_type == DB_TYPE_INNODB)
+        {
+          if (DOC_PATH_INT == doc_type)
+            r = read_bigendian(blob, sizeof(int64));
+          else // DOC_PATH_TINY
+            r = read_bigendian(blob, sizeof(char));
+        }
         else if(DOC_PATH_INT == doc_type)
           r = *(int64*)blob;
         else
@@ -9939,6 +9942,211 @@ fbson::FbsonValue *Field_document::get_fbson_value()
     return json_extract_fbsonvalue(&document_key_path, pval);
   }
   return nullptr;
+}
+
+uint Field_document::get_key_image(uchar *buff, uint length,
+                                   imagetype type_arg)
+{
+    memset(buff, 0, length);
+
+    fbson::FbsonValue *fb_val = get_fbson_value();
+    if(nullptr == fb_val)
+      return 0;
+
+    switch (doc_type)
+    {
+      case DOC_PATH_TINY:
+        if (length >= 1)
+          return get_key_image_bool(buff, fb_val);
+
+      case DOC_PATH_INT:
+        if (length >= sizeof(int64_t))
+          return get_key_image_int(buff, fb_val);
+
+      case DOC_PATH_DOUBLE:
+        if (length >= sizeof(double))
+          return get_key_image_double(buff, fb_val);
+
+      case DOC_PATH_STRING:
+      case DOC_PATH_BLOB:
+        return get_key_image_text(buff, length, fb_val);
+
+      default:
+        DBUG_ASSERT(0);
+        // we should never have a unsupported key type
+        // fallback to blob's get_key_image
+        return Field_blob::get_key_image(buff, length, type_arg);
+    }
+}
+
+// get key image as int
+uint Field_document::get_key_image_int(uchar *buff, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  int64_t &val = *(int64_t*)buff;
+  if (pval->type() == fbson::FbsonType::T_String)
+  {
+    const char* start = pval->getValuePtr();
+    char* end = (char*)start + pval->size();
+    int error;
+    val = my_strtoll10(start, &end, &error);
+    if (error == ERANGE || error == EDOM)
+    {
+      val = 0;
+      return 0;
+    }
+
+    return sizeof(int64_t);
+  }
+
+  return get_key_image_numT(val, pval);
+}
+
+// get key image as double
+uint Field_document::get_key_image_double(uchar *buff, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  double &val = *(double*)buff;
+  if (pval->type() == fbson::FbsonType::T_String)
+  {
+    const char* start = pval->getValuePtr();
+    char* end = (char*)start + pval->size();
+    int error;
+    val = my_strtod(start, &end, &error);
+    if (error == OVERFLOW)
+    {
+      val = 0;
+      return 0;
+    }
+
+    return sizeof(double);
+  }
+
+  return get_key_image_numT(val, pval);
+}
+
+// get key image as boolean
+uint Field_document::get_key_image_bool(uchar *buff, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+  int8_t &val = *(int8_t*)buff;
+  switch (pval->type())
+  {
+    case fbson::FbsonType::T_True:
+      val = 1;
+      break;
+    case fbson::FbsonType::T_False:
+      val = 0;
+      break;
+    case fbson::FbsonType::T_Int8:
+      val = (((fbson::Int8Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Int16:
+      val = (((fbson::Int16Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Int32:
+      val = (((fbson::Int32Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Int64:
+      val = (((fbson::Int64Val *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_Double:
+      val = (((fbson::DoubleVal *)pval)->val() != 0);
+      break;
+    case fbson::FbsonType::T_String:
+      {
+        int8_t retval = ((fbson::StringVal *)pval)->getBoolVal();
+        if (retval < 0)
+          return 0;
+        else
+          val = retval;
+      }
+      break;
+
+    default:
+      return 0;
+  }
+
+  return 1;
+}
+
+// get key image as string
+uint Field_document::get_key_image_text(uchar *buff, uint length,
+                               fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  char local_buf[64];
+  uint copy_len = 0;
+  switch (pval->type())
+  {
+    case fbson::FbsonType::T_Int8:
+      longlong2str(((fbson::Int8Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Int16:
+      longlong2str(((fbson::Int16Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Int32:
+      longlong2str(((fbson::Int32Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Int64:
+      longlong2str(((fbson::Int64Val *)pval)->val(), local_buf, -10);
+      break;
+    case fbson::FbsonType::T_Double:
+      sprintf(local_buf, "%.16g", ((fbson::DoubleVal *)pval)->val());
+      break;
+    case fbson::FbsonType::T_String:
+    case fbson::FbsonType::T_Binary:
+      copy_len = min<uint>(length, pval->size());
+      memmove(buff, pval->getValuePtr(), copy_len);
+      return copy_len;
+
+    case fbson::FbsonType::T_True:
+    case fbson::FbsonType::T_False:
+    default:
+      return 0;
+  }
+
+  copy_len = min<uint>(length, strlen(local_buf));
+  memmove(buff, local_buf, copy_len);
+  return copy_len;
+}
+
+template <class T>
+uint Field_document::get_key_image_numT(T &val, fbson::FbsonValue *pval)
+{
+  DBUG_ASSERT(pval);
+
+  switch (pval->type())
+  {
+    case fbson::FbsonType::T_True:
+      val = 1;
+      break;
+    case fbson::FbsonType::T_False:
+      val = 0;
+      break;
+    case fbson::FbsonType::T_Int8:
+      val = (T)((fbson::Int8Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Int16:
+      val = (T)((fbson::Int16Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Int32:
+      val = (T)((fbson::Int32Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Int64:
+      val = (T)((fbson::Int64Val *)pval)->val();
+      break;
+    case fbson::FbsonType::T_Double:
+      val = (T)((fbson::DoubleVal *)pval)->val();
+      break;
+    default:
+      return 0;
+  }
+
+  return sizeof(T);
 }
 
 /****************************************************************************
