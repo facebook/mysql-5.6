@@ -98,6 +98,8 @@ static std::shared_ptr<MyRocksTablePropertiesCollectorFactory>
 static rdb_perf_context_shared global_perf_context;
 static std::map<const rocksdb::Snapshot*, std::shared_ptr<MyRocksSnapshot>>
   snapshot_map;
+static std::vector<std::string> split(const std::string& input,
+                                      char               delimiter);
 
 rocksdb::ColumnFamilyOptions default_cf_opts;
 
@@ -2085,6 +2087,8 @@ static int rocksdb_init_func(void *p)
                     err);
     DBUG_RETURN(1);
   }
+
+  collation_exception_list = split(rocksdb_strict_collation_exceptions, ',');
 
   sql_print_information("RocksDB instance opened");
   DBUG_RETURN(0);
