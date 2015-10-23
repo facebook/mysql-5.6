@@ -17,6 +17,8 @@
 #include "mysys_err.h"
 #include <errno.h>
 
+ulong select_into_file_fsync_size = 0;
+uint select_into_file_fsync_timeout = 0;
 
 /**
   Write a chunk of bytes to a file
@@ -49,7 +51,7 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags)
   /* The behavior of write(fd, buf, 0) is not portable */
   if (unlikely(!Count))
     DBUG_RETURN(0);
-  
+
   DBUG_EXECUTE_IF ("simulate_no_free_space_error",
                    { DBUG_SET("+d,simulate_file_write_error");});
   for (;;)
@@ -75,6 +77,17 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags)
       sum_written+= writtenbytes;
       Buffer+= writtenbytes;
       Count-= writtenbytes;
+      if (!select_into_file_fsync_size &&
+          writtenbytes >= select_into_file_fsync_size)
+      {
+        if (my_sync(Filedes, MyFlags))
+        {
+          errno = my_errno;
+          break;
+        }
+        else if (!select_into_file_fsync_timeout)
+          my_sleep(select_into_file_fsync_timeout);
+      }
     }
     my_errno= errno;
     DBUG_PRINT("error",("Write only %ld bytes, error: %d",
@@ -127,3 +140,5 @@ size_t my_write(File Filedes, const uchar *Buffer, size_t Count, myf MyFlags)
 
   DBUG_RETURN(sum_written);
 } /* my_write */
+
+

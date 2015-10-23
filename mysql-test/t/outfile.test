@@ -137,5 +137,44 @@ revoke all privileges on *.* from user_1@localhost;
 drop user user_1@localhost;
 drop database mysqltest;
 
+# 
+# 
+#
+# Only test in debug mode since DBUG_EXECUTE_IF is used
+--source include/have_debug.inc
+--source include/no_valgrind_without_big.inc
+--source include/not_embedded.inc
+--source include/have_innodb.inc
+
+--disable_warnings
+drop table if exists t2;
+--enable_warnings
+
+#SELECT @@global.innodb_buffer_pool_size;
+#SELECT @@global.innodb_evicted_pages_sampling_ratio;
+
+# Create a table and populate it with some data
+CREATE TABLE t2 (a TEXT, b TEXT) ENGINE=INNODB;
+
+# Enable the debug injection.
+#set @@debug="d,test-age-of-evicted-pages";
+
+# Here we end up with 32768 rows in the table
+--disable_query_log
+INSERT INTO t2 (a, b) VALUES (REPEAT('a', 512), REPEAT('b', 512));
+INSERT INTO t2 (a, b) VALUES (REPEAT('A', 512), REPEAT('B', 512));
+let $i=14;
+while ($i) {
+  INSERT INTO t (a, b) SELECT a, b FROM t2;
+  dec $i;
+}
+--enable_query_log
+
+SELECT *
+INTO OUTFILE '/tmp/t2.txt'
+FROM t2;
+
+DROP TABLE t2;
+
 # Wait till we reached the initial number of concurrent sessions
 --source include/wait_until_count_sessions.inc
