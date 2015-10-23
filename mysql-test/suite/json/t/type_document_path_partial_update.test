@@ -148,11 +148,183 @@ update t2 set t2.doc.Children.set();
 --error ER_WRONG_PARAMCOUNT_TO_PROCEDURE
 update t2 set t2.doc.Children.unset("ABC");
 
+#
+# Test "insert ... on duplicate key update"
+#
+create table t4 (a int primary key, doc document not null) engine=innodb;
+insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 values (2, '{"int":2, "k1":{"k2":4}}');
+select * from t4;
+
+# on duplicate primary, replace whole document
+insert into t4 values (1, '{"int":3, "k1":{"k2":6}}')
+on duplicate key update a = values(a), doc = values(doc);
+select * from t4;
+insert into t4 values (1, '{"int":3}')
+on duplicate key update a = values(a), doc = '{"k1":{"k2":6}}';
+select * from t4;
+
+# on duplicate primary, replace partial document
+insert into t4 values (1, '{"int":3}')
+on duplicate key update doc.int = 3; # insert a new key
+select * from t4;
+insert into t4 values (2, '{"int":4, "k1":{"k2":4}}')
+on duplicate key update doc.int = 4, doc.k1.k2 = 8;
+select * from t4;
+
+# auto_increment pk
+drop table t4;
+create table t4 (a int auto_increment primary key, doc document not null) engine=innodb;
+insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 (doc) values ('{"int":2, "k1":{"k2":4}}');
+select * from t4;
+
+# on duplicate primary, replace whole document
+insert into t4 (a, doc) values (1, '{"int":3, "k1":{"k2":6}}')
+on duplicate key update a = values(a), doc = values(doc);
+select * from t4;
+insert into t4 (a, doc) values (2, '{"int":3}')
+on duplicate key update a = values(a), doc = '{"k1":{"k2":6}}';
+select * from t4;
+
+# on duplicate primary, replace partial document
+insert into t4 (a, doc) values (2, '{"int":3}')
+on duplicate key update doc.int = 3; # insert a new key
+select * from t4;
+insert into t4 (a, doc) values (2, '{"int":4, "k1":{"k2":4}}')
+on duplicate key update doc.int = 4, doc.k1.k2 = 8;
+select * from t4;
+
+# unique secondary indexes (document path index type int)
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_int(doc.int as int)) engine=innodb;
+insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 values (2, '{"int":2, "k1":{"k2":4}}');
+select * from t4;
+
+# on duplicate secondary, replace whole document
+insert into t4 values (3, '{"int":2}')
+on duplicate key update a = values(a), doc = values(doc);
+select * from t4;
+# update with a new document
+insert into t4 values (3, '{"int":2}')
+on duplicate key update a = values(a), doc = '{"int":3, "k1":{"k2":6}}';
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (3, '{"int":3}')
+on duplicate key update a = values(a), doc = '{"int":1}'; # new value has key conflict
+
+# on duplicate secondary, update partial document
+insert into t4 values (4, '{"int":1}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+insert into t4 values (4, '{"int":1}')
+on duplicate key update doc.k1.k2 = doc.k1.k2 + 1;
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (3, '{"int":3}')
+on duplicate key update a = values(a), doc.int = 1; # new value has key conflict
+
+# unique secondary indexes (document path and regular column)
+drop table t4;
+create table t4 (a int, b int, doc document not null, unique key b_doc(b, doc.int as int)) engine=innodb;
+insert into t4 values (1, 1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 values (2, 2, '{"int":2, "k1":{"k2":4}}');
+select * from t4;
+
+# on duplicate secondary, replace whole document
+insert into t4 values (3, 2, '{"int":2}')
+on duplicate key update a = values(a), b = values(b), doc = '{"int":3, "k1":{"k2":6}}';
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (3, 2, '{"int":3}')
+on duplicate key update a = values(a), b = 1, doc = '{"int":1}';
+
+# on duplicate secondary, update partial document
+insert into t4 values (4, 2, '{"int":3}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (3, 2, '{"int":3}')
+on duplicate key update a = values(a), b = 1, doc.int = 1;
+
+# more document path index types
+# unique secondary indexes (document path index type double)
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_double(doc.double as double)) engine=innodb;
+insert into t4 values (1, '{"double":1.1, "k1":{"k2":2}}');
+insert into t4 values (2, '{"double":2.2, "k1":{"k2":4}}');
+select * from t4;
+
+# on duplicate secondary, replace whole document
+insert into t4 values (3, '{"double":2.2}')
+on duplicate key update a = values(a), doc = '{"double":3.3, "k1":{"k2":6}}';
+select * from t4;
+
+# on duplicate secondary, update partial document
+insert into t4 values (4, '{"double":1.1}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+
+# unique secondary indexes (document path index type prefix string)
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_prefix(doc.k1.k2 as string(2))) engine=innodb;
+insert into t4 values (1, '{"k1":{"k2":"aaaa"}}');
+insert into t4 values (2, '{"k1":{"k2":"bbbb"}}');
+select * from t4;
+
+# on duplicate secondary, replace whole document
+insert into t4 values (3, '{"k1":{"k2":"bbbb"}}')
+on duplicate key update a = values(a), doc = '{"int":3, "k1":{"k2":"cccc"}}';
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
+on duplicate key update doc = '{"k1":{"k2":"aaaa"}}';
+
+# on duplicate secondary, update partial document
+insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
+on duplicate key update doc.int = 9;
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
+on duplicate key update doc.k1.k2 = 'aaaa';
+
+# unique secondary indexes (document path index type bool)
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_bool(doc.bool as bool)) engine=innodb;
+insert into t4 values (1, '{"bool":true, "k1":{"k2":2}}');
+insert into t4 values (2, '{"bool":false, "k1":{"k2":4}}');
+select * from t4;
+
+# on duplicate secondary, replace whole document
+insert into t4 values (3, '{"bool":false}')
+on duplicate key update a = values(a), doc = '{"bool":false, "k1":{"k2":6}}';
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (4, '{"bool":false}')
+on duplicate key update a = values(a), doc = '{"bool":"true"}';
+
+# on duplicate secondary, update partial document
+insert into t4 values (4, '{"bool":false}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+# update with key conflict
+--error ER_DUP_ENTRY
+insert into t4 values (4, '{"bool":true}')
+on duplicate key update doc.bool = 0;
+
 
 # Restore the original value
 # SELECT @@global.allow_document_type;
 --echo ##### Clean up
-drop table t1, t2, t3;
+drop table t1, t2, t3, t4;
 SET @@global.allow_document_type = @start_allow_document_type;
 
 --source include/rpl_end.inc
