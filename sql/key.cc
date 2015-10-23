@@ -127,7 +127,17 @@ void key_copy(uchar *to_key, uchar *from_record, KEY *key_info,
                          key_part->null_bit);
       key_length--;
     }
-    if (key_part->key_part_flag & HA_BLOB_PART ||
+    if (key_part->document_path_key_part)
+    {
+      // we handle document path key separately (similar to blob)
+      length= min<uint>(key_length, key_part->document_path_key_part->length);
+      Field_document *field= (Field_document*)(key_part->field);
+      my_ptrdiff_t ptrdiff= from_record - field->table->record[0];
+      field->move_field_offset(ptrdiff);
+      field->get_key_image(to_key, length, Field::itRAW);
+      field->move_field_offset(-ptrdiff);
+    }
+    else if (key_part->key_part_flag & HA_BLOB_PART ||
         key_part->key_part_flag & HA_VAR_LENGTH_PART)
     {
       key_length-= HA_KEY_BLOB_LENGTH;
