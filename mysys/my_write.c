@@ -20,7 +20,6 @@
 ulong select_into_file_fsync_size = 0;
 uint select_into_file_fsync_timeout = 0;
 
-
 /**
   Write a chunk of bytes to a file
 
