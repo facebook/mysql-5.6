@@ -248,7 +248,206 @@ update t2 set t2.doc.Children.set();
 ERROR 42000: Incorrect parameter count to procedure 'set'
 update t2 set t2.doc.Children.unset("ABC");
 ERROR 42000: Incorrect parameter count to procedure 'unset'
+create table t4 (a int primary key, doc document not null) engine=innodb;
+insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 values (2, '{"int":2, "k1":{"k2":4}}');
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":2}}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 values (1, '{"int":3, "k1":{"k2":6}}')
+on duplicate key update a = values(a), doc = values(doc);
+select * from t4;
+a	doc
+1	{"int":3,"k1":{"k2":6}}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 values (1, '{"int":3}')
+on duplicate key update a = values(a), doc = '{"k1":{"k2":6}}';
+select * from t4;
+a	doc
+1	{"k1":{"k2":6}}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 values (1, '{"int":3}')
+on duplicate key update doc.int = 3;
+select * from t4;
+a	doc
+1	{"k1":{"k2":6},"int":3}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 values (2, '{"int":4, "k1":{"k2":4}}')
+on duplicate key update doc.int = 4, doc.k1.k2 = 8;
+select * from t4;
+a	doc
+1	{"k1":{"k2":6},"int":3}
+2	{"int":4,"k1":{"k2":8}}
+drop table t4;
+create table t4 (a int auto_increment primary key, doc document not null) engine=innodb;
+insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 (doc) values ('{"int":2, "k1":{"k2":4}}');
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":2}}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 (a, doc) values (1, '{"int":3, "k1":{"k2":6}}')
+on duplicate key update a = values(a), doc = values(doc);
+select * from t4;
+a	doc
+1	{"int":3,"k1":{"k2":6}}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 (a, doc) values (2, '{"int":3}')
+on duplicate key update a = values(a), doc = '{"k1":{"k2":6}}';
+select * from t4;
+a	doc
+1	{"int":3,"k1":{"k2":6}}
+2	{"k1":{"k2":6}}
+insert into t4 (a, doc) values (2, '{"int":3}')
+on duplicate key update doc.int = 3;
+select * from t4;
+a	doc
+1	{"int":3,"k1":{"k2":6}}
+2	{"k1":{"k2":6},"int":3}
+insert into t4 (a, doc) values (2, '{"int":4, "k1":{"k2":4}}')
+on duplicate key update doc.int = 4, doc.k1.k2 = 8;
+select * from t4;
+a	doc
+1	{"int":3,"k1":{"k2":6}}
+2	{"k1":{"k2":8},"int":4}
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_int(doc.int as int)) engine=innodb;
+insert into t4 values (1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 values (2, '{"int":2, "k1":{"k2":4}}');
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":2}}
+2	{"int":2,"k1":{"k2":4}}
+insert into t4 values (3, '{"int":2}')
+on duplicate key update a = values(a), doc = values(doc);
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":2}}
+3	{"int":2}
+insert into t4 values (3, '{"int":2}')
+on duplicate key update a = values(a), doc = '{"int":3, "k1":{"k2":6}}';
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":2}}
+3	{"int":3,"k1":{"k2":6}}
+insert into t4 values (3, '{"int":3}')
+on duplicate key update a = values(a), doc = '{"int":1}';
+ERROR 23000: Duplicate entry '1' for key 'doc_int'
+insert into t4 values (4, '{"int":1}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":9}}
+3	{"int":3,"k1":{"k2":6}}
+insert into t4 values (4, '{"int":1}')
+on duplicate key update doc.k1.k2 = doc.k1.k2 + 1;
+select * from t4;
+a	doc
+1	{"int":1,"k1":{"k2":10}}
+3	{"int":3,"k1":{"k2":6}}
+insert into t4 values (3, '{"int":3}')
+on duplicate key update a = values(a), doc.int = 1;
+ERROR 23000: Duplicate entry '1' for key 'doc_int'
+drop table t4;
+create table t4 (a int, b int, doc document not null, unique key b_doc(b, doc.int as int)) engine=innodb;
+insert into t4 values (1, 1, '{"int":1, "k1":{"k2":2}}');
+insert into t4 values (2, 2, '{"int":2, "k1":{"k2":4}}');
+select * from t4;
+a	b	doc
+1	1	{"int":1,"k1":{"k2":2}}
+2	2	{"int":2,"k1":{"k2":4}}
+insert into t4 values (3, 2, '{"int":2}')
+on duplicate key update a = values(a), b = values(b), doc = '{"int":3, "k1":{"k2":6}}';
+select * from t4;
+a	b	doc
+1	1	{"int":1,"k1":{"k2":2}}
+3	2	{"int":3,"k1":{"k2":6}}
+insert into t4 values (3, 2, '{"int":3}')
+on duplicate key update a = values(a), b = 1, doc = '{"int":1}';
+ERROR 23000: Duplicate entry '1-1' for key 'b_doc'
+insert into t4 values (4, 2, '{"int":3}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+a	b	doc
+1	1	{"int":1,"k1":{"k2":2}}
+3	2	{"int":3,"k1":{"k2":9}}
+insert into t4 values (3, 2, '{"int":3}')
+on duplicate key update a = values(a), b = 1, doc.int = 1;
+ERROR 23000: Duplicate entry '1-1' for key 'b_doc'
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_double(doc.double as double)) engine=innodb;
+insert into t4 values (1, '{"double":1.1, "k1":{"k2":2}}');
+insert into t4 values (2, '{"double":2.2, "k1":{"k2":4}}');
+select * from t4;
+a	doc
+1	{"double":1.1,"k1":{"k2":2}}
+2	{"double":2.2,"k1":{"k2":4}}
+insert into t4 values (3, '{"double":2.2}')
+on duplicate key update a = values(a), doc = '{"double":3.3, "k1":{"k2":6}}';
+select * from t4;
+a	doc
+1	{"double":1.1,"k1":{"k2":2}}
+3	{"double":3.3,"k1":{"k2":6}}
+insert into t4 values (4, '{"double":1.1}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+a	doc
+1	{"double":1.1,"k1":{"k2":9}}
+3	{"double":3.3,"k1":{"k2":6}}
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_prefix(doc.k1.k2 as string(2))) engine=innodb;
+insert into t4 values (1, '{"k1":{"k2":"aaaa"}}');
+insert into t4 values (2, '{"k1":{"k2":"bbbb"}}');
+select * from t4;
+a	doc
+1	{"k1":{"k2":"aaaa"}}
+2	{"k1":{"k2":"bbbb"}}
+insert into t4 values (3, '{"k1":{"k2":"bbbb"}}')
+on duplicate key update a = values(a), doc = '{"int":3, "k1":{"k2":"cccc"}}';
+select * from t4;
+a	doc
+1	{"k1":{"k2":"aaaa"}}
+3	{"int":3,"k1":{"k2":"cccc"}}
+insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
+on duplicate key update doc = '{"k1":{"k2":"aaaa"}}';
+ERROR 23000: Duplicate entry 'aaaa' for key 'doc_prefix'
+insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
+on duplicate key update doc.int = 9;
+select * from t4;
+a	doc
+1	{"k1":{"k2":"aaaa"}}
+3	{"int":9,"k1":{"k2":"cccc"}}
+insert into t4 values (4, '{"k1":{"k2":"cccc"}}')
+on duplicate key update doc.k1.k2 = 'aaaa';
+ERROR 23000: Duplicate entry 'aaaa' for key 'doc_prefix'
+drop table t4;
+create table t4 (a int, doc document not null, unique key doc_bool(doc.bool as bool)) engine=innodb;
+insert into t4 values (1, '{"bool":true, "k1":{"k2":2}}');
+insert into t4 values (2, '{"bool":false, "k1":{"k2":4}}');
+select * from t4;
+a	doc
+1	{"bool":true,"k1":{"k2":2}}
+2	{"bool":false,"k1":{"k2":4}}
+insert into t4 values (3, '{"bool":false}')
+on duplicate key update a = values(a), doc = '{"bool":false, "k1":{"k2":6}}';
+select * from t4;
+a	doc
+1	{"bool":true,"k1":{"k2":2}}
+3	{"bool":false,"k1":{"k2":6}}
+insert into t4 values (4, '{"bool":false}')
+on duplicate key update a = values(a), doc = '{"bool":"true"}';
+ERROR 23000: Duplicate entry 'true' for key 'doc_bool'
+insert into t4 values (4, '{"bool":false}')
+on duplicate key update doc.k1.k2 = 9;
+select * from t4;
+a	doc
+1	{"bool":true,"k1":{"k2":2}}
+3	{"bool":false,"k1":{"k2":9}}
+insert into t4 values (4, '{"bool":true}')
+on duplicate key update doc.bool = 0;
+ERROR 23000: Duplicate entry '0' for key 'doc_bool'
 ##### Clean up
-drop table t1, t2, t3;
+drop table t1, t2, t3, t4;
 SET @@global.allow_document_type = @start_allow_document_type;
 include/rpl_end.inc
