@@ -1110,6 +1110,9 @@ The following options may be given as the first argument:
  --rocksdb-strict-collation-check 
  Enforce case sensitive collation for MyRocks indexes
  (Defaults to on; use --skip-rocksdb-strict-collation-check to disable.)
+ --rocksdb-strict-collation-exceptions=name 
+ List of tables (using regex) that are excluded from the
+ case sensitive collation enforcement
  --rocksdb-table-cache-numshardbits=# 
  DBOptions::table_cache_numshardbits for RocksDB
  --rocksdb-use-adaptive-mutex 
@@ -1731,6 +1734,7 @@ rocksdb-snapshot-dir
 rocksdb-stats-dump-period-sec 600
 rocksdb-store-checksums FALSE
 rocksdb-strict-collation-check TRUE
+rocksdb-strict-collation-exceptions (No default value)
 rocksdb-table-cache-numshardbits 4
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
