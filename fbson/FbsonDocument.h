@@ -140,6 +140,9 @@ class FbsonDocument {
   static FbsonDocument* makeDocument(char* pb,
                                      uint32_t size,
                                      FbsonType type);
+  static FbsonDocument* makeDocument(char* pb,
+                                     uint32_t size,
+                                     const FbsonValue *rval);
 
   // create an FbsonDocument object from FBSON packed bytes
   static FbsonDocument* createDocument(const char *pb,
@@ -819,6 +822,10 @@ class ArrayVal : public ContainerVal {
   ArrayVal();
 };
 
+// Prepare an empty document
+// input: pb - buuffer/packed bytes for fbson document
+//        size - size of the buffer
+//        type - value type in the document
 inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
                                                   uint32_t size,
                                                   FbsonType type){
@@ -837,11 +844,40 @@ inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
   // Write type
   value->type_ = type;
 
-  // Write packed size for container
+  // Set empty FbsonValue
   if(type == FbsonType::T_Object || type == FbsonType::T_Array)
     ((ContainerVal*)value)->size_ = 0;
   if(type == FbsonType::T_String || type == FbsonType::T_Binary)
     ((BlobVal*)value)->size_ = 0;
+  return doc;
+}
+
+// Prepare a document from an FbsonValue
+// input: pb - buuffer/packed bytes for fbson document
+//        size - size of the buffer
+//        rval - fbson value to be copied into the document
+inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
+                                                  uint32_t size,
+                                                  const FbsonValue *rval){
+
+  // checking if the buffer is big enough to store the value
+  if (!pb || !rval || size < sizeof(FbsonHeader) + rval->numPackedBytes()) {
+    return nullptr;
+  }
+
+  FbsonType type = rval->type();
+  if(type < FbsonType::T_Null || type >= FbsonType::NUM_TYPES){
+    return nullptr;
+  }
+  FbsonDocument* doc = (FbsonDocument*)pb;
+  // Write header
+  doc->header_.ver_ = FBSON_VER;
+  // get the starting byte of the value
+  FbsonValue *value = doc->getValue();
+  // binary copy of the rval
+  if (value != rval) // copy not necessary if values are the same
+    memmove(value, rval, rval->numPackedBytes());
+
   return doc;
 }
 
