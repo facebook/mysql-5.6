@@ -133,7 +133,6 @@ CREATE TABLE t2 (
        UNIQUE key doc_bool (doc.bool as bool),
        UNIQUE key doc_name (doc.name as string(64)),
        key doc_name_100 (doc.name as string(100)),
-       UNIQUE key doc_address (doc.address as binary(64)),
        key (doc.address as binary(100))) engine=innodb;
 
 SHOW CREATE TABLE t2;
@@ -167,14 +166,7 @@ delete from t2 where a = 6 or a = 7;
 --error ER_DUP_ENTRY
 insert into t2 values (6,'@6','{ "name":"Eddard" }');
 
-# Duplicate entry for doc.address
---error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 } }');
-
 update t2 set doc='{ "id":105, "name":"Ned", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
-# Duplicate entry for doc.address because of previous update
---error ER_DUP_ENTRY
-insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 } }');
 
 # int value for a double type index
 insert into t2 values(7,'@7','{ "double" : 123}');
@@ -233,8 +225,6 @@ ALTER TABLE t2 DROP KEY doc_name_100;
 
 --replace_column 7 -
 SHOW INDEXES IN t2;
-
-ALTER TABLE t2 DROP KEY doc_address;
 
 --replace_column 7 -
 SHOW INDEXES IN t2;

@@ -123,7 +123,6 @@ UNIQUE key doc_double (doc.double as double),
 UNIQUE key doc_bool (doc.bool as bool),
 UNIQUE key doc_name (doc.name as string(64)),
 key doc_name_100 (doc.name as string(100)),
-UNIQUE key doc_address (doc.address as binary(64)),
 key (doc.address as binary(100))) engine=innodb;
 SHOW CREATE TABLE t2;
 Table	Create Table
@@ -135,7 +134,6 @@ t2	CREATE TABLE `t2` (
   UNIQUE KEY `doc_double` (`doc`.`double` AS DOUBLE),
   UNIQUE KEY `doc_bool` (`doc`.`bool` AS BOOL),
   UNIQUE KEY `doc_name` (`doc`.`name` AS STRING(64)),
-  UNIQUE KEY `doc_address` (`doc`.`address` AS BINARY(64)),
   KEY `doc` (`doc`.`id` AS INT),
   KEY `doc_name_100` (`doc`.`name` AS STRING(100)),
   KEY `doc_2` (`doc`.`address` AS BINARY(100))
@@ -146,7 +144,6 @@ t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE
 t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	0	doc_bool	1	doc	A	-	1	NULL	YES	BTREE	disabled	
 t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
-t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
 t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	1	doc_name_100	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
@@ -166,11 +163,7 @@ ERROR 23000: Duplicate entry '1.2345678901234567123' for key 'doc_double'
 delete from t2 where a = 6 or a = 7;
 insert into t2 values (6,'@6','{ "name":"Eddard" }');
 ERROR 23000: Duplicate entry 'Eddard' for key 'doc_name'
-insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"5th", "zipcode":98765 } }');
-ERROR 23000: Duplicate entry '{"houseNumber":1005,"streetName":"5th","zipcode":98765}' for key 'doc_address'
 update t2 set doc='{ "id":105, "name":"Ned", "phone":6507770005, "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 }, "Children":["Rob", "Sansa", "Arya"], "a.b.c.":5 }' where a = 5;
-insert into t2 values (6,'@6','{ "address":{ "houseNumber":1005, "streetName":"Winterfell", "zipcode":98766 } }');
-ERROR 23000: Duplicate entry '{"houseNumber":1005,"streetName":"Winterfell","zipcode":98766}' for key 'doc_address'
 insert into t2 values(7,'@7','{ "double" : 123}');
 insert into t2 values(8, '@8','{ "double" : 123.0}');
 ERROR 23000: Duplicate entry '123' for key 'doc_double'
@@ -208,7 +201,6 @@ t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE
 t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	0	doc_bool	1	doc	A	-	1	NULL	YES	BTREE	disabled	
 t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
-t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
 t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	1	doc_name_100	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
@@ -218,7 +210,6 @@ Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_par
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
-t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
 t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	1	doc_name_100	1	doc	A	-	100	NULL	YES	BTREE	disabled	
 t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
@@ -228,10 +219,8 @@ Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_par
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
 t2	0	doc_double	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	0	doc_name	1	doc	A	-	64	NULL	YES	BTREE	disabled	
-t2	0	doc_address	1	doc	A	-	64	NULL	YES	BTREE	disabled	
 t2	1	doc	1	doc	A	-	8	NULL	YES	BTREE	disabled	
 t2	1	doc_2	1	doc	A	-	100	NULL	YES	BTREE	disabled	
-ALTER TABLE t2 DROP KEY doc_address;
 SHOW INDEXES IN t2;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t2	0	PRIMARY	1	a	A	-	NULL	NULL		BTREE		
