@@ -1,0 +1,35 @@
+--disable_result_log
+--disable_query_log
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
+--enable_query_log
+--enable_result_log
+
+--source include/have_rocksdb.inc
+
+CREATE TABLE valid_values (value varchar(255)) ENGINE=myisam;
+eval INSERT INTO valid_values VALUES('\'$MYSQLTEST_VARDIR/tmp/abc\'');
+eval INSERT INTO valid_values VALUES('\'$MYSQLTEST_VARDIR/tmp/def\'');
+
+CREATE TABLE invalid_values (value varchar(255)) ENGINE=myisam;
+
+--let $sys_var=ROCKSDB_CREATE_CHECKPOINT
+--let $read_only=0
+--let $session=0
+--let $sticky=1
+--source suite/sys_vars/inc/rocksdb_sys_var.inc
+
+# validate that DEFAULT causes failure in creating checkpoint since
+# DEFAULT == ''
+--exec grep 'RocksDB: failed in creating checkpoint in directory : ' $MYSQLTEST_VARDIR/log/mysqld.1.err |sed s/.*RocksDB/RocksDB/g
+
+DROP TABLE valid_values;
+DROP TABLE invalid_values;
+
+# clean up
+--disable_result_log
+--disable_query_log
+--exec rm -r $MYSQLTEST_VARDIR/tmp/abc
+--exec rm -r $MYSQLTEST_VARDIR/tmp/def
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
+--enable_query_log
+--enable_result_log
