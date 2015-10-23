@@ -83,12 +83,17 @@ static void general_class_handler(THD *thd, uint event_subtype, va_list ap)
   event.general_query_length= va_arg(ap, unsigned int);
   event.general_charset= va_arg(ap, struct charset_info_st *);
   event.general_rows= (unsigned long long) va_arg(ap, ha_rows);
+  event.affected_rows= (long long) va_arg(ap, longlong);
   event.general_sql_command= va_arg(ap, MYSQL_LEX_STRING);
   event.general_host= va_arg(ap, MYSQL_LEX_STRING);
   event.general_external_user= va_arg(ap, MYSQL_LEX_STRING);
   event.general_ip= va_arg(ap, MYSQL_LEX_STRING);
   event.database= va_arg(ap, const char *);
   event.database_length= va_arg(ap, unsigned int);
+  event.connection_certificate= va_arg(ap, const char*);
+  event.connection_certificate_length= va_arg(ap, unsigned int);
+  event.query_attributes= va_arg(ap, const char*);
+  event.query_attributes_length= va_arg(ap, unsigned int);
   event.query_id= (unsigned long long) thd->query_id;
   event_class_dispatch(thd, MYSQL_AUDIT_GENERAL_CLASS, &event);
 }
