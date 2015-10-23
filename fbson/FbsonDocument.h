@@ -140,6 +140,9 @@ class FbsonDocument {
   static FbsonDocument* makeDocument(char* pb,
                                      uint32_t size,
                                      FbsonType type);
+  static FbsonDocument* makeDocument(char* pb,
+                                     uint32_t size,
+                                     const FbsonValue *rval);
 
   // create an FbsonDocument object from FBSON packed bytes
   static FbsonDocument* createDocument(const char *pb,
@@ -837,11 +840,33 @@ inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
   // Write type
   value->type_ = type;
 
-  // Write packed size for container
+  // Set empty FbsonValue
   if(type == FbsonType::T_Object || type == FbsonType::T_Array)
     ((ContainerVal*)value)->size_ = 0;
   if(type == FbsonType::T_String || type == FbsonType::T_Binary)
     ((BlobVal*)value)->size_ = 0;
+  return doc;
+}
+
+inline FbsonDocument* FbsonDocument::makeDocument(char *pb,
+                                                  uint32_t size,
+                                                  const FbsonValue *rval){
+
+  if (!pb || !rval || size < sizeof(FbsonHeader) + sizeof(FbsonValue)) {
+    return nullptr;
+  }
+
+  FbsonType type = rval->type();
+  if(type < FbsonType::T_Null || type >= FbsonType::NUM_TYPES){
+    return nullptr;
+  }
+  FbsonDocument* doc = (FbsonDocument*)pb;
+  // Write header
+  doc->header_.ver_ = FBSON_VER;
+  // get the starting byte of the value
+  FbsonValue *value = doc->getValue();
+  // binary copy of the rval
+  memmove(value, rval, rval->numPackedBytes());
   return doc;
 }
 

@@ -3957,6 +3957,7 @@ public:
   enum ha_base_keytype key_type() const { return HA_KEYTYPE_TEXT; }
   enum_field_types type() const { return MYSQL_TYPE_DOCUMENT; }
   bool match_collation_to_optimize_range() const { return false; }
+  uint get_key_image(uchar *buff, uint length, imagetype type);
   void sql_type(String &str) const;
   using Field_blob::store;
 
@@ -4111,6 +4112,13 @@ private:
 
   bool has_insert_default_function() const { return !real_maybe_null(); };
   void evaluate_insert_default_function() { reset(); };
+
+  uint get_key_image_bool(uchar *buff, fbson::FbsonValue *pval);
+  uint get_key_image_int(uchar *buff, fbson::FbsonValue *pval);
+  uint get_key_image_double(uchar *buff, fbson::FbsonValue *pval);
+  uint get_key_image_text(uchar *buff, uint length, fbson::FbsonValue *pval);
+  template<class T>
+  uint get_key_image_numT(T &val, fbson::FbsonValue *pval);
 };
 /*
   This class is for iterating of the document key in the
