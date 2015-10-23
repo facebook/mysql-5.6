@@ -1622,34 +1622,29 @@ dfield_set_document_path_data_bool(
 	ut_ad(pval);
 
 	void *buf = mem_heap_alloc(heap, 1);
+	uchar ch = 0;
 	bool is_valid = true;
 	switch (pval->type())
 	{
 	case fbson::FbsonType::T_True:
-		mach_write_to_1((unsigned char*)buf, 1);
+		ch = 1;
 		break;
 	case fbson::FbsonType::T_False:
-		mach_write_to_1((unsigned char*)buf, 0);
 		break;
 	case fbson::FbsonType::T_Int8:
-		mach_write_to_1((unsigned char*)buf,
-			((fbson::Int8Val *)pval)->val() != 0);
+		ch = (((fbson::Int8Val *)pval)->val() != 0);
 		break;
 	case fbson::FbsonType::T_Int16:
-		mach_write_to_1((unsigned char*)buf,
-			((fbson::Int16Val *)pval)->val() != 0);
+		ch = (((fbson::Int16Val *)pval)->val() != 0);
 		break;
 	case fbson::FbsonType::T_Int32:
-		mach_write_to_1((unsigned char*)buf,
-			((fbson::Int32Val *)pval)->val() != 0);
+		ch = (((fbson::Int32Val *)pval)->val() != 0);
 		break;
 	case fbson::FbsonType::T_Int64:
-		mach_write_to_1((unsigned char*)buf,
-			((fbson::Int64Val *)pval)->val() != 0);
+		ch = (((fbson::Int64Val *)pval)->val() != 0);
 		break;
 	case fbson::FbsonType::T_Double:
-		mach_write_to_1((unsigned char*)buf,
-			((fbson::DoubleVal *)pval)->val() != 0);
+		ch = (((fbson::DoubleVal *)pval)->val() != 0);
 		break;
 	case fbson::FbsonType::T_String:
 		{
@@ -1657,7 +1652,7 @@ dfield_set_document_path_data_bool(
 			if (retval < 0)
 				is_valid = false;
 			else
-				mach_write_to_1((unsigned char*)buf, retval);
+				ch = (uchar)retval;
 		}
 		break;
 
@@ -1665,8 +1660,10 @@ dfield_set_document_path_data_bool(
 		is_valid = false;
 	}
 
-	if (is_valid)
+	if (is_valid) {
+		mach_write_int_type((unsigned char*)buf, &ch, 1, false);
 		dfield_set_data(field, buf, 1);
+	}
 	else
 		dfield_set_null(field);
 }
@@ -1825,6 +1822,7 @@ dfield_set_document_path_data_string(
 		sprintf(buf, "%.16g", ((fbson::DoubleVal *)pval)->val());
 		break;
 	case fbson::FbsonType::T_String:
+	case fbson::FbsonType::T_Binary:
 		dfield_set_data(field, pval->getValuePtr(),
 			prefix_len < pval->size() ? prefix_len : pval->size());
 		break;
@@ -1838,33 +1836,6 @@ dfield_set_document_path_data_string(
 	if (buf)
 		dfield_set_data(field, buf,
 			prefix_len < strlen(buf) ? prefix_len : strlen(buf));
-}
-
-UNIV_INLINE
-void
-dfield_set_document_path_data_binary(
-/*=====================*/
-	fbson::FbsonValue *pval, /*< in: extracted fbson object */
-	dfield_t*	field,	/*< in/out: extracted fbson data is stored here */
-	uint prefix_len,	/*< in: string/binary prefix len */
-	mem_heap_t*	heap)	/*< in: memory heap */
-{
-	ut_ad(pval);
-
-	/* TODO: In future we may want to handle objects and arrays differently. */
-	switch (pval->type())
-	{
-	case fbson::FbsonType::T_String:
-	case fbson::FbsonType::T_Binary:
-	case fbson::FbsonType::T_Object:
-	case fbson::FbsonType::T_Array:
-		dfield_set_data(field, pval->getValuePtr(),
-			prefix_len < pval->size() ? prefix_len : pval->size());
-		break;
-
-	default:
-		dfield_set_null(field);
-	}
 }
 
 UNIV_INLINE
@@ -1901,11 +1872,8 @@ dfield_set_document_path_data(
 			dfield_set_document_path_data_double(pval, field, heap);
 			break;
 		case MYSQL_TYPE_STRING:
-			dfield_set_document_path_data_string(pval, field,
-				ind_field->prefix_len, heap);
-			break;
 		case MYSQL_TYPE_BLOB:
-			dfield_set_document_path_data_binary(pval, field,
+			dfield_set_document_path_data_string(pval, field,
 				ind_field->prefix_len, heap);
 			break;
 		default:
