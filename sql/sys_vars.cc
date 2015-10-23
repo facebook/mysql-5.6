@@ -5328,3 +5328,16 @@ static Sys_var_mybool Sys_recv_skip_ibuf_operations(
        "Skips ibuf record merging during crash recovery",
        GLOBAL_VAR(recv_skip_ibuf_operations), CMD_LINE(OPT_ARG),
        DEFAULT(TRUE));
+
+static Sys_var_ulong Sys_select_into_file_fsync_size(
+       "select_into_file_fsync_size",
+       "The written buffer size to be synced into disk with SELECT INTO OUTFILE",
+       GLOBAL_VAR(select_into_file_fsync_size), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, ULONG_MAX), DEFAULT(0), BLOCK_SIZE(1024));
+
+static Sys_var_ulong Sys_select_into_file_fsync_timeout(
+       "select_into_file_fsync_timeout",
+       "The timeout after each sync with SELECT INTO OUTFILE",
+       GLOBAL_VAR(select_into_file_fsync_timeout), CMD_LINE(REQUIRED_ARG),
+       VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(0), BLOCK_SIZE(1));
+
