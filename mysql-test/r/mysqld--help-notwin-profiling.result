@@ -1002,6 +1002,8 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-rocksdb-create-if-missing to disable.)
  --rocksdb-create-missing-column-families 
  DBOptions::create_missing_column_families for RocksDB
+ --rocksdb-datadir[=name] 
+ RocksDB data directory
  --rocksdb-db-write-buffer-size=# 
  DBOptions::db_write_buffer_size for RocksDB
  --rocksdb-dbstats[=name] 
@@ -1691,6 +1693,7 @@ rocksdb-compaction-sequential-deletes-file-size 0
 rocksdb-compaction-sequential-deletes-window 2000
 rocksdb-create-if-missing TRUE
 rocksdb-create-missing-column-families FALSE
+rocksdb-datadir ./.rocksdb
 rocksdb-db-write-buffer-size 0
 rocksdb-dbstats ON
 rocksdb-ddl ON
