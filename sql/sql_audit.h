@@ -175,7 +175,10 @@ void mysql_audit_general(THD *thd, uint event_subtype,
         query= thd->query_string;
       user= user_buff;
       userlen= make_user_name(thd, user_buff);
-      rows= thd->get_stmt_da()->current_row_for_warning();
+      if (event_subtype == MYSQL_AUDIT_GENERAL_STATUS)
+        rows= 0
+      else
+        rows= 1 + thd->get_sent_row_count();
       ip.str= (char *) thd->security_ctx->get_ip()->ptr();
       ip.length= thd->security_ctx->get_ip()->length();
       host.str= (char *) thd->security_ctx->get_host()->ptr();
