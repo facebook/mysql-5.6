@@ -1,0 +1,34 @@
+--disable_warnings
+drop database if exists db1;
+--enable_warnings
+
+create database db1;
+use db1;
+
+grant all on db1.* to 'test'@'%';
+connect (con,localhost,test,,db1);
+connection con;
+use db1;
+
+create view v as select 42;
+show create view v;
+
+--replace_regex /-- Server version.*// /-- MySQL dump .*// /-- Dump completed on .*/-- Dump completed/
+--exec $MYSQL_DUMP db1 
+
+connection default;
+drop user test;
+
+--replace_regex /-- Server version.*// /-- MySQL dump .*// /-- Dump completed on .*/-- Dump completed/
+--error 2
+--exec $MYSQL_DUMP db1 
+
+--replace_regex /-- Server version.*// /-- MySQL dump .*// /-- Dump completed on .*/-- Dump completed/
+--exec $MYSQL_DUMP --skip-view-error db1 
+
+--replace_regex /-- Server version.*// /-- MySQL dump .*// /-- Dump completed on .*/-- Dump completed/
+--error 2
+--exec $MYSQL_DUMP --view-error db1 
+
+drop view v;
+drop database db1;

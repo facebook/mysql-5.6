@@ -119,7 +119,8 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_include_master_host_port= 0,
                 opt_events= 0, opt_comments_used= 0,
                 opt_alltspcs=0, opt_notspcs= 0, opt_drop_trigger= 0,
-                opt_secure_auth= 1, opt_rocksdb= 0, opt_order_by_primary_desc=0;
+                opt_secure_auth= 1, opt_rocksdb= 0, opt_order_by_primary_desc=0,
+                opt_view_error= 1;
 static my_bool insert_pat_inited= 0, debug_info_flag= 0, debug_check_flag= 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection,*mysql=0;
@@ -595,6 +596,9 @@ static struct my_option my_long_options[] =
    &verbose, &verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"version",'V', "Output version information and exit.", 0, 0, 0,
    GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"view-error", OPT_VIEW_ERROR, "Exit with error when dumping view failed.",
+   &opt_view_error, &opt_view_error, 0, GET_BOOL, NO_ARG, 1, 0, 0, 0, 0,
+   0},
   {"where", 'w', "Dump only selected records. Quotes are mandatory.",
    &where, &where, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"xml", 'X', "Dump a database as well formed XML.", 0, 0, 0, GET_NO_ARG,
@@ -4864,6 +4868,39 @@ static int dump_all_tables_in_db(char *database)
 
   if (lock_tables)
   {
+    /*
+      Because dump_all_tables_in_db is always called before
+      dump_all_views_in_db, so that seen_views is properly populated,
+      LOCK TABLES for views will actually fail here, so handle view
+      errors from invalid definers here.
+    */
+    if (!opt_view_error)
+    {
+      MYSQL_ROW row;
+      MYSQL_RES *views;
+      if (mysql_query_with_error_report(mysql, &views,
+                                        "SHOW FULL TABLES WHERE "
+                                        "Table_Type = 'VIEW'"))
+        DBUG_RETURN(1);
+
+      while ((row= mysql_fetch_row(views)))
+      {
+        char query[NAME_LEN + 128];
+        sprintf(query, "LOCK TABLES %s READ",
+            quote_name(row[0], table_buff, 1));
+        if (mysql_query(mysql, query))
+        {
+          strmov(afterdot, row[0]);
+          fprintf(stderr,
+                  "Warning: Could not lock view %s because of "
+                  "invalid definer. Skip dumping.\n", hash_key);
+          my_hash_insert(&ignore_table,
+                         (uchar*) my_strdup(hash_key, MYF(MY_WME)));
+        }
+      }
+      mysql_free_result(views);
+    }
+
     DYNAMIC_STRING query;
     init_dynamic_string_checked(&query, "LOCK TABLES ", 256, 1024);
     for (numrows= 0 ; (table= getTableName(1)) ; )
