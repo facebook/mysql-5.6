@@ -101,7 +101,7 @@ insert into t1 values (21,2,2,0x12FFFFFFFFFF,1);
 explain 
 select * from t1 where kp0=1 and kp1=1 and kp2=0x12FFFFFFFFFF order by kp3 desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ref	kp12	kp12	20	const,const,const	1	Using where; Using index
+1	SIMPLE	t1	ref	kp12	kp12	20	const,const,const	#	Using where; Using index
 show status like '%rocksdb_bloom_filter_prefix%';
 Variable_name	Value
 rocksdb_bloom_filter_prefix_checked	0
