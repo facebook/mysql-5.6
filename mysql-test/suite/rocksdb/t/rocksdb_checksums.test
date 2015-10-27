@@ -92,6 +92,7 @@ select * from t4;
 set session debug= "-d,myrocks_simulate_bad_pk_checksum2";
 
 --echo # 3. Check if we catch checksum mismatches for secondary indexes
+--replace_column 9 #
 explain
 select * from t3 force index(a) where a<4;
 select * from t3 force index(a) where a<4;
@@ -104,6 +105,7 @@ select * from t4 force index(a) where a<1000000;
 set session debug= "-d,myrocks_simulate_bad_key_checksum1";
 
 --echo # 4. The same for index-only reads?
+--replace_column 9 #
 explain 
 select a from t3 force index(a) where a<4;
 select a from t3 force index(a) where a<4;
