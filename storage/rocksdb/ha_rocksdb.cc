@@ -3055,9 +3055,11 @@ int ha_rocksdb::create_key_defs(TABLE *table_arg, const char *db_table,
             collation_err += coll->name;
           }
           my_printf_error(ER_UNKNOWN_ERROR,
-                          "Unsupported collation on string indexed column %s. "
+                          "Unsupported collation on string indexed column %s "
+                          "for table %s. "
                           "Use binary collation (%s).", MYF(0),
                           table_arg->key_info[i].key_part[part].field->field_name,
+                          db_table,
                           collation_err.c_str());
           goto error;
         }
