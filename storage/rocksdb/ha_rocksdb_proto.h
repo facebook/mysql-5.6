@@ -36,6 +36,8 @@ std::vector<std::string> get_share_names(void);
 int rocksdb_get_share_perf_counters(const char *tablename,
                                     SHARE_PERF_COUNTERS *counters);
 
+void request_save_stats();
+
 class Dict_manager;
 Dict_manager *get_dict_manager(void);
 class Table_ddl_manager;
