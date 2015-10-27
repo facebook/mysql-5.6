@@ -19,7 +19,7 @@ INSERT INTO t1 (d,dt,ts,t,y) VALUES
 (DATE(@tm),@tm,TIMESTAMP(@tm),TIME(@tm),YEAR(@tm));
 EXPLAIN SELECT dt FROM t1 ORDER BY dt LIMIT 3;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	3	Using index
+1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	#	Using index
 SELECT dt FROM t1 ORDER BY dt LIMIT 3;
 dt
 2010-11-22 11:43:14
@@ -27,7 +27,7 @@ dt
 2011-08-27 21:33:56
 EXPLAIN SELECT dt FROM t1 FORCE INDEX FOR ORDER BY (PRIMARY) ORDER BY dt LIMIT 3;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	3	Using index
+1	SIMPLE	t1	index	NULL	PRIMARY	5	NULL	#	Using index
 SELECT dt FROM t1 FORCE INDEX FOR ORDER BY (PRIMARY) ORDER BY dt LIMIT 3;
 dt
 2010-11-22 11:43:14
@@ -60,12 +60,12 @@ INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 (DATE(@tm),@tm,TIMESTAMP(@tm),TIME(@tm),YEAR(@tm),'12:05:00');
 EXPLAIN SELECT ts FROM t1 WHERE ts > NOW();
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	ts	ts	5	NULL	1	Using where; Using index
+1	SIMPLE	t1	index	ts	ts	5	NULL	#	Using where; Using index
 SELECT ts FROM t1 WHERE ts > NOW();
 ts
 EXPLAIN SELECT ts FROM t1 USE INDEX () WHERE ts > NOW();
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1000	Using where
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using where
 SELECT ts FROM t1 USE INDEX () WHERE ts > NOW();
 ts
 DROP TABLE t1;
@@ -93,7 +93,7 @@ INSERT INTO t1 (d,dt,ts,t,y,pk) VALUES
 (DATE(@tm),@tm,TIMESTAMP(@tm),TIME(@tm),YEAR(@tm),'23:18:18');
 EXPLAIN SELECT y, COUNT(*) FROM t1 GROUP BY y;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	y	y	6	NULL	1000	Using index
+1	SIMPLE	t1	index	y	y	6	NULL	#	Using index
 SELECT y, COUNT(*) FROM t1 GROUP BY y;
 y	COUNT(*)
 1994	1
@@ -104,7 +104,7 @@ y	COUNT(*)
 2012	1
 EXPLAIN SELECT y, COUNT(*) FROM t1 USE INDEX FOR GROUP BY () GROUP BY y;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	y	y	6	NULL	1000	Using index; Using temporary; Using filesort
+1	SIMPLE	t1	index	y	y	6	NULL	#	Using index; Using temporary; Using filesort
 SELECT y, COUNT(*) FROM t1 USE INDEX FOR GROUP BY () GROUP BY y;
 y	COUNT(*)
 1994	1

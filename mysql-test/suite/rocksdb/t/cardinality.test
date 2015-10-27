@@ -9,7 +9,12 @@ create table t1(
        i1 bigint, #unique
        i2 bigint, #repeating
        c1 varchar(20), #unique
-       c2 varchar(20) #repeating
+       c2 varchar(20), #repeating
+       index t1_1(id, i1),
+       index t1_2(i1, i2),
+       index t1_3(i2, i1),
+       index t1_4(c1, c2),
+       index t1_5(c2, c1)
 ) engine=rocksdb;
 --disable_query_log
 let $i=0;
@@ -20,35 +25,15 @@ while ($i<100000)
 }
 --enable_query_log
 
-create index t1_1 on t1 (id, i1);
-create index t1_2 on t1 (i1, i2);
-create index t1_3 on t1 (i2, i1);
-create index t1_4 on t1 (c1, c2);
-create index t1_5 on t1 (c2, c1);
-
+# Flush memtable out to SST and display index cardinalities
 optimize table t1;
---source wait_stat_compute.inc
-
-show index in t1;
-SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-
-# Do a bunch of updates
-update t1 set i1=i1+1;
---source wait_stat_compute.inc 
-
-show index in t1;
-SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-
-# Do a bunch of deletes
-delete from t1 where i1%2 =0;
---source wait_stat_compute.inc
-
 show index in t1;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
 --echo restarting...
 --source include/restart_mysqld.inc
 
+# display index cardinalities after the restart
 show index in t1;
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 
