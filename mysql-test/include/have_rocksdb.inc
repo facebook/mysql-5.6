@@ -8,4 +8,7 @@ if (`select count(*) = 0 from information_schema.tables where engine='rocksdb' a
   --skip Test requires default engine RocksDB
 }
 
+--disable_query_log
+set global rocksdb_force_flush_memtable_now = true;
+--enable_query_log
 
