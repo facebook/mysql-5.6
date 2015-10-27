@@ -1,60 +1,67 @@
-SET GLOBAL rocksdb_seconds_between_stat_computes=2;
 DROP TABLE IF EXISTS t1;
 DROP TABLE IF EXISTS t2;
 DROP TABLE IF EXISTS t3;
-DROP TABLE IF EXISTS t4;
-DROP TABLE IF EXISTS t5;
-create table t1(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
-create table t2(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
-insert t2(a, b) select a, b from t1;
-create table t3(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
-insert t3(a, b) select a, b from t1;
-create table t4(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
-insert t4(a, b) select a, b from t1;
-create table t5(id bigint not null primary key auto_increment, a varchar(255) not null, b bigint) engine=rocksdb;
-insert t5(a, b) select a, b from t1 where id < 50000;
-create index t1_1 on t1(b);
-create index t3_1 on t3(b) comment 'cf_t3';
-create index t4_1 on t4(b) comment 'rev:cf_t4';
-optimize table t1, t2, t3, t4, t5;
-Table	Op	Msg_type	Msg_text
-test.t1	optimize	status	OK
-test.t2	optimize	status	OK
-test.t3	optimize	status	OK
-test.t4	optimize	status	OK
-test.t5	optimize	status	OK
+create table t1(
+id bigint not null primary key auto_increment,
+a varchar(255) not null,
+b bigint,
+index t1_1(b)
+) engine=rocksdb;
+create table t2(
+id bigint not null primary key auto_increment,
+a varchar(255) not null,
+b bigint,
+index t2_1(b) comment 'cf_t3'
+) engine=rocksdb;
+create table t3(
+id bigint not null primary key auto_increment,
+a varchar(255) not null,
+b bigint,
+index t3_1(b) comment 'rev:cf_t4'
+) engine=rocksdb;
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	table_rows
+t1	97836
+t2	4999
+t3	4999
 set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
 t1	100000
-t2	100000
-t3	100000
-t4	100000
-t5	49999
-create index t4_2 on t4(a);
-optimize table t4;
+t2	4999
+t3	4999
+SELECT table_name, data_length>0, index_length>0 FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	data_length>0	index_length>0
+t1	1	1
+t2	1	1
+t3	1	1
+SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	table_rows
+t1	100000
+t2	4999
+t3	4999
+SELECT table_name, data_length>0, index_length>0 FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	data_length>0	index_length>0
+t1	1	1
+t2	1	1
+t3	1	1
+analyze table t1,t2,t3,t4,t5;
 Table	Op	Msg_type	Msg_text
-test.t4	optimize	status	OK
-set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
+test.t1	analyze	status	OK
+test.t2	analyze	status	OK
+test.t3	analyze	status	OK
+test.t4	analyze	Error	Table 'test.t4' doesn't exist
+test.t4	analyze	status	Operation failed
+test.t5	analyze	Error	Table 'test.t5' doesn't exist
+test.t5	analyze	status	Operation failed
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
 t1	100000
-t2	100000
-t3	100000
-t4	100000
-t5	49999
-SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	table_rows
-t1	100000
-t2	100000
-t3	100000
-t4	100000
-t5	49999
-drop table t1;
-drop table t2;
-drop table t3;
-drop table t4;
-drop table t5;
-SET GLOBAL rocksdb_seconds_between_stat_computes = 3600;
+t2	4999
+t3	4999
+SELECT table_name, data_length>0, index_length>0 FROM information_schema.tables WHERE table_schema = DATABASE();
+table_name	data_length>0	index_length>0
+t1	1	1
+t2	1	1
+t3	1	1
+drop table t1, t2, t3;
