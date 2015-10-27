@@ -1855,16 +1855,59 @@ RDBSE_KEYDEF* Table_ddl_manager::find(GL_INDEX_ID gl_index_id)
 }
 
 void Table_ddl_manager::set_stats(
-  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& stats
+  const std::unordered_map<GL_INDEX_ID,
+  MyRocksTablePropertiesCollector::IndexStats>& stats
 ) {
   mysql_rwlock_wrlock(&rwlock);
-  for (const auto& src : stats) {
-    auto keydef = find(src.gl_index_id);
+  for (auto src : stats) {
+    auto keydef = find(src.second.gl_index_id);
     if (keydef) {
-      keydef->stats = src;
+      keydef->stats = src.second;
     }
   }
   mysql_rwlock_unlock(&rwlock);
+}
+
+void Table_ddl_manager::adjust_stats(
+  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& new_data,
+  const std::vector<MyRocksTablePropertiesCollector::IndexStats>& deleted_data
+) {
+  mysql_rwlock_wrlock(&rwlock);
+  int i = 0;
+  for (const auto& data : {new_data, deleted_data}) {
+    for (const auto& src : data) {
+      auto keydef = find(src.gl_index_id);
+      if (keydef) {
+        keydef->stats.merge(src, i == 0);
+        stats2store[keydef->stats.gl_index_id] = keydef->stats;
+      }
+    }
+    i++;
+  }
+  bool should_save_stats = !stats2store.empty();
+  mysql_rwlock_unlock(&rwlock);
+  if (should_save_stats)
+    request_save_stats();
+}
+
+void Table_ddl_manager::persist_stats()
+{
+  mysql_rwlock_wrlock(&rwlock);
+  auto local_stats2store = std::move(stats2store);
+  stats2store.clear();
+  mysql_rwlock_unlock(&rwlock);
+
+  // Persist stats
+  std::unique_ptr<rocksdb::WriteBatch> wb = dict->begin();
+  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
+  std::transform(
+    local_stats2store.begin(), local_stats2store.end(),
+    std::back_inserter(stats),
+    [](
+    const std::pair<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>& s
+    ) {return s.second;});
+  dict->add_stats(wb.get(), stats);
+  dict->commit(wb.get(), false);
 }
 
 /*
@@ -2008,21 +2051,6 @@ void Table_ddl_manager::cleanup()
   my_hash_free(&ddl_hash);
   mysql_rwlock_destroy(&rwlock);
   sequence.cleanup();
-}
-
-void Table_ddl_manager::add_changed_indexes(
-  const std::vector<GL_INDEX_ID>& v)
-{
-  std::lock_guard<std::mutex> lock(changed_indexes_mutex);
-  changed_indexes.insert(v.begin(), v.end());
-}
-
-std::unordered_set<GL_INDEX_ID> Table_ddl_manager::get_changed_indexes()
-{
-  std::lock_guard<std::mutex> lock(changed_indexes_mutex);
-  auto ret = std::move(changed_indexes);
-  changed_indexes.clear();
-  return ret;
 }
 
 int Table_ddl_manager::scan(void* cb_arg,

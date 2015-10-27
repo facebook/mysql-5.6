@@ -31,6 +31,7 @@ SET(ROCKSDB_SOURCES
   rdb_cf_options.cc rdb_cf_options.h
   rdb_cf_manager.cc rdb_cf_manager.h
   properties_collector.cc properties_collector.h
+  event_listener.cc event_listener.h
   rdb_i_s.cc rdb_i_s.h
   rdb_perf_context.cc rdb_perf_context.h
   rdb_mutex_wrapper.cc rdb_mutex_wrapper.h
