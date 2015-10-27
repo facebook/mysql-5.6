@@ -29,17 +29,17 @@ Error	1242	Subquery returns more than 1 row
 SELECT a,b FROM t1 ORDER BY pk;
 a	b
 1	upd2a
-2	upd2a
-3	upd2a
-4	upd2a
-5	upd2a
-10000	upd2a
+2	b
+3	c
+4	d
+5	e
+10000	foobar
 1	a
-2	upd2a
-3	upd2a
-4	upd2a
-5	upd2a
-10000	upd2a
+2	b
+3	c
+4	d
+5	e
+10000	foobar
 SELECT c,d FROM t2 ORDER BY pk;
 c	d
 upd2b	1

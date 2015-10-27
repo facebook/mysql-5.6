@@ -43,6 +43,7 @@
 #include "rocksdb/utilities/flashcache.h"
 
 /* MyRocks includes */
+#include "./event_listener.h"
 #include "./ha_rocksdb_proto.h"
 #include "./logger.h"
 #include "./rdb_cf_manager.h"
@@ -122,7 +123,11 @@ mysql_mutex_t stop_cond_mutex;
 mysql_mutex_t snapshot_mutex;
 mysql_mutex_t collation_exception_list_mutex;
 mysql_cond_t stop_cond;
-bool stop_background_thread;
+struct background_thread_control {
+  bool stop = false;
+  bool save_stats = false;
+};
+background_thread_control bg_control;
 
 // List of table names (using regex) that are exceptions to the strict
 // collation check requirement.
@@ -242,6 +247,7 @@ static char * rocksdb_datadir;
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
+  o.listeners.push_back(std::make_shared<MyRocksEventListener>(&ddl_manager));
   return o;
 }
 
@@ -2083,7 +2089,6 @@ static int rocksdb_init_func(void *p)
   if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables))
     DBUG_RETURN(1);
 
-  stop_background_thread = false;
   pthread_t thread_handle;
   auto err = mysql_thread_create(
     key_thread_background, &thread_handle,
@@ -2121,23 +2126,26 @@ static int rocksdb_done_func(void *p)
 
   // signal the background thread to stop
   mysql_mutex_lock(&stop_cond_mutex);
-  stop_background_thread = true;
+  bg_control.stop = true;
   mysql_cond_signal(&stop_cond);
   mysql_mutex_unlock(&stop_cond_mutex);
 
   // signal the drop index thread to stop
   signal_drop_index_thread(true);
 
+  // Stop all rocksdb background work
+  CancelAllBackgroundWork(rdb->GetBaseDB(), true);
+
   // wait for the background thread to finish
   mysql_mutex_lock(&background_mutex);
   mysql_mutex_unlock(&background_mutex);
 
+  // save remaining stats which might've left unsaved
+  ddl_manager.persist_stats();
+
   // wait for the drop index thread to finish
   mysql_mutex_lock(&drop_index_mutex);
   mysql_mutex_unlock(&drop_index_mutex);
-
-  // Stop all rocksdb background work
-  CancelAllBackgroundWork(rdb->GetBaseDB(), true);
 
   if (rocksdb_open_tables.records)
     error= 1;
@@ -5225,14 +5233,30 @@ int ha_rocksdb::info(uint flag)
     {
       if (i == table->s->primary_key)
       {
-        stats.data_file_length= key_descr[i]->stats.approximate_size;
+        stats.data_file_length= key_descr[i]->stats.data_size;
         stats.records = key_descr[i]->stats.rows;
       }
       else
       {
-        stats.index_file_length+= key_descr[i]->stats.approximate_size;
+        stats.index_file_length+= key_descr[i]->stats.data_size;
       }
     }
+    if (stats.records == 0)
+    {
+      // most likely, the table is in memtable
+      // try to deduce form GetApproximateSizes
+      RDBSE_KEYDEF *kd= key_descr[table->s->primary_key];
+      uchar buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE*2];
+      auto r = get_range(table->s->primary_key, buf);
+      uint64_t sz = 0;
+      rdb->GetApproximateSizes(
+        kd->get_cf(),
+        &r, 1,
+        &sz, true);
+      stats.records = sz/100;
+      stats.data_file_length = sz;
+    }
+
     if (stats.records == 0)
       stats.records = rocksdb_debug_optimizer_n_rows;
   }
@@ -5945,13 +5969,32 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   );
 
   uint64_t sz=0;
-  rdb->GetApproximateSizes(
-    kd->get_cf(),
-    &r, 1,
-    &sz);
-  ret = kd->stats.approximate_size != 0 ?
-    kd->stats.rows*sz/kd->stats.approximate_size :
-    0;
+  auto disk_size = kd->stats.actual_disk_size;
+  if (disk_size == 0)
+    disk_size = kd->stats.data_size;
+  auto rows = kd->stats.rows;
+  if (rows == 0 || disk_size == 0)
+  {
+    // no stats. Most likely, this is memtable-only table.
+    // Query for the range size including memtable.
+    // assume 100 bytes per record.
+    rows = 1;
+    disk_size = 100;
+    rdb->GetApproximateSizes(
+      kd->get_cf(),
+      &r, 1,
+      &sz, true);
+  }
+  else
+  {
+    // Have stats, query for size which doesn't include memtable.
+    rdb->GetApproximateSizes(
+      kd->get_cf(),
+      &r, 1,
+      &sz);
+  }
+
+  ret = rows*sz/disk_size;
   if (ret == 0) {
     ret = 1;
   }
@@ -5999,64 +6042,58 @@ int ha_rocksdb::optimize(THD *thd, HA_CHECK_OPT* check_opt)
   return rc;
 }
 
-void compute_optimizer_stats()
+int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
 {
-  auto changed_indexes = ddl_manager.get_changed_indexes();
-  if (changed_indexes.empty())
-    return;
+  DBUG_ENTER("ha_rocksdb::analyze");
 
-  // Find keydefs for all changed indexes
-  // Collect all column families which contain updated tables
-  std::vector<std::unique_ptr<RDBSE_KEYDEF>> keydefs;
-  std::unordered_set<rocksdb::ColumnFamilyHandle*> cfs;
-  for (auto index_number : changed_indexes)
+  if (!table)
+    DBUG_RETURN(1);
+
+  // find per column family key ranges which need to be queried
+  std::unordered_map<rocksdb::ColumnFamilyHandle*, std::vector<rocksdb::Range>>
+    ranges;
+  std::vector<uchar> buf;
+  buf.reserve(table->s->keys * 2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  buf.resize(table->s->keys * 2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  for (uint i = 0; i < table->s->keys; i++)
   {
-    auto keydef = ddl_manager.get_copy_of_keydef(index_number);
-    if (keydef) {
-      cfs.insert(keydef->get_cf());
-      keydefs.push_back(std::move(keydef));
-    }
+    auto bufp = &buf[i * 2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+    ranges[key_descr[i]->get_cf()].push_back(get_range(i, bufp));
   }
 
-  std::map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
-    statsFromProps;
-  for (auto cf : cfs) {
-    rocksdb::TablePropertiesCollection props;
-    auto s = rdb->GetPropertiesOfAllTables(
-      cf,
-      &props
-    );
-    MyRocksTablePropertiesCollector::GetStats(
-      props, changed_indexes, statsFromProps);
-  }
-
-  std::vector<MyRocksTablePropertiesCollector::IndexStats> stats;
-  for (auto& keydef : keydefs)
+  // get table properties for these ranges
+  rocksdb::TablePropertiesCollection props;
+  for (auto it : ranges)
   {
-    auto it = statsFromProps.find(keydef->get_gl_index_id());
-    if (it != statsFromProps.end()) {
-      stats.push_back(it->second);
-    } else {
-      // This index didn't have any associated stats in SST properties.
-      // It might be an empty table, for example.
-      stats.emplace_back(keydef->get_gl_index_id());
-    }
-
-    uchar buf[2*RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
-    auto range = get_range(keydef.get(), buf);
-    uint64_t size;
-    rdb->GetApproximateSizes(keydef->get_cf(),
-                             &range, 1, &size);
-
-    stats.back().approximate_size= size;
+    auto old_size = props.size();
+    auto status = rdb->GetPropertiesOfTablesInRange(
+      it.first, &it.second[0], it.second.size(), &props);
+    assert(props.size() >= old_size);
+    if (!status.ok())
+      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
+  int num_sst = 0;
+  // group stats per index id
+  std::unordered_map<GL_INDEX_ID, MyRocksTablePropertiesCollector::IndexStats>
+    stats;
+  for (auto it : props)
+  {
+    std::vector<MyRocksTablePropertiesCollector::IndexStats> sst_stats =
+        MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
+          it.second);
+    for (auto it1 : sst_stats)
+    {
+      stats[it1.gl_index_id].merge(it1);
+    }
+    num_sst++;
+  }
+
+  // set and persist new stats
   ddl_manager.set_stats(stats);
+  ddl_manager.persist_stats();
 
-  // Persist stats
-  std::unique_ptr<rocksdb::WriteBatch> wb = dict_manager.begin();
-  dict_manager.add_stats(wb.get(), stats);
-  dict_manager.commit(wb.get(), false);
+  DBUG_RETURN(0);
 }
 
 void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
@@ -6471,38 +6508,48 @@ ulong Primary_key_comparator::get_hashnr(const char *key, size_t key_len)
 void* background_thread(void*)
 {
   mysql_mutex_lock(&background_mutex);
-  mysql_mutex_lock(&stop_cond_mutex);
 
-  time_t last_stat_recompute = 0;
+  timespec ts_next_sync;
+  clock_gettime(CLOCK_REALTIME, &ts_next_sync);
+  ts_next_sync.tv_sec++;
+
   for (;;)
   {
-    timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec++;
     // wait for 1 second or until we received a condition to stop the thread
-    auto ret = mysql_cond_timedwait(&stop_cond, &stop_cond_mutex, &ts);
-    if (stop_background_thread) {
+    mysql_mutex_lock(&stop_cond_mutex);
+    auto ret = mysql_cond_timedwait(
+      &stop_cond, &stop_cond_mutex, &ts_next_sync);
+    // make sure that no program error is returned
+    assert(ret == 0 || ret == ETIMEDOUT);
+    auto local_bg_control = bg_control;
+    bg_control = background_thread_control();
+    mysql_mutex_unlock(&stop_cond_mutex);
+
+    if (local_bg_control.stop)
+    {
       break;
     }
-    // make sure, no program error is returned
-    assert(ret == 0 || ret == ETIMEDOUT);
 
-    if (rdb && rocksdb_background_sync) {
-      assert(!db_options.allow_mmap_writes);
-      rocksdb::Status s= rdb->SyncWAL();
-      if (!s.ok())
-        rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
+    if (local_bg_control.save_stats)
+    {
+      ddl_manager.persist_stats();
     }
 
-    if (ts.tv_sec - last_stat_recompute > rocksdb_seconds_between_stat_computes)
+    timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    if (ts.tv_sec-ts_next_sync.tv_sec >= 1)
     {
-      compute_optimizer_stats();
-      rocksdb_number_stat_computes++;
-      last_stat_recompute = ts.tv_sec;
+      if (rdb && rocksdb_background_sync)
+      {
+        assert(!db_options.allow_mmap_writes);
+        rocksdb::Status s= rdb->SyncWAL();
+        if (!s.ok())
+          rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
+      }
+      ts_next_sync.tv_sec = ts.tv_sec+1;
     }
   }
 
-  mysql_mutex_unlock(&stop_cond_mutex);
   mysql_mutex_unlock(&background_mutex);
 
   return nullptr;
@@ -6779,3 +6826,9 @@ rocksdb_set_collation_exception_list(THD*                     thd,
   *static_cast<const char**>(var_ptr) = val;
 }
 
+void request_save_stats()
+{
+  mysql_mutex_lock(&stop_cond_mutex);
+  bg_control.save_stats= true;
+  mysql_mutex_unlock(&stop_cond_mutex);
+}
