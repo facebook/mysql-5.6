@@ -6632,7 +6632,10 @@ int MYSQL_BIN_LOG::open_binlog(const char *opt_name)
        * coordinates in init_slave().
        */
       HASH xids;
+      my_hash_init(&xids, &my_charset_bin, TC_LOG_PAGE_SIZE/3, 0,
+                   sizeof(my_xid), 0, 0, MYF(0));
       error= ha_recover(&xids, engine_binlog_file, &engine_binlog_pos);
+      my_hash_free(&xids);
     }
 
     delete ev;
