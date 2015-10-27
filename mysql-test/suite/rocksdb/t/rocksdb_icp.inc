@@ -26,6 +26,7 @@ create table t2 (
 insert into t2 select a,a,a,a from t1;
 
 --echo # Try a basic case:
+--replace_column 9 #
 explain 
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0;
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0;
@@ -44,31 +45,38 @@ create table t3 (
 
 insert into t3 select a,a/10,a,a from t1;
 --echo # This must not use ICP:
+--replace_column 9 #
 explain
 select * from t3 where kp1=3 and kp2 like '%foo%';
 
+--replace_column 9 #
 explain format=json
 select * from t3 where kp1 between 2 and 4 and mod(kp1,3)=0 and kp2 like '%foo%';
 
 --echo # Check that we handle the case where out-of-range is encountered sooner
 --echo # than matched index condition
+--replace_column 9 #
 explain 
 select * from t2 where kp1< 3 and kp2+1>50000;
 select * from t2 where kp1< 3 and kp2+1>50000;
 
+--replace_column 9 #
 explain
 select * from t2 where kp1< 3 and kp2+1>50000;
 select * from t2 where kp1< 3 and kp2+1>50000;
 
 --echo # Try doing backwards scans
+--replace_column 9 #
 explain 
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0 order by kp1 desc;
 select * from t2 where kp1 between 1 and 10 and mod(kp2,2)=0 order by kp1 desc;
 
+--replace_column 9 #
 explain 
 select * from t2 where kp1 >990 and mod(kp2,2)=0 order by kp1 desc;
 select * from t2 where kp1 >990 and mod(kp2,2)=0 order by kp1 desc;
 
+--replace_column 9 #
 explain 
 select * from t2 where kp1< 3 and kp2+1>50000 order by kp1 desc;
 select * from t2 where kp1< 3 and kp2+1>50000 order by kp1 desc;
@@ -115,6 +123,7 @@ call get_read_stats();
 
 
 --echo # ============== index-only query ==============
+--replace_column 9 #
 explain
 select id1,id2 from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
 call save_read_stats();
@@ -123,6 +132,7 @@ query_vertical call get_read_stats();
 
 --echo # ============== Query without ICP ==============
 set optimizer_switch='index_condition_pushdown=off';
+--replace_column 9 #
 explain
 select * from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
 call save_read_stats();
@@ -131,6 +141,7 @@ query_vertical call get_read_stats();
 
 --echo # ============== Query with ICP ==============
 set optimizer_switch='index_condition_pushdown=on';
+--replace_column 9 #
 explain
 select * from t4 force index (id1_id2) where id1=1 and id2 % 10 = 1;
 call save_read_stats();

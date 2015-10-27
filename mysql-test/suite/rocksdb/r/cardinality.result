@@ -4,18 +4,16 @@ id bigint not null primary key,
 i1 bigint, #unique
 i2 bigint, #repeating
 c1 varchar(20), #unique
-c2 varchar(20) #repeating
+c2 varchar(20), #repeating
+index t1_1(id, i1),
+index t1_2(i1, i2),
+index t1_3(i2, i1),
+index t1_4(c1, c2),
+index t1_5(c2, c1)
 ) engine=rocksdb;
-create index t1_1 on t1 (id, i1);
-create index t1_2 on t1 (i1, i2);
-create index t1_3 on t1 (i2, i1);
-create index t1_4 on t1 (c1, c2);
-create index t1_5 on t1 (c2, c1);
 optimize table t1;
 Table	Op	Msg_type	Msg_text
 test.t1	optimize	status	OK
-set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
 t1	0	PRIMARY	1	id	A	100000	NULL	NULL		BTREE		
@@ -32,59 +30,21 @@ t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	BTREE
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
 t1	100000
-update t1 set i1=i1+1;
-set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
-show index in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	200000	NULL	NULL		BTREE		
-t1	1	t1_1	1	id	A	200000	NULL	NULL		BTREE		
-t1	1	t1_1	2	i1	A	200000	NULL	NULL	YES	BTREE		
-t1	1	t1_2	1	i1	A	200000	NULL	NULL	YES	BTREE		
-t1	1	t1_2	2	i2	A	200000	NULL	NULL	YES	BTREE		
-t1	1	t1_3	1	i2	A	22222	NULL	NULL	YES	BTREE		
-t1	1	t1_3	2	i1	A	200000	NULL	NULL	YES	BTREE		
-t1	1	t1_4	1	c1	A	200000	NULL	NULL	YES	BTREE		
-t1	1	t1_4	2	c2	A	200000	NULL	NULL	YES	BTREE		
-t1	1	t1_5	1	c2	A	22222	NULL	NULL	YES	BTREE		
-t1	1	t1_5	2	c1	A	200000	NULL	NULL	YES	BTREE		
-SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	table_rows
-t1	200000
-delete from t1 where i1%2 =0;
-set global rocksdb_force_flush_memtable_now = true;
-select cast(variable_value as unsigned) into @a from information_schema.global_status where variable_name='rocksdb_number_stat_computes';
-show index in t1;
-Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	150000	NULL	NULL		BTREE		
-t1	1	t1_1	1	id	A	150000	NULL	NULL		BTREE		
-t1	1	t1_1	2	i1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_2	1	i1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_2	2	i2	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_3	1	i2	A	16666	NULL	NULL	YES	BTREE		
-t1	1	t1_3	2	i1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_4	1	c1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_4	2	c2	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_5	1	c2	A	16666	NULL	NULL	YES	BTREE		
-t1	1	t1_5	2	c1	A	150000	NULL	NULL	YES	BTREE		
-SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
-table_name	table_rows
-t1	150000
 restarting...
 show index in t1;
 Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment
-t1	0	PRIMARY	1	id	A	150000	NULL	NULL		BTREE		
-t1	1	t1_1	1	id	A	150000	NULL	NULL		BTREE		
-t1	1	t1_1	2	i1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_2	1	i1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_2	2	i2	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_3	1	i2	A	21428	NULL	NULL	YES	BTREE		
-t1	1	t1_3	2	i1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_4	1	c1	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_4	2	c2	A	150000	NULL	NULL	YES	BTREE		
-t1	1	t1_5	1	c2	A	21428	NULL	NULL	YES	BTREE		
-t1	1	t1_5	2	c1	A	150000	NULL	NULL	YES	BTREE		
+t1	0	PRIMARY	1	id	A	100000	NULL	NULL		BTREE		
+t1	1	t1_1	1	id	A	100000	NULL	NULL		BTREE		
+t1	1	t1_1	2	i1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	1	i1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_2	2	i2	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_3	1	i2	A	11111	NULL	NULL	YES	BTREE		
+t1	1	t1_3	2	i1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	1	c1	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_4	2	c2	A	100000	NULL	NULL	YES	BTREE		
+t1	1	t1_5	1	c2	A	11111	NULL	NULL	YES	BTREE		
+t1	1	t1_5	2	c1	A	100000	NULL	NULL	YES	BTREE		
 SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = DATABASE();
 table_name	table_rows
-t1	150000
+t1	100000
 drop table t1;

@@ -14,7 +14,7 @@ INSERT INTO t1 (a,b,c,d) VALUES
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF);
 EXPLAIN SELECT b+0 FROM t1 ORDER BY b;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	index	NULL	PRIMARY	3	NULL	1000	Using index
+1	SIMPLE	t1	index	NULL	PRIMARY	3	NULL	#	Using index
 SELECT b+0 FROM t1 ORDER BY b;
 b+0
 11
@@ -47,7 +47,7 @@ INSERT INTO t1 (a,b,c,d,pk) VALUES
 (1,0xFFFF,0xFFFFFFFF,0xFFFFFFFFFFFFFFFF,10);
 EXPLAIN SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	1000	Using temporary; Using filesort
+1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	#	Using temporary; Using filesort
 SELECT DISTINCT a+0 FROM t1 ORDER BY a;
 a+0
 0

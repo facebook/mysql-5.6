@@ -1,1 +1,2 @@
---rocksdb_default_cf_options=max_write_buffer_number_to_maintain=10
+--rocksdb_default_cf_options=max_write_buffer_number_to_maintain=10 --rocksdb_debug_optimizer_n_rows=1000
+
