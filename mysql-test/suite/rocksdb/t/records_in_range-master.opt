@@ -1,1 +1,1 @@
---force-restart
+--force-restart --rocksdb_debug_optimizer_n_rows=1000
