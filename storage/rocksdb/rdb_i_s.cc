@@ -603,6 +603,68 @@ static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_BINLOG dynamic table
+ */
+static int i_s_rocksdb_binlog_fill_table(THD *thd,
+                                            TABLE_LIST *tables,
+                                            Item *cond)
+{
+  DBUG_ENTER("i_s_rocksdb_binlog_fill_table");
+
+  bool ret;
+  Binlog_info_manager *blm = get_binlog_manager();
+
+  char file_buf[FN_REFLEN+1]= {0};
+  my_off_t pos = 0;
+  char gtid_buf[FN_REFLEN+1]= {0};
+
+  if (blm->read(file_buf, pos, gtid_buf)) {
+    tables->table->field[0]->store(file_buf, strlen(file_buf),
+        system_charset_info);
+    tables->table->field[1]->store(pos, true);
+    tables->table->field[2]->store(gtid_buf, strlen(gtid_buf),
+        system_charset_info);
+    ret = schema_table_store_record(thd, tables->table);
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_binlog_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("POS", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("GTID", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_MAX_INDEX_ID dynamic table
+ */
+static int i_s_rocksdb_max_index_id_fill_table(THD *thd,
+                                            TABLE_LIST *tables,
+                                            Item *cond)
+{
+  DBUG_ENTER("i_s_rocksdb_max_index_id_fill_table");
+
+  bool ret;
+  uint32_t max_index_id = 0;
+
+  if (get_dict_manager()->get_max_index_id(&max_index_id)) {
+    tables->table->field[0]->store(max_index_id, true);
+    ret = schema_table_store_record(thd, tables->table);
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_max_index_id_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("MAX_INDEX_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
 struct i_s_rocksdb_ddl {
   THD *thd;
   TABLE_LIST *tables;
@@ -713,6 +775,34 @@ static int i_s_rocksdb_cfoptions_init(void *p)
 
   schema->fields_info= i_s_rocksdb_cfoptions_fields_info;
   schema->fill_table= i_s_rocksdb_cfoptions_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int i_s_rocksdb_binlog_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_binlog_init");
+
+  schema= reinterpret_cast<ST_SCHEMA_TABLE*>(p);
+
+  schema->fields_info= i_s_rocksdb_binlog_fields_info;
+  schema->fill_table= i_s_rocksdb_binlog_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int i_s_rocksdb_max_index_id_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_max_index_id_init");
+
+  schema= reinterpret_cast<ST_SCHEMA_TABLE*>(p);
+
+  schema->fields_info= i_s_rocksdb_max_index_id_fields_info;
+  schema->fill_table= i_s_rocksdb_max_index_id_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -910,6 +1000,41 @@ struct st_mysql_plugin i_s_rocksdb_cfoptions=
   "RocksDB column family options",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_cfoptions_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_max_index_id=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_MAX_INDEX_ID",
+  "Facebook",
+  "RocksDB column family options",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_max_index_id_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
+  0,                                  /* flags */
+};
+
+
+struct st_mysql_plugin i_s_rocksdb_binlog=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_CF_BINLOG",
+  "Facebook",
+  "RocksDB binlog info",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_binlog_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */
