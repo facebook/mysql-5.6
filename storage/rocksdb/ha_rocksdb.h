@@ -23,6 +23,7 @@
 #include "./handler.h"                     /* handler */
 #include "./my_global.h"                   /* ulonglong */
 #include "./sql_string.h"
+#include "./ut0counter.h"
 
 /* RocksDB header files */
 #include "rocksdb/cache.h"
@@ -147,6 +148,34 @@ typedef struct _gl_index_id_s {
         (cf_id == other.cf_id && index_id >= other.index_id);
   }
 } GL_INDEX_ID;
+
+/* Global statistics struct used inside MyRocks */
+struct st_global_stats {
+  ib_counter_t<ulonglong, 64> rows_deleted;
+  ib_counter_t<ulonglong, 64> rows_inserted;
+  ib_counter_t<ulonglong, 64> rows_read;
+  ib_counter_t<ulonglong, 64> rows_updated;
+
+  // system_rows_ stats are only for system
+  // tables. They are not counted in rows_* stats.
+  ib_counter_t<ulonglong, 64> system_rows_deleted;
+  ib_counter_t<ulonglong, 64> system_rows_inserted;
+  ib_counter_t<ulonglong, 64> system_rows_read;
+  ib_counter_t<ulonglong, 64> system_rows_updated;
+};
+
+/* Struct used for exporting status to MySQL */
+struct st_export_stats {
+  ulonglong rows_deleted;
+  ulonglong rows_inserted;
+  ulonglong rows_read;
+  ulonglong rows_updated;
+
+  ulonglong system_rows_deleted;
+  ulonglong system_rows_inserted;
+  ulonglong system_rows_read;
+  ulonglong system_rows_updated;
+};
 
 /* Provide hash function for GL_INDEX_ID so we can include it in sets */
 namespace std {

@@ -57,6 +57,47 @@ extern my_bool cachedev_enabled;
 #endif /* TARGET_OS_LINUX */
 
 
+static st_global_stats global_stats;
+static st_export_stats export_stats;
+enum operation_type {
+  ROWS_DELETED = 0,
+  ROWS_INSERTED,
+  ROWS_READ,
+  ROWS_UPDATED
+};
+
+/**
+  Updates row counters based on the table type and operation type.
+*/
+static void update_row_stats(const TABLE* table, operation_type type) {
+  // Find if we are modifying system databases.
+  if (table->s && (!strcmp(table->s->db.str, "mysql") ||
+      !strcmp(table->s->db.str, "performance_schema") ||
+      !strcmp(table->s->db.str, "information_schema"))) {
+    if (type == ROWS_DELETED) {
+      global_stats.system_rows_deleted.inc();
+    } else if (type == ROWS_INSERTED) {
+      global_stats.system_rows_inserted.inc();
+    } else if (type == ROWS_READ) {
+      global_stats.system_rows_read.inc();
+    } else {
+      DBUG_ASSERT(type == ROWS_UPDATED);
+      global_stats.system_rows_updated.inc();
+    }
+  } else {
+    if (type == ROWS_DELETED) {
+      global_stats.rows_deleted.inc();
+    } else if (type == ROWS_INSERTED) {
+      global_stats.rows_inserted.inc();
+    } else if (type == ROWS_READ) {
+      global_stats.rows_read.inc();
+    } else {
+      DBUG_ASSERT(type == ROWS_UPDATED);
+      global_stats.rows_updated.inc();
+    }
+  }
+}
+
 void dbug_dump_database(rocksdb::DB *db);
 static handler *rocksdb_create_handler(handlerton *hton,
                                        TABLE_SHARE *table,
@@ -3458,6 +3499,7 @@ int ha_rocksdb::secondary_index_read(int keyno, uchar *buf)
         table->status= 0;
         stats.rows_read++;
         stats.rows_index_next++;
+        update_row_stats(table, ROWS_READ);
         return rc;
       }
     }
@@ -3571,6 +3613,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     {
       stats.rows_read++;
       stats.rows_index_first++;
+      update_row_stats(table, ROWS_READ);
     }
     io_perf_end_and_record();
     DBUG_RETURN(rc);
@@ -3934,6 +3977,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
     table->status= 0;
     stats.rows_read++;
     stats.rows_index_first++;
+    update_row_stats(table, ROWS_READ);
   }
   io_perf_end_and_record();
   DBUG_RETURN(rc);
@@ -4592,7 +4636,10 @@ int ha_rocksdb::write_row(uchar *buf)
   }
 
   if (rv == 0)
+  {
     stats.rows_inserted++;
+    update_row_stats(table, ROWS_INSERTED);
+  }
   io_perf_end_and_record();
   DBUG_RETURN(rv);
 }
@@ -5071,6 +5118,7 @@ int ha_rocksdb::rnd_next_with_direction(uchar *buf, bool move_forward)
   if (!rc) {
     stats.rows_read++;
     stats.rows_index_next++;
+    update_row_stats(table, ROWS_READ);
   }
 
   DBUG_RETURN(rc);
@@ -5168,6 +5216,8 @@ int ha_rocksdb::delete_row(const uchar *buf)
   }
 
   stats.rows_deleted++;
+  update_row_stats(table, ROWS_DELETED);
+
   io_perf_end_and_record();
 
   DBUG_RETURN(0);
@@ -5389,7 +5439,10 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
   io_perf_end_and_record();
 
   if (rv == 0)
+  {
     stats.rows_updated++;
+    update_row_stats(table, ROWS_UPDATED);
+  }
   DBUG_RETURN(rv);
 }
 
@@ -6215,6 +6268,9 @@ bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_f
 #define DEF_STATUS_VAR_PTR(name, ptr, option) \
   {"rocksdb_" name, (char*) ptr, option}
 
+#define DEF_STATUS_VAR_FUNC(name, ptr, option) \
+  {name, reinterpret_cast<char*>(ptr), option}
+
 struct rocksdb_status_counters_t {
   uint64_t block_cache_miss;
   uint64_t block_cache_hit;
@@ -6327,6 +6383,44 @@ DEF_SHOW_FUNC(number_superversion_releases, NUMBER_SUPERVERSION_RELEASES)
 DEF_SHOW_FUNC(number_superversion_cleanups, NUMBER_SUPERVERSION_CLEANUPS)
 DEF_SHOW_FUNC(number_block_not_compressed, NUMBER_BLOCK_NOT_COMPRESSED)
 
+static void myrocks_update_status() {
+  export_stats.rows_deleted = global_stats.rows_deleted;
+  export_stats.rows_inserted = global_stats.rows_inserted;
+  export_stats.rows_read = global_stats.rows_read;
+  export_stats.rows_updated = global_stats.rows_updated;
+
+  export_stats.system_rows_deleted = global_stats.system_rows_deleted;
+  export_stats.system_rows_inserted = global_stats.system_rows_inserted;
+  export_stats.system_rows_read = global_stats.system_rows_read;
+  export_stats.system_rows_updated = global_stats.system_rows_updated;
+}
+
+static SHOW_VAR myrocks_status_variables[]= {
+  DEF_STATUS_VAR_FUNC("rows_deleted", &export_stats.rows_deleted,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("rows_inserted", &export_stats.rows_inserted,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("rows_read", &export_stats.rows_read, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("rows_updated", &export_stats.rows_updated,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("system_rows_deleted", &export_stats.system_rows_deleted,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("system_rows_inserted",
+                      &export_stats.system_rows_inserted, SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("system_rows_read", &export_stats.system_rows_read,
+                      SHOW_LONGLONG),
+  DEF_STATUS_VAR_FUNC("system_rows_updated", &export_stats.system_rows_updated,
+                       SHOW_LONGLONG),
+
+  {NullS, NullS, SHOW_LONG}
+};
+
+static void show_myrocks_vars(THD* thd, SHOW_VAR* var, char* buff) {
+  myrocks_update_status();
+  var->type = SHOW_ARRAY;
+  var->value = reinterpret_cast<char*>(&myrocks_status_variables);
+}
+
 static SHOW_VAR rocksdb_status_vars[]= {
   DEF_STATUS_VAR(block_cache_miss),
   DEF_STATUS_VAR(block_cache_hit),
@@ -6392,6 +6486,7 @@ static SHOW_VAR rocksdb_status_vars[]= {
                      SHOW_LONGLONG),
   DEF_STATUS_VAR_PTR("number_sst_entry_other", &rocksdb_num_sst_entry_other,
                      SHOW_LONGLONG),
+  {"rocksdb", reinterpret_cast<char*>(&show_myrocks_vars), SHOW_FUNC},
   {NullS, NullS, SHOW_LONG}
 };
 
