@@ -27,9 +27,7 @@ Created 2012/04/12 by Sunny Bains
 #ifndef UT0COUNTER_H
 #define UT0COUNTER_H
 
-#include "univ.i"
 #include <string.h>
-#include "os0thread.h"
 
 /** CPU cache line size */
 #define CACHE_LINE_SIZE		64
@@ -37,13 +35,21 @@ Created 2012/04/12 by Sunny Bains
 /** Default number of slots to use in ib_counter_t */
 #define IB_N_SLOTS		64
 
+#ifdef __WIN__
+#define get_curr_thread_id() GetCurrentThreadId()
+#else
+#define get_curr_thread_id() pthread_self()
+#endif
+
+#define UT_ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
 /** Get the offset into the counter array. */
 template <typename Type, int N>
 struct generic_indexer_t {
 	/** Default constructor/destructor should be OK. */
 
         /** @return offset within m_counter */
-        size_t offset(size_t index) const UNIV_NOTHROW {
+        size_t offset(size_t index) const {
                 return(((index % N) + 1) * (CACHE_LINE_SIZE / sizeof(Type)));
         }
 };
@@ -57,11 +63,11 @@ struct get_sched_indexer_t : public generic_indexer_t<Type, N> {
 	/** Default constructor/destructor should be OK. */
 
 	/* @return result from sched_getcpu(), the thread id if it fails. */
-	size_t get_rnd_index() const UNIV_NOTHROW {
+	size_t get_rnd_index() const {
 
 		size_t	cpu = sched_getcpu();
 		if (cpu == -1) {
-			cpu = (lint) os_thread_get_curr_id();
+			cpu = get_curr_thread_id();
 		}
 
 		return(cpu);
@@ -77,8 +83,8 @@ struct thread_id_indexer_t : public generic_indexer_t<Type, N> {
 	/* @return a random number, currently we use the thread id. Where
 	thread id is represented as a pointer, it may not work as
 	effectively. */
-	size_t get_rnd_index() const UNIV_NOTHROW {
-		return((lint) os_thread_get_curr_id());
+	size_t get_rnd_index() const {
+		return get_curr_thread_id();
 	}
 };
 
@@ -88,14 +94,14 @@ struct single_indexer_t {
 	/** Default constructor/destructor should are OK. */
 
         /** @return offset within m_counter */
-        size_t offset(size_t index) const UNIV_NOTHROW {
-		ut_ad(N == 1);
+        size_t offset(size_t index) const {
+		DBUG_ASSERT(N == 1);
                 return((CACHE_LINE_SIZE / sizeof(Type)));
         }
 
 	/* @return 1 */
-	size_t get_rnd_index() const UNIV_NOTHROW {
-		ut_ad(N == 1);
+	size_t get_rnd_index() const {
+		DBUG_ASSERT(N == 1);
 		return(1);
 	}
 };
@@ -114,17 +120,17 @@ public:
 
 	~ib_counter_t()
 	{
-		ut_ad(validate());
+		DBUG_ASSERT(validate());
 	}
 
-	bool validate() UNIV_NOTHROW {
+	bool validate() {
 #ifdef UNIV_DEBUG
 		size_t	n = (CACHE_LINE_SIZE / sizeof(Type));
 
 		/* Check that we aren't writing outside our defined bounds. */
-		for (size_t i = 0; i < UT_ARR_SIZE(m_counter); i += n) {
+		for (size_t i = 0; i < UT_ARRAY_SIZE(m_counter); i += n) {
 			for (size_t j = 1; j < n - 1; ++j) {
-				ut_ad(m_counter[i + j] == 0);
+				DBUG_ASSERT(m_counter[i + j] == 0);
 			}
 		}
 #endif /* UNIV_DEBUG */
@@ -132,14 +138,14 @@ public:
 	}
 
 	/** If you can't use a good index id. Increment by 1. */
-	void inc() UNIV_NOTHROW { add(1); }
+	void inc() { add(1); }
 
 	/** If you can't use a good index id.
 	* @param n  - is the amount to increment */
-	void add(Type n) UNIV_NOTHROW {
+	void add(Type n) {
 		size_t	i = m_policy.offset(m_policy.get_rnd_index());
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
 
 		m_counter[i] += n;
 	}
@@ -148,23 +154,23 @@ public:
 	call to get_rnd_index().
 	@param i - index into a slot
 	@param n - amount to increment */
-	void add(size_t index, Type n) UNIV_NOTHROW {
+	void add(size_t index, Type n) {
 		size_t	i = m_policy.offset(index);
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
 
 		m_counter[i] += n;
 	}
 
 	/** If you can't use a good index id. Decrement by 1. */
-	void dec() UNIV_NOTHROW { sub(1); }
+	void dec() { sub(1); }
 
 	/** If you can't use a good index id.
 	* @param - n is the amount to decrement */
-	void sub(Type n) UNIV_NOTHROW {
+	void sub(Type n) {
 		size_t	i = m_policy.offset(m_policy.get_rnd_index());
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
 
 		m_counter[i] -= n;
 	}
@@ -173,16 +179,16 @@ public:
 	call to get_rnd_index().
 	@param i - index into a slot
 	@param n - amount to decrement */
-	void sub(size_t index, Type n) UNIV_NOTHROW {
+	void sub(size_t index, Type n) {
 		size_t	i = m_policy.offset(index);
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARRAY_SIZE(m_counter));
 
 		m_counter[i] -= n;
 	}
 
 	/* @return total value - not 100% accurate, since it is not atomic. */
-	operator Type() const UNIV_NOTHROW {
+	operator Type() const {
 		Type	total = 0;
 
 		for (size_t i = 0; i < N; ++i) {
