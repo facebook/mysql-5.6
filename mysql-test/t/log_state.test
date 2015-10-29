@@ -99,7 +99,8 @@ show variables like 'log_output';
 set global general_log_file='/not existing path/log.master';
 
 # Can't set general_log_file to a directory
---replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR
+--let $truncated= `SELECT SUBSTRING('$MYSQLTEST_VARDIR', 1, 200) as Truncated`
+--replace_result $MYSQLTEST_VARDIR MYSQLTEST_VARDIR $truncated MYSQLTEST_VARDIR
 --error ER_WRONG_VALUE_FOR_VAR
 eval set global general_log_file='$MYSQLTEST_VARDIR';
 
