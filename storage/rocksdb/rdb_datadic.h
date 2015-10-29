@@ -572,6 +572,8 @@ public:
 
 class RDBSE_TABLE_DEF
 {
+  void check_if_is_mysql_system_table();
+
 public:
   RDBSE_TABLE_DEF() : key_descr(NULL), auto_incr_val(1)
   {
@@ -591,8 +593,16 @@ public:
   mysql_mutex_t mutex; // guards the following:
   longlong auto_incr_val;
 
+  /* Is this a system table */
+  bool mysql_system_table;
+
   bool put_dict(Dict_manager *dict, rocksdb::WriteBatch *batch,
                 uchar *key, size_t keylen);
+
+  void set_name(const char *name, size_t len);
+  void set_name(const rocksdb::Slice& slice, size_t pos = 0) {
+    set_name(slice.data() + pos, slice.size() - pos);
+  }
 };
 
 
