@@ -2106,8 +2106,9 @@ bool Binlog_info_manager::read(char *binlog_name, my_off_t &binlog_pos,
     if(status.ok())
     {
       if (!unpack_value((const uchar*)value.c_str(),
-                        binlog_name, binlog_pos, binlog_gtid))
+                        binlog_name, binlog_pos, binlog_gtid)) {
         ret= true;
+      }
     }
   }
   return ret;
@@ -2534,7 +2535,7 @@ void Dict_manager::add_drop_table(RDBSE_KEYDEF** key_descr,
 }
 
 /*
-  This function is supposed to be called by drop_index_thread, when it 
+  This function is supposed to be called by drop_index_thread, when it
   finished dropping any index.
  */
 void Dict_manager::done_drop_indexes(
