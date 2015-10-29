@@ -23,6 +23,7 @@
 #include "./handler.h"                     /* handler */
 #include "./my_global.h"                   /* ulonglong */
 #include "./sql_string.h"
+#include "./ut0counter.h"
 
 /* RocksDB header files */
 #include "rocksdb/cache.h"
@@ -147,6 +148,36 @@ typedef struct _gl_index_id_s {
         (cf_id == other.cf_id && index_id >= other.index_id);
   }
 } GL_INDEX_ID;
+
+enum operation_type {
+  ROWS_DELETED = 0,
+  ROWS_INSERTED,
+  ROWS_READ,
+  ROWS_UPDATED,
+  ROWS_MAX
+};
+
+/* Global statistics struct used inside MyRocks */
+struct st_global_stats {
+  ib_counter_t<ulonglong, 64> rows[ROWS_MAX];
+
+  // system_rows_ stats are only for system
+  // tables. They are not counted in rows_* stats.
+  ib_counter_t<ulonglong, 64> system_rows[ROWS_MAX];
+};
+
+/* Struct used for exporting status to MySQL */
+struct st_export_stats {
+  ulonglong rows_deleted;
+  ulonglong rows_inserted;
+  ulonglong rows_read;
+  ulonglong rows_updated;
+
+  ulonglong system_rows_deleted;
+  ulonglong system_rows_inserted;
+  ulonglong system_rows_read;
+  ulonglong system_rows_updated;
+};
 
 /* Provide hash function for GL_INDEX_ID so we can include it in sets */
 namespace std {
@@ -306,6 +337,8 @@ class ha_rocksdb: public handler
   void update_auto_incr_val();
   void load_auto_incr_value();
   bool can_use_single_delete(uint index);
+
+  void update_row_stats(operation_type type);
 
   /*
     Descriptor telling how to decode/encode a field to on-disk record storage
