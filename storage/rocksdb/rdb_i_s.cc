@@ -603,6 +603,42 @@ static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_BINLOG dynamic table
+ */
+static int i_s_rocksdb_binlog_fill_table(THD *thd,
+                                            TABLE_LIST *tables,
+                                            Item *cond)
+{
+  DBUG_ENTER("i_s_rocksdb_binlog_fill_table");
+
+  char *binlog_name = (char*)malloc(sizeof(char) * 65535);
+  my_off_t binlog_pos;
+  char *binlog_gtid = (char*)malloc(sizeof(char) * 65535);
+
+  Binlog_info_manager *blm = get_binlog_manager();
+
+  blm->read(binlog_name, binlog_pos, binlog_gtid);
+  /* tables->table->field[0]->store(binlog_name, strlen(binlog_name), system_charset_info); */
+  tables->table->field[0]->store(strlen(binlog_name), true);
+  tables->table->field[1]->store(binlog_pos, true);
+  tables->table->field[2]->store(binlog_gtid, strlen(binlog_gtid), system_charset_info);
+
+  free(binlog_name);
+  free(binlog_gtid);
+
+  DBUG_RETURN(schema_table_store_record(thd, tables->table));
+}
+
+static ST_FIELD_INFO i_s_rocksdb_binlog_fields_info[] =
+{
+  /* ROCKSDB_FIELD_INFO("NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0), */
+  ROCKSDB_FIELD_INFO("NAME", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("POS", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO("GTID", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
 struct i_s_rocksdb_ddl {
   THD *thd;
   TABLE_LIST *tables;
@@ -713,6 +749,20 @@ static int i_s_rocksdb_cfoptions_init(void *p)
 
   schema->fields_info= i_s_rocksdb_cfoptions_fields_info;
   schema->fill_table= i_s_rocksdb_cfoptions_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int i_s_rocksdb_binlog_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_binlog_init");
+
+  schema= (ST_SCHEMA_TABLE*) p;
+
+  schema->fields_info= i_s_rocksdb_binlog_fields_info;
+  schema->fill_table= i_s_rocksdb_binlog_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -910,6 +960,23 @@ struct st_mysql_plugin i_s_rocksdb_cfoptions=
   "RocksDB column family options",
   PLUGIN_LICENSE_GPL,
   i_s_rocksdb_cfoptions_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  NULL,                               /* status variables */
+  NULL,                               /* system variables */
+  NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_binlog=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_CF_BINLOG",
+  "Facebook",
+  "RocksDB binlog info",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_binlog_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */

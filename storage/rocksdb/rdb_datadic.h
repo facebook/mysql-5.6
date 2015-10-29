@@ -709,7 +709,7 @@ public:
               const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
   bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
 
-private:
+//private:
   Dict_manager *dict;
   uchar key_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
   rocksdb::Slice key_slice;
