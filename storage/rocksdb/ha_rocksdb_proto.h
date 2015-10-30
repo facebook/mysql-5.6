@@ -38,5 +38,7 @@ int rocksdb_get_share_perf_counters(const char *tablename,
 
 class Table_ddl_manager;
 Table_ddl_manager *get_ddl_manager(void);
+class Binlog_info_manager;
+Binlog_info_manager *get_binlog_manager(void);
 #endif /* _ha_rocksdb_proto_h_ */
 
