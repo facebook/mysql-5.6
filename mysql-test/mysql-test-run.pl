@@ -6410,6 +6410,9 @@ sub valgrind_arguments {
 sub valgrind_exit_reports() {
   my $found_err= 0;
 
+  # Check valgrind report for the mysqltest client as well
+  $mysqld_logs{$path_testlog}= 1 if $opt_valgrind;
+
   foreach my $log_file (keys %mysqld_logs)
   {
     my @culprits= ();
