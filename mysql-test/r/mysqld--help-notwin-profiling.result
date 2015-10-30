@@ -1039,6 +1039,10 @@ The following options may be given as the first argument:
  --rocksdb-force-flush-memtable-now 
  Forces memstore flush which may block all write requests
  so be careful
+ --rocksdb-global-info[=name] 
+ Enable or disable ROCKSDB_GLOBAL_INFO plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
  --rocksdb-hash-index-allow-collision 
  BlockBasedTableOptions::hash_index_allow_collision for
  RocksDB
@@ -1706,6 +1710,7 @@ rocksdb-disableDataSync FALSE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-force-flush-memtable-now FALSE
+rocksdb-global-info ON
 rocksdb-hash-index-allow-collision TRUE
 rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
