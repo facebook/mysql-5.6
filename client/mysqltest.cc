@@ -2444,6 +2444,7 @@ void check_require(DYNAMIC_STRING* ds, const char *fname)
   {
     char reason[FN_REFLEN];
     fn_format(reason, fname, "", "", MY_REPLACE_EXT | MY_REPLACE_DIR);
+    dynstr_free(ds);
     abort_not_supported_test("Test requires: '%s'", reason);
   }
   DBUG_VOID_RETURN;
@@ -3088,6 +3089,7 @@ void var_set_query_get_value(struct st_command *command, VAR *var)
                   mysql_sqlstate(mysql), &ds_res);
     /* If error was acceptable, return empty string */
     dynstr_free(&ds_query);
+    dynstr_free(&ds_col);
     eval_expr(var, "", 0);
     DBUG_VOID_RETURN;
   }
@@ -5317,8 +5319,7 @@ void do_get_errcodes(struct st_command *command)
     /* code to handle variables passed to mysqltest */
      if( *p == '$')
      {
-        const char* fin;
-        VAR *var = var_get(p,&fin,0,0);
+        VAR *var = var_get(p,NULL,0,0);
         p=var->str_val;
         end=p+var->str_val_len;
      }
@@ -5597,6 +5598,8 @@ void do_close_connection(struct st_command *command)
     {
       vio_delete(con->mysql.net.vio);
       con->mysql.net.vio = 0;
+      net_end(&con->mysql.net);
+      free_old_query(&con->mysql);
     }
   }
 #else
@@ -5834,6 +5837,7 @@ do_handle_error:
     var_set_errno(mysql_errno(con));
     handle_error(command, mysql_errno(con), mysql_error(con),
 		 mysql_sqlstate(con), ds);
+    mysql_close(con);
     return 0; /* Not connected */
   }
 
@@ -7893,10 +7897,12 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
 
               handle_error(command, mysql_errno(mysql), mysql_error(mysql),
                            mysql_sqlstate(mysql), ds);
+              dynstr_free(&temp);
               goto end;
             }
           }
           dynstr_append_mem(ds, temp.str, temp.length);
+          dynstr_free(&temp);
         }
         else
         {
@@ -7956,6 +7962,11 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
   revert_properties();
 
 end:
+  if (res)
+  {
+    mysql_free_result_wrapper(res);
+    res= 0;
+  }
 
   cn->pending= FALSE;
   /*
@@ -8631,14 +8642,22 @@ void run_query(struct st_connection *cn, struct st_command *command, int flags)
   if (sp_created)
   {
     if (util_query(mysql, "DROP PROCEDURE mysqltest_tmp_sp "))
+    {
+      if (ds == &ds_result)
+        dynstr_free(&ds_result);
       die("Failed to drop sp: %d: %s", mysql_errno(mysql), mysql_error(mysql));
+    }
   }
 
   if (view_created)
   {
     if (util_query(mysql, "DROP VIEW mysqltest_tmp_v "))
+    {
+      if (ds == &ds_result)
+        dynstr_free(&ds_result);
       die("Failed to drop view: %d: %s",
-	  mysql_errno(mysql), mysql_error(mysql));
+	        mysql_errno(mysql), mysql_error(mysql));
+    }
   }
 
   if (command->require_file[0])
