@@ -128,6 +128,7 @@ DROP TABLE t1, t2;
 | PROFILING                             |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
+| ROCKSDB_CF_BINLOG                     |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
@@ -203,6 +204,7 @@ DROP TABLE t1, t2;
 | PROFILING                             |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
+| ROCKSDB_CF_BINLOG                     |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
