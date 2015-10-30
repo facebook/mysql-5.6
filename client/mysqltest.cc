@@ -7897,6 +7897,7 @@ void run_query_normal(struct st_connection *cn, struct st_command *command,
             }
           }
           dynstr_append_mem(ds, temp.str, temp.length);
+          dynstr_free(&temp);
         }
         else
         {
@@ -8631,14 +8632,22 @@ void run_query(struct st_connection *cn, struct st_command *command, int flags)
   if (sp_created)
   {
     if (util_query(mysql, "DROP PROCEDURE mysqltest_tmp_sp "))
+    {
+      if (ds == &ds_result)
+        dynstr_free(&ds_result);
       die("Failed to drop sp: %d: %s", mysql_errno(mysql), mysql_error(mysql));
+    }
   }
 
   if (view_created)
   {
     if (util_query(mysql, "DROP VIEW mysqltest_tmp_v "))
+    {
+      if (ds == &ds_result)
+        dynstr_free(&ds_result);
       die("Failed to drop view: %d: %s",
-	  mysql_errno(mysql), mysql_error(mysql));
+	        mysql_errno(mysql), mysql_error(mysql));
+    }
   }
 
   if (command->require_file[0])
