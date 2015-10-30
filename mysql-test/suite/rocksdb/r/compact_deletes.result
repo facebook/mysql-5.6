@@ -25,7 +25,7 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
-There are deletes left
+No more deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 1900;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
@@ -51,7 +51,7 @@ set global rocksdb_force_flush_memtable_now=1;
 select sleep(1);
 sleep(1)
 0
-There are deletes left
+No more deletes left
 SET GLOBAL rocksdb_compaction_sequential_deletes= 1900;
 SET GLOBAL rocksdb_compaction_sequential_deletes_file_size= 0;
 SET GLOBAL rocksdb_compaction_sequential_deletes_window= 2000;
