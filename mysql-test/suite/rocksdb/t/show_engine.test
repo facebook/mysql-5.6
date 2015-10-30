@@ -71,5 +71,9 @@ START TRANSACTION WITH CONSISTENT SNAPSHOT;
 --replace_regex /[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}/TIMESTAMP/ /(ACTIVE) [0-9]+ /\1 NUM / /(thread id) [0-9]+/\1 TID/ /0x[0-9a-f]+/PTR/
 SHOW ENGINE rocksdb TRANSACTION STATUS;
 
+--replace_column 1 BL_NAME 2 BL_POS 3 BL_GTID
+select * from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+
 ROLLBACK;
+
 

@@ -431,4 +431,6 @@ MySQL thread id TID, OS thread handle PTR
 END OF ROCKSDB TRANSACTION MONITOR OUTPUT
 =========================================
 
+select * from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+NAME	POS	GTID
 ROLLBACK;
