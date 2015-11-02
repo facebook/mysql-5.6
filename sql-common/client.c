@@ -2811,6 +2811,7 @@ err:
   if (!*errptr)
     *errptr= "SSL certificate validation failure";
   retcode = 1;
+  DBUG_PRINT("info", ("error SSL certificate validation failure"));
 
 done:
   /* Standard free does not need NULL check, but that's OpenSSL, who knows... */
@@ -3151,6 +3152,13 @@ typedef enum {
   WRITING_RESPONSE = 8099
 } native_client_state_enum;
 
+typedef enum {
+  SSL_REQUEST = 8100,
+  SSL_CONNECT = 8101,
+  SSL_COMPLETE = 8102,
+  SSL_NONE = 8103
+} ssl_exchange_state_enum;
+
 struct st_mysql_authsm_context {
   MYSQL *mysql;
   my_bool non_blocking;
@@ -3170,6 +3178,8 @@ struct st_mysql_authsm_context {
   int change_user_buff_len;
 
   native_client_state_enum native_client_state;
+
+  ssl_exchange_state_enum ssl_exchange_state;
 
   authsm_function state_function;
 };
@@ -3322,6 +3332,75 @@ static int send_change_user_packet(MCPVIO_EXT *mpvio,
   return res;
 }
 
+static int send_change_user_packet_nonblocking(
+    MCPVIO_EXT *mpvio,const uchar *pkt, int pkt_len, my_bool *result)
+{
+  DBUG_ENTER("send_change_user_packet_nonblocking");
+  MYSQL *mysql= mpvio->mysql;
+  mysql_authsm_context *ctx = mysql->connect_context->auth_context;
+
+  uchar command = -1;
+  if (!ctx->change_user_buff) {
+    command = COM_CHANGE_USER;
+    my_bool prep_err;
+    prep_err = prep_send_change_user_packet(mpvio, pkt, pkt_len,
+                                            &ctx->change_user_buff,
+                                            &ctx->change_user_buff_len);
+    if (prep_err) {
+      *result = 1;
+       DBUG_RETURN(NET_ASYNC_COMPLETE);
+    }
+  }
+
+  my_bool error = FALSE;
+  net_async_status status =
+      simple_command_nonblocking(mysql, command,
+                                (uchar*)ctx->change_user_buff,
+                                ctx->change_user_buff_len, 1, &error);
+  if (status == NET_ASYNC_NOT_READY) {
+    DBUG_RETURN(NET_ASYNC_NOT_READY);
+  }
+  my_free(ctx->change_user_buff);
+
+  DBUG_RETURN(NET_ASYNC_COMPLETE);
+}
+
+/*
+ * Reads options from within the MYSQL* and updates client_flag accordingly.
+ */
+static void set_client_flag_from_options(MYSQL* mysql, MCPVIO_EXT *mpvio){
+  mysql->client_flag|= mysql->options.client_flag;
+  mysql->client_flag|= CLIENT_CAPABILITIES;
+
+  if (mysql->client_flag & CLIENT_MULTI_STATEMENTS)
+    mysql->client_flag|= CLIENT_MULTI_RESULTS;
+
+#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
+  if (mysql->options.ssl_key || mysql->options.ssl_cert ||
+      mysql->options.ssl_ca || mysql->options.ssl_capath ||
+      mysql->options.ssl_cipher ||
+      (mysql->options.extension && mysql->options.extension->ssl_crl) ||
+      (mysql->options.extension && mysql->options.extension->ssl_crlpath) ||
+      (mysql->options.extension && mysql->options.extension->ssl_context))
+    mysql->options.use_ssl= 1;
+  if (mysql->options.use_ssl)
+    mysql->client_flag|= CLIENT_SSL;
+#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY*/
+  if (mpvio->db)
+    mysql->client_flag|= CLIENT_CONNECT_WITH_DB;
+  else
+    mysql->client_flag&= ~CLIENT_CONNECT_WITH_DB;
+
+  /* Remove options that server doesn't support */
+  mysql->client_flag= mysql->client_flag &
+                      (~(CLIENT_COMPRESS | CLIENT_SSL | CLIENT_PROTOCOL_41)
+                      | mysql->server_capabilities);
+
+#ifndef HAVE_COMPRESS
+  mysql->client_flag&= ~CLIENT_COMPRESS;
+#endif
+}
+
 #define MAX_CONNECTION_ATTR_STORAGE_LENGTH 65536
 
 /**
@@ -3358,7 +3437,7 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
                                         const uchar *data, int data_len,
                                         char **buff_out, int *buff_len)
 {
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("prep_client_reply_packet");
   MYSQL *mysql= mpvio->mysql;
   NET *net= &mysql->net;
   char *buff, *end;
@@ -3380,36 +3459,7 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
   buff_size= 33 + USERNAME_LENGTH + data_len + 9 + NAME_LEN + NAME_LEN + connect_attrs_len + 9;
   buff= my_malloc(buff_size, MYF(MY_WME | MY_ZEROFILL));
 
-  mysql->client_flag|= mysql->options.client_flag;
-  mysql->client_flag|= CLIENT_CAPABILITIES;
-
-  if (mysql->client_flag & CLIENT_MULTI_STATEMENTS)
-    mysql->client_flag|= CLIENT_MULTI_RESULTS;
-
-#if defined(HAVE_OPENSSL) && !defined(EMBEDDED_LIBRARY)
-  if (mysql->options.ssl_key || mysql->options.ssl_cert ||
-      mysql->options.ssl_ca || mysql->options.ssl_capath ||
-      mysql->options.ssl_cipher ||
-      (mysql->options.extension && mysql->options.extension->ssl_crl) || 
-      (mysql->options.extension && mysql->options.extension->ssl_crlpath) ||
-      (mysql->options.extension && mysql->options.extension->ssl_context))
-    mysql->options.use_ssl= 1;
-  if (mysql->options.use_ssl)
-    mysql->client_flag|= CLIENT_SSL;
-#endif /* HAVE_OPENSSL && !EMBEDDED_LIBRARY*/
-  if (mpvio->db)
-    mysql->client_flag|= CLIENT_CONNECT_WITH_DB;
-  else
-    mysql->client_flag&= ~CLIENT_CONNECT_WITH_DB;
-
-  /* Remove options that server doesn't support */
-  mysql->client_flag= mysql->client_flag &
-                       (~(CLIENT_COMPRESS | CLIENT_SSL | CLIENT_PROTOCOL_41) 
-                       | mysql->server_capabilities);
-
-#ifndef HAVE_COMPRESS
-  mysql->client_flag&= ~CLIENT_COMPRESS;
-#endif
+  set_client_flag_from_options(mysql, mpvio);
 
   if (mysql->client_flag & CLIENT_PROTOCOL_41)
   {
@@ -3426,89 +3476,6 @@ static my_bool prep_client_reply_packet(MCPVIO_EXT *mpvio,
     int3store(buff+2, net->max_packet_size);
     end= buff+5;
   }
-#ifdef HAVE_OPENSSL
-  if (mysql->client_flag & CLIENT_SSL)
-  {
-    /* Do the SSL layering. */
-    struct st_mysql_options *options= &mysql->options;
-    struct st_VioSSLFd *ssl_fd;
-    enum enum_ssl_init_error ssl_init_error;
-    const char *cert_error;
-    unsigned long ssl_error;
-
-    /*
-      Send mysql->client_flag, max_packet_size - unencrypted otherwise
-      the server does not know we want to do SSL
-    */
-    if (my_net_write(net, (uchar*)buff, (size_t) (end-buff)) || net_flush(net))
-    {
-      set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
-                               ER(CR_SERVER_LOST_EXTENDED),
-                               "sending connection information to server",
-                               errno);
-      goto error;
-    }
-
-    /* Create the VioSSLConnectorFd - init SSL and load certs */
-    if (options->extension && options->extension->ssl_context) {
-      ssl_fd= new_VioSSLConnectorFdFromContext(options->extension->ssl_context,
-                                               &ssl_init_error);
-    } else {
-      ssl_fd= new_VioSSLConnectorFd(options->ssl_key,
-                                    options->ssl_cert,
-                                    options->ssl_ca,
-                                    options->ssl_capath,
-                                    options->ssl_cipher,
-                                    &ssl_init_error,
-                                    options->extension ?
-                                    options->extension->ssl_crl : NULL,
-                                    options->extension ?
-                                    options->extension->ssl_crlpath : NULL);
-    }
-    if (!ssl_fd) {
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER(CR_SSL_CONNECTION_ERROR), sslGetErrString(ssl_init_error));
-      goto error;
-    }
-    mysql->connector_fd= (unsigned char *) ssl_fd;
-
-    SSL_SESSION* ssl_session = options->extension ?
-                               options->extension->ssl_session : NULL;
-
-    /* Connect to the server */
-    DBUG_PRINT("info", ("IO layer change in progress..."));
-    if (sslconnect(ssl_fd, net->vio,
-                   timeout_to_seconds(mysql->options.connect_timeout),
-                   ssl_session,
-                   &ssl_error))
-    {    
-      char buf[512];
-      ERR_error_string_n(ssl_error, buf, 512);
-      buf[511]= 0;
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER(CR_SSL_CONNECTION_ERROR),
-                               buf);
-      goto error;
-    }    
-
-    // free the SSL session early
-    if (ssl_session) {
-      SSL_SESSION_free(ssl_session);
-      options->extension->ssl_session = NULL;
-    }
-
-    DBUG_PRINT("info", ("IO layer change done!"));
-
-    /* Verify server cert */
-    if ((mysql->client_flag & CLIENT_SSL_VERIFY_SERVER_CERT) &&
-        ssl_verify_server_cert(net->vio, mysql->host, &cert_error))
-    {
-      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
-                               ER(CR_SSL_CONNECTION_ERROR), cert_error);
-      goto error;
-    }
-  }
-#endif /* HAVE_OPENSSL */
 
   DBUG_PRINT("info",("Server version = '%s'  capabilites: %lu  status: %u  client_flag: %lu",
 		     mysql->server_version, mysql->server_capabilities,
@@ -3581,10 +3548,109 @@ error:
   DBUG_RETURN(TRUE);
 }
 
+#ifdef HAVE_OPENSSL
+
+/*
+ * For SSL connection, client first needs to send a request with
+ * capabilities to the server so it can then start the SSL exchange.
+ * The first packet is sent in the `send_client_reply_packet` functions.
+ *
+ * Establishes the SSL connection nonblocking or blocking, it will depend
+ * on what the context it.
+ *
+ * Returns net_async_status
+ */
+static int run_ssl_connect(MCPVIO_EXT *mpvio, my_bool init_fd, my_bool *error) {
+  DBUG_ENTER("run_ssl_connect");
+  MYSQL *mysql = mpvio->mysql;
+  NET *net= &mysql->net;
+  Vio *vio = net->vio;
+
+  struct st_mysql_options *options= &mysql->options;
+  // Init all the SSL parts, from FD to ssl pointer, this is the init phase for both sync and async ssl connect
+  struct st_VioSSLFd *ssl_fd;
+  enum enum_ssl_init_error ssl_init_error;
+  /* Create the VioSSLConnectorFd - init SSL and load certs */
+  if (init_fd) {
+    if (options->extension && options->extension->ssl_context) {
+      ssl_fd= new_VioSSLConnectorFdFromContext(options->extension->ssl_context,
+                                               &ssl_init_error);
+    } else {
+      ssl_fd= new_VioSSLConnectorFd(options->ssl_key,
+                                    options->ssl_cert,
+                                    options->ssl_ca,
+                                    options->ssl_capath,
+                                    options->ssl_cipher,
+                                    &ssl_init_error,
+                                    options->extension ?
+                                    options->extension->ssl_crl : NULL,
+                                    options->extension ?
+                                    options->extension->ssl_crlpath : NULL);
+    }
+    if (!ssl_fd) {
+      set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                               ER(CR_SSL_CONNECTION_ERROR), sslGetErrString(ssl_init_error));
+      *error = TRUE;
+      DBUG_RETURN(NET_ASYNC_COMPLETE);
+    }
+
+    mysql->connector_fd= (unsigned char *) ssl_fd;
+  } else {
+    ssl_fd = (struct st_VioSSLFd *) mysql->connector_fd;
+  }
+  SSL_SESSION* ssl_session = options->extension ?
+                             options->extension->ssl_session : NULL;
+
+
+  const char *cert_error;
+  unsigned long ssl_error = 0;
+  if (sslconnect(
+      ssl_fd,
+      vio,
+      timeout_to_seconds(mysql->options.connect_timeout),
+      ssl_session,
+      &ssl_error) == 1) {
+    if (socket_errno == SOCKET_EWOULDBLOCK && vio->ssl_is_nonblocking) {
+      DBUG_RETURN(NET_ASYNC_NOT_READY);
+    }
+
+    char buf[512];
+    ERR_error_string_n(ssl_error, buf, 512);
+    buf[511]= 0;
+    set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                             ER(CR_SSL_CONNECTION_ERROR),
+                             buf);
+    *error = TRUE;
+    DBUG_RETURN(NET_ASYNC_COMPLETE);
+  }
+
+  // free the SSL session early
+  if (ssl_session) {
+    SSL_SESSION_free(ssl_session);
+    options->extension->ssl_session = NULL;
+  }
+
+  DBUG_PRINT("info", ("IO layer change done!"));
+
+  /* Verify server cert */
+  if ((mysql->client_flag & CLIENT_SSL_VERIFY_SERVER_CERT) &&
+      ssl_verify_server_cert(net->vio, mysql->host, &cert_error))
+  {
+    set_mysql_extended_error(mysql, CR_SSL_CONNECTION_ERROR, unknown_sqlstate,
+                             ER(CR_SSL_CONNECTION_ERROR), cert_error);
+    *error = TRUE;
+    DBUG_RETURN(NET_ASYNC_COMPLETE);
+  }
+
+  DBUG_RETURN(NET_ASYNC_COMPLETE);
+}
+
+#endif
+
 static int send_client_reply_packet(MCPVIO_EXT *mpvio,
                                     const uchar *data, int data_len)
 {
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("send_client_reply_packet");
   MYSQL *mysql= mpvio->mysql;
   NET *net= &mysql->net;
   char *buff = NULL, *end = NULL;
@@ -3597,7 +3663,37 @@ static int send_client_reply_packet(MCPVIO_EXT *mpvio,
     DBUG_RETURN(1);
   }
 
+#ifdef HAVE_OPENSSL
+  /*
+    For SSL we need to establish the SSL negociation before we move forward
+    with authentication.
+  */
+  if (mysql->client_flag & CLIENT_SSL)
+  {
+    // Request is made of the first 32 bytes of the reply:
+    // 4              capability flags, CLIENT_SSL always set
+    // 4              max-packet size
+    // 1              character set
+    // string[23]     reserved (all [0])
+    if (my_net_write(net, (uchar*) buff, SSLREQUEST_LENGTH) || net_flush(net))
+    {
+      set_mysql_extended_error(mysql, CR_SERVER_LOST, unknown_sqlstate,
+                               ER(CR_SERVER_LOST_EXTENDED),
+                               "sending authentication information",
+                               errno);
+      DBUG_RETURN(CR_ERROR);
+    }
+
+    my_bool error;
+    run_ssl_connect(mpvio, TRUE, &error);
+    if (error) {
+      DBUG_RETURN(CR_ERROR);
+    }
+  }
+#endif
+
   end = buff + buff_len;
+
 
   /* Write authentication package */
   if (my_net_write(net, (uchar*) buff, (size_t) (end-buff)) || net_flush(net))
@@ -3613,6 +3709,81 @@ static int send_client_reply_packet(MCPVIO_EXT *mpvio,
   DBUG_RETURN(ret);
 }
 
+static net_async_status send_client_reply_packet_nonblocking(
+    MCPVIO_EXT *mpvio,const uchar *pkt, int pkt_len, my_bool *result)
+{
+  DBUG_ENTER("send_client_reply_packet_nonblocking");
+  MYSQL *mysql= mpvio->mysql;
+  mysql_authsm_context *ctx = mysql->connect_context->auth_context;
+
+  my_bool err = FALSE;
+  uchar command = COM_END + 1;
+  if (!ctx->change_user_buff) {
+    err = prep_client_reply_packet(mpvio, pkt, pkt_len,
+                                   &ctx->change_user_buff,
+                                   &ctx->change_user_buff_len);
+    if (err) {
+      goto error;
+    }
+#ifdef HAVE_OPENSSL
+  if (mysql->client_flag & CLIENT_SSL)
+    ctx->ssl_exchange_state = SSL_REQUEST;
+  else
+    ctx->ssl_exchange_state = SSL_NONE;
+#endif
+  }
+
+#ifdef HAVE_OPENSSL
+
+  /* For SSL we need to establish the SSL negociation before we move forward
+    with authentication. */
+
+  my_bool first_call = FALSE;
+  NET *net= &mysql->net;
+
+  if (ctx->ssl_exchange_state == SSL_REQUEST) {
+    net_async_status status =
+      my_net_write_nonblocking(
+        net, (uchar*)ctx->change_user_buff, SSLREQUEST_LENGTH, &err);
+    if (status == NET_ASYNC_NOT_READY) {
+      DBUG_RETURN(NET_ASYNC_NOT_READY);
+    }
+    if (err) {
+      goto error;
+    }
+    ctx->ssl_exchange_state = SSL_CONNECT;
+    first_call = TRUE;
+  }
+
+  if (ctx->ssl_exchange_state == SSL_CONNECT) {
+    net->vio->ssl_is_nonblocking = TRUE;
+    net_async_status status =
+      run_ssl_connect(mpvio, first_call, &err);
+    if (status == NET_ASYNC_NOT_READY) {
+      DBUG_RETURN(NET_ASYNC_NOT_READY);
+    }
+    if (err) {
+      goto error;
+    }
+    ctx->ssl_exchange_state = SSL_COMPLETE;
+  }
+
+#endif
+
+  net_async_status status =
+    simple_command_nonblocking(mysql, command,
+                                 (uchar*)ctx->change_user_buff,
+                                 ctx->change_user_buff_len, 1, &err);
+  if (status == NET_ASYNC_NOT_READY) {
+    DBUG_RETURN(NET_ASYNC_NOT_READY);
+  }
+error:
+  *result = err;
+  my_free(ctx->change_user_buff);
+
+  DBUG_RETURN(NET_ASYNC_COMPLETE);
+}
+
 /**
   vio->read_packet() callback method for client authentication plugins
 
@@ -3621,7 +3792,7 @@ static int send_client_reply_packet(MCPVIO_EXT *mpvio,
 */
 static int client_mpvio_read_packet(struct st_plugin_vio *mpv, uchar **buf)
 {
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("client_mpvio_read_packet");
   MCPVIO_EXT *mpvio= (MCPVIO_EXT*)mpv;
   MYSQL *mysql= mpvio->mysql;
   ulong  pkt_len;
@@ -3758,6 +3929,7 @@ client_mpvio_read_packet_nonblocking(struct st_plugin_vio *mpv, uchar **buf,
 static int client_mpvio_write_packet(struct st_plugin_vio *mpv,
                                      const uchar *pkt, int pkt_len)
 {
+  DBUG_ENTER("client_mpvio_write_packet");
   int res;
   MCPVIO_EXT *mpvio= (MCPVIO_EXT*)mpv;
 
@@ -3782,53 +3954,29 @@ static int client_mpvio_write_packet(struct st_plugin_vio *mpv,
                                errno);
   }
   mpvio->packets_written++;
-  return res;
+  DBUG_RETURN(res);
 }
 
 static int client_mpvio_write_packet_nonblocking(struct st_plugin_vio *mpv,
                                                  const uchar *pkt, int pkt_len,
                                                  int *result)
 {
-  DBUG_ENTER(__func__);
-  MYSQL *mysql= mpv->mysql;
-  mysql_authsm_context *ctx = mysql->connect_context->auth_context;
-  my_bool error;
+  DBUG_ENTER("client_mpvio_write_packet_nonblocking");
+  my_bool error = FALSE;
   MCPVIO_EXT *mpvio= (MCPVIO_EXT*)mpv;
 
   if (mpvio->packets_written == 0)
   {
-    uchar command = -1;
-    if (!ctx->change_user_buff) {
-      my_bool prep_err;
+    net_async_status status;
       if (mpvio->mysql_change_user) {
-        command = COM_CHANGE_USER;
-        prep_err = prep_send_change_user_packet(mpvio, pkt, pkt_len,
-                                                &ctx->change_user_buff,
-                                                &ctx->change_user_buff_len);
+      status = send_change_user_packet_nonblocking(mpvio, pkt, pkt_len, &error);
       } else {
-        command = COM_END + 1;
-        prep_err = prep_client_reply_packet(mpvio, pkt, pkt_len,
-                                            &ctx->change_user_buff,
-                                            &ctx->change_user_buff_len);
-      }
-      if (prep_err) {
-        *result = 1;
-        DBUG_RETURN(NET_ASYNC_COMPLETE);
-      }
+      status = send_client_reply_packet_nonblocking(mpvio, pkt, pkt_len, &error);
     }
-
-    net_async_status status =
-      simple_command_nonblocking(mysql, command,
-                                 (uchar*)ctx->change_user_buff,
-                                 ctx->change_user_buff_len, 1, &error);
     if (status == NET_ASYNC_NOT_READY) {
       DBUG_RETURN(NET_ASYNC_NOT_READY);
     }
-
-    my_free(ctx->change_user_buff);
-
     *result = error;
-
   }
   else
   {
@@ -4063,6 +4211,8 @@ authsm_begin_plugin_auth(mysql_authsm_context *ctx)
   ctx->mpvio.db= ctx->db;
   ctx->mpvio.plugin= ctx->auth_plugin;
 
+  ctx->native_client_state = READING_PASSWORD;
+
   ctx->state_function = authsm_run_first_authenticate_user;
   DBUG_RETURN(STATE_MACHINE_CONTINUE);
 }
@@ -4072,10 +4222,9 @@ authsm_begin_plugin_auth(mysql_authsm_context *ctx)
 static mysql_state_machine_status
 authsm_run_first_authenticate_user(mysql_authsm_context *ctx)
 {
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("authsm_run_first_authenticate_user");
   MYSQL *mysql = ctx->mysql;
   if (ctx->non_blocking) {
-    ctx->native_client_state = READING_PASSWORD;
     net_async_status status = ctx->auth_plugin->authenticate_user_nonblocking(
         (struct st_plugin_vio *)&ctx->mpvio, mysql, &ctx->res);
     if (status == NET_ASYNC_NOT_READY) {
@@ -4133,7 +4282,7 @@ authsm_handle_first_authenticate_user(mysql_authsm_context *ctx)
 static mysql_state_machine_status
 authsm_read_change_user_result(mysql_authsm_context *ctx)
 {
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("authsm_read_change_user_result");
   MYSQL *mysql = ctx->mysql;
   /* read the OK packet (or use the cached value in mysql->net.read_pos */
   if (ctx->res == CR_OK) {
@@ -4192,7 +4341,7 @@ authsm_handle_change_user_result(mysql_authsm_context *ctx)
 static mysql_state_machine_status
 authsm_run_second_authenticate_user(mysql_authsm_context *ctx)
 {
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("authsm_run_second_authenticate_user");
   MYSQL *mysql = ctx->mysql;
   /* The server asked to use a different authentication plugin */
   if (ctx->pkt_length == 1)
@@ -6712,7 +6861,6 @@ static int native_password_auth_client(MYSQL_PLUGIN_VIO *vio, MYSQL *mysql)
 
   DBUG_ENTER("native_password_auth_client");
 
-
   if (((MCPVIO_EXT *)vio)->mysql_change_user)
   {
     /*
@@ -6763,7 +6911,7 @@ native_password_auth_client_nonblocking(MYSQL_PLUGIN_VIO *vio,
   int io_result;
   uchar *pkt;
   mysql_authsm_context *ctx = mysql->connect_context->auth_context;
-  DBUG_ENTER(__func__);
+  DBUG_ENTER("native_password_auth_client_nonblocking");
 
   switch (ctx->native_client_state) {
   case READING_PASSWORD:
@@ -6797,6 +6945,7 @@ native_password_auth_client_nonblocking(MYSQL_PLUGIN_VIO *vio,
       memcpy(mysql->scramble, pkt, SCRAMBLE_LENGTH);
       mysql->scramble[SCRAMBLE_LENGTH] = 0;
     }
+
     ctx->native_client_state = WRITING_RESPONSE;
 
     /* fallthrough */

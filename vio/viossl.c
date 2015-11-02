@@ -403,16 +403,13 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
   DBUG_RETURN(ret);
 }
 
-
-static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+static int ssl_init(SSL **out_ssl, struct st_VioSSLFd *ptr, Vio *vio, long timeout,
                   SSL_SESSION* ssl_session,
-                  ssl_handshake_func_t func,
                   unsigned long *ssl_errno_holder)
 {
-  int r;
+  DBUG_ENTER("ssl_init");
   SSL *ssl;
   my_socket sd= mysql_socket_getfd(vio->mysql_socket);
-  DBUG_ENTER("ssl_do");
   DBUG_PRINT("enter", ("ptr: 0x%lx, sd: %d  ctx: 0x%lx, session=0x%lx",
                        (long) ptr, sd, (long) ptr->ssl_context,
                        (long) ssl_session));
@@ -462,19 +459,14 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   yaSSL_transport_set_recv_function(ssl, yassl_recv);
   yaSSL_transport_set_send_function(ssl, yassl_send);
 #endif
+ *out_ssl = ssl;
+ DBUG_RETURN(0);
+}
 
-  if ((r= ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)) < 1)
-  {
-#ifndef DBUG_OFF  /* Debug build */
-    report_errors(ssl);
-#endif
-    DBUG_PRINT("error", ("SSL_connect/accept failure"));
-    SSL_free(ssl);
-    DBUG_RETURN(1);
-  }
 
+static int ssl_finish(SSL *ssl, Vio *vio) {
+  DBUG_ENTER("ssl_finish");
   DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
-
   /*
     Connection succeeded. Install new function handlers,
     change type, set sd to the fd used when connecting
@@ -512,8 +504,45 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       DBUG_PRINT("info",("no shared ciphers!"));
   }
 #endif
-
   DBUG_RETURN(0);
+}
+
+static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+                  SSL_SESSION* ssl_session,
+                  ssl_handshake_func_t func,
+                  unsigned long *ssl_errno_holder)
+{
+  DBUG_ENTER("ssl_do");
+
+  if (!ptr->ssl) {
+    SSL *ssl;
+    if (ssl_init(
+            &ssl, ptr, vio, timeout,
+            ssl_session, ssl_errno_holder)) {
+        DBUG_RETURN(1);
+    }
+    ptr->ssl = ssl;
+  }
+
+  SSL *ssl = ptr->ssl;
+  if (ssl_handshake_loop(vio, ssl, func, ssl_errno_holder) < 1)
+  {
+    if (socket_errno == SOCKET_EWOULDBLOCK && vio->ssl_is_nonblocking) {
+      DBUG_RETURN(1); // Don't free SSL
+    }
+#ifndef DBUG_OFF  /* Debug build */
+    report_errors(ssl);
+#endif
+    DBUG_PRINT("error", ("SSL_connect/accept failure"));
+    ptr->ssl = NULL;
+    SSL_free(ssl);
+    DBUG_RETURN(1);
+  }
+
+  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
+  ptr->ssl = NULL;
+  int r = ssl_finish(ssl, vio);
+  DBUG_RETURN(r);
 }
 
 
