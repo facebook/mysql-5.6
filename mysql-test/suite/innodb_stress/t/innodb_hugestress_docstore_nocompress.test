@@ -4,6 +4,9 @@
 --source include/master-slave.inc
 --source include/big_test.inc
 
+# Too heavy for testing in debug mode
+--source include/have_nodebug.inc
+
 --disable_warnings
 DROP TABLE IF EXISTS t1;
 --enable_warnings
