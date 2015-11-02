@@ -240,7 +240,6 @@ static char * rocksdb_datadir;
 static rocksdb::DBOptions init_db_options() {
   rocksdb::DBOptions o;
   o.create_if_missing = true;
-  o.info_log = std::make_shared<Logger>();
   return o;
 }
 
@@ -1915,6 +1914,15 @@ static int rocksdb_init_func(void *p)
           rocksdb_rate_limiter_bytes_per_sec));
     db_options.rate_limiter = rate_limiter;
   }
+
+  rocksdb::Status s = CreateLoggerFromOptions(rocksdb_datadir, db_options,
+                                              &db_options.info_log);
+  if (s.ok()) {
+    std::shared_ptr<Logger> myrocks_logger = std::make_shared<Logger>();
+    myrocks_logger->rocksdb_logger = db_options.info_log;
+    db_options.info_log = myrocks_logger;
+  }
+
   db_options.info_log_level = (rocksdb::InfoLogLevel)rocksdb_info_log_level;
   db_options.wal_dir = rocksdb_wal_dir;
 
