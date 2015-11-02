@@ -91,9 +91,6 @@ extern void query_cache_insert(const char *packet, ulong length,
 #include "mysql_com_server.h"
 #endif
 
-#define VIO_SOCKET_ERROR  ((size_t) -1)
-#define VIO_SOCKET_WANT_READ  ((size_t) -2)
-#define VIO_SOCKET_WANT_WRITE ((size_t) -3)
 #define MAX_PACKET_LENGTH (256L*256L*256L-1)
 
 static my_bool net_write_buff(NET *, const uchar *, ulong);
