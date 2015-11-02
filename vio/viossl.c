@@ -22,10 +22,6 @@
 
 #include "vio_priv.h"
 
-#define VIO_SOCKET_ERROR      ((size_t) -1)
-#define VIO_SOCKET_WANT_READ  ((size_t) -2)
-#define VIO_SOCKET_WANT_WRITE ((size_t) -3)
-
 #ifdef HAVE_OPENSSL
 
 #ifndef DBUG_OFF
@@ -352,15 +348,18 @@ typedef int (*ssl_handshake_func_t)(SSL*);
   @param ssl    SSL structure for the connection.
   @param func   SSL handshake handler.
   @param ssl_errno_holder[out]  The SSL error code.
+  @param vio_action[out]        For nonblocking SSL.
 
-  @return Return value is 1 on success.
+  @return Return value is 0 on success.
+          (size_t) -1 on error
+          (size_t) -2 or -3 for nonblocking actions
 */
 
-static int ssl_handshake_loop(Vio *vio, SSL *ssl,
+static size_t ssl_handshake_loop(Vio *vio, SSL *ssl,
                               ssl_handshake_func_t func,
                               unsigned long *ssl_errno_holder)
 {
-  int ret;
+  size_t ret = -1;
   DBUG_ENTER(__func__);
 
   vio->ssl_arg= ssl;
@@ -378,19 +377,24 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
     */
     DBUG_ASSERT(ERR_peek_error() == 0);
 #endif
-
-    ret= func(ssl);
-
-    if (ret >= 1)
+    int handshake_ret;
+    handshake_ret = func(ssl);
+    if (handshake_ret >= 1) {
+      ret = 0;
       break;
+    }
 
     /* Process the SSL I/O error. */
-    if (!ssl_should_retry(vio, ret, &event, ssl_errno_holder))
+    if (!ssl_should_retry(vio, handshake_ret, &event, ssl_errno_holder))
       break;
 
     if (vio->ssl_is_nonblocking) {
       socket_errno = SOCKET_EWOULDBLOCK;
-      DBUG_RETURN(-1);
+      switch (event) {
+        case VIO_IO_EVENT_READ:  DBUG_RETURN(VIO_SOCKET_WANT_READ);
+        case VIO_IO_EVENT_WRITE: DBUG_RETURN(VIO_SOCKET_WANT_WRITE);
+        default:                 DBUG_RETURN(VIO_SOCKET_ERROR);
+      }
     }
 
     /* Wait for I/O so that the handshake can proceed. */
@@ -403,16 +407,20 @@ static int ssl_handshake_loop(Vio *vio, SSL *ssl,
   DBUG_RETURN(ret);
 }
 
-
-static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
-                  SSL_SESSION* ssl_session,
-                  ssl_handshake_func_t func,
-                  unsigned long *ssl_errno_holder)
+/*
+ * Initiates the SSL structure.
+ * @return Return value is 1 on failure, or 0 on success.
+ */
+static int ssl_init(SSL **out_ssl,
+                    struct st_VioSSLFd *ptr,
+                    Vio *vio,
+                    long timeout,
+                    SSL_SESSION* ssl_session,
+                    unsigned long *ssl_errno_holder)
 {
-  int r;
+  DBUG_ENTER("ssl_init");
   SSL *ssl;
   my_socket sd= mysql_socket_getfd(vio->mysql_socket);
-  DBUG_ENTER("ssl_do");
   DBUG_PRINT("enter", ("ptr: 0x%lx, sd: %d  ctx: 0x%lx, session=0x%lx",
                        (long) ptr, sd, (long) ptr->ssl_context,
                        (long) ssl_session));
@@ -462,19 +470,18 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   yaSSL_transport_set_recv_function(ssl, yassl_recv);
   yaSSL_transport_set_send_function(ssl, yassl_send);
 #endif
+ *out_ssl = ssl;
+ DBUG_RETURN(0);
+}
 
-  if ((r= ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)) < 1)
-  {
-#ifndef DBUG_OFF  /* Debug build */
-    report_errors(ssl);
-#endif
-    DBUG_PRINT("error", ("SSL_connect/accept failure"));
-    SSL_free(ssl);
-    DBUG_RETURN(1);
-  }
-
-  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
-
+/*
+ * Completes the sslconnect procedures by setting VIO to SSL and debug
+ * related information regarding the certificate.
+ *
+ * @return Return value is 1 on failure, or 0 on success.
+ */
+static int ssl_finish(SSL *ssl, Vio *vio) {
+  DBUG_ENTER("ssl_finish");
   /*
     Connection succeeded. Install new function handlers,
     change type, set sd to the fd used when connecting
@@ -512,8 +519,62 @@ static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
       DBUG_PRINT("info",("no shared ciphers!"));
   }
 #endif
-
   DBUG_RETURN(0);
+}
+
+/**
+ * Establishes the SSL connection.
+ * First, it initiates the SSL struct it not already set.
+ * Then calls the handshake loop. When the ssl context is nonblocking,
+ * this function will return `-1` and socket_errno SOCKET_EWOULDBLOCK
+ * to signal that more polls will be required until the operation finishes.
+ * In the end, this checks the certificate.
+ *
+ * @param ssl_errno_holder[out]  The SSL error code.
+ *
+ * @return Return value VIO_SOCKET_* action
+ *    -1 -> error
+ *    -2 -> wants read
+ *    -3 -> wants write
+ *    0  -> success
+ */
+static int ssl_do(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
+                  SSL_SESSION* ssl_session,
+                  ssl_handshake_func_t func,
+                  unsigned long *ssl_errno_holder)
+{
+  DBUG_ENTER("ssl_do");
+
+  if (!ptr->ssl) {
+    SSL *ssl;
+    if (ssl_init(
+            &ssl, ptr, vio, timeout,
+            ssl_session, ssl_errno_holder)) {
+        DBUG_RETURN(-1);
+    }
+    ptr->ssl = ssl;
+  }
+
+  SSL *ssl = ptr->ssl;
+  size_t loop_ret;
+  if ((loop_ret = ssl_handshake_loop(vio, ssl, func, ssl_errno_holder)))
+  {
+    if (loop_ret != VIO_SOCKET_ERROR) {
+      DBUG_RETURN( (int) loop_ret); // Don't free SSL
+    }
+#ifndef DBUG_OFF  /* Debug build */
+    report_errors(ssl);
+#endif
+    DBUG_PRINT("error", ("SSL_connect/accept failure"));
+    ptr->ssl = NULL;
+    SSL_free(ssl);
+    DBUG_RETURN(-1);
+  }
+
+  DBUG_PRINT("info", ("reused session: %ld", SSL_session_reused(ssl)));
+  ptr->ssl = NULL;
+  int r = ssl_finish(ssl, vio);
+  DBUG_RETURN(r ? -1 : 0);
 }
 
 
@@ -521,10 +582,15 @@ int sslaccept(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
               unsigned long *ssl_errno_holder)
 {
   DBUG_ENTER("sslaccept");
-  DBUG_RETURN(ssl_do(ptr, vio, timeout, NULL, SSL_accept, ssl_errno_holder));
+  DBUG_RETURN(
+      ssl_do(
+        ptr, vio, timeout, NULL, SSL_accept, ssl_errno_holder
+      ) == 0 ? 0 : 1);
 }
 
-
+/*
+ * Return values are the same as `ssl_do`.
+ */
 int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
                SSL_SESSION* ssl_session, unsigned long *ssl_errno_holder)
 {
@@ -532,7 +598,6 @@ int sslconnect(struct st_VioSSLFd *ptr, Vio *vio, long timeout,
   DBUG_RETURN(ssl_do(ptr, vio, timeout, ssl_session,
                      SSL_connect, ssl_errno_holder));
 }
-
 
 my_bool vio_ssl_has_data(Vio *vio)
 {
