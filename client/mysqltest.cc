@@ -9226,7 +9226,6 @@ int main(int argc, char **argv)
 
   if (opt_use_ssl)
   {
-    enable_async_client = FALSE;
     mysql_ssl_set(&con->mysql, opt_ssl_key, opt_ssl_cert, opt_ssl_ca,
 		  opt_ssl_capath, opt_ssl_cipher);
     mysql_options(&con->mysql, MYSQL_OPT_SSL_CRL, opt_ssl_crl);
