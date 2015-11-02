@@ -57,6 +57,11 @@ enum enum_vio_io_event
 #define VIO_READ_BUFFER_SIZE 16384              /* size of read buffer */
 #define VIO_DESCRIPTION_SIZE 30                 /* size of description */
 
+/* Used for SSL connects, reads and writes */
+#define VIO_SOCKET_ERROR      ((size_t) -1)
+#define VIO_SOCKET_WANT_READ  ((size_t) -2)
+#define VIO_SOCKET_WANT_WRITE ((size_t) -3)
+
 Vio* vio_new(my_socket sd, enum enum_vio_type type, uint flags);
 Vio*  mysql_socket_vio_new(MYSQL_SOCKET mysql_socket, enum enum_vio_type type, uint flags);
 #ifdef __WIN__
@@ -164,6 +169,9 @@ struct st_VioSSLFd
    * is supplied by mysql_options(..., MYSQL_OPT_SSL_CONTEXT, ...)
    * then it is also not owned by the client library. */
   my_bool owned;
+  /* SSL struct for the nonblocking actions. It's only kept until the
+   * connection is being established */
+  SSL *ssl;
 };
 
 int sslaccept(struct st_VioSSLFd*, Vio *, long timeout, unsigned long *errptr);
