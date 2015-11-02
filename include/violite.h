@@ -164,6 +164,8 @@ struct st_VioSSLFd
    * is supplied by mysql_options(..., MYSQL_OPT_SSL_CONTEXT, ...)
    * then it is also not owned by the client library. */
   my_bool owned;
+  /* SSL struct for the nonblocking actions. */
+  SSL *ssl;
 };
 
 int sslaccept(struct st_VioSSLFd*, Vio *, long timeout, unsigned long *errptr);
