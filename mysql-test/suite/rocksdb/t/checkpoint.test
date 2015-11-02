@@ -65,21 +65,83 @@ let $table = t5;
 # Create checkpoint
 --disable_result_log
 --disable_query_log
-let snapshot_dir = $MYSQL_TMP_DIR/snapshot;
---exec echo snapshot_dir =  $snapshot_dir
-eval SET GLOBAL ROCKSDB_SNAPSHOT_DIR = '$snapshot_dir';
+let checkpoint = $MYSQL_TMP_DIR/checkpoint;
+--exec echo checkpoint = $checkpoint
+eval SET GLOBAL ROCKSDB_CREATE_CHECKPOINT = '$checkpoint';
 
 --sleep 1
---exec ls $snapshot_dir
+--exec ls $checkpoint
 
 --enable_query_log
 --enable_result_log
 
-# Check snapshot
---exec ls $snapshot_dir/CURRENT |sed s/.*CURRENT/CURRENT/g
+# Check checkpoint
+--exec ls $checkpoint/CURRENT |sed s/.*CURRENT/CURRENT/g
 
 # Cleanup
---exec rm -rf  $snapshot_dir
+--exec rm -rf $checkpoint
+
+# Create checkpoint with a trailing '/'
+--disable_result_log
+--disable_query_log
+let checkpoint = $MYSQL_TMP_DIR/checkpoint/;
+--exec echo checkpoint = $checkpoint
+eval SET GLOBAL ROCKSDB_CREATE_CHECKPOINT = '$checkpoint';
+
+--sleep 1
+--exec ls $checkpoint
+
+--enable_query_log
+--enable_result_log
+
+# Check checkpoint
+--exec ls $checkpoint/CURRENT |sed s/.*CURRENT/CURRENT/g
+
+# Cleanup
+--exec rm -rf $checkpoint
+
+# Create checkpoint with a trailing '/'
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+--disable_result_log
+--disable_query_log
+let checkpoint = ;
+--exec echo checkpoint = $checkpoint
+eval SET GLOBAL ROCKSDB_CREATE_CHECKPOINT = '$checkpoint';
+
+--sleep 1
+
+--enable_query_log
+--enable_result_log
+
+# Check failure
+--exec grep 'RocksDB: failed in creating checkpoint in directory : ' $MYSQLTEST_VARDIR/log/mysqld.1.err |sed s/.*RocksDB/RocksDB/g
+
+# Cleanup
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
+--exec rm -rf $checkpoint
+
+# Create checkpoint in a directory that does not exist
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
+
+--disable_result_log
+--disable_query_log
+let checkpoint = /does/not/exist;
+--exec echo checkpoint = $checkpoint
+eval SET GLOBAL ROCKSDB_CREATE_CHECKPOINT = '$checkpoint';
+
+--sleep 1
+
+--enable_query_log
+--enable_result_log
+
+# Check failure
+--exec grep 'RocksDB: failed in creating checkpoint in directory : ' $MYSQLTEST_VARDIR/log/mysqld.1.err |sed s/.*RocksDB/RocksDB/g
+
+# Cleanup
+--exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
+--exec rm -rf $checkpoint
+
 --disable_result_log
 truncate table t1;
 optimize table t1;
