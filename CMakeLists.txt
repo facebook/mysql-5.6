@@ -388,6 +388,7 @@ INCLUDE(configure.cmake)
 
 # Common defines and includes
 ADD_DEFINITIONS(-DHAVE_CONFIG_H)
+ADD_DEFINITIONS(-DROCKSDB_LIB_IO_POSIX)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # Add bundled or system zlib.
