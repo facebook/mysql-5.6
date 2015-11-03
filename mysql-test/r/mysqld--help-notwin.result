@@ -1063,6 +1063,10 @@ The following options may be given as the first argument:
  DBOptions::max_background_compactions for RocksDB
  --rocksdb-max-background-flushes=# 
  DBOptions::max_background_flushes for RocksDB
+ --rocksdb-max-index-id[=name] 
+ Enable or disable ROCKSDB_MAX_INDEX_ID plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
  --rocksdb-max-log-file-size=# 
  DBOptions::max_log_file_size for RocksDB
  --rocksdb-max-manifest-file-size=# 
@@ -1718,6 +1722,7 @@ rocksdb-log-file-time-to-roll 0
 rocksdb-manifest-preallocation-size 4194304
 rocksdb-max-background-compactions 1
 rocksdb-max-background-flushes 1
+rocksdb-max-index-id ON
 rocksdb-max-log-file-size 0
 rocksdb-max-manifest-file-size 18446744073709551615
 rocksdb-max-open-files 5000

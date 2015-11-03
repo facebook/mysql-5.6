@@ -6421,6 +6421,7 @@ i_s_rocksdb_perf_context,
 i_s_rocksdb_perf_context_global,
 i_s_rocksdb_cfoptions,
 i_s_rocksdb_binlog,
+i_s_rocksdb_max_index_id,
 i_s_rocksdb_ddl,
 i_s_rocksdb_index_file_map
 mysql_declare_plugin_end;
@@ -6639,6 +6640,11 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
       break;
     }
   }
+}
+
+Dict_manager *get_dict_manager(void)
+{
+  return &dict_manager;
 }
 
 Table_ddl_manager *get_ddl_manager(void)
