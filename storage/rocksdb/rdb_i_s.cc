@@ -1,4 +1,4 @@
-/*
+/* 
    Copyright (c) 2012, Monty Program Ab
 
    This program is free software; you can redistribute it and/or modify

@@ -1209,7 +1209,7 @@ public:
       return false;
 
     /* Commit the current transaction */
-    bool res;
+    bool res = true;
     if ((res= commit_no_binlog(thd)))
       return res;
 
