@@ -1,0 +1,27 @@
+--source include/have_rocksdb.inc
+--source include/have_log_bin.inc
+
+select * from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+select count(*) from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+--enable_warnings
+
+CREATE TABLE t1 (i INT, PRIMARY KEY (i) ) ENGINE = ROCKSDB;
+INSERT INTO t1 VALUES (1), (2), (3);
+
+select * from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+select count(*) from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+
+
+select * from INFORMATION_SCHEMA.ROCKSDB_MAX_INDEX_ID;
+
+CREATE INDEX t_index ON t1(i);
+
+select * from INFORMATION_SCHEMA.ROCKSDB_MAX_INDEX_ID;
+
+DROP TABLE t1;
+
+
+

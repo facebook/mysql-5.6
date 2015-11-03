@@ -2926,7 +2926,7 @@ int ha_rocksdb::close(void)
   if (sec_key_packed_tuple_old)
     my_free(sec_key_packed_tuple_old);
   sec_key_packed_tuple_old= NULL;
-  
+
   if (end_key_packed_tuple)
     my_free(end_key_packed_tuple);
   end_key_packed_tuple= NULL;
@@ -5269,10 +5269,10 @@ void ha_rocksdb::position(const uchar *record)
     (Note: last_rowkey has the packed PK of last-read-row, which allows to
     handle most cases, but there is an exception to this: when slave applies
     RBR events, it fills the record and then calls position(); rnd_pos())
-    
+
     Also note that we *can* rely on PK column values being available. This is
     because table_flags() includes HA_PRIMARY_KEY_REQUIRED_FOR_POSITION bit.
-    When that is true, table->prepare_for_position() adds PK columns into the 
+    When that is true, table->prepare_for_position() adds PK columns into the
     read set (this may potentially disable index-only access when PK column
     cannot be restored from its mem-comparable form in the secondary indexes).
   */
@@ -5280,7 +5280,7 @@ void ha_rocksdb::position(const uchar *record)
                                           ref, NULL, NULL);
 
   /*
-    It could be that mem-comparable form of PK occupies less than ref_length 
+    It could be that mem-comparable form of PK occupies less than ref_length
     bytes. Fill the remainder with zeros.
   */
   if (ref_length > packed_size)
@@ -5295,7 +5295,7 @@ int ha_rocksdb::rnd_pos(uchar *buf, uchar *pos)
   int rc;
   size_t len;
   DBUG_ENTER("ha_rocksdb::rnd_pos");
-  
+
   len= pk_descr->key_length(table, rocksdb::Slice((const char*)pos,
                                                   ref_length));
   if (len == size_t(-1))
@@ -6420,6 +6420,8 @@ i_s_rocksdb_dbstats,
 i_s_rocksdb_perf_context,
 i_s_rocksdb_perf_context_global,
 i_s_rocksdb_cfoptions,
+i_s_rocksdb_binlog,
+i_s_rocksdb_max_index_id,
 i_s_rocksdb_ddl,
 i_s_rocksdb_index_file_map
 mysql_declare_plugin_end;
@@ -6640,9 +6642,19 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
 }
 
+Dict_manager *get_dict_manager(void)
+{
+  return &dict_manager;
+}
+
 Table_ddl_manager *get_ddl_manager(void)
 {
   return &ddl_manager;
+}
+
+Binlog_info_manager *get_binlog_manager(void)
+{
+  return &binlog_manager;
 }
 
 void

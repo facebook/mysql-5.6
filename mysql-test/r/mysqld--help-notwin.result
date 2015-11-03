@@ -971,6 +971,10 @@ The following options may be given as the first argument:
  BlockBasedTableOptions::cache_index_and_filter_blocks for
  RocksDB
  (Defaults to on; use --skip-rocksdb-cache-index-and-filter-blocks to disable.)
+ --rocksdb-cf-binlog[=name] 
+ Enable or disable ROCKSDB_CF_BINLOG plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
  --rocksdb-cf-options[=name] 
  Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
@@ -1680,6 +1684,7 @@ rocksdb-bulk-load FALSE
 rocksdb-bulk-load-size 1000
 rocksdb-bytes-per-sync 0
 rocksdb-cache-index-and-filter-blocks TRUE
+rocksdb-cf-binlog ON
 rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100

@@ -22,6 +22,8 @@ extern struct st_mysql_plugin i_s_rocksdb_dbstats;
 extern struct st_mysql_plugin i_s_rocksdb_perf_context;
 extern struct st_mysql_plugin i_s_rocksdb_perf_context_global;
 extern struct st_mysql_plugin i_s_rocksdb_cfoptions;
+extern struct st_mysql_plugin i_s_rocksdb_binlog;
+extern struct st_mysql_plugin i_s_rocksdb_max_index_id;
 extern struct st_mysql_plugin i_s_rocksdb_ddl;
 extern struct st_mysql_plugin i_s_rocksdb_index_file_map;
 
