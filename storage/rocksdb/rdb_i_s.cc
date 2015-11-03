@@ -639,6 +639,33 @@ static ST_FIELD_INFO i_s_rocksdb_binlog_fields_info[] =
   ROCKSDB_FIELD_INFO_END
 };
 
+/*
+ Support for INFORMATION_SCHEMA.ROCKSDB_MAX_INDEX_ID dynamic table
+ */
+static int i_s_rocksdb_max_index_id_fill_table(THD *thd,
+    TABLE_LIST *tables,
+    Item *cond)
+{
+  DBUG_ENTER("i_s_rocksdb_max_index_id_fill_table");
+
+  bool ret= false;
+  uint32_t max_index_id = 0;
+
+  if (get_dict_manager()->get_max_index_id(&max_index_id)) {
+    tables->table->field[0]->store(max_index_id, true);
+    ret = schema_table_store_record(thd, tables->table);
+  }
+
+  DBUG_RETURN(ret);
+}
+
+static ST_FIELD_INFO i_s_rocksdb_max_index_id_fields_info[] =
+{
+  ROCKSDB_FIELD_INFO("MAX_INDEX_ID", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
+  ROCKSDB_FIELD_INFO_END
+};
+
+
 struct i_s_rocksdb_ddl {
   THD *thd;
   TABLE_LIST *tables;
@@ -763,6 +790,20 @@ static int i_s_rocksdb_binlog_init(void *p)
 
   schema->fields_info= i_s_rocksdb_binlog_fields_info;
   schema->fill_table= i_s_rocksdb_binlog_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+static int i_s_rocksdb_max_index_id_init(void *p)
+{
+  ST_SCHEMA_TABLE *schema;
+
+  DBUG_ENTER("i_s_rocksdb_max_index_id_init");
+
+  schema= reinterpret_cast<ST_SCHEMA_TABLE*>(p);
+
+  schema->fields_info= i_s_rocksdb_max_index_id_fields_info;
+  schema->fill_table= i_s_rocksdb_max_index_id_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -982,6 +1023,23 @@ struct st_mysql_plugin i_s_rocksdb_binlog=
   NULL,                               /* status variables */
   NULL,                               /* system variables */
   NULL,                               /* config options */
+  0,                                  /* flags */
+};
+
+struct st_mysql_plugin i_s_rocksdb_max_index_id=
+{
+  MYSQL_INFORMATION_SCHEMA_PLUGIN,
+  &i_s_rocksdb_info,
+  "ROCKSDB_MAX_INDEX_ID",
+  "Facebook",
+  "RocksDB column family options",
+  PLUGIN_LICENSE_GPL,
+  i_s_rocksdb_max_index_id_init,
+  i_s_rocksdb_deinit,
+  0x0001,                             /* version number (0.1) */
+  nullptr,                            /* status variables */
+  nullptr,                            /* system variables */
+  nullptr,                            /* config options */
   0,                                  /* flags */
 };
 
