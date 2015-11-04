@@ -6420,7 +6420,7 @@ i_s_rocksdb_dbstats,
 i_s_rocksdb_perf_context,
 i_s_rocksdb_perf_context_global,
 i_s_rocksdb_cfoptions,
-i_s_rocksdb_binlog,
+i_s_rocksdb_global_info,
 i_s_rocksdb_ddl,
 i_s_rocksdb_index_file_map
 mysql_declare_plugin_end;
