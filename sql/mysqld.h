@@ -347,6 +347,8 @@ extern int32 thread_binlog_client;
 
 extern my_bool opt_log_slow_extra;
 extern ulonglong binlog_fsync_count;
+extern ulonglong binlog_group_commits;
+extern ulonglong binlog_commits_started;
 
 extern uint net_compression_level;
 

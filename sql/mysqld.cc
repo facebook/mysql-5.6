@@ -640,6 +640,8 @@ Error_log_throttle err_log_throttle(Log_throttle::LOG_THROTTLE_WINDOW_SIZE,
 
 my_bool opt_log_slow_extra= FALSE;
 ulonglong binlog_fsync_count = 0;
+ulonglong binlog_group_commits = 0;
+ulonglong binlog_commits_started = 0;
 ulong opt_peak_lag_time;
 ulong opt_peak_lag_sample_rate;
 
@@ -8907,7 +8909,9 @@ SHOW_VAR status_vars[]= {
   {"Binlog_bytes_written",     (char*) &binlog_bytes_written,   SHOW_LONGLONG},
   {"Binlog_cache_disk_use",    (char*) &binlog_cache_disk_use,  SHOW_LONG},
   {"Binlog_cache_use",         (char*) &binlog_cache_use,       SHOW_LONG},
+  {"Binlog_commits_started",   (char*) &binlog_commits_started, SHOW_LONGLONG},
   {"Binlog_fsync_count",       (char*) &binlog_fsync_count, SHOW_LONGLONG},
+  {"Binlog_group_commits",     (char*) &binlog_group_commits,   SHOW_LONGLONG},
   {"Binlog_stmt_cache_disk_use",(char*) &binlog_stmt_cache_disk_use,  SHOW_LONG},
   {"Binlog_stmt_cache_use",    (char*) &binlog_stmt_cache_use,       SHOW_LONG},
   {"Bytes_received",           (char*) offsetof(STATUS_VAR, bytes_received), SHOW_LONGLONG_STATUS},
@@ -9334,6 +9338,8 @@ static int mysql_init_variables(void)
   binlog_bytes_written= 0;
   binlog_cache_use=  binlog_cache_disk_use= 0;
   binlog_fsync_count= 0;
+  binlog_group_commits= 0;
+  binlog_commits_started= 0;
   relay_log_bytes_written= 0;
   max_used_connections= slow_launch_threads = 0;
   mysqld_user= mysqld_chroot= opt_init_file= opt_bin_logname = 0;

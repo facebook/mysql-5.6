@@ -7016,6 +7016,7 @@ MYSQL_BIN_LOG::process_flush_stage_queue(my_off_t *total_bytes_var,
     /* Reset prepared_engine for every thd in the queue. */
     head->prepared_engine->clear();
   }
+  statistic_increment(binlog_group_commits, &LOCK_status);
 
   *out_queue_var= first_seen;
   *total_bytes_var= total_bytes;
@@ -7407,6 +7408,7 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit,
                        YESNO(thd->transaction.flags.pending),
                        thd->commit_error, thd->thread_id));
 
+  statistic_increment(binlog_commits_started, &LOCK_status);
   /*
     Stage #1: flushing transactions to binary log
 
