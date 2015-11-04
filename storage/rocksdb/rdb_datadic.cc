@@ -2534,7 +2534,7 @@ void Dict_manager::add_drop_table(RDBSE_KEYDEF** key_descr,
 }
 
 /*
-  This function is supposed to be called by drop_index_thread, when it
+  This function is supposed to be called by drop_index_thread, when it 
   finished dropping any index.
  */
 void Dict_manager::done_drop_indexes(
