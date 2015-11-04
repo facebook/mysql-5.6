@@ -2934,7 +2934,7 @@ int ha_rocksdb::close(void)
   if (sec_key_packed_tuple_old)
     my_free(sec_key_packed_tuple_old);
   sec_key_packed_tuple_old= NULL;
-  
+
   if (end_key_packed_tuple)
     my_free(end_key_packed_tuple);
   end_key_packed_tuple= NULL;
