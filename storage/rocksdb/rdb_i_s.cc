@@ -604,25 +604,49 @@ static ST_FIELD_INFO i_s_rocksdb_cfoptions_fields_info[] =
 };
 
 /*
-  Support for INFORMATION_SCHEMA.ROCKSDB_BINLOG dynamic table
+  Support for INFORMATION_SCHEMA.ROCKSDB_GENERIC_INFO dynamic table
  */
-static int i_s_rocksdb_binlog_fill_table(THD *thd,
+static int i_s_rocksdb_generic_info_fill_table(THD *thd,
                                             TABLE_LIST *tables,
                                             Item *cond)
 {
-  DBUG_ENTER("i_s_rocksdb_binlog_fill_table");
+  DBUG_ENTER("i_s_rocksdb_generic_info_fill_table");
 
   int ret= 0;
+
   Binlog_info_manager *blm = get_binlog_manager();
 
   char file_buf[FN_REFLEN+1]= {0};
   my_off_t pos = 0;
+  char pos_buf[FN_REFLEN+1]= {0};
   char gtid_buf[FN_REFLEN+1]= {0};
 
   if (blm->read(file_buf, pos, gtid_buf)) {
-    tables->table->field[0]->store(file_buf, strlen(file_buf),
+    snprintf(pos_buf, FN_REFLEN, "%llu", pos);
+
+    // binlog file
+    tables->table->field[0]->store(STRING_WITH_LEN("BINLOG"),
         system_charset_info);
-    tables->table->field[1]->store(pos, true);
+    tables->table->field[1]->store(STRING_WITH_LEN("FILE"),
+        system_charset_info);
+    tables->table->field[2]->store(file_buf, strlen(file_buf),
+        system_charset_info);
+    ret = schema_table_store_record(thd, tables->table);
+
+    // binlog position
+    tables->table->field[0]->store(STRING_WITH_LEN("BINLOG"),
+        system_charset_info);
+    tables->table->field[1]->store(STRING_WITH_LEN("POS"),
+        system_charset_info);
+    tables->table->field[2]->store(pos_buf, strlen(pos_buf),
+        system_charset_info);
+    ret = schema_table_store_record(thd, tables->table);
+
+    // binlog gtid
+    tables->table->field[0]->store(STRING_WITH_LEN("BINLOG"),
+        system_charset_info);
+    tables->table->field[1]->store(STRING_WITH_LEN("GTID"),
+        system_charset_info);
     tables->table->field[2]->store(gtid_buf, strlen(gtid_buf),
         system_charset_info);
     ret = schema_table_store_record(thd, tables->table);
@@ -631,11 +655,11 @@ static int i_s_rocksdb_binlog_fill_table(THD *thd,
   DBUG_RETURN(ret);
 }
 
-static ST_FIELD_INFO i_s_rocksdb_binlog_fields_info[] =
+static ST_FIELD_INFO i_s_rocksdb_generic_info_fields_info[] =
 {
+  ROCKSDB_FIELD_INFO("TYPE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("NAME", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
-  ROCKSDB_FIELD_INFO("POS", sizeof(uint32_t), MYSQL_TYPE_LONG, 0),
-  ROCKSDB_FIELD_INFO("GTID", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
+  ROCKSDB_FIELD_INFO("VALUE", FN_REFLEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
@@ -753,16 +777,16 @@ static int i_s_rocksdb_cfoptions_init(void *p)
   DBUG_RETURN(0);
 }
 
-static int i_s_rocksdb_binlog_init(void *p)
+static int i_s_rocksdb_generic_info_init(void *p)
 {
   ST_SCHEMA_TABLE *schema;
 
-  DBUG_ENTER("i_s_rocksdb_binlog_init");
+  DBUG_ENTER("i_s_rocksdb_generic_info_init");
 
   schema= reinterpret_cast<ST_SCHEMA_TABLE*>(p);
 
-  schema->fields_info= i_s_rocksdb_binlog_fields_info;
-  schema->fill_table= i_s_rocksdb_binlog_fill_table;
+  schema->fields_info= i_s_rocksdb_generic_info_fields_info;
+  schema->fill_table= i_s_rocksdb_generic_info_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -968,15 +992,15 @@ struct st_mysql_plugin i_s_rocksdb_cfoptions=
   0,                                  /* flags */
 };
 
-struct st_mysql_plugin i_s_rocksdb_binlog=
+struct st_mysql_plugin i_s_rocksdb_generic_info=
 {
   MYSQL_INFORMATION_SCHEMA_PLUGIN,
   &i_s_rocksdb_info,
-  "ROCKSDB_CF_BINLOG",
+  "ROCKSDB_GENERIC_INFO",
   "Facebook",
-  "RocksDB binlog info",
+  "RocksDB generic info",
   PLUGIN_LICENSE_GPL,
-  i_s_rocksdb_binlog_init,
+  i_s_rocksdb_generic_info_init,
   i_s_rocksdb_deinit,
   0x0001,                             /* version number (0.1) */
   NULL,                               /* status variables */
