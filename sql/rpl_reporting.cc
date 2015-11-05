@@ -74,8 +74,11 @@ int Slave_reporting_capability::has_temporary_error(THD *thd,
     wait timeout (innodb_lock_wait_timeout exceeded).
     Notice, the temporary error requires slave_trans_retries != 0)
   */
+  // SQL threads may hit temporary error with XID_EVENT while updating
+  // slave_gtid_info table during transaction prepare phase.
   if (slave_trans_retries &&
-      (error == ER_LOCK_DEADLOCK || error == ER_LOCK_WAIT_TIMEOUT))
+      (error == ER_LOCK_DEADLOCK || error == ER_LOCK_WAIT_TIMEOUT ||
+       error == ER_ERROR_DURING_COMMIT))
     DBUG_RETURN(1);
 
   /*
