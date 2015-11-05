@@ -27,15 +27,23 @@ Created 2012/04/12 by Sunny Bains
 #ifndef UT0COUNTER_H
 #define UT0COUNTER_H
 
-#include "univ.i"
 #include <string.h>
-#include "os0thread.h"
+
+#define UNIV_NOTHROW
 
 /** CPU cache line size */
 #define CACHE_LINE_SIZE		64
 
 /** Default number of slots to use in ib_counter_t */
 #define IB_N_SLOTS		64
+
+#ifdef __WIN__
+#define get_curr_thread_id() GetCurrentThreadId()
+#else
+#define get_curr_thread_id() pthread_self()
+#endif
+
+#define UT_ARR_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 /** Get the offset into the counter array. */
 template <typename Type, int N>
@@ -61,7 +69,7 @@ struct get_sched_indexer_t : public generic_indexer_t<Type, N> {
 
 		size_t	cpu = sched_getcpu();
 		if (cpu == -1) {
-			cpu = (lint) os_thread_get_curr_id();
+			cpu = get_curr_thread_id();
 		}
 
 		return(cpu);
@@ -78,7 +86,7 @@ struct thread_id_indexer_t : public generic_indexer_t<Type, N> {
 	thread id is represented as a pointer, it may not work as
 	effectively. */
 	size_t get_rnd_index() const UNIV_NOTHROW {
-		return((lint) os_thread_get_curr_id());
+		return get_curr_thread_id();
 	}
 };
 
@@ -89,13 +97,13 @@ struct single_indexer_t {
 
         /** @return offset within m_counter */
         size_t offset(size_t index) const UNIV_NOTHROW {
-		ut_ad(N == 1);
+		DBUG_ASSERT(N == 1);
                 return((CACHE_LINE_SIZE / sizeof(Type)));
         }
 
 	/* @return 1 */
 	size_t get_rnd_index() const UNIV_NOTHROW {
-		ut_ad(N == 1);
+		DBUG_ASSERT(N == 1);
 		return(1);
 	}
 };
@@ -114,7 +122,7 @@ public:
 
 	~ib_counter_t()
 	{
-		ut_ad(validate());
+		DBUG_ASSERT(validate());
 	}
 
 	bool validate() UNIV_NOTHROW {
@@ -124,7 +132,7 @@ public:
 		/* Check that we aren't writing outside our defined bounds. */
 		for (size_t i = 0; i < UT_ARR_SIZE(m_counter); i += n) {
 			for (size_t j = 1; j < n - 1; ++j) {
-				ut_ad(m_counter[i + j] == 0);
+				DBUG_ASSERT(m_counter[i + j] == 0);
 			}
 		}
 #endif /* UNIV_DEBUG */
@@ -139,7 +147,7 @@ public:
 	void add(Type n) UNIV_NOTHROW {
 		size_t	i = m_policy.offset(m_policy.get_rnd_index());
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARR_SIZE(m_counter));
 
 		m_counter[i] += n;
 	}
@@ -151,7 +159,7 @@ public:
 	void add(size_t index, Type n) UNIV_NOTHROW {
 		size_t	i = m_policy.offset(index);
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARR_SIZE(m_counter));
 
 		m_counter[i] += n;
 	}
@@ -164,7 +172,7 @@ public:
 	void sub(Type n) UNIV_NOTHROW {
 		size_t	i = m_policy.offset(m_policy.get_rnd_index());
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARR_SIZE(m_counter));
 
 		m_counter[i] -= n;
 	}
@@ -176,7 +184,7 @@ public:
 	void sub(size_t index, Type n) UNIV_NOTHROW {
 		size_t	i = m_policy.offset(index);
 
-		ut_ad(i < UT_ARR_SIZE(m_counter));
+		DBUG_ASSERT(i < UT_ARR_SIZE(m_counter));
 
 		m_counter[i] -= n;
 	}
