@@ -631,7 +631,7 @@ public:
   {
     mysql_rwlock_unlock(&gtid_info_hash_lock);
   }
-  int flush_gtid_infos(bool force);
+  int flush_gtid_infos(bool force, bool xid_event = false);
   /**
      returns true if there is any gap-group of events to execute
                   at slave starting phase.

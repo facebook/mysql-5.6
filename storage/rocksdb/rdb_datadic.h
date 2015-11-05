@@ -21,6 +21,7 @@ class Field_pack_info;
 class Column_family_manager;
 class Table_ddl_manager;
 
+#include <atomic>
 /* C++ standard header files */
 #include <map>
 #include <mutex>
@@ -713,6 +714,8 @@ public:
   void update(const char* binlog_name, const my_off_t binlog_pos,
               const char* binlog_gtid, rocksdb::WriteBatchBase* batch);
   bool read(char* binlog_name, my_off_t& binlog_pos, char* binlog_gtid);
+  void update_slave_gtid_info(uint id, const char* db, const char* gtid,
+                              rocksdb::WriteBatchBase *write_batch);
 
 private:
   Dict_manager *dict;
@@ -724,6 +727,7 @@ private:
                             const char *binlog_gtid);
   bool unpack_value(const uchar *value, char *binlog_name,
                     my_off_t &binlog_pos, char *binlog_gtid);
+  std::atomic<RDBSE_TABLE_DEF*> slave_gtid_info;
 };
 
 

@@ -2521,11 +2521,13 @@ void Relay_log_info::adapt_to_master_version(Format_description_log_event *fdle)
 /**
    Flushes gtid info state after executing the current event.
    @param[in] force Forces the synchronization.
+   @param[in] xid_event If we are executing XID event, the job of updating
+                        slave_gtid_info is delegated to storage engine.
 
    @return false Success
            true  Failure
 */
-int Relay_log_info::flush_gtid_infos(bool force)
+int Relay_log_info::flush_gtid_infos(bool force, bool xid_event)
 {
   DBUG_ENTER("Relay_log_info::flush_gtid_infos");
   bool error = false;
@@ -2543,7 +2545,12 @@ int Relay_log_info::flush_gtid_infos(bool force)
       if (strcmp(gtid_info->get_last_gtid_string(), "") == 0)
         force = true;
       gtid_info->set_last_gtid(last_gtid);
-      if ((error = gtid_info->flush_info(force)))
+      if (xid_event) {
+        // Delegate to storage engine.
+        info_thd->append_slave_gtid_info(gtid_info->get_internal_id(),
+                                         gtid_info->get_database_name(),
+                                         gtid_info->get_last_gtid_string());
+      } else if ((error = gtid_info->flush_info(force)))
         break;
     }
   }

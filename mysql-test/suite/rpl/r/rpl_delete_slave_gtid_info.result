@@ -3,6 +3,8 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
+call mtr.add_suppression("InnoDB: Error updating slave_gtid_info table");
+call mtr.add_suppression("Slave SQL: Error in Xid_log_event.*");
 create table t1 (a int) engine=innodb;
 insert into t1 values(1);
 create database test2;

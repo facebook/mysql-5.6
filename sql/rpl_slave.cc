@@ -4396,6 +4396,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
         DBUG_RETURN(1);
     }
 
+    Log_event_type event_type = ev->get_type_code();
     /* ptr_ev can change to NULL indicating MTS coorinator passed to a Worker */
     exec_res= apply_event_and_update_pos(ptr_ev, thd, rli);
     /*
@@ -4456,7 +4457,8 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
       int UNINIT_VAR(temp_err);
       bool silent= false;
       if (exec_res && !is_mts_worker(thd) /* no reexecution in MTS mode */ &&
-          (temp_err= rli->has_temporary_error(thd, 0, &silent)) &&
+          (temp_err= (rli->has_temporary_error(thd, 0, &silent) ||
+                      event_type == XID_EVENT)) &&
           !thd->transaction.all.cannot_safely_rollback())
       {
         const char *errmsg;
