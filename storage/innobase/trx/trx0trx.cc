@@ -441,6 +441,9 @@ trx_create(void)
 		heap_alloc, sizeof(void**), 32);
 
 	trx_lra_init(&(trx->lra));
+	trx->search_tpl = NULL;
+	trx->new_tpl = NULL;
+	trx->old_tpl = NULL;
 
 	return(trx);
 }
@@ -627,6 +630,9 @@ trx_free_for_mysql(
 
 	mutex_exit(&trx_sys->mutex);
 
+	ib_tuple_delete(trx->search_tpl);
+	ib_tuple_delete(trx->new_tpl);
+	ib_tuple_delete(trx->old_tpl);
 	trx_free_for_background(trx);
 }
 
@@ -2394,10 +2400,76 @@ trx_prepare(
 	}
 }
 
+/**
+  Inserts a row into mysql.slave_gtid_info table. Updates the row
+  on duplicate entry.
+
+  @return DB_SUCCESS on success
+*/
+static dberr_t
+update_slave_gtid_info(
+/*==================*/
+	trx_t*		trx,	/*!< in: trx handle */
+	uint		id,	/*!< in: PK of slave_gtid_info table */
+	const char*	db,	/*!< in: column 1 */
+	const char*	gtid)	/*!< in: column 2 */
+{
+	dberr_t err = DB_SUCCESS;
+	if (id && db && gtid) {
+		ib_crsr_t crsr;
+		if ((err = ib_cursor_open_table("mysql/slave_gtid_info",
+						trx,
+						&crsr)) != DB_SUCCESS) {
+			if (err == DB_TABLE_NOT_FOUND) {
+				// slave_gtid_info table not present.
+				// Nothing to do.
+				return DB_SUCCESS;
+			}
+			ib_logf(IB_LOG_LEVEL_FATAL,
+				"Error opening slave_gtid_info table");
+		}
+		if (!trx->search_tpl) {
+			trx->search_tpl = ib_clust_search_tuple_create(crsr);
+			trx->new_tpl = ib_clust_read_tuple_create(crsr);
+			trx->old_tpl = ib_clust_read_tuple_create(crsr);
+		}
+		ib_tuple_write_u32(trx->search_tpl, 0, id);
+
+		ib_tuple_write_u32(trx->new_tpl, 0, id);
+		ib_col_set_value(trx->new_tpl, 1, db, strlen(db), FALSE);
+		ib_col_set_value(trx->new_tpl, 2, gtid,
+				 strlen(gtid), FALSE);
+
+		ib_cursor_set_lock_mode(crsr, IB_LOCK_X);
+		ib_cursor_set_match_mode(crsr, IB_EXACT_MATCH);
+		err = ib_cursor_moveto(crsr, trx->search_tpl, IB_CUR_LE);
+		if (err == DB_SUCCESS) {
+			err = ib_cursor_read_row(crsr, trx->old_tpl,
+						 NULL, NULL);
+			if (err == DB_SUCCESS) {
+			  err = ib_cursor_update_row(crsr, trx->old_tpl,
+						     trx->new_tpl);
+			}
+		}
+		else {
+			err = ib_cursor_insert_row(crsr, trx->new_tpl);
+		}
+		if (err != DB_SUCCESS) {
+			ib_logf(IB_LOG_LEVEL_ERROR,
+				"Error updating slave_gtid_info table");
+		}
+		ib_cursor_close(crsr);
+	}
+	return(err);
+}
+
 /**********************************************************************//**
-Does the transaction prepare for MySQL. */
+  Does the transaction prepare for MySQL.
+
+  @return DB_SUCCESS on success
+*/
 UNIV_INTERN
-void
+dberr_t
 trx_prepare_for_mysql(
 /*==================*/
 	trx_t*	trx,	/*!< in/out: trx handle */
@@ -2407,9 +2479,21 @@ trx_prepare_for_mysql(
 
 	trx->op_info = "preparing";
 
+	std::vector<st_slave_gtid_info> slave_gtid_info;
+	thd_slave_gtid_info(trx->mysql_thd, &slave_gtid_info);
+	for (auto it: slave_gtid_info) {
+		dberr_t err = update_slave_gtid_info(trx, it.id, it.db,
+						      it.gtid);
+		if (err != DB_SUCCESS) {
+			trx->op_info = "";
+			return(err);
+		}
+	}
+
 	trx_prepare(trx, async);
 
 	trx->op_info = "";
+	return(DB_SUCCESS);
 }
 
 /**********************************************************************//**

@@ -5225,6 +5225,13 @@ static Sys_var_mybool Sys_gtid_precommit("gtid_precommit",
 
 #endif // HAVE_REPLICATION
 
+static Sys_var_enum Sys_slave_gtid_info(
+       "slave_gtid_info",
+       "Whether SQL threads udpate mysql.slave_gtid_info table. If this value "
+       "is OPTIMIZED, updating the table is done inside storage engines to "
+       "avoid MySQL layer's performance overhead",
+       GLOBAL_VAR(slave_gtid_info), CMD_LINE(REQUIRED_ARG),
+       slave_gtid_info_names, DEFAULT(SLAVE_GTID_INFO_ON));
 
 static Sys_var_mybool Sys_disconnect_on_expired_password(
        "disconnect_on_expired_password",

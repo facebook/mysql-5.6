@@ -1217,6 +1217,11 @@ The following options may be given as the first argument:
  that are idempotent. In STRICT mode, replication will
  stop on any unexpected difference between the master and
  the slave
+ --slave-gtid-info=name 
+ Whether SQL threads udpate mysql.slave_gtid_info table.
+ If this value is OPTIMIZED, updating the table is done
+ inside storage engines to avoid MySQL layer's performance
+ overhead
  --slave-load-tmpdir=name 
  The location where the slave should put its temporary
  files when replicating a LOAD DATA INFILE command
@@ -1781,6 +1786,7 @@ slave-checkpoint-group 512
 slave-checkpoint-period 300
 slave-compressed-protocol FALSE
 slave-exec-mode STRICT
+slave-gtid-info ON
 slave-max-allowed-packet 1073741824
 slave-net-timeout 3600
 slave-parallel-workers 0
