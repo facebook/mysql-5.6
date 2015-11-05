@@ -7720,6 +7720,7 @@ int Xid_log_event::do_apply_event_worker(Slave_worker *w)
                   DBUG_SUICIDE(););
 
   error= do_commit(thd);
+  thd->clear_slave_gtid_info();
   if (error)
     w->rollback_positions(ptr_group);
 err:
@@ -7842,7 +7843,7 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                       rli_ptr->get_group_relay_log_name(),
                       rli_ptr->get_group_relay_log_pos()));
 
-  if ((error = rli_ptr->flush_gtid_infos(true)))
+  if ((error = rli_ptr->flush_gtid_infos(true, true)))
     goto err;
 
   DBUG_EXECUTE_IF("crash_after_update_pos_before_apply",
@@ -7850,6 +7851,7 @@ int Xid_log_event::do_apply_event(Relay_log_info const *rli)
                   DBUG_SUICIDE(););
   mysql_mutex_unlock(&rli_ptr->data_lock);
   error= do_commit(thd);
+  thd->clear_slave_gtid_info();
   mysql_mutex_lock(&rli_ptr->data_lock);
   if (error)
   {

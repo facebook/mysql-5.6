@@ -1,0 +1,36 @@
+SET @start_global_value = @@global.slave_gtid_info;
+SELECT @start_global_value;
+@start_global_value
+ON
+select @@global.slave_gtid_info;
+@@global.slave_gtid_info
+ON
+select @@session.slave_gtid_info;
+ERROR HY000: Variable 'slave_gtid_info' is a GLOBAL variable
+show global variables like 'slave_gtid_info';
+Variable_name	Value
+slave_gtid_info	ON
+show session variables like 'slave_gtid_info';
+Variable_name	Value
+slave_gtid_info	ON
+select * from information_schema.global_variables where variable_name='slave_gtid_info';
+VARIABLE_NAME	VARIABLE_VALUE
+SLAVE_GTID_INFO	ON
+select * from information_schema.session_variables where variable_name='slave_gtid_info';
+VARIABLE_NAME	VARIABLE_VALUE
+SLAVE_GTID_INFO	ON
+set global slave_gtid_info = "ON";
+select @@global.slave_gtid_info;
+@@global.slave_gtid_info
+ON
+set global slave_gtid_info = "OFF";
+select @@global.slave_gtid_info;
+@@global.slave_gtid_info
+OFF
+set global slave_gtid_info = "OPTIMIZED";
+select @@global.slave_gtid_info;
+@@global.slave_gtid_info
+OPTIMIZED
+set global gtid_mode = "INVALID";
+ERROR HY000: Variable 'gtid_mode' is a read only variable
+set global slave_gtid_info = @start_global_value;

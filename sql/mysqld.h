@@ -779,9 +779,19 @@ enum enum_gtid_mode
   /// Support only GTIDs, not anonymous groups.
   GTID_MODE_ON= 3
 };
+
+enum enum_slave_gtid_info
+{
+  SLAVE_GTID_INFO_OFF= 0,
+  SLAVE_GTID_INFO_ON= 1,
+  SLAVE_GTID_INFO_OPTIMIZED= 2
+};
+
 extern ulong gtid_mode;
+extern ulong slave_gtid_info;
 extern bool enable_gtid_mode_on_new_slave_with_old_master;
 extern const char *gtid_mode_names[];
+extern const char *slave_gtid_info_names[];
 extern TYPELIB gtid_mode_typelib;
 
 extern ulong max_blocked_pthreads;
