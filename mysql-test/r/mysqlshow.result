@@ -128,10 +128,10 @@ DROP TABLE t1, t2;
 | PROFILING                             |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
-| ROCKSDB_CF_BINLOG                     |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
+| ROCKSDB_GLOBAL_INFO                   |
 | ROCKSDB_INDEX_FILE_MAP                |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
@@ -204,10 +204,10 @@ DROP TABLE t1, t2;
 | PROFILING                             |
 | REFERENTIAL_CONSTRAINTS               |
 | ROCKSDB_CFSTATS                       |
-| ROCKSDB_CF_BINLOG                     |
 | ROCKSDB_CF_OPTIONS                    |
 | ROCKSDB_DBSTATS                       |
 | ROCKSDB_DDL                           |
+| ROCKSDB_GLOBAL_INFO                   |
 | ROCKSDB_INDEX_FILE_MAP                |
 | ROCKSDB_PERF_CONTEXT                  |
 | ROCKSDB_PERF_CONTEXT_GLOBAL           |
