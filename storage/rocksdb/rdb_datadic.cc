@@ -2211,6 +2211,68 @@ bool Binlog_info_manager::unpack_value(const uchar *value, char *binlog_name,
   return false;
 }
 
+/**
+  Inserts a row into mysql.slave_gtid_info table. Doing this inside
+  storage engine is more efficient than inserting/updating through MySQL.
+
+  @param[IN] id Primary key of the table.
+  @param[IN] db Database name. This is column 2 of the table.
+  @param[IN] gtid Gtid in human readable form. This is column 3 of the table.
+*/
+void Binlog_info_manager::update_slave_gtid_info(uint id, const char* db,
+                                                 const char* gtid,
+                                                 rocksdb::WriteBatchBase*
+                                                   write_batch)
+{
+  if (id && db && gtid) {
+    if (!slave_gtid_info.load()) {
+      slave_gtid_info.store(get_ddl_manager()->find(
+                              (const uchar*)("mysql.slave_gtid_info"), 21));
+    }
+    assert(slave_gtid_info.load() && slave_gtid_info.load()->n_keys == 1);
+
+    RDBSE_KEYDEF* key_def = slave_gtid_info.load()->key_descr[0];
+    String value;
+
+    // Build key
+    uchar key_buf[8]= {0};
+    uchar* buf= key_buf;
+    store_index_number(buf, key_def->get_index_number());
+    buf += RDBSE_KEYDEF::INDEX_NUMBER_SIZE;
+    store_big_uint4(buf, id);
+    buf += 4;
+    rocksdb::Slice key_slice =
+      rocksdb::Slice((const char*)key_buf, buf-key_buf);
+
+    // Build value
+    uchar value_buf[256]= {0};
+    DBUG_ASSERT(gtid);
+    uint db_len= strlen(db);
+    uint gtid_len= strlen(gtid);
+    buf= value_buf;
+    // 1 byte used for flags. Empty here.
+    buf++;
+
+    // Write column 1.
+    DBUG_ASSERT(strlen(db) <= 64);
+    store_big_uint1(buf, db_len);
+    buf++;
+    memcpy(buf, db, db_len);
+    buf += db_len;
+
+    // Write column 2.
+    DBUG_ASSERT(gtid_len <= 56);
+    store_big_uint1(buf, gtid_len);
+    buf++;
+    memcpy(buf, gtid, gtid_len);
+    buf += gtid_len;
+    rocksdb::Slice value_slice =
+      rocksdb::Slice((const char*)value_buf, buf-value_buf);
+
+    write_batch->Put(key_def->get_cf(), key_slice, value_slice);
+  }
+}
+
 bool Dict_manager::init(rocksdb::DB *rdb_dict, Column_family_manager *cf_manager)
 {
   mysql_mutex_init(0, &mutex, MY_MUTEX_INIT_FAST);
