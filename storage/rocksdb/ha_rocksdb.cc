@@ -4436,7 +4436,9 @@ int ha_rocksdb::index_first_intern(uchar *buf)
 
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(key_descr[active_index], &index_key);
+  setup_index_scan(key_descr[active_index], &index_key, false,
+                   !key_descr[active_index]->is_reverse_cf,
+                   RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
   skip_scan_it_next_call= TRUE;
 
   rc= index_next_with_direction(buf, true);
@@ -4507,7 +4509,9 @@ int ha_rocksdb::index_last_intern(uchar *buf)
 
   rocksdb::Slice index_key((const char*)key, key_size);
 
-  setup_index_scan(key_descr[active_index], &index_key);
+  setup_index_scan(key_descr[active_index], &index_key, false,
+                   key_descr[active_index]->is_reverse_cf,
+                   RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
 
   if (!scan_it->Valid())
   {
