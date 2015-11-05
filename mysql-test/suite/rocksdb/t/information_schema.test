@@ -1,9 +1,8 @@
 --source include/have_rocksdb.inc
 --source include/have_log_bin.inc
 
---replace_column 1 # 2 # 3 #
-select * from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
-select count(*) from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
+select count(*) from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
 
 --disable_warnings
 DROP TABLE IF EXISTS t1;
@@ -12,9 +11,10 @@ DROP TABLE IF EXISTS t1;
 CREATE TABLE t1 (i INT, PRIMARY KEY (i) ) ENGINE = ROCKSDB;
 INSERT INTO t1 VALUES (1), (2), (3);
 
---replace_column 1 # 2 # 3 #
-select * from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
-select count(*) from INFORMATION_SCHEMA.ROCKSDB_CF_BINLOG;
+--let $MASTER_UUID = query_get_value(SELECT @@SERVER_UUID, @@SERVER_UUID, 1)
+--replace_result $MASTER_UUID uuid
+select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
+select count(*) from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
 
 DROP TABLE t1;
 
