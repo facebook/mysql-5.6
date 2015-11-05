@@ -1467,11 +1467,28 @@ static int rocksdb_close_connection(handlerton* hton, THD* thd)
 }
 
 /**
-  Doing nothing at prepare(). But defining handler::prepare() is needed
-  for Xid binlog event to be written at commit.
+  Doing nothing at prepare() on master. But defining handler::prepare() is
+  needed for Xid binlog event to be written at commit.
+
+  For a slave, prepare() updates the slave_gtid_info table which tracks the
+  replication progress.
 */
-static int rocksdb_prepare(handlerton* hton, THD* thd, bool all, bool async)
+static int rocksdb_prepare(handlerton* hton, THD* thd, bool prepare_trx,
+                           bool async)
 {
+  if (prepare_trx ||
+      (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
+    /* We were instructed to prepare the whole transaction, or
+    this is an SQL statement end and autocommit is on */
+    std::vector<st_slave_gtid_info> slave_gtid_info;
+    thd_slave_gtid_info(thd, &slave_gtid_info);
+    for (auto it : slave_gtid_info) {
+      Rdb_transaction*& trx= get_trx_from_thd(thd);
+      rocksdb::WriteBatchBase* write_batch = trx->GetBlindWriteBatch();
+      binlog_manager.update_slave_gtid_info(it.id, it.db, it.gtid, write_batch);
+    }
+  }
+
   return 0;
 }
 

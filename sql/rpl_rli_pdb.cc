@@ -565,7 +565,13 @@ bool Slave_worker::commit_positions(Log_event *ev, Slave_job_group* ptr_g, bool 
         || !ev->ends_group()
         || (strcmp(gtid_info->get_last_gtid_string(), "") == 0);
       gtid_info->set_last_gtid(worker_last_gtid);
-      if ((error = gtid_info->flush_info(gtid_info_flush)))
+      if (ev->get_type_code() == XID_EVENT)
+      {
+        // Delegate to storage engine.
+        info_thd->append_slave_gtid_info(gtid_info->get_internal_id(),
+                                         gtid_info->get_database_name(),
+                                         gtid_info->get_last_gtid_string());
+      } else if ((error = gtid_info->flush_info(gtid_info_flush)))
       {
         reset_dynamic(&worker_gtid_infos);
         DBUG_RETURN(error);
