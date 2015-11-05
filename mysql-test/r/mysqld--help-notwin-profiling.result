@@ -973,10 +973,6 @@ The following options may be given as the first argument:
  BlockBasedTableOptions::cache_index_and_filter_blocks for
  RocksDB
  (Defaults to on; use --skip-rocksdb-cache-index-and-filter-blocks to disable.)
- --rocksdb-cf-binlog[=name] 
- Enable or disable ROCKSDB_CF_BINLOG plugin. Possible
- values are ON, OFF, FORCE (don't start if the plugin
- fails to load).
  --rocksdb-cf-options[=name] 
  Enable or disable ROCKSDB_CF_OPTIONS plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
@@ -1038,6 +1034,10 @@ The following options may be given as the first argument:
  --rocksdb-force-flush-memtable-now 
  Forces memstore flush which may block all write requests
  so be careful
+ --rocksdb-global-info[=name] 
+ Enable or disable ROCKSDB_GLOBAL_INFO plugin. Possible
+ values are ON, OFF, FORCE (don't start if the plugin
+ fails to load).
  --rocksdb-hash-index-allow-collision 
  BlockBasedTableOptions::hash_index_allow_collision for
  RocksDB
@@ -1687,7 +1687,6 @@ rocksdb-bulk-load FALSE
 rocksdb-bulk-load-size 1000
 rocksdb-bytes-per-sync 0
 rocksdb-cache-index-and-filter-blocks TRUE
-rocksdb-cf-binlog ON
 rocksdb-cf-options ON
 rocksdb-cfstats ON
 rocksdb-checksums-pct 100
@@ -1710,6 +1709,7 @@ rocksdb-disableDataSync FALSE
 rocksdb-enable-thread-tracking FALSE
 rocksdb-error-if-exists FALSE
 rocksdb-force-flush-memtable-now FALSE
+rocksdb-global-info ON
 rocksdb-hash-index-allow-collision TRUE
 rocksdb-index-file-map ON
 rocksdb-index-type kBinarySearch
