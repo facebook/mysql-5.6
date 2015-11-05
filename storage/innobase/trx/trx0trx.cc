@@ -2394,7 +2394,7 @@ trx_prepare(
 }
 
 /**********************************************************************//**
-Does the transaction prepare for MySQL. */
+  Does the transaction prepare for MySQL.*/
 UNIV_INTERN
 void
 trx_prepare_for_mysql(

@@ -543,6 +543,12 @@ struct st_mysql_value
   int (*is_unsigned)(struct st_mysql_value *);
 };
 
+struct st_slave_gtid_info
+{
+  unsigned int id;
+  const char* db;
+  const char* gtid;
+};
 
 /*************************************************************************
   Miscellaneous functions for plugin implementors
@@ -622,6 +628,7 @@ void thd_binlog_pos(const MYSQL_THD thd,
                     unsigned long long *pos_var,
                     const char **gtid_var);
 
+void thd_slave_gtid_info(const MYSQL_THD thd, void *slave_gtid_info);
 /**
   Return the thread id of a user thread
 
