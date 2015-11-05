@@ -4456,7 +4456,7 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
       int UNINIT_VAR(temp_err);
       bool silent= false;
       if (exec_res && !is_mts_worker(thd) /* no reexecution in MTS mode */ &&
-          (temp_err= rli->has_temporary_error(thd, 0, &silent)) &&
+          (temp_err= (rli->has_temporary_error(thd, 0, &silent))) &&
           !thd->transaction.all.cannot_safely_rollback())
       {
         const char *errmsg;

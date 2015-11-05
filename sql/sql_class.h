@@ -19,6 +19,7 @@
 
 /* Classes in mysql */
 
+#include <vector>
 #include "my_global.h"                          /* NO_EMBEDDED_ACCESS_CHECKS */
 #ifdef MYSQL_SERVER
 #include "unireg.h"                    // REQUIRED: for other includes
@@ -2654,6 +2655,7 @@ private:
   my_off_t m_trans_end_pos;
   const char *m_trans_gtid;
   char trans_gtid[Gtid::MAX_TEXT_LENGTH + 1];
+  std::vector<st_slave_gtid_info> slave_gtid_infos;
   /**@}*/
 
 public:
@@ -3256,6 +3258,19 @@ public:
                           pos_var ? *pos_var : 0));
     DBUG_VOID_RETURN;
   }
+
+  void append_slave_gtid_info(uint id, const char* db, const char* gtid) {
+    slave_gtid_infos.push_back(st_slave_gtid_info{id, db, gtid});
+  }
+
+  std::vector<st_slave_gtid_info> get_slave_gtid_info() const {
+    return slave_gtid_infos;
+  }
+
+  void clear_slave_gtid_info() {
+    slave_gtid_infos.clear();
+  }
+
   /**@}*/
 
 
