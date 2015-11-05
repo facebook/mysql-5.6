@@ -449,14 +449,14 @@ count(*)
 10000
 call bloom_end();
 checked
-false
+true
 call bloom_start();
 select count(*) from t2;
 count(*)
 10000
 call bloom_end();
 checked
-false
+true
 call bloom_start();
 select count(*) from t1 force index(PRIMARY) where id1 >= 1;
 count(*)
