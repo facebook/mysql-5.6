@@ -624,7 +624,7 @@ static int global_info_fill_row(THD *thd,
 }
 
 /*
-  Support for INFORMATION_SCHEMA.ROCKSDB_BINLOG dynamic table
+  Support for INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO dynamic table
  */
 static int i_s_rocksdb_global_info_fill_table(THD *thd,
                                               TABLE_LIST *tables,
