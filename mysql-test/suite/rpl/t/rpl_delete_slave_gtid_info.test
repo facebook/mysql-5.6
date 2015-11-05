@@ -4,6 +4,9 @@ source include/have_gtid.inc;
 
 --connect (slave2, 127.0.0.1, root, ,test, $SLAVE_MYPORT,)
 
+connection slave;
+call mtr.add_suppression("InnoDB: Error updating slave_gtid_info table");
+call mtr.add_suppression("Slave SQL: Error in Xid_log_event.*");
 connection master;
 let $uuid = `select @@server_uuid;`;
 create table t1 (a int) engine=innodb;
