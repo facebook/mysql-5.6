@@ -175,6 +175,12 @@ struct st_mysql_value
   int (*val_int)(struct st_mysql_value *, long long *intbuf);
   int (*is_unsigned)(struct st_mysql_value *);
 };
+struct st_slave_gtid_info
+{
+  unsigned int id;
+  const char* db;
+  const char* gtid;
+};
 int thd_in_lock_tables(const void* thd);
 int thd_tablespace_op(const void* thd);
 long long thd_test_options(const void* thd, long long test_options);
@@ -197,6 +203,7 @@ void thd_binlog_pos(const void* thd,
                     const char **file_var,
                     unsigned long long *pos_var,
                     const char **gtid_var);
+void thd_slave_gtid_info(const void* thd, void *slave_gtid_info);
 unsigned long thd_get_thread_id(const void* thd);
 void thd_get_xid(const void* thd, MYSQL_XID *xid);
 void mysql_query_cache_invalidate4(void* thd,
