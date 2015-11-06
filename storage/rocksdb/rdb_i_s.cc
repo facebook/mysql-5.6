@@ -633,8 +633,11 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   DBUG_ENTER("i_s_rocksdb_global_info_fill_table");
 
   int ret= 0;
-  Binlog_info_manager *blm = get_binlog_manager();
 
+  /*
+   * binlog info
+   */
+  Binlog_info_manager *blm = get_binlog_manager();
   char file_buf[FN_REFLEN+1]= {0};
   my_off_t pos = 0;
   char pos_buf[FN_REFLEN+1]= {0};
@@ -645,6 +648,19 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
     ret |= global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "GTID", gtid_buf);
+  }
+
+  /*
+   * max index info
+   */
+  Dict_manager *dict_manager = get_dict_manager();
+  uint32_t max_index_id;
+  char max_index_id_buf[FN_REFLEN+1]= {0};
+
+  if (dict_manager->get_max_index_id(&max_index_id)) {
+    snprintf(max_index_id_buf, FN_REFLEN, "%u", max_index_id);
+    ret |= global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
+                                max_index_id_buf);
   }
 
   DBUG_RETURN(ret);

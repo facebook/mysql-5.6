@@ -8,13 +8,23 @@ select count(*) from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
 DROP TABLE IF EXISTS t1;
 --enable_warnings
 
-CREATE TABLE t1 (i INT, PRIMARY KEY (i) ) ENGINE = ROCKSDB;
-INSERT INTO t1 VALUES (1), (2), (3);
+CREATE TABLE t1 (i1 INT, i2 INT, PRIMARY KEY (i1)) ENGINE = ROCKSDB;
+INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
 
 --let $MASTER_UUID = query_get_value(SELECT @@SERVER_UUID, @@SERVER_UUID, 1)
 --replace_result $MASTER_UUID uuid
 select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
 select count(*) from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
+
+CREATE INDEX tindex1 on t1 (i1);
+--let $start_max_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1)
+
+CREATE INDEX tindex2 on t1 (i2);
+--let $end_max_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1)
+
+if ($end_max_index_id <= $start_max_index_id) {
+  echo Max index ID did not increase;
+}
 
 DROP TABLE t1;
 
