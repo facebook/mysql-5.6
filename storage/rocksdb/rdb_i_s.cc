@@ -659,6 +659,35 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
                                 max_index_id_buf);
   }
 
+  /* cf_id -> cf_flags */
+  rocksdb::Iterator* it= dict_manager->NewCFIterator();
+  for (; it->Valid(); it->Next())
+  {
+    rocksdb::Slice cf_key= it->key();
+    rocksdb::Slice cf_val= it->value();
+    const uchar* cf_key_ptr= (const uchar*)cf_key.data();
+    const uchar* ca_val_ptr= (const uchar*)cf_val.data();
+
+    if (cf_key.size() != RDBSE_KEYDEF::INDEX_NUMBER_SIZE * 2)
+      break;
+
+    if (read_big_uint4(cf_key_ptr) != RDBSE_KEYDEF::CF_DEFINITION)
+      break;
+
+    uint32_t cf_id = read_big_uint4(cf_key_ptr+RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+    uint32_t cf_flags = read_big_uint4(ca_val_ptr + RDBSE_KEYDEF::VERSION_SIZE);
+
+    char cf_id_buf[FN_REFLEN+1]= {0};
+    char cf_flags_buf[FN_REFLEN+1]= {0};
+    snprintf(cf_id_buf, FN_REFLEN, "%u", cf_id);
+    snprintf(cf_flags_buf, FN_REFLEN, "%u", cf_flags);
+    ret |= global_info_fill_row(thd, tables, "CF_FLAGS", cf_id_buf,
+        cf_flags_buf);
+
+    if (ret)
+      break;
+  }
+
   DBUG_RETURN(ret);
 }
 

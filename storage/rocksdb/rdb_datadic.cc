@@ -2274,6 +2274,17 @@ rocksdb::Iterator* Dict_manager::NewIterator()
   return rdb->NewIterator(read_options, system_cfh);
 }
 
+rocksdb::Iterator* Dict_manager::NewCFIterator()
+{
+  rocksdb::Iterator* it= NewIterator();
+  uchar cf_index_buf[RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
+  store_big_uint4(cf_index_buf, RDBSE_KEYDEF::CF_DEFINITION);
+  rocksdb::Slice cf_index_slice(reinterpret_cast<char*>(cf_index_buf),
+                                RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+  it->Seek(cf_index_slice);
+  return it;
+}
+
 int Dict_manager::commit(rocksdb::WriteBatch *batch, bool sync)
 {
   if (!batch)

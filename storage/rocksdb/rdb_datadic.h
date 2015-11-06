@@ -802,6 +802,7 @@ public:
            const rocksdb::Slice &value);
   void Delete(rocksdb::WriteBatchBase *batch, const rocksdb::Slice &key);
   rocksdb::Iterator *NewIterator();
+  rocksdb::Iterator *NewCFIterator();
 
   /* Internal Index id => CF */
   void add_or_update_index_cf_mapping(rocksdb::WriteBatch *batch,
