@@ -6665,6 +6665,11 @@ void rocksdb_handle_io_error(rocksdb::Status status, enum io_error_type type)
   }
 }
 
+Dict_manager *get_dict_manager(void)
+{
+  return &dict_manager;
+}
+
 Table_ddl_manager *get_ddl_manager(void)
 {
   return &ddl_manager;
