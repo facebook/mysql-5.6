@@ -2,49 +2,12 @@
 --source include/have_innodb_32k.inc
 --source include/have_native_aio.inc
 
---disable_warnings
-DROP TABLE if exists t1;
---enable_warnings
-
-# Create table.
-CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
-
-# Populate table.
-INSERT INTO t1 VALUES (0, REPEAT('a',256));
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-
-eval select IO_WRITE_BYTES > 45000000, IO_WRITE_REQUESTS > 400, IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS, IO_WRITE_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-
-eval select INNODB_PAGES_WRITTEN > 400, INNODB_PAGES_WRITTEN_INDEX > 400, INNODB_PAGES_WRITTEN_BLOB from information_schema.table_statistics where table_name = 't1';
-
---source include/restart_mysqld.inc
-
-show global status like "innodb_buffered_aio_submitted";
-
---disable_result_log
-select * from t1;
---enable_result_log
-
-select count(*) from t1;
-
-show global status like "innodb_buffered_aio_submitted";
-select IO_READ_BYTES, IO_READ_REQUESTS, IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-
-select INNODB_PAGES_READ, INNODB_PAGES_READ_INDEX, INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
-
-DROP TABLE t1;
+let $page_size = 32768;
+let $expected_min_io_write_requests = 400;
+let $expected_aio_calls = 575;
+let $expected_read_requests_lo = 637;
+let $expected_read_requests_hi = 638;
+let $expected_page_reads_lo = 637;
+let $expected_page_reads_hi = 638;
+let $expected_page_reads_index = 609;
+--source innodb_aio_stats.inc
