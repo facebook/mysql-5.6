@@ -174,8 +174,10 @@ rocksdb_force_flush_memtable_now(THD* thd,
                                  const void* save)
 {
   sql_print_information("RocksDB: Manual memtable flush\n");
-  if (rdb)
-    rdb->Flush(rocksdb::FlushOptions());
+  Column_family_manager& cf_manager = rocksdb_get_cf_manager();
+  for (auto cf_handle : cf_manager.get_all_cf()) {
+    rdb->Flush(rocksdb::FlushOptions(), cf_handle);
+  }
 }
 
 static void
