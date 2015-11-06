@@ -244,7 +244,9 @@ log_buffer_extend(
 	srv_log_buffer_size = len / UNIV_PAGE_SIZE + 1;
 	mem_free(log_sys->buf_ptr);
 	log_sys->buf_ptr = static_cast<byte*>(
-		mem_zalloc(LOG_BUFFER_SIZE + OS_FILE_LOG_BLOCK_SIZE));
+		mem_zalloc(LOG_BUFFER_SIZE +
+			   max((ulong)OS_FILE_LOG_BLOCK_SIZE,
+			       srv_trx_log_write_block_size)));
 	log_sys->buf = static_cast<byte*>(
 		ut_align(log_sys->buf_ptr, OS_FILE_LOG_BLOCK_SIZE));
 	log_sys->buf_size = LOG_BUFFER_SIZE;
@@ -892,8 +894,9 @@ log_init(void)
 	ut_a(LOG_BUFFER_SIZE >= 4 * UNIV_PAGE_SIZE);
 
 	log_sys->buf_ptr = static_cast<byte*>(
-		mem_zalloc(LOG_BUFFER_SIZE + OS_FILE_LOG_BLOCK_SIZE
-			   + srv_trx_log_write_block_size));
+		mem_zalloc(LOG_BUFFER_SIZE +
+			   max((ulong)OS_FILE_LOG_BLOCK_SIZE,
+			       srv_trx_log_write_block_size)));
 
 	log_sys->buf = static_cast<byte*>(
 		ut_align(log_sys->buf_ptr, OS_FILE_LOG_BLOCK_SIZE));

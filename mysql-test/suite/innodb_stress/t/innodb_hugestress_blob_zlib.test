@@ -34,7 +34,7 @@ let $do_crash=0;
 
 --let $num_crashes = 1
 --let $num_workers = 20
---let $num_transactions = 10000
+--let $num_transactions = 5000
 --let $kill_db_after = 0
 --let $num_records = 10000
 --let $max_rows = 200000
