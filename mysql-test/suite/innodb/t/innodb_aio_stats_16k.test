@@ -2,84 +2,12 @@
 --source include/have_innodb_16k.inc
 --source include/have_native_aio.inc
 
---disable_warnings
-DROP TABLE if exists t1;
---enable_warnings
-
-# Create table.
-CREATE TABLE t1 (a INT NOT NULL PRIMARY KEY AUTO_INCREMENT, b VARCHAR(256)) ENGINE=INNODB;
-
-# Populate table.
-INSERT INTO t1 VALUES (0, REPEAT('a',256));
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-INSERT INTO t1 SELECT 0, b FROM t1;
-
-let $page_size = query_get_value(SELECT @@innodb_page_size, @@innodb_page_size, 1);
-let $expected = 800;
-if ($page_size == 32768)
-{
-  let $expected = 400;
-}
---replace_result $expected expected $page_size page_size
-eval select IO_WRITE_BYTES > $expected * $page_size, IO_WRITE_REQUESTS > $expected, IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS, IO_WRITE_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-
---replace_result $expected expected
-eval select INNODB_PAGES_WRITTEN > $expected, INNODB_PAGES_WRITTEN_INDEX > $expected, INNODB_PAGES_WRITTEN_BLOB from information_schema.table_statistics where table_name = 't1';
-
---source include/restart_mysqld.inc
-
-show global status like "innodb_buffered_aio_submitted";
-
---disable_result_log
-select * from t1;
---enable_result_log
-
-select count(*) from t1;
-
-let $expected_page = 1151;
-if ($page_size == 32768)
-{
-  let $expected_page = 575;
-}
-
---echo # Verify innodb_buffered_aio_submitted
-let $actual = query_get_value(show global status like "innodb_buffered_aio_submitted", Value, 1);
---replace_result $expected_page expected_page $actual actual
-eval select $expected_page = $actual as result;
-
-let $expected_page = 1252;
-if ($page_size == 32768)
-{
-  let $expected_page = 638;
-}
-
---echo # Verify IO_READ_* stats
---replace_result $page_size page_size $expected_page expected_page
-eval select cast(IO_READ_BYTES as unsigned int) = cast($page_size*$expected_page as unsigned int), cast(IO_READ_REQUESTS as unsigned int) = $expected_page, IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-
-let $expected_index = 1218;
-if ($page_size == 32768)
-{
-  let $expected_index = 609;
-}
-
---echo # Verify INNODB_PAGES_* stats
---replace_result $expected_page expected_page $expected_index expected_index
-eval select cast(INNODB_PAGES_READ as unsigned int) = $expected_page, cast(INNODB_PAGES_READ_INDEX as unsigned int) = $expected_index, INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
---enable_query_log
-
-DROP TABLE t1;
+let $page_size = 16384;
+let $expected_min_io_write_requests = 800;
+let $expected_aio_calls = 1151;
+let $expected_read_requests_lo = 1252;
+let $expected_read_requests_hi = 1252;
+let $expected_page_reads_lo = 1252;
+let $expected_page_reads_hi = 1252;
+let $expected_page_reads_index = 1218;
+--source innodb_aio_stats.inc
