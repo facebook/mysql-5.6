@@ -17,29 +17,26 @@ INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
-select IO_WRITE_BYTES > expected * page_size, IO_WRITE_REQUESTS > expected, IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS, IO_WRITE_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-IO_WRITE_BYTES > expected * page_size	IO_WRITE_REQUESTS > expected	IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS	IO_WRITE_SLOW_IOS
+select IO_WRITE_BYTES > 13107200, IO_WRITE_REQUESTS > 800, IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS, IO_WRITE_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
+IO_WRITE_BYTES > 13107200	IO_WRITE_REQUESTS > 800	IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS	IO_WRITE_SLOW_IOS
 1	1	1	0
-select INNODB_PAGES_WRITTEN > expected, INNODB_PAGES_WRITTEN_INDEX > expected, INNODB_PAGES_WRITTEN_BLOB from information_schema.table_statistics where table_name = 't1';
-INNODB_PAGES_WRITTEN > expected	INNODB_PAGES_WRITTEN_INDEX > expected	INNODB_PAGES_WRITTEN_BLOB
+select INNODB_PAGES_WRITTEN > 800, INNODB_PAGES_WRITTEN_INDEX > 800, INNODB_PAGES_WRITTEN_BLOB from information_schema.table_statistics where table_name = 't1';
+INNODB_PAGES_WRITTEN > 800	INNODB_PAGES_WRITTEN_INDEX > 800	INNODB_PAGES_WRITTEN_BLOB
 1	1	0
-show global status like "innodb_buffered_aio_submitted";
-Variable_name	Value
-Innodb_buffered_aio_submitted	0
+SELECT COUNT(*) FROM t1 WHERE a = 1;
+COUNT(*)
+1
 select * from t1;
 select count(*) from t1;
 count(*)
 65536
-# Verify innodb_buffered_aio_submitted
-select expected_page = expected_page as result;
-result
-1
-# Verify IO_READ_* stats
-select cast(IO_READ_BYTES as unsigned int) = cast(page_size*expected_page as unsigned int), cast(IO_READ_REQUESTS as unsigned int) = expected_page, IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-cast(IO_READ_BYTES as unsigned int) = cast(page_size*expected_page as unsigned int)	cast(IO_READ_REQUESTS as unsigned int) = expected_page	IO_READ_SVC_USECS < IO_READ_WAIT_USECS	IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX	IO_READ_SLOW_IOS
-1	1	1	1	0
-# Verify INNODB_PAGES_* stats
-select cast(INNODB_PAGES_READ as unsigned int) = expected_page, cast(INNODB_PAGES_READ_INDEX as unsigned int) = expected_index, INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
-cast(INNODB_PAGES_READ as unsigned int) = expected_page	cast(INNODB_PAGES_READ_INDEX as unsigned int) = expected_index	INNODB_PAGES_READ_BLOB
-1	1	0
+# Verify innodb_buffered_aio_submitted: expect 1151 asynchronous I/O calls submitted from previous queries
+Innodb_buffered_aio_submitted
+1151
+# Verify IO_READ_* stats: expect 20414464 (1246 * 16384) bytes read and 1246 read requests
+IO_READ_BYTES	IO_READ_REQUESTS	IO_READ_SVC_USECS < IO_READ_WAIT_USECS	IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX	IO_READ_SLOW_IOS
+20414464	1246	1	1	0
+# Verify INNODB_PAGES_* stats: expect 1246 InnoDB pages read and 1213 InnoDB index pages read and 0 InnoDB blob pages read
+INNODB_PAGES_READ	INNODB_PAGES_READ_INDEX	INNODB_PAGES_READ_BLOB
+1246	1213	0
 DROP TABLE t1;

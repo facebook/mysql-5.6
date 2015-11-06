@@ -34,7 +34,16 @@ eval select INNODB_PAGES_WRITTEN > 400, INNODB_PAGES_WRITTEN_INDEX > 400, INNODB
 
 --source include/restart_mysqld.inc
 
-show global status like "innodb_buffered_aio_submitted";
+# The IO_READ_REQUESTS column doesn't exist in the information_schema.table_statistics
+# table until some data has been read so do a bit of reading.
+SELECT COUNT(*) FROM t1 WHERE a = 1;
+
+# Store the current state of some of the counters we are going to query later
+let $aio_submitted_start = query_get_value(show global status like "innodb_buffered_aio_submitted", Value, 1);
+let $io_read_bytes_start = query_get_value(select IO_READ_BYTES from information_schema.table_statistics where table_name = 't1', IO_READ_BYTES, 1);
+let $io_read_requests_start = query_get_value(select IO_READ_REQUESTS from information_schema.table_statistics where table_name = 't1', IO_READ_REQUESTS, 1);
+let $innodb_pages_read_start = query_get_value(select INNODB_PAGES_READ from information_schema.table_statistics where table_name = 't1', INNODB_PAGES_READ, 1);
+let $innodb_pages_read_index_start = query_get_value(select INNODB_PAGES_READ_INDEX from information_schema.table_statistics where table_name = 't1', INNODB_PAGES_READ_INDEX, 1);
 
 --disable_result_log
 select * from t1;
@@ -42,9 +51,16 @@ select * from t1;
 
 select count(*) from t1;
 
-show global status like "innodb_buffered_aio_submitted";
-select IO_READ_BYTES, IO_READ_REQUESTS, IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
+--echo # Verify innodb_buffered_aio_submitted: expect 575 asynchronous I/O calls submitted from previous queries
+let $aio_submitted_end = query_get_value(show global status like "innodb_buffered_aio_submitted", Value, 1);
+--disable_query_log
+eval select $aio_submitted_end - $aio_submitted_start as "Innodb_buffered_aio_submitted";
 
-select INNODB_PAGES_READ, INNODB_PAGES_READ_INDEX, INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
+--echo # Verify IO_READ_* stats: expect 20774912 (634 * 32768) bytes read and 634 read requests
+eval select IO_READ_BYTES - $io_read_bytes_start as "IO_READ_BYTES", IO_READ_REQUESTS - $io_read_requests_start as "IO_READ_REQUESTS", IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
+
+--echo # Verify INNODB_PAGES_* stats: expect 634 InnoDB pages read and 606 InnoDB index pages read and 0 InnoDB blob pages read
+eval select INNODB_PAGES_READ - $innodb_pages_read_start as "INNODB_PAGES_READ", INNODB_PAGES_READ_INDEX - $innodb_pages_read_index_start as "INNODB_PAGES_READ_INDEX", INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
+--enable_query_log
 
 DROP TABLE t1;

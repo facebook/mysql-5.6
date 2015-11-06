@@ -28,21 +28,22 @@ INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
 INSERT INTO t1 SELECT 0, b FROM t1;
 
-let $page_size = query_get_value(SELECT @@innodb_page_size, @@innodb_page_size, 1);
-let $expected = 800;
-if ($page_size == 32768)
-{
-  let $expected = 400;
-}
---replace_result $expected expected $page_size page_size
-eval select IO_WRITE_BYTES > $expected * $page_size, IO_WRITE_REQUESTS > $expected, IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS, IO_WRITE_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
+eval select IO_WRITE_BYTES > 13107200, IO_WRITE_REQUESTS > 800, IO_WRITE_WAIT_USECS > IO_WRITE_SVC_USECS, IO_WRITE_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
 
---replace_result $expected expected
-eval select INNODB_PAGES_WRITTEN > $expected, INNODB_PAGES_WRITTEN_INDEX > $expected, INNODB_PAGES_WRITTEN_BLOB from information_schema.table_statistics where table_name = 't1';
+eval select INNODB_PAGES_WRITTEN > 800, INNODB_PAGES_WRITTEN_INDEX > 800, INNODB_PAGES_WRITTEN_BLOB from information_schema.table_statistics where table_name = 't1';
 
 --source include/restart_mysqld.inc
 
-show global status like "innodb_buffered_aio_submitted";
+# The IO_READ_REQUESTS column doesn't exist in the information_schema.table_statistics
+# table until some data has been read so do a bit of reading.
+SELECT COUNT(*) FROM t1 WHERE a = 1;
+
+# Store the current state of some of the counters we are going to query later
+let $aio_submitted_start = query_get_value(show global status like "innodb_buffered_aio_submitted", Value, 1);
+let $io_read_bytes_start = query_get_value(select IO_READ_BYTES from information_schema.table_statistics where table_name = 't1', IO_READ_BYTES, 1);
+let $io_read_requests_start = query_get_value(select IO_READ_REQUESTS from information_schema.table_statistics where table_name = 't1', IO_READ_REQUESTS, 1);
+let $innodb_pages_read_start = query_get_value(select INNODB_PAGES_READ from information_schema.table_statistics where table_name = 't1', INNODB_PAGES_READ, 1);
+let $innodb_pages_read_index_start = query_get_value(select INNODB_PAGES_READ_INDEX from information_schema.table_statistics where table_name = 't1', INNODB_PAGES_READ_INDEX, 1);
 
 --disable_result_log
 select * from t1;
@@ -50,36 +51,16 @@ select * from t1;
 
 select count(*) from t1;
 
-let $expected_page = 1151;
-if ($page_size == 32768)
-{
-  let $expected_page = 575;
-}
+--echo # Verify innodb_buffered_aio_submitted: expect 1151 asynchronous I/O calls submitted from previous queries
+let $aio_submitted_end = query_get_value(show global status like "innodb_buffered_aio_submitted", Value, 1);
+--disable_query_log
+eval select $aio_submitted_end - $aio_submitted_start as "Innodb_buffered_aio_submitted";
 
---echo # Verify innodb_buffered_aio_submitted
-let $actual = query_get_value(show global status like "innodb_buffered_aio_submitted", Value, 1);
---replace_result $expected_page expected_page $actual actual
-eval select $expected_page = $actual as result;
+--echo # Verify IO_READ_* stats: expect 20414464 (1246 * 16384) bytes read and 1246 read requests
+eval select IO_READ_BYTES - $io_read_bytes_start as "IO_READ_BYTES", IO_READ_REQUESTS - $io_read_requests_start as "IO_READ_REQUESTS", IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
 
-let $expected_page = 1252;
-if ($page_size == 32768)
-{
-  let $expected_page = 638;
-}
-
---echo # Verify IO_READ_* stats
---replace_result $page_size page_size $expected_page expected_page
-eval select cast(IO_READ_BYTES as unsigned int) = cast($page_size*$expected_page as unsigned int), cast(IO_READ_REQUESTS as unsigned int) = $expected_page, IO_READ_SVC_USECS < IO_READ_WAIT_USECS, IO_READ_SVC_USECS_MAX < IO_READ_WAIT_USECS_MAX, IO_READ_SLOW_IOS from information_schema.table_statistics where table_name = 't1';
-
-let $expected_index = 1218;
-if ($page_size == 32768)
-{
-  let $expected_index = 609;
-}
-
---echo # Verify INNODB_PAGES_* stats
---replace_result $expected_page expected_page $expected_index expected_index
-eval select cast(INNODB_PAGES_READ as unsigned int) = $expected_page, cast(INNODB_PAGES_READ_INDEX as unsigned int) = $expected_index, INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
+--echo # Verify INNODB_PAGES_* stats: expect 1246 InnoDB pages read and 1213 InnoDB index pages read and 0 InnoDB blob pages read
+eval select INNODB_PAGES_READ - $innodb_pages_read_start as "INNODB_PAGES_READ", INNODB_PAGES_READ_INDEX - $innodb_pages_read_index_start as "INNODB_PAGES_READ_INDEX", INNODB_PAGES_READ_BLOB from information_schema.table_statistics where table_name = 't1';
 --enable_query_log
 
 DROP TABLE t1;
