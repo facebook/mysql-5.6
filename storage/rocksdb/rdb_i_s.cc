@@ -631,6 +631,8 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
                                               Item *cond)
 {
   DBUG_ENTER("i_s_rocksdb_global_info_fill_table");
+  static const uint32_t INT_BUF_LEN = 21;
+  static const uint32_t GTID_BUF_LEN = 60;
 
   int ret= 0;
 
@@ -638,11 +640,11 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   Binlog_info_manager *blm = get_binlog_manager();
   char file_buf[FN_REFLEN+1]= {0};
   my_off_t pos = 0;
-  char pos_buf[FN_REFLEN+1]= {0};
-  char gtid_buf[FN_REFLEN+1]= {0};
+  char pos_buf[INT_BUF_LEN]= {0};
+  char gtid_buf[GTID_BUF_LEN]= {0};
 
   if (blm->read(file_buf, pos, gtid_buf)) {
-    snprintf(pos_buf, FN_REFLEN, "%lu", (uint64_t) pos);
+    snprintf(pos_buf, INT_BUF_LEN, "%lu", (uint64_t) pos);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "FILE", file_buf);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "POS", pos_buf);
     ret |= global_info_fill_row(thd, tables, "BINLOG", "GTID", gtid_buf);
@@ -651,12 +653,29 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   /* max index info */
   Dict_manager *dict_manager = get_dict_manager();
   uint32_t max_index_id;
-  char max_index_id_buf[FN_REFLEN+1]= {0};
+  char max_index_id_buf[INT_BUF_LEN]= {0};
 
   if (dict_manager->get_max_index_id(&max_index_id)) {
-    snprintf(max_index_id_buf, FN_REFLEN, "%u", max_index_id);
+    snprintf(max_index_id_buf, INT_BUF_LEN, "%u", max_index_id);
     ret |= global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
                                 max_index_id_buf);
+  }
+
+  /* cf_id -> cf_flags */
+  char cf_id_buf[INT_BUF_LEN]= {0};
+  char cf_value_buf[FN_REFLEN+1] = {0};
+  Column_family_manager cf_manager = rocksdb_get_cf_manager();
+  for (auto cf_handle : cf_manager.get_all_cf()) {
+    uint flags;
+    dict_manager->get_cf_flags(cf_handle->GetID(), &flags);
+    snprintf(cf_id_buf, INT_BUF_LEN, "%u", cf_handle->GetID());
+    snprintf(cf_value_buf, FN_REFLEN, "%s [%u]", cf_handle->GetName().c_str(),
+        flags);
+    ret |= global_info_fill_row(thd, tables, "CF_FLAGS", cf_id_buf,
+        cf_value_buf);
+
+    if (ret)
+      break;
   }
 
   DBUG_RETURN(ret);
