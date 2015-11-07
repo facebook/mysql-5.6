@@ -29,5 +29,22 @@ if ($end_max_index_id <= $start_max_index_id) {
   echo Max index ID did not increase;
 }
 
+select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where TYPE = 'CF_FLAGS';
+
+CREATE TABLE t2 (
+    a int,
+    b int,
+    c int,
+    d int,
+    e int,
+    PRIMARY KEY (a) COMMENT "cf_a",
+    KEY (b) COMMENT "cf_b",
+    KEY (c) COMMENT "cf_c",
+    KEY (d) COMMENT "$per_index_cf",
+    KEY (e) COMMENT "rev:cf_d") ENGINE=ROCKSDB;
+
+select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where TYPE = 'CF_FLAGS';
+
 DROP TABLE t1;
+DROP TABLE t2;
 
