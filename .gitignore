@@ -7,6 +7,7 @@
 # Ignores for files resulting from building in place:
 *-t
 *.a
+*.o
 *.so
 *.so.*
 *.swp
@@ -46,6 +47,8 @@ include/my_config.h
 include/mysql_version.h
 include/mysqld_ername.h
 include/mysqld_error.h
+include/probes_mysql.d
+include/probes_mysql_dtrace.h
 include/sql_state.h
 info_macros.cmake
 libmysql/libmysql.ver
