@@ -122,11 +122,10 @@ void
 btr_defragment_shutdown()
 {
 	mutex_enter(&btr_defragment_mutex);
-	for (auto iter = btr_defragment_wq.begin();
-	     iter != btr_defragment_wq.end();
-	     ++iter) {
+	auto iter = btr_defragment_wq.begin();
+	while (iter != btr_defragment_wq.end()) {
 		btr_defragment_item_t* item = *iter;
-		btr_defragment_wq.erase(iter);
+		btr_defragment_wq.erase(iter++);
 		delete item;
 	}
 	mutex_exit(&btr_defragment_mutex);
