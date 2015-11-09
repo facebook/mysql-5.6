@@ -1111,6 +1111,8 @@ public:
   /* Maximum number of locks the transaction can have */
   ulonglong max_row_locks;
 
+  bool ddl_transaction;
+
   void set_params(int timeout_sec_arg, int max_row_locks_arg)
   {
     timeout_sec= timeout_sec_arg;
@@ -1179,7 +1181,8 @@ public:
 
   void rollback()
   {
-    n_writes= 0;
+    n_writes = 0;
+    ddl_transaction = false;
     if (txn)
     {
       register_snapshot_release(read_opts.snapshot);
@@ -1222,13 +1225,11 @@ public:
     "Number of locks held by the transaction exceeded @@rocksdb_max_row_locks";
 
   rocksdb::Status Put(rocksdb::ColumnFamilyHandle* column_family,
-                      const rocksdb::Slice& key, const rocksdb::Slice& value,
-                      bool tracked)
+                      const rocksdb::Slice& key, const rocksdb::Slice& value)
   {
     if (++n_writes > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
-    return tracked ? txn->Put(column_family, key, value) :
-                     txn->PutUntracked(column_family, key, value);
+    return txn->Put(column_family, key, value);
   }
 
   rocksdb::Status Delete(rocksdb::ColumnFamilyHandle* column_family,
@@ -1245,6 +1246,26 @@ public:
     if (++n_writes > max_row_locks)
       return rocksdb::Status::Aborted(rocksdb::Slice(err_too_many_locks));
     return txn->SingleDelete(column_family, key);
+  }
+
+  /*
+    Return a WriteBatch that one can write to. The writes will skip any
+    transaction locking. The writes WILL be visible to the transaction.
+  */
+  rocksdb::WriteBatchBase* GetIndexedWriteBatch()
+  {
+    ++n_writes;
+    return txn->GetWriteBatch();
+  }
+
+  /*
+    Return a WriteBatch that one can write to. The writes will skip any
+    transaction locking. The writes will NOT be visible to the transaction.
+  */
+  rocksdb::WriteBatchBase* GetBlindWriteBatch()
+  {
+    ++n_writes;
+    return txn->GetWriteBatch()->GetWriteBatch();
   }
 
   rocksdb::Status Get(rocksdb::ColumnFamilyHandle* column_family,
@@ -1298,11 +1319,8 @@ public:
     read_opts= rocksdb::ReadOptions();
     read_opts.snapshot= txn->GetSnapshot();
     register_snapshot(read_opts.snapshot, thd);
-    if (THDVAR(thd, bulk_load)
-        || thd->lex->sql_command == SQLCOM_CREATE_INDEX
-        || thd->lex->sql_command == SQLCOM_DROP_INDEX
-        || thd->lex->sql_command == SQLCOM_ALTER_TABLE)
-      txn->DisableIndexing();
+
+    ddl_transaction = false;
   }
 
   /*
@@ -4579,11 +4597,11 @@ int ha_rocksdb::write_row(uchar *buf)
     }
   }
 
-  bool do_locking= !THDVAR(table->in_use, bulk_load);
-  int rv= update_write_row(NULL, buf, do_locking);
+  bool bulk_load = THDVAR(table->in_use, bulk_load);
+  int rv = update_write_row(nullptr, buf, bulk_load);
   Rdb_transaction *trx= get_or_create_trx(table->in_use);
 
-  if (rv == 0 && !do_locking &&
+  if (rv == 0 && bulk_load &&
       trx->get_n_writes() > THDVAR(table->in_use, bulk_load_size))
   {
     /* Bulk insert mode: flush the write batch if it became too big */
@@ -4600,7 +4618,7 @@ int ha_rocksdb::write_row(uchar *buf)
 
 int ha_rocksdb::update_write_row(const uchar *old_data,
                                  uchar *new_data,
-                                 bool do_locking)
+                                 bool bulk_load)
 {
   int pk_packed_size;
   bool pk_key_changed= false;
@@ -4647,7 +4665,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       If there are no uniqueness requirements, there's no need to obtain a
       lock for this key. The primary key should have this flag set.
     */
-    if (!do_locking || !(table->key_info[i].flags & HA_NOSAME))
+    if (bulk_load || !(table->key_info[i].flags & HA_NOSAME))
       continue;
 
     /*
@@ -4857,21 +4875,34 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
           memcmp(sec_key_tails_old, sec_key_tails, old_key_tail_size) == 0)
         continue;
 
-      rocksdb::Status s= delete_or_singledelete(i, trx,
-                                                key_descr[i]->get_cf(),
+      /*
+        Deleting entries from secondary index should skip locking, but
+        be visible to the transaction.
+        (also note that DDL statements do not delete rows, so this is not a DDL
+         statement)
+      */
+      trx->GetIndexedWriteBatch()->SingleDelete(key_descr[i]->get_cf(),
                                                 old_key_slice);
-      if (!s.ok())
-      {
-        DBUG_RETURN(return_status_error(table->in_use, s));
-      }
     }
 
-    auto s= trx->Put(key_descr[i]->get_cf(), new_key_slice, new_value_slice,
-                     do_locking);
-    if (!s.ok())
+    /*
+      We're writing a new entry for secondary key. We can skip locking; we
+      should write to
+      - WriteBatchWithIndex normally (so that transaction sees the new row)
+      - non-indexed WriteBatch, when we don't need to see the new row:
+         = when doing a DDL operation and writing to a non-unique index, or
+         = when doing a bulk load
+    */
+    rocksdb::WriteBatchBase *write_batch;
+    if ((trx->ddl_transaction && !(table->key_info[i].flags & HA_NOSAME)) ||
+        bulk_load)
     {
-      DBUG_RETURN(return_status_error(table->in_use, s));
+      write_batch = trx->GetBlindWriteBatch();
     }
+    else
+      write_batch = trx->GetIndexedWriteBatch();
+
+    write_batch->Put(key_descr[i]->get_cf(), new_key_slice, new_value_slice);
   }
 
   if (table->next_number_field)
@@ -4883,17 +4914,37 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
 
   convert_record_to_storage_format((const char*)pk_packed_tuple,
                                    pk_packed_size, &value_slice);
-
-  auto s= trx->Put(pk_descr->get_cf(), new_key_slice, value_slice, do_locking);
-  if (!s.ok())
+  if (bulk_load)
   {
-    if (s.IsBusy())
+    /*
+      It is responsibility of the user to make sure that the data being
+      inserted doesn't violate any unique keys.
+    */
+    trx->GetBlindWriteBatch()->Put(pk_descr->get_cf(), new_key_slice,
+                                     value_slice);
+  }
+  else if (trx->ddl_transaction)
+  {
+    /*
+      DDL statement must check for unique key conflicts. For example:
+      ALTER TABLE tbl DROP PRIMARY KEY, ADD PRIMARY KEY(non_unique_column)
+    */
+    trx->GetIndexedWriteBatch()->Put(pk_descr->get_cf(), new_key_slice,
+                                     value_slice);
+  }
+  else
+  {
+    auto s = trx->Put(pk_descr->get_cf(), new_key_slice, value_slice);
+    if (!s.ok())
     {
-      errkey= table->s->primary_key;
-      DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
-    }
+      if (s.IsBusy())
+      {
+        errkey = table->s->primary_key;
+        DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
+      }
 
-    DBUG_RETURN(return_status_error(table->in_use, s));
+      DBUG_RETURN(return_status_error(table->in_use, s));
+    }
   }
 
   DBUG_RETURN(0);
@@ -5159,11 +5210,9 @@ int ha_rocksdb::delete_row(const uchar *buf)
                                              NULL, NULL);
       rocksdb::Slice secondary_key_slice((char*)sec_key_packed_tuple,
                                          packed_size);
-      s= trx->SingleDelete(key_descr[i]->get_cf(), secondary_key_slice);
-      if (!s.ok())
-      {
-        DBUG_RETURN(return_status_error(table->in_use, s));
-      }
+      /* Deleting on secondary key doesn't need any locks: */
+      trx->GetIndexedWriteBatch()->SingleDelete(key_descr[i]->get_cf(),
+                                                secondary_key_slice);
     }
   }
 
@@ -5385,7 +5434,7 @@ int ha_rocksdb::update_row(const uchar *old_data, uchar *new_data)
 
   io_perf_start();
 
-  int rv= update_write_row(old_data, new_data, true);
+  int rv = update_write_row(old_data, new_data, false);
   io_perf_end_and_record();
 
   if (rv == 0)
@@ -5513,6 +5562,13 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       */
       lock_rows= true;
       lock_for_write= true;
+
+      if (thd->lex->sql_command == SQLCOM_CREATE_INDEX ||
+          thd->lex->sql_command == SQLCOM_DROP_INDEX   ||
+          thd->lex->sql_command == SQLCOM_ALTER_TABLE)
+      {
+        trx->ddl_transaction = true;
+      }
     }
     rocksdb_register_trx(rocksdb_hton, thd, trx);
   }
