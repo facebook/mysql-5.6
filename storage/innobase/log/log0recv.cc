@@ -3052,6 +3052,7 @@ recv_init_crash_recovery(void)
 		from the buffer pools. */
 		recv_writer_thread_handle = os_thread_create(
 			recv_writer_thread, 0, 0);
+    pthread_setname_np(recv_writer_thread_handle, "innodb-writer");
 	}
 }
 
@@ -3565,7 +3566,12 @@ recv_recovery_rollback_active(void)
 		session */
 
 		trx_rollback_or_clean_is_active = true;
-		os_thread_create(trx_rollback_or_clean_all_recovered, 0, 0);
+    os_thread_t trx_rollback_or_clean_all_recovered_handle =
+      os_thread_create(trx_rollback_or_clean_all_recovered, 0, 0);
+    pthread_setname_np(
+      trx_rollback_or_clean_all_recovered_handle,
+      "innodb-rollback"
+    );
 	}
 }
 

@@ -126,6 +126,10 @@ my_timer_initialize(void)
     fprintf(stderr, "Failed to start timer notify thread.");
     close(kq_fd);
   }
+  else
+  {
+    pthread_setname_np(timer_notify_thread, "mysqld-timrntfy");
+  }
 
   return rc;
 }

@@ -153,6 +153,8 @@ my_timer_initialize(void)
     goto err;
   }
 
+  pthread_setname_np(timer_notify_thread, "mysqld-timrntfy");
+
   return 0;
 
 err:

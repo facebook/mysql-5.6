@@ -1454,6 +1454,10 @@ int start_slave_thread(
       mysql_mutex_unlock(start_lock);
     DBUG_RETURN(ER_SLAVE_THREAD);
   }
+  else
+  {
+    pthread_setname_np(th, "mysqld-slave");
+  }
   if (start_cond && cond_lock) // caller has cond_lock
   {
     THD* thd = current_thd;
@@ -5769,6 +5773,7 @@ int slave_start_single_worker(Relay_log_info *rli, ulong i)
     goto err;
   }
   
+  pthread_setname_np(th, "mysqld-slvewrkr");
   mysql_mutex_lock(&w->jobs_lock);
   if (w->running_status == Slave_worker::NOT_RUNNING)
     mysql_cond_wait(&w->jobs_cond, &w->jobs_lock);

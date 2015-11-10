@@ -140,8 +140,14 @@ void start_handle_manager()
     if ((error= mysql_thread_create(key_thread_handle_manager,
                                     &hThread, &connection_attrib,
                                     handle_manager, 0)))
+    {
       sql_print_warning("Can't create handle_manager thread (errno= %d)",
                         error);
+    }
+    else
+    {
+      pthread_setname_np(hThread, "mysqld-hndlmngr");
+    }
   }
   DBUG_VOID_RETURN;
 }

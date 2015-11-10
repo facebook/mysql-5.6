@@ -459,6 +459,11 @@ Event_scheduler::start(int *err_no)
     delete scheduler_param_value;
     ret= true;
   }
+  else
+  {
+    pthread_setname_np(th, "mysqld-evtschdr");
+  }
+
 
 end:
   UNLOCK_DATA();
@@ -587,6 +592,7 @@ Event_scheduler::execute_top(Event_queue_element_for_exec *event_name)
     goto error;
   }
 
+  pthread_setname_np(th, "mysqld-evntwrkr");
   ++started_events;
 
   DBUG_PRINT("info", ("Event is in THD: 0x%lx", (long) new_thd));

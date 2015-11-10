@@ -2383,6 +2383,7 @@ bool delayed_get_table(THD *thd, MDL_request *grl_protection_request,
 	my_error(ER_CANT_CREATE_THREAD, MYF(ME_FATALERROR), error);
         goto end_create;
       }
+      pthread_setname_np(di->thd.real_id, "mysqld-dlyinsrt");
 
       /*
         Wait until table is open unless the handler thread or the connection

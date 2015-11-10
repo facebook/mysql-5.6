@@ -5266,7 +5266,9 @@ next_datadir_item:
     params[i].task = &table_file_list;
     params[i].task_id = i;
     params[i].event = os_event_create();
-    os_thread_create(load_table_file, &params[i], NULL);
+    os_thread_t load_table_file_handle =
+      os_thread_create(load_table_file, &params[i], NULL);
+    pthread_setname_np(load_table_file_handle, "mysqld-ldtablef");
   }
 
   for (uint32 i = 0;

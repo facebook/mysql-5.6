@@ -116,7 +116,7 @@ start_helper_thread(void)
     pthread_barrier_destroy(&barrier);
     return -1;
   }
-
+  pthread_setname_np(timer_notify_thread, "mysqld-timrntfy");
   pthread_barrier_wait(&barrier);
   pthread_barrier_destroy(&barrier);
 
@@ -246,6 +246,8 @@ start_helper_thread(void)
     fprintf(stderr, "Failed to create timer notify thread (errno= %d).", errno);
     return -1;
   }
+
+  pthread_setname_np(timer_notify_thread, "mysqld-timrntfy");
 
   return 0;
 }

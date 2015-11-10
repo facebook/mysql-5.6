@@ -2093,6 +2093,10 @@ static int rocksdb_init_func(void *p)
                     err);
     DBUG_RETURN(1);
   }
+  else
+  {
+    pthread_setname_np(thread_handle, "rocks-backgrnd");
+  }
 
   stop_drop_index_thread = false;
   err = mysql_thread_create(
@@ -2104,6 +2108,10 @@ static int rocksdb_init_func(void *p)
     sql_print_error("RocksDB: Couldn't start the drop index thread: (errno=%d)",
                     err);
     DBUG_RETURN(1);
+  }
+  else
+  {
+    pthread_setname_np(thread_handle, "rocks-dropindx");
   }
 
   collation_exception_list = split(rocksdb_strict_collation_exceptions, ',');
