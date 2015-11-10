@@ -1,0 +1,43 @@
+--source include/not_windows.inc
+--let MYSQLD_PIDFILE= `SELECT @@pid_file`
+
+--source include/master-slave.inc
+CREATE TABLE t1 (a INT PRIMARY KEY);
+INSERT INTO t1 VALUES(1);
+--source include/sync_slave_sql_with_master.inc
+
+# Check
+SELECT * FROM t1;
+
+perl;
+$pid_filename = $ENV{'MYSQLD_PIDFILE'};
+$mysqld_pid= `cat $pid_filename`; 
+$mysql_threads = `ps -e -T | grep ${mysqld_pid}`;
+
+if (index($mysql_threads, "my-hfunc") != -1) {
+  print "wrong: slave thread found.\n";
+} else {
+  print "correct: slave thread NOT found.\n";
+}
+
+if (index($mysql_threads, "my-binlog") != -1) {
+  print "correct: bin log dump thread found.\n";
+} else {
+  print "wrong: bin log dump thread NOT found.\n";
+}
+
+if (index($mysql_threads, "my-oneconnectio") != -1) {
+  print "correct: connection thread found.\n";
+} else {
+  print "wrong: connection thread NOT found.\n";
+}
+
+EOF
+
+# Cleanup
+connection master;
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+
+--source include/rpl_end.inc
