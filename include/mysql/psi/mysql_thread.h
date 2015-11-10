@@ -55,6 +55,7 @@
 */
 
 #include "mysql/psi/psi.h"
+#include <string.h>
 
 /**
   @defgroup Thread_instrumentation Thread Instrumentation
@@ -546,6 +547,12 @@ typedef struct st_mysql_cond mysql_cond_t;
   inline_mysql_thread_register(P1, P2, P3)
 
 /**
+  @def T_NAME_LEN
+  Maximum thread name length as required by pthread_create
+*/
+#define T_NAME_LEN 16
+
+/**
   @def mysql_thread_create(K, P1, P2, P3, P4)
   Instrumented pthread_create.
   This function creates both the thread instrumentation and a thread.
@@ -564,10 +571,10 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifdef HAVE_PSI_THREAD_INTERFACE
   #define mysql_thread_create(K, P1, P2, P3, P4) \
-    inline_mysql_thread_create(K, P1, P2, P3, P4)
+    inline_mysql_thread_create(K, #P3, P1, P2, P3, P4)
 #else
   #define mysql_thread_create(K, P1, P2, P3, P4) \
-    pthread_create(P1, P2, P3, P4)
+    named_pthread_create(#P3, P1, P2, P3, P4)
 #endif
 
 /**
@@ -1242,14 +1249,107 @@ static inline void inline_mysql_thread_register(
 #endif
 }
 
+/**
+  Writes a given word to a specified position in the t_name buffer.  Truncates
+  the word if it goes over t_size.  Returns true if t_name buffer is full.
+  @param t_name buffer to be filled with the thread name
+  @param t_size limit to the buffer size (must be 16 bytes or less)
+  @param t_pos limit to the buffer size (must be 16 bytes or less)
+  @param word pointer to the characters to copy over into the buffer
+  @param len length of characters being copied over
+*/
+static my_bool add_word(
+  char *t_name,
+  size_t t_size,
+  size_t *t_pos,
+  const char *word,
+  size_t len)
+{
+  assert(*t_pos < t_size - 1);
+  size_t chars = MY_MIN(len, t_size - *t_pos - 1);
+  memcpy(t_name + *t_pos, word, chars);
+  *t_pos += chars;
+  t_name[*t_pos] = '\0';
+  return *t_pos == t_size - 1;
+}
+
+/**
+  Checks if a string with a given length exists within certain stop words. Used
+  to get rid of unnecessary words when labeling threads.
+  @param word pointer to the characters to copy over into the buffer
+  @param len length of characters being copied over
+*/
+static my_bool skip_word(
+  const char *word,
+  size_t len)
+{
+  static const char *words[] =
+  {
+    "connections", "flush", "handle", "parallel", "thread",
+  };
+
+  for (size_t i = 0; i < sizeof(words)/sizeof(words[0]); i++)
+  {
+    // strncmp not sufficient by itself, we don't skip 'flushing' or 'handler'
+    if (strlen(words[i]) == len && strncmp(word, words[i], len) == 0)
+    {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+  Strips a predefined set of stopwords from stringifed thread function name,
+  and truncates name down to 16 bytes or less.  Used to set the thread name for
+  mysqld threads.
+  @param t_name buffer to be filled with the thread name
+  @param t_size limit to the buffer size (must be 16 bytes or less)
+  @param t_prefix the string prefix of the resulting thread name
+  @param name stringified name of the thread function
+*/
+static inline char* strip_thread_name(
+  char *t_name,
+  size_t t_size,
+  const char *t_prefix,
+  const char *name)
+{
+  size_t t_pos = 0;
+  my_bool done = add_word(t_name, t_size, &t_pos, t_prefix, strlen(t_prefix));
+
+  const char *underscore;
+  while (!done && *name != '\0' && (underscore = strchr(name, '_')) != NULL)
+  {
+    size_t len = underscore - name;
+    if (len > 0 && !skip_word(name, len))
+    {
+      done = add_word(t_name, t_size, &t_pos, name, len);
+    }
+    name = underscore + 1;
+  }
+
+  // Handle anything after the last underscore
+  if (!done && *name != '\0')
+  {
+    add_word(t_name, t_size, &t_pos, name, strlen(name));
+  }
+  return t_name;
+}
+
 #ifdef HAVE_PSI_THREAD_INTERFACE
 static inline int inline_mysql_thread_create(
   PSI_thread_key key,
+  const char *name,
   pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine)(void*), void *arg)
 {
   int result;
   result= PSI_THREAD_CALL(spawn_thread)(key, thread, attr, start_routine, arg);
+  if (result == 0) {
+    char t_name[T_NAME_LEN] = {0};
+    pthread_setname_np(*thread,
+      strip_thread_name(t_name, sizeof(t_name), "my-", name));
+  }
   return result;
 }
 
@@ -1257,6 +1357,21 @@ static inline void inline_mysql_thread_set_psi_id(ulong id)
 {
   struct PSI_thread *psi= PSI_THREAD_CALL(get_thread)();
   PSI_THREAD_CALL(set_thread_id)(psi, id);
+}
+#else
+static inline int named_pthread_create(
+  const char *name,
+  pthread_t *thread, const pthread_attr_t *attr,
+  void *(*start_routine)(void*), void *arg)
+{
+  int result;
+  result= pthread_create(thread, attr, start_routine, arg);
+  if (result == 0) {
+    char t_name[T_NAME_LEN] = {0};
+    pthread_setname_np(*thread,
+      strip_thread_name(t_name, sizeof(t_name), "my-", name));
+  }
+  return result;
 }
 #endif
 

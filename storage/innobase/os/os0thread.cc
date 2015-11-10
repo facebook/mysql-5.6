@@ -24,6 +24,7 @@ Created 9/8/1995 Heikki Tuuri
 *******************************************************/
 
 #include "os0thread.h"
+#include <string.h>
 #ifdef UNIV_NONINL
 #include "os0thread.ic"
 #endif
@@ -109,6 +110,7 @@ os_thread_create_func(
 /*==================*/
 	os_thread_func_t	func,		/*!< in: pointer to function
 						from which to start */
+	const char*		name,		/*!< in: thread name */
 	void*			arg,		/*!< in: argument to start
 						function */
 	os_thread_id_t*		thread_id)	/*!< out: id of the created
@@ -187,6 +189,9 @@ os_thread_create_func(
 		*thread_id = pthread;
 	}
 
+	char t_name[T_NAME_LEN] = {0};
+	pthread_setname_np(pthread,
+		strip_thread_name(t_name, sizeof(t_name), "in-", name));
 	return(pthread);
 #endif
 }
