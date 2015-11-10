@@ -1,0 +1,40 @@
+--source include/master-slave.inc
+CREATE TABLE t1 (a INT PRIMARY KEY);
+INSERT INTO t1 VALUES(1);
+--source include/sync_slave_sql_with_master.inc
+
+# Check
+SELECT * FROM t1;
+
+perl;
+
+$slavethread = `ps -e -T | grep 'my-h'`;
+if ($slavethread) {
+  print "slave thread found.\n";
+} else {
+  print "slave thread NOT found.\n";
+}
+
+$binlog = `ps -e -T | grep 'my-binlog'`;
+if ($binlog) {
+  print "bin log dump thread found.\n";
+} else {
+  print "bin log dump thread NOT found.\n";
+}
+
+$connthread = `ps -e -T | grep 'my-oneconnectio'`;
+if ($connthread) {
+  print "connection thread found.\n";
+} else {
+  print "connection thread NOT found.\n";
+}
+
+EOF
+
+# Cleanup
+connection master;
+drop table t1;
+--source include/sync_slave_sql_with_master.inc
+
+
+--source include/rpl_end.inc
