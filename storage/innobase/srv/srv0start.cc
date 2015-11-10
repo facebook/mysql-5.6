@@ -2094,7 +2094,9 @@ innobase_start_or_create_for_mysql(void)
 
 		n[i] = i;
 
-		os_thread_create(io_handler_thread, n + i, thread_ids + i);
+		os_thread_create(
+			io_handler_thread,
+			"innodb-iohndlr", n + i, thread_ids + i);
 	}
 
 #ifdef UNIV_LOG_ARCHIVE
@@ -2759,16 +2761,19 @@ files_checked:
 		for lock waits */
 		os_thread_create(
 			lock_wait_timeout_thread,
+			"innodb-lockwait",
 			NULL, thread_ids + 2 + SRV_MAX_N_IO_THREADS);
 
 		/* Create the thread which warns of long semaphore waits */
 		os_thread_create(
 			srv_error_monitor_thread,
+			"innodb-errmontr",
 			NULL, thread_ids + 3 + SRV_MAX_N_IO_THREADS);
 
 		/* Create the thread which prints InnoDB monitor info */
 		os_thread_create(
 			srv_monitor_thread,
+			"innodb-monitor",
 			NULL, thread_ids + 4 + SRV_MAX_N_IO_THREADS);
 	}
 
@@ -2797,9 +2802,9 @@ files_checked:
 	operations */
 
 	if (!srv_read_only_mode) {
-
 		os_thread_create(
 			srv_master_thread,
+			"innodb-master",
 			NULL, thread_ids + (1 + SRV_MAX_N_IO_THREADS));
 	}
 
@@ -2812,6 +2817,7 @@ files_checked:
 
 		os_thread_create(
 			srv_purge_coordinator_thread,
+			"innodb-prgcoord",
 			NULL, thread_ids + 5 + SRV_MAX_N_IO_THREADS);
 
 		ut_a(UT_ARR_SIZE(thread_ids)
@@ -2820,7 +2826,9 @@ files_checked:
 		/* We've already created the purge coordinator thread above. */
 		for (i = 1; i < srv_n_purge_threads; ++i) {
 			os_thread_create(
-				srv_worker_thread, NULL,
+				srv_worker_thread,
+				"innodb-worker",
+				NULL,
 				thread_ids + 5 + i + SRV_MAX_N_IO_THREADS);
 		}
 
@@ -2831,10 +2839,16 @@ files_checked:
 	}
 
 	if (!srv_read_only_mode) {
-		os_thread_create(buf_flush_page_cleaner_thread, NULL, NULL);
+		os_thread_create(
+			buf_flush_page_cleaner_thread,
+			"innodb-pgcleanr",
+			NULL, NULL);
 	}
 
-	os_thread_create(buf_flush_lru_manager_thread, NULL, NULL);
+	os_thread_create(
+		buf_flush_lru_manager_thread,
+		"innodb-flushlru",
+		NULL, NULL);
 
 #ifdef UNIV_DEBUG
 	/* buf_debug_prints = TRUE; */
@@ -2980,10 +2994,12 @@ files_checked:
 
 	if (!srv_read_only_mode) {
 		/* Create the buffer pool dump/load thread */
-		os_thread_create(buf_dump_thread, NULL, NULL);
+		os_thread_create(
+			buf_dump_thread, "innodb-bufdump", NULL, NULL);
 
 		/* Create the dict stats gathering thread */
-		os_thread_create(dict_stats_thread, NULL, NULL);
+		os_thread_create(
+			dict_stats_thread, "innodb-dictstat", NULL, NULL);
 
 		/* Create the thread that will optimize the FTS sub-system. */
 		fts_optimize_init();
@@ -2993,7 +3009,8 @@ files_checked:
 	btr_defragment_init_thread();
 
 	/* Create the buffer pool resize thread */
-	os_thread_create(buf_resize_thread, NULL, NULL);
+	os_thread_create(
+		buf_resize_thread, "innodb-bufrsize", NULL, NULL);
 
 #ifdef XTRABACKUP
 skip_processes:

@@ -92,7 +92,7 @@ void init_thr_alarm(uint max_alarms)
     pthread_attr_setscope(&thr_attr,PTHREAD_SCOPE_PROCESS);
     pthread_attr_setdetachstate(&thr_attr,PTHREAD_CREATE_DETACHED);
     pthread_attr_setstacksize(&thr_attr,8196);
-    mysql_thread_create(key_thread_alarm,
+    mysql_thread_create(key_thread_alarm, "mysqld-keyalarm",
                         &alarm_thread, &thr_attr, alarm_handler, NULL);
     pthread_attr_destroy(&thr_attr);
   }
@@ -879,7 +879,7 @@ int main(int argc __attribute__((unused)),char **argv __attribute__((unused)))
 
   /* Start signal thread and wait for it to start */
   mysql_mutex_lock(&LOCK_thread_count);
-  mysql_thread_create(0,
+  mysql_thread_create(0, "mysqld-signal",
                       &tid, &thr_attr, signal_hand, NULL);
   mysql_cond_wait(&COND_thread_count, &LOCK_thread_count);
   mysql_mutex_unlock(&LOCK_thread_count);
@@ -893,7 +893,7 @@ int main(int argc __attribute__((unused)),char **argv __attribute__((unused)))
     param=(int*) malloc(sizeof(int));
     *param= i;
     mysql_mutex_lock(&LOCK_thread_count);
-    if ((error= mysql_thread_create(0,
+    if ((error= mysql_thread_create(0, "mysqld-main",
                                     &tid, &thr_attr, test_thread,
                                     (void*) param)))
     {

@@ -546,7 +546,7 @@ typedef struct st_mysql_cond mysql_cond_t;
   inline_mysql_thread_register(P1, P2, P3)
 
 /**
-  @def mysql_thread_create(K, P1, P2, P3, P4)
+  @def mysql_thread_create(K, N, P1, P2, P3, P4)
   Instrumented pthread_create.
   This function creates both the thread instrumentation and a thread.
   @c mysql_thread_create is a replacement for @c pthread_create.
@@ -557,17 +557,18 @@ typedef struct st_mysql_cond mysql_cond_t;
   is used internally to randomize access to data and prevent contention.
   This is optional, and the improvement is not guaranteed, only statistical.
   @param K The PSI_thread_key for this instrumented thread
+  @param N The thread name
   @param P1 pthread_create parameter 1
   @param P2 pthread_create parameter 2
   @param P3 pthread_create parameter 3
   @param P4 pthread_create parameter 4
 */
 #ifdef HAVE_PSI_THREAD_INTERFACE
-  #define mysql_thread_create(K, P1, P2, P3, P4) \
-    inline_mysql_thread_create(K, P1, P2, P3, P4)
+  #define mysql_thread_create(K, N, P1, P2, P3, P4) \
+    inline_mysql_thread_create(K, N, P1, P2, P3, P4)
 #else
-  #define mysql_thread_create(K, P1, P2, P3, P4) \
-    pthread_create(P1, P2, P3, P4)
+  #define mysql_thread_create(K, N, P1, P2, P3, P4) \
+    named_pthread_create(N, P1, P2, P3, P4)
 #endif
 
 /**
@@ -1245,11 +1246,13 @@ static inline void inline_mysql_thread_register(
 #ifdef HAVE_PSI_THREAD_INTERFACE
 static inline int inline_mysql_thread_create(
   PSI_thread_key key,
+  const char *name,
   pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine)(void*), void *arg)
 {
   int result;
   result= PSI_THREAD_CALL(spawn_thread)(key, thread, attr, start_routine, arg);
+  pthread_setname_np(*thread, name);
   return result;
 }
 
@@ -1257,6 +1260,17 @@ static inline void inline_mysql_thread_set_psi_id(ulong id)
 {
   struct PSI_thread *psi= PSI_THREAD_CALL(get_thread)();
   PSI_THREAD_CALL(set_thread_id)(psi, id);
+}
+#else
+static inline int named_pthread_create(
+  const char *name,
+  pthread_t *thread, const pthread_attr_t *attr,
+  void *(*start_routine)(void*), void *arg)
+{
+  int result;
+  result = pthread_create(thread, attr, start_routine, arg);
+  pthread_setname_np(*thread, name);
+  return result;
 }
 #endif
 

@@ -2371,6 +2371,7 @@ bool delayed_get_table(THD *thd, MDL_request *grl_protection_request,
       di->lock();
       mysql_mutex_lock(&di->mutex);
       if ((error= mysql_thread_create(key_thread_delayed_insert,
+                                      "mysqld-dlyinsrt",
                                       &di->thd.real_id, &connection_attrib,
                                       handle_delayed_insert, (void*) di)))
       {

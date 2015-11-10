@@ -439,6 +439,7 @@ Event_scheduler::start(int *err_no)
   state= RUNNING;
   DBUG_PRINT("info", ("Forking new thread for scheduler. THD: 0x%lx", (long) new_thd));
   if ((*err_no= mysql_thread_create(key_thread_event_scheduler,
+                                    "mysqld-evtschdr",
                                     &th, &connection_attrib,
                                     event_scheduler_thread,
                                     (void*)scheduler_param_value)))
@@ -570,6 +571,7 @@ Event_scheduler::execute_top(Event_queue_element_for_exec *event_name)
   */
   /* Major failure */
   if ((res= mysql_thread_create(key_thread_event_worker,
+                                "mysqld-evntwrkr",
                                 &th, &connection_attrib, event_worker_thread,
                                 event_name)))
   {

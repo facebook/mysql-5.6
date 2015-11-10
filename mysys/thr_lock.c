@@ -1650,7 +1650,7 @@ int main(int argc __attribute__((unused)),char **argv __attribute__((unused)))
               error, errno);
       exit(1);
     }
-    if ((error= mysql_thread_create(0,
+    if ((error= mysql_thread_create(0, "mysqld-mtxlock",
                                     &tid, &thr_attr, test_thread,
                                     (void*) param)))
     {

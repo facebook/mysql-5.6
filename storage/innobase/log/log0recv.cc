@@ -3051,7 +3051,7 @@ recv_init_crash_recovery(void)
 		/* Spawn the background thread to flush dirty pages
 		from the buffer pools. */
 		recv_writer_thread_handle = os_thread_create(
-			recv_writer_thread, 0, 0);
+			recv_writer_thread, "innodb-writer", 0, 0);
 	}
 }
 
@@ -3565,7 +3565,9 @@ recv_recovery_rollback_active(void)
 		session */
 
 		trx_rollback_or_clean_is_active = true;
-		os_thread_create(trx_rollback_or_clean_all_recovered, 0, 0);
+		os_thread_create(
+			trx_rollback_or_clean_all_recovered,
+			"innodb-rollback", 0, 0);
 	}
 }
 

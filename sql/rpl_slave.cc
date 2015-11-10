@@ -1447,6 +1447,7 @@ int start_slave_thread(
   start_id= *slave_run_id;
   DBUG_PRINT("info",("Creating new slave thread"));
   if ((error= mysql_thread_create(thread_key,
+                          "mysqld-slave",
                           &th, &connection_attrib, h_func, (void*)mi)))
   {
     sql_print_error("Can't create slave thread (errno= %d).", error);
@@ -5759,7 +5760,9 @@ int slave_start_single_worker(Relay_log_info *rli, ulong i)
   set_dynamic(&rli->workers, (uchar*) &w, i);
 
   if (DBUG_EVALUATE_IF("mts_worker_thread_fails", i == 1, 0) ||
-      (error= mysql_thread_create(key_thread_slave_worker, &th,
+      (error= mysql_thread_create(key_thread_slave_worker,
+                                  "mysqld-slvewrkr",
+                                  &th,
                                   &connection_attrib,
                                   handle_slave_worker, (void*) w)))
   {

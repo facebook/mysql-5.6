@@ -2084,7 +2084,9 @@ static int rocksdb_init_func(void *p)
   stop_background_thread = false;
   pthread_t thread_handle;
   auto err = mysql_thread_create(
-    key_thread_background, &thread_handle,
+    key_thread_background,
+    "rocks-backgrnd",
+    &thread_handle,
     nullptr,
     background_thread, NULL
   );
@@ -2096,7 +2098,9 @@ static int rocksdb_init_func(void *p)
 
   stop_drop_index_thread = false;
   err = mysql_thread_create(
-    key_thread_drop_index, &thread_handle,
+    key_thread_drop_index,
+    "rocks-dropindx",
+    &thread_handle,
     nullptr,
     drop_index_thread, NULL
   );

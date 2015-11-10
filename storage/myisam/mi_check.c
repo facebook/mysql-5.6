@@ -2950,6 +2950,7 @@ int mi_repair_parallel(MI_CHECK *param, register MI_INFO *info,
       param->sort_buffer_length*sort_param[i].key_length/total_key_length;
 #endif
     if ((error= mysql_thread_create(mi_key_thread_find_all_keys,
+                                    "isam-repair",
                                     &sort_param[i].thr, &thr_attr,
                                     thr_find_all_keys,
                                     (void *) (sort_param+i))))
