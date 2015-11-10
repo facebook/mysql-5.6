@@ -465,3 +465,91 @@ int pthread_dummy(int ret)
 {
   return ret;
 }
+
+/**
+	Writes a given word to a specified position in the t_name buffer.
+	Truncates the word if it goes over t_size.
+  Returns true if t_name buffer is full.
+	@param t_name buffer to be filled with the thread name
+	@param t_size limit to the buffer size (must be 16 bytes or less)
+	@param t_pos pointer to the current position in buffer to be filled
+	@param word pointer to the characters to copy over into the buffer
+	@param len length of characters being copied over
+*/
+static my_bool add_word(
+	char *t_name,
+	size_t t_size,
+	size_t *t_pos,
+	const char *word,
+	size_t len)
+{
+  assert(*t_pos < t_size - 1);
+  size_t chars = MY_MIN(len, t_size - *t_pos - 1);
+  memcpy(t_name + *t_pos, word, chars);
+  *t_pos += chars;
+  t_name[*t_pos] = '\0';
+  return *t_pos == t_size - 1;
+}
+
+/**
+	Checks if a string with a given length exists within certain stop words.
+  Used to get rid of unnecessary words when labeling threads.
+	@param word pointer to the characters to copy over into the buffer
+	@param len length of characters being copied over
+*/
+static my_bool skip_word(
+	const char *word,
+	size_t len)
+{
+  static const char *words[] =
+  {
+    "connections", "flush", "handle", "parallel", "thread",
+  };
+
+  for (size_t i = 0; i < sizeof(words)/sizeof(words[0]); i++)
+  {
+    // only strncmp not sufficient, we don't want to skip 'handler'
+    if (strncmp(word, words[i], len) == 0 &&
+        strlen(words[i]) == len)
+    {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+  Strips a predefined set of stopwords from stringifed thread function name,
+  and truncates name down to 16 bytes or less.  Used to set the thread name for
+  mysqld threads.
+  @param t_name buffer to be filled with the thread name
+  @param t_size limit to the buffer size (must be 16 bytes or less)
+  @param t_prefix the string prefix of the resulting thread name
+  @param name stringified name of the thread function
+*/
+char* my_pthread_strip_name(
+	char *t_name,
+	size_t t_size,
+	const char *t_prefix,
+	const char *name)
+{
+  size_t t_pos = 0;
+  my_bool done = add_word(t_name, t_size, &t_pos, t_prefix, strlen(t_prefix));
+
+  const char *underscore;
+  while (!done && *name != '\0')
+  {
+    underscore = strchrnul(name, '_');
+    size_t len = underscore - name;
+    if (len > 0 && !skip_word(name, len))
+    {
+      done = add_word(t_name, t_size, &t_pos, name, len);
+    }
+
+    if (*underscore != '_') {
+      break;
+    }
+    name = underscore + 1;
+  }
+  return t_name;
+}
