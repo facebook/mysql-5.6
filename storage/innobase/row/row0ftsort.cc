@@ -913,6 +913,7 @@ row_fts_start_psort(
 		psort_info[i].psort_id = i;
 		psort_info[i].thread_hdl = os_thread_create(
 			fts_parallel_tokenization,
+			"innodb-prllsort",
 			(void*) &psort_info[i], &thd_id);
 	}
 }
@@ -967,7 +968,8 @@ row_fts_start_parallel_merge(
 		merge_info[i].child_status = 0;
 
 		merge_info[i].thread_hdl = os_thread_create(
-			fts_parallel_merge, (void*) &merge_info[i], &thd_id);
+			fts_parallel_merge,
+			"innodb-prllmrge", (void*) &merge_info[i], &thd_id);
 	}
 }
 

@@ -1774,6 +1774,7 @@ void kill_mysql(void)
     int error;
     abort_loop=1;
     if ((error= mysql_thread_create(0, /* Not instrumented */
+                                    "mysqld-killsrvr",
                                     &tmp, &connection_attrib,
                                     kill_server_thread, (void*) 0)))
       sql_print_error("Can't create thread to kill server (errno= %d).", error);
@@ -3708,6 +3709,7 @@ static void start_signal_handler(void)
 
   mysql_mutex_lock(&LOCK_thread_count);
   if ((error= mysql_thread_create(key_thread_signal_hand,
+                                  "mysqld-intrrpt",
                                   &signal_thread, &thr_attr, signal_hand, 0)))
   {
     sql_print_error("Can't create interrupt-thread (error %d, errno: %d)",
@@ -3818,6 +3820,7 @@ pthread_handler_t signal_hand(void *arg __attribute__((unused)))
 #ifdef USE_ONE_SIGNAL_HAND
         pthread_t tmp;
         if ((error= mysql_thread_create(0, /* Not instrumented */
+                                        "mysqld-killsrvr",
                                         &tmp, &connection_attrib,
                                         kill_server_thread,
                                         (void*) &sig)))
@@ -5786,6 +5789,7 @@ static void create_shutdown_thread()
   pthread_t hThread;
   int error;
   if ((error= mysql_thread_create(key_thread_handle_shutdown,
+                                  "mysqld-shutdown",
                                   &hThread, &connection_attrib,
                                   handle_shutdown, 0)))
     sql_print_warning("Can't create thread to handle shutdown requests"
@@ -5820,6 +5824,7 @@ static void handle_connections_methods()
   {
     handler_count++;
     if ((error= mysql_thread_create(key_thread_handle_con_namedpipes,
+                                    "mysqld-namepipe",
                                     &hThread, &connection_attrib,
                                     handle_connections_namedpipes, 0)))
     {
@@ -5832,6 +5837,7 @@ static void handle_connections_methods()
   {
     handler_count++;
     if ((error= mysql_thread_create(key_thread_handle_con_sockets,
+                                    "mysqld-tcpip",
                                     &hThread, &connection_attrib,
                                     handle_connections_sockets_thread, 0)))
     {
@@ -5845,6 +5851,7 @@ static void handle_connections_methods()
   {
     handler_count++;
     if ((error= mysql_thread_create(key_thread_handle_con_sharedmem,
+                                    "mysqld-sharedmem",
                                     &hThread, &connection_attrib,
                                     handle_connections_shared_memory, 0)))
     {
@@ -5911,6 +5918,7 @@ static void handle_connections_sockets_all()
     DBUG_ASSERT(!admin_select_thread_running);
     admin_select_thread_running = true;
     if ((error= mysql_thread_create(key_thread_handle_con_admin_sockets,
+                                    "mysqld-tcpip-a",
                                     &admin_select_thread, &connection_attrib,
                                     handle_connections_admin_sockets_thread,0)))
     {
@@ -6819,6 +6827,7 @@ static void bootstrap(MYSQL_FILE *file)
 #ifndef EMBEDDED_LIBRARY      // TODO:  Enable this
   int error;
   if ((error= mysql_thread_create(key_thread_bootstrap,
+                                  "mysqld-bootstrap",
                                   &thd->real_id, &connection_attrib,
                                   handle_bootstrap,
                                   (void*) thd)))
@@ -6922,6 +6931,7 @@ void create_thread_to_handle_connection(THD *thd)
     DBUG_PRINT("info",(("creating thread %lu"), thd->thread_id));
     thd->prior_thr_create_utime= thd->start_utime= my_micro_time();
     if ((error= mysql_thread_create(key_thread_one_connection,
+                                    "mysqld-connctn",
                                     &thd->real_id, &connection_attrib,
                                     handle_one_connection,
                                     (void*) thd)))
