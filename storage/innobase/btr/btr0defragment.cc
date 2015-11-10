@@ -113,7 +113,8 @@ btr_defragment_init_thread()
 {
 	srv_defragment_interval = microseconds_to_my_timer(
 		1000000.0 / srv_defragment_frequency);
-	os_thread_create(btr_defragment_thread, NULL, NULL);
+	os_thread_create(
+		btr_defragment_thread, "innodb-btdefrag",  NULL, NULL);
 }
 
 /******************************************************************//**

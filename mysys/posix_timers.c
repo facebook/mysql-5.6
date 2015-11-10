@@ -109,7 +109,8 @@ start_helper_thread(void)
     return -1;
   }
 
-  if (mysql_thread_create(key_thread_timer_notifier, &timer_notify_thread,
+  if (mysql_thread_create(key_thread_timer_notifier, "mysqld-timrntfy",
+                          &timer_notify_thread,
                           NULL, timer_notify_thread_func, &barrier))
   {
     fprintf(stderr, "Failed to create timer notify thread (errno= %d).", errno);
@@ -240,12 +241,15 @@ timer_notify_thread_func(void *arg)
 static int
 start_helper_thread(void)
 {
-  if (mysql_thread_create(key_thread_timer_notifier, &timer_notify_thread,
+  if (mysql_thread_create(key_thread_timer_notifier, "mysqld-timrntfy",
+                          &timer_notify_thread,
                           NULL, timer_notify_thread_func, NULL))
   {
     fprintf(stderr, "Failed to create timer notify thread (errno= %d).", errno);
     return -1;
   }
+
+  pthread_setname_np(timer_notify_thread, "mysqld-timrntfy");
 
   return 0;
 }

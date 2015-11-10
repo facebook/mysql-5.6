@@ -2775,7 +2775,10 @@ xb_data_files_init(void)
 	for (i = 0; i < srv_n_file_io_threads; i++) {
 		thread_nr[i] = i;
 
-		os_thread_create(io_handler_thread, thread_nr + i,
+		os_thread_create(
+				io_handler_thread,
+				"xtra-iohndlr",
+				thread_nr + i,
 				 thread_ids + i);
     	}
 
@@ -3457,7 +3460,9 @@ reread_log_header:
 		io_ticket = xtrabackup_throttle;
 		wait_throttle = xb_os_event_create(NULL);
 
-		os_thread_create(io_watching_thread, NULL, &io_watching_thread_id);
+		os_thread_create(
+			io_watching_thread,
+      "xtra-iowatch", NULL, &io_watching_thread_id);
 	}
 
 
@@ -3466,7 +3471,9 @@ reread_log_header:
 		exit(EXIT_FAILURE);
 
 
-	os_thread_create(log_copying_thread, NULL, &log_copying_thread_id);
+	os_thread_create(
+		log_copying_thread,
+    "xtra-logcopy", NULL, &log_copying_thread_id);
 
 	if (xtrabackup_parallel > 1 && xtrabackup_stream &&
 	    xtrabackup_stream_fmt == XB_STREAM_FMT_TAR) {
@@ -3528,6 +3535,7 @@ reread_log_header:
 			data_threads[i].count_mutex = count_mutex;
 			data_threads[i].ds_ctxt = ds_ctxt;
 			os_thread_create(data_copy_thread_func,
+					 "xtra-datacopy",
 					 data_threads + i,
 					 &data_threads[i].id);
 		}

@@ -109,6 +109,7 @@ os_thread_create_func(
 /*==================*/
 	os_thread_func_t	func,		/*!< in: pointer to function
 						from which to start */
+	const char*		name,		/*!< in: thread name */
 	void*			arg,		/*!< in: argument to start
 						function */
 	os_thread_id_t*		thread_id)	/*!< out: id of the created
@@ -187,6 +188,7 @@ os_thread_create_func(
 		*thread_id = pthread;
 	}
 
+  pthread_setname_np(pthread, name);
 	return(pthread);
 #endif
 }

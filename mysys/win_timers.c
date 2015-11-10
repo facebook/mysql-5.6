@@ -146,7 +146,8 @@ my_timer_initialize(void)
     goto err;
   }
 
-  if (mysql_thread_create(key_thread_timer_notifier, &timer_notify_thread, 0,
+  if (mysql_thread_create(key_thread_timer_notifier, "mysqld-timrntfy",
+                          &timer_notify_thread, 0,
                           timer_notify_thread_func, 0))
   {
     fprintf(stderr, "Failed to create timer notify thread (errno= %d).", errno);
