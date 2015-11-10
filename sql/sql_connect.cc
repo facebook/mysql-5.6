@@ -1075,6 +1075,15 @@ void do_handle_one_connection(THD *thd_arg)
     end_connection(thd);
 
 end_thread:
+    static char t_name_connection[T_NAME_LEN] = {0};
+    if (t_name_connection[0] == '\0')
+    {
+      my_pthread_strip_name(
+          t_name_connection,
+          sizeof(t_name_connection),
+          MYSQLD_T_NAME_PREFIX, "handle_one_connection");
+    }
+    pthread_setname_np(thd->real_id, t_name_connection);
     close_connection(thd);
     if (MYSQL_CALLBACK_ELSE(thread_scheduler, end_thread, (thd, 1), 0))
       return;                                 // Probably no-threads
