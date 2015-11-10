@@ -139,7 +139,7 @@ class Command(object):
     self.timeout = timeout
   def run(self):
     def target():
-      self.process = subprocess.Popen(self.cmd, shell=True, stdout=subprocess.PIPE)
+      self.process = subprocess.Popen(self.cmd, shell=False, stdout=subprocess.PIPE)
       self.process.communicate()
     thread = threading.Thread(target=target)
     thread.start()
