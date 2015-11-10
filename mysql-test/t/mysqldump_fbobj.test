@@ -1,0 +1,51 @@
+--disable_warnings
+DROP TABLE IF EXISTS assoc_test;
+DROP TABLE IF EXISTS assoc_count;
+DROP TABLE IF EXISTS fbobj_test;
+DROP DATABASE IF EXISTS fbobj_test;
+--enable_warnings
+
+CREATE DATABASE fbobj_test;
+USE fbobj_test;
+CREATE TABLE assoc_test ( 
+  col1 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col2 int(10) unsigned NOT NULL DEFAULT '0',
+  col3 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col4 int(10) unsigned NOT NULL DEFAULT '0',
+  col5 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col6 varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (col4, col1, col3)
+) ENGINE = InnoDB;
+
+CREATE TABLE assoc_count ( 
+  col1 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col2 int(10) unsigned NOT NULL DEFAULT '0',
+  col3 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col4 int(10) unsigned NOT NULL DEFAULT '0',
+  col5 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col6 varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (col4, col1, col3)
+) ENGINE = InnoDB;
+
+CREATE TABLE fbobj_test (
+  col1 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col2 int(10) unsigned NOT NULL DEFAULT '0',
+  col3 bigint(20) unsigned NOT NULL DEFAULT '0',
+  col4 mediumtext NOT NULL,
+  PRIMARY KEY (col1)
+) ENGINE = InnoDB;
+
+INSERT INTO assoc_test VALUES (1, 2, 3, 4, 5, REPEAT('X', 100));
+INSERT INTO assoc_test VALUES (1, 3, 4, 5, 5, REPEAT('X', 120));
+INSERT INTO assoc_test VALUES (5, 4, 3, 2, 1, REPEAT('X', 140));
+
+INSERT INTO assoc_count VALUES (0, 0, 0, 0, 0, REPEAT('X', 200));
+
+INSERT INTO fbobj_test VALUES (1, 2, 3, REPEAT('X', 50));
+INSERT INTO fbobj_test VALUES (2, 2, 3, REPEAT('X', 60));
+INSERT INTO fbobj_test VALUES (3, 3, 3, REPEAT('X', 70));
+
+--exec $MYSQL_DUMP --skip-dump-date --dump-fbobj-assoc-stats=$MYSQLTEST_VARDIR/fbobj_dump fbobj_test fbobj_test assoc_test assoc_count 
+--cat_file $MYSQLTEST_VARDIR/fbobj_dump
+
+DROP DATABASE fbobj_test;
