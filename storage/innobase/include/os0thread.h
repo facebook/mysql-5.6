@@ -57,7 +57,7 @@ are defined/declared as WINAPI f(LPVOID a); the compiler complains that they
 are defined as: os_thread_ret_t (__cdecl*)(void*). Because our functions
 don't access the arguments and don't return any value, we should be safe. */
 #define os_thread_create(f,a,i)	\
-	os_thread_create_func(reinterpret_cast<os_thread_func_t>(f), a, i)
+	os_thread_create_func(reinterpret_cast<os_thread_func_t>(f), #f, a, i)
 
 #else
 
@@ -69,7 +69,7 @@ extern "C"  { typedef void*	(*os_thread_func_t)(void*); }
 
 /** Macro for specifying a POSIX thread start function. */
 #define DECLARE_THREAD(func)	func
-#define os_thread_create(f,a,i)	os_thread_create_func(f, a, i)
+#define os_thread_create(f,a,i)	os_thread_create_func(f, #f, a, i)
 
 #endif /* __WIN__ */
 
@@ -99,6 +99,16 @@ ulint
 os_thread_pf(
 /*=========*/
 	os_thread_id_t	a);	/*!< in: OS thread identifier */
+
+/****************************************************************//**
+Helper method to strip thread name down to 16 bytes. */
+UNIV_INTERN
+char *
+strip_thread_name(
+/*==================*/
+	const char*   name,   /*!< in: thread function name */
+	char*		t_name);	/*!< out: stripped thread name */
+
 /****************************************************************//**
 Creates a new thread of execution. The execution starts from
 the function given. The start function takes a void* parameter
@@ -112,6 +122,7 @@ os_thread_create_func(
 /*==================*/
 	os_thread_func_t	func,		/*!< in: pointer to function
 						from which to start */
+	const char*   name,   /*!< in: thread name */
 	void*			arg,		/*!< in: argument to start
 						function */
 	os_thread_id_t*		thread_id);	/*!< out: id of the created

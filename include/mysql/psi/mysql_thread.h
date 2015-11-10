@@ -55,6 +55,7 @@
 */
 
 #include "mysql/psi/psi.h"
+#include <string.h>
 
 /**
   @defgroup Thread_instrumentation Thread Instrumentation
@@ -564,10 +565,10 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifdef HAVE_PSI_THREAD_INTERFACE
   #define mysql_thread_create(K, P1, P2, P3, P4) \
-    inline_mysql_thread_create(K, P1, P2, P3, P4)
+    inline_mysql_thread_create(K, #P3, P1, P2, P3, P4)
 #else
   #define mysql_thread_create(K, P1, P2, P3, P4) \
-    pthread_create(P1, P2, P3, P4)
+    named_pthread_create(#P3, P1, P2, P3, P4)
 #endif
 
 /**
@@ -1242,14 +1243,47 @@ static inline void inline_mysql_thread_register(
 #endif
 }
 
+static inline char* strip_thread_name(
+  char *t_name,
+  const char *name)
+{
+  char *n = strdup(name);
+  char *name_tok;
+  char prefix[] = "my-";
+  char tmp[100] = {0};
+
+  strcat(tmp, prefix);
+  name_tok = strtok(n,"_");
+  while (name_tok != NULL) {
+    if (strcmp(name_tok, "thread") &&
+        strcmp(name_tok, "handle") &&
+        strcmp(name_tok, "func") &&
+        strcmp(name_tok, "connections") &&
+        strcmp(name_tok, "flush") &&
+        strcmp(name_tok, "parallel")) {
+      strcat(tmp, name_tok);
+    }
+    name_tok = strtok(NULL, "_");
+  }
+
+  //thread name must be 16 bytes maximum
+  strncpy(t_name, tmp, 15);
+  return t_name;
+}
+
 #ifdef HAVE_PSI_THREAD_INTERFACE
 static inline int inline_mysql_thread_create(
   PSI_thread_key key,
+  const char *name,
   pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine)(void*), void *arg)
 {
   int result;
   result= PSI_THREAD_CALL(spawn_thread)(key, thread, attr, start_routine, arg);
+  if (result == 0) {
+    char t_name[16];
+    pthread_setname_np(*thread, strip_thread_name(t_name, name));
+  }
   return result;
 }
 
@@ -1257,6 +1291,20 @@ static inline void inline_mysql_thread_set_psi_id(ulong id)
 {
   struct PSI_thread *psi= PSI_THREAD_CALL(get_thread)();
   PSI_THREAD_CALL(set_thread_id)(psi, id);
+}
+#else
+static inline int named_pthread_create(
+  const char *name,
+  pthread_t *thread, const pthread_attr_t *attr,
+  void *(*start_routine)(void*), void *arg)
+{
+  int result;
+  result= pthread_create(thread, attr, start_routine, arg);
+  if (result == 0) {
+    char t_name[16];
+    pthread_setname_np(*thread, strip_thread_name(t_name, name));
+  }
+  return result;
 }
 #endif
 

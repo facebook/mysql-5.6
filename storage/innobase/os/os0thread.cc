@@ -24,6 +24,7 @@ Created 9/8/1995 Heikki Tuuri
 *******************************************************/
 
 #include "os0thread.h"
+#include <string.h>
 #ifdef UNIV_NONINL
 #include "os0thread.ic"
 #endif
@@ -99,6 +100,39 @@ os_thread_get_curr_id(void)
 }
 
 /****************************************************************//**
+Helper method to strip thread name down to 16 bytes. */
+UNIV_INTERN
+char *
+strip_thread_name(
+/*==================*/
+	const char*   name,   /*!< in: thread function name */
+	char*		t_name)		/*!< out: stripped thread name */
+{
+	char *n = strdup(name);
+	char *name_tok;
+	char prefix[] = "in-";
+	char tmp[100] = {0};
+
+	strcat(tmp, prefix);
+	name_tok = strtok(n,"_");
+	while (name_tok != NULL) {
+		if (strcmp(name_tok, "thread") &&
+				strcmp(name_tok, "handle") &&
+				strcmp(name_tok, "func") &&
+				strcmp(name_tok, "connections") &&
+				strcmp(name_tok, "flush") &&
+				strcmp(name_tok, "parallel")) {
+			strcat(tmp, name_tok);
+		}
+		name_tok = strtok(NULL, "_");
+	}
+
+	//thread name must be 16 bytes maximum
+	strncpy(t_name, tmp, 15);
+	return t_name;
+}
+
+/****************************************************************//**
 Creates a new thread of execution. The execution starts from
 the function given. The start function takes a void* parameter
 and returns an ulint.
@@ -109,6 +143,7 @@ os_thread_create_func(
 /*==================*/
 	os_thread_func_t	func,		/*!< in: pointer to function
 						from which to start */
+	const char*		name,		/*!< in: thread name */
 	void*			arg,		/*!< in: argument to start
 						function */
 	os_thread_id_t*		thread_id)	/*!< out: id of the created
@@ -187,6 +222,8 @@ os_thread_create_func(
 		*thread_id = pthread;
 	}
 
+  char t_name[16];
+	pthread_setname_np(pthread, strip_thread_name(name, t_name));
 	return(pthread);
 #endif
 }
