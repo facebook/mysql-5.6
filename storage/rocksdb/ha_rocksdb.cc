@@ -192,6 +192,22 @@ rocksdb_drop_index_wakeup_thread(THD* thd,
 }
 
 static void
+rocksdb_set_pause_background_work(THD* thd,
+                                 struct st_mysql_sys_var* var,
+                                 void* var_ptr,
+                                 const void* save)
+{
+  const bool should_pause = *static_cast<const bool*>(save);
+  if (should_pause != rdb->IsBackgroundWorkPaused()) {
+    if (should_pause) {
+      rdb->PauseBackgroundWork();
+    } else {
+      rdb->ContinueBackgroundWork();
+    }
+  }
+}
+
+static void
 set_compaction_options(THD* thd,
                        struct st_mysql_sys_var* var,
                        void* var_ptr,
@@ -227,6 +243,7 @@ static uint32_t rocksdb_wal_recovery_mode;
 static char * compact_cf_name;
 static char * snapshot_dir_name;
 static my_bool rocksdb_signal_drop_index_thread;
+static my_bool rocksdb_pause_background_work = 0;
 static my_bool rocksdb_strict_collation_check = 1;
 static char * rocksdb_strict_collation_exceptions;
 static my_bool rocksdb_collect_sst_properties = 1;
@@ -659,6 +676,12 @@ static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
   "Wake up drop index thread",
   NULL, rocksdb_drop_index_wakeup_thread, FALSE);
 
+static MYSQL_SYSVAR_BOOL(pause_background_work,
+  rocksdb_pause_background_work,
+  PLUGIN_VAR_RQCMDARG,
+  "Disable all rocksdb background operations",
+  nullptr, rocksdb_set_pause_background_work, FALSE);
+
 static MYSQL_SYSVAR_BOOL(strict_collation_check,
   rocksdb_strict_collation_check,
   PLUGIN_VAR_RQCMDARG,
@@ -819,6 +842,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
 
   MYSQL_SYSVAR(compact_cf),
   MYSQL_SYSVAR(signal_drop_index_thread),
+  MYSQL_SYSVAR(pause_background_work),
   MYSQL_SYSVAR(strict_collation_check),
   MYSQL_SYSVAR(strict_collation_exceptions),
   MYSQL_SYSVAR(collect_sst_properties),
