@@ -2094,7 +2094,9 @@ innobase_start_or_create_for_mysql(void)
 
 		n[i] = i;
 
-		os_thread_create(io_handler_thread, n + i, thread_ids + i);
+		os_thread_t io_handler_handle = os_thread_create(
+			io_handler_thread, n + i, thread_ids + i);
+		pthread_setname_np(io_handler_handle, "innodb-iohndlr");
 	}
 
 #ifdef UNIV_LOG_ARCHIVE
@@ -2757,19 +2759,22 @@ files_checked:
 	if (!srv_read_only_mode) {
 		/* Create the thread which watches the timeouts
 		for lock waits */
-		os_thread_create(
+		os_thread_t lock_wait_timeout_handle = os_thread_create(
 			lock_wait_timeout_thread,
 			NULL, thread_ids + 2 + SRV_MAX_N_IO_THREADS);
+		pthread_setname_np(lock_wait_timeout_handle, "innodb-lockwait");
 
 		/* Create the thread which warns of long semaphore waits */
-		os_thread_create(
+		os_thread_t srv_error_monitor_handle = os_thread_create(
 			srv_error_monitor_thread,
 			NULL, thread_ids + 3 + SRV_MAX_N_IO_THREADS);
+		pthread_setname_np(srv_error_monitor_handle, "innodb-errmontr");
 
 		/* Create the thread which prints InnoDB monitor info */
-		os_thread_create(
+		os_thread_t srv_monitor_handle = os_thread_create(
 			srv_monitor_thread,
 			NULL, thread_ids + 4 + SRV_MAX_N_IO_THREADS);
+		pthread_setname_np(srv_monitor_handle, "innodb-monitor");
 	}
 
 	/* Create the SYS_FOREIGN and SYS_FOREIGN_COLS system tables */
@@ -2797,10 +2802,10 @@ files_checked:
 	operations */
 
 	if (!srv_read_only_mode) {
-
-		os_thread_create(
+		os_thread_t srv_master_handle = os_thread_create(
 			srv_master_thread,
 			NULL, thread_ids + (1 + SRV_MAX_N_IO_THREADS));
+		pthread_setname_np(srv_master_handle, "innodb-master");
 	}
 
 	if (!srv_read_only_mode
@@ -2810,18 +2815,21 @@ files_checked:
 #endif // ifdef XTRABACKUP
 	   ) {
 
-		os_thread_create(
+		os_thread_t srv_purge_coordinator_handle = os_thread_create(
 			srv_purge_coordinator_thread,
 			NULL, thread_ids + 5 + SRV_MAX_N_IO_THREADS);
+		pthread_setname_np(
+			srv_purge_coordinator_handle, "innodb-prgcoord");
 
 		ut_a(UT_ARR_SIZE(thread_ids)
 		     > 5 + srv_n_purge_threads + SRV_MAX_N_IO_THREADS);
 
 		/* We've already created the purge coordinator thread above. */
 		for (i = 1; i < srv_n_purge_threads; ++i) {
-			os_thread_create(
+			os_thread_t srv_worker_handle = os_thread_create(
 				srv_worker_thread, NULL,
 				thread_ids + 5 + i + SRV_MAX_N_IO_THREADS);
+			pthread_setname_np(srv_worker_handle, "innodb-worker");
 		}
 
 		srv_start_wait_for_purge_to_start();
@@ -2831,10 +2839,15 @@ files_checked:
 	}
 
 	if (!srv_read_only_mode) {
-		os_thread_create(buf_flush_page_cleaner_thread, NULL, NULL);
+		os_thread_t buf_flush_page_cleaner_handle = os_thread_create(
+			buf_flush_page_cleaner_thread, NULL, NULL);
+		pthread_setname_np(
+			buf_flush_page_cleaner_handle, "innodb-pgcleanr");
 	}
 
-	os_thread_create(buf_flush_lru_manager_thread, NULL, NULL);
+	os_thread_t buf_flush_lru_manager_handle = os_thread_create(
+		buf_flush_lru_manager_thread, NULL, NULL);
+	pthread_setname_np(buf_flush_lru_manager_handle, "innodb-flushlru");
 
 #ifdef UNIV_DEBUG
 	/* buf_debug_prints = TRUE; */
@@ -2980,10 +2993,14 @@ files_checked:
 
 	if (!srv_read_only_mode) {
 		/* Create the buffer pool dump/load thread */
-		os_thread_create(buf_dump_thread, NULL, NULL);
+		os_thread_t buf_dump_handle = os_thread_create(
+			buf_dump_thread, NULL, NULL);
+		pthread_setname_np(buf_dump_handle, "innodb-bufdump");
 
 		/* Create the dict stats gathering thread */
-		os_thread_create(dict_stats_thread, NULL, NULL);
+		os_thread_t dict_stats_handle = os_thread_create(
+			dict_stats_thread, NULL, NULL);
+		pthread_setname_np(dict_stats_handle, "innodb-dictstat");
 
 		/* Create the thread that will optimize the FTS sub-system. */
 		fts_optimize_init();
@@ -2993,7 +3010,9 @@ files_checked:
 	btr_defragment_init_thread();
 
 	/* Create the buffer pool resize thread */
-	os_thread_create(buf_resize_thread, NULL, NULL);
+	os_thread_t buf_resize_handle = os_thread_create(
+		buf_resize_thread, NULL, NULL);
+	pthread_setname_np(buf_resize_handle, "innodb-bufrsize");
 
 #ifdef XTRABACKUP
 skip_processes:

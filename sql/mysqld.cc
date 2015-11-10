@@ -1776,7 +1776,13 @@ void kill_mysql(void)
     if ((error= mysql_thread_create(0, /* Not instrumented */
                                     &tmp, &connection_attrib,
                                     kill_server_thread, (void*) 0)))
+    {
       sql_print_error("Can't create thread to kill server (errno= %d).", error);
+    }
+    else
+    {
+      pthread_setname_np(tmp, "mysqld-killsrvr");
+    }
   }
 #endif
   DBUG_VOID_RETURN;
@@ -3714,6 +3720,7 @@ static void start_signal_handler(void)
                     error,errno);
     exit(1);
   }
+  pthread_setname_np(signal_thread, "mysqld-intrrpt");
   mysql_cond_wait(&COND_thread_count, &LOCK_thread_count);
   mysql_mutex_unlock(&LOCK_thread_count);
 
@@ -3821,8 +3828,14 @@ pthread_handler_t signal_hand(void *arg __attribute__((unused)))
                                         &tmp, &connection_attrib,
                                         kill_server_thread,
                                         (void*) &sig)))
+        {
           sql_print_error("Can't create thread to kill server (errno= %d)",
                           error);
+        }
+        else
+        {
+          pthread_setname_np(tmp, "mysqld-killsrvr");
+        }
 #else
         kill_server((void*) sig); // MIT THREAD has a alarm thread
 #endif
@@ -5788,9 +5801,14 @@ static void create_shutdown_thread()
   if ((error= mysql_thread_create(key_thread_handle_shutdown,
                                   &hThread, &connection_attrib,
                                   handle_shutdown, 0)))
+  {
     sql_print_warning("Can't create thread to handle shutdown requests"
                       " (errno= %d)", error);
-
+  }
+  else
+  {
+    pthread_setname_np(hThread, "mysqld-shutdown");
+  }
   // On "Stop Service" we have to do regular shutdown
   Service.SetShutdownEvent(hEventShutdown);
 #endif /* __WIN__ */
@@ -5827,6 +5845,10 @@ static void handle_connections_methods()
                         " (errno= %d)", error);
       handler_count--;
     }
+    else
+    {
+      pthread_setname_np(hThread, "mysqld-namepipe");
+    }
   }
   if (have_tcpip && !opt_disable_networking)
   {
@@ -5838,6 +5860,10 @@ static void handle_connections_methods()
       sql_print_warning("Can't create thread to handle TCP/IP"
                         " (errno= %d)", error);
       handler_count--;
+    }
+    else
+    {
+      pthread_setname_np(hThread, "mysqld-tcpip");
     }
   }
 #ifdef HAVE_SMEM
@@ -5851,6 +5877,10 @@ static void handle_connections_methods()
       sql_print_warning("Can't create thread to handle shared memory",
                         " (errno= %d)", error);
       handler_count--;
+    }
+    else
+    {
+      pthread_setname_np(hThread, "mysqld-sharedmem");
     }
   }
 #endif
@@ -5917,6 +5947,10 @@ static void handle_connections_sockets_all()
       sql_print_error("Can't create thread to handle TCP/IP for admin "
                       "(errno= %d)", error);
       admin_select_thread_running = false;
+    }
+    else
+    {
+      pthread_setname_np(admin_select_thread, "mysqld-tcpip-a");
     }
   }
   mysql_mutex_unlock(&LOCK_thread_count);
@@ -6828,6 +6862,10 @@ static void bootstrap(MYSQL_FILE *file)
     bootstrap_error=-1;
     DBUG_VOID_RETURN;
   }
+  else
+  {
+    pthread_setname_np(thd->real_id, "mysqld-bootstrp");
+  }
   /* Wait for thread to die */
   mysql_mutex_lock(&LOCK_thread_count);
   while (in_bootstrap)
@@ -6951,6 +6989,7 @@ void create_thread_to_handle_connection(THD *thd)
       return;
       /* purecov: end */
     }
+    pthread_setname_np(thd->real_id, "mysqld-connctn");
     add_global_thread(thd);
   }
   mysql_mutex_unlock(&LOCK_thread_count);

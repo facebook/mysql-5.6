@@ -3149,7 +3149,9 @@ fts_optimize_init(void)
 	ut_a(fts_optimize_wq != NULL);
 	last_check_sync_time = ut_time();
 
-	os_thread_create(fts_optimize_thread, fts_optimize_wq, NULL);
+	os_thread_t fts_optimize_thread_handle = os_thread_create(
+		fts_optimize_thread, fts_optimize_wq, NULL);
+	pthread_setname_np(fts_optimize_thread_handle, "innodb-optimize");
 }
 
 /**********************************************************************//**

@@ -914,6 +914,7 @@ row_fts_start_psort(
 		psort_info[i].thread_hdl = os_thread_create(
 			fts_parallel_tokenization,
 			(void*) &psort_info[i], &thd_id);
+    pthread_setname_np(psort_info[i].thread_hdl, "mysqld-inno17");
 	}
 }
 
