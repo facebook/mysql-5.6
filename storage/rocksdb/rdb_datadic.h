@@ -750,7 +750,7 @@ private:
   key: RDBSE_KEYDEF::BINLOG_INFO_INDEX_NUMBER (0x4)
   value: version, {binlog_name,binlog_pos,binlog_gtid}
 
-  5. Ongoing drop index entry (not implemented yet)
+  5. Ongoing drop index entry
   key: RDBSE_KEYDEF::DDL_DROP_INDEX_ONGOING(0x5) + cf_id + index_id
   value: version
 

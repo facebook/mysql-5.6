@@ -678,6 +678,20 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
       break;
   }
 
+  /* DDL_DROP_INDEX_ONGOING */
+  std::vector<GL_INDEX_ID> gl_index_ids;
+  dict_manager->get_drop_indexes_ongoing(&gl_index_ids);
+  char cf_index_buf[INT_BUF_LEN]= {0};
+  for (auto gl_index_id : gl_index_ids) {
+    snprintf(cf_id_buf, INT_BUF_LEN, "%u", gl_index_id.cf_id);
+    snprintf(cf_index_buf, INT_BUF_LEN, "%u", gl_index_id.index_id);
+    ret |= global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
+        cf_id_buf, cf_index_buf);
+
+    if (ret)
+      break;
+  }
+
   DBUG_RETURN(ret);
 }
 
