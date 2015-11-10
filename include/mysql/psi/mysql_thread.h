@@ -546,6 +546,18 @@ typedef struct st_mysql_cond mysql_cond_t;
   inline_mysql_thread_register(P1, P2, P3)
 
 /**
+  @def T_NAME_LEN
+  Maximum thread name length as required by pthread_create
+*/
+#define T_NAME_LEN 16
+
+/**
+  @def MYSQLD_T_NAME_PREFIX
+  Prefix to be appended to the thread name.
+*/
+#define MYSQLD_T_NAME_PREFIX "my-"
+
+/**
   @def mysql_thread_create(K, P1, P2, P3, P4)
   Instrumented pthread_create.
   This function creates both the thread instrumentation and a thread.
@@ -564,10 +576,10 @@ typedef struct st_mysql_cond mysql_cond_t;
 */
 #ifdef HAVE_PSI_THREAD_INTERFACE
   #define mysql_thread_create(K, P1, P2, P3, P4) \
-    inline_mysql_thread_create(K, P1, P2, P3, P4)
+    inline_mysql_thread_create(K, #P3, P1, P2, P3, P4)
 #else
   #define mysql_thread_create(K, P1, P2, P3, P4) \
-    pthread_create(P1, P2, P3, P4)
+    named_pthread_create(#P3, P1, P2, P3, P4)
 #endif
 
 /**
@@ -1242,14 +1254,36 @@ static inline void inline_mysql_thread_register(
 #endif
 }
 
+/**
+  Strips a predefined set of stopwords from stringifed thread function name,
+  and truncates name down to 16 bytes or less.  Used to set the thread name for
+  mysqld threads.
+  @param t_name buffer to be filled with the thread name
+  @param t_size limit to the buffer size (must be 16 bytes or less)
+  @param t_prefix the string prefix of the resulting thread name
+  @param name stringified name of the thread function
+*/
+char* my_pthread_strip_name(
+  char *t_name,
+  size_t t_size,
+  const char *t_prefix,
+  const char *name);
+
 #ifdef HAVE_PSI_THREAD_INTERFACE
 static inline int inline_mysql_thread_create(
   PSI_thread_key key,
+  const char *name,
   pthread_t *thread, const pthread_attr_t *attr,
   void *(*start_routine)(void*), void *arg)
 {
   int result;
   result= PSI_THREAD_CALL(spawn_thread)(key, thread, attr, start_routine, arg);
+  if (result == 0) {
+    char t_name[T_NAME_LEN] = {0};
+    pthread_setname_np(*thread,
+      my_pthread_strip_name(
+        t_name, sizeof(t_name), MYSQLD_T_NAME_PREFIX, name));
+  }
   return result;
 }
 
@@ -1257,6 +1291,22 @@ static inline void inline_mysql_thread_set_psi_id(ulong id)
 {
   struct PSI_thread *psi= PSI_THREAD_CALL(get_thread)();
   PSI_THREAD_CALL(set_thread_id)(psi, id);
+}
+#else
+static inline int named_pthread_create(
+  const char *name,
+  pthread_t *thread, const pthread_attr_t *attr,
+  void *(*start_routine)(void*), void *arg)
+{
+  int result;
+  result= pthread_create(thread, attr, start_routine, arg);
+  if (result == 0) {
+    char t_name[T_NAME_LEN] = {0};
+    pthread_setname_np(*thread,
+      my_pthread_strip_name(
+        t_name, sizeof(t_name), MYSQLD_T_NAME_PREFIX, name));
+  }
+  return result;
 }
 #endif
 
