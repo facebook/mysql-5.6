@@ -160,3 +160,16 @@ id1	id2	id3	id4	id5	value1	value2	value3
 39	31	32	NULL	39	37	37	37
 40	40	40	40	40	40	40	40
 DROP TABLE t1;
+#
+# Issue #88: Creating unique index over column with duplicate values succeeds
+#
+create table t1 (pk int primary key, a int) engine=rocksdb;
+insert into t1 values 
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 1),
+(5, 5);
+alter table t1 add unique(a);
+ERROR 23000: Duplicate entry '1' for key 'a'
+drop table t1;
