@@ -528,7 +528,7 @@ private:
   int find_icp_matching_index_rec(bool move_forward, uchar *buf);
 
   void calc_updated_indexes();
-  int update_write_row(const uchar *old_data, uchar *new_data, bool do_locking);
+  int update_write_row(const uchar *old_data, uchar *new_data, bool bulk_load);
 
   int read_key_exact(RDBSE_KEYDEF *kd, rocksdb::Iterator* scan_it,
                      bool using_full_key, rocksdb::Slice& key_slice);
