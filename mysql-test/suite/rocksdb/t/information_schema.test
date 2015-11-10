@@ -1,14 +1,16 @@
 --source include/have_rocksdb.inc
 --source include/have_log_bin.inc
 
+--disable_warnings
+DROP TABLE IF EXISTS t1;
+DROP TABLE IF EXISTS t2;
+DROP TABLE IF EXISTS t3;
+--enable_warnings
+
 --let $max_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1)
 --replace_result $max_index_id max_index_id
 select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
 select count(*) from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO;
-
---disable_warnings
-DROP TABLE IF EXISTS t1;
---enable_warnings
 
 CREATE TABLE t1 (i1 INT, i2 INT, PRIMARY KEY (i1)) ENGINE = ROCKSDB;
 INSERT INTO t1 VALUES (1, 1), (2, 2), (3, 3);
@@ -44,6 +46,16 @@ CREATE TABLE t2 (
     KEY (e) COMMENT "rev:cf_d") ENGINE=ROCKSDB;
 
 select * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where TYPE = 'CF_FLAGS';
+
+CREATE TABLE t3 (a INT, PRIMARY KEY (a)) ENGINE=ROCKSDB;
+--let $newest_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'MAX_INDEX_ID', VALUE, 1)
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK=1;
+DROP TABLE t3;
+--let $max_dropped_index_id = query_get_value(SELECT * from INFORMATION_SCHEMA.ROCKSDB_GLOBAL_INFO where type = 'DDL_DROP_INDEX_ONGOING' ORDER BY VALUE DESC, VALUE, 1)
+SET GLOBAL ROCKSDB_PAUSE_BACKGROUND_WORK=0;
+if ($newest_index_id != $max_dropped_index_id) {
+  echo Max dropped index id does not reflext the newest index being dropped;
+}
 
 DROP TABLE t1;
 DROP TABLE t2;

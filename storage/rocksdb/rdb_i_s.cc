@@ -633,6 +633,7 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
   DBUG_ENTER("i_s_rocksdb_global_info_fill_table");
   static const uint32_t INT_BUF_LEN = 21;
   static const uint32_t GTID_BUF_LEN = 60;
+  static const uint32_t CF_ID_INDEX_BUF_LEN = 60;
 
   int ret= 0;
 
@@ -673,6 +674,20 @@ static int i_s_rocksdb_global_info_fill_table(THD *thd,
         flags);
     ret |= global_info_fill_row(thd, tables, "CF_FLAGS", cf_id_buf,
         cf_value_buf);
+
+    if (ret)
+      break;
+  }
+
+  /* DDL_DROP_INDEX_ONGOING */
+  std::vector<GL_INDEX_ID> gl_index_ids;
+  dict_manager->get_drop_indexes_ongoing(&gl_index_ids);
+  char cf_id_index_buf[CF_ID_INDEX_BUF_LEN]= {0};
+  for (auto gl_index_id : gl_index_ids) {
+    snprintf(cf_id_index_buf, CF_ID_INDEX_BUF_LEN, "cf_id:%u index_id:%u",
+        gl_index_id.cf_id, gl_index_id.index_id);
+    ret |= global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
+        cf_id_index_buf, "");
 
     if (ret)
       break;
