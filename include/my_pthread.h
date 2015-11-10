@@ -934,3 +934,18 @@ extern uint my_thread_end_wait_time;
 }
 #endif
 #endif /* _my_ptread_h */
+
+/**
+  Strips a predefined set of stopwords from stringifed thread function name,
+  and truncates name down to 16 bytes or less.  Used to set the thread name for
+  mysqld threads.
+  @param t_name buffer to be filled with the thread name
+  @param t_size limit to the buffer size (must be 16 bytes or less)
+  @param t_prefix the string prefix of the resulting thread name
+  @param name stringified name of the thread function
+*/
+char* my_pthread_strip_name(
+  char *t_name,
+  size_t t_size,
+  const char *t_prefix,
+  const char *name);
