@@ -130,8 +130,10 @@ static char  *opt_password=0,*current_user=0,
              *where=0, *order_by=0,
              *opt_compatible_mode_str= 0,
              *err_ptr= 0,
+             *opt_dump_fbobj_assoc_stats= NULL,
              *log_error_file= NULL;
 static char **defaults_argv= 0;
+FILE *fbobj_assoc_stats_file;
 static char compatible_mode_normal_str[255];
 /* Server supports character_set_results session variable? */
 static my_bool server_supports_switching_charsets= TRUE;
@@ -225,6 +227,27 @@ TYPELIB compatible_mode_typelib= {array_elements(compatible_mode_names) - 1,
 HASH ignore_table;
 
 LIST *skipped_keys_list;
+
+#define FBOBJ_FBTYPE_FIELD 1
+#define ASSOC_TYPE_FIELD 4
+
+HASH fbobj_assoc_stats;
+
+typedef struct type_stat {
+  uchar* type;
+  int type_len;
+  ulong count;
+  ulong space;
+  int field_type;
+} TYPE_STAT;
+
+static
+uchar *type_stat_get_key(TYPE_STAT *fbts, size_t *length,
+                            my_bool not_used __attribute__((unused)))
+{
+  *length= fbts->type_len;
+  return fbts->type;
+}
 
 static struct my_option my_long_options[] =
 {
@@ -337,6 +360,12 @@ static struct my_option my_long_options[] =
    "Option automatically turns --lock-tables off.",
    &opt_slave_data, &opt_slave_data, 0,
    GET_UINT, OPT_ARG, 0, 0, MYSQL_OPT_SLAVE_DATA_COMMENTED_SQL, 0, 0, 0},
+  {"dump-fbobj-assoc-stats", OPT_DUMP_FBOBJ_STATS,
+   "Calculate and output total size per type for fbobjects and assocs to the "
+   "given filename. The format in the file is tab separated values in the "
+   "form: fbobject/assoc, type, row count, size in bytes",
+   &opt_dump_fbobj_assoc_stats, &opt_dump_fbobj_assoc_stats, 0,
+   GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"events", 'E', "Dump events.",
      &opt_events, &opt_events, 0, GET_BOOL,
      NO_ARG, 0, 0, 0, 0, 0, 0},
@@ -1078,6 +1107,9 @@ static int get_options(int *argc, char ***argv)
             my_progname);
     return(EX_USAGE);
   }
+  if (opt_dump_fbobj_assoc_stats)
+    my_hash_init(&fbobj_assoc_stats, charset_info, 16, 0, 0,
+                  (my_hash_get_key) type_stat_get_key, my_free, 1);
   if (strcmp(default_charset, charset_info->csname) &&
       !(charset_info= get_charset_by_csname(default_charset,
                                             MY_CS_PRIMARY, MYF(MY_WME))))
@@ -1525,6 +1557,14 @@ static FILE* open_sql_file_for_table(const char* table, int flags)
 }
 
 
+static FILE* open_stat_file(const char* file_name)
+{
+  FILE *res;
+  res= my_fopen(file_name, O_WRONLY|O_TRUNC|O_CREAT, MYF(MY_WME));
+  return res;
+}
+
+
 static void free_resources()
 {
   if (md_result_file && md_result_file != stdout)
@@ -1532,6 +1572,10 @@ static void free_resources()
   my_free(opt_password);
   if (my_hash_inited(&ignore_table))
     my_hash_free(&ignore_table);
+  if (my_hash_inited(&fbobj_assoc_stats))
+    my_hash_free(&fbobj_assoc_stats);
+  if (fbobj_assoc_stats_file)
+    my_fclose(fbobj_assoc_stats_file, MYF(0));
   if (extended_insert)
     dynstr_free(&extended_row);
   if (insert_pat_inited)
@@ -3815,8 +3859,10 @@ static void dump_table(char *table, char *db)
   DYNAMIC_STRING explain_query_string;
   char table_type[NAME_LEN];
   char *result_table, table_buff2[NAME_LEN*2+3], *opt_quoted_table;
-  int error= 0;
-  ulong         rownr, row_break, total_length, init_length;
+  int error= 0, stat_field_offset= 0;
+  ulong         rownr, row_break, total_length, init_length, row_length;
+  TYPE_STAT *bucket;
+  my_bool gather_stats= 0;
   uint num_fields;
   MYSQL_RES     *res = NULL;
   MYSQL_FIELD   *field;
@@ -3827,6 +3873,22 @@ static void dump_table(char *table, char *db)
   if (opt_single_transaction) {
     mysql_real_query(mysql, STRING_WITH_LEN("SAVEPOINT mysqldump"));
   }
+  if (opt_dump_fbobj_assoc_stats) {
+    int tbl_len= strlen(table);
+    /* is it an fbobject table? */
+    if (tbl_len >= 6 && strncmp(table, "fbobj_", 6) == 0) {
+      gather_stats= 1;
+      stat_field_offset= FBOBJ_FBTYPE_FIELD;
+    }
+    /* is it an assoc table? */
+    else if (tbl_len >= 6 && strncmp(table, "assoc_", 6) == 0
+            /* and isn't assoc_count */
+             && (tbl_len != 11 || strcmp(table, "assoc_count") != 0)) {
+      gather_stats= 1;
+      stat_field_offset= ASSOC_TYPE_FIELD;
+    }
+  }
+
   /*
     Make sure you get the create table info before the following check for
     --no-data flag below. Otherwise, the create table info won't be printed.
@@ -4052,6 +4114,25 @@ static void dump_table(char *table, char *db)
       uint i;
       ulong *lengths= mysql_fetch_lengths(res);
       rownr++;
+      if (gather_stats) {
+        row_length= 0;
+        for (i= 0; i < mysql_num_fields(res); i++)
+          row_length += lengths[i];
+        bucket= (TYPE_STAT*)my_hash_search(&fbobj_assoc_stats,
+                                            (uchar*)row[stat_field_offset],
+                                            lengths[stat_field_offset]);
+        if (!bucket) {
+          bucket= (TYPE_STAT*) malloc(sizeof(TYPE_STAT));
+          bucket->type= (uchar*)my_strdup(row[stat_field_offset],MYF(MY_FAE));
+          bucket->type_len= lengths[stat_field_offset];
+          bucket->count= 0;
+          bucket->space= 0;
+          bucket->field_type= stat_field_offset;
+          my_hash_insert(&fbobj_assoc_stats,(uchar*) bucket);
+        }
+        bucket->count++;
+        bucket->space += row_length;
+      }
       if (!extended_insert && !opt_xml)
       {
         fputs(insert_pat.str,md_result_file);
@@ -4269,6 +4350,25 @@ static void dump_table(char *table, char *db)
         fputs(");\n", md_result_file);
         check_io(md_result_file);
       }
+    }
+
+
+    if (gather_stats) {
+      FILE *output_stats_file= open_stat_file(opt_dump_fbobj_assoc_stats);
+      TYPE_STAT* stat;
+      for (uint i= 0; i < fbobj_assoc_stats.records; i++) {
+        stat= (TYPE_STAT*) my_hash_element(&fbobj_assoc_stats, i);
+        fprintf(output_stats_file,"%s\t%s\t%lu\t%lu\n",
+                stat->field_type == FBOBJ_FBTYPE_FIELD ? "fbobj" : "assoc",
+                stat->type, stat->count, stat->space);
+        fflush(output_stats_file);
+      }
+      char time_str[20];
+      get_date(time_str, GETDATE_DATE_TIME, 0);
+      fprintf(output_stats_file, "-- FBObj/Assoc dump completed on %s\n",
+              time_str);
+      fflush(output_stats_file);
+      my_hash_reset(&fbobj_assoc_stats);
     }
 
     /* XML - close table tag and supress regular output */
