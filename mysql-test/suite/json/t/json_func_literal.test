@@ -46,6 +46,12 @@ select json_valid('[1,2,3');
 select json_valid('{}}');
 select json_valid('[[]');
 select json_valid('{[]}');
+select json_valid(repeat('{"a":',100));
+select json_valid(repeat('{"a":',101));
+select json_valid(repeat('{"a":',10000));
+select json_valid(repeat('["a",',100));
+select json_valid(repeat('["a",',101));
+select json_valid(repeat('["a",',10000));
 
 #
 # json_extract

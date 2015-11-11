@@ -135,6 +135,22 @@ insert into t2 values (4, 123.456, 'a4');
 --error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
 
+# invalid JSON with empty value (nesting level is OK)
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (6, repeat('{"a":',100), 'a6');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (7, repeat('["a",',100), 'a7');
+
+# invalid JSON with too many nesting levels
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (8, repeat('{"a":',101), 'a8');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (9, repeat('{"a":',10000), 'a9');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (10, repeat('["a",',101), 'a10');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (11, repeat('["a",',10000), 'a11');
+
 # Expecting the number of rows to be 0
 SELECT count(*) FROM t2;
 

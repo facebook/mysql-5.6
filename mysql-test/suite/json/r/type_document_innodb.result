@@ -176,6 +176,18 @@ insert into t2 values (4, 123.456, 'a4');
 ERROR HY000: Invalid document value: '123.456'
 insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
 ERROR HY000: Invalid document value: '{"testing really long key string that exceeds 64 characters but ', pos 66, error 'Key length exceeds maximum size allowed (64 bytes)'
+insert into t2 values (6, repeat('{"a":',100), 'a6');
+ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 500, error 'Invalid JSON object'
+insert into t2 values (7, repeat('["a",',100), 'a7');
+ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 500, error 'Invalid JSON array'
+insert into t2 values (8, repeat('{"a":',101), 'a8');
+ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2 values (9, repeat('{"a":',10000), 'a9');
+ERROR HY000: Invalid document value: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2 values (10, repeat('["a",',101), 'a10');
+ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
+insert into t2 values (11, repeat('["a",',10000), 'a11');
+ERROR HY000: Invalid document value: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
 SELECT count(*) FROM t2;
 count(*)
 0
