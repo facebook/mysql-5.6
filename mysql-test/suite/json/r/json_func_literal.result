@@ -87,6 +87,24 @@ json_valid('[[]')
 select json_valid('{[]}');
 json_valid('{[]}')
 0
+select json_valid(repeat('{"a":',100));
+json_valid(repeat('{"a":',100))
+0
+select json_valid(repeat('{"a":',101));
+json_valid(repeat('{"a":',101))
+0
+select json_valid(repeat('{"a":',10000));
+json_valid(repeat('{"a":',10000))
+0
+select json_valid(repeat('["a",',100));
+json_valid(repeat('["a",',100))
+0
+select json_valid(repeat('["a",',101));
+json_valid(repeat('["a",',101))
+0
+select json_valid(repeat('["a",',10000));
+json_valid(repeat('["a",',10000))
+0
 select json_extract(null,null);
 json_extract(null,null)
 NULL

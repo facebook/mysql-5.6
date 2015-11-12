@@ -336,6 +336,10 @@ class FbsonWriterT {
           return false;
       }
 
+      // check if the object exceeds the maximum nesting level
+      if (stack_.size() >= MaxNestingLevel)
+        return false;
+
       os_->put((FbsonTypeUnder)FbsonType::T_Object);
       // save the size position
       stack_.push(WriteInfo({WS_Object, os_->tellp()}));
@@ -381,6 +385,10 @@ class FbsonWriterT {
         } else
           return false;
       }
+
+      // check if the array exceeds the maximum nesting level
+      if (stack_.size() >= MaxNestingLevel)
+        return false;
 
       os_->put((FbsonTypeUnder)FbsonType::T_Array);
       // save the size position
