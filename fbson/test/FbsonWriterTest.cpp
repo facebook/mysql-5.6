@@ -134,6 +134,18 @@ TEST(FBSON_WRITER, basic) {
   EXPECT_FALSE(writer.writeStartBinary());
   EXPECT_FALSE(writer.writeEndBinary());
 
+  writer.reset();
+
+  // first write 100 nested objects
+  for (int i = 0; i < fbson::MaxNestingLevel; ++i) {
+    EXPECT_TRUE(writer.writeStartObject());
+    EXPECT_TRUE(writer.writeKey("k1", 2));
+  }
+  // fail to write the 101 nested object
+  EXPECT_FALSE(writer.writeStartObject());
+
+  writer.reset();
+
   // OK
   EXPECT_TRUE(writer.writeStartObject());
   EXPECT_TRUE(writer.writeKey("k1", 2));
