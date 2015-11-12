@@ -309,14 +309,18 @@ class FbsonJsonParserT {
       return false;
     }
 
+    trim(in);
+    if (!in.good()) {
+      err_ = FbsonErrType::E_INVALID_OBJ;
+      return false;
+    }
+
     return true;
   }
 
   // parse a value
   bool parseValue(std::istream& in, hDictInsert handler) {
     bool res = false;
-
-    trim(in);
 
     switch (in.peek()) {
     case 'N':
@@ -344,11 +348,21 @@ class FbsonJsonParserT {
     }
     case '{': {
       skipChar(in);
+      ++nesting_lvl_;
+      if (nesting_lvl_ >= MaxNestingLevel) {
+        err_ = FbsonErrType::E_NESTING_LVL_OVERFLOW;
+        return false;
+      }
       res = parseObject(in, handler);
       break;
     }
     case '[': {
       skipChar(in);
+      ++nesting_lvl_;
+      if (nesting_lvl_ >= MaxNestingLevel) {
+        err_ = FbsonErrType::E_NESTING_LVL_OVERFLOW;
+        return false;
+      }
       res = parseArray(in, handler);
       break;
     }
@@ -938,6 +952,7 @@ class FbsonJsonParserT {
   FbsonErrType err_;
   char num_buf_[512]; // buffer to hold number string
   const char *end_buf_ = num_buf_ + sizeof(num_buf_) - 1;
+  uint32_t nesting_lvl_ = 0;
 };
 
 typedef FbsonJsonParserT<FbsonOutStream> FbsonJsonParser;

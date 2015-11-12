@@ -34,6 +34,10 @@ insert into test_json values
 ('{}}'),
 ('[[]'),
 ('{[]}'),
+(repeat('{"a":',100)),
+(repeat('{"a":',101)),
+(repeat('["a",',100)),
+(repeat('["a",',101)),
 ('{"MySQL":"开源数据库"}'),
 ('{"开源数据库":"MySQL"}');
 
