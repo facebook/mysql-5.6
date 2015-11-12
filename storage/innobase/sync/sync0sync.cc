@@ -220,7 +220,7 @@ UNIV_INTERN mysql_pfs_key_t	mutex_list_mutex_key;
 UNIV_INTERN ibool	sync_order_checks_on	= FALSE;
 
 /** Number of slots reserved for each OS thread in the sync level array */
-static const ulint SYNC_THREAD_N_LEVELS = 10000;
+static const ulint SYNC_THREAD_N_LEVELS = 10;
 
 /** Array for tracking sync levels per thread. */
 struct sync_arr_t {
@@ -1319,6 +1319,22 @@ levels_ok:
 		ut_a(array->n_elems < array->max_elems);
 
 		i = array->n_elems++;
+		if (array->n_elems == array->max_elems) {
+			/* We have to expand the level array (doubling max_elems) */
+			ulint old_sz = sizeof(*array) +
+				(sizeof(*array->elems) * array->max_elems);
+			ulint new_sz = old_sz +
+				(sizeof(*array->elems) * array->max_elems);
+
+			array = static_cast<sync_arr_t*>(realloc(array, new_sz));
+			ut_a(array != NULL);
+			/* zero-initialize the newly allocated bytes */
+			memset(((char*)array) + old_sz, 0, new_sz - old_sz);
+
+			array->max_elems *= 2;
+			array->elems = (sync_level_t*) &array[1];
+			thread_slot->levels = array;
+		}
 	} else {
 		i = array->next_free;
 		array->next_free = array->elems[i].level;
