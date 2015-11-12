@@ -31,6 +31,7 @@
 
 #define SERVER_VERSION_LENGTH 60
 #define SQLSTATE_LENGTH 5
+#define SSLREQUEST_LENGTH 32
 
 /*
   Maximum length of comments

@@ -39,10 +39,16 @@ class Writer(object):
     a = None
 
 class StreamWriter(Writer):
-  stream_cmd= 'tar chf -'
+  stream_cmd= ''
 
-  def __init__(self):
+  def __init__(self, stream_option):
     super(StreamWriter, self).__init__()
+    if stream_option == 'tar':
+      self.stream_cmd= 'tar chf -'
+    elif stream_option == 'xbstream':
+      self.stream_cmd= 'xbstream -c'
+    else:
+      raise Exception("Only tar or xbstream is supported as streaming option.")
 
   def write(self, file_name):
     rc= os.system(self.stream_cmd + " " + file_name)
@@ -285,6 +291,12 @@ class BackupRunner:
     b = None
     try:
       signal.signal(signal.SIGINT, signal_handler)
+      w = None
+      if opts.output_stream:
+        w = StreamWriter(opts.output_stream)
+      else:
+        raise Exception("Currently only streaming backup is supported.")
+
       snapshot_dir = opts.checkpoint_directory + '/' + str(backup_round)
       dbh= MySQLUtil.connect(opts.mysql_user, opts.mysql_password, opts.mysql_port)
       if not self.datadir:
@@ -293,9 +305,6 @@ class BackupRunner:
       logger.info("Creating checkpoint at %s", snapshot_dir)
       MySQLUtil.create_checkpoint(dbh, snapshot_dir)
       logger.info("Created checkpoint at %s", snapshot_dir)
-      w = None
-      if opts.output_stream:
-        w = StreamWriter()
       b = RocksDBBackup(snapshot_dir, w, prev_backup)
       return b.do_backup_until(opts.checkpoint_interval)
     except Exception as e:
@@ -310,7 +319,9 @@ class BackupRunner:
     try:
       w = None
       if opts.output_stream:
-        w = StreamWriter()
+        w = StreamWriter(opts.output_stream)
+      else:
+        raise Exception("Currently only streaming backup is supported.")
       b = MySQLBackup(self.datadir, w)
       logger.info("Taking MySQL misc backups..")
       b.do_backup()
@@ -347,9 +358,9 @@ def parse_options():
   parser.add_option('-d', '--datadir', type='string', dest='datadir',
                     default=None,
                     help='backup mode: src MySQL datadir. move_back mode: dest MySQL datadir')
-  parser.add_option('-s', '--stream', action='store_true', dest='output_stream',
-                    default=True,
-                    help='streaming backup')
+  parser.add_option('-s', '--stream', type='string', dest='output_stream',
+                    default='tar',
+                    help='Setting streaming backup options. Currently tar and xbstream are supported. Default is tar')
   parser.add_option('-u', '--user', type='string', dest='mysql_user',
                     default='root',
                     help='MySQL user name')
