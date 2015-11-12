@@ -1,0 +1,26 @@
+
+source suite/rocksdb_hotbackup/include/setup.inc;
+
+connection server_1;
+create database db1;
+create table db1.t1 (i int primary key) engine=rocksdb;
+insert into db1.t1 values (1), (2), (3), (4), (5), (6), (7), (8), (9), (10);
+
+--let $rpl_server_number= 2
+--source include/rpl_stop_server.inc
+
+--exec suite/rocksdb_hotbackup/include/stream_run_xbstream.sh 2>&1
+
+--let $rpl_server_number= 2
+--source include/rpl_start_server.inc
+
+connection server_2;
+select count(*) from db1.t1;
+
+connection server_1;
+drop database db1;
+connection server_2;
+drop database db1;
+
+source suite/rocksdb_hotbackup/include/cleanup.inc;
+
