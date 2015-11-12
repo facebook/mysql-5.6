@@ -3611,14 +3611,24 @@ static int run_ssl_connect(MCPVIO_EXT *mpvio, my_bool *error) {
 
   const char *cert_error;
   unsigned long ssl_error = 0;
-  if (sslconnect(
+  size_t ret;
+  if ((ret = (size_t) sslconnect(
       ssl_fd,
       vio,
       timeout_to_seconds(mysql->options.connect_timeout),
       ssl_session,
-      &ssl_error) == 1) {
-    if (socket_errno == SOCKET_EWOULDBLOCK && vio->ssl_is_nonblocking) {
+      &ssl_error))) {
+
+    switch (ret) {
+      case VIO_SOCKET_WANT_READ:
+        net->async_blocking_state = NET_NONBLOCKING_READ;
       DBUG_RETURN(NET_ASYNC_NOT_READY);
+      case VIO_SOCKET_WANT_WRITE:
+        net->async_blocking_state = NET_NONBLOCKING_WRITE;
+      DBUG_RETURN(NET_ASYNC_NOT_READY);
+      default:
+        break;
+        /* continue for error handling */
     }
 
     char buf[512];
