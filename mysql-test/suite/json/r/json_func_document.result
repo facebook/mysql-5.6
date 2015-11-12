@@ -32,6 +32,10 @@ insert into test_json values
 ('{}}'),
 ('[[]'),
 ('{[]}'),
+(repeat('{"a":',100)),
+(repeat('{"a":',101)),
+(repeat('["a",',100)),
+(repeat('["a",',101)),
 ('{"MySQL":"开源数据库"}'),
 ('{"开源数据库":"MySQL"}');
 Warnings:
@@ -46,8 +50,16 @@ Warning	1898	Invalid document value at column 'json' row 23: '[1,2,3', pos 7, er
 Warning	1898	Invalid document value at column 'json' row 24: '{}}', pos 2, error 'Invalid document: document must be an object or an array'
 Warning	1898	Invalid document value at column 'json' row 25: '[[]', pos 4, error 'Invalid JSON array'
 Warning	1898	Invalid document value at column 'json' row 26: '{[]}', pos 2, error 'Invalid JSON object'
+Warning	1898	Invalid document value at column 'json' row 27: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 500, error 'Invalid JSON object'
+Warning	1898	Invalid document value at column 'json' row 28: '{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a"', pos 501, error 'Object or array has too many nesting levels'
+Warning	1898	Invalid document value at column 'json' row 29: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 500, error 'Invalid JSON array'
+Warning	1898	Invalid document value at column 'json' row 30: '["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a",["a"', pos 501, error 'Object or array has too many nesting levels'
 select json_valid(json),json from test_json order by 1,2;
 json_valid(json)	json
+NULL	NULL
+NULL	NULL
+NULL	NULL
+NULL	NULL
 NULL	NULL
 NULL	NULL
 NULL	NULL

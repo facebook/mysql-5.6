@@ -77,6 +77,8 @@ namespace fbson {
 class FbsonValue;
 class ObjectVal;
 
+const int MaxNestingLevel = 100;
+
 /*
  * FbsonType defines 10 primitive types and 2 container types, as described
  * below.

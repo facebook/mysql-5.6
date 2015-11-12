@@ -113,6 +113,12 @@ TEST(FBSON_PARSER, basic) {
   str.assign("{\"k1\":f}");
   EXPECT_FALSE(parser.parse(str.c_str()));
   EXPECT_EQ(fbson::FbsonErrType::E_INVALID_SCALAR_VALUE, parser.getErrorCode());
+
+  str.assign("{\"k1\":");
+  for (int i = 0; i < fbson::MaxNestingLevel; ++i)
+    str += "{\"k1\":";
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_NESTING_LVL_OVERFLOW, parser.getErrorCode());
 }
 
 TEST(FBSON_PARSER, number_decimal) {
@@ -953,6 +959,47 @@ TEST(FBSON_PARSER, array) {
   str.assign("1]");
   EXPECT_FALSE(parser.parse(str.c_str()));
   EXPECT_EQ(fbson::FbsonErrType::E_INVALID_DOCU, parser.getErrorCode());
+}
+
+TEST(FBSON_PARSER, nesting_level) {
+  fbson::FbsonJsonParser parser;
+  fbson::FbsonValue* pval;
+  fbson::ArrayVal* parr;
+  std::ostringstream ss;
+
+  std::string str(
+    "{\"array\":["
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{},{},{},{},{},{},{},{},{},{},"
+    "{\"k0\":\"v\"},{\"k1\":\"v\"},{\"k2\":\"v\"},{\"k3\":\"v\"},"
+    "{\"k4\":\"v\"},{\"k5\":\"v\"},{\"k6\":\"v\"},{\"k7\":\"v\"},"
+    "{\"k8\":\"v\"},{\"k9\":\"v\"}"
+    "]}");
+  EXPECT_TRUE(parser.parse(str.c_str()));
+
+  std::string str1(
+    "{\"array\":["
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[],[],[],[],[],[],[],[],[],[],"
+    "[1],[2],[3,4],[5,6],[\"a\"],[7,8,9],[\"b\"],[0],[11,12,13,14],[]"
+    "]}");
+  EXPECT_TRUE(parser.parse(str1.c_str()));
 }
 
 // convert FBSON to JSON

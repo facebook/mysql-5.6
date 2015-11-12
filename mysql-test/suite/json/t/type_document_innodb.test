@@ -135,6 +135,22 @@ insert into t2 values (4, 123.456, 'a4');
 --error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 insert into t2 values (5, '{"testing really long key string that exceeds 64 characters but otherwise OK":123}', 'a4');
 
+# invalid JSON with empty value (nesting level is OK)
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (6, repeat('{"a":',100), 'a6');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (7, repeat('["a",',100), 'a7');
+
+# invalid JSON with too many nesting levels
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (8, repeat('{"a":',101), 'a8');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (9, repeat('{"a":',10000), 'a9');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (10, repeat('["a",',101), 'a10');
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2 values (11, repeat('["a",',10000), 'a11');
+
 # Expecting the number of rows to be 0
 SELECT count(*) FROM t2;
 
@@ -150,6 +166,35 @@ SELECT * from t2;
 # Default is not defined and the document field cannot be NULL, so it will default to {} 
 update t2 set a=DEFAULT;
 SELECT * from t2;
+drop table t2;
+
+# Test document's nesting levels
+create table t2 (i int(8) auto_increment, a document, primary key (i)) engine=innodb;
+
+# invalid JSON with empty value (nesting level is OK)
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2(a) values (repeat('{"a":',100));
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2(a) values (repeat('["a",',100));
+
+# invalid JSON with too many nesting levels
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2(a) values (repeat('{"a":',101));
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2(a) values (repeat('{"a":',10000));
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2(a) values (repeat('["a",',101));
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
+insert into t2(a) values (repeat('["a",',10000));
+
+# regression tests for https://reviews.facebook.net/D56187
+insert into t2(a) values (concat('{"k1":[', repeat('{},', 200), '{}]}'));
+insert into t2(a) values (concat('{"k2":[', repeat('[],', 200), '[]]}'));
+insert into t2(a) values (concat('{"k3":[', repeat('{},', 100), repeat('[],', 100), '[]]}'));
+insert into t2(a) values (concat('[', repeat('[],', 200), '[]]'));
+select * from t2;
+
+drop table t2;
 
 # Create table with a document column that can be NULL
 create table t_big (i int(8), a document, s text(255), primary key (i)) engine=innodb;
