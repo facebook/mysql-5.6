@@ -113,6 +113,12 @@ TEST(FBSON_PARSER, basic) {
   str.assign("{\"k1\":f}");
   EXPECT_FALSE(parser.parse(str.c_str()));
   EXPECT_EQ(fbson::FbsonErrType::E_INVALID_SCALAR_VALUE, parser.getErrorCode());
+
+  str.assign("{\"k1\":");
+  for (int i = 0; i < fbson::MaxNestingLevel; ++i)
+    str += "{\"k1\":";
+  EXPECT_FALSE(parser.parse(str.c_str()));
+  EXPECT_EQ(fbson::FbsonErrType::E_NESTING_LVL_OVERFLOW, parser.getErrorCode());
 }
 
 TEST(FBSON_PARSER, number_decimal) {

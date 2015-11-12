@@ -46,6 +46,7 @@ enum class FbsonErrType {
   E_NOTOBJ,
   E_INVALID_OPER,
   E_INVALID_FBSON_OBJ,
+  E_NESTING_LVL_OVERFLOW,
 
   // new error code should always be added above
   E_NUM_ERRORS
@@ -94,6 +95,7 @@ private:
     "Not a JSON object value",
     "Invalid update operation",
     "Invalid FBSON object (internal)",
+    "Object or array has too many nesting levels",
 
     nullptr /* E_NUM_ERRORS */
   };
