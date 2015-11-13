@@ -8092,7 +8092,8 @@ remove_secondary_keys(THD *thd, HA_CREATE_INFO* create_info, TABLE *table,
   }
 
   Alter_inplace_info ha_alter_info(create_info, &alter_info_new,
-                                     table->key_info, table->s->keys,
+                                     alter_info->delayed_key_info,
+                                     table->s->keys,
 #ifdef WITH_PARTITION_STORAGE_ENGINE
                                      thd->work_part_info,
 #else

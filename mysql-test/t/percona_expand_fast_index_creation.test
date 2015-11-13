@@ -67,5 +67,12 @@ ORDER BY
 # confirm that there are four different ID's
 SELECT COUNT(DISTINCT a) FROM idx;
 
+# https://github.com/facebook/mysql-5.6/issues/99
+# When one of the secondary indexes contained the last field in the table
+# an assert was triggered.
+CREATE TABLE t_assert(a INT NOT NULL, b CHAR(1), id INT NOT NULL, KEY(a), KEY(id)) ENGINE=INNODB;
+ALTER TABLE t_assert CHANGE COLUMN b b CHAR(1) NOT NULL;
+
+DROP TABLE t_assert;
 DROP TABLE idx;
 DROP TABLE t;
