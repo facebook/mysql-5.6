@@ -40,7 +40,7 @@ MyRocksTablePropertiesCollector::MyRocksTablePropertiesCollector(
     cf_id_(cf_id),
     ddl_manager_(ddl_manager),
     rows_(0l), deleted_rows_(0l), max_deleted_rows_(0l),
-    params_(params)
+    file_size_(0), params_(params)
 {
   deleted_rows_window_.resize(params_.window_, false);
 }
