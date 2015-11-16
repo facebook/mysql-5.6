@@ -119,7 +119,8 @@ static my_bool  verbose= 0, opt_no_create_info= 0, opt_no_data= 0,
                 opt_include_master_host_port= 0,
                 opt_events= 0, opt_comments_used= 0,
                 opt_alltspcs=0, opt_notspcs= 0, opt_drop_trigger= 0,
-                opt_secure_auth= 1, opt_rocksdb= 0, opt_order_by_primary_desc=0;
+                opt_secure_auth= 1, opt_rocksdb= 0, opt_order_by_primary_desc=0,
+                opt_view_error= 1;
 static my_bool insert_pat_inited= 0, debug_info_flag= 0, debug_check_flag= 0;
 static ulong opt_max_allowed_packet, opt_net_buffer_length;
 static MYSQL mysql_connection,*mysql=0;
@@ -595,6 +596,9 @@ static struct my_option my_long_options[] =
    &verbose, &verbose, 0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
   {"version",'V', "Output version information and exit.", 0, 0, 0,
    GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
+  {"view-error", OPT_VIEW_ERROR, "Exit with error when dumping view failed.",
+   &opt_view_error, &opt_view_error, 0, GET_BOOL, NO_ARG, 1, 0, 0, 0, 0,
+   0},
   {"where", 'w', "Dump only selected records. Quotes are mandatory.",
    &where, &where, 0, GET_STR, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
   {"xml", 'X', "Dump a database as well formed XML.", 0, 0, 0, GET_NO_ARG,
@@ -2990,6 +2994,7 @@ static uint get_table_structure(char *table, char *db, char *table_type,
       {
         char *scv_buff= NULL;
         my_ulonglong n_cols;
+        my_bool err= FALSE;
 
         verbose_msg("-- It's a view, create dummy view\n");
 
@@ -3012,9 +3017,26 @@ static uint get_table_structure(char *table, char *db, char *table_type,
         */
         my_snprintf(query_buff, sizeof(query_buff),
                     "SHOW FIELDS FROM %s", result_table);
-        if (switch_character_set_results(mysql, "binary") ||
-            mysql_query_with_error_report(mysql, &result, query_buff) ||
-            switch_character_set_results(mysql, default_charset))
+        if (!(err= switch_character_set_results(mysql, "binary")))
+        {
+          if (opt_view_error)
+            err= mysql_query_with_error_report(mysql, &result, query_buff);
+          else
+          {
+            err= mysql_query(mysql, query_buff);
+            if (err && mysql_errno(mysql) != ER_VIEW_INVALID)
+              maybe_die(EX_MYSQLERR, "Couldn't execute '%s': %s (%d)",
+                        query_buff, mysql_error(mysql), mysql_errno(mysql));
+
+            if (!err)
+              err= !(result= mysql_store_result(mysql));
+          }
+
+          if (!err)
+            err= switch_character_set_results(mysql, default_charset);
+        }
+
+        if (err)
         {
           /*
             View references invalid or privileged table/col/fun (err 1356),
