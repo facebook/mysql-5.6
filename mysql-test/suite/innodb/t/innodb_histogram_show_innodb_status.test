@@ -131,37 +131,48 @@ foreach (@line = split(/\n/, $ENV{'OUTPUT'})) {
 
 #Checking if the printed and calculated values of respective statistics match
 
-if ($total_async_reads + 1 == $sum_async_reads || $total_async_reads == $sum_async_reads) {
+#While running under load (in parallel), there can be a discrepency between the
+#reported total and the sum of the individual values.  Attempt to account for
+#that here.
+$max_discrepency = 7;
+$diff = abs($total_async_reads - $sum_async_reads);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Async Reads validated\n";
 } else {
   print "total: $total_async_reads, sum: $sum_async_reads\n";
 }
-if  ($total_async_writes + 1 == $sum_async_writes || $total_async_writes == $sum_async_writes) {
+$diff = abs($total_async_writes - $sum_async_writes);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Async Writes validated\n";
 } else {
   print "total: $total_async_writes, sum: $sum_async_writes\n";
 }
-if  ($total_sync_reads + 1 == $sum_sync_reads || $total_sync_reads == $sum_sync_reads) {
+$diff = abs($total_sync_reads - $sum_sync_reads);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Sync Reads validated\n";
 } else {
   print "total: $total_sync_reads, sum: $sum_sync_reads\n";
 }
-if  ($total_sync_writes + 1 == $sum_sync_writes || $total_sync_writes == $sum_sync_writes) {
+$diff = abs($total_sync_writes - $sum_sync_writes);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Sync Writes validated\n";
 } else {
   print "total: $total_sync_writes, sum: $sum_sync_writes\n";
 }
-if  ($total_log_writes + 1 == $sum_log_writes || $total_log_writes == $sum_log_writes) {
+$diff = abs($total_log_writes - $sum_log_writes);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Log Writes validated\n";
 } else {
   print "total: $total_log_writes, sum: $sum_log_writes\n";
 }
-if  ($total_double_writes + 1 == $sum_double_writes || $total_double_writes == $sum_double_writes) {
+$diff = abs($total_double_writes - $sum_double_writes);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Doublebuffer Writes validated\n";
 } else {
   print "total: $total_double_writes, sum: $sum_double_writes\n";
 }
-if  ($total_fsyncs + 1 == $sum_fsyncs || $total_fsyncs == $sum_fsyncs) {
+$diff = abs($total_fsyncs - $sum_fsyncs);
+if  ($diff <= $max_discrepency) {
   print "Histogram for Fsyncs validated\n";
 } else {
   print "total: $total_fsyncs, sum: $sum_fsyncs\n";
