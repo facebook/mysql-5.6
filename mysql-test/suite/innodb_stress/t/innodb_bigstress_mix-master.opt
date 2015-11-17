@@ -1,8 +1,0 @@
---binlog-do-db=test
---innodb-file-per-table
---innodb_file_format='Barracuda'
---innodb_log_compressed_pages=0
---sync_binlog=10
---innodb_flush_log_at_trx_commit=2
---force-restart
---innodb_buffer_pool_size=512M
