@@ -4,6 +4,14 @@
 DROP TABLE if exists t1;
 --enable_warnings
 
+# Suppress the warning as it is expected that
+# dict_stats_process_entry_from_defrag_pool running in the background will
+# increase the table's ref count, which causes the warning during dropping
+# table t1.
+--disable_query_log
+call mtr.add_suppression("InnoDB: Warning: MySQL is trying to drop table ");
+--enable_query_log
+
 let $page_size = query_get_value(select @@innodb_page_size, @@innodb_page_size, 1);
 
 # Create table.
