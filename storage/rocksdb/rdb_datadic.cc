@@ -2496,6 +2496,16 @@ bool Dict_manager::is_drop_index_ongoing(GL_INDEX_ID gl_index_id)
                   gl_index_id.index_id);
   rocksdb::Slice key= rocksdb::Slice((char*)key_buf, sizeof(key_buf));
 
+  /*
+    TODO -- temporary work around to prevent rocksdb from crashing the
+    server on startup when compaction starts running before the storage
+    plugin is fully initialized.
+
+    See https://github.com/facebook/mysql-5.6/issues/73 for more details.
+   */
+  while (!rdb) {
+    my_sleep(10);
+  }
   rocksdb::Status status= Get(key, &value);
   if (status.ok())
   {
