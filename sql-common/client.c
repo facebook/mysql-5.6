@@ -640,7 +640,7 @@ void free_state_change_info(MYSQL_EXTENSION *ext)
 /**
   Read Ok packet along with the server state change information.
 */
-void read_ok_ex(MYSQL *mysql, ulong length)
+void read_ok_ex(MYSQL *mysql, ulong length, my_bool update_query_status)
 {
   size_t total_len, len;
   uchar *pos, *saved_pos;
@@ -657,14 +657,18 @@ void read_ok_ex(MYSQL *mysql, ulong length)
 
   pos= mysql->net.read_pos + 1;
 
+  if (update_query_status) {
   /* affected rows */
   mysql->affected_rows= net_field_length_ll(&pos);
   /* insert id */
   mysql->insert_id= net_field_length_ll(&pos);
-
   DBUG_PRINT("info",("affected_rows: %lu  insert_id: %lu",
                      (ulong) mysql->affected_rows,
                      (ulong) mysql->insert_id));
+  } else {
+    net_field_length_ll(&pos); /* affected rows */
+    net_field_length_ll(&pos); /* insert id */
+  }
 
   /* server status */
   mysql->server_status= uint2korr(pos);
@@ -979,7 +983,7 @@ static ulong cli_safe_read_complete_with_ok(
                         net->last_error));
     DBUG_RETURN(packet_error);
   } else if (net->read_pos[0] == 0 && read_ok)
-    read_ok_ex(mysql, len);
+    read_ok_ex(mysql, len, FALSE);
   DBUG_RETURN(len);
 }
 
@@ -1267,7 +1271,7 @@ my_bool opt_flush_ok_packet(MYSQL *mysql, my_bool *is_ok_packet)
   *is_ok_packet= mysql->net.read_pos[0] == 0;
   if (*is_ok_packet)
   {
-    read_ok_ex(mysql, packet_length);
+    read_ok_ex(mysql, packet_length, FALSE);
   }
   return FALSE;
 }
@@ -3995,9 +3999,9 @@ static int client_mpvio_write_packet_nonblocking(struct st_plugin_vio *mpv,
   if (mpvio->packets_written == 0)
   {
     net_async_status status;
-    if (mpvio->mysql_change_user) {
+      if (mpvio->mysql_change_user) {
       status = send_change_user_packet_nonblocking(mpvio, pkt, pkt_len, &error);
-    } else {
+      } else {
       status =
         send_client_reply_packet_nonblocking(mpvio, pkt, pkt_len, &error);
     }
@@ -5898,7 +5902,7 @@ get_info:
   pos=(uchar*) mysql->net.read_pos;
   if ((field_count= net_field_length(&pos)) == 0)
   {
-    read_ok_ex(mysql, length);
+    read_ok_ex(mysql, length, TRUE);
     DBUG_RETURN(0);
   }
 #ifdef MYSQL_CLIENT
@@ -5964,7 +5968,7 @@ get_info:
     pos=(uchar*) mysql->net.read_pos;
     if ((field_count= net_field_length(&pos)) == 0)
     {
-      read_ok_ex(mysql, length);
+      read_ok_ex(mysql, length, TRUE);
       DBUG_PRINT("exit",("ok"));
       *ret = 0;
       DBUG_RETURN(NET_ASYNC_COMPLETE);
