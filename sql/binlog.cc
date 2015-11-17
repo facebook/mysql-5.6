@@ -3697,8 +3697,6 @@ int MYSQL_BIN_LOG::add_log_to_index(uchar* log_name,
   DBUG_RETURN(0);
 
 err:
-  // NO_LINT_DEBUG
-  sql_print_information("acda");
   my_free(previous_gtid_set_buffer);
   DBUG_RETURN(-1);
 }
