@@ -209,7 +209,7 @@ rocksdb_drop_index_wakeup_thread(THD* thd,
                                  void* var_ptr,
                                  const void* save)
 {
-  if (static_cast<bool>(save)) {
+  if (*static_cast<const bool*>(save)) {
     signal_drop_index_thread();
   }
 }
