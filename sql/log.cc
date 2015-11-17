@@ -2301,13 +2301,23 @@ bool general_log_print(THD *thd, enum enum_server_command command,
   va_list args;
   uint error= 0;
 
+  uint message_buff_len= 0;
+  char message_buff[MAX_LOG_BUFFER_SIZE];
+
+  /* prepare message */
+  va_start(args, format);
+  if (format)
+    message_buff_len= my_vsnprintf(message_buff, sizeof(message_buff),
+                                   format, args);
+  else
+    message_buff[0]= '\0';
+  va_end(args);
+
   /* Print the message to the buffer if we want to log this king of commands */
-  if (! logger.log_command(thd, command, "", 0))
+  if (! logger.log_command(thd, command, message_buff, message_buff_len))
     return FALSE;
 
-  va_start(args, format);
-  error= logger.general_log_print(thd, command, format, args);
-  va_end(args);
+  error= logger.general_log_write(thd, command, message_buff, message_buff_len);
 
   return error;
 }
