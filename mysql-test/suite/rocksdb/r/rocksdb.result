@@ -1399,6 +1399,14 @@ drop table t0, t1;
 #
 show status like 'rocksdb%';
 Variable_name	Value
+rocksdb_rows_deleted	#
+rocksdb_rows_inserted	#
+rocksdb_rows_read	#
+rocksdb_rows_updated	#
+rocksdb_system_rows_deleted	#
+rocksdb_system_rows_inserted	#
+rocksdb_system_rows_read	#
+rocksdb_system_rows_updated	#
 rocksdb_block_cache_add	#
 rocksdb_block_cache_data_hit	#
 rocksdb_block_cache_data_miss	#
@@ -1460,6 +1468,14 @@ rocksdb_write_timedout	#
 rocksdb_write_wal	#
 select VARIABLE_NAME from INFORMATION_SCHEMA.global_status where VARIABLE_NAME LIKE 'rocksdb%';
 VARIABLE_NAME
+ROCKSDB_ROWS_DELETED
+ROCKSDB_ROWS_INSERTED
+ROCKSDB_ROWS_READ
+ROCKSDB_ROWS_UPDATED
+ROCKSDB_SYSTEM_ROWS_DELETED
+ROCKSDB_SYSTEM_ROWS_INSERTED
+ROCKSDB_SYSTEM_ROWS_READ
+ROCKSDB_SYSTEM_ROWS_UPDATED
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_DATA_HIT
 ROCKSDB_BLOCK_CACHE_DATA_MISS
@@ -1523,6 +1539,14 @@ ROCKSDB_WRITE_WAL
 #  but they are shown as both session and global, like InnoDB's status vars.
 select VARIABLE_NAME from INFORMATION_SCHEMA.session_status where VARIABLE_NAME LIKE 'rocksdb%';
 VARIABLE_NAME
+ROCKSDB_ROWS_DELETED
+ROCKSDB_ROWS_INSERTED
+ROCKSDB_ROWS_READ
+ROCKSDB_ROWS_UPDATED
+ROCKSDB_SYSTEM_ROWS_DELETED
+ROCKSDB_SYSTEM_ROWS_INSERTED
+ROCKSDB_SYSTEM_ROWS_READ
+ROCKSDB_SYSTEM_ROWS_UPDATED
 ROCKSDB_BLOCK_CACHE_ADD
 ROCKSDB_BLOCK_CACHE_DATA_HIT
 ROCKSDB_BLOCK_CACHE_DATA_MISS
