@@ -1858,6 +1858,17 @@ bool Item::is_blob_field() const
   DBUG_ASSERT(fixed);
 
   enum_field_types type= field_type();
+
+  if (type == MYSQL_TYPE_DOCUMENT)
+  {
+    Item_field *item_field = (Item_field*)this;
+    DBUG_ASSERT(item_field);
+    Field_document *document_field = (Field_document*)(item_field->field);
+    DBUG_ASSERT(document_field);
+    if (document_field->is_doc_type_primary())
+      return false;
+  }
+
   if (type == MYSQL_TYPE_BLOB || type == MYSQL_TYPE_GEOMETRY ||
       // Char length, not the byte one, should be taken into account
       (max_length/collation.collation->mbmaxlen > CONVERT_IF_BIGGER_TO_BLOB))
@@ -3025,7 +3036,7 @@ void Item_field::do_set_field(Field *field_par)
   if(field->type() == MYSQL_TYPE_DOCUMENT)
   {
     Field_document *doc_field = (Field_document*)field;
-    if(!doc_field->is_derived_document_field())
+    if(!doc_field->is_derived())
     {
       doc_field->table->covering_keys.intersect(field->part_of_key);
       doc_field->table->merge_keys.merge(field->part_of_key);

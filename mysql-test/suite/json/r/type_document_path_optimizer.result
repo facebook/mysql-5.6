@@ -3,7 +3,7 @@ Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
 Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
 [connection master]
-drop table if exists t1, t2, t3;
+drop table if exists t1, t2, t3, t4;
 create table t1 (
 a1 int primary key,
 b1 int,
@@ -76,6 +76,32 @@ key doc31_c3 (doc31.double as double, c3),
 key doc31_d3 (doc31.int as int, d3),
 key b3_doc31 (b3, doc31.int as int)
 ) engine = innodb;
+create table t4 (
+a4 int primary key,
+b4 int,
+c4 double,
+d4 char(100),
+doc41 document not null,
+doc42 document,
+# regular keys
+key b4        (b4),
+key b4_a4     (b4, a4),
+# single column keys
+key doc41_bool   (doc41.bool as bool),
+key doc41_int    (doc41.int as int),
+key doc41_double (doc41.double as double),
+key doc41_string (doc41.string as string(100)),
+key doc41_binary (doc41.binary as binary(100)),
+key doc41_nested (doc41.k1.k2.k3.int as int),
+key doc42_int    (doc42.int as int),
+key doc42_double (doc42.double as double),
+# multi-column keys
+key doc41_b4 (doc41.int as int, b4),
+key doc41_c4 (doc41.double as double, c4),
+key doc41_d4 (doc41.int as int, d4),
+key b4_doc41 (b4, doc41.int as int),
+key b4_c4 (b4, c4)
+) engine = innodb;
 insert into t1 values
 (10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "binary":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
 (11, 11, 11.11, 'kkk', '{"bool":false, "int":11, "double":11.11, "string":"kkk", "binary":"kkk", "k1":{"k2":{"k3":{"int":11}}}, "id":11}', '{"int":11, "double":11.11}'),
@@ -124,6 +150,16 @@ insert into t3 values
 analyze table t3;
 Table	Op	Msg_type	Msg_text
 test.t3	analyze	status	OK
+insert into t4 values
+(10, 10, 10.1, 'jjj', '{"bool":false, "int":10, "double":10.1, "string":"jjj", "binary":"jjj", "k1":{"k2":{"k3":{"int":10}}}, "id":10}', '{"int":10, "double":10.1}'),
+(12, 12, 12.12, 'lll', '{"bool":false, "int":12, "double":12.12, "string":"lll", "binary":"lll", "k1":{"k2":{"k3":{"int":12}}}, "id":12}', '{"int":12, "double":12.12}'),
+(1, 1, 1.1, 'aaa', '{"bool":true,  "int":1, "double":1.1, "string":"aaa", "binary":"aaa", "k1":{"k2":{"k3":{"int":1}}}, "id":1}', '{"int":1, "double":1.1}'),
+(3, 3, 3.3, 'ccc', '{"bool":true,  "int":3, "double":3.3, "string":"ccc", "binary":"ccc", "k1":{"k2":{"k3":{"int":3}}}, "id":3}', '{"int":3, "double":3.3}'),
+(6, 6, 6.6, 'fff', '{"bool":false, "int":6, "double":6.6, "string":"fff", "binary":"fff", "k1":{"k2":{"k3":{"int":6}}}, "id":6}', '{"int":6, "double":6.6}'),
+(7, 7, 7.7, 'ggg', '{"bool":false, "int":7, "double":7.7, "string":"ggg", "binary":"ggg", "k1":{"k2":{"k3":{"int":7}}}, "id":7}', '{"int":7, "double":7.7}');
+analyze table t4;
+Table	Op	Msg_type	Msg_text
+test.t4	analyze	status	OK
 explain extended select * from t1 use document keys;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
 1	SIMPLE	t1	ALL	NULL	NULL	NULL	NULL	12	100.00	NULL
@@ -5656,5 +5692,5 @@ where (t1.doc11.binary between 'ccc' and 'hhh') and (t2.doc21.binary between 'gg
 and (t1.doc11.binary > t2.doc21.binary and t2.doc21.binary > t3.doc31.binary);
 `doc11`.`int`	`doc11`.`binary`	`doc21`.`int`	`doc21`.`binary`	`doc31`.`int`	`doc31`.`binary`
 8	hhh	7	ggg	6	fff
-drop table t1, t2, t3;
+drop table t1, t2, t3, t4;
 include/rpl_end.inc

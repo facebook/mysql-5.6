@@ -1,0 +1,476 @@
+--source include/not_valgrind.inc
+--source include/have_innodb.inc
+--source include/have_innodb_16k.inc
+--source include/master-slave.inc
+connection master;
+
+############################################################################
+###
+### Create and populate tables
+###
+
+--source suite/json/include/type_document_path_optimizer.inc
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for IN
+--echo ###        -- Non-correlated -- where_condition involves only columns from t2 and not t1
+--echo ###
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int in (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 in (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select doc11.int from t1 use document keys where doc11.int in (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+select doc11.int from t1 use document keys where doc11.int in (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 in (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for ANY
+--echo ###        -- Non-correlated -- where_condition involves only columns from t2 and not t1
+--echo ###
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> any (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> any (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> any (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > any (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > any (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > any (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= any (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= any (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= any (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = any (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = any (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = any (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select doc11.int from t1 use document keys where doc11.int <> any (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+select doc11.int from t1 use document keys where doc11.int <> any (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 <> any (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for SOME (an alias of ANY)
+--echo ###        -- Non-correlated -- where_condition involves only columns from t2 and not t1
+--echo ###
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> some (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <> some (select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> some (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > some (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int > some (select t2.doc21.int from t2 use document keys where t2.doc21.int >= 9 and t2.doc21.int < 100);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 > some (select t2.b2 from t2 where t2.b2 >= 9 and t2.b2 < 100);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= some (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int <= some (select t2.doc21.int from t2 use document keys where t2.doc21.int between 2 and 12);
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <= some (select t2.b2 from t2 where t2.b2 between 2 and 12);
+
+explain extended
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = some (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+select t1.doc11.int from t1 use document keys
+where t1.doc11.int = some (select t2.doc21.int from t2 use document keys where t2.doc21.int not in (0, 7, 3, 12, 100));
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 = some (select t2.b2 from t2 where t2.b2 not in (0, 7, 3, 12, 100));
+
+explain extended
+select doc11.int from t1 use document keys where doc11.int <> some (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+select doc11.int from t1 use document keys where doc11.int <> some (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 <> some (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- Semi-join for ALL
+--echo ###        -- Non-correlated -- where_condition involves only columns from t2 and not t1
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select t1.b1 from t1 where t1.b1 <> all (select t2.b2 from t2 where t2.b2 > 9);
+
+explain extended select t1.doc11.int from t1 use document keys where t1.doc11.int <> all (
+                 select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo FIXME!! (correct query plan with wrong results)
+select t1.doc11.int from t1 use document keys where t1.doc11.int <> all (
+       select t2.doc21.int from t2 use document keys where t2.doc21.int > 9);
+
+--echo ### USED AS STANDARD
+explain extended select b1 from t1 where b1 <> all (
+                 select b2 from t2
+                        where ((b2 > 3 and b2 < 8) and (b2 not between 6 and 9)) or
+                              ((b2 between 11 and 15) and (b2 not in (4, 5))));
+
+explain extended select doc11.int from t1 use document keys where doc11.int <> all (
+                 select doc21.int from t2 use document keys
+                        where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                              ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+--echo FIXME!! (correct query plan with wrong results)
+select doc11.int from t1 use document keys where doc11.int <> all (
+       select doc21.int from t2 use document keys
+              where ((doc21.int > 3 and doc21.int < 8) and (doc21.int not between 6 and 9)) or
+                    ((doc21.int between 11 and 15) and (doc21.int not in (4, 5))));
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   Subqueries
+--echo ###     -- EXISTS (with / without DISTINCT)
+--echo ###        -- Correlated
+--echo ###
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select * from t1 use document keys where exists (
+         select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1 where exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select distinct * from t1 use document keys where exists (
+         select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select a1 from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select a1 from t1 use document keys where exists (
+          select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select distinct a1 from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select distinct a1 from t1 use document keys where exists (
+          select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where exists (select * from t4 where t1.b1 > t4.b4);
+
+explain extended select a1 from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+select a1 from t1 use document keys where exists (
+          select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where exists (select * from t4 where t1.b1 > t4.b4);
+
+explain extended select distinct a1 from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+select distinct a1 from t1 use document keys where exists (
+          select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where not exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select * from t1 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select * from t1 use document keys where not exists (
+         select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1 where not exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select distinct * from t1 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select distinct * from t1 use document keys where not exists (
+         select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where not exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select a1 from t1 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select a1 from t1 use document keys where not exists (
+          select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where not exists (select * from t4 where t1.b1 = t4.b4);
+
+explain extended select distinct a1 from t1 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+select distinct a1 from t1 use document keys where not exists (
+          select * from t4 use document keys where t1.doc11.int = t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1 where not exists (select * from t4 where t1.b1 > t4.b4);
+
+explain extended select a1 from t1 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+select a1 from t1 use document keys where not exists (
+          select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1 where not exists (select * from t4 where t1.b1 > t4.b4);
+
+explain extended select distinct a1 from t1 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+select distinct a1 from t1 use document keys where not exists (
+          select * from t4 use document keys where t1.doc11.int > t4.doc41.int);
+
+--echo ### USED AS STANDARD
+explain extended select * from t1 where exists (select * from t4 where t1.b1 = t4.b4) and t1.b1 >= 6;
+
+explain extended select * from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t1.doc11.int >= 6;
+select * from t1 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t1.doc11.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1 where exists (select * from t4 where t1.b1 = t4.b4) and t1.b1 >= 6;
+
+explain extended select distinct * from t1 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t1.doc11.int >= 6;
+select distinct * from t1 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t1.doc11.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1, t4 where exists (select * from t4 where t1.b1 = t4.b4) and t4.b4 >= 6;
+
+explain extended select a1 from t1 use document keys, t4 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+select a1 from t1 use document keys, t4 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1, t4 where exists (select * from t4 where t1.b1 = t4.b4) and t4.b4 >= 6;
+
+explain extended select distinct a1 from t1 use document keys, t4 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+select distinct a1 from t1 use document keys, t4 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select a1 from t1, t4 where not exists (select * from t4 where t1.b1 = t4.b4) and t4.b4 >= 6;
+
+explain extended select a1 from t1 use document keys, t4 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+select a1 from t1 use document keys, t4 use document keys where not exists (
+       select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a1 from t1, t4 where not exists (select * from t4 where t1.b1 = t4.b4) and t4.b4 >= 6;
+
+explain extended select distinct a1 from t1 use document keys, t4 use document keys where not exists (
+                 select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+select distinct a1 from t1 use document keys, t4 use document keys where not exists (
+       select * from t4 use document keys where t1.doc11.int = t4.doc41.int) and t4.doc41.int >= 6;
+
+--echo ### USED AS STANDARD
+explain extended select * from t1, t4 where exists (select * from t4 where t1.b1 > t4.b4) and t1.b1 >= 6 and t4.b4 < 8;
+
+explain extended select * from t1 use document keys, t4 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+select * from t1 use document keys, t4 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct * from t1, t4 where exists (select * from t4 where t1.b1 > t4.b4) and t1.b1 >= 6 and t4.b4 < 8;
+
+explain extended select distinct * from t1 use document keys, t4 use document keys where exists (
+                 select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+select distinct * from t1 use document keys, t4 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select a4 from t1, t4 where exists (select * from t4 where t1.b1 > t4.b4) and t1.b1 >= 6 and t4.b4 < 8;
+
+explain extended select a4 from t1 use document keys, t4 use document keys where exists (
+        select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+select a4 from t1 use document keys, t4 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a4 from t1, t4 where exists (select * from t4 where t1.b1 > t4.b4) and t1.b1 >= 6 and t4.b4 < 8;
+
+explain extended select distinct a4 from t1 use document keys, t4 use document keys where exists (
+        select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+select distinct a4 from t1 use document keys, t4 use document keys where exists (
+       select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select a4 from t1, t4 where not exists (select * from t4 where t1.b1 > t4.b4) and t1.b1 >= 6 and t4.b4 < 8;
+
+explain extended select a4 from t1 use document keys, t4 use document keys where not exists (
+        select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+select a4 from t1 use document keys, t4 use document keys where not exists (
+       select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+
+--echo ### USED AS STANDARD
+explain extended select distinct a4 from t1, t4 where not exists (select * from t4 where t1.b1 > t4.b4) and t1.b1 >= 6 and t4.b4 < 8;
+
+explain extended select distinct a4 from t1 use document keys, t4 use document keys where not exists (
+        select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+select distinct a4 from t1 use document keys, t4 use document keys where not exists (
+       select * from t4 use document keys where t1.doc11.int > t4.doc41.int) and t1.doc11.int >= 6 and t4.doc41.int < 8;
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   min()
+--echo ###
+
+explain extended
+select min(t1.doc11.int) from t1 use document keys;
+select min(t1.doc11.int) from t1 use document keys;
+
+--echo ### USED AS STANDARD
+explain extended select min(t1.b1) from t1;
+
+explain extended
+select min(t1.doc11.int) from t1 use document keys where t1.doc11.int > 5;
+select min(t1.doc11.int) from t1 use document keys where t1.doc11.int > 5;
+
+--echo ### USED AS STANDARD
+explain extended select min(t1.b1) from t1 where t1.b1 > 5;
+
+
+--echo ######################################################################
+--echo ###
+--echo ###   max()
+--echo ###
+
+explain extended
+select max(t1.doc11.int) from t1 use document keys;
+select max(t1.doc11.int) from t1 use document keys;
+
+--echo ### USED AS STANDARD
+explain extended select max(t1.b1) from t1;
+
+explain extended
+select max(t1.doc11.int) from t1 use document keys where t1.doc11.int > 5;
+select max(t1.doc11.int) from t1 use document keys where t1.doc11.int > 5;
+
+--echo ### USED AS STANDARD
+explain extended select max(t1.b1) from t1 where t1.b1 > 5;
+
+
+#############################################################################
+###
+### Clean up
+###
+drop table t1, t2, t3, t4;
+--source include/rpl_end.inc
