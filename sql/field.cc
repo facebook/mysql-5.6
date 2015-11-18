@@ -8871,7 +8871,7 @@ fbson::FbsonErrType Field_document::update_node(
 }
 void Field_document::set_null(my_ptrdiff_t row_offset)
 {
-  if(!is_derived_document_field())
+  if(!is_derived())
     {
       return Field_blob::set_null(row_offset);
     }
@@ -8885,7 +8885,7 @@ void Field_document::set_null(my_ptrdiff_t row_offset)
 }
 type_conversion_status Field_document::reset(void)
 {
-    if(!is_derived_document_field())
+    if(!is_derived())
     {
       /* When not nullable, set document field to {} */
       if (!real_maybe_null()) {
@@ -8918,7 +8918,7 @@ Field_document::update_json(const fbson::FbsonValue *val,
                             Document_path_iterator& key_path,
                             Field_document *from)
 {
-  DBUG_ASSERT(!is_derived_document_field());
+  DBUG_ASSERT(!is_derived());
   // We do replace update here
   if(from == this)
   {
@@ -9080,14 +9080,19 @@ Field_document *Field_document::new_field(MEM_ROOT *root,
                                                 from_alias);
     new_one->document_key_path.empty();
     new_one->inner_field = nullptr;
-  }else{
+  }
+  else {
     new_one = get_inner_field()->
       new_field(root, new_table, keep_type, from_alias);
   }
+
   if(!from_alias)
     append_key_path(new_one->prefix_document_key_path,
                     document_key_path);
+
+  // FIXME: more class members need to be copied
   new_one->doc_type = doc_type;
+  new_one->key_len = key_len;
   new_one->prefix_path_num = prefix_path_num + document_key_path.elements;
   return new_one;
 }
@@ -9164,7 +9169,7 @@ Field_document::store(const char *from, uint length, const CHARSET_INFO *cs)
     contain the whole document. The input value can be a json string
     or FbsonDocument binary when use_fbson_input_format is set.
   */
-  if(!is_derived_document_field() &&
+  if(!is_derived() &&
      prefix_document_key_path.elements == 0 &&
      document_key_path.elements == 0)
   {
@@ -9270,7 +9275,7 @@ type_conversion_status
 Field_document::store_decimal(const my_decimal *nr)
 {
   // Update root to decimal is not allowed.
-  if(!is_derived_document_field() &&
+  if(!is_derived() &&
      prefix_path_num == 0)
   {
     char buf[DECIMAL_MAX_STR_LENGTH];

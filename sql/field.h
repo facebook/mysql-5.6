@@ -3845,7 +3845,7 @@ public:
     Check whether this field is created based on the other field, such as
     a document path.
   */
-  bool is_derived_document_field()
+  bool is_derived()
   {
     return real_field() != this;
   }
@@ -4020,6 +4020,11 @@ public:
       DOC_DOCUMENT :
     // Or it should be the type defined in the index.
       get_document_type();
+  }
+
+  bool is_doc_type_primary()
+  {
+    return (doc_type != DOC_DOCUMENT);
   }
 
   void set_document_type(enum_field_types type)
