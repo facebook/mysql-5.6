@@ -1080,6 +1080,8 @@ The following options may be given as the first argument:
  --rocksdb-paranoid-checks 
  DBOptions::paranoid_checks for RocksDB
  (Defaults to on; use --skip-rocksdb-paranoid-checks to disable.)
+ --rocksdb-pause-background-work 
+ Disable all rocksdb background operations
  --rocksdb-perf-context[=name] 
  Enable or disable ROCKSDB_PERF_CONTEXT plugin. Possible
  values are ON, OFF, FORCE (don't start if the plugin
@@ -1726,6 +1728,7 @@ rocksdb-max-total-wal-size 0
 rocksdb-no-block-cache FALSE
 rocksdb-override-cf-options 
 rocksdb-paranoid-checks TRUE
+rocksdb-pause-background-work FALSE
 rocksdb-perf-context ON
 rocksdb-perf-context-global ON
 rocksdb-perf-context-level 1
