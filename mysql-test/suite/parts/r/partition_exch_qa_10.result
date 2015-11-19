@@ -40,7 +40,7 @@ SET @@autocommit= @save_autocommit;
 SET @save_event_scheduler= @@global.event_scheduler;
 SET @@global.event_scheduler= ON;
 CREATE EVENT test_ev_1
-ON SCHEDULE AT CURRENT_TIMESTAMP
+ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 SECOND
 DO
 ALTER TABLE tp EXCHANGE PARTITION p0 WITH TABLE t_10;
 SELECT * FROM t_10;
