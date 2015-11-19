@@ -167,27 +167,65 @@ rocksdb_compact_column_family(THD* thd,
   }
 }
 
-static void
+std::string normalize_dir(std::string dir)
+{
+  while (dir.size() > 0 &&
+          dir.back() == '/') {
+    dir.resize(dir.size() - 1);
+  }
+  return dir;
+}
+
+static int
 rocksdb_create_checkpoint(THD* thd,
                         struct st_mysql_sys_var* var,
-                        void* var_ptr,
-                        const void* save)
+                        void* save,
+                        struct st_mysql_value* value)
 {
-  if (const char* snapshotdir = *static_cast<const char*const*>(save)) {
-    rocksdb::Checkpoint* checkpoint;
+  char buf[512];
+  int len = sizeof(buf);
+  const char* checkpoint_dir_raw = value->val_str(value, buf, &len);
+  if (checkpoint_dir_raw) {
     if (rdb != nullptr) {
+      std::string checkpoint_dir = normalize_dir(checkpoint_dir_raw);
+      // NO_LINT_DEBUG
       sql_print_information("RocksDB: creating checkpoint in directory : %s\n",
-          snapshotdir);
-      if ((rocksdb::Checkpoint::Create(rdb, &checkpoint)).ok()){
-        if ((checkpoint->CreateCheckpoint(snapshotdir)).ok()) {
+          checkpoint_dir.c_str());
+      rocksdb::Checkpoint* checkpoint;
+      auto status = rocksdb::Checkpoint::Create(rdb, &checkpoint);
+      if (status.ok()) {
+        status = checkpoint->CreateCheckpoint(checkpoint_dir.c_str());
+        if (status.ok()) {
           sql_print_information(
               "RocksDB: created checkpoint in directory : %s\n",
-              snapshotdir);
+              checkpoint_dir.c_str());
+        } else {
+          my_printf_error(
+              ER_UNKNOWN_ERROR,
+              "RocksDB: Failed to create checkpoint directory. status %d %s",
+              MYF(0), status.code(), status.ToString().c_str());
         }
         delete checkpoint;
+      } else {
+        std::string err_text(status.ToString());
+        my_printf_error(ER_UNKNOWN_ERROR,
+            "RocksDB: failed to initialize checkpoint. status %d %s\n",
+            MYF(0), status.code(), err_text.c_str());
       }
+      return status.code();
      }
-   }
+  }
+  return HA_ERR_INTERNAL_ERROR;
+}
+
+/* This method is needed to indicate that the
+   ROCKSDB_CREATE_CHECKPOINT command is not read-only */
+static void
+rocksdb_create_checkpoint_stub(THD* thd,
+                               struct st_mysql_sys_var* var,
+                               void* var_ptr,
+                               const void* save)
+{
 }
 
 static void
@@ -270,7 +308,7 @@ static my_bool rocksdb_debug_optimizer_no_zero_cardinality;
 static uint32_t rocksdb_perf_context_level;
 static uint32_t rocksdb_wal_recovery_mode;
 static char * compact_cf_name;
-static char * snapshot_dir_name;
+static char * checkpoint_name;
 static my_bool rocksdb_signal_drop_index_thread;
 static my_bool rocksdb_strict_collation_check = 1;
 static char * rocksdb_strict_collation_exceptions;
@@ -698,10 +736,10 @@ static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   "Compact column family",
   NULL, rocksdb_compact_column_family, "");
 
-static MYSQL_SYSVAR_STR(snapshot_dir, snapshot_dir_name,
+static MYSQL_SYSVAR_STR(create_checkpoint, checkpoint_name,
   PLUGIN_VAR_RQCMDARG,
   "Checkpoint directory",
-  NULL, rocksdb_create_checkpoint, "");
+  rocksdb_create_checkpoint, rocksdb_create_checkpoint_stub, "");
 
 static MYSQL_SYSVAR_BOOL(signal_drop_index_thread,
   rocksdb_signal_drop_index_thread,
@@ -888,8 +926,8 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(compaction_sequential_deletes_window),
   MYSQL_SYSVAR(compaction_sequential_deletes_file_size),
 
-  MYSQL_SYSVAR(snapshot_dir),
   MYSQL_SYSVAR(datadir),
+  MYSQL_SYSVAR(create_checkpoint),
 
   MYSQL_SYSVAR(checksums_pct),
   MYSQL_SYSVAR(store_checksums),

@@ -62,24 +62,26 @@ let $max = 1000;
 let $table = t5;
 --source drop_table_repopulate_table.inc
 
-# Create checkpoint
---disable_result_log
---disable_query_log
-let snapshot_dir = $MYSQL_TMP_DIR/snapshot;
---exec echo snapshot_dir =  $snapshot_dir
-eval SET GLOBAL ROCKSDB_SNAPSHOT_DIR = '$snapshot_dir';
+# Create checkpoint without trailing '/'
+let $checkpoint = $MYSQL_TMP_DIR/checkpoint;
+let $succeeds = 1;
+--source set_checkpoint.inc
 
---sleep 1
---exec ls $snapshot_dir
+# Create checkpoint with a trailing '/'
+let $checkpoint = $MYSQL_TMP_DIR/checkpoint/;
+let $succeeds = 1;
+--source set_checkpoint.inc
 
---enable_query_log
---enable_result_log
+# Set checkpoint dir as empty string, which fails
+let $checkpoint = ;
+let $succeeds = 0;
+--source set_checkpoint.inc
 
-# Check snapshot
---exec ls $snapshot_dir/CURRENT |sed s/.*CURRENT/CURRENT/g
+# Set checkpoint as a directory that does not exist, which fails
+let $checkpoint = /does/not/exist;
+let $succeeds = 0;
+--source set_checkpoint.inc
 
-# Cleanup
---exec rm -rf  $snapshot_dir
 --disable_result_log
 truncate table t1;
 optimize table t1;
