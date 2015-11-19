@@ -259,7 +259,7 @@ class MySQLUtil:
 
   @staticmethod
   def create_checkpoint(dbh, checkpoint_dir):
-    sql = ("SET GLOBAL rocksdb_snapshot_dir='{0}'"
+    sql = ("SET GLOBAL rocksdb_create_checkpoint='{0}'"
            .format(checkpoint_dir))
     cur= dbh.cursor()
     cur.execute(sql)
