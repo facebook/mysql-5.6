@@ -39,6 +39,7 @@ key (b) comment 'rev:cf2'
 ) ENGINE=RocksDB;
 DELETE FROM t5;
 CURRENT
+CURRENT
 truncate table t1;
 optimize table t1;
 truncate table t2;
