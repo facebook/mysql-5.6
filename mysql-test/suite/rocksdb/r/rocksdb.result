@@ -911,7 +911,7 @@ rocksdb_seconds_between_stat_computes	3600
 rocksdb_signal_drop_index_thread	OFF
 rocksdb_skip_fill_cache	OFF
 rocksdb_skip_log_error_on_recovery	OFF
-rocksdb_snapshot_dir	
+rocksdb_create_checkpoint
 rocksdb_stats_dump_period_sec	600
 rocksdb_store_checksums	OFF
 rocksdb_strict_collation_check	OFF
