@@ -54,11 +54,17 @@ SET @@autocommit= @save_autocommit;
 
 SET @save_event_scheduler= @@global.event_scheduler;
 SET @@global.event_scheduler= ON;
+# Set a small delay for the event to start
 CREATE EVENT test_ev_1
-    ON SCHEDULE AT CURRENT_TIMESTAMP
+    ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 SECOND
     DO
        ALTER TABLE tp EXCHANGE PARTITION p0 WITH TABLE t_10;
-sleep 1;
+
+# Wait the test_ev_1 event to execute and drop itself before proceeding 
+let $wait_condition=select count(*) = 0 from information_schema.events
+where event_name='test_ev_1';
+--source include/wait_condition.inc
+
 --sorted_result
 SELECT * FROM t_10;
 --sorted_result
