@@ -38,6 +38,9 @@ primary key (a,b) comment 'cf1',
 key (b) comment 'rev:cf2'
 ) ENGINE=RocksDB;
 DELETE FROM t5;
+SET GLOBAL ROCKSDB_CREATE_CHECKPOINT = '[CHECKPOINT]';
+CURRENT
+SET GLOBAL ROCKSDB_CREATE_CHECKPOINT = '[CHECKPOINT]';
 CURRENT
 truncate table t1;
 optimize table t1;
