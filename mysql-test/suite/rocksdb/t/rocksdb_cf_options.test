@@ -25,7 +25,7 @@ insert into t3 values (2);
 --echo
 --echo Default options for all column families:
 --echo
---exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
+--exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG|grep -e "Options[\. ]"|sed 's/^.*Options/Options/';
 # restart with cf configs for cf1 and cf2
 
 --exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
@@ -37,7 +37,7 @@ insert into t3 values (2);
 --echo
 --echo Individualized options for column families:
 --echo
---exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
+--exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG|grep -e "Options[\. ]"| sed 's/^.*Options/Options/';
 
 # syntax error in options (no equal sign)
 
