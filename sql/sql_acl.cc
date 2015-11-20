@@ -9510,6 +9510,9 @@ static bool send_server_handshake_packet(MPVIO_EXT *mpvio,
 
   mpvio->client_capabilities= CLIENT_BASIC_FLAGS;
 
+  if (opt_query_attrs)
+    mpvio->client_capabilities|= CLIENT_QUERY_ATTRS;
+
   if (opt_using_transactions)
     mpvio->client_capabilities|= CLIENT_TRANSACTIONS;
 

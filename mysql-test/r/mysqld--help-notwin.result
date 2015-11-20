@@ -799,6 +799,7 @@ The following options may be given as the first argument:
  (Defaults to on; use --skip-process-can-disable-bin-log to disable.)
  --query-alloc-block-size=# 
  Allocation block size for query parsing and execution
+ --query-attrs       Enable query attributes.
  --query-cache-limit=# 
  Don't cache results that are bigger than this
  --query-cache-min-res-unit=# 
@@ -1646,6 +1647,7 @@ port-open-timeout 0
 preload-buffer-size 32768
 process-can-disable-bin-log TRUE
 query-alloc-block-size 8192
+query-attrs FALSE
 query-cache-limit 1048576
 query-cache-min-res-unit 4096
 query-cache-size 1048576

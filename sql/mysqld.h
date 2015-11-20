@@ -314,6 +314,7 @@ extern char *default_tmp_storage_engine;
 extern bool opt_endinfo, using_udf_functions;
 extern my_bool locked_in_memory;
 extern bool opt_using_transactions;
+extern bool opt_query_attrs;
 extern ulong max_long_data_size;
 extern ulong current_pid;
 extern ulong expire_logs_days;
