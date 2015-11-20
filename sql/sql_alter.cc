@@ -367,8 +367,7 @@ bool Sql_cmd_discard_import_tablespace::execute(THD *thd)
   thd->add_to_binlog_accessed_dbs(table_list->db);
 
   return
-    mysql_discard_or_import_tablespace(thd, table_list,
-                                       m_tablespace_op == DISCARD_TABLESPACE);
+    mysql_discard_or_import_tablespace(thd, table_list, m_tablespace_op);
 }
 
 bool Sql_cmd_defragment_table::execute(THD *thd)

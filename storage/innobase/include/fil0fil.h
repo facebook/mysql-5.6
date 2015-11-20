@@ -775,7 +775,9 @@ UNIV_INTERN
 dberr_t
 fil_discard_tablespace(
 /*===================*/
-	ulint	id)	/*!< in: space id */
+	ulint	id,	/*!< in: space id */
+	bool	fast = false) /*!< in: TRUE if fast discard,
+					else regular discard*/
 	MY_ATTRIBUTE((warn_unused_result));
 #endif /* !UNIV_HOTBACKUP */
 
