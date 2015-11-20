@@ -1012,8 +1012,8 @@ The following options may be given as the first argument:
  Enable or disable ROCKSDB_DDL plugin. Possible values are
  ON, OFF, FORCE (don't start if the plugin fails to load).
  --rocksdb-debug-optimizer-n-rows=# 
- Used for info(). Testing purpose only and will be
- deprecated
+ Test only to override rocksdb estimates of table size in
+ a memtable
  --rocksdb-debug-optimizer-no-zero-cardinality 
  In case if cardinality is zero, overrides it with some
  value
@@ -1700,7 +1700,7 @@ rocksdb-datadir ./.rocksdb
 rocksdb-db-write-buffer-size 0
 rocksdb-dbstats ON
 rocksdb-ddl ON
-rocksdb-debug-optimizer-n-rows 1000
+rocksdb-debug-optimizer-n-rows 0
 rocksdb-debug-optimizer-no-zero-cardinality TRUE
 rocksdb-default-cf-options 
 rocksdb-delete-obsolete-files-period-micros 21600000000

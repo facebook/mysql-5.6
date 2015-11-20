@@ -20,10 +20,11 @@ INSERT INTO t1 (a,b) VALUES (100,'a'),(2,'foo');
 CREATE TABLE t2 (a INT PRIMARY KEY, b CHAR(8)) ENGINE=rocksdb;
 INSERT INTO t2 (a,b) VALUES (1,'bar');
 
+set global rocksdb_force_flush_memtable_now = true;
+
 CREATE TABLE t3 (a INT, b CHAR(8), pk INT PRIMARY KEY) ENGINE=rocksdb CHARACTER SET utf8;
 
 #--replace_column 2 <STORAGE_ENGINE> 4 ### 6 ### 7 ### 8 ### 9 ### 10 ### 12 ### 13 ### 
---replace_column 5 #
 SHOW TABLE STATUS WHERE name IN ( 't1', 't2', 't3' );
 DROP TABLE t1, t2, t3;
 

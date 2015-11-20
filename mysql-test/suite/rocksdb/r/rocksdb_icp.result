@@ -58,7 +58,7 @@ EXPLAIN
         "kp1"
       ],
       "key_length": "5",
-      "rows": 7,
+      "rows": 1000,
       "filtered": 100,
       "index_condition": "((`test`.`t3`.`kp1` between 2 and 4) and ((`test`.`t3`.`kp1` % 3) = 0))",
       "attached_condition": "(`test`.`t3`.`kp2` like '%foo%')"
