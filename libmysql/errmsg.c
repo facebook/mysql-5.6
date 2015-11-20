@@ -89,6 +89,7 @@ const char *client_errors[]=
   "Authentication plugin '%s' reported error: %s",
   "Read timeout is reached",
   "Write timeout is reached",
+  "There is an attribute with the same name already",
   ""
 };
 
