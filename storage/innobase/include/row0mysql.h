@@ -510,7 +510,10 @@ dberr_t
 row_discard_tablespace_for_mysql(
 /*=============================*/
 	const char*	name,	/*!< in: table name */
-	trx_t*		trx)	/*!< in: transaction handle */
+	trx_t*		trx,	/*!< in: transaction handle */
+	bool		fast = false)
+				/*!< in: TRUE if fast discard,
+				else regular discard*/
 	__attribute__((nonnull, warn_unused_result));
 /*****************************************************************//**
 Imports a tablespace. The space id in the .ibd file must match the space id

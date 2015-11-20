@@ -430,7 +430,15 @@ class Sql_cmd_discard_import_tablespace : public Sql_cmd_common_alter_table
 public:
   enum enum_tablespace_op_type
   {
-    DISCARD_TABLESPACE, IMPORT_TABLESPACE
+    /* Note: ha_innobase::discard_or_import_tablespace() assumes that
+     * IMPORT_TABLESPACE is 0, and any non-zero value implies that the
+     * operation type is discarding
+     */
+    IMPORT_TABLESPACE,
+    DISCARD_TABLESPACE,
+    DISCARD_TABLESPACE_FAST // fast discard will skip scanning/purging buffer
+                            // pool and insert buffer, and is intended to be
+                            // used after creating a new empty table
   };
 
   Sql_cmd_discard_import_tablespace(enum_tablespace_op_type tablespace_op_arg)
