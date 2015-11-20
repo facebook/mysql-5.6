@@ -1135,9 +1135,9 @@ extern PSI_statement_info sql_statement_info[(uint) SQLCOM_END + 1];
 
 /**
   Statement instrumentation keys (com).
-  The last entry, at [COM_END], is for packet errors.
+  [COM_END] is for packet errors.
 */
-extern PSI_statement_info com_statement_info[(uint) COM_END + 1];
+extern PSI_statement_info com_statement_info[(uint) COM_MAX];
 
 /**
   Statement instrumentation key for replication.

@@ -385,7 +385,7 @@ static int begin_packet_write_state(NET* net, uchar command,
                                     const uchar *packet, size_t packet_len,
                                     const uchar *optional_prefix, size_t prefix_len) {
   size_t total_len = packet_len + prefix_len;
-  my_bool include_command = (command < COM_END);
+  my_bool include_command = (command < COM_END) || (command > COM_TOP_END);
   if (include_command) {
     ++total_len;
   }

@@ -189,8 +189,69 @@ const LEX_STRING command_name[]={
   { C_STRING_WITH_LEN("Fetch") },
   { C_STRING_WITH_LEN("Daemon") },
   { C_STRING_WITH_LEN("Binlog Dump GTID") },
-  { C_STRING_WITH_LEN("Error") }  // Last command number
+  { C_STRING_WITH_LEN("Error") },  // Last command number
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 }, { nullptr, 0 },
+  { nullptr, 0 }, { nullptr, 0 },
+  { C_STRING_WITH_LEN("Error") },
+  { C_STRING_WITH_LEN("Query attributes") },
 };
+
+static_assert(array_elements(command_name) == 256,
+              "command_name must have 256 elements");
 
 const char *xa_state_names[]={
   "NON-EXISTING", "ACTIVE", "IDLE", "PREPARED", "ROLLBACK ONLY"
@@ -315,7 +376,7 @@ bool stmt_causes_implicit_commit(const THD *thd, uint mask)
 */
 
 uint sql_command_flags[SQLCOM_END+1];
-uint server_command_flags[COM_END+1];
+uint server_command_flags[COM_MAX];
 
 void init_update_queries(void)
 {
@@ -1055,7 +1116,7 @@ bool do_command(THD *thd)
 
   command= (enum enum_server_command) (uchar) packet[0];
 
-  if (command >= COM_END)
+  if (command >= COM_END && command <= COM_TOP_END)
     command= COM_END;				// Wrong command
 
   DBUG_PRINT("info",("Command on %s = %d (%s)",
@@ -1562,13 +1623,44 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     mysqld_stmt_reset(thd, packet, packet_length);
     break;
   }
+  case COM_QUERY_ATTRS:
+  {
+    size_t attrs_len= net_field_length((uchar**) &packet);
+    thd->set_query_attrs(CSET_STRING(packet, attrs_len, thd->charset()));
+
+    DBUG_EXECUTE_IF("print_query_attr", {
+        char* cur= packet;
+        size_t len;
+
+        // NO_LINT_DEBUG
+        fprintf(stderr, "[query-attrs][list]\n");
+        while (cur < packet + attrs_len)
+        {
+          len= net_field_length((uchar**) &cur);
+          // NO_LINT_DEBUG
+          fprintf(stderr, "[query-attrs][key] %.*s\n", (int)len, cur);
+          cur+= len;
+          len= net_field_length((uchar**) &cur);
+          // NO_LINT_DEBUG
+          fprintf(stderr, "[query-attrs][value] %.*s\n", (int)len, cur);
+          cur+= len;
+        }
+      }
+    );
+    // Fall through to COM_QUERY
+  }
   case COM_QUERY:
   {
     DBUG_ASSERT(thd->m_digest == NULL);
     thd->m_digest= & thd->m_digest_state;
     thd->m_digest->reset(thd->m_token_array, max_digest_length);
 
-    if (alloc_query(thd, packet, packet_length))
+    /*
+      Save query attributes to be forwarded in audit plugin.
+     */
+    char* query_ptr= packet + thd->query_attrs_length();
+    size_t query_len= packet_length - thd->query_attrs_length();
+    if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
     MYSQL_QUERY_START(thd->query(), thd->thread_id,
                       (char *) (thd->db ? thd->db : ""),
@@ -2065,6 +2157,7 @@ done:
   THD_STAGE_INFO(thd, stage_cleaning_up);
 
   thd->reset_query();
+  thd->reset_query_attrs();
   thd->set_command(COM_SLEEP);
 
   /* Performance Schema Interface instrumentation, end */
@@ -2327,7 +2420,7 @@ bool write_log_to_socket(int sockfd, THD *thd, ulonglong end_utime)
   // query_length == 0 also appears to mean that this is a command
   if ((!thd->query() || !thd->query_length()) && len < buf_sz)
   {
-    if (thd->get_command() < COM_END)
+    if (thd->get_command() < COM_END || thd->get_command() > COM_TOP_END)
       len += snprintf(buf + len, buf_sz - len,
                       "# administrator command: %s\n",
                       command_name[thd->get_command()].str);
