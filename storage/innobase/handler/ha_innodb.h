@@ -166,7 +166,7 @@ class ha_innobase: public handler
 	int info(uint);
 	int analyze(THD* thd,HA_CHECK_OPT* check_opt);
 	int optimize(THD* thd,HA_CHECK_OPT* check_opt);
-	int discard_or_import_tablespace(my_bool discard);
+	int discard_or_import_tablespace(uint discard);
 	int extra(enum ha_extra_function operation);
 	int reset();
 	int external_lock(THD *thd, int lock_type);
