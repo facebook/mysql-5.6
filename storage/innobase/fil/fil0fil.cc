@@ -2990,9 +2990,11 @@ dberr_t
 fil_delete_tablespace(
 /*==================*/
 	ulint		id,		/*!< in: space id */
-	buf_remove_t	buf_remove)	/*!< in: specify the action to take
+	buf_remove_t	buf_remove,	/*!< in: specify the action to take
 					on the tables pages in the buffer
 					pool */
+	bool		fast)	/*!< in: TRUE if fast discard,
+					else regular discard*/
 {
 	char*		path = 0;
 	fil_space_t*	space = 0;
@@ -3048,7 +3050,8 @@ fil_delete_tablespace(
 	To deal with potential read requests by checking the
 	::stop_new_ops flag in fil_io() */
 
-	buf_LRU_flush_or_remove_pages(id, buf_remove, 0);
+	if (!fast)
+		buf_LRU_flush_or_remove_pages(id, buf_remove, 0);
 
 #endif /* !UNIV_HOTBACKUP */
 
@@ -3157,7 +3160,9 @@ UNIV_INTERN
 dberr_t
 fil_discard_tablespace(
 /*===================*/
-	ulint	id)	/*!< in: space id */
+	ulint	id,	/*!< in: space id */
+	bool	fast)	/*!< in: TRUE if fast discard,
+					else regular discard*/
 {
 	dberr_t	err;
 
@@ -3184,8 +3189,8 @@ fil_discard_tablespace(
 	}
 
 	/* Remove all insert buffer entries for the tablespace */
-
-	ibuf_delete_for_discarded_space(id);
+	if (!fast)
+		ibuf_delete_for_discarded_space(id);
 
 	return(err);
 }
