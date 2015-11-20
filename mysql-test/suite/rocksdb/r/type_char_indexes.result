@@ -61,7 +61,7 @@ r2a
 r3a
 EXPLAIN SELECT c,c20,v16,v128 FROM t1 WHERE v16 = 'varchar1a' OR v16 = 'varchar3a' ORDER BY v16;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t1	range	v16	v16	19	NULL	#	Using where
+1	SIMPLE	t1	ALL	v16	NULL	NULL	NULL	#	Using where; Using filesort
 SELECT c,c20,v16,v128 FROM t1 WHERE v16 = 'varchar1a' OR v16 = 'varchar3a' ORDER BY v16;
 c	c20	v16	v128
 a	char1	varchar1a	varchar1b

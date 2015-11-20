@@ -75,14 +75,14 @@ pk	a	b
 explain
 select count(*) from t2 force index (a) where a>=0 and a <=1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	a	a	4	NULL	#	Using where; Using index
+1	SIMPLE	t2	index	a	a	4	NULL	#	Using where; Using index
 select count(*) from t2 force index (a) where a>=0 and a <=1;
 count(*)
 20
 explain
 select count(*) from t2 force index (a) where a>=-1 and a <=1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	a	a	4	NULL	#	Using where; Using index
+1	SIMPLE	t2	index	a	a	4	NULL	#	Using where; Using index
 select count(*) from t2 force index (a) where a>=-1 and a <=1;
 count(*)
 20
@@ -112,14 +112,14 @@ pk	a	b
 explain
 select count(*) from t2 force index (a) where a>0;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	a	a	4	NULL	#	Using where; Using index
+1	SIMPLE	t2	index	a	a	4	NULL	#	Using where; Using index
 select count(*) from t2 force index (a) where a>0;
 count(*)
 990
 explain
 select count(*) from t2 force index (a) where a>99;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	a	a	4	NULL	#	Using where; Using index
+1	SIMPLE	t2	index	a	a	4	NULL	#	Using where; Using index
 select count(*) from t2 force index (a) where a>99;
 count(*)
 0
@@ -130,7 +130,7 @@ pk	a	b
 explain
 select count(*) from t2 force index (a) where a=2 and pk>25;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t2	range	a	a	8	NULL	#	Using where; Using index
+1	SIMPLE	t2	ref	a	a	4	const	#	Using where; Using index
 select count(*) from t2 force index (a) where a=2 and pk>25;
 count(*)
 4
@@ -255,14 +255,14 @@ insert into t4 select pk,pk,pk,pk from t2 where pk < 100;
 explain 
 select * from t4 where a=1 and b in (1) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	ref	a	a	10	const,const	#	Using where; Using index
+1	SIMPLE	t4	index	a	a	15	NULL	#	Using where; Using index
 select * from t4 where a=1 and b in (1) order by c desc;
 pk	a	b	c
 1	1	1	1
 explain 
 select * from t4 where a=5 and b in (4) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t4	ref	a	a	10	const,const	#	Using where; Using index
+1	SIMPLE	t4	index	a	a	15	NULL	#	Using where; Using index
 select * from t4 where a=5 and b in (4) order by c desc;
 pk	a	b	c
 # HA_READ_PREFIX_LAST for reverse-ordered CF
@@ -277,14 +277,14 @@ insert into t5 select pk,pk,pk,pk from t2 where pk < 100;
 explain 
 select * from t5 where a=1 and b in (1) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t5	ref	a	a	10	const,const	#	Using where; Using index
+1	SIMPLE	t5	index	a	a	15	NULL	#	Using where; Using index
 select * from t5 where a=1 and b in (1) order by c desc;
 pk	a	b	c
 1	1	1	1
 explain 
 select * from t5 where a=5 and b in (4) order by c desc;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
-1	SIMPLE	t5	ref	a	a	10	const,const	#	Using where; Using index
+1	SIMPLE	t5	index	a	a	15	NULL	#	Using where; Using index
 select * from t5 where a=5 and b in (4) order by c desc;
 pk	a	b	c
 drop table t0,t1,t2,t3,t4,t5;
