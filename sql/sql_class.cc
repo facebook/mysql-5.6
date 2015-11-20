@@ -4943,6 +4943,10 @@ void THD::get_definer(LEX_USER *definer)
     get_default_definer(this, definer);
 }
 
+void THD::set_query_attrs(const CSET_STRING &arg)
+{
+  query_attrs_string= arg;
+}
 
 /**
   Mark transaction to rollback and mark error as fatal to a sub-statement.

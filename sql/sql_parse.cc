@@ -1568,7 +1568,38 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     thd->m_digest= & thd->m_digest_state;
     thd->m_digest->reset(thd->m_token_array, max_digest_length);
 
-    if (alloc_query(thd, packet, packet_length))
+    /*
+      Save query attributes to be forwarded in audit plugin.
+     */
+    char* query_ptr= packet;
+    size_t query_len= packet_length;
+    if (thd->client_capabilities & CLIENT_QUERY_ATTRS)
+    {
+      char* attrs_ptr= packet;
+      size_t attrs_len= net_field_length((uchar**) &attrs_ptr);
+      thd->set_query_attrs(CSET_STRING(attrs_ptr, attrs_len, thd->charset()));
+
+      query_ptr= attrs_ptr + attrs_len;
+      query_len= packet + packet_length - query_ptr;
+      DBUG_EXECUTE_IF("print_query_attr", {
+          char* cur= attrs_ptr;
+          size_t len;
+          while (cur < attrs_ptr + attrs_len)
+          {
+            len= net_field_length((uchar**) &cur);
+            // NO_LINT_DEBUG
+            fprintf(stderr, "[query-attrs][key] %.*s\n", (int)len, cur);
+            cur+= len;
+            len= net_field_length((uchar**) &cur);
+            // NO_LINT_DEBUG
+            fprintf(stderr, "[query-attrs][value] %.*s\n", (int)len, cur);
+            cur+= len;
+          }
+        }
+      );
+    }
+
+    if (alloc_query(thd, query_ptr, query_len))
       break;					// fatal error is set
     MYSQL_QUERY_START(thd->query(), thd->thread_id,
                       (char *) (thd->db ? thd->db : ""),
@@ -2065,6 +2096,7 @@ done:
   THD_STAGE_INFO(thd, stage_cleaning_up);
 
   thd->reset_query();
+  thd->reset_query_attrs();
   thd->set_command(COM_SLEEP);
 
   /* Performance Schema Interface instrumentation, end */

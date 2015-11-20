@@ -5313,3 +5313,11 @@ static Sys_var_mybool Sys_show_old_temporals(
         ON_CHECK(0), ON_UPDATE(0),
         DEPRECATED(""));
 
+static Sys_var_mybool Sys_query_attrs(
+       "query_attrs",
+       "Enable query attributes.",
+       GLOBAL_VAR(opt_query_attrs), CMD_LINE(OPT_ARG),
+       DEFAULT(FALSE),
+       NO_MUTEX_GUARD, NOT_IN_BINLOG,
+       ON_CHECK(0)
+       );
