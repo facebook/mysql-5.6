@@ -4262,7 +4262,7 @@ void init_sql_statement_names()
 
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
 PSI_statement_info sql_statement_info[(uint) SQLCOM_END + 1];
-PSI_statement_info com_statement_info[(uint) COM_END + 1];
+PSI_statement_info com_statement_info[(uint) COM_MAX];
 
 /**
   Initialize the command names array.
@@ -4289,7 +4289,7 @@ void init_com_statement_info()
 {
   uint index;
 
-  for (index= 0; index < (uint) COM_END + 1; index++)
+  for (index= 0; index < array_elements(com_statement_info); index++)
   {
     com_statement_info[index].m_name= command_name[index].str;
     com_statement_info[index].m_flags= 0;
@@ -4297,6 +4297,7 @@ void init_com_statement_info()
 
   /* "statement/abstract/query" can mutate into "statement/sql/..." */
   com_statement_info[(uint) COM_QUERY].m_flags= PSI_FLAG_MUTABLE;
+  com_statement_info[(uint) COM_QUERY_ATTRS].m_flags= PSI_FLAG_MUTABLE;
 }
 #endif
 
@@ -11213,6 +11214,9 @@ void init_server_psi_keys(void)
   */
   count= (int) COM_END - (int) COM_QUERY;
   mysql_statement_register(category, & com_statement_info[(int) COM_QUERY + 1], count);
+
+  count= COM_MAX - COM_TOP_END - 1;
+  mysql_statement_register(category, & com_statement_info[(int) COM_TOP_END + 1], count);
 
   category= "abstract";
   /*
