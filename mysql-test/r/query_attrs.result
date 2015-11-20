@@ -1,0 +1,33 @@
+create database db1;
+use db1;
+set @old_debug_val = @@global.debug;
+set @@global.debug="+d,print_query_attr";
+select 1;
+1
+1
+select 1;
+1
+1
+select 1;
+1
+1
+select 1;
+1
+1
+select 1;
+1
+1
+[query-attrs][value] a
+[query-attrs][key] b
+[query-attrs][list]
+[query-attrs][value] a
+[query-attrs][key] b
+[query-attrs][value] b
+[query-attrs][key] a
+[query-attrs][list]
+[query-attrs][value] b
+[query-attrs][key] a
+[query-attrs][list]
+Found the start of the test case in error log.
+set global debug = @old_debug_val;
+drop database db1;
