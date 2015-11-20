@@ -678,10 +678,9 @@ static MYSQL_THDVAR_UINT(records_in_range,
 
 static MYSQL_SYSVAR_UINT(debug_optimizer_n_rows,
   rocksdb_debug_optimizer_n_rows,
-  PLUGIN_VAR_RQCMDARG,
-  "Used for info(). Testing purpose only and will be deprecated",
-  NULL, NULL, 1000,
-  /* min */ 0, /* max */ INT_MAX, 0);
+  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY | PLUGIN_VAR_NOSYSVAR,
+  "Test only to override rocksdb estimates of table size in a memtable",
+  nullptr, nullptr, 0, /* min */ 0, /* max */ INT_MAX, 0);
 
 static MYSQL_SYSVAR_BOOL(debug_optimizer_no_zero_cardinality,
   rocksdb_debug_optimizer_no_zero_cardinality,
@@ -5368,10 +5367,10 @@ int ha_rocksdb::info(uint flag)
         &sz, true);
       stats.records = sz/ROCKSDB_ASSUMED_KEY_VALUE_DISK_SIZE;
       stats.data_file_length = sz;
-    }
 
-    if (stats.records == 0)
-      stats.records = rocksdb_debug_optimizer_n_rows;
+      if (rocksdb_debug_optimizer_n_rows > 0)
+        stats.records = rocksdb_debug_optimizer_n_rows;
+    }
   }
   if (flag & HA_STATUS_CONST)
   {
@@ -6117,7 +6116,12 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   }
 
   ret = rows*sz/disk_size;
-  if (ret == 0) {
+  if (rocksdb_debug_optimizer_n_rows > 0)
+  {
+    ret= rocksdb_debug_optimizer_n_rows;
+  }
+  else if (ret == 0)
+  {
     ret = 1;
   }
 
