@@ -114,8 +114,8 @@ void mysql_audit_general_log(THD *thd, const char *cmd, uint cmdlen,
       databaselen= thd->db_length;
       cert= 0;
       certlen= 0;
-      queryattr= 0;
-      queryattrlen= 0;
+      queryattr= thd->query_attrs();
+      queryattrlen= thd->query_attrs_length();
     }
     else
     {
@@ -214,8 +214,8 @@ void mysql_audit_general(THD *thd, uint event_subtype,
       databaselen= thd->db_length;
       cert= 0;
       certlen= 0;
-      queryattr= 0;
-      queryattrlen= 0;
+      queryattr= thd->query_attrs();
+      queryattrlen= thd->query_attrs_length();
     }
     else
     {
