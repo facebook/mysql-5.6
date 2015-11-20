@@ -11212,7 +11212,8 @@ UNIV_INTERN
 int
 ha_innobase::discard_or_import_tablespace(
 /*======================================*/
-	my_bool discard)	/*!< in: TRUE if discard, else import */
+	uint discard)	/*!< in: enum_tablespace_op_type
+			import, discard, fast discard*/
 {
 	dberr_t		err;
 	dict_table_t*	dict_table;
@@ -11268,7 +11269,9 @@ ha_innobase::discard_or_import_tablespace(
 		}
 
 		err = row_discard_tablespace_for_mysql(
-			dict_table->name, prebuilt->trx);
+			dict_table->name, prebuilt->trx,
+			discard == Sql_cmd_discard_import_tablespace::
+				DISCARD_TABLESPACE_FAST);
 
 	} else if (!dict_table->ibd_file_missing) {
 		/* Commit the transaction in order to

@@ -3008,7 +3008,9 @@ dberr_t
 row_discard_tablespace(
 /*===================*/
 	trx_t*		trx,	/*!< in/out: transaction handle */
-	dict_table_t*	table)	/*!< in/out: table to be discarded */
+	dict_table_t*	table,	/*!< in/out: table to be discarded */
+	bool		fast)	/*!< in: TRUE if fast discard,
+				else regular discard*/
 {
 	dberr_t		err;
 
@@ -3036,7 +3038,8 @@ row_discard_tablespace(
 	/* Play safe and remove all insert buffer entries, though we should
 	have removed them already when DISCARD TABLESPACE was called */
 
-	ibuf_delete_for_discarded_space(table->space);
+	if (!fast)
+		ibuf_delete_for_discarded_space(table->space);
 
 	table_id_t	new_id;
 
@@ -3074,7 +3077,7 @@ row_discard_tablespace(
 
 	/* Discard the physical file that is used for the tablespace. */
 
-	err = fil_discard_tablespace(table->space);
+	err = fil_discard_tablespace(table->space, fast);
 
 	switch(err) {
 	case DB_SUCCESS:
@@ -3129,7 +3132,9 @@ dberr_t
 row_discard_tablespace_for_mysql(
 /*=============================*/
 	const char*	name,	/*!< in: table name */
-	trx_t*		trx)	/*!< in: transaction handle */
+	trx_t*		trx,	/*!< in: transaction handle */
+	bool		fast)	/*!< in: TRUE if fast discard,
+				else regular discard*/
 {
 	dberr_t		err;
 	dict_table_t*	table;
@@ -3168,7 +3173,7 @@ row_discard_tablespace_for_mysql(
 		err = row_discard_tablespace_foreign_key_checks(trx, table);
 
 		if (err == DB_SUCCESS) {
-			err = row_discard_tablespace(trx, table);
+			err = row_discard_tablespace(trx, table, fast);
 		}
 	}
 
