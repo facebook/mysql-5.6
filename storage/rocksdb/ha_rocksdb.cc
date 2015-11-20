@@ -2080,6 +2080,9 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
+  // disable auto compactions temporarily to prevent race with compaction filter
+  default_cf_opts.disable_auto_compactions = true;
+
   /*
     If there are no column families, we're creating the new database.
     Create one column family named "default".
@@ -2160,6 +2163,17 @@ static int rocksdb_init_func(void *p)
 
   if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables))
     DBUG_RETURN(1);
+
+  // reenable compaction, things initialized for compaction filter are finished
+  default_cf_opts.disable_auto_compactions = false;
+  status= rdb->EnableAutoCompaction(cf_handles);
+
+  if (!status.ok())
+  {
+    std::string err_text= status.ToString();
+    sql_print_error("RocksDB: Error enabling compaction: %s", err_text.c_str());
+    DBUG_RETURN(1);
+  }
 
   pthread_t thread_handle;
   auto err = mysql_thread_create(
