@@ -2177,6 +2177,7 @@ END_OF_INPUT
 %type <is_not_empty> opt_union_order_or_limit
 
 %type <num> read_only_opt boolean_val
+%type <num> opt_discard_tablespace
 %%
 
 /*
@@ -7937,11 +7938,12 @@ ident_or_empty:
 
 alter_commands:
           /* empty */
-        | DISCARD TABLESPACE
+        | DISCARD TABLESPACE opt_discard_tablespace
           {
             Lex->m_sql_cmd= new (YYTHD->mem_root)
-              Sql_cmd_discard_import_tablespace(
-                Sql_cmd_discard_import_tablespace::DISCARD_TABLESPACE);
+              Sql_cmd_discard_import_tablespace($3?
+                Sql_cmd_discard_import_tablespace::DISCARD_TABLESPACE_FAST
+              : Sql_cmd_discard_import_tablespace::DISCARD_TABLESPACE);
             if (Lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
@@ -8076,6 +8078,11 @@ alter_commands:
             if (lex->m_sql_cmd == NULL)
               MYSQL_YYABORT;
           }
+        ;
+
+opt_discard_tablespace:
+          /* empty */ { $$ = 0; }
+        | FAST_SYM { $$ = 1; }
         ;
 
 remove_partitioning:
