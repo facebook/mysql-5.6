@@ -4944,7 +4944,6 @@ void THD::get_definer(LEX_USER *definer)
     get_default_definer(this, definer);
 }
 
-
 /**
   Mark transaction to rollback and mark error as fatal to a sub-statement.
 
