@@ -21,8 +21,8 @@ mkdir $ddir;
 # Launch mysqld with non-standard rocksdb_datadir
 exec $MYSQLD_BOOTSTRAP_CMD --datadir=$ddir --rocksdb_datadir=$rdb_ddir --default-storage-engine=rocksdb --skip-innodb --default-tmp-storage-engine=MyISAM --rocksdb < $sql_file;
 
-# Log whether the 000006.sst file was created in the rocksdb_datadir
-exec basename `ls $rdb_ddir/*.sst`;
+--echo Check for the number of MANIFEST files
+exec ls $rdb_ddir/MANIFEST-0000* | wc -l;
 
 # Clean up
 exec rm -rf $ddir;
