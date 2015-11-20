@@ -4564,7 +4564,7 @@ handler::ha_enable_indexes(uint mode)
 */
 
 int
-handler::ha_discard_or_import_tablespace(my_bool discard)
+handler::ha_discard_or_import_tablespace(uint discard)
 {
   DBUG_ASSERT(table_share->tmp_table != NO_TMP_TABLE ||
               m_lock_type == F_WRLCK);
