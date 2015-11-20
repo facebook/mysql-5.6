@@ -9,98 +9,98 @@ KEY kb(b) comment 'rev:cf1'
 ) ENGINE = rocksdb;
 explain extended select * from t1 where a> 500 and a< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	58	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` > 500) and (`test`.`t1`.`a` < 750))
 explain extended select * from t1 where a< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	215	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` < 750)
 explain extended select * from t1 where a> 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	103	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` > 500)
 explain extended select * from t1 where a>=0 and a<=1000;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	260	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` >= 0) and (`test`.`t1`.`a` <= 1000))
 explain extended select * from t1 where b> 500 and b< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	99	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` > 500) and (`test`.`t1`.`b` < 750))
 explain extended select * from t1 where b< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	154	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` < 750)
 explain extended select * from t1 where b> 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	209	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` > 500)
 explain extended select * from t1 where b>=0 and b<=1000;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	230	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` >= 0) and (`test`.`t1`.`b` <= 1000))
 set global rocksdb_force_flush_memtable_now = true;
 explain extended select * from t1 where a> 500 and a< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	247	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` > 500) and (`test`.`t1`.`a` < 750))
 explain extended select * from t1 where a< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	752	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` < 750)
 explain extended select * from t1 where a> 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	689	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`a` > 500)
 explain extended select * from t1 where a>=0 and a<=1000;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	ka	NULL	NULL	NULL	1000	100.00	Using where
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` >= 0) and (`test`.`t1`.`a` <= 1000))
 explain extended select * from t1 where b> 500 and b< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	249	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` > 500) and (`test`.`t1`.`b` < 750))
 explain extended select * from t1 where b< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	851	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` < 750)
 explain extended select * from t1 where b> 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	500	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where (`test`.`t1`.`b` > 500)
 explain extended select * from t1 where b>=0 and b<=1000;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	ALL	kb	NULL	NULL	NULL	1000	100.00	Using where
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` >= 0) and (`test`.`t1`.`b` <= 1000))
 explain extended select * from t1 where a>= 500 and a<= 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka	ka	5	NULL	1	100.00	Using index condition
+1	SIMPLE	t1	range	ka	ka	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` >= 500) and (`test`.`t1`.`a` <= 500))
 explain extended select * from t1 where b>= 500 and b<= 500;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	kb	kb	5	NULL	1	100.00	Using index condition
+1	SIMPLE	t1	range	kb	kb	5	NULL	1000	100.00	Using index condition
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`b` >= 500) and (`test`.`t1`.`b` <= 500))
 explain extended select * from t1 where a< 750 and b> 500 and b< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	range	ka,kb	kb	5	NULL	249	100.00	Using index condition; Using where
+1	SIMPLE	t1	range	ka,kb	ka	5	NULL	1000	100.00	Using index condition; Using where
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` < 750) and (`test`.`t1`.`b` > 500) and (`test`.`t1`.`b` < 750))
 drop index ka on t1;
@@ -109,7 +109,7 @@ create index kab on t1(a,b);
 set global rocksdb_force_flush_memtable_now = true;
 explain extended select * from t1 where a< 750 and b> 500 and b< 750;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	filtered	Extra
-1	SIMPLE	t1	index	kab	kab	10	NULL	1000	66.50	Using where; Using index
+1	SIMPLE	t1	index	kab	kab	10	NULL	1000	100.00	Using where; Using index
 Warnings:
 Note	1003	/* select#1 */ select `test`.`t1`.`i` AS `i`,`test`.`t1`.`a` AS `a`,`test`.`t1`.`b` AS `b` from `test`.`t1` where ((`test`.`t1`.`a` < 750) and (`test`.`t1`.`b` > 500) and (`test`.`t1`.`b` < 750))
 set rocksdb_records_in_range=444;
