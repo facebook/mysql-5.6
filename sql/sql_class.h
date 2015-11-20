@@ -4475,6 +4475,14 @@ public:
 
   void mark_transaction_to_rollback(bool all);
 
+  void set_query_attrs(const CSET_STRING &arg) { query_attrs_string= arg; }
+  void reset_query_attrs() { set_query_attrs(CSET_STRING()); }
+  inline char *query_attrs() const { return query_attrs_string.str(); }
+  inline uint32 query_attrs_length() const
+  {
+    return query_attrs_string.length();
+  }
+
 #ifndef DBUG_OFF
 private:
   int gis_debug; // Storage for "SELECT ST_GIS_DEBUG(param);"
@@ -4484,6 +4492,7 @@ public:
 #endif
 
 private:
+  CSET_STRING query_attrs_string;
 
   /** The current internal error handler for this thread, or NULL. */
   Internal_error_handler *m_internal_handler;

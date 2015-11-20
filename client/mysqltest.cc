@@ -734,6 +734,9 @@ enum enum_commands {
   Q_DISABLE_ASYNC_CLIENT,       /* disable async for the rest of this test */
   Q_SUSPEND_ASYNC_CLIENT,       /* disable async for only the next command */
   Q_DUMP_TIMED_OUT_CONNECTION_SOCKET_BUFFER,
+  Q_QUERY_ATTRS_ADD,
+  Q_QUERY_ATTRS_DELETE,
+  Q_QUERY_ATTRS_RESET,
   Q_UNKNOWN,			       /* Unknown command.   */
   Q_COMMENT,			       /* Comments, ignored. */
   Q_COMMENT_WITH_COMMAND,
@@ -838,6 +841,9 @@ const char *command_names[]=
   "disable_async_client",
   "suspend_async_client",
   "dump_timed_out_connection_socket_buffer",
+  "query_attrs_add",
+  "query_attrs_delete",
+  "query_attrs_reset",
 
   0
 };
@@ -6556,6 +6562,52 @@ void do_block(enum block_cmd cmd, struct st_command* command)
 }
 
 
+void do_query_attrs_add(struct st_command *command)
+{
+  int error;
+  static DYNAMIC_STRING key;
+  static DYNAMIC_STRING value;
+  const struct command_arg query_attrs_args[] = {
+    { "key", ARG_STRING, TRUE, &key, "Key for query attributes" },
+    { "value", ARG_STRING, TRUE, &value, "Value for query attributes" }
+  };
+  DBUG_ENTER("do_query_attrs_add");
+
+  check_command_args(command, command->first_argument,
+                     query_attrs_args,
+                     sizeof(query_attrs_args)/sizeof(struct command_arg),
+                     ' ');
+
+  error= mysql_options4(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_ADD,
+                        key.str, value.str);
+  handle_command_error(command, error);
+  dynstr_free(&key);
+  dynstr_free(&value);
+  DBUG_VOID_RETURN;
+}
+
+
+void do_query_attrs_delete(struct st_command *command)
+{
+  int error;
+  static DYNAMIC_STRING key;
+  const struct command_arg query_attrs_args[] = {
+    { "key", ARG_STRING, TRUE, &key, "Key for query attributes" },
+  };
+  DBUG_ENTER("do_query_attrs_delete");
+
+  check_command_args(command, command->first_argument,
+                     query_attrs_args,
+                     sizeof(query_attrs_args)/sizeof(struct command_arg),
+                     ' ');
+
+  error= mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_DELETE, key.str);
+  handle_command_error(command, error);
+  dynstr_free(&key);
+  DBUG_VOID_RETURN;
+}
+
+
 void do_delimiter(struct st_command* command)
 {
   char* p= command->first_argument;
@@ -9753,6 +9805,16 @@ int main(int argc, char **argv)
 
       case Q_SUSPEND_ASYNC_CLIENT:
         enable_async_client = FALSE;
+        break;
+
+      case Q_QUERY_ATTRS_ADD:
+        do_query_attrs_add(command);
+        break;
+      case Q_QUERY_ATTRS_DELETE:
+        do_query_attrs_delete(command);
+        break;
+      case Q_QUERY_ATTRS_RESET:
+        mysql_options(&cur_con->mysql, MYSQL_OPT_QUERY_ATTR_RESET, 0);
         break;
 
       default:
