@@ -1,0 +1,92 @@
+#
+# fast discard tablespace
+#
+
+--source include/not_embedded.inc
+--source include/have_innodb.inc
+
+let MYSQLD_DATADIR =`SELECT @@datadir`;
+let $innodb_file_per_table = `SELECT @@innodb_file_per_table`;
+let $innodb_file_format = `SELECT @@innodb_file_format`;
+
+SET GLOBAL innodb_file_per_table = 1;
+SELECT @@innodb_file_per_table;
+
+CREATE TABLE t(a INT) ENGINE=InnoDB;
+FLUSH TABLES t FOR EXPORT;
+
+perl;
+do 'include/innodb-util.inc';
+ib_backup_tablespaces("test", "t");
+EOF
+
+UNLOCK TABLES;
+DROP TABLE t;
+
+CREATE TABLE t(a INT) ENGINE=InnoDB;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+--source suite/innodb/include/innodb-alter-discard-fast.inc
+
+--echo # compressed table
+SET GLOBAL innodb_file_format = `Barracuda`;
+SELECT @@innodb_file_format;
+
+CREATE TABLE t(a INT) ENGINE=InnoDB ROW_FORMAT=compressed;
+FLUSH TABLES t FOR EXPORT;
+
+perl;
+do 'include/innodb-util.inc';
+ib_backup_tablespaces("test", "t");
+EOF
+
+UNLOCK TABLES;
+DROP TABLE t;
+
+CREATE TABLE t(a INT) ENGINE=InnoDB ROW_FORMAT=compressed;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+--source suite/innodb/include/innodb-alter-discard-fast.inc
+eval SET GLOBAL INNODB_FILE_FORMAT=$innodb_file_format;
+
+--echo # tables with keys
+CREATE TABLE t(a INT primary key, b INT, c CHAR(100),
+               key (b), key (c(20))) ENGINE=InnoDB ROW_FORMAT=compressed;
+FLUSH TABLES t FOR EXPORT;
+
+perl;
+do 'include/innodb-util.inc';
+ib_backup_tablespaces("test", "t");
+EOF
+
+UNLOCK TABLES;
+DROP TABLE t;
+
+CREATE TABLE t(a INT primary key, b INT, c CHAR(100),
+               key (b), key (c(20))) ENGINE=InnoDB ROW_FORMAT=compressed;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+--source suite/innodb/include/innodb-alter-discard-fast.inc
+
+--echo # partition table
+CREATE TABLE t (a int, PRIMARY KEY (a)) ENGINE=InnoDB
+PARTITION BY HASH (a) PARTITIONS 2;
+--error ER_ILLEGAL_HA
+ALTER TABLE t DISCARD TABLESPACE FAST;
+DROP TABLE t;
+
+--echo # non-innodb table
+CREATE TABLE t(a INT) ENGINE=MyISAM;
+--error ER_ILLEGAL_HA
+ALTER TABLE t DISCARD TABLESPACE FAST;
+DROP TABLE t;
+
+#
+#cleanup
+#
+--remove_file $MYSQLTEST_VARDIR/tmp/t.cfg
+--remove_file $MYSQLTEST_VARDIR/tmp/t.ibd
+
+eval SET GLOBAL INNODB_FILE_PER_TABLE=$innodb_file_per_table;
+eval SET GLOBAL INNODB_FILE_FORMAT=$innodb_file_format;
+
+--disable_query_log
+call mtr.add_suppression("InnoDB: The table .* doesn't have a corresponding tablespace, it was discarded");
+--enable_query_log

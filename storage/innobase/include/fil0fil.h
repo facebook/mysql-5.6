@@ -746,9 +746,11 @@ dberr_t
 fil_delete_tablespace(
 /*==================*/
 	ulint		id,		/*!< in: space id */
-	buf_remove_t	buf_remove);	/*!< in: specify the action to take
+	buf_remove_t	buf_remove,	/*!< in: specify the action to take
 					on the tables pages in the buffer
 					pool */
+	bool		fast = false); /*!< in: TRUE if fast discard,
+					else regular discard*/
 /*******************************************************************//**
 Closes a single-table tablespace. The tablespace must be cached in the
 memory cache. Free all pages used by the tablespace.
@@ -778,7 +780,9 @@ UNIV_INTERN
 dberr_t
 fil_discard_tablespace(
 /*===================*/
-	ulint	id)	/*!< in: space id */
+	ulint	id,	/*!< in: space id */
+	bool	fast = false) /*!< in: TRUE if fast discard,
+					else regular discard*/
 	__attribute__((warn_unused_result));
 #endif /* !UNIV_HOTBACKUP */
 /*******************************************************************//**

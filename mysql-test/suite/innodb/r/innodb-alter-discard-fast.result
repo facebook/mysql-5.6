@@ -1,0 +1,110 @@
+SET GLOBAL innodb_file_per_table = 1;
+SELECT @@innodb_file_per_table;
+@@innodb_file_per_table
+1
+CREATE TABLE t(a INT) ENGINE=InnoDB;
+FLUSH TABLES t FOR EXPORT;
+backup: t
+UNLOCK TABLES;
+DROP TABLE t;
+CREATE TABLE t(a INT) ENGINE=InnoDB;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+tablespace file removed
+SELECT COUNT(*) FROM t;
+ERROR HY000: Tablespace has been discarded for table 't'
+INSERT INTO t(a) VALUES (1), (2), (3);
+ERROR HY000: Tablespace has been discarded for table 't'
+restore: t .ibd and .cfg files
+ALTER TABLE t IMPORT TABLESPACE;
+CHECK TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	check	status	OK
+SELECT COUNT(*) FROM t;
+COUNT(*)
+0
+INSERT INTO t(a) VALUES(1), (2), (3);
+SELECT * FROM t;
+a
+1
+2
+3
+DROP TABLE t;
+# compressed table
+SET GLOBAL innodb_file_format = `Barracuda`;
+SELECT @@innodb_file_format;
+@@innodb_file_format
+Barracuda
+CREATE TABLE t(a INT) ENGINE=InnoDB ROW_FORMAT=compressed;
+FLUSH TABLES t FOR EXPORT;
+backup: t
+UNLOCK TABLES;
+DROP TABLE t;
+CREATE TABLE t(a INT) ENGINE=InnoDB ROW_FORMAT=compressed;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+tablespace file removed
+SELECT COUNT(*) FROM t;
+ERROR HY000: Tablespace has been discarded for table 't'
+INSERT INTO t(a) VALUES (1), (2), (3);
+ERROR HY000: Tablespace has been discarded for table 't'
+restore: t .ibd and .cfg files
+ALTER TABLE t IMPORT TABLESPACE;
+CHECK TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	check	status	OK
+SELECT COUNT(*) FROM t;
+COUNT(*)
+0
+INSERT INTO t(a) VALUES(1), (2), (3);
+SELECT * FROM t;
+a
+1
+2
+3
+DROP TABLE t;
+SET GLOBAL INNODB_FILE_FORMAT=Antelope;
+CREATE TABLE t(a INT primary key, b INT, c CHAR(100),
+key (b), key (c(20))) ENGINE=InnoDB ROW_FORMAT=compressed;
+Warnings:
+Warning	1478	InnoDB: ROW_FORMAT=COMPRESSED requires innodb_file_format > Antelope.
+Warning	1478	InnoDB: assuming ROW_FORMAT=COMPACT.
+FLUSH TABLES t FOR EXPORT;
+backup: t
+UNLOCK TABLES;
+DROP TABLE t;
+CREATE TABLE t(a INT primary key, b INT, c CHAR(100),
+key (b), key (c(20))) ENGINE=InnoDB ROW_FORMAT=compressed;
+Warnings:
+Warning	1478	InnoDB: ROW_FORMAT=COMPRESSED requires innodb_file_format > Antelope.
+Warning	1478	InnoDB: assuming ROW_FORMAT=COMPACT.
+ALTER TABLE t DISCARD TABLESPACE FAST;
+tablespace file removed
+SELECT COUNT(*) FROM t;
+ERROR HY000: Tablespace has been discarded for table 't'
+INSERT INTO t(a) VALUES (1), (2), (3);
+ERROR HY000: Tablespace has been discarded for table 't'
+restore: t .ibd and .cfg files
+ALTER TABLE t IMPORT TABLESPACE;
+CHECK TABLE t;
+Table	Op	Msg_type	Msg_text
+test.t	check	status	OK
+SELECT COUNT(*) FROM t;
+COUNT(*)
+0
+INSERT INTO t(a) VALUES(1), (2), (3);
+SELECT * FROM t;
+a	b	c
+1	NULL	NULL
+2	NULL	NULL
+3	NULL	NULL
+DROP TABLE t;
+CREATE TABLE t(a INT) ENGINE=MyISAM;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+ERROR HY000: Table storage engine for 't' doesn't have this option
+DROP TABLE t;
+CREATE TABLE t (a int, PRIMARY KEY (a)) ENGINE=InnoDB
+PARTITION BY HASH (a) PARTITIONS 2;
+ALTER TABLE t DISCARD TABLESPACE FAST;
+ERROR HY000: Table storage engine for 't' doesn't have this option
+DROP TABLE t;
+SET GLOBAL INNODB_FILE_PER_TABLE=1;
+SET GLOBAL INNODB_FILE_FORMAT=Antelope;

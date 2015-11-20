@@ -1176,7 +1176,7 @@ public:
     Admin of table spaces is not applicable to the partition handler (InnoDB)
     This means that the following method is not implemented:
     -------------------------------------------------------------------------
-    virtual int discard_or_import_tablespace(my_bool discard)
+    virtual int discard_or_import_tablespace(uint discard)
   */
 
   /*
