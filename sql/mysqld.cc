@@ -425,6 +425,7 @@ bool volatile shutdown_in_progress;
 ulong log_warnings;
 uint host_cache_size;
 ulonglong tmp_table_rpl_max_file_size;
+bool opt_query_attrs= 0;
 
 #if defined(_WIN32) && !defined(EMBEDDED_LIBRARY)
 ulong slow_start_timeout;

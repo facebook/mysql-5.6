@@ -1,0 +1,30 @@
+--source include/have_debug.inc
+--disable_async_client
+
+create database db1;
+use db1;
+
+set @old_debug_val = @@global.debug;
+set global query_attrs= on;
+set @@global.debug="+d,print_query_attr";
+
+connect (con,localhost,root,,db1);
+query_attrs_add a b;
+select 1;
+
+query_attrs_add b a;
+select 1;
+
+query_attrs_delete a;
+select 1;
+
+query_attrs_reset;
+select 1;
+
+--source include/query_attrs_perl.inc
+
+connection default;
+set global debug = @old_debug_val;
+set global query_attrs= off;
+
+drop database db1;

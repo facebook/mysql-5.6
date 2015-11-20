@@ -86,6 +86,8 @@ struct st_mysql_options_extention {
   HASH connection_attributes;
   char *server_public_key_path;
   size_t connection_attributes_length;
+  HASH query_attributes;
+  size_t query_attributes_length;
   my_bool enable_cleartext_plugin;
   void* ssl_session;
   void* ssl_context;
