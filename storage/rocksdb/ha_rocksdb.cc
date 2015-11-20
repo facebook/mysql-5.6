@@ -2087,6 +2087,7 @@ static int rocksdb_init_func(void *p)
   if (cf_names.size() == 0)
     cf_names.push_back(DEFAULT_CF_NAME);
 
+  std::unordered_set<std::string> compaction_enabled_cf_names;
   sql_print_information("RocksDB: Column Families at start:");
   for (size_t i = 0; i < cf_names.size(); ++i)
   {
@@ -2098,6 +2099,14 @@ static int rocksdb_init_func(void *p)
     sql_print_information("    target_file_size_base=%" PRIu64,
                           opts.target_file_size_base);
 
+    /*
+      Temporarily disable compactions to prevent a race condition where
+      compaction starts before compaction filter is ready.
+    */
+    if (!opts.disable_auto_compactions) {
+      compaction_enabled_cf_names.insert(cf_names[i]);
+      opts.disable_auto_compactions = true;
+    }
     cf_descr.push_back(rocksdb::ColumnFamilyDescriptor(cf_names[i], opts));
   }
 
@@ -2160,6 +2169,20 @@ static int rocksdb_init_func(void *p)
 
   if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables))
     DBUG_RETURN(1);
+
+  /*
+    Enable auto compaction, things needed for compaction filter are finished
+    initializing
+  */
+  status= rdb->EnableAutoCompaction(compaction_enabled_cf_names, cf_handles);
+
+  if (!status.ok())
+  {
+    std::string err_text= status.ToString();
+    // NO_LINT_DEBUG
+    sql_print_error("RocksDB: Error enabling compaction: %s", err_text.c_str());
+    DBUG_RETURN(1);
+  }
 
   pthread_t thread_handle;
   auto err = mysql_thread_create(
