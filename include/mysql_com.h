@@ -77,7 +77,15 @@ enum enum_server_command
   /* don't forget to update const char *command_name[] in sql_parse.cc */
 
   /* Must be last */
-  COM_END
+  COM_END,
+
+  /*
+    The following are Facebook specific commands. They are put at the top end
+    to avoid conflicting with upstream.
+  */
+  COM_TOP_END = 254,
+  COM_QUERY_ATTRS = 255,
+  COM_MAX = 256,
 };
 
 

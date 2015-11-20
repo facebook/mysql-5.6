@@ -2090,7 +2090,7 @@ static void set_thread_command_v1(int command)
   PFS_thread *pfs= my_pthread_getspecific_ptr(PFS_thread*, THR_PFS);
 
   DBUG_ASSERT(command >= 0);
-  DBUG_ASSERT(command <= (int) COM_END);
+  DBUG_ASSERT(command <= (int) COM_END || command > (int) COM_TOP_END);
 
   if (likely(pfs != NULL))
   {
