@@ -1,0 +1,94 @@
+SET @start_value = @@global.query_attrs;
+SELECT @start_value;
+@start_value
+0
+'#--------------------FN_DYNVARS_141_01------------------------#'
+SET @@global.query_attrs = FALSE;
+SET @@global.query_attrs = DEFAULT;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+0
+'#---------------------FN_DYNVARS_141_02-------------------------#'
+SET @@global.query_attrs = @start_value;
+SELECT @@global.query_attrs = TRUE;
+@@global.query_attrs = TRUE
+0
+'#--------------------FN_DYNVARS_141_03------------------------#'
+SET @@global.query_attrs = ON;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+1
+SET @@global.query_attrs = OFF;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+0
+SET @@global.query_attrs = 0;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+0
+SET @@global.query_attrs = 1;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+1
+SET @@global.query_attrs = TRUE;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+1
+SET @@global.query_attrs = FALSE;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+0
+'#--------------------FN_DYNVARS_141_04-------------------------#'
+SET @@global.query_attrs = 2;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of '2'
+SET @@global.query_attrs = -1;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of '-1'
+SET @@global.query_attrs = TRUEF;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of 'TRUEF'
+SET @@global.query_attrs = TRUE_F;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of 'TRUE_F'
+SET @@global.query_attrs = FALSE0;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of 'FALSE0'
+SET @@global.query_attrs = OON;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of 'OON'
+SET @@global.query_attrs = ONN;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of 'ONN'
+SET @@global.query_attrs = OOFF;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of 'OOFF'
+SET @@global.query_attrs = 0FF;
+ERROR 42000: Variable 'query_attrs' can't be set to the value of '0FF'
+SET @@global.query_attrs = ' ';
+ERROR 42000: Variable 'query_attrs' can't be set to the value of ' '
+SET @@global.query_attrs = " ";
+ERROR 42000: Variable 'query_attrs' can't be set to the value of ' '
+SET @@global.query_attrs = '';
+ERROR 42000: Variable 'query_attrs' can't be set to the value of ''
+'#-------------------FN_DYNVARS_141_05----------------------------#'
+SET @@session.query_attrs = 1;
+ERROR HY000: Variable 'query_attrs' is a GLOBAL variable and should be set with SET GLOBAL
+SELECT @@session.query_attrs;
+ERROR HY000: Variable 'query_attrs' is a GLOBAL variable
+'#----------------------FN_DYNVARS_141_06------------------------#'
+SELECT IF(@@global.query_attrs, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='query_attrs';
+IF(@@global.query_attrs, "ON", "OFF") = VARIABLE_VALUE
+1
+'#---------------------FN_DYNVARS_141_07----------------------#'
+SET @@global.query_attrs = 1;
+SELECT @@query_attrs = @@global.query_attrs;
+@@query_attrs = @@global.query_attrs
+1
+'#---------------------FN_DYNVARS_141_08----------------------#'
+SET query_attrs = 1;
+ERROR HY000: Variable 'query_attrs' is a GLOBAL variable and should be set with SET GLOBAL
+SET global.query_attrs = 1;
+ERROR 42000: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'query_attrs = 1' at line 1
+SELECT global.query_attrs;
+ERROR 42S02: Unknown table 'global' in field list
+SELECT query_attrs = @@session.query_attrs;
+ERROR 42S22: Unknown column 'query_attrs' in 'field list'
+SET @@global.query_attrs = @start_value;
+SELECT @@global.query_attrs;
+@@global.query_attrs
+0
