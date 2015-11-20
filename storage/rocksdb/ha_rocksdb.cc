@@ -2080,6 +2080,9 @@ static int rocksdb_init_func(void *p)
     DBUG_RETURN(1);
   }
 
+  // disable auto compactions temporarily to prevent race with compaction filter
+  default_cf_opts.disable_auto_compactions = true;
+
   /*
     If there are no column families, we're creating the new database.
     Create one column family named "default".
@@ -2160,6 +2163,14 @@ static int rocksdb_init_func(void *p)
 
   if (ddl_manager.init(&dict_manager, &cf_manager, rocksdb_validate_tables))
     DBUG_RETURN(1);
+
+  // reenable compaction, things initialized for compaction filter are finished
+  for (auto cf_ptr : cf_handles) {
+    if (status.ok()) {
+      status= rdb->SetOptions(cf_ptr, {{"disable_auto_compactions", "false"}});
+    }
+  }
+  rdb->MaybeScheduleFlushOrCompaction();
 
   pthread_t thread_handle;
   auto err = mysql_thread_create(
