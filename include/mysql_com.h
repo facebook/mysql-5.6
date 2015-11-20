@@ -195,6 +195,9 @@ enum enum_server_command
 */
 #define CLIENT_SESSION_TRACK (1UL << 23)
 
+/* COM_QUERY commands will contain query attributes */
+#define CLIENT_QUERY_ATTRS (1UL << 24)
+
 #define CLIENT_SSL_VERIFY_SERVER_CERT (1UL << 30)
 #define CLIENT_REMEMBER_OPTIONS (1UL << 31)
 

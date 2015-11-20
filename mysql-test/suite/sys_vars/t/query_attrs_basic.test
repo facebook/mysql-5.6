@@ -1,0 +1,161 @@
+################# mysql-test/t/query_attrs_basic.test #########################
+#                                                                             #
+# Variable Name: query_attrs                                                  #
+# Scope: GLOBAL                                                               #
+# Access Type: Dynamic                                                        #
+# Data Type: boolean                                                          #
+# Default Value: TRUE                                                         #
+# Range:                                                                      #
+#                                                                             #
+#                                                                             #
+# Creation Date: 2015-11-20                                                   #
+# Author:  mung                                                               #
+#                                                                             #
+# Description: Test Cases of Dynamic System Variable query_attrs that         #
+#              checks the behavior of this variable in the following ways     #
+#              * Default Value                                                #
+#              * Valid & Invalid values                                       #
+#              * Scope & Access method                                        #
+#              * Data Integrity                                               #
+#                                                                             #
+#                                                                             #
+###############################################################################
+
+--source include/load_sysvars.inc
+
+##################################################################### 
+#            START OF query_attrs TESTS                             #
+##################################################################### 
+
+
+#######################################################################
+# Saving initial value of query_attrs in a temporary variable         #
+#######################################################################
+
+SET @start_value = @@global.query_attrs;
+SELECT @start_value;
+
+
+--echo '#--------------------FN_DYNVARS_141_01------------------------#'
+#############################################################
+#        Display the DEFAULT value of query_attrs           #
+#############################################################
+
+SET @@global.query_attrs = FALSE;
+SET @@global.query_attrs = DEFAULT;
+SELECT @@global.query_attrs;
+
+
+--echo '#---------------------FN_DYNVARS_141_02-------------------------#'
+############################################### 
+#     Verify default value of variable        #
+############################################### 
+
+SET @@global.query_attrs = @start_value;
+SELECT @@global.query_attrs = TRUE;
+
+
+--echo '#--------------------FN_DYNVARS_141_03------------------------#'
+#############################################################
+#   Change the value of query_attrs to a valid value        #
+#############################################################
+
+SET @@global.query_attrs = ON;
+SELECT @@global.query_attrs;
+SET @@global.query_attrs = OFF;
+SELECT @@global.query_attrs;
+SET @@global.query_attrs = 0;
+SELECT @@global.query_attrs;
+SET @@global.query_attrs = 1;
+SELECT @@global.query_attrs;
+SET @@global.query_attrs = TRUE;
+SELECT @@global.query_attrs;
+SET @@global.query_attrs = FALSE;
+SELECT @@global.query_attrs;
+
+--echo '#--------------------FN_DYNVARS_141_04-------------------------#'
+########################################################################### 
+#       Change the value of query_attrs to invalid value                  #
+########################################################################### 
+
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = 2;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = -1;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = TRUEF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = TRUE_F;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = FALSE0;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = OON;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = ONN;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = OOFF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = 0FF;
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = ' ';
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = " ";
+--Error ER_WRONG_VALUE_FOR_VAR
+SET @@global.query_attrs = '';
+
+
+--echo '#-------------------FN_DYNVARS_141_05----------------------------#'
+########################################################################### 
+#          Test if accessing session query_attrs gives error              #
+########################################################################### 
+
+--Error ER_GLOBAL_VARIABLE
+SET @@session.query_attrs = 1;
+--Error ER_INCORRECT_GLOBAL_LOCAL_VAR
+SELECT @@session.query_attrs;
+
+
+--echo '#----------------------FN_DYNVARS_141_06------------------------#'
+#####################################################################
+# Check if the value in GLOBAL  Tables matches values in variable   #
+#####################################################################
+
+SELECT IF(@@global.query_attrs, "ON", "OFF") = VARIABLE_VALUE 
+FROM INFORMATION_SCHEMA.GLOBAL_VARIABLES 
+WHERE VARIABLE_NAME='query_attrs';
+
+--echo '#---------------------FN_DYNVARS_141_07----------------------#'
+###############################################################################
+#  Check if accessing variable without SCOPE points to same session variable  #
+###############################################################################
+
+SET @@global.query_attrs = 1;
+SELECT @@query_attrs = @@global.query_attrs;
+
+
+--echo '#---------------------FN_DYNVARS_141_08----------------------#'
+##########################################################################  
+#    Check if query_attrs can be accessed with and without @@ sign       #
+##########################################################################
+
+--Error ER_GLOBAL_VARIABLE
+SET query_attrs = 1;
+--Error ER_PARSE_ERROR
+SET global.query_attrs = 1;
+--Error ER_UNKNOWN_TABLE
+SELECT global.query_attrs;
+--Error ER_BAD_FIELD_ERROR
+SELECT query_attrs = @@session.query_attrs;
+
+
+##############################  
+#   Restore initial value    #
+##############################
+
+SET @@global.query_attrs = @start_value;
+SELECT @@global.query_attrs;
+
+
+#############################################################
+#              END OF query_attrs TESTS                     #
+#############################################################
