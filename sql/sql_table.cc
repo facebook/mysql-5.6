@@ -5610,7 +5610,7 @@ err:
 /* table_list should contain just one table */
 int mysql_discard_or_import_tablespace(THD *thd,
                                        TABLE_LIST *table_list,
-                                       bool discard)
+                                       uint discard)
 {
   Alter_table_prelocking_strategy alter_prelocking_strategy;
   int error;

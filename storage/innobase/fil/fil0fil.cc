@@ -3157,11 +3157,20 @@ UNIV_INTERN
 dberr_t
 fil_discard_tablespace(
 /*===================*/
-	ulint	id)	/*!< in: space id */
+	ulint	id,	/*!< in: space id */
+	bool	fast)	/*!< in: TRUE if fast discard,
+			else regular discard*/
 {
 	dberr_t	err;
 
-	switch (err = fil_delete_tablespace(id, BUF_REMOVE_ALL_NO_WRITE)) {
+	/* For fast discard tablespace (i.e. new empty table),
+	 * we only scan and remove pages from the flush_list.
+	 * Pages in LRU list will be evicted automatically.
+	 */
+	buf_remove_t	buf_remove = fast?
+		BUF_REMOVE_FLUSH_NO_WRITE : BUF_REMOVE_ALL_NO_WRITE;
+
+	switch (err = fil_delete_tablespace(id, buf_remove)) {
 	case DB_SUCCESS:
 		break;
 
@@ -3184,8 +3193,8 @@ fil_discard_tablespace(
 	}
 
 	/* Remove all insert buffer entries for the tablespace */
-
-	ibuf_delete_for_discarded_space(id);
+	if (!fast)
+		ibuf_delete_for_discarded_space(id);
 
 	return(err);
 }
