@@ -19,7 +19,8 @@ set DEBUG_SYNC= 'init WAIT_FOR go TIMEOUT 43200';
 --echo "Wait in the stage of init"
 
 --connection connection1
-select STATE, INFO from information_schema.processlist where INFO like 'load data infile%';
+let $wait_condition=select COUNT(*) = 1 from information_schema.processlist where INFO like 'load data infile%' and STATE like '%init%';
+--source include/wait_condition.inc
 set DEBUG_SYNC= 'now SIGNAL go';
 
 # Check the update stage
@@ -30,7 +31,8 @@ set DEBUG_SYNC= 'update WAIT_FOR go TIMEOUT 43200';
 --echo "Wait in the stage of update"
 
 --connection connection1
-select STATE, INFO from information_schema.processlist where INFO like 'load data infile%';
+let $wait_condition=select COUNT(*) = 1 from information_schema.processlist where INFO like 'load data infile%' and STATE like '%update%';
+--source include/wait_condition.inc
 set DEBUG_SYNC= 'now SIGNAL go';
 
 # Check the end stage
@@ -41,7 +43,8 @@ set DEBUG_SYNC= 'end WAIT_FOR go TIMEOUT 43200';
 --echo "Wait in the stage of end"
 
 --connection connection1
-select STATE, INFO from information_schema.processlist where INFO like 'load data infile%';
+let $wait_condition=select COUNT(*) = 1 from information_schema.processlist where INFO like 'load data infile%' and STATE like '%end%';
+--source include/wait_condition.inc
 set DEBUG_SYNC= 'now SIGNAL go';
 set DEBUG_SYNC='RESET';
 
