@@ -7,27 +7,18 @@ set DEBUG_SYNC= 'init WAIT_FOR go TIMEOUT 43200';
 load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';;
 "Wait in the stage of init"
 connection connection1;
-select STATE, INFO from information_schema.processlist where INFO like 'load data infile%';
-STATE	INFO
-debug sync point: init	load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n'
 set DEBUG_SYNC= 'now SIGNAL go';
 connection default;
 set DEBUG_SYNC= 'update WAIT_FOR go TIMEOUT 43200';
 load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';;
 "Wait in the stage of update"
 connection connection1;
-select STATE, INFO from information_schema.processlist where INFO like 'load data infile%';
-STATE	INFO
-debug sync point: update	load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n'
 set DEBUG_SYNC= 'now SIGNAL go';
 connection default;
 set DEBUG_SYNC= 'end WAIT_FOR go TIMEOUT 43200';
 load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n';;
 "Wait in the stage of end"
 connection connection1;
-select STATE, INFO from information_schema.processlist where INFO like 'load data infile%';
-STATE	INFO
-debug sync point: end	load data infile '../../std_data/loaddata7.dat' into table tb1 fields terminated by ',' lines terminated by '\n'
 set DEBUG_SYNC= 'now SIGNAL go';
 set DEBUG_SYNC='RESET';
 connection default;
