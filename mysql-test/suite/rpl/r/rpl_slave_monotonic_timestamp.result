@@ -1,0 +1,26 @@
+include/master-slave.inc
+[connection master]
+include/stop_slave.inc
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+SET @@global.slave_parallel_workers= 4;
+include/start_slave.inc
+include/sync_slave_sql_with_master.inc
+include/rpl_reset.inc
+include/stop_slave.inc
+SET @@global.slave_parallel_workers= 0;
+include/start_slave.inc
+use test4;
+drop table if exists t4;
+drop database if exists test4;
+use test3;
+drop table if exists t3;
+drop database if exists test3;
+use test2;
+drop table if exists t2;
+drop database if exists test2;
+use test1;
+drop table if exists t1;
+drop database if exists test1;
+include/sync_slave_sql_with_master.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+include/rpl_end.inc
