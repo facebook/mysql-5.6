@@ -1,0 +1,50 @@
+##########################################################################
+# Test the fix for spiky second behind master under non-parallel workers
+##########################################################################
+
+--disable_warnings
+--source include/have_binlog_format_statement.inc
+--source include/master-slave.inc
+--source include/not_mts_slave_parallel_workers.inc
+--enable_warnings
+
+--connection master
+create table t1 (a int) engine=InnoDB;
+--source include/sync_slave_sql_with_master.inc
+
+--connection slave
+lock table t1 write;
+
+--connection master
+# Set the master timestamp to be very small
+set timestamp=1000000000;
+begin;
+insert into t1 values (5);
+commit;
+
+--real_sleep 2
+
+--connection slave
+# ok, now wait for the SQL thread to start the insert
+let $wait_timeout= 60; # Override default of 30 seconds with 60.
+let $show_statement= SHOW PROCESSLIST;
+let $field= Info;
+let $condition= '%insert into%';
+--source include/wait_show_condition.inc
+let $sbm= query_get_value("show slave status", Seconds_Behind_Master, 1);
+# Since timestano was set to 1000000000, current time ls 14xxxxxxxx. So
+# The upper bound should be smaller than 4xxxxxxxx. We choose 100000000
+let $upper_bound= `select 100000000`;
+let $assert_text= Seconds_Behind_Master must be less than 'upper_bound';
+let $assert_cond= $sbm < $upper_bound;
+--source include/assert.inc
+
+unlock tables;
+
+--connection master
+drop table t1;
+
+# clean up
+--connection slave
+--source include/rpl_reset.inc
+--source include/rpl_end.inc
