@@ -1,0 +1,53 @@
+##############################################################################
+# Test the better timestamp support on slave binlog replay
+##############################################################################
+
+--disable_warnings
+--source include/have_binlog_format_statement.inc
+--source include/master-slave.inc
+--enable_warnings
+
+--connection master
+create table t1 (a int) engine=InnoDB;
+insert into t1 values(1);
+--real_sleep 2
+insert into t1 values(2);
+--real_sleep 2
+insert into t1 values(3);
+
+# Set the master timestamp to be crazily small
+set timestamp=300;
+insert into t1 values(4);
+set timestamp=305;
+insert into t1 values(5);
+
+# Set the master timestamp to be crazily large
+set timestamp=2000000000;
+insert into t1 values(6);
+set timestamp=2000000005;
+insert into t1 values(7);
+
+sync_slave_with_master;
+
+# Use mysqlbinlog to display the master's binlog timestamp
+--connection master
+let $master_binlog= query_get_value(SHOW MASTER STATUS, File, 1);
+let $MYSQLD_M_DATADIR= `select @@datadir`;
+
+# Replace the unix time that will change each test run to a good time (starting with 1)
+# 1999999999 is equivalent to: 05/18/2033 @ 3:33am (UTC), should be pretty safe
+# The timestamp starting with 2 and 3 will not be changed
+--replace_regex /SET TIMESTAMP=1.*;/SET TIMESTAMP=GOOD TIME;/
+--exec $MYSQL_BINLOG --short-form $MYSQLD_M_DATADIR/$master_binlog
+
+# Use mysqlbinlog to display the slave's replay log timestamp
+--connection slave
+let $slave_binlog= query_get_value(SHOW SLAVE STATUS, Relay_Log_File, 1);
+let $MYSQLD_S_DATADIR= `select @@datadir`;
+--replace_regex /SET TIMESTAMP=1.*;/SET TIMESTAMP=GOOD TIME;/
+--exec $MYSQL_BINLOG --short-form $MYSQLD_S_DATADIR/$slave_binlog
+
+--connection master
+drop table t1;
+
+--source include/rpl_end.inc

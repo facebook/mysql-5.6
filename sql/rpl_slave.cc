@@ -6839,8 +6839,19 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
   ulong s_id;
   bool unlock_data_lock= TRUE;
   /*
-    FD_q must have been prepared for the first R_a event
-    inside get_master_version_and_clock()
+    Last good timestamp from the master, we need this variable to keep track of
+    a good reference timestamp from the master in case the master's timestamp
+    got accidentally set to be a wrong (non-linear) value somehow. In other
+    words, we need this variable to make sure the timestamp of each event in
+    the binlog network stream can be updated correctly when the master's
+    timestamp is set wrong (non-linear). Each binlog event's timestamp is
+    updated accordingly before being written into the relay log.
+  */
+  static uint32 last_good_master_timestamp;
+
+  /*
+     FD_q must have been prepared for the first R_a event
+     inside get_master_version_and_clock()
     Show-up of FD:s affects checksum_alg at once because
     that changes FD_queue.
   */
@@ -6854,6 +6865,50 @@ static int queue_event(Master_info* mi,const char* buf, ulong event_len)
                BINLOG_CHECKSUM_ALG_DESC_LEN + BINLOG_CHECKSUM_LEN];
   Gtid gtid= { 0, 0 };
   Log_event_type event_type= (Log_event_type)buf[EVENT_TYPE_OFFSET];
+
+  uint32 cur_event_timestamp= uint4korr(buf);
+  uint32 corrected_event_timestamp= 0;
+
+  /*
+    Use the previously defined last good timestamp from the master to override
+    the wrongly (non-linearly) set timestamp of the events from the master when
+    necessary.
+    We will skip events that have the timestamp of 0 such as fake rotate events.
+  */
+  if (cur_event_timestamp != 0)
+  {
+    // Creat a non-const pointer to modify the event buffer
+    char* buf_ptr= const_cast<char *>(buf);
+    uint32 cur_time= static_cast<uint32>(time(nullptr));
+    /*
+      For the first event, make necessary adjustment and update
+      last_good_master_timestamp.
+    */
+    if (last_good_master_timestamp == 0)
+    {
+      corrected_event_timestamp = min(cur_event_timestamp, cur_time);
+      int4store(buf_ptr, corrected_event_timestamp);
+      last_good_master_timestamp= corrected_event_timestamp;
+    }
+    /*
+      For all the following events, if the timestamp is wrongly set as,
+      case 1: beyond the current slave time,
+      case 2: before the last good timestamp,
+      we adjust the timestamp of the event that is going to written to the
+      relay log to the last_good_master_timestamp.
+    */
+    else if (cur_event_timestamp > cur_time ||
+        cur_event_timestamp < last_good_master_timestamp)
+    {
+      corrected_event_timestamp= last_good_master_timestamp;
+      int4store(buf_ptr, corrected_event_timestamp);
+    }
+    // Otherwise, we update the last_good_master_timestamp
+    else
+    {
+      last_good_master_timestamp= cur_event_timestamp;
+    }
+  }
 
   DBUG_ASSERT(checksum_alg == BINLOG_CHECKSUM_ALG_OFF || 
               checksum_alg == BINLOG_CHECKSUM_ALG_UNDEF || 
