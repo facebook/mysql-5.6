@@ -1,0 +1,92 @@
+################################################################################
+# Test the fix for spiky second behind master with monotonic timestamp
+################################################################################
+
+# Start a new master-slave
+--disable_warnings
+--source include/have_binlog_format_statement.inc
+--source include/master-slave.inc
+--enable_warnings
+
+# Enable MTS
+--connection slave
+--source include/stop_slave.inc
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+SET @@global.slave_parallel_workers= 4;
+
+# Run many queries with varied timestamps on the master
+--connection master
+let $iter = 100;
+let $databases = 4;
+--source suite/rpl/include/rpl_slave_monotonic_timestamp_input.inc
+
+--connection slave
+--source include/start_slave.inc
+
+# Keep polling the seconds behind master on the slave for 10 seconds
+let $i = 100;
+while ($i)
+{
+  let $sbm= query_get_value("show slave status", Seconds_Behind_Master, 1);
+  let $upper_bound = `select 100000000`;
+  if ($sbm >= $upper_bound) {
+    # Since small timestamp is around 1000000000, current time ls 14xxxxxxxx. So
+    # The upper bound should be smaller than 4xxxxxxxx. We choose 100000000
+    let $assert_text = Seconds_Behind_Master must be less than 'upper_bound';
+    let $assert_cond = $sbm < $upper_bound;
+    --source include/assert.inc
+  }
+  --real_sleep 0.1
+  dec $i;
+}
+--enable_result_log
+
+--connection master
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_reset.inc
+
+# Disable MTS
+--connection slave
+--source include/stop_slave.inc
+SET @@global.slave_parallel_workers= 0;
+--source include/not_mts_slave_parallel_workers.inc
+
+# Run many queries with varied timestamps
+--connection master
+let $iter = 100;
+let $databases = 4;
+--source suite/rpl/include/rpl_slave_monotonic_timestamp_input.inc
+
+--connection slave
+--source include/start_slave.inc
+
+# Keep polling the seconds behind master on the slave for 10 seconds
+let $i = 100;
+while ($i)
+{
+  let $sbm= query_get_value("show slave status", Seconds_Behind_Master, 1);
+  let $upper_bound = `select 100000000`;
+  if ($sbm >= $upper_bound) {
+    # Since small timestamp is around 1000000000, current time ls 14xxxxxxxx. So
+    # The upper bound should be smaller than 4xxxxxxxx. We choose 100000000
+    let $assert_text = Seconds_Behind_Master must be less than 'upper_bound';
+    let $assert_cond = $sbm < $upper_bound;
+    --source include/assert.inc
+  }
+  --real_sleep 0.1
+  dec $i;
+}
+
+# clean up
+--connection master
+let $i = $databases;
+while ($i)
+{
+  eval use test$i;
+  eval drop table if exists t$i;
+  eval drop database if exists test$i;
+  dec $i;
+}
+--source include/sync_slave_sql_with_master.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+--source include/rpl_end.inc
