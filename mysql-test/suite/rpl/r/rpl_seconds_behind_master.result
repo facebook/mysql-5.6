@@ -28,7 +28,7 @@ include/sync_slave_sql_with_master.inc
 include/assert.inc [Seconds_Behind_Master must be 0]
 LOCK TABLE t1 WRITE;
 INSERT INTO t1 VALUES (3);
-include/assert.inc [Seconds_Behind_Master must be greater or equal than 'lower_bound']
+include/assert.inc [Seconds_Behind_Master must be smaller than 'upper_bound']
 UNLOCK TABLES;
 DROP TABLE t1;
 include/sync_slave_sql_with_master.inc
