@@ -295,6 +295,11 @@ public:
     disk space.
    */
   bool sql_force_rotate_relay;
+  /*
+    A flag to say "consider we have caught up" when calculating seconds behind
+    the master
+  */
+  bool slave_has_caughtup;
 
   time_t last_master_timestamp;
 

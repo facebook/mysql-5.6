@@ -164,16 +164,17 @@ LOCK TABLE t1 WRITE;
 
 -- connection master
 
-# Now we will be testing that seconds behind master 
-# is set correctly once the event is dequeued and is executing.
-# To achieve this goal we will make the event timestamp
-# to be shifted 3600 seconds (so that time difference 
-# becomes clear). 
+# Now we will be testing that seconds behind master is set correctly once
+# the event is dequeued and is executing.
 #
-# 10 seconds, this will give us time at the slave to 
-# show that Seconds_Behind_Master will increase when
-# this query starts to execute.
+# Note that the master's timestamp has been decreased by 3600 seconds
+# in the middle. However, since we have kept master's timestamp tracking
+# monotonic, this should not cause a sudden spike on the seconds behind master.
 #
+# Once the event is dequeued and start execution, we should assert that the
+# seconds behind master is smaller than the upperbound because a spike should
+# not happen.
+
 let $start= `SELECT UNIX_TIMESTAMP()`;
 -- disable_warnings
 INSERT INTO t1 VALUES (3);
@@ -190,12 +191,14 @@ let $condition= = 'INSERT INTO t1 VALUES (3)';
 -- source include/wait_show_condition.inc
 
 -- let $sbm= query_get_value("SHOW SLAVE STATUS", Seconds_Behind_Master, 1)
-# We need to deduct execution time on master to SBM lower_bound.
-# SBM= now - (ev.when + ev.exec_time)
-# Also deduct 5 seconds to have a safety margin.
-let $lower_bound= `SELECT 3600 - ($stop_exec - $start) - 5`;
-let $assert_text= Seconds_Behind_Master must be greater or equal than 'lower_bound';
-let $assert_cond= $lower_bound <= $sbm;
+
+# Since the master's event timestamp has been decreased 3600, without monotonic
+# master timestamp tracking, the seconds behind master would have spiked
+# above 3600. Therefore we set the upperbound to be 3600.
+
+let $upper_bound= `SELECT 3600`;
+let $assert_text= Seconds_Behind_Master must be smaller than 'upper_bound';
+let $assert_cond= $sbm < $upper_bound;
 source include/assert.inc;
 
 UNLOCK TABLES;
