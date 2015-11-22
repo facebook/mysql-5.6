@@ -1,0 +1,158 @@
+include/master-slave.inc
+[connection master]
+create table t1 (a int) engine=InnoDB;
+insert into t1 values(1);
+insert into t1 values(2);
+insert into t1 values(3);
+set timestamp=300;
+insert into t1 values(4);
+set timestamp=305;
+insert into t1 values(5);
+set timestamp=2000000000;
+insert into t1 values(6);
+set timestamp=2000000005;
+insert into t1 values(7);
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+ROLLBACK/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=GOOD TIME;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+create table t1 (a int) engine=InnoDB
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(1)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(2)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(3)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=300/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=300/*!*/;
+insert into t1 values(4)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=305/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=305/*!*/;
+insert into t1 values(5)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=2000000000/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=2000000000/*!*/;
+insert into t1 values(6)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=2000000005/*!*/;
+BEGIN
+/*!*/;
+SET TIMESTAMP=2000000005/*!*/;
+insert into t1 values(7)
+/*!*/;
+COMMIT/*!*/;
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!40019 SET @@session.max_insert_delayed_threads=0*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+ROLLBACK/*!*/;
+use `test`/*!*/;
+SET TIMESTAMP=GOOD TIME;
+SET @@session.pseudo_thread_id=999999999/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C latin1 *//*!*/;
+SET @@session.character_set_client=8,@@session.collation_connection=8,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+create table t1 (a int) engine=InnoDB
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(1)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(2)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(3)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(4)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(5)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(6)
+/*!*/;
+COMMIT/*!*/;
+SET TIMESTAMP=GOOD TIME;
+BEGIN
+/*!*/;
+SET TIMESTAMP=GOOD TIME;
+insert into t1 values(7)
+/*!*/;
+COMMIT/*!*/;
+DELIMITER ;
+# End of log file
+ROLLBACK /* added by mysqlbinlog */;
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;
+drop table t1;
+include/rpl_end.inc
