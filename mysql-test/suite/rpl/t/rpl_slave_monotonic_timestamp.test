@@ -1,0 +1,65 @@
+################################################################################
+# Test the fix for spiky second behind master with monotonic timestamp
+################################################################################
+
+# Start a new master-slave
+--disable_warnings
+--source include/have_binlog_format_statement.inc
+--source include/master-slave.inc
+--enable_warnings
+
+# Enable MTS
+--connection slave
+--source include/stop_slave.inc
+set @save.slave_parallel_workers= @@global.slave_parallel_workers;
+SET @@global.slave_parallel_workers= 4;
+
+# Run many queries with varied timestamps on the master
+--connection master
+let $iter = 100;
+let $databases = 4;
+--source suite/rpl/include/rpl_slave_monotonic_timestamp_input.inc
+
+--connection slave
+--source include/start_slave.inc
+
+# Keep polling the seconds behind master on the slave for 10 seconds
+let $sbm_polling_times = 100;
+--source suite/rpl/include/rpl_slave_monotonic_timestamp_sbm_polling.inc
+
+--connection master
+--source include/sync_slave_sql_with_master.inc
+--source include/rpl_reset.inc
+
+# Disable MTS
+--connection slave
+--source include/stop_slave.inc
+SET @@global.slave_parallel_workers= 0;
+--source include/not_mts_slave_parallel_workers.inc
+
+# Run many queries with varied timestamps
+--connection master
+let $iter = 100;
+let $databases = 4;
+--source suite/rpl/include/rpl_slave_monotonic_timestamp_input.inc
+
+--connection slave
+--source include/start_slave.inc
+
+# Keep polling the seconds behind master on the slave for 10 seconds
+let $sbm_polling_times = 100;
+--source suite/rpl/include/rpl_slave_monotonic_timestamp_sbm_polling.inc
+
+# clean up
+--connection master
+let $i = $databases;
+while ($i)
+{
+  eval use test$i;
+  eval drop table if exists t$i;
+  eval drop database if exists test$i;
+  dec $i;
+}
+--source include/sync_slave_sql_with_master.inc
+set @@global.slave_parallel_workers= @save.slave_parallel_workers;
+--source include/rpl_end.inc
