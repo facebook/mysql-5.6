@@ -1,0 +1,14 @@
+include/master-slave.inc
+[connection master]
+create table t1 (a int) engine=InnoDB;
+include/sync_slave_sql_with_master.inc
+lock table t1 write;
+set timestamp=1000000000;
+begin;
+insert into t1 values (5);
+commit;
+include/assert.inc [Seconds_Behind_Master must be less than 'upper_bound']
+unlock tables;
+drop table t1;
+include/rpl_reset.inc
+include/rpl_end.inc
