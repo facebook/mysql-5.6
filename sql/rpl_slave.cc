@@ -3145,11 +3145,11 @@ bool show_slave_status(THD* thd, Master_info* mi)
         (i.e. they are in the same second), then we get 0-(2-1)=-1 as a result.
         This confuses users, so we don't go below 0: hence the max().
 
-        last_master_timestamp == 0 (an "impossible" timestamp 1970) is a
-        special marker to say "consider we have caught up".
+        rli->slave_has_caughup is a special flag to say
+        "consider we have caught up" to update the seconds behind master.
       */
-        protocol->store((longlong)(mi->rli->last_master_timestamp ?
-                                   max(0L, time_diff) : 0));
+        protocol->store((longlong)(mi->rli->slave_has_caughtup ?
+                                   0 : max(0L, time_diff)));
       }
       protocol->store((longlong) (max(0L, mi->rli->peak_lag(now))));
     }
@@ -4328,7 +4328,25 @@ static int exec_relay_log_event(THD* thd, Relay_log_info* rli)
     {
       DBUG_ASSERT(ev->get_type_code() != ROTATE_EVENT && ev->get_type_code() !=
                   PREVIOUS_GTIDS_LOG_EVENT);
-      rli->last_master_timestamp= ev->when.tv_sec + (time_t) ev->exec_time;
+
+      // Set the flag to say that "the slave has not yet caught up"
+      rli->slave_has_caughtup= false;
+      /*
+        To avoid spiky second behind master, we here keeps last_master_timestamp
+        monotonic for the non-parallel execution cases. In other words, we only
+        assign the new tentative_last_master_timestamp to the
+        last_master_timestamp if the tentative one is bigger. If the tentative
+        is too big so that it's beyond current slave time, we assign the
+        current time of the slave to the last_master_timestamp.
+      */
+      time_t tentative_last_master_timestamp=
+        ev->when.tv_sec + (time_t) ev->exec_time;
+
+      if (tentative_last_master_timestamp > rli->last_master_timestamp)
+      {
+        rli->last_master_timestamp= std::min(tentative_last_master_timestamp,
+            time(nullptr));
+      }
       DBUG_ASSERT(rli->last_master_timestamp >= 0);
     }
 
@@ -7840,7 +7858,7 @@ static Log_event* next_event(Relay_log_info* rli)
            Relay-log nor to process by Workers.
         */
         if (!rli->is_parallel_exec() && reset_seconds_behind_master)
-          rli->last_master_timestamp= 0;
+          rli->slave_has_caughtup= true;
 
         DBUG_ASSERT(rli->relay_log.get_open_count() ==
                     rli->cur_log_old_open_count);
@@ -7959,8 +7977,9 @@ static Log_event* next_event(Relay_log_info* rli)
             (void) mts_checkpoint_routine(rli, period, false, true/*need_data_lock=true*/); // TODO: ALFRANIO ERROR
             mysql_mutex_lock(log_lock);
             // More to the empty relay-log all assigned events done so reset it.
+            // Reset the flag of slave_has_caught_up
             if (rli->gaq->empty() && reset_seconds_behind_master)
-              rli->last_master_timestamp= 0;
+              rli->slave_has_caughtup= true;
 
             if (DBUG_EVALUATE_IF("check_slave_debug_group", 1, 0))
               period= 10000000ULL;
