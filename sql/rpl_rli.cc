@@ -105,6 +105,7 @@ Relay_log_info::Relay_log_info(bool is_slave_recovery
    gtid_set(global_sid_map, global_sid_lock),
    log_space_total(0), ignore_log_space_limit(0),
    sql_force_rotate_relay(false),
+   slave_has_caughtup(true),
    last_master_timestamp(0),
    events_since_last_sample(0),
    slave_skip_counter(0),
@@ -323,7 +324,18 @@ void Relay_log_info::reset_notified_checkpoint(ulong shift, time_t new_ts,
       mysql_mutex_lock(&data_lock);
     else
       mysql_mutex_assert_owner(&data_lock);
-    last_master_timestamp= new_ts;
+
+    // Set the flag to say that "the slave has not yet caught up"
+    slave_has_caughtup= false;
+    /*
+      Note that we only skip assigning new_ts to last_master_timestamp when
+      new_ts is smaller than last_master_timestamp to avoid a sudden spike on
+      second behind master. If new_ts is very big, say bigger than time(0), we
+      will assign the current time to last_master_timestamp instead.
+    */
+    if (new_ts > last_master_timestamp)
+      last_master_timestamp= std::min(time(nullptr), new_ts);
+
     if (need_data_lock)
       mysql_mutex_unlock(&data_lock);
   }
