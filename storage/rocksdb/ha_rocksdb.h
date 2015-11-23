@@ -80,6 +80,13 @@ void thd_exit_cond(MYSQL_THD thd, const PSI_stage_info *stage);
 extern "C"
 void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all);
 
+/**
+ *   Get the user thread's binary logging format
+ *     @param thd  user thread
+ *       @return Value to be used as index into the binlog_format_names array
+ *       */
+extern "C"
+int thd_binlog_format(const MYSQL_THD thd);
 
 //#endif
 

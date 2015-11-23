@@ -5620,6 +5620,21 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
 {
   int res= 0;
   DBUG_ENTER("ha_rocksdb::external_lock");
+
+  int binlog_format= thd_binlog_format(thd);
+  int sql_command= thd_sql_command(thd);
+  if (!thd->slave_thread && binlog_format != BINLOG_FORMAT_ROW &&
+      binlog_format != BINLOG_FORMAT_UNSPEC &&
+      sql_command != SQLCOM_SELECT &&
+      sql_command != SQLCOM_LOCK_TABLES &&
+      sql_command != SQLCOM_UNLOCK_TABLES &&
+      sql_command != SQLCOM_END)
+  {
+    my_error(ER_UNKNOWN_ERROR, MYF(0),
+             "Can't execute updates on master with binlog_format != ROW.");
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   io_perf_start();
 
   if (lock_type == F_UNLCK)
