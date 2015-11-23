@@ -670,6 +670,11 @@ static MYSQL_THDVAR_BOOL(skip_fill_cache,
   "Skip filling block cache on read requests",
   NULL, NULL, FALSE);
 
+static MYSQL_THDVAR_BOOL(unsafe_for_binlog,
+  PLUGIN_VAR_RQCMDARG,
+  "Allowing statement based binary logging which may break consistency",
+  nullptr, nullptr, FALSE);
+
 static MYSQL_THDVAR_UINT(records_in_range,
   PLUGIN_VAR_RQCMDARG,
   "Used to override the result of records_in_range(). Set to a positive number to override",
@@ -865,6 +870,7 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(write_ignore_missing_column_families),
 
   MYSQL_SYSVAR(skip_fill_cache),
+  MYSQL_SYSVAR(unsafe_for_binlog),
 
   MYSQL_SYSVAR(records_in_range),
   MYSQL_SYSVAR(debug_optimizer_n_rows),
@@ -5620,6 +5626,20 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
 {
   int res= 0;
   DBUG_ENTER("ha_rocksdb::external_lock");
+
+  int binlog_format= thd_binlog_format(thd);
+  bool unsafe_for_binlog= THDVAR(ha_thd(), unsafe_for_binlog);
+  if (lock_type == F_WRLCK && !thd->rli_slave &&
+      !unsafe_for_binlog &&
+      binlog_format != BINLOG_FORMAT_ROW &&
+      binlog_format != BINLOG_FORMAT_UNSPEC &&
+      thd_binlog_filter_ok(thd))
+  {
+    my_error(ER_UNKNOWN_ERROR, MYF(0),
+             "Can't execute updates on master with binlog_format != ROW.");
+    DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+  }
+
   io_perf_start();
 
   if (lock_type == F_UNLCK)
