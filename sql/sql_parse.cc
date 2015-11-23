@@ -1400,6 +1400,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
                                                com_statement_info[command].m_key);
 
   thd->set_command(command);
+
+  // ensure that thread name is oneconnectio if not binlog dump command
+  if (command != COM_BINLOG_DUMP_GTID && command != COM_BINLOG_DUMP) {
+    pthread_setname_np(thd->real_id, "my-oneconnectio");
+  }
+
   /*
     Commands which always take a long time are logged into
     the slow log only if opt_log_slow_admin_statements is set.
