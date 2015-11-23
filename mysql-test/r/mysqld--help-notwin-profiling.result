@@ -1123,6 +1123,9 @@ The following options may be given as the first argument:
  case sensitive collation enforcement
  --rocksdb-table-cache-numshardbits=# 
  DBOptions::table_cache_numshardbits for RocksDB
+ --rocksdb-unsafe-for-binlog
+ Allowing statement based binary logging which may break
+ consistency
  --rocksdb-use-adaptive-mutex 
  DBOptions::use_adaptive_mutex for RocksDB
  --rocksdb-use-fsync DBOptions::use_fsync for RocksDB
@@ -1747,6 +1750,7 @@ rocksdb-store-checksums FALSE
 rocksdb-strict-collation-check TRUE
 rocksdb-strict-collation-exceptions (No default value)
 rocksdb-table-cache-numshardbits 4
+rocksdb-unsafe-for-binlog FALSE
 rocksdb-use-adaptive-mutex FALSE
 rocksdb-use-fsync FALSE
 rocksdb-validate-tables 1
