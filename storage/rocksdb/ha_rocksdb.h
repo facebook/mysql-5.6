@@ -67,9 +67,9 @@ inline bool looks_like_per_index_cf_typo(const char *name)
 extern PSI_stage_info stage_waiting_on_row_lock;
 
 extern "C"
+{
 void thd_enter_cond(MYSQL_THD thd, mysql_cond_t *cond, mysql_mutex_t *mutex,
                     const PSI_stage_info *stage, PSI_stage_info *old_stage);
-extern "C"
 void thd_exit_cond(MYSQL_THD thd, const PSI_stage_info *stage);
 
 /**
@@ -77,9 +77,22 @@ void thd_exit_cond(MYSQL_THD thd, const PSI_stage_info *stage);
   @param  thd   Thread handle
   @param  all   TRUE <=> rollback main transaction.
 */
-extern "C"
 void thd_mark_transaction_to_rollback(MYSQL_THD thd, bool all);
 
+/**
+ *   Get the user thread's binary logging format
+ *   @param thd  user thread
+ *   @return Value to be used as index into the binlog_format_names array
+*/
+int thd_binlog_format(const MYSQL_THD thd);
+
+/**
+ *   Check if binary logging is filtered for thread's current db.
+ *   @param  thd   Thread handle
+ *   @retval 1 the query is not filtered, 0 otherwise.
+*/
+bool thd_binlog_filter_ok(const MYSQL_THD thd);
+}
 
 //#endif
 
