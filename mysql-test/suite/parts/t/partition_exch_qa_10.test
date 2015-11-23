@@ -65,6 +65,15 @@ let $wait_condition=select count(*) = 0 from information_schema.events
 where event_name='test_ev_1';
 --source include/wait_condition.inc
 
+# Wait for the result to be exchanged
+let $wait_condition=select count(*) = 1 from t_10
+where a= '1';
+--source include/wait_condition.inc
+
+let $wait_condition=select count(*) = 1 from tp
+where a= '2';
+--source include/wait_condition.inc
+
 --sorted_result
 SELECT * FROM t_10;
 --sorted_result
