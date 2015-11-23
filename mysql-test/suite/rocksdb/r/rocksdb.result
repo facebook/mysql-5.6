@@ -917,6 +917,7 @@ rocksdb_store_checksums	OFF
 rocksdb_strict_collation_check	OFF
 rocksdb_strict_collation_exceptions	
 rocksdb_table_cache_numshardbits	4
+rocksdb_unsafe_for_binlog	OFF
 rocksdb_use_adaptive_mutex	OFF
 rocksdb_use_fsync	OFF
 rocksdb_validate_tables	1
