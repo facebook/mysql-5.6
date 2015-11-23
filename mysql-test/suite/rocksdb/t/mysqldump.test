@@ -15,7 +15,6 @@ connect (con1,localhost,root,,);
 connect (con2,localhost,root,,);
 
 connection con1;
-
 create table r1 (id1 int, id2 int, id3 varchar(100), id4 int, value1 int, value2 int, value3 int, value4 int, primary key (id1, id2, id3, id4)) engine=rocksdb;
 insert into r1 values (1,1,1,1,1,1,1,1);
 insert into r1 values (1,1,1,2,2,2,2,2);
@@ -55,6 +54,11 @@ SET GLOBAL default_storage_engine=rocksdb;
 
 # wiping general log so that this test case doesn't fail with --repeat
 --exec echo "" > $MYSQLTEST_VARDIR/mysqld.1/mysqld.log
+
+# testing mysqldump work with statement based binary logging
+SET GLOBAL binlog_format=statement;
+--exec $MYSQL_DUMP --skip-comments --single-transaction --master-data=2 --print-ordering-key test > /dev/null
+SET GLOBAL binlog_format=row;
 
 drop table r1;
 reset master;
