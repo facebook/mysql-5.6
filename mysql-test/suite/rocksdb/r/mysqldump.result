@@ -34,7 +34,7 @@ update r1 set value1=value1+100 where id1=1 and id2=1 and id3='1';
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
--- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=3873;
+-- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=3893;
 DROP TABLE IF EXISTS `r1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -83,7 +83,7 @@ SET GLOBAL default_storage_engine=rocksdb;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
--- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=3873;
+-- CHANGE MASTER TO MASTER_LOG_FILE='master-bin.000001', MASTER_LOG_POS=3893;
 DROP TABLE IF EXISTS `r1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -117,6 +117,8 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 2
+SET GLOBAL binlog_format=statement;
+SET GLOBAL binlog_format=row;
 drop table r1;
 reset master;
 set @@global.default_storage_engine=@save_default_storage_engine;
