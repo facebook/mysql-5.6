@@ -1075,6 +1075,7 @@ void do_handle_one_connection(THD *thd_arg)
     end_connection(thd);
 
 end_thread:
+    pthread_setname_np(thd->real_id, "my-oneconnectio");
     close_connection(thd);
     if (MYSQL_CALLBACK_ELSE(thread_scheduler, end_thread, (thd, 1), 0))
       return;                                 // Probably no-threads
