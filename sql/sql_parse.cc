@@ -1814,11 +1814,23 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
     break;
 #ifndef EMBEDDED_LIBRARY
   case COM_BINLOG_DUMP_GTID:
-    pthread_setname_np(thd->real_id, "my-binlogdumpgt");
+    static char t_name_binlog_gtid[T_NAME_LEN] = {0};
+    if (t_name_binlog_gtid[0] == '\0')
+      my_pthread_strip_name(
+        t_name_binlog_gtid,
+        sizeof(t_name_binlog_gtid),
+        MYSQLD_T_NAME_PREFIX, "binlog_dump_gtid");
+    pthread_setname_np(thd->real_id, t_name_binlog_gtid);
     error= com_binlog_dump_gtid(thd, packet, packet_length);
     break;
   case COM_BINLOG_DUMP:
-    pthread_setname_np(thd->real_id, "my-binlogdump");
+    static char t_name_binlog[T_NAME_LEN] = {0};
+    if (t_name_binlog[0] == '\0')
+      my_pthread_strip_name(
+        t_name_binlog,
+        sizeof(t_name_binlog),
+        MYSQLD_T_NAME_PREFIX, "binlog_dump");
+    pthread_setname_np(thd->real_id, t_name_binlog);
     error= com_binlog_dump(thd, packet, packet_length);
     break;
 #endif
