@@ -420,6 +420,18 @@ sub main {
   }
   $ENV{MTR_PARALLEL} = $opt_parallel;
 
+  if ($opt_valgrind) {
+    for (1..$opt_parallel) {
+      # Create minimalistic "test" for the reporting
+      my $tinfo = My::Test->new
+        (
+         name           => 'valgrind_report',
+        );
+      push(@$tests, $tinfo);
+    }
+    $num_tests= @$tests;
+  }
+
   if ($opt_parallel > 1 && ($opt_start_exit || $opt_stress)) {
     mtr_warning("Parallel cannot be used with --start-and-exit or --stress\n" .
                "Setting parallel to 1");
@@ -529,25 +541,6 @@ sub main {
 
   push @$completed, run_ctest() if $opt_ctest;
 
-  if ($opt_valgrind) {
-    # Create minimalistic "test" for the reporting
-    my $tinfo = My::Test->new
-      (
-       name           => 'valgrind_report',
-      );
-    # Set dummy worker id to align report with normal tests
-    $tinfo->{worker} = 0 if $opt_parallel > 1;
-    if ($valgrind_reports) {
-      $tinfo->{result}= 'MTR_RES_FAILED';
-      $tinfo->{comment}= "Valgrind reported failures at shutdown, see above";
-      $tinfo->{failures}= 1;
-    } else {
-      $tinfo->{result}= 'MTR_RES_PASSED';
-    }
-    mtr_report_test($tinfo);
-    push @$completed, $tinfo;
-  }
-
   mtr_print_line();
 
   if ( $opt_gcov ) {
@@ -634,6 +627,37 @@ sub run_test_server ($$$) {
 
 	  # Report test status
 	  mtr_report_test($result);
+
+          if ($opt_valgrind && $result->{name} eq 'valgrind_report') {
+            $valgrind_reports= 1 if $result->is_failed();
+            mtr_error("'", $result->{name},"' is not known to be running")
+              unless delete $running{$result->key()};
+
+            if ($valgrind_reports) {
+              my $logdir= $result->{logdir};
+
+              opendir(LOGDIR, $logdir)
+                or mtr_error("Can't open log directory: $logdir");
+
+              while (my $file = readdir(LOGDIR)) {
+                next unless ($file =~ m/\.valgrind$/);
+
+                open(FILE, "< $logdir/$file" ) or mtr_error("Can't open file: $file");
+                while(<FILE>) {
+                  print;
+                }
+                close FILE;
+              }
+
+              closedir(LOGDIR);
+            }
+
+            print $sock "BYE\n";
+
+            # Save result in completed list
+            push(@$completed, $result);
+            next;
+          }
 
 	  if ( $result->is_failed() ) {
 
@@ -770,9 +794,6 @@ sub run_test_server ($$$) {
 	elsif ($line =~ /^SPENT/) {
 	  add_total_times($line);
 	}
-	elsif ($line eq 'VALGREP' && $opt_valgrind) {
-	  $valgrind_reports= 1;
-	}
 	else {
 	  mtr_error("Unknown response: '$line' from client");
 	}
@@ -788,6 +809,11 @@ sub run_test_server ($$$) {
 	  my $t= $tests->[$i];
 
 	  last unless defined $t;
+
+          if ($t->{name} eq 'valgrind_report') {
+            $next= splice(@$tests, $i, 1);
+            last;
+          }
 
 	  if (run_testcase_check_skip_test($t)){
 	    # Move the test to completed list
@@ -830,6 +856,10 @@ sub run_test_server ($$$) {
 	      {
 		my $tt= $tests->[$j];
 		last unless defined $tt;
+                # Don't allocate these tests, since they are special in the
+                # sense that they run after server shutdown, and they should
+                # run only once for each parallel instance.
+                last if $tt->{name} eq 'valgrind_report';
 		last if $tt->{criteria} ne $criteria;
 		$tt->{reserved}= $wid;
 	      }
@@ -926,6 +956,7 @@ sub run_worker ($) {
 
   mark_time_used('init');
 
+  my $valgrind_reports= 0;
   while (my $line= <$server>){
     chomp($line);
     if ($line eq 'TESTCASE'){
@@ -944,22 +975,34 @@ sub run_worker ($) {
       }
       $test->{worker} = $thread_num if $opt_parallel > 1;
 
-      run_testcase($test);
-      #$test->{result}= 'MTR_RES_PASSED';
-      # Send it back, now with results set
-      #$test->print_test();
-      $test->write_test($server, 'TESTRESULT');
-      mark_time_used('restart');
+      if ($test->{name} eq 'valgrind_report') {
+        mtr_report("Shutting down server for valgrind_report");
+        stop_all_servers($opt_shutdown_timeout);
+        mark_time_used('restart');
+
+        $valgrind_reports= valgrind_exit_reports();
+        if ($valgrind_reports) {
+          $test->{result}= 'MTR_RES_FAILED';
+          $test->{comment}= "Valgrind reported failures at shutdown";
+          $test->{failures}= 1;
+          $test->{logdir}= "$opt_vardir/log/";
+        } else {
+          $test->{result}= 'MTR_RES_PASSED';
+        }
+        $test->write_test($server, 'TESTRESULT');
+      }
+      else {
+        run_testcase($test);
+        #$test->{result}= 'MTR_RES_PASSED'; Send it back, now with results set
+        #$test->print_test();
+        $test->write_test($server, 'TESTRESULT');
+        mark_time_used('restart');
+      }
     }
     elsif ($line eq 'BYE'){
       mtr_report("Server said BYE");
       stop_all_servers($opt_shutdown_timeout);
       mark_time_used('restart');
-      my $valgrind_reports= 0;
-      if ($opt_valgrind_mysqld) {
-        $valgrind_reports= valgrind_exit_reports();
-	print $server "VALGREP\n" if $valgrind_reports;
-      }
       if ( $opt_gprof ) {
 	gprof_collect (find_mysqld($basedir), keys %gprof_dirs);
       }
@@ -5388,7 +5431,7 @@ sub mysqld_start ($$) {
 
   my $output= $mysqld->value('#log-error');
   # Remember this log file for valgrind error report search
-  $mysqld_logs{$output}= 1 if $opt_valgrind;
+  $mysqld_logs{$output}= 1 if $opt_valgrind_mysqld;
   # Remember data dir for gmon.out files if using gprof
   $gprof_dirs{$mysqld->value('datadir')}= 1 if $opt_gprof;
 
@@ -6069,6 +6112,8 @@ sub start_mysqltest ($) {
     mtr_init_args(\$args);
     valgrind_arguments($args, \$exe);
     mtr_add_arg($args, "%s", $_) for @args_saved;
+    # Remember this log file for valgrind error report search
+    $mysqld_logs{$path_testlog} = 1
   }
 
   mtr_add_arg($args, "--test-file=%s", $tinfo->{'path'});
@@ -6416,9 +6461,13 @@ sub valgrind_exit_reports() {
     my $found_report= 0;
     my $err_in_report= 0;
     my $ignore_report= 0;
+    my $valgrind_out= "$log_file.valgrind";
 
     my $LOGF = IO::File->new($log_file)
       or mtr_error("Could not open file '$log_file' for reading: $!");
+
+    my $OUTF = IO::File->new($valgrind_out, 'w')
+      or mtr_error("Could not open file '$valgrind_out' for writing$!");
 
     while ( my $line = <$LOGF> )
     {
@@ -6430,10 +6479,9 @@ sub valgrind_exit_reports() {
         {
           if ($err_in_report)
           {
-            mtr_print ("Valgrind report from $log_file after tests:\n",
-                        @culprits);
-            mtr_print_line();
-            print ("$valgrind_rep\n");
+            print $OUTF "Valgrind report from $log_file after tests:\n";
+            print $OUTF @culprits;
+            print $OUTF "$valgrind_rep\n";
             $found_err= 1;
             $err_in_report= 0;
           }
@@ -6445,10 +6493,15 @@ sub valgrind_exit_reports() {
         push (@culprits, $testname);
         next;
       }
-      # This line marks a report to be ignored
-      $ignore_report=1 if $line =~ /VALGRIND_DO_QUICK_LEAK_CHECK/;
-      # This line marks the start of a valgrind report
-      $found_report= 1 if $line =~ /^==\d+== .* SUMMARY:/;
+      if ($log_file eq $path_testlog) {
+        $found_report= 1 if $line =~ /^==\d+==/;
+      }
+      else {
+        # This line marks a report to be ignored
+        $ignore_report=1 if $line =~ /VALGRIND_DO_QUICK_LEAK_CHECK/;
+        # This line marks the start of a valgrind report
+        $found_report= 1 if $line =~ /^==\d+== .* SUMMARY:/;
+      }
 
       if ($ignore_report && $found_report) {
         $ignore_report= 0;
@@ -6468,11 +6521,13 @@ sub valgrind_exit_reports() {
     $LOGF= undef;
 
     if ($err_in_report) {
-      mtr_print ("Valgrind report from $log_file after tests:\n", @culprits);
-      mtr_print_line();
-      print ("$valgrind_rep\n");
+      print $OUTF "Valgrind report from $log_file after tests:\n";
+      print $OUTF @culprits;
+      print $OUTF "$valgrind_rep\n";
       $found_err= 1;
     }
+
+    $OUTF= undef;
   }
 
   return $found_err;
