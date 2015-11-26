@@ -98,7 +98,10 @@ MyRocksTablePropertiesCollector::AddUserKey(
     }
     auto& stats = stats_.back();
     stats.data_size += key.size()+value.size();
-    stats.rows++;
+    if (type == rocksdb::kEntryPut)
+    {
+      stats.rows++;
+    }
     stats.actual_disk_size += file_size-file_size_;
 
     if (params_.window_ > 0) {
