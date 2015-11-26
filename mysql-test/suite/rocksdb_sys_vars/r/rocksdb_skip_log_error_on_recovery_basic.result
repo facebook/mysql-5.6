@@ -1,7 +1,0 @@
-SET @start_global_value = @@global.ROCKSDB_SKIP_LOG_ERROR_ON_RECOVERY;
-SELECT @start_global_value;
-@start_global_value
-0
-"Trying to set variable @@global.ROCKSDB_SKIP_LOG_ERROR_ON_RECOVERY to 444. It should fail because it is readonly."
-SET @@global.ROCKSDB_SKIP_LOG_ERROR_ON_RECOVERY   = 444;
-ERROR HY000: Variable 'rocksdb_skip_log_error_on_recovery' is a read only variable
