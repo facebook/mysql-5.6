@@ -524,12 +524,6 @@ static MYSQL_SYSVAR_BOOL(is_fd_close_on_exec,
   "DBOptions::is_fd_close_on_exec for RocksDB",
   NULL, NULL, db_options.is_fd_close_on_exec);
 
-static MYSQL_SYSVAR_BOOL(skip_log_error_on_recovery,
-  *reinterpret_cast<my_bool*>(&db_options.skip_log_error_on_recovery),
-  PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "DBOptions::skip_log_error_on_recovery for RocksDB",
-  NULL, NULL, db_options.skip_log_error_on_recovery);
-
 static MYSQL_SYSVAR_UINT(stats_dump_period_sec,
   db_options.stats_dump_period_sec,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -833,7 +827,6 @@ static struct st_mysql_sys_var* rocksdb_system_variables[]= {
   MYSQL_SYSVAR(allow_mmap_reads),
   MYSQL_SYSVAR(allow_mmap_writes),
   MYSQL_SYSVAR(is_fd_close_on_exec),
-  MYSQL_SYSVAR(skip_log_error_on_recovery),
   MYSQL_SYSVAR(stats_dump_period_sec),
   MYSQL_SYSVAR(advise_random_on_open),
   MYSQL_SYSVAR(db_write_buffer_size),
