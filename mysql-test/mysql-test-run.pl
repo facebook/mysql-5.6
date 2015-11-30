@@ -458,6 +458,7 @@ sub main {
 
   # Create child processes
   my %children;
+  my %children_logdir;
   for my $child_num (1..$opt_parallel){
     my $child_pid= My::SafeProcess::Base::_safe_fork();
     if ($child_pid == 0){
@@ -475,6 +476,12 @@ sub main {
       exit(1);
     }
 
+    if ($opt_parallel > 1) {
+      $children_logdir{"$opt_vardir/$child_num/log/"}= 1;
+    }
+    else {
+      $children_logdir{"$opt_vardir/log/"}= 1;
+    }
     $children{$child_pid}= 1;
   }
   #######################################################################
@@ -541,10 +548,28 @@ sub main {
       $tinfo->{result}= 'MTR_RES_FAILED';
       $tinfo->{comment}= "Valgrind reported failures at shutdown, see above";
       $tinfo->{failures}= 1;
+      mtr_report_test($tinfo);
+
+      foreach my $logdir (keys %children_logdir) {
+        opendir(LOGDIR, $logdir)
+          or mtr_error("Can't open log directory: $logdir");
+
+        while (my $file = readdir(LOGDIR)) {
+          next unless ($file =~ m/\.valgrind$/);
+
+          open(FILE, "< $logdir/$file" ) or mtr_error("Can't open file: $file");
+          while(<FILE>) {
+            print;
+          }
+          close FILE;
+        }
+
+        closedir(LOGDIR);
+      }
     } else {
       $tinfo->{result}= 'MTR_RES_PASSED';
+      mtr_report_test($tinfo);
     }
-    mtr_report_test($tinfo);
     push @$completed, $tinfo;
   }
 
@@ -5388,7 +5413,7 @@ sub mysqld_start ($$) {
 
   my $output= $mysqld->value('#log-error');
   # Remember this log file for valgrind error report search
-  $mysqld_logs{$output}= 1 if $opt_valgrind;
+  $mysqld_logs{$output}= 1 if $opt_valgrind_mysqld;
   # Remember data dir for gmon.out files if using gprof
   $gprof_dirs{$mysqld->value('datadir')}= 1 if $opt_gprof;
 
@@ -6069,6 +6094,8 @@ sub start_mysqltest ($) {
     mtr_init_args(\$args);
     valgrind_arguments($args, \$exe);
     mtr_add_arg($args, "%s", $_) for @args_saved;
+    # Remember this log file for valgrind error report search
+    $mysqld_logs{$path_testlog} = 1
   }
 
   mtr_add_arg($args, "--test-file=%s", $tinfo->{'path'});
@@ -6416,9 +6443,13 @@ sub valgrind_exit_reports() {
     my $found_report= 0;
     my $err_in_report= 0;
     my $ignore_report= 0;
+    my $valgrind_out= "$log_file.valgrind";
 
     my $LOGF = IO::File->new($log_file)
       or mtr_error("Could not open file '$log_file' for reading: $!");
+
+    my $OUTF = IO::File->new($valgrind_out, 'w')
+      or mtr_error("Could not open file '$valgrind_out' for writing$!");
 
     while ( my $line = <$LOGF> )
     {
@@ -6430,10 +6461,10 @@ sub valgrind_exit_reports() {
         {
           if ($err_in_report)
           {
-            mtr_print ("Valgrind report from $log_file after tests:\n",
-                        @culprits);
-            mtr_print_line();
-            print ("$valgrind_rep\n");
+            print $OUTF "Valgrind report from $log_file after tests:\n";
+            print $OUTF @culprits;
+            print $OUTF "\n";
+            print $OUTF "$valgrind_rep\n";
             $found_err= 1;
             $err_in_report= 0;
           }
@@ -6445,10 +6476,15 @@ sub valgrind_exit_reports() {
         push (@culprits, $testname);
         next;
       }
-      # This line marks a report to be ignored
-      $ignore_report=1 if $line =~ /VALGRIND_DO_QUICK_LEAK_CHECK/;
-      # This line marks the start of a valgrind report
-      $found_report= 1 if $line =~ /^==\d+== .* SUMMARY:/;
+      if ($log_file eq $path_testlog) {
+        $found_report= 1 if $line =~ /^==\d+==/;
+      }
+      else {
+        # This line marks a report to be ignored
+        $ignore_report=1 if $line =~ /VALGRIND_DO_QUICK_LEAK_CHECK/;
+        # This line marks the start of a valgrind report
+        $found_report= 1 if $line =~ /^==\d+== .* SUMMARY:/;
+      }
 
       if ($ignore_report && $found_report) {
         $ignore_report= 0;
@@ -6468,11 +6504,14 @@ sub valgrind_exit_reports() {
     $LOGF= undef;
 
     if ($err_in_report) {
-      mtr_print ("Valgrind report from $log_file after tests:\n", @culprits);
-      mtr_print_line();
-      print ("$valgrind_rep\n");
+      print $OUTF "Valgrind report from $log_file after tests:\n";
+      print $OUTF @culprits;
+      print $OUTF "\n";
+      print $OUTF "$valgrind_rep\n";
       $found_err= 1;
     }
+
+    $OUTF= undef;
   }
 
   return $found_err;
