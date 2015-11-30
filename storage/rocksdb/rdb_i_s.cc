@@ -886,6 +886,10 @@ static int i_s_rocksdb_index_file_map_fill_table(
         field[1]->store(-1, true);
         field[3]->store(-1, true);
         field[4]->store(-1, true);
+        field[5]->store(-1, true);
+        field[6]->store(-1, true);
+        field[7]->store(-1, true);
+        field[8]->store(-1, true);
       }
       else {
         for (auto it : stats) {
@@ -894,6 +898,10 @@ static int i_s_rocksdb_index_file_map_fill_table(
           field[1]->store(it.gl_index_id.index_id, true);
           field[3]->store(it.rows, true);
           field[4]->store(it.data_size, true);
+          field[5]->store(it.entry_deletes, true);
+          field[6]->store(it.entry_singledeletes, true);
+          field[7]->store(it.entry_merges, true);
+          field[8]->store(it.entry_others, true);
 
           /* Tell MySQL about this row in the virtual table */
           ret= schema_table_store_record(thd, tables->table);
@@ -921,6 +929,11 @@ static ST_FIELD_INFO i_s_rocksdb_index_file_map_fields_info[] =
   ROCKSDB_FIELD_INFO("SST_NAME", NAME_LEN+1, MYSQL_TYPE_STRING, 0),
   ROCKSDB_FIELD_INFO("NUM_ROWS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO("DATA_SIZE", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO("ENTRY_DELETES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO("ENTRY_SINGLEDELETES", sizeof(int64_t),
+                      MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO("ENTRY_MERGES", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
+  ROCKSDB_FIELD_INFO("ENTRY_OTHERS", sizeof(int64_t), MYSQL_TYPE_LONGLONG, 0),
   ROCKSDB_FIELD_INFO_END
 };
 
