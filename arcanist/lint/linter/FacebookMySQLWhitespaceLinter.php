@@ -50,31 +50,67 @@ class FacebookMySQLWhitespaceLinter extends ArcanistLinter {
     $this->lookForWhitespaceDifferences($diff_output);
   }
 
+  private function didPrevLineChangeIndent($prev) {
+    if (isset($prev)) {
+      $last_char = substr(trim($prev), -1);
+      if ($last_char == '{' or $last_char == '}' or $last_char == ':') {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private function lookForWhitespaceDifferences($diff_output) {
-    $prev_lines = array();
+    $old_lines = array();
     $in_header = true;
-    foreach ($diff_output as $line) {
+    $prev = NULL;
+    $last_match_didnt_warn = false;
+    foreach ($diff_output as $new_key => $line) {
       if (preg_match('/^@@ -\d+(,\d+)? \+(\d+)(,\d+)? @@/', $line, $matches)) {
         // line starts a new diff section
-        $prev_lines = array();
+        $old_lines = array();
         $in_header = false;
         $line_number = $matches[2];
       } else if (!$in_header) {
         if ($line[0] == '-') {
-          $prev_lines[] = substr($line, 1);
+          $old_lines[] = [substr($line, 1), false];
         } else if ($line[0] == '+') {
+          $prev_new_diff_indent = $this->didPrevLineChangeIndent($prev);
+
+          $prev_old = NULL;
           $real_line = substr($line, 1);
-          foreach ($prev_lines as $prev) {
-            if ($this->differsByWhitespaceOnly($real_line, $prev)) {
-              $this->raiseLintAtLine($line_number, 1,
-                self::LINT_WHITESPACE_ONLY_CHANGE,
-                'Changed line only differs from original by whitespace',
-                $real_line, $prev);
-              break;
+          foreach ($old_lines as $old_key => $old) {
+            $prev_old_diff_indent = $this->didPrevLineChangeIndent($prev_old);
+
+            if (!$old[1]) {
+              if ($this->differsByWhitespaceOnly($real_line, $old[0])) {
+                if (($prev_new_diff_indent xor $prev_old_diff_indent) or
+                     $last_match_didnt_warn) {
+                  // Don't warn - the code indicates we are in a block that
+                  // changed indentation intentionally.
+                  $last_match_didnt_warn = true;
+                } else {
+                  $this->raiseLintAtLine($line_number, 1,
+                    self::LINT_WHITESPACE_ONLY_CHANGE,
+                    'Changed line only differs from original by whitespace',
+                    $real_line, $old[0]);
+                  // Mark this entry in the old_lines array so that it isn't
+                  // used twice
+                  $old_lines[$old_key] = [$old[0], true];
+                  $last_match_didnt_warn = false;
+                  break;
+                }
+              }
+            } else {
+              $last_match_didnt_warn = false;
             }
+
+            $prev_old = $old[0];
           }
 
           $line_number++;
+          $prev = $line;
         }
       }
     }
