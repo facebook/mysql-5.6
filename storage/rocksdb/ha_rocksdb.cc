@@ -41,6 +41,7 @@
 #include "rocksdb/utilities/checkpoint.h"
 #include "rocksdb/utilities/convenience.h"
 #include "rocksdb/utilities/flashcache.h"
+#include "rocksdb/utilities/memory_util.h"
 
 /* MyRocks includes */
 #include "./event_listener.h"
@@ -121,6 +122,7 @@ static std::vector<std::string> split(const std::string& input,
                                       char               delimiter);
 
 rocksdb::ColumnFamilyOptions default_cf_opts;
+std::vector<rocksdb::ColumnFamilyDescriptor> cf_descr;
 
 
 Dict_manager dict_manager;
@@ -1750,6 +1752,62 @@ static bool rocksdb_show_status(handlerton*		hton,
 
       res |= print_stats(thd, "CF_COMPACTION", cf_name, str, stat_print);
     }
+
+    /* Memory Statistics */
+    std::vector<rocksdb::DB*> dbs;
+    std::unordered_set<const rocksdb::Cache*> cache_set;
+    size_t internal_cache_count = 0;
+    size_t kDefaultInternalCacheSize = 8 * 1024 * 1024;
+    char buf[1024];
+
+    dbs.push_back(rdb);
+    cache_set.insert(table_options.block_cache.get());
+    for (const auto& cf_desc : cf_descr)
+    {
+      auto* table_factory = cf_desc.options.table_factory.get();
+      if (table_factory != nullptr)
+      {
+        std::string tf_name = table_factory->Name();
+        if (tf_name.find("BlockBasedTable") != std::string::npos)
+        {
+          const rocksdb::BlockBasedTableOptions* bbt_opt =
+            reinterpret_cast<rocksdb::BlockBasedTableOptions*>(
+              table_factory->GetOptions());
+          if (bbt_opt != nullptr)
+          {
+            if (bbt_opt->block_cache.get() != nullptr)
+            {
+              cache_set.insert(bbt_opt->block_cache.get());
+            }
+            else
+            {
+              internal_cache_count++;
+            }
+            cache_set.insert(bbt_opt->block_cache_compressed.get());
+          }
+        }
+      }
+    }
+
+    std::map<rocksdb::MemoryUtil::UsageType, uint64_t> temp_usage_by_type;
+    rocksdb::MemoryUtil::GetApproximateMemoryUsageByType(
+      dbs, cache_set, &temp_usage_by_type);
+    snprintf(buf, sizeof(buf), "\nMemTable Total: %lu",
+             temp_usage_by_type[rocksdb::MemoryUtil::kMemTableTotal]);
+    str.append(buf);
+    snprintf(buf, sizeof(buf), "\nMemTable Unflushed: %lu",
+             temp_usage_by_type[rocksdb::MemoryUtil::kMemTableUnFlushed]);
+    str.append(buf);
+    snprintf(buf, sizeof(buf), "\nTable Readers Total: %lu",
+             temp_usage_by_type[rocksdb::MemoryUtil::kTableReadersTotal]);
+    str.append(buf);
+    snprintf(buf, sizeof(buf), "\nCache Total: %lu",
+             temp_usage_by_type[rocksdb::MemoryUtil::kCacheTotal]);
+    str.append(buf);
+    snprintf(buf, sizeof(buf), "\nDefault Cache Capacity: %lu",
+             internal_cache_count * kDefaultInternalCacheSize);
+    str.append(buf);
+    res |= print_stats(thd, "Memory_Stats", "rocksdb", str, stat_print);
   }
   else if (stat_type == HA_ENGINE_TRX)
   {
@@ -2048,7 +2106,6 @@ static int rocksdb_init_func(void *p)
   else
     sql_print_information("RocksDB: %ld column families found", cf_names.size());
 
-  std::vector<rocksdb::ColumnFamilyDescriptor> cf_descr;
   std::vector<rocksdb::ColumnFamilyHandle*> cf_handles;
 
   default_cf_opts.comparator= &rocksdb_pk_comparator;
