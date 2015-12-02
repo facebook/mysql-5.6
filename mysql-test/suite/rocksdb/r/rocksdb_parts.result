@@ -12,3 +12,48 @@ SELECT f1 FROM t1 WHERE f2 = ( SELECT f1 FROM t2 WHERE pk = 2 );
 f1
 NULL
 drop table t1,t2;
+#
+# Issue#105: key_info[secondary_key].actual_key_parts does not include primary key on partitioned tables
+#
+CREATE TABLE t1 (
+id INT PRIMARY KEY,
+a set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8,
+b set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8 default null,
+c set ('a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z')  CHARACTER SET utf8 not null,
+INDEX (a),
+INDEX (b),
+INDEX (c)
+) ENGINE=RocksDB PARTITION BY key (id) partitions 2;
+INSERT INTO t1 (id, b) VALUES (28, 3);
+Warnings:
+Warning	1364	Field 'c' doesn't have a default value
+UPDATE t1 SET id=8 WHERE c < 8 LIMIT 1;
+check table t1;
+Table	Op	Msg_type	Msg_text
+test.t1	check	status	OK
+drop table t1;
+# 
+#  Issue #105, another testcase
+# 
+create table t1 (
+pk int primary key,
+col1 int,
+col2 int,
+key (col1) comment 'rev:cf_issue105'
+) engine=rocksdb partition by hash(pk) partitions 2;
+insert into t1 values (1,10,10);
+insert into t1 values (2,10,10);
+insert into t1 values (11,20,20);
+insert into t1 values (12,20,20);
+explain select * from t1 force index(col1) where col1=10;
+id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
+1	SIMPLE	t1	ref	col1	col1	5	const	2	NULL
+select * from t1 force index(col1) where col1=10;
+pk	col1	col2
+2	10	10
+1	10	10
+select * from t1 use index () where col1=10;
+pk	col1	col2
+2	10	10
+1	10	10
+drop table t1;
