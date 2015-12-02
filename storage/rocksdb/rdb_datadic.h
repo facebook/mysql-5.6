@@ -330,6 +330,18 @@ public:
     return m_key_parts;
   }
 
+  /*
+    Get a field object for key part #part_no
+
+    @detail
+      SQL layer thinks unique secondary indexes and indexes in partitioned
+      tables are not "Extended" with Primary Key columns.
+
+      Internally, we always extend all indexes with PK columns. This function
+      uses our definition of how the index is Extended.
+  */
+  inline Field* get_table_field_for_part_no(TABLE *table, uint part_no);
+
   const std::string& get_name() const {
     return name;
   }
@@ -560,6 +572,12 @@ public:
   Field *get_field_in_table(TABLE *tbl);
 };
 
+inline
+Field* RDBSE_KEYDEF::get_table_field_for_part_no(TABLE *table, uint part_no)
+{
+  DBUG_ASSERT(part_no < get_m_key_parts());
+  return pack_info[part_no].get_field_in_table(table);
+}
 
 /*
   A table definition. This is an entry in the mapping
