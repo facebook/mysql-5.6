@@ -3645,7 +3645,7 @@ int ha_rocksdb::index_read_map_impl(uchar *buf, const uchar *key,
   DBUG_ENTER("ha_rocksdb::index_read_map");
 
   RDBSE_KEYDEF *kd= key_descr[active_index];
-  uint actual_key_parts= table->key_info[active_index].actual_key_parts;
+  uint actual_key_parts= kd->get_m_key_parts();
   bool using_full_key= (keypart_map == HA_WHOLE_KEY) ||
                        (keypart_map == ((key_part_map(1) << actual_key_parts)
                                          - 1));
@@ -5515,12 +5515,12 @@ void ha_rocksdb::calc_updated_indexes()
 
     for (uint keynr= 0; keynr < table->s->keys; keynr++)
     {
-      KEY_PART_INFO *parts_info= table->key_info[keynr].key_part;
       /* Walk over all key parts, including the "extended key" suffix */
-      uint key_parts= table->key_info[keynr].actual_key_parts;
+      uint key_parts= key_descr[keynr]->get_m_key_parts();
       for (uint kp= 0; kp < key_parts; kp++)
       {
-        if (bitmap_is_set(table->write_set, parts_info[kp].field->field_index))
+        Field *field= key_descr[keynr]->get_table_field_for_part_no(table, kp);
+        if (bitmap_is_set(table->write_set, field->field_index))
         {
           updated_indexes.set_bit(keynr);
           break;
