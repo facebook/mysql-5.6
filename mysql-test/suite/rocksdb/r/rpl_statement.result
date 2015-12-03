@@ -9,7 +9,7 @@ select @@binlog_format;
 STATEMENT
 create table t1 (pk int primary key) engine=rocksdb;
 insert into t1 values (1),(2),(3);
-ERROR HY000: Unknown error
+ERROR HY000: Can't execute updates on master with binlog_format != ROW.
 set session rocksdb_unsafe_for_binlog=on;
 insert into t1 values (1),(2),(3);
 select * from t1;
@@ -20,7 +20,7 @@ pk
 delete from t1;
 set session rocksdb_unsafe_for_binlog=off;
 insert into t1 values (1),(2),(3);
-ERROR HY000: Unknown error
+ERROR HY000: Can't execute updates on master with binlog_format != ROW.
 set binlog_format=row;
 insert into t1 values (1),(2),(3);
 include/sync_slave_sql_with_master.inc

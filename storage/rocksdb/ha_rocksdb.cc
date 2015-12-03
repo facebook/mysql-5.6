@@ -5627,8 +5627,9 @@ int ha_rocksdb::external_lock(THD *thd, int lock_type)
       binlog_format != BINLOG_FORMAT_UNSPEC &&
       thd_binlog_filter_ok(thd))
   {
-    my_error(ER_UNKNOWN_ERROR, MYF(0),
-             "Can't execute updates on master with binlog_format != ROW.");
+    my_printf_error(ER_UNKNOWN_ERROR,
+             "Can't execute updates on master with binlog_format != ROW.",
+             MYF(0));
     DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
 
