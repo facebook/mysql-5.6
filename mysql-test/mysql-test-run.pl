@@ -546,7 +546,7 @@ sub main {
     $tinfo->{worker} = 0 if $opt_parallel > 1;
     if ($valgrind_reports) {
       $tinfo->{result}= 'MTR_RES_FAILED';
-      $tinfo->{comment}= "Valgrind reported failures at shutdown, see above";
+      $tinfo->{comment}= "Valgrind reported failures at shutdown";
       $tinfo->{failures}= 1;
       mtr_report_test($tinfo);
 
@@ -6462,8 +6462,8 @@ sub valgrind_exit_reports() {
           if ($err_in_report)
           {
             print $OUTF "Valgrind report from $log_file after tests:\n";
-            print $OUTF @culprits;
-            print $OUTF "\n";
+            print join("\n", @culprits);
+            print $OUTF "\n\n";
             print $OUTF "$valgrind_rep\n";
             $found_err= 1;
             $err_in_report= 0;
@@ -6505,8 +6505,8 @@ sub valgrind_exit_reports() {
 
     if ($err_in_report) {
       print $OUTF "Valgrind report from $log_file after tests:\n";
-      print $OUTF @culprits;
-      print $OUTF "\n";
+      print join("\n", @culprits);
+      print $OUTF "\n\n";
       print $OUTF "$valgrind_rep\n";
       $found_err= 1;
     }
