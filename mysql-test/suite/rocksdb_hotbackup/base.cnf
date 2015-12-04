@@ -7,13 +7,14 @@ rocksdb
 default-storage-engine=rocksdb
 skip-innodb
 default-tmp-storage-engine=MyISAM
+binlog_format=row
 
 [mysqld.2]
 rocksdb
 default-storage-engine=rocksdb
 skip-innodb
 default-tmp-storage-engine=MyISAM
-
+binlog_format=row
 
 [ENV]
 MASTER_MYPORT=              @mysqld.1.port
