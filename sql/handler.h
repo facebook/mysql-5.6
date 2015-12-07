@@ -4324,6 +4324,8 @@ class handler {
     return is_record_buffer_wanted(max_rows);
   }
 
+  virtual bool init_with_fields() { return false; }
+
   int ha_open(TABLE *table, const char *name, int mode, int test_if_locked,
               const dd::Table *table_def);
   int ha_close(void);
