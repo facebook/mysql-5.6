@@ -68,7 +68,6 @@ Created 10/16/1994 Heikki Tuuri
 #include "srv0srv.h"
 #include "ibuf0ibuf.h"
 #include "lock0lock.h"
-#include "mem0mem.h"
 #include "zlib.h"
 
 /** Buffered B-tree operation types, introduced as part of delete buffering. */
@@ -691,12 +690,11 @@ retry_page_get:
 	page = buf_block_get_frame(block);
 
 	if (rw_latch != RW_NO_LATCH) {
-		if (UNIV_UNLIKELY(page_zip_debug)) {
-			const page_zip_des_t*	page_zip
-				= buf_block_get_page_zip(block);
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-		}
+#ifdef UNIV_ZIP_DEBUG
+		const page_zip_des_t*	page_zip
+			= buf_block_get_page_zip(block);
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 		buf_block_dbg_add_level(
 			block, dict_index_is_ibuf(index)
@@ -1316,9 +1314,7 @@ btr_cur_optimistic_insert(
 	rec_size = rec_get_converted_size(index, entry, n_ext);
 
 	if (page_zip_rec_needs_ext(rec_size, page_is_comp(page),
-				   dtuple_get_n_fields(entry), zip_size,
-				   dict_table_is_compact_metadata(
-							index->table))) {
+				   dtuple_get_n_fields(entry), zip_size)) {
 
 		/* The record is so big that we have to store some fields
 		externally on separate database pages */
@@ -1337,8 +1333,7 @@ btr_cur_optimistic_insert(
 		Subtract one byte for the encoded heap_no in the
 		modification log. */
 		ulint	free_space_zip = page_zip_empty_size(
-			cursor->index->n_fields, zip_size,
-			dict_table_is_compact_metadata(index->table));
+			cursor->index->n_fields, zip_size);
 		ulint	n_uniq = dict_index_get_n_unique_in_tree(index);
 
 		ut_ad(dict_table_is_comp(index->table));
@@ -1605,9 +1600,7 @@ btr_cur_pessimistic_insert(
 	if (page_zip_rec_needs_ext(rec_get_converted_size(index, entry, n_ext),
 				   dict_table_is_comp(index->table),
 				   dtuple_get_n_fields(entry),
-				   zip_size,
-				   dict_table_is_compact_metadata(
-							index->table))) {
+				   zip_size)) {
 		/* The record is so big that we have to store some fields
 		externally on separate database pages */
 
@@ -2239,16 +2232,14 @@ any_extern:
 	new_rec_size = rec_get_converted_size(index, new_entry, 0);
 
 	page_zip = buf_block_get_page_zip(block);
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	if (page_zip) {
 		if (page_zip_rec_needs_ext(new_rec_size, page_is_comp(page),
 					   dict_index_get_n_fields(index),
-					   page_zip_get_size(page_zip),
-             dict_table_is_comp(index->table))) {
+					   page_zip_get_size(page_zip))) {
 		  goto any_extern;
 		}
 
@@ -2489,7 +2480,6 @@ btr_cur_pessimistic_update(
 	ibool		was_first;
 	ulint		n_reserved	= 0;
 	ulint		n_ext;
-	my_bool	zip_debug = page_zip_debug;
 
 	*offsets = NULL;
 	*big_rec = NULL;
@@ -2502,11 +2492,9 @@ btr_cur_pessimistic_update(
 	ut_ad(mtr_memo_contains(mtr, dict_index_get_lock(index),
 				MTR_MEMO_X_LOCK));
 	ut_ad(mtr_memo_contains(mtr, block, MTR_MEMO_PAGE_X_FIX));
-
-	if (UNIV_UNLIKELY(zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
-
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 	/* The insert buffer tree should never be updated in place. */
 	ut_ad(!dict_index_is_ibuf(index));
 	ut_ad(dict_index_is_online_ddl(index) == !!(flags & BTR_CREATE_FLAG)
@@ -2624,14 +2612,13 @@ btr_cur_pessimistic_update(
 			    rec_get_converted_size(index, new_entry, n_ext),
 			    TRUE,
 			    dict_index_get_n_fields(index),
-			    page_zip_get_size(page_zip),
-			    page_zip->compact_metadata)) {
+			    page_zip_get_size(page_zip))) {
 
 			goto make_external;
 		}
 	} else if (page_zip_rec_needs_ext(
 			   rec_get_converted_size(index, new_entry, n_ext),
-			   page_is_comp(page), 0, 0, FALSE)) {
+			   page_is_comp(page), 0, 0)) {
 make_external:
 		big_rec_vec = dtuple_convert_big_rec(index, new_entry, &n_ext);
 		if (UNIV_UNLIKELY(big_rec_vec == NULL)) {
@@ -2640,13 +2627,10 @@ make_external:
 			because we may need to update the
 			IBUF_BITMAP_FREE bits, which was suppressed by
 			BTR_KEEP_IBUF_BITMAP. */
-
-			if (UNIV_UNLIKELY(zip_debug)) {
-				ut_a(!page_zip
-				     || page_zip_validate(page_zip, page,
-				     			  index));
-			}
-
+#ifdef UNIV_ZIP_DEBUG
+			ut_a(!page_zip
+			     || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 			if (n_reserved > 0) {
 				fil_space_release_free_extents(
 					index->space, n_reserved);
@@ -2687,10 +2671,9 @@ make_external:
 
 	btr_search_update_hash_on_delete(cursor);
 
-	if (UNIV_UNLIKELY(zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
-
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 	page_cursor = btr_cur_get_page_cur(cursor);
 
 	page_cur_delete_rec(page_cursor, index, *offsets, mtr);
@@ -2801,12 +2784,10 @@ make_external:
 		stored fields */
 		buf_block_t*	rec_block = btr_cur_get_block(cursor);
 
-		if (UNIV_UNLIKELY(zip_debug)) {
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-			page = buf_block_get_frame(rec_block);
-		}
-
+#ifdef UNIV_ZIP_DEBUG
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+		page = buf_block_get_frame(rec_block);
+#endif /* UNIV_ZIP_DEBUG */
 		page_zip = buf_block_get_page_zip(rec_block);
 
 		btr_cur_unmark_extern_fields(page_zip,
@@ -2827,10 +2808,9 @@ make_external:
 	}
 
 return_after_reservations:
-
-	if (UNIV_UNLIKELY(zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	if (n_reserved > 0) {
 		fil_space_release_free_extents(index->space, n_reserved);
@@ -3286,19 +3266,14 @@ btr_cur_optimistic_delete_func(
 		btr_search_update_hash_on_delete(cursor);
 
 		if (page_zip) {
-
-			if (UNIV_UNLIKELY(page_zip_debug)) {
-				ut_a(page_zip_validate(page_zip, page,
-						       cursor->index));
-			}
-
+#ifdef UNIV_ZIP_DEBUG
+			ut_a(page_zip_validate(page_zip, page, cursor->index));
+#endif /* UNIV_ZIP_DEBUG */
 			page_cur_delete_rec(btr_cur_get_page_cur(cursor),
 					    cursor->index, offsets, mtr);
-
-			if (UNIV_UNLIKELY(page_zip_debug)) {
-				ut_a(page_zip_validate(page_zip, page,
-						       cursor->index));
-			}
+#ifdef UNIV_ZIP_DEBUG
+			ut_a(page_zip_validate(page_zip, page, cursor->index));
+#endif /* UNIV_ZIP_DEBUG */
 
 			/* On compressed pages, the IBUF_BITMAP_FREE
 			space is not affected by deleting (purging)
@@ -3404,10 +3379,9 @@ btr_cur_pessimistic_delete(
 	heap = mem_heap_create(1024);
 	rec = btr_cur_get_rec(cursor);
 	page_zip = buf_block_get_page_zip(block);
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	offsets = rec_get_offsets(rec, index, NULL, ULINT_UNDEFINED, &heap);
 
@@ -3420,10 +3394,9 @@ btr_cur_pessimistic_delete(
 					my_sleep(1000 * 1000 * 10);
 					DBUG_SUICIDE();
 				});
-		if (UNIV_UNLIKELY(page_zip_debug)) {
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-		}
+#ifdef UNIV_ZIP_DEBUG
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 	}
 
 	if (UNIV_UNLIKELY(page_get_n_recs(page) < 2)
@@ -3484,10 +3457,9 @@ btr_cur_pessimistic_delete(
 	btr_search_update_hash_on_delete(cursor);
 
 	page_cur_delete_rec(btr_cur_get_page_cur(cursor), index, offsets, mtr);
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	ut_ad(btr_check_node_ptr(index, block, mtr));
 
@@ -4543,10 +4515,13 @@ btr_store_big_rec_extern_fields(
 
 	if (page_zip) {
 		int	err = Z_OK;
-    /* Create a heap that's big enough for deflate(). */
-		heap = mem_heap_create_cached(DEFLATE_MEMORY_BOUND(BTR_CUR_BLOB_WBITS,
-		                                                   BTR_CUR_BLOB_MEM_LEVEL),
-		                              malloc_cache_compress);
+
+		/* Zlib deflate needs 128 kilobytes for the default
+		window size, plus 512 << memLevel, plus a few
+		kilobytes for small objects.  We use reduced memLevel
+		to limit the memory consumption, and preallocate the
+		heap, hoping to avoid memory fragmentation. */
+		heap = mem_heap_create(250000);
 		page_zip_set_alloc(&c_stream, heap);
 
 		err = deflateInit2(&c_stream, page_zip_level,
@@ -5438,18 +5413,15 @@ btr_copy_zblob_prefix(
 	d_stream.next_in = Z_NULL;
 	d_stream.avail_in = 0;
 
-  /* Create a heap that's big enough for inflate(). */
-	heap = mem_heap_create_cached(INFLATE_MEMORY_BOUND(BTR_CUR_BLOB_WBITS),
-	                              malloc_cache_decompress);
+	/* Zlib inflate needs 32 kilobytes for the default
+	window size, plus a few kilobytes for small objects. */
+	heap = mem_heap_create(40000);
 	page_zip_set_alloc(&d_stream, heap);
 
 	ut_ad(ut_is_2pow(zip_size));
 	ut_ad(zip_size >= UNIV_ZIP_SIZE_MIN);
 	ut_ad(zip_size <= UNIV_ZIP_SIZE_MAX);
 	ut_ad(space_id);
-
-	err = inflateInit2(&d_stream, BTR_CUR_BLOB_WBITS);
-	ut_a(err == Z_OK);
 
 	for (;;) {
 		buf_page_t*	bpage;

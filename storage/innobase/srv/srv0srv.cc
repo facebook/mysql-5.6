@@ -56,7 +56,6 @@ Created 10/8/1995 Heikki Tuuri
 #include "ibuf0ibuf.h"
 #include "buf0flu.h"
 #include "buf0lru.h"
-#include "btr0cur.h"
 #include "btr0defragment.h"
 #include "btr0sea.h"
 #include "dict0load.h"
@@ -2206,18 +2205,6 @@ srv_export_innodb_status(void)
 	export_vars.num_optimistic_insert_calls_in_pessimistic_descent =
 		row_ins_optimistic_insert_calls_in_pessimistic_descent;
 #endif /* UNIV_DEBUG */
-
-	export_vars.innodb_malloc_cache_hits_compress = malloc_cache_compress->hits;
-	export_vars.innodb_malloc_cache_misses_compress =
-	  malloc_cache_compress->misses;
-	export_vars.innodb_malloc_cache_hits_decompress =
-	  malloc_cache_decompress->hits;
-	export_vars.innodb_malloc_cache_misses_decompress =
-	  malloc_cache_decompress->misses;
-	export_vars.innodb_malloc_cache_block_size_compress =
-	  malloc_cache_compress->block_size;
-	export_vars.innodb_malloc_cache_block_size_decompress =
-	  malloc_cache_decompress->block_size;
 
 	export_vars.innodb_drop_purge_skip_row = srv_drop_purge_skip_row;
 	export_vars.innodb_drop_ibuf_skip_row = srv_drop_ibuf_skip_row;

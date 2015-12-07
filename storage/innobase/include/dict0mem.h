@@ -123,24 +123,12 @@ innodb-file-per-table, an older engine will not be able to find that table.
 This flag prevents older engines from attempting to open the table and
 allows InnoDB to update_create_info() accordingly. */
 #define DICT_TF_WIDTH_DATA_DIR		1
-/** Width of the COMP_TYPE flag. This flag determines the compression used
-for a compressed table. */
-#define DICT_TF_WIDTH_COMP_TYPE	4
-/** Width of the compression level passed to the compression algorithm used for
-a compressed table. */
-#define DICT_TF_WIDTH_COMP_LEVEL 4
-/** Width of the COMPACT_METADATA flag. When set the transaction ids and
-rollback pointers are stored in a compact format. */
-#define DICT_TF_WIDTH_COMPACT_METADATA 1
 
 /** Width of all the currently known table flags */
 #define DICT_TF_BITS	(DICT_TF_WIDTH_COMPACT		\
 			+ DICT_TF_WIDTH_ZIP_SSIZE	\
 			+ DICT_TF_WIDTH_ATOMIC_BLOBS	\
-			+ DICT_TF_WIDTH_DATA_DIR	\
-			+ DICT_TF_WIDTH_COMP_TYPE	\
-			+ DICT_TF_WIDTH_COMP_LEVEL	\
-			+ DICT_TF_WIDTH_COMPACT_METADATA)
+			+ DICT_TF_WIDTH_DATA_DIR)
 
 /** A mask of all the known/used bits in table flags */
 #define DICT_TF_BIT_MASK	(~(~0 << DICT_TF_BITS))
@@ -156,18 +144,9 @@ rollback pointers are stored in a compact format. */
 /** Zero relative shift position of the DATA_DIR field */
 #define DICT_TF_POS_DATA_DIR		(DICT_TF_POS_ATOMIC_BLOBS	\
 					+ DICT_TF_WIDTH_ATOMIC_BLOBS)
-/** Zero relative shift position of the start of the compression type bits */
-#define DICT_TF_POS_COMP_TYPE	(DICT_TF_POS_DATA_DIR		\
-					+ DICT_TF_WIDTH_DATA_DIR)
-/** Zero relative shift position of the start of the compression level bits */
-#define DICT_TF_POS_COMP_LEVEL (DICT_TF_POS_COMP_TYPE \
-					+ DICT_TF_WIDTH_COMP_TYPE)
-/** Zero relative shift position of the start of the compact metadata bit */
-#define DICT_TF_POS_COMPACT_METADATA (DICT_TF_POS_COMP_LEVEL \
-					+ DICT_TF_WIDTH_COMP_LEVEL)
 /** Zero relative shift position of the start of the UNUSED bits */
-#define DICT_TF_POS_UNUSED		(DICT_TF_POS_COMPACT_METADATA	\
-					+ DICT_TF_WIDTH_COMPACT_METADATA)
+#define DICT_TF_POS_UNUSED		(DICT_TF_POS_DATA_DIR		\
+					+ DICT_TF_WIDTH_DATA_DIR)
 
 /** Bit mask of the COMPACT field */
 #define DICT_TF_MASK_COMPACT				\
@@ -185,18 +164,6 @@ rollback pointers are stored in a compact format. */
 #define DICT_TF_MASK_DATA_DIR				\
 		((~(~0 << DICT_TF_WIDTH_DATA_DIR))	\
 		<< DICT_TF_POS_DATA_DIR)
-/** Bit mask of the COMP_TYPE field */
-#define DICT_TF_MASK_COMP_TYPE				\
-		((~(~0 << DICT_TF_WIDTH_COMP_TYPE))	\
-		<< DICT_TF_POS_COMP_TYPE)
-/** Bit mask of the COMP_LEVEL field */
-#define DICT_TF_MASK_COMP_LEVEL				\
-		((~(~0 << DICT_TF_WIDTH_COMP_LEVEL))	\
-		<< DICT_TF_POS_COMP_LEVEL)
-/** Bit mask of the COMPACT_METADATA field */
-#define DICT_TF_MASK_COMPACT_METADATA				\
-		((~(~0 << DICT_TF_WIDTH_COMPACT_METADATA))	\
-		<< DICT_TF_POS_COMPACT_METADATA)
 
 /** Return the value of the COMPACT field */
 #define DICT_TF_GET_COMPACT(flags)			\
@@ -214,18 +181,6 @@ rollback pointers are stored in a compact format. */
 #define DICT_TF_HAS_DATA_DIR(flags)			\
 		((flags & DICT_TF_MASK_DATA_DIR)	\
 		>> DICT_TF_POS_DATA_DIR)
-/** Return the compression type field */
-#define DICT_TF_GET_COMP_TYPE(flags)		\
-		((flags & DICT_TF_MASK_COMP_TYPE)	\
-		>> DICT_TF_POS_COMP_TYPE)
-/** Return the compression level */
-#define DICT_TF_GET_COMP_LEVEL(flags)		\
-		((flags & DICT_TF_MASK_COMP_LEVEL)	\
-		>> DICT_TF_POS_COMP_LEVEL)
-/** Return the compact_metadata bit */
-#define DICT_TF_GET_COMPACT_METADATA(flags)		\
-		((flags & DICT_TF_MASK_COMPACT_METADATA)	\
-		>> DICT_TF_POS_COMPACT_METADATA)
 /** Return the contents of the UNUSED bits */
 #define DICT_TF_GET_UNUSED(flags)			\
 		(flags >> DICT_TF_POS_UNUSED)
@@ -272,17 +227,6 @@ index tables) of a FTS table are in HEX format. */
 
 #define DICT_TF2_FLAG_UNSET(table, flag)			\
 	(table->flags2 = table->flags2 & ~(flag))
-
-/* compression types */
-#define DICT_TF_COMP_ZLIB_STREAM 0 /* old compression format */
-#define DICT_TF_COMP_ZLIB 1 /* new compression using zlib */
-#define DICT_TF_COMP_BZIP 2 /* new compression using bzip2 */
-#define DICT_TF_COMP_LZMA 3 /* new compression using lzma */
-#define DICT_TF_COMP_SNAPPY 4 /* new compression using snappy */
-#define DICT_TF_COMP_QUICKLZ 5 /* new compression using quicklz */
-#define DICT_TF_COMP_LZ4 6 /* new compression using lz4 */
-#define DICT_TF_COMP_MAX DICT_TF_COMP_LZ4 /* must be less than
-1 << DICT_TF_WIDTH_COMP_TYPE */
 
 /** Tables could be chained together with Foreign key constraint. When
 first load the parent table, we would load all of its descedents.

@@ -1567,9 +1567,6 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
   memset(&create_info, 0, sizeof(create_info));
   /* Allow update_create_info to update row type */
   create_info.row_type= share->row_type;
-  create_info.compression = share->compression_type;
-  create_info.compression_level = share->compression_level;
-  create_info.compact_metadata = share->compact_metadata;
   create_info.rbr_column_names = share->rbr_column_names;
   file->update_create_info(&create_info);
   primary_key= share->primary_key;
@@ -1828,22 +1825,6 @@ int store_create_info(THD *thd, TABLE_LIST *table_list, String *packet,
       packet->append(STRING_WITH_LEN(" KEY_BLOCK_SIZE="));
       end= longlong10_to_str(table->s->key_block_size, buff, 10);
       packet->append(buff, (uint) (end - buff));
-    }
-    if (create_info.row_type == ROW_TYPE_COMPRESSED)
-    {
-      char* end;
-      packet->append(STRING_WITH_LEN(" COMPRESSION="));
-      packet->append(ha_compression_type[(uint) create_info.compression]);
-      if (create_info.compression != COMPRESSION_TYPE_ZLIB_STREAM) {
-        packet->append(STRING_WITH_LEN(" COMPRESSION_LEVEL="));
-        end= longlong10_to_str(create_info.compression_level, buff, 10);
-        packet->append(buff, (uint) (end - buff));
-        if (create_info.compact_metadata == 1) {
-          packet->append(STRING_WITH_LEN(" COMPACT_METADATA=1"));
-        } else {
-          packet->append(STRING_WITH_LEN(" COMPACT_METADATA=0"));
-        }
-      }
     }
     if (create_info.rbr_column_names)
       packet->append(STRING_WITH_LEN(" RBR_COLUMN_NAMES=1"));
@@ -2779,46 +2760,85 @@ inline void make_upper(char *buf)
     *buf= my_toupper(system_charset_info, *buf);
 }
 
-
-/**
-  @brief Returns the value of a system or a status variable.
-
-  @param thd        [IN]    The thd handle.
-  @param variable   [IN]    Details of the variable.
-  @param value_type [IN]    Variable type.
-  @param show_type  [IN]    Variable show type.
-  @pramm charset    [OUT]   Character set of the value.
-  @param buff       [INOUT] Buffer to store the value.
-                            (Needs to have enough memory
-			     to hold the value of variable.)
-  @param length     [OUT]   Length of the value.
-
-  @return                   Pointer to the value buffer.
-    */
-
-const char* get_one_variable(THD *thd, SHOW_VAR *variable,
-                             enum_var_type value_type, SHOW_TYPE show_type,
-                             system_status_var *status_var,
-                             const CHARSET_INFO **charset, char *buff,
-                             size_t *length, THD *var_thd)
-    {
-  const char *value= variable->value;
-  const char *pos= buff;
-  const char *end= buff;
+// note: var_thd is the optional thread specified in the show commands
+// if var_thd is nullptr, we retrieve the status array from thd itself.
+static bool show_status_array(THD *thd, const char *wild,
+                              SHOW_VAR *variables,
+                              enum enum_var_type value_type,
+                              struct system_status_var *status_var,
+                              const char *prefix, TABLE *table,
+                              bool ucase_names,
+                              Item *cond, THD *var_thd = nullptr)
+{
+  my_aligned_storage<SHOW_VAR_FUNC_BUFF_SIZE, MY_ALIGNOF(long)> buffer;
+  char * const buff= buffer.data;
+  char *prefix_end;
+  /* the variable name should not be longer than 64 characters */
+  char name_buffer[64];
+  int len;
+  LEX_STRING null_lex_str;
+  SHOW_VAR tmp, *var;
+  Item *partial_cond= 0;
+  enum_check_fields save_count_cuted_fields= thd->count_cuted_fields;
+  bool res= FALSE;
+  const CHARSET_INFO *charset= system_charset_info;
+  DBUG_ENTER("show_status_array");
 
   if (!var_thd)
     var_thd = thd;
 
+  thd->count_cuted_fields= CHECK_FIELD_WARN;  
+  null_lex_str.str= 0;				// For sys_var->value_ptr()
+  null_lex_str.length= 0;
+
+  prefix_end=strnmov(name_buffer, prefix, sizeof(name_buffer)-1);
+  if (*prefix)
+    *prefix_end++= '_';
+  len=name_buffer + sizeof(name_buffer) - prefix_end;
+  partial_cond= make_cond_for_info_schema(cond, table->pos_in_table_list);
+
+  for (; variables->name; variables++)
+  {
+    strnmov(prefix_end, variables->name, len);
+    name_buffer[sizeof(name_buffer)-1]=0;       /* Safety */
+    if (ucase_names)
+      make_upper(name_buffer);
+
+    restore_record(table, s->default_values);
+    table->field[0]->store(name_buffer, strlen(name_buffer),
+                           system_charset_info);
+    /*
+      if var->type is SHOW_FUNC, call the function.
+      Repeat as necessary, if new var is again SHOW_FUNC
+    */
+    for (var=variables; var->type == SHOW_FUNC; var= &tmp)
+      ((mysql_show_var_func)(var->value))(thd, &tmp, buff);
+
+    SHOW_TYPE show_type=var->type;
+    if (show_type == SHOW_ARRAY)
+    {
+      show_status_array(thd, wild, (SHOW_VAR *) var->value, value_type,
+                        status_var, name_buffer, table, ucase_names,
+                        partial_cond, var_thd);
+    }
+    else
+    {
+      if (!(wild && wild[0] && wild_case_compare(system_charset_info,
+                                                 name_buffer, wild)) &&
+          (!partial_cond || partial_cond->val_int()))
+      {
+        char *value=var->value;
+        const char *pos, *end;                  // We assign a lot of const's
+
+        mysql_mutex_lock(&LOCK_global_system_variables);
+
         if (show_type == SHOW_SYS)
         {
-    LEX_STRING null_lex_str;
-    null_lex_str.str= 0;                        // For sys_var->value_ptr()
-    null_lex_str.length= 0;
-    sys_var *var= ((sys_var *) variable->value);
+          sys_var *var= ((sys_var *) value);
           show_type= var->show_type();
           // we get the var value in the var_thd from show commands
           value= (char*) var->value_ptr(var_thd, value_type, &null_lex_str);
-    *charset= var->charset(thd);
+          charset= var->charset(thd);
         }
 
         pos= end= buff;
@@ -2892,7 +2912,7 @@ const char* get_one_variable(THD *thd, SHOW_VAR *variable,
 
           DBUG_EXECUTE_IF("alter_server_version_str",
                           if (!my_strcasecmp(system_charset_info,
-                                             variable->name,
+                                             variables->name,
                                              "version")) {
                             pos= "some-other-version";
                           });
@@ -2900,7 +2920,6 @@ const char* get_one_variable(THD *thd, SHOW_VAR *variable,
           end= strend(pos);
           break;
         }
-
         case SHOW_LEX_STRING:
         {
           LEX_STRING *ls=(LEX_STRING*)value;
@@ -2910,104 +2929,25 @@ const char* get_one_variable(THD *thd, SHOW_VAR *variable,
             end= pos + ls->length;
           break;
         }
-
         case SHOW_KEY_CACHE_LONG:
           value= (char*) dflt_key_cache + (ulong)value;
           end= int10_to_str(*(long*) value, buff, 10);
           break;
-
         case SHOW_KEY_CACHE_LONGLONG:
           value= (char*) dflt_key_cache + (ulong)value;
 	  end= longlong10_to_str(*(longlong*) value, buff, 10);
 	  break;
-
         case SHOW_UNDEF:
           break;                                        // Return empty string
-
         case SHOW_SYS:                                  // Cannot happen
-
         default:
           DBUG_ASSERT(0);
           break;
         }
-  *length= (size_t) (end - pos);
-  return pos;
-}
-
-// note: var_thd is the optional thread specified in the show commands
-// if var_thd is nullptr, we retrieve the status array from thd itself.
-static bool show_status_array(THD *thd, const char *wild,
-                              SHOW_VAR *variables,
-                              enum enum_var_type value_type,
-                              struct system_status_var *status_var,
-                              const char *prefix, TABLE *table,
-                              bool ucase_names,
-                              Item *cond, THD *var_thd = nullptr)
-{
-  my_aligned_storage<SHOW_VAR_FUNC_BUFF_SIZE, MY_ALIGNOF(long)> buffer;
-  char * const buff= buffer.data;
-  char *prefix_end;
-  /* the variable name should not be longer than 64 characters */
-  char name_buffer[64];
-  int len;
-  SHOW_VAR tmp, *var;
-  Item *partial_cond= 0;
-  enum_check_fields save_count_cuted_fields= thd->count_cuted_fields;
-  bool res= FALSE;
-  const CHARSET_INFO *charset= system_charset_info;
-  DBUG_ENTER("show_status_array");
-
-  if (!var_thd)
-    var_thd = thd;
-
-  thd->count_cuted_fields= CHECK_FIELD_WARN;
-
-  prefix_end=strnmov(name_buffer, prefix, sizeof(name_buffer)-1);
-  if (*prefix)
-    *prefix_end++= '_';
-  len=name_buffer + sizeof(name_buffer) - prefix_end;
-  partial_cond= make_cond_for_info_schema(cond, table->pos_in_table_list);
-
-  for (; variables->name; variables++)
-  {
-    strnmov(prefix_end, variables->name, len);
-    name_buffer[sizeof(name_buffer)-1]=0;       /* Safety */
-    if (ucase_names)
-      make_upper(name_buffer);
-
-    restore_record(table, s->default_values);
-    table->field[0]->store(name_buffer, strlen(name_buffer),
-                           system_charset_info);
-    /*
-      if var->type is SHOW_FUNC, call the function.
-      Repeat as necessary, if new var is again SHOW_FUNC
-    */
-    for (var=variables; var->type == SHOW_FUNC; var= &tmp)
-      ((mysql_show_var_func)(var->value))(thd, &tmp, buff);
-
-    SHOW_TYPE show_type=var->type;
-    if (show_type == SHOW_ARRAY)
-    {
-      show_status_array(thd, wild, (SHOW_VAR *) var->value, value_type,
-                        status_var, name_buffer, table, ucase_names,
-                        partial_cond, var_thd);
-    }
-    else
-    {
-      if (!(wild && wild[0] && wild_case_compare(system_charset_info,
-                                                 name_buffer, wild)) &&
-          (!partial_cond || partial_cond->val_int()))
-      {
-        const char *pos;
-        size_t length;
-
-        mysql_mutex_lock(&LOCK_global_system_variables);
-        pos= get_one_variable(thd, var, value_type, show_type, status_var,
-                              &charset, buff, &length, var_thd);
-        table->field[1]->store(pos, (uint32) length, charset);
-
+        table->field[1]->store(pos, (uint32) (end - pos), charset);
         thd->count_cuted_fields= CHECK_FIELD_IGNORE;
         table->field[1]->set_notnull();
+
         mysql_mutex_unlock(&LOCK_global_system_variables);
 
         // store the record to var_thd
@@ -4832,44 +4772,6 @@ static int get_schema_tables_record(THD *thd, TABLE_LIST *tables,
     if (share->comment.str)
       table->field[20]->store(share->comment.str, share->comment.length, cs);
 
-    if (share->row_type == ROW_TYPE_COMPRESSED) {
-      switch (share->compression_type) {
-      case COMPRESSION_TYPE_ZLIB_STREAM:
-        table->field[21]->store(STRING_WITH_LEN("ZLIB_STREAM"), cs);
-        break;
-      case COMPRESSION_TYPE_ZLIB:
-        table->field[21]->store(STRING_WITH_LEN("ZLIB"), cs);
-        break;
-      case COMPRESSION_TYPE_BZIP:
-        table->field[21]->store(STRING_WITH_LEN("BZIP"), cs);
-        break;
-      case COMPRESSION_TYPE_LZMA:
-        table->field[21]->store(STRING_WITH_LEN("LZMA"), cs);
-        break;
-      case COMPRESSION_TYPE_SNAPPY:
-        table->field[21]->store(STRING_WITH_LEN("SNAPPY"), cs);
-        break;
-      case COMPRESSION_TYPE_QUICKLZ:
-        table->field[21]->store(STRING_WITH_LEN("QUICKLZ"), cs);
-        break;
-      case COMPRESSION_TYPE_LZ4:
-        table->field[21]->store(STRING_WITH_LEN("LZ4"), cs);
-        break;
-      default:
-        info_error = HA_ERR_GENERIC;
-        goto err;
-        break;
-      }
-      table->field[21]->set_notnull();
-      table->field[22]->store((longlong) share->compression_level, TRUE);
-      table->field[23]->store((longlong) share->key_block_size, TRUE);
-      table->field[24]->store(share->compact_metadata == 1 ? 1LL : 0LL, TRUE);
-    } else {
-      table->field[21]->set_null();
-      table->field[22]->store(0, TRUE);
-      table->field[23]->store(0LL, TRUE);
-      table->field[24]->store(0LL, TRUE);
-    }
     /* Collect table info from the storage engine  */
 
     if(file)
@@ -7976,13 +7878,6 @@ ST_FIELD_INFO tables_fields_info[]=
    OPEN_FRM_ONLY},
   {"TABLE_COMMENT", TABLE_COMMENT_MAXLEN, MYSQL_TYPE_STRING, 0, 0, 
    "Comment", OPEN_FRM_ONLY},
-  {"COMPRESSION", 64, MYSQL_TYPE_STRING, 0, 1, "Compression", OPEN_FRM_ONLY},
-  {"COMPRESSION_LEVEL", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
-   "Compression_level", OPEN_FRM_ONLY},
-  {"KEY_BLOCK_SIZE", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
-   "Key_block_size", OPEN_FRM_ONLY},
-  {"COMPACT_METADATA", MY_INT64_NUM_DECIMAL_DIGITS, MYSQL_TYPE_LONGLONG, 0, 0,
-   "Compact_metadata", OPEN_FRM_ONLY},
   {0, 0, MYSQL_TYPE_STRING, 0, 0, 0, SKIP_OPEN_TABLE}
 };
 

@@ -1203,18 +1203,6 @@ static SHOW_VAR innodb_status_variables[]= {
   {"num_optimistic_insert_calls_in_pessimistic_descent",
   (char*) &export_vars.num_optimistic_insert_calls_in_pessimistic_descent, SHOW_LONGLONG},
 #endif
-  {"malloc_cache_hits_compress",
-  (char*) &export_vars.innodb_malloc_cache_hits_compress, SHOW_LONG},
-  {"malloc_cache_misses_compress",
-  (char*) &export_vars.innodb_malloc_cache_misses_compress, SHOW_LONG},
-  {"malloc_cache_hits_decompress",
-  (char*) &export_vars.innodb_malloc_cache_hits_decompress, SHOW_LONG},
-  {"malloc_cache_misses_decompress",
-  (char*) &export_vars.innodb_malloc_cache_misses_decompress, SHOW_LONG},
-  {"malloc_cache_block_size_compress",
-  (char*) &export_vars.innodb_malloc_cache_block_size_compress, SHOW_LONG},
-  {"malloc_cache_block_size_decompress",
-  (char*) &export_vars.innodb_malloc_cache_block_size_decompress, SHOW_LONG},
   {"latency_histogram_async_read", (char*) &latency_histogram_async_read,
    SHOW_ARRAY},
   {"latency_histogram_async_write", (char*) &latency_histogram_async_write,
@@ -4838,6 +4826,8 @@ ha_innobase::get_row_type() const
 	ut_ad(0);
 	return(ROW_TYPE_NOT_USED);
 }
+
+
 
 /****************************************************************//**
 Get the table flags to use for the statement.
@@ -10168,128 +10158,6 @@ create_options_are_invalid(
 		ret = "INDEX DIRECTORY";
 	}
 
-	if ((row_format != ROW_TYPE_COMPRESSED
-	     || create_info->compression == COMPRESSION_TYPE_ZLIB_STREAM)
-	    && (create_info->compact_metadata == 1)) {
-		push_warning_printf(
-		    thd, Sql_condition::WARN_LEVEL_WARN,
-		    ER_ILLEGAL_HA_CREATE_OPTION,
-		    "InnoDB: COMPACT_METADATA can be 1 only if "
-		    "ROW_FORMAT=COMPRESSED and COMPRESSION is one of "
-		    "the following: ZLIB, BZIP, LZMA, SNAPPY, QUICKLZ, "
-		    "or LZ4");
-		return "COMPACT_METADATA";
-	}
-
-	if (create_info->compact_metadata > 1) {
-		push_warning_printf(
-		    thd, Sql_condition::WARN_LEVEL_WARN,
-		    ER_ILLEGAL_HA_CREATE_OPTION,
-		    "InnoDB: too large COMPACT_METADATA"
-		    " COMPACT_METADATA must be 0 or 1.");
-		return "COMPACT_METADATA";
-	}
-
-	/* compression_level is stored using 4 bits */
-	if (create_info->compression_level > 0xf) {
-		push_warning_printf(
-		    thd, Sql_condition::WARN_LEVEL_WARN,
-		    ER_ILLEGAL_HA_CREATE_OPTION,
-		    "InnoDB: too large COMPRESSION_LEVEL "
-		    "COMPRESSION_LEVEL must be between 0 and 15 inclusive.");
-		return "COMPRESSION_LEVEL";
-	}
-
-	if (row_format == ROW_TYPE_COMPRESSED) {
-		switch (create_info->compression) {
-		case COMPRESSION_TYPE_ZLIB_STREAM:
-			if (create_info->compression_level) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=ZLIB_STREAM. "
-					"COMPRESSION_LEVEL must be 0 for "
-					"ZLIB_STREAM.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		case COMPRESSION_TYPE_ZLIB:
-			if (create_info->compression_level > 9) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=ZLIB. "
-					"COMPRESSION_LEVEL must be less than "
-					"or equal to 9 for ZLIB.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		case COMPRESSION_TYPE_BZIP:
-			/* bzip accepts all levels from 0 to 15 */
-			if (create_info->compression_level > 15) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=ZLIB. "
-					"COMPRESSION_LEVEL must be less than "
-					"or equal to 15 for BZIP.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		case COMPRESSION_TYPE_LZMA:
-			if (create_info->compression_level > 2) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=LZMA. "
-					"COMPRESSION_LEVEL must be less than "
-					"or equal to 2 for LZMA.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		case COMPRESSION_TYPE_SNAPPY:
-			if (create_info->compression_level) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=SNAPPY. "
-					"COMPRESSION_LEVEL must be 0 for "
-					"SNAPPY.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		case COMPRESSION_TYPE_QUICKLZ:
-			if (create_info->compression_level > 3) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=QUICKLZ. "
-					"COMPRESSION_LEVEL must be less than "
-					"or equal to 3 for QUICKLZ.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		case COMPRESSION_TYPE_LZ4:
-			if (create_info->compression_level > 2) {
-				push_warning_printf(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: Too large COMPRESSION_LEVEL "
-					"for COMPRESSION=LZ4."
-					"COMPRESSION_LEVEL must be less than "
-					"or equal to 2 for LZ4.");
-				return "COMPRESSION_LEVEL";
-			}
-			break;
-		}
-	}
-
 	/* Don't support compressed table when page size > 16k. */
 	if ((kbs_specified || row_format == ROW_TYPE_COMPRESSED)
 	    && UNIV_PAGE_SIZE > UNIV_PAGE_SIZE_DEF) {
@@ -10473,12 +10341,8 @@ innobase_table_flags(
 	bool		zip_allowed = true;
 	ulint		zip_ssize = 0;
 	enum row_type	row_format;
-	rec_compression_type_t	compression = REC_COMPRESSION_UNUSED;
 	rec_format_t	innodb_row_format = REC_FORMAT_COMPACT;
 	bool		use_data_dir;
-	ulong	compression_level = create_info->compression_level;
-	ulong	compact_metadata = create_info->compact_metadata;
-
 
 	/* Cache the value of innodb_file_format, in case it is
 	modified by another thread while the table is being created. */
@@ -10612,7 +10476,6 @@ index_bad:
 		}
 	}
 
-
 	/* Validate the row format.  Correct it if necessary */
 	switch (row_format) {
 	case ROW_TYPE_REDUNDANT:
@@ -10673,140 +10536,11 @@ index_bad:
 		zip_ssize = 0;
 	}
 
-	if (zip_allowed && zip_ssize) {
-		if (compact_metadata > 1) {
-			push_warning(
-				thd, Sql_condition::WARN_LEVEL_WARN,
-				ER_ILLEGAL_HA_CREATE_OPTION,
-				"InnoDB: COMPACT_METADATA must be 0 or 1. "
-				"Assuming COMPACT_METADATA=0.");
-			compact_metadata = 0;
-		}
-		if (compression_level > 0xf) {
-			push_warning(
-				thd, Sql_condition::WARN_LEVEL_WARN,
-				ER_ILLEGAL_HA_CREATE_OPTION,
-				"InnoDB: COMPRESSION_LEVEL must be less than "
-				"16. Assuming COMPRESSION_LEVEL=0.");
-			compression_level = 0;
-		}
-		switch (create_info->compression) {
-		case COMPRESSION_TYPE_ZLIB_STREAM:
-			compression = REC_COMPRESSION_ZLIB_STREAM;
-			if (compact_metadata == 1) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPACT_METADATA can not be 1 "
-					"for COMPRESSION=ZLIB_STREAM. "
-					"Assuming COMPACT_METADATA=0.");
-				compact_metadata = 0;
-			}
-			if (compression_level) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"non-zero for COMPRESSION=ZLIB_STREAM. "
-					"Assuming COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		case COMPRESSION_TYPE_ZLIB:
-			compression = REC_COMPRESSION_ZLIB;
-			if (compression_level > 9) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"greater than 9 for COMPRESSION=ZLIB. "
-					"Assuming COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		case COMPRESSION_TYPE_BZIP:
-			compression = REC_COMPRESSION_BZIP;
-			if (compression_level > 15) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"greater than 15 for COMPRESSION=BZIP. "
-					"Assuming COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		case COMPRESSION_TYPE_LZMA:
-			compression = REC_COMPRESSION_LZMA;
-			if (compression_level > 2) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"greater than 2 for COMPRESSION=LZMA. "
-					"Assuming COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		case COMPRESSION_TYPE_QUICKLZ:
-			compression = REC_COMPRESSION_QUICKLZ;
-			if (compression_level > 3) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"greater than 3 for "
-					"COMPRESSION=QUICKLZ. Assuming "
-					"COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		case COMPRESSION_TYPE_SNAPPY:
-			compression = REC_COMPRESSION_SNAPPY;
-			if (compression_level) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"greater than 0 for "
-					"COMPRESSION=SNAPPY. Assuming "
-					"COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		case COMPRESSION_TYPE_LZ4:
-			compression = REC_COMPRESSION_LZ4;
-			if (compression_level > 2) {
-				push_warning(
-					thd, Sql_condition::WARN_LEVEL_WARN,
-					ER_ILLEGAL_HA_CREATE_OPTION,
-					"InnoDB: COMPRESSION_LEVEL can not be "
-					"greater than 2 for COMPRESSION=LZ4. "
-					"Assuming COMPRESSION_LEVEL=0.");
-				compression_level = 0;
-			}
-			break;
-		default:
-			ut_error;
-			break;
-		}
-	} else if (compression_level || compact_metadata
-		   || create_info->compression) {
-		push_warning(
-			thd, Sql_condition::WARN_LEVEL_WARN,
-			ER_ILLEGAL_HA_CREATE_OPTION,
-			"InnoDB: COMPRESSION, COMPRESSION_LEVEL, or "
-			"COMPACT_METADATA can be set only when "
-			"ROW_FORMAT=COMPRESSED.");
-		compression_level = compact_metadata = 0;
-	}
-
 	use_data_dir = use_tablespace
 		       && ((create_info->data_file_name != NULL)
 		       && !(create_info->options & HA_LEX_CREATE_TMP_TABLE));
 
-	dict_tf_set(flags, innodb_row_format, zip_ssize, use_data_dir,
-		    compression, compression_level, compact_metadata);
+	dict_tf_set(flags, innodb_row_format, zip_ssize, use_data_dir);
 
 	if (create_info->options & HA_LEX_CREATE_TMP_TABLE) {
 		*flags2 |= DICT_TF2_TEMPORARY;
@@ -15403,13 +15137,8 @@ ha_innobase::check_if_incompatible_data(
 		return(COMPATIBLE_DATA_NO);
 	}
 
-	/* Specifying KEY_BLOCK_SIZE, COMPRESSION or COMPRESSION_FLAGS
-	requests a rebuild of the table. */
-	if (info->used_fields &
-		(HA_CREATE_USED_KEY_BLOCK_SIZE
-		 | HA_CREATE_USED_COMPRESSION
-		 | HA_CREATE_USED_COMPRESSION_LEVEL
-		 | HA_CREATE_USED_COMPACT_METADATA)) {
+	/* Specifying KEY_BLOCK_SIZE requests a rebuild of the table. */
+	if (info->used_fields & HA_CREATE_USED_KEY_BLOCK_SIZE) {
 		return(COMPATIBLE_DATA_NO);
 	}
 
@@ -18034,36 +17763,6 @@ static MYSQL_SYSVAR_UINT(zlib_strategy, page_zip_zlib_strategy,
   "break xtrabackup and crash recovery.",
   NULL, NULL, 0, 0, 4, 0);
 
-#ifdef UNIV_DEBUG
-#define innodb_zip_debug_validate NULL
-#else
-extern int check_func_bool(THD *thd, struct st_mysql_sys_var *var,
-	                         void *save, st_mysql_value *value);
-int innodb_zip_debug_validate(MYSQL_THD thd, struct st_mysql_sys_var *var,
-	                            void *save, struct st_mysql_value *value) {
-	int ret = check_func_bool(thd, var, save, value);
-	if (ret)
-		return ret;
-	if (*(my_bool*) save) {
-		push_warning_printf(thd,
-			Sql_condition::WARN_LEVEL_WARN,
-			ER_WRONG_ARGUMENTS,
-			"InnoDB: You are enabling innodb_zip_debug on a "
-			"non-debug mysqld. Please disable it immediately "
-			"if the machine is serving production traffic.");
-	}
-	return 0;
-}
-#endif
-
-static MYSQL_SYSVAR_BOOL(zip_debug, page_zip_debug, PLUGIN_VAR_OPCMDARG,
-  "Enables/disables the validation of compressed pages upon page modification"
-	" and compression. When this variable is enabled, uncompressed page is"
-	" compared against the decompressed version of the compressed page on "
-	"every update to the page, and on every re-compression. This variable "
-	"should not be enabled on a machine that serves production traffic.",
-	innodb_zip_debug_validate, NULL, FALSE);
-
 static MYSQL_SYSVAR_BOOL(log_compressed_pages, page_zip_log_pages,
        PLUGIN_VAR_OPCMDARG,
   "Enables/disables the logging of entire compressed page images."
@@ -18452,24 +18151,6 @@ static MYSQL_SYSVAR_UINT(old_blocks_time, buf_LRU_old_threshold_ms,
   " was at least this many milliseconds ago."
   " The timeout is disabled if 0.",
   NULL, NULL, 1000, 0, UINT_MAX32, 0);
-
-static MYSQL_SYSVAR_ULONG(malloc_cache_len, buf_malloc_cache_len,
-  PLUGIN_VAR_OPCMDARG,
-  "Length of the non-blocking queue that's used to cache memory allocations for"
-  " buffer pool page descriptors. 0 length means no caching.",
-  NULL, NULL, 1000L, 0L, 1000000L, 0);
-
-static MYSQL_SYSVAR_ULONG(compress_malloc_cache_len,
-  malloc_cache_compress_len, PLUGIN_VAR_OPCMDARG,
-  "Length of the cache for the memory allocations used for "
-  "page_zip_compress(). 0 length means no caching.",
-  NULL, NULL, 1000L, 0L, 10000L, 0);
-
-static MYSQL_SYSVAR_ULONG(decompress_malloc_cache_len,
-  malloc_cache_decompress_len, PLUGIN_VAR_OPCMDARG,
-  "Length of the cache for the memory allocations used for "
-  "page_zip_decompress(). 0 length means no caching.",
-  NULL, NULL, 1000L, 0L, 10000L, 0);
 
 static MYSQL_SYSVAR_LONG(open_files, innobase_open_files,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -18962,7 +18643,6 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(log_file_size),
   MYSQL_SYSVAR(log_files_in_group),
   MYSQL_SYSVAR(log_group_home_dir),
-	MYSQL_SYSVAR(zip_debug),
   MYSQL_SYSVAR(log_compressed_pages),
   MYSQL_SYSVAR(max_dirty_pages_pct),
   MYSQL_SYSVAR(max_dirty_pages_pct_lwm),
@@ -19080,14 +18760,11 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(lra_pages_before_sleep),
   MYSQL_SYSVAR(lra_sleep),
   MYSQL_SYSVAR(lra_n_spaces),
-  MYSQL_SYSVAR(malloc_cache_len),
   MYSQL_SYSVAR(segment_reserve_factor),
   MYSQL_SYSVAR(zlib_wrap),
   MYSQL_SYSVAR(zlib_strategy),
   MYSQL_SYSVAR(lru_manager_max_sleep_time),
   MYSQL_SYSVAR(page_cleaner_adaptive_sleep),
-  MYSQL_SYSVAR(compress_malloc_cache_len),
-  MYSQL_SYSVAR(decompress_malloc_cache_len),
 #ifdef UNIV_DEBUG
   MYSQL_SYSVAR(allow_ibuf_merges),
 #endif /* UNIV_DEBUG */

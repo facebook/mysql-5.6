@@ -34,10 +34,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -61,10 +57,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -88,10 +80,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -115,10 +103,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -142,10 +126,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -169,10 +149,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -196,10 +172,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -223,10 +195,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -250,10 +218,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -277,10 +241,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -304,10 +264,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -331,10 +287,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -358,10 +310,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -385,10 +333,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -412,10 +356,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -439,10 +379,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -466,10 +402,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -493,10 +425,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -520,10 +448,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -547,10 +471,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -574,10 +494,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -601,10 +517,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -628,10 +540,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -655,10 +563,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -682,10 +586,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -709,10 +609,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -736,10 +632,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -763,10 +655,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -790,10 +678,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -817,10 +701,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -844,10 +724,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -871,10 +747,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -898,10 +770,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -925,10 +793,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -952,10 +816,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -979,10 +839,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1006,10 +862,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 DROP   USER testuser1@localhost;
@@ -1050,10 +902,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1077,10 +925,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1104,10 +948,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1131,10 +971,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1158,10 +994,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1185,10 +1017,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1212,10 +1040,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1239,10 +1063,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1266,10 +1086,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1293,10 +1109,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1320,10 +1132,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1347,10 +1155,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1374,10 +1178,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1401,10 +1201,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1428,10 +1224,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1455,10 +1247,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1482,10 +1270,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1509,10 +1293,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1536,10 +1316,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1563,10 +1339,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1590,10 +1362,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1617,10 +1385,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1644,10 +1408,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1671,10 +1431,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1698,10 +1454,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1725,10 +1477,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1752,10 +1500,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1779,10 +1523,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1806,10 +1546,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1833,10 +1569,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1860,10 +1592,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1887,10 +1615,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1914,10 +1638,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1941,10 +1661,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1968,10 +1684,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -1995,10 +1707,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -2022,10 +1730,6 @@ TABLE_COLLATION	utf8_general_ci
 CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
-COMPRESSION	NULL
-COMPRESSION_LEVEL	0
-KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 # Switch to connection default and close connection testuser1

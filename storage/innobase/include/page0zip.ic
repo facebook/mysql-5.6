@@ -32,7 +32,6 @@ Created June 2005 by Marko Makela
 #include "page0zip.h"
 #include "mtr0log.h"
 #include "page0page.h"
-#include "page0zip_mlog.h"
 
 /* The format of compressed pages is as follows.
 
@@ -92,7 +91,7 @@ In summary, the compressed page looks like this:
   - in descending collation order
 (7) Uncompressed columns of user records, n_dense * uncompressed_size bytes,
   - indexed by heap_no
-  - DATA_TRX_RBP_LEN for leaf pages of clustered indexes
+  - DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN for leaf pages of clustered indexes
   - REC_NODE_PTR_SIZE for non-leaf pages
   - 0 otherwise
 (8) dense page directory, stored backwards
@@ -111,8 +110,6 @@ In summary, the compressed page looks like this:
 #define PAGE_ZIP_DIR_SLOT_OWNED	0x4000
 /** 'deleted' flag */
 #define PAGE_ZIP_DIR_SLOT_DEL	0x8000
-#define DATA_TRX_RBP_LEN (DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN)
-/* the total length for transaction id and rollback pointer */
 
 /**********************************************************************//**
 Determine the size of a compressed page in bytes.
@@ -173,9 +170,7 @@ page_zip_rec_needs_ext(
 	ulint	comp,		/*!< in: nonzero=compact format */
 	ulint	n_fields,	/*!< in: number of fields in the record;
 				ignored if zip_size == 0 */
-	ulint	zip_size,	/*!< in: compressed page size in bytes, or 0 */
-	ibool	compact_metadata) /*!< in: whether the metadata is stored in
-				       the compact format */
+	ulint	zip_size)	/*!< in: compressed page size in bytes, or 0 */
 {
 	ut_ad(rec_size > comp ? REC_N_NEW_EXTRA_BYTES : REC_N_OLD_EXTRA_BYTES);
 	ut_ad(ut_is_2pow(zip_size));
@@ -196,8 +191,7 @@ page_zip_rec_needs_ext(
 		the encoded heap number.  Check also the available space
 		on the uncompressed page. */
 		return(rec_size - (REC_N_NEW_EXTRA_BYTES - 2 - 1)
-		       >= page_zip_empty_size(n_fields, zip_size,
-		                              compact_metadata)
+		       >= page_zip_empty_size(n_fields, zip_size)
 		       || rec_size >= page_get_free_space_of_empty(TRUE) / 2);
 	}
 
@@ -240,49 +234,25 @@ page_zip_get_trailer_len(
 	ibool			is_clust)/*!< in: TRUE if clustered index */
 {
 	ulint	uncompressed_size;
-	ulint	blob_storage_size = 0;
-	ulint	trx_rbp_size = 0;
-	ulint	n_dense = page_dir_get_n_heap(page_zip->data) - 2;
 
 	ut_ad(page_zip_simple_validate(page_zip));
 	UNIV_MEM_ASSERT_RW(page_zip->data, page_zip_get_size(page_zip));
 
 	if (!page_is_leaf(page_zip->data)) {
-		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE + REC_NODE_PTR_SIZE;
+		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE
+			+ REC_NODE_PTR_SIZE;
 		ut_ad(!page_zip->n_blobs);
 	} else if (is_clust) {
-		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE;
-		if (page_zip->compact_metadata) {
-			byte* externs = page_zip->data
-					+ page_zip_get_size(page_zip)
-					- n_dense * PAGE_ZIP_DIR_SLOT_SIZE
-					- 2; /* 2 bytes for n_blobs */
-			/* it's important not to use page_zip->n_blobs here
-			   because it might not have been set for compact
-			   metadata format. */
-			ulint n_blobs = mach_read_from_2(externs);
-			blob_storage_size =
-				n_blobs * BTR_EXTERN_FIELD_REF_SIZE + 2;
-			/* TODO(nizamordulu): trx_rbp_size will change when
-			   we store metadata in a compact format */
-			trx_rbp_size = n_dense * DATA_TRX_RBP_LEN;
-		} else {
-			/* we use page_zip->n_blobs because the non-compact
-			   metadata format does not store the number of blobs
-			   on the trailer. Because of this, if this function is
-			   called before page_zip->n_blobs is computed, it will
-			   return a lower-bound on the trailer length instead
-			   of the exact length */
-			blob_storage_size =
-				page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE;
-			trx_rbp_size = n_dense * DATA_TRX_RBP_LEN;
-		}
+		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE
+			+ DATA_TRX_ID_LEN + DATA_ROLL_PTR_LEN;
 	} else {
 		uncompressed_size = PAGE_ZIP_DIR_SLOT_SIZE;
 		ut_ad(!page_zip->n_blobs);
 	}
 
-	return(n_dense * uncompressed_size + trx_rbp_size + blob_storage_size);
+	return((page_dir_get_n_heap(page_zip->data) - 2)
+	       * uncompressed_size
+	       + page_zip->n_blobs * BTR_EXTERN_FIELD_REF_SIZE);
 }
 
 /**********************************************************************//**
@@ -363,6 +333,16 @@ page_zip_des_init(
 {
 	memset(page_zip, 0, sizeof *page_zip);
 }
+
+/**********************************************************************//**
+Write a log record of writing to the uncompressed header portion of a page. */
+UNIV_INTERN
+void
+page_zip_write_header_log(
+/*======================*/
+	const byte*	data,/*!< in: data on the uncompressed page */
+	ulint		length,	/*!< in: length of the data */
+	mtr_t*		mtr);	/*!< in: mini-transaction */
 
 /**********************************************************************//**
 Write data to the uncompressed header portion of a page.  The data must
@@ -460,6 +440,39 @@ page_zip_compress_write_log_no_data(
 		mach_write_to_1(log_ptr, compression_flags);
 		mlog_close(mtr, log_ptr + 1);
 	}
+}
+
+/**********************************************************************//**
+Parses a log record of compressing an index page without the data.
+@return	end of log record or NULL */
+UNIV_INLINE
+byte*
+page_zip_parse_compress_no_data(
+/*============================*/
+	byte*		ptr,		/*!< in: buffer */
+	byte*		end_ptr,	/*!< in: buffer end */
+	page_t*		page,		/*!< in: uncompressed page */
+	page_zip_des_t*	page_zip,	/*!< out: compressed page */
+	dict_index_t*	index)		/*!< in: index */
+{
+	uchar	compression_flags;
+	if (end_ptr == ptr) {
+		return(NULL);
+	}
+
+	compression_flags = mach_read_from_1(ptr);
+
+	/* If page compression fails then there must be something wrong
+	because a compress log record is logged only if the compression
+	was successful. Crash in this case. */
+
+	if (page
+	    && !page_zip_compress(page_zip, page, index, compression_flags,
+				  NULL)) {
+		ut_error;
+	}
+
+	return(ptr + 1);
 }
 
 /**********************************************************************//**

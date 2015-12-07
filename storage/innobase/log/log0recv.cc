@@ -41,7 +41,7 @@ Created 9/20/1997 Heikki Tuuri
 #include "mtr0mtr.h"
 #include "mtr0log.h"
 #include "page0cur.h"
-#include "page0zip_mlog.h"
+#include "page0zip.h"
 #include "btr0btr.h"
 #include "btr0cur.h"
 #include "ibuf0ibuf.h"
@@ -1360,10 +1360,7 @@ recv_parse_or_apply_log_rec_body(
 	case MLOG_ZIP_PAGE_COMPRESS:
 		/* Allow anything in page_type when creating a page. */
 		ptr = page_zip_parse_compress(ptr, end_ptr,
-					      page, page_zip,
-					      block
-					      ? buf_block_get_space(block)
-					      : 0);
+					      page, page_zip);
 		break;
 	case MLOG_ZIP_PAGE_COMPRESS_NO_DATA:
 		if (NULL != (ptr = mlog_parse_index(
@@ -1762,16 +1759,14 @@ recv_recover_page_func(
 		recv = UT_LIST_GET_NEXT(rec_list, recv);
 	}
 
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		if (fil_page_get_type(page) == FIL_PAGE_INDEX) {
-			page_zip_des_t*	page_zip
-				= buf_block_get_page_zip(block);
+#ifdef UNIV_ZIP_DEBUG
+	if (fil_page_get_type(page) == FIL_PAGE_INDEX) {
+		page_zip_des_t*	page_zip = buf_block_get_page_zip(block);
 
-			ut_a(!page_zip
-			     || page_zip_validate_low(page_zip, page, NULL,
-			     			      FALSE));
-		}
+		ut_a(!page_zip
+		     || page_zip_validate_low(page_zip, page, NULL, FALSE));
 	}
+#endif /* UNIV_ZIP_DEBUG */
 
 #ifndef UNIV_HOTBACKUP
 	if (modification_to_page) {
@@ -2127,9 +2122,7 @@ recv_apply_log_recs_for_backup(void)
 					       recv_addr->page_no, 0, zip_size,
 					       block->page.zip.data, NULL);
 				if (error == DB_SUCCESS
-				    && !buf_zip_decompress(block,
-							   TRUE,
-							   ULINT_UNDEFINED)) {
+				    && !buf_zip_decompress(block, TRUE)) {
 					exit(1);
 				}
 			} else {

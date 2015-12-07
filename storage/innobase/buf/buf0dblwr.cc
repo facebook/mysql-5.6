@@ -34,7 +34,6 @@ Created 2011/12/19
 #include "srv0start.h"
 #include "srv0srv.h"
 #include "page0zip.h"
-#include "page0zip_checksum.h"
 #include "trx0sys.h"
 
 #ifndef UNIV_HOTBACKUP

@@ -1345,12 +1345,6 @@ struct export_var_t{
 #ifdef UNIV_DEBUG
 	ullint	num_optimistic_insert_calls_in_pessimistic_descent;
 #endif /* UNIV_DEBUG */
-	ulint  	innodb_malloc_cache_hits_compress;
-	ulint	innodb_malloc_cache_misses_compress;
-	ulint  	innodb_malloc_cache_hits_decompress;
-	ulint  	innodb_malloc_cache_misses_decompress;
-	ulint  	innodb_malloc_cache_block_size_compress;
-	ulint  	innodb_malloc_cache_block_size_decompress;
 	ulint	innodb_drop_purge_skip_row;
 	ulint	innodb_drop_ibuf_skip_row;
 

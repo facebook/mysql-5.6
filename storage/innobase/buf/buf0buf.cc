@@ -52,7 +52,6 @@ Created 11/5/1995 Heikki Tuuri
 #include "dict0dict.h"
 #include "log0recv.h"
 #include "page0zip.h"
-#include "page0zip_checksum.h"
 #include "srv0mon.h"
 #include "buf0checksum.h"
 #include "buf0dump.h"
@@ -546,8 +545,6 @@ buf_block_alloc(
 	return(block);
 }
 #endif /* !UNIV_HOTBACKUP */
-
-UNIV_INTERN ulint		buf_malloc_cache_len = 1000;
 
 /********************************************************************//**
 Checks if a page is all zeroes.
@@ -1409,7 +1406,6 @@ buf_pool_init_instance(
 
 		UT_LIST_INIT(buf_pool->LRU);
 		UT_LIST_INIT(buf_pool->free);
-		UT_LIST_INIT(buf_pool->buf_malloc_cache);
 		UT_LIST_INIT(buf_pool->withdraw);
 		buf_pool->withdraw_target = 0;
 		UT_LIST_INIT(buf_pool->flush_list);
@@ -1473,9 +1469,6 @@ buf_pool_init_instance(
 		buf_pool->zip_hash = hash_create(2 * buf_pool->curr_size);
 
 		buf_pool->last_printout_time = ut_time();
-
-		buf_pool->n_buf_malloc_cache =
-				buf_malloc_cache_len / srv_buf_pool_instances;
 	}
 	/* 2. Initialize flushing fields
 	-------------------------------- */
@@ -1514,23 +1507,6 @@ buf_pool_init_instance(
 }
 
 /********************************************************************//**
-Frees the buffer page malloc cache. */
-UNIV_INTERN
-void
-buf_malloc_cache_free(
-/*======================*/
-	buf_pool_t*	buf_pool)	/*in: buffer pool instance */
-{
-	buf_page_t* bpage = UT_LIST_GET_FIRST(buf_pool->buf_malloc_cache);
-	buf_page_t* tmp;
-	while (bpage) {
-		tmp = UT_LIST_GET_NEXT(malloc_cache, bpage);
-		ut_free(bpage);
-		bpage = tmp;
-	}
-}
-
-/********************************************************************//**
 free one buffer pool instance */
 static
 void
@@ -1556,13 +1532,11 @@ buf_pool_free_instance(
 			when doing a fast shutdown. */
 			ut_ad(state == BUF_BLOCK_ZIP_PAGE
 			      || srv_fast_shutdown == 2);
-			buf_page_free_descriptor(bpage, buf_pool, FALSE);
+			buf_page_free_descriptor(bpage);
 		}
 
 		bpage = prev_bpage;
 	}
-
-	buf_malloc_cache_free(buf_pool);
 
 	mem_free(buf_pool->watch);
 	buf_pool->watch = NULL;
@@ -3882,10 +3856,7 @@ ibool
 buf_zip_decompress(
 /*===============*/
 	buf_block_t*	block,	/*!< in/out: block */
-	ibool		check,	/*!< in: TRUE=verify the page checksum */
-	ulint		fsp_flags) /*!< in: space flags used for compression
-				       configuration. not used if set to
-				       ULINT_UNDEFINED */
+	ibool		check)	/*!< in: TRUE=verify the page checksum */
 {
 	const byte*	frame = block->page.zip.data;
 	ulint		size = page_zip_get_size(&block->page.zip);
@@ -3915,8 +3886,7 @@ buf_zip_decompress(
 	case FIL_PAGE_INDEX:
 		if (page_zip_decompress(&block->page.zip,
 					block->frame, TRUE,
-					block->page.space,
-					fsp_flags)) {
+					block->page.space)) {
 			return(TRUE);
 		}
 
@@ -4235,7 +4205,6 @@ buf_page_get_gen(
 	buf_block_t*	fix_block;
 	ib_mutex_t*	fix_mutex = NULL;
 	buf_pool_t*	buf_pool = buf_pool_get(space, offset);
-	ibool		buf_page_cached = FALSE;
 
 	ut_ad(mtr);
 	ut_ad(mtr->state == MTR_ACTIVE);
@@ -4544,12 +4513,6 @@ got_block:
 
 		++buf_pool->n_pend_unzip;
 
-		if (UT_LIST_GET_LEN(buf_pool->buf_malloc_cache)
-		    < buf_pool->n_buf_malloc_cache) {
-			buf_page_free_descriptor(bpage, buf_pool, TRUE);
-			buf_page_cached = TRUE;
-		}
-
 		mutex_exit(&buf_pool->zip_mutex);
 		buf_pool_mutex_exit(buf_pool);
 
@@ -4557,8 +4520,7 @@ got_block:
 
 		buf_block_mutex_exit(block);
 
-		if (!buf_page_cached)
-			buf_page_free_descriptor(bpage, buf_pool, FALSE);
+		buf_page_free_descriptor(bpage);
 
 		/* Decompress the page while not holding
 		buf_pool->mutex or block->mutex. */
@@ -4567,8 +4529,7 @@ got_block:
 		the page is read from disk. Hence page checksum
 		verification is not necessary when decompressing the page. */
 		{
-			bool	success = buf_zip_decompress(block, FALSE,
-							     ULINT_UNDEFINED);
+			bool	success = buf_zip_decompress(block, FALSE);
 			ut_a(success);
 		}
 
@@ -5403,7 +5364,7 @@ err_exit:
 			}
 		}
 
-		bpage = buf_page_alloc_descriptor(buf_pool, TRUE);
+		bpage = buf_page_alloc_descriptor();
 
 		/* Initialize the buf_pool pointer. */
 		bpage->buf_pool_index = buf_pool_index(buf_pool);
@@ -5851,8 +5812,7 @@ buf_page_io_complete(
 			buf_pool->n_pend_unzip++;
 			if (uncompressed
 			    && !buf_zip_decompress((buf_block_t*) bpage,
-						   FALSE,
-						   ULINT_UNDEFINED)) {
+						   FALSE)) {
 
 				buf_pool->n_pend_unzip--;
 				goto corrupt;

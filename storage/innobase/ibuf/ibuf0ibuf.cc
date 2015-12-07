@@ -4377,18 +4377,13 @@ ibuf_delete(
 				= page_get_max_insert_size_after_reorganize(
 					page, 1);
 		}
-
-		if (UNIV_UNLIKELY(page_zip_debug)) {
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-		}
-
+#ifdef UNIV_ZIP_DEBUG
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 		page_cur_delete_rec(&page_cur, index, offsets, mtr);
-
-		if (UNIV_UNLIKELY(page_zip_debug)) {
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-		}
+#ifdef UNIV_ZIP_DEBUG
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 		if (page_zip) {
 			ibuf_update_free_bits_zip(block, mtr);

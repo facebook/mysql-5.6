@@ -648,7 +648,7 @@ int open_table_def(THD *thd, TABLE_SHARE *share, uint db_flags)
   int error, table_type;
   bool error_given;
   File file;
-  uchar head[FILE_INFO_LENGTH];
+  uchar head[64];
   char	path[FN_REFLEN];
   MEM_ROOT **root_ptr, *old_root;
   DBUG_ENTER("open_table_def");
@@ -709,7 +709,7 @@ int open_table_def(THD *thd, TABLE_SHARE *share, uint db_flags)
   }
 
   error= 4;
-  if (mysql_file_read(file, head, FILE_INFO_LENGTH, MYF(MY_NABP)))
+  if (mysql_file_read(file, head, 64, MYF(MY_NABP)))
     goto err;
 
   if (head[0] == (uchar) 254 && head[1] == 1)
@@ -1118,10 +1118,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
   if (!head[32])				// New frm file in 3.23
   {
     share->avg_row_length= uint4korr(head+34);
-    share->row_type= (row_type) (head[40] & 0xf);
-    share->compression_type= (compression_type) ((head[40] & 0xf0) >> 4);
-    share->compression_level= head[46] & 0xf;
-    share->compact_metadata= head[46] & 0x10 ? 1 : 0;
+    share->row_type= (row_type) head[40];
     share->table_charset= get_charset((((uint) head[41]) << 8) + 
                                         (uint) head[38],MYF(0));
     share->null_field_first= 1;
@@ -2855,7 +2852,7 @@ static ulong get_form_pos(File file, uchar *head)
 
   length= uint2korr(head+4);
 
-  mysql_file_seek(file, FILE_INFO_LENGTH, MY_SEEK_SET, MYF(0));
+  mysql_file_seek(file, 64L, MY_SEEK_SET, MYF(0));
 
   if (!(buf= (uchar*) my_malloc(length+names*4, MYF(MY_WME))))
     DBUG_RETURN(0);
@@ -2916,7 +2913,7 @@ ulong make_new_entry(File file, uchar *fileinfo, TYPELIB *formnames,
   names=uint2korr(fileinfo+8);
   newpos=uint4korr(fileinfo+10);
 
-  if (FILE_INFO_LENGTH+length+n_length+(names+1)*4 > maxlength)
+  if (64+length+n_length+(names+1)*4 > maxlength)
   {						/* Expand file */
     newpos+=IO_SIZE;
     int4store(fileinfo+10,newpos);
@@ -2956,10 +2953,7 @@ ulong make_new_entry(File file, uchar *fileinfo, TYPELIB *formnames,
   }
   else
     (void) strxmov((char*) buff,newname,"/",NullS); /* purecov: inspected */
-  mysql_file_seek(file,
-                  FILE_INFO_LENGTH - 1 + (ulong) n_length,
-                  MY_SEEK_SET,
-                  MYF(0));
+  mysql_file_seek(file, 63L+(ulong) n_length, MY_SEEK_SET, MYF(0));
   if (mysql_file_write(file, buff, (size_t) length+1, MYF(MY_NABP+MY_WME)) ||
       (names && mysql_file_write(file,
                                  (uchar*) (*formnames->type_names+n_length-1),
@@ -3265,7 +3259,7 @@ File create_frm(THD *thd, const char *name, const char *db,
                                name, CREATE_MODE, create_flags, MYF(0))) >= 0)
   {
     uint key_length, tmp_key_length, tmp, csid;
-    memset(fileinfo, 0, FILE_INFO_LENGTH);
+    memset(fileinfo, 0, 64);
     /* header */
     fileinfo[0]=(uchar) 254;
     fileinfo[1]= 1;
@@ -3322,17 +3316,14 @@ File create_frm(THD *thd, const char *name, const char *db,
       TRANSACTIONAL and PAGE_CHECKSUM clauses of CREATE TABLE.
     */
     fileinfo[39]= 0;
-    fileinfo[40]= (uchar) (create_info->row_type & 0xf)
-                  | (uchar) (create_info->compression << 4);
+    fileinfo[40]= (uchar) create_info->row_type;
     /* Bytes 41-46 were for RAID support; now reused for other purposes */
     fileinfo[41]= (uchar) (csid >> 8);
     int2store(fileinfo+42, create_info->stats_sample_pages & 0xffff);
     fileinfo[44]= (uchar) create_info->stats_auto_recalc;
     fileinfo[45]= 0;
     fileinfo[45] |= (create_info->rbr_column_names) ? 0x80 : 0;
-    fileinfo[46]= (uchar) (create_info->compression_level > 0xf
-                           ? 0 : create_info->compression_level);
-    fileinfo[46]|= (create_info->compact_metadata == 1) ? 0x10 : 0;
+    fileinfo[46]= 0;
     int4store(fileinfo+47, key_length);
     tmp= MYSQL_VERSION_ID;          // Store to avoid warning from int4store
     int4store(fileinfo+51, tmp);
@@ -3374,9 +3365,6 @@ void update_create_info_from_table(HA_CREATE_INFO *create_info, TABLE *table)
   create_info->table_options= share->db_create_options;
   create_info->avg_row_length= share->avg_row_length;
   create_info->row_type= share->row_type;
-  create_info->compression_level= share->compression_level;
-  create_info->compact_metadata= share->compact_metadata;
-  create_info->compression= share->compression_type;
   create_info->key_block_size= share->key_block_size;
   create_info->default_table_charset= share->table_charset;
   create_info->table_charset= 0;

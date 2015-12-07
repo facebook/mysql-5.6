@@ -58,7 +58,6 @@ Created 2/16/1996 Heikki Tuuri
 #include "log0recv.h"
 #include "page0page.h"
 #include "page0cur.h"
-#include "page0zip.h"
 #include "trx0trx.h"
 #include "trx0sys.h"
 #include "btr0btr.h"
@@ -1703,21 +1702,14 @@ innobase_start_or_create_for_mysql(void)
 
 	ib_logf(IB_LOG_LEVEL_INFO,
 		"Compressed tables use zlib " ZLIB_VERSION
+#ifdef UNIV_ZIP_DEBUG
+	      " with validation"
+#endif /* UNIV_ZIP_DEBUG */
 	      );
-
 #ifdef UNIV_ZIP_COPY
-	ib_logf(IB_LOG_LEVEL_INFO, "with extra copying");
+	ib_logf(IB_LOG_LEVEL_INFO, "and extra copying");
 #endif /* UNIV_ZIP_COPY */
 
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-#ifdef UNIV_DEBUG
-		fputs("InnoDB: Page compressions are validated.\n", stderr);
-#else
-		fputs("InnoDB: Warning: innodb_zip_debug is enabled and this "
-		      "is a non-debug mysqld. Please disable it immediately if"
-		      " the machine is serving production traffic.\n", stderr);
-#endif
-	}
 
 	/* Since InnoDB does not currently clean up all its internal data
 	structures in MySQL Embedded Server Library server_end(), we
@@ -2084,7 +2076,6 @@ innobase_start_or_create_for_mysql(void)
 
 	fsp_init();
 	log_init();
-	page_zip_init();
 
 	lock_sys_create(srv_lock_table_size);
 
@@ -3220,7 +3211,6 @@ innobase_shutdown_for_mysql(void)
 	log_mem_free();
 	buf_pool_free(srv_buf_pool_instances);
 	mem_close();
-	page_zip_close();
 
 	/* ut_free_all_mem() frees all allocated memory not freed yet
 	in shutdown, and it will also free the ut_list_mutex, so it
