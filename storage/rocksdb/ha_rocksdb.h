@@ -522,6 +522,13 @@ public:
    */
   uint max_supported_key_length()    const { return 16*1024; /* just to return something*/ }
 
+  /**
+    TODO: return actual upper bound of number of records in the table.
+    (e.g. save number of records seen on full table scan and/or use file size
+    as upper bound)
+  */
+  ha_rows estimate_rows_upper_bound() { return HA_POS_ERROR; }
+
   /* At the moment, we're ok with default handler::index_init() implementation. */
   int index_read_map(uchar * buf, const uchar * key,
                      key_part_map keypart_map,
