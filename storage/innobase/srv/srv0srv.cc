@@ -56,7 +56,6 @@ Created 10/8/1995 Heikki Tuuri
 #include "ibuf0ibuf.h"
 #include "buf0flu.h"
 #include "buf0lru.h"
-#include "btr0cur.h"
 #include "btr0defragment.h"
 #include "btr0sea.h"
 #include "dict0load.h"

@@ -370,11 +370,6 @@ SET(INNOBASE_SOURCES
 	page/page0cur.cc
 	page/page0page.cc
 	page/page0zip.cc
-	page/page0zip_checksum.cc
-	page/page0zip_dir.cc
-	page/page0zip_fields.cc
-	page/page0zip_mlog.cc
-	page/page0zip_trailer.cc
 	pars/lexyy.cc
 	pars/pars0grm.cc
 	pars/pars0opt.cc
@@ -427,13 +422,6 @@ SET(INNOBASE_SOURCES
 	ut/ut0ut.cc
 	ut/ut0vec.cc
 	ut/ut0wqueue.cc
-	comp/comp0comp.cc
-	comp/comp0zlib.cc
-	comp/comp0bzip.cc
-	comp/comp0lzma.cc
-	comp/comp0snappy.cc
-	comp/comp0quicklz.cc
-	comp/comp0lz4.cc
 	zlib_embedded/adler32.c
 	zlib_embedded/compress.c
 	zlib_embedded/crc32.c
@@ -444,24 +432,6 @@ SET(INNOBASE_SOURCES
 	zlib_embedded/inftrees.c
 	zlib_embedded/trees.c
 	zlib_embedded/zutil.c
-	bzip_embedded/blocksort.c
-	bzip_embedded/bzlib.c
-	bzip_embedded/compress.c
-	bzip_embedded/crctable.c
-	bzip_embedded/decompress.c
-	bzip_embedded/huffman.c
-	bzip_embedded/randtable.c
-	lzma_embedded/LzFind.c
-	lzma_embedded/LzmaDec.c
-	lzma_embedded/LzmaEnc.c
-	lzma_embedded/LzmaLib.c
-	snappy_embedded/snappy.cc
-	snappy_embedded/snappy-sinksource.cc
-	quicklz_embedded/quicklz_level1.c
-	quicklz_embedded/quicklz_level2.c
-	quicklz_embedded/quicklz_level3.c
-	lz4_embedded/lz4.c
-	lz4_embedded/lz4hc.c
 )
 
 IF(WITH_INNODB)

@@ -604,9 +604,6 @@ dict_sys_tables_type_validate(
 	ulint	zip_ssize = DICT_TF_GET_ZIP_SSIZE(type);
 	ulint	atomic_blobs = DICT_TF_HAS_ATOMIC_BLOBS(type);
 	ulint	unused = DICT_TF_GET_UNUSED(type);
-	ulint	comp_type = DICT_TF_GET_COMP_TYPE(type);
-	ulint	comp_level = DICT_TF_GET_COMP_LEVEL(type);
-	ulint	compact_metadata = DICT_TF_GET_COMPACT_METADATA(type);
 
 	/* The low order bit of SYS_TABLES.TYPE is always set to 1.
 	If the format is UNIV_FORMAT_B or higher, this field is the same
@@ -653,39 +650,6 @@ dict_sys_tables_type_validate(
 		if (zip_ssize > PAGE_ZIP_SSIZE_MAX) {
 			return(ULINT_UNDEFINED);
 		}
-
-		if ((comp_type == DICT_TF_COMP_ZLIB_STREAM)
-		    && (comp_level || compact_metadata)) {
-			return(ULINT_UNDEFINED);
-		}
-
-		switch (comp_type) {
-		case DICT_TF_COMP_ZLIB:
-			if (comp_level > 9)
-				return(ULINT_UNDEFINED);
-			break;
-		case DICT_TF_COMP_BZIP:
-			/* no restriction on comp_level for bzip */
-			break;
-		case DICT_TF_COMP_LZMA:
-			if (comp_level > 2)
-				return(ULINT_UNDEFINED);
-			break;
-		case DICT_TF_COMP_SNAPPY:
-			if (comp_level)
-				return(ULINT_UNDEFINED);
-			break;
-		case DICT_TF_COMP_QUICKLZ:
-			if (comp_level > 3)
-				return(ULINT_UNDEFINED);
-			break;
-		case DICT_TF_COMP_LZ4:
-			if (comp_level > 2)
-				return(ULINT_UNDEFINED);
-			break;
-		}
-	} else if (comp_type || comp_level || compact_metadata) {
-		return(ULINT_UNDEFINED);
 	}
 
 	/* There is nothing to validate for the data_dir field.
@@ -723,6 +687,44 @@ dict_tf_get_rec_format(
 	}
 
 	return(REC_FORMAT_DYNAMIC);
+}
+
+UNIV_INLINE
+rec_compression_type_t
+dict_tf_get_compression_type(
+	ulint	flags)
+{
+	ut_a(dict_tf_is_valid(flags));
+	ut_ad(dict_tf_get_rec_format(flags) == REC_FORMAT_COMPRESSED);
+	switch (flags & DICT_TF_MASK_COMP_TYPE) {
+	case DICT_TF_COMP_ZLIB_STREAM << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_ZLIB_STREAM;
+	case DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_ZLIB;
+	case DICT_TF_COMP_BZIP << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_BZIP;
+	case DICT_TF_COMP_LZMA << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_LZMA;
+	case DICT_TF_COMP_SNAPPY << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_SNAPPY;
+	case DICT_TF_COMP_QUICKLZ << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_QUICKLZ;
+	case DICT_TF_COMP_LZ4 << DICT_TF_POS_COMP_TYPE:
+		return REC_COMPRESSION_LZ4;
+	default:
+		ut_error;
+	}
+}
+
+/********************************************************************//**
+Determine the compression flags from a dict_table_t::flags.
+@return compression flags. */
+UNIV_INLINE
+ulong
+dict_tf_get_compression_flags(
+	ulint	flags)
+{
+	return (ulong)(flags & DICT_TF_MASK_COMP_FLAGS) >> DICT_TF_POS_COMP_FLAGS;
 }
 
 /********************************************************************//**
@@ -766,10 +768,8 @@ dict_tf_set(
 	rec_format_t	format,		/*!< in: file format */
 	ulint		zip_ssize,	/*!< in: zip shift size */
 	bool		use_data_dir,	/*!< in: table uses DATA DIRECTORY */
-	rec_compression_type_t	compression, /*!< in: compression type */
-	ulong		compression_level, /*!< in: compression level */
-	ulong		compact_metadata) /*!< in: whether metadata should be
-					    stored in a compact format */
+	rec_compression_type_t	compression,
+	ulong		compression_flags)
 {
 	switch (format) {
 	case REC_FORMAT_REDUNDANT:
@@ -795,8 +795,7 @@ dict_tf_set(
 	    compression != REC_COMPRESSION_ZLIB_STREAM &&
 	    compression != REC_COMPRESSION_UNUSED)
 	{
-		*flags |= compression_level << DICT_TF_POS_COMP_LEVEL;
-		*flags |= compact_metadata << DICT_TF_POS_COMPACT_METADATA;
+		*flags |= compression_flags << DICT_TF_POS_COMP_FLAGS;
 		switch (compression) {
 		case REC_COMPRESSION_ZLIB:
 			*flags |= DICT_TF_COMP_ZLIB << DICT_TF_POS_COMP_TYPE;
@@ -827,18 +826,26 @@ dict_tf_set(
 }
 
 /********************************************************************//**
-The core functionality for dict_tf_to_fsp_flags(). See the documentation
-for that function for the explanation of how it works. The reason for
-having two functions is that we do not want any assertions or any calls to
-DBUG_EXECUTE_IF() in dict_tf_to_fsp_flags_low().
+Convert a 32 bit integer table flags to the 32 bit integer that is
+written into the tablespace header at the offset FSP_SPACE_FLAGS and is
+also stored in the fil_space_t::flags field.  The following chart shows
+the translation of the low order bit.  Other bits are the same.
+========================= Low order bit ==========================
+                    | REDUNDANT | COMPACT | COMPRESSED | DYNAMIC
+dict_table_t::flags |     0     |    1    |     1      |    1
+fil_space_t::flags  |     0     |    0    |     1      |    1
+==================================================================
 @return	tablespace flags (fil_space_t::flags) */
 UNIV_INLINE
 ulint
-dict_tf_to_fsp_flags_low(
+dict_tf_to_fsp_flags(
 /*=================*/
 	ulint	table_flags)	/*!< in: dict_table_t::flags */
 {
 	ulint fsp_flags;
+
+	DBUG_EXECUTE_IF("dict_tf_to_fsp_flags_failure",
+			return(ULINT_UNDEFINED););
 
 	/* Adjust bit zero. */
 	fsp_flags = DICT_TF_HAS_ATOMIC_BLOBS(table_flags) ? 1 : 0;
@@ -854,41 +861,11 @@ dict_tf_to_fsp_flags_low(
 	fsp_flags |= DICT_TF_HAS_DATA_DIR(table_flags)
 		     ? FSP_FLAGS_MASK_DATA_DIR : 0;
 
-	/* COMP_TYPE, COMP_LEVEL and COMPACT_METADATA are in different positions
-	   in fsp_flags */
-	fsp_flags |= DICT_TF_GET_COMP_TYPE(table_flags)
-		     << FSP_FLAGS_POS_COMP_TYPE;
-	fsp_flags |= DICT_TF_GET_COMP_LEVEL(table_flags)
-		     << FSP_FLAGS_POS_COMP_LEVEL;
-	fsp_flags |= DICT_TF_GET_COMPACT_METADATA(table_flags)
-		     << FSP_FLAGS_POS_COMPACT_METADATA;
-
-	return(fsp_flags);
-}
-
-/********************************************************************//**
-Convert a 32 bit integer table flags to the 32 bit integer that is
-written into the tablespace header at the offset FSP_SPACE_FLAGS and is
-also stored in the fil_space_t::flags field.  The following chart shows
-the translation of the low order bit.  Other bits are the same.
-========================= Low order bit ==========================
-                    | REDUNDANT | COMPACT | COMPRESSED | DYNAMIC
-dict_table_t::flags |     0     |    1    |     1      |    1
-fil_space_t::flags  |     0     |    0    |     1      |    1
-==================================================================
-Other than the low order bit, the bits related to compression are
-in different places.
-@return	tablespace flags (fil_space_t::flags) */
-UNIV_INLINE
-ulint
-dict_tf_to_fsp_flags(
-/*=================*/
-	ulint	table_flags)	/*!< in: dict_table_t::flags */
-{
-	ulint fsp_flags;
-	DBUG_EXECUTE_IF("dict_tf_to_fsp_flags_failure",
-			return(ULINT_UNDEFINED););
-	fsp_flags = dict_tf_to_fsp_flags_low(table_flags);
+	/* COMPRESSION type is in a different position in fsp_flag */
+	fsp_flags |= DICT_TF_GET_COMP_TYPE(table_flags) << FSP_FLAGS_POS_COMP_TYPE;
+	/* COMPRESSION_FLAGS is in a different position in fsp_flag */
+	fsp_flags |= DICT_TF_GET_COMP_FLAGS(table_flags)
+			     << FSP_FLAGS_POS_COMP_FLAGS;
 	ut_a(fsp_flags_is_valid(fsp_flags));
 
 	return(fsp_flags);
@@ -922,8 +899,7 @@ dict_sys_tables_type_to_tf(
 			 | DICT_TF_MASK_ATOMIC_BLOBS
 			 | DICT_TF_MASK_DATA_DIR
 			 | DICT_TF_MASK_COMP_TYPE
-			 | DICT_TF_MASK_COMP_LEVEL
-			 | DICT_TF_MASK_COMPACT_METADATA);
+			 | DICT_TF_MASK_COMP_FLAGS);
 
 	return(flags);
 }
@@ -956,8 +932,7 @@ dict_tf_to_sys_tables_type(
 			 | DICT_TF_MASK_ATOMIC_BLOBS
 			 | DICT_TF_MASK_DATA_DIR
 			 | DICT_TF_MASK_COMP_TYPE
-			 | DICT_TF_MASK_COMP_LEVEL
-			 | DICT_TF_MASK_COMPACT_METADATA);
+			 | DICT_TF_MASK_COMP_FLAGS);
 
 	return(type);
 }
@@ -994,19 +969,6 @@ dict_table_zip_size(
 	ut_ad(table);
 
 	return(dict_tf_get_zip_size(table->flags));
-}
-
-/********************************************************************//**
-Check whether the table uses the compact metadata format.
-@return TRUE if compact metadata format is used, FALSE otherwise. */
-UNIV_INLINE
-ibool
-dict_table_is_compact_metadata(
-/*================*/
-	const dict_table_t*	table)	/*!< in: table */
-{
-	ut_ad(table);
-	return DICT_TF_GET_COMPACT_METADATA(table->flags);
 }
 
 #ifndef UNIV_HOTBACKUP

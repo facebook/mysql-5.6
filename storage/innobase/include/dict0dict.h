@@ -898,6 +898,22 @@ dict_tf_get_format(
 	ulint		flags)		/*!< in: dict_table_t::flags */
 	__attribute__((warn_unused_result));
 /********************************************************************//**
+Determine the compression type from a dict_table_t::flags.
+@return compression type. */
+UNIV_INLINE
+rec_compression_type_t
+dict_tf_get_compression_type(
+	ulint	flags)
+	__attribute__((warn_unused_result));
+/********************************************************************//**
+Determine the compression flags from a dict_table_t::flags.
+@return compression flags. */
+UNIV_INLINE
+ulong
+dict_tf_get_compression_flags(
+	ulint	flags)
+	__attribute__((warn_unused_result));
+/********************************************************************//**
 Set the various values in a dict_table_t::flags pointer. */
 UNIV_INLINE
 void
@@ -907,22 +923,9 @@ dict_tf_set(
 	rec_format_t	format,		/*!< in: file format */
 	ulint		zip_ssize,	/*!< in: zip shift size */
 	bool		use_data_dir,	/*!< in: table uses DATA DIRECTORY */
-	rec_compression_type_t	compression, /*!< in: compression type */
-	ulong		compression_level, /*!< in: compression level */
-	ulong		compact_metadata) /*!< in: whether metadata should be
-					    stored in a compact format */
+	rec_compression_type_t	compression,
+	ulong		compression_flags)
 	__attribute__((nonnull));
-/********************************************************************//**
-The core functionality for dict_tf_to_fsp_flags(). See the documentation
-for that function for the explanation of how it works. The reason for
-having two functions is that we do not want any assertions or any calls to
-DBUG_EXECUTE_IF() in dict_tf_to_fsp_flags_low().
-@return	tablespace flags (fil_space_t::flags) */
-UNIV_INLINE
-ulint
-dict_tf_to_fsp_flags_low(
-/*=================*/
-	ulint	table_flags);	/*!< in: dict_table_t::flags */
 /********************************************************************//**
 Convert a 32 bit integer table flags to the 32 bit integer that is
 written into the tablespace header at the offset FSP_SPACE_FLAGS and is
@@ -933,8 +936,6 @@ the translation of the low order bit.  Other bits are the same.
 dict_table_t::flags |     0     |    1    |     1      |    1
 fil_space_t::flags  |     0     |    0    |     1      |    1
 ==================================================================
-Other than the low order bit, the bits related to compression are
-in different places.
 @return	tablespace flags (fil_space_t::flags) */
 UNIV_INLINE
 ulint
@@ -957,15 +958,6 @@ Check whether the table uses the compressed compact page format.
 UNIV_INLINE
 ulint
 dict_table_zip_size(
-/*================*/
-	const dict_table_t*	table)	/*!< in: table */
-	__attribute__((nonnull, warn_unused_result));
-/********************************************************************//**
-Check whether the table uses the compact metadata format.
-@return TRUE if compact metadata format is used, FALSE otherwise. */
-UNIV_INLINE
-ibool
-dict_table_is_compact_metadata(
 /*================*/
 	const dict_table_t*	table)	/*!< in: table */
 	__attribute__((nonnull, warn_unused_result));

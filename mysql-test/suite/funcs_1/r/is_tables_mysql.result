@@ -34,9 +34,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Column privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -61,9 +60,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Database privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -88,9 +86,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Events
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -115,9 +112,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	User defined functions
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -142,9 +138,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	General log
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -169,9 +164,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	help categories
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -196,9 +190,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	help keywords
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -223,9 +216,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	keyword-topic relation
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -250,9 +242,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	help topics
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -277,9 +268,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -304,9 +294,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -331,9 +320,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -358,9 +346,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	MySQL plugins
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -385,9 +372,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Stored Procedures
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -412,9 +398,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Procedure privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -439,9 +424,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	User proxy privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -466,9 +450,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	MySQL Foreign Servers table
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -520,9 +503,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Master Information
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -547,9 +529,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Relay Log Information
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -574,9 +555,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Worker Information
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -601,9 +581,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Slow log
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -628,9 +607,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Table privileges
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -655,9 +633,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Time zones
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -682,9 +659,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Leap seconds information for time zones
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -709,9 +685,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Time zone names
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -736,9 +711,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Time zone transitions
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -763,9 +737,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Time zone transition types
 Separator	-----------------------------------------------------
 TABLE_CATALOG	def
@@ -790,9 +763,8 @@ CHECKSUM	NULL
 CREATE_OPTIONS	#CO#
 TABLE_COMMENT	#TC#
 COMPRESSION	NULL
-COMPRESSION_LEVEL	0
+COMPRESSION_FLAGS	0
 KEY_BLOCK_SIZE	0
-COMPACT_METADATA	0
 user_comment	Users and global privileges
 Separator	-----------------------------------------------------
 DROP   USER testuser1@localhost;

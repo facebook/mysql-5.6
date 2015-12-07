@@ -112,6 +112,8 @@ class ha_innobase: public handler
 	  ROW_TYPE_NOT_USED, the information in HA_CREATE_INFO should be used.
 	*/
 	enum row_type get_row_type() const;
+	enum compression_type get_compression_type() const;
+	ulong get_compression_flags() const;
 
 	const char* table_type() const;
 	const char* index_type(uint key_number);

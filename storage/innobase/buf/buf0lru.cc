@@ -48,7 +48,6 @@ Created 11/5/1995 Heikki Tuuri
 #include "ibuf0ibuf.h"
 #include "os0file.h"
 #include "page0zip.h"
-#include "page0zip_checksum.h"
 #include "log0recv.h"
 #include "srv0srv.h"
 #include "srv0mon.h"
@@ -2324,12 +2323,11 @@ buf_LRU_block_remove_hashed(
 			case FIL_PAGE_TYPE_ZBLOB2:
 				break;
 			case FIL_PAGE_INDEX:
-				if (UNIV_UNLIKELY(page_zip_debug)) {
-					ut_a(page_zip_validate(
-						     &bpage->zip, page,
-						     ((buf_block_t*) bpage)
-						     	->index));
-				}
+#ifdef UNIV_ZIP_DEBUG
+				ut_a(page_zip_validate(
+					     &bpage->zip, page,
+					     ((buf_block_t*) bpage)->index));
+#endif /* UNIV_ZIP_DEBUG */
 				break;
 			default:
 				ut_print_timestamp(stderr);
