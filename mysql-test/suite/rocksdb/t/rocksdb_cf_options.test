@@ -25,7 +25,13 @@ insert into t3 values (2);
 --echo
 --echo Default options for all column families:
 --echo
---exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
+select cf_name, option_type, value
+  from information_schema.rocksdb_cf_options
+  where option_type in ('WRITE_BUFFER_SIZE',
+                        'TARGET_FILE_SIZE_BASE',
+                        'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+  order by cf_name, option_type;
+#--exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
 # restart with cf configs for cf1 and cf2
 
 --exec echo "" > $MYSQLTEST_VARDIR/log/mysqld.1.err
@@ -37,7 +43,13 @@ insert into t3 values (2);
 --echo
 --echo Individualized options for column families:
 --echo
---exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
+select cf_name, option_type, value
+  from information_schema.rocksdb_cf_options
+  where option_type in ('WRITE_BUFFER_SIZE',
+                        'TARGET_FILE_SIZE_BASE',
+                        'MAX_BYTES_FOR_LEVEL_MULTIPLIER')
+  order by cf_name, option_type;
+#--exec grep -e "column family\|write_buffer_size\|target_file_size_base\|max_bytes_for_level_multiplier:" $MYSQLD_DATADIR/.rocksdb/LOG| sed 's/^.*Options/Options/';
 
 # syntax error in options (no equal sign)
 
