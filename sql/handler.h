@@ -2054,6 +2054,8 @@ public:
   {
     cached_table_flags= table_flags();
   }
+
+  virtual bool init_with_fields() { return false; }
   /* ha_ methods: public wrappers for private virtual API */
 
   int ha_open(TABLE *table, const char *name, int mode, int test_if_locked);
