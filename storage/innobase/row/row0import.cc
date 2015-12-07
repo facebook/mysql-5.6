@@ -1932,11 +1932,10 @@ PageConverter::update_index_page(
 		return(DB_SUCCESS);
 	}
 
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!is_compressed_table()
-		     || page_zip_validate(m_page_zip_ptr,
-		     			  page, m_index->m_srv_index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!is_compressed_table()
+	     || page_zip_validate(m_page_zip_ptr, page, m_index->m_srv_index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	/* This has to be written to uncompressed index header. Set it to
 	the current index id. */
@@ -2027,10 +2026,7 @@ PageConverter::update_page(
 		/* We need to decompress the contents into block->frame
 		before we can do any thing with Btree pages. */
 
-		if (is_compressed_table()
-		    && !buf_zip_decompress(
-				block, TRUE,
-				dict_tf_to_fsp_flags_low(m_cfg->m_flags))) {
+		if (is_compressed_table() && !buf_zip_decompress(block, TRUE)) {
 			return(DB_CORRUPTION);
 		}
 

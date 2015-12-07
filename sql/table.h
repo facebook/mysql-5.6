@@ -32,8 +32,6 @@
 #include "parse_file.h"
 #include "table_id.h"
 
-#define FILE_INFO_LENGTH 64L
-
 /* Structs that defines the TABLE */
 
 class Item;				/* Needed by ORDER */
@@ -759,10 +757,6 @@ struct TABLE_SHARE
     return db_plugin ? plugin_data(db_plugin, handlerton*) : NULL;
   }
   enum row_type row_type;		/* How rows are stored */
-  enum compression_type compression_type;
-  ulong compression_level; /* 4 bits used for compression level */
-  ulong compact_metadata; /* if 1 the transaction ids and rollback pointers
-			     will be stored in a compact format */
   enum tmp_table_type tmp_table;
 
   uint ref_count;                       /* How many TABLE objects uses this */

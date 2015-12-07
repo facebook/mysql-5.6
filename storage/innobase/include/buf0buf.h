@@ -855,10 +855,7 @@ ibool
 buf_zip_decompress(
 /*===============*/
 	buf_block_t*	block,	/*!< in/out: block */
-	ibool		check,	/*!< in: TRUE=verify the page checksum */
-	ulint		table_flags); /*!< in: table flags used for compression
-					configuration. not used if set to
-					ULINT_UNDEFINED */
+	ibool		check);	/*!< in: TRUE=verify the page checksum */
 #ifndef UNIV_HOTBACKUP
 #ifdef UNIV_DEBUG
 /*********************************************************************//**
@@ -1262,6 +1259,7 @@ buf_pointer_is_block_field(
 #define buf_pool_is_block_lock(l)			\
 	buf_pointer_is_block_field((const void*)(l))
 
+#if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
 /*********************************************************************//**
 Gets the compressed page descriptor corresponding to an uncompressed page
 if applicable.
@@ -1271,7 +1269,7 @@ const page_zip_des_t*
 buf_frame_get_page_zip(
 /*===================*/
 	const byte*	ptr);	/*!< in: pointer to the page */
-
+#endif /* UNIV_DEBUG || UNIV_ZIP_DEBUG */
 /********************************************************************//**
 Function which inits a page for read to the buffer buf_pool. If the page is
 (1) already in buf_pool, or

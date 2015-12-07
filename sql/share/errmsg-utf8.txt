@@ -7202,11 +7202,3 @@ ER_DB_READ_ONLY
 #
 #  End of 5.6 error messages.
 #
-
-ER_DUP_LIST_ENTRY
-        eng "Duplicate entry '%-.192s'."
-
-
-#
-#  End of Patched 5.7 error messages
-#

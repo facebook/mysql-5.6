@@ -667,20 +667,18 @@ page_copy_rec_list_end(
 		page_get_infimum_rec(new_page));
 	ulint		log_mode	= 0; /* remove warning */
 
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		if (new_page_zip) {
-			page_zip_des_t*	page_zip
-				= buf_block_get_page_zip(block);
-			ut_a(page_zip);
+#ifdef UNIV_ZIP_DEBUG
+	if (new_page_zip) {
+		page_zip_des_t*	page_zip = buf_block_get_page_zip(block);
+		ut_a(page_zip);
 
-			/* Strict page_zip_validate() may fail here.
-			Furthermore, btr_compress() may set FIL_PAGE_PREV to
-			FIL_NULL on new_page while leaving it intact on
-			new_page_zip.  So, we cannot validate new_page_zip. */
-			ut_a(page_zip_validate_low(page_zip, page, index,
-						   TRUE));
-		}
+		/* Strict page_zip_validate() may fail here.
+		Furthermore, btr_compress() may set FIL_PAGE_PREV to
+		FIL_NULL on new_page while leaving it intact on
+		new_page_zip.  So, we cannot validate new_page_zip. */
+		ut_a(page_zip_validate_low(page_zip, page, index, TRUE));
 	}
+#endif /* UNIV_ZIP_DEBUG */
 	ut_ad(buf_block_get_frame(block) == page);
 	ut_ad(page_is_leaf(page) == page_is_leaf(new_page));
 	ut_ad(page_is_comp(page) == page_is_comp(new_page));
@@ -730,8 +728,7 @@ page_copy_rec_list_end(
 						    "copy_end_reorg_fail");
 				if (!page_zip_decompress(new_page_zip,
 					new_page, FALSE,
-					buf_block_get_space(new_block),
-					ULINT_UNDEFINED)) {
+					buf_block_get_space(new_block))) {
 					ut_error;
 				}
 				ut_ad(page_validate(new_page, index));
@@ -867,8 +864,7 @@ zip_reorganize:
 				if (UNIV_UNLIKELY
 				    (!page_zip_decompress(new_page_zip,
 					new_page, FALSE,
-					buf_block_get_space(new_block),
-					ULINT_UNDEFINED))) {
+					buf_block_get_space(new_block)))) {
 					ut_error;
 				}
 				ut_ad(page_validate(new_page, index));
@@ -1007,10 +1003,9 @@ page_delete_rec_list_end(
 
 	ut_ad(size == ULINT_UNDEFINED || size < UNIV_PAGE_SIZE);
 	ut_ad(!page_zip || page_rec_is_comp(rec));
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	if (page_rec_is_supremum(rec)) {
 		ut_ad(n_recs == 0 || n_recs == ULINT_UNDEFINED);
@@ -1075,11 +1070,9 @@ delete_all:
 			offsets = rec_get_offsets(rec, index, offsets,
 						  ULINT_UNDEFINED, &heap);
 			rec = rec_get_next_ptr(rec, TRUE);
-
-			if (UNIV_UNLIKELY(page_zip_debug)) {
-				ut_a(page_zip_validate(page_zip, page, index));
-			}
-
+#ifdef UNIV_ZIP_DEBUG
+			ut_a(page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 			page_cur_delete_rec(&cur, index, offsets, mtr);
 		} while (page_offset(rec) != PAGE_NEW_SUPREMUM);
 
@@ -1208,8 +1201,8 @@ page_delete_rec_list_start(
 
 	ut_ad((ibool) !!page_rec_is_comp(rec)
 	      == dict_table_is_comp(index->table));
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
+#ifdef UNIV_ZIP_DEBUG
+	{
 		page_zip_des_t*	page_zip= buf_block_get_page_zip(block);
 		page_t*		page	= buf_block_get_frame(block);
 
@@ -1221,6 +1214,7 @@ page_delete_rec_list_start(
 		ut_a(!page_zip
 		     || page_zip_validate_low(page_zip, page, index, TRUE));
 	}
+#endif /* UNIV_ZIP_DEBUG */
 
 	if (page_rec_is_infimum(rec)) {
 		return;
@@ -1292,8 +1286,8 @@ page_move_rec_list_end(
 
 	old_data_size = page_get_data_size(new_page);
 	old_n_recs = page_get_n_recs(new_page);
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
+#ifdef UNIV_ZIP_DEBUG
+	{
 		page_zip_des_t*	new_page_zip
 			= buf_block_get_page_zip(new_block);
 		page_zip_des_t*	page_zip
@@ -1305,6 +1299,7 @@ page_move_rec_list_end(
 		     || page_zip_validate(page_zip, page_align(split_rec),
 					  index));
 	}
+#endif /* UNIV_ZIP_DEBUG */
 
 	if (UNIV_UNLIKELY(!page_copy_rec_list_end(new_block, block,
 						  split_rec, index, mtr))) {
@@ -2774,17 +2769,15 @@ page_delete_rec(
 	}
 
 	if (no_compress_needed) {
-		if (UNIV_UNLIKELY(page_zip_debug)) {
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-		}
+#ifdef UNIV_ZIP_DEBUG
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 		page_cur_delete_rec(pcur, index, offsets, 0);
 
-		if (UNIV_UNLIKELY(page_zip_debug)) {
-			ut_a(!page_zip
-			     || page_zip_validate(page_zip, page, index));
-		}
+#ifdef UNIV_ZIP_DEBUG
+		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 	}
 
 	return(no_compress_needed);

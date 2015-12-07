@@ -29,55 +29,6 @@ extern const char	*unknown_sqlstate;
 extern const char	*cant_connect_sqlstate;
 extern const char	*not_error_sqlstate;
 
-/**
-  The structure is used to hold the state change information
-  received from the server. LIST functions are used for manipulation
-  of the members of the structure.
-*/
-typedef struct st_session_track_info_node {
-  /** head_node->data is a LEX_STRING which contains the variable name. */
-  LIST *head_node;
-  LIST *current_node;
-} STATE_INFO_NODE;
-
-/**
-  Store the change info received from the server in an array of linked lists
-  with STATE_INFO_NODE elements (one per state type).
-*/
-typedef struct st_session_track_info {
-  /** Array of STATE_NODE_INFO elements (one per state type). */
-  struct st_session_track_info_node info_list[SESSION_TRACK_END + 1];
-} STATE_INFO;
-
-/*
-   Access to MYSQL::extension member.
-
-   Note: functions mysql_extension_{init,free}() are defined
-   in client.c.
-*/
-/**
-   TODO: Refactor async (non_blocking) machine states into this extension
-   struct.
- */
-typedef struct st_mysql_extension {
-  struct st_session_track_info state_change;
-} MYSQL_EXTENSION;
-
-struct st_mysql_extension* mysql_extension_init(struct st_mysql*);
-void mysql_extension_free(struct st_mysql_extension*);
-
-/*
-
-*/
-#define MYSQL_EXTENSION_PTR(H)                                     \
-(                                                                  \
-  (struct st_mysql_extension*)                                     \
-  ( (H)->extension ?                                               \
-    (H)->extension : ((H)->extension= mysql_extension_init(H))     \
- )                                                                 \
-)                                                                  \
-
-
 struct st_mysql_options_extention {
   char *plugin_dir;
   char *default_auth;

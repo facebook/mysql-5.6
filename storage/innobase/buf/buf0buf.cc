@@ -52,7 +52,6 @@ Created 11/5/1995 Heikki Tuuri
 #include "dict0dict.h"
 #include "log0recv.h"
 #include "page0zip.h"
-#include "page0zip_checksum.h"
 #include "srv0mon.h"
 #include "buf0checksum.h"
 #include "buf0dump.h"
@@ -3882,10 +3881,7 @@ ibool
 buf_zip_decompress(
 /*===============*/
 	buf_block_t*	block,	/*!< in/out: block */
-	ibool		check,	/*!< in: TRUE=verify the page checksum */
-	ulint		fsp_flags) /*!< in: space flags used for compression
-				       configuration. not used if set to
-				       ULINT_UNDEFINED */
+	ibool		check)	/*!< in: TRUE=verify the page checksum */
 {
 	const byte*	frame = block->page.zip.data;
 	ulint		size = page_zip_get_size(&block->page.zip);
@@ -3915,8 +3911,7 @@ buf_zip_decompress(
 	case FIL_PAGE_INDEX:
 		if (page_zip_decompress(&block->page.zip,
 					block->frame, TRUE,
-					block->page.space,
-					fsp_flags)) {
+					block->page.space)) {
 			return(TRUE);
 		}
 
@@ -4567,8 +4562,7 @@ got_block:
 		the page is read from disk. Hence page checksum
 		verification is not necessary when decompressing the page. */
 		{
-			bool	success = buf_zip_decompress(block, FALSE,
-							     ULINT_UNDEFINED);
+			bool	success = buf_zip_decompress(block, FALSE);
 			ut_a(success);
 		}
 
@@ -5851,8 +5845,7 @@ buf_page_io_complete(
 			buf_pool->n_pend_unzip++;
 			if (uncompressed
 			    && !buf_zip_decompress((buf_block_t*) bpage,
-						   FALSE,
-						   ULINT_UNDEFINED)) {
+						   FALSE)) {
 
 				buf_pool->n_pend_unzip--;
 				goto corrupt;

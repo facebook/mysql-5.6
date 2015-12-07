@@ -406,13 +406,6 @@ enum row_type { ROW_TYPE_NOT_USED=-1, ROW_TYPE_DEFAULT, ROW_TYPE_FIXED,
                 /** Unused. Reserved for future versions. */
                 ROW_TYPE_PAGE };
 
-enum compression_type {
-	COMPRESSION_TYPE_ZLIB_STREAM=0,
-	COMPRESSION_TYPE_ZLIB, COMPRESSION_TYPE_BZIP,
-	COMPRESSION_TYPE_LZMA, COMPRESSION_TYPE_SNAPPY,
-	COMPRESSION_TYPE_QUICKLZ, COMPRESSION_TYPE_LZ4
-};
-
 /* Specifies data storage format for individual columns */
 enum column_format_type {
   COLUMN_FORMAT_TYPE_DEFAULT=   0, /* Not specified (use engine default) */
@@ -485,9 +478,6 @@ given at all. */
    given at all.
 */
 #define HA_CREATE_USED_STATS_SAMPLE_PAGES (1L << 24)
-#define HA_CREATE_USED_COMPRESSION (1L << 25)
-#define HA_CREATE_USED_COMPRESSION_LEVEL (1L << 26)
-#define HA_CREATE_USED_COMPACT_METADATA (1L << 27)
 #define HA_CREATE_USED_RBR_COLUMN_NAMES (1L << 47)
 
 
@@ -1110,13 +1100,6 @@ typedef struct st_ha_create_information
     If nothing speficied inherits the value of the original table (if present).
   */
   enum row_type row_type;
-  enum compression_type compression;
-  ulong compression_level; /* The level parameter is passed to the compression
-                              library. Higher values mean more aggressive but
-                              possibly slower compression. Only the lower 4 bits
-                              must be used */
-  ulong compact_metadata; /* If set to 1, transaction ids and rollback pointers
-                             in innodb are stored in a compact format */
   uint null_bits;                       /* NULL bits at start of record */
   uint options;				/* OR of HA_CREATE_ options */
   uint merge_insert_method;
@@ -2283,6 +2266,7 @@ public:
   virtual enum row_type get_row_type() const { return ROW_TYPE_NOT_USED; }
 
   virtual const char *index_type(uint key_number) { DBUG_ASSERT(0); return "";}
+
 
   /**
     Signal that the table->read_set and table->write_set table maps changed
@@ -3468,7 +3452,6 @@ private:
 	/* Some extern variables used with handlers */
 
 extern const char *ha_row_type[];
-extern const char *ha_compression_type[];
 extern MYSQL_PLUGIN_IMPORT const char *tx_isolation_names[];
 extern MYSQL_PLUGIN_IMPORT const char *binlog_format_names[];
 extern TYPELIB tx_isolation_typelib;

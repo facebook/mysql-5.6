@@ -289,7 +289,9 @@ page_cur_search_with_match(
 	ulint		dbg_matched_fields;
 	ulint		dbg_matched_bytes;
 #endif
+#ifdef UNIV_ZIP_DEBUG
 	const page_zip_des_t*	page_zip = buf_block_get_page_zip(block);
+#endif /* UNIV_ZIP_DEBUG */
 	mem_heap_t*	heap		= NULL;
 	ulint		offsets_[REC_OFFS_NORMAL_SIZE];
 	ulint*		offsets		= offsets_;
@@ -309,10 +311,9 @@ page_cur_search_with_match(
 			      || mode == PAGE_CUR_G || mode == PAGE_CUR_GE);
 #endif /* UNIV_DEBUG */
 	page = buf_block_get_frame(block);
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	page_check_dir(page);
 
@@ -1208,10 +1209,9 @@ page_cur_insert_rec_zip(
 	      || (mtr ? mtr->inside_ibuf : dict_index_is_ibuf(index)));
 
 	ut_ad(!page_cur_is_after_last(cursor));
-
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 
 	/* 1. Get the size of the physical record in the page */
 	rec_size = rec_offs_size(offsets);
@@ -1404,9 +1404,8 @@ page_cur_insert_rec_zip(
 			/* Out of space: restore the page */
 			btr_blob_dbg_remove(page, index, "insert_zip_fail");
 			const buf_block_t *block = page_cur_get_block(cursor);
-			if (!page_zip_decompress(
-				page_zip, page, FALSE,
-				buf_block_get_space(block), ULINT_UNDEFINED)) {
+			if (!page_zip_decompress(page_zip, page, FALSE,
+						 buf_block_get_space(block))) {
 				ut_error; /* Memory corrupted? */
 			}
 			ut_ad(page_validate(page, index));
@@ -1528,6 +1527,7 @@ use_heap:
 			return(NULL);
 		}
 
+		page_zip_dir_add_slot(page_zip, dict_index_is_clust(index));
 	}
 
 	/* 3. Create the record */
@@ -1550,6 +1550,9 @@ use_heap:
 		page_rec_set_next(cursor->rec, insert_rec);
 	}
 
+	page_header_set_field(page, page_zip, PAGE_N_RECS,
+			      1 + page_get_n_recs(page));
+
 	/* 5. Set the n_owned field in the inserted record to zero,
 	and set the heap_no field */
 	rec_set_n_owned_new(insert_rec, 0);
@@ -1558,11 +1561,7 @@ use_heap:
 	UNIV_MEM_ASSERT_RW(rec_get_start(insert_rec, offsets),
 			   rec_offs_size(offsets));
 
-	page_zip_dir_insert(page_zip, cursor->rec, free_rec, insert_rec,
-			    dict_index_is_clust(index) != 0);
-
-	page_header_set_field(page, page_zip, PAGE_N_RECS,
-			      1 + page_get_n_recs(page));
+	page_zip_dir_insert(page_zip, cursor->rec, free_rec, insert_rec);
 
 	/* 6. Update the last insertion info in page header */
 
@@ -2129,9 +2128,9 @@ page_cur_delete_rec(
 		page_dir_balance_slot(page, page_zip, cur_slot_no);
 	}
 
-	if (UNIV_UNLIKELY(page_zip_debug)) {
-		ut_a(!page_zip || page_zip_validate(page_zip, page, index));
-	}
+#ifdef UNIV_ZIP_DEBUG
+	ut_a(!page_zip || page_zip_validate(page_zip, page, index));
+#endif /* UNIV_ZIP_DEBUG */
 }
 
 #ifdef UNIV_COMPILE_TEST_FUNCS
