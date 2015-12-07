@@ -60,3 +60,23 @@ select * from t1 force index(col1) where col1=10;
 select * from t1 use index () where col1=10;
 drop table t1;
 
+--echo #
+--echo # Issue #108: Index-only scans do not work for partitioned tables and extended keys
+--echo #
+create table t1 (
+  pk int primary key,
+  col1 int,
+  col2 int,
+  key (col1)
+) engine=rocksdb partition by hash(pk) partitions 2;
+
+insert into t1 values (1,10,10);
+insert into t1 values (2,10,10);
+
+insert into t1 values (11,20,20);
+insert into t1 values (12,20,20);
+--echo # The following must use "Using index"
+explain select pk from t1 force index(col1) where col1=10;
+
+drop table t1;
+
