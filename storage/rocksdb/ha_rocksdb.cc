@@ -158,11 +158,30 @@ rocksdb_compact_column_family(THD* thd,
                               const void* save)
 {
   if (const char* cf = *static_cast<const char*const*>(save)) {
-    bool is_automatic;
-    auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
-    if (cfh != nullptr && rdb != nullptr) {
-      sql_print_information("RocksDB: Manual compaction of column family: %s\n", cf);
-      rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh, nullptr, nullptr);
+    if (!strcmp(cf, "__all__"))
+    {
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Manual compaction of all "
+                            "column families..\n");
+      for (auto cfh : cf_manager.get_all_cf())
+      {
+        rdb->CompactRange(rocksdb::CompactRangeOptions(),
+                          cfh, nullptr, nullptr);
+      }
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Manual compaction finished.\n");
+    }
+    else
+    {
+      bool is_automatic;
+      auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
+      if (cfh != nullptr && rdb != nullptr) {
+        // NO_LINT_DEBUG
+        sql_print_information("RocksDB: Manual compaction of "
+                              "column family: %s\n", cf);
+        rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh,
+                          nullptr, nullptr);
+      }
     }
   }
 }

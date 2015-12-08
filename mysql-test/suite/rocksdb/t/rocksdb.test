@@ -1379,6 +1379,10 @@ create table t1 (
 --echo #
 --echo # Issue #22: SELECT ... FOR UPDATE takes a long time
 --echo #
+# compacting all sst files first, because rocksdb_number_keys_read
+# is increased by drop_index_thread. This can be removed after
+# drop index space reclaiming issue (#60) is fixed.
+set global rocksdb_compact_cf = '__all__';
 create table t0 (a int) engine=myisam;
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
