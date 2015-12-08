@@ -20,3 +20,14 @@ insert into t1 values
 alter table t1 add unique(a);
 drop table t1;
 
+--echo #
+--echo # Issue #111
+--echo #
+CREATE TABLE t2 (pk int, a int, PRIMARY KEY (pk, a), UNIQUE KEY (a)) ENGINE=ROCKSDB PARTITION BY KEY (a) PARTITIONS 16;
+
+INSERT INTO t2 VALUES (1,1);
+--error ER_DUP_ENTRY
+INSERT INTO t2 VALUES (1,1);
+--error ER_DUP_ENTRY
+INSERT INTO t2 VALUES (2,1);
+DROP TABLE t2;
