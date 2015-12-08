@@ -4925,7 +4925,8 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
     if (found)
     {
       /* There is a row with this rowid already, so error out. */
-      dupp_errkey= i;
+      errkey= i;
+      dupp_errkey= errkey;
       DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
     }
   }
@@ -5069,6 +5070,7 @@ int ha_rocksdb::update_write_row(const uchar *old_data,
       if (s.IsBusy())
       {
         errkey= table->s->primary_key;
+        dupp_errkey= errkey;
         DBUG_RETURN(HA_ERR_FOUND_DUPP_KEY);
       }
 
