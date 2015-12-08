@@ -158,11 +158,33 @@ rocksdb_compact_column_family(THD* thd,
                               const void* save)
 {
   if (const char* cf = *static_cast<const char*const*>(save)) {
-    bool is_automatic;
-    auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
-    if (cfh != nullptr && rdb != nullptr) {
-      sql_print_information("RocksDB: Manual compaction of column family: %s\n", cf);
-      rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh, nullptr, nullptr);
+    if (!strcmp(cf, "__all__"))
+    {
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Manual compaction of all "
+                            "column families..\n");
+      rocksdb::CompactRangeOptions o;
+      for (auto cfh : cf_manager.get_all_cf())
+      {
+        if (rdb != nullptr)
+            rdb->CompactRange(o, cfh, nullptr, nullptr);
+      }
+      // NO_LINT_DEBUG
+      sql_print_information("RocksDB: Manual compaction finished.\n");
+    }
+    else
+    {
+      bool is_automatic;
+      auto cfh = cf_manager.get_cf(cf, nullptr, nullptr, &is_automatic);
+      if (cfh != nullptr && rdb != nullptr) {
+        // NO_LINT_DEBUG
+        sql_print_information("RocksDB: Manual compaction of "
+                              "column family: %s\n", cf);
+        rdb->CompactRange(rocksdb::CompactRangeOptions(), cfh,
+                          nullptr, nullptr);
+        // NO_LINT_DEBUG
+        sql_print_information("RocksDB: Manual compaction finished.\n");
+      }
     }
   }
 }
@@ -727,7 +749,10 @@ static MYSQL_SYSVAR_BOOL(debug_optimizer_no_zero_cardinality,
 
 static MYSQL_SYSVAR_STR(compact_cf, compact_cf_name,
   PLUGIN_VAR_RQCMDARG,
-  "Compact column family",
+  "Explicitly compact column family. This command triggers manual compaction "
+  "for a specified column family. When specifying '__all__', all column "
+  "families are compacted. This means it is not possible to compact only a "
+  "column family named __all__.",
   NULL, rocksdb_compact_column_family, "");
 
 static MYSQL_SYSVAR_STR(create_checkpoint, checkpoint_name,
