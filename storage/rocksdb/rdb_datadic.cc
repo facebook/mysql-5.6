@@ -884,6 +884,127 @@ int unpack_integer(Field_pack_info *fpi, Field *field,
   return 0;
 }
 
+#if !defined(WORDS_BIGENDIAN)
+static
+void swap_double_bytes(uchar *dst, const uchar *src)
+{
+#if defined(__FLOAT_WORD_ORDER) && (__FLOAT_WORD_ORDER == __BIG_ENDIAN)
+  // A few systems store the most-significant _word_ first on little-endian
+  dst[0] = src[3]; dst[1] = src[2]; dst[2] = src[1]; dst[3] = src[0];
+  dst[4] = src[7]; dst[5] = src[6]; dst[6] = src[5]; dst[7] = src[4];
+#else
+  dst[0] = src[7]; dst[1] = src[6]; dst[2] = src[5]; dst[3] = src[4];
+  dst[4] = src[3]; dst[5] = src[2]; dst[6] = src[1]; dst[7] = src[0];
+#endif
+}
+
+static
+void swap_float_bytes(uchar *dst, const uchar *src)
+{
+  dst[0] = src[3]; dst[1] = src[2]; dst[2] = src[1]; dst[3] = src[0];
+}
+#else
+#define swap_double_bytes nullptr
+#define swap_float_bytes  nullptr
+#endif
+
+static
+int unpack_floating_point(uchar *dst, Stream_reader *reader, size_t size,
+                         int exp_digit, const uchar *zero_pattern,
+                         const uchar *zero_val,
+                         void (*swap)(uchar *, const uchar *))
+{
+  const uchar* from;
+
+  from= (const uchar*) reader->read(size);
+  if (from == nullptr)
+    return 1; /* Mem-comparable image doesn't have enough bytes */
+
+  /* Check to see if the value is zero */
+  if (memcmp(from, zero_pattern, size) == 0)
+  {
+    memcpy(dst, zero_val, size);
+    return 0;
+  }
+
+#if defined(WORDS_BIGENDIAN)
+  // On big-endian, output can go directly into result
+  uchar *tmp = dst;
+#else
+  // Otherwise use a temporary buffer to make byte-swapping easier later
+  uchar tmp[8];
+#endif
+
+  memcpy(tmp, from, size);
+
+  if (tmp[0] & 0x80)
+  {
+    // If the high bit is set the original value was positive so
+    // remove the high bit and subtract one from the exponent.
+    ushort exp_part= ((ushort) tmp[0] << 8) | (ushort) tmp[1];
+    exp_part &= 0x7FFF;  // clear high bit;
+    exp_part -= (ushort) 1 << (16 - 1 - exp_digit);  // subtract from exponent
+    tmp[0] = (uchar) (exp_part >> 8);
+    tmp[1] = (uchar) exp_part;
+  }
+  else
+  {
+    // Otherwise the original value was negative and all bytes have been
+    // negated.
+    for (size_t ii = 0; ii < size; ii++)
+      tmp[ii] ^= 0xFF;
+  }
+
+#if !defined(WORDS_BIGENDIAN)
+  // On little-endian, swap the bytes around
+  swap(dst, tmp);
+#endif
+
+  return 0;
+}
+
+#if !defined(DBL_EXP_DIG)
+#define DBL_EXP_DIG (sizeof(double) * 8 - DBL_MANT_DIG)
+#endif
+
+
+/*
+  Unpack a double by doing the reverse action of change_double_for_sort
+  (sql/filesort.cc).  Note that this only works on IEEE values.
+  Note also that this code assumes that NaN and +/-Infinity are never
+  allowed in the database.
+*/
+static
+int unpack_double(Field_pack_info *fpi, Field *field,
+                  Stream_reader *reader, const uchar *unpack_info)
+{
+  static double      zero_val = 0.0;
+  static const uchar zero_pattern[8] = { 128, 0, 0, 0, 0, 0, 0, 0 };
+
+  return unpack_floating_point(field->ptr, reader, sizeof(double), DBL_EXP_DIG,
+      zero_pattern, (const uchar *) &zero_val, swap_double_bytes);
+}
+
+#if !defined(FLT_EXP_DIG)
+#define FLT_EXP_DIG (sizeof(float) * 8 - FLT_MANT_DIG)
+#endif
+
+/*
+  Unpack a float by doing the reverse action of Field_float::make_sort_key
+  (sql/field.cc).  Note that this only works on IEEE values.
+  Note also that this code assumes that NaN and +/-Infinity are never
+  allowed in the database.
+*/
+static
+int unpack_float(Field_pack_info *fpi, Field *field,
+                 Stream_reader *reader, const uchar *unpack_info)
+{
+  static float       zero_val = 0.0;
+  static const uchar zero_pattern[4] = { 128, 0, 0, 0 };
+
+  return unpack_floating_point(field->ptr, reader, sizeof(float), FLT_EXP_DIG,
+      zero_pattern, (const uchar *) &zero_val, swap_float_bytes);
+}
 
 /*
   Unpack by doing the reverse action to Field_newdate::make_sort_key.
@@ -1210,6 +1331,14 @@ bool Field_pack_info::setup(Field *field, uint keynr_arg, uint key_part_arg)
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_TINY:
       unpack_func= unpack_integer;
+      return true;
+
+    case MYSQL_TYPE_DOUBLE:
+      unpack_func= unpack_double;
+      return true;
+
+    case MYSQL_TYPE_FLOAT:
+      unpack_func= unpack_float;
       return true;
 
     case MYSQL_TYPE_DATETIME2:
