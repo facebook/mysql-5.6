@@ -884,6 +884,146 @@ int unpack_integer(Field_pack_info *fpi, Field *field,
   return 0;
 }
 
+#if !defined(DBL_EXP_DIG)
+#define DBL_EXP_DIG (sizeof(double) * 8 - DBL_MANT_DIG)
+#endif
+
+static const uchar double_zero_pattern[8] = { 128, 0, 0, 0, 0, 0, 0, 0 };
+
+/*
+  Unpack a double by doing the reverse action of change_double_for_sort
+  (sql/filesort.cc).  Note that this only works on IEEE values.
+  Note also that this code assumes that NaN and +/-Infinity are never
+  allowed in the database.
+*/
+static
+int unpack_double(Field_pack_info *fpi, Field *field,
+                  Stream_reader *reader, const uchar *unpack_info)
+{
+  const uchar* from;
+
+  from= (const uchar*) reader->read(sizeof(double));
+  if (from == nullptr)
+    return 1; /* Mem-comparable image doesn't have enough bytes */
+
+  /* Check to see if the value is zero */
+  if (memcmp(from, double_zero_pattern, sizeof(double)) == 0)
+  {
+    double zero = 0.0;
+    memcpy(field->ptr, &zero, sizeof(double));
+    return 0;
+  }
+
+#if defined(WORDS_BIGENDIAN)
+  // On big-endian, output can go directly into result
+  uchar *tmp = field->ptr;
+#else
+  // Otherwise use a temporary buffer to make byte-swapping easier later
+  uchar tmp[8];
+#endif
+
+  memcpy(tmp, from, sizeof(double));
+
+  if (tmp[0] & 0x80)
+  {
+    // If the high bit is set the original value was positive so
+    // remove the high bit and subtract one from the exponent.
+    ushort exp_part= ((ushort) tmp[0] << 8) | (ushort) tmp[1];
+    exp_part &= 0x7FFF;  // clear high bit;
+    exp_part -= (ushort) 1 << (16 - 1 - DBL_EXP_DIG);  // subtract from exponent
+    tmp[0] = (uchar) (exp_part >> 8);
+    tmp[1] = (uchar) exp_part;
+  }
+  else
+  {
+    // Otherwise the original value was negative and all bytes have been
+    // negated.
+    for (size_t ii = 0; ii < sizeof(double); ii++)
+      tmp[ii] ^= 0xFF;
+  }
+
+#if !defined(WORDS_BIGENDIAN)
+  // On little-endian, swap the bytes around
+  uchar *to = field->ptr;
+#if defined(__FLOAT_WORD_ORDER) && (__FLOAT_WORD_ORDER == __BIG_ENDIAN)
+  // A few systems store the most-significant word first even on little-endian
+  to[0] = tmp[3]; to[1] = tmp[2]; to[2] = tmp[1]; to[3] = tmp[0];
+  to[4] = tmp[7]; to[5] = tmp[6]; to[6] = tmp[5]; to[7] = tmp[4];
+#else
+  to[0] = tmp[7]; to[1] = tmp[6]; to[2] = tmp[5]; to[3] = tmp[4];
+  to[4] = tmp[3]; to[5] = tmp[2]; to[6] = tmp[1]; to[7] = tmp[0];
+#endif
+#endif
+
+  return 0;
+}
+
+#if !defined(FLT_EXP_DIG)
+#define FLT_EXP_DIG (sizeof(float) * 8 - FLT_MANT_DIG)
+#endif
+
+static const uchar float_zero_pattern[4] = { 128, 0, 0, 0 };
+
+/*
+  Unpack a float by doing the reverse action of Field_float::make_sort_key
+  (sql/field.cc).  Note that this only works on IEEE values.
+  Note also that this code assumes that NaN and +/-Infinity are never
+  allowed in the database.
+*/
+static
+int unpack_float(Field_pack_info *fpi, Field *field,
+                 Stream_reader *reader, const uchar *unpack_info)
+{
+  const uchar* from;
+
+  from= (const uchar*) reader->read(sizeof(float));
+  if (from == nullptr)
+    return 1; /* Mem-comparable image doesn't have enough bytes */
+
+  /* Check to see if the value is zero */
+  if (memcmp(from, float_zero_pattern, sizeof(float)) == 0)
+  {
+    float zero = 0.0;
+    memcpy(field->ptr, &zero, sizeof(float));
+    return 0;
+  }
+
+#if defined(WORDS_BIGENDIAN)
+  // On big-endian, output can go directly into result
+  uchar *tmp = field->ptr;
+#else
+  // Otherwise use a temporary buffer to make byte-swapping easier later
+  uchar tmp[4];
+#endif
+
+  memcpy(tmp, from, sizeof(float));
+
+  if (tmp[0] & 0x80)
+  {
+    // If the high bit is set the original value was positive so
+    // remove the high bit and subtract one from the exponent.
+    ushort exp_part= ((ushort) tmp[0] << 8) | (ushort) tmp[1];
+    exp_part &= 0x7FFF;  // clear high bit;
+    exp_part -= (ushort) 1 << (16 - 1 - FLT_EXP_DIG);  // subtract from exponent
+    tmp[0] = (uchar) (exp_part >> 8);
+    tmp[1] = (uchar) exp_part;
+  }
+  else
+  {
+    // Otherwise the original value was negative and all bytes have been
+    // negated.
+    for (size_t ii = 0; ii < sizeof(float); ii++)
+      tmp[ii] ^= 0xFF;
+  }
+
+#if !defined(WORDS_BIGENDIAN)
+  // On little-endian, swap the bytes around
+  uchar *to = field->ptr;
+  to[0] = tmp[3]; to[1] = tmp[2]; to[2] = tmp[1]; to[3] = tmp[0];
+#endif
+
+  return 0;
+}
 
 /*
   Unpack by doing the reverse action to Field_newdate::make_sort_key.
@@ -1210,6 +1350,14 @@ bool Field_pack_info::setup(Field *field, uint keynr_arg, uint key_part_arg)
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_TINY:
       unpack_func= unpack_integer;
+      return true;
+
+    case MYSQL_TYPE_DOUBLE:
+      unpack_func= unpack_double;
+      return true;
+
+    case MYSQL_TYPE_FLOAT:
+      unpack_func= unpack_float;
       return true;
 
     case MYSQL_TYPE_DATETIME2:
