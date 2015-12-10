@@ -334,7 +334,7 @@ class BackupRunner:
 
 def init_logger():
   global logger
-  logger = logging.getLogger('myrockshotbackup')
+  logger = logging.getLogger('myrocks_hotbackup')
   logger.setLevel(logging.INFO)
   h1= logging.StreamHandler(sys.stderr)
   f = logging.Formatter("%(asctime)s.%(msecs)03d %(levelname)s %(message)s",
@@ -342,8 +342,8 @@ def init_logger():
   h1.setFormatter(f)
   logger.addHandler(h1)
 
-backup_usage= "Backup: myrockshotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remove_server 'tar -xi -C <directory on remove server where backups will be sent>' . You need to execute backup command on a server where you take backups."
-move_back_usage= "Move-Back: myrockshotbackup --move_back --datadir=<dest mysql datadir> --rocksdb_datadir=<dest rocksdb datadir> --rocksdb_waldir=<dest rocksdb wal dir> --backup_dir=<where backup files are stored> . You need to execute move-back command on a server where backup files are sent."
+backup_usage= "Backup: myrocks_hotbackup --user=root --password=pw --port=3306 --checkpoint_dir=<directory where temporary backup hard links are created> | ssh -o NoneEnabled=yes remove_server 'tar -xi -C <directory on remove server where backups will be sent>' . You need to execute backup command on a server where you take backups."
+move_back_usage= "Move-Back: myrocks_hotbackup --move_back --datadir=<dest mysql datadir> --rocksdb_datadir=<dest rocksdb datadir> --rocksdb_waldir=<dest rocksdb wal dir> --backup_dir=<where backup files are stored> . You need to execute move-back command on a server where backup files are sent."
 
 
 def parse_options():
