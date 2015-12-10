@@ -635,7 +635,7 @@ my_bool vio_ssl_has_data(Vio *vio)
 int vio_ssl_set_blocking(Vio *vio, my_bool status)
 {
   int ret;
-  ret = vio_set_blocking(vio, FALSE);
+  ret = vio_set_blocking(vio, status);
   vio->ssl_is_nonblocking = !status;
   return ret;
 }
