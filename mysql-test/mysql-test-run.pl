@@ -2605,8 +2605,8 @@ sub environment_setup {
   # ----------------------------------------------------
   # myrockshotbackup
   # ----------------------------------------------------
-  my $exe_myrockshotbackup= "$bindir/scripts/myrockshotbackup";
-  $ENV{'MYSQL_MYROCKSHOTBACKUP'}= native_path($exe_myrockshotbackup);
+  my $exe_myrocks_hotbackup= "$bindir/scripts/myrocks_hotbackup";
+  $ENV{'MYSQL_MYROCKS_HOTBACKUP'}= native_path($exe_myrocks_hotbackup);
 
   # ----------------------------------------------------
   # Setup env so childs can execute myisampack and myisamchk
