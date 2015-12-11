@@ -742,7 +742,13 @@ int RDBSE_KEYDEF::unpack_record(const ha_rocksdb *handler, TABLE *table,
           return 1;
         if (*nullp == 0)
         {
+          /* Set the NULL-bit of this field */
           field->set_null(ptr_diff);
+          /* Also set the field to its default value */
+          uint field_offset= field->ptr - table->record[0];
+          memcpy(buf + field_offset,
+                 table->s->default_values + field_offset,
+                 field->pack_length());
           continue;
         }
         else if (*nullp == 1)
