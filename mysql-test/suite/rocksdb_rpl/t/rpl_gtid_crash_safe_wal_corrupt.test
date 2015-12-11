@@ -1,7 +1,25 @@
-call mtr.add_suppression("Recovery from master pos");
 -- source suite/rocksdb_rpl/t/rpl_gtid_crash_safe_wal_corrupt.inc
--- exec perl -ne 'print "Binlog Info Found\n" if (/^RocksDB: Last binlog file.*slave-bin\.000001\n/)' $MYSQLTEST_VARDIR/log/mysqld.2.err
--- move_file $MYSQLTEST_VARDIR/log/mysqld.2.err $MYSQLTEST_VARDIR/log/mysqld.2.err.orig
--- write_file $MYSQLTEST_VARDIR/log/mysqld.2.err
+
+connection slave;
+-- let _SLAVE_PID_FILE= query_get_value(SELECT @@pid_file, @@pid_file, 1)
+
+# Verify the log file contains the Last binlog line, but only if the slave server's pid is found
+perl;
+  open(my $fh, '<', $ENV{'_SLAVE_PID_FILE'}) || die 'Cannot open pid file';
+  my $slave_pid = <$fh>;
+  close($fh);
+
+  $slave_pid =~ s/\s//g;
+  open(my $log_fh, '<', "$ENV{'MYSQLTEST_VARDIR'}/log/mysqld.2.err") || die 'Cannot open mysqld.2.err';
+
+  while (my $line = <$log_fh>) {
+    next unless ($pid_found || $line =~ /^[\d-]* [\d:]* $slave_pid /);
+    $pid_found = 1 unless ($pid_found);
+    print "Binlog Info Found\n" if ($line =~ /^RocksDB: Last binlog file position.*slave-bin\..*\n/);
+  }
 EOF
 
+--disable_query_log
+connection slave;
+call mtr.add_suppression("Recovery from master pos");
+--enable_query_log
