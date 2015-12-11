@@ -2853,7 +2853,18 @@ int ha_rocksdb::convert_record_from_storage_format(const rocksdb::Slice *key,
     int isNull = field_enc[i].maybe_null() &&
       (null_bytes[field_enc[i].null_offset] & field_enc[i].null_mask) != 0;
     if (isNull)
+    {
+      /* This sets the NULL-bit of this record */
       field->set_null(ptr_diff);
+      /*
+        Besides that, set the field value to default value. CHECKSUM TABLE
+        depends on this.
+      */
+      uint field_offset= field->ptr - table->record[0];
+      memcpy(buf + field_offset,
+             table->s->default_values + field_offset,
+             field->pack_length());
+    }
     else
       field->set_notnull(ptr_diff);
 
