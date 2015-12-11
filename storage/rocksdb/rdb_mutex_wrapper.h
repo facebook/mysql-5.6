@@ -30,8 +30,6 @@
 #include "rocksdb/utilities/transaction_db_mutex.h"
 
 class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
-  Wrapped_mysql_mutex(const Wrapped_mysql_mutex& p) = delete;
-  Wrapped_mysql_mutex& operator = (const Wrapped_mysql_mutex& p)=delete;
  public:
   Wrapped_mysql_mutex();
   virtual ~Wrapped_mysql_mutex();
@@ -52,6 +50,9 @@ class Wrapped_mysql_mutex: public rocksdb::TransactionDBMutex {
   virtual void UnLock() override;
 
  private:
+  Wrapped_mysql_mutex(const Wrapped_mysql_mutex& p) = delete;
+  Wrapped_mysql_mutex& operator = (const Wrapped_mysql_mutex& p)=delete;
+
   mysql_mutex_t mutex_;
   friend class Wrapped_mysql_cond;
 
@@ -99,7 +100,6 @@ class Wrapped_mysql_cond: public rocksdb::TransactionDBCondVar {
   // Unblocks all threads waiting on *this.
   virtual void NotifyAll() override;
 
- private:
   mysql_cond_t cond_;
 };
 

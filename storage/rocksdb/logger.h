@@ -14,8 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef LOGGER_H
-#define LOGGER_H
+#pragma once
 
 #include <log.h>
 #include <sstream>
@@ -57,4 +56,3 @@ class Logger : public rocksdb::Logger {
   std::shared_ptr<rocksdb::Logger> rocksdb_logger_;
 };
 
-#endif

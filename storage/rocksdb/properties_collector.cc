@@ -80,6 +80,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
     GL_INDEX_ID gl_index_id;
     gl_index_id.cf_id = cf_id_;
     gl_index_id.index_id = read_big_uint4((const uchar*)key.data());
+
     if (stats_.empty() || gl_index_id != stats_.back().gl_index_id)
     {
       keydef_ = NULL;
@@ -98,6 +99,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
       }
       last_key_.clear();
     }
+
     auto& stats = stats_.back();
     stats.data_size += key.size()+value.size();
 
@@ -158,7 +160,7 @@ MyRocksTablePropertiesCollector::AddUserKey(
       rocksdb::Slice last(last_key_.data(), last_key_.size());
       if (last_key_.empty()
           || (keydef_->compare_keys(&last, &key, &column) == 0)) {
-        assert(column <= stats.distinct_keys_per_prefix.size());
+        DBUG_ASSERT(column <= stats.distinct_keys_per_prefix.size());
         for (std::size_t i=column;
              i < stats.distinct_keys_per_prefix.size(); i++) {
           stats.distinct_keys_per_prefix[i]++;
@@ -230,6 +232,7 @@ MyRocksTablePropertiesCollector::GetReadableStats(
   const MyRocksTablePropertiesCollector::IndexStats& it
 ) {
   std::string s;
+
   s.append("(");
   s.append(std::to_string(it.gl_index_id.cf_id));
   s.append(", ");
@@ -251,11 +254,13 @@ MyRocksTablePropertiesCollector::GetReadableStats(
   s.append(", others:");
   s.append(std::to_string(it.entry_others));
   s.append(", distincts per prefix: [");
+
   for (auto num : it.distinct_keys_per_prefix) {
     s.append(std::to_string(num));
     s.append(" ");
   }
   s.append("]}");
+
   return s;
 }
 
@@ -269,6 +274,7 @@ MyRocksTablePropertiesCollector::GetStatsFromTableProperties(
   std::vector<MyRocksTablePropertiesCollector::IndexStats> ret;
   const auto& user_properties = table_props->user_collected_properties;
   auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
+
   if (it2 != user_properties.end()) {
     IndexStats::unmaterialize(it2->second, ret);
   }
@@ -288,8 +294,10 @@ void MyRocksTablePropertiesCollector::GetStats(
   for (auto it : collection) {
     const auto& user_properties = it.second->user_collected_properties;
     auto it2 = user_properties.find(std::string(INDEXSTATS_KEY));
+
     if (it2 != user_properties.end()) {
       std::vector<IndexStats> stats;
+
       if (IndexStats::unmaterialize(it2->second, stats) == 0) {
         for (auto it3 : stats) {
           if (index_numbers.count(it3.gl_index_id) != 0) {
@@ -309,10 +317,11 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
 ) {
   String ret;
   write_short(&ret, INDEX_STATS_VERSION_ENTRY_TYPES);
+
   for (auto i : stats) {
     write_int(&ret, i.gl_index_id.cf_id);
     write_int(&ret, i.gl_index_id.index_id);
-    assert(sizeof i.data_size <= 8);
+    DBUG_ASSERT(sizeof i.data_size <= 8);
     write_int64(&ret, i.data_size);
     write_int64(&ret, i.rows);
     write_int64(&ret, i.actual_disk_size);
@@ -321,6 +330,7 @@ std::string MyRocksTablePropertiesCollector::IndexStats::materialize(
     write_int64(&ret, i.entry_singledeletes);
     write_int64(&ret, i.entry_merges);
     write_int64(&ret, i.entry_others);
+
     for (auto num_keys : i.distinct_keys_per_prefix) {
       write_int64(&ret, num_keys);
     }
@@ -361,6 +371,7 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
                   sizeof(stats.rows)+
                   sizeof(stats.actual_disk_size)+
                   sizeof(uint64);
+
   if (version >= INDEX_STATS_VERSION_ENTRY_TYPES)
   {
     needed += sizeof(stats.entry_deletes)+
@@ -375,12 +386,14 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
     {
       return 1;
     }
+
     stats.gl_index_id.cf_id = read_int(&p);
     stats.gl_index_id.index_id = read_int(&p);
     stats.data_size = read_int64(&p);
     stats.rows = read_int64(&p);
     stats.actual_disk_size = read_int64(&p);
     stats.distinct_keys_per_prefix.resize(read_int64(&p));
+
     if (version >= INDEX_STATS_VERSION_ENTRY_TYPES)
     {
       stats.entry_deletes = read_int64(&p);
@@ -388,17 +401,22 @@ int MyRocksTablePropertiesCollector::IndexStats::unmaterialize(
       stats.entry_merges = read_int64(&p);
       stats.entry_others = read_int64(&p);
     }
+
+
     if (p+stats.distinct_keys_per_prefix.size()
         *sizeof(stats.distinct_keys_per_prefix[0]) > p2)
     {
       return 1;
     }
+
     for (std::size_t i= 0; i < stats.distinct_keys_per_prefix.size(); i++)
     {
       stats.distinct_keys_per_prefix[i] = read_int64(&p);
     }
+
     ret.push_back(stats);
   }
+
   return 0;
 }
 
@@ -416,6 +434,7 @@ void MyRocksTablePropertiesCollector::IndexStats::merge(
   {
     distinct_keys_per_prefix.resize(s.distinct_keys_per_prefix.size());
   }
+
   if (increment)
   {
     rows += s.rows;
@@ -425,6 +444,7 @@ void MyRocksTablePropertiesCollector::IndexStats::merge(
     entry_singledeletes += s.entry_singledeletes;
     entry_merges += s.entry_merges;
     entry_others += s.entry_others;
+
     for (i = 0; i < s.distinct_keys_per_prefix.size(); i++)
     {
       distinct_keys_per_prefix[i] += s.distinct_keys_per_prefix[i];
@@ -439,6 +459,7 @@ void MyRocksTablePropertiesCollector::IndexStats::merge(
     entry_singledeletes -= s.entry_singledeletes;
     entry_merges -= s.entry_merges;
     entry_others -= s.entry_others;
+
     for (i = 0; i < s.distinct_keys_per_prefix.size(); i++)
     {
       distinct_keys_per_prefix[i] -= s.distinct_keys_per_prefix[i];

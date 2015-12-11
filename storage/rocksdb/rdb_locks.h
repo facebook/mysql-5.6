@@ -14,6 +14,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#pragma once
+
 #ifdef USE_PRAGMA_INTERFACE
 #pragma interface			/* gcc class implementation */
 #endif
@@ -51,6 +53,10 @@ public:
   char is_write_handle;
 
   Row_lock_impl *get_impl(bool *is_write_handle);
+
+ private:
+  explicit Row_lock(const Row_lock&) = delete;
+  Row_lock& operator=(const Row_lock&) = delete;
 };
 
 
@@ -89,6 +95,11 @@ public:
 private:
   bool do_locking_action(LF_PINS *pins, Row_lock_impl *found_lock,
                          int timeout_sec, bool is_write_lock);
+
+
+  explicit LockTable(const LockTable&) = delete;
+  LockTable& operator=(const LockTable&) = delete;
+};
 };
 
 

@@ -14,8 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef EVENT_LISTENER_H
-#define EVENT_LISTENER_H
+#pragma once
 
 struct Table_ddl_manager;
 
@@ -33,7 +32,9 @@ class MyRocksEventListener : public rocksdb::EventListener {
     rocksdb::DB* db, const rocksdb::FlushJobInfo& flush_job_info);
 
  private:
+  explicit MyRocksEventListener(const MyRocksEventListener&) = delete;
+  MyRocksEventListener& operator=(const MyRocksEventListener&) = delete;
+
   Table_ddl_manager* ddl_manager_;
 };
 
-#endif

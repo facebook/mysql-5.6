@@ -21,6 +21,8 @@
 #include "rocksdb/iostats_context.h"
 #include "rocksdb/perf_context.h"
 
+#include "./my_global.h"
+
 // To add a new metric:
 //   1. Update the PC enum in rdb_perf_context.h
 //   2. Update sections (A), (B), and (C) below
@@ -196,6 +198,7 @@ void rdb_perf_context_stop(rdb_perf_context_local &local_perf_context,
                            rdb_perf_context_shared &global_perf_context)
 {
   rdb_perf_context_diff(local_perf_context);
+
   for (int i= 0; i < PC_MAX_IDX; i++) {
     if (local_perf_context.value[i]) {
       if (table_perf_context) {
@@ -209,6 +212,8 @@ void rdb_perf_context_stop(rdb_perf_context_local &local_perf_context,
 void rdb_perf_context_collect(rdb_perf_context_shared &perf_context,
                               SHARE_PERF_COUNTERS *counters)
 {
+  DBUG_ASSERT(counters != nullptr);
+
   for (int i= 0; i < PC_MAX_IDX; i++) {
     counters->value[i]= perf_context.value[i].load(std::memory_order_relaxed);
   }

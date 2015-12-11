@@ -14,6 +14,8 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
+#pragma once
+
 class Row_table;
 class Row_table_iter;
 
@@ -55,6 +57,9 @@ public:
   rocksdb::Slice value();
   bool skip_bloom;
 private:
+  explicit Apply_changes_iter(const Apply_changes_iter&) = delete;
+  Apply_changes_iter& operator=(const Apply_changes_iter&) = delete;
+
   void advance(int direction);
 
   /* Stored the direction requested of the latest advance call */

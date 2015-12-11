@@ -837,7 +837,7 @@ static std::string filename_without_path(
     const std::string& path)
 {
   /* Find last slash in path */
-  size_t pos = path.rfind('/');
+  size_t pos = path.rfind(FN_DIRSEP);
 
   /* None found?  Just return the original string */
   if (pos == std::string::npos) {

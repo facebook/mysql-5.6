@@ -88,5 +88,8 @@ public:
   std::vector<rocksdb::ColumnFamilyHandle*> get_all_cf(void);
 
   // void drop_cf(); -- not implemented so far.
+ private:
+  // explicit Column_family_manager(const Column_family_manager&) = delete;
+  // Column_family_manager& operator=(const Column_family_manager&) = delete;
 };
 

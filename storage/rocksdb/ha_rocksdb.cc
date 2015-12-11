@@ -66,6 +66,8 @@ static st_export_stats export_stats;
 */
 static void update_row_stats(const TABLE* table, operation_type type) {
   DBUG_ASSERT(type < ROWS_MAX);
+  DBUG_ASSERT(table != nullptr);
+
   // Find if we are modifying system databases.
   if (table->s && (!strcmp(table->s->db.str, "mysql") ||
       !strcmp(table->s->db.str, "performance_schema") ||
@@ -182,6 +184,8 @@ rocksdb_create_checkpoint(THD* thd,
                         void* save,
                         struct st_mysql_value* value)
 {
+  DBUG_ASSERT(value != nullptr);
+
   char buf[512];
   int len = sizeof(buf);
   const char* checkpoint_dir_raw = value->val_str(value, buf, &len);
@@ -952,6 +956,9 @@ rocksdb::WriteOptions get_write_options(THD* thd)
 static uchar* rocksdb_get_key(ROCKSDB_SHARE *share, size_t *length,
                              my_bool not_used __attribute__((unused)))
 {
+  DBUG_ASSERT(length != nullptr);
+  DBUG_ASSERT(share != nullptr);
+
   *length=share->table_name_length;
   return (uchar*) share->table_name;
 }
@@ -1058,7 +1065,7 @@ static void register_snapshot(const rocksdb::Snapshot* snapshot, THD *thd)
   auto res = snapshot_map.emplace(snapshot,
       std::make_shared<MyRocksSnapshot>(thd));
   mysql_mutex_unlock(&snapshot_mutex);
-  assert(res.second);
+  DBUG_ASSERT(res.second);
 }
 
 
@@ -1073,7 +1080,7 @@ static void register_snapshot_release(const rocksdb::Snapshot* snapshot)
     auto count = snapshot_map.erase(snapshot);
     mysql_mutex_unlock(&snapshot_mutex);
 
-    assert(count == 1);
+    DBUG_ASSERT(count == 1);
   }
 }
 
@@ -2526,11 +2533,8 @@ void ha_rocksdb::load_auto_incr_value()
     (Why don't we use index_init/index_end? class handler defines index_init
      as private, for some reason).
   */
-  if (scan_it)
-  {
     delete scan_it;
     scan_it= NULL;
-  }
 }
 
 
@@ -3203,44 +3207,34 @@ int ha_rocksdb::close(void)
   pk_descr= NULL;
   key_descr= NULL;
 
-  if (pk_tuple)
-    my_free(pk_tuple);
+  my_free(pk_tuple);
   pk_tuple= NULL;
 
-  if (pk_packed_tuple)
-    my_free(pk_packed_tuple);
+  my_free(pk_packed_tuple);
   pk_packed_tuple= NULL;
 
-  if (sec_key_packed_tuple)
-    my_free(sec_key_packed_tuple);
+  my_free(sec_key_packed_tuple);
   sec_key_packed_tuple= NULL;
 
-  if (sec_key_match_prefix_buf)
-    my_free(sec_key_match_prefix_buf);
+  my_free(sec_key_match_prefix_buf);
   sec_key_match_prefix_buf= NULL;
 
-  if (sec_key_packed_tuple_old)
-    my_free(sec_key_packed_tuple_old);
+  my_free(sec_key_packed_tuple_old);
   sec_key_packed_tuple_old= NULL;
 
-  if (end_key_packed_tuple)
-    my_free(end_key_packed_tuple);
+  my_free(end_key_packed_tuple);
   end_key_packed_tuple= NULL;
 
-  if (sec_key_tails)
-    my_free(sec_key_tails);
+  my_free(sec_key_tails);
   sec_key_tails= NULL;
 
-  if (sec_key_tails_old)
-    my_free(sec_key_tails_old);
+  my_free(sec_key_tails_old);
   sec_key_tails_old= NULL;
 
-  if (pack_buffer)
-    my_free(pack_buffer);
+  my_free(pack_buffer);
   pack_buffer= NULL;
 
-  if (field_enc)
-    my_free(field_enc);
+  my_free(field_enc);
   field_enc= NULL;
 
   DBUG_RETURN(free_share(share));
@@ -4559,8 +4553,11 @@ void dbug_dump_database(rocksdb::DB *db)
     dbug_dump_str(out, val.data(), val.size());
     fprintf(out, "\n");
   }
-  //assert(it->status().ok());  // Check for any errors found during the scan
+
+  // Check for any errors found during the scan
+  // DBUG_ASSERT(it->status().ok());
   delete it;
+
   fclose(out);
 }
 
@@ -5472,11 +5469,9 @@ int ha_rocksdb::rnd_end()
 {
   DBUG_ENTER("ha_rocksdb::rnd_end");
 
-  if (scan_it)
-  {
     delete scan_it;
     scan_it= NULL;
-  }
+
   DBUG_RETURN(0);
 }
 
@@ -5496,15 +5491,12 @@ int ha_rocksdb::index_init(uint idx, bool sorted)
 
 int ha_rocksdb::index_end()
 {
-
-  if (scan_it)
-  {
     delete scan_it;
     scan_it= NULL;
-  }
 
   active_index= MAX_KEY;
   in_range_check_pushed_down= FALSE;
+
   return 0;
 }
 
@@ -6053,7 +6045,7 @@ void* drop_index_thread(void*)
       break;
     }
     // make sure, no program error is returned
-    assert(ret == 0 || ret == ETIMEDOUT);
+    DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
     mysql_mutex_unlock(&drop_index_interrupt_mutex);
 
     std::vector<GL_INDEX_ID> indices;
@@ -6310,7 +6302,7 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
   }
 
   RDBSE_KEYDEF *kd= key_descr[inx];
-  assert(kd);
+  DBUG_ASSERT(kd);
 
   uint size1=0;
   if (min_key) {
@@ -6406,6 +6398,8 @@ ha_rows ha_rocksdb::records_in_range(uint inx, key_range *min_key,
 
 void ha_rocksdb::update_create_info(HA_CREATE_INFO *create_info)
 {
+  DBUG_ASSERT(create_info != nullptr);
+
   if (!(create_info->used_fields & HA_CREATE_USED_AUTO))
   {
     create_info->auto_increment_value= tbl_def->auto_incr_val;
@@ -6455,6 +6449,7 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
     ranges;
   std::unordered_set<GL_INDEX_ID> ids_to_check;
   std::vector<uchar> buf(table->s->keys * 2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE);
+
   for (uint i = 0; i < table->s->keys; i++)
   {
     auto bufp = &buf[i * 2 * RDBSE_KEYDEF::INDEX_NUMBER_SIZE];
@@ -6469,7 +6464,7 @@ int ha_rocksdb::analyze(THD* thd, HA_CHECK_OPT* check_opt)
     auto old_size = props.size();
     auto status = rdb->GetPropertiesOfTablesInRange(
       it.first, &it.second[0], it.second.size(), &props);
-    assert(props.size() >= old_size);
+    DBUG_ASSERT(props.size() >= old_size);
     if (!status.ok())
       DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
   }
@@ -6516,6 +6511,9 @@ void ha_rocksdb::get_auto_increment(ulonglong offset, ulonglong increment,
                                     ulonglong *first_value,
                                     ulonglong *nb_reserved_values)
 {
+  DBUG_ASSERT(first_value != nullptr);
+  DBUG_ASSERT(nb_reserved_values != nullptr);
+
   if (!nb_desired_values)
     nb_desired_values= 1;
 
@@ -6631,7 +6629,10 @@ enum icp_result ha_rocksdb::check_index_cond()
 */
 bool ha_rocksdb::is_ascending(RDBSE_KEYDEF *keydef, enum ha_rkey_function find_flag)
 {
+  DBUG_ASSERT(keydef != nullptr);
+
   bool is_ascending= false;
+
   switch (find_flag) {
   case HA_READ_KEY_EXACT:
   {
@@ -6977,7 +6978,7 @@ void* background_thread(void*)
     auto ret = mysql_cond_timedwait(
       &stop_cond, &stop_cond_mutex, &ts_next_sync);
     // make sure that no program error is returned
-    assert(ret == 0 || ret == ETIMEDOUT);
+    DBUG_ASSERT(ret == 0 || ret == ETIMEDOUT);
     auto local_bg_control = bg_control;
     bg_control = background_thread_control();
     mysql_mutex_unlock(&stop_cond_mutex);
@@ -6998,7 +6999,7 @@ void* background_thread(void*)
     {
       if (rdb && rocksdb_background_sync)
       {
-        assert(!db_options.allow_mmap_writes);
+        DBUG_ASSERT(!db_options.allow_mmap_writes);
         rocksdb::Status s= rdb->SyncWAL();
         if (!s.ok())
           rocksdb_handle_io_error(s, ROCKSDB_IO_ERROR_BG_THREAD);
@@ -7039,8 +7040,11 @@ bool can_use_bloom_filter(RDBSE_KEYDEF *keydef,
                           const bool use_all_keys,
                           bool is_ascending)
 {
+  DBUG_ASSERT(keydef != nullptr);
+
   bool can_use= false;
   rocksdb::Options opt = rdb->GetOptions(keydef->get_cf());
+
   if (opt.prefix_extractor)
   {
     /*
@@ -7222,6 +7226,7 @@ set_rate_limiter_bytes_per_sec(THD*                     thd,
                                const void*              save)
 {
   uint64_t new_val = *static_cast<const uint64_t*>(save);
+
   if (new_val == 0 || rocksdb_rate_limiter_bytes_per_sec == 0)
   {
     /*
@@ -7237,7 +7242,7 @@ set_rate_limiter_bytes_per_sec(THD*                     thd,
   else if (new_val != rocksdb_rate_limiter_bytes_per_sec)
   {
     /* Apply the new value to the rate limiter and store it locally */
-    assert(rate_limiter != nullptr);
+    DBUG_ASSERT(rate_limiter != nullptr);
     rocksdb_rate_limiter_bytes_per_sec = new_val;
     rate_limiter->SetBytesPerSecond(new_val);
   }
@@ -7294,6 +7299,8 @@ rocksdb_set_collation_exception_list(THD*                     thd,
 void request_save_stats()
 {
   mysql_mutex_lock(&stop_cond_mutex);
+
   bg_control.save_stats= true;
+
   mysql_mutex_unlock(&stop_cond_mutex);
 }

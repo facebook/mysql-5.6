@@ -18,12 +18,10 @@
 #pragma implementation        // gcc: Class implementation
 #endif
 
-#include <mysql/plugin.h>
-
-#include "ha_rocksdb.h"  // TODO: this is too much
 
 #include "rdb_locks.h"
-
+#include <mysql/plugin.h>
+#include "./ha_rocksdb.h"  // TODO(leveldb): this is too much
 
 typedef struct
 {
@@ -119,6 +117,8 @@ public:
 
 Row_lock_impl* Row_lock::get_impl(bool *is_write_arg)
 {
+  DBUG_ASSERT(is_write_arg != nullptr);
+
   *is_write_arg= is_write_handle;
   char *ptr;
 
@@ -127,12 +127,16 @@ Row_lock_impl* Row_lock::get_impl(bool *is_write_arg)
   else
     ptr= ((char*)this) - offsetof(Row_lock_impl, read_handle);
 
+  DBUG_ASSERT(ptr != nullptr);
   return (Row_lock_impl*)ptr;
 }
 
 
 static uchar* get_row_lock_hash_key(const uchar *entry, size_t* key_len, my_bool)
 {
+  DBUG_ASSERT(entry != nullptr);
+  DBUG_ASSERT(key_len != nullptr);
+
   Row_lock_impl *rlock= (Row_lock_impl*)entry;
   *key_len= rlock->len;
   return (uchar*) rlock->rowkey;
@@ -146,6 +150,8 @@ static uchar* get_row_lock_hash_key(const uchar *entry, size_t* key_len, my_bool
 */
 static void rowlock_init(uchar *arg)
 {
+  DBUG_ASSERT(arg != nullptr);
+
   Row_lock_impl *rc= (Row_lock_impl*)(arg+LF_HASH_OVERHEAD);
   DBUG_ENTER("rowlock_init");
 
@@ -167,6 +173,8 @@ static void rowlock_init(uchar *arg)
 */
 static void rowlock_destroy(uchar *arg)
 {
+  DBUG_ASSERT(arg != nullptr);
+
   Row_lock_impl *rc= (Row_lock_impl*)(arg+LF_HASH_OVERHEAD);
   DBUG_ENTER("rowlock_destroy");
 
@@ -306,7 +314,6 @@ retry:
   locked= do_locking_action(pins, found_lock, timeout_sec, is_write_lock);
 
 err:
-  if (key_copy)
     my_free(key_copy);
 
   return locked? found_lock->get_lock_handle(is_write_lock) : NULL;
@@ -492,6 +499,8 @@ func_exit:
 
 void LockTable::release_lock(LF_PINS *pins, Row_lock *own_lock_handle)
 {
+  DBUG_ASSERT(own_lock_handle != nullptr);
+
   bool is_write_lock;
   Row_lock_impl *own_lock= own_lock_handle->get_impl(&is_write_lock);
   /* Acquire the mutex to prevent anybody from getting into the queue */

@@ -14,8 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef PROPERTIES_COLLECTOR_H
-#define PROPERTIES_COLLECTOR_H
+#pragma once
 
 /* C++ system header files */
 #include <map>
@@ -108,6 +107,11 @@ class MyRocksTablePropertiesCollector
   }
 
  private:
+  explicit MyRocksTablePropertiesCollector(
+            const MyRocksTablePropertiesCollector&) = delete;
+  MyRocksTablePropertiesCollector& operator=(
+            const MyRocksTablePropertiesCollector&) = delete;
+
   uint32_t cf_id_;
   std::unique_ptr<RDBSE_KEYDEF> keydef_;
   Table_ddl_manager* ddl_manager_;
@@ -147,8 +151,12 @@ class MyRocksTablePropertiesCollectorFactory
     params_ = params;
   }
  private:
+  explicit MyRocksTablePropertiesCollectorFactory(
+            const MyRocksTablePropertiesCollectorFactory&) = delete;
+  MyRocksTablePropertiesCollectorFactory& operator=(
+            const MyRocksTablePropertiesCollectorFactory&) = delete;
+
   Table_ddl_manager* ddl_manager_;
   CompactionParams params_;
 };
 
-#endif

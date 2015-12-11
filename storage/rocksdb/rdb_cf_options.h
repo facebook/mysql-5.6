@@ -43,6 +43,8 @@ public:
   bool SetOverride(const std::string &overide_config);
 
 private:
+  void operator=(const Cf_options&) = delete;
+
   typedef std::unordered_map<std::string, std::string> NameToConfig;
 
   /* cf_name -> value map */

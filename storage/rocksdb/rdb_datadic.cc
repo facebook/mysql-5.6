@@ -155,9 +155,7 @@ RDBSE_KEYDEF::~RDBSE_KEYDEF()
 {
   mysql_mutex_destroy(&mutex);
 
-  if (pk_part_no)
     my_free(pk_part_no);
-  if (pack_info)
     my_free(pack_info);
 }
 
@@ -642,7 +640,7 @@ int RDBSE_KEYDEF::compare_keys(
 
     auto before_skip1 = reader1.get_current_ptr();
     auto before_skip2 = reader2.get_current_ptr();
-    assert(fpi->skip_func);
+    DBUG_ASSERT(fpi->skip_func);
     if (fpi->skip_func(fpi, NULL, &reader1))
       return 1;
     if (fpi->skip_func(fpi, NULL, &reader2))
@@ -2261,7 +2259,7 @@ void Binlog_info_manager::update_slave_gtid_info(uint id, const char* db,
       // slave_gtid_info table is not present. Simply return.
       return;
     }
-    assert(slave_gtid_info.load()->n_keys == 1);
+    DBUG_ASSERT(slave_gtid_info.load()->n_keys == 1);
 
     RDBSE_KEYDEF* key_def = slave_gtid_info.load()->key_descr[0];
     String value;

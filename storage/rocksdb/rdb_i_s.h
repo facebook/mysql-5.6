@@ -14,8 +14,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
-#ifndef _rdb_i_s_h_
-#define _rdb_i_s_h_
+#pragma once
 
 extern struct st_mysql_plugin i_s_rocksdb_cfstats;
 extern struct st_mysql_plugin i_s_rocksdb_dbstats;
@@ -26,4 +25,3 @@ extern struct st_mysql_plugin i_s_rocksdb_global_info;
 extern struct st_mysql_plugin i_s_rocksdb_ddl;
 extern struct st_mysql_plugin i_s_rocksdb_index_file_map;
 
-#endif /* _rdb_i_s_h_ */
