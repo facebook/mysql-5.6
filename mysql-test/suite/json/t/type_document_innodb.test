@@ -163,7 +163,8 @@ update t2 set a='{ "id":102, "name":"Bob", "phone":6507770002, "address":{ "hous
 # Expecting the row unchanged
 SELECT * from t2;
 
-# Default is not defined and the document field cannot be NULL, so it will default to {} 
+# Default is not allowed when the document field is be NULL
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 update t2 set a=DEFAULT;
 SELECT * from t2;
 
