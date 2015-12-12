@@ -141,6 +141,15 @@ type_conversion_status set_field_to_null(Field *field)
     field->reset();
     return TYPE_OK;
   }
+  else if (field->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    // we don't have default value for document field,
+    // so disallow null value set to non-nullable document field
+    if (!field->table->in_use->no_errors)
+      my_error(ER_BAD_NULL_ERROR, MYF(0), field->field_name);
+    return TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+  }
+
   field->reset();
   switch (field->table->in_use->count_cuted_fields) {
   case CHECK_FIELD_WARN:
@@ -186,6 +195,14 @@ set_field_to_null_with_conversions(Field *field, bool no_conversions)
   }
   if (no_conversions)
     return TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+  else if (field->type() == MYSQL_TYPE_DOCUMENT)
+  {
+    // we don't have default value for document field,
+    // so disallow null value set to non-nullable document field
+    if (!field->table->in_use->no_errors)
+      my_error(ER_BAD_NULL_ERROR, MYF(0), field->field_name);
+    return TYPE_ERR_NULL_CONSTRAINT_VIOLATION;
+  }
 
   /*
     Check if this is a special type, which will get a special walue
