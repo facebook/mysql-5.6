@@ -26,8 +26,12 @@ update t1 set doc=concat("{", repeat("\"json-key\":\"json-value\",", 6700), "\"i
 
 select a from t1;
 
-# update document value to NULL
+# invalid update of document value
+--error ER_INVALID_VALUE_FOR_DOCUMENT_FIELD
 update t1 set doc='{"bad_json" : "comma missing" "key" : 1}' where a=1;
+
+# explicitly update document value to NULL
+update t1 set doc=NULL where a=1;
 
 # Verify delete
 delete from t1 where a=1;

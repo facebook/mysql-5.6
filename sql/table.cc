@@ -1823,7 +1823,6 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
     const CHARSET_INFO *charset=NULL;
     Field::geometry_type geom_type= Field::GEOM_GEOMETRY;
     LEX_STRING comment;
-    bool nullable_document = false;
 
     if (new_frm_ver >= 3)
     {
@@ -1833,7 +1832,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
       pack_flag=    uint2korr(strpos+8);
       unireg_type=  (uint) strpos[10];
       interval_nr=  (uint) strpos[12];
-      uint comment_length=uint2korr(strpos+15);;
+      uint comment_length=uint2korr(strpos+15);
       field_type=(enum_field_types) (uint) strpos[13];
 
       /* charset and geometry_type share the same byte in frm */
@@ -1859,16 +1858,6 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
           goto err;
         }
       }
-      /* if this is a document column, we will save the actual nullability in
-       * the nullable_document flag, and set the pack_flag to be nullable. The
-       * document field in memory is always nullable.
-       */
-      if (field_type == MYSQL_TYPE_DOCUMENT)
-      {
-        nullable_document = f_maybe_null(pack_flag);
-        pack_flag |= FIELDFLAG_MAYBE_NULL;
-      }
-
       if (!comment_length)
       {
         comment.str= (char*) "";
@@ -1961,8 +1950,7 @@ static int open_binary_frm(THD *thd, TABLE_SHARE *share, uchar *head,
 		 (interval_nr ?
 		  share->intervals+interval_nr-1 :
 		  (TYPELIB*) 0),
-		 share->fieldnames.type_names[i],
-		 nullable_document);
+		 share->fieldnames.type_names[i]);
     if (!reg_field)				// Not supported field type
     {
       error= 4;

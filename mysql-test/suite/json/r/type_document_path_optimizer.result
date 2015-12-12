@@ -9,7 +9,7 @@ a int primary key,
 b int,
 c double,
 d char(100),
-doc1 document not null,
+doc1 document,
 doc2 document,
 # regular keys
 key b_a         (b, a),

@@ -4754,10 +4754,9 @@ String *Item_func_fbson::val_str(String *str) {
     uint32 document_field_max_length = Field_document::max_data_length_static();
     if (os.getSize() > document_field_max_length)
     {
-      push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN,
-                          ER_TOO_BIG_DOCUMENT_FIELDLENGTH,
-                          ER(ER_TOO_BIG_DOCUMENT_FIELDLENGTH),
-                          "json", document_field_max_length);
+      my_printf_error(ER_TOO_BIG_DOCUMENT_FIELDLENGTH,
+                      ER(ER_TOO_BIG_DOCUMENT_FIELDLENGTH), MYF(0), "json",
+                      document_field_max_length);
       goto err;
     }
     null_value = 0;
@@ -4765,12 +4764,10 @@ String *Item_func_fbson::val_str(String *str) {
     return &buffer;
   }
   err_info = parser.getErrorInfo();
-  push_warning_printf(current_thd, Sql_condition::WARN_LEVEL_WARN,
-                      ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
-                      ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD),
-                      "json", (ulong) current_thd->get_stmt_da()->
-                                        current_row_for_warning(),
-                      res->ptr(), err_info.err_pos, err_info.err_msg);
+  my_printf_error(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD,
+                  ER(ER_INVALID_VALUE_FOR_DOCUMENT_FIELD), MYF(0), "json",
+                  (ulong)current_thd->get_stmt_da()->current_row_for_warning(),
+                  res->ptr(), err_info.err_pos, err_info.err_msg);
 
 err:
   null_value = 1;

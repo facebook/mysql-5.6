@@ -7203,6 +7203,9 @@ ER_DB_READ_ONLY
 ER_DB_ADMISSION_CONTROL
   eng "Maximum waiting queries %lu reached for database `%s`"
 
+ER_DOCUMENT_FIELD_NOT_NULL
+  eng "Document field '%s' must be nullable. NOT NULL type is not supported in document field"
+
 ER_UNKNOWN_DB_READ_ONLY
   eng "Unknown db read ony option: '%-.64s'"
 

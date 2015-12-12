@@ -20,7 +20,7 @@ drop table if exists t1, t2, t3, t4;
 --error ER_DOCUMENT_KEY_NOT_SUPPORTED
 CREATE TABLE t1 (
        a int not null,
-       doc document not null,
+       doc document,
        primary key (a),
        key (doc)) engine=innodb;
 
@@ -30,7 +30,7 @@ let $big_string = `SELECT REPEAT('.a', 2000)`;
 eval CREATE TABLE t1 (
        a int primary key,
        b blob not null,
-       doc document not null,
+       doc document,
        key(doc$big_string as string(100))) engine=innodb;
 
 
@@ -39,7 +39,7 @@ eval CREATE TABLE t1 (
 CREATE TABLE t1 (
        a int not null,
        b char (10) not null,
-       doc document not null,
+       doc document,
        primary key (a),
        key (doc.id as int),
        key (doc.name as string)) engine=innodb;
@@ -50,7 +50,7 @@ CREATE TABLE t1 (
 CREATE TABLE t1 (
        a int not null,
        b char (10) not null,
-       doc document not null,
+       doc document,
        primary key (a),
        key (doc.id as int),
        key (doc.address as binary)) engine=innodb;
@@ -61,7 +61,7 @@ CREATE TABLE t1 (
        a int not null,
        b int,
        c char (10),
-       doc document not null,
+       doc document,
        primary key (a),
        UNIQUE key b_a (b, a),
        UNIQUE key c_doc (c, doc.address.zipcode as int)
@@ -126,7 +126,7 @@ SELECT * FROM t1;
 CREATE TABLE t2 (
        a int not null,
        b char (10) not null,
-       doc document not null,
+       doc document,
        primary key (a),
        key (doc.id as int),
        UNIQUE key doc_double (doc.double as double),
@@ -251,7 +251,7 @@ CREATE TABLE t3 (
        a int not null,
        b int,
        c char (10),
-       doc document not null,
+       doc document,
        primary key (a),
        UNIQUE key b_a (b, a)
 ) engine=innodb;
@@ -304,7 +304,7 @@ SELECT * FROM t3;
 CREATE TABLE t4 (
        a int not null,
        b char (10) not null,
-       doc document not null,
+       doc document,
        primary key (a),
        key id_a_double_b_bool (doc.id as int, a, doc.double as double, b, doc.bool as bool),
        key a_name_b_name100_address_a_address100_b (a, doc.name as string(64), b, doc.name as string(100), doc.address as binary(64), a, doc.address as binary(100), b)) engine=innodb;

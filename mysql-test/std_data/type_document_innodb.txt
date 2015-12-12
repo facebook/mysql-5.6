@@ -5,5 +5,5 @@
 13	{ "id":109, "name":"Ian", "phone":6507770009, "address":{ "houseNumber":1009, "streetName":"9th", "zipcode":98769, "hoa":59.99 } }	a13
 14	{ "id":110, "name":"Jack", "phone":6507770010, "address":{ "houseNumber":1010, "streetName":"11th", "zipcode":98769 } }	a14
 15	{ "id":111, "name":"Kevin", "phone":6507770011, "address":{ "houseNumber":1011, "streetName":"12nd", "zipcode":98769 }, "children":["Amy"] }	a15
-16	{ "id":112, "address":{ "houseNumber":1012, }	a16
+16	{ "id":112, "address":{ "houseNumber":1012 } }	a16
 17	\N	a17

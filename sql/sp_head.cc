@@ -405,8 +405,7 @@ Field *sp_head::create_result_field(uint field_max_length,
                  m_return_field_def.geom_type,
                  Field::NONE,                  /* unreg check */
                  m_return_field_def.interval,
-                 field_name ? field_name : (const char *) m_name.str,
-                 m_return_field_def.nullable_document);
+                 field_name ? field_name : (const char *) m_name.str);
 
   if (field)
     field->init(table);
