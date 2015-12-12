@@ -6,7 +6,7 @@ SELECT @start_allow_document_type;
 CREATE TABLE t1 (
 a int not null,
 b char (10) not null,
-doc document not null) engine=innodb;
+doc document) engine=innodb;
 INSERT INTO t1 VALUES (1,'@1','{ "id":101, "zipcode":98761, "num": [1, 2, 2.5, 3, 4, 5, 6, 7, 8, 9]}');
 INSERT INTO t1 VALUES (2,'@2','{ "id":102, "zipcode":98765, "num": [1.5, 2.5, 5.5, 6]}');
 INSERT INTO t1 VALUES (3,'@3','{ "id":103, "zipcode":98764, "num": [7, 8, 9.1]}');
@@ -224,7 +224,7 @@ SELECT doc.id FROM t1 WHERE '9' <> doc.num._;
 CREATE TABLE t2 (
 a int not null,
 b char (10) not null,
-doc document not null) engine=innodb;
+doc document) engine=innodb;
 INSERT INTO t2 VALUES (1,'@1','{ "id":101, "Children": ["Adam", "Bob", 42, "Jason", 0.123456789]}');
 INSERT INTO t2 VALUES (2,'@2','{ "id":102, "Children": ["Daniel", "Jason"]}');
 INSERT INTO t2 VALUES (3,'@3','{ "id":103, "Children": ["Frank"]}');
@@ -394,7 +394,7 @@ SELECT doc.id FROM t2 WHERE doc.Children._ CONTAINS DOCUMENT('[]');
 CREATE TABLE t3 (
 a int not null,
 b char (10) not null,
-doc document not null) engine=innodb;
+doc document) engine=innodb;
 INSERT INTO t3 VALUES (1,'@1','{ "id":101, "Children": [[1, 2], [3, 4], []]}');
 INSERT INTO t3 VALUES (2,'@2','{ "id":102, "Children": [[1, 2], [3]]}');
 INSERT INTO t3 VALUES (3,'@3','{ "id":103, "Children": ["xavier", ["Jason", "Bob"]]}');
@@ -607,7 +607,7 @@ SELECT doc.id FROM (SELECT * FROM t3 WHERE DOCUMENT('{"K":"V"}') SUBDOC doc.Chil
 CREATE TABLE t4 (
 a int not null,
 b char (10) not null,
-doc document not null) engine=innodb;
+doc document) engine=innodb;
 INSERT INTO t4 VALUES (1,'@1','{ "id":101, "Children": {"name": "Bob"}}');
 INSERT INTO t4 VALUES (2,'@2','{ "id":102, "Children": {"_": "Steve"}}');
 INSERT INTO t4 VALUES (5,'@5','{ "id":105, "Children": {"foo_": "Steve"}}');
